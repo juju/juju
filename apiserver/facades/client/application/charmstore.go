@@ -111,9 +111,12 @@ func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthoriz
 	}()
 
 	// Run the strategy.
-	result, err := strategy.Run(makeCharmStateShim(st), versionValidator{})
+	result, alreadyExists, err := strategy.Run(makeCharmStateShim(st), versionValidator{})
 	if err != nil {
 		return errors.Trace(err)
+	} else if alreadyExists {
+		// Nothing to do here, as it already exists in state.
+		return nil
 	}
 
 	ca := CharmArchive{
@@ -124,6 +127,7 @@ func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthoriz
 		SHA256:       result.SHA256,
 		CharmVersion: result.Charm.Version(),
 	}
+
 	if args.CharmStoreMacaroon != nil {
 		ca.Macaroon = macaroon.Slice{args.CharmStoreMacaroon}
 	}

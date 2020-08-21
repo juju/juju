@@ -7,7 +7,6 @@ package charm
 import (
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
-	lxdprofile "github.com/juju/juju/core/lxdprofile"
 	reflect "reflect"
 )
 
@@ -138,10 +137,10 @@ func (mr *MockStoreCharmMockRecorder) Config() *gomock.Call {
 }
 
 // LXDProfile mocks base method
-func (m *MockStoreCharm) LXDProfile() lxdprofile.LXDProfile {
+func (m *MockStoreCharm) LXDProfile() *charm.LXDProfile {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LXDProfile")
-	ret0, _ := ret[0].(lxdprofile.LXDProfile)
+	ret0, _ := ret[0].(*charm.LXDProfile)
 	return ret0
 }
 

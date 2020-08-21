@@ -97,8 +97,9 @@ func (s strategySuite) TestRunWithCharmAlreadyUploaded(c *gc.C) {
 		charmURL: curl,
 		store:    mockStore,
 	}
-	_, err := strategy.Run(mockState, mockVersionValidator)
+	_, alreadyExists, err := strategy.Run(mockState, mockVersionValidator)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(alreadyExists, jc.IsTrue)
 }
 
 func (s strategySuite) TestRunWithPrepareUploadError(c *gc.C) {
@@ -117,8 +118,9 @@ func (s strategySuite) TestRunWithPrepareUploadError(c *gc.C) {
 		charmURL: curl,
 		store:    mockStore,
 	}
-	_, err := strategy.Run(mockState, mockVersionValidator)
+	_, alreadyExists, err := strategy.Run(mockState, mockVersionValidator)
 	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(alreadyExists, jc.IsFalse)
 }
 
 func (s strategySuite) TestRun(c *gc.C) {
@@ -153,8 +155,9 @@ func (s strategySuite) TestRun(c *gc.C) {
 		charmURL: curl,
 		store:    mockStore,
 	}
-	_, err := strategy.Run(mockState, mockVersionValidator)
+	_, alreadyExists, err := strategy.Run(mockState, mockVersionValidator)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(alreadyExists, jc.IsFalse)
 }
 
 func (s strategySuite) TestRunWithInvalidLXDProfile(c *gc.C) {
@@ -176,10 +179,13 @@ func (s strategySuite) TestRunWithInvalidLXDProfile(c *gc.C) {
 	mockStoreCharm.EXPECT().Meta().Return(meta)
 
 	// Handle a failure from LXDProfiles
-	mockLXDProfile := NewMockLXDProfile(ctrl)
-	mockLXDProfile.EXPECT().ValidateConfigDevices().Return(errors.New("boom"))
+	lxdProfile := &charm.LXDProfile{
+		Config: map[string]string{
+			"boot": "",
+		},
+	}
 
-	mockStoreCharm.EXPECT().LXDProfile().Return(mockLXDProfile)
+	mockStoreCharm.EXPECT().LXDProfile().Return(lxdProfile)
 
 	mockState := NewMockState(ctrl)
 	mockState.EXPECT().PrepareCharmUpload(curl).Return(mockStateCharm, nil)
@@ -191,8 +197,9 @@ func (s strategySuite) TestRunWithInvalidLXDProfile(c *gc.C) {
 		charmURL: curl,
 		store:    mockStore,
 	}
-	_, err := strategy.Run(mockState, mockVersionValidator)
-	c.Assert(err, gc.ErrorMatches, "cannot add charm: boom")
+	_, alreadyExists, err := strategy.Run(mockState, mockVersionValidator)
+	c.Assert(err, gc.ErrorMatches, `cannot add charm: invalid lxd-profile.yaml: contains config value "boot"`)
+	c.Assert(alreadyExists, jc.IsFalse)
 }
 
 func (s strategySuite) TestFinishAfterRun(c *gc.C) {
@@ -229,8 +236,9 @@ func (s strategySuite) TestFinishAfterRun(c *gc.C) {
 		charmURL: curl,
 		store:    mockStore,
 	}
-	_, err := strategy.Run(mockState, mockVersionValidator)
+	_, alreadyExists, err := strategy.Run(mockState, mockVersionValidator)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(alreadyExists, jc.IsFalse)
 
 	err = strategy.Finish()
 	c.Assert(err, jc.ErrorIsNil)

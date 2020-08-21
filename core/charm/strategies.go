@@ -30,7 +30,7 @@ type State interface {
 // StoreCharm represents a store charm.
 type StoreCharm interface {
 	charm.Charm
-	lxdprofile.LXDProfiler
+	charm.LXDProfiler
 	Version() string
 }
 
@@ -127,21 +127,21 @@ type DownloadResult struct {
 }
 
 // Run the procedure against the correct store.
-func (p *Strategy) Run(state State, version VersionValidator) (DownloadResult, error) {
+func (p *Strategy) Run(state State, version VersionValidator) (DownloadResult, bool, error) {
 	charm, err := state.PrepareCharmUpload(p.charmURL)
 	if err != nil {
-		return DownloadResult{}, errors.Trace(err)
+		return DownloadResult{}, false, errors.Trace(err)
 	}
 
 	// Charm is already in state, so we can exit out early.
 	if charm.IsUploaded() {
-		return DownloadResult{}, nil
+		return DownloadResult{}, true, nil
 	}
 
 	// Get the charm and its information from the store.
 	file, err := ioutil.TempFile("", p.charmURL.Name)
 	if err != nil {
-		return DownloadResult{}, errors.Trace(err)
+		return DownloadResult{}, false, errors.Trace(err)
 	}
 
 	p.deferFunc(func() error {
@@ -155,26 +155,29 @@ func (p *Strategy) Run(state State, version VersionValidator) (DownloadResult, e
 
 	archive, checksum, err := p.store.Download(p.charmURL, file.Name())
 	if err != nil {
-		return DownloadResult{}, errors.Trace(err)
+		return DownloadResult{}, false, errors.Trace(err)
 	}
 
 	if err := version.Validate(archive.Meta()); err != nil {
-		return DownloadResult{}, errors.Trace(err)
+		return DownloadResult{}, false, errors.Trace(err)
 	}
 
 	// Validate the charm lxd profile once we've downloaded it.
-	if err := lxdprofile.ValidateLXDProfile(archive); err != nil && !p.force {
-		return DownloadResult{}, errors.Annotate(err, "cannot add charm")
+	if err := lxdprofile.ValidateLXDProfile(makeStoreCharmLXDProfiler(archive)); err != nil && !p.force {
+		return DownloadResult{}, false, errors.Annotate(err, "cannot add charm")
 	}
 
 	result, err := p.downloadResult(file.Name(), checksum)
 	if err != nil {
-		return DownloadResult{}, errors.Trace(err)
+		return DownloadResult{}, false, errors.Trace(err)
 	}
 
-	charmResult := result
-	charmResult.Charm = archive
-	return charmResult, nil
+	return DownloadResult{
+		Charm:  archive,
+		Data:   result.Data,
+		Size:   result.Size,
+		SHA256: result.SHA256,
+	}, false, nil
 }
 
 // Finish will attempt to close out the procedure and clean up any outstanding
@@ -248,7 +251,7 @@ func (s StoreCharmStore) Download(curl *charm.URL, file string) (StoreCharm, Che
 	}
 	// Ignore the checksum for charm store, as there isn't any information
 	// available to us to perform the downloaded checksum.
-	return makeStoreCharmShim(archive), AlwaysChecksum, nil
+	return newStoreCharmShim(archive), AlwaysChecksum, nil
 }
 
 // StoreCharmHub defines a type for interacting with the charm hub.
@@ -273,19 +276,43 @@ type storeCharmShim struct {
 	*charm.CharmArchive
 }
 
-func makeStoreCharmShim(archive *charm.CharmArchive) storeCharmShim {
-	return storeCharmShim{
+func newStoreCharmShim(archive *charm.CharmArchive) *storeCharmShim {
+	return &storeCharmShim{
 		CharmArchive: archive,
 	}
 }
 
 // LXDProfile implements core.lxdprofile.LXDProfiler
-func (p storeCharmShim) LXDProfile() lxdprofile.LXDProfile {
+func (p *storeCharmShim) LXDProfile() *charm.LXDProfile {
 	if p.CharmArchive == nil {
 		return nil
 	}
 
 	profile := p.CharmArchive.LXDProfile()
+	if profile == nil {
+		return nil
+	}
+	return profile
+}
+
+// storeCharmLXDProfiler massages a *charm.CharmArchive into a LXDProfiler
+// inside of the core package.
+type storeCharmLXDProfiler struct {
+	StoreCharm
+}
+
+func makeStoreCharmLXDProfiler(shim StoreCharm) storeCharmLXDProfiler {
+	return storeCharmLXDProfiler{
+		StoreCharm: shim,
+	}
+}
+
+// LXDProfile implements core.lxdprofile.LXDProfiler
+func (p storeCharmLXDProfiler) LXDProfile() lxdprofile.LXDProfile {
+	if p.StoreCharm == nil {
+		return nil
+	}
+	profile := p.StoreCharm.LXDProfile()
 	if profile == nil {
 		return nil
 	}
