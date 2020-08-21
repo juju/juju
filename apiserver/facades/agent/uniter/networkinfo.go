@@ -411,9 +411,6 @@ func (n *NetworkInfo) NetworksForRelation(
 
 // machineNetworkInfos returns network info for the unit's machine based on
 // devices with addresses in the input spaces.
-// TODO (manadart 2019-10-10): `GetNetworkInfoForSpaces` is only used here and
-// could be relocated from the state package, reducing cross-cutting concerns
-// there.
 func (n *NetworkInfo) machineNetworkInfos(spaceIDs ...string) (map[string]machineNetworkInfoResult, error) {
 	machineID, err := n.unit.AssignedMachineId()
 	if err != nil {
@@ -444,6 +441,8 @@ func (n *NetworkInfo) machineNetworkInfos(spaceIDs ...string) (map[string]machin
 		}
 	}
 
+	// Link-layer devices are set in a single transaction for all devices
+	// observed on the machine, so the first result will include them all.
 	var addresses []*state.Address
 	retryArg := n.retryFactory()
 	retryArg.Func = func() error {
@@ -454,7 +453,7 @@ func (n *NetworkInfo) machineNetworkInfos(spaceIDs ...string) (map[string]machin
 	retryArg.IsFatalError = func(err error) bool {
 		return err != nil
 	}
-	if retry.Call(retryArg) != nil {
+	if err := retry.Call(retryArg); err != nil {
 		result := machineNetworkInfoResult{Error: errors.Annotate(err, "getting devices addresses")}
 		for _, id := range spaceSet.Values() {
 			if _, ok := results[id]; !ok {
@@ -637,7 +636,7 @@ func addAddressToResult(networkInfos []network.NetworkInfo, address *state.Addre
 		}
 	}
 
-	MAC := ""
+	var MAC string
 	device, err := address.Device()
 	if err == nil {
 		MAC = device.MACAddress()
