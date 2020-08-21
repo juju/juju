@@ -240,14 +240,10 @@ func (a *API) charmStoreResolver(origin params.CharmOrigin, mac *macaroon.Macaro
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var channel string
-	if origin.Channel != nil {
-		channel = *origin.Channel
-	}
 	client, err := a.csResolverGetterFunc(
 		ResolverGetterParams{
 			CSURL:              controllerCfg.CharmStoreURL(),
-			Channel:            channel,
+			Channel:            origin.Risk,
 			CharmStoreMacaroon: mac,
 		})
 	if err != nil {

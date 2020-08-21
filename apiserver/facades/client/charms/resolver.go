@@ -37,14 +37,10 @@ type csResolver struct {
 // ResolveWithPreferredChannel.  Convert CharmStore channel to
 // and from the charm Origin.
 func (c *csResolver) ResolveWithPreferredChannel(curl *charm.URL, origin params.CharmOrigin) (*charm.URL, params.CharmOrigin, []string, error) {
-	var channel csparams.Channel
-	if origin.Channel != nil {
-		channel = csparams.Channel(*origin.Channel)
-	}
-	newCurl, newChannel, supportedSeries, err := c.resolver.ResolveWithPreferredChannel(curl, channel)
+	// A charm origin risk is equivalent to a charm store channel
+	newCurl, newRisk, supportedSeries, err := c.resolver.ResolveWithPreferredChannel(curl, csparams.Channel(origin.Risk))
 	newOrigin := origin
-	channelStr := string(newChannel)
-	newOrigin.Channel = &channelStr
+	newOrigin.Risk = string(newRisk)
 	return newCurl, newOrigin, supportedSeries, err
 }
 

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/base"
+	apicharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/core/constraints"
@@ -65,32 +66,6 @@ func (c *Client) ModelUUID() string {
 	return tag.Id()
 }
 
-// CharmOriginSource represents the source of the charm.
-type CharmOriginSource string
-
-func (c CharmOriginSource) String() string {
-	return string(c)
-}
-
-const (
-	// OriginLocal represents a local charm.
-	OriginLocal CharmOriginSource = "local"
-	// OriginCharmStore represents a charm from the now old charm-store.
-	OriginCharmStore CharmOriginSource = "charm-store"
-	// OriginCharmHub represents a charm from the new charm-hub.
-	OriginCharmHub CharmOriginSource = "charm-hub"
-)
-
-// CharmOrigin holds the information about where the charm originates.
-type CharmOrigin struct {
-	Source   CharmOriginSource
-	ID       string
-	Hash     string
-	Risk     string
-	Revision *int
-	Channel  *string
-}
-
 // DeployArgs holds the arguments to be sent to Client.ApplicationDeploy.
 type DeployArgs struct {
 	// CharmID identifies the charm to deploy.
@@ -98,7 +73,7 @@ type DeployArgs struct {
 
 	// CharmOrigin holds information about where the charm originally came from,
 	// this includes the store.
-	CharmOrigin CharmOrigin
+	CharmOrigin apicharm.Origin
 
 	// ApplicationName is the name to give the application.
 	ApplicationName string
@@ -165,18 +140,13 @@ func (c *Client) Deploy(args DeployArgs) error {
 		}
 		attachStorage[i] = names.NewStorageTag(id).String()
 	}
+	origin := args.CharmOrigin.ParamsCharmOrigin()
 	deployArgs := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			ApplicationName: args.ApplicationName,
-			Series:          args.Series,
-			CharmURL:        args.CharmID.URL.String(),
-			CharmOrigin: &params.CharmOrigin{
-				Source:   args.CharmOrigin.Source.String(),
-				ID:       args.CharmOrigin.ID,
-				Hash:     args.CharmOrigin.Hash,
-				Revision: args.CharmOrigin.Revision,
-				Channel:  args.CharmOrigin.Channel,
-			},
+			ApplicationName:  args.ApplicationName,
+			Series:           args.Series,
+			CharmURL:         args.CharmID.URL.String(),
+			CharmOrigin:      &origin,
 			Channel:          string(args.CharmID.Channel),
 			NumUnits:         args.NumUnits,
 			ConfigYAML:       args.ConfigYAML,

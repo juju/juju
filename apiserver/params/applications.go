@@ -20,11 +20,19 @@ type ApplicationsDeploy struct {
 // CharmOrigin holds the parameters for the optional location of the source of
 // the charm.
 type CharmOrigin struct {
-	Source   string  `json:"source"`
-	ID       string  `json:"id"`
-	Hash     string  `json:"hash,omitempty"`
+	// Source is where the charm came from, Local, CharmStore or CharmHub.
+	Source string `json:"source"`
+
+	// ID is the CharmHub ID for this charm
+	ID   string `json:"id"`
+	Hash string `json:"hash,omitempty"`
+
+	// Risk is the CharmHub channel risk, or the CharmStore channel value.
+	Risk string `json:"track,omitempty"`
+
+	// Revision is the charm revision number.
 	Revision *int    `json:"revision,omitempty"`
-	Channel  *string `json:"channel,omitempty"`
+	Track    *string `json:"track,omitempty"`
 }
 
 // ApplicationDeploy holds the parameters for making the application Deploy

@@ -3185,9 +3185,6 @@
                 "CharmOrigin": {
                     "type": "object",
                     "properties": {
-                        "channel": {
-                            "type": "string"
-                        },
                         "hash": {
                             "type": "string"
                         },
@@ -3198,6 +3195,9 @@
                             "type": "integer"
                         },
                         "source": {
+                            "type": "string"
+                        },
+                        "track": {
                             "type": "string"
                         }
                     },
@@ -10313,9 +10313,6 @@
                 "CharmOrigin": {
                     "type": "object",
                     "properties": {
-                        "channel": {
-                            "type": "string"
-                        },
                         "hash": {
                             "type": "string"
                         },
@@ -10326,6 +10323,9 @@
                             "type": "integer"
                         },
                         "source": {
+                            "type": "string"
+                        },
+                        "track": {
                             "type": "string"
                         }
                     },

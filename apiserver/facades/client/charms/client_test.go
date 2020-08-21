@@ -393,8 +393,8 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	edge := string(csparams.EdgeChannel)
 	stable := string(csparams.StableChannel)
-	edgeOrigin := params.CharmOrigin{Source: corecharm.CharmStore.String(), Channel: &edge}
-	stableOrigin := params.CharmOrigin{Source: corecharm.CharmStore.String(), Channel: &stable}
+	edgeOrigin := params.CharmOrigin{Source: corecharm.CharmStore.String(), Risk: edge}
+	stableOrigin := params.CharmOrigin{Source: corecharm.CharmStore.String(), Risk: stable}
 	args := params.ResolveCharmsWithChannel{
 		Resolve: []params.ResolveCharmWithChannel{
 			{Reference: curl.String(), Origin: params.CharmOrigin{Source: corecharm.CharmStore.String()}},
@@ -450,7 +450,7 @@ func (s *charmsMockSuite) TestResolveCharmNoDefinedSeries(c *gc.C) {
 	seriesCurl, err := charm.ParseURL("cs:focal/testme")
 	c.Assert(err, jc.ErrorIsNil)
 	edge := string(csparams.EdgeChannel)
-	edgeOrigin := params.CharmOrigin{Source: corecharm.CharmStore.String(), Channel: &edge}
+	edgeOrigin := params.CharmOrigin{Source: corecharm.CharmStore.String(), Risk: edge}
 	args := params.ResolveCharmsWithChannel{
 		Resolve: []params.ResolveCharmWithChannel{
 			{Reference: seriesCurl.String(), Origin: edgeOrigin},

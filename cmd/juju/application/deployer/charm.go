@@ -18,6 +18,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	applicationapi "github.com/juju/juju/api/application"
+	apicharm "github.com/juju/juju/api/common/charm"
 	app "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/application/store"
@@ -44,7 +45,7 @@ type deployCharm struct {
 	flagSet         *gnuflag.FlagSet
 	model           ModelCommand
 	numUnits        int
-	origin          applicationapi.CharmOrigin
+	origin          apicharm.Origin
 	placement       []*instance.Placement
 	placementSpec   string
 	resources       map[string]string

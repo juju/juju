@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
+	apicharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -37,13 +38,13 @@ func (c *Client) IsMetered(charmURL string) (bool, error) {
 // CharmToResolve holds the charm url and it's channel to be resolved.
 type CharmToResolve struct {
 	URL    *charm.URL
-	Origin CharmOrigin
+	Origin apicharm.Origin
 }
 
 // ResolvedCharm holds resolved charm data.
 type ResolvedCharm struct {
 	URL             *charm.URL
-	Origin          CharmOrigin
+	Origin          apicharm.Origin
 	SupportedSeries []string
 	Error           error
 }
@@ -55,13 +56,9 @@ func (c *Client) ResolveCharms(charms []CharmToResolve) ([]ResolvedCharm, error)
 		Resolve: make([]params.ResolveCharmWithChannel, len(charms)),
 	}
 	for i, ch := range charms {
-		origin, err := convertCharmOrigin(ch.Origin)
-		if err != nil {
-			return nil, errors.Annotatef(err, "unable to convert charm origin for %q", ch.URL.String())
-		}
 		args.Resolve[i] = params.ResolveCharmWithChannel{
 			Reference: ch.URL.String(),
-			Origin:    origin,
+			Origin:    ch.Origin.ParamsCharmOrigin(),
 		}
 	}
 	var result params.ResolveCharmWithChannelResults
@@ -78,10 +75,7 @@ func (c *Client) ResolveCharms(charms []CharmToResolve) ([]ResolvedCharm, error)
 		if err != nil {
 			resolvedCharms[i] = ResolvedCharm{Error: err}
 		}
-		origin, err := convertCharmOriginParams(r.Origin)
-		if err != nil {
-			resolvedCharms[i] = ResolvedCharm{Error: err}
-		}
+		origin := apicharm.APICharmOrigin(r.Origin)
 		resolvedCharms[i] = ResolvedCharm{
 			URL:             curl,
 			Origin:          origin,

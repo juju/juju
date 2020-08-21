@@ -10,7 +10,6 @@ import (
 	"github.com/juju/version"
 
 	"github.com/juju/juju/apiserver/params"
-	corecharm "github.com/juju/juju/core/charm"
 )
 
 func convertCharmMeta(meta *params.CharmMeta) (*charm.Meta, error) {
@@ -239,56 +238,4 @@ func convertCharmLXDProfileDevicesMap(devices map[string]map[string]string) map[
 		result[k] = nested
 	}
 	return result
-}
-
-func convertCharmOrigin(origin CharmOrigin) (params.CharmOrigin, error) {
-	var channelStr string
-	// If the risk is csparams.NoChannel, an empty string,
-	// MakeChannel will fail to convert.
-	if origin.Risk != "" {
-		var track string
-		if origin.Channel != nil {
-			track = *origin.Channel
-		}
-		channel, err := corecharm.MakeChannel(track, origin.Risk, "")
-		if err != nil {
-			return params.CharmOrigin{}, err
-		}
-		channelStr = channel.String()
-	}
-	charmOrigin := params.CharmOrigin{
-		Source:   origin.Source.String(),
-		ID:       origin.ID,
-		Hash:     origin.Hash,
-		Revision: origin.Revision,
-	}
-	if channelStr != "" {
-		charmOrigin.Channel = &channelStr
-	}
-	return charmOrigin, nil
-}
-
-func convertCharmOriginParams(origin params.CharmOrigin) (CharmOrigin, error) {
-	var channel, risk string
-
-	if origin.Channel != nil {
-		ch, err := corecharm.ParseChannel(*origin.Channel)
-		if err != nil {
-			return CharmOrigin{}, errors.Trace(err)
-		}
-		channel = ch.Track
-		risk = string(ch.Risk)
-	}
-
-	charmOrigin := CharmOrigin{
-		Source:   CharmOriginSource(origin.Source),
-		ID:       origin.ID,
-		Hash:     origin.Hash,
-		Risk:     risk,
-		Revision: origin.Revision,
-	}
-	if channel != "" {
-		charmOrigin.Channel = &channel
-	}
-	return charmOrigin, nil
 }

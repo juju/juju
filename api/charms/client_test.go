@@ -12,6 +12,7 @@ import (
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/charms"
+	apicharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -116,8 +117,8 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 	stable := string(csparams.StableChannel)
 
 	noChannelParamsOrigin := params.CharmOrigin{Source: "charm-store"}
-	edgeChannelParamsOrigin := params.CharmOrigin{Source: "charm-store", Channel: &edge}
-	stableChannelParamsOrigin := params.CharmOrigin{Source: "charm-store", Channel: &stable}
+	edgeChannelParamsOrigin := params.CharmOrigin{Source: "charm-store", Risk: edge}
+	stableChannelParamsOrigin := params.CharmOrigin{Source: "charm-store", Risk: stable}
 
 	facadeArgs := params.ResolveCharmsWithChannel{
 		Resolve: []params.ResolveCharmWithChannel{
@@ -149,9 +150,9 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 
 	client := charms.NewClientWithFacade(mockFacadeCaller)
 
-	noChannelOrigin := charms.CharmOrigin{Source: charms.OriginCharmStore, Risk: no}
-	edgeChannelOrigin := charms.CharmOrigin{Source: charms.OriginCharmStore, Risk: edge}
-	stableChannelOrigin := charms.CharmOrigin{Source: charms.OriginCharmStore, Risk: stable}
+	noChannelOrigin := apicharm.Origin{Source: apicharm.OriginCharmStore, Risk: no}
+	edgeChannelOrigin := apicharm.Origin{Source: apicharm.OriginCharmStore, Risk: edge}
+	stableChannelOrigin := apicharm.Origin{Source: apicharm.OriginCharmStore, Risk: stable}
 	args := []charms.CharmToResolve{
 		{URL: curl, Origin: noChannelOrigin},
 		{URL: curl2, Origin: edgeChannelOrigin},

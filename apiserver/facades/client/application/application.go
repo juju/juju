@@ -813,13 +813,13 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreC
 		}, nil
 	}
 
-	var channel *corecharm.Channel
-	if origin.Channel != nil {
-		ch, err := corecharm.ParseChannel(*origin.Channel)
-		if err != nil {
-			return corecharm.Origin{}, errors.Trace(err)
-		}
-		channel = &ch
+	var track string
+	if origin.Track != nil {
+		track = *origin.Track
+	}
+	channel, err := corecharm.MakeChannel(track, origin.Risk, "")
+	if err != nil {
+		return corecharm.Origin{}, errors.Trace(err)
 	}
 
 	return corecharm.Origin{
@@ -827,7 +827,7 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreC
 		ID:       origin.ID,
 		Hash:     origin.Hash,
 		Revision: origin.Revision,
-		Channel:  channel,
+		Channel:  &channel,
 	}, nil
 }
 
