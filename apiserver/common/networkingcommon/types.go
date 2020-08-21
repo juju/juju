@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
 	corenetwork "github.com/juju/juju/core/network"
@@ -280,34 +279,6 @@ type NetworkConfigSource interface {
 	// InterfaceAddresses returns information about all addresses assigned to
 	// the network interface with the given name.
 	InterfaceAddresses(name string) ([]net.Addr, error)
-}
-
-func networkToParamsNetworkInfo(info network.NetworkInfo) params.NetworkInfo {
-	addresses := make([]params.InterfaceAddress, len(info.Addresses))
-	for i, addr := range info.Addresses {
-		addresses[i] = params.InterfaceAddress{
-			Address: addr.Address,
-			CIDR:    addr.CIDR,
-		}
-	}
-	return params.NetworkInfo{
-		MACAddress:    info.MACAddress,
-		InterfaceName: info.InterfaceName,
-		Addresses:     addresses,
-	}
-}
-
-func MachineNetworkInfoResultToNetworkInfoResult(inResult state.MachineNetworkInfoResult) params.NetworkInfoResult {
-	if inResult.Error != nil {
-		return params.NetworkInfoResult{Error: common.ServerError(inResult.Error)}
-	}
-	infos := make([]params.NetworkInfo, len(inResult.NetworkInfos))
-	for i, info := range inResult.NetworkInfos {
-		infos[i] = networkToParamsNetworkInfo(info)
-	}
-	return params.NetworkInfoResult{
-		Info: infos,
-	}
 }
 
 func FanConfigToFanConfigResult(config network.FanConfig) params.FanConfigResult {

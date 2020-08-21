@@ -95,25 +95,10 @@ func (s *networkInfoSuite) addDevicesWithAddresses(c *gc.C, machine *state.Machi
 }
 
 func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
-	subnet1, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "1.2.0.0/16"})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("space-1", "pid-1", []string{subnet1.ID()}, false)
-	c.Assert(err, jc.ErrorIsNil)
-
-	subnet2, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "2.2.0.0/16"})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("space-2", "pid-2", []string{subnet2.ID()}, false)
-	c.Assert(err, jc.ErrorIsNil)
-
-	subnet3, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "3.2.0.0/16"})
-	c.Assert(err, jc.ErrorIsNil)
-	space3, err := s.State.AddSpace("space-3", "pid-3", []string{subnet3.ID()}, false)
-	c.Assert(err, jc.ErrorIsNil)
-
-	subnet4, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "4.3.0.0/16"})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("public-4", "pid-4", []string{subnet4.ID()}, true)
-	c.Assert(err, jc.ErrorIsNil)
+	_ = s.setupSpace(c, "space-1", "1.2.0.0/16", false)
+	_ = s.setupSpace(c, "space-2", "2.2.0.0/16", false)
+	spaceID3 := s.setupSpace(c, "space-3", "3.2.0.0/16", false)
+	_ = s.setupSpace(c, "public-4", "4.2.0.0/16", true)
 
 	// We want to have all bindings set so that no actual binding is
 	// really set to the default.
@@ -124,7 +109,7 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 	}
 
 	prr := s.newProReqRelationWithBindings(c, charm.ScopeGlobal, bindings, nil)
-	err = prr.pu0.AssignToNewMachine()
+	err := prr.pu0.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.pu0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -146,7 +131,7 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel, true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(boundSpace, gc.Equals, space3.Id())
+	c.Assert(boundSpace, gc.Equals, spaceID3)
 	c.Assert(ingress, gc.DeepEquals,
 		network.SpaceAddresses{network.NewScopedSpaceAddress("3.2.3.4", network.ScopeCloudLocal)})
 	c.Assert(egress, gc.DeepEquals, []string{"3.2.3.4/32"})
@@ -264,7 +249,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPrivateAd
 			Delay:       1 * time.Millisecond,
 			MaxDuration: coretesting.LongWait,
 			NotifyFunc: func(lastError error, attempt int) {
-				// Set the address after one failed retrieval attempt.
+				// Set the private address after one failed retrieval attempt.
 				if attempt == 1 {
 					err := machine.SetProviderAddresses(network.NewScopedSpaceAddress("4.3.2.1", network.ScopeCloudLocal))
 					c.Assert(err, jc.ErrorIsNil)
@@ -320,6 +305,168 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 	c.Assert(ingress, gc.DeepEquals,
 		network.SpaceAddresses{network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal)})
 	c.Assert(egress, gc.DeepEquals, []string{"1.2.3.4/32"})
+}
+
+func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
+	spaceIDDefault := s.setupSpace(c, "default", "10.0.0.0/24", true)
+	spaceIDDMZ := s.setupSpace(c, "dmz", "10.10.0.0/24", true)
+	_ = s.setupSpace(c, "private", "10.20.0.0/24", false)
+
+	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	machine, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = unit.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.createNICAndBridgeWithIP(c, machine, "eth0", "br-eth0", "10.0.0.20/24")
+	s.createNICWithIP(c, machine, network.EthernetDevice, "eth1", "10.10.0.20/24")
+	s.createNICWithIP(c, machine, network.EthernetDevice, "eth2", "10.20.0.20/24")
+
+	err = machine.SetMachineAddresses(network.NewScopedSpaceAddress("10.0.0.20", network.ScopePublic),
+		network.NewScopedSpaceAddress("10.10.0.20", network.ScopePublic),
+		network.NewScopedSpaceAddress("10.10.0.30", network.ScopePublic),
+		network.NewScopedSpaceAddress("10.20.0.20", network.ScopeCloudLocal))
+	c.Assert(err, jc.ErrorIsNil)
+
+	netInfo := s.newNetworkInfo(c, unit.UnitTag(), nil)
+	res, err := netInfo.MachineNetworkInfos(spaceIDDefault, spaceIDDMZ, "666", network.AlphaSpaceId)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res, gc.HasLen, 4)
+
+	resDefault, ok := res[spaceIDDefault]
+	c.Assert(ok, jc.IsTrue)
+	c.Check(resDefault.Error, jc.ErrorIsNil)
+	c.Assert(resDefault.NetworkInfos, gc.HasLen, 1)
+	c.Check(resDefault.NetworkInfos[0].InterfaceName, gc.Equals, "br-eth0")
+	c.Assert(resDefault.NetworkInfos[0].Addresses, gc.HasLen, 1)
+	c.Check(resDefault.NetworkInfos[0].Addresses[0].Address, gc.Equals, "10.0.0.20")
+	c.Check(resDefault.NetworkInfos[0].Addresses[0].CIDR, gc.Equals, "10.0.0.0/24")
+
+	resDMZ, ok := res[spaceIDDMZ]
+	c.Assert(ok, jc.IsTrue)
+	c.Check(resDMZ.Error, jc.ErrorIsNil)
+	c.Assert(resDMZ.NetworkInfos, gc.HasLen, 1)
+	c.Check(resDMZ.NetworkInfos[0].InterfaceName, gc.Equals, "eth1")
+	c.Assert(resDMZ.NetworkInfos[0].Addresses, gc.HasLen, 1)
+	c.Check(resDMZ.NetworkInfos[0].Addresses[0].Address, gc.Equals, "10.10.0.20")
+	c.Check(resDMZ.NetworkInfos[0].Addresses[0].CIDR, gc.Equals, "10.10.0.0/24")
+
+	resEmpty, ok := res[network.AlphaSpaceId]
+	c.Assert(ok, jc.IsTrue)
+	c.Check(resEmpty.Error, jc.ErrorIsNil)
+	c.Assert(resEmpty.NetworkInfos, gc.HasLen, 1)
+	c.Check(resEmpty.NetworkInfos[0].InterfaceName, gc.Equals, "eth2")
+	c.Assert(resEmpty.NetworkInfos[0].Addresses, gc.HasLen, 1)
+	c.Check(resEmpty.NetworkInfos[0].Addresses[0].Address, gc.Equals, "10.20.0.20")
+	c.Check(resEmpty.NetworkInfos[0].Addresses[0].CIDR, gc.Equals, "10.20.0.0/24")
+
+	resDoesNotExists, ok := res["666"]
+	c.Assert(ok, jc.IsTrue)
+	c.Check(resDoesNotExists.Error, gc.ErrorMatches, `.*machine "0" has no devices in space "666".*`)
+	c.Assert(resDoesNotExists.NetworkInfos, gc.HasLen, 0)
+}
+
+// TODO (manadart 2020-02-21): This test can be removed after universal subnet
+// discovery is implemented.
+func (s *networkInfoSuite) TestMachineNetworkInfosAlphaNoSubnets(c *gc.C) {
+	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	machine, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = unit.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.createNICAndBridgeWithIP(c, machine, "eth0", "br-eth0", "10.0.0.20/24")
+	s.createNICWithIP(c, machine, network.EthernetDevice, "eth1", "10.10.0.20/24")
+	s.createNICWithIP(c, machine, network.EthernetDevice, "eth2", "10.20.0.20/24")
+
+	err = machine.SetMachineAddresses(network.NewScopedSpaceAddress("10.0.0.20", network.ScopePublic),
+		network.NewScopedSpaceAddress("10.10.0.20", network.ScopePublic),
+		network.NewScopedSpaceAddress("10.10.0.30", network.ScopePublic),
+		network.NewScopedSpaceAddress("10.20.0.20", network.ScopeCloudLocal))
+	c.Assert(err, jc.ErrorIsNil)
+
+	netInfo := s.newNetworkInfo(c, unit.UnitTag(), nil)
+	res, err := netInfo.MachineNetworkInfos(network.AlphaSpaceId)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res, gc.HasLen, 1)
+
+	resEmpty, ok := res[network.AlphaSpaceId]
+	c.Assert(ok, jc.IsTrue)
+	c.Check(resEmpty.Error, jc.ErrorIsNil)
+	c.Assert(resEmpty.NetworkInfos, gc.HasLen, 1)
+	c.Check(resEmpty.NetworkInfos[0].InterfaceName, gc.Equals, "eth2")
+	c.Assert(resEmpty.NetworkInfos[0].Addresses, gc.HasLen, 1)
+	c.Check(resEmpty.NetworkInfos[0].Addresses[0].Address, gc.Equals, "10.20.0.20")
+	c.Check(resEmpty.NetworkInfos[0].Addresses[0].CIDR, gc.Equals, "10.20.0.0/24")
+}
+
+func (s *networkInfoSuite) setupSpace(c *gc.C, spaceName, cidr string, public bool) string {
+	space, err := s.State.AddSpace(spaceName, network.Id(spaceName), nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.AddSubnet(network.SubnetInfo{
+		CIDR:    cidr,
+		SpaceID: space.Id(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	return space.Id()
+}
+
+// createNICAndBridgeWithIP creates a network interface and a bridge on the
+// machine, and assigns the requested CIDRAddress to the bridge.
+func (s *networkInfoSuite) createNICAndBridgeWithIP(
+	c *gc.C, machine *state.Machine, deviceName, bridgeName, cidrAddress string,
+) {
+	s.createNICWithIP(c, machine, network.BridgeDevice, bridgeName, cidrAddress)
+
+	err := machine.SetLinkLayerDevices(
+		state.LinkLayerDeviceArgs{
+			Name:       deviceName,
+			Type:       network.EthernetDevice,
+			ParentName: bridgeName,
+			IsUp:       true,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *networkInfoSuite) createNICWithIP(
+	c *gc.C, machine *state.Machine, deviceType network.LinkLayerDeviceType, deviceName, cidrAddress string,
+) {
+	err := machine.SetLinkLayerDevices(
+		state.LinkLayerDeviceArgs{
+			Name:       deviceName,
+			Type:       deviceType,
+			ParentName: "",
+			IsUp:       true,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetDevicesAddresses(
+		state.LinkLayerDeviceAddress{
+			DeviceName:   deviceName,
+			CIDRAddress:  cidrAddress,
+			ConfigMethod: network.StaticAddress,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *networkInfoSuite) newNetworkInfo(
