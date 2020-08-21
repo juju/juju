@@ -444,8 +444,17 @@ func (n *NetworkInfo) machineNetworkInfos(spaceIDs ...string) (map[string]machin
 		}
 	}
 
-	addresses, err := machine.AllAddresses()
-	if err != nil {
+	var addresses []*state.Address
+	retryArg := n.retryFactory()
+	retryArg.Func = func() error {
+		var err error
+		addresses, err = machine.AllAddresses()
+		return err
+	}
+	retryArg.IsFatalError = func(err error) bool {
+		return err != nil
+	}
+	if retry.Call(retryArg) != nil {
 		result := machineNetworkInfoResult{Error: errors.Annotate(err, "getting devices addresses")}
 		for _, id := range spaceSet.Values() {
 			if _, ok := results[id]; !ok {
