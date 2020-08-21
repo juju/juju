@@ -2073,6 +2073,128 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithUpdateStrategy(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	numUnits := int32(2)
+	basicPodSpec := getBasicPodspec()
+
+	basicPodSpec.Service = &specs.ServiceSpec{
+		UpdateStrategy: &specs.UpdateStrategy{
+			Type: "RollingUpdate",
+			RollingUpdate: &specs.RollingUpdateSpec{
+				MaxUnavailable: &specs.IntOrString{IntVal: 10},
+				MaxSurge:       &specs.IntOrString{IntVal: 20},
+			},
+		},
+	}
+
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	c.Assert(err, jc.ErrorIsNil)
+	podSpec := provider.PodSpec(workloadSpec)
+
+	deploymentArg := &appsv1.Deployment{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   "app-name",
+			Labels: map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"fred":                           "mary",
+				"juju.io/controller":             testing.ControllerTag.Id(),
+				"juju-app-uuid":                  "appuuid",
+				"juju.io/charm-modified-version": "0",
+			}},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &numUnits,
+			Selector: &v1.LabelSelector{
+				MatchLabels: map[string]string{"juju-app": "app-name"},
+			},
+			RevisionHistoryLimit: int32Ptr(0),
+			Template: core.PodTemplateSpec{
+				ObjectMeta: v1.ObjectMeta{
+					GenerateName: "app-name-",
+					Labels: map[string]string{
+						"juju-app": "app-name",
+					},
+					Annotations: map[string]string{
+						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
+						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
+						"fred":                           "mary",
+						"juju.io/controller":             testing.ControllerTag.Id(),
+						"juju.io/charm-modified-version": "0",
+					},
+				},
+				Spec: podSpec,
+			},
+			Strategy: apps.DeploymentStrategy{
+				Type: apps.RollingUpdateDeploymentStrategyType,
+				RollingUpdate: &apps.RollingUpdateDeployment{
+					MaxUnavailable: &intstr.IntOrString{IntVal: 10},
+					MaxSurge:       &intstr.IntOrString{IntVal: 20},
+				},
+			},
+		},
+	}
+	serviceArg := &core.Service{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   "app-name",
+			Labels: map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":               "mary",
+				"a":                  "b",
+			}},
+		Spec: core.ServiceSpec{
+			Selector: map[string]string{"juju-app": "app-name"},
+			Type:     "nodeIP",
+			Ports: []core.ServicePort{
+				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
+				{Port: 8080, Protocol: "TCP", Name: "fred"},
+			},
+			LoadBalancerIP: "10.0.0.1",
+			ExternalName:   "ext-name",
+		},
+	}
+
+	ociImageSecret := s.getOCIImageSecret(c, map[string]string{"fred": "mary"})
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockSecrets.EXPECT().Create(ociImageSecret).
+			Return(ociImageSecret, nil),
+		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(serviceArg).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(serviceArg).
+			Return(nil, nil),
+		s.mockDeployments.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDeployments.EXPECT().Update(deploymentArg).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDeployments.EXPECT().Create(deploymentArg).
+			Return(nil, nil),
+	)
+
+	params := &caas.ServiceParams{
+		PodSpec:           basicPodSpec,
+		OperatorImagePath: "operator/image-path",
+		ResourceTags: map[string]string{
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+			"fred":                 "mary",
+		},
+	}
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
+		"kubernetes-service-externalname":    "ext-name",
+		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *K8sBrokerSuite) TestEnsureServiceStatelessWithScalePolicyInvalid(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
@@ -4857,6 +4979,109 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithUpdateStrategy(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	basicPodSpec := getBasicPodspec()
+
+	basicPodSpec.Service = &specs.ServiceSpec{
+		UpdateStrategy: &specs.UpdateStrategy{
+			Type: "OnDelete",
+			RollingUpdate: &specs.RollingUpdateSpec{
+				Partition: int32Ptr(10),
+			},
+		},
+	}
+
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	c.Assert(err, jc.ErrorIsNil)
+	podSpec := provider.PodSpec(workloadSpec)
+	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
+		Name:      "database-appuuid",
+		MountPath: "path/to/here",
+	}, core.VolumeMount{
+		Name:      "logs-1",
+		MountPath: "path/to/there",
+	})
+	size, err := resource.ParseQuantity("200Mi")
+	c.Assert(err, jc.ErrorIsNil)
+	podSpec.Volumes = append(podSpec.Volumes, core.Volume{
+		Name: "logs-1",
+		VolumeSource: core.VolumeSource{EmptyDir: &core.EmptyDirVolumeSource{
+			SizeLimit: &size,
+			Medium:    "Memory",
+		}},
+	})
+	statefulSetArg := unitStatefulSetArg(2, "workload-storage", podSpec)
+	statefulSetArg.Spec.UpdateStrategy = apps.StatefulSetUpdateStrategy{
+		Type: apps.OnDeleteStatefulSetStrategyType,
+		RollingUpdate: &apps.RollingUpdateStatefulSetStrategy{
+			Partition: int32Ptr(10),
+		},
+	}
+
+	ociImageSecret := s.getOCIImageSecret(c, nil)
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockSecrets.EXPECT().Create(ociImageSecret).
+			Return(ociImageSecret, nil),
+		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(basicServiceArg).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(basicServiceArg).
+			Return(nil, nil),
+		s.mockServices.EXPECT().Get("app-name-endpoints", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(basicHeadlessServiceArg).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(basicHeadlessServiceArg).
+			Return(nil, nil),
+		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-app-uuid": "appuuid"}}}, nil),
+		s.mockStorageClass.EXPECT().Get("test-workload-storage", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStorageClass.EXPECT().Get("workload-storage", v1.GetOptions{}).
+			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "workload-storage"}}, nil),
+		s.mockStatefulSets.EXPECT().Create(statefulSetArg).
+			Return(nil, nil),
+	)
+
+	params := &caas.ServiceParams{
+		PodSpec:           basicPodSpec,
+		OperatorImagePath: "operator/image-path",
+		ResourceTags: map[string]string{
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+		},
+		Filesystems: []storage.KubernetesFilesystemParams{{
+			StorageName: "database",
+			Size:        100,
+			Provider:    "kubernetes",
+			Attributes:  map[string]interface{}{"storage-class": "workload-storage"},
+			Attachment: &storage.KubernetesFilesystemAttachmentParams{
+				Path: "path/to/here",
+			},
+			ResourceTags: map[string]string{"foo": "bar"},
+		}, {
+			StorageName: "logs",
+			Size:        200,
+			Provider:    "tmpfs",
+			Attributes:  map[string]interface{}{"storage-medium": "Memory"},
+			Attachment: &storage.KubernetesFilesystemAttachmentParams{
+				Path: "path/to/there",
+			},
+		}},
+	}
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
+		"kubernetes-service-externalname":    "ext-name",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
@@ -5374,6 +5599,188 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageCreate(c *gc.C)
 		s.mockPersistentVolumeClaims.EXPECT().Create(gomock.Any(), pvc, v1.CreateOptions{}).
 			Return(pvc, nil),
 		s.mockDaemonSets.EXPECT().Create(gomock.Any(), daemonSetArg, v1.CreateOptions{}).
+			Return(daemonSetArg, nil),
+	)
+
+	params := &caas.ServiceParams{
+		PodSpec: basicPodSpec,
+		Deployment: caas.DeploymentParams{
+			DeploymentType: caas.DeploymentDaemon,
+		},
+		OperatorImagePath: "operator/image-path",
+		ResourceTags: map[string]string{
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+		},
+		Filesystems: []storage.KubernetesFilesystemParams{{
+			StorageName: "database",
+			Size:        100,
+			Provider:    "kubernetes",
+			Attributes:  map[string]interface{}{"storage-class": "workload-storage"},
+			Attachment: &storage.KubernetesFilesystemAttachmentParams{
+				Path: "path/to/here",
+			},
+			ResourceTags: map[string]string{"foo": "bar"},
+		}, {
+			StorageName: "logs",
+			Size:        200,
+			Provider:    "tmpfs",
+			Attributes:  map[string]interface{}{"storage-medium": "Memory"},
+			Attachment: &storage.KubernetesFilesystemAttachmentParams{
+				Path: "path/to/there",
+			},
+		}},
+		Constraints: constraints.MustParse(`tags=foo=a|b|c,^bar=d|e|f,^foo=g|h`),
+	}
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
+		"kubernetes-service-externalname":    "ext-name",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithUpdateStrategy(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	basicPodSpec := getBasicPodspec()
+
+	basicPodSpec.Service = &specs.ServiceSpec{
+		UpdateStrategy: &specs.UpdateStrategy{
+			Type: "RollingUpdate",
+			RollingUpdate: &specs.RollingUpdateSpec{
+				MaxUnavailable: &specs.IntOrString{IntVal: 10},
+			},
+		},
+	}
+
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	c.Assert(err, jc.ErrorIsNil)
+	podSpec := provider.PodSpec(workloadSpec)
+	podSpec.Affinity = &core.Affinity{
+		NodeAffinity: &core.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &core.NodeSelector{
+				NodeSelectorTerms: []core.NodeSelectorTerm{{
+					MatchExpressions: []core.NodeSelectorRequirement{{
+						Key:      "foo",
+						Operator: core.NodeSelectorOpIn,
+						Values:   []string{"a", "b", "c"},
+					}, {
+						Key:      "bar",
+						Operator: core.NodeSelectorOpNotIn,
+						Values:   []string{"d", "e", "f"},
+					}, {
+						Key:      "foo",
+						Operator: core.NodeSelectorOpNotIn,
+						Values:   []string{"g", "h"},
+					}},
+				}},
+			},
+		},
+	}
+	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
+		Name:      "database-appuuid",
+		MountPath: "path/to/here",
+	}, core.VolumeMount{
+		Name:      "logs-1",
+		MountPath: "path/to/there",
+	})
+
+	pvc := &core.PersistentVolumeClaim{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "database-appuuid",
+			Annotations: map[string]string{
+				"foo":          "bar",
+				"juju-storage": "database",
+			},
+		},
+		Spec: core.PersistentVolumeClaimSpec{
+			StorageClassName: strPtr("workload-storage"),
+			Resources: core.ResourceRequirements{
+				Requests: core.ResourceList{
+					core.ResourceStorage: resource.MustParse("100Mi"),
+				},
+			},
+			AccessModes: []core.PersistentVolumeAccessMode{core.ReadWriteOnce},
+		},
+	}
+	podSpec.Volumes = append(podSpec.Volumes, core.Volume{
+		Name: "database-appuuid",
+		VolumeSource: core.VolumeSource{
+			PersistentVolumeClaim: &core.PersistentVolumeClaimVolumeSource{
+				ClaimName: pvc.GetName(),
+			}},
+	})
+
+	size, err := resource.ParseQuantity("200Mi")
+	c.Assert(err, jc.ErrorIsNil)
+	podSpec.Volumes = append(podSpec.Volumes, core.Volume{
+		Name: "logs-1",
+		VolumeSource: core.VolumeSource{EmptyDir: &core.EmptyDirVolumeSource{
+			SizeLimit: &size,
+			Medium:    "Memory",
+		}},
+	})
+
+	daemonSetArg := &appsv1.DaemonSet{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   "app-name",
+			Labels: map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"juju.io/controller":             testing.ControllerTag.Id(),
+				"juju-app-uuid":                  "appuuid",
+				"juju.io/charm-modified-version": "0",
+			}},
+		Spec: appsv1.DaemonSetSpec{
+			Selector: &v1.LabelSelector{
+				MatchLabels: map[string]string{"juju-app": "app-name"},
+			},
+			RevisionHistoryLimit: int32Ptr(0),
+			Template: core.PodTemplateSpec{
+				ObjectMeta: v1.ObjectMeta{
+					GenerateName: "app-name-",
+					Labels:       map[string]string{"juju-app": "app-name"},
+					Annotations: map[string]string{
+						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
+						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
+						"juju.io/controller":                       testing.ControllerTag.Id(),
+						"juju.io/charm-modified-version":           "0",
+					},
+				},
+				Spec: podSpec,
+			},
+			UpdateStrategy: apps.DaemonSetUpdateStrategy{
+				Type: apps.RollingUpdateDaemonSetStrategyType,
+				RollingUpdate: &apps.RollingUpdateDaemonSet{
+					MaxUnavailable: &intstr.IntOrString{IntVal: 10},
+				},
+			},
+		},
+	}
+
+	ociImageSecret := s.getOCIImageSecret(c, nil)
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockSecrets.EXPECT().Create(ociImageSecret).
+			Return(ociImageSecret, nil),
+		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(basicServiceArg).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(basicServiceArg).
+			Return(nil, nil),
+		s.mockDaemonSets.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStorageClass.EXPECT().Get("test-workload-storage", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStorageClass.EXPECT().Get("workload-storage", v1.GetOptions{}).
+			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "workload-storage"}}, nil),
+		s.mockPersistentVolumeClaims.EXPECT().Create(pvc).
+			Return(pvc, nil),
+		s.mockDaemonSets.EXPECT().Create(daemonSetArg).
 			Return(daemonSetArg, nil),
 	)
 
@@ -6750,6 +7157,194 @@ func (s *K8sBrokerSuite) TestWatchContainerStartDefaultWaitForUnit(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for event")
 	}
+}
+
+func (s *K8sBrokerSuite) TestUpdateStrategyForDaemonSet(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	_, err := provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{})
+	c.Assert(err, gc.ErrorMatches, `strategy type "" for daemonset not valid`)
+
+	_, err = provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
+		Type: "RollingUpdate",
+	})
+	c.Assert(err, gc.ErrorMatches, `rolling update spec is required`)
+
+	_, err = provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
+		Type:          "RollingUpdate",
+		RollingUpdate: &specs.RollingUpdateSpec{},
+	})
+	c.Assert(err, gc.ErrorMatches, `rolling update spec maxUnavailable is missing`)
+
+	_, err = provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
+		Type: "RollingUpdate",
+		RollingUpdate: &specs.RollingUpdateSpec{
+			Partition: int32Ptr(10),
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `rolling update spec for daemonset not valid`)
+
+	_, err = provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
+		Type: "RollingUpdate",
+		RollingUpdate: &specs.RollingUpdateSpec{
+			MaxSurge: &specs.IntOrString{IntVal: 10},
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `rolling update spec for daemonset not valid`)
+
+	o, err := provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
+		Type: "RollingUpdate",
+		RollingUpdate: &specs.RollingUpdateSpec{
+			MaxUnavailable: &specs.IntOrString{IntVal: 10},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(o, jc.DeepEquals, apps.DaemonSetUpdateStrategy{
+		Type: apps.RollingUpdateDaemonSetStrategyType,
+		RollingUpdate: &apps.RollingUpdateDaemonSet{
+			MaxUnavailable: &intstr.IntOrString{IntVal: 10},
+		},
+	})
+
+	o, err = provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
+		Type: "OnDelete",
+		RollingUpdate: &specs.RollingUpdateSpec{
+			MaxUnavailable: &specs.IntOrString{IntVal: 10},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(o, jc.DeepEquals, apps.DaemonSetUpdateStrategy{
+		Type: apps.OnDeleteDaemonSetStrategyType,
+		RollingUpdate: &apps.RollingUpdateDaemonSet{
+			MaxUnavailable: &intstr.IntOrString{IntVal: 10},
+		},
+	})
+}
+
+func (s *K8sBrokerSuite) TestUpdateStrategyForDeployment(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	_, err := provider.UpdateStrategyForDeployment(specs.UpdateStrategy{})
+	c.Assert(err, gc.ErrorMatches, `strategy type "" for deployment not valid`)
+
+	_, err = provider.UpdateStrategyForDeployment(specs.UpdateStrategy{
+		Type: "RollingUpdate",
+	})
+	c.Assert(err, gc.ErrorMatches, `rolling update spec is required`)
+
+	_, err = provider.UpdateStrategyForDeployment(specs.UpdateStrategy{
+		Type:          "RollingUpdate",
+		RollingUpdate: &specs.RollingUpdateSpec{},
+	})
+	c.Assert(err, gc.ErrorMatches, `empty rolling update spec`)
+
+	_, err = provider.UpdateStrategyForDeployment(specs.UpdateStrategy{
+		Type: "RollingUpdate",
+		RollingUpdate: &specs.RollingUpdateSpec{
+			Partition:      int32Ptr(10),
+			MaxUnavailable: &specs.IntOrString{IntVal: 10},
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `rolling update spec for deployment not valid`)
+
+	o, err := provider.UpdateStrategyForDeployment(specs.UpdateStrategy{
+		Type: "Recreate",
+		RollingUpdate: &specs.RollingUpdateSpec{
+			MaxUnavailable: &specs.IntOrString{IntVal: 10},
+			MaxSurge:       &specs.IntOrString{IntVal: 20},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(o, jc.DeepEquals, apps.DeploymentStrategy{
+		Type: apps.RecreateDeploymentStrategyType,
+		RollingUpdate: &apps.RollingUpdateDeployment{
+			MaxUnavailable: &intstr.IntOrString{IntVal: 10},
+			MaxSurge:       &intstr.IntOrString{IntVal: 20},
+		},
+	})
+
+	o, err = provider.UpdateStrategyForDeployment(specs.UpdateStrategy{
+		Type: "RollingUpdate",
+		RollingUpdate: &specs.RollingUpdateSpec{
+			MaxUnavailable: &specs.IntOrString{IntVal: 10},
+			MaxSurge:       &specs.IntOrString{IntVal: 20},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(o, jc.DeepEquals, apps.DeploymentStrategy{
+		Type: apps.RollingUpdateDeploymentStrategyType,
+		RollingUpdate: &apps.RollingUpdateDeployment{
+			MaxUnavailable: &intstr.IntOrString{IntVal: 10},
+			MaxSurge:       &intstr.IntOrString{IntVal: 20},
+		},
+	})
+}
+
+func (s *K8sBrokerSuite) TestUpdateStrategyForStatefulSet(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	_, err := provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{})
+	c.Assert(err, gc.ErrorMatches, `strategy type "" for statefulset not valid`)
+
+	_, err = provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
+		Type: "RollingUpdate",
+	})
+	c.Assert(err, gc.ErrorMatches, `rolling update spec is required`)
+
+	_, err = provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
+		Type:          "RollingUpdate",
+		RollingUpdate: &specs.RollingUpdateSpec{},
+	})
+	c.Assert(err, gc.ErrorMatches, `rolling update spec partition is missing`)
+
+	_, err = provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
+		Type: "RollingUpdate",
+		RollingUpdate: &specs.RollingUpdateSpec{
+			Partition: int32Ptr(10),
+			MaxSurge:  &specs.IntOrString{IntVal: 10},
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `rolling update spec for statefulset not valid`)
+
+	_, err = provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
+		Type: "RollingUpdate",
+		RollingUpdate: &specs.RollingUpdateSpec{
+			Partition:      int32Ptr(10),
+			MaxUnavailable: &specs.IntOrString{IntVal: 10},
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `rolling update spec for statefulset not valid`)
+
+	o, err := provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
+		Type: "OnDelete",
+		RollingUpdate: &specs.RollingUpdateSpec{
+			Partition: int32Ptr(10),
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(o, jc.DeepEquals, apps.StatefulSetUpdateStrategy{
+		Type: apps.OnDeleteStatefulSetStrategyType,
+		RollingUpdate: &apps.RollingUpdateStatefulSetStrategy{
+			Partition: int32Ptr(10),
+		},
+	})
+
+	o, err = provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
+		Type: "RollingUpdate",
+		RollingUpdate: &specs.RollingUpdateSpec{
+			Partition: int32Ptr(10),
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(o, jc.DeepEquals, apps.StatefulSetUpdateStrategy{
+		Type: apps.RollingUpdateStatefulSetStrategyType,
+		RollingUpdate: &apps.RollingUpdateStatefulSetStrategy{
+			Partition: int32Ptr(10),
+		},
+	})
 }
 
 func initContainers() []core.Container {

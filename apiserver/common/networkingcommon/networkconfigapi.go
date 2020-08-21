@@ -248,7 +248,7 @@ func (o *updateMachineLinkLayerOp) processExistingDevice(dev LinkLayerDevice) ([
 
 	ops := dev.UpdateOps(networkDeviceToStateArgs(*incomingDev))
 
-	incomingAddrs := o.MatchingIncomingAddrs(dev.MACAddress())
+	incomingAddrs := o.MatchingIncomingAddrs(dev.Name(), dev.MACAddress())
 
 	for _, addr := range o.DeviceAddresses(dev) {
 		existingAddrOps, err := o.processExistingDeviceAddress(dev, addr, incomingAddrs)
@@ -263,7 +263,7 @@ func (o *updateMachineLinkLayerOp) processExistingDevice(dev LinkLayerDevice) ([
 		return nil, errors.Trace(err)
 	}
 
-	o.MarkDevProcessed(dev.MACAddress())
+	o.MarkDevProcessed(dev.Name(), dev.MACAddress())
 	return append(ops, newAddrOps...), nil
 }
 
@@ -308,8 +308,8 @@ func (o *updateMachineLinkLayerOp) processExistingDeviceAddress(
 	// update it.
 	for _, incomingAddr := range incomingAddrs {
 		if strings.HasPrefix(incomingAddr.CIDRAddress, addrValue) &&
-			!o.IsAddrProcessed(dev.MACAddress(), incomingAddr.CIDRAddress) {
-			o.MarkAddrProcessed(dev.MACAddress(), incomingAddr.CIDRAddress)
+			!o.IsAddrProcessed(dev.Name(), dev.MACAddress(), incomingAddr.CIDRAddress) {
+			o.MarkAddrProcessed(dev.Name(), dev.MACAddress(), incomingAddr.CIDRAddress)
 
 			ops, err := addr.UpdateOps(incomingAddr)
 			return ops, errors.Trace(err)
@@ -332,7 +332,7 @@ func (o *updateMachineLinkLayerOp) processExistingDeviceNewAddresses(
 ) ([]txn.Op, error) {
 	var ops []txn.Op
 	for _, addr := range incomingAddrs {
-		if o.IsAddrProcessed(dev.MACAddress(), addr.CIDRAddress) {
+		if o.IsAddrProcessed(dev.Name(), dev.MACAddress(), addr.CIDRAddress) {
 			continue
 		}
 
@@ -345,14 +345,14 @@ func (o *updateMachineLinkLayerOp) processExistingDeviceNewAddresses(
 		// Since this device has new or changing addresses,
 		// ensure we have discovered all the subnets it is connected to.
 		if o.discoverSubnets {
-			subNetOps, err := o.processSubnets(dev.MACAddress())
+			subNetOps, err := o.processSubnets(dev.Name(), dev.MACAddress())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 			ops = append(ops, subNetOps...)
 		}
 
-		o.MarkAddrProcessed(dev.MACAddress(), addr.CIDRAddress)
+		o.MarkAddrProcessed(dev.Name(), dev.MACAddress(), addr.CIDRAddress)
 	}
 	return ops, nil
 }
@@ -370,7 +370,7 @@ func (o *updateMachineLinkLayerOp) processNewDevices() ([]txn.Op, error) {
 			dev.InterfaceName, dev.MACAddress, dev.Addresses)
 
 		addOps, err := o.machine.AddLinkLayerDeviceOps(
-			networkDeviceToStateArgs(dev), o.MatchingIncomingAddrs(dev.MACAddress)...)
+			networkDeviceToStateArgs(dev), o.MatchingIncomingAddrs(dev.InterfaceName, dev.MACAddress)...)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -379,14 +379,14 @@ func (o *updateMachineLinkLayerOp) processNewDevices() ([]txn.Op, error) {
 		// Since this is a new device, ensure that we have
 		// discovered all the subnets it is connected to.
 		if o.discoverSubnets {
-			subNetOps, err := o.processSubnets(dev.MACAddress)
+			subNetOps, err := o.processSubnets(dev.InterfaceName, dev.MACAddress)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 			ops = append(ops, subNetOps...)
 		}
 
-		o.MarkDevProcessed(dev.MACAddress)
+		o.MarkDevProcessed(dev.InterfaceName, dev.MACAddress)
 	}
 	return ops, nil
 }
@@ -394,11 +394,11 @@ func (o *updateMachineLinkLayerOp) processNewDevices() ([]txn.Op, error) {
 // processSubnets takes an incoming NIC hardware address and ensures that the
 // subnets of addresses on the device are present in state.
 // Loopback subnets are ignored.
-func (o *updateMachineLinkLayerOp) processSubnets(hwAddress string) ([]txn.Op, error) {
+func (o *updateMachineLinkLayerOp) processSubnets(name, hwAddress string) ([]txn.Op, error) {
 	// Accrue all incoming CIDRs matching the input device.
 	cidrSet := set.NewStrings()
 	var isVLAN bool
-	for _, matching := range o.Incoming().GetByHardwareAddress(hwAddress) {
+	for _, matching := range o.Incoming().GetByNameAndHardwareAddress(name, hwAddress) {
 		cidr := matching.CIDR
 		if cidr == "" || matching.InterfaceType == network.LoopbackInterface {
 			continue

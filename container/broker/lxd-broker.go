@@ -64,8 +64,7 @@ func (broker *lxdBroker) StartInstance(ctx context.ProviderCallContext, args env
 		return nil, err
 	}
 
-	err = broker.prepareHost(names.NewMachineTag(containerMachineID), lxdLogger, args.Abort)
-	if err != nil {
+	if err := broker.prepareHost(names.NewMachineTag(containerMachineID), lxdLogger, args.Abort); err != nil {
 		return nil, errors.Trace(err)
 	}
 

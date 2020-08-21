@@ -626,6 +626,36 @@ func (s *localServerSuite) TestStartInstanceNoNetworksNetworkNotSetNoError(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *localServerSuite) TestStartInstanceOneNetworkNetworkNotSetNoError(c *gc.C) {
+	// Modify the Openstack service that is created by default,
+	// to remove all but 1 internal network.
+	model := neutronmodel.New()
+	var foundOne bool
+	for _, net := range model.AllNetworks() {
+		if !net.External {
+			if !foundOne {
+				foundOne = true
+				continue
+			}
+			err := model.RemoveNetwork(net.Id)
+			c.Assert(err, jc.ErrorIsNil)
+		}
+	}
+	s.srv.OpenstackSvc.Neutron.AddNeutronModel(model)
+	s.srv.OpenstackSvc.Nova.AddNeutronModel(model)
+
+	cfg, err := s.env.Config().Apply(coretesting.Attrs{
+		"network": "",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
+	c.Check(inst, gc.NotNil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *localServerSuite) TestStartInstanceNetworksDifferentAZ(c *gc.C) {
 	// If both the network and external-network config values are
 	// specified, there is not check for them being on different

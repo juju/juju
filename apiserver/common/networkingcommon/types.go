@@ -178,7 +178,7 @@ func NetworkInterfacesToStateArgs(devs corenetwork.InterfaceInfos) (
 		}
 		addr, err := networkAddressToStateArgs(dev, dev.PrimaryAddress())
 		if err != nil {
-			logger.Warningf("ignoring address for device %q: %v", dev.InterfaceName, err)
+			logger.Warningf("ignoring address for device %+v: %v", dev, err)
 			continue
 		}
 
@@ -209,22 +209,24 @@ func networkDeviceToStateArgs(dev corenetwork.InterfaceInfo) state.LinkLayerDevi
 	}
 }
 
-// networkAddressStateArgsForHWAddr accommodates the fact that network
+// networkAddressStateArgsForDevice accommodates the fact that network
 // configuration is sometimes supplied with a duplicated device for each
 // address.
 // This is a normalisation that returns state args for all primary addresses
-// of interfaces with the input hardware address.
-func networkAddressStateArgsForHWAddr(devs corenetwork.InterfaceInfos, hwAddr string) []state.LinkLayerDeviceAddress {
+// of interfaces with the input name and hardware address.
+func networkAddressStateArgsForDevice(
+	devs corenetwork.InterfaceInfos, name, hwAddr string,
+) []state.LinkLayerDeviceAddress {
 	var res []state.LinkLayerDeviceAddress
 
-	for _, dev := range devs.GetByHardwareAddress(hwAddr) {
+	for _, dev := range devs.GetByNameAndHardwareAddress(name, hwAddr) {
 		if dev.PrimaryAddress().Value == "" {
 			continue
 		}
 
 		addr, err := networkAddressToStateArgs(dev, dev.PrimaryAddress())
 		if err != nil {
-			logger.Warningf("ignoring address for device %q: %v", dev.InterfaceName, err)
+			logger.Warningf("ignoring address for device %+v: %v", dev, err)
 			continue
 		}
 		res = append(res, addr)

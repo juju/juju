@@ -399,7 +399,15 @@ values. For example,
 
   juju deploy mediawiki --config name='my media wiki' --config mycfg.yaml
 
-if mycfg.yaml contains a value for 'name', it will override the earlier 'my
+Similar to the 'juju config' command, if the value begins with an '@' character,
+it will be treated as a path to a config file and its contents will be assigned
+to the specified key. For example,
+
+  juju deploy mediawiki --config name='@wiki-name.txt"
+
+will set the 'name' key to the contents of file 'wiki-name.txt'.
+
+If mycfg.yaml contains a value for 'name', it will override the earlier 'my
 media wiki' value. The same applies to single value options. For example,
 
   juju deploy mediawiki --config name='a media wiki' --config name='my wiki'
