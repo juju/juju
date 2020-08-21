@@ -48,7 +48,7 @@ func newUpgradeCharmCommand() *upgradeCharmCommand {
 		NewCharmClient: func(conn base.APICallCloser) utils.CharmClient {
 			return charms.NewClient(conn)
 		},
-		NewCharmUpgradeClient: func(conn base.APICallCloser) CharmAPIClient {
+		NewCharmUpgradeClient: func(conn base.APICallCloser) CharmUpgradeClient {
 			return application.NewClient(conn)
 		},
 		NewResourceLister: func(conn base.APICallCloser) (utils.ResourceLister, error) {
@@ -75,12 +75,6 @@ func newUpgradeCharmCommand() *upgradeCharmCommand {
 // NewUpgradeCharmCommand returns a command which upgrades application's charm.
 func NewUpgradeCharmCommand() cmd.Command {
 	return modelcmd.Wrap(newUpgradeCharmCommand())
-}
-
-// CharmAPIClient defines a subset of the application facade that deals with
-// charm related upgrades.
-type CharmAPIClient interface {
-	CharmUpgradeClient
 }
 
 // CharmUpgradeClient defines a subset of the application facade, as required
@@ -113,7 +107,7 @@ type upgradeCharmCommand struct {
 	NewCharmAdder         NewCharmAdderFunc
 	NewCharmStore         NewCharmStoreFunc
 	NewCharmClient        func(base.APICallCloser) utils.CharmClient
-	NewCharmUpgradeClient func(base.APICallCloser) CharmAPIClient
+	NewCharmUpgradeClient func(base.APICallCloser) CharmUpgradeClient
 	NewResourceLister     func(base.APICallCloser) (utils.ResourceLister, error)
 	NewSpacesClient       func(base.APICallCloser) SpacesAPI
 	CharmStoreURLGetter   func(base.APICallCloser) (string, error)

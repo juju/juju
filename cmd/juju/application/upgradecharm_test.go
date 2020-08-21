@@ -61,7 +61,7 @@ type BaseUpgradeCharmSuite struct {
 	apiConnection     mockAPIConnection
 	charmAdder        mockCharmAdder
 	charmClient       mockCharmClient
-	charmAPIClient    mockCharmAPIClient
+	charmAPIClient    mockCharmUpgradeClient
 	modelConfigGetter mockModelConfigGetter
 	resourceLister    mockResourceLister
 	spacesClient      mockSpacesClient
@@ -133,7 +133,7 @@ func (s *BaseUpgradeCharmSuite) SetUpTest(c *gc.C) {
 			Meta: &charm.Meta{},
 		},
 	}
-	s.charmAPIClient = mockCharmAPIClient{
+	s.charmAPIClient = mockCharmUpgradeClient{
 		charmURL: currentCharmURL,
 		bindings: map[string]string{
 			"": network.AlphaSpaceName,
@@ -192,7 +192,7 @@ func (s *BaseUpgradeCharmSuite) upgradeCommand() cmd.Command {
 			s.PopNoErr()
 			return &s.charmClient
 		},
-		func(conn base.APICallCloser) CharmAPIClient {
+		func(conn base.APICallCloser) CharmUpgradeClient {
 			s.AddCall("NewCharmAPIClient", conn)
 			s.PopNoErr()
 			return &s.charmAPIClient
@@ -924,25 +924,25 @@ func (m *mockCharmClient) CharmInfo(curl string) (*charms.CharmInfo, error) {
 	return m.charmInfo, nil
 }
 
-type mockCharmAPIClient struct {
-	CharmAPIClient
+type mockCharmUpgradeClient struct {
+	CharmUpgradeClient
 	testing.Stub
 	charmURL *charm.URL
 
 	bindings map[string]string
 }
 
-func (m *mockCharmAPIClient) GetCharmURL(branchName, appName string) (*charm.URL, error) {
+func (m *mockCharmUpgradeClient) GetCharmURL(branchName, appName string) (*charm.URL, error) {
 	m.MethodCall(m, "GetCharmURL", branchName, appName)
 	return m.charmURL, m.NextErr()
 }
 
-func (m *mockCharmAPIClient) SetCharm(branchName string, cfg application.SetCharmConfig) error {
+func (m *mockCharmUpgradeClient) SetCharm(branchName string, cfg application.SetCharmConfig) error {
 	m.MethodCall(m, "SetCharm", branchName, cfg)
 	return m.NextErr()
 }
 
-func (m *mockCharmAPIClient) Get(branchName, applicationName string) (*params.ApplicationGetResults, error) {
+func (m *mockCharmUpgradeClient) Get(branchName, applicationName string) (*params.ApplicationGetResults, error) {
 	m.MethodCall(m, "Get", applicationName)
 	return &params.ApplicationGetResults{
 		EndpointBindings: m.bindings,
