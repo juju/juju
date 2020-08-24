@@ -50,9 +50,12 @@ func AlwaysChecksum(string) bool {
 	return true
 }
 
-// VersionValidator validates the version of the store charm.
-type VersionValidator interface {
-	// Check the version is valid for the given version.
+// JujuVersionValidator validates the version of Juju against the charm meta
+// data.
+// The charm.Meta contains a MinJujuVersion and we can use that to check that
+// for a valid charm.
+type JujuVersionValidator interface {
+	// Check the version is valid for the given Juju version.
 	Validate(*charm.Meta) error
 }
 
@@ -126,8 +129,10 @@ type DownloadResult struct {
 	SHA256 string
 }
 
-// Run the procedure against the correct store.
-func (p *Strategy) Run(state State, version VersionValidator) (DownloadResult, bool, error) {
+// Run the download procedure against the supplied store adapter.
+// Includes downloading the blob to a temp file and validating the contents
+// of the charm.Meta and LXD profile data.
+func (p *Strategy) Run(state State, version JujuVersionValidator) (DownloadResult, bool, error) {
 	charm, err := state.PrepareCharmUpload(p.charmURL)
 	if err != nil {
 		return DownloadResult{}, false, errors.Trace(err)
@@ -180,8 +185,12 @@ func (p *Strategy) Run(state State, version VersionValidator) (DownloadResult, b
 	}, false, nil
 }
 
-// Finish will attempt to close out the procedure and clean up any outstanding
-// tasks.
+// Finish will attempt to close out the download procedure. Cleaning up any
+// outstanding function tasks.
+// If the function task errors out, then it prevents any further task from being
+// executed.
+// It is expected that each task correctly handles the error if they want to
+// continue with finishing all the tasks.
 func (p *Strategy) Finish() error {
 	for _, f := range p.deferFuncs {
 		if err := f(); err != nil {
@@ -259,7 +268,7 @@ type StoreCharmHub struct{}
 
 // Validate checks to ensure that the schema is valid for the store.
 func (StoreCharmHub) Validate(curl *charm.URL) error {
-	if charm.CharmStore != charm.Schema(curl.Schema) {
+	if charm.CharmHub != charm.Schema(curl.Schema) {
 		return errors.Errorf("only charm hub charm URLs are supported")
 	}
 	return nil

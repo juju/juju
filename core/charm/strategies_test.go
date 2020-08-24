@@ -85,7 +85,7 @@ func (s strategySuite) TestRunWithCharmAlreadyUploaded(c *gc.C) {
 	curl := charm.MustParseURL("cs:redis-0")
 
 	mockStore := NewMockStore(ctrl)
-	mockVersionValidator := NewMockVersionValidator(ctrl)
+	mockVersionValidator := NewMockJujuVersionValidator(ctrl)
 
 	mockStateCharm := NewMockStateCharm(ctrl)
 	mockStateCharm.EXPECT().IsUploaded().Return(true)
@@ -109,7 +109,7 @@ func (s strategySuite) TestRunWithPrepareUploadError(c *gc.C) {
 	curl := charm.MustParseURL("cs:redis-0")
 
 	mockStore := NewMockStore(ctrl)
-	mockVersionValidator := NewMockVersionValidator(ctrl)
+	mockVersionValidator := NewMockJujuVersionValidator(ctrl)
 
 	mockState := NewMockState(ctrl)
 	mockState.EXPECT().PrepareCharmUpload(curl).Return(nil, errors.New("boom"))
@@ -132,7 +132,7 @@ func (s strategySuite) TestRun(c *gc.C) {
 		MinJujuVersion: version.Number{Major: 2},
 	}
 
-	mockVersionValidator := NewMockVersionValidator(ctrl)
+	mockVersionValidator := NewMockJujuVersionValidator(ctrl)
 	mockVersionValidator.EXPECT().Validate(meta).Return(nil)
 
 	mockStateCharm := NewMockStateCharm(ctrl)
@@ -169,7 +169,7 @@ func (s strategySuite) TestRunWithInvalidLXDProfile(c *gc.C) {
 		MinJujuVersion: version.Number{Major: 2},
 	}
 
-	mockVersionValidator := NewMockVersionValidator(ctrl)
+	mockVersionValidator := NewMockJujuVersionValidator(ctrl)
 	mockVersionValidator.EXPECT().Validate(meta).Return(nil)
 
 	mockStateCharm := NewMockStateCharm(ctrl)
@@ -211,7 +211,7 @@ func (s strategySuite) TestFinishAfterRun(c *gc.C) {
 		MinJujuVersion: version.Number{Major: 2},
 	}
 
-	mockVersionValidator := NewMockVersionValidator(ctrl)
+	mockVersionValidator := NewMockJujuVersionValidator(ctrl)
 	mockVersionValidator.EXPECT().Validate(meta).Return(nil)
 
 	mockStateCharm := NewMockStateCharm(ctrl)

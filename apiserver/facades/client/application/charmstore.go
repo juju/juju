@@ -95,12 +95,14 @@ func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthoriz
 		return errors.Trace(err)
 	}
 
+	// TODO (stickupkid): This should be abstracted out in the future to
+	// accommodate the charmhub adapter.
 	strategy, err := corecharm.DownloadFromCharmStore(repo, args.URL, args.Force)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// Validate the strategy for running the strategy.
+	// Validate the strategy before running the download procedure.
 	if err := strategy.Validate(); err != nil {
 		return errors.Trace(err)
 	}
