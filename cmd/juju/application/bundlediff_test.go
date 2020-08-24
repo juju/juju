@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/juju/charm/v8"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
@@ -20,6 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
+	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/core/constraints"
@@ -87,11 +87,12 @@ func (s *diffSuite) TestNotABundle(c *gc.C) {
 			"default-series": {Value: "xenial"},
 		},
 	}
+	s.charmStore.stub.SetErrors(nil, errors.NotValidf("not a bundle"))
 	_, err := s.runDiffBundle(c, "prometheus")
 	c.Logf(errors.ErrorStack(err))
 	// Fails because the series that comes back from the charm store
 	// is xenial rather than "bundle" (and there's no local bundle).
-	c.Assert(err, gc.ErrorMatches, `couldn't interpret "prometheus" as a local or charmstore bundle`)
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
 }
 
 func (s *diffSuite) TestLocalBundle(c *gc.C) {
@@ -375,16 +376,16 @@ func makeAPIResponsesWithRelations(relations []params.RelationStatus) map[string
 }
 
 type mockCharmStore struct {
-	stub    jujutesting.Stub
-	url     *charm.URL
-	channel csparams.Channel
-	series  []string
-	bundle  *mockBundle
+	stub   jujutesting.Stub
+	url    *charm.URL
+	origin commoncharm.Origin
+	series []string
+	bundle *mockBundle
 }
 
-func (s *mockCharmStore) ResolveWithPreferredChannel(url *charm.URL, preferredChannel csparams.Channel) (*charm.URL, csparams.Channel, []string, error) {
-	s.stub.AddCall("ResolveWithPreferredChannel", url, preferredChannel)
-	return s.url, s.channel, s.series, s.stub.NextErr()
+func (s *mockCharmStore) ResolveBundleURL(url *charm.URL, preferredOrigin commoncharm.Origin) (*charm.URL, commoncharm.Origin, error) {
+	s.stub.AddCall("ResolveBundleURL", url, preferredOrigin)
+	return s.url, s.origin, s.stub.NextErr()
 }
 
 func (s *mockCharmStore) GetBundle(url *charm.URL, path string) (charm.Bundle, error) {

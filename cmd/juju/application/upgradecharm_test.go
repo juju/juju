@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charms"
+	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/apiserver/params"
 	jujucharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/application/deployer"
@@ -55,7 +56,7 @@ type BaseUpgradeCharmSuite struct {
 
 	deployResources   resourceadapters.DeployResourcesFunc
 	fakeAPI           *fakeDeployAPI
-	resolveCharm      store.ResolveCharmFunc
+	resolveCharm      mockCharmResolver
 	resolvedCharmURL  *charm.URL
 	resolvedChannel   csclientparams.Channel
 	apiConnection     mockAPIConnection
@@ -99,20 +100,18 @@ func (s *BaseUpgradeCharmSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.resolvedChannel = csclientparams.StableChannel
-	s.resolveCharm = func(
-		resolveWithChannel func(*charm.URL, csclientparams.Channel) (*charm.URL, csclientparams.Channel, []string, error),
-		url *charm.URL,
-		preferredChannel csclientparams.Channel,
-	) (*charm.URL, csclientparams.Channel, []string, error) {
-		s.AddCall("ResolveCharm", url, preferredChannel)
-		if err := s.NextErr(); err != nil {
-			return nil, csclientparams.NoChannel, nil, err
-		}
+	s.resolveCharm = mockCharmResolver{
+		resolveFunc: func(url *charm.URL, preferredOrigin commoncharm.Origin) (*charm.URL, commoncharm.Origin, []string, error) {
+			s.AddCall("ResolveCharm", url, preferredOrigin)
+			if err := s.NextErr(); err != nil {
+				return nil, commoncharm.Origin{}, nil, err
+			}
 
-		if s.resolvedChannel != "" {
-			preferredChannel = s.resolvedChannel
-		}
-		return s.resolvedCharmURL, preferredChannel, []string{"quantal"}, nil
+			if s.resolvedChannel != "" {
+				preferredOrigin.Risk = string(s.resolvedChannel)
+			}
+			return s.resolvedCharmURL, preferredOrigin, []string{"quantal"}, nil
+		},
 	}
 
 	currentCharmURL := charm.MustParseURL("cs:quantal/foo-1")
@@ -173,7 +172,6 @@ func (s *BaseUpgradeCharmSuite) upgradeCommand() cmd.Command {
 		memStore,
 		apiOpen,
 		s.deployResources,
-		s.resolveCharm,
 		func(
 			bakeryClient *httpbakery.Client,
 			csURL string,
@@ -181,6 +179,10 @@ func (s *BaseUpgradeCharmSuite) upgradeCommand() cmd.Command {
 		) store.CharmrepoForDeploy {
 			s.AddCall("NewCharmStore", csURL)
 			return s.fakeAPI
+		},
+		func(base.APICallCloser, store.CharmrepoForDeploy) CharmResolver {
+			s.AddCall("NewCharmResolver")
+			return &s.resolveCharm
 		},
 		func(conn api.Connection) store.CharmAdder {
 			s.AddCall("NewCharmAdder", conn)
@@ -420,7 +422,7 @@ func (s *UpgradeCharmErrorsStateSuite) deployApplication(c *gc.C) {
 func (s *UpgradeCharmErrorsStateSuite) TestInvalidSwitchURL(c *gc.C) {
 	s.deployApplication(c)
 	_, err := s.runUpgradeCharm(c, s.cmd, "riak", "--switch=missing")
-	c.Assert(err, gc.ErrorMatches, `cannot resolve URL "cs:missing": charm or bundle not found`)
+	c.Assert(err, gc.ErrorMatches, `cannot resolve charm URL "cs:missing":.*`)
 }
 
 func (s *UpgradeCharmErrorsStateSuite) TestNoPathFails(c *gc.C) {
@@ -922,6 +924,15 @@ func (m *mockCharmClient) CharmInfo(curl string) (*charms.CharmInfo, error) {
 		return nil, err
 	}
 	return m.charmInfo, nil
+}
+
+type mockCharmResolver struct {
+	testing.Stub
+	resolveFunc func(url *charm.URL, preferredOrigin commoncharm.Origin) (*charm.URL, commoncharm.Origin, []string, error)
+}
+
+func (m *mockCharmResolver) ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin) (*charm.URL, commoncharm.Origin, []string, error) {
+	return m.resolveFunc(url, preferredOrigin)
 }
 
 type mockCharmUpgradeClient struct {

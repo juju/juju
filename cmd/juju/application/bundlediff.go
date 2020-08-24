@@ -20,11 +20,13 @@ import (
 	"github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
+	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	appbundle "github.com/juju/juju/cmd/juju/application/bundle"
 	"github.com/juju/juju/cmd/juju/application/store"
+	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/constraints"
 )
@@ -122,7 +124,7 @@ func (c *bundleDiffCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer apiRoot.Close()
+	defer func() { _ = apiRoot.Close() }()
 
 	// Load up the bundle data, with includes and overlays.
 	baseSrc, err := c.bundleDataSource(ctx)
@@ -157,7 +159,7 @@ func (c *bundleDiffCommand) Run(ctx *cmd.Context) error {
 	}
 
 	encoder := yaml.NewEncoder(ctx.Stdout)
-	defer encoder.Close()
+	defer func() { _ = encoder.Close() }()
 	err = encoder.Encode(diff)
 	if err != nil {
 		return errors.Trace(err)
@@ -218,11 +220,19 @@ func (c *bundleDiffCommand) bundleDataSource(ctx *cmd.Context) (charm.BundleData
 	}
 
 	// Not a local bundle, so it must be from the charmstore.
-	charmStore, err := c.charmStore()
+	bURL, err := charm.ParseURL(c.bundle)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	bundleURL, _, err := store.ResolveBundleURL(charmStore, c.bundle, c.channel)
+	origin, err := utils.DeduceOrigin(bURL, c.channel)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	charmAdaptor, err := c.charmAdaptor()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	bundleURL, _, err := charmAdaptor.ResolveBundleURL(bURL, origin)
 	if err != nil && !errors.IsNotValid(err) {
 		return nil, errors.Trace(err)
 	}
@@ -235,7 +245,7 @@ func (c *bundleDiffCommand) bundleDataSource(ctx *cmd.Context) (charm.BundleData
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	bundle, err := charmStore.GetBundle(bundleURL, dir)
+	bundle, err := charmAdaptor.GetBundle(bundleURL, dir)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -243,16 +253,16 @@ func (c *bundleDiffCommand) bundleDataSource(ctx *cmd.Context) (charm.BundleData
 	return store.NewResolvedBundle(bundle), nil
 }
 
-func (c *bundleDiffCommand) charmStore() (BundleResolver, error) {
+func (c *bundleDiffCommand) charmAdaptor() (BundleResolver, error) {
 	if c._charmStore != nil {
 		return c._charmStore, nil
 	}
-	controllerAPIRoot, err := c.NewControllerAPIRoot()
+	apiRoot, err := c.ModelCommandBase.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer controllerAPIRoot.Close()
-	csURL, err := getCharmStoreAPIURL(controllerAPIRoot)
+	defer func() { _ = apiRoot.Close() }()
+	csURL, err := getCharmStoreAPIURL(apiRoot)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -261,7 +271,8 @@ func (c *bundleDiffCommand) charmStore() (BundleResolver, error) {
 		return nil, errors.Trace(err)
 	}
 	cstoreClient := store.NewCharmStoreClient(bakeryClient, csURL).WithChannel(c.channel)
-	return charmrepo.NewCharmStoreFromClient(cstoreClient), nil
+	charmRepo := charmrepo.NewCharmStoreFromClient(cstoreClient)
+	return store.NewCharmAdaptor(charmRepo, apiRoot.BestFacadeVersion("Charms"), nil), nil
 }
 
 func (c *bundleDiffCommand) readModel(apiRoot base.APICallCloser) (*bundlechanges.Model, error) {
@@ -322,6 +333,6 @@ func (e *extractorImpl) Sequences() (map[string]int, error) {
 // BundleResolver defines what we need from a charm store to resolve a
 // bundle and read the bundle data.
 type BundleResolver interface {
-	store.URLResolver
+	ResolveBundleURL(*charm.URL, commoncharm.Origin) (*charm.URL, commoncharm.Origin, error)
 	GetBundle(*charm.URL, string) (charm.Bundle, error)
 }

@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -26,18 +25,17 @@ func NewUpgradeCharmCommandForTest(
 	store jujuclient.ClientStore,
 	apiOpen api.OpenFunc,
 	deployResources resourceadapters.DeployResourcesFunc,
-	resolveCharm store.ResolveCharmFunc,
 	newCharmStore NewCharmStoreFunc,
+	newCharmResolver NewCharmResolverFunc,
 	newCharmAdder NewCharmAdderFunc,
 	newCharmClient func(base.APICallCloser) utils.CharmClient,
-	newCharmUpgradeClient func(base.APICallCloser) CharmAPIClient,
+	newCharmUpgradeClient func(base.APICallCloser) CharmUpgradeClient,
 	newResourceLister func(base.APICallCloser) (utils.ResourceLister, error),
 	charmStoreURLGetter func(base.APICallCloser) (string, error),
 	newSpacesClient func(base.APICallCloser) SpacesAPI,
 ) cmd.Command {
 	cmd := &upgradeCharmCommand{
 		DeployResources:       deployResources,
-		ResolveCharm:          resolveCharm,
 		NewCharmAdder:         newCharmAdder,
 		NewCharmClient:        newCharmClient,
 		NewCharmUpgradeClient: newCharmUpgradeClient,
@@ -45,6 +43,7 @@ func NewUpgradeCharmCommandForTest(
 		CharmStoreURLGetter:   charmStoreURLGetter,
 		NewSpacesClient:       newSpacesClient,
 		NewCharmStore:         newCharmStore,
+		NewCharmResolver:      newCharmResolver,
 	}
 	cmd.SetClientStore(store)
 	cmd.SetAPIOpen(apiOpen)
@@ -56,7 +55,7 @@ func NewUpgradeCharmCommandForStateTest(
 	newCharmAdder NewCharmAdderFunc,
 	newCharmClient func(base.APICallCloser) utils.CharmClient,
 	deployResources resourceadapters.DeployResourcesFunc,
-	newCharmAPIClient func(conn base.APICallCloser) CharmAPIClient,
+	newCharmAPIClient func(conn base.APICallCloser) CharmUpgradeClient,
 ) cmd.Command {
 	cmd := newUpgradeCharmCommand()
 	cmd.NewCharmStore = newCharmStore

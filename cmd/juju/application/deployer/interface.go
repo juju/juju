@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
 	apicharms "github.com/juju/juju/api/charms"
+	commoncharm "github.com/juju/juju/api/common/charm"
 	apiparams "github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -111,11 +112,12 @@ type ApplicationAPI interface {
 	Consume(arg crossmodel.ConsumeApplicationArgs) (string, error)
 }
 
-// BundleResolver defines what we need from a charm store to resolve a
-// bundle and read the bundle data.
-type BundleResolver interface {
-	store.URLResolver
+// Resolver defines what we need  to resolve a charm or bundle and
+// read the bundle data.
+type Resolver interface {
 	GetBundle(*charm.URL, string) (charm.Bundle, error)
+	ResolveBundleURL(*charm.URL, commoncharm.Origin) (*charm.URL, commoncharm.Origin, error)
+	ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin) (*charm.URL, commoncharm.Origin, []string, error)
 }
 
 type ModelConfigGetter interface {
