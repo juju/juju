@@ -5,7 +5,6 @@ package application_test
 
 import (
 	stderrors "errors"
-	apicharm "github.com/juju/juju/api/common/charm"
 	"time"
 
 	"github.com/juju/charm/v8"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/juju/juju/api/application"
 	basetesting "github.com/juju/juju/api/base/testing"
+	apicharm "github.com/juju/juju/api/common/charm"
 	apitesting "github.com/juju/juju/api/testing"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
