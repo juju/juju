@@ -6,9 +6,7 @@ package application
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/url"
-	"os"
 	"strings"
 
 	"github.com/juju/charm/v8"
@@ -24,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/controller"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -90,93 +89,73 @@ type State interface {
 // The authorization macaroon, args.CharmStoreMacaroon, may be
 // omitted, in which case this call is equivalent to AddCharm.
 func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthorization, repoFn func() (charmrepo.Interface, error)) error {
-	charmURL, err := charm.ParseURL(args.URL)
-	if err != nil {
-		return err
-	}
-	if !charm.CharmStore.Matches(charmURL.Schema) {
-		return fmt.Errorf("only charm store charm URLs are supported, with cs: schema")
-	}
-	if charmURL.Revision < 0 {
-		return fmt.Errorf("charm URL must include revision")
-	}
-
-	// First, check if a pending or a real charm exists in state.
-	stateCharm, err := st.PrepareCharmUpload(charmURL)
-	if err != nil {
-		return err
-	}
-	if stateCharm.IsUploaded() {
-		// Charm already in state (it was uploaded already).
-		return nil
-	}
-
 	// Get the repo from the constructor
 	repo, err := repoFn()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// Get the charm and its information from the store.
-	f, err := ioutil.TempFile("", charmURL.Name)
+	// TODO (stickupkid): This should be abstracted out in the future to
+	// accommodate the charmhub adapter.
+	strategy, err := corecharm.DownloadFromCharmStore(repo, args.URL, args.Force)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer f.Close()
-	downloadedCharm, err := repo.Get(charmURL, f.Name())
-	if err != nil {
-		cause := errors.Cause(err)
-		if httpbakery.IsDischargeError(cause) || httpbakery.IsInteractionError(cause) {
-			return errors.NewUnauthorized(err, "")
-		}
+
+	// Validate the strategy before running the download procedure.
+	if err := strategy.Validate(); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := jujuversion.CheckJujuMinVersion(downloadedCharm.Meta().MinJujuVersion, jujuversion.Current); err != nil {
+	defer func() {
+		// Ensure we sign up any required clean ups.
+		_ = strategy.Finish()
+	}()
+
+	// Run the strategy.
+	result, alreadyExists, err := strategy.Run(makeCharmStateShim(st), versionValidator{})
+	if err != nil {
 		return errors.Trace(err)
-	}
-
-	// Validate the charm lxd profile once we've downloaded it.
-	if err := lxdprofile.ValidateLXDProfile(lxdCharmArchiveProfiler{
-		CharmArchive: downloadedCharm,
-	}); err != nil {
-		if !args.Force {
-			return errors.Annotate(err, "cannot add charm")
-		}
-	}
-
-	// Clean up the downloaded charm - we don't need to cache it in
-	// the filesystem as well as in blob storage.
-	defer os.Remove(downloadedCharm.Path)
-
-	// Open it and calculate the SHA256 hash.
-	archive, err := os.Open(downloadedCharm.Path)
-	if err != nil {
-		return errors.Annotate(err, "cannot read downloaded charm")
-	}
-	defer archive.Close()
-	bundleSHA256, size, err := utils.ReadSHA256(archive)
-	if err != nil {
-		return errors.Annotate(err, "cannot calculate SHA256 hash of charm")
-	}
-	if _, err := archive.Seek(0, 0); err != nil {
-		return errors.Annotate(err, "cannot rewind charm archive")
+	} else if alreadyExists {
+		// Nothing to do here, as it already exists in state.
+		return nil
 	}
 
 	ca := CharmArchive{
-		ID:           charmURL,
-		Charm:        downloadedCharm,
-		Data:         archive,
-		Size:         size,
-		SHA256:       bundleSHA256,
-		CharmVersion: downloadedCharm.Version(),
+		ID:           strategy.CharmURL(),
+		Charm:        result.Charm,
+		Data:         result.Data,
+		Size:         result.Size,
+		SHA256:       result.SHA256,
+		CharmVersion: result.Charm.Version(),
 	}
+
 	if args.CharmStoreMacaroon != nil {
 		ca.Macaroon = macaroon.Slice{args.CharmStoreMacaroon}
 	}
 
 	// Store the charm archive in environment storage.
 	return StoreCharmArchive(st, ca)
+}
+
+type versionValidator struct{}
+
+func (versionValidator) Validate(meta *charm.Meta) error {
+	return jujuversion.CheckJujuMinVersion(meta.MinJujuVersion, jujuversion.Current)
+}
+
+type charmStateShim struct {
+	st State
+}
+
+func makeCharmStateShim(st State) charmStateShim {
+	return charmStateShim{
+		st: st,
+	}
+}
+
+func (s charmStateShim) PrepareCharmUpload(curl *charm.URL) (corecharm.StateCharm, error) {
+	return s.st.PrepareCharmUpload(curl)
 }
 
 // AddCharmWithAuthorization adds the given charm URL (which must include revision) to

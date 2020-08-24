@@ -837,7 +837,7 @@ func (s *applicationSuite) TestAddCharm(c *gc.C) {
 	err = client.AddCharm(charm.MustParseURL("local:precise/dummy"), csparams.StableChannel, false)
 	c.Assert(err, gc.ErrorMatches, "only charm store charm URLs are supported, with cs: schema")
 	err = client.AddCharm(charm.MustParseURL("cs:precise/wordpress"), csparams.StableChannel, false)
-	c.Assert(err, gc.ErrorMatches, "charm URL must include revision")
+	c.Assert(err, gc.ErrorMatches, "charm URL must include a revision")
 
 	// Add a charm, without uploading it to storage, to
 	// check that AddCharm does not try to do it.
@@ -856,7 +856,6 @@ func (s *applicationSuite) TestAddCharm(c *gc.C) {
 	// AddCharm should see the charm in state and not upload it.
 	err = client.AddCharm(sch.URL(), csparams.StableChannel, false)
 	c.Assert(err, jc.ErrorIsNil)
-
 	c.Assert(blobs.m, gc.HasLen, 0)
 
 	// Now try adding another charm completely.
@@ -1162,9 +1161,9 @@ func (s *applicationSuite) TestApplicationSetCharmInvalidApplication(c *gc.C) {
 
 func (s *applicationSuite) TestApplicationAddCharmErrors(c *gc.C) {
 	for url, expect := range map[string]string{
-		"wordpress":                   "charm URL must include revision",
-		"cs:wordpress":                "charm URL must include revision",
-		"cs:precise/wordpress":        "charm URL must include revision",
+		"wordpress":                   "charm URL must include a revision",
+		"cs:wordpress":                "charm URL must include a revision",
+		"cs:precise/wordpress":        "charm URL must include a revision",
 		"cs:precise/wordpress-999999": `cannot retrieve "cs:precise/wordpress-999999": charm not found`,
 	} {
 		c.Logf("test %s", url)
