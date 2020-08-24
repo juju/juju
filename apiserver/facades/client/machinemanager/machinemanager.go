@@ -490,6 +490,15 @@ func (mm *MachineManagerAPI) UpgradeSeriesValidate(
 			continue
 		}
 
+		// If we've already got a series lock on upgrade, don't go any further.
+		if locked, err := machine.IsLockedForSeriesUpgrade(); err != nil && errors.IsNotFound(errors.Cause(err)) {
+			results[i].Error = common.ServerError(err)
+			continue
+		} else if locked {
+			results[i].Error = common.ServerError(errors.AlreadyExistsf("upgrade series lock for machine %q", machine.Id()))
+			continue
+		}
+
 		err = mm.validateSeries(arg.Series, machine.Series(), tag)
 		if err != nil {
 			results[i].Error = common.ServerError(err)
