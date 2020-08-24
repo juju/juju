@@ -40,6 +40,13 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.modelmanager")
 
+// ModelManagerV9 defines the methods on the version 9 facade for the
+// modelmanager API endpoint.
+type ModelManagerV9 interface {
+	ModelManagerV8
+	ValidateModelUpgrade(args params.Entities) (params.ErrorResults, error)
+}
+
 // ModelManagerV8 defines the methods on the version 8 facade for the
 // modelmanager API endpoint.
 type ModelManagerV8 interface {
@@ -129,10 +136,16 @@ type ModelManagerAPI struct {
 	callContext context.ProviderCallContext
 }
 
+// ModelManagerAPIV8 provides a way to wrap the different calls between
+// version 8 and version 8 of the model manager API
+type ModelManagerAPIV8 struct {
+	*ModelManagerAPI
+}
+
 // ModelManagerAPIV7 provides a way to wrap the different calls between
 // version 8 and version 7 of the model manager API
 type ModelManagerAPIV7 struct {
-	*ModelManagerAPI
+	*ModelManagerAPIV8
 }
 
 // ModelManagerAPIV6 provides a way to wrap the different calls between
@@ -166,7 +179,8 @@ type ModelManagerAPIV2 struct {
 }
 
 var (
-	_ ModelManagerV8 = (*ModelManagerAPI)(nil)
+	_ ModelManagerV9 = (*ModelManagerAPI)(nil)
+	_ ModelManagerV8 = (*ModelManagerAPIV8)(nil)
 	_ ModelManagerV7 = (*ModelManagerAPIV7)(nil)
 	_ ModelManagerV6 = (*ModelManagerAPIV6)(nil)
 	_ ModelManagerV5 = (*ModelManagerAPIV5)(nil)
@@ -175,8 +189,8 @@ var (
 	_ ModelManagerV2 = (*ModelManagerAPIV2)(nil)
 )
 
-// NewFacadeV8 is used for API registration.
-func NewFacadeV8(ctx facade.Context) (*ModelManagerAPI, error) {
+// NewFacadeV9 is used for API registration.
+func NewFacadeV9(ctx facade.Context) (*ModelManagerAPI, error) {
 	st := ctx.State()
 	pool := ctx.StatePool()
 	ctlrSt := pool.SystemState()
@@ -211,6 +225,15 @@ func NewFacadeV8(ctx facade.Context) (*ModelManagerAPI, error) {
 		model,
 		context.CallContext(st),
 	)
+}
+
+// NewFacadeV8 is used for API registration.
+func NewFacadeV8(ctx facade.Context) (*ModelManagerAPIV8, error) {
+	v9, err := NewFacadeV9(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &ModelManagerAPIV8{v9}, nil
 }
 
 // NewFacadeV7 is used for API registration.
@@ -258,7 +281,7 @@ func NewFacadeV3(ctx facade.Context) (*ModelManagerAPIV3, error) {
 	return &ModelManagerAPIV3{v4}, nil
 }
 
-// NewFacade is used for API registration.
+// NewFacadeV2 is used for API registration.
 func NewFacadeV2(ctx facade.Context) (*ModelManagerAPIV2, error) {
 	v3, err := NewFacadeV3(ctx)
 	if err != nil {
@@ -1392,7 +1415,8 @@ func changeModelAccess(accessor common.ModelManagerBackend, modelTag names.Model
 	}
 }
 
-// ModelDefaults returns the default config values for the specified clouds.
+// ModelDefaultsForClouds returns the default config values for the specified
+// clouds.
 func (m *ModelManagerAPI) ModelDefaultsForClouds(args params.Entities) (params.ModelDefaultsResults, error) {
 	result := params.ModelDefaultsResults{}
 	if !m.isAdmin {
@@ -1527,22 +1551,22 @@ func (m *ModelManagerAPI) makeRegionSpec(cloudTag, r string) (*environs.CloudReg
 // ModelStatus is a legacy method call to ensure that we preserve
 // backward compatibility.
 // TODO (anastasiamac 2017-10-26) This should be made obsolete/removed.
-func (s *ModelManagerAPIV2) ModelStatus(req params.Entities) (params.ModelStatusResults, error) {
-	return s.ModelManagerAPI.oldModelStatus(req)
+func (m *ModelManagerAPIV2) ModelStatus(req params.Entities) (params.ModelStatusResults, error) {
+	return m.ModelManagerAPI.oldModelStatus(req)
 }
 
 // ModelStatus is a legacy method call to ensure that we preserve
 // backward compatibility.
 // TODO (anastasiamac 2017-10-26) This should be made obsolete/removed.
-func (s *ModelManagerAPIV3) ModelStatus(req params.Entities) (params.ModelStatusResults, error) {
-	return s.ModelManagerAPI.oldModelStatus(req)
+func (m *ModelManagerAPIV3) ModelStatus(req params.Entities) (params.ModelStatusResults, error) {
+	return m.ModelManagerAPI.oldModelStatus(req)
 }
 
 // ModelStatus is a legacy method call to ensure that we preserve
 // backward compatibility.
 // TODO (anastasiamac 2017-10-26) This should be made obsolete/removed.
-func (s *ModelManagerAPI) oldModelStatus(req params.Entities) (params.ModelStatusResults, error) {
-	results, err := s.ModelStatusAPI.ModelStatus(req)
+func (m *ModelManagerAPI) oldModelStatus(req params.Entities) (params.ModelStatusResults, error) {
+	results, err := m.ModelStatusAPI.ModelStatus(req)
 	if err != nil {
 		return params.ModelStatusResults{}, err
 	}
@@ -1554,7 +1578,7 @@ func (s *ModelManagerAPI) oldModelStatus(req params.Entities) (params.ModelStatu
 	return results, nil
 }
 
-// ChangeModelCredentials changes cloud credential reference for models.
+// ChangeModelCredential changes cloud credential reference for models.
 // These new cloud credentials must already exist on the controller.
 func (m *ModelManagerAPI) ChangeModelCredential(args params.ChangeModelCredentialsParams) (params.ErrorResults, error) {
 	if err := m.check.ChangeAllowed(); err != nil {
@@ -1617,12 +1641,71 @@ func (m *ModelManagerAPI) ChangeModelCredential(args params.ChangeModelCredentia
 	return params.ErrorResults{results}, nil
 }
 
+// ValidateModelUpgrade validates if a model is allowed to perform an upgrade.
+// Examples of why you would want to block a model upgrade, would be situations
+// like upgrade-series. If performing an upgrade-series we don't know the
+// current status of the machine, so performing an upgrade-model can lead to
+// bad unintended errors down the line.
+func (m *ModelManagerAPI) ValidateModelUpgrade(arg params.ModelArgs) (params.ErrorResult, error) {
+	if err := m.check.ChangeAllowed(); err != nil {
+		return params.ErrorResult{}, errors.Trace(err)
+	}
+
+	controllerAdmin, err := m.authorizer.HasPermission(permission.SuperuserAccess, m.state.ControllerTag())
+	if err != nil {
+		return params.ErrorResult{}, errors.Trace(err)
+	}
+	// Only controller or model admin can change cloud credential on a model.
+	checkModelAccess := func(tag names.ModelTag) error {
+		if controllerAdmin {
+			return nil
+		}
+		modelAdmin, err := m.authorizer.HasPermission(permission.AdminAccess, tag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if modelAdmin {
+			return nil
+		}
+		return common.ErrPerm
+	}
+
+	modelTag, err := names.ParseModelTag(arg.ModelTag)
+	if err != nil {
+		return params.ErrorResult{Error: common.ServerError(err)}, nil
+	}
+	if modelTag.Id() != m.model.ModelTag().Id() {
+		err := errors.BadRequestf("unexpected model id")
+		return params.ErrorResult{Error: common.ServerError(err)}, nil
+	}
+	if err := checkModelAccess(modelTag); err != nil {
+		return params.ErrorResult{Error: common.ServerError(err)}, nil
+	}
+	machines, err := m.state.AllMachines()
+	if err != nil {
+		return params.ErrorResult{Error: common.ServerError(err)}, nil
+	}
+	for _, machine := range machines {
+		if locked, err := machine.IsLockedForSeriesUpgrade(); err != nil && !errors.IsNotFound(err) {
+			return params.ErrorResult{Error: common.ServerError(err)}, nil
+		} else if locked {
+			err := errors.AlreadyExistsf("unexpected upgrade series lock for machine %q", machine.Id())
+			return params.ErrorResult{Error: common.ServerError(err)}, nil
+		}
+	}
+
+	return params.ErrorResult{}, nil
+}
+
 // Mask out new methods from the old API versions. The API reflection
 // code in rpc/rpcreflect/type.go:newMethod skips 2-argument methods,
 // so this removes the method as far as the RPC machinery is concerned.
-//
+
 // ChangeModelCredential did not exist prior to v5.
 func (*ModelManagerAPIV4) ChangeModelCredential(_, _ struct{}) {}
 
 // ModelDefaultsForClouds did not exist prior to v6.
 func (*ModelManagerAPIV5) ModelDefaultsForClouds(_, _ struct{}) {}
+
+// ValidateModelUpgrade did not exist prior to v9.
+func (*ModelManagerAPIV8) ValidateModelUpgrade(_, _ struct{}) {}
