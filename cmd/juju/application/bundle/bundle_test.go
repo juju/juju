@@ -96,7 +96,7 @@ func (s *buildModelRepSuite) testBuildModelRepresentationUseExistingMachines(c *
 func (s *buildModelRepSuite) TestBuildModelRepresentationApplicationsWithSubordinate(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectGetAnnotations(c, []string{"machine-0", "machine-1", "application-wordpress", "application-sub"})
-	s.expectGetConfigWordpress()
+	s.expectGetConfigSubWordpress()
 	s.expectGetConstraintsWordpress()
 	s.expectEmptySequences()
 
@@ -128,10 +128,14 @@ func (s *buildModelRepSuite) TestBuildModelRepresentationApplicationsWithSubordi
 	obtainedModel, err := BuildModelRepresentation(status, s.modelExtractor, false, machines)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedModel.Applications, gc.HasLen, 2)
-	_, ok := obtainedModel.Applications["wordpress"]
+	obtainedWordpress, ok := obtainedModel.Applications["wordpress"]
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(obtainedWordpress.Options, gc.HasLen, 1)
+	_, ok = obtainedWordpress.Options["skill-level"]
 	c.Assert(ok, jc.IsTrue)
 	_, ok = obtainedModel.Applications["sub"]
 	c.Assert(ok, jc.IsTrue)
+
 	c.Assert(obtainedModel.Machines, gc.HasLen, 2)
 	c.Assert(obtainedModel.Relations, gc.HasLen, 0)
 	c.Assert(obtainedModel.Sequence, gc.HasLen, 0)
@@ -169,9 +173,9 @@ func (s *buildModelRepSuite) expectEmptyGetConfig() {
 	s.modelExtractor.EXPECT().GetConfig(model.GenerationMaster, []string{}).Return(nil, nil)
 }
 
-func (s *buildModelRepSuite) expectGetConfigWordpress() {
-	cfg := map[string]interface{}{
-		"outlook": map[string]interface{}{
+func (s *buildModelRepSuite) expectGetConfigSubWordpress() {
+	wordpressCfg := map[string]interface{}{
+		"outlook": map[string]interface{}{ // Uses default value, will not be in model representation.
 			"description": "No default outlook.",
 			"source":      "unset",
 			"type":        "string",
@@ -182,7 +186,11 @@ func (s *buildModelRepSuite) expectGetConfigWordpress() {
 			"type":        "int",
 			"value":       42,
 		}}
-	s.modelExtractor.EXPECT().GetConfig(model.GenerationMaster, "wordpress").Return([]map[string]interface{}{cfg}, nil)
+	retval := []map[string]interface{}{
+		{},           // sub
+		wordpressCfg, // wordpress
+	}
+	s.modelExtractor.EXPECT().GetConfig(model.GenerationMaster, "sub", "wordpress").Return(retval, nil)
 }
 
 func (s *buildModelRepSuite) expectEmptySequences() {

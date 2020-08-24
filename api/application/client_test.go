@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/api/application"
 	basetesting "github.com/juju/juju/api/base/testing"
+	apicharm "github.com/juju/juju/api/common/charm"
 	apitesting "github.com/juju/juju/api/testing"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
@@ -120,8 +121,8 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 		CharmID: charmstore.CharmID{
 			URL: charm.MustParseURL("trusty/a-charm-1"),
 		},
-		CharmOrigin: application.CharmOrigin{
-			Source: "charm-store",
+		CharmOrigin: apicharm.Origin{
+			Source: apicharm.OriginCharmStore,
 		},
 		ApplicationName:  "applicationA",
 		Series:           "series",

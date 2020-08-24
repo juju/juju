@@ -7,26 +7,26 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/application"
+	apicharm "github.com/juju/juju/api/common/charm"
 )
 
-func deduceOrigin(url *charm.URL) (application.CharmOrigin, error) {
+func deduceOrigin(url *charm.URL) (apicharm.Origin, error) {
 	if url == nil {
-		return application.CharmOrigin{}, errors.NotValidf("charm url")
+		return apicharm.Origin{}, errors.NotValidf("charm url")
 	}
 
 	switch url.Schema {
 	case "cs":
-		return application.CharmOrigin{
-			Source: application.OriginCharmStore,
+		return apicharm.Origin{
+			Source: apicharm.OriginCharmStore,
 		}, nil
 	case "local":
-		return application.CharmOrigin{
-			Source: application.OriginLocal,
+		return apicharm.Origin{
+			Source: apicharm.OriginLocal,
 		}, nil
 	default:
-		return application.CharmOrigin{
-			Source: application.OriginCharmHub,
+		return apicharm.Origin{
+			Source: apicharm.OriginCharmHub,
 		}, nil
 	}
 }

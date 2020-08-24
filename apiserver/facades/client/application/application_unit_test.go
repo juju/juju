@@ -756,7 +756,7 @@ func (s *ApplicationSuite) TestDeployAttachStorage(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
-	ch := "latest/stable"
+	track := "latest"
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
@@ -767,8 +767,9 @@ func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
 			ApplicationName: "bar",
 			CharmURL:        "cs:bar-0",
 			CharmOrigin: &params.CharmOrigin{
-				Source:  "charm-store",
-				Channel: &ch,
+				Source: "charm-store",
+				Risk:   "stable",
+				Track:  &track,
 			},
 			NumUnits: 1,
 		}, {
@@ -776,6 +777,7 @@ func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
 			CharmURL:        "hub-0",
 			CharmOrigin: &params.CharmOrigin{
 				Source: "charm-hub",
+				Risk:   "stable",
 			},
 			NumUnits: 1,
 		}},

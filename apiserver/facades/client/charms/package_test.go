@@ -12,3 +12,6 @@ import (
 func TestAll(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
 }
+
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/apiserver/facades/client/charms BackendState,BackendModel
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/resolver_mock.go github.com/juju/juju/apiserver/facades/client/charms CSURLResolver
