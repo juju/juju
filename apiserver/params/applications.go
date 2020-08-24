@@ -28,7 +28,7 @@ type CharmOrigin struct {
 	Hash string `json:"hash,omitempty"`
 
 	// Risk is the CharmHub channel risk, or the CharmStore channel value.
-	Risk string `json:"track,omitempty"`
+	Risk string `json:"risk,omitempty"`
 
 	// Revision is the charm revision number.
 	Revision *int    `json:"revision,omitempty"`
