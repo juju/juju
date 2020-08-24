@@ -5,6 +5,10 @@ package utils
 
 import (
 	"fmt"
+	"io/ioutil"
+
+	"github.com/juju/cmd"
+	"github.com/juju/juju/cmd/modelcmd"
 
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
@@ -131,4 +135,25 @@ func shouldUpgradeResource(res charmresource.Meta, uploads map[string]string, cu
 		return false
 	}
 	return true
+}
+
+const maxValueSize = 5242880 // Max size for a config file.
+
+// readValue reads the value of an option out of the named file.
+// An empty content is valid, like in parsing the options. The upper
+// size is 5M.
+func ReadValue(ctx *cmd.Context, filesystem modelcmd.Filesystem, filename string) (string, error) {
+	absFilename := ctx.AbsPath(filename)
+	fi, err := filesystem.Stat(absFilename)
+	if err != nil {
+		return "", errors.Errorf("cannot read option from file %q: %v", filename, err)
+	}
+	if fi.Size() > maxValueSize {
+		return "", errors.Errorf("size of option file is larger than 5M")
+	}
+	content, err := ioutil.ReadFile(ctx.AbsPath(filename))
+	if err != nil {
+		return "", errors.Errorf("cannot read option from file %q: %v", filename, err)
+	}
+	return string(content), nil
 }

@@ -5,7 +5,6 @@ package application
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"strings"
 	"unicode/utf8"
 
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
@@ -25,8 +25,6 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 )
-
-const maxValueSize = 5242880 // Max size for a config file.
 
 const (
 	configSummary = `Gets, sets, or resets configuration for a deployed application.`
@@ -488,7 +486,7 @@ func (c *configCommand) validateValues(ctx *cmd.Context) (map[string]string, err
 			settings[k] = v
 			continue
 		}
-		nv, err := readValue(ctx, c.Filesystem(), v[1:])
+		nv, err := utils.ReadValue(ctx, c.Filesystem(), v[1:])
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -498,23 +496,4 @@ func (c *configCommand) validateValues(ctx *cmd.Context) (map[string]string, err
 		settings[k] = nv
 	}
 	return settings, nil
-}
-
-// readValue reads the value of an option out of the named file.
-// An empty content is valid, like in parsing the options. The upper
-// size is 5M.
-func readValue(ctx *cmd.Context, filesystem modelcmd.Filesystem, filename string) (string, error) {
-	absFilename := ctx.AbsPath(filename)
-	fi, err := filesystem.Stat(absFilename)
-	if err != nil {
-		return "", errors.Errorf("cannot read option from file %q: %v", filename, err)
-	}
-	if fi.Size() > maxValueSize {
-		return "", errors.Errorf("size of option file is larger than 5M")
-	}
-	content, err := ioutil.ReadFile(ctx.AbsPath(filename))
-	if err != nil {
-		return "", errors.Errorf("cannot read option from file %q: %v", filename, err)
-	}
-	return string(content), nil
 }

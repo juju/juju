@@ -128,6 +128,16 @@ func (d *deployCharm) deploy(
 	appConfig := make(map[string]string)
 	for k, v := range attr {
 		appConfig[k] = v.(string)
+
+		// Handle @ syntax for including file contents as values so we
+		// are consistent to how 'juju config' works
+		if len(appConfig[k]) < 1 || appConfig[k][0] != '@' {
+			continue
+		}
+
+		if appConfig[k], err = utils.ReadValue(ctx, d.model.Filesystem(), appConfig[k][1:]); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	// Expand the trust flag into the appConfig
