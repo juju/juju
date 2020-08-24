@@ -3194,6 +3194,9 @@
                         "revision": {
                             "type": "integer"
                         },
+                        "risk": {
+                            "type": "string"
+                        },
                         "source": {
                             "type": "string"
                         },
@@ -10321,6 +10324,9 @@
                         },
                         "revision": {
                             "type": "integer"
+                        },
+                        "risk": {
+                            "type": "string"
                         },
                         "source": {
                             "type": "string"
