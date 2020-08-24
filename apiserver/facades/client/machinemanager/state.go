@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
@@ -58,6 +59,7 @@ type Machine interface {
 	GetUpgradeSeriesMessages() ([]string, bool, error)
 	IsManager() bool
 	IsLockedForSeriesUpgrade() (bool, error)
+	UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error)
 }
 
 type stateShim struct {

@@ -1162,6 +1162,15 @@ type UpgradeSeriesUnitsResult struct {
 	UnitNames []string `json:"unit-names"`
 }
 
+type UpgradeSeriesValidationErrorInfo struct {
+	Status string
+}
+
+// AsMap encodes the error info as a map that can be attached to an Error.
+func (e UpgradeSeriesValidationErrorInfo) AsMap() map[string]interface{} {
+	return serializeToMap(e)
+}
+
 type ProfileArg struct {
 	Entity   Entity `json:"entity"`
 	UnitName string `json:"unit-name"`

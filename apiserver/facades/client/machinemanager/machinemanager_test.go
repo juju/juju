@@ -581,7 +581,7 @@ func (s *MachineManagerSuite) TestUpgradeSeriesValidateIsLockedForSeriesUpgradeE
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results.Results[0].Error, gc.ErrorMatches,
-		`upgrade series lock for machine "4" already exists`)
+		`upgrade series lock found for "4"; series upgrade is in the "not started" state`)
 }
 
 func (s *MachineManagerSuite) TestUpgradeSeriesValidateNoSeriesError(c *gc.C) {
@@ -1136,6 +1136,11 @@ func (m *mockMachine) IsManager() bool {
 func (m *mockMachine) IsLockedForSeriesUpgrade() (bool, error) {
 	m.MethodCall(m, "IsLockedForSeriesUpgrade")
 	return m.isLockedForSeriesUpgrade, nil
+}
+
+func (m *mockMachine) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
+	m.MethodCall(m, "UpgradeSeriesStatus")
+	return model.UpgradeSeriesNotStarted, nil
 }
 
 type mockUnit struct {
