@@ -453,3 +453,13 @@ type ChangeModelCredentialParams struct {
 type ChangeModelCredentialsParams struct {
 	Models []ChangeModelCredentialParams `json:"model-credentials"`
 }
+
+// ValidateModelUpgradeParams is used to ensure that a model can be upgraded.
+type ValidateModelUpgradeParams struct {
+	// ModelTag is a tag for the model that you want to upgrade.
+	ModelTag string `json:"model-tag"`
+
+	// Force can be used to override certain validation checks. Useful for
+	// ignoring upgrade-series errors.
+	Force bool
+}

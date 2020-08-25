@@ -44,7 +44,7 @@ var logger = loggo.GetLogger("juju.apiserver.modelmanager")
 // modelmanager API endpoint.
 type ModelManagerV9 interface {
 	ModelManagerV8
-	ValidateModelUpgrade(args params.Entities) (params.ErrorResults, error)
+	ValidateModelUpgrade(args params.ValidateModelUpgradeParams) (params.ErrorResult, error)
 }
 
 // ModelManagerV8 defines the methods on the version 8 facade for the
@@ -1646,7 +1646,7 @@ func (m *ModelManagerAPI) ChangeModelCredential(args params.ChangeModelCredentia
 // like upgrade-series. If performing an upgrade-series we don't know the
 // current status of the machine, so performing an upgrade-model can lead to
 // bad unintended errors down the line.
-func (m *ModelManagerAPI) ValidateModelUpgrade(arg params.ModelArgs) (params.ErrorResult, error) {
+func (m *ModelManagerAPI) ValidateModelUpgrade(arg params.ValidateModelUpgradeParams) (params.ErrorResult, error) {
 	if err := m.check.ChangeAllowed(); err != nil {
 		return params.ErrorResult{}, errors.Trace(err)
 	}
@@ -1681,20 +1681,29 @@ func (m *ModelManagerAPI) ValidateModelUpgrade(arg params.ModelArgs) (params.Err
 	if err := checkModelAccess(modelTag); err != nil {
 		return params.ErrorResult{Error: common.ServerError(err)}, nil
 	}
-	machines, err := m.state.AllMachines()
-	if err != nil {
+
+	// Now check for the validation of a model upgrade.
+
+	if err := m.validateSeriesUpgradeForSeriesUpgrade(arg.Force); err != nil {
 		return params.ErrorResult{Error: common.ServerError(err)}, nil
-	}
-	for _, machine := range machines {
-		if locked, err := machine.IsLockedForSeriesUpgrade(); err != nil && !errors.IsNotFound(err) {
-			return params.ErrorResult{Error: common.ServerError(err)}, nil
-		} else if locked {
-			err := errors.AlreadyExistsf("unexpected upgrade series lock for machine %q", machine.Id())
-			return params.ErrorResult{Error: common.ServerError(err)}, nil
-		}
 	}
 
 	return params.ErrorResult{}, nil
+}
+
+func (m *ModelManagerAPI) validateSeriesUpgradeForSeriesUpgrade(force bool) error {
+	machines, err := m.state.AllMachines()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, machine := range machines {
+		if locked, err := machine.IsLockedForSeriesUpgrade(); err != nil && !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		} else if locked && !force {
+			return errors.AlreadyExistsf("unexpected upgrade series lock for machine %q", machine.Id())
+		}
+	}
+	return nil
 }
 
 // Mask out new methods from the old API versions. The API reflection
