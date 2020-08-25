@@ -182,7 +182,7 @@ func patchForLabels(
 	legacyLabels bool) []patchOperation {
 	patches := []patchOperation{}
 
-	neededLabels := provider.LabelsForApp(appName, legacyLabels)
+	neededLabels := provider.LabelForKeyValue(provider.LabelJujuAppCreatedBy, appName)
 
 	if len(labels) == 0 {
 		patches = append(patches, patchOperation{

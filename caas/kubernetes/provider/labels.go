@@ -24,6 +24,11 @@ const (
 	// See https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/#labels
 	LabelKubernetesAppManaged = "app.kubernetes.io/managed-by"
 
+	// LabelJujuAppCreatedBy is a Juju application label to apply to objects
+	// created by applications managed by Juju. Think istio, kubeflow etc
+	// See https://bugs.launchpad.net/juju/+bug/1892285
+	LabelJujuAppCreatedBy = "app.juju.is/created-by"
+
 	// LabelJujuModelName is the juju label applied for juju models.
 	LabelJujuModelName = "model.juju.is/name"
 
@@ -148,6 +153,12 @@ func LabelsForStorage(name string, legacy bool) labels.Set {
 	}
 	return map[string]string{
 		LabelJujuStorageName: name,
+	}
+}
+
+func LabelForKeyValue(key, value string) labels.Set {
+	return labels.Set{
+		key: value,
 	}
 }
 
