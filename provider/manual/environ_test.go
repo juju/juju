@@ -147,11 +147,6 @@ exit 0
 	}
 }
 
-func (s *environSuite) TestSupportsNetworking(c *gc.C) {
-	_, ok := environs.SupportsNetworking(s.env)
-	c.Assert(ok, jc.IsFalse)
-}
-
 func (s *environSuite) TestConstraintsValidator(c *gc.C) {
 	s.PatchValue(&sshprovisioner.DetectSeriesAndHardwareCharacteristics,
 		func(string) (instance.HardwareCharacteristics, string, error) {
