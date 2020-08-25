@@ -25,8 +25,8 @@ import (
 	"github.com/juju/juju/environs"
 	environsTesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/jujuclient"
-	_ "github.com/juju/juju/provider/all"
 	_ "github.com/juju/juju/provider/dummy"
+	_ "github.com/juju/juju/provider/gce"
 	"github.com/juju/juju/testing"
 )
 

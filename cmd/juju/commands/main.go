@@ -4,26 +4,17 @@
 package commands
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"strings"
-	"text/template"
 
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
-	utilsos "github.com/juju/os"
-	"github.com/juju/os/series"
 	proxyutils "github.com/juju/proxy"
-	"github.com/juju/version"
-
-	// Import the providers.
-	_ "github.com/juju/juju/provider/all"
 
 	cloudfile "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
@@ -91,19 +82,19 @@ var x = []byte("\x96\x8c\x8a\x91\x93\x9a\x9e\x8c\x97\x99\x8a\x9c\x94\x96\x91\x98
 // provides an entry point for testing with arbitrary command line arguments.
 // This function returns the exit code, for main to pass to os.Exit.
 func Main(args []string) int {
-	return main{
+	return jujuMain{
 		execCommand: exec.Command,
 	}.Run(args)
 }
 
 // main is a type that captures dependencies for running the main function.
-type main struct {
+type jujuMain struct {
 	// execCommand abstracts away exec.Command.
 	execCommand func(command string, args ...string) *exec.Cmd
 }
 
 // Run is the main entry point for the juju client.
-func (m main) Run(args []string) int {
+func (m jujuMain) Run(args []string) int {
 	ctx, err := cmd.DefaultContext()
 	if err != nil {
 		cmd.WriteError(os.Stderr, err)
@@ -112,7 +103,7 @@ func (m main) Run(args []string) int {
 
 	// note that this has to come before we init the juju home directory,
 	// since it relies on detecting the lack of said directory.
-	newInstall, jujuMsg := m.maybeWarnJuju1x()
+	newInstall := !juju2xConfigDataExists()
 
 	if err = juju.InitJujuXDGDataHome(); err != nil {
 		cmd.WriteError(ctx.Stderr, err)
@@ -124,14 +115,12 @@ func (m main) Run(args []string) int {
 		return 2
 	}
 
+	var jujuMsg string
 	if newInstall {
 		if _, _, err := cloud.FetchAndMaybeUpdatePublicClouds(cloud.PublicCloudsAccess(), true); err != nil {
 			cmd.WriteError(ctx.Stderr, err)
 		}
-		if jujuMsg != "" {
-			jujuMsg += "\n"
-		}
-		jujuMsg += fmt.Sprintf("Since Juju %v is being run for the first time, downloaded the latest public cloud information.\n", jujuversion.Current.Major)
+		jujuMsg = fmt.Sprintf("Since Juju %v is being run for the first time, downloaded the latest public cloud information.\n", jujuversion.Current.Major)
 	}
 
 	for i := range x {
@@ -185,63 +174,6 @@ func installProxy() error {
 		return errors.Trace(err)
 	}
 	return nil
-}
-
-func (m main) maybeWarnJuju1x() (newInstall bool, jujuMsg string) {
-	newInstall = !juju2xConfigDataExists()
-	if !shouldWarnJuju1x() {
-		return
-	}
-	ver, exists := m.juju1xVersion()
-	if !exists {
-		return
-	}
-
-	// TODO (anastasiamac 2016-10-21) Once manual page exists as per
-	// https://github.com/juju/docs/issues/1487,
-	// link it in the Note below to avoid propose here.
-	welcomeMsgTemplate := `
-Welcome to Juju {{.CurrentJujuVersion}}. 
-    See https://jujucharms.com/docs/stable/introducing-2 for more details.
-
-If you want to use Juju {{.OldJujuVersion}}, run 'juju' commands as '{{.OldJujuCommand}}'. For example, '{{.OldJujuCommand}} bootstrap'.
-   See https://jujucharms.com/docs/stable/juju-coexist for installation details. 
-`[1:]
-	t := template.Must(template.New("plugin").Parse(welcomeMsgTemplate))
-	var buf bytes.Buffer
-	t.Execute(&buf, map[string]interface{}{
-		"CurrentJujuVersion": jujuversion.Current,
-		"OldJujuVersion":     ver,
-		"OldJujuCommand":     juju1xCmdName,
-	})
-	jujuMsg = buf.String()
-	return
-}
-
-func (m main) juju1xVersion() (ver string, exists bool) {
-	out, err := m.execCommand(juju1xCmdName, "version").Output()
-	if err == exec.ErrNotFound {
-		return "", false
-	}
-	ver = "1.x"
-	if err == nil {
-		v := strings.TrimSpace(string(out))
-		// parse so we can drop the series and arch
-		bin, err := version.ParseBinary(v)
-		if err == nil {
-			ver = bin.Number.String()
-		}
-	}
-	return ver, true
-}
-
-func shouldWarnJuju1x() bool {
-	// this code only applies to Ubuntu, where we renamed Juju 1.x to juju-1.
-	ostype, err := series.GetOSFromSeries(series.MustHostSeries())
-	if err != nil || ostype != utilsos.Ubuntu {
-		return false
-	}
-	return osenv.Juju1xEnvConfigExists() && !juju2xConfigDataExists()
 }
 
 func juju2xConfigDataExists() bool {

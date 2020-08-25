@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
-	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/testing"
 )
 
@@ -144,6 +143,41 @@ beehive:
   regions:
     regionone:
       endpoint: http://boston/1.0
+`[1:])
+}
+
+func (s *listSuite) TestListEmbedded(c *gc.C) {
+	cmd := cloud.NewListCloudCommandForTest(
+		s.store,
+		func() (cloud.ListCloudsAPI, error) {
+			return s.api, nil
+		})
+	cmd.SetEmbedded(true)
+	s.api.controllerClouds = make(map[names.CloudTag]jujucloud.Cloud)
+	s.api.controllerClouds[names.NewCloudTag("beehive")] = jujucloud.Cloud{
+		Name:      "beehive",
+		Type:      "openstack",
+		AuthTypes: []jujucloud.AuthType{"userpass", "access-key"},
+		Endpoint:  "http://myopenstack",
+		Regions: []jujucloud.Region{
+			{
+				Name:     "regionone",
+				Endpoint: "http://boston/1.0",
+			},
+		},
+	}
+
+	ctx, err := cmdtesting.RunCommand(c, cmd)
+	c.Assert(err, jc.ErrorIsNil)
+	s.api.CheckCallNames(c, "Clouds", "Close")
+	c.Assert(cmd.ControllerName, gc.Equals, "mycontroller")
+
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+
+Clouds available on the controller:
+Cloud    Regions  Default    Type
+beehive  1        regionone  openstack  
+
 `[1:])
 }
 

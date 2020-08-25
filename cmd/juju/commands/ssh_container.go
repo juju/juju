@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -19,7 +20,6 @@ import (
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/cloudspec"
 	jujussh "github.com/juju/juju/network/ssh"
 )
@@ -34,6 +34,7 @@ type sshContainer struct {
 	// remote indicates if it should target to the operator or workload pod.
 	remote    bool
 	target    string
+	container string
 	args      []string
 	modelUUID string
 
@@ -67,6 +68,7 @@ type ModelAPI interface {
 // SetFlags sets up options and flags for the command.
 func (c *sshContainer) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.remote, "remote", false, "Target on the workload or operator pod (k8s-only)")
+	f.StringVar(&c.container, "container", "", "the container name of the target pod")
 }
 
 func (c *sshContainer) setHostChecker(checker jujussh.ReachableChecker) {}
@@ -93,7 +95,7 @@ func (c *sshContainer) setArgs(args []string) {
 
 // initRun initializes the API connection if required. It must be called
 // at the top of the command's Run method.
-func (c *sshContainer) initRun(mc modelcmd.ModelCommandBase) (err error) {
+func (c *sshContainer) initRun(mc ModelCommand) (err error) {
 	if len(c.modelUUID) == 0 {
 		_, mDetails, err := mc.ModelDetails()
 		if err != nil {
@@ -185,9 +187,7 @@ func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 		}
 		providerID = unit.ProviderId
 	}
-	return &resolvedTarget{
-		entity: providerID,
-	}, nil
+	return &resolvedTarget{entity: providerID}, nil
 }
 
 // Context defines methods for command context.
@@ -200,11 +200,35 @@ type Context interface {
 }
 
 func (c *sshContainer) ssh(ctx Context, enablePty bool, target *resolvedTarget) (err error) {
+	args := c.args
+	if len(args) == 0 {
+		args = []string{"sh"}
+	}
+	cancel, stop := getInterruptAbortChan(ctx)
+	defer stop()
+	return c.execClient.Exec(
+		k8sexec.ExecParams{
+			PodName:       target.entity,
+			ContainerName: c.container,
+			Commands:      args,
+			Stdout:        ctx.GetStdout(),
+			Stderr:        ctx.GetStderr(),
+			Stdin:         ctx.GetStdin(),
+			TTY:           enablePty,
+		},
+		cancel,
+	)
+}
+
+func getInterruptAbortChan(ctx Context) (<-chan struct{}, func()) {
 	ch := make(chan os.Signal, 1)
-	defer close(ch)
 	cancel := make(chan struct{})
 	ctx.InterruptNotify(ch)
-	defer ctx.StopInterruptNotify(ch)
+
+	cleanUp := func() {
+		ctx.StopInterruptNotify(ch)
+		close(ch)
+	}
 
 	go func() {
 		select {
@@ -212,21 +236,47 @@ func (c *sshContainer) ssh(ctx Context, enablePty bool, target *resolvedTarget) 
 			close(cancel)
 		}
 	}()
-	args := c.args
-	if len(args) == 0 {
-		args = []string{"sh"}
+	return cancel, cleanUp
+}
+
+func (c *sshContainer) copy(ctx Context) error {
+	args := c.getArgs()
+	if len(args) < 2 {
+		return errors.New("source and destination are required")
 	}
-	return c.execClient.Exec(
-		k8sexec.ExecParams{
-			PodName:  target.entity,
-			Commands: args,
-			Stdout:   ctx.GetStdout(),
-			Stderr:   ctx.GetStderr(),
-			Stdin:    ctx.GetStdin(),
-			TTY:      enablePty,
-		},
-		cancel,
-	)
+	if len(args) > 2 {
+		return errors.New("only one source and one destination are allowed for a k8s application")
+	}
+
+	srcSpec, err := c.expandSCPArg(args[0])
+	if err != nil {
+		return err
+	}
+	destSpec, err := c.expandSCPArg(args[1])
+	if err != nil {
+		return err
+	}
+
+	cancel, stop := getInterruptAbortChan(ctx)
+	defer stop()
+	return c.execClient.Copy(k8sexec.CopyParams{Src: srcSpec, Dest: destSpec}, cancel)
+}
+
+func (c *sshContainer) expandSCPArg(arg string) (o k8sexec.FileResource, err error) {
+	if i := strings.Index(arg, ":"); i == -1 {
+		return k8sexec.FileResource{Path: arg}, nil
+	} else if i > 0 {
+		o.Path = arg[i+1:]
+
+		resolvedTarget, err := c.resolveTarget(arg[:i])
+		if err != nil {
+			return o, err
+		}
+		o.PodName = resolvedTarget.entity
+		o.ContainerName = c.container
+		return o, nil
+	}
+	return o, errors.New("target must match format: [pod[/container]:]path")
 }
 
 func (c *sshContainer) getExecClient() (k8sexec.Executor, error) {

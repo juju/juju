@@ -16,9 +16,9 @@ import (
 	jujussh "github.com/juju/juju/network/ssh"
 )
 
-var _ = gc.Suite(&SCPSuite{})
+var _ = gc.Suite(&SCPSuiteLegacy{})
 
-type SCPSuite struct {
+type SCPSuiteLegacy struct {
 	SSHMachineSuite
 }
 
@@ -211,7 +211,7 @@ var scpTests = []struct {
 	},
 }
 
-func (s *SCPSuite) TestSCPCommand(c *gc.C) {
+func (s *SCPSuiteLegacy) TestSCPCommand(c *gc.C) {
 	s.setupModel(c)
 
 	for i, t := range scpTests {

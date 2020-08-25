@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
+	_ "github.com/juju/juju/provider/rackspace"
 	"github.com/juju/juju/testing/factory"
 )
 

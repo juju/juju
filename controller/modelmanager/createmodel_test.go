@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	_ "github.com/juju/juju/provider/all"
 	_ "github.com/juju/juju/provider/azure"
 	_ "github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/ec2"
