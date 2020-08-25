@@ -512,10 +512,11 @@ func (s *MachineManagerSuite) TestDestroyMachineWithParamsNilWait(c *gc.C) {
 
 func (s *MachineManagerSuite) setupUpgradeSeries(c *gc.C) {
 	s.st.machines = map[string]*mockMachine{
-		"0": {series: "trusty", units: []string{"foo/0", "test/0"}},
-		"1": {series: "trusty", units: []string{"foo/1", "test/1"}},
-		"2": {series: "centos7", units: []string{"foo/1", "test/1"}},
-		"3": {series: "bionic", isManager: true},
+		"0": {id: "0", series: "trusty", units: []string{"foo/0", "test/0"}},
+		"1": {id: "1", series: "trusty", units: []string{"foo/1", "test/1"}},
+		"2": {id: "2", series: "centos7", units: []string{"foo/1", "test/1"}},
+		"3": {id: "3", series: "bionic", isManager: true},
+		"4": {id: "4", series: "trusty", isLockedForSeriesUpgrade: true},
 	}
 }
 
@@ -564,6 +565,23 @@ func (s *MachineManagerSuite) TestUpgradeSeriesValidateIsControllerError(c *gc.C
 
 	c.Assert(results.Results[0].Error, gc.ErrorMatches,
 		"machine-3 is a controller and cannot be targeted for series upgrade")
+}
+
+func (s *MachineManagerSuite) TestUpgradeSeriesValidateIsLockedForSeriesUpgradeError(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.setupUpgradeSeries(c)
+	apiV5 := s.apiV5()
+	args := params.UpdateSeriesArgs{
+		Args: []params.UpdateSeriesArg{{
+			Entity: params.Entity{Tag: names.NewMachineTag("4").String()},
+		}},
+	}
+	results, err := apiV5.UpgradeSeriesValidate(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(results.Results[0].Error, gc.ErrorMatches,
+		`upgrade series lock found for "4"; series upgrade is in the "not started" state`)
 }
 
 func (s *MachineManagerSuite) TestUpgradeSeriesValidateNoSeriesError(c *gc.C) {
@@ -1027,14 +1045,21 @@ type mockMachine struct {
 	jtesting.Stub
 	machinemanager.Machine
 
-	keep           bool
-	series         string
-	units          []string
-	unitAgentState status.Status
-	unitState      status.Status
-	isManager      bool
+	id                       string
+	keep                     bool
+	series                   string
+	units                    []string
+	unitAgentState           status.Status
+	unitState                status.Status
+	isManager                bool
+	isLockedForSeriesUpgrade bool
 
 	unitsF func() ([]machinemanager.Unit, error)
+}
+
+func (m *mockMachine) Id() string {
+	m.MethodCall(m, "Id")
+	return m.id
 }
 
 func (m *mockMachine) Destroy() error {
@@ -1106,6 +1131,16 @@ func (m *mockMachine) CompleteUpgradeSeries() error {
 func (m *mockMachine) IsManager() bool {
 	m.MethodCall(m, "IsManager")
 	return m.isManager
+}
+
+func (m *mockMachine) IsLockedForSeriesUpgrade() (bool, error) {
+	m.MethodCall(m, "IsLockedForSeriesUpgrade")
+	return m.isLockedForSeriesUpgrade, nil
+}
+
+func (m *mockMachine) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
+	m.MethodCall(m, "UpgradeSeriesStatus")
+	return model.UpgradeSeriesNotStarted, nil
 }
 
 type mockUnit struct {
