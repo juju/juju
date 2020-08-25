@@ -18,32 +18,35 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 )
 
-type daemonSet struct {
+// DaemonSet extends the k8s daemonset.
+type DaemonSet struct {
 	appsv1.DaemonSet
 }
 
 // NewDaemonSet creates a new daemonSet resource.
-func NewDaemonSet(name string, namespace string, in *appsv1.DaemonSet) Resource {
+func NewDaemonSet(name string, namespace string, in *appsv1.DaemonSet) *DaemonSet {
 	if in == nil {
 		in = &appsv1.DaemonSet{}
 	}
 	in.SetName(name)
 	in.SetNamespace(namespace)
-	return &daemonSet{*in}
+	return &DaemonSet{*in}
 }
 
-func (ds *daemonSet) Clone() Resource {
+// Clone returns a copy of the resource.
+func (ds *DaemonSet) Clone() Resource {
 	clone := *ds
 	return &clone
 }
 
-func (ds *daemonSet) Apply(ctx context.Context, client kubernetes.Interface) error {
+// Apply patches the resource change.
+func (ds *DaemonSet) Apply(ctx context.Context, client kubernetes.Interface) error {
 	api := client.AppsV1().DaemonSets(ds.Namespace)
 	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, &ds.DaemonSet)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	res, err := api.Patch(ctx, ds.Name, types.ApplyPatchType, data, metav1.PatchOptions{
+	res, err := api.Patch(ctx, ds.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
 		FieldManager: JujuFieldManager,
 	})
 	if err != nil {
@@ -53,7 +56,8 @@ func (ds *daemonSet) Apply(ctx context.Context, client kubernetes.Interface) err
 	return nil
 }
 
-func (ds *daemonSet) Get(ctx context.Context, client kubernetes.Interface) error {
+// Get refreshes the resource.
+func (ds *DaemonSet) Get(ctx context.Context, client kubernetes.Interface) error {
 	api := client.AppsV1().DaemonSets(ds.Namespace)
 	res, err := api.Get(ctx, ds.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
@@ -65,7 +69,8 @@ func (ds *daemonSet) Get(ctx context.Context, client kubernetes.Interface) error
 	return nil
 }
 
-func (ds *daemonSet) Delete(ctx context.Context, client kubernetes.Interface) error {
+// Delete removes the resource.
+func (ds *DaemonSet) Delete(ctx context.Context, client kubernetes.Interface) error {
 	api := client.AppsV1().DaemonSets(ds.Namespace)
 	err := api.Delete(ctx, ds.Name, metav1.DeleteOptions{
 		PropagationPolicy: &k8sconstants.DefaultPropagationPolicy,

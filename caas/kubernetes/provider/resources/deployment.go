@@ -18,32 +18,35 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 )
 
-type deployment struct {
+// Deployment extends the k8s deployment.
+type Deployment struct {
 	appsv1.Deployment
 }
 
 // NewDeployment creates a new deployment resource.
-func NewDeployment(name string, namespace string, in *appsv1.Deployment) Resource {
+func NewDeployment(name string, namespace string, in *appsv1.Deployment) *Deployment {
 	if in == nil {
 		in = &appsv1.Deployment{}
 	}
 	in.SetName(name)
 	in.SetNamespace(namespace)
-	return &deployment{*in}
+	return &Deployment{*in}
 }
 
-func (d *deployment) Clone() Resource {
+// Clone returns a copy of the resource.
+func (d *Deployment) Clone() Resource {
 	clone := *d
 	return &clone
 }
 
-func (d *deployment) Apply(ctx context.Context, client kubernetes.Interface) error {
+// Apply patches the resource change.
+func (d *Deployment) Apply(ctx context.Context, client kubernetes.Interface) error {
 	api := client.AppsV1().Deployments(d.Namespace)
 	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, &d.Deployment)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	res, err := api.Patch(ctx, d.Name, types.ApplyPatchType, data, metav1.PatchOptions{
+	res, err := api.Patch(ctx, d.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
 		FieldManager: JujuFieldManager,
 	})
 	if err != nil {
@@ -53,7 +56,8 @@ func (d *deployment) Apply(ctx context.Context, client kubernetes.Interface) err
 	return nil
 }
 
-func (d *deployment) Get(ctx context.Context, client kubernetes.Interface) error {
+// Get refreshes the resource.
+func (d *Deployment) Get(ctx context.Context, client kubernetes.Interface) error {
 	api := client.AppsV1().Deployments(d.Namespace)
 	res, err := api.Get(ctx, d.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
@@ -65,7 +69,8 @@ func (d *deployment) Get(ctx context.Context, client kubernetes.Interface) error
 	return nil
 }
 
-func (d *deployment) Delete(ctx context.Context, client kubernetes.Interface) error {
+// Delete removes the resource.
+func (d *Deployment) Delete(ctx context.Context, client kubernetes.Interface) error {
 	api := client.AppsV1().Deployments(d.Namespace)
 	err := api.Delete(ctx, d.Name, metav1.DeleteOptions{
 		PropagationPolicy: &k8sconstants.DefaultPropagationPolicy,

@@ -18,31 +18,34 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 )
 
-type persistentVolume struct {
+// PersistentVolume extends the k8s persistentVolume.
+type PersistentVolume struct {
 	corev1.PersistentVolume
 }
 
 // NewPersistentVolume creates a new persistent volume resource.
-func NewPersistentVolume(name string, in *corev1.PersistentVolume) Resource {
+func NewPersistentVolume(name string, in *corev1.PersistentVolume) *PersistentVolume {
 	if in == nil {
 		in = &corev1.PersistentVolume{}
 	}
 	in.SetName(name)
-	return &persistentVolume{*in}
+	return &PersistentVolume{*in}
 }
 
-func (pv *persistentVolume) Clone() Resource {
+// Clone returns a copy of the resource.
+func (pv *PersistentVolume) Clone() Resource {
 	clone := *pv
 	return &clone
 }
 
-func (pv *persistentVolume) Apply(ctx context.Context, client kubernetes.Interface) error {
+// Apply patches the resource change.
+func (pv *PersistentVolume) Apply(ctx context.Context, client kubernetes.Interface) error {
 	api := client.CoreV1().PersistentVolumes()
 	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, &pv.PersistentVolume)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	res, err := api.Patch(ctx, pv.Name, types.ApplyPatchType, data, metav1.PatchOptions{
+	res, err := api.Patch(ctx, pv.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
 		FieldManager: JujuFieldManager,
 	})
 	if err != nil {
@@ -52,7 +55,8 @@ func (pv *persistentVolume) Apply(ctx context.Context, client kubernetes.Interfa
 	return nil
 }
 
-func (pv *persistentVolume) Get(ctx context.Context, client kubernetes.Interface) error {
+// Get refreshes the resource.
+func (pv *PersistentVolume) Get(ctx context.Context, client kubernetes.Interface) error {
 	api := client.CoreV1().PersistentVolumes()
 	res, err := api.Get(ctx, pv.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
@@ -64,7 +68,8 @@ func (pv *persistentVolume) Get(ctx context.Context, client kubernetes.Interface
 	return nil
 }
 
-func (pv *persistentVolume) Delete(ctx context.Context, client kubernetes.Interface) error {
+// Delete removes the resource.
+func (pv *PersistentVolume) Delete(ctx context.Context, client kubernetes.Interface) error {
 	api := client.CoreV1().PersistentVolumes()
 	err := api.Delete(ctx, pv.Name, metav1.DeleteOptions{
 		PropagationPolicy: &k8sconstants.DefaultPropagationPolicy,

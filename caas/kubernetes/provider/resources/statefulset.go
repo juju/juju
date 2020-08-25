@@ -18,32 +18,35 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 )
 
-type statefulSet struct {
+// StatefulSet extends the k8s statefulSet.
+type StatefulSet struct {
 	appsv1.StatefulSet
 }
 
 // NewStatefulSet creates a new statefulset resource.
-func NewStatefulSet(name string, namespace string, in *appsv1.StatefulSet) Resource {
+func NewStatefulSet(name string, namespace string, in *appsv1.StatefulSet) *StatefulSet {
 	if in == nil {
 		in = &appsv1.StatefulSet{}
 	}
 	in.SetName(name)
 	in.SetNamespace(namespace)
-	return &statefulSet{*in}
+	return &StatefulSet{*in}
 }
 
-func (ss *statefulSet) Clone() Resource {
+// Clone returns a copy of the resource.
+func (ss *StatefulSet) Clone() Resource {
 	clone := *ss
 	return &clone
 }
 
-func (ss *statefulSet) Apply(ctx context.Context, client kubernetes.Interface) error {
+// Apply patches the resource change.
+func (ss *StatefulSet) Apply(ctx context.Context, client kubernetes.Interface) error {
 	api := client.AppsV1().StatefulSets(ss.Namespace)
 	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, &ss.StatefulSet)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	res, err := api.Patch(ctx, ss.Name, types.ApplyPatchType, data, metav1.PatchOptions{
+	res, err := api.Patch(ctx, ss.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
 		FieldManager: JujuFieldManager,
 	})
 	if err != nil {
@@ -53,7 +56,8 @@ func (ss *statefulSet) Apply(ctx context.Context, client kubernetes.Interface) e
 	return nil
 }
 
-func (ss *statefulSet) Get(ctx context.Context, client kubernetes.Interface) error {
+// Get refreshes the resource.
+func (ss *StatefulSet) Get(ctx context.Context, client kubernetes.Interface) error {
 	api := client.AppsV1().StatefulSets(ss.Namespace)
 	res, err := api.Get(ctx, ss.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
@@ -65,7 +69,8 @@ func (ss *statefulSet) Get(ctx context.Context, client kubernetes.Interface) err
 	return nil
 }
 
-func (ss *statefulSet) Delete(ctx context.Context, client kubernetes.Interface) error {
+// Delete removes the resource.
+func (ss *StatefulSet) Delete(ctx context.Context, client kubernetes.Interface) error {
 	api := client.AppsV1().StatefulSets(ss.Namespace)
 	err := api.Delete(ctx, ss.Name, metav1.DeleteOptions{
 		PropagationPolicy: &k8sconstants.DefaultPropagationPolicy,

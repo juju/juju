@@ -18,32 +18,35 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 )
 
-type secret struct {
+// Secret extends the k8s secret.
+type Secret struct {
 	corev1.Secret
 }
 
 // NewSecret creates a new secret resource.
-func NewSecret(name string, namespace string, in *corev1.Secret) Resource {
+func NewSecret(name string, namespace string, in *corev1.Secret) *Secret {
 	if in == nil {
 		in = &corev1.Secret{}
 	}
 	in.SetName(name)
 	in.SetNamespace(namespace)
-	return &secret{*in}
+	return &Secret{*in}
 }
 
-func (s *secret) Clone() Resource {
+// Clone returns a copy of the resource.
+func (s *Secret) Clone() Resource {
 	clone := *s
 	return &clone
 }
 
-func (s *secret) Apply(ctx context.Context, client kubernetes.Interface) error {
+// Apply patches the resource change.
+func (s *Secret) Apply(ctx context.Context, client kubernetes.Interface) error {
 	api := client.CoreV1().Secrets(s.Namespace)
 	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, &s.Secret)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	res, err := api.Patch(ctx, s.Name, types.ApplyPatchType, data, metav1.PatchOptions{
+	res, err := api.Patch(ctx, s.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
 		FieldManager: JujuFieldManager,
 	})
 	if err != nil {
@@ -53,7 +56,8 @@ func (s *secret) Apply(ctx context.Context, client kubernetes.Interface) error {
 	return nil
 }
 
-func (s *secret) Get(ctx context.Context, client kubernetes.Interface) error {
+// Get refreshes the resource.
+func (s *Secret) Get(ctx context.Context, client kubernetes.Interface) error {
 	api := client.CoreV1().Secrets(s.Namespace)
 	res, err := api.Get(ctx, s.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
@@ -65,7 +69,8 @@ func (s *secret) Get(ctx context.Context, client kubernetes.Interface) error {
 	return nil
 }
 
-func (s *secret) Delete(ctx context.Context, client kubernetes.Interface) error {
+// Delete removes the resource.
+func (s *Secret) Delete(ctx context.Context, client kubernetes.Interface) error {
 	api := client.CoreV1().Secrets(s.Namespace)
 	err := api.Delete(ctx, s.Name, metav1.DeleteOptions{
 		PropagationPolicy: &k8sconstants.DefaultPropagationPolicy,

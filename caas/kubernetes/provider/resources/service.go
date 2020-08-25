@@ -18,32 +18,35 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 )
 
-type service struct {
+// Service extends the k8s service.
+type Service struct {
 	corev1.Service
 }
 
 // NewService creates a new service resource.
-func NewService(name string, namespace string, in *corev1.Service) Resource {
+func NewService(name string, namespace string, in *corev1.Service) *Service {
 	if in == nil {
 		in = &corev1.Service{}
 	}
 	in.SetName(name)
 	in.SetNamespace(namespace)
-	return &service{*in}
+	return &Service{*in}
 }
 
-func (s *service) Clone() Resource {
+// Clone returns a copy of the resource.
+func (s *Service) Clone() Resource {
 	clone := *s
 	return &clone
 }
 
-func (s *service) Apply(ctx context.Context, client kubernetes.Interface) error {
+// Apply patches the resource change.
+func (s *Service) Apply(ctx context.Context, client kubernetes.Interface) error {
 	api := client.CoreV1().Services(s.Namespace)
 	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, &s.Service)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	res, err := api.Patch(ctx, s.Name, types.ApplyPatchType, data, metav1.PatchOptions{
+	res, err := api.Patch(ctx, s.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
 		FieldManager: JujuFieldManager,
 	})
 	if err != nil {
@@ -53,7 +56,8 @@ func (s *service) Apply(ctx context.Context, client kubernetes.Interface) error 
 	return nil
 }
 
-func (s *service) Get(ctx context.Context, client kubernetes.Interface) error {
+// Get refreshes the resource.
+func (s *Service) Get(ctx context.Context, client kubernetes.Interface) error {
 	api := client.CoreV1().Services(s.Namespace)
 	res, err := api.Get(ctx, s.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
@@ -65,7 +69,8 @@ func (s *service) Get(ctx context.Context, client kubernetes.Interface) error {
 	return nil
 }
 
-func (s *service) Delete(ctx context.Context, client kubernetes.Interface) error {
+// Delete removes the resource.
+func (s *Service) Delete(ctx context.Context, client kubernetes.Interface) error {
 	api := client.CoreV1().Services(s.Namespace)
 	err := api.Delete(ctx, s.Name, metav1.DeleteOptions{
 		PropagationPolicy: &k8sconstants.DefaultPropagationPolicy,

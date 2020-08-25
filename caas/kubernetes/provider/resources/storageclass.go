@@ -18,17 +18,18 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 )
 
-type storageClass struct {
+// StorageClass extends the k8s storageClass.
+type StorageClass struct {
 	storagev1.StorageClass
 }
 
 // NewStorageClass creates a new storage class resource.
-func NewStorageClass(name string, in *storagev1.StorageClass) Resource {
+func NewStorageClass(name string, in *storagev1.StorageClass) *StorageClass {
 	if in == nil {
 		in = &storagev1.StorageClass{}
 	}
 	in.SetName(name)
-	return &storageClass{*in}
+	return &StorageClass{*in}
 }
 
 // ListStorageClass returns a list of storage classes.
@@ -51,18 +52,20 @@ func ListStorageClass(ctx context.Context, client kubernetes.Interface, opts met
 	return items, nil
 }
 
-func (ss *storageClass) Clone() Resource {
+// Clone returns a copy of the resource.
+func (ss *StorageClass) Clone() Resource {
 	clone := *ss
 	return &clone
 }
 
-func (ss *storageClass) Apply(ctx context.Context, client kubernetes.Interface) error {
+// Apply patches the resource change.
+func (ss *StorageClass) Apply(ctx context.Context, client kubernetes.Interface) error {
 	api := client.StorageV1().StorageClasses()
 	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, &ss.StorageClass)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	res, err := api.Patch(ctx, ss.Name, types.ApplyPatchType, data, metav1.PatchOptions{
+	res, err := api.Patch(ctx, ss.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
 		FieldManager: JujuFieldManager,
 	})
 	if err != nil {
@@ -72,7 +75,8 @@ func (ss *storageClass) Apply(ctx context.Context, client kubernetes.Interface) 
 	return nil
 }
 
-func (ss *storageClass) Get(ctx context.Context, client kubernetes.Interface) error {
+// Get refreshes the resource.
+func (ss *StorageClass) Get(ctx context.Context, client kubernetes.Interface) error {
 	api := client.StorageV1().StorageClasses()
 	res, err := api.Get(ctx, ss.Name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
@@ -84,7 +88,8 @@ func (ss *storageClass) Get(ctx context.Context, client kubernetes.Interface) er
 	return nil
 }
 
-func (ss *storageClass) Delete(ctx context.Context, client kubernetes.Interface) error {
+// Delete removes the resource.
+func (ss *StorageClass) Delete(ctx context.Context, client kubernetes.Interface) error {
 	api := client.StorageV1().StorageClasses()
 	err := api.Delete(ctx, ss.Name, metav1.DeleteOptions{
 		PropagationPolicy: &k8sconstants.DefaultPropagationPolicy,

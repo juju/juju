@@ -36,6 +36,8 @@ type operation struct {
 
 func (op *operation) process(ctx context.Context, api kubernetes.Interface, rollback Applier) error {
 	existingRes := op.resource.Clone()
+	// TODO: consider to `list` using label selectors instead of `get` by `name`.
+	// Because it's not good for non namespaced resources.
 	err := existingRes.Get(ctx, api)
 	notfound := false
 	if errors.IsNotFound(err) {
@@ -70,18 +72,19 @@ func (a *applier) Delete(r Resource) {
 	a.ops = append(a.ops, operation{opDelete, r})
 }
 
-func (a *applier) Run(ctx context.Context, client kubernetes.Interface) (err error) {
-	rollback := &applier{}
+func (a *applier) Run(ctx context.Context, client kubernetes.Interface, noRollback bool) (err error) {
+	rollback := NewApplier()
 
 	defer func() {
-		if err != nil {
-			if rollbackErr := rollback.Run(ctx, client); rollbackErr != nil {
-				logger.Warningf("rollback failed %s", rollbackErr.Error())
-			}
+		if noRollback || err == nil {
+			return
+		}
+		if rollbackErr := rollback.Run(ctx, client, true); rollbackErr != nil {
+			logger.Warningf("rollback failed %s", rollbackErr.Error())
 		}
 	}()
-	for _, o := range a.ops {
-		if err = o.process(ctx, client, rollback); err != nil {
+	for _, op := range a.ops {
+		if err = op.process(ctx, client, rollback); err != nil {
 			return errors.Trace(err)
 		}
 	}
