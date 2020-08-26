@@ -42,6 +42,7 @@ require (
 	github.com/joyent/gosign v0.0.0-20140524000734-0da0d5f13420
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
 	github.com/juju/bundlechanges/v2 v2.0.0-20200818094029-ae6d813368b2
+	github.com/juju/charm/v7 v7.0.0-20200720023205-b471240a6312
 	github.com/juju/charm/v8 v8.0.0-20200817113526-2a88e9b46b47
 	github.com/juju/charmrepo/v6 v6.0.0-20200817155725-120bd7a8b1ed
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
@@ -158,6 +159,8 @@ replace gopkg.in/yaml.v2 => github.com/juju/yaml v0.0.0-20200420012109-12a32b78d
 replace github.com/dustin/go-humanize v1.0.0 => github.com/dustin/go-humanize v0.0.0-20141228071148-145fabdb1ab7
 
 replace github.com/hashicorp/raft-boltdb => github.com/juju/raft-boltdb v0.0.0-20200518034108-40b112c917c5
+
+replace github.com/juju/charm/v7 => github.com/hpidcock/charm/v7 v7.0.0-20200720023205-b471240a6312
 
 replace (
 	k8s.io/api v0.0.0 => k8s.io/api v0.18.6
