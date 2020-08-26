@@ -322,6 +322,11 @@ type modelConfigAPI interface {
 	Close() error
 }
 
+type modelManagerAPI interface {
+	ValidateModelUpgrade(modelTag names.ModelTag, force bool) error
+	Close() error
+}
+
 type controllerAPI interface {
 	CloudSpec(modelTag names.ModelTag) (environs.CloudSpec, error)
 	ControllerConfig() (controller.Config, error)
@@ -335,6 +340,10 @@ func (c *upgradeJujuCommand) getJujuClientAPI() (jujuClientAPI, error) {
 	}
 
 	return c.NewAPIClient()
+}
+
+func (c *upgradeJujuCommand) getModelManagerAPI() (modelManagerAPI, error) {
+	return c.NewModelManagerAPIClient()
 }
 
 func (c *upgradeJujuCommand) getModelConfigAPI() (modelConfigAPI, error) {
@@ -394,6 +403,12 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 		return err
 	}
 	defer client.Close()
+
+	// Validate a model can be upgraded, by running some pre-flight checks.
+	if err := c.validateModelUpgrade(); err != nil {
+		return errors.Trace(err)
+	}
+
 	modelConfigClient, err := c.getModelConfigAPI()
 	if err != nil {
 		return err
@@ -546,6 +561,25 @@ func (c *baseUpgradeCommand) notifyControllerUpgrade(ctx *cmd.Context, client up
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 	fmt.Fprintf(ctx.Stdout, "started upgrade to %s\n", upgradeCtx.chosen)
+	return nil
+}
+
+// validateModelUpgrade checks to see if a model can be upgraded.
+func (c *upgradeJujuCommand) validateModelUpgrade() error {
+	_, details, err := c.ModelCommandBase.ModelDetails()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	client, err := c.getModelManagerAPI()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// TODO (stickupkid): Define force for validation of model upgrade.
+	if err := client.ValidateModelUpgrade(names.NewModelTag(details.ModelUUID), false); err != nil {
+		return errors.Trace(err)
+	}
+
 	return nil
 }
 

@@ -44,7 +44,7 @@ var logger = loggo.GetLogger("juju.apiserver.modelmanager")
 // modelmanager API endpoint.
 type ModelManagerV9 interface {
 	ModelManagerV8
-	ValidateModelUpgrade(args params.ValidateModelUpgradeParams) (params.ErrorResult, error)
+	ValidateModelUpgrades(args params.ValidateModelUpgradeParams) (params.ErrorResults, error)
 }
 
 // ModelManagerV8 defines the methods on the version 8 facade for the
@@ -120,11 +120,36 @@ type ModelManagerV2 interface {
 
 type newCaasBrokerFunc func(args environs.OpenParams) (caas.Broker, error)
 
+// StatePool represents a point of use interface for getting the state from the
+// pool.
+type StatePool interface {
+	Get(string) (State, error)
+}
+
+// State represents a point of use interface for modelling a current model.
+type State interface {
+	Model() (Model, error)
+	AllMachines() ([]Machine, error)
+	Release() bool
+}
+
+// Model defines a point of use interface for the model from state.
+type Model interface {
+	IsControllerModel() bool
+}
+
+// Machine defines a point of use interface for machines associated with models.
+type Machine interface {
+	Id() string
+	IsLockedForSeriesUpgrade() (bool, error)
+}
+
 // ModelManagerAPI implements the model manager interface and is
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
 	*common.ModelStatusAPI
 	state       common.ModelManagerBackend
+	statePool   StatePool
 	ctlrState   common.ModelManagerBackend
 	check       *common.BlockChecker
 	authorizer  facade.Authorizer
@@ -219,6 +244,9 @@ func NewFacadeV9(ctx facade.Context) (*ModelManagerAPI, error) {
 	return NewModelManagerAPI(
 		common.NewUserAwareModelManagerBackend(model, pool, apiUser),
 		common.NewModelManagerBackend(ctrlModel, pool),
+		statePoolShim{
+			StatePool: pool,
+		},
 		configGetter,
 		caas.New,
 		auth,
@@ -295,6 +323,7 @@ func NewFacadeV2(ctx facade.Context) (*ModelManagerAPIV2, error) {
 func NewModelManagerAPI(
 	st common.ModelManagerBackend,
 	ctlrSt common.ModelManagerBackend,
+	stPool StatePool,
 	configGetter environs.EnvironConfigGetter,
 	getBroker newCaasBrokerFunc,
 	authorizer facade.Authorizer,
@@ -325,6 +354,7 @@ func NewModelManagerAPI(
 		ModelStatusAPI: common.NewModelStatusAPI(st, authorizer, apiUser),
 		state:          st,
 		ctlrState:      ctlrSt,
+		statePool:      stPool,
 		getBroker:      getBroker,
 		check:          common.NewBlockChecker(st),
 		authorizer:     authorizer,
@@ -1638,22 +1668,22 @@ func (m *ModelManagerAPI) ChangeModelCredential(args params.ChangeModelCredentia
 			results[i].Error = common.ServerError(err)
 		}
 	}
-	return params.ErrorResults{results}, nil
+	return params.ErrorResults{Results: results}, nil
 }
 
-// ValidateModelUpgrade validates if a model is allowed to perform an upgrade.
+// ValidateModelUpgrades validates if a model is allowed to perform an upgrade.
 // Examples of why you would want to block a model upgrade, would be situations
 // like upgrade-series. If performing an upgrade-series we don't know the
 // current status of the machine, so performing an upgrade-model can lead to
 // bad unintended errors down the line.
-func (m *ModelManagerAPI) ValidateModelUpgrade(arg params.ValidateModelUpgradeParams) (params.ErrorResult, error) {
+func (m *ModelManagerAPI) ValidateModelUpgrades(args params.ValidateModelUpgradeParams) (params.ErrorResults, error) {
 	if err := m.check.ChangeAllowed(); err != nil {
-		return params.ErrorResult{}, errors.Trace(err)
+		return params.ErrorResults{}, errors.Trace(err)
 	}
 
 	controllerAdmin, err := m.authorizer.HasPermission(permission.SuperuserAccess, m.state.ControllerTag())
 	if err != nil {
-		return params.ErrorResult{}, errors.Trace(err)
+		return params.ErrorResults{}, errors.Trace(err)
 	}
 	// Only controller or model admin can change cloud credential on a model.
 	checkModelAccess := func(tag names.ModelTag) error {
@@ -1670,29 +1700,51 @@ func (m *ModelManagerAPI) ValidateModelUpgrade(arg params.ValidateModelUpgradePa
 		return common.ErrPerm
 	}
 
-	modelTag, err := names.ParseModelTag(arg.ModelTag)
-	if err != nil {
-		return params.ErrorResult{Error: common.ServerError(err)}, nil
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Models)),
 	}
-	if modelTag.Id() != m.model.ModelTag().Id() {
-		err := errors.BadRequestf("unexpected model id")
-		return params.ErrorResult{Error: common.ServerError(err)}, nil
-	}
-	if err := checkModelAccess(modelTag); err != nil {
-		return params.ErrorResult{Error: common.ServerError(err)}, nil
-	}
+	for i, arg := range args.Models {
+		modelTag, err := names.ParseModelTag(arg.ModelTag)
+		if err != nil {
+			results.Results[i] = params.ErrorResult{Error: common.ServerError(err)}
+			continue
+		}
+		if err := checkModelAccess(modelTag); err != nil {
+			results.Results[i] = params.ErrorResult{Error: common.ServerError(err)}
+			continue
+		}
 
-	// Now check for the validation of a model upgrade.
+		// We now need to access the state pool for that given model.
+		st, err := m.statePool.Get(modelTag.Id())
+		if err != nil {
+			results.Results[i] = params.ErrorResult{Error: common.ServerError(err)}
+			continue
+		}
+		defer st.Release()
 
-	if err := m.validateSeriesUpgradeForSeriesUpgrade(arg.Force); err != nil {
-		return params.ErrorResult{Error: common.ServerError(err)}, nil
+		model, err := st.Model()
+		if err != nil {
+			results.Results[i] = params.ErrorResult{Error: common.ServerError(err)}
+			continue
+		}
+
+		// If it's a controller model then we don't require certain validation
+		// checks.
+		if model.IsControllerModel() {
+			continue
+		}
+
+		// Now check for the validation of a model upgrade.
+		if err := m.validateSeriesUpgradeForSeriesUpgrade(st, args.Force); err != nil {
+			results.Results[i] = params.ErrorResult{Error: common.ServerError(err)}
+			continue
+		}
 	}
-
-	return params.ErrorResult{}, nil
+	return results, nil
 }
 
-func (m *ModelManagerAPI) validateSeriesUpgradeForSeriesUpgrade(force bool) error {
-	machines, err := m.state.AllMachines()
+func (m *ModelManagerAPI) validateSeriesUpgradeForSeriesUpgrade(st State, force bool) error {
+	machines, err := st.AllMachines()
 	if err != nil {
 		return errors.Trace(err)
 	}
