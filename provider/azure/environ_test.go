@@ -599,21 +599,25 @@ func (s *environSuite) TestCloudEndpointManagementURIWithCredentialError(c *gc.C
 }
 
 func (s *environSuite) TestStartInstance(c *gc.C) {
-	s.assertStartInstance(c, nil)
+	s.assertStartInstance(c, nil, true)
+}
+
+func (s *environSuite) TestStartInstancePrivateIP(c *gc.C) {
+	s.assertStartInstance(c, nil, false)
 }
 
 func (s *environSuite) TestStartInstanceRootDiskSmallerThanMin(c *gc.C) {
 	wantedRootDisk := 22
-	s.assertStartInstance(c, &wantedRootDisk)
+	s.assertStartInstance(c, &wantedRootDisk, true)
 }
 
 func (s *environSuite) TestStartInstanceRootDiskLargerThanMin(c *gc.C) {
 	wantedRootDisk := 40
-	s.assertStartInstance(c, &wantedRootDisk)
+	s.assertStartInstance(c, &wantedRootDisk, true)
 }
 
-func (s *environSuite) assertStartInstance(c *gc.C, wantedRootDisk *int) {
-	env := s.openEnviron(c)
+func (s *environSuite) assertStartInstance(c *gc.C, wantedRootDisk *int, publicIP bool) {
+	env := s.openEnviron(c, testing.Attrs{"use-public-ip": publicIP})
 	s.sender = s.startInstanceSenders(false)
 	s.requests = nil
 	args := makeStartInstanceParams(c, s.controllerUUID, "bionic")
@@ -649,6 +653,7 @@ func (s *environSuite) assertStartInstance(c *gc.C, wantedRootDisk *int) {
 		diskSizeGB:     expectedDiskSize,
 		osProfile:      &s.linuxOsProfile,
 		instanceType:   "Standard_A1",
+		publicIP:       publicIP,
 	})
 }
 
@@ -673,6 +678,7 @@ func (s *environSuite) TestStartInstanceNoAuthorizedKeys(c *gc.C) {
 		diskSizeGB:     32,
 		osProfile:      &s.linuxOsProfile,
 		instanceType:   "Standard_A1",
+		publicIP:       true,
 	})
 }
 
@@ -745,6 +751,7 @@ func (s *environSuite) testStartInstanceWindows(
 		},
 		osProfile:    &windowsOsProfile,
 		instanceType: "Standard_A1",
+		publicIP:     true,
 	})
 }
 
@@ -780,6 +787,7 @@ func (s *environSuite) assertStartInstanceCentOS(c *gc.C, series string) {
 		},
 		osProfile:    &s.linuxOsProfile,
 		instanceType: "Standard_A1",
+		publicIP:     true,
 	})
 }
 
@@ -825,6 +833,7 @@ func (s *environSuite) TestStartInstanceCommonDeploymentStorageAccount(c *gc.C) 
 		osProfile:        &s.linuxOsProfile,
 		instanceType:     "Standard_A1",
 		unmanagedStorage: true,
+		publicIP:         true,
 	})
 }
 
@@ -855,6 +864,7 @@ func (s *environSuite) TestStartInstanceCommonDeploymentWithStorageAccountAndAva
 		osProfile:           &s.linuxOsProfile,
 		instanceType:        "Standard_A1",
 		unmanagedStorage:    true,
+		publicIP:            true,
 	})
 }
 
@@ -907,6 +917,7 @@ func (s *environSuite) TestStartInstanceServiceAvailabilitySet(c *gc.C) {
 		diskSizeGB:          32,
 		osProfile:           &s.linuxOsProfile,
 		instanceType:        "Standard_A1",
+		publicIP:            true,
 	})
 }
 
@@ -926,6 +937,7 @@ type assertStartInstanceRequestsParams struct {
 	customResourceGroup bool
 	unmanagedStorage    bool
 	instanceType        string
+	publicIP            bool
 }
 
 func (s *environSuite) assertStartInstanceRequests(
@@ -1016,10 +1028,8 @@ func (s *environSuite) assertStartInstanceRequests(
 
 	createCommonResources := false
 	subnetName := "juju-internal-subnet"
-	privateIPAddress := "192.168.0.4"
 	if args.availabilitySetName == "juju-controller" {
 		subnetName = "juju-controller-subnet"
-		privateIPAddress = "192.168.16.4"
 		createCommonResources = true
 	}
 	subnetId := fmt.Sprintf(
@@ -1027,18 +1037,28 @@ func (s *environSuite) assertStartInstanceRequests(
 		subnetName,
 	)
 
-	publicIPAddressId := `[resourceId('Microsoft.Network/publicIPAddresses', 'machine-0-public-ip')]`
+	var nicDependsOn []string
+	if createCommonResources {
+		nicDependsOn = append(nicDependsOn,
+			`[resourceId('Microsoft.Network/virtualNetworks', 'juju-internal-network')]`,
+		)
+	}
+	var publicIPAddress *network.PublicIPAddress
+	if args.publicIP {
+		publicIPAddressId := `[resourceId('Microsoft.Network/publicIPAddresses', 'machine-0-public-ip')]`
+		publicIPAddress = &network.PublicIPAddress{
+			ID: to.StringPtr(publicIPAddressId),
+		}
+		nicDependsOn = append(nicDependsOn, publicIPAddressId)
+	}
 
 	ipConfigurations := []network.InterfaceIPConfiguration{{
 		Name: to.StringPtr("primary"),
 		InterfaceIPConfigurationPropertiesFormat: &network.InterfaceIPConfigurationPropertiesFormat{
 			Primary:                   to.BoolPtr(true),
-			PrivateIPAddress:          to.StringPtr(privateIPAddress),
-			PrivateIPAllocationMethod: network.Static,
+			PrivateIPAllocationMethod: network.Dynamic,
 			Subnet:                    &network.Subnet{ID: to.StringPtr(subnetId)},
-			PublicIPAddress: &network.PublicIPAddress{
-				ID: to.StringPtr(publicIPAddressId),
-			},
+			PublicIPAddress:           publicIPAddress,
 		},
 	}}
 
@@ -1050,7 +1070,7 @@ func (s *environSuite) assertStartInstanceRequests(
 		},
 	}}
 
-	var nicDependsOn, vmDependsOn []string
+	var vmDependsOn []string
 	var templateResources []armtemplates.Resource
 	if createCommonResources {
 		addressPrefixes := []string{"192.168.0.0/20", "192.168.16.0/20"}
@@ -1088,9 +1108,6 @@ func (s *environSuite) assertStartInstanceRequests(
 				`[resourceId('Microsoft.Storage/storageAccounts', '`+storageAccountName+`')]`,
 			)
 		}
-		nicDependsOn = append(nicDependsOn,
-			`[resourceId('Microsoft.Network/virtualNetworks', 'juju-internal-network')]`,
-		)
 	}
 
 	var availabilitySetSubResource *compute.SubResource
@@ -1140,18 +1157,21 @@ func (s *environSuite) assertStartInstanceRequests(
 		}
 	}
 
+	if args.publicIP {
+		templateResources = append(templateResources, armtemplates.Resource{
+			APIVersion: networkAPIVersion,
+			Type:       "Microsoft.Network/publicIPAddresses",
+			Name:       "machine-0-public-ip",
+			Location:   "westus",
+			Tags:       to.StringMap(s.vmTags),
+			Properties: &network.PublicIPAddressPropertiesFormat{
+				PublicIPAllocationMethod: network.Static,
+				PublicIPAddressVersion:   "IPv4",
+			},
+			Sku: &armtemplates.Sku{Name: "Standard"},
+		})
+	}
 	templateResources = append(templateResources, []armtemplates.Resource{{
-		APIVersion: networkAPIVersion,
-		Type:       "Microsoft.Network/publicIPAddresses",
-		Name:       "machine-0-public-ip",
-		Location:   "westus",
-		Tags:       to.StringMap(s.vmTags),
-		Properties: &network.PublicIPAddressPropertiesFormat{
-			PublicIPAllocationMethod: network.Static,
-			PublicIPAddressVersion:   "IPv4",
-		},
-		Sku: &armtemplates.Sku{Name: "Standard"},
-	}, {
 		APIVersion: networkAPIVersion,
 		Type:       "Microsoft.Network/networkInterfaces",
 		Name:       "machine-0-primary",
@@ -1160,7 +1180,7 @@ func (s *environSuite) assertStartInstanceRequests(
 		Properties: &network.InterfacePropertiesFormat{
 			IPConfigurations: &ipConfigurations,
 		},
-		DependsOn: append(nicDependsOn, publicIPAddressId),
+		DependsOn: nicDependsOn,
 	}, {
 		APIVersion: computeAPIVersion,
 		Type:       "Microsoft.Compute/virtualMachines",
@@ -1317,6 +1337,40 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 		diskSizeGB:          32,
 		osProfile:           &s.linuxOsProfile,
 		instanceType:        "Standard_D1",
+		publicIP:            true,
+	})
+}
+
+func (s *environSuite) TestBootstrapPrivateIP(c *gc.C) {
+	defer envtesting.DisableFinishBootstrap()()
+
+	ctx := envtesting.BootstrapContext(c)
+	env := prepareForBootstrap(c, ctx, s.provider, &s.sender, testing.Attrs{"use-public-ip": false})
+
+	s.sender = s.initResourceGroupSenders(resourceGroupName)
+	s.sender = append(s.sender, s.startInstanceSenders(true)...)
+	s.requests = nil
+	result, err := env.Bootstrap(
+		ctx, s.callCtx, environs.BootstrapParams{
+			ControllerConfig:         testing.FakeControllerConfig(),
+			AvailableTools:           makeToolsList("bionic"),
+			BootstrapSeries:          "bionic",
+			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
+			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Arch, gc.Equals, "amd64")
+	c.Assert(result.Series, gc.Equals, "bionic")
+
+	c.Assert(len(s.requests), gc.Equals, numExpectedStartInstanceRequests)
+	s.vmTags[tags.JujuIsController] = to.StringPtr("true")
+	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
+		availabilitySetName: "juju-controller",
+		imageReference:      &xenialImageReference,
+		diskSizeGB:          32,
+		osProfile:           &s.linuxOsProfile,
+		instanceType:        "Standard_D1",
 	})
 }
 
@@ -1395,6 +1449,7 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 		osProfile:           &s.linuxOsProfile,
 		needsProviderInit:   true,
 		instanceType:        "Standard_D1",
+		publicIP:            true,
 	})
 }
 
@@ -1447,6 +1502,7 @@ func (s *environSuite) TestBootstrapCustomResourceGroup(c *gc.C) {
 		needsProviderInit:   true,
 		customResourceGroup: true,
 		instanceType:        "Standard_D1",
+		publicIP:            true,
 	})
 }
 
@@ -1484,6 +1540,7 @@ func (s *environSuite) TestBootstrapWithAutocert(c *gc.C) {
 		diskSizeGB:          32,
 		osProfile:           &s.linuxOsProfile,
 		instanceType:        "Standard_D1",
+		publicIP:            true,
 	})
 }
 

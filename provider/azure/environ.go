@@ -319,7 +319,7 @@ func (env *azureEnviron) createCommonResourceDeployment(
 	commonResources ...armtemplates.Resource,
 ) error {
 	commonResources = append(commonResources, networkTemplateResources(
-		env.location, tags, nil, rules,
+		env.location, env.config, tags, nil, rules,
 	)...)
 
 	// We perform this deployment asynchronously, to avoid blocking
@@ -613,12 +613,12 @@ func (env *azureEnviron) createVirtualMachine(
 
 	var nicDependsOn, vmDependsOn []string
 	var resources []armtemplates.Resource
-	createCommonResources := instanceConfig.Bootstrap != nil
-	if createCommonResources {
+	bootstrapping := instanceConfig.Bootstrap != nil
+	if bootstrapping {
 		// We're starting the bootstrap machine, so we will create the
 		// common resources in the same deployment.
 		resources = append(resources,
-			networkTemplateResources(env.location, envTags, apiPorts, nil)...,
+			networkTemplateResources(env.location, env.config, envTags, apiPorts, nil)...,
 		)
 		nicDependsOn = append(nicDependsOn, fmt.Sprintf(
 			`[resourceId('Microsoft.Network/virtualNetworks', '%s')]`,
@@ -708,57 +708,54 @@ func (env *azureEnviron) createVirtualMachine(
 		vmDependsOn = append(vmDependsOn, availabilitySetId)
 	}
 
-	publicIPAddressName := vmName + "-public-ip"
-	publicIPAddressId := fmt.Sprintf(`[resourceId('Microsoft.Network/publicIPAddresses', '%s')]`, publicIPAddressName)
-	publicIPAddressAllocationMethod := network.Static
-	if env.config.loadBalancerSkuName == string(network.LoadBalancerSkuNameBasic) {
-		publicIPAddressAllocationMethod = network.Dynamic // preserve the settings that were used in Juju 2.4 and earlier
-	}
-	resources = append(resources, armtemplates.Resource{
-		APIVersion: networkAPIVersion,
-		Type:       "Microsoft.Network/publicIPAddresses",
-		Name:       publicIPAddressName,
-		Location:   env.location,
-		Tags:       vmTags,
-		Sku:        &armtemplates.Sku{Name: env.config.loadBalancerSkuName},
-		Properties: &network.PublicIPAddressPropertiesFormat{
-			PublicIPAddressVersion:   network.IPv4,
-			PublicIPAllocationMethod: publicIPAddressAllocationMethod,
-		},
-	})
-
 	// Controller and non-controller machines are assigned to separate
 	// subnets. This enables us to create controller-specific NSG rules
 	// just by targeting the controller subnet.
 	subnetName := internalSubnetName
-	subnetPrefix := internalSubnetPrefix
 	if instanceConfig.Controller != nil {
 		subnetName = controllerSubnetName
-		subnetPrefix = controllerSubnetPrefix
 	}
 	subnetId := fmt.Sprintf(
 		`[concat(resourceId('Microsoft.Network/virtualNetworks', '%s'), '/subnets/%s')]`,
 		internalNetworkName, subnetName,
 	)
-
-	privateIP, err := machineSubnetIP(subnetPrefix, instanceConfig.MachineId)
-	if err != nil {
-		return errors.Annotatef(err, "computing private IP address")
+	ipConfig := &network.InterfaceIPConfigurationPropertiesFormat{
+		Primary:                   to.BoolPtr(true),
+		PrivateIPAllocationMethod: network.Dynamic,
+		Subnet:                    &network.Subnet{ID: to.StringPtr(subnetId)},
 	}
+
+	if env.config.usePublicIP {
+		publicIPAddressName := vmName + "-public-ip"
+		publicIPAddressId := fmt.Sprintf(`[resourceId('Microsoft.Network/publicIPAddresses', '%s')]`, publicIPAddressName)
+		ipConfig.PublicIPAddress = &network.PublicIPAddress{
+			ID: to.StringPtr(publicIPAddressId),
+		}
+		nicDependsOn = append(nicDependsOn, publicIPAddressId)
+		// Default to static public IP so address is preserved across reboots.
+		publicIPAddressAllocationMethod := network.Static
+		if env.config.loadBalancerSkuName == string(network.LoadBalancerSkuNameBasic) {
+			publicIPAddressAllocationMethod = network.Dynamic // preserve the settings that were used in Juju 2.4 and earlier
+		}
+		resources = append(resources, armtemplates.Resource{
+			APIVersion: networkAPIVersion,
+			Type:       "Microsoft.Network/publicIPAddresses",
+			Name:       publicIPAddressName,
+			Location:   env.location,
+			Tags:       vmTags,
+			Sku:        &armtemplates.Sku{Name: env.config.loadBalancerSkuName},
+			Properties: &network.PublicIPAddressPropertiesFormat{
+				PublicIPAddressVersion:   network.IPv4,
+				PublicIPAllocationMethod: publicIPAddressAllocationMethod,
+			},
+		})
+	}
+
 	nicName := vmName + "-primary"
 	nicId := fmt.Sprintf(`[resourceId('Microsoft.Network/networkInterfaces', '%s')]`, nicName)
-	nicDependsOn = append(nicDependsOn, publicIPAddressId)
 	ipConfigurations := []network.InterfaceIPConfiguration{{
-		Name: to.StringPtr("primary"),
-		InterfaceIPConfigurationPropertiesFormat: &network.InterfaceIPConfigurationPropertiesFormat{
-			Primary:                   to.BoolPtr(true),
-			PrivateIPAddress:          to.StringPtr(privateIP.String()),
-			PrivateIPAllocationMethod: network.Static,
-			Subnet:                    &network.Subnet{ID: to.StringPtr(subnetId)},
-			PublicIPAddress: &network.PublicIPAddress{
-				ID: to.StringPtr(publicIPAddressId),
-			},
-		},
+		Name:                                     to.StringPtr("primary"),
+		InterfaceIPConfigurationPropertiesFormat: ipConfig,
 	}}
 	resources = append(resources, armtemplates.Resource{
 		APIVersion: networkAPIVersion,

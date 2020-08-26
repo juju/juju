@@ -52,6 +52,11 @@ func (s *steps29Suite) TestAddCharmOriginToApplications(c *gc.C) {
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
 
+func (s *steps29Suite) TestAddAzureProviderNetworkConfig(c *gc.C) {
+	step := findStateStep(c, v290, "add Azure provider network config")
+	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
+}
+
 type mergeAgents29Suite struct {
 	testing.BaseSuite
 
