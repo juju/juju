@@ -342,6 +342,7 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpUnobservedParentNotRemo
 			ConfigMethod:   "static",
 			CIDRAddress:    "0.20.0.2/24",
 			GatewayAddress: "0.20.0.1",
+			Origin:         network.OriginMachine,
 		},
 	).Return([]txn.Op{{}, {}}, nil)
 
@@ -355,6 +356,7 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpUnobservedParentNotRemo
 			Addresses:           network.NewProviderAddresses("0.20.0.2"),
 			GatewayAddress:      network.NewProviderAddress("0.20.0.1"),
 			ParentInterfaceName: "eth99",
+			Origin:              network.OriginMachine,
 		},
 	})
 
@@ -409,6 +411,7 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpBridgedDeviceMovesAddre
 			ConfigMethod:   "static",
 			CIDRAddress:    "10.0.0.6/24",
 			GatewayAddress: "10.0.0.1",
+			Origin:         network.OriginMachine,
 		},
 	).Return([]txn.Op{{}, {}}, nil)
 
@@ -421,6 +424,7 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpBridgedDeviceMovesAddre
 			InterfaceType:       "ethernet",
 			MACAddress:          hwAddr,
 			ParentInterfaceName: "br-eth0",
+			Origin:              network.OriginMachine,
 		},
 		{
 			InterfaceName:  "br-eth0",
@@ -429,6 +433,7 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpBridgedDeviceMovesAddre
 			CIDR:           "10.0.0.0/24",
 			Addresses:      network.NewProviderAddresses("10.0.0.6"),
 			GatewayAddress: network.NewProviderAddress("10.0.0.1"),
+			Origin:         network.OriginMachine,
 		},
 	})
 

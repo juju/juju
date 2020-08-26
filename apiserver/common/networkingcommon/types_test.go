@@ -1,171 +1,29 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package networkingcommon_test
+package networkingcommon
 
 import (
-	"fmt"
-	"net"
-
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type TypesSuite struct {
-	coretesting.BaseSuite
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&TypesSuite{})
 
 func (s *TypesSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.IsolationSuite.SetUpTest(c)
 }
 
-func mustParseMAC(value string) net.HardwareAddr {
-	parsedMAC, err := net.ParseMAC(value)
-	if err != nil {
-		panic(fmt.Sprintf("cannot parse MAC %q: %v", value, err))
-	}
-	return parsedMAC
-}
-
-var exampleObservedInterfaces = []net.Interface{{
-	Index: 1,
-	MTU:   65536,
-	Name:  "lo",
-	Flags: net.FlagUp | net.FlagLoopback,
-}, {
-	Index:        2,
-	MTU:          1500,
-	Name:         "eth0",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f0"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}, {
-	Index:        10,
-	MTU:          1500,
-	Name:         "br-eth0",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f0"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}, {
-	Index:        11,
-	MTU:          1500,
-	Name:         "br-eth1",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f1"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}, {
-	Index:        3,
-	MTU:          1500,
-	Name:         "eth1",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f1"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}, {
-	Index:        12,
-	MTU:          1500,
-	Name:         "br-eth0.100",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f0"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}, {
-	Index:        13,
-	MTU:          1500,
-	Name:         "eth0.100",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f0"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}, {
-	Index:        14,
-	MTU:          1500,
-	Name:         "br-eth0.250",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f0"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}, {
-	Index:        15,
-	MTU:          1500,
-	Name:         "eth0.250",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f0"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}, {
-	Index:        16,
-	MTU:          1500,
-	Name:         "br-eth0.50",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f0"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}, {
-	Index:        17,
-	MTU:          1500,
-	Name:         "eth0.50",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f0"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}, {
-	Index:        18,
-	MTU:          1500,
-	Name:         "br-eth1.11",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f1"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}, {
-	Index:        19,
-	MTU:          1500,
-	Name:         "eth1.11",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f1"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}, {
-	Index:        20,
-	MTU:          1500,
-	Name:         "br-eth1.12",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f1"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}, {
-	Index:        21,
-	MTU:          1500,
-	Name:         "eth1.12",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f1"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}, {
-	Index:        22,
-	MTU:          1500,
-	Name:         "br-eth1.13",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f1"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}, {
-	Index:        23,
-	MTU:          1500,
-	Name:         "eth1.13",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f1"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}}
-
-type fakeAddr string
-
-func (f fakeAddr) Network() string { return "" }
-func (f fakeAddr) String() string  { return string(f) }
-
-var _ net.Addr = (*fakeAddr)(nil)
-
-var exampleObservedInterfaceAddrs = map[string][]net.Addr{
-	"eth0":        {fakeAddr("fe80::5054:ff:fedd:eef0/64")},
-	"eth1":        {fakeAddr("fe80::5054:ff:fedd:eef1/64")},
-	"eth0.50":     {fakeAddr("fe80::5054:ff:fedd:eef0:50/64")},
-	"eth0.100":    {fakeAddr("fe80::5054:ff:fedd:eef0:100/64")},
-	"eth0.25":     {fakeAddr("fe80::5054:ff:fedd:eef0:25/64")},
-	"eth1.11":     {fakeAddr("fe80::5054:ff:fedd:eef1:11/64")},
-	"eth1.12":     {fakeAddr("fe80::5054:ff:fedd:eef1:12/64")},
-	"eth1.13":     {fakeAddr("fe80::5054:ff:fedd:eef1:13/64")},
-	"lo":          {fakeAddr("127.0.0.1/8"), fakeAddr("::1/128")},
-	"br-eth0":     {fakeAddr("10.20.19.100/24"), fakeAddr("10.20.19.123/24"), fakeAddr("fe80::5054:ff:fedd:eef0/64")},
-	"br-eth1":     {fakeAddr("10.20.19.105/24"), fakeAddr("fe80::5054:ff:fedd:eef1/64")},
-	"br-eth0.50":  {fakeAddr("10.50.19.100/24"), fakeAddr("fe80::5054:ff:fedd:eef0/64")},
-	"br-eth0.100": {fakeAddr("10.100.19.100/24"), fakeAddr("fe80::5054:ff:fedd:eef0/64")},
-	"br-eth0.250": {fakeAddr("10.250.19.100/24"), fakeAddr("fe80::5054:ff:fedd:eef0/64")},
-	"br-eth1.11":  {fakeAddr("10.11.19.101/24"), fakeAddr("fe80::5054:ff:fedd:eef1/64")},
-	"br-eth1.12":  {fakeAddr("10.12.19.101/24"), fakeAddr("fe80::5054:ff:fedd:eef1/64")},
-	"br-eth1.13":  {fakeAddr("10.13.19.101/24"), fakeAddr("fe80::5054:ff:fedd:eef1/64")},
-}
-
-var expectedObservedNetworkConfigs = []params.NetworkConfig{{
+var observedNetworkConfigs = []params.NetworkConfig{{
 	DeviceIndex:   1,
 	InterfaceName: "lo",
 	InterfaceType: string(network.LoopbackInterface),
@@ -174,6 +32,7 @@ var expectedObservedNetworkConfigs = []params.NetworkConfig{{
 	Address:       "127.0.0.1",
 	MTU:           65536,
 	ConfigType:    string(network.ConfigLoopback),
+	NetworkOrigin: params.NetworkOrigin(network.OriginMachine),
 }, {
 	DeviceIndex:   10,
 	InterfaceName: "br-eth0",
@@ -183,6 +42,7 @@ var expectedObservedNetworkConfigs = []params.NetworkConfig{{
 	Address:       "10.20.19.100",
 	MTU:           1500,
 	ConfigType:    string(network.ConfigStatic),
+	NetworkOrigin: params.NetworkOrigin(network.OriginMachine),
 }, {
 	DeviceIndex:   10,
 	InterfaceName: "br-eth0",
@@ -192,6 +52,7 @@ var expectedObservedNetworkConfigs = []params.NetworkConfig{{
 	Address:       "10.20.19.123",
 	MTU:           1500,
 	ConfigType:    string(network.ConfigStatic),
+	NetworkOrigin: params.NetworkOrigin(network.OriginMachine),
 }, {
 	DeviceIndex:   12,
 	InterfaceName: "br-eth0.100",
@@ -200,6 +61,7 @@ var expectedObservedNetworkConfigs = []params.NetworkConfig{{
 	CIDR:          "10.100.19.0/24",
 	Address:       "10.100.19.100",
 	MTU:           1500,
+	NetworkOrigin: params.NetworkOrigin(network.OriginMachine),
 }, {
 	DeviceIndex:   14,
 	InterfaceName: "br-eth0.250",
@@ -209,6 +71,7 @@ var expectedObservedNetworkConfigs = []params.NetworkConfig{{
 	Address:       "10.250.19.100",
 	MTU:           1500,
 	ConfigType:    string(network.ConfigStatic),
+	NetworkOrigin: params.NetworkOrigin(network.OriginMachine),
 }, {
 	DeviceIndex:   16,
 	InterfaceName: "br-eth0.50",
@@ -218,6 +81,7 @@ var expectedObservedNetworkConfigs = []params.NetworkConfig{{
 	Address:       "10.50.19.100",
 	MTU:           1500,
 	ConfigType:    string(network.ConfigStatic),
+	NetworkOrigin: params.NetworkOrigin(network.OriginMachine),
 }, {
 	DeviceIndex:         2,
 	InterfaceName:       "eth0",
@@ -226,6 +90,7 @@ var expectedObservedNetworkConfigs = []params.NetworkConfig{{
 	MACAddress:          "aa:bb:cc:dd:ee:f0",
 	MTU:                 1500,
 	ConfigType:          string(network.ConfigManual),
+	NetworkOrigin:       params.NetworkOrigin(network.OriginMachine),
 }, {
 	DeviceIndex:         13,
 	InterfaceName:       "eth0.100",
@@ -234,6 +99,7 @@ var expectedObservedNetworkConfigs = []params.NetworkConfig{{
 	MACAddress:          "aa:bb:cc:dd:ee:f0",
 	MTU:                 1500,
 	ConfigType:          string(network.ConfigManual),
+	NetworkOrigin:       params.NetworkOrigin(network.OriginMachine),
 }, {
 	DeviceIndex:         15,
 	InterfaceName:       "eth0.250",
@@ -242,6 +108,7 @@ var expectedObservedNetworkConfigs = []params.NetworkConfig{{
 	MACAddress:          "aa:bb:cc:dd:ee:f0",
 	MTU:                 1500,
 	ConfigType:          string(network.ConfigManual),
+	NetworkOrigin:       params.NetworkOrigin(network.OriginMachine),
 }, {
 	DeviceIndex:         17,
 	InterfaceName:       "eth0.50",
@@ -250,6 +117,7 @@ var expectedObservedNetworkConfigs = []params.NetworkConfig{{
 	MACAddress:          "aa:bb:cc:dd:ee:f0",
 	MTU:                 1500,
 	ConfigType:          string(network.ConfigManual),
+	NetworkOrigin:       params.NetworkOrigin(network.OriginMachine),
 }, {
 	DeviceIndex:   11,
 	InterfaceName: "br-eth1",
@@ -259,6 +127,7 @@ var expectedObservedNetworkConfigs = []params.NetworkConfig{{
 	Address:       "10.20.19.105",
 	MTU:           1500,
 	ConfigType:    string(network.ConfigStatic),
+	NetworkOrigin: params.NetworkOrigin(network.OriginMachine),
 }, {
 	DeviceIndex:   18,
 	InterfaceName: "br-eth1.11",
@@ -268,6 +137,7 @@ var expectedObservedNetworkConfigs = []params.NetworkConfig{{
 	Address:       "10.11.19.101",
 	MTU:           1500,
 	ConfigType:    string(network.ConfigStatic),
+	NetworkOrigin: params.NetworkOrigin(network.OriginMachine),
 }, {
 	DeviceIndex:   20,
 	InterfaceName: "br-eth1.12",
@@ -277,6 +147,7 @@ var expectedObservedNetworkConfigs = []params.NetworkConfig{{
 	Address:       "10.12.19.101",
 	MTU:           1500,
 	ConfigType:    string(network.ConfigStatic),
+	NetworkOrigin: params.NetworkOrigin(network.OriginMachine),
 }, {
 	DeviceIndex:   22,
 	InterfaceName: "br-eth1.13",
@@ -286,6 +157,7 @@ var expectedObservedNetworkConfigs = []params.NetworkConfig{{
 	Address:       "10.13.19.101",
 	MTU:           1500,
 	ConfigType:    string(network.ConfigStatic),
+	NetworkOrigin: params.NetworkOrigin(network.OriginMachine),
 }, {
 	DeviceIndex:         3,
 	InterfaceName:       "eth1",
@@ -294,6 +166,7 @@ var expectedObservedNetworkConfigs = []params.NetworkConfig{{
 	MACAddress:          "aa:bb:cc:dd:ee:f1",
 	MTU:                 1500,
 	ConfigType:          string(network.ConfigManual),
+	NetworkOrigin:       params.NetworkOrigin(network.OriginMachine),
 }, {
 	DeviceIndex:         19,
 	InterfaceName:       "eth1.11",
@@ -302,6 +175,7 @@ var expectedObservedNetworkConfigs = []params.NetworkConfig{{
 	MACAddress:          "aa:bb:cc:dd:ee:f1",
 	MTU:                 1500,
 	ConfigType:          string(network.ConfigManual),
+	NetworkOrigin:       params.NetworkOrigin(network.OriginMachine),
 }, {
 	DeviceIndex:         21,
 	InterfaceName:       "eth1.12",
@@ -310,6 +184,7 @@ var expectedObservedNetworkConfigs = []params.NetworkConfig{{
 	MACAddress:          "aa:bb:cc:dd:ee:f1",
 	MTU:                 1500,
 	ConfigType:          string(network.ConfigManual),
+	NetworkOrigin:       params.NetworkOrigin(network.OriginMachine),
 }, {
 	DeviceIndex:         23,
 	InterfaceName:       "eth1.13",
@@ -318,367 +193,7 @@ var expectedObservedNetworkConfigs = []params.NetworkConfig{{
 	MACAddress:          "aa:bb:cc:dd:ee:f1",
 	MTU:                 1500,
 	ConfigType:          string(network.ConfigManual),
-}}
-
-var expectedProviderNetworkConfigs = []params.NetworkConfig{{
-	InterfaceName:       "eth0",
-	InterfaceType:       string(network.EthernetInterface),
-	MACAddress:          "aa:bb:cc:dd:ee:f0",
-	CIDR:                "10.20.19.0/24",
-	Address:             "10.20.19.100",
-	MTU:                 1500,
-	ConfigType:          string(network.ConfigStatic),
-	ParentInterfaceName: "",
-	ProviderId:          "3",
-	ProviderSubnetId:    "3",
-	ProviderVLANId:      "5001",
-	VLANTag:             0,
-	ProviderAddressId:   "1287",
-}, {
-	InterfaceName:       "eth0",
-	InterfaceType:       string(network.EthernetInterface),
-	MACAddress:          "aa:bb:cc:dd:ee:f0",
-	CIDR:                "10.20.19.0/24",
-	Address:             "10.20.19.123",
-	MTU:                 1500,
-	ConfigType:          string(network.ConfigStatic),
-	ParentInterfaceName: "",
-	ProviderId:          "3",
-	ProviderSubnetId:    "3",
-	ProviderVLANId:      "5001",
-	VLANTag:             0,
-	ProviderAddressId:   "1288",
-}, {
-	InterfaceName:       "eth0.100",
-	InterfaceType:       string(network.VLAN_8021QInterface),
-	MACAddress:          "aa:bb:cc:dd:ee:f0",
-	CIDR:                "10.100.19.0/24",
-	Address:             "10.100.19.100",
-	MTU:                 1500,
-	ConfigType:          string(network.ConfigStatic),
-	ParentInterfaceName: "eth0",
-	ProviderId:          "516",
-	ProviderSubnetId:    "6",
-	ProviderVLANId:      "5005",
-	VLANTag:             100,
-	ProviderAddressId:   "1292",
-}, {
-	InterfaceName:       "eth0.250",
-	InterfaceType:       string(network.VLAN_8021QInterface),
-	MACAddress:          "aa:bb:cc:dd:ee:f0",
-	CIDR:                "10.250.19.0/24",
-	Address:             "10.250.19.100",
-	MTU:                 1500,
-	ConfigType:          string(network.ConfigStatic),
-	ParentInterfaceName: "eth0",
-	ProviderId:          "517",
-	ProviderSubnetId:    "8",
-	ProviderVLANId:      "5008",
-	VLANTag:             250,
-	ProviderAddressId:   "1294",
-}, {
-	InterfaceName:       "eth0.50",
-	InterfaceType:       string(network.VLAN_8021QInterface),
-	MACAddress:          "aa:bb:cc:dd:ee:f0",
-	CIDR:                "10.50.19.0/24",
-	Address:             "10.50.19.100",
-	MTU:                 1500,
-	ConfigType:          string(network.ConfigStatic),
-	ParentInterfaceName: "eth0",
-	ProviderId:          "515",
-	ProviderSubnetId:    "5",
-	ProviderVLANId:      "5004",
-	VLANTag:             50,
-	ProviderAddressId:   "1290",
-}, {
-	InterfaceName:       "eth1",
-	InterfaceType:       string(network.EthernetInterface),
-	MACAddress:          "aa:bb:cc:dd:ee:f1",
-	CIDR:                "10.20.19.0/24",
-	Address:             "10.20.19.105",
-	MTU:                 1500,
-	ConfigType:          string(network.ConfigStatic),
-	ParentInterfaceName: "",
-	ProviderId:          "245",
-	ProviderSubnetId:    "3",
-	ProviderVLANId:      "5001",
-	VLANTag:             0,
-	ProviderAddressId:   "1295",
-}, {
-	InterfaceName:       "eth1.11",
-	InterfaceType:       string(network.VLAN_8021QInterface),
-	MACAddress:          "aa:bb:cc:dd:ee:f1",
-	CIDR:                "10.11.19.0/24",
-	Address:             "10.11.19.101",
-	MTU:                 1500,
-	ConfigType:          string(network.ConfigStatic),
-	ParentInterfaceName: "eth1",
-	ProviderId:          "518",
-	ProviderSubnetId:    "9",
-	ProviderVLANId:      "5013",
-	VLANTag:             11,
-	ProviderAddressId:   "1298",
-}, {
-	InterfaceName:       "eth1.12",
-	InterfaceType:       string(network.VLAN_8021QInterface),
-	MACAddress:          "aa:bb:cc:dd:ee:f1",
-	CIDR:                "10.12.19.0/24",
-	Address:             "10.12.19.101",
-	MTU:                 1500,
-	ConfigType:          string(network.ConfigStatic),
-	ParentInterfaceName: "eth1",
-	ProviderId:          "519",
-	ProviderSubnetId:    "10",
-	ProviderVLANId:      "5014",
-	VLANTag:             12,
-	ProviderAddressId:   "1300",
-}, {
-	InterfaceName:       "eth1.13",
-	InterfaceType:       string(network.VLAN_8021QInterface),
-	MACAddress:          "aa:bb:cc:dd:ee:f1",
-	CIDR:                "10.13.19.0/24",
-	Address:             "10.13.19.101",
-	MTU:                 1500,
-	ConfigType:          string(network.ConfigStatic),
-	ParentInterfaceName: "eth1",
-	ProviderId:          "520",
-	ProviderSubnetId:    "11",
-	ProviderVLANId:      "5015",
-	VLANTag:             13,
-	ProviderAddressId:   "1302",
-}}
-
-var expectedFinalNetworkConfigs = []params.NetworkConfig{{
-	DeviceIndex:         1,
-	InterfaceName:       "lo",
-	InterfaceType:       string(network.LoopbackInterface),
-	CIDR:                "127.0.0.0/8",
-	Address:             "127.0.0.1",
-	MTU:                 65536,
-	ConfigType:          string(network.ConfigLoopback),
-	ParentInterfaceName: "",
-}, {
-	DeviceIndex:         10,
-	InterfaceName:       "br-eth0",
-	InterfaceType:       string(network.BridgeInterface),
-	MACAddress:          "aa:bb:cc:dd:ee:f0",
-	CIDR:                "10.20.19.0/24",
-	Address:             "10.20.19.100",
-	MTU:                 1500,
-	ConfigType:          string(network.ConfigStatic),
-	ParentInterfaceName: "",
-	ProviderSubnetId:    "3",
-	ProviderVLANId:      "5001",
-	VLANTag:             0,
-	ProviderAddressId:   "1287",
-}, {
-	DeviceIndex:         10,
-	InterfaceName:       "br-eth0",
-	InterfaceType:       string(network.BridgeInterface),
-	MACAddress:          "aa:bb:cc:dd:ee:f0",
-	CIDR:                "10.20.19.0/24",
-	Address:             "10.20.19.123",
-	MTU:                 1500,
-	ConfigType:          string(network.ConfigStatic),
-	ParentInterfaceName: "",
-	ProviderSubnetId:    "3",
-	ProviderVLANId:      "5001",
-	VLANTag:             0,
-	ProviderAddressId:   "1288",
-}, {
-	DeviceIndex:         12,
-	InterfaceName:       "br-eth0.100",
-	InterfaceType:       string(network.BridgeInterface),
-	MACAddress:          "aa:bb:cc:dd:ee:f0",
-	CIDR:                "10.100.19.0/24",
-	Address:             "10.100.19.100",
-	MTU:                 1500,
-	ConfigType:          string(network.ConfigStatic),
-	ParentInterfaceName: "",
-	ProviderSubnetId:    "6",
-	ProviderVLANId:      "5005",
-	VLANTag:             100,
-	ProviderAddressId:   "1292",
-}, {
-	DeviceIndex:         14,
-	InterfaceName:       "br-eth0.250",
-	InterfaceType:       string(network.BridgeInterface),
-	MACAddress:          "aa:bb:cc:dd:ee:f0",
-	CIDR:                "10.250.19.0/24",
-	Address:             "10.250.19.100",
-	MTU:                 1500,
-	ConfigType:          string(network.ConfigStatic),
-	ParentInterfaceName: "",
-	ProviderSubnetId:    "8",
-	ProviderVLANId:      "5008",
-	VLANTag:             250,
-	ProviderAddressId:   "1294",
-}, {
-	DeviceIndex:         16,
-	InterfaceName:       "br-eth0.50",
-	InterfaceType:       string(network.BridgeInterface),
-	MACAddress:          "aa:bb:cc:dd:ee:f0",
-	CIDR:                "10.50.19.0/24",
-	Address:             "10.50.19.100",
-	MTU:                 1500,
-	ConfigType:          string(network.ConfigStatic),
-	ParentInterfaceName: "",
-	ProviderSubnetId:    "5",
-	ProviderVLANId:      "5004",
-	VLANTag:             50,
-	ProviderAddressId:   "1290",
-}, {
-	DeviceIndex:         2,
-	InterfaceName:       "eth0",
-	InterfaceType:       string(network.EthernetInterface),
-	MACAddress:          "aa:bb:cc:dd:ee:f0",
-	MTU:                 1500,
-	ConfigType:          string(network.ConfigManual),
-	ParentInterfaceName: "br-eth0",
-	ProviderId:          "3",
-	ProviderSubnetId:    "3",
-	ProviderVLANId:      "5001",
-	VLANTag:             0,
-}, {
-	DeviceIndex:         13,
-	InterfaceName:       "eth0.100",
-	InterfaceType:       string(network.VLAN_8021QInterface),
-	MACAddress:          "aa:bb:cc:dd:ee:f0",
-	MTU:                 1500,
-	ConfigType:          string(network.ConfigManual),
-	ParentInterfaceName: "br-eth0.100",
-	ProviderId:          "516",
-	ProviderSubnetId:    "6",
-	ProviderVLANId:      "5005",
-	VLANTag:             100,
-}, {
-	DeviceIndex:         15,
-	InterfaceName:       "eth0.250",
-	InterfaceType:       string(network.VLAN_8021QInterface),
-	MACAddress:          "aa:bb:cc:dd:ee:f0",
-	MTU:                 1500,
-	ConfigType:          string(network.ConfigManual),
-	ParentInterfaceName: "br-eth0.250",
-	ProviderId:          "517",
-	ProviderSubnetId:    "8",
-	ProviderVLANId:      "5008",
-	VLANTag:             250,
-}, {
-	DeviceIndex:         17,
-	InterfaceName:       "eth0.50",
-	InterfaceType:       string(network.VLAN_8021QInterface),
-	MACAddress:          "aa:bb:cc:dd:ee:f0",
-	MTU:                 1500,
-	ConfigType:          string(network.ConfigManual),
-	ParentInterfaceName: "br-eth0.50",
-	ProviderId:          "515",
-	ProviderSubnetId:    "5",
-	ProviderVLANId:      "5004",
-	VLANTag:             50,
-}, {
-	DeviceIndex:         11,
-	InterfaceName:       "br-eth1",
-	InterfaceType:       string(network.BridgeInterface),
-	MACAddress:          "aa:bb:cc:dd:ee:f1",
-	CIDR:                "10.20.19.0/24",
-	Address:             "10.20.19.105",
-	MTU:                 1500,
-	ConfigType:          string(network.ConfigStatic),
-	ParentInterfaceName: "",
-	ProviderSubnetId:    "3",
-	ProviderVLANId:      "5001",
-	VLANTag:             0,
-	ProviderAddressId:   "1295",
-}, {
-	DeviceIndex:         18,
-	InterfaceName:       "br-eth1.11",
-	InterfaceType:       string(network.BridgeInterface),
-	MACAddress:          "aa:bb:cc:dd:ee:f1",
-	CIDR:                "10.11.19.0/24",
-	Address:             "10.11.19.101",
-	MTU:                 1500,
-	ConfigType:          string(network.ConfigStatic),
-	ParentInterfaceName: "",
-	ProviderSubnetId:    "9",
-	ProviderVLANId:      "5013",
-	VLANTag:             11,
-	ProviderAddressId:   "1298",
-}, {
-	DeviceIndex:         20,
-	InterfaceName:       "br-eth1.12",
-	InterfaceType:       string(network.BridgeInterface),
-	MACAddress:          "aa:bb:cc:dd:ee:f1",
-	CIDR:                "10.12.19.0/24",
-	Address:             "10.12.19.101",
-	MTU:                 1500,
-	ConfigType:          string(network.ConfigStatic),
-	ParentInterfaceName: "",
-	ProviderSubnetId:    "10",
-	ProviderVLANId:      "5014",
-	VLANTag:             12,
-	ProviderAddressId:   "1300",
-}, {
-	DeviceIndex:         22,
-	InterfaceName:       "br-eth1.13",
-	InterfaceType:       string(network.BridgeInterface),
-	MACAddress:          "aa:bb:cc:dd:ee:f1",
-	CIDR:                "10.13.19.0/24",
-	Address:             "10.13.19.101",
-	MTU:                 1500,
-	ParentInterfaceName: "",
-	ConfigType:          string(network.ConfigStatic),
-	ProviderSubnetId:    "11",
-	ProviderVLANId:      "5015",
-	VLANTag:             13,
-	ProviderAddressId:   "1302",
-}, {
-	DeviceIndex:         3,
-	InterfaceName:       "eth1",
-	InterfaceType:       string(network.EthernetInterface),
-	MACAddress:          "aa:bb:cc:dd:ee:f1",
-	MTU:                 1500,
-	ConfigType:          string(network.ConfigManual),
-	ParentInterfaceName: "br-eth1",
-	ProviderId:          "245",
-	ProviderSubnetId:    "3",
-	ProviderVLANId:      "5001",
-	VLANTag:             0,
-}, {
-	DeviceIndex:         19,
-	InterfaceName:       "eth1.11",
-	InterfaceType:       string(network.VLAN_8021QInterface),
-	MACAddress:          "aa:bb:cc:dd:ee:f1",
-	MTU:                 1500,
-	ConfigType:          string(network.ConfigManual),
-	ParentInterfaceName: "br-eth1.11",
-	ProviderId:          "518",
-	ProviderSubnetId:    "9",
-	ProviderVLANId:      "5013",
-	VLANTag:             11,
-}, {
-	DeviceIndex:         21,
-	InterfaceName:       "eth1.12",
-	InterfaceType:       string(network.VLAN_8021QInterface),
-	MACAddress:          "aa:bb:cc:dd:ee:f1",
-	MTU:                 1500,
-	ConfigType:          string(network.ConfigManual),
-	ParentInterfaceName: "br-eth1.12",
-	ProviderId:          "519",
-	ProviderSubnetId:    "10",
-	ProviderVLANId:      "5014",
-	VLANTag:             12,
-}, {
-	DeviceIndex:         23,
-	InterfaceName:       "eth1.13",
-	InterfaceType:       string(network.VLAN_8021QInterface),
-	MACAddress:          "aa:bb:cc:dd:ee:f1",
-	MTU:                 1500,
-	ConfigType:          string(network.ConfigManual),
-	ParentInterfaceName: "br-eth1.13",
-	ProviderId:          "520",
-	ProviderSubnetId:    "11",
-	ProviderVLANId:      "5015",
-	VLANTag:             13,
+	NetworkOrigin:       params.NetworkOrigin(network.OriginMachine),
 }}
 
 var expectedLinkLayerDeviceArgsWithFinalNetworkConfig = []state.LinkLayerDeviceArgs{{
@@ -721,7 +236,6 @@ var expectedLinkLayerDeviceArgsWithFinalNetworkConfig = []state.LinkLayerDeviceA
 }, {
 	Name:        "eth0",
 	MTU:         1500,
-	ProviderID:  "3",
 	Type:        network.EthernetDevice,
 	MACAddress:  "aa:bb:cc:dd:ee:f0",
 	IsAutoStart: true,
@@ -730,7 +244,6 @@ var expectedLinkLayerDeviceArgsWithFinalNetworkConfig = []state.LinkLayerDeviceA
 }, {
 	Name:        "eth0.100",
 	MTU:         1500,
-	ProviderID:  "516",
 	Type:        network.VLAN8021QDevice,
 	MACAddress:  "aa:bb:cc:dd:ee:f0",
 	IsAutoStart: true,
@@ -739,7 +252,6 @@ var expectedLinkLayerDeviceArgsWithFinalNetworkConfig = []state.LinkLayerDeviceA
 }, {
 	Name:        "eth0.250",
 	MTU:         1500,
-	ProviderID:  "517",
 	Type:        network.VLAN8021QDevice,
 	MACAddress:  "aa:bb:cc:dd:ee:f0",
 	IsAutoStart: true,
@@ -748,7 +260,6 @@ var expectedLinkLayerDeviceArgsWithFinalNetworkConfig = []state.LinkLayerDeviceA
 }, {
 	Name:        "eth0.50",
 	MTU:         1500,
-	ProviderID:  "515",
 	Type:        network.VLAN8021QDevice,
 	MACAddress:  "aa:bb:cc:dd:ee:f0",
 	IsAutoStart: true,
@@ -788,7 +299,6 @@ var expectedLinkLayerDeviceArgsWithFinalNetworkConfig = []state.LinkLayerDeviceA
 }, {
 	Name:        "eth1",
 	MTU:         1500,
-	ProviderID:  "245",
 	Type:        network.EthernetDevice,
 	MACAddress:  "aa:bb:cc:dd:ee:f1",
 	IsAutoStart: true,
@@ -797,7 +307,6 @@ var expectedLinkLayerDeviceArgsWithFinalNetworkConfig = []state.LinkLayerDeviceA
 }, {
 	Name:        "eth1.11",
 	MTU:         1500,
-	ProviderID:  "518",
 	Type:        network.VLAN8021QDevice,
 	MACAddress:  "aa:bb:cc:dd:ee:f1",
 	IsAutoStart: true,
@@ -806,7 +315,6 @@ var expectedLinkLayerDeviceArgsWithFinalNetworkConfig = []state.LinkLayerDeviceA
 }, {
 	Name:        "eth1.12",
 	MTU:         1500,
-	ProviderID:  "519",
 	Type:        network.VLAN8021QDevice,
 	MACAddress:  "aa:bb:cc:dd:ee:f1",
 	IsAutoStart: true,
@@ -815,7 +323,6 @@ var expectedLinkLayerDeviceArgsWithFinalNetworkConfig = []state.LinkLayerDeviceA
 }, {
 	Name:        "eth1.13",
 	MTU:         1500,
-	ProviderID:  "520",
 	Type:        network.VLAN8021QDevice,
 	MACAddress:  "aa:bb:cc:dd:ee:f1",
 	IsAutoStart: true,
@@ -823,70 +330,116 @@ var expectedLinkLayerDeviceArgsWithFinalNetworkConfig = []state.LinkLayerDeviceA
 	ParentName:  "br-eth1.13",
 }}
 
-var expectedLinkLayerDeviceAdressesWithFinalNetworkConfig = []state.LinkLayerDeviceAddress{{
+var expectedLinkLayerDeviceAddressesWithFinalNetworkConfig = []state.LinkLayerDeviceAddress{{
 	DeviceName:   "lo",
 	ConfigMethod: network.LoopbackAddress,
 	CIDRAddress:  "127.0.0.1/8",
+	Origin:       network.OriginMachine,
 }, {
-	DeviceName:       "br-eth0",
-	ConfigMethod:     network.StaticAddress,
-	CIDRAddress:      "10.20.19.100/24",
-	ProviderID:       "1287",
-	ProviderSubnetID: "3",
+	DeviceName:   "br-eth0",
+	ConfigMethod: network.StaticAddress,
+	CIDRAddress:  "10.20.19.100/24",
+	Origin:       network.OriginMachine,
 }, {
-	DeviceName:       "br-eth0",
-	ConfigMethod:     network.StaticAddress,
-	CIDRAddress:      "10.20.19.123/24",
-	ProviderID:       "1288",
-	ProviderSubnetID: "3",
+	DeviceName:   "br-eth0",
+	ConfigMethod: network.StaticAddress,
+	CIDRAddress:  "10.20.19.123/24",
+	Origin:       network.OriginMachine,
 }, {
-	DeviceName:       "br-eth0.100",
-	ConfigMethod:     network.StaticAddress,
-	CIDRAddress:      "10.100.19.100/24",
-	ProviderID:       "1292",
-	ProviderSubnetID: "6",
+	DeviceName:   "br-eth0.100",
+	ConfigMethod: network.StaticAddress,
+	CIDRAddress:  "10.100.19.100/24",
+	Origin:       network.OriginMachine,
 }, {
-	DeviceName:       "br-eth0.250",
-	ConfigMethod:     network.StaticAddress,
-	CIDRAddress:      "10.250.19.100/24",
-	ProviderID:       "1294",
-	ProviderSubnetID: "8",
+	DeviceName:   "br-eth0.250",
+	ConfigMethod: network.StaticAddress,
+	CIDRAddress:  "10.250.19.100/24",
+	Origin:       network.OriginMachine,
 }, {
-	DeviceName:       "br-eth0.50",
-	ConfigMethod:     network.StaticAddress,
-	CIDRAddress:      "10.50.19.100/24",
-	ProviderID:       "1290",
-	ProviderSubnetID: "5",
+	DeviceName:   "br-eth0.50",
+	ConfigMethod: network.StaticAddress,
+	CIDRAddress:  "10.50.19.100/24",
+	Origin:       network.OriginMachine,
 }, {
-	DeviceName:       "br-eth1",
-	ConfigMethod:     network.StaticAddress,
-	CIDRAddress:      "10.20.19.105/24",
-	ProviderID:       "1295",
-	ProviderSubnetID: "3",
+	DeviceName:   "br-eth1",
+	ConfigMethod: network.StaticAddress,
+	CIDRAddress:  "10.20.19.105/24",
+	Origin:       network.OriginMachine,
 }, {
-	DeviceName:       "br-eth1.11",
-	ConfigMethod:     network.StaticAddress,
-	CIDRAddress:      "10.11.19.101/24",
-	ProviderID:       "1298",
-	ProviderSubnetID: "9",
+	DeviceName:   "br-eth1.11",
+	ConfigMethod: network.StaticAddress,
+	CIDRAddress:  "10.11.19.101/24",
+	Origin:       network.OriginMachine,
 }, {
-	DeviceName:       "br-eth1.12",
-	ConfigMethod:     network.StaticAddress,
-	CIDRAddress:      "10.12.19.101/24",
-	ProviderID:       "1300",
-	ProviderSubnetID: "10",
+	DeviceName:   "br-eth1.12",
+	ConfigMethod: network.StaticAddress,
+	CIDRAddress:  "10.12.19.101/24",
+	Origin:       network.OriginMachine,
 }, {
-	DeviceName:       "br-eth1.13",
-	ConfigMethod:     network.StaticAddress,
-	CIDRAddress:      "10.13.19.101/24",
-	ProviderID:       "1302",
-	ProviderSubnetID: "11",
+	DeviceName:   "br-eth1.13",
+	ConfigMethod: network.StaticAddress,
+	CIDRAddress:  "10.13.19.101/24",
+	Origin:       network.OriginMachine,
 }}
 
 func (s *TypesSuite) TestNetworkInterfacesToStateArgs(c *gc.C) {
-	ifaces := params.InterfaceInfoFromNetworkConfig(expectedFinalNetworkConfigs)
-	devicesArgs, devicesAddrs := networkingcommon.NetworkInterfacesToStateArgs(ifaces)
+	interfaces := params.InterfaceInfoFromNetworkConfig(observedNetworkConfigs)
+	devicesArgs, devicesAddrs := NetworkInterfacesToStateArgs(interfaces)
 
 	c.Check(devicesArgs, jc.DeepEquals, expectedLinkLayerDeviceArgsWithFinalNetworkConfig)
-	c.Check(devicesAddrs, jc.DeepEquals, expectedLinkLayerDeviceAdressesWithFinalNetworkConfig)
+	c.Check(devicesAddrs, jc.DeepEquals, expectedLinkLayerDeviceAddressesWithFinalNetworkConfig)
+}
+
+func (s *TypesSuite) TestAddressMatchingFromObservedConfig(c *gc.C) {
+	cfg := []params.NetworkConfig{
+		{DeviceIndex: 1, MACAddress: "", CIDR: "127.0.0.0/8", MTU: 65536, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "lo", ParentInterfaceName: "", InterfaceType: "loopback", Disabled: false, NoAutoStart: false, ConfigType: "loopback", Address: "127.0.0.1", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
+		{DeviceIndex: 1, MACAddress: "", CIDR: "::1/128", MTU: 65536, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "lo", ParentInterfaceName: "", InterfaceType: "loopback", Disabled: false, NoAutoStart: false, ConfigType: "loopback", Address: "::1", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
+		{DeviceIndex: 2, MACAddress: "ac:1f:6b:65:65:a4", CIDR: "", MTU: 1500, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "eno1", ParentInterfaceName: "", InterfaceType: "ethernet", Disabled: false, NoAutoStart: false, ConfigType: "manual", Address: "", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
+		{DeviceIndex: 3, MACAddress: "ac:1f:6b:65:65:a5", CIDR: "", MTU: 1500, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "eno2", ParentInterfaceName: "", InterfaceType: "ethernet", Disabled: false, NoAutoStart: false, ConfigType: "manual", Address: "", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
+		{DeviceIndex: 4, MACAddress: "ac:1f:6b:65:66:46", CIDR: "", MTU: 9214, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "eno3", ParentInterfaceName: "br-eno3", InterfaceType: "ethernet", Disabled: false, NoAutoStart: false, ConfigType: "manual", Address: "", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
+		{DeviceIndex: 5, MACAddress: "ac:1f:6b:65:66:47", CIDR: "2001:41f0:86dd:1000::/64", MTU: 9214, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "eno4", ParentInterfaceName: "", InterfaceType: "ethernet", Disabled: false, NoAutoStart: false, ConfigType: "static", Address: "2001:41f0:86dd:1000:ae1f:6bff:fe65:6647", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
+		{DeviceIndex: 5, MACAddress: "ac:1f:6b:65:66:47", CIDR: "", MTU: 9214, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "eno4", ParentInterfaceName: "", InterfaceType: "ethernet", Disabled: false, NoAutoStart: false, ConfigType: "manual", Address: "", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
+		{DeviceIndex: 6, MACAddress: "ac:1f:6b:65:66:46", CIDR: "", MTU: 9000, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "eno3.6", ParentInterfaceName: "br-eno3-6", InterfaceType: "802.1q", Disabled: false, NoAutoStart: false, ConfigType: "manual", Address: "", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
+		{DeviceIndex: 7, MACAddress: "ac:1f:6b:65:66:46", CIDR: "", MTU: 9214, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "eno3.7", ParentInterfaceName: "br-eno3-7", InterfaceType: "802.1q", Disabled: false, NoAutoStart: false, ConfigType: "manual", Address: "", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
+		{DeviceIndex: 8, MACAddress: "ac:1f:6b:65:66:46", CIDR: "", MTU: 9214, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "eno3.8", ParentInterfaceName: "br-eno3-8", InterfaceType: "802.1q", Disabled: false, NoAutoStart: false, ConfigType: "manual", Address: "", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
+		{DeviceIndex: 9, MACAddress: "00:16:3e:64:f0:6e", CIDR: "10.47.242.0/24", MTU: 1500, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "lxdbr0", ParentInterfaceName: "", InterfaceType: "bridge", Disabled: false, NoAutoStart: false, ConfigType: "static", Address: "10.47.242.1", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
+		{DeviceIndex: 10, MACAddress: "0e:a1:d0:85:e4:95", CIDR: "10.1.12.0/23", MTU: 9000, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "br-eno3-6", ParentInterfaceName: "", InterfaceType: "bridge", Disabled: false, NoAutoStart: false, ConfigType: "static", Address: "10.1.12.3", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
+		{DeviceIndex: 10, MACAddress: "0e:a1:d0:85:e4:95", CIDR: "", MTU: 9000, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "br-eno3-6", ParentInterfaceName: "", InterfaceType: "bridge", Disabled: false, NoAutoStart: false, ConfigType: "manual", Address: "", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
+		{DeviceIndex: 11, MACAddress: "ac:1f:6b:65:66:46", CIDR: "10.1.14.0/23", MTU: 9214, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "br-eno3-7", ParentInterfaceName: "", InterfaceType: "bridge", Disabled: false, NoAutoStart: false, ConfigType: "static", Address: "10.1.14.3", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
+		{DeviceIndex: 11, MACAddress: "ac:1f:6b:65:66:46", CIDR: "", MTU: 9214, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "br-eno3-7", ParentInterfaceName: "", InterfaceType: "bridge", Disabled: false, NoAutoStart: false, ConfigType: "manual", Address: "", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
+		{DeviceIndex: 12, MACAddress: "1e:d2:8f:c1:d2:f7", CIDR: "10.0.4.0/22", MTU: 9214, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "br-eno3", ParentInterfaceName: "", InterfaceType: "bridge", Disabled: false, NoAutoStart: false, ConfigType: "static", Address: "10.0.4.45", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "10.0.4.1", Routes: []params.NetworkRoute(nil), IsDefaultGateway: true, NetworkOrigin: "machine"},
+		{DeviceIndex: 12, MACAddress: "1e:d2:8f:c1:d2:f7", CIDR: "2001:41f0:86dd:1000::/64", MTU: 9214, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "br-eno3", ParentInterfaceName: "", InterfaceType: "bridge", Disabled: false, NoAutoStart: false, ConfigType: "static", Address: "2001:41f0:86dd:1000:1cd2:8fff:fec1:d2f7", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "10.0.4.1", Routes: []params.NetworkRoute(nil), IsDefaultGateway: true, NetworkOrigin: "machine"},
+		{DeviceIndex: 12, MACAddress: "1e:d2:8f:c1:d2:f7", CIDR: "2001:41f0:86dd:1000::/64", MTU: 9214, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "br-eno3", ParentInterfaceName: "", InterfaceType: "bridge", Disabled: false, NoAutoStart: false, ConfigType: "static", Address: "2001:41f0:86dd:1000::15", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "10.0.4.1", Routes: []params.NetworkRoute(nil), IsDefaultGateway: true, NetworkOrigin: "machine"},
+		{DeviceIndex: 12, MACAddress: "1e:d2:8f:c1:d2:f7", CIDR: "", MTU: 9214, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "br-eno3", ParentInterfaceName: "", InterfaceType: "bridge", Disabled: false, NoAutoStart: false, ConfigType: "manual", Address: "", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "10.0.4.1", Routes: []params.NetworkRoute(nil), IsDefaultGateway: true, NetworkOrigin: "machine"},
+		{DeviceIndex: 14, MACAddress: "1e:d2:8f:c1:d2:f7", CIDR: "", MTU: 9000, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "veth07891da4", ParentInterfaceName: "br-eno3", InterfaceType: "ethernet", Disabled: false, NoAutoStart: false, ConfigType: "manual", Address: "", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
+		{DeviceIndex: 16, MACAddress: "b6:02:ce:d5:a9:8c", CIDR: "", MTU: 9000, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "veth2ee8ca11", ParentInterfaceName: "br-eno3-6", InterfaceType: "ethernet", Disabled: false, NoAutoStart: false, ConfigType: "manual", Address: "", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
+		{DeviceIndex: 18, MACAddress: "f6:1c:02:49:4f:f8", CIDR: "", MTU: 9214, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "veth016acfa3", ParentInterfaceName: "br-eno3-7", InterfaceType: "ethernet", Disabled: false, NoAutoStart: false, ConfigType: "manual", Address: "", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
+		{DeviceIndex: 20, MACAddress: "ea:70:44:9b:f4:c4", CIDR: "", MTU: 9000, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "veth4df8cc58", ParentInterfaceName: "br-eno3", InterfaceType: "ethernet", Disabled: false, NoAutoStart: false, ConfigType: "manual", Address: "", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
+		{DeviceIndex: 22, MACAddress: "86:12:35:b1:98:5a", CIDR: "", MTU: 9000, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "veth47a2ce8b", ParentInterfaceName: "br-eno3-6", InterfaceType: "ethernet", Disabled: false, NoAutoStart: false, ConfigType: "manual", Address: "", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
+		{DeviceIndex: 24, MACAddress: "92:d0:c7:c3:a5:28", CIDR: "", MTU: 9000, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "veth0a1e21e6", ParentInterfaceName: "br-eno3", InterfaceType: "ethernet", Disabled: false, NoAutoStart: false, ConfigType: "manual", Address: "", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
+		{DeviceIndex: 26, MACAddress: "d6:e8:a6:25:ea:6f", CIDR: "", MTU: 9000, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "veth49e6014a", ParentInterfaceName: "br-eno3-6", InterfaceType: "ethernet", Disabled: false, NoAutoStart: false, ConfigType: "manual", Address: "", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
+		{DeviceIndex: 28, MACAddress: "ae:cb:fb:62:a9:ca", CIDR: "", MTU: 9214, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "vetha2f459bd", ParentInterfaceName: "br-eno3-7", InterfaceType: "ethernet", Disabled: false, NoAutoStart: false, ConfigType: "manual", Address: "", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
+		{DeviceIndex: 30, MACAddress: "ae:b7:70:51:a8:df", CIDR: "", MTU: 9000, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "veth4fbab617", ParentInterfaceName: "br-eno3", InterfaceType: "ethernet", Disabled: false, NoAutoStart: false, ConfigType: "manual", Address: "", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
+		{DeviceIndex: 32, MACAddress: "0e:a1:d0:85:e4:95", CIDR: "", MTU: 9000, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "vethf198fca2", ParentInterfaceName: "br-eno3-6", InterfaceType: "ethernet", Disabled: false, NoAutoStart: false, ConfigType: "manual", Address: "", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
+		{DeviceIndex: 34, MACAddress: "72:35:a4:66:e8:bb", CIDR: "", MTU: 9000, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "veth906f682f", ParentInterfaceName: "br-eno3", InterfaceType: "ethernet", Disabled: false, NoAutoStart: false, ConfigType: "manual", Address: "", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
+		{DeviceIndex: 36, MACAddress: "ea:81:6a:37:50:50", CIDR: "", MTU: 9000, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "veth9c84c6e5", ParentInterfaceName: "br-eno3-6", InterfaceType: "ethernet", Disabled: false, NoAutoStart: false, ConfigType: "manual", Address: "", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
+		{DeviceIndex: 37, MACAddress: "ac:1f:6b:65:66:46", CIDR: "10.1.16.0/23", MTU: 9214, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "br-eno3-8", ParentInterfaceName: "", InterfaceType: "bridge", Disabled: false, NoAutoStart: false, ConfigType: "static", Address: "10.1.16.3", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
+		{DeviceIndex: 37, MACAddress: "ac:1f:6b:65:66:46", CIDR: "", MTU: 9214, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "br-eno3-8", ParentInterfaceName: "", InterfaceType: "bridge", Disabled: false, NoAutoStart: false, ConfigType: "manual", Address: "", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
+		{DeviceIndex: 39, MACAddress: "9a:c5:f8:4a:e4:36", CIDR: "", MTU: 9000, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "veth0a86d9b8", ParentInterfaceName: "br-eno3", InterfaceType: "ethernet", Disabled: false, NoAutoStart: false, ConfigType: "manual", Address: "", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
+		{DeviceIndex: 41, MACAddress: "da:77:31:87:5a:15", CIDR: "", MTU: 9000, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "vetha7e8da1b", ParentInterfaceName: "br-eno3-6", InterfaceType: "ethernet", Disabled: false, NoAutoStart: false, ConfigType: "manual", Address: "", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
+	}
+
+	interfaces := params.InterfaceInfoFromNetworkConfig(cfg)
+	breno38 := interfaces.GetByNameAndHardwareAddress("br-eno3-8", "ac:1f:6b:65:66:46")
+	c.Check(breno38, gc.HasLen, 2)
+
+	stateAddr := networkAddressStateArgsForDevice(interfaces, "br-eno3-8", "ac:1f:6b:65:66:46")
+	c.Check(stateAddr, gc.DeepEquals, []state.LinkLayerDeviceAddress{{
+		DeviceName:       "br-eno3-8",
+		ConfigMethod:     "static",
+		CIDRAddress:      "10.1.16.3/23",
+		DNSServers:       []string{},
+		IsDefaultGateway: false,
+		Origin:           network.OriginMachine,
+	}})
 }
