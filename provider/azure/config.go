@@ -35,6 +35,10 @@ const (
 	// rather than Juju creating it.
 	configAttrResourceGroupName = "resource-group-name"
 
+	// configNetwork is the virtual network each machine's primary NIC
+	// is attached to.
+	configAttrNetwork = "network"
+
 	// The below bits are internal book-keeping things, rather than
 	// configuration. Config is just what we have to work with.
 
@@ -64,6 +68,11 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 		Immutable:   true,
 	},
+	configAttrNetwork: {
+		Description: "If set, use the specified virtual network for all model machines instead of creating one.",
+		Type:        environschema.Tstring,
+		Immutable:   true,
+	},
 }
 
 var configDefaults = schema.Defaults{
@@ -71,6 +80,7 @@ var configDefaults = schema.Defaults{
 	configAttrStorageAccountType:  string(storage.StandardLRS),
 	configAttrLoadBalancerSkuName: string(network.LoadBalancerSkuNameStandard),
 	configAttrResourceGroupName:   schema.Omit,
+	configAttrNetwork:             schema.Omit,
 }
 
 // DefaultNetworkConfigForUpgrade is used to set the config for an Azure
@@ -118,6 +128,7 @@ type azureModelConfig struct {
 	storageAccountType  string
 	loadBalancerSkuName string
 	resourceGroupName   string
+	virtualNetworkName  string
 }
 
 // knownStorageAccountTypes returns a list of valid storage SKU names.
@@ -249,6 +260,7 @@ Please choose a model name of no more than %d characters.`,
 	}
 
 	usePublicIP, _ := validated[ConfigAttrUsePublicIP].(bool)
+	networkName, _ := validated[configAttrNetwork].(string)
 
 	azureConfig := &azureModelConfig{
 		Config:              newCfg,
@@ -256,6 +268,7 @@ Please choose a model name of no more than %d characters.`,
 		storageAccountType:  storageAccountType,
 		loadBalancerSkuName: loadBalancerSkuName,
 		resourceGroupName:   userSpecifiedResourceGroup,
+		virtualNetworkName:  networkName,
 	}
 	return azureConfig, nil
 }
