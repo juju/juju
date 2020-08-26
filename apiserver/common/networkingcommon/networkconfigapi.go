@@ -288,7 +288,7 @@ func (o *updateMachineLinkLayerOp) processExistingDeviceAddress(
 
 	// Otherwise if we are the authority, delete it.
 	if addr.Origin() == network.OriginMachine {
-		logger.Debugf("removing address %q from device %q", addrValue, addr.DeviceName())
+		logger.Infof("removing address %q from device %q", addrValue, addr.DeviceName())
 		return addr.RemoveOps(), nil
 	}
 
@@ -324,11 +324,16 @@ func (o *updateMachineLinkLayerOp) processNewDevices() ([]txn.Op, error) {
 			continue
 		}
 
-		logger.Debugf("adding new device %q (%s) with addresses %v",
-			dev.InterfaceName, dev.MACAddress, dev.Addresses)
+		addrs := o.MatchingIncomingAddrs(dev.InterfaceName, dev.MACAddress)
+		addrValues := make([]string, len(addrs))
+		for i, addr := range addrs {
+			addrValues[i] = addr.CIDRAddress
+		}
+
+		logger.Infof("adding new device %q (%s) with addresses %v", dev.InterfaceName, dev.MACAddress, addrValues)
 
 		addOps, err := o.machine.AddLinkLayerDeviceOps(
-			networkDeviceToStateArgs(dev), o.MatchingIncomingAddrs(dev.InterfaceName, dev.MACAddress)...)
+			networkDeviceToStateArgs(dev), addrs...)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -351,7 +356,7 @@ func (o *updateMachineLinkLayerOp) processRemovalCandidates() []txn.Op {
 		if o.observedParentDevices.Contains(dev.Name()) {
 			logger.Warningf("device %q (%s) not removed; it has incoming child devices", dev.Name(), dev.MACAddress())
 		} else {
-			logger.Debugf("removing device %q (%s)", dev.Name(), dev.MACAddress())
+			logger.Infof("removing device %q (%s)", dev.Name(), dev.MACAddress())
 			ops = append(ops, dev.RemoveOps()...)
 		}
 	}
