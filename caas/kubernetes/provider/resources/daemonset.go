@@ -73,7 +73,7 @@ func (ds *DaemonSet) Get(ctx context.Context, client kubernetes.Interface) error
 func (ds *DaemonSet) Delete(ctx context.Context, client kubernetes.Interface) error {
 	api := client.AppsV1().DaemonSets(ds.Namespace)
 	err := api.Delete(ctx, ds.Name, metav1.DeleteOptions{
-		PropagationPolicy: &k8sconstants.DefaultPropagationPolicy,
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

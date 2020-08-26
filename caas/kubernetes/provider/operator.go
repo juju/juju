@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	caasconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/caas/kubernetes/provider/storage"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/paths"
@@ -291,8 +292,8 @@ func (k *kubernetesClient) operatorVolumeClaim(appName, operatorName string, sto
 		}
 		return existingClaim, nil
 	}
-	if storageParams.Provider != K8s_ProviderType {
-		return nil, errors.Errorf("expected charm storage provider %q, got %q", K8s_ProviderType, storageParams.Provider)
+	if storageParams.Provider != constants.StorageProviderType {
+		return nil, errors.Errorf("expected charm storage provider %q, got %q", constants.StorageProviderType, storageParams.Provider)
 	}
 
 	// Charm needs storage so set it up.
@@ -301,23 +302,23 @@ func (k *kubernetesClient) operatorVolumeClaim(appName, operatorName string, sto
 		return nil, errors.Annotatef(err, "invalid volume size %v", storageParams.Size)
 	}
 
-	params, err := newVolumeParams(operatorVolumeClaim, fsSize, storageParams.Attributes)
+	params, err := storage.ParseVolumeParams(operatorVolumeClaim, fsSize, storageParams.Attributes)
 	if err != nil {
 		return nil, errors.Annotatef(err, "invalid storage configuration for %q operator", appName)
 	}
 	// We want operator storage to be deleted when the operator goes away.
-	params.storageConfig.reclaimPolicy = core.PersistentVolumeReclaimDelete
-	logger.Debugf("operator storage config %#v", *params.storageConfig)
+	params.StorageConfig.ReclaimPolicy = core.PersistentVolumeReclaimDelete
+	logger.Debugf("operator storage config %#v", *params.StorageConfig)
 
 	// Attempt to get a persistent volume to store charm state etc.
-	pvcSpec, err := k.maybeGetVolumeClaimSpec(params)
+	pvcSpec, err := k.maybeGetVolumeClaimSpec(*params)
 	if err != nil {
 		return nil, errors.Annotate(err, "finding operator volume claim")
 	}
 
 	return &core.PersistentVolumeClaim{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        params.pvcName,
+			Name:        params.Name,
 			Annotations: utils.ResourceTagsToAnnotations(storageParams.ResourceTags).ToMap()},
 		Spec: *pvcSpec,
 	}, nil
@@ -334,11 +335,11 @@ func (k *kubernetesClient) validateOperatorStorage() (string, error) {
 
 // OperatorExists indicates if the operator for the specified
 // application exists, and whether the operator is terminating.
-func (k *kubernetesClient) OperatorExists(appName string) (caas.OperatorState, error) {
+func (k *kubernetesClient) OperatorExists(appName string) (caas.DeploymentState, error) {
 	operatorName := k.operatorName(appName)
 	exists, terminating, err := k.operatorStatefulSetExists(appName, operatorName)
 	if err != nil {
-		return caas.OperatorState{}, errors.Trace(err)
+		return caas.DeploymentState{}, errors.Trace(err)
 	}
 	if exists || terminating {
 		if terminating {
@@ -346,7 +347,7 @@ func (k *kubernetesClient) OperatorExists(appName string) (caas.OperatorState, e
 		} else {
 			logger.Tracef("operator %q exists")
 		}
-		return caas.OperatorState{Exists: exists, Terminating: terminating}, nil
+		return caas.DeploymentState{Exists: exists, Terminating: terminating}, nil
 	}
 	checks := []struct {
 		label string
@@ -363,16 +364,16 @@ func (k *kubernetesClient) OperatorExists(appName string) (caas.OperatorState, e
 	for _, c := range checks {
 		exists, _, err := c.check(appName, operatorName)
 		if err != nil {
-			return caas.OperatorState{}, errors.Annotatef(err, "%s resource check", c.label)
+			return caas.DeploymentState{}, errors.Annotatef(err, "%s resource check", c.label)
 		}
 		if exists {
 			// Terminating is always set to true regardless of whether the resource is failed as terminating
 			// since it's the overall state that is reported back.
 			logger.Debugf("operator %q exists and is terminating due to dangling %s resource(s)", operatorName, c.label)
-			return caas.OperatorState{Exists: true, Terminating: true}, nil
+			return caas.DeploymentState{Exists: true, Terminating: true}, nil
 		}
 	}
-	return caas.OperatorState{}, nil
+	return caas.DeploymentState{}, nil
 }
 
 func (k *kubernetesClient) operatorStatefulSetExists(appName string, operatorName string) (exists bool, terminating bool, err error) {
@@ -508,7 +509,7 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 	configMaps := k.client().CoreV1().ConfigMaps(k.namespace)
 	configMapName := operatorConfigMapName(operatorName)
 	err = configMaps.Delete(context.TODO(), configMapName, v1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Trace(err)
@@ -520,7 +521,7 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 		configMapName = "juju-" + configMapName
 	}
 	err = configMaps.Delete(context.TODO(), configMapName, v1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Trace(err)
@@ -563,7 +564,7 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 		// for operators as the volume is an inseparable part of the operator.
 		for _, volName := range volumeNames {
 			err = pvs.Delete(context.TODO(), volName, v1.DeleteOptions{
-				PropagationPolicy: &constants.DefaultPropagationPolicy,
+				PropagationPolicy: constants.DefaultPropagationPolicy(),
 			})
 			if err != nil && !k8serrors.IsNotFound(err) {
 				return errors.Annotatef(err, "deleting operator persistent volume %v for %v",

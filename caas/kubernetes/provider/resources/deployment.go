@@ -73,7 +73,7 @@ func (d *Deployment) Get(ctx context.Context, client kubernetes.Interface) error
 func (d *Deployment) Delete(ctx context.Context, client kubernetes.Interface) error {
 	api := client.AppsV1().Deployments(d.Namespace)
 	err := api.Delete(ctx, d.Name, metav1.DeleteOptions{
-		PropagationPolicy: &k8sconstants.DefaultPropagationPolicy,
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

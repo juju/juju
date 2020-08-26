@@ -19,6 +19,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
@@ -1994,7 +1995,7 @@ func defaultStoragePool(modelType ModelType, cfg *config.Config, kind storage.St
 	case storage.StorageKindBlock:
 		fallbackPool := string(provider.LoopProviderType)
 		if modelType == ModelTypeCAAS {
-			fallbackPool = string(k8sprovider.K8s_ProviderType)
+			fallbackPool = string(k8sconstants.StorageProviderType)
 		}
 
 		emptyConstraints := StorageConstraints{}
@@ -2012,7 +2013,7 @@ func defaultStoragePool(modelType ModelType, cfg *config.Config, kind storage.St
 	case storage.StorageKindFilesystem:
 		fallbackPool := string(provider.RootfsProviderType)
 		if modelType == ModelTypeCAAS {
-			fallbackPool = string(k8sprovider.K8s_ProviderType)
+			fallbackPool = string(k8sconstants.StorageProviderType)
 		}
 		emptyConstraints := StorageConstraints{}
 		if cons == emptyConstraints {

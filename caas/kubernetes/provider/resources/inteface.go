@@ -37,5 +37,5 @@ type Applier interface {
 	// Delete adds an delete operation to the applier.
 	Delete(Resource)
 	// Run processes the slice of the operations.
-	Run(context.Context, kubernetes.Interface, bool) error
+	Run(ctx context.Context, client kubernetes.Interface, noRollback bool) error
 }

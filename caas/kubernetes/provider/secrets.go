@@ -173,7 +173,7 @@ func (k *kubernetesClient) listSecrets(labels map[string]string) ([]core.Secret,
 
 func (k *kubernetesClient) deleteSecrets(appName string) error {
 	err := k.client().CoreV1().Secrets(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, v1.ListOptions{
 		LabelSelector: utils.LabelSetToSelector(k.getSecretLabels(appName)).String(),
 	})

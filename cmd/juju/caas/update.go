@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/cloud"
@@ -238,8 +239,8 @@ func (c *UpdateCAASCommand) Run(ctx *cmd.Context) (err error) {
 		}
 	}
 
-	if newCloud.Type != provider.CAASProviderType {
-		ctx.Infof("The %q cloud is a %q cloud and not a %q cloud.", c.caasName, newCloud.Type, provider.CAASProviderType)
+	if newCloud.Type != k8sconstants.CAASProviderType {
+		ctx.Infof("The %q cloud is a %q cloud and not a %q cloud.", c.caasName, newCloud.Type, k8sconstants.CAASProviderType)
 		return cmd.ErrSilent
 	}
 
@@ -293,8 +294,8 @@ func (c *UpdateCAASCommand) Run(ctx *cmd.Context) (err error) {
 		if err != nil && !errors.IsNotFound(err) {
 			return errors.Trace(err)
 		}
-		if existing.Type != provider.CAASProviderType {
-			ctx.Infof("The %q cloud on the controller is a %q cloud and not a %q cloud.", c.caasName, existing.Type, provider.CAASProviderType)
+		if existing.Type != k8sconstants.CAASProviderType {
+			ctx.Infof("The %q cloud on the controller is a %q cloud and not a %q cloud.", c.caasName, existing.Type, k8sconstants.CAASProviderType)
 			return cmd.ErrSilent
 		}
 

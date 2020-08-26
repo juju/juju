@@ -73,7 +73,7 @@ func (s *Secret) Get(ctx context.Context, client kubernetes.Interface) error {
 func (s *Secret) Delete(ctx context.Context, client kubernetes.Interface) error {
 	api := client.CoreV1().Secrets(s.Namespace)
 	err := api.Delete(ctx, s.Name, metav1.DeleteOptions{
-		PropagationPolicy: &k8sconstants.DefaultPropagationPolicy,
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

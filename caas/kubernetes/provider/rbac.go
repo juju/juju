@@ -253,7 +253,7 @@ func (k *kubernetesClient) deleteServiceAccount(name string, uid types.UID) erro
 
 func (k *kubernetesClient) deleteServiceAccounts(selector k8slabels.Selector) error {
 	err := k.client().CoreV1().ServiceAccounts(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, v1.ListOptions{
 		LabelSelector: selector.String(),
 	})
@@ -335,7 +335,7 @@ func (k *kubernetesClient) deleteRole(name string, uid types.UID) error {
 
 func (k *kubernetesClient) deleteRoles(selector k8slabels.Selector) error {
 	err := k.client().RbacV1().Roles(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, v1.ListOptions{
 		LabelSelector: selector.String(),
 	})
@@ -417,7 +417,7 @@ func (k *kubernetesClient) deleteClusterRole(name string, uid types.UID) error {
 
 func (k *kubernetesClient) deleteClusterRoles(selector k8slabels.Selector) error {
 	err := k.client().RbacV1().ClusterRoles().DeleteCollection(context.TODO(), v1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, v1.ListOptions{
 		LabelSelector: selector.String(),
 	})
@@ -547,7 +547,7 @@ func (k *kubernetesClient) deleteRoleBinding(name string, uid types.UID) error {
 
 func (k *kubernetesClient) deleteRoleBindings(selector k8slabels.Selector) error {
 	err := k.client().RbacV1().RoleBindings(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, v1.ListOptions{
 		LabelSelector: selector.String(),
 	})
@@ -646,7 +646,7 @@ func (k *kubernetesClient) deleteClusterRoleBinding(name string, uid types.UID) 
 
 func (k *kubernetesClient) deleteClusterRoleBindings(selector k8slabels.Selector) error {
 	err := k.client().RbacV1().ClusterRoleBindings().DeleteCollection(context.TODO(), v1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, v1.ListOptions{
 		LabelSelector: selector.String(),
 	})

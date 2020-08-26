@@ -74,7 +74,7 @@ func (pvc *PersistentVolumeClaim) Get(ctx context.Context, client kubernetes.Int
 func (pvc *PersistentVolumeClaim) Delete(ctx context.Context, client kubernetes.Interface) error {
 	api := client.CoreV1().PersistentVolumeClaims(pvc.Namespace)
 	err := api.Delete(ctx, pvc.Name, metav1.DeleteOptions{
-		PropagationPolicy: &k8sconstants.DefaultPropagationPolicy,
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

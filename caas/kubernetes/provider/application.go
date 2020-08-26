@@ -5,11 +5,11 @@ package provider
 
 import (
 	"github.com/juju/juju/caas"
-	k8sapplication "github.com/juju/juju/caas/kubernetes/provider/application"
+	"github.com/juju/juju/caas/kubernetes/provider/application"
 )
 
 func (k *kubernetesClient) Application(name string, deploymentType caas.DeploymentType) caas.Application {
-	return k8sapplication.NewApplication(name,
+	return application.NewApplication(name,
 		k.namespace,
 		k.modelUUID,
 		deploymentType,

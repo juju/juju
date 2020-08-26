@@ -15,7 +15,7 @@ import (
 
 // Application broker interface
 type Application interface {
-	Ensure(config *ApplicationConfig) error
+	Ensure(config ApplicationConfig) error
 	Exists() (DeploymentState, error)
 	Delete() error
 	Watch() (watcher.NotifyWatcher, error)

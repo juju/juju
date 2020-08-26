@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 )
 
@@ -59,7 +60,7 @@ func (s *builtinSuite) SetUpTest(c *gc.C) {
 		ClusterName:   caas.MicroK8sClusterName,
 		CloudName:     caas.K8sCloudMicrok8s,
 		CredentialUID: caas.K8sCloudMicrok8s,
-		CaasType:      provider.CAASProviderType,
+		CaasType:      constants.CAASProviderType,
 		ClientConfigGetter: func(caasType string) (clientconfig.ClientConfigFunc, error) {
 			return func(string, io.Reader, string, string, clientconfig.K8sCredentialResolver) (*clientconfig.ClientConfig, error) {
 				return &clientconfig.ClientConfig{

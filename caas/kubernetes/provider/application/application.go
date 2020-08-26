@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package k8sapplication
+package application
 
 import (
 	"context"
@@ -55,7 +55,8 @@ func NewApplication(name string,
 	deploymentType caas.DeploymentType,
 	client kubernetes.Interface,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
-	clock clock.Clock) caas.Application {
+	clock clock.Clock,
+) caas.Application {
 	return &app{
 		name:           name,
 		namespace:      namespace,
@@ -69,12 +70,15 @@ func NewApplication(name string,
 
 // Ensure creates or updates an application pod with the given application
 // name, agent path, and application config.
-func (a *app) Ensure(config *caas.ApplicationConfig) (err error) {
+func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	defer func() {
 		logger.Errorf("Ensure %s", err)
 	}()
 	logger.Debugf("creating/updating %s application", a.name)
 
+	if config.Charm == nil {
+		return errors.NotValidf("charm was missing for %v application", a.name)
+	}
 	charmDeployment := config.Charm.Meta().Deployment
 	if charmDeployment == nil {
 		return errors.NotValidf("charm missing deployment config for %v application", a.name)
@@ -478,7 +482,7 @@ func (a *app) State() (caas.ApplicationState, error) {
 
 // applicationPodSpec returns a PodSpec for the application pod
 // of the specified application.
-func (a *app) applicationPodSpec(config *caas.ApplicationConfig) (*corev1.PodSpec, error) {
+func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec, error) {
 	appSecret := a.secretName()
 
 	if config.Charm.Meta().Deployment == nil {
@@ -584,10 +588,9 @@ func (a *app) applicationPodSpec(config *caas.ApplicationConfig) (*corev1.PodSpe
 	}, nil
 }
 
-func (a *app) annotations(config *caas.ApplicationConfig) annotations.Annotation {
-	annotations := k8sutils.ResourceTagsToAnnotations(config.ResourceTags).
+func (a *app) annotations(config caas.ApplicationConfig) annotations.Annotation {
+	return k8sutils.ResourceTagsToAnnotations(config.ResourceTags).
 		Add(constants.LabelVersion, config.AgentVersion.String())
-	return annotations
 }
 
 func (a *app) labels() map[string]string {

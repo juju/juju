@@ -124,7 +124,7 @@ func (k *kubernetesClient) listIngressResources(labels map[string]string) ([]v1b
 
 func (k *kubernetesClient) deleteIngressResources(appName string) error {
 	err := k.client().ExtensionsV1beta1().Ingresses(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, v1.ListOptions{
 		LabelSelector: utils.LabelSetToSelector(k.getIngressLabels(appName)).String(),
 	})

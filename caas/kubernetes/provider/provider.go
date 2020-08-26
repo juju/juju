@@ -16,6 +16,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
 	"github.com/juju/juju/cloud"
 	jujucloud "github.com/juju/juju/cloud"
@@ -169,10 +170,10 @@ func (p kubernetesEnvironProvider) PrepareConfig(args environs.PrepareConfigPara
 	// Set the default storage sources.
 	attrs := make(map[string]interface{})
 	if _, ok := args.Config.StorageDefaultBlockSource(); !ok {
-		attrs[config.StorageDefaultBlockSourceKey] = K8s_ProviderType
+		attrs[config.StorageDefaultBlockSourceKey] = constants.StorageProviderType
 	}
 	if _, ok := args.Config.StorageDefaultFilesystemSource(); !ok {
-		attrs[config.StorageDefaultFilesystemSourceKey] = K8s_ProviderType
+		attrs[config.StorageDefaultFilesystemSourceKey] = constants.StorageProviderType
 	}
 	return args.Config.Apply(attrs)
 }

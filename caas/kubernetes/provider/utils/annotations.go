@@ -11,8 +11,8 @@ import (
 
 func ResourceTagsToAnnotations(in map[string]string) annotations.Annotation {
 	tagsAnnotationsMap := map[string]string{
-		tags.JujuController: constants.AnnotationControllerUUIDKey,
-		tags.JujuModel:      constants.AnnotationModelUUIDKey,
+		tags.JujuController: constants.AnnotationControllerUUIDKey(),
+		tags.JujuModel:      constants.AnnotationModelUUIDKey(),
 	}
 
 	out := annotations.New(nil)
