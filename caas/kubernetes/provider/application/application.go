@@ -6,7 +6,7 @@ package k8sapplication
 import (
 	"context"
 	"fmt"
-	"path"
+	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -69,6 +69,9 @@ func NewApplication(name string,
 // Ensure creates or updates an application pod with the given application
 // name, agent path, and application config.
 func (a *app) Ensure(config *caas.ApplicationConfig) (err error) {
+	defer func() {
+		logger.Errorf("Ensure %s", err)
+	}()
 	logger.Debugf("creating/updating %s application", a.name)
 
 	charmDeployment := config.Charm.Meta().Deployment
@@ -500,7 +503,6 @@ func (a *app) applicationPodSpec(config *caas.ApplicationConfig) (*corev1.PodSpe
 	}
 
 	automountToken := false
-	readOnly := true
 	return &corev1.PodSpec{
 		AutomountServiceAccountToken: &automountToken,
 		InitContainers: []corev1.Container{{
@@ -538,39 +540,43 @@ func (a *app) applicationPodSpec(config *caas.ApplicationConfig) (*corev1.PodSpe
 			VolumeMounts: []corev1.VolumeMount{{
 				Name:      "juju-data-dir",
 				MountPath: jujuDataDir,
+				SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
+			}, {
+				Name:      "juju-data-dir",
+				MountPath: "/shared/usr/bin",
+				SubPath:   "usr/bin",
 			}},
 		}},
 		Containers: []corev1.Container{{
-			Name:            config.Charm.Meta().Name,
+			Name:            "juju-unit-agent",
 			ImagePullPolicy: corev1.PullIfNotPresent,
-			Image:           containerImageName,
+			Image:           config.AgentImagePath,
 			WorkingDir:      jujuDataDir,
-			Command:         []string{"/juju/charm-base/opt/k8sagent"},
+			Command:         []string{"/opt/k8sagent"},
 			Args:            []string{"unit", "--data-dir", jujuDataDir},
 			VolumeMounts: []corev1.VolumeMount{{
 				Name:      "juju-data-dir",
-				MountPath: path.Join(jujuDataDir, k8sconstants.TemplateFileNameAgentConf),
-				SubPath:   k8sconstants.TemplateFileNameAgentConf,
-			}, {
-				Name:      "juju-k8s-agent",
-				MountPath: "/juju/charm-base",
+				MountPath: jujuDataDir,
+				SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
+			}},
+		}, {
+			Name:            config.Charm.Meta().Name,
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			Image:           containerImageName,
+			Command:         []string{"/usr/bin/pebble"},
+			VolumeMounts: []corev1.VolumeMount{{
+				Name:      "juju-data-dir",
+				MountPath: "/usr/bin/pebble",
+				SubPath:   "usr/bin/pebble",
+				ReadOnly:  true,
 			}},
 			Ports: containerPorts,
 		}},
 		Volumes: []corev1.Volume{{
 			Name: "juju-data-dir",
 			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
-		}, {
-			Name: "juju-k8s-agent",
-			VolumeSource: corev1.VolumeSource{
-				CSI: &corev1.CSIVolumeSource{
-					Driver:   "image.csi.k8s.juju.is",
-					ReadOnly: &readOnly,
-					VolumeAttributes: map[string]string{
-						"image": config.AgentImagePath,
-					},
+				EmptyDir: &corev1.EmptyDirVolumeSource{
+					SizeLimit: resource.NewScaledQuantity(1, resource.Giga),
 				},
 			},
 		}},
@@ -722,4 +728,12 @@ func (a *app) filesystemToVolumeInfo(name string,
 		Spec: *pvcSpec,
 	}
 	return nil, pvc, newStorageClass, nil
+}
+
+func int64Ptr(v int64) *int64 {
+	return &v
+}
+
+func boolPtr(b bool) *bool {
+	return &b
 }

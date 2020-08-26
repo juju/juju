@@ -68,6 +68,15 @@ func (c *InitCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	pebbleBytes, err := ioutil.ReadFile("/opt/pebble")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = ioutil.WriteFile("/shared/usr/bin/pebble", pebbleBytes, 0755)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	return nil
 }
 

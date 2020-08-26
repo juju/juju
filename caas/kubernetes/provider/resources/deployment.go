@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/kr/pretty"
 	appsv1 "k8s.io/api/apps/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,7 +16,7 @@ import (
 	types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 )
 
 type Deployment struct {
@@ -39,6 +40,7 @@ func (d *Deployment) Clone() Resource {
 }
 
 func (d *Deployment) Apply(ctx context.Context, client kubernetes.Interface) error {
+	logger.Errorf("Deployment.Apply %s", pretty.Sprint(d))
 	api := client.AppsV1().Deployments(d.Namespace)
 	d.TypeMeta.Kind = "Deployment"
 	d.TypeMeta.APIVersion = appsv1.SchemeGroupVersion.String()

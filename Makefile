@@ -232,6 +232,12 @@ ifeq ($(OPERATOR_IMAGE_BUILD_SRC),true)
 else
 	@echo "skipping to build jujud bin, use existing one at ${JUJUD_BIN_DIR}/."
 endif
+	make build-pebble
+
+build-pebble:
+	@mkdir -p ${BIN_DIR}
+	@echo 'go build -mod=$(JUJU_GOMOD_MODE) -o ${BIN_DIR} $(COMPILE_FLAGS) $(LINK_FLAGS) -v github.com/hpidcock/juju-fake-init'
+	@go build -mod=$(JUJU_GOMOD_MODE) -o ${BIN_DIR} $(COMPILE_FLAGS) $(LINK_FLAGS) -v github.com/hpidcock/juju-fake-init
 
 operator-image: image-check-build
 ## operator-image: Build operator image via docker

@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/kr/pretty"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,7 +16,7 @@ import (
 	types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 )
 
 type Secret struct {
@@ -39,6 +40,7 @@ func (s *Secret) Clone() Resource {
 }
 
 func (s *Secret) Apply(ctx context.Context, client kubernetes.Interface) error {
+	logger.Errorf("Secret.Apply %s", pretty.Sprint(s))
 	api := client.CoreV1().Secrets(s.Namespace)
 	s.TypeMeta.Kind = "Secret"
 	s.TypeMeta.APIVersion = corev1.SchemeGroupVersion.String()

@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/kr/pretty"
 	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -57,6 +58,7 @@ func (ss *StorageClass) Clone() Resource {
 }
 
 func (ss *StorageClass) Apply(ctx context.Context, client kubernetes.Interface) error {
+	logger.Errorf("StorageClass.Apply %s", pretty.Sprint(ss))
 	api := client.StorageV1().StorageClasses()
 	ss.TypeMeta.Kind = "StorageClass"
 	ss.TypeMeta.APIVersion = storagev1.SchemeGroupVersion.String()

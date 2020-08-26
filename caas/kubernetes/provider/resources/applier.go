@@ -8,9 +8,12 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 
 	"k8s.io/client-go/kubernetes"
 )
+
+var logger = loggo.GetLogger("juju.kubernetes.provider.resources")
 
 type Applier struct {
 	ops []operation

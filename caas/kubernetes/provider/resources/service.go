@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/kr/pretty"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,7 +16,7 @@ import (
 	types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 )
 
 type Service struct {
@@ -39,6 +40,7 @@ func (s *Service) Clone() Resource {
 }
 
 func (s *Service) Apply(ctx context.Context, client kubernetes.Interface) error {
+	logger.Errorf("Service.Apply %s", pretty.Sprint(s))
 	api := client.CoreV1().Services(s.Namespace)
 	s.TypeMeta.Kind = "Service"
 	s.TypeMeta.APIVersion = corev1.SchemeGroupVersion.String()

@@ -36,6 +36,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/hashicorp/raft v2.0.0-20200420012049-88ad3b3f0a54+incompatible
 	github.com/hashicorp/raft-boltdb v0.0.0-20171010151810-6e5ba93211ea
+	github.com/hpidcock/juju-fake-init v0.0.0-20200826003917-cf7015140fd9 // indirect
 	github.com/imdario/mergo v0.3.10 // indirect
 	github.com/joyent/gocommon v0.0.0-20160320193133-ade826b8b54e
 	github.com/joyent/gosdc v0.0.0-20140524000815-2f11feadd2d9
@@ -111,7 +112,7 @@ require (
 	github.com/stretchr/testify v1.6.1 // indirect
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
-	golang.org/x/crypto v0.0.0-20200709230013-948cd5f35899
+	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
 	golang.org/x/net v0.0.0-20200707034311-ab3426394381
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sys v0.0.0-20200724161237-0e2f3a69832c

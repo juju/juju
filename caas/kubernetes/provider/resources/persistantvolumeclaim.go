@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/kr/pretty"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,7 +17,7 @@ import (
 	types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 )
 
 type PersistentVolumeClaim struct {
@@ -40,6 +41,7 @@ func (pvc *PersistentVolumeClaim) Clone() Resource {
 }
 
 func (pvc *PersistentVolumeClaim) Apply(ctx context.Context, client kubernetes.Interface) error {
+	logger.Errorf("PersistentVolumeClaim.Apply %s", pretty.Sprint(pvc))
 	api := client.CoreV1().PersistentVolumeClaims(pvc.Namespace)
 	pvc.TypeMeta.Kind = "PersistentVolumeClaim"
 	pvc.TypeMeta.APIVersion = corev1.SchemeGroupVersion.String()
