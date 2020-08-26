@@ -555,6 +555,7 @@ func (env *azureEnviron) StartInstance(ctx context.ProviderCallContext, args env
 	if err := env.createVirtualMachine(
 		ctx, vmName, vmTags, envTags,
 		instanceSpec, args.InstanceConfig,
+                args.Constraints.AvailabilitySet,
 		storageAccountType,
 	); err != nil {
 		logger.Errorf("creating instance failed, destroying: %v", err)
@@ -591,6 +592,7 @@ func (env *azureEnviron) createVirtualMachine(
 	vmTags, envTags map[string]string,
 	instanceSpec *instances.InstanceSpec,
 	instanceConfig *instancecfg.InstanceConfig,
+        chosenAS *string,
 	storageAccountType string,
 ) error {
 	deploymentsClient := resources.DeploymentsClient{
@@ -663,16 +665,22 @@ func (env *azureEnviron) createVirtualMachine(
 	}
 
 	var availabilitySetSubResource *compute.SubResource
-	availabilitySetName, err := availabilitySetName(
-		vmName, vmTags, instanceConfig.Controller != nil,
-	)
-	if err != nil {
-		return errors.Annotate(err, "getting availability set name")
+        ASName := ""
+        if chosenAS != nil {
+		ASName = *chosenAS
 	}
-	if availabilitySetName != "" {
+        if ASName == "" {
+		ASName, err = availabilitySetName(
+			vmName, vmTags, instanceConfig.Controller != nil,
+		)
+	        if err != nil {
+        	        return errors.Annotate(err, "getting availability set name")
+	        }
+	}
+	if ASName != "" {
 		availabilitySetId := fmt.Sprintf(
 			`[resourceId('Microsoft.Compute/availabilitySets','%s')]`,
-			availabilitySetName,
+			ASName,
 		)
 		var (
 			availabilitySetProperties  interface{}
@@ -696,7 +704,7 @@ func (env *azureEnviron) createVirtualMachine(
 		resources = append(resources, armtemplates.Resource{
 			APIVersion: computeAPIVersion,
 			Type:       "Microsoft.Compute/availabilitySets",
-			Name:       availabilitySetName,
+			Name:       ASName,
 			Location:   env.location,
 			Tags:       envTags,
 			Properties: availabilitySetProperties,

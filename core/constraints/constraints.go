@@ -34,6 +34,8 @@ const (
 	Spaces         = "spaces"
 	VirtType       = "virt-type"
 	Zones          = "zones"
+        // specific as per-machine on Azure
+        AvailabilitySet = "availability-set"
 )
 
 // Value describes a user's requirements of the hardware on which units
@@ -97,6 +99,9 @@ type Value struct {
 	// Zones, if not nil, holds a list of availability zones limiting where
 	// the machine can be located.
 	Zones *[]string `json:"zones,omitempty" yaml:"zones,omitempty"`
+
+        // AvailiabilitySets are used on Azure provider for LB deployment
+        AvailabilitySet *string `json:"availability-set,omitempty" yaml:"availability-set,omitempty"`
 }
 
 var rawAliases = map[string]string{
@@ -155,6 +160,12 @@ func (v *Value) HasRootDiskSource() bool {
 func (v *Value) HasInstanceType() bool {
 	return v.InstanceType != nil && *v.InstanceType != ""
 }
+
+// HasAvailabilitySet returns true if the constraints.Value specifies an availability set.
+func (v *Value) HasAvailabilitySet() bool {
+        return v.AvailabilitySet != nil && *v.AvailabilitySet != ""
+}
+
 
 // extractItems returns the list of entries in the given field which
 // are either positive (included) or negative (!included; with prefix
@@ -259,6 +270,9 @@ func (v Value) String() string {
 		s := strings.Join(*v.Zones, ",")
 		strs = append(strs, "zones="+s)
 	}
+        if v.AvailabilitySet != nil {
+                strs = append(strs, "availability-set="+(*v.AvailabilitySet))
+        }
 
 	// Ensure constraint values with spaces are properly escaped
 	for i := 0; i < len(strs); i++ {
@@ -311,6 +325,9 @@ func (v Value) GoString() string {
 	} else if v.Zones != nil {
 		values = append(values, "Zones: (*[]string)(nil)")
 	}
+        if v.AvailabilitySet != nil {
+                values = append(values, fmt.Sprintf("AvailabilitySet: %q", *v.AvailabilitySet))
+        }
 	return fmt.Sprintf("{%s}", strings.Join(values, ", "))
 }
 
@@ -476,6 +493,8 @@ func (v *Value) setRaw(name, str string) error {
 		err = v.setVirtType(str)
 	case Zones:
 		err = v.setZones(str)
+        case AvailabilitySet:
+                err = v.setAvailabilitySet(str)
 	default:
 		return errors.Errorf("unknown constraint %q", name)
 	}
@@ -543,6 +562,8 @@ func (v *Value) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			v.VirtType = &vstr
 		case Zones:
 			v.Zones, err = parseYamlStrings("zones", val)
+                case AvailabilitySet:
+                        v.AvailabilitySet = &vstr
 		default:
 			return errors.Errorf("unknown constraint value: %v", k)
 		}
@@ -653,6 +674,15 @@ func (v *Value) setSpaces(str string) error {
 	v.Spaces = spaces
 	return nil
 }
+
+func (v *Value) setAvailabilitySet(str string) error {
+        if v.InstanceType != nil {
+                return errors.Errorf("already set")
+        }
+        v.InstanceType = &str
+        return nil
+}
+
 
 func (v *Value) validateSpaces(spaces *[]string) error {
 	if spaces == nil {

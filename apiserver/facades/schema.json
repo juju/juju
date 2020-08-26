@@ -4192,6 +4192,9 @@
                         "arch": {
                             "type": "string"
                         },
+                        "availability-set": {
+                            "type": "string"
+                        },
                         "container": {
                             "type": "string"
                         },
@@ -9472,6 +9475,9 @@
                         "arch": {
                             "type": "string"
                         },
+                        "availability-set": {
+                            "type": "string"
+                        },
                         "container": {
                             "type": "string"
                         },
@@ -13062,6 +13068,9 @@
                         "arch": {
                             "type": "string"
                         },
+                        "availability-set": {
+                            "type": "string"
+                        },
                         "container": {
                             "type": "string"
                         },
@@ -14210,6 +14219,9 @@
                     "type": "object",
                     "properties": {
                         "arch": {
+                            "type": "string"
+                        },
+                        "availability-set": {
                             "type": "string"
                         },
                         "container": {
@@ -19017,6 +19029,9 @@
                         "arch": {
                             "type": "string"
                         },
+                        "availability-set": {
+                            "type": "string"
+                        },
                         "container": {
                             "type": "string"
                         },
@@ -22922,6 +22937,9 @@
                     "type": "object",
                     "properties": {
                         "arch": {
+                            "type": "string"
+                        },
+                        "availability-set": {
                             "type": "string"
                         },
                         "container": {
@@ -31026,6 +31044,9 @@
                     "type": "object",
                     "properties": {
                         "arch": {
+                            "type": "string"
+                        },
+                        "availability-set": {
                             "type": "string"
                         },
                         "container": {
