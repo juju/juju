@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charms"
+	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/apiserver/params"
 	jujucharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/application/deployer"
@@ -55,13 +56,13 @@ type BaseUpgradeCharmSuite struct {
 
 	deployResources   resourceadapters.DeployResourcesFunc
 	fakeAPI           *fakeDeployAPI
-	resolveCharm      store.ResolveCharmFunc
+	resolveCharm      mockCharmResolver
 	resolvedCharmURL  *charm.URL
 	resolvedChannel   csclientparams.Channel
 	apiConnection     mockAPIConnection
 	charmAdder        mockCharmAdder
 	charmClient       mockCharmClient
-	charmAPIClient    mockCharmAPIClient
+	charmAPIClient    mockCharmUpgradeClient
 	modelConfigGetter mockModelConfigGetter
 	resourceLister    mockResourceLister
 	spacesClient      mockSpacesClient
@@ -99,20 +100,18 @@ func (s *BaseUpgradeCharmSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.resolvedChannel = csclientparams.StableChannel
-	s.resolveCharm = func(
-		resolveWithChannel func(*charm.URL, csclientparams.Channel) (*charm.URL, csclientparams.Channel, []string, error),
-		url *charm.URL,
-		preferredChannel csclientparams.Channel,
-	) (*charm.URL, csclientparams.Channel, []string, error) {
-		s.AddCall("ResolveCharm", url, preferredChannel)
-		if err := s.NextErr(); err != nil {
-			return nil, csclientparams.NoChannel, nil, err
-		}
+	s.resolveCharm = mockCharmResolver{
+		resolveFunc: func(url *charm.URL, preferredOrigin commoncharm.Origin) (*charm.URL, commoncharm.Origin, []string, error) {
+			s.AddCall("ResolveCharm", url, preferredOrigin)
+			if err := s.NextErr(); err != nil {
+				return nil, commoncharm.Origin{}, nil, err
+			}
 
-		if s.resolvedChannel != "" {
-			preferredChannel = s.resolvedChannel
-		}
-		return s.resolvedCharmURL, preferredChannel, []string{"quantal"}, nil
+			if s.resolvedChannel != "" {
+				preferredOrigin.Risk = string(s.resolvedChannel)
+			}
+			return s.resolvedCharmURL, preferredOrigin, []string{"quantal"}, nil
+		},
 	}
 
 	currentCharmURL := charm.MustParseURL("cs:quantal/foo-1")
@@ -133,7 +132,7 @@ func (s *BaseUpgradeCharmSuite) SetUpTest(c *gc.C) {
 			Meta: &charm.Meta{},
 		},
 	}
-	s.charmAPIClient = mockCharmAPIClient{
+	s.charmAPIClient = mockCharmUpgradeClient{
 		charmURL: currentCharmURL,
 		bindings: map[string]string{
 			"": network.AlphaSpaceName,
@@ -173,14 +172,17 @@ func (s *BaseUpgradeCharmSuite) upgradeCommand() cmd.Command {
 		memStore,
 		apiOpen,
 		s.deployResources,
-		s.resolveCharm,
 		func(
 			bakeryClient *httpbakery.Client,
 			csURL string,
 			channel csclientparams.Channel,
-		) store.CharmrepoForDeploy {
+		) (store.MacaroonGetter, store.CharmrepoForDeploy) {
 			s.AddCall("NewCharmStore", csURL)
-			return s.fakeAPI
+			return s.fakeAPI, s.fakeAPI
+		},
+		func(base.APICallCloser, store.CharmrepoForDeploy) CharmResolver {
+			s.AddCall("NewCharmResolver")
+			return &s.resolveCharm
 		},
 		func(conn api.Connection) store.CharmAdder {
 			s.AddCall("NewCharmAdder", conn)
@@ -192,7 +194,7 @@ func (s *BaseUpgradeCharmSuite) upgradeCommand() cmd.Command {
 			s.PopNoErr()
 			return &s.charmClient
 		},
-		func(conn base.APICallCloser) CharmAPIClient {
+		func(conn base.APICallCloser) CharmUpgradeClient {
 			s.AddCall("NewCharmAPIClient", conn)
 			s.PopNoErr()
 			return &s.charmAPIClient
@@ -372,8 +374,8 @@ func (s *UpgradeCharmErrorsStateSuite) SetUpTest(c *gc.C) {
 			bakeryClient *httpbakery.Client,
 			csURL string,
 			channel csclientparams.Channel,
-		) store.CharmrepoForDeploy {
-			return s.fakeAPI
+		) (store.MacaroonGetter, store.CharmrepoForDeploy) {
+			return s.fakeAPI, s.fakeAPI
 		},
 		func(conn api.Connection) store.CharmAdder {
 			return s.fakeAPI
@@ -420,7 +422,7 @@ func (s *UpgradeCharmErrorsStateSuite) deployApplication(c *gc.C) {
 func (s *UpgradeCharmErrorsStateSuite) TestInvalidSwitchURL(c *gc.C) {
 	s.deployApplication(c)
 	_, err := s.runUpgradeCharm(c, s.cmd, "riak", "--switch=missing")
-	c.Assert(err, gc.ErrorMatches, `cannot resolve URL "cs:missing": charm or bundle not found`)
+	c.Assert(err, gc.ErrorMatches, `cannot resolve charm URL "cs:missing":.*`)
 }
 
 func (s *UpgradeCharmErrorsStateSuite) TestNoPathFails(c *gc.C) {
@@ -489,8 +491,8 @@ func (s *UpgradeCharmSuccessStateSuite) SetUpTest(c *gc.C) {
 			bakeryClient *httpbakery.Client,
 			csURL string,
 			channel csclientparams.Channel,
-		) store.CharmrepoForDeploy {
-			return s.fakeAPI
+		) (store.MacaroonGetter, store.CharmrepoForDeploy) {
+			return s.fakeAPI, s.fakeAPI
 		},
 		func(conn api.Connection) store.CharmAdder {
 			return &apiClient{Client: conn.Client()}
@@ -924,25 +926,34 @@ func (m *mockCharmClient) CharmInfo(curl string) (*charms.CharmInfo, error) {
 	return m.charmInfo, nil
 }
 
-type mockCharmAPIClient struct {
-	CharmAPIClient
+type mockCharmResolver struct {
+	testing.Stub
+	resolveFunc func(url *charm.URL, preferredOrigin commoncharm.Origin) (*charm.URL, commoncharm.Origin, []string, error)
+}
+
+func (m *mockCharmResolver) ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin) (*charm.URL, commoncharm.Origin, []string, error) {
+	return m.resolveFunc(url, preferredOrigin)
+}
+
+type mockCharmUpgradeClient struct {
+	CharmUpgradeClient
 	testing.Stub
 	charmURL *charm.URL
 
 	bindings map[string]string
 }
 
-func (m *mockCharmAPIClient) GetCharmURL(branchName, appName string) (*charm.URL, error) {
+func (m *mockCharmUpgradeClient) GetCharmURL(branchName, appName string) (*charm.URL, error) {
 	m.MethodCall(m, "GetCharmURL", branchName, appName)
 	return m.charmURL, m.NextErr()
 }
 
-func (m *mockCharmAPIClient) SetCharm(branchName string, cfg application.SetCharmConfig) error {
+func (m *mockCharmUpgradeClient) SetCharm(branchName string, cfg application.SetCharmConfig) error {
 	m.MethodCall(m, "SetCharm", branchName, cfg)
 	return m.NextErr()
 }
 
-func (m *mockCharmAPIClient) Get(branchName, applicationName string) (*params.ApplicationGetResults, error) {
+func (m *mockCharmUpgradeClient) Get(branchName, applicationName string) (*params.ApplicationGetResults, error) {
 	m.MethodCall(m, "Get", applicationName)
 	return &params.ApplicationGetResults{
 		EndpointBindings: m.bindings,

@@ -27,6 +27,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
+	commoncharm "github.com/juju/juju/api/common/charm"
 	app "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
@@ -65,10 +66,10 @@ type bundleDeploySpec struct {
 	bundleDir         string
 	bundleURL         *charm.URL
 	bundleOverlayFile []string
-	channel           csparams.Channel
+	origin            commoncharm.Origin
 
 	deployAPI            DeployerAPI
-	bundleResolver       BundleResolver
+	bundleResolver       Resolver
 	authorizer           store.MacaroonGetter
 	getConsumeDetailsAPI func(*charm.OfferURL) (ConsumeDetails, error)
 	deployResources      resourceadapters.DeployResourcesFunc
@@ -138,12 +139,12 @@ type bundleHandler struct {
 	//   implicitly created by adding a unit without a machine spec.
 	results map[string]string
 
-	// channel identifies the default channel to use for the bundle.
-	channel csparams.Channel
+	// origin identifies the default channel to use for the bundle.
+	origin commoncharm.Origin
 
 	// deployAPI is used to interact with the environment.
 	deployAPI            DeployerAPI
-	bundleResolver       BundleResolver
+	bundleResolver       Resolver
 	authorizer           store.MacaroonGetter
 	getConsumeDetailsAPI func(*charm.OfferURL) (ConsumeDetails, error)
 	deployResources      resourceadapters.DeployResourcesFunc
@@ -185,7 +186,7 @@ type bundleHandler struct {
 	model *bundlechanges.Model
 
 	macaroons map[*charm.URL]*macaroon.Macaroon
-	channels  map[*charm.URL]csparams.Channel
+	origins   map[*charm.URL]commoncharm.Origin
 
 	// watcher holds an environment mega-watcher used to keep the environment
 	// status up to date.
@@ -224,7 +225,7 @@ func makeBundleHandler(bundleData *charm.BundleData, spec bundleDeploySpec) *bun
 		bundleDir:            spec.bundleDir,
 		applications:         applications,
 		results:              make(map[string]string),
-		channel:              spec.channel,
+		origin:               spec.origin,
 		deployAPI:            spec.deployAPI,
 		bundleResolver:       spec.bundleResolver,
 		authorizer:           spec.authorizer,
@@ -238,7 +239,7 @@ func makeBundleHandler(bundleData *charm.BundleData, spec bundleDeploySpec) *bun
 		bundleURL:            spec.bundleURL,
 		unitStatus:           make(map[string]string),
 		macaroons:            make(map[*charm.URL]*macaroon.Macaroon),
-		channels:             make(map[*charm.URL]csparams.Channel),
+		origins:              make(map[*charm.URL]commoncharm.Origin),
 
 		targetModelName: spec.targetModelName,
 		targetModelUUID: spec.targetModelUUID,
@@ -324,7 +325,11 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		url, _, _, err := store.ResolveCharm(h.bundleResolver.ResolveWithPreferredChannel, ch, csparams.Channel(spec.Channel))
+		origin, err := utils.DeduceOrigin(ch, "")
+		if err != nil {
+			return errors.Trace(err)
+		}
+		url, _, _, err := h.bundleResolver.ResolveCharm(ch, origin)
 		if err != nil {
 			return errors.Annotatef(err, "cannot resolve URL %q", spec.Charm)
 		}
@@ -454,15 +459,15 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		return nil
 	}
 	id := change.Id()
-	p := change.Params
+	chParms := change.Params
 	// First attempt to interpret as a local path.
-	if h.isLocalCharm(p.Charm) {
-		charmPath := p.Charm
+	if h.isLocalCharm(chParms.Charm) {
+		charmPath := chParms.Charm
 		if !filepath.IsAbs(charmPath) {
 			charmPath = filepath.Join(h.bundleDir, charmPath)
 		}
 
-		series := p.Series
+		series := chParms.Series
 		if series == "" {
 			series = h.data.Series
 		}
@@ -486,27 +491,35 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	}
 
 	// Not a local charm, so grab from the store.
-	ch, err := charm.ParseURL(p.Charm)
+	ch, err := charm.ParseURL(chParms.Charm)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	url, channel, _, err := store.ResolveCharm(h.bundleResolver.ResolveWithPreferredChannel, ch, csparams.Channel(p.Channel))
+	origin, err := utils.DeduceOrigin(ch, csparams.Channel(chParms.Channel))
 	if err != nil {
-		return errors.Annotatef(err, "cannot resolve URL %q", p.Charm)
+		return errors.Trace(err)
+	}
+
+	url, origin, _, err := h.bundleResolver.ResolveCharm(ch, origin)
+	if err != nil {
+		return errors.Annotatef(err, "cannot resolve URL %q", chParms.Charm)
 	}
 	if url.Series == "bundle" {
-		return errors.Errorf("expected charm URL, got bundle URL %q", p.Charm)
+		return errors.Errorf("expected charm URL, got bundle URL %q", chParms.Charm)
 	}
+
 	var macaroon *macaroon.Macaroon
-	url, macaroon, err = store.AddCharmFromURL(h.deployAPI, h.authorizer, url, channel, h.force)
+	// TODO (hml) 2020-08-25
+	// Update AddCharmFromURL to use origin
+	url, macaroon, err = store.AddCharmFromURL(h.deployAPI, h.authorizer, url, csparams.Channel(origin.Risk), h.force)
 	if err != nil {
-		return errors.Annotatef(err, "cannot add charm %q", p.Charm)
+		return errors.Annotatef(err, "cannot add charm %q", chParms.Charm)
 	}
 	logger.Debugf("added charm %s", url)
 	h.results[id] = url.String()
 	h.macaroons[url] = macaroon
-	h.channels[url] = channel
+	h.origins[url] = origin
 	return nil
 }
 
@@ -547,7 +560,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 
 	chID := charmstore.CharmID{
 		URL:     cURL,
-		Channel: h.channels[cURL],
+		Channel: csparams.Channel(h.origins[cURL].Risk),
 	}
 	macaroon := h.macaroons[cURL]
 
@@ -673,7 +686,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		numUnits = p.NumUnits
 	}
 
-	origin, err := deduceOrigin(chID.URL)
+	origin, err := utils.DeduceOrigin(chID.URL, csparams.Channel(h.origin.Risk))
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -921,7 +934,7 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 
 	chID := charmstore.CharmID{
 		URL:     cURL,
-		Channel: h.channels[cURL],
+		Channel: csparams.Channel(h.origins[cURL].Risk),
 	}
 	macaroon := h.macaroons[cURL]
 

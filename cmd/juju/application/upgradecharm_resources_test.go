@@ -249,8 +249,8 @@ Deploying charm "cs:bionic/starsay-1".`
 			bakeryClient *httpbakery.Client,
 			csURL string,
 			channel csclientparams.Channel,
-		) store.CharmrepoForDeploy {
-			return s.fakeAPI
+		) (store.MacaroonGetter, store.CharmrepoForDeploy) {
+			return s.fakeAPI, s.fakeAPI
 		},
 		func(conn api.Connection) store.CharmAdder {
 			return charmAdder
@@ -268,8 +268,8 @@ Deploying charm "cs:bionic/starsay-1".`
 		) (ids map[string]string, err error) {
 			return deployResources(s.State, applicationID, resources)
 		},
-		func(conn base.APICallCloser) CharmAPIClient {
-			return &mockCharmAPIClient{
+		func(conn base.APICallCloser) CharmUpgradeClient {
+			return &mockCharmUpgradeClient{
 				charmURL: charm.MustParseURL("bionic/starsay-1"),
 			}
 		},

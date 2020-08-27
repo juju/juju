@@ -194,6 +194,9 @@ func newDeployCommand() *DeployCommand {
 		return applicationoffers.NewClient(root), nil
 	}
 	deployCmd.NewDeployerFactory = deployer.NewDeployerFactory
+	deployCmd.NewResolver = func(charmrepo store.CharmrepoForDeploy, charmsAPIVersion int, charmsAPI store.CharmsAPI) deployer.Resolver {
+		return store.NewCharmAdaptor(charmrepo, charmsAPIVersion, charmsAPI)
+	}
 	return deployCmd
 }
 
@@ -211,6 +214,8 @@ type DeployCommand struct {
 
 	// Channel holds the charmstore channel to use when obtaining
 	// the charm to be deployed.
+	// TODO: (hml) 2020-08-25
+	// Change to a string which can be interpreted for cs or ch.
 	Channel params.Channel
 
 	// Series is the series of the charm to deploy.
@@ -267,6 +272,9 @@ type DeployCommand struct {
 
 	// NewCharmRepo stores a function which returns a charm store client.
 	NewCharmRepo func() (*store.CharmStoreAdaptor, error)
+
+	// NewResolver stores a function which returns a charm adaptor.
+	NewResolver func(charmrepo store.CharmrepoForDeploy, charmsAPIVersion int, charmsAPI store.CharmsAPI) deployer.Resolver
 
 	// NewDeployerFactory stores a function which returns a deployer factory.
 	NewDeployerFactory func(dep deployer.DeployerDependencies) deployer.DeployerFactory
@@ -702,13 +710,15 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		step.SetPlanURL(apiRoot.PlanURL())
 	}
 
+	charmAdapter := c.NewResolver(cstoreAPI, apiRoot.BestFacadeVersion("Charms"), apicharms.NewClient(apiRoot))
+
 	factory, cfg := c.getDeployerFactory()
-	deploy, err := factory.GetDeployer(cfg, apiRoot, cstoreAPI)
+	deploy, err := factory.GetDeployer(cfg, apiRoot, charmAdapter)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	return block.ProcessBlockedError(deploy.PrepareAndDeploy(ctx, apiRoot, cstoreAPI), block.BlockChange)
+	return block.ProcessBlockedError(deploy.PrepareAndDeploy(ctx, apiRoot, charmAdapter, cstoreAPI.MacaroonGetter), block.BlockChange)
 }
 
 func (c *DeployCommand) parseBindFlag(api SpacesAPI) error {

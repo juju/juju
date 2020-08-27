@@ -6,6 +6,7 @@ package store
 import (
 	"github.com/juju/charm/v8"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
+	apicharm "github.com/juju/juju/api/charms"
 	"gopkg.in/macaroon.v2"
 )
 
@@ -21,7 +22,6 @@ type CharmAdder interface {
 // gopkg.in/juju/charmrepo.v4 Interface interface. It is
 // used by tests that embed a DeploySuiteBase.
 type CharmrepoForDeploy interface {
-	Get(charmURL *charm.URL, path string) (*charm.CharmArchive, error)
 	GetBundle(bundleURL *charm.URL, path string) (charm.Bundle, error)
 	ResolveWithPreferredChannel(*charm.URL, csparams.Channel) (*charm.URL, csparams.Channel, []string, error)
 }
@@ -32,8 +32,7 @@ type MacaroonGetter interface {
 	Get(endpoint string, extra interface{}) error
 }
 
-// URLResolver is the part of charmrepo.Charmstore that we need to
-// resolve a charm url.
-type URLResolver interface {
-	ResolveWithPreferredChannel(*charm.URL, csparams.Channel) (*charm.URL, csparams.Channel, []string, error)
+// CharmsAPI is functionality needed by the CharmAdapter from the Charms API.
+type CharmsAPI interface {
+	ResolveCharms(charms []apicharm.CharmToResolve) ([]apicharm.ResolvedCharm, error)
 }

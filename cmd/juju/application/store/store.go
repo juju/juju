@@ -78,16 +78,3 @@ type CharmStoreAdaptor struct {
 	CharmrepoForDeploy
 	MacaroonGetter
 }
-
-func (a *CharmStoreAdaptor) Resolve(url *charm.URL, preferredChannel csparams.Channel) (
-	*charm.URL,
-	csparams.Channel,
-	[]string,
-	error,
-) {
-	return ResolveCharm(a.CharmrepoForDeploy.ResolveWithPreferredChannel, url, preferredChannel)
-}
-
-func (a *CharmStoreAdaptor) Get(url *charm.URL, path string) (*charm.CharmArchive, error) {
-	return a.CharmrepoForDeploy.Get(url, path)
-}

@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
 	apicharms "github.com/juju/juju/api/charms"
+	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
@@ -36,7 +37,7 @@ import (
 
 type BundleDeployCharmStoreSuite struct {
 	allWatcher     *mocks.MockAllWatch
-	bundleResolver *mocks.MockBundleResolver
+	bundleResolver *mocks.MockResolver
 	deployerAPI    *mocks.MockDeployerAPI
 	stdOut         *mocks.MockWriter
 	stdErr         *mocks.MockWriter
@@ -69,7 +70,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleNotFoundCharmStore(c *gc.C
 	// bundleHandler.addCharm():
 	curl, err := charm.ParseURL("cs:bundle/no-such")
 	c.Assert(err, jc.ErrorIsNil)
-	s.expectResolveWithPreferredChannel(errors.NotFoundf("bundle"), 1)
+	s.expectResolveCharm(errors.NotFoundf("bundle"), 1)
 	bundleData := &charm.BundleData{
 		Applications: map[string]*charm.ApplicationSpec{
 			"no-such": {
@@ -165,7 +166,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithInvalidSeries(c *gc.C)
 
 	mysqlCurl, err := charm.ParseURL("cs:mysql-42")
 	c.Assert(err, jc.ErrorIsNil)
-	s.expectResolveWithPreferredChannel(nil, 2)
+	s.expectResolveCharm(nil, 2)
 	s.expectAddCharm(false)
 	charmInfo := &apicharms.CharmInfo{
 		Revision: mysqlCurl.Revision,
@@ -177,7 +178,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithInvalidSeries(c *gc.C)
 	s.expectCharmInfo(mysqlCurl.String(), charmInfo)
 
 	// For wordpress
-	s.expectResolveWithPreferredChannel(nil, 1)
+	s.expectResolveCharm(nil, 1)
 
 	bundleData, err := charm.ReadBundleData(strings.NewReader(wordpressBundleInvalidSeries))
 	c.Assert(err, jc.ErrorIsNil)
@@ -548,7 +549,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidMachineContainerTyp
 	wordpressCurl, err := charm.ParseURL("cs:wordpress-47")
 	c.Assert(err, jc.ErrorIsNil)
 	s.expectAddCharm(false)
-	s.expectResolveWithPreferredChannel(nil, 2)
+	s.expectResolveCharm(nil, 2)
 	charmInfo := &apicharms.CharmInfo{
 		Revision: wordpressCurl.Revision,
 		URL:      wordpressCurl.String(),
@@ -585,7 +586,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleUnitPlacedToMachines(c *gc
 	wordpressCurl, err := charm.ParseURL("cs:wordpress-47")
 	c.Assert(err, jc.ErrorIsNil)
 	s.expectAddCharm(false)
-	s.expectResolveWithPreferredChannel(nil, 2)
+	s.expectResolveCharm(nil, 2)
 	charmInfo := &apicharms.CharmInfo{
 		Revision: wordpressCurl.Revision,
 		URL:      wordpressCurl.String(),
@@ -899,7 +900,7 @@ func (s *BundleDeployCharmStoreSuite) setupCharmUnits(charmUnits []charmUnit) {
 	for _, chUnit := range charmUnits {
 		switch chUnit.curl.Schema {
 		case "cs":
-			s.expectResolveWithPreferredChannel(nil, 2)
+			s.expectResolveCharm(nil, 2)
 			s.expectAddCharm(chUnit.force)
 		case "local":
 			s.expectAddLocalCharm(chUnit.curl, chUnit.force)
@@ -923,7 +924,7 @@ func (s *BundleDeployCharmStoreSuite) setupCharmUnits(charmUnits []charmUnit) {
 func (s *BundleDeployCharmStoreSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.deployerAPI = mocks.NewMockDeployerAPI(ctrl)
-	s.bundleResolver = mocks.NewMockBundleResolver(ctrl)
+	s.bundleResolver = mocks.NewMockResolver(ctrl)
 	s.allWatcher = mocks.NewMockAllWatch(ctrl)
 	s.stdOut = mocks.NewMockWriter(ctrl)
 	s.stdErr = mocks.NewMockWriter(ctrl)
@@ -1022,14 +1023,14 @@ func (s *BundleDeployCharmStoreSuite) expectDeployerAPIModelGet(c *gc.C) {
 	s.deployerAPI.EXPECT().ModelGet().Return(cfg.AllAttrs(), nil)
 }
 
-func (s *BundleDeployCharmStoreSuite) expectResolveWithPreferredChannel(err error, times int) {
-	s.bundleResolver.EXPECT().ResolveWithPreferredChannel(
+func (s *BundleDeployCharmStoreSuite) expectResolveCharm(err error, times int) {
+	s.bundleResolver.EXPECT().ResolveCharm(
 		gomock.AssignableToTypeOf(&charm.URL{}),
-		csparams.NoChannel,
+		gomock.AssignableToTypeOf(commoncharm.Origin{}),
 	).DoAndReturn(
 		// Ensure the same curl that is provided, is returned.
-		func(curl *charm.URL, channel csparams.Channel) (*charm.URL, csparams.Channel, []string, error) {
-			return curl, csparams.NoChannel, []string{"bionic", "focal", "xenial"}, err
+		func(curl *charm.URL, origin commoncharm.Origin) (*charm.URL, commoncharm.Origin, []string, error) {
+			return curl, origin, []string{"bionic", "focal", "xenial"}, err
 		}).Times(times)
 }
 

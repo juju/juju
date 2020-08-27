@@ -11,7 +11,7 @@ import (
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/charmrepo/v6"
-	csclientparams "github.com/juju/charmrepo/v6/csclient/params"
+	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charms"
+	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/spaces"
 	"github.com/juju/juju/apiserver/params"
@@ -43,12 +44,11 @@ import (
 func newUpgradeCharmCommand() *upgradeCharmCommand {
 	return &upgradeCharmCommand{
 		DeployResources: resourceadapters.DeployResources,
-		ResolveCharm:    store.ResolveCharm,
 		NewCharmAdder:   newCharmAdder,
 		NewCharmClient: func(conn base.APICallCloser) utils.CharmClient {
 			return charms.NewClient(conn)
 		},
-		NewCharmUpgradeClient: func(conn base.APICallCloser) CharmAPIClient {
+		NewCharmUpgradeClient: func(conn base.APICallCloser) CharmUpgradeClient {
 			return application.NewClient(conn)
 		},
 		NewResourceLister: func(conn base.APICallCloser) (utils.ResourceLister, error) {
@@ -65,22 +65,28 @@ func newUpgradeCharmCommand() *upgradeCharmCommand {
 		NewCharmStore: func(
 			bakeryClient *httpbakery.Client,
 			csURL string,
-			channel csclientparams.Channel,
-		) store.CharmrepoForDeploy {
+			channel csparams.Channel,
+		) (store.MacaroonGetter, store.CharmrepoForDeploy) {
 			return getCharmStore(bakeryClient, csURL, channel)
 		},
+		NewCharmResolver: func(apiRoot base.APICallCloser, charmrepo store.CharmrepoForDeploy) CharmResolver {
+			return store.NewCharmAdaptor(charmrepo,
+				apiRoot.BestFacadeVersion("Charms"),
+				charms.NewClient(apiRoot),
+			)
+		},
 	}
+}
+
+// CharmResolver defines methods required to resolve charms, as required
+// by the upgrade-charm command.
+type CharmResolver interface {
+	ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin) (*charm.URL, commoncharm.Origin, []string, error)
 }
 
 // NewUpgradeCharmCommand returns a command which upgrades application's charm.
 func NewUpgradeCharmCommand() cmd.Command {
 	return modelcmd.Wrap(newUpgradeCharmCommand())
-}
-
-// CharmAPIClient defines a subset of the application facade that deals with
-// charm related upgrades.
-type CharmAPIClient interface {
-	CharmUpgradeClient
 }
 
 // CharmUpgradeClient defines a subset of the application facade, as required
@@ -101,19 +107,22 @@ type NewCharmAdderFunc func(
 type NewCharmStoreFunc func(
 	*httpbakery.Client,
 	string, // Charmstore API URL
-	csclientparams.Channel,
-) store.CharmrepoForDeploy
+	csparams.Channel,
+) (store.MacaroonGetter, store.CharmrepoForDeploy)
+
+// NewCharmResolverFunc returns a client implementing CharmResolver.
+type NewCharmResolverFunc func(base.APICallCloser, store.CharmrepoForDeploy) CharmResolver
 
 // UpgradeCharm is responsible for upgrading an application's charm.
 type upgradeCharmCommand struct {
 	modelcmd.ModelCommandBase
 
 	DeployResources       resourceadapters.DeployResourcesFunc
-	ResolveCharm          store.ResolveCharmFunc
 	NewCharmAdder         NewCharmAdderFunc
 	NewCharmStore         NewCharmStoreFunc
+	NewCharmResolver      NewCharmResolverFunc
 	NewCharmClient        func(base.APICallCloser) utils.CharmClient
-	NewCharmUpgradeClient func(base.APICallCloser) CharmAPIClient
+	NewCharmUpgradeClient func(base.APICallCloser) CharmUpgradeClient
 	NewResourceLister     func(base.APICallCloser) (utils.ResourceLister, error)
 	NewSpacesClient       func(base.APICallCloser) SpacesAPI
 	CharmStoreURLGetter   func(base.APICallCloser) (string, error)
@@ -136,7 +145,7 @@ type upgradeCharmCommand struct {
 
 	// Channel holds the charmstore channel to use when obtaining
 	// the charm to be upgraded to.
-	Channel csclientparams.Channel
+	Channel csparams.Channel
 
 	// Config is a config file variable, pointing at a YAML file containing
 	// the application config to update.
@@ -330,27 +339,13 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		newRef = oldURL.WithRevision(c.Revision).String()
 	}
 
-	// First, ensure the charm is added to the model.
-	bakeryClient, err := c.BakeryClient()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	conAPIRoot, err := c.NewControllerAPIRoot()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	csURL, err := c.CharmStoreURLGetter(conAPIRoot)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	applicationInfo, err := charmUpgradeClient.Get(generation, c.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	if c.Channel == "" {
-		c.Channel = csclientparams.Channel(applicationInfo.Channel)
+		c.Channel = csparams.Channel(applicationInfo.Channel)
 	}
 
 	newURL, err := url.Parse(newRef)
@@ -362,10 +357,25 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		ctx.Infof("Looking up metadata for charm %v (channel: %s)", newRef, c.Channel)
 	}
 
+	// First, ensure the charm is added to the model.
+	conAPIRoot, err := c.NewControllerAPIRoot()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	csURL, err := c.CharmStoreURLGetter(conAPIRoot)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	bakeryClient, err := c.BakeryClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	csClient, charmStore := c.NewCharmStore(bakeryClient, csURL, c.Channel)
+
 	chID, csMac, err := c.addCharm(addCharmParams{
 		charmAdder:     c.NewCharmAdder(apiRoot),
-		charmRepo:      c.NewCharmStore(bakeryClient, csURL, c.Channel),
-		authorizer:     store.NewCharmStoreClient(bakeryClient, csURL),
+		charmResolver:  c.NewCharmResolver(apiRoot, charmStore),
+		authorizer:     csClient,
 		oldURL:         oldURL,
 		newCharmRef:    newRef,
 		deployedSeries: applicationInfo.Series,
@@ -494,8 +504,8 @@ func (c *upgradeCharmCommand) checkApplicationFacadeSupport(verQuerier versionQu
 	}
 
 	suffix := "this server"
-	if version, ok := verQuerier.ServerVersion(); ok {
-		suffix = fmt.Sprintf("server version %s", version)
+	if ver, ok := verQuerier.ServerVersion(); ok {
+		suffix = fmt.Sprintf("server version %s", ver)
 	}
 
 	return errors.New(action + " at upgrade-charm time is not supported by " + suffix)
@@ -550,10 +560,10 @@ func newCharmAdder(
 func getCharmStore(
 	bakeryClient *httpbakery.Client,
 	csURL string,
-	channel csclientparams.Channel,
-) store.CharmrepoForDeploy {
+	channel csparams.Channel,
+) (store.MacaroonGetter, store.CharmrepoForDeploy) {
 	csClient := store.NewCharmStoreClient(bakeryClient, csURL).WithChannel(channel)
-	return charmrepo.NewCharmStoreFromClient(csClient)
+	return csClient, charmrepo.NewCharmStoreFromClient(csClient)
 }
 
 // getCharmStoreAPIURL consults the controller config for the charmstore api url to use.
@@ -569,7 +579,7 @@ var getCharmStoreAPIURL = func(conAPIRoot base.APICallCloser) (string, error) {
 type addCharmParams struct {
 	charmAdder     store.CharmAdder
 	authorizer     store.MacaroonGetter
-	charmRepo      store.CharmrepoForDeploy
+	charmResolver  CharmResolver
 	oldURL         *charm.URL
 	newCharmRef    string
 	deployedSeries string
@@ -607,12 +617,18 @@ func (c *upgradeCharmCommand) addCharm(params addCharmParams) (charmstore.CharmI
 		return id, nil, errors.Trace(err)
 	}
 
-	// Charm has been supplied as a URL so we resolve and deploy using the store.
-	newURL, channel, supportedSeries, err := c.ResolveCharm(params.charmRepo.ResolveWithPreferredChannel, refURL, c.Channel)
+	origin, err := utils.DeduceOrigin(refURL, c.Channel)
 	if err != nil {
 		return id, nil, errors.Trace(err)
 	}
-	id.Channel = channel
+	origin.Risk = string(c.Channel)
+
+	// Charm has been supplied as a URL so we resolve and deploy using the store.
+	newURL, origin, supportedSeries, err := params.charmResolver.ResolveCharm(refURL, origin)
+	if err != nil {
+		return id, nil, errors.Trace(err)
+	}
+	id.Channel = csparams.Channel(origin.Risk)
 	_, seriesSupportedErr := charm.SeriesForCharm(params.deployedSeries, supportedSeries)
 	if !c.ForceSeries && params.deployedSeries != "" && newURL.Series == "" && seriesSupportedErr != nil {
 		series := []string{"no series"}
@@ -636,7 +652,7 @@ func (c *upgradeCharmCommand) addCharm(params addCharmParams) (charmstore.CharmI
 		return id, nil, errors.Errorf("already running latest charm %q", newURL)
 	}
 
-	curl, csMac, err := store.AddCharmFromURL(params.charmAdder, params.authorizer, newURL, channel, params.force)
+	curl, csMac, err := store.AddCharmFromURL(params.charmAdder, params.authorizer, newURL, csparams.Channel(origin.Risk), params.force)
 	if err != nil {
 		return id, nil, errors.Trace(err)
 	}
