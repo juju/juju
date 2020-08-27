@@ -41,8 +41,8 @@ import (
 	"github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/charms"
 	apicharms "github.com/juju/juju/api/charms"
+	apicommoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/api/modelconfig"
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/params"
@@ -2431,9 +2431,9 @@ func (f *fakeDeployAPI) AddCharmWithAuthorization(
 	return jujutesting.TypeAssertError(results[0])
 }
 
-func (f *fakeDeployAPI) CharmInfo(url string) (*charms.CharmInfo, error) {
+func (f *fakeDeployAPI) CharmInfo(url string) (*apicommoncharms.CharmInfo, error) {
 	results := f.MethodCall(f, "CharmInfo", url)
-	return results[0].(*charms.CharmInfo), jujutesting.TypeAssertError(results[1])
+	return results[0].(*apicommoncharms.CharmInfo), jujutesting.TypeAssertError(results[1])
 }
 
 func (f *fakeDeployAPI) Deploy(args application.DeployArgs) error {
@@ -2729,7 +2729,7 @@ func withCharmDeployableWithDevicesAndStorage(
 	}
 	fakeAPI.Call("AddCharm", &deployURL, csclientparams.Channel(""), force).Returns(error(nil))
 	fakeAPI.Call("CharmInfo", deployURL.String()).Returns(
-		&charms.CharmInfo{
+		&apicommoncharms.CharmInfo{
 			URL:     url.String(),
 			Meta:    meta,
 			Metrics: metrics,

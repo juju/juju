@@ -28,7 +28,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/charms"
+	apicommoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/apiserver/params"
 	jujucharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/application/deployer"
@@ -129,7 +129,7 @@ func (s *BaseUpgradeCharmSuite) SetUpTest(c *gc.C) {
 	}
 	s.charmAdder = mockCharmAdder{}
 	s.charmClient = mockCharmClient{
-		charmInfo: &charms.CharmInfo{
+		charmInfo: &apicommoncharms.CharmInfo{
 			Meta: &charm.Meta{},
 		},
 	}
@@ -511,7 +511,7 @@ func (s *UpgradeCharmSuccessStateSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(forced, jc.IsFalse)
 
-	s.charmClient.charmInfo = &charms.CharmInfo{
+	s.charmClient.charmInfo = &apicommoncharms.CharmInfo{
 		URL:  "local:riak",
 		Meta: &charm.Meta{},
 	}
@@ -632,7 +632,7 @@ func (s *UpgradeCharmSuccessStateSuite) TestRespectsLocalRevisionWhenPossible(c 
 	err = dir.SetDiskRevision(42)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.charmClient.charmInfo = &charms.CharmInfo{
+	s.charmClient.charmInfo = &apicommoncharms.CharmInfo{
 		URL:      "local:riak",
 		Meta:     dir.Meta(),
 		Revision: dir.Revision(),
@@ -689,7 +689,7 @@ func (s *UpgradeCharmSuccessStateSuite) TestForcedSeriesUpgrade(c *gc.C) {
 		c.Fatal(errors.Annotate(err, "cannot write to metadata.yaml"))
 	}
 
-	s.charmClient.charmInfo = &charms.CharmInfo{
+	s.charmClient.charmInfo = &apicommoncharms.CharmInfo{
 		URL:      ch.URL().String(),
 		Meta:     ch.Meta(),
 		Revision: ch.Revision(),
@@ -913,10 +913,10 @@ func (m *mockCharmAdder) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bo
 type mockCharmClient struct {
 	utils.CharmClient
 	testing.Stub
-	charmInfo *charms.CharmInfo
+	charmInfo *apicommoncharms.CharmInfo
 }
 
-func (m *mockCharmClient) CharmInfo(curl string) (*charms.CharmInfo, error) {
+func (m *mockCharmClient) CharmInfo(curl string) (*apicommoncharms.CharmInfo, error) {
 	m.MethodCall(m, "CharmInfo", curl)
 	if err := m.NextErr(); err != nil {
 		return nil, err

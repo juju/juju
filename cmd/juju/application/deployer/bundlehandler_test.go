@@ -20,7 +20,7 @@ import (
 
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
-	apicharms "github.com/juju/juju/api/charms"
+	apicommoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
@@ -167,7 +167,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithInvalidSeries(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	s.expectResolveWithPreferredChannel(nil, 2)
 	s.expectAddCharm(false)
-	charmInfo := &apicharms.CharmInfo{
+	charmInfo := &apicommoncharms.CharmInfo{
 		Revision: mysqlCurl.Revision,
 		URL:      mysqlCurl.String(),
 		Meta: &charm.Meta{
@@ -549,7 +549,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidMachineContainerTyp
 	c.Assert(err, jc.ErrorIsNil)
 	s.expectAddCharm(false)
 	s.expectResolveWithPreferredChannel(nil, 2)
-	charmInfo := &apicharms.CharmInfo{
+	charmInfo := &apicommoncharms.CharmInfo{
 		Revision: wordpressCurl.Revision,
 		URL:      wordpressCurl.String(),
 		Meta: &charm.Meta{
@@ -586,7 +586,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleUnitPlacedToMachines(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 	s.expectAddCharm(false)
 	s.expectResolveWithPreferredChannel(nil, 2)
-	charmInfo := &apicharms.CharmInfo{
+	charmInfo := &apicommoncharms.CharmInfo{
 		Revision: wordpressCurl.Revision,
 		URL:      wordpressCurl.String(),
 		Meta: &charm.Meta{
@@ -904,7 +904,7 @@ func (s *BundleDeployCharmStoreSuite) setupCharmUnits(charmUnits []charmUnit) {
 		case "local":
 			s.expectAddLocalCharm(chUnit.curl, chUnit.force)
 		}
-		charmInfo := &apicharms.CharmInfo{
+		charmInfo := &apicommoncharms.CharmInfo{
 			Revision: chUnit.curl.Revision,
 			URL:      chUnit.curl.String(),
 			Meta: &charm.Meta{
@@ -1057,7 +1057,7 @@ func (m charmInterfaceMatcher) String() string {
 	return fmt.Sprintf("Require charm.Charm as arg")
 }
 
-func (s *BundleDeployCharmStoreSuite) expectCharmInfo(name string, info *apicharms.CharmInfo) {
+func (s *BundleDeployCharmStoreSuite) expectCharmInfo(name string, info *apicommoncharms.CharmInfo) {
 	s.deployerAPI.EXPECT().CharmInfo(name).Return(info, nil)
 }
 
