@@ -176,9 +176,9 @@ func (s *BaseUpgradeCharmSuite) upgradeCommand() cmd.Command {
 			bakeryClient *httpbakery.Client,
 			csURL string,
 			channel csclientparams.Channel,
-		) store.CharmrepoForDeploy {
+		) (store.MacaroonGetter, store.CharmrepoForDeploy) {
 			s.AddCall("NewCharmStore", csURL)
-			return s.fakeAPI
+			return s.fakeAPI, s.fakeAPI
 		},
 		func(base.APICallCloser, store.CharmrepoForDeploy) CharmResolver {
 			s.AddCall("NewCharmResolver")
@@ -374,8 +374,8 @@ func (s *UpgradeCharmErrorsStateSuite) SetUpTest(c *gc.C) {
 			bakeryClient *httpbakery.Client,
 			csURL string,
 			channel csclientparams.Channel,
-		) store.CharmrepoForDeploy {
-			return s.fakeAPI
+		) (store.MacaroonGetter, store.CharmrepoForDeploy) {
+			return s.fakeAPI, s.fakeAPI
 		},
 		func(conn api.Connection) store.CharmAdder {
 			return s.fakeAPI
@@ -491,8 +491,8 @@ func (s *UpgradeCharmSuccessStateSuite) SetUpTest(c *gc.C) {
 			bakeryClient *httpbakery.Client,
 			csURL string,
 			channel csclientparams.Channel,
-		) store.CharmrepoForDeploy {
-			return s.fakeAPI
+		) (store.MacaroonGetter, store.CharmrepoForDeploy) {
+			return s.fakeAPI, s.fakeAPI
 		},
 		func(conn api.Connection) store.CharmAdder {
 			return &apiClient{Client: conn.Client()}

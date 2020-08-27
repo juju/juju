@@ -249,8 +249,8 @@ Deploying charm "cs:bionic/starsay-1".`
 			bakeryClient *httpbakery.Client,
 			csURL string,
 			channel csclientparams.Channel,
-		) store.CharmrepoForDeploy {
-			return s.fakeAPI
+		) (store.MacaroonGetter, store.CharmrepoForDeploy) {
+			return s.fakeAPI, s.fakeAPI
 		},
 		func(conn api.Connection) store.CharmAdder {
 			return charmAdder
