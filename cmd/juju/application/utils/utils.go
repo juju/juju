@@ -139,7 +139,7 @@ func shouldUpgradeResource(res charmresource.Meta, uploads map[string]string, cu
 
 const maxValueSize = 5242880 // Max size for a config file.
 
-// readValue reads the value of an option out of the named file.
+// ReadValue reads the value of an option out of the named file.
 // An empty content is valid, like in parsing the options. The upper
 // size is 5M.
 func ReadValue(ctx *cmd.Context, filesystem modelcmd.Filesystem, filename string) (string, error) {

@@ -1221,7 +1221,6 @@ func (context *statusContext) processApplication(application *state.Application)
 		processedStatus.MeterStatuses = context.processUnitMeterStatuses(units)
 	}
 
-	// TODO(caas) - there's no way for a CAAS charm to set workload version yet
 	versions := make([]status.StatusInfo, 0, len(units))
 	for _, unit := range units {
 		workloadVersion, err := context.status.FullUnitWorkloadVersion(unit.Name())
