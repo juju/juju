@@ -28,14 +28,16 @@ func (s *persistentVolumeSuite) TestApply(c *gc.C) {
 			Name: "ds1",
 		},
 	}
-	_, err := s.client.CoreV1().PersistentVolumes().Create(context.TODO(), ds, metav1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	// Create.
+	dsResource := resources.NewPersistentVolume("ds1", ds)
+	c.Assert(dsResource.Apply(context.TODO(), s.client), jc.ErrorIsNil)
 	result, err := s.client.CoreV1().PersistentVolumes().Get(context.TODO(), "ds1", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(result.GetAnnotations()), gc.Equals, 0)
 
+	// Update.
 	ds.SetAnnotations(map[string]string{"a": "b"})
-	dsResource := resources.NewPersistentVolume("ds1", ds)
+	dsResource = resources.NewPersistentVolume("ds1", ds)
 	c.Assert(dsResource.Apply(context.TODO(), s.client), jc.ErrorIsNil)
 
 	result, err = s.client.CoreV1().PersistentVolumes().Get(context.TODO(), "ds1", metav1.GetOptions{})

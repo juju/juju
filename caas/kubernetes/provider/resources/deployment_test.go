@@ -29,14 +29,16 @@ func (s *deploymentSuite) TestApply(c *gc.C) {
 			Namespace: "test",
 		},
 	}
-	_, err := s.client.AppsV1().Deployments("test").Create(context.TODO(), ds, metav1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	// Create.
+	dsResource := resources.NewDeployment("ds1", "test", ds)
+	c.Assert(dsResource.Apply(context.TODO(), s.client), jc.ErrorIsNil)
 	result, err := s.client.AppsV1().Deployments("test").Get(context.TODO(), "ds1", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(result.GetAnnotations()), gc.Equals, 0)
 
+	// Update.
 	ds.SetAnnotations(map[string]string{"a": "b"})
-	dsResource := resources.NewDeployment("ds1", "test", ds)
+	dsResource = resources.NewDeployment("ds1", "test", ds)
 	c.Assert(dsResource.Apply(context.TODO(), s.client), jc.ErrorIsNil)
 
 	result, err = s.client.AppsV1().Deployments("test").Get(context.TODO(), "ds1", metav1.GetOptions{})

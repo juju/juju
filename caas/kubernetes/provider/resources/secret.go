@@ -49,6 +49,11 @@ func (s *Secret) Apply(ctx context.Context, client kubernetes.Interface) error {
 	res, err := api.Patch(ctx, s.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
 		FieldManager: JujuFieldManager,
 	})
+	if k8serrors.IsNotFound(err) {
+		res, err = api.Create(ctx, &s.Secret, metav1.CreateOptions{
+			FieldManager: JujuFieldManager,
+		})
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}

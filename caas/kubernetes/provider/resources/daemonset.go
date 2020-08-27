@@ -49,6 +49,11 @@ func (ds *DaemonSet) Apply(ctx context.Context, client kubernetes.Interface) err
 	res, err := api.Patch(ctx, ds.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
 		FieldManager: JujuFieldManager,
 	})
+	if k8serrors.IsNotFound(err) {
+		res, err = api.Create(ctx, &ds.DaemonSet, metav1.CreateOptions{
+			FieldManager: JujuFieldManager,
+		})
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}

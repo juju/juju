@@ -71,6 +71,7 @@ func NewApplication(name string,
 // Ensure creates or updates an application pod with the given application
 // name, agent path, and application config.
 func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
+	// TODO: add support `Constraints` and `Devices`.
 	defer func() {
 		logger.Errorf("Ensure %s", err)
 	}()

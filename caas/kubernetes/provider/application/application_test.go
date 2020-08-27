@@ -4,23 +4,28 @@
 package application_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/charm/v7"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	// core "k8s.io/api/core/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 
 	// apicommoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/application"
+	// "github.com/juju/juju/caas/kubernetes/provider/storage"
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
 
@@ -115,7 +120,7 @@ func (s *applicationSuite) TestEnsureFailed(c *gc.C) {
 }
 
 func (s *applicationSuite) TestEnsure(c *gc.C) {
-	app := s.getApp(caas.DeploymentStateless)
+	app := s.getApp(caas.DeploymentStateful)
 	c.Assert(app.Ensure(
 		caas.ApplicationConfig{},
 	), gc.ErrorMatches, `charm was missing for gitlab application not valid`)
@@ -123,11 +128,82 @@ func (s *applicationSuite) TestEnsure(c *gc.C) {
 	c.Assert(app.Ensure(
 		caas.ApplicationConfig{
 			Charm: s.getCharm(&charm.Deployment{
-				DeploymentType:     charm.DeploymentStateless,
+				DeploymentType:     charm.DeploymentStateful,
 				ContainerImageName: "gitlab:latest",
+				ServicePorts: []charm.ServicePort{
+					{
+						Name:       "tcp",
+						Port:       8080,
+						TargetPort: 8080,
+						Protocol:   "TCP",
+					},
+				},
 			}),
+			Filesystems: []storage.KubernetesFilesystemParams{{
+				StorageName: "database",
+				Size:        100,
+				Provider:    "kubernetes",
+				Attributes:  map[string]interface{}{"storage-class": "workload-storage"},
+				Attachment: &storage.KubernetesFilesystemAttachmentParams{
+					Path: "path/to/here",
+				},
+				ResourceTags: map[string]string{"foo": "bar"},
+			}, {
+				StorageName: "logs",
+				Size:        200,
+				Provider:    "tmpfs",
+				Attributes:  map[string]interface{}{"storage-medium": "Memory"},
+				Attachment: &storage.KubernetesFilesystemAttachmentParams{
+					Path: "path/to/there",
+				},
+			}},
 		},
 	), jc.ErrorIsNil)
+
+	secret, err := s.client.CoreV1().Secrets("test").Get(context.TODO(), "gitlab-application-config", metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(secret, gc.DeepEquals, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "gitlab-application-config",
+			Namespace:   "test",
+			Labels:      map[string]string{"juju-app": "gitlab"},
+			Annotations: map[string]string{"juju-version": "0.0.0"},
+		},
+		Data: map[string][]byte{
+			"JUJU_K8S_APPLICATION":          []byte("gitlab"),
+			"JUJU_K8S_MODEL":                []byte("test"),
+			"JUJU_K8S_APPLICATION_PASSWORD": []byte(""),
+			"JUJU_K8S_CONTROLLER_ADDRESSES": []byte(""),
+			"JUJU_K8S_CONTROLLER_CA_CERT":   []byte(""),
+		},
+	})
+
+	svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(svc, gc.DeepEquals, &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "gitlab",
+			Namespace:   "test",
+			Labels:      map[string]string{"juju-app": "gitlab"},
+			Annotations: map[string]string{"juju-version": "0.0.0"},
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{"juju-app": "gitlab"},
+			Type:     corev1.ServiceTypeClusterIP,
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "tcp",
+					Port:       8080,
+					TargetPort: intstr.FromInt(8080),
+					Protocol:   corev1.ProtocolTCP,
+				},
+			},
+		},
+	})
+
+	ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ss, gc.DeepEquals, &appsv1.StatefulSet{})
 }
 
 type fakeCharm struct {
