@@ -2158,23 +2158,23 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithUpdateStrategy(c *gc.
 
 	ociImageSecret := s.getOCIImageSecret(c, map[string]string{"fred": "mary"})
 	gomock.InOrder(
-		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
+		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockSecrets.EXPECT().Create(ociImageSecret).
+		s.mockSecrets.EXPECT().Create(gomock.Any(), ociImageSecret, v1.CreateOptions{}).
 			Return(ociImageSecret, nil),
-		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
+		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{}).
+		s.mockServices.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Update(serviceArg).
+		s.mockServices.EXPECT().Update(gomock.Any(), serviceArg, v1.UpdateOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Create(serviceArg).
+		s.mockServices.EXPECT().Create(gomock.Any(), serviceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockDeployments.EXPECT().Get("app-name", v1.GetOptions{}).
+		s.mockDeployments.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Update(deploymentArg).
+		s.mockDeployments.EXPECT().Update(gomock.Any(), deploymentArg, v1.UpdateOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Create(deploymentArg).
+		s.mockDeployments.EXPECT().Create(gomock.Any(), deploymentArg, v1.CreateOptions{}).
 			Return(nil, nil),
 	)
 
@@ -5023,29 +5023,29 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithUpdateStrategy(c *gc
 
 	ociImageSecret := s.getOCIImageSecret(c, nil)
 	gomock.InOrder(
-		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
+		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockSecrets.EXPECT().Create(ociImageSecret).
+		s.mockSecrets.EXPECT().Create(gomock.Any(), ociImageSecret, v1.CreateOptions{}).
 			Return(ociImageSecret, nil),
-		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{}).
+		s.mockServices.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Update(basicServiceArg).
+		s.mockServices.EXPECT().Update(gomock.Any(), basicServiceArg, v1.UpdateOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Create(basicServiceArg).
+		s.mockServices.EXPECT().Create(gomock.Any(), basicServiceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockServices.EXPECT().Get("app-name-endpoints", v1.GetOptions{}).
+		s.mockServices.EXPECT().Get(gomock.Any(), "app-name-endpoints", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Update(basicHeadlessServiceArg).
+		s.mockServices.EXPECT().Update(gomock.Any(), basicHeadlessServiceArg, v1.UpdateOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Create(basicHeadlessServiceArg).
+		s.mockServices.EXPECT().Create(gomock.Any(), basicHeadlessServiceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
+		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
 			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-app-uuid": "appuuid"}}}, nil),
-		s.mockStorageClass.EXPECT().Get("test-workload-storage", v1.GetOptions{}).
+		s.mockStorageClass.EXPECT().Get(gomock.Any(), "test-workload-storage", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockStorageClass.EXPECT().Get("workload-storage", v1.GetOptions{}).
+		s.mockStorageClass.EXPECT().Get(gomock.Any(), "workload-storage", v1.GetOptions{}).
 			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "workload-storage"}}, nil),
-		s.mockStatefulSets.EXPECT().Create(statefulSetArg).
+		s.mockStatefulSets.EXPECT().Create(gomock.Any(), statefulSetArg, v1.CreateOptions{}).
 			Return(nil, nil),
 	)
 
@@ -5760,27 +5760,27 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithUpdateStrategy(c *gc.C
 
 	ociImageSecret := s.getOCIImageSecret(c, nil)
 	gomock.InOrder(
-		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
+		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockSecrets.EXPECT().Create(ociImageSecret).
+		s.mockSecrets.EXPECT().Create(gomock.Any(), ociImageSecret, v1.CreateOptions{}).
 			Return(ociImageSecret, nil),
-		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
+		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{}).
+		s.mockServices.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Update(basicServiceArg).
+		s.mockServices.EXPECT().Update(gomock.Any(), basicServiceArg, v1.UpdateOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Create(basicServiceArg).
+		s.mockServices.EXPECT().Create(gomock.Any(), basicServiceArg, v1.CreateOptions{}).
 			Return(nil, nil),
-		s.mockDaemonSets.EXPECT().Get("app-name", v1.GetOptions{}).
+		s.mockDaemonSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockStorageClass.EXPECT().Get("test-workload-storage", v1.GetOptions{}).
+		s.mockStorageClass.EXPECT().Get(gomock.Any(), "test-workload-storage", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockStorageClass.EXPECT().Get("workload-storage", v1.GetOptions{}).
+		s.mockStorageClass.EXPECT().Get(gomock.Any(), "workload-storage", v1.GetOptions{}).
 			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "workload-storage"}}, nil),
-		s.mockPersistentVolumeClaims.EXPECT().Create(pvc).
+		s.mockPersistentVolumeClaims.EXPECT().Create(gomock.Any(), pvc, v1.CreateOptions{}).
 			Return(pvc, nil),
-		s.mockDaemonSets.EXPECT().Create(daemonSetArg).
+		s.mockDaemonSets.EXPECT().Create(gomock.Any(), daemonSetArg, v1.CreateOptions{}).
 			Return(daemonSetArg, nil),
 	)
 
