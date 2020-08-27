@@ -141,10 +141,17 @@ func (s *hostPreparerSuite) TestPrepareHostNoChanges(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// If HostChangesForContainer returns nothing to change, then we don't
 	// instantiate a Bridger, or do any bridging.
-	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
-		FuncName: "HostChangesForContainer",
-		Args:     []interface{}{containerTag},
-	}})
+	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
+		{
+			FuncName: "AcquireLock",
+		}, {
+			FuncName: "HostChangesForContainer",
+			Args:     []interface{}{containerTag},
+		},
+		{
+			FuncName: "Release",
+		},
+	})
 }
 
 var cannedObservedNetworkConfig = []params.NetworkConfig{{
@@ -194,24 +201,26 @@ func (s *hostPreparerSuite) TestPrepareHostCreateBridge(c *gc.C) {
 	// This should be the normal flow if there are changes necessary. We read
 	// the changes, grab a bridger, then acquire a lock, do the bridging,
 	// observe the results, report the results, and release the lock.
-	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
-		FuncName: "HostChangesForContainer",
-		Args:     []interface{}{containerTag},
-	}, {
-		FuncName: "CreateBridger",
-	}, {
-		FuncName: "AcquireLock",
-	}, {
-		FuncName: "Bridge",
-		Args:     []interface{}{devices, 0},
-	}, {
-		FuncName: "ObserveNetwork",
-	}, {
-		FuncName: "SetHostMachineNetworkConfig",
-		Args:     []interface{}{names.NewMachineTag("1"), cannedObservedNetworkConfig},
-	}, {
-		FuncName: "Release",
-	}})
+	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
+		{
+			FuncName: "AcquireLock",
+		}, {
+			FuncName: "HostChangesForContainer",
+			Args:     []interface{}{containerTag},
+		}, {
+			FuncName: "CreateBridger",
+		}, {
+			FuncName: "Bridge",
+			Args:     []interface{}{devices, 0},
+		}, {
+			FuncName: "ObserveNetwork",
+		}, {
+			FuncName: "SetHostMachineNetworkConfig",
+			Args:     []interface{}{names.NewMachineTag("1"), cannedObservedNetworkConfig},
+		}, {
+			FuncName: "Release",
+		},
+	})
 }
 
 func (s *hostPreparerSuite) TestPrepareHostNothingObserved(c *gc.C) {
@@ -224,22 +233,24 @@ func (s *hostPreparerSuite) TestPrepareHostNothingObserved(c *gc.C) {
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(containerTag)
 	c.Assert(err, jc.ErrorIsNil)
-	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
-		FuncName: "HostChangesForContainer",
-		Args:     []interface{}{containerTag},
-	}, {
-		FuncName: "CreateBridger",
-	}, {
-		FuncName: "AcquireLock",
-	}, {
-		FuncName: "Bridge",
-		Args:     []interface{}{devices, 0},
-	}, {
-		FuncName: "ObserveNetwork",
-		// We don't call SetHostMachineNetworkConfig if ObserveNetwork returns nothing
-	}, {
-		FuncName: "Release",
-	}})
+	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
+		{
+			FuncName: "AcquireLock",
+		}, {
+			FuncName: "HostChangesForContainer",
+			Args:     []interface{}{containerTag},
+		}, {
+			FuncName: "CreateBridger",
+		}, {
+			FuncName: "Bridge",
+			Args:     []interface{}{devices, 0},
+		}, {
+			FuncName: "ObserveNetwork",
+			// We don't call SetHostMachineNetworkConfig if ObserveNetwork returns nothing
+		}, {
+			FuncName: "Release",
+		},
+	})
 }
 
 func (s *hostPreparerSuite) TestPrepareHostChangesUnsupported(c *gc.C) {
@@ -247,22 +258,32 @@ func (s *hostPreparerSuite) TestPrepareHostChangesUnsupported(c *gc.C) {
 	// provisioning errors, instead of assuming we can continue creating a
 	// container.
 	s.Stub.SetErrors(
+		nil,
 		errors.NotSupportedf("container address allocation"),
+		nil,
 	)
 	preparer := s.createPreparer(nil, nil)
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(containerTag)
 	c.Assert(err, gc.ErrorMatches, "unable to setup network: container address allocation not supported")
-	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
-		FuncName: "HostChangesForContainer",
-		Args:     []interface{}{containerTag},
-	}})
+	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
+		{
+			FuncName: "AcquireLock",
+		}, {
+			FuncName: "HostChangesForContainer",
+			Args:     []interface{}{containerTag},
+		}, {
+			FuncName: "Release",
+		},
+	})
 }
 
 func (s *hostPreparerSuite) TestPrepareHostNoBridger(c *gc.C) {
 	s.Stub.SetErrors(
+		nil, // AcquireLock
 		nil, // HostChangesForContainer
 		errors.New("unable to find python interpreter"), // CreateBridger
+		nil, //Release
 	)
 	devices := []network.DeviceToBridge{{
 		DeviceName: "eth0",
@@ -272,18 +293,23 @@ func (s *hostPreparerSuite) TestPrepareHostNoBridger(c *gc.C) {
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(containerTag)
 	c.Check(err, gc.ErrorMatches, "unable to find python interpreter")
-	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
-		FuncName: "HostChangesForContainer",
-		Args:     []interface{}{containerTag},
-	}, {
-		FuncName: "CreateBridger",
-	}})
+
+	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
+		{
+			FuncName: "AcquireLock",
+		}, {
+			FuncName: "HostChangesForContainer",
+			Args:     []interface{}{containerTag},
+		}, {
+			FuncName: "CreateBridger",
+		}, {
+			FuncName: "Release",
+		},
+	})
 }
 
 func (s *hostPreparerSuite) TestPrepareHostNoLock(c *gc.C) {
 	s.Stub.SetErrors(
-		nil,              // HostChangesForContainer
-		nil,              // CreateBridger
 		mutex.ErrTimeout, // AcquireLock
 	)
 	devices := []network.DeviceToBridge{{
@@ -294,14 +320,12 @@ func (s *hostPreparerSuite) TestPrepareHostNoLock(c *gc.C) {
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(containerTag)
 	c.Check(err, gc.ErrorMatches, `failed to acquire machine lock for bridging: timeout acquiring mutex`)
-	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
-		FuncName: "HostChangesForContainer",
-		Args:     []interface{}{containerTag},
-	}, {
-		FuncName: "CreateBridger",
-	}, {
-		FuncName: "AcquireLock",
-	}})
+
+	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
+		{
+			FuncName: "AcquireLock",
+		},
+	})
 }
 
 func (s *hostPreparerSuite) TestPrepareHostBridgeFailure(c *gc.C) {
@@ -319,24 +343,26 @@ func (s *hostPreparerSuite) TestPrepareHostBridgeFailure(c *gc.C) {
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(containerTag)
 	c.Check(err, gc.ErrorMatches, `failed to bridge devices: script invocation error: IOError`)
-	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
-		FuncName: "HostChangesForContainer",
-		Args:     []interface{}{containerTag},
-	}, {
-		FuncName: "CreateBridger",
-	}, {
-		FuncName: "AcquireLock",
-	}, {
-		FuncName: "Bridge",
-		Args:     []interface{}{devices, 0},
-	}, {
-		// We don't observe the network information.
-		// TODO(jam): 2017-02-15 This is possibly wrong, we might consider
-		// a) Forcibly restarting if Bridge() fails,
-		// b) Still observing and reporting our observation so that we at least
-		//    know what state we ended up in.
-		FuncName: "Release",
-	}})
+	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
+		{
+			FuncName: "AcquireLock",
+		}, {
+			FuncName: "HostChangesForContainer",
+			Args:     []interface{}{containerTag},
+		}, {
+			FuncName: "CreateBridger",
+		}, {
+			FuncName: "Bridge",
+			Args:     []interface{}{devices, 0},
+		}, {
+			// We don't observe the network information.
+			// TODO(jam): 2017-02-15 This is possibly wrong, we might consider
+			// a) Forcibly restarting if Bridge() fails,
+			// b) Still observing and reporting our observation so that we at least
+			//    know what state we ended up in.
+			FuncName: "Release",
+		},
+	})
 }
 
 func (s *hostPreparerSuite) TestPrepareHostObserveFailure(c *gc.C) {
@@ -355,22 +381,24 @@ func (s *hostPreparerSuite) TestPrepareHostObserveFailure(c *gc.C) {
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(containerTag)
 	c.Check(err, gc.ErrorMatches, `cannot discover observed network config: cannot get network interfaces: enoent`)
-	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
-		FuncName: "HostChangesForContainer",
-		Args:     []interface{}{containerTag},
-	}, {
-		FuncName: "CreateBridger",
-	}, {
-		FuncName: "AcquireLock",
-	}, {
-		FuncName: "Bridge",
-		Args:     []interface{}{devices, 0},
-	}, {
-		FuncName: "ObserveNetwork",
-	}, {
-		// We don't SetHostMachineNetworkConfig, but we still release the lock
-		FuncName: "Release",
-	}})
+	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
+		{
+			FuncName: "AcquireLock",
+		}, {
+			FuncName: "HostChangesForContainer",
+			Args:     []interface{}{containerTag},
+		}, {
+			FuncName: "CreateBridger",
+		}, {
+			FuncName: "Bridge",
+			Args:     []interface{}{devices, 0},
+		}, {
+			FuncName: "ObserveNetwork",
+		}, {
+			// We don't SetHostMachineNetworkConfig, but we still release the lock.
+			FuncName: "Release",
+		},
+	})
 }
 
 func (s *hostPreparerSuite) TestPrepareHostObservedFailure(c *gc.C) {
@@ -390,24 +418,26 @@ func (s *hostPreparerSuite) TestPrepareHostObservedFailure(c *gc.C) {
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(containerTag)
 	c.Check(err, gc.ErrorMatches, `failure`)
-	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
-		FuncName: "HostChangesForContainer",
-		Args:     []interface{}{containerTag},
-	}, {
-		FuncName: "CreateBridger",
-	}, {
-		FuncName: "AcquireLock",
-	}, {
-		FuncName: "Bridge",
-		Args:     []interface{}{devices, 0},
-	}, {
-		FuncName: "ObserveNetwork",
-	}, {
-		FuncName: "SetHostMachineNetworkConfig",
-		Args:     []interface{}{names.NewMachineTag("1"), cannedObservedNetworkConfig},
-	}, {
-		FuncName: "Release",
-	}})
+	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
+		{
+			FuncName: "AcquireLock",
+		}, {
+			FuncName: "HostChangesForContainer",
+			Args:     []interface{}{containerTag},
+		}, {
+			FuncName: "CreateBridger",
+		}, {
+			FuncName: "Bridge",
+			Args:     []interface{}{devices, 0},
+		}, {
+			FuncName: "ObserveNetwork",
+		}, {
+			FuncName: "SetHostMachineNetworkConfig",
+			Args:     []interface{}{names.NewMachineTag("1"), cannedObservedNetworkConfig},
+		}, {
+			FuncName: "Release",
+		},
+	})
 }
 
 func (s *hostPreparerSuite) TestPrepareHostCancel(c *gc.C) {
@@ -415,14 +445,14 @@ func (s *hostPreparerSuite) TestPrepareHostCancel(c *gc.C) {
 		DeviceName: "eth0",
 		BridgeName: "br-eth0",
 	}}
-	params := s.createPreparerParams(devices, nil)
+	args := s.createPreparerParams(devices, nil)
 	ch := make(chan struct{})
 	close(ch)
-	params.AbortChan = ch
-	// This is what the AcquireLock should look like
-	params.AcquireLockFunc = func(_ string, abort <-chan struct{}) (func(), error) {
+	args.AbortChan = ch
+	// This is what the AcquireLock should look like.
+	args.AcquireLockFunc = func(_ string, abort <-chan struct{}) (func(), error) {
 		s.Stub.AddCall("AcquireLockFunc")
-		// Make sure that the right channel got passed in
+		// Make sure that the right channel got passed in.
 		c.Check(abort, gc.Equals, (<-chan struct{})(ch))
 		select {
 		case <-abort:
@@ -432,19 +462,14 @@ func (s *hostPreparerSuite) TestPrepareHostCancel(c *gc.C) {
 			return nil, errors.Errorf("timeout triggered")
 		}
 	}
-	preparer := broker.NewHostPreparer(params)
-	// Now when we prepare, we should fail with 'canceled'
+	preparer := broker.NewHostPreparer(args)
+	// Now when we prepare, we should fail with "cancelled".
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(containerTag)
 	c.Check(err, gc.ErrorMatches, `failed to acquire machine lock for bridging: AcquireLock cancelled`)
-	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
-		FuncName: "HostChangesForContainer",
-		Args:     []interface{}{containerTag},
-	}, {
-		FuncName: "CreateBridger",
-	}, {
-		FuncName: "AcquireLockFunc",
-		// Since we couldn't acquire the lock (we were canceled), we don't do
-		// the bridging or release the lock.
-	}})
+	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
+		{
+			FuncName: "AcquireLockFunc",
+		},
+	})
 }
