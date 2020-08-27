@@ -100,7 +100,9 @@ func newApplication(
 func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	// TODO: add support `numUnits`, `Constraints` and `Devices`.
 	defer func() {
-		logger.Errorf("Ensure %s", err)
+		if err != nil {
+			logger.Errorf("Ensure %s", err)
+		}
 	}()
 	logger.Debugf("creating/updating %s application", a.name)
 
