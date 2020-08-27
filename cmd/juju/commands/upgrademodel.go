@@ -86,6 +86,7 @@ func newUpgradeJujuCommandForTest(
 	minUpgradeVers map[int]version.Number,
 	jujuClientAPI jujuClientAPI,
 	modelConfigAPI modelConfigAPI,
+	modelManagerAPI modelManagerAPI,
 	controllerAPI controllerAPI,
 	options ...modelcmd.WrapOption) cmd.Command {
 	if minUpgradeVers == nil {
@@ -95,6 +96,7 @@ func newUpgradeJujuCommandForTest(
 		baseUpgradeCommand: baseUpgradeCommand{
 			minMajorUpgradeVersion: minUpgradeVers,
 			modelConfigAPI:         modelConfigAPI,
+			modelManagerAPI:        modelManagerAPI,
 			controllerAPI:          controllerAPI,
 		},
 		jujuClientAPI: jujuClientAPI,
@@ -128,8 +130,9 @@ type baseUpgradeCommand struct {
 	// 1.25.4 or later in order to upgrade to 2.0.
 	minMajorUpgradeVersion map[int]version.Number
 
-	modelConfigAPI modelConfigAPI
-	controllerAPI  controllerAPI
+	modelConfigAPI  modelConfigAPI
+	modelManagerAPI modelManagerAPI
+	controllerAPI   controllerAPI
 }
 
 func (c *baseUpgradeCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -343,6 +346,10 @@ func (c *upgradeJujuCommand) getJujuClientAPI() (jujuClientAPI, error) {
 }
 
 func (c *upgradeJujuCommand) getModelManagerAPI() (modelManagerAPI, error) {
+	if c.modelManagerAPI != nil {
+		return c.modelManagerAPI, nil
+	}
+
 	return c.NewModelManagerAPIClient()
 }
 
@@ -398,16 +405,16 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 }
 
 func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowed bool, fetchTimeout time.Duration, availableAgents availableAgentsFunc) (err error) {
+	// Validate a model can be upgraded, by running some pre-flight checks.
+	if err := c.validateModelUpgrade(); err != nil {
+		return block.ProcessBlockedError(err, block.BlockChange)
+	}
+
 	client, err := c.getJujuClientAPI()
 	if err != nil {
 		return err
 	}
 	defer client.Close()
-
-	// Validate a model can be upgraded, by running some pre-flight checks.
-	if err := c.validateModelUpgrade(); err != nil {
-		return errors.Trace(err)
-	}
 
 	modelConfigClient, err := c.getModelConfigAPI()
 	if err != nil {
