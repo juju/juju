@@ -686,10 +686,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		numUnits = p.NumUnits
 	}
 
-	// TODO (hml) 2020-08-25
-	// Is there a charm channel from the bundle to use here?
-	// Or the bundle channel?
-	origin, err := utils.DeduceOrigin(chID.URL, "")
+	origin, err := utils.DeduceOrigin(chID.URL, csparams.Channel(h.origin.Risk))
 	if err != nil {
 		return errors.Trace(err)
 	}
