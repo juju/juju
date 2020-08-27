@@ -22,7 +22,7 @@ metadata:
   name: $name
   namespace: $namespace
   labels:
-    juju-app: test-app
+    app.kubernetes.io/name: test-app
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -89,7 +89,7 @@ metadata:
   name: $name
   namespace: $namespace
   labels:
-    juju-app: test-app
+    app.kubernetes.io/name: test-app
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
