@@ -607,6 +607,10 @@ func (c *Client) ChangeModelCredential(model names.ModelTag, credential names.Cl
 // ValidateModelUpgrade checks to see if it's possible to upgrade a model,
 // before actually attempting to do the real model-upgrade.
 func (c *Client) ValidateModelUpgrade(model names.ModelTag, force bool) error {
+	if bestVer := c.BestAPIVersion(); bestVer < 9 {
+		return errors.NotImplementedf("ValidateModelUpgrade in version %v", bestVer)
+	}
+
 	args := params.ValidateModelUpgradeParams{
 		Models: []params.ValidateModelUpgradeParam{{
 			ModelTag: model.String(),
