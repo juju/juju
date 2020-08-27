@@ -276,25 +276,25 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 	if err := d.validateCharmFlags(); err != nil {
 		return errors.Trace(err)
 	}
+	formattedCharmURL := d.userCharmURL.String()
 
-	charmInfo, err := deployAPI.CharmInfo(d.userCharmURL.String())
+	charmInfo, err := deployAPI.CharmInfo(formattedCharmURL)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
+	ctx.Infof("Located charm %q.", formattedCharmURL)
 
 	if err := d.validateResourcesNeededForLocalDeploy(charmInfo.Meta); err != nil {
 		return errors.Trace(err)
 	}
-	formattedCharmURL := d.userCharmURL.String()
 
 	d.id = charmstore.CharmID{URL: d.userCharmURL}
 	d.series = userCharmURL.Series
 	d.origin, err = utils.DeduceOrigin(userCharmURL, "")
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
-	ctx.Infof("Located charm %q.", formattedCharmURL)
 	ctx.Infof("Deploying charm %q.", formattedCharmURL)
 	return d.deploy(ctx, deployAPI)
 }
