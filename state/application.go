@@ -1920,6 +1920,7 @@ func (a *Application) addUnitOps(
 		providerId:         args.ProviderId,
 		address:            args.Address,
 		ports:              args.Ports,
+		unitName:           args.UnitName,
 	})
 	if err != nil {
 		return uNames, ops, errors.Trace(err)
@@ -1942,6 +1943,7 @@ type applicationAddUnitOpsArgs struct {
 	providerId *string
 	address    *string
 	ports      *[]string
+	unitName   *string
 }
 
 // addApplicationUnitOps is just like addUnitOps but explicitly takes a
@@ -1961,9 +1963,15 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	} else if !a.doc.Subordinate && args.principalName != "" {
 		return "", nil, errors.New("application is not a subordinate")
 	}
-	name, err := a.newUnitName()
-	if err != nil {
-		return "", nil, errors.Trace(err)
+	var name string
+	if args.unitName != nil {
+		name = *args.unitName
+	} else {
+		newName, err := a.newUnitName()
+		if err != nil {
+			return "", nil, errors.Trace(err)
+		}
+		name = newName
 	}
 	unitTag := names.NewUnitTag(name)
 
@@ -2236,6 +2244,9 @@ type AddUnitParams struct {
 	// Ports are the open ports on the container.
 	Ports *[]string
 
+	// UnitName is for CAAS models when creating stateful units.
+	UnitName *string
+
 	// machineID is only passed in if the unit being created is
 	// a subordinate and refers to the machine that is hosting the principal.
 	machineID string
@@ -2295,6 +2306,7 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 		removeMeterStatusOp(a.st, u.globalMeterStatusKey()),
 		removeStatusOp(a.st, u.globalAgentKey()),
 		removeStatusOp(a.st, u.globalKey()),
+		removeStatusOp(a.st, u.globalWorkloadVersionKey()),
 		removeUnitStateOp(a.st, u.globalKey()),
 		removeStatusOp(a.st, u.globalCloudContainerKey()),
 		removeConstraintsOp(u.globalAgentKey()),
@@ -2782,6 +2794,21 @@ func CheckApplicationExpectsWorkload(m *Model, appName string) (bool, error) {
 		// IAAS models alway have a unit workload.
 		return true, nil
 	}
+
+	// Check embedded charm
+	app, err := m.State().Application(appName)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	ch, _, err := app.Charm()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	deployment := ch.Meta().Deployment
+	if deployment != nil && deployment.DeploymentMode == charm.ModeEmbedded {
+		return false, nil
+	}
+
 	_, err = cm.PodSpec(names.NewApplicationTag(appName))
 	if err != nil && !errors.IsNotFound(err) {
 		return false, errors.Trace(err)
@@ -3039,6 +3066,7 @@ type UnitUpdateProperties struct {
 	ProviderId           *string
 	Address              *string
 	Ports                *[]string
+	UnitName             *string
 	AgentStatus          *status.StatusInfo
 	UnitStatus           *status.StatusInfo
 	CloudContainerStatus *status.StatusInfo
@@ -3133,6 +3161,7 @@ func (op *AddUnitOperation) Build(attempt int) ([]txn.Op, error) {
 		ProviderId: op.props.ProviderId,
 		Address:    op.props.Address,
 		Ports:      op.props.Ports,
+		UnitName:   op.props.UnitName,
 	}
 	name, addOps, err := op.application.addUnitOps("", addUnitArgs, nil)
 	if err != nil {
