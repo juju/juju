@@ -108,31 +108,34 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	}
 	applier.Apply(&secret)
 
-	service := resources.Service{
-		Service: corev1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        a.name,
-				Namespace:   a.namespace,
-				Labels:      a.labels(),
-				Annotations: a.annotations(config),
+	if len(charmDeployment.ServicePorts) > 0 {
+		service := resources.Service{
+			Service: corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        a.name,
+					Namespace:   a.namespace,
+					Labels:      a.labels(),
+					Annotations: a.annotations(config),
+				},
+				Spec: corev1.ServiceSpec{
+					Selector: a.labels(),
+					Type:     corev1.ServiceTypeClusterIP,
+				},
 			},
-			Spec: corev1.ServiceSpec{
-				Selector: a.labels(),
-				Type:     corev1.ServiceTypeClusterIP,
-			},
-		},
-	}
-	for _, v := range charmDeployment.ServicePorts {
-		port := corev1.ServicePort{
-			Name:       v.Name,
-			Port:       int32(v.Port),
-			TargetPort: intstr.FromInt(v.TargetPort),
-			Protocol:   corev1.Protocol(v.Protocol),
-			//AppProtocol:    core.Protocol(v.AppProtocol),
 		}
-		service.Spec.Ports = append(service.Spec.Ports, port)
+
+		for _, v := range charmDeployment.ServicePorts {
+			port := corev1.ServicePort{
+				Name:       v.Name,
+				Port:       int32(v.Port),
+				TargetPort: intstr.FromInt(v.TargetPort),
+				Protocol:   corev1.Protocol(v.Protocol),
+				//AppProtocol:    core.Protocol(v.AppProtocol),
+			}
+			service.Spec.Ports = append(service.Spec.Ports, port)
+		}
+		applier.Apply(&service)
 	}
-	applier.Apply(&service)
 
 	// Set up the parameters for creating charm storage (if required).
 	podSpec, err := a.applicationPodSpec(config)
