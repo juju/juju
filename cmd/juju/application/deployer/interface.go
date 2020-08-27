@@ -24,6 +24,20 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
+// DeployerFactory contains a method to get a deployer.
+type DeployerFactory interface {
+	GetDeployer(DeployerConfig, ModelConfigGetter, Resolver) (Deployer, error)
+}
+
+// Deployer defines the functionality of a deployer returned by the
+// factory.
+type Deployer interface {
+	// PrepareAndDeploy finishes preparing to deploy a charm or bundle,
+	// then deploys it.  This is done as one step to accommodate the
+	// call being wrapped by block.ProcessBlockedError.
+	PrepareAndDeploy(*cmd.Context, DeployerAPI, Resolver, store.MacaroonGetter) error
+}
+
 // DeployStepAPI represents a API required for deploying using the step
 // deployment code.
 type DeployStepAPI interface {

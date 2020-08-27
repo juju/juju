@@ -16,7 +16,6 @@ import (
 	"github.com/juju/charmrepo/v6"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	jujuclock "github.com/juju/clock"
-	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
@@ -35,10 +34,6 @@ import (
 
 var logger = loggo.GetLogger("juju.cmd.juju.application.deployer")
 
-type DeployerFactory interface {
-	GetDeployer(DeployerConfig, ModelConfigGetter, Resolver) (Deployer, error)
-}
-
 // NewDeployerFactory returns a factory setup with the API and
 // function dependencies required by every deployer.
 func NewDeployerFactory(dep DeployerDependencies) DeployerFactory {
@@ -52,15 +47,6 @@ func NewDeployerFactory(dep DeployerDependencies) DeployerFactory {
 		d.deployResources = resourceadapters.DeployResources
 	}
 	return d
-}
-
-// Deployer defines the functionality of a deployer returned by the
-// factory.
-type Deployer interface {
-	// PrepareAndDeploy finishes preparing to deploy a charm or bundle,
-	// then deploys it.  This is done as one step to accomidate the
-	// call being wrapped by block.ProcessBlockedError.
-	PrepareAndDeploy(*cmd.Context, DeployerAPI, Resolver, store.MacaroonGetter) error
 }
 
 // GetDeployer returns the correct deployer to use based on the cfg provided.
