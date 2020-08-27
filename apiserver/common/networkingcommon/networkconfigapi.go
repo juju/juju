@@ -251,7 +251,7 @@ func (o *updateMachineLinkLayerOp) processExistingDeviceNotObserved(dev LinkLaye
 		// If the machine is the authority for this address,
 		// we can delete it; otherwise leave it alone.
 		if addr.Origin() == network.OriginMachine {
-			logger.Debugf("removing address %q from device %q", addr.Value(), dev.Name())
+			logger.Debugf("machine %q: removing address %q from device %q", o.machine.Id(), addr.Value(), dev.Name())
 			ops = append(ops, addr.RemoveOps()...)
 			removing++
 		}
@@ -288,7 +288,7 @@ func (o *updateMachineLinkLayerOp) processExistingDeviceAddress(
 
 	// Otherwise if we are the authority, delete it.
 	if addr.Origin() == network.OriginMachine {
-		logger.Infof("removing address %q from device %q", addrValue, addr.DeviceName())
+		logger.Infof("machine %q: removing address %q from device %q", o.machine.Id(), addrValue, addr.DeviceName())
 		return addr.RemoveOps(), nil
 	}
 
@@ -330,7 +330,8 @@ func (o *updateMachineLinkLayerOp) processNewDevices() ([]txn.Op, error) {
 			addrValues[i] = addr.CIDRAddress
 		}
 
-		logger.Infof("adding new device %q (%s) with addresses %v", dev.InterfaceName, dev.MACAddress, addrValues)
+		logger.Infof("machine %q: adding new device %q (%s) with addresses %v",
+			o.machine.Id(), dev.InterfaceName, dev.MACAddress, addrValues)
 
 		addOps, err := o.machine.AddLinkLayerDeviceOps(
 			networkDeviceToStateArgs(dev), addrs...)
@@ -354,9 +355,10 @@ func (o *updateMachineLinkLayerOp) processRemovalCandidates() []txn.Op {
 	var ops []txn.Op
 	for _, dev := range o.removalCandidates {
 		if o.observedParentDevices.Contains(dev.Name()) {
-			logger.Warningf("device %q (%s) not removed; it has incoming child devices", dev.Name(), dev.MACAddress())
+			logger.Warningf("machine %q: device %q (%s) not removed; it has incoming child devices",
+				o.machine.Id(), dev.Name(), dev.MACAddress())
 		} else {
-			logger.Infof("removing device %q (%s)", dev.Name(), dev.MACAddress())
+			logger.Infof("machine %q: removing device %q (%s)", o.machine.Id(), dev.Name(), dev.MACAddress())
 			ops = append(ops, dev.RemoveOps()...)
 		}
 	}
