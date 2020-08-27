@@ -171,9 +171,8 @@ func errToAdmissionResponse(err error) *admission.AdmissionResponse {
 }
 
 func patchEscape(s string) string {
-	r := strings.Replace(s, "/", "~1", -1)
-	r = strings.Replace(r, "~", "~0", -1)
-	return r
+	r := strings.Replace(s, "~", "~0", -1)
+	return strings.Replace(r, "/", "~1", -1)
 }
 
 func patchForLabels(
