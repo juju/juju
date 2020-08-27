@@ -16,7 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
-	apicharms "github.com/juju/juju/api/charms"
+	apicommoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/charmstore"
 )
 
@@ -63,7 +63,7 @@ func (s *registrationSuite) TestMeteredCharm(c *gc.C) {
 		},
 		ApplicationName: "application name",
 		ModelUUID:       "model uuid",
-		CharmInfo: &apicharms.CharmInfo{
+		CharmInfo: &apicommoncharms.CharmInfo{
 			Metrics: &charm.Metrics{
 				Plan: &charm.Plan{Required: true},
 			},
@@ -102,7 +102,7 @@ func (s *registrationSuite) TestOptionalPlanMeteredCharm(c *gc.C) {
 		},
 		ApplicationName: "application name",
 		ModelUUID:       "model uuid",
-		CharmInfo: &apicharms.CharmInfo{
+		CharmInfo: &apicommoncharms.CharmInfo{
 			Metrics: &charm.Metrics{
 				Plan: &charm.Plan{Required: false},
 			},
@@ -141,7 +141,7 @@ func (s *registrationSuite) TestPlanNotSpecifiedCharm(c *gc.C) {
 		},
 		ApplicationName: "application name",
 		ModelUUID:       "model uuid",
-		CharmInfo: &apicharms.CharmInfo{
+		CharmInfo: &apicommoncharms.CharmInfo{
 			Metrics: &charm.Metrics{
 				Plan: nil,
 			},
@@ -181,7 +181,7 @@ func (s *registrationSuite) TestMeteredCharmAPIError(c *gc.C) {
 		},
 		ApplicationName: "application name",
 		ModelUUID:       "model uuid",
-		CharmInfo: &apicharms.CharmInfo{
+		CharmInfo: &apicommoncharms.CharmInfo{
 			Metrics: &charm.Metrics{
 				Plan: &charm.Plan{Required: true},
 			},
@@ -210,7 +210,7 @@ func (s *registrationSuite) TestMeteredCharmInvalidAllocation(c *gc.C) {
 		},
 		ApplicationName: "application name",
 		ModelUUID:       "model uuid",
-		CharmInfo: &apicharms.CharmInfo{
+		CharmInfo: &apicommoncharms.CharmInfo{
 			Metrics: &charm.Metrics{
 				Plan: &charm.Plan{Required: true},
 			},
@@ -235,7 +235,7 @@ func (s *registrationSuite) TestMeteredCharmDefaultBudgetAllocation(c *gc.C) {
 		},
 		ApplicationName: "application name",
 		ModelUUID:       "model uuid",
-		CharmInfo: &apicharms.CharmInfo{
+		CharmInfo: &apicommoncharms.CharmInfo{
 			Metrics: &charm.Metrics{
 				Plan: &charm.Plan{Required: true},
 			},
@@ -274,7 +274,7 @@ func (s *registrationSuite) TestMeteredCharmDeployError(c *gc.C) {
 		},
 		ApplicationName: "application name",
 		ModelUUID:       "model uuid",
-		CharmInfo: &apicharms.CharmInfo{
+		CharmInfo: &apicommoncharms.CharmInfo{
 			Metrics: &charm.Metrics{
 				Plan: &charm.Plan{Required: true},
 			},
@@ -306,7 +306,7 @@ func (s *registrationSuite) TestMeteredLocalCharmWithPlan(c *gc.C) {
 		},
 		ApplicationName: "application name",
 		ModelUUID:       "model uuid",
-		CharmInfo: &apicharms.CharmInfo{
+		CharmInfo: &apicommoncharms.CharmInfo{
 			Metrics: &charm.Metrics{
 				Plan: &charm.Plan{Required: true},
 			},
@@ -349,7 +349,7 @@ func (s *registrationSuite) TestMeteredLocalCharmNoPlan(c *gc.C) {
 		},
 		ApplicationName: "application name",
 		ModelUUID:       "model uuid",
-		CharmInfo: &apicharms.CharmInfo{
+		CharmInfo: &apicommoncharms.CharmInfo{
 			Metrics: &charm.Metrics{
 				Plan: &charm.Plan{Required: true},
 			},
@@ -391,7 +391,7 @@ func (s *registrationSuite) TestMeteredCharmNoPlanSet(c *gc.C) {
 		},
 		ApplicationName: "application name",
 		ModelUUID:       "model uuid",
-		CharmInfo: &apicharms.CharmInfo{
+		CharmInfo: &apicommoncharms.CharmInfo{
 			Metrics: &charm.Metrics{
 				Plan: &charm.Plan{Required: true},
 			},
@@ -436,7 +436,7 @@ func (s *registrationSuite) TestMeteredCharmNoDefaultPlan(c *gc.C) {
 		},
 		ApplicationName: "application name",
 		ModelUUID:       "model uuid",
-		CharmInfo: &apicharms.CharmInfo{
+		CharmInfo: &apicommoncharms.CharmInfo{
 			Metrics: &charm.Metrics{
 				Plan: &charm.Plan{Required: true},
 			},
@@ -466,7 +466,7 @@ func (s *registrationSuite) TestMeteredCharmNoAvailablePlan(c *gc.C) {
 		},
 		ApplicationName: "application name",
 		ModelUUID:       "model uuid",
-		CharmInfo: &apicharms.CharmInfo{
+		CharmInfo: &apicommoncharms.CharmInfo{
 			Metrics: &charm.Metrics{
 				Plan: &charm.Plan{Required: true},
 			},
@@ -495,7 +495,7 @@ func (s *registrationSuite) TestMeteredCharmFailToQueryDefaultCharm(c *gc.C) {
 		},
 		ApplicationName: "application name",
 		ModelUUID:       "model uuid",
-		CharmInfo: &apicharms.CharmInfo{
+		CharmInfo: &apicommoncharms.CharmInfo{
 			Metrics: &charm.Metrics{
 				Plan: &charm.Plan{Required: true},
 			},
@@ -518,7 +518,7 @@ func (s *registrationSuite) TestUnmeteredCharm(c *gc.C) {
 		},
 		ApplicationName: "application name",
 		ModelUUID:       "model uuid",
-		CharmInfo: &apicharms.CharmInfo{
+		CharmInfo: &apicommoncharms.CharmInfo{
 			Metrics: &charm.Metrics{
 				Plan: &charm.Plan{Required: true},
 			},
@@ -544,7 +544,7 @@ func (s *registrationSuite) TestFailedAuth(c *gc.C) {
 		},
 		ApplicationName: "application name",
 		ModelUUID:       "model uuid",
-		CharmInfo: &apicharms.CharmInfo{
+		CharmInfo: &apicommoncharms.CharmInfo{
 			Metrics: &charm.Metrics{
 				Plan: &charm.Plan{Required: true},
 			},
@@ -629,7 +629,7 @@ func (s *registrationSuite) TestPlanArgumentPlanRequiredInteraction(c *gc.C) {
 			},
 			ApplicationName: "application name",
 			ModelUUID:       "model uuid",
-			CharmInfo: &apicharms.CharmInfo{
+			CharmInfo: &apicommoncharms.CharmInfo{
 				Metrics: &charm.Metrics{
 					Plan: &charm.Plan{Required: test.planRequired},
 				},
@@ -759,7 +759,7 @@ func (s *noPlanRegistrationSuite) TestOptionalPlanMeteredCharm(c *gc.C) {
 		},
 		ApplicationName: "application name",
 		ModelUUID:       "model uuid",
-		CharmInfo: &apicharms.CharmInfo{
+		CharmInfo: &apicommoncharms.CharmInfo{
 			Metrics: &charm.Metrics{
 				Plan: &charm.Plan{Required: false},
 			},
@@ -782,7 +782,7 @@ func (s *noPlanRegistrationSuite) TestPlanNotSpecifiedCharm(c *gc.C) {
 		},
 		ApplicationName: "application name",
 		ModelUUID:       "model uuid",
-		CharmInfo: &apicharms.CharmInfo{
+		CharmInfo: &apicommoncharms.CharmInfo{
 			Metrics: &charm.Metrics{
 				Plan: nil,
 			},

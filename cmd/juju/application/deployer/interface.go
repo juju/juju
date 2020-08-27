@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
-	apicharms "github.com/juju/juju/api/charms"
+	apicharms "github.com/juju/juju/api/common/charms"
 	apiparams "github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/modelcmd"

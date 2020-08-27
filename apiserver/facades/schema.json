@@ -10064,6 +10064,41 @@
                     },
                     "additionalProperties": false
                 },
+                "CharmDeployment": {
+                    "type": "object",
+                    "properties": {
+                        "container-image-name": {
+                            "type": "string"
+                        },
+                        "min-version": {
+                            "type": "string"
+                        },
+                        "mode": {
+                            "type": "string"
+                        },
+                        "service": {
+                            "type": "string"
+                        },
+                        "service-ports": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CharmServicePort"
+                            }
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "type",
+                        "mode",
+                        "service",
+                        "min-version",
+                        "container-image-name",
+                        "service-ports"
+                    ]
+                },
                 "CharmDevice": {
                     "type": "object",
                     "properties": {
@@ -10135,6 +10170,9 @@
                             "items": {
                                 "type": "string"
                             }
+                        },
+                        "deployment": {
+                            "$ref": "#/definitions/CharmDeployment"
                         },
                         "description": {
                             "type": "string"
@@ -10380,6 +10418,34 @@
                         "type",
                         "path",
                         "description"
+                    ]
+                },
+                "CharmServicePort": {
+                    "type": "object",
+                    "properties": {
+                        "app-protocol": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "port": {
+                            "type": "integer"
+                        },
+                        "protocol": {
+                            "type": "string"
+                        },
+                        "target-port": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "port",
+                        "target-port",
+                        "protocol",
+                        "app-protocol"
                     ]
                 },
                 "CharmStorage": {

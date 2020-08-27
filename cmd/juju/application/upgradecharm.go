@@ -25,7 +25,8 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/charms"
+	apicharms "github.com/juju/juju/api/charms"
+	apicommoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/spaces"
 	"github.com/juju/juju/apiserver/params"
@@ -46,7 +47,7 @@ func newUpgradeCharmCommand() *upgradeCharmCommand {
 		ResolveCharm:    store.ResolveCharm,
 		NewCharmAdder:   newCharmAdder,
 		NewCharmClient: func(conn base.APICallCloser) utils.CharmClient {
-			return charms.NewClient(conn)
+			return apicharms.NewClient(conn)
 		},
 		NewCharmUpgradeClient: func(conn base.APICallCloser) CharmAPIClient {
 			return application.NewClient(conn)
@@ -644,7 +645,7 @@ func (c *upgradeCharmCommand) addCharm(params addCharmParams) (charmstore.CharmI
 	return id, csMac, nil
 }
 
-func allEndpoints(ci *charms.CharmInfo) set.Strings {
+func allEndpoints(ci *apicommoncharms.CharmInfo) set.Strings {
 	epSet := set.NewStrings()
 	for n := range ci.Meta.ExtraBindings {
 		epSet.Add(n)

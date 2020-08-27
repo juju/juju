@@ -10,7 +10,7 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
-	apicharms "github.com/juju/juju/api/charms"
+	apicharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/core/lxdprofile"
 )
 

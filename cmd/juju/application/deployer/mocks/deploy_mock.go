@@ -6,22 +6,23 @@ package mocks
 
 import (
 	context "context"
+	http "net/http"
+	url "net/url"
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
 	params "github.com/juju/charmrepo/v6/csclient/params"
 	api "github.com/juju/juju/api"
 	application "github.com/juju/juju/api/application"
 	base "github.com/juju/juju/api/base"
-	charms "github.com/juju/juju/api/charms"
+	charms "github.com/juju/juju/api/common/charms"
 	params0 "github.com/juju/juju/apiserver/params"
 	constraints "github.com/juju/juju/core/constraints"
 	crossmodel "github.com/juju/juju/core/crossmodel"
 	names "github.com/juju/names/v4"
 	httprequest "gopkg.in/httprequest.v1"
 	macaroon "gopkg.in/macaroon.v2"
-	http "net/http"
-	url "net/url"
-	reflect "reflect"
 )
 
 // MockDeployerAPI is a mock of DeployerAPI interface
