@@ -264,23 +264,8 @@ func networkAddressToStateArgs(
 		DNSSearchDomains:  dev.DNSSearchDomains,
 		GatewayAddress:    dev.GatewayAddress.Value,
 		IsDefaultGateway:  dev.IsDefaultGateway,
+		Origin:            dev.Origin,
 	}, nil
-}
-
-// NetworkConfigSource defines the necessary calls to obtain the network
-// configuration of a machine.
-type NetworkConfigSource interface {
-	// SysClassNetPath returns the Linux kernel userspace SYSFS path used by
-	// this source. DefaultNetworkConfigSource() uses network.SysClassNetPath.
-	SysClassNetPath() string
-
-	// Interfaces returns information about all network interfaces on the
-	// machine as []net.Interface.
-	Interfaces() ([]net.Interface, error)
-
-	// InterfaceAddresses returns information about all addresses assigned to
-	// the network interface with the given name.
-	InterfaceAddresses(name string) ([]net.Addr, error)
 }
 
 func FanConfigToFanConfigResult(config network.FanConfig) params.FanConfigResult {

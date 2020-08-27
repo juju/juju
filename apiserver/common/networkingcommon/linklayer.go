@@ -152,7 +152,7 @@ type MachineLinkLayerOp struct {
 // NewMachineLinkLayerOp returns a reference that can be embedded in a model
 // operation for updating the input machine's link layer data.
 func NewMachineLinkLayerOp(machine LinkLayerMachine, incoming network.InterfaceInfos) *MachineLinkLayerOp {
-	logger.Debugf("processing link-layer devices for machine %q", machine.Id())
+	logger.Infof("processing link-layer devices for machine %q", machine.Id())
 
 	return &MachineLinkLayerOp{
 		machine:        machine,
