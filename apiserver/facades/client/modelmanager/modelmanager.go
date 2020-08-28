@@ -1735,7 +1735,7 @@ func (m *ModelManagerAPI) ValidateModelUpgrades(args params.ValidateModelUpgrade
 		}
 
 		// Now check for the validation of a model upgrade.
-		if err := m.validateSeriesUpgradeForSeriesUpgrade(st, args.Force); err != nil {
+		if err := m.validateNoSeriesUpgrades(st, args.Force); err != nil {
 			results.Results[i] = params.ErrorResult{Error: common.ServerError(err)}
 			continue
 		}
@@ -1743,7 +1743,7 @@ func (m *ModelManagerAPI) ValidateModelUpgrades(args params.ValidateModelUpgrade
 	return results, nil
 }
 
-func (m *ModelManagerAPI) validateSeriesUpgradeForSeriesUpgrade(st State, force bool) error {
+func (m *ModelManagerAPI) validateNoSeriesUpgrades(st State, force bool) error {
 	machines, err := st.AllMachines()
 	if err != nil {
 		return errors.Trace(err)
@@ -1752,7 +1752,7 @@ func (m *ModelManagerAPI) validateSeriesUpgradeForSeriesUpgrade(st State, force 
 		if locked, err := machine.IsLockedForSeriesUpgrade(); err != nil && !errors.IsNotFound(err) {
 			return errors.Trace(err)
 		} else if locked && !force {
-			return errors.AlreadyExistsf("unexpected upgrade series lock for machine %q", machine.Id())
+			return errors.Errorf("unexpected upgrade series lock for machine %q", machine.Id())
 		}
 	}
 	return nil

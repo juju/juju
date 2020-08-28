@@ -5,8 +5,6 @@ package modelmanager_test
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/provider/dummy"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/names/v4"
 	jujutesting "github.com/juju/testing"
@@ -16,9 +14,11 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/client/modelmanager"
 	"github.com/juju/juju/apiserver/facades/client/modelmanager/mocks"
+	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/provider/dummy"
 )
 
 type ValidateModelUpgradesSuite struct {
@@ -196,7 +196,7 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForUpgradingMachin
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.OneError(), gc.ErrorMatches, `unexpected upgrade series lock for machine ".*" already exists`)
+	c.Assert(results.OneError(), gc.ErrorMatches, `unexpected upgrade series lock for machine ".*"`)
 }
 
 func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForUpgradingMachinesWithForce(c *gc.C) {
