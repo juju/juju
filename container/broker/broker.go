@@ -234,7 +234,7 @@ func combinedCloudInitData(
 }
 
 // proxyConfigurationFromContainerCfg populates a ProxyConfiguration object
-// from an ContenerConfig API response.
+// from an ContainerConfig API response.
 func proxyConfigurationFromContainerCfg(cfg params.ContainerConfig) instancecfg.ProxyConfiguration {
 	return instancecfg.ProxyConfiguration{
 		Legacy:              cfg.LegacyProxy,

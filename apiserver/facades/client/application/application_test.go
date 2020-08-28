@@ -1948,6 +1948,37 @@ func (s *applicationSuite) TestClientApplicationUpdateSetSettingsGetYAML(c *gc.C
 	c.Assert(obtained, gc.DeepEquals, s.combinedSettings(ch, expected))
 }
 
+func (s *applicationSuite) TestApplicationUpdateCombinedStringAndYAMLSettings(c *gc.C) {
+	ch := s.AddTestingCharm(c, "dummy")
+	app := s.AddTestingApplication(c, "dummy", ch)
+
+	const newBranch = "newBranch"
+	c.Assert(s.State.AddBranch(newBranch, "user"), jc.ErrorIsNil)
+
+	// Update settings for the application.
+	args := params.ApplicationUpdate{
+		ApplicationName: "dummy",
+		SettingsStrings: map[string]string{
+			"username": "s-user",
+		},
+		SettingsYAML: "dummy:\n  title: s-title",
+		Generation:   newBranch,
+	}
+	err := s.applicationAPI.Update(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure the settings have been correctly updated.
+	expected := charm.Settings{"title": "s-title", "username": "s-user"}
+	obtained, err := app.CharmConfig(newBranch)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, s.combinedSettings(ch, expected))
+
+	// Check that the application is recorded against the generation.
+	gen, err := s.State.Branch(newBranch)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(gen.AssignedUnits(), jc.DeepEquals, map[string][]string{"dummy": {}})
+}
+
 func (s *applicationSuite) TestApplicationUpdateSetConstraints(c *gc.C) {
 	app := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
@@ -2005,9 +2036,9 @@ func (s *applicationSuite) TestApplicationUpdateAllParams(c *gc.C) {
 	// Check the minimum number of units.
 	c.Assert(app.MinUnits(), gc.Equals, minUnits)
 
-	// Check the settings: also ensure the YAML settings take precedence
-	// over strings ones.
-	expectedSettings := charm.Settings{"blog-title": "yaml-title"}
+	// Check the settings: also ensure the string settings take precedence
+	// over the YAML ones.
+	expectedSettings := charm.Settings{"blog-title": "string-title"}
 	obtainedSettings, err := app.CharmConfig(model.GenerationMaster)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedSettings, gc.DeepEquals, expectedSettings)

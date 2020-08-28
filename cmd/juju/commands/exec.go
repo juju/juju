@@ -74,8 +74,12 @@ names.  At least one target specifier is needed.
 Multiple values can be set for --machine, --application, and --unit by using
 comma separated values.
 
-If the target is a machine, the command is run as the "root" user on
-the remote machine.
+Depending on the type of target, the user which the command runs as will be:
+  unit -> "root"
+  machine -> "ubuntu"
+The target and user are independent of whether --all or --application are used.
+For example, --all will run as "ubuntu" on machines and "root" on units.
+And --application will run as "root" on all units of that application.
 
 Some options are shortened for usabilty purpose in CLI
 --application can also be specified as --app and -a

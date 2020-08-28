@@ -4,7 +4,6 @@
 package client
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -1222,22 +1221,21 @@ func (context *statusContext) processApplication(application *state.Application)
 		processedStatus.MeterStatuses = context.processUnitMeterStatuses(units)
 	}
 
-	// TODO(caas) - there's no way for a CAAS charm to set workload version yet
-	if context.model.Type() == state.ModelTypeIAAS {
-		versions := make([]status.StatusInfo, 0, len(units))
-		for _, unit := range units {
-			workloadVersion, err := context.status.FullUnitWorkloadVersion(unit.Name())
-			if err != nil {
-				processedStatus.Err = apiservererrors.ServerError(err)
-				return processedStatus
-			}
-			versions = append(versions, workloadVersion)
+	versions := make([]status.StatusInfo, 0, len(units))
+	for _, unit := range units {
+		workloadVersion, err := context.status.FullUnitWorkloadVersion(unit.Name())
+		if err != nil {
+			processedStatus.Err = apiservererrors.ServerError(err)
+			return processedStatus
 		}
-		if len(versions) > 0 {
-			sort.Sort(bySinceDescending(versions))
-			processedStatus.WorkloadVersion = versions[0].Message
-		}
-	} else {
+		versions = append(versions, workloadVersion)
+	}
+	if len(versions) > 0 {
+		sort.Sort(bySinceDescending(versions))
+		processedStatus.WorkloadVersion = versions[0].Message
+	}
+
+	if processedStatus.WorkloadVersion == "" && context.model.Type() == state.ModelTypeCAAS {
 		// We'll punt on using the docker image name.
 		caasModel, err := context.model.CAASModel()
 		if err != nil {
@@ -1254,7 +1252,11 @@ func (context *statusContext) processApplication(application *state.Application)
 				return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
 			}
 			// Container zero is the primary.
-			processedStatus.WorkloadVersion = fmt.Sprintf("%v", spec.Containers[0].Image)
+			primary := spec.Containers[0]
+			processedStatus.WorkloadVersion = primary.ImageDetails.ImagePath
+			if processedStatus.WorkloadVersion == "" {
+				processedStatus.WorkloadVersion = spec.Containers[0].Image
+			}
 		}
 		serviceInfo, err := application.ServiceInfo()
 		if err == nil {

@@ -5,7 +5,6 @@ package application
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"strings"
 	"unicode/utf8"
 
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
@@ -26,35 +26,68 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-const maxValueSize = 5242880 // Max size for a config file.
-
 const (
 	configSummary = `Gets, sets, or resets configuration for a deployed application.`
-	configDetails = `All configuration (keys, values, metadata) for the application are
-displayed if no key is specified.
+	configDetails = `If no config key is specified, all configuration items (keys, values, metadata)
+for the application will be printed out.
+
+The entire set of available config settings and their current values can be
+listed by running "juju config <application name>". For example, to obtain the
+config settings for apache2 you can run:
+
+juju config apache2
+
+When listing config settings, this command will, by default, format its output
+as a yaml document. To obtain the output formatted as json, the --format json
+flag can be specified. For example: 
+
+juju config apache2 --format json
+
+The settings list output includes the name of the charm used to deploy the
+application and a listing of the application-specific configuration settings.
+See ` + "`juju status`" + ` for the set of deployed applications.
+
+To obtain the configuration value for a specific setting, simply specify its
+name as an argument, e.g. "juju config appache2 servername". In this case, the
+command will ignore any provided --format option and will instead output the
+value as plain text. This allows external scripts to use the output of a "juju
+config <application name> <setting name>" invocation as an input to an
+expression or a function.
+
+To set the value of one or more settings, provide each one as a key/value pair
+argument to the command invocation. For instance:
+
+juju config apache2 servername=example.com lb_balancer_timeout=60
 
 By default, any configuration changes will be applied to the currently active
-branch. A specific branch can be specified using the --branch option. 
-Immediate changes can be made to the model by specifying --branch=master.
+branch. A specific branch can be targeted using the --branch option. Changes
+can be immediately be applied to the model by specifying --branch=master. For
+example:
 
-Output includes the name of the charm used to deploy the application and a
-listing of the application-specific configuration settings.
-See ` + "`juju status`" + ` for application names.
+juju config apache2 --branch=master servername=example.com
+juju config apache2 --branch test-branch servername=staging.example.com
 
-When only one configuration value is desired, the command will ignore --format
-option and will output the value as plain text. This is provided to support 
-scripts where the output of "juju config <application name> <setting name>" 
-can be used as an input to an expression or a function.
+Rather than specifying each setting name/value inline, the --file flag option
+may be used to provide a list of settings to be updated as a yaml file. The
+yaml file contents must include a single top-level key with the application's
+name followed by a dictionary of key/value pairs that correspond to the names
+and values of the settings to be set. For instance, to configure apache2,
+the following yaml file can be used:
 
-Examples:
-    juju config apache2
-    juju config --format=json apache2
-    juju config mysql dataset-size
-    juju config mysql --reset dataset-size,backup_dir
-    juju config apache2 --file path/to/config.yaml
-    juju config mysql dataset-size=80% backup_dir=/vol1/mysql/backups
-    juju config apache2 --model mymodel --file /home/ubuntu/mysql.yaml
-    juju config redis --branch test-branch databases=32
+apache2:
+  servername: "example.com"
+  lb_balancer_timeout: 60
+
+If the above yaml document is stored in a file called config.yaml, the
+following command can be used to apply the config changes:
+
+juju config --file config.yaml
+
+Finally, the --reset flag can be used to revert one or more configuration
+settings back to their default value as defined in the charm metadata:
+
+juju config apache2 --reset servername
+juju config apache2 --reset servername,lb_balancer_timeout
 
 See also:
     deploy
@@ -453,7 +486,7 @@ func (c *configCommand) validateValues(ctx *cmd.Context) (map[string]string, err
 			settings[k] = v
 			continue
 		}
-		nv, err := readValue(ctx, c.Filesystem(), v[1:])
+		nv, err := utils.ReadValue(ctx, c.Filesystem(), v[1:])
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -463,23 +496,4 @@ func (c *configCommand) validateValues(ctx *cmd.Context) (map[string]string, err
 		settings[k] = nv
 	}
 	return settings, nil
-}
-
-// readValue reads the value of an option out of the named file.
-// An empty content is valid, like in parsing the options. The upper
-// size is 5M.
-func readValue(ctx *cmd.Context, filesystem modelcmd.Filesystem, filename string) (string, error) {
-	absFilename := ctx.AbsPath(filename)
-	fi, err := filesystem.Stat(absFilename)
-	if err != nil {
-		return "", errors.Errorf("cannot read option from file %q: %v", filename, err)
-	}
-	if fi.Size() > maxValueSize {
-		return "", errors.Errorf("size of option file is larger than 5M")
-	}
-	content, err := ioutil.ReadFile(ctx.AbsPath(filename))
-	if err != nil {
-		return "", errors.Errorf("cannot read option from file %q: %v", filename, err)
-	}
-	return string(content), nil
 }

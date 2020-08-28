@@ -525,7 +525,10 @@ func (s *DeploySuite) TestConfigValues(c *gc.C) {
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	withAliasedCharmDeployable(s.fakeAPI, curl, "dummy-name", "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
-	err := s.runDeployForState(c, charmDir.Path, "dummy-application", "--config", "skill-level=9000", "--config", "outlook=good", "--series", "bionic")
+	confPath := filepath.Join(c.MkDir(), "include.txt")
+	c.Assert(ioutil.WriteFile(confPath, []byte("lorem\nipsum"), os.ModePerm), jc.ErrorIsNil)
+
+	err := s.runDeployForState(c, charmDir.Path, "dummy-application", "--config", "skill-level=9000", "--config", "outlook=good", "--config", "title=@"+confPath, "--series", "bionic")
 	c.Assert(err, jc.ErrorIsNil)
 	app, err := s.State.Application("dummy-application")
 	c.Assert(err, jc.ErrorIsNil)
@@ -537,6 +540,7 @@ func (s *DeploySuite) TestConfigValues(c *gc.C) {
 		"outlook":     "good",
 		"skill-level": int64(9000),
 		"username":    "admin001",
+		"title":       "lorem\nipsum",
 	}))
 }
 
