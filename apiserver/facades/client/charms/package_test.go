@@ -14,4 +14,4 @@ func TestAll(t *stdtesting.T) {
 }
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/apiserver/facades/client/charms BackendState,BackendModel
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/resolver_mock.go github.com/juju/juju/apiserver/facades/client/charms CSURLResolver
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/resolvers_mock.go github.com/juju/juju/apiserver/facades/client/charms CSURLResolver,CharmHubClient

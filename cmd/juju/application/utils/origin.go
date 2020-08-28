@@ -8,32 +8,35 @@ import (
 	"github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
 
-	charm2 "github.com/juju/juju/api/common/charm"
-	charm3 "github.com/juju/juju/core/charm"
+	commoncharm "github.com/juju/juju/api/common/charm"
+	corecharm "github.com/juju/juju/core/charm"
 )
 
-func DeduceOrigin(url *charm.URL, channel params.Channel) (charm2.Origin, error) {
+func DeduceOrigin(url *charm.URL, channel params.Channel) (commoncharm.Origin, error) {
 	if url == nil {
-		return charm2.Origin{}, errors.NotValidf("charm url")
+		return commoncharm.Origin{}, errors.NotValidf("charm url")
 	}
 
 	switch url.Schema {
 	case "cs":
-		return charm2.Origin{
-			Source: charm2.OriginCharmStore,
+		return commoncharm.Origin{
+			Source: commoncharm.OriginCharmStore,
 			Risk:   string(channel),
 		}, nil
 	case "local":
-		return charm2.Origin{
-			Source: charm2.OriginLocal,
+		return commoncharm.Origin{
+			Source: commoncharm.OriginLocal,
 		}, nil
 	default:
-		chChannel, err := charm3.MakeChannel("", string(channel), "")
-		if err != nil {
-			return charm2.Origin{}, errors.Trace(err)
+		if channel == "" {
+			return commoncharm.Origin{Source: commoncharm.OriginCharmHub}, nil
 		}
-		return charm2.Origin{
-			Source: charm2.OriginCharmHub,
+		chChannel, err := corecharm.MakeChannel("", string(channel), "")
+		if err != nil {
+			return commoncharm.Origin{}, errors.Trace(err)
+		}
+		return commoncharm.Origin{
+			Source: commoncharm.OriginCharmHub,
 			Risk:   string(chChannel.Risk),
 			Track:  &chChannel.Track,
 		}, nil

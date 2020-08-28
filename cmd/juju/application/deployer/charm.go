@@ -352,7 +352,11 @@ type charmStoreCharm struct {
 // then deploys it.
 func (c *charmStoreCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver, macaroonGetter store.MacaroonGetter) error {
 	userRequestedURL := c.userRequestedURL
-	ctx.Verbosef("Preparing to deploy %q from the charm store", userRequestedURL.Name)
+	location := "hub"
+	if userRequestedURL.Schema == "cs" {
+		location = "store"
+	}
+	ctx.Verbosef("Preparing to deploy %q from the charm %s", userRequestedURL.Name, location)
 
 	// resolver.resolve potentially updates the series of anything
 	// passed in. Store this for use in seriesSelector.

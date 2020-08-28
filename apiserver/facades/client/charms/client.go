@@ -268,7 +268,7 @@ func (a *API) charmHubResolver() (URLResolver, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &chResolver{chClient}, errors.NotImplementedf("charmHubResolver")
+	return &chResolver{chClient}, nil
 }
 
 // IsMetered returns whether or not the charm is metered.
