@@ -62,6 +62,7 @@ build_operator_image() {
 
     # Populate docker build context
     cp "${JUJUD_BIN_DIR}/jujuc" "${WORKDIR}/" || true
+    cp "${JUJUD_BIN_DIR}/juju-fake-init" "${WORKDIR}/"
     cp "${JUJUD_BIN_DIR}/jujud" "${WORKDIR}/"
     cp "${PROJECT_DIR}/caas/Dockerfile" "${WORKDIR}/"
     cp "${PROJECT_DIR}/caas/requirements.txt" "${WORKDIR}/"
@@ -83,6 +84,7 @@ build_k8sagent_image() {
 
     # Populate docker build context
     cp "${JUJUD_BIN_DIR}/jujuc" "${WORKDIR}/" || true
+    cp "${JUJUD_BIN_DIR}/juju-fake-init" "${WORKDIR}/"
     cp "${JUJUD_BIN_DIR}/k8sagent" "${WORKDIR}/"
     cp "${PROJECT_DIR}/caas/Dockerfile" "${WORKDIR}/"
     cp "${PROJECT_DIR}/caas/requirements.txt" "${WORKDIR}/"
