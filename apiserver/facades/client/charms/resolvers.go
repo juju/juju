@@ -40,12 +40,12 @@ func (c *chResolver) ResolveWithPreferredChannel(curl *charm.URL, origin params.
 	info, err := c.client.Info(context.TODO(), curl.Name)
 	if err != nil {
 		// Improve error message here
-		return nil, params.CharmOrigin{}, nil, err
+		return nil, params.CharmOrigin{}, nil, errors.Trace(err)
 	}
 
 	channel, err := makeChannel(origin)
 	if err != nil {
-		return nil, params.CharmOrigin{}, nil, err
+		return nil, params.CharmOrigin{}, nil, errors.Trace(err)
 	}
 
 	// If no revision nor channel specified, use the default release.
@@ -55,7 +55,7 @@ func (c *chResolver) ResolveWithPreferredChannel(curl *charm.URL, origin params.
 
 	channelMap, err := findChannelMap(curl.Revision, channel, info.ChannelMap)
 	if err != nil {
-		return nil, params.CharmOrigin{}, nil, err
+		return nil, params.CharmOrigin{}, nil, errors.Trace(err)
 	}
 	return c.resolveViaChannelMap(curl, origin, channelMap)
 }
@@ -145,7 +145,7 @@ func unmarshalCharmMetadata(metadataYAML string) (*charm.Meta, error) {
 	m := metadataYAML
 	meta, err := charm.ReadMeta(bytes.NewBufferString(m))
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return meta, nil
 }
@@ -183,7 +183,7 @@ type CSURLResolver interface {
 func csResolverGetter(args ResolverGetterParams) (CSURLResolver, error) {
 	csClient, err := openCSClient(args)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	repo := charmrepo.NewCharmStoreFromClient(csClient)
 	return repo, nil
@@ -192,7 +192,7 @@ func csResolverGetter(args ResolverGetterParams) (CSURLResolver, error) {
 func openCSClient(args ResolverGetterParams) (*csclient.Client, error) {
 	csURL, err := url.Parse(args.CSURL)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	csParams := csclient.Params{
 		URL:          csURL.String(),
@@ -205,7 +205,7 @@ func openCSClient(args ResolverGetterParams) (*csclient.Client, error) {
 		// TODO(cmars) discharge any third party caveats in the macaroon.
 		ms := []*macaroon.Macaroon{args.CharmStoreMacaroon}
 		if err := httpbakery.SetCookie(csParams.BakeryClient.Jar, csURL, charmstore.MacaroonNamespace, ms); err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 	}
 	csClient := csclient.New(csParams)
