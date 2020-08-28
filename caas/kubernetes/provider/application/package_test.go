@@ -12,3 +12,11 @@ import (
 func Test(t *testing.T) {
 	gc.TestingT(t)
 }
+
+var (
+	Int32Ptr              = int32Ptr
+	Int64Ptr              = int64Ptr
+	BoolPtr               = boolPtr
+	StrPtr                = strPtr
+	NewApplicationForTest = newApplication
+)

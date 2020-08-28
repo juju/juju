@@ -5,8 +5,10 @@ package application_test
 
 import (
 	"context"
+	"strings"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v7"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/clock/testclock"
@@ -15,6 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/fake"
@@ -23,6 +26,9 @@ import (
 	// apicommoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/application"
+	"github.com/juju/juju/caas/kubernetes/provider/resources"
+	resourcesmocks "github.com/juju/juju/caas/kubernetes/provider/resources/mocks"
+	"github.com/juju/juju/core/paths"
 	// "github.com/juju/juju/caas/kubernetes/provider/storage"
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
 	"github.com/juju/juju/storage"
@@ -38,6 +44,7 @@ type applicationSuite struct {
 	clock        *testclock.Clock
 	k8sWatcherFn k8swatcher.NewK8sWatcherFunc
 	watchers     []k8swatcher.KubernetesNotifyWatcher
+	applier      *resourcesmocks.MockApplier
 }
 
 var _ = gc.Suite(&applicationSuite{})
@@ -55,11 +62,12 @@ func (s *applicationSuite) TearDownTest(c *gc.C) {
 	s.client = nil
 	s.clock = nil
 	s.watchers = nil
+	s.applier = nil
 
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *applicationSuite) getApp(deploymentType caas.DeploymentType) caas.Application {
+func (s *applicationSuite) getApp(c *gc.C, deploymentType caas.DeploymentType, mockApplier bool) (caas.Application, *gomock.Controller) {
 	watcherFn := k8swatcher.NewK8sWatcherFunc(func(i cache.SharedIndexInformer, n string, c jujuclock.Clock) (k8swatcher.KubernetesNotifyWatcher, error) {
 		if s.k8sWatcherFn == nil {
 			return nil, errors.NewNotFound(nil, "undefined k8sWatcherFn for base test")
@@ -72,31 +80,44 @@ func (s *applicationSuite) getApp(deploymentType caas.DeploymentType) caas.Appli
 		return w, err
 	})
 
-	return application.NewApplication(
-		s.appName, s.namespace, "test",
+	ctrl := gomock.NewController(c)
+	s.applier = resourcesmocks.NewMockApplier(ctrl)
+
+	return application.NewApplicationForTest(
+		s.appName, s.namespace, s.namespace,
 		deploymentType,
 		s.client,
 		watcherFn,
 		s.clock,
-	)
+		func() resources.Applier {
+			if mockApplier {
+				return s.applier
+			}
+			return resources.NewApplier()
+		},
+	), ctrl
 }
 
 func (s *applicationSuite) getCharm(deployment *charm.Deployment) charm.Charm {
-	return &fakeCharm{deployment}
+	return &fakeCharm{
+		s.appName,
+		deployment,
+	}
 }
 
 func (s *applicationSuite) TestEnsureFailed(c *gc.C) {
-	app := s.getApp(caas.DeploymentType("notsupported"))
+	app, _ := s.getApp(c, caas.DeploymentType("notsupported"), false)
 	c.Assert(app.Ensure(
 		caas.ApplicationConfig{
 			Charm: s.getCharm(&charm.Deployment{
 				DeploymentType:     charm.DeploymentType("notsupported"),
 				ContainerImageName: "gitlab:latest",
+				DeploymentMode:     charm.DeploymentMode(caas.ModeEmbedded),
 			}),
 		},
 	), gc.ErrorMatches, `unknown deployment type not supported`)
 
-	app = s.getApp(caas.DeploymentStateless)
+	app, _ = s.getApp(c, caas.DeploymentStateless, false)
 	c.Assert(app.Ensure(
 		caas.ApplicationConfig{},
 	), gc.ErrorMatches, `charm was missing for gitlab application not valid`)
@@ -107,7 +128,7 @@ func (s *applicationSuite) TestEnsureFailed(c *gc.C) {
 				DeploymentType: charm.DeploymentStateful,
 			}),
 		},
-	), gc.ErrorMatches, `charm deployment type mismatch with application not valid`)
+	), gc.ErrorMatches, `charm deployment type "stateful" mismatch with application "stateless" not valid`)
 
 	c.Assert(app.Ensure(
 		caas.ApplicationConfig{
@@ -115,20 +136,64 @@ func (s *applicationSuite) TestEnsureFailed(c *gc.C) {
 				DeploymentType: charm.DeploymentStateless,
 			}),
 		},
-	), gc.ErrorMatches, `generating application podspec: charm missing container-image-name not valid`)
-
-}
-
-func (s *applicationSuite) TestEnsure(c *gc.C) {
-	app := s.getApp(caas.DeploymentStateful)
-	c.Assert(app.Ensure(
-		caas.ApplicationConfig{},
-	), gc.ErrorMatches, `charm was missing for gitlab application not valid`)
+	), gc.ErrorMatches, `charm deployment mode is not "embedded" not valid`)
 
 	c.Assert(app.Ensure(
 		caas.ApplicationConfig{
 			Charm: s.getCharm(&charm.Deployment{
-				DeploymentType:     charm.DeploymentStateful,
+				DeploymentType: charm.DeploymentStateless,
+				DeploymentMode: charm.DeploymentMode(caas.ModeEmbedded),
+			}),
+		},
+	), gc.ErrorMatches, `generating application podspec: charm missing container-image-name not valid`)
+
+}
+
+func (s *applicationSuite) assertEnsure(c *gc.C, deploymentType caas.DeploymentType, checkMainResource func()) {
+	appSecret := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "gitlab-application-config",
+			Namespace:   "test",
+			Labels:      map[string]string{"juju-app": "gitlab"},
+			Annotations: map[string]string{"juju-version": "0.0.0"},
+		},
+		Data: map[string][]byte{
+			"JUJU_K8S_APPLICATION":          []byte("gitlab"),
+			"JUJU_K8S_MODEL":                []byte("test"),
+			"JUJU_K8S_APPLICATION_PASSWORD": []byte(""),
+			"JUJU_K8S_CONTROLLER_ADDRESSES": []byte(""),
+			"JUJU_K8S_CONTROLLER_CA_CERT":   []byte(""),
+		},
+	}
+	appSvc := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "gitlab",
+			Namespace:   "test",
+			Labels:      map[string]string{"juju-app": "gitlab"},
+			Annotations: map[string]string{"juju-version": "0.0.0"},
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{"juju-app": "gitlab"},
+			Type:     corev1.ServiceTypeClusterIP,
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "tcp",
+					Port:       8080,
+					TargetPort: intstr.FromInt(8080),
+					Protocol:   corev1.ProtocolTCP,
+				},
+			},
+		},
+	}
+
+	app, _ := s.getApp(c, deploymentType, false)
+
+	c.Assert(app.Ensure(
+		caas.ApplicationConfig{
+			AgentImagePath: "operator/image-path",
+			Charm: s.getCharm(&charm.Deployment{
+				DeploymentType:     charm.DeploymentType(deploymentType),
+				DeploymentMode:     charm.DeploymentMode(caas.ModeEmbedded),
 				ContainerImageName: "gitlab:latest",
 				ServicePorts: []charm.ServicePort{
 					{
@@ -162,57 +227,643 @@ func (s *applicationSuite) TestEnsure(c *gc.C) {
 
 	secret, err := s.client.CoreV1().Secrets("test").Get(context.TODO(), "gitlab-application-config", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(secret, gc.DeepEquals, &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        "gitlab-application-config",
-			Namespace:   "test",
-			Labels:      map[string]string{"juju-app": "gitlab"},
-			Annotations: map[string]string{"juju-version": "0.0.0"},
-		},
-		Data: map[string][]byte{
-			"JUJU_K8S_APPLICATION":          []byte("gitlab"),
-			"JUJU_K8S_MODEL":                []byte("test"),
-			"JUJU_K8S_APPLICATION_PASSWORD": []byte(""),
-			"JUJU_K8S_CONTROLLER_ADDRESSES": []byte(""),
-			"JUJU_K8S_CONTROLLER_CA_CERT":   []byte(""),
-		},
-	})
+	c.Assert(secret, gc.DeepEquals, &appSecret)
 
 	svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(svc, gc.DeepEquals, &corev1.Service{
+	c.Assert(svc, gc.DeepEquals, &appSvc)
+
+	checkMainResource()
+
+}
+
+func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
+	s.assertEnsure(
+		c, caas.DeploymentStateful, func() {
+			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+			c.Assert(err, jc.ErrorIsNil)
+			jujuDataDir, err := paths.DataDir("kubernetes")
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(ss, gc.DeepEquals, &appsv1.StatefulSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "gitlab",
+					Namespace:   "test",
+					Labels:      map[string]string{"juju-app": "gitlab"},
+					Annotations: map[string]string{"juju-version": "0.0.0"},
+				},
+				Spec: appsv1.StatefulSetSpec{
+					Replicas: application.Int32Ptr(1),
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"juju-app": "gitlab"},
+					},
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels:      map[string]string{"juju-app": "gitlab"},
+							Annotations: map[string]string{"juju-version": "0.0.0"},
+						},
+						Spec: corev1.PodSpec{
+							AutomountServiceAccountToken: application.BoolPtr(false),
+							InitContainers: []corev1.Container{{
+								Name:            "juju-unit-init",
+								ImagePullPolicy: corev1.PullIfNotPresent,
+								Image:           "operator/image-path",
+								WorkingDir:      jujuDataDir,
+								Command:         []string{"/opt/k8sagent"},
+								Args:            []string{"init"},
+								Env: []corev1.EnvVar{
+									{
+										Name: "JUJU_K8S_POD_NAME",
+										ValueFrom: &corev1.EnvVarSource{
+											FieldRef: &corev1.ObjectFieldSelector{
+												FieldPath: "metadata.name",
+											},
+										},
+									},
+									{
+										Name: "JUJU_K8S_POD_UUID",
+										ValueFrom: &corev1.EnvVarSource{
+											FieldRef: &corev1.ObjectFieldSelector{
+												FieldPath: "metadata.uid",
+											},
+										},
+									},
+								},
+								EnvFrom: []corev1.EnvFromSource{{
+									SecretRef: &corev1.SecretEnvSource{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "gitlab-application-config",
+										},
+									},
+								}},
+								VolumeMounts: []corev1.VolumeMount{{
+									Name:      "juju-data-dir",
+									MountPath: jujuDataDir,
+									SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
+								}, {
+									Name:      "juju-data-dir",
+									MountPath: "/shared/usr/bin",
+									SubPath:   "usr/bin",
+								}},
+							}},
+							Containers: []corev1.Container{{
+								Name:            "juju-unit-agent",
+								ImagePullPolicy: corev1.PullIfNotPresent,
+								Image:           "operator/image-path",
+								WorkingDir:      jujuDataDir,
+								Command:         []string{"/opt/k8sagent"},
+								Args:            []string{"unit", "--data-dir", jujuDataDir},
+								VolumeMounts: []corev1.VolumeMount{
+									{
+										Name:      "juju-data-dir",
+										MountPath: jujuDataDir,
+										SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
+									},
+									{
+										Name:      "gitlab-database",
+										MountPath: "path/to/here",
+									},
+									{
+										Name:      "gitlab-logs",
+										MountPath: "path/to/there",
+									},
+								},
+							}, {
+								Name:            "gitlab",
+								ImagePullPolicy: corev1.PullIfNotPresent,
+								Image:           "gitlab:latest",
+								Command:         []string{"/usr/bin/pebble"},
+								VolumeMounts: []corev1.VolumeMount{
+									{
+										Name:      "juju-data-dir",
+										MountPath: "/usr/bin/pebble",
+										SubPath:   "usr/bin/pebble",
+										ReadOnly:  true,
+									},
+									{
+										Name:      "gitlab-database",
+										MountPath: "path/to/here",
+									},
+									{
+										Name:      "gitlab-logs",
+										MountPath: "path/to/there",
+									},
+								},
+								Ports: []corev1.ContainerPort{
+									{
+										Name:          "tcp",
+										ContainerPort: 8080,
+										Protocol:      corev1.ProtocolTCP,
+									},
+								},
+							}},
+							Volumes: []corev1.Volume{
+								{
+									Name: "juju-data-dir",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{
+											SizeLimit: k8sresource.NewScaledQuantity(1, k8sresource.Giga),
+										},
+									},
+								},
+							},
+						},
+					},
+					VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "gitlab-database",
+								Annotations: map[string]string{
+									"foo":          "bar",
+									"juju-storage": "database",
+								}},
+							Spec: corev1.PersistentVolumeClaimSpec{
+								StorageClassName: application.StrPtr("test-workload-storage"),
+								AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+								Resources: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceStorage: k8sresource.MustParse("100Mi"),
+									},
+								},
+							},
+						},
+					},
+					PodManagementPolicy: appsv1.ParallelPodManagement,
+				},
+			})
+		},
+	)
+}
+
+func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
+	s.assertEnsure(
+		c, caas.DeploymentStateless, func() {
+			ss, err := s.client.AppsV1().Deployments("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+			c.Assert(err, jc.ErrorIsNil)
+			jujuDataDir, err := paths.DataDir("kubernetes")
+			c.Assert(err, jc.ErrorIsNil)
+			size, err := k8sresource.ParseQuantity("200Mi")
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(ss, gc.DeepEquals, &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "gitlab",
+					Namespace:   "test",
+					Labels:      map[string]string{"juju-app": "gitlab"},
+					Annotations: map[string]string{"juju-version": "0.0.0"},
+				},
+				Spec: appsv1.DeploymentSpec{
+					Replicas: application.Int32Ptr(1),
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"juju-app": "gitlab"},
+					},
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels:      map[string]string{"juju-app": "gitlab"},
+							Annotations: map[string]string{"juju-version": "0.0.0"},
+						},
+						Spec: corev1.PodSpec{
+							AutomountServiceAccountToken: application.BoolPtr(false),
+							InitContainers: []corev1.Container{{
+								Name:            "juju-unit-init",
+								ImagePullPolicy: corev1.PullIfNotPresent,
+								Image:           "operator/image-path",
+								WorkingDir:      jujuDataDir,
+								Command:         []string{"/opt/k8sagent"},
+								Args:            []string{"init"},
+								Env: []corev1.EnvVar{
+									{
+										Name: "JUJU_K8S_POD_NAME",
+										ValueFrom: &corev1.EnvVarSource{
+											FieldRef: &corev1.ObjectFieldSelector{
+												FieldPath: "metadata.name",
+											},
+										},
+									},
+									{
+										Name: "JUJU_K8S_POD_UUID",
+										ValueFrom: &corev1.EnvVarSource{
+											FieldRef: &corev1.ObjectFieldSelector{
+												FieldPath: "metadata.uid",
+											},
+										},
+									},
+								},
+								EnvFrom: []corev1.EnvFromSource{{
+									SecretRef: &corev1.SecretEnvSource{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "gitlab-application-config",
+										},
+									},
+								}},
+								VolumeMounts: []corev1.VolumeMount{{
+									Name:      "juju-data-dir",
+									MountPath: jujuDataDir,
+									SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
+								}, {
+									Name:      "juju-data-dir",
+									MountPath: "/shared/usr/bin",
+									SubPath:   "usr/bin",
+								}},
+							}},
+							Containers: []corev1.Container{{
+								Name:            "juju-unit-agent",
+								ImagePullPolicy: corev1.PullIfNotPresent,
+								Image:           "operator/image-path",
+								WorkingDir:      jujuDataDir,
+								Command:         []string{"/opt/k8sagent"},
+								Args:            []string{"unit", "--data-dir", jujuDataDir},
+								VolumeMounts: []corev1.VolumeMount{
+									{
+										Name:      "juju-data-dir",
+										MountPath: jujuDataDir,
+										SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
+									},
+									{
+										Name:      "gitlab-database",
+										MountPath: "path/to/here",
+									},
+									{
+										Name:      "gitlab-logs",
+										MountPath: "path/to/there",
+									},
+								},
+							}, {
+								Name:            "gitlab",
+								ImagePullPolicy: corev1.PullIfNotPresent,
+								Image:           "gitlab:latest",
+								Command:         []string{"/usr/bin/pebble"},
+								VolumeMounts: []corev1.VolumeMount{
+									{
+										Name:      "juju-data-dir",
+										MountPath: "/usr/bin/pebble",
+										SubPath:   "usr/bin/pebble",
+										ReadOnly:  true,
+									},
+									{
+										Name:      "gitlab-database",
+										MountPath: "path/to/here",
+									},
+									{
+										Name:      "gitlab-logs",
+										MountPath: "path/to/there",
+									},
+								},
+								Ports: []corev1.ContainerPort{
+									{
+										Name:          "tcp",
+										ContainerPort: 8080,
+										Protocol:      corev1.ProtocolTCP,
+									},
+								},
+							}},
+							Volumes: []corev1.Volume{
+								{
+									Name: "juju-data-dir",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{
+											SizeLimit: k8sresource.NewScaledQuantity(1, k8sresource.Giga),
+										},
+									},
+								},
+								{
+									Name: "gitlab-logs",
+									VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{
+										SizeLimit: &size,
+										Medium:    "Memory",
+									}},
+								},
+							},
+						},
+					},
+				},
+			})
+		},
+	)
+}
+
+func (s *applicationSuite) TestEnsureDaemon(c *gc.C) {
+	s.assertEnsure(
+		c, caas.DeploymentDaemon, func() {
+			ss, err := s.client.AppsV1().DaemonSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+			c.Assert(err, jc.ErrorIsNil)
+			jujuDataDir, err := paths.DataDir("kubernetes")
+			c.Assert(err, jc.ErrorIsNil)
+			size, err := k8sresource.ParseQuantity("200Mi")
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(ss, gc.DeepEquals, &appsv1.DaemonSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "gitlab",
+					Namespace:   "test",
+					Labels:      map[string]string{"juju-app": "gitlab"},
+					Annotations: map[string]string{"juju-version": "0.0.0"},
+				},
+				Spec: appsv1.DaemonSetSpec{
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"juju-app": "gitlab"},
+					},
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels:      map[string]string{"juju-app": "gitlab"},
+							Annotations: map[string]string{"juju-version": "0.0.0"},
+						},
+						Spec: corev1.PodSpec{
+							AutomountServiceAccountToken: application.BoolPtr(false),
+							InitContainers: []corev1.Container{{
+								Name:            "juju-unit-init",
+								ImagePullPolicy: corev1.PullIfNotPresent,
+								Image:           "operator/image-path",
+								WorkingDir:      jujuDataDir,
+								Command:         []string{"/opt/k8sagent"},
+								Args:            []string{"init"},
+								Env: []corev1.EnvVar{
+									{
+										Name: "JUJU_K8S_POD_NAME",
+										ValueFrom: &corev1.EnvVarSource{
+											FieldRef: &corev1.ObjectFieldSelector{
+												FieldPath: "metadata.name",
+											},
+										},
+									},
+									{
+										Name: "JUJU_K8S_POD_UUID",
+										ValueFrom: &corev1.EnvVarSource{
+											FieldRef: &corev1.ObjectFieldSelector{
+												FieldPath: "metadata.uid",
+											},
+										},
+									},
+								},
+								EnvFrom: []corev1.EnvFromSource{{
+									SecretRef: &corev1.SecretEnvSource{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "gitlab-application-config",
+										},
+									},
+								}},
+								VolumeMounts: []corev1.VolumeMount{{
+									Name:      "juju-data-dir",
+									MountPath: jujuDataDir,
+									SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
+								}, {
+									Name:      "juju-data-dir",
+									MountPath: "/shared/usr/bin",
+									SubPath:   "usr/bin",
+								}},
+							}},
+							Containers: []corev1.Container{{
+								Name:            "juju-unit-agent",
+								ImagePullPolicy: corev1.PullIfNotPresent,
+								Image:           "operator/image-path",
+								WorkingDir:      jujuDataDir,
+								Command:         []string{"/opt/k8sagent"},
+								Args:            []string{"unit", "--data-dir", jujuDataDir},
+								VolumeMounts: []corev1.VolumeMount{
+									{
+										Name:      "juju-data-dir",
+										MountPath: jujuDataDir,
+										SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
+									},
+									{
+										Name:      "gitlab-database",
+										MountPath: "path/to/here",
+									},
+									{
+										Name:      "gitlab-logs",
+										MountPath: "path/to/there",
+									},
+								},
+							}, {
+								Name:            "gitlab",
+								ImagePullPolicy: corev1.PullIfNotPresent,
+								Image:           "gitlab:latest",
+								Command:         []string{"/usr/bin/pebble"},
+								VolumeMounts: []corev1.VolumeMount{
+									{
+										Name:      "juju-data-dir",
+										MountPath: "/usr/bin/pebble",
+										SubPath:   "usr/bin/pebble",
+										ReadOnly:  true,
+									},
+									{
+										Name:      "gitlab-database",
+										MountPath: "path/to/here",
+									},
+									{
+										Name:      "gitlab-logs",
+										MountPath: "path/to/there",
+									},
+								},
+								Ports: []corev1.ContainerPort{
+									{
+										Name:          "tcp",
+										ContainerPort: 8080,
+										Protocol:      corev1.ProtocolTCP,
+									},
+								},
+							}},
+							Volumes: []corev1.Volume{
+								{
+									Name: "juju-data-dir",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{
+											SizeLimit: k8sresource.NewScaledQuantity(1, k8sresource.Giga),
+										},
+									},
+								},
+								{
+									Name: "gitlab-logs",
+									VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{
+										SizeLimit: &size,
+										Medium:    "Memory",
+									}},
+								},
+							},
+						},
+					},
+				},
+			})
+		},
+	)
+}
+
+func (s *applicationSuite) TestExistsNotsupported(c *gc.C) {
+	app, _ := s.getApp(c, caas.DeploymentType("notsupported"), false)
+	_, err := app.Exists()
+	c.Assert(err, gc.ErrorMatches, `unknown deployment type not supported`)
+}
+
+func (s *applicationSuite) TestExistsDeployment(c *gc.C) {
+	now := metav1.Now()
+
+	app, _ := s.getApp(c, caas.DeploymentStateless, false)
+	// Deployment does not exists.
+	state, err := app.Exists()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(state, gc.DeepEquals, caas.DeploymentState{})
+
+	// ensure a terminating Deployment.
+	dr := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "gitlab",
 			Namespace:   "test",
 			Labels:      map[string]string{"juju-app": "gitlab"},
 			Annotations: map[string]string{"juju-version": "0.0.0"},
 		},
-		Spec: corev1.ServiceSpec{
-			Selector: map[string]string{"juju-app": "gitlab"},
-			Type:     corev1.ServiceTypeClusterIP,
-			Ports: []corev1.ServicePort{
-				{
-					Name:       "tcp",
-					Port:       8080,
-					TargetPort: intstr.FromInt(8080),
-					Protocol:   corev1.ProtocolTCP,
-				},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"juju-app": "gitlab"},
 			},
 		},
+	}
+	dr.SetDeletionTimestamp(&now)
+	_, err = s.client.AppsV1().Deployments("test").Create(context.TODO(),
+		dr, metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Deployment exists and is terminating.
+	state, err = app.Exists()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(state, gc.DeepEquals, caas.DeploymentState{
+		Exists: true, Terminating: true,
+	})
+}
+
+func (s *applicationSuite) TestExistsStatefulSet(c *gc.C) {
+	now := metav1.Now()
+
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	// Statefulset does not exists.
+	state, err := app.Exists()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(state, gc.DeepEquals, caas.DeploymentState{})
+
+	// ensure a terminating Statefulset.
+	sr := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "gitlab",
+			Namespace:   "test",
+			Labels:      map[string]string{"juju-app": "gitlab"},
+			Annotations: map[string]string{"juju-version": "0.0.0"},
+		},
+		Spec: appsv1.StatefulSetSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"juju-app": "gitlab"},
+			},
+		},
+	}
+	sr.SetDeletionTimestamp(&now)
+	_, err = s.client.AppsV1().StatefulSets("test").Create(context.TODO(),
+		sr, metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Statefulset exists and is terminating.
+	state, err = app.Exists()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(state, gc.DeepEquals, caas.DeploymentState{
+		Exists: true, Terminating: true,
 	})
 
-	ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+}
+
+func (s *applicationSuite) TestExistsDaemonSet(c *gc.C) {
+	now := metav1.Now()
+
+	app, _ := s.getApp(c, caas.DeploymentDaemon, false)
+	// Daemonset does not exists.
+	state, err := app.Exists()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ss, gc.DeepEquals, &appsv1.StatefulSet{})
+	c.Assert(state, gc.DeepEquals, caas.DeploymentState{})
+
+	// ensure a terminating Daemonset.
+	dmr := &appsv1.DaemonSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "gitlab",
+			Namespace:   "test",
+			Labels:      map[string]string{"juju-app": "gitlab"},
+			Annotations: map[string]string{"juju-version": "0.0.0"},
+		},
+		Spec: appsv1.DaemonSetSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"juju-app": "gitlab"},
+			},
+		},
+	}
+	dmr.SetDeletionTimestamp(&now)
+	_, err = s.client.AppsV1().DaemonSets("test").Create(context.TODO(),
+		dmr, metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Daemonset exists and is terminating.
+	state, err = app.Exists()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(state, gc.DeepEquals, caas.DeploymentState{
+		Exists: true, Terminating: true,
+	})
+
+}
+
+func (s *applicationSuite) TestDeleteStateful(c *gc.C) {
+	app, ctrl := s.getApp(c, caas.DeploymentStateful, true)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.applier.EXPECT().Delete(resources.NewStatefulSet("gitlab", "test", nil)),
+		s.applier.EXPECT().Delete(resources.NewService("gitlab", "test", nil)),
+		s.applier.EXPECT().Delete(resources.NewSecret("gitlab-application-config", "test", nil)),
+		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
+	)
+	c.Assert(app.Delete(), jc.ErrorIsNil)
+}
+
+func (s *applicationSuite) TestDeleteStateless(c *gc.C) {
+	app, ctrl := s.getApp(c, caas.DeploymentStateless, true)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.applier.EXPECT().Delete(resources.NewDeployment("gitlab", "test", nil)),
+		s.applier.EXPECT().Delete(resources.NewService("gitlab", "test", nil)),
+		s.applier.EXPECT().Delete(resources.NewSecret("gitlab-application-config", "test", nil)),
+		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
+	)
+	c.Assert(app.Delete(), jc.ErrorIsNil)
+}
+
+func (s *applicationSuite) TestDeleteDaemon(c *gc.C) {
+	app, ctrl := s.getApp(c, caas.DeploymentDaemon, true)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.applier.EXPECT().Delete(resources.NewDaemonSet("gitlab", "test", nil)),
+		s.applier.EXPECT().Delete(resources.NewService("gitlab", "test", nil)),
+		s.applier.EXPECT().Delete(resources.NewSecret("gitlab-application-config", "test", nil)),
+		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
+	)
+	c.Assert(app.Delete(), jc.ErrorIsNil)
+}
+
+func (s *applicationSuite) TestWatch(c *gc.C) {
+	app, ctrl := s.getApp(c, caas.DeploymentDaemon, true)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.applier.EXPECT().Delete(resources.NewDaemonSet("gitlab", "test", nil)),
+		s.applier.EXPECT().Delete(resources.NewService("gitlab", "test", nil)),
+		s.applier.EXPECT().Delete(resources.NewSecret("gitlab-application-config", "test", nil)),
+		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
+	)
+	c.Assert(app.Delete(), jc.ErrorIsNil)
 }
 
 type fakeCharm struct {
 	// TODO: remove this once `api/common/charms.CharmInfo` has upgraded to use the new charm.Charm.
+	Name       string
 	deployment *charm.Deployment
 }
 
 func (c *fakeCharm) Meta() *charm.Meta {
-	return &charm.Meta{Deployment: c.deployment}
+	return &charm.Meta{
+		Name:       c.Name,
+		Deployment: c.deployment,
+	}
 }
 
 func (c *fakeCharm) Config() *charm.Config {

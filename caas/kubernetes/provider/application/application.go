@@ -46,16 +46,41 @@ type app struct {
 	client         kubernetes.Interface
 	newWatcher     k8swatcher.NewK8sWatcherFunc
 	clock          clock.Clock
+
+	newApplier func() resources.Applier
 }
 
 // NewApplication returns an application.
-func NewApplication(name string,
+func NewApplication(
+	name string,
 	namespace string,
 	model string,
 	deploymentType caas.DeploymentType,
 	client kubernetes.Interface,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
 	clock clock.Clock,
+) caas.Application {
+	return newApplication(
+		name,
+		namespace,
+		model,
+		deploymentType,
+		client,
+		newWatcher,
+		clock,
+		resources.NewApplier,
+	)
+}
+
+func newApplication(
+	name string,
+	namespace string,
+	model string,
+	deploymentType caas.DeploymentType,
+	client kubernetes.Interface,
+	newWatcher k8swatcher.NewK8sWatcherFunc,
+	clock clock.Clock,
+	newApplier func() resources.Applier,
 ) caas.Application {
 	return &app{
 		name:           name,
@@ -65,6 +90,7 @@ func NewApplication(name string,
 		client:         client,
 		newWatcher:     newWatcher,
 		clock:          clock,
+		newApplier:     newApplier,
 	}
 }
 
@@ -86,14 +112,14 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	}
 
 	if string(a.deploymentType) != string(charmDeployment.DeploymentType) {
-		return errors.NotValidf("charm deployment type mismatch with application")
+		return errors.NotValidf("charm deployment type %q mismatch with application %q", charmDeployment.DeploymentType, a.deploymentType)
 	}
 
 	if string(charmDeployment.DeploymentMode) != string(caas.ModeEmbedded) {
 		return errors.NotValidf("charm deployment mode is not %q", caas.ModeEmbedded)
 	}
 
-	applier := resources.NewApplier()
+	applier := a.newApplier()
 	secret := resources.Secret{
 		Secret: corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -387,7 +413,7 @@ func (a *app) serviceExists() (exists bool, terminating bool, err error) {
 // Delete deletes the specified application.
 func (a *app) Delete() error {
 	logger.Debugf("deleting %s application", a.name)
-	applier := resources.NewApplier()
+	applier := a.newApplier()
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
 		applier.Delete(resources.NewStatefulSet(a.name, a.namespace, nil))
