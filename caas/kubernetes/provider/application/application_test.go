@@ -23,14 +23,13 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 
-	// apicommoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/application"
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	resourcesmocks "github.com/juju/juju/caas/kubernetes/provider/resources/mocks"
-	"github.com/juju/juju/core/paths"
-	// "github.com/juju/juju/caas/kubernetes/provider/storage"
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
+	k8swatchertest "github.com/juju/juju/caas/kubernetes/provider/watcher/test"
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
@@ -696,9 +695,9 @@ func (s *applicationSuite) TestExistsDeployment(c *gc.C) {
 
 	app, _ := s.getApp(c, caas.DeploymentStateless, false)
 	// Deployment does not exists.
-	state, err := app.Exists()
+	result, err := app.Exists()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(state, gc.DeepEquals, caas.DeploymentState{})
+	c.Assert(result, gc.DeepEquals, caas.DeploymentState{})
 
 	// ensure a terminating Deployment.
 	dr := &appsv1.Deployment{
@@ -720,9 +719,9 @@ func (s *applicationSuite) TestExistsDeployment(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Deployment exists and is terminating.
-	state, err = app.Exists()
+	result, err = app.Exists()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(state, gc.DeepEquals, caas.DeploymentState{
+	c.Assert(result, gc.DeepEquals, caas.DeploymentState{
 		Exists: true, Terminating: true,
 	})
 }
@@ -732,9 +731,9 @@ func (s *applicationSuite) TestExistsStatefulSet(c *gc.C) {
 
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	// Statefulset does not exists.
-	state, err := app.Exists()
+	result, err := app.Exists()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(state, gc.DeepEquals, caas.DeploymentState{})
+	c.Assert(result, gc.DeepEquals, caas.DeploymentState{})
 
 	// ensure a terminating Statefulset.
 	sr := &appsv1.StatefulSet{
@@ -756,9 +755,9 @@ func (s *applicationSuite) TestExistsStatefulSet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Statefulset exists and is terminating.
-	state, err = app.Exists()
+	result, err = app.Exists()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(state, gc.DeepEquals, caas.DeploymentState{
+	c.Assert(result, gc.DeepEquals, caas.DeploymentState{
 		Exists: true, Terminating: true,
 	})
 
@@ -769,9 +768,9 @@ func (s *applicationSuite) TestExistsDaemonSet(c *gc.C) {
 
 	app, _ := s.getApp(c, caas.DeploymentDaemon, false)
 	// Daemonset does not exists.
-	state, err := app.Exists()
+	result, err := app.Exists()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(state, gc.DeepEquals, caas.DeploymentState{})
+	c.Assert(result, gc.DeepEquals, caas.DeploymentState{})
 
 	// ensure a terminating Daemonset.
 	dmr := &appsv1.DaemonSet{
@@ -793,9 +792,9 @@ func (s *applicationSuite) TestExistsDaemonSet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Daemonset exists and is terminating.
-	state, err = app.Exists()
+	result, err = app.Exists()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(state, gc.DeepEquals, caas.DeploymentState{
+	c.Assert(result, gc.DeepEquals, caas.DeploymentState{
 		Exists: true, Terminating: true,
 	})
 
@@ -840,17 +839,179 @@ func (s *applicationSuite) TestDeleteDaemon(c *gc.C) {
 	c.Assert(app.Delete(), jc.ErrorIsNil)
 }
 
+func (s *applicationSuite) TestWatchNotsupported(c *gc.C) {
+	app, ctrl := s.getApp(c, caas.DeploymentType("notsupported"), true)
+	defer ctrl.Finish()
+
+	s.k8sWatcherFn = func(_ cache.SharedIndexInformer, _ string, _ jujuclock.Clock) (k8swatcher.KubernetesNotifyWatcher, error) {
+		w, _ := k8swatchertest.NewKubernetesTestWatcher()
+		return w, nil
+	}
+
+	_, err := app.Watch()
+	c.Assert(err, gc.ErrorMatches, `unknown deployment type not supported`)
+}
+
 func (s *applicationSuite) TestWatch(c *gc.C) {
 	app, ctrl := s.getApp(c, caas.DeploymentDaemon, true)
 	defer ctrl.Finish()
 
-	gomock.InOrder(
-		s.applier.EXPECT().Delete(resources.NewDaemonSet("gitlab", "test", nil)),
-		s.applier.EXPECT().Delete(resources.NewService("gitlab", "test", nil)),
-		s.applier.EXPECT().Delete(resources.NewSecret("gitlab-application-config", "test", nil)),
-		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
-	)
-	c.Assert(app.Delete(), jc.ErrorIsNil)
+	s.k8sWatcherFn = func(_ cache.SharedIndexInformer, _ string, _ jujuclock.Clock) (k8swatcher.KubernetesNotifyWatcher, error) {
+		w, _ := k8swatchertest.NewKubernetesTestWatcher()
+		return w, nil
+	}
+
+	w, err := app.Watch()
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case _, ok := <-w.Changes():
+		c.Assert(ok, jc.IsTrue)
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for event")
+	}
+}
+
+func (s *applicationSuite) TestWatchReplicas(c *gc.C) {
+	app, ctrl := s.getApp(c, caas.DeploymentDaemon, true)
+	defer ctrl.Finish()
+
+	s.k8sWatcherFn = func(_ cache.SharedIndexInformer, _ string, _ jujuclock.Clock) (k8swatcher.KubernetesNotifyWatcher, error) {
+		w, _ := k8swatchertest.NewKubernetesTestWatcher()
+		return w, nil
+	}
+
+	w, err := app.WatchReplicas()
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case _, ok := <-w.Changes():
+		c.Assert(ok, jc.IsTrue)
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for event")
+	}
+}
+
+func (s *applicationSuite) TestStateNotsupported(c *gc.C) {
+	app, _ := s.getApp(c, caas.DeploymentType("notsupported"), false)
+	_, err := app.State()
+	c.Assert(err, gc.ErrorMatches, `unknown deployment type not supported`)
+}
+
+func (s *applicationSuite) assertState(c *gc.C, deploymentType caas.DeploymentType, createMainResource func() int) {
+	app, ctrl := s.getApp(c, deploymentType, false)
+	defer ctrl.Finish()
+
+	desiredReplicas := createMainResource()
+
+	pod1 := &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "pod1",
+			Namespace:   "test",
+			Labels:      map[string]string{"juju-app": "gitlab"},
+			Annotations: map[string]string{"juju-version": "0.0.0"},
+		},
+	}
+	_, err := s.client.CoreV1().Pods("test").Create(context.TODO(),
+		pod1, metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	pod2 := &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "pod2",
+			Namespace:   "test",
+			Labels:      map[string]string{"juju-app": "gitlab"},
+			Annotations: map[string]string{"juju-version": "0.0.0"},
+		},
+	}
+	_, err = s.client.CoreV1().Pods("test").Create(context.TODO(),
+		pod2, metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	appState, err := app.State()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appState, gc.DeepEquals, caas.ApplicationState{
+		DesiredReplicas: desiredReplicas,
+		Replicas:        []string{"pod1", "pod2"},
+	})
+}
+func (s *applicationSuite) TestStateStateful(c *gc.C) {
+	s.assertState(c, caas.DeploymentStateful, func() int {
+		desiredReplicas := 10
+
+		dmr := &appsv1.StatefulSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "gitlab",
+				Namespace:   "test",
+				Labels:      map[string]string{"juju-app": "gitlab"},
+				Annotations: map[string]string{"juju-version": "0.0.0"},
+			},
+			Spec: appsv1.StatefulSetSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"juju-app": "gitlab"},
+				},
+				Replicas: application.Int32Ptr(int32(desiredReplicas)),
+			},
+		}
+		_, err := s.client.AppsV1().StatefulSets("test").Create(context.TODO(),
+			dmr, metav1.CreateOptions{})
+		c.Assert(err, jc.ErrorIsNil)
+		return desiredReplicas
+	})
+}
+
+func (s *applicationSuite) TestStateStateless(c *gc.C) {
+	s.assertState(c, caas.DeploymentStateless, func() int {
+		desiredReplicas := 10
+
+		dmr := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "gitlab",
+				Namespace:   "test",
+				Labels:      map[string]string{"juju-app": "gitlab"},
+				Annotations: map[string]string{"juju-version": "0.0.0"},
+			},
+			Spec: appsv1.DeploymentSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"juju-app": "gitlab"},
+				},
+				Replicas: application.Int32Ptr(int32(desiredReplicas)),
+			},
+		}
+		_, err := s.client.AppsV1().Deployments("test").Create(context.TODO(),
+			dmr, metav1.CreateOptions{})
+		c.Assert(err, jc.ErrorIsNil)
+		return desiredReplicas
+	})
+}
+
+func (s *applicationSuite) TestStateDaemon(c *gc.C) {
+	s.assertState(c, caas.DeploymentDaemon, func() int {
+		desiredReplicas := 10
+
+		dmr := &appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "gitlab",
+				Namespace:   "test",
+				Labels:      map[string]string{"juju-app": "gitlab"},
+				Annotations: map[string]string{"juju-version": "0.0.0"},
+			},
+			Spec: appsv1.DaemonSetSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"juju-app": "gitlab"},
+				},
+			},
+			Status: appsv1.DaemonSetStatus{
+				DesiredNumberScheduled: int32(desiredReplicas),
+			},
+		}
+		_, err := s.client.AppsV1().DaemonSets("test").Create(context.TODO(),
+			dmr, metav1.CreateOptions{})
+		c.Assert(err, jc.ErrorIsNil)
+		return desiredReplicas
+	})
 }
 
 type fakeCharm struct {

@@ -6,6 +6,7 @@ package application
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/juju/clock"
@@ -486,12 +487,12 @@ func (a *app) State() (caas.ApplicationState, error) {
 		}
 		state.DesiredReplicas = int(*d.Spec.Replicas)
 	case caas.DeploymentDaemon:
-		d := resources.NewDeployment(a.name, a.namespace, nil)
+		d := resources.NewDaemonSet(a.name, a.namespace, nil)
 		err := d.Get(context.Background(), a.client)
 		if err != nil {
 			return caas.ApplicationState{}, errors.Trace(err)
 		}
-		state.DesiredReplicas = int(d.Status.Replicas)
+		state.DesiredReplicas = int(d.Status.DesiredNumberScheduled)
 	default:
 		return caas.ApplicationState{}, errors.NotSupportedf("unknown deployment type")
 	}
@@ -512,6 +513,7 @@ func (a *app) State() (caas.ApplicationState, error) {
 		}
 		next = res.Continue
 	}
+	sort.Strings(state.Replicas)
 	return state, nil
 }
 
