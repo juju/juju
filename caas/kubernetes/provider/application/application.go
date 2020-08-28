@@ -71,7 +71,7 @@ func NewApplication(name string,
 // Ensure creates or updates an application pod with the given application
 // name, agent path, and application config.
 func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
-	// TODO: add support `Constraints` and `Devices`.
+	// TODO: add support `numUnits`, `Constraints` and `Devices`.
 	defer func() {
 		logger.Errorf("Ensure %s", err)
 	}()
@@ -87,6 +87,10 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 
 	if string(a.deploymentType) != string(charmDeployment.DeploymentType) {
 		return errors.NotValidf("charm deployment type mismatch with application")
+	}
+
+	if string(charmDeployment.DeploymentMode) != string(caas.ModeEmbedded) {
+		return errors.NotValidf("charm deployment mode is not %q", caas.ModeEmbedded)
 	}
 
 	applier := resources.NewApplier()
@@ -214,6 +218,10 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		}
 		applier.Apply(&statefulset)
 	case caas.DeploymentStateless:
+		// Config storage to update the podspec with storage info.
+		if err = configureStorage(createPVC); err != nil {
+			return errors.Trace(err)
+		}
 		numPods := int32(1)
 		deployment := resources.Deployment{
 			Deployment: appsv1.Deployment{
@@ -238,12 +246,13 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 				},
 			},
 		}
-		err = configureStorage(createPVC)
-		if err != nil {
-			return errors.Trace(err)
-		}
+
 		applier.Apply(&deployment)
 	case caas.DeploymentDaemon:
+		// Config storage to update the podspec with storage info.
+		if err = configureStorage(createPVC); err != nil {
+			return errors.Trace(err)
+		}
 		daemonset := resources.DaemonSet{
 			DaemonSet: appsv1.DaemonSet{
 				ObjectMeta: metav1.ObjectMeta{
@@ -265,10 +274,6 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 					},
 				},
 			},
-		}
-		err = configureStorage(createPVC)
-		if err != nil {
-			return errors.Trace(err)
 		}
 		applier.Apply(&daemonset)
 	default:
@@ -738,10 +743,18 @@ func (a *app) filesystemToVolumeInfo(name string,
 	return nil, pvc, newStorageClass, nil
 }
 
+func int32Ptr(v int32) *int32 {
+	return &v
+}
+
 func int64Ptr(v int64) *int64 {
 	return &v
 }
 
 func boolPtr(b bool) *bool {
+	return &b
+}
+
+func strPtr(b string) *string {
 	return &b
 }
