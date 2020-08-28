@@ -136,18 +136,13 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForNonControllerMo
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	machine := mocks.NewMockMachine(ctrl)
-	machine.EXPECT().IsLockedForSeriesUpgrade().Return(false, nil)
-
-	machines := []modelmanager.Machine{machine}
-
 	model := mocks.NewMockModel(ctrl)
 	model.EXPECT().IsControllerModel().Return(false)
 
 	state := mocks.NewMockState(ctrl)
 	state.EXPECT().Release()
 	state.EXPECT().Model().Return(model, nil)
-	state.EXPECT().AllMachines().Return(machines, nil)
+	state.EXPECT().HasUpgradeSeriesLocks().Return(false, nil)
 
 	statePool := mocks.NewMockStatePool(ctrl)
 	statePool.EXPECT().Get(s.st.model.tag.Id()).Return(state, nil)
@@ -169,19 +164,13 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForUpgradingMachin
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	machine := mocks.NewMockMachine(ctrl)
-	machine.EXPECT().IsLockedForSeriesUpgrade().Return(true, nil)
-	machine.EXPECT().Id().Return(utils.MustNewUUID().String())
-
-	machines := []modelmanager.Machine{machine}
-
 	model := mocks.NewMockModel(ctrl)
 	model.EXPECT().IsControllerModel().Return(false)
 
 	state := mocks.NewMockState(ctrl)
 	state.EXPECT().Release()
 	state.EXPECT().Model().Return(model, nil)
-	state.EXPECT().AllMachines().Return(machines, nil)
+	state.EXPECT().HasUpgradeSeriesLocks().Return(true, nil)
 
 	statePool := mocks.NewMockStatePool(ctrl)
 	statePool.EXPECT().Get(s.st.model.tag.Id()).Return(state, nil)
@@ -196,17 +185,12 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForUpgradingMachin
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.OneError(), gc.ErrorMatches, `unexpected upgrade series lock for machine ".*"`)
+	c.Assert(results.OneError(), gc.ErrorMatches, `unexpected upgrade series lock found`)
 }
 
 func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForUpgradingMachinesWithForce(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-
-	machine := mocks.NewMockMachine(ctrl)
-	machine.EXPECT().IsLockedForSeriesUpgrade().Return(true, nil)
-
-	machines := []modelmanager.Machine{machine}
 
 	model := mocks.NewMockModel(ctrl)
 	model.EXPECT().IsControllerModel().Return(false)
@@ -214,7 +198,7 @@ func (s *ValidateModelUpgradesSuite) TestValidateModelUpgradesForUpgradingMachin
 	state := mocks.NewMockState(ctrl)
 	state.EXPECT().Release()
 	state.EXPECT().Model().Return(model, nil)
-	state.EXPECT().AllMachines().Return(machines, nil)
+	state.EXPECT().HasUpgradeSeriesLocks().Return(true, nil)
 
 	statePool := mocks.NewMockStatePool(ctrl)
 	statePool.EXPECT().Get(s.st.model.tag.Id()).Return(state, nil)

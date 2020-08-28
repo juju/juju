@@ -129,19 +129,13 @@ type StatePool interface {
 // State represents a point of use interface for modelling a current model.
 type State interface {
 	Model() (Model, error)
-	AllMachines() ([]Machine, error)
+	HasUpgradeSeriesLocks() (bool, error)
 	Release() bool
 }
 
 // Model defines a point of use interface for the model from state.
 type Model interface {
 	IsControllerModel() bool
-}
-
-// Machine defines a point of use interface for machines associated with models.
-type Machine interface {
-	Id() string
-	IsLockedForSeriesUpgrade() (bool, error)
 }
 
 // ModelManagerAPI implements the model manager interface and is
@@ -1744,16 +1738,12 @@ func (m *ModelManagerAPI) ValidateModelUpgrades(args params.ValidateModelUpgrade
 }
 
 func (m *ModelManagerAPI) validateNoSeriesUpgrades(st State, force bool) error {
-	machines, err := st.AllMachines()
+	locked, err := st.HasUpgradeSeriesLocks()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	for _, machine := range machines {
-		if locked, err := machine.IsLockedForSeriesUpgrade(); err != nil && !errors.IsNotFound(err) {
-			return errors.Trace(err)
-		} else if locked && !force {
-			return errors.Errorf("unexpected upgrade series lock for machine %q", machine.Id())
-		}
+	if locked && !force {
+		return errors.Errorf("unexpected upgrade series lock found")
 	}
 	return nil
 }

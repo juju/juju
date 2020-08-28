@@ -78,18 +78,6 @@ func (s stateShim) Model() (Model, error) {
 	}, nil
 }
 
-func (s stateShim) AllMachines() ([]Machine, error) {
-	machines, err := s.PooledState.AllMachines()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	results := make([]Machine, len(machines))
-	for i, m := range machines {
-		results[i] = m
-	}
-	return results, nil
-}
-
 type modelShim struct {
 	*state.Model
 }
