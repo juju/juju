@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/cloud"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/core/life"
@@ -136,6 +137,10 @@ type State interface {
 // Model defines a point of use interface for the model from state.
 type Model interface {
 	IsControllerModel() bool
+	ModelConfig() (*config.Config, error)
+	Cloud() (cloud.Cloud, error)
+	CloudRegion() string
+	CloudCredential() (state.Credential, bool, error)
 }
 
 // Machine defines a point of use interface for machines associated with models.
@@ -1728,22 +1733,91 @@ func (m *ModelManagerAPI) ValidateModelUpgrades(args params.ValidateModelUpgrade
 			continue
 		}
 
+		// TODO (stickupkid): Lift this higher up, so you only create this once.
+		steps := DefaultUpgradeSteps(st, args.Force)
+
 		// If it's a controller model then we don't require certain validation
 		// checks.
+		stepType := ModelUpgradeStep
 		if model.IsControllerModel() {
-			continue
+			stepType = ControllerUpgradeStep
 		}
 
-		// Now check for the validation of a model upgrade.
-		if err := m.validateSeriesUpgradeForSeriesUpgrade(st, args.Force); err != nil {
+		if err := steps.Run(stepType, arg); err != nil {
 			results.Results[i] = params.ErrorResult{Error: common.ServerError(err)}
-			continue
 		}
 	}
 	return results, nil
 }
 
-func (m *ModelManagerAPI) validateSeriesUpgradeForSeriesUpgrade(st State, force bool) error {
+// UpgradeStepType classifies the upgrade step that wants to be run.
+type UpgradeStepType int
+
+const (
+	// ControllerUpgradeStep defines a controller only upgrade step.
+	ControllerUpgradeStep UpgradeStepType = iota
+	// ModelUpgradeStep defines a model only upgrade step.
+	ModelUpgradeStep
+)
+
+// UpgradeStep defines a upgrade step that holds the type and the function to
+// be executed.
+type UpgradeStep struct {
+	Type UpgradeStepType
+	Func func(params.ValidateModelUpgradeParam) error
+}
+
+// UpgradeSteps holds all the upgrade steps to be executed.
+type UpgradeSteps struct {
+	Steps []UpgradeStep
+}
+
+// Run executes all the upgrade steps for a given type.
+func (u UpgradeSteps) Run(t UpgradeStepType, arg params.ValidateModelUpgradeParam) error {
+	steps := u.getStepsFor(t)
+	for _, step := range steps {
+		if err := step.Func(arg); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func (u UpgradeSteps) getStepsFor(t UpgradeStepType) []UpgradeStep {
+	var results []UpgradeStep
+	for _, step := range results {
+		if step.Type == t {
+			results = append(results, step)
+		}
+	}
+	return results
+}
+
+// DefaultUpgradeSteps gives you a series of upgrade steps that are required
+// to be performed.
+func DefaultUpgradeSteps(st State, force bool) UpgradeSteps {
+	return UpgradeSteps{
+		Steps: []UpgradeStep{
+			{
+				// Validate any environment upgrade operations.
+				Type: ControllerUpgradeStep,
+				Func: func(arg params.ValidateModelUpgradeParam) error {
+					return validateEnvironOperations(st, arg)
+				},
+			},
+			{
+				// Validate that doing a series upgrade isn't ongoing for when
+				// attempting to do a model upgrade.
+				Type: ModelUpgradeStep,
+				Func: func(arg params.ValidateModelUpgradeParam) error {
+					return validateSeriesUpgradeForSeriesUpgrade(st, force)
+				},
+			},
+		},
+	}
+}
+
+func validateSeriesUpgradeForSeriesUpgrade(st State, force bool) error {
 	machines, err := st.AllMachines()
 	if err != nil {
 		return errors.Trace(err)
@@ -1756,6 +1830,99 @@ func (m *ModelManagerAPI) validateSeriesUpgradeForSeriesUpgrade(st State, force 
 		}
 	}
 	return nil
+}
+
+func validateEnvironOperations(st State, arg params.ValidateModelUpgradeParam) error {
+	model, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	cfgGetter := environConfigGetter{
+		model: model,
+	}
+
+	env, err := environs.GetEnviron(cfgGetter, environs.New)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	precheckEnv, ok := env.(environs.JujuUpgradePrechecker)
+	if !ok {
+		return nil
+	}
+
+	if err = precheckEnv.PreparePrechecker(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return checkEnvironForUpgrade(precheckEnv, arg.Target, arg.Agent)
+}
+
+// checkEnvironForUpgrade returns an error if any of any Environs
+// PrecheckUpgradeOperations fail.
+func checkEnvironForUpgrade(precheckEnv environs.JujuUpgradePrechecker, targetVersion, agentVersion version.Number) error {
+	for _, op := range precheckEnv.PrecheckUpgradeOperations() {
+		if skipTarget(agentVersion, op.TargetVersion, targetVersion) {
+			logger.Debugf("ignoring precheck upgrade operation for version %v",
+				op.TargetVersion)
+			continue
+		}
+		logger.Debugf("running precheck upgrade operation for version %v",
+			op.TargetVersion)
+		for _, step := range op.Steps {
+			logger.Debugf("running precheck step %q", step.Description())
+			if err := step.Run(); err != nil {
+				return errors.Annotatef(err, "Unable to upgrade to %s:", targetVersion)
+			}
+		}
+	}
+	return nil
+}
+
+// skipTarget returns true if the from version is less than the target version
+// AND the target version is greater than the to version.
+// Borrowed from upgrades.opsIterator.
+func skipTarget(from, target, to version.Number) bool {
+	// Clear the version tag of the to release to ensure that all
+	// upgrade steps for the release are run for alpha and beta
+	// releases.
+	// ...but only do this if the from version has actually changed,
+	// lest we trigger upgrade mode unnecessarily for non-final
+	// versions.
+	if from.Compare(to) != 0 {
+		to.Tag = ""
+	}
+	// Do not run steps for versions of Juju earlier or same as we are upgrading from.
+	if target.Compare(from) <= 0 {
+		return true
+	}
+	// Do not run steps for versions of Juju later than we are upgrading to.
+	if target.Compare(to) > 0 {
+		return true
+	}
+	return false
+}
+
+// environConfigGetter implements environs.EnvironConfigGetter for use
+// to get an environ to be used by precheckEnviron.  It bridges the gap
+// to allow controller versions of the methods to be used for getting
+// the current environ.
+type environConfigGetter struct {
+	model Model
+}
+
+// ModelConfig returns the complete config for the model.  It
+// bridges the gap between EnvironConfigGetter.ModelConfig and
+// controller.ModelConfig.
+func (e environConfigGetter) ModelConfig() (*config.Config, error) {
+	return e.model.ModelConfig()
+}
+
+// CloudSpec returns the cloud specification for the model associated
+// with the upgrade command.
+func (e environConfigGetter) CloudSpec() (environs.CloudSpec, error) {
+	return stateenvirons.CloudSpecForModel(e.model)
 }
 
 // Mask out new methods from the old API versions. The API reflection

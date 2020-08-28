@@ -465,4 +465,7 @@ type ValidateModelUpgradeParams struct {
 type ValidateModelUpgradeParam struct {
 	// ModelTag is a tag for the model that you want to upgrade.
 	ModelTag string `json:"model-tag"`
+
+	Target version.Number `json:"target-version"`
+	Agent  version.Number `json:"agent-version"`
 }

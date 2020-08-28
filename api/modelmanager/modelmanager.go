@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/version"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api/base"
@@ -606,7 +607,7 @@ func (c *Client) ChangeModelCredential(model names.ModelTag, credential names.Cl
 
 // ValidateModelUpgrade checks to see if it's possible to upgrade a model,
 // before actually attempting to do the real model-upgrade.
-func (c *Client) ValidateModelUpgrade(model names.ModelTag, force bool) error {
+func (c *Client) ValidateModelUpgrade(model names.ModelTag, target, agent version.Number, force bool) error {
 	if bestVer := c.BestAPIVersion(); bestVer < 9 {
 		return errors.NotImplementedf("ValidateModelUpgrade in version %v", bestVer)
 	}
@@ -614,6 +615,8 @@ func (c *Client) ValidateModelUpgrade(model names.ModelTag, force bool) error {
 	args := params.ValidateModelUpgradeParams{
 		Models: []params.ValidateModelUpgradeParam{{
 			ModelTag: model.String(),
+			Target:   target,
+			Agent:    agent,
 		}},
 		Force: force,
 	}
