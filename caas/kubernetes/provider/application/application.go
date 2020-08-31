@@ -99,6 +99,7 @@ func newApplication(
 // name, agent path, and application config.
 func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	// TODO: add support `numUnits`, `Constraints` and `Devices`.
+	// TODO: storage handling for deployment/daemonset enhancement.
 	defer func() {
 		if err != nil {
 			logger.Errorf("Ensure %s", err)
