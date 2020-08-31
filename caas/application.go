@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-// Application broker interface
+// Application is for interacting with the CAAS substrate.
 type Application interface {
 	Ensure(config ApplicationConfig) error
 	Exists() (DeploymentState, error)
@@ -23,6 +23,7 @@ type Application interface {
 	State() (ApplicationState, error)
 }
 
+// ApplicationState represents the application state.
 type ApplicationState struct {
 	DesiredReplicas int
 	Replicas        []string

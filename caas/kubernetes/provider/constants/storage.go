@@ -24,6 +24,7 @@ const (
 	StorageMode        = "storage-mode"
 )
 
+// QualifiedStorageClassName returns a qualified storage class name.
 func QualifiedStorageClassName(namespace, storageClass string) string {
 	if namespace == "" {
 		return storageClass
@@ -32,6 +33,7 @@ func QualifiedStorageClassName(namespace, storageClass string) string {
 }
 
 var (
+	// StorageBaseDir is the base storage dir for the k8s series.
 	StorageBaseDir = getK8sStorageBaseDir()
 
 	// LegacyPVNameRegexp matches how Juju labels persistent volumes.

@@ -4,6 +4,7 @@
 package constants
 
 const (
+	// Below are keys for juju specific labels.
 	LabelOperator      = "juju-operator"
 	LabelStorage       = "juju-storage"
 	LabelVersion       = "juju-version"
