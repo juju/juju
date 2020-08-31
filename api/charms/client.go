@@ -7,6 +7,7 @@ package charms
 import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
 	apicharm "github.com/juju/juju/api/common/charm"
@@ -117,4 +118,50 @@ func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
 		LXDProfile: convertCharmLXDProfile(info.LXDProfile),
 	}
 	return result, nil
+}
+
+// AddCharm adds the given charm URL (which must include revision) to
+// the model, if it does not exist yet. Local charms are not
+// supported, only charm store and charm hub URLs. See also AddLocalCharm()
+// in the client-side API.
+//
+// If the AddCharm API call fails because of an authorization error
+// when retrieving the charm from the charm store, an error
+// satisfying params.IsCodeUnauthorized will be returned.
+func (c *Client) AddCharm(curl *charm.URL, origin apicharm.Origin, force bool) (apicharm.Origin, error) {
+	args := params.AddCharmWithOrigin{
+		URL:    curl.String(),
+		Origin: origin.ParamsCharmOrigin(),
+		Force:  force,
+	}
+	var result params.CharmOriginResult
+	if err := c.facade.FacadeCall("AddCharm", args, &result); err != nil {
+		return apicharm.Origin{}, errors.Trace(err)
+	}
+	return apicharm.APICharmOrigin(result.Origin), nil
+}
+
+// AddCharmWithAuthorization is like AddCharm except it also provides
+// the given charmstore macaroon for the juju server to use when
+// obtaining the charm from the charm store or from charm hub. The
+// macaroon is conventionally obtained from the /delegatable-macaroon
+// endpoint in the charm store.
+//
+// If the AddCharmWithAuthorization API call fails because of an
+// authorization error when retrieving the charm from the charm store,
+// an error satisfying params.IsCodeUnauthorized will be returned.
+// Force is used to overload any validation errors that could occur during
+// a deploy
+func (c *Client) AddCharmWithAuthorization(curl *charm.URL, origin apicharm.Origin, csMac *macaroon.Macaroon, force bool) (apicharm.Origin, error) {
+	args := params.AddCharmWithAuth{
+		URL:                curl.String(),
+		Origin:             origin.ParamsCharmOrigin(),
+		CharmStoreMacaroon: csMac,
+		Force:              force,
+	}
+	var result params.CharmOriginResult
+	if err := c.facade.FacadeCall("AddCharmWithAuthorization", args, &result); err != nil {
+		return apicharm.Origin{}, errors.Trace(err)
+	}
+	return apicharm.APICharmOrigin(result.Origin), nil
 }

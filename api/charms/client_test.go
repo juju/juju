@@ -9,6 +9,7 @@ import (
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon.v2"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/charms"
@@ -177,4 +178,67 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 		},
 	}
 	c.Assert(got, gc.DeepEquals, want)
+}
+
+func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	curl := charm.MustParseURL("cs:testme-2")
+	origin := apicharm.Origin{
+		Source:   "charm-store",
+		ID:       "",
+		Hash:     "",
+		Risk:     "stable",
+		Revision: &curl.Revision,
+		Track:    nil,
+	}
+	facadeArgs := params.AddCharmWithOrigin{
+		URL:    curl.String(),
+		Origin: origin.ParamsCharmOrigin(),
+	}
+	result := new(params.CharmOriginResult)
+	actualResult := params.CharmOriginResult{
+		Origin: origin.ParamsCharmOrigin(),
+	}
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("AddCharm", facadeArgs, result).SetArg(2, actualResult).Return(nil)
+
+	client := charms.NewClientWithFacade(mockFacadeCaller)
+	got, err := client.AddCharm(curl, origin, false)
+	c.Assert(err, gc.IsNil)
+	c.Assert(got, gc.DeepEquals, origin)
+}
+
+func (s *charmsMockSuite) TestAddCharmWithAuthorization(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	curl := charm.MustParseURL("cs:testme-2")
+	origin := apicharm.Origin{
+		Source:   "charm-store",
+		ID:       "",
+		Hash:     "",
+		Risk:     "stable",
+		Revision: &curl.Revision,
+		Track:    nil,
+	}
+	facadeArgs := params.AddCharmWithAuth{
+		URL:                curl.String(),
+		CharmStoreMacaroon: &macaroon.Macaroon{},
+		Origin:             origin.ParamsCharmOrigin(),
+	}
+	result := new(params.CharmOriginResult)
+	actualResult := params.CharmOriginResult{
+		Origin: origin.ParamsCharmOrigin(),
+	}
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("AddCharmWithAuthorization", facadeArgs, result).SetArg(2, actualResult).Return(nil)
+
+	client := charms.NewClientWithFacade(mockFacadeCaller)
+	got, err := client.AddCharmWithAuthorization(curl, origin, &macaroon.Macaroon{}, false)
+	c.Assert(err, gc.IsNil)
+	c.Assert(got, gc.DeepEquals, origin)
 }
