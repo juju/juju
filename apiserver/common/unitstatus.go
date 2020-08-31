@@ -28,6 +28,7 @@ type UnitStatusGetter interface {
 	ShouldBeAssigned() bool
 	Name() string
 	Life() state.Life
+	IsEmbedded() (bool, error)
 }
 
 // UnitStatus returns the unit agent and workload status for a given
