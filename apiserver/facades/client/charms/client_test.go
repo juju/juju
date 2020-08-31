@@ -373,10 +373,10 @@ func (s *charmsSuite) TestIsMeteredTrue(c *gc.C) {
 }
 
 type charmsMockSuite struct {
-	model       *mocks.MockBackendModel
-	state       *mocks.MockBackendState
-	authorizer  *apiservermocks.MockAuthorizer
-	urlResolver *mocks.MockCSURLResolver
+	model      *mocks.MockBackendModel
+	state      *mocks.MockBackendState
+	authorizer *apiservermocks.MockAuthorizer
+	repository *mocks.MockCSRepository
 }
 
 var _ = gc.Suite(&charmsMockSuite{})
@@ -471,8 +471,8 @@ func (s *charmsMockSuite) TestResolveCharmNoDefinedSeries(c *gc.C) {
 }
 
 func (s *charmsMockSuite) api(c *gc.C) *charms.API {
-	repoFunc := func(_ charms.ResolverGetterParams) (charms.CSURLResolver, error) {
-		return s.urlResolver, nil
+	repoFunc := func(_ charms.ResolverGetterParams) (charms.CSRepository, error) {
+		return s.repository, nil
 	}
 	api, err := charms.NewCharmsAPI(
 		s.authorizer,
@@ -494,12 +494,12 @@ func (s *charmsMockSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.model.EXPECT().ModelTag().Return(names.NewModelTag("deadbeef-abcd-4fd2-967d-db9663db7bea"))
 
 	s.state = mocks.NewMockBackendState(ctrl)
-	s.urlResolver = mocks.NewMockCSURLResolver(ctrl)
+	s.repository = mocks.NewMockCSRepository(ctrl)
 	return ctrl
 }
 
 func (s *charmsMockSuite) expectResolveWithPreferredChannel(times int, err error) {
-	s.urlResolver.EXPECT().ResolveWithPreferredChannel(
+	s.repository.EXPECT().ResolveWithPreferredChannel(
 		gomock.AssignableToTypeOf(&charm.URL{}),
 		gomock.Any(),
 	).DoAndReturn(
@@ -514,7 +514,7 @@ func (s *charmsMockSuite) expectResolveWithPreferredChannel(times int, err error
 }
 
 func (s *charmsMockSuite) expectResolveWithPreferredChannelNoSeries() {
-	s.urlResolver.EXPECT().ResolveWithPreferredChannel(
+	s.repository.EXPECT().ResolveWithPreferredChannel(
 		gomock.AssignableToTypeOf(&charm.URL{}),
 		gomock.Any(),
 	).DoAndReturn(

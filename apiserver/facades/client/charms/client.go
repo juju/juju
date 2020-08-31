@@ -181,9 +181,13 @@ func (a *API) ResolveCharms(args params.ResolveCharmsWithChannel) (params.Resolv
 	return result, nil
 }
 
-// URLResolver is the part of charmrepo.Charmstore that we need to
-// resolve a charm url.
-type URLResolver interface {
+// Repository is the part of charmrepo.Charmstore that we need to
+// resolve a charm url and get a charm archive.
+type Repository interface {
+	// Get reads the charm referenced by curl into a file
+	// with the given path, which will be created if needed. Note that
+	// the path's parent directory must already exist.
+	Get(curl *charm.URL, archivePath string) (*charm.CharmArchive, error)
 	ResolveWithPreferredChannel(*charm.URL, params.CharmOrigin) (*charm.URL, params.CharmOrigin, []string, error)
 }
 
@@ -200,9 +204,9 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel, mac *macaroon.
 	}
 
 	// If we can guarantee that each charm to be resolved uses the
-	// same url source and channel, there is no need to get a new resolver
+	// same url source and channel, there is no need to get a new repository
 	// each time.
-	resolver, err := a.resolver(arg.Origin, mac)
+	resolver, err := a.repository(arg.Origin, mac)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result
@@ -225,17 +229,17 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel, mac *macaroon.
 	return result
 }
 
-func (a *API) resolver(origin params.CharmOrigin, mac *macaroon.Macaroon) (URLResolver, error) {
+func (a *API) repository(origin params.CharmOrigin, mac *macaroon.Macaroon) (Repository, error) {
 	switch origin.Source {
 	case corecharm.CharmHub.String():
-		return a.charmHubResolver()
+		return a.charmHubRepository()
 	case corecharm.CharmStore.String():
-		return a.charmStoreResolver(origin, mac)
+		return a.charmStoreRepository(origin, mac)
 	}
 	return nil, errors.BadRequestf("Not charm hub nor charm store charm")
 }
 
-func (a *API) charmStoreResolver(origin params.CharmOrigin, mac *macaroon.Macaroon) (URLResolver, error) {
+func (a *API) charmStoreRepository(origin params.CharmOrigin, mac *macaroon.Macaroon) (Repository, error) {
 	controllerCfg, err := a.backendState.ControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -249,10 +253,10 @@ func (a *API) charmStoreResolver(origin params.CharmOrigin, mac *macaroon.Macaro
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &csResolver{resolver: client}, nil
+	return &csRepo{repo: client}, nil
 }
 
-func (a *API) charmHubResolver() (URLResolver, error) {
+func (a *API) charmHubRepository() (Repository, error) {
 	cfg, err := a.backendModel.Config()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -268,7 +272,7 @@ func (a *API) charmHubResolver() (URLResolver, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &chResolver{chClient}, nil
+	return &chRepo{chClient}, nil
 }
 
 // IsMetered returns whether or not the charm is metered.

@@ -18,6 +18,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/charmstore"
 	corecharm "github.com/juju/juju/core/charm"
@@ -27,15 +28,16 @@ var logger = loggo.GetLogger("juju.apiserver.charms")
 
 type CharmHubClient interface {
 	Info(ctx context.Context, name string) (transport.InfoResponse, error)
+	Refresh(ctx context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error)
 }
 
-type chResolver struct {
+type chRepo struct {
 	client CharmHubClient
 }
 
 // ResolveWithPreferredChannel call the CharmHub version of
 // ResolveWithPreferredChannel.
-func (c *chResolver) ResolveWithPreferredChannel(curl *charm.URL, origin params.CharmOrigin) (*charm.URL, params.CharmOrigin, []string, error) {
+func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.CharmOrigin) (*charm.URL, params.CharmOrigin, []string, error) {
 	logger.Tracef("Resolving CharmHub charm %q", curl)
 	info, err := c.client.Info(context.TODO(), curl.Name)
 	if err != nil {
@@ -58,6 +60,11 @@ func (c *chResolver) ResolveWithPreferredChannel(curl *charm.URL, origin params.
 		return nil, params.CharmOrigin{}, nil, errors.Trace(err)
 	}
 	return c.resolveViaChannelMap(curl, origin, channelMap)
+}
+
+func (c *chRepo) Get(curl *charm.URL, archivePath string) (*charm.CharmArchive, error) {
+	logger.Tracef("Get CharmHub charm %q from %q", curl, archivePath)
+	return nil, errors.NotImplementedf("get")
 }
 
 func makeChannel(origin params.CharmOrigin) (corecharm.Channel, error) {
@@ -122,7 +129,7 @@ func matchChannel(one corecharm.Channel, two transport.Channel) bool {
 	return one.String() == two.Name
 }
 
-func (c *chResolver) resolveViaChannelMap(curl *charm.URL, origin params.CharmOrigin, channelMap transport.ChannelMap) (*charm.URL, params.CharmOrigin, []string, error) {
+func (c *chRepo) resolveViaChannelMap(curl *charm.URL, origin params.CharmOrigin, channelMap transport.ChannelMap) (*charm.URL, params.CharmOrigin, []string, error) {
 	mapChannel := channelMap.Channel
 	mapRevision := channelMap.Revision
 
@@ -150,23 +157,28 @@ func unmarshalCharmMetadata(metadataYAML string) (*charm.Meta, error) {
 	return meta, nil
 }
 
-type csResolver struct {
-	resolver CSURLResolver
+type csRepo struct {
+	repo CSRepository
 }
 
 // ResolveWithPreferredChannel calls the CharmStore version of
 // ResolveWithPreferredChannel.  Convert CharmStore channel to
 // and from the charm Origin.
-func (c *csResolver) ResolveWithPreferredChannel(curl *charm.URL, origin params.CharmOrigin) (*charm.URL, params.CharmOrigin, []string, error) {
+func (c *csRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.CharmOrigin) (*charm.URL, params.CharmOrigin, []string, error) {
 	logger.Tracef("Resolving CharmStore charm %q with channel %q", curl, origin.Risk)
 	// A charm origin risk is equivalent to a charm store channel
-	newCurl, newRisk, supportedSeries, err := c.resolver.ResolveWithPreferredChannel(curl, csparams.Channel(origin.Risk))
+	newCurl, newRisk, supportedSeries, err := c.repo.ResolveWithPreferredChannel(curl, csparams.Channel(origin.Risk))
 	newOrigin := origin
 	newOrigin.Risk = string(newRisk)
 	return newCurl, newOrigin, supportedSeries, err
 }
 
-type CSResolverGetterFunc func(args ResolverGetterParams) (CSURLResolver, error)
+func (c *csRepo) Get(curl *charm.URL, archivePath string) (*charm.CharmArchive, error) {
+	logger.Tracef("Get CharmStore charm %q from %q", curl, archivePath)
+	return c.repo.Get(curl, archivePath)
+}
+
+type CSResolverGetterFunc func(args ResolverGetterParams) (CSRepository, error)
 
 type ResolverGetterParams struct {
 	CSURL              string
@@ -174,13 +186,14 @@ type ResolverGetterParams struct {
 	CharmStoreMacaroon *macaroon.Macaroon
 }
 
-// CSURLResolver is the part of charmrepo.Charmstore that we need to
+// CSRepository is the part of charmrepo.Charmstore that we need to
 // resolve a charm url.
-type CSURLResolver interface {
+type CSRepository interface {
+	Get(curl *charm.URL, archivePath string) (*charm.CharmArchive, error)
 	ResolveWithPreferredChannel(*charm.URL, csparams.Channel) (*charm.URL, csparams.Channel, []string, error)
 }
 
-func csResolverGetter(args ResolverGetterParams) (CSURLResolver, error) {
+func csResolverGetter(args ResolverGetterParams) (CSRepository, error) {
 	csClient, err := openCSClient(args)
 	if err != nil {
 		return nil, errors.Trace(err)
