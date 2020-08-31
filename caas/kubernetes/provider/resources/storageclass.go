@@ -33,16 +33,16 @@ func NewStorageClass(name string, in *storagev1.StorageClass) *StorageClass {
 }
 
 // ListStorageClass returns a list of storage classes.
-func ListStorageClass(ctx context.Context, client kubernetes.Interface, opts metav1.ListOptions) ([]storagev1.StorageClass, error) {
+func ListStorageClass(ctx context.Context, client kubernetes.Interface, opts metav1.ListOptions) ([]StorageClass, error) {
 	api := client.StorageV1().StorageClasses()
-	var items []storagev1.StorageClass
+	var items []StorageClass
 	for {
 		res, err := api.List(ctx, opts)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		for _, v := range res.Items {
-			items = append(items, v)
+			items = append(items, StorageClass{StorageClass: v})
 		}
 		if res.RemainingItemCount == nil || *res.RemainingItemCount == 0 {
 			break
@@ -68,6 +68,11 @@ func (ss *StorageClass) Apply(ctx context.Context, client kubernetes.Interface) 
 	res, err := api.Patch(ctx, ss.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
 		FieldManager: JujuFieldManager,
 	})
+	if k8serrors.IsNotFound(err) {
+		res, err = api.Create(ctx, &ss.StorageClass, metav1.CreateOptions{
+			FieldManager: JujuFieldManager,
+		})
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -92,7 +97,7 @@ func (ss *StorageClass) Get(ctx context.Context, client kubernetes.Interface) er
 func (ss *StorageClass) Delete(ctx context.Context, client kubernetes.Interface) error {
 	api := client.StorageV1().StorageClasses()
 	err := api.Delete(ctx, ss.Name, metav1.DeleteOptions{
-		PropagationPolicy: &k8sconstants.DefaultPropagationPolicy,
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

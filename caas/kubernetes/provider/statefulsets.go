@@ -156,7 +156,7 @@ func (k *kubernetesClient) getStatefulSet(name string) (*apps.StatefulSet, error
 // deleteStatefulSet deletes a statefulset resource.
 func (k *kubernetesClient) deleteStatefulSet(name string) error {
 	err := k.client().AppsV1().StatefulSets(k.namespace).Delete(context.TODO(), name, v1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil
@@ -167,7 +167,7 @@ func (k *kubernetesClient) deleteStatefulSet(name string) error {
 // deleteStatefulSet deletes all statefulset resources for an application.
 func (k *kubernetesClient) deleteStatefulSets(appName string) error {
 	err := k.client().AppsV1().StatefulSets(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, v1.ListOptions{
 		LabelSelector: utils.LabelSetToSelector(k.getStatefulSetLabels(appName)).String(),
 	})

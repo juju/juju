@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
@@ -271,7 +272,7 @@ func CharmStorageParams(
 	result := &params.KubernetesFilesystemParams{
 		StorageName: "charm",
 		Size:        size,
-		Provider:    string(provider.K8s_ProviderType),
+		Provider:    string(k8sconstants.StorageProviderType),
 		Tags:        tags,
 		Attributes:  make(map[string]interface{}),
 	}
@@ -281,7 +282,7 @@ func CharmStorageParams(
 	// requested.
 	// First, blank out the fallback pool name used in previous
 	// versions of Juju.
-	if poolName == string(provider.K8s_ProviderType) {
+	if poolName == string(k8sconstants.StorageProviderType) {
 		poolName = ""
 	}
 	maybePoolName := poolName
@@ -299,8 +300,8 @@ func CharmStorageParams(
 			result.Attributes = attrs
 		}
 	}
-	if _, ok := result.Attributes[provider.StorageClass]; !ok && result.Provider == string(provider.K8s_ProviderType) {
-		result.Attributes[provider.StorageClass] = storageClassName
+	if _, ok := result.Attributes[k8sconstants.StorageClass]; !ok && result.Provider == string(k8sconstants.StorageProviderType) {
+		result.Attributes[k8sconstants.StorageClass] = storageClassName
 	}
 	return result, nil
 }

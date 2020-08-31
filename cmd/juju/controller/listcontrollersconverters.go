@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/jujuclient"
 )
@@ -124,7 +124,7 @@ func (c *listControllersCommand) convertControllerDetails(storeControllers map[s
 			CloudRegion:       details.CloudRegion,
 			AgentVersion:      details.AgentVersion,
 		}
-		isCaas := details.CloudType == string(provider.K8s_ProviderType)
+		isCaas := details.CloudType == string(k8sconstants.StorageProviderType)
 		if details.MachineCount != nil && *details.MachineCount > 0 {
 			if isCaas {
 				item.NodeCount = details.MachineCount

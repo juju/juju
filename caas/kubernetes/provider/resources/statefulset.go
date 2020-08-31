@@ -49,6 +49,11 @@ func (ss *StatefulSet) Apply(ctx context.Context, client kubernetes.Interface) e
 	res, err := api.Patch(ctx, ss.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
 		FieldManager: JujuFieldManager,
 	})
+	if k8serrors.IsNotFound(err) {
+		res, err = api.Create(ctx, &ss.StatefulSet, metav1.CreateOptions{
+			FieldManager: JujuFieldManager,
+		})
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -73,7 +78,7 @@ func (ss *StatefulSet) Get(ctx context.Context, client kubernetes.Interface) err
 func (ss *StatefulSet) Delete(ctx context.Context, client kubernetes.Interface) error {
 	api := client.AppsV1().StatefulSets(ss.Namespace)
 	err := api.Delete(ctx, ss.Name, metav1.DeleteOptions{
-		PropagationPolicy: &k8sconstants.DefaultPropagationPolicy,
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

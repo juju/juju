@@ -8,8 +8,6 @@ import (
 	"github.com/juju/juju/environs/context"
 )
 
-const CAASProviderType = "kubernetes"
-
 var unsupportedConstraints = []string{
 	constraints.Cores,
 	constraints.VirtType,

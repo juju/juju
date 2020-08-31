@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
@@ -230,7 +231,7 @@ func (s *CAASProvisionerSuite) assertProvisioningInfo(c *gc.C, isRawK8sSpec bool
 	expectedFileSystems := map[string]params.KubernetesFilesystemParams{
 		"data": {
 			StorageName: "data",
-			Provider:    string(provider.K8s_ProviderType),
+			Provider:    string(k8sconstants.StorageProviderType),
 			Size:        100,
 			Attributes: map[string]interface{}{
 				"storage-class": "k8s-storage",
@@ -241,7 +242,7 @@ func (s *CAASProvisionerSuite) assertProvisioningInfo(c *gc.C, isRawK8sSpec bool
 				"juju-model-uuid":      coretesting.ModelTag.Id(),
 				"juju-controller-uuid": coretesting.ControllerTag.Id()},
 			Attachment: &params.KubernetesFilesystemAttachmentParams{
-				Provider:   string(provider.K8s_ProviderType),
+				Provider:   string(k8sconstants.StorageProviderType),
 				MountPoint: "/var/lib/juju/storage/data/0",
 				ReadOnly:   true,
 			},

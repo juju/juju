@@ -50,6 +50,11 @@ func (pvc *PersistentVolumeClaim) Apply(ctx context.Context, client kubernetes.I
 	res, err := api.Patch(ctx, pvc.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
 		FieldManager: JujuFieldManager,
 	})
+	if k8serrors.IsNotFound(err) {
+		res, err = api.Create(ctx, &pvc.PersistentVolumeClaim, metav1.CreateOptions{
+			FieldManager: JujuFieldManager,
+		})
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -74,7 +79,7 @@ func (pvc *PersistentVolumeClaim) Get(ctx context.Context, client kubernetes.Int
 func (pvc *PersistentVolumeClaim) Delete(ctx context.Context, client kubernetes.Interface) error {
 	api := client.CoreV1().PersistentVolumeClaims(pvc.Namespace)
 	err := api.Delete(ctx, pvc.Name, metav1.DeleteOptions{
-		PropagationPolicy: &k8sconstants.DefaultPropagationPolicy,
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

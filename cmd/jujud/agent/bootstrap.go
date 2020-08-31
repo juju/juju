@@ -28,8 +28,8 @@ import (
 	"github.com/juju/juju/agent/agentbootstrap"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/caas"
-	caasprovider "github.com/juju/juju/caas/kubernetes/provider"
-	caasconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
@@ -126,13 +126,13 @@ func (c *BootstrapCommand) ensureConfigFilesForCaas() error {
 			to: agent.ConfigPath(c.AgentConf.DataDir(), tag),
 			from: filepath.Join(
 				agent.Dir(c.AgentConf.DataDir(), tag),
-				caasconstants.TemplateFileNameAgentConf,
+				k8sconstants.TemplateFileNameAgentConf,
 			),
 		},
 		{
 			// ensure server.pem
 			to:   filepath.Join(c.AgentConf.DataDir(), mongo.FileNameDBSSLKey),
-			from: filepath.Join(c.AgentConf.DataDir(), caasprovider.TemplateFileNameServerPEM),
+			from: filepath.Join(c.AgentConf.DataDir(), k8sprovider.TemplateFileNameServerPEM),
 		},
 	} {
 		if err := copyFileFromTemplate(v.to, v.from); err != nil {
@@ -158,7 +158,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	isCAAS := args.ControllerCloud.Type == caasprovider.CAASProviderType
+	isCAAS := args.ControllerCloud.Type == k8sconstants.CAASProviderType
 
 	if isCAAS {
 		if err := c.ensureConfigFilesForCaas(); err != nil {

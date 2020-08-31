@@ -49,6 +49,11 @@ func (ds *DaemonSet) Apply(ctx context.Context, client kubernetes.Interface) err
 	res, err := api.Patch(ctx, ds.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
 		FieldManager: JujuFieldManager,
 	})
+	if k8serrors.IsNotFound(err) {
+		res, err = api.Create(ctx, &ds.DaemonSet, metav1.CreateOptions{
+			FieldManager: JujuFieldManager,
+		})
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -73,7 +78,7 @@ func (ds *DaemonSet) Get(ctx context.Context, client kubernetes.Interface) error
 func (ds *DaemonSet) Delete(ctx context.Context, client kubernetes.Interface) error {
 	api := client.AppsV1().DaemonSets(ds.Namespace)
 	err := api.Delete(ctx, ds.Name, metav1.DeleteOptions{
-		PropagationPolicy: &k8sconstants.DefaultPropagationPolicy,
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

@@ -144,7 +144,7 @@ func (k *kubernetesClient) listConfigMaps(labels map[string]string) ([]core.Conf
 
 func (k *kubernetesClient) deleteConfigMaps(appName string) error {
 	err := k.client().CoreV1().ConfigMaps(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, v1.ListOptions{
 		LabelSelector: utils.LabelSetToSelector(k.getConfigMapLabels(appName)).String(),
 	})

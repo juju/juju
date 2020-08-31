@@ -26,6 +26,6 @@ func NewPreconditionDeleteOptions(uid k8stypes.UID) metav1.DeleteOptions {
 	// TODO(caas): refactor all deleting single resource operation has this UID ensured precondition.
 	return metav1.DeleteOptions{
 		Preconditions:     NewUIDPreconditions(uid),
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}
 }

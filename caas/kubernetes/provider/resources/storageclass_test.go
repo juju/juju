@@ -28,14 +28,16 @@ func (s *storageClassSuite) TestApply(c *gc.C) {
 			Name: "ds1",
 		},
 	}
-	_, err := s.client.StorageV1().StorageClasses().Create(context.TODO(), ds, metav1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	// Create.
+	dsResource := resources.NewStorageClass("ds1", ds)
+	c.Assert(dsResource.Apply(context.TODO(), s.client), jc.ErrorIsNil)
 	result, err := s.client.StorageV1().StorageClasses().Get(context.TODO(), "ds1", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(result.GetAnnotations()), gc.Equals, 0)
 
+	// Update.
 	ds.SetAnnotations(map[string]string{"a": "b"})
-	dsResource := resources.NewStorageClass("ds1", ds)
+	dsResource = resources.NewStorageClass("ds1", ds)
 	c.Assert(dsResource.Apply(context.TODO(), s.client), jc.ErrorIsNil)
 
 	result, err = s.client.StorageV1().StorageClasses().Get(context.TODO(), "ds1", metav1.GetOptions{})

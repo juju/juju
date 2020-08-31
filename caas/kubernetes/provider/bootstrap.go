@@ -140,7 +140,7 @@ type controllerStacker interface {
 
 func controllerCorelation(broker *kubernetesClient) (string, error) {
 	// ensure controller specific annotations.
-	_ = broker.addAnnotations(constants.AnnotationControllerIsControllerKey, "true")
+	_ = broker.addAnnotations(constants.AnnotationControllerIsControllerKey(), "true")
 
 	ns, err := broker.listNamespacesByAnnotations(broker.GetAnnotations())
 	if errors.IsNotFound(err) || ns == nil {
@@ -204,7 +204,7 @@ func newcontrollerStack(
 		ctx:              ctx,
 		stackName:        stackName,
 		stackLabels:      map[string]string{constants.LabelApplication: stackName},
-		stackAnnotations: map[string]string{constants.AnnotationControllerUUIDKey: pcfg.ControllerTag.Id()},
+		stackAnnotations: map[string]string{constants.AnnotationControllerUUIDKey(): pcfg.ControllerTag.Id()},
 		broker:           broker,
 
 		pcfg:        pcfg,
