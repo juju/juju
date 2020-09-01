@@ -18673,20 +18673,16 @@
                         "error": {
                             "$ref": "#/definitions/Error"
                         },
-                        "group-key": {
-                            "type": "string"
-                        },
-                        "unit-port-ranges": {
+                        "unit-port-range-group": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/OpenUnitPortRanges"
+                                "$ref": "#/definitions/OpenUnitPortRangeGroup"
                             }
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "group-key",
-                        "unit-port-ranges"
+                        "unit-port-range-group"
                     ]
                 },
                 "OpenMachinePortRangesResults": {
@@ -18702,6 +18698,25 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "OpenUnitPortRangeGroup": {
+                    "type": "object",
+                    "properties": {
+                        "group-key": {
+                            "type": "string"
+                        },
+                        "unit-port-ranges": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/OpenUnitPortRanges"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "group-key",
+                        "unit-port-ranges"
                     ]
                 },
                 "OpenUnitPortRanges": {
@@ -40805,20 +40820,16 @@
                         "error": {
                             "$ref": "#/definitions/Error"
                         },
-                        "group-key": {
-                            "type": "string"
-                        },
-                        "unit-port-ranges": {
+                        "unit-port-range-group": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/OpenUnitPortRanges"
+                                "$ref": "#/definitions/OpenUnitPortRangeGroup"
                             }
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "group-key",
-                        "unit-port-ranges"
+                        "unit-port-range-group"
                     ]
                 },
                 "OpenMachinePortRangesResults": {
@@ -40834,6 +40845,25 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "OpenUnitPortRangeGroup": {
+                    "type": "object",
+                    "properties": {
+                        "group-key": {
+                            "type": "string"
+                        },
+                        "unit-port-ranges": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/OpenUnitPortRanges"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "group-key",
+                        "unit-port-ranges"
                     ]
                 },
                 "OpenUnitPortRanges": {
