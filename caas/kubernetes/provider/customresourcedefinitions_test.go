@@ -37,7 +37,7 @@ func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds []k8ssp
 	}
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(workloadSpec)
+	podSpec := provider.Pod(workloadSpec).PodSpec
 
 	numUnits := int32(2)
 	statefulSetArg := &appsv1.StatefulSet{
@@ -361,7 +361,7 @@ func (s *K8sBrokerSuite) assertCustomerResources(c *gc.C, crs map[string][]unstr
 	}
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(workloadSpec)
+	podSpec := provider.Pod(workloadSpec).PodSpec
 
 	numUnits := int32(2)
 	statefulSetArg := &appsv1.StatefulSet{

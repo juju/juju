@@ -25,6 +25,8 @@ func (s *legacySpecsSuite) TestParse(c *gc.C) {
 
 	specStrBase := `
 omitServiceFrontend: true
+annotations:
+  foo: baz
 activeDeadlineSeconds: 10
 restartPolicy: OnFailure
 terminationGracePeriodSeconds: 20
@@ -290,6 +292,7 @@ echo "do some stuff here for gitlab-init container"
 		pSpecs.ProviderPod = &k8sspecs.K8sPodSpec{
 			KubernetesResources: &k8sspecs.KubernetesResources{
 				Pod: &k8sspecs.PodSpec{
+					Annotations:                   map[string]string{"foo": "baz"},
 					RestartPolicy:                 core.RestartPolicyOnFailure,
 					ActiveDeadlineSeconds:         int64Ptr(10),
 					TerminationGracePeriodSeconds: int64Ptr(20),

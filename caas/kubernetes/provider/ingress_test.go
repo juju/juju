@@ -31,7 +31,7 @@ func (s *K8sBrokerSuite) assertIngressResources(c *gc.C, IngressResources []k8ss
 	}
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(workloadSpec)
+	podSpec := provider.Pod(workloadSpec).PodSpec
 
 	numUnits := int32(2)
 	statefulSetArg := &appsv1.StatefulSet{

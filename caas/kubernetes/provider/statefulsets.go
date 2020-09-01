@@ -79,7 +79,7 @@ func (k *kubernetesClient) configureStatefulSet(
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					Labels:      k.getStatefulSetLabels(appName),
-					Annotations: podAnnotations(annotations.Copy()).ToMap(),
+					Annotations: podAnnotations(k8sannotations.New(workloadSpec.Pod.Annotations).Merge(annotations).Copy()).ToMap(),
 				},
 			},
 			PodManagementPolicy: getPodManagementPolicy(workloadSpec.Service),
@@ -95,7 +95,7 @@ func (k *kubernetesClient) configureStatefulSet(
 	if err := k.configurePodFiles(appName, annotations, workloadSpec, containers, cfgName); err != nil {
 		return errors.Trace(err)
 	}
-	podSpec := workloadSpec.Pod
+	podSpec := workloadSpec.Pod.PodSpec
 	existingPodSpec := podSpec
 
 	handlePVC := func(pvc core.PersistentVolumeClaim, mountPath string, readOnly bool) error {

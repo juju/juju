@@ -37,7 +37,7 @@ func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs []k8s
 	}
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(workloadSpec)
+	podSpec := provider.Pod(workloadSpec).PodSpec
 
 	numUnits := int32(2)
 	statefulSetArg := &appsv1.StatefulSet{
@@ -332,7 +332,7 @@ func (s *K8sBrokerSuite) assertValidatingWebhookConfigurations(c *gc.C, cfgs []k
 	}
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(workloadSpec)
+	podSpec := provider.Pod(workloadSpec).PodSpec
 
 	numUnits := int32(2)
 	statefulSetArg := &appsv1.StatefulSet{
