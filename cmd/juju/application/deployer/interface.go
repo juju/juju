@@ -36,6 +36,9 @@ type Deployer interface {
 	// then deploys it.  This is done as one step to accommodate the
 	// call being wrapped by block.ProcessBlockedError.
 	PrepareAndDeploy(*cmd.Context, DeployerAPI, Resolver, store.MacaroonGetter) error
+
+	// String returns a string description of the deployer.
+	String() string
 }
 
 // DeployStepAPI represents a API required for deploying using the step
@@ -124,6 +127,17 @@ type ApplicationAPI interface {
 	Update(apiparams.ApplicationUpdate) error
 	ScaleApplication(application.ScaleApplicationParams) (apiparams.ScaleApplicationResult, error)
 	Consume(arg crossmodel.ConsumeApplicationArgs) (string, error)
+}
+
+// Bundle is a local version of the charm.Bundle interface, for test
+// with the Resolver interface.
+type Bundle interface {
+	// Data returns the contents of the bundle's bundle.yaml file.
+	Data() *charm.BundleData // yes
+	// ReadMe returns the contents of the bundle's README.md file.
+	ReadMe() string
+	// ContainsOverlays returns true if the bundle contains any overlays.
+	ContainsOverlays() bool
 }
 
 // Resolver defines what we need  to resolve a charm or bundle and
