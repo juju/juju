@@ -510,16 +510,15 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	}
 
 	var macaroon *macaroon.Macaroon
-	// TODO (hml) 2020-08-25
-	// Update AddCharmFromURL to use origin
-	url, macaroon, err = store.AddCharmFromURL(h.deployAPI, h.authorizer, url, csparams.Channel(origin.Risk), h.force)
+	var charmOrigin commoncharm.Origin
+	url, macaroon, charmOrigin, err = store.AddCharmFromURL(h.deployAPI, h.authorizer, url, origin, h.force)
 	if err != nil {
 		return errors.Annotatef(err, "cannot add charm %q", chParms.Charm)
 	}
 	logger.Debugf("added charm %s", url)
 	h.results[id] = url.String()
 	h.macaroons[url] = macaroon
-	h.origins[url] = origin
+	h.origins[url] = charmOrigin
 	return nil
 }
 

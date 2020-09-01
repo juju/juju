@@ -8,17 +8,19 @@ import (
 	"strings"
 
 	"github.com/juju/charm/v8"
-	"github.com/juju/charmrepo/v6/csclient/params"
+	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/applicationoffers"
 	apicharms "github.com/juju/juju/api/charms"
+	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/api/spaces"
@@ -95,6 +97,7 @@ type spacesClient struct {
 }
 
 type deployAPIAdapter struct {
+	charmsAPIVersion int
 	api.Connection
 	*apiClient
 	*charmsClient
@@ -135,6 +138,20 @@ func (a *deployAPIAdapter) SetAnnotation(annotations map[string]map[string]strin
 
 func (a *deployAPIAdapter) GetAnnotations(tags []string) ([]apiparams.AnnotationsGetResult, error) {
 	return a.annotationsClient.Get(tags)
+}
+
+func (a *deployAPIAdapter) AddCharm(curl *charm.URL, origin commoncharm.Origin, force bool) (commoncharm.Origin, error) {
+	if a.charmsAPIVersion > 2 {
+		return a.charmsClient.AddCharm(curl, origin, force)
+	}
+	return origin, a.apiClient.AddCharm(curl, csparams.Channel(origin.Risk), force)
+}
+
+func (a *deployAPIAdapter) AddCharmWithAuthorization(curl *charm.URL, origin commoncharm.Origin, mac *macaroon.Macaroon, force bool) (commoncharm.Origin, error) {
+	if a.charmsAPIVersion > 2 {
+		return a.charmsClient.AddCharmWithAuthorization(curl, origin, mac, force)
+	}
+	return origin, a.apiClient.AddCharmWithAuthorization(curl, csparams.Channel(origin.Risk), mac, force)
 }
 
 // NewDeployCommand returns a command to deploy applications.
@@ -178,6 +195,7 @@ func newDeployCommand() *DeployCommand {
 			Connection:        apiRoot,
 			apiClient:         &apiClient{Client: apiRoot.Client()},
 			charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
+			charmsAPIVersion:  apiRoot.BestFacadeVersion("Charms"),
 			applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
 			modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
 			annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
@@ -216,7 +234,7 @@ type DeployCommand struct {
 	// the charm to be deployed.
 	// TODO: (hml) 2020-08-25
 	// Change to a string which can be interpreted for cs or ch.
-	Channel params.Channel
+	Channel csparams.Channel
 
 	// Series is the series of the charm to deploy.
 	Series string

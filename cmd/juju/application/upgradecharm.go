@@ -554,7 +554,35 @@ func (c *upgradeCharmCommand) upgradeResources(
 func newCharmAdder(
 	api api.Connection,
 ) store.CharmAdder {
-	return &apiClient{Client: api.Client()}
+	adder := &charmAdderShim{api: &apiClient{Client: api.Client()}}
+	if api.BestFacadeVersion("Charms") > 2 {
+		adder.charms = &charmsClient{Client: charms.NewClient(api)}
+	}
+	return adder
+}
+
+type charmAdderShim struct {
+	charms *charmsClient
+	api    *apiClient
+}
+
+func (c *charmAdderShim) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bool) (*charm.URL, error) {
+	return c.api.AddLocalCharm(curl, ch, force)
+}
+
+func (c *charmAdderShim) AddCharm(curl *charm.URL, origin commoncharm.Origin, force bool) (commoncharm.Origin, error) {
+	if c.charms != nil {
+		return c.charms.AddCharm(curl, origin, force)
+	}
+	return origin, c.api.AddCharm(curl, csparams.Channel(origin.Risk), force)
+}
+
+func (c *charmAdderShim) AddCharmWithAuthorization(curl *charm.URL, origin commoncharm.Origin, mac *macaroon.Macaroon, force bool) (commoncharm.Origin, error) {
+	if c.charms != nil {
+		return c.charms.AddCharmWithAuthorization(curl, origin, mac, force)
+	}
+	return origin, c.api.AddCharmWithAuthorization(curl, csparams.Channel(origin.Risk), mac, force)
+
 }
 
 func getCharmStore(
@@ -652,7 +680,7 @@ func (c *upgradeCharmCommand) addCharm(params addCharmParams) (charmstore.CharmI
 		return id, nil, errors.Errorf("already running latest charm %q", newURL)
 	}
 
-	curl, csMac, err := store.AddCharmFromURL(params.charmAdder, params.authorizer, newURL, csparams.Channel(origin.Risk), params.force)
+	curl, csMac, _, err := store.AddCharmFromURL(params.charmAdder, params.authorizer, newURL, origin, params.force)
 	if err != nil {
 		return id, nil, errors.Trace(err)
 	}
