@@ -5,10 +5,12 @@ package storage
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/schema"
+	apps "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -140,4 +142,46 @@ func ParseStorageMode(attrs map[string]interface{}) (*corev1.PersistentVolumeAcc
 	}
 	coerced := out.(map[string]interface{})
 	return parseMode(coerced[k8sconstants.StorageMode].(string))
+}
+
+// PushUniqueVolume ensures to only add unique volumes because k8s will not schedule pods if it has duplicated volumes.
+// The existing volume will be replaced if force sets to true.
+func PushUniqueVolume(podSpec *corev1.PodSpec, vol corev1.Volume, force bool) error {
+	for i, v := range podSpec.Volumes {
+		if v.Name != vol.Name {
+			continue
+		}
+		if reflect.DeepEqual(v, vol) {
+			return nil
+		}
+		if force {
+			podSpec.Volumes[i] = vol
+			return nil
+		}
+		return errors.NotValidf("duplicated volume %q", vol.Name)
+	}
+	podSpec.Volumes = append(podSpec.Volumes, vol)
+	return nil
+}
+
+// PushUniqueVolumeMount ensures to only add unique volume mount to a container.
+func PushUniqueVolumeMount(container *corev1.Container, volMount corev1.VolumeMount) {
+	for _, v := range container.VolumeMounts {
+		if reflect.DeepEqual(v, volMount) {
+			return
+		}
+	}
+	container.VolumeMounts = append(container.VolumeMounts, volMount)
+}
+
+// PushUniqueVolumeClaimTemplate ensures to only add unique volume claim template to a statefulset.
+func PushUniqueVolumeClaimTemplate(spec *apps.StatefulSetSpec, pvc corev1.PersistentVolumeClaim) error {
+	for _, v := range spec.VolumeClaimTemplates {
+		if v.Name == pvc.Name {
+			// PVC name has to be unique.
+			return errors.NotValidf("duplicated PVC %q", pvc.Name)
+		}
+	}
+	spec.VolumeClaimTemplates = append(spec.VolumeClaimTemplates, pvc)
+	return nil
 }

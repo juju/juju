@@ -48,6 +48,9 @@ type app struct {
 	newWatcher     k8swatcher.NewK8sWatcherFunc
 	clock          clock.Clock
 
+	// randomPrefix generates an annotation for stateful sets.
+	randomPrefix k8sutils.RandomPrefixFunc
+
 	newApplier func() resources.Applier
 }
 
@@ -60,6 +63,7 @@ func NewApplication(
 	client kubernetes.Interface,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
 	clock clock.Clock,
+	randomPrefix k8sutils.RandomPrefixFunc,
 ) caas.Application {
 	return newApplication(
 		name,
@@ -69,6 +73,7 @@ func NewApplication(
 		client,
 		newWatcher,
 		clock,
+		randomPrefix,
 		resources.NewApplier,
 	)
 }
@@ -81,6 +86,7 @@ func newApplication(
 	client kubernetes.Interface,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
 	clock clock.Clock,
+	randomPrefix k8sutils.RandomPrefixFunc,
 	newApplier func() resources.Applier,
 ) caas.Application {
 	return &app{
@@ -91,6 +97,7 @@ func newApplication(
 		client:         client,
 		newWatcher:     newWatcher,
 		clock:          clock,
+		randomPrefix:   randomPrefix,
 		newApplier:     newApplier,
 	}
 }
@@ -178,9 +185,15 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		return errors.Annotate(err, "generating application podspec")
 	}
 
-	var handleVolume handleVolumeFunc = func(v corev1.Volume) error {
-		podSpec.Volumes = append(podSpec.Volumes, v)
-		return nil
+	var handleVolume handleVolumeFunc = func(v corev1.Volume, mountPath string, readOnly bool) (*corev1.VolumeMount, error) {
+		if err := storage.PushUniqueVolume(podSpec, v, false); err != nil {
+			return nil, errors.Trace(err)
+		}
+		return &corev1.VolumeMount{
+			Name:      v.Name,
+			ReadOnly:  readOnly,
+			MountPath: mountPath,
+		}, nil
 	}
 	var handleVolumeMount handleVolumeMountFunc = func(m corev1.VolumeMount) error {
 		for i := range podSpec.Containers {
@@ -188,13 +201,22 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		}
 		return nil
 	}
-	var createPVC handlePVCFunc = func(pvc corev1.PersistentVolumeClaim) error {
-		r := resources.PersistentVolumeClaim{
-			PersistentVolumeClaim: pvc,
+	var handlePVCForStatelessResource handlePVCFunc = func(pvc corev1.PersistentVolumeClaim, mountPath string, readOnly bool) (*corev1.VolumeMount, error) {
+		// Ensure PVC.
+		r := resources.NewPersistentVolumeClaim(pvc.GetName(), a.namespace, &pvc)
+		applier.Apply(r)
+
+		// Push the volume to podspec.
+		vol := corev1.Volume{
+			Name: r.GetName(),
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: r.GetName(),
+					ReadOnly:  readOnly,
+				},
+			},
 		}
-		r.Namespace = a.namespace
-		applier.Apply(&r)
-		return nil
+		return handleVolume(vol, mountPath, readOnly)
 	}
 	storageClasses, err := resources.ListStorageClass(context.Background(), a.client, metav1.ListOptions{})
 	if err != nil {
@@ -204,24 +226,31 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		applier.Apply(&resources.StorageClass{StorageClass: sc})
 		return nil
 	}
-	var configureStorage = func(handlePVC handlePVCFunc) error {
-		err = a.configureStorage(config.Filesystems, storageClasses, handleVolume, handleVolumeMount, handlePVC, handleStorageClass)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		return nil
+	var configureStorage = func(storageUniqueID string, handlePVC handlePVCFunc) error {
+		err := a.configureStorage(
+			storageUniqueID,
+			config.Filesystems,
+			storageClasses,
+			handleVolume, handleVolumeMount, handlePVC, handleStorageClass,
+		)
+		return errors.Trace(err)
 	}
 
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
+		// TODO: headless service for statefulset?
+		storageUniqueID, err := a.getStorageUniqPrefix(func() (annotationGetter, error) {
+			return a.getStatefulSet()
+		})
 		numPods := int32(1)
 		statefulset := resources.StatefulSet{
 			StatefulSet: appsv1.StatefulSet{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        a.name,
-					Namespace:   a.namespace,
-					Labels:      a.labels(),
-					Annotations: a.annotations(config),
+					Name:      a.name,
+					Namespace: a.namespace,
+					Labels:    a.labels(),
+					Annotations: a.annotations(config).
+						Add(constants.AnnotationApplicationUUIDKey(), storageUniqueID),
 				},
 				Spec: appsv1.StatefulSetSpec{
 					Replicas: &numPods,
@@ -239,27 +268,41 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 				},
 			},
 		}
-		err = configureStorage(func(pvc corev1.PersistentVolumeClaim) error {
-			statefulset.Spec.VolumeClaimTemplates = append(statefulset.Spec.VolumeClaimTemplates, pvc)
-			return nil
-		})
-		if err != nil {
+
+		if err = configureStorage(
+			storageUniqueID,
+			func(pvc corev1.PersistentVolumeClaim, mountPath string, readOnly bool) (*corev1.VolumeMount, error) {
+				if err := storage.PushUniqueVolumeClaimTemplate(&statefulset.Spec, pvc); err != nil {
+					return nil, errors.Trace(err)
+				}
+				return &corev1.VolumeMount{
+					Name:      pvc.GetName(),
+					ReadOnly:  readOnly,
+					MountPath: mountPath,
+				}, nil
+			},
+		); err != nil {
 			return errors.Trace(err)
 		}
+
 		applier.Apply(&statefulset)
 	case caas.DeploymentStateless:
+		storageUniqueID, err := a.getStorageUniqPrefix(func() (annotationGetter, error) {
+			return a.getDeployment()
+		})
 		// Config storage to update the podspec with storage info.
-		if err = configureStorage(createPVC); err != nil {
+		if err = configureStorage(storageUniqueID, handlePVCForStatelessResource); err != nil {
 			return errors.Trace(err)
 		}
 		numPods := int32(1)
 		deployment := resources.Deployment{
 			Deployment: appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        a.name,
-					Namespace:   a.namespace,
-					Labels:      a.labels(),
-					Annotations: a.annotations(config),
+					Name:      a.name,
+					Namespace: a.namespace,
+					Labels:    a.labels(),
+					Annotations: a.annotations(config).
+						Add(constants.AnnotationApplicationUUIDKey(), storageUniqueID),
 				},
 				Spec: appsv1.DeploymentSpec{
 					Replicas: &numPods,
@@ -279,17 +322,21 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 
 		applier.Apply(&deployment)
 	case caas.DeploymentDaemon:
+		storageUniqueID, err := a.getStorageUniqPrefix(func() (annotationGetter, error) {
+			return a.getDaemonSet()
+		})
 		// Config storage to update the podspec with storage info.
-		if err = configureStorage(createPVC); err != nil {
+		if err = configureStorage(storageUniqueID, handlePVCForStatelessResource); err != nil {
 			return errors.Trace(err)
 		}
 		daemonset := resources.DaemonSet{
 			DaemonSet: appsv1.DaemonSet{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        a.name,
-					Namespace:   a.namespace,
-					Labels:      a.labels(),
-					Annotations: a.annotations(config),
+					Name:      a.name,
+					Namespace: a.namespace,
+					Labels:    a.labels(),
+					Annotations: a.annotations(config).
+						Add(constants.AnnotationApplicationUUIDKey(), storageUniqueID),
 				},
 				Spec: appsv1.DaemonSetSpec{
 					Selector: &metav1.LabelSelector{
@@ -357,6 +404,30 @@ func (a *app) Exists() (caas.DeploymentState, error) {
 		}
 	}
 	return state, nil
+}
+
+func (a *app) getStatefulSet() (*resources.StatefulSet, error) {
+	ss := resources.NewStatefulSet(a.name, a.namespace, nil)
+	if err := ss.Get(context.Background(), a.client); err != nil {
+		return nil, err
+	}
+	return ss, nil
+}
+
+func (a *app) getDeployment() (*resources.Deployment, error) {
+	ss := resources.NewDeployment(a.name, a.namespace, nil)
+	if err := ss.Get(context.Background(), a.client); err != nil {
+		return nil, err
+	}
+	return ss, nil
+}
+
+func (a *app) getDaemonSet() (*resources.DaemonSet, error) {
+	ss := resources.NewDaemonSet(a.name, a.namespace, nil)
+	if err := ss.Get(context.Background(), a.client); err != nil {
+		return nil, err
+	}
+	return ss, nil
 }
 
 func (a *app) statefulSetExists() (exists bool, terminating bool, err error) {
@@ -634,6 +705,7 @@ func (a *app) annotations(config caas.ApplicationConfig) annotations.Annotation 
 }
 
 func (a *app) labels() map[string]string {
+	// TODO: add modelUUID for global resources?
 	return map[string]string{constants.LabelApplication: a.name}
 }
 
@@ -654,12 +726,30 @@ func (a *app) secretName() string {
 	return a.name + "-application-config"
 }
 
-type handleVolumeFunc func(corev1.Volume) error
+type annotationGetter interface {
+	GetAnnotations() map[string]string
+}
+
+func (a *app) getStorageUniqPrefix(getMeta func() (annotationGetter, error)) (string, error) {
+	if r, err := getMeta(); err == nil {
+		// TODO: remove this function with existing one once we consolidated the annotation keys.
+		if uniqID := r.GetAnnotations()[constants.AnnotationApplicationUUIDKey()]; len(uniqID) > 0 {
+			return uniqID, nil
+		}
+	} else if !errors.IsNotFound(err) {
+		return "", errors.Trace(err)
+	}
+	return a.randomPrefix()
+}
+
+type handleVolumeFunc func(vol corev1.Volume, mountPath string, readOnly bool) (*corev1.VolumeMount, error)
+type handlePVCFunc func(pvc corev1.PersistentVolumeClaim, mountPath string, readOnly bool) (*corev1.VolumeMount, error)
 type handleVolumeMountFunc func(corev1.VolumeMount) error
-type handlePVCFunc func(corev1.PersistentVolumeClaim) error
 type handleStorageClassFunc func(storagev1.StorageClass) error
 
-func (a *app) configureStorage(filesystems []jujustorage.KubernetesFilesystemParams,
+func (a *app) configureStorage(
+	storageUniqueID string,
+	filesystems []jujustorage.KubernetesFilesystemParams,
 	storageClasses []resources.StorageClass,
 	handleVolume handleVolumeFunc,
 	handleVolumeMount handleVolumeMountFunc,
@@ -686,40 +776,41 @@ func (a *app) configureStorage(filesystems []jujustorage.KubernetesFilesystemPar
 		}
 
 		name := fmt.Sprintf("%s-%s", a.name, fs.StorageName)
-		vol, pvc, sc, err := a.filesystemToVolumeInfo(name, fs, storageClassMap)
+		pvcNameGetter := func(volName string) string { return fmt.Sprintf("%s-%s", volName, storageUniqueID) }
+
+		vol, pvc, sc, err := a.filesystemToVolumeInfo(name, fs, storageClassMap, pvcNameGetter)
 		if err != nil {
 			return errors.Trace(err)
 		}
+
+		var volumeMount *corev1.VolumeMount
 		mountPath := storage.GetMountPathForFilesystem(index, a.name, fs)
 		if vol != nil && handleVolume != nil {
 			logger.Debugf("using volume for %s filesystem %s: %s", a.name, fs.StorageName, pretty.Sprint(*vol))
-			err = handleVolume(*vol)
+			volumeMount, err = handleVolume(*vol, mountPath, readOnly)
 			if err != nil {
 				return errors.Trace(err)
 			}
 		}
 		if sc != nil && handleStorageClass != nil {
 			logger.Debugf("creating storage class for %s filesystem %s: %s", a.name, fs.StorageName, pretty.Sprint(*sc))
-			err = handleStorageClass(*sc)
-			if err != nil {
+			if err = handleStorageClass(*sc); err != nil {
 				return errors.Trace(err)
 			}
 			storageClassMap[sc.Name] = resources.StorageClass{StorageClass: *sc}
 		}
 		if pvc != nil && handlePVC != nil {
 			logger.Debugf("using persistent volume claim for %s filesystem %s: %s", a.name, fs.StorageName, pretty.Sprint(*pvc))
-			err = handlePVC(*pvc)
+			volumeMount, err = handlePVC(*pvc, mountPath, readOnly)
 			if err != nil {
 				return errors.Trace(err)
 			}
 		}
-		err = handleVolumeMount(corev1.VolumeMount{
-			Name:      name,
-			MountPath: mountPath,
-			ReadOnly:  readOnly,
-		})
-		if err != nil {
-			return errors.Trace(err)
+
+		if volumeMount != nil {
+			if err = handleVolumeMount(*volumeMount); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 	return nil
@@ -727,7 +818,9 @@ func (a *app) configureStorage(filesystems []jujustorage.KubernetesFilesystemPar
 
 func (a *app) filesystemToVolumeInfo(name string,
 	fs jujustorage.KubernetesFilesystemParams,
-	storageClasses map[string]resources.StorageClass) (*corev1.Volume, *corev1.PersistentVolumeClaim, *storagev1.StorageClass, error) {
+	storageClasses map[string]resources.StorageClass,
+	pvcNameGetter func(volName string) string,
+) (*corev1.Volume, *corev1.PersistentVolumeClaim, *storagev1.StorageClass, error) {
 	fsSize, err := resource.ParseQuantity(fmt.Sprintf("%dMi", fs.Size))
 	if err != nil {
 		return nil, nil, nil, errors.Annotatef(err, "invalid volume size %v", fs.Size)
@@ -745,7 +838,7 @@ func (a *app) filesystemToVolumeInfo(name string,
 		return vol, nil, nil, nil
 	}
 
-	params, err := storage.ParseVolumeParams(name, fsSize, fs.Attributes)
+	params, err := storage.ParseVolumeParams(pvcNameGetter(name), fsSize, fs.Attributes)
 	if err != nil {
 		return nil, nil, nil, errors.Annotatef(err, "getting volume params for %s", fs.StorageName)
 	}

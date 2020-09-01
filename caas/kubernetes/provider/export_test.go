@@ -38,7 +38,6 @@ var (
 	ToYaml                 = toYaml
 	Indent                 = indent
 	ProcessSecretData      = processSecretData
-	PushUniqueVolume       = pushUniqueVolume
 
 	CompileK8sCloudCheckers                    = compileK8sCloudCheckers
 	CompileLifecycleApplicationRemovalSelector = compileLifecycleApplicationRemovalSelector

@@ -16,5 +16,7 @@ func (k *kubernetesClient) Application(name string, deploymentType caas.Deployme
 		deploymentType,
 		k.client(),
 		k.newWatcher,
-		k.clock)
+		k.clock,
+		k.randomPrefix,
+	)
 }
