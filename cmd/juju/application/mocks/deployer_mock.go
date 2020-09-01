@@ -49,6 +49,20 @@ func (mr *MockDeployerMockRecorder) PrepareAndDeploy(arg0, arg1, arg2, arg3 inte
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareAndDeploy", reflect.TypeOf((*MockDeployer)(nil).PrepareAndDeploy), arg0, arg1, arg2, arg3)
 }
 
+// String mocks base method
+func (m *MockDeployer) String() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "String")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// String indicates an expected call of String
+func (mr *MockDeployerMockRecorder) String() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "String", reflect.TypeOf((*MockDeployer)(nil).String))
+}
+
 // MockDeployerFactory is a mock of DeployerFactory interface
 type MockDeployerFactory struct {
 	ctrl     *gomock.Controller
