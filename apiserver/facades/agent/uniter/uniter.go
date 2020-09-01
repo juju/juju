@@ -430,7 +430,9 @@ func (u *UniterAPI) OpenedMachinePortRanges(args params.Entities) (params.OpenMa
 			continue
 		}
 
-		result.Results[i].GroupKey = "endpoint"
+		unitPortRangeGroup := params.OpenUnitPortRangeGroup{
+			GroupKey: "endpoint",
+		}
 
 		for unitName, unitPortRanges := range machPortRanges.ByUnit() {
 			byEp := make(map[string][]params.PortRange)
@@ -439,16 +441,18 @@ func (u *UniterAPI) OpenedMachinePortRanges(args params.Entities) (params.OpenMa
 					byEp[endpointName] = append(byEp[endpointName], params.FromNetworkPortRange(pr))
 				}
 			}
-			result.Results[i].UnitPortRanges = append(result.Results[i].UnitPortRanges, params.OpenUnitPortRanges{
+			unitPortRangeGroup.UnitPortRanges = append(unitPortRangeGroup.UnitPortRanges, params.OpenUnitPortRanges{
 				UnitTag:         names.NewUnitTag(unitName).String(),
 				PortRangeGroups: byEp,
 			})
 		}
 
-		// Sort result list by endpoint name to yield consistent results.
-		sort.Slice(result.Results[i].UnitPortRanges, func(a, b int) bool {
-			return result.Results[i].UnitPortRanges[a].UnitTag < result.Results[i].UnitPortRanges[b].UnitTag
+		// Sort result list by unit tag to yield consistent results.
+		sort.Slice(unitPortRangeGroup.UnitPortRanges, func(a, b int) bool {
+			return unitPortRangeGroup.UnitPortRanges[a].UnitTag < unitPortRangeGroup.UnitPortRanges[b].UnitTag
 		})
+
+		result.Results[i].Groups = []params.OpenUnitPortRangeGroup{unitPortRangeGroup}
 	}
 	return result, nil
 }

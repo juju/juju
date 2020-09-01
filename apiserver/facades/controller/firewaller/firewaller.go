@@ -610,19 +610,18 @@ func (f *FirewallerAPIV6) OpenedMachinePortRanges(args params.Entities) (params.
 			continue
 		}
 
-		unitPortRanges, err := f.openedPortRangesForOneMachine(machine)
+		unitPortRangeGroups, err := f.openedPortRangeGroupsForOneMachine(machine)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 
 		}
-		result.Results[i].GroupKey = "cidr"
-		result.Results[i].UnitPortRanges = unitPortRanges
+		result.Results[i].Groups = unitPortRangeGroups
 	}
 	return result, nil
 }
 
-func (f *FirewallerAPIV6) openedPortRangesForOneMachine(machine firewall.Machine) ([]params.OpenUnitPortRanges, error) {
+func (f *FirewallerAPIV6) openedPortRangeGroupsForOneMachine(machine firewall.Machine) ([]params.OpenUnitPortRangeGroup, error) {
 	machPortRanges, err := machine.OpenedPortRanges()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -633,6 +632,52 @@ func (f *FirewallerAPIV6) openedPortRangesForOneMachine(machine firewall.Machine
 		return nil, nil
 	}
 
+	portRangesBySubnetCIDR, err := f.openedPortRangesForOneMachineBySubnetCIDR(machine, portRangesByUnit)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return []params.OpenUnitPortRangeGroup{
+		{
+			GroupKey:       "endpoint",
+			UnitPortRanges: f.openedPortRangesForOneMachineByEndpoint(portRangesByUnit),
+		},
+		{
+			GroupKey:       "cidr",
+			UnitPortRanges: portRangesBySubnetCIDR,
+		},
+	}, nil
+}
+
+func (f *FirewallerAPIV6) openedPortRangesForOneMachineByEndpoint(portRangesByUnit map[string]state.UnitPortRanges) []params.OpenUnitPortRanges {
+	var portRangesByEndpoint []params.OpenUnitPortRanges
+
+	for unitName, unitPortRanges := range portRangesByUnit {
+		mappedPortsByEndpoint := make(map[string][]params.PortRange)
+		for endpointName, portRanges := range unitPortRanges.ByEndpoint() {
+			mappedPorts := make([]params.PortRange, len(portRanges))
+			for i, portRange := range portRanges {
+				mappedPorts[i] = params.FromNetworkPortRange(portRange)
+			}
+
+			mappedPortsByEndpoint[endpointName] = mappedPorts
+		}
+
+		portRangesByEndpoint = append(portRangesByEndpoint, params.OpenUnitPortRanges{
+			UnitTag:         names.NewUnitTag(unitName).String(),
+			PortRangeGroups: mappedPortsByEndpoint,
+		})
+	}
+
+	// Sort result list by unit tag to yield consistent results.
+	sort.Slice(portRangesByEndpoint, func(a, b int) bool {
+		return portRangesByEndpoint[a].UnitTag < portRangesByEndpoint[b].UnitTag
+	})
+
+	return portRangesByEndpoint
+}
+
+func (f *FirewallerAPIV6) openedPortRangesForOneMachineBySubnetCIDR(machine firewall.Machine, portRangesByUnit map[string]state.UnitPortRanges) ([]params.OpenUnitPortRanges, error) {
 	// Look up space to subnet mappings
 	spaceInfos, err := f.getSpaceInfos()
 	if err != nil {

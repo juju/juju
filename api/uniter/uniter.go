@@ -416,12 +416,14 @@ func (st *State) OpenedMachinePortRanges(machineTag names.MachineTag) (map[names
 	result := results.Results[0]
 	if result.Error != nil {
 		return nil, result.Error
-	} else if result.GroupKey != "endpoint" {
-		return nil, fmt.Errorf("expected open unit port ranges to be grouped by endpoint, got %s", result.GroupKey)
+	} else if groupLen := len(result.Groups); groupLen != 1 {
+		return nil, fmt.Errorf("expected a single group for the unit port ranges; got %d", groupLen)
+	} else if result.Groups[0].GroupKey != "endpoint" {
+		return nil, fmt.Errorf("expected open unit port ranges to be grouped by endpoint, got %s", result.Groups[0].GroupKey)
 	}
 
 	portRangeMap := make(map[names.UnitTag]network.GroupedPortRanges)
-	for _, unitPortRanges := range result.UnitPortRanges {
+	for _, unitPortRanges := range result.Groups[0].UnitPortRanges {
 		unitTag, err := names.ParseUnitTag(unitPortRanges.UnitTag)
 		if err != nil {
 			return nil, errors.Trace(err)

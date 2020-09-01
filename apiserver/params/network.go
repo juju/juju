@@ -808,6 +808,13 @@ type OpenMachinePortRangesResults struct {
 type OpenMachinePortRangesResult struct {
 	Error *Error `json:"error,omitempty"`
 
+	Groups []OpenUnitPortRangeGroup `json:"unit-port-range-group"`
+}
+
+// OpenUnitPortRangeGroup is a list of per-unit opened port ranges where the
+// per-unit ports are grouped by a particular feature (e.g. by endpoint name or
+// subnet CIDR).
+type OpenUnitPortRangeGroup struct {
 	// GroupKey defines the attribute used to group the opened port ranges.
 	// This is set either to "endpoint" or to "cidr".
 	GroupKey string `json:"group-key"`

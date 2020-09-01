@@ -226,8 +226,34 @@ func (s *OpenedMachinePortsSuite) TestOpenedMachinePortRanges(c *gc.C) {
 	c.Assert(res.Results, gc.HasLen, 1)
 
 	c.Assert(res.Results[0].Error, gc.IsNil)
-	c.Assert(res.Results[0].GroupKey, gc.Equals, "cidr", gc.Commentf("expected group key to be cidr; got %q", res.Results[0].GroupKey))
-	c.Assert(res.Results[0].UnitPortRanges, gc.DeepEquals, []params.OpenUnitPortRanges{
+	c.Assert(res.Results[0].Groups, gc.HasLen, 2, gc.Commentf("expected response to include two groups for the unit port ranges"))
+
+	group0 := res.Results[0].Groups[0]
+	c.Assert(group0.GroupKey, gc.Equals, "endpoint", gc.Commentf("expected group key to be cidr; got %q", group0.GroupKey))
+	c.Assert(group0.UnitPortRanges, gc.DeepEquals, []params.OpenUnitPortRanges{
+		// NOTE: results are sorted by unit tag (each port ranges list
+		// is sorted as well).
+		{
+			UnitTag: "unit-mysql-0",
+			PortRangeGroups: map[string][]params.PortRange{
+				"foo": {
+					params.FromNetworkPortRange(network.MustParsePortRange("3306/tcp")),
+				},
+			},
+		},
+		{
+			UnitTag: "unit-wordpress-0",
+			PortRangeGroups: map[string][]params.PortRange{
+				"": {
+					params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
+				},
+			},
+		},
+	})
+
+	group1 := res.Results[0].Groups[1]
+	c.Assert(group1.GroupKey, gc.Equals, "cidr", gc.Commentf("expected group key to be cidr; got %q", group1.GroupKey))
+	c.Assert(group1.UnitPortRanges, gc.DeepEquals, []params.OpenUnitPortRanges{
 		// NOTE: results are sorted by unit tag (each port ranges list
 		// is sorted as well).
 		{

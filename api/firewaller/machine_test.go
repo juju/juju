@@ -194,38 +194,63 @@ func (s *machineSuite) TestOpenedPortRanges(c *gc.C) {
 	mockResponse := params.OpenMachinePortRangesResults{
 		Results: []params.OpenMachinePortRangesResult{
 			{
-				GroupKey: "cidr",
-				UnitPortRanges: []params.OpenUnitPortRanges{
+				Groups: []params.OpenUnitPortRangeGroup{
 					{
-						UnitTag: "unit-mysql-0",
-						PortRangeGroups: map[string][]params.PortRange{
-							// The subnet CIDRs for space "42" that "foo"
-							// is bound to.
-							"192.168.0.0/24": {
-								params.FromNetworkPortRange(network.MustParsePortRange("3306/tcp")),
+						GroupKey: "endpoint",
+						UnitPortRanges: []params.OpenUnitPortRanges{
+							{
+								UnitTag: "unit-mysql-0",
+								PortRangeGroups: map[string][]params.PortRange{
+									"foo": {
+										params.FromNetworkPortRange(network.MustParsePortRange("3306/tcp")),
+									},
+								},
 							},
-							"192.168.1.0/24": {
-								params.FromNetworkPortRange(network.MustParsePortRange("3306/tcp")),
+							{
+								UnitTag: "unit-wordpress-0",
+								PortRangeGroups: map[string][]params.PortRange{
+									"": {
+										params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
+									},
+								},
 							},
 						},
 					},
 					{
-						UnitTag: "unit-wordpress-0",
-						PortRangeGroups: map[string][]params.PortRange{
-							// Wordpress has opened port 80 to
-							// all bound spaces (alpha and 42). We should
-							// get an entry in each subnet
-							"10.0.0.0/24": {
-								params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
+						GroupKey: "cidr",
+						UnitPortRanges: []params.OpenUnitPortRanges{
+							{
+								UnitTag: "unit-mysql-0",
+								PortRangeGroups: map[string][]params.PortRange{
+									// The subnet CIDRs for space "42" that "foo"
+									// is bound to.
+									"192.168.0.0/24": {
+										params.FromNetworkPortRange(network.MustParsePortRange("3306/tcp")),
+									},
+									"192.168.1.0/24": {
+										params.FromNetworkPortRange(network.MustParsePortRange("3306/tcp")),
+									},
+								},
 							},
-							"10.0.1.0/24": {
-								params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
-							},
-							"192.168.0.0/24": {
-								params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
-							},
-							"192.168.1.0/24": {
-								params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
+							{
+								UnitTag: "unit-wordpress-0",
+								PortRangeGroups: map[string][]params.PortRange{
+									// Wordpress has opened port 80 to
+									// all bound spaces (alpha and 42). We should
+									// get an entry in each subnet
+									"10.0.0.0/24": {
+										params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
+									},
+									"10.0.1.0/24": {
+										params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
+									},
+									"192.168.0.0/24": {
+										params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
+									},
+									"192.168.1.0/24": {
+										params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
+									},
+								},
 							},
 						},
 					},
@@ -265,9 +290,21 @@ func (s *machineSuite) TestOpenedPortRanges(c *gc.C) {
 	mach, err := client.Machine(s.machines[0].MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	portsRangesByCIDR, err := mach.OpenedMachinePortRanges()
+	portRangesByEndpoint, portRangesByCIDR, err := mach.OpenedMachinePortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(portsRangesByCIDR, jc.DeepEquals, map[names.UnitTag]network.GroupedPortRanges{
+	c.Assert(portRangesByEndpoint, jc.DeepEquals, map[names.UnitTag]network.GroupedPortRanges{
+		names.NewUnitTag("mysql/0"): {
+			"foo": []network.PortRange{
+				network.MustParsePortRange("3306/tcp"),
+			},
+		},
+		names.NewUnitTag("wordpress/0"): {
+			"": []network.PortRange{
+				network.MustParsePortRange("80/tcp"),
+			},
+		},
+	})
+	c.Assert(portRangesByCIDR, jc.DeepEquals, map[names.UnitTag]network.GroupedPortRanges{
 		names.NewUnitTag("mysql/0"): {
 			"192.168.0.0/24": []network.PortRange{
 				network.MustParsePortRange("3306/tcp"),

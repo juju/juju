@@ -3467,8 +3467,12 @@ func (s *uniterSuite) TestOpenedMachinePortRanges(c *gc.C) {
 		Results: []params.OpenMachinePortRangesResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{
-				GroupKey:       "endpoint",
-				UnitPortRanges: expectPortRanges,
+				Groups: []params.OpenUnitPortRangeGroup{
+					{
+						GroupKey:       "endpoint",
+						UnitPortRanges: expectPortRanges,
+					},
+				},
 			},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},

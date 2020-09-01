@@ -80,24 +80,28 @@ func (s *stateSuite) TestOpenedMachinePortRanges(c *gc.C) {
 		*(result.(*params.OpenMachinePortRangesResults)) = params.OpenMachinePortRangesResults{
 			Results: []params.OpenMachinePortRangesResult{
 				{
-					GroupKey: "endpoint",
-					UnitPortRanges: []params.OpenUnitPortRanges{
+					Groups: []params.OpenUnitPortRangeGroup{
 						{
-							UnitTag: "unit-mysql-0",
-							PortRangeGroups: map[string][]params.PortRange{
-								"": {
-									{100, 200, "tcp"},
+							GroupKey: "endpoint",
+							UnitPortRanges: []params.OpenUnitPortRanges{
+								{
+									UnitTag: "unit-mysql-0",
+									PortRangeGroups: map[string][]params.PortRange{
+										"": {
+											{100, 200, "tcp"},
+										},
+										"server": {
+											{3306, 3306, "tcp"},
+										},
+									},
 								},
-								"server": {
-									{3306, 3306, "tcp"},
-								},
-							},
-						},
-						{
-							UnitTag: "unit-wordpress-0",
-							PortRangeGroups: map[string][]params.PortRange{
-								"monitoring-port": {
-									{1337, 1337, "udp"},
+								{
+									UnitTag: "unit-wordpress-0",
+									PortRangeGroups: map[string][]params.PortRange{
+										"monitoring-port": {
+											{1337, 1337, "udp"},
+										},
+									},
 								},
 							},
 						},

@@ -171,47 +171,63 @@ func (m *Machine) IsManual() (bool, error) {
 }
 
 // OpenedMachinePortRanges queries the open port ranges for all units on this
-// machine and returns back a map where keys are unit names and values are maps
-// of the opened port ranges by the unit grouped by subnet CIDR.
-func (m *Machine) OpenedMachinePortRanges() (map[names.UnitTag]network.GroupedPortRanges, error) {
+// machine and returns back two maps where keys are unit names and values are
+// the opened port ranges for each unit grouped by endpoint name and subnet
+// CIDR respectively.
+func (m *Machine) OpenedMachinePortRanges() (byEndpoint, byCIDR map[names.UnitTag]network.GroupedPortRanges, err error) {
 	if m.st.BestAPIVersion() < 6 {
 		// OpenedMachinePortRanges() was introduced in FirewallerAPIV6.
-		return nil, errors.NotImplementedf("OpenedMachinePortRanges() (need V6+)")
+		return nil, nil, errors.NotImplementedf("OpenedMachinePortRanges() (need V6+)")
 	}
 
 	var results params.OpenMachinePortRangesResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.st.facade.FacadeCall("OpenedMachinePortRanges", args, &results)
-	if err != nil {
-		return nil, err
+	if err = m.st.facade.FacadeCall("OpenedMachinePortRanges", args, &results); err != nil {
+		return nil, nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return nil, nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return nil, result.Error
-	} else if result.GroupKey != "cidr" {
-		return nil, fmt.Errorf("expected open unit port ranges to be grouped by subnet CIDR, got %s", result.GroupKey)
+		return nil, nil, result.Error
+	} else if groupLen := len(result.Groups); groupLen != 2 {
+		return nil, nil, fmt.Errorf("expected two groups for the unit port ranges; got %d", groupLen)
+	} else if result.Groups[0].GroupKey != "endpoint" {
+		return nil, nil, fmt.Errorf("expected first unit port range group to be grouped by endpoint, got %s", result.Groups[0].GroupKey)
+	} else if result.Groups[1].GroupKey != "cidr" {
+		return nil, nil, fmt.Errorf("expected second unit port range group to be grouped by subnet CIDR, got %s", result.Groups[1].GroupKey)
 	}
 
-	portRangeMap := make(map[names.UnitTag]network.GroupedPortRanges)
-	for _, unitPortRanges := range result.UnitPortRanges {
+	if byEndpoint, err = parseGroupedPortRanges(result.Groups[0].UnitPortRanges); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	if byCIDR, err = parseGroupedPortRanges(result.Groups[1].UnitPortRanges); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	return byEndpoint, byCIDR, nil
+}
+
+func parseGroupedPortRanges(res []params.OpenUnitPortRanges) (map[names.UnitTag]network.GroupedPortRanges, error) {
+	byUnit := make(map[names.UnitTag]network.GroupedPortRanges)
+	for _, unitPortRanges := range res {
 		unitTag, err := names.ParseUnitTag(unitPortRanges.UnitTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		portRangeMap[unitTag] = make(network.GroupedPortRanges)
+		byUnit[unitTag] = make(network.GroupedPortRanges)
 
 		for cidr, portRanges := range unitPortRanges.PortRangeGroups {
 			portList := make([]network.PortRange, len(portRanges))
 			for i, pr := range portRanges {
 				portList[i] = pr.NetworkPortRange()
 			}
-			portRangeMap[unitTag][cidr] = portList
+			byUnit[unitTag][cidr] = portList
 		}
 	}
-	return portRangeMap, nil
+
+	return byUnit, nil
 }
