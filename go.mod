@@ -36,7 +36,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/hashicorp/raft v2.0.0-20200420012049-88ad3b3f0a54+incompatible
 	github.com/hashicorp/raft-boltdb v0.0.0-20171010151810-6e5ba93211ea
-	github.com/hpidcock/juju-fake-init v0.0.0-20200826003917-cf7015140fd9 // indirect
+	github.com/hpidcock/juju-fake-init v0.0.0-20200826003917-cf7015140fd9
 	github.com/imdario/mergo v0.3.10 // indirect
 	github.com/joyent/gocommon v0.0.0-20160320193133-ade826b8b54e
 	github.com/joyent/gosdc v0.0.0-20140524000815-2f11feadd2d9
