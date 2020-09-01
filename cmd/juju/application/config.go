@@ -51,7 +51,7 @@ application and a listing of the application-specific configuration settings.
 See ` + "`juju status`" + ` for the set of deployed applications.
 
 To obtain the configuration value for a specific setting, simply specify its
-name as an argument, e.g. "juju config appache2 servername". In this case, the
+name as an argument, e.g. "juju config apache2 servername". In this case, the
 command will ignore any provided --format option and will instead output the
 value as plain text. This allows external scripts to use the output of a "juju
 config <application name> <setting name>" invocation as an input to an
