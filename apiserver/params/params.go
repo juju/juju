@@ -210,7 +210,7 @@ type AddCharmWithAuth struct {
 // a CharmOrigin was used.
 type CharmOriginResult struct {
 	Origin CharmOrigin `json:"charm-origin"`
-	Force  bool        `json:"force"`
+	Error  *Error      `json:"error,omitempty"`
 }
 
 // AddMachineParams encapsulates the parameters used to create a new machine.
