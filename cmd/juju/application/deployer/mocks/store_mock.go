@@ -6,8 +6,8 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v7"
-	params "github.com/juju/charmrepo/v5/csclient/params"
+	charm "github.com/juju/charm/v8"
+	params "github.com/juju/charmrepo/v6/csclient/params"
 	reflect "reflect"
 )
 
@@ -32,21 +32,6 @@ func NewMockCharmrepoForDeploy(ctrl *gomock.Controller) *MockCharmrepoForDeploy 
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockCharmrepoForDeploy) EXPECT() *MockCharmrepoForDeployMockRecorder {
 	return m.recorder
-}
-
-// Get mocks base method
-func (m *MockCharmrepoForDeploy) Get(arg0 *charm.URL, arg1 string) (*charm.CharmArchive, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Get", arg0, arg1)
-	ret0, _ := ret[0].(*charm.CharmArchive)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Get indicates an expected call of Get
-func (mr *MockCharmrepoForDeployMockRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockCharmrepoForDeploy)(nil).Get), arg0, arg1)
 }
 
 // GetBundle mocks base method
