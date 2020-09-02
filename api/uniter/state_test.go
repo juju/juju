@@ -81,7 +81,7 @@ func (s *stateSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 			Results: []params.OpenMachinePortRangesByEndpointResult{
 				{
 					UnitPortRanges: map[string][]params.OpenUnitPortRangesByEndpoint{
-						"unit-mysql-0": []params.OpenUnitPortRangesByEndpoint{
+						"unit-mysql-0": {
 							{
 								Endpoint:   "",
 								PortRanges: []params.PortRange{{100, 200, "tcp"}},
@@ -91,7 +91,7 @@ func (s *stateSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 								PortRanges: []params.PortRange{{3306, 3306, "tcp"}},
 							},
 						},
-						"unit-wordpress-0": []params.OpenUnitPortRangesByEndpoint{
+						"unit-wordpress-0": {
 							{
 								Endpoint:   "monitoring-port",
 								PortRanges: []params.PortRange{{1337, 1337, "udp"}},

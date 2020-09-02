@@ -227,7 +227,7 @@ func (s *OpenedMachinePortsSuite) TestOpenedMachinePortRanges(c *gc.C) {
 
 	c.Assert(res.Results[0].Error, gc.IsNil)
 	c.Assert(res.Results[0].UnitPortRanges, gc.DeepEquals, map[string][]params.OpenUnitPortRanges{
-		"unit-wordpress-0": []params.OpenUnitPortRanges{
+		"unit-wordpress-0": {
 			{
 				Endpoint:    "",
 				SubnetCIDRs: []string{"10.0.0.0/24", "10.0.1.0/24", "192.168.0.0/24", "192.168.1.0/24"},
@@ -236,7 +236,7 @@ func (s *OpenedMachinePortsSuite) TestOpenedMachinePortRanges(c *gc.C) {
 				},
 			},
 		},
-		"unit-mysql-0": []params.OpenUnitPortRanges{
+		"unit-mysql-0": {
 			{
 				Endpoint:    "foo",
 				SubnetCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},

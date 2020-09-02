@@ -3446,13 +3446,13 @@ func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 		{Tag: "application-wordpress"},
 	}}
 	expectPortRanges := map[string][]params.OpenUnitPortRangesByEndpoint{
-		"unit-mysql-1": []params.OpenUnitPortRangesByEndpoint{
+		"unit-mysql-1": {
 			{
 				Endpoint:   "server",
 				PortRanges: []params.PortRange{{3306, 3306, "tcp"}},
 			},
 		},
-		"unit-wordpress-0": []params.OpenUnitPortRangesByEndpoint{
+		"unit-wordpress-0": {
 			{
 				Endpoint:   "",
 				PortRanges: []params.PortRange{{100, 200, "tcp"}},
