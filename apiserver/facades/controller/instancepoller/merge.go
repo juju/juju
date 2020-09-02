@@ -173,7 +173,7 @@ func (o *mergeMachineLinkLayerOp) processExistingDevice(dev networkingcommon.Lin
 	// TODO (manadart 2020-07-15): We also need to set shadow addresses.
 	// These are sent where appropriate by the provider,
 	// but we do not yet process them.
-	incomingAddrs := o.MatchingIncomingAddrs(dev.Name(), dev.MACAddress())
+	incomingAddrs := o.MatchingIncomingAddrs(dev.Name())
 
 	for _, addr := range o.DeviceAddresses(dev) {
 		addrOps, err := o.processExistingDeviceAddress(dev, addr, incomingAddrs)
@@ -185,7 +185,7 @@ func (o *mergeMachineLinkLayerOp) processExistingDevice(dev networkingcommon.Lin
 
 	// TODO (manadart 2020-07-15): Process (log) new addresses on the device.
 
-	o.MarkDevProcessed(dev.Name(), dev.MACAddress())
+	o.MarkDevProcessed(dev.Name())
 	return ops, nil
 }
 
@@ -213,14 +213,13 @@ func (o *mergeMachineLinkLayerOp) processExistingDeviceAddress(
 	incomingAddrs []state.LinkLayerDeviceAddress,
 ) ([]txn.Op, error) {
 	addrValue := addr.Value()
-	hwAddr := dev.MACAddress()
 	name := dev.Name()
 
 	// If one of the incoming addresses matches the existing one,
 	// return ops for setting the incoming provider IDs.
 	for _, incomingAddr := range incomingAddrs {
 		if strings.HasPrefix(incomingAddr.CIDRAddress, addrValue) {
-			if o.IsAddrProcessed(name, hwAddr, addrValue) {
+			if o.IsAddrProcessed(name, addrValue) {
 				continue
 			}
 
@@ -229,7 +228,7 @@ func (o *mergeMachineLinkLayerOp) processExistingDeviceAddress(
 				return nil, errors.Trace(err)
 			}
 
-			o.MarkAddrProcessed(name, hwAddr, addrValue)
+			o.MarkAddrProcessed(name, addrValue)
 
 			return append(ops, addr.SetProviderNetIDsOps(
 				incomingAddr.ProviderNetworkID, incomingAddr.ProviderSubnetID)...), nil
