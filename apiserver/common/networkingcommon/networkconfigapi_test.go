@@ -178,7 +178,6 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpMultipleAddressSuccess(
 	// It will be unchanged and generate no update ops.
 	lbDev := mocks.NewMockLinkLayerDevice(ctrl)
 	lbExp := lbDev.EXPECT()
-	lbExp.MACAddress().Return("").MinTimes(1)
 	lbExp.Name().Return("lo").MinTimes(1)
 	lbExp.UpdateOps(state.LinkLayerDeviceArgs{
 		Name:        "lo",
@@ -201,7 +200,6 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpMultipleAddressSuccess(
 	ethMAC := "aa:bb:cc:dd:ee:f0"
 	ethDev := mocks.NewMockLinkLayerDevice(ctrl)
 	ethExp := ethDev.EXPECT()
-	ethExp.MACAddress().Return(ethMAC).MinTimes(1)
 	ethExp.Name().Return("eth0").MinTimes(1)
 	ethExp.UpdateOps(state.LinkLayerDeviceArgs{
 		Name:        "eth0",
@@ -373,7 +371,6 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpBridgedDeviceMovesAddre
 	// Device eth0 exists with an address.
 	childDev := mocks.NewMockLinkLayerDevice(ctrl)
 	childExp := childDev.EXPECT()
-	childExp.MACAddress().Return(hwAddr).MinTimes(1)
 	childExp.Name().Return("eth0").MinTimes(1)
 
 	// We expect an update with the bridge as parent.

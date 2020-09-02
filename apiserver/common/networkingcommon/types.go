@@ -212,13 +212,11 @@ func networkDeviceToStateArgs(dev corenetwork.InterfaceInfo) state.LinkLayerDevi
 // configuration is sometimes supplied with a duplicated device for each
 // address.
 // This is a normalisation that returns state args for all primary addresses
-// of interfaces with the input name and hardware address.
-func networkAddressStateArgsForDevice(
-	devs corenetwork.InterfaceInfos, name, hwAddr string,
-) []state.LinkLayerDeviceAddress {
+// of interfaces with the input name.
+func networkAddressStateArgsForDevice(devs corenetwork.InterfaceInfos, name string) []state.LinkLayerDeviceAddress {
 	var res []state.LinkLayerDeviceAddress
 
-	for _, dev := range devs.GetByNameAndHardwareAddress(name, hwAddr) {
+	for _, dev := range devs.GetByName(name) {
 		if dev.PrimaryAddress().Value == "" {
 			continue
 		}
