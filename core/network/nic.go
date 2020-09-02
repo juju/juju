@@ -266,16 +266,12 @@ func (s InterfaceInfos) Validate() error {
 	return nil
 }
 
-// GetByNameAndHardwareAddress returns a new collection containing any
-// interfaces with the input device name and hardware (MAC) address.
-// This is intended to uniquely identify devices, accommodating the following
-// knowledge:
-// - Bridges have the same MAC address as their child devices.
-// - AWS does not supply device names, but does supply HW address.
-func (s InterfaceInfos) GetByNameAndHardwareAddress(name, hwAddr string) InterfaceInfos {
+// GetByName returns a new collection containing
+// any interfaces with the input device name.
+func (s InterfaceInfos) GetByName(name string) InterfaceInfos {
 	var res InterfaceInfos
 	for _, dev := range s {
-		if dev.InterfaceName == name && dev.MACAddress == hwAddr {
+		if dev.InterfaceName == name {
 			res = append(res, dev)
 		}
 	}
