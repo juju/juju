@@ -438,6 +438,45 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpBridgedDeviceMovesAddre
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpReprocessesDevices(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	hwAddr := "aa:bb:cc:dd:ee:ff"
+
+	s.expectMachine()
+	mExp := s.machine.EXPECT()
+	mExp.AllLinkLayerDevices().Return(nil, nil).Times(2)
+	mExp.AllAddresses().Return(nil, nil).Times(2)
+
+	// Expect the device addition to be attempted twice.
+	mExp.AddLinkLayerDeviceOps(
+		state.LinkLayerDeviceArgs{
+			Name:        "eth0",
+			Type:        "ethernet",
+			MACAddress:  hwAddr,
+			IsAutoStart: true,
+			IsUp:        true,
+		},
+	).Return([]txn.Op{{}, {}}, nil).Times(2)
+
+	op := s.NewUpdateMachineLinkLayerOp(s.machine, network.InterfaceInfos{
+		{
+			InterfaceName: "eth0",
+			InterfaceType: "ethernet",
+			MACAddress:    hwAddr,
+			Origin:        network.OriginMachine,
+		},
+	})
+
+	_, err := op.Build(0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Simulate transaction churn.
+	_, err = op.Build(1)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *networkConfigSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
