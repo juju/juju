@@ -18029,7 +18029,7 @@
                             "$ref": "#/definitions/OpenMachinePortRangesResults"
                         }
                     },
-                    "description": "OpenedMachinePortRanges returns a list of the opened port ranges for the\nspecified machines where each result is broken down by unit and by subnet\nCIDR."
+                    "description": "OpenedMachinePortRanges returns a list of the opened port ranges for the\nspecified machines where each result is broken down by unit. The list of\nopened ports for each unit is further grouped by endpoint name and includes\nthe subnet CIDRs that belong to the space that each endpoint is bound to."
                 },
                 "SetRelationsStatus": {
                     "type": "object",
@@ -18673,19 +18673,20 @@
                         "error": {
                             "$ref": "#/definitions/Error"
                         },
-                        "group-key": {
-                            "type": "string"
-                        },
                         "unit-port-ranges": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/OpenUnitPortRanges"
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/definitions/OpenUnitPortRanges"
+                                    }
+                                }
                             }
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "group-key",
                         "unit-port-ranges"
                     ]
                 },
@@ -18707,25 +18708,27 @@
                 "OpenUnitPortRanges": {
                     "type": "object",
                     "properties": {
-                        "port-range-groups": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/definitions/PortRange"
-                                    }
-                                }
+                        "endpoint": {
+                            "type": "string"
+                        },
+                        "port-ranges": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/PortRange"
                             }
                         },
-                        "unit-tag": {
-                            "type": "string"
+                        "subnet-cidrs": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "unit-tag",
-                        "port-range-groups"
+                        "endpoint",
+                        "port-ranges",
+                        "subnet-cidrs"
                     ]
                 },
                 "PortRange": {
@@ -38873,17 +38876,17 @@
                         }
                     }
                 },
-                "OpenedMachinePortRanges": {
+                "OpenedMachinePortRangesByEndpoint": {
                     "type": "object",
                     "properties": {
                         "Params": {
                             "$ref": "#/definitions/Entities"
                         },
                         "Result": {
-                            "$ref": "#/definitions/OpenMachinePortRangesResults"
+                            "$ref": "#/definitions/OpenMachinePortRangesByEndpointResults"
                         }
                     },
-                    "description": "OpenedMachinePortRanges returns the port ranges opened by each unit on the\nprovided machines grouped by application endpoint."
+                    "description": "OpenedMachinePortRangesByEndpoint returns the port ranges opened by each\nunit on the provided machines grouped by application endpoint."
                 },
                 "PrivateAddress": {
                     "type": "object",
@@ -40799,35 +40802,36 @@
                         "results"
                     ]
                 },
-                "OpenMachinePortRangesResult": {
+                "OpenMachinePortRangesByEndpointResult": {
                     "type": "object",
                     "properties": {
                         "error": {
                             "$ref": "#/definitions/Error"
                         },
-                        "group-key": {
-                            "type": "string"
-                        },
                         "unit-port-ranges": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/OpenUnitPortRanges"
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/definitions/OpenUnitPortRangesByEndpoint"
+                                    }
+                                }
                             }
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "group-key",
                         "unit-port-ranges"
                     ]
                 },
-                "OpenMachinePortRangesResults": {
+                "OpenMachinePortRangesByEndpointResults": {
                     "type": "object",
                     "properties": {
                         "results": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/OpenMachinePortRangesResult"
+                                "$ref": "#/definitions/OpenMachinePortRangesByEndpointResult"
                             }
                         }
                     },
@@ -40836,28 +40840,23 @@
                         "results"
                     ]
                 },
-                "OpenUnitPortRanges": {
+                "OpenUnitPortRangesByEndpoint": {
                     "type": "object",
                     "properties": {
-                        "port-range-groups": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/definitions/PortRange"
-                                    }
-                                }
-                            }
-                        },
-                        "unit-tag": {
+                        "endpoint": {
                             "type": "string"
+                        },
+                        "port-ranges": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/PortRange"
+                            }
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "unit-tag",
-                        "port-range-groups"
+                        "endpoint",
+                        "port-ranges"
                     ]
                 },
                 "PodSpec": {
