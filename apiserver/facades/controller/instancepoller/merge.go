@@ -38,7 +38,9 @@ func newMergeMachineLinkLayerOp(
 
 // Build (state.ModelOperation) returns the transaction operations used to
 // merge incoming provider link-layer data with that in state.
-func (o *mergeMachineLinkLayerOp) Build(_ int) ([]txn.Op, error) {
+func (o *mergeMachineLinkLayerOp) Build(attempt int) ([]txn.Op, error) {
+	o.ClearProcessed()
+
 	if err := o.PopulateExistingDevices(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -52,7 +54,9 @@ func (o *mergeMachineLinkLayerOp) Build(_ int) ([]txn.Op, error) {
 		return nil, jujutxn.ErrNoOperations
 	}
 
-	o.normaliseIncoming()
+	if attempt == 0 {
+		o.normaliseIncoming()
+	}
 
 	if err := o.PopulateExistingAddresses(); err != nil {
 		return nil, errors.Trace(err)
