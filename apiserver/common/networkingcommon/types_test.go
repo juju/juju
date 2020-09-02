@@ -430,10 +430,10 @@ func (s *TypesSuite) TestAddressMatchingFromObservedConfig(c *gc.C) {
 	}
 
 	interfaces := params.InterfaceInfoFromNetworkConfig(cfg)
-	breno38 := interfaces.GetByNameAndHardwareAddress("br-eno3-8", "ac:1f:6b:65:66:46")
+	breno38 := interfaces.GetByName("br-eno3-8")
 	c.Check(breno38, gc.HasLen, 2)
 
-	stateAddr := networkAddressStateArgsForDevice(interfaces, "br-eno3-8", "ac:1f:6b:65:66:46")
+	stateAddr := networkAddressStateArgsForDevice(interfaces, "br-eno3-8")
 	c.Check(stateAddr, gc.DeepEquals, []state.LinkLayerDeviceAddress{{
 		DeviceName:       "br-eno3-8",
 		ConfigMethod:     "static",

@@ -178,7 +178,6 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpMultipleAddressSuccess(
 	// It will be unchanged and generate no update ops.
 	lbDev := mocks.NewMockLinkLayerDevice(ctrl)
 	lbExp := lbDev.EXPECT()
-	lbExp.MACAddress().Return("").MinTimes(1)
 	lbExp.Name().Return("lo").MinTimes(1)
 	lbExp.UpdateOps(state.LinkLayerDeviceArgs{
 		Name:        "lo",
@@ -201,7 +200,6 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpMultipleAddressSuccess(
 	ethMAC := "aa:bb:cc:dd:ee:f0"
 	ethDev := mocks.NewMockLinkLayerDevice(ctrl)
 	ethExp := ethDev.EXPECT()
-	ethExp.MACAddress().Return(ethMAC).MinTimes(1)
 	ethExp.Name().Return("eth0").MinTimes(1)
 	ethExp.UpdateOps(state.LinkLayerDeviceArgs{
 		Name:        "eth0",
@@ -373,7 +371,6 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpBridgedDeviceMovesAddre
 	// Device eth0 exists with an address.
 	childDev := mocks.NewMockLinkLayerDevice(ctrl)
 	childExp := childDev.EXPECT()
-	childExp.MACAddress().Return(hwAddr).MinTimes(1)
 	childExp.Name().Return("eth0").MinTimes(1)
 
 	// We expect an update with the bridge as parent.
@@ -438,6 +435,45 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpBridgedDeviceMovesAddre
 	})
 
 	_, err := op.Build(0)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpReprocessesDevices(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	hwAddr := "aa:bb:cc:dd:ee:ff"
+
+	s.expectMachine()
+	mExp := s.machine.EXPECT()
+	mExp.AllLinkLayerDevices().Return(nil, nil).Times(2)
+	mExp.AllAddresses().Return(nil, nil).Times(2)
+
+	// Expect the device addition to be attempted twice.
+	mExp.AddLinkLayerDeviceOps(
+		state.LinkLayerDeviceArgs{
+			Name:        "eth0",
+			Type:        "ethernet",
+			MACAddress:  hwAddr,
+			IsAutoStart: true,
+			IsUp:        true,
+		},
+	).Return([]txn.Op{{}, {}}, nil).Times(2)
+
+	op := s.NewUpdateMachineLinkLayerOp(s.machine, network.InterfaceInfos{
+		{
+			InterfaceName: "eth0",
+			InterfaceType: "ethernet",
+			MACAddress:    hwAddr,
+			Origin:        network.OriginMachine,
+		},
+	})
+
+	_, err := op.Build(0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Simulate transaction churn.
+	_, err = op.Build(1)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

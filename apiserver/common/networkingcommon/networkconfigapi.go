@@ -163,6 +163,8 @@ func newUpdateMachineLinkLayerOp(
 // Build (state.ModelOperation) returns the transaction operations used to
 // merge incoming provider link-layer data with that in state.
 func (o *updateMachineLinkLayerOp) Build(_ int) ([]txn.Op, error) {
+	o.ClearProcessed()
+
 	if err := o.PopulateExistingDevices(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -218,7 +220,7 @@ func (o *updateMachineLinkLayerOp) processExistingDevice(dev LinkLayerDevice) ([
 
 	ops := dev.UpdateOps(networkDeviceToStateArgs(*incomingDev))
 
-	incomingAddrs := o.MatchingIncomingAddrs(dev.Name(), dev.MACAddress())
+	incomingAddrs := o.MatchingIncomingAddrs(dev.Name())
 
 	for _, addr := range o.DeviceAddresses(dev) {
 		existingAddrOps, err := o.processExistingDeviceAddress(dev, addr, incomingAddrs)
@@ -233,7 +235,7 @@ func (o *updateMachineLinkLayerOp) processExistingDevice(dev LinkLayerDevice) ([
 		return nil, errors.Trace(err)
 	}
 
-	o.MarkDevProcessed(dev.Name(), dev.MACAddress())
+	o.MarkDevProcessed(dev.Name())
 	return append(ops, newAddrOps...), nil
 }
 
@@ -278,8 +280,8 @@ func (o *updateMachineLinkLayerOp) processExistingDeviceAddress(
 	// update it.
 	for _, incomingAddr := range incomingAddrs {
 		if strings.HasPrefix(incomingAddr.CIDRAddress, addrValue) &&
-			!o.IsAddrProcessed(dev.Name(), dev.MACAddress(), incomingAddr.CIDRAddress) {
-			o.MarkAddrProcessed(dev.Name(), dev.MACAddress(), incomingAddr.CIDRAddress)
+			!o.IsAddrProcessed(dev.Name(), incomingAddr.CIDRAddress) {
+			o.MarkAddrProcessed(dev.Name(), incomingAddr.CIDRAddress)
 
 			ops, err := addr.UpdateOps(incomingAddr)
 			return ops, errors.Trace(err)
@@ -302,14 +304,16 @@ func (o *updateMachineLinkLayerOp) processExistingDeviceNewAddresses(
 ) ([]txn.Op, error) {
 	var ops []txn.Op
 	for _, addr := range incomingAddrs {
-		if !o.IsAddrProcessed(dev.Name(), dev.MACAddress(), addr.CIDRAddress) {
+		if !o.IsAddrProcessed(dev.Name(), addr.CIDRAddress) {
+			logger.Infof("machine %q: adding address %q to device %q", o.machine.Id(), addr.CIDRAddress, dev.Name())
+
 			addOps, err := dev.AddAddressOps(addr)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 			ops = append(ops, addOps...)
 
-			o.MarkAddrProcessed(dev.Name(), dev.MACAddress(), addr.CIDRAddress)
+			o.MarkAddrProcessed(dev.Name(), addr.CIDRAddress)
 		}
 	}
 	return ops, nil
@@ -324,7 +328,7 @@ func (o *updateMachineLinkLayerOp) processNewDevices() ([]txn.Op, error) {
 			continue
 		}
 
-		addrs := o.MatchingIncomingAddrs(dev.InterfaceName, dev.MACAddress)
+		addrs := o.MatchingIncomingAddrs(dev.InterfaceName)
 		addrValues := make([]string, len(addrs))
 		for i, addr := range addrs {
 			addrValues[i] = addr.CIDRAddress
@@ -340,7 +344,7 @@ func (o *updateMachineLinkLayerOp) processNewDevices() ([]txn.Op, error) {
 		}
 		ops = append(ops, addOps...)
 
-		o.MarkDevProcessed(dev.InterfaceName, dev.MACAddress)
+		o.MarkDevProcessed(dev.InterfaceName)
 	}
 	return ops, nil
 }
