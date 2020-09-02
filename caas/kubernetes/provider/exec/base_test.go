@@ -7,8 +7,10 @@ import (
 	"io"
 	"net/url"
 	"reflect"
+	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/clock/testclock"
 	gc "gopkg.in/check.v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -32,6 +34,7 @@ type BaseSuite struct {
 	mockRemoteCmdExecutor *execmocks.MockExecutor
 	suiteMocks            *suiteMocks
 
+	clock     *testclock.Clock
 	pipReader io.Reader
 	pipWriter io.WriteCloser
 }
@@ -43,12 +46,25 @@ func (s *BaseSuite) SetUpSuite(c *gc.C) {
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+
 	s.pipReader, s.pipWriter = io.Pipe()
 }
 
 func (s *BaseSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
-	s.pipWriter.Close()
+
+	s.k8sClient = nil
+	s.restClient = nil
+	s.execClient = nil
+	s.mockPodGetter = nil
+	s.mockRemoteCmdExecutor = nil
+	s.suiteMocks = nil
+	s.clock = nil
+	s.pipReader = nil
+	if s.pipWriter != nil {
+		s.pipWriter.Close()
+		s.pipWriter = nil
+	}
 }
 
 func (s *BaseSuite) setupExecClient(c *gc.C) *gomock.Controller {
@@ -67,6 +83,8 @@ func (s *BaseSuite) setupExecClient(c *gc.C) *gomock.Controller {
 	s.mockRemoteCmdExecutor = execmocks.NewMockExecutor(ctrl)
 
 	s.suiteMocks = newSuiteMocks(ctrl)
+	s.clock = testclock.NewClock(time.Time{})
+
 	s.execClient = exec.NewForTest(
 		s.namespace,
 		s.k8sClient,
@@ -77,6 +95,7 @@ func (s *BaseSuite) setupExecClient(c *gc.C) *gomock.Controller {
 		func() (io.Reader, io.WriteCloser) {
 			return s.pipReader, s.pipWriter
 		},
+		s.clock,
 	)
 	return ctrl
 }
