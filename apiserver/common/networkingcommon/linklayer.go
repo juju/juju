@@ -155,11 +155,16 @@ func NewMachineLinkLayerOp(machine LinkLayerMachine, incoming network.InterfaceI
 	logger.Infof("processing link-layer devices for machine %q", machine.Id())
 
 	return &MachineLinkLayerOp{
-		machine:        machine,
-		incoming:       incoming,
-		processedDevs:  set.NewStrings(),
-		processedAddrs: make(map[string]set.Strings),
+		machine:  machine,
+		incoming: incoming,
 	}
+}
+
+// ClearProcessed ensures that any record of processed devices and addresses is
+// effectively zeroed. This should be called before each transaction attempt.
+func (o *MachineLinkLayerOp) ClearProcessed() {
+	o.processedDevs = set.NewStrings()
+	o.processedAddrs = make(map[string]set.Strings)
 }
 
 // Incoming is a property accessor for the link-layer data we are processing.
