@@ -1537,14 +1537,16 @@ func assertAvailabilityZoneMachines(c *gc.C,
 // machines have been distributed over the zones.  This check method
 // works where there are no machine errors in the test case.
 //
-// Which machine it will be in which zone is dependent on the order in
+// Which machine will be in which zone is dependent on the order in
 // which they are provisioned, therefore almost impossible to predict.
 func assertAvailabilityZoneMachinesDistribution(c *gc.C, obtained []provisioner.AvailabilityZoneMachine) {
 	// Are the machines evenly distributed?  No zone should have
 	// 2 machines more than any other zone.
 	min, max := 1, 0
+	counts := make(map[string]int)
 	for _, zone := range obtained {
 		count := zone.MachineIds.Size()
+		counts[zone.ZoneName] = count
 		if min > count {
 			min = count
 		}
@@ -1552,7 +1554,7 @@ func assertAvailabilityZoneMachinesDistribution(c *gc.C, obtained []provisioner.
 			max = count
 		}
 	}
-	c.Assert(max-min, jc.LessThan, 2)
+	c.Assert(max-min, jc.LessThan, 2, gc.Commentf("min = %d, max = %d, counts = %v", min, max, counts))
 }
 
 // assertAvailabilityZoneMachinesDistribution checks to see if
