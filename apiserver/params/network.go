@@ -795,32 +795,52 @@ type MachinePortsResults struct {
 	Results []MachinePortsResult `json:"results"`
 }
 
-// OpenMachinePortRangesResults holds the results of a request to the uniter's
-// OpenedMachinePortRanges API.
+// OpenMachinePortRangesByEndpointResults holds the results of a request to the
+// uniter's OpenedMachinePortRangesByEndpoint API.
+type OpenMachinePortRangesByEndpointResults struct {
+	Results []OpenMachinePortRangesByEndpointResult `json:"results"`
+}
+
+// OpenMachinePortRangesByEndpointResult holds a single result of a request to
+// the uniter's OpenedMachinePortRangesByEndpoint API.
+type OpenMachinePortRangesByEndpointResult struct {
+	Error *Error `json:"error,omitempty"`
+
+	// The set of opened port ranges grouped by unit tag.
+	UnitPortRanges map[string][]OpenUnitPortRangesByEndpoint `json:"unit-port-ranges"`
+}
+
+// OpenUnitPortRangesByEndpoint describes the set of port ranges that have been
+// opened by a unit on the machine it is deployed to for an endpoint.
+type OpenUnitPortRangesByEndpoint struct {
+	Endpoint   string      `json:"endpoint"`
+	PortRanges []PortRange `json:"port-ranges"`
+}
+
+// OpenMachinePortRangesResults holds the results of a request to the
+// firewaller's OpenedMachinePortRanges API.
 type OpenMachinePortRangesResults struct {
 	Results []OpenMachinePortRangesResult `json:"results"`
 }
 
-// OpenMachinePortRangesResult holds a single result of a request to the
-// uniter's or the firewaller's OpenedMachinePortRanges API. It provides
-// information about the set of open port ranges by each one of the units
-// deployed to the machine.
+// OpenMachinePortRangesResult holds a single result of a request to
+// the firewaller's OpenedMachinePortRanges API.
 type OpenMachinePortRangesResult struct {
 	Error *Error `json:"error,omitempty"`
 
-	// GroupKey defines the attribute used to group the opened port ranges.
-	// This is set either to "endpoint" or to "cidr".
-	GroupKey string `json:"group-key"`
-
-	UnitPortRanges []OpenUnitPortRanges `json:"unit-port-ranges"`
+	// The set of opened port ranges grouped by unit tag.
+	UnitPortRanges map[string][]OpenUnitPortRanges `json:"unit-port-ranges"`
 }
 
-// OpenUnitPortRanges describes the set of port ranges (grouped by a particular
-// attribute, eg. endpoint, or subnet CIDR) that have been opened by a unit on
-// the machine it is deployed to.
+// OpenUnitPortRanges describes the set of port ranges that have been
+// opened by a unit on the machine it is deployed to for an endpoint.
 type OpenUnitPortRanges struct {
-	UnitTag         string                 `json:"unit-tag"`
-	PortRangeGroups map[string][]PortRange `json:"port-range-groups"`
+	Endpoint   string      `json:"endpoint"`
+	PortRanges []PortRange `json:"port-ranges"`
+
+	// The CIDRs that correspond to the subnets assigned to the space that
+	// this endpoint is bound to.
+	SubnetCIDRs []string `json:"subnet-cidrs"`
 }
 
 // APIHostPortsResult holds the result of an APIHostPorts

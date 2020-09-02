@@ -7,6 +7,7 @@ import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
 )
 
@@ -48,17 +49,23 @@ func (s *UnitToCIDRMappingSuite) TestBindingMapping(c *gc.C) {
 		}},
 	}
 
-	got := mapUnitPortsToSubnetCIDRs(portRangesByEndpoint, endpointBindings, spaceInfos.SubnetCIDRsBySpaceID())
-	exp := network.GroupedPortRanges{
-		"192.168.0.0/24": []network.PortRange{
-			network.MustParsePortRange("123/tcp"),
-			network.MustParsePortRange("456/tcp"),
-			network.MustParsePortRange("777/tcp"),
+	got := mapUnitPortsAndResolveSubnetCIDRs(portRangesByEndpoint, endpointBindings, spaceInfos.SubnetCIDRsBySpaceID())
+	exp := []params.OpenUnitPortRanges{
+		{
+			Endpoint:    "bar",
+			SubnetCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
+			PortRanges: []params.PortRange{
+				params.FromNetworkPortRange(network.MustParsePortRange("123/tcp")),
+				params.FromNetworkPortRange(network.MustParsePortRange("777/tcp")),
+			},
 		},
-		"192.168.1.0/24": []network.PortRange{
-			network.MustParsePortRange("123/tcp"),
-			network.MustParsePortRange("456/tcp"),
-			network.MustParsePortRange("777/tcp"),
+		{
+			Endpoint:    "foo",
+			SubnetCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
+			PortRanges: []params.PortRange{
+				params.FromNetworkPortRange(network.MustParsePortRange("123/tcp")),
+				params.FromNetworkPortRange(network.MustParsePortRange("456/tcp")),
+			},
 		},
 	}
 
@@ -94,25 +101,22 @@ func (s *UnitToCIDRMappingSuite) TestWildcardExpansion(c *gc.C) {
 		}},
 	}
 
-	got := mapUnitPortsToSubnetCIDRs(portRangesByEndpoint, endpointBindings, spaceInfos.SubnetCIDRsBySpaceID())
-	exp := network.GroupedPortRanges{
-		"10.0.0.0/24": []network.PortRange{
-			network.MustParsePortRange("123/tcp"),
-			network.MustParsePortRange("456/tcp"),
+	got := mapUnitPortsAndResolveSubnetCIDRs(portRangesByEndpoint, endpointBindings, spaceInfos.SubnetCIDRsBySpaceID())
+	exp := []params.OpenUnitPortRanges{
+		{
+			Endpoint:    "",
+			SubnetCIDRs: []string{"10.0.0.0/24", "10.0.1.0/24", "192.168.0.0/24", "192.168.1.0/24"},
+			PortRanges: []params.PortRange{
+				params.FromNetworkPortRange(network.MustParsePortRange("123/tcp")),
+				params.FromNetworkPortRange(network.MustParsePortRange("456/tcp")),
+			},
 		},
-		"10.0.1.0/24": []network.PortRange{
-			network.MustParsePortRange("123/tcp"),
-			network.MustParsePortRange("456/tcp"),
-		},
-		"192.168.0.0/24": []network.PortRange{
-			network.MustParsePortRange("123/tcp"),
-			network.MustParsePortRange("456/tcp"),
-			network.MustParsePortRange("999/tcp"),
-		},
-		"192.168.1.0/24": []network.PortRange{
-			network.MustParsePortRange("123/tcp"),
-			network.MustParsePortRange("456/tcp"),
-			network.MustParsePortRange("999/tcp"),
+		{
+			Endpoint:    "bar",
+			SubnetCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
+			PortRanges: []params.PortRange{
+				params.FromNetworkPortRange(network.MustParsePortRange("999/tcp")),
+			},
 		},
 	}
 

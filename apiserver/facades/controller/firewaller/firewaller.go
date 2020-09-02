@@ -586,8 +586,9 @@ func (f *FirewallerAPIV5) AreManuallyProvisioned(args params.Entities) (params.B
 }
 
 // OpenedMachinePortRanges returns a list of the opened port ranges for the
-// specified machines where each result is broken down by unit and by subnet
-// CIDR.
+// specified machines where each result is broken down by unit. The list of
+// opened ports for each unit is further grouped by endpoint name and includes
+// the subnet CIDRs that belong to the space that each endpoint is bound to.
 func (f *FirewallerAPIV6) OpenedMachinePortRanges(args params.Entities) (params.OpenMachinePortRangesResults, error) {
 	result := params.OpenMachinePortRangesResults{
 		Results: make([]params.OpenMachinePortRangesResult, len(args.Entities)),
@@ -616,13 +617,12 @@ func (f *FirewallerAPIV6) OpenedMachinePortRanges(args params.Entities) (params.
 			continue
 
 		}
-		result.Results[i].GroupKey = "cidr"
 		result.Results[i].UnitPortRanges = unitPortRanges
 	}
 	return result, nil
 }
 
-func (f *FirewallerAPIV6) openedPortRangesForOneMachine(machine firewall.Machine) ([]params.OpenUnitPortRanges, error) {
+func (f *FirewallerAPIV6) openedPortRangesForOneMachine(machine firewall.Machine) (map[string][]params.OpenUnitPortRanges, error) {
 	machPortRanges, err := machine.OpenedPortRanges()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -656,81 +656,71 @@ func (f *FirewallerAPIV6) openedPortRangesForOneMachine(machine firewall.Machine
 
 	// Map the port ranges for each unit to one or more subnet CIDRs
 	// depending on the endpoints they apply to.
-	var res []params.OpenUnitPortRanges
+	res := make(map[string][]params.OpenUnitPortRanges)
 	for unitName, unitPortRanges := range portRangesByUnit {
 		// Already checked for validity; error can be ignored
 		appName, _ := names.UnitApplication(unitName)
 		appBindings := allAppBindings[appName]
 
-		unitRes := params.OpenUnitPortRanges{
-			UnitTag:         names.NewUnitTag(unitName).String(),
-			PortRangeGroups: make(map[string][]params.PortRange),
-		}
-
-		portRangesByCIDR := mapUnitPortsToSubnetCIDRs(unitPortRanges.ByEndpoint(), appBindings, subnetCIDRsBySpaceID)
-		for cidr, portRanges := range portRangesByCIDR {
-			mappedPorts := make([]params.PortRange, len(portRanges))
-			for i, pr := range portRanges {
-				mappedPorts[i] = params.FromNetworkPortRange(pr)
-			}
-			unitRes.PortRangeGroups[cidr] = mappedPorts
-		}
-
-		res = append(res, unitRes)
+		unitTag := names.NewUnitTag(unitName).String()
+		res[unitTag] = mapUnitPortsAndResolveSubnetCIDRs(unitPortRanges.ByEndpoint(), appBindings, subnetCIDRsBySpaceID)
 	}
-
-	// Sort by unit tag so we return consistent results
-	sort.Slice(res, func(i, j int) bool {
-		return res[i].UnitTag < res[j].UnitTag
-	})
 
 	return res, nil
 }
 
-// mapUnitPortsToSubnetCIDRs maps the list of opened unit port ranges
-// grouped by endpoint into a list of port ranges grouped by subnet CIDR.
+// mapUnitPortsAndResolveSubnetCIDRs maps the provided list of opened port
+// ranges by endpoint to a params.OpenUnitPortRanges result list. Each entry in
+// the result list also contains the subnet CIDRs that correspond to each
+// endpoint.
 //
-// To facilitate this conversion, the function consults the application
-// endpoint bindings for the unit in conjunction with the provided subnetCIDRs
-// by spaceID map. Using this information, each endpoint from the incoming
-// port range grouping is resolved to a space ID and the space ID is in turn
+// To resolve the subnet CIDRs, the function consults the application endpoint
+// bindings for the unit in conjunction with the provided subnetCIDRs by
+// spaceID map. Using this information, each endpoint from the incoming port
+// range grouping is resolved to a space ID and the space ID is in turn
 // resolved into a list of subnet CIDRs (the wildcard endpoint is treated as
 // *all known* endpoints for this conversion step).
-//
-// After the above step, all opened port ranges are then grouped by subnet CIDR,
-// de-dupped and sorted before they are returned to the caller.
-func mapUnitPortsToSubnetCIDRs(portRangesByEndpoint network.GroupedPortRanges, endpointBindings map[string]string, subnetCIDRsBySpaceID map[string][]string) network.GroupedPortRanges {
-	portRangesByCIDR := make(network.GroupedPortRanges)
+func mapUnitPortsAndResolveSubnetCIDRs(portRangesByEndpoint network.GroupedPortRanges, endpointBindings map[string]string, subnetCIDRsBySpaceID map[string][]string) []params.OpenUnitPortRanges {
+	var entries []params.OpenUnitPortRanges
 
 	for endpointName, portRanges := range portRangesByEndpoint {
+		entry := params.OpenUnitPortRanges{
+			Endpoint:   endpointName,
+			PortRanges: make([]params.PortRange, len(portRanges)),
+		}
+
 		// These port ranges target an explicit endpoint; just iterate
 		// the subnets that correspond to the space it is bound to and
-		// append the port ranges.
+		// append their CIDRs.
 		if endpointName != "" {
-			for _, cidr := range subnetCIDRsBySpaceID[endpointBindings[endpointName]] {
-				portRangesByCIDR[cidr] = append(portRangesByCIDR[cidr], portRanges...)
+			entry.SubnetCIDRs = subnetCIDRsBySpaceID[endpointBindings[endpointName]]
+			sort.Strings(entry.SubnetCIDRs)
+		} else {
+			// The wildcard endpoint expands to all known endpoints.
+			for boundEndpoint, spaceID := range endpointBindings {
+				if boundEndpoint == "" { // ignore default endpoint entry in the set of app bindings
+					continue
+				}
+				entry.SubnetCIDRs = append(entry.SubnetCIDRs, subnetCIDRsBySpaceID[spaceID]...)
 			}
-			continue
+
+			// Ensure that any duplicate CIDRs are removed.
+			entry.SubnetCIDRs = set.NewStrings(entry.SubnetCIDRs...).SortedValues()
 		}
 
-		// The wildcard endpoint expands to all known endpoints.
-		for boundEndpoint, spaceID := range endpointBindings {
-			if boundEndpoint == "" { // skip default endpoint entry
-				continue
-			}
-			for _, cidr := range subnetCIDRsBySpaceID[spaceID] {
-				portRangesByCIDR[cidr] = append(portRangesByCIDR[cidr], portRanges...)
-			}
+		// Finally, map the port ranges to params.PortRange and
+		network.SortPortRanges(portRanges)
+		for i, pr := range portRanges {
+			entry.PortRanges[i] = params.FromNetworkPortRange(pr)
 		}
+
+		entries = append(entries, entry)
 	}
 
-	// Make a final pass to remove duplicates (e.g same range opened for
-	// two endpoints that are both bound to the same space).
-	for cidr, portRanges := range portRangesByCIDR {
-		uniquePortRanges := network.UniquePortRanges(portRanges)
-		network.SortPortRanges(uniquePortRanges)
-		portRangesByCIDR[cidr] = uniquePortRanges
-	}
+	// Ensure results are sorted by endpoint name to be consistent.
+	sort.Slice(entries, func(a, b int) bool {
+		return entries[a].Endpoint < entries[b].Endpoint
+	})
 
-	return portRangesByCIDR
+	return entries
 }

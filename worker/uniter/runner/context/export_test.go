@@ -70,7 +70,7 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 	if err != nil {
 		return nil, err
 	}
-	machPorts, err := hcParams.State.OpenedMachinePortRanges(ctx.assignedMachineTag)
+	machPorts, err := hcParams.State.OpenedMachinePortRangesByEndpoint(ctx.assignedMachineTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

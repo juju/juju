@@ -226,40 +226,22 @@ func (s *OpenedMachinePortsSuite) TestOpenedMachinePortRanges(c *gc.C) {
 	c.Assert(res.Results, gc.HasLen, 1)
 
 	c.Assert(res.Results[0].Error, gc.IsNil)
-	c.Assert(res.Results[0].GroupKey, gc.Equals, "cidr", gc.Commentf("expected group key to be cidr; got %q", res.Results[0].GroupKey))
-	c.Assert(res.Results[0].UnitPortRanges, gc.DeepEquals, []params.OpenUnitPortRanges{
-		// NOTE: results are sorted by unit tag (each port ranges list
-		// is sorted as well).
-		{
-			UnitTag: "unit-mysql-0",
-			PortRangeGroups: map[string][]params.PortRange{
-				// The subnet CIDRs for space "42" that "foo"
-				// is bound to.
-				"192.168.0.0/24": {
-					params.FromNetworkPortRange(network.MustParsePortRange("3306/tcp")),
-				},
-				"192.168.1.0/24": {
-					params.FromNetworkPortRange(network.MustParsePortRange("3306/tcp")),
+	c.Assert(res.Results[0].UnitPortRanges, gc.DeepEquals, map[string][]params.OpenUnitPortRanges{
+		"unit-wordpress-0": {
+			{
+				Endpoint:    "",
+				SubnetCIDRs: []string{"10.0.0.0/24", "10.0.1.0/24", "192.168.0.0/24", "192.168.1.0/24"},
+				PortRanges: []params.PortRange{
+					params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
 				},
 			},
 		},
-		{
-			UnitTag: "unit-wordpress-0",
-			PortRangeGroups: map[string][]params.PortRange{
-				// Wordpress has opened port 80 to
-				// all bound spaces (alpha and 42). We should
-				// get an entry in each subnet
-				"10.0.0.0/24": {
-					params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
-				},
-				"10.0.1.0/24": {
-					params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
-				},
-				"192.168.0.0/24": {
-					params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
-				},
-				"192.168.1.0/24": {
-					params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
+		"unit-mysql-0": {
+			{
+				Endpoint:    "foo",
+				SubnetCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
+				PortRanges: []params.PortRange{
+					params.FromNetworkPortRange(network.MustParsePortRange("3306/tcp")),
 				},
 			},
 		},
