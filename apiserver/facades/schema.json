@@ -6410,6 +6410,108 @@
         }
     },
     {
+        "Name": "CAASApplication",
+        "Description": "",
+        "Version": 1,
+        "AvailableTo": [
+            "controller-machine-agent",
+            "machine-agent",
+            "unit-agent",
+            "model-user"
+        ],
+        "Schema": {
+            "type": "object",
+            "properties": {
+                "UnitIntroduction": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/CAASUnitIntroductionArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/CAASUnitIntroductionResult"
+                        }
+                    },
+                    "description": "UnitIntroduction sets the status of each given entity."
+                }
+            },
+            "definitions": {
+                "CAASUnitIntroduction": {
+                    "type": "object",
+                    "properties": {
+                        "agent-conf": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        },
+                        "unit-name": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "unit-name",
+                        "agent-conf"
+                    ]
+                },
+                "CAASUnitIntroductionArgs": {
+                    "type": "object",
+                    "properties": {
+                        "pod-name": {
+                            "type": "string"
+                        },
+                        "pod-uuid": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "pod-name",
+                        "pod-uuid"
+                    ]
+                },
+                "CAASUnitIntroductionResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "result": {
+                            "$ref": "#/definitions/CAASUnitIntroduction"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "Error": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "string"
+                        },
+                        "info": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "message": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "message",
+                        "code"
+                    ]
+                }
+            }
+        }
+    },
+    {
         "Name": "CAASFirewaller",
         "Description": "",
         "Version": 1,
