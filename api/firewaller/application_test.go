@@ -53,7 +53,7 @@ func (s *applicationSuite) TestWatch(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Change something and check it's detected.
-	err = s.application.SetExposed()
+	err = s.application.SetExposed(nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
@@ -64,7 +64,7 @@ func (s *applicationSuite) TestWatch(c *gc.C) {
 }
 
 func (s *applicationSuite) TestIsExposed(c *gc.C) {
-	err := s.application.SetExposed()
+	err := s.application.SetExposed(nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	isExposed, err := s.apiApplication.IsExposed()
