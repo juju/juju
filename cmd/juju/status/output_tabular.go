@@ -131,9 +131,9 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 	units := make(map[string]unitStatus)
 	var w output.Wrapper
 	if fs.Model.Type == caasModelType {
-		w = startSection(tw, false, "App", "Version", "Status", "Scale", "Charm", "Store", "Rev", "OS", "Address", "Notes")
+		w = startSection(tw, false, "App", "Version", "Status", "Scale", "Charm", "Store", "Rev", "OS", "Address", "Message")
 	} else {
-		w = startSection(tw, false, "App", "Version", "Status", "Scale", "Charm", "Store", "Rev", "OS", "Notes")
+		w = startSection(tw, false, "App", "Version", "Status", "Scale", "Charm", "Store", "Rev", "OS", "Message")
 	}
 	tw.SetColumnAlignRight(3)
 	tw.SetColumnAlignRight(6)
@@ -150,17 +150,6 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 		// Don't let a long version push out the version column.
 		if len(version) > maxVersionWidth {
 			version = version[:truncatedWidth] + ellipsis
-		}
-		// Notes may well contain other things later.
-		notes := ""
-		if app.Exposed {
-			notes = "exposed"
-		}
-		// Expose any operator messages.
-		if fs.Model.Type == caasModelType {
-			if app.StatusInfo.Message != "" {
-				notes = app.StatusInfo.Message
-			}
 		}
 		w.Print(appName, version)
 		w.PrintStatus(app.StatusInfo.Current)
@@ -179,7 +168,7 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 			w.Print(app.Address)
 		}
 
-		w.Println(notes)
+		w.Println(app.StatusInfo.Message)
 		for un, u := range app.Units {
 			units[un] = u
 			if u.MeterStatus != nil {
