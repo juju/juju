@@ -183,7 +183,7 @@ func makeURLFromCurrentModel(urlStr, offerSource, currentModel string) (*crossmo
 			return nil, errors.Trace(err)
 		}
 		modelName = baseName
-		userName = userTag.Name()
+		userName = userTag.Id()
 	}
 	derivedUrl := crossmodel.MakeURL(userName, modelName, urlStr, offerSource)
 	return crossmodel.ParseOfferURL(derivedUrl)

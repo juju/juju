@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/juju/juju/caas/specs"
+	"github.com/juju/juju/core/annotations"
 )
 
 var logger = loggo.GetLogger("juju.kubernetes.provider.specs")
@@ -80,9 +81,16 @@ func (*K8sContainerSpec) Validate() error {
 	return nil
 }
 
+// PodSpecWithAnnotations wraps a k8s podspec to add annotations.
+type PodSpecWithAnnotations struct {
+	Annotations annotations.Annotation
+	core.PodSpec
+}
+
 // PodSpec is a subset of v1.PodSpec which defines
 // attributes we expose for charms to set.
 type PodSpec struct {
+	Annotations                   annotations.Annotation   `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 	RestartPolicy                 core.RestartPolicy       `json:"restartPolicy,omitempty" yaml:"restartPolicy,omitempty"`
 	ActiveDeadlineSeconds         *int64                   `json:"activeDeadlineSeconds,omitempty" yaml:"activeDeadlineSeconds,omitempty"`
 	TerminationGracePeriodSeconds *int64                   `json:"terminationGracePeriodSeconds,omitempty" yaml:"terminationGracePeriodSeconds,omitempty"`

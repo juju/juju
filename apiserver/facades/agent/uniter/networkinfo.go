@@ -15,7 +15,6 @@ import (
 	"github.com/juju/retry"
 	k8score "k8s.io/api/core/v1"
 
-	"github.com/juju/juju/apiserver/common/networkingcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
@@ -31,39 +30,34 @@ import (
 // Over time, the state types should be indirected, mocks generated, and
 // appropriate tests added.
 
-// PreferredAddressRetryArgs returns the retry strategy for getting a unit's
-// preferred address. Override for testing to use a different clock.
-// TODO (manadart 2019-10-09): Pass this as an argument to the NetworkInfo
-// constructor instead of exporting this public type for patching in tests.
-var PreferredAddressRetryArgs = func() retry.CallArgs {
-	return retry.CallArgs{
-		Clock:       clock.WallClock,
-		Delay:       3 * time.Second,
-		MaxDuration: 30 * time.Second,
-	}
-}
-
-// NetworkInfo is responsible for processing requests for network data for unit
-// endpoint bindings and/or relations.
+// NetworkInfo is responsible for processing requests for network data
+// for unit endpoint bindings and/or relations.
 type NetworkInfo struct {
-	st            *state.State
+	st *state.State
+	// retryFactory returns a retry strategy template used to poll for
+	// addresses that may not yet have landed in state,
+	// such as for CAAS containers or HA syncing.
+	retryFactory func() retry.CallArgs
+
 	unit          *state.Unit
 	app           *state.Application
 	defaultEgress []string
 	bindings      map[string]string
-	spaces        []*state.Space
 }
 
-// NewNetworkInfo initialises and returns a new NetworkInfo based on the input
-// state and unit tag.
-func NewNetworkInfo(st *state.State, tag names.UnitTag) (*NetworkInfo, error) {
-	netInfo := &NetworkInfo{st: st}
+// NewNetworkInfo initialises and returns a new NetworkInfo
+// based on the input state and unit tag.
+func NewNetworkInfo(st *state.State, tag names.UnitTag, retryFactory func() retry.CallArgs) (*NetworkInfo, error) {
+	netInfo := &NetworkInfo{
+		st:           st,
+		retryFactory: retryFactory,
+	}
 	err := netInfo.init(tag)
 	return netInfo, errors.Trace(err)
 }
 
-// init uses the member state to initialise NetworkInfo entities in preparation
-// for the retrieval of network information.
+// init uses the member state to initialise NetworkInfo entities
+// in preparation for the retrieval of network information.
 func (n *NetworkInfo) init(tag names.UnitTag) error {
 	var err error
 
@@ -82,10 +76,6 @@ func (n *NetworkInfo) init(tag names.UnitTag) error {
 	n.bindings = bindings.Map()
 
 	if n.defaultEgress, err = n.getModelEgressSubnets(); err != nil {
-		return errors.Trace(err)
-	}
-
-	if n.spaces, err = n.st.AllSpaces(); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -155,7 +145,7 @@ func (n *NetworkInfo) ProcessAPIRequest(args params.NetworkInfoParams) (params.N
 	}
 
 	var (
-		networkInfos            map[string]state.MachineNetworkInfoResult
+		networkInfos            map[string]machineNetworkInfoResult
 		defaultIngressAddresses []string
 	)
 
@@ -189,15 +179,15 @@ func (n *NetworkInfo) ProcessAPIRequest(args params.NetworkInfoParams) (params.N
 				defaultIngressAddresses = append(defaultIngressAddresses, a.Value)
 			}
 		}
-		networkInfos = make(map[string]state.MachineNetworkInfoResult)
-		networkInfos[corenetwork.AlphaSpaceId] = state.MachineNetworkInfoResult{
+		networkInfos = make(map[string]machineNetworkInfoResult)
+		networkInfos[corenetwork.AlphaSpaceId] = machineNetworkInfoResult{
 			NetworkInfos: []network.NetworkInfo{{Addresses: interfaceAddr}},
 		}
 	}
 
 	for endpoint, space := range bindings {
 		// The binding address information based on link layer devices.
-		info := networkingcommon.MachineNetworkInfoResultToNetworkInfoResult(networkInfos[space])
+		info := machineNetworkInfoResultToNetworkInfoResult(networkInfos[space])
 
 		// Set egress and ingress address information.
 		info.EgressSubnets = endpointEgressSubnets[endpoint]
@@ -348,8 +338,7 @@ func (n *NetworkInfo) NetworksForRelation(
 	}
 
 	fallbackIngressToPrivateAddr := func() error {
-		// TODO(ycliuhw): lp-1830252 retry here once this is fixed.
-		address, err := n.unit.PrivateAddress()
+		address, err := n.pollForAddress(n.unit.PrivateAddress)
 		if err != nil {
 			logger.Warningf("no private address for unit %q in relation %q", n.unit.Name(), rel)
 		} else if address.Value != "" {
@@ -367,7 +356,7 @@ func (n *NetworkInfo) NetworksForRelation(
 			return "", nil, nil, errors.Trace(err)
 		}
 		if crossModel && (n.unit.ShouldBeAssigned() || pollPublic) {
-			address, err := pollForAddress(n.unit.PublicAddress)
+			address, err := n.pollForAddress(n.unit.PublicAddress)
 			if err != nil {
 				logger.Warningf(
 					"no public address for unit %q in cross model relation %q, will use private address",
@@ -422,20 +411,142 @@ func (n *NetworkInfo) NetworksForRelation(
 
 // machineNetworkInfos returns network info for the unit's machine based on
 // devices with addresses in the input spaces.
-// TODO (manadart 2019-10-10): `GetNetworkInfoForSpaces` is only used here and
-// could be relocated from the state package, reducing cross-cutting concerns
-// there.
-func (n *NetworkInfo) machineNetworkInfos(spaces ...string) (map[string]state.MachineNetworkInfoResult, error) {
+func (n *NetworkInfo) machineNetworkInfos(spaceIDs ...string) (map[string]machineNetworkInfoResult, error) {
 	machineID, err := n.unit.AssignedMachineId()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	machine, err := n.st.Machine(machineID)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
-	return machine.GetNetworkInfoForSpaces(set.NewStrings(spaces...)), nil
+	spaceSet := set.NewStrings(spaceIDs...)
+
+	results := make(map[string]machineNetworkInfoResult)
+
+	var privateIPAddress string
+
+	if spaceSet.Contains(corenetwork.AlphaSpaceId) {
+		var err error
+		privateMachineAddress, err := n.pollForAddress(machine.PrivateAddress)
+		if err != nil {
+			results[corenetwork.AlphaSpaceId] = machineNetworkInfoResult{Error: errors.Annotatef(
+				err, "getting machine %q preferred private address", machine.MachineTag())}
+
+			// Remove this ID to prevent further processing.
+			spaceSet.Remove(corenetwork.AlphaSpaceId)
+		} else {
+			privateIPAddress = privateMachineAddress.Value
+		}
+	}
+
+	// Link-layer devices are set in a single transaction for all devices
+	// observed on the machine, so the first result will include them all.
+	var addresses []*state.Address
+	retryArg := n.retryFactory()
+	retryArg.Func = func() error {
+		var err error
+		addresses, err = machine.AllAddresses()
+		return err
+	}
+	retryArg.IsFatalError = func(err error) bool {
+		return err != nil
+	}
+	if err := retry.Call(retryArg); err != nil {
+		result := machineNetworkInfoResult{Error: errors.Annotate(err, "getting devices addresses")}
+		for _, id := range spaceSet.Values() {
+			if _, ok := results[id]; !ok {
+				results[id] = result
+			}
+		}
+		return results, nil
+	}
+
+	logger.Debugf("Looking for address from %v in spaces %v", addresses, spaceIDs)
+
+	var privateLinkLayerAddress *state.Address
+	for _, addr := range addresses {
+		subnet, err := addr.Subnet()
+		switch {
+		case errors.IsNotFound(err):
+			logger.Debugf("skipping %s: not linked to a known subnet (%v)", addr, err)
+
+			// For a space-less model, we will not have subnets populated,
+			// and will therefore not find a subnet for the address.
+			// Capture the link-layer information for machine private address
+			// so that we can return as much information as possible.
+			// TODO (manadart 2020-02-21): This will not be required once
+			// discovery (or population of subnets by other means) is
+			// introduced for the non-space IAAS providers (LXD, manual, etc).
+			if addr.Value() == privateIPAddress {
+				privateLinkLayerAddress = addr
+			}
+		case err != nil:
+			logger.Errorf("cannot get subnet for address %q - %q", addr, err)
+		default:
+			if spaceSet.Contains(subnet.SpaceID()) {
+				r := results[subnet.SpaceID()]
+				r.NetworkInfos, err = addAddressToResult(r.NetworkInfos, addr)
+				if err != nil {
+					r.Error = err
+				} else {
+					results[subnet.SpaceID()] = r
+				}
+			}
+
+			// TODO (manadart 2020-02-21): This reflects the behaviour prior
+			// to the introduction of the alpha space.
+			// It mimics the old behaviour for the empty space ("").
+			// If that was passed in, we included the machine's preferred
+			// local-cloud address no matter what space it was in,
+			// treating the request as space-agnostic.
+			// To preserve this behaviour, we return the address as a result
+			// in the alpha space no matter its *real* space if addresses in
+			// the alpha space were requested.
+			// This should be removed with the institution of universal mutable
+			// spaces.
+			if spaceSet.Contains(corenetwork.AlphaSpaceId) && addr.Value() == privateIPAddress {
+				r := results[corenetwork.AlphaSpaceId]
+				r.NetworkInfos, err = addAddressToResult(r.NetworkInfos, addr)
+				if err != nil {
+					r.Error = err
+				} else {
+					results[corenetwork.AlphaSpaceId] = r
+				}
+			}
+		}
+	}
+
+	// If addresses in the alpha space were requested and we populated none,
+	// then we are working with a space-less provider.
+	// If we found a link-layer device for the machine's private address,
+	// use that information, otherwise return the minimal result based on
+	// the IP.
+	// TODO (manadart 2020-02-21): As mentioned above, this is not required
+	// when we have subnets populated for all providers.
+	if r, ok := results[corenetwork.AlphaSpaceId]; !ok && spaceSet.Contains(corenetwork.AlphaSpaceId) {
+		if privateLinkLayerAddress != nil {
+			r.NetworkInfos, _ = addAddressToResult(r.NetworkInfos, privateLinkLayerAddress)
+		} else {
+			r.NetworkInfos = []network.NetworkInfo{{
+				Addresses: []network.InterfaceAddress{{
+					Address: privateIPAddress,
+				}},
+			}}
+		}
+
+		results[corenetwork.AlphaSpaceId] = r
+	}
+
+	for _, id := range spaceSet.Values() {
+		if _, ok := results[id]; !ok {
+			results[id] = machineNetworkInfoResult{
+				Error: errors.Errorf("machine %q has no devices in space %q", machineID, id),
+			}
+		}
+	}
+	return results, nil
 }
 
 // spaceForBinding returns the space id
@@ -451,6 +562,22 @@ func (n *NetworkInfo) spaceForBinding(endpoint string) (string, error) {
 		return "", errors.NewNotValid(nil, fmt.Sprintf("binding id %q not defined by the unit's charm", endpoint))
 	}
 	return boundSpace, nil
+}
+
+func (n *NetworkInfo) pollForAddress(
+	fetcher func() (corenetwork.SpaceAddress, error),
+) (corenetwork.SpaceAddress, error) {
+	var address corenetwork.SpaceAddress
+	retryArg := n.retryFactory()
+	retryArg.Func = func() error {
+		var err error
+		address, err = fetcher()
+		return err
+	}
+	retryArg.IsFatalError = func(err error) bool {
+		return !network.IsNoAddressError(err)
+	}
+	return address, retry.Call(retryArg)
 }
 
 // spaceAddressesFromNetworkInfo returns a SpaceAddresses collection
@@ -475,16 +602,80 @@ func spaceAddressesFromNetworkInfo(netInfos []network.NetworkInfo) corenetwork.S
 	return addrs
 }
 
-func pollForAddress(fetcher func() (corenetwork.SpaceAddress, error)) (corenetwork.SpaceAddress, error) {
-	var address corenetwork.SpaceAddress
-	retryArg := PreferredAddressRetryArgs()
-	retryArg.Func = func() error {
-		var err error
-		address, err = fetcher()
-		return err
+var defaultRetryFactory = func() retry.CallArgs {
+	return retry.CallArgs{
+		Clock:       clock.WallClock,
+		Delay:       3 * time.Second,
+		MaxDuration: 30 * time.Second,
 	}
-	retryArg.IsFatalError = func(err error) bool {
-		return !network.IsNoAddressError(err)
+}
+
+// TODO (manadart 2020-08-20): The logic below was moved over from the state
+// package when machine.GetNetworkInfoForSpaces was removed from state and
+// implemented here. It is an unnecessary convolution and should be factored
+// out in favour of a simpler return from machineNetworkInfos.
+
+// MachineNetworkInfoResult contains an error or a list of NetworkInfo
+// structures for a specific space.
+type machineNetworkInfoResult struct {
+	NetworkInfos []network.NetworkInfo
+	Error        error
+}
+
+// Add address to a device in list or create a new device with this address.
+func addAddressToResult(networkInfos []network.NetworkInfo, address *state.Address) ([]network.NetworkInfo, error) {
+	deviceAddr := network.InterfaceAddress{
+		Address: address.Value(),
+		CIDR:    address.SubnetCIDR(),
 	}
-	return address, retry.Call(retryArg)
+	for i := range networkInfos {
+		networkInfo := &networkInfos[i]
+		if networkInfo.InterfaceName == address.DeviceName() {
+			networkInfo.Addresses = append(networkInfo.Addresses, deviceAddr)
+			return networkInfos, nil
+		}
+	}
+
+	var MAC string
+	device, err := address.Device()
+	if err == nil {
+		MAC = device.MACAddress()
+	} else if !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+
+	networkInfo := network.NetworkInfo{
+		InterfaceName: address.DeviceName(),
+		MACAddress:    MAC,
+		Addresses:     []network.InterfaceAddress{deviceAddr},
+	}
+	return append(networkInfos, networkInfo), nil
+}
+
+func machineNetworkInfoResultToNetworkInfoResult(inResult machineNetworkInfoResult) params.NetworkInfoResult {
+	if inResult.Error != nil {
+		return params.NetworkInfoResult{Error: apiservererrors.ServerError(inResult.Error)}
+	}
+	infos := make([]params.NetworkInfo, len(inResult.NetworkInfos))
+	for i, info := range inResult.NetworkInfos {
+		infos[i] = networkToParamsNetworkInfo(info)
+	}
+	return params.NetworkInfoResult{
+		Info: infos,
+	}
+}
+
+func networkToParamsNetworkInfo(info network.NetworkInfo) params.NetworkInfo {
+	addresses := make([]params.InterfaceAddress, len(info.Addresses))
+	for i, addr := range info.Addresses {
+		addresses[i] = params.InterfaceAddress{
+			Address: addr.Address,
+			CIDR:    addr.CIDR,
+		}
+	}
+	return params.NetworkInfo{
+		MACAddress:    info.MACAddress,
+		InterfaceName: info.InterfaceName,
+		Addresses:     addresses,
+	}
 }

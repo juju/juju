@@ -16,6 +16,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/caas"
+	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/caas/specs"
 	"github.com/juju/juju/cloud"
 	jujucloud "github.com/juju/juju/cloud"
@@ -99,7 +100,7 @@ func NewcontrollerStackForTest(
 	return cs.(*controllerStack), err
 }
 
-func PodSpec(u *workloadSpec) core.PodSpec {
+func Pod(u *workloadSpec) k8sspecs.PodSpecWithAnnotations {
 	return u.Pod
 }
 

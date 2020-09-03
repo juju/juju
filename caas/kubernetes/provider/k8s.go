@@ -1053,7 +1053,7 @@ func (k *kubernetesClient) ensureService(
 			return errors.Annotatef(err, "configuring devices for %s", appName)
 		}
 	}
-	if err := processConstraints(&workloadSpec.Pod, appName, params.Constraints); err != nil {
+	if err := processConstraints(&workloadSpec.Pod.PodSpec, appName, params.Constraints); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1277,7 +1277,7 @@ func (k *kubernetesClient) configurePodFiles(
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if err = pushUniqueVolume(&workloadSpec.Pod, vol, false); err != nil {
+			if err = pushUniqueVolume(&workloadSpec.Pod.PodSpec, vol, false); err != nil {
 				return errors.Trace(err)
 			}
 			workloadSpec.Pod.Containers[i].VolumeMounts = append(workloadSpec.Pod.Containers[i].VolumeMounts, core.VolumeMount{
@@ -1492,9 +1492,9 @@ func (k *kubernetesClient) configureDaemonSet(
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: deploymentName + "-",
 					Labels:       k.getDaemonSetLabels(appName),
-					Annotations:  podAnnotations(annotations.Copy()).ToMap(),
+					Annotations:  podAnnotations(k8sannotations.New(workloadSpec.Pod.Annotations).Merge(annotations).Copy()).ToMap(),
 				},
-				Spec: workloadSpec.Pod,
+				Spec: workloadSpec.Pod.PodSpec,
 			},
 		},
 	}
@@ -1591,9 +1591,9 @@ func (k *kubernetesClient) configureDeployment(
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: deploymentName + "-",
 					Labels:       utils.LabelsForApp(appName),
-					Annotations:  podAnnotations(annotations.Copy()).ToMap(),
+					Annotations:  podAnnotations(k8sannotations.New(workloadSpec.Pod.Annotations).Merge(annotations).Copy()).ToMap(),
 				},
-				Spec: workloadSpec.Pod,
+				Spec: workloadSpec.Pod.PodSpec,
 			},
 		},
 	}
@@ -2334,7 +2334,7 @@ func filesetConfigMap(configMapName string, labels, annotations map[string]strin
 
 // workloadSpec represents the k8s resources need to be created for the workload.
 type workloadSpec struct {
-	Pod     core.PodSpec `json:"pod"`
+	Pod     k8sspecs.PodSpecWithAnnotations
 	Service *specs.ServiceSpec
 
 	Secrets                         []k8sspecs.K8sSecret
@@ -2391,11 +2391,11 @@ func processContainers(deploymentName string, podSpec *specs.PodSpec, spec *core
 func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec,
 	operatorImagePath string) (*workloadSpec, error) {
 	var spec workloadSpec
-	if err := processContainers(deploymentName, podSpec, &spec.Pod); err != nil {
+	if err := processContainers(deploymentName, podSpec, &spec.Pod.PodSpec); err != nil {
 		logger.Errorf("unable to parse %q pod spec: \n%+v", appName, *podSpec)
 		return nil, errors.Annotatef(err, "processing container specs for app %q", appName)
 	}
-	if err := ensureJujuInitContainer(&spec.Pod, operatorImagePath); err != nil {
+	if err := ensureJujuInitContainer(&spec.Pod.PodSpec, operatorImagePath); err != nil {
 		return nil, errors.Annotatef(err, "adding init container for app %q", appName)
 	}
 
@@ -2426,6 +2426,7 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec,
 			spec.ValidatingWebhookConfigurations = k8sResources.ValidatingWebhookConfigurations
 			spec.IngressResources = k8sResources.IngressResources
 			if k8sResources.Pod != nil {
+				spec.Pod.Annotations = k8sResources.Pod.Annotations.Copy()
 				spec.Pod.RestartPolicy = k8sResources.Pod.RestartPolicy
 				spec.Pod.ActiveDeadlineSeconds = k8sResources.Pod.ActiveDeadlineSeconds
 				spec.Pod.TerminationGracePeriodSeconds = k8sResources.Pod.TerminationGracePeriodSeconds

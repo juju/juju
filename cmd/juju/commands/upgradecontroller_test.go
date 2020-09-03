@@ -252,7 +252,7 @@ var upgradeCAASControllerTests = []upgradeTest{{
 	expectInitErr:  "invalid version .*",
 }, {
 	about:          "latest supported stable release",
-	available:      []string{"2.1.0", "2.1.2", "2.1.3", "2.1-dev1"},
+	available:      []string{"2.1.0", "2.1.2", "2.1.3", "2.1.3.666", "2.1-dev1"},
 	streams:        []string{"2.1.0-quantal-amd64", "2.1.2-quantal-amd64", "2.1.3-quantal-amd64", "2.1-dev1-quantal-amd64"},
 	currentVersion: "2.0.0",
 	agentVersion:   "2.0.0",

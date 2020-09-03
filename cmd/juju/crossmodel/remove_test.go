@@ -43,11 +43,11 @@ func (s *removeSuite) TestRemoveURLError(c *gc.C) {
 }
 
 func (s *removeSuite) TestRemoveURLWithEndpoints(c *gc.C) {
-	_, err := s.runRemove(c, "fred/model.db2:db")
+	_, err := s.runRemove(c, "fred@external/model.db2:db")
 	c.Assert(err, gc.NotNil)
 	c.Assert(err.Error(), gc.Equals, `
 These offers contain endpoints. Only specify the offer name itself.
- -fred/model.db2:db`[1:])
+ -fred@external/model.db2:db`[1:])
 }
 
 func (s *removeSuite) TestRemoveInconsistentControllers(c *gc.C) {
@@ -62,8 +62,8 @@ func (s *removeSuite) TestRemoveApiError(c *gc.C) {
 }
 
 func (s *removeSuite) TestRemove(c *gc.C) {
-	s.mockAPI.expectedURLs = []string{"fred/model.db2", "mary/model.db2"}
-	_, err := s.runRemove(c, "fred/model.db2", "mary/model.db2", "-y")
+	s.mockAPI.expectedURLs = []string{"fred@external/model.db2", "mary/model.db2"}
+	_, err := s.runRemove(c, "fred@external/model.db2", "mary/model.db2", "-y")
 	c.Assert(err, jc.ErrorIsNil)
 }
 

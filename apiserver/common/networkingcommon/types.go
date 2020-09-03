@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
 	corenetwork "github.com/juju/juju/core/network"
@@ -213,13 +212,11 @@ func networkDeviceToStateArgs(dev corenetwork.InterfaceInfo) state.LinkLayerDevi
 // configuration is sometimes supplied with a duplicated device for each
 // address.
 // This is a normalisation that returns state args for all primary addresses
-// of interfaces with the input name and hardware address.
-func networkAddressStateArgsForDevice(
-	devs corenetwork.InterfaceInfos, name, hwAddr string,
-) []state.LinkLayerDeviceAddress {
+// of interfaces with the input name.
+func networkAddressStateArgsForDevice(devs corenetwork.InterfaceInfos, name string) []state.LinkLayerDeviceAddress {
 	var res []state.LinkLayerDeviceAddress
 
-	for _, dev := range devs.GetByNameAndHardwareAddress(name, hwAddr) {
+	for _, dev := range devs.GetByName(name) {
 		if dev.PrimaryAddress().Value == "" {
 			continue
 		}
@@ -265,51 +262,8 @@ func networkAddressToStateArgs(
 		DNSSearchDomains:  dev.DNSSearchDomains,
 		GatewayAddress:    dev.GatewayAddress.Value,
 		IsDefaultGateway:  dev.IsDefaultGateway,
+		Origin:            dev.Origin,
 	}, nil
-}
-
-// NetworkConfigSource defines the necessary calls to obtain the network
-// configuration of a machine.
-type NetworkConfigSource interface {
-	// SysClassNetPath returns the Linux kernel userspace SYSFS path used by
-	// this source. DefaultNetworkConfigSource() uses network.SysClassNetPath.
-	SysClassNetPath() string
-
-	// Interfaces returns information about all network interfaces on the
-	// machine as []net.Interface.
-	Interfaces() ([]net.Interface, error)
-
-	// InterfaceAddresses returns information about all addresses assigned to
-	// the network interface with the given name.
-	InterfaceAddresses(name string) ([]net.Addr, error)
-}
-
-func networkToParamsNetworkInfo(info network.NetworkInfo) params.NetworkInfo {
-	addresses := make([]params.InterfaceAddress, len(info.Addresses))
-	for i, addr := range info.Addresses {
-		addresses[i] = params.InterfaceAddress{
-			Address: addr.Address,
-			CIDR:    addr.CIDR,
-		}
-	}
-	return params.NetworkInfo{
-		MACAddress:    info.MACAddress,
-		InterfaceName: info.InterfaceName,
-		Addresses:     addresses,
-	}
-}
-
-func MachineNetworkInfoResultToNetworkInfoResult(inResult state.MachineNetworkInfoResult) params.NetworkInfoResult {
-	if inResult.Error != nil {
-		return params.NetworkInfoResult{Error: apiservererrors.ServerError(inResult.Error)}
-	}
-	infos := make([]params.NetworkInfo, len(inResult.NetworkInfos))
-	for i, info := range inResult.NetworkInfos {
-		infos[i] = networkToParamsNetworkInfo(info)
-	}
-	return params.NetworkInfoResult{
-		Info: infos,
-	}
 }
 
 func FanConfigToFanConfigResult(config network.FanConfig) params.FanConfigResult {
