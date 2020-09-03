@@ -109,7 +109,7 @@ func (m *modelOperatorBrokerBridge) Namespace() string {
 
 func (m *modelOperatorBrokerBridge) IsLegacyLabels() bool {
 	if m.isLegacyLabels == nil {
-		return false
+		return true
 	}
 	return m.isLegacyLabels()
 }

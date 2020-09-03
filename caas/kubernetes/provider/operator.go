@@ -33,6 +33,9 @@ import (
 )
 
 const (
+	// OperatorAppTarget is the constant used to describe the operator's target
+	// in kubernetes. This allows us to differentiate between different
+	// operators that would possible have the same labels otherwise
 	OperatorAppTarget = "application"
 )
 

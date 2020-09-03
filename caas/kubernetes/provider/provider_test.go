@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
-	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -73,17 +72,6 @@ func (s *providerSuite) TestRegistered(c *gc.C) {
 	provider, err := environs.Provider("kubernetes")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider, gc.NotNil)
-}
-
-func (s *providerSuite) TestOpen(c *gc.C) {
-	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
-	config := fakeConfig(c)
-	broker, err := s.provider.Open(environs.OpenParams{
-		Cloud:  fakeCloudSpec(),
-		Config: config,
-	})
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(broker, gc.NotNil)
 }
 
 func (s *providerSuite) TestOpenInvalidCloudSpec(c *gc.C) {

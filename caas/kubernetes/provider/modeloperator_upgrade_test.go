@@ -43,10 +43,6 @@ func (d *dummyUpgradeCAASModel) Namespace() string {
 	return "test"
 }
 
-func (d *dummyUpgradeCAASModel) IsLegacyLabels() bool {
-	return false
-}
-
 func (s *modelUpgraderSuite) SetUpTest(c *gc.C) {
 	s.broker = &dummyUpgradeCAASModel{
 		client: fake.NewSimpleClientset(),

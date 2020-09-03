@@ -46,10 +46,6 @@ func (d *dummyUpgradeCAASController) Namespace() string {
 	return "test"
 }
 
-func (d *dummyUpgradeCAASController) IsLegacyLabels() bool {
-	return false
-}
-
 func (s *ControllerUpgraderSuite) SetUpTest(c *gc.C) {
 	s.broker = &dummyUpgradeCAASController{
 		client: fake.NewSimpleClientset(),
