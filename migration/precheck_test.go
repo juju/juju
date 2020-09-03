@@ -1008,6 +1008,10 @@ func (u *fakeUnit) Status() (status.StatusInfo, error) {
 	return status.StatusInfo{Status: status.Idle}, nil
 }
 
+func (u *fakeUnit) IsEmbedded() (bool, error) {
+	return false, nil
+}
+
 type fakeRelation struct {
 	key           string
 	crossModel    bool
