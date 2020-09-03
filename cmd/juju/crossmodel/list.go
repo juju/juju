@@ -160,7 +160,7 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 	c.filters = []crossmodel.ApplicationOfferFilter{{
-		OwnerName:       ownerTag.Name(),
+		OwnerName:       ownerTag.Id(),
 		ModelName:       unqualifiedModelName,
 		ApplicationName: c.applicationName,
 	}}

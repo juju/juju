@@ -107,7 +107,7 @@ func (s *baseSuite) setupOffers(c *gc.C, filterAppName string, filterWithEndpoin
 		},
 	}
 	s.mockState.model = &mockModel{
-		uuid: coretesting.ModelTag.Id(), name: "prod", owner: "fred", modelType: state.ModelTypeIAAS}
+		uuid: coretesting.ModelTag.Id(), name: "prod", owner: "fred@external", modelType: state.ModelTypeIAAS}
 	s.mockState.relations["hosted-db2:db wordpress:db"] = &mockRelation{
 		id: 1,
 		endpoint: state.Endpoint{
@@ -121,7 +121,7 @@ func (s *baseSuite) setupOffers(c *gc.C, filterAppName string, filterWithEndpoin
 	}
 	s.mockState.connections = []applicationoffers.OfferConnection{
 		&mockOfferConnection{
-			username:    "fred",
+			username:    "fred@external",
 			modelUUID:   coretesting.ModelTag.Id(),
 			relationKey: "hosted-db2:db wordpress:db",
 			relationId:  1,

@@ -424,7 +424,7 @@ func (api *OffersAPI) FindApplicationOffers(filters params.OfferFilters) (params
 			defer release()
 			modelFilter := filters.Filters[0]
 			modelFilter.ModelName = m.Name()
-			modelFilter.OwnerName = m.Owner().Name()
+			modelFilter.OwnerName = m.Owner().Id()
 			filtersToUse.Filters = append(filtersToUse.Filters, modelFilter)
 		}
 	} else {
