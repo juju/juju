@@ -66,6 +66,12 @@ func NewHostPreparer(params HostPreparerParams) *HostPreparer {
 // Prepare applies changes to the host machine that are necessary to create
 // the requested container.
 func (hp *HostPreparer) Prepare(containerTag names.MachineTag) error {
+	releaser, err := hp.acquireLockFunc("bridging devices", hp.abortChan)
+	if err != nil {
+		return errors.Annotatef(err, "failed to acquire machine lock for bridging")
+	}
+	defer releaser()
+
 	devicesToBridge, reconfigureDelay, err := hp.api.HostChangesForContainer(containerTag)
 	if err != nil {
 		return errors.Annotate(err, "unable to setup network")
@@ -83,11 +89,7 @@ func (hp *HostPreparer) Prepare(containerTag names.MachineTag) error {
 
 	hp.logger.Debugf("bridging %+v devices on host %q for container %q with delay=%v",
 		devicesToBridge, hp.machineTag.String(), containerTag.String(), reconfigureDelay)
-	releaser, err := hp.acquireLockFunc("bridging devices", hp.abortChan)
-	if err != nil {
-		return errors.Annotatef(err, "failed to acquire machine lock for bridging")
-	}
-	defer releaser()
+
 	// TODO(jam): 2017-02-15 bridger.Bridge should probably also take AbortChan
 	// if it is going to have reconfigureDelay
 	err = bridger.Bridge(devicesToBridge, reconfigureDelay)

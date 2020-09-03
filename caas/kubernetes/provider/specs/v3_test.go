@@ -229,6 +229,8 @@ kubernetesResources:
               resources: ["pods"]
               verbs: ["get", "watch", "list"]
   pod:
+    annotations:
+      foo: baz
     restartPolicy: OnFailure
     activeDeadlineSeconds: 10
     terminationGracePeriodSeconds: 20
@@ -799,6 +801,7 @@ echo "do some stuff here for gitlab-init container"
 				},
 				K8sRBACResources: rbacResources,
 				Pod: &k8sspecs.PodSpec{
+					Annotations:                   map[string]string{"foo": "baz"},
 					ActiveDeadlineSeconds:         int64Ptr(10),
 					RestartPolicy:                 core.RestartPolicyOnFailure,
 					TerminationGracePeriodSeconds: int64Ptr(20),

@@ -165,24 +165,12 @@ func (*nicSuite) TestInterfaceInfosFiltering(c *gc.C) {
 	})
 }
 
-func (s *nicSuite) TestInterfaceInfosGetByNameAndHardwareAddress(c *gc.C) {
-	name := "eth0"
-	hwAddr := "00:16:3e:aa:bb:cc"
-
-	devs := s.info.GetByNameAndHardwareAddress("wrong-name", hwAddr)
+func (s *nicSuite) TestInterfaceInfosGetByName(c *gc.C) {
+	devs := s.info.GetByName("wrong-name")
 	c.Assert(devs, gc.IsNil)
 
-	devs = s.info.GetByNameAndHardwareAddress(name, "wrong-MAC")
-	c.Assert(devs, gc.IsNil)
-
-	devs = s.info.GetByNameAndHardwareAddress(name, hwAddr)
+	devs = s.info.GetByName("eth0")
 	c.Assert(devs, gc.HasLen, 1)
-
-	devs = append(s.info, network.InterfaceInfo{
-		InterfaceName: name,
-		MACAddress:    hwAddr,
-	}).GetByNameAndHardwareAddress(name, hwAddr)
-	c.Assert(devs, gc.HasLen, 2)
 }
 
 func getInterFaceInfos() network.InterfaceInfos {

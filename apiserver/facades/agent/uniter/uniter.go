@@ -1654,7 +1654,7 @@ func (u *UniterAPI) EnterScope(args params.RelationUnits) (params.ErrorResults, 
 			return nil
 		}
 
-		netInfo, err := NewNetworkInfo(u.st, unitTag)
+		netInfo, err := NewNetworkInfo(u.st, unitTag, defaultRetryFactory)
 		if err != nil {
 			return err
 		}
@@ -2594,7 +2594,7 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 		return params.NetworkInfoResults{}, apiservererrors.ErrPerm
 	}
 
-	netInfo, err := NewNetworkInfo(u.st, unitTag)
+	netInfo, err := NewNetworkInfo(u.st, unitTag, defaultRetryFactory)
 	if err != nil {
 		return params.NetworkInfoResults{}, err
 	}
@@ -3524,7 +3524,7 @@ func (u *UniterAPI) updateUnitNetworkInfoOperation(unitTag names.UnitTag, unit *
 			return nil, errors.Trace(err)
 		}
 
-		netInfo, err := NewNetworkInfo(u.st, unitTag)
+		netInfo, err := NewNetworkInfo(u.st, unitTag, defaultRetryFactory)
 		if err != nil {
 			return nil, err
 		}
