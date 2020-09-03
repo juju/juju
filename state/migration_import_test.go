@@ -521,7 +521,7 @@ func (s *MigrationImportSuite) setupSourceApplications(
 	err = application.SetMetricCredentials([]byte("sekrit"))
 	c.Assert(err, jc.ErrorIsNil)
 	// Expose the application.
-	c.Assert(application.SetExposed(), jc.ErrorIsNil)
+	c.Assert(application.SetExposed(nil, nil, nil), jc.ErrorIsNil)
 	err = testModel.SetAnnotations(application, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 	if testModel.Type() == state.ModelTypeCAAS {
