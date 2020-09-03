@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
-	"github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
