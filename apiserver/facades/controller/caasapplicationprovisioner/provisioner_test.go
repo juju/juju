@@ -122,9 +122,9 @@ func (s *CAASApplicationProvisionerSuite) TestUnits(c *gc.C) {
 		life:  state.Alive,
 		charm: &mockCharm{meta: &charm.Meta{}},
 		units: []*mockUnit{
-			&mockUnit{tag: names.NewUnitTag("gitlab/0")},
-			&mockUnit{tag: names.NewUnitTag("gitlab/1")},
-			&mockUnit{tag: names.NewUnitTag("gitlab/2")},
+			{tag: names.NewUnitTag("gitlab/0")},
+			{tag: names.NewUnitTag("gitlab/1")},
+			{tag: names.NewUnitTag("gitlab/2")},
 		},
 	}
 	result, err := s.api.Units(params.Entities{
@@ -135,9 +135,9 @@ func (s *CAASApplicationProvisionerSuite) TestUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results[0].Error, gc.IsNil)
 	c.Assert(result.Results[0].Entities, gc.DeepEquals, []params.Entity{
-		params.Entity{Tag: "unit-gitlab-0"},
-		params.Entity{Tag: "unit-gitlab-1"},
-		params.Entity{Tag: "unit-gitlab-2"},
+		{Tag: "unit-gitlab-0"},
+		{Tag: "unit-gitlab-1"},
+		{Tag: "unit-gitlab-2"},
 	})
 }
 
@@ -154,14 +154,14 @@ func (s *CAASApplicationProvisionerSuite) TestGarbageCollectStateful(c *gc.C) {
 			},
 		},
 		units: []*mockUnit{
-			&mockUnit{
+			{
 				tag: names.NewUnitTag("gitlab/0"),
 				containerInfo: &mockCloudContainer{
 					unit:       "gitlab/0",
 					providerId: "gitlab-0",
 				},
 			},
-			&mockUnit{
+			{
 				tag: names.NewUnitTag("gitlab/1"),
 				containerInfo: &mockCloudContainer{
 					unit:       "gitlab/1",
@@ -169,7 +169,7 @@ func (s *CAASApplicationProvisionerSuite) TestGarbageCollectStateful(c *gc.C) {
 				},
 				destroyOp: destroyOp,
 			},
-			&mockUnit{
+			{
 				tag: names.NewUnitTag("gitlab/2"),
 				containerInfo: &mockCloudContainer{
 					unit:       "gitlab/2",
@@ -210,14 +210,14 @@ func (s *CAASApplicationProvisionerSuite) TestGarbageCollectDeployment(c *gc.C) 
 			},
 		},
 		units: []*mockUnit{
-			&mockUnit{
+			{
 				tag: names.NewUnitTag("gitlab/0"),
 				containerInfo: &mockCloudContainer{
 					unit:       "gitlab/0",
 					providerId: "gitlab-0",
 				},
 			},
-			&mockUnit{
+			{
 				tag: names.NewUnitTag("gitlab/1"),
 				containerInfo: &mockCloudContainer{
 					unit:       "gitlab/1",
@@ -225,7 +225,7 @@ func (s *CAASApplicationProvisionerSuite) TestGarbageCollectDeployment(c *gc.C) 
 				},
 				destroyOp: destroyOp,
 			},
-			&mockUnit{
+			{
 				tag: names.NewUnitTag("gitlab/2"),
 				containerInfo: &mockCloudContainer{
 					unit:       "gitlab/2",
@@ -266,14 +266,14 @@ func (s *CAASApplicationProvisionerSuite) TestGarbageCollectDaemon(c *gc.C) {
 			},
 		},
 		units: []*mockUnit{
-			&mockUnit{
+			{
 				tag: names.NewUnitTag("gitlab/0"),
 				containerInfo: &mockCloudContainer{
 					unit:       "gitlab/0",
 					providerId: "gitlab-0",
 				},
 			},
-			&mockUnit{
+			{
 				tag: names.NewUnitTag("gitlab/1"),
 				containerInfo: &mockCloudContainer{
 					unit:       "gitlab/1",
@@ -281,14 +281,14 @@ func (s *CAASApplicationProvisionerSuite) TestGarbageCollectDaemon(c *gc.C) {
 				},
 				destroyOp: destroyOp,
 			},
-			&mockUnit{
+			{
 				tag: names.NewUnitTag("gitlab/2"),
 				containerInfo: &mockCloudContainer{
 					unit:       "gitlab/2",
 					providerId: "gitlab-2",
 				},
 			},
-			&mockUnit{
+			{
 				tag: names.NewUnitTag("gitlab/3"),
 			},
 		},
@@ -326,7 +326,7 @@ func (s *CAASApplicationProvisionerSuite) TestGarbageCollectForced(c *gc.C) {
 			},
 		},
 		units: []*mockUnit{
-			&mockUnit{
+			{
 				tag: names.NewUnitTag("gitlab/0"),
 				containerInfo: &mockCloudContainer{
 					unit:       "gitlab/0",
@@ -334,7 +334,7 @@ func (s *CAASApplicationProvisionerSuite) TestGarbageCollectForced(c *gc.C) {
 				},
 				destroyOp: destroyOp,
 			},
-			&mockUnit{
+			{
 				tag: names.NewUnitTag("gitlab/1"),
 				containerInfo: &mockCloudContainer{
 					unit:       "gitlab/1",
@@ -342,7 +342,7 @@ func (s *CAASApplicationProvisionerSuite) TestGarbageCollectForced(c *gc.C) {
 				},
 				destroyOp: destroyOp,
 			},
-			&mockUnit{
+			{
 				tag: names.NewUnitTag("gitlab/2"),
 				containerInfo: &mockCloudContainer{
 					unit:       "gitlab/2",
@@ -350,7 +350,7 @@ func (s *CAASApplicationProvisionerSuite) TestGarbageCollectForced(c *gc.C) {
 				},
 				destroyOp: destroyOp,
 			},
-			&mockUnit{
+			{
 				tag:       names.NewUnitTag("gitlab/3"),
 				destroyOp: destroyOp,
 			},
