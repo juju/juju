@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
 	"github.com/juju/juju/cloud"
 	jujucloud "github.com/juju/juju/cloud"
@@ -129,7 +130,7 @@ func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, 
 	// controller namespace when we find it.
 	broker, err := newK8sBroker(
 		args.ControllerUUID, k8sRestConfig, args.Config, args.Config.Name(), newK8sClient, newRestClient,
-		k8swatcher.NewKubernetesNotifyWatcher, k8swatcher.NewKubernetesStringsWatcher, randomPrefix,
+		k8swatcher.NewKubernetesNotifyWatcher, k8swatcher.NewKubernetesStringsWatcher, utils.RandomPrefix,
 		jujuclock.WallClock)
 	if err != nil {
 		return nil, err
@@ -149,7 +150,7 @@ func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, 
 	return newK8sBroker(
 		args.ControllerUUID, k8sRestConfig, args.Config, ns,
 		newK8sClient, newRestClient, k8swatcher.NewKubernetesNotifyWatcher, k8swatcher.NewKubernetesStringsWatcher,
-		randomPrefix, jujuclock.WallClock)
+		utils.RandomPrefix, jujuclock.WallClock)
 }
 
 // CloudSchema returns the schema for adding new clouds of this type.

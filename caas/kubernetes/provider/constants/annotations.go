@@ -37,3 +37,8 @@ func AnnotationUnit() string {
 func AnnotationCharmModifiedVersionKey() string {
 	return AnnotationKey("charm-modified-version")
 }
+
+// AnnotationApplicationUUIDKey returns the annotation key for application UUID.
+func AnnotationApplicationUUIDKey() string {
+	return AnnotationKey("app-uuid")
+}

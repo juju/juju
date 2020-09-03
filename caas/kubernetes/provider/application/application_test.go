@@ -88,6 +88,9 @@ func (s *applicationSuite) getApp(c *gc.C, deploymentType caas.DeploymentType, m
 		s.client,
 		watcherFn,
 		s.clock,
+		func() (string, error) {
+			return "appuuid", nil
+		},
 		func() resources.Applier {
 			if mockApplier {
 				return s.applier
@@ -245,10 +248,13 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(ss, gc.DeepEquals, &appsv1.StatefulSet{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "gitlab",
-					Namespace:   "test",
-					Labels:      map[string]string{"juju-app": "gitlab"},
-					Annotations: map[string]string{"juju-version": "0.0.0"},
+					Name:      "gitlab",
+					Namespace: "test",
+					Labels:    map[string]string{"juju-app": "gitlab"},
+					Annotations: map[string]string{
+						"juju-version":     "0.0.0",
+						"juju.io/app-uuid": "appuuid",
+					},
 				},
 				Spec: appsv1.StatefulSetSpec{
 					Replicas: application.Int32Ptr(1),
@@ -318,7 +324,7 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 										SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
 									},
 									{
-										Name:      "gitlab-database",
+										Name:      "gitlab-database-appuuid",
 										MountPath: "path/to/here",
 									},
 									{
@@ -339,7 +345,7 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 										ReadOnly:  true,
 									},
 									{
-										Name:      "gitlab-database",
+										Name:      "gitlab-database-appuuid",
 										MountPath: "path/to/here",
 									},
 									{
@@ -370,7 +376,7 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 					VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
 						{
 							ObjectMeta: metav1.ObjectMeta{
-								Name: "gitlab-database",
+								Name: "gitlab-database-appuuid",
 								Annotations: map[string]string{
 									"foo":          "bar",
 									"juju-storage": "database",
@@ -398,16 +404,42 @@ func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 		c, caas.DeploymentStateless, func() {
 			ss, err := s.client.AppsV1().Deployments("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
+
+			pvc, err := s.client.CoreV1().PersistentVolumeClaims("test").Get(context.TODO(), "gitlab-database-appuuid", metav1.GetOptions{})
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(pvc, gc.DeepEquals, &corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "gitlab-database-appuuid",
+					Namespace: "test",
+					Annotations: map[string]string{
+						"foo":          "bar",
+						"juju-storage": "database",
+					},
+				},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					StorageClassName: application.StrPtr("test-workload-storage"),
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceStorage: k8sresource.MustParse("100Mi"),
+						},
+					},
+					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+				},
+			})
+
 			jujuDataDir, err := paths.DataDir("kubernetes")
 			c.Assert(err, jc.ErrorIsNil)
 			size, err := k8sresource.ParseQuantity("200Mi")
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(ss, gc.DeepEquals, &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "gitlab",
-					Namespace:   "test",
-					Labels:      map[string]string{"juju-app": "gitlab"},
-					Annotations: map[string]string{"juju-version": "0.0.0"},
+					Name:      "gitlab",
+					Namespace: "test",
+					Labels:    map[string]string{"juju-app": "gitlab"},
+					Annotations: map[string]string{
+						"juju-version":     "0.0.0",
+						"juju.io/app-uuid": "appuuid",
+					},
 				},
 				Spec: appsv1.DeploymentSpec{
 					Replicas: application.Int32Ptr(1),
@@ -477,7 +509,7 @@ func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 										SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
 									},
 									{
-										Name:      "gitlab-database",
+										Name:      "gitlab-database-appuuid",
 										MountPath: "path/to/here",
 									},
 									{
@@ -498,7 +530,7 @@ func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 										ReadOnly:  true,
 									},
 									{
-										Name:      "gitlab-database",
+										Name:      "gitlab-database-appuuid",
 										MountPath: "path/to/here",
 									},
 									{
@@ -524,6 +556,13 @@ func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 									},
 								},
 								{
+									Name: "gitlab-database-appuuid",
+									VolumeSource: corev1.VolumeSource{
+										PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+											ClaimName: "gitlab-database-appuuid",
+										}},
+								},
+								{
 									Name: "gitlab-logs",
 									VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{
 										SizeLimit: &size,
@@ -544,16 +583,42 @@ func (s *applicationSuite) TestEnsureDaemon(c *gc.C) {
 		c, caas.DeploymentDaemon, func() {
 			ss, err := s.client.AppsV1().DaemonSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
+
+			pvc, err := s.client.CoreV1().PersistentVolumeClaims("test").Get(context.TODO(), "gitlab-database-appuuid", metav1.GetOptions{})
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(pvc, gc.DeepEquals, &corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "gitlab-database-appuuid",
+					Namespace: "test",
+					Annotations: map[string]string{
+						"foo":          "bar",
+						"juju-storage": "database",
+					},
+				},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					StorageClassName: application.StrPtr("test-workload-storage"),
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceStorage: k8sresource.MustParse("100Mi"),
+						},
+					},
+					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+				},
+			})
+
 			jujuDataDir, err := paths.DataDir("kubernetes")
 			c.Assert(err, jc.ErrorIsNil)
 			size, err := k8sresource.ParseQuantity("200Mi")
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(ss, gc.DeepEquals, &appsv1.DaemonSet{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "gitlab",
-					Namespace:   "test",
-					Labels:      map[string]string{"juju-app": "gitlab"},
-					Annotations: map[string]string{"juju-version": "0.0.0"},
+					Name:      "gitlab",
+					Namespace: "test",
+					Labels:    map[string]string{"juju-app": "gitlab"},
+					Annotations: map[string]string{
+						"juju-version":     "0.0.0",
+						"juju.io/app-uuid": "appuuid",
+					},
 				},
 				Spec: appsv1.DaemonSetSpec{
 					Selector: &metav1.LabelSelector{
@@ -622,7 +687,7 @@ func (s *applicationSuite) TestEnsureDaemon(c *gc.C) {
 										SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
 									},
 									{
-										Name:      "gitlab-database",
+										Name:      "gitlab-database-appuuid",
 										MountPath: "path/to/here",
 									},
 									{
@@ -643,7 +708,7 @@ func (s *applicationSuite) TestEnsureDaemon(c *gc.C) {
 										ReadOnly:  true,
 									},
 									{
-										Name:      "gitlab-database",
+										Name:      "gitlab-database-appuuid",
 										MountPath: "path/to/here",
 									},
 									{
@@ -667,6 +732,13 @@ func (s *applicationSuite) TestEnsureDaemon(c *gc.C) {
 											SizeLimit: k8sresource.NewScaledQuantity(1, k8sresource.Giga),
 										},
 									},
+								},
+								{
+									Name: "gitlab-database-appuuid",
+									VolumeSource: corev1.VolumeSource{
+										PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+											ClaimName: "gitlab-database-appuuid",
+										}},
 								},
 								{
 									Name: "gitlab-logs",

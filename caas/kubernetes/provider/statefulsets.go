@@ -13,6 +13,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	k8sstorage "github.com/juju/juju/caas/kubernetes/provider/storage"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/caas/specs"
 	k8sannotations "github.com/juju/juju/core/annotations"
@@ -77,7 +78,7 @@ func (k *kubernetesClient) configureStatefulSet(
 		if readOnly {
 			logger.Warningf("set storage mode to ReadOnlyMany if read only storage is needed")
 		}
-		if err := pushUniqueVolumeClaimTemplate(&statefulSet.Spec, pvc); err != nil {
+		if err := k8sstorage.PushUniqueVolumeClaimTemplate(&statefulSet.Spec, pvc); err != nil {
 			return errors.Trace(err)
 		}
 		podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{

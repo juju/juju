@@ -6,9 +6,7 @@ package provider
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"fmt"
-	"io"
 	"regexp"
 	"sort"
 	"strconv"
@@ -133,7 +131,7 @@ type kubernetesClient struct {
 	informerFactoryUnlocked informers.SharedInformerFactory
 
 	// randomPrefix generates an annotation for stateful sets.
-	randomPrefix RandomPrefixFunc
+	randomPrefix utils.RandomPrefixFunc
 }
 
 // To regenerate the mocks for the kubernetes Client used by this broker,
@@ -158,9 +156,6 @@ type kubernetesClient struct {
 // NewK8sClientFunc defines a function which returns a k8s client based on the supplied config.
 type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, dynamic.Interface, error)
 
-// RandomPrefixFunc defines a function used to generate a random hex string.
-type RandomPrefixFunc func() (string, error)
-
 // newK8sBroker returns a kubernetes client for the specified k8s cluster.
 func newK8sBroker(
 	controllerUUID string,
@@ -171,7 +166,7 @@ func newK8sBroker(
 	newRestClient k8sspecs.NewK8sRestClientFunc,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
 	newStringsWatcher k8swatcher.NewK8sStringsWatcherFunc,
-	randomPrefix RandomPrefixFunc,
+	randomPrefix utils.RandomPrefixFunc,
 	clock jujuclock.Clock,
 ) (*kubernetesClient, error) {
 	k8sClient, apiextensionsClient, dynamicClient, err := newClient(k8sRestConfig)
@@ -1174,14 +1169,6 @@ func validateDeploymentType(t caas.DeploymentType, params *caas.ServiceParams, w
 	return nil
 }
 
-func randomPrefix() (string, error) {
-	var randPrefixBytes [4]byte
-	if _, err := io.ReadFull(rand.Reader, randPrefixBytes[0:4]); err != nil {
-		return "", errors.Trace(err)
-	}
-	return fmt.Sprintf("%x", randPrefixBytes), nil
-}
-
 func (k *kubernetesClient) deleteAllPods(appName, deploymentName string) error {
 	zero := int32(0)
 	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
@@ -1275,7 +1262,7 @@ func (k *kubernetesClient) configurePodFiles(
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if err = pushUniqueVolume(&workloadSpec.Pod, vol, false); err != nil {
+			if err = k8sstorage.PushUniqueVolume(&workloadSpec.Pod, vol, false); err != nil {
 				return errors.Trace(err)
 			}
 			workloadSpec.Pod.Containers[i].VolumeMounts = append(workloadSpec.Pod.Containers[i].VolumeMounts, core.VolumeMount{
@@ -1320,7 +1307,7 @@ func (k *kubernetesClient) configureStorage(
 		mountPath := k8sstorage.GetMountPathForFilesystem(i, appName, fs)
 		if vol != nil {
 			logger.Debugf("using volume for %s filesystem %s: %s", appName, fs.StorageName, pretty.Sprint(*vol))
-			if err = pushUniqueVolume(podSpec, *vol, false); err != nil {
+			if err = k8sstorage.PushUniqueVolume(podSpec, *vol, false); err != nil {
 				return errors.Trace(err)
 			}
 			podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{
@@ -1355,14 +1342,14 @@ func ensureJujuInitContainer(podSpec *core.PodSpec, operatorImagePath string) er
 	}
 	replaceOrUpdateInitContainer()
 
-	if err = pushUniqueVolume(podSpec, vol, true); err != nil {
+	if err = k8sstorage.PushUniqueVolume(podSpec, vol, true); err != nil {
 		return errors.Trace(err)
 	}
 
 	for i := range podSpec.Containers {
 		container := &podSpec.Containers[i]
 		for _, volMount := range volMounts {
-			pushUniqueVolumeMount(container, volMount)
+			k8sstorage.PushUniqueVolumeMount(container, volMount)
 		}
 	}
 	return nil
@@ -1572,7 +1559,7 @@ func (k *kubernetesClient) configurePVCForStatelessResource(
 			},
 		},
 	}
-	if err = pushUniqueVolume(podSpec, vol, false); err != nil {
+	if err = k8sstorage.PushUniqueVolume(podSpec, vol, false); err != nil {
 		return cleanUps, errors.Trace(err)
 	}
 	podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{

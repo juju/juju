@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/caas/kubernetes/provider/mocks"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
+	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
 	"github.com/juju/juju/cloud"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -194,10 +195,12 @@ func (s *BaseSuite) setupController(c *gc.C) *gomock.Controller {
 	return s.setupBroker(c, ctrl, newK8sClientFunc, newK8sRestFunc, randomPrefixFunc)
 }
 
-func (s *BaseSuite) setupBroker(c *gc.C, ctrl *gomock.Controller,
+func (s *BaseSuite) setupBroker(
+	c *gc.C, ctrl *gomock.Controller,
 	newK8sClientFunc provider.NewK8sClientFunc,
 	newK8sRestFunc k8sspecs.NewK8sRestClientFunc,
-	randomPrefixFunc provider.RandomPrefixFunc) *gomock.Controller {
+	randomPrefixFunc utils.RandomPrefixFunc,
+) *gomock.Controller {
 	s.clock = testclock.NewClock(time.Time{})
 
 	watcherFn := k8swatcher.NewK8sWatcherFunc(func(i cache.SharedIndexInformer, n string, c jujuclock.Clock) (k8swatcher.KubernetesNotifyWatcher, error) {
