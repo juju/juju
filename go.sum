@@ -408,8 +408,8 @@ github.com/juju/collections v0.0.0-20180717171555-9be91dc79b7c h1:m/Uo8B7nrH3K6n
 github.com/juju/collections v0.0.0-20180717171555-9be91dc79b7c/go.mod h1:Ep+c0vnxsgmmTtsMibPgEEleZyi0b4uVvyzJ+8ka9EI=
 github.com/juju/collections v0.0.0-20200605021417-0d0ec82b7271 h1:4R626WTwa7pRYQFiIRLVPepMhm05eZMEx+wIurRnMLc=
 github.com/juju/collections v0.0.0-20200605021417-0d0ec82b7271/go.mod h1:5XgO71dV1JClcOJE+4dzdn4HrI5LiyKd7PlVG6eZYhY=
-github.com/juju/description/v2 v2.0.0-20200729125944-c57c043df14e h1:tNsT+clEbtw37TihcFAiCcjeuu2XKoEI+HKzDbzWlzs=
-github.com/juju/description/v2 v2.0.0-20200729125944-c57c043df14e/go.mod h1:R0uVxoEejueoMqD3tiidghBvVe9q3pshSFNqCToOTBo=
+github.com/juju/description/v2 v2.0.0-20200903081432-fe0d99923df9 h1:QRlYeZDE344vCHN9Qv4VEbJcX8yAWJKSCU2BEE1hFSI=
+github.com/juju/description/v2 v2.0.0-20200903081432-fe0d99923df9/go.mod h1:R0uVxoEejueoMqD3tiidghBvVe9q3pshSFNqCToOTBo=
 github.com/juju/errors v0.0.0-20150916125642-1b5e39b83d18/go.mod h1:W54LbzXuIE0boCoNJfwqpmkKJ1O4TCTZMetAt6jGk7Q=
 github.com/juju/errors v0.0.0-20180726005433-812b06ada177/go.mod h1:W54LbzXuIE0boCoNJfwqpmkKJ1O4TCTZMetAt6jGk7Q=
 github.com/juju/errors v0.0.0-20190930114154-d42613fe1ab9/go.mod h1:W54LbzXuIE0boCoNJfwqpmkKJ1O4TCTZMetAt6jGk7Q=

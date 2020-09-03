@@ -4133,7 +4133,7 @@ func (sse setApplicationExposed) step(c *gc.C, ctx *context) {
 	err = s.ClearExposed()
 	c.Assert(err, jc.ErrorIsNil)
 	if sse.exposed {
-		err = s.SetExposed()
+		err = s.SetExposed(nil, nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }

@@ -2467,7 +2467,7 @@ func (s *applicationSuite) TestApplicationExpose(c *gc.C) {
 		apps[i] = s.AddTestingApplication(c, name, charm)
 		c.Assert(apps[i].IsExposed(), jc.IsFalse)
 	}
-	err = apps[1].SetExposed()
+	err = apps[1].SetExposed(nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apps[1].IsExposed(), jc.IsTrue)
 	for i, t := range applicationExposeTests {
@@ -2493,7 +2493,7 @@ func (s *applicationSuite) setupApplicationExpose(c *gc.C) {
 		apps[i] = s.AddTestingApplication(c, name, charm)
 		c.Assert(apps[i].IsExposed(), jc.IsFalse)
 	}
-	err = apps[1].SetExposed()
+	err = apps[1].SetExposed(nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apps[1].IsExposed(), jc.IsTrue)
 }
@@ -2594,7 +2594,7 @@ func (s *applicationSuite) TestApplicationUnexpose(c *gc.C) {
 		c.Logf("test %d. %s", i, t.about)
 		app := s.AddTestingApplication(c, "dummy-application", charm)
 		if t.initial {
-			app.SetExposed()
+			app.SetExposed(nil, nil, nil)
 		}
 		c.Assert(app.IsExposed(), gc.Equals, t.initial)
 		err := s.applicationAPI.Unexpose(params.ApplicationUnexpose{t.application})
@@ -2613,7 +2613,7 @@ func (s *applicationSuite) TestApplicationUnexpose(c *gc.C) {
 func (s *applicationSuite) setupApplicationUnexpose(c *gc.C) *state.Application {
 	charm := s.AddTestingCharm(c, "dummy")
 	app := s.AddTestingApplication(c, "dummy-application", charm)
-	app.SetExposed()
+	app.SetExposed(nil, nil, nil)
 	c.Assert(app.IsExposed(), gc.Equals, true)
 	return app
 }

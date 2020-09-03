@@ -6,6 +6,7 @@ package state
 import (
 	stderrors "errors"
 	"fmt"
+	"net"
 	"sort"
 	"strconv"
 	"strings"
@@ -62,11 +63,24 @@ type applicationDoc struct {
 	Life                 Life         `bson:"life"`
 	UnitCount            int          `bson:"unitcount"`
 	RelationCount        int          `bson:"relationcount"`
-	Exposed              bool         `bson:"exposed"`
 	MinUnits             int          `bson:"minunits"`
 	Tools                *tools.Tools `bson:",omitempty"`
 	TxnRevno             int64        `bson:"txn-revno"`
 	MetricCredentials    []byte       `bson:"metric-credentials"`
+
+	// Exposed is set to true when the application is exposed.
+	Exposed bool `bson:"exposed"`
+
+	// The list of application endpoints whose ports should be accessible
+	// when the application is exposed. If empty, all open application
+	// ports will become accessible.
+	ExposedEndpoints []string `bson:"exposed-endpoints,omitempty"`
+
+	// A list of space IDs and CIDRs that should be able to reach the
+	// exposed application's ports. If empty, a 0.0.0.0/0 CIDR will be
+	// implicitly assumed.
+	ExposeToSpaceIDs []string `bson:"expose-to-space-ids,omitempty"`
+	ExposeToCIDRs    []string `bson:"expose-to-cidrs,omitempty"`
 
 	// CAAS related attributes.
 	DesiredScale int    `bson:"scale"`
@@ -640,29 +654,109 @@ func (a *Application) IsExposed() bool {
 	return a.doc.Exposed
 }
 
+// ExposedEndpoints returns a list of explicitly selected endpoints for this
+// application that should be reachable once the application is exposed. An
+// empty returned list means that all endpoints should be reachable.
+func (a *Application) ExposedEndpoints() []string {
+	if len(a.doc.ExposedEndpoints) == 0 {
+		return nil
+	}
+	return a.doc.ExposedEndpoints
+}
+
+// ExposeToSpaceIDs returns a list of space IDs that should be able to reach
+// this application's ports when the application is exposed.
+func (a *Application) ExposeToSpaceIDs() []string {
+	if len(a.doc.ExposeToSpaceIDs) == 0 {
+		return nil
+	}
+	return a.doc.ExposeToSpaceIDs
+}
+
+// ExposeToCIDRs returns a list of CIDRs that should be able to reach this
+// application's ports when the application is exposed.
+func (a *Application) ExposeToCIDRs() []string {
+	if len(a.doc.ExposeToCIDRs) == 0 {
+		return nil
+	}
+	return a.doc.ExposeToCIDRs
+}
+
 // SetExposed marks the application as exposed.
 // See ClearExposed and IsExposed.
-func (a *Application) SetExposed() error {
-	return a.setExposed(true)
+func (a *Application) SetExposed(endpoints, toSpaceIDs, toCIDRs []string) error {
+	if len(endpoints) != 0 {
+		bindings, _, err := readEndpointBindings(a.st, a.globalKey())
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		for _, endpoint := range endpoints {
+			// The default space entry has an empty string as its
+			// key but is not a valid endpoint.
+			if _, found := bindings[endpoint]; !found || endpoint == "" {
+				return errors.NotFoundf("endpoint %q", endpoint)
+			}
+		}
+	}
+
+	if len(toSpaceIDs) != 0 {
+		allSpaceInfos, err := a.st.AllSpaceInfos()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		for _, spaceID := range toSpaceIDs {
+			if allSpaceInfos.GetByID(spaceID) == nil {
+				return errors.NotFoundf("space with ID %q", spaceID)
+			}
+		}
+	}
+
+	if len(toCIDRs) != 0 {
+		for _, cidr := range toCIDRs {
+			if _, _, err := net.ParseCIDR(cidr); err != nil {
+				return errors.Annotatef(err, "unable to parse %q as a CIDR", cidr)
+			}
+		}
+	}
+
+	return a.setExposed(true, uniqueSortedStrings(endpoints), uniqueSortedStrings(toSpaceIDs), uniqueSortedStrings(toCIDRs))
+}
+
+func uniqueSortedStrings(in []string) []string {
+	if len(in) == 0 {
+		return nil
+	}
+
+	return set.NewStrings(in...).SortedValues()
 }
 
 // ClearExposed removes the exposed flag from the application.
 // See SetExposed and IsExposed.
 func (a *Application) ClearExposed() error {
-	return a.setExposed(false)
+	return a.setExposed(false, nil, nil, nil)
 }
 
-func (a *Application) setExposed(exposed bool) (err error) {
+func (a *Application) setExposed(exposed bool, endpoints, toSpaceIDs, toCIDRs []string) (err error) {
 	ops := []txn.Op{{
 		C:      applicationsC,
 		Id:     a.doc.DocID,
 		Assert: isAliveDoc,
-		Update: bson.D{{"$set", bson.D{{"exposed", exposed}}}},
+		Update: bson.D{{"$set", bson.D{
+			{"exposed", exposed},
+			{"exposed-endpoints", endpoints},
+			{"expose-to-space-ids", toSpaceIDs},
+			{"expose-to-cidrs", toCIDRs},
+		}}},
 	}}
 	if err := a.st.db().RunTransaction(ops); err != nil {
 		return errors.Errorf("cannot set exposed flag for application %q to %v: %v", a, exposed, onAbort(err, applicationNotAliveErr))
 	}
 	a.doc.Exposed = exposed
+	a.doc.ExposedEndpoints = endpoints
+	a.doc.ExposeToSpaceIDs = toSpaceIDs
+	a.doc.ExposeToCIDRs = toCIDRs
 	return nil
 }
 
