@@ -17,11 +17,11 @@ func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
 
-type ImportSuite struct{}
+type importSuite struct{}
 
-var _ = gc.Suite(&ImportSuite{})
+var _ = gc.Suite(&importSuite{})
 
-func (*ImportSuite) TestImports(c *gc.C) {
+func (*importSuite) TestImports(c *gc.C) {
 	found := set.NewStrings(
 		coretesting.FindJujuCoreImports(c, "github.com/juju/juju/cmd/k8sagent/unit")...)
 
@@ -59,6 +59,9 @@ func (*ImportSuite) TestImports(c *gc.C) {
 		"caas",
 		"caas/kubernetes/clientconfig",
 		"caas/kubernetes/provider",
+		"caas/kubernetes/provider/application",
+		"caas/kubernetes/provider/resources",
+		"caas/kubernetes/provider/storage",
 		"caas/kubernetes/provider/constants",
 		"caas/kubernetes/provider/specs",
 		"caas/kubernetes/provider/utils",

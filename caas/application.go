@@ -38,7 +38,7 @@ type ApplicationConfig struct {
 
 	// IntroductionSecret
 	IntroductionSecret string
-	// ControllerAddresses is a comma seperated list of controller addresses.
+	// ControllerAddresses is a comma separated list of controller addresses.
 	// TODO: Use model-operator service instead for introduction, so controller addresses can change
 	// without having to update deployed application.
 	ControllerAddresses string

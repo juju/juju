@@ -6,7 +6,6 @@ package caasoperator_test
 import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
-	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/fortress"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/api/base"
 	caasoperatorapi "github.com/juju/juju/api/caasoperator"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"

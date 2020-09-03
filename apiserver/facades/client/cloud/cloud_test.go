@@ -21,7 +21,6 @@ import (
 	cloudfacade "github.com/juju/juju/apiserver/facades/client/cloud"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
