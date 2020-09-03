@@ -404,18 +404,6 @@ func setUnsetUsers(c accountDetailsGetter, offerURLs []*crossmodel.OfferURL) err
 	return nil
 }
 
-// offersForModel group the offer URLs per model.
-func offersForModel(offerURLs []*crossmodel.OfferURL) map[string][]string {
-	offersForModel := make(map[string][]string)
-	for _, url := range offerURLs {
-		fullName := jujuclient.JoinOwnerModelName(names.NewUserTag(url.User), url.ModelName)
-		offers := offersForModel[fullName]
-		offers = append(offers, url.ApplicationName)
-		offersForModel[fullName] = offers
-	}
-	return offersForModel
-}
-
 func (c *revokeCommand) runForOffers() error {
 	client, err := c.getOfferAPI()
 	if err != nil {
