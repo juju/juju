@@ -29,22 +29,14 @@ import (
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/crd_getter_mock.go github.com/juju/juju/caas/kubernetes/provider CRDGetterInterface
 
 func (k *kubernetesClient) getAPIExtensionLabelsGlobal(appName string) map[string]string {
-	labels := LabelsMerge(
+	return LabelsMerge(
 		LabelsForApp(appName, k.IsLegacyLabels()),
 		LabelsForModel(k.CurrentModel(), k.IsLegacyLabels()),
 	)
-	if !k.IsLegacyLabels() {
-		labels = k8slabels.Merge(labels, LabelsJuju)
-	}
-	return labels
 }
 
 func (k *kubernetesClient) getAPIExtensionLabelsNamespaced(appName string) map[string]string {
-	labels := LabelsForApp(appName, k.IsLegacyLabels())
-	if !k.IsLegacyLabels() {
-		labels = k8slabels.Merge(labels, LabelsJuju)
-	}
-	return labels
+	return LabelsForApp(appName, k.IsLegacyLabels())
 }
 
 func (k *kubernetesClient) getCRLabels(appName string, scope apiextensionsv1beta1.ResourceScope) map[string]string {
@@ -63,8 +55,12 @@ func (k *kubernetesClient) ensureCustomResourceDefinitions(
 	for _, v := range crdSpecs {
 		crd := &apiextensionsv1beta1.CustomResourceDefinition{
 			ObjectMeta: v1.ObjectMeta{
-				Name:        v.Name,
-				Labels:      k8slabels.Merge(v.Labels, k.getAPIExtensionLabelsGlobal(appName)),
+				Name: v.Name,
+				Labels: LabelsMerge(
+					v.Labels,
+					k.getAPIExtensionLabelsGlobal(appName),
+					LabelsJuju,
+				),
 				Annotations: k8sannotations.New(v.Annotations).Merge(annotations),
 			},
 			Spec: v.Spec,
@@ -255,7 +251,10 @@ func (k *kubernetesClient) ensureCustomResources(
 				return cleanUps, errors.Trace(err)
 			}
 			crSpec.SetLabels(
-				k8slabels.Merge(crSpec.GetLabels(), k.getCRLabels(appName, crd.Spec.Scope)),
+				LabelsMerge(
+					crSpec.GetLabels(),
+					k.getCRLabels(appName, crd.Spec.Scope),
+					LabelsJuju),
 			)
 			crSpec.SetAnnotations(
 				k8sannotations.New(crSpec.GetAnnotations()).

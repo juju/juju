@@ -682,6 +682,7 @@ func operatorPod(
 	mountToken := true
 	return &core.Pod{
 		ObjectMeta: v1.ObjectMeta{
+			Name:        podName,
 			Annotations: podAnnotations(annotations.Copy()).ToMap(),
 			Labels:      selectorLabels,
 		},

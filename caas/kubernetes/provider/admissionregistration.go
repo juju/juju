@@ -22,6 +22,7 @@ func (k *kubernetesClient) getAdmissionControllerLabels(appName string) map[stri
 		LabelsForApp(appName, k.IsLegacyLabels()),
 		LabelsForModel(k.CurrentModel(), k.IsLegacyLabels()),
 	)
+
 	if !k.IsLegacyLabels() {
 		labels = LabelsMerge(labels, LabelsJuju)
 	}
@@ -48,7 +49,7 @@ func (k *kubernetesClient) ensureMutatingWebhookConfigurations(
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        decideNameForGlobalResource(v.Meta, k.namespace),
 				Namespace:   k.namespace,
-				Labels:      k8slabels.Merge(v.Labels, k.getAdmissionControllerLabels(appName)),
+				Labels:      LabelsMerge(v.Labels, k.getAdmissionControllerLabels(appName)),
 				Annotations: k8sannotations.New(v.Annotations).Merge(annotations),
 			},
 			Webhooks: v.Webhooks,
@@ -170,7 +171,7 @@ func (k *kubernetesClient) ensureValidatingWebhookConfigurations(
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        decideNameForGlobalResource(v.Meta, k.namespace),
 				Namespace:   k.namespace,
-				Labels:      k8slabels.Merge(v.Labels, k.getAdmissionControllerLabels(appName)),
+				Labels:      LabelsMerge(v.Labels, k.getAdmissionControllerLabels(appName)),
 				Annotations: k8sannotations.New(v.Annotations).Merge(annotations),
 			},
 			Webhooks: v.Webhooks,

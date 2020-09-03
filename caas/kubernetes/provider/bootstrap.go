@@ -22,7 +22,6 @@ import (
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/juju/juju/agent"
@@ -110,6 +109,7 @@ type controllerStack struct {
 	ctx environs.BootstrapContext
 
 	stackName        string
+	selectorLabels   map[string]string
 	stackLabels      map[string]string
 	stackAnnotations map[string]string
 	broker           *kubernetesClient
@@ -202,11 +202,13 @@ func newcontrollerStack(
 	agentConfig.SetStateServingInfo(si)
 	pcfg.Bootstrap.StateServingInfo = si
 
-	labels := k8slabels.Merge(LabelsForApp(stackName, false), LabelsJuju)
+	selectorLabels := LabelsForApp(stackName, false)
+	labels := LabelsMerge(selectorLabels, LabelsJuju)
 
 	cs := &controllerStack{
 		ctx:              ctx,
 		stackName:        stackName,
+		selectorLabels:   selectorLabels,
 		stackLabels:      labels,
 		stackAnnotations: map[string]string{annotationControllerUUIDKey: pcfg.ControllerTag.Id()},
 		broker:           broker,
@@ -413,7 +415,7 @@ func (c *controllerStack) createControllerService() error {
 			Annotations: c.stackAnnotations,
 		},
 		Spec: core.ServiceSpec{
-			Selector: c.stackLabels,
+			Selector: c.selectorLabels,
 			Type:     controllerSvcSpec.ServiceType,
 			Ports: []core.ServicePort{
 				{
@@ -579,11 +581,11 @@ func (c *controllerStack) createControllerStatefulset() error {
 			ServiceName: c.resourceNameService,
 			Replicas:    &numberOfPods,
 			Selector: &v1.LabelSelector{
-				MatchLabels: c.stackLabels,
+				MatchLabels: c.selectorLabels,
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels:      c.stackLabels,
+					Labels:      c.selectorLabels,
 					Name:        c.pcfg.GetPodName(), // This really should not be set.
 					Namespace:   c.broker.GetCurrentNamespace(),
 					Annotations: c.stackAnnotations,

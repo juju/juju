@@ -186,10 +186,15 @@ func (s *BaseSuite) getNamespace() string {
 
 func (s *BaseSuite) setupController(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
+
 	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
 	randomPrefixFunc := func() (string, error) {
 		return "appuuid", nil
 	}
+
+	s.mockNamespaces.EXPECT().Get(s.getNamespace(), v1.GetOptions{}).
+		Return(nil, s.k8sNotFoundError())
+
 	return s.setupBroker(c, ctrl, newK8sClientFunc, newK8sRestFunc, randomPrefixFunc)
 }
 

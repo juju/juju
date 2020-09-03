@@ -17,6 +17,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/juju/juju/caas"
@@ -32,23 +33,30 @@ var _ = gc.Suite(&OperatorSuite{})
 
 var operatorAnnotations = map[string]string{
 	"fred":               "mary",
-	"juju-version":       "2.99.0",
+	"juju.is/version":    "2.99.0",
 	"juju.io/controller": testing.ControllerTag.Id(),
 }
 
 var operatorServiceArg = &core.Service{
 	ObjectMeta: v1.ObjectMeta{
-		Name:   "test-operator",
-		Labels: map[string]string{"juju-operator": "test"},
+		Name: "test-operator",
+		Labels: provider.LabelsMerge(
+			provider.LabelsForApp("test", false),
+			provider.LabelsForOperator("test", "application", false),
+			provider.LabelsJuju,
+		),
 		Annotations: map[string]string{
 			"fred":               "mary",
-			"juju-version":       "2.99.0",
+			"juju.is/version":    "2.99.0",
 			"juju.io/controller": testing.ControllerTag.Id(),
 		},
 	},
 	Spec: core.ServiceSpec{
-		Selector: map[string]string{"juju-operator": "test"},
-		Type:     "ClusterIP",
+		Selector: provider.LabelsMerge(
+			provider.LabelsForApp("test", false),
+			provider.LabelsForOperator("test", "application", false),
+		),
+		Type: "ClusterIP",
 		Ports: []core.ServicePort{
 			{Port: 30666, TargetPort: intstr.FromInt(30666), Protocol: "TCP"},
 		},
@@ -139,24 +147,30 @@ func operatorStatefulSetArg(numUnits int32, scName, serviceAccountName string, w
 	ss := &appsv1.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "test-operator",
-			Labels: map[string]string{
-				"juju-operator": "test",
-			},
+			Labels: provider.LabelsMerge(
+				provider.LabelsForApp("test", false),
+				provider.LabelsForOperator("test", "application", false),
+				provider.LabelsJuju,
+			),
 			Annotations: operatorAnnotations,
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-operator": "test"},
+				MatchLabels: provider.LabelsMerge(
+					provider.LabelsForApp("test", false),
+					provider.LabelsForOperator("test", "application", false),
+				),
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels: map[string]string{
-						"juju-operator": "test",
-					},
+					Labels: provider.LabelsMerge(
+						provider.LabelsForApp("test", false),
+						provider.LabelsForOperator("test", "application", false),
+					),
 					Annotations: map[string]string{
 						"fred":               "mary",
-						"juju-version":       "2.99.0",
+						"juju.is/version":    "2.99.0",
 						"juju.io/controller": testing.ControllerTag.Id(),
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
@@ -193,15 +207,16 @@ func (s *K8sSuite) TestOperatorPodConfig(c *gc.C) {
 		"fred":               "mary",
 		"juju.io/controller": testing.ControllerTag.Id(),
 	}
-	pod, err := provider.OperatorPod("gitlab", "gitlab", "10666", "/var/lib/juju", "jujusolutions/jujud-operator", "2.99.0", map[string]string{}, tags, "operator-service-account")
+	selectorLabels := provider.LabelsMerge(
+		provider.LabelsForOperator("gitlab", provider.OperatorAppTarget, false),
+		provider.LabelsForApp("gitlab", false),
+	)
+	pod, err := provider.OperatorPod("gitlab", "gitlab", "10666", "/var/lib/juju", "jujusolutions/jujud-operator", "2.99.0", selectorLabels, tags, "operator-service-account")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pod.Name, gc.Equals, "gitlab")
-	c.Assert(pod.Labels, jc.DeepEquals, map[string]string{
-		"juju-operator": "gitlab",
-	})
+	c.Assert(pod.Labels, jc.DeepEquals, map[string]string(selectorLabels))
 	c.Assert(pod.Annotations, jc.DeepEquals, map[string]string{
 		"fred":               "mary",
-		"juju-version":       "2.99.0",
 		"juju.io/controller": testing.ControllerTag.Id(),
 		"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 		"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
@@ -232,15 +247,15 @@ func (s *K8sBrokerSuite) TestDeleteOperator(c *gc.C) {
 		// delete RBAC resources.
 		s.mockRoleBindings.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-operator=test"},
+			v1.ListOptions{LabelSelector: "operator.juju.is/name=test,operator.juju.is/target=application"},
 		).Return(nil),
 		s.mockRoles.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-operator=test"},
+			v1.ListOptions{LabelSelector: "operator.juju.is/name=test,operator.juju.is/target=application"},
 		).Return(nil),
 		s.mockServiceAccounts.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-operator=test"},
+			v1.ListOptions{LabelSelector: "operator.juju.is/name=test,operator.juju.is/target=application"},
 		).Return(nil),
 
 		s.mockConfigMaps.EXPECT().Delete("test-operator-config", s.deleteOptions(v1.DeletePropagationForeground, "")).
@@ -251,7 +266,7 @@ func (s *K8sBrokerSuite) TestDeleteOperator(c *gc.C) {
 			Return(s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Delete("test-operator", s.deleteOptions(v1.DeletePropagationForeground, "")).
 			Return(s.k8sNotFoundError()),
-		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator=test"}).
+		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "operator.juju.is/name=test,operator.juju.is/target=application"}).
 			Return(&core.PodList{Items: []core.Pod{{
 				Spec: core.PodSpec{
 					Containers: []core.Container{{
@@ -285,18 +300,26 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 
 	svcAccount := &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"juju-operator": "test"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: provider.LabelsMerge(
+				provider.LabelsForApp("test", false),
+				provider.LabelsForOperator("test", "application", false),
+				provider.LabelsJuju,
+			),
 			Annotations: operatorAnnotations,
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
 	role := &rbacv1.Role{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"juju-operator": "test"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: provider.LabelsMerge(
+				provider.LabelsForApp("test", false),
+				provider.LabelsForOperator("test", "application", false),
+				provider.LabelsJuju,
+			),
 			Annotations: operatorAnnotations,
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -314,9 +337,13 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 	}
 	rb := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"juju-operator": "test"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: provider.LabelsMerge(
+				provider.LabelsForApp("test", false),
+				provider.LabelsForOperator("test", "application", false),
+				provider.LabelsJuju,
+			),
 			Annotations: operatorAnnotations,
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -347,7 +374,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 		// ensure RBAC resources.
 		s.mockServiceAccounts.EXPECT().Create(svcAccount).Return(svcAccount, nil),
 		s.mockRoles.EXPECT().Create(role).Return(role, nil),
-		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator=test"}).
+		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=test,operator.juju.is/name=test,operator.juju.is/target=application"}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
 		s.mockRoleBindings.EXPECT().Create(rb).Return(rb, nil),
 
@@ -383,7 +410,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
 	configMapArg := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        "test-operator-config",
-			Labels:      map[string]string{"juju-app": "test"},
+			Labels:      provider.LabelsForApp("test", false),
 			Annotations: operatorAnnotations,
 		},
 		Data: map[string]string{
@@ -394,18 +421,26 @@ func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
 
 	svcAccount := &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"juju-operator": "test"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: provider.LabelsMerge(
+				provider.LabelsForApp("test", false),
+				provider.LabelsForOperator("test", "application", false),
+				provider.LabelsJuju,
+			),
 			Annotations: operatorAnnotations,
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
 	role := &rbacv1.Role{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"juju-operator": "test"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: provider.LabelsMerge(
+				provider.LabelsForApp("test", false),
+				provider.LabelsForOperator("test", "application", false),
+				provider.LabelsJuju,
+			),
 			Annotations: operatorAnnotations,
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -423,9 +458,13 @@ func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
 	}
 	rb := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"juju-operator": "test"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: provider.LabelsMerge(
+				provider.LabelsForApp("test", false),
+				provider.LabelsForOperator("test", "application", false),
+				provider.LabelsJuju,
+			),
 			Annotations: operatorAnnotations,
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -457,7 +496,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
 		// ensure RBAC resources.
 		s.mockServiceAccounts.EXPECT().Create(svcAccount).Return(svcAccount, nil),
 		s.mockRoles.EXPECT().Create(role).Return(role, nil),
-		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator=test"}).
+		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=test,operator.juju.is/name=test,operator.juju.is/target=application"}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
 		s.mockRoleBindings.EXPECT().Create(rb).Return(rb, nil),
 
@@ -497,7 +536,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 	configMapArg := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        "test-operator-config",
-			Labels:      map[string]string{"juju-app": "test"},
+			Labels:      provider.LabelsForApp("test", false),
 			Annotations: operatorAnnotations,
 			Generation:  1234,
 		},
@@ -509,18 +548,26 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 
 	svcAccount := &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"juju-operator": "test"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: provider.LabelsMerge(
+				provider.LabelsForApp("test", false),
+				provider.LabelsForOperator("test", "application", false),
+				provider.LabelsJuju,
+			),
 			Annotations: operatorAnnotations,
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
 	role := &rbacv1.Role{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"juju-operator": "test"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: provider.LabelsMerge(
+				provider.LabelsForApp("test", false),
+				provider.LabelsForOperator("test", "application", false),
+				provider.LabelsJuju,
+			),
 			Annotations: operatorAnnotations,
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -538,9 +585,13 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 	}
 	rb := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"juju-operator": "test"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: provider.LabelsMerge(
+				provider.LabelsForApp("test", false),
+				provider.LabelsForOperator("test", "application", false),
+				provider.LabelsJuju,
+			),
 			Annotations: operatorAnnotations,
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -573,14 +624,14 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 
 		// ensure RBAC resources.
 		s.mockServiceAccounts.EXPECT().Create(svcAccount).Return(nil, s.k8sAlreadyExistsError()),
-		s.mockServiceAccounts.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator=test"}).
+		s.mockServiceAccounts.EXPECT().List(v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=test,operator.juju.is/name=test,operator.juju.is/target=application"}).
 			Return(&core.ServiceAccountList{Items: []core.ServiceAccount{*svcAccount}}, nil),
 		s.mockServiceAccounts.EXPECT().Update(svcAccount).Return(svcAccount, nil),
 		s.mockRoles.EXPECT().Create(role).Return(nil, s.k8sAlreadyExistsError()),
-		s.mockRoles.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator=test"}).
+		s.mockRoles.EXPECT().List(v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=test,operator.juju.is/name=test,operator.juju.is/target=application"}).
 			Return(&rbacv1.RoleList{Items: []rbacv1.Role{*role}}, nil),
 		s.mockRoles.EXPECT().Update(role).Return(role, nil),
-		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator=test"}).
+		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=test,operator.juju.is/name=test,operator.juju.is/target=application"}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{*rb}}, nil),
 		s.mockRoleBindings.EXPECT().Delete("test-operator", s.deleteOptions(v1.DeletePropagationForeground, rbUID)).Return(nil),
 		s.mockRoleBindings.EXPECT().Get("test-operator", v1.GetOptions{}).Return(rb, nil),
@@ -637,7 +688,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoStorageExistingPVC(c *gc.C) {
 	configMapArg := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        "test-operator-config",
-			Labels:      map[string]string{"juju-app": "test"},
+			Labels:      provider.LabelsForApp("test", false),
 			Annotations: operatorAnnotations,
 		},
 		Data: map[string]string{
@@ -648,18 +699,26 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoStorageExistingPVC(c *gc.C) {
 
 	svcAccount := &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"juju-operator": "test"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: provider.LabelsMerge(
+				provider.LabelsForApp("test", false),
+				provider.LabelsForOperator("test", "application", false),
+				provider.LabelsJuju,
+			),
 			Annotations: operatorAnnotations,
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
 	role := &rbacv1.Role{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"juju-operator": "test"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: provider.LabelsMerge(
+				provider.LabelsForApp("test", false),
+				provider.LabelsForOperator("test", "application", false),
+				provider.LabelsJuju,
+			),
 			Annotations: operatorAnnotations,
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -677,9 +736,13 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoStorageExistingPVC(c *gc.C) {
 	}
 	rb := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"juju-operator": "test"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: provider.LabelsMerge(
+				provider.LabelsForApp("test", false),
+				provider.LabelsForOperator("test", "application", false),
+				provider.LabelsJuju,
+			),
 			Annotations: operatorAnnotations,
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -729,7 +792,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoStorageExistingPVC(c *gc.C) {
 		// ensure RBAC resources.
 		s.mockServiceAccounts.EXPECT().Create(svcAccount).Return(svcAccount, nil),
 		s.mockRoles.EXPECT().Create(role).Return(role, nil),
-		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator=test"}).
+		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=test,operator.juju.is/name=test,operator.juju.is/target=application"}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
 		s.mockRoleBindings.EXPECT().Create(rb).Return(rb, nil),
 		s.mockConfigMaps.EXPECT().Update(configMapArg).
@@ -768,8 +831,10 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoStorage(c *gc.C) {
 
 	configMapArg := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator-config",
-			Labels:      map[string]string{"juju-app": "test"},
+			Name: "test-operator-config",
+			Labels: provider.LabelsMerge(
+				provider.LabelsForApp("test", false),
+			),
 			Annotations: operatorAnnotations,
 		},
 		Data: map[string]string{
@@ -780,18 +845,26 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoStorage(c *gc.C) {
 
 	svcAccount := &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"juju-operator": "test"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: provider.LabelsMerge(
+				provider.LabelsForApp("test", false),
+				provider.LabelsForOperator("test", "application", false),
+				provider.LabelsJuju,
+			),
 			Annotations: operatorAnnotations,
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
 	role := &rbacv1.Role{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"juju-operator": "test"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: provider.LabelsMerge(
+				provider.LabelsForApp("test", false),
+				provider.LabelsForOperator("test", "application", false),
+				provider.LabelsJuju,
+			),
 			Annotations: operatorAnnotations,
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -809,9 +882,13 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoStorage(c *gc.C) {
 	}
 	rb := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"juju-operator": "test"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: provider.LabelsMerge(
+				provider.LabelsForApp("test", false),
+				provider.LabelsForOperator("test", "application", false),
+				provider.LabelsJuju,
+			),
 			Annotations: operatorAnnotations,
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -844,7 +921,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoStorage(c *gc.C) {
 		// ensure RBAC resources.
 		s.mockServiceAccounts.EXPECT().Create(svcAccount).Return(svcAccount, nil),
 		s.mockRoles.EXPECT().Create(role).Return(role, nil),
-		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator=test"}).
+		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=test,operator.juju.is/name=test,operator.juju.is/target=application"}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
 		s.mockRoleBindings.EXPECT().Create(rb).Return(rb, nil),
 		s.mockConfigMaps.EXPECT().Update(configMapArg).
@@ -883,9 +960,13 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *gc.C
 
 	svcAccount := &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"juju-operator": "test"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: provider.LabelsMerge(
+				provider.LabelsForApp("test", false),
+				provider.LabelsForOperator("test", "application", false),
+				provider.LabelsJuju,
+			),
 			Annotations: operatorAnnotations,
 		},
 		AutomountServiceAccountToken: boolPtr(true),
@@ -893,9 +974,13 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *gc.C
 	svcAccountUID := svcAccount.GetUID()
 	role := &rbacv1.Role{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"juju-operator": "test"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: provider.LabelsMerge(
+				provider.LabelsForApp("test", false),
+				provider.LabelsForOperator("test", "application", false),
+				provider.LabelsJuju,
+			),
 			Annotations: operatorAnnotations,
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -914,9 +999,13 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *gc.C
 	roleUID := role.GetUID()
 	rb := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "test-operator",
-			Namespace:   "test",
-			Labels:      map[string]string{"juju-operator": "test"},
+			Name:      "test-operator",
+			Namespace: "test",
+			Labels: provider.LabelsMerge(
+				provider.LabelsForApp("test", false),
+				provider.LabelsForOperator("test", "application", false),
+				provider.LabelsJuju,
+			),
 			Annotations: operatorAnnotations,
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -947,7 +1036,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *gc.C
 		// ensure RBAC resources.
 		s.mockServiceAccounts.EXPECT().Create(svcAccount).Return(svcAccount, nil),
 		s.mockRoles.EXPECT().Create(role).Return(role, nil),
-		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator=test"}).
+		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=test,operator.juju.is/name=test,operator.juju.is/target=application"}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
 		s.mockRoleBindings.EXPECT().Create(rb).Return(rb, nil),
 
@@ -987,8 +1076,8 @@ func (s *K8sBrokerSuite) TestOperator(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name: "test-operator",
 			Annotations: map[string]string{
-				"juju-version":       "2.99.0",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				provider.AnnotationJujuVersion: "2.99.0",
+				"juju.io/controller":           testing.ControllerTag.Id(),
 			},
 		},
 		Spec: core.PodSpec{
@@ -1005,8 +1094,8 @@ func (s *K8sBrokerSuite) TestOperator(c *gc.C) {
 	ss := apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Annotations: map[string]string{
-				"juju-version":       "2.99.0",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				provider.AnnotationJujuVersion: "2.99.0",
+				"juju.io/controller":           testing.ControllerTag.Id(),
 			},
 		},
 		Spec: apps.StatefulSetSpec{
@@ -1031,7 +1120,7 @@ func (s *K8sBrokerSuite) TestOperator(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Get("test-operator", v1.GetOptions{}).
 			Return(&ss, nil),
-		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator=test"}).
+		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "operator.juju.is/name=test,operator.juju.is/target=application"}).
 			Return(&core.PodList{Items: []core.Pod{opPod}}, nil),
 		s.mockConfigMaps.EXPECT().Get("test-operator-config", v1.GetOptions{}).
 			Return(&cm, nil),
@@ -1075,7 +1164,7 @@ func (s *K8sBrokerSuite) TestOperatorNoPodFound(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Get("test-operator", v1.GetOptions{}).
 			Return(&ss, nil),
-		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator=test"}).
+		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "operator.juju.is/name=test,operator.juju.is/target=application"}).
 			Return(&core.PodList{Items: []core.Pod{}}, nil),
 	)
 
@@ -1150,10 +1239,6 @@ func (s *K8sBrokerSuite) TestOperatorExistsTerminated(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Get("test-app-operator", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockPods.EXPECT().List(v1.ListOptions{
-			LabelSelector: "juju-operator=test-app",
-		}).
-			Return(&core.PodList{}, nil),
 	)
 
 	exists, err := s.broker.OperatorExists("test-app")
@@ -1201,20 +1286,21 @@ func (s *K8sBrokerSuite) TestOperatorExistsTerminatedMostly(c *gc.C) {
 
 func (o *OperatorSuite) TestOperatorLabels(c *gc.C) {
 	tests := []struct {
-		Expected     map[string]string
+		Expected     labels.Set
 		Legacy       bool
 		OperatorName string
 	}{
 		{
-			Expected: map[string]string{
-				"operator.juju.is/name": "wallyworld-operator",
+			Expected: labels.Set{
+				"operator.juju.is/name":   "wallyworld-operator",
+				"operator.juju.is/target": "test-op",
 			},
 			Legacy:       false,
 			OperatorName: "wallyworld-operator",
 		},
 		{
-			Expected: map[string]string{
-				"juju-app": "tlm-operator",
+			Expected: labels.Set{
+				"juju-operator": "tlm-operator",
 			},
 			Legacy:       true,
 			OperatorName: "tlm-operator",
@@ -1222,7 +1308,7 @@ func (o *OperatorSuite) TestOperatorLabels(c *gc.C) {
 	}
 
 	for _, test := range tests {
-		rval := provider.OperatorLabels(test.OperatorName, test.Legacy)
+		rval := provider.LabelsForOperator(test.OperatorName, "test-op", test.Legacy)
 		c.Assert(rval, jc.DeepEquals, test.Expected)
 	}
 }

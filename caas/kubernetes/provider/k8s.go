@@ -218,8 +218,7 @@ func newK8sBroker(
 	isLegacy, err := IsLegacyModelLabels(
 		newCfg.Config.Name(), k8sClient.CoreV1().Namespaces())
 	if err != nil {
-		return nil, errors.Annotatef(err,
-			"determining legacy label status for model %s", newCfg.Config.Name())
+		isLegacy = true
 	}
 
 	client := &kubernetesClient{
@@ -653,11 +652,12 @@ func getSvcAddresses(svc *core.Service, includeClusterIP bool) []network.Provide
 // GetService returns the service for the specified application.
 func (k *kubernetesClient) GetService(appName string, mode caas.DeploymentMode, includeClusterIP bool) (*caas.Service, error) {
 	services := k.client().CoreV1().Services(k.namespace)
-
-	appSelector, err := AppLabelSelector(appName)
-	if err != nil {
-		return nil, errors.Annotate(err, "generating service app label selector")
+	labels := LabelsForApp(appName, k.IsLegacyLabels())
+	if mode == caas.ModeOperator {
+		labels = LabelsForOperator(appName, OperatorAppTarget, k.IsLegacyLabels())
 	}
+
+	appSelector := LabelSetToSelector(labels)
 
 	servicesList, err := services.List(v1.ListOptions{
 		LabelSelector: appSelector.String(),
@@ -1542,10 +1542,17 @@ func (k *kubernetesClient) configureDaemonSet(
 	if err != nil {
 		return cleanUps, errors.Trace(err)
 	}
+
+	selectorLabels := LabelsForApp(appName, k.IsLegacyLabels())
+	labels := selectorLabels
+	if !k.IsLegacyLabels() {
+		labels = LabelsMerge(labels, LabelsJuju)
+	}
+
 	daemonSet := &apps.DaemonSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   deploymentName,
-			Labels: k.getDaemonSetLabels(appName),
+			Labels: labels,
 			Annotations: k8sannotations.New(nil).
 				Merge(annotations).
 				Add(annotationKeyApplicationUUID, storageUniqueID).ToMap(),
@@ -1553,13 +1560,13 @@ func (k *kubernetesClient) configureDaemonSet(
 		Spec: apps.DaemonSetSpec{
 			// TODO(caas): DaemonSetUpdateStrategy support.
 			Selector: &v1.LabelSelector{
-				MatchLabels: k.getDaemonSetLabels(appName),
+				MatchLabels: selectorLabels,
 			},
 			RevisionHistoryLimit: int32Ptr(daemonsetRevisionHistoryLimit),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: deploymentName + "-",
-					Labels:       k.getDaemonSetLabels(appName),
+					Labels:       selectorLabels,
 					Annotations:  podAnnotations(annotations.Copy()).ToMap(),
 				},
 				Spec: workloadSpec.Pod,
