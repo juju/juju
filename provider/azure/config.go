@@ -4,6 +4,7 @@
 package azure
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
@@ -11,11 +12,16 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
+	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/environs/config"
 )
 
 const (
+	// ConfigAttrUsePublicIP is true if a public IP should be used for each provisioned node.
+	// Exported as it is used in an upgrade step.
+	ConfigAttrUsePublicIP = "use-public-ip"
+
 	// configAttrStorageAccountType mirrors the storage SKU name in the Azure SDK
 	//
 	// The term "storage account" has been replaced with "SKU name" in recent
@@ -25,9 +31,9 @@ const (
 	// configAttrLoadBalancerSkuName mirrors the LoadBalancerSkuName type in the Azure SDK
 	configAttrLoadBalancerSkuName = "load-balancer-sku-name"
 
-	// configResourceGroupName specifies an existing resource group to use
+	// configAttrResourceGroupName specifies an existing resource group to use
 	// rather than Juju creating it.
-	configResourceGroupName = "resource-group-name"
+	configAttrResourceGroupName = "resource-group-name"
 
 	// The below bits are internal book-keeping things, rather than
 	// configuration. Config is just what we have to work with.
@@ -37,25 +43,78 @@ const (
 	resourceNameLengthMax = 80
 )
 
-var configFields = schema.Fields{
-	configAttrStorageAccountType:  schema.String(),
-	configAttrLoadBalancerSkuName: schema.String(),
-	configResourceGroupName:       schema.String(),
+var configSchema = environschema.Fields{
+	ConfigAttrUsePublicIP: {
+		Description: "Whether provisioned nodes get a public IP address.",
+		Type:        environschema.Tbool,
+		Immutable:   true,
+	},
+	configAttrStorageAccountType: {
+		Type:      environschema.Tstring,
+		Immutable: true,
+		Mandatory: true,
+	},
+	configAttrLoadBalancerSkuName: {
+		Description: "mirrors the LoadBalancerSkuName type in the Azure SDK",
+		Type:        environschema.Tstring,
+		Mandatory:   true,
+	},
+	configAttrResourceGroupName: {
+		Description: "If set, use the specified resource group for all model artefacts instead of creating one based on the model UUID.",
+		Type:        environschema.Tstring,
+		Immutable:   true,
+	},
 }
 
 var configDefaults = schema.Defaults{
+	ConfigAttrUsePublicIP:         true,
 	configAttrStorageAccountType:  string(storage.StandardLRS),
 	configAttrLoadBalancerSkuName: string(network.LoadBalancerSkuNameStandard),
-	configResourceGroupName:       schema.Omit,
+	configAttrResourceGroupName:   schema.Omit,
 }
 
-var immutableConfigAttributes = []string{
-	configAttrStorageAccountType,
-	configResourceGroupName,
+// DefaultNetworkConfigForUpgrade is used to set the config for an Azure
+// model created before this config existed.
+func DefaultNetworkConfigForUpgrade() map[string]interface{} {
+	return map[string]interface{}{
+		ConfigAttrUsePublicIP: true,
+	}
 }
+
+// Schema returns the configuration schema for an environment.
+func (azureEnvironProvider) Schema() environschema.Fields {
+	fields, err := config.Schema(configSchema)
+	if err != nil {
+		panic(err)
+	}
+	return fields
+}
+
+// ConfigSchema returns extra config attributes specific
+// to this provider only.
+func (p azureEnvironProvider) ConfigSchema() schema.Fields {
+	return configFields
+}
+
+// ConfigDefaults returns the default values for the
+// provider specific config attributes.
+func (p azureEnvironProvider) ConfigDefaults() schema.Defaults {
+	return configDefaults
+}
+
+var configFields = func() schema.Fields {
+	fs, _, err := configSchema.ValidationSchema()
+	if err != nil {
+		panic(err)
+	}
+	return fs
+}()
 
 type azureModelConfig struct {
 	*config.Config
+
+	// Azure specific config.
+	usePublicIP         bool
 	storageAccountType  string
 	loadBalancerSkuName string
 	resourceGroupName   string
@@ -101,35 +160,42 @@ func validateConfig(newCfg, oldCfg *config.Config) (*azureModelConfig, error) {
 		return nil, err
 	}
 
-	if oldCfg != nil {
+	for key, field := range configSchema {
+		newValue, haveValue := validated[key]
+		if (!haveValue || fmt.Sprintf("%v", newValue) == "") && field.Mandatory {
+			return nil, errors.NotValidf("empty value for %q", key)
+		}
+		if oldCfg == nil {
+			continue
+		}
+		if !field.Immutable {
+			continue
+		}
 		// Ensure immutable configuration isn't changed.
 		oldUnknownAttrs := oldCfg.UnknownAttrs()
-		for _, key := range immutableConfigAttributes {
-			oldValue, hadValue := oldUnknownAttrs[key].(string)
-			if hadValue {
-				newValue, haveValue := validated[key].(string)
-				if !haveValue {
-					return nil, errors.Errorf(
-						"cannot remove immutable %q config", key,
-					)
-				}
-				if newValue != oldValue {
-					return nil, errors.Errorf(
-						"cannot change immutable %q config (%v -> %v)",
-						key, oldValue, newValue,
-					)
-				}
+		oldValue, hadValue := oldUnknownAttrs[key]
+		if hadValue {
+			if !haveValue {
+				return nil, errors.Errorf(
+					"cannot remove immutable %q config", key,
+				)
 			}
-			// It's valid to go from not having to having.
+			if newValue != oldValue {
+				return nil, errors.Errorf(
+					"cannot change immutable %q config (%v -> %v)",
+					key, oldValue, newValue,
+				)
+			}
 		}
+		// It's valid to go from not having to having.
 	}
 
 	// Resource group names must not exceed 80 characters. Resource group
 	// names are based on the model UUID and model name, the latter of
 	// which the model creator controls.
 	var userSpecifiedResourceGroup string
-	resourceGroup, ok := validated[configResourceGroupName].(string)
-	if ok {
+	resourceGroup, ok := validated[configAttrResourceGroupName].(string)
+	if ok && resourceGroup != "" {
 		userSpecifiedResourceGroup = resourceGroup
 		if len(resourceGroup) > resourceNameLengthMax {
 			return nil, errors.Errorf(`resource group name %q is too long
@@ -182,11 +248,14 @@ Please choose a model name of no more than %d characters.`,
 		loadBalancerSkuName = string(network.LoadBalancerSkuNameStandard)
 	}
 
+	usePublicIP, _ := validated[ConfigAttrUsePublicIP].(bool)
+
 	azureConfig := &azureModelConfig{
-		newCfg,
-		storageAccountType,
-		loadBalancerSkuName,
-		userSpecifiedResourceGroup,
+		Config:              newCfg,
+		usePublicIP:         usePublicIP,
+		storageAccountType:  storageAccountType,
+		loadBalancerSkuName: loadBalancerSkuName,
+		resourceGroupName:   userSpecifiedResourceGroup,
 	}
 	return azureConfig, nil
 }

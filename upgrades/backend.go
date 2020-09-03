@@ -88,6 +88,7 @@ type StateBackend interface {
 	RollUpAndConvertOpenedPortDocuments() error
 	AddCharmHubToModelConfig() error
 	AddCharmOriginToApplications() error
+	AddAzureProviderNetworkConfig() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -367,4 +368,8 @@ func (s stateBackend) RollUpAndConvertOpenedPortDocuments() error {
 
 func (s stateBackend) AddCharmOriginToApplications() error {
 	return state.AddCharmOriginToApplications(s.pool)
+}
+
+func (s stateBackend) AddAzureProviderNetworkConfig() error {
+	return state.AddAzureProviderNetworkConfig(s.pool)
 }

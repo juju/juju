@@ -4765,6 +4765,53 @@ func (s *upgradesSuite) TestAddCharmOriginToApplication(c *gc.C) {
 	)
 }
 
+func (s *upgradesSuite) TestAddAzureProviderNetworkConfig(c *gc.C) {
+	settingsColl, settingsCloser := s.state.db().GetRawCollection(settingsC)
+	defer settingsCloser()
+	_, err := settingsColl.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = settingsColl.Insert(bson.M{
+		// already upgraded
+		"_id": "foo",
+		"settings": bson.M{
+			"type":          "azure",
+			"use-public-ip": false},
+	}, bson.M{
+		// non azure model
+		"_id": "bar",
+		"settings": bson.M{
+			"type": "ec2"},
+	}, bson.M{
+		"_id": "baz",
+		"settings": bson.M{
+			"type": "azure"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedSettings := bsonMById{
+		{
+			"_id": "bar",
+			"settings": bson.M{
+				"type": "ec2"},
+		}, {
+			"_id": "baz",
+			"settings": bson.M{
+				"type":          "azure",
+				"use-public-ip": true,
+			},
+		}, {
+			"_id": "foo",
+			"settings": bson.M{
+				"type":          "azure",
+				"use-public-ip": false},
+		}}
+
+	//sort.Sort(expectedSettings)
+	s.assertUpgradedData(c, AddAzureProviderNetworkConfig,
+		upgradedData(settingsColl, expectedSettings),
+	)
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }
