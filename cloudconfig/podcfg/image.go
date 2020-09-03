@@ -15,6 +15,7 @@ import (
 const (
 	JujudOCINamespace = "jujusolutions"
 	JujudOCIName      = "jujud-operator"
+	JujuK8sAgentName  = "k8sagent"
 	JujudbOCIName     = "juju-db"
 )
 
@@ -49,6 +50,17 @@ func GetJujuOCIImagePath(controllerCfg controller.Config, ver version.Number, bu
 		return imagePath
 	}
 	return imageRepoToPath(controllerCfg.CAASImageRepo(), ver)
+}
+
+// GetJujuK8sOCIImagePath returns the k8s agent oci image path.
+func GetJujuK8sOCIImagePath(controllerCfg controller.Config, ver version.Number, build int) string {
+	ver.Build = build
+	imageRepo := controllerCfg.CAASImageRepo()
+	if imageRepo == "" {
+		imageRepo = JujudOCINamespace
+	}
+	path := fmt.Sprintf("%s/%s", imageRepo, JujuK8sAgentName)
+	return tagImagePath(path, ver)
 }
 
 // RebuildOldOperatorImagePath returns a updated image path for the specified juju version.

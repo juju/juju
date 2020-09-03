@@ -13,7 +13,6 @@ import (
 	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
-	"github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/application"
