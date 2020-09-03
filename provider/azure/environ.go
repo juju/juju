@@ -318,9 +318,10 @@ func (env *azureEnviron) createCommonResourceDeployment(
 	rules []network.SecurityRule,
 	commonResources ...armtemplates.Resource,
 ) error {
-	commonResources = append(commonResources, networkTemplateResources(
+	networkResources, _ := networkTemplateResources(
 		env.location, env.config, tags, nil, rules,
-	)...)
+	)
+	commonResources = append(commonResources, networkResources...)
 
 	// We perform this deployment asynchronously, to avoid blocking
 	// the "juju add-model" command; Create is called synchronously.
@@ -617,13 +618,9 @@ func (env *azureEnviron) createVirtualMachine(
 	if bootstrapping {
 		// We're starting the bootstrap machine, so we will create the
 		// common resources in the same deployment.
-		resources = append(resources,
-			networkTemplateResources(env.location, env.config, envTags, apiPorts, nil)...,
-		)
-		nicDependsOn = append(nicDependsOn, fmt.Sprintf(
-			`[resourceId('Microsoft.Network/virtualNetworks', '%s')]`,
-			internalNetworkName,
-		))
+		networkResources, nsgID := networkTemplateResources(env.location, env.config, envTags, apiPorts, nil)
+		resources = append(resources, networkResources...)
+		nicDependsOn = append(nicDependsOn, nsgID)
 	} else {
 		// Wait for the common resource deployment to complete.
 		if err := env.waitCommonResourcesCreated(); err != nil {
@@ -715,10 +712,34 @@ func (env *azureEnviron) createVirtualMachine(
 	if instanceConfig.Controller != nil {
 		subnetName = controllerSubnetName
 	}
+	// The subnet belongs to a virtual network. The virtual network to use defaults to
+	// "juju-internal-network" but may also be specified by the user.
+	vnetName := internalNetworkName
+	vnetRG := ""
+	if env.config.virtualNetworkName != "" {
+		// network may be "mynetwork" or "resourceGroup/mynetwork"
+		parts := strings.Split(env.config.virtualNetworkName, "/")
+		vnetName = parts[0]
+		if len(parts) > 1 {
+			vnetRG = parts[1]
+		}
+		logger.Debugf("user specified network name %q in resource group %q", vnetName, vnetRG)
+	}
+	vnetId := fmt.Sprintf(`[resourceId('Microsoft.Network/virtualNetworks', '%s')]`, vnetName)
 	subnetId := fmt.Sprintf(
 		`[concat(resourceId('Microsoft.Network/virtualNetworks', '%s'), '/subnets/%s')]`,
-		internalNetworkName, subnetName,
+		vnetName, subnetName,
 	)
+	if vnetRG != "" {
+		vnetId = fmt.Sprintf(`[resourceId('%s', 'Microsoft.Network/virtualNetworks', '%s')]`, vnetRG, vnetName)
+		subnetId = fmt.Sprintf(
+			`[concat(resourceId('%s', 'Microsoft.Network/virtualNetworks', '%s'), '/subnets/%s')]`,
+			vnetRG, vnetName, subnetName,
+		)
+	}
+	if env.config.virtualNetworkName == "" && bootstrapping {
+		nicDependsOn = append(nicDependsOn, vnetId)
+	}
 	ipConfig := &network.InterfaceIPConfigurationPropertiesFormat{
 		Primary:                   to.BoolPtr(true),
 		PrivateIPAllocationMethod: network.Dynamic,

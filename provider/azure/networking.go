@@ -115,7 +115,7 @@ func networkTemplateResources(
 	envTags map[string]string,
 	apiPorts []int,
 	extraRules []network.SecurityRule,
-) []armtemplates.Resource {
+) ([]armtemplates.Resource, string) {
 	// Create a network security group for the environment. There is only
 	// one NSG per environment (there's a limit of 100 per subscription),
 	// in which we manage rules for each exposed machine.
@@ -175,20 +175,24 @@ func networkTemplateResources(
 		Properties: &network.SecurityGroupPropertiesFormat{
 			SecurityRules: &securityRules,
 		},
-	}, {
-		APIVersion: networkAPIVersion,
-		Type:       "Microsoft.Network/virtualNetworks",
-		Name:       internalNetworkName,
-		Location:   location,
-		Tags:       envTags,
-		Properties: &network.VirtualNetworkPropertiesFormat{
-			AddressSpace: &network.AddressSpace{&addressPrefixes},
-			Subnets:      &subnets,
-		},
-		DependsOn: []string{nsgID},
 	}}
+	// If no user specified virtual network, need to create it.
+	if config.virtualNetworkName == "" {
+		resources = append(resources, armtemplates.Resource{
+			APIVersion: networkAPIVersion,
+			Type:       "Microsoft.Network/virtualNetworks",
+			Name:       internalNetworkName,
+			Location:   location,
+			Tags:       envTags,
+			Properties: &network.VirtualNetworkPropertiesFormat{
+				AddressSpace: &network.AddressSpace{&addressPrefixes},
+				Subnets:      &subnets,
+			},
+			DependsOn: []string{nsgID},
+		})
+	}
 
-	return resources
+	return resources, nsgID
 }
 
 // nextSecurityRulePriority returns the next available priority in the given

@@ -938,6 +938,7 @@ type assertStartInstanceRequestsParams struct {
 	unmanagedStorage    bool
 	instanceType        string
 	publicIP            bool
+	existingNetwork     string
 }
 
 func (s *environSuite) assertStartInstanceRequests(
@@ -1032,16 +1033,26 @@ func (s *environSuite) assertStartInstanceRequests(
 		subnetName = "juju-controller-subnet"
 		createCommonResources = true
 	}
+	internalNetwork := "juju-internal-network"
+	if args.existingNetwork != "" {
+		internalNetwork = args.existingNetwork
+	}
 	subnetId := fmt.Sprintf(
-		`[concat(resourceId('Microsoft.Network/virtualNetworks', 'juju-internal-network'), '/subnets/%s')]`,
+		`[concat(resourceId('Microsoft.Network/virtualNetworks', '%s'), '/subnets/%s')]`,
+		internalNetwork,
 		subnetName,
 	)
 
 	var nicDependsOn []string
 	if createCommonResources {
 		nicDependsOn = append(nicDependsOn,
-			`[resourceId('Microsoft.Network/virtualNetworks', 'juju-internal-network')]`,
+			`[resourceId('Microsoft.Network/networkSecurityGroups', 'juju-internal-nsg')]`,
 		)
+		if args.existingNetwork == "" {
+			nicDependsOn = append(nicDependsOn,
+				`[resourceId('Microsoft.Network/virtualNetworks', 'juju-internal-network')]`,
+			)
+		}
 	}
 	var publicIPAddress *network.PublicIPAddress
 	if args.publicIP {
@@ -1083,18 +1094,22 @@ func (s *environSuite) assertStartInstanceRequests(
 			Properties: &network.SecurityGroupPropertiesFormat{
 				SecurityRules: &securityRules,
 			},
-		}, {
-			APIVersion: networkAPIVersion,
-			Type:       "Microsoft.Network/virtualNetworks",
-			Name:       "juju-internal-network",
-			Location:   "westus",
-			Tags:       to.StringMap(s.envTags),
-			Properties: &network.VirtualNetworkPropertiesFormat{
-				AddressSpace: &network.AddressSpace{&addressPrefixes},
-				Subnets:      &subnets,
-			},
-			DependsOn: []string{nsgId},
 		}}...)
+		if args.existingNetwork == "" {
+			templateResources = append(templateResources, armtemplates.Resource{
+				APIVersion: networkAPIVersion,
+				Type:       "Microsoft.Network/virtualNetworks",
+				Name:       "juju-internal-network",
+				Location:   "westus",
+				Tags:       to.StringMap(s.envTags),
+				Properties: &network.VirtualNetworkPropertiesFormat{
+					AddressSpace: &network.AddressSpace{&addressPrefixes},
+					Subnets:      &subnets,
+				},
+				DependsOn: []string{
+					"[resourceId('Microsoft.Network/networkSecurityGroups', 'juju-internal-nsg')]"},
+			})
+		}
 		if args.unmanagedStorage {
 			templateResources = append(templateResources, armtemplates.Resource{
 				APIVersion: storageAPIVersion,
@@ -1371,6 +1386,41 @@ func (s *environSuite) TestBootstrapPrivateIP(c *gc.C) {
 		diskSizeGB:          32,
 		osProfile:           &s.linuxOsProfile,
 		instanceType:        "Standard_D1",
+	})
+}
+
+func (s *environSuite) TestBootstrapCustomNetwork(c *gc.C) {
+	defer envtesting.DisableFinishBootstrap()()
+
+	ctx := envtesting.BootstrapContext(c)
+	env := prepareForBootstrap(c, ctx, s.provider, &s.sender, testing.Attrs{"network": "mynetwork"})
+
+	s.sender = s.initResourceGroupSenders(resourceGroupName)
+	s.sender = append(s.sender, s.startInstanceSenders(true)...)
+	s.requests = nil
+	result, err := env.Bootstrap(
+		ctx, s.callCtx, environs.BootstrapParams{
+			ControllerConfig:         testing.FakeControllerConfig(),
+			AvailableTools:           makeToolsList("bionic"),
+			BootstrapSeries:          "bionic",
+			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
+			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Arch, gc.Equals, "amd64")
+	c.Assert(result.Series, gc.Equals, "bionic")
+
+	c.Assert(len(s.requests), gc.Equals, numExpectedStartInstanceRequests)
+	s.vmTags[tags.JujuIsController] = to.StringPtr("true")
+	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
+		availabilitySetName: "juju-controller",
+		imageReference:      &xenialImageReference,
+		diskSizeGB:          32,
+		osProfile:           &s.linuxOsProfile,
+		instanceType:        "Standard_D1",
+		publicIP:            true,
+		existingNetwork:     "mynetwork",
 	})
 }
 
