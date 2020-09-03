@@ -194,9 +194,7 @@ func newK8sBroker(
 	isLegacy, err := utils.IsLegacyModelLabels(
 		newCfg.Config.Name(), k8sClient.CoreV1().Namespaces())
 	if err != nil {
-		logger.Warningf("determining legacy label status for model %s: %v",
-			newCfg.Config.Name(), err)
-		isLegacy = true
+		return nil, errors.Trace(err)
 	}
 
 	client := &kubernetesClient{

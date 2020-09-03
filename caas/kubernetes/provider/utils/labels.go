@@ -71,7 +71,8 @@ func LabelForKeyValue(key, value string) labels.Set {
 	}
 }
 
-// LabelsMerge
+// LabelsMerge merges one or more sets of labels together into a new set. For
+// duplicate keys the last key found is used.
 func LabelsMerge(a labels.Set, merges ...labels.Set) labels.Set {
 	for _, merge := range merges {
 		a = labels.Merge(a, merge)

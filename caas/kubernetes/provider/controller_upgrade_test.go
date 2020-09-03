@@ -38,12 +38,12 @@ func (d *dummyUpgradeCAASController) Client() kubernetes.Interface {
 	return d.client
 }
 
-func (d *dummyUpgradeCAASController) Namespace() string {
-	return "test"
-}
-
 func (d *dummyUpgradeCAASController) IsLegacyLabels() bool {
 	return false
+}
+
+func (d *dummyUpgradeCAASController) Namespace() string {
+	return "test"
 }
 
 func (s *ControllerUpgraderSuite) SetUpTest(c *gc.C) {

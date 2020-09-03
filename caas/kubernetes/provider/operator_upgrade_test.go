@@ -46,6 +46,10 @@ func (d *DummyUpgradeCAASOperator) DeploymentName(n string, _ bool) string {
 	return n
 }
 
+func (d *DummyUpgradeCAASOperator) IsLegacyLabels() bool {
+	return false
+}
+
 func (d *DummyUpgradeCAASOperator) Namespace() string {
 	return "test"
 }
@@ -59,10 +63,6 @@ func (d *DummyUpgradeCAASOperator) Operator(n string) (*caas.Operator, error) {
 
 func (d *DummyUpgradeCAASOperator) OperatorName(n string) string {
 	return n
-}
-
-func (d *DummyUpgradeCAASOperator) IsLegacyLabels() bool {
-	return false
 }
 
 func (o *OperatorUpgraderSuite) SetUpTest(c *gc.C) {
