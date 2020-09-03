@@ -485,11 +485,16 @@ func (s *MigrationImportSuite) setupSourceApplications(
 	// Add a application with charm settings, app config, and leadership settings.
 	f := factory.NewFactory(st, s.StatePool)
 
+	serverSpace, err := s.State.AddSpace("server", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	exposedSpaceIDs := []string{serverSpace.Id()}
+
 	testModel, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	series := "quantal"
 	if testModel.Type() == state.ModelTypeCAAS {
 		series = "kubernetes"
+		exposedSpaceIDs = nil
 	}
 	// Add a application with charm settings, app config, and leadership settings.
 	testCharm := f.MakeCharm(c, &factory.CharmParams{
@@ -521,7 +526,8 @@ func (s *MigrationImportSuite) setupSourceApplications(
 	err = application.SetMetricCredentials([]byte("sekrit"))
 	c.Assert(err, jc.ErrorIsNil)
 	// Expose the application.
-	c.Assert(application.SetExposed(nil, nil, nil), jc.ErrorIsNil)
+	err = application.SetExposed([]string{"admin"}, exposedSpaceIDs, []string{"13.37.0.0/16"})
+	c.Assert(err, jc.ErrorIsNil)
 	err = testModel.SetAnnotations(application, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 	if testModel.Type() == state.ModelTypeCAAS {
@@ -545,6 +551,9 @@ func (s *MigrationImportSuite) assertImportedApplication(
 	c.Assert(imported.ApplicationTag(), gc.Equals, exported.ApplicationTag())
 	c.Assert(imported.Series(), gc.Equals, exported.Series())
 	c.Assert(imported.IsExposed(), gc.Equals, exported.IsExposed())
+	c.Assert(imported.ExposedEndpoints(), gc.DeepEquals, exported.ExposedEndpoints())
+	c.Assert(imported.ExposeToSpaceIDs(), gc.DeepEquals, exported.ExposeToSpaceIDs())
+	c.Assert(imported.ExposeToCIDRs(), gc.DeepEquals, exported.ExposeToCIDRs())
 	c.Assert(imported.MetricCredentials(), jc.DeepEquals, exported.MetricCredentials())
 	c.Assert(imported.PasswordValid(pwd), jc.IsTrue)
 	c.Assert(imported.CharmOrigin(), jc.DeepEquals, exported.CharmOrigin())
