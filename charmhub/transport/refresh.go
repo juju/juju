@@ -13,8 +13,9 @@ type RefreshRequest struct {
 }
 
 type RefreshRequestContext struct {
-	InstanceKey     string                 `json:"instance-key"`
-	ID              string                 `json:"id"`
+	InstanceKey string `json:"instance-key"`
+	ID          string `json:"id"`
+
 	Revision        int                    `json:"revision"`
 	Platform        RefreshRequestPlatform `json:"platform"`
 	TrackingChannel string                 `json:"tracking-channel"`
@@ -30,7 +31,8 @@ type RefreshRequestPlatform struct {
 type RefreshRequestAction struct {
 	Action      string                  `json:"action"`
 	InstanceKey string                  `json:"instance-key"`
-	ID          string                  `json:"id"`
+	ID          *string                 `json:"id"`
+	Name        *string                 `json:"name"`
 	Channel     *string                 `json:"channel,omitempty"`
 	Revision    *int                    `json:"revision,omitempty"`
 	Platform    *RefreshRequestPlatform `json:"platform,omitempty"`
@@ -45,7 +47,7 @@ type RefreshResponse struct {
 	// TODO (stickupkid): Swap this over to the new name if it ever happens.
 	Entity           RefreshEntity `json:"charm"`
 	EffectiveChannel string        `json:"effective-channel"`
-	Error            APIError      `json:"error"`
+	Error            *APIError     `json:"error"`
 	ID               string        `json:"id"`
 	InstanceKey      string        `json:"instance-key"`
 	Name             string        `json:"name"`

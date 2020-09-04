@@ -86,7 +86,7 @@ func (s *RefreshClientSuite) TestLiveInstallRequest(c *gc.C) {
 
 	client := charmhub.NewRefreshClient(refreshPath, restClient)
 
-	charmConfig, err := charmhub.InstallOne("wordpress", 16, "latest/stable", "ubuntu", "focal")
+	charmConfig, err := charmhub.InstallOneFromRevision("wordpress", 16, "ubuntu", "focal")
 	c.Assert(err, jc.ErrorIsNil)
 
 	response, err := client.Refresh(context.TODO(), charmConfig)
