@@ -142,17 +142,17 @@ func (client *Client) UpgradeSeriesPrepare(machineName, series string, force boo
 	}
 	args := params.UpdateSeriesArg{
 		Entity: params.Entity{
-			Tag: names.NewMachineTag(machineName).String()},
+			Tag: names.NewMachineTag(machineName).String(),
+		},
 		Series: series,
 		Force:  force,
 	}
-	result := params.ErrorResult{}
+	var result params.ErrorResult
 	if err := client.facade.FacadeCall("UpgradeSeriesPrepare", args, &result); err != nil {
 		return errors.Trace(err)
 	}
 
-	err := result.Error
-	if err != nil {
+	if err := result.Error; err != nil {
 		return common.RestoreError(err)
 	}
 	return nil

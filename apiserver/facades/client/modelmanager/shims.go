@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/space"
+	"github.com/juju/juju/state"
 )
 
 type spaceStateShim struct {
@@ -47,4 +48,40 @@ func (s spaceStateShim) ConstraintsBySpaceName(name string) ([]space.Constraints
 		results[i] = constraint
 	}
 	return results, nil
+}
+
+type statePoolShim struct {
+	*state.StatePool
+}
+
+func (s statePoolShim) Get(uuid string) (State, error) {
+	st, err := s.StatePool.Get(uuid)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return stateShim{
+		PooledState: st,
+	}, nil
+}
+
+type stateShim struct {
+	*state.PooledState
+}
+
+func (s stateShim) Model() (Model, error) {
+	model, err := s.PooledState.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return modelShim{
+		Model: model,
+	}, nil
+}
+
+type modelShim struct {
+	*state.Model
+}
+
+func (s modelShim) IsControllerModel() bool {
+	return s.Model.IsControllerModel()
 }

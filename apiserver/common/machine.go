@@ -73,6 +73,7 @@ type Machine interface {
 	ForceDestroy(time.Duration) error
 	Destroy() error
 	IsManager() bool
+	IsLockedForSeriesUpgrade() (bool, error)
 }
 
 func DestroyMachines(st origStateInterface, force bool, maxWait time.Duration, ids ...string) error {

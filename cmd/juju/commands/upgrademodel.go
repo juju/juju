@@ -86,6 +86,7 @@ func newUpgradeJujuCommandForTest(
 	minUpgradeVers map[int]version.Number,
 	jujuClientAPI jujuClientAPI,
 	modelConfigAPI modelConfigAPI,
+	modelManagerAPI modelManagerAPI,
 	controllerAPI controllerAPI,
 	options ...modelcmd.WrapOption) cmd.Command {
 	if minUpgradeVers == nil {
@@ -95,6 +96,7 @@ func newUpgradeJujuCommandForTest(
 		baseUpgradeCommand: baseUpgradeCommand{
 			minMajorUpgradeVersion: minUpgradeVers,
 			modelConfigAPI:         modelConfigAPI,
+			modelManagerAPI:        modelManagerAPI,
 			controllerAPI:          controllerAPI,
 		},
 		jujuClientAPI: jujuClientAPI,
@@ -128,19 +130,20 @@ type baseUpgradeCommand struct {
 	// 1.25.4 or later in order to upgrade to 2.0.
 	minMajorUpgradeVersion map[int]version.Number
 
-	modelConfigAPI modelConfigAPI
-	controllerAPI  controllerAPI
+	modelConfigAPI  modelConfigAPI
+	modelManagerAPI modelManagerAPI
+	controllerAPI   controllerAPI
 }
 
-func (u *baseUpgradeCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&u.vers, "agent-version", "", "Upgrade to specific version")
-	f.StringVar(&u.AgentStream, "agent-stream", "", "Check this agent stream for upgrades")
-	f.BoolVar(&u.BuildAgent, "build-agent", false, "Build a local version of the agent binary; for development use only")
-	f.BoolVar(&u.DryRun, "dry-run", false, "Don't change anything, just report what would be changed")
-	f.BoolVar(&u.ResetPrevious, "reset-previous-upgrade", false, "Clear the previous (incomplete) upgrade status (use with care)")
-	f.BoolVar(&u.AssumeYes, "y", false, "Answer 'yes' to confirmation prompts")
-	f.BoolVar(&u.AssumeYes, "yes", false, "")
-	f.BoolVar(&u.IgnoreAgentVersions, "ignore-agent-versions", false,
+func (c *baseUpgradeCommand) SetFlags(f *gnuflag.FlagSet) {
+	f.StringVar(&c.vers, "agent-version", "", "Upgrade to specific version")
+	f.StringVar(&c.AgentStream, "agent-stream", "", "Check this agent stream for upgrades")
+	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build a local version of the agent binary; for development use only")
+	f.BoolVar(&c.DryRun, "dry-run", false, "Don't change anything, just report what would be changed")
+	f.BoolVar(&c.ResetPrevious, "reset-previous-upgrade", false, "Clear the previous (incomplete) upgrade status (use with care)")
+	f.BoolVar(&c.AssumeYes, "y", false, "Answer 'yes' to confirmation prompts")
+	f.BoolVar(&c.AssumeYes, "yes", false, "")
+	f.BoolVar(&c.IgnoreAgentVersions, "ignore-agent-versions", false,
 		"Don't check if all agents have already reached the current version")
 }
 
@@ -322,6 +325,11 @@ type modelConfigAPI interface {
 	Close() error
 }
 
+type modelManagerAPI interface {
+	ValidateModelUpgrade(modelTag names.ModelTag, force bool) error
+	Close() error
+}
+
 type controllerAPI interface {
 	CloudSpec(modelTag names.ModelTag) (environs.CloudSpec, error)
 	ControllerConfig() (controller.Config, error)
@@ -335,6 +343,14 @@ func (c *upgradeJujuCommand) getJujuClientAPI() (jujuClientAPI, error) {
 	}
 
 	return c.NewAPIClient()
+}
+
+func (c *upgradeJujuCommand) getModelManagerAPI() (modelManagerAPI, error) {
+	if c.modelManagerAPI != nil {
+		return c.modelManagerAPI, nil
+	}
+
+	return c.NewModelManagerAPIClient()
 }
 
 func (c *upgradeJujuCommand) getModelConfigAPI() (modelConfigAPI, error) {
@@ -389,12 +405,17 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 }
 
 func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowed bool, fetchTimeout time.Duration, availableAgents availableAgentsFunc) (err error) {
+	// Validate a model can be upgraded, by running some pre-flight checks.
+	if err := c.validateModelUpgrade(); err != nil {
+		return block.ProcessBlockedError(err, block.BlockChange)
+	}
 
 	client, err := c.getJujuClientAPI()
 	if err != nil {
 		return err
 	}
 	defer client.Close()
+
 	modelConfigClient, err := c.getModelConfigAPI()
 	if err != nil {
 		return err
@@ -543,11 +564,29 @@ func (c *baseUpgradeCommand) notifyControllerUpgrade(ctx *cmd.Context, client up
 				"the last upgrade that has been resolved, consider running the\n"+
 				"upgrade-model command with the --reset-previous-upgrade option.", err,
 			)
-		} else {
-			return block.ProcessBlockedError(err, block.BlockChange)
 		}
+		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 	fmt.Fprintf(ctx.Stdout, "started upgrade to %s\n", upgradeCtx.chosen)
+	return nil
+}
+
+// validateModelUpgrade checks to see if a model can be upgraded.
+func (c *upgradeJujuCommand) validateModelUpgrade() error {
+	_, details, err := c.ModelCommandBase.ModelDetails()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	client, err := c.getModelManagerAPI()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// TODO (stickupkid): Define force for validation of model upgrade.
+	if err := client.ValidateModelUpgrade(names.NewModelTag(details.ModelUUID), false); err != nil {
+		return errors.Trace(err)
+	}
+
 	return nil
 }
 

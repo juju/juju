@@ -670,3 +670,12 @@ func (st *State) upgradeSeriesMachineIds() ([]string, error) {
 	}
 	return ids, nil
 }
+
+// HasUpgradeSeriesLocks returns true if there are any upgrade machine locks.
+func (st *State) HasUpgradeSeriesLocks() (bool, error) {
+	ids, err := st.upgradeSeriesMachineIds()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return len(ids) > 0, nil
+}

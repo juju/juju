@@ -212,10 +212,10 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 		return s.caasBroker, nil
 	}
 
-	api, err := modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, newBroker, s.authoriser, s.st.model, s.callContext)
+	api, err := modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, nil, newBroker, s.authoriser, s.st.model, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
-	caasApi, err := modelmanager.NewModelManagerAPI(s.caasSt, s.ctlrSt, nil, newBroker, s.authoriser, s.st.model, s.callContext)
+	caasApi, err := modelmanager.NewModelManagerAPI(s.caasSt, s.ctlrSt, nil, nil, newBroker, s.authoriser, s.st.model, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 	s.caasApi = caasApi
 }
@@ -225,7 +225,7 @@ func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	newBroker := func(args environs.OpenParams) (caas.Broker, error) {
 		return s.caasBroker, nil
 	}
-	mm, err := modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, newBroker, s.authoriser, s.st.model, s.callContext)
+	mm, err := modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, nil, newBroker, s.authoriser, s.st.model, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = mm
 }
@@ -690,7 +690,9 @@ func (s *modelManagerSuite) TestDumpModelV2(c *gc.C) {
 				&modelmanager.ModelManagerAPIV5{
 					&modelmanager.ModelManagerAPIV6{
 						&modelmanager.ModelManagerAPIV7{
-							s.api,
+							&modelmanager.ModelManagerAPIV8{
+								s.api,
+							},
 						},
 					},
 				},
@@ -860,7 +862,9 @@ func (s *modelManagerSuite) TestDestroyModelsV3(c *gc.C) {
 			&modelmanager.ModelManagerAPIV5{
 				&modelmanager.ModelManagerAPIV6{
 					&modelmanager.ModelManagerAPIV7{
-						s.api,
+						&modelmanager.ModelManagerAPIV8{
+							s.api,
+						},
 					},
 				},
 			},
@@ -928,6 +932,7 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	modelmanager, err := modelmanager.NewModelManagerAPI(
 		common.NewModelManagerBackend(s.Model, s.StatePool),
 		common.NewModelManagerBackend(s.Model, s.StatePool),
+		nil,
 		stateenvirons.EnvironConfigGetter{Model: s.Model},
 		nil,
 		s.authoriser,
@@ -944,6 +949,7 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 	endPoint, err := modelmanager.NewModelManagerAPI(
 		common.NewModelManagerBackend(s.Model, s.StatePool),
 		common.NewModelManagerBackend(s.Model, s.StatePool),
+		nil,
 		nil, nil, anAuthoriser,
 		s.Model,
 		s.callContext,
@@ -958,6 +964,7 @@ func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	endPoint, err := modelmanager.NewModelManagerAPI(
 		common.NewModelManagerBackend(s.Model, s.StatePool),
 		common.NewModelManagerBackend(s.Model, s.StatePool),
+		nil,
 		nil, nil, anAuthoriser, s.Model,
 		s.callContext,
 	)
@@ -1161,6 +1168,7 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		common.NewModelManagerBackend(model, s.StatePool),
 		common.NewModelManagerBackend(s.Model, s.StatePool),
+		nil,
 		nil, nil, s.authoriser,
 		s.Model,
 		s.callContext,
@@ -1199,6 +1207,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		common.NewModelManagerBackend(model, s.StatePool),
 		common.NewModelManagerBackend(s.Model, s.StatePool),
+		nil,
 		nil, nil, s.authoriser,
 		s.Model,
 		s.callContext,
@@ -1235,6 +1244,7 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		common.NewModelManagerBackend(model, s.StatePool),
 		common.NewModelManagerBackend(s.Model, s.StatePool),
+		nil,
 		nil, nil, s.authoriser, s.Model,
 		s.callContext,
 	)
@@ -1665,6 +1675,7 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 	endPoint, err := modelmanager.NewModelManagerAPI(
 		common.NewUserAwareModelManagerBackend(model, s.StatePool, user),
 		common.NewModelManagerBackend(s.Model, s.StatePool),
+		nil,
 		nil, nil, anAuthoriser,
 		s.Model,
 		s.callContext,
@@ -1710,7 +1721,9 @@ func (s *modelManagerSuite) TestModelStatusV2(c *gc.C) {
 				&modelmanager.ModelManagerAPIV5{
 					&modelmanager.ModelManagerAPIV6{
 						&modelmanager.ModelManagerAPIV7{
-							s.api,
+							&modelmanager.ModelManagerAPIV8{
+								s.api,
+							},
 						},
 					},
 				},
@@ -1749,7 +1762,9 @@ func (s *modelManagerSuite) TestModelStatusV3(c *gc.C) {
 			&modelmanager.ModelManagerAPIV5{
 				&modelmanager.ModelManagerAPIV6{
 					&modelmanager.ModelManagerAPIV7{
-						s.api,
+						&modelmanager.ModelManagerAPIV8{
+							s.api,
+						},
 					},
 				},
 			},
