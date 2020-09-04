@@ -5,12 +5,12 @@ package application_test
 
 import (
 	"io"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/juju/charm/v8"
-	"github.com/juju/charmrepo/v6"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -1172,13 +1172,13 @@ func (g *mockGeneration) AssignApplication(appName string) error {
 }
 
 type mockRepo struct {
-	charmrepo.Interface
+	application.Repository
 	*jtesting.CallMocker
 	revisions map[string]int
 }
 
-func (m *mockRepo) Get(curl *charm.URL, path string) (*charm.CharmArchive, error) {
-	results := m.MethodCall(m, "Get", curl)
+func (m *mockRepo) GetCharm(curl *charm.URL, _ *url.URL, _ string) (*charm.CharmArchive, error) {
+	results := m.MethodCall(m, "GetCharm", curl)
 	if results == nil {
 		return nil, errors.NotFoundf(`cannot retrieve %q: charm`, curl)
 	}

@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
-	"github.com/juju/charmrepo/v6"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -76,12 +75,12 @@ func (s *applicationSuite) SetUpTest(c *gc.C) {
 		revisions:  make(map[string]int),
 	}
 
-	s.PatchValue(&application.OpenCSRepo, func(args application.OpenCSRepoParams) (charmrepo.Interface, error) {
+	s.PatchValue(&application.OpenCSRepo, func(args application.OpenCSRepoParams) (application.Repository, error) {
 		return s.repo, nil
 	})
 }
 
-func (s *applicationSuite) openRepo(args application.OpenCSRepoParams) (charmrepo.Interface, error) {
+func (s *applicationSuite) openRepo(args application.OpenCSRepoParams) (application.Repository, error) {
 	return s.repo, nil
 }
 
@@ -103,7 +102,7 @@ func (s *applicationSuite) UploadCharm(c *gc.C, url, name string) (*charm.URL, c
 	ch, err := charm.ReadCharmArchive(
 		testcharms.RepoWithSeries("quantal").CharmArchivePath(c.MkDir(), name))
 	c.Assert(err, jc.ErrorIsNil)
-	s.repo.Call("Get", resultURL).Returns(
+	s.repo.Call("GetCharm", resultURL).Returns(
 		ch,
 		error(nil),
 	)

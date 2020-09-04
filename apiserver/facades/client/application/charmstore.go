@@ -31,12 +31,6 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/storage_mock.go github.com/juju/juju/state/storage Storage
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/interface_mock.go github.com/juju/charmrepo/v6 Interface
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/charm_mock.go github.com/juju/juju/apiserver/facades/client/application StateCharm
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/model_mock.go github.com/juju/juju/apiserver/facades/client/application StateModel
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/charmstore_mock.go github.com/juju/juju/apiserver/facades/client/application State
-
 // TODO - we really want to avoid this, which we can do by refactoring code requiring this
 // to use interfaces.
 
@@ -78,6 +72,25 @@ type State interface {
 	state.MongoSessioner
 }
 
+// Repository represents the necessary methods to resolve and download
+// charms from a repository where they reside.
+type Repository interface {
+	// FindDownloadURL returns a url from which a charm can be downloaded
+	// based on the given charm url and charm origin.  A charm origin
+	// updated with the ID and hash for the download is also returned.
+	FindDownloadURL(curl *charm.URL, origin corecharm.Origin) (*url.URL, corecharm.Origin, error)
+
+	// GetCharm reads the charm referenced by curl or downloadURL into
+	// a file with the given path, which will be created if needed. Note
+	// that the path's parent directory must already exist.
+	GetCharm(curl *charm.URL, downloadURL *url.URL, archivePath string) (*charm.CharmArchive, error)
+
+	// Resolve verified that the charm exists.  It returns a charm URL which
+	// includes the most current revision, if none was provided and a slice
+	// of series supported by this charm.
+	Resolve(ref *charm.URL) (canonRef *charm.URL, supportedSeries []string, err error)
+}
+
 // AddCharmWithAuthorizationAndRepo adds the given charm URL (which must include
 // revision) to the environment, if it does not exist yet.
 // Local charms are not supported, only charm store URLs.
@@ -88,7 +101,7 @@ type State interface {
 //
 // The authorization macaroon, args.CharmStoreMacaroon, may be
 // omitted, in which case this call is equivalent to AddCharm.
-func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthorization, repoFn func() (charmrepo.Interface, error)) error {
+func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthorization, repoFn func() (Repository, error)) error {
 	// Get the repo from the constructor
 	repo, err := repoFn()
 	if err != nil {
@@ -113,7 +126,7 @@ func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthoriz
 	}()
 
 	// Run the strategy.
-	result, alreadyExists, err := strategy.Run(makeCharmStateShim(st), versionValidator{})
+	result, alreadyExists, _, err := strategy.Run(makeCharmStateShim(st), versionValidator{}, corecharm.Origin{})
 	if err != nil {
 		return errors.Trace(err)
 	} else if alreadyExists {
@@ -171,7 +184,7 @@ func (s charmStateShim) PrepareCharmUpload(curl *charm.URL) (corecharm.StateChar
 //
 // TODO: remove in juju 3.0
 func AddCharmWithAuthorization(st State, args params.AddCharmWithAuthorization, openCSRepo OpenCSRepoFunc) error {
-	return AddCharmWithAuthorizationAndRepo(st, args, func() (charmrepo.Interface, error) {
+	return AddCharmWithAuthorizationAndRepo(st, args, func() (Repository, error) {
 		// determine which charmstore api url to use.
 		controllerCfg, err := st.ControllerConfig()
 		if err != nil {
@@ -186,7 +199,7 @@ func AddCharmWithAuthorization(st State, args params.AddCharmWithAuthorization, 
 	})
 }
 
-type OpenCSRepoFunc func(args OpenCSRepoParams) (charmrepo.Interface, error)
+type OpenCSRepoFunc func(args OpenCSRepoParams) (Repository, error)
 
 type OpenCSRepoParams struct {
 	CSURL              string
@@ -194,13 +207,13 @@ type OpenCSRepoParams struct {
 	CharmStoreMacaroon *macaroon.Macaroon
 }
 
-var OpenCSRepo = func(args OpenCSRepoParams) (charmrepo.Interface, error) {
+var OpenCSRepo = func(args OpenCSRepoParams) (Repository, error) {
 	csClient, err := openCSClient(args)
 	if err != nil {
 		return nil, err
 	}
 	repo := charmrepo.NewCharmStoreFromClient(csClient)
-	return repo, nil
+	return &charmRepoShim{repo}, nil
 }
 
 func openCSClient(args OpenCSRepoParams) (*csclient.Client, error) {
@@ -226,6 +239,31 @@ func openCSClient(args OpenCSRepoParams) (*csclient.Client, error) {
 		csClient = csClient.WithChannel(channel)
 	}
 	return csClient, nil
+}
+
+// charmRepoShim helps a CharmRepo *client to a fit the local
+// Repository interface.
+type charmRepoShim struct {
+	charmStore *charmrepo.CharmStore
+}
+
+// GetCharm calls the charmrepo Get method to return a charm archive.
+// It requires a charm url and an archive path to, the url url is ignored
+// in this case.
+func (c *charmRepoShim) GetCharm(curl *charm.URL, _ *url.URL, archivePath string) (*charm.CharmArchive, error) {
+	return c.charmStore.Get(curl, archivePath)
+}
+
+// FindDownloadURL is a placeholder required to implement the
+// Repository interface.
+func (c *charmRepoShim) FindDownloadURL(_ *charm.URL, origin corecharm.Origin) (*url.URL, corecharm.Origin, error) {
+	return nil, origin, nil
+}
+
+// Resolve calls the charmrepo Resolve method to return a resolved charm url
+// and a slice of supported series.
+func (c *charmRepoShim) Resolve(ref *charm.URL) (*charm.URL, []string, error) {
+	return c.charmStore.Resolve(ref)
 }
 
 func checkCAASMinVersion(ch charm.Charm, caasVersion *version.Number) (err error) {
@@ -373,7 +411,7 @@ func ResolveCharms(st State, args params.ResolveCharms, openCSRepo OpenCSRepoFun
 	return results, nil
 }
 
-func resolveCharm(ref *charm.URL, repo charmrepo.Interface) (*charm.URL, error) {
+func resolveCharm(ref *charm.URL, repo Repository) (*charm.URL, error) {
 	if ref.Schema != "cs" {
 		return nil, errors.New("only charm store charm references are supported, with cs: schema")
 	}

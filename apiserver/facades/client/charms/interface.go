@@ -4,14 +4,16 @@
 package charms
 
 import (
+	"net/url"
+
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
@@ -63,13 +65,24 @@ func (s csStateCharmShim) IsUploaded() bool {
 	return s.Charm.IsUploaded()
 }
 
-// Repository is the part of charmrepo.Charmstore that we need to
-// resolve a charm url and get a charm archive.
+// Repository represents the necessary methods to resolve and download
+// charms from a repository where they reside.
 type Repository interface {
-	// Get reads the charm referenced by curl into a file
-	// with the given path, which will be created if needed. Note that
-	// the path's parent directory must already exist.
-	Get(curl *charm.URL, archivePath string) (*charm.CharmArchive, error)
+	// FindDownloadURL returns a url from which a charm can be downloaded
+	// based on the given charm url and charm origin.  A charm origin
+	// updated with the ID and hash for the download is also returned.
+	FindDownloadURL(curl *charm.URL, origin corecharm.Origin) (*url.URL, corecharm.Origin, error)
+
+	// GetCharm reads the charm referenced by curl or downloadURL into
+	// a file with the given path, which will be created if needed. Note
+	// that the path's parent directory must already exist.
+	GetCharm(curl *charm.URL, downloadURL *url.URL, archivePath string) (*charm.CharmArchive, error)
+
+	// ResolveWithPreferredChannel verified that the charm with the requested
+	// channel exists.  If no channel is specified, the latests, most stable is
+	// is used. It returns a charm URL which includes the most current revision,
+	// if none was provided, a charm origin, and a slice of series supported by
+	// this charm.
 	ResolveWithPreferredChannel(*charm.URL, params.CharmOrigin) (*charm.URL, params.CharmOrigin, []string, error)
 }
 
@@ -133,6 +146,6 @@ func (p storeCharmLXDProfiler) LXDProfile() lxdprofile.LXDProfile {
 type Strategy interface {
 	CharmURL() *charm.URL
 	Finish() error
-	Run(corecharm.State, corecharm.JujuVersionValidator) (corecharm.DownloadResult, bool, error)
+	Run(corecharm.State, corecharm.JujuVersionValidator, corecharm.Origin) (corecharm.DownloadResult, bool, corecharm.Origin, error)
 	Validate() error
 }

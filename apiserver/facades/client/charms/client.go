@@ -242,7 +242,7 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 	}()
 
 	// Run the strategy.
-	result, alreadyExists, err := strategy.Run(a.backendState, versionValidator{})
+	result, alreadyExists, origin, err := strategy.Run(a.backendState, versionValidator{}, convertParamsOrigin(args.Origin))
 	if err != nil {
 		return params.CharmOriginResult{}, errors.Trace(err)
 	} else if alreadyExists {
@@ -264,8 +264,7 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 	}
 
 	OriginResult := params.CharmOriginResult{
-		// TODO: add ID to Origin for CH get.
-		Origin: args.Origin,
+		Origin: convertOrigin(origin),
 	}
 
 	// Store the charm archive in environment storage.
