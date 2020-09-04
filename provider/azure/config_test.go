@@ -109,6 +109,16 @@ func (s *configSuite) TestValidateResourceGroupNameCantChange(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot change immutable "resource-group-name" config \(foo -> bar\)`)
 }
 
+func (s *configSuite) TestValidateVirtualNetworkNameCantChange(c *gc.C) {
+	cfgOld := makeTestModelConfig(c, testing.Attrs{"network": "foo"})
+	_, err := s.provider.Validate(cfgOld, cfgOld)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cfgNew := makeTestModelConfig(c, testing.Attrs{"network": "bar"})
+	_, err = s.provider.Validate(cfgNew, cfgOld)
+	c.Assert(err, gc.ErrorMatches, `cannot change immutable "network" config \(foo -> bar\)`)
+}
+
 func (s *configSuite) assertConfigValid(c *gc.C, attrs testing.Attrs) {
 	cfg := makeTestModelConfig(c, attrs)
 	_, err := s.provider.Validate(cfg, nil)
