@@ -23,6 +23,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 
 	charmhubpath "github.com/juju/juju/charmhub/path"
@@ -103,6 +104,7 @@ type Client struct {
 	url           string
 	infoClient    *InfoClient
 	findClient    *FindClient
+	getClient     *GetClient
 	refreshClient *RefreshClient
 }
 
@@ -136,6 +138,7 @@ func NewClient(config Config) (*Client, error) {
 		url:           base.String(),
 		infoClient:    NewInfoClient(infoPath, restClient),
 		findClient:    NewFindClient(findPath, restClient),
+		getClient:     NewGetClient(restClient),
 		refreshClient: NewRefreshClient(refreshPath, restClient),
 	}, nil
 }
@@ -159,4 +162,10 @@ func (c *Client) Find(ctx context.Context, name string) ([]transport.FindRespons
 // updating a series of charms to the latest version.
 func (c *Client) Refresh(ctx context.Context, config RefreshConfig) ([]transport.RefreshResponse, error) {
 	return c.refreshClient.Refresh(ctx, config)
+}
+
+// Refresh defines a client for making refresh API calls, that allow for
+// updating a series of charms to the latest version.
+func (c *Client) GetCharmFromURL(curl *url.URL, archivePath string) (*charm.CharmArchive, error) {
+	return c.getClient.GetCharmFromURL(curl, archivePath)
 }
