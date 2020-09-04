@@ -5,6 +5,7 @@ package unit
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/names/v4"
 	"github.com/juju/utils/voyeur"
 
 	"github.com/juju/juju/agent"
@@ -20,9 +21,10 @@ type (
 type K8sUnitAgentTest interface {
 	cmd.Command
 	DataDir() string
-	ApplicationName() string
 	SetAgentConf(cfg agentconf.AgentConf)
 	ChangeConfig(change agent.ConfigMutator) error
+	CurrentConfig() agent.Config
+	Tag() names.UnitTag
 }
 
 func NewForTest(ctx *cmd.Context, bufferedLogger *logsender.BufferedLogWriter, configChangedVal *voyeur.Value) (K8sUnitAgentTest, error) {
@@ -40,8 +42,4 @@ func (c *k8sUnitAgent) SetAgentConf(cfg agentconf.AgentConf) {
 
 func (c *k8sUnitAgent) DataDir() string {
 	return c.AgentConf.DataDir()
-}
-
-func (c *k8sUnitAgent) ApplicationName() string {
-	return c.applicationName
 }
