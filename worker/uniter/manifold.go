@@ -50,6 +50,7 @@ type ManifoldConfig struct {
 	HookRetryStrategyName string
 	TranslateResolverErr  func(error) error
 	Logger                Logger
+	Embedded              bool
 }
 
 // Validate ensures all the required values for the config are set.
@@ -142,6 +143,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				Clock:                 manifoldConfig.Clock,
 				RebootQuerier:         reboot.NewMonitor(agentConfig.TransientDataDir()),
 				Logger:                config.Logger,
+				Embedded:              config.Embedded,
 			})
 			if err != nil {
 				return nil, errors.Trace(err)

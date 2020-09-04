@@ -4,6 +4,7 @@
 package remotestate
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -38,6 +39,7 @@ type RemoteStateWatcher struct {
 	unit        Unit
 	application Application
 	modelType   model.ModelType
+	embedded    bool
 	logger      Logger
 
 	relations                     map[names.RelationTag]*wrappedRelationUnitsWatcher
@@ -85,12 +87,17 @@ type WatcherConfig struct {
 	ContainerRunningStatusFunc    ContainerRunningStatusFunc
 	UnitTag                       names.UnitTag
 	ModelType                     model.ModelType
+	Embedded                      bool
 	Logger                        Logger
 	CanApplyCharmProfile          bool
 }
 
 func (w WatcherConfig) validate() error {
-	if w.ModelType == model.CAAS {
+	if w.ModelType == model.IAAS && w.Embedded {
+		return errors.NewNotValid(nil, fmt.Sprintf("embedded mode is only for %q model", model.CAAS))
+	}
+
+	if w.ModelType == model.CAAS && !w.Embedded {
 		if w.ApplicationChannel == nil {
 			return errors.NotValidf("watcher config for CAAS model with nil application channel")
 		}
@@ -138,6 +145,7 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 			ActionsBlocked: config.ContainerRunningStatusChannel != nil,
 			ActionChanged:  make(map[string]int),
 		},
+		embedded: config.Embedded,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -321,13 +329,13 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 
 	// CAAS models don't use an application watcher
 	// which fires an initial event.
-	if w.modelType == model.CAAS {
+	if w.modelType == model.CAAS && !w.embedded {
 		seenApplicationChange = true
 	}
 
-	if w.modelType == model.IAAS {
-		// This is in IAAS model so we need to watch state for application
-		// charm changes instead of being informed by the operator.
+	if w.modelType == model.IAAS || w.embedded {
+		// For IAAS model and embedded CAAS model, we need to watch state for
+		// application charm changes instead of being informed by the operator.
 		applicationw, err := w.application.Watch()
 		if err != nil {
 			return errors.Trace(err)
@@ -337,7 +345,9 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		}
 		w.applicationChannel = applicationw.Changes()
 		requiredEvents++
+	}
 
+	if w.modelType == model.IAAS {
 		// Only IAAS models support upgrading the machine series.
 		// TODO(externalreality) This pattern should probably be extracted
 		upgradeSeriesw, err := w.unit.WatchUpgradeSeriesNotifications()
