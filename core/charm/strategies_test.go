@@ -61,7 +61,7 @@ func (s strategySuite) TestDownloadResult(c *gc.C) {
 	file, err := ioutil.TempFile("", "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	fmt.Fprintln(file, "meshuggah")
+	_, _ = fmt.Fprintln(file, "meshuggah")
 	err = file.Sync()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -97,7 +97,7 @@ func (s strategySuite) TestRunWithCharmAlreadyUploaded(c *gc.C) {
 		charmURL: curl,
 		store:    mockStore,
 	}
-	_, alreadyExists, err := strategy.Run(mockState, mockVersionValidator)
+	_, alreadyExists, _, err := strategy.Run(mockState, mockVersionValidator, Origin{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(alreadyExists, jc.IsTrue)
 }
@@ -118,7 +118,7 @@ func (s strategySuite) TestRunWithPrepareUploadError(c *gc.C) {
 		charmURL: curl,
 		store:    mockStore,
 	}
-	_, alreadyExists, err := strategy.Run(mockState, mockVersionValidator)
+	_, alreadyExists, _, err := strategy.Run(mockState, mockVersionValidator, Origin{})
 	c.Assert(err, gc.ErrorMatches, "boom")
 	c.Assert(alreadyExists, jc.IsFalse)
 }
@@ -149,13 +149,13 @@ func (s strategySuite) TestRun(c *gc.C) {
 	mockState.EXPECT().PrepareCharmUpload(curl).Return(mockStateCharm, nil)
 
 	mockStore := NewMockStore(ctrl)
-	mockStore.EXPECT().Download(curl, gomock.Any()).DoAndReturn(mustWriteToTempFile(c, mockStoreCharm))
+	mockStore.EXPECT().Download(curl, gomock.Any(), gomock.AssignableToTypeOf(Origin{})).DoAndReturn(mustWriteToTempFile(c, mockStoreCharm))
 
 	strategy := &Strategy{
 		charmURL: curl,
 		store:    mockStore,
 	}
-	_, alreadyExists, err := strategy.Run(mockState, mockVersionValidator)
+	_, alreadyExists, _, err := strategy.Run(mockState, mockVersionValidator, Origin{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(alreadyExists, jc.IsFalse)
 }
@@ -191,13 +191,13 @@ func (s strategySuite) TestRunWithInvalidLXDProfile(c *gc.C) {
 	mockState.EXPECT().PrepareCharmUpload(curl).Return(mockStateCharm, nil)
 
 	mockStore := NewMockStore(ctrl)
-	mockStore.EXPECT().Download(curl, gomock.Any()).DoAndReturn(mustWriteToTempFile(c, mockStoreCharm))
+	mockStore.EXPECT().Download(curl, gomock.Any(), gomock.AssignableToTypeOf(Origin{})).DoAndReturn(mustWriteToTempFile(c, mockStoreCharm))
 
 	strategy := &Strategy{
 		charmURL: curl,
 		store:    mockStore,
 	}
-	_, alreadyExists, err := strategy.Run(mockState, mockVersionValidator)
+	_, alreadyExists, _, err := strategy.Run(mockState, mockVersionValidator, Origin{})
 	c.Assert(err, gc.ErrorMatches, `cannot add charm: invalid lxd-profile.yaml: contains config value "boot"`)
 	c.Assert(alreadyExists, jc.IsFalse)
 }
@@ -227,16 +227,18 @@ func (s strategySuite) TestFinishAfterRun(c *gc.C) {
 	var tmpFile string
 
 	mockStore := NewMockStore(ctrl)
-	mockStore.EXPECT().Download(curl, gomock.Any()).DoAndReturn(func(curl *charm.URL, file string) (StoreCharm, Checksum, error) {
-		tmpFile = file
-		return mustWriteToTempFile(c, mockStoreCharm)(curl, file)
-	})
+	mockStore.EXPECT().Download(curl, gomock.Any(), gomock.AssignableToTypeOf(Origin{})).DoAndReturn(
+		func(curl *charm.URL, file string, origin Origin) (StoreCharm, Checksum, Origin, error) {
+			tmpFile = file
+			return mustWriteToTempFile(c, mockStoreCharm)(curl, file, origin)
+		},
+	)
 
 	strategy := &Strategy{
 		charmURL: curl,
 		store:    mockStore,
 	}
-	_, alreadyExists, err := strategy.Run(mockState, mockVersionValidator)
+	_, alreadyExists, _, err := strategy.Run(mockState, mockVersionValidator, Origin{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(alreadyExists, jc.IsFalse)
 
@@ -247,15 +249,15 @@ func (s strategySuite) TestFinishAfterRun(c *gc.C) {
 	c.Assert(os.IsNotExist(err), jc.IsTrue)
 }
 
-func mustWriteToTempFile(c *gc.C, mockCharm *MockStoreCharm) func(*charm.URL, string) (StoreCharm, Checksum, error) {
-	return func(curl *charm.URL, file string) (StoreCharm, Checksum, error) {
+func mustWriteToTempFile(c *gc.C, mockCharm *MockStoreCharm) func(*charm.URL, string, Origin) (StoreCharm, Checksum, Origin, error) {
+	return func(curl *charm.URL, file string, origin Origin) (StoreCharm, Checksum, Origin, error) {
 		f, err := os.Open(file)
 		c.Assert(err, jc.ErrorIsNil)
 
-		fmt.Fprintln(f, "meshuggah")
+		_, _ = fmt.Fprintln(f, "meshuggah")
 		err = f.Sync()
 		c.Assert(err, jc.ErrorIsNil)
 
-		return mockCharm, AlwaysChecksum, nil
+		return mockCharm, AlwaysChecksum, origin, nil
 	}
 }

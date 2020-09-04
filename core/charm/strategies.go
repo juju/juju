@@ -6,6 +6,7 @@ package charm
 import (
 	"io"
 	"io/ioutil"
+	"net/url"
 	"os"
 
 	"github.com/juju/charm/v8"
@@ -38,7 +39,7 @@ type Store interface {
 	// Validate checks to ensure that the charm URL is valid for the store.
 	Validate(*charm.URL) error
 	// Download a charm from the store using the charm URL.
-	Download(*charm.URL, string) (StoreCharm, Checksum, error)
+	Download(*charm.URL, string, Origin) (StoreCharm, Checksum, Origin, error)
 }
 
 // Checksum defines a function for running checksums against.
@@ -68,7 +69,8 @@ type Strategy struct {
 
 // DownloadRepo defines methods required for the repo to download a charm.
 type DownloadRepo interface {
-	Get(curl *charm.URL, archivePath string) (*charm.CharmArchive, error)
+	GetCharm(curl *charm.URL, durl *url.URL, archivePath string) (*charm.CharmArchive, error)
+	FindDownloadURL(*charm.URL, Origin) (*url.URL, Origin, error)
 }
 
 // DownloadFromCharmStore will creates a procedure to install a charm from the
@@ -89,13 +91,13 @@ func DownloadFromCharmStore(charmRepo DownloadRepo, url string, force bool) (*St
 
 // DownloadFromCharmHub will creates a procedure to install a charm from the
 // charm hub.
-func DownloadFromCharmHub(charmRepo DownloadRepo, url string, force bool) (*Strategy, error) {
-	curl, err := charm.ParseURL(url)
+func DownloadFromCharmHub(charmRepo DownloadRepo, curl string, force bool) (*Strategy, error) {
+	churl, err := charm.ParseURL(curl)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &Strategy{
-		charmURL: curl,
+		charmURL: churl,
 		store: StoreCharmHub{
 			charmRepo: charmRepo,
 		},
@@ -139,21 +141,21 @@ type DownloadResult struct {
 // Run the download procedure against the supplied store adapter.
 // Includes downloading the blob to a temp file and validating the contents
 // of the charm.Meta and LXD profile data.
-func (p *Strategy) Run(state State, version JujuVersionValidator) (DownloadResult, bool, error) {
-	charm, err := state.PrepareCharmUpload(p.charmURL)
+func (p *Strategy) Run(state State, version JujuVersionValidator, origin Origin) (DownloadResult, bool, Origin, error) {
+	ch, err := state.PrepareCharmUpload(p.charmURL)
 	if err != nil {
-		return DownloadResult{}, false, errors.Trace(err)
+		return DownloadResult{}, false, origin, errors.Trace(err)
 	}
 
 	// Charm is already in state, so we can exit out early.
-	if charm.IsUploaded() {
-		return DownloadResult{}, true, nil
+	if ch.IsUploaded() {
+		return DownloadResult{}, true, origin, nil
 	}
 
 	// Get the charm and its information from the store.
 	file, err := ioutil.TempFile("", p.charmURL.Name)
 	if err != nil {
-		return DownloadResult{}, false, errors.Trace(err)
+		return DownloadResult{}, false, origin, errors.Trace(err)
 	}
 
 	p.deferFunc(func() error {
@@ -165,23 +167,23 @@ func (p *Strategy) Run(state State, version JujuVersionValidator) (DownloadResul
 		return nil
 	})
 
-	archive, checksum, err := p.store.Download(p.charmURL, file.Name())
+	archive, checksum, origin, err := p.store.Download(p.charmURL, file.Name(), origin)
 	if err != nil {
-		return DownloadResult{}, false, errors.Trace(err)
+		return DownloadResult{}, false, origin, errors.Trace(err)
 	}
 
 	if err := version.Validate(archive.Meta()); err != nil {
-		return DownloadResult{}, false, errors.Trace(err)
+		return DownloadResult{}, false, origin, errors.Trace(err)
 	}
 
 	// Validate the charm lxd profile once we've downloaded it.
 	if err := lxdprofile.ValidateLXDProfile(makeStoreCharmLXDProfiler(archive)); err != nil && !p.force {
-		return DownloadResult{}, false, errors.Annotate(err, "cannot add charm")
+		return DownloadResult{}, false, origin, errors.Annotate(err, "cannot add charm")
 	}
 
 	result, err := p.downloadResult(file.Name(), checksum)
 	if err != nil {
-		return DownloadResult{}, false, errors.Trace(err)
+		return DownloadResult{}, false, origin, errors.Trace(err)
 	}
 
 	return DownloadResult{
@@ -189,7 +191,7 @@ func (p *Strategy) Run(state State, version JujuVersionValidator) (DownloadResul
 		Data:   result.Data,
 		Size:   result.Size,
 		SHA256: result.SHA256,
-	}, false, nil
+	}, false, origin, nil
 }
 
 // Finish will attempt to close out the download procedure. Cleaning up any
@@ -257,17 +259,17 @@ func (StoreCharmStore) Validate(curl *charm.URL) error {
 }
 
 // Download the charm from the charm store.
-func (s StoreCharmStore) Download(curl *charm.URL, file string) (StoreCharm, Checksum, error) {
-	archive, err := s.charmRepo.Get(curl, file)
+func (s StoreCharmStore) Download(curl *charm.URL, file string, origin Origin) (StoreCharm, Checksum, Origin, error) {
+	archive, err := s.charmRepo.GetCharm(curl, nil, file)
 	if err != nil {
 		if cause := errors.Cause(err); httpbakery.IsDischargeError(cause) || httpbakery.IsInteractionError(cause) {
-			return nil, nil, errors.NewUnauthorized(err, "")
+			return nil, nil, origin, errors.NewUnauthorized(err, "")
 		}
-		return nil, nil, errors.Trace(err)
+		return nil, nil, origin, errors.Trace(err)
 	}
 	// Ignore the checksum for charm store, as there isn't any information
 	// available to us to perform the downloaded checksum.
-	return newStoreCharmShim(archive), AlwaysChecksum, nil
+	return newStoreCharmShim(archive), AlwaysChecksum, origin, nil
 }
 
 // StoreCharmHub defines a type for interacting with the charm hub.
@@ -284,8 +286,21 @@ func (StoreCharmHub) Validate(curl *charm.URL) error {
 }
 
 // Download the charm from the charm hub.
-func (StoreCharmHub) Download(curl *charm.URL, file string) (StoreCharm, Checksum, error) {
-	return nil, nil, nil
+func (s StoreCharmHub) Download(curl *charm.URL, file string, origin Origin) (StoreCharm, Checksum, Origin, error) {
+	durl, origin, err := s.charmRepo.FindDownloadURL(curl, origin)
+	if err != nil {
+		return nil, nil, origin, errors.Trace(err)
+	}
+	archive, err := s.charmRepo.GetCharm(curl, durl, file)
+	if err != nil {
+		if cause := errors.Cause(err); httpbakery.IsDischargeError(cause) || httpbakery.IsInteractionError(cause) {
+			return nil, nil, origin, errors.NewUnauthorized(err, "")
+		}
+		return nil, nil, origin, errors.Trace(err)
+	}
+	// Ignore the checksum for charm store, as there isn't any information
+	// available to us to perform the downloaded checksum.
+	return newStoreCharmShim(archive), AlwaysChecksum, origin, nil
 }
 
 // storeCharmShim massages a *charm.CharmArchive into a LXDProfiler
