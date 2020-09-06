@@ -118,7 +118,7 @@ require (
 	google.golang.org/grpc v1.30.0 // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/amz.v3 v3.0.0-20191122063134-7ba11a47c789
-	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f
+	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b
 	gopkg.in/goose.v2 v2.0.1
 	gopkg.in/httprequest.v1 v1.2.1
 	gopkg.in/ini.v1 v1.10.1

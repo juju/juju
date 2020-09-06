@@ -4996,10 +4996,10 @@ controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00
 SAAS         Status   Store  URL
 hosted-riak  unknown  local  me/model.riak
 
-App        Version          Status       Scale  Charm      Store       Rev  OS      Notes
-logging    a bit too lo...  error            2  logging    jujucharms    1  ubuntu  exposed
-mysql      5.7.13           maintenance    1/2  mysql      jujucharms    1  ubuntu  exposed
-wordpress  4.5.3            active           1  wordpress  jujucharms    3  ubuntu  exposed
+App        Version          Status       Scale  Charm      Store       Rev  OS      Message
+logging    a bit too lo...  error            2  logging    jujucharms    1  ubuntu  somehow lost in all those logs
+mysql      5.7.13           maintenance    1/2  mysql      jujucharms    1  ubuntu  installing all the things
+wordpress  4.5.3            active           1  wordpress  jujucharms    3  ubuntu  
 
 Unit          Workload     Agent  Machine  Public address  Ports  Message
 mysql/0*      maintenance  idle   2        10.0.2.1               installing all the things
@@ -5104,7 +5104,7 @@ func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
 Model  Controller  Cloud/Region  Version
                                  
 
-App  Version  Status  Scale  Charm  Store  Rev  OS  Notes
+App  Version  Status  Scale  Charm  Store  Rev  OS  Message
 foo                       2                  0      
 
 Unit   Workload     Agent      Machine  Public address  Ports  Message
@@ -5152,7 +5152,7 @@ func (s *StatusSuite) TestFormatTabularCAASModel(c *gc.C) {
 Model  Controller  Cloud/Region  Version
                                  
 
-App  Version  Status  Scale  Charm  Store  Rev  OS  Address    Notes
+App  Version  Status  Scale  Charm  Store  Rev  OS  Address    Message
 foo                     1/2                  0      54.32.1.2  
 
 Unit   Workload  Agent       Address   Ports   Message
@@ -5161,7 +5161,7 @@ foo/1  active    running     10.0.0.1  80/TCP
 `[1:])
 }
 
-func (s *StatusSuite) TestFormatTabularStatusNotes(c *gc.C) {
+func (s *StatusSuite) TestFormatTabularStatusMessage(c *gc.C) {
 	fStatus := formattedStatus{
 		Model: modelStatus{
 			Type: "caas",
@@ -5195,49 +5195,11 @@ func (s *StatusSuite) TestFormatTabularStatusNotes(c *gc.C) {
 Model  Controller  Cloud/Region  Version
                                  
 
-App  Version  Status  Scale  Charm  Store  Rev  OS  Address    Notes
+App  Version  Status  Scale  Charm  Store  Rev  OS  Address    Message
 foo                     0/1                  0      54.32.1.2  Error: ImagePullBackOff
 
 Unit   Workload  Agent       Address   Ports   Message
 foo/0  waiting   allocating  10.0.0.1  80/TCP  
-`[1:])
-}
-
-func (s *StatusSuite) TestFormatTabularStatusNotesIAAS(c *gc.C) {
-	status := formattedStatus{
-		Applications: map[string]applicationStatus{
-			"foo": {
-				Address: "54.32.1.2",
-				StatusInfo: statusInfoContents{
-					Message: "Error: ImagePullBackOff",
-				},
-				Units: map[string]unitStatus{
-					"foo/0": {
-						Address:     "10.0.0.1",
-						OpenedPorts: []string{"80/TCP"},
-						JujuStatusInfo: statusInfoContents{
-							Current: status.Idle,
-						},
-						WorkloadStatusInfo: statusInfoContents{
-							Current: status.Waiting,
-						},
-					},
-				},
-			},
-		},
-	}
-	out := &bytes.Buffer{}
-	err := FormatTabular(out, false, status)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out.String(), gc.Equals, `
-Model  Controller  Cloud/Region  Version
-                                 
-
-App  Version  Status  Scale  Charm  Store  Rev  OS  Notes
-foo                       1                  0      
-
-Unit   Workload  Agent  Machine  Public address  Ports   Message
-foo/0  waiting   idle                            80/TCP  
 `[1:])
 }
 
@@ -5297,7 +5259,7 @@ func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
 Model  Controller  Cloud/Region  Version
                                  
 
-App  Version  Status  Scale  Charm  Store  Rev  OS  Notes
+App  Version  Status  Scale  Charm  Store  Rev  OS  Message
 foo                     0/2                  0      
 
 Unit   Workload  Agent  Machine  Public address  Ports  Message
