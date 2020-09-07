@@ -589,7 +589,7 @@ func (s *crossmodelMockSuite) TestFindFacadeCallError(c *gc.C) {
 	c.Assert(results, gc.IsNil)
 }
 
-func (s *crossmodelMockSuite) TestGetConsumeDetails(c *gc.C) {
+func (s *crossmodelMockSuite) TestGetConsumeDetailsLegacy(c *gc.C) {
 	offer := params.ApplicationOfferDetails{
 		SourceModelTag:         "source model",
 		OfferName:              "an offer",
@@ -626,6 +626,61 @@ func (s *crossmodelMockSuite) TestGetConsumeDetails(c *gc.C) {
 			}
 			return nil
 		})
+	client := applicationoffers.NewClient(apiCaller)
+	details, err := client.GetConsumeDetails("me/prod.app")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+	c.Assert(details, jc.DeepEquals, params.ConsumeOfferDetails{
+		Offer:          &offer,
+		Macaroon:       mac,
+		ControllerInfo: controllerInfo,
+	})
+}
+
+func (s *crossmodelMockSuite) TestGetConsumeDetails(c *gc.C) {
+	offer := params.ApplicationOfferDetails{
+		SourceModelTag:         "source model",
+		OfferName:              "an offer",
+		OfferURL:               "offer url",
+		ApplicationDescription: "description",
+		Endpoints:              []params.RemoteEndpoint{{Name: "endpoint"}},
+	}
+	controllerInfo := &params.ExternalControllerInfo{
+		Addrs: []string{"1.2.3.4"},
+	}
+	mac, err := apitesting.NewMacaroon("id")
+	c.Assert(err, jc.ErrorIsNil)
+	var called bool
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				called = true
+				c.Assert(request, gc.Equals, "GetConsumeDetails")
+				args, ok := a.(params.ConsumeOfferDetailsArg)
+				c.Assert(ok, jc.IsTrue)
+				c.Assert(args.UserTag, gc.Equals, "")
+				c.Assert(args.OfferURLs, jc.DeepEquals, params.OfferURLs{
+					OfferURLs:     []string{"me/prod.app"},
+					BakeryVersion: 3,
+				})
+				if results, ok := result.(*params.ConsumeOfferDetailsResults); ok {
+					result := params.ConsumeOfferDetailsResult{
+						ConsumeOfferDetails: params.ConsumeOfferDetails{
+							Offer:          &offer,
+							Macaroon:       mac,
+							ControllerInfo: controllerInfo,
+						},
+					}
+					results.Results = []params.ConsumeOfferDetailsResult{result}
+				}
+				return nil
+			}),
+		BestVersion: 3,
+	}
 	client := applicationoffers.NewClient(apiCaller)
 	details, err := client.GetConsumeDetails("me/prod.app")
 	c.Assert(err, jc.ErrorIsNil)
