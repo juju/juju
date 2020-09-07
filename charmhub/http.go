@@ -84,8 +84,6 @@ func (t *APIRequester) Do(req *http.Request) (*http.Response, error) {
 
 // RESTClient defines a type for making requests to a server.
 type RESTClient interface {
-	// Do is a pass thru to the transport's Do.
-	Do(req *http.Request) (*http.Response, error)
 	// Get performs GET requests to a given Path.
 	Get(context.Context, path.Path, interface{}) error
 	// Post performs POST requests to a given Path.
@@ -164,10 +162,6 @@ func (c *HTTPRESTClient) Post(ctx context.Context, path path.Path, body, result 
 		return errors.Annotate(err, "charm hub client get")
 	}
 	return nil
-}
-
-func (c *HTTPRESTClient) Do(req *http.Request) (*http.Response, error) {
-	return c.transport.Do(req)
 }
 
 // composeHeaders creates a new set of headers from scratch.

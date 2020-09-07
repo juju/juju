@@ -50,6 +50,13 @@ func AlwaysChecksum(string) bool {
 	return true
 }
 
+// WithChecksum validates a checksum against another checksum.
+func WithChecksum(hash string) Checksum {
+	return func(other string) bool {
+		return hash == other
+	}
+}
+
 // JujuVersionValidator validates the version of Juju against the charm meta
 // data.
 // The charm.Meta contains a MinJujuVersion and we can use that to check that
@@ -247,7 +254,7 @@ func (p *Strategy) downloadResult(file string, checksum Checksum) (DownloadResul
 
 // StoreCharmStore defines a type for interacting with the charm store.
 type StoreCharmStore struct {
-	charmRepo DownloadRepo
+	repository DownloadRepo
 }
 
 // Validate checks to ensure that the schema is valid for the store.
@@ -260,7 +267,7 @@ func (StoreCharmStore) Validate(curl *charm.URL) error {
 
 // Download the charm from the charm store.
 func (s StoreCharmStore) Download(curl *charm.URL, file string, origin Origin) (StoreCharm, Checksum, Origin, error) {
-	archive, err := s.charmRepo.GetCharm(curl, nil, file)
+	archive, err := s.repository.GetCharm(curl, nil, file)
 	if err != nil {
 		if cause := errors.Cause(err); httpbakery.IsDischargeError(cause) || httpbakery.IsInteractionError(cause) {
 			return nil, nil, origin, errors.NewUnauthorized(err, "")
@@ -274,7 +281,7 @@ func (s StoreCharmStore) Download(curl *charm.URL, file string, origin Origin) (
 
 // StoreCharmHub defines a type for interacting with the charm hub.
 type StoreCharmHub struct {
-	charmRepo DownloadRepo
+	repository DownloadRepo
 }
 
 // Validate checks to ensure that the schema is valid for the store.
@@ -287,20 +294,15 @@ func (StoreCharmHub) Validate(curl *charm.URL) error {
 
 // Download the charm from the charm hub.
 func (s StoreCharmHub) Download(curl *charm.URL, file string, origin Origin) (StoreCharm, Checksum, Origin, error) {
-	durl, origin, err := s.charmRepo.FindDownloadURL(curl, origin)
+	repositoryURL, origin, err := s.repository.FindDownloadURL(curl, origin)
 	if err != nil {
 		return nil, nil, origin, errors.Trace(err)
 	}
-	archive, err := s.charmRepo.GetCharm(curl, durl, file)
+	archive, err := s.repository.GetCharm(curl, repositoryURL, file)
 	if err != nil {
-		if cause := errors.Cause(err); httpbakery.IsDischargeError(cause) || httpbakery.IsInteractionError(cause) {
-			return nil, nil, origin, errors.NewUnauthorized(err, "")
-		}
 		return nil, nil, origin, errors.Trace(err)
 	}
-	// Ignore the checksum for charm store, as there isn't any information
-	// available to us to perform the downloaded checksum.
-	return newStoreCharmShim(archive), AlwaysChecksum, origin, nil
+	return newStoreCharmShim(archive), WithChecksum(origin.Hash), origin, nil
 }
 
 // storeCharmShim massages a *charm.CharmArchive into a LXDProfiler
