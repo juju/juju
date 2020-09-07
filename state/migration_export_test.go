@@ -575,7 +575,12 @@ func (s *MigrationExportSuite) TestApplicationExposeParameters(c *gc.C) {
 		},
 	)
 
-	err = app.SetExposed([]string{"server"}, []string{serverSpace.Id()}, []string{"13.37.0.0/16"})
+	err = app.SetExposed(map[string]state.ExposedEndpoint{
+		"server": {
+			ExposeToSpaceIDs: []string{serverSpace.Id()},
+			ExposeToCIDRs:    []string{"13.37.0.0/16"},
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()
@@ -584,9 +589,11 @@ func (s *MigrationExportSuite) TestApplicationExposeParameters(c *gc.C) {
 	applications := model.Applications()
 	c.Assert(applications, gc.HasLen, 1)
 
-	c.Assert(applications[0].ExposedEndpoints(), gc.DeepEquals, []string{"server"})
-	c.Assert(applications[0].ExposeToSpaceIDs(), gc.DeepEquals, []string{serverSpace.Id()})
-	c.Assert(applications[0].ExposeToCIDRs(), gc.DeepEquals, []string{"13.37.0.0/16"})
+	expEps := applications[0].ExposedEndpoints()
+	c.Assert(expEps, gc.HasLen, 1)
+	c.Assert(expEps["server"], gc.Not(gc.IsNil))
+	c.Assert(expEps["server"].ExposeToSpaceIDs(), gc.DeepEquals, []string{serverSpace.Id()})
+	c.Assert(expEps["server"].ExposeToCIDRs(), gc.DeepEquals, []string{"13.37.0.0/16"})
 }
 
 func (s *MigrationExportSuite) TestApplicationExposingOffers(c *gc.C) {

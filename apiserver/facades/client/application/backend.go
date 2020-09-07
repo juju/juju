@@ -448,7 +448,7 @@ func (a stateApplicationShim) EndpointBindings() (Bindings, error) {
 func (a stateApplicationShim) SetExposed() error {
 	// TODO(achilleas): Remove this method once the required API changes
 	// for working with the additional expose parameters land.
-	return a.Application.SetExposed(nil, nil, nil)
+	return a.Application.SetExposed(nil)
 }
 
 type stateCharmShim struct {

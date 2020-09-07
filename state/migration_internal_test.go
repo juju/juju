@@ -408,8 +408,6 @@ func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {
 		"ForceCharm",
 		"Exposed",
 		"ExposedEndpoints",
-		"ExposeToSpaceIDs",
-		"ExposeToCIDRs",
 		"MinUnits",
 		"MetricCredentials",
 		"PasswordHash",
