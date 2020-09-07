@@ -25,6 +25,7 @@ type WatcherSuite struct {
 	coretesting.BaseSuite
 
 	modelType  model.ModelType
+	embedded   bool
 	st         *mockState
 	leadership *mockLeadershipTracker
 	watcher    *remotestate.RemoteStateWatcher
@@ -55,7 +56,10 @@ var _ = gc.Suite(&WatcherSuiteCAAS{
 })
 
 var _ = gc.Suite(&WatcherSuiteEmbedded{
-	WatcherSuite{modelType: model.CAAS},
+	WatcherSuite{
+		modelType: model.CAAS,
+		embedded:  true,
+	},
 })
 
 func (s *WatcherSuite) SetUpTest(c *gc.C) {
@@ -136,19 +140,8 @@ func (s *WatcherSuiteEmbedded) SetUpTest(c *gc.C) {
 
 	s.st.unit.application.applicationWatcher = newMockNotifyWatcher()
 	s.applicationWatcher = s.st.unit.application.applicationWatcher
-	// s.st.unit.instanceDataWatcher = newMockNotifyWatcher()
 
-	s.runningStatusWatcher = newMockNotifyWatcher()
-
-	cfg := s.setupWatcherConfig()
-	cfg.Embedded = true
-	// cfg.ApplicationChannel = s.applicationWatcher.Changes()
-	cfg.ContainerRunningStatusChannel = s.runningStatusWatcher.Changes()
-	cfg.ContainerRunningStatusFunc = func(providerID string) (*remotestate.ContainerRunningStatus, error) {
-		return s.running, nil
-	}
-
-	w, err := remotestate.NewWatcher(cfg)
+	w, err := remotestate.NewWatcher(s.setupWatcherConfig())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.watcher = w
@@ -162,6 +155,7 @@ func (s *WatcherSuite) setupWatcherConfig() remotestate.WatcherConfig {
 		Logger:               loggo.GetLogger("test"),
 		State:                s.st,
 		ModelType:            s.modelType,
+		Embedded:             s.embedded,
 		LeadershipTracker:    s.leadership,
 		UnitTag:              s.st.unit.tag,
 		UpdateStatusChannel:  statusTicker,
@@ -207,10 +201,9 @@ func (s *WatcherSuiteCAAS) TestInitialSnapshot(c *gc.C) {
 func (s *WatcherSuiteEmbedded) TestInitialSnapshot(c *gc.C) {
 	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
-		Relations:      map[int]remotestate.RelationSnapshot{},
-		Storage:        map[names.StorageTag]remotestate.StorageSnapshot{},
-		ActionChanged:  map[string]int{},
-		ActionsBlocked: true,
+		Relations:     map[int]remotestate.RelationSnapshot{},
+		Storage:       map[names.StorageTag]remotestate.StorageSnapshot{},
+		ActionChanged: map[string]int{},
 	})
 }
 
@@ -251,8 +244,10 @@ func (s *WatcherSuite) signalAll() {
 	s.st.updateStatusIntervalWatcher.changes <- struct{}{}
 	s.leadership.claimTicket.ch <- struct{}{}
 	s.st.unit.storageWatcher.changes <- []string{}
-	if s.st.modelType == model.IAAS {
+	if s.st.modelType == model.IAAS || s.embedded {
 		s.applicationWatcher.changes <- struct{}{}
+	}
+	if s.st.modelType == model.IAAS {
 		s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
 		s.st.unit.instanceDataWatcher.changes <- struct{}{}
 	}
@@ -300,7 +295,6 @@ func (s *WatcherSuiteEmbedded) TestSnapshot(c *gc.C) {
 		AddressesHash:         "addresseshash",
 		LeaderSettingsVersion: 1,
 		Leader:                true,
-		UpgradeSeriesStatus:   model.UpgradeSeriesPrepareStarted,
 	})
 }
 
@@ -945,7 +939,7 @@ func (s *WatcherSuiteEmbedded) TestWatcherConfig(c *gc.C) {
 		Embedded:  true,
 		Logger:    loggo.GetLogger("test"),
 	})
-	c.Assert(err, gc.ErrorMatches, `embedded mode is only for "caas"  model`)
+	c.Assert(err, gc.ErrorMatches, `embedded mode is only for "caas" model`)
 
 	_, err = remotestate.NewWatcher(remotestate.WatcherConfig{
 		ModelType: model.CAAS,
