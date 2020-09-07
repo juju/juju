@@ -268,7 +268,7 @@ func (s *InstanceModeSuite) TestExposedApplication(c *gc.C) {
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
 
-	err := app.SetExposed(nil, nil, nil)
+	err := app.SetExposed(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	u, m := s.addUnit(c, app)
 	inst := s.startInstance(c, m)
@@ -297,7 +297,7 @@ func (s *InstanceModeSuite) TestMultipleExposedApplications(c *gc.C) {
 	defer statetesting.AssertKillAndWait(c, fw)
 
 	app1 := s.AddTestingApplication(c, "wordpress", s.charm)
-	err := app1.SetExposed(nil, nil, nil)
+	err := app1.SetExposed(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	u1, m1 := s.addUnit(c, app1)
@@ -309,7 +309,7 @@ func (s *InstanceModeSuite) TestMultipleExposedApplications(c *gc.C) {
 
 	app2 := s.AddTestingApplication(c, "mysql", s.charm)
 	c.Assert(err, jc.ErrorIsNil)
-	err = app2.SetExposed(nil, nil, nil)
+	err = app2.SetExposed(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	u2, m2 := s.addUnit(c, app2)
@@ -344,7 +344,7 @@ func (s *InstanceModeSuite) TestMachineWithoutInstanceId(c *gc.C) {
 	defer statetesting.AssertKillAndWait(c, fw)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
-	err := app.SetExposed(nil, nil, nil)
+	err := app.SetExposed(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// add a unit but don't start its instance yet.
 	u1, m1 := s.addUnit(c, app)
@@ -374,7 +374,7 @@ func (s *InstanceModeSuite) TestMultipleUnits(c *gc.C) {
 	defer statetesting.AssertKillAndWait(c, fw)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
-	err := app.SetExposed(nil, nil, nil)
+	err := app.SetExposed(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	u1, m1 := s.addUnit(c, app)
@@ -409,7 +409,7 @@ func (s *InstanceModeSuite) TestMultipleUnits(c *gc.C) {
 
 func (s *InstanceModeSuite) TestStartWithState(c *gc.C) {
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
-	err := app.SetExposed(nil, nil, nil)
+	err := app.SetExposed(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	u, m := s.addUnit(c, app)
 	inst := s.startInstance(c, m)
@@ -431,7 +431,7 @@ func (s *InstanceModeSuite) TestStartWithState(c *gc.C) {
 		firewall.NewIngressRule(network.MustParsePortRange("8080/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 
-	err = app.SetExposed(nil, nil, nil)
+	err = app.SetExposed(nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -441,7 +441,7 @@ func (s *InstanceModeSuite) TestStartWithPartialState(c *gc.C) {
 	inst := s.startInstance(c, m)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
-	err = app.SetExposed(nil, nil, nil)
+	err = app.SetExposed(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Starting the firewaller, no open ports.
@@ -485,7 +485,7 @@ func (s *InstanceModeSuite) TestStartWithUnexposedApplication(c *gc.C) {
 	s.assertPorts(c, inst, m.Id(), nil)
 
 	// Expose service.
-	err = app.SetExposed(nil, nil, nil)
+	err = app.SetExposed(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertPorts(c, inst, m.Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
@@ -540,7 +540,7 @@ func (s *InstanceModeSuite) TestSetClearExposedApplication(c *gc.C) {
 	s.assertPorts(c, inst, m.Id(), nil)
 
 	// SeExposed opens the ports.
-	err := app.SetExposed(nil, nil, nil)
+	err := app.SetExposed(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertPorts(c, inst, m.Id(), firewall.IngressRules{
@@ -560,7 +560,7 @@ func (s *InstanceModeSuite) TestRemoveUnit(c *gc.C) {
 	defer statetesting.AssertKillAndWait(c, fw)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
-	err := app.SetExposed(nil, nil, nil)
+	err := app.SetExposed(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	u1, m1 := s.addUnit(c, app)
@@ -599,7 +599,7 @@ func (s *InstanceModeSuite) TestRemoveApplication(c *gc.C) {
 	defer statetesting.AssertKillAndWait(c, fw)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
-	err := app.SetExposed(nil, nil, nil)
+	err := app.SetExposed(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	u, m := s.addUnit(c, app)
@@ -627,7 +627,7 @@ func (s *InstanceModeSuite) TestRemoveMultipleApplications(c *gc.C) {
 	defer statetesting.AssertKillAndWait(c, fw)
 
 	app1 := s.AddTestingApplication(c, "wordpress", s.charm)
-	err := app1.SetExposed(nil, nil, nil)
+	err := app1.SetExposed(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	u1, m1 := s.addUnit(c, app1)
@@ -637,7 +637,7 @@ func (s *InstanceModeSuite) TestRemoveMultipleApplications(c *gc.C) {
 	})
 
 	app2 := s.AddTestingApplication(c, "mysql", s.charm)
-	err = app2.SetExposed(nil, nil, nil)
+	err = app2.SetExposed(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	u2, m2 := s.addUnit(c, app2)
@@ -677,7 +677,7 @@ func (s *InstanceModeSuite) TestDeadMachine(c *gc.C) {
 	defer statetesting.AssertKillAndWait(c, fw)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
-	err := app.SetExposed(nil, nil, nil)
+	err := app.SetExposed(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	u, m := s.addUnit(c, app)
@@ -711,7 +711,7 @@ func (s *InstanceModeSuite) TestRemoveMachine(c *gc.C) {
 	fw := s.newFirewaller(c)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
-	err := app.SetExposed(nil, nil, nil)
+	err := app.SetExposed(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	u, m := s.addUnit(c, app)
@@ -752,7 +752,7 @@ func (s *InstanceModeSuite) TestRemoveMachine(c *gc.C) {
 
 func (s *InstanceModeSuite) TestStartWithStateOpenPortsBroken(c *gc.C) {
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
-	err := app.SetExposed(nil, nil, nil)
+	err := app.SetExposed(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	u, m := s.addUnit(c, app)
 	inst := s.startInstance(c, m)
@@ -1332,7 +1332,7 @@ func (s *GlobalModeSuite) TestGlobalMode(c *gc.C) {
 	defer statetesting.AssertKillAndWait(c, fw)
 
 	app1 := s.AddTestingApplication(c, "wordpress", s.charm)
-	err := app1.SetExposed(nil, nil, nil)
+	err := app1.SetExposed(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	u1, m1 := s.addUnit(c, app1)
@@ -1344,7 +1344,7 @@ func (s *GlobalModeSuite) TestGlobalMode(c *gc.C) {
 
 	app2 := s.AddTestingApplication(c, "moinmoin", s.charm)
 	c.Assert(err, jc.ErrorIsNil)
-	err = app2.SetExposed(nil, nil, nil)
+	err = app2.SetExposed(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	u2, m2 := s.addUnit(c, app2)
@@ -1403,7 +1403,7 @@ func (s *GlobalModeSuite) TestStartWithUnexposedApplication(c *gc.C) {
 	s.assertEnvironPorts(c, nil)
 
 	// Expose application.
-	err = app.SetExposed(nil, nil, nil)
+	err = app.SetExposed(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEnvironPorts(c, firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
@@ -1415,7 +1415,7 @@ func (s *GlobalModeSuite) TestRestart(c *gc.C) {
 	fw := s.newFirewaller(c)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
-	err := app.SetExposed(nil, nil, nil)
+	err := app.SetExposed(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	u, m := s.addUnit(c, app)
@@ -1457,7 +1457,7 @@ func (s *GlobalModeSuite) TestRestartUnexposedApplication(c *gc.C) {
 	fw := s.newFirewaller(c)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
-	err := app.SetExposed(nil, nil, nil)
+	err := app.SetExposed(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	u, m := s.addUnit(c, app)
@@ -1491,7 +1491,7 @@ func (s *GlobalModeSuite) TestRestartPortCount(c *gc.C) {
 	fw := s.newFirewaller(c)
 
 	app1 := s.AddTestingApplication(c, "wordpress", s.charm)
-	err := app1.SetExposed(nil, nil, nil)
+	err := app1.SetExposed(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	u1, m1 := s.addUnit(c, app1)
@@ -1511,7 +1511,7 @@ func (s *GlobalModeSuite) TestRestartPortCount(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	app2 := s.AddTestingApplication(c, "moinmoin", s.charm)
-	err = app2.SetExposed(nil, nil, nil)
+	err = app2.SetExposed(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	u2, m2 := s.addUnit(c, app2)

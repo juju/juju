@@ -343,7 +343,7 @@ func (s *firewallerBaseSuite) testGetExposed(
 	},
 ) {
 	// Set the application to exposed first.
-	err := s.application.SetExposed(nil, nil, nil)
+	err := s.application.SetExposed(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
