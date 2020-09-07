@@ -26473,7 +26473,7 @@
     {
         "Name": "ModelManager",
         "Description": "ModelManagerAPI implements the model manager interface and is\nthe concrete implementation of the api end point.",
-        "Version": 8,
+        "Version": 9,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -26493,7 +26493,7 @@
                             "$ref": "#/definitions/ErrorResults"
                         }
                     },
-                    "description": "ChangeModelCredentials changes cloud credential reference for models.\nThese new cloud credentials must already exist on the controller."
+                    "description": "ChangeModelCredential changes cloud credential reference for models.\nThese new cloud credentials must already exist on the controller."
                 },
                 "CreateModel": {
                     "type": "object",
@@ -26577,7 +26577,7 @@
                             "$ref": "#/definitions/ModelDefaultsResults"
                         }
                     },
-                    "description": "ModelDefaults returns the default config values for the specified clouds."
+                    "description": "ModelDefaultsForClouds returns the default config values for the specified\nclouds."
                 },
                 "ModelInfo": {
                     "type": "object",
@@ -26638,6 +26638,18 @@
                         }
                     },
                     "description": "UnsetModelDefaults removes the specified default model settings."
+                },
+                "ValidateModelUpgrades": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/ValidateModelUpgradeParams"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "ValidateModelUpgrades validates if a model is allowed to perform an upgrade.\nExamples of why you would want to block a model upgrade, would be situations\nlike upgrade-series. If performing an upgrade-series we don't know the\ncurrent status of the machine, so performing an upgrade-model can lead to\nbad unintended errors down the line."
                 }
             },
             "definitions": {
@@ -27699,6 +27711,37 @@
                     "additionalProperties": false,
                     "required": [
                         "user-models"
+                    ]
+                },
+                "ValidateModelUpgradeParam": {
+                    "type": "object",
+                    "properties": {
+                        "model-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "model-tag"
+                    ]
+                },
+                "ValidateModelUpgradeParams": {
+                    "type": "object",
+                    "properties": {
+                        "force": {
+                            "type": "boolean"
+                        },
+                        "model": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ValidateModelUpgradeParam"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "model",
+                        "force"
                     ]
                 }
             }
