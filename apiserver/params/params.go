@@ -180,12 +180,37 @@ type AddCharm struct {
 	Force   bool   `json:"force"`
 }
 
-// AddCharmWithAuthorization holds the arguments for making an AddCharmWithAuthorization API call.
+// AddCharmWithOrigin holds the arguments for making an AddCharm API call via the
+// Charms facade.
+type AddCharmWithOrigin struct {
+	URL    string      `json:"url"`
+	Origin CharmOrigin `json:"charm-origin"`
+	Force  bool        `json:"force"`
+}
+
+// AddCharmWithAuthorization holds the arguments for making an
+// AddCharmWithAuthorization API call.
 type AddCharmWithAuthorization struct {
 	URL                string             `json:"url"`
 	Channel            string             `json:"channel"`
 	CharmStoreMacaroon *macaroon.Macaroon `json:"macaroon"`
 	Force              bool               `json:"force"`
+}
+
+// AddCharmWithAuth holds the arguments for making an
+// AddCharmWithAuth API call via the Charms facade.
+type AddCharmWithAuth struct {
+	URL                string             `json:"url"`
+	Origin             CharmOrigin        `json:"charm-origin"`
+	CharmStoreMacaroon *macaroon.Macaroon `json:"macaroon"`
+	Force              bool               `json:"force"`
+}
+
+// CharmOriginResult holds the results of AddCharms calls where
+// a CharmOrigin was used.
+type CharmOriginResult struct {
+	Origin CharmOrigin `json:"charm-origin"`
+	Error  *Error      `json:"error,omitempty"`
 }
 
 // AddMachineParams encapsulates the parameters used to create a new machine.

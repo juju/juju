@@ -12,11 +12,11 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/charmrepo/v6"
 	"github.com/juju/charmrepo/v6/csclient"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 
+	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 )
@@ -25,22 +25,23 @@ import (
 // given charm URL to state. For non-public charm URLs, this function also
 // handles the macaroon authorization process using the given csClient.
 // The resulting charm URL of the added charm is displayed on stdout.
-func AddCharmFromURL(client CharmAdder, cs MacaroonGetter, curl *charm.URL, channel csparams.Channel, force bool) (*charm.URL, *macaroon.Macaroon, error) {
+func AddCharmFromURL(client CharmAdder, cs MacaroonGetter, curl *charm.URL, origin commoncharm.Origin, force bool) (*charm.URL, *macaroon.Macaroon, commoncharm.Origin, error) {
 	var csMac *macaroon.Macaroon
-	if err := client.AddCharm(curl, channel, force); err != nil {
+	resultOrigin, err := client.AddCharm(curl, origin, force)
+	if err != nil {
 		if !params.IsCodeUnauthorized(err) {
-			return nil, nil, errors.Trace(err)
+			return nil, nil, commoncharm.Origin{}, errors.Trace(err)
 		}
 		m, err := authorizeCharmStoreEntity(cs, curl)
 		if err != nil {
-			return nil, nil, common.MaybeTermsAgreementError(err)
+			return nil, nil, commoncharm.Origin{}, common.MaybeTermsAgreementError(err)
 		}
-		if err := client.AddCharmWithAuthorization(curl, channel, m, force); err != nil {
-			return nil, nil, errors.Trace(err)
+		if resultOrigin, err = client.AddCharmWithAuthorization(curl, origin, m, force); err != nil {
+			return nil, nil, commoncharm.Origin{}, errors.Trace(err)
 		}
 		csMac = m
 	}
-	return curl, csMac, nil
+	return curl, csMac, resultOrigin, nil
 }
 
 // NewCharmStoreClient is called to obtain a charm store client.

@@ -439,7 +439,7 @@ func (c *charmStoreCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	}
 
 	// Store the charm in the controller
-	curl, csMac, err := store.AddCharmFromURL(deployAPI, macaroonGetter, storeCharmOrBundleURL, csparams.Channel(c.origin.Risk), c.force)
+	curl, csMac, csOrigin, err := store.AddCharmFromURL(deployAPI, macaroonGetter, storeCharmOrBundleURL, c.origin, c.force)
 	if err != nil {
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 			return errors.Trace(termErr.UserErr())
@@ -471,5 +471,6 @@ func (c *charmStoreCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	}
 	c.series = series
 	c.csMac = csMac
+	c.origin = csOrigin
 	return c.deploy(ctx, deployAPI)
 }

@@ -9,7 +9,6 @@ import (
 	"os"
 
 	"github.com/juju/charm/v8"
-	"github.com/juju/charmrepo/v6"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
@@ -67,9 +66,14 @@ type Strategy struct {
 	deferFuncs []func() error
 }
 
+// DownloadRepo defines methods required for the repo to download a charm.
+type DownloadRepo interface {
+	Get(curl *charm.URL, archivePath string) (*charm.CharmArchive, error)
+}
+
 // DownloadFromCharmStore will creates a procedure to install a charm from the
 // charm store.
-func DownloadFromCharmStore(charmRepo charmrepo.Interface, url string, force bool) (*Strategy, error) {
+func DownloadFromCharmStore(charmRepo DownloadRepo, url string, force bool) (*Strategy, error) {
 	curl, err := charm.ParseURL(url)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -85,14 +89,17 @@ func DownloadFromCharmStore(charmRepo charmrepo.Interface, url string, force boo
 
 // DownloadFromCharmHub will creates a procedure to install a charm from the
 // charm hub.
-func DownloadFromCharmHub(url string, force bool) (*Strategy, error) {
+func DownloadFromCharmHub(charmRepo DownloadRepo, url string, force bool) (*Strategy, error) {
 	curl, err := charm.ParseURL(url)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &Strategy{
 		charmURL: curl,
-		store:    StoreCharmHub{},
+		store: StoreCharmHub{
+			charmRepo: charmRepo,
+		},
+		force: force,
 	}, nil
 }
 
@@ -238,7 +245,7 @@ func (p *Strategy) downloadResult(file string, checksum Checksum) (DownloadResul
 
 // StoreCharmStore defines a type for interacting with the charm store.
 type StoreCharmStore struct {
-	charmRepo charmrepo.Interface
+	charmRepo DownloadRepo
 }
 
 // Validate checks to ensure that the schema is valid for the store.
@@ -264,7 +271,9 @@ func (s StoreCharmStore) Download(curl *charm.URL, file string) (StoreCharm, Che
 }
 
 // StoreCharmHub defines a type for interacting with the charm hub.
-type StoreCharmHub struct{}
+type StoreCharmHub struct {
+	charmRepo DownloadRepo
+}
 
 // Validate checks to ensure that the schema is valid for the store.
 func (StoreCharmHub) Validate(curl *charm.URL) error {

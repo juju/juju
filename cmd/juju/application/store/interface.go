@@ -6,16 +6,18 @@ package store
 import (
 	"github.com/juju/charm/v8"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
-	apicharm "github.com/juju/juju/api/charms"
+	commoncharm "github.com/juju/juju/api/common/charm"
 	"gopkg.in/macaroon.v2"
+
+	apicharm "github.com/juju/juju/api/charms"
 )
 
 // CharmAdder defines a subset of the api client needed to add a
 // charm.
 type CharmAdder interface {
 	AddLocalCharm(*charm.URL, charm.Charm, bool) (*charm.URL, error) // not used in utils
-	AddCharm(*charm.URL, csparams.Channel, bool) error
-	AddCharmWithAuthorization(*charm.URL, csparams.Channel, *macaroon.Macaroon, bool) error
+	AddCharm(*charm.URL, commoncharm.Origin, bool) (commoncharm.Origin, error)
+	AddCharmWithAuthorization(*charm.URL, commoncharm.Origin, *macaroon.Macaroon, bool) (commoncharm.Origin, error)
 }
 
 // charmrepoForDeploy is a stripped-down version of the

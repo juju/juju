@@ -8,9 +8,11 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
 	controller "github.com/juju/juju/controller"
+	charm0 "github.com/juju/juju/core/charm"
 	config "github.com/juju/juju/environs/config"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
+	mgo "gopkg.in/mgo.v2"
 	reflect "reflect"
 )
 
@@ -80,6 +82,78 @@ func (m *MockBackendState) ControllerConfig() (controller.Config, error) {
 func (mr *MockBackendStateMockRecorder) ControllerConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockBackendState)(nil).ControllerConfig))
+}
+
+// ControllerTag mocks base method
+func (m *MockBackendState) ControllerTag() names.ControllerTag {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ControllerTag")
+	ret0, _ := ret[0].(names.ControllerTag)
+	return ret0
+}
+
+// ControllerTag indicates an expected call of ControllerTag
+func (mr *MockBackendStateMockRecorder) ControllerTag() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerTag", reflect.TypeOf((*MockBackendState)(nil).ControllerTag))
+}
+
+// ModelUUID mocks base method
+func (m *MockBackendState) ModelUUID() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModelUUID")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ModelUUID indicates an expected call of ModelUUID
+func (mr *MockBackendStateMockRecorder) ModelUUID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelUUID", reflect.TypeOf((*MockBackendState)(nil).ModelUUID))
+}
+
+// MongoSession mocks base method
+func (m *MockBackendState) MongoSession() *mgo.Session {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MongoSession")
+	ret0, _ := ret[0].(*mgo.Session)
+	return ret0
+}
+
+// MongoSession indicates an expected call of MongoSession
+func (mr *MockBackendStateMockRecorder) MongoSession() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MongoSession", reflect.TypeOf((*MockBackendState)(nil).MongoSession))
+}
+
+// PrepareCharmUpload mocks base method
+func (m *MockBackendState) PrepareCharmUpload(arg0 *charm.URL) (charm0.StateCharm, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PrepareCharmUpload", arg0)
+	ret0, _ := ret[0].(charm0.StateCharm)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PrepareCharmUpload indicates an expected call of PrepareCharmUpload
+func (mr *MockBackendStateMockRecorder) PrepareCharmUpload(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareCharmUpload", reflect.TypeOf((*MockBackendState)(nil).PrepareCharmUpload), arg0)
+}
+
+// UpdateUploadedCharm mocks base method
+func (m *MockBackendState) UpdateUploadedCharm(arg0 state.CharmInfo) (*state.Charm, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateUploadedCharm", arg0)
+	ret0, _ := ret[0].(*state.Charm)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateUploadedCharm indicates an expected call of UpdateUploadedCharm
+func (mr *MockBackendStateMockRecorder) UpdateUploadedCharm(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateUploadedCharm", reflect.TypeOf((*MockBackendState)(nil).UpdateUploadedCharm), arg0)
 }
 
 // MockBackendModel is a mock of BackendModel interface

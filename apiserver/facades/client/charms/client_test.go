@@ -7,10 +7,11 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
-	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/state/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -21,11 +22,13 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/cache"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -373,10 +376,13 @@ func (s *charmsSuite) TestIsMeteredTrue(c *gc.C) {
 }
 
 type charmsMockSuite struct {
-	model       *mocks.MockBackendModel
-	state       *mocks.MockBackendState
-	authorizer  *apiservermocks.MockAuthorizer
-	urlResolver *mocks.MockCSURLResolver
+	model      *mocks.MockBackendModel
+	state      *mocks.MockBackendState
+	authorizer *apiservermocks.MockAuthorizer
+	repository *mocks.MockCSRepository
+	strategy   *mocks.MockStrategy
+	charm      *mocks.MockStoreCharm
+	storage    *mocks.MockStorage
 }
 
 var _ = gc.Suite(&charmsMockSuite{})
@@ -470,15 +476,165 @@ func (s *charmsMockSuite) TestResolveCharmNoDefinedSeries(c *gc.C) {
 	c.Assert(result.Results, jc.DeepEquals, expected)
 }
 
+func (s *charmsMockSuite) TestAddCharmWithLocalSource(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	api := s.api(c)
+
+	curl, err := charm.ParseURL("local:testme")
+	c.Assert(err, jc.ErrorIsNil)
+	args := params.AddCharmWithOrigin{
+		URL: curl.String(),
+		Origin: params.CharmOrigin{
+			Source: "local",
+		},
+		Force: false,
+	}
+	_, err = api.AddCharm(args)
+	c.Assert(err, gc.ErrorMatches, `unknown schema for charm URL "local:testme"`)
+}
+
+func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
+	curl, err := charm.ParseURL("cs:testme-8")
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer s.setupMocks(c).Finish()
+	s.expectControllerConfig(c)
+	s.expectValidate()
+	s.expectRun(corecharm.DownloadResult{
+		Charm: s.charm,
+	}, false, nil)
+	s.expectFinish()
+	s.expectCharmURL(curl)
+	s.expectVersion()
+	s.expectMongoSession()
+	s.expectPut()
+	s.expectUpdateUploadedCharm(nil)
+
+	api := s.api(c)
+
+	args := params.AddCharmWithOrigin{
+		URL: curl.String(),
+		Origin: params.CharmOrigin{
+			Source: "charm-store",
+		},
+		Force: false,
+	}
+	obtained, err := api.AddCharm(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, params.CharmOriginResult{
+		Origin: params.CharmOrigin{Source: "charm-store"},
+	})
+}
+
+func (s *charmsMockSuite) TestAddCharmRemoveIfUpdateFails(c *gc.C) {
+	curl, err := charm.ParseURL("cs:testme-8")
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer s.setupMocks(c).Finish()
+	s.expectControllerConfig(c)
+	s.expectValidate()
+	s.expectRun(corecharm.DownloadResult{
+		Charm: s.charm,
+	}, false, nil)
+	s.expectFinish()
+	s.expectCharmURL(curl)
+	s.expectVersion()
+	s.expectMongoSession()
+	s.expectPut()
+	s.expectUpdateUploadedCharm(errors.NewErrCharmAlreadyUploaded(curl))
+	s.expectRemove()
+
+	api := s.api(c)
+
+	args := params.AddCharmWithOrigin{
+		URL: curl.String(),
+		Origin: params.CharmOrigin{
+			Source: "charm-store",
+		},
+		Force: false,
+	}
+	obtained, err := api.AddCharm(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, params.CharmOriginResult{
+		Origin: params.CharmOrigin{Source: "charm-store"},
+	})
+}
+
+func (s *charmsMockSuite) TestAddCharmAlreadyExists(c *gc.C) {
+	curl, err := charm.ParseURL("cs:testme-8")
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer s.setupMocks(c).Finish()
+	s.expectControllerConfig(c)
+	s.expectValidate()
+	s.expectRun(corecharm.DownloadResult{}, true, nil)
+	s.expectFinish()
+	api := s.api(c)
+
+	args := params.AddCharmWithOrigin{
+		URL: curl.String(),
+		Origin: params.CharmOrigin{
+			Source: "charm-store",
+		},
+		Force: false,
+	}
+	obtained, err := api.AddCharm(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, params.CharmOriginResult{})
+}
+
+func (s *charmsMockSuite) TestAddCharmWithAuthorization(c *gc.C) {
+	curl, err := charm.ParseURL("cs:testme-8")
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer s.setupMocks(c).Finish()
+	s.expectControllerConfig(c)
+	s.expectValidate()
+	s.expectRun(corecharm.DownloadResult{
+		Charm: s.charm,
+	}, false, nil)
+	s.expectFinish()
+	s.expectCharmURL(curl)
+	s.expectVersion()
+	s.expectMongoSession()
+	s.expectPut()
+	s.expectUpdateUploadedCharm(nil)
+
+	api := s.api(c)
+
+	args := params.AddCharmWithAuth{
+		URL: curl.String(),
+		Origin: params.CharmOrigin{
+			Source: "charm-store",
+		},
+		Force: false,
+	}
+	obtained, err := api.AddCharmWithAuthorization(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, params.CharmOriginResult{
+		Origin: params.CharmOrigin{Source: "charm-store"},
+	})
+}
+
 func (s *charmsMockSuite) api(c *gc.C) *charms.API {
-	repoFunc := func(_ charms.ResolverGetterParams) (charms.CSURLResolver, error) {
-		return s.urlResolver, nil
+	repoFunc := func(_ charms.ResolverGetterParams) (charms.CSRepository, error) {
+		return s.repository, nil
+	}
+	stratFuc := func(source string) charms.StrategyFunc {
+		return func(charmRepo charms.Repository, url string, force bool) (charms.Strategy, error) {
+			return s.strategy, nil
+		}
+	}
+	storageFunc := func(modelUUID string, session *mgo.Session) storage.Storage {
+		return s.storage
 	}
 	api, err := charms.NewCharmsAPI(
 		s.authorizer,
 		s.state,
 		s.model,
 		repoFunc,
+		stratFuc,
+		storageFunc,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return api
@@ -488,25 +644,31 @@ func (s *charmsMockSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.authorizer = apiservermocks.NewMockAuthorizer(ctrl)
-	s.authorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any()).Return(true, nil)
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any()).Return(true, nil).AnyTimes()
 
 	s.model = mocks.NewMockBackendModel(ctrl)
-	s.model.EXPECT().ModelTag().Return(names.NewModelTag("deadbeef-abcd-4fd2-967d-db9663db7bea"))
+	s.model.EXPECT().ModelTag().Return(names.NewModelTag("deadbeef-abcd-4fd2-967d-db9663db7bea")).AnyTimes()
 
 	s.state = mocks.NewMockBackendState(ctrl)
-	s.urlResolver = mocks.NewMockCSURLResolver(ctrl)
+	s.state.EXPECT().ControllerTag().Return(names.NewControllerTag("deadbeef-abcd-dead-beef-db9663db7b42")).AnyTimes()
+	s.state.EXPECT().ModelUUID().Return("deadbeef-abcd-dead-beef-db9663db7b42").AnyTimes()
+
+	s.repository = mocks.NewMockCSRepository(ctrl)
+	s.strategy = mocks.NewMockStrategy(ctrl)
+	s.charm = mocks.NewMockStoreCharm(ctrl)
+	s.storage = mocks.NewMockStorage(ctrl)
 	return ctrl
 }
 
 func (s *charmsMockSuite) expectResolveWithPreferredChannel(times int, err error) {
-	s.urlResolver.EXPECT().ResolveWithPreferredChannel(
+	s.repository.EXPECT().ResolveWithPreferredChannel(
 		gomock.AssignableToTypeOf(&charm.URL{}),
 		gomock.Any(),
 	).DoAndReturn(
 		// Ensure the same curl that is provided, is returned.
 		func(curl *charm.URL, channel csparams.Channel) (*charm.URL, csparams.Channel, []string, error) {
 			if channel == csparams.NoChannel {
-				// minor attempt at mimicing charmrepo/charmstore.go.bestChannel()
+				// minor attempt at mimicking charmrepo/charmstore.go.bestChannel()
 				channel = csparams.StableChannel
 			}
 			return curl, channel, []string{"bionic", "focal", "xenial"}, err
@@ -514,7 +676,7 @@ func (s *charmsMockSuite) expectResolveWithPreferredChannel(times int, err error
 }
 
 func (s *charmsMockSuite) expectResolveWithPreferredChannelNoSeries() {
-	s.urlResolver.EXPECT().ResolveWithPreferredChannel(
+	s.repository.EXPECT().ResolveWithPreferredChannel(
 		gomock.AssignableToTypeOf(&charm.URL{}),
 		gomock.Any(),
 	).DoAndReturn(
@@ -535,4 +697,44 @@ func (s *charmsMockSuite) expectControllerConfig(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.state.EXPECT().ControllerConfig().Return(cfg, nil).AnyTimes()
+}
+
+func (s *charmsMockSuite) expectFinish() {
+	s.strategy.EXPECT().Finish().Return(nil)
+}
+
+func (s *charmsMockSuite) expectRun(download corecharm.DownloadResult, already bool, err error) {
+	s.strategy.EXPECT().Run(gomock.Any(), gomock.Any()).Return(download, already, err)
+}
+
+func (s *charmsMockSuite) expectValidate() {
+	s.strategy.EXPECT().Validate().Return(nil)
+}
+
+func (s *charmsMockSuite) expectPrepareCharmUpload(curl *charm.URL) {
+	s.state.EXPECT().PrepareCharmUpload(curl).Return(s.charm, nil)
+}
+
+func (s *charmsMockSuite) expectCharmURL(curl *charm.URL) {
+	s.strategy.EXPECT().CharmURL().Return(curl)
+}
+
+func (s *charmsMockSuite) expectVersion() {
+	s.charm.EXPECT().Version().Return("1.42")
+}
+
+func (s *charmsMockSuite) expectMongoSession() {
+	s.state.EXPECT().MongoSession().Return(&mgo.Session{})
+}
+
+func (s *charmsMockSuite) expectPut() {
+	s.storage.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+}
+
+func (s *charmsMockSuite) expectRemove() {
+	s.storage.EXPECT().Remove(gomock.Any()).Return(nil)
+}
+
+func (s *charmsMockSuite) expectUpdateUploadedCharm(err error) {
+	s.state.EXPECT().UpdateUploadedCharm(gomock.Any()).Return(nil, err)
 }

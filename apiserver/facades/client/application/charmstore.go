@@ -164,6 +164,12 @@ func (s charmStateShim) PrepareCharmUpload(curl *charm.URL) (corecharm.StateChar
 //
 // The authorization macaroon, args.CharmStoreMacaroon, may be
 // omitted, in which case this call is equivalent to AddCharm.
+//
+// NOTE: AddCharmWithAuthorization is deprecated as of juju 2.9 and charms
+// facade version 3. Please discontinue use and move to the charms facade
+// version.
+//
+// TODO: remove in juju 3.0
 func AddCharmWithAuthorization(st State, args params.AddCharmWithAuthorization, openCSRepo OpenCSRepoFunc) error {
 	return AddCharmWithAuthorizationAndRepo(st, args, func() (charmrepo.Interface, error) {
 		// determine which charmstore api url to use.
@@ -271,6 +277,10 @@ type CharmArchive struct {
 }
 
 // StoreCharmArchive stores a charm archive in environment storage.
+//
+// TODO: (hml) 2020-09-01
+// Move use of this function to the charms facade.  A private version
+// is currently in use there.  It should be made public.
 func StoreCharmArchive(st State, archive CharmArchive) error {
 	storage := newStateStorage(st.ModelUUID(), st.MongoSession())
 	storagePath, err := charmArchiveStoragePath(archive.ID)
@@ -326,6 +336,11 @@ func charmArchiveStoragePath(curl *charm.URL) (string, error) {
 
 // ResolveCharm resolves the best available charm URLs with series, for charm
 // locations without a series specified.
+//
+// NOTE: ResolveCharms is deprecated as of juju 2.9 and charms facade
+// version 3. Please discontinue use and move to the charms facade version.
+//
+// TODO: remove in juju 3.0
 func ResolveCharms(st State, args params.ResolveCharms, openCSRepo OpenCSRepoFunc) (params.ResolveCharmResults, error) {
 	var results params.ResolveCharmResults
 

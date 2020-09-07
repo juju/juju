@@ -9971,6 +9971,30 @@
         "Schema": {
             "type": "object",
             "properties": {
+                "AddCharm": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/AddCharmWithOrigin"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/CharmOriginResult"
+                        }
+                    },
+                    "description": "AddCharm adds the given charm URL (which must include revision) to the\nenvironment, if it does not exist yet. Local charms are not supported,\nonly charm store and charm hub URLs. See also AddLocalCharm()."
+                },
+                "AddCharmWithAuthorization": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/AddCharmWithAuth"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/CharmOriginResult"
+                        }
+                    },
+                    "description": "AddCharmWithAuthorization adds the given charm URL (which must include\nrevision) to the environment, if it does not exist yet. Local charms are\nnot supported, only charm store and charm hub URLs. See also AddLocalCharm().\n\nThe authorization macaroon, args.CharmStoreMacaroon, may be\nomitted, in which case this call is equivalent to AddCharm."
+                },
                 "CharmInfo": {
                     "type": "object",
                     "properties": {
@@ -10005,7 +10029,7 @@
                             "$ref": "#/definitions/CharmsListResult"
                         }
                     },
-                    "description": "List returns a list of charm URLs currently in the state.\nIf supplied parameter contains any names, the result will be filtered\nto return only the charms with supplied names."
+                    "description": "List returns a list of charm URLs currently in the state.\nIf supplied parameter contains any names, the result will\nbe filtered to return only the charms with supplied names."
                 },
                 "ResolveCharms": {
                     "type": "object",
@@ -10021,6 +10045,50 @@
                 }
             },
             "definitions": {
+                "AddCharmWithAuth": {
+                    "type": "object",
+                    "properties": {
+                        "charm-origin": {
+                            "$ref": "#/definitions/CharmOrigin"
+                        },
+                        "force": {
+                            "type": "boolean"
+                        },
+                        "macaroon": {
+                            "$ref": "#/definitions/Macaroon"
+                        },
+                        "url": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "url",
+                        "charm-origin",
+                        "macaroon",
+                        "force"
+                    ]
+                },
+                "AddCharmWithOrigin": {
+                    "type": "object",
+                    "properties": {
+                        "charm-origin": {
+                            "$ref": "#/definitions/CharmOrigin"
+                        },
+                        "force": {
+                            "type": "boolean"
+                        },
+                        "url": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "url",
+                        "charm-origin",
+                        "force"
+                    ]
+                },
                 "Charm": {
                     "type": "object",
                     "properties": {
@@ -10354,6 +10422,21 @@
                     "required": [
                         "source",
                         "id"
+                    ]
+                },
+                "CharmOriginResult": {
+                    "type": "object",
+                    "properties": {
+                        "charm-origin": {
+                            "$ref": "#/definitions/CharmOrigin"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "charm-origin"
                     ]
                 },
                 "CharmPayloadClass": {
@@ -10750,7 +10833,8 @@
                         "Params": {
                             "$ref": "#/definitions/AddCharm"
                         }
-                    }
+                    },
+                    "description": "NOTE: AddCharm is deprecated as of juju 2.9 and charms facade version 3.\nPlease discontinue use and move to the charms facade version.\n\nTODO: remove in juju 3.0"
                 },
                 "AddCharmWithAuthorization": {
                     "type": "object",
@@ -10759,7 +10843,7 @@
                             "$ref": "#/definitions/AddCharmWithAuthorization"
                         }
                     },
-                    "description": "AddCharmWithAuthorization adds the given charm URL (which must include revision) to\nthe model, if it does not exist yet. Local charms are not\nsupported, only charm store URLs. See also AddLocalCharm().\n\nThe authorization macaroon, args.CharmStoreMacaroon, may be\nomitted, in which case this call is equivalent to AddCharm."
+                    "description": "AddCharmWithAuthorization adds the given charm URL (which must include\nrevision) to the model, if it does not exist yet. Local charms are not\nsupported, only charm store URLs. See also AddLocalCharm().\n\nThe authorization macaroon, args.CharmStoreMacaroon, may be omitted, in\nwhich case this call is equivalent to AddCharm.\n\nNOTE: AddCharmWithAuthorization is deprecated as of juju 2.9 and charms\nfacade version 3. Please discontinue use and move to the charms facade\nversion.\n\nTODO: remove in juju 3.0"
                 },
                 "AddMachines": {
                     "type": "object",
@@ -10960,7 +11044,7 @@
                             "$ref": "#/definitions/ResolveCharmResults"
                         }
                     },
-                    "description": "ResolveCharm resolves the best available charm URLs with series, for charm\nlocations without a series specified."
+                    "description": "ResolveCharm resolves the best available charm URLs with series, for charm\nlocations without a series specified.\n\nNOTE: ResolveCharms is deprecated as of juju 2.9 and charms facade version 3.\nPlease discontinue use and move to the charms facade version.\n\nTODO: remove in juju 3.0"
                 },
                 "Resolved": {
                     "type": "object",

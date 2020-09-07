@@ -494,9 +494,10 @@ func (s *UpgradeCharmSuccessStateSuite) SetUpTest(c *gc.C) {
 		) (store.MacaroonGetter, store.CharmrepoForDeploy) {
 			return s.fakeAPI, s.fakeAPI
 		},
-		func(conn api.Connection) store.CharmAdder {
-			return &apiClient{Client: conn.Client()}
-		},
+		//func(conn api.Connection) store.CharmAdder {
+		//	return &apiClient{Client: conn.Client()}
+		//},
+		newCharmAdder,
 		func(conn base.APICallCloser) utils.CharmClient {
 			return &s.charmClient
 		},
@@ -545,7 +546,8 @@ func (s *UpgradeCharmSuite) TestUpgradeWithChannel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.charmAdder.CheckCallNames(c, "AddCharm")
-	s.charmAdder.CheckCall(c, 0, "AddCharm", s.resolvedCharmURL, csclientparams.BetaChannel, false)
+	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, csclientparams.BetaChannel)
+	s.charmAdder.CheckCall(c, 0, "AddCharm", s.resolvedCharmURL, origin, false)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharm")
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "foo",
@@ -562,7 +564,8 @@ func (s *UpgradeCharmSuite) TestUpgradeCharmShouldRespectDeployedChannelByDefaul
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.charmAdder.CheckCallNames(c, "AddCharm")
-	s.charmAdder.CheckCall(c, 0, "AddCharm", s.resolvedCharmURL, csclientparams.BetaChannel, false)
+	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, csclientparams.BetaChannel)
+	s.charmAdder.CheckCall(c, 0, "AddCharm", s.resolvedCharmURL, origin, false)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharm")
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "foo",
@@ -580,7 +583,8 @@ func (s *UpgradeCharmSuite) TestSwitch(c *gc.C) {
 	s.charmClient.CheckCallNames(c, "CharmInfo")
 	s.charmClient.CheckCall(c, 0, "CharmInfo", s.resolvedCharmURL.String())
 	s.charmAdder.CheckCallNames(c, "AddCharm")
-	s.charmAdder.CheckCall(c, 0, "AddCharm", s.resolvedCharmURL, csclientparams.StableChannel, false)
+	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, csclientparams.StableChannel)
+	s.charmAdder.CheckCall(c, 0, "AddCharm", s.resolvedCharmURL, origin, false)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharm")
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "foo",
@@ -902,9 +906,9 @@ type mockCharmAdder struct {
 	testing.Stub
 }
 
-func (m *mockCharmAdder) AddCharm(curl *charm.URL, channel csclientparams.Channel, force bool) error {
-	m.MethodCall(m, "AddCharm", curl, channel, force)
-	return m.NextErr()
+func (m *mockCharmAdder) AddCharm(curl *charm.URL, origin commoncharm.Origin, force bool) (commoncharm.Origin, error) {
+	m.MethodCall(m, "AddCharm", curl, origin, force)
+	return origin, m.NextErr()
 }
 
 func (m *mockCharmAdder) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bool) (*charm.URL, error) {

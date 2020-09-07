@@ -11,7 +11,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -1039,7 +1038,14 @@ func (s *BundleDeployCharmStoreSuite) expectBestFacadeVersion() {
 }
 
 func (s *BundleDeployCharmStoreSuite) expectAddCharm(force bool) {
-	s.deployerAPI.EXPECT().AddCharm(gomock.AssignableToTypeOf(&charm.URL{}), csparams.NoChannel, force).Return(nil)
+	s.deployerAPI.EXPECT().AddCharm(
+		gomock.AssignableToTypeOf(&charm.URL{}),
+		gomock.AssignableToTypeOf(commoncharm.Origin{}),
+		force,
+	).DoAndReturn(
+		func(_ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
+			return origin, nil
+		})
 }
 
 func (s *BundleDeployCharmStoreSuite) expectAddLocalCharm(curl *charm.URL, force bool) {
