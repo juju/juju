@@ -1,6 +1,8 @@
 // Copyright 2012-2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// +build !windows
+
 package unit
 
 import (
@@ -88,18 +90,7 @@ func (c *k8sUnitAgent) SetFlags(f *gnuflag.FlagSet) {
 	c.AgentConf.AddFlags(f)
 }
 
-// Init initializes the command for running.
-func (c *k8sUnitAgent) Init(args []string) error {
-	if err := c.AgentConf.CheckArgs(args); err != nil {
-		return err
-	}
-	c.runner = worker.NewRunner(worker.RunnerParams{
-		IsFatal:       agenterrors.IsFatal,
-		MoreImportant: agenterrors.MoreImportant,
-		RestartDelay:  jworker.RestartDelay,
-	})
-
-	dataDir := c.DataDir()
+func (c *k8sUnitAgent) ensureAgentConf(dataDir string) error {
 	templateConfigPath := path.Join(dataDir, k8sconstants.TemplateFileNameAgentConf)
 	logger.Debugf("template config path %s", templateConfigPath)
 	config, err := agent.ReadConfig(templateConfigPath)
@@ -109,8 +100,9 @@ func (c *k8sUnitAgent) Init(args []string) error {
 	unitTag := config.Tag()
 	configPath := agent.ConfigPath(dataDir, unitTag)
 	logger.Debugf("config path %s", configPath)
-	if err := os.MkdirAll(path.Dir(configPath), 0755); err != nil {
-		return errors.Annotate(err, "making agent directory")
+	configDir := path.Dir(configPath)
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return errors.Annotatef(err, "making agent directory %q", configDir)
 	}
 	configBytes, err := config.Render()
 	if err != nil {
@@ -123,39 +115,57 @@ func (c *k8sUnitAgent) Init(args []string) error {
 	if err := c.ReadConfig(unitTag.String()); err != nil {
 		return errors.Annotate(err, "reading agent config file")
 	}
+	return nil
+}
 
-	tag, ok := c.CurrentConfig().Tag().(names.UnitTag)
-	if !ok {
-		return errors.NotValidf("expected a unit tag; got %q", tag)
+// Init initializes the command for running.
+func (c *k8sUnitAgent) Init(args []string) error {
+	if err := c.AgentConf.CheckArgs(args); err != nil {
+		return err
+	}
+	c.runner = worker.NewRunner(worker.RunnerParams{
+		IsFatal:       agenterrors.IsFatal,
+		MoreImportant: agenterrors.MoreImportant,
+		RestartDelay:  jworker.RestartDelay,
+	})
+
+	dataDir := c.DataDir()
+
+	if err := c.ensureAgentConf(dataDir); err != nil {
+		return errors.Annotate(err, "ensuring agent conf file")
 	}
 
+	unitTag, ok := c.CurrentConfig().Tag().(names.UnitTag)
+	if !ok {
+		return errors.NotValidf("expected a unit tag; got %q", unitTag)
+	}
+
+	srcBin := path.Dir(os.Args[0])
+	if err := c.ensureToolSymlinks(srcBin, dataDir, unitTag); err != nil {
+		return errors.Annotate(err, "ensuring agent conf file")
+	}
+	return nil
+}
+
+func (c *k8sUnitAgent) ensureToolSymlinks(srcPath, dataDir string, unitTag names.UnitTag) error {
 	// Setup tool symlinks
-	uniterPaths := uniterworker.NewPaths(dataDir, tag, nil)
+	uniterPaths := uniterworker.NewPaths(dataDir, unitTag, nil)
 	toolsDir := uniterPaths.GetToolsDir()
-	err = os.MkdirAll(toolsDir, 0755)
+	err := os.MkdirAll(toolsDir, 0755)
 	if err != nil {
 		return errors.Annotate(err, "creating tools dir")
 	}
-	arg0 := os.Args[0]
-	srcBins := path.Dir(arg0)
-	logger.Criticalf("srcBins %q, toolsDir %q", srcBins, toolsDir)
-	err = os.Symlink(path.Join(srcBins, jnames.K8sAgent), path.Join(toolsDir, jnames.K8sAgent))
-	if err != nil {
-		return errors.Annotate(err, "symlinking k8sagent")
-	}
-	err = os.Symlink(path.Join(srcBins, jnames.K8sAgent), path.Join(toolsDir, jnames.JujuRun))
-	if err != nil {
-		return errors.Annotate(err, "symlinking juju-run")
-	}
-	err = os.Symlink(path.Join(srcBins, jnames.K8sAgent), path.Join(toolsDir, jnames.JujuIntrospect))
-	if err != nil {
-		return errors.Annotate(err, "symlinking juju-introspect")
-	}
-	err = os.Symlink(path.Join(srcBins, jnames.Jujuc), path.Join(toolsDir, jnames.Jujuc))
-	if err != nil {
-		return errors.Annotate(err, "symlinking jujuc")
-	}
 
+	for _, link := range []string{
+		jnames.K8sAgent,
+		jnames.JujuRun,
+		jnames.JujuIntrospect,
+		jnames.Jujuc,
+	} {
+		if err = os.Symlink(path.Join(srcPath, jnames.K8sAgent), path.Join(toolsDir, link)); err != nil {
+			return errors.Annotatef(err, "ensuring symlink %q", link)
+		}
+	}
 	return nil
 }
 
