@@ -419,8 +419,8 @@ func (s *applicationOffersSuite) TestShow(c *gc.C) {
 	expected[0].Result.Users[0].UserName = "admin"
 	s.assertShow(c, "fred@external/prod.hosted-db2", expected)
 	// Again with an unqualified model path.
-	s.authorizer.AdminTag = names.NewUserTag("fred@external")
-	s.authorizer.Tag = s.authorizer.AdminTag
+	s.mockState.AdminTag = names.NewUserTag("fred@external")
+	s.authorizer.Tag = s.mockState.AdminTag
 	expected[0].Result.Users[0].UserName = "fred@external"
 	s.applicationOffers.ResetCalls()
 	s.assertShow(c, "prod.hosted-db2", expected)
@@ -1054,7 +1054,7 @@ func (s *applicationOffersSuite) TestFindMissingModelInMultipleFilters(c *gc.C) 
 
 type consumeSuite struct {
 	baseSuite
-	api *applicationoffers.OffersAPIV2
+	api *applicationoffers.OffersAPIV3
 }
 
 var _ = gc.Suite(&consumeSuite{})
@@ -1081,13 +1081,14 @@ func (s *consumeSuite) SetUpTest(c *gc.C) {
 		s.mockState, s.mockStatePool, s.authorizer, resources, s.authContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = &applicationoffers.OffersAPIV2{OffersAPI: apiV1}
+	s.api = &applicationoffers.OffersAPIV3{&applicationoffers.OffersAPIV2{OffersAPI: apiV1}}
 }
 
 func (s *consumeSuite) TestConsumeDetailsRejectsEndpoints(c *gc.C) {
-	results, err := s.api.GetConsumeDetails(params.OfferURLs{
-		OfferURLs: []string{"fred@external/prod.application:db"},
-	})
+	results, err := s.api.GetConsumeDetails(params.ConsumeOfferDetailsArg{
+		OfferURLs: params.OfferURLs{
+			OfferURLs: []string{"fred@external/prod.application:db"},
+		}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error != nil, jc.IsTrue)
@@ -1104,9 +1105,10 @@ func (s *consumeSuite) TestConsumeDetailsNoPermission(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.authorizer.Tag = apiUser
-	results, err := s.api.GetConsumeDetails(params.OfferURLs{
-		OfferURLs: []string{"fred@external/prod.hosted-mysql"},
-	})
+	results, err := s.api.GetConsumeDetails(params.ConsumeOfferDetailsArg{
+		OfferURLs: params.OfferURLs{
+			OfferURLs: []string{"fred@external/prod.hosted-mysql"},
+		}})
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []params.ConsumeOfferDetailsResult{{
 		Error: apiservererrors.ServerError(errors.NotFoundf("application offer %q", "fred@external/prod.hosted-mysql")),
@@ -1115,6 +1117,14 @@ func (s *consumeSuite) TestConsumeDetailsNoPermission(c *gc.C) {
 }
 
 func (s *consumeSuite) TestConsumeDetailsWithPermission(c *gc.C) {
+	s.assertConsumeDetailsWithPermission(c, false)
+}
+
+func (s *consumeSuite) TestConsumeDetailsSpecifiedUser(c *gc.C) {
+	s.assertConsumeDetailsWithPermission(c, true)
+}
+
+func (s *consumeSuite) assertConsumeDetailsWithPermission(c *gc.C, specifiedUser bool) {
 	s.setupOffer()
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
 	st.(*mockState).users["someone"] = &mockUser{"someone"}
@@ -1123,10 +1133,19 @@ func (s *consumeSuite) TestConsumeDetailsWithPermission(c *gc.C) {
 	err := st.CreateOfferAccess(offer, apiUser, permission.ConsumeAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.authorizer.Tag = apiUser
-	results, err := s.api.GetConsumeDetails(params.OfferURLs{
-		OfferURLs: []string{"fred@external/prod.hosted-mysql"},
-	})
+	userTag := ""
+	if specifiedUser {
+		controllerAdmin := names.NewUserTag("superuser-joe")
+		s.authorizer.Tag = controllerAdmin
+		userTag = apiUser.String()
+	} else {
+		s.authorizer.Tag = apiUser
+	}
+	results, err := s.api.GetConsumeDetails(params.ConsumeOfferDetailsArg{
+		UserTag: userTag,
+		OfferURLs: params.OfferURLs{
+			OfferURLs: []string{"fred@external/prod.hosted-mysql"},
+		}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
@@ -1163,6 +1182,24 @@ func (s *consumeSuite) TestConsumeDetailsWithPermission(c *gc.C) {
 	c.Check(cav[3].Condition, gc.Equals, "declared username someone")
 }
 
+func (s *consumeSuite) TestConsumeDetailsNonAdminSpecifiedUser(c *gc.C) {
+	s.setupOffer()
+	st := s.mockStatePool.st[testing.ModelTag.Id()]
+	st.(*mockState).users["someone"] = &mockUser{"someone"}
+	apiUser := names.NewUserTag("someone")
+	offer := names.NewApplicationOfferTag("hosted-mysql")
+	err := st.CreateOfferAccess(offer, apiUser, permission.ConsumeAccess)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.authorizer.Tag = names.NewUserTag("joe-blow")
+	_, err = s.api.GetConsumeDetails(params.ConsumeOfferDetailsArg{
+		UserTag: apiUser.String(),
+		OfferURLs: params.OfferURLs{
+			OfferURLs: []string{"fred@external/prod.hosted-mysql"},
+		}})
+	c.Assert(errors.Cause(err), gc.Equals, apiservererrors.ErrPerm)
+}
+
 func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
 	s.setupOffer()
 
@@ -1182,9 +1219,10 @@ func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.authorizer.Tag = apiUser
-	results, err := s.api.GetConsumeDetails(params.OfferURLs{
-		OfferURLs: []string{"fred@external/prod.hosted-mysql"},
-	})
+	results, err := s.api.GetConsumeDetails(params.ConsumeOfferDetailsArg{
+		OfferURLs: params.OfferURLs{
+			OfferURLs: []string{"fred@external/prod.hosted-mysql"},
+		}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)

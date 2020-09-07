@@ -4242,8 +4242,8 @@
     },
     {
         "Name": "ApplicationOffers",
-        "Description": "OffersAPIV2 implements the cross model interface V2.",
-        "Version": 2,
+        "Description": "OffersAPIV3 implements the cross model interface V3.",
+        "Version": 3,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -4293,13 +4293,13 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/OfferURLs"
+                            "$ref": "#/definitions/ConsumeOfferDetailsArg"
                         },
                         "Result": {
                             "$ref": "#/definitions/ConsumeOfferDetailsResults"
                         }
                     },
-                    "description": "GetConsumeDetails returns the details necessary to pass to another model to\nconsume the specified offers represented by the urls."
+                    "description": "GetConsumeDetails returns the details necessary to pass to another model\nto allow the specified args user to consume the offers represented by the args URLs."
                 },
                 "ListApplicationOffers": {
                     "type": "object",
@@ -4563,6 +4563,21 @@
                         }
                     },
                     "additionalProperties": false
+                },
+                "ConsumeOfferDetailsArg": {
+                    "type": "object",
+                    "properties": {
+                        "offer-urls": {
+                            "$ref": "#/definitions/OfferURLs"
+                        },
+                        "user-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "offer-urls"
+                    ]
                 },
                 "ConsumeOfferDetailsResult": {
                     "type": "object",

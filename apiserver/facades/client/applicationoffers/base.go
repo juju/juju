@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -36,8 +37,8 @@ type BaseAPI struct {
 }
 
 // checkPermission ensures that the logged in user holds the given permission on an entity.
-func (api *BaseAPI) checkPermission(tag names.Tag, perm permission.Access) error {
-	allowed, err := api.Authorizer.HasPermission(perm, tag)
+func (api *BaseAPI) checkPermission(user names.UserTag, tag names.Tag, perm permission.Access) error {
+	allowed, err := common.HasPermission(api.ControllerModel.UserPermission, user, perm, tag)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -47,19 +48,25 @@ func (api *BaseAPI) checkPermission(tag names.Tag, perm permission.Access) error
 	return nil
 }
 
-// checkAdmin ensures that the logged in user is a model or controller admin.
-func (api *BaseAPI) checkAdmin(backend Backend) error {
-	allowed, err := api.Authorizer.HasPermission(permission.AdminAccess, backend.ModelTag())
+// checkAdmin ensures that the specified in user is a model or controller admin.
+func (api *BaseAPI) checkAdmin(user names.UserTag, backend Backend) error {
+	err := api.checkPermission(user, backend.ModelTag(), permission.AdminAccess)
+	if err != nil && err != apiservererrors.ErrPerm {
+		return errors.Trace(err)
+	}
+	if err != nil {
+		err = api.checkPermission(user, backend.ControllerTag(), permission.SuperuserAccess)
+	}
+	return errors.Trace(err)
+}
+
+// checkControllerAdmin ensures that the logged in user is a controller admin.
+func (api *BaseAPI) checkControllerAdmin() error {
+	isControllerAdmin, err := api.Authorizer.HasPermission(permission.SuperuserAccess, api.ControllerModel.ControllerTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if !allowed {
-		allowed, err = api.Authorizer.HasPermission(permission.SuperuserAccess, backend.ControllerTag())
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !allowed {
+	if !isControllerAdmin {
 		return apiservererrors.ErrPerm
 	}
 	return nil
@@ -69,10 +76,6 @@ func (api *BaseAPI) checkAdmin(backend Backend) error {
 // the model (if found), the absolute model model path which was used in the lookup,
 // and a bool indicating if the model was found,
 func (api *BaseAPI) modelForName(modelName, ownerName string) (Model, string, bool, error) {
-	user := api.Authorizer.GetAuthTag()
-	if ownerName == "" {
-		ownerName = user.Id()
-	}
 	modelPath := fmt.Sprintf("%s/%s", ownerName, modelName)
 	var model Model
 	uuids, err := api.ControllerModel.AllModelUUIDs()
@@ -107,6 +110,7 @@ func (api *BaseAPI) userDisplayName(backend Backend, userTag names.UserTag) (str
 // applicationOffersFromModel gets details about remote applications that match given filters.
 func (api *BaseAPI) applicationOffersFromModel(
 	modelUUID string,
+	user names.UserTag,
 	requiredAccess permission.Access,
 	filters ...jujucrossmodel.ApplicationOfferFilter,
 ) ([]params.ApplicationOfferAdminDetails, error) {
@@ -120,8 +124,8 @@ func (api *BaseAPI) applicationOffersFromModel(
 	// If requireAdmin is true, the user must be a controller superuser
 	// or model admin to proceed.
 	var isAdmin bool
-	err = api.checkAdmin(backend)
-	if err != nil && err != apiservererrors.ErrPerm {
+	err = api.checkAdmin(user, backend)
+	if err != nil && errors.Cause(err) != apiservererrors.ErrPerm {
 		return nil, errors.Trace(err)
 	}
 	isAdmin = err == nil
@@ -134,8 +138,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 		return nil, errors.Trace(err)
 	}
 
-	apiUserTag := api.Authorizer.GetAuthTag().(names.UserTag)
-	apiUserDisplayName, err := api.userDisplayName(backend, apiUserTag)
+	apiUserDisplayName, err := api.userDisplayName(backend, user)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -146,7 +149,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 		// If the user is not a model admin, they need at least read
 		// access on an offer to see it.
 		if !isAdmin {
-			if userAccess, err = api.checkOfferAccess(backend, appOffer.OfferUUID, requiredAccess); err != nil {
+			if userAccess, err = api.checkOfferAccess(user, backend, appOffer.OfferUUID); err != nil {
 				return nil, errors.Trace(err)
 			}
 			if userAccess == permission.NoAccess {
@@ -162,7 +165,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 			continue
 		}
 		offerParams.Users = []params.OfferUserDetails{{
-			UserName:    apiUserTag.Id(),
+			UserName:    user.Id(),
 			DisplayName: apiUserDisplayName,
 			Access:      string(userAccess),
 		}}
@@ -171,7 +174,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 		}
 		// Only admins can see some sensitive details of the offer.
 		if isAdmin {
-			if err := api.getOfferAdminDetails(backend, app, &offer); err != nil {
+			if err := api.getOfferAdminDetails(user, backend, app, &offer); err != nil {
 				logger.Warningf("cannot get offer admin details: %v", err)
 			}
 		}
@@ -180,7 +183,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 	return results, nil
 }
 
-func (api *BaseAPI) getOfferAdminDetails(backend Backend, app crossmodel.Application, offer *params.ApplicationOfferAdminDetails) error {
+func (api *BaseAPI) getOfferAdminDetails(user names.UserTag, backend Backend, app crossmodel.Application, offer *params.ApplicationOfferAdminDetails) error {
 	curl, _ := app.CharmURL()
 	conns, err := backend.OfferConnections(offer.OfferUUID)
 	if err != nil {
@@ -228,9 +231,8 @@ func (api *BaseAPI) getOfferAdminDetails(backend Backend, app crossmodel.Applica
 		return errors.Trace(err)
 	}
 
-	apiUserTag := api.Authorizer.GetAuthTag().(names.UserTag)
 	for userName, access := range offerUsers {
-		if userName == apiUserTag.Id() {
+		if userName == user.Id() {
 			continue
 		}
 		displayName, err := api.userDisplayName(backend, names.NewUserTag(userName))
@@ -248,9 +250,8 @@ func (api *BaseAPI) getOfferAdminDetails(backend Backend, app crossmodel.Applica
 
 // checkOfferAccess returns the level of access the authenticated user has to the offer,
 // so long as it is greater than the requested perm.
-func (api *BaseAPI) checkOfferAccess(backend Backend, offerUUID string, perm permission.Access) (permission.Access, error) {
-	apiUser := api.Authorizer.GetAuthTag().(names.UserTag)
-	access, err := backend.GetOfferAccess(offerUUID, apiUser)
+func (api *BaseAPI) checkOfferAccess(user names.UserTag, backend Backend, offerUUID string) (permission.Access, error) {
+	access, err := backend.GetOfferAccess(offerUUID, user)
 	if err != nil && !errors.IsNotFound(err) {
 		return permission.NoAccess, errors.Trace(err)
 	}
@@ -267,7 +268,7 @@ type offerModel struct {
 
 // getModelsFromOffers returns a slice of models corresponding to the
 // specified offer URLs. Each result item has either a model or an error.
-func (api *BaseAPI) getModelsFromOffers(offerURLs ...string) ([]offerModel, error) {
+func (api *BaseAPI) getModelsFromOffers(user names.UserTag, offerURLs ...string) ([]offerModel, error) {
 	// Cache the models found so far so we don't look them up more than once.
 	modelsCache := make(map[string]Model)
 	oneModel := func(offerURL string) (Model, error) {
@@ -280,7 +281,11 @@ func (api *BaseAPI) getModelsFromOffers(offerURLs ...string) ([]offerModel, erro
 			return model, nil
 		}
 
-		model, absModelPath, ok, err := api.modelForName(url.ModelName, url.User)
+		ownerName := url.User
+		if ownerName == "" {
+			ownerName = user.Id()
+		}
+		model, absModelPath, ok, err := api.modelForName(url.ModelName, ownerName)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -301,7 +306,7 @@ func (api *BaseAPI) getModelsFromOffers(offerURLs ...string) ([]offerModel, erro
 
 // getModelFilters splits the specified filters per model and returns
 // the model and filter details for each.
-func (api *BaseAPI) getModelFilters(filters params.OfferFilters) (
+func (api *BaseAPI) getModelFilters(user names.UserTag, filters params.OfferFilters) (
 	models map[string]Model,
 	filtersPerModel map[string][]jujucrossmodel.ApplicationOfferFilter,
 	_ error,
@@ -316,13 +321,17 @@ func (api *BaseAPI) getModelFilters(filters params.OfferFilters) (
 		if f.ModelName == "" {
 			return nil, nil, errors.New("application offer filter must specify a model name")
 		}
+		ownerName := f.OwnerName
+		if ownerName == "" {
+			ownerName = user.Id()
+		}
 		var (
 			modelUUID string
 			ok        bool
 		)
 		if modelUUID, ok = modelUUIDs[f.ModelName]; !ok {
 			var err error
-			model, absModelPath, ok, err := api.modelForName(f.ModelName, f.OwnerName)
+			model, absModelPath, ok, err := api.modelForName(f.ModelName, ownerName)
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
@@ -350,6 +359,7 @@ func (api *BaseAPI) getModelFilters(filters params.OfferFilters) (
 
 // getApplicationOffersDetails gets details about remote applications that match given filter.
 func (api *BaseAPI) getApplicationOffersDetails(
+	user names.UserTag,
 	filters params.OfferFilters,
 	requiredPermission permission.Access,
 ) ([]params.ApplicationOfferAdminDetails, error) {
@@ -362,7 +372,7 @@ func (api *BaseAPI) getApplicationOffersDetails(
 	}
 
 	// Gather all the filter details for doing a query for each model.
-	models, filtersPerModel, err := api.getModelFilters(filters)
+	models, filtersPerModel, err := api.getModelFilters(user, filters)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -378,7 +388,7 @@ func (api *BaseAPI) getApplicationOffersDetails(
 	var result []params.ApplicationOfferAdminDetails
 	for _, modelUUID := range allUUIDs {
 		filters := filtersPerModel[modelUUID]
-		offers, err := api.applicationOffersFromModel(modelUUID, requiredPermission, filters...)
+		offers, err := api.applicationOffersFromModel(modelUUID, user, requiredPermission, filters...)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

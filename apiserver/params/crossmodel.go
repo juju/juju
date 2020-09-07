@@ -600,6 +600,13 @@ type ConsumeOfferDetails struct {
 	ControllerInfo *ExternalControllerInfo  `json:"external-controller,omitempty"`
 }
 
+// ConsumeOfferDetailsArg holds arguments for querying the
+// details used for consuming offers.
+type ConsumeOfferDetailsArg struct {
+	OfferURLs OfferURLs `json:"offer-urls"`
+	UserTag   string    `json:"user-tag,omitempty"`
+}
+
 // ConsumeOfferDetailsResult contains the details necessary to
 // consume an application offer or an error.
 type ConsumeOfferDetailsResult struct {
