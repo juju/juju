@@ -18,7 +18,7 @@ type Client struct {
 
 // NewClient returns a client used to access the CAAS Operator API.
 func NewClient(caller base.APICallCloser) *Client {
-	frontend, backend := base.NewClientFacade(caller, "Application")
+	frontend, backend := base.NewClientFacade(caller, "CAASApplication")
 	return &Client{
 		ClientFacade: frontend,
 		facade:       backend,

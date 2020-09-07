@@ -1,6 +1,8 @@
 // Copyright 2012-2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// +build !windows
+
 package unit
 
 import (
@@ -98,8 +100,9 @@ func (c *k8sUnitAgent) ensureAgentConf(dataDir string) error {
 	unitTag := config.Tag()
 	configPath := agent.ConfigPath(dataDir, unitTag)
 	logger.Debugf("config path %s", configPath)
-	if err := os.MkdirAll(path.Dir(configPath), 0755); err != nil {
-		return errors.Annotate(err, "making agent directory")
+	configDir := path.Dir(configPath)
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return errors.Annotatef(err, "making agent directory %q", configDir)
 	}
 	configBytes, err := config.Render()
 	if err != nil {
