@@ -78,9 +78,8 @@ func (s *k8sUnitAgentSuite) newBufferedLogWriter() *logsender.BufferedLogWriter 
 func (s *k8sUnitAgentSuite) TestParseSuccess(c *gc.C) {
 	_ = s.prepareAgentConf(c, "wordpress")
 
-	a, err := unit.NewForTest(nil, s.newBufferedLogWriter(), nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = cmdtesting.InitCommand(a, []string{
+	a := unit.NewForTest(nil, s.newBufferedLogWriter(), nil)
+	err := cmdtesting.InitCommand(a, []string{
 		"--data-dir", s.dataDir,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -97,10 +96,9 @@ func (s *k8sUnitAgentSuite) TestParseSuccess(c *gc.C) {
 }
 
 func (s *k8sUnitAgentSuite) TestParseUnknown(c *gc.C) {
-	a, err := unit.NewForTest(nil, s.newBufferedLogWriter(), nil)
-	c.Assert(err, jc.ErrorIsNil)
+	a := unit.NewForTest(nil, s.newBufferedLogWriter(), nil)
 
-	err = cmdtesting.InitCommand(a, []string{
+	err := cmdtesting.InitCommand(a, []string{
 		"thundering typhoons",
 	})
 	c.Check(err, gc.ErrorMatches, `unrecognized args: \["thundering typhoons"\]`)
@@ -110,8 +108,7 @@ func (s *k8sUnitAgentSuite) TestChangeConfig(c *gc.C) {
 	config := FakeAgentConfig{}
 	configChanged := voyeur.NewValue(true)
 
-	a, err := unit.NewForTest(nil, s.newBufferedLogWriter(), configChanged)
-	c.Assert(err, jc.ErrorIsNil)
+	a := unit.NewForTest(nil, s.newBufferedLogWriter(), configChanged)
 	a.SetAgentConf(config)
 	var mutateCalled bool
 	mutate := func(config agent.ConfigSetter) error {
@@ -126,7 +123,7 @@ func (s *k8sUnitAgentSuite) TestChangeConfig(c *gc.C) {
 		configChangedCh <- watcher.Next()
 	}()
 
-	err = a.ChangeConfig(mutate)
+	err := a.ChangeConfig(mutate)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(mutateCalled, jc.IsTrue)

@@ -27,13 +27,13 @@ type K8sUnitAgentTest interface {
 	Tag() names.UnitTag
 }
 
-func NewForTest(ctx *cmd.Context, bufferedLogger *logsender.BufferedLogWriter, configChangedVal *voyeur.Value) (K8sUnitAgentTest, error) {
+func NewForTest(ctx *cmd.Context, bufferedLogger *logsender.BufferedLogWriter, configChangedVal *voyeur.Value) K8sUnitAgentTest {
 	return &k8sUnitAgent{
 		ctx:              ctx,
 		AgentConf:        agentconf.NewAgentConf(""),
 		bufferedLogger:   bufferedLogger,
 		configChangedVal: configChangedVal,
-	}, nil
+	}
 }
 
 func (c *k8sUnitAgent) SetAgentConf(cfg agentconf.AgentConf) {
