@@ -31,11 +31,38 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	mgoutils "github.com/juju/juju/mongo/utils"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/tools"
 )
+
+// ExposedEndpoint encapsulates the expose-related details of a particular
+// application endpoint with respect to the sources (CIDRs or space IDs) that
+// should be able to access the ports opened by the application charm for an
+// endpoint.
+type ExposedEndpoint struct {
+	// A list of spaces that should be able to reach the opened ports
+	// for an exposed application's endpoint.
+	ExposeToSpaceIDs []string `bson:"to-space-ids,omitempty"`
+
+	// A list of CIDRs that should be able to reach the opened ports
+	// for an exposed application's endpoint.
+	ExposeToCIDRs []string `bson:"to-cidrs,omitempty"`
+}
+
+// AllowTrafficFromAnyNetwork returns true if the exposed endpoint parameters
+// include the 0.0.0.0/0 CIDR.
+func (exp ExposedEndpoint) AllowTrafficFromAnyNetwork() bool {
+	for _, cidr := range exp.ExposeToCIDRs {
+		if cidr == firewall.AllNetworksIPV4CIDR {
+			return true
+		}
+	}
+
+	return false
+}
 
 // Application represents the state of an application.
 type Application struct {
@@ -71,16 +98,10 @@ type applicationDoc struct {
 	// Exposed is set to true when the application is exposed.
 	Exposed bool `bson:"exposed"`
 
-	// The list of application endpoints whose ports should be accessible
-	// when the application is exposed. If empty, all open application
-	// ports will become accessible.
-	ExposedEndpoints []string `bson:"exposed-endpoints,omitempty"`
-
-	// A list of space IDs and CIDRs that should be able to reach the
-	// exposed application's ports. If empty, a 0.0.0.0/0 CIDR will be
-	// implicitly assumed.
-	ExposeToSpaceIDs []string `bson:"expose-to-space-ids,omitempty"`
-	ExposeToCIDRs    []string `bson:"expose-to-cidrs,omitempty"`
+	// A map for tracking the per-endpoint expose-related parameters for
+	// an exposed app where keys are endpoint names or the "" value which
+	// represents all application endpoints.
+	ExposedEndpoints map[string]ExposedEndpoint `bson:"exposed-endpoints,omitempty"`
 
 	// CAAS related attributes.
 	DesiredScale int    `bson:"scale"`
@@ -654,74 +675,55 @@ func (a *Application) IsExposed() bool {
 	return a.doc.Exposed
 }
 
-// ExposedEndpoints returns a list of explicitly selected endpoints for this
-// application that should be reachable once the application is exposed. An
-// empty returned list means that all endpoints should be reachable.
-func (a *Application) ExposedEndpoints() []string {
+// ExposedEndpoints returns a map where keys are endpoint names (or the ""
+// value which represents all endpoints) and values are ExposedEndpoint
+// instances that specify which sources (spaces or CIDRs) can access the
+// opened ports for each endpoint once the application is exposed.
+func (a *Application) ExposedEndpoints() map[string]ExposedEndpoint {
 	if len(a.doc.ExposedEndpoints) == 0 {
 		return nil
 	}
 	return a.doc.ExposedEndpoints
 }
 
-// ExposeToSpaceIDs returns a list of space IDs that should be able to reach
-// this application's ports when the application is exposed.
-func (a *Application) ExposeToSpaceIDs() []string {
-	if len(a.doc.ExposeToSpaceIDs) == 0 {
-		return nil
-	}
-	return a.doc.ExposeToSpaceIDs
-}
-
-// ExposeToCIDRs returns a list of CIDRs that should be able to reach this
-// application's ports when the application is exposed.
-func (a *Application) ExposeToCIDRs() []string {
-	if len(a.doc.ExposeToCIDRs) == 0 {
-		return nil
-	}
-	return a.doc.ExposeToCIDRs
-}
-
 // SetExposed marks the application as exposed.
 // See ClearExposed and IsExposed.
-func (a *Application) SetExposed(endpoints, toSpaceIDs, toCIDRs []string) error {
-	if len(endpoints) != 0 {
-		bindings, _, err := readEndpointBindings(a.st, a.globalKey())
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		for _, endpoint := range endpoints {
-			// The default space entry has an empty string as its
-			// key but is not a valid endpoint.
-			if _, found := bindings[endpoint]; !found || endpoint == "" {
-				return errors.NotFoundf("endpoint %q", endpoint)
-			}
-		}
+func (a *Application) SetExposed(exposedEndpoints map[string]ExposedEndpoint) error {
+	bindings, _, err := readEndpointBindings(a.st, a.globalKey())
+	if err != nil {
+		return errors.Trace(err)
 	}
 
-	if len(toSpaceIDs) != 0 {
-		allSpaceInfos, err := a.st.AllSpaceInfos()
-		if err != nil {
-			return errors.Trace(err)
+	var allSpaceInfos network.SpaceInfos
+	for endpoint, exposeParams := range exposedEndpoints {
+		// The empty endpoint ("") value represents all endpoints.
+		if _, found := bindings[endpoint]; !found && endpoint != "" {
+			return errors.NotFoundf("endpoint %q", endpoint)
 		}
 
-		for _, spaceID := range toSpaceIDs {
+		// Verify expose parameters
+		if len(exposeParams.ExposeToSpaceIDs) != 0 && allSpaceInfos == nil {
+			if allSpaceInfos, err = a.st.AllSpaceInfos(); err != nil {
+				return errors.Trace(err)
+			}
+		}
+
+		exposeParams.ExposeToSpaceIDs = uniqueSortedStrings(exposeParams.ExposeToSpaceIDs)
+		for _, spaceID := range exposeParams.ExposeToSpaceIDs {
 			if allSpaceInfos.GetByID(spaceID) == nil {
 				return errors.NotFoundf("space with ID %q", spaceID)
 			}
 		}
-	}
 
-	if len(toCIDRs) != 0 {
-		for _, cidr := range toCIDRs {
+		exposeParams.ExposeToCIDRs = uniqueSortedStrings(exposeParams.ExposeToCIDRs)
+		for _, cidr := range exposeParams.ExposeToCIDRs {
 			if _, _, err := net.ParseCIDR(cidr); err != nil {
 				return errors.Annotatef(err, "unable to parse %q as a CIDR", cidr)
 			}
 		}
 	}
 
-	return a.setExposed(true, uniqueSortedStrings(endpoints), uniqueSortedStrings(toSpaceIDs), uniqueSortedStrings(toCIDRs))
+	return a.setExposed(true, exposedEndpoints)
 }
 
 func uniqueSortedStrings(in []string) []string {
@@ -735,28 +737,24 @@ func uniqueSortedStrings(in []string) []string {
 // ClearExposed removes the exposed flag from the application.
 // See SetExposed and IsExposed.
 func (a *Application) ClearExposed() error {
-	return a.setExposed(false, nil, nil, nil)
+	return a.setExposed(false, nil)
 }
 
-func (a *Application) setExposed(exposed bool, endpoints, toSpaceIDs, toCIDRs []string) (err error) {
+func (a *Application) setExposed(exposed bool, exposedEndpoints map[string]ExposedEndpoint) (err error) {
 	ops := []txn.Op{{
 		C:      applicationsC,
 		Id:     a.doc.DocID,
 		Assert: isAliveDoc,
 		Update: bson.D{{"$set", bson.D{
 			{"exposed", exposed},
-			{"exposed-endpoints", endpoints},
-			{"expose-to-space-ids", toSpaceIDs},
-			{"expose-to-cidrs", toCIDRs},
+			{"exposed-endpoints", exposedEndpoints},
 		}}},
 	}}
 	if err := a.st.db().RunTransaction(ops); err != nil {
 		return errors.Errorf("cannot set exposed flag for application %q to %v: %v", a, exposed, onAbort(err, applicationNotAliveErr))
 	}
 	a.doc.Exposed = exposed
-	a.doc.ExposedEndpoints = endpoints
-	a.doc.ExposeToSpaceIDs = toSpaceIDs
-	a.doc.ExposeToCIDRs = toCIDRs
+	a.doc.ExposedEndpoints = exposedEndpoints
 	return nil
 }
 

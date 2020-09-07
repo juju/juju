@@ -526,7 +526,12 @@ func (s *MigrationImportSuite) setupSourceApplications(
 	err = application.SetMetricCredentials([]byte("sekrit"))
 	c.Assert(err, jc.ErrorIsNil)
 	// Expose the application.
-	err = application.SetExposed([]string{"admin"}, exposedSpaceIDs, []string{"13.37.0.0/16"})
+	err = application.SetExposed(map[string]state.ExposedEndpoint{
+		"admin": {
+			ExposeToSpaceIDs: exposedSpaceIDs,
+			ExposeToCIDRs:    []string{"13.37.0.0/16"},
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = testModel.SetAnnotations(application, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
@@ -552,8 +557,6 @@ func (s *MigrationImportSuite) assertImportedApplication(
 	c.Assert(imported.Series(), gc.Equals, exported.Series())
 	c.Assert(imported.IsExposed(), gc.Equals, exported.IsExposed())
 	c.Assert(imported.ExposedEndpoints(), gc.DeepEquals, exported.ExposedEndpoints())
-	c.Assert(imported.ExposeToSpaceIDs(), gc.DeepEquals, exported.ExposeToSpaceIDs())
-	c.Assert(imported.ExposeToCIDRs(), gc.DeepEquals, exported.ExposeToCIDRs())
 	c.Assert(imported.MetricCredentials(), jc.DeepEquals, exported.MetricCredentials())
 	c.Assert(imported.PasswordValid(pwd), jc.IsTrue)
 	c.Assert(imported.CharmOrigin(), jc.DeepEquals, exported.CharmOrigin())

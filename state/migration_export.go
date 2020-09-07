@@ -843,9 +843,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		CharmModifiedVersion: application.doc.CharmModifiedVersion,
 		ForceCharm:           application.doc.ForceCharm,
 		Exposed:              application.doc.Exposed,
-		ExposedEndpoints:     application.doc.ExposedEndpoints,
-		ExposeToSpaceIDs:     application.doc.ExposeToSpaceIDs,
-		ExposeToCIDRs:        application.doc.ExposeToCIDRs,
 		PasswordHash:         application.doc.PasswordHash,
 		Placement:            application.doc.Placement,
 		HasResources:         application.doc.HasResources,
@@ -866,6 +863,18 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	if constraints, found := e.modelStorageConstraints[storageConstraintsKey]; found {
 		args.StorageConstraints = e.storageConstraints(constraints)
 	}
+
+	// Include exposed endpoint details
+	if len(application.doc.ExposedEndpoints) > 0 {
+		args.ExposedEndpoints = make(map[string]description.ExposedEndpointArgs)
+		for epName, details := range application.doc.ExposedEndpoints {
+			args.ExposedEndpoints[epName] = description.ExposedEndpointArgs{
+				ExposeToSpaceIDs: details.ExposeToSpaceIDs,
+				ExposeToCIDRs:    details.ExposeToCIDRs,
+			}
+		}
+	}
+
 	exApplication := e.model.AddApplication(args)
 
 	// Populate offer list

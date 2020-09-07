@@ -2297,7 +2297,7 @@ func (s *ApplicationSuite) TestApplicationExposed(c *gc.C) {
 	c.Assert(s.mysql.IsExposed(), jc.IsFalse)
 
 	// Check that setting and clearing the exposed flag works correctly.
-	err := s.mysql.SetExposed(nil, nil, nil)
+	err := s.mysql.SetExposed(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.IsExposed(), jc.IsTrue)
 	err = s.mysql.ClearExposed()
@@ -2305,15 +2305,15 @@ func (s *ApplicationSuite) TestApplicationExposed(c *gc.C) {
 	c.Assert(s.mysql.IsExposed(), jc.IsFalse)
 
 	// Check that setting and clearing the exposed flag repeatedly does not fail.
-	err = s.mysql.SetExposed(nil, nil, nil)
+	err = s.mysql.SetExposed(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.SetExposed(nil, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.ClearExposed()
+	err = s.mysql.SetExposed(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.ClearExposed()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.SetExposed(nil, nil, nil)
+	err = s.mysql.ClearExposed()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.mysql.SetExposed(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.IsExposed(), jc.IsTrue)
 
@@ -2326,7 +2326,7 @@ func (s *ApplicationSuite) TestApplicationExposed(c *gc.C) {
 	assertLife(c, s.mysql, state.Dying)
 	err = s.mysql.ClearExposed()
 	c.Assert(err, gc.ErrorMatches, notAliveErr)
-	err = s.mysql.SetExposed(nil, nil, nil)
+	err = s.mysql.SetExposed(nil)
 	c.Assert(err, gc.ErrorMatches, notAliveErr)
 
 	// Remove the application and check that both fail.
@@ -2334,38 +2334,47 @@ func (s *ApplicationSuite) TestApplicationExposed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.Remove()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.SetExposed(nil, nil, nil)
+	err = s.mysql.SetExposed(nil)
 	c.Assert(err, gc.ErrorMatches, notAliveErr)
 	err = s.mysql.ClearExposed()
 	c.Assert(err, gc.ErrorMatches, notAliveErr)
 }
 
-func (s *ApplicationSuite) TestApplicationExposeParameters(c *gc.C) {
+func (s *ApplicationSuite) TestApplicationExposeEndpoints(c *gc.C) {
 	// Check that querying for the exposed flag works correctly.
 	c.Assert(s.mysql.IsExposed(), jc.IsFalse)
 
 	// Check argument validation
-	err := s.mysql.SetExposed([]string{"bogus-endpoint"}, nil, nil)
+	err := s.mysql.SetExposed(map[string]state.ExposedEndpoint{
+		"":               {},
+		"bogus-endpoint": {},
+	})
 	c.Assert(err, gc.ErrorMatches, `.*endpoint "bogus-endpoint" not found`)
-	err = s.mysql.SetExposed(nil, []string{"bogus-space-id"}, nil)
+	err = s.mysql.SetExposed(map[string]state.ExposedEndpoint{
+		"server": {ExposeToSpaceIDs: []string{"bogus-space-id"}},
+	})
 	c.Assert(err, gc.ErrorMatches, `.*space with ID "bogus-space-id" not found`)
-	err = s.mysql.SetExposed(nil, nil, []string{"not-a-cidr"})
+	err = s.mysql.SetExposed(map[string]state.ExposedEndpoint{
+		"server": {ExposeToCIDRs: []string{"not-a-cidr"}},
+	})
 	c.Assert(err, gc.ErrorMatches, `.*unable to parse "not-a-cidr" as a CIDR.*`)
 
 	// Check that the expose parameters are properly persisted
-	err = s.mysql.SetExposed([]string{"server"}, []string{network.AlphaSpaceId}, []string{"13.37.0.0/16"})
+	exp := map[string]state.ExposedEndpoint{
+		"server": {
+			ExposeToSpaceIDs: []string{network.AlphaSpaceId},
+			ExposeToCIDRs:    []string{"13.37.0.0/16"},
+		},
+	}
+	err = s.mysql.SetExposed(exp)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(s.mysql.ExposedEndpoints(), gc.DeepEquals, []string{"server"})
-	c.Assert(s.mysql.ExposeToSpaceIDs(), gc.DeepEquals, []string{network.AlphaSpaceId})
-	c.Assert(s.mysql.ExposeToCIDRs(), gc.DeepEquals, []string{"13.37.0.0/16"})
+	c.Assert(s.mysql.ExposedEndpoints(), gc.DeepEquals, exp)
 
 	// Refresh model and ensure that we get the same parameters
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.mysql.ExposedEndpoints(), gc.DeepEquals, []string{"server"})
-	c.Assert(s.mysql.ExposeToSpaceIDs(), gc.DeepEquals, []string{network.AlphaSpaceId})
-	c.Assert(s.mysql.ExposeToCIDRs(), gc.DeepEquals, []string{"13.37.0.0/16"})
+	c.Assert(s.mysql.ExposedEndpoints(), gc.DeepEquals, exp)
 }
 
 func (s *ApplicationSuite) TestAddUnit(c *gc.C) {
@@ -3261,7 +3270,7 @@ func (s *ApplicationSuite) TestWatchApplication(c *gc.C) {
 	// Make one change (to a separate instance), check one event.
 	application, err := s.State.Application(s.mysql.Name())
 	c.Assert(err, jc.ErrorIsNil)
-	err = application.SetExposed(nil, nil, nil)
+	err = application.SetExposed(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 

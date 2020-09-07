@@ -1249,6 +1249,17 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		return nil, errors.Trace(err)
 	}
 
+	var exposedEndpoints map[string]ExposedEndpoint
+	if expEps := a.ExposedEndpoints(); len(expEps) > 0 {
+		exposedEndpoints = make(map[string]ExposedEndpoint, len(expEps))
+		for epName, details := range expEps {
+			exposedEndpoints[epName] = ExposedEndpoint{
+				ExposeToSpaceIDs: details.ExposeToSpaceIDs(),
+				ExposeToCIDRs:    details.ExposeToCIDRs(),
+			}
+		}
+	}
+
 	return &applicationDoc{
 		Name:                 a.Name(),
 		Series:               a.Series(),
@@ -1263,9 +1274,7 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		UnitCount:            len(a.Units()),
 		RelationCount:        i.relationCount(a.Name()),
 		Exposed:              a.Exposed(),
-		ExposedEndpoints:     a.ExposedEndpoints(),
-		ExposeToSpaceIDs:     a.ExposeToSpaceIDs(),
-		ExposeToCIDRs:        a.ExposeToCIDRs(),
+		ExposedEndpoints:     exposedEndpoints,
 		MinUnits:             a.MinUnits(),
 		Tools:                i.makeTools(a.Tools()),
 		MetricCredentials:    a.MetricsCredentials(),
