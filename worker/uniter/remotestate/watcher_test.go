@@ -25,6 +25,7 @@ type WatcherSuite struct {
 	coretesting.BaseSuite
 
 	modelType  model.ModelType
+	embedded   bool
 	st         *mockState
 	leadership *mockLeadershipTracker
 	watcher    *remotestate.RemoteStateWatcher
@@ -43,8 +44,23 @@ type WatcherSuiteCAAS struct {
 	WatcherSuite
 }
 
-var _ = gc.Suite(&WatcherSuiteIAAS{WatcherSuite{modelType: model.IAAS}})
-var _ = gc.Suite(&WatcherSuiteCAAS{WatcherSuite{modelType: model.CAAS}})
+type WatcherSuiteEmbedded struct {
+	WatcherSuite
+}
+
+var _ = gc.Suite(&WatcherSuiteIAAS{
+	WatcherSuite{modelType: model.IAAS},
+})
+var _ = gc.Suite(&WatcherSuiteCAAS{
+	WatcherSuite{modelType: model.CAAS},
+})
+
+var _ = gc.Suite(&WatcherSuiteEmbedded{
+	WatcherSuite{
+		modelType: model.CAAS,
+		embedded:  true,
+	},
+})
 
 func (s *WatcherSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
@@ -119,6 +135,18 @@ func (s *WatcherSuiteCAAS) SetUpTest(c *gc.C) {
 	s.watcher = w
 }
 
+func (s *WatcherSuiteEmbedded) SetUpTest(c *gc.C) {
+	s.WatcherSuite.SetUpTest(c)
+
+	s.st.unit.application.applicationWatcher = newMockNotifyWatcher()
+	s.applicationWatcher = s.st.unit.application.applicationWatcher
+
+	w, err := remotestate.NewWatcher(s.setupWatcherConfig())
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.watcher = w
+}
+
 func (s *WatcherSuite) setupWatcherConfig() remotestate.WatcherConfig {
 	statusTicker := func(wait time.Duration) remotestate.Waiter {
 		return dummyWaiter{s.clock.After(wait)}
@@ -127,6 +155,7 @@ func (s *WatcherSuite) setupWatcherConfig() remotestate.WatcherConfig {
 		Logger:               loggo.GetLogger("test"),
 		State:                s.st,
 		ModelType:            s.modelType,
+		Embedded:             s.embedded,
 		LeadershipTracker:    s.leadership,
 		UnitTag:              s.st.unit.tag,
 		UpdateStatusChannel:  statusTicker,
@@ -169,6 +198,15 @@ func (s *WatcherSuiteCAAS) TestInitialSnapshot(c *gc.C) {
 	})
 }
 
+func (s *WatcherSuiteEmbedded) TestInitialSnapshot(c *gc.C) {
+	snap := s.watcher.Snapshot()
+	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
+		Relations:     map[int]remotestate.RelationSnapshot{},
+		Storage:       map[names.StorageTag]remotestate.StorageSnapshot{},
+		ActionChanged: map[string]int{},
+	})
+}
+
 func (s *WatcherSuite) TestInitialSignal(c *gc.C) {
 	// There should not be a remote state change until
 	// we've seen all of the top-level notifications.
@@ -206,8 +244,10 @@ func (s *WatcherSuite) signalAll() {
 	s.st.updateStatusIntervalWatcher.changes <- struct{}{}
 	s.leadership.claimTicket.ch <- struct{}{}
 	s.st.unit.storageWatcher.changes <- []string{}
-	if s.st.modelType == model.IAAS {
+	if s.st.modelType == model.IAAS || s.embedded {
 		s.applicationWatcher.changes <- struct{}{}
+	}
+	if s.st.modelType == model.IAAS {
 		s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
 		s.st.unit.instanceDataWatcher.changes <- struct{}{}
 	}
@@ -233,6 +273,28 @@ func (s *WatcherSuiteIAAS) TestSnapshot(c *gc.C) {
 		LeaderSettingsVersion: 1,
 		Leader:                true,
 		UpgradeSeriesStatus:   model.UpgradeSeriesPrepareStarted,
+	})
+}
+
+func (s *WatcherSuiteEmbedded) TestSnapshot(c *gc.C) {
+	s.signalAll()
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	snap := s.watcher.Snapshot()
+	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
+		Life:                  s.st.unit.life,
+		Relations:             map[int]remotestate.RelationSnapshot{},
+		Storage:               map[names.StorageTag]remotestate.StorageSnapshot{},
+		ActionChanged:         map[string]int{},
+		CharmModifiedVersion:  s.st.unit.application.charmModifiedVersion,
+		CharmURL:              s.st.unit.application.curl,
+		ForceCharmUpgrade:     s.st.unit.application.forceUpgrade,
+		ResolvedMode:          s.st.unit.resolved,
+		ConfigHash:            "confighash",
+		TrustHash:             "trusthash",
+		AddressesHash:         "addresseshash",
+		LeaderSettingsVersion: 1,
+		Leader:                true,
 	})
 }
 
@@ -869,6 +931,22 @@ func (s *WatcherSuiteCAAS) TestWatcherConfig(c *gc.C) {
 
 	_, err = remotestate.NewWatcher(remotestate.WatcherConfig{})
 	c.Assert(err, gc.ErrorMatches, "nil Logger not valid")
+}
+
+func (s *WatcherSuiteEmbedded) TestWatcherConfig(c *gc.C) {
+	_, err := remotestate.NewWatcher(remotestate.WatcherConfig{
+		ModelType: model.IAAS,
+		Embedded:  true,
+		Logger:    loggo.GetLogger("test"),
+	})
+	c.Assert(err, gc.ErrorMatches, `embedded mode is only for "caas" model`)
+
+	_, err = remotestate.NewWatcher(remotestate.WatcherConfig{
+		ModelType: model.CAAS,
+		Embedded:  true,
+		Logger:    loggo.GetLogger("test"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *WatcherSuite) TestWatcherConfigMissingLogger(c *gc.C) {
