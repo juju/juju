@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"reflect"
 
 	"github.com/dustin/go-humanize"
 	"github.com/juju/clock"
@@ -256,8 +257,47 @@ func (c *Client) ComputeResources(ctx context.Context) ([]*mo.ComputeResource, e
 			cprs = append(cprs, &o.ComputeResource)
 		case mo.ComputeResource:
 			cprs = append(cprs, &o)
+		case mo.Folder:
+			c.logger.Tracef("LP #1894236: ComputeResources(): handling mo.Folder, o.Name: %+v", o.Name)
+
+			// Get finder
+			finder, _, err := c.finder(ctx)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			// Find folder
+			fd, err := finder.Folder(ctx, o.Name)
+			c.logger.Tracef("LP #1894236: ComputeResources(): finder.Folder() return value: %+v", fd)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			// List the contents of the folder
+			folderContents, err := c.lister(fd.Reference()).List(ctx)
+			c.logger.Tracef("LP #1894236: ComputeResources(): folderContents: %+v", folderContents)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			// Append contents of the folder to cprs
+			for _, element := range folderContents {
+				switch obj := element.Object.(type) {
+				case mo.ClusterComputeResource:
+					c.logger.Tracef("LP #1894236: ComputeResources(): appending to cprs: %v", obj.ComputeResource.Name)
+					cprs = append(cprs, &obj.ComputeResource)
+				case mo.ComputeResource:
+					c.logger.Tracef("LP #1894236: ComputeResources(): appending to cprs: %v", obj.Name)
+					cprs = append(cprs, &obj)
+				case mo.Folder:
+					c.logger.Tracef("LP #1894236: ComputeResources(): ignoring nested mo.Folder, obj.Name: %v", obj.Name)
+				default:
+					c.logger.Tracef("LP #1894236: ComputeResources(): skipping type: %v", reflect.TypeOf(o).String())
+				}
+			}
 		}
 	}
+
 	return cprs, nil
 }
 
