@@ -12,10 +12,10 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
 	gc "gopkg.in/check.v1"
 
@@ -23,6 +23,7 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/k8sagent/unit"
+	utilsmocks "github.com/juju/juju/cmd/k8sagent/utils/mocks"
 	jnames "github.com/juju/juju/juju/names"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/logsender"
@@ -31,8 +32,10 @@ import (
 type k8sUnitAgentSuite struct {
 	coretesting.BaseSuite
 
-	rootDir string
-	dataDir string
+	rootDir          string
+	dataDir          string
+	fileReaderWriter *utilsmocks.MockFileReaderWriter
+	cmd              unit.K8sUnitAgentTest
 }
 
 var _ = gc.Suite(&k8sUnitAgentSuite{})
@@ -52,10 +55,23 @@ apiport: 17070
 
 func (s *k8sUnitAgentSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+
 	s.rootDir = c.MkDir()
 	s.dataDir = filepath.Join(s.rootDir, "/var/lib/juju")
 	err := os.MkdirAll(s.dataDir, 0700)
 	c.Assert(err, gc.IsNil)
+}
+
+func (s *k8sUnitAgentSuite) TearDownTest(c *gc.C) {
+	s.dataDir = ""
+	s.fileReaderWriter = nil
+}
+
+func (s *k8sUnitAgentSuite) setupCommand(c *gc.C, configChangedVal *voyeur.Value) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.fileReaderWriter = utilsmocks.NewMockFileReaderWriter(ctrl)
+	s.cmd = unit.NewForTest(nil, s.newBufferedLogWriter(), configChangedVal, s.fileReaderWriter)
+	return ctrl
 }
 
 func (s *k8sUnitAgentSuite) prepareAgentConf(c *gc.C, appName string) string {
@@ -65,12 +81,6 @@ func (s *k8sUnitAgentSuite) prepareAgentConf(c *gc.C, appName string) string {
 	return fPath
 }
 
-func assertSymlinkExist(c *gc.C, path string) {
-	symlinkExists, err := symlink.IsSymlink(path)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(symlinkExists, jc.IsTrue)
-}
-
 func (s *k8sUnitAgentSuite) newBufferedLogWriter() *logsender.BufferedLogWriter {
 	logger := logsender.NewBufferedLogWriter(1024)
 	s.AddCleanup(func(*gc.C) { logger.Close() })
@@ -78,29 +88,37 @@ func (s *k8sUnitAgentSuite) newBufferedLogWriter() *logsender.BufferedLogWriter 
 }
 
 func (s *k8sUnitAgentSuite) TestParseSuccess(c *gc.C) {
+	ctrl := s.setupCommand(c, nil)
+	defer ctrl.Finish()
+
 	_ = s.prepareAgentConf(c, "wordpress")
 
-	a := unit.NewForTest(nil, s.newBufferedLogWriter(), nil)
-	err := cmdtesting.InitCommand(a, []string{
+	toolsDir := filepath.Join(s.dataDir, "tools", "unit-wordpress-0")
+	gomock.InOrder(
+		s.fileReaderWriter.EXPECT().MkdirAll(toolsDir, os.FileMode(0755)).Return(nil),
+		s.fileReaderWriter.EXPECT().Symlink(gomock.Any(), filepath.Join(toolsDir, jnames.K8sAgent)).Return(nil),
+		s.fileReaderWriter.EXPECT().Symlink(gomock.Any(), filepath.Join(toolsDir, jnames.JujuRun)).Return(nil),
+		s.fileReaderWriter.EXPECT().Symlink(gomock.Any(), filepath.Join(toolsDir, jnames.JujuIntrospect)).Return(nil),
+		s.fileReaderWriter.EXPECT().Symlink(gomock.Any(), filepath.Join(toolsDir, jnames.Jujuc)).Return(nil),
+	)
+
+	err := cmdtesting.InitCommand(s.cmd, []string{
 		"--data-dir", s.dataDir,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(a.DataDir(), gc.Equals, s.dataDir)
-	c.Assert(a.Tag().String(), jc.DeepEquals, `unit-wordpress-0`)
-	c.Assert(a.CurrentConfig().Controller().String(), jc.DeepEquals, `controller-deadbeef-1bad-500d-9000-4b1d0d06f00d`)
-	c.Assert(a.CurrentConfig().Model().String(), jc.DeepEquals, `model-deadbeef-0bad-400d-8000-4b1d0d06f00d`)
 
-	toolsDir := filepath.Join(s.dataDir, "tools", "unit-wordpress-0")
-	assertSymlinkExist(c, filepath.Join(toolsDir, jnames.K8sAgent))
-	assertSymlinkExist(c, filepath.Join(toolsDir, jnames.JujuRun))
-	assertSymlinkExist(c, filepath.Join(toolsDir, jnames.JujuIntrospect))
-	assertSymlinkExist(c, filepath.Join(toolsDir, jnames.Jujuc))
+	c.Assert(s.cmd.DataDir(), gc.Equals, s.dataDir)
+	c.Assert(s.cmd.Tag().String(), jc.DeepEquals, `unit-wordpress-0`)
+	c.Assert(s.cmd.CurrentConfig().Controller().String(), jc.DeepEquals, `controller-deadbeef-1bad-500d-9000-4b1d0d06f00d`)
+	c.Assert(s.cmd.CurrentConfig().Model().String(), jc.DeepEquals, `model-deadbeef-0bad-400d-8000-4b1d0d06f00d`)
+
 }
 
 func (s *k8sUnitAgentSuite) TestParseUnknown(c *gc.C) {
-	a := unit.NewForTest(nil, s.newBufferedLogWriter(), nil)
+	ctrl := s.setupCommand(c, nil)
+	defer ctrl.Finish()
 
-	err := cmdtesting.InitCommand(a, []string{
+	err := cmdtesting.InitCommand(s.cmd, []string{
 		"thundering typhoons",
 	})
 	c.Check(err, gc.ErrorMatches, `unrecognized args: \["thundering typhoons"\]`)
@@ -110,8 +128,10 @@ func (s *k8sUnitAgentSuite) TestChangeConfig(c *gc.C) {
 	config := FakeAgentConfig{}
 	configChanged := voyeur.NewValue(true)
 
-	a := unit.NewForTest(nil, s.newBufferedLogWriter(), configChanged)
-	a.SetAgentConf(config)
+	ctrl := s.setupCommand(c, configChanged)
+	defer ctrl.Finish()
+
+	s.cmd.SetAgentConf(config)
 	var mutateCalled bool
 	mutate := func(config agent.ConfigSetter) error {
 		mutateCalled = true
@@ -125,7 +145,7 @@ func (s *k8sUnitAgentSuite) TestChangeConfig(c *gc.C) {
 		configChangedCh <- watcher.Next()
 	}()
 
-	err := a.ChangeConfig(mutate)
+	err := s.cmd.ChangeConfig(mutate)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(mutateCalled, jc.IsTrue)

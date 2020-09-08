@@ -1,8 +1,6 @@
 // Copyright 2012-2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build !windows
-
 package unit
 
 import (
@@ -33,6 +31,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
+	"github.com/juju/juju/cmd/k8sagent/utils"
 	"github.com/juju/juju/core/machinelock"
 	jnames "github.com/juju/juju/juju/names"
 	jujuversion "github.com/juju/juju/version"
@@ -58,6 +57,8 @@ type k8sUnitAgent struct {
 	machineLock      machinelock.Lock
 
 	prometheusRegistry *prometheus.Registry
+
+	fileReaderWriter utils.FileReaderWriter
 }
 
 // New creates k8sagent unit command.
@@ -74,6 +75,7 @@ func New(ctx *cmd.Context, bufferedLogger *logsender.BufferedLogWriter) (cmd.Com
 		dead:               make(chan struct{}),
 		bufferedLogger:     bufferedLogger,
 		prometheusRegistry: prometheusRegistry,
+		fileReaderWriter:   utils.NewFileReaderWriter(),
 	}, nil
 }
 
@@ -151,7 +153,7 @@ func (c *k8sUnitAgent) ensureToolSymlinks(srcPath, dataDir string, unitTag names
 	// Setup tool symlinks
 	uniterPaths := uniterworker.NewPaths(dataDir, unitTag, nil)
 	toolsDir := uniterPaths.GetToolsDir()
-	err := os.MkdirAll(toolsDir, 0755)
+	err := c.fileReaderWriter.MkdirAll(toolsDir, 0755)
 	if err != nil {
 		return errors.Annotate(err, "creating tools dir")
 	}
@@ -162,7 +164,7 @@ func (c *k8sUnitAgent) ensureToolSymlinks(srcPath, dataDir string, unitTag names
 		jnames.JujuIntrospect,
 		jnames.Jujuc,
 	} {
-		if err = os.Symlink(path.Join(srcPath, jnames.K8sAgent), path.Join(toolsDir, link)); err != nil {
+		if err = c.fileReaderWriter.Symlink(path.Join(srcPath, jnames.K8sAgent), path.Join(toolsDir, link)); err != nil {
 			return errors.Annotatef(err, "ensuring symlink %q", link)
 		}
 	}

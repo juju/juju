@@ -1,6 +1,8 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// +build !windows
+
 package initialize_test
 
 import (
@@ -16,6 +18,7 @@ import (
 	"github.com/juju/juju/api/caasapplication"
 	"github.com/juju/juju/cmd/k8sagent/initialize"
 	"github.com/juju/juju/cmd/k8sagent/initialize/mocks"
+	utilsmocks "github.com/juju/juju/cmd/k8sagent/utils/mocks"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -23,7 +26,7 @@ type initCommandSuit struct {
 	coretesting.BaseSuite
 
 	applicationAPI   *mocks.MockApplicationAPI
-	fileReaderWriter *mocks.MockFileReaderWriter
+	fileReaderWriter *utilsmocks.MockFileReaderWriter
 	cmd              cmd.Command
 }
 
@@ -58,7 +61,7 @@ func (s *initCommandSuit) TearDownTest(c *gc.C) {
 func (s *initCommandSuit) setupCommand(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.applicationAPI = mocks.NewMockApplicationAPI(ctrl)
-	s.fileReaderWriter = mocks.NewMockFileReaderWriter(ctrl)
+	s.fileReaderWriter = utilsmocks.NewMockFileReaderWriter(ctrl)
 	s.cmd = initialize.NewInitCommandForTest(s.applicationAPI, s.fileReaderWriter)
 	return ctrl
 }

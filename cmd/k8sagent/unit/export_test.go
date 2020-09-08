@@ -1,6 +1,8 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// +build !windows
+
 package unit
 
 import (
@@ -10,6 +12,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
+	"github.com/juju/juju/cmd/k8sagent/utils"
 	"github.com/juju/juju/worker/logsender"
 )
 
@@ -27,12 +30,18 @@ type K8sUnitAgentTest interface {
 	Tag() names.UnitTag
 }
 
-func NewForTest(ctx *cmd.Context, bufferedLogger *logsender.BufferedLogWriter, configChangedVal *voyeur.Value) K8sUnitAgentTest {
+func NewForTest(
+	ctx *cmd.Context,
+	bufferedLogger *logsender.BufferedLogWriter,
+	configChangedVal *voyeur.Value,
+	fileReaderWriter utils.FileReaderWriter,
+) K8sUnitAgentTest {
 	return &k8sUnitAgent{
 		ctx:              ctx,
 		AgentConf:        agentconf.NewAgentConf(""),
 		bufferedLogger:   bufferedLogger,
 		configChangedVal: configChangedVal,
+		fileReaderWriter: fileReaderWriter,
 	}
 }
 

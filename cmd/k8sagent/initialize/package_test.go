@@ -1,6 +1,8 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// +build !windows
+
 package initialize_test
 
 import (
@@ -43,6 +45,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"api/watcher",
 		"apiserver/errors",
 		"apiserver/params",
+		"cmd/k8sagent/utils",
 		"caas/kubernetes/provider/constants",
 		"charmhub",
 		"charmhub/path",

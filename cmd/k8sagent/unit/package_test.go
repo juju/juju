@@ -1,6 +1,8 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// +build !windows
+
 package unit_test
 
 import (
@@ -54,6 +56,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"api/upgrader",
 		"api/usermanager",
 		"api/watcher",
+		"cmd/k8sagent/utils",
 		"apiserver/errors",
 		"apiserver/params",
 		"caas",

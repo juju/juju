@@ -4,8 +4,6 @@
 package initialize
 
 import (
-	"io/ioutil"
-	"os"
 	"path"
 
 	"github.com/juju/cmd"
@@ -17,19 +15,19 @@ import (
 	"github.com/juju/juju/api/caasapplication"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/k8sagent/utils"
 	corepaths "github.com/juju/juju/core/paths"
 	"github.com/juju/juju/worker/apicaller"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/application_mock.go github.com/juju/juju/cmd/k8sagent/initialize ApplicationAPI
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/file_mock.go github.com/juju/juju/cmd/k8sagent/initialize FileReaderWriter
 type initCommand struct {
 	cmd.CommandBase
 
 	config           configFunc
 	identity         identityFunc
 	applicationAPI   ApplicationAPI
-	fileReaderWriter FileReaderWriter
+	fileReaderWriter utils.FileReaderWriter
 }
 
 // ApplicationAPI provides methods for unit introduction.
@@ -38,36 +36,12 @@ type ApplicationAPI interface {
 	Close() error
 }
 
-// FileReaderWriter provides methods for reading a file or writing to a file.
-type FileReaderWriter interface {
-	ReadFile(filename string) ([]byte, error)
-	WriteFile(filename string, data []byte, perm os.FileMode) error
-
-	MkdirAll(path string, perm os.FileMode) error
-}
-
-type fileReaderWriter struct{}
-
-var _ FileReaderWriter = (*fileReaderWriter)(nil)
-
-func (fileReaderWriter) ReadFile(filename string) ([]byte, error) {
-	return ioutil.ReadFile(filename)
-}
-
-func (fileReaderWriter) WriteFile(filename string, data []byte, perm os.FileMode) error {
-	return ioutil.WriteFile(filename, data, perm)
-}
-
-func (fileReaderWriter) MkdirAll(path string, perm os.FileMode) error {
-	return os.MkdirAll(path, perm)
-}
-
 // New creates k8sagent init command.
 func New() cmd.Command {
 	return &initCommand{
 		config:           defaultConfig,
 		identity:         defaultIdentity,
-		fileReaderWriter: &fileReaderWriter{},
+		fileReaderWriter: utils.NewFileReaderWriter(),
 	}
 }
 
