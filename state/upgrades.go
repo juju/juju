@@ -31,7 +31,6 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo/utils"
-	"github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/state/upgrade"
 	"github.com/juju/juju/storage/provider"
 )
@@ -3166,45 +3165,4 @@ func AddCharmOriginToApplications(pool *StatePool) error {
 		}
 		return nil
 	}))
-}
-
-// AddAzureProviderNetworkConfig adds new network config attributes to any Azure models.
-func AddAzureProviderNetworkConfig(pool *StatePool) error {
-	st := pool.SystemState()
-	var ops []txn.Op
-	coll, closer := st.db().GetRawCollection(settingsC)
-	defer closer()
-	iter := coll.Find(bson.D{}).Iter()
-	defer iter.Close()
-	var doc settingsDoc
-	for iter.Next(&doc) {
-		// Is this an Azure cloud...
-		cloudType, _ := doc.Settings[config.TypeKey].(string)
-		if cloudType != azure.ProviderType {
-			continue
-		}
-		// Has this model already been upgraded, or is it new.
-		_, hasPublicIPSetting := doc.Settings[azure.ConfigAttrUsePublicIP]
-		if hasPublicIPSetting {
-			continue
-		}
-
-		defaults := azure.DefaultNetworkConfigForUpgrade()
-		for k, v := range defaults {
-			doc.Settings[k] = v
-		}
-		ops = append(ops, txn.Op{
-			C:      settingsC,
-			Id:     doc.DocID,
-			Assert: txn.DocExists,
-			Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
-		})
-	}
-	if err := iter.Close(); err != nil {
-		return errors.Trace(err)
-	}
-	if len(ops) > 0 {
-		return errors.Trace(st.runRawTransaction(ops))
-	}
-	return nil
 }

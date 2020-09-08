@@ -617,7 +617,7 @@ func (s *environSuite) TestStartInstanceRootDiskLargerThanMin(c *gc.C) {
 }
 
 func (s *environSuite) assertStartInstance(c *gc.C, wantedRootDisk *int, publicIP bool) {
-	env := s.openEnviron(c, testing.Attrs{"use-public-ip": publicIP})
+	env := s.openEnviron(c)
 	s.sender = s.startInstanceSenders(false)
 	s.requests = nil
 	args := makeStartInstanceParams(c, s.controllerUUID, "bionic")
@@ -630,6 +630,9 @@ func (s *environSuite) assertStartInstance(c *gc.C, wantedRootDisk *int, publicI
 			expectedRootDisk = uint64(*wantedRootDisk * 1024)
 			expectedDiskSize = *wantedRootDisk + 2
 		}
+	}
+	if !publicIP {
+		args.Constraints.AllocatePublicIP = &publicIP
 	}
 	result, err := env.StartInstance(s.callCtx, args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1360,7 +1363,7 @@ func (s *environSuite) TestBootstrapPrivateIP(c *gc.C) {
 	defer envtesting.DisableFinishBootstrap()()
 
 	ctx := envtesting.BootstrapContext(c)
-	env := prepareForBootstrap(c, ctx, s.provider, &s.sender, testing.Attrs{"use-public-ip": false})
+	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
 
 	s.sender = s.initResourceGroupSenders(resourceGroupName)
 	s.sender = append(s.sender, s.startInstanceSenders(true)...)
@@ -1370,7 +1373,7 @@ func (s *environSuite) TestBootstrapPrivateIP(c *gc.C) {
 			ControllerConfig:         testing.FakeControllerConfig(),
 			AvailableTools:           makeToolsList("bionic"),
 			BootstrapSeries:          "bionic",
-			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
+			BootstrapConstraints:     constraints.MustParse("mem=3.5G allocate-public-ip=false"),
 			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		},
 	)

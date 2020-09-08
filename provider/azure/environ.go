@@ -553,10 +553,17 @@ func (env *azureEnviron) StartInstance(ctx context.ProviderCallContext, args env
 	// machine with this.
 	vmTags[jujuMachineNameTag] = vmName
 
+	// Use a public IP by default unless a constraint
+	// explicitly forbids it.
+	usePublicIP := true
+	if args.Constraints.HasAllocatePublicIP() {
+		usePublicIP = *args.Constraints.AllocatePublicIP
+	}
 	if err := env.createVirtualMachine(
 		ctx, vmName, vmTags, envTags,
 		instanceSpec, args.InstanceConfig,
 		storageAccountType,
+		usePublicIP,
 	); err != nil {
 		logger.Errorf("creating instance failed, destroying: %v", err)
 		if err := env.StopInstances(ctx, instance.Id(vmName)); err != nil {
@@ -593,6 +600,7 @@ func (env *azureEnviron) createVirtualMachine(
 	instanceSpec *instances.InstanceSpec,
 	instanceConfig *instancecfg.InstanceConfig,
 	storageAccountType string,
+	usePublicIP bool,
 ) error {
 	deploymentsClient := resources.DeploymentsClient{
 		BaseClient: env.resources,
@@ -746,7 +754,7 @@ func (env *azureEnviron) createVirtualMachine(
 		Subnet:                    &network.Subnet{ID: to.StringPtr(subnetId)},
 	}
 
-	if env.config.usePublicIP {
+	if usePublicIP {
 		publicIPAddressName := vmName + "-public-ip"
 		publicIPAddressId := fmt.Sprintf(`[resourceId('Microsoft.Network/publicIPAddresses', '%s')]`, publicIPAddressName)
 		ipConfig.PublicIPAddress = &network.PublicIPAddress{
