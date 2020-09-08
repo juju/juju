@@ -357,7 +357,13 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 }
 
 func (d *factory) maybeReadCharmstoreBundle(resolver Resolver) (Deployer, error) {
-	curl, err := charm.ParseURL(d.charmOrBundle)
+	// Ensure the charm url has a valid schema.
+	charmOrBundle, err := charm.EnsureSchema(d.charmOrBundle)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	curl, err := charm.ParseURL(charmOrBundle)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -406,8 +412,14 @@ func (d *factory) maybeReadCharmstoreBundle(resolver Resolver) (Deployer, error)
 }
 
 func (d *factory) charmStoreCharm() (Deployer, error) {
+	// Ensure the charm url has a valid schema.
+	charmOrBundle, err := charm.EnsureSchema(d.charmOrBundle)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Validate we have a charm store change
-	userRequestedURL, err := charm.ParseURL(d.charmOrBundle)
+	userRequestedURL, err := charm.ParseURL(charmOrBundle)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
