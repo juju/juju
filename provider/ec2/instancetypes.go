@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -30,6 +31,13 @@ var _ environs.InstanceTypesFetcher = (*environ)(nil)
 var EC2Session = func(region, accessKey, secretKey string) ec2iface.EC2API {
 	sess := session.Must(session.NewSession())
 	ec2Session := ec2.New(sess, &aws.Config{
+		Retryer: client.DefaultRetryer{ // these roughly match retry params in gopkg.in/amz.v3/ec2/ec2.go:EC2.query
+			NumMaxRetries:    10,
+			MinRetryDelay:    time.Second,
+			MinThrottleDelay: time.Second,
+			MaxRetryDelay:    time.Minute,
+			MaxThrottleDelay: time.Minute,
+		},
 		Region: aws.String(region),
 		Credentials: credentials.NewStaticCredentialsFromCreds(credentials.Value{
 			AccessKeyID:     accessKey,
@@ -167,7 +175,10 @@ func (e *environ) supportedInstanceTypes(ec2Session ec2iface.EC2API, ctx context
 		return e.instTypes, nil
 	}
 
-	const maxResults = 100
+	const (
+		maxOfferingsResults = 1000
+		maxTypesPage        = 100
+	)
 
 	// First get all the zone names for the current region.
 	zoneResults, err := ec2Session.DescribeAvailabilityZones(&ec2.DescribeAvailabilityZonesInput{
@@ -197,7 +208,7 @@ func (e *environ) supportedInstanceTypes(ec2Session ec2iface.EC2API, ctx context
 	for {
 		offeringResults, err := ec2Session.DescribeInstanceTypeOfferings(&ec2.DescribeInstanceTypeOfferingsInput{
 			LocationType: aws.String("availability-zone"),
-			MaxResults:   aws.Int64(maxResults),
+			MaxResults:   aws.Int64(maxOfferingsResults),
 			NextToken:    token,
 			Filters:      []*ec2.Filter{zoneFilter},
 		})
@@ -231,8 +242,8 @@ func (e *environ) supportedInstanceTypes(ec2Session ec2iface.EC2API, ctx context
 	var allInstanceTypes []instances.InstanceType
 	for len(instTypeNames) > 0 {
 		querySize := len(instTypeNames)
-		if querySize > maxResults {
-			querySize = maxResults
+		if querySize > maxTypesPage {
+			querySize = maxTypesPage
 		}
 		page := instTypeNames[0:querySize]
 		instTypeNames = instTypeNames[querySize:]
