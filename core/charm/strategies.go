@@ -82,7 +82,7 @@ type DownloadRepo interface {
 
 // DownloadFromCharmStore will creates a procedure to install a charm from the
 // charm store.
-func DownloadFromCharmStore(charmRepo DownloadRepo, url string, force bool) (*Strategy, error) {
+func DownloadFromCharmStore(repository DownloadRepo, url string, force bool) (*Strategy, error) {
 	curl, err := charm.ParseURL(url)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -90,7 +90,7 @@ func DownloadFromCharmStore(charmRepo DownloadRepo, url string, force bool) (*St
 	return &Strategy{
 		charmURL: curl,
 		store: StoreCharmStore{
-			charmRepo: charmRepo,
+			repository: repository,
 		},
 		force: force,
 	}, nil
@@ -98,7 +98,7 @@ func DownloadFromCharmStore(charmRepo DownloadRepo, url string, force bool) (*St
 
 // DownloadFromCharmHub will creates a procedure to install a charm from the
 // charm hub.
-func DownloadFromCharmHub(charmRepo DownloadRepo, curl string, force bool) (*Strategy, error) {
+func DownloadFromCharmHub(repository DownloadRepo, curl string, force bool) (*Strategy, error) {
 	churl, err := charm.ParseURL(curl)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -106,7 +106,7 @@ func DownloadFromCharmHub(charmRepo DownloadRepo, curl string, force bool) (*Str
 	return &Strategy{
 		charmURL: churl,
 		store: StoreCharmHub{
-			charmRepo: charmRepo,
+			repository: repository,
 		},
 		force: force,
 	}, nil

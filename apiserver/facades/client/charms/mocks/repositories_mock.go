@@ -94,19 +94,19 @@ func (m *MockCharmHubClient) EXPECT() *MockCharmHubClientMockRecorder {
 	return m.recorder
 }
 
-// GetCharmFromURL mocks base method
-func (m *MockCharmHubClient) GetCharmFromURL(arg0 *url.URL, arg1 string) (*charm.CharmArchive, error) {
+// Download mocks base method
+func (m *MockCharmHubClient) Download(arg0 context.Context, arg1 *url.URL, arg2 string) (*charm.CharmArchive, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCharmFromURL", arg0, arg1)
+	ret := m.ctrl.Call(m, "Download", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*charm.CharmArchive)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetCharmFromURL indicates an expected call of GetCharmFromURL
-func (mr *MockCharmHubClientMockRecorder) GetCharmFromURL(arg0, arg1 interface{}) *gomock.Call {
+// Download indicates an expected call of Download
+func (mr *MockCharmHubClientMockRecorder) Download(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmFromURL", reflect.TypeOf((*MockCharmHubClient)(nil).GetCharmFromURL), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Download", reflect.TypeOf((*MockCharmHubClient)(nil).Download), arg0, arg1, arg2)
 }
 
 // Info mocks base method

@@ -30,7 +30,7 @@ var logger = loggo.GetLogger("juju.apiserver.charms")
 // CharmHubClient represents the methods required of a
 // client to install or upgrade a CharmHub charm.
 type CharmHubClient interface {
-	GetCharmFromURL(curl *url.URL, archivePath string) (*charm.CharmArchive, error)
+	Download(ctx context.Context, resourceURL *url.URL, archivePath string) (*charm.CharmArchive, error)
 	Info(ctx context.Context, name string) (transport.InfoResponse, error)
 	Refresh(ctx context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error)
 }
