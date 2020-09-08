@@ -4,6 +4,7 @@
 package firewaller_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -72,7 +73,7 @@ func (s *machineSuite) TestInstanceId(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = apiNewMachine.InstanceId()
 	c.Assert(err, gc.ErrorMatches, "machine 3 not provisioned")
-	c.Assert(err, jc.Satisfies, params.IsCodeNotProvisioned)
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 
 	instanceId, err := s.apiMachine.InstanceId()
 	c.Assert(err, jc.ErrorIsNil)

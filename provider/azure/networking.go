@@ -143,29 +143,6 @@ func networkTemplateResources(
 		`[resourceId('Microsoft.Network/networkSecurityGroups', '%s')]`,
 		internalSecurityGroupName,
 	)
-	subnets := []network.Subnet{{
-		Name: to.StringPtr(internalSubnetName),
-		SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
-			AddressPrefix: to.StringPtr(internalSubnetPrefix),
-			NetworkSecurityGroup: &network.SecurityGroup{
-				ID: to.StringPtr(nsgID),
-			},
-		},
-	}}
-	addressPrefixes := []string{internalSubnetPrefix}
-	if len(apiPorts) > 0 {
-		addressPrefixes = append(addressPrefixes, controllerSubnetPrefix)
-		subnets = append(subnets, network.Subnet{
-			Name: to.StringPtr(controllerSubnetName),
-			SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
-				AddressPrefix: to.StringPtr(controllerSubnetPrefix),
-				NetworkSecurityGroup: &network.SecurityGroup{
-					ID: to.StringPtr(nsgID),
-				},
-			},
-		})
-	}
-
 	resources := []armtemplates.Resource{{
 		APIVersion: networkAPIVersion,
 		Type:       "Microsoft.Network/networkSecurityGroups",
@@ -178,6 +155,28 @@ func networkTemplateResources(
 	}}
 	// If no user specified virtual network, need to create it.
 	if config.virtualNetworkName == "" {
+		subnets := []network.Subnet{{
+			Name: to.StringPtr(internalSubnetName),
+			SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
+				AddressPrefix: to.StringPtr(internalSubnetPrefix),
+				NetworkSecurityGroup: &network.SecurityGroup{
+					ID: to.StringPtr(nsgID),
+				},
+			},
+		}}
+		addressPrefixes := []string{internalSubnetPrefix}
+		if len(apiPorts) > 0 {
+			addressPrefixes = append(addressPrefixes, controllerSubnetPrefix)
+			subnets = append(subnets, network.Subnet{
+				Name: to.StringPtr(controllerSubnetName),
+				SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
+					AddressPrefix: to.StringPtr(controllerSubnetPrefix),
+					NetworkSecurityGroup: &network.SecurityGroup{
+						ID: to.StringPtr(nsgID),
+					},
+				},
+			})
+		}
 		resources = append(resources, armtemplates.Resource{
 			APIVersion: networkAPIVersion,
 			Type:       "Microsoft.Network/virtualNetworks",
