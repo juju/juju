@@ -214,6 +214,22 @@ func (c *execCommand) Init(args []string) error {
 func ConvertActionResults(result params.ActionResult, query actionQuery, compat bool) map[string]interface{} {
 	values := make(map[string]interface{})
 	values[query.receiver.receiverType] = query.receiver.tag.Id()
+	if unit, ok := values["UnitId"]; ok && !compat {
+		delete(values, "UnitId")
+		values["unit"] = unit
+	}
+	if unit, ok := values["unit"]; ok && compat {
+		delete(values, "unit")
+		values["UnitId"] = unit
+	}
+	if machine, ok := values["MachineId"]; ok && !compat {
+		delete(values, "MachineId")
+		values["machine"] = machine
+	}
+	if machine, ok := values["machine"]; ok && compat {
+		delete(values, "machine")
+		values["MachineId"] = machine
+	}
 	if result.Error != nil {
 		values["Error"] = result.Error.Error()
 		values["Action"] = query.actionTag.Id()
@@ -239,14 +255,6 @@ func ConvertActionResults(result params.ActionResult, query actionQuery, compat 
 	val := action.ConvertActionOutput(result.Output, compat, true)
 	for k, v := range val {
 		values[k] = v
-	}
-	if unit, ok := values["UnitId"]; ok && !compat {
-		delete(values, "UnitId")
-		values["unit"] = unit
-	}
-	if unit, ok := values["unit"]; ok && compat {
-		delete(values, "unit")
-		values["UnitId"] = unit
 	}
 	return values
 }

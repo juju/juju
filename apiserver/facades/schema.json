@@ -566,6 +566,12 @@
                         "limit": {
                             "type": "integer"
                         },
+                        "machines": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
                         "offset": {
                             "type": "integer"
                         },
