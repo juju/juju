@@ -63,6 +63,12 @@ func (l *HookLogger) Run() {
 	}
 }
 
+func (l *HookLogger) AddReceiver(receiver MessageReceiver) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.receivers = append(l.receivers, receiver)
+}
+
 // Stopper instances can be stopped.
 type Stopper interface {
 	Stop()
