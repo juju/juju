@@ -12,14 +12,16 @@ import (
 
 // Client allows access to the CAAS operator API endpoint.
 type Client struct {
+	base.ClientFacade
 	facade base.FacadeCaller
 }
 
 // NewClient returns a client used to access the CAAS Operator API.
-func NewClient(caller base.APICaller) *Client {
-	facadeCaller := base.NewFacadeCaller(caller, "CAASApplication")
+func NewClient(caller base.APICallCloser) *Client {
+	frontend, backend := base.NewClientFacade(caller, "CAASApplication")
 	return &Client{
-		facade: facadeCaller,
+		ClientFacade: frontend,
+		facade:       backend,
 	}
 }
 
