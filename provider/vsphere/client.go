@@ -35,6 +35,7 @@ type Client interface {
 	VirtualMachines(context.Context, string) ([]*mo.VirtualMachine, error)
 	UserHasRootLevelPrivilege(context.Context, string) (bool, error)
 	FindFolder(ctx context.Context, folderPath string) (vmFolder *object.Folder, err error)
+	GetComputeResourcePath(context.Context, *mo.ComputeResource) (string, error)
 }
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/client_mock.go github.com/juju/juju/provider/vsphere Client

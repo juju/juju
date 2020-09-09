@@ -244,7 +244,9 @@ func (c *Client) ComputeResources(ctx context.Context) ([]*mo.ComputeResource, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	c.logger.Tracef("LP #1894236: ComputeResources(): folders: %+v", folders)
 
+	c.logger.Tracef("LP #1894236: ComputeResources(): folders.HostFolder: %+v", folders.HostFolder)
 	es, err := c.lister(folders.HostFolder.Reference()).List(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -354,6 +356,45 @@ func (c *Client) ResourcePools(ctx context.Context, path string) ([]*object.Reso
 		return nil, errors.Annotate(err, "listing resource pools")
 	}
 	return items, nil
+}
+
+func (c *Client) GetComputeResourcePath(ctx context.Context, cr *mo.ComputeResource) (string, error) {
+	// Default return value
+	var path = cr.Name
+
+	// Retrieve absolute path if ComputeResoure's parent s a Folder
+	if "Folder" == cr.Parent.Type {
+		c.logger.Debugf("cr.Parent.Type is a Folder")
+
+		// Retrieve parent folder
+		pc := property.DefaultCollector(c.client.Client)
+
+		var folder mo.Folder
+		err := pc.RetrieveOne(ctx, *cr.Parent, []string{"name"}, &folder)
+		if err != nil {
+			return path, errors.Trace(err)
+		}
+		c.logger.Tracef("retrieved folder: %+v", folder)
+
+		// Get finder
+		finder, _, err := c.finder(ctx)
+		if err != nil {
+			return path, errors.Trace(err)
+		}
+
+		// Find folder
+		fd, err := finder.Folder(ctx, folder.Name)
+		if err != nil {
+			return path, errors.Trace(err)
+		}
+		c.logger.Tracef("found folder: %+v", fd)
+		c.logger.Tracef("folder's full path: %+v", fd.InventoryPath)
+
+		path = fd.InventoryPath+"/"+path
+	}
+
+	c.logger.Tracef("returning path: %v", path)
+	return path, nil
 }
 
 // EnsureVMFolder creates the a VM folder with the given path if it doesn't already exist.

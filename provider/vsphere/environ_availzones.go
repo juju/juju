@@ -83,16 +83,13 @@ func (env *sessionEnviron) AvailabilityZones(ctx context.ProviderCallContext) (n
 			logger.Debugf("LP #1894236: AvailabilityZones() cr.Name: %v", cr.Name)
 			logger.Debugf("LP #1894236: AvailabilityZones() cr.Parent: %+v", cr.Parent)
 
-			if "Folder" == cr.Parent.Type {
-				logger.Debugf("LP #1894236: AvailabilityZones() cr.Parent.Type == 'Folder'")
-				// TODO: retrieve folder's full path, merge it with cr.Name  and pass it to
-				// ResourcePools() below
-
-				// folderFullPath = TODO
-				// path = folderFullPath+"/"+cr.Name+"/..."
+			// Construct path for ResourcePools function call
+			path, err := env.client.GetComputeResourcePath(env.ctx, cr)
+			if err != nil {
+				return nil, errors.Trace(err)
 			}
 
-			pools, err := env.client.ResourcePools(env.ctx, cr.Name+"/...")
+			pools, err := env.client.ResourcePools(env.ctx, path+"/...")
 			logger.Debugf("LP #1894236: AvailabilityZones() pools: %+v", pools)
 			if err != nil {
 				HandleCredentialError(err, env, ctx)
