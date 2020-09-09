@@ -116,12 +116,15 @@ func (a *ActionAPI) ListOperations(arg params.OperationQueryArgs) (params.Operat
 		return params.OperationResults{}, errors.Trace(err)
 	}
 
-	var unitTags []names.Tag
+	var receiverTags []names.Tag
 	for _, name := range arg.Units {
-		unitTags = append(unitTags, names.NewUnitTag(name))
+		receiverTags = append(receiverTags, names.NewUnitTag(name))
+	}
+	for _, id := range arg.Machines {
+		receiverTags = append(receiverTags, names.NewMachineTag(id))
 	}
 	appNames := arg.Applications
-	if len(appNames) == 0 && len(unitTags) == 0 {
+	if len(appNames) == 0 && len(receiverTags) == 0 {
 		apps, err := a.state.AllApplications()
 		if err != nil {
 			return params.OperationResults{}, errors.Trace(err)
@@ -140,7 +143,7 @@ func (a *ActionAPI) ListOperations(arg params.OperationQueryArgs) (params.Operat
 			return params.OperationResults{}, errors.Trace(err)
 		}
 		for _, u := range units {
-			unitTags = append(unitTags, u.Tag())
+			receiverTags = append(receiverTags, u.Tag())
 		}
 	}
 
@@ -158,7 +161,7 @@ func (a *ActionAPI) ListOperations(arg params.OperationQueryArgs) (params.Operat
 	if arg.Offset != nil {
 		offset = *arg.Offset
 	}
-	summaryResults, truncated, err := a.model.ListOperations(arg.ActionNames, unitTags, actionStatus, offset, limit)
+	summaryResults, truncated, err := a.model.ListOperations(arg.ActionNames, receiverTags, actionStatus, offset, limit)
 	if err != nil {
 		return params.OperationResults{}, errors.Trace(err)
 	}
@@ -178,8 +181,14 @@ func (a *ActionAPI) ListOperations(arg params.OperationQueryArgs) (params.Operat
 			Actions:      make([]params.ActionResult, len(r.Actions)),
 		}
 		for j, a := range r.Actions {
-			receiver := names.NewUnitTag(a.Receiver())
-			result.Results[i].Actions[j] = common.MakeActionResult(receiver, a, false)
+			receiver, err := names.ActionReceiverTag(a.Receiver())
+			if err == nil {
+				result.Results[i].Actions[j] = common.MakeActionResult(receiver, a, false)
+				continue
+			}
+			result.Results[i].Actions[j] = params.ActionResult{
+				Error: common.ServerError(errors.Errorf("unknown action receiver %q", a.Receiver())),
+			}
 		}
 	}
 	return result, nil

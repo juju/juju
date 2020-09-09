@@ -257,34 +257,34 @@ func (s *ExecSuite) TestConvertRunResults(c *gc.C) {
 		}, ""),
 		query: makeActionQuery(validUUID, "MachineId", names.NewMachineTag("1")),
 		expected: map[string]interface{}{
-			"Error":     "whoops",
-			"MachineId": "1",
-			"Action":    validUUID,
+			"Error":   "whoops",
+			"machine": "1",
+			"Action":  validUUID,
 		},
 	}, {
 		message: "different action tag from query tag",
 		results: makeActionResult(mockResponse{machineTag: "not-a-tag"}, "invalid"),
 		query:   makeActionQuery(validUUID, "MachineId", names.NewMachineTag("1")),
 		expected: map[string]interface{}{
-			"Error":     `expected action tag "action-` + validUUID + `", got "invalid"`,
-			"MachineId": "1",
-			"Action":    validUUID,
+			"Error":   `expected action tag "action-` + validUUID + `", got "invalid"`,
+			"machine": "1",
+			"Action":  validUUID,
 		},
 	}, {
 		message: "different response tag from query tag",
 		results: makeActionResult(mockResponse{machineTag: "not-a-tag"}, "action-"+validUUID),
 		query:   makeActionQuery(validUUID, "MachineId", names.NewMachineTag("1")),
 		expected: map[string]interface{}{
-			"Error":     `expected action receiver "machine-1", got "not-a-tag"`,
-			"MachineId": "1",
-			"Action":    validUUID,
+			"Error":   `expected action receiver "machine-1", got "not-a-tag"`,
+			"machine": "1",
+			"Action":  validUUID,
 		},
 	}, {
 		message: "minimum is machine id",
 		results: makeActionResult(mockResponse{machineTag: "machine-1"}, "action-"+validUUID),
 		query:   makeActionQuery(validUUID, "MachineId", names.NewMachineTag("1")),
 		expected: map[string]interface{}{
-			"MachineId": "1",
+			"machine": "1",
 		},
 	}, {
 		message: "other fields are copied if there",
@@ -391,9 +391,9 @@ func (s *ExecSuite) TestAllMachines(c *gc.C) {
 		ConvertActionResults(machine0Result, machine0Query, false),
 		ConvertActionResults(machine1Result, machine1Query, false),
 		map[string]interface{}{
-			"Action":    mock.receiverIdMap["2"],
-			"MachineId": "2",
-			"Error":     "action not found",
+			"Action":  mock.receiverIdMap["2"],
+			"machine": "2",
+			"Error":   "action not found",
 		},
 	}
 
