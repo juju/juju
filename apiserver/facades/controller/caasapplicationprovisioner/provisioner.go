@@ -42,6 +42,7 @@ type APIGroup struct {
 	*common.PasswordChanger
 	*common.LifeGetter
 	*charmscommon.CharmsAPI
+	*common.ApplicationWatcherFacade
 	*API
 }
 
@@ -83,10 +84,11 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error
 	}
 
 	apiGroup := &APIGroup{
-		PasswordChanger: common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
-		LifeGetter:      common.NewLifeGetter(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
-		CharmsAPI:       commonCharmsAPI,
-		API:             api,
+		PasswordChanger:          common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
+		LifeGetter:               common.NewLifeGetter(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
+		CharmsAPI:                commonCharmsAPI,
+		ApplicationWatcherFacade: common.NewApplicationWatcherFacadeFromState(st, resources, common.ApplicationFilterCAASEmbedded),
+		API:                      api,
 	}
 
 	return apiGroup, nil

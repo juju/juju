@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v7"
+	"github.com/juju/charm/v8"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
@@ -19,7 +19,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 
@@ -112,9 +111,9 @@ func (s *applicationSuite) TestEnsureFailed(c *gc.C) {
 	c.Assert(app.Ensure(
 		caas.ApplicationConfig{
 			Charm: s.getCharm(&charm.Deployment{
-				DeploymentType:     charm.DeploymentType("notsupported"),
-				ContainerImageName: "gitlab:latest",
-				DeploymentMode:     charm.DeploymentMode(caas.ModeEmbedded),
+				DeploymentType: charm.DeploymentType("notsupported"),
+				//ContainerImageName: "gitlab:latest",
+				DeploymentMode: charm.DeploymentMode(caas.ModeEmbedded),
 			}),
 		},
 	), gc.ErrorMatches, `unknown deployment type not supported`)
@@ -140,14 +139,14 @@ func (s *applicationSuite) TestEnsureFailed(c *gc.C) {
 		},
 	), gc.ErrorMatches, `charm deployment mode is not "embedded" not valid`)
 
-	c.Assert(app.Ensure(
+	/*c.Assert(app.Ensure(
 		caas.ApplicationConfig{
 			Charm: s.getCharm(&charm.Deployment{
 				DeploymentType: charm.DeploymentStateless,
 				DeploymentMode: charm.DeploymentMode(caas.ModeEmbedded),
 			}),
 		},
-	), gc.ErrorMatches, `generating application podspec: charm missing container-image-name not valid`)
+	), gc.ErrorMatches, `generating application podspec: charm missing container-image-name not valid`)*/
 
 }
 
@@ -177,14 +176,14 @@ func (s *applicationSuite) assertEnsure(c *gc.C, deploymentType caas.DeploymentT
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{"juju-app": "gitlab"},
 			Type:     corev1.ServiceTypeClusterIP,
-			Ports: []corev1.ServicePort{
+			/*Ports: []corev1.ServicePort{
 				{
 					Name:       "tcp",
 					Port:       8080,
 					TargetPort: intstr.FromInt(8080),
 					Protocol:   corev1.ProtocolTCP,
 				},
-			},
+			},*/
 		},
 	}
 
@@ -194,9 +193,9 @@ func (s *applicationSuite) assertEnsure(c *gc.C, deploymentType caas.DeploymentT
 		caas.ApplicationConfig{
 			AgentImagePath: "operator/image-path",
 			Charm: s.getCharm(&charm.Deployment{
-				DeploymentType:     charm.DeploymentType(deploymentType),
-				DeploymentMode:     charm.DeploymentMode(caas.ModeEmbedded),
-				ContainerImageName: "gitlab:latest",
+				DeploymentType: charm.DeploymentType(deploymentType),
+				DeploymentMode: charm.DeploymentMode(caas.ModeEmbedded),
+				/*ContainerImageName: "gitlab:latest",
 				ServicePorts: []charm.ServicePort{
 					{
 						Name:       "tcp",
@@ -204,7 +203,7 @@ func (s *applicationSuite) assertEnsure(c *gc.C, deploymentType caas.DeploymentT
 						TargetPort: 8080,
 						Protocol:   "TCP",
 					},
-				},
+				},*/
 			}),
 			Filesystems: []storage.KubernetesFilesystemParams{{
 				StorageName: "database",
@@ -335,7 +334,7 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 							}, {
 								Name:            "gitlab",
 								ImagePullPolicy: corev1.PullIfNotPresent,
-								Image:           "gitlab:latest",
+								Image:           "test-image",
 								Command:         []string{"/usr/bin/pebble"},
 								VolumeMounts: []corev1.VolumeMount{
 									{
@@ -353,13 +352,13 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 										MountPath: "path/to/there",
 									},
 								},
-								Ports: []corev1.ContainerPort{
+								/*Ports: []corev1.ContainerPort{
 									{
 										Name:          "tcp",
 										ContainerPort: 8080,
 										Protocol:      corev1.ProtocolTCP,
 									},
-								},
+								},*/
 							}},
 							Volumes: []corev1.Volume{
 								{
@@ -520,7 +519,7 @@ func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 							}, {
 								Name:            "gitlab",
 								ImagePullPolicy: corev1.PullIfNotPresent,
-								Image:           "gitlab:latest",
+								Image:           "test-image",
 								Command:         []string{"/usr/bin/pebble"},
 								VolumeMounts: []corev1.VolumeMount{
 									{
@@ -538,13 +537,13 @@ func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 										MountPath: "path/to/there",
 									},
 								},
-								Ports: []corev1.ContainerPort{
+								/*Ports: []corev1.ContainerPort{
 									{
 										Name:          "tcp",
 										ContainerPort: 8080,
 										Protocol:      corev1.ProtocolTCP,
 									},
-								},
+								},*/
 							}},
 							Volumes: []corev1.Volume{
 								{
@@ -698,7 +697,7 @@ func (s *applicationSuite) TestEnsureDaemon(c *gc.C) {
 							}, {
 								Name:            "gitlab",
 								ImagePullPolicy: corev1.PullIfNotPresent,
-								Image:           "gitlab:latest",
+								Image:           "test-image",
 								Command:         []string{"/usr/bin/pebble"},
 								VolumeMounts: []corev1.VolumeMount{
 									{
@@ -716,13 +715,13 @@ func (s *applicationSuite) TestEnsureDaemon(c *gc.C) {
 										MountPath: "path/to/there",
 									},
 								},
-								Ports: []corev1.ContainerPort{
+								/*Ports: []corev1.ContainerPort{
 									{
 										Name:          "tcp",
 										ContainerPort: 8080,
 										Protocol:      corev1.ProtocolTCP,
 									},
-								},
+								},*/
 							}},
 							Volumes: []corev1.Volume{
 								{

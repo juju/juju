@@ -41,6 +41,7 @@ var logger = loggo.GetLogger("juju.apiserver.controller.caasunitprovisioner")
 
 type Facade struct {
 	*common.LifeGetter
+	*common.ApplicationWatcherFacade
 
 	resources          facade.Resources
 	state              CAASUnitProvisionerState
@@ -74,6 +75,7 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 	}
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
 	pm := poolmanager.New(state.NewStateSettings(ctx.State()), registry)
+	appWatcherFacade := common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterCAASLegacy)
 
 	return NewFacade(
 		resources,
@@ -83,6 +85,7 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 		db,
 		pm,
 		registry,
+		appWatcherFacade,
 		clock.WallClock,
 	)
 }
@@ -96,12 +99,14 @@ func NewFacade(
 	db DeviceBackend,
 	storagePoolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
+	applicationWatcherFacade *common.ApplicationWatcherFacade,
 	clock clock.Clock,
 ) (*Facade, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
 	return &Facade{
+		ApplicationWatcherFacade: applicationWatcherFacade,
 		LifeGetter: common.NewLifeGetter(
 			st, common.AuthAny(
 				common.AuthFuncForTagKind(names.ApplicationTagKind),
@@ -116,19 +121,6 @@ func NewFacade(
 		registry:           registry,
 		clock:              clock,
 	}, nil
-}
-
-// WatchApplications starts a StringsWatcher to watch CAAS applications
-// deployed to this model.
-func (f *Facade) WatchApplications() (params.StringsWatchResult, error) {
-	watch := f.state.WatchApplications()
-	if changes, ok := <-watch.Changes(); ok {
-		return params.StringsWatchResult{
-			StringsWatcherId: f.resources.Register(watch),
-			Changes:          changes,
-		}, nil
-	}
-	return params.StringsWatchResult{}, watcher.EnsureErr(watch)
 }
 
 // WatchApplicationsScale starts a NotifyWatcher to watch changes

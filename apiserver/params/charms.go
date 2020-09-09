@@ -175,10 +175,6 @@ type CharmDeployment struct {
 	DeploymentMode string `json:"mode"`
 	ServiceType    string `json:"service"`
 	MinVersion     string `json:"min-version"`
-
-	// HACK: These are added for embedded k8s charms
-	ContainerImageName string             `json:"container-image-name"`
-	ServicePorts       []CharmServicePort `json:"service-ports"`
 }
 
 // CharmServicePort represents service ports mapping from Unit to Service
