@@ -185,8 +185,11 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 				c.Check(writer.Buffer.String(), jc.Contains,
 					fmt.Sprintf("DEBUG unit.u/0.something-happened %s\n", t.spec.stdout))
 			} else {
+				// Lines longer than lineBufferSize get split into multiple log messages
 				c.Check(writer.Buffer.String(), jc.Contains,
 					fmt.Sprintf("DEBUG unit.u/0.something-happened %s\n", t.spec.stdout[:lineBufferSize]))
+				c.Check(writer.Buffer.String(), jc.Contains,
+					fmt.Sprintf("DEBUG unit.u/0.something-happened %s\n", t.spec.stdout[lineBufferSize:]))
 			}
 		}
 		if t.spec.stderr != "" {
