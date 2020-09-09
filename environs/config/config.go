@@ -391,7 +391,7 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 		defined: defined.(map[string]interface{}),
 		unknown: make(map[string]interface{}),
 	}
-	if err := c.ensureUnitLogging(); err != nil {
+	if err := c.setLoggingFromEnviron(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -454,7 +454,7 @@ var defaultConfigValues = map[string]interface{}{
 	"default-series":              series.DefaultSupportedLTS(),
 	ProvisionerHarvestModeKey:     HarvestDestroyed.String(),
 	ResourceTagsKey:               "",
-	"logging-config":              "",
+	"logging-config":              "<root>=INFO",
 	AutomaticallyRetryHooks:       true,
 	"enable-os-refresh-update":    true,
 	"enable-os-upgrade":           true,
@@ -516,18 +516,15 @@ func ConfigDefaults() map[string]interface{} {
 	return defaultConfigValues
 }
 
-func (c *Config) ensureUnitLogging() error {
+func (c *Config) setLoggingFromEnviron() error {
 	loggingConfig := c.asString("logging-config")
 	// If the logging config hasn't been set, then look for the os environment
 	// variable, and failing that, get the config from loggo itself.
 	if loggingConfig == "" {
 		if environmentValue := os.Getenv(osenv.JujuLoggingConfigEnvKey); environmentValue != "" {
-			loggingConfig = environmentValue
-		} else {
-			loggingConfig = loggo.LoggerInfo()
+			c.defined["logging-config"] = loggingConfig
 		}
 	}
-	c.defined["logging-config"] = loggingConfig
 	return nil
 }
 
