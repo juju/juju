@@ -394,7 +394,7 @@ func (s *ModelConfigSourceSuite) assertModelConfigValues(c *gc.C, modelCfg *conf
 func (s *ModelConfigSourceSuite) TestModelConfigValues(c *gc.C) {
 	modelCfg, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	modelAttributes := set.NewStrings("name", "apt-mirror", "logging-config", "authorized-keys", "resource-tags")
+	modelAttributes := set.NewStrings("name", "apt-mirror", "authorized-keys", "resource-tags")
 	s.assertModelConfigValues(c, modelCfg, modelAttributes, set.NewStrings("http-proxy"))
 }
 
@@ -407,7 +407,7 @@ func (s *ModelConfigSourceSuite) TestModelConfigUpdateSource(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	modelCfg, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	modelAttributes := set.NewStrings("name", "http-proxy", "logging-config", "authorized-keys", "resource-tags")
+	modelAttributes := set.NewStrings("name", "http-proxy", "authorized-keys", "resource-tags")
 	s.assertModelConfigValues(c, modelCfg, modelAttributes, set.NewStrings("apt-mirror"))
 }
 
