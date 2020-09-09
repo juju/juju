@@ -45,23 +45,23 @@ import (
 // herein.
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidFlags(c *gc.C) {
-	s.setupCharm(c, "xenial/mysql-42", "mysql", "bionic")
-	s.setupCharm(c, "xenial/wordpress-47", "wordpress", "bionic")
-	s.setupBundle(c, "bundle/wordpress-simple-1", "wordpress-simple", "bionic")
+	s.setupCharm(c, "cs:xenial/mysql-42", "mysql", "bionic")
+	s.setupCharm(c, "cs:xenial/wordpress-47", "wordpress", "bionic")
+	s.setupBundle(c, "cs:bundle/wordpress-simple-1", "wordpress-simple", "bionic")
 
-	err := s.runDeploy(c, "bundle/wordpress-simple", "--config", "config.yaml")
+	err := s.runDeploy(c, "cs:bundle/wordpress-simple", "--config", "config.yaml")
 	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: --config")
-	err = s.runDeploy(c, "bundle/wordpress-simple", "-n", "2")
+	err = s.runDeploy(c, "cs:bundle/wordpress-simple", "-n", "2")
 	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: -n")
-	err = s.runDeploy(c, "bundle/wordpress-simple", "--series", "xenial")
+	err = s.runDeploy(c, "cs:bundle/wordpress-simple", "--series", "xenial")
 	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: --series")
 }
 
 func (s *BundleDeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
 	s.fakeAPI.planURL = s.server.URL
-	s.setupCharm(c, "xenial/wordpress", "wordpress", "bionic")
-	s.setupCharm(c, "xenial/mysql", "mysql", "bionic")
-	s.setupBundle(c, "bundle/wordpress-with-plans-1", "wordpress-with-plans", "xenial")
+	s.setupCharm(c, "cs:xenial/wordpress", "wordpress", "bionic")
+	s.setupCharm(c, "cs:xenial/mysql", "mysql", "bionic")
+	s.setupBundle(c, "cs:bundle/wordpress-with-plans-1", "wordpress-with-plans", "xenial")
 
 	// `"hello registration"\n` (quotes and newline from json
 	// encoding) is returned by the fake http server. This is binary64
@@ -71,7 +71,7 @@ func (s *BundleDeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
 
 	deploy := s.deployCommandForState()
 	deploy.Steps = []deployer.DeployStep{&deployer.RegisterMeteredCharm{PlanURL: s.server.URL, RegisterPath: "", QueryPath: ""}}
-	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "bundle/wordpress-with-plans")
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:bundle/wordpress-with-plans")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The order of calls here does not matter and is, in fact, not guaranteed.
@@ -109,11 +109,11 @@ func (s *BundleDeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSpaceMissing(c *gc.C) {
-	s.setupCharm(c, "xenial/mysql-42", "mysql", "bionic")
-	s.setupCharmMaybeAdd(c, "xenial/wordpress-extra-bindings-47", "wordpress-extra-bindings", "bionic", false)
-	s.setupBundle(c, "bundle/wordpress-with-endpoint-bindings-1", "wordpress-with-endpoint-bindings", "bionic")
+	s.setupCharm(c, "cs:xenial/mysql-42", "mysql", "bionic")
+	s.setupCharmMaybeAdd(c, "cs:xenial/wordpress-extra-bindings-47", "wordpress-extra-bindings", "bionic", false)
+	s.setupBundle(c, "cs:bundle/wordpress-with-endpoint-bindings-1", "wordpress-with-endpoint-bindings", "bionic")
 
-	stdOut, stdErr, err := s.runDeployWithOutput(c, "bundle/wordpress-with-endpoint-bindings")
+	stdOut, stdErr, err := s.runDeployWithOutput(c, "cs:bundle/wordpress-with-endpoint-bindings")
 	c.Assert(err, gc.ErrorMatches, ""+
 		"cannot deploy bundle: cannot deploy application \"mysql\": "+
 		"space not found")
@@ -545,7 +545,7 @@ charm path in application "mysql" does not exist: .*mysql`,
 	content: `
         applications:
             rails:
-                charm: xenial/rails-42
+                charm: cs:xenial/rails-42
                 num_units: 1
     `,
 	err: `cannot resolve URL "xenial/rails-42": .* charm or bundle not found`,
@@ -558,7 +558,7 @@ charm path in application "mysql" does not exist: .*mysql`,
 	content: `
         applications:
             mysql:
-                charm: mysql
+                charm: cs:mysql
                 num_units: -1
     `,
 	err: `the provided bundle has the following errors:
@@ -568,7 +568,7 @@ negative number of units specified on application "mysql"`,
 	content: `
         applications:
             mysql:
-                charm: mysql
+                charm: cs:mysql
                 num_units: 1
                 constraints: bad-wolf
     `,
@@ -579,7 +579,7 @@ invalid constraints "bad-wolf" in application "mysql": malformed constraint "bad
 	content: `
         applications:
             mysql:
-                charm: mysql
+                charm: cs:mysql
                 num_units: -1
                 constraints: bad-wolf
     `,
@@ -1034,21 +1034,21 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationUpgradeFailure(
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleNewRelations(c *gc.C) {
-	s.setupCharm(c, "xenial/wordpress-0", "wordpress", "bionic")
-	s.setupCharm(c, "xenial/mysql-1", "mysql", "bionic")
-	s.setupCharm(c, "xenial/postgres-2", "mysql", "bionic")
-	s.setupCharm(c, "xenial/varnish-3", "varnish", "bionic")
+	s.setupCharm(c, "cs:xenial/wordpress-0", "wordpress", "bionic")
+	s.setupCharm(c, "cs:xenial/mysql-1", "mysql", "bionic")
+	s.setupCharm(c, "cs:xenial/postgres-2", "mysql", "bionic")
+	s.setupCharm(c, "cs:xenial/varnish-3", "varnish", "bionic")
 
 	err := s.DeployBundleYAML(c, `
         applications:
             wp:
-                charm: wordpress
+                charm: cs:wordpress
                 num_units: 1
             mysql:
-                charm: mysql
+                charm: cs:mysql
                 num_units: 1
             varnish:
-                charm: xenial/varnish
+                charm: cs:xenial/varnish
                 num_units: 1
         relations:
             - ["wp:db", "mysql:server"]
@@ -1057,13 +1057,13 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleNewRelations(c *gc.C) {
 	stdOut, _, err := s.DeployBundleYAMLWithOutput(c, `
         applications:
             wp:
-                charm: wordpress
+                charm: cs:wordpress
                 num_units: 1
             mysql:
-                charm: mysql
+                charm: cs:mysql
                 num_units: 1
             varnish:
-                charm: xenial/varnish
+                charm: cs:xenial/varnish
                 num_units: 1
         relations:
             - ["wp:db", "mysql:server"]
@@ -1083,8 +1083,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleNewRelations(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleMachinesUnitsPlacement(c *gc.C) {
-	mysqlch := s.setupCharm(c, "xenial/mysql-2", "mysql", "bionic")
-	wpch := s.setupCharm(c, "xenial/wordpress-0", "wordpress", "bionic")
+	mysqlch := s.setupCharm(c, "cs:xenial/mysql-2", "mysql", "bionic")
+	wpch := s.setupCharm(c, "cs:xenial/wordpress-0", "wordpress", "bionic")
 
 	content := `
         applications:

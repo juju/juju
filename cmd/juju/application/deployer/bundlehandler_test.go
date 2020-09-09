@@ -736,16 +736,16 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMultipleRelations(c *gc.C)
        series: bionic
        applications:
            wordpress:
-               charm: wordpress-47
+               charm: cs:wordpress-47
                num_units: 1
            mysql:
                charm: mysql-32
                num_units: 1
            postgres:
-               charm: xenial/postgres-2
+               charm: cs:xenial/postgres-2
                num_units: 1
            varnish:
-               charm: xenial/varnish
+               charm: cs:xenial/varnish
                num_units: 1
        relations:
            - ["wordpress:db", "mysql:server"]
