@@ -148,8 +148,6 @@ func (s *ModelConfigSuite) TestComposeNewModelConfig(c *gc.C) {
 	expected["whimsy-key"] = "whimsy-value"
 	expected["image-stream"] = "dummy-image-stream"
 	expected["no-proxy"] = "dummy-proxy"
-	// config.New() adds logging-config so remove it.
-	expected["logging-config"] = ""
 	c.Assert(cfgAttrs, jc.DeepEquals, expected)
 }
 
@@ -173,8 +171,6 @@ func (s *ModelConfigSuite) TestComposeNewModelConfigRegionMisses(c *gc.C) {
 	expected["whimsy-key"] = "whimsy-value"
 	expected["no-proxy"] = "dummy-proxy"
 	expected["image-stream"] = "dummy-image-stream"
-	// config.New() adds logging-config so remove it.
-	expected["logging-config"] = ""
 	c.Assert(cfgAttrs, jc.DeepEquals, expected)
 }
 
@@ -196,8 +192,6 @@ func (s *ModelConfigSuite) TestComposeNewModelConfigRegionInherits(c *gc.C) {
 	expected["no-proxy"] = "nether-proxy"
 	expected["apt-mirror"] = "http://nether-region-mirror"
 	expected["providerAttrdummy"] = "vulch"
-	// config.New() adds logging-config so remove it.
-	expected["logging-config"] = ""
 	c.Assert(cfgAttrs, jc.DeepEquals, expected)
 }
 

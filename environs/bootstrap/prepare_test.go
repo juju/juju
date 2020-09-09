@@ -89,7 +89,6 @@ func (*PrepareSuite) TestPrepare(c *gc.C) {
 			"default-series":            "bionic",
 			"firewall-mode":             "instance",
 			"ssl-hostname-verification": true,
-			"logging-config":            "<root>=DEBUG",
 			"secret":                    "pork",
 			"authorized-keys":           testing.FakeAuthKeys,
 			"type":                      "dummy",
