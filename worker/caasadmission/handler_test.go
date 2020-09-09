@@ -214,18 +214,19 @@ func (h *HandlerSuite) TestPatchLabelsAdd(c *gc.C) {
 	c.Assert(patchOperations[0].Op, gc.Equals, "add")
 	c.Assert(patchOperations[0].Path, gc.Equals, "/metadata/labels")
 
-	expectedLabels := provider.LabelsForApp(appName)
+	expectedLabels := provider.LabelForKeyValue(
+		provider.LabelJujuAppCreatedBy, appName)
 	for k, v := range expectedLabels {
 		found := false
 		for _, patchOp := range patchOperations[1:] {
-			if patchOp.Path == fmt.Sprintf("/metadata/labels/%s", k) {
+			if patchOp.Path == fmt.Sprintf("/metadata/labels/%s", patchEscape(k)) {
 				c.Assert(patchOp.Op, gc.Equals, "add")
 				c.Assert(patchOp.Value, jc.DeepEquals, v)
 				found = true
 				break
 			}
 		}
-		c.Assert(found, gc.Equals, true)
+		c.Assert(found, jc.IsTrue)
 	}
 
 	for k, v := range expectedLabels {
@@ -246,8 +247,10 @@ func (h *HandlerSuite) TestPatchLabelsAdd(c *gc.C) {
 func (h *HandlerSuite) TestPatchLabelsReplace(c *gc.C) {
 	pod := core.Pod{
 		ObjectMeta: meta.ObjectMeta{
-			Name:   "pod",
-			Labels: provider.LabelsForApp("replace-app"),
+			Name: "pod",
+			Labels: provider.LabelForKeyValue(
+				provider.LabelJujuAppCreatedBy, "replace-app",
+			),
 		},
 	}
 	podBytes, err := json.Marshal(&pod)
@@ -295,18 +298,19 @@ func (h *HandlerSuite) TestPatchLabelsReplace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(patchOperations), gc.Equals, 1)
 
-	expectedLabels := provider.LabelsForApp(appName)
+	expectedLabels := provider.LabelForKeyValue(
+		provider.LabelJujuAppCreatedBy, appName)
 	for k, v := range expectedLabels {
 		found := false
 		for _, patchOp := range patchOperations {
-			if patchOp.Path == fmt.Sprintf("/metadata/labels/%s", k) {
+			if patchOp.Path == fmt.Sprintf("/metadata/labels/%s", patchEscape(k)) {
 				c.Assert(patchOp.Op, gc.Equals, "replace")
 				c.Assert(patchOp.Value, jc.DeepEquals, v)
 				found = true
 				break
 			}
 		}
-		c.Assert(found, gc.Equals, true)
+		c.Assert(found, jc.IsTrue)
 	}
 
 	for k, v := range expectedLabels {

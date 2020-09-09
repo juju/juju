@@ -3,6 +3,17 @@
 
 package provider
 
+import (
+	"k8s.io/apimachinery/pkg/labels"
+)
+
+const (
+	// LabelJujuAppCreatedBy is a Juju application label to apply to objects
+	// created by applications managed by Juju. Think istio, kubeflow etc
+	// See https://bugs.launchpad.net/juju/+bug/1892285
+	LabelJujuAppCreatedBy = "app.juju.is/created-by"
+)
+
 // AppendLabels adds the labels defined in src to dest returning the result.
 // Overlapping keys in sources maps are overwritten by the very last defined
 // value for a duplicate key.
@@ -42,5 +53,12 @@ func LabelsForApp(name string) map[string]string {
 func LabelsForModel(name string) map[string]string {
 	return map[string]string{
 		labelModel: name,
+	}
+}
+
+// LabelForKeyValue returns a Kubernetes label set for the supplied key value.
+func LabelForKeyValue(key, value string) labels.Set {
+	return labels.Set{
+		key: value,
 	}
 }

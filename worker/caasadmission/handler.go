@@ -171,15 +171,16 @@ func errToAdmissionResponse(err error) *admission.AdmissionResponse {
 }
 
 func patchEscape(s string) string {
-	r := strings.Replace(s, "/", "~1", -1)
-	r = strings.Replace(r, "~", "~0", -1)
+	r := strings.Replace(s, "~", "~0", -1)
+	r = strings.Replace(r, "/", "~1", -1)
 	return r
 }
 
 func patchForLabels(labels map[string]string, appName string) []patchOperation {
 	patches := []patchOperation{}
 
-	neededLabels := provider.LabelsForApp(appName)
+	neededLabels := provider.LabelForKeyValue(
+		provider.LabelJujuAppCreatedBy, appName)
 
 	if len(labels) == 0 {
 		patches = append(patches, patchOperation{
