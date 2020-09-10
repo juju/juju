@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -494,10 +495,23 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 			return nil, errors.Trace(err)
 		}
 
+		// For security purposes we do not allow both the expose flag
+		// and the exposed endpoints fields to be populated in exported
+		// bundles. Otherwise, exporting a bundle from a 2.9 controller
+		// (with per-endpoint expose settings) and deploying it to a
+		// 2.8 controller would result in all application ports to be
+		// made accessible from 0.0.0.0/0.
+		exposedEndpoints, err := mapExposedEndpoints(application.ExposedEndpoints(), allSpacesInfoLookup)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		exposedFlag := application.Exposed() && len(exposedEndpoints) == 0
+
 		if application.Subordinate() {
 			newApplication = &charm.ApplicationSpec{
 				Charm:            application.CharmURL(),
-				Expose:           application.Exposed(),
+				Expose:           exposedFlag,
+				ExposedEndpoints: exposedEndpoints,
 				Options:          application.CharmConfig(),
 				Annotations:      application.Annotations(),
 				EndpointBindings: endpointsWithSpaceNames,
@@ -539,7 +553,8 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 				Scale_:           scale,
 				Placement_:       placement,
 				To:               ut,
-				Expose:           application.Exposed(),
+				Expose:           exposedFlag,
+				ExposedEndpoints: exposedEndpoints,
 				Options:          application.CharmConfig(),
 				Annotations:      application.Annotations(),
 				EndpointBindings: endpointsWithSpaceNames,
@@ -647,6 +662,62 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 	}
 
 	return data, nil
+}
+
+// mapExposedEndpoints converts the description package representation of the
+// exposed endpoint settings into a format that can be included in the exported
+// bundle output.  The provided spaceInfos list is used to convert space IDs
+// into space names.
+func mapExposedEndpoints(exposedEndpoints map[string]description.ExposedEndpoint, spaceInfos network.SpaceInfos) (map[string]charm.ExposedEndpointSpec, error) {
+	if len(exposedEndpoints) == 0 {
+		return nil, nil
+	} else if allEndpointParams, found := exposedEndpoints[""]; found && len(exposedEndpoints) == 1 {
+		// We have a single entry for the wildcard endpoint; check if
+		// it only includes an expose to all networks CIDR.
+		if len(allEndpointParams.ExposeToSpaceIDs()) == 0 &&
+			len(allEndpointParams.ExposeToCIDRs()) == 1 &&
+			allEndpointParams.ExposeToCIDRs()[0] == firewall.AllNetworksIPV4CIDR {
+			return nil, nil // equivalent to using non-granular expose like pre 2.9 juju
+		}
+	}
+
+	res := make(map[string]charm.ExposedEndpointSpec, len(exposedEndpoints))
+	for endpointName, exposeDetails := range exposedEndpoints {
+		exposeToCIDRs := exposeDetails.ExposeToCIDRs()
+		exposeToSpaceNames, err := mapSpaceIDsToNames(spaceInfos, exposeDetails.ExposeToSpaceIDs())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		// Ensure consistent ordering of results
+		sort.Strings(exposeToSpaceNames)
+		sort.Strings(exposeToCIDRs)
+
+		res[endpointName] = charm.ExposedEndpointSpec{
+			ExposeToSpaces: exposeToSpaceNames,
+			ExposeToCIDRs:  exposeToCIDRs,
+		}
+	}
+
+	return res, nil
+}
+
+func mapSpaceIDsToNames(spaceInfos network.SpaceInfos, spaceIDs []string) ([]string, error) {
+	if len(spaceIDs) == 0 {
+		return nil, nil
+	}
+
+	spaceNames := make([]string, len(spaceIDs))
+	for i, spaceID := range spaceIDs {
+		sp := spaceInfos.GetByID(spaceID)
+		if sp == nil {
+			return nil, errors.NotFoundf("space with ID %q", spaceID)
+		}
+
+		spaceNames[i] = string(sp.Name)
+	}
+
+	return spaceNames, nil
 }
 
 func (b *BundleAPI) printSpaceNamesInEndpointBindings(apps []description.Application) bool {
