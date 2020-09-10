@@ -1687,7 +1687,7 @@ func (s *applicationSuite) TestUnitsInfo(c *gc.C) {
 	})
 }
 
-func (s *applicationSuite) TestUnitssInfoResultMismatch(c *gc.C) {
+func (s *applicationSuite) TestUnitsInfoResultMismatch(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, a, response interface{}) error {
 			c.Assert(request, gc.Equals, "UnitsInfo")
@@ -1767,6 +1767,49 @@ func (s *applicationSuite) TestExposeVersionChecks(c *gc.C) {
 		}, spec.facadeVersion)
 
 		err := client.Expose("foo", spec.exposedEndpoints)
+		if spec.expErr == "" {
+			c.Assert(err, jc.ErrorIsNil)
+		} else {
+			c.Assert(err, gc.ErrorMatches, spec.expErr)
+		}
+	}
+}
+
+func (s *applicationSuite) TestUnexposeVersionChecks(c *gc.C) {
+	specs := []struct {
+		descr            string
+		facadeVersion    int
+		exposedEndpoints []string
+		expErr           string
+	}{
+		{
+			descr:            "use exposed endpoints with pre 2.9 controller",
+			facadeVersion:    12,
+			exposedEndpoints: []string{"foo"},
+			expErr:           "controller does not support granular expose parameters; applying this change would unexpose the application",
+		},
+		{
+			descr:            "don't use expose parameters",
+			facadeVersion:    12,
+			exposedEndpoints: nil,
+			expErr:           "",
+		},
+		{
+			descr:            "use exposed endpoints with 2.9 controller",
+			facadeVersion:    13,
+			exposedEndpoints: []string{"foo"},
+			expErr:           "",
+		},
+	}
+
+	for i, spec := range specs {
+		c.Logf("%d. %s", i, spec.descr)
+
+		client := newClientWithVersion(func(objType string, version int, id, request string, a, response interface{}) error {
+			return nil
+		}, spec.facadeVersion)
+
+		err := client.Unexpose("foo", spec.exposedEndpoints)
 		if spec.expErr == "" {
 			c.Assert(err, jc.ErrorIsNil)
 		} else {

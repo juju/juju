@@ -818,8 +818,15 @@ func hasGranularExposeParameters(exposedEndpoints map[string]params.ExposedEndpo
 
 // Unexpose changes the juju-managed firewall to unexpose any ports that
 // were also explicitly marked by units as open.
-func (c *Client) Unexpose(application string) error {
-	args := params.ApplicationUnexpose{ApplicationName: application}
+func (c *Client) Unexpose(application string, endpoints []string) error {
+	if c.BestAPIVersion() < 13 && len(endpoints) > 0 {
+		return errors.NewNotSupported(nil, "controller does not support granular expose parameters; applying this change would unexpose the application")
+	}
+
+	args := params.ApplicationUnexpose{
+		ApplicationName:  application,
+		ExposedEndpoints: endpoints,
+	}
 	return c.facade.FacadeCall("Unexpose", args, nil)
 }
 
