@@ -302,7 +302,7 @@ func (s *DeploySuite) TestBlockDeploy(c *gc.C) {
 
 func (s *DeploySuite) TestInvalidPath(c *gc.C) {
 	err := s.runDeploy(c, "/home/nowhere")
-	c.Assert(err, gc.ErrorMatches, `charm or bundle URL has invalid form: "/home/nowhere"`)
+	c.Assert(err, gc.ErrorMatches, `charm or bundle URL "/home/nowhere" malformed, expected "<name>"`)
 }
 
 func (s *DeploySuite) TestInvalidFileFormat(c *gc.C) {
@@ -856,7 +856,7 @@ func (s *DeploySuite) TestDeployBundleWithOffers(c *gc.C) {
 func (s *DeploySuite) TestDeployBundleWithSAAS(c *gc.C) {
 	withAllWatcher(s.fakeAPI)
 
-	inURL := charm.MustParseURL("wordpress")
+	inURL := charm.MustParseURL("cs:wordpress")
 	withCharmRepoResolvable(s.fakeAPI, inURL)
 
 	withCharmDeployable(
@@ -1443,7 +1443,7 @@ func (s *DeploySuite) TestDeployWithTermsNotSigned(c *gc.C) {
 	s.fakeAPI.Call("AddCharm", &deployURL, origin, false).Returns(origin, error(termsRequiredError))
 	deploy := s.deployCommand()
 
-	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "bionic/terms1")
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:bionic/terms1")
 	expectedError := `Declined: some terms require agreement. Try: "juju agree term/1 term/2"`
 	c.Assert(err, gc.ErrorMatches, expectedError)
 }
@@ -1478,7 +1478,7 @@ func (s *DeploySuite) TestDeployWithChannel(c *gc.C) {
 	)
 	deploy := s.deployCommand()
 
-	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "bionic/dummy-1", "--channel", "beta")
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:bionic/dummy-1", "--channel", "beta")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1834,7 +1834,22 @@ func (s *FakeStoreStateSuite) setupCharmMaybeAddForce(c *gc.C, url, name, series
 	noRevisionURL := charm.MustParseURL(url)
 	noRevisionURL.Series = resolveURL.Series
 	noRevisionURL.Revision = -1
-	for _, url := range []*charm.URL{baseURL, resolveURL, noRevisionURL, deployURL, charm.MustParseURL(baseURL.Name)} {
+	charmStoreURL := charm.MustParseURL(fmt.Sprintf("cs:%s", baseURL.Name))
+
+	// In order to replicate what the charmstore does in terms of matching, we
+	// brute force (badly) the various types of charm urls.
+	// TODO (stickupkid): This is terrible, the fact that you're bruteforcing
+	// a mock to replicate a charm store, means your test isn't unit testing
+	// at any level. Instead we should have tests that know exactly the url
+	// is and pass that. The new mocking tests do this.
+	charmURLs := []*charm.URL{
+		baseURL,
+		resolveURL,
+		noRevisionURL,
+		deployURL,
+		charmStoreURL,
+	}
+	for _, url := range charmURLs {
 		origin, _ := apputils.DeduceOrigin(url, csclientparams.NoChannel)
 		s.fakeAPI.Call("ResolveCharm", url, origin).Returns(
 			resolveURL,

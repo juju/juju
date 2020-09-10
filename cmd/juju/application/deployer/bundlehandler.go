@@ -321,11 +321,22 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		if spec.Channel != "" {
 			fromChannel = fmt.Sprintf(" from channel: %s", spec.Channel)
 		}
-		h.ctx.Infof("Resolving charm: %s%s", spec.Charm, fromChannel)
 		ch, err := charm.ParseURL(spec.Charm)
 		if err != nil {
 			return errors.Trace(err)
 		}
+		var via string
+		switch {
+		case charm.CharmHub.Matches(ch.Schema):
+			via = "via charmhub: "
+		case charm.CharmStore.Matches(ch.Schema):
+			via = "via charmstore: "
+		case charm.Local.Matches(ch.Schema):
+			via = "via local filesystem: "
+		default:
+			via = ": "
+		}
+		h.ctx.Infof("Resolving charm %s%s%s", via, ch.FullPath(), fromChannel)
 		origin, err := utils.DeduceOrigin(ch, "")
 		if err != nil {
 			return errors.Trace(err)
