@@ -438,10 +438,13 @@ func (a *app) UpdateService(param caas.ServiceParam) error {
 	for i, p := range param.Ports {
 		svc.Service.Spec.Ports[i] = convertServicePort(p)
 	}
-	if err := svc.Apply(context.Background(), a.client); err != nil {
+
+	applier := a.newApplier()
+	applier.Apply(svc)
+	if err := a.updateContainerPorts(applier, svc.Service.Spec.Ports); err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(a.updateContainerPorts(svc.Service.Spec.Ports))
+	return applier.Run(context.Background(), a.client, false)
 }
 
 func convertServicePort(p caas.ServicePort) corev1.ServicePort {
@@ -467,11 +470,13 @@ func (a *app) OpenPort(port caas.ServicePort) (err error) {
 	if err != nil {
 		return errors.Annotatef(err, "getting existing service %q", a.name)
 	}
+	applier := a.newApplier()
 	defer func() {
-		if err = svc.Apply(context.Background(), a.client); err != nil {
+		applier.Apply(svc)
+		if err = a.updateContainerPorts(applier, svc.Service.Spec.Ports); err != nil {
 			return
 		}
-		err = a.updateContainerPorts(svc.Service.Spec.Ports)
+		err = applier.Run(context.Background(), a.client, false)
 	}()
 	for i, p := range svc.Service.Spec.Ports {
 		if p.Name == port.Name {
@@ -490,13 +495,16 @@ func (a *app) ClosePort(portName string) (err error) {
 		return errors.Annotatef(err, "getting existing service %q", a.name)
 	}
 
+	applier := a.newApplier()
+
 	for i, p := range svc.Service.Spec.Ports {
 		if p.Name == portName {
 			svc.Service.Spec.Ports = append(svc.Service.Spec.Ports[:i], svc.Service.Spec.Ports[i+1:]...)
-			if err := svc.Apply(context.Background(), a.client); err != nil {
+			applier.Apply(svc)
+			if err := a.updateContainerPorts(applier, svc.Service.Spec.Ports); err != nil {
 				return errors.Trace(err)
 			}
-			return errors.Trace(a.updateContainerPorts(svc.Service.Spec.Ports))
+			return applier.Run(context.Background(), a.client, false)
 		}
 	}
 	return errors.NotFoundf("port %q", portName)
@@ -510,7 +518,7 @@ func convertContainerPort(p corev1.ServicePort) corev1.ContainerPort {
 	}
 }
 
-func (a *app) updateContainerPorts(ports []corev1.ServicePort) error {
+func (a *app) updateContainerPorts(applier resources.Applier, ports []corev1.ServicePort) error {
 	updatePodSpec := func(spec *corev1.PodSpec, containerPorts []corev1.ContainerPort) {
 		for i, c := range spec.Containers {
 			if c.Name != unitContainerName {
@@ -532,7 +540,7 @@ func (a *app) updateContainerPorts(ports []corev1.ServicePort) error {
 		}
 
 		updatePodSpec(&ss.StatefulSet.Spec.Template.Spec, containerPorts)
-		return errors.Trace(ss.Apply(context.Background(), a.client))
+		applier.Apply(ss)
 	case caas.DeploymentStateless:
 		d := resources.NewDeployment(a.name, a.namespace, nil)
 		if err := d.Get(context.Background(), a.client); err != nil {
@@ -540,7 +548,7 @@ func (a *app) updateContainerPorts(ports []corev1.ServicePort) error {
 		}
 
 		updatePodSpec(&d.Deployment.Spec.Template.Spec, containerPorts)
-		return errors.Trace(d.Apply(context.Background(), a.client))
+		applier.Apply(d)
 	case caas.DeploymentDaemon:
 		d := resources.NewDaemonSet(a.name, a.namespace, nil)
 		if err := d.Get(context.Background(), a.client); err != nil {
@@ -548,10 +556,11 @@ func (a *app) updateContainerPorts(ports []corev1.ServicePort) error {
 		}
 
 		updatePodSpec(&d.DaemonSet.Spec.Template.Spec, containerPorts)
-		return errors.Trace(d.Apply(context.Background(), a.client))
+		applier.Apply(d)
 	default:
 		return errors.NotSupportedf("unknown deployment type")
 	}
+	return nil
 }
 
 func (a *app) getStatefulSet() (*resources.StatefulSet, error) {
