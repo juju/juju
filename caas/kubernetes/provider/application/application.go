@@ -683,19 +683,19 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 	if config.Charm.Meta().Deployment == nil {
 		return nil, errors.NotValidf("charm missing deployment")
 	}
-	containerImageName := config.Charm.Meta().Deployment.ContainerImageName
+	containerImageName := "test-image" //config.Charm.Meta().Deployment.ContainerImageName
 	if containerImageName == "" {
 		return nil, errors.NotValidf("charm missing container-image-name")
 	}
 
 	containerPorts := []corev1.ContainerPort(nil)
-	for _, v := range config.Charm.Meta().Deployment.ServicePorts {
+	/*for _, v := range config.Charm.Meta().Deployment.ServicePorts {
 		containerPorts = append(containerPorts, corev1.ContainerPort{
 			Name:          v.Name,
 			Protocol:      corev1.Protocol(v.Protocol),
 			ContainerPort: int32(v.TargetPort),
 		})
-	}
+	}*/
 
 	jujuDataDir, err := paths.DataDir("kubernetes")
 	if err != nil {

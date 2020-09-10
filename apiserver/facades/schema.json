@@ -7956,7 +7956,7 @@
                             "$ref": "#/definitions/StringsWatchResult"
                         }
                     },
-                    "description": "WatchApplications starts a StringsWatcher to watch CAAS applications\ndeployed to this model."
+                    "description": "WatchApplications starts a StringsWatcher to watch applications deployed to this model."
                 }
             },
             "definitions": {
@@ -8656,7 +8656,7 @@
                             "$ref": "#/definitions/StringsWatchResult"
                         }
                     },
-                    "description": "WatchApplications starts a StringsWatcher to watch CAAS applications\ndeployed to this model."
+                    "description": "WatchApplications starts a StringsWatcher to watch applications deployed to this model."
                 },
                 "WatchApplicationsScale": {
                     "type": "object",
@@ -10169,9 +10169,6 @@
                 "CharmDeployment": {
                     "type": "object",
                     "properties": {
-                        "container-image-name": {
-                            "type": "string"
-                        },
                         "min-version": {
                             "type": "string"
                         },
@@ -10180,12 +10177,6 @@
                         },
                         "service": {
                             "type": "string"
-                        },
-                        "service-ports": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/CharmServicePort"
-                            }
                         },
                         "type": {
                             "type": "string"
@@ -10196,9 +10187,7 @@
                         "type",
                         "mode",
                         "service",
-                        "min-version",
-                        "container-image-name",
-                        "service-ports"
+                        "min-version"
                     ]
                 },
                 "CharmDevice": {
@@ -10520,34 +10509,6 @@
                         "type",
                         "path",
                         "description"
-                    ]
-                },
-                "CharmServicePort": {
-                    "type": "object",
-                    "properties": {
-                        "app-protocol": {
-                            "type": "string"
-                        },
-                        "name": {
-                            "type": "string"
-                        },
-                        "port": {
-                            "type": "integer"
-                        },
-                        "protocol": {
-                            "type": "string"
-                        },
-                        "target-port": {
-                            "type": "integer"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "name",
-                        "port",
-                        "target-port",
-                        "protocol",
-                        "app-protocol"
                     ]
                 },
                 "CharmStorage": {
