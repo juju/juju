@@ -4,6 +4,7 @@
 package deployer
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/bundlechanges/v2"
+	"github.com/juju/bundlechanges/v3"
 	"github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/resource"
 	"github.com/juju/charmrepo/v6"
@@ -403,7 +404,7 @@ func (h *bundleHandler) handleChanges() error {
 
 	// Deploy the bundle.
 	for i, change := range h.changes {
-		fmt.Fprintf(h.ctx.Stdout, "- %s\n", change.Description())
+		fmt.Fprint(h.ctx.Stdout, fmtChange(change))
 		logger.Tracef("%d: change %s", i, pretty.Sprint(change))
 		switch change := change.(type) {
 		case *bundlechanges.AddCharmChange:
@@ -447,6 +448,14 @@ func (h *bundleHandler) handleChanges() error {
 	}
 
 	return nil
+}
+
+func fmtChange(ch bundlechanges.Change) string {
+	var buf bytes.Buffer
+	for _, desc := range ch.Description() {
+		fmt.Fprintf(&buf, "- %s\n", desc)
+	}
+	return buf.String()
 }
 
 func (h *bundleHandler) isLocalCharm(name string) bool {
@@ -1038,7 +1047,15 @@ func (h *bundleHandler) exposeApplication(change *bundlechanges.ExposeChange) er
 	}
 
 	application := resolve(change.Params.Application, h.results)
-	if err := h.deployAPI.Expose(application); err != nil {
+	exposedEndpoints := make(map[string]params.ExposedEndpoint)
+	for endpointName, exposeDetails := range change.Params.ExposedEndpoints {
+		exposedEndpoints[endpointName] = params.ExposedEndpoint{
+			ExposeToSpaces: exposeDetails.ExposeToSpaces,
+			ExposeToCIDRs:  exposeDetails.ExposeToCIDRs,
+		}
+	}
+
+	if err := h.deployAPI.Expose(application, exposedEndpoints); err != nil {
 		return errors.Annotatef(err, "cannot expose application %s", application)
 	}
 	return nil

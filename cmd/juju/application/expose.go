@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -56,7 +57,7 @@ func (c *exposeCommand) Init(args []string) error {
 
 type applicationExposeAPI interface {
 	Close() error
-	Expose(applicationName string) error
+	Expose(applicationName string, exposedEndpoints map[string]params.ExposedEndpoint) error
 	Unexpose(applicationName string) error
 }
 
@@ -76,5 +77,5 @@ func (c *exposeCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	return block.ProcessBlockedError(client.Expose(c.ApplicationName), block.BlockChange)
+	return block.ProcessBlockedError(client.Expose(c.ApplicationName, nil), block.BlockChange)
 }

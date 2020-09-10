@@ -255,7 +255,7 @@ func opClientServiceGet(c *gc.C, st api.Connection, mst *state.State) (func(), e
 }
 
 func opClientServiceExpose(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	err := application.NewClient(st).Expose("wordpress")
+	err := application.NewClient(st).Expose("wordpress", nil)
 	if err != nil {
 		return func() {}, err
 	}

@@ -2583,8 +2583,8 @@ func (f *fakeDeployAPI) AddUnits(args application.AddUnitsParams) ([]string, err
 	return results[0].([]string), jujutesting.TypeAssertError(results[1])
 }
 
-func (f *fakeDeployAPI) Expose(application string) error {
-	results := f.MethodCall(f, "Expose", application)
+func (f *fakeDeployAPI) Expose(application string, exposedEndpoints map[string]params.ExposedEndpoint) error {
+	results := f.MethodCall(f, "Expose", application, exposedEndpoints)
 	return jujutesting.TypeAssertError(results[0])
 }
 
