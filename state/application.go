@@ -670,7 +670,7 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 
 // IsExposed returns whether this application is exposed. The explicitly open
 // ports (with open-port) for exposed applications may be accessed from machines
-// outside of the local deployment network. See SetExposed and ClearExposed.
+// outside of the local deployment network. See MergeExposeSettings and ClearExposed.
 func (a *Application) IsExposed() bool {
 	return a.doc.Exposed
 }
@@ -686,12 +686,20 @@ func (a *Application) ExposedEndpoints() map[string]ExposedEndpoint {
 	return a.doc.ExposedEndpoints
 }
 
-// SetExposed marks the application as exposed.
+// MergeExposeSettings marks the application as exposed and merges the provided
+// ExposedEndpoint details into the current set of expose settings. The merge
+// operation will overwrites expose settings for each existing endpoint name.
+//
 // See ClearExposed and IsExposed.
-func (a *Application) SetExposed(exposedEndpoints map[string]ExposedEndpoint) error {
+func (a *Application) MergeExposeSettings(exposedEndpoints map[string]ExposedEndpoint) error {
 	bindings, _, err := readEndpointBindings(a.st, a.globalKey())
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	mergedExposedEndpoints := make(map[string]ExposedEndpoint)
+	for endpoint, exposeParams := range a.doc.ExposedEndpoints {
+		mergedExposedEndpoints[endpoint] = exposeParams
 	}
 
 	var allSpaceInfos network.SpaceInfos
@@ -721,9 +729,18 @@ func (a *Application) SetExposed(exposedEndpoints map[string]ExposedEndpoint) er
 				return errors.Annotatef(err, "unable to parse %q as a CIDR", cidr)
 			}
 		}
+
+		// If no spaces and CIDRs are provided, assume an implicit
+		// 0.0.0.0/0 CIDR. This matches the "expose to the entire
+		// world" behavior in juju controllers prior to 2.9.
+		if len(exposeParams.ExposeToSpaceIDs)+len(exposeParams.ExposeToCIDRs) == 0 {
+			exposeParams.ExposeToCIDRs = []string{firewall.AllNetworksIPV4CIDR}
+		}
+
+		mergedExposedEndpoints[endpoint] = exposeParams
 	}
 
-	return a.setExposed(true, exposedEndpoints)
+	return a.setExposed(true, mergedExposedEndpoints)
 }
 
 func uniqueSortedStrings(in []string) []string {
@@ -735,7 +752,7 @@ func uniqueSortedStrings(in []string) []string {
 }
 
 // ClearExposed removes the exposed flag from the application.
-// See SetExposed and IsExposed.
+// See MergeExposeSettings and IsExposed.
 func (a *Application) ClearExposed() error {
 	return a.setExposed(false, nil)
 }

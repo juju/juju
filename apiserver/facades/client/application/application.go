@@ -1426,7 +1426,7 @@ func (api *APIBase) Expose(args params.ApplicationExpose) error {
 					"juju config %s %s=<value>", caas.JujuExternalHostNameKey, args.ApplicationName, caas.JujuExternalHostNameKey)
 		}
 	}
-	return app.SetExposed()
+	return app.MergeExposeSettings(nil)
 }
 
 // Unexpose changes the juju-managed firewall to unexpose any ports that

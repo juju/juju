@@ -526,7 +526,7 @@ func (s *MigrationImportSuite) setupSourceApplications(
 	err = application.SetMetricCredentials([]byte("sekrit"))
 	c.Assert(err, jc.ErrorIsNil)
 	// Expose the application.
-	err = application.SetExposed(map[string]state.ExposedEndpoint{
+	err = application.MergeExposeSettings(map[string]state.ExposedEndpoint{
 		"admin": {
 			ExposeToSpaceIDs: exposedSpaceIDs,
 			ExposeToCIDRs:    []string{"13.37.0.0/16"},

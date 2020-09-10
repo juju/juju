@@ -234,8 +234,8 @@ func (a *mockApplication) UpdateCharmConfig(branchName string, settings charm.Se
 	return a.NextErr()
 }
 
-func (a *mockApplication) SetExposed() error {
-	a.MethodCall(a, "SetExposed")
+func (a *mockApplication) MergeExposeSettings(exposedEndpoints map[string]state.ExposedEndpoint) error {
+	a.MethodCall(a, "MergeExposeSettings", exposedEndpoints)
 	return a.NextErr()
 }
 

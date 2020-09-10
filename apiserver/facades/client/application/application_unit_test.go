@@ -1959,7 +1959,7 @@ func (s *ApplicationSuite) TestCAASExposeWithHostname(c *gc.C) {
 		ApplicationName: "postgresql",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	app.CheckCallNames(c, "ApplicationConfig", "SetExposed")
+	app.CheckCallNames(c, "ApplicationConfig", "MergeExposeSettings")
 }
 
 func (s *ApplicationSuite) TestApplicationsInfoOne(c *gc.C) {
