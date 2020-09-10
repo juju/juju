@@ -192,7 +192,7 @@ func (e *environ) supportedInstanceTypes(ec2Session ec2iface.EC2API, ctx context
 
 	// Query the instance type names for the region and credential in use.
 	var instTypeNames []*string
-	instanceTypeRegions := make(map[string]set.Strings)
+	instanceTypeZones := make(map[string]set.Strings)
 	var token *string
 	for {
 		offeringResults, err := ec2Session.DescribeInstanceTypeOfferings(&ec2.DescribeInstanceTypeOfferingsInput{
@@ -209,10 +209,10 @@ func (e *environ) supportedInstanceTypes(ec2Session ec2iface.EC2API, ctx context
 			if offering.InstanceType == nil {
 				continue
 			}
-			if _, ok := instanceTypeRegions[*offering.InstanceType]; !ok {
-				instanceTypeRegions[*offering.InstanceType] = set.NewStrings()
+			if _, ok := instanceTypeZones[*offering.InstanceType]; !ok {
+				instanceTypeZones[*offering.InstanceType] = set.NewStrings()
 			}
-			instanceTypeRegions[*offering.InstanceType].Add(*offering.Location)
+			instanceTypeZones[*offering.InstanceType].Add(*offering.Location)
 			instTypeNames = append(instTypeNames, offering.InstanceType)
 		}
 		token = offeringResults.NextToken
@@ -250,7 +250,7 @@ func (e *environ) supportedInstanceTypes(ec2Session ec2iface.EC2API, ctx context
 				continue
 			}
 			allInstanceTypes = append(
-				allInstanceTypes, convertEC2InstanceType(info, instanceTypeRegions, costs, zoneNames))
+				allInstanceTypes, convertEC2InstanceType(info, instanceTypeZones, costs, zoneNames))
 		}
 	}
 
@@ -280,7 +280,7 @@ func (e *environ) supportedInstanceTypes(ec2Session ec2iface.EC2API, ctx context
 
 func convertEC2InstanceType(
 	info *ec2.InstanceTypeInfo,
-	instanceTypeRegions map[string]set.Strings,
+	instanceTypeZones map[string]set.Strings,
 	costs map[string]uint64,
 	zoneNames []string,
 ) instances.InstanceType {
@@ -317,13 +317,13 @@ func convertEC2InstanceType(
 			instType.Arches = append(instType.Arches, archName(*instArch))
 		}
 	}
-	instRegions, ok := instanceTypeRegions[instType.Name]
+	instZones, ok := instanceTypeZones[instType.Name]
 	if !ok {
 		instType.Deprecated = true
 	} else {
 		// If a instance type is available it at least 3 zones (or all of them if < 3)
 		// then consider it able to be used without explicitly asking for it.
-		instType.Deprecated = instRegions.Size() < 3 && instRegions.Size() < len(zoneNames)
+		instType.Deprecated = instZones.Size() < 3 && instZones.Size() < len(zoneNames)
 	}
 	return instType
 }
@@ -339,12 +339,24 @@ func instanceTypeCosts(ec2Session ec2iface.EC2API, instTypeNames []*string, zone
 		InstanceTypes: instTypeNames,
 		MaxResults:    aws.Int64(maxResults),
 		StartTime:     aws.Time(time.Now()),
+		Filters: []*ec2.Filter{
+			// Only look at Linux results (to reduce total number of results;
+			// it's only an estimate anyway)
+			{
+				Name:   aws.String("product-description"),
+				Values: []*string{aws.String("Linux/UNIX")},
+			},
+		},
 	}
-	filter := &ec2.Filter{Name: aws.String("availability-zone")}
-	for _, zone := range zoneNames {
-		filter.Values = append(filter.Values, aws.String(zone))
+	if len(zoneNames) > 0 {
+		// Just return results for the first availability zone (others are
+		// probably similar, and we don't need to be too accurate here)
+		filter := &ec2.Filter{
+			Name:   aws.String("availability-zone"),
+			Values: []*string{aws.String(zoneNames[0])},
+		}
+		spParams.Filters = append(spParams.Filters, filter)
 	}
-	spParams.Filters = []*ec2.Filter{filter}
 
 	costs := make(map[string]uint64)
 	for {
