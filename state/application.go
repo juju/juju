@@ -686,6 +686,46 @@ func (a *Application) ExposedEndpoints() map[string]ExposedEndpoint {
 	return a.doc.ExposedEndpoints
 }
 
+// UnsetExposeSettings removes the expose settings for the provided list of
+// endpoint names. If the resulting exposed endpoints map for the application
+// becomes empty after the settings are removed, the application will be
+// automatically unexposed.
+//
+// An error will be returned if an unknown endpoint name is specified or there
+// is no existing expose settings entry for any of the provided endpoint names.
+//
+// See ClearExposed and IsExposed.
+func (a *Application) UnsetExposeSettings(exposedEndpoints []string) error {
+	bindings, _, err := readEndpointBindings(a.st, a.globalKey())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	mergedExposedEndpoints := make(map[string]ExposedEndpoint)
+	for endpoint, exposeParams := range a.doc.ExposedEndpoints {
+		mergedExposedEndpoints[endpoint] = exposeParams
+	}
+
+	for _, endpoint := range exposedEndpoints {
+		// The empty endpoint ("") value represents all endpoints.
+		if _, found := bindings[endpoint]; !found && endpoint != "" {
+			return errors.NotFoundf("endpoint %q", endpoint)
+		}
+
+		if _, found := mergedExposedEndpoints[endpoint]; !found {
+			return errors.BadRequestf("endpoint %q is not exposed", endpoint)
+		}
+
+		delete(mergedExposedEndpoints, endpoint)
+	}
+
+	return a.setExposed(
+		// retain expose flag if we still have any expose settings left
+		len(mergedExposedEndpoints) != 0,
+		mergedExposedEndpoints,
+	)
+}
+
 // MergeExposeSettings marks the application as exposed and merges the provided
 // ExposedEndpoint details into the current set of expose settings. The merge
 // operation will overwrites expose settings for each existing endpoint name.

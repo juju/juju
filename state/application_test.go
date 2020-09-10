@@ -2428,6 +2428,47 @@ func (s *ApplicationSuite) TestApplicationExposeWithoutSpaceAndCIDR(c *gc.C) {
 	c.Assert(s.mysql.ExposedEndpoints(), gc.DeepEquals, exp, gc.Commentf("expected the implicit 0.0.0.0/0 CIDR to be added when an empty ExposedEndpoint value is provided to MergeExposeSettings"))
 }
 
+func (s *ApplicationSuite) TestApplicationUnsetExposeEndpoints(c *gc.C) {
+	// Check that querying for the exposed flag works correctly.
+	c.Assert(s.mysql.IsExposed(), jc.IsFalse)
+
+	// Set initial value
+	initial := map[string]state.ExposedEndpoint{
+		"": {
+			ExposeToCIDRs: []string{"13.37.0.0/16"},
+		},
+		"server": {
+			ExposeToSpaceIDs: []string{network.AlphaSpaceId},
+			ExposeToCIDRs:    []string{"13.37.0.0/16"},
+		},
+	}
+	err := s.mysql.MergeExposeSettings(initial)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mysql.ExposedEndpoints(), gc.DeepEquals, initial)
+
+	// Check argument validation
+	err = s.mysql.UnsetExposeSettings([]string{"bogus-endpoint"})
+	c.Assert(err, gc.ErrorMatches, `.*endpoint "bogus-endpoint" not found`)
+	err = s.mysql.UnsetExposeSettings([]string{"server-admin"})
+	c.Assert(err, gc.ErrorMatches, `.*endpoint "server-admin" is not exposed`)
+
+	// Check unexpose logic
+	err = s.mysql.UnsetExposeSettings([]string{""})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mysql.ExposedEndpoints(), gc.DeepEquals, map[string]state.ExposedEndpoint{
+		"server": {
+			ExposeToSpaceIDs: []string{network.AlphaSpaceId},
+			ExposeToCIDRs:    []string{"13.37.0.0/16"},
+		},
+	}, gc.Commentf("expected the entry of the wildcard endpoint to be removed"))
+	c.Assert(s.mysql.IsExposed(), jc.IsTrue, gc.Commentf("expected application to remain exposed"))
+
+	err = s.mysql.UnsetExposeSettings([]string{"server"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mysql.ExposedEndpoints(), gc.HasLen, 0)
+	c.Assert(s.mysql.IsExposed(), jc.IsFalse, gc.Commentf("expected exposed flag to be cleared when last expose setting gets removed"))
+}
+
 func (s *ApplicationSuite) TestAddUnit(c *gc.C) {
 	// Check that principal units can be added on their own.
 	c.Assert(s.mysql.UnitCount(), gc.Equals, 0)
