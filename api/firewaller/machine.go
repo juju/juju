@@ -6,6 +6,7 @@ package firewaller
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
 	apiwatcher "github.com/juju/juju/api/watcher"
@@ -66,6 +67,9 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 	}
 	result := results.Results[0]
 	if result.Error != nil {
+		if params.IsCodeNotProvisioned(result.Error) {
+			return "", errors.NotProvisionedf("machine %v", m.tag.Id())
+		}
 		return "", result.Error
 	}
 	return instance.Id(result.Result), nil

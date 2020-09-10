@@ -295,7 +295,7 @@ func FindSubnetIDsForAvailabilityZone(zoneName string, subnetsToZones map[Id][]s
 	matchingSubnetIDs := set.NewStrings()
 	for subnetID, zones := range subnetsToZones {
 		zonesSet := set.NewStrings(zones...)
-		if zonesSet.Contains(zoneName) {
+		if zonesSet.Size() == 0 && zoneName == "" || zonesSet.Contains(zoneName) {
 			matchingSubnetIDs.Add(string(subnetID))
 		}
 	}

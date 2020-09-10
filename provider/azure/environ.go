@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -562,6 +563,9 @@ func (env *azureEnviron) StartInstance(ctx context.ProviderCallContext, args env
 	if err := env.createVirtualMachine(
 		ctx, vmName, vmTags, envTags,
 		instanceSpec, args.InstanceConfig,
+		args.Constraints,
+		args.AvailabilityZone,
+		args.SubnetsToZones,
 		storageAccountType,
 		usePublicIP,
 	); err != nil {
@@ -599,6 +603,9 @@ func (env *azureEnviron) createVirtualMachine(
 	vmTags, envTags map[string]string,
 	instanceSpec *instances.InstanceSpec,
 	instanceConfig *instancecfg.InstanceConfig,
+	constraints constraints.Value,
+	availabilityZone string,
+	subnetsToZones []map[corenetwork.Id][]string,
 	storageAccountType string,
 	usePublicIP bool,
 ) error {
@@ -713,54 +720,20 @@ func (env *azureEnviron) createVirtualMachine(
 		vmDependsOn = append(vmDependsOn, availabilitySetId)
 	}
 
-	// Controller and non-controller machines are assigned to separate
-	// subnets. This enables us to create controller-specific NSG rules
-	// just by targeting the controller subnet.
-	subnetName := internalSubnetName
-	if instanceConfig.Controller != nil {
-		subnetName = controllerSubnetName
+	vnetId, subnetIds, err := env.networkInfoForInstance(instanceConfig, constraints, availabilityZone, subnetsToZones)
+	if err != nil {
+		return common.ZoneIndependentError(err)
 	}
-	// The subnet belongs to a virtual network. The virtual network to use defaults to
-	// "juju-internal-network" but may also be specified by the user.
-	vnetName := internalNetworkName
-	vnetRG := ""
-	if env.config.virtualNetworkName != "" {
-		// network may be "mynetwork" or "resourceGroup/mynetwork"
-		parts := strings.Split(env.config.virtualNetworkName, "/")
-		vnetName = parts[0]
-		if len(parts) > 1 {
-			vnetRG = parts[1]
-		}
-		logger.Debugf("user specified network name %q in resource group %q", vnetName, vnetRG)
-	}
-	vnetId := fmt.Sprintf(`[resourceId('Microsoft.Network/virtualNetworks', '%s')]`, vnetName)
-	subnetId := fmt.Sprintf(
-		`[concat(resourceId('Microsoft.Network/virtualNetworks', '%s'), '/subnets/%s')]`,
-		vnetName, subnetName,
-	)
-	if vnetRG != "" {
-		vnetId = fmt.Sprintf(`[resourceId('%s', 'Microsoft.Network/virtualNetworks', '%s')]`, vnetRG, vnetName)
-		subnetId = fmt.Sprintf(
-			`[concat(resourceId('%s', 'Microsoft.Network/virtualNetworks', '%s'), '/subnets/%s')]`,
-			vnetRG, vnetName, subnetName,
-		)
-	}
+	logger.Debugf("creating instance using vnet %v, subnets %v", vnetId, subnetIds)
+
 	if env.config.virtualNetworkName == "" && bootstrapping {
 		nicDependsOn = append(nicDependsOn, vnetId)
 	}
-	ipConfig := &network.InterfaceIPConfigurationPropertiesFormat{
-		Primary:                   to.BoolPtr(true),
-		PrivateIPAllocationMethod: network.Dynamic,
-		Subnet:                    &network.Subnet{ID: to.StringPtr(subnetId)},
-	}
 
+	var publicIPAddressId string
 	if usePublicIP {
 		publicIPAddressName := vmName + "-public-ip"
-		publicIPAddressId := fmt.Sprintf(`[resourceId('Microsoft.Network/publicIPAddresses', '%s')]`, publicIPAddressName)
-		ipConfig.PublicIPAddress = &network.PublicIPAddress{
-			ID: to.StringPtr(publicIPAddressId),
-		}
-		nicDependsOn = append(nicDependsOn, publicIPAddressId)
+		publicIPAddressId = fmt.Sprintf(`[resourceId('Microsoft.Network/publicIPAddresses', '%s')]`, publicIPAddressName)
 		// Default to static public IP so address is preserved across reboots.
 		publicIPAddressAllocationMethod := network.Static
 		if env.config.loadBalancerSkuName == string(network.LoadBalancerSkuNameBasic) {
@@ -780,31 +753,53 @@ func (env *azureEnviron) createVirtualMachine(
 		})
 	}
 
-	nicName := vmName + "-primary"
-	nicId := fmt.Sprintf(`[resourceId('Microsoft.Network/networkInterfaces', '%s')]`, nicName)
-	ipConfigurations := []network.InterfaceIPConfiguration{{
-		Name:                                     to.StringPtr("primary"),
-		InterfaceIPConfigurationPropertiesFormat: ipConfig,
-	}}
-	resources = append(resources, armtemplates.Resource{
-		APIVersion: networkAPIVersion,
-		Type:       "Microsoft.Network/networkInterfaces",
-		Name:       nicName,
-		Location:   env.location,
-		Tags:       vmTags,
-		Properties: &network.InterfacePropertiesFormat{
-			IPConfigurations: &ipConfigurations,
-		},
-		DependsOn: nicDependsOn,
-	})
+	// Create one NIC per subnet. The first one is the primary and has
+	// the public IP address if so configured.
+	var nics []compute.NetworkInterfaceReference
+	for i, subnetID := range subnetIds {
+		primary := i == 0
+		ipConfig := &network.InterfaceIPConfigurationPropertiesFormat{
+			Primary:                   to.BoolPtr(primary),
+			PrivateIPAllocationMethod: network.Dynamic,
+			Subnet:                    &network.Subnet{ID: to.StringPtr(subnetID)},
+		}
+		if primary && usePublicIP {
+			ipConfig.PublicIPAddress = &network.PublicIPAddress{
+				ID: to.StringPtr(publicIPAddressId),
+			}
+			nicDependsOn = append(nicDependsOn, publicIPAddressId)
+		}
+		ipConfigName := "primary"
+		if i > 0 {
+			ipConfigName = fmt.Sprintf("interface-%d", i)
+		}
+		nicName := vmName + "-" + ipConfigName
+		nicId := fmt.Sprintf(`[resourceId('Microsoft.Network/networkInterfaces', '%s')]`, nicName)
+		ipConfigurations := []network.InterfaceIPConfiguration{{
+			Name:                                     to.StringPtr(ipConfigName),
+			InterfaceIPConfigurationPropertiesFormat: ipConfig,
+		}}
+		resources = append(resources, armtemplates.Resource{
+			APIVersion: networkAPIVersion,
+			Type:       "Microsoft.Network/networkInterfaces",
+			Name:       nicName,
+			Location:   env.location,
+			Tags:       vmTags,
+			Properties: &network.InterfacePropertiesFormat{
+				IPConfigurations: &ipConfigurations,
+			},
+			DependsOn: nicDependsOn,
+		})
+		vmDependsOn = append(vmDependsOn, nicId)
 
-	nics := []compute.NetworkInterfaceReference{{
-		ID: to.StringPtr(nicId),
-		NetworkInterfaceReferenceProperties: &compute.NetworkInterfaceReferenceProperties{
-			Primary: to.BoolPtr(true),
-		},
-	}}
-	vmDependsOn = append(vmDependsOn, nicId)
+		nics = append(nics, compute.NetworkInterfaceReference{
+			ID: to.StringPtr(nicId),
+			NetworkInterfaceReferenceProperties: &compute.NetworkInterfaceReferenceProperties{
+				Primary: to.BoolPtr(primary),
+			},
+		})
+	}
+
 	resources = append(resources, armtemplates.Resource{
 		APIVersion: computeAPIVersion,
 		Type:       "Microsoft.Compute/virtualMachines",
