@@ -136,8 +136,22 @@ var runHookTests = []struct {
 	},
 }
 
+type RestrictedWriter struct {
+	Module string // what Module should be included in the log buffer
+	Buffer bytes.Buffer
+}
+
+func (r *RestrictedWriter) Write(entry loggo.Entry) {
+	if strings.HasPrefix(entry.Module, r.Module) {
+		fmt.Fprintf(&r.Buffer, "%s %s %s\n", entry.Level.String(), entry.Module, entry.Message)
+	}
+}
+
 func (s *RunHookSuite) TestRunHook(c *gc.C) {
+	writer := &RestrictedWriter{Module: "unit.u/0.something-happened"}
+	c.Assert(loggo.RegisterWriter("test", writer), jc.ErrorIsNil)
 	for i, t := range runHookTests {
+		writer.Buffer.Reset()
 		c.Logf("\ntest %d of %d: %s; perm %v", i, len(runHookTests)+1, t.summary, t.spec.perm)
 		ctx, err := s.contextFactory.HookContext(hook.Info{Kind: hooks.ConfigChanged})
 		c.Assert(err, jc.ErrorIsNil)
@@ -166,6 +180,22 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 			c.Errorf("background process holding up hook execution")
 		}
 		c.Assert(hookType, gc.Equals, t.hookType)
+		if t.spec.stdout != "" {
+			if len(t.spec.stdout) < lineBufferSize {
+				c.Check(writer.Buffer.String(), jc.Contains,
+					fmt.Sprintf("DEBUG unit.u/0.something-happened %s\n", t.spec.stdout))
+			} else {
+				// Lines longer than lineBufferSize get split into multiple log messages
+				c.Check(writer.Buffer.String(), jc.Contains,
+					fmt.Sprintf("DEBUG unit.u/0.something-happened %s\n", t.spec.stdout[:lineBufferSize]))
+				c.Check(writer.Buffer.String(), jc.Contains,
+					fmt.Sprintf("DEBUG unit.u/0.something-happened %s\n", t.spec.stdout[lineBufferSize:]))
+			}
+		}
+		if t.spec.stderr != "" {
+			c.Check(writer.Buffer.String(), jc.Contains,
+				fmt.Sprintf("WARNING unit.u/0.something-happened %s\n", t.spec.stderr))
+		}
 	}
 }
 

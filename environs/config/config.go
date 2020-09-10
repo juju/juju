@@ -391,7 +391,7 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 		defined: defined.(map[string]interface{}),
 		unknown: make(map[string]interface{}),
 	}
-	if err := c.ensureUnitLogging(); err != nil {
+	if err := c.setLoggingFromEnviron(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -509,6 +509,12 @@ var defaultConfigValues = map[string]interface{}{
 	MaxActionResultsSize: DefaultActionResultsSize,
 }
 
+// defaultLoggingConfig is the default value for logging-config if it is otherwise not set.
+// We don't use the defaultConfigValues mechanism because one way to set the logging config is
+// via the JUJU_LOGGING_CONFIG environment variable, which needs to be taken into account before
+// we set the default.
+const defaultLoggingConfig = "<root>=INFO"
+
 // ConfigDefaults returns the config default values
 // to be used for any new model where there is no
 // value yet defined.
@@ -516,18 +522,17 @@ func ConfigDefaults() map[string]interface{} {
 	return defaultConfigValues
 }
 
-func (c *Config) ensureUnitLogging() error {
+func (c *Config) setLoggingFromEnviron() error {
 	loggingConfig := c.asString("logging-config")
 	// If the logging config hasn't been set, then look for the os environment
 	// variable, and failing that, get the config from loggo itself.
 	if loggingConfig == "" {
 		if environmentValue := os.Getenv(osenv.JujuLoggingConfigEnvKey); environmentValue != "" {
-			loggingConfig = environmentValue
+			c.defined["logging-config"] = environmentValue
 		} else {
-			loggingConfig = loggo.LoggerInfo()
+			c.defined["logging-config"] = defaultLoggingConfig
 		}
 	}
-	c.defined["logging-config"] = loggingConfig
 	return nil
 }
 

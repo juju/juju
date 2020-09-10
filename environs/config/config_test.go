@@ -805,8 +805,8 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// These attributes are added if not set.
-	attrs["logging-config"] = "<root>=WARNING"
+	// Set from default
+	attrs["logging-config"] = "<root>=INFO"
 
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
@@ -1086,6 +1086,13 @@ func (s *ConfigSuite) TestLoggingConfig(c *gc.C) {
 	c.Assert(config.LoggingConfig(), gc.Equals, "<root>=WARNING;juju=DEBUG")
 }
 
+func (s *ConfigSuite) TestLoggingConfigDefaults(c *gc.C) {
+	s.addJujuFiles(c)
+	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, "")
+	config := newTestConfig(c, testing.Attrs{})
+	c.Assert(config.LoggingConfig(), gc.Equals, "<root>=INFO")
+}
+
 func (s *ConfigSuite) TestLoggingConfigWithUnit(c *gc.C) {
 	s.addJujuFiles(c)
 	config := newTestConfig(c, testing.Attrs{
@@ -1095,10 +1102,15 @@ func (s *ConfigSuite) TestLoggingConfigWithUnit(c *gc.C) {
 
 func (s *ConfigSuite) TestLoggingConfigFromEnvironment(c *gc.C) {
 	s.addJujuFiles(c)
-	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, "<root>=INFO")
+	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, "<root>=INFO;other=TRACE")
 
 	config := newTestConfig(c, nil)
-	c.Assert(config.LoggingConfig(), gc.Equals, "<root>=INFO")
+	c.Assert(config.LoggingConfig(), gc.Equals, "<root>=INFO;other=TRACE")
+
+	// But an explicit value overrides the environ
+	config = newTestConfig(c, testing.Attrs{
+		"logging-config": "<root>=WARNING"})
+	c.Assert(config.LoggingConfig(), gc.Equals, "<root>=WARNING")
 }
 
 func (s *ConfigSuite) TestBackupDir(c *gc.C) {
