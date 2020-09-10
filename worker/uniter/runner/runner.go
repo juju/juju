@@ -476,6 +476,7 @@ type loggerAdaptor struct {
 	level loggo.Level
 }
 
+// Messagef implements the charmrunner MessageReceiver interface
 func (l *loggerAdaptor) Messagef(isPrefix bool, message string, args ...interface{}) {
 	l.Logf(l.level, message, args...)
 }
@@ -491,12 +492,14 @@ type bufferAdaptor struct {
 	outCopy bytes.Buffer
 }
 
+// Read implements the io.Reader interface
 func (b *bufferAdaptor) Read(p []byte) (n int, err error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.outCopy.Read(p)
 }
 
+// Messagef implements the charmrunner MessageReceiver interface
 func (b *bufferAdaptor) Messagef(isPrefix bool, message string, args ...interface{}) {
 	formattedMessage := message
 	if len(args) > 0 {
@@ -511,6 +514,7 @@ func (b *bufferAdaptor) Messagef(isPrefix bool, message string, args ...interfac
 	b.outCopy.WriteString(formattedMessage)
 }
 
+// Bytes exposes the underlying buffered bytes.
 func (b *bufferAdaptor) Bytes() []byte {
 	b.mu.Lock()
 	defer b.mu.Unlock()
