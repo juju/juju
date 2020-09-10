@@ -239,6 +239,11 @@ func (a *mockApplication) MergeExposeSettings(exposedEndpoints map[string]state.
 	return a.NextErr()
 }
 
+func (a *mockApplication) UnsetExposeSettings(exposedEndpoints []string) error {
+	a.MethodCall(a, "UnsetExposeSettings", exposedEndpoints)
+	return a.NextErr()
+}
+
 func (a *mockApplication) IsExposed() bool {
 	a.MethodCall(a, "IsExposed")
 	return a.exposed

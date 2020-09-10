@@ -308,6 +308,10 @@ type ApplicationCharmRelationsResults struct {
 // ApplicationUnexpose holds parameters for the application Unexpose call.
 type ApplicationUnexpose struct {
 	ApplicationName string `json:"application"`
+
+	// A list of endpoints to unexpose. If empty, the entire application
+	// will be unexposed.
+	ExposedEndpoints []string `json:"exposed-endpoints"`
 }
 
 // ApplicationMetricCredential holds parameters for the SetApplicationCredentials call.

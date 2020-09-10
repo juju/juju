@@ -1506,7 +1506,14 @@ func (api *APIBase) Unexpose(args params.ApplicationUnexpose) error {
 	if err != nil {
 		return err
 	}
-	return app.ClearExposed()
+
+	// No endpoints specified; unexpose application
+	if len(args.ExposedEndpoints) == 0 {
+		return app.ClearExposed()
+	}
+
+	// Unset expose settings for the specified endpoints
+	return app.UnsetExposeSettings(args.ExposedEndpoints)
 }
 
 // AddUnits adds a given number of units to an application.

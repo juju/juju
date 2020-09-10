@@ -2657,11 +2657,13 @@ func (s *applicationSuite) TestBlockChangesApplicationExpose(c *gc.C) {
 }
 
 var applicationUnexposeTests = []struct {
-	about       string
-	application string
-	err         string
-	initial     bool
-	expected    bool
+	about               string
+	application         string
+	err                 string
+	initial             map[string]state.ExposedEndpoint
+	unexposeEndpoints   []string
+	expExposed          bool
+	expExposedEndpoints map[string]state.ExposedEndpoint
 }{
 	{
 		about:       "unknown application name",
@@ -2669,33 +2671,66 @@ var applicationUnexposeTests = []struct {
 		err:         `application "unknown-application" not found`,
 	},
 	{
-		about:       "unexpose a application",
+		about:       "unexpose a application without specifying any endpoints",
 		application: "dummy-application",
-		initial:     true,
-		expected:    false,
+		initial: map[string]state.ExposedEndpoint{
+			"": {},
+		},
+		expExposed: false,
+	},
+	{
+		about:       "unexpose specific application endpoint",
+		application: "dummy-application",
+		initial: map[string]state.ExposedEndpoint{
+			"server":       {},
+			"server-admin": {},
+		},
+		unexposeEndpoints: []string{"server"},
+		// The server-admin (and hence the app) should remain exposed
+		expExposed: true,
+		expExposedEndpoints: map[string]state.ExposedEndpoint{
+			"server-admin": {ExposeToCIDRs: []string{"0.0.0.0/0"}},
+		},
+	},
+	{
+		about:       "unexpose all currently exposed application endpoints",
+		application: "dummy-application",
+		initial: map[string]state.ExposedEndpoint{
+			"server":       {},
+			"server-admin": {},
+		},
+		unexposeEndpoints: []string{"server", "server-admin"},
+		// Application should now be unexposed as all its endpoints have
+		// been unexposed.
+		expExposed: false,
 	},
 	{
 		about:       "unexpose an already unexposed application",
 		application: "dummy-application",
-		initial:     false,
-		expected:    false,
+		initial:     nil,
+		expExposed:  false,
 	},
 }
 
 func (s *applicationSuite) TestApplicationUnexpose(c *gc.C) {
-	charm := s.AddTestingCharm(c, "dummy")
+	charm := s.AddTestingCharm(c, "mysql")
 	for i, t := range applicationUnexposeTests {
 		c.Logf("test %d. %s", i, t.about)
 		app := s.AddTestingApplication(c, "dummy-application", charm)
-		if t.initial {
-			app.MergeExposeSettings(nil)
+		if len(t.initial) != 0 {
+			err := app.MergeExposeSettings(t.initial)
+			c.Assert(err, jc.ErrorIsNil)
 		}
-		c.Assert(app.IsExposed(), gc.Equals, t.initial)
-		err := s.applicationAPI.Unexpose(params.ApplicationUnexpose{t.application})
+		c.Assert(app.IsExposed(), gc.Equals, len(t.initial) != 0)
+		err := s.applicationAPI.Unexpose(params.ApplicationUnexpose{
+			ApplicationName:  t.application,
+			ExposedEndpoints: t.unexposeEndpoints,
+		})
 		if t.err == "" {
 			c.Assert(err, jc.ErrorIsNil)
 			app.Refresh()
-			c.Assert(app.IsExposed(), gc.Equals, t.expected)
+			c.Assert(app.IsExposed(), gc.Equals, t.expExposed)
+			c.Assert(app.ExposedEndpoints(), gc.DeepEquals, t.expExposedEndpoints)
 		} else {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		}
@@ -2713,7 +2748,7 @@ func (s *applicationSuite) setupApplicationUnexpose(c *gc.C) *state.Application 
 }
 
 func (s *applicationSuite) assertApplicationUnexpose(c *gc.C, app *state.Application) {
-	err := s.applicationAPI.Unexpose(params.ApplicationUnexpose{"dummy-application"})
+	err := s.applicationAPI.Unexpose(params.ApplicationUnexpose{"dummy-application", nil})
 	c.Assert(err, jc.ErrorIsNil)
 	app.Refresh()
 	c.Assert(app.IsExposed(), gc.Equals, false)
@@ -2722,7 +2757,7 @@ func (s *applicationSuite) assertApplicationUnexpose(c *gc.C, app *state.Applica
 }
 
 func (s *applicationSuite) assertApplicationUnexposeBlocked(c *gc.C, app *state.Application, msg string) {
-	err := s.applicationAPI.Unexpose(params.ApplicationUnexpose{"dummy-application"})
+	err := s.applicationAPI.Unexpose(params.ApplicationUnexpose{"dummy-application", nil})
 	s.AssertBlocked(c, err, msg)
 	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
