@@ -18,7 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/types"
 
-	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
+        "github.com/juju/juju/caas/kubernetes/provider"
 )
 
 type patchOperation struct {

@@ -188,7 +188,7 @@ func (a *ActionAPI) ListOperations(arg params.OperationQueryArgs) (params.Operat
 				continue
 			}
 			result.Results[i].Actions[j] = params.ActionResult{
-				Error: common.ServerError(errors.Errorf("unknown action receiver %q", a.Receiver())),
+				Error: apiservererrors.ServerError(errors.Errorf("unknown action receiver %q", a.Receiver())),
 			}
 		}
 	}
