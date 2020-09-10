@@ -23,13 +23,17 @@ import (
 	"github.com/juju/juju/pki"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
-	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.caasoperatorprovisioner")
+
+type APIGroup struct {
+	*common.ApplicationWatcherFacade
+	*API
+}
 
 type API struct {
 	*common.PasswordChanger
@@ -45,7 +49,7 @@ type API struct {
 }
 
 // NewStateCAASOperatorProvisionerAPI provides the signature required for facade registration.
-func NewStateCAASOperatorProvisionerAPI(ctx facade.Context) (*API, error) {
+func NewStateCAASOperatorProvisionerAPI(ctx facade.Context) (*APIGroup, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
 
@@ -60,7 +64,15 @@ func NewStateCAASOperatorProvisionerAPI(ctx facade.Context) (*API, error) {
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
 	pm := poolmanager.New(state.NewStateSettings(ctx.State()), registry)
 
-	return NewCAASOperatorProvisionerAPI(resources, authorizer, stateShim{ctx.State()}, pm, registry)
+	api, err := NewCAASOperatorProvisionerAPI(resources, authorizer, stateShim{ctx.State()}, pm, registry)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return &APIGroup{
+		ApplicationWatcherFacade: common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterCAASLegacy),
+		API:                      api,
+	}, nil
 }
 
 // NewCAASOperatorProvisionerAPI returns a new CAAS operator provisioner API facade.
@@ -84,20 +96,6 @@ func NewCAASOperatorProvisionerAPI(
 		storagePoolManager: storagePoolManager,
 		registry:           registry,
 	}, nil
-}
-
-// WatchApplications starts a StringsWatcher to watch CAAS applications
-// deployed to this model.
-func (a *API) WatchApplications() (params.StringsWatchResult, error) {
-	watch := a.state.WatchApplications()
-	// Consume the initial event and forward it to the result.
-	if changes, ok := <-watch.Changes(); ok {
-		return params.StringsWatchResult{
-			StringsWatcherId: a.resources.Register(watch),
-			Changes:          changes,
-		}, nil
-	}
-	return params.StringsWatchResult{}, watcher.EnsureErr(watch)
 }
 
 // OperatorProvisioningInfo returns the info needed to provision an operator.

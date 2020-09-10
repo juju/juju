@@ -20,7 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	cache "k8s.io/client-go/tools/cache"
@@ -150,34 +149,21 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	}
 	applier.Apply(&secret)
 
-	if len(charmDeployment.ServicePorts) > 0 {
-		service := resources.Service{
-			Service: corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        a.name,
-					Namespace:   a.namespace,
-					Labels:      a.labels(),
-					Annotations: a.annotations(config),
-				},
-				Spec: corev1.ServiceSpec{
-					Selector: a.labels(),
-					Type:     corev1.ServiceTypeClusterIP,
-				},
+	service := resources.Service{
+		Service: corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        a.name,
+				Namespace:   a.namespace,
+				Labels:      a.labels(),
+				Annotations: a.annotations(config),
 			},
-		}
-
-		for _, v := range charmDeployment.ServicePorts {
-			port := corev1.ServicePort{
-				Name:       v.Name,
-				Port:       int32(v.Port),
-				TargetPort: intstr.FromInt(v.TargetPort),
-				Protocol:   corev1.Protocol(v.Protocol),
-				//AppProtocol:    core.Protocol(v.AppProtocol),
-			}
-			service.Spec.Ports = append(service.Spec.Ports, port)
-		}
-		applier.Apply(&service)
+			Spec: corev1.ServiceSpec{
+				Selector: a.labels(),
+				Type:     corev1.ServiceTypeClusterIP,
+			},
+		},
 	}
+	applier.Apply(&service)
 
 	// Set up the parameters for creating charm storage (if required).
 	podSpec, err := a.applicationPodSpec(config)
@@ -599,19 +585,19 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 	if config.Charm.Meta().Deployment == nil {
 		return nil, errors.NotValidf("charm missing deployment")
 	}
-	containerImageName := config.Charm.Meta().Deployment.ContainerImageName
+	containerImageName := "test-image" //config.Charm.Meta().Deployment.ContainerImageName
 	if containerImageName == "" {
 		return nil, errors.NotValidf("charm missing container-image-name")
 	}
 
 	containerPorts := []corev1.ContainerPort(nil)
-	for _, v := range config.Charm.Meta().Deployment.ServicePorts {
+	/*for _, v := range config.Charm.Meta().Deployment.ServicePorts {
 		containerPorts = append(containerPorts, corev1.ContainerPort{
 			Name:          v.Name,
 			Protocol:      corev1.Protocol(v.Protocol),
 			ContainerPort: int32(v.TargetPort),
 		})
-	}
+	}*/
 
 	jujuDataDir, err := paths.DataDir("kubernetes")
 	if err != nil {

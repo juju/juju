@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/applicationscaler"
+	"github.com/juju/juju/worker/caasapplicationprovisioner"
 	"github.com/juju/juju/worker/caasbroker"
 	"github.com/juju/juju/worker/caasenvironupgrader"
 	"github.com/juju/juju/worker/caasfirewaller"
@@ -511,6 +512,16 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 		)),
 
+		caasApplicationProvisionerName: ifNotMigrating(caasapplicationprovisioner.Manifold(
+			caasapplicationprovisioner.ManifoldConfig{
+				APICallerName: apiCallerName,
+				BrokerName:    caasBrokerTrackerName,
+				ClockName:     clockName,
+				NewWorker:     caasapplicationprovisioner.NewProvisionerWorker,
+				Logger:        config.LoggingContext.GetLogger("juju.worker.caasapplicationprovisioner"),
+			},
+		)),
+
 		caasUnitProvisionerName: ifNotMigrating(caasunitprovisioner.Manifold(
 			caasunitprovisioner.ManifoldConfig{
 				APICallerName: apiCallerName,
@@ -661,13 +672,14 @@ const (
 	loggingConfigUpdaterName = "logging-config-updater"
 	instanceMutaterName      = "instance-mutater"
 
-	caasAdmissionName           = "caas-admission"
-	caasFirewallerName          = "caas-firewaller"
-	caasModelOperatorName       = "caas-model-operator"
-	caasOperatorProvisionerName = "caas-operator-provisioner"
-	caasUnitProvisionerName     = "caas-unit-provisioner"
-	caasStorageProvisionerName  = "caas-storage-provisioner"
-	caasBrokerTrackerName       = "caas-broker-tracker"
+	caasAdmissionName              = "caas-admission"
+	caasFirewallerName             = "caas-firewaller"
+	caasModelOperatorName          = "caas-model-operator"
+	caasOperatorProvisionerName    = "caas-operator-provisioner"
+	caasApplicationProvisionerName = "caas-application-provisioner"
+	caasUnitProvisionerName        = "caas-unit-provisioner"
+	caasStorageProvisionerName     = "caas-storage-provisioner"
+	caasBrokerTrackerName          = "caas-broker-tracker"
 
 	validCredentialFlagName = "valid-credential-flag"
 )
