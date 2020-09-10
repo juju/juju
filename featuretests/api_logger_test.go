@@ -23,7 +23,7 @@ func (s *apiLoggerSuite) TestLoggingConfig(c *gc.C) {
 
 	obtained, err := logging.LoggingConfig(machine.Tag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.Equals, "<root>=DEBUG")
+	c.Assert(obtained, gc.Equals, "<root>=INFO")
 }
 
 func (s *apiLoggerSuite) TestWatchLoggingConfig(c *gc.C) {

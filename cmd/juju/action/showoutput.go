@@ -325,9 +325,9 @@ func fetchResult(api APIClient, requestedId string, compat bool) (params.ActionR
 func FormatActionResult(id string, result params.ActionResult, utc, compat bool) map[string]interface{} {
 	response := map[string]interface{}{"id": id, "status": result.Status}
 	if result.Action != nil {
-		ut, err := names.ParseUnitTag(result.Action.Receiver)
+		rt, err := names.ParseTag(result.Action.Receiver)
 		if err == nil {
-			response["unit"] = ut.Id()
+			response[rt.Kind()] = rt.Id()
 		}
 	}
 	if result.Message != "" {
@@ -359,6 +359,14 @@ func FormatActionResult(id string, result params.ActionResult, utc, compat bool)
 	if unit, ok := response["unit"]; ok && compat {
 		delete(response, "unit")
 		response["UnitId"] = unit
+	}
+	if machine, ok := response["MachineId"]; ok && !compat {
+		delete(response, "MachineId")
+		response["machine"] = machine
+	}
+	if machine, ok := response["machine"]; ok && compat {
+		delete(response, "machine")
+		response["MachineId"] = machine
 	}
 
 	if result.Enqueued.IsZero() && result.Started.IsZero() && result.Completed.IsZero() {

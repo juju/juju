@@ -544,13 +544,8 @@ func IsNewActionIDSupported(ver version.Number) bool {
 // newActionDoc builds the actionDoc with the given name and parameters.
 func newActionDoc(mb modelBackend, operationID string, receiverTag names.Tag, actionName string, parameters map[string]interface{}, modelAgentVersion version.Number) (actionDoc, actionNotificationDoc, error) {
 	prefix := ensureActionMarker(receiverTag.Id())
-	// For actions run on units, we want to use a user friendly action id.
-	// Theoretically, an action receiver could also be a machine, but for
-	// now we'll continue to use a UUID for that case, since I don't think
-
-	// we support machine actions anymore.
 	var actionId string
-	if receiverTag.Kind() == names.UnitTagKind && IsNewActionIDSupported(modelAgentVersion) {
+	if IsNewActionIDSupported(modelAgentVersion) {
 		id, err := sequenceWithMin(mb, "task", 1)
 		if err != nil {
 			return actionDoc{}, actionNotificationDoc{}, err
