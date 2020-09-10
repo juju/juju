@@ -192,24 +192,28 @@ func NewJujuCommandWithStore(
 ) cmd.Command {
 	var jcmd *cmd.SuperCommand
 	var jujuRegistry *jujuCommandRegistry
+	var missingCallback cmd.MissingCallback = func(ctx *cmd.Context, subcommand string, args []string) error {
+		excluded := jujuRegistry.excluded.Contains(subcommand)
+		if excluded {
+			return errors.Errorf("juju %q is not supported when run via a controller API call", subcommand)
+		}
+		if cmdName, _, ok := jcmd.FindClosestSubCommand(subcommand); ok {
+			return &NotFoundCommand{
+				ArgName:  subcommand,
+				CmdName:  cmdName,
+				HelpHint: helpHint,
+			}
+		}
+		return cmd.DefaultUnrecognizedCommand(subcommand)
+	}
+	if !embedded {
+		missingCallback = RunPlugin(missingCallback)
+	}
 	jcmd = jujucmd.NewSuperCommand(cmd.SuperCommandParams{
-		Name: "juju",
-		Doc:  jujuDoc,
-		Log:  log,
-		MissingCallback: RunPlugin(func(ctx *cmd.Context, subcommand string, args []string) error {
-			excluded := jujuRegistry.excluded.Contains(subcommand)
-			if excluded {
-				return errors.Errorf("juju %q is not supported when run via a controller API call", subcommand)
-			}
-			if cmdName, _, ok := jcmd.FindClosestSubCommand(subcommand); ok {
-				return &NotFoundCommand{
-					ArgName:  subcommand,
-					CmdName:  cmdName,
-					HelpHint: helpHint,
-				}
-			}
-			return cmd.DefaultUnrecognizedCommand(subcommand)
-		}),
+		Name:                "juju",
+		Doc:                 jujuDoc,
+		Log:                 log,
+		MissingCallback:     missingCallback,
 		UserAliasesFilename: osenv.JujuXDGDataHomePath("aliases"),
 		FlagKnownAs:         "option",
 		NotifyRun: func(string) {
