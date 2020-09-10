@@ -550,7 +550,7 @@ func (runner *runner) runCharmProcessOnRemote(hook, hookName, charmDir string, e
 
 		actionErr = &bufferAdaptor{ReadWriter: errWriter}
 		hookErrLogger = charmrunner.NewHookLogger(errReader,
-			&loggerAdaptor{runner.getLogger(hookName), loggo.WARNING},
+			&loggerAdaptor{Logger: runner.getLogger(hookName), level: loggo.WARNING},
 			actionErr,
 		)
 		defer hookErrLogger.Stop()
@@ -598,7 +598,7 @@ func (runner *runner) runCharmProcessOnLocal(hook, hookName, charmDir string, en
 
 	ps.Stdout = outWriter
 	hookOutLogger := charmrunner.NewHookLogger(outReader,
-		&loggerAdaptor{runner.getLogger(hookName), loggo.DEBUG},
+		&loggerAdaptor{Logger: runner.getLogger(hookName), level: loggo.DEBUG},
 	)
 	go hookOutLogger.Run()
 	defer hookOutLogger.Stop()
@@ -611,7 +611,7 @@ func (runner *runner) runCharmProcessOnLocal(hook, hookName, charmDir string, en
 
 	ps.Stderr = errWriter
 	hookErrLogger := charmrunner.NewHookLogger(errReader,
-		&loggerAdaptor{runner.getLogger(hookName), loggo.WARNING},
+		&loggerAdaptor{Logger: runner.getLogger(hookName), level: loggo.WARNING},
 	)
 	defer hookErrLogger.Stop()
 	go hookErrLogger.Run()

@@ -148,6 +148,8 @@ func (s *ModelConfigSuite) TestComposeNewModelConfig(c *gc.C) {
 	expected["whimsy-key"] = "whimsy-value"
 	expected["image-stream"] = "dummy-image-stream"
 	expected["no-proxy"] = "dummy-proxy"
+	// config.New() adds logging-config so remove it.
+	expected["logging-config"] = ""
 	c.Assert(cfgAttrs, jc.DeepEquals, expected)
 }
 
@@ -171,6 +173,8 @@ func (s *ModelConfigSuite) TestComposeNewModelConfigRegionMisses(c *gc.C) {
 	expected["whimsy-key"] = "whimsy-value"
 	expected["no-proxy"] = "dummy-proxy"
 	expected["image-stream"] = "dummy-image-stream"
+	// config.New() adds logging-config so remove it.
+	expected["logging-config"] = ""
 	c.Assert(cfgAttrs, jc.DeepEquals, expected)
 }
 
@@ -192,6 +196,8 @@ func (s *ModelConfigSuite) TestComposeNewModelConfigRegionInherits(c *gc.C) {
 	expected["no-proxy"] = "nether-proxy"
 	expected["apt-mirror"] = "http://nether-region-mirror"
 	expected["providerAttrdummy"] = "vulch"
+	// config.New() adds logging-config so remove it.
+	expected["logging-config"] = ""
 	c.Assert(cfgAttrs, jc.DeepEquals, expected)
 }
 
@@ -394,7 +400,7 @@ func (s *ModelConfigSourceSuite) assertModelConfigValues(c *gc.C, modelCfg *conf
 func (s *ModelConfigSourceSuite) TestModelConfigValues(c *gc.C) {
 	modelCfg, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	modelAttributes := set.NewStrings("name", "apt-mirror", "authorized-keys", "resource-tags")
+	modelAttributes := set.NewStrings("name", "apt-mirror", "logging-config", "authorized-keys", "resource-tags")
 	s.assertModelConfigValues(c, modelCfg, modelAttributes, set.NewStrings("http-proxy"))
 }
 
@@ -407,7 +413,7 @@ func (s *ModelConfigSourceSuite) TestModelConfigUpdateSource(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	modelCfg, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	modelAttributes := set.NewStrings("name", "http-proxy", "authorized-keys", "resource-tags")
+	modelAttributes := set.NewStrings("name", "http-proxy", "logging-config", "authorized-keys", "resource-tags")
 	s.assertModelConfigValues(c, modelCfg, modelAttributes, set.NewStrings("apt-mirror"))
 }
 

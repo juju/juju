@@ -454,7 +454,7 @@ var defaultConfigValues = map[string]interface{}{
 	"default-series":              series.DefaultSupportedLTS(),
 	ProvisionerHarvestModeKey:     HarvestDestroyed.String(),
 	ResourceTagsKey:               "",
-	"logging-config":              "<root>=INFO",
+	"logging-config":              "",
 	AutomaticallyRetryHooks:       true,
 	"enable-os-refresh-update":    true,
 	"enable-os-upgrade":           true,
@@ -509,6 +509,12 @@ var defaultConfigValues = map[string]interface{}{
 	MaxActionResultsSize: DefaultActionResultsSize,
 }
 
+// defaultLoggingConfig is the default value for logging-config if it is otherwise not set.
+// We don't use the defaultConfigValues mechanism because one way to set the logging config is
+// via the JUJU_LOGGING_CONFIG environment variable, which needs to be taken into account before
+// we set the default.
+const defaultLoggingConfig = "<root>=INFO"
+
 // ConfigDefaults returns the config default values
 // to be used for any new model where there is no
 // value yet defined.
@@ -522,7 +528,9 @@ func (c *Config) setLoggingFromEnviron() error {
 	// variable, and failing that, get the config from loggo itself.
 	if loggingConfig == "" {
 		if environmentValue := os.Getenv(osenv.JujuLoggingConfigEnvKey); environmentValue != "" {
-			c.defined["logging-config"] = loggingConfig
+			c.defined["logging-config"] = environmentValue
+		} else {
+			c.defined["logging-config"] = defaultLoggingConfig
 		}
 	}
 	return nil

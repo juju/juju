@@ -805,6 +805,9 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Set from default
+	attrs["logging-config"] = "<root>=INFO"
+
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
 	c.Assert(cfg.AllAttrs(), jc.DeepEquals, attrs)
@@ -1099,10 +1102,10 @@ func (s *ConfigSuite) TestLoggingConfigWithUnit(c *gc.C) {
 
 func (s *ConfigSuite) TestLoggingConfigFromEnvironment(c *gc.C) {
 	s.addJujuFiles(c)
-	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, "<root>=INFO")
+	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, "<root>=INFO;other=TRACE")
 
 	config := newTestConfig(c, nil)
-	c.Assert(config.LoggingConfig(), gc.Equals, "<root>=INFO")
+	c.Assert(config.LoggingConfig(), gc.Equals, "<root>=INFO;other=TRACE")
 
 	// But an explicit value overrides the environ
 	config = newTestConfig(c, testing.Attrs{
