@@ -203,6 +203,19 @@ type ApplicationSetCharm struct {
 // ApplicationExpose holds the parameters for making the application Expose call.
 type ApplicationExpose struct {
 	ApplicationName string `json:"application"`
+
+	// Expose parameters grouped by endpoint name. An empty ("") endpoint
+	// name key represents all application endpoints. For compatibility
+	// with pre 2.9 clients, if this field is empty, all opened ports
+	// for the application will be exposed to 0.0.0.0/0.
+	ExposedEndpoints map[string]ExposedEndpoint `json:"exposed-endpoints,omitempty"`
+}
+
+// ExposedEndpoint describes the spaces and/or CIDRs that should be able to
+// reach the ports opened by an application for a particular endpoint.
+type ExposedEndpoint struct {
+	ExposeToSpaces []string `json:"expose-to-spaces,omitempty"`
+	ExposeToCIDRs  []string `json:"expose-to-cidrs,omitempty"`
 }
 
 // ApplicationSet holds the parameters for an application Set

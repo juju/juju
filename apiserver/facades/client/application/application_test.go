@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -2470,18 +2471,56 @@ func (s *applicationSuite) TestApplicationExpose(c *gc.C) {
 	err = apps[1].MergeExposeSettings(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apps[1].IsExposed(), jc.IsTrue)
-	for i, t := range applicationExposeTests {
-		c.Logf("test %d. %s", i, t.about)
-		err = s.applicationAPI.Expose(params.ApplicationExpose{t.application})
-		if t.err != "" {
-			c.Assert(err, gc.ErrorMatches, t.err)
-		} else {
-			c.Assert(err, jc.ErrorIsNil)
-			app, err := s.State.Application(t.application)
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(app.IsExposed(), gc.Equals, t.exposed)
-		}
-	}
+
+	s.assertApplicationExpose(c)
+}
+
+func (s *applicationSuite) TestApplicationExposeEndpoints(c *gc.C) {
+	charm := s.AddTestingCharm(c, "wordpress")
+	app := s.AddTestingApplication(c, "wordpress", charm)
+	c.Assert(app.IsExposed(), jc.IsFalse)
+
+	err := s.applicationAPI.Expose(params.ApplicationExpose{
+		ApplicationName: app.Name(),
+		ExposedEndpoints: map[string]params.ExposedEndpoint{
+			// Exposing an endpoint with no expose options implies
+			// expose to 0.0.0.0/0.
+			"monitoring-port": {},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := s.State.Application(app.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got.IsExposed(), gc.Equals, true)
+	c.Assert(got.ExposedEndpoints(), gc.DeepEquals, map[string]state.ExposedEndpoint{
+		"monitoring-port": {
+			ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR},
+		},
+	})
+}
+
+func (s *applicationSuite) TestApplicationExposeEndpointsWithPre29Client(c *gc.C) {
+	charm := s.AddTestingCharm(c, "wordpress")
+	app := s.AddTestingApplication(c, "wordpress", charm)
+	c.Assert(app.IsExposed(), jc.IsFalse)
+
+	err := s.applicationAPI.Expose(params.ApplicationExpose{
+		ApplicationName: app.Name(),
+		// If no endpoint-specific expose params are provided, the call
+		// will emulate the behavior of a pre 2.9 controller where all
+		// ports are exposed to 0.0.0.0/0.
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := s.State.Application(app.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got.IsExposed(), gc.Equals, true)
+	c.Assert(got.ExposedEndpoints(), gc.DeepEquals, map[string]state.ExposedEndpoint{
+		"": {
+			ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR},
+		},
+	})
 }
 
 func (s *applicationSuite) setupApplicationExpose(c *gc.C) {
@@ -2499,39 +2538,91 @@ func (s *applicationSuite) setupApplicationExpose(c *gc.C) {
 }
 
 var applicationExposeTests = []struct {
-	about       string
-	application string
-	err         string
-	exposed     bool
+	about                 string
+	application           string
+	exposedEndpointParams map[string]params.ExposedEndpoint
+	//
+	expExposed          bool
+	expExposedEndpoints map[string]state.ExposedEndpoint
+	expErr              string
 }{
 	{
 		about:       "unknown application name",
 		application: "unknown-application",
-		err:         `application "unknown-application" not found`,
+		expErr:      `application "unknown-application" not found`,
 	},
 	{
-		about:       "expose a application",
+		about:       "expose all endpoints of an application ",
 		application: "dummy-application",
-		exposed:     true,
+		expExposed:  true,
+		expExposedEndpoints: map[string]state.ExposedEndpoint{
+			"": {
+				ExposeToCIDRs: []string{"0.0.0.0/0"},
+			},
+		},
 	},
 	{
 		about:       "expose an already exposed application",
 		application: "exposed-application",
-		exposed:     true,
+		expExposed:  true,
+		expExposedEndpoints: map[string]state.ExposedEndpoint{
+			"": {
+				ExposeToCIDRs: []string{"0.0.0.0/0"},
+			},
+		},
+	},
+	{
+		about:       "unknown endpoint name in expose parameters",
+		application: "dummy-application",
+		exposedEndpointParams: map[string]params.ExposedEndpoint{
+			"bogus": {},
+		},
+		expErr: `endpoint "bogus" not found`,
+	},
+	{
+		about:       "unknown space name in expose parameters",
+		application: "dummy-application",
+		exposedEndpointParams: map[string]params.ExposedEndpoint{
+			"": {
+				ExposeToSpaces: []string{"invaders"},
+			},
+		},
+		expErr: `space "invaders" not found`,
+	},
+	{
+		about:       "expose an application and provide expose parameters",
+		application: "exposed-application",
+		exposedEndpointParams: map[string]params.ExposedEndpoint{
+			"": {
+				ExposeToSpaces: []string{network.AlphaSpaceName},
+				ExposeToCIDRs:  []string{"13.37.0.0/16"},
+			},
+		},
+		expExposed: true,
+		expExposedEndpoints: map[string]state.ExposedEndpoint{
+			"": {
+				ExposeToSpaceIDs: []string{network.AlphaSpaceId},
+				ExposeToCIDRs:    []string{"13.37.0.0/16"},
+			},
+		},
 	},
 }
 
 func (s *applicationSuite) assertApplicationExpose(c *gc.C) {
 	for i, t := range applicationExposeTests {
 		c.Logf("test %d. %s", i, t.about)
-		err := s.applicationAPI.Expose(params.ApplicationExpose{t.application})
-		if t.err != "" {
-			c.Assert(err, gc.ErrorMatches, t.err)
+		err := s.applicationAPI.Expose(params.ApplicationExpose{
+			ApplicationName:  t.application,
+			ExposedEndpoints: t.exposedEndpointParams,
+		})
+		if t.expErr != "" {
+			c.Assert(err, gc.ErrorMatches, t.expErr)
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
-			application, err := s.State.Application(t.application)
+			app, err := s.State.Application(t.application)
 			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(application.IsExposed(), gc.Equals, t.exposed)
+			c.Assert(app.IsExposed(), gc.Equals, t.expExposed)
+			c.Assert(app.ExposedEndpoints(), gc.DeepEquals, t.expExposedEndpoints)
 		}
 	}
 }
@@ -2539,7 +2630,10 @@ func (s *applicationSuite) assertApplicationExpose(c *gc.C) {
 func (s *applicationSuite) assertApplicationExposeBlocked(c *gc.C, msg string) {
 	for i, t := range applicationExposeTests {
 		c.Logf("test %d. %s", i, t.about)
-		err := s.applicationAPI.Expose(params.ApplicationExpose{t.application})
+		err := s.applicationAPI.Expose(params.ApplicationExpose{
+			ApplicationName:  t.application,
+			ExposedEndpoints: t.exposedEndpointParams,
+		})
 		s.AssertBlocked(c, err, msg)
 	}
 }

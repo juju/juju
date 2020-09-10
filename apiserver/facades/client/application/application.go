@@ -41,6 +41,7 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -1426,7 +1427,70 @@ func (api *APIBase) Expose(args params.ApplicationExpose) error {
 					"juju config %s %s=<value>", caas.JujuExternalHostNameKey, args.ApplicationName, caas.JujuExternalHostNameKey)
 		}
 	}
-	return app.MergeExposeSettings(nil)
+
+	// Map space names to space IDs before calling SetExposed
+	mappedExposeParams, err := api.mapExposedEndpointParams(args.ExposedEndpoints)
+	if err != nil {
+		return apiservererrors.ServerError(err)
+	}
+
+	// If an empty exposedEndpoints list is provided, all endpoints should
+	// be exposed. This emulates the expose behavior of pre 2.9 controllers.
+	if len(mappedExposeParams) == 0 {
+		mappedExposeParams = map[string]state.ExposedEndpoint{
+			"": {
+				ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR},
+			},
+		}
+	}
+
+	if err = app.MergeExposeSettings(mappedExposeParams); err != nil {
+		return apiservererrors.ServerError(err)
+	}
+	return nil
+}
+
+func (api *APIBase) mapExposedEndpointParams(params map[string]params.ExposedEndpoint) (map[string]state.ExposedEndpoint, error) {
+	if len(params) == 0 {
+		return nil, nil
+	}
+
+	var (
+		spaceInfos network.SpaceInfos
+		err        error
+		res        = make(map[string]state.ExposedEndpoint, len(params))
+	)
+
+	for endpointName, exposeDetails := range params {
+		mappedParam := state.ExposedEndpoint{
+			ExposeToCIDRs: exposeDetails.ExposeToCIDRs,
+		}
+
+		if len(exposeDetails.ExposeToSpaces) != 0 {
+			// Lazily fetch SpaceInfos
+			if spaceInfos == nil {
+				if spaceInfos, err = api.backend.AllSpaceInfos(); err != nil {
+					return nil, err
+				}
+			}
+
+			spaceIDs := make([]string, len(exposeDetails.ExposeToSpaces))
+			for i, spaceName := range exposeDetails.ExposeToSpaces {
+				sp := spaceInfos.GetByName(spaceName)
+				if sp == nil {
+					return nil, errors.NotFoundf("space %q", spaceName)
+				}
+
+				spaceIDs[i] = sp.ID
+			}
+			mappedParam.ExposeToSpaceIDs = spaceIDs
+		}
+
+		res[endpointName] = mappedParam
+
+	}
+
+	return res, nil
 }
 
 // Unexpose changes the juju-managed firewall to unexpose any ports that
