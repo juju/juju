@@ -150,33 +150,8 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	}
 	applier.Apply(&secret)
 
-	if len(charmDeployment.ServicePorts) > 0 {
-		service := resources.Service{
-			Service: corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        a.name,
-					Namespace:   a.namespace,
-					Labels:      a.labels(),
-					Annotations: a.annotations(config),
-				},
-				Spec: corev1.ServiceSpec{
-					Selector: a.labels(),
-					Type:     corev1.ServiceTypeClusterIP,
-				},
-			},
-		}
-
-		for _, v := range charmDeployment.ServicePorts {
-			port := corev1.ServicePort{
-				Name:       v.Name,
-				Port:       int32(v.Port),
-				TargetPort: intstr.FromInt(v.TargetPort),
-				Protocol:   corev1.Protocol(v.Protocol),
-				//AppProtocol:    core.Protocol(v.AppProtocol),
-			}
-			service.Spec.Ports = append(service.Spec.Ports, port)
-		}
-		applier.Apply(&service)
+	if err := a.configureDefaultService(a.annotations(config)); err != nil {
+		return errors.Annotatef(err, "ensuring the default service %q", a.name)
 	}
 
 	// Set up the parameters for creating charm storage (if required).
@@ -238,7 +213,10 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
-		// TODO: headless service for statefulset?
+		if err := a.configureHeadlessService(a.name, a.annotations(config)); err != nil {
+			return errors.Annotatef(err, "creating or updating headless service for %q %q", a.deploymentType, a.name)
+		}
+
 		storageUniqueID, err := a.getStorageUniqPrefix(func() (annotationGetter, error) {
 			return a.getStatefulSet()
 		})
@@ -406,6 +384,111 @@ func (a *app) Exists() (caas.DeploymentState, error) {
 	return state, nil
 }
 
+func headlessServiceName(appName string) string {
+	return fmt.Sprintf("%s-endpoints", appName)
+}
+
+func (a *app) configureHeadlessService(name string, annotation annotations.Annotation) error {
+	svc := resources.NewService(headlessServiceName(name), a.namespace, &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: a.labels(),
+			Annotations: annotation.
+				Add("service.alpha.kubernetes.io/tolerate-unready-endpoints", "true"),
+		},
+		Spec: corev1.ServiceSpec{
+			Selector:                 a.labels(),
+			Type:                     corev1.ServiceTypeClusterIP,
+			ClusterIP:                "None",
+			PublishNotReadyAddresses: true,
+		},
+	})
+	return svc.Apply(context.Background(), a.client)
+}
+
+// configureDefaultService configures the default service for the application.
+// It's only configured once when the application was deployed in the first time.
+func (a *app) configureDefaultService(annotation annotations.Annotation) (err error) {
+	svc := resources.NewService(a.name, a.namespace, &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: a.labels(),
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: a.labels(),
+			Type:     corev1.ServiceTypeClusterIP,
+		},
+	})
+	if err = svc.Get(context.Background(), a.client); errors.IsNotFound(err) {
+		return svc.Apply(context.Background(), a.client)
+	}
+	return errors.Trace(err)
+}
+
+// UpdateService updates the default service with specific service type and port mappings.
+func (a *app) UpdateService(param caas.ServiceParam) error {
+	svc, err := a.getService()
+	if err != nil {
+		return errors.Annotatef(err, "getting existing service %q", a.name)
+	}
+	svc.Service.Spec.Type = corev1.ServiceType(param.Type)
+	svc.Service.Spec.Ports = make([]corev1.ServicePort, len(param.Ports))
+	for i, p := range param.Ports {
+		svc.Service.Spec.Ports[i] = convertServicePort(p)
+	}
+	return svc.Apply(context.Background(), a.client)
+}
+
+func convertServicePort(p caas.ServicePort) corev1.ServicePort {
+	return corev1.ServicePort{
+		Name:       p.Name,
+		Port:       int32(p.Port),
+		TargetPort: intstr.FromInt(p.TargetPort),
+		Protocol:   corev1.Protocol(p.Protocol),
+	}
+}
+
+func (a *app) getService() (*resources.Service, error) {
+	svc := resources.NewService(a.name, a.namespace, nil)
+	if err := svc.Get(context.Background(), a.client); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return svc, nil
+}
+
+// OpenPort sets up a port mapping to the specified service.
+func (a *app) OpenPort(port caas.ServicePort) (err error) {
+	svc, err := a.getService()
+	if err != nil {
+		return errors.Annotatef(err, "getting existing service %q", a.name)
+	}
+	defer func() {
+		err = svc.Apply(context.Background(), a.client)
+	}()
+	for i, p := range svc.Service.Spec.Ports {
+		if p.Name == port.Name {
+			svc.Service.Spec.Ports[i] = convertServicePort(port)
+			return nil
+		}
+	}
+	svc.Service.Spec.Ports = append(svc.Service.Spec.Ports, convertServicePort(port))
+	return nil
+}
+
+// ClosePort removes a port mapping to the specified service.
+func (a *app) ClosePort(portName string) (err error) {
+	svc, err := a.getService()
+	if err != nil {
+		return errors.Annotatef(err, "getting existing service %q", a.name)
+	}
+
+	for i, p := range svc.Service.Spec.Ports {
+		if p.Name == portName {
+			svc.Service.Spec.Ports = append(svc.Service.Spec.Ports[:i], svc.Service.Spec.Ports[i+1:]...)
+			return svc.Apply(context.Background(), a.client)
+		}
+	}
+	return errors.NotFoundf("port %q", portName)
+}
+
 func (a *app) getStatefulSet() (*resources.StatefulSet, error) {
 	ss := resources.NewStatefulSet(a.name, a.namespace, nil)
 	if err := ss.Get(context.Background(), a.client); err != nil {
@@ -492,6 +575,7 @@ func (a *app) Delete() error {
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
 		applier.Delete(resources.NewStatefulSet(a.name, a.namespace, nil))
+		applier.Delete(resources.NewService(headlessServiceName(a.name), a.namespace, nil))
 	case caas.DeploymentStateless:
 		applier.Delete(resources.NewDeployment(a.name, a.namespace, nil))
 	case caas.DeploymentDaemon:
