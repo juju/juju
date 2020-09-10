@@ -18,7 +18,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/types"
 
-        "github.com/juju/juju/caas/kubernetes/provider"
+       providerconst "github.com/juju/juju/caas/kubernetes/provider/constants"
+       providerutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 )
 
 type patchOperation struct {
@@ -179,8 +180,8 @@ func patchEscape(s string) string {
 func patchForLabels(labels map[string]string, appName string) []patchOperation {
 	patches := []patchOperation{}
 
-	neededLabels := provider.LabelForKeyValue(
-		provider.LabelJujuAppCreatedBy, appName)
+	neededLabels := providerutils.LabelForKeyValue(
+		providerconst.LabelJujuAppCreatedBy, appName)
 
 	if len(labels) == 0 {
 		patches = append(patches, patchOperation{

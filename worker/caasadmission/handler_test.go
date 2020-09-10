@@ -23,7 +23,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/juju/juju/caas/kubernetes/provider"
+	providerconst "github.com/juju/juju/caas/kubernetes/provider/constants"
+	providerutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	rbacmappertest "github.com/juju/juju/worker/caasrbacmapper/test"
 )
 
@@ -214,8 +215,8 @@ func (h *HandlerSuite) TestPatchLabelsAdd(c *gc.C) {
 	c.Assert(patchOperations[0].Op, gc.Equals, "add")
 	c.Assert(patchOperations[0].Path, gc.Equals, "/metadata/labels")
 
-	expectedLabels := provider.LabelForKeyValue(
-		provider.LabelJujuAppCreatedBy, appName)
+	expectedLabels := providerutils.LabelForKeyValue(
+		providerconst.LabelJujuAppCreatedBy, appName)
 	for k, v := range expectedLabels {
 		found := false
 		for _, patchOp := range patchOperations[1:] {
@@ -248,8 +249,8 @@ func (h *HandlerSuite) TestPatchLabelsReplace(c *gc.C) {
 	pod := core.Pod{
 		ObjectMeta: meta.ObjectMeta{
 			Name: "pod",
-			Labels: provider.LabelForKeyValue(
-				provider.LabelJujuAppCreatedBy, "replace-app",
+			Labels: providerutils.LabelForKeyValue(
+				providerconst.LabelJujuAppCreatedBy, "replace-app",
 			),
 		},
 	}
@@ -298,8 +299,8 @@ func (h *HandlerSuite) TestPatchLabelsReplace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(patchOperations), gc.Equals, 1)
 
-	expectedLabels := provider.LabelForKeyValue(
-		provider.LabelJujuAppCreatedBy, appName)
+	expectedLabels := providerutils.LabelForKeyValue(
+		providerconst.LabelJujuAppCreatedBy, appName)
 	for k, v := range expectedLabels {
 		found := false
 		for _, patchOp := range patchOperations {
