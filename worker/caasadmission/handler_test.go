@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
-	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
+	"github.com/juju/juju/caas/kubernetes/provider"
 	rbacmappertest "github.com/juju/juju/worker/caasrbacmapper/test"
 )
 
