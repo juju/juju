@@ -39,6 +39,10 @@ import (
 
 var logger = loggo.GetLogger("juju.kubernetes.provider.application")
 
+const (
+	unitContainerName = "juju-unit-agent"
+)
+
 type app struct {
 	name           string
 	namespace      string
@@ -434,7 +438,10 @@ func (a *app) UpdateService(param caas.ServiceParam) error {
 	for i, p := range param.Ports {
 		svc.Service.Spec.Ports[i] = convertServicePort(p)
 	}
-	return svc.Apply(context.Background(), a.client)
+	if err := svc.Apply(context.Background(), a.client); err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(a.updateContainerPorts(svc.Service.Spec.Ports))
 }
 
 func convertServicePort(p caas.ServicePort) corev1.ServicePort {
@@ -461,7 +468,10 @@ func (a *app) OpenPort(port caas.ServicePort) (err error) {
 		return errors.Annotatef(err, "getting existing service %q", a.name)
 	}
 	defer func() {
-		err = svc.Apply(context.Background(), a.client)
+		if err = svc.Apply(context.Background(), a.client); err != nil {
+			return
+		}
+		err = a.updateContainerPorts(svc.Service.Spec.Ports)
 	}()
 	for i, p := range svc.Service.Spec.Ports {
 		if p.Name == port.Name {
@@ -483,10 +493,65 @@ func (a *app) ClosePort(portName string) (err error) {
 	for i, p := range svc.Service.Spec.Ports {
 		if p.Name == portName {
 			svc.Service.Spec.Ports = append(svc.Service.Spec.Ports[:i], svc.Service.Spec.Ports[i+1:]...)
-			return svc.Apply(context.Background(), a.client)
+			if err := svc.Apply(context.Background(), a.client); err != nil {
+				return errors.Trace(err)
+			}
+			return errors.Trace(a.updateContainerPorts(svc.Service.Spec.Ports))
 		}
 	}
 	return errors.NotFoundf("port %q", portName)
+}
+
+func convertContainerPort(p corev1.ServicePort) corev1.ContainerPort {
+	return corev1.ContainerPort{
+		Name:          p.Name,
+		ContainerPort: p.TargetPort.IntVal,
+		Protocol:      corev1.Protocol(p.Protocol),
+	}
+}
+
+func (a *app) updateContainerPorts(ports []corev1.ServicePort) error {
+	updatePodSpec := func(spec *corev1.PodSpec, containerPorts []corev1.ContainerPort) {
+		for i, c := range spec.Containers {
+			if c.Name != unitContainerName {
+				spec.Containers[i].Ports = containerPorts
+			}
+		}
+	}
+
+	containerPorts := make([]corev1.ContainerPort, len(ports))
+	for i, p := range ports {
+		containerPorts[i] = convertContainerPort(p)
+	}
+
+	switch a.deploymentType {
+	case caas.DeploymentStateful:
+		ss := resources.NewStatefulSet(a.name, a.namespace, nil)
+		if err := ss.Get(context.Background(), a.client); err != nil {
+			return errors.Trace(err)
+		}
+
+		updatePodSpec(&ss.StatefulSet.Spec.Template.Spec, containerPorts)
+		return errors.Trace(ss.Apply(context.Background(), a.client))
+	case caas.DeploymentStateless:
+		d := resources.NewDeployment(a.name, a.namespace, nil)
+		if err := d.Get(context.Background(), a.client); err != nil {
+			return errors.Trace(err)
+		}
+
+		updatePodSpec(&d.Deployment.Spec.Template.Spec, containerPorts)
+		return errors.Trace(d.Apply(context.Background(), a.client))
+	case caas.DeploymentDaemon:
+		d := resources.NewDaemonSet(a.name, a.namespace, nil)
+		if err := d.Get(context.Background(), a.client); err != nil {
+			return errors.Trace(err)
+		}
+
+		updatePodSpec(&d.DaemonSet.Spec.Template.Spec, containerPorts)
+		return errors.Trace(d.Apply(context.Background(), a.client))
+	default:
+		return errors.NotSupportedf("unknown deployment type")
+	}
 }
 
 func (a *app) getStatefulSet() (*resources.StatefulSet, error) {
@@ -688,15 +753,6 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		return nil, errors.NotValidf("charm missing container-image-name")
 	}
 
-	containerPorts := []corev1.ContainerPort(nil)
-	/*for _, v := range config.Charm.Meta().Deployment.ServicePorts {
-		containerPorts = append(containerPorts, corev1.ContainerPort{
-			Name:          v.Name,
-			Protocol:      corev1.Protocol(v.Protocol),
-			ContainerPort: int32(v.TargetPort),
-		})
-	}*/
-
 	jujuDataDir, err := paths.DataDir("kubernetes")
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -748,7 +804,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			}},
 		}},
 		Containers: []corev1.Container{{
-			Name:            "juju-unit-agent",
+			Name:            unitContainerName,
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Image:           config.AgentImagePath,
 			WorkingDir:      jujuDataDir,
@@ -770,7 +826,6 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				SubPath:   "usr/bin/pebble",
 				ReadOnly:  true,
 			}},
-			Ports: containerPorts,
 		}},
 		Volumes: []corev1.Volume{{
 			Name: "juju-data-dir",
