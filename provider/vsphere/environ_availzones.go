@@ -63,12 +63,11 @@ func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) (zones ne
 
 // AvailabilityZones is part of the common.ZonedEnviron interface.
 func (env *sessionEnviron) AvailabilityZones(ctx context.ProviderCallContext) (network.AvailabilityZones, error) {
-	logger.Debugf("LP #1894236: AvailabilityZones() env.zones: %+v", env.zones)
+	logger.Tracef("AvailabilityZones() env.zones: %+v", env.zones)
 
-	// if env.zones == nil {  // LP #1894236
 	if len(env.zones) == 0 {
 		computeResources, err := env.client.ComputeResources(env.ctx)
-		logger.Debugf("LP #1894236: AvailabilityZones() computeResources: %+v", computeResources)
+		logger.Tracef("AvailabilityZones() computeResources: %+v", computeResources)
 		if err != nil {
 			HandleCredentialError(err, env, ctx)
 			return nil, errors.Trace(err)
@@ -80,8 +79,8 @@ func (env *sessionEnviron) AvailabilityZones(ctx context.ProviderCallContext) (n
 				continue
 			}
 
-			logger.Debugf("LP #1894236: AvailabilityZones() cr.Name: %v", cr.Name)
-			logger.Debugf("LP #1894236: AvailabilityZones() cr.Parent: %+v", cr.Parent)
+			logger.Tracef("AvailabilityZones() cr.Name: %v", cr.Name)
+			logger.Tracef("AvailabilityZones() cr.Parent: %+v", cr.Parent)
 
 			// Construct path for ResourcePools function call
 			path, err := env.client.GetComputeResourcePath(env.ctx, cr)
@@ -90,7 +89,7 @@ func (env *sessionEnviron) AvailabilityZones(ctx context.ProviderCallContext) (n
 			}
 
 			pools, err := env.client.ResourcePools(env.ctx, path+"/...")
-			logger.Debugf("LP #1894236: AvailabilityZones() pools: %+v", pools)
+			logger.Tracef("AvailabilityZones() pools: %+v", pools)
 			if err != nil {
 				HandleCredentialError(err, env, ctx)
 				return nil, errors.Trace(err)
@@ -104,10 +103,10 @@ func (env *sessionEnviron) AvailabilityZones(ctx context.ProviderCallContext) (n
 				zones = append(zones, zone)
 			}
 		}
-		logger.Debugf("LP #1894236: AvailabilityZones() zones: %+v", zones)
+		logger.Tracef("AvailabilityZones() zones: %+v", zones)
 		env.zones = zones
 	}
-	logger.Debugf("LP #1894236: AvailabilityZones() return value: %+v", env.zones)
+	logger.Tracef("AvailabilityZones() return value: %+v", env.zones)
 	return env.zones, nil
 }
 

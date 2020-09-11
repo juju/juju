@@ -244,9 +244,9 @@ func (c *Client) ComputeResources(ctx context.Context) ([]*mo.ComputeResource, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	c.logger.Tracef("LP #1894236: ComputeResources(): folders: %+v", folders)
+	c.logger.Tracef("ComputeResources(): folders: %+v", folders)
 
-	c.logger.Tracef("LP #1894236: ComputeResources(): folders.HostFolder: %+v", folders.HostFolder)
+	c.logger.Tracef("ComputeResources(): folders.HostFolder: %+v", folders.HostFolder)
 	es, err := c.lister(folders.HostFolder.Reference()).List(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -260,7 +260,7 @@ func (c *Client) ComputeResources(ctx context.Context) ([]*mo.ComputeResource, e
 		case mo.ComputeResource:
 			cprs = append(cprs, &o)
 		case mo.Folder:
-			c.logger.Tracef("LP #1894236: ComputeResources(): handling mo.Folder, o.Name: %+v", o.Name)
+			c.logger.Tracef("ComputeResources(): handling mo.Folder, o.Name: %+v", o.Name)
 
 			// Get finder
 			finder, _, err := c.finder(ctx)
@@ -270,14 +270,14 @@ func (c *Client) ComputeResources(ctx context.Context) ([]*mo.ComputeResource, e
 
 			// Find folder
 			fd, err := finder.Folder(ctx, o.Name)
-			c.logger.Tracef("LP #1894236: ComputeResources(): finder.Folder() return value: %+v", fd)
+			c.logger.Tracef("ComputeResources(): finder.Folder() return value: %+v", fd)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 
 			// List the contents of the folder
 			folderContents, err := c.lister(fd.Reference()).List(ctx)
-			c.logger.Tracef("LP #1894236: ComputeResources(): folderContents: %+v", folderContents)
+			c.logger.Tracef("ComputeResources(): folderContents: %+v", folderContents)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -286,15 +286,15 @@ func (c *Client) ComputeResources(ctx context.Context) ([]*mo.ComputeResource, e
 			for _, element := range folderContents {
 				switch obj := element.Object.(type) {
 				case mo.ClusterComputeResource:
-					c.logger.Tracef("LP #1894236: ComputeResources(): appending to cprs: %v", obj.ComputeResource.Name)
+					c.logger.Tracef("ComputeResources(): appending to cprs: %v", obj.ComputeResource.Name)
 					cprs = append(cprs, &obj.ComputeResource)
 				case mo.ComputeResource:
-					c.logger.Tracef("LP #1894236: ComputeResources(): appending to cprs: %v", obj.Name)
+					c.logger.Tracef("ComputeResources(): appending to cprs: %v", obj.Name)
 					cprs = append(cprs, &obj)
 				case mo.Folder:
-					c.logger.Tracef("LP #1894236: ComputeResources(): ignoring nested mo.Folder, obj.Name: %v", obj.Name)
+					c.logger.Tracef("ComputeResources(): WARNING: ignoring nested mo.Folder, obj.Name: %v", obj.Name)
 				default:
-					c.logger.Tracef("LP #1894236: ComputeResources(): skipping type: %v", reflect.TypeOf(o).String())
+					c.logger.Tracef("ComputeResources(): skipping type: %v", reflect.TypeOf(o).String())
 				}
 			}
 		}
@@ -364,7 +364,7 @@ func (c *Client) GetComputeResourcePath(ctx context.Context, cr *mo.ComputeResou
 
 	// Retrieve absolute path if ComputeResoure's parent s a Folder
 	if "Folder" == cr.Parent.Type {
-		c.logger.Debugf("cr.Parent.Type is a Folder")
+		c.logger.Tracef("GetComputeResourcePath() cr.Parent.Type is a Folder")
 
 		// Retrieve parent folder
 		pc := property.DefaultCollector(c.client.Client)
@@ -374,7 +374,7 @@ func (c *Client) GetComputeResourcePath(ctx context.Context, cr *mo.ComputeResou
 		if err != nil {
 			return path, errors.Trace(err)
 		}
-		c.logger.Tracef("retrieved folder: %+v", folder)
+		c.logger.Tracef("GetComputeResourcePath(): retrieved folder: %+v", folder)
 
 		// Get finder
 		finder, _, err := c.finder(ctx)
@@ -387,13 +387,13 @@ func (c *Client) GetComputeResourcePath(ctx context.Context, cr *mo.ComputeResou
 		if err != nil {
 			return path, errors.Trace(err)
 		}
-		c.logger.Tracef("found folder: %+v", fd)
-		c.logger.Tracef("folder's full path: %+v", fd.InventoryPath)
+		c.logger.Tracef("GetComputeResourcePath(): found folder: %+v", fd)
+		c.logger.Tracef("GetComputeResourcePath(): folder's full path: %+v", fd.InventoryPath)
 
 		path = fd.InventoryPath+"/"+path
 	}
 
-	c.logger.Tracef("returning path: %v", path)
+	c.logger.Tracef("GetComputeResourcePath(): returning path: %v", path)
 	return path, nil
 }
 
