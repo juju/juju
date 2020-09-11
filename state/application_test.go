@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
@@ -2297,7 +2298,7 @@ func (s *ApplicationSuite) TestApplicationExposed(c *gc.C) {
 	c.Assert(s.mysql.IsExposed(), jc.IsFalse)
 
 	// Check that setting and clearing the exposed flag works correctly.
-	err := s.mysql.SetExposed(nil)
+	err := s.mysql.MergeExposeSettings(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.IsExposed(), jc.IsTrue)
 	err = s.mysql.ClearExposed()
@@ -2305,19 +2306,19 @@ func (s *ApplicationSuite) TestApplicationExposed(c *gc.C) {
 	c.Assert(s.mysql.IsExposed(), jc.IsFalse)
 
 	// Check that setting and clearing the exposed flag repeatedly does not fail.
-	err = s.mysql.SetExposed(nil)
+	err = s.mysql.MergeExposeSettings(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.SetExposed(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.ClearExposed()
+	err = s.mysql.MergeExposeSettings(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.ClearExposed()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.SetExposed(nil)
+	err = s.mysql.ClearExposed()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.mysql.MergeExposeSettings(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.IsExposed(), jc.IsTrue)
 
-	// Make the application Dying and check that ClearExposed and SetExposed fail.
+	// Make the application Dying and check that ClearExposed and MergeExposeSettings fail.
 	// TODO(fwereade): maybe application destruction should always unexpose?
 	u, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2326,7 +2327,7 @@ func (s *ApplicationSuite) TestApplicationExposed(c *gc.C) {
 	assertLife(c, s.mysql, state.Dying)
 	err = s.mysql.ClearExposed()
 	c.Assert(err, gc.ErrorMatches, notAliveErr)
-	err = s.mysql.SetExposed(nil)
+	err = s.mysql.MergeExposeSettings(nil)
 	c.Assert(err, gc.ErrorMatches, notAliveErr)
 
 	// Remove the application and check that both fail.
@@ -2334,7 +2335,7 @@ func (s *ApplicationSuite) TestApplicationExposed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.Remove()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.SetExposed(nil)
+	err = s.mysql.MergeExposeSettings(nil)
 	c.Assert(err, gc.ErrorMatches, notAliveErr)
 	err = s.mysql.ClearExposed()
 	c.Assert(err, gc.ErrorMatches, notAliveErr)
@@ -2345,16 +2346,16 @@ func (s *ApplicationSuite) TestApplicationExposeEndpoints(c *gc.C) {
 	c.Assert(s.mysql.IsExposed(), jc.IsFalse)
 
 	// Check argument validation
-	err := s.mysql.SetExposed(map[string]state.ExposedEndpoint{
+	err := s.mysql.MergeExposeSettings(map[string]state.ExposedEndpoint{
 		"":               {},
 		"bogus-endpoint": {},
 	})
 	c.Assert(err, gc.ErrorMatches, `.*endpoint "bogus-endpoint" not found`)
-	err = s.mysql.SetExposed(map[string]state.ExposedEndpoint{
+	err = s.mysql.MergeExposeSettings(map[string]state.ExposedEndpoint{
 		"server": {ExposeToSpaceIDs: []string{"bogus-space-id"}},
 	})
 	c.Assert(err, gc.ErrorMatches, `.*space with ID "bogus-space-id" not found`)
-	err = s.mysql.SetExposed(map[string]state.ExposedEndpoint{
+	err = s.mysql.MergeExposeSettings(map[string]state.ExposedEndpoint{
 		"server": {ExposeToCIDRs: []string{"not-a-cidr"}},
 	})
 	c.Assert(err, gc.ErrorMatches, `.*unable to parse "not-a-cidr" as a CIDR.*`)
@@ -2366,7 +2367,7 @@ func (s *ApplicationSuite) TestApplicationExposeEndpoints(c *gc.C) {
 			ExposeToCIDRs:    []string{"13.37.0.0/16"},
 		},
 	}
-	err = s.mysql.SetExposed(exp)
+	err = s.mysql.MergeExposeSettings(exp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.mysql.ExposedEndpoints(), gc.DeepEquals, exp)
@@ -2375,6 +2376,97 @@ func (s *ApplicationSuite) TestApplicationExposeEndpoints(c *gc.C) {
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.ExposedEndpoints(), gc.DeepEquals, exp)
+}
+
+func (s *ApplicationSuite) TestApplicationExposeEndpointMergeLogic(c *gc.C) {
+	// Check that querying for the exposed flag works correctly.
+	c.Assert(s.mysql.IsExposed(), jc.IsFalse)
+
+	// Set initial value
+	initial := map[string]state.ExposedEndpoint{
+		"server": {
+			ExposeToSpaceIDs: []string{network.AlphaSpaceId},
+			ExposeToCIDRs:    []string{"13.37.0.0/16"},
+		},
+	}
+	err := s.mysql.MergeExposeSettings(initial)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mysql.ExposedEndpoints(), gc.DeepEquals, initial)
+
+	// The merge call should overwrite the "server" value and append the
+	// entry for "server-admin"
+	updated := map[string]state.ExposedEndpoint{
+		"server": {
+			ExposeToCIDRs: []string{"0.0.0.0/0"},
+		},
+		"server-admin": {
+			ExposeToSpaceIDs: []string{network.AlphaSpaceId},
+			ExposeToCIDRs:    []string{"13.37.0.0/16"},
+		},
+	}
+	err = s.mysql.MergeExposeSettings(updated)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mysql.ExposedEndpoints(), gc.DeepEquals, updated)
+}
+
+func (s *ApplicationSuite) TestApplicationExposeWithoutSpaceAndCIDR(c *gc.C) {
+	// Check that querying for the exposed flag works correctly.
+	c.Assert(s.mysql.IsExposed(), jc.IsFalse)
+
+	err := s.mysql.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		// If the expose params are empty, an implicit 0.0.0.0/0 will
+		// be assumed (equivalent to: juju expose --endpoints server)
+		"server": {},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	exp := map[string]state.ExposedEndpoint{
+		"server": {
+			ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR},
+		},
+	}
+	c.Assert(s.mysql.ExposedEndpoints(), gc.DeepEquals, exp, gc.Commentf("expected the implicit 0.0.0.0/0 CIDR to be added when an empty ExposedEndpoint value is provided to MergeExposeSettings"))
+}
+
+func (s *ApplicationSuite) TestApplicationUnsetExposeEndpoints(c *gc.C) {
+	// Check that querying for the exposed flag works correctly.
+	c.Assert(s.mysql.IsExposed(), jc.IsFalse)
+
+	// Set initial value
+	initial := map[string]state.ExposedEndpoint{
+		"": {
+			ExposeToCIDRs: []string{"13.37.0.0/16"},
+		},
+		"server": {
+			ExposeToSpaceIDs: []string{network.AlphaSpaceId},
+			ExposeToCIDRs:    []string{"13.37.0.0/16"},
+		},
+	}
+	err := s.mysql.MergeExposeSettings(initial)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mysql.ExposedEndpoints(), gc.DeepEquals, initial)
+
+	// Check argument validation
+	err = s.mysql.UnsetExposeSettings([]string{"bogus-endpoint"})
+	c.Assert(err, gc.ErrorMatches, `.*endpoint "bogus-endpoint" not found`)
+	err = s.mysql.UnsetExposeSettings([]string{"server-admin"})
+	c.Assert(err, gc.ErrorMatches, `.*endpoint "server-admin" is not exposed`)
+
+	// Check unexpose logic
+	err = s.mysql.UnsetExposeSettings([]string{""})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mysql.ExposedEndpoints(), gc.DeepEquals, map[string]state.ExposedEndpoint{
+		"server": {
+			ExposeToSpaceIDs: []string{network.AlphaSpaceId},
+			ExposeToCIDRs:    []string{"13.37.0.0/16"},
+		},
+	}, gc.Commentf("expected the entry of the wildcard endpoint to be removed"))
+	c.Assert(s.mysql.IsExposed(), jc.IsTrue, gc.Commentf("expected application to remain exposed"))
+
+	err = s.mysql.UnsetExposeSettings([]string{"server"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mysql.ExposedEndpoints(), gc.HasLen, 0)
+	c.Assert(s.mysql.IsExposed(), jc.IsFalse, gc.Commentf("expected exposed flag to be cleared when last expose setting gets removed"))
 }
 
 func (s *ApplicationSuite) TestAddUnit(c *gc.C) {
@@ -3270,7 +3362,7 @@ func (s *ApplicationSuite) TestWatchApplication(c *gc.C) {
 	// Make one change (to a separate instance), check one event.
 	application, err := s.State.Application(s.mysql.Name())
 	c.Assert(err, jc.ErrorIsNil)
-	err = application.SetExposed(nil)
+	err = application.MergeExposeSettings(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 

@@ -116,7 +116,7 @@ type ApplicationAPI interface {
 	AddMachines(machineParams []apiparams.AddMachineParams) ([]apiparams.AddMachinesResult, error)
 	AddRelation(endpoints, viaCIDRs []string) (*apiparams.AddRelationResults, error)
 	AddUnits(application.AddUnitsParams) ([]string, error)
-	Expose(application string) error
+	Expose(application string, exposedEndpoints map[string]apiparams.ExposedEndpoint) error
 	GetAnnotations(tags []string) ([]apiparams.AnnotationsGetResult, error)
 	GetConfig(branchName string, appNames ...string) ([]map[string]interface{}, error)
 	GetConstraints(appNames ...string) ([]constraints.Value, error)

@@ -689,7 +689,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleExpose(c *gc.C) {
 		"Executing changes:\n"+
 		"- upload charm cs:wordpress-47\n"+
 		"- deploy application wordpress using cs:wordpress-47\n"+
-		"- expose wordpress\n"+
+		"- expose all endpoints of wordpress and allow access from CIDR 0.0.0.0/0\n"+
 		"- add unit wordpress/0 to new machine 0\n"+
 		"Deploy of bundle completed.\n")
 }
@@ -1080,7 +1080,7 @@ func (s *BundleDeployCharmStoreSuite) expectDeploy() {
 }
 
 func (s *BundleDeployCharmStoreSuite) expectExpose(app string) {
-	s.deployerAPI.EXPECT().Expose(app).Return(nil)
+	s.deployerAPI.EXPECT().Expose(app, gomock.Any()).Return(nil)
 }
 
 func (s *BundleDeployCharmStoreSuite) expectAddMachine(machine, series string) {

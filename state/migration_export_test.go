@@ -575,7 +575,7 @@ func (s *MigrationExportSuite) TestApplicationExposeParameters(c *gc.C) {
 		},
 	)
 
-	err = app.SetExposed(map[string]state.ExposedEndpoint{
+	err = app.MergeExposeSettings(map[string]state.ExposedEndpoint{
 		"server": {
 			ExposeToSpaceIDs: []string{serverSpace.Id()},
 			ExposeToCIDRs:    []string{"13.37.0.0/16"},

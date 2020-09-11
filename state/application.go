@@ -670,7 +670,7 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 
 // IsExposed returns whether this application is exposed. The explicitly open
 // ports (with open-port) for exposed applications may be accessed from machines
-// outside of the local deployment network. See SetExposed and ClearExposed.
+// outside of the local deployment network. See MergeExposeSettings and ClearExposed.
 func (a *Application) IsExposed() bool {
 	return a.doc.Exposed
 }
@@ -686,12 +686,60 @@ func (a *Application) ExposedEndpoints() map[string]ExposedEndpoint {
 	return a.doc.ExposedEndpoints
 }
 
-// SetExposed marks the application as exposed.
+// UnsetExposeSettings removes the expose settings for the provided list of
+// endpoint names. If the resulting exposed endpoints map for the application
+// becomes empty after the settings are removed, the application will be
+// automatically unexposed.
+//
+// An error will be returned if an unknown endpoint name is specified or there
+// is no existing expose settings entry for any of the provided endpoint names.
+//
 // See ClearExposed and IsExposed.
-func (a *Application) SetExposed(exposedEndpoints map[string]ExposedEndpoint) error {
+func (a *Application) UnsetExposeSettings(exposedEndpoints []string) error {
 	bindings, _, err := readEndpointBindings(a.st, a.globalKey())
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	mergedExposedEndpoints := make(map[string]ExposedEndpoint)
+	for endpoint, exposeParams := range a.doc.ExposedEndpoints {
+		mergedExposedEndpoints[endpoint] = exposeParams
+	}
+
+	for _, endpoint := range exposedEndpoints {
+		// The empty endpoint ("") value represents all endpoints.
+		if _, found := bindings[endpoint]; !found && endpoint != "" {
+			return errors.NotFoundf("endpoint %q", endpoint)
+		}
+
+		if _, found := mergedExposedEndpoints[endpoint]; !found {
+			return errors.BadRequestf("endpoint %q is not exposed", endpoint)
+		}
+
+		delete(mergedExposedEndpoints, endpoint)
+	}
+
+	return a.setExposed(
+		// retain expose flag if we still have any expose settings left
+		len(mergedExposedEndpoints) != 0,
+		mergedExposedEndpoints,
+	)
+}
+
+// MergeExposeSettings marks the application as exposed and merges the provided
+// ExposedEndpoint details into the current set of expose settings. The merge
+// operation will overwrites expose settings for each existing endpoint name.
+//
+// See ClearExposed and IsExposed.
+func (a *Application) MergeExposeSettings(exposedEndpoints map[string]ExposedEndpoint) error {
+	bindings, _, err := readEndpointBindings(a.st, a.globalKey())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	mergedExposedEndpoints := make(map[string]ExposedEndpoint)
+	for endpoint, exposeParams := range a.doc.ExposedEndpoints {
+		mergedExposedEndpoints[endpoint] = exposeParams
 	}
 
 	var allSpaceInfos network.SpaceInfos
@@ -721,9 +769,18 @@ func (a *Application) SetExposed(exposedEndpoints map[string]ExposedEndpoint) er
 				return errors.Annotatef(err, "unable to parse %q as a CIDR", cidr)
 			}
 		}
+
+		// If no spaces and CIDRs are provided, assume an implicit
+		// 0.0.0.0/0 CIDR. This matches the "expose to the entire
+		// world" behavior in juju controllers prior to 2.9.
+		if len(exposeParams.ExposeToSpaceIDs)+len(exposeParams.ExposeToCIDRs) == 0 {
+			exposeParams.ExposeToCIDRs = []string{firewall.AllNetworksIPV4CIDR}
+		}
+
+		mergedExposedEndpoints[endpoint] = exposeParams
 	}
 
-	return a.setExposed(true, exposedEndpoints)
+	return a.setExposed(true, mergedExposedEndpoints)
 }
 
 func uniqueSortedStrings(in []string) []string {
@@ -735,7 +792,7 @@ func uniqueSortedStrings(in []string) []string {
 }
 
 // ClearExposed removes the exposed flag from the application.
-// See SetExposed and IsExposed.
+// See MergeExposeSettings and IsExposed.
 func (a *Application) ClearExposed() error {
 	return a.setExposed(false, nil)
 }

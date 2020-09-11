@@ -88,7 +88,8 @@ type Application interface {
 	Series() string
 	SetCharm(state.SetCharmConfig) error
 	SetConstraints(constraints.Value) error
-	SetExposed() error
+	MergeExposeSettings(map[string]state.ExposedEndpoint) error
+	UnsetExposeSettings([]string) error
 	SetMetricCredentials([]byte) error
 	SetMinUnits(int) error
 	UpdateApplicationSeries(string, bool) error
@@ -443,12 +444,6 @@ func (a stateApplicationShim) Relations() ([]Relation, error) {
 
 func (a stateApplicationShim) EndpointBindings() (Bindings, error) {
 	return a.Application.EndpointBindings()
-}
-
-func (a stateApplicationShim) SetExposed() error {
-	// TODO(achilleas): Remove this method once the required API changes
-	// for working with the additional expose parameters land.
-	return a.Application.SetExposed(nil)
 }
 
 type stateCharmShim struct {

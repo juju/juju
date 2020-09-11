@@ -2661,6 +2661,14 @@
                     "properties": {
                         "application": {
                             "type": "string"
+                        },
+                        "exposed-endpoints": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/ExposedEndpoint"
+                                }
+                            }
                         }
                     },
                     "additionalProperties": false,
@@ -3084,11 +3092,18 @@
                     "properties": {
                         "application": {
                             "type": "string"
+                        },
+                        "exposed-endpoints": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "application"
+                        "application",
+                        "exposed-endpoints"
                     ]
                 },
                 "ApplicationUnset": {
@@ -3712,6 +3727,24 @@
                     "required": [
                         "results"
                     ]
+                },
+                "ExposedEndpoint": {
+                    "type": "object",
+                    "properties": {
+                        "expose-to-cidrs": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "expose-to-spaces": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
                 },
                 "ExternalControllerInfo": {
                     "type": "object",
