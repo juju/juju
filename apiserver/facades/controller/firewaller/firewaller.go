@@ -724,3 +724,46 @@ func mapUnitPortsAndResolveSubnetCIDRs(portRangesByEndpoint network.GroupedPortR
 
 	return entries
 }
+
+// GetExposeInfo returns the expose flag and per-endpoint expose settings
+// for the specified applications.
+func (f *FirewallerAPIV6) GetExposeInfo(args params.Entities) (params.ExposeInfoResults, error) {
+	canAccess, err := f.accessApplication()
+	if err != nil {
+		return params.ExposeInfoResults{}, err
+	}
+
+	result := params.ExposeInfoResults{
+		Results: make([]params.ExposeInfoResult, len(args.Entities)),
+	}
+
+	for i, entity := range args.Entities {
+		tag, err := names.ParseApplicationTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		application, err := f.getApplication(canAccess, tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		if !application.IsExposed() {
+			continue
+		}
+
+		result.Results[i].Exposed = true
+		if exposedEndpoints := application.ExposedEndpoints(); len(exposedEndpoints) != 0 {
+			mappedEndpoints := make(map[string]params.ExposedEndpoint)
+			for endpoint, exposeDetails := range exposedEndpoints {
+				mappedEndpoints[endpoint] = params.ExposedEndpoint{
+					ExposeToSpaces: exposeDetails.ExposeToSpaceIDs,
+					ExposeToCIDRs:  exposeDetails.ExposeToCIDRs,
+				}
+			}
+			result.Results[i].ExposedEndpoints = mappedEndpoints
+		}
+	}
+	return result, nil
+}

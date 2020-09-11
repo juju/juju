@@ -286,3 +286,15 @@ func (s *firewallerSuite) TestAreManuallyProvisioned(c *gc.C) {
 		},
 	})
 }
+
+func (s *firewallerSuite) TestGetExposeInfo(c *gc.C) {
+	apiv6 := &firewaller.FirewallerAPIV6{
+		&firewaller.FirewallerAPIV5{
+			&firewaller.FirewallerAPIV4{
+				FirewallerAPIV3:     s.firewaller,
+				ControllerConfigAPI: common.NewControllerConfig(newMockState(coretesting.ModelTag.Id())),
+			},
+		},
+	}
+	s.testGetExposeInfo(c, apiv6)
+}

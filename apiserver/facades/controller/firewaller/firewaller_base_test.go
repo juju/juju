@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -375,6 +376,62 @@ func (s *firewallerBaseSuite) testGetExposed(
 	c.Assert(result, jc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
 			{Result: false},
+		},
+	})
+}
+
+func (s *firewallerBaseSuite) testGetExposeInfo(
+	c *gc.C,
+	facade interface {
+		GetExposeInfo(args params.Entities) (params.ExposeInfoResults, error)
+	},
+) {
+	// Set the application to exposed first.
+	err := s.application.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		"": {
+			ExposeToSpaceIDs: []string{network.AlphaSpaceId},
+			ExposeToCIDRs:    []string{"10.0.0.0/0"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := addFakeEntities(params.Entities{Entities: []params.Entity{
+		{Tag: s.application.Tag().String()},
+	}})
+	result, err := facade.GetExposeInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.ExposeInfoResults{
+		Results: []params.ExposeInfoResult{
+			{
+				Exposed: true,
+				ExposedEndpoints: map[string]params.ExposedEndpoint{
+					"": {
+						ExposeToSpaces: []string{network.AlphaSpaceId},
+						ExposeToCIDRs:  []string{"10.0.0.0/0"},
+					},
+				},
+			},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.NotFoundError(`application "bar"`)},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Now reset the exposed flag for the application and check again.
+	err = s.application.ClearExposed()
+	c.Assert(err, jc.ErrorIsNil)
+
+	args = params.Entities{Entities: []params.Entity{
+		{Tag: s.application.Tag().String()},
+	}}
+	result, err = facade.GetExposeInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.ExposeInfoResults{
+		Results: []params.ExposeInfoResult{
+			{Exposed: false},
 		},
 	})
 }
