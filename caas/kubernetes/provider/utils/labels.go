@@ -41,9 +41,9 @@ func LabelsForApp(name string) map[string]string {
 
 // LabelForKeyValue returns a Kubernetes label set for the supplied key value.
 func LabelForKeyValue(key, value string) k8slabels.Set {
-       return k8slabels.Set{
-               key: value,
-       }
+	return k8slabels.Set{
+		key: value,
+	}
 }
 
 // LabelsForModel returns the labels that should be on a k8s object for a given
