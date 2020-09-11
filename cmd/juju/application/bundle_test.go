@@ -152,6 +152,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSuccess(c 
 		"mysql": {
 			endpointBindings: map[string]string{
 				"":               network.AlphaSpaceId,
+				"db":             network.AlphaSpaceId,
 				"server":         dbSpace.Id(),
 				"server-admin":   network.AlphaSpaceId,
 				"metrics-client": network.AlphaSpaceId},
@@ -193,7 +194,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleTwice(c *gc.C) {
 		"- upload charm cs:xenial/wordpress-47 for series xenial\n"+
 		"- deploy application wordpress on xenial using cs:xenial/wordpress-47\n"+
 		"- set annotations for wordpress\n"+
-		"- add relation wordpress:db - mysql:server\n"+
+		"- add relation wordpress:db - mysql:db\n"+
 		"- add unit mysql/0 to new machine 0\n"+
 		"- add unit wordpress/0 to new machine 1",
 	)
@@ -217,7 +218,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleTwice(c *gc.C) {
 		"mysql":     {charm: "cs:xenial/mysql-42", config: mysqlch.Config().DefaultSettings()},
 		"wordpress": {charm: "cs:xenial/wordpress-47", config: wpch.Config().DefaultSettings()},
 	})
-	s.assertRelationsEstablished(c, "wordpress:db mysql:server")
+	s.assertRelationsEstablished(c, "wordpress:db mysql:db")
 	s.assertUnitsCreated(c, map[string]string{
 		"mysql/0":     "0",
 		"wordpress/0": "1",
@@ -239,7 +240,7 @@ func (s *BundleDeployCharmStoreSuite) TestDryRunTwice(c *gc.C) {
 		"- upload charm cs:xenial/wordpress-47 for series xenial\n" +
 		"- deploy application wordpress on xenial using cs:xenial/wordpress-47\n" +
 		"- set annotations for wordpress\n" +
-		"- add relation wordpress:db - mysql:server\n" +
+		"- add relation wordpress:db - mysql:db\n" +
 		"- add unit mysql/0 to new machine 0\n" +
 		"- add unit wordpress/0 to new machine 1"
 

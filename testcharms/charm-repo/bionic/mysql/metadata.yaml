@@ -2,6 +2,8 @@ name: mysql
 summary: "Database engine"
 description: "A pretty popular database"
 provides:
+  db:
+    interface: mysql
   server:
     interface: mysql
   server-admin:
