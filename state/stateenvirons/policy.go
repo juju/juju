@@ -4,6 +4,8 @@
 package stateenvirons
 
 import (
+	"sync"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/caas"
@@ -22,6 +24,15 @@ type environStatePolicy struct {
 	st         *state.State
 	getEnviron NewEnvironFunc
 	getBroker  NewCAASBrokerFunc
+	checkerMu  sync.Mutex
+	checker    checker
+}
+
+// checker is the subset of the Environ interface (common to Environ and
+// Broker) that we need for pre-checking instances and validating constraints.
+type checker interface {
+	environs.InstancePrechecker
+	environs.ConstraintsChecker
 }
 
 // GetNewPolicyFunc returns a state.NewPolicyFunc that will return
@@ -29,24 +40,43 @@ type environStatePolicy struct {
 // or caas.Broker and related types.
 func GetNewPolicyFunc() state.NewPolicyFunc {
 	return func(st *state.State) state.Policy {
-		return environStatePolicy{st, GetNewEnvironFunc(environs.New), GetNewCAASBrokerFunc(caas.New)}
+		return &environStatePolicy{
+			st:         st,
+			getEnviron: GetNewEnvironFunc(environs.New),
+			getBroker:  GetNewCAASBrokerFunc(caas.New),
+		}
 	}
 }
 
-// Prechecker implements state.Policy.
-func (p environStatePolicy) Prechecker() (environs.InstancePrechecker, error) {
+// getChecker returns the cached checker instance, or creates a new one if
+// it hasn't yet been created and cached.
+func (p *environStatePolicy) getChecker() (checker, error) {
+	p.checkerMu.Lock()
+	defer p.checkerMu.Unlock()
+
+	if p.checker != nil {
+		return p.checker, nil
+	}
+
 	model, err := p.st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if model.Type() == state.ModelTypeIAAS {
-		return p.getEnviron(model)
+		p.checker, err = p.getEnviron(model)
+	} else {
+		p.checker, err = p.getBroker(model)
 	}
-	return p.getBroker(model)
+	return p.checker, err
+}
+
+// Prechecker implements state.Policy.
+func (p *environStatePolicy) Prechecker() (environs.InstancePrechecker, error) {
+	return p.getChecker()
 }
 
 // ConfigValidator implements state.Policy.
-func (p environStatePolicy) ConfigValidator() (config.Validator, error) {
+func (p *environStatePolicy) ConfigValidator() (config.Validator, error) {
 	model, err := p.st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -59,7 +89,7 @@ func (p environStatePolicy) ConfigValidator() (config.Validator, error) {
 }
 
 // ProviderConfigSchemaSource implements state.Policy.
-func (p environStatePolicy) ProviderConfigSchemaSource(cloudName string) (config.ConfigSchemaSource, error) {
+func (p *environStatePolicy) ProviderConfigSchemaSource(cloudName string) (config.ConfigSchemaSource, error) {
 	cloud, err := p.st.Cloud(cloudName)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -75,28 +105,16 @@ func (p environStatePolicy) ProviderConfigSchemaSource(cloudName string) (config
 }
 
 // ConstraintsValidator implements state.Policy.
-func (p environStatePolicy) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
-	model, err := p.st.Model()
+func (p *environStatePolicy) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
+	checker, err := p.getChecker()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	if model.Type() == state.ModelTypeIAAS {
-		env, err := p.getEnviron(model)
-		if err != nil {
-			return nil, err
-		}
-		return env.ConstraintsValidator(ctx)
-	}
-	broker, err := p.getBroker(model)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return broker.ConstraintsValidator(ctx)
+	return checker.ConstraintsValidator(ctx)
 }
 
 // InstanceDistributor implements state.Policy.
-func (p environStatePolicy) InstanceDistributor() (context.Distributor, error) {
+func (p *environStatePolicy) InstanceDistributor() (context.Distributor, error) {
 	model, err := p.st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -109,14 +127,14 @@ func (p environStatePolicy) InstanceDistributor() (context.Distributor, error) {
 	if err != nil {
 		return nil, err
 	}
-	if p, ok := env.(context.Distributor); ok {
-		return p, nil
+	if d, ok := env.(context.Distributor); ok {
+		return d, nil
 	}
 	return nil, errors.NotImplementedf("InstanceDistributor")
 }
 
 // StorageProviderRegistry implements state.Policy.
-func (p environStatePolicy) StorageProviderRegistry() (storage.ProviderRegistry, error) {
+func (p *environStatePolicy) StorageProviderRegistry() (storage.ProviderRegistry, error) {
 	model, err := p.st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
