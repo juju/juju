@@ -9,6 +9,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/base"
+	charmscommon "github.com/juju/juju/api/common/charms"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/application"
@@ -21,11 +22,28 @@ type Client struct {
 	facade base.FacadeCaller
 }
 
-// NewClient returns a client used to access the CAAS unit provisioner API.
-func NewClient(caller base.APICaller) *Client {
+// NewClientLegacy returns a client used to access the CAAS unit provisioner API.
+func NewClientLegacy(caller base.APICaller) *Client {
 	facadeCaller := base.NewFacadeCaller(caller, "CAASFirewaller")
 	return &Client{
 		facade: facadeCaller,
+	}
+}
+
+// ClientEmbedded allows access to the CAAS firewaller API endpoint for embedded applications.
+type ClientEmbedded struct {
+	facade base.FacadeCaller
+	*charmscommon.CharmsClient
+}
+
+// NewClientEmbedded returns a client used to access the CAAS unit provisioner API.
+func NewClientEmbedded(caller base.APICaller) *ClientEmbedded {
+	// TODO: add OpenedPorts and ClosedPorts API for caasfirewallerembedded worker to fetch port mapping changes!!!!
+	facadeCaller := base.NewFacadeCaller(caller, "CAASFirewallerEmbedded")
+	charmsClient := charmscommon.NewCharmsClient(facadeCaller)
+	return &ClientEmbedded{
+		facade:       facadeCaller,
+		CharmsClient: charmsClient,
 	}
 }
 

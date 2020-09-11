@@ -11,7 +11,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state/watcher"
 )
 
 type Facade struct {
@@ -19,16 +18,32 @@ type Facade struct {
 	*common.AgentEntityWatcher
 	resources facade.Resources
 	state     CAASFirewallerState
+	*common.ApplicationWatcherFacade
 }
 
-// NewStateFacade provides the signature required for facade registration.
-func NewStateFacade(ctx facade.Context) (*Facade, error) {
+// NewStateFacadeLegacy provides the signature required for facade registration.
+func NewStateFacadeLegacy(ctx facade.Context) (*Facade, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
+	appWatcherFacade := common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterCAASLegacy)
 	return NewFacade(
 		resources,
 		authorizer,
 		stateShim{ctx.State()},
+		appWatcherFacade,
+	)
+}
+
+// NewStateFacadeEmbedded provides the signature required for facade registration.
+func NewStateFacadeEmbedded(ctx facade.Context) (*Facade, error) {
+	authorizer := ctx.Auth()
+	resources := ctx.Resources()
+	appWatcherFacade := common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterCAASEmbedded)
+	return NewFacade(
+		resources,
+		authorizer,
+		stateShim{ctx.State()},
+		appWatcherFacade,
 	)
 }
 
@@ -37,6 +52,7 @@ func NewFacade(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	st CAASFirewallerState,
+	applicationWatcherFacade *common.ApplicationWatcherFacade,
 ) (*Facade, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -54,22 +70,10 @@ func NewFacade(
 			resources,
 			accessApplication,
 		),
-		resources: resources,
-		state:     st,
+		resources:                resources,
+		state:                    st,
+		ApplicationWatcherFacade: applicationWatcherFacade,
 	}, nil
-}
-
-// WatchApplications starts a StringsWatcher to watch CAAS applications
-// deployed to this model.
-func (f *Facade) WatchApplications() (params.StringsWatchResult, error) {
-	watch := f.state.WatchApplications()
-	if changes, ok := <-watch.Changes(); ok {
-		return params.StringsWatchResult{
-			StringsWatcherId: f.resources.Register(watch),
-			Changes:          changes,
-		}, nil
-	}
-	return params.StringsWatchResult{}, watcher.EnsureErr(watch)
 }
 
 // IsExposed returns whether the specified applications are exposed.

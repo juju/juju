@@ -43,7 +43,7 @@ func (s *FirewallerSuite) TestIsExposed(c *gc.C) {
 		return nil
 	})
 
-	client := caasfirewaller.NewClient(apiCaller)
+	client := caasfirewaller.NewClientLegacy(apiCaller)
 	exposed, err := client.IsExposed("gitlab")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(exposed, jc.IsTrue)
@@ -60,14 +60,14 @@ func (s *FirewallerSuite) TestIsExposedError(c *gc.C) {
 		return nil
 	})
 
-	client := caasfirewaller.NewClient(apiCaller)
+	client := caasfirewaller.NewClientLegacy(apiCaller)
 	_, err := client.IsExposed("gitlab")
 	c.Assert(err, gc.ErrorMatches, "bletch")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *FirewallerSuite) TestIsExposedInvalidEntityame(c *gc.C) {
-	client := caasfirewaller.NewClient(basetesting.APICallerFunc(func(_ string, _ int, _, _ string, _, _ interface{}) error {
+	client := caasfirewaller.NewClientLegacy(basetesting.APICallerFunc(func(_ string, _ int, _, _ string, _, _ interface{}) error {
 		return errors.New("should not be called")
 	}))
 	_, err := client.IsExposed("")
@@ -95,7 +95,7 @@ func (s *FirewallerSuite) TestLife(c *gc.C) {
 		return nil
 	})
 
-	client := caasfirewaller.NewClient(apiCaller)
+	client := caasfirewaller.NewClientLegacy(apiCaller)
 	lifeValue, err := client.Life(tag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(lifeValue, gc.Equals, life.Alive)
@@ -112,14 +112,14 @@ func (s *FirewallerSuite) TestLifeError(c *gc.C) {
 		return nil
 	})
 
-	client := caasfirewaller.NewClient(apiCaller)
+	client := caasfirewaller.NewClientLegacy(apiCaller)
 	_, err := client.Life("gitlab")
 	c.Assert(err, gc.ErrorMatches, "bletch")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *FirewallerSuite) TestLifeInvalidEntityame(c *gc.C) {
-	client := caasfirewaller.NewClient(basetesting.APICallerFunc(func(_ string, _ int, _, _ string, _, _ interface{}) error {
+	client := caasfirewaller.NewClientLegacy(basetesting.APICallerFunc(func(_ string, _ int, _, _ string, _, _ interface{}) error {
 		return errors.New("should not be called")
 	}))
 	_, err := client.Life("")
@@ -139,7 +139,7 @@ func (s *FirewallerSuite) TestWatchApplications(c *gc.C) {
 		return nil
 	})
 
-	client := caasfirewaller.NewClient(apiCaller)
+	client := caasfirewaller.NewClientLegacy(apiCaller)
 	watcher, err := client.WatchApplications()
 	c.Assert(watcher, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
@@ -165,7 +165,7 @@ func (s *FirewallerSuite) TestWatchApplication(c *gc.C) {
 		return nil
 	})
 
-	client := caasfirewaller.NewClient(apiCaller)
+	client := caasfirewaller.NewClientLegacy(apiCaller)
 	watcher, err := client.WatchApplication("gitlab")
 	c.Assert(watcher, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
@@ -191,7 +191,7 @@ func (s *FirewallerSuite) TestApplicationConfig(c *gc.C) {
 		return nil
 	})
 
-	client := caasfirewaller.NewClient(apiCaller)
+	client := caasfirewaller.NewClientLegacy(apiCaller)
 	cfg, err := client.ApplicationConfig("gitlab")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, jc.DeepEquals, application.ConfigAttributes{"foo": "bar"})
