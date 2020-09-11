@@ -6,4 +6,4 @@ services:
         charm: cs:mysql
         num_units: 1
 relations:
-    - ["wordpress:db", "mysql:server"]
+    - ["wordpress:db", "mysql:db"]
