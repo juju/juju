@@ -34,6 +34,11 @@ const (
 	LabelApplication   = "juju-app"
 	LabelModel         = "juju-model"
 	LabelModelOperator = "juju-modeloperator"
+
+	// LabelJujuAppCreatedBy is a Juju application label to apply to objects
+	// created by applications managed by Juju. Think istio, kubeflow etc
+	// See https://bugs.launchpad.net/juju/+bug/1892285
+	LabelJujuAppCreatedBy = "app.juju.is/created-by"
 )
 
 func AnnotationKey(name string) string {
