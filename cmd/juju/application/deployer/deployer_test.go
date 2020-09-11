@@ -15,6 +15,7 @@ import (
 	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -28,6 +29,8 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -159,6 +162,82 @@ func (s *deployerSuite) TestGetDeployerCharmStoreBundle(c *gc.C) {
 	deployer, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm store bundle: %s", bundle.String()))
+}
+
+func (s *deployerSuite) TestResolveCharmURL(c *gc.C) {
+	tests := []struct {
+		path string
+		url  *charm.URL
+		err  error
+	}{{
+		path: "wordpress",
+		url:  &charm.URL{Schema: "cs", Name: "wordpress", Revision: -1},
+	}, {
+		path: "cs:wordpress",
+		url:  &charm.URL{Schema: "cs", Name: "wordpress", Revision: -1},
+	}, {
+		path: "local:wordpress",
+		url:  &charm.URL{Schema: "local", Name: "wordpress", Revision: -1},
+	}, {
+		path: "cs:~user/series/name",
+		url:  &charm.URL{Schema: "cs", User: "user", Name: "name", Series: "series", Revision: -1},
+	}, {
+		path: "ch:~user/series/name",
+		err:  errors.Errorf(`unexpected charm schema: cannot parse URL "ch:~user/series/name": schema "ch" not valid`),
+	}}
+	for i, test := range tests {
+		c.Logf("%d %s", i, test.path)
+		url, err := resolveCharmURL(test.path)
+		if test.err != nil {
+			c.Assert(err, gc.ErrorMatches, test.err.Error())
+		} else {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(url, gc.DeepEquals, test.url)
+		}
+	}
+}
+
+func (s *deployerSuite) TestResolveCharmURLCharmHubIntegration(c *gc.C) {
+	setFeatureFlags(feature.CharmHubIntegration)
+	defer setFeatureFlags("")
+
+	tests := []struct {
+		path string
+		url  *charm.URL
+		err  error
+	}{{
+		path: "wordpress",
+		url:  &charm.URL{Schema: "ch", Name: "wordpress", Revision: -1},
+	}, {
+		path: "ch:wordpress-42",
+		url:  &charm.URL{Schema: "ch", Name: "wordpress", Revision: 42},
+	}, {
+		path: "cs:wordpress",
+		url:  &charm.URL{Schema: "cs", Name: "wordpress", Revision: -1},
+	}, {
+		path: "local:wordpress",
+		url:  &charm.URL{Schema: "local", Name: "wordpress", Revision: -1},
+	}, {
+		path: "cs:~user/series/name",
+		url:  &charm.URL{Schema: "cs", User: "user", Name: "name", Series: "series", Revision: -1},
+	}}
+	for i, test := range tests {
+		c.Logf("%d %s", i, test.path)
+		url, err := resolveCharmURL(test.path)
+		if test.err != nil {
+			c.Assert(err, gc.ErrorMatches, test.err.Error())
+		} else {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(url, gc.DeepEquals, test.url)
+		}
+	}
+}
+
+func setFeatureFlags(flags string) {
+	if err := os.Setenv(osenv.JujuFeatureFlagEnvKey, flags); err != nil {
+		panic(err)
+	}
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 func (s *deployerSuite) makeBundleDir(c *gc.C, content string) string {
