@@ -25,12 +25,12 @@ type environStatePolicy struct {
 	getEnviron NewEnvironFunc
 	getBroker  NewCAASBrokerFunc
 	checkerMu  sync.Mutex
-	checker    checker
+	checker    deployChecker
 }
 
-// checker is the subset of the Environ interface (common to Environ and
+// deployChecker is the subset of the Environ interface (common to Environ and
 // Broker) that we need for pre-checking instances and validating constraints.
-type checker interface {
+type deployChecker interface {
 	environs.InstancePrechecker
 	environs.ConstraintsChecker
 }
@@ -48,9 +48,9 @@ func GetNewPolicyFunc() state.NewPolicyFunc {
 	}
 }
 
-// getChecker returns the cached checker instance, or creates a new one if
-// it hasn't yet been created and cached.
-func (p *environStatePolicy) getChecker() (checker, error) {
+// getDeployChecker returns the cached deployChecker instance, or creates a
+// new one if it hasn't yet been created and cached.
+func (p *environStatePolicy) getDeployChecker() (deployChecker, error) {
 	p.checkerMu.Lock()
 	defer p.checkerMu.Unlock()
 
@@ -72,7 +72,7 @@ func (p *environStatePolicy) getChecker() (checker, error) {
 
 // Prechecker implements state.Policy.
 func (p *environStatePolicy) Prechecker() (environs.InstancePrechecker, error) {
-	return p.getChecker()
+	return p.getDeployChecker()
 }
 
 // ConfigValidator implements state.Policy.
@@ -106,7 +106,7 @@ func (p *environStatePolicy) ProviderConfigSchemaSource(cloudName string) (confi
 
 // ConstraintsValidator implements state.Policy.
 func (p *environStatePolicy) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
-	checker, err := p.getChecker()
+	checker, err := p.getDeployChecker()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -123,6 +123,8 @@ func (p *environStatePolicy) InstanceDistributor() (context.Distributor, error) 
 		// Only IAAS models support machines, hence distribution.
 		return nil, errors.NotImplementedf("InstanceDistributor")
 	}
+	// DistributeInstances doesn't make any calls to fetch instance types,
+	// so it doesn't help to use getDeployChecker() here.
 	env, err := p.getEnviron(model)
 	if err != nil {
 		return nil, err
@@ -139,6 +141,8 @@ func (p *environStatePolicy) StorageProviderRegistry() (storage.ProviderRegistry
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// ProviderRegistry doesn't make any calls to fetch instance types,
+	// so it doesn't help to use getDeployChecker() here.
 	return NewStorageProviderRegistryForModel(model, p.getEnviron, p.getBroker)
 }
 

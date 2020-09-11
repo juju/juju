@@ -112,7 +112,7 @@ func CloudSpec(
 	return environs.MakeCloudSpec(modelCloud, regionName, cloudCredential)
 }
 
-// NewEnvironFunc defines the type of a function that, given a stateenvirons.Model,
+// NewEnvironFunc defines the type of a function that, given a Model,
 // returns a new Environ.
 type NewEnvironFunc func(Model) (environs.Environ, error)
 
