@@ -15,6 +15,7 @@ import (
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/watcher"
 )
@@ -255,4 +256,20 @@ func (c *Client) FirewallRules(knownServices ...string) ([]params.FirewallRule, 
 		return nil, errors.Trace(err)
 	}
 	return results.Rules, nil
+}
+
+// AllSpaceInfos returns the details about the known spaces and their
+// associated subnets.
+func (c *Client) AllSpaceInfos() (network.SpaceInfos, error) {
+	if c.BestAPIVersion() < 6 {
+		// AllSpaceInfos() was introduced in FirewallerAPIV6.
+		return nil, errors.NotImplementedf("AllSpaceInfos() (need V6+)")
+	}
+
+	var result params.SpaceInfos
+	err := c.facade.FacadeCall("SpaceInfos", params.SpaceInfosParams{}, &result)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return params.ToNetworkSpaceInfos(result), nil
 }
