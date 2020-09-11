@@ -767,3 +767,33 @@ func (f *FirewallerAPIV6) GetExposeInfo(args params.Entities) (params.ExposeInfo
 	}
 	return result, nil
 }
+
+// SpaceInfos returns a comprehensive representation of either all spaces or
+// a filtered subset of the known spaces and their associated subnet details.
+func (f *FirewallerAPIV6) SpaceInfos(args params.SpaceInfosParams) (params.SpaceInfos, error) {
+	if !f.authorizer.AuthController() {
+		return params.SpaceInfos{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
+	}
+
+	allSpaceInfos, err := f.getSpaceInfos()
+	if err != nil {
+		return params.SpaceInfos{}, apiservererrors.ServerError(err)
+	}
+
+	// Apply filtering if required
+	if len(args.FilterBySpaceIDs) != 0 {
+		var (
+			filteredList network.SpaceInfos
+			selectList   = set.NewStrings(args.FilterBySpaceIDs...)
+		)
+		for _, si := range allSpaceInfos {
+			if selectList.Contains(si.ID) {
+				filteredList = append(filteredList, si)
+			}
+		}
+
+		allSpaceInfos = filteredList
+	}
+
+	return params.FromNetworkSpaceInfos(allSpaceInfos), nil
+}
