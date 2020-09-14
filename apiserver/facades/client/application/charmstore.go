@@ -80,10 +80,10 @@ type Repository interface {
 	// updated with the ID and hash for the download is also returned.
 	FindDownloadURL(curl *charm.URL, origin corecharm.Origin) (*url.URL, corecharm.Origin, error)
 
-	// GetCharm reads the charm referenced by curl or downloadURL into
+	// DownloadCharm reads the charm referenced by curl or downloadURL into
 	// a file with the given path, which will be created if needed. Note
 	// that the path's parent directory must already exist.
-	GetCharm(curl *charm.URL, downloadURL *url.URL, archivePath string) (*charm.CharmArchive, error)
+	DownloadCharm(curl *charm.URL, downloadURL *url.URL, archivePath string) (*charm.CharmArchive, error)
 
 	// Resolve verified that the charm exists.  It returns a charm URL which
 	// includes the most current revision, if none was provided and a slice
@@ -247,10 +247,10 @@ type charmRepoShim struct {
 	charmStore *charmrepo.CharmStore
 }
 
-// GetCharm calls the charmrepo Get method to return a charm archive.
+// DownloadCharm calls the charmrepo Get method to return a charm archive.
 // It requires a charm url and an archive path to, the url url is ignored
 // in this case.
-func (c *charmRepoShim) GetCharm(curl *charm.URL, _ *url.URL, archivePath string) (*charm.CharmArchive, error) {
+func (c *charmRepoShim) DownloadCharm(curl *charm.URL, _ *url.URL, archivePath string) (*charm.CharmArchive, error) {
 	return c.charmStore.Get(curl, archivePath)
 }
 

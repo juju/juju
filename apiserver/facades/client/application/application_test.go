@@ -102,7 +102,7 @@ func (s *applicationSuite) UploadCharm(c *gc.C, url, name string) (*charm.URL, c
 	ch, err := charm.ReadCharmArchive(
 		testcharms.RepoWithSeries("quantal").CharmArchivePath(c.MkDir(), name))
 	c.Assert(err, jc.ErrorIsNil)
-	s.repo.Call("GetCharm", resultURL).Returns(
+	s.repo.Call("DownloadCharm", resultURL).Returns(
 		ch,
 		error(nil),
 	)

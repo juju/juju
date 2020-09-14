@@ -59,7 +59,7 @@ func (s *CharmStoreSuite) TestAddCharmWithAuthorization(c *gc.C) {
 	stExp.Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 	iExp := mockRepository.EXPECT()
-	iExp.GetCharm(charmURL, nil, gomock.Any()).Return(ch, nil)
+	iExp.DownloadCharm(charmURL, nil, gomock.Any()).Return(ch, nil)
 
 	err = application.AddCharmWithAuthorizationAndRepo(mockState, params.AddCharmWithAuthorization{
 		URL: url,
@@ -96,7 +96,7 @@ func (s *CharmStoreSuite) TestAddCharmWithAuthorizationWithInvalidLXDProfile(c *
 	cExp.IsUploaded().Return(false)
 
 	iExp := mockRepository.EXPECT()
-	iExp.GetCharm(charmURL, nil, gomock.Any()).Return(ch, nil)
+	iExp.DownloadCharm(charmURL, nil, gomock.Any()).Return(ch, nil)
 
 	err = application.AddCharmWithAuthorizationAndRepo(mockState, params.AddCharmWithAuthorization{
 		URL: url,
@@ -139,7 +139,7 @@ func (s *CharmStoreSuite) TestAddCharmWithAuthorizationAndForce(c *gc.C) {
 	stExp.Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 	iExp := mockRepository.EXPECT()
-	iExp.GetCharm(charmURL, nil, gomock.Any()).Return(ch, nil)
+	iExp.DownloadCharm(charmURL, nil, gomock.Any()).Return(ch, nil)
 
 	err = application.AddCharmWithAuthorizationAndRepo(mockState, params.AddCharmWithAuthorization{
 		URL:   url,
@@ -183,7 +183,7 @@ func (s *CharmStoreSuite) TestAddCharmWithAuthorizationWithInvalidLXDProfileAndF
 	stExp.Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 	iExp := mockRepository.EXPECT()
-	iExp.GetCharm(charmURL, nil, gomock.Any()).Return(ch, nil)
+	iExp.DownloadCharm(charmURL, nil, gomock.Any()).Return(ch, nil)
 
 	err = application.AddCharmWithAuthorizationAndRepo(mockState, params.AddCharmWithAuthorization{
 		URL:   url,
@@ -234,7 +234,7 @@ func (s *CharmStoreSuite) TestAddVersionedCharmWithAuthorization(c *gc.C) {
 	stExp.Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 	iExp := mockRepository.EXPECT()
-	iExp.GetCharm(charmURL, nil, gomock.Any()).Return(ch, nil)
+	iExp.DownloadCharm(charmURL, nil, gomock.Any()).Return(ch, nil)
 
 	err = application.AddCharmWithAuthorizationAndRepo(mockState, params.AddCharmWithAuthorization{
 		URL: url,

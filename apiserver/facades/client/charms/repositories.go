@@ -66,11 +66,11 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 	return c.resolveViaChannelMap(curl, origin, channelMap)
 }
 
-// GetCharm downloads the provided download URL from CharmHub using the provided
-// archive path.
+// DownloadCharm downloads the provided download URL from CharmHub using the
+// provided archive path.
 // A charm archive is returned.
-func (c *chRepo) GetCharm(curl *charm.URL, resourceURL *url.URL, archivePath string) (*charm.CharmArchive, error) {
-	logger.Tracef("GetCharm from CharmHub %q from %q", curl.String(), resourceURL.String())
+func (c *chRepo) DownloadCharm(curl *charm.URL, resourceURL *url.URL, archivePath string) (*charm.CharmArchive, error) {
+	logger.Tracef("DownloadCharm from CharmHub %q from %q", curl.String(), resourceURL.String())
 	return c.client.Download(context.TODO(), resourceURL, archivePath)
 }
 
@@ -256,8 +256,8 @@ func (c *csRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 	return newCurl, newOrigin, supportedSeries, err
 }
 
-func (c *csRepo) GetCharm(curl *charm.URL, _ *url.URL, archivePath string) (*charm.CharmArchive, error) {
-	logger.Tracef("CharmStore GetCharm %q", curl)
+func (c *csRepo) DownloadCharm(curl *charm.URL, _ *url.URL, archivePath string) (*charm.CharmArchive, error) {
+	logger.Tracef("CharmStore DownloadCharm %q", curl)
 	return c.repo.Get(curl, archivePath)
 }
 

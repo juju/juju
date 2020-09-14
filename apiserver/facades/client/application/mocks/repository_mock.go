@@ -35,6 +35,21 @@ func (m *MockRepository) EXPECT() *MockRepositoryMockRecorder {
 	return m.recorder
 }
 
+// DownloadCharm mocks base method
+func (m *MockRepository) DownloadCharm(arg0 *charm.URL, arg1 *url.URL, arg2 string) (*charm.CharmArchive, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DownloadCharm", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*charm.CharmArchive)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DownloadCharm indicates an expected call of DownloadCharm
+func (mr *MockRepositoryMockRecorder) DownloadCharm(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadCharm", reflect.TypeOf((*MockRepository)(nil).DownloadCharm), arg0, arg1, arg2)
+}
+
 // FindDownloadURL mocks base method
 func (m *MockRepository) FindDownloadURL(arg0 *charm.URL, arg1 charm0.Origin) (*url.URL, charm0.Origin, error) {
 	m.ctrl.T.Helper()
@@ -49,21 +64,6 @@ func (m *MockRepository) FindDownloadURL(arg0 *charm.URL, arg1 charm0.Origin) (*
 func (mr *MockRepositoryMockRecorder) FindDownloadURL(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindDownloadURL", reflect.TypeOf((*MockRepository)(nil).FindDownloadURL), arg0, arg1)
-}
-
-// GetCharm mocks base method
-func (m *MockRepository) GetCharm(arg0 *charm.URL, arg1 *url.URL, arg2 string) (*charm.CharmArchive, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCharm", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*charm.CharmArchive)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetCharm indicates an expected call of GetCharm
-func (mr *MockRepositoryMockRecorder) GetCharm(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharm", reflect.TypeOf((*MockRepository)(nil).GetCharm), arg0, arg1, arg2)
 }
 
 // Resolve mocks base method

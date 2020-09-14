@@ -1177,8 +1177,8 @@ type mockRepo struct {
 	revisions map[string]int
 }
 
-func (m *mockRepo) GetCharm(curl *charm.URL, _ *url.URL, _ string) (*charm.CharmArchive, error) {
-	results := m.MethodCall(m, "GetCharm", curl)
+func (m *mockRepo) DownloadCharm(curl *charm.URL, _ *url.URL, _ string) (*charm.CharmArchive, error) {
+	results := m.MethodCall(m, "DownloadCharm", curl)
 	if results == nil {
 		return nil, errors.NotFoundf(`cannot retrieve %q: charm`, curl)
 	}
