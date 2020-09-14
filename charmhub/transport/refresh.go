@@ -53,7 +53,9 @@ type RefreshResponse struct {
 	Name             string        `json:"name"`
 	Result           string        `json:"result"`
 
-	ReleasedAt string `json:"released-at"`
+	// Officially the released-at is ISO8601, but go's version of time.Time is
+	// both RFC3339 and ISO8601 (the latter makes the T optional).
+	ReleasedAt time.Time `json:"released-at"`
 }
 
 type RefreshEntity struct {
