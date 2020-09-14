@@ -4,6 +4,7 @@
 package ec2
 
 import (
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -27,10 +28,18 @@ import (
 
 var _ environs.InstanceTypesFetcher = (*environ)(nil)
 
+type awsLogger struct {
+	session *session.Session
+}
+
+func (l awsLogger) Log(args ...interface{}) {
+	logger.Tracef("awsLogger %p: %s", l.session, fmt.Sprint(args...))
+}
+
 // EC2Session returns a session with the given credentials.
 var EC2Session = func(region, accessKey, secretKey string) ec2iface.EC2API {
 	sess := session.Must(session.NewSession())
-	ec2Session := ec2.New(sess, &aws.Config{
+	config := &aws.Config{
 		Retryer: client.DefaultRetryer{ // these roughly match retry params in gopkg.in/amz.v3/ec2/ec2.go:EC2.query
 			NumMaxRetries:    10,
 			MinRetryDelay:    time.Second,
@@ -43,7 +52,16 @@ var EC2Session = func(region, accessKey, secretKey string) ec2iface.EC2API {
 			AccessKeyID:     accessKey,
 			SecretAccessKey: secretKey,
 		}),
-	})
+	}
+
+	// Enable request and response logging, but only if TRACE is enabled (as
+	// they're probably fairly expensive to produce).
+	if logger.IsTraceEnabled() {
+		config.Logger = awsLogger{sess}
+		config.LogLevel = aws.LogLevel(aws.LogDebug | aws.LogDebugWithRequestErrors | aws.LogDebugWithRequestRetries)
+	}
+
+	ec2Session := ec2.New(sess, config)
 	return ec2Session
 }
 
