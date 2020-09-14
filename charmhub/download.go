@@ -6,6 +6,7 @@ package charmhub
 import (
 	"context"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -49,6 +50,12 @@ func NewDownloadClient(transport Transport, fileSystem FileSystem) *DownloadClie
 }
 
 // Download returns a charm archive retrieved from the given URL.
+// It is expected that the archive path doesn't already exist and if it does, it
+// will error out. It is expected that the callee handles the clean up of the
+// archivePath.
+// TODO (stickupkid): We should either create and remove, or take a file and
+// let the callee remove. The fact that the operations are asymmetrical can lead
+// to unexpected expectations; namely leaking of files.
 func (c *DownloadClient) Download(ctx context.Context, resourceURL *url.URL, archivePath string) (*charm.CharmArchive, error) {
 	f, err := c.fileSystem.Create(archivePath)
 	if err != nil {
@@ -89,7 +96,13 @@ func (c *DownloadClient) downloadFromURL(ctx context.Context, resourceURL *url.U
 	if resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusNoContent {
 		return resp.Body, nil
 	}
-	defer func() { _ = resp.Body.Close() }()
 
+	// Clean up, as we can't really offer anything of use here.
+	_, _ = io.Copy(ioutil.Discard, resp.Body)
+	_ = resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, errors.NotFoundf("archive")
+	}
 	return nil, errors.Errorf("unable to locate archive")
 }

@@ -59,7 +59,7 @@ func (s *DownloadSuite) TestDownload(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *DownloadSuite) TestDownloadWithFailedStatusCode(c *gc.C) {
+func (s *DownloadSuite) TestDownloadWithNotFoundStatusCode(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -77,6 +77,36 @@ func (s *DownloadSuite) TestDownloadWithFailedStatusCode(c *gc.C) {
 	transport.EXPECT().Do(gomock.Any()).DoAndReturn(func(r *http.Request) (*http.Response, error) {
 		return &http.Response{
 			StatusCode: 404,
+			Body:       ioutil.NopCloser(bytes.NewBufferString("")),
+		}, nil
+	})
+
+	serverURL, err := url.Parse("http://meshuggah.rocks")
+	c.Assert(err, jc.ErrorIsNil)
+
+	client := NewDownloadClient(transport, fileSystem)
+	_, err = client.Download(context.TODO(), serverURL, tmpFile.Name())
+	c.Assert(err, gc.ErrorMatches, `cannot retrieve "http://meshuggah.rocks": archive not found`)
+}
+
+func (s *DownloadSuite) TestDownloadWithFailedStatusCode(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	tmpFile, err := ioutil.TempFile("", "charm")
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() {
+		err := os.Remove(tmpFile.Name())
+		c.Assert(err, jc.ErrorIsNil)
+	}()
+
+	fileSystem := NewMockFileSystem(ctrl)
+	fileSystem.EXPECT().Create(tmpFile.Name()).Return(tmpFile, nil)
+
+	transport := NewMockTransport(ctrl)
+	transport.EXPECT().Do(gomock.Any()).DoAndReturn(func(r *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: 500,
 			Body:       ioutil.NopCloser(bytes.NewBufferString("")),
 		}, nil
 	})

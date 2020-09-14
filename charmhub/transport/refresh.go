@@ -47,7 +47,7 @@ type RefreshResponse struct {
 	// TODO (stickupkid): Swap this over to the new name if it ever happens.
 	Entity           RefreshEntity `json:"charm"`
 	EffectiveChannel string        `json:"effective-channel"`
-	Error            *APIError     `json:"error"`
+	Error            *APIError     `json:"error,omitempty"`
 	ID               string        `json:"id"`
 	InstanceKey      string        `json:"instance-key"`
 	Name             string        `json:"name"`
@@ -62,7 +62,7 @@ type RefreshEntity struct {
 	ID        string            `json:"id"`
 	License   string            `json:"license"`
 	Name      string            `json:"name"`
-	Publisher map[string]string `json:"publisher"`
+	Publisher map[string]string `json:"publisher,omitempty"`
 	Summary   string            `json:"summary"`
 	Version   string            `json:"version"`
 }
