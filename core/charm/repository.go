@@ -18,10 +18,11 @@ type Repository interface {
 	// updated with the ID and hash for the download is also returned.
 	FindDownloadURL(curl *charm.URL, origin Origin) (*url.URL, Origin, error)
 
-	// DownloadCharm reads the charm referenced by curl or downloadURL into
-	// a file with the given path, which will be created if needed. Note
-	// that the path's parent directory must already exist.
-	DownloadCharm(curl *charm.URL, downloadURL *url.URL, archivePath string) (*charm.CharmArchive, error)
+	// DownloadCharm reads the charm referenced the resource URL or downloads
+	// into a file with the given path, which will be created if needed.
+	// It is expected that the URL for charm store will be in the correct
+	// form i.e that it parses to a charm.URL.
+	DownloadCharm(resourceURL, archivePath string) (*charm.CharmArchive, error)
 
 	// ResolveWithPreferredChannel verified that the charm with the requested
 	// channel exists.  If no channel is specified, the latests, most stable is

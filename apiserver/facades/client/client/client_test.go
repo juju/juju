@@ -854,8 +854,8 @@ func (m *mockRepo) Resolve(ref *charm.URL) (canonRef *charm.URL, supportedSeries
 	return results[0].(*charm.URL), []string{"bionic"}, nil
 }
 
-func (m *mockRepo) DownloadCharm(curl *charm.URL, downloadURL *url.URL, archivePath string) (*charm.CharmArchive, error) {
-	m.MethodCall(m, "DownloadCharm", curl, downloadURL, archivePath)
+func (m *mockRepo) DownloadCharm(downloadURL, archivePath string) (*charm.CharmArchive, error) {
+	m.MethodCall(m, "DownloadCharm", downloadURL, archivePath)
 	return nil, nil
 }
 

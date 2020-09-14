@@ -69,9 +69,13 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 // DownloadCharm downloads the provided download URL from CharmHub using the
 // provided archive path.
 // A charm archive is returned.
-func (c *chRepo) DownloadCharm(curl *charm.URL, resourceURL *url.URL, archivePath string) (*charm.CharmArchive, error) {
-	logger.Tracef("DownloadCharm from CharmHub %q from %q", curl.String(), resourceURL.String())
-	return c.client.Download(context.TODO(), resourceURL, archivePath)
+func (c *chRepo) DownloadCharm(resourceURL string, archivePath string) (*charm.CharmArchive, error) {
+	logger.Tracef("DownloadCharm from CharmHub %q", resourceURL)
+	curl, err := url.Parse(resourceURL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return c.client.Download(context.TODO(), curl, archivePath)
 }
 
 // FindDownloadURL returns the url from which to download the CharmHub
@@ -256,8 +260,12 @@ func (c *csRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 	return newCurl, newOrigin, supportedSeries, err
 }
 
-func (c *csRepo) DownloadCharm(curl *charm.URL, _ *url.URL, archivePath string) (*charm.CharmArchive, error) {
-	logger.Tracef("CharmStore DownloadCharm %q", curl)
+func (c *csRepo) DownloadCharm(resourceURL string, archivePath string) (*charm.CharmArchive, error) {
+	logger.Tracef("CharmStore DownloadCharm %q", resourceURL)
+	curl, err := charm.ParseURL(resourceURL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return c.repo.Get(curl, archivePath)
 }
 

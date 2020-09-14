@@ -5,7 +5,6 @@ package application_test
 
 import (
 	"io"
-	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -1177,10 +1176,10 @@ type mockRepo struct {
 	revisions map[string]int
 }
 
-func (m *mockRepo) DownloadCharm(curl *charm.URL, _ *url.URL, _ string) (*charm.CharmArchive, error) {
-	results := m.MethodCall(m, "DownloadCharm", curl)
+func (m *mockRepo) DownloadCharm(resourceURL, _ string) (*charm.CharmArchive, error) {
+	results := m.MethodCall(m, "DownloadCharm", resourceURL)
 	if results == nil {
-		return nil, errors.NotFoundf(`cannot retrieve %q: charm`, curl)
+		return nil, errors.NotFoundf(`cannot retrieve %q: charm`, resourceURL)
 	}
 	return results[0].(*charm.CharmArchive), jtesting.TypeAssertError(results[1])
 }

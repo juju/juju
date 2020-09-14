@@ -76,7 +76,7 @@ type Strategy struct {
 
 // DownloadRepo defines methods required for the repo to download a charm.
 type DownloadRepo interface {
-	DownloadCharm(curl *charm.URL, durl *url.URL, archivePath string) (*charm.CharmArchive, error)
+	DownloadCharm(resourceURL, archivePath string) (*charm.CharmArchive, error)
 	FindDownloadURL(*charm.URL, Origin) (*url.URL, Origin, error)
 }
 
@@ -267,7 +267,7 @@ func (StoreCharmStore) Validate(curl *charm.URL) error {
 
 // Download the charm from the charm store.
 func (s StoreCharmStore) Download(curl *charm.URL, file string, origin Origin) (StoreCharm, ChecksumCheckFn, Origin, error) {
-	archive, err := s.repository.DownloadCharm(curl, nil, file)
+	archive, err := s.repository.DownloadCharm(curl.String(), file)
 	if err != nil {
 		if cause := errors.Cause(err); httpbakery.IsDischargeError(cause) || httpbakery.IsInteractionError(cause) {
 			return nil, nil, origin, errors.NewUnauthorized(err, "")
@@ -298,7 +298,7 @@ func (s StoreCharmHub) Download(curl *charm.URL, file string, origin Origin) (St
 	if err != nil {
 		return nil, nil, origin, errors.Trace(err)
 	}
-	archive, err := s.repository.DownloadCharm(curl, repositoryURL, file)
+	archive, err := s.repository.DownloadCharm(repositoryURL.String(), file)
 	if err != nil {
 		return nil, nil, origin, errors.Trace(err)
 	}

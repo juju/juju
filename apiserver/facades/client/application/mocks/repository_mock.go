@@ -36,18 +36,18 @@ func (m *MockRepository) EXPECT() *MockRepositoryMockRecorder {
 }
 
 // DownloadCharm mocks base method
-func (m *MockRepository) DownloadCharm(arg0 *charm.URL, arg1 *url.URL, arg2 string) (*charm.CharmArchive, error) {
+func (m *MockRepository) DownloadCharm(arg0, arg1 string) (*charm.CharmArchive, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DownloadCharm", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "DownloadCharm", arg0, arg1)
 	ret0, _ := ret[0].(*charm.CharmArchive)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // DownloadCharm indicates an expected call of DownloadCharm
-func (mr *MockRepositoryMockRecorder) DownloadCharm(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockRepositoryMockRecorder) DownloadCharm(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadCharm", reflect.TypeOf((*MockRepository)(nil).DownloadCharm), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadCharm", reflect.TypeOf((*MockRepository)(nil).DownloadCharm), arg0, arg1)
 }
 
 // FindDownloadURL mocks base method

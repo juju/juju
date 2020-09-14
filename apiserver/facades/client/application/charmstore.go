@@ -83,7 +83,7 @@ type Repository interface {
 	// DownloadCharm reads the charm referenced by curl or downloadURL into
 	// a file with the given path, which will be created if needed. Note
 	// that the path's parent directory must already exist.
-	DownloadCharm(curl *charm.URL, downloadURL *url.URL, archivePath string) (*charm.CharmArchive, error)
+	DownloadCharm(resourceURL string, archivePath string) (*charm.CharmArchive, error)
 
 	// Resolve a canonical URL for retrieving the charm includes the most
 	// current revision, if none was provided and a slice  of series supported
@@ -250,7 +250,11 @@ type charmRepoShim struct {
 // DownloadCharm calls the charmrepo Get method to return a charm archive.
 // It requires a charm url and an archive path to, the url url is ignored
 // in this case.
-func (c *charmRepoShim) DownloadCharm(curl *charm.URL, _ *url.URL, archivePath string) (*charm.CharmArchive, error) {
+func (c *charmRepoShim) DownloadCharm(resourceURL string, archivePath string) (*charm.CharmArchive, error) {
+	curl, err := charm.ParseURL(resourceURL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return c.charmStore.Get(curl, archivePath)
 }
 
