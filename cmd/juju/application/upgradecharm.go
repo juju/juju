@@ -6,7 +6,6 @@ package application
 import (
 	"fmt"
 	"net/url"
-	"os"
 
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
@@ -32,6 +31,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/application/refresher"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/block"
@@ -76,6 +76,7 @@ func newUpgradeCharmCommand() *upgradeCharmCommand {
 				charms.NewClient(apiRoot),
 			)
 		},
+		NewRefresherFactory: refresher.NewRefresherFactory,
 	}
 }
 
@@ -127,6 +128,7 @@ type upgradeCharmCommand struct {
 	NewResourceLister     func(base.APICallCloser) (utils.ResourceLister, error)
 	NewSpacesClient       func(base.APICallCloser) SpacesAPI
 	CharmStoreURLGetter   func(base.APICallCloser) (string, error)
+	NewRefresherFactory   func(refresher.RefresherDependencies) refresher.RefresherFactory
 
 	ApplicationName string
 	// Force should be ubiquitous and we should eventually deprecate both
@@ -365,58 +367,74 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		ctx.Infof("Looking up metadata for charm %v%s", newRef, channel)
 	}
 
-	// First, ensure the charm is added to the model.
-	conAPIRoot, err := c.NewControllerAPIRoot()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	csURL, err := c.CharmStoreURLGetter(conAPIRoot)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	bakeryClient, err := c.BakeryClient()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	csClient, charmStore := c.NewCharmStore(bakeryClient, csURL, csparams.Channel(c.Channel.Risk))
+	/*
+		// First, ensure the charm is added to the model.
+		conAPIRoot, err := c.NewControllerAPIRoot()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		csURL, err := c.CharmStoreURLGetter(conAPIRoot)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		bakeryClient, err := c.BakeryClient()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if c.Channel == "" {
+			c.Channel = csparams.Channel(applicationInfo.Channel)
+		}
+		csClient, charmStore := c.NewCharmStore(bakeryClient, csURL, c.Channel)
+	*/
 
-	chID, csMac, err := c.addCharm(addCharmParams{
-		charmAdder:     c.NewCharmAdder(apiRoot),
-		charmResolver:  c.NewCharmResolver(apiRoot, charmStore),
-		authorizer:     csClient,
-		oldURL:         oldURL,
-		newCharmRef:    newRef,
-		deployedSeries: applicationInfo.Series,
-		force:          c.Force,
-	})
+	cfg := refresher.RefresherConfig{
+		ApplicationName: c.ApplicationName,
+		CharmURL:        oldURL,
+		CharmRef:        newRef,
+		DeployedSeries:  applicationInfo.Series,
+		Force:           c.Force,
+		ForceSeries:     c.ForceSeries,
+	}
+	factory := c.getRefresherFactory(apiRoot)
+	refresher, err := factory.GetRefresher(cfg)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	curl, chOrigin, csMac, err := refresher.PrepareAndRefresh(ctx)
 	if err != nil {
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 			return errors.Trace(termErr.UserErr())
 		}
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
-	ctx.Infof("Added charm %q to the model.", chID.URL)
+	ctx.Infof("Added charm %q to the model.", curl)
 
-	// Next, upgrade resources.
-	charmsClient := c.NewCharmClient(apiRoot)
-	resourceLister, err := c.NewResourceLister(apiRoot)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	meta, err := utils.GetMetaResources(chID.URL, charmsClient)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	ids, err := c.upgradeResources(apiRoot, resourceLister, chID, csMac, meta)
-	if err != nil {
-		return errors.Trace(err)
+	// If it's the charmhub, we don't upgrade any resources as they're currently
+	// not supported. For now we do our best to create a valid charm.ID, but
+	// will most likely fail.
+	chID := deduceCharmID(curl, chOrigin)
+	resourceIDs := make(map[string]string)
+	if !charm.CharmHub.Matches(curl.Schema) {
+		// Next, upgrade resources.
+		charmsClient := c.NewCharmClient(apiRoot)
+		resourceLister, err := c.NewResourceLister(apiRoot)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		meta, err := utils.GetMetaResources(curl, charmsClient)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if resourceIDs, err = c.upgradeResources(apiRoot, resourceLister, chID, csMac, meta); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	var bindingsChangelog []string
 	if apiRoot.BestFacadeVersion("Application") >= 11 {
 		// Fetch information about the charm we want to upgrade to and
 		// print out the updated endpoint binding plan.
-		charmInfo, err := c.NewCharmClient(apiRoot).CharmInfo(chID.URL.String())
+		charmInfo, err := c.NewCharmClient(apiRoot).CharmInfo(curl.String())
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -438,19 +456,19 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 			return errors.Trace(err)
 		}
 	}
-	cfg := application.SetCharmConfig{
+	charmCfg := application.SetCharmConfig{
 		ApplicationName:    c.ApplicationName,
 		CharmID:            chID,
 		ConfigSettingsYAML: string(configYAML),
 		Force:              c.Force,
 		ForceSeries:        c.ForceSeries,
 		ForceUnits:         c.ForceUnits,
-		ResourceIDs:        ids,
+		ResourceIDs:        resourceIDs,
 		StorageConstraints: c.Storage,
 		EndpointBindings:   c.Bindings,
 	}
 
-	if err := block.ProcessBlockedError(charmUpgradeClient.SetCharm(generation, cfg), block.BlockChange); err != nil {
+	if err := block.ProcessBlockedError(charmUpgradeClient.SetCharm(generation, charmCfg), block.BlockChange); err != nil {
 		return err
 	}
 
@@ -612,6 +630,7 @@ var getCharmStoreAPIURL = func(conAPIRoot base.APICallCloser) (string, error) {
 	return controllerCfg.CharmStoreURL(), nil
 }
 
+<<<<<<< HEAD
 type addCharmParams struct {
 	charmAdder     store.CharmAdder
 	authorizer     store.MacaroonGetter
@@ -695,6 +714,8 @@ func (c *upgradeCharmCommand) addCharm(params addCharmParams) (charmstore.CharmI
 	return id, csMac, nil
 }
 
+=======
+>>>>>>> Initial idea for refresher API
 func allEndpoints(ci *charms.CharmInfo) set.Strings {
 	epSet := set.NewStrings()
 	for n := range ci.Meta.ExtraBindings {
@@ -711,4 +732,22 @@ func allEndpoints(ci *charms.CharmInfo) set.Strings {
 	}
 
 	return epSet
+}
+
+func (c *upgradeCharmCommand) getRefresherFactory(apiRoot api.Connection) refresher.RefresherFactory {
+	deps := refresher.RefresherDependencies{
+		CharmAdder: c.NewCharmAdder(apiRoot),
+	}
+	return c.NewRefresherFactory(deps)
+}
+
+func deduceCharmID(curl *charm.URL, origin corecharm.Origin) charmstore.CharmID {
+	var channel csparams.Channel
+	if origin.Channel != nil {
+		channel = csparams.Channel(origin.Channel.Risk)
+	}
+	return charmstore.CharmID{
+		URL:     curl,
+		Channel: channel,
+	}
 }
