@@ -7,6 +7,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
+	"io/ioutil"
 	"net/http"
 
 	"github.com/juju/errors"
@@ -57,6 +59,11 @@ func (t *APIRequester) Do(req *http.Request) (*http.Response, error) {
 	}
 
 	if contentType := resp.Header.Get("Content-Type"); contentType != "application/json" {
+		defer func() {
+			_, _ = io.Copy(ioutil.Discard, resp.Body)
+			_ = resp.Body.Close()
+		}()
+
 		if potentialInvalidURL {
 			return nil, errors.Errorf(`unexpected charm-hub url %q when parsing headers`, req.URL.String())
 		}
