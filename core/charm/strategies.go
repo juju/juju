@@ -39,19 +39,19 @@ type Store interface {
 	// Validate checks to ensure that the charm URL is valid for the store.
 	Validate(*charm.URL) error
 	// Download a charm from the store using the charm URL.
-	Download(*charm.URL, string, Origin) (StoreCharm, Checksum, Origin, error)
+	Download(*charm.URL, string, Origin) (StoreCharm, ChecksumCheckFn, Origin, error)
 }
 
-// Checksum defines a function for running checksums against.
-type Checksum func(string) bool
+// ChecksumCheckFn defines a function for running checksums against.
+type ChecksumCheckFn func(string) bool
 
-// AlwaysChecksum will always return true and is an effective no-op.
-func AlwaysChecksum(string) bool {
+// AlwaysMatchChecksum will always return true and is an effective no-op.
+func AlwaysMatchChecksum(string) bool {
 	return true
 }
 
-// WithChecksum validates a checksum against another checksum.
-func WithChecksum(hash string) Checksum {
+// MatchChecksum validates a checksum against another checksum.
+func MatchChecksum(hash string) ChecksumCheckFn {
 	return func(other string) bool {
 		return hash == other
 	}
@@ -220,7 +220,7 @@ func (p *Strategy) deferFunc(fn func() error) {
 	p.deferFuncs = append(p.deferFuncs, fn)
 }
 
-func (p *Strategy) downloadResult(file string, checksum Checksum) (DownloadResult, error) {
+func (p *Strategy) downloadResult(file string, checksum ChecksumCheckFn) (DownloadResult, error) {
 	// Open it and calculate the SHA256 hash.
 	tar, err := os.Open(file)
 	if err != nil {
@@ -266,7 +266,7 @@ func (StoreCharmStore) Validate(curl *charm.URL) error {
 }
 
 // Download the charm from the charm store.
-func (s StoreCharmStore) Download(curl *charm.URL, file string, origin Origin) (StoreCharm, Checksum, Origin, error) {
+func (s StoreCharmStore) Download(curl *charm.URL, file string, origin Origin) (StoreCharm, ChecksumCheckFn, Origin, error) {
 	archive, err := s.repository.DownloadCharm(curl, nil, file)
 	if err != nil {
 		if cause := errors.Cause(err); httpbakery.IsDischargeError(cause) || httpbakery.IsInteractionError(cause) {
@@ -276,7 +276,7 @@ func (s StoreCharmStore) Download(curl *charm.URL, file string, origin Origin) (
 	}
 	// Ignore the checksum for charm store, as there isn't any information
 	// available to us to perform the downloaded checksum.
-	return newStoreCharmShim(archive), AlwaysChecksum, origin, nil
+	return newStoreCharmShim(archive), AlwaysMatchChecksum, origin, nil
 }
 
 // StoreCharmHub defines a type for interacting with the charm hub.
@@ -293,7 +293,7 @@ func (StoreCharmHub) Validate(curl *charm.URL) error {
 }
 
 // Download the charm from the charm hub.
-func (s StoreCharmHub) Download(curl *charm.URL, file string, origin Origin) (StoreCharm, Checksum, Origin, error) {
+func (s StoreCharmHub) Download(curl *charm.URL, file string, origin Origin) (StoreCharm, ChecksumCheckFn, Origin, error) {
 	repositoryURL, origin, err := s.repository.FindDownloadURL(curl, origin)
 	if err != nil {
 		return nil, nil, origin, errors.Trace(err)
@@ -302,7 +302,7 @@ func (s StoreCharmHub) Download(curl *charm.URL, file string, origin Origin) (St
 	if err != nil {
 		return nil, nil, origin, errors.Trace(err)
 	}
-	return newStoreCharmShim(archive), WithChecksum(origin.Hash), origin, nil
+	return newStoreCharmShim(archive), MatchChecksum(origin.Hash), origin, nil
 }
 
 // storeCharmShim massages a *charm.CharmArchive into a LXDProfiler

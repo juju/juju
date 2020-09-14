@@ -230,11 +230,11 @@ func (m *MockStore) EXPECT() *MockStoreMockRecorder {
 }
 
 // Download mocks base method
-func (m *MockStore) Download(arg0 *charm.URL, arg1 string, arg2 Origin) (StoreCharm, Checksum, Origin, error) {
+func (m *MockStore) Download(arg0 *charm.URL, arg1 string, arg2 Origin) (StoreCharm, ChecksumCheckFn, Origin, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Download", arg0, arg1, arg2)
 	ret0, _ := ret[0].(StoreCharm)
-	ret1, _ := ret[1].(Checksum)
+	ret1, _ := ret[1].(ChecksumCheckFn)
 	ret2, _ := ret[2].(Origin)
 	ret3, _ := ret[3].(error)
 	return ret0, ret1, ret2, ret3
