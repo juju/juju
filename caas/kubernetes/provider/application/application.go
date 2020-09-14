@@ -464,50 +464,23 @@ func (a *app) getService() (*resources.Service, error) {
 	return svc, nil
 }
 
-// OpenPort sets up a port mapping to the specified service.
-func (a *app) OpenPort(port caas.ServicePort) (err error) {
+// UpdatePorts updates port mappings on the specified service.
+func (a *app) UpdatePorts(ports []caas.ServicePort) (err error) {
 	svc, err := a.getService()
 	if err != nil {
 		return errors.Annotatef(err, "getting existing service %q", a.name)
 	}
-	applier := a.newApplier()
-	defer func() {
-		applier.Apply(svc)
-		if err = a.updateContainerPorts(applier, svc.Service.Spec.Ports); err != nil {
-			return
-		}
-		err = applier.Run(context.Background(), a.client, false)
-	}()
-	for i, p := range svc.Service.Spec.Ports {
-		if p.Name == port.Name {
-			svc.Service.Spec.Ports[i] = convertServicePort(port)
-			return nil
-		}
+	svc.Service.Spec.Ports = make([]corev1.ServicePort, len(ports))
+	for _, port := range ports {
+		svc.Service.Spec.Ports = append(svc.Service.Spec.Ports, convertServicePort(port))
 	}
-	svc.Service.Spec.Ports = append(svc.Service.Spec.Ports, convertServicePort(port))
+	applier := a.newApplier()
+	applier.Apply(svc)
+	if err = a.updateContainerPorts(applier, svc.Service.Spec.Ports); err != nil {
+		return errors.Trace(err)
+	}
+	err = applier.Run(context.Background(), a.client, false)
 	return nil
-}
-
-// ClosePort removes a port mapping to the specified service.
-func (a *app) ClosePort(portName string) (err error) {
-	svc, err := a.getService()
-	if err != nil {
-		return errors.Annotatef(err, "getting existing service %q", a.name)
-	}
-
-	applier := a.newApplier()
-
-	for i, p := range svc.Service.Spec.Ports {
-		if p.Name == portName {
-			svc.Service.Spec.Ports = append(svc.Service.Spec.Ports[:i], svc.Service.Spec.Ports[i+1:]...)
-			applier.Apply(svc)
-			if err := a.updateContainerPorts(applier, svc.Service.Spec.Ports); err != nil {
-				return errors.Trace(err)
-			}
-			return applier.Run(context.Background(), a.client, false)
-		}
-	}
-	return errors.NotFoundf("port %q", portName)
 }
 
 func convertContainerPort(p corev1.ServicePort) corev1.ContainerPort {

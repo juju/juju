@@ -46,11 +46,7 @@ type ServiceInterface interface {
 	// UpdateService updates the default service with specific service type and port mappings.
 	UpdateService(ServiceParam) error
 
-	// OpenPort sets up a port mapping to the specified service.
-	OpenPort(port ServicePort) error
-
-	// ClosePort removes a port mapping to the specified service.
-	ClosePort(portName string) error
+	UpdatePorts(ports []ServicePort) error
 }
 
 // ApplicationState represents the application state.
