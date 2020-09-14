@@ -55,6 +55,7 @@ import (
 	apputils "github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/devices"
@@ -1850,7 +1851,7 @@ func (s *FakeStoreStateSuite) setupCharmMaybeAddForce(c *gc.C, url, name, series
 		charmStoreURL,
 	}
 	for _, url := range charmURLs {
-		origin, _ := apputils.DeduceOrigin(url, csclientparams.NoChannel)
+		origin, _ := apputils.DeduceOrigin(url, corecharm.Channel{})
 		s.fakeAPI.Call("ResolveCharm", url, origin).Returns(
 			resolveURL,
 			origin,
@@ -1858,7 +1859,7 @@ func (s *FakeStoreStateSuite) setupCharmMaybeAddForce(c *gc.C, url, name, series
 			error(nil),
 		)
 	}
-	origin, _ := apputils.DeduceOrigin(deployURL, "")
+	origin, _ := apputils.DeduceOrigin(deployURL, corecharm.Channel{})
 	s.fakeAPI.Call("AddCharm", resolveURL, origin, force).Returns(origin, error(nil))
 	var chDir charm.Charm
 	var err error
@@ -1886,7 +1887,7 @@ func (s *FakeStoreStateSuite) setupBundle(c *gc.C, url, name, series string) {
 
 	// Resolve a bundle with no revision and return a url with a version.  Ensure
 	// GetBundle expects the url with revision.
-	origin, err := apputils.DeduceOrigin(bundleResolveURL, csclientparams.NoChannel)
+	origin, err := apputils.DeduceOrigin(bundleResolveURL, corecharm.Channel{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.fakeAPI.Call("ResolveBundleURL", &baseURL, origin).Returns(
 		bundleResolveURL,
@@ -2402,7 +2403,8 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			cstoreClient := store.NewCharmStoreClient(bakeryClient, csURL).WithChannel(deployCmd.Channel)
+			risk := csclientparams.Channel(deployCmd.Channel.Risk)
+			cstoreClient := store.NewCharmStoreClient(bakeryClient, csURL).WithChannel(risk)
 			return &store.CharmStoreAdaptor{
 				MacaroonGetter:     cstoreClient,
 				CharmrepoForDeploy: charmrepo.NewCharmStoreFromClient(cstoreClient),
@@ -2833,7 +2835,7 @@ func withCharmDeployableWithDevicesAndStorage(
 			deployURL.Revision = 1
 		}
 	}
-	origin, _ := apputils.DeduceOrigin(url, "")
+	origin, _ := apputils.DeduceOrigin(url, corecharm.Channel{})
 	fakeAPI.Call("AddCharm", &deployURL, origin, force).Returns(origin, error(nil))
 	fakeAPI.Call("CharmInfo", deployURL.String()).Returns(
 		&charms.CharmInfo{

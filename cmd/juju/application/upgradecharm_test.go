@@ -17,6 +17,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -546,7 +547,7 @@ func (s *UpgradeCharmSuite) TestUpgradeWithChannel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.charmAdder.CheckCallNames(c, "AddCharm")
-	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, csclientparams.BetaChannel)
+	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, corecharm.Channel{Risk: corecharm.Beta})
 	s.charmAdder.CheckCall(c, 0, "AddCharm", s.resolvedCharmURL, origin, false)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharm")
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
@@ -564,7 +565,7 @@ func (s *UpgradeCharmSuite) TestUpgradeCharmShouldRespectDeployedChannelByDefaul
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.charmAdder.CheckCallNames(c, "AddCharm")
-	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, csclientparams.BetaChannel)
+	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, corecharm.Channel{Risk: corecharm.Beta})
 	s.charmAdder.CheckCall(c, 0, "AddCharm", s.resolvedCharmURL, origin, false)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharm")
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
@@ -583,7 +584,7 @@ func (s *UpgradeCharmSuite) TestSwitch(c *gc.C) {
 	s.charmClient.CheckCallNames(c, "CharmInfo")
 	s.charmClient.CheckCall(c, 0, "CharmInfo", s.resolvedCharmURL.String())
 	s.charmAdder.CheckCallNames(c, "AddCharm")
-	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, csclientparams.StableChannel)
+	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, corecharm.Channel{Risk: corecharm.Stable})
 	s.charmAdder.CheckCall(c, 0, "AddCharm", s.resolvedCharmURL, origin, false)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharm")
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{

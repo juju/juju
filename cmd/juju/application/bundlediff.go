@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 )
 
@@ -65,7 +66,8 @@ type bundleDiffCommand struct {
 	modelcmd.ModelCommandBase
 	bundle         string
 	bundleOverlays []string
-	channel        csparams.Channel
+	channelStr     string
+	channel        corecharm.Channel
 	annotations    bool
 
 	bundleMachines map[string]string
@@ -96,7 +98,7 @@ func (c *bundleDiffCommand) Info() *cmd.Info {
 // SetFlags is part of cmd.Command.
 func (c *bundleDiffCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.StringVar((*string)(&c.channel), "channel", "", "Channel to use when getting the bundle from the charm store")
+	f.StringVar(&c.channelStr, "channel", "", "Channel to use when getting the bundle from the charm store or charm hub")
 	f.Var(cmd.NewAppendStringsValue(&c.bundleOverlays), "overlay", "Bundles to overlay on the primary bundle, applied in order")
 	f.StringVar(&c.machineMap, "map-machines", "", "Indicates how existing machines correspond to bundle machines")
 	f.BoolVar(&c.annotations, "annotations", false, "Include differences in annotations")
@@ -114,7 +116,12 @@ func (c *bundleDiffCommand) Init(args []string) error {
 		return errors.Annotate(err, "error in --map-machines")
 	}
 	c.bundleMachines = mapping
-
+	if c.channelStr != "" {
+		c.channel, err = corecharm.ParseChannel(c.channelStr)
+		if err != nil {
+			return errors.Annotate(err, "error in --channel")
+		}
+	}
 	return cmd.CheckEmpty(args[1:])
 }
 
@@ -270,7 +277,10 @@ func (c *bundleDiffCommand) charmAdaptor() (BundleResolver, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cstoreClient := store.NewCharmStoreClient(bakeryClient, csURL).WithChannel(c.channel)
+	// TODO: (hml) 2020-09-14
+	// Update to use charm hub or charm store
+	risk := csparams.Channel(c.channel.Risk)
+	cstoreClient := store.NewCharmStoreClient(bakeryClient, csURL).WithChannel(risk)
 	charmRepo := charmrepo.NewCharmStoreFromClient(cstoreClient)
 	return store.NewCharmAdaptor(charmRepo, apiRoot.BestFacadeVersion("Charms"), nil), nil
 }

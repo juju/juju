@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
@@ -306,7 +307,7 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 
 	d.id = charmstore.CharmID{URL: d.userCharmURL}
 	d.series = userCharmURL.Series
-	d.origin, err = utils.DeduceOrigin(userCharmURL, "")
+	d.origin, err = utils.DeduceOrigin(userCharmURL, corecharm.Channel{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -344,7 +345,7 @@ func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _
 		// Local charms don't need a channel.
 	}
 	l.series = l.curl.Series
-	l.origin, err = utils.DeduceOrigin(curl, "")
+	l.origin, err = utils.DeduceOrigin(curl, corecharm.Channel{})
 	if err != nil {
 		return err
 	}

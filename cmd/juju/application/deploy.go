@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/model"
@@ -230,11 +231,11 @@ type DeployCommand struct {
 	// configuration to be merged with the main bundle.
 	BundleOverlayFile []string
 
-	// Channel holds the charmstore channel to use when obtaining
+	// Channel holds the channel to use when obtaining
 	// the charm to be deployed.
-	// TODO: (hml) 2020-08-25
-	// Change to a string which can be interpreted for cs or ch.
-	Channel csparams.Channel
+	Channel corecharm.Channel
+
+	channelStr string
 
 	// Series is the series of the charm to deploy.
 	Series string
@@ -571,7 +572,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.UnitCommandBase.SetFlags(f)
 	c.ModelCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "Number of application units to deploy for principal charms")
-	f.StringVar((*string)(&c.Channel), "channel", "", "Channel to use when getting the charm or bundle from the charm store")
+	f.StringVar(&c.channelStr, "channel", "", "Channel to use when deploying a charm or bundle from the charm store, or charm hub")
 	f.Var(&c.ConfigOptions, "config", "Either a path to yaml-formatted application config file or a key=value pair ")
 
 	f.BoolVar(&c.Trust, "trust", false, "Allows charm to run hooks that require access credentials")
@@ -642,6 +643,12 @@ func (c *DeployCommand) Init(args []string) error {
 		// So we do not want to fail here if we encountered NotFoundErr, we want to
 		// do a late validation at Run().
 		c.unknownModel = true
+	}
+	if c.channelStr != "" {
+		c.Channel, err = corecharm.ParseChannel(c.channelStr)
+		if err != nil {
+			return errors.Annotate(err, "error in --channel")
+		}
 	}
 	return nil
 }

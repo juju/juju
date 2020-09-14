@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/devices"
@@ -316,14 +317,11 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 			continue
 		}
 
-		var fromChannel string
-		if spec.Channel != "" {
-			fromChannel = fmt.Sprintf(" from channel: %s", spec.Channel)
-		}
 		ch, err := resolveCharmURL(spec.Charm)
 		if err != nil {
 			return errors.Trace(err)
 		}
+
 		var via string
 		switch {
 		case charm.CharmHub.Matches(ch.Schema):
@@ -335,8 +333,18 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		default:
 			via = ": "
 		}
+
+		var fromChannel string
+		var channel corecharm.Channel
+		if spec.Channel != "" {
+			fromChannel = fmt.Sprintf(" from channel: %s", spec.Channel)
+			channel, err = corecharm.ParseChannel(spec.Channel)
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
 		h.ctx.Infof("Resolving charm %s%s%s", via, ch.FullPath(), fromChannel)
-		origin, err := utils.DeduceOrigin(ch, "")
+		origin, err := utils.DeduceOrigin(ch, channel)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -514,8 +522,9 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	origin, err := utils.DeduceOrigin(ch, csparams.Channel(chParms.Channel))
+	// A channel is needed whether the risk is valid or not.
+	channel, _ := corecharm.ParseChannel(chParms.Channel)
+	origin, err := utils.DeduceOrigin(ch, channel)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -703,8 +712,13 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	if h.data.Type == "kubernetes" {
 		numUnits = p.NumUnits
 	}
-
-	origin, err := utils.DeduceOrigin(chID.URL, csparams.Channel(h.origin.Risk))
+	var track string
+	if h.origin.Track != nil {
+		track = *h.origin.Track
+	}
+	// A channel is needed whether the risk is valid or not.
+	channel, _ := corecharm.MakeChannel(track, h.origin.Risk, "")
+	origin, err := utils.DeduceOrigin(chID.URL, channel)
 	if err != nil {
 		return errors.Trace(err)
 	}

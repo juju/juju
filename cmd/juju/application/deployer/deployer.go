@@ -16,7 +16,6 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/resource"
 	"github.com/juju/charmrepo/v6"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
@@ -122,7 +122,7 @@ type DeployerConfig struct {
 	BundleMachines       map[string]string
 	BundleOverlayFile    []string
 	BundleStorage        map[string]map[string]storage.Constraints
-	Channel              csparams.Channel
+	Channel              corecharm.Channel
 	CharmOrBundle        string
 	ConfigOptions        common.ConfigFlag
 	ConstraintsStr       string
@@ -156,7 +156,7 @@ type factory struct {
 	attachStorage     []string
 	charmOrBundle     string
 	bundleOverlayFile []string
-	channel           csparams.Channel
+	channel           corecharm.Channel
 	series            string
 	force             bool
 	dryRun            bool
