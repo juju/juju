@@ -45,6 +45,7 @@ type PortRange struct {
 	FromPort int
 	ToPort   int
 	Protocol string
+	Name     string
 }
 
 // IsValid determines if the port range is valid.
