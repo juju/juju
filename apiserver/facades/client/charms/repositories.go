@@ -92,7 +92,7 @@ func (c *chRepo) FindDownloadURL(curl *charm.URL, origin corecharm.Origin) (*url
 		return nil, corecharm.Origin{}, errors.Errorf("More than 1 result found")
 	}
 	findResult := result[0]
-	logger.Criticalf("FindDownloadURL received %+v", findResult)
+	logger.Tracef("FindDownloadURL received %+v", findResult)
 	if findResult.Error != nil {
 		// TODO: (hml) 4-sep-2020
 		// When list of error codes available, create real error for them.
