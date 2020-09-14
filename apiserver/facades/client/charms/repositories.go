@@ -219,7 +219,7 @@ func (c *chRepo) resolveViaChannelMap(curl *charm.URL, origin params.CharmOrigin
 	origin.Track = &mapChannel.Track
 
 	// `metadata.yaml` is a requirement to be a valid charm. The charm repo
-	// expects that one exists even if it contains mimimal information. So if
+	// expects that one exists even if it contains minimal information. So if
 	// we returned out here, we would fail at a later stage.
 	if mapRevision.MetadataYAML == "" {
 		return nil, params.CharmOrigin{}, nil, errors.Errorf("unexpected empty charm metadata")
