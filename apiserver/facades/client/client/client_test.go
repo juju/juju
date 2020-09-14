@@ -5,6 +5,7 @@ package client_test
 
 import (
 	"fmt"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -32,6 +33,7 @@ import (
 	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/controller"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
@@ -852,6 +854,16 @@ func (m *mockRepo) Resolve(ref *charm.URL) (canonRef *charm.URL, supportedSeries
 	return results[0].(*charm.URL), []string{"bionic"}, nil
 }
 
+func (m *mockRepo) DownloadCharm(downloadURL, archivePath string) (*charm.CharmArchive, error) {
+	m.MethodCall(m, "DownloadCharm", downloadURL, archivePath)
+	return nil, nil
+}
+
+func (m *mockRepo) FindDownloadURL(curl *charm.URL, origin corecharm.Origin) (*url.URL, corecharm.Origin, error) {
+	m.MethodCall(m, "FindDownloadURL", curl, origin)
+	return nil, corecharm.Origin{}, nil
+}
+
 type clientRepoSuite struct {
 	baseSuite
 	repo *mockRepo
@@ -868,7 +880,7 @@ func (s *clientRepoSuite) SetUpTest(c *gc.C) {
 		CallMocker: jtesting.NewCallMocker(logger),
 	}
 
-	s.PatchValue(&application.OpenCSRepo, func(args application.OpenCSRepoParams) (charmrepo.Interface, error) {
+	s.PatchValue(&application.OpenCSRepo, func(args application.OpenCSRepoParams) (application.Repository, error) {
 		return s.repo, nil
 	})
 }
@@ -1614,11 +1626,11 @@ func (s *clientRepoSuite) TestResolveCharm(c *gc.C) {
 
 	// Add some charms to be resolved later.
 	for _, url := range []string{
-		"precise/wordpress-1",
-		"trusty/wordpress-2",
-		"precise/mysql-3",
-		"trusty/riak-4",
-		"utopic/riak-5",
+		"cs:precise/wordpress-1",
+		"cs:trusty/wordpress-2",
+		"cs:precise/mysql-3",
+		"cs:trusty/riak-4",
+		"cs:utopic/riak-5",
 	} {
 		s.UploadCharm(url)
 	}

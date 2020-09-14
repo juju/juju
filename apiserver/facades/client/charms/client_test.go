@@ -621,7 +621,7 @@ func (s *charmsMockSuite) api(c *gc.C) *charms.API {
 		return s.repository, nil
 	}
 	stratFuc := func(source string) charms.StrategyFunc {
-		return func(charmRepo charms.Repository, url string, force bool) (charms.Strategy, error) {
+		return func(charmRepo corecharm.Repository, url string, force bool) (charms.Strategy, error) {
 			return s.strategy, nil
 		}
 	}
@@ -704,7 +704,11 @@ func (s *charmsMockSuite) expectFinish() {
 }
 
 func (s *charmsMockSuite) expectRun(download corecharm.DownloadResult, already bool, err error) {
-	s.strategy.EXPECT().Run(gomock.Any(), gomock.Any()).Return(download, already, err)
+	s.strategy.EXPECT().Run(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(corecharm.Origin{})).DoAndReturn(
+		func(_ corecharm.State, _ corecharm.JujuVersionValidator, origin corecharm.Origin) (corecharm.DownloadResult, bool, corecharm.Origin, error) {
+			return download, already, origin, err
+		},
+	)
 }
 
 func (s *charmsMockSuite) expectValidate() {

@@ -13,8 +13,9 @@ type RefreshRequest struct {
 }
 
 type RefreshRequestContext struct {
-	InstanceKey     string                 `json:"instance-key"`
-	ID              string                 `json:"id"`
+	InstanceKey string `json:"instance-key"`
+	ID          string `json:"id"`
+
 	Revision        int                    `json:"revision"`
 	Platform        RefreshRequestPlatform `json:"platform"`
 	TrackingChannel string                 `json:"tracking-channel"`
@@ -30,7 +31,8 @@ type RefreshRequestPlatform struct {
 type RefreshRequestAction struct {
 	Action      string                  `json:"action"`
 	InstanceKey string                  `json:"instance-key"`
-	ID          string                  `json:"id"`
+	ID          *string                 `json:"id"`
+	Name        *string                 `json:"name"`
 	Channel     *string                 `json:"channel,omitempty"`
 	Revision    *int                    `json:"revision,omitempty"`
 	Platform    *RefreshRequestPlatform `json:"platform,omitempty"`
@@ -42,11 +44,27 @@ type RefreshResponses struct {
 }
 
 type RefreshResponse struct {
-	InstanceKey string `json:"instance-key"`
-	ID          string `json:"id"`
-	Name        string `json:"name"`
 	// TODO (stickupkid): Swap this over to the new name if it ever happens.
-	Entity Entity `json:"charm"`
-	Result string `json:"result"`
-	// TODO (stickupkid): Add Redirect-Channel and Effective-Channel.
+	Entity           RefreshEntity `json:"charm"`
+	EffectiveChannel string        `json:"effective-channel"`
+	Error            *APIError     `json:"error,omitempty"`
+	ID               string        `json:"id"`
+	InstanceKey      string        `json:"instance-key"`
+	Name             string        `json:"name"`
+	Result           string        `json:"result"`
+
+	// Officially the released-at is ISO8601, but go's version of time.Time is
+	// both RFC3339 and ISO8601 (the latter makes the T optional).
+	ReleasedAt time.Time `json:"released-at"`
+}
+
+type RefreshEntity struct {
+	CreatedAt string            `json:"created-at"`
+	Download  Download          `json:"download"`
+	ID        string            `json:"id"`
+	License   string            `json:"license"`
+	Name      string            `json:"name"`
+	Publisher map[string]string `json:"publisher,omitempty"`
+	Summary   string            `json:"summary"`
+	Version   string            `json:"version"`
 }

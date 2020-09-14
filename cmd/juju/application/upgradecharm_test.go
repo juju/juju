@@ -421,7 +421,7 @@ func (s *UpgradeCharmErrorsStateSuite) deployApplication(c *gc.C) {
 
 func (s *UpgradeCharmErrorsStateSuite) TestInvalidSwitchURL(c *gc.C) {
 	s.deployApplication(c)
-	_, err := s.runUpgradeCharm(c, s.cmd, "riak", "--switch=missing")
+	_, err := s.runUpgradeCharm(c, s.cmd, "riak", "--switch=cs:missing")
 	c.Assert(err, gc.ErrorMatches, `cannot resolve charm URL "cs:missing":.*`)
 }
 

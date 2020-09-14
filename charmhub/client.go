@@ -23,6 +23,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 
 	charmhubpath "github.com/juju/juju/charmhub/path"
@@ -100,10 +101,11 @@ func (c Config) BasePath() (charmhubpath.Path, error) {
 
 // Client represents the client side of a charm store.
 type Client struct {
-	url           string
-	infoClient    *InfoClient
-	findClient    *FindClient
-	refreshClient *RefreshClient
+	url            string
+	infoClient     *InfoClient
+	findClient     *FindClient
+	downloadClient *DownloadClient
+	refreshClient  *RefreshClient
 }
 
 // NewClient creates a new charmHub client from the supplied configuration.
@@ -131,12 +133,17 @@ func NewClient(config Config) (*Client, error) {
 	httpClient := DefaultHTTPTransport()
 	apiRequester := NewAPIRequester(httpClient)
 	restClient := NewHTTPRESTClient(apiRequester, config.Headers)
+	fileSystem := DefaultFileSystem()
 
 	return &Client{
 		url:           base.String(),
 		infoClient:    NewInfoClient(infoPath, restClient),
 		findClient:    NewFindClient(findPath, restClient),
 		refreshClient: NewRefreshClient(refreshPath, restClient),
+		// download client doesn't require a path here, as the download could
+		// be from any server in theory. That information is found from the
+		// refresh response.
+		downloadClient: NewDownloadClient(httpClient, fileSystem),
 	}, nil
 }
 
@@ -159,4 +166,9 @@ func (c *Client) Find(ctx context.Context, name string) ([]transport.FindRespons
 // updating a series of charms to the latest version.
 func (c *Client) Refresh(ctx context.Context, config RefreshConfig) ([]transport.RefreshResponse, error) {
 	return c.refreshClient.Refresh(ctx, config)
+}
+
+// Download defines a client for downloading charms directly.
+func (c *Client) Download(ctx context.Context, resourceURL *url.URL, archivePath string) (*charm.CharmArchive, error) {
+	return c.downloadClient.Download(ctx, resourceURL, archivePath)
 }

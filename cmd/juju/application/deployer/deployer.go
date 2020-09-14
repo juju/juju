@@ -5,7 +5,9 @@ package deployer
 
 import (
 	"archive/zip"
+	"fmt"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -17,6 +19,7 @@ import (
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 
@@ -28,6 +31,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
 )
@@ -357,7 +361,7 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 }
 
 func (d *factory) maybeReadCharmstoreBundle(resolver Resolver) (Deployer, error) {
-	curl, err := charm.ParseURL(d.charmOrBundle)
+	curl, err := resolveCharmURL(d.charmOrBundle)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -407,7 +411,7 @@ func (d *factory) maybeReadCharmstoreBundle(resolver Resolver) (Deployer, error)
 
 func (d *factory) charmStoreCharm() (Deployer, error) {
 	// Validate we have a charm store change
-	userRequestedURL, err := charm.ParseURL(d.charmOrBundle)
+	userRequestedURL, err := resolveCharmURL(d.charmOrBundle)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -423,6 +427,40 @@ func (d *factory) charmStoreCharm() (Deployer, error) {
 		userRequestedURL: userRequestedURL,
 		clock:            d.clock,
 	}, nil
+}
+
+func resolveCharmURL(path string) (*charm.URL, error) {
+	// If the charmhub integration is in effect, then we ensure that schema is
+	// defined and we can parse the URL correctly.
+	if featureflag.Enabled(feature.CharmHubIntegration) {
+		var err error
+		path, err = charm.EnsureSchema(path)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		return charm.ParseURL(path)
+	}
+
+	u, err := url.Parse(path)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// We don't expect the charmhub url scheme to show up here, as the feature
+	// flag isn't enabled. Return
+	if charm.CharmHub.Matches(u.Scheme) {
+		// Replicate the charm url parsing error here to keep things consistent.
+		return nil, errors.Errorf(`unexpected charm schema: cannot parse URL %q: schema "ch" not valid`, path)
+	}
+
+	// If we find a scheme that is empty, force it to become a charmstore scheme
+	// so every other subsequent parse url call knows the correct type.
+	if u.Scheme == "" {
+		return charm.ParseURL(fmt.Sprintf("cs:%s", u.Path))
+	}
+
+	return charm.ParseURL(path)
 }
 
 // Returns the first string that isn't empty.

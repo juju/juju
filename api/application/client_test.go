@@ -119,7 +119,7 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 
 	args := application.DeployArgs{
 		CharmID: charmstore.CharmID{
-			URL: charm.MustParseURL("trusty/a-charm-1"),
+			URL: charm.MustParseURL("cs:trusty/a-charm-1"),
 		},
 		CharmOrigin: apicharm.Origin{
 			Source: apicharm.OriginCharmStore,
@@ -250,12 +250,12 @@ func (s *applicationSuite) TestApplicationGetCharmURL(c *gc.C) {
 		c.Assert(args.BranchName, gc.Equals, newBranchName)
 
 		result := response.(*params.StringResult)
-		result.Result = "curl"
+		result.Result = "cs:curl"
 		return nil
 	})
 	curl, err := client.GetCharmURL(newBranchName, "application")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(curl, gc.DeepEquals, charm.MustParseURL("curl"))
+	c.Assert(curl, gc.DeepEquals, charm.MustParseURL("cs:curl"))
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -291,7 +291,7 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 	cfg := application.SetCharmConfig{
 		ApplicationName: "application",
 		CharmID: charmstore.CharmID{
-			URL: charm.MustParseURL("trusty/application-1"),
+			URL: charm.MustParseURL("cs:trusty/application-1"),
 		},
 		ConfigSettings: map[string]string{
 			"a": "b",

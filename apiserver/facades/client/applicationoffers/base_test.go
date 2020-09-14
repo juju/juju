@@ -81,7 +81,11 @@ func (s *baseSuite) setupOffers(c *gc.C, filterAppName string, filterWithEndpoin
 		OfferUUID:              offerName + "-uuid",
 		ApplicationName:        applicationName,
 		ApplicationDescription: "description",
-		Endpoints:              map[string]charm.Relation{"db": {Name: "db2"}},
+		Endpoints: map[string]charm.Relation{
+			"db": {
+				Name: "db2",
+			},
+		},
 	}
 
 	s.applicationOffers.listOffers = func(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error) {
@@ -98,16 +102,25 @@ func (s *baseSuite) setupOffers(c *gc.C, filterAppName string, filterWithEndpoin
 		c.Assert(filters[0], jc.DeepEquals, expectedFilter)
 		return []jujucrossmodel.ApplicationOffer{anOffer}, nil
 	}
-	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular database"}}
+	ch := &mockCharm{
+		meta: &charm.Meta{
+			Description: "A pretty popular database",
+		},
+	}
 	s.mockState.applications = map[string]crossmodel.Application{
 		"test": &mockApplication{
-			name:  "test",
-			charm: ch, curl: charm.MustParseURL("db2-2"),
+			name:     "test",
+			charm:    ch,
+			curl:     charm.MustParseURL("cs:db2-2"),
 			bindings: map[string]string{"db2": "myspace"}, // myspace
 		},
 	}
 	s.mockState.model = &mockModel{
-		uuid: coretesting.ModelTag.Id(), name: "prod", owner: "fred@external", modelType: state.ModelTypeIAAS}
+		uuid:      coretesting.ModelTag.Id(),
+		name:      "prod",
+		owner:     "fred@external",
+		modelType: state.ModelTypeIAAS,
+	}
 	s.mockState.relations["hosted-db2:db wordpress:db"] = &mockRelation{
 		id: 1,
 		endpoint: state.Endpoint{
@@ -131,7 +144,11 @@ func (s *baseSuite) setupOffers(c *gc.C, filterAppName string, filterWithEndpoin
 		name:       "myspace",
 		providerId: "juju-space-myspace",
 		subnets: []applicationoffers.Subnet{
-			&mockSubnet{cidr: "4.3.2.0/24", providerId: "juju-subnet-1", zones: []string{"az1"}},
+			&mockSubnet{
+				cidr:       "4.3.2.0/24",
+				providerId: "juju-subnet-1",
+				zones:      []string{"az1"},
+			},
 		},
 	}
 	s.env.spaceInfo = &environs.ProviderSpaceInfo{

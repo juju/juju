@@ -242,7 +242,7 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 	}()
 
 	// Run the strategy.
-	result, alreadyExists, err := strategy.Run(a.backendState, versionValidator{})
+	result, alreadyExists, origin, err := strategy.Run(a.backendState, versionValidator{}, convertParamsOrigin(args.Origin))
 	if err != nil {
 		return params.CharmOriginResult{}, errors.Trace(err)
 	} else if alreadyExists {
@@ -264,8 +264,7 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 	}
 
 	OriginResult := params.CharmOriginResult{
-		// TODO: add ID to Origin for CH get.
-		Origin: args.Origin,
+		Origin: convertOrigin(origin),
 	}
 
 	// Store the charm archive in environment storage.
@@ -433,20 +432,20 @@ func (a *API) charmStrategy(args params.AddCharmWithAuth) (Strategy, error) {
 	return strat(repo, args.URL, args.Force)
 }
 
-type StrategyFunc func(charmRepo Repository, url string, force bool) (Strategy, error)
+type StrategyFunc func(charmRepo corecharm.Repository, url string, force bool) (Strategy, error)
 
 func getStrategyFunc(source string) StrategyFunc {
 	if source == "charm-store" {
-		return func(charmRepo Repository, url string, force bool) (Strategy, error) {
+		return func(charmRepo corecharm.Repository, url string, force bool) (Strategy, error) {
 			return corecharm.DownloadFromCharmStore(charmRepo, url, force)
 		}
 	}
-	return func(charmRepo Repository, url string, force bool) (Strategy, error) {
+	return func(charmRepo corecharm.Repository, url string, force bool) (Strategy, error) {
 		return corecharm.DownloadFromCharmHub(charmRepo, url, force)
 	}
 }
 
-func (a *API) repository(origin params.CharmOrigin, mac *macaroon.Macaroon) (Repository, error) {
+func (a *API) repository(origin params.CharmOrigin, mac *macaroon.Macaroon) (corecharm.Repository, error) {
 	switch origin.Source {
 	case corecharm.CharmHub.String():
 		return a.charmHubRepository()
@@ -456,7 +455,7 @@ func (a *API) repository(origin params.CharmOrigin, mac *macaroon.Macaroon) (Rep
 	return nil, errors.BadRequestf("Not charm hub nor charm store charm")
 }
 
-func (a *API) charmStoreRepository(origin params.CharmOrigin, mac *macaroon.Macaroon) (Repository, error) {
+func (a *API) charmStoreRepository(origin params.CharmOrigin, mac *macaroon.Macaroon) (corecharm.Repository, error) {
 	controllerCfg, err := a.backendState.ControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -473,7 +472,7 @@ func (a *API) charmStoreRepository(origin params.CharmOrigin, mac *macaroon.Maca
 	return &csRepo{repo: client}, nil
 }
 
-func (a *API) charmHubRepository() (Repository, error) {
+func (a *API) charmHubRepository() (corecharm.Repository, error) {
 	cfg, err := a.backendModel.Config()
 	if err != nil {
 		return nil, errors.Trace(err)

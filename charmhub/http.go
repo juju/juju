@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"io/ioutil"
 	"net/http"
 
@@ -14,7 +15,6 @@ import (
 	httprequest "gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/charmhub/path"
-	"github.com/juju/juju/charmhub/transport"
 )
 
 // Transport defines a type for making the actual request.
@@ -52,34 +52,25 @@ func (t *APIRequester) Do(req *http.Request) (*http.Response, error) {
 	if resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusNoContent {
 		return resp, nil
 	}
-	defer func() { _ = resp.Body.Close() }()
 
 	var potentialInvalidURL bool
 	if resp.StatusCode == http.StatusNotFound {
 		potentialInvalidURL = true
 	}
 
-	// Parse the response error.
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot read response body")
-	}
 	if contentType := resp.Header.Get("Content-Type"); contentType != "application/json" {
+		defer func() {
+			_, _ = io.Copy(ioutil.Discard, resp.Body)
+			_ = resp.Body.Close()
+		}()
+
 		if potentialInvalidURL {
 			return nil, errors.Errorf(`unexpected charm-hub url %q when parsing headers`, req.URL.String())
 		}
 		return nil, errors.Errorf(`unexpected content-type from server %q`, contentType)
 	}
 
-	var apiError transport.APIError
-	if err := json.Unmarshal(data, &apiError); err != nil {
-		if potentialInvalidURL {
-			return nil, errors.Errorf(`unexpected charm-hub url %q when parsing response`, req.URL.String())
-		}
-		return nil, errors.Trace(err)
-	}
-
-	return resp, errors.Errorf(apiError.Message)
+	return resp, nil
 }
 
 // RESTClient defines a type for making requests to a server.

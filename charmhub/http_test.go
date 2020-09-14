@@ -75,8 +75,7 @@ func (s *APIRequesterSuite) TestDoWithNotFoundResponse(c *gc.C) {
 
 	requester := NewAPIRequester(mockTransport)
 	resp, err := requester.Do(req)
-	c.Assert(err, gc.Not(jc.ErrorIsNil))
-	c.Assert(err, gc.ErrorMatches, "not-found")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusNotFound)
 }
 

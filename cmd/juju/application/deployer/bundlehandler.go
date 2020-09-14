@@ -292,7 +292,6 @@ func (h *bundleHandler) makeModel(
 //     and if they do, resolve the implicitness in order to compare
 //     with relations in the model.
 func (h *bundleHandler) resolveCharmsAndEndpoints() error {
-
 	deployedApps := set.NewStrings()
 
 	for _, name := range h.applications.SortedValues() {
@@ -321,11 +320,22 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		if spec.Channel != "" {
 			fromChannel = fmt.Sprintf(" from channel: %s", spec.Channel)
 		}
-		h.ctx.Infof("Resolving charm: %s%s", spec.Charm, fromChannel)
-		ch, err := charm.ParseURL(spec.Charm)
+		ch, err := resolveCharmURL(spec.Charm)
 		if err != nil {
 			return errors.Trace(err)
 		}
+		var via string
+		switch {
+		case charm.CharmHub.Matches(ch.Schema):
+			via = "via charmhub: "
+		case charm.CharmStore.Matches(ch.Schema):
+			via = "via charmstore: "
+		case charm.Local.Matches(ch.Schema):
+			via = "via local filesystem: "
+		default:
+			via = ": "
+		}
+		h.ctx.Infof("Resolving charm %s%s%s", via, ch.FullPath(), fromChannel)
 		origin, err := utils.DeduceOrigin(ch, "")
 		if err != nil {
 			return errors.Trace(err)
@@ -500,7 +510,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	}
 
 	// Not a local charm, so grab from the store.
-	ch, err := charm.ParseURL(chParms.Charm)
+	ch, err := resolveCharmURL(chParms.Charm)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -561,7 +571,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	}
 
 	p := change.Params
-	cURL, err := charm.ParseURL(resolve(p.Charm, h.results))
+	cURL, err := resolveCharmURL(resolve(p.Charm, h.results))
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -935,7 +945,7 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 	}
 
 	p := change.Params
-	cURL, err := charm.ParseURL(resolve(p.Charm, h.results))
+	cURL, err := resolveCharmURL(resolve(p.Charm, h.results))
 	if err != nil {
 		return errors.Trace(err)
 	}

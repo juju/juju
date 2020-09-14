@@ -230,19 +230,20 @@ func (m *MockStore) EXPECT() *MockStoreMockRecorder {
 }
 
 // Download mocks base method
-func (m *MockStore) Download(arg0 *charm.URL, arg1 string) (StoreCharm, Checksum, error) {
+func (m *MockStore) Download(arg0 *charm.URL, arg1 string, arg2 Origin) (StoreCharm, ChecksumCheckFn, Origin, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Download", arg0, arg1)
+	ret := m.ctrl.Call(m, "Download", arg0, arg1, arg2)
 	ret0, _ := ret[0].(StoreCharm)
-	ret1, _ := ret[1].(Checksum)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret1, _ := ret[1].(ChecksumCheckFn)
+	ret2, _ := ret[2].(Origin)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
 }
 
 // Download indicates an expected call of Download
-func (mr *MockStoreMockRecorder) Download(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockStoreMockRecorder) Download(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Download", reflect.TypeOf((*MockStore)(nil).Download), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Download", reflect.TypeOf((*MockStore)(nil).Download), arg0, arg1, arg2)
 }
 
 // Validate mocks base method

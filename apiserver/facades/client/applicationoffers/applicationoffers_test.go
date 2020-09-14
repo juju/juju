@@ -699,7 +699,7 @@ func (s *applicationOffersSuite) assertFind(c *gc.C, expected []params.Applicati
 	})
 }
 
-func (s *applicationOffersSuite) TestFid(c *gc.C) {
+func (s *applicationOffersSuite) TestFind(c *gc.C) {
 	s.setupOffers(c, "", true)
 	s.authorizer.Tag = names.NewUserTag("admin")
 	expected := []params.ApplicationOfferAdminDetails{
@@ -849,14 +849,28 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 	s.mockState.applications = map[string]crossmodel.Application{
 		"db2": &mockApplication{
 			name:  "db2",
-			charm: ch, curl: charm.MustParseURL("db2-2"), bindings: map[string]string{"db2": "myspace"}},
+			charm: ch,
+			curl:  charm.MustParseURL("cs:db2-2"),
+			bindings: map[string]string{
+				"db2": "myspace",
+			},
+		},
 	}
-	s.mockState.model = &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred@external", modelType: state.ModelTypeIAAS}
+	s.mockState.model = &mockModel{
+		uuid:      testing.ModelTag.Id(),
+		name:      "prod",
+		owner:     "fred@external",
+		modelType: state.ModelTypeIAAS,
+	}
 	s.mockState.spaces["myspace"] = &mockSpace{
 		name:       "myspace",
 		providerId: "juju-space-myspace",
 		subnets: []applicationoffers.Subnet{
-			&mockSubnet{cidr: "4.3.2.0/24", providerId: "juju-subnet-1", zones: []string{"az1"}},
+			&mockSubnet{
+				cidr:       "4.3.2.0/24",
+				providerId: "juju-subnet-1",
+				zones:      []string{"az1"},
+			},
 		},
 	}
 	s.env.spaceInfo = &environs.ProviderSpaceInfo{
@@ -887,18 +901,37 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 	anotherState.applications = map[string]crossmodel.Application{
 		"mysql": &mockApplication{
 			name:  "mysql",
-			charm: ch, curl: charm.MustParseURL("mysql-2"), bindings: map[string]string{"mysql": "anotherspace"}},
+			charm: ch,
+			curl:  charm.MustParseURL("cs:mysql-2"),
+			bindings: map[string]string{
+				"mysql": "anotherspace",
+			},
+		},
 		"postgresql": &mockApplication{
-			charm: ch, curl: charm.MustParseURL("postgresql-2"), bindings: map[string]string{"postgresql": "anotherspace"}},
+			charm: ch,
+			curl:  charm.MustParseURL("cs:postgresql-2"),
+			bindings: map[string]string{
+				"postgresql": "anotherspace",
+			},
+		},
 	}
 	anotherState.spaces["anotherspace"] = &mockSpace{
 		name:       "anotherspace",
 		providerId: "juju-space-anotherspace",
 		subnets: []applicationoffers.Subnet{
-			&mockSubnet{cidr: "4.3.2.0/24", providerId: "juju-subnet-1", zones: []string{"az1"}},
+			&mockSubnet{
+				cidr:       "4.3.2.0/24",
+				providerId: "juju-subnet-1",
+				zones:      []string{"az1"},
+			},
 		},
 	}
-	anotherState.model = &mockModel{uuid: "uuid2", name: "another", owner: "mary", modelType: state.ModelTypeIAAS}
+	anotherState.model = &mockModel{
+		uuid:      "uuid2",
+		name:      "another",
+		owner:     "mary",
+		modelType: state.ModelTypeIAAS,
+	}
 	s.mockState.relations["hosted-mysql:server wordpress:db"] = &mockRelation{
 		id: 1,
 		endpoint: state.Endpoint{
@@ -962,13 +995,17 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 					OfferName:              "hosted-db2",
 					OfferUUID:              "hosted-db2-uuid",
 					OfferURL:               "fred@external/prod.hosted-db2",
-					Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
-					Bindings:               map[string]string{"db2": "myspace"},
+					Endpoints: []params.RemoteEndpoint{
+						{Name: "db"},
+					},
+					Bindings: map[string]string{"db2": "myspace"},
 					Spaces: []params.RemoteSpace{
 						{
 							Name:       "myspace",
 							ProviderId: "juju-space-myspace",
-							Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
+							Subnets: []params.Subnet{
+								{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}},
+							},
 						},
 					},
 					Users: []params.OfferUserDetails{
@@ -983,7 +1020,9 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 					OfferName:              "hosted-mysql",
 					OfferUUID:              "hosted-mysql-uuid",
 					OfferURL:               "mary/another.hosted-mysql",
-					Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
+					Endpoints: []params.RemoteEndpoint{
+						{Name: "db"},
+					},
 					Users: []params.OfferUserDetails{
 						{UserName: "someone", DisplayName: "someone", Access: "read"},
 					},
@@ -1145,7 +1184,8 @@ func (s *consumeSuite) assertConsumeDetailsWithPermission(c *gc.C, specifiedUser
 		UserTag: userTag,
 		OfferURLs: params.OfferURLs{
 			OfferURLs: []string{"fred@external/prod.hosted-mysql"},
-		}})
+		}},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
@@ -1174,6 +1214,7 @@ func (s *consumeSuite) assertConsumeDetailsWithPermission(c *gc.C, specifiedUser
 		CACert:        testing.CACert,
 	})
 	c.Assert(results.Results[0].Macaroon.Id(), jc.DeepEquals, []byte("id"))
+
 	cav := s.bakery.caveats[string(results.Results[0].Macaroon.Id())]
 	c.Check(cav, gc.HasLen, 4)
 	c.Check(strings.HasPrefix(cav[0].Condition, "time-before "), jc.IsTrue)
@@ -1222,7 +1263,9 @@ func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
 	results, err := s.api.GetConsumeDetails(params.ConsumeOfferDetailsArg{
 		OfferURLs: params.OfferURLs{
 			OfferURLs: []string{"fred@external/prod.hosted-mysql"},
-		}})
+		}},
+	)
+
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)

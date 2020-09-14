@@ -14,6 +14,7 @@ import (
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/os/series"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 
@@ -26,7 +27,10 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.charms")
 
+// CharmHubClient represents the methods required of a
+// client to install or upgrade a CharmHub charm.
 type CharmHubClient interface {
+	Download(ctx context.Context, resourceURL *url.URL, archivePath string) (*charm.CharmArchive, error)
 	Info(ctx context.Context, name string) (transport.InfoResponse, error)
 	Refresh(ctx context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error)
 }
@@ -62,9 +66,85 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 	return c.resolveViaChannelMap(curl, origin, channelMap)
 }
 
-func (c *chRepo) Get(curl *charm.URL, archivePath string) (*charm.CharmArchive, error) {
-	logger.Tracef("Get CharmHub charm %q from %q", curl, archivePath)
-	return nil, errors.NotImplementedf("get")
+// DownloadCharm downloads the provided download URL from CharmHub using the
+// provided archive path.
+// A charm archive is returned.
+func (c *chRepo) DownloadCharm(resourceURL string, archivePath string) (*charm.CharmArchive, error) {
+	logger.Tracef("DownloadCharm from CharmHub %q", resourceURL)
+	curl, err := url.Parse(resourceURL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return c.client.Download(context.TODO(), curl, archivePath)
+}
+
+// FindDownloadURL returns the url from which to download the CharmHub
+// charm defined by the provided curl and charm origin.  An updated
+// charm origin is also returned with the ID and hash for the charm
+// to be downloaded.  If the provided charm origin has no ID, it is
+// assumed that the charm is being installed, not refreshed.
+func (c *chRepo) FindDownloadURL(curl *charm.URL, origin corecharm.Origin) (*url.URL, corecharm.Origin, error) {
+	cfg, err := refreshConfig(curl, origin)
+	if err != nil {
+		return nil, corecharm.Origin{}, errors.Trace(err)
+	}
+	result, err := c.client.Refresh(context.TODO(), cfg)
+	if err != nil {
+		return nil, corecharm.Origin{}, errors.Trace(err)
+	}
+	if len(result) != 1 {
+		return nil, corecharm.Origin{}, errors.Errorf("More than 1 result found")
+	}
+	findResult := result[0]
+	logger.Tracef("FindDownloadURL received %+v", findResult)
+	if findResult.Error != nil {
+		// TODO: (hml) 4-sep-2020
+		// When list of error codes available, create real error for them.
+		return nil, corecharm.Origin{}, errors.Errorf("%s: %s", findResult.Error.Code, findResult.Error.Message)
+	}
+	origin.ID = findResult.Entity.ID
+	origin.Hash = findResult.Entity.Download.HashSHA265
+	durl, err := url.Parse(findResult.Entity.Download.URL)
+	return durl, origin, errors.Trace(err)
+}
+
+func refreshConfig(curl *charm.URL, origin corecharm.Origin) (charmhub.RefreshConfig, error) {
+	var rev int
+	if origin.Revision != nil {
+		rev = *origin.Revision
+	}
+	var channel string
+	if origin.Channel != nil {
+		channel = origin.Channel.String()
+	}
+	var seriesOS string
+	if curl.Series != "" {
+		opSys, err := series.GetOSFromSeries(curl.Series)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		seriesOS = opSys.String()
+	}
+	var cfg charmhub.RefreshConfig
+	var err error
+
+	switch {
+	case origin.ID == "" && channel != "":
+		// If there is no origin ID, we haven't downloaded this charm before.
+		// Try channel first.
+		cfg, err = charmhub.InstallOneFromChannel(curl.Name, channel, seriesOS, curl.Series)
+	case origin.ID == "" && channel == "":
+		// If there is no origin ID, we haven't downloaded this charm before.
+		// No channel, try with revision.
+		cfg, err = charmhub.InstallOneFromRevision(curl.Name, rev, seriesOS, curl.Series)
+	case origin.ID != "":
+		// This must be a charm upgrade if we have an ID.  Use the refresh action
+		// for metric keeping on the CharmHub side.
+		cfg, err = charmhub.RefreshOne(origin.ID, rev, channel, seriesOS, curl.Series)
+	default:
+		return nil, errors.NotValidf("origin %v", origin)
+	}
+	return cfg, err
 }
 
 func makeChannel(origin params.CharmOrigin) (corecharm.Channel, error) {
@@ -138,6 +218,13 @@ func (c *chRepo) resolveViaChannelMap(curl *charm.URL, origin params.CharmOrigin
 	origin.Risk = mapChannel.Risk
 	origin.Track = &mapChannel.Track
 
+	// `metadata.yaml` is a requirement to be a valid charm. The charm repo
+	// expects that one exists even if it contains minimal information. So if
+	// we returned out here, we would fail at a later stage.
+	if mapRevision.MetadataYAML == "" {
+		return nil, params.CharmOrigin{}, nil, errors.Errorf("unexpected empty charm metadata")
+	}
+
 	meta, err := unmarshalCharmMetadata(mapRevision.MetadataYAML)
 	if err != nil {
 		return nil, params.CharmOrigin{}, nil, errors.Annotatef(err, "cannot unmarshal charm metadata")
@@ -173,9 +260,18 @@ func (c *csRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 	return newCurl, newOrigin, supportedSeries, err
 }
 
-func (c *csRepo) Get(curl *charm.URL, archivePath string) (*charm.CharmArchive, error) {
-	logger.Tracef("Get CharmStore charm %q from %q", curl, archivePath)
+func (c *csRepo) DownloadCharm(resourceURL string, archivePath string) (*charm.CharmArchive, error) {
+	logger.Tracef("CharmStore DownloadCharm %q", resourceURL)
+	curl, err := charm.ParseURL(resourceURL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return c.repo.Get(curl, archivePath)
+}
+
+func (c *csRepo) FindDownloadURL(curl *charm.URL, origin corecharm.Origin) (*url.URL, corecharm.Origin, error) {
+	logger.Tracef("CharmStore FindDownloadURL %q", curl)
+	return nil, origin, nil
 }
 
 type CSResolverGetterFunc func(args ResolverGetterParams) (CSRepository, error)
@@ -187,7 +283,7 @@ type ResolverGetterParams struct {
 }
 
 // CSRepository is the part of charmrepo.Charmstore that we need to
-// resolve a charm url.
+// resolve a charm url, install or upgrade a charm store charm.
 type CSRepository interface {
 	Get(curl *charm.URL, archivePath string) (*charm.CharmArchive, error)
 	ResolveWithPreferredChannel(*charm.URL, csparams.Channel) (*charm.URL, csparams.Channel, []string, error)
