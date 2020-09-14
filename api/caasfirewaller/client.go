@@ -4,6 +4,7 @@
 package caasfirewaller
 
 import (
+	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/names/v4"
@@ -32,7 +33,7 @@ func NewClientLegacy(caller base.APICaller) *Client {
 
 // ClientEmbedded allows access to the CAAS firewaller API endpoint for embedded applications.
 type ClientEmbedded struct {
-	facade base.FacadeCaller
+	*Client
 	*charmscommon.CharmsClient
 }
 
@@ -42,9 +43,62 @@ func NewClientEmbedded(caller base.APICaller) *ClientEmbedded {
 	facadeCaller := base.NewFacadeCaller(caller, "CAASFirewallerEmbedded")
 	charmsClient := charmscommon.NewCharmsClient(facadeCaller)
 	return &ClientEmbedded{
-		facade:       facadeCaller,
+		Client:       NewClientLegacy(caller),
 		CharmsClient: charmsClient,
 	}
+}
+
+// ModelTag returns the current model's tag.
+func (c *ClientEmbedded) ModelTag() (names.ModelTag, bool) {
+	return c.facade.RawAPICaller().ModelTag()
+}
+
+// WatchOpenedPorts returns a StringsWatcher that notifies of
+// changes to the opened ports for the current model.
+func (c *ClientEmbedded) WatchOpenedPorts() (watcher.StringsWatcher, error) {
+	modelTag, ok := c.ModelTag()
+	if !ok {
+		return nil, errors.New("API connection is controller-only (should never happen)")
+	}
+	var results params.StringsWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: modelTag.String()}},
+	}
+	if err := c.facade.FacadeCall("WatchOpenedPorts", args, &results); err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if err := result.Error; err != nil {
+		return nil, result.Error
+	}
+	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
+	return w, nil
+}
+
+// ApplicationCharmURL finds the CharmURL for an application.
+func (c *ClientEmbedded) ApplicationCharmURL(appName string) (*charm.URL, error) {
+	args := params.Entities{Entities: []params.Entity{{
+		Tag: names.NewApplicationTag(appName).String(),
+	}}}
+	var result params.StringResults
+	if err := c.facade.FacadeCall("ApplicationCharmURLs", args, &result); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(result.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(result.Results))
+	}
+	res := result.Results[0]
+	if res.Error != nil {
+		return nil, errors.Annotatef(res.Error, "unable to fetch charm url for %s", appName)
+	}
+	url, err := charm.ParseURL(res.Result)
+	if err != nil {
+		return nil, errors.Annotatef(err, "invalid charm url %q", res.Result)
+	}
+	return url, nil
 }
 
 func applicationTag(application string) (names.ApplicationTag, error) {

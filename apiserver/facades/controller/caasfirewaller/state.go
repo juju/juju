@@ -10,12 +10,14 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// CAASUnitProvisionerState provides the subset of global state
+// CAASFirewallerState provides the subset of global state
 // required by the CAAS operator facade.
 type CAASFirewallerState interface {
 	FindEntity(tag names.Tag) (state.Entity, error)
 	Application(string) (Application, error)
+
 	WatchApplications() state.StringsWatcher
+	WatchOpenedPorts() state.StringsWatcher
 }
 
 // Application provides the subset of application state
