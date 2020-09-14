@@ -9,3 +9,11 @@ import "github.com/juju/juju/caas"
 type CAASBroker interface {
 	Application(string, caas.DeploymentType) caas.Application
 }
+
+type portMutator interface {
+	UpdatePorts(ports []caas.ServicePort) error
+}
+
+type serviceUpdater interface {
+	UpdateService(caas.ServiceParam) error
+}

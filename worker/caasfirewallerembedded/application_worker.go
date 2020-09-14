@@ -4,6 +4,7 @@
 package caasfirewallerembedded
 
 import (
+	"reflect"
 	"strings"
 
 	"github.com/juju/charm/v8"
@@ -15,6 +16,8 @@ import (
 	"github.com/juju/juju/caas"
 	// "github.com/juju/juju/core/life"
 	// "github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/watcher"
 )
 
 type applicationWorker struct {
@@ -26,13 +29,50 @@ type applicationWorker struct {
 	firewallerAPI CAASFirewallerAPI
 
 	broker CAASBroker
+	portMutator
+	serviceUpdater
+
+	appWatcher   watcher.NotifyWatcher
+	portsWatcher watcher.StringsWatcher
 
 	lifeGetter LifeGetter
 
 	initial           bool
 	previouslyExposed bool
 
+	currentPorts portRanges
+
 	logger Logger
+}
+
+type portRanges map[network.PortRange]bool
+
+func newPortRanges(in []network.PortRange) portRanges {
+	out := make(portRanges)
+	for _, p := range in {
+		out[p] = true
+	}
+	return out
+}
+
+func (pg portRanges) equal(in portRanges) bool {
+	if len(pg) != len(in) {
+		return false
+	}
+	return reflect.DeepEqual(pg, in)
+}
+
+func (pg portRanges) toServicePorts() []caas.ServicePort {
+	out := make([]caas.ServicePort, len(pg))
+	for p := range pg {
+		out = append(out, caas.ServicePort{
+			Name:       p.Name,
+			Port:       p.FromPort,
+			TargetPort: p.ToPort,
+			Protocol:   p.Protocol,
+		})
+	}
+	return out
 }
 
 func newApplicationWorker(
@@ -73,31 +113,23 @@ func (w *applicationWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-func (w *applicationWorker) loop() (err error) {
-	defer func() {
-		// If the application has been deleted, we can return nil.
-		if errors.IsNotFound(err) {
-			w.logger.Debugf("caas firewaller application %v has been removed", w.appName)
-			err = nil
-		}
-	}()
-	appWatcher, err := w.firewallerAPI.WatchApplication(w.appName)
+func (w *applicationWorker) setUp() (err error) {
+	w.appWatcher, err = w.firewallerAPI.WatchApplication(w.appName)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := w.catacomb.Add(appWatcher); err != nil {
+	if err := w.catacomb.Add(w.appWatcher); err != nil {
 		return errors.Trace(err)
 	}
 
-	// portsWatcher, err := w.firewallerAPI.WatchPorts??(w.appName)
-	// if err != nil {
-	// 	return errors.Trace(err)
-	// }
-	// if err := w.catacomb.Add(portsWatcher); err != nil {
-	// 	return errors.Trace(err)
-	// }
+	w.portsWatcher, err = w.firewallerAPI.WatchOpenedPorts()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := w.catacomb.Add(w.portsWatcher); err != nil {
+		return errors.Trace(err)
+	}
 
-	// var appLife life.Value = life.Dead
 	charmURL, err := w.firewallerAPI.ApplicationCharmURL(w.appName)
 	if err != nil {
 		return errors.Annotatef(err, "failed to get charm urls for application")
@@ -113,34 +145,82 @@ func (w *applicationWorker) loop() (err error) {
 		return errors.Errorf("charm missing deployment mode or received non-embedded mode")
 	}
 
-	app := w.broker.Application(w.appName,
-		caas.DeploymentType(charmInfo.Meta.Deployment.DeploymentType))
+	app := w.broker.Application(w.appName, caas.DeploymentType(charmInfo.Meta.Deployment.DeploymentType))
+	w.portMutator = app
+	w.serviceUpdater = app
+
+	// TODO:
+	/*
+
+		if ports, err := w.firewallerAPI.OpenedPorts(w.appName); err != nil {
+			return errors.Annotatef(err, "failed to get initial openned ports for application")
+		}
+		w.currentPorts = newPortRanges(ports)
+	*/
+	return nil
+}
+
+func (w *applicationWorker) loop() (err error) {
+	defer func() {
+		// If the application has been deleted, we can return nil.
+		if errors.IsNotFound(err) {
+			w.logger.Debugf("caas firewaller application %v has been removed", w.appName)
+			err = nil
+		}
+	}()
+
+	if err = w.setUp(); err != nil {
+		return errors.Trace(err)
+	}
+
+	// var appLife life.Value = life.Dead
 
 	for {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case _, ok := <-appWatcher.Changes():
+		case _, ok := <-w.appWatcher.Changes():
 			if !ok {
 				return errors.New("application watcher closed")
 			}
-			if err := w.processApplicationChange(app); err != nil {
+			if err := w.onApplicationChanged(); err != nil {
 				if strings.Contains(err.Error(), "unexpected EOF") {
 					return nil
 				}
 				return errors.Trace(err)
 			}
-			// case portMappings, ok := <-portsWatcher.Changes():
-			// 	if !ok {
-			// 		return errors.New("application watcher closed")
-			// 	}
-			// 	app.OpenPort(p)
-			// 	app.ClosePort(p)
+		case _, ok := <-w.portsWatcher.Changes():
+			// TODO: implement portWatcher to return application names having port changes,
+			if !ok {
+				return errors.New("application watcher closed")
+			}
+			// if !sets.NewString(changes...).Contains(w.appName){continue}
+			if err := w.onPortChanged(); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 }
 
-func (w *applicationWorker) processApplicationChange(app caas.Application) (err error) {
+func (w *applicationWorker) onPortChanged() (err error) {
+	// TODO:
+	/*
+		ports, err := w.firewallerAPI.OpenedPorts(w.appName)
+		if err != nil {
+			return err
+		}
+		changedPortRanges := newPortRanges(ports)
+		if w.current.equal(changedPortRanges){
+			logger.Tracef("no port changes for app %q", w.appName)
+			return nil
+		}
+		w.currentPorts = changedPortRanges
+		return w.portMutator.UpdatePorts(w.currentPorts.toServicePorts())
+	*/
+	return nil
+}
+
+func (w *applicationWorker) onApplicationChanged() (err error) {
 	defer func() {
 		// Not found could be because the app got removed or there's
 		// no container service created yet as the app is still being set up.
@@ -157,7 +237,6 @@ func (w *applicationWorker) processApplicationChange(app caas.Application) (err 
 	}()
 
 	exposed, err := w.firewallerAPI.IsExposed(w.appName)
-	// juju expose always takes higher priority than open/close port??
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -168,33 +247,19 @@ func (w *applicationWorker) processApplicationChange(app caas.Application) (err 
 	w.initial = false
 	w.previouslyExposed = exposed
 	if exposed {
-		// appConfig, err := w.firewallerAPI.ApplicationConfig(w.appName)
-		// if err != nil {
-		// 	return errors.Trace(err)
-		// }
-		// resourceTags := tags.ResourceTags(
-		// 	names.NewModelTag(w.modelUUID),
-		// 	names.NewControllerTag(w.controllerUUID),
-		// )
-		if err := exposeService(app); err != nil {
-			return errors.Trace(err)
-		}
-		return nil
+		return errors.Trace(exposeService(w.serviceUpdater))
 	}
-	if err := unExposeService(app); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return errors.Trace(unExposeService(w.serviceUpdater))
 }
 
-func exposeService(app caas.Application) error {
-	// TODO:
+func exposeService(app serviceUpdater) error {
+	// TODO: implement expose once it's modelled.
 	// app.UpdateService()
 	return nil
 }
 
-func unExposeService(app caas.Application) error {
-	// TODO:
+func unExposeService(app serviceUpdater) error {
+	// TODO: implement un-expose once it's modelled.
 	// app.UpdateService()
 	return nil
 }

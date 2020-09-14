@@ -27,6 +27,8 @@ type Client interface {
 type CAASFirewallerAPI interface {
 	WatchApplications() (watcher.StringsWatcher, error)
 	WatchApplication(string) (watcher.NotifyWatcher, error)
+	WatchOpenedPorts() (watcher.StringsWatcher, error)
+
 	IsExposed(string) (bool, error)
 	ApplicationConfig(string) (application.ConfigAttributes, error)
 
