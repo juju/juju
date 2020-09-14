@@ -85,9 +85,9 @@ type Repository interface {
 	// that the path's parent directory must already exist.
 	DownloadCharm(curl *charm.URL, downloadURL *url.URL, archivePath string) (*charm.CharmArchive, error)
 
-	// Resolve verified that the charm exists.  It returns a charm URL which
-	// includes the most current revision, if none was provided and a slice
-	// of series supported by this charm.
+	// Resolve a canonical URL for retrieving the charm includes the most
+	// current revision, if none was provided and a slice  of series supported
+	// by this charm.
 	Resolve(ref *charm.URL) (canonRef *charm.URL, supportedSeries []string, err error)
 }
 
