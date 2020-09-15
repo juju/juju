@@ -5,25 +5,38 @@ package refresher
 
 import (
 	"github.com/juju/charm/v8"
-	"github.com/juju/cmd"
 	"gopkg.in/macaroon.v2"
 
+	commoncharm "github.com/juju/juju/api/common/charm"
 	corecharm "github.com/juju/juju/core/charm"
 )
 
 // RefresherFactory contains a method to get a deployer.
 type RefresherFactory interface {
-	GetRefresher(RefresherConfig) (Refresher, error)
+	Run(RefresherConfig) (*CharmID, error)
 }
 
 // Refresher defines the functionality of a deployer returned by the
 // factory.
 type Refresher interface {
-	// PrepareAndRefresh finishes preparing to deploy a charm or bundle,
+	// Refresh finishes preparing to deploy a charm or bundle,
 	// then deploys it.  This is done as one step to accommodate the
 	// call being wrapped by block.ProcessBlockedError.
-	PrepareAndRefresh(*cmd.Context) (*charm.URL, corecharm.Origin, *macaroon.Macaroon, error)
+	Refresh() (*CharmID, error)
 
 	// String returns a string description of the deployer.
 	String() string
+}
+
+// CharmID represents a charm identifier.
+type CharmID struct {
+	URL      *charm.URL
+	Origin   corecharm.Origin
+	Macaroon *macaroon.Macaroon
+}
+
+// CharmResolver defines methods required to resolve charms, as required
+// by the upgrade-charm command.
+type CharmResolver interface {
+	ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin) (*charm.URL, commoncharm.Origin, []string, error)
 }

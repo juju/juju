@@ -3,7 +3,10 @@
 
 package charm
 
-import "github.com/juju/juju/apiserver/params"
+import (
+	"github.com/juju/juju/apiserver/params"
+	corecharm "github.com/juju/juju/core/charm"
+)
 
 // OriginSource represents the source of the charm.
 type OriginSource string
@@ -46,6 +49,24 @@ func (o Origin) ParamsCharmOrigin() params.CharmOrigin {
 		Revision: o.Revision,
 		Risk:     o.Risk,
 		Track:    o.Track,
+	}
+}
+
+// CoreCharmOrigin is a help method to get a core version of this structure.
+func (o Origin) CoreCharmOrigin() corecharm.Origin {
+	var track string
+	if o.Track != nil {
+		track = *o.Track
+	}
+	return corecharm.Origin{
+		Source:   corecharm.Source(o.Source),
+		ID:       o.ID,
+		Hash:     o.Hash,
+		Revision: o.Revision,
+		Channel: &corecharm.Channel{
+			Risk:  corecharm.Risk(o.Risk),
+			Track: track,
+		},
 	}
 }
 
