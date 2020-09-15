@@ -1329,6 +1329,9 @@ func (api *APIBase) GetCharmURL(args params.ApplicationGet) (params.StringResult
 	return params.StringResult{Result: charmURL.String()}, nil
 }
 
+// GetCharmURLOrigin isn't on the V12 API.
+func (api *APIv12) GetCharmURLOrigin(_ struct{}) {}
+
 // GetCharmURLOrigin returns the charm URL and charm origin the given
 // application is running at present.
 func (api *APIBase) GetCharmURLOrigin(args params.ApplicationGet) (params.CharmURLOriginResult, error) {
