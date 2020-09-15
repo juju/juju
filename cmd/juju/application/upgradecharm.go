@@ -347,9 +347,6 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if c.Channel == "" {
-		c.Channel = applicationInfo.Channel
-	}
 
 	if c.channelStr == "" {
 		c.Channel, _ = corecharm.ParseChannel(applicationInfo.Channel)
@@ -615,92 +612,6 @@ var getCharmStoreAPIURL = func(conAPIRoot base.APICallCloser) (string, error) {
 	return controllerCfg.CharmStoreURL(), nil
 }
 
-<<<<<<< HEAD
-type addCharmParams struct {
-	charmAdder     store.CharmAdder
-	authorizer     store.MacaroonGetter
-	charmResolver  CharmResolver
-	oldURL         *charm.URL
-	newCharmRef    string
-	deployedSeries string
-	force          bool
-}
-
-// addCharm interprets the new charmRef and adds the specified charm if
-// the new charm is different to what's already deployed as specified by
-// oldURL.
-func (c *upgradeCharmCommand) addCharm(params addCharmParams) (charmstore.CharmID, *macaroon.Macaroon, error) {
-	var id charmstore.CharmID
-	// Charm may have been supplied via a path reference. If so, build a
-	// local charm URL from the deployed series.
-	ch, newURL, err := charmrepo.NewCharmAtPathForceSeries(params.newCharmRef, params.deployedSeries, c.ForceSeries)
-	if err == nil {
-		newName := ch.Meta().Name
-		if newName != params.oldURL.Name {
-			return id, nil, errors.Errorf("cannot upgrade %q to %q", params.oldURL.Name, newName)
-		}
-		addedURL, err := params.charmAdder.AddLocalCharm(newURL, ch, params.force)
-		id.URL = addedURL
-		return id, nil, err
-	}
-	if _, ok := err.(*charmrepo.NotFoundError); ok {
-		return id, nil, errors.Errorf("no charm found at %q", params.newCharmRef)
-	}
-	// If we get a "not exists" or invalid path error then we attempt to interpret
-	// the supplied charm reference as a URL below, otherwise we return the error.
-	if err != os.ErrNotExist && !charmrepo.IsInvalidPathError(err) {
-		return id, nil, err
-	}
-
-	refURL, err := charm.ParseURL(params.newCharmRef)
-	if err != nil {
-		return id, nil, errors.Trace(err)
-	}
-
-	origin, err := utils.DeduceOrigin(refURL, c.Channel)
-	if err != nil {
-		return id, nil, errors.Trace(err)
-	}
-
-	// Charm has been supplied as a URL so we resolve and deploy using the store.
-	newURL, origin, supportedSeries, err := params.charmResolver.ResolveCharm(refURL, origin)
-	if err != nil {
-		return id, nil, errors.Trace(err)
-	}
-	id.Channel = csparams.Channel(origin.Risk)
-	_, seriesSupportedErr := charm.SeriesForCharm(params.deployedSeries, supportedSeries)
-	if !c.ForceSeries && params.deployedSeries != "" && newURL.Series == "" && seriesSupportedErr != nil {
-		series := []string{"no series"}
-		if len(supportedSeries) > 0 {
-			series = supportedSeries
-		}
-		return id, nil, errors.Errorf(
-			"cannot upgrade from single series %q charm to a charm supporting %q. Use --force-series to override.",
-			params.deployedSeries, series,
-		)
-	}
-	// If no explicit revision was set with either SwitchURL
-	// or Revision flags, discover the latest.
-	if *newURL == *params.oldURL {
-		if refURL.Revision != -1 {
-			return id, nil, errors.Errorf("already running specified charm %q", newURL)
-		}
-		// No point in trying to upgrade a charm store charm when
-		// we just determined that's the latest revision
-		// available.
-		return id, nil, errors.Errorf("already running latest charm %q", newURL)
-	}
-
-	curl, csMac, _, err := store.AddCharmFromURL(params.charmAdder, params.authorizer, newURL, origin, params.force)
-	if err != nil {
-		return id, nil, errors.Trace(err)
-	}
-	id.URL = curl
-	return id, csMac, nil
-}
-
-=======
->>>>>>> Initial idea for refresher API
 func allEndpoints(ci *charms.CharmInfo) set.Strings {
 	epSet := set.NewStrings()
 	for n := range ci.Meta.ExtraBindings {
@@ -733,7 +644,7 @@ func (c *upgradeCharmCommand) getRefresherFactory(apiRoot api.Connection) (refre
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	csClient, charmStore := c.NewCharmStore(bakeryClient, csURL, csparams.Channel(c.Channel))
+	csClient, charmStore := c.NewCharmStore(bakeryClient, csURL, csparams.Channel(c.Channel.Risk))
 
 	deps := refresher.RefresherDependencies{
 		Authorizer:    csClient,

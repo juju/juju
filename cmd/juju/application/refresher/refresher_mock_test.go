@@ -72,6 +72,21 @@ func (m *MockRefresher) EXPECT() *MockRefresherMockRecorder {
 	return m.recorder
 }
 
+// Allowed mocks base method
+func (m *MockRefresher) Allowed(arg0 RefresherConfig) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Allowed", arg0)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Allowed indicates an expected call of Allowed
+func (mr *MockRefresherMockRecorder) Allowed(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Allowed", reflect.TypeOf((*MockRefresher)(nil).Allowed), arg0)
+}
+
 // Refresh mocks base method
 func (m *MockRefresher) Refresh() (*CharmID, error) {
 	m.ctrl.T.Helper()

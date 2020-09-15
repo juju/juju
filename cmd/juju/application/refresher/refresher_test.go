@@ -16,6 +16,137 @@ import (
 	commoncharm "github.com/juju/juju/api/common/charm"
 )
 
+type refresherFactorySuite struct{}
+
+var _ = gc.Suite(&refresherFactorySuite{})
+
+func (s *refresherFactorySuite) TestRefresh(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ref := "meshuggah"
+	curl := charm.MustParseURL(ref)
+	cfg := RefresherConfig{}
+	charmID := &CharmID{
+		URL: curl,
+	}
+
+	refresher := NewMockRefresher(ctrl)
+	refresher.EXPECT().Allowed(cfg).Return(true, nil)
+	refresher.EXPECT().Refresh().Return(charmID, nil)
+
+	f := &factory{
+		refreshers: []RefresherFn{
+			func(cfg RefresherConfig) (Refresher, error) {
+				return refresher, nil
+			},
+		},
+	}
+
+	charmID, err := f.Run(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(charmID, gc.DeepEquals, charmID)
+}
+
+func (s *refresherFactorySuite) TestRefreshNotAllowed(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ref := "meshuggah"
+	cfg := RefresherConfig{
+		CharmRef: ref,
+	}
+
+	refresher := NewMockRefresher(ctrl)
+	refresher.EXPECT().Allowed(cfg).Return(false, nil)
+
+	f := &factory{
+		refreshers: []RefresherFn{
+			func(cfg RefresherConfig) (Refresher, error) {
+				return refresher, nil
+			},
+		},
+	}
+
+	_, err := f.Run(cfg)
+	c.Assert(err, gc.ErrorMatches, `unable to refresh "meshuggah"`)
+}
+
+func (s *refresherFactorySuite) TestRefreshCallsAllRefreshers(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ref := "meshuggah"
+	curl := charm.MustParseURL(ref)
+	cfg := RefresherConfig{}
+	charmID := &CharmID{
+		URL: curl,
+	}
+
+	refresher0 := NewMockRefresher(ctrl)
+	refresher0.EXPECT().Allowed(cfg).Return(false, nil)
+
+	refresher1 := NewMockRefresher(ctrl)
+	refresher1.EXPECT().Allowed(cfg).Return(true, nil)
+	refresher1.EXPECT().Refresh().Return(charmID, nil)
+
+	f := &factory{
+		refreshers: []RefresherFn{
+			func(cfg RefresherConfig) (Refresher, error) {
+				return refresher0, nil
+			},
+			func(cfg RefresherConfig) (Refresher, error) {
+				return refresher1, nil
+			},
+		},
+	}
+
+	charmID, err := f.Run(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(charmID, gc.DeepEquals, charmID)
+}
+
+func (s *refresherFactorySuite) TestRefreshCallsRefreshersEvenAfterExhaustedError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ref := "meshuggah"
+	curl := charm.MustParseURL(ref)
+	cfg := RefresherConfig{}
+	charmID := &CharmID{
+		URL: curl,
+	}
+
+	refresher0 := NewMockRefresher(ctrl)
+	refresher0.EXPECT().Allowed(cfg).Return(false, nil)
+
+	refresher1 := NewMockRefresher(ctrl)
+	refresher1.EXPECT().Allowed(cfg).Return(true, nil)
+	refresher1.EXPECT().Refresh().Return(nil, ErrExhausted)
+
+	refresher2 := NewMockRefresher(ctrl)
+	refresher2.EXPECT().Allowed(cfg).Return(true, nil)
+	refresher2.EXPECT().Refresh().Return(charmID, nil)
+
+	f := &factory{
+		refreshers: []RefresherFn{
+			func(cfg RefresherConfig) (Refresher, error) {
+				return refresher0, nil
+			},
+			func(cfg RefresherConfig) (Refresher, error) {
+				return refresher1, nil
+			},
+			func(cfg RefresherConfig) (Refresher, error) {
+				return refresher2, nil
+			},
+		},
+	}
+
+	charmID, err := f.Run(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(charmID, gc.DeepEquals, charmID)
+}
+
 type localCharmRefresherSuite struct{}
 
 var _ = gc.Suite(&localCharmRefresherSuite{})
@@ -169,4 +300,33 @@ func (s *charmStoreCharmRefresherSuite) TestRefreshWithNoUpdates(c *gc.C) {
 
 	_, err = task.Refresh()
 	c.Assert(err, gc.ErrorMatches, `already running latest charm "cs:meshuggah"`)
+}
+
+func (s *charmStoreCharmRefresherSuite) TestRefreshWithARevision(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ref := "cs:meshuggah-1"
+	curl := charm.MustParseURL(ref)
+	origin := commoncharm.Origin{
+		Source: commoncharm.OriginCharmStore,
+	}
+
+	authorizer := NewMockMacaroonGetter(ctrl)
+	charmAdder := NewMockCharmAdder(ctrl)
+
+	charmResolver := NewMockCharmResolver(ctrl)
+	charmResolver.EXPECT().ResolveCharm(curl, origin).Return(curl, origin, []string{}, nil)
+
+	cfg := RefresherConfig{
+		CharmURL: curl,
+		CharmRef: ref,
+	}
+
+	refresher := (&factory{}).maybeCharmStore(authorizer, charmAdder, charmResolver)
+	task, err := refresher(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = task.Refresh()
+	c.Assert(err, gc.ErrorMatches, `already running specified charm "cs:meshuggah-1"`)
 }

@@ -19,6 +19,9 @@ type RefresherFactory interface {
 // Refresher defines the functionality of a deployer returned by the
 // factory.
 type Refresher interface {
+	// Check will attempt to check if a refresher is allowed to run a given
+	// config.
+	Allowed(RefresherConfig) (bool, error)
 	// Refresh finishes preparing to deploy a charm or bundle,
 	// then deploys it.  This is done as one step to accommodate the
 	// call being wrapped by block.ProcessBlockedError.
