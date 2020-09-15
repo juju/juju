@@ -267,7 +267,7 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
 		called = true
 		c.Assert(request, gc.Equals, "SetCharm")
-		args, ok := a.(params.ApplicationSetCharm)
+		args, ok := a.(params.ApplicationSetCharmV2)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(args.ApplicationName, gc.Equals, "application")
 		c.Assert(args.CharmURL, gc.Equals, "cs:trusty/application-1")
@@ -290,7 +290,7 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 	})
 	cfg := application.SetCharmConfig{
 		ApplicationName: "application",
-		CharmID: charmstore.CharmID{
+		CharmID: application.CharmID{
 			URL: charm.MustParseURL("cs:trusty/application-1"),
 		},
 		ConfigSettings: map[string]string{

@@ -585,14 +585,9 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		return errors.Trace(err)
 	}
 
-	chID := charmstore.CharmID{
-		URL:     cURL,
-		Channel: csparams.Channel(h.origins[cURL].Risk),
-	}
 	macaroon := h.macaroons[cURL]
 
 	h.results[change.Id()] = p.Application
-	ch := chID.URL.String()
 
 	// If this application requires trust and the operator consented to
 	// granting it, set the "trust" application option to true. This is
@@ -656,11 +651,10 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 			deviceConstraints[k] = cons
 		}
 	}
-	charmInfo, err := h.deployAPI.CharmInfo(ch)
+	charmInfo, err := h.deployAPI.CharmInfo(cURL.String())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	resources := h.makeResourceMap(charmInfo.Meta.Resources, p.Resources, p.LocalResources)
 
 	if err := lxdprofile.ValidateLXDProfile(lxdCharmInfoProfiler{
 		CharmInfo: charmInfo,
@@ -668,20 +662,34 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		return errors.Trace(err)
 	}
 
-	resNames2IDs, err := h.deployResources(
-		p.Application,
-		chID,
-		macaroon,
-		resources,
-		charmInfo.Meta.Resources,
-		h.deployAPI,
-		h.filesystem,
-	)
-	if err != nil {
-		return errors.Trace(err)
+	chID := charmstore.CharmID{
+		URL:     cURL,
+		Channel: csparams.Channel(h.origins[cURL].Risk),
+	}
+
+	var resNames2IDs map[string]string
+
+	// Handle the fact that charmhub doesn't support resources, so we skip that
+	// request until they are.
+	if !charm.CharmHub.Matches(cURL.Schema) {
+		resources := h.makeResourceMap(charmInfo.Meta.Resources, p.Resources, p.LocalResources)
+		resNames2IDs, err = h.deployResources(
+			p.Application,
+			chID,
+			macaroon,
+			resources,
+			charmInfo.Meta.Resources,
+			h.deployAPI,
+			h.filesystem,
+		)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	// Figure out what series we need to deploy with.
+	// Note: with the advent of charmhub urls, the URL series will always be
+	// empty.
 	supportedSeries := charmInfo.Meta.Series
 	if len(supportedSeries) == 0 && chID.URL.Series != "" {
 		supportedSeries = []string{chID.URL.Series}
@@ -964,9 +972,9 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 		return errors.Trace(err)
 	}
 
-	chID := charmstore.CharmID{
-		URL:     cURL,
-		Channel: csparams.Channel(h.origins[cURL].Risk),
+	chID := application.CharmID{
+		URL:    cURL,
+		Origin: h.origins[cURL],
 	}
 	macaroon := h.macaroons[cURL]
 
@@ -985,10 +993,16 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 		return errors.Trace(err)
 	}
 	var resNames2IDs map[string]string
-	if len(filtered) != 0 {
+
+	// Handle the fact that charmhub doesn't support resources, so we skip that
+	// request until they are.
+	if !charm.CharmHub.Matches(cURL.Schema) && len(filtered) != 0 {
 		resNames2IDs, err = h.deployResources(
 			p.Application,
-			chID,
+			charmstore.CharmID{
+				URL:     chID.URL,
+				Channel: csparams.Channel(chID.Origin.Risk),
+			},
 			macaroon,
 			resources,
 			filtered,

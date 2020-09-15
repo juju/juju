@@ -106,12 +106,12 @@ require (
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	golang.org/x/crypto v0.0.0-20200728195943-123391ffb6de
-	golang.org/x/net v0.0.0-20200813134508-3edf25e44fcc
+	golang.org/x/net v0.0.0-20200822124328-c89045814202
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sys v0.0.0-20200817085935-3ff754bf58a9
 	golang.org/x/text v0.3.3 // indirect
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
-	golang.org/x/tools v0.0.0-20200725200936-102e7d357031
+	golang.org/x/tools v0.0.0-20200915031644-64986481280e
 	google.golang.org/api v0.29.0
 	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/genproto v0.0.0-20200726014623-da3ae01ef02d // indirect

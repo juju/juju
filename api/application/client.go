@@ -281,6 +281,17 @@ func describeV5(config map[string]interface{}) (map[string]interface{}, error) {
 	return config, nil
 }
 
+// CharmID encapsulates data for identifying a unique charm.
+// Note: this previously contained metadata, but isn't used anywhere, so was
+// removed to prevent confusion.
+type CharmID struct {
+	// URL is the url of the charm.
+	URL *charm.URL
+
+	// Origin holds the information about the revision of a charm.
+	Origin apicharm.Origin
+}
+
 // SetCharmConfig holds the configuration for setting a new revision of a charm
 // on a application.
 type SetCharmConfig struct {
@@ -288,7 +299,7 @@ type SetCharmConfig struct {
 	ApplicationName string
 
 	// CharmID identifies the charm.
-	CharmID charmstore.CharmID
+	CharmID CharmID
 
 	// ConfigSettings is the charm settings to set during the upgrade.
 	// This field is only understood by Application facade version 2
@@ -351,19 +362,23 @@ func (c *Client) SetCharm(branchName string, cfg SetCharmConfig) error {
 			}
 		}
 	}
-	args := params.ApplicationSetCharm{
-		ApplicationName:    cfg.ApplicationName,
-		CharmURL:           cfg.CharmID.URL.String(),
-		Channel:            string(cfg.CharmID.Channel),
-		ConfigSettings:     cfg.ConfigSettings,
-		ConfigSettingsYAML: cfg.ConfigSettingsYAML,
-		Force:              cfg.Force,
-		ForceSeries:        cfg.ForceSeries,
-		ForceUnits:         cfg.ForceUnits,
-		ResourceIDs:        cfg.ResourceIDs,
-		StorageConstraints: storageConstraints,
-		EndpointBindings:   cfg.EndpointBindings,
-		Generation:         branchName,
+
+	args := params.ApplicationSetCharmV2{
+		ApplicationSetCharm: params.ApplicationSetCharm{
+			ApplicationName:    cfg.ApplicationName,
+			CharmURL:           cfg.CharmID.URL.String(),
+			Channel:            cfg.CharmID.Origin.Risk,
+			ConfigSettings:     cfg.ConfigSettings,
+			ConfigSettingsYAML: cfg.ConfigSettingsYAML,
+			Force:              cfg.Force,
+			ForceSeries:        cfg.ForceSeries,
+			ForceUnits:         cfg.ForceUnits,
+			ResourceIDs:        cfg.ResourceIDs,
+			StorageConstraints: storageConstraints,
+			EndpointBindings:   cfg.EndpointBindings,
+			Generation:         branchName,
+		},
+		Origin: cfg.CharmID.Origin.ParamsCharmOrigin(),
 	}
 	return c.facade.FacadeCall("SetCharm", args, nil)
 }

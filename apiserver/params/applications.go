@@ -162,7 +162,7 @@ type ApplicationSetCharm struct {
 	CharmURL string `json:"charm-url"`
 
 	// Channel is the charm store channel from which the charm came.
-	Channel string `json:"channel"`
+	Channel string `json:"channel,omitempty"`
 
 	// ConfigSettings is the charm settings to set during the upgrade.
 	// This field is only understood by Application facade version 2
@@ -198,6 +198,14 @@ type ApplicationSetCharm struct {
 	// space names to be merged with any existing endpoint bindings. This
 	// field is only understood by Application facade version 10 and greater.
 	EndpointBindings map[string]string `json:"endpoint-bindings,omitempty"`
+}
+
+// ApplicationSetCharmV2 sets the charm for a given application.
+type ApplicationSetCharmV2 struct {
+	ApplicationSetCharm
+
+	// Origin is the information for a given charm.
+	Origin CharmOrigin `json:"origin,omitempty"`
 }
 
 // ApplicationExpose holds the parameters for making the application Expose call.
