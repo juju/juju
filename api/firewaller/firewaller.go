@@ -273,3 +273,18 @@ func (c *Client) AllSpaceInfos() (network.SpaceInfos, error) {
 	}
 	return params.ToNetworkSpaceInfos(result), nil
 }
+
+// WatchSubnets returns a StringsWatcher that notifies of changes to the model
+// subnets.
+func (c *Client) WatchSubnets() (watcher.StringsWatcher, error) {
+	var result params.StringsWatchResult
+	err := c.facade.FacadeCall("WatchSubnets", nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	if err := result.Error; err != nil {
+		return nil, result.Error
+	}
+	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
+	return w, nil
+}

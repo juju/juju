@@ -797,3 +797,52 @@ func (f *FirewallerAPIV6) SpaceInfos(args params.SpaceInfosParams) (params.Space
 
 	return params.FromNetworkSpaceInfos(allSpaceInfos), nil
 }
+
+// WatchSubnets returns a new StringsWatcher that watches the specified
+// subnet tags or all tags if no entities are specified.
+func (f *FirewallerAPIV6) WatchSubnets(args params.Entities) (params.StringsWatchResult, error) {
+	if !f.authorizer.AuthController() {
+		return params.StringsWatchResult{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
+	}
+
+	var (
+		filterFn  func(id interface{}) bool
+		filterSet set.Strings
+		result    = params.StringsWatchResult{}
+	)
+
+	if len(args.Entities) != 0 {
+		filterSet = set.NewStrings()
+		for _, arg := range args.Entities {
+			subnetTag, err := names.ParseSubnetTag(arg.Tag)
+			if err != nil {
+				return params.StringsWatchResult{}, apiservererrors.ServerError(err)
+			}
+
+			filterSet.Add(subnetTag.Id())
+		}
+
+		filterFn = func(id interface{}) bool {
+			return filterSet.Contains(id.(string))
+		}
+	}
+
+	watcherId, initial, err := f.watchModelSubnets(filterFn)
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result, nil
+	}
+	result.StringsWatcherId = watcherId
+	result.Changes = initial
+	return result, nil
+}
+
+func (f *FirewallerAPIV6) watchModelSubnets(filterFn func(interface{}) bool) (string, []string, error) {
+	watch := f.st.WatchSubnets(filterFn)
+
+	// Consume the initial event and forward it to the result.
+	if changes, ok := <-watch.Changes(); ok {
+		return f.resources.Register(watch), changes, nil
+	}
+	return "", nil, watcher.EnsureErr(watch)
+}

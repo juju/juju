@@ -298,3 +298,43 @@ func (s *firewallerSuite) TestGetExposeInfo(c *gc.C) {
 	}
 	s.testGetExposeInfo(c, apiv6)
 }
+
+func (s *firewallerSuite) TestWatchSubnets(c *gc.C) {
+	// Set up a spaces with two subnets
+	sp, err := s.State.AddSpace("outer-space", network.Id("outer-1"), nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSubnet(network.SubnetInfo{
+		CIDR:      "192.168.0.0/24",
+		SpaceID:   sp.Id(),
+		SpaceName: sp.Name(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	sub2, err := s.State.AddSubnet(network.SubnetInfo{
+		CIDR:      "192.168.42.0/24",
+		SpaceID:   sp.Id(),
+		SpaceName: sp.Name(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
+
+	apiv6 := &firewaller.FirewallerAPIV6{
+		&firewaller.FirewallerAPIV5{
+			&firewaller.FirewallerAPIV4{
+				FirewallerAPIV3:     s.firewaller,
+				ControllerConfigAPI: common.NewControllerConfig(newMockState(coretesting.ModelTag.Id())),
+			},
+		},
+	}
+
+	s.testWatchSubnets(
+		c,
+		[]names.SubnetTag{
+			names.NewSubnetTag(sub2.ID()),
+		},
+		// We should only get sub2 in the initial changeset due to the
+		// filter condition.
+		[]string{sub2.ID()},
+		apiv6,
+	)
+}

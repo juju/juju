@@ -5,6 +5,7 @@ package firewaller_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -203,6 +204,43 @@ func (s *firewallerBaseSuite) testWatchModelMachines(
 	want := params.StringsWatchResult{
 		StringsWatcherId: "1",
 		Changes:          []string{"0", "1", "2"},
+	}
+	c.Assert(got.StringsWatcherId, gc.Equals, want.StringsWatcherId)
+	c.Assert(got.Changes, jc.SameContents, want.Changes)
+
+	// Verify the resources were registered and stop them when done.
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned"
+	// in the Watch call)
+	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
+	wc.AssertNoChange()
+}
+
+func (s *firewallerBaseSuite) testWatchSubnets(
+	c *gc.C,
+	watchSubnetTags []names.SubnetTag,
+	expSubnetIDs []string,
+	facade interface {
+		WatchSubnets(params.Entities) (params.StringsWatchResult, error)
+	},
+) {
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	entities := params.Entities{
+		Entities: make([]params.Entity, len(watchSubnetTags)),
+	}
+	for i, tag := range watchSubnetTags {
+		entities.Entities[i].Tag = tag.String()
+	}
+
+	got, err := facade.WatchSubnets(entities)
+	c.Assert(err, jc.ErrorIsNil)
+	want := params.StringsWatchResult{
+		StringsWatcherId: "1",
+		Changes:          expSubnetIDs,
 	}
 	c.Assert(got.StringsWatcherId, gc.Equals, want.StringsWatcherId)
 	c.Assert(got.Changes, jc.SameContents, want.Changes)
