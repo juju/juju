@@ -34,20 +34,6 @@ func (m *MockApplication) EXPECT() *MockApplicationMockRecorder {
 	return m.recorder
 }
 
-// ClosePort mocks base method
-func (m *MockApplication) ClosePort(arg0 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ClosePort", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// ClosePort indicates an expected call of ClosePort
-func (mr *MockApplicationMockRecorder) ClosePort(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClosePort", reflect.TypeOf((*MockApplication)(nil).ClosePort), arg0)
-}
-
 // Delete mocks base method
 func (m *MockApplication) Delete() error {
 	m.ctrl.T.Helper()
@@ -91,20 +77,6 @@ func (mr *MockApplicationMockRecorder) Exists() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exists", reflect.TypeOf((*MockApplication)(nil).Exists))
 }
 
-// OpenPort mocks base method
-func (m *MockApplication) OpenPort(arg0 caas.ServicePort) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "OpenPort", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// OpenPort indicates an expected call of OpenPort
-func (mr *MockApplicationMockRecorder) OpenPort(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenPort", reflect.TypeOf((*MockApplication)(nil).OpenPort), arg0)
-}
-
 // State mocks base method
 func (m *MockApplication) State() (caas.ApplicationState, error) {
 	m.ctrl.T.Helper()
@@ -118,6 +90,20 @@ func (m *MockApplication) State() (caas.ApplicationState, error) {
 func (mr *MockApplicationMockRecorder) State() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockApplication)(nil).State))
+}
+
+// UpdatePorts mocks base method
+func (m *MockApplication) UpdatePorts(arg0 []caas.ServicePort) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdatePorts", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdatePorts indicates an expected call of UpdatePorts
+func (mr *MockApplicationMockRecorder) UpdatePorts(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePorts", reflect.TypeOf((*MockApplication)(nil).UpdatePorts), arg0)
 }
 
 // UpdateService mocks base method
