@@ -18082,6 +18082,18 @@
                     },
                     "description": "GetCloudSpec constructs the CloudSpec for a validated and authorized model."
                 },
+                "GetExposeInfo": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ExposeInfoResults"
+                        }
+                    },
+                    "description": "GetExposeInfo returns the expose flag and per-endpoint expose settings\nfor the specified applications."
+                },
                 "GetExposed": {
                     "type": "object",
                     "properties": {
@@ -18187,6 +18199,18 @@
                     },
                     "description": "SetRelationsStatus sets the status for the specified relations."
                 },
+                "SpaceInfos": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SpaceInfosParams"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/SpaceInfos"
+                        }
+                    },
+                    "description": "SpaceInfos returns a comprehensive representation of either all spaces or\na filtered subset of the known spaces and their associated subnet details."
+                },
                 "Watch": {
                     "type": "object",
                     "properties": {
@@ -18273,6 +18297,18 @@
                         }
                     },
                     "description": "WatchOpenedPorts returns a new StringsWatcher for each given\nmodel tag."
+                },
+                "WatchSubnets": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringsWatchResult"
+                        }
+                    },
+                    "description": "WatchSubnets returns a new StringsWatcher that watches the specified\nsubnet tags or all tags if no entities are specified."
                 },
                 "WatchUnits": {
                     "type": "object",
@@ -18564,6 +18600,75 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "ExposeInfoResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "exposed": {
+                            "type": "boolean"
+                        },
+                        "exposed-endpoints": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/ExposedEndpoint"
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "ExposeInfoResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ExposeInfoResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "ExposedEndpoint": {
+                    "type": "object",
+                    "properties": {
+                        "expose-to-cidrs": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "expose-to-spaces": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "FanConfigEntry": {
+                    "type": "object",
+                    "properties": {
+                        "overlay": {
+                            "type": "string"
+                        },
+                        "underlay": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "underlay",
+                        "overlay"
                     ]
                 },
                 "FirewallRule": {
@@ -18910,6 +19015,55 @@
                         "entities"
                     ]
                 },
+                "SpaceInfo": {
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "provider-id": {
+                            "type": "string"
+                        },
+                        "subnets": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SubnetV3"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "id",
+                        "name"
+                    ]
+                },
+                "SpaceInfos": {
+                    "type": "object",
+                    "properties": {
+                        "space-infos": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SpaceInfo"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "SpaceInfosParams": {
+                    "type": "object",
+                    "properties": {
+                        "space-ids": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                },
                 "StringResult": {
                     "type": "object",
                     "properties": {
@@ -19004,6 +19158,163 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "Subnet": {
+                    "type": "object",
+                    "properties": {
+                        "cidr": {
+                            "type": "string"
+                        },
+                        "life": {
+                            "type": "string"
+                        },
+                        "provider-id": {
+                            "type": "string"
+                        },
+                        "provider-network-id": {
+                            "type": "string"
+                        },
+                        "provider-space-id": {
+                            "type": "string"
+                        },
+                        "space-tag": {
+                            "type": "string"
+                        },
+                        "status": {
+                            "type": "string"
+                        },
+                        "vlan-tag": {
+                            "type": "integer"
+                        },
+                        "zones": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "cidr",
+                        "vlan-tag",
+                        "life",
+                        "space-tag",
+                        "zones"
+                    ]
+                },
+                "SubnetV2": {
+                    "type": "object",
+                    "properties": {
+                        "Subnet": {
+                            "$ref": "#/definitions/Subnet"
+                        },
+                        "cidr": {
+                            "type": "string"
+                        },
+                        "id": {
+                            "type": "string"
+                        },
+                        "life": {
+                            "type": "string"
+                        },
+                        "provider-id": {
+                            "type": "string"
+                        },
+                        "provider-network-id": {
+                            "type": "string"
+                        },
+                        "provider-space-id": {
+                            "type": "string"
+                        },
+                        "space-tag": {
+                            "type": "string"
+                        },
+                        "status": {
+                            "type": "string"
+                        },
+                        "vlan-tag": {
+                            "type": "integer"
+                        },
+                        "zones": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "cidr",
+                        "vlan-tag",
+                        "life",
+                        "space-tag",
+                        "zones",
+                        "Subnet"
+                    ]
+                },
+                "SubnetV3": {
+                    "type": "object",
+                    "properties": {
+                        "Subnet": {
+                            "$ref": "#/definitions/Subnet"
+                        },
+                        "SubnetV2": {
+                            "$ref": "#/definitions/SubnetV2"
+                        },
+                        "cidr": {
+                            "type": "string"
+                        },
+                        "fan-info": {
+                            "$ref": "#/definitions/FanConfigEntry"
+                        },
+                        "id": {
+                            "type": "string"
+                        },
+                        "is-public": {
+                            "type": "boolean"
+                        },
+                        "life": {
+                            "type": "string"
+                        },
+                        "provider-id": {
+                            "type": "string"
+                        },
+                        "provider-network-id": {
+                            "type": "string"
+                        },
+                        "provider-space-id": {
+                            "type": "string"
+                        },
+                        "space-id": {
+                            "type": "string"
+                        },
+                        "space-tag": {
+                            "type": "string"
+                        },
+                        "status": {
+                            "type": "string"
+                        },
+                        "vlan-tag": {
+                            "type": "integer"
+                        },
+                        "zones": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "cidr",
+                        "vlan-tag",
+                        "life",
+                        "space-tag",
+                        "zones",
+                        "Subnet",
+                        "SubnetV2",
+                        "space-id"
                     ]
                 }
             }
