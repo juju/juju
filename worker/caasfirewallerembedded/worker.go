@@ -19,7 +19,7 @@ var logger interface{}
 type Config struct {
 	ControllerUUID string
 	ModelUUID      string
-	Facade         CAASFirewallerAPI
+	FirewallerAPI  CAASFirewallerAPI
 	LifeGetter     LifeGetter
 	Broker         CAASBroker
 	Logger         Logger
@@ -33,8 +33,8 @@ func (config Config) Validate() error {
 	if config.ModelUUID == "" {
 		return errors.NotValidf("missing ModelUUID")
 	}
-	if config.Facade == nil {
-		return errors.NotValidf("missing Facade")
+	if config.FirewallerAPI == nil {
+		return errors.NotValidf("missing FirewallerAPI")
 	}
 	if config.Broker == nil {
 		return errors.NotValidf("missing Broker")
@@ -53,7 +53,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	p := &firewaller{config: config}
+	p := newFirewaller(config, newApplicationWorker)
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &p.catacomb,
 		Work: p.loop,
@@ -64,6 +64,27 @@ func NewWorker(config Config) (worker.Worker, error) {
 type firewaller struct {
 	catacomb catacomb.Catacomb
 	config   Config
+
+	appWorkers           map[string]worker.Worker
+	newApplicationWorker applicationWorkerCreator
+}
+
+type applicationWorkerCreator func(
+	controllerUUID string,
+	modelUUID string,
+	appName string,
+	firewallerAPI CAASFirewallerAPI,
+	broker CAASBroker,
+	lifeGetter LifeGetter,
+	logger Logger,
+) (worker.Worker, error)
+
+func newFirewaller(config Config, f applicationWorkerCreator) *firewaller {
+	return &firewaller{
+		config:               config,
+		appWorkers:           make(map[string]worker.Worker),
+		newApplicationWorker: f,
+	}
 }
 
 // Kill is part of the worker.Worker interface.
@@ -78,7 +99,7 @@ func (p *firewaller) Wait() error {
 
 func (p *firewaller) loop() error {
 	logger := p.config.Logger
-	w, err := p.config.Facade.WatchApplications()
+	w, err := p.config.FirewallerAPI.WatchApplications()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -86,7 +107,6 @@ func (p *firewaller) loop() error {
 		return errors.Trace(err)
 	}
 
-	appWorkers := make(map[string]worker.Worker)
 	for {
 		select {
 		case <-p.catacomb.Dying():
@@ -98,28 +118,28 @@ func (p *firewaller) loop() error {
 			for _, appName := range apps {
 				appLife, err := p.config.LifeGetter.Life(appName)
 				if errors.IsNotFound(err) {
-					w, ok := appWorkers[appName]
+					w, ok := p.appWorkers[appName]
 					if ok {
 						if err := worker.Stop(w); err != nil {
 							logger.Errorf("error stopping caas firewaller: %v", err)
 						}
-						delete(appWorkers, appName)
+						delete(p.appWorkers, appName)
 					}
 					continue
 				}
 				if err != nil {
 					return errors.Trace(err)
 				}
-				if _, ok := appWorkers[appName]; ok || appLife == life.Dead {
+				if _, ok := p.appWorkers[appName]; ok || appLife == life.Dead {
 					// Already watching the application. or we're
 					// not yet watching it and it's dead.
 					continue
 				}
-				w, err := newApplicationWorker(
+				w, err := p.newApplicationWorker(
 					p.config.ControllerUUID,
 					p.config.ModelUUID,
 					appName,
-					p.config.Facade,
+					p.config.FirewallerAPI,
 					p.config.Broker,
 					p.config.LifeGetter,
 					logger,
@@ -127,8 +147,13 @@ func (p *firewaller) loop() error {
 				if err != nil {
 					return errors.Trace(err)
 				}
-				appWorkers[appName] = w
-				p.catacomb.Add(w)
+				if err := p.catacomb.Add(w); err != nil {
+					if err2 := worker.Stop(w); err2 != nil {
+						logger.Errorf("error stopping caas application worker: %v", err2)
+					}
+					return errors.Trace(err)
+				}
+				p.appWorkers[appName] = w
 			}
 		}
 	}

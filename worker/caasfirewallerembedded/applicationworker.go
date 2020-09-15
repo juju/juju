@@ -9,13 +9,10 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
-	// "github.com/juju/names/v4"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
 
 	"github.com/juju/juju/caas"
-	// "github.com/juju/juju/core/life"
-	// "github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 )
@@ -28,9 +25,9 @@ type applicationWorker struct {
 
 	firewallerAPI CAASFirewallerAPI
 
-	broker CAASBroker
-	portMutator
-	serviceUpdater
+	broker         CAASBroker
+	portMutator    PortMutator
+	serviceUpdater ServiceUpdater
 
 	appWatcher   watcher.NotifyWatcher
 	portsWatcher watcher.StringsWatcher
@@ -149,9 +146,8 @@ func (w *applicationWorker) setUp() (err error) {
 	w.portMutator = app
 	w.serviceUpdater = app
 
-	// TODO:
+	// TODO(embedded):
 	/*
-
 		if ports, err := w.firewallerAPI.OpenedPorts(w.appName); err != nil {
 			return errors.Annotatef(err, "failed to get initial openned ports for application")
 		}
@@ -190,7 +186,7 @@ func (w *applicationWorker) loop() (err error) {
 				return errors.Trace(err)
 			}
 		case _, ok := <-w.portsWatcher.Changes():
-			// TODO: implement portWatcher to return application names having port changes,
+			// TODO(embedded): implement portWatcher to return application names having port changes,
 			if !ok {
 				return errors.New("application watcher closed")
 			}
@@ -203,7 +199,7 @@ func (w *applicationWorker) loop() (err error) {
 }
 
 func (w *applicationWorker) onPortChanged() (err error) {
-	// TODO:
+	// TODO(embedded):
 	/*
 		ports, err := w.firewallerAPI.OpenedPorts(w.appName)
 		if err != nil {
@@ -252,14 +248,14 @@ func (w *applicationWorker) onApplicationChanged() (err error) {
 	return errors.Trace(unExposeService(w.serviceUpdater))
 }
 
-func exposeService(app serviceUpdater) error {
-	// TODO: implement expose once it's modelled.
+func exposeService(app ServiceUpdater) error {
+	// TODO(embedded): implement expose once it's modelled.
 	// app.UpdateService()
 	return nil
 }
 
-func unExposeService(app serviceUpdater) error {
-	// TODO: implement un-expose once it's modelled.
+func unExposeService(app ServiceUpdater) error {
+	// TODO(embedded): implement un-expose once it's modelled.
 	// app.UpdateService()
 	return nil
 }

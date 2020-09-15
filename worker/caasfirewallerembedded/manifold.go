@@ -12,6 +12,8 @@ import (
 	"github.com/juju/juju/caas"
 )
 
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/logger_mock.go github.com/juju/juju/worker/caasfirewallerembedded Logger
+
 // Logger represents the methods used by the worker to log details.
 type Logger interface {
 	Debugf(string, ...interface{})
@@ -89,7 +91,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	w, err := config.NewWorker(Config{
 		ControllerUUID: config.ControllerUUID,
 		ModelUUID:      config.ModelUUID,
-		Facade:         client,
+		FirewallerAPI:  client,
 		LifeGetter:     client,
 		Broker:         broker,
 		Logger:         config.Logger,

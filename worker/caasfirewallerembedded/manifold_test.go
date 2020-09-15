@@ -4,6 +4,7 @@
 package caasfirewallerembedded_test
 
 import (
+	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
@@ -15,33 +16,42 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
+	caasmocks "github.com/juju/juju/caas/mocks"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/caasfirewaller"
+	"github.com/juju/juju/worker/caasfirewallerembedded"
+	"github.com/juju/juju/worker/caasfirewallerembedded/mocks"
 )
 
-type ManifoldSuite struct {
+type manifoldSuite struct {
 	testing.IsolationSuite
 	testing.Stub
 	manifold dependency.Manifold
 	context  dependency.Context
 
-	apiCaller fakeAPICaller
-	broker    fakeBroker
-	client    fakeClient
+	apiCaller *mocks.MockAPICaller
+	broker    *caasmocks.MockBroker
+	client    *mocks.MockClient
+
+	ctrl *gomock.Controller
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+var _ = gc.Suite(&manifoldSuite{})
 
-func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+func (s *manifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.ResetCalls()
 
+	s.ctrl = gomock.NewController(c)
+	s.apiCaller = mocks.NewMockAPICaller(s.ctrl)
+	s.broker = caasmocks.NewMockBroker(s.ctrl)
+	s.client = mocks.NewMockClient(s.ctrl)
+
 	s.context = s.newContext(nil)
-	s.manifold = caasfirewaller.Manifold(s.validConfig())
+	s.manifold = caasfirewallerembedded.Manifold(s.validConfig())
 }
 
-func (s *ManifoldSuite) validConfig() caasfirewaller.ManifoldConfig {
-	return caasfirewaller.ManifoldConfig{
+func (s *manifoldSuite) validConfig() caasfirewallerembedded.ManifoldConfig {
+	return caasfirewallerembedded.ManifoldConfig{
 		APICallerName:  "api-caller",
 		BrokerName:     "broker",
 		ControllerUUID: coretesting.ControllerTag.Id(),
@@ -52,12 +62,12 @@ func (s *ManifoldSuite) validConfig() caasfirewaller.ManifoldConfig {
 	}
 }
 
-func (s *ManifoldSuite) newClient(apiCaller base.APICaller) caasfirewaller.Client {
+func (s *manifoldSuite) newClient(apiCaller base.APICaller) caasfirewallerembedded.Client {
 	s.MethodCall(s, "NewClient", apiCaller)
-	return &s.client
+	return s.client
 }
 
-func (s *ManifoldSuite) newWorker(config caasfirewaller.Config) (worker.Worker, error) {
+func (s *manifoldSuite) newWorker(config caasfirewallerembedded.Config) (worker.Worker, error) {
 	s.MethodCall(s, "NewWorker", config)
 	if err := s.NextErr(); err != nil {
 		return nil, err
@@ -67,10 +77,10 @@ func (s *ManifoldSuite) newWorker(config caasfirewaller.Config) (worker.Worker, 
 	return w, nil
 }
 
-func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
+func (s *manifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
 	resources := map[string]interface{}{
-		"api-caller": &s.apiCaller,
-		"broker":     &s.broker,
+		"api-caller": s.apiCaller,
+		"broker":     s.broker,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -78,43 +88,43 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 	return dt.StubContext(nil, resources)
 }
 
-func (s *ManifoldSuite) TestMissingControllerUUID(c *gc.C) {
+func (s *manifoldSuite) TestMissingControllerUUID(c *gc.C) {
 	config := s.validConfig()
 	config.ControllerUUID = ""
 	s.checkConfigInvalid(c, config, "empty ControllerUUID not valid")
 }
 
-func (s *ManifoldSuite) TestMissingModelUUID(c *gc.C) {
+func (s *manifoldSuite) TestMissingModelUUID(c *gc.C) {
 	config := s.validConfig()
 	config.ModelUUID = ""
 	s.checkConfigInvalid(c, config, "empty ModelUUID not valid")
 }
 
-func (s *ManifoldSuite) TestMissingAPICallerName(c *gc.C) {
+func (s *manifoldSuite) TestMissingAPICallerName(c *gc.C) {
 	config := s.validConfig()
 	config.APICallerName = ""
 	s.checkConfigInvalid(c, config, "empty APICallerName not valid")
 }
 
-func (s *ManifoldSuite) TestMissingBrokerName(c *gc.C) {
+func (s *manifoldSuite) TestMissingBrokerName(c *gc.C) {
 	config := s.validConfig()
 	config.BrokerName = ""
 	s.checkConfigInvalid(c, config, "empty BrokerName not valid")
 }
 
-func (s *ManifoldSuite) TestMissingNewWorker(c *gc.C) {
+func (s *manifoldSuite) TestMissingNewWorker(c *gc.C) {
 	config := s.validConfig()
 	config.NewWorker = nil
 	s.checkConfigInvalid(c, config, "nil NewWorker not valid")
 }
 
-func (s *ManifoldSuite) TestMissingLogger(c *gc.C) {
+func (s *manifoldSuite) TestMissingLogger(c *gc.C) {
 	config := s.validConfig()
 	config.Logger = nil
 	s.checkConfigInvalid(c, config, "nil Logger not valid")
 }
 
-func (s *ManifoldSuite) checkConfigInvalid(c *gc.C, config caasfirewaller.ManifoldConfig, expect string) {
+func (s *manifoldSuite) checkConfigInvalid(c *gc.C, config caasfirewallerembedded.ManifoldConfig, expect string) {
 	err := config.Validate()
 	c.Check(err, gc.ErrorMatches, expect)
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -122,11 +132,11 @@ func (s *ManifoldSuite) checkConfigInvalid(c *gc.C, config caasfirewaller.Manifo
 
 var expectedInputs = []string{"api-caller", "broker"}
 
-func (s *ManifoldSuite) TestInputs(c *gc.C) {
+func (s *manifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
 }
 
-func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
+func (s *manifoldSuite) TestMissingInputs(c *gc.C) {
 	for _, input := range expectedInputs {
 		context := s.newContext(map[string]interface{}{
 			input: dependency.ErrMissing,
@@ -136,25 +146,20 @@ func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
 	}
 }
 
-func (s *ManifoldSuite) TestStart(c *gc.C) {
+func (s *manifoldSuite) TestStart(c *gc.C) {
 	w, err := s.manifold.Start(s.context)
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 
 	s.CheckCallNames(c, "NewClient", "NewWorker")
-	s.CheckCall(c, 0, "NewClient", &s.apiCaller)
+	s.CheckCall(c, 0, "NewClient", s.apiCaller)
 
-	args := s.Calls()[1].Args
-	c.Assert(args, gc.HasLen, 1)
-	c.Assert(args[0], gc.FitsTypeOf, caasfirewaller.Config{})
-	config := args[0].(caasfirewaller.Config)
-
-	c.Assert(config, jc.DeepEquals, caasfirewaller.Config{
-		ControllerUUID:    coretesting.ControllerTag.Id(),
-		ModelUUID:         coretesting.ModelTag.Id(),
-		ApplicationGetter: &s.client,
-		ServiceExposer:    &s.broker,
-		LifeGetter:        &s.client,
-		Logger:            loggo.GetLogger("test"),
+	s.CheckCall(c, 1, "NewWorker", caasfirewallerembedded.Config{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		FirewallerAPI:  s.client,
+		LifeGetter:     s.client,
+		Broker:         s.broker,
+		Logger:         loggo.GetLogger("test"),
 	})
 }

@@ -12,6 +12,11 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/client_mock.go github.com/juju/juju/worker/caasfirewallerembedded Client,CAASFirewallerAPI,LifeGetter
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/watcher_mock.go github.com/juju/juju/core/watcher StringsWatcher,NotifyWatcher
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/worker_mock.go github.com/juju/worker/v2 Worker
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/api_base_mock.go github.com/juju/juju/api/base APICaller
+
 // Client provides an interface for interacting with the
 // CAASFirewallerAPI. Subsets of this should be passed
 // to the CAASFirewaller worker.
