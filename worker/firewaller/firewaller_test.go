@@ -20,6 +20,7 @@ import (
 	"github.com/juju/worker/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/api"
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -1361,6 +1362,73 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpoints(c *gc.C) 
 		firewall.NewIngressRule(network.MustParsePortRange("1337/udp"), "192.168.0.0/24", "192.168.1.0/24", "42.42.0.0/16"),
 	})
 }
+
+func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceTopologyChanges(c *gc.C) {
+	// Create two spaces and add a subnet to each one
+	sp1, err := s.State.AddSpace("space1", network.Id("sp-1"), nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSubnet(network.SubnetInfo{
+		ID:        "subnet-1",
+		CIDR:      "192.168.0.0/24",
+		SpaceID:   sp1.Id(),
+		SpaceName: sp1.Name(),
+		IsPublic:  false,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	sp2, err := s.State.AddSpace("space2", network.Id("sp-2"), nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	sub2, err := s.State.AddSubnet(network.SubnetInfo{
+		ID:        "subnet-2",
+		CIDR:      "192.168.1.0/24",
+		SpaceID:   sp2.Id(),
+		SpaceName: sp2.Name(),
+		IsPublic:  false,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	fw := s.newFirewaller(c)
+	defer statetesting.AssertKillAndWait(c, fw)
+
+	app := s.AddTestingApplication(c, "wordpress", s.charm)
+
+	u, m := s.addUnit(c, app)
+	inst := s.startInstance(c, m)
+	// Open port 80 for all endpoints
+	mustOpenPortRanges(c, s.State, u, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
+	})
+
+	// Expose app to space-1
+	err = app.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		allEndpoints: {
+			ExposeToSpaceIDs: []string{sp1.Id()},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertIngressRules(c, inst, m.Id(), firewall.IngressRules{
+		// We expect to see port 80 use the subnet-1 CIDR
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), "192.168.0.0/24"),
+	})
+
+	// Trigger a space topology change by moving subnet-2 into space 1
+	moveOps := sub2.UpdateSpaceOps(sp1.Id())
+	c.Assert(s.State.ApplyOperation(modelOp{moveOps}), jc.ErrorIsNil)
+
+	// Check that worker picked up the change and updated the rules
+	s.assertIngressRules(c, inst, m.Id(), firewall.IngressRules{
+		// We expect to see port 80 use subnter-{1,2} CIDRs
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), "192.168.0.0/24", "192.168.1.0/24"),
+	})
+}
+
+type modelOp struct {
+	ops []txn.Op
+}
+
+func (m modelOp) Build(_ int) ([]txn.Op, error) { return m.ops, nil }
+func (m modelOp) Done(err error) error          { return err }
 
 type GlobalModeSuite struct {
 	firewallerBaseSuite

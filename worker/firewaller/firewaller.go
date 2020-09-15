@@ -50,6 +50,7 @@ type FirewallerAPI interface {
 	SetRelationStatus(relationKey string, status relation.Status, message string) error
 	FirewallRules(applicationNames ...string) ([]params.FirewallRule, error)
 	AllSpaceInfos() (network.SpaceInfos, error)
+	WatchSubnets() (watcher.StringsWatcher, error)
 }
 
 // CrossModelFirewallerFacade exposes firewaller functionality on the
@@ -138,6 +139,7 @@ type Firewaller struct {
 
 	machinesWatcher      watcher.StringsWatcher
 	portsWatcher         watcher.StringsWatcher
+	subnetWatcher        watcher.StringsWatcher
 	machineds            map[names.MachineTag]*machineData
 	unitsChange          chan *unitsChange
 	unitds               map[names.UnitTag]*unitData
@@ -244,6 +246,14 @@ func (fw *Firewaller) setUp() error {
 		return errors.Trace(err)
 	}
 
+	fw.subnetWatcher, err = fw.firewallerApi.WatchSubnets()
+	if err != nil {
+		return errors.Annotatef(err, "failed to start subnet watcher")
+	}
+	if err := fw.catacomb.Add(fw.subnetWatcher); err != nil {
+		return errors.Trace(err)
+	}
+
 	if fw.spaceInfos, err = fw.firewallerApi.AllSpaceInfos(); err != nil {
 		return errors.Trace(err)
 	}
@@ -302,6 +312,14 @@ func (fw *Firewaller) loop() error {
 					return err
 				}
 			}
+		case _, ok := <-fw.subnetWatcher.Changes():
+			if !ok {
+				return errors.New("subnet watcher closed")
+			}
+
+			if err := fw.subnetsChanged(); err != nil {
+				return errors.Trace(err)
+			}
 		case change := <-fw.localRelationsChange:
 			// We have a notification that the remote (consuming) model
 			// has changed egress networks so need to update the local
@@ -316,7 +334,7 @@ func (fw *Firewaller) loop() error {
 		case change := <-fw.exposedChange:
 			change.applicationd.exposed = change.exposed
 			change.applicationd.exposedEndpoints = change.exposedEndpoints
-			unitds := []*unitData{}
+			var unitds []*unitData
 			for _, unitd := range change.applicationd.unitds {
 				unitds = append(unitds, unitd)
 			}
@@ -325,6 +343,44 @@ func (fw *Firewaller) loop() error {
 			}
 		}
 	}
+}
+
+func (fw *Firewaller) subnetsChanged() error {
+	// Refresh space topology
+	var err error
+	if fw.spaceInfos, err = fw.firewallerApi.AllSpaceInfos(); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Select units for which the ingress rules must be refreshed. We only
+	// consider applications that expose endpoints to at least one space.
+	var unitds []*unitData
+	for _, appd := range fw.applicationids {
+		var exposedToSpaces bool
+		for _, exposeDetails := range appd.exposedEndpoints {
+			if len(exposeDetails.ExposeToSpaces) != 0 {
+				exposedToSpaces = true
+				break
+			}
+		}
+
+		if !exposedToSpaces {
+			continue // no need to re-eval ingress rules.
+		}
+
+		for _, unitd := range appd.unitds {
+			unitds = append(unitds, unitd)
+		}
+	}
+
+	if len(unitds) == 0 {
+		return nil // nothing to do
+	}
+
+	if err := fw.flushUnits(unitds); err != nil {
+		return errors.Annotate(err, "cannot update unit ingress rules")
+	}
+	return nil
 }
 
 func (fw *Firewaller) relationIngressChanged(change *remoteRelationNetworkChange) error {
