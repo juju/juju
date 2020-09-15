@@ -53,7 +53,10 @@ func (env *azureEnviron) Subnets(
 	if instanceID != instance.UnknownId {
 		return nil, errors.NotSupportedf("subnets for instance")
 	}
+	return env.allSubnets()
+}
 
+func (env *azureEnviron) allSubnets() ([]network.SubnetInfo, error) {
 	// Subnet discovery happens immediately after model creation.
 	// We need to ensure that the asynchronously invoked resource creation has
 	// completed and added our networking assets.
@@ -147,6 +150,48 @@ func (env *azureEnviron) NetworkInterfaces(
 	return nil, errors.NotSupportedf("network interfaces")
 }
 
+// defaultSubnets returns the subnets to use for starting an instance
+// if not otherwise specified using a spaces constraint.
+func (env *azureEnviron) defaultSubnets(vnetRG, vnetName string, isController bool) ([]string, error) {
+	// By default, controller and non-controller machines are assigned to separate
+	// subnets. This enables us to create controller-specific NSG rules
+	// just by targeting the controller subnet.
+
+	// The controller subnet is hard coded at bootstrap time.
+	// This will change when the Azure provider supports subnet placement.
+	if isController {
+		subnetID := fmt.Sprintf(
+			`[concat(resourceId('Microsoft.Network/virtualNetworks', '%s'), '/subnets/%s')]`,
+			vnetName, controllerSubnetName,
+		)
+		if vnetRG != "" {
+			subnetID = fmt.Sprintf(
+				`[concat(resourceId('%s', 'Microsoft.Network/virtualNetworks', '%s'), '/subnets/%s')]`,
+				vnetRG, vnetName, controllerSubnetName,
+			)
+		}
+		return []string{subnetID}, nil
+	}
+
+	// Look for a subnet with the default Juju name.
+	subnets, err := env.allSubnets()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(subnets) == 0 {
+		return nil, errors.NotFoundf(`subnet in virtual network "%s/%s"`, vnetRG, vnetName)
+	}
+	for _, subnet := range subnets {
+		if strings.HasSuffix(string(subnet.ProviderId), "/"+internalSubnetName) {
+			return []string{string(subnet.ProviderId)}, nil
+		}
+	}
+
+	// As with multi-subnet spaces, pick a random one.
+	subnet := subnets[rand.Intn(len(subnets))]
+	return []string{string(subnet.ProviderId)}, nil
+}
+
 // networkInfoForInstance returns the virtual network and subnet to use
 // when provisioning an instance.
 func (env *azureEnviron) networkInfoForInstance(
@@ -156,31 +201,20 @@ func (env *azureEnviron) networkInfoForInstance(
 	subnetsToZones []map[network.Id][]string,
 ) (vnetID string, subnetIDs []string, _ error) {
 
-	// Controller and non-controller machines are assigned to separate
-	// subnets. This enables us to create controller-specific NSG rules
-	// just by targeting the controller subnet.
-	subnetName := internalSubnetName
-	if instanceConfig.Controller != nil {
-		subnetName = controllerSubnetName
-	}
-	// The subnet belongs to a virtual network.
 	vnetRG, vnetName := env.networkInfo()
 	vnetID = fmt.Sprintf(`[resourceId('Microsoft.Network/virtualNetworks', '%s')]`, vnetName)
-	subnetID := fmt.Sprintf(
-		`[concat(resourceId('Microsoft.Network/virtualNetworks', '%s'), '/subnets/%s')]`,
-		vnetName, subnetName,
-	)
 	if vnetRG != "" {
 		vnetID = fmt.Sprintf(`[resourceId('%s', 'Microsoft.Network/virtualNetworks', '%s')]`, vnetRG, vnetName)
-		subnetID = fmt.Sprintf(
-			`[concat(resourceId('%s', 'Microsoft.Network/virtualNetworks', '%s'), '/subnets/%s')]`,
-			vnetRG, vnetName, subnetName,
-		)
 	}
 
-	// No space constraints so use the default network and subnet.
+	// For deployments without a spaces constraint, there's no subnets to zones mapping.
 	if !constraints.HasSpaces() {
-		return vnetID, []string{subnetID}, nil
+		var err error
+		subnetIDs, err = env.defaultSubnets(vnetRG, vnetName, instanceConfig.Controller != nil)
+		if err != nil {
+			return "", nil, errors.Trace(err)
+		}
+		return vnetID, subnetIDs, nil
 	}
 
 	// Attempt to filter the subnet IDs for the configured availability zone.

@@ -6,11 +6,9 @@ package azure
 import (
 	stdcontext "context"
 	"fmt"
-	"net/http"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
-	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -184,50 +182,110 @@ func (inst *azureInstance) Addresses(ctx context.ProviderCallContext) (corenetwo
 	return addresses, nil
 }
 
-// primaryNetworkAddress returns the instance's primary corenetwork.Address for
-// the internal virtual network. This address is used to identify the machine in
-// network security rules.
-func (inst *azureInstance) primaryNetworkAddress() (corenetwork.SpaceAddress, error) {
-	for _, nic := range inst.networkInterfaces {
-		if nic.IPConfigurations == nil {
+type securityGroupInfo struct {
+	resourceGroup  string
+	securityGroup  *network.SecurityGroup
+	primaryAddress corenetwork.SpaceAddress
+}
+
+// primarySecurityGroupInfo returns info for the NIC's primary corenetwork.Address
+// for the internal virtual network, and any security group on the subnet.
+// The address is used to identify the machine in network security rules.
+func primarySecurityGroupInfo(ctx stdcontext.Context, env *azureEnviron, nic network.Interface) (*securityGroupInfo, error) {
+	if nic.IPConfigurations == nil {
+		return nil, errors.NotFoundf("internal network address or security group")
+	}
+	for _, ipConfiguration := range *nic.IPConfigurations {
+		if ipConfiguration.Subnet == nil {
 			continue
 		}
-		for _, ipConfiguration := range *nic.IPConfigurations {
-			if ipConfiguration.Subnet == nil {
-				continue
+		if !to.Bool(ipConfiguration.Primary) {
+			continue
+		}
+		privateIpAddress := ipConfiguration.PrivateIPAddress
+		if privateIpAddress == nil {
+			continue
+		}
+		securityGroup := nic.NetworkSecurityGroup
+		if securityGroup == nil {
+			idParts := strings.Split(to.String(ipConfiguration.Subnet.ID), "/")
+			lenParts := len(idParts)
+			subnetClient := network.SubnetsClient{BaseClient: env.network}
+			subnet, err := subnetClient.Get(ctx, idParts[lenParts-7], idParts[lenParts-3], idParts[lenParts-1], "networkSecurityGroup")
+			if err != nil {
+				return nil, errors.Trace(err)
 			}
-			if !to.Bool(ipConfiguration.Primary) {
-				continue
-			}
-			privateIpAddress := ipConfiguration.PrivateIPAddress
-			if privateIpAddress == nil {
-				continue
-			}
-			return corenetwork.NewScopedSpaceAddress(
+			securityGroup = subnet.NetworkSecurityGroup
+		}
+		if securityGroup == nil {
+			continue
+		}
+
+		idParts := strings.Split(to.String(securityGroup.ID), "/")
+		resourceGroup := idParts[len(idParts)-5]
+		return &securityGroupInfo{
+			resourceGroup: resourceGroup,
+			securityGroup: securityGroup,
+			primaryAddress: corenetwork.NewScopedSpaceAddress(
 				to.String(privateIpAddress),
 				corenetwork.ScopeCloudLocal,
-			), nil
-		}
+			),
+		}, nil
 	}
-	return corenetwork.SpaceAddress{}, errors.NotFoundf("internal network address")
+	return nil, errors.NotFoundf("internal network address or security group")
+}
+
+// getSecurityGroupInfo gets the security group information for
+// each NIC on the instance.
+func (inst *azureInstance) getSecurityGroupInfo(ctx stdcontext.Context) ([]securityGroupInfo, error) {
+	return getSecurityGroupInfoForInterfaces(ctx, inst.env, inst.networkInterfaces)
+}
+
+func getSecurityGroupInfoForInterfaces(ctx stdcontext.Context, env *azureEnviron, networkInterfaces []network.Interface) ([]securityGroupInfo, error) {
+	groupsByName := make(map[string]securityGroupInfo)
+	for _, nic := range networkInterfaces {
+		info, err := primarySecurityGroupInfo(ctx, env, nic)
+		if errors.IsNotFound(err) {
+			continue
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		name := to.String(info.securityGroup.Name)
+		if _, ok := groupsByName[name]; ok {
+			continue
+		}
+		groupsByName[name] = *info
+	}
+	var result []securityGroupInfo
+	for _, sg := range groupsByName {
+		result = append(result, sg)
+	}
+	return result, nil
 }
 
 // OpenPorts is specified in the Instance interface.
 func (inst *azureInstance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
-	nsgClient := network.SecurityGroupsClient{inst.env.network}
-	securityRuleClient := network.SecurityRulesClient{inst.env.network}
-	primaryNetworkAddress, err := inst.primaryNetworkAddress()
+	sdkCtx := stdcontext.Background()
+	securityGroupInfos, err := inst.getSecurityGroupInfo(sdkCtx)
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	securityGroupName := internalSecurityGroupName
-	sdkCtx := stdcontext.Background()
-	nsg, err := nsgClient.Get(sdkCtx, inst.env.resourceGroup, securityGroupName, "")
-	if err != nil {
-		return errorutils.HandleCredentialError(errors.Annotate(err, "querying network security group"), ctx)
+	for _, info := range securityGroupInfos {
+		if err := inst.openPortsOnGroup(sdkCtx, ctx, machineId, info, rules); err != nil {
+			return errors.Annotatef(err,
+				"opening ports on security group %q on machine %q", to.String(info.securityGroup.Name), machineId)
+		}
 	}
+	return nil
+}
 
+func (inst *azureInstance) openPortsOnGroup(
+	sdkCtx stdcontext.Context,
+	ctx context.ProviderCallContext,
+	machineId string, nsgInfo securityGroupInfo, rules firewall.IngressRules,
+) error {
+	nsg := nsgInfo.securityGroup
 	if nsg.SecurityRules == nil {
 		nsg.SecurityRules = new([]network.SecurityRule)
 	}
@@ -239,6 +297,7 @@ func (inst *azureInstance) OpenPorts(ctx context.ProviderCallContext, machineId 
 	prefix := instanceNetworkSecurityRulePrefix(instance.Id(vmName))
 
 	singleSourceIngressRules := explodeIngressRules(rules)
+	securityRuleClient := network.SecurityRulesClient{inst.env.network}
 	for _, rule := range singleSourceIngressRules {
 		ruleName := securityRuleName(prefix, rule)
 
@@ -287,7 +346,7 @@ func (inst *azureInstance) OpenPorts(ctx context.ProviderCallContext, machineId 
 				SourcePortRange:          to.StringPtr("*"),
 				DestinationPortRange:     to.StringPtr(portRange),
 				SourceAddressPrefix:      to.StringPtr(from),
-				DestinationAddressPrefix: to.StringPtr(primaryNetworkAddress.Value),
+				DestinationAddressPrefix: to.StringPtr(nsgInfo.primaryAddress.Value),
 				Access:                   network.SecurityRuleAccessAllow,
 				Priority:                 to.Int32Ptr(priority),
 				Direction:                network.SecurityRuleDirectionInbound,
@@ -295,7 +354,7 @@ func (inst *azureInstance) OpenPorts(ctx context.ProviderCallContext, machineId 
 		}
 		_, err = securityRuleClient.CreateOrUpdate(
 			sdkCtx,
-			inst.env.resourceGroup, securityGroupName, ruleName, securityRule,
+			nsgInfo.resourceGroup, to.String(nsg.Name), ruleName, securityRule,
 		)
 		if err != nil {
 			return errorutils.HandleCredentialError(errors.Annotatef(err, "creating security rule for %q", ruleName), ctx)
@@ -307,14 +366,31 @@ func (inst *azureInstance) OpenPorts(ctx context.ProviderCallContext, machineId 
 
 // ClosePorts is specified in the Instance interface.
 func (inst *azureInstance) ClosePorts(ctx context.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
+	sdkCtx := stdcontext.Background()
+	securityGroupInfos, err := inst.getSecurityGroupInfo(sdkCtx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, info := range securityGroupInfos {
+		if err := inst.closePortsOnGroup(sdkCtx, ctx, machineId, info, rules); err != nil {
+			return errors.Annotatef(err,
+				"closing ports on security group %q on machine %q", to.String(info.securityGroup.Name), machineId)
+		}
+	}
+	return nil
+}
+
+func (inst *azureInstance) closePortsOnGroup(
+	sdkCtx stdcontext.Context,
+	ctx context.ProviderCallContext,
+	machineId string, nsgInfo securityGroupInfo, rules firewall.IngressRules,
+) error {
 	securityRuleClient := network.SecurityRulesClient{inst.env.network}
-	securityGroupName := internalSecurityGroupName
 
 	// Delete rules one at a time; this is necessary to avoid trampling
 	// on changes made by the provisioner.
 	vmName := resourceName(names.NewMachineTag(machineId))
 	prefix := instanceNetworkSecurityRulePrefix(instance.Id(vmName))
-	sdkCtx := stdcontext.Background()
 
 	singleSourceIngressRules := explodeIngressRules(rules)
 	for _, rule := range singleSourceIngressRules {
@@ -322,7 +398,7 @@ func (inst *azureInstance) ClosePorts(ctx context.ProviderCallContext, machineId
 		logger.Debugf("deleting security rule %q", ruleName)
 		future, err := securityRuleClient.Delete(
 			stdcontext.Background(),
-			inst.env.resourceGroup, securityGroupName, ruleName,
+			nsgInfo.resourceGroup, to.String(nsgInfo.securityGroup.Name), ruleName,
 		)
 		if err != nil {
 			if !isNotFoundResponse(future.Response()) {
@@ -343,10 +419,38 @@ func (inst *azureInstance) ClosePorts(ctx context.ProviderCallContext, machineId
 }
 
 // IngressRules is specified in the Instance interface.
-func (inst *azureInstance) IngressRules(ctx context.ProviderCallContext, machineId string) (rules firewall.IngressRules, err error) {
+func (inst *azureInstance) IngressRules(ctx context.ProviderCallContext, machineId string) (firewall.IngressRules, error) {
+	// The rules to use will be those on the primary network interface.
+	sdkCtx := stdcontext.Background()
+	var info *securityGroupInfo
+	for _, nic := range inst.networkInterfaces {
+		if !to.Bool(nic.Primary) {
+			continue
+		}
+		var err error
+		info, err = primarySecurityGroupInfo(sdkCtx, inst.env, nic)
+		if errors.IsNotFound(err) {
+			continue
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		break
+	}
+	if info == nil {
+		return nil, nil
+	}
+	rules, err := inst.ingressRulesForGroup(ctx, machineId, info)
+	if err != nil {
+		return rules, errors.Trace(err)
+	}
+	rules.Sort()
+	return rules, nil
+}
+
+func (inst *azureInstance) ingressRulesForGroup(ctx context.ProviderCallContext, machineId string, nsgInfo *securityGroupInfo) (rules firewall.IngressRules, err error) {
 	nsgClient := network.SecurityGroupsClient{inst.env.network}
-	securityGroupName := internalSecurityGroupName
-	nsg, err := nsgClient.Get(stdcontext.Background(), inst.env.resourceGroup, securityGroupName, "")
+	nsg, err := nsgClient.Get(stdcontext.Background(), nsgInfo.resourceGroup, to.String(nsgInfo.securityGroup.Name), "")
 	if err != nil {
 		return nil, errorutils.HandleCredentialError(errors.Annotate(err, "querying network security group"), ctx)
 	}
@@ -421,7 +525,6 @@ func (inst *azureInstance) IngressRules(ctx context.ProviderCallContext, machine
 	if err := rules.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	rules.Sort()
 	return rules, nil
 }
 
@@ -432,19 +535,34 @@ func (inst *azureInstance) IngressRules(ctx context.ProviderCallContext, machine
 // i.e. both the ones opened by OpenPorts above, and the ones opened for API
 // access.
 func deleteInstanceNetworkSecurityRules(
+	sdkCtx stdcontext.Context,
 	ctx context.ProviderCallContext,
-	resourceGroup string, id instance.Id,
-	nsgClient network.SecurityGroupsClient,
+	env *azureEnviron, id instance.Id,
+	networkInterfaces []network.Interface,
+) error {
+	securityGroupInfos, err := getSecurityGroupInfoForInterfaces(sdkCtx, env, networkInterfaces)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, info := range securityGroupInfos {
+		if err := deleteSecurityRules(
+			sdkCtx, ctx, id, info,
+			network.SecurityRulesClient{env.network},
+		); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func deleteSecurityRules(
+	sdkCtx stdcontext.Context,
+	ctx context.ProviderCallContext,
+	id instance.Id,
+	nsgInfo securityGroupInfo,
 	securityRuleClient network.SecurityRulesClient,
 ) error {
-	sdkCtx := stdcontext.Background()
-	nsg, err := nsgClient.Get(sdkCtx, resourceGroup, internalSecurityGroupName, "")
-	if err != nil {
-		if err2, ok := err.(autorest.DetailedError); ok && err2.Response.StatusCode == http.StatusNotFound {
-			return nil
-		}
-		return errorutils.HandleCredentialError(errors.Annotate(err, "querying network security group"), ctx)
-	}
+	nsg := nsgInfo.securityGroup
 	if nsg.SecurityRules == nil {
 		return nil
 	}
@@ -456,8 +574,8 @@ func deleteInstanceNetworkSecurityRules(
 		}
 		future, err := securityRuleClient.Delete(
 			sdkCtx,
-			resourceGroup,
-			internalSecurityGroupName,
+			nsgInfo.resourceGroup,
+			*nsg.Name,
 			ruleName,
 		)
 		if err != nil {
