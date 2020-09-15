@@ -8,7 +8,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/store/mocks"
 	"github.com/juju/juju/cmd/juju/application/utils"
+	corecharm "github.com/juju/juju/core/charm"
 )
 
 type storeSuite struct {
@@ -34,7 +34,7 @@ func (s *storeSuite) TestAddCharmFromURLAddCharmSuccess(c *gc.C) {
 
 	curl, err := charm.ParseURL("cs:testme")
 	c.Assert(err, jc.ErrorIsNil)
-	origin, err := utils.DeduceOrigin(curl, csparams.BetaChannel)
+	origin, err := utils.DeduceOrigin(curl, corecharm.Channel{Risk: corecharm.Beta})
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtainedCurl, obtainedMac, _, err := store.AddCharmFromURL(
@@ -54,7 +54,7 @@ func (s *storeSuite) TestAddCharmFromURLFailAddCharmFail(c *gc.C) {
 	s.expectAddCharm(errors.NotFoundf("testing"))
 	curl, err := charm.ParseURL("cs:testme")
 	c.Assert(err, jc.ErrorIsNil)
-	origin, err := utils.DeduceOrigin(curl, csparams.BetaChannel)
+	origin, err := utils.DeduceOrigin(curl, corecharm.Channel{Risk: corecharm.Beta})
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtainedCurl, obtainedMac, _, err := store.AddCharmFromURL(
@@ -77,7 +77,7 @@ func (s *storeSuite) TestAddCharmFromURLFailAddCharmFailUnauthorized(c *gc.C) {
 	})
 	curl, err := charm.ParseURL("cs:testme")
 	c.Assert(err, jc.ErrorIsNil)
-	origin, err := utils.DeduceOrigin(curl, csparams.BetaChannel)
+	origin, err := utils.DeduceOrigin(curl, corecharm.Channel{Risk: corecharm.Beta})
 	c.Assert(err, jc.ErrorIsNil)
 	s.expectGet("/delegatable-macaroon?id=" + url.QueryEscape(curl.String()))
 	s.expectAddCharmWithAuthorization()

@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
 )
@@ -143,9 +144,10 @@ type upgradeCharmCommand struct {
 	// Resources is a map of resource name to filename to be uploaded on upgrade.
 	Resources map[string]string
 
-	// Channel holds the charmstore channel to use when obtaining
+	// Channel holds the charmstore or charmhub channel to use when obtaining
 	// the charm to be upgraded to.
-	Channel csparams.Channel
+	Channel    corecharm.Channel
+	channelStr string
 
 	// Config is a config file variable, pointing at a YAML file containing
 	// the application config to update.
@@ -249,7 +251,7 @@ func (c *upgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.Force, "force", false, "Allow a charm to be upgraded which bypasses LXD profile allow list")
 	f.BoolVar(&c.ForceUnits, "force-units", false, "Upgrade all units immediately, even if in error state")
-	f.StringVar((*string)(&c.Channel), "channel", "", "Channel to use when getting the charm or bundle from the charm store")
+	f.StringVar(&c.channelStr, "channel", "", "Channel to use when getting the charm or bundle from the charm store or charm hub")
 	f.BoolVar(&c.ForceSeries, "force-series", false, "Upgrade even if series of deployed applications are not supported by the new charm")
 	f.StringVar(&c.SwitchURL, "switch", "", "Crossgrade to a different charm")
 	f.StringVar(&c.CharmPath, "path", "", "Upgrade to a charm located at path")
@@ -344,17 +346,23 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	if c.Channel == "" {
-		c.Channel = csparams.Channel(applicationInfo.Channel)
+	if c.channelStr == "" {
+		c.Channel, _ = corecharm.ParseChannel(applicationInfo.Channel)
+	} else {
+		c.Channel, err = corecharm.ParseChannel(c.channelStr)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	newURL, err := url.Parse(newRef)
 	if err != nil {
 		return errors.Trace(err)
-	} else if newURL.Scheme != "" && newURL.Scheme != "local" && c.Channel != "" {
+	} else if newURL.Scheme != "" && newURL.Scheme != "local" {
 		// If not upgrading from a local path, display the channel we
 		// are pulling the charm from.
-		ctx.Infof("Looking up metadata for charm %v (channel: %s)", newRef, c.Channel)
+		channel := fmt.Sprintf(" (channel: %s)", c.Channel)
+		ctx.Infof("Looking up metadata for charm %v%s", newRef, channel)
 	}
 
 	// First, ensure the charm is added to the model.
@@ -370,7 +378,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	csClient, charmStore := c.NewCharmStore(bakeryClient, csURL, c.Channel)
+	csClient, charmStore := c.NewCharmStore(bakeryClient, csURL, csparams.Channel(c.Channel.Risk))
 
 	chID, csMac, err := c.addCharm(addCharmParams{
 		charmAdder:     c.NewCharmAdder(apiRoot),
@@ -649,7 +657,6 @@ func (c *upgradeCharmCommand) addCharm(params addCharmParams) (charmstore.CharmI
 	if err != nil {
 		return id, nil, errors.Trace(err)
 	}
-	origin.Risk = string(c.Channel)
 
 	// Charm has been supplied as a URL so we resolve and deploy using the store.
 	newURL, origin, supportedSeries, err := params.charmResolver.ResolveCharm(refURL, origin)
