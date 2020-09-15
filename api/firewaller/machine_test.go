@@ -109,48 +109,6 @@ func (s *machineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *machineSuite) TestActiveSubnets(c *gc.C) {
-	// No ports opened at first, no active subnets.
-	subnets, err := s.apiMachine.ActiveSubnets()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnets, gc.HasLen, 0)
-
-	// Open a port and check again.
-	mustOpenPortRanges(c, s.State, s.units[0], allEndpoints, []network.PortRange{
-		network.MustParsePortRange("1234/tcp"),
-	})
-	subnets, err = s.apiMachine.ActiveSubnets()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnets, jc.DeepEquals, []names.SubnetTag{{}})
-
-	// Remove all ports, no more active subnets.
-	machPortRanges, err := s.machines[0].OpenedPortRanges()
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertRemoveMachinePortsDoc(c, machPortRanges)
-	subnets, err = s.apiMachine.ActiveSubnets()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnets, gc.HasLen, 0)
-}
-
-func (s *machineSuite) TestOpenedPorts(c *gc.C) {
-	unitTag := s.units[0].Tag().(names.UnitTag)
-
-	// No ports opened at first.
-	machPortRanges, err := s.machines[0].OpenedPortRanges()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machPortRanges.UniquePortRanges(), gc.HasLen, 0)
-
-	// Open a port and check again.
-	mustOpenPortRanges(c, s.State, s.units[0], allEndpoints, []network.PortRange{
-		network.MustParsePortRange("1234/tcp"),
-	})
-	ports, err := s.apiMachine.OpenedPorts(names.SubnetTag{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ports, jc.DeepEquals, map[network.PortRange]names.UnitTag{
-		{FromPort: 1234, ToPort: 1234, Protocol: "tcp"}: unitTag,
-	})
-}
-
 func (s *machineSuite) TestIsManual(c *gc.C) {
 	answer, err := s.machines[0].IsManual()
 	c.Assert(err, jc.ErrorIsNil)

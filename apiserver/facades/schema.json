@@ -18094,42 +18094,6 @@
                     },
                     "description": "GetExposeInfo returns the expose flag and per-endpoint expose settings\nfor the specified applications."
                 },
-                "GetExposed": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/BoolResults"
-                        }
-                    },
-                    "description": "GetExposed returns the exposed flag value for each given application."
-                },
-                "GetMachineActiveSubnets": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/StringsResults"
-                        }
-                    },
-                    "description": "GetMachineActiveSubnets returns the tags of the all subnets that each machine\n(in args) has open ports on."
-                },
-                "GetMachinePorts": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/MachinePortsParams"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/MachinePortsResults"
-                        }
-                    },
-                    "description": "GetMachinePorts returns the port ranges opened on a machine across all\nsubnets as a map mapping port ranges to the tags of the units that opened\nthem."
-                },
                 "InstanceId": {
                     "type": "object",
                     "properties": {
@@ -18780,90 +18744,6 @@
                         "results"
                     ]
                 },
-                "MachinePortRange": {
-                    "type": "object",
-                    "properties": {
-                        "port-range": {
-                            "$ref": "#/definitions/PortRange"
-                        },
-                        "relation-tag": {
-                            "type": "string"
-                        },
-                        "unit-tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "unit-tag",
-                        "relation-tag",
-                        "port-range"
-                    ]
-                },
-                "MachinePorts": {
-                    "type": "object",
-                    "properties": {
-                        "machine-tag": {
-                            "type": "string"
-                        },
-                        "subnet-tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "machine-tag",
-                        "subnet-tag"
-                    ]
-                },
-                "MachinePortsParams": {
-                    "type": "object",
-                    "properties": {
-                        "params": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/MachinePorts"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "params"
-                    ]
-                },
-                "MachinePortsResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "ports": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/MachinePortRange"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "ports"
-                    ]
-                },
-                "MachinePortsResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/MachinePortsResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
                 "ModelConfigResult": {
                     "type": "object",
                     "properties": {
@@ -19086,36 +18966,6 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/StringResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
-                "StringsResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "result": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "StringsResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/StringsResult"
                             }
                         }
                     },

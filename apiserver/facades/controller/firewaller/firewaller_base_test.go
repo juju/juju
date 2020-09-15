@@ -375,49 +375,6 @@ func (s *firewallerBaseSuite) testWatchUnits(
 	wc.AssertNoChange()
 }
 
-func (s *firewallerBaseSuite) testGetExposed(
-	c *gc.C,
-	facade interface {
-		GetExposed(args params.Entities) (params.BoolResults, error)
-	},
-) {
-	// Set the application to exposed first.
-	err := s.application.MergeExposeSettings(nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := addFakeEntities(params.Entities{Entities: []params.Entity{
-		{Tag: s.application.Tag().String()},
-	}})
-	result, err := facade.GetExposed(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.BoolResults{
-		Results: []params.BoolResult{
-			{Result: true},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.NotFoundError(`application "bar"`)},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
-
-	// Now reset the exposed flag for the application and check again.
-	err = s.application.ClearExposed()
-	c.Assert(err, jc.ErrorIsNil)
-
-	args = params.Entities{Entities: []params.Entity{
-		{Tag: s.application.Tag().String()},
-	}}
-	result, err = facade.GetExposed(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.BoolResults{
-		Results: []params.BoolResult{
-			{Result: false},
-		},
-	})
-}
-
 func (s *firewallerBaseSuite) testGetExposeInfo(
 	c *gc.C,
 	facade interface {

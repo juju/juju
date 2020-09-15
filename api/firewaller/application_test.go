@@ -66,22 +66,6 @@ func (s *applicationSuite) TestWatch(c *gc.C) {
 	wc.AssertOneChange()
 }
 
-func (s *applicationSuite) TestIsExposed(c *gc.C) {
-	err := s.application.MergeExposeSettings(nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	isExposed, err := s.apiApplication.IsExposed()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(isExposed, jc.IsTrue)
-
-	err = s.application.ClearExposed()
-	c.Assert(err, jc.ErrorIsNil)
-
-	isExposed, err = s.apiApplication.IsExposed()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(isExposed, jc.IsFalse)
-}
-
 func (s *applicationSuite) TestExposeInfo(c *gc.C) {
 	err := s.application.MergeExposeSettings(map[string]state.ExposedEndpoint{
 		"": {
