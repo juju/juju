@@ -59,7 +59,7 @@ func (step commonDeploymentUpgradeStep) Run(ctx context.ProviderCallContext) err
 	nsgClient := network.SecurityGroupsClient{
 		BaseClient: env.network,
 	}
-	allRules, err := networkSecurityRules(nsgClient, env.resourceGroup)
+	allRules, err := existingSecurityRules(nsgClient, env.resourceGroup)
 	if errors.IsNotFound(err) {
 		allRules = nil
 	} else if err != nil {
@@ -82,6 +82,29 @@ func (step commonDeploymentUpgradeStep) Run(ctx context.ProviderCallContext) err
 		env.storageAccountName,
 		storageAccountType,
 	))
+}
+
+// existingSecurityRules returns the network security rules for the internal
+// network security group in the specified resource group. If the network
+// security group has not been created, this function will return an error
+// satisfying errors.IsNotFound.
+func existingSecurityRules(
+	nsgClient network.SecurityGroupsClient,
+	resourceGroup string,
+) ([]network.SecurityRule, error) {
+	sdkCtx := stdcontext.Background()
+	nsg, err := nsgClient.Get(sdkCtx, resourceGroup, internalSecurityGroupName, "")
+	if err != nil {
+		if isNotFoundResult(nsg.Response) {
+			return nil, errors.NotFoundf("security group")
+		}
+		return nil, errors.Annotate(err, "querying network security group")
+	}
+	var rules []network.SecurityRule
+	if nsg.SecurityRules != nil {
+		rules = *nsg.SecurityRules
+	}
+	return rules, nil
 }
 
 func isControllerEnviron(env *azureEnviron, ctx context.ProviderCallContext) (bool, error) {

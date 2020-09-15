@@ -319,10 +319,15 @@ func (env *azureEnviron) createCommonResourceDeployment(
 	rules []network.SecurityRule,
 	commonResources ...armtemplates.Resource,
 ) error {
-	networkResources, _ := networkTemplateResources(
-		env.location, env.config, tags, nil, rules,
-	)
-	commonResources = append(commonResources, networkResources...)
+	// Only create network resources if the user has not
+	// specified their own to use.
+	if env.config.virtualNetworkName == "" {
+		networkResources, _ := networkTemplateResources(env.location, tags, nil, rules)
+		commonResources = append(commonResources, networkResources...)
+	}
+	if len(commonResources) == 0 {
+		return nil
+	}
 
 	// We perform this deployment asynchronously, to avoid blocking
 	// the "juju add-model" command; Create is called synchronously.
@@ -630,18 +635,22 @@ func (env *azureEnviron) createVirtualMachine(
 	var nicDependsOn, vmDependsOn []string
 	var resources []armtemplates.Resource
 	bootstrapping := instanceConfig.Bootstrap != nil
-	if bootstrapping {
-		// We're starting the bootstrap machine, so we will create the
-		// common resources in the same deployment.
-		networkResources, nsgID := networkTemplateResources(env.location, env.config, envTags, apiPorts, nil)
-		resources = append(resources, networkResources...)
-		nicDependsOn = append(nicDependsOn, nsgID)
-	} else {
-		// Wait for the common resource deployment to complete.
-		if err := env.waitCommonResourcesCreated(); err != nil {
-			return errors.Annotate(
-				err, "waiting for common resources to be created",
-			)
+	// We only need to deal with creating or waiting for network
+	// resources if the user has not specified their own to use.
+	if env.config.virtualNetworkName == "" {
+		if bootstrapping {
+			// We're starting the bootstrap machine, so we will create the
+			// networking resources in the same deployment.
+			networkResources, dependsOn := networkTemplateResources(env.location, envTags, apiPorts, nil)
+			resources = append(resources, networkResources...)
+			nicDependsOn = append(nicDependsOn, dependsOn...)
+		} else {
+			// Wait for the common resource deployment to complete.
+			if err := env.waitCommonResourcesCreated(); err != nil {
+				return errors.Annotate(
+					err, "waiting for common resources to be created",
+				)
+			}
 		}
 	}
 
@@ -953,11 +962,10 @@ func (env *azureEnviron) waitCommonResourcesCreatedLocked() (*resources.Deployme
 		result, err := deploymentsClient.Get(sdkCtx, env.resourceGroup, "common")
 		if err != nil {
 			if result.StatusCode == http.StatusNotFound {
-				// The controller model does not have a "common"
-				// deployment, as its common resources are created
-				// in the machine-0 deployment to keep bootstrap times
-				// optimal. Treat lack of a common deployment as an
-				// indication that the model is the controller model.
+				// The controller model, and also models with bespoke
+				// networks, do not have a "common" deployment
+				// For controller models, common resources are created
+				// in the machine-0 deployment to keep bootstrap times optimal.
 				return nil
 			}
 			return errors.Annotate(err, "querying common deployment")
@@ -1291,8 +1299,6 @@ func (env *azureEnviron) deleteVirtualMachine(
 	vmClient := compute.VirtualMachinesClient{env.compute}
 	diskClient := compute.DisksClient{env.disk}
 	nicClient := network.InterfacesClient{env.network}
-	nsgClient := network.SecurityGroupsClient{env.network}
-	securityRuleClient := network.SecurityRulesClient{env.network}
 	pipClient := network.PublicIPAddressesClient{env.network}
 	deploymentsClient := resources.DeploymentsClient{env.resources}
 	vmName := string(instId)
@@ -1351,9 +1357,9 @@ func (env *azureEnviron) deleteVirtualMachine(
 	}
 	logger.Debugf("- deleting security rules (%s)", vmName)
 	if err := deleteInstanceNetworkSecurityRules(
+		sdkCtx,
 		ctx,
-		env.resourceGroup, instId,
-		nsgClient, securityRuleClient,
+		env, instId, networkInterfaces,
 	); err != nil {
 		return errors.Annotate(err, "deleting network security rules")
 	}
