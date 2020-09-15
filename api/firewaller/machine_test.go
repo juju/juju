@@ -154,7 +154,7 @@ func (s *machineSuite) TestOpenedPortRanges(c *gc.C) {
 		Results: []params.OpenMachinePortRangesResult{
 			{
 				UnitPortRanges: map[string][]params.OpenUnitPortRanges{
-					"unit-mysql-0": []params.OpenUnitPortRanges{
+					"unit-mysql-0": {
 						{
 							Endpoint:    "server",
 							SubnetCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
