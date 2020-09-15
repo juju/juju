@@ -43,6 +43,7 @@ type RefresherConfig struct {
 type factory struct {
 	authorizer    store.MacaroonGetter
 	charmAdder    store.CharmAdder
+	charmRepo     CharmRepo
 	charmResolver CharmResolver
 	clock         jujuclock.Clock
 }
@@ -54,6 +55,7 @@ func NewRefresherFactory(deps RefresherDependencies) RefresherFactory {
 		authorizer:    deps.Authorizer,
 		charmAdder:    deps.CharmAdder,
 		charmResolver: deps.CharmResolver,
+		charmRepo:     defaultCharmRepo{},
 		clock:         jujuclock.WallClock,
 	}
 	return d
@@ -63,7 +65,7 @@ func NewRefresherFactory(deps RefresherDependencies) RefresherFactory {
 // A ModelConfigGetter and CharmStoreAdaptor needed to find the deployer.
 func (d *factory) Run(cfg RefresherConfig) (*CharmID, error) {
 	refreshers := []func(RefresherConfig) (Refresher, error){
-		d.maybeReadLocal(d.charmAdder),
+		d.maybeReadLocal(d.charmAdder, d.charmRepo),
 		d.maybeCharmStore(d.authorizer, d.charmAdder, d.charmResolver),
 	}
 	for _, d := range refreshers {
@@ -88,10 +90,11 @@ func (d *factory) Run(cfg RefresherConfig) (*CharmID, error) {
 	return nil, errors.Errorf("unable to refresh %q", cfg.CharmRef)
 }
 
-func (d *factory) maybeReadLocal(charmAdder store.CharmAdder) func(RefresherConfig) (Refresher, error) {
+func (d *factory) maybeReadLocal(charmAdder store.CharmAdder, charmRepo CharmRepo) func(RefresherConfig) (Refresher, error) {
 	return func(cfg RefresherConfig) (Refresher, error) {
 		return &localCharmRefresher{
 			charmAdder:     charmAdder,
+			charmRepo:      charmRepo,
 			charmURL:       cfg.CharmURL,
 			charmRef:       cfg.CharmRef,
 			deployedSeries: cfg.DeployedSeries,
@@ -119,6 +122,7 @@ func (d *factory) maybeCharmStore(authorizer store.MacaroonGetter, charmAdder st
 
 type localCharmRefresher struct {
 	charmAdder     store.CharmAdder
+	charmRepo      CharmRepo
 	charmURL       *charm.URL
 	charmRef       string
 	deployedSeries string
@@ -127,7 +131,7 @@ type localCharmRefresher struct {
 }
 
 func (d *localCharmRefresher) Refresh() (*CharmID, error) {
-	ch, newURL, err := charmrepo.NewCharmAtPathForceSeries(d.charmRef, d.deployedSeries, d.forceSeries)
+	ch, newURL, err := d.charmRepo.NewCharmAtPathForceSeries(d.charmRef, d.deployedSeries, d.forceSeries)
 	if err == nil {
 		newName := ch.Meta().Name
 		if newName != d.charmURL.Name {
@@ -156,7 +160,7 @@ func (d *localCharmRefresher) Refresh() (*CharmID, error) {
 }
 
 func (d *localCharmRefresher) String() string {
-	return fmt.Sprintf("refresh local charm %q", d.charmRef)
+	return fmt.Sprintf("attempting to refresh local charm %q", d.charmRef)
 }
 
 type charmStoreRefresher struct {
@@ -226,5 +230,11 @@ func (r *charmStoreRefresher) Refresh() (*CharmID, error) {
 }
 
 func (r *charmStoreRefresher) String() string {
-	return fmt.Sprintf("refresh charm store charm")
+	return fmt.Sprintf("attempting to refresh charm store charm %q", r.charmRef)
+}
+
+type defaultCharmRepo struct{}
+
+func (defaultCharmRepo) NewCharmAtPathForceSeries(path, series string, force bool) (charm.Charm, *charm.URL, error) {
+	return charmrepo.NewCharmAtPathForceSeries(path, series, force)
 }
