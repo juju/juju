@@ -965,6 +965,33 @@ func (s *applicationSuite) TestApplicationGetCharmURL(c *gc.C) {
 	c.Assert(result.Result, gc.Equals, "local:quantal/wordpress-3")
 }
 
+func (s *applicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
+	ch := s.AddTestingCharm(c, "wordpress")
+	rev := ch.Revision()
+	// Technically this charm origin is impossible, a local
+	// charm cannot have a channel.  Done just for testing.
+	expectedOrigin := state.CharmOrigin{
+		Source:   "local",
+		Revision: &rev,
+		Channel: &state.Channel{
+			Track: "latest",
+			Risk:  "stable",
+		},
+	}
+	s.AddTestingApplicationWithOrigin(c, "wordpress", ch, &expectedOrigin)
+	result, err := s.applicationAPI.GetCharmURLOrigin(params.ApplicationGet{ApplicationName: "wordpress"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.URL, gc.Equals, "local:quantal/wordpress-3")
+	latest := "latest"
+	c.Assert(result.Origin, jc.DeepEquals, params.CharmOrigin{
+		Source:   "local",
+		Risk:     "stable",
+		Revision: &rev,
+		Track:    &latest,
+	})
+}
+
 func (s *applicationSuite) TestApplicationSetCharm(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "cs:precise/dummy-0", "dummy")
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{

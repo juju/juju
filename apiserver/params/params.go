@@ -213,6 +213,13 @@ type CharmOriginResult struct {
 	Error  *Error      `json:"error,omitempty"`
 }
 
+// CharmURLOriginResult holds the results of the charm's url and origin.
+type CharmURLOriginResult struct {
+	URL    string      `json:"url"`
+	Origin CharmOrigin `json:"charm-origin"`
+	Error  *Error      `json:"error,omitempty"`
+}
+
 // AddMachineParams encapsulates the parameters used to create a new machine.
 type AddMachineParams struct {
 	// The following fields hold attributes that will be given to the
