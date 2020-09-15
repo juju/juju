@@ -62,7 +62,6 @@ type Backend interface {
 	OfferConnections(string) ([]OfferConnection, error)
 	SpaceByName(string) (Space, error)
 	User(names.UserTag) (User, error)
-	UserPermission(subject names.UserTag, target names.Tag) (permission.Access, error)
 
 	CreateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error
 	UpdateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error
