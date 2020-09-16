@@ -32,6 +32,6 @@ type stateShim struct {
 	*state.State
 }
 
-func (s stateShim) Application(id string) (Application, error) {
+func (s *stateShim) Application(id string) (Application, error) {
 	return s.State.Application(id)
 }

@@ -27,16 +27,15 @@ func NewStateFacadeLegacy(ctx facade.Context) (*Facade, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
 	appWatcherFacade := common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterCAASLegacy)
-	return NewFacade(
+	return newFacadeLegacy(
 		resources,
 		authorizer,
-		stateShim{ctx.State()},
+		&stateShim{ctx.State()},
 		appWatcherFacade,
 	)
 }
 
-// NewFacade returns a new CAAS firewaller Facade facade.
-func NewFacade(
+func newFacadeLegacy(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	st CAASFirewallerState,
@@ -129,18 +128,43 @@ func NewStateFacadeEmbedded(ctx facade.Context) (*FacadeEmbedded, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
 	appWatcherFacade := common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterCAASEmbedded)
-	f, err := NewFacade(
+	return newFacadeEmbedded(
 		resources,
 		authorizer,
-		stateShim{ctx.State()},
+		&stateShim{ctx.State()},
 		appWatcherFacade,
 	)
-	if err != nil {
-		return nil, errors.Trace(err)
+}
+
+func newFacadeEmbedded(
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+	st CAASFirewallerState,
+	applicationWatcherFacade *common.ApplicationWatcherFacade,
+) (*FacadeEmbedded, error) {
+	if !authorizer.AuthController() {
+		return nil, apiservererrors.ErrPerm
 	}
+	accessApplication := common.AuthFuncForTagKind(names.ApplicationTagKind)
+
 	return &FacadeEmbedded{
-		Facade:      f,
 		accessModel: common.AuthFuncForTagKind(names.ModelTagKind),
+		Facade: &Facade{
+			LifeGetter: common.NewLifeGetter(
+				st, common.AuthAny(
+					common.AuthFuncForTagKind(names.ApplicationTagKind),
+					common.AuthFuncForTagKind(names.UnitTagKind),
+				),
+			),
+			AgentEntityWatcher: common.NewAgentEntityWatcher(
+				st,
+				resources,
+				accessApplication,
+			),
+			resources:                resources,
+			state:                    st,
+			ApplicationWatcherFacade: applicationWatcherFacade,
+		},
 	}, nil
 }
 
@@ -167,12 +191,12 @@ func (f *FacadeEmbedded) WatchOpenedPorts(args params.Entities) (params.StringsW
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		watcherId, initial, err := f.watchOneModelOpenedPorts(tag)
+		watcherID, initial, err := f.watchOneModelOpenedPorts(tag)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		result.Results[i].StringsWatcherId = watcherId
+		result.Results[i].StringsWatcherId = watcherID
 		result.Results[i].Changes = initial
 	}
 	return result, nil
