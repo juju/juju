@@ -1402,6 +1402,10 @@ type SetCharmConfig struct {
 	// upgraded to use it.
 	Charm *Charm
 
+	// CharmOrigin is the data for where the charm comes from.  Eventually
+	// Channel should be move there.
+	CharmOrigin *CharmOrigin
+
 	// Channel is the charm store channel from which charm was pulled.
 	Channel csparams.Channel
 
@@ -1598,6 +1602,19 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 			}
 			ops = append(ops, chng...)
 			newCharmModifiedVersion++
+		}
+		if cfg.CharmOrigin != nil {
+			// Update in the application facade also calls
+			// SetCharm, though it has no current user in the
+			// application api client. Just in case: do not
+			// update the CharmOrigin if nil.
+			ops = append(ops, txn.Op{
+				C:  applicationsC,
+				Id: a.doc.DocID,
+				Update: bson.D{{"$set", bson.D{
+					{"charm-origin", cfg.CharmOrigin},
+				}}},
+			})
 		}
 
 		// Always update bindings regardless of whether we upgrade to a

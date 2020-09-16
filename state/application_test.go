@@ -109,6 +109,52 @@ func (s *ApplicationSuite) TestSetCharm(c *gc.C) {
 	c.Assert(force, jc.IsTrue)
 }
 
+func (s *ApplicationSuite) TestSetCharmCharmOrigin(c *gc.C) {
+	// Add a compatible charm.
+	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
+	rev := sch.Revision()
+	origin := &state.CharmOrigin{
+		Source:   "charm-store",
+		Revision: &rev,
+	}
+	cfg := state.SetCharmConfig{
+		Charm:       sch,
+		CharmOrigin: origin,
+	}
+	err := s.mysql.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.mysql.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	obtainedOrigin := s.mysql.CharmOrigin()
+	c.Assert(obtainedOrigin, gc.DeepEquals, origin)
+}
+
+func (s *ApplicationSuite) TestSetCharmCharmOriginNoChange(c *gc.C) {
+	// Add a compatible charm.
+	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
+	rev := sch.Revision()
+	origin := &state.CharmOrigin{
+		Source:   "charm-store",
+		Revision: &rev,
+	}
+	cfg := state.SetCharmConfig{
+		Charm:       sch,
+		CharmOrigin: origin,
+	}
+	err := s.mysql.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	cfg = state.SetCharmConfig{
+		Charm:      sch,
+		ForceUnits: true,
+	}
+	err = s.mysql.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.mysql.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	obtainedOrigin := s.mysql.CharmOrigin()
+	c.Assert(obtainedOrigin, gc.DeepEquals, origin)
+}
+
 func (s *ApplicationSuite) TestLXDProfileSetCharm(c *gc.C) {
 	charm := s.AddTestingCharm(c, "lxd-profile")
 	app := s.AddTestingApplication(c, "lxd-profile", charm)
