@@ -363,12 +363,6 @@ github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANyt
 github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af h1:pmfjZENx5imkbgOkpRUYLnmbU7UEFbjtDA2hxJ1ichM=
 github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af/go.mod h1:Nht3zPeWKUH0NzdCt2Blrr5ys8VGpn0CEB0cQHVjt7k=
 github.com/jonboulle/clockwork v0.1.0/go.mod h1:Ii8DK3G1RaLaWxj9trq07+26W01tbo22gdxWY5EU2bo=
-github.com/joyent/gocommon v0.0.0-20160320193133-ade826b8b54e h1:7LmQNw2nFmg1P6qvl6XSWz9Oxg7zLTDvWN16jA80y4g=
-github.com/joyent/gocommon v0.0.0-20160320193133-ade826b8b54e/go.mod h1:uQaJAn0TRn2MiVbso1C9LQXC2lQaAa2CXUze9fQ43Jc=
-github.com/joyent/gosdc v0.0.0-20140524000815-2f11feadd2d9 h1:E/Ajmvi1HXA3QKVy/N6Nqxn80ESHcLvoLSZLvFxOaKM=
-github.com/joyent/gosdc v0.0.0-20140524000815-2f11feadd2d9/go.mod h1:HXmX1eR1VtzOqUCZLaDHH5HFFbEiBrLRQ8X8f/NVgeA=
-github.com/joyent/gosign v0.0.0-20140524000734-0da0d5f13420 h1:FuJV5fnwjwGxYJKOT3TpTgP5vYYSqjp6ZDlHFvStdno=
-github.com/joyent/gosign v0.0.0-20140524000734-0da0d5f13420/go.mod h1:86dq8fVTUv2v7d3SNwryK1KJvciA2JWEuyGsGuKE78Q=
 github.com/json-iterator/go v1.1.6/go.mod h1:+SdeFBvtyEkXs7REEP0seUULqWtbJapLOCVDaaPEHmU=
 github.com/json-iterator/go v1.1.7/go.mod h1:KdQUCv79m/52Kvf8AW2vK1V8akMuk1QjK/uOdHXbAo4=
 github.com/json-iterator/go v1.1.8 h1:QiWkFLKq0T7mpzwOTu6BzNDbfTE8OLrYhVKYMLF46Ok=

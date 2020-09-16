@@ -37,9 +37,6 @@ require (
 	github.com/hashicorp/raft v2.0.0-20200420012049-88ad3b3f0a54+incompatible
 	github.com/hashicorp/raft-boltdb v0.0.0-20171010151810-6e5ba93211ea
 	github.com/imdario/mergo v0.3.10 // indirect
-	github.com/joyent/gocommon v0.0.0-20160320193133-ade826b8b54e
-	github.com/joyent/gosdc v0.0.0-20140524000815-2f11feadd2d9
-	github.com/joyent/gosign v0.0.0-20140524000734-0da0d5f13420
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
 	github.com/juju/bundlechanges/v3 v3.0.0-20200909112830-2eb08291b192
 	github.com/juju/charm/v8 v8.0.0-20200909140628-b1139b81a49c
