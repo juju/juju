@@ -82,6 +82,7 @@ type Application interface {
 	Destroy() error
 	DestroyOperation() *state.DestroyApplicationOperation
 	EndpointBindings() (Bindings, error)
+	ExposedEndpoints() map[string]state.ExposedEndpoint
 	Endpoints() ([]state.Endpoint, error)
 	IsExposed() bool
 	IsPrincipal() bool

@@ -1979,7 +1979,46 @@ func (s *ApplicationSuite) TestApplicationsInfoOne(c *gc.C) {
 		},
 	})
 	app := s.backend.applications["postgresql"]
-	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "EndpointBindings", "Series", "Channel", "EndpointBindings", "IsPrincipal", "IsExposed", "IsRemote")
+	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "EndpointBindings", "Series", "Channel", "EndpointBindings", "ExposedEndpoints", "IsPrincipal", "IsExposed", "IsRemote")
+}
+
+func (s *ApplicationSuite) TestApplicationsInfoOneWithExposedEndpoints(c *gc.C) {
+	s.backend.spaceInfos = network.SpaceInfos{
+		{
+			ID:   "42",
+			Name: "non-euclidean-geometry",
+		},
+	}
+	app := s.backend.applications["postgresql"]
+	app.exposedEndpoints = map[string]state.ExposedEndpoint{
+		"server": {
+			ExposeToSpaceIDs: []string{"42"},
+			ExposeToCIDRs:    []string{"10.0.0.0/24", "192.168.0.0/24"},
+		},
+	}
+
+	entities := []params.Entity{{Tag: "application-postgresql"}}
+	result, err := s.api.ApplicationsInfo(params.Entities{entities})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, len(entities))
+	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.ApplicationResult{
+		Tag:         "application-postgresql",
+		Charm:       "charm-postgresql",
+		Series:      "quantal",
+		Channel:     "development",
+		Constraints: constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
+		Principal:   true,
+		EndpointBindings: map[string]string{
+			"juju-info": "myspace",
+		},
+		ExposedEndpoints: map[string]params.ExposedEndpoint{
+			"server": {
+				ExposeToSpaces: []string{"non-euclidean-geometry"},
+				ExposeToCIDRs:  []string{"10.0.0.0/24", "192.168.0.0/24"},
+			},
+		},
+	})
+	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "EndpointBindings", "Series", "Channel", "EndpointBindings", "ExposedEndpoints", "IsPrincipal", "IsExposed", "IsRemote")
 }
 
 func (s *ApplicationSuite) TestApplicationsInfoDetailsErr(c *gc.C) {
@@ -2030,7 +2069,7 @@ func (s *ApplicationSuite) TestApplicationsInfoMany(c *gc.C) {
 	c.Assert(result.Results[1].Error, gc.ErrorMatches, `application "wordpress" not found`)
 	c.Assert(result.Results[2].Error, gc.ErrorMatches, `"unit-postgresql-0" is not a valid application tag`)
 	app := s.backend.applications["postgresql"]
-	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "EndpointBindings", "Series", "Channel", "EndpointBindings", "IsPrincipal", "IsExposed", "IsRemote")
+	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "EndpointBindings", "Series", "Channel", "EndpointBindings", "ExposedEndpoints", "IsPrincipal", "IsExposed", "IsRemote")
 }
 
 func (s *ApplicationSuite) TestApplicationMergeBindingsErr(c *gc.C) {

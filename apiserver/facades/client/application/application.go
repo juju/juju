@@ -106,7 +106,8 @@ type APIv12 struct {
 }
 
 // APIv13 provides the Application API facade for version 13.
-// It adds CharmOrigin.
+// It adds CharmOrigin. The ApplicationsInfo call populates the exposed
+// endpoints field in its response entries.
 type APIv13 struct {
 	*APIBase
 }
@@ -2709,6 +2710,12 @@ func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfo
 			continue
 		}
 
+		exposedEndpoints, err := api.mapExposedEndpointsFromState(app.ExposedEndpoints())
+		if err != nil {
+			out[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
 		out[i].Result = &params.ApplicationResult{
 			Tag:              tag.String(),
 			Charm:            details.Charm,
@@ -2719,9 +2726,52 @@ func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfo
 			Exposed:          app.IsExposed(),
 			Remote:           app.IsRemote(),
 			EndpointBindings: bindingsMap,
+			ExposedEndpoints: exposedEndpoints,
 		}
 	}
 	return params.ApplicationInfoResults{out}, nil
+}
+
+func (api *APIBase) mapExposedEndpointsFromState(exposedEndpoints map[string]state.ExposedEndpoint) (map[string]params.ExposedEndpoint, error) {
+	if len(exposedEndpoints) == 0 {
+		return nil, nil
+	}
+
+	var (
+		spaceInfos network.SpaceInfos
+		err        error
+		res        = make(map[string]params.ExposedEndpoint, len(exposedEndpoints))
+	)
+
+	for endpointName, exposeDetails := range exposedEndpoints {
+		mappedParam := params.ExposedEndpoint{
+			ExposeToCIDRs: exposeDetails.ExposeToCIDRs,
+		}
+
+		if len(exposeDetails.ExposeToSpaceIDs) != 0 {
+			// Lazily fetch SpaceInfos
+			if spaceInfos == nil {
+				if spaceInfos, err = api.backend.AllSpaceInfos(); err != nil {
+					return nil, err
+				}
+			}
+
+			spaceNames := make([]string, len(exposeDetails.ExposeToSpaceIDs))
+			for i, spaceID := range exposeDetails.ExposeToSpaceIDs {
+				sp := spaceInfos.GetByID(spaceID)
+				if sp == nil {
+					return nil, errors.NotFoundf("space with ID %q", spaceID)
+				}
+
+				spaceNames[i] = string(sp.Name)
+			}
+			mappedParam.ExposeToSpaces = spaceNames
+		}
+
+		res[endpointName] = mappedParam
+	}
+
+	return res, nil
 }
 
 // MergeBindings merges operator-defined bindings with the current bindings for

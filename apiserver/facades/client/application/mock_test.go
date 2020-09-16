@@ -87,22 +87,23 @@ type mockApplication struct {
 	jtesting.Stub
 	application.Application
 
-	bindings    map[string]string
-	charm       *mockCharm
-	curl        *charm.URL
-	endpoints   []state.Endpoint
-	name        string
-	scale       int
-	subordinate bool
-	series      string
-	units       []*mockUnit
-	addedUnit   mockUnit
-	config      coreapplication.ConfigAttributes
-	constraints constraints.Value
-	channel     csparams.Channel
-	exposed     bool
-	remote      bool
-	agentTools  *tools.Tools
+	bindings         map[string]string
+	charm            *mockCharm
+	curl             *charm.URL
+	endpoints        []state.Endpoint
+	exposedEndpoints map[string]state.ExposedEndpoint
+	name             string
+	scale            int
+	subordinate      bool
+	series           string
+	units            []*mockUnit
+	addedUnit        mockUnit
+	config           coreapplication.ConfigAttributes
+	constraints      constraints.Value
+	channel          csparams.Channel
+	exposed          bool
+	remote           bool
+	agentTools       *tools.Tools
 }
 
 func (m *mockApplication) Name() string {
@@ -138,6 +139,11 @@ func (m *mockApplication) Constraints() (constraints.Value, error) {
 func (m *mockApplication) Endpoints() ([]state.Endpoint, error) {
 	m.MethodCall(m, "Endpoints")
 	return m.endpoints, nil
+}
+
+func (m *mockApplication) ExposedEndpoints() map[string]state.ExposedEndpoint {
+	m.MethodCall(m, "ExposedEndpoints")
+	return m.exposedEndpoints
 }
 
 func (m *mockApplication) EndpointBindings() (application.Bindings, error) {
@@ -376,6 +382,7 @@ type mockBackend struct {
 	controllers                map[string]crossmodel.ControllerInfo
 	machines                   map[string]*mockMachine
 	generation                 *mockGeneration
+	spaceInfos                 network.SpaceInfos
 }
 
 type mockFilesystemAccess struct {
@@ -453,7 +460,11 @@ func (m *mockBackend) Machine(id string) (application.Machine, error) {
 }
 
 func (m *mockBackend) AllSpaceInfos() (network.SpaceInfos, error) {
-	return nil, nil
+	m.MethodCall(m, "AllSpaceInfos")
+	if err := m.NextErr(); err != nil {
+		return nil, err
+	}
+	return m.spaceInfos, nil
 }
 
 func (m *mockBackend) Space(_ string) (*state.Space, error) {
