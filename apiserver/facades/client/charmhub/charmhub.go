@@ -108,7 +108,9 @@ func (api *CharmHubAPI) Find(arg params.Query) (params.CharmHubEntityFindResult,
 type charmHubClientFactory struct{}
 
 func (charmHubClientFactory) Client(url string) (Client, error) {
-	client, err := charmhub.NewClient(charmhub.CharmHubConfigFromURL(url))
+	cfg := charmhub.CharmHubConfigFromURL(url)
+	cfg.Logger = logger.Child("client")
+	client, err := charmhub.NewClient(cfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

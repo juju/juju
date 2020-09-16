@@ -484,6 +484,8 @@ func (a *API) charmHubRepository() (corecharm.Repository, error) {
 	} else {
 		chCfg = charmhub.CharmHubConfig()
 	}
+	chCfg.Logger = logger.Child("client")
+
 	chClient, err := charmhub.NewClient(chCfg)
 	if err != nil {
 		return nil, errors.Trace(err)
