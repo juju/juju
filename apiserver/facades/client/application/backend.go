@@ -75,6 +75,7 @@ type Application interface {
 	Charm() (Charm, bool, error)
 	CharmURL() (*charm.URL, bool)
 	Channel() csparams.Channel
+	CharmOrigin() *state.CharmOrigin
 	ClearExposed() error
 	CharmConfig(string) (charm.Settings, error)
 	Constraints() (constraints.Value, error)

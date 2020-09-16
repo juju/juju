@@ -2186,6 +2186,18 @@
                     },
                     "description": "GetCharmURL returns the charm URL the given application is\nrunning at present."
                 },
+                "GetCharmURLOrigin": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/ApplicationGet"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/CharmURLOriginResult"
+                        }
+                    },
+                    "description": "GetCharmURLOrigin returns the charm URL and charm origin the given\napplication is running at present."
+                },
                 "GetConfig": {
                     "type": "object",
                     "properties": {
@@ -3261,6 +3273,25 @@
                         "optional",
                         "limit",
                         "scope"
+                    ]
+                },
+                "CharmURLOriginResult": {
+                    "type": "object",
+                    "properties": {
+                        "charm-origin": {
+                            "$ref": "#/definitions/CharmOrigin"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "url": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "url",
+                        "charm-origin"
                     ]
                 },
                 "ConfigResult": {

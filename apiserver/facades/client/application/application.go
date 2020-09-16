@@ -1329,6 +1329,53 @@ func (api *APIBase) GetCharmURL(args params.ApplicationGet) (params.StringResult
 	return params.StringResult{Result: charmURL.String()}, nil
 }
 
+// GetCharmURLOrigin isn't on the V12 API.
+func (api *APIv12) GetCharmURLOrigin(_ struct{}) {}
+
+// GetCharmURLOrigin returns the charm URL and charm origin the given
+// application is running at present.
+func (api *APIBase) GetCharmURLOrigin(args params.ApplicationGet) (params.CharmURLOriginResult, error) {
+	if err := api.checkCanWrite(); err != nil {
+		return params.CharmURLOriginResult{}, errors.Trace(err)
+	}
+	oneApplication, err := api.backend.Application(args.ApplicationName)
+	if err != nil {
+		return params.CharmURLOriginResult{Error: apiservererrors.ServerError(err)}, nil
+	}
+	charmURL, _ := oneApplication.CharmURL()
+	result := params.CharmURLOriginResult{URL: charmURL.String()}
+	chOrigin := oneApplication.CharmOrigin()
+	if chOrigin == nil {
+		result.Error = apiservererrors.ServerError(errors.NotFoundf("charm origin for %q", args.ApplicationName))
+		return result, nil
+	}
+	result.Origin = makeParamsCharmOrigin(chOrigin)
+	return result, nil
+}
+
+func makeParamsCharmOrigin(origin *state.CharmOrigin) params.CharmOrigin {
+	var rev *int
+	if origin.Revision != nil {
+		rev = origin.Revision
+	}
+	var track *string
+	var risk string
+	if origin.Channel != nil {
+		risk = origin.Channel.Risk
+		if origin.Channel.Track != "" {
+			track = &origin.Channel.Track
+		}
+	}
+	return params.CharmOrigin{
+		Source:   origin.Source,
+		ID:       origin.ID,
+		Hash:     origin.Hash,
+		Risk:     risk,
+		Revision: rev,
+		Track:    track,
+	}
+}
+
 // Set implements the server side of Application.Set.
 // It does not unset values that are set to an empty string.
 // Unset should be used for that.
