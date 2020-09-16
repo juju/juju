@@ -943,7 +943,7 @@ func parseSettingsCompatible(charmConfig *charm.Config, settings map[string]stri
 type setCharmParams struct {
 	AppName               string
 	Application           Application
-	Channel               csparams.Channel
+	Origin                corecharm.Origin
 	ConfigSettingsStrings map[string]string
 	ConfigSettingsYAML    string
 	ResourceIDs           map[string]string
@@ -976,12 +976,11 @@ func (api *APIBase) Update(args params.ApplicationUpdate) error {
 	if args.CharmURL != "" {
 		// For now we do not support changing the channel through Update().
 		// TODO(ericsnow) Support it?
-		channel := app.Channel()
 		if err = api.updateCharm(
 			setCharmParams{
 				AppName:     args.ApplicationName,
 				Application: app,
-				Channel:     channel,
+				Origin:      app.Origin(),
 				Force: forceParams{
 					ForceSeries: args.ForceSeries,
 					ForceUnits:  args.ForceCharmURL,
@@ -1111,7 +1110,31 @@ func (api *APIBase) updateOneApplicationSeries(arg params.UpdateSeriesArg) error
 }
 
 // SetCharm sets the charm for a given for the application.
-func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
+func (api *APIv13) SetCharm(args params.ApplicationSetCharm) error {
+	curl, err := charm.ParseURL(args.CharmURL)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	var source string
+	switch {
+	case charm.CharmHub.Matches(curl.Schema):
+		return errors.Errorf("charmhub charms are not supported")
+	case charm.CharmStore.Matches(curl.Schema):
+		source = charm.CharmStore.String()
+	default:
+		source = charm.Local.String()
+	}
+	return api.APIBase.SetCharm(params.ApplicationSetCharmV2{
+		ApplicationSetCharm: args,
+		Origin: params.CharmOrigin{
+			Source: source,
+			Risk:   args.Channel,
+		},
+	})
+}
+
+// SetCharm sets the charm for a given for the application.
+func (api *APIBase) SetCharm(args params.ApplicationSetCharmV2) error {
 	if err := api.checkCanWrite(); err != nil {
 		return err
 	}
@@ -1125,12 +1148,15 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	channel := csparams.Channel(args.Channel)
+	origin, err := convertParamsOrigin(args.Origin)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return api.setCharmWithAgentValidation(
 		setCharmParams{
 			AppName:               args.ApplicationName,
 			Application:           oneApplication,
-			Channel:               channel,
+			Origin:                origin,
 			ConfigSettingsStrings: args.ConfigSettings,
 			ConfigSettingsYAML:    args.ConfigSettingsYAML,
 			ResourceIDs:           args.ResourceIDs,
@@ -1144,6 +1170,15 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 		},
 		args.CharmURL,
 	)
+}
+
+func convertParamsOrigin(origin params.CharmOrigin) (corecharm.Origin, error) {
+	return corecharm.Origin{
+		Source:   corecharm.Source(origin.Source),
+		Hash:     origin.Hash,
+		ID:       origin.ID,
+		Revision: origin.Revision,
+	}, nil
 }
 
 var (
