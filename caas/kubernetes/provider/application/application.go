@@ -414,7 +414,8 @@ func (a *app) configureHeadlessService(name string, annotation annotations.Annot
 func (a *app) configureDefaultService(annotation annotations.Annotation) (err error) {
 	svc := resources.NewService(a.name, a.namespace, &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Labels: a.labels(),
+			Labels:      a.labels(),
+			Annotations: annotation,
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: a.labels(),
@@ -471,8 +472,8 @@ func (a *app) UpdatePorts(ports []caas.ServicePort) (err error) {
 		return errors.Annotatef(err, "getting existing service %q", a.name)
 	}
 	svc.Service.Spec.Ports = make([]corev1.ServicePort, len(ports))
-	for _, port := range ports {
-		svc.Service.Spec.Ports = append(svc.Service.Spec.Ports, convertServicePort(port))
+	for i, port := range ports {
+		svc.Service.Spec.Ports[i] = convertServicePort(port)
 	}
 	applier := a.newApplier()
 	applier.Apply(svc)
@@ -494,8 +495,9 @@ func convertContainerPort(p corev1.ServicePort) corev1.ContainerPort {
 func (a *app) updateContainerPorts(applier resources.Applier, ports []corev1.ServicePort) error {
 	updatePodSpec := func(spec *corev1.PodSpec, containerPorts []corev1.ContainerPort) {
 		for i, c := range spec.Containers {
+			ps := containerPorts
 			if c.Name != unitContainerName {
-				spec.Containers[i].Ports = containerPorts
+				spec.Containers[i].Ports = ps
 			}
 		}
 	}
