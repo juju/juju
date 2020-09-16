@@ -135,7 +135,6 @@ type ApplicationDeployV6 struct {
 type ApplicationUpdate struct {
 	ApplicationName string             `json:"application"`
 	CharmURL        string             `json:"charm-url"`
-	CharmOrigin     *CharmOrigin       `json:"charm-origin,omitempty"`
 	ForceCharmURL   bool               `json:"force-charm-url"`
 	ForceSeries     bool               `json:"force-series"`
 	Force           bool               `json:"force"`
@@ -149,6 +148,58 @@ type ApplicationUpdate struct {
 	Generation string `json:"generation"`
 }
 
+// ApplicationSetCharmV12 sets the charm for a given application
+// for application facades older than v12. Missing the newer CharmOrigin.
+type ApplicationSetCharmV12 struct {
+	// ApplicationName is the name of the application to set the charm on.
+	ApplicationName string `json:"application"`
+
+	// Generation is the generation version that this
+	// request will set the application charm for.
+	Generation string `json:"generation"`
+
+	// CharmURL is the new url for the charm.
+	CharmURL string `json:"charm-url"`
+
+	// Channel is the charm store channel from which the charm came.
+	Channel string `json:"channel"`
+
+	// ConfigSettings is the charm settings to set during the upgrade.
+	// This field is only understood by Application facade version 2
+	// and greater.
+	ConfigSettings map[string]string `json:"config-settings,omitempty"`
+
+	// ConfigSettingsYAML is the charm settings in YAML format to set
+	// during the upgrade. If this is non-empty, it will take precedence
+	// over ConfigSettings. This field is only understood by Application
+	// facade version 2
+	ConfigSettingsYAML string `json:"config-settings-yaml,omitempty"`
+
+	// Force forces the lxd profile validation overriding even if it's fails.
+	Force bool `json:"force"`
+
+	// ForceUnits forces the upgrade on units in an error state.
+	ForceUnits bool `json:"force-units"`
+
+	// ForceSeries forces the use of the charm even if it doesn't match the
+	// series of the unit.
+	ForceSeries bool `json:"force-series"`
+
+	// ResourceIDs is a map of resource names to resource IDs to activate during
+	// the upgrade.
+	ResourceIDs map[string]string `json:"resource-ids,omitempty"`
+
+	// StorageConstraints is a map of storage names to storage constraints to
+	// update during the upgrade. This field is only understood by Application
+	// facade version 2 and greater.
+	StorageConstraints map[string]StorageConstraints `json:"storage-constraints,omitempty"`
+
+	// EndpointBindings is a map of operator-defined endpoint names to
+	// space names to be merged with any existing endpoint bindings. This
+	// field is only understood by Application facade version 10 and greater.
+	EndpointBindings map[string]string `json:"endpoint-bindings,omitempty"`
+}
+
 // ApplicationSetCharm sets the charm for a given application.
 type ApplicationSetCharm struct {
 	// ApplicationName is the name of the application to set the charm on.
@@ -160,6 +211,9 @@ type ApplicationSetCharm struct {
 
 	// CharmURL is the new url for the charm.
 	CharmURL string `json:"charm-url"`
+
+	// CharmOrigin is the charm origin
+	CharmOrigin *CharmOrigin `json:"charm-origin,omitempty"`
 
 	// Channel is the charm store channel from which the charm came.
 	Channel string `json:"channel"`

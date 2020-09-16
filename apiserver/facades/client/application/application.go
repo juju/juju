@@ -756,12 +756,20 @@ func deployApplication(
 func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreChannel string) (corecharm.Origin, error) {
 	switch {
 	case origin == nil || origin.Source == "" || origin.Source == "charm-store":
+		var rev *int
+		if curl.Revision != -1 {
+			rev = &curl.Revision
+		}
+		var origin *corecharm.Channel
+		if charmStoreChannel != "" {
+			origin = &corecharm.Channel{
+				Risk: corecharm.Risk(charmStoreChannel),
+			}
+		}
 		return corecharm.Origin{
 			Source:   corecharm.CharmStore,
-			Revision: &curl.Revision,
-			Channel: &corecharm.Channel{
-				Risk: corecharm.Risk(charmStoreChannel),
-			},
+			Revision: rev,
+			Channel:  origin,
 		}, nil
 	case origin.Source == "local":
 		return corecharm.Origin{
@@ -774,9 +782,12 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreC
 	if origin.Track != nil {
 		track = *origin.Track
 	}
-	channel, err := corecharm.MakeChannel(track, origin.Risk, "")
-	if err != nil {
-		return corecharm.Origin{}, errors.Trace(err)
+	// We do guarantee that there will be a risk value.
+	// Ignore the error, as only caused by risk as an
+	// empty string.
+	var channel *corecharm.Channel
+	if ch, err := corecharm.MakeChannel(track, origin.Risk, ""); err == nil {
+		channel = &ch
 	}
 
 	return corecharm.Origin{
@@ -784,7 +795,7 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreC
 		ID:       origin.ID,
 		Hash:     origin.Hash,
 		Revision: origin.Revision,
-		Channel:  &channel,
+		Channel:  channel,
 	}, nil
 }
 
@@ -943,6 +954,7 @@ func parseSettingsCompatible(charmConfig *charm.Config, settings map[string]stri
 type setCharmParams struct {
 	AppName               string
 	Application           Application
+	CharmOrigin           *params.CharmOrigin
 	Channel               csparams.Channel
 	ConfigSettingsStrings map[string]string
 	ConfigSettingsYAML    string
@@ -1061,7 +1073,7 @@ func (api *APIBase) updateCharm(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return api.applicationSetCharm(params, aCharm)
+	return api.applicationSetCharm(params, aCharm, nil)
 }
 
 // UpdateApplicationSeries updates the application series. Series for
@@ -1111,6 +1123,25 @@ func (api *APIBase) updateOneApplicationSeries(arg params.UpdateSeriesArg) error
 }
 
 // SetCharm sets the charm for a given for the application.
+func (api *APIv12) SetCharm(args params.ApplicationSetCharmV12) error {
+	newArgs := params.ApplicationSetCharm{
+		ApplicationName:    args.ApplicationName,
+		Generation:         args.Generation,
+		CharmURL:           args.CharmURL,
+		Channel:            args.Channel,
+		ConfigSettings:     args.ConfigSettings,
+		ConfigSettingsYAML: args.ConfigSettingsYAML,
+		Force:              args.Force,
+		ForceUnits:         args.ForceUnits,
+		ForceSeries:        args.ForceSeries,
+		ResourceIDs:        args.ResourceIDs,
+		StorageConstraints: args.StorageConstraints,
+		EndpointBindings:   args.EndpointBindings,
+	}
+	return api.APIBase.SetCharm(newArgs)
+}
+
+// SetCharm sets the charm for a given for the application.
 func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 	if err := api.checkCanWrite(); err != nil {
 		return err
@@ -1130,6 +1161,7 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 		setCharmParams{
 			AppName:               args.ApplicationName,
 			Application:           oneApplication,
+			CharmOrigin:           args.CharmOrigin,
 			Channel:               channel,
 			ConfigSettingsStrings: args.ConfigSettings,
 			ConfigSettingsYAML:    args.ConfigSettingsYAML,
@@ -1188,6 +1220,10 @@ func (api *APIBase) setCharmWithAgentValidation(
 	if err != nil {
 		logger.Debugf("Unable to locate current charm: %v", err)
 	}
+	newOrigin, err := convertCharmOrigin(params.CharmOrigin, curl, string(params.Channel))
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if api.modelType == state.ModelTypeCAAS {
 		// We need to disallow updates that k8s does not yet support,
 		// eg changing the filesystem or device directives, or deployment info.
@@ -1203,7 +1239,7 @@ func (api *APIBase) setCharmWithAgentValidation(
 		if unsupportedReason != "" {
 			return errors.NotSupportedf(unsupportedReason)
 		}
-		return api.applicationSetCharm(params, newCharm)
+		return api.applicationSetCharm(params, newCharm, stateCharmOrigin(newOrigin))
 	}
 
 	// Check if the controller agent tools version is greater than the
@@ -1230,13 +1266,14 @@ func (api *APIBase) setCharmWithAgentValidation(
 		}
 	}
 
-	return api.applicationSetCharm(params, newCharm)
+	return api.applicationSetCharm(params, newCharm, stateCharmOrigin(newOrigin))
 }
 
 // applicationSetCharm sets the charm for the given for the application.
 func (api *APIBase) applicationSetCharm(
 	params setCharmParams,
 	stateCharm Charm,
+	stateOrigin *state.CharmOrigin,
 ) error {
 	var err error
 	var settings charm.Settings
@@ -1265,6 +1302,7 @@ func (api *APIBase) applicationSetCharm(
 	force := params.Force
 	cfg := state.SetCharmConfig{
 		Charm:              api.stateCharm(stateCharm),
+		CharmOrigin:        stateOrigin,
 		Channel:            params.Channel,
 		ConfigSettings:     settings,
 		ForceSeries:        force.ForceSeries,
