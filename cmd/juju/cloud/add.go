@@ -102,7 +102,6 @@ clouds:                           # mandatory
  - cloudsigma
  - ec2
  - gce
- - joyent
  - oci
 
 When a running controller is updated, the credential for the cloud
