@@ -11,5 +11,5 @@ type InfoResponse struct {
 	Entity         Entity       `json:"charm"`
 	ChannelMap     []ChannelMap `json:"channel-map"`
 	DefaultRelease ChannelMap   `json:"default-release,omitempty"`
-	ErrorList      []APIError   `json:"error-list"`
+	ErrorList      APIErrors    `json:"error-list"`
 }

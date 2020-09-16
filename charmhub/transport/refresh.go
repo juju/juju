@@ -40,7 +40,7 @@ type RefreshRequestAction struct {
 
 type RefreshResponses struct {
 	Results   []RefreshResponse `json:"results"`
-	ErrorList []APIError        `json:"error-list"`
+	ErrorList APIErrors         `json:"error-list"`
 }
 
 type RefreshResponse struct {
