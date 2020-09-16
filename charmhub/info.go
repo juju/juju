@@ -5,6 +5,7 @@ package charmhub
 
 import (
 	"context"
+	"strings"
 
 	"github.com/juju/errors"
 
@@ -38,5 +39,16 @@ func (c *InfoClient) Info(ctx context.Context, name string) (transport.InfoRespo
 	if err := c.client.Get(ctx, path, &resp); err != nil {
 		return resp, errors.Trace(err)
 	}
+
+	if len(resp.ErrorList) > 0 {
+		var combined []string
+		for _, err := range resp.ErrorList {
+			if err.Message != "" {
+				combined = append(combined, err.Message)
+			}
+		}
+		return resp, errors.Errorf(strings.Join(combined, "\n"))
+	}
+
 	return resp, nil
 }
