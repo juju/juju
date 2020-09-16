@@ -167,14 +167,12 @@ class JujuData:
             self.lxd = (self._config.get('container') == 'lxd' or provider == 'lxd')
             self.kvm = (bool(self._config.get('container') == 'kvm'))
             self.maas = bool(provider == 'maas')
-            self.joyent = bool(provider == 'joyent')
             self.logging_config = self._config.get('logging-config')
             self.provider_type = provider
         else:
             self.lxd = False
             self.kvm = False
             self.maas = False
-            self.joyent = False
             self.logging_config = None
             self.provider_type = None
         self.credentials = {}
@@ -205,7 +203,6 @@ class JujuData:
         result.lxd = self.lxd
         result.kvm = self.kvm
         result.maas = self.maas
-        result.joyent = self.joyent
         result.user_name = self.user_name
         result.credentials = deepcopy(self.credentials)
         result.clouds = deepcopy(self.clouds)
@@ -390,8 +387,7 @@ class JujuData:
     def set_region(self, region):
         """Assign the region to a 1.x-style config.
 
-        This requires translating Azure's and Joyent's conventions for
-        specifying region.
+        This requires translating Azure's conventions for specifying region.
 
         It means that endpoint, rather than region, should be updated if the
         cloud (not the provider) is named "lxd" or "manual".
@@ -406,9 +402,6 @@ class JujuData:
             cloud_is_provider = False
         if provider == 'azure':
             self._config['location'] = region
-        elif provider == 'joyent':
-            self._config['sdc-url'] = (
-                'https://{}.api.joyentcloud.com'.format(region))
         elif cloud_is_provider:
             self._set_config_endpoint(region)
         elif provider == 'maas':
@@ -487,8 +480,7 @@ class JujuData:
     def get_region(self):
         """Determine the region from a 1.x-style config.
 
-        This requires translating Azure's and Joyent's conventions for
-        specifying region.
+        This requires translating Azure's conventions for specifying region.
 
         It means that endpoint, rather than region, should be supplied if the
         cloud (not the provider) is named "lxd" or "manual".
@@ -501,9 +493,6 @@ class JujuData:
             if 'tenant-id' not in self._config:
                 return self._config['location'].replace(' ', '').lower()
             return self._config['location']
-        elif provider == 'joyent':
-            matcher = re.compile('https://(.*).api.joyentcloud.com')
-            return matcher.match(self._config['sdc-url']).group(1)
         elif provider == 'maas':
             return None
         # In 2.x, certain providers can be specified on the commandline in
@@ -577,7 +566,6 @@ def describe_substrate(env):
         return {
             'ec2': 'AWS',
             'rackspace': 'Rackspace',
-            'joyent': 'Joyent',
             'azure': 'Azure',
             'maas': 'MAAS',
         }[env.provider]
@@ -1500,10 +1488,7 @@ class ModelClient:
         return not os.environ.get("JUJU_CI_SPACELESSNESS")
 
     def _get_substrate_constraints(self):
-        if self.env.joyent:
-            # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
-            return 'cores=1'
-        elif self.env.maas and self._maas_spaces_enabled():
+        if self.env.maas and self._maas_spaces_enabled():
             # For now only maas support spaces in a meaningful way.
             return 'spaces={}'.format(','.join(
                 '^' + space for space in sorted(self.excluded_spaces)))

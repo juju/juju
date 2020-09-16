@@ -378,22 +378,6 @@ class TestModelClient(ClientTest):
                     '--agent-version', '2.0'),
                 include_e=False)
 
-    def test_bootstrap_joyent(self):
-        env = JujuData('joyent', {
-            'type': 'joyent', 'sdc-url': 'https://foo.api.joyentcloud.com'})
-        client = ModelClient(env, '2.0-zeta1', None)
-        with patch_juju_call(client) as mock:
-            with patch.object(client.env, 'joyent', lambda: True):
-                with observable_temp_file() as config_file:
-                    client.bootstrap()
-            mock.assert_called_once_with(
-                'bootstrap', (
-                    '--constraints', 'cores=1',
-                    'joyent/foo', 'joyent',
-                    '--config', config_file.name,
-                    '--default-model', 'joyent', '--agent-version', '2.0',
-                    ), include_e=False)
-
     def test_bootstrap(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
         with observable_temp_file() as config_file:
@@ -912,20 +896,6 @@ class TestModelClient(ClientTest):
                   jenkins/0:
                     {0}: {2}
         """.format(key, machine_value, unit_value)).encode('ascii')
-
-    def test_deploy_non_joyent(self):
-        env = ModelClient(
-            JujuData('foo', {'type': 'lxd'}), '1.234-76', None)
-        with patch_juju_call(env) as mock_juju:
-            env.deploy('mondogb')
-        mock_juju.assert_called_with('deploy', ('mondogb',))
-
-    def test_deploy_joyent(self):
-        env = ModelClient(
-            JujuData('foo', {'type': 'lxd'}), '1.234-76', None)
-        with patch_juju_call(env) as mock_juju:
-            env.deploy('mondogb')
-        mock_juju.assert_called_with('deploy', ('mondogb',))
 
     def test_deploy_repository(self):
         env = ModelClient(
@@ -3651,7 +3621,6 @@ class TestJujuData(TestCase):
         orig.local = 'local1'
         orig.kvm = 'kvm1'
         orig.maas = 'maas1'
-        orig.joyent = 'joyent1'
         orig.user_name = 'user1'
         orig.bootstrap_to = 'zonea'
 
@@ -3672,7 +3641,6 @@ class TestJujuData(TestCase):
         self.assertEqual('myhome', copy.juju_home)
         self.assertEqual('kvm1', copy.kvm)
         self.assertEqual('maas1', copy.maas)
-        self.assertEqual('joyent1', copy.joyent)
         self.assertEqual('user1', copy.user_name)
         self.assertEqual('zonea', copy.bootstrap_to)
         self.assertIs(orig.controller, copy.controller)
@@ -3828,13 +3796,6 @@ class TestJujuData(TestCase):
         env.set_region('baz')
         self.assertEqual(env.get_option('region'), 'baz')
 
-    def test_set_region_joyent(self):
-        env = JujuData('foo', {'type': 'joyent'}, 'home')
-        env.set_region('baz')
-        self.assertEqual(env.get_option('sdc-url'),
-                         'https://baz.api.joyentcloud.com')
-        self.assertEqual(env.get_region(), 'baz')
-
     def test_set_region_azure(self):
         env = JujuData('foo', {'type': 'azure'}, 'home')
         env.set_region('baz')
@@ -3878,11 +3839,6 @@ class TestJujuData(TestCase):
     def test_get_region_azure_arm(self):
         self.assertEqual('bar', JujuData('foo', {
             'type': 'azure', 'location': 'bar', 'tenant-id': 'baz'},
-            'home').get_region())
-
-    def test_get_region_joyent(self):
-        self.assertEqual('bar', JujuData('foo', {
-            'type': 'joyent', 'sdc-url': 'https://bar.api.joyentcloud.com'},
             'home').get_region())
 
     def test_get_region_lxd(self):
@@ -3988,12 +3944,6 @@ class TestDescribeSubstrate(TestCase):
             'type': 'rackspace',
             })
         self.assertEqual(describe_substrate(env), 'Rackspace')
-
-    def test_joyent(self):
-        env = JujuData('foo', {
-            'type': 'joyent',
-            })
-        self.assertEqual(describe_substrate(env), 'Joyent')
 
     def test_azure(self):
         env = JujuData('foo', {

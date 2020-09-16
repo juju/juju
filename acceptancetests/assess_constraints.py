@@ -34,7 +34,6 @@ INSTANCE_TYPES = {
     'azure': [],
     'ec2': ['t2.micro'],
     'gce': [],
-    'joyent': [],
     'openstack': [],
     }
 
@@ -195,7 +194,7 @@ def deploy_charm_constraint(client, constraints, charm_name, charm_series,
     # Valid charms require at least one hook.
     # Add a dummy install hook.
     install = '#!/bin/sh\necho install'
-    constraints_charm.add_hook_script('install', install)    
+    constraints_charm.add_hook_script('install', install)
     charm_root = constraints_charm.to_repo_dir(charm_dir)
     platform = 'ubuntu'
     charm = local_charm_path(charm=charm_name,
