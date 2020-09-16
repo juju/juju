@@ -166,7 +166,7 @@ func (s *localCharmRefresherSuite) TestRefresh(c *gc.C) {
 	charmAdder := NewMockCharmAdder(ctrl)
 	charmAdder.EXPECT().AddLocalCharm(curl, ch, false).Return(curl, nil)
 
-	charmRepo := NewMockCharmRepo(ctrl)
+	charmRepo := NewMockCharmRepository(ctrl)
 	charmRepo.EXPECT().NewCharmAtPathForceSeries(ref, "", false).Return(ch, curl, nil)
 
 	cfg := RefresherConfig{
@@ -193,7 +193,7 @@ func (s *localCharmRefresherSuite) TestRefreshBecomesExhausted(c *gc.C) {
 	curl := charm.MustParseURL(ref)
 
 	charmAdder := NewMockCharmAdder(ctrl)
-	charmRepo := NewMockCharmRepo(ctrl)
+	charmRepo := NewMockCharmRepository(ctrl)
 	charmRepo.EXPECT().NewCharmAtPathForceSeries(ref, "", false).Return(nil, nil, os.ErrNotExist)
 
 	cfg := RefresherConfig{
@@ -217,7 +217,7 @@ func (s *localCharmRefresherSuite) TestRefreshDoesNotFindLocal(c *gc.C) {
 	curl := charm.MustParseURL(ref)
 
 	charmAdder := NewMockCharmAdder(ctrl)
-	charmRepo := NewMockCharmRepo(ctrl)
+	charmRepo := NewMockCharmRepository(ctrl)
 	charmRepo.EXPECT().NewCharmAtPathForceSeries(ref, "", false).Return(nil, nil, &charmrepo.NotFoundError{})
 
 	cfg := RefresherConfig{

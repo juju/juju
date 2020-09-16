@@ -11,23 +11,22 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 )
 
-// RefresherFactory contains a method to get a deployer.
+// RefresherFactory contains a method to get a refresher.
 type RefresherFactory interface {
 	Run(RefresherConfig) (*CharmID, error)
 }
 
-// Refresher defines the functionality of a deployer returned by the
+// Refresher defines the functionality of a refresher returned by the
 // factory.
 type Refresher interface {
-	// Check will attempt to check if a refresher is allowed to run a given
+	// Allowed will attempt to check if a refresher is allowed to run a given
 	// config.
 	Allowed(RefresherConfig) (bool, error)
-	// Refresh finishes preparing to deploy a charm or bundle,
-	// then deploys it.  This is done as one step to accommodate the
-	// call being wrapped by block.ProcessBlockedError.
+	// Refresh a given charm. Bundles are not supported as there is no physical
+	// representation in Juju.
 	Refresh() (*CharmID, error)
 
-	// String returns a string description of the deployer.
+	// String returns a string description of the refresher.
 	String() string
 }
 
@@ -44,8 +43,8 @@ type CharmResolver interface {
 	ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin) (*charm.URL, commoncharm.Origin, []string, error)
 }
 
-// CharmRepo defines methods for interaction with a charm repo.
-type CharmRepo interface {
+// CharmRepository defines methods for interaction with a charm repo.
+type CharmRepository interface {
 	// NewCharmAtPathForSeries returns the charm represented by this path,
 	// and a URL that describes it. If the series is empty,
 	// the charm's default series is used, if any.

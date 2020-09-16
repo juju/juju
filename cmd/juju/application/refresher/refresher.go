@@ -62,8 +62,7 @@ func NewRefresherFactory(deps RefresherDependencies) RefresherFactory {
 	return d
 }
 
-// GetRefresher returns the correct deployer to use based on the cfg provided.
-// A ModelConfigGetter and CharmStoreAdaptor needed to find the deployer.
+// GetRefresher returns the correct refresher to use based on the cfg provided.
 func (d *factory) Run(cfg RefresherConfig) (*CharmID, error) {
 	for _, fn := range d.refreshers {
 		// Failure to correctly setup a refresher will call all of the
@@ -94,7 +93,7 @@ func (d *factory) Run(cfg RefresherConfig) (*CharmID, error) {
 	return nil, errors.Errorf("unable to refresh %q", cfg.CharmRef)
 }
 
-func (d *factory) maybeReadLocal(charmAdder store.CharmAdder, charmRepo CharmRepo) func(RefresherConfig) (Refresher, error) {
+func (d *factory) maybeReadLocal(charmAdder store.CharmAdder, charmRepo CharmRepository) func(RefresherConfig) (Refresher, error) {
 	return func(cfg RefresherConfig) (Refresher, error) {
 		return &localCharmRefresher{
 			charmAdder:     charmAdder,
@@ -126,7 +125,7 @@ func (d *factory) maybeCharmStore(authorizer store.MacaroonGetter, charmAdder st
 
 type localCharmRefresher struct {
 	charmAdder     store.CharmAdder
-	charmRepo      CharmRepo
+	charmRepo      CharmRepository
 	charmURL       *charm.URL
 	charmRef       string
 	deployedSeries string
