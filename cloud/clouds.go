@@ -404,7 +404,6 @@ var defaultCloudDescription = map[string]string{
 	"azure":       "Microsoft Azure",
 	"azure-china": "Microsoft Azure China",
 	"rackspace":   "Rackspace Cloud",
-	"joyent":      "Joyent Cloud",
 	"cloudsigma":  "CloudSigma Cloud",
 	"lxd":         "LXD Container Hypervisor",
 	"maas":        "Metal As A Service",
