@@ -6,7 +6,6 @@ package application
 import (
 	"fmt"
 	"net/url"
-	"os"
 
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
@@ -32,6 +31,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/application/refresher"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/block"
@@ -76,6 +76,7 @@ func newUpgradeCharmCommand() *upgradeCharmCommand {
 				charms.NewClient(apiRoot),
 			)
 		},
+		NewRefresherFactory: refresher.NewRefresherFactory,
 	}
 }
 
@@ -127,6 +128,7 @@ type upgradeCharmCommand struct {
 	NewResourceLister     func(base.APICallCloser) (utils.ResourceLister, error)
 	NewSpacesClient       func(base.APICallCloser) SpacesAPI
 	CharmStoreURLGetter   func(base.APICallCloser) (string, error)
+	NewRefresherFactory   func(refresher.RefresherDependencies) refresher.RefresherFactory
 
 	ApplicationName string
 	// Force should be ubiquitous and we should eventually deprecate both
@@ -365,58 +367,56 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		ctx.Infof("Looking up metadata for charm %v%s", newRef, channel)
 	}
 
-	// First, ensure the charm is added to the model.
-	conAPIRoot, err := c.NewControllerAPIRoot()
+	cfg := refresher.RefresherConfig{
+		ApplicationName: c.ApplicationName,
+		CharmURL:        oldURL,
+		CharmRef:        newRef,
+		Channel:         c.Channel,
+		DeployedSeries:  applicationInfo.Series,
+		Force:           c.Force,
+		ForceSeries:     c.ForceSeries,
+	}
+	factory, err := c.getRefresherFactory(apiRoot)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	csURL, err := c.CharmStoreURLGetter(conAPIRoot)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	bakeryClient, err := c.BakeryClient()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	csClient, charmStore := c.NewCharmStore(bakeryClient, csURL, csparams.Channel(c.Channel.Risk))
-
-	chID, csMac, err := c.addCharm(addCharmParams{
-		charmAdder:     c.NewCharmAdder(apiRoot),
-		charmResolver:  c.NewCharmResolver(apiRoot, charmStore),
-		authorizer:     csClient,
-		oldURL:         oldURL,
-		newCharmRef:    newRef,
-		deployedSeries: applicationInfo.Series,
-		force:          c.Force,
-	})
+	charmID, err := factory.Run(cfg)
 	if err != nil {
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 			return errors.Trace(termErr.UserErr())
 		}
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
-	ctx.Infof("Added charm %q to the model.", chID.URL)
+	// The current charm URL that's been found and selected.
+	curl := charmID.URL
+	ctx.Infof("Added charm %q to the model.", curl)
 
-	// Next, upgrade resources.
-	charmsClient := c.NewCharmClient(apiRoot)
-	resourceLister, err := c.NewResourceLister(apiRoot)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	meta, err := utils.GetMetaResources(chID.URL, charmsClient)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	ids, err := c.upgradeResources(apiRoot, resourceLister, chID, csMac, meta)
-	if err != nil {
-		return errors.Trace(err)
+	// If it's the charmhub, we don't upgrade any resources as they're currently
+	// not supported. For now we do our best to create a valid charm.ID, but
+	// will most likely fail.
+	chID := deduceCharmID(curl, charmID.Origin)
+	resourceIDs := make(map[string]string)
+	if !charm.CharmHub.Matches(curl.Schema) {
+		// Next, upgrade resources.
+		charmsClient := c.NewCharmClient(apiRoot)
+		resourceLister, err := c.NewResourceLister(apiRoot)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		meta, err := utils.GetMetaResources(curl, charmsClient)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if resourceIDs, err = c.upgradeResources(apiRoot, resourceLister, chID, charmID.Macaroon, meta); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	var bindingsChangelog []string
 	if apiRoot.BestFacadeVersion("Application") >= 11 {
 		// Fetch information about the charm we want to upgrade to and
 		// print out the updated endpoint binding plan.
-		charmInfo, err := c.NewCharmClient(apiRoot).CharmInfo(chID.URL.String())
+		charmInfo, err := c.NewCharmClient(apiRoot).CharmInfo(curl.String())
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -438,19 +438,19 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 			return errors.Trace(err)
 		}
 	}
-	cfg := application.SetCharmConfig{
+	charmCfg := application.SetCharmConfig{
 		ApplicationName:    c.ApplicationName,
 		CharmID:            chID,
 		ConfigSettingsYAML: string(configYAML),
 		Force:              c.Force,
 		ForceSeries:        c.ForceSeries,
 		ForceUnits:         c.ForceUnits,
-		ResourceIDs:        ids,
+		ResourceIDs:        resourceIDs,
 		StorageConstraints: c.Storage,
 		EndpointBindings:   c.Bindings,
 	}
 
-	if err := block.ProcessBlockedError(charmUpgradeClient.SetCharm(generation, cfg), block.BlockChange); err != nil {
+	if err := block.ProcessBlockedError(charmUpgradeClient.SetCharm(generation, charmCfg), block.BlockChange); err != nil {
 		return err
 	}
 
@@ -612,89 +612,6 @@ var getCharmStoreAPIURL = func(conAPIRoot base.APICallCloser) (string, error) {
 	return controllerCfg.CharmStoreURL(), nil
 }
 
-type addCharmParams struct {
-	charmAdder     store.CharmAdder
-	authorizer     store.MacaroonGetter
-	charmResolver  CharmResolver
-	oldURL         *charm.URL
-	newCharmRef    string
-	deployedSeries string
-	force          bool
-}
-
-// addCharm interprets the new charmRef and adds the specified charm if
-// the new charm is different to what's already deployed as specified by
-// oldURL.
-func (c *upgradeCharmCommand) addCharm(params addCharmParams) (charmstore.CharmID, *macaroon.Macaroon, error) {
-	var id charmstore.CharmID
-	// Charm may have been supplied via a path reference. If so, build a
-	// local charm URL from the deployed series.
-	ch, newURL, err := charmrepo.NewCharmAtPathForceSeries(params.newCharmRef, params.deployedSeries, c.ForceSeries)
-	if err == nil {
-		newName := ch.Meta().Name
-		if newName != params.oldURL.Name {
-			return id, nil, errors.Errorf("cannot upgrade %q to %q", params.oldURL.Name, newName)
-		}
-		addedURL, err := params.charmAdder.AddLocalCharm(newURL, ch, params.force)
-		id.URL = addedURL
-		return id, nil, err
-	}
-	if _, ok := err.(*charmrepo.NotFoundError); ok {
-		return id, nil, errors.Errorf("no charm found at %q", params.newCharmRef)
-	}
-	// If we get a "not exists" or invalid path error then we attempt to interpret
-	// the supplied charm reference as a URL below, otherwise we return the error.
-	if err != os.ErrNotExist && !charmrepo.IsInvalidPathError(err) {
-		return id, nil, err
-	}
-
-	refURL, err := charm.ParseURL(params.newCharmRef)
-	if err != nil {
-		return id, nil, errors.Trace(err)
-	}
-
-	origin, err := utils.DeduceOrigin(refURL, c.Channel)
-	if err != nil {
-		return id, nil, errors.Trace(err)
-	}
-
-	// Charm has been supplied as a URL so we resolve and deploy using the store.
-	newURL, origin, supportedSeries, err := params.charmResolver.ResolveCharm(refURL, origin)
-	if err != nil {
-		return id, nil, errors.Trace(err)
-	}
-	id.Channel = csparams.Channel(origin.Risk)
-	_, seriesSupportedErr := charm.SeriesForCharm(params.deployedSeries, supportedSeries)
-	if !c.ForceSeries && params.deployedSeries != "" && newURL.Series == "" && seriesSupportedErr != nil {
-		series := []string{"no series"}
-		if len(supportedSeries) > 0 {
-			series = supportedSeries
-		}
-		return id, nil, errors.Errorf(
-			"cannot upgrade from single series %q charm to a charm supporting %q. Use --force-series to override.",
-			params.deployedSeries, series,
-		)
-	}
-	// If no explicit revision was set with either SwitchURL
-	// or Revision flags, discover the latest.
-	if *newURL == *params.oldURL {
-		if refURL.Revision != -1 {
-			return id, nil, errors.Errorf("already running specified charm %q", newURL)
-		}
-		// No point in trying to upgrade a charm store charm when
-		// we just determined that's the latest revision
-		// available.
-		return id, nil, errors.Errorf("already running latest charm %q", newURL)
-	}
-
-	curl, csMac, _, err := store.AddCharmFromURL(params.charmAdder, params.authorizer, newURL, origin, params.force)
-	if err != nil {
-		return id, nil, errors.Trace(err)
-	}
-	id.URL = curl
-	return id, csMac, nil
-}
-
 func allEndpoints(ci *charms.CharmInfo) set.Strings {
 	epSet := set.NewStrings()
 	for n := range ci.Meta.ExtraBindings {
@@ -711,4 +628,39 @@ func allEndpoints(ci *charms.CharmInfo) set.Strings {
 	}
 
 	return epSet
+}
+
+func (c *upgradeCharmCommand) getRefresherFactory(apiRoot api.Connection) (refresher.RefresherFactory, error) {
+	// First, ensure the charm is added to the model.
+	conAPIRoot, err := c.NewControllerAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	csURL, err := c.CharmStoreURLGetter(conAPIRoot)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	bakeryClient, err := c.BakeryClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	csClient, charmStore := c.NewCharmStore(bakeryClient, csURL, csparams.Channel(c.Channel.Risk))
+
+	deps := refresher.RefresherDependencies{
+		Authorizer:    csClient,
+		CharmAdder:    c.NewCharmAdder(apiRoot),
+		CharmResolver: c.NewCharmResolver(apiRoot, charmStore),
+	}
+	return c.NewRefresherFactory(deps), nil
+}
+
+func deduceCharmID(curl *charm.URL, origin corecharm.Origin) charmstore.CharmID {
+	var channel csparams.Channel
+	if origin.Channel != nil {
+		channel = csparams.Channel(origin.Channel.Risk)
+	}
+	return charmstore.CharmID{
+		URL:     curl,
+		Channel: channel,
+	}
 }

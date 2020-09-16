@@ -853,7 +853,7 @@ func (s *UpgradeCharmSuccessStateSuite) TestCharmPathDifferentNameFails(c *gc.C)
 		c.Fatal("cannot write to metadata.yaml")
 	}
 	_, err = s.runUpgradeCharm(c, s.cmd, "riak", "--path", myriakPath)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade "riak" to "myriak"`)
+	c.Assert(err, gc.ErrorMatches, `cannot refresh "riak" to "myriak"`)
 }
 
 type mockAPIConnection struct {

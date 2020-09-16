@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/cmd/juju/application/refresher"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -44,6 +45,7 @@ func NewUpgradeCharmCommandForTest(
 		NewSpacesClient:       newSpacesClient,
 		NewCharmStore:         newCharmStore,
 		NewCharmResolver:      newCharmResolver,
+		NewRefresherFactory:   refresher.NewRefresherFactory,
 	}
 	cmd.SetClientStore(store)
 	cmd.SetAPIOpen(apiOpen)
