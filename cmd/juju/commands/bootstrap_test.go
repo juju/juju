@@ -1930,7 +1930,6 @@ azure
 azure-china                                   
 cloudsigma                                    
 google                                        
-joyent                                        
 oracle                                        
 rackspace                                     \n?(localhost\s+)?(microk8s\s+)?
 dummy-cloud                      joe          home
@@ -1993,7 +1992,6 @@ azure
 azure-china                                   
 cloudsigma                                    
 google                                        
-joyent                                        
 oracle                                        
 rackspace                                     \n?(localhost\s+)?(microk8s\s+)?
 dummy-cloud-dummy-region-config               
