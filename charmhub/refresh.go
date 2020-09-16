@@ -5,7 +5,6 @@ package charmhub
 
 import (
 	"context"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
@@ -68,14 +67,8 @@ func (c *RefreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]tr
 		return nil, errors.Trace(err)
 	}
 
-	if len(resp.ErrorList) > 0 {
-		var combined []string
-		for _, err := range resp.ErrorList {
-			if err.Message != "" {
-				combined = append(combined, err.Message)
-			}
-		}
-		return nil, errors.Errorf(strings.Join(combined, "\n"))
+	if err := resp.ErrorList.Combine(); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	return resp.Results, config.Ensure(resp.Results)

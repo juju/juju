@@ -5,7 +5,6 @@ package charmhub
 
 import (
 	"context"
-	"strings"
 
 	"github.com/juju/errors"
 
@@ -40,15 +39,5 @@ func (c *FindClient) Find(ctx context.Context, query string) ([]transport.FindRe
 		return nil, errors.Trace(err)
 	}
 
-	if len(resp.ErrorList) > 0 {
-		var combined []string
-		for _, err := range resp.ErrorList {
-			if err.Message != "" {
-				combined = append(combined, err.Message)
-			}
-		}
-		return nil, errors.Errorf(strings.Join(combined, "\n"))
-	}
-
-	return resp.Results, nil
+	return resp.Results, resp.ErrorList.Combine()
 }
