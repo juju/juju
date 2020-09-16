@@ -6,13 +6,14 @@ package caasfirewallerembedded_test
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
-	// "github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasfirewallerembedded"
 	"github.com/juju/juju/worker/caasfirewallerembedded/mocks"
@@ -31,7 +32,7 @@ type workerSuite struct {
 
 	applicationChanges chan []string
 
-	appsWatcher *mocks.MockStringsWatcher
+	appsWatcher watcher.StringsWatcher
 }
 
 var _ = gc.Suite(&workerSuite{})
@@ -57,8 +58,7 @@ func (s *workerSuite) TearDownTest(c *gc.C) {
 func (s *workerSuite) initConfig(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.appsWatcher = mocks.NewMockStringsWatcher(ctrl)
-	s.appsWatcher.EXPECT().Changes().AnyTimes().Return(s.applicationChanges)
+	s.appsWatcher = watchertest.NewMockStringsWatcher(s.applicationChanges)
 	s.firewallerAPI = mocks.NewMockCAASFirewallerAPI(ctrl)
 	s.firewallerAPI.EXPECT().WatchApplications().AnyTimes().Return(s.appsWatcher, nil)
 
@@ -141,9 +141,6 @@ func (s *workerSuite) TestStartStop(c *gc.C) {
 		}
 		return nil, errors.New("never happen")
 	}
-
-	// Added app watcher to catacomb.
-	s.appsWatcher.EXPECT().Wait().Return(nil)
 
 	s.lifeGetter.EXPECT().Life("app1").Return(life.Alive, nil)
 	// Added app1's worker to catacomb.
