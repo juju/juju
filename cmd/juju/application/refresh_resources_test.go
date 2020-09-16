@@ -83,7 +83,7 @@ resources:
 	err = ioutil.WriteFile(resourceFile, data, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = cmdtesting.RunCommand(c, NewUpgradeCharmCommand(),
+	_, err = cmdtesting.RunCommand(c, NewRefreshCommand(),
 		"riak", "--path="+myriakPath.Path, "--resource", "data="+resourceFile)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -244,7 +244,7 @@ Deploying charm "cs:bionic/starsay-1".`
 		},
 	}
 	charmAdder := &mockCharmAdder{}
-	upgrade := NewUpgradeCharmCommandForStateTest(
+	upgrade := NewRefreshCommandForStateTest(
 		func(
 			bakeryClient *httpbakery.Client,
 			csURL string,
@@ -268,8 +268,8 @@ Deploying charm "cs:bionic/starsay-1".`
 		) (ids map[string]string, err error) {
 			return deployResources(s.State, applicationID, resources)
 		},
-		func(conn base.APICallCloser) CharmUpgradeClient {
-			return &mockCharmUpgradeClient{
+		func(conn base.APICallCloser) CharmRefreshClient {
+			return &mockCharmRefreshClient{
 				charmURL: charm.MustParseURL("bionic/starsay-1"),
 			}
 		},

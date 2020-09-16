@@ -63,7 +63,7 @@ type BaseUpgradeCharmSuite struct {
 	apiConnection     mockAPIConnection
 	charmAdder        mockCharmAdder
 	charmClient       mockCharmClient
-	charmAPIClient    mockCharmUpgradeClient
+	charmAPIClient    mockCharmRefreshClient
 	modelConfigGetter mockModelConfigGetter
 	resourceLister    mockResourceLister
 	spacesClient      mockSpacesClient
@@ -133,7 +133,7 @@ func (s *BaseUpgradeCharmSuite) SetUpTest(c *gc.C) {
 			Meta: &charm.Meta{},
 		},
 	}
-	s.charmAPIClient = mockCharmUpgradeClient{
+	s.charmAPIClient = mockCharmRefreshClient{
 		charmURL: currentCharmURL,
 		bindings: map[string]string{
 			"": network.AlphaSpaceName,
@@ -169,7 +169,7 @@ func (s *BaseUpgradeCharmSuite) upgradeCommand() cmd.Command {
 		return &s.apiConnection, nil
 	}
 
-	cmd := NewUpgradeCharmCommandForTest(
+	cmd := NewRefreshCommandForTest(
 		memStore,
 		apiOpen,
 		s.deployResources,
@@ -195,7 +195,7 @@ func (s *BaseUpgradeCharmSuite) upgradeCommand() cmd.Command {
 			s.PopNoErr()
 			return &s.charmClient
 		},
-		func(conn base.APICallCloser) CharmUpgradeClient {
+		func(conn base.APICallCloser) CharmRefreshClient {
 			s.AddCall("NewCharmAPIClient", conn)
 			s.PopNoErr()
 			return &s.charmAPIClient
@@ -250,7 +250,7 @@ func (s *UpgradeCharmSuite) TestStorageConstraintsMinFacadeVersion(c *gc.C) {
 	s.apiConnection.bestFacadeVersion = 1
 	_, err := s.runUpgradeCharm(c, "foo", "--storage", "bar=baz")
 	c.Assert(err, gc.ErrorMatches,
-		"updating storage constraints at upgrade-charm time is not supported by server version 1.2.3")
+		"updating storage constraints at refresh time is not supported by server version 1.2.3")
 }
 
 func (s *UpgradeCharmSuite) TestStorageConstraintsMinFacadeVersionNoServerVersion(c *gc.C) {
@@ -258,7 +258,7 @@ func (s *UpgradeCharmSuite) TestStorageConstraintsMinFacadeVersionNoServerVersio
 	s.apiConnection.serverVersion = nil
 	_, err := s.runUpgradeCharm(c, "foo", "--storage", "bar=baz")
 	c.Assert(err, gc.ErrorMatches,
-		"updating storage constraints at upgrade-charm time is not supported by this server")
+		"updating storage constraints at refresh time is not supported by this server")
 }
 
 func (s *UpgradeCharmSuite) TestConfigSettings(c *gc.C) {
@@ -290,7 +290,7 @@ func (s *UpgradeCharmSuite) TestConfigSettingsMinFacadeVersion(c *gc.C) {
 	s.apiConnection.bestFacadeVersion = 1
 	_, err = s.runUpgradeCharm(c, "foo", "--config", configFile)
 	c.Assert(err, gc.ErrorMatches,
-		"updating config at upgrade-charm time is not supported by server version 1.2.3")
+		"updating config at refresh time is not supported by server version 1.2.3")
 }
 
 func (s *UpgradeCharmSuite) TestUpgradeWithBindDefaults(c *gc.C) {
@@ -370,7 +370,7 @@ func (s *UpgradeCharmErrorsStateSuite) SetUpTest(c *gc.C) {
 		"type": "foo",
 	}
 	s.fakeAPI = vanillaFakeModelAPI(cfgAttrs)
-	s.cmd = NewUpgradeCharmCommandForStateTest(
+	s.cmd = NewRefreshCommandForStateTest(
 		func(
 			bakeryClient *httpbakery.Client,
 			csURL string,
@@ -487,7 +487,7 @@ func (s *UpgradeCharmSuccessStateSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 
 	s.charmClient = mockCharmClient{}
-	s.cmd = NewUpgradeCharmCommandForStateTest(
+	s.cmd = NewRefreshCommandForStateTest(
 		func(
 			bakeryClient *httpbakery.Client,
 			csURL string,
@@ -784,7 +784,7 @@ func (s *UpgradeCharmSuccessStateSuite) TestInitWithResources(c *gc.C) {
 	res1 := fmt.Sprintf("foo=%s", foopath)
 	res2 := fmt.Sprintf("bar=%s", barpath)
 
-	d := upgradeCharmCommand{}
+	d := refreshCommand{}
 	args := []string{"dummy", "--resource", res1, "--resource", res2}
 
 	err = cmdtesting.InitCommand(modelcmd.Wrap(&d), args)
@@ -940,25 +940,25 @@ func (m *mockCharmResolver) ResolveCharm(url *charm.URL, preferredOrigin commonc
 	return m.resolveFunc(url, preferredOrigin)
 }
 
-type mockCharmUpgradeClient struct {
-	CharmUpgradeClient
+type mockCharmRefreshClient struct {
+	CharmRefreshClient
 	testing.Stub
 	charmURL *charm.URL
 
 	bindings map[string]string
 }
 
-func (m *mockCharmUpgradeClient) GetCharmURL(branchName, appName string) (*charm.URL, error) {
+func (m *mockCharmRefreshClient) GetCharmURL(branchName, appName string) (*charm.URL, error) {
 	m.MethodCall(m, "GetCharmURL", branchName, appName)
 	return m.charmURL, m.NextErr()
 }
 
-func (m *mockCharmUpgradeClient) SetCharm(branchName string, cfg application.SetCharmConfig) error {
+func (m *mockCharmRefreshClient) SetCharm(branchName string, cfg application.SetCharmConfig) error {
 	m.MethodCall(m, "SetCharm", branchName, cfg)
 	return m.NextErr()
 }
 
-func (m *mockCharmUpgradeClient) Get(branchName, applicationName string) (*params.ApplicationGetResults, error) {
+func (m *mockCharmRefreshClient) Get(branchName, applicationName string) (*params.ApplicationGetResults, error) {
 	m.MethodCall(m, "Get", applicationName)
 	return &params.ApplicationGetResults{
 		EndpointBindings: m.bindings,
