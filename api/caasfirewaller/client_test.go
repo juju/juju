@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
-type firewallerSuite struct {
+type firewallerBaseSuite struct {
 	testing.IsolationSuite
 
 	newFunc func(caller base.APICaller) clientCommmon
@@ -36,11 +36,11 @@ type clientCommmon interface {
 }
 
 type firewallerLegacySuite struct {
-	firewallerSuite
+	firewallerBaseSuite
 }
 
 var _ = gc.Suite(&firewallerLegacySuite{
-	firewallerSuite{
+	firewallerBaseSuite{
 		objType: "CAASFirewaller",
 		newFunc: func(caller base.APICaller) clientCommmon {
 			return caasfirewaller.NewClientLegacy(caller)
@@ -49,11 +49,11 @@ var _ = gc.Suite(&firewallerLegacySuite{
 })
 
 type firewallerEmbeddedSuite struct {
-	firewallerSuite
+	firewallerBaseSuite
 }
 
 var _ = gc.Suite(&firewallerEmbeddedSuite{
-	firewallerSuite{
+	firewallerBaseSuite{
 		objType: "CAASFirewallerEmbedded",
 		newFunc: func(caller base.APICaller) clientCommmon {
 			return caasfirewaller.NewClientEmbedded(caller)
@@ -115,7 +115,7 @@ func (s *firewallerEmbeddedSuite) TestApplicationCharmURL(c *gc.C) {
 	})
 }
 
-func (s *firewallerSuite) TestIsExposed(c *gc.C) {
+func (s *firewallerBaseSuite) TestIsExposed(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, s.objType)
 		c.Check(version, gc.Equals, 0)
@@ -141,7 +141,7 @@ func (s *firewallerSuite) TestIsExposed(c *gc.C) {
 	c.Assert(exposed, jc.IsTrue)
 }
 
-func (s *firewallerSuite) TestIsExposedError(c *gc.C) {
+func (s *firewallerBaseSuite) TestIsExposedError(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		*(result.(*params.BoolResults)) = params.BoolResults{
 			Results: []params.BoolResult{{Error: &params.Error{
@@ -158,7 +158,7 @@ func (s *firewallerSuite) TestIsExposedError(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *firewallerSuite) TestIsExposedInvalidEntityame(c *gc.C) {
+func (s *firewallerBaseSuite) TestIsExposedInvalidEntityame(c *gc.C) {
 	client := s.newFunc(basetesting.APICallerFunc(func(_ string, _ int, _, _ string, _, _ interface{}) error {
 		return errors.New("should not be called")
 	}))
@@ -166,7 +166,7 @@ func (s *firewallerSuite) TestIsExposedInvalidEntityame(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `application name "" not valid`)
 }
 
-func (s *firewallerSuite) TestLife(c *gc.C) {
+func (s *firewallerBaseSuite) TestLife(c *gc.C) {
 	tag := names.NewApplicationTag("gitlab")
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, s.objType)
@@ -193,7 +193,7 @@ func (s *firewallerSuite) TestLife(c *gc.C) {
 	c.Assert(lifeValue, gc.Equals, life.Alive)
 }
 
-func (s *firewallerSuite) TestLifeError(c *gc.C) {
+func (s *firewallerBaseSuite) TestLifeError(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		*(result.(*params.LifeResults)) = params.LifeResults{
 			Results: []params.LifeResult{{Error: &params.Error{
@@ -210,7 +210,7 @@ func (s *firewallerSuite) TestLifeError(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *firewallerSuite) TestLifeInvalidEntityame(c *gc.C) {
+func (s *firewallerBaseSuite) TestLifeInvalidEntityame(c *gc.C) {
 	client := s.newFunc(basetesting.APICallerFunc(func(_ string, _ int, _, _ string, _, _ interface{}) error {
 		return errors.New("should not be called")
 	}))
@@ -218,7 +218,7 @@ func (s *firewallerSuite) TestLifeInvalidEntityame(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `application name "" not valid`)
 }
 
-func (s *firewallerSuite) TestWatchApplications(c *gc.C) {
+func (s *firewallerBaseSuite) TestWatchApplications(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, s.objType)
 		c.Check(version, gc.Equals, 0)
@@ -237,7 +237,7 @@ func (s *firewallerSuite) TestWatchApplications(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
-func (s *firewallerSuite) TestWatchApplication(c *gc.C) {
+func (s *firewallerBaseSuite) TestWatchApplication(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, s.objType)
 		c.Check(version, gc.Equals, 0)
@@ -263,7 +263,7 @@ func (s *firewallerSuite) TestWatchApplication(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
-func (s *firewallerSuite) TestApplicationConfig(c *gc.C) {
+func (s *firewallerBaseSuite) TestApplicationConfig(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, s.objType)
 		c.Check(version, gc.Equals, 0)
