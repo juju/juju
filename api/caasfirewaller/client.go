@@ -43,20 +43,22 @@ func NewClientEmbedded(caller base.APICaller) *ClientEmbedded {
 	facadeCaller := base.NewFacadeCaller(caller, "CAASFirewallerEmbedded")
 	charmsClient := charmscommon.NewCharmsClient(facadeCaller)
 	return &ClientEmbedded{
-		Client:       NewClientLegacy(caller),
+		Client: &Client{
+			facade: facadeCaller,
+		},
 		CharmsClient: charmsClient,
 	}
 }
 
-// ModelTag returns the current model's tag.
-func (c *ClientEmbedded) ModelTag() (names.ModelTag, bool) {
+// modelTag returns the current model's tag.
+func (c *ClientEmbedded) modelTag() (names.ModelTag, bool) {
 	return c.facade.RawAPICaller().ModelTag()
 }
 
 // WatchOpenedPorts returns a StringsWatcher that notifies of
 // changes to the opened ports for the current model.
 func (c *ClientEmbedded) WatchOpenedPorts() (watcher.StringsWatcher, error) {
-	modelTag, ok := c.ModelTag()
+	modelTag, ok := c.modelTag()
 	if !ok {
 		return nil, errors.New("API connection is controller-only (should never happen)")
 	}
