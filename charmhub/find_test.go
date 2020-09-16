@@ -36,7 +36,7 @@ func (s *FindSuite) TestFind(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectGet(c, restClient, path, name)
 
-	client := NewFindClient(path, restClient)
+	client := NewFindClient(path, restClient, &fakeLogger{})
 	responses, err := client.Find(context.TODO(), name)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(responses), gc.Equals, 1)
@@ -55,7 +55,7 @@ func (s *FindSuite) TestFindFailure(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectGetFailure(c, restClient)
 
-	client := NewFindClient(path, restClient)
+	client := NewFindClient(path, restClient, &fakeLogger{})
 	_, err := client.Find(context.TODO(), name)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
@@ -158,9 +158,9 @@ func (s *FindSuite) TestFindRequestPayload(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	apiRequester := NewAPIRequester(DefaultHTTPTransport())
-	restClient := NewHTTPRESTClient(apiRequester, nil)
+	restClient := NewHTTPRESTClient(apiRequester, nil, &fakeLogger{})
 
-	client := NewFindClient(findPath, restClient)
+	client := NewFindClient(findPath, restClient, &fakeLogger{})
 	responses, err := client.Find(context.TODO(), "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(responses, gc.DeepEquals, findResponses.Results)
@@ -195,9 +195,9 @@ func (s *FindSuite) TestFindErrorPayload(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	apiRequester := NewAPIRequester(DefaultHTTPTransport())
-	restClient := NewHTTPRESTClient(apiRequester, nil)
+	restClient := NewHTTPRESTClient(apiRequester, nil, &fakeLogger{})
 
-	client := NewFindClient(findPath, restClient)
+	client := NewFindClient(findPath, restClient, &fakeLogger{})
 	_, err = client.Find(context.TODO(), "wordpress")
 	c.Assert(err, gc.ErrorMatches, "not found error code")
 }

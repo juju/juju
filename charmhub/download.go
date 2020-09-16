@@ -39,13 +39,15 @@ func (fileSystem) Create(name string) (*os.File, error) {
 type DownloadClient struct {
 	transport  Transport
 	fileSystem FileSystem
+	logger     Logger
 }
 
 // NewDownloadClient creates a DownloadClient for requesting
-func NewDownloadClient(transport Transport, fileSystem FileSystem) *DownloadClient {
+func NewDownloadClient(transport Transport, fileSystem FileSystem, logger Logger) *DownloadClient {
 	return &DownloadClient{
 		transport:  transport,
 		fileSystem: fileSystem,
+		logger:     logger,
 	}
 }
 

@@ -25,6 +25,7 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 
 	charmhubpath "github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
@@ -47,6 +48,13 @@ var (
 
 const defaultMinMultipartUploadSize = 5 * 1024 * 1024
 
+type Logger interface {
+	IsTraceEnabled() bool
+
+	Debugf(string, ...interface{})
+	Tracef(string, ...interface{})
+}
+
 // Config holds configuration for creating a new charm hub client.
 type Config struct {
 	// URL holds the base endpoint URL of the charmHub,
@@ -64,6 +72,8 @@ type Config struct {
 	// requests. These headers augment the headers required for sending requests
 	// and allow overriding existing headers.
 	Headers http.Header
+
+	Logger Logger
 }
 
 // CharmHubConfig defines a charmHub client configuration for targeting the
@@ -106,6 +116,7 @@ type Client struct {
 	findClient     *FindClient
 	downloadClient *DownloadClient
 	refreshClient  *RefreshClient
+	logger         Logger
 }
 
 // NewClient creates a new charmHub client from the supplied configuration.
@@ -130,20 +141,27 @@ func NewClient(config Config) (*Client, error) {
 		return nil, errors.Annotate(err, "constructing refresh path")
 	}
 
+	logger := config.Logger
+	if logger == nil {
+		logger = loggo.GetLogger("juju.charmhubclient")
+	}
+	logger.Tracef("NewClient to %q", config.URL)
+
 	httpClient := DefaultHTTPTransport()
 	apiRequester := NewAPIRequester(httpClient)
-	restClient := NewHTTPRESTClient(apiRequester, config.Headers)
+	restClient := NewHTTPRESTClient(apiRequester, config.Headers, logger)
 	fileSystem := DefaultFileSystem()
 
 	return &Client{
 		url:           base.String(),
-		infoClient:    NewInfoClient(infoPath, restClient),
-		findClient:    NewFindClient(findPath, restClient),
-		refreshClient: NewRefreshClient(refreshPath, restClient),
+		infoClient:    NewInfoClient(infoPath, restClient, logger),
+		findClient:    NewFindClient(findPath, restClient, logger),
+		refreshClient: NewRefreshClient(refreshPath, restClient, logger),
 		// download client doesn't require a path here, as the download could
 		// be from any server in theory. That information is found from the
 		// refresh response.
-		downloadClient: NewDownloadClient(httpClient, fileSystem),
+		downloadClient: NewDownloadClient(httpClient, fileSystem, logger),
+		logger:         logger,
 	}, nil
 }
 

@@ -57,7 +57,7 @@ func (s *RefreshSuite) TestRefresh(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectPost(c, restClient, path, name, body)
 
-	client := NewRefreshClient(path, restClient)
+	client := NewRefreshClient(path, restClient, &fakeLogger{})
 	responses, err := client.Refresh(context.TODO(), config)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(responses), gc.Equals, 1)
@@ -81,7 +81,7 @@ func (s *RefreshSuite) TestRefreshFailure(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectPostFailure(c, restClient)
 
-	client := NewRefreshClient(path, restClient)
+	client := NewRefreshClient(path, restClient, &fakeLogger{})
 	_, err = client.Refresh(context.TODO(), config)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
