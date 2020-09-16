@@ -79,7 +79,6 @@ def verify_add_credentials(args, env, cred):
         'google': add_gce,
         'rackspace': add_rackspace,
         'maas': add_maas,
-        'joyent': add_joyent,
         'azure': add_azure
     }
 
@@ -235,33 +234,6 @@ def add_maas(child, env, cred):
     child.sendline(maas_oauth)
     end_session(child)
     log.info('Added MaaS credential')
-
-
-def add_joyent(child, env, cred):
-    """Adds credentials for Joyent to test client using real credentials.
-
-    :param child: pexpect.spawn object of the juju add-credential command
-    :param env: String environment name
-    :param cred: Dict of credential information
-    """
-    algorithm = cred['credentials']['algorithm']
-    sdc_user = cred['credentials']['sdc-user']
-    sdc_key_id = cred['credentials']['sdc-key-id']
-    private_key_path = os.path.join(
-        os.environ['HOME'], 'cloud-city', 'joyent-key')
-
-    child.expect('Enter credential name:')
-    child.sendline(env)
-    child.expect('Enter sdc-user:')
-    child.sendline(sdc_user)
-    child.expect('Enter sdc-key-id:')
-    child.sendline(sdc_key_id)
-    child.expect('Enter private-key-path:')
-    child.sendline(private_key_path)
-    child.expect(',rsa-sha512]:')
-    child.sendline(algorithm)
-    end_session(child)
-    log.info('Added Joyent credential')
 
 
 def add_azure(child, env, cred):
