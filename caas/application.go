@@ -46,7 +46,7 @@ type ServiceInterface interface {
 	// UpdateService updates the default service with specific service type and port mappings.
 	UpdateService(ServiceParam) error
 
-	UpdatePorts(ports []ServicePort) error
+	UpdatePorts(ports []ServicePort, updateContainerPorts bool) error
 }
 
 // ApplicationState represents the application state.

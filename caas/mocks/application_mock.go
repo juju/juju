@@ -93,17 +93,17 @@ func (mr *MockApplicationMockRecorder) State() *gomock.Call {
 }
 
 // UpdatePorts mocks base method
-func (m *MockApplication) UpdatePorts(arg0 []caas.ServicePort) error {
+func (m *MockApplication) UpdatePorts(arg0 []caas.ServicePort, arg1 bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdatePorts", arg0)
+	ret := m.ctrl.Call(m, "UpdatePorts", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdatePorts indicates an expected call of UpdatePorts
-func (mr *MockApplicationMockRecorder) UpdatePorts(arg0 interface{}) *gomock.Call {
+func (mr *MockApplicationMockRecorder) UpdatePorts(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePorts", reflect.TypeOf((*MockApplication)(nil).UpdatePorts), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePorts", reflect.TypeOf((*MockApplication)(nil).UpdatePorts), arg0, arg1)
 }
 
 // UpdateService mocks base method
