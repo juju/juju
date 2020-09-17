@@ -468,7 +468,7 @@ func (a *app) getService() (*resources.Service, error) {
 }
 
 // UpdatePorts updates port mappings on the specified service.
-func (a *app) UpdatePorts(ports []caas.ServicePort) (err error) {
+func (a *app) UpdatePorts(ports []caas.ServicePort, updateContainerPorts bool) (err error) {
 	svc, err := a.getService()
 	if err != nil {
 		return errors.Annotatef(err, "getting existing service %q", a.name)
@@ -479,8 +479,11 @@ func (a *app) UpdatePorts(ports []caas.ServicePort) (err error) {
 	}
 	applier := a.newApplier()
 	applier.Apply(svc)
-	if err = a.updateContainerPorts(applier, svc.Service.Spec.Ports); err != nil {
-		return errors.Trace(err)
+
+	if updateContainerPorts {
+		if err = a.updateContainerPorts(applier, svc.Service.Spec.Ports); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	err = applier.Run(context.Background(), a.client, false)
 	return nil

@@ -39,7 +39,7 @@ type ClientEmbedded struct {
 
 // NewClientEmbedded returns a client used to access the CAAS unit provisioner API.
 func NewClientEmbedded(caller base.APICaller) *ClientEmbedded {
-	// TODO: add OpenedPorts and ClosedPorts API for caasfirewallerembedded worker to fetch port mapping changes!!!!
+	// TODO(embedded): add OpenedPorts and ClosedPorts API for caasfirewallerembedded worker to fetch port mapping changes.
 	facadeCaller := base.NewFacadeCaller(caller, "CAASFirewallerEmbedded")
 	charmsClient := charmscommon.NewCharmsClient(facadeCaller)
 	return &ClientEmbedded{

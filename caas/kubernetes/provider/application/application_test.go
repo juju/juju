@@ -1073,7 +1073,7 @@ func getDefaultSvc() *corev1.Service {
 	}
 }
 
-func (s *applicationSuite) TestUpdatePortsStateless(c *gc.C) {
+func (s *applicationSuite) TestUpdatePortsStatelessUpdateContainerPorts(c *gc.C) {
 	app, ctrl := s.getApp(c, caas.DeploymentStateless, true)
 	defer ctrl.Finish()
 
@@ -1152,10 +1152,10 @@ func (s *applicationSuite) TestUpdatePortsStateless(c *gc.C) {
 			TargetPort: 8080,
 			Protocol:   "TCP",
 		},
-	}), jc.ErrorIsNil)
+	}, true), jc.ErrorIsNil)
 }
 
-func (s *applicationSuite) TestUpdatePortsStateful(c *gc.C) {
+func (s *applicationSuite) TestUpdatePortsStatefulUpdateContainerPorts(c *gc.C) {
 	app, ctrl := s.getApp(c, caas.DeploymentStateful, true)
 	defer ctrl.Finish()
 
@@ -1234,10 +1234,10 @@ func (s *applicationSuite) TestUpdatePortsStateful(c *gc.C) {
 			TargetPort: 8080,
 			Protocol:   "TCP",
 		},
-	}), jc.ErrorIsNil)
+	}, true), jc.ErrorIsNil)
 }
 
-func (s *applicationSuite) TestUpdatePortsDaemon(c *gc.C) {
+func (s *applicationSuite) TestUpdatePortsDaemonUpdateContainerPorts(c *gc.C) {
 	app, ctrl := s.getApp(c, caas.DeploymentDaemon, true)
 	defer ctrl.Finish()
 
@@ -1316,7 +1316,100 @@ func (s *applicationSuite) TestUpdatePortsDaemon(c *gc.C) {
 			TargetPort: 8080,
 			Protocol:   "TCP",
 		},
-	}), jc.ErrorIsNil)
+	}, true), jc.ErrorIsNil)
+}
+
+func (s *applicationSuite) TestUpdatePortsStateless(c *gc.C) {
+	app, ctrl := s.getApp(c, caas.DeploymentStateless, true)
+	defer ctrl.Finish()
+
+	_, err := s.client.CoreV1().Services("test").Create(context.TODO(), getDefaultSvc(), metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	updatedSvc := getDefaultSvc()
+	updatedSvc.Spec.Ports = []corev1.ServicePort{
+		{
+			Name:       "port1",
+			Port:       int32(80),
+			TargetPort: intstr.FromInt(8080),
+			Protocol:   corev1.ProtocolTCP,
+		},
+	}
+
+	gomock.InOrder(
+		s.applier.EXPECT().Apply(resources.NewService("gitlab", "test", updatedSvc)),
+		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
+	)
+	c.Assert(app.UpdatePorts([]caas.ServicePort{
+		{
+			Name:       "port1",
+			Port:       80,
+			TargetPort: 8080,
+			Protocol:   "TCP",
+		},
+	}, false), jc.ErrorIsNil)
+}
+
+func (s *applicationSuite) TestUpdatePortsStateful(c *gc.C) {
+	app, ctrl := s.getApp(c, caas.DeploymentStateful, true)
+	defer ctrl.Finish()
+
+	_, err := s.client.CoreV1().Services("test").Create(context.TODO(), getDefaultSvc(), metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	updatedSvc := getDefaultSvc()
+	updatedSvc.Spec.Ports = []corev1.ServicePort{
+		{
+			Name:       "port1",
+			Port:       int32(80),
+			TargetPort: intstr.FromInt(8080),
+			Protocol:   corev1.ProtocolTCP,
+		},
+	}
+
+	gomock.InOrder(
+		s.applier.EXPECT().Apply(resources.NewService("gitlab", "test", updatedSvc)),
+		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
+	)
+	c.Assert(app.UpdatePorts([]caas.ServicePort{
+		{
+			Name:       "port1",
+			Port:       80,
+			TargetPort: 8080,
+			Protocol:   "TCP",
+		},
+	}, false), jc.ErrorIsNil)
+}
+
+func (s *applicationSuite) TestUpdatePortsDaemonUpdate(c *gc.C) {
+	app, ctrl := s.getApp(c, caas.DeploymentDaemon, true)
+	defer ctrl.Finish()
+
+	_, err := s.client.CoreV1().Services("test").Create(context.TODO(), getDefaultSvc(), metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	updatedSvc := getDefaultSvc()
+	updatedSvc.Spec.Ports = []corev1.ServicePort{
+		{
+			Name:       "port1",
+			Port:       int32(80),
+			TargetPort: intstr.FromInt(8080),
+			Protocol:   corev1.ProtocolTCP,
+		},
+	}
+
+	gomock.InOrder(
+		s.applier.EXPECT().Apply(resources.NewService("gitlab", "test", updatedSvc)),
+		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
+	)
+	c.Assert(app.UpdatePorts([]caas.ServicePort{
+		{
+			Name:       "port1",
+			Port:       80,
+			TargetPort: 8080,
+			Protocol:   "TCP",
+		},
+	}, false), jc.ErrorIsNil)
 }
 
 type fakeCharm struct {
