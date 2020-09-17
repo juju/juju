@@ -4484,7 +4484,7 @@ func (s *upgradesSuite) TestLimitHandlesPlaceholderCharms(c *gc.C) {
 		"placeholder":   true,
 		"bundlesha256":  "",
 		"storagepath":   "",
-		"macaroon":      bson.Binary{},
+		"macaroon":      []uint8{},
 		"meta":          nil,
 		"config":        nil,
 		"actions":       nil,
