@@ -2970,6 +2970,10 @@ func ResetDefaultRelationLimitInCharmMetadata(pool *StatePool) (err error) {
 
 		var ops []txn.Op
 		for _, charmDoc := range docs {
+			if charmDoc.Meta == nil {
+				logger.Warningf("charmDoc has nil Meta (invalid charm): %v", charmDoc)
+				continue
+			}
 			for epName, rel := range charmDoc.Meta.Requires {
 				rel.Limit = 0
 				charmDoc.Meta.Requires[epName] = rel

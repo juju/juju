@@ -4462,7 +4462,38 @@ func genCharmDocWithMetaAndRelationLimit(modelUUID string, relLimit int) bson.M 
 			},
 		},
 	}
+}
 
+func (s *upgradesSuite) TestLimitHandlesPlaceholderCharms(c *gc.C) {
+	// Placeholder charms exist with only the URL that it uses to contact the charm store and
+	// download the actual content.
+	col, closer := s.state.db().GetRawCollection(charmsC)
+	defer closer()
+
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	defer model1.Close()
+
+	uuid := model1.ModelUUID()
+	doc := bson.M{
+		"_id":           uuid + ":cs:ntp-41",
+		"model-uuid":    uuid,
+		"url":           "cs:ntp-41",
+		"charm-version": "",
+		"life":          0,
+		"pendingupload": false,
+		"placeholder":   true,
+		"bundlesha256":  "",
+		"storagepath":   "",
+		"macaroon":      bson.Binary{},
+		"meta":          nil,
+		"config":        nil,
+		"actions":       nil,
+		"metrics":       nil,
+		"lxd-profile":   nil,
+	}
+	col.Insert(doc)
+	s.assertUpgradedData(c, ResetDefaultRelationLimitInCharmMetadata,
+		upgradedData(col, []bson.M{doc}))
 }
 
 type docById []bson.M
