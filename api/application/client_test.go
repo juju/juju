@@ -1141,6 +1141,70 @@ func (s *applicationSuite) TestSetApplicationConfig(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
+func (s *applicationSuite) TestSetApplicationConfigNoSupported(c *gc.C) {
+	fooConfig := map[string]string{
+		"foo":   "bar",
+		"level": "high",
+	}
+
+	client := application.NewClient(basetesting.BestVersionCaller{
+		BestVersion: 13,
+	})
+
+	err := client.SetApplicationConfig(newBranchName, "foo", fooConfig)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+}
+
+func (s *applicationSuite) TestSetConfig(c *gc.C) {
+	fooConfig := map[string]string{
+		"foo":   "bar",
+		"level": "high",
+	}
+	fooConfigYaml := "foo"
+
+	client := application.NewClient(basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string, version int, id, request string, a, response interface{}) error {
+				c.Assert(request, gc.Equals, "SetConfigs")
+				args, ok := a.(params.ConfigSetArgs)
+				c.Assert(ok, jc.IsTrue)
+				c.Assert(args, jc.DeepEquals, params.ConfigSetArgs{
+					Args: []params.ConfigSet{{
+						ApplicationName: "foo",
+						Config:          fooConfig,
+						ConfigYAML:      fooConfigYaml,
+						Generation:      newBranchName,
+					}}})
+				result, ok := response.(*params.ErrorResults)
+				c.Assert(ok, jc.IsTrue)
+				result.Results = []params.ErrorResult{
+					{Error: &params.Error{Message: "FAIL"}},
+				}
+				return nil
+			},
+		),
+		BestVersion: 13,
+	})
+
+	err := client.SetConfig(newBranchName, "foo", fooConfigYaml, fooConfig)
+	c.Assert(err, gc.ErrorMatches, "FAIL")
+}
+
+func (s *applicationSuite) TestSetConfigNotSupported(c *gc.C) {
+	fooConfig := map[string]string{
+		"foo":   "bar",
+		"level": "high",
+	}
+	fooConfigYaml := "foo"
+
+	client := application.NewClient(basetesting.BestVersionCaller{
+		BestVersion: 12,
+	})
+
+	err := client.SetConfig(newBranchName, "foo", fooConfigYaml, fooConfig)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+}
+
 func (s *applicationSuite) TestUnsetApplicationConfig(c *gc.C) {
 	client := application.NewClient(basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(

@@ -950,9 +950,12 @@ func (c *Client) Consume(arg crossmodel.ConsumeApplicationArgs) (string, error) 
 	return localName, nil
 }
 
-// SetApplicationConfig sets configuration options on an application.
+// SetApplicationConfig sets configuration options on an application and the charm,
+// from the provided map.
+// Note: The name is misleading as charm config is also set.
 func (c *Client) SetApplicationConfig(branchName, application string, config map[string]string) error {
-	if c.BestAPIVersion() < 6 {
+	apiVersion := c.BestAPIVersion()
+	if apiVersion < 6 || apiVersion > 12 {
 		return errors.NotSupportedf("SetApplicationsConfig not supported by this version of Juju")
 	}
 	args := params.ApplicationConfigSetArgs{
@@ -964,6 +967,27 @@ func (c *Client) SetApplicationConfig(branchName, application string, config map
 	}
 	var results params.ErrorResults
 	err := c.facade.FacadeCall("SetApplicationsConfig", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
+}
+
+// SetConfig sets configuration options on an application and the charm.
+func (c *Client) SetConfig(branchName, application, configYAML string, config map[string]string) error {
+	if c.BestAPIVersion() < 13 {
+		return errors.NotSupportedf("SetConfig not supported by this version of Juju")
+	}
+	args := params.ConfigSetArgs{
+		Args: []params.ConfigSet{{
+			ApplicationName: application,
+			Generation:      branchName,
+			Config:          config,
+			ConfigYAML:      configYAML,
+		}},
+	}
+	var results params.ErrorResults
+	err := c.facade.FacadeCall("SetConfigs", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
