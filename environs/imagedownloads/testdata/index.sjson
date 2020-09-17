@@ -3,50 +3,6 @@ Hash: SHA512
 
 {
  "index": {
-  "com.ubuntu.cloud:released:joyent": {
-   "updated": "Tue, 01 Nov 2016 14:14:08 +0000", 
-   "clouds": [
-    {
-     "region": "eu-ams-1", 
-     "endpoint": "https://eu-ams-1.api.joyentcloud.com"
-    }, 
-    {
-     "region": "us-sw-1", 
-     "endpoint": "https://us-sw-1.api.joyentcloud.com"
-    }, 
-    {
-     "region": "us-east-3", 
-     "endpoint": "https://us-east-3.api.joyentcloud.com"
-    }, 
-    {
-     "region": "us-east-2", 
-     "endpoint": "https://us-east-2.api.joyentcloud.com"
-    }, 
-    {
-     "region": "us-east-1", 
-     "endpoint": "https://us-east-1.api.joyentcloud.com"
-    }, 
-    {
-     "region": "us-west-1", 
-     "endpoint": "https://us-west-1.api.joyentcloud.com"
-    }
-   ], 
-   "cloudname": "joyent", 
-   "datatype": "image-ids", 
-   "format": "products:1.0", 
-   "products": [
-    "com.ubuntu.cloud:server:13.10:amd64", 
-    "com.ubuntu.cloud:server:15.10:amd64", 
-    "com.ubuntu.cloud:server:13.04:amd64", 
-    "com.ubuntu.cloud:server:16.04:amd64", 
-    "com.ubuntu.cloud:server:15.04:amd64", 
-    "com.ubuntu.cloud:server:16.10:amd64", 
-    "com.ubuntu.cloud:server:14.04:amd64", 
-    "com.ubuntu.cloud:server:12.04:amd64", 
-    "com.ubuntu.cloud:server:14.10:amd64"
-   ], 
-   "path": "streams/v1/com.ubuntu.cloud:released:joyent.sjson"
-  }, 
   "com.ubuntu.cloud:released:download": {
    "datatype": "image-downloads", 
    "path": "streams/v1/com.ubuntu.cloud:released:download.sjson", 
@@ -547,19 +503,11 @@ Hash: SHA512
  "format": "index:1.0"
 }
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
 
-iQIcBAEBCgAGBQJYHAGrAAoJEH/z9AhHbPEAxhkQALWTEuYrUq70LfdnBZJOSHfh
-anXXFSbe5RPCumgtAoP/JDUWEjYvkIUCQEhD6dKuywDCxbxtPziA46tOXOOKGdVD
-7yf/H7WEYt33l3N//C8OPgOnZaLsA2poietu00KDUlgAWhdzMtb6WAx7g7Zl8bpR
-L+uvpwMVZqG972Z/zkE/+7yuRsDsANI+YZga5lXc9PUVn1ArjdKW19jTefkQxcqU
-qDHXJszzFFURjwXTvTe4TnwCuIHl2sbySiMQcDAUkwehseeKs9O3Ji7CGk9yh25Y
-jG/+DFgzDTyENtgX7+iH69uhOSjyXRDXjPIoKP/yjmdVAXStZdAVeqUV/v1VtV3E
-N0CsnBKdyvCs7znrNT/Hx4zDVbBJEUS3gwPiuBcTd27XWzEnNJazYyyDW2u97+QU
-1QW7rpMk0OP0MuZdyqK+OJsNjsg9L0QRAe7ndbt7yHYfkiqDQlinsdGvWvB+PGJZ
-kSk3wSZMiKwyHpQaQUmn0CFRKYSingyhUCbW/9O88E3gYSYeJ1KuY1m12dSWzluO
-R7rirhiUoMjrv6I86cN52ttKe6iOdiP4PSXkIpA6PMY2w3eJ7Ocyv6QTUVCXmIzG
-EZMUsepxLU9H3WfRaaVHHyX10suPrqpbG2ukFC/342QsVc6+mJCdONbwb45rmuMf
-xyS4aQGHHSDBhVBG7eUy
-=WWCZ
+iMcEAQEKADEWIQTSeSWdQWn1hD291Fy4re6pYHrq8AUCX2MV8hMcdGVzdEBzb21l
+d2hlcmUuY29tAAoJELit7qlgeurwYrMD/0Wa0YYsLPGsa8s/CanFrdnfwLyObnLY
+hBz2xZLx3DwMCLYSDxz8k1wV0LWNbubgJjXLEg6SEuN/FunewfvC4NPs2tQLW9Nx
+BgstHEEHs52/Pa+dtAaWIoAzPh7Spu73KIuii5Bvj3FDyYVYdN8LkerFG2YK01Oj
+5GvjhGpAEkjN
+=DrYm
 -----END PGP SIGNATURE-----
