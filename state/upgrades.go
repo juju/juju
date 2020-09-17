@@ -2972,8 +2972,9 @@ func ResetDefaultRelationLimitInCharmMetadata(pool *StatePool) (err error) {
 		var ops []txn.Op
 		for _, charmDoc := range docs {
 			if charmDoc.Meta == nil {
-				if !charmDoc.Placeholder {
-					logger.Warningf("charmDoc has nil Meta and is not a placeholder: %# v",
+				if !(charmDoc.Placeholder || charmDoc.PendingUpload) {
+					logger.Warningf(
+						"charmDoc has nil Meta and is not a placeholder/pending upload: %# v",
 						pretty.Formatter(charmDoc))
 				}
 				continue
