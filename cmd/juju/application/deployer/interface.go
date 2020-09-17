@@ -124,7 +124,11 @@ type ApplicationAPI interface {
 	SetAnnotation(annotations map[string]map[string]string) ([]apiparams.ErrorResult, error)
 	SetCharm(string, application.SetCharmConfig) error
 	SetConstraints(application string, constraints constraints.Value) error
+
+	// Deprecate use of Update, use SetConfig instead.
 	Update(apiparams.ApplicationUpdate) error
+	SetConfig(branchName string, application, configYAML string, config map[string]string) error
+
 	ScaleApplication(application.ScaleApplicationParams) (apiparams.ScaleApplicationResult, error)
 	Consume(arg crossmodel.ConsumeApplicationArgs) (string, error)
 }

@@ -1037,15 +1037,16 @@ func (h *bundleHandler) setOptions(change *bundlechanges.SetOptionsChange) error
 		return errors.Annotatef(err, "cannot marshal options for application %q", p.Application)
 	}
 
-	if err := h.deployAPI.Update(params.ApplicationUpdate{
-		ApplicationName: p.Application,
-		SettingsYAML:    string(cfg),
-		Generation:      model.GenerationMaster,
-	}); err != nil {
-		return errors.Annotatef(err, "cannot update options for application %q", p.Application)
+	if h.deployAPI.BestFacadeVersion("application") > 12 {
+		err = h.deployAPI.SetConfig(model.GenerationMaster, p.Application, string(cfg), nil)
+	} else {
+		err = h.deployAPI.Update(params.ApplicationUpdate{
+			ApplicationName: p.Application,
+			SettingsYAML:    string(cfg),
+			Generation:      model.GenerationMaster,
+		})
 	}
-
-	return nil
+	return errors.Annotatef(err, "cannot update options for application %q", p.Application)
 }
 
 // setConstraints updates application constraints.

@@ -517,6 +517,20 @@ func (mr *MockDeployerAPIMockRecorder) SetCharm(arg0, arg1 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharm", reflect.TypeOf((*MockDeployerAPI)(nil).SetCharm), arg0, arg1)
 }
 
+// SetConfig mocks base method
+func (m *MockDeployerAPI) SetConfig(arg0, arg1, arg2 string, arg3 map[string]string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetConfig", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetConfig indicates an expected call of SetConfig
+func (mr *MockDeployerAPIMockRecorder) SetConfig(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetConfig", reflect.TypeOf((*MockDeployerAPI)(nil).SetConfig), arg0, arg1, arg2, arg3)
+}
+
 // SetConstraints mocks base method
 func (m *MockDeployerAPI) SetConstraints(arg0 string, arg1 constraints.Value) error {
 	m.ctrl.T.Helper()

@@ -33,10 +33,13 @@ type configCommandSuite struct {
 	store              jujuclient.ClientStore
 	defaultCharmValues map[string]interface{}
 	defaultAppValues   map[string]interface{}
+	apiVersion         int
 }
 
 var (
-	_ = gc.Suite(&configCommandSuite{})
+	_ = gc.Suite(&configCommandSuite{apiVersion: 5})
+	_ = gc.Suite(&configCommandSuite{apiVersion: 10})
+	_ = gc.Suite(&configCommandSuite{apiVersion: 13})
 
 	validSetTestValue   = "a value with spaces\nand newline\nand UTF-8 characters: \U0001F604 / \U0001F44D"
 	invalidSetTestValue = "a value with an invalid UTF-8 sequence: " + string([]byte{0xFF, 0xFF})
@@ -125,7 +128,7 @@ func (s *configCommandSuite) SetUpTest(c *gc.C) {
 		charmName:   "dummy",
 		charmValues: s.defaultCharmValues,
 		appValues:   s.defaultAppValues,
-		version:     6,
+		version:     s.apiVersion,
 	}
 
 	s.store = jujuclienttesting.MinimalStore()
@@ -142,17 +145,17 @@ func (s *configCommandSuite) SetUpTest(c *gc.C) {
 func (s *configCommandSuite) TestGetCommandInit(c *gc.C) {
 	// missing args
 	err := cmdtesting.InitCommand(application.NewConfigCommandForTest(s.fake, s.store), []string{})
-	c.Assert(err, gc.ErrorMatches, "no application name specified")
+	c.Assert(err, gc.ErrorMatches, "no application name specified", gc.Commentf("fails with api version %d", s.apiVersion))
 }
 
 func (s *configCommandSuite) TestGetCommandInitWithApplication(c *gc.C) {
 	err := cmdtesting.InitCommand(application.NewConfigCommandForTest(s.fake, s.store), []string{"app"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("fails with api version %d", s.apiVersion))
 }
 
 func (s *configCommandSuite) TestGetCommandInitWithKey(c *gc.C) {
 	err := cmdtesting.InitCommand(application.NewConfigCommandForTest(s.fake, s.store), []string{"app", "key"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("fails with api version %d", s.apiVersion))
 }
 
 func (s *configCommandSuite) TestGetCommandInitWithGeneration(c *gc.C) {
@@ -160,7 +163,7 @@ func (s *configCommandSuite) TestGetCommandInitWithGeneration(c *gc.C) {
 		application.NewConfigCommandForTest(s.fake, s.store),
 		[]string{"app", "key", "--branch", model.GenerationMaster},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("fails with api version %d", s.apiVersion))
 }
 
 func (s *configCommandSuite) TestGetConfig(c *gc.C) {
@@ -171,23 +174,23 @@ func (s *configCommandSuite) TestGetConfig(c *gc.C) {
 		}
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(application.NewConfigCommandForTest(s.fake, s.store), ctx, []string{t.application})
-		c.Check(code, gc.Equals, 0)
-		c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
+		c.Check(code, gc.Equals, 0, gc.Commentf("fails with api version %d", s.apiVersion))
+		c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "", gc.Commentf("fails with api version %d", s.apiVersion))
 
 		// round trip via goyaml to avoid being sucked into a quagmire of
 		// map[interface{}]interface{} vs map[string]interface{}. This is
 		// also required if we add json support to this command.
 		buf, err := goyaml.Marshal(t.expected)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, jc.ErrorIsNil, gc.Commentf("fails with api version %d", s.apiVersion))
 		expected := make(map[string]interface{})
 		err = goyaml.Unmarshal(buf, &expected)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, jc.ErrorIsNil, gc.Commentf("fails with api version %d", s.apiVersion))
 
 		actual := make(map[string]interface{})
 		err = goyaml.Unmarshal(ctx.Stdout.(*bytes.Buffer).Bytes(), &actual)
 		c.Log(ctx.Stdout.(*bytes.Buffer).String())
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(actual, jc.DeepEquals, expected)
+		c.Assert(err, jc.ErrorIsNil, gc.Commentf("fails with api version %d", s.apiVersion))
+		c.Assert(actual, jc.DeepEquals, expected, gc.Commentf("fails with api version %d", s.apiVersion))
 	}
 }
 
@@ -195,24 +198,31 @@ func (s *configCommandSuite) TestGetCharmConfigKey(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(application.NewConfigCommandForTest(s.fake, s.store), ctx, []string{"dummy-application", "title"})
 	c.Check(code, gc.Equals, 0)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "Nearly There\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "", gc.Commentf("fails with api version %d", s.apiVersion))
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "Nearly There\n", gc.Commentf("fails with api version %d", s.apiVersion))
 }
 
 func (s *configCommandSuite) TestGetCharmConfigKeyMultilineValue(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(application.NewConfigCommandForTest(s.fake, s.store), ctx, []string{"dummy-application", "multiline-value"})
 	c.Check(code, gc.Equals, 0)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "The quick brown fox jumps over the lazy dog. \"The quick brown fox jumps over the lazy dog\" \"The quick brown fox jumps over the lazy dog\" \n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "", gc.Commentf("fails with api version %d", s.apiVersion))
+	c.Assert(cmdtesting.Stdout(ctx),
+		gc.Equals,
+		"The quick brown fox jumps over the lazy dog. \"The quick brown fox jumps over the lazy dog\" \"The quick brown fox jumps over the lazy dog\" \n",
+		gc.Commentf("fails with api version %d", s.apiVersion))
 }
 
 func (s *configCommandSuite) TestGetCharmConfigKeyMultilineValueJSON(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(application.NewConfigCommandForTest(s.fake, s.store), ctx, []string{"dummy-application", "multiline-value", "--format", "json"})
 	c.Check(code, gc.Equals, 0)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "The quick brown fox jumps over the lazy dog. \"The quick brown fox jumps over the lazy dog\" \"The quick brown fox jumps over the lazy dog\" \n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "", gc.Commentf("fails with api version %d", s.apiVersion))
+	c.Assert(cmdtesting.Stdout(ctx),
+		gc.Equals,
+		"The quick brown fox jumps over the lazy dog. \"The quick brown fox jumps over the lazy dog\" \"The quick brown fox jumps over the lazy dog\" \n",
+		gc.Commentf("fails with api version %d", s.apiVersion),
+	)
 }
 
 func (s *configCommandSuite) TestGetAppConfigKey(c *gc.C) {
@@ -220,8 +230,8 @@ func (s *configCommandSuite) TestGetAppConfigKey(c *gc.C) {
 	code := cmd.Main(application.NewConfigCommandForTest(
 		s.fake, s.store), ctx, []string{"dummy-application", "juju-external-hostname"})
 	c.Check(code, gc.Equals, 0)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "ext-host\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "", gc.Commentf("fails with api version %d", s.apiVersion))
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "ext-host\n", gc.Commentf("fails with api version %d", s.apiVersion))
 }
 
 func (s *configCommandSuite) TestGetConfigKeyNotFound(c *gc.C) {
@@ -281,7 +291,7 @@ func (s *configCommandSuite) TestSetCommandInitError(c *gc.C) {
 		cmd := application.NewConfigCommandForTest(s.fake, s.store)
 		cmd.SetClientStore(testStore)
 		err := cmdtesting.InitCommand(cmd, test.args)
-		c.Assert(err, gc.ErrorMatches, test.expectError)
+		c.Assert(err, gc.ErrorMatches, test.expectError, gc.Commentf("fails with api version %d", s.apiVersion))
 	}
 }
 
@@ -390,21 +400,19 @@ func (s *configCommandSuite) TestSetCharmConfigFromYAML(c *gc.C) {
 		"--file",
 		"testconfig.yaml"})
 
-	c.Check(code, gc.Equals, 0)
-	c.Check(s.fake.config, gc.Equals, yamlConfigValue)
+	c.Check(code, gc.Equals, 0, gc.Commentf("fails with api version %d", s.apiVersion))
+	c.Check(s.fake.config, gc.Equals, yamlConfigValue, gc.Commentf("fails with api version %d", s.apiVersion))
 }
 
 func (s *configCommandSuite) TestSetFromStdin(c *gc.C) {
-	s.fake = &fakeApplicationAPI{name: "dummy-application"}
 	ctx := cmdtesting.Context(c)
 	ctx.Stdin = strings.NewReader("settings:\n  username:\n  value: world\n")
 	code := cmd.Main(application.NewConfigCommandForTest(s.fake, s.store), ctx, []string{
 		"dummy-application",
 		"--file",
 		"-"})
-
 	c.Check(code, gc.Equals, 0)
-	c.Check(s.fake.config, jc.DeepEquals, "settings:\n  username:\n  value: world\n")
+	c.Check(s.fake.config, jc.DeepEquals, "settings:\n  username:\n  value: world\n", gc.Commentf("fails with api version %d", s.apiVersion))
 }
 
 func (s *configCommandSuite) TestResetCharmConfigToDefault(c *gc.C) {
@@ -437,8 +445,8 @@ func (s *configCommandSuite) TestBlockSetConfig(c *gc.C) {
 		"--file",
 		"testconfig.yaml",
 	}, s.dir)
-	c.Assert(err, gc.ErrorMatches, `(.|\n)*All operations that change model have been disabled(.|\n)*`)
-	c.Check(c.GetTestLog(), gc.Matches, "(.|\n)*TestBlockSetConfig(.|\n)*")
+	c.Assert(err, gc.ErrorMatches, `(.|\n)*All operations that change model have been disabled(.|\n)*`, gc.Commentf("fails with api version %d", s.apiVersion))
+	c.Check(c.GetTestLog(), gc.Matches, "(.|\n)*TestBlockSetConfig(.|\n)*", gc.Commentf("fails with api version %d", s.apiVersion))
 }
 
 // assertSetSuccess sets configuration options and checks the expected settings.
@@ -459,7 +467,7 @@ func (s *configCommandSuite) assertSetSuccess(
 	for k, v := range expectAppValues {
 		appValues[k] = v
 	}
-	c.Assert(s.fake.appValues, jc.DeepEquals, appValues)
+	c.Assert(s.fake.appValues, jc.DeepEquals, appValues, gc.Commentf("fails with api version %d", s.apiVersion))
 
 	charmValues := make(map[string]interface{})
 	for k, v := range s.defaultCharmValues {
@@ -468,7 +476,7 @@ func (s *configCommandSuite) assertSetSuccess(
 	for k, v := range expectCharmValues {
 		charmValues[k] = v
 	}
-	c.Assert(s.fake.charmValues, jc.DeepEquals, charmValues)
+	c.Assert(s.fake.charmValues, jc.DeepEquals, charmValues, gc.Commentf("fails with api version %d", s.apiVersion))
 }
 
 func (s *configCommandSuite) assertResetSuccess(
@@ -481,8 +489,8 @@ func (s *configCommandSuite) assertResetSuccess(
 	args = append([]string{"dummy-application"}, args...)
 	_, err := cmdtesting.RunCommandInDir(c, cmd, args, dir)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fake.appValues, jc.DeepEquals, expectAppValues)
-	c.Assert(s.fake.charmValues, jc.DeepEquals, expectCharmValues)
+	c.Assert(s.fake.appValues, jc.DeepEquals, expectAppValues, gc.Commentf("fails with api version %d", s.apiVersion))
+	c.Assert(s.fake.charmValues, jc.DeepEquals, expectCharmValues, gc.Commentf("fails with api version %d", s.apiVersion))
 }
 
 // assertSetFail sets configuration options and checks the expected error.
@@ -492,15 +500,15 @@ func (s *configCommandSuite) assertSetFail(c *gc.C, dir string, args []string, e
 
 	args = append([]string{"dummy-application"}, args...)
 	_, err := cmdtesting.RunCommandInDir(c, cmd, args, dir)
-	c.Assert(err, gc.ErrorMatches, expectErr)
+	c.Assert(err, gc.ErrorMatches, expectErr, gc.Commentf("fails with api version %d", s.apiVersion))
 }
 
 func (s *configCommandSuite) assertSetWarning(c *gc.C, dir string, args []string, w string) {
 	cmd := application.NewConfigCommandForTest(s.fake, s.store)
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommandInDir(c, cmd, append([]string{"dummy-application"}, args...), dir)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(strings.Replace(c.GetTestLog(), "\n", " ", -1), gc.Matches, ".*WARNING.*"+w+".*")
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("fails with api version %d", s.apiVersion))
+	c.Assert(strings.Replace(c.GetTestLog(), "\n", " ", -1), gc.Matches, ".*WARNING.*"+w+".*", gc.Commentf("fails with api version %d", s.apiVersion))
 }
 
 // setupValueFile creates a file containing one value for testing
