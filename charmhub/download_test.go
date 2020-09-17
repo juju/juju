@@ -54,7 +54,7 @@ func (s *DownloadSuite) TestDownload(c *gc.C) {
 	serverURL, err := url.Parse("http://meshuggah.rocks")
 	c.Assert(err, jc.ErrorIsNil)
 
-	client := NewDownloadClient(transport, fileSystem, &fakeLogger{})
+	client := NewDownloadClient(transport, fileSystem, &FakeLogger{})
 	_, err = client.Download(context.TODO(), serverURL, tmpFile.Name())
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -84,7 +84,7 @@ func (s *DownloadSuite) TestDownloadWithNotFoundStatusCode(c *gc.C) {
 	serverURL, err := url.Parse("http://meshuggah.rocks")
 	c.Assert(err, jc.ErrorIsNil)
 
-	client := NewDownloadClient(transport, fileSystem, &fakeLogger{})
+	client := NewDownloadClient(transport, fileSystem, &FakeLogger{})
 	_, err = client.Download(context.TODO(), serverURL, tmpFile.Name())
 	c.Assert(err, gc.ErrorMatches, `cannot retrieve "http://meshuggah.rocks": archive not found`)
 }
@@ -114,7 +114,7 @@ func (s *DownloadSuite) TestDownloadWithFailedStatusCode(c *gc.C) {
 	serverURL, err := url.Parse("http://meshuggah.rocks")
 	c.Assert(err, jc.ErrorIsNil)
 
-	client := NewDownloadClient(transport, fileSystem, &fakeLogger{})
+	client := NewDownloadClient(transport, fileSystem, &FakeLogger{})
 	_, err = client.Download(context.TODO(), serverURL, tmpFile.Name())
 	c.Assert(err, gc.ErrorMatches, `cannot retrieve "http://meshuggah.rocks": unable to locate archive`)
 }

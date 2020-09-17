@@ -3,13 +3,13 @@
 
 package charmhub
 
-type fakeLogger struct {
+type FakeLogger struct {
 }
 
-func (l *fakeLogger) IsTraceEnabled() bool {
+func (l *FakeLogger) IsTraceEnabled() bool {
 	return false
 }
 
-func (l *fakeLogger) Debugf(format string, args ...interface{}) {}
+func (l *FakeLogger) Debugf(format string, args ...interface{}) {}
 
-func (l *fakeLogger) Tracef(format string, args ...interface{}) {}
+func (l *FakeLogger) Tracef(format string, args ...interface{}) {}

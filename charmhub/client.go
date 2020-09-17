@@ -25,8 +25,6 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-
 	charmhubpath "github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/version"
@@ -78,13 +76,17 @@ type Config struct {
 
 // CharmHubConfig defines a charmHub client configuration for targeting the
 // snapcraft API.
-func CharmHubConfig() Config {
-	return CharmHubConfigFromURL(CharmHubServerURL)
+func CharmHubConfig(logger Logger) (Config, error) {
+	return CharmHubConfigFromURL(CharmHubServerURL, logger)
 }
 
 // CharmHubConfigFromURL defines a charmHub client configuration with a given
 // URL for targeting the API.
-func CharmHubConfigFromURL(url string) Config {
+func CharmHubConfigFromURL(url string, logger Logger) (Config, error) {
+	if logger == nil {
+		return Config{}, errors.NotValidf("nil logger")
+	}
+
 	// By default we want to specify a default user-agent here. In the future
 	// we should ensure this probably contains model UUID and cloud.
 	headers := make(http.Header)
@@ -95,7 +97,8 @@ func CharmHubConfigFromURL(url string) Config {
 		Version: CharmHubServerVersion,
 		Entity:  CharmHubServerEntity,
 		Headers: headers,
-	}
+		Logger:  logger,
+	}, nil
 }
 
 // BasePath returns the base configuration path for speaking to the server API.
@@ -141,27 +144,23 @@ func NewClient(config Config) (*Client, error) {
 		return nil, errors.Annotate(err, "constructing refresh path")
 	}
 
-	logger := config.Logger
-	if logger == nil {
-		logger = loggo.GetLogger("juju.charmhubclient")
-	}
-	logger.Tracef("NewClient to %q", config.URL)
+	config.Logger.Tracef("NewClient to %q", config.URL)
 
 	httpClient := DefaultHTTPTransport()
 	apiRequester := NewAPIRequester(httpClient)
-	restClient := NewHTTPRESTClient(apiRequester, config.Headers, logger)
+	restClient := NewHTTPRESTClient(apiRequester, config.Headers, config.Logger)
 	fileSystem := DefaultFileSystem()
 
 	return &Client{
 		url:           base.String(),
-		infoClient:    NewInfoClient(infoPath, restClient, logger),
-		findClient:    NewFindClient(findPath, restClient, logger),
-		refreshClient: NewRefreshClient(refreshPath, restClient, logger),
+		infoClient:    NewInfoClient(infoPath, restClient, config.Logger),
+		findClient:    NewFindClient(findPath, restClient, config.Logger),
+		refreshClient: NewRefreshClient(refreshPath, restClient, config.Logger),
 		// download client doesn't require a path here, as the download could
 		// be from any server in theory. That information is found from the
 		// refresh response.
-		downloadClient: NewDownloadClient(httpClient, fileSystem, logger),
-		logger:         logger,
+		downloadClient: NewDownloadClient(httpClient, fileSystem, config.Logger),
+		logger:         config.Logger,
 	}, nil
 }
 
