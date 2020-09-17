@@ -13,6 +13,8 @@ import (
 	"github.com/juju/juju/storage"
 )
 
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/application_mock.go github.com/juju/juju/caas Application
+
 // Application is for interacting with the CAAS substrate.
 type Application interface {
 	Ensure(config ApplicationConfig) error
@@ -21,6 +23,30 @@ type Application interface {
 	Watch() (watcher.NotifyWatcher, error)
 	WatchReplicas() (watcher.NotifyWatcher, error)
 	State() (ApplicationState, error)
+
+	ServiceInterface
+}
+
+// ServicePort represents service ports mapping from service to units.
+type ServicePort struct {
+	Name       string `json:"name"`
+	Port       int    `json:"port"`
+	TargetPort int    `json:"target-port"`
+	Protocol   string `json:"protocol"`
+}
+
+// ServiceParam defines parameters for an UpdateService request.
+type ServiceParam struct {
+	Type  string        `json:"type"`
+	Ports []ServicePort `json:"ports"`
+}
+
+// ServiceInterface provides the API to get/set service.
+type ServiceInterface interface {
+	// UpdateService updates the default service with specific service type and port mappings.
+	UpdateService(ServiceParam) error
+
+	UpdatePorts(ports []ServicePort) error
 }
 
 // ApplicationState represents the application state.
