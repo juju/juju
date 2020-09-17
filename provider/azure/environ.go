@@ -34,7 +34,6 @@ import (
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -431,8 +430,8 @@ func (env *azureEnviron) ConstraintsValidator(ctx context.ProviderCallContext) (
 
 // PrecheckInstance is defined on the environs.InstancePrechecker interface.
 func (env *azureEnviron) PrecheckInstance(ctx context.ProviderCallContext, args environs.PrecheckInstanceParams) error {
-	if args.Placement != "" {
-		return fmt.Errorf("unknown placement directive: %s", args.Placement)
+	if _, err := env.findPlacementSubnet(ctx, args.Placement); err != nil {
+		return errors.Trace(err)
 	}
 	if !args.Constraints.HasInstanceType() {
 		return nil
@@ -470,7 +469,6 @@ func (env *azureEnviron) StartInstance(ctx context.ProviderCallContext, args env
 		names.NewControllerTag(args.ControllerUUID),
 		env.config,
 	)
-	storageAccountType := env.config.storageAccountType
 	imageStream := env.config.ImageStream()
 	instanceTypes, err := env.getInstanceTypesLocked(ctx)
 	if err != nil {
@@ -567,12 +565,7 @@ func (env *azureEnviron) StartInstance(ctx context.ProviderCallContext, args env
 	}
 	if err := env.createVirtualMachine(
 		ctx, vmName, vmTags, envTags,
-		instanceSpec, args.InstanceConfig,
-		args.Constraints,
-		args.AvailabilityZone,
-		args.SubnetsToZones,
-		storageAccountType,
-		usePublicIP,
+		instanceSpec, args, usePublicIP,
 	); err != nil {
 		logger.Errorf("creating instance failed, destroying: %v", err)
 		if err := env.StopInstances(ctx, instance.Id(vmName)); err != nil {
@@ -607,18 +600,16 @@ func (env *azureEnviron) createVirtualMachine(
 	vmName string,
 	vmTags, envTags map[string]string,
 	instanceSpec *instances.InstanceSpec,
-	instanceConfig *instancecfg.InstanceConfig,
-	constraints constraints.Value,
-	availabilityZone string,
-	subnetsToZones []map[corenetwork.Id][]string,
-	storageAccountType string,
+	args environs.StartInstanceParams,
 	usePublicIP bool,
 ) error {
 	deploymentsClient := resources.DeploymentsClient{
 		BaseClient: env.resources,
 	}
+	instanceConfig := args.InstanceConfig
+	controller := instanceConfig.Controller != nil
 	apiPorts := make([]int, 0, 2)
-	if instanceConfig.Controller != nil {
+	if controller {
 		apiPorts = append(apiPorts, instanceConfig.Controller.Config.APIPort())
 		if instanceConfig.Controller.Config.AutocertDNSName() != "" {
 			// Open port 80 as well as it handles Let's Encrypt HTTP challenge.
@@ -635,22 +626,21 @@ func (env *azureEnviron) createVirtualMachine(
 	var nicDependsOn, vmDependsOn []string
 	var resources []armtemplates.Resource
 	bootstrapping := instanceConfig.Bootstrap != nil
-	// We only need to deal with creating or waiting for network
-	// resources if the user has not specified their own to use.
-	if env.config.virtualNetworkName == "" {
-		if bootstrapping {
-			// We're starting the bootstrap machine, so we will create the
-			// networking resources in the same deployment.
-			networkResources, dependsOn := networkTemplateResources(env.location, envTags, apiPorts, nil)
-			resources = append(resources, networkResources...)
-			nicDependsOn = append(nicDependsOn, dependsOn...)
-		} else {
-			// Wait for the common resource deployment to complete.
-			if err := env.waitCommonResourcesCreated(); err != nil {
-				return errors.Annotate(
-					err, "waiting for common resources to be created",
-				)
-			}
+	// We only need to deal with creating network resources
+	// if the user has not specified their own to use.
+	if bootstrapping && env.config.virtualNetworkName == "" && args.Placement == "" {
+		// We're starting the bootstrap machine, so we will create the
+		// networking resources in the same deployment.
+		networkResources, dependsOn := networkTemplateResources(env.location, envTags, apiPorts, nil)
+		resources = append(resources, networkResources...)
+		nicDependsOn = append(nicDependsOn, dependsOn...)
+	}
+	if !bootstrapping {
+		// Wait for the common resource deployment to complete.
+		if err := env.waitCommonResourcesCreated(); err != nil {
+			return errors.Annotate(
+				err, "waiting for common resources to be created",
+			)
 		}
 	}
 
@@ -676,7 +666,7 @@ func (env *azureEnviron) createVirtualMachine(
 	storageProfile, err := newStorageProfile(
 		vmName,
 		maybeStorageAccount,
-		storageAccountType,
+		env.config.storageAccountType,
 		instanceSpec,
 	)
 	if err != nil {
@@ -729,11 +719,15 @@ func (env *azureEnviron) createVirtualMachine(
 		vmDependsOn = append(vmDependsOn, availabilitySetId)
 	}
 
-	vnetId, subnetIds, err := env.networkInfoForInstance(instanceConfig, constraints, availabilityZone, subnetsToZones)
+	placementSubnetID, err := env.findPlacementSubnet(ctx, args.Placement)
 	if err != nil {
 		return common.ZoneIndependentError(err)
 	}
-	logger.Debugf("creating instance using vnet %v, subnets %v", vnetId, subnetIds)
+	vnetId, subnetIds, err := env.networkInfoForInstance(ctx, args, bootstrapping, controller, placementSubnetID)
+	if err != nil {
+		return common.ZoneIndependentError(err)
+	}
+	logger.Debugf("creating instance using vnet %v, subnets %q", vnetId, subnetIds)
 
 	if env.config.virtualNetworkName == "" && bootstrapping {
 		nicDependsOn = append(nicDependsOn, vnetId)
@@ -770,7 +764,7 @@ func (env *azureEnviron) createVirtualMachine(
 		ipConfig := &network.InterfaceIPConfigurationPropertiesFormat{
 			Primary:                   to.BoolPtr(primary),
 			PrivateIPAllocationMethod: network.Dynamic,
-			Subnet:                    &network.Subnet{ID: to.StringPtr(subnetID)},
+			Subnet:                    &network.Subnet{ID: to.StringPtr(string(subnetID))},
 		}
 		if primary && usePublicIP {
 			ipConfig.PublicIPAddress = &network.PublicIPAddress{
