@@ -19,6 +19,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 
@@ -112,7 +113,6 @@ func (s *applicationSuite) TestEnsureFailed(c *gc.C) {
 		caas.ApplicationConfig{
 			Charm: s.getCharm(&charm.Deployment{
 				DeploymentType: charm.DeploymentType("notsupported"),
-				//ContainerImageName: "gitlab:latest",
 				DeploymentMode: charm.DeploymentMode(caas.ModeEmbedded),
 			}),
 		},
@@ -138,16 +138,6 @@ func (s *applicationSuite) TestEnsureFailed(c *gc.C) {
 			}),
 		},
 	), gc.ErrorMatches, `charm deployment mode is not "embedded" not valid`)
-
-	/*c.Assert(app.Ensure(
-		caas.ApplicationConfig{
-			Charm: s.getCharm(&charm.Deployment{
-				DeploymentType: charm.DeploymentStateless,
-				DeploymentMode: charm.DeploymentMode(caas.ModeEmbedded),
-			}),
-		},
-	), gc.ErrorMatches, `generating application podspec: charm missing container-image-name not valid`)*/
-
 }
 
 func (s *applicationSuite) assertEnsure(c *gc.C, deploymentType caas.DeploymentType, checkMainResource func()) {
@@ -176,14 +166,6 @@ func (s *applicationSuite) assertEnsure(c *gc.C, deploymentType caas.DeploymentT
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{"juju-app": "gitlab"},
 			Type:     corev1.ServiceTypeClusterIP,
-			/*Ports: []corev1.ServicePort{
-				{
-					Name:       "tcp",
-					Port:       8080,
-					TargetPort: intstr.FromInt(8080),
-					Protocol:   corev1.ProtocolTCP,
-				},
-			},*/
 		},
 	}
 
@@ -195,15 +177,6 @@ func (s *applicationSuite) assertEnsure(c *gc.C, deploymentType caas.DeploymentT
 			Charm: s.getCharm(&charm.Deployment{
 				DeploymentType: charm.DeploymentType(deploymentType),
 				DeploymentMode: charm.DeploymentMode(caas.ModeEmbedded),
-				/*ContainerImageName: "gitlab:latest",
-				ServicePorts: []charm.ServicePort{
-					{
-						Name:       "tcp",
-						Port:       8080,
-						TargetPort: 8080,
-						Protocol:   "TCP",
-					},
-				},*/
 			}),
 			Filesystems: []storage.KubernetesFilesystemParams{{
 				StorageName: "database",
@@ -241,6 +214,26 @@ func (s *applicationSuite) assertEnsure(c *gc.C, deploymentType caas.DeploymentT
 func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 	s.assertEnsure(
 		c, caas.DeploymentStateful, func() {
+			svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab-endpoints", metav1.GetOptions{})
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(svc, gc.DeepEquals, &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "gitlab-endpoints",
+					Namespace: "test",
+					Labels:    map[string]string{"juju-app": "gitlab"},
+					Annotations: map[string]string{
+						"juju-version": "0.0.0",
+						"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Selector:                 map[string]string{"juju-app": "gitlab"},
+					Type:                     corev1.ServiceTypeClusterIP,
+					ClusterIP:                "None",
+					PublishNotReadyAddresses: true,
+				},
+			})
+
 			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 			jujuDataDir, err := paths.DataDir("kubernetes")
@@ -352,13 +345,6 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 										MountPath: "path/to/there",
 									},
 								},
-								/*Ports: []corev1.ContainerPort{
-									{
-										Name:          "tcp",
-										ContainerPort: 8080,
-										Protocol:      corev1.ProtocolTCP,
-									},
-								},*/
 							}},
 							Volumes: []corev1.Volume{
 								{
@@ -537,13 +523,6 @@ func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 										MountPath: "path/to/there",
 									},
 								},
-								/*Ports: []corev1.ContainerPort{
-									{
-										Name:          "tcp",
-										ContainerPort: 8080,
-										Protocol:      corev1.ProtocolTCP,
-									},
-								},*/
 							}},
 							Volumes: []corev1.Volume{
 								{
@@ -715,13 +694,6 @@ func (s *applicationSuite) TestEnsureDaemon(c *gc.C) {
 										MountPath: "path/to/there",
 									},
 								},
-								/*Ports: []corev1.ContainerPort{
-									{
-										Name:          "tcp",
-										ContainerPort: 8080,
-										Protocol:      corev1.ProtocolTCP,
-									},
-								},*/
 							}},
 							Volumes: []corev1.Volume{
 								{
@@ -877,6 +849,7 @@ func (s *applicationSuite) TestDeleteStateful(c *gc.C) {
 
 	gomock.InOrder(
 		s.applier.EXPECT().Delete(resources.NewStatefulSet("gitlab", "test", nil)),
+		s.applier.EXPECT().Delete(resources.NewService("gitlab-endpoints", "test", nil)),
 		s.applier.EXPECT().Delete(resources.NewService("gitlab", "test", nil)),
 		s.applier.EXPECT().Delete(resources.NewSecret("gitlab-application-config", "test", nil)),
 		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
@@ -1083,6 +1056,360 @@ func (s *applicationSuite) TestStateDaemon(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		return desiredReplicas
 	})
+}
+
+func getDefaultSvc() *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "gitlab",
+			Namespace:   "test",
+			Labels:      map[string]string{"juju-app": "gitlab"},
+			Annotations: map[string]string{"juju-version": "0.0.0"},
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{"juju-app": "gitlab"},
+			Type:     corev1.ServiceTypeClusterIP,
+		},
+	}
+}
+
+func (s *applicationSuite) TestUpdatePortsStatelessUpdateContainerPorts(c *gc.C) {
+	app, ctrl := s.getApp(c, caas.DeploymentStateless, true)
+	defer ctrl.Finish()
+
+	_, err := s.client.CoreV1().Services("test").Create(context.TODO(), getDefaultSvc(), metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	getMainResourceSpec := func() *appsv1.Deployment {
+		return &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "gitlab",
+				Namespace: "test",
+				Labels:    map[string]string{"juju-app": "gitlab"},
+				Annotations: map[string]string{
+					"juju-version":     "0.0.0",
+					"juju.io/app-uuid": "appuuid",
+				},
+			},
+			Spec: appsv1.DeploymentSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"juju-app": "gitlab"},
+				},
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels:      map[string]string{"juju-app": "gitlab"},
+						Annotations: map[string]string{"juju-version": "0.0.0"},
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Name:            "juju-unit-agent",
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							Image:           "operator/image-path",
+							WorkingDir:      "/var/lib/juju",
+							Command:         []string{"/opt/k8sagent"},
+							Args:            []string{"unit", "--data-dir", "/var/lib/juju"},
+						}, {
+							Name:            "gitlab",
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							Image:           "test-image",
+							Command:         []string{"/usr/bin/pebble"},
+						}},
+					},
+				},
+			},
+		}
+	}
+	_, err = s.client.AppsV1().Deployments("test").Create(context.TODO(), getMainResourceSpec(), metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	updatedSvc := getDefaultSvc()
+	updatedSvc.Spec.Ports = []corev1.ServicePort{
+		{
+			Name:       "port1",
+			Port:       int32(80),
+			TargetPort: intstr.FromInt(8080),
+			Protocol:   corev1.ProtocolTCP,
+		},
+	}
+
+	updatedMainResource := getMainResourceSpec()
+	updatedMainResource.Spec.Template.Spec.Containers[1].Ports = []corev1.ContainerPort{
+		{
+			Name:          "port1",
+			ContainerPort: int32(8080),
+			Protocol:      corev1.ProtocolTCP,
+		},
+	}
+	gomock.InOrder(
+		s.applier.EXPECT().Apply(resources.NewService("gitlab", "test", updatedSvc)),
+		s.applier.EXPECT().Apply(resources.NewDeployment("gitlab", "test", updatedMainResource)),
+		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
+	)
+	c.Assert(app.UpdatePorts([]caas.ServicePort{
+		{
+			Name:       "port1",
+			Port:       80,
+			TargetPort: 8080,
+			Protocol:   "TCP",
+		},
+	}, true), jc.ErrorIsNil)
+}
+
+func (s *applicationSuite) TestUpdatePortsStatefulUpdateContainerPorts(c *gc.C) {
+	app, ctrl := s.getApp(c, caas.DeploymentStateful, true)
+	defer ctrl.Finish()
+
+	_, err := s.client.CoreV1().Services("test").Create(context.TODO(), getDefaultSvc(), metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	getMainResourceSpec := func() *appsv1.StatefulSet {
+		return &appsv1.StatefulSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "gitlab",
+				Namespace: "test",
+				Labels:    map[string]string{"juju-app": "gitlab"},
+				Annotations: map[string]string{
+					"juju-version":     "0.0.0",
+					"juju.io/app-uuid": "appuuid",
+				},
+			},
+			Spec: appsv1.StatefulSetSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"juju-app": "gitlab"},
+				},
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels:      map[string]string{"juju-app": "gitlab"},
+						Annotations: map[string]string{"juju-version": "0.0.0"},
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Name:            "juju-unit-agent",
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							Image:           "operator/image-path",
+							WorkingDir:      "/var/lib/juju",
+							Command:         []string{"/opt/k8sagent"},
+							Args:            []string{"unit", "--data-dir", "/var/lib/juju"},
+						}, {
+							Name:            "gitlab",
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							Image:           "test-image",
+							Command:         []string{"/usr/bin/pebble"},
+						}},
+					},
+				},
+			},
+		}
+	}
+	_, err = s.client.AppsV1().StatefulSets("test").Create(context.TODO(), getMainResourceSpec(), metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	updatedSvc := getDefaultSvc()
+	updatedSvc.Spec.Ports = []corev1.ServicePort{
+		{
+			Name:       "port1",
+			Port:       int32(80),
+			TargetPort: intstr.FromInt(8080),
+			Protocol:   corev1.ProtocolTCP,
+		},
+	}
+
+	updatedMainResource := getMainResourceSpec()
+	updatedMainResource.Spec.Template.Spec.Containers[1].Ports = []corev1.ContainerPort{
+		{
+			Name:          "port1",
+			ContainerPort: int32(8080),
+			Protocol:      corev1.ProtocolTCP,
+		},
+	}
+	gomock.InOrder(
+		s.applier.EXPECT().Apply(resources.NewService("gitlab", "test", updatedSvc)),
+		s.applier.EXPECT().Apply(resources.NewStatefulSet("gitlab", "test", updatedMainResource)),
+		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
+	)
+	c.Assert(app.UpdatePorts([]caas.ServicePort{
+		{
+			Name:       "port1",
+			Port:       80,
+			TargetPort: 8080,
+			Protocol:   "TCP",
+		},
+	}, true), jc.ErrorIsNil)
+}
+
+func (s *applicationSuite) TestUpdatePortsDaemonUpdateContainerPorts(c *gc.C) {
+	app, ctrl := s.getApp(c, caas.DeploymentDaemon, true)
+	defer ctrl.Finish()
+
+	_, err := s.client.CoreV1().Services("test").Create(context.TODO(), getDefaultSvc(), metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	getMainResourceSpec := func() *appsv1.DaemonSet {
+		return &appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "gitlab",
+				Namespace: "test",
+				Labels:    map[string]string{"juju-app": "gitlab"},
+				Annotations: map[string]string{
+					"juju-version":     "0.0.0",
+					"juju.io/app-uuid": "appuuid",
+				},
+			},
+			Spec: appsv1.DaemonSetSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"juju-app": "gitlab"},
+				},
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels:      map[string]string{"juju-app": "gitlab"},
+						Annotations: map[string]string{"juju-version": "0.0.0"},
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Name:            "juju-unit-agent",
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							Image:           "operator/image-path",
+							WorkingDir:      "/var/lib/juju",
+							Command:         []string{"/opt/k8sagent"},
+							Args:            []string{"unit", "--data-dir", "/var/lib/juju"},
+						}, {
+							Name:            "gitlab",
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							Image:           "test-image",
+							Command:         []string{"/usr/bin/pebble"},
+						}},
+					},
+				},
+			},
+		}
+	}
+	_, err = s.client.AppsV1().DaemonSets("test").Create(context.TODO(), getMainResourceSpec(), metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	updatedSvc := getDefaultSvc()
+	updatedSvc.Spec.Ports = []corev1.ServicePort{
+		{
+			Name:       "port1",
+			Port:       int32(80),
+			TargetPort: intstr.FromInt(8080),
+			Protocol:   corev1.ProtocolTCP,
+		},
+	}
+
+	updatedMainResource := getMainResourceSpec()
+	updatedMainResource.Spec.Template.Spec.Containers[1].Ports = []corev1.ContainerPort{
+		{
+			Name:          "port1",
+			ContainerPort: int32(8080),
+			Protocol:      corev1.ProtocolTCP,
+		},
+	}
+	gomock.InOrder(
+		s.applier.EXPECT().Apply(resources.NewService("gitlab", "test", updatedSvc)),
+		s.applier.EXPECT().Apply(resources.NewDaemonSet("gitlab", "test", updatedMainResource)),
+		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
+	)
+	c.Assert(app.UpdatePorts([]caas.ServicePort{
+		{
+			Name:       "port1",
+			Port:       80,
+			TargetPort: 8080,
+			Protocol:   "TCP",
+		},
+	}, true), jc.ErrorIsNil)
+}
+
+func (s *applicationSuite) TestUpdatePortsStateless(c *gc.C) {
+	app, ctrl := s.getApp(c, caas.DeploymentStateless, true)
+	defer ctrl.Finish()
+
+	_, err := s.client.CoreV1().Services("test").Create(context.TODO(), getDefaultSvc(), metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	updatedSvc := getDefaultSvc()
+	updatedSvc.Spec.Ports = []corev1.ServicePort{
+		{
+			Name:       "port1",
+			Port:       int32(80),
+			TargetPort: intstr.FromInt(8080),
+			Protocol:   corev1.ProtocolTCP,
+		},
+	}
+
+	gomock.InOrder(
+		s.applier.EXPECT().Apply(resources.NewService("gitlab", "test", updatedSvc)),
+		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
+	)
+	c.Assert(app.UpdatePorts([]caas.ServicePort{
+		{
+			Name:       "port1",
+			Port:       80,
+			TargetPort: 8080,
+			Protocol:   "TCP",
+		},
+	}, false), jc.ErrorIsNil)
+}
+
+func (s *applicationSuite) TestUpdatePortsStateful(c *gc.C) {
+	app, ctrl := s.getApp(c, caas.DeploymentStateful, true)
+	defer ctrl.Finish()
+
+	_, err := s.client.CoreV1().Services("test").Create(context.TODO(), getDefaultSvc(), metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	updatedSvc := getDefaultSvc()
+	updatedSvc.Spec.Ports = []corev1.ServicePort{
+		{
+			Name:       "port1",
+			Port:       int32(80),
+			TargetPort: intstr.FromInt(8080),
+			Protocol:   corev1.ProtocolTCP,
+		},
+	}
+
+	gomock.InOrder(
+		s.applier.EXPECT().Apply(resources.NewService("gitlab", "test", updatedSvc)),
+		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
+	)
+	c.Assert(app.UpdatePorts([]caas.ServicePort{
+		{
+			Name:       "port1",
+			Port:       80,
+			TargetPort: 8080,
+			Protocol:   "TCP",
+		},
+	}, false), jc.ErrorIsNil)
+}
+
+func (s *applicationSuite) TestUpdatePortsDaemonUpdate(c *gc.C) {
+	app, ctrl := s.getApp(c, caas.DeploymentDaemon, true)
+	defer ctrl.Finish()
+
+	_, err := s.client.CoreV1().Services("test").Create(context.TODO(), getDefaultSvc(), metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	updatedSvc := getDefaultSvc()
+	updatedSvc.Spec.Ports = []corev1.ServicePort{
+		{
+			Name:       "port1",
+			Port:       int32(80),
+			TargetPort: intstr.FromInt(8080),
+			Protocol:   corev1.ProtocolTCP,
+		},
+	}
+
+	gomock.InOrder(
+		s.applier.EXPECT().Apply(resources.NewService("gitlab", "test", updatedSvc)),
+		s.applier.EXPECT().Run(context.Background(), s.client, false).Return(nil),
+	)
+	c.Assert(app.UpdatePorts([]caas.ServicePort{
+		{
+			Name:       "port1",
+			Port:       80,
+			TargetPort: 8080,
+			Protocol:   "TCP",
+		},
+	}, false), jc.ErrorIsNil)
 }
 
 type fakeCharm struct {

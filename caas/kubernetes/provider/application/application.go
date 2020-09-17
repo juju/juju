@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	cache "k8s.io/client-go/tools/cache"
@@ -37,6 +38,10 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.kubernetes.provider.application")
+
+const (
+	unitContainerName = "juju-unit-agent"
+)
 
 type app struct {
 	name           string
@@ -149,21 +154,9 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	}
 	applier.Apply(&secret)
 
-	service := resources.Service{
-		Service: corev1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        a.name,
-				Namespace:   a.namespace,
-				Labels:      a.labels(),
-				Annotations: a.annotations(config),
-			},
-			Spec: corev1.ServiceSpec{
-				Selector: a.labels(),
-				Type:     corev1.ServiceTypeClusterIP,
-			},
-		},
+	if err := a.configureDefaultService(a.annotations(config)); err != nil {
+		return errors.Annotatef(err, "ensuring the default service %q", a.name)
 	}
-	applier.Apply(&service)
 
 	// Set up the parameters for creating charm storage (if required).
 	podSpec, err := a.applicationPodSpec(config)
@@ -224,7 +217,10 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
-		// TODO: headless service for statefulset?
+		if err := a.configureHeadlessService(a.name, a.annotations(config)); err != nil {
+			return errors.Annotatef(err, "creating or updating headless service for %q %q", a.deploymentType, a.name)
+		}
+
 		storageUniqueID, err := a.getStorageUniqPrefix(func() (annotationGetter, error) {
 			return a.getStatefulSet()
 		})
@@ -392,6 +388,161 @@ func (a *app) Exists() (caas.DeploymentState, error) {
 	return state, nil
 }
 
+func headlessServiceName(appName string) string {
+	return fmt.Sprintf("%s-endpoints", appName)
+}
+
+func (a *app) configureHeadlessService(name string, annotation annotations.Annotation) error {
+	svc := resources.NewService(headlessServiceName(name), a.namespace, &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: a.labels(),
+			Annotations: annotation.
+				Add("service.alpha.kubernetes.io/tolerate-unready-endpoints", "true"),
+		},
+		Spec: corev1.ServiceSpec{
+			Selector:                 a.labels(),
+			Type:                     corev1.ServiceTypeClusterIP,
+			ClusterIP:                "None",
+			PublishNotReadyAddresses: true,
+		},
+	})
+	return svc.Apply(context.Background(), a.client)
+}
+
+// configureDefaultService configures the default service for the application.
+// It's only configured once when the application was deployed in the first time.
+func (a *app) configureDefaultService(annotation annotations.Annotation) (err error) {
+	svc := resources.NewService(a.name, a.namespace, &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels:      a.labels(),
+			Annotations: annotation,
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: a.labels(),
+			Type:     corev1.ServiceTypeClusterIP,
+		},
+	})
+	if err = svc.Get(context.Background(), a.client); errors.IsNotFound(err) {
+		return svc.Apply(context.Background(), a.client)
+	}
+	return errors.Trace(err)
+}
+
+// UpdateService updates the default service with specific service type and port mappings.
+func (a *app) UpdateService(param caas.ServiceParam) error {
+	// This method will be used for juju [un]expose.
+	// TODO(embedded): it might be changed later when we have proper modelling for the juju expose for the embedded charms.
+	svc, err := a.getService()
+	if err != nil {
+		return errors.Annotatef(err, "getting existing service %q", a.name)
+	}
+	svc.Service.Spec.Type = corev1.ServiceType(param.Type)
+	svc.Service.Spec.Ports = make([]corev1.ServicePort, len(param.Ports))
+	for i, p := range param.Ports {
+		svc.Service.Spec.Ports[i] = convertServicePort(p)
+	}
+
+	applier := a.newApplier()
+	applier.Apply(svc)
+	if err := a.updateContainerPorts(applier, svc.Service.Spec.Ports); err != nil {
+		return errors.Trace(err)
+	}
+	return applier.Run(context.Background(), a.client, false)
+}
+
+func convertServicePort(p caas.ServicePort) corev1.ServicePort {
+	return corev1.ServicePort{
+		Name:       p.Name,
+		Port:       int32(p.Port),
+		TargetPort: intstr.FromInt(p.TargetPort),
+		Protocol:   corev1.Protocol(p.Protocol),
+	}
+}
+
+func (a *app) getService() (*resources.Service, error) {
+	svc := resources.NewService(a.name, a.namespace, nil)
+	if err := svc.Get(context.Background(), a.client); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return svc, nil
+}
+
+// UpdatePorts updates port mappings on the specified service.
+func (a *app) UpdatePorts(ports []caas.ServicePort, updateContainerPorts bool) (err error) {
+	svc, err := a.getService()
+	if err != nil {
+		return errors.Annotatef(err, "getting existing service %q", a.name)
+	}
+	svc.Service.Spec.Ports = make([]corev1.ServicePort, len(ports))
+	for i, port := range ports {
+		svc.Service.Spec.Ports[i] = convertServicePort(port)
+	}
+	applier := a.newApplier()
+	applier.Apply(svc)
+
+	if updateContainerPorts {
+		if err = a.updateContainerPorts(applier, svc.Service.Spec.Ports); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	err = applier.Run(context.Background(), a.client, false)
+	return nil
+}
+
+func convertContainerPort(p corev1.ServicePort) corev1.ContainerPort {
+	return corev1.ContainerPort{
+		Name:          p.Name,
+		ContainerPort: p.TargetPort.IntVal,
+		Protocol:      corev1.Protocol(p.Protocol),
+	}
+}
+
+func (a *app) updateContainerPorts(applier resources.Applier, ports []corev1.ServicePort) error {
+	updatePodSpec := func(spec *corev1.PodSpec, containerPorts []corev1.ContainerPort) {
+		for i, c := range spec.Containers {
+			ps := containerPorts
+			if c.Name != unitContainerName {
+				spec.Containers[i].Ports = ps
+			}
+		}
+	}
+
+	containerPorts := make([]corev1.ContainerPort, len(ports))
+	for i, p := range ports {
+		containerPorts[i] = convertContainerPort(p)
+	}
+
+	switch a.deploymentType {
+	case caas.DeploymentStateful:
+		ss := resources.NewStatefulSet(a.name, a.namespace, nil)
+		if err := ss.Get(context.Background(), a.client); err != nil {
+			return errors.Trace(err)
+		}
+
+		updatePodSpec(&ss.StatefulSet.Spec.Template.Spec, containerPorts)
+		applier.Apply(ss)
+	case caas.DeploymentStateless:
+		d := resources.NewDeployment(a.name, a.namespace, nil)
+		if err := d.Get(context.Background(), a.client); err != nil {
+			return errors.Trace(err)
+		}
+
+		updatePodSpec(&d.Deployment.Spec.Template.Spec, containerPorts)
+		applier.Apply(d)
+	case caas.DeploymentDaemon:
+		d := resources.NewDaemonSet(a.name, a.namespace, nil)
+		if err := d.Get(context.Background(), a.client); err != nil {
+			return errors.Trace(err)
+		}
+
+		updatePodSpec(&d.DaemonSet.Spec.Template.Spec, containerPorts)
+		applier.Apply(d)
+	default:
+		return errors.NotSupportedf("unknown deployment type")
+	}
+	return nil
+}
+
 func (a *app) getStatefulSet() (*resources.StatefulSet, error) {
 	ss := resources.NewStatefulSet(a.name, a.namespace, nil)
 	if err := ss.Get(context.Background(), a.client); err != nil {
@@ -478,6 +629,7 @@ func (a *app) Delete() error {
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
 		applier.Delete(resources.NewStatefulSet(a.name, a.namespace, nil))
+		applier.Delete(resources.NewService(headlessServiceName(a.name), a.namespace, nil))
 	case caas.DeploymentStateless:
 		applier.Delete(resources.NewDeployment(a.name, a.namespace, nil))
 	case caas.DeploymentDaemon:
@@ -590,15 +742,6 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		return nil, errors.NotValidf("charm missing container-image-name")
 	}
 
-	containerPorts := []corev1.ContainerPort(nil)
-	/*for _, v := range config.Charm.Meta().Deployment.ServicePorts {
-		containerPorts = append(containerPorts, corev1.ContainerPort{
-			Name:          v.Name,
-			Protocol:      corev1.Protocol(v.Protocol),
-			ContainerPort: int32(v.TargetPort),
-		})
-	}*/
-
 	jujuDataDir, err := paths.DataDir("kubernetes")
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -650,7 +793,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			}},
 		}},
 		Containers: []corev1.Container{{
-			Name:            "juju-unit-agent",
+			Name:            unitContainerName,
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Image:           config.AgentImagePath,
 			WorkingDir:      jujuDataDir,
@@ -672,7 +815,6 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				SubPath:   "usr/bin/pebble",
 				ReadOnly:  true,
 			}},
-			Ports: containerPorts,
 		}},
 		Volumes: []corev1.Volume{{
 			Name: "juju-data-dir",
