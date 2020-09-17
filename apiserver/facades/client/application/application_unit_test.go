@@ -312,6 +312,9 @@ func (s *ApplicationSuite) TestSetCharmStorageConstraints(c *gc.C) {
 	app := s.backend.applications["postgresql"]
 	app.CheckCall(c, 2, "SetCharm", state.SetCharmConfig{
 		Charm: &state.Charm{},
+		CharmOrigin: &state.CharmOrigin{
+			Source: "charm-store",
+		},
 		StorageConstraints: map[string]state.StorageConstraints{
 			"a": {},
 			"b": {Pool: "radiant"},
@@ -433,7 +436,10 @@ func (s *ApplicationSuite) TestSetCharmConfigSettings(c *gc.C) {
 	s.backend.charm.CheckCallNames(c, "Config")
 	app := s.backend.applications["postgresql"]
 	app.CheckCall(c, 2, "SetCharm", state.SetCharmConfig{
-		Charm:          &state.Charm{},
+		Charm: &state.Charm{},
+		CharmOrigin: &state.CharmOrigin{
+			Source: "charm-store",
+		},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	})
 }
@@ -452,7 +458,10 @@ postgresql:
 	s.backend.charm.CheckCallNames(c, "Config")
 	app := s.backend.applications["postgresql"]
 	app.CheckCall(c, 2, "SetCharm", state.SetCharmConfig{
-		Charm:          &state.Charm{},
+		Charm: &state.Charm{},
+		CharmOrigin: &state.CharmOrigin{
+			Source: "charm-store",
+		},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	})
 }
@@ -469,7 +478,10 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithNewerAgentVersion(c *gc.C) 
 	app := s.backend.applications["postgresql"]
 	app.CheckCallNames(c, "Charm", "AgentTools", "SetCharm")
 	app.CheckCall(c, 2, "SetCharm", state.SetCharmConfig{
-		Charm:          &state.Charm{},
+		Charm: &state.Charm{},
+		CharmOrigin: &state.CharmOrigin{
+			Source: "charm-store",
+		},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	})
 }
@@ -507,7 +519,10 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithEmptyProfile(c *gc.C) {
 	app := s.backend.applications["postgresql"]
 	app.CheckCallNames(c, "Charm", "AgentTools", "SetCharm")
 	app.CheckCall(c, 2, "SetCharm", state.SetCharmConfig{
-		Charm:          &state.Charm{},
+		Charm: &state.Charm{},
+		CharmOrigin: &state.CharmOrigin{
+			Source: "charm-store",
+		},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	})
 }

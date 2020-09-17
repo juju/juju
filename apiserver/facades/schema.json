@@ -3051,6 +3051,9 @@
                         "channel": {
                             "type": "string"
                         },
+                        "charm-origin": {
+                            "$ref": "#/definitions/CharmOrigin"
+                        },
                         "charm-url": {
                             "type": "string"
                         },
@@ -3160,9 +3163,6 @@
                     "properties": {
                         "application": {
                             "type": "string"
-                        },
-                        "charm-origin": {
-                            "$ref": "#/definitions/CharmOrigin"
                         },
                         "charm-url": {
                             "type": "string"
