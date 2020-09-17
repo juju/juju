@@ -256,7 +256,7 @@ func (c *Client) Units(appName string) ([]names.Tag, error) {
 
 // GarbageCollect cleans up units that have gone away permanently.
 // Only observed units will be deleted as new units could have surfaced between
-// the capturing of kuberentes pod state/application state and this call.
+// the capturing of kubernetes pod state/application state and this call.
 func (c *Client) GarbageCollect(
 	appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error {
 	var result params.ErrorResults

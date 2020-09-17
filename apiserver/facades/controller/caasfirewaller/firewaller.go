@@ -19,24 +19,27 @@ type Facade struct {
 	*common.AgentEntityWatcher
 	resources facade.Resources
 	state     CAASFirewallerState
+	*common.ApplicationWatcherFacade
 }
 
-// NewStateFacade provides the signature required for facade registration.
-func NewStateFacade(ctx facade.Context) (*Facade, error) {
+// NewStateFacadeLegacy provides the signature required for facade registration.
+func NewStateFacadeLegacy(ctx facade.Context) (*Facade, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
-	return NewFacade(
+	appWatcherFacade := common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterCAASLegacy)
+	return newFacadeLegacy(
 		resources,
 		authorizer,
-		stateShim{ctx.State()},
+		&stateShim{ctx.State()},
+		appWatcherFacade,
 	)
 }
 
-// NewFacade returns a new CAAS firewaller Facade facade.
-func NewFacade(
+func newFacadeLegacy(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	st CAASFirewallerState,
+	applicationWatcherFacade *common.ApplicationWatcherFacade,
 ) (*Facade, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -54,22 +57,10 @@ func NewFacade(
 			resources,
 			accessApplication,
 		),
-		resources: resources,
-		state:     st,
+		resources:                resources,
+		state:                    st,
+		ApplicationWatcherFacade: applicationWatcherFacade,
 	}, nil
-}
-
-// WatchApplications starts a StringsWatcher to watch CAAS applications
-// deployed to this model.
-func (f *Facade) WatchApplications() (params.StringsWatchResult, error) {
-	watch := f.state.WatchApplications()
-	if changes, ok := <-watch.Changes(); ok {
-		return params.StringsWatchResult{
-			StringsWatcherId: f.resources.Register(watch),
-			Changes:          changes,
-		}, nil
-	}
-	return params.StringsWatchResult{}, watcher.EnsureErr(watch)
 }
 
 // IsExposed returns whether the specified applications are exposed.
@@ -123,4 +114,101 @@ func (f *Facade) getApplicationConfig(tagString string) (map[string]interface{},
 		return nil, errors.Trace(err)
 	}
 	return app.ApplicationConfig()
+}
+
+// FacadeEmbedded provides access to the CAASFireWaller API facade for embedded applications.
+type FacadeEmbedded struct {
+	*Facade
+
+	accessModel common.GetAuthFunc
+}
+
+// NewStateFacadeEmbedded provides the signature required for facade registration.
+func NewStateFacadeEmbedded(ctx facade.Context) (*FacadeEmbedded, error) {
+	authorizer := ctx.Auth()
+	resources := ctx.Resources()
+	appWatcherFacade := common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterCAASEmbedded)
+	return newFacadeEmbedded(
+		resources,
+		authorizer,
+		&stateShim{ctx.State()},
+		appWatcherFacade,
+	)
+}
+
+func newFacadeEmbedded(
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+	st CAASFirewallerState,
+	applicationWatcherFacade *common.ApplicationWatcherFacade,
+) (*FacadeEmbedded, error) {
+	if !authorizer.AuthController() {
+		return nil, apiservererrors.ErrPerm
+	}
+	accessApplication := common.AuthFuncForTagKind(names.ApplicationTagKind)
+
+	return &FacadeEmbedded{
+		accessModel: common.AuthFuncForTagKind(names.ModelTagKind),
+		Facade: &Facade{
+			LifeGetter: common.NewLifeGetter(
+				st, common.AuthAny(
+					common.AuthFuncForTagKind(names.ApplicationTagKind),
+					common.AuthFuncForTagKind(names.UnitTagKind),
+				),
+			),
+			AgentEntityWatcher: common.NewAgentEntityWatcher(
+				st,
+				resources,
+				accessApplication,
+			),
+			resources:                resources,
+			state:                    st,
+			ApplicationWatcherFacade: applicationWatcherFacade,
+		},
+	}, nil
+}
+
+// WatchOpenedPorts returns a new StringsWatcher for each given
+// model tag.
+func (f *FacadeEmbedded) WatchOpenedPorts(args params.Entities) (params.StringsWatchResults, error) {
+	result := params.StringsWatchResults{
+		Results: make([]params.StringsWatchResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	canWatch, err := f.accessModel()
+	if err != nil {
+		return params.StringsWatchResults{}, errors.Trace(err)
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		if !canWatch(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		watcherID, initial, err := f.watchOneModelOpenedPorts(tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		result.Results[i].StringsWatcherId = watcherID
+		result.Results[i].Changes = initial
+	}
+	return result, nil
+}
+
+func (f *FacadeEmbedded) watchOneModelOpenedPorts(tag names.Tag) (string, []string, error) {
+	// NOTE: tag is ignored, as there is only one model in the
+	// state DB. Once this changes, change the code below accordingly.
+	watch := f.state.WatchOpenedPorts()
+	// Consume the initial event and forward it to the result.
+	if changes, ok := <-watch.Changes(); ok {
+		return f.resources.Register(watch), changes, nil
+	}
+	return "", nil, watcher.EnsureErr(watch)
 }
