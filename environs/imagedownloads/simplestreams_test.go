@@ -5,17 +5,21 @@ package imagedownloads_test
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"golang.org/x/crypto/openpgp"
+	openpgperrors "golang.org/x/crypto/openpgp/errors"
 	gc "gopkg.in/check.v1"
 
 	. "github.com/juju/juju/environs/imagedownloads"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
+	streamstesting "github.com/juju/juju/environs/simplestreams/testing"
 )
 
 type Suite struct {
@@ -32,6 +36,20 @@ func newTestDataSourceFunc(s string) func() simplestreams.DataSource {
 	return func() simplestreams.DataSource {
 		return NewDataSource(s + "/releases/")
 	}
+}
+
+func (s *Suite) SetUpTest(c *gc.C) {
+	imagemetadata.SimplestreamsImagesPublicKey = streamstesting.SignedMetadataPublicKey
+
+	// The index.sjson file used by these tests have been regenerated using
+	// the test keys in environs/simplestreams/testing/testing.go. As this
+	// signature is not trusted, we need to override the signature check
+	// implementation and suppress the ErrUnkownIssuer error.
+	s.PatchValue(&simplestreams.PGPSignatureCheckFn, func(keyring openpgp.KeyRing, signed, signature io.Reader) (*openpgp.Entity, error) {
+		ent, err := openpgp.CheckDetachedSignature(keyring, signed, signature)
+		c.Assert(err, gc.Equals, openpgperrors.ErrUnknownIssuer, gc.Commentf("expected the signature verification to return ErrUnknownIssuer when the index file is signed with the test pgp key"))
+		return ent, nil
+	})
 }
 
 func (Suite) TestNewSignedImagesSource(c *gc.C) {

@@ -13,6 +13,12 @@ import (
 	"golang.org/x/crypto/openpgp/clearsign"
 )
 
+// PGPPGPSignatureCheckFn can be overridden by tests to allow signatures from
+// non-trusted sources to be verified.
+var PGPSignatureCheckFn = func(keyring openpgp.KeyRing, signed, signature io.Reader) (*openpgp.Entity, error) {
+	return openpgp.CheckDetachedSignature(keyring, signed, signature)
+}
+
 // DecodeCheckSignature parses the inline signed PGP text, checks the signature,
 // and returns plain text if the signature matches.
 func DecodeCheckSignature(r io.Reader, armoredPublicKey string) ([]byte, error) {
@@ -29,7 +35,7 @@ func DecodeCheckSignature(r io.Reader, armoredPublicKey string) ([]byte, error) 
 		return nil, fmt.Errorf("failed to parse public key: %v", err)
 	}
 
-	_, err = openpgp.CheckDetachedSignature(keyring, bytes.NewBuffer(b.Bytes), b.ArmoredSignature.Body)
+	_, err = PGPSignatureCheckFn(keyring, bytes.NewBuffer(b.Bytes), b.ArmoredSignature.Body)
 	if err != nil {
 		return nil, err
 	}
