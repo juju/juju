@@ -1995,7 +1995,7 @@
     },
     {
         "Name": "Application",
-        "Description": "APIv13 provides the Application API facade for version 13.\nIt adds CharmOrigin.",
+        "Description": "APIv13 provides the Application API facade for version 13.\nIt adds CharmOrigin. The ApplicationsInfo call populates the exposed\nendpoints field in its response entries.",
         "Version": 13,
         "AvailableTo": [
             "controller-machine-agent",
@@ -2987,6 +2987,14 @@
                         },
                         "exposed": {
                             "type": "boolean"
+                        },
+                        "exposed-endpoints": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/ExposedEndpoint"
+                                }
+                            }
                         },
                         "principal": {
                             "type": "boolean"

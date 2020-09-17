@@ -176,20 +176,40 @@ func formatApplicationInfos(all []params.ApplicationResult) (map[string]Applicat
 
 // ApplicationInfo defines the serialization behaviour of the application information.
 type ApplicationInfo struct {
-	Charm            string            `yaml:"charm,omitempty" json:"charm,omitempty"`
-	Series           string            `yaml:"series,omitempty" json:"series,omitempty"`
-	Channel          string            `yaml:"channel,omitempty" json:"channel,omitempty"`
-	Constraints      constraints.Value `yaml:"constraints,omitempty" json:"constraints,omitempty"`
-	Principal        bool              `yaml:"principal" json:"principal"`
-	Exposed          bool              `yaml:"exposed" json:"exposed"`
-	Remote           bool              `yaml:"remote" json:"remote"`
-	EndpointBindings map[string]string `yaml:"endpoint-bindings,omitempty" json:"endpoint-bindings,omitempty"`
+	Charm            string                     `yaml:"charm,omitempty" json:"charm,omitempty"`
+	Series           string                     `yaml:"series,omitempty" json:"series,omitempty"`
+	Channel          string                     `yaml:"channel,omitempty" json:"channel,omitempty"`
+	Constraints      constraints.Value          `yaml:"constraints,omitempty" json:"constraints,omitempty"`
+	Principal        bool                       `yaml:"principal" json:"principal"`
+	Exposed          bool                       `yaml:"exposed" json:"exposed"`
+	ExposedEndpoints map[string]ExposedEndpoint `yaml:"exposed-endpoints,omitempty" json:"exposed-endpoints,omitempty"`
+	Remote           bool                       `yaml:"remote" json:"remote"`
+	EndpointBindings map[string]string          `yaml:"endpoint-bindings,omitempty" json:"endpoint-bindings,omitempty"`
+}
+
+// ExposedEndpoint defines the serialization behavior of the expose settings
+// for an application endpoint.
+type ExposedEndpoint struct {
+	ExposeToSpaces []string `yaml:"expose-to-spaces,omitempty" json:"expose-to-spaces,omitempty"`
+	ExposeToCIDRs  []string `yaml:"expose-to-cidrs,omitempty" json:"expose-to-cidrs,omitempty"`
 }
 
 func createApplicationInfo(details params.ApplicationResult) (names.ApplicationTag, ApplicationInfo, error) {
 	tag, err := names.ParseApplicationTag(details.Tag)
 	if err != nil {
 		return names.ApplicationTag{}, ApplicationInfo{}, errors.Trace(err)
+	}
+
+	var exposedEndpoints map[string]ExposedEndpoint
+	if len(details.ExposedEndpoints) != 0 {
+		exposedEndpoints = make(map[string]ExposedEndpoint, len(details.ExposedEndpoints))
+		for endpoint, exposeDetails := range details.ExposedEndpoints {
+			exposedEndpoints[endpoint] = ExposedEndpoint{
+				ExposeToSpaces: exposeDetails.ExposeToSpaces,
+				ExposeToCIDRs:  exposeDetails.ExposeToCIDRs,
+			}
+		}
+
 	}
 
 	info := ApplicationInfo{
@@ -199,6 +219,7 @@ func createApplicationInfo(details params.ApplicationResult) (names.ApplicationT
 		Constraints:      details.Constraints,
 		Principal:        details.Principal,
 		Exposed:          details.Exposed,
+		ExposedEndpoints: exposedEndpoints,
 		Remote:           details.Remote,
 		EndpointBindings: details.EndpointBindings,
 	}
