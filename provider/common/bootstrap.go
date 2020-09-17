@@ -221,10 +221,11 @@ func BootstrapInstance(
 	} else if args.BootstrapConstraints.HasZones() {
 		// TODO(hpidcock): bootstrap and worker/provisioner should probably derive
 		// from the same logic regarding placement.
+		zonedEnv := env.(ZonedEnviron) // startInstanceZones has already confirmed it's a ZonedEnviron
 		var filteredZones []string
 		for _, zone := range zones {
 			for _, zoneConstraint := range *args.BootstrapConstraints.Zones {
-				if zone == zoneConstraint {
+				if ZoneMatches(zonedEnv, zone, zoneConstraint) {
 					filteredZones = append(filteredZones, zone)
 					break
 				}

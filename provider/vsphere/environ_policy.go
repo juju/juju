@@ -5,6 +5,7 @@ package vsphere
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/utils/arch"
 
 	"github.com/juju/juju/core/constraints"
@@ -36,6 +37,8 @@ func (env *sessionEnviron) PrecheckInstance(ctx context.ProviderCallContext, arg
 	return nil
 }
 
+// checkZones ensures all the zones (in the constraints) are valid
+// availability zones.
 func (env *sessionEnviron) checkZones(ctx context.ProviderCallContext, zones *[]string) error {
 	if zones == nil || len(*zones) == 0 {
 		return nil
@@ -44,14 +47,11 @@ func (env *sessionEnviron) checkZones(ctx context.ProviderCallContext, zones *[]
 	if err != nil {
 		return errors.Trace(err)
 	}
-constraintZones:
 	for _, zone := range *zones {
-		for _, foundZone := range foundZones {
-			if zone == foundZone.Name() {
-				continue constraintZones
-			}
+		_, err := common.LookupAvailabilityZone(env, ctx, foundZones, zone)
+		if err != nil {
+			return err
 		}
-		return errors.NotFoundf("availability zone %q", zone)
 	}
 	return nil
 }

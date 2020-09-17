@@ -5,6 +5,7 @@ package common
 
 import (
 	"sort"
+	"strings"
 
 	"github.com/juju/errors"
 
@@ -204,21 +205,57 @@ func DistributeInstances(
 	return eligible, nil
 }
 
-// ValidateAvailabilityZone returns nil iff the availability
-// zone exists and is available, otherwise returns a NotValid
-// error.
+// LookupAvailabilityZone looks up an availability zone by name (or path) and
+// returns the zone object if found, nil and an error if not.
+func LookupAvailabilityZone(env ZonedEnviron, ctx context.ProviderCallContext, zones []AvailabilityZone, zone string) (AvailabilityZone, error) {
+	var matches []AvailabilityZone
+	for _, z := range zones {
+		if ZoneMatches(env, z.Name(), zone) {
+			matches = append(matches, z)
+		}
+	}
+	if len(matches) == 0 {
+		return nil, errors.NotValidf("availability zone %q", zone)
+	}
+	if len(matches) > 1 {
+		names := make([]string, len(matches))
+		for i, z := range matches {
+			names[i] = z.Name()
+		}
+		return nil, errors.NotValidf("matched multiple availability zones (%s): %q",
+			strings.Join(names, ", "), zone)
+	}
+	return matches[0], nil
+}
+
+// ValidateAvailabilityZone returns nil iff the availability zone exists and
+// is available, otherwise returns an error.
 func ValidateAvailabilityZone(env ZonedEnviron, ctx context.ProviderCallContext, zone string) error {
 	zones, err := env.AvailabilityZones(ctx)
 	if err != nil {
 		return err
 	}
-	for _, z := range zones {
-		if z.Name() == zone {
-			if z.Available() {
-				return nil
-			}
-			return errors.Errorf("availability zone %q is unavailable", zone)
-		}
+	az, err := LookupAvailabilityZone(env, ctx, zones, zone)
+	if err != nil {
+		return err
 	}
-	return errors.NotValidf("availability zone %q", zone)
+	if !az.Available() {
+		return errors.Errorf("availability zone %q is unavailable", zone)
+	}
+	return nil
+}
+
+// ZoneMatches reports whether the given zone (from AvailabilityZone.Name())
+// matches the zone name given in a constraint. If ZonedEnviron implements a
+// method "ZoneMatches(string, string) bool", that is used, otherwise we do
+// a straight string equality check. This is used by Vsphere, for example, to
+// support legacy zone name matching.
+func ZoneMatches(env ZonedEnviron, zone, constraint string) bool {
+	type zoneMatcher interface {
+		ZoneMatches(string, string) bool
+	}
+	if zm, ok := env.(zoneMatcher); ok {
+		return zm.ZoneMatches(zone, constraint)
+	}
+	return zone == constraint
 }
