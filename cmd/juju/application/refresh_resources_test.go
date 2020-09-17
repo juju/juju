@@ -32,13 +32,13 @@ import (
 	"github.com/juju/juju/testcharms"
 )
 
-type UpgradeCharmResourceSuite struct {
+type RefreshResourceSuite struct {
 	RepoSuiteBaseSuite
 }
 
-var _ = gc.Suite(&UpgradeCharmResourceSuite{})
+var _ = gc.Suite(&RefreshResourceSuite{})
 
-func (s *UpgradeCharmResourceSuite) SetUpTest(c *gc.C) {
+func (s *RefreshResourceSuite) SetUpTest(c *gc.C) {
 	s.RepoSuiteBaseSuite.SetUpTest(c)
 	chPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
 	err := runDeploy(c, chPath, "riak", "--series", "quantal", "--force")
@@ -51,7 +51,7 @@ func (s *UpgradeCharmResourceSuite) SetUpTest(c *gc.C) {
 	c.Assert(forced, jc.IsFalse)
 }
 
-func (s *UpgradeCharmResourceSuite) TestUpgradeWithResources(c *gc.C) {
+func (s *RefreshResourceSuite) TestUpgradeWithResources(c *gc.C) {
 	const riakResourceMeta = `
 name: riak
 summary: "K/V storage engine"
@@ -117,13 +117,13 @@ resources:
 	})
 }
 
-type UpgradeCharmStoreResourceSuite struct {
+type RefreshStoreResourceSuite struct {
 	FakeStoreStateSuite
 }
 
-var _ = gc.Suite(&UpgradeCharmStoreResourceSuite{})
+var _ = gc.Suite(&RefreshStoreResourceSuite{})
 
-func (s *UpgradeCharmStoreResourceSuite) TestDeployStarsaySuccess(c *gc.C) {
+func (s *RefreshStoreResourceSuite) TestDeployStarsaySuccess(c *gc.C) {
 	c.Skip("Test is trying to get resources from real api, not fake")
 	ch := s.setupCharm(c, "bionic/starsay-1", "starsay", "bionic")
 
