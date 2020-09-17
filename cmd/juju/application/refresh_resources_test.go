@@ -32,13 +32,13 @@ import (
 	"github.com/juju/juju/testcharms"
 )
 
-type UpgradeCharmResourceSuite struct {
+type RefreshResourceSuite struct {
 	RepoSuiteBaseSuite
 }
 
-var _ = gc.Suite(&UpgradeCharmResourceSuite{})
+var _ = gc.Suite(&RefreshResourceSuite{})
 
-func (s *UpgradeCharmResourceSuite) SetUpTest(c *gc.C) {
+func (s *RefreshResourceSuite) SetUpTest(c *gc.C) {
 	s.RepoSuiteBaseSuite.SetUpTest(c)
 	chPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
 	err := runDeploy(c, chPath, "riak", "--series", "quantal", "--force")
@@ -51,7 +51,7 @@ func (s *UpgradeCharmResourceSuite) SetUpTest(c *gc.C) {
 	c.Assert(forced, jc.IsFalse)
 }
 
-func (s *UpgradeCharmResourceSuite) TestUpgradeWithResources(c *gc.C) {
+func (s *RefreshResourceSuite) TestUpgradeWithResources(c *gc.C) {
 	const riakResourceMeta = `
 name: riak
 summary: "K/V storage engine"
@@ -83,7 +83,7 @@ resources:
 	err = ioutil.WriteFile(resourceFile, data, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = cmdtesting.RunCommand(c, NewUpgradeCharmCommand(),
+	_, err = cmdtesting.RunCommand(c, NewRefreshCommand(),
 		"riak", "--path="+myriakPath.Path, "--resource", "data="+resourceFile)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -117,13 +117,13 @@ resources:
 	})
 }
 
-type UpgradeCharmStoreResourceSuite struct {
+type RefreshStoreResourceSuite struct {
 	FakeStoreStateSuite
 }
 
-var _ = gc.Suite(&UpgradeCharmStoreResourceSuite{})
+var _ = gc.Suite(&RefreshStoreResourceSuite{})
 
-func (s *UpgradeCharmStoreResourceSuite) TestDeployStarsaySuccess(c *gc.C) {
+func (s *RefreshStoreResourceSuite) TestDeployStarsaySuccess(c *gc.C) {
 	c.Skip("Test is trying to get resources from real api, not fake")
 	ch := s.setupCharm(c, "bionic/starsay-1", "starsay", "bionic")
 
@@ -244,7 +244,7 @@ Deploying charm "cs:bionic/starsay-1".`
 		},
 	}
 	charmAdder := &mockCharmAdder{}
-	upgrade := NewUpgradeCharmCommandForStateTest(
+	upgrade := NewRefreshCommandForStateTest(
 		func(
 			bakeryClient *httpbakery.Client,
 			csURL string,
@@ -268,8 +268,8 @@ Deploying charm "cs:bionic/starsay-1".`
 		) (ids map[string]string, err error) {
 			return deployResources(s.State, applicationID, resources)
 		},
-		func(conn base.APICallCloser) CharmUpgradeClient {
-			return &mockCharmUpgradeClient{
+		func(conn base.APICallCloser) CharmRefreshClient {
+			return &mockCharmRefreshClient{
 				charmURL: charm.MustParseURL("bionic/starsay-1"),
 			}
 		},

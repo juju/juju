@@ -42,14 +42,14 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-func newUpgradeCharmCommand() *upgradeCharmCommand {
-	return &upgradeCharmCommand{
+func newRefreshCommand() *refreshCommand {
+	return &refreshCommand{
 		DeployResources: resourceadapters.DeployResources,
 		NewCharmAdder:   newCharmAdder,
 		NewCharmClient: func(conn base.APICallCloser) utils.CharmClient {
 			return charms.NewClient(conn)
 		},
-		NewCharmUpgradeClient: func(conn base.APICallCloser) CharmUpgradeClient {
+		NewCharmRefreshClient: func(conn base.APICallCloser) CharmRefreshClient {
 			return application.NewClient(conn)
 		},
 		NewResourceLister: func(conn base.APICallCloser) (utils.ResourceLister, error) {
@@ -81,19 +81,19 @@ func newUpgradeCharmCommand() *upgradeCharmCommand {
 }
 
 // CharmResolver defines methods required to resolve charms, as required
-// by the upgrade-charm command.
+// by the refresh command.
 type CharmResolver interface {
 	ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin) (*charm.URL, commoncharm.Origin, []string, error)
 }
 
-// NewUpgradeCharmCommand returns a command which upgrades application's charm.
-func NewUpgradeCharmCommand() cmd.Command {
-	return modelcmd.Wrap(newUpgradeCharmCommand())
+// NewRefreshCommand returns a command which upgrades application's charm.
+func NewRefreshCommand() cmd.Command {
+	return modelcmd.Wrap(newRefreshCommand())
 }
 
-// CharmUpgradeClient defines a subset of the application facade, as required
-// by the upgrade-charm command.
-type CharmUpgradeClient interface {
+// CharmRefreshClient defines a subset of the application facade, as required
+// by the refresh command.
+type CharmRefreshClient interface {
 	GetCharmURL(string, string) (*charm.URL, error)
 	Get(string, string) (*params.ApplicationGetResults, error)
 	SetCharm(string, application.SetCharmConfig) error
@@ -115,8 +115,8 @@ type NewCharmStoreFunc func(
 // NewCharmResolverFunc returns a client implementing CharmResolver.
 type NewCharmResolverFunc func(base.APICallCloser, store.CharmrepoForDeploy) CharmResolver
 
-// UpgradeCharm is responsible for upgrading an application's charm.
-type upgradeCharmCommand struct {
+// RefreshCharm is responsible for upgrading an application's charm.
+type refreshCommand struct {
 	modelcmd.ModelCommandBase
 
 	DeployResources       resourceadapters.DeployResourcesFunc
@@ -124,7 +124,7 @@ type upgradeCharmCommand struct {
 	NewCharmStore         NewCharmStoreFunc
 	NewCharmResolver      NewCharmResolverFunc
 	NewCharmClient        func(base.APICallCloser) utils.CharmClient
-	NewCharmUpgradeClient func(base.APICallCloser) CharmUpgradeClient
+	NewCharmRefreshClient func(base.APICallCloser) CharmRefreshClient
 	NewResourceLister     func(base.APICallCloser) (utils.ResourceLister, error)
 	NewSpacesClient       func(base.APICallCloser) SpacesAPI
 	CharmStoreURLGetter   func(base.APICallCloser) (string, error)
@@ -147,7 +147,7 @@ type upgradeCharmCommand struct {
 	Resources map[string]string
 
 	// Channel holds the charmstore or charmhub channel to use when obtaining
-	// the charm to be upgraded to.
+	// the charm to be refreshed to.
 	Channel    corecharm.Channel
 	channelStr string
 
@@ -163,8 +163,8 @@ type upgradeCharmCommand struct {
 	plan     catacomb.Plan
 }
 
-const upgradeCharmDoc = `
-When no options are set, the application's charm will be upgraded to the latest
+const refreshDoc = `
+When no options are set, the application's charm will be refreshed to the latest
 revision available in the repository from which it was originally deployed. An
 explicit revision can be chosen with the --revision option.
 
@@ -186,7 +186,7 @@ Resources may be uploaded at upgrade time by specifying the --resource option.
 Following the resource option should be name=filepath pair.  This option may be
 repeated more than once to upload more than one resource.
 
-  juju upgrade-charm foo --resource bar=/some/file.tgz --resource baz=./docs/cfg.xml
+  juju refresh foo --resource bar=/some/file.tgz --resource baz=./docs/cfg.xml
 
 Where bar and baz are resources named in the metadata for the foo charm.
 
@@ -195,12 +195,12 @@ the --storage option, with the same format as specified in "juju deploy".
 If new required storage is added by the new charm revision, then you must
 specify constraints or the defaults will be applied.
 
-  juju upgrade-charm foo --storage cache=ssd,10G
+  juju refresh foo --storage cache=ssd,10G
 
 Charm settings may be added or updated at upgrade time by specifying the
 --config option, pointing to a YAML-encoded application config file.
 
-  juju upgrade-charm foo --config config.yaml
+  juju refresh foo --config config.yaml
 
 If the new version of a charm does not explicitly support the application's series, the
 upgrade is disallowed unless the --force-series option is used. This option should be
@@ -231,32 +231,33 @@ is determined by the contents of the charm at the specified path.
 number with --switch, give it in the charm URL, for instance "cs:wordpress-5"
 would specify revision number 5 of the wordpress charm.
 
-Use of the --force-units option is not generally recommended; units upgraded while in an
-error state will not have upgrade-charm hooks executed, and may cause unexpected
-behavior.
+Use of the --force-units option is not generally recommended; units upgraded 
+while in an error state will not have refreshed hooks executed, and may cause 
+unexpected behavior.
 
 --force option for LXD Profiles is not generally recommended when upgrading an 
 application; overriding profiles on the container may cause unexpected 
 behavior. 
 `
 
-func (c *upgradeCharmCommand) Info() *cmd.Info {
+func (c *refreshCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "upgrade-charm",
+		Name:    "refresh",
 		Args:    "<application>",
-		Purpose: "Upgrade an application's charm.",
-		Doc:     upgradeCharmDoc,
+		Purpose: "Refresh an application's charm.",
+		Doc:     refreshDoc,
+		Aliases: []string{"upgrade-charm"},
 	})
 }
 
-func (c *upgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *refreshCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.Force, "force", false, "Allow a charm to be upgraded which bypasses LXD profile allow list")
-	f.BoolVar(&c.ForceUnits, "force-units", false, "Upgrade all units immediately, even if in error state")
+	f.BoolVar(&c.Force, "force", false, "Allow a charm to be refreshed which bypasses LXD profile allow list")
+	f.BoolVar(&c.ForceUnits, "force-units", false, "Refresh all units immediately, even if in error state")
 	f.StringVar(&c.channelStr, "channel", "", "Channel to use when getting the charm or bundle from the charm store or charm hub")
-	f.BoolVar(&c.ForceSeries, "force-series", false, "Upgrade even if series of deployed applications are not supported by the new charm")
+	f.BoolVar(&c.ForceSeries, "force-series", false, "Refresh even if series of deployed applications are not supported by the new charm")
 	f.StringVar(&c.SwitchURL, "switch", "", "Crossgrade to a different charm")
-	f.StringVar(&c.CharmPath, "path", "", "Upgrade to a charm located at path")
+	f.StringVar(&c.CharmPath, "path", "", "Refresh to a charm located at path")
 	f.IntVar(&c.Revision, "revision", -1, "Explicit revision of current charm")
 	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")
 	f.Var(storageFlag{&c.Storage, nil}, "storage", "Charm storage constraints")
@@ -264,7 +265,7 @@ func (c *upgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.BindToSpaces, "bind", "", "Configure application endpoint bindings to spaces")
 }
 
-func (c *upgradeCharmCommand) Init(args []string) error {
+func (c *refreshCommand) Init(args []string) error {
 	switch len(args) {
 	case 1:
 		if !names.IsValidApplication(args[0]) {
@@ -290,7 +291,7 @@ func (c *upgradeCharmCommand) Init(args []string) error {
 
 // Run connects to the specified environment and starts the charm
 // upgrade process.
-func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
+func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	apiRoot, err := c.NewAPIRoot()
 	if err != nil {
 		return errors.Trace(err)
@@ -313,8 +314,8 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	charmUpgradeClient := c.NewCharmUpgradeClient(apiRoot)
-	oldURL, err := charmUpgradeClient.GetCharmURL(generation, c.ApplicationName)
+	charmRefreshClient := c.NewCharmRefreshClient(apiRoot)
+	oldURL, err := charmRefreshClient.GetCharmURL(generation, c.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -334,7 +335,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		newRef = c.CharmPath
 	}
 	if c.SwitchURL == "" && c.CharmPath == "" {
-		// If the charm we are upgrading is local, then we must
+		// If the charm we are refreshing is local, then we must
 		// specify a path or switch url to upgrade with.
 		if oldURL.Schema == "local" {
 			return errors.New("upgrading a local charm requires either --path or --switch")
@@ -343,7 +344,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		newRef = oldURL.WithRevision(c.Revision).String()
 	}
 
-	applicationInfo, err := charmUpgradeClient.Get(generation, c.ApplicationName)
+	applicationInfo, err := charmRefreshClient.Get(generation, c.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -450,7 +451,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		EndpointBindings:   c.Bindings,
 	}
 
-	if err := block.ProcessBlockedError(charmUpgradeClient.SetCharm(generation, charmCfg), block.BlockChange); err != nil {
+	if err := block.ProcessBlockedError(charmRefreshClient.SetCharm(generation, charmCfg), block.BlockChange); err != nil {
 		return err
 	}
 
@@ -462,7 +463,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func (c *upgradeCharmCommand) validateEndpointNames(newCharmEndpoints set.Strings, oldEndpointsMap, userBindings map[string]string) error {
+func (c *refreshCommand) validateEndpointNames(newCharmEndpoints set.Strings, oldEndpointsMap, userBindings map[string]string) error {
 	for epName := range userBindings {
 		if _, exists := oldEndpointsMap[epName]; exists || epName == "" {
 			continue
@@ -475,7 +476,7 @@ func (c *upgradeCharmCommand) validateEndpointNames(newCharmEndpoints set.String
 	return nil
 }
 
-func (c *upgradeCharmCommand) parseBindFlag(apiRoot base.APICallCloser) error {
+func (c *refreshCommand) parseBindFlag(apiRoot base.APICallCloser) error {
 	if c.BindToSpaces == "" {
 		return nil
 	}
@@ -506,7 +507,7 @@ type versionQuerier interface {
 	ServerVersion() (version.Number, bool)
 }
 
-func (c *upgradeCharmCommand) checkApplicationFacadeSupport(verQuerier versionQuerier, action string, minVersion int) error {
+func (c *refreshCommand) checkApplicationFacadeSupport(verQuerier versionQuerier, action string, minVersion int) error {
 	if verQuerier.BestFacadeVersion("Application") >= minVersion {
 		return nil
 	}
@@ -516,7 +517,7 @@ func (c *upgradeCharmCommand) checkApplicationFacadeSupport(verQuerier versionQu
 		suffix = fmt.Sprintf("server version %s", ver)
 	}
 
-	return errors.New(action + " at upgrade-charm time is not supported by " + suffix)
+	return errors.New(action + " at refresh time is not supported by " + suffix)
 }
 
 // upgradeResources pushes metadata up to the server for each resource defined
@@ -525,7 +526,7 @@ func (c *upgradeCharmCommand) checkApplicationFacadeSupport(verQuerier versionQu
 //
 // TODO(axw) apiRoot is passed in here because DeployResources requires it,
 // DeployResources should accept a resource-specific client instead.
-func (c *upgradeCharmCommand) upgradeResources(
+func (c *refreshCommand) upgradeResources(
 	apiRoot base.APICallCloser,
 	resourceLister utils.ResourceLister,
 	chID charmstore.CharmID,
@@ -630,7 +631,7 @@ func allEndpoints(ci *charms.CharmInfo) set.Strings {
 	return epSet
 }
 
-func (c *upgradeCharmCommand) getRefresherFactory(apiRoot api.Connection) (refresher.RefresherFactory, error) {
+func (c *refreshCommand) getRefresherFactory(apiRoot api.Connection) (refresher.RefresherFactory, error) {
 	// First, ensure the charm is added to the model.
 	conAPIRoot, err := c.NewControllerAPIRoot()
 	if err != nil {

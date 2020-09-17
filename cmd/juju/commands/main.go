@@ -350,7 +350,7 @@ func registerCommands(r commandRegistry) {
 	r.Register(newSyncToolsCommand())
 	r.Register(newUpgradeJujuCommand())
 	r.Register(newUpgradeControllerCommand())
-	r.Register(application.NewUpgradeCharmCommand())
+	r.Register(application.NewRefreshCommand())
 	r.Register(application.NewSetSeriesCommand())
 	r.Register(application.NewBindCommand())
 
