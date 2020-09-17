@@ -325,7 +325,7 @@ type ApplicationGetResults struct {
 	EndpointBindings  map[string]string      `json:"endpoint-bindings,omitempty"`
 }
 
-// ApplicationConfigSetArgs holds the parameters for
+// ApplicationConfigSetArgsV12 holds the parameters for
 // setting application config values for specified applications.
 type ApplicationConfigSetArgs struct {
 	Args []ApplicationConfigSet
@@ -341,6 +341,25 @@ type ApplicationConfigSet struct {
 	Generation string `json:"generation"`
 
 	Config map[string]string `json:"config"`
+}
+
+// ConfigSetArgs holds the parameters for setting application and
+// charm config values for specified applications.
+type ConfigSetArgs struct {
+	Args []ConfigSet
+}
+
+// ConfigSet holds the parameters for an application and charm
+// config set command.
+type ConfigSet struct {
+	ApplicationName string `json:"application"`
+
+	// Generation is the generation version that this request
+	// will set application configuration for.
+	Generation string `json:"generation"`
+
+	Config     map[string]string `json:"config"`
+	ConfigYAML string            `json:"config-yaml"`
 }
 
 // ApplicationConfigUnsetArgs holds the parameters for
