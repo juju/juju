@@ -430,6 +430,8 @@ func (a *app) configureDefaultService(annotation annotations.Annotation) (err er
 
 // UpdateService updates the default service with specific service type and port mappings.
 func (a *app) UpdateService(param caas.ServiceParam) error {
+	// This method will be used for juju [un]expose.
+	// TODO(embedded): it might be changed later when we have proper modelling for the juju expose for the embedded charms.
 	svc, err := a.getService()
 	if err != nil {
 		return errors.Annotatef(err, "getting existing service %q", a.name)
