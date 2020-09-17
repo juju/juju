@@ -185,7 +185,7 @@ func (aw *SrvAllWatcher) translateApplication(info multiwatcher.EntityInfo) para
 	// correctly interpret the unknown status from the unit status. If the unit
 	// status is not found, then fall back to unknown.
 	// If a charm author has set the application status, then show that instead.
-	applicationStatus := multiwatcher.StatusInfo{Current: status.Unknown}
+	applicationStatus := multiwatcher.StatusInfo{Current: status.Unset}
 	if orig.Status.Current != status.Unset {
 		applicationStatus = orig.Status
 	}
