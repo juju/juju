@@ -662,6 +662,7 @@ func (o *OracleEnviron) ConstraintsValidator(ctx context.ProviderCallContext) (c
 		constraints.CpuPower,
 		constraints.RootDisk,
 		constraints.VirtType,
+		constraints.AllocatePublicIP,
 	}
 
 	// we choose to use the default validator implementation

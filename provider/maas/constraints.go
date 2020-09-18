@@ -21,6 +21,7 @@ var unsupportedConstraints = []string{
 	constraints.CpuPower,
 	constraints.InstanceType,
 	constraints.VirtType,
+	constraints.AllocatePublicIP,
 }
 
 // ConstraintsValidator is defined on the Environs interface.

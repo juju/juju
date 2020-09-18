@@ -42,7 +42,7 @@ func (c *defaultConfigurator) GetCloudConfig(args environs.StartInstanceParams) 
 // GetConfigDefaults implements ProviderConfigurator interface.
 func (c *defaultConfigurator) GetConfigDefaults() schema.Defaults {
 	return schema.Defaults{
-		"use-floating-ip":      false,
+		"use-floating-ip":      schema.Omit,
 		"use-default-secgroup": false,
 		"network":              "",
 		"external-network":     "",

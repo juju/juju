@@ -780,23 +780,23 @@ func (s *BootstrapSuite) TestBootstrapAttributesInheritedOverDefaults(c *gc.C) {
 	bootstrapCmd := bootstrapCommand{}
 	ctx := cmdtesting.Context(c)
 
-	// The OpenStack provider has a default of "use-floating-ip": false, so we
+	// The OpenStack provider has a default of "use-default-secgroup": false, so we
 	// use that to test against.
 	env := &openstack.Environ{}
 	provider := env.Provider()
 
-	// First test that use-floating-ip defaults to false
+	// First test that use-default-secgroup defaults to false
 	testCloud, err := cloud.CloudByName("dummy-cloud")
 	c.Assert(err, jc.ErrorIsNil)
 
-	key := "use-floating-ip"
+	key := "use-default-secgroup"
 	checkConfigs(c, bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
 		"bootstrapModelConfig":     {key: false},
 		"inheritedControllerAttrs": {},
 		"userConfigAttrs":          {},
 	})
 
-	// Second test that use-floating-ip in the cloud config overwrites the
+	// Second test that use-default-secgroup in the cloud config overwrites the
 	// provider default of false with true
 	testCloud, err = cloud.CloudByName("dummy-cloud-with-config")
 	c.Assert(err, jc.ErrorIsNil)
@@ -865,25 +865,25 @@ func (s *BootstrapSuite) TestBootstrapAttributesCLIOverDefaults(c *gc.C) {
 
 	ctx := cmdtesting.Context(c)
 
-	// The OpenStack provider has a default of "use-floating-ip": false, so we
+	// The OpenStack provider has a default of "use-default-secgroup": false, so we
 	// use that to test against.
 	env := &openstack.Environ{}
 	provider := env.Provider()
 
-	// First test that use-floating-ip defaults to false
+	// First test that use-default-secgroup defaults to false
 	testCloud, err := cloud.CloudByName("dummy-cloud")
 	c.Assert(err, jc.ErrorIsNil)
 
-	key := "use-floating-ip"
+	key := "use-default-secgroup"
 	checkConfigs(c, s.bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
 		"bootstrapModelConfig":     {key: false},
 		"inheritedControllerAttrs": {},
 		"userConfigAttrs":          {},
 	})
 
-	// Second test that use-floating-ip passed on the command line overwrites the
+	// Second test that use-default-secgroup passed on the command line overwrites the
 	// provider default of false with true
-	s.bootstrapCmd.config.Set("use-floating-ip=true")
+	s.bootstrapCmd.config.Set("use-default-secgroup=true")
 	checkConfigs(c, s.bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
 		"bootstrapModelConfig":     {key: true},
 		"inheritedControllerAttrs": {},
@@ -899,27 +899,27 @@ func (s *BootstrapSuite) TestBootstrapAttributesCLIOverInherited(c *gc.C) {
 
 	ctx := cmdtesting.Context(c)
 
-	// The OpenStack provider has a default of "use-floating-ip": false, so we
+	// The OpenStack provider has a default of "use-default-secgroup": false, so we
 	// use that to test against.
 	env := &openstack.Environ{}
 	provider := env.Provider()
 
-	// First test that use-floating-ip defaults to false
+	// First test that use-default-secgroup defaults to false
 	testCloud, err := cloud.CloudByName("dummy-cloud")
 	c.Assert(err, jc.ErrorIsNil)
 
-	key := "use-floating-ip"
+	key := "use-default-secgroup"
 	checkConfigs(c, s.bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
 		"bootstrapModelConfig":     {key: false},
 		"inheritedControllerAttrs": {},
 		"userConfigAttrs":          {},
 	})
 
-	// Second test that use-floating-ip passed on the command line overwrites the
+	// Second test that use-default-secgroup passed on the command line overwrites the
 	// inherited attribute
 	testCloud, err = cloud.CloudByName("dummy-cloud-with-config")
 	c.Assert(err, jc.ErrorIsNil)
-	s.bootstrapCmd.config.Set("use-floating-ip=false")
+	s.bootstrapCmd.config.Set("use-default-secgroup=false")
 	checkConfigs(c, s.bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
 		"bootstrapModelConfig":     {key: false},
 		"inheritedControllerAttrs": {key: true},
@@ -2209,7 +2209,7 @@ clouds:
         config:
             broken: Bootstrap
             controller: not-a-bool
-            use-floating-ip: true
+            use-default-secgroup: true
     many-credentials-no-auth-types:
         type: many-credentials
 `[1:]), 0644)

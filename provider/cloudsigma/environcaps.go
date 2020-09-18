@@ -13,6 +13,7 @@ var unsupportedConstraints = []string{
 	constraints.InstanceType,
 	constraints.Tags,
 	constraints.VirtType,
+	constraints.AllocatePublicIP,
 }
 
 // ConstraintsValidator returns a Validator instance which

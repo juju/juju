@@ -10,6 +10,7 @@ import (
 	"github.com/juju/utils"
 	"gopkg.in/juju/environschema.v1"
 
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -50,7 +51,7 @@ var configSchema = environschema.Fields{
 }
 
 var configDefaults = schema.Defaults{
-	UseFloatingIPKey:      false,
+	UseFloatingIPKey:      schema.Omit,
 	UseDefaultSecgroupKey: false,
 	NetworkKey:            "",
 	ExternalNetworkKey:    "",
@@ -72,7 +73,8 @@ type environConfig struct {
 }
 
 func (c *environConfig) useFloatingIP() bool {
-	return c.attrs[UseFloatingIPKey].(bool)
+	v, ok := c.attrs[UseFloatingIPKey].(bool)
+	return ok && v
 }
 
 func (c *environConfig) useDefaultSecurityGroup() bool {
@@ -96,12 +98,6 @@ func (c *environConfig) policyTargetGroup() string {
 }
 
 type AuthMode string
-
-const (
-	AuthKeyPair  AuthMode = "keypair"
-	AuthLegacy   AuthMode = "legacy"
-	AuthUserPass AuthMode = "userpass"
-)
 
 // Schema returns the configuration schema for an environment.
 func (EnvironProvider) Schema() environschema.Fields {
@@ -177,7 +173,15 @@ func (p EnvironProvider) Validate(cfg, old *config.Config) (valid *config.Config
 		logger.Warningf(msg)
 	}
 
-	// Construct a new config with the deprecated attributes removed.
+	if _, ok := cfgAttrs[UseFloatingIPKey]; ok {
+		msg := fmt.Sprintf(
+			"Config attribute %q is deprecated.\n"+
+				"You can instead use the constraint %q.\n",
+			UseFloatingIPKey, constraints.AllocatePublicIP)
+		logger.Warningf(msg)
+	}
+
+	// Construct a new config with the ignored, deprecated attributes removed.
 	for _, attr := range []string{"default-image-id", "default-instance-type"} {
 		delete(cfgAttrs, attr)
 		delete(ecfg.attrs, attr)
