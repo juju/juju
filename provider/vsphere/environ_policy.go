@@ -8,7 +8,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/provider/common"
 	"github.com/juju/utils/arch"
 )
 
@@ -46,11 +45,14 @@ func (env *sessionEnviron) checkZones(ctx context.ProviderCallContext, zones *[]
 	if err != nil {
 		return errors.Trace(err)
 	}
+constraintZones:
 	for _, zone := range *zones {
-		_, err := common.SelectAvailabilityZone(env, foundZones, zone)
-		if err != nil {
-			return errors.Trace(err)
+		for _, foundZone := range foundZones {
+			if zone == foundZone.Name() {
+				continue constraintZones
+			}
 		}
+		return errors.NotFoundf("availability zone %q", zone)
 	}
 	return nil
 }

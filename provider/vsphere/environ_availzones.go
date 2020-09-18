@@ -17,16 +17,14 @@ import (
 )
 
 type vmwareAvailZone struct {
-	r          mo.ComputeResource
-	pool       *object.ResourcePool
-	hostFolder string
+	r    mo.ComputeResource
+	pool *object.ResourcePool
+	name string
 }
 
-// Name returns the "name" of the Vsphere availability zone, which is the path
-// relative to the datacenter's host folder.
+// Name returns the "name" of the Vsphere availability zone.
 func (z *vmwareAvailZone) Name() string {
-	// Strip "/DataCenter1/host/" prefix from resource pool path
-	return strings.TrimPrefix(z.pool.InventoryPath, z.hostFolder+"/")
+	return z.name
 }
 
 // Available implements common.AvailabilityZone
@@ -79,12 +77,12 @@ func (env *sessionEnviron) AvailabilityZones(ctx context.ProviderCallContext) ([
 		}
 		for _, pool := range pools {
 			zone := &vmwareAvailZone{
-				r:          *cr.Resource,
-				pool:       pool,
-				hostFolder: hostFolder,
+				r:    *cr.Resource,
+				pool: pool,
+				name: makeAvailZoneName(hostFolder, cr.Path, pool.InventoryPath),
 			}
-			logger.Tracef("zone: %s (cr.Name=%q pool.InventoryPath=%q hostFolder=%q)",
-				zone.Name(), zone.r.Name, zone.pool.InventoryPath, zone.hostFolder)
+			logger.Tracef("zone: %s (cr.Name=%q pool.InventoryPath=%q)",
+				zone.Name(), zone.r.Name, zone.pool.InventoryPath)
 			zones = append(zones, zone)
 		}
 	}
@@ -99,6 +97,25 @@ func (env *sessionEnviron) AvailabilityZones(ctx context.ProviderCallContext) ([
 
 	env.zones = zones
 	return env.zones, nil
+}
+
+// makeAvailZoneName constructs a Vsphere availability zone name from the
+// given paths. Basically it's the path relative to the host folder without
+// the extra "Resources" path segment (which doesn't appear in the UI).
+func makeAvailZoneName(hostFolder, crPath, poolPath string) string {
+	relCrPath := strings.TrimPrefix(crPath, hostFolder+"/")
+	relPoolPath := strings.TrimPrefix(poolPath, crPath+"/")
+	switch {
+	case relPoolPath == "Resources":
+		// "/DataCenter1/host/Host1/Resources" becomes "Host1"
+		return relCrPath
+	case strings.HasPrefix(relPoolPath, "Resources/"):
+		// "/DataCenter1/host/Host1/Resources/ResPool1" becomes "Host1/ResPool1"
+		return relCrPath + "/" + relPoolPath[len("Resources/"):]
+	default:
+		// "/DataCenter1/host/Host1/Other" becomes "Host1/Other" (shouldn't happen)
+		return relCrPath + "/" + relPoolPath
+	}
 }
 
 // InstanceAvailabilityZoneNames is part of the common.ZonedEnviron interface.
@@ -173,34 +190,9 @@ func (env *sessionEnviron) availZone(ctx context.ProviderCallContext, name strin
 		return nil, errors.Trace(err)
 	}
 	for _, z := range zones {
-		if env.ZoneMatches(z.Name(), name) {
+		if z.Name() == name {
 			return z.(*vmwareAvailZone), nil
 		}
 	}
 	return nil, errors.NotFoundf("availability zone %q", name)
-}
-
-// ZoneMatches implements zoneMatcher interface to allow custom matching (see
-// provider/common.ZoneMatches). For a Vsphere "availability zone" (host,
-// cluster, or resource pool), allow a match on the path relative to the host
-// folder, or a legacy resource pool match.
-func (env *environ) ZoneMatches(zone, constraint string) bool {
-	// Allow match on full zone name (path without host folder prefix), for
-	// example "Cluster1/Host1".
-	if zone == constraint {
-		return true
-	}
-
-	// Otherwise allow them to omit the "Resources" part of the path (for
-	// backwards compatibility). For example, for pool
-	// "Host1/Resources/Parent/Child", allow a match on "Host1/Parent/Child".
-	parts := strings.Split(zone, "/")
-	var partsWithoutResources []string
-	for _, part := range parts {
-		if part != "Resources" {
-			partsWithoutResources = append(partsWithoutResources, part)
-		}
-	}
-	legacyZone := strings.Join(partsWithoutResources, "/")
-	return legacyZone == constraint
 }
