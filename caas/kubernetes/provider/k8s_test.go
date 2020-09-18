@@ -150,9 +150,11 @@ func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 				ReadinessGates: []core.PodReadinessGate{
 					{ConditionType: core.PodInitialized},
 				},
-				DNSPolicy:   core.DNSClusterFirst,
-				HostNetwork: true,
-				HostPID:     true,
+				DNSPolicy:         core.DNSClusterFirst,
+				HostNetwork:       true,
+				HostPID:           true,
+				PriorityClassName: "system-cluster-critical",
+				Priority:          int32Ptr(2000000000),
 			},
 		},
 	}
@@ -201,6 +203,8 @@ func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 			DNSPolicy:                    core.DNSClusterFirst,
 			HostNetwork:                  true,
 			HostPID:                      true,
+			PriorityClassName:            "system-cluster-critical",
+			Priority:                     int32Ptr(2000000000),
 			ServiceAccountName:           "app-name",
 			AutomountServiceAccountToken: boolPtr(true),
 			InitContainers:               initContainers(),
