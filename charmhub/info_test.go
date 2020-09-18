@@ -72,7 +72,7 @@ func (s *InfoSuite) TestInfoError(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectGetError(c, restClient, path, name)
 
-	client := NewInfoClient(path, restClient)
+	client := NewInfoClient(path, restClient, &FakeLogger{})
 	_, err := client.Info(context.TODO(), name)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
