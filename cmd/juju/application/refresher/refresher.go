@@ -62,7 +62,13 @@ func NewRefresherFactory(deps RefresherDependencies) RefresherFactory {
 	return d
 }
 
-// GetRefresher returns the correct refresher to use based on the cfg provided.
+// Run executes over a series of refreshers using a given config. It will
+// execute each refresher if it's allowed, otherwise it will move on to the
+// next one.
+// If a refresher returns that it's exhausted (no other action to perform in
+// a given task) then it will move on to the next refresher.
+// If no refresher matches the config or if each one is exhausted then it will
+// state that it was unable to refresh.
 func (d *factory) Run(cfg RefresherConfig) (*CharmID, error) {
 	for _, fn := range d.refreshers {
 		// Failure to correctly setup a refresher will call all of the
@@ -133,11 +139,15 @@ type localCharmRefresher struct {
 	forceSeries    bool
 }
 
+// Allowed will attempt to check if a local charm is allowed to be refreshed.
+// Currently this is alway true.
 func (d *localCharmRefresher) Allowed(cfg RefresherConfig) (bool, error) {
 	// We should always return true here, because of the current design.
 	return true, nil
 }
 
+// Refresh a given local charm.
+// Bundles are not supported as there is no physical representation in Juju.
 func (d *localCharmRefresher) Refresh() (*CharmID, error) {
 	ch, newURL, err := d.charmRepo.NewCharmAtPathForceSeries(d.charmRef, d.deployedSeries, d.forceSeries)
 	if err == nil {
@@ -183,6 +193,8 @@ type charmStoreRefresher struct {
 	forceSeries    bool
 }
 
+// Allowed will attempt to check if the charm store is allowed to refresh.
+// Depending on the charm url, will then determine if that's true or not.
 func (r *charmStoreRefresher) Allowed(cfg RefresherConfig) (bool, error) {
 	// If we're a charm hub charm reference, then skip the charm store and
 	// move onto the next
@@ -204,6 +216,8 @@ func (r *charmStoreRefresher) Allowed(cfg RefresherConfig) (bool, error) {
 	return true, nil
 }
 
+// Refresh a given charm store charm.
+// Bundles are not supported as there is no physical representation in Juju.
 func (r *charmStoreRefresher) Refresh() (*CharmID, error) {
 	refURL, err := charm.ParseURL(r.charmRef)
 	if err != nil {
