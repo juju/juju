@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/worker/caasbroker"
 	"github.com/juju/juju/worker/caasenvironupgrader"
 	"github.com/juju/juju/worker/caasfirewaller"
+	"github.com/juju/juju/worker/caasfirewallerembedded"
 	"github.com/juju/juju/worker/caasmodeloperator"
 	"github.com/juju/juju/worker/caasoperatorprovisioner"
 	"github.com/juju/juju/worker/caasunitprovisioner"
@@ -479,16 +480,30 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:                 config.LoggingContext.GetLogger("juju.worker.caas"),
 		})),
 
-		caasFirewallerName: ifNotMigrating(caasfirewaller.Manifold(
+		caasFirewallerNameLegacy: ifNotMigrating(caasfirewaller.Manifold(
 			caasfirewaller.ManifoldConfig{
 				APICallerName:  apiCallerName,
 				BrokerName:     caasBrokerTrackerName,
 				ControllerUUID: agentConfig.Controller().Id(),
 				ModelUUID:      agentConfig.Model().Id(),
 				NewClient: func(caller base.APICaller) caasfirewaller.Client {
-					return caasfirewallerapi.NewClient(caller)
+					return caasfirewallerapi.NewClientLegacy(caller)
 				},
 				NewWorker: caasfirewaller.NewWorker,
+				Logger:    config.LoggingContext.GetLogger("juju.worker.caasfirewaller"),
+			},
+		)),
+
+		caasFirewallerNameEmbedded: ifNotMigrating(caasfirewallerembedded.Manifold(
+			caasfirewallerembedded.ManifoldConfig{
+				APICallerName:  apiCallerName,
+				BrokerName:     caasBrokerTrackerName,
+				ControllerUUID: agentConfig.Controller().Id(),
+				ModelUUID:      agentConfig.Model().Id(),
+				NewClient: func(caller base.APICaller) caasfirewallerembedded.Client {
+					return caasfirewallerapi.NewClientEmbedded(caller)
+				},
+				NewWorker: caasfirewallerembedded.NewWorker,
 				Logger:    config.LoggingContext.GetLogger("juju.worker.caasfirewaller"),
 			},
 		)),
@@ -673,7 +688,8 @@ const (
 	instanceMutaterName      = "instance-mutater"
 
 	caasAdmissionName              = "caas-admission"
-	caasFirewallerName             = "caas-firewaller"
+	caasFirewallerNameLegacy       = "caas-firewaller-legacy"
+	caasFirewallerNameEmbedded     = "caas-firewaller-embedded"
 	caasModelOperatorName          = "caas-model-operator"
 	caasOperatorProvisionerName    = "caas-operator-provisioner"
 	caasApplicationProvisionerName = "caas-application-provisioner"
