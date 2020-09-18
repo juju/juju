@@ -63,7 +63,8 @@ func (pg portRanges) toServicePorts() []caas.ServicePort {
 	out := make([]caas.ServicePort, len(pg))
 	for p := range pg {
 		out = append(out, caas.ServicePort{
-			Name:       p.Name,
+			// TODO(embedded): add name to `network.PortRange`?
+			// Name:       p.Name,
 			Port:       p.FromPort,
 			TargetPort: p.ToPort,
 			Protocol:   p.Protocol,
@@ -169,8 +170,6 @@ func (w *applicationWorker) loop() (err error) {
 		return errors.Trace(err)
 	}
 
-	// var appLife life.Value = life.Dead
-
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -186,11 +185,13 @@ func (w *applicationWorker) loop() (err error) {
 				return errors.Trace(err)
 			}
 		case _, ok := <-w.portsWatcher.Changes():
-			// TODO(embedded): implement portWatcher to return application names having port changes,
 			if !ok {
 				return errors.New("application watcher closed")
 			}
-			// if !sets.NewString(changes...).Contains(w.appName){continue}
+			// TODO(embedded): implement portWatcher to return application names having port changes,
+			/*
+				if !sets.NewString(changes...).Contains(w.appName){continue}
+			*/
 			if err := w.onPortChanged(); err != nil {
 				return errors.Trace(err)
 			}
