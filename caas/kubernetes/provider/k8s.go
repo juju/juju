@@ -2435,6 +2435,8 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec,
 				spec.Pod.DNSPolicy = k8sResources.Pod.DNSPolicy
 				spec.Pod.HostNetwork = k8sResources.Pod.HostNetwork
 				spec.Pod.HostPID = k8sResources.Pod.HostPID
+				spec.Pod.PriorityClassName = k8sResources.Pod.PriorityClassName
+				spec.Pod.Priority = k8sResources.Pod.Priority
 			}
 			spec.ServiceAccounts = append(spec.ServiceAccounts, &k8sResources.K8sRBACResources)
 		}

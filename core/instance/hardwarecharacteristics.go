@@ -74,7 +74,12 @@ func (hc *HardwareCharacteristics) Clone() *HardwareCharacteristics {
 	if hc == nil {
 		return nil
 	}
-	clone := MustParseHardware(hc.String())
+	clone := *hc
+	if hc.Tags != nil {
+		tags := make([]string, len(*hc.Tags))
+		copy(tags, *hc.Tags)
+		clone.Tags = &tags
+	}
 	return &clone
 }
 

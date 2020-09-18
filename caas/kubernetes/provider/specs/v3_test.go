@@ -242,6 +242,8 @@ kubernetesResources:
     dnsPolicy: ClusterFirstWithHostNet
     hostNetwork: true
     hostPID: true
+    priorityClassName: system-cluster-critical
+    priority: 2000000000
   secrets:
     - name: build-robot-secret
       type: Opaque
@@ -812,9 +814,11 @@ echo "do some stuff here for gitlab-init container"
 					ReadinessGates: []core.PodReadinessGate{
 						{ConditionType: core.PodScheduled},
 					},
-					DNSPolicy:   "ClusterFirstWithHostNet",
-					HostNetwork: true,
-					HostPID:     true,
+					DNSPolicy:         "ClusterFirstWithHostNet",
+					HostNetwork:       true,
+					HostPID:           true,
+					PriorityClassName: "system-cluster-critical",
+					Priority:          int32Ptr(2000000000),
 				},
 				Secrets: []k8sspecs.K8sSecret{
 					{
