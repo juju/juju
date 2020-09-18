@@ -201,3 +201,22 @@ func (rules IngressRules) cidrsByPortRange() map[network.PortRange]set.Strings {
 	}
 	return result
 }
+
+// UniqueRules returns a copy of the ingress rule list after removing any
+// duplicate entries.
+func (rules IngressRules) UniqueRules() IngressRules {
+	var uniqueRules IngressRules
+
+nextRule:
+	for _, rule := range rules {
+		for _, seenRule := range uniqueRules {
+			if rule.EqualTo(seenRule) {
+				continue nextRule
+			}
+		}
+
+		uniqueRules = append(uniqueRules, rule)
+	}
+
+	return uniqueRules
+}

@@ -428,3 +428,70 @@ func (p *PortRangeSuite) TestUniquePortRangesInGroup(c *gc.C) {
 	got := in.UniquePortRanges()
 	c.Assert(got, gc.DeepEquals, exp, gc.Commentf("expected duplicate port ranges to be removed"))
 }
+
+func (p *PortRangeSuite) TestGroupedPortRangesEquality(c *gc.C) {
+	specs := []struct {
+		descr    string
+		a, b     network.GroupedPortRanges
+		expEqual bool
+	}{
+		{
+			descr: "equal port ranges in random order",
+			a: network.GroupedPortRanges{
+				"foo": []network.PortRange{
+					network.MustParsePortRange("123/tcp"),
+					network.MustParsePortRange("456/tcp"),
+				},
+				"bar": []network.PortRange{
+					network.MustParsePortRange("123/tcp"),
+				},
+			},
+			b: network.GroupedPortRanges{
+				"foo": []network.PortRange{
+					network.MustParsePortRange("456/tcp"),
+					network.MustParsePortRange("123/tcp"),
+				},
+				"bar": []network.PortRange{
+					network.MustParsePortRange("123/tcp"),
+				},
+			},
+			expEqual: true,
+		},
+		{
+			descr: "groups with different lengths",
+			a: network.GroupedPortRanges{
+				"foo": []network.PortRange{
+					network.MustParsePortRange("123/tcp"),
+					network.MustParsePortRange("456/tcp"),
+				},
+			},
+			b: network.GroupedPortRanges{
+				"foo": []network.PortRange{
+					network.MustParsePortRange("123/tcp"),
+				},
+			},
+			expEqual: false,
+		},
+		{
+			descr: "groups with same length but different keys",
+			a: network.GroupedPortRanges{
+				"foo": []network.PortRange{
+					network.MustParsePortRange("123/tcp"),
+					network.MustParsePortRange("456/tcp"),
+				},
+			},
+			b: network.GroupedPortRanges{
+				"bar": []network.PortRange{
+					network.MustParsePortRange("123/tcp"),
+				},
+			},
+			expEqual: false,
+		},
+	}
+
+	for i, spec := range specs {
+		c.Logf("test %d: %s", i, spec.descr)
+		got := spec.a.EqualTo(spec.b)
+		c.Assert(got, gc.Equals, spec.expEqual)
+	}
+}

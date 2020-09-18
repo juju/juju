@@ -996,3 +996,90 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 
 	waitAgentTools(c, mw0, other)
 }
+
+func (t *LiveTests) TestIngressRulesWithPartiallyMatchingCIDRs(c *gc.C) {
+	t.BootstrapOnce(c)
+
+	inst1, _ := jujutesting.AssertStartInstance(c, t.Env, t.ProviderCallContext, t.ControllerUUID, "1")
+	c.Assert(inst1, gc.NotNil)
+	defer t.Env.StopInstances(t.ProviderCallContext, inst1.Id())
+	fwInst1, ok := inst1.(instances.InstanceFirewaller)
+	c.Assert(ok, gc.Equals, true)
+
+	rules, err := fwInst1.IngressRules(t.ProviderCallContext, "1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rules, gc.HasLen, 0)
+
+	// Open ports with different CIDRs. Check that rules with same port range
+	// get merged.
+	err = fwInst1.OpenPorts(t.ProviderCallContext,
+		"1", firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), firewall.AllNetworksIPV4CIDR),
+			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), "10.0.0.0/24"),
+			firewall.NewIngressRule(network.MustParsePortRange("80/tcp")), // open to 0.0.0.0/0
+		})
+
+	c.Assert(err, jc.ErrorIsNil)
+	rules, err = fwInst1.IngressRules(t.ProviderCallContext, "1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(
+		rules, jc.DeepEquals,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), firewall.AllNetworksIPV4CIDR, "10.0.0.0/24"),
+			firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
+		},
+	)
+
+	// Open same port with different CIDRs and check that the CIDR gets
+	// appended to the existing rule's CIDR list.
+	err = fwInst1.OpenPorts(t.ProviderCallContext,
+		"1", firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), "192.168.0.0/24"),
+		})
+
+	c.Assert(err, jc.ErrorIsNil)
+	rules, err = fwInst1.IngressRules(t.ProviderCallContext, "1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(
+		rules, jc.DeepEquals,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), firewall.AllNetworksIPV4CIDR, "10.0.0.0/24", "192.168.0.0/24"),
+			firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
+		},
+	)
+
+	// Close port on a subset of the CIDRs and ensure that that CIDR gets
+	// removed from the ingress rules
+	err = fwInst1.ClosePorts(t.ProviderCallContext,
+		"1", firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), "192.168.0.0/24"),
+		})
+
+	c.Assert(err, jc.ErrorIsNil)
+	rules, err = fwInst1.IngressRules(t.ProviderCallContext, "1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(
+		rules, jc.DeepEquals,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), firewall.AllNetworksIPV4CIDR, "10.0.0.0/24"),
+			firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
+		},
+	)
+
+	// Remove all CIDRs from the rule and check that rules without CIDRs
+	// get dropped.
+	err = fwInst1.ClosePorts(t.ProviderCallContext,
+		"1", firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), firewall.AllNetworksIPV4CIDR, "10.0.0.0/24"),
+		})
+
+	c.Assert(err, jc.ErrorIsNil)
+	rules, err = fwInst1.IngressRules(t.ProviderCallContext, "1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(
+		rules, jc.DeepEquals,
+		firewall.IngressRules{
+			firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
+		},
+	)
+}

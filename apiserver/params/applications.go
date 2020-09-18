@@ -609,3 +609,21 @@ type UnitInfoResult struct {
 type UnitInfoResults struct {
 	Results []UnitInfoResult `json:"results"`
 }
+
+// ExposeInfoResults the expose info for a list of applications.
+type ExposeInfoResults struct {
+	Results []ExposeInfoResult `json:"results"`
+}
+
+// ExposeInfoResult holds the result of a GetExposeInfo call.
+type ExposeInfoResult struct {
+	Error *Error `json:"error,omitempty"`
+
+	Exposed bool `json:"exposed,omitempty"`
+
+	// Expose parameters grouped by endpoint name. An empty ("") endpoint
+	// name key represents all application endpoints. For compatibility
+	// with pre 2.9 clients, if this field is empty, all opened ports
+	// for the application will be exposed to 0.0.0.0/0.
+	ExposedEndpoints map[string]ExposedEndpoint `json:"exposed-endpoints,omitempty"`
+}

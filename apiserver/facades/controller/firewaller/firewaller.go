@@ -236,129 +236,6 @@ func (f *FirewallerAPIV3) watchOneModelOpenedPorts(tag names.Tag) (string, []str
 	return "", nil, watcher.EnsureErr(watch)
 }
 
-// GetMachinePorts returns the port ranges opened on a machine across all
-// subnets as a map mapping port ranges to the tags of the units that opened
-// them.
-func (f *FirewallerAPIV3) GetMachinePorts(args params.MachinePortsParams) (params.MachinePortsResults, error) {
-	result := params.MachinePortsResults{
-		Results: make([]params.MachinePortsResult, len(args.Params)),
-	}
-	canAccess, err := f.accessMachine()
-	if err != nil {
-		return params.MachinePortsResults{}, err
-	}
-	for i, param := range args.Params {
-		machineTag, err := names.ParseMachineTag(param.MachineTag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		// Pre 2.9 controllers always open ports in all subnets. The
-		// per-subnet functionality was implemented by the controller
-		// but never exposed via the API. As such, we can change this
-		// method so that always returns *all* open port ranges and
-		// simply return an error if a subnet is provided
-		if param.SubnetTag != "" {
-			if _, err = names.ParseSubnetTag(param.SubnetTag); err == nil {
-				err = errors.NotSupportedf("retrieving machine ports for specific subnets")
-			}
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		machine, err := f.getMachine(canAccess, machineTag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		machPortRanges, err := machine.OpenedPortRanges()
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		// Emulate old behavior and return opened ports for all endpoints.
-		var rangeList []params.MachinePortRange
-		for unitName, unitPortRanges := range machPortRanges.ByUnit() {
-			unitTag := names.NewUnitTag(unitName).String()
-			for _, pr := range unitPortRanges.UniquePortRanges() {
-				rangeList = append(rangeList, params.MachinePortRange{
-					UnitTag:   unitTag,
-					PortRange: params.FromNetworkPortRange(pr),
-				})
-			}
-		}
-
-		sort.Slice(rangeList, func(i, j int) bool {
-			return rangeList[i].PortRange.NetworkPortRange().LessThan(
-				rangeList[j].PortRange.NetworkPortRange(),
-			)
-		})
-		result.Results[i].Ports = rangeList
-	}
-	return result, nil
-}
-
-// GetMachineActiveSubnets returns the tags of the all subnets that each machine
-// (in args) has open ports on.
-func (f *FirewallerAPIV3) GetMachineActiveSubnets(args params.Entities) (params.StringsResults, error) {
-	result := params.StringsResults{
-		Results: make([]params.StringsResult, len(args.Entities)),
-	}
-	canAccess, err := f.accessMachine()
-	if err != nil {
-		return params.StringsResults{}, err
-	}
-	for i, entity := range args.Entities {
-		machineTag, err := names.ParseMachineTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		machine, err := f.getMachine(canAccess, machineTag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		// Pre 2.9 controllers always open ports in all subnets. If
-		// at least one port range is open, return the wildcard subnet
-		machPorts, err := machine.OpenedPortRanges()
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		if len(machPorts.UniquePortRanges()) != 0 {
-			result.Results[i].Result = append(result.Results[i].Result, "")
-		}
-	}
-	return result, nil
-}
-
-// GetExposed returns the exposed flag value for each given application.
-func (f *FirewallerAPIV3) GetExposed(args params.Entities) (params.BoolResults, error) {
-	result := params.BoolResults{
-		Results: make([]params.BoolResult, len(args.Entities)),
-	}
-	canAccess, err := f.accessApplication()
-	if err != nil {
-		return params.BoolResults{}, err
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseApplicationTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		application, err := f.getApplication(canAccess, tag)
-		if err == nil {
-			result.Results[i].Result = application.IsExposed()
-		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return result, nil
-}
-
 // GetAssignedMachine returns the assigned machine tag (if any) for
 // each given unit.
 func (f *FirewallerAPIV3) GetAssignedMachine(args params.Entities) (params.StringResults, error) {
@@ -723,4 +600,126 @@ func mapUnitPortsAndResolveSubnetCIDRs(portRangesByEndpoint network.GroupedPortR
 	})
 
 	return entries
+}
+
+// GetExposeInfo returns the expose flag and per-endpoint expose settings
+// for the specified applications.
+func (f *FirewallerAPIV6) GetExposeInfo(args params.Entities) (params.ExposeInfoResults, error) {
+	canAccess, err := f.accessApplication()
+	if err != nil {
+		return params.ExposeInfoResults{}, err
+	}
+
+	result := params.ExposeInfoResults{
+		Results: make([]params.ExposeInfoResult, len(args.Entities)),
+	}
+
+	for i, entity := range args.Entities {
+		tag, err := names.ParseApplicationTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		application, err := f.getApplication(canAccess, tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		if !application.IsExposed() {
+			continue
+		}
+
+		result.Results[i].Exposed = true
+		if exposedEndpoints := application.ExposedEndpoints(); len(exposedEndpoints) != 0 {
+			mappedEndpoints := make(map[string]params.ExposedEndpoint)
+			for endpoint, exposeDetails := range exposedEndpoints {
+				mappedEndpoints[endpoint] = params.ExposedEndpoint{
+					ExposeToSpaces: exposeDetails.ExposeToSpaceIDs,
+					ExposeToCIDRs:  exposeDetails.ExposeToCIDRs,
+				}
+			}
+			result.Results[i].ExposedEndpoints = mappedEndpoints
+		}
+	}
+	return result, nil
+}
+
+// SpaceInfos returns a comprehensive representation of either all spaces or
+// a filtered subset of the known spaces and their associated subnet details.
+func (f *FirewallerAPIV6) SpaceInfos(args params.SpaceInfosParams) (params.SpaceInfos, error) {
+	if !f.authorizer.AuthController() {
+		return params.SpaceInfos{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
+	}
+
+	allSpaceInfos, err := f.getSpaceInfos()
+	if err != nil {
+		return params.SpaceInfos{}, apiservererrors.ServerError(err)
+	}
+
+	// Apply filtering if required
+	if len(args.FilterBySpaceIDs) != 0 {
+		var (
+			filteredList network.SpaceInfos
+			selectList   = set.NewStrings(args.FilterBySpaceIDs...)
+		)
+		for _, si := range allSpaceInfos {
+			if selectList.Contains(si.ID) {
+				filteredList = append(filteredList, si)
+			}
+		}
+
+		allSpaceInfos = filteredList
+	}
+
+	return params.FromNetworkSpaceInfos(allSpaceInfos), nil
+}
+
+// WatchSubnets returns a new StringsWatcher that watches the specified
+// subnet tags or all tags if no entities are specified.
+func (f *FirewallerAPIV6) WatchSubnets(args params.Entities) (params.StringsWatchResult, error) {
+	if !f.authorizer.AuthController() {
+		return params.StringsWatchResult{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
+	}
+
+	var (
+		filterFn  func(id interface{}) bool
+		filterSet set.Strings
+		result    = params.StringsWatchResult{}
+	)
+
+	if len(args.Entities) != 0 {
+		filterSet = set.NewStrings()
+		for _, arg := range args.Entities {
+			subnetTag, err := names.ParseSubnetTag(arg.Tag)
+			if err != nil {
+				return params.StringsWatchResult{}, apiservererrors.ServerError(err)
+			}
+
+			filterSet.Add(subnetTag.Id())
+		}
+
+		filterFn = func(id interface{}) bool {
+			return filterSet.Contains(id.(string))
+		}
+	}
+
+	watcherId, initial, err := f.watchModelSubnets(filterFn)
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result, nil
+	}
+	result.StringsWatcherId = watcherId
+	result.Changes = initial
+	return result, nil
+}
+
+func (f *FirewallerAPIV6) watchModelSubnets(filterFn func(interface{}) bool) (string, []string, error) {
+	watch := f.st.WatchSubnets(filterFn)
+
+	// Consume the initial event and forward it to the result.
+	if changes, ok := <-watch.Changes(); ok {
+		return f.resources.Register(watch), changes, nil
+	}
+	return "", nil, watcher.EnsureErr(watch)
 }
