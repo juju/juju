@@ -109,6 +109,15 @@ func (c *HTTPRESTClient) Get(ctx context.Context, path path.Path, result interfa
 	if err != nil {
 		return errors.Annotate(err, "can not make new request")
 	}
+
+	if c.logger.IsTraceEnabled() {
+		if data, err := httputil.DumpRequest(req, true); err == nil {
+			c.logger.Tracef("Post request %s", data)
+		} else {
+			c.logger.Tracef("Post request DumpRequest error %s", err.Error())
+		}
+	}
+
 	resp, err := c.transport.Do(req)
 	if err != nil {
 		return errors.Trace(err)
@@ -152,11 +161,27 @@ func (c *HTTPRESTClient) Post(ctx context.Context, path path.Path, body, result 
 
 	req.Header = c.composeHeaders(headers)
 
+	if c.logger.IsTraceEnabled() {
+		if data, err := httputil.DumpRequest(req, true); err == nil {
+			c.logger.Tracef("Post request %s", data)
+		} else {
+			c.logger.Tracef("Post request DumpRequest error %s", err.Error())
+		}
+	}
+
 	resp, err := c.transport.Do(req)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer func() { _ = resp.Body.Close() }()
+
+	if c.logger.IsTraceEnabled() {
+		if data, err := httputil.DumpResponse(resp, true); err == nil {
+			c.logger.Tracef("Post response %s", data)
+		} else {
+			c.logger.Tracef("Post response DumpResponse error %s", err.Error())
+		}
+	}
 
 	// Parse the response.
 	if err := httprequest.UnmarshalJSONResponse(resp, result); err != nil {
