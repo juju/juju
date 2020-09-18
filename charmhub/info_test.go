@@ -37,7 +37,7 @@ func (s *InfoSuite) TestInfo(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectGet(c, restClient, path, name)
 
-	client := NewInfoClient(path, restClient)
+	client := NewInfoClient(path, restClient, &FakeLogger{})
 	response, err := client.Info(context.TODO(), name)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response.Name, gc.Equals, name)
@@ -55,7 +55,7 @@ func (s *InfoSuite) TestInfoFailure(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectGetFailure(c, restClient)
 
-	client := NewInfoClient(path, restClient)
+	client := NewInfoClient(path, restClient, &FakeLogger{})
 	_, err := client.Info(context.TODO(), name)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
@@ -72,7 +72,7 @@ func (s *InfoSuite) TestInfoError(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectGetError(c, restClient, path, name)
 
-	client := NewInfoClient(path, restClient)
+	client := NewInfoClient(path, restClient, &FakeLogger{})
 	_, err := client.Info(context.TODO(), name)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
@@ -212,9 +212,9 @@ func (s *InfoSuite) TestInfoRequestPayload(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	apiRequester := NewAPIRequester(DefaultHTTPTransport())
-	restClient := NewHTTPRESTClient(apiRequester, nil)
+	restClient := NewHTTPRESTClient(apiRequester, nil, &FakeLogger{})
 
-	client := NewInfoClient(infoPath, restClient)
+	client := NewInfoClient(infoPath, restClient, &FakeLogger{})
 	response, err := client.Info(context.TODO(), "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response, gc.DeepEquals, infoResponse)

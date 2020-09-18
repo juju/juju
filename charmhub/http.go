@@ -10,9 +10,10 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/http/httputil"
 
 	"github.com/juju/errors"
-	httprequest "gopkg.in/httprequest.v1"
+	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/charmhub/path"
 )
@@ -86,13 +87,15 @@ type RESTClient interface {
 type HTTPRESTClient struct {
 	transport Transport
 	headers   http.Header
+	logger    Logger
 }
 
 // NewHTTPRESTClient creates a new HTTPRESTClient
-func NewHTTPRESTClient(transport Transport, headers http.Header) *HTTPRESTClient {
+func NewHTTPRESTClient(transport Transport, headers http.Header, logger Logger) *HTTPRESTClient {
 	return &HTTPRESTClient{
 		transport: transport,
 		headers:   headers,
+		logger:    logger,
 	}
 }
 
@@ -112,6 +115,13 @@ func (c *HTTPRESTClient) Get(ctx context.Context, path path.Path, result interfa
 	}
 	defer func() { _ = resp.Body.Close() }()
 
+	if c.logger.IsTraceEnabled() {
+		if data, err := httputil.DumpResponse(resp, true); err == nil {
+			c.logger.Tracef("Get response %s", data)
+		} else {
+			c.logger.Tracef("Get response DumpResponse error %s", err.Error())
+		}
+	}
 	// Parse the response.
 	if err := httprequest.UnmarshalJSONResponse(resp, result); err != nil {
 		return errors.Annotate(err, "charm hub client get")

@@ -480,10 +480,14 @@ func (a *API) charmHubRepository() (corecharm.Repository, error) {
 	var chCfg charmhub.Config
 	chURL, ok := cfg.CharmHubURL()
 	if ok {
-		chCfg = charmhub.CharmHubConfigFromURL(chURL)
+		chCfg, err = charmhub.CharmHubConfigFromURL(chURL, logger.Child("client"))
 	} else {
-		chCfg = charmhub.CharmHubConfig()
+		chCfg, err = charmhub.CharmHubConfig(logger.Child("client"))
 	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	chClient, err := charmhub.NewClient(chCfg)
 	if err != nil {
 		return nil, errors.Trace(err)

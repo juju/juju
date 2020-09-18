@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/kr/pretty"
 
 	"github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
@@ -37,13 +38,15 @@ const (
 type RefreshClient struct {
 	path   path.Path
 	client RESTClient
+	logger Logger
 }
 
 // NewRefreshClient creates a RefreshClient for requesting
-func NewRefreshClient(path path.Path, client RESTClient) *RefreshClient {
+func NewRefreshClient(path path.Path, client RESTClient, logger Logger) *RefreshClient {
 	return &RefreshClient{
 		path:   path,
 		client: client,
+		logger: logger,
 	}
 }
 
@@ -58,6 +61,7 @@ type RefreshConfig interface {
 
 // Refresh is used to refresh installed charms to a more suitable revision.
 func (c *RefreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]transport.RefreshResponse, error) {
+	c.logger.Debugf("Refresh(%s)", pretty.Sprint(config))
 	req, err := config.Build()
 	if err != nil {
 		return nil, errors.Trace(err)
