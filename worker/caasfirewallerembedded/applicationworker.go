@@ -128,11 +128,7 @@ func (w *applicationWorker) setUp() (err error) {
 		return errors.Trace(err)
 	}
 
-	charmURL, err := w.firewallerAPI.ApplicationCharmURL(w.appName)
-	if err != nil {
-		return errors.Annotatef(err, "failed to get charm urls for application")
-	}
-	charmInfo, err := w.firewallerAPI.CharmInfo(charmURL.String())
+	charmInfo, err := w.firewallerAPI.ApplicationCharmInfo(w.appName)
 	if err != nil {
 		return errors.Annotatef(err, "failed to get application charm deployment metadata for %q", w.appName)
 	}
@@ -161,7 +157,7 @@ func (w *applicationWorker) loop() (err error) {
 	defer func() {
 		// If the application has been deleted, we can return nil.
 		if errors.IsNotFound(err) {
-			w.logger.Debugf("caas firewaller application %v has been removed", w.appName)
+			w.logger.Debugf("embedded caas firewaller application %v has been removed", w.appName)
 			err = nil
 		}
 	}()

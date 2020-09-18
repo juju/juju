@@ -78,7 +78,13 @@ func (a *mockApplication) ApplicationConfig() (application.ConfigAttributes, err
 }
 
 func (a *mockApplication) Watch() state.NotifyWatcher {
+	a.MethodCall(a, "Watch")
 	return a.watcher
+}
+
+func (a *mockApplication) Charm() (caasfirewaller.Charm, bool, error) {
+	a.MethodCall(a, "Charm")
+	return &a.charm, false, nil
 }
 
 type mockAppWatcherState struct {
@@ -115,9 +121,15 @@ func (s *mockAppWatcherApplication) Charm() (common.AppWatcherCharm, bool, error
 type mockAppWatcherCharm struct {
 	testing.Stub
 	meta *charm.Meta
+	url  *charm.URL
 }
 
 func (s *mockAppWatcherCharm) Meta() *charm.Meta {
 	s.MethodCall(s, "Meta")
 	return s.meta
+}
+
+func (s *mockAppWatcherCharm) URL() *charm.URL {
+	s.MethodCall(s, "URL")
+	return s.url
 }

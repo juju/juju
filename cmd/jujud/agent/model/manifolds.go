@@ -490,7 +490,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 					return caasfirewallerapi.NewClientLegacy(caller)
 				},
 				NewWorker: caasfirewaller.NewWorker,
-				Logger:    config.LoggingContext.GetLogger("juju.worker.caasfirewaller"),
+				Logger:    config.LoggingContext.GetLogger("juju.worker.caasfirewallerlegacy"),
 			},
 		)),
 
@@ -504,7 +504,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 					return caasfirewallerapi.NewClientEmbedded(caller)
 				},
 				NewWorker: caasfirewallerembedded.NewWorker,
-				Logger:    config.LoggingContext.GetLogger("juju.worker.caasfirewaller"),
+				Logger:    config.LoggingContext.GetLogger("juju.worker.caasfirewallerembedded"),
 			},
 		)),
 

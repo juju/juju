@@ -4,8 +4,6 @@
 package caasfirewallerembedded
 
 import (
-	"github.com/juju/charm/v8"
-
 	charmscommon "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
@@ -36,8 +34,7 @@ type CAASFirewallerAPI interface {
 	IsExposed(string) (bool, error)
 	ApplicationConfig(string) (application.ConfigAttributes, error)
 
-	CharmInfo(string) (*charmscommon.CharmInfo, error)
-	ApplicationCharmURL(string) (*charm.URL, error)
+	ApplicationCharmInfo(appName string) (*charmscommon.CharmInfo, error)
 }
 
 // LifeGetter provides an interface for getting the

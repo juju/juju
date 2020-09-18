@@ -4,6 +4,7 @@
 package caasfirewaller
 
 import (
+	"github.com/juju/charm/v8"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/application"
@@ -26,6 +27,12 @@ type Application interface {
 	IsExposed() bool
 	ApplicationConfig() (application.ConfigAttributes, error)
 	Watch() state.NotifyWatcher
+	Charm() (ch Charm, force bool, err error)
+}
+
+type Charm interface {
+	Meta() *charm.Meta
+	URL() *charm.URL
 }
 
 type stateShim struct {
@@ -33,5 +40,17 @@ type stateShim struct {
 }
 
 func (s *stateShim) Application(id string) (Application, error) {
-	return s.State.Application(id)
+	app, err := s.State.Application(id)
+	if err != nil {
+		return nil, err
+	}
+	return &applicationShim{app}, nil
+}
+
+type applicationShim struct {
+	*state.Application
+}
+
+func (a *applicationShim) Charm() (Charm, bool, error) {
+	return a.Application.Charm()
 }

@@ -87,11 +87,6 @@ func (s *appWorkerSuite) TestWorker(c *gc.C) {
 
 	done := make(chan struct{})
 
-	appCharmURL := &charm.URL{
-		Schema:   "cs",
-		Name:     "test",
-		Revision: -1,
-	}
 	appCharmInfo := &charmscommon.CharmInfo{
 		Meta: &charm.Meta{
 			Name: "test",
@@ -111,8 +106,7 @@ func (s *appWorkerSuite) TestWorker(c *gc.C) {
 	gomock.InOrder(
 		s.firewallerAPI.EXPECT().WatchApplication(s.appName).Return(s.appsWatcher, nil),
 		s.firewallerAPI.EXPECT().WatchOpenedPorts().Return(s.portsWatcher, nil),
-		s.firewallerAPI.EXPECT().ApplicationCharmURL(s.appName).Return(appCharmURL, nil),
-		s.firewallerAPI.EXPECT().CharmInfo("cs:test").Return(appCharmInfo, nil),
+		s.firewallerAPI.EXPECT().ApplicationCharmInfo(s.appName).Return(appCharmInfo, nil),
 
 		s.broker.EXPECT().Application(s.appName, caas.DeploymentStateful).Return(s.brokerApp),
 

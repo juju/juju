@@ -80,8 +80,8 @@ func (c *ClientEmbedded) WatchOpenedPorts() (watcher.StringsWatcher, error) {
 	return w, nil
 }
 
-// ApplicationCharmURL finds the CharmURL for an application.
-func (c *ClientEmbedded) ApplicationCharmURL(appName string) (*charm.URL, error) {
+// ApplicationCharmInfo finds the CharmInfo for an application.
+func (c *ClientEmbedded) ApplicationCharmInfo(appName string) (*charmscommon.CharmInfo, error) {
 	args := params.Entities{Entities: []params.Entity{{
 		Tag: names.NewApplicationTag(appName).String(),
 	}}}
@@ -100,7 +100,7 @@ func (c *ClientEmbedded) ApplicationCharmURL(appName string) (*charm.URL, error)
 	if err != nil {
 		return nil, errors.Annotatef(err, "invalid charm url %q", res.Result)
 	}
-	return url, nil
+	return c.CharmsClient.CharmInfo(url.String())
 }
 
 func applicationTag(application string) (names.ApplicationTag, error) {

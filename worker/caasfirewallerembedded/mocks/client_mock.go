@@ -6,7 +6,6 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v8"
 	charms "github.com/juju/juju/api/common/charms"
 	application "github.com/juju/juju/core/application"
 	life "github.com/juju/juju/core/life"
@@ -37,19 +36,19 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 	return m.recorder
 }
 
-// ApplicationCharmURL mocks base method
-func (m *MockClient) ApplicationCharmURL(arg0 string) (*charm.URL, error) {
+// ApplicationCharmInfo mocks base method
+func (m *MockClient) ApplicationCharmInfo(arg0 string) (*charms.CharmInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ApplicationCharmURL", arg0)
-	ret0, _ := ret[0].(*charm.URL)
+	ret := m.ctrl.Call(m, "ApplicationCharmInfo", arg0)
+	ret0, _ := ret[0].(*charms.CharmInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ApplicationCharmURL indicates an expected call of ApplicationCharmURL
-func (mr *MockClientMockRecorder) ApplicationCharmURL(arg0 interface{}) *gomock.Call {
+// ApplicationCharmInfo indicates an expected call of ApplicationCharmInfo
+func (mr *MockClientMockRecorder) ApplicationCharmInfo(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationCharmURL", reflect.TypeOf((*MockClient)(nil).ApplicationCharmURL), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationCharmInfo", reflect.TypeOf((*MockClient)(nil).ApplicationCharmInfo), arg0)
 }
 
 // ApplicationConfig mocks base method
@@ -65,21 +64,6 @@ func (m *MockClient) ApplicationConfig(arg0 string) (application.ConfigAttribute
 func (mr *MockClientMockRecorder) ApplicationConfig(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationConfig", reflect.TypeOf((*MockClient)(nil).ApplicationConfig), arg0)
-}
-
-// CharmInfo mocks base method
-func (m *MockClient) CharmInfo(arg0 string) (*charms.CharmInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CharmInfo", arg0)
-	ret0, _ := ret[0].(*charms.CharmInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CharmInfo indicates an expected call of CharmInfo
-func (mr *MockClientMockRecorder) CharmInfo(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmInfo", reflect.TypeOf((*MockClient)(nil).CharmInfo), arg0)
 }
 
 // IsExposed mocks base method
@@ -180,19 +164,19 @@ func (m *MockCAASFirewallerAPI) EXPECT() *MockCAASFirewallerAPIMockRecorder {
 	return m.recorder
 }
 
-// ApplicationCharmURL mocks base method
-func (m *MockCAASFirewallerAPI) ApplicationCharmURL(arg0 string) (*charm.URL, error) {
+// ApplicationCharmInfo mocks base method
+func (m *MockCAASFirewallerAPI) ApplicationCharmInfo(arg0 string) (*charms.CharmInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ApplicationCharmURL", arg0)
-	ret0, _ := ret[0].(*charm.URL)
+	ret := m.ctrl.Call(m, "ApplicationCharmInfo", arg0)
+	ret0, _ := ret[0].(*charms.CharmInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ApplicationCharmURL indicates an expected call of ApplicationCharmURL
-func (mr *MockCAASFirewallerAPIMockRecorder) ApplicationCharmURL(arg0 interface{}) *gomock.Call {
+// ApplicationCharmInfo indicates an expected call of ApplicationCharmInfo
+func (mr *MockCAASFirewallerAPIMockRecorder) ApplicationCharmInfo(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationCharmURL", reflect.TypeOf((*MockCAASFirewallerAPI)(nil).ApplicationCharmURL), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationCharmInfo", reflect.TypeOf((*MockCAASFirewallerAPI)(nil).ApplicationCharmInfo), arg0)
 }
 
 // ApplicationConfig mocks base method
@@ -208,21 +192,6 @@ func (m *MockCAASFirewallerAPI) ApplicationConfig(arg0 string) (application.Conf
 func (mr *MockCAASFirewallerAPIMockRecorder) ApplicationConfig(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationConfig", reflect.TypeOf((*MockCAASFirewallerAPI)(nil).ApplicationConfig), arg0)
-}
-
-// CharmInfo mocks base method
-func (m *MockCAASFirewallerAPI) CharmInfo(arg0 string) (*charms.CharmInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CharmInfo", arg0)
-	ret0, _ := ret[0].(*charms.CharmInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CharmInfo indicates an expected call of CharmInfo
-func (mr *MockCAASFirewallerAPIMockRecorder) CharmInfo(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmInfo", reflect.TypeOf((*MockCAASFirewallerAPI)(nil).CharmInfo), arg0)
 }
 
 // IsExposed mocks base method

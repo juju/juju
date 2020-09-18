@@ -202,6 +202,32 @@ func (f *FacadeEmbedded) WatchOpenedPorts(args params.Entities) (params.StringsW
 	return result, nil
 }
 
+// ApplicationCharmURLs finds the CharmURL for an application.
+func (f *FacadeEmbedded) ApplicationCharmURLs(args params.Entities) (params.StringResults, error) {
+	res := params.StringResults{
+		Results: make([]params.StringResult, len(args.Entities)),
+	}
+	for i, entity := range args.Entities {
+		appTag, err := names.ParseApplicationTag(entity.Tag)
+		if err != nil {
+			res.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		app, err := f.state.Application(appTag.Id())
+		if err != nil {
+			res.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		ch, _, err := app.Charm()
+		if err != nil {
+			res.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		res.Results[i].Result = ch.URL().String()
+	}
+	return res, nil
+}
+
 func (f *FacadeEmbedded) watchOneModelOpenedPorts(tag names.Tag) (string, []string, error) {
 	// NOTE: tag is ignored, as there is only one model in the
 	// state DB. Once this changes, change the code below accordingly.
