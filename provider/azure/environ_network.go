@@ -80,8 +80,9 @@ func (env *azureEnviron) allSubnets() ([]network.SubnetInfo, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	results := make([]network.SubnetInfo, len(values))
-	for i, sub := range values {
+
+	var results []network.SubnetInfo
+	for _, sub := range values {
 		id := to.String(sub.ID)
 
 		// An empty CIDR is no use to us, so guard against it.
@@ -91,10 +92,10 @@ func (env *azureEnviron) allSubnets() ([]network.SubnetInfo, error) {
 			continue
 		}
 
-		results[i] = network.SubnetInfo{
+		results = append(results, network.SubnetInfo{
 			CIDR:       cidr,
 			ProviderId: network.Id(id),
-		}
+		})
 	}
 	return results, nil
 }
