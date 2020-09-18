@@ -7,6 +7,8 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
+
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
@@ -20,7 +22,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/jujuclient"
-	"gopkg.in/macaroon-bakery.v2/httpbakery"
 )
 
 // DeployerFactory contains a method to get a deployer.
