@@ -40,6 +40,13 @@ func stateStepsFor29() []Step {
 				return context.State().AddCharmOriginToApplications()
 			},
 		},
+		&upgradeStep{
+			description: `add explicit "expose all endpoints to 0.0.0.0/0" entry for already exposed applications`,
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().ExposeWildcardEndpointForExposedApplications()
+			},
+		},
 	}
 }
 

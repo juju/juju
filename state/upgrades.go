@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/controller"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -3156,6 +3157,51 @@ func AddCharmOriginToApplications(pool *StatePool) error {
 				Update: bson.D{{
 					"$set", bson.D{{
 						"charm-origin", origin,
+					}},
+				}},
+			})
+		}
+		if len(ops) > 0 {
+			return errors.Trace(st.db().RunTransaction(ops))
+		}
+		return nil
+	}))
+}
+
+// ExposeWildcardEndpointForExposedApplications adds an ExposedEndpoint entry
+// for the wildcard endpoint (to 0.0.0.0/0) for already exposed applications.
+// This ensures that all exposed applications are accessible at least one CIDR
+// and allows us to drop the fallback to 0.0.0.0/0 if no CIDRs present logic
+// from the firewaller worker.
+func ExposeWildcardEndpointForExposedApplications(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(applicationsC)
+		defer closer()
+
+		var docs []applicationDoc
+		if err := col.Find(nil).All(&docs); err != nil {
+			return errors.Trace(err)
+		}
+
+		var implicitExposedEndpoints = map[string]ExposedEndpoint{
+			"": {
+				ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR},
+			},
+		}
+
+		var ops []txn.Op
+		for _, application := range docs {
+			if !application.Exposed {
+				continue
+			}
+
+			ops = append(ops, txn.Op{
+				C:      applicationsC,
+				Id:     application.DocID,
+				Assert: txn.DocExists,
+				Update: bson.D{{
+					"$set", bson.D{{
+						"exposed-endpoints", implicitExposedEndpoints,
 					}},
 				}},
 			})
