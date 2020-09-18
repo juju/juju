@@ -767,12 +767,12 @@ type AvailabilityZoneMachine struct {
 
 // MatchesConstraints against an AZ. If the constraints specifies Zones, make sure
 // this AZ matches a listed ZoneName.
-func (az *AvailabilityZoneMachine) MatchesConstraints(cons constraints.Value) bool {
+func (az *AvailabilityZoneMachine) MatchesConstraints(zonedEnv providercommon.ZonedEnviron, cons constraints.Value) bool {
 	if !cons.HasZones() {
 		return true
 	}
 	for _, zone := range *cons.Zones {
-		if az.ZoneName == zone {
+		if providercommon.ZoneMatches(zonedEnv, az.ZoneName, zone) {
 			return true
 		}
 	}
@@ -879,9 +879,11 @@ func (task *provisionerTask) machineAvailabilityZoneDistribution(
 		zoneMap = azMachineFilterSort(task.populateDistributionGroupZoneMap(distGroupMachineIds))
 	}
 
+	zonedEnv, _ := task.broker.(providercommon.ZonedEnviron)
+
 	sort.Sort(zoneMap)
 	for _, zoneMachines := range zoneMap {
-		if !zoneMachines.MatchesConstraints(cons) {
+		if !zoneMachines.MatchesConstraints(zonedEnv, cons) {
 			task.logger.Debugf("machine %s does not match az %s: constraints do not match",
 				machineId, zoneMachines.ZoneName)
 			continue
@@ -1274,10 +1276,12 @@ func (task *provisionerTask) markMachineFailedInAZ(machine apiprovisioner.Machin
 		}
 	}
 
+	zonedEnv, _ := task.broker.(providercommon.ZonedEnviron)
+
 	// Check if there are any zones left to try (that also match constraints).
 	zoneMap := azMachineFilterSort(task.availabilityZoneMachines)
 	for _, zoneMachines := range zoneMap {
-		if zoneMachines.MatchesConstraints(cons) &&
+		if zoneMachines.MatchesConstraints(zonedEnv, cons) &&
 			!zoneMachines.FailedMachineIds.Contains(machine.Id()) &&
 			!zoneMachines.ExcludedMachineIds.Contains(machine.Id()) {
 			return true, nil

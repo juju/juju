@@ -205,9 +205,10 @@ func DistributeInstances(
 	return eligible, nil
 }
 
-// LookupAvailabilityZone looks up an availability zone by name (or path) and
-// returns the zone object if found, nil and an error if not.
-func LookupAvailabilityZone(env ZonedEnviron, ctx context.ProviderCallContext, zones []AvailabilityZone, zone string) (AvailabilityZone, error) {
+// SelectAvailabilityZone looks up an availability zone by name (or path) and
+// returns the zone object if found, nil and an error if not found or if
+// multiple availability zones match.
+func SelectAvailabilityZone(env ZonedEnviron, zones []AvailabilityZone, zone string) (AvailabilityZone, error) {
 	var matches []AvailabilityZone
 	for _, z := range zones {
 		if ZoneMatches(env, z.Name(), zone) {
@@ -215,7 +216,7 @@ func LookupAvailabilityZone(env ZonedEnviron, ctx context.ProviderCallContext, z
 		}
 	}
 	if len(matches) == 0 {
-		return nil, errors.NotValidf("availability zone %q", zone)
+		return nil, errors.NotFoundf("availability zone %q", zone)
 	}
 	if len(matches) > 1 {
 		names := make([]string, len(matches))
@@ -233,11 +234,11 @@ func LookupAvailabilityZone(env ZonedEnviron, ctx context.ProviderCallContext, z
 func ValidateAvailabilityZone(env ZonedEnviron, ctx context.ProviderCallContext, zone string) error {
 	zones, err := env.AvailabilityZones(ctx)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	az, err := LookupAvailabilityZone(env, ctx, zones, zone)
+	az, err := SelectAvailabilityZone(env, zones, zone)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if !az.Available() {
 		return errors.Errorf("availability zone %q is unavailable", zone)

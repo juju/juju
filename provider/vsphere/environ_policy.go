@@ -5,12 +5,11 @@ package vsphere
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/provider/common"
-	"github.com/juju/utils/arch"
-
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/provider/common"
+	"github.com/juju/utils/arch"
 )
 
 // PrecheckInstance is part of the environs.Environ interface.
@@ -48,9 +47,9 @@ func (env *sessionEnviron) checkZones(ctx context.ProviderCallContext, zones *[]
 		return errors.Trace(err)
 	}
 	for _, zone := range *zones {
-		_, err := common.LookupAvailabilityZone(env, ctx, foundZones, zone)
+		_, err := common.SelectAvailabilityZone(env, foundZones, zone)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 	return nil

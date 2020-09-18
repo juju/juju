@@ -18,27 +18,20 @@ import (
 
 type vmwareAvailZone struct {
 	r          mo.ComputeResource
-	rPath      string
 	pool       *object.ResourcePool
 	hostFolder string
 }
 
-// Name implements common.AvailabilityZone
+// Name returns the "name" of the Vsphere availability zone, which is the path
+// relative to the datacenter's host folder.
 func (z *vmwareAvailZone) Name() string {
-	// Strip "/DataCenter1/host/" prefix from compute resource or resource pool path
-	return strings.TrimPrefix(z.path(), z.hostFolder+"/")
+	// Strip "/DataCenter1/host/" prefix from resource pool path
+	return strings.TrimPrefix(z.pool.InventoryPath, z.hostFolder+"/")
 }
 
 // Available implements common.AvailabilityZone
 func (z *vmwareAvailZone) Available() bool {
 	return true
-}
-
-func (z *vmwareAvailZone) path() string {
-	if z.pool == nil {
-		return z.rPath
-	}
-	return z.pool.InventoryPath
 }
 
 // AvailabilityZones is part of the common.ZonedEnviron interface.
@@ -65,47 +58,43 @@ func (env *sessionEnviron) AvailabilityZones(ctx context.ProviderCallContext) ([
 		folders.HostFolder.InventoryPath, folders.HostFolder.Name())
 	hostFolder := folders.HostFolder.InventoryPath
 
-	computeResources, crPaths, err := env.client.ComputeResources(env.ctx)
+	computeResources, err := env.client.ComputeResources(env.ctx)
 	if err != nil {
 		HandleCredentialError(err, env, ctx)
 		return nil, errors.Trace(err)
 	}
 	var zones []common.AvailabilityZone
-	for i, cr := range computeResources {
-		if cr.Summary.GetComputeResourceSummary().EffectiveCpu == 0 {
-			logger.Debugf("skipping empty compute resource %q", cr.Name)
+	for _, cr := range computeResources {
+		if cr.Resource.Summary.GetComputeResourceSummary().EffectiveCpu == 0 {
+			logger.Debugf("skipping empty compute resource %q", cr.Resource.Name)
 			continue
 		}
 
-		// Add an availability zone for this compute resource directly, eg:
-		// "/DataCenter1/host/Host1"
-		zone := &vmwareAvailZone{
-			r:          *cr,
-			rPath:      crPaths[i],
-			hostFolder: hostFolder,
-		}
-		logger.Tracef("zone from compute resource: %s (cr.Name=%q rPath=%q hostFolder=%q)",
-			zone.Name(), zone.r.Name, zone.rPath, zone.hostFolder)
-		zones = append(zones, zone)
-
-		// Then add an availability zone for each resource pool under this
-		// compute resource, eg: "/DataCenter1/host/Host1/Resources"
-		pools, err := env.client.ResourcePools(env.ctx, crPaths[i]+"/...")
+		// Add an availability zone for each resource pool under this compute
+		// resource, eg: "/DataCenter1/host/Host1/Resources"
+		pools, err := env.client.ResourcePools(env.ctx, cr.Path+"/...")
 		if err != nil {
 			HandleCredentialError(err, env, ctx)
 			return nil, errors.Trace(err)
 		}
 		for _, pool := range pools {
-			zone = &vmwareAvailZone{
-				r:          *cr,
-				rPath:      crPaths[i],
+			zone := &vmwareAvailZone{
+				r:          *cr.Resource,
 				pool:       pool,
 				hostFolder: hostFolder,
 			}
-			logger.Tracef("zone from resource pool: %s (cr.Name=%q rPath=%q pool.InventoryPath=%q hostFolder=%q)",
-				zone.Name(), zone.r.Name, zone.rPath, zone.pool.InventoryPath, zone.hostFolder)
+			logger.Tracef("zone: %s (cr.Name=%q pool.InventoryPath=%q hostFolder=%q)",
+				zone.Name(), zone.r.Name, zone.pool.InventoryPath, zone.hostFolder)
 			zones = append(zones, zone)
 		}
+	}
+
+	if logger.IsDebugEnabled() {
+		zoneNames := make([]string, len(zones))
+		for i, zone := range zones {
+			zoneNames[i] = zone.Name()
+		}
+		logger.Debugf("fetched availability zones: %q", zoneNames)
 	}
 
 	env.zones = zones
@@ -145,10 +134,6 @@ func (env *sessionEnviron) InstanceAvailabilityZoneNames(ctx context.ProviderCal
 		vm := inst.(*environInstance).base
 		for _, zone := range zones {
 			pool := zone.(*vmwareAvailZone).pool
-			if pool == nil {
-				// Skip availability zones that aren't resource pools
-				continue
-			}
 			if pool.Reference().Value == vm.ResourcePool.Value {
 				results[i] = zone.Name()
 				break
@@ -197,47 +182,25 @@ func (env *sessionEnviron) availZone(ctx context.ProviderCallContext, name strin
 
 // ZoneMatches implements zoneMatcher interface to allow custom matching (see
 // provider/common.ZoneMatches). For a Vsphere "availability zone" (host,
-// cluster, or resource pool), allow match on absolute path, path relative to
-// host folder, or legacy resource pool match.
+// cluster, or resource pool), allow a match on the path relative to the host
+// folder, or a legacy resource pool match.
 func (env *environ) ZoneMatches(zone, constraint string) bool {
-	return zoneMatches(zone, constraint)
-}
-
-func zoneMatches(zone, constraint string) bool {
-	// If they've specified an absolute path, strip the datacenter/host
-	// segments; for example "/DataCenter1/host/Cluster1/Host1"
-	// becomes "Cluster1/Host1". This allows the user to specify an
-	// absolute path, like those from "govc find".
-	//
-	// TODO benhoyt: maybe we don't want absolute path matching at all,
-	// because if there's a datacenter folder we don't know how deep it is,
-	// so this will fail.
-	if strings.HasPrefix(constraint, "/") {
-		parts := strings.Split(constraint, "/")
-		// Must be at least ["" "DataCenter1" "host" "Cluster1"]
-		if len(parts) < 4 {
-			return false
-		}
-		constraint = strings.Join(parts[3:], "/")
-	}
-
 	// Allow match on full zone name (path without host folder prefix), for
 	// example "Cluster1/Host1".
 	if zone == constraint {
 		return true
 	}
 
-	// Otherwise, for resource pools, allow them to omit the "Resources"
-	// part of the path (for backwards compatibility). For example, for pool
+	// Otherwise allow them to omit the "Resources" part of the path (for
+	// backwards compatibility). For example, for pool
 	// "Host1/Resources/Parent/Child", allow a match on "Host1/Parent/Child".
-	//
-	// TODO: should we consider stripping "Resources" at any level? That may help with folders
 	parts := strings.Split(zone, "/")
-	if len(parts) > 2 && parts[1] == "Resources" {
-		legacyZone := parts[0] + "/" + strings.Join(parts[2:], "/")
-		if legacyZone == constraint {
-			return true
+	var partsWithoutResources []string
+	for _, part := range parts {
+		if part != "Resources" {
+			partsWithoutResources = append(partsWithoutResources, part)
 		}
 	}
-	return false
+	legacyZone := strings.Join(partsWithoutResources, "/")
+	return legacyZone == constraint
 }
