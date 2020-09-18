@@ -31,8 +31,8 @@ type RefreshRequestPlatform struct {
 type RefreshRequestAction struct {
 	Action      string                  `json:"action"`
 	InstanceKey string                  `json:"instance-key"`
-	ID          *string                 `json:"id"`
-	Name        *string                 `json:"name"`
+	ID          *string                 `json:"id,omitempty"`
+	Name        *string                 `json:"name,omitempty"`
 	Channel     *string                 `json:"channel,omitempty"`
 	Revision    *int                    `json:"revision,omitempty"`
 	Platform    *RefreshRequestPlatform `json:"platform,omitempty"`
