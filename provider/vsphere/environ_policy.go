@@ -76,6 +76,7 @@ func (env *sessionEnviron) checkDatastore(ctx context.ProviderCallContext, datas
 var unsupportedConstraints = []string{
 	constraints.Tags,
 	constraints.VirtType,
+	constraints.AllocatePublicIP,
 }
 
 // ConstraintsValidator returns a Validator value which is used to

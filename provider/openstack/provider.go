@@ -786,7 +786,7 @@ func (e *Environ) supportsNeutron() bool {
 
 func (e *Environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
 	// Find all instances tagged with tags.JujuIsController.
-	instances, err := e.allControllerManagedInstances(ctx, controllerUUID, e.ecfg().useFloatingIP())
+	instances, err := e.allControllerManagedInstances(ctx, controllerUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1309,6 +1309,11 @@ func (e *Environ) startInstance(
 	}
 	logger.Infof("started instance %q", inst.Id())
 	withPublicIP := e.ecfg().useFloatingIP()
+	// Any machine constraint for allocating a public IP address
+	// overrides the (deprecated) model config.
+	if args.Constraints.HasAllocatePublicIP() {
+		withPublicIP = *args.Constraints.AllocatePublicIP
+	}
 	if withPublicIP {
 		// If we don't lock here, AllocatePublicIP() can return the same
 		// public IP for 2 different instances.  Only one will successfully
@@ -1797,10 +1802,8 @@ func (e *Environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) 
 	}
 
 	// Update the instance structs with any floating IP address that has been assigned to the instance.
-	if e.ecfg().useFloatingIP() {
-		if err := e.updateFloatingIPAddresses(ctx, instsById); err != nil {
-			return nil, err
-		}
+	if err := e.updateFloatingIPAddresses(ctx, instsById); err != nil {
+		return nil, err
 	}
 
 	insts := make([]instances.Instance, len(ids))
@@ -1899,7 +1902,7 @@ func (e *Environ) adoptVolumes(controllerTag map[string]string, ctx context.Prov
 // AllInstances returns all instances in this environment.
 func (e *Environ) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	tagFilter := tagValue{tags.JujuModel, e.ecfg().UUID()}
-	instances, err := e.allInstances(ctx, tagFilter, e.ecfg().useFloatingIP())
+	instances, err := e.allInstances(ctx, tagFilter)
 	if err != nil {
 		handleCredentialError(err, ctx)
 		return instances, err
@@ -1916,9 +1919,9 @@ func (e *Environ) AllRunningInstances(ctx context.ProviderCallContext) ([]instan
 
 // allControllerManagedInstances returns all instances managed by this
 // environment's controller, matching the optionally specified filter.
-func (e *Environ) allControllerManagedInstances(ctx context.ProviderCallContext, controllerUUID string, updateFloatingIPAddresses bool) ([]instances.Instance, error) {
+func (e *Environ) allControllerManagedInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instances.Instance, error) {
 	tagFilter := tagValue{tags.JujuController, controllerUUID}
-	instances, err := e.allInstances(ctx, tagFilter, updateFloatingIPAddresses)
+	instances, err := e.allInstances(ctx, tagFilter)
 	if err != nil {
 		handleCredentialError(err, ctx)
 		return instances, err
@@ -1932,7 +1935,7 @@ type tagValue struct {
 
 // allControllerManagedInstances returns all instances managed by this
 // environment's controller, matching the optionally specified filter.
-func (e *Environ) allInstances(ctx context.ProviderCallContext, tagFilter tagValue, updateFloatingIPAddresses bool) ([]instances.Instance, error) {
+func (e *Environ) allInstances(ctx context.ProviderCallContext, tagFilter tagValue) ([]instances.Instance, error) {
 	servers, err := e.nova().ListServersDetail(jujuMachineFilter())
 	if err != nil {
 		handleCredentialError(err, ctx)
@@ -1949,11 +1952,9 @@ func (e *Environ) allInstances(ctx context.ProviderCallContext, tagFilter tagVal
 			instsById[s.Id] = &openstackInstance{e: e, serverDetail: &s}
 		}
 	}
-	if updateFloatingIPAddresses {
-		if err := e.updateFloatingIPAddresses(ctx, instsById); err != nil {
-			handleCredentialError(err, ctx)
-			return nil, err
-		}
+	if err := e.updateFloatingIPAddresses(ctx, instsById); err != nil {
+		handleCredentialError(err, ctx)
+		return nil, err
 	}
 	insts := make([]instances.Instance, 0, len(instsById))
 	for _, inst := range instsById {
@@ -2000,7 +2001,7 @@ func (e *Environ) DestroyController(ctx context.ProviderCallContext, controllerU
 // models's controller.
 func (e *Environ) destroyControllerManagedEnvirons(ctx context.ProviderCallContext, controllerUUID string) error {
 	// Terminate all instances managed by the controller.
-	insts, err := e.allControllerManagedInstances(ctx, controllerUUID, false)
+	insts, err := e.allControllerManagedInstances(ctx, controllerUUID)
 	if err != nil {
 		return errors.Annotate(err, "listing instances")
 	}

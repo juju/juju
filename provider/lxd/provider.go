@@ -14,7 +14,7 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"gopkg.in/juju/environschema.v1"
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/container/lxd"

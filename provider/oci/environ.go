@@ -332,6 +332,7 @@ func (e *Environ) ConstraintsValidator(ctx envcontext.ProviderCallContext) (cons
 		constraints.Container,
 		constraints.VirtType,
 		constraints.Tags,
+		constraints.AllocatePublicIP,
 	}
 
 	validator := constraints.NewValidator()

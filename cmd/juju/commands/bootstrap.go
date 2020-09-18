@@ -843,6 +843,14 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		return errors.Trace(err)
 	}
 	logger.Infof("combined bootstrap constraints: %v", bootstrapParams.BootstrapConstraints)
+	unsupported, err := constraintsValidator.Validate(bootstrapParams.BootstrapConstraints)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(unsupported) > 0 {
+		logger.Warningf(
+			"unsupported constraints: %v", strings.Join(unsupported, ","))
+	}
 
 	bootstrapParams.ModelConstraints = c.Constraints
 
