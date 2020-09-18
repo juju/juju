@@ -14,6 +14,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/replicaset"
+	"github.com/kr/pretty"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -2973,6 +2974,14 @@ func ResetDefaultRelationLimitInCharmMetadata(pool *StatePool) (err error) {
 
 		var ops []txn.Op
 		for _, charmDoc := range docs {
+			if charmDoc.Meta == nil {
+				if !(charmDoc.Placeholder || charmDoc.PendingUpload) {
+					logger.Warningf(
+						"charmDoc has nil Meta and is not a placeholder/pending upload: %# v",
+						pretty.Formatter(charmDoc))
+				}
+				continue
+			}
 			for epName, rel := range charmDoc.Meta.Requires {
 				rel.Limit = 0
 				charmDoc.Meta.Requires[epName] = rel
@@ -2994,6 +3003,10 @@ func ResetDefaultRelationLimitInCharmMetadata(pool *StatePool) (err error) {
 			})
 		}
 
+		if len(ops) == 0 {
+			// No need to run an empty transaction
+			return nil
+		}
 		return errors.Trace(st.db().RunTransaction(ops))
 	}))
 }

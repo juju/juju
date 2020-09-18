@@ -302,3 +302,21 @@ func (s HardwareSuite) TestClone(c *gc.C) {
 	hc2 := hc.Clone()
 	c.Assert(hc, jc.DeepEquals, *hc2)
 }
+
+// Regression test for https://bugs.launchpad.net/juju/+bug/1895756
+func (s HardwareSuite) TestCloneSpace(c *gc.C) {
+	az := "a -"
+	hc := &instance.HardwareCharacteristics{AvailabilityZone: &az}
+	clone := hc.Clone()
+	c.Assert(hc, jc.DeepEquals, clone)
+}
+
+// Ensure fields like the Tags slice are deep-copied
+func (s HardwareSuite) TestCloneDeep(c *gc.C) {
+	tags := []string{"a"}
+	hc := &instance.HardwareCharacteristics{Tags: &tags}
+	clone := hc.Clone()
+	c.Assert(hc, jc.DeepEquals, clone)
+	tags[0] = "z"
+	c.Assert((*clone.Tags)[0], gc.Equals, "a")
+}

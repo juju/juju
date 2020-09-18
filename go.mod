@@ -82,7 +82,7 @@ require (
 	github.com/juju/utils v0.0.0-20200604140309-9d78121a29e0
 	github.com/juju/version v0.0.0-20191219164919-81c1be00b9a6
 	github.com/juju/webbrowser v0.0.0-20180907093207-efb9432b2bcb
-	github.com/juju/worker/v2 v2.0.0-20200424114111-8c6ac8046912
+	github.com/juju/worker/v2 v2.0.0-20200916234526-d6e694f1c54a
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.2.1
 	github.com/kr/text v0.2.0 // indirect
@@ -106,7 +106,7 @@ require (
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	golang.org/x/crypto v0.0.0-20200728195943-123391ffb6de
-	golang.org/x/net v0.0.0-20200813134508-3edf25e44fcc
+	golang.org/x/net v0.0.0-20200904194848-62affa334b73
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sys v0.0.0-20200817085935-3ff754bf58a9
 	golang.org/x/text v0.3.3 // indirect
@@ -117,8 +117,8 @@ require (
 	google.golang.org/genproto v0.0.0-20200726014623-da3ae01ef02d // indirect
 	google.golang.org/grpc v1.30.0 // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
-	gopkg.in/amz.v3 v3.0.0-20191122063134-7ba11a47c789
-	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b
+	gopkg.in/amz.v3 v3.0.0-20200811022415-7b63e5e39741
+	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f
 	gopkg.in/goose.v2 v2.0.1
 	gopkg.in/httprequest.v1 v1.2.1
 	gopkg.in/ini.v1 v1.10.1
