@@ -106,7 +106,8 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 		if applicationSpec.Plan != "" {
 			for _, step := range d.steps {
 				s := step
-				charmURL, err := charm.ParseURL(applicationSpec.Charm)
+
+				charmURL, err := resolveCharmURL(applicationSpec.Charm)
 				if err != nil {
 					return errors.Trace(err)
 				}
