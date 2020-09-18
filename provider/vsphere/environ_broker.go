@@ -246,9 +246,7 @@ func (env *sessionEnviron) newRawInstance(
 	}
 
 	createVMArgs.ComputeResource = &availZone.r
-	if availZone.pool != nil {
-		createVMArgs.ResourcePool = availZone.pool.Reference()
-	}
+	createVMArgs.ResourcePool = availZone.pool.Reference()
 
 	vm, err := env.client.CreateVirtualMachine(env.ctx, createVMArgs)
 	if vsphereclient.IsExtendDiskError(err) {
