@@ -106,6 +106,8 @@ type Uniter struct {
 
 	hookLock machinelock.Lock
 
+	Probe Probe
+
 	// TODO(axw) move the runListener and run-command code outside of the
 	// uniter, and introduce a separate worker. Each worker would feed
 	// operations to a single, synchronized runner to execute.
