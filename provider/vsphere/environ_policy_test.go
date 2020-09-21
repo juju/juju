@@ -4,7 +4,6 @@
 package vsphere_test
 
 import (
-	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
 	jc "github.com/juju/testing/checkers"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
 )
 
 type environPolSuite struct {
