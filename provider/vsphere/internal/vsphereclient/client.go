@@ -44,6 +44,12 @@ func IsExtendDiskError(err error) bool {
 	return ok
 }
 
+// ComputeResource stores an mo.ComputeResource along with its full path
+type ComputeResource struct {
+	Resource *mo.ComputeResource
+	Path     string
+}
+
 // Client encapsulates a vSphere client, exposing the subset of
 // functionality that we require in the Juju provider.
 type Client struct {
@@ -233,8 +239,9 @@ func (c *Client) VirtualMachines(ctx context.Context, path string) ([]*mo.Virtua
 	return vms, nil
 }
 
-// ComputeResources returns list of all root compute resources in the system.
-func (c *Client) ComputeResources(ctx context.Context) ([]*mo.ComputeResource, error) {
+// ComputeResources returns a slice of all compute resources in the datacenter,
+// along with a slice of each compute resource's full path.
+func (c *Client) ComputeResources(ctx context.Context) ([]ComputeResource, error) {
 	_, datacenter, err := c.finder(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -244,21 +251,58 @@ func (c *Client) ComputeResources(ctx context.Context) ([]*mo.ComputeResource, e
 		return nil, errors.Trace(err)
 	}
 
-	es, err := c.lister(folders.HostFolder.Reference()).List(ctx)
+	return c.computeResourcesFromRef(ctx, folders.HostFolder.Reference(), folders.HostFolder.InventoryPath)
+}
+
+// computeResourcesFromRef returns a slice of compute resources under the given
+// reference (folder), recursively including folders.
+func (c *Client) computeResourcesFromRef(ctx context.Context, ref types.ManagedObjectReference, path string) ([]ComputeResource, error) {
+	es, err := c.lister(ref).List(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var cprs []*mo.ComputeResource
+	var crs []ComputeResource
 	for _, e := range es {
 		switch o := e.Object.(type) {
 		case mo.ClusterComputeResource:
-			cprs = append(cprs, &o.ComputeResource)
+			cr := ComputeResource{
+				Resource: &o.ComputeResource,
+				Path:     path + "/" + o.ComputeResource.Name,
+			}
+			crs = append(crs, cr)
+			c.logger.Tracef("added cluster crPath %q", cr.Path)
 		case mo.ComputeResource:
-			cprs = append(cprs, &o)
+			cr := ComputeResource{
+				Resource: &o,
+				Path:     path + "/" + o.Name,
+			}
+			crs = append(crs, cr)
+			c.logger.Tracef("added host crPath %q", cr.Path)
+		case mo.Folder:
+			subCrs, err := c.computeResourcesFromRef(ctx, o.Reference(), path+"/"+o.Name)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			crs = append(crs, subCrs...)
+			c.logger.Tracef("added %d compute resources from %q",
+				len(subCrs), path+"/"+o.Name)
 		}
 	}
-	return cprs, nil
+	return crs, nil
+}
+
+// Folders returns the datacenter's folders object.
+func (c *Client) Folders(ctx context.Context) (*object.DatacenterFolders, error) {
+	_, datacenter, err := c.finder(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	folders, err := datacenter.Folders(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return folders, nil
 }
 
 // Datastores returns list of all datastores in the system.

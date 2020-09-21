@@ -20,7 +20,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/mutex"
-	"github.com/kr/pretty"
 	"github.com/vmware/govmomi/find"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/ovf"
@@ -203,7 +202,6 @@ func (c *Client) ensureTemplateVM(
 	importSpec := spec.ImportSpec
 	args.UpdateProgress(fmt.Sprintf("creating template VM %q", vmTemplateName(args)))
 	c.logger.Debugf("creating template VM in folder %s", vmFolder)
-	c.logger.Tracef("import spec: %s", pretty.Sprint(importSpec))
 
 	if !args.IsBootstrap {
 		// Each controller maintains its own image cache. All compute
