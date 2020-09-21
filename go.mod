@@ -10,34 +10,22 @@ require (
 	github.com/Azure/go-autorest/autorest/mocks v0.3.0
 	github.com/Azure/go-autorest/autorest/to v0.3.0
 	github.com/Azure/go-autorest/autorest/validation v0.2.0 // indirect
-	github.com/Azure/go-autorest/tracing v0.5.0 // indirect
-	github.com/ChrisTrenkamp/goxpath v0.0.0-20170922090931-c385f95c6022 // indirect
 	github.com/EvilSuperstars/go-cidrman v0.0.0-20170211231153-4e5a4a63d9b7
 	github.com/altoros/gosigma v0.0.0-20200420012028-063911838a9e
-	github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be // indirect
 	github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da
 	github.com/aws/aws-sdk-go v1.29.8
-	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
-	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/coreos/go-systemd/v22 v22.0.0-20200316104309-cb8b64719ae3
-	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dnaeon/go-vcr v1.0.1 // indirect
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect
 	github.com/dustin/go-humanize v1.0.0
 	github.com/evanphx/json-patch v4.5.0+incompatible // indirect
 	github.com/flosch/pongo2 v0.0.0-20141028000813-5e81b817a0c4 // indirect
-	github.com/gobwas/glob v0.2.4-0.20181002190808-e7a84e9525fe // indirect
-	github.com/godbus/dbus/v5 v5.0.3 // indirect
-	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/golang/mock v1.4.3
-	github.com/golang/protobuf v1.4.2 // indirect
 	github.com/google/go-cmp v0.5.1 // indirect
 	github.com/google/go-querystring v1.0.0
-	github.com/google/gofuzz v1.1.0 // indirect
-	github.com/googleapis/gax-go/v2 v2.0.5 // indirect
 	github.com/googleapis/gnostic v0.4.0
 	github.com/gorilla/handlers v0.0.0-20170224193955-13d73096a474
 	github.com/gorilla/schema v0.0.0-20160426231512-08023a0215e7
@@ -50,15 +38,12 @@ require (
 	github.com/hashicorp/raft-boltdb v0.0.0-20171010151810-6e5ba93211ea
 	github.com/hpidcock/juju-fake-init v0.0.0-20200826003917-cf7015140fd9
 	github.com/imdario/mergo v0.3.10 // indirect
-	github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af // indirect
 	github.com/joyent/gocommon v0.0.0-20160320193133-ade826b8b54e
 	github.com/joyent/gosdc v0.0.0-20140524000815-2f11feadd2d9
 	github.com/joyent/gosign v0.0.0-20140524000734-0da0d5f13420
-	github.com/json-iterator/go v1.1.10 // indirect
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
 	github.com/juju/bundlechanges/v3 v3.0.0-20200909112830-2eb08291b192
-	github.com/juju/charm/v8 v8.0.0-20200909140628-b1139b81a49c
-	// github.com/juju/charm/v8 v8.0.0-20200908083540-3ea1a8c7a8df
+	github.com/juju/charm/v8 v8.0.0-20200918105822-d7e8e94ba938
 	github.com/juju/charmrepo/v6 v6.0.0-20200817155725-120bd7a8b1ed
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
 	github.com/juju/cmd v0.0.0-20200108104440-8e43f3faa5c9
@@ -69,12 +54,9 @@ require (
 	github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d
 	github.com/juju/go-oracle-cloud v0.0.0-20170421134547-932a8cea00a1
 	github.com/juju/go4 v0.0.0-20160222163258-40d72ab9641a // indirect
-	github.com/juju/gojsonpointer v0.0.0-20150204194629-afe8b77aa08f // indirect
-	github.com/juju/gojsonreference v0.0.0-20150204194633-f0d24ac5ee33 // indirect
 	github.com/juju/gojsonschema v0.0.0-20150312170016-e1ad140384f2
 	github.com/juju/gomaasapi v0.0.0-20190826212825-0ab1eb636aba
 	github.com/juju/http v0.0.0-20200729125253-fb155b41a3e2
-	github.com/juju/httpprof v0.0.0-20141217160036-14bf14c30767 // indirect
 	github.com/juju/jsonschema v0.0.0-20161102181919-a0ef8b74ebcf
 	github.com/juju/jsonschema-gen v0.0.0-20200416014454-d924343d72b2
 	github.com/juju/loggo v0.0.0-20200526014432-9ce3a2e09b5e
@@ -102,7 +84,6 @@ require (
 	github.com/juju/version v0.0.0-20191219164919-81c1be00b9a6
 	github.com/juju/webbrowser v0.0.0-20180907093207-efb9432b2bcb
 	github.com/juju/worker/v2 v2.0.0-20200916234526-d6e694f1c54a
-	github.com/julienschmidt/httprouter v1.3.0 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.2.1
 	github.com/kr/text v0.2.0 // indirect
@@ -112,41 +93,26 @@ require (
 	github.com/lestrrat/go-jsval v0.0.0-20161012045717-b1258a10419f // indirect
 	github.com/lestrrat/go-pdebug v0.0.0-20160817063333-2e6eaaa5717f // indirect
 	github.com/lestrrat/go-structinfo v0.0.0-20160308131105-f74c056fe41f // indirect
-	github.com/lunixbochs/vtclean v1.0.0 // indirect
 	github.com/lxc/lxd v0.0.0-20200306132355-582edb00c72c
-	github.com/masterzen/winrm v0.0.0-20200615185753-c42b5136ff88 // indirect
-	github.com/mattn/go-colorable v0.1.7 // indirect
 	github.com/mattn/go-isatty v0.0.12
-	github.com/mattn/go-runewidth v0.0.2 // indirect
-	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/mitchellh/go-linereader v0.0.0-20190213213312-1b945b3263eb
-	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
-	github.com/modern-go/reflect2 v1.0.1 // indirect
-	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/oracle/oci-go-sdk v5.7.0+incompatible
 	github.com/pascaldekloe/goe v0.1.0 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/client_model v0.2.0
-	github.com/prometheus/common v0.10.0 // indirect
-	github.com/prometheus/procfs v0.1.3 // indirect
-	github.com/rogpeppe/fastuuid v0.0.0-20150106093220-6724a57986af // indirect
 	github.com/satori/go.uuid v1.2.0 // indirect
 	github.com/smartystreets/goconvey v1.6.4 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
-	go.opencensus.io v0.22.3 // indirect
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
-	golang.org/x/mod v0.3.0 // indirect
-	golang.org/x/net v0.0.0-20200813134508-3edf25e44fcc
+	golang.org/x/net v0.0.0-20200904194848-62affa334b73
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
-	golang.org/x/sys v0.0.0-20200826173525-f9321e4c35a6
+	golang.org/x/sys v0.0.0-20200817085935-3ff754bf58a9
 	golang.org/x/text v0.3.3 // indirect
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	golang.org/x/tools v0.0.0-20200725200936-102e7d357031
-	golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543 // indirect
 	google.golang.org/api v0.29.0
 	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/genproto v0.0.0-20200726014623-da3ae01ef02d // indirect
@@ -154,15 +120,12 @@ require (
 	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/amz.v3 v3.0.0-20200811022415-7b63e5e39741
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f
-	gopkg.in/errgo.v1 v1.0.1 // indirect
 	gopkg.in/goose.v2 v2.0.1
 	gopkg.in/httprequest.v1 v1.2.1
-	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.10.1
 	gopkg.in/juju/blobstore.v2 v2.0.0-20160125023703-51fa6e26128d
 	gopkg.in/juju/environschema.v1 v1.0.0
 	gopkg.in/juju/idmclient.v1 v1.0.0-20180320161856-203d20774ce8
-	gopkg.in/juju/names.v2 v2.0.0-20190813004204-e057c73bd1be // indirect
 	gopkg.in/juju/names.v3 v3.0.0-20200331100531-2c9a102df211 // indirect
 	gopkg.in/juju/worker.v1 v1.0.0-20191018043616-19a698a7150f // indirect
 	gopkg.in/macaroon-bakery.v2 v2.1.1-0.20190613120608-6734dc66fe81
@@ -172,7 +135,6 @@ require (
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce
 	gopkg.in/retry.v1 v1.0.2
 	gopkg.in/robfig/cron.v2 v2.0.0-20150107220207-be2e0b0deed5 // indirect
-	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/tomb.v2 v2.0.0-20161208151619-d5d1b5820637
 	gopkg.in/yaml.v2 v2.3.0
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
@@ -180,12 +142,8 @@ require (
 	k8s.io/apiextensions-apiserver v0.18.6
 	k8s.io/apimachinery v0.18.6
 	k8s.io/client-go v0.18.6
-	k8s.io/klog v1.0.0 // indirect
 	k8s.io/klog/v2 v2.3.0 // indirect
-	k8s.io/kube-openapi v0.0.0-20200410145947-61e04a5be9a6 // indirect
 	k8s.io/utils v0.0.0-20200724153422-f32512634ab7 // indirect
-	sigs.k8s.io/structured-merge-diff/v3 v3.0.0 // indirect
-	sigs.k8s.io/yaml v1.2.0 // indirect
 )
 
 replace github.com/altoros/gosigma => github.com/juju/gosigma v0.0.0-20200420012028-063911838a9e
@@ -228,4 +186,4 @@ replace (
 	k8s.io/sample-apiserver v0.0.0 => k8s.io/sample-apiserver v0.18.6
 )
 
-replace github.com/juju/charm/v8 => github.com/hpidcock/charm/v8 master
+replace github.com/juju/charm/v8 => github.com/hpidcock/charm/v8 v8.0.0-20200921072628-48fce167a0e4
