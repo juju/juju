@@ -493,7 +493,7 @@ func convertContainerPort(p corev1.ServicePort) corev1.ContainerPort {
 	return corev1.ContainerPort{
 		Name:          p.Name,
 		ContainerPort: p.TargetPort.IntVal,
-		Protocol:      corev1.Protocol(p.Protocol),
+		Protocol:      p.Protocol,
 	}
 }
 

@@ -14,7 +14,6 @@ import (
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/broker_mock.go github.com/juju/juju/worker/caasapplicationprovisioner CAASBroker
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/facade_mock.go github.com/juju/juju/worker/caasapplicationprovisioner CAASProvisionerFacade
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/broker_application_mock.go github.com/juju/juju/caas Application
 
 type mockFacade struct {
 	caasapplicationprovisioner.CAASProvisionerFacade

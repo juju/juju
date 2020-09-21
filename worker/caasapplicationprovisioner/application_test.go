@@ -19,6 +19,7 @@ import (
 	api "github.com/juju/juju/api/caasapplicationprovisioner"
 	charmscommon "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/caas"
+	caasmocks "github.com/juju/juju/caas/mocks"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -94,7 +95,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 	appDeploymentState := caas.DeploymentState{}
 	appState := caas.ApplicationState{}
 
-	brokerApp := mocks.NewMockApplication(ctrl)
+	brokerApp := caasmocks.NewMockApplication(ctrl)
 	broker := mocks.NewMockCAASBroker(ctrl)
 	broker.EXPECT().Application("application-test", caas.DeploymentStateful).AnyTimes().Return(brokerApp)
 
