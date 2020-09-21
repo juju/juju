@@ -4,6 +4,7 @@
 package vsphere_test
 
 import (
+	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
 	jc "github.com/juju/testing/checkers"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
@@ -21,17 +22,30 @@ type environAvailzonesSuite struct {
 
 var _ = gc.Suite(&environAvailzonesSuite{})
 
+func makeFolders(host string) *object.DatacenterFolders {
+	return &object.DatacenterFolders{
+		HostFolder: &object.Folder{
+			Common: object.Common{
+				InventoryPath: host,
+			},
+		},
+	}
+}
+
 func (s *environAvailzonesSuite) TestAvailabilityZones(c *gc.C) {
 	emptyResource := newComputeResource("empty")
 	emptyResource.Summary.(*mockSummary).EffectiveCpu = 0
-	s.client.computeResources = []*mo.ComputeResource{
-		emptyResource,
-		newComputeResource("z1"),
-		newComputeResource("z2"),
+	s.client.folders = makeFolders("/DC/host")
+	s.client.computeResources = []vsphereclient.ComputeResource{
+		{Resource: emptyResource, Path: "/DC/host/empty"},
+		{Resource: newComputeResource("z1"), Path: "/DC/host/z1"},
+		{Resource: newComputeResource("z2"), Path: "/DC/host/z2"},
 	}
 	s.client.resourcePools = map[string][]*object.ResourcePool{
-		"z1/...": {makeResourcePool("pool-1", "/DC/host/z1/Resources")},
-		"z2/...": {
+		"/DC/host/z1/...": {
+			makeResourcePool("pool-1", "/DC/host/z1/Resources"),
+		},
+		"/DC/host/z2/...": {
 			// Check we don't get broken by trailing slashes.
 			makeResourcePool("pool-2", "/DC/host/z2/Resources/"),
 			makeResourcePool("pool-3", "/DC/host/z2/Resources/child"),
@@ -57,14 +71,19 @@ func (s *environAvailzonesSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
 	z1 := newComputeResource("z1")
 	z2 := newComputeResource("z2")
 	z3 := newComputeResource("z3")
-	s.client.computeResources = []*mo.ComputeResource{z1, z2, z3}
+	s.client.folders = makeFolders("/DC/host")
+	s.client.computeResources = []vsphereclient.ComputeResource{
+		{Resource: z1, Path: "/DC/host/z1"},
+		{Resource: z2, Path: "/DC/host/z2"},
+		{Resource: z3, Path: "/DC/host/z3"},
+	}
 
 	childPool := makeResourcePool("rp-child", "/DC/host/z3/Resources/child")
 	childRef := childPool.Reference()
 	s.client.resourcePools = map[string][]*object.ResourcePool{
-		"z1/...": {makeResourcePool("rp-z1", "/DC/host/z1/Resources")},
-		"z2/...": {makeResourcePool("rp-z2", "/DC/host/z2/Resources")},
-		"z3/...": {
+		"/DC/host/z1/...": {makeResourcePool("rp-z1", "/DC/host/z1/Resources")},
+		"/DC/host/z2/...": {makeResourcePool("rp-z2", "/DC/host/z2/Resources")},
+		"/DC/host/z3/...": {
 			makeResourcePool("rp-z3", "/DC/host/z3/Resources"),
 			childPool,
 		},
@@ -85,17 +104,19 @@ func (s *environAvailzonesSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
 }
 
 func (s *environAvailzonesSuite) TestInstanceAvailabilityZoneNamesNoInstances(c *gc.C) {
+	s.client.folders = makeFolders("/DC/host")
 	zonedEnviron := s.env.(common.ZonedEnviron)
 	_, err := zonedEnviron.InstanceAvailabilityZoneNames(s.callCtx, []instance.Id{"inst-0"})
 	c.Assert(err, gc.Equals, environs.ErrNoInstances)
 }
 
 func (s *environAvailzonesSuite) TestDeriveAvailabilityZones(c *gc.C) {
-	s.client.computeResources = []*mo.ComputeResource{
-		newComputeResource("test-available"),
+	s.client.folders = makeFolders("/DC/host")
+	s.client.computeResources = []vsphereclient.ComputeResource{
+		{Resource: newComputeResource("test-available"), Path: "/DC/host/test-available"},
 	}
 	s.client.resourcePools = map[string][]*object.ResourcePool{
-		"test-available/...": {makeResourcePool("pool-23", "/DC/host/test-available/Resources")},
+		"/DC/host/test-available/...": {makeResourcePool("pool-23", "/DC/host/test-available/Resources")},
 	}
 
 	c.Assert(s.env, gc.Implements, new(common.ZonedEnviron))
@@ -109,6 +130,7 @@ func (s *environAvailzonesSuite) TestDeriveAvailabilityZones(c *gc.C) {
 }
 
 func (s *environAvailzonesSuite) TestDeriveAvailabilityZonesUnknown(c *gc.C) {
+	s.client.folders = makeFolders("/DC/host")
 	c.Assert(s.env, gc.Implements, new(common.ZonedEnviron))
 	zonedEnviron := s.env.(common.ZonedEnviron)
 
@@ -120,6 +142,7 @@ func (s *environAvailzonesSuite) TestDeriveAvailabilityZonesUnknown(c *gc.C) {
 }
 
 func (s *environAvailzonesSuite) TestDeriveAvailabilityZonesInvalidPlacement(c *gc.C) {
+	s.client.folders = makeFolders("/DC/host")
 	c.Assert(s.env, gc.Implements, new(common.ZonedEnviron))
 	zonedEnviron := s.env.(common.ZonedEnviron)
 

@@ -610,8 +610,27 @@ func (s *clientSuite) TestComputeResources(c *gc.C) {
 	})
 
 	c.Assert(result, gc.HasLen, 2)
-	c.Assert(result[0].Name, gc.Equals, "z0")
-	c.Assert(result[1].Name, gc.Equals, "z1")
+	c.Assert(result[0].Resource.Name, gc.Equals, "z0")
+	c.Assert(result[0].Path, gc.Equals, "/dc0/host/z0")
+	c.Assert(result[1].Resource.Name, gc.Equals, "z1")
+	c.Assert(result[1].Path, gc.Equals, "/dc0/host/z1")
+}
+
+func (s *clientSuite) TestFolders(c *gc.C) {
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	result, err := client.Folders(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.roundTripper.CheckCalls(c, []testing.StubCall{
+		retrievePropertiesStubCall("FakeRootFolder"),
+		retrievePropertiesStubCall("FakeRootFolder"),
+		retrievePropertiesStubCall("FakeDatacenter"),
+	})
+
+	c.Assert(result.DatastoreFolder.InventoryPath, gc.Equals, "/dc0/datastore")
+	c.Assert(result.HostFolder.InventoryPath, gc.Equals, "/dc0/host")
+	c.Assert(result.NetworkFolder.InventoryPath, gc.Equals, "/dc0/network")
+	c.Assert(result.VmFolder.InventoryPath, gc.Equals, "/dc0/vm")
 }
 
 func (s *clientSuite) TestDestroyVMFolder(c *gc.C) {

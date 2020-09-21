@@ -50,6 +50,7 @@ func (env *sessionEnviron) AvailabilityZones(ctx context.ProviderCallContext) ([
 
 	folders, err := env.client.Folders(env.ctx)
 	if err != nil {
+		HandleCredentialError(err, env, ctx)
 		return nil, errors.Trace(err)
 	}
 	logger.Tracef("host folder InventoryPath=%q, Name=%q",
@@ -103,6 +104,7 @@ func (env *sessionEnviron) AvailabilityZones(ctx context.ProviderCallContext) ([
 // given paths. Basically it's the path relative to the host folder without
 // the extra "Resources" path segment (which doesn't appear in the UI).
 func makeAvailZoneName(hostFolder, crPath, poolPath string) string {
+	poolPath = strings.TrimRight(poolPath, "/")
 	relCrPath := strings.TrimPrefix(crPath, hostFolder+"/")
 	relPoolPath := strings.TrimPrefix(poolPath, crPath+"/")
 	switch {
