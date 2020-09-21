@@ -89,7 +89,7 @@ func (a *appWorker) loop() error {
 
 	charmURL, err := a.facade.ApplicationCharmURL(a.name)
 	if err != nil {
-		return errors.Annotatef(err, "failed to get charm urls for application")
+		return errors.Annotatef(err, "failed to get charm url for application")
 	}
 	charmInfo, err := a.facade.CharmInfo(charmURL.String())
 	if err != nil {
