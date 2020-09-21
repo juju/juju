@@ -85,39 +85,9 @@ run_deploy_manual_aws() {
     chmod 400 ~/.ssh/"${name}".pem
     echo "${name}" >> "${TEST_DIR}/ec2-key-pairs"
 
-    launch_and_wait_addr() {
-        local name instance_name addr_result
-
-        name=${1}
-        instance_name=${2}
-        addr_result=${3}
-
-        tags="ResourceType=instance,Tags=[{Key=Name,Value=${instance_name}}]"
-        instance_id=$(aws ec2 run-instances --image-id "${instance_image_id}" \
-            --count 1 \
-            --instance-type t2.medium \
-            --associate-public-ip-address \
-            --tag-specifications "${tags}" \
-            --key-name "${name}" \
-            --security-group-ids "${sg_id}" \
-            --subnet-id "${subnet_id}" \
-            --query 'Instances[0].InstanceId' \
-            --output text)
-
-        echo "${instance_id}" >> "${TEST_DIR}/ec2-instances"
-
-        aws ec2 wait instance-running --instance-ids "${instance_id}"
-        sleep 10
-
-        address=$(aws ec2 describe-instances --instance-ids "${instance_id}" --query 'Reservations[0].Instances[0].PublicDnsName' --output text)
-
-        # shellcheck disable=SC2086
-        eval $addr_result="'${address}'"
-    }
-
-    launch_and_wait_addr "${name}" "${controller}" addr_c
-    launch_and_wait_addr "${name}" "${model1}" addr_m1
-    launch_and_wait_addr "${name}" "${model2}" addr_m2
+    launch_and_wait_addr_ec2 "${name}" "${controller}" "${instance_image_id}" "${subnet_id}" "${sg_id}" addr_c
+    launch_and_wait_addr_ec2 "${name}" "${model1}" "${instance_image_id}" "${subnet_id}" "${sg_id}" addr_m1
+    launch_and_wait_addr_ec2 "${name}" "${model2}" "${instance_image_id}" "${subnet_id}" "${sg_id}" addr_m2
 
     # shellcheck disable=SC2154
     for addr in "${addr_c}" "${addr_m1}" "${addr_m2}"; do
