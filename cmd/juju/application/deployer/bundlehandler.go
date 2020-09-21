@@ -1037,7 +1037,7 @@ func (h *bundleHandler) setOptions(change *bundlechanges.SetOptionsChange) error
 		return errors.Annotatef(err, "cannot marshal options for application %q", p.Application)
 	}
 
-	if h.deployAPI.BestFacadeVersion("application") > 12 {
+	if h.deployAPI.BestFacadeVersion("Application") > 12 {
 		err = h.deployAPI.SetConfig(model.GenerationMaster, p.Application, string(cfg), nil)
 	} else {
 		err = h.deployAPI.Update(params.ApplicationUpdate{
