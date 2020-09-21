@@ -259,7 +259,7 @@ func (r *charmStoreRefresher) Refresh() (*CharmID, error) {
 		return nil, errors.Errorf("already running latest charm %q", newURL)
 	}
 
-	curl, csMac, _, err := store.AddCharmFromURL(r.charmAdder, r.authorizer, newURL, origin, r.force)
+	curl, csMac, _, err := store.AddCharmFromURL(r.charmAdder, r.authorizer, newURL, origin, r.force, r.deployedSeries)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

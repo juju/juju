@@ -43,6 +43,7 @@ func (s *storeSuite) TestAddCharmFromURLAddCharmSuccess(c *gc.C) {
 		curl,
 		origin,
 		true,
+		"",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedMac, gc.IsNil)
@@ -63,6 +64,7 @@ func (s *storeSuite) TestAddCharmFromURLFailAddCharmFail(c *gc.C) {
 		curl,
 		origin,
 		true,
+		"",
 	)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(obtainedMac, gc.IsNil)
@@ -88,6 +90,7 @@ func (s *storeSuite) TestAddCharmFromURLFailAddCharmFailUnauthorized(c *gc.C) {
 		curl,
 		origin,
 		true,
+		"",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedMac, gc.IsNil)
@@ -106,8 +109,9 @@ func (s *storeSuite) expectAddCharm(err error) {
 		gomock.AssignableToTypeOf(&charm.URL{}),
 		gomock.AssignableToTypeOf(commoncharm.Origin{}),
 		true,
+		"",
 	).DoAndReturn(
-		func(_ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
+		func(_ *charm.URL, origin commoncharm.Origin, _ bool, _ string) (commoncharm.Origin, error) {
 			return origin, err
 		})
 }
@@ -118,8 +122,9 @@ func (s *storeSuite) expectAddCharmWithAuthorization() {
 		gomock.AssignableToTypeOf(commoncharm.Origin{}),
 		gomock.AssignableToTypeOf(&macaroon.Macaroon{}),
 		true,
+		"",
 	).DoAndReturn(
-		func(_ *charm.URL, origin commoncharm.Origin, _ *macaroon.Macaroon, _ bool) (commoncharm.Origin, error) {
+		func(_ *charm.URL, origin commoncharm.Origin, _ *macaroon.Macaroon, _ bool, _ string) (commoncharm.Origin, error) {
 			return origin, nil
 		})
 }

@@ -1046,8 +1046,9 @@ func (s *BundleDeployCharmStoreSuite) expectAddCharm(force bool) {
 		gomock.AssignableToTypeOf(&charm.URL{}),
 		gomock.AssignableToTypeOf(commoncharm.Origin{}),
 		force,
+		gomock.Any(),
 	).DoAndReturn(
-		func(_ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
+		func(_ *charm.URL, origin commoncharm.Origin, _ bool, _ string) (commoncharm.Origin, error) {
 			return origin, nil
 		})
 }

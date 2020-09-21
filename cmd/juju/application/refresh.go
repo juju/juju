@@ -579,16 +579,16 @@ func (c *charmAdderShim) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bo
 	return c.api.AddLocalCharm(curl, ch, force)
 }
 
-func (c *charmAdderShim) AddCharm(curl *charm.URL, origin commoncharm.Origin, force bool) (commoncharm.Origin, error) {
+func (c *charmAdderShim) AddCharm(curl *charm.URL, origin commoncharm.Origin, force bool, series string) (commoncharm.Origin, error) {
 	if c.charms != nil {
-		return c.charms.AddCharm(curl, origin, force)
+		return c.charms.AddCharm(curl, origin, force, series)
 	}
 	return origin, c.api.AddCharm(curl, csparams.Channel(origin.Risk), force)
 }
 
-func (c *charmAdderShim) AddCharmWithAuthorization(curl *charm.URL, origin commoncharm.Origin, mac *macaroon.Macaroon, force bool) (commoncharm.Origin, error) {
+func (c *charmAdderShim) AddCharmWithAuthorization(curl *charm.URL, origin commoncharm.Origin, mac *macaroon.Macaroon, force bool, series string) (commoncharm.Origin, error) {
 	if c.charms != nil {
-		return c.charms.AddCharmWithAuthorization(curl, origin, mac, force)
+		return c.charms.AddCharmWithAuthorization(curl, origin, mac, force, series)
 	}
 	return origin, c.api.AddCharmWithAuthorization(curl, csparams.Channel(origin.Risk), mac, force)
 
