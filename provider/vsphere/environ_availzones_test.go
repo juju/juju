@@ -4,7 +4,6 @@
 package vsphere_test
 
 import (
-	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
 	jc "github.com/juju/testing/checkers"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
@@ -14,6 +13,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
 )
 
 type environAvailzonesSuite struct {
@@ -51,6 +51,7 @@ func (s *environAvailzonesSuite) TestAvailabilityZones(c *gc.C) {
 			makeResourcePool("pool-3", "/DC/host/z2/Resources/child"),
 			makeResourcePool("pool-4", "/DC/host/z2/Resources/child/nested"),
 			makeResourcePool("pool-5", "/DC/host/z2/Resources/child/nested/other/"),
+			makeResourcePool("pool-6", "/DC/host/z2/Other/thing"),
 		},
 	}
 
@@ -58,13 +59,36 @@ func (s *environAvailzonesSuite) TestAvailabilityZones(c *gc.C) {
 	zonedEnviron := s.env.(common.ZonedEnviron)
 	zones, err := zonedEnviron.AvailabilityZones(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(zones), gc.Equals, 5)
+	c.Assert(len(zones), gc.Equals, 6)
 	// No zones for the empty resource.
 	c.Assert(zones[0].Name(), gc.Equals, "z1")
 	c.Assert(zones[1].Name(), gc.Equals, "z2")
 	c.Assert(zones[2].Name(), gc.Equals, "z2/child")
 	c.Assert(zones[3].Name(), gc.Equals, "z2/child/nested")
 	c.Assert(zones[4].Name(), gc.Equals, "z2/child/nested/other")
+}
+
+func (s *environAvailzonesSuite) TestAvailabilityZonesInFolder(c *gc.C) {
+	s.client.folders = makeFolders("/DC/host")
+	s.client.computeResources = []vsphereclient.ComputeResource{
+		{Resource: newComputeResource("z1"), Path: "/DC/host/Folder/z1"},
+	}
+	s.client.resourcePools = map[string][]*object.ResourcePool{
+		"/DC/host/Folder/z1/...": {
+			makeResourcePool("pool-1", "/DC/host/Folder/z1/Resources"),
+			makeResourcePool("pool-2", "/DC/host/Folder/z1/Resources/ResPool1"),
+			makeResourcePool("pool-3", "/DC/host/Folder/z1/Resources/ResPool2"),
+		},
+	}
+
+	c.Assert(s.env, gc.Implements, new(common.ZonedEnviron))
+	zonedEnviron := s.env.(common.ZonedEnviron)
+	zones, err := zonedEnviron.AvailabilityZones(s.callCtx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(zones), gc.Equals, 3)
+	c.Assert(zones[0].Name(), gc.Equals, "Folder/z1")
+	c.Assert(zones[1].Name(), gc.Equals, "Folder/z1/ResPool1")
+	c.Assert(zones[2].Name(), gc.Equals, "Folder/z1/ResPool2")
 }
 
 func (s *environAvailzonesSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
