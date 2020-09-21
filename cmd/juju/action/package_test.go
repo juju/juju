@@ -33,6 +33,7 @@ const (
 	validUnitId            = "mysql/0"
 	validUnitId2           = "mysql/1"
 	invalidUnitId          = "something-strange-"
+	invalidMachineId       = "fred"
 	validApplicationId     = "mysql"
 	invalidApplicationId   = "something-strange-"
 )

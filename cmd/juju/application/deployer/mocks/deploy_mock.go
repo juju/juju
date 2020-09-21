@@ -6,23 +6,22 @@ package mocks
 
 import (
 	context "context"
-	http "net/http"
-	url "net/url"
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
-	params "github.com/juju/charmrepo/v6/csclient/params"
 	api "github.com/juju/juju/api"
 	application "github.com/juju/juju/api/application"
 	base "github.com/juju/juju/api/base"
+	charm0 "github.com/juju/juju/api/common/charm"
 	charms "github.com/juju/juju/api/common/charms"
-	params0 "github.com/juju/juju/apiserver/params"
+	params "github.com/juju/juju/apiserver/params"
 	constraints "github.com/juju/juju/core/constraints"
 	crossmodel "github.com/juju/juju/core/crossmodel"
 	names "github.com/juju/names/v4"
 	httprequest "gopkg.in/httprequest.v1"
 	macaroon "gopkg.in/macaroon.v2"
+	http "net/http"
+	url "net/url"
+	reflect "reflect"
 )
 
 // MockDeployerAPI is a mock of DeployerAPI interface
@@ -63,11 +62,12 @@ func (mr *MockDeployerAPIMockRecorder) APICall(arg0, arg1, arg2, arg3, arg4, arg
 }
 
 // AddCharm mocks base method
-func (m *MockDeployerAPI) AddCharm(arg0 *charm.URL, arg1 params.Channel, arg2 bool) error {
+func (m *MockDeployerAPI) AddCharm(arg0 *charm.URL, arg1 charm0.Origin, arg2 bool) (charm0.Origin, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddCharm", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(charm0.Origin)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // AddCharm indicates an expected call of AddCharm
@@ -77,11 +77,12 @@ func (mr *MockDeployerAPIMockRecorder) AddCharm(arg0, arg1, arg2 interface{}) *g
 }
 
 // AddCharmWithAuthorization mocks base method
-func (m *MockDeployerAPI) AddCharmWithAuthorization(arg0 *charm.URL, arg1 params.Channel, arg2 *macaroon.Macaroon, arg3 bool) error {
+func (m *MockDeployerAPI) AddCharmWithAuthorization(arg0 *charm.URL, arg1 charm0.Origin, arg2 *macaroon.Macaroon, arg3 bool) (charm0.Origin, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddCharmWithAuthorization", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(charm0.Origin)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // AddCharmWithAuthorization indicates an expected call of AddCharmWithAuthorization
@@ -106,10 +107,10 @@ func (mr *MockDeployerAPIMockRecorder) AddLocalCharm(arg0, arg1, arg2 interface{
 }
 
 // AddMachines mocks base method
-func (m *MockDeployerAPI) AddMachines(arg0 []params0.AddMachineParams) ([]params0.AddMachinesResult, error) {
+func (m *MockDeployerAPI) AddMachines(arg0 []params.AddMachineParams) ([]params.AddMachinesResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddMachines", arg0)
-	ret0, _ := ret[0].([]params0.AddMachinesResult)
+	ret0, _ := ret[0].([]params.AddMachinesResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -121,10 +122,10 @@ func (mr *MockDeployerAPIMockRecorder) AddMachines(arg0 interface{}) *gomock.Cal
 }
 
 // AddRelation mocks base method
-func (m *MockDeployerAPI) AddRelation(arg0, arg1 []string) (*params0.AddRelationResults, error) {
+func (m *MockDeployerAPI) AddRelation(arg0, arg1 []string) (*params.AddRelationResults, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddRelation", arg0, arg1)
-	ret0, _ := ret[0].(*params0.AddRelationResults)
+	ret0, _ := ret[0].(*params.AddRelationResults)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -281,24 +282,24 @@ func (mr *MockDeployerAPIMockRecorder) Deploy(arg0 interface{}) *gomock.Call {
 }
 
 // Expose mocks base method
-func (m *MockDeployerAPI) Expose(arg0 string) error {
+func (m *MockDeployerAPI) Expose(arg0 string, arg1 map[string]params.ExposedEndpoint) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Expose", arg0)
+	ret := m.ctrl.Call(m, "Expose", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Expose indicates an expected call of Expose
-func (mr *MockDeployerAPIMockRecorder) Expose(arg0 interface{}) *gomock.Call {
+func (mr *MockDeployerAPIMockRecorder) Expose(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Expose", reflect.TypeOf((*MockDeployerAPI)(nil).Expose), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Expose", reflect.TypeOf((*MockDeployerAPI)(nil).Expose), arg0, arg1)
 }
 
 // GetAnnotations mocks base method
-func (m *MockDeployerAPI) GetAnnotations(arg0 []string) ([]params0.AnnotationsGetResult, error) {
+func (m *MockDeployerAPI) GetAnnotations(arg0 []string) ([]params.AnnotationsGetResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAnnotations", arg0)
-	ret0, _ := ret[0].([]params0.AnnotationsGetResult)
+	ret0, _ := ret[0].([]params.AnnotationsGetResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -443,10 +444,10 @@ func (mr *MockDeployerAPIMockRecorder) ModelUUID() *gomock.Call {
 }
 
 // Offer mocks base method
-func (m *MockDeployerAPI) Offer(arg0, arg1 string, arg2 []string, arg3, arg4 string) ([]params0.ErrorResult, error) {
+func (m *MockDeployerAPI) Offer(arg0, arg1 string, arg2 []string, arg3, arg4 string) ([]params.ErrorResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Offer", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].([]params0.ErrorResult)
+	ret0, _ := ret[0].([]params.ErrorResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -458,10 +459,10 @@ func (mr *MockDeployerAPIMockRecorder) Offer(arg0, arg1, arg2, arg3, arg4 interf
 }
 
 // ScaleApplication mocks base method
-func (m *MockDeployerAPI) ScaleApplication(arg0 application.ScaleApplicationParams) (params0.ScaleApplicationResult, error) {
+func (m *MockDeployerAPI) ScaleApplication(arg0 application.ScaleApplicationParams) (params.ScaleApplicationResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ScaleApplication", arg0)
-	ret0, _ := ret[0].(params0.ScaleApplicationResult)
+	ret0, _ := ret[0].(params.ScaleApplicationResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -488,10 +489,10 @@ func (mr *MockDeployerAPIMockRecorder) Sequences() *gomock.Call {
 }
 
 // SetAnnotation mocks base method
-func (m *MockDeployerAPI) SetAnnotation(arg0 map[string]map[string]string) ([]params0.ErrorResult, error) {
+func (m *MockDeployerAPI) SetAnnotation(arg0 map[string]map[string]string) ([]params.ErrorResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetAnnotation", arg0)
-	ret0, _ := ret[0].([]params0.ErrorResult)
+	ret0, _ := ret[0].([]params.ErrorResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -545,10 +546,10 @@ func (mr *MockDeployerAPIMockRecorder) SetMetricCredentials(arg0, arg1 interface
 }
 
 // Status mocks base method
-func (m *MockDeployerAPI) Status(arg0 []string) (*params0.FullStatus, error) {
+func (m *MockDeployerAPI) Status(arg0 []string) (*params.FullStatus, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Status", arg0)
-	ret0, _ := ret[0].(*params0.FullStatus)
+	ret0, _ := ret[0].(*params.FullStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -560,7 +561,7 @@ func (mr *MockDeployerAPIMockRecorder) Status(arg0 interface{}) *gomock.Call {
 }
 
 // Update mocks base method
-func (m *MockDeployerAPI) Update(arg0 params0.ApplicationUpdate) error {
+func (m *MockDeployerAPI) Update(arg0 params.ApplicationUpdate) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Update", arg0)
 	ret0, _ := ret[0].(error)

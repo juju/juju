@@ -6,6 +6,7 @@ package instancepoller
 import (
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2/txn"
@@ -20,19 +21,26 @@ import (
 // machine/host/container.
 type mergeMachineLinkLayerOp struct {
 	*networkingcommon.MachineLinkLayerOp
+
+	// namelessHWAddrs stores the hardware addresses of
+	// incoming devices that have no accompanying name.
+	namelessHWAddrs set.Strings
 }
 
 func newMergeMachineLinkLayerOp(
 	machine networkingcommon.LinkLayerMachine, incoming network.InterfaceInfos,
 ) *mergeMachineLinkLayerOp {
 	return &mergeMachineLinkLayerOp{
-		networkingcommon.NewMachineLinkLayerOp(machine, incoming),
+		MachineLinkLayerOp: networkingcommon.NewMachineLinkLayerOp(machine, incoming),
+		namelessHWAddrs:    set.NewStrings(),
 	}
 }
 
 // Build (state.ModelOperation) returns the transaction operations used to
 // merge incoming provider link-layer data with that in state.
-func (o *mergeMachineLinkLayerOp) Build(_ int) ([]txn.Op, error) {
+func (o *mergeMachineLinkLayerOp) Build(attempt int) ([]txn.Op, error) {
+	o.ClearProcessed()
+
 	if err := o.PopulateExistingDevices(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -40,10 +48,14 @@ func (o *mergeMachineLinkLayerOp) Build(_ int) ([]txn.Op, error) {
 	// If the machine agent has not yet populated any link-layer devices,
 	// then we do nothing here. We have already set addresses directly on the
 	// machine document, so the incoming provider-sourced addresses are usable.
-	// For now we ensure that the instance poller only adds device information
+	// For now we ensure that the instance-poller only adds device information
 	// that the machine agent is unaware of.
 	if len(o.ExistingDevices()) == 0 {
 		return nil, jujutxn.ErrNoOperations
+	}
+
+	if attempt == 0 {
+		o.normaliseIncoming()
 	}
 
 	if err := o.PopulateExistingAddresses(); err != nil {
@@ -67,19 +79,76 @@ func (o *mergeMachineLinkLayerOp) Build(_ int) ([]txn.Op, error) {
 	return ops, nil
 }
 
+// normaliseIncoming is intended accommodate providers such as EC2
+// that know device hardware addresses, but not device names.
+// We populate names on the incoming data based on
+// matching existing devices by hardware address.
+// If we locate multiple existing devices with the hardware address,
+// such as will be the case for bridged NICs, fallback through the
+// following options.
+// - If there is a device that already has a provider ID, use that name.
+// - If the devices are of different types, choose an ethernet device over
+//   a bridge (as observed for MAAS).
+func (o *mergeMachineLinkLayerOp) normaliseIncoming() {
+	incoming := o.Incoming()
+
+	// If the incoming devices have names, no action is required
+	// (assuming all or none here per current known provider implementations
+	// of `NetworkInterfaces`)
+	if len(incoming) > 0 && incoming[0].InterfaceName != "" {
+		return
+	}
+
+	// First get the best device per hardware address.
+	devByHWAddr := make(map[string]networkingcommon.LinkLayerDevice)
+	for _, dev := range o.ExistingDevices() {
+		hwAddr := dev.MACAddress()
+
+		// If this is the first one we've seen, select it.
+		current, ok := devByHWAddr[hwAddr]
+		if !ok {
+			devByHWAddr[hwAddr] = dev
+			continue
+		}
+
+		// If we have a matching device that already has a provider ID,
+		// I.e. it was previously matched to the hardware address,
+		// make sure the same one is resolved thereafter.
+		if current.ProviderID() != "" {
+			continue
+		}
+
+		// Otherwise choose a physical NIC over other device types.
+		if dev.Type() == network.EthernetDevice {
+			devByHWAddr[hwAddr] = dev
+		}
+	}
+
+	// Now set the names.
+	for i, dev := range incoming {
+		if existing, ok := devByHWAddr[dev.MACAddress]; ok && dev.InterfaceName == "" {
+			o.namelessHWAddrs.Add(dev.MACAddress)
+			incoming[i].InterfaceName = existing.Name()
+		}
+	}
+}
+
 func (o *mergeMachineLinkLayerOp) processExistingDevice(dev networkingcommon.LinkLayerDevice) ([]txn.Op, error) {
-	// Match the incoming device by hardware address in order to
-	// identify addresses by device name.
-	// Not all providers (such as AWS) have names for NIC devices.
 	incomingDev := o.MatchingIncoming(dev)
 
 	var ops []txn.Op
 	var err error
 
-	// If this device was not observed by the provider,
-	// ensure that responsibility for the addresses is relinquished
-	// to the machine agent.
+	// If this device was not observed by the provider *and* it is identified
+	// by both name and hardware address, ensure that responsibility for the
+	// addresses is relinquished to the machine agent.
 	if incomingDev == nil {
+		// If this device matches an incoming hardware address that we gave a
+		// surrogate name to, do not relinquish it.
+		if o.namelessHWAddrs.Contains(dev.MACAddress()) {
+			return nil, nil
+		}
+
 		ops, err = o.opsForDeviceOriginRelinquishment(dev)
 		return ops, errors.Trace(err)
 	}
@@ -104,7 +173,7 @@ func (o *mergeMachineLinkLayerOp) processExistingDevice(dev networkingcommon.Lin
 	// TODO (manadart 2020-07-15): We also need to set shadow addresses.
 	// These are sent where appropriate by the provider,
 	// but we do not yet process them.
-	incomingAddrs := o.MatchingIncomingAddrs(dev.MACAddress())
+	incomingAddrs := o.MatchingIncomingAddrs(dev.Name())
 
 	for _, addr := range o.DeviceAddresses(dev) {
 		addrOps, err := o.processExistingDeviceAddress(dev, addr, incomingAddrs)
@@ -116,7 +185,7 @@ func (o *mergeMachineLinkLayerOp) processExistingDevice(dev networkingcommon.Lin
 
 	// TODO (manadart 2020-07-15): Process (log) new addresses on the device.
 
-	o.MarkDevProcessed(dev.MACAddress())
+	o.MarkDevProcessed(dev.Name())
 	return ops, nil
 }
 
@@ -144,13 +213,13 @@ func (o *mergeMachineLinkLayerOp) processExistingDeviceAddress(
 	incomingAddrs []state.LinkLayerDeviceAddress,
 ) ([]txn.Op, error) {
 	addrValue := addr.Value()
-	hwAddr := dev.MACAddress()
+	name := dev.Name()
 
 	// If one of the incoming addresses matches the existing one,
 	// return ops for setting the incoming provider IDs.
 	for _, incomingAddr := range incomingAddrs {
 		if strings.HasPrefix(incomingAddr.CIDRAddress, addrValue) {
-			if o.IsAddrProcessed(hwAddr, addrValue) {
+			if o.IsAddrProcessed(name, addrValue) {
 				continue
 			}
 
@@ -159,7 +228,7 @@ func (o *mergeMachineLinkLayerOp) processExistingDeviceAddress(
 				return nil, errors.Trace(err)
 			}
 
-			o.MarkAddrProcessed(hwAddr, addrValue)
+			o.MarkAddrProcessed(name, addrValue)
 
 			return append(ops, addr.SetProviderNetIDsOps(
 				incomingAddr.ProviderNetworkID, incomingAddr.ProviderSubnetID)...), nil

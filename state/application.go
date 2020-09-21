@@ -6,6 +6,7 @@ package state
 import (
 	stderrors "errors"
 	"fmt"
+	"net"
 	"sort"
 	"strconv"
 	"strings"
@@ -30,11 +31,38 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	mgoutils "github.com/juju/juju/mongo/utils"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/tools"
 )
+
+// ExposedEndpoint encapsulates the expose-related details of a particular
+// application endpoint with respect to the sources (CIDRs or space IDs) that
+// should be able to access the ports opened by the application charm for an
+// endpoint.
+type ExposedEndpoint struct {
+	// A list of spaces that should be able to reach the opened ports
+	// for an exposed application's endpoint.
+	ExposeToSpaceIDs []string `bson:"to-space-ids,omitempty"`
+
+	// A list of CIDRs that should be able to reach the opened ports
+	// for an exposed application's endpoint.
+	ExposeToCIDRs []string `bson:"to-cidrs,omitempty"`
+}
+
+// AllowTrafficFromAnyNetwork returns true if the exposed endpoint parameters
+// include the 0.0.0.0/0 CIDR.
+func (exp ExposedEndpoint) AllowTrafficFromAnyNetwork() bool {
+	for _, cidr := range exp.ExposeToCIDRs {
+		if cidr == firewall.AllNetworksIPV4CIDR {
+			return true
+		}
+	}
+
+	return false
+}
 
 // Application represents the state of an application.
 type Application struct {
@@ -62,11 +90,18 @@ type applicationDoc struct {
 	Life                 Life         `bson:"life"`
 	UnitCount            int          `bson:"unitcount"`
 	RelationCount        int          `bson:"relationcount"`
-	Exposed              bool         `bson:"exposed"`
 	MinUnits             int          `bson:"minunits"`
 	Tools                *tools.Tools `bson:",omitempty"`
 	TxnRevno             int64        `bson:"txn-revno"`
 	MetricCredentials    []byte       `bson:"metric-credentials"`
+
+	// Exposed is set to true when the application is exposed.
+	Exposed bool `bson:"exposed"`
+
+	// A map for tracking the per-endpoint expose-related parameters for
+	// an exposed app where keys are endpoint names or the "" value which
+	// represents all application endpoints.
+	ExposedEndpoints map[string]ExposedEndpoint `bson:"exposed-endpoints,omitempty"`
 
 	// CAAS related attributes.
 	DesiredScale int    `bson:"scale"`
@@ -635,34 +670,148 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 
 // IsExposed returns whether this application is exposed. The explicitly open
 // ports (with open-port) for exposed applications may be accessed from machines
-// outside of the local deployment network. See SetExposed and ClearExposed.
+// outside of the local deployment network. See MergeExposeSettings and ClearExposed.
 func (a *Application) IsExposed() bool {
 	return a.doc.Exposed
 }
 
-// SetExposed marks the application as exposed.
+// ExposedEndpoints returns a map where keys are endpoint names (or the ""
+// value which represents all endpoints) and values are ExposedEndpoint
+// instances that specify which sources (spaces or CIDRs) can access the
+// opened ports for each endpoint once the application is exposed.
+func (a *Application) ExposedEndpoints() map[string]ExposedEndpoint {
+	if len(a.doc.ExposedEndpoints) == 0 {
+		return nil
+	}
+	return a.doc.ExposedEndpoints
+}
+
+// UnsetExposeSettings removes the expose settings for the provided list of
+// endpoint names. If the resulting exposed endpoints map for the application
+// becomes empty after the settings are removed, the application will be
+// automatically unexposed.
+//
+// An error will be returned if an unknown endpoint name is specified or there
+// is no existing expose settings entry for any of the provided endpoint names.
+//
 // See ClearExposed and IsExposed.
-func (a *Application) SetExposed() error {
-	return a.setExposed(true)
+func (a *Application) UnsetExposeSettings(exposedEndpoints []string) error {
+	bindings, _, err := readEndpointBindings(a.st, a.globalKey())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	mergedExposedEndpoints := make(map[string]ExposedEndpoint)
+	for endpoint, exposeParams := range a.doc.ExposedEndpoints {
+		mergedExposedEndpoints[endpoint] = exposeParams
+	}
+
+	for _, endpoint := range exposedEndpoints {
+		// The empty endpoint ("") value represents all endpoints.
+		if _, found := bindings[endpoint]; !found && endpoint != "" {
+			return errors.NotFoundf("endpoint %q", endpoint)
+		}
+
+		if _, found := mergedExposedEndpoints[endpoint]; !found {
+			return errors.BadRequestf("endpoint %q is not exposed", endpoint)
+		}
+
+		delete(mergedExposedEndpoints, endpoint)
+	}
+
+	return a.setExposed(
+		// retain expose flag if we still have any expose settings left
+		len(mergedExposedEndpoints) != 0,
+		mergedExposedEndpoints,
+	)
+}
+
+// MergeExposeSettings marks the application as exposed and merges the provided
+// ExposedEndpoint details into the current set of expose settings. The merge
+// operation will overwrites expose settings for each existing endpoint name.
+//
+// See ClearExposed and IsExposed.
+func (a *Application) MergeExposeSettings(exposedEndpoints map[string]ExposedEndpoint) error {
+	bindings, _, err := readEndpointBindings(a.st, a.globalKey())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	mergedExposedEndpoints := make(map[string]ExposedEndpoint)
+	for endpoint, exposeParams := range a.doc.ExposedEndpoints {
+		mergedExposedEndpoints[endpoint] = exposeParams
+	}
+
+	var allSpaceInfos network.SpaceInfos
+	for endpoint, exposeParams := range exposedEndpoints {
+		// The empty endpoint ("") value represents all endpoints.
+		if _, found := bindings[endpoint]; !found && endpoint != "" {
+			return errors.NotFoundf("endpoint %q", endpoint)
+		}
+
+		// Verify expose parameters
+		if len(exposeParams.ExposeToSpaceIDs) != 0 && allSpaceInfos == nil {
+			if allSpaceInfos, err = a.st.AllSpaceInfos(); err != nil {
+				return errors.Trace(err)
+			}
+		}
+
+		exposeParams.ExposeToSpaceIDs = uniqueSortedStrings(exposeParams.ExposeToSpaceIDs)
+		for _, spaceID := range exposeParams.ExposeToSpaceIDs {
+			if allSpaceInfos.GetByID(spaceID) == nil {
+				return errors.NotFoundf("space with ID %q", spaceID)
+			}
+		}
+
+		exposeParams.ExposeToCIDRs = uniqueSortedStrings(exposeParams.ExposeToCIDRs)
+		for _, cidr := range exposeParams.ExposeToCIDRs {
+			if _, _, err := net.ParseCIDR(cidr); err != nil {
+				return errors.Annotatef(err, "unable to parse %q as a CIDR", cidr)
+			}
+		}
+
+		// If no spaces and CIDRs are provided, assume an implicit
+		// 0.0.0.0/0 CIDR. This matches the "expose to the entire
+		// world" behavior in juju controllers prior to 2.9.
+		if len(exposeParams.ExposeToSpaceIDs)+len(exposeParams.ExposeToCIDRs) == 0 {
+			exposeParams.ExposeToCIDRs = []string{firewall.AllNetworksIPV4CIDR}
+		}
+
+		mergedExposedEndpoints[endpoint] = exposeParams
+	}
+
+	return a.setExposed(true, mergedExposedEndpoints)
+}
+
+func uniqueSortedStrings(in []string) []string {
+	if len(in) == 0 {
+		return nil
+	}
+
+	return set.NewStrings(in...).SortedValues()
 }
 
 // ClearExposed removes the exposed flag from the application.
-// See SetExposed and IsExposed.
+// See MergeExposeSettings and IsExposed.
 func (a *Application) ClearExposed() error {
-	return a.setExposed(false)
+	return a.setExposed(false, nil)
 }
 
-func (a *Application) setExposed(exposed bool) (err error) {
+func (a *Application) setExposed(exposed bool, exposedEndpoints map[string]ExposedEndpoint) (err error) {
 	ops := []txn.Op{{
 		C:      applicationsC,
 		Id:     a.doc.DocID,
 		Assert: isAliveDoc,
-		Update: bson.D{{"$set", bson.D{{"exposed", exposed}}}},
+		Update: bson.D{{"$set", bson.D{
+			{"exposed", exposed},
+			{"exposed-endpoints", exposedEndpoints},
+		}}},
 	}}
 	if err := a.st.db().RunTransaction(ops); err != nil {
 		return errors.Errorf("cannot set exposed flag for application %q to %v: %v", a, exposed, onAbort(err, applicationNotAliveErr))
 	}
 	a.doc.Exposed = exposed
+	a.doc.ExposedEndpoints = exposedEndpoints
 	return nil
 }
 
@@ -1253,6 +1402,10 @@ type SetCharmConfig struct {
 	// upgraded to use it.
 	Charm *Charm
 
+	// CharmOrigin is the data for where the charm comes from.  Eventually
+	// Channel should be move there.
+	CharmOrigin *CharmOrigin
+
 	// Channel is the charm store channel from which charm was pulled.
 	Channel csparams.Channel
 
@@ -1449,6 +1602,19 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 			}
 			ops = append(ops, chng...)
 			newCharmModifiedVersion++
+		}
+		if cfg.CharmOrigin != nil {
+			// Update in the application facade also calls
+			// SetCharm, though it has no current user in the
+			// application api client. Just in case: do not
+			// update the CharmOrigin if nil.
+			ops = append(ops, txn.Op{
+				C:  applicationsC,
+				Id: a.doc.DocID,
+				Update: bson.D{{"$set", bson.D{
+					{"charm-origin", cfg.CharmOrigin},
+				}}},
+			})
 		}
 
 		// Always update bindings regardless of whether we upgrade to a

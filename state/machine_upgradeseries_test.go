@@ -199,6 +199,21 @@ func (s *MachineSuite) TestCompleteSeriesUpgradeShouldFailIfAlreadyInCompleteSta
 	assertMachineIsNotReadyForCompletion(c, err)
 }
 
+func (s *MachineSuite) TestHasUpgradeSeriesLocks(c *gc.C) {
+	// Ensure we don't have any locks before testing.
+	lock, err := s.State.HasUpgradeSeriesLocks()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(lock, jc.IsFalse)
+
+	unit0 := s.addMachineUnit(c, s.machine)
+	err = s.machine.CreateUpgradeSeriesLock([]string{unit0.Name()}, "cosmic")
+	c.Assert(err, jc.ErrorIsNil)
+
+	lock, err = s.State.HasUpgradeSeriesLocks()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(lock, jc.IsTrue)
+}
+
 func assertMachineIsNotReadyForCompletion(c *gc.C, err error) {
 	c.Assert(err, gc.ErrorMatches, "machine \"[0-9].*\" can not complete, it is either not prepared or already completed")
 }

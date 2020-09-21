@@ -4,12 +4,14 @@
 package ec2
 
 import (
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -26,16 +28,40 @@ import (
 
 var _ environs.InstanceTypesFetcher = (*environ)(nil)
 
+type awsLogger struct {
+	session *session.Session
+}
+
+func (l awsLogger) Log(args ...interface{}) {
+	logger.Tracef("awsLogger %p: %s", l.session, fmt.Sprint(args...))
+}
+
 // EC2Session returns a session with the given credentials.
 var EC2Session = func(region, accessKey, secretKey string) ec2iface.EC2API {
 	sess := session.Must(session.NewSession())
-	ec2Session := ec2.New(sess, &aws.Config{
+	config := &aws.Config{
+		Retryer: client.DefaultRetryer{ // these roughly match retry params in gopkg.in/amz.v3/ec2/ec2.go:EC2.query
+			NumMaxRetries:    10,
+			MinRetryDelay:    time.Second,
+			MinThrottleDelay: time.Second,
+			MaxRetryDelay:    time.Minute,
+			MaxThrottleDelay: time.Minute,
+		},
 		Region: aws.String(region),
 		Credentials: credentials.NewStaticCredentialsFromCreds(credentials.Value{
 			AccessKeyID:     accessKey,
 			SecretAccessKey: secretKey,
 		}),
-	})
+	}
+
+	// Enable request and response logging, but only if TRACE is enabled (as
+	// they're probably fairly expensive to produce).
+	if logger.IsTraceEnabled() {
+		config.Logger = awsLogger{sess}
+		config.LogLevel = aws.LogLevel(aws.LogDebug | aws.LogDebugWithRequestErrors | aws.LogDebugWithRequestRetries)
+	}
+
+	ec2Session := ec2.New(sess, config)
 	return ec2Session
 }
 
@@ -167,7 +193,10 @@ func (e *environ) supportedInstanceTypes(ec2Session ec2iface.EC2API, ctx context
 		return e.instTypes, nil
 	}
 
-	const maxResults = 100
+	const (
+		maxOfferingsResults = 1000
+		maxTypesPage        = 100
+	)
 
 	// First get all the zone names for the current region.
 	zoneResults, err := ec2Session.DescribeAvailabilityZones(&ec2.DescribeAvailabilityZonesInput{
@@ -192,12 +221,12 @@ func (e *environ) supportedInstanceTypes(ec2Session ec2iface.EC2API, ctx context
 
 	// Query the instance type names for the region and credential in use.
 	var instTypeNames []*string
-	instanceTypeRegions := make(map[string]set.Strings)
+	instanceTypeZones := make(map[string]set.Strings)
 	var token *string
 	for {
 		offeringResults, err := ec2Session.DescribeInstanceTypeOfferings(&ec2.DescribeInstanceTypeOfferingsInput{
 			LocationType: aws.String("availability-zone"),
-			MaxResults:   aws.Int64(maxResults),
+			MaxResults:   aws.Int64(maxOfferingsResults),
 			NextToken:    token,
 			Filters:      []*ec2.Filter{zoneFilter},
 		})
@@ -209,10 +238,10 @@ func (e *environ) supportedInstanceTypes(ec2Session ec2iface.EC2API, ctx context
 			if offering.InstanceType == nil {
 				continue
 			}
-			if _, ok := instanceTypeRegions[*offering.InstanceType]; !ok {
-				instanceTypeRegions[*offering.InstanceType] = set.NewStrings()
+			if _, ok := instanceTypeZones[*offering.InstanceType]; !ok {
+				instanceTypeZones[*offering.InstanceType] = set.NewStrings()
 			}
-			instanceTypeRegions[*offering.InstanceType].Add(*offering.Location)
+			instanceTypeZones[*offering.InstanceType].Add(*offering.Location)
 			instTypeNames = append(instTypeNames, offering.InstanceType)
 		}
 		token = offeringResults.NextToken
@@ -231,8 +260,8 @@ func (e *environ) supportedInstanceTypes(ec2Session ec2iface.EC2API, ctx context
 	var allInstanceTypes []instances.InstanceType
 	for len(instTypeNames) > 0 {
 		querySize := len(instTypeNames)
-		if querySize > maxResults {
-			querySize = maxResults
+		if querySize > maxTypesPage {
+			querySize = maxTypesPage
 		}
 		page := instTypeNames[0:querySize]
 		instTypeNames = instTypeNames[querySize:]
@@ -250,7 +279,7 @@ func (e *environ) supportedInstanceTypes(ec2Session ec2iface.EC2API, ctx context
 				continue
 			}
 			allInstanceTypes = append(
-				allInstanceTypes, convertEC2InstanceType(info, instanceTypeRegions, costs, zoneNames))
+				allInstanceTypes, convertEC2InstanceType(info, instanceTypeZones, costs, zoneNames))
 		}
 	}
 
@@ -280,7 +309,7 @@ func (e *environ) supportedInstanceTypes(ec2Session ec2iface.EC2API, ctx context
 
 func convertEC2InstanceType(
 	info *ec2.InstanceTypeInfo,
-	instanceTypeRegions map[string]set.Strings,
+	instanceTypeZones map[string]set.Strings,
 	costs map[string]uint64,
 	zoneNames []string,
 ) instances.InstanceType {
@@ -317,13 +346,13 @@ func convertEC2InstanceType(
 			instType.Arches = append(instType.Arches, archName(*instArch))
 		}
 	}
-	instRegions, ok := instanceTypeRegions[instType.Name]
+	instZones, ok := instanceTypeZones[instType.Name]
 	if !ok {
 		instType.Deprecated = true
 	} else {
 		// If a instance type is available it at least 3 zones (or all of them if < 3)
 		// then consider it able to be used without explicitly asking for it.
-		instType.Deprecated = instRegions.Size() < 3 && instRegions.Size() < len(zoneNames)
+		instType.Deprecated = instZones.Size() < 3 && instZones.Size() < len(zoneNames)
 	}
 	return instType
 }
@@ -339,12 +368,24 @@ func instanceTypeCosts(ec2Session ec2iface.EC2API, instTypeNames []*string, zone
 		InstanceTypes: instTypeNames,
 		MaxResults:    aws.Int64(maxResults),
 		StartTime:     aws.Time(time.Now()),
+		Filters: []*ec2.Filter{
+			// Only look at Linux results (to reduce total number of results;
+			// it's only an estimate anyway)
+			{
+				Name:   aws.String("product-description"),
+				Values: []*string{aws.String("Linux/UNIX")},
+			},
+		},
 	}
-	filter := &ec2.Filter{Name: aws.String("availability-zone")}
-	for _, zone := range zoneNames {
-		filter.Values = append(filter.Values, aws.String(zone))
+	if len(zoneNames) > 0 {
+		// Just return results for the first availability zone (others are
+		// probably similar, and we don't need to be too accurate here)
+		filter := &ec2.Filter{
+			Name:   aws.String("availability-zone"),
+			Values: []*string{aws.String(zoneNames[0])},
+		}
+		spParams.Filters = append(spParams.Filters, filter)
 	}
-	spParams.Filters = []*ec2.Filter{filter}
 
 	costs := make(map[string]uint64)
 	for {

@@ -63,8 +63,8 @@ func isUnknownModelError(err error) bool {
 	return ok
 }
 
-// DischargeRequiredError is the error returned when a macaroon requires discharging
-// to complete authentication.
+// DischargeRequiredError is the error returned when a macaroon requires
+// discharging to complete authentication.
 type DischargeRequiredError struct {
 	Cause          error
 	LegacyMacaroon *macaroon.Macaroon
@@ -83,13 +83,32 @@ func IsDischargeRequiredError(err error) bool {
 	return ok
 }
 
-// IsUpgradeInProgress returns true if this error is caused
+// IsUpgradeInProgressError returns true if this error is caused
 // by an upgrade in progress.
 func IsUpgradeInProgressError(err error) bool {
 	if stateerrors.IsUpgradeInProgressError(err) {
 		return true
 	}
 	return errors.Cause(err) == params.UpgradeInProgressError
+}
+
+// UpgradeSeriesValidationError is the error returns when a upgrade-series
+// can not be run because of a validation error.
+type UpgradeSeriesValidationError struct {
+	Cause  error
+	Status string
+}
+
+// Error implements the error interface.
+func (e *UpgradeSeriesValidationError) Error() string {
+	return e.Cause.Error()
+}
+
+// IsUpgradeSeriesValidationError returns true if this error is caused by a
+// upgrade-series validation error.
+func IsUpgradeSeriesValidationError(err error) bool {
+	_, ok := errors.Cause(err).(*UpgradeSeriesValidationError)
+	return ok
 }
 
 // RedirectError is the error returned when a model (previously accessible by
@@ -296,6 +315,11 @@ func ServerError(err error) *params.Error {
 			BakeryMacaroon: dischErr.Macaroon,
 			// One macaroon fits all.
 			MacaroonPath: "/",
+		}.AsMap()
+	case IsUpgradeSeriesValidationError(err):
+		rawErr := errors.Cause(err).(*UpgradeSeriesValidationError)
+		info = params.UpgradeSeriesValidationErrorInfo{
+			Status: rawErr.Status,
 		}.AsMap()
 	case IsRedirectError(err):
 		redirErr := errors.Cause(err).(*RedirectError)

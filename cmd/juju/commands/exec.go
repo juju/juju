@@ -74,8 +74,12 @@ names.  At least one target specifier is needed.
 Multiple values can be set for --machine, --application, and --unit by using
 comma separated values.
 
-If the target is a machine, the command is run as the "root" user on
-the remote machine.
+Depending on the type of target, the user which the command runs as will be:
+  unit -> "root"
+  machine -> "ubuntu"
+The target and user are independent of whether --all or --application are used.
+For example, --all will run as "ubuntu" on machines and "root" on units.
+And --application will run as "root" on all units of that application.
 
 Some options are shortened for usabilty purpose in CLI
 --application can also be specified as --app and -a
@@ -210,6 +214,22 @@ func (c *execCommand) Init(args []string) error {
 func ConvertActionResults(result params.ActionResult, query actionQuery, compat bool) map[string]interface{} {
 	values := make(map[string]interface{})
 	values[query.receiver.receiverType] = query.receiver.tag.Id()
+	if unit, ok := values["UnitId"]; ok && !compat {
+		delete(values, "UnitId")
+		values["unit"] = unit
+	}
+	if unit, ok := values["unit"]; ok && compat {
+		delete(values, "unit")
+		values["UnitId"] = unit
+	}
+	if machine, ok := values["MachineId"]; ok && !compat {
+		delete(values, "MachineId")
+		values["machine"] = machine
+	}
+	if machine, ok := values["machine"]; ok && compat {
+		delete(values, "machine")
+		values["MachineId"] = machine
+	}
 	if result.Error != nil {
 		values["Error"] = result.Error.Error()
 		values["Action"] = query.actionTag.Id()
@@ -235,14 +255,6 @@ func ConvertActionResults(result params.ActionResult, query actionQuery, compat 
 	val := action.ConvertActionOutput(result.Output, compat, true)
 	for k, v := range val {
 		values[k] = v
-	}
-	if unit, ok := values["UnitId"]; ok && !compat {
-		delete(values, "UnitId")
-		values["unit"] = unit
-	}
-	if unit, ok := values["unit"]; ok && compat {
-		delete(values, "unit")
-		values["UnitId"] = unit
 	}
 	return values
 }

@@ -294,11 +294,33 @@ func generateUniquePortName(name string) string {
 	return fmt.Sprintf("juju-%s-%s", name, unique)
 }
 
-func resolveNeutronNetwork(neutron *neutron.Client, name string, external bool) (string, error) {
+func resolveNeutronNetwork(client *neutron.Client, name string, external bool) (string, error) {
 	if utils.IsValidUUIDString(name) {
 		return name, nil
 	}
-	networks, err := neutron.ListNetworksV2(networkFilter(name, external))
+	// Mimic unintentional, now expected behavior. Prior to OpenStack Rocky,
+	// empty strings in the neutron filters were ignored. name == "" AND
+	// external-router=false, returned a list of all internal networks.  If
+	// there the list was length one, the OpenStack provider would use it,
+	// without explicit user configuration.
+	//
+	// Rocky introduced an optional extension to neutron: empty-string-filtering.
+	// If configured, allows the empty string must be matched.  This reverses
+	// the expected behavior.
+	//
+	// To keep the expected behavior, if the provided name is empty, look for
+	// all networks matching external value for the configured OpenStack project
+	// juju is using.
+	var filter *neutron.Filter
+	switch {
+	case name == "" && !external:
+		filter = internalNetworkFilter()
+	case name == "" && external:
+		filter = externalNetworkFilter()
+	default:
+		filter = networkFilter(name, external)
+	}
+	networks, err := client.ListNetworksV2(filter)
 	if err != nil {
 		return "", err
 	}

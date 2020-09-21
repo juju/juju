@@ -11,7 +11,6 @@ import (
 	"github.com/golang/mock/gomock"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
@@ -40,9 +39,11 @@ import (
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
 	k8swatchertest "github.com/juju/juju/caas/kubernetes/provider/watcher/test"
 	"github.com/juju/juju/caas/specs"
+	"github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
@@ -96,9 +97,11 @@ func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 				ReadinessGates: []core.PodReadinessGate{
 					{ConditionType: core.PodInitialized},
 				},
-				DNSPolicy:   core.DNSClusterFirst,
-				HostNetwork: true,
-				HostPID:     true,
+				DNSPolicy:         core.DNSClusterFirst,
+				HostNetwork:       true,
+				HostPID:           true,
+				PriorityClassName: "system-cluster-critical",
+				Priority:          int32Ptr(2000000000),
 			},
 		},
 	}
@@ -131,56 +134,61 @@ func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 
 	spec, err := provider.PrepareWorkloadSpec("app-name", "app-name", &podSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(provider.PodSpec(spec), jc.DeepEquals, core.PodSpec{
-		RestartPolicy:                 core.RestartPolicyOnFailure,
-		ActiveDeadlineSeconds:         int64Ptr(10),
-		TerminationGracePeriodSeconds: int64Ptr(20),
-		SecurityContext: &core.PodSecurityContext{
-			RunAsNonRoot:       boolPtr(true),
-			SupplementalGroups: []int64{1, 2},
-		},
-		ReadinessGates: []core.PodReadinessGate{
-			{ConditionType: core.PodInitialized},
-		},
-		DNSPolicy:                    core.DNSClusterFirst,
-		HostNetwork:                  true,
-		HostPID:                      true,
-		ServiceAccountName:           "app-name",
-		AutomountServiceAccountToken: boolPtr(true),
-		InitContainers:               initContainers(),
-		Containers: []core.Container{
-			{
-				Name:            "test",
-				Image:           "juju/image",
-				Ports:           []core.ContainerPort{{ContainerPort: int32(80), Protocol: core.ProtocolTCP}},
-				ImagePullPolicy: core.PullAlways,
-				SecurityContext: &core.SecurityContext{
-					RunAsNonRoot: boolPtr(true),
-					Privileged:   boolPtr(true),
-				},
-				ReadinessProbe: &core.Probe{
-					InitialDelaySeconds: 10,
-					Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
-				},
-				LivenessProbe: &core.Probe{
-					SuccessThreshold: 20,
-					Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
-				},
-				VolumeMounts: dataVolumeMounts(),
-			}, {
-				Name:  "test2",
-				Image: "juju/image2",
-				Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP}},
-				// Defaults since not specified.
-				SecurityContext: &core.SecurityContext{
-					RunAsNonRoot:             boolPtr(false),
-					ReadOnlyRootFilesystem:   boolPtr(false),
-					AllowPrivilegeEscalation: boolPtr(true),
-				},
-				VolumeMounts: dataVolumeMounts(),
+	c.Assert(provider.Pod(spec), jc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
+		Annotations: annotations.Annotation{},
+		PodSpec: core.PodSpec{
+			RestartPolicy:                 core.RestartPolicyOnFailure,
+			ActiveDeadlineSeconds:         int64Ptr(10),
+			TerminationGracePeriodSeconds: int64Ptr(20),
+			SecurityContext: &core.PodSecurityContext{
+				RunAsNonRoot:       boolPtr(true),
+				SupplementalGroups: []int64{1, 2},
 			},
+			ReadinessGates: []core.PodReadinessGate{
+				{ConditionType: core.PodInitialized},
+			},
+			DNSPolicy:                    core.DNSClusterFirst,
+			HostNetwork:                  true,
+			HostPID:                      true,
+			PriorityClassName:            "system-cluster-critical",
+			Priority:                     int32Ptr(2000000000),
+			ServiceAccountName:           "app-name",
+			AutomountServiceAccountToken: boolPtr(true),
+			InitContainers:               initContainers(),
+			Containers: []core.Container{
+				{
+					Name:            "test",
+					Image:           "juju/image",
+					Ports:           []core.ContainerPort{{ContainerPort: int32(80), Protocol: core.ProtocolTCP}},
+					ImagePullPolicy: core.PullAlways,
+					SecurityContext: &core.SecurityContext{
+						RunAsNonRoot: boolPtr(true),
+						Privileged:   boolPtr(true),
+					},
+					ReadinessProbe: &core.Probe{
+						InitialDelaySeconds: 10,
+						Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
+					},
+					LivenessProbe: &core.Probe{
+						SuccessThreshold: 20,
+						Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
+					},
+					VolumeMounts: dataVolumeMounts(),
+				}, {
+					Name:  "test2",
+					Image: "juju/image2",
+					Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP}},
+					// Defaults since not specified.
+					SecurityContext: &core.SecurityContext{
+						RunAsNonRoot:             boolPtr(false),
+						ReadOnlyRootFilesystem:   boolPtr(false),
+						AllowPrivilegeEscalation: boolPtr(true),
+					},
+					VolumeMounts: dataVolumeMounts(),
+				},
+			},
+			Volumes: dataVolumes(),
 		},
-		Volumes: dataVolumes(),
 	})
 }
 
@@ -329,83 +337,86 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithEnvAndEnvFrom(c *gc.C) {
 
 	spec, err := provider.PrepareWorkloadSpec("app-name", "app-name", &podSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(provider.PodSpec(spec), jc.DeepEquals, core.PodSpec{
-		RestartPolicy:                 core.RestartPolicyOnFailure,
-		ActiveDeadlineSeconds:         int64Ptr(10),
-		TerminationGracePeriodSeconds: int64Ptr(20),
-		SecurityContext: &core.PodSecurityContext{
-			RunAsNonRoot:       boolPtr(true),
-			SupplementalGroups: []int64{1, 2},
-		},
-		ReadinessGates: []core.PodReadinessGate{
-			{ConditionType: core.PodInitialized},
-		},
-		DNSPolicy:                    core.DNSClusterFirst,
-		ServiceAccountName:           "app-name",
-		AutomountServiceAccountToken: boolPtr(true),
-		InitContainers:               initContainers(),
-		Containers: []core.Container{
-			{
-				Name:            "test",
-				Image:           "juju/image",
-				Ports:           []core.ContainerPort{{ContainerPort: int32(80), Protocol: core.ProtocolTCP}},
-				ImagePullPolicy: core.PullAlways,
-				SecurityContext: &core.SecurityContext{
-					RunAsNonRoot: boolPtr(true),
-					Privileged:   boolPtr(true),
-				},
-				ReadinessProbe: &core.Probe{
-					InitialDelaySeconds: 10,
-					Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
-				},
-				LivenessProbe: &core.Probe{
-					SuccessThreshold: 20,
-					Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
-				},
-				VolumeMounts: dataVolumeMounts(),
-				Env: []core.EnvVar{
-					{Name: "MY_NODE_NAME", ValueFrom: &core.EnvVarSource{FieldRef: &core.ObjectFieldSelector{FieldPath: "spec.nodeName"}}},
-					{Name: "attr", Value: `foo=bar; name["fred"]="blogs";`},
-					{Name: "brackets", Value: `["hello", "world"]`},
-					{Name: "float", Value: "111.11111111"},
-					{Name: "foo", Value: "bar"},
-					{Name: "int", Value: "111"},
-					{
-						Name: "my-resource-limit",
-						ValueFrom: &core.EnvVarSource{
-							ResourceFieldRef: &core.ResourceFieldSelector{
-								ContainerName: "container1",
-								Resource:      "requests.cpu",
-								Divisor:       resource.MustParse("1m"),
+	c.Assert(provider.Pod(spec), jc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
+		Annotations: annotations.Annotation{},
+		PodSpec: core.PodSpec{
+			RestartPolicy:                 core.RestartPolicyOnFailure,
+			ActiveDeadlineSeconds:         int64Ptr(10),
+			TerminationGracePeriodSeconds: int64Ptr(20),
+			SecurityContext: &core.PodSecurityContext{
+				RunAsNonRoot:       boolPtr(true),
+				SupplementalGroups: []int64{1, 2},
+			},
+			ReadinessGates: []core.PodReadinessGate{
+				{ConditionType: core.PodInitialized},
+			},
+			DNSPolicy:                    core.DNSClusterFirst,
+			ServiceAccountName:           "app-name",
+			AutomountServiceAccountToken: boolPtr(true),
+			InitContainers:               initContainers(),
+			Containers: []core.Container{
+				{
+					Name:            "test",
+					Image:           "juju/image",
+					Ports:           []core.ContainerPort{{ContainerPort: int32(80), Protocol: core.ProtocolTCP}},
+					ImagePullPolicy: core.PullAlways,
+					SecurityContext: &core.SecurityContext{
+						RunAsNonRoot: boolPtr(true),
+						Privileged:   boolPtr(true),
+					},
+					ReadinessProbe: &core.Probe{
+						InitialDelaySeconds: 10,
+						Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
+					},
+					LivenessProbe: &core.Probe{
+						SuccessThreshold: 20,
+						Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
+					},
+					VolumeMounts: dataVolumeMounts(),
+					Env: []core.EnvVar{
+						{Name: "MY_NODE_NAME", ValueFrom: &core.EnvVarSource{FieldRef: &core.ObjectFieldSelector{FieldPath: "spec.nodeName"}}},
+						{Name: "attr", Value: `foo=bar; name["fred"]="blogs";`},
+						{Name: "brackets", Value: `["hello", "world"]`},
+						{Name: "float", Value: "111.11111111"},
+						{Name: "foo", Value: "bar"},
+						{Name: "int", Value: "111"},
+						{
+							Name: "my-resource-limit",
+							ValueFrom: &core.EnvVarSource{
+								ResourceFieldRef: &core.ResourceFieldSelector{
+									ContainerName: "container1",
+									Resource:      "requests.cpu",
+									Divisor:       resource.MustParse("1m"),
+								},
 							},
 						},
+						{Name: "restricted", Value: "yes"},
+						{Name: "special", Value: "p@ssword's"},
+						{Name: "switch", Value: "true"},
+						envVarThing,
+						envVarThing1,
 					},
-					{Name: "restricted", Value: "yes"},
-					{Name: "special", Value: "p@ssword's"},
-					{Name: "switch", Value: "true"},
-					envVarThing,
-					envVarThing1,
+					EnvFrom: []core.EnvFromSource{
+						envFromSourceConfigmap1,
+						envFromSourceConfigmap2,
+						envFromSourceSecret1,
+						envFromSourceSecret2,
+					},
+				}, {
+					Name:  "test2",
+					Image: "juju/image2",
+					Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP}},
+					// Defaults since not specified.
+					SecurityContext: &core.SecurityContext{
+						RunAsNonRoot:             boolPtr(false),
+						ReadOnlyRootFilesystem:   boolPtr(false),
+						AllowPrivilegeEscalation: boolPtr(true),
+					},
+					VolumeMounts: dataVolumeMounts(),
 				},
-				EnvFrom: []core.EnvFromSource{
-					envFromSourceConfigmap1,
-					envFromSourceConfigmap2,
-					envFromSourceSecret1,
-					envFromSourceSecret2,
-				},
-			}, {
-				Name:  "test2",
-				Image: "juju/image2",
-				Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP}},
-				// Defaults since not specified.
-				SecurityContext: &core.SecurityContext{
-					RunAsNonRoot:             boolPtr(false),
-					ReadOnlyRootFilesystem:   boolPtr(false),
-					AllowPrivilegeEscalation: boolPtr(true),
-				},
-				VolumeMounts: dataVolumeMounts(),
 			},
+			Volumes: dataVolumes(),
 		},
-		Volumes: dataVolumes(),
 	})
 }
 
@@ -449,56 +460,133 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithInitContainers(c *gc.C) {
 
 	spec, err := provider.PrepareWorkloadSpec("app-name", "app-name", &podSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(provider.PodSpec(spec), jc.DeepEquals, core.PodSpec{
-		Containers: []core.Container{
-			{
-				Name:            "test",
-				Image:           "juju/image",
-				Ports:           []core.ContainerPort{{ContainerPort: int32(80), Protocol: core.ProtocolTCP}},
-				ImagePullPolicy: core.PullAlways,
-				ReadinessProbe: &core.Probe{
-					InitialDelaySeconds: 10,
-					Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
+	c.Assert(provider.Pod(spec), jc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
+		PodSpec: core.PodSpec{
+			Containers: []core.Container{
+				{
+					Name:            "test",
+					Image:           "juju/image",
+					Ports:           []core.ContainerPort{{ContainerPort: int32(80), Protocol: core.ProtocolTCP}},
+					ImagePullPolicy: core.PullAlways,
+					ReadinessProbe: &core.Probe{
+						InitialDelaySeconds: 10,
+						Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
+					},
+					LivenessProbe: &core.Probe{
+						SuccessThreshold: 20,
+						Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
+					},
+					SecurityContext: &core.SecurityContext{
+						RunAsNonRoot: boolPtr(true),
+						Privileged:   boolPtr(true),
+					},
+					VolumeMounts: dataVolumeMounts(),
+				}, {
+					Name:  "test2",
+					Image: "juju/image2",
+					Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP}},
+					// Defaults since not specified.
+					SecurityContext: &core.SecurityContext{
+						RunAsNonRoot:             boolPtr(false),
+						ReadOnlyRootFilesystem:   boolPtr(false),
+						AllowPrivilegeEscalation: boolPtr(true),
+					},
+					VolumeMounts: dataVolumeMounts(),
 				},
-				LivenessProbe: &core.Probe{
-					SuccessThreshold: 20,
-					Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
+			},
+			InitContainers: append([]core.Container{
+				{
+					Name:            "test-init",
+					Image:           "juju/image-init",
+					Ports:           []core.ContainerPort{{ContainerPort: int32(90), Protocol: core.ProtocolTCP}},
+					WorkingDir:      "/path/to/here",
+					Command:         []string{"sh", "ls"},
+					ImagePullPolicy: core.PullAlways,
+					// Defaults since not specified.
+					SecurityContext: &core.SecurityContext{
+						RunAsNonRoot:             boolPtr(false),
+						ReadOnlyRootFilesystem:   boolPtr(false),
+						AllowPrivilegeEscalation: boolPtr(true),
+					},
 				},
-				SecurityContext: &core.SecurityContext{
-					RunAsNonRoot: boolPtr(true),
-					Privileged:   boolPtr(true),
+			}, initContainers()...),
+			Volumes: dataVolumes(),
+		},
+	})
+}
+
+func (s *K8sSuite) TestPrepareWorkloadSpec(c *gc.C) {
+
+	podSpec := specs.PodSpec{
+		ServiceAccount: primeServiceAccount,
+	}
+
+	podSpec.ProviderPod = &k8sspecs.K8sPodSpec{
+		KubernetesResources: &k8sspecs.KubernetesResources{
+			Pod: &k8sspecs.PodSpec{
+				Annotations:                   map[string]string{"foo": "baz"},
+				RestartPolicy:                 core.RestartPolicyOnFailure,
+				ActiveDeadlineSeconds:         int64Ptr(10),
+				TerminationGracePeriodSeconds: int64Ptr(20),
+				SecurityContext: &core.PodSecurityContext{
+					RunAsNonRoot:       boolPtr(true),
+					SupplementalGroups: []int64{1, 2},
 				},
-				VolumeMounts: dataVolumeMounts(),
-			}, {
-				Name:  "test2",
-				Image: "juju/image2",
-				Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP}},
-				// Defaults since not specified.
-				SecurityContext: &core.SecurityContext{
-					RunAsNonRoot:             boolPtr(false),
-					ReadOnlyRootFilesystem:   boolPtr(false),
-					AllowPrivilegeEscalation: boolPtr(true),
+				ReadinessGates: []core.PodReadinessGate{
+					{ConditionType: core.PodInitialized},
 				},
-				VolumeMounts: dataVolumeMounts(),
+				DNSPolicy:   core.DNSClusterFirst,
+				HostNetwork: true,
+				HostPID:     true,
 			},
 		},
-		InitContainers: append([]core.Container{
-			{
-				Name:            "test-init",
-				Image:           "juju/image-init",
-				Ports:           []core.ContainerPort{{ContainerPort: int32(90), Protocol: core.ProtocolTCP}},
-				WorkingDir:      "/path/to/here",
-				Command:         []string{"sh", "ls"},
-				ImagePullPolicy: core.PullAlways,
-				// Defaults since not specified.
-				SecurityContext: &core.SecurityContext{
-					RunAsNonRoot:             boolPtr(false),
-					ReadOnlyRootFilesystem:   boolPtr(false),
-					AllowPrivilegeEscalation: boolPtr(true),
+	}
+	podSpec.Containers = []specs.ContainerSpec{
+		{
+			Name:            "test",
+			Ports:           []specs.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
+			Image:           "juju/image",
+			ImagePullPolicy: "Always",
+		},
+	}
+
+	spec, err := provider.PrepareWorkloadSpec("app-name", "app-name", &podSpec, "operator/image-path")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(provider.Pod(spec), jc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
+		Annotations: map[string]string{"foo": "baz"},
+		PodSpec: core.PodSpec{
+			RestartPolicy:                 core.RestartPolicyOnFailure,
+			ActiveDeadlineSeconds:         int64Ptr(10),
+			TerminationGracePeriodSeconds: int64Ptr(20),
+			ReadinessGates: []core.PodReadinessGate{
+				{ConditionType: core.PodInitialized},
+			},
+			DNSPolicy:                    core.DNSClusterFirst,
+			ServiceAccountName:           "app-name",
+			AutomountServiceAccountToken: boolPtr(true),
+			HostNetwork:                  true,
+			HostPID:                      true,
+			InitContainers:               initContainers(),
+			SecurityContext: &core.PodSecurityContext{
+				RunAsNonRoot:       boolPtr(true),
+				SupplementalGroups: []int64{1, 2},
+			},
+			Containers: []core.Container{
+				{
+					Name:            "test",
+					Image:           "juju/image",
+					Ports:           []core.ContainerPort{{ContainerPort: int32(80), Protocol: core.ProtocolTCP}},
+					ImagePullPolicy: core.PullAlways,
+					SecurityContext: &core.SecurityContext{
+						RunAsNonRoot:             boolPtr(false),
+						ReadOnlyRootFilesystem:   boolPtr(false),
+						AllowPrivilegeEscalation: boolPtr(true),
+					},
+					VolumeMounts: dataVolumeMounts(),
 				},
 			},
-		}, initContainers()...),
-		Volumes: dataVolumes(),
+			Volumes: dataVolumes(),
+		},
 	})
 }
 
@@ -600,45 +688,47 @@ func (s *K8sBrokerSuite) getOCIImageSecret(c *gc.C, annotations map[string]strin
 func (s *K8sSuite) TestPrepareWorkloadSpecConfigPairs(c *gc.C) {
 	spec, err := provider.PrepareWorkloadSpec("app-name", "app-name", getBasicPodspec(), "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(provider.PodSpec(spec), jc.DeepEquals, core.PodSpec{
-		ImagePullSecrets: []core.LocalObjectReference{{Name: "app-name-test-secret"}},
-		InitContainers:   initContainers(),
-		Containers: []core.Container{
-			{
-				Name:       "test",
-				Image:      "juju/image",
-				Ports:      []core.ContainerPort{{ContainerPort: int32(80), Protocol: core.ProtocolTCP}},
-				Command:    []string{"sh", "-c"},
-				Args:       []string{"doIt", "--debug"},
-				WorkingDir: "/path/to/here",
-				Env: []core.EnvVar{
-					{Name: "bar", Value: "true"},
-					{Name: "brackets", Value: `["hello", "world"]`},
-					{Name: "foo", Value: "bar"},
-					{Name: "restricted", Value: "yes"},
-					{Name: "switch", Value: "true"},
+	c.Assert(provider.Pod(spec), jc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
+		PodSpec: core.PodSpec{
+			ImagePullSecrets: []core.LocalObjectReference{{Name: "app-name-test-secret"}},
+			InitContainers:   initContainers(),
+			Containers: []core.Container{
+				{
+					Name:       "test",
+					Image:      "juju/image",
+					Ports:      []core.ContainerPort{{ContainerPort: int32(80), Protocol: core.ProtocolTCP}},
+					Command:    []string{"sh", "-c"},
+					Args:       []string{"doIt", "--debug"},
+					WorkingDir: "/path/to/here",
+					Env: []core.EnvVar{
+						{Name: "bar", Value: "true"},
+						{Name: "brackets", Value: `["hello", "world"]`},
+						{Name: "foo", Value: "bar"},
+						{Name: "restricted", Value: "yes"},
+						{Name: "switch", Value: "true"},
+					},
+					// Defaults since not specified.
+					SecurityContext: &core.SecurityContext{
+						RunAsNonRoot:             boolPtr(false),
+						ReadOnlyRootFilesystem:   boolPtr(false),
+						AllowPrivilegeEscalation: boolPtr(true),
+					},
+					VolumeMounts: dataVolumeMounts(),
+				}, {
+					Name:  "test2",
+					Image: "juju/image2",
+					Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP, Name: "fred"}},
+					// Defaults since not specified.
+					SecurityContext: &core.SecurityContext{
+						RunAsNonRoot:             boolPtr(false),
+						ReadOnlyRootFilesystem:   boolPtr(false),
+						AllowPrivilegeEscalation: boolPtr(true),
+					},
+					VolumeMounts: dataVolumeMounts(),
 				},
-				// Defaults since not specified.
-				SecurityContext: &core.SecurityContext{
-					RunAsNonRoot:             boolPtr(false),
-					ReadOnlyRootFilesystem:   boolPtr(false),
-					AllowPrivilegeEscalation: boolPtr(true),
-				},
-				VolumeMounts: dataVolumeMounts(),
-			}, {
-				Name:  "test2",
-				Image: "juju/image2",
-				Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP, Name: "fred"}},
-				// Defaults since not specified.
-				SecurityContext: &core.SecurityContext{
-					RunAsNonRoot:             boolPtr(false),
-					ReadOnlyRootFilesystem:   boolPtr(false),
-					AllowPrivilegeEscalation: boolPtr(true),
-				},
-				VolumeMounts: dataVolumeMounts(),
 			},
+			Volumes: dataVolumes(),
 		},
-		Volumes: dataVolumes(),
 	})
 }
 
@@ -1919,9 +2009,130 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 
 	numUnits := int32(2)
 	basicPodSpec := getBasicPodspec()
+	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
+		KubernetesResources: &k8sspecs.KubernetesResources{
+			Pod: &k8sspecs.PodSpec{Annotations: map[string]string{"foo": "baz"}},
+		},
+	}
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(workloadSpec)
+	podSpec := provider.Pod(workloadSpec).PodSpec
+
+	deploymentArg := &appsv1.Deployment{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   "app-name",
+			Labels: map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"fred":                           "mary",
+				"juju.io/controller":             testing.ControllerTag.Id(),
+				"juju-app-uuid":                  "appuuid",
+				"juju.io/charm-modified-version": "0",
+			}},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &numUnits,
+			Selector: &v1.LabelSelector{
+				MatchLabels: map[string]string{"juju-app": "app-name"},
+			},
+			RevisionHistoryLimit: int32Ptr(0),
+			Template: core.PodTemplateSpec{
+				ObjectMeta: v1.ObjectMeta{
+					GenerateName: "app-name-",
+					Labels: map[string]string{
+						"juju-app": "app-name",
+					},
+					Annotations: map[string]string{
+						"foo": "baz",
+						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
+						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
+						"fred":                           "mary",
+						"juju.io/controller":             testing.ControllerTag.Id(),
+						"juju.io/charm-modified-version": "0",
+					},
+				},
+				Spec: podSpec,
+			},
+		},
+	}
+	serviceArg := &core.Service{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   "app-name",
+			Labels: map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":               "mary",
+				"a":                  "b",
+			}},
+		Spec: core.ServiceSpec{
+			Selector: map[string]string{"juju-app": "app-name"},
+			Type:     "nodeIP",
+			Ports: []core.ServicePort{
+				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
+				{Port: 8080, Protocol: "TCP", Name: "fred"},
+			},
+			LoadBalancerIP: "10.0.0.1",
+			ExternalName:   "ext-name",
+		},
+	}
+
+	ociImageSecret := s.getOCIImageSecret(c, map[string]string{"fred": "mary"})
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockSecrets.EXPECT().Create(gomock.Any(), ociImageSecret, v1.CreateOptions{}).
+			Return(ociImageSecret, nil),
+		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(gomock.Any(), serviceArg, v1.UpdateOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(gomock.Any(), serviceArg, v1.CreateOptions{}).
+			Return(nil, nil),
+		s.mockDeployments.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDeployments.EXPECT().Update(gomock.Any(), deploymentArg, v1.UpdateOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDeployments.EXPECT().Create(gomock.Any(), deploymentArg, v1.CreateOptions{}).
+			Return(nil, nil),
+	)
+
+	params := &caas.ServiceParams{
+		PodSpec:           basicPodSpec,
+		OperatorImagePath: "operator/image-path",
+		ResourceTags: map[string]string{
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+			"fred":                 "mary",
+		},
+	}
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
+		"kubernetes-service-externalname":    "ext-name",
+		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithUpdateStrategy(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	numUnits := int32(2)
+	basicPodSpec := getBasicPodspec()
+
+	basicPodSpec.Service = &specs.ServiceSpec{
+		UpdateStrategy: &specs.UpdateStrategy{
+			Type: "RollingUpdate",
+			RollingUpdate: &specs.RollingUpdateSpec{
+				MaxUnavailable: &specs.IntOrString{IntVal: 10},
+				MaxSurge:       &specs.IntOrString{IntVal: 20},
+			},
+		},
+	}
+
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	c.Assert(err, jc.ErrorIsNil)
+	podSpec := provider.Pod(workloadSpec).PodSpec
 
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
@@ -1954,6 +2165,13 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 					},
 				},
 				Spec: podSpec,
+			},
+			Strategy: apps.DeploymentStrategy{
+				Type: apps.RollingUpdateDeploymentStrategyType,
+				RollingUpdate: &apps.RollingUpdateDeployment{
+					MaxUnavailable: &intstr.IntOrString{IntVal: 10},
+					MaxSurge:       &intstr.IntOrString{IntVal: 20},
+				},
 			},
 		},
 	}
@@ -2115,7 +2333,7 @@ password: shhhh`[1:],
 
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(workloadSpec)
+	podSpec := provider.Pod(workloadSpec).PodSpec
 
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
@@ -2366,7 +2584,7 @@ password: shhhh`[1:],
 
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(workloadSpec)
+	podSpec := provider.Pod(workloadSpec).PodSpec
 
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
@@ -2694,7 +2912,7 @@ func (s *K8sBrokerSuite) assertGetServiceSvcFoundWithStatefulSet(c *gc.C, mode c
 
 	workloadSpec, err := provider.PrepareWorkloadSpec(appName, "app-name", basicPodSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(workloadSpec)
+	podSpec := provider.Pod(workloadSpec).PodSpec
 
 	numUnits := int32(2)
 	workload := &appsv1.StatefulSet{
@@ -2784,7 +3002,7 @@ func (s *K8sBrokerSuite) assertGetServiceSvcFoundWithDeployment(c *gc.C, mode ca
 
 	workloadSpec, err := provider.PrepareWorkloadSpec(appName, "app-name", basicPodSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(workloadSpec)
+	podSpec := provider.Pod(workloadSpec).PodSpec
 
 	numUnits := int32(2)
 	workload := &appsv1.Deployment{
@@ -2865,7 +3083,7 @@ func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithDaemonSet(c *gc.C) {
 	}
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(workloadSpec)
+	podSpec := provider.Pod(workloadSpec).PodSpec
 
 	workload := &appsv1.DaemonSet{
 		ObjectMeta: v1.ObjectMeta{
@@ -2936,7 +3154,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorageStateful(c *gc.C) {
 	}
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(workloadSpec)
+	podSpec := provider.Pod(workloadSpec).PodSpec
 
 	numUnits := int32(2)
 	statefulSetArg := &appsv1.StatefulSet{
@@ -3020,7 +3238,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomType(c *gc.C) {
 	basicPodSpec := getBasicPodspec()
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(workloadSpec)
+	podSpec := provider.Pod(workloadSpec).PodSpec
 
 	numUnits := int32(2)
 	statefulSetArg := &appsv1.StatefulSet{
@@ -3185,7 +3403,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 						"juju.io/charm-modified-version": "0",
 					},
 				},
-				Spec: provider.PodSpec(workloadSpec),
+				Spec: provider.Pod(workloadSpec).PodSpec,
 			},
 		},
 	}
@@ -3347,7 +3565,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 						"juju.io/charm-modified-version": "0",
 					},
 				},
-				Spec: provider.PodSpec(workloadSpec),
+				Spec: provider.Pod(workloadSpec).PodSpec,
 			},
 		},
 	}
@@ -3547,7 +3765,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 						"juju.io/charm-modified-version": "0",
 					},
 				},
-				Spec: provider.PodSpec(workloadSpec),
+				Spec: provider.Pod(workloadSpec).PodSpec,
 			},
 		},
 	}
@@ -3725,7 +3943,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 						"juju.io/charm-modified-version": "0",
 					},
 				},
-				Spec: provider.PodSpec(workloadSpec),
+				Spec: provider.Pod(workloadSpec).PodSpec,
 			},
 		},
 	}
@@ -3937,7 +4155,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 						"juju.io/charm-modified-version": "0",
 					},
 				},
-				Spec: provider.PodSpec(workloadSpec),
+				Spec: provider.Pod(workloadSpec).PodSpec,
 			},
 		},
 	}
@@ -4199,7 +4417,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 						"juju.io/charm-modified-version":           "0",
 					},
 				},
-				Spec: provider.PodSpec(workloadSpec),
+				Spec: provider.Pod(workloadSpec).PodSpec,
 			},
 		},
 	}
@@ -4479,7 +4697,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 						"juju.io/charm-modified-version":           "0",
 					},
 				},
-				Spec: provider.PodSpec(workloadSpec),
+				Spec: provider.Pod(workloadSpec).PodSpec,
 			},
 		},
 	}
@@ -4720,9 +4938,14 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 	defer ctrl.Finish()
 
 	basicPodSpec := getBasicPodspec()
+	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
+		KubernetesResources: &k8sspecs.KubernetesResources{
+			Pod: &k8sspecs.PodSpec{Annotations: map[string]string{"foo": "baz"}},
+		},
+	}
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(workloadSpec)
+	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
 		Name:      "database-appuuid",
 		MountPath: "path/to/here",
@@ -4740,6 +4963,110 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 		}},
 	})
 	statefulSetArg := unitStatefulSetArg(2, "workload-storage", podSpec)
+	statefulSetArg.Spec.Template.Annotations["foo"] = "baz"
+	ociImageSecret := s.getOCIImageSecret(c, nil)
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockSecrets.EXPECT().Create(gomock.Any(), ociImageSecret, v1.CreateOptions{}).
+			Return(ociImageSecret, nil),
+		s.mockServices.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(gomock.Any(), basicServiceArg, v1.UpdateOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(gomock.Any(), basicServiceArg, v1.CreateOptions{}).
+			Return(nil, nil),
+		s.mockServices.EXPECT().Get(gomock.Any(), "app-name-endpoints", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(gomock.Any(), basicHeadlessServiceArg, v1.UpdateOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(gomock.Any(), basicHeadlessServiceArg, v1.CreateOptions{}).
+			Return(nil, nil),
+		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
+			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-app-uuid": "appuuid"}}}, nil),
+		s.mockStorageClass.EXPECT().Get(gomock.Any(), "test-workload-storage", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStorageClass.EXPECT().Get(gomock.Any(), "workload-storage", v1.GetOptions{}).
+			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "workload-storage"}}, nil),
+		s.mockStatefulSets.EXPECT().Create(gomock.Any(), statefulSetArg, v1.CreateOptions{}).
+			Return(nil, nil),
+	)
+
+	params := &caas.ServiceParams{
+		PodSpec:           basicPodSpec,
+		OperatorImagePath: "operator/image-path",
+		ResourceTags: map[string]string{
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+		},
+		Filesystems: []storage.KubernetesFilesystemParams{{
+			StorageName: "database",
+			Size:        100,
+			Provider:    "kubernetes",
+			Attributes:  map[string]interface{}{"storage-class": "workload-storage"},
+			Attachment: &storage.KubernetesFilesystemAttachmentParams{
+				Path: "path/to/here",
+			},
+			ResourceTags: map[string]string{"foo": "bar"},
+		}, {
+			StorageName: "logs",
+			Size:        200,
+			Provider:    "tmpfs",
+			Attributes:  map[string]interface{}{"storage-medium": "Memory"},
+			Attachment: &storage.KubernetesFilesystemAttachmentParams{
+				Path: "path/to/there",
+			},
+		}},
+	}
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
+		"kubernetes-service-externalname":    "ext-name",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithUpdateStrategy(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	basicPodSpec := getBasicPodspec()
+
+	basicPodSpec.Service = &specs.ServiceSpec{
+		UpdateStrategy: &specs.UpdateStrategy{
+			Type: "OnDelete",
+			RollingUpdate: &specs.RollingUpdateSpec{
+				Partition: int32Ptr(10),
+			},
+		},
+	}
+
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	c.Assert(err, jc.ErrorIsNil)
+	podSpec := provider.Pod(workloadSpec).PodSpec
+	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
+		Name:      "database-appuuid",
+		MountPath: "path/to/here",
+	}, core.VolumeMount{
+		Name:      "logs-1",
+		MountPath: "path/to/there",
+	})
+	size, err := resource.ParseQuantity("200Mi")
+	c.Assert(err, jc.ErrorIsNil)
+	podSpec.Volumes = append(podSpec.Volumes, core.Volume{
+		Name: "logs-1",
+		VolumeSource: core.VolumeSource{EmptyDir: &core.EmptyDirVolumeSource{
+			SizeLimit: &size,
+			Medium:    "Memory",
+		}},
+	})
+	statefulSetArg := unitStatefulSetArg(2, "workload-storage", podSpec)
+	statefulSetArg.Spec.UpdateStrategy = apps.StatefulSetUpdateStrategy{
+		Type: apps.OnDeleteStatefulSetStrategyType,
+		RollingUpdate: &apps.RollingUpdateStatefulSetStrategy{
+			Partition: int32Ptr(10),
+		},
+	}
+
 	ociImageSecret := s.getOCIImageSecret(c, nil)
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", v1.GetOptions{}).
@@ -4809,7 +5136,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 	basicPodSpec := getBasicPodspec()
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(workloadSpec)
+	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.NodeSelector = map[string]string{"accelerator": "nvidia-tesla-p100"}
 	for i := range podSpec.Containers {
 		podSpec.Containers[i].Resources = core.ResourceRequirements{
@@ -4904,7 +5231,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageCreate(c *gc.C
 	basicPodSpec := getBasicPodspec()
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(workloadSpec)
+	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
 		Name:      "database-appuuid",
 		MountPath: "path/to/here",
@@ -5051,7 +5378,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageUpdate(c *gc.C
 	basicPodSpec := getBasicPodspec()
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(workloadSpec)
+	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
 		Name:      "database-appuuid",
 		MountPath: "path/to/here",
@@ -5197,9 +5524,191 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageCreate(c *gc.C)
 	defer ctrl.Finish()
 
 	basicPodSpec := getBasicPodspec()
+	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
+		KubernetesResources: &k8sspecs.KubernetesResources{
+			Pod: &k8sspecs.PodSpec{Annotations: map[string]string{"foo": "baz"}},
+		},
+	}
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(workloadSpec)
+	podSpec := provider.Pod(workloadSpec).PodSpec
+	podSpec.Affinity = &core.Affinity{
+		NodeAffinity: &core.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &core.NodeSelector{
+				NodeSelectorTerms: []core.NodeSelectorTerm{{
+					MatchExpressions: []core.NodeSelectorRequirement{{
+						Key:      "foo",
+						Operator: core.NodeSelectorOpIn,
+						Values:   []string{"a", "b", "c"},
+					}, {
+						Key:      "bar",
+						Operator: core.NodeSelectorOpNotIn,
+						Values:   []string{"d", "e", "f"},
+					}, {
+						Key:      "foo",
+						Operator: core.NodeSelectorOpNotIn,
+						Values:   []string{"g", "h"},
+					}},
+				}},
+			},
+		},
+	}
+	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
+		Name:      "database-appuuid",
+		MountPath: "path/to/here",
+	}, core.VolumeMount{
+		Name:      "logs-1",
+		MountPath: "path/to/there",
+	})
+
+	pvc := &core.PersistentVolumeClaim{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "database-appuuid",
+			Annotations: map[string]string{
+				"foo":          "bar",
+				"juju-storage": "database",
+			},
+		},
+		Spec: core.PersistentVolumeClaimSpec{
+			StorageClassName: strPtr("workload-storage"),
+			Resources: core.ResourceRequirements{
+				Requests: core.ResourceList{
+					core.ResourceStorage: resource.MustParse("100Mi"),
+				},
+			},
+			AccessModes: []core.PersistentVolumeAccessMode{core.ReadWriteOnce},
+		},
+	}
+	podSpec.Volumes = append(podSpec.Volumes, core.Volume{
+		Name: "database-appuuid",
+		VolumeSource: core.VolumeSource{
+			PersistentVolumeClaim: &core.PersistentVolumeClaimVolumeSource{
+				ClaimName: pvc.GetName(),
+			}},
+	})
+
+	size, err := resource.ParseQuantity("200Mi")
+	c.Assert(err, jc.ErrorIsNil)
+	podSpec.Volumes = append(podSpec.Volumes, core.Volume{
+		Name: "logs-1",
+		VolumeSource: core.VolumeSource{EmptyDir: &core.EmptyDirVolumeSource{
+			SizeLimit: &size,
+			Medium:    "Memory",
+		}},
+	})
+
+	daemonSetArg := &appsv1.DaemonSet{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   "app-name",
+			Labels: map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"juju.io/controller":             testing.ControllerTag.Id(),
+				"juju-app-uuid":                  "appuuid",
+				"juju.io/charm-modified-version": "0",
+			}},
+		Spec: appsv1.DaemonSetSpec{
+			Selector: &v1.LabelSelector{
+				MatchLabels: map[string]string{"juju-app": "app-name"},
+			},
+			RevisionHistoryLimit: int32Ptr(0),
+			Template: core.PodTemplateSpec{
+				ObjectMeta: v1.ObjectMeta{
+					GenerateName: "app-name-",
+					Labels:       map[string]string{"juju-app": "app-name"},
+					Annotations: map[string]string{
+						"foo": "baz",
+						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
+						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
+						"juju.io/controller":                       testing.ControllerTag.Id(),
+						"juju.io/charm-modified-version":           "0",
+					},
+				},
+				Spec: podSpec,
+			},
+		},
+	}
+
+	ociImageSecret := s.getOCIImageSecret(c, nil)
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockSecrets.EXPECT().Create(gomock.Any(), ociImageSecret, v1.CreateOptions{}).
+			Return(ociImageSecret, nil),
+		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(gomock.Any(), basicServiceArg, v1.UpdateOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(gomock.Any(), basicServiceArg, v1.CreateOptions{}).
+			Return(nil, nil),
+		s.mockDaemonSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStorageClass.EXPECT().Get(gomock.Any(), "test-workload-storage", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStorageClass.EXPECT().Get(gomock.Any(), "workload-storage", v1.GetOptions{}).
+			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "workload-storage"}}, nil),
+		s.mockPersistentVolumeClaims.EXPECT().Create(gomock.Any(), pvc, v1.CreateOptions{}).
+			Return(pvc, nil),
+		s.mockDaemonSets.EXPECT().Create(gomock.Any(), daemonSetArg, v1.CreateOptions{}).
+			Return(daemonSetArg, nil),
+	)
+
+	params := &caas.ServiceParams{
+		PodSpec: basicPodSpec,
+		Deployment: caas.DeploymentParams{
+			DeploymentType: caas.DeploymentDaemon,
+		},
+		OperatorImagePath: "operator/image-path",
+		ResourceTags: map[string]string{
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+		},
+		Filesystems: []storage.KubernetesFilesystemParams{{
+			StorageName: "database",
+			Size:        100,
+			Provider:    "kubernetes",
+			Attributes:  map[string]interface{}{"storage-class": "workload-storage"},
+			Attachment: &storage.KubernetesFilesystemAttachmentParams{
+				Path: "path/to/here",
+			},
+			ResourceTags: map[string]string{"foo": "bar"},
+		}, {
+			StorageName: "logs",
+			Size:        200,
+			Provider:    "tmpfs",
+			Attributes:  map[string]interface{}{"storage-medium": "Memory"},
+			Attachment: &storage.KubernetesFilesystemAttachmentParams{
+				Path: "path/to/there",
+			},
+		}},
+		Constraints: constraints.MustParse(`tags=foo=a|b|c,^bar=d|e|f,^foo=g|h`),
+	}
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
+		"kubernetes-service-externalname":    "ext-name",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithUpdateStrategy(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	basicPodSpec := getBasicPodspec()
+
+	basicPodSpec.Service = &specs.ServiceSpec{
+		UpdateStrategy: &specs.UpdateStrategy{
+			Type: "RollingUpdate",
+			RollingUpdate: &specs.RollingUpdateSpec{
+				MaxUnavailable: &specs.IntOrString{IntVal: 10},
+			},
+		},
+	}
+
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	c.Assert(err, jc.ErrorIsNil)
+	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.Affinity = &core.Affinity{
 		NodeAffinity: &core.NodeAffinity{
 			RequiredDuringSchedulingIgnoredDuringExecution: &core.NodeSelector{
@@ -5292,6 +5801,12 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageCreate(c *gc.C)
 				},
 				Spec: podSpec,
 			},
+			UpdateStrategy: apps.DaemonSetUpdateStrategy{
+				Type: apps.RollingUpdateDaemonSetStrategyType,
+				RollingUpdate: &apps.RollingUpdateDaemonSet{
+					MaxUnavailable: &intstr.IntOrString{IntVal: 10},
+				},
+			},
 		},
 	}
 
@@ -5365,7 +5880,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageUpdate(c *gc.C)
 	basicPodSpec := getBasicPodspec()
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(workloadSpec)
+	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.Affinity = &core.Affinity{
 		NodeAffinity: &core.NodeAffinity{
 			RequiredDuringSchedulingIgnoredDuringExecution: &core.NodeSelector{
@@ -5540,7 +6055,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsC
 	basicPodSpec := getBasicPodspec()
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(workloadSpec)
+	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.NodeSelector = map[string]string{"accelerator": "nvidia-tesla-p100"}
 	for i := range podSpec.Containers {
 		podSpec.Containers[i].Resources = core.ResourceRequirements{
@@ -5657,7 +6172,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsU
 	basicPodSpec := getBasicPodspec()
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(workloadSpec)
+	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.NodeSelector = map[string]string{"accelerator": "nvidia-tesla-p100"}
 	for i := range podSpec.Containers {
 		podSpec.Containers[i].Resources = core.ResourceRequirements{
@@ -5779,7 +6294,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 	basicPodSpec := getBasicPodspec()
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(workloadSpec)
+	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
 		Name:      "database-appuuid",
 		MountPath: "path/to/here",
@@ -5863,7 +6378,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 	basicPodSpec := getBasicPodspec()
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(workloadSpec)
+	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
 		Name:      "database-appuuid",
 		MountPath: "path/to/here",
@@ -5938,7 +6453,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithNodeAffinity(c *gc.C) {
 	basicPodSpec := getBasicPodspec()
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(workloadSpec)
+	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
 		Name:      "database-appuuid",
 		MountPath: "path/to/here",
@@ -6026,7 +6541,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithZones(c *gc.C) {
 	basicPodSpec := getBasicPodspec()
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(workloadSpec)
+	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
 		Name:      "database-appuuid",
 		MountPath: "path/to/here",
@@ -6694,6 +7209,194 @@ func (s *K8sBrokerSuite) TestWatchContainerStartDefaultWaitForUnit(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for event")
 	}
+}
+
+func (s *K8sBrokerSuite) TestUpdateStrategyForDaemonSet(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	_, err := provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{})
+	c.Assert(err, gc.ErrorMatches, `strategy type "" for daemonset not valid`)
+
+	_, err = provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
+		Type: "RollingUpdate",
+	})
+	c.Assert(err, gc.ErrorMatches, `rolling update spec is required`)
+
+	_, err = provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
+		Type:          "RollingUpdate",
+		RollingUpdate: &specs.RollingUpdateSpec{},
+	})
+	c.Assert(err, gc.ErrorMatches, `rolling update spec maxUnavailable is missing`)
+
+	_, err = provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
+		Type: "RollingUpdate",
+		RollingUpdate: &specs.RollingUpdateSpec{
+			Partition: int32Ptr(10),
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `rolling update spec for daemonset not valid`)
+
+	_, err = provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
+		Type: "RollingUpdate",
+		RollingUpdate: &specs.RollingUpdateSpec{
+			MaxSurge: &specs.IntOrString{IntVal: 10},
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `rolling update spec for daemonset not valid`)
+
+	o, err := provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
+		Type: "RollingUpdate",
+		RollingUpdate: &specs.RollingUpdateSpec{
+			MaxUnavailable: &specs.IntOrString{IntVal: 10},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(o, jc.DeepEquals, apps.DaemonSetUpdateStrategy{
+		Type: apps.RollingUpdateDaemonSetStrategyType,
+		RollingUpdate: &apps.RollingUpdateDaemonSet{
+			MaxUnavailable: &intstr.IntOrString{IntVal: 10},
+		},
+	})
+
+	o, err = provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
+		Type: "OnDelete",
+		RollingUpdate: &specs.RollingUpdateSpec{
+			MaxUnavailable: &specs.IntOrString{IntVal: 10},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(o, jc.DeepEquals, apps.DaemonSetUpdateStrategy{
+		Type: apps.OnDeleteDaemonSetStrategyType,
+		RollingUpdate: &apps.RollingUpdateDaemonSet{
+			MaxUnavailable: &intstr.IntOrString{IntVal: 10},
+		},
+	})
+}
+
+func (s *K8sBrokerSuite) TestUpdateStrategyForDeployment(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	_, err := provider.UpdateStrategyForDeployment(specs.UpdateStrategy{})
+	c.Assert(err, gc.ErrorMatches, `strategy type "" for deployment not valid`)
+
+	_, err = provider.UpdateStrategyForDeployment(specs.UpdateStrategy{
+		Type: "RollingUpdate",
+	})
+	c.Assert(err, gc.ErrorMatches, `rolling update spec is required`)
+
+	_, err = provider.UpdateStrategyForDeployment(specs.UpdateStrategy{
+		Type:          "RollingUpdate",
+		RollingUpdate: &specs.RollingUpdateSpec{},
+	})
+	c.Assert(err, gc.ErrorMatches, `empty rolling update spec`)
+
+	_, err = provider.UpdateStrategyForDeployment(specs.UpdateStrategy{
+		Type: "RollingUpdate",
+		RollingUpdate: &specs.RollingUpdateSpec{
+			Partition:      int32Ptr(10),
+			MaxUnavailable: &specs.IntOrString{IntVal: 10},
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `rolling update spec for deployment not valid`)
+
+	o, err := provider.UpdateStrategyForDeployment(specs.UpdateStrategy{
+		Type: "Recreate",
+		RollingUpdate: &specs.RollingUpdateSpec{
+			MaxUnavailable: &specs.IntOrString{IntVal: 10},
+			MaxSurge:       &specs.IntOrString{IntVal: 20},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(o, jc.DeepEquals, apps.DeploymentStrategy{
+		Type: apps.RecreateDeploymentStrategyType,
+		RollingUpdate: &apps.RollingUpdateDeployment{
+			MaxUnavailable: &intstr.IntOrString{IntVal: 10},
+			MaxSurge:       &intstr.IntOrString{IntVal: 20},
+		},
+	})
+
+	o, err = provider.UpdateStrategyForDeployment(specs.UpdateStrategy{
+		Type: "RollingUpdate",
+		RollingUpdate: &specs.RollingUpdateSpec{
+			MaxUnavailable: &specs.IntOrString{IntVal: 10},
+			MaxSurge:       &specs.IntOrString{IntVal: 20},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(o, jc.DeepEquals, apps.DeploymentStrategy{
+		Type: apps.RollingUpdateDeploymentStrategyType,
+		RollingUpdate: &apps.RollingUpdateDeployment{
+			MaxUnavailable: &intstr.IntOrString{IntVal: 10},
+			MaxSurge:       &intstr.IntOrString{IntVal: 20},
+		},
+	})
+}
+
+func (s *K8sBrokerSuite) TestUpdateStrategyForStatefulSet(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	_, err := provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{})
+	c.Assert(err, gc.ErrorMatches, `strategy type "" for statefulset not valid`)
+
+	_, err = provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
+		Type: "RollingUpdate",
+	})
+	c.Assert(err, gc.ErrorMatches, `rolling update spec is required`)
+
+	_, err = provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
+		Type:          "RollingUpdate",
+		RollingUpdate: &specs.RollingUpdateSpec{},
+	})
+	c.Assert(err, gc.ErrorMatches, `rolling update spec partition is missing`)
+
+	_, err = provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
+		Type: "RollingUpdate",
+		RollingUpdate: &specs.RollingUpdateSpec{
+			Partition: int32Ptr(10),
+			MaxSurge:  &specs.IntOrString{IntVal: 10},
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `rolling update spec for statefulset not valid`)
+
+	_, err = provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
+		Type: "RollingUpdate",
+		RollingUpdate: &specs.RollingUpdateSpec{
+			Partition:      int32Ptr(10),
+			MaxUnavailable: &specs.IntOrString{IntVal: 10},
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `rolling update spec for statefulset not valid`)
+
+	o, err := provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
+		Type: "OnDelete",
+		RollingUpdate: &specs.RollingUpdateSpec{
+			Partition: int32Ptr(10),
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(o, jc.DeepEquals, apps.StatefulSetUpdateStrategy{
+		Type: apps.OnDeleteStatefulSetStrategyType,
+		RollingUpdate: &apps.RollingUpdateStatefulSetStrategy{
+			Partition: int32Ptr(10),
+		},
+	})
+
+	o, err = provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
+		Type: "RollingUpdate",
+		RollingUpdate: &specs.RollingUpdateSpec{
+			Partition: int32Ptr(10),
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(o, jc.DeepEquals, apps.StatefulSetUpdateStrategy{
+		Type: apps.RollingUpdateStatefulSetStrategyType,
+		RollingUpdate: &apps.RollingUpdateStatefulSetStrategy{
+			Partition: int32Ptr(10),
+		},
+	})
 }
 
 func initContainers() []core.Container {

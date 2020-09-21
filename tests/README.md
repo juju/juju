@@ -44,6 +44,12 @@ echo "failed" | grep -q "passes"   # fails
 
 ## Getting started
 
+Before running tests, you'll need to install `shellcheck`:
+
+```sh
+sudo snap install shellcheck
+```
+
 To get started, it's best to quickly look at the help command from the runner.
 
 ```sh

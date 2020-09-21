@@ -1,6 +1,6 @@
 services:
     wordpress-extra-bindings:
-        charm: wordpress-extra-bindings
+        charm: cs:wordpress-extra-bindings
         num_units: 1
         bindings:
             db: db
@@ -8,7 +8,7 @@ services:
             admin-api: public
             db-client: db
     mysql:
-        charm: mysql
+        charm: cs:mysql
         num_units: 1
         bindings:
             server: db

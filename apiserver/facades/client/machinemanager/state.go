@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
@@ -43,6 +44,7 @@ type Model interface {
 }
 
 type Machine interface {
+	Id() string
 	Destroy() error
 	ForceDestroy(time.Duration) error
 	Series() string
@@ -56,6 +58,8 @@ type Machine interface {
 	WatchUpgradeSeriesNotifications() (state.NotifyWatcher, error)
 	GetUpgradeSeriesMessages() ([]string, bool, error)
 	IsManager() bool
+	IsLockedForSeriesUpgrade() (bool, error)
+	UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error)
 }
 
 type stateShim struct {

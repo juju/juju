@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
@@ -52,6 +53,7 @@ type client struct {
 	pipGetter               func() (io.Reader, io.WriteCloser)
 
 	podGetter typedcorev1.PodInterface
+	clock     jujuclock.Clock
 }
 
 // Executor provides the API to exec or cp on a pod inside the cluster.
@@ -125,6 +127,7 @@ func New(namespace string, clientset kubernetes.Interface, config *rest.Config) 
 		config,
 		remotecommand.NewSPDYExecutor,
 		func() (io.Reader, io.WriteCloser) { return io.Pipe() },
+		jujuclock.WallClock,
 	)
 }
 
@@ -134,6 +137,7 @@ func newClient(
 	config *rest.Config,
 	remoteCMDNewer func(config *rest.Config, method string, url *url.URL) (remotecommand.Executor, error),
 	pipGetter func() (io.Reader, io.WriteCloser),
+	clock jujuclock.Clock,
 ) Executor {
 	return &client{
 		namespace: namespace,
@@ -143,6 +147,7 @@ func newClient(
 		},
 		podGetter: clientset.CoreV1().Pods(namespace),
 		pipGetter: pipGetter,
+		clock:     clock,
 	}
 }
 
@@ -331,7 +336,7 @@ func (c client) exec(opts ExecParams, cancel <-chan struct{}) (err error) {
 				return errors.Annotatef(err, "send signal %d failed", syscall.SIGTERM)
 			}
 			// Trigger SIGKILL
-			timer = time.After(gracefulKillDelay)
+			timer = c.clock.After(gracefulKillDelay)
 		case <-kill:
 			killTries++
 			if killTries > maxTries {
@@ -342,7 +347,7 @@ func (c client) exec(opts ExecParams, cancel <-chan struct{}) (err error) {
 				return errors.Annotatef(err, "send signal %d failed", syscall.SIGKILL)
 			}
 			// Retry SIGKILL.
-			timer = time.After(sigkillRetryDelay)
+			timer = c.clock.After(sigkillRetryDelay)
 		case <-timer:
 			timer = nil
 			// Trigger SIGKILL

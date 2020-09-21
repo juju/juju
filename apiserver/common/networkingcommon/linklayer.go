@@ -23,6 +23,9 @@ type LinkLayerDevice interface {
 	// ProviderID returns the provider-specific identifier for this device.
 	ProviderID() network.Id
 
+	// Type returns the device's type.
+	Type() network.LinkLayerDeviceType
+
 	// SetProviderIDOps returns the operations required to set the input
 	// provider ID for the link-layer device.
 	SetProviderIDOps(id network.Id) ([]txn.Op, error)
@@ -146,8 +149,8 @@ type MachineLinkLayerOp struct {
 	// incoming is the network interface information supplied for update.
 	incoming network.InterfaceInfos
 
-	// processedDevs is the set of hardware IDs that we have
-	// processed from the incoming interfaces.
+	// processedDevs is the set of name and hardware ID combinations
+	// that we have processed from the incoming interfaces.
 	processedDevs set.Strings
 
 	// processedAddrs is the set of IP addresses that we have processed,
@@ -163,14 +166,19 @@ type MachineLinkLayerOp struct {
 // NewMachineLinkLayerOp returns a reference that can be embedded in a model
 // operation for updating the input machine's link layer data.
 func NewMachineLinkLayerOp(machine LinkLayerMachine, incoming network.InterfaceInfos) *MachineLinkLayerOp {
-	logger.Debugf("processing link-layer devices for machine %q", machine.Id())
+	logger.Infof("processing link-layer devices for machine %q", machine.Id())
 
 	return &MachineLinkLayerOp{
-		machine:        machine,
-		incoming:       incoming,
-		processedDevs:  set.NewStrings(),
-		processedAddrs: make(map[string]set.Strings),
+		machine:  machine,
+		incoming: incoming,
 	}
+}
+
+// ClearProcessed ensures that any record of processed devices and addresses is
+// effectively zeroed. This should be called before each transaction attempt.
+func (o *MachineLinkLayerOp) ClearProcessed() {
+	o.processedDevs = set.NewStrings()
+	o.processedAddrs = make(map[string]set.Strings)
 }
 
 // Incoming is a property accessor for the link-layer data we are processing.
@@ -206,24 +214,24 @@ func (o *MachineLinkLayerOp) PopulateExistingAddresses() error {
 	return errors.Trace(err)
 }
 
-// MatchingIncoming returns the first incoming interface that
-// matches the input known device, based on hardware address.
+// MatchingIncoming returns the first incoming interface
+// that matches the input known device based on name.
 // Nil is returned if there is no match.
 func (o *MachineLinkLayerOp) MatchingIncoming(dev LinkLayerDevice) *network.InterfaceInfo {
-	if matches := o.incoming.GetByHardwareAddress(dev.MACAddress()); len(matches) > 0 {
+	if matches := o.incoming.GetByName(dev.Name()); len(matches) > 0 {
 		return &matches[0]
 	}
 	return nil
 }
 
 // MatchingIncomingAddrs finds all the primary addresses on devices matching
-// the input hardware address, and returns them as state args.
+// the input name, and returns them as state args.
 // TODO (manadart 2020-07-15): We should investigate making an enhanced
 // core/network address type instead of this state type.
 // It would embed ProviderAddress and could be obtained directly via a method
 // or property of InterfaceInfos.
-func (o *MachineLinkLayerOp) MatchingIncomingAddrs(hwAddress string) []state.LinkLayerDeviceAddress {
-	return networkAddressStateArgsForHWAddr(o.Incoming(), hwAddress)
+func (o *MachineLinkLayerOp) MatchingIncomingAddrs(name string) []state.LinkLayerDeviceAddress {
+	return networkAddressStateArgsForDevice(o.Incoming(), name)
 }
 
 // DeviceAddresses returns all currently known
@@ -244,34 +252,34 @@ func (o *MachineLinkLayerOp) AssertAliveOp() txn.Op {
 	return o.machine.AssertAliveOp()
 }
 
-// MarkDevProcessed indicates that the input hardware address was present in
-// the incoming data and its updates have been handled by the build step.
-func (o *MachineLinkLayerOp) MarkDevProcessed(hwAddr string) {
-	o.processedDevs.Add(hwAddr)
+// MarkDevProcessed indicates that the input device name was present in the
+// incoming data and its updates have been handled by the build step.
+func (o *MachineLinkLayerOp) MarkDevProcessed(name string) {
+	o.processedDevs.Add(name)
 }
 
 // IsDevProcessed returns a boolean indicating whether the input incoming
 // device matches a known device that was marked as processed by the method
 // above.
 func (o *MachineLinkLayerOp) IsDevProcessed(dev network.InterfaceInfo) bool {
-	return o.processedDevs.Contains(dev.MACAddress)
+	return o.processedDevs.Contains(dev.InterfaceName)
 }
 
 // MarkAddrProcessed indicates that the input (known) IP address was present in
 // the incoming data for the device with input hardware address.
-func (o *MachineLinkLayerOp) MarkAddrProcessed(hwAddr, ipAddr string) {
-	if _, ok := o.processedAddrs[hwAddr]; !ok {
-		o.processedAddrs[hwAddr] = set.NewStrings(ipAddr)
+func (o *MachineLinkLayerOp) MarkAddrProcessed(name, ipAddr string) {
+	if _, ok := o.processedAddrs[name]; !ok {
+		o.processedAddrs[name] = set.NewStrings(ipAddr)
 	} else {
-		o.processedAddrs[hwAddr].Add(ipAddr)
+		o.processedAddrs[name].Add(ipAddr)
 	}
 }
 
 // IsAddrProcessed returns a boolean indicating whether the input incoming
 // device/address pair matches an entry that was marked as processed by the
 // method above.
-func (o *MachineLinkLayerOp) IsAddrProcessed(hwAddr, ipAddr string) bool {
-	if addrs, ok := o.processedAddrs[hwAddr]; ok {
+func (o *MachineLinkLayerOp) IsAddrProcessed(name, ipAddr string) bool {
+	if addrs, ok := o.processedAddrs[name]; ok {
 		return addrs.Contains(ipAddr)
 	}
 	return false

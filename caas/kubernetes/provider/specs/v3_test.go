@@ -166,9 +166,14 @@ configMaps:
     foo: bar
     hello: world
 service:
-  scalePolicy: serial
   annotations:
     foo: bar
+  scalePolicy: serial
+  updateStrategy:
+    type: Recreate
+    rollingUpdate:
+      maxUnavailable: 10%
+      maxSurge: 25%
 serviceAccount:
   automountServiceAccountToken: true
   roles:
@@ -224,6 +229,8 @@ kubernetesResources:
               resources: ["pods"]
               verbs: ["get", "watch", "list"]
   pod:
+    annotations:
+      foo: baz
     restartPolicy: OnFailure
     activeDeadlineSeconds: 10
     terminationGracePeriodSeconds: 20
@@ -235,6 +242,8 @@ kubernetesResources:
     dnsPolicy: ClusterFirstWithHostNet
     hostNetwork: true
     hostPID: true
+    priorityClassName: system-cluster-critical
+    priority: 2000000000
   secrets:
     - name: build-robot-secret
       type: Opaque
@@ -419,8 +428,15 @@ foo: bar
 	getExpectedPodSpecBase := func() *specs.PodSpec {
 		pSpecs := &specs.PodSpec{ServiceAccount: sa1}
 		pSpecs.Service = &specs.ServiceSpec{
-			ScalePolicy: "serial",
 			Annotations: map[string]string{"foo": "bar"},
+			ScalePolicy: "serial",
+			UpdateStrategy: &specs.UpdateStrategy{
+				Type: "Recreate",
+				RollingUpdate: &specs.RollingUpdateSpec{
+					MaxUnavailable: &specs.IntOrString{Type: specs.String, StrVal: "10%"},
+					MaxSurge:       &specs.IntOrString{Type: specs.String, StrVal: "25%"},
+				},
+			},
 		}
 		pSpecs.ConfigMaps = map[string]specs.ConfigMap{
 			"mydata": {
@@ -787,6 +803,7 @@ echo "do some stuff here for gitlab-init container"
 				},
 				K8sRBACResources: rbacResources,
 				Pod: &k8sspecs.PodSpec{
+					Annotations:                   map[string]string{"foo": "baz"},
 					ActiveDeadlineSeconds:         int64Ptr(10),
 					RestartPolicy:                 core.RestartPolicyOnFailure,
 					TerminationGracePeriodSeconds: int64Ptr(20),
@@ -797,9 +814,11 @@ echo "do some stuff here for gitlab-init container"
 					ReadinessGates: []core.PodReadinessGate{
 						{ConditionType: core.PodScheduled},
 					},
-					DNSPolicy:   "ClusterFirstWithHostNet",
-					HostNetwork: true,
-					HostPID:     true,
+					DNSPolicy:         "ClusterFirstWithHostNet",
+					HostNetwork:       true,
+					HostPID:           true,
+					PriorityClassName: "system-cluster-critical",
+					Priority:          int32Ptr(2000000000),
 				},
 				Secrets: []k8sspecs.K8sSecret{
 					{

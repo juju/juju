@@ -126,6 +126,7 @@ type FindActionsByNames struct {
 type OperationQueryArgs struct {
 	Applications []string `json:"applications,omitempty"`
 	Units        []string `json:"units,omitempty"`
+	Machines     []string `json:"machines,omitempty"`
 	ActionNames  []string `json:"actions,omitempty"`
 	Status       []string `json:"status,omitempty"`
 

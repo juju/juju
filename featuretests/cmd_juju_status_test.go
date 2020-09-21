@@ -165,10 +165,10 @@ func (s *StatusSuite) TestStatusWhenFilteringByMachine(c *gc.C) {
 
 	context := s.run(c, "status")
 	c.Assert(cmdtesting.Stdout(context), jc.Contains, `
-App        Version  Status   Scale  Charm      Store       Rev  OS      Notes
-another             waiting    0/1  mysql      jujucharms    5  ubuntu  
-mysql               waiting    0/1  mysql      jujucharms    1  ubuntu  
-wordpress           waiting    0/1  wordpress  jujucharms    3  ubuntu  
+App        Version  Status   Scale  Charm      Store       Rev  OS      Message
+another             waiting    0/1  mysql      jujucharms    5  ubuntu  waiting for machine
+mysql               waiting    0/1  mysql      jujucharms    1  ubuntu  waiting for machine
+wordpress           waiting    0/1  wordpress  jujucharms    3  ubuntu  waiting for machine
 
 Unit         Workload  Agent       Machine  Public address  Ports  Message
 another/0    waiting   allocating  1                               waiting for machine
@@ -182,9 +182,9 @@ Machine  State    DNS  Inst id  Series   AZ  Message
 
 	context = s.run(c, "status", "0")
 	c.Assert(cmdtesting.Stdout(context), jc.Contains, `
-App        Version  Status   Scale  Charm      Store       Rev  OS      Notes
-mysql               waiting    0/1  mysql      jujucharms    1  ubuntu  
-wordpress           waiting    0/1  wordpress  jujucharms    3  ubuntu  
+App        Version  Status   Scale  Charm      Store       Rev  OS      Message
+mysql               waiting    0/1  mysql      jujucharms    1  ubuntu  waiting for machine
+wordpress           waiting    0/1  wordpress  jujucharms    3  ubuntu  waiting for machine
 
 Unit         Workload  Agent       Machine  Public address  Ports  Message
 mysql/0      waiting   allocating  0                               waiting for machine

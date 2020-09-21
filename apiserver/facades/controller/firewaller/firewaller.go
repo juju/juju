@@ -236,129 +236,6 @@ func (f *FirewallerAPIV3) watchOneModelOpenedPorts(tag names.Tag) (string, []str
 	return "", nil, watcher.EnsureErr(watch)
 }
 
-// GetMachinePorts returns the port ranges opened on a machine across all
-// subnets as a map mapping port ranges to the tags of the units that opened
-// them.
-func (f *FirewallerAPIV3) GetMachinePorts(args params.MachinePortsParams) (params.MachinePortsResults, error) {
-	result := params.MachinePortsResults{
-		Results: make([]params.MachinePortsResult, len(args.Params)),
-	}
-	canAccess, err := f.accessMachine()
-	if err != nil {
-		return params.MachinePortsResults{}, err
-	}
-	for i, param := range args.Params {
-		machineTag, err := names.ParseMachineTag(param.MachineTag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		// Pre 2.9 controllers always open ports in all subnets. The
-		// per-subnet functionality was implemented by the controller
-		// but never exposed via the API. As such, we can change this
-		// method so that always returns *all* open port ranges and
-		// simply return an error if a subnet is provided
-		if param.SubnetTag != "" {
-			if _, err = names.ParseSubnetTag(param.SubnetTag); err == nil {
-				err = errors.NotSupportedf("retrieving machine ports for specific subnets")
-			}
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		machine, err := f.getMachine(canAccess, machineTag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		machPortRanges, err := machine.OpenedPortRanges()
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		// Emulate old behavior and return opened ports for all endpoints.
-		var rangeList []params.MachinePortRange
-		for unitName, unitPortRanges := range machPortRanges.ByUnit() {
-			unitTag := names.NewUnitTag(unitName).String()
-			for _, pr := range unitPortRanges.UniquePortRanges() {
-				rangeList = append(rangeList, params.MachinePortRange{
-					UnitTag:   unitTag,
-					PortRange: params.FromNetworkPortRange(pr),
-				})
-			}
-		}
-
-		sort.Slice(rangeList, func(i, j int) bool {
-			return rangeList[i].PortRange.NetworkPortRange().LessThan(
-				rangeList[j].PortRange.NetworkPortRange(),
-			)
-		})
-		result.Results[i].Ports = rangeList
-	}
-	return result, nil
-}
-
-// GetMachineActiveSubnets returns the tags of the all subnets that each machine
-// (in args) has open ports on.
-func (f *FirewallerAPIV3) GetMachineActiveSubnets(args params.Entities) (params.StringsResults, error) {
-	result := params.StringsResults{
-		Results: make([]params.StringsResult, len(args.Entities)),
-	}
-	canAccess, err := f.accessMachine()
-	if err != nil {
-		return params.StringsResults{}, err
-	}
-	for i, entity := range args.Entities {
-		machineTag, err := names.ParseMachineTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		machine, err := f.getMachine(canAccess, machineTag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		// Pre 2.9 controllers always open ports in all subnets. If
-		// at least one port range is open, return the wildcard subnet
-		machPorts, err := machine.OpenedPortRanges()
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		if len(machPorts.UniquePortRanges()) != 0 {
-			result.Results[i].Result = append(result.Results[i].Result, "")
-		}
-	}
-	return result, nil
-}
-
-// GetExposed returns the exposed flag value for each given application.
-func (f *FirewallerAPIV3) GetExposed(args params.Entities) (params.BoolResults, error) {
-	result := params.BoolResults{
-		Results: make([]params.BoolResult, len(args.Entities)),
-	}
-	canAccess, err := f.accessApplication()
-	if err != nil {
-		return params.BoolResults{}, err
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseApplicationTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		application, err := f.getApplication(canAccess, tag)
-		if err == nil {
-			result.Results[i].Result = application.IsExposed()
-		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return result, nil
-}
-
 // GetAssignedMachine returns the assigned machine tag (if any) for
 // each given unit.
 func (f *FirewallerAPIV3) GetAssignedMachine(args params.Entities) (params.StringResults, error) {
@@ -586,8 +463,9 @@ func (f *FirewallerAPIV5) AreManuallyProvisioned(args params.Entities) (params.B
 }
 
 // OpenedMachinePortRanges returns a list of the opened port ranges for the
-// specified machines where each result is broken down by unit and by subnet
-// CIDR.
+// specified machines where each result is broken down by unit. The list of
+// opened ports for each unit is further grouped by endpoint name and includes
+// the subnet CIDRs that belong to the space that each endpoint is bound to.
 func (f *FirewallerAPIV6) OpenedMachinePortRanges(args params.Entities) (params.OpenMachinePortRangesResults, error) {
 	result := params.OpenMachinePortRangesResults{
 		Results: make([]params.OpenMachinePortRangesResult, len(args.Entities)),
@@ -616,13 +494,12 @@ func (f *FirewallerAPIV6) OpenedMachinePortRanges(args params.Entities) (params.
 			continue
 
 		}
-		result.Results[i].GroupKey = "cidr"
 		result.Results[i].UnitPortRanges = unitPortRanges
 	}
 	return result, nil
 }
 
-func (f *FirewallerAPIV6) openedPortRangesForOneMachine(machine firewall.Machine) ([]params.OpenUnitPortRanges, error) {
+func (f *FirewallerAPIV6) openedPortRangesForOneMachine(machine firewall.Machine) (map[string][]params.OpenUnitPortRanges, error) {
 	machPortRanges, err := machine.OpenedPortRanges()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -656,81 +533,193 @@ func (f *FirewallerAPIV6) openedPortRangesForOneMachine(machine firewall.Machine
 
 	// Map the port ranges for each unit to one or more subnet CIDRs
 	// depending on the endpoints they apply to.
-	var res []params.OpenUnitPortRanges
+	res := make(map[string][]params.OpenUnitPortRanges)
 	for unitName, unitPortRanges := range portRangesByUnit {
 		// Already checked for validity; error can be ignored
 		appName, _ := names.UnitApplication(unitName)
 		appBindings := allAppBindings[appName]
 
-		unitRes := params.OpenUnitPortRanges{
-			UnitTag:         names.NewUnitTag(unitName).String(),
-			PortRangeGroups: make(map[string][]params.PortRange),
-		}
-
-		portRangesByCIDR := mapUnitPortsToSubnetCIDRs(unitPortRanges.ByEndpoint(), appBindings, subnetCIDRsBySpaceID)
-		for cidr, portRanges := range portRangesByCIDR {
-			mappedPorts := make([]params.PortRange, len(portRanges))
-			for i, pr := range portRanges {
-				mappedPorts[i] = params.FromNetworkPortRange(pr)
-			}
-			unitRes.PortRangeGroups[cidr] = mappedPorts
-		}
-
-		res = append(res, unitRes)
+		unitTag := names.NewUnitTag(unitName).String()
+		res[unitTag] = mapUnitPortsAndResolveSubnetCIDRs(unitPortRanges.ByEndpoint(), appBindings, subnetCIDRsBySpaceID)
 	}
-
-	// Sort by unit tag so we return consistent results
-	sort.Slice(res, func(i, j int) bool {
-		return res[i].UnitTag < res[j].UnitTag
-	})
 
 	return res, nil
 }
 
-// mapUnitPortsToSubnetCIDRs maps the list of opened unit port ranges
-// grouped by endpoint into a list of port ranges grouped by subnet CIDR.
+// mapUnitPortsAndResolveSubnetCIDRs maps the provided list of opened port
+// ranges by endpoint to a params.OpenUnitPortRanges result list. Each entry in
+// the result list also contains the subnet CIDRs that correspond to each
+// endpoint.
 //
-// To facilitate this conversion, the function consults the application
-// endpoint bindings for the unit in conjunction with the provided subnetCIDRs
-// by spaceID map. Using this information, each endpoint from the incoming
-// port range grouping is resolved to a space ID and the space ID is in turn
+// To resolve the subnet CIDRs, the function consults the application endpoint
+// bindings for the unit in conjunction with the provided subnetCIDRs by
+// spaceID map. Using this information, each endpoint from the incoming port
+// range grouping is resolved to a space ID and the space ID is in turn
 // resolved into a list of subnet CIDRs (the wildcard endpoint is treated as
 // *all known* endpoints for this conversion step).
-//
-// After the above step, all opened port ranges are then grouped by subnet CIDR,
-// de-dupped and sorted before they are returned to the caller.
-func mapUnitPortsToSubnetCIDRs(portRangesByEndpoint network.GroupedPortRanges, endpointBindings map[string]string, subnetCIDRsBySpaceID map[string][]string) network.GroupedPortRanges {
-	portRangesByCIDR := make(network.GroupedPortRanges)
+func mapUnitPortsAndResolveSubnetCIDRs(portRangesByEndpoint network.GroupedPortRanges, endpointBindings map[string]string, subnetCIDRsBySpaceID map[string][]string) []params.OpenUnitPortRanges {
+	var entries []params.OpenUnitPortRanges
 
 	for endpointName, portRanges := range portRangesByEndpoint {
+		entry := params.OpenUnitPortRanges{
+			Endpoint:   endpointName,
+			PortRanges: make([]params.PortRange, len(portRanges)),
+		}
+
 		// These port ranges target an explicit endpoint; just iterate
 		// the subnets that correspond to the space it is bound to and
-		// append the port ranges.
+		// append their CIDRs.
 		if endpointName != "" {
-			for _, cidr := range subnetCIDRsBySpaceID[endpointBindings[endpointName]] {
-				portRangesByCIDR[cidr] = append(portRangesByCIDR[cidr], portRanges...)
+			entry.SubnetCIDRs = subnetCIDRsBySpaceID[endpointBindings[endpointName]]
+			sort.Strings(entry.SubnetCIDRs)
+		} else {
+			// The wildcard endpoint expands to all known endpoints.
+			for boundEndpoint, spaceID := range endpointBindings {
+				if boundEndpoint == "" { // ignore default endpoint entry in the set of app bindings
+					continue
+				}
+				entry.SubnetCIDRs = append(entry.SubnetCIDRs, subnetCIDRsBySpaceID[spaceID]...)
 			}
+
+			// Ensure that any duplicate CIDRs are removed.
+			entry.SubnetCIDRs = set.NewStrings(entry.SubnetCIDRs...).SortedValues()
+		}
+
+		// Finally, map the port ranges to params.PortRange and
+		network.SortPortRanges(portRanges)
+		for i, pr := range portRanges {
+			entry.PortRanges[i] = params.FromNetworkPortRange(pr)
+		}
+
+		entries = append(entries, entry)
+	}
+
+	// Ensure results are sorted by endpoint name to be consistent.
+	sort.Slice(entries, func(a, b int) bool {
+		return entries[a].Endpoint < entries[b].Endpoint
+	})
+
+	return entries
+}
+
+// GetExposeInfo returns the expose flag and per-endpoint expose settings
+// for the specified applications.
+func (f *FirewallerAPIV6) GetExposeInfo(args params.Entities) (params.ExposeInfoResults, error) {
+	canAccess, err := f.accessApplication()
+	if err != nil {
+		return params.ExposeInfoResults{}, err
+	}
+
+	result := params.ExposeInfoResults{
+		Results: make([]params.ExposeInfoResult, len(args.Entities)),
+	}
+
+	for i, entity := range args.Entities {
+		tag, err := names.ParseApplicationTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		application, err := f.getApplication(canAccess, tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
-		// The wildcard endpoint expands to all known endpoints.
-		for boundEndpoint, spaceID := range endpointBindings {
-			if boundEndpoint == "" { // skip default endpoint entry
-				continue
+		if !application.IsExposed() {
+			continue
+		}
+
+		result.Results[i].Exposed = true
+		if exposedEndpoints := application.ExposedEndpoints(); len(exposedEndpoints) != 0 {
+			mappedEndpoints := make(map[string]params.ExposedEndpoint)
+			for endpoint, exposeDetails := range exposedEndpoints {
+				mappedEndpoints[endpoint] = params.ExposedEndpoint{
+					ExposeToSpaces: exposeDetails.ExposeToSpaceIDs,
+					ExposeToCIDRs:  exposeDetails.ExposeToCIDRs,
+				}
 			}
-			for _, cidr := range subnetCIDRsBySpaceID[spaceID] {
-				portRangesByCIDR[cidr] = append(portRangesByCIDR[cidr], portRanges...)
+			result.Results[i].ExposedEndpoints = mappedEndpoints
+		}
+	}
+	return result, nil
+}
+
+// SpaceInfos returns a comprehensive representation of either all spaces or
+// a filtered subset of the known spaces and their associated subnet details.
+func (f *FirewallerAPIV6) SpaceInfos(args params.SpaceInfosParams) (params.SpaceInfos, error) {
+	if !f.authorizer.AuthController() {
+		return params.SpaceInfos{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
+	}
+
+	allSpaceInfos, err := f.getSpaceInfos()
+	if err != nil {
+		return params.SpaceInfos{}, apiservererrors.ServerError(err)
+	}
+
+	// Apply filtering if required
+	if len(args.FilterBySpaceIDs) != 0 {
+		var (
+			filteredList network.SpaceInfos
+			selectList   = set.NewStrings(args.FilterBySpaceIDs...)
+		)
+		for _, si := range allSpaceInfos {
+			if selectList.Contains(si.ID) {
+				filteredList = append(filteredList, si)
 			}
+		}
+
+		allSpaceInfos = filteredList
+	}
+
+	return params.FromNetworkSpaceInfos(allSpaceInfos), nil
+}
+
+// WatchSubnets returns a new StringsWatcher that watches the specified
+// subnet tags or all tags if no entities are specified.
+func (f *FirewallerAPIV6) WatchSubnets(args params.Entities) (params.StringsWatchResult, error) {
+	if !f.authorizer.AuthController() {
+		return params.StringsWatchResult{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
+	}
+
+	var (
+		filterFn  func(id interface{}) bool
+		filterSet set.Strings
+		result    = params.StringsWatchResult{}
+	)
+
+	if len(args.Entities) != 0 {
+		filterSet = set.NewStrings()
+		for _, arg := range args.Entities {
+			subnetTag, err := names.ParseSubnetTag(arg.Tag)
+			if err != nil {
+				return params.StringsWatchResult{}, apiservererrors.ServerError(err)
+			}
+
+			filterSet.Add(subnetTag.Id())
+		}
+
+		filterFn = func(id interface{}) bool {
+			return filterSet.Contains(id.(string))
 		}
 	}
 
-	// Make a final pass to remove duplicates (e.g same range opened for
-	// two endpoints that are both bound to the same space).
-	for cidr, portRanges := range portRangesByCIDR {
-		uniquePortRanges := network.UniquePortRanges(portRanges)
-		network.SortPortRanges(uniquePortRanges)
-		portRangesByCIDR[cidr] = uniquePortRanges
+	watcherId, initial, err := f.watchModelSubnets(filterFn)
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result, nil
 	}
+	result.StringsWatcherId = watcherId
+	result.Changes = initial
+	return result, nil
+}
 
-	return portRangesByCIDR
+func (f *FirewallerAPIV6) watchModelSubnets(filterFn func(interface{}) bool) (string, []string, error) {
+	watch := f.st.WatchSubnets(filterFn)
+
+	// Consume the initial event and forward it to the result.
+	if changes, ok := <-watch.Changes(); ok {
+		return f.resources.Register(watch), changes, nil
+	}
+	return "", nil, watcher.EnsureErr(watch)
 }

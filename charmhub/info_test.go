@@ -37,7 +37,7 @@ func (s *InfoSuite) TestInfo(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectGet(c, restClient, path, name)
 
-	client := NewInfoClient(path, restClient)
+	client := NewInfoClient(path, restClient, &FakeLogger{})
 	response, err := client.Info(context.TODO(), name)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response.Name, gc.Equals, name)
@@ -55,7 +55,24 @@ func (s *InfoSuite) TestInfoFailure(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectGetFailure(c, restClient)
 
-	client := NewInfoClient(path, restClient)
+	client := NewInfoClient(path, restClient, &FakeLogger{})
+	_, err := client.Info(context.TODO(), name)
+	c.Assert(err, gc.Not(jc.ErrorIsNil))
+}
+
+func (s *InfoSuite) TestInfoError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	baseURL := MustParseURL(c, "http://api.foo.bar")
+
+	path := path.MakePath(baseURL)
+	name := "meshuggah"
+
+	restClient := NewMockRESTClient(ctrl)
+	s.expectGetError(c, restClient, path, name)
+
+	client := NewInfoClient(path, restClient, &FakeLogger{})
 	_, err := client.Info(context.TODO(), name)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
@@ -71,6 +88,17 @@ func (s *InfoSuite) expectGet(c *gc.C, client *MockRESTClient, p path.Path, name
 
 func (s *InfoSuite) expectGetFailure(c *gc.C, client *MockRESTClient) {
 	client.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.Errorf("boom"))
+}
+
+func (s *InfoSuite) expectGetError(c *gc.C, client *MockRESTClient, p path.Path, name string) {
+	namedPath, err := p.Join(name)
+	c.Assert(err, jc.ErrorIsNil)
+
+	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).Do(func(_ context.Context, _ path.Path, response *transport.InfoResponse) {
+		response.ErrorList = []transport.APIError{{
+			Message: "not found",
+		}}
+	}).Return(nil)
 }
 
 func (s *InfoSuite) TestInfoRequestPayload(c *gc.C) {
@@ -184,9 +212,9 @@ func (s *InfoSuite) TestInfoRequestPayload(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	apiRequester := NewAPIRequester(DefaultHTTPTransport())
-	restClient := NewHTTPRESTClient(apiRequester, nil)
+	restClient := NewHTTPRESTClient(apiRequester, nil, &FakeLogger{})
 
-	client := NewInfoClient(infoPath, restClient)
+	client := NewInfoClient(infoPath, restClient, &FakeLogger{})
 	response, err := client.Info(context.TODO(), "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response, gc.DeepEquals, infoResponse)

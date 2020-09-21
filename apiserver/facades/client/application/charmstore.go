@@ -6,9 +6,7 @@ package application
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/url"
-	"os"
 	"strings"
 
 	"github.com/juju/charm/v8"
@@ -24,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/controller"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -31,12 +30,6 @@ import (
 	"github.com/juju/juju/state/storage"
 	jujuversion "github.com/juju/juju/version"
 )
-
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/storage_mock.go github.com/juju/juju/state/storage Storage
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/interface_mock.go github.com/juju/charmrepo/v6 Interface
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/charm_mock.go github.com/juju/juju/apiserver/facades/client/application StateCharm
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/model_mock.go github.com/juju/juju/apiserver/facades/client/application StateModel
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/charmstore_mock.go github.com/juju/juju/apiserver/facades/client/application State
 
 // TODO - we really want to avoid this, which we can do by refactoring code requiring this
 // to use interfaces.
@@ -79,6 +72,25 @@ type State interface {
 	state.MongoSessioner
 }
 
+// Repository represents the necessary methods to resolve and download
+// charms from a repository where they reside.
+type Repository interface {
+	// FindDownloadURL returns a url from which a charm can be downloaded
+	// based on the given charm url and charm origin.  A charm origin
+	// updated with the ID and hash for the download is also returned.
+	FindDownloadURL(curl *charm.URL, origin corecharm.Origin) (*url.URL, corecharm.Origin, error)
+
+	// DownloadCharm reads the charm referenced by curl or downloadURL into
+	// a file with the given path, which will be created if needed. Note
+	// that the path's parent directory must already exist.
+	DownloadCharm(resourceURL string, archivePath string) (*charm.CharmArchive, error)
+
+	// Resolve a canonical URL for retrieving the charm includes the most
+	// current revision, if none was provided and a slice  of series supported
+	// by this charm.
+	Resolve(ref *charm.URL) (canonRef *charm.URL, supportedSeries []string, err error)
+}
+
 // AddCharmWithAuthorizationAndRepo adds the given charm URL (which must include
 // revision) to the environment, if it does not exist yet.
 // Local charms are not supported, only charm store URLs.
@@ -89,88 +101,48 @@ type State interface {
 //
 // The authorization macaroon, args.CharmStoreMacaroon, may be
 // omitted, in which case this call is equivalent to AddCharm.
-func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthorization, repoFn func() (charmrepo.Interface, error)) error {
-	charmURL, err := charm.ParseURL(args.URL)
-	if err != nil {
-		return err
-	}
-	if !charm.CharmStore.Matches(charmURL.Schema) {
-		return fmt.Errorf("only charm store charm URLs are supported, with cs: schema")
-	}
-	if charmURL.Revision < 0 {
-		return fmt.Errorf("charm URL must include revision")
-	}
-
-	// First, check if a pending or a real charm exists in state.
-	stateCharm, err := st.PrepareCharmUpload(charmURL)
-	if err != nil {
-		return err
-	}
-	if stateCharm.IsUploaded() {
-		// Charm already in state (it was uploaded already).
-		return nil
-	}
-
+func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthorization, repoFn func() (Repository, error)) error {
 	// Get the repo from the constructor
 	repo, err := repoFn()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// Get the charm and its information from the store.
-	f, err := ioutil.TempFile("", charmURL.Name)
+	// TODO (stickupkid): This should be abstracted out in the future to
+	// accommodate the charmhub adapter.
+	strategy, err := corecharm.DownloadFromCharmStore(repo, args.URL, args.Force)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer f.Close()
-	downloadedCharm, err := repo.Get(charmURL, f.Name())
-	if err != nil {
-		cause := errors.Cause(err)
-		if httpbakery.IsDischargeError(cause) || httpbakery.IsInteractionError(cause) {
-			return errors.NewUnauthorized(err, "")
-		}
+
+	// Validate the strategy before running the download procedure.
+	if err := strategy.Validate(); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := jujuversion.CheckJujuMinVersion(downloadedCharm.Meta().MinJujuVersion, jujuversion.Current); err != nil {
+	defer func() {
+		// Ensure we sign up any required clean ups.
+		_ = strategy.Finish()
+	}()
+
+	// Run the strategy.
+	result, alreadyExists, _, err := strategy.Run(makeCharmStateShim(st), versionValidator{}, corecharm.Origin{})
+	if err != nil {
 		return errors.Trace(err)
-	}
-
-	// Validate the charm lxd profile once we've downloaded it.
-	if err := lxdprofile.ValidateLXDProfile(lxdCharmArchiveProfiler{
-		CharmArchive: downloadedCharm,
-	}); err != nil {
-		if !args.Force {
-			return errors.Annotate(err, "cannot add charm")
-		}
-	}
-
-	// Clean up the downloaded charm - we don't need to cache it in
-	// the filesystem as well as in blob storage.
-	defer os.Remove(downloadedCharm.Path)
-
-	// Open it and calculate the SHA256 hash.
-	archive, err := os.Open(downloadedCharm.Path)
-	if err != nil {
-		return errors.Annotate(err, "cannot read downloaded charm")
-	}
-	defer archive.Close()
-	bundleSHA256, size, err := utils.ReadSHA256(archive)
-	if err != nil {
-		return errors.Annotate(err, "cannot calculate SHA256 hash of charm")
-	}
-	if _, err := archive.Seek(0, 0); err != nil {
-		return errors.Annotate(err, "cannot rewind charm archive")
+	} else if alreadyExists {
+		// Nothing to do here, as it already exists in state.
+		return nil
 	}
 
 	ca := CharmArchive{
-		ID:           charmURL,
-		Charm:        downloadedCharm,
-		Data:         archive,
-		Size:         size,
-		SHA256:       bundleSHA256,
-		CharmVersion: downloadedCharm.Version(),
+		ID:           strategy.CharmURL(),
+		Charm:        result.Charm,
+		Data:         result.Data,
+		Size:         result.Size,
+		SHA256:       result.SHA256,
+		CharmVersion: result.Charm.Version(),
 	}
+
 	if args.CharmStoreMacaroon != nil {
 		ca.Macaroon = macaroon.Slice{args.CharmStoreMacaroon}
 	}
@@ -179,14 +151,40 @@ func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthoriz
 	return StoreCharmArchive(st, ca)
 }
 
+type versionValidator struct{}
+
+func (versionValidator) Validate(meta *charm.Meta) error {
+	return jujuversion.CheckJujuMinVersion(meta.MinJujuVersion, jujuversion.Current)
+}
+
+type charmStateShim struct {
+	st State
+}
+
+func makeCharmStateShim(st State) charmStateShim {
+	return charmStateShim{
+		st: st,
+	}
+}
+
+func (s charmStateShim) PrepareCharmUpload(curl *charm.URL) (corecharm.StateCharm, error) {
+	return s.st.PrepareCharmUpload(curl)
+}
+
 // AddCharmWithAuthorization adds the given charm URL (which must include revision) to
 // the environment, if it does not exist yet. Local charms are not
 // supported, only charm store URLs. See also AddLocalCharm().
 //
 // The authorization macaroon, args.CharmStoreMacaroon, may be
 // omitted, in which case this call is equivalent to AddCharm.
+//
+// NOTE: AddCharmWithAuthorization is deprecated as of juju 2.9 and charms
+// facade version 3. Please discontinue use and move to the charms facade
+// version.
+//
+// TODO: remove in juju 3.0
 func AddCharmWithAuthorization(st State, args params.AddCharmWithAuthorization, openCSRepo OpenCSRepoFunc) error {
-	return AddCharmWithAuthorizationAndRepo(st, args, func() (charmrepo.Interface, error) {
+	return AddCharmWithAuthorizationAndRepo(st, args, func() (Repository, error) {
 		// determine which charmstore api url to use.
 		controllerCfg, err := st.ControllerConfig()
 		if err != nil {
@@ -201,7 +199,7 @@ func AddCharmWithAuthorization(st State, args params.AddCharmWithAuthorization, 
 	})
 }
 
-type OpenCSRepoFunc func(args OpenCSRepoParams) (charmrepo.Interface, error)
+type OpenCSRepoFunc func(args OpenCSRepoParams) (Repository, error)
 
 type OpenCSRepoParams struct {
 	CSURL              string
@@ -209,13 +207,13 @@ type OpenCSRepoParams struct {
 	CharmStoreMacaroon *macaroon.Macaroon
 }
 
-var OpenCSRepo = func(args OpenCSRepoParams) (charmrepo.Interface, error) {
+var OpenCSRepo = func(args OpenCSRepoParams) (Repository, error) {
 	csClient, err := openCSClient(args)
 	if err != nil {
 		return nil, err
 	}
 	repo := charmrepo.NewCharmStoreFromClient(csClient)
-	return repo, nil
+	return &charmRepoShim{repo}, nil
 }
 
 func openCSClient(args OpenCSRepoParams) (*csclient.Client, error) {
@@ -241,6 +239,35 @@ func openCSClient(args OpenCSRepoParams) (*csclient.Client, error) {
 		csClient = csClient.WithChannel(channel)
 	}
 	return csClient, nil
+}
+
+// charmRepoShim helps a CharmRepo *client to a fit the local
+// Repository interface.
+type charmRepoShim struct {
+	charmStore *charmrepo.CharmStore
+}
+
+// DownloadCharm calls the charmrepo Get method to return a charm archive.
+// It requires a charm url and an archive path to, the url url is ignored
+// in this case.
+func (c *charmRepoShim) DownloadCharm(resourceURL string, archivePath string) (*charm.CharmArchive, error) {
+	curl, err := charm.ParseURL(resourceURL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return c.charmStore.Get(curl, archivePath)
+}
+
+// FindDownloadURL is a placeholder required to implement the
+// Repository interface.
+func (c *charmRepoShim) FindDownloadURL(_ *charm.URL, origin corecharm.Origin) (*url.URL, corecharm.Origin, error) {
+	return nil, origin, nil
+}
+
+// Resolve calls the charmrepo Resolve method to return a resolved charm url
+// and a slice of supported series.
+func (c *charmRepoShim) Resolve(ref *charm.URL) (*charm.URL, []string, error) {
+	return c.charmStore.Resolve(ref)
 }
 
 func checkCAASMinVersion(ch charm.Charm, caasVersion *version.Number) (err error) {
@@ -292,6 +319,10 @@ type CharmArchive struct {
 }
 
 // StoreCharmArchive stores a charm archive in environment storage.
+//
+// TODO: (hml) 2020-09-01
+// Move use of this function to the charms facade.  A private version
+// is currently in use there.  It should be made public.
 func StoreCharmArchive(st State, archive CharmArchive) error {
 	storage := newStateStorage(st.ModelUUID(), st.MongoSession())
 	storagePath, err := charmArchiveStoragePath(archive.ID)
@@ -347,6 +378,11 @@ func charmArchiveStoragePath(curl *charm.URL) (string, error) {
 
 // ResolveCharm resolves the best available charm URLs with series, for charm
 // locations without a series specified.
+//
+// NOTE: ResolveCharms is deprecated as of juju 2.9 and charms facade
+// version 3. Please discontinue use and move to the charms facade version.
+//
+// TODO: remove in juju 3.0
 func ResolveCharms(st State, args params.ResolveCharms, openCSRepo OpenCSRepoFunc) (params.ResolveCharmResults, error) {
 	var results params.ResolveCharmResults
 
@@ -379,7 +415,7 @@ func ResolveCharms(st State, args params.ResolveCharms, openCSRepo OpenCSRepoFun
 	return results, nil
 }
 
-func resolveCharm(ref *charm.URL, repo charmrepo.Interface) (*charm.URL, error) {
+func resolveCharm(ref *charm.URL, repo Repository) (*charm.URL, error) {
 	if ref.Schema != "cs" {
 		return nil, errors.New("only charm store charm references are supported, with cs: schema")
 	}

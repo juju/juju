@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -53,6 +54,24 @@ juju upgrade-series %s complete`
 
 const UpgradeSeriesCompleteFinishedMessage = `
 Upgrade series for machine %q has successfully completed`
+
+const UpgradeSeriesPrepareOngoingMessage = `
+Upgrade series is currently being prepared for machine %q.
+`
+
+const UpgradeSeriesPrepareCompletedMessage = `
+Upgrade series is already prepared for machine %[1]q and the current
+state is %q.
+
+Juju is now ready for the series to be updated.
+Perform any manual steps required along with "do-release-upgrade".
+When ready, run the following to complete the upgrade series process:
+
+juju upgrade-series %[1]s complete`
+
+const UpgradeSeriesCompleteOngoingMessage = `
+Upgrade series is currently completing for machine %q.
+`
 
 // NewUpgradeSeriesCommand returns a command which upgrades the series of
 // an application or machine.
@@ -222,7 +241,7 @@ func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) (err error
 
 	units, err := c.upgradeMachineSeriesClient.UpgradeSeriesValidate(c.machineNumber, c.series)
 	if err != nil {
-		return errors.Trace(err)
+		return c.displayProgressFromError(ctx, err)
 	}
 	if err := c.promptConfirmation(ctx, units); err != nil {
 		return errors.Trace(err)
@@ -240,6 +259,34 @@ func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) (err error
 	ctx.Infof(m, c.machineNumber)
 
 	return nil
+}
+
+// Display any progress information from the error. If there isn't any info
+// or the info was malformed, we will fall back to the underlying error
+// and not provide any hints.
+func (c *upgradeSeriesCommand) displayProgressFromError(ctx *cmd.Context, err error) error {
+	errResp := errors.Cause(err).(*params.Error)
+	var info params.UpgradeSeriesValidationErrorInfo
+	if unmarshalErr := errResp.UnmarshalInfo(&info); unmarshalErr == nil && info.Status != "" {
+		// Lift the raw status into a upgrade series status type. Then perform
+		// a switch on the value.
+		// If the status is in a terminal state (not started, completed, error),
+		// then we shouldn't show a helpful message. Instead we should the
+		// underlying error.
+		switch model.UpgradeSeriesStatus(info.Status) {
+		case model.UpgradeSeriesPrepareStarted,
+			model.UpgradeSeriesPrepareRunning:
+			return errors.Errorf(UpgradeSeriesPrepareOngoingMessage[1:]+"\n", c.machineNumber)
+
+		case model.UpgradeSeriesPrepareCompleted:
+			return errors.Errorf(UpgradeSeriesPrepareCompletedMessage[1:]+"\n", c.machineNumber, info.Status)
+
+		case model.UpgradeSeriesCompleteStarted,
+			model.UpgradeSeriesCompleteRunning:
+			return errors.Errorf(UpgradeSeriesCompleteOngoingMessage[1:]+"\n", c.machineNumber)
+		}
+	}
+	return errors.Trace(err)
 }
 
 func (c *upgradeSeriesCommand) promptConfirmation(ctx *cmd.Context, affectedUnits []string) error {

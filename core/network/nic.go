@@ -299,12 +299,12 @@ func (s InterfaceInfos) Filter(predicateFn InterfaceFilterFunc) InterfaceInfos {
 	return out
 }
 
-// GetByHardwareAddress returns a new collection containing any interfaces
-// with the input hardware (MAC) address.
-func (s InterfaceInfos) GetByHardwareAddress(hwAddr string) InterfaceInfos {
+// GetByName returns a new collection containing
+// any interfaces with the input device name.
+func (s InterfaceInfos) GetByName(name string) InterfaceInfos {
 	var res InterfaceInfos
 	for _, dev := range s {
-		if dev.MACAddress == hwAddr {
+		if dev.InterfaceName == name {
 			res = append(res, dev)
 		}
 	}

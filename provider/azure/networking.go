@@ -4,17 +4,13 @@
 package azure
 
 import (
-	"context"
 	"fmt"
-	"net"
-	"strconv"
 
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/provider/azure/internal/armtemplates"
-	"github.com/juju/juju/provider/azure/internal/iputils"
 )
 
 const (
@@ -117,10 +113,64 @@ func networkTemplateResources(
 	envTags map[string]string,
 	apiPorts []int,
 	extraRules []network.SecurityRule,
-) []armtemplates.Resource {
-	// Create a network security group for the environment. There is only
-	// one NSG per environment (there's a limit of 100 per subscription),
-	// in which we manage rules for each exposed machine.
+) ([]armtemplates.Resource, []string) {
+	securityRules := networkSecurityRules(apiPorts, extraRules)
+	nsgID := fmt.Sprintf(
+		`[resourceId('Microsoft.Network/networkSecurityGroups', '%s')]`,
+		internalSecurityGroupName,
+	)
+	resources := []armtemplates.Resource{{
+		APIVersion: networkAPIVersion,
+		Type:       "Microsoft.Network/networkSecurityGroups",
+		Name:       internalSecurityGroupName,
+		Location:   location,
+		Tags:       envTags,
+		Properties: &network.SecurityGroupPropertiesFormat{
+			SecurityRules: &securityRules,
+		},
+	}}
+	subnets := []network.Subnet{{
+		Name: to.StringPtr(internalSubnetName),
+		SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
+			AddressPrefix: to.StringPtr(internalSubnetPrefix),
+			NetworkSecurityGroup: &network.SecurityGroup{
+				ID: to.StringPtr(nsgID),
+			},
+		},
+	}}
+	addressPrefixes := []string{internalSubnetPrefix}
+	if len(apiPorts) > 0 {
+		addressPrefixes = append(addressPrefixes, controllerSubnetPrefix)
+		subnets = append(subnets, network.Subnet{
+			Name: to.StringPtr(controllerSubnetName),
+			SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
+				AddressPrefix: to.StringPtr(controllerSubnetPrefix),
+				NetworkSecurityGroup: &network.SecurityGroup{
+					ID: to.StringPtr(nsgID),
+				},
+			},
+		})
+	}
+	resources = append(resources, armtemplates.Resource{
+		APIVersion: networkAPIVersion,
+		Type:       "Microsoft.Network/virtualNetworks",
+		Name:       internalNetworkName,
+		Location:   location,
+		Tags:       envTags,
+		Properties: &network.VirtualNetworkPropertiesFormat{
+			AddressSpace: &network.AddressSpace{&addressPrefixes},
+			Subnets:      &subnets,
+		},
+		DependsOn: []string{nsgID},
+	})
+	return resources, []string{nsgID}
+}
+
+// networkSecurityRules creates network security rules for the environment.
+func networkSecurityRules(
+	apiPorts []int,
+	extraRules []network.SecurityRule,
+) []network.SecurityRule {
 	securityRules := []network.SecurityRule{newSecurityRule(newSecurityRuleParams{
 		name:        sshSecurityRuleName,
 		description: "Allow SSH access to all machines",
@@ -140,61 +190,12 @@ func networkTemplateResources(
 		}))
 	}
 	securityRules = append(securityRules, extraRules...)
-
-	nsgID := fmt.Sprintf(
-		`[resourceId('Microsoft.Network/networkSecurityGroups', '%s')]`,
-		internalSecurityGroupName,
-	)
-	subnets := []network.Subnet{{
-		Name: to.StringPtr(internalSubnetName),
-		SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
-			AddressPrefix: to.StringPtr(internalSubnetPrefix),
-			NetworkSecurityGroup: &network.SecurityGroup{
-				ID: to.StringPtr(nsgID),
-			},
-		},
-	}}
-	if len(apiPorts) > 0 {
-		subnets = append(subnets, network.Subnet{
-			Name: to.StringPtr(controllerSubnetName),
-			SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
-				AddressPrefix: to.StringPtr(controllerSubnetPrefix),
-				NetworkSecurityGroup: &network.SecurityGroup{
-					ID: to.StringPtr(nsgID),
-				},
-			},
-		})
-	}
-
-	addressPrefixes := []string{internalSubnetPrefix, controllerSubnetPrefix}
-	resources := []armtemplates.Resource{{
-		APIVersion: networkAPIVersion,
-		Type:       "Microsoft.Network/networkSecurityGroups",
-		Name:       internalSecurityGroupName,
-		Location:   location,
-		Tags:       envTags,
-		Properties: &network.SecurityGroupPropertiesFormat{
-			SecurityRules: &securityRules,
-		},
-	}, {
-		APIVersion: networkAPIVersion,
-		Type:       "Microsoft.Network/virtualNetworks",
-		Name:       internalNetworkName,
-		Location:   location,
-		Tags:       envTags,
-		Properties: &network.VirtualNetworkPropertiesFormat{
-			AddressSpace: &network.AddressSpace{&addressPrefixes},
-			Subnets:      &subnets,
-		},
-		DependsOn: []string{nsgID},
-	}}
-
-	return resources
+	return securityRules
 }
 
 // nextSecurityRulePriority returns the next available priority in the given
 // security group within a specified range.
-func nextSecurityRulePriority(group network.SecurityGroup, min, max int32) (int32, error) {
+func nextSecurityRulePriority(group *network.SecurityGroup, min, max int32) (int32, error) {
 	if group.SecurityRules == nil {
 		return min, nil
 	}
@@ -213,51 +214,4 @@ func nextSecurityRulePriority(group network.SecurityGroup, min, max int32) (int3
 	return -1, errors.Errorf(
 		"no priorities available in the range [%d, %d]", min, max,
 	)
-}
-
-// machineSubnetIP returns the private IP address to use for the given
-// subnet prefix.
-func machineSubnetIP(subnetPrefix, machineId string) (net.IP, error) {
-	_, ipnet, err := net.ParseCIDR(subnetPrefix)
-	if err != nil {
-		return nil, errors.Annotate(err, "parsing subnet prefix")
-	}
-	n, err := strconv.Atoi(machineId)
-	if err != nil {
-		return nil, errors.Annotate(err, "parsing machine ID")
-	}
-	ip := iputils.NthSubnetIP(ipnet, n)
-	if ip == nil {
-		// TODO(axw) getting nil means we've cycled through roughly
-		// 2^12 machines. To work around this limitation, we must
-		// maintain an in-memory set of in-use IP addresses for each
-		// subnet.
-		return nil, errors.Errorf(
-			"no available IP addresses in %s", subnetPrefix,
-		)
-	}
-	return ip, nil
-}
-
-// networkSecurityRules returns the network security rules for the internal
-// network security group in the specified resource group. If the network
-// security group has not been created, this function will return an error
-// satisfying errors.IsNotFound.
-func networkSecurityRules(
-	nsgClient network.SecurityGroupsClient,
-	resourceGroup string,
-) ([]network.SecurityRule, error) {
-	sdkCtx := context.Background()
-	nsg, err := nsgClient.Get(sdkCtx, resourceGroup, internalSecurityGroupName, "")
-	if err != nil {
-		if isNotFoundResult(nsg.Response) {
-			return nil, errors.NotFoundf("security group")
-		}
-		return nil, errors.Annotate(err, "querying network security group")
-	}
-	var rules []network.SecurityRule
-	if nsg.SecurityRules != nil {
-		rules = *nsg.SecurityRules
-	}
-	return rules, nil
 }

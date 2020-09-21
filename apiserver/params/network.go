@@ -58,6 +58,16 @@ type SubnetV2 struct {
 	ID string `json:"id,omitempty"`
 }
 
+// SubnetV3 is used by the SpaceInfos API call. Its payload matches the fields
+// of the core/network.SubnetInfo struct.
+type SubnetV3 struct {
+	SubnetV2
+
+	SpaceID  string          `json:"space-id"`
+	FanInfo  *FanConfigEntry `json:"fan-info,omitempty"`
+	IsPublic bool            `json:"is-public,omitempty"`
+}
+
 // NetworkRoute describes a special route that should be added for a given
 // network interface.
 type NetworkRoute struct {
@@ -795,32 +805,52 @@ type MachinePortsResults struct {
 	Results []MachinePortsResult `json:"results"`
 }
 
-// OpenMachinePortRangesResults holds the results of a request to the uniter's
-// OpenedMachinePortRanges API.
+// OpenMachinePortRangesByEndpointResults holds the results of a request to the
+// uniter's OpenedMachinePortRangesByEndpoint API.
+type OpenMachinePortRangesByEndpointResults struct {
+	Results []OpenMachinePortRangesByEndpointResult `json:"results"`
+}
+
+// OpenMachinePortRangesByEndpointResult holds a single result of a request to
+// the uniter's OpenedMachinePortRangesByEndpoint API.
+type OpenMachinePortRangesByEndpointResult struct {
+	Error *Error `json:"error,omitempty"`
+
+	// The set of opened port ranges grouped by unit tag.
+	UnitPortRanges map[string][]OpenUnitPortRangesByEndpoint `json:"unit-port-ranges"`
+}
+
+// OpenUnitPortRangesByEndpoint describes the set of port ranges that have been
+// opened by a unit on the machine it is deployed to for an endpoint.
+type OpenUnitPortRangesByEndpoint struct {
+	Endpoint   string      `json:"endpoint"`
+	PortRanges []PortRange `json:"port-ranges"`
+}
+
+// OpenMachinePortRangesResults holds the results of a request to the
+// firewaller's OpenedMachinePortRanges API.
 type OpenMachinePortRangesResults struct {
 	Results []OpenMachinePortRangesResult `json:"results"`
 }
 
-// OpenMachinePortRangesResult holds a single result of a request to the
-// uniter's or the firewaller's OpenedMachinePortRanges API. It provides
-// information about the set of open port ranges by each one of the units
-// deployed to the machine.
+// OpenMachinePortRangesResult holds a single result of a request to
+// the firewaller's OpenedMachinePortRanges API.
 type OpenMachinePortRangesResult struct {
 	Error *Error `json:"error,omitempty"`
 
-	// GroupKey defines the attribute used to group the opened port ranges.
-	// This is set either to "endpoint" or to "cidr".
-	GroupKey string `json:"group-key"`
-
-	UnitPortRanges []OpenUnitPortRanges `json:"unit-port-ranges"`
+	// The set of opened port ranges grouped by unit tag.
+	UnitPortRanges map[string][]OpenUnitPortRanges `json:"unit-port-ranges"`
 }
 
-// OpenUnitPortRanges describes the set of port ranges (grouped by a particular
-// attribute, eg. endpoint, or subnet CIDR) that have been opened by a unit on
-// the machine it is deployed to.
+// OpenUnitPortRanges describes the set of port ranges that have been
+// opened by a unit on the machine it is deployed to for an endpoint.
 type OpenUnitPortRanges struct {
-	UnitTag         string                 `json:"unit-tag"`
-	PortRangeGroups map[string][]PortRange `json:"port-range-groups"`
+	Endpoint   string      `json:"endpoint"`
+	PortRanges []PortRange `json:"port-ranges"`
+
+	// The CIDRs that correspond to the subnets assigned to the space that
+	// this endpoint is bound to.
+	SubnetCIDRs []string `json:"subnet-cidrs"`
 }
 
 // APIHostPortsResult holds the result of an APIHostPorts
@@ -1205,4 +1235,112 @@ type SubnetsResult struct {
 // SubnetsResults contains a collection of subnets results.
 type SubnetsResults struct {
 	Results []SubnetsResult `json:"results"`
+}
+
+// SpaceInfosParams provides the arguments for a SpaceInfos call.
+type SpaceInfosParams struct {
+	// A list of space IDs for filtering the returned set of results. If
+	// empty, all spaces will be returned.
+	FilterBySpaceIDs []string `json:"space-ids,omitempty"`
+}
+
+// SpaceInfos represents the result of a SpaceInfos API call.
+type SpaceInfos struct {
+	Infos []SpaceInfo `json:"space-infos,omitempty"`
+}
+
+// SpaceInfo describes a space and its subnets.
+type SpaceInfo struct {
+	ID         string     `json:"id"`
+	Name       string     `json:"name"`
+	ProviderID string     `json:"provider-id,omitempty"`
+	Subnets    []SubnetV3 `json:"subnets,omitempty"`
+}
+
+// FromFromNetworkSpaceInfos converts a network.SpaceInfos into a serializable
+// payload that can be sent over the wire.
+func FromNetworkSpaceInfos(allInfos network.SpaceInfos) SpaceInfos {
+	res := SpaceInfos{
+		Infos: make([]SpaceInfo, len(allInfos)),
+	}
+
+	for i, si := range allInfos {
+		mappedSubnets := make([]SubnetV3, len(si.Subnets))
+		for j, subnetInfo := range si.Subnets {
+			var mappedFanInfo *FanConfigEntry
+			if subnetInfo.FanInfo != nil {
+				mappedFanInfo = &FanConfigEntry{
+					Underlay: subnetInfo.FanInfo.FanLocalUnderlay,
+					Overlay:  subnetInfo.FanInfo.FanOverlay,
+				}
+			}
+
+			mappedSubnets[j] = SubnetV3{
+				SpaceID:  subnetInfo.SpaceID,
+				FanInfo:  mappedFanInfo,
+				IsPublic: subnetInfo.IsPublic,
+
+				SubnetV2: SubnetV2{
+					ID: string(subnetInfo.ID),
+					Subnet: Subnet{
+						CIDR:              subnetInfo.CIDR,
+						ProviderId:        string(subnetInfo.ProviderId),
+						ProviderNetworkId: string(subnetInfo.ProviderNetworkId),
+						ProviderSpaceId:   string(subnetInfo.ProviderSpaceId),
+						VLANTag:           subnetInfo.VLANTag,
+						Zones:             subnetInfo.AvailabilityZones,
+						// NOTE(achilleasa): the SpaceTag is not populated
+						// as we can grab the space name from the parent
+						// SpaceInfo when unmarshaling.
+					},
+				},
+			}
+		}
+
+		res.Infos[i] = SpaceInfo{
+			ID:         si.ID,
+			Name:       string(si.Name),
+			ProviderID: string(si.ProviderId),
+			Subnets:    mappedSubnets,
+		}
+	}
+
+	return res
+}
+
+// ToNetworkSpaceInfos converts a serializable SpaceInfos payload into a
+// network.SpaceInfos instance.
+func ToNetworkSpaceInfos(allInfos SpaceInfos) network.SpaceInfos {
+	res := make(network.SpaceInfos, len(allInfos.Infos))
+
+	for i, si := range allInfos.Infos {
+		mappedSubnets := make(network.SubnetInfos, len(si.Subnets))
+		for j, subnetInfo := range si.Subnets {
+			mappedSubnets[j] = network.SubnetInfo{
+				ID:                network.Id(subnetInfo.ID),
+				CIDR:              subnetInfo.CIDR,
+				ProviderId:        network.Id(subnetInfo.ProviderId),
+				ProviderSpaceId:   network.Id(subnetInfo.ProviderSpaceId),
+				ProviderNetworkId: network.Id(subnetInfo.ProviderNetworkId),
+				VLANTag:           subnetInfo.VLANTag,
+				AvailabilityZones: subnetInfo.Zones,
+				SpaceID:           subnetInfo.SpaceID,
+				IsPublic:          subnetInfo.IsPublic,
+				SpaceName:         si.Name,
+			}
+
+			if subnetInfo.FanInfo != nil {
+				mappedSubnets[j].SetFan(subnetInfo.FanInfo.Underlay, subnetInfo.FanInfo.Overlay)
+			}
+		}
+
+		res[i] = network.SpaceInfo{
+			ID:         si.ID,
+			Name:       network.SpaceName(si.Name),
+			ProviderId: network.Id(si.ProviderID),
+			Subnets:    mappedSubnets,
+		}
+	}
+
+	return res
 }

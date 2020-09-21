@@ -34,6 +34,7 @@ type listOperationsCommand struct {
 	utc              bool
 	applicationNames []string
 	unitNames        []string
+	machineNames     []string
 	actionNames      []string
 	statusValues     []string
 }
@@ -48,6 +49,7 @@ Examples:
     juju operations --actions backup,restore
     juju operations --apps mysql,mediawiki
     juju operations --units mysql/0,mediawiki/1
+    juju operations --machines 0,1
     juju operations --status pending,completed
     juju operations --apps mysql --units mediawiki/0 --status running --actions backup
 
@@ -71,6 +73,7 @@ func (c *listOperationsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(cmd.NewStringsValue(nil, &c.applicationNames), "applications", "Comma separated list of applications to filter on")
 	f.Var(cmd.NewStringsValue(nil, &c.applicationNames), "apps", "Comma separated list of applications to filter on")
 	f.Var(cmd.NewStringsValue(nil, &c.unitNames), "units", "Comma separated list of units to filter on")
+	f.Var(cmd.NewStringsValue(nil, &c.machineNames), "machines", "Comma separated list of machines to filter on")
 	f.Var(cmd.NewStringsValue(nil, &c.actionNames), "actions", "Comma separated list of actions names to filter on")
 	f.Var(cmd.NewStringsValue(nil, &c.statusValues), "status", "Comma separated list of operation status values to filter on")
 }
@@ -78,7 +81,7 @@ func (c *listOperationsCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *listOperationsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "operations",
-		Purpose: "Lists pending, running, or completed operations for specified application, units, or all.",
+		Purpose: "Lists pending, running, or completed operations for specified application, units, machines, or all.",
 		Doc:     listOperationsDoc,
 		Aliases: []string{"list-operations"},
 	})
@@ -95,6 +98,11 @@ func (c *listOperationsCommand) Init(args []string) error {
 	for _, unit := range c.unitNames {
 		if !names.IsValidUnit(unit) {
 			nameErrors = append(nameErrors, fmt.Sprintf("invalid unit name %q", unit))
+		}
+	}
+	for _, machine := range c.machineNames {
+		if !names.IsValidMachine(machine) {
+			nameErrors = append(nameErrors, fmt.Sprintf("invalid machine id %q", machine))
 		}
 	}
 	for _, status := range c.statusValues {
@@ -136,6 +144,7 @@ func (c *listOperationsCommand) Run(ctx *cmd.Context) error {
 	args := params.OperationQueryArgs{
 		Applications: c.applicationNames,
 		Units:        c.unitNames,
+		Machines:     c.machineNames,
 		ActionNames:  c.actionNames,
 		Status:       c.statusValues,
 	}
@@ -328,9 +337,9 @@ func formatOperationResult(operation params.OperationResult, utc bool) operation
 			Message: task.Message,
 			Results: task.Output,
 		}
-		ut, err := names.ParseUnitTag(task.Action.Receiver)
+		receiver, err := names.ParseTag(task.Action.Receiver)
 		if err == nil {
-			taskInfo.Host = ut.Id()
+			taskInfo.Host = receiver.Id()
 		}
 		if len(task.Log) > 0 {
 			logs := make([]string, len(task.Log))

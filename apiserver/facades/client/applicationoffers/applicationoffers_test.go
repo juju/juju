@@ -214,7 +214,7 @@ func (s *applicationOffersSuite) assertList(c *gc.C, expectedErr error, expected
 	filter := params.OfferFilters{
 		Filters: []params.OfferFilter{
 			{
-				OwnerName:       "fred",
+				OwnerName:       "fred@external",
 				ModelName:       "prod",
 				OfferName:       "hosted-db2",
 				ApplicationName: "test",
@@ -235,7 +235,7 @@ func (s *applicationOffersSuite) assertList(c *gc.C, expectedErr error, expected
 				ApplicationDescription: "description",
 				OfferName:              "hosted-db2",
 				OfferUUID:              "hosted-db2-uuid",
-				OfferURL:               "fred/prod.hosted-db2",
+				OfferURL:               "fred@external/prod.hosted-db2",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 				Bindings:               map[string]string{"db2": "myspace"},
 				Spaces: []params.RemoteSpace{
@@ -256,7 +256,7 @@ func (s *applicationOffersSuite) assertList(c *gc.C, expectedErr error, expected
 				SourceModelTag: testing.ModelTag.String(),
 				RelationId:     1,
 				Endpoint:       "db",
-				Username:       "fred",
+				Username:       "fred@external",
 				Status:         params.EntityStatus{Status: "joined"},
 				IngressSubnets: expectedCIDRS,
 			}},
@@ -317,7 +317,7 @@ func (s *applicationOffersSuite) TestListError(c *gc.C) {
 	filter := params.OfferFilters{
 		Filters: []params.OfferFilter{
 			{
-				OwnerName:       "fred",
+				OwnerName:       "fred@external",
 				ModelName:       "prod",
 				OfferName:       "hosted-db2",
 				ApplicationName: "test",
@@ -388,7 +388,7 @@ func (s *applicationOffersSuite) TestShow(c *gc.C) {
 			ApplicationOfferDetails: params.ApplicationOfferDetails{
 				SourceModelTag:         testing.ModelTag.String(),
 				ApplicationDescription: "description",
-				OfferURL:               "fred/prod.hosted-db2",
+				OfferURL:               "fred@external/prod.hosted-db2",
 				OfferName:              "hosted-db2",
 				OfferUUID:              "hosted-db2-uuid",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
@@ -401,7 +401,7 @@ func (s *applicationOffersSuite) TestShow(c *gc.C) {
 					},
 				},
 				Users: []params.OfferUserDetails{
-					{UserName: "fred", DisplayName: "", Access: "admin"},
+					{UserName: "fred@external", DisplayName: "", Access: "admin"},
 					{UserName: "mary", DisplayName: "mary", Access: "consume"},
 				},
 			},
@@ -409,7 +409,7 @@ func (s *applicationOffersSuite) TestShow(c *gc.C) {
 			CharmURL:        "cs:db2-2",
 			Connections: []params.OfferConnection{{
 				SourceModelTag: "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
-				RelationId:     1, Username: "fred", Endpoint: "db",
+				RelationId:     1, Username: "fred@external", Endpoint: "db",
 				Status:         params.EntityStatus{Status: "joined"},
 				IngressSubnets: []string{"192.168.1.0/32", "10.0.0.0/8"},
 			}},
@@ -417,11 +417,11 @@ func (s *applicationOffersSuite) TestShow(c *gc.C) {
 	}}
 	s.authorizer.Tag = names.NewUserTag("admin")
 	expected[0].Result.Users[0].UserName = "admin"
-	s.assertShow(c, "fred/prod.hosted-db2", expected)
+	s.assertShow(c, "fred@external/prod.hosted-db2", expected)
 	// Again with an unqualified model path.
-	s.authorizer.AdminTag = names.NewUserTag("fred")
-	s.authorizer.Tag = s.authorizer.AdminTag
-	expected[0].Result.Users[0].UserName = "fred"
+	s.mockState.AdminTag = names.NewUserTag("fred@external")
+	s.authorizer.Tag = s.mockState.AdminTag
+	expected[0].Result.Users[0].UserName = "fred@external"
 	s.applicationOffers.ResetCalls()
 	s.assertShow(c, "prod.hosted-db2", expected)
 }
@@ -435,9 +435,9 @@ func (s *applicationOffersSuite) TestShowNoPermission(c *gc.C) {
 
 	s.authorizer.Tag = user
 	expected := []params.ApplicationOfferResult{{
-		Error: apiservererrors.ServerError(errors.NotFoundf("application offer %q", "fred/prod.hosted-db2")),
+		Error: apiservererrors.ServerError(errors.NotFoundf("application offer %q", "fred@external/prod.hosted-db2")),
 	}}
-	s.assertShow(c, "fred/prod.hosted-db2", expected)
+	s.assertShow(c, "fred@external/prod.hosted-db2", expected)
 }
 
 func (s *applicationOffersSuite) TestShowPermission(c *gc.C) {
@@ -448,7 +448,7 @@ func (s *applicationOffersSuite) TestShowPermission(c *gc.C) {
 			ApplicationOfferDetails: params.ApplicationOfferDetails{
 				SourceModelTag:         testing.ModelTag.String(),
 				ApplicationDescription: "description",
-				OfferURL:               "fred/prod.hosted-db2",
+				OfferURL:               "fred@external/prod.hosted-db2",
 				OfferName:              "hosted-db2",
 				OfferUUID:              "hosted-db2-uuid",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
@@ -467,18 +467,18 @@ func (s *applicationOffersSuite) TestShowPermission(c *gc.C) {
 		}}}
 	s.mockState.users[user.Name()] = &mockUser{user.Name()}
 	s.mockState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-db2"), user, permission.ReadAccess)
-	s.assertShow(c, "fred/prod.hosted-db2", expected)
+	s.assertShow(c, "fred@external/prod.hosted-db2", expected)
 }
 
 func (s *applicationOffersSuite) TestShowError(c *gc.C) {
-	url := "fred/prod.hosted-db2"
+	url := "fred@external/prod.hosted-db2"
 	filter := params.OfferURLs{[]string{url}, bakery.LatestVersion}
 	msg := "fail"
 
 	s.applicationOffers.listOffers = func(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error) {
 		return nil, errors.New(msg)
 	}
-	s.mockState.model = &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred", modelType: state.ModelTypeIAAS}
+	s.mockState.model = &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred@external", modelType: state.ModelTypeIAAS}
 
 	_, err := s.api.ApplicationOffers(filter)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
@@ -486,41 +486,41 @@ func (s *applicationOffersSuite) TestShowError(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) TestShowNotFound(c *gc.C) {
-	urls := []string{"fred/prod.hosted-db2"}
+	urls := []string{"fred@external/prod.hosted-db2"}
 	filter := params.OfferURLs{urls, bakery.LatestVersion}
 
 	s.applicationOffers.listOffers = func(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error) {
 		return nil, nil
 	}
-	s.mockState.model = &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred", modelType: state.ModelTypeIAAS}
+	s.mockState.model = &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred@external", modelType: state.ModelTypeIAAS}
 
 	found, err := s.api.ApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Error.Error(), gc.Matches, `application offer "fred/prod.hosted-db2" not found`)
+	c.Assert(found.Results[0].Error.Error(), gc.Matches, `application offer "fred@external/prod.hosted-db2" not found`)
 	s.applicationOffers.CheckCallNames(c, listOffersBackendCall)
 }
 
 func (s *applicationOffersSuite) TestShowRejectsEndpoints(c *gc.C) {
-	urls := []string{"fred/prod.hosted-db2:db"}
+	urls := []string{"fred@external/prod.hosted-db2:db"}
 	filter := params.OfferURLs{urls, bakery.LatestVersion}
-	s.mockState.model = &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred", modelType: state.ModelTypeIAAS}
+	s.mockState.model = &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred@external", modelType: state.ModelTypeIAAS}
 
 	found, err := s.api.ApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Error.Message, gc.Equals, `remote application "fred/prod.hosted-db2:db" shouldn't include endpoint`)
+	c.Assert(found.Results[0].Error.Message, gc.Equals, `remote application "fred@external/prod.hosted-db2:db" shouldn't include endpoint`)
 }
 
 func (s *applicationOffersSuite) TestShowErrorMsgMultipleURLs(c *gc.C) {
-	urls := []string{"fred/prod.hosted-mysql", "fred/test.hosted-db2"}
+	urls := []string{"fred@external/prod.hosted-mysql", "fred@external/test.hosted-db2"}
 	filter := params.OfferURLs{urls, bakery.LatestVersion}
 
 	s.applicationOffers.listOffers = func(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error) {
 		return nil, nil
 	}
-	s.mockState.model = &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred", modelType: state.ModelTypeIAAS}
-	anotherModel := &mockModel{uuid: "uuid2", name: "test", owner: "fred", modelType: state.ModelTypeIAAS}
+	s.mockState.model = &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred@external", modelType: state.ModelTypeIAAS}
+	anotherModel := &mockModel{uuid: "uuid2", name: "test", owner: "fred@external", modelType: state.ModelTypeIAAS}
 	s.mockStatePool.st["uuid2"] = &mockState{
 		modelUUID: "uuid2",
 		model:     anotherModel,
@@ -530,14 +530,14 @@ func (s *applicationOffersSuite) TestShowErrorMsgMultipleURLs(c *gc.C) {
 	found, err := s.api.ApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 2)
-	c.Assert(found.Results[0].Error.Error(), gc.Matches, `application offer "fred/prod.hosted-mysql" not found`)
-	c.Assert(found.Results[1].Error.Error(), gc.Matches, `application offer "fred/test.hosted-db2" not found`)
+	c.Assert(found.Results[0].Error.Error(), gc.Matches, `application offer "fred@external/prod.hosted-mysql" not found`)
+	c.Assert(found.Results[1].Error.Error(), gc.Matches, `application offer "fred@external/test.hosted-db2" not found`)
 	s.applicationOffers.CheckCallNames(c, listOffersBackendCall, listOffersBackendCall)
 }
 
 func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 	name := "test"
-	url := "fred/prod.hosted-" + name
+	url := "fred@external/prod.hosted-" + name
 	anOffer := jujucrossmodel.ApplicationOffer{
 		ApplicationName:        name,
 		ApplicationDescription: "description",
@@ -571,7 +571,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 			charm: ch, curl: charm.MustParseURL("db2-2"), bindings: map[string]string{"db": "myspace"}},
 	}
 
-	model := &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred", modelType: state.ModelTypeIAAS}
+	model := &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred@external", modelType: state.ModelTypeIAAS}
 	anotherModel := &mockModel{uuid: "uuid2", name: "test", owner: "mary", modelType: state.ModelTypeIAAS}
 
 	s.mockState.model = model
@@ -699,7 +699,7 @@ func (s *applicationOffersSuite) assertFind(c *gc.C, expected []params.Applicati
 	})
 }
 
-func (s *applicationOffersSuite) TestFid(c *gc.C) {
+func (s *applicationOffersSuite) TestFind(c *gc.C) {
 	s.setupOffers(c, "", true)
 	s.authorizer.Tag = names.NewUserTag("admin")
 	expected := []params.ApplicationOfferAdminDetails{
@@ -709,7 +709,7 @@ func (s *applicationOffersSuite) TestFid(c *gc.C) {
 				ApplicationDescription: "description",
 				OfferName:              "hosted-db2",
 				OfferUUID:              "hosted-db2-uuid",
-				OfferURL:               "fred/prod.hosted-db2",
+				OfferURL:               "fred@external/prod.hosted-db2",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 				Bindings:               map[string]string{"db2": "myspace"},
 				Spaces: []params.RemoteSpace{
@@ -726,7 +726,7 @@ func (s *applicationOffersSuite) TestFid(c *gc.C) {
 			CharmURL:        "cs:db2-2",
 			Connections: []params.OfferConnection{{
 				SourceModelTag: "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
-				RelationId:     1, Username: "fred", Endpoint: "db",
+				RelationId:     1, Username: "fred@external", Endpoint: "db",
 				Status:         params.EntityStatus{Status: "joined"},
 				IngressSubnets: []string{"192.168.1.0/32", "10.0.0.0/8"},
 			}},
@@ -758,7 +758,7 @@ func (s *applicationOffersSuite) TestFindPermission(c *gc.C) {
 				ApplicationDescription: "description",
 				OfferName:              "hosted-db2",
 				OfferUUID:              "hosted-db2-uuid",
-				OfferURL:               "fred/prod.hosted-db2",
+				OfferURL:               "fred@external/prod.hosted-db2",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 				Bindings:               map[string]string{"db2": "myspace"},
 				Spaces: []params.RemoteSpace{
@@ -849,14 +849,28 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 	s.mockState.applications = map[string]crossmodel.Application{
 		"db2": &mockApplication{
 			name:  "db2",
-			charm: ch, curl: charm.MustParseURL("db2-2"), bindings: map[string]string{"db2": "myspace"}},
+			charm: ch,
+			curl:  charm.MustParseURL("cs:db2-2"),
+			bindings: map[string]string{
+				"db2": "myspace",
+			},
+		},
 	}
-	s.mockState.model = &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred", modelType: state.ModelTypeIAAS}
+	s.mockState.model = &mockModel{
+		uuid:      testing.ModelTag.Id(),
+		name:      "prod",
+		owner:     "fred@external",
+		modelType: state.ModelTypeIAAS,
+	}
 	s.mockState.spaces["myspace"] = &mockSpace{
 		name:       "myspace",
 		providerId: "juju-space-myspace",
 		subnets: []applicationoffers.Subnet{
-			&mockSubnet{cidr: "4.3.2.0/24", providerId: "juju-subnet-1", zones: []string{"az1"}},
+			&mockSubnet{
+				cidr:       "4.3.2.0/24",
+				providerId: "juju-subnet-1",
+				zones:      []string{"az1"},
+			},
 		},
 	}
 	s.env.spaceInfo = &environs.ProviderSpaceInfo{
@@ -887,18 +901,37 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 	anotherState.applications = map[string]crossmodel.Application{
 		"mysql": &mockApplication{
 			name:  "mysql",
-			charm: ch, curl: charm.MustParseURL("mysql-2"), bindings: map[string]string{"mysql": "anotherspace"}},
+			charm: ch,
+			curl:  charm.MustParseURL("cs:mysql-2"),
+			bindings: map[string]string{
+				"mysql": "anotherspace",
+			},
+		},
 		"postgresql": &mockApplication{
-			charm: ch, curl: charm.MustParseURL("postgresql-2"), bindings: map[string]string{"postgresql": "anotherspace"}},
+			charm: ch,
+			curl:  charm.MustParseURL("cs:postgresql-2"),
+			bindings: map[string]string{
+				"postgresql": "anotherspace",
+			},
+		},
 	}
 	anotherState.spaces["anotherspace"] = &mockSpace{
 		name:       "anotherspace",
 		providerId: "juju-space-anotherspace",
 		subnets: []applicationoffers.Subnet{
-			&mockSubnet{cidr: "4.3.2.0/24", providerId: "juju-subnet-1", zones: []string{"az1"}},
+			&mockSubnet{
+				cidr:       "4.3.2.0/24",
+				providerId: "juju-subnet-1",
+				zones:      []string{"az1"},
+			},
 		},
 	}
-	anotherState.model = &mockModel{uuid: "uuid2", name: "another", owner: "mary", modelType: state.ModelTypeIAAS}
+	anotherState.model = &mockModel{
+		uuid:      "uuid2",
+		name:      "another",
+		owner:     "mary",
+		modelType: state.ModelTypeIAAS,
+	}
 	s.mockState.relations["hosted-mysql:server wordpress:db"] = &mockRelation{
 		id: 1,
 		endpoint: state.Endpoint{
@@ -912,7 +945,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 	}
 	s.mockState.connections = []applicationoffers.OfferConnection{
 		&mockOfferConnection{
-			username:    "fred",
+			username:    "fred@external",
 			modelUUID:   testing.ModelTag.Id(),
 			relationKey: "hosted-db2:db wordpress:db",
 			relationId:  1,
@@ -931,7 +964,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 		Filters: []params.OfferFilter{
 			{
 				OfferName: "hosted-db2",
-				OwnerName: "fred",
+				OwnerName: "fred@external",
 				ModelName: "prod",
 			},
 			{
@@ -961,14 +994,18 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 					ApplicationDescription: "db2 description",
 					OfferName:              "hosted-db2",
 					OfferUUID:              "hosted-db2-uuid",
-					OfferURL:               "fred/prod.hosted-db2",
-					Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
-					Bindings:               map[string]string{"db2": "myspace"},
+					OfferURL:               "fred@external/prod.hosted-db2",
+					Endpoints: []params.RemoteEndpoint{
+						{Name: "db"},
+					},
+					Bindings: map[string]string{"db2": "myspace"},
 					Spaces: []params.RemoteSpace{
 						{
 							Name:       "myspace",
 							ProviderId: "juju-space-myspace",
-							Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
+							Subnets: []params.Subnet{
+								{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}},
+							},
 						},
 					},
 					Users: []params.OfferUserDetails{
@@ -983,7 +1020,9 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 					OfferName:              "hosted-mysql",
 					OfferUUID:              "hosted-mysql-uuid",
 					OfferURL:               "mary/another.hosted-mysql",
-					Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
+					Endpoints: []params.RemoteEndpoint{
+						{Name: "db"},
+					},
 					Users: []params.OfferUserDetails{
 						{UserName: "someone", DisplayName: "someone", Access: "read"},
 					},
@@ -1022,7 +1061,7 @@ func (s *applicationOffersSuite) TestFindError(c *gc.C) {
 	s.applicationOffers.listOffers = func(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error) {
 		return nil, errors.New(msg)
 	}
-	s.mockState.model = &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred", modelType: state.ModelTypeIAAS}
+	s.mockState.model = &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred@external", modelType: state.ModelTypeIAAS}
 
 	_, err := s.api.FindApplicationOffers(filter)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
@@ -1054,7 +1093,7 @@ func (s *applicationOffersSuite) TestFindMissingModelInMultipleFilters(c *gc.C) 
 
 type consumeSuite struct {
 	baseSuite
-	api *applicationoffers.OffersAPIV2
+	api *applicationoffers.OffersAPIV3
 }
 
 var _ = gc.Suite(&consumeSuite{})
@@ -1081,17 +1120,18 @@ func (s *consumeSuite) SetUpTest(c *gc.C) {
 		s.mockState, s.mockStatePool, s.authorizer, resources, s.authContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = &applicationoffers.OffersAPIV2{OffersAPI: apiV1}
+	s.api = &applicationoffers.OffersAPIV3{&applicationoffers.OffersAPIV2{OffersAPI: apiV1}}
 }
 
 func (s *consumeSuite) TestConsumeDetailsRejectsEndpoints(c *gc.C) {
-	results, err := s.api.GetConsumeDetails(params.OfferURLs{
-		OfferURLs: []string{"fred/prod.application:db"},
-	})
+	results, err := s.api.GetConsumeDetails(params.ConsumeOfferDetailsArg{
+		OfferURLs: params.OfferURLs{
+			OfferURLs: []string{"fred@external/prod.application:db"},
+		}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error != nil, jc.IsTrue)
-	c.Assert(results.Results[0].Error.Message, gc.Equals, `remote application "fred/prod.application:db" shouldn't include endpoint`)
+	c.Assert(results.Results[0].Error.Message, gc.Equals, `remote application "fred@external/prod.application:db" shouldn't include endpoint`)
 }
 
 func (s *consumeSuite) TestConsumeDetailsNoPermission(c *gc.C) {
@@ -1104,17 +1144,26 @@ func (s *consumeSuite) TestConsumeDetailsNoPermission(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.authorizer.Tag = apiUser
-	results, err := s.api.GetConsumeDetails(params.OfferURLs{
-		OfferURLs: []string{"fred/prod.hosted-mysql"},
-	})
+	results, err := s.api.GetConsumeDetails(params.ConsumeOfferDetailsArg{
+		OfferURLs: params.OfferURLs{
+			OfferURLs: []string{"fred@external/prod.hosted-mysql"},
+		}})
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []params.ConsumeOfferDetailsResult{{
-		Error: apiservererrors.ServerError(errors.NotFoundf("application offer %q", "fred/prod.hosted-mysql")),
+		Error: apiservererrors.ServerError(errors.NotFoundf("application offer %q", "fred@external/prod.hosted-mysql")),
 	}}
 	c.Assert(results.Results, jc.DeepEquals, expected)
 }
 
 func (s *consumeSuite) TestConsumeDetailsWithPermission(c *gc.C) {
+	s.assertConsumeDetailsWithPermission(c, false)
+}
+
+func (s *consumeSuite) TestConsumeDetailsSpecifiedUser(c *gc.C) {
+	s.assertConsumeDetailsWithPermission(c, true)
+}
+
+func (s *consumeSuite) assertConsumeDetailsWithPermission(c *gc.C, specifiedUser bool) {
 	s.setupOffer()
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
 	st.(*mockState).users["someone"] = &mockUser{"someone"}
@@ -1123,16 +1172,26 @@ func (s *consumeSuite) TestConsumeDetailsWithPermission(c *gc.C) {
 	err := st.CreateOfferAccess(offer, apiUser, permission.ConsumeAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.authorizer.Tag = apiUser
-	results, err := s.api.GetConsumeDetails(params.OfferURLs{
-		OfferURLs: []string{"fred/prod.hosted-mysql"},
-	})
+	userTag := ""
+	if specifiedUser {
+		controllerAdmin := names.NewUserTag("superuser-joe")
+		s.authorizer.Tag = controllerAdmin
+		userTag = apiUser.String()
+	} else {
+		s.authorizer.Tag = apiUser
+	}
+	results, err := s.api.GetConsumeDetails(params.ConsumeOfferDetailsArg{
+		UserTag: userTag,
+		OfferURLs: params.OfferURLs{
+			OfferURLs: []string{"fred@external/prod.hosted-mysql"},
+		}},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
 	c.Assert(results.Results[0].Offer, jc.DeepEquals, &params.ApplicationOfferDetails{
 		SourceModelTag:         "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		OfferURL:               "fred/prod.hosted-mysql",
+		OfferURL:               "fred@external/prod.hosted-mysql",
 		OfferName:              "hosted-mysql",
 		OfferUUID:              "hosted-mysql-uuid",
 		ApplicationDescription: "a database",
@@ -1155,12 +1214,31 @@ func (s *consumeSuite) TestConsumeDetailsWithPermission(c *gc.C) {
 		CACert:        testing.CACert,
 	})
 	c.Assert(results.Results[0].Macaroon.Id(), jc.DeepEquals, []byte("id"))
+
 	cav := s.bakery.caveats[string(results.Results[0].Macaroon.Id())]
 	c.Check(cav, gc.HasLen, 4)
 	c.Check(strings.HasPrefix(cav[0].Condition, "time-before "), jc.IsTrue)
 	c.Check(cav[1].Condition, gc.Equals, "declared source-model-uuid deadbeef-0bad-400d-8000-4b1d0d06f00d")
 	c.Check(cav[2].Condition, gc.Equals, "declared offer-uuid hosted-mysql-uuid")
 	c.Check(cav[3].Condition, gc.Equals, "declared username someone")
+}
+
+func (s *consumeSuite) TestConsumeDetailsNonAdminSpecifiedUser(c *gc.C) {
+	s.setupOffer()
+	st := s.mockStatePool.st[testing.ModelTag.Id()]
+	st.(*mockState).users["someone"] = &mockUser{"someone"}
+	apiUser := names.NewUserTag("someone")
+	offer := names.NewApplicationOfferTag("hosted-mysql")
+	err := st.CreateOfferAccess(offer, apiUser, permission.ConsumeAccess)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.authorizer.Tag = names.NewUserTag("joe-blow")
+	_, err = s.api.GetConsumeDetails(params.ConsumeOfferDetailsArg{
+		UserTag: apiUser.String(),
+		OfferURLs: params.OfferURLs{
+			OfferURLs: []string{"fred@external/prod.hosted-mysql"},
+		}})
+	c.Assert(errors.Cause(err), gc.Equals, apiservererrors.ErrPerm)
 }
 
 func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
@@ -1182,15 +1260,18 @@ func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.authorizer.Tag = apiUser
-	results, err := s.api.GetConsumeDetails(params.OfferURLs{
-		OfferURLs: []string{"fred/prod.hosted-mysql"},
-	})
+	results, err := s.api.GetConsumeDetails(params.ConsumeOfferDetailsArg{
+		OfferURLs: params.OfferURLs{
+			OfferURLs: []string{"fred@external/prod.hosted-mysql"},
+		}},
+	)
+
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
 	c.Assert(results.Results[0].Offer, jc.DeepEquals, &params.ApplicationOfferDetails{
 		SourceModelTag:         "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		OfferURL:               "fred/prod.hosted-mysql",
+		OfferURL:               "fred@external/prod.hosted-mysql",
 		OfferName:              "hosted-mysql",
 		OfferUUID:              "hosted-mysql-uuid",
 		ApplicationDescription: "a database",
@@ -1206,7 +1287,7 @@ func (s *consumeSuite) setupOffer() {
 	modelUUID := testing.ModelTag.Id()
 	offerName := "hosted-mysql"
 
-	model := &mockModel{uuid: modelUUID, name: "prod", owner: "fred", modelType: state.ModelTypeIAAS}
+	model := &mockModel{uuid: modelUUID, name: "prod", owner: "fred@external", modelType: state.ModelTypeIAAS}
 	s.mockState.allmodels = []applicationoffers.Model{model}
 	st := &mockState{
 		modelUUID:         modelUUID,
@@ -1271,7 +1352,7 @@ func (s *consumeSuite) TestRemoteApplicationInfo(c *gc.C) {
 
 	s.authorizer.Tag = user
 	results, err := s.api.RemoteApplicationInfo(params.OfferURLs{
-		OfferURLs: []string{"fred/prod.hosted-mysql", "fred/prod.unknown"},
+		OfferURLs: []string{"fred@external/prod.hosted-mysql", "fred@external/prod.unknown"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 2)
@@ -1281,7 +1362,7 @@ func (s *consumeSuite) TestRemoteApplicationInfo(c *gc.C) {
 			ModelTag:         testing.ModelTag.String(),
 			Name:             "hosted-mysql",
 			Description:      "a database",
-			OfferURL:         "fred/prod.hosted-mysql",
+			OfferURL:         "fred@external/prod.hosted-mysql",
 			SourceModelLabel: "prod",
 			IconURLPath:      "rest/1.0/remote-application/hosted-mysql/icon",
 			Endpoints: []params.RemoteEndpoint{
@@ -1321,7 +1402,7 @@ func (s *consumeSuite) assertDestroyOffersNoForce(c *gc.C, api destroyOffers) {
 	st.(*mockState).users["foobar"] = &mockUser{"foobar"}
 	st.(*mockState).connections = []applicationoffers.OfferConnection{
 		&mockOfferConnection{
-			username:    "fred",
+			username:    "fred@external",
 			modelUUID:   testing.ModelTag.Id(),
 			relationKey: "hosted-db2:db wordpress:db",
 			relationId:  1,
@@ -1331,7 +1412,7 @@ func (s *consumeSuite) assertDestroyOffersNoForce(c *gc.C, api destroyOffers) {
 	s.authorizer.Tag = names.NewUserTag("admin")
 	results, err := s.api.DestroyOffers(params.DestroyApplicationOffers{
 		OfferURLs: []string{
-			"fred/prod.hosted-mysql"},
+			"fred@external/prod.hosted-mysql"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -1341,12 +1422,12 @@ func (s *consumeSuite) assertDestroyOffersNoForce(c *gc.C, api destroyOffers) {
 		},
 	})
 
-	urls := []string{"fred/prod.hosted-db2"}
+	urls := []string{"fred@external/prod.hosted-db2"}
 	filter := params.OfferURLs{urls, bakery.LatestVersion}
 	found, err := s.api.ApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Error.Error(), gc.Matches, `application offer "fred/prod.hosted-db2" not found`)
+	c.Assert(found.Results[0].Error.Error(), gc.Matches, `application offer "fred@external/prod.hosted-db2" not found`)
 }
 
 func (s *consumeSuite) TestDestroyOffersForce(c *gc.C) {
@@ -1355,7 +1436,7 @@ func (s *consumeSuite) TestDestroyOffersForce(c *gc.C) {
 	st.(*mockState).users["foobar"] = &mockUser{"foobar"}
 	st.(*mockState).connections = []applicationoffers.OfferConnection{
 		&mockOfferConnection{
-			username:    "fred",
+			username:    "fred@external",
 			modelUUID:   testing.ModelTag.Id(),
 			relationKey: "hosted-db2:db wordpress:db",
 			relationId:  1,
@@ -1366,7 +1447,7 @@ func (s *consumeSuite) TestDestroyOffersForce(c *gc.C) {
 	results, err := s.api.DestroyOffers(params.DestroyApplicationOffers{
 		Force: true,
 		OfferURLs: []string{
-			"fred/prod.hosted-mysql", "fred/prod.unknown", "garbage/badmodel.someoffer", "badmodel.someoffer"},
+			"fred@external/prod.hosted-mysql", "fred@external/prod.unknown", "garbage/badmodel.someoffer", "badmodel.someoffer"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 4)
@@ -1382,12 +1463,12 @@ func (s *consumeSuite) TestDestroyOffersForce(c *gc.C) {
 		},
 	})
 
-	urls := []string{"fred/prod.hosted-db2"}
+	urls := []string{"fred@external/prod.hosted-db2"}
 	filter := params.OfferURLs{urls, bakery.LatestVersion}
 	found, err := s.api.ApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Error.Error(), gc.Matches, `application offer "fred/prod.hosted-db2" not found`)
+	c.Assert(found.Results[0].Error.Error(), gc.Matches, `application offer "fred@external/prod.hosted-db2" not found`)
 }
 
 func (s *consumeSuite) TestDestroyOffersPermission(c *gc.C) {
@@ -1397,7 +1478,7 @@ func (s *consumeSuite) TestDestroyOffersPermission(c *gc.C) {
 	st.(*mockState).users["foobar"] = &mockUser{"foobar"}
 
 	results, err := s.api.DestroyOffers(params.DestroyApplicationOffers{
-		OfferURLs: []string{"fred/prod.hosted-mysql"},
+		OfferURLs: []string{"fred@external/prod.hosted-mysql"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)

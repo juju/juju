@@ -5,7 +5,6 @@ package charmhub
 
 import (
 	"context"
-	"strings"
 
 	"github.com/juju/errors"
 
@@ -18,18 +17,21 @@ import (
 type FindClient struct {
 	path   path.Path
 	client RESTClient
+	logger Logger
 }
 
 // NewFindClient creates a FindClient for querying charm or bundle information.
-func NewFindClient(path path.Path, client RESTClient) *FindClient {
+func NewFindClient(path path.Path, client RESTClient, logger Logger) *FindClient {
 	return &FindClient{
 		path:   path,
 		client: client,
+		logger: logger,
 	}
 }
 
 // Find searches Charm Hub and provides results matching a string.
 func (c *FindClient) Find(ctx context.Context, query string) ([]transport.FindResponse, error) {
+	c.logger.Debugf("Find(%s)", query)
 	path, err := c.path.Query("q", query)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -40,15 +42,5 @@ func (c *FindClient) Find(ctx context.Context, query string) ([]transport.FindRe
 		return nil, errors.Trace(err)
 	}
 
-	if len(resp.ErrorList) > 0 {
-		var combined []string
-		for _, err := range resp.ErrorList {
-			if err.Message != "" {
-				combined = append(combined, err.Message)
-			}
-		}
-		return nil, errors.Errorf(strings.Join(combined, "\n"))
-	}
-
-	return resp.Results, nil
+	return resp.Results, resp.ErrorList.Combine()
 }

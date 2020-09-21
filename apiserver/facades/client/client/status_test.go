@@ -970,6 +970,22 @@ func (s *CAASStatusSuite) assertUnitStatus(c *gc.C, appStatus params.Application
 	})
 }
 
+func (s *CAASStatusSuite) TestStatusWorkloadVersionSetByCharm(c *gc.C) {
+	loggo.GetLogger("juju.state.allwatcher").SetLogLevel(loggo.TRACE)
+	client := s.APIState.Client()
+	err := s.app.SetOperatorStatus(status.StatusInfo{Status: status.Active})
+	c.Assert(err, jc.ErrorIsNil)
+	u, err := s.app.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(u, gc.HasLen, 1)
+	err = u[0].SetWorkloadVersion("666")
+	c.Assert(err, jc.ErrorIsNil)
+	status, err := client.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status.Applications, gc.HasLen, 1)
+	c.Assert(status.Applications[s.app.Name()].WorkloadVersion, gc.Equals, "666")
+}
+
 type filteringBranchesSuite struct {
 	baseSuite
 

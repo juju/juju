@@ -901,7 +901,17 @@ func (s *JujuConnSuite) AddTestingApplication(c *gc.C, name string, ch *state.Ch
 	app, err := s.State.AddApplication(state.AddApplicationArgs{Name: name, Charm: ch, Series: ch.URL().Series})
 	c.Assert(err, jc.ErrorIsNil)
 	return app
+}
 
+func (s *JujuConnSuite) AddTestingApplicationWithOrigin(c *gc.C, name string, ch *state.Charm, origin *state.CharmOrigin) *state.Application {
+	app, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name:        name,
+		Charm:       ch,
+		Series:      ch.URL().Series,
+		CharmOrigin: origin,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return app
 }
 
 func (s *JujuConnSuite) AddTestingApplicationWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {

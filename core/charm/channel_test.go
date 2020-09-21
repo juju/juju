@@ -33,7 +33,7 @@ func (s channelSuite) TestParseChannel(c *gc.C) {
 	}, {
 		Name:        "too many components",
 		Value:       "////",
-		ExpectedErr: `channel is malformed and has to many components "////"`,
+		ExpectedErr: `channel is malformed and has too many components "////"`,
 	}, {
 		Name:        "invalid risk",
 		Value:       "track/meshuggah",

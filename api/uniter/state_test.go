@@ -71,34 +71,30 @@ func (s *stateSuite) TestAllMachinePorts(c *gc.C) {
 	})
 }
 
-func (s *stateSuite) TestOpenedMachinePortRanges(c *gc.C) {
+func (s *stateSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "OpenedMachinePortRanges")
+		c.Assert(request, gc.Equals, "OpenedMachinePortRangesByEndpoint")
 		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "machine-42"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.OpenMachinePortRangesResults{})
-		*(result.(*params.OpenMachinePortRangesResults)) = params.OpenMachinePortRangesResults{
-			Results: []params.OpenMachinePortRangesResult{
+		c.Assert(result, gc.FitsTypeOf, &params.OpenMachinePortRangesByEndpointResults{})
+		*(result.(*params.OpenMachinePortRangesByEndpointResults)) = params.OpenMachinePortRangesByEndpointResults{
+			Results: []params.OpenMachinePortRangesByEndpointResult{
 				{
-					GroupKey: "endpoint",
-					UnitPortRanges: []params.OpenUnitPortRanges{
-						{
-							UnitTag: "unit-mysql-0",
-							PortRangeGroups: map[string][]params.PortRange{
-								"": {
-									{100, 200, "tcp"},
-								},
-								"server": {
-									{3306, 3306, "tcp"},
-								},
+					UnitPortRanges: map[string][]params.OpenUnitPortRangesByEndpoint{
+						"unit-mysql-0": {
+							{
+								Endpoint:   "",
+								PortRanges: []params.PortRange{{100, 200, "tcp"}},
+							},
+							{
+								Endpoint:   "server",
+								PortRanges: []params.PortRange{{3306, 3306, "tcp"}},
 							},
 						},
-						{
-							UnitTag: "unit-wordpress-0",
-							PortRangeGroups: map[string][]params.PortRange{
-								"monitoring-port": {
-									{1337, 1337, "udp"},
-								},
+						"unit-wordpress-0": {
+							{
+								Endpoint:   "monitoring-port",
+								PortRanges: []params.PortRange{{1337, 1337, "udp"}},
 							},
 						},
 					},
@@ -110,7 +106,7 @@ func (s *stateSuite) TestOpenedMachinePortRanges(c *gc.C) {
 	caller := testing.BestVersionCaller{apiCaller, 17}
 	client := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
 
-	portRangesMap, err := client.OpenedMachinePortRanges(names.NewMachineTag("42"))
+	portRangesMap, err := client.OpenedMachinePortRangesByEndpoint(names.NewMachineTag("42"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(portRangesMap, jc.DeepEquals, map[names.UnitTag]network.GroupedPortRanges{
 		names.NewUnitTag("mysql/0"): {

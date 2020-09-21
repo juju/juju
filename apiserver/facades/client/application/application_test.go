@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
-	"github.com/juju/charmrepo/v6"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -31,6 +30,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -75,12 +75,12 @@ func (s *applicationSuite) SetUpTest(c *gc.C) {
 		revisions:  make(map[string]int),
 	}
 
-	s.PatchValue(&application.OpenCSRepo, func(args application.OpenCSRepoParams) (charmrepo.Interface, error) {
+	s.PatchValue(&application.OpenCSRepo, func(args application.OpenCSRepoParams) (application.Repository, error) {
 		return s.repo, nil
 	})
 }
 
-func (s *applicationSuite) openRepo(args application.OpenCSRepoParams) (charmrepo.Interface, error) {
+func (s *applicationSuite) openRepo(args application.OpenCSRepoParams) (application.Repository, error) {
 	return s.repo, nil
 }
 
@@ -102,7 +102,7 @@ func (s *applicationSuite) UploadCharm(c *gc.C, url, name string) (*charm.URL, c
 	ch, err := charm.ReadCharmArchive(
 		testcharms.RepoWithSeries("quantal").CharmArchivePath(c.MkDir(), name))
 	c.Assert(err, jc.ErrorIsNil)
-	s.repo.Call("Get", resultURL).Returns(
+	s.repo.Call("DownloadCharm", resultURL.String()).Returns(
 		ch,
 		error(nil),
 	)
@@ -389,7 +389,7 @@ func (s *applicationSuite) TestCompatibleSettingsParsing(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationDeployWithStorage(c *gc.C) {
-	curl, ch := s.UploadCharm(c, "utopic/storage-block-10", "storage-block")
+	curl, ch := s.UploadCharm(c, "cs:utopic/storage-block-10", "storage-block")
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -436,7 +436,7 @@ func (s *applicationSuite) TestApplicationDeployWithStorage(c *gc.C) {
 }
 
 func (s *applicationSuite) TestMinJujuVersionTooHigh(c *gc.C) {
-	curl, _ := s.UploadCharm(c, "quantal/minjujuversion-0", "minjujuversion")
+	curl, _ := s.UploadCharm(c, "cs:quantal/minjujuversion-0", "minjujuversion")
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -447,7 +447,7 @@ func (s *applicationSuite) TestMinJujuVersionTooHigh(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationDeployWithInvalidStoragePool(c *gc.C) {
-	curl, _ := s.UploadCharm(c, "utopic/storage-block-0", "storage-block")
+	curl, _ := s.UploadCharm(c, "cs:utopic/storage-block-0", "storage-block")
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -478,7 +478,7 @@ func (s *applicationSuite) TestApplicationDeployWithInvalidStoragePool(c *gc.C) 
 }
 
 func (s *applicationSuite) TestApplicationDeployDefaultFilesystemStorage(c *gc.C) {
-	curl, ch := s.UploadCharm(c, "trusty/storage-filesystem-1", "storage-filesystem")
+	curl, ch := s.UploadCharm(c, "cs:trusty/storage-filesystem-1", "storage-filesystem")
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -511,7 +511,7 @@ func (s *applicationSuite) TestApplicationDeployDefaultFilesystemStorage(c *gc.C
 }
 
 func (s *applicationSuite) TestApplicationDeploy(c *gc.C) {
-	curl, ch := s.UploadCharm(c, "precise/dummy-42", "dummy")
+	curl, ch := s.UploadCharm(c, "cs:precise/dummy-42", "dummy")
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -541,7 +541,7 @@ func (s *applicationSuite) TestApplicationDeploy(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationDeployWithInvalidPlacement(c *gc.C) {
-	curl, _ := s.UploadCharm(c, "precise/dummy-42", "dummy")
+	curl, _ := s.UploadCharm(c, "cs:precise/dummy-42", "dummy")
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -595,7 +595,7 @@ func (s *applicationSuite) testApplicationDeployWithPlacementLockedError(
 
 	c.Assert(m.CreateUpgradeSeriesLock(nil, "trusty"), jc.ErrorIsNil)
 
-	curl, _ := s.UploadCharm(c, "precise/dummy-42", "dummy")
+	curl, _ := s.UploadCharm(c, "cs:precise/dummy-42", "dummy")
 	err = application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -677,7 +677,7 @@ func (s *applicationSuite) TestApplicationDeploymentLeavesResourcesOnSuccess(c *
 func (s *applicationSuite) TestApplicationDeploymentWithTrust(c *gc.C) {
 	// This test should fail if the configuration parsing does not
 	// understand the "trust" configuration parameter
-	curl, ch := s.UploadCharm(c, "precise/dummy-42", "dummy")
+	curl, ch := s.UploadCharm(c, "cs:precise/dummy-42", "dummy")
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -715,7 +715,7 @@ func (s *applicationSuite) TestApplicationDeploymentNoTrust(c *gc.C) {
 	// This test should fail if the trust configuration setting defaults to
 	// anything other than "false" when no configuration parameter for trust
 	// is set at deployment.
-	curl, ch := s.UploadCharm(c, "precise/dummy-42", "dummy")
+	curl, ch := s.UploadCharm(c, "cs:precise/dummy-42", "dummy")
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -746,7 +746,7 @@ func (s *applicationSuite) TestApplicationDeploymentNoTrust(c *gc.C) {
 }
 
 func (s *applicationSuite) testClientApplicationsDeployWithBindings(c *gc.C, endpointBindings, expected map[string]string) {
-	curl, _ := s.UploadCharm(c, "utopic/riak-42", "riak")
+	curl, _ := s.UploadCharm(c, "cs:utopic/riak-42", "riak")
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -837,7 +837,7 @@ func (s *applicationSuite) TestAddCharm(c *gc.C) {
 	err = client.AddCharm(charm.MustParseURL("local:precise/dummy"), csparams.StableChannel, false)
 	c.Assert(err, gc.ErrorMatches, "only charm store charm URLs are supported, with cs: schema")
 	err = client.AddCharm(charm.MustParseURL("cs:precise/wordpress"), csparams.StableChannel, false)
-	c.Assert(err, gc.ErrorMatches, "charm URL must include revision")
+	c.Assert(err, gc.ErrorMatches, "charm URL must include a revision")
 
 	// Add a charm, without uploading it to storage, to
 	// check that AddCharm does not try to do it.
@@ -856,11 +856,10 @@ func (s *applicationSuite) TestAddCharm(c *gc.C) {
 	// AddCharm should see the charm in state and not upload it.
 	err = client.AddCharm(sch.URL(), csparams.StableChannel, false)
 	c.Assert(err, jc.ErrorIsNil)
-
 	c.Assert(blobs.m, gc.HasLen, 0)
 
 	// Now try adding another charm completely.
-	curl, _ = s.UploadCharm(c, "precise/wordpress-3", "wordpress")
+	curl, _ = s.UploadCharm(c, "cs:precise/wordpress-3", "wordpress")
 	err = client.AddCharm(curl, csparams.StableChannel, false)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -937,7 +936,7 @@ func (s *applicationSuite) assertUploaded(c *gc.C, storage statestorage.Storage,
 
 func (s *applicationSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
 	client := s.APIState.Client()
-	curl, _ := s.UploadCharm(c, "trusty/wordpress-42", "wordpress")
+	curl, _ := s.UploadCharm(c, "cs:trusty/wordpress-42", "wordpress")
 
 	// Add a placeholder with the same charm URL.
 	err := s.State.AddCharmPlaceholder(curl)
@@ -966,8 +965,35 @@ func (s *applicationSuite) TestApplicationGetCharmURL(c *gc.C) {
 	c.Assert(result.Result, gc.Equals, "local:quantal/wordpress-3")
 }
 
+func (s *applicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
+	ch := s.AddTestingCharm(c, "wordpress")
+	rev := ch.Revision()
+	// Technically this charm origin is impossible, a local
+	// charm cannot have a channel.  Done just for testing.
+	expectedOrigin := state.CharmOrigin{
+		Source:   "local",
+		Revision: &rev,
+		Channel: &state.Channel{
+			Track: "latest",
+			Risk:  "stable",
+		},
+	}
+	s.AddTestingApplicationWithOrigin(c, "wordpress", ch, &expectedOrigin)
+	result, err := s.applicationAPI.GetCharmURLOrigin(params.ApplicationGet{ApplicationName: "wordpress"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.URL, gc.Equals, "local:quantal/wordpress-3")
+	latest := "latest"
+	c.Assert(result.Origin, jc.DeepEquals, params.CharmOrigin{
+		Source:   "local",
+		Risk:     "stable",
+		Revision: &rev,
+		Track:    &latest,
+	})
+}
+
 func (s *applicationSuite) TestApplicationSetCharm(c *gc.C) {
-	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
+	curl, _ := s.UploadCharm(c, "cs:precise/dummy-0", "dummy")
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -987,7 +1013,7 @@ func (s *applicationSuite) TestApplicationSetCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	curl, _ = s.UploadCharm(c, "precise/wordpress-3", "wordpress")
+	curl, _ = s.UploadCharm(c, "cs:precise/wordpress-3", "wordpress")
 	err = application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -1015,7 +1041,7 @@ func (s *applicationSuite) TestApplicationSetCharm(c *gc.C) {
 }
 
 func (s *applicationSuite) setupApplicationSetCharm(c *gc.C) {
-	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
+	curl, _ := s.UploadCharm(c, "cs:precise/dummy-0", "dummy")
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -1042,7 +1068,7 @@ func (s *applicationSuite) setupApplicationSetCharm(c *gc.C) {
 	})
 	c.Assert(errs, gc.DeepEquals, []error{error(nil), error(nil), error(nil)})
 	c.Assert(err, jc.ErrorIsNil)
-	curl, _ = s.UploadCharm(c, "precise/wordpress-3", "wordpress")
+	curl, _ = s.UploadCharm(c, "cs:precise/wordpress-3", "wordpress")
 	err = application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -1091,7 +1117,7 @@ func (s *applicationSuite) TestBlockChangesApplicationSetCharm(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationSetCharmForceUnits(c *gc.C) {
-	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
+	curl, _ := s.UploadCharm(c, "cs:precise/dummy-0", "dummy")
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -1111,7 +1137,7 @@ func (s *applicationSuite) TestApplicationSetCharmForceUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	curl, _ = s.UploadCharm(c, "precise/wordpress-3", "wordpress")
+	curl, _ = s.UploadCharm(c, "cs:precise/wordpress-3", "wordpress")
 	err = application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -1162,9 +1188,9 @@ func (s *applicationSuite) TestApplicationSetCharmInvalidApplication(c *gc.C) {
 
 func (s *applicationSuite) TestApplicationAddCharmErrors(c *gc.C) {
 	for url, expect := range map[string]string{
-		"wordpress":                   "charm URL must include revision",
-		"cs:wordpress":                "charm URL must include revision",
-		"cs:precise/wordpress":        "charm URL must include revision",
+		"wordpress":                   "only charm store charm URLs are supported, with cs: schema",
+		"cs:wordpress":                "charm URL must include a revision",
+		"cs:precise/wordpress":        "charm URL must include a revision",
 		"cs:precise/wordpress-999999": `cannot retrieve "cs:precise/wordpress-999999": charm not found`,
 	} {
 		c.Logf("test %s", url)
@@ -1176,7 +1202,7 @@ func (s *applicationSuite) TestApplicationAddCharmErrors(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationSetCharmLegacy(c *gc.C) {
-	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
+	curl, _ := s.UploadCharm(c, "cs:precise/dummy-0", "dummy")
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -1190,7 +1216,7 @@ func (s *applicationSuite) TestApplicationSetCharmLegacy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	curl, _ = s.UploadCharm(c, "trusty/dummy-1", "dummy")
+	curl, _ = s.UploadCharm(c, "cs:trusty/dummy-1", "dummy")
 	err = application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -1207,7 +1233,7 @@ func (s *applicationSuite) TestApplicationSetCharmLegacy(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationSetCharmUnsupportedSeries(c *gc.C) {
-	curl, _ := s.UploadCharmMultiSeries(c, "~who/multi-series", "multi-series")
+	curl, _ := s.UploadCharmMultiSeries(c, "cs:~who/multi-series", "multi-series")
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -1222,7 +1248,7 @@ func (s *applicationSuite) TestApplicationSetCharmUnsupportedSeries(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	curl, _ = s.UploadCharmMultiSeries(c, "~who/multi-series", "multi-series2")
+	curl, _ = s.UploadCharmMultiSeries(c, "cs:~who/multi-series", "multi-series2")
 	err = application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -1236,7 +1262,7 @@ func (s *applicationSuite) TestApplicationSetCharmUnsupportedSeries(c *gc.C) {
 }
 
 func (s *applicationSuite) assertApplicationSetCharmSeries(c *gc.C, upgradeCharm, series string) {
-	curl, _ := s.UploadCharmMultiSeries(c, "~who/multi-series", "multi-series")
+	curl, _ := s.UploadCharmMultiSeries(c, "cs:~who/multi-series", "multi-series")
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -1256,7 +1282,7 @@ func (s *applicationSuite) assertApplicationSetCharmSeries(c *gc.C, upgradeCharm
 	if series != "" {
 		url = series + "/" + upgradeCharm
 	}
-	curl, _ = s.UploadCharmMultiSeries(c, "~who/"+url, upgradeCharm)
+	curl, _ = s.UploadCharmMultiSeries(c, "cs:~who/"+url, upgradeCharm)
 	err = application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -1284,7 +1310,7 @@ func (s *applicationSuite) TestApplicationSetCharmNoExplicitSupportedSeries(c *g
 }
 
 func (s *applicationSuite) TestApplicationSetCharmWrongOS(c *gc.C) {
-	curl, _ := s.UploadCharmMultiSeries(c, "~who/multi-series", "multi-series")
+	curl, _ := s.UploadCharmMultiSeries(c, "cs:~who/multi-series", "multi-series")
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -1299,7 +1325,7 @@ func (s *applicationSuite) TestApplicationSetCharmWrongOS(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	curl, _ = s.UploadCharmMultiSeries(c, "~who/multi-series-windows", "multi-series-windows")
+	curl, _ = s.UploadCharmMultiSeries(c, "cs:~who/multi-series-windows", "multi-series-windows")
 	err = application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -1314,7 +1340,7 @@ func (s *applicationSuite) TestApplicationSetCharmWrongOS(c *gc.C) {
 }
 
 func (s *applicationSuite) setupApplicationDeploy(c *gc.C, args string) (*charm.URL, charm.Charm, constraints.Value) {
-	curl, ch := s.UploadCharm(c, "precise/dummy-42", "dummy")
+	curl, ch := s.UploadCharm(c, "cs:precise/dummy-42", "dummy")
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -1380,7 +1406,7 @@ func (s *applicationSuite) TestBlockChangesApplicationDeployPrincipal(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationDeploySubordinate(c *gc.C) {
-	curl, ch := s.UploadCharm(c, "utopic/logging-47", "logging")
+	curl, ch := s.UploadCharm(c, "cs:utopic/logging-47", "logging")
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -1418,7 +1444,7 @@ func (s *applicationSuite) combinedSettings(ch *state.Charm, inSettings charm.Se
 }
 
 func (s *applicationSuite) TestApplicationDeployConfig(c *gc.C) {
-	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
+	curl, _ := s.UploadCharm(c, "cs:precise/dummy-0", "dummy")
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -1447,7 +1473,7 @@ func (s *applicationSuite) TestApplicationDeployConfig(c *gc.C) {
 func (s *applicationSuite) TestApplicationDeployConfigError(c *gc.C) {
 	// TODO(fwereade): test Config/ConfigYAML handling directly on srvClient.
 	// Can't be done cleanly until it's extracted similarly to Machiner.
-	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
+	curl, _ := s.UploadCharm(c, "cs:precise/dummy-0", "dummy")
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -1468,7 +1494,7 @@ func (s *applicationSuite) TestApplicationDeployConfigError(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
-	curl, ch := s.UploadCharm(c, "precise/dummy-0", "dummy")
+	curl, ch := s.UploadCharm(c, "cs:precise/dummy-0", "dummy")
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -1511,7 +1537,7 @@ func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationDeployToMachineWithLXDProfile(c *gc.C) {
-	curl, ch := s.UploadCharm(c, "quantal/lxd-profile-0", "lxd-profile")
+	curl, ch := s.UploadCharm(c, "cs:quantal/lxd-profile-0", "lxd-profile")
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -1560,7 +1586,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithLXDProfile(c *gc.C)
 }
 
 func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfile(c *gc.C) {
-	curl, _ := s.UploadCharm(c, "quantal/lxd-profile-fail-0", "lxd-profile-fail")
+	curl, _ := s.UploadCharm(c, "cs:quantal/lxd-profile-fail-0", "lxd-profile-fail")
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -1568,7 +1594,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfile(c
 }
 
 func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAndForceStillSucceeds(c *gc.C) {
-	curl, ch := s.UploadCharm(c, "quantal/lxd-profile-fail-0", "lxd-profile-fail")
+	curl, ch := s.UploadCharm(c, "cs:quantal/lxd-profile-fail-0", "lxd-profile-fail")
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL:   curl.String(),
 		Force: true,
@@ -1635,7 +1661,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineNotFound(c *gc.C) {
 }
 
 func (s *applicationSuite) deployApplicationForUpdateTests(c *gc.C) {
-	curl, _ := s.UploadCharm(c, "precise/dummy-1", "dummy")
+	curl, _ := s.UploadCharm(c, "cs:precise/dummy-1", "dummy")
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -1654,7 +1680,7 @@ func (s *applicationSuite) deployApplicationForUpdateTests(c *gc.C) {
 
 func (s *applicationSuite) checkClientApplicationUpdateSetCharm(c *gc.C, forceCharmURL bool) {
 	s.deployApplicationForUpdateTests(c)
-	curl, _ := s.UploadCharm(c, "precise/wordpress-3", "wordpress")
+	curl, _ := s.UploadCharm(c, "cs:precise/wordpress-3", "wordpress")
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -1694,7 +1720,7 @@ func (s *applicationSuite) TestBlockRemoveApplicationUpdate(c *gc.C) {
 
 func (s *applicationSuite) setupApplicationUpdate(c *gc.C) string {
 	s.deployApplicationForUpdateTests(c)
-	curl, _ := s.UploadCharm(c, "precise/wordpress-3", "wordpress")
+	curl, _ := s.UploadCharm(c, "cs:precise/wordpress-3", "wordpress")
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -1949,6 +1975,37 @@ func (s *applicationSuite) TestClientApplicationUpdateSetSettingsGetYAML(c *gc.C
 	c.Assert(obtained, gc.DeepEquals, s.combinedSettings(ch, expected))
 }
 
+func (s *applicationSuite) TestApplicationUpdateCombinedStringAndYAMLSettings(c *gc.C) {
+	ch := s.AddTestingCharm(c, "dummy")
+	app := s.AddTestingApplication(c, "dummy", ch)
+
+	const newBranch = "newBranch"
+	c.Assert(s.State.AddBranch(newBranch, "user"), jc.ErrorIsNil)
+
+	// Update settings for the application.
+	args := params.ApplicationUpdate{
+		ApplicationName: "dummy",
+		SettingsStrings: map[string]string{
+			"username": "s-user",
+		},
+		SettingsYAML: "dummy:\n  title: s-title",
+		Generation:   newBranch,
+	}
+	err := s.applicationAPI.Update(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure the settings have been correctly updated.
+	expected := charm.Settings{"title": "s-title", "username": "s-user"}
+	obtained, err := app.CharmConfig(newBranch)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, s.combinedSettings(ch, expected))
+
+	// Check that the application is recorded against the generation.
+	gen, err := s.State.Branch(newBranch)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(gen.AssignedUnits(), jc.DeepEquals, map[string][]string{"dummy": {}})
+}
+
 func (s *applicationSuite) TestApplicationUpdateSetConstraints(c *gc.C) {
 	app := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
@@ -1970,7 +2027,7 @@ func (s *applicationSuite) TestApplicationUpdateSetConstraints(c *gc.C) {
 
 func (s *applicationSuite) TestApplicationUpdateAllParams(c *gc.C) {
 	s.deployApplicationForUpdateTests(c)
-	curl, _ := s.UploadCharm(c, "precise/wordpress-3", "wordpress")
+	curl, _ := s.UploadCharm(c, "cs:precise/wordpress-3", "wordpress")
 	err := application.AddCharmWithAuthorization(application.NewStateShim(s.State), params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	}, s.openRepo)
@@ -2006,9 +2063,9 @@ func (s *applicationSuite) TestApplicationUpdateAllParams(c *gc.C) {
 	// Check the minimum number of units.
 	c.Assert(app.MinUnits(), gc.Equals, minUnits)
 
-	// Check the settings: also ensure the YAML settings take precedence
-	// over strings ones.
-	expectedSettings := charm.Settings{"blog-title": "yaml-title"}
+	// Check the settings: also ensure the string settings take precedence
+	// over the YAML ones.
+	expectedSettings := charm.Settings{"blog-title": "string-title"}
 	obtainedSettings, err := app.CharmConfig(model.GenerationMaster)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedSettings, gc.DeepEquals, expectedSettings)
@@ -2437,21 +2494,59 @@ func (s *applicationSuite) TestApplicationExpose(c *gc.C) {
 		apps[i] = s.AddTestingApplication(c, name, charm)
 		c.Assert(apps[i].IsExposed(), jc.IsFalse)
 	}
-	err = apps[1].SetExposed()
+	err = apps[1].MergeExposeSettings(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apps[1].IsExposed(), jc.IsTrue)
-	for i, t := range applicationExposeTests {
-		c.Logf("test %d. %s", i, t.about)
-		err = s.applicationAPI.Expose(params.ApplicationExpose{t.application})
-		if t.err != "" {
-			c.Assert(err, gc.ErrorMatches, t.err)
-		} else {
-			c.Assert(err, jc.ErrorIsNil)
-			app, err := s.State.Application(t.application)
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(app.IsExposed(), gc.Equals, t.exposed)
-		}
-	}
+
+	s.assertApplicationExpose(c)
+}
+
+func (s *applicationSuite) TestApplicationExposeEndpoints(c *gc.C) {
+	charm := s.AddTestingCharm(c, "wordpress")
+	app := s.AddTestingApplication(c, "wordpress", charm)
+	c.Assert(app.IsExposed(), jc.IsFalse)
+
+	err := s.applicationAPI.Expose(params.ApplicationExpose{
+		ApplicationName: app.Name(),
+		ExposedEndpoints: map[string]params.ExposedEndpoint{
+			// Exposing an endpoint with no expose options implies
+			// expose to 0.0.0.0/0.
+			"monitoring-port": {},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := s.State.Application(app.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got.IsExposed(), gc.Equals, true)
+	c.Assert(got.ExposedEndpoints(), gc.DeepEquals, map[string]state.ExposedEndpoint{
+		"monitoring-port": {
+			ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR},
+		},
+	})
+}
+
+func (s *applicationSuite) TestApplicationExposeEndpointsWithPre29Client(c *gc.C) {
+	charm := s.AddTestingCharm(c, "wordpress")
+	app := s.AddTestingApplication(c, "wordpress", charm)
+	c.Assert(app.IsExposed(), jc.IsFalse)
+
+	err := s.applicationAPI.Expose(params.ApplicationExpose{
+		ApplicationName: app.Name(),
+		// If no endpoint-specific expose params are provided, the call
+		// will emulate the behavior of a pre 2.9 controller where all
+		// ports are exposed to 0.0.0.0/0.
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := s.State.Application(app.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got.IsExposed(), gc.Equals, true)
+	c.Assert(got.ExposedEndpoints(), gc.DeepEquals, map[string]state.ExposedEndpoint{
+		"": {
+			ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR},
+		},
+	})
 }
 
 func (s *applicationSuite) setupApplicationExpose(c *gc.C) {
@@ -2463,45 +2558,97 @@ func (s *applicationSuite) setupApplicationExpose(c *gc.C) {
 		apps[i] = s.AddTestingApplication(c, name, charm)
 		c.Assert(apps[i].IsExposed(), jc.IsFalse)
 	}
-	err = apps[1].SetExposed()
+	err = apps[1].MergeExposeSettings(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apps[1].IsExposed(), jc.IsTrue)
 }
 
 var applicationExposeTests = []struct {
-	about       string
-	application string
-	err         string
-	exposed     bool
+	about                 string
+	application           string
+	exposedEndpointParams map[string]params.ExposedEndpoint
+	//
+	expExposed          bool
+	expExposedEndpoints map[string]state.ExposedEndpoint
+	expErr              string
 }{
 	{
 		about:       "unknown application name",
 		application: "unknown-application",
-		err:         `application "unknown-application" not found`,
+		expErr:      `application "unknown-application" not found`,
 	},
 	{
-		about:       "expose a application",
+		about:       "expose all endpoints of an application ",
 		application: "dummy-application",
-		exposed:     true,
+		expExposed:  true,
+		expExposedEndpoints: map[string]state.ExposedEndpoint{
+			"": {
+				ExposeToCIDRs: []string{"0.0.0.0/0"},
+			},
+		},
 	},
 	{
 		about:       "expose an already exposed application",
 		application: "exposed-application",
-		exposed:     true,
+		expExposed:  true,
+		expExposedEndpoints: map[string]state.ExposedEndpoint{
+			"": {
+				ExposeToCIDRs: []string{"0.0.0.0/0"},
+			},
+		},
+	},
+	{
+		about:       "unknown endpoint name in expose parameters",
+		application: "dummy-application",
+		exposedEndpointParams: map[string]params.ExposedEndpoint{
+			"bogus": {},
+		},
+		expErr: `endpoint "bogus" not found`,
+	},
+	{
+		about:       "unknown space name in expose parameters",
+		application: "dummy-application",
+		exposedEndpointParams: map[string]params.ExposedEndpoint{
+			"": {
+				ExposeToSpaces: []string{"invaders"},
+			},
+		},
+		expErr: `space "invaders" not found`,
+	},
+	{
+		about:       "expose an application and provide expose parameters",
+		application: "exposed-application",
+		exposedEndpointParams: map[string]params.ExposedEndpoint{
+			"": {
+				ExposeToSpaces: []string{network.AlphaSpaceName},
+				ExposeToCIDRs:  []string{"13.37.0.0/16"},
+			},
+		},
+		expExposed: true,
+		expExposedEndpoints: map[string]state.ExposedEndpoint{
+			"": {
+				ExposeToSpaceIDs: []string{network.AlphaSpaceId},
+				ExposeToCIDRs:    []string{"13.37.0.0/16"},
+			},
+		},
 	},
 }
 
 func (s *applicationSuite) assertApplicationExpose(c *gc.C) {
 	for i, t := range applicationExposeTests {
 		c.Logf("test %d. %s", i, t.about)
-		err := s.applicationAPI.Expose(params.ApplicationExpose{t.application})
-		if t.err != "" {
-			c.Assert(err, gc.ErrorMatches, t.err)
+		err := s.applicationAPI.Expose(params.ApplicationExpose{
+			ApplicationName:  t.application,
+			ExposedEndpoints: t.exposedEndpointParams,
+		})
+		if t.expErr != "" {
+			c.Assert(err, gc.ErrorMatches, t.expErr)
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
-			application, err := s.State.Application(t.application)
+			app, err := s.State.Application(t.application)
 			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(application.IsExposed(), gc.Equals, t.exposed)
+			c.Assert(app.IsExposed(), gc.Equals, t.expExposed)
+			c.Assert(app.ExposedEndpoints(), gc.DeepEquals, t.expExposedEndpoints)
 		}
 	}
 }
@@ -2509,7 +2656,10 @@ func (s *applicationSuite) assertApplicationExpose(c *gc.C) {
 func (s *applicationSuite) assertApplicationExposeBlocked(c *gc.C, msg string) {
 	for i, t := range applicationExposeTests {
 		c.Logf("test %d. %s", i, t.about)
-		err := s.applicationAPI.Expose(params.ApplicationExpose{t.application})
+		err := s.applicationAPI.Expose(params.ApplicationExpose{
+			ApplicationName:  t.application,
+			ExposedEndpoints: t.exposedEndpointParams,
+		})
 		s.AssertBlocked(c, err, msg)
 	}
 }
@@ -2533,11 +2683,13 @@ func (s *applicationSuite) TestBlockChangesApplicationExpose(c *gc.C) {
 }
 
 var applicationUnexposeTests = []struct {
-	about       string
-	application string
-	err         string
-	initial     bool
-	expected    bool
+	about               string
+	application         string
+	err                 string
+	initial             map[string]state.ExposedEndpoint
+	unexposeEndpoints   []string
+	expExposed          bool
+	expExposedEndpoints map[string]state.ExposedEndpoint
 }{
 	{
 		about:       "unknown application name",
@@ -2545,33 +2697,66 @@ var applicationUnexposeTests = []struct {
 		err:         `application "unknown-application" not found`,
 	},
 	{
-		about:       "unexpose a application",
+		about:       "unexpose a application without specifying any endpoints",
 		application: "dummy-application",
-		initial:     true,
-		expected:    false,
+		initial: map[string]state.ExposedEndpoint{
+			"": {},
+		},
+		expExposed: false,
+	},
+	{
+		about:       "unexpose specific application endpoint",
+		application: "dummy-application",
+		initial: map[string]state.ExposedEndpoint{
+			"server":       {},
+			"server-admin": {},
+		},
+		unexposeEndpoints: []string{"server"},
+		// The server-admin (and hence the app) should remain exposed
+		expExposed: true,
+		expExposedEndpoints: map[string]state.ExposedEndpoint{
+			"server-admin": {ExposeToCIDRs: []string{"0.0.0.0/0"}},
+		},
+	},
+	{
+		about:       "unexpose all currently exposed application endpoints",
+		application: "dummy-application",
+		initial: map[string]state.ExposedEndpoint{
+			"server":       {},
+			"server-admin": {},
+		},
+		unexposeEndpoints: []string{"server", "server-admin"},
+		// Application should now be unexposed as all its endpoints have
+		// been unexposed.
+		expExposed: false,
 	},
 	{
 		about:       "unexpose an already unexposed application",
 		application: "dummy-application",
-		initial:     false,
-		expected:    false,
+		initial:     nil,
+		expExposed:  false,
 	},
 }
 
 func (s *applicationSuite) TestApplicationUnexpose(c *gc.C) {
-	charm := s.AddTestingCharm(c, "dummy")
+	charm := s.AddTestingCharm(c, "mysql")
 	for i, t := range applicationUnexposeTests {
 		c.Logf("test %d. %s", i, t.about)
 		app := s.AddTestingApplication(c, "dummy-application", charm)
-		if t.initial {
-			app.SetExposed()
+		if len(t.initial) != 0 {
+			err := app.MergeExposeSettings(t.initial)
+			c.Assert(err, jc.ErrorIsNil)
 		}
-		c.Assert(app.IsExposed(), gc.Equals, t.initial)
-		err := s.applicationAPI.Unexpose(params.ApplicationUnexpose{t.application})
+		c.Assert(app.IsExposed(), gc.Equals, len(t.initial) != 0)
+		err := s.applicationAPI.Unexpose(params.ApplicationUnexpose{
+			ApplicationName:  t.application,
+			ExposedEndpoints: t.unexposeEndpoints,
+		})
 		if t.err == "" {
 			c.Assert(err, jc.ErrorIsNil)
 			app.Refresh()
-			c.Assert(app.IsExposed(), gc.Equals, t.expected)
+			c.Assert(app.IsExposed(), gc.Equals, t.expExposed)
+			c.Assert(app.ExposedEndpoints(), gc.DeepEquals, t.expExposedEndpoints)
 		} else {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		}
@@ -2583,13 +2768,13 @@ func (s *applicationSuite) TestApplicationUnexpose(c *gc.C) {
 func (s *applicationSuite) setupApplicationUnexpose(c *gc.C) *state.Application {
 	charm := s.AddTestingCharm(c, "dummy")
 	app := s.AddTestingApplication(c, "dummy-application", charm)
-	app.SetExposed()
+	app.MergeExposeSettings(nil)
 	c.Assert(app.IsExposed(), gc.Equals, true)
 	return app
 }
 
 func (s *applicationSuite) assertApplicationUnexpose(c *gc.C, app *state.Application) {
-	err := s.applicationAPI.Unexpose(params.ApplicationUnexpose{"dummy-application"})
+	err := s.applicationAPI.Unexpose(params.ApplicationUnexpose{"dummy-application", nil})
 	c.Assert(err, jc.ErrorIsNil)
 	app.Refresh()
 	c.Assert(app.IsExposed(), gc.Equals, false)
@@ -2598,7 +2783,7 @@ func (s *applicationSuite) assertApplicationUnexpose(c *gc.C, app *state.Applica
 }
 
 func (s *applicationSuite) assertApplicationUnexposeBlocked(c *gc.C, app *state.Application, msg string) {
-	err := s.applicationAPI.Unexpose(params.ApplicationUnexpose{"dummy-application"})
+	err := s.applicationAPI.Unexpose(params.ApplicationUnexpose{"dummy-application", nil})
 	s.AssertBlocked(c, err, msg)
 	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)

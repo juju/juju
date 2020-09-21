@@ -91,10 +91,6 @@ func (s *firewallerSuite) TestWatchUnits(c *gc.C) {
 	s.testWatchUnits(c, s.firewaller)
 }
 
-func (s *firewallerSuite) TestGetExposed(c *gc.C) {
-	s.testGetExposed(c, s.firewaller)
-}
-
 func (s *firewallerSuite) TestGetAssignedMachine(c *gc.C) {
 	s.testGetAssignedMachine(c, s.firewaller)
 }
@@ -168,83 +164,6 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *firewallerSuite) TestGetMachinePorts(c *gc.C) {
-	s.openPorts(c)
-
-	subnetTag := names.NewSubnetTag(s.subnet.ID()).String()
-	args := params.MachinePortsParams{
-		Params: []params.MachinePorts{
-			{MachineTag: s.machines[0].Tag().String(), SubnetTag: ""},
-			{MachineTag: s.machines[0].Tag().String(), SubnetTag: subnetTag},
-			{MachineTag: s.machines[1].Tag().String(), SubnetTag: ""},
-			{MachineTag: s.machines[2].Tag().String(), SubnetTag: ""},
-			{MachineTag: s.machines[0].Tag().String(), SubnetTag: "invalid"},
-			{MachineTag: "machine-42", SubnetTag: ""},
-			{MachineTag: s.machines[0].Tag().String(), SubnetTag: "subnet-bad"},
-		},
-	}
-	unit0Tag := s.units[0].Tag().String()
-	expectPortsMachine0 := []params.MachinePortRange{
-		{UnitTag: unit0Tag, PortRange: params.PortRange{
-			FromPort: 1234, ToPort: 1400, Protocol: "tcp",
-		}},
-		{UnitTag: unit0Tag, PortRange: params.PortRange{
-			FromPort: 4321, ToPort: 4321, Protocol: "tcp",
-		}},
-	}
-	unit2Tag := s.units[2].Tag().String()
-	expectPortsMachine2 := []params.MachinePortRange{
-		{UnitTag: unit2Tag, PortRange: params.PortRange{
-			FromPort: 1111, ToPort: 2222, Protocol: "udp",
-		}},
-	}
-	result, err := s.firewaller.GetMachinePorts(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.MachinePortsResults{
-		Results: []params.MachinePortsResult{
-			{Ports: expectPortsMachine0},
-			{Error: apiservertesting.NotSupportedError(`retrieving machine ports for specific subnets`)},
-			{Error: nil, Ports: nil},
-			{Ports: expectPortsMachine2},
-			{Error: apiservertesting.ServerError(`"invalid" is not a valid tag`)},
-			{Error: apiservertesting.NotFoundError("machine 42")},
-			{Error: apiservertesting.ServerError(`"subnet-bad" is not a valid subnet tag`)},
-		},
-	})
-
-}
-
-func (s *firewallerSuite) TestGetMachineActiveSubnets(c *gc.C) {
-	s.openPorts(c)
-
-	args := addFakeEntities(params.Entities{Entities: []params.Entity{
-		{Tag: s.machines[0].Tag().String()},
-		{Tag: s.machines[1].Tag().String()},
-		{Tag: s.machines[2].Tag().String()},
-		{Tag: s.application.Tag().String()},
-		{Tag: s.units[0].Tag().String()},
-	}})
-	expectResultsMachine0 := []string{""}
-	expectResultsMachine2 := []string{""}
-	result, err := s.firewaller.GetMachineActiveSubnets(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.StringsResults{
-		Results: []params.StringsResult{
-			{Result: expectResultsMachine0},
-			{Result: nil, Error: nil},
-			{Result: expectResultsMachine2},
-			{Error: apiservertesting.ServerError(`"application-wordpress" is not a valid machine tag`)},
-			{Error: apiservertesting.ServerError(`"unit-wordpress-0" is not a valid machine tag`)},
-			{Error: apiservertesting.NotFoundError("machine 42")},
-			{Error: apiservertesting.ServerError(`"unit-foo-0" is not a valid machine tag`)},
-			{Error: apiservertesting.ServerError(`"application-bar" is not a valid machine tag`)},
-			{Error: apiservertesting.ServerError(`"user-foo" is not a valid machine tag`)},
-			{Error: apiservertesting.ServerError(`"foo-bar" is not a valid tag`)},
-			{Error: apiservertesting.ServerError(`"" is not a valid tag`)},
-		},
-	})
-}
-
 func (s *firewallerSuite) TestAreManuallyProvisioned(c *gc.C) {
 	m, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series:     "quantal",
@@ -285,4 +204,56 @@ func (s *firewallerSuite) TestAreManuallyProvisioned(c *gc.C) {
 			{Result: false, Error: apiservertesting.ServerError(`"" is not a valid tag`)},
 		},
 	})
+}
+
+func (s *firewallerSuite) TestGetExposeInfo(c *gc.C) {
+	apiv6 := &firewaller.FirewallerAPIV6{
+		&firewaller.FirewallerAPIV5{
+			&firewaller.FirewallerAPIV4{
+				FirewallerAPIV3:     s.firewaller,
+				ControllerConfigAPI: common.NewControllerConfig(newMockState(coretesting.ModelTag.Id())),
+			},
+		},
+	}
+	s.testGetExposeInfo(c, apiv6)
+}
+
+func (s *firewallerSuite) TestWatchSubnets(c *gc.C) {
+	// Set up a spaces with two subnets
+	sp, err := s.State.AddSpace("outer-space", network.Id("outer-1"), nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSubnet(network.SubnetInfo{
+		CIDR:      "192.168.0.0/24",
+		SpaceID:   sp.Id(),
+		SpaceName: sp.Name(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	sub2, err := s.State.AddSubnet(network.SubnetInfo{
+		CIDR:      "192.168.42.0/24",
+		SpaceID:   sp.Id(),
+		SpaceName: sp.Name(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
+
+	apiv6 := &firewaller.FirewallerAPIV6{
+		&firewaller.FirewallerAPIV5{
+			&firewaller.FirewallerAPIV4{
+				FirewallerAPIV3:     s.firewaller,
+				ControllerConfigAPI: common.NewControllerConfig(newMockState(coretesting.ModelTag.Id())),
+			},
+		},
+	}
+
+	s.testWatchSubnets(
+		c,
+		[]names.SubnetTag{
+			names.NewSubnetTag(sub2.ID()),
+		},
+		// We should only get sub2 in the initial changeset due to the
+		// filter condition.
+		[]string{sub2.ID()},
+		apiv6,
+	)
 }

@@ -777,6 +777,10 @@ func (c *Client) FindTools(args params.FindToolsParams) (params.FindToolsResult,
 	return c.api.toolsFinder.FindTools(args)
 }
 
+// NOTE: AddCharm is deprecated as of juju 2.9 and charms facade version 3.
+// Please discontinue use and move to the charms facade version.
+//
+// TODO: remove in juju 3.0
 func (c *Client) AddCharm(args params.AddCharm) error {
 	if err := c.checkCanWrite(); err != nil {
 		return err
@@ -790,12 +794,18 @@ func (c *Client) AddCharm(args params.AddCharm) error {
 	}, c.openCSRepo)
 }
 
-// AddCharmWithAuthorization adds the given charm URL (which must include revision) to
-// the model, if it does not exist yet. Local charms are not
+// AddCharmWithAuthorization adds the given charm URL (which must include
+// revision) to the model, if it does not exist yet. Local charms are not
 // supported, only charm store URLs. See also AddLocalCharm().
 //
-// The authorization macaroon, args.CharmStoreMacaroon, may be
-// omitted, in which case this call is equivalent to AddCharm.
+// The authorization macaroon, args.CharmStoreMacaroon, may be omitted, in
+// which case this call is equivalent to AddCharm.
+//
+// NOTE: AddCharmWithAuthorization is deprecated as of juju 2.9 and charms
+// facade version 3. Please discontinue use and move to the charms facade
+// version.
+//
+// TODO: remove in juju 3.0
 func (c *Client) AddCharmWithAuthorization(args params.AddCharmWithAuthorization) error {
 	if err := c.checkCanWrite(); err != nil {
 		return err
@@ -807,6 +817,11 @@ func (c *Client) AddCharmWithAuthorization(args params.AddCharmWithAuthorization
 
 // ResolveCharm resolves the best available charm URLs with series, for charm
 // locations without a series specified.
+//
+// NOTE: ResolveCharms is deprecated as of juju 2.9 and charms facade version 3.
+// Please discontinue use and move to the charms facade version.
+//
+// TODO: remove in juju 3.0
 func (c *Client) ResolveCharms(args params.ResolveCharms) (params.ResolveCharmResults, error) {
 	if err := c.checkCanWrite(); err != nil {
 		return params.ResolveCharmResults{}, err

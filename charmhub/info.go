@@ -16,19 +16,22 @@ import (
 type InfoClient struct {
 	path   path.Path
 	client RESTClient
+	logger Logger
 }
 
 // NewInfoClient creates a InfoClient for requesting
-func NewInfoClient(path path.Path, client RESTClient) *InfoClient {
+func NewInfoClient(path path.Path, client RESTClient, logger Logger) *InfoClient {
 	return &InfoClient{
 		path:   path,
 		client: client,
+		logger: logger,
 	}
 }
 
 // Info requests the information of a given charm. If that charm doesn't exist
 // an error stating that fact will be returned.
 func (c *InfoClient) Info(ctx context.Context, name string) (transport.InfoResponse, error) {
+	c.logger.Debugf("Info(%s)", name)
 	var resp transport.InfoResponse
 	path, err := c.path.Join(name)
 	if err != nil {
@@ -38,5 +41,6 @@ func (c *InfoClient) Info(ctx context.Context, name string) (transport.InfoRespo
 	if err := c.client.Get(ctx, path, &resp); err != nil {
 		return resp, errors.Trace(err)
 	}
-	return resp, nil
+
+	return resp, resp.ErrorList.Combine()
 }

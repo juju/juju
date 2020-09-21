@@ -290,6 +290,9 @@ func (c *baseUpgradeCommand) initCAASVersions(
 		if majorVersion != -1 && vers.Major != majorVersion {
 			continue
 		}
+		if jujuversion.OfficialBuild == 0 && vers.Build > 0 {
+			continue
+		}
 		// Only include a docker image if we've published simple streams
 		// metadata for that version.
 		vers.Build = 0

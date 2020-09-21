@@ -202,6 +202,40 @@ func (s *operationSuite) TestListOperationsUnitFilter(c *gc.C) {
 	c.Assert(result.Actions[0].Status, gc.Equals, "pending")
 }
 
+func (s *operationSuite) TestListOperationsMachineFilter(c *gc.C) {
+	s.setupOperations(c)
+	// Set up an operation with a pending action.
+	arg := params.Actions{
+		Actions: []params.Action{
+			{Receiver: s.machine0.Tag().String(), Name: "juju-run", Parameters: map[string]interface{}{
+				"command": "ls",
+				"timeout": 1,
+			}},
+		}}
+	_, err := s.action.Enqueue(arg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	operations, err := s.action.ListOperations(params.OperationQueryArgs{
+		Machines: []string{"0"},
+		Status:   []string{"pending"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(operations.Results, gc.HasLen, 1)
+	result := operations.Results[0]
+
+	c.Assert(result.Actions, gc.HasLen, 1)
+	c.Assert(result.Actions[0].Action, gc.NotNil)
+	if result.Enqueued.IsZero() {
+		c.Fatal("enqueued time not set")
+	}
+	c.Assert(result.Status, gc.Equals, "pending")
+	action := result.Actions[0].Action
+	c.Assert(action.Name, gc.Equals, "juju-run")
+	c.Assert(action.Receiver, gc.Equals, "machine-0")
+	c.Assert(action.Tag, gc.Equals, "action-7")
+	c.Assert(result.Actions[0].Status, gc.Equals, "pending")
+}
+
 func (s *operationSuite) TestListOperationsAppAndUnitFilter(c *gc.C) {
 	s.setupOperations(c)
 	// Set up an operation with a pending action.

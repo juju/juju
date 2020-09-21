@@ -3414,7 +3414,7 @@ func (s *uniterSuite) TestAssignedMachine(c *gc.C) {
 	})
 }
 
-func (s *uniterSuite) TestOpenedMachinePortRanges(c *gc.C) {
+func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 	// Verify no ports are opened yet on the machine (or unit).
 	machinePortRanges, err := s.machine0.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3445,29 +3445,30 @@ func (s *uniterSuite) TestOpenedMachinePortRanges(c *gc.C) {
 		{Tag: "machine-42"},
 		{Tag: "application-wordpress"},
 	}}
-	expectPortRanges := []params.OpenUnitPortRanges{
-		// Result list is always sorted by unit name.
-		{
-			UnitTag: "unit-mysql-1",
-			PortRangeGroups: map[string][]params.PortRange{
-				"server": {{3306, 3306, "tcp"}},
+	expectPortRanges := map[string][]params.OpenUnitPortRangesByEndpoint{
+		"unit-mysql-1": {
+			{
+				Endpoint:   "server",
+				PortRanges: []params.PortRange{{3306, 3306, "tcp"}},
 			},
 		},
-		{
-			UnitTag: "unit-wordpress-0",
-			PortRangeGroups: map[string][]params.PortRange{
-				"":                {{100, 200, "tcp"}},
-				"monitoring-port": {{10, 20, "udp"}},
+		"unit-wordpress-0": {
+			{
+				Endpoint:   "",
+				PortRanges: []params.PortRange{{100, 200, "tcp"}},
+			},
+			{
+				Endpoint:   "monitoring-port",
+				PortRanges: []params.PortRange{{10, 20, "udp"}},
 			},
 		},
 	}
-	result, err := s.uniter.OpenedMachinePortRanges(args)
+	result, err := s.uniter.OpenedMachinePortRangesByEndpoint(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.OpenMachinePortRangesResults{
-		Results: []params.OpenMachinePortRangesResult{
+	c.Assert(result, gc.DeepEquals, params.OpenMachinePortRangesByEndpointResults{
+		Results: []params.OpenMachinePortRangesByEndpointResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{
-				GroupKey:       "endpoint",
 				UnitPortRanges: expectPortRanges,
 			},
 			{Error: apiservertesting.ErrUnauthorized},

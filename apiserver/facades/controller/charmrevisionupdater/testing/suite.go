@@ -85,11 +85,11 @@ func (s *CharmSuite) SetUpSuite(c *gc.C, jcSuite *jujutesting.JujuConnSuite) {
 
 func (s *CharmSuite) SetUpTest(c *gc.C) {
 	urls := map[string]string{
-		"mysql":     "quantal/mysql-23",
-		"dummy":     "quantal/dummy-24",
-		"riak":      "quantal/riak-25",
-		"wordpress": "quantal/wordpress-26",
-		"logging":   "quantal/logging-27",
+		"mysql":     "cs:quantal/mysql-23",
+		"dummy":     "cs:quantal/dummy-24",
+		"riak":      "cs:quantal/riak-25",
+		"wordpress": "cs:quantal/wordpress-26",
+		"logging":   "cs:quantal/logging-27",
 	}
 	var logger loggo.Logger
 	s.store = &mockStore{

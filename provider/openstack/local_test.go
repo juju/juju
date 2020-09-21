@@ -399,6 +399,14 @@ func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *gc.C) {
 }
 
 func (s *localServerSuite) TestAddressesWithPublicIP(c *gc.C) {
+	s.assertAddressesWithPublicIP(c, constraints.Value{}, true)
+}
+
+func (s *localServerSuite) TestAddressesWithPublicIPConstraintsOverride(c *gc.C) {
+	s.assertAddressesWithPublicIP(c, constraints.MustParse("allocate-public-ip=true"), false)
+}
+
+func (s *localServerSuite) assertAddressesWithPublicIP(c *gc.C, cons constraints.Value, useFloatingIP bool) {
 	// Floating IP address is 10.0.0.1
 	bootstrapFinished := false
 	s.PatchValue(&common.FinishBootstrap, func(
@@ -425,14 +433,22 @@ func (s *localServerSuite) TestAddressesWithPublicIP(c *gc.C) {
 
 	env := s.openEnviron(c, coretesting.Attrs{
 		"network":         "private_999",
-		"use-floating-ip": true,
+		"use-floating-ip": useFloatingIP,
 	})
-	err := bootstrapEnv(c, env)
+	err := bootstrapEnvWithConstraints(c, env, cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bootstrapFinished, jc.IsTrue)
 }
 
 func (s *localServerSuite) TestAddressesWithoutPublicIP(c *gc.C) {
+	s.assertAddressesWithoutPublicIP(c, constraints.Value{}, false)
+}
+
+func (s *localServerSuite) TestAddressesWithoutPublicIPConstraintsOverride(c *gc.C) {
+	s.assertAddressesWithoutPublicIP(c, constraints.MustParse("allocate-public-ip=false"), true)
+}
+
+func (s *localServerSuite) assertAddressesWithoutPublicIP(c *gc.C, cons constraints.Value, useFloatingIP bool) {
 	bootstrapFinished := false
 	s.PatchValue(&common.FinishBootstrap, func(
 		ctx environs.BootstrapContext,
@@ -455,8 +471,8 @@ func (s *localServerSuite) TestAddressesWithoutPublicIP(c *gc.C) {
 		return nil
 	})
 
-	env := s.openEnviron(c, coretesting.Attrs{"use-floating-ip": false})
-	err := bootstrapEnv(c, env)
+	env := s.openEnviron(c, coretesting.Attrs{"use-floating-ip": useFloatingIP})
+	err := bootstrapEnvWithConstraints(c, env, cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bootstrapFinished, jc.IsTrue)
 }
@@ -610,6 +626,36 @@ func (s *localServerSuite) TestStartInstanceNoNetworksNetworkNotSetNoError(c *gc
 	model := neutronmodel.New()
 	for _, net := range model.AllNetworks() {
 		_ = model.RemoveNetwork(net.Id)
+	}
+	s.srv.OpenstackSvc.Neutron.AddNeutronModel(model)
+	s.srv.OpenstackSvc.Nova.AddNeutronModel(model)
+
+	cfg, err := s.env.Config().Apply(coretesting.Attrs{
+		"network": "",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
+	c.Check(inst, gc.NotNil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *localServerSuite) TestStartInstanceOneNetworkNetworkNotSetNoError(c *gc.C) {
+	// Modify the Openstack service that is created by default,
+	// to remove all but 1 internal network.
+	model := neutronmodel.New()
+	var foundOne bool
+	for _, net := range model.AllNetworks() {
+		if !net.External {
+			if !foundOne {
+				foundOne = true
+				continue
+			}
+			err := model.RemoveNetwork(net.Id)
+			c.Assert(err, jc.ErrorIsNil)
+		}
 	}
 	s.srv.OpenstackSvc.Neutron.AddNeutronModel(model)
 	s.srv.OpenstackSvc.Nova.AddNeutronModel(model)
@@ -3114,8 +3160,11 @@ func newNovaNetworkingOpenstackService(cred *identity.Credentials, auth identity
 	service.SetupHTTP(nil)
 	return service, logMsg
 }
-
 func bootstrapEnv(c *gc.C, env environs.Environ) error {
+	return bootstrapEnvWithConstraints(c, env, constraints.Value{})
+}
+
+func bootstrapEnvWithConstraints(c *gc.C, env environs.Environ, cons constraints.Value) error {
 	return bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		context.NewCloudCallContext(),
 		bootstrap.BootstrapParams{
@@ -3123,5 +3172,6 @@ func bootstrapEnv(c *gc.C, env environs.Environ) error {
 			AdminSecret:              testing.AdminSecret,
 			CAPrivateKey:             coretesting.CAKey,
 			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			BootstrapConstraints:     cons,
 		})
 }

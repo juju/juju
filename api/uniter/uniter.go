@@ -397,16 +397,16 @@ func (st *State) AllMachinePorts(machineTag names.MachineTag) (map[network.PortR
 
 // OpenedMachinePortRanges returns all port ranges currently open on the given
 // machine, grouped by unit tag and application endpoint.
-func (st *State) OpenedMachinePortRanges(machineTag names.MachineTag) (map[names.UnitTag]network.GroupedPortRanges, error) {
+func (st *State) OpenedMachinePortRangesByEndpoint(machineTag names.MachineTag) (map[names.UnitTag]network.GroupedPortRanges, error) {
 	if st.BestAPIVersion() < 17 {
-		// OpenedMachinePortRanges() was introduced in UniterAPIV17.
-		return nil, errors.NotImplementedf("OpenedMachinePortRanges() (need V17+)")
+		// OpenedMachinePortRangesByEndpoint() was introduced in UniterAPIV17.
+		return nil, errors.NotImplementedf("OpenedMachinePortRangesByEndpoint() (need V17+)")
 	}
-	var results params.OpenMachinePortRangesResults
+	var results params.OpenMachinePortRangesByEndpointResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: machineTag.String()}},
 	}
-	err := st.facade.FacadeCall("OpenedMachinePortRanges", args, &results)
+	err := st.facade.FacadeCall("OpenedMachinePortRangesByEndpoint", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -416,24 +416,22 @@ func (st *State) OpenedMachinePortRanges(machineTag names.MachineTag) (map[names
 	result := results.Results[0]
 	if result.Error != nil {
 		return nil, result.Error
-	} else if result.GroupKey != "endpoint" {
-		return nil, fmt.Errorf("expected open unit port ranges to be grouped by endpoint, got %s", result.GroupKey)
 	}
 
 	portRangeMap := make(map[names.UnitTag]network.GroupedPortRanges)
-	for _, unitPortRanges := range result.UnitPortRanges {
-		unitTag, err := names.ParseUnitTag(unitPortRanges.UnitTag)
+	for unitTagStr, unitPortRanges := range result.UnitPortRanges {
+		unitTag, err := names.ParseUnitTag(unitTagStr)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		portRangeMap[unitTag] = make(network.GroupedPortRanges)
 
-		for endpointName, portRanges := range unitPortRanges.PortRangeGroups {
-			portList := make([]network.PortRange, len(portRanges))
-			for i, pr := range portRanges {
+		for _, group := range unitPortRanges {
+			portList := make([]network.PortRange, len(group.PortRanges))
+			for i, pr := range group.PortRanges {
 				portList[i] = pr.NetworkPortRange()
 			}
-			portRangeMap[unitTag][endpointName] = portList
+			portRangeMap[unitTag][group.Endpoint] = portList
 		}
 	}
 	return portRangeMap, nil

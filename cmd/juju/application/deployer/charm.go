@@ -4,12 +4,13 @@
 package deployer
 
 import (
+	"fmt"
 	"io/ioutil"
 	"strconv"
 	"strings"
 
 	"github.com/juju/charm/v8"
-	"github.com/juju/charmrepo/v6/csclient/params"
+	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -18,11 +19,13 @@ import (
 	"gopkg.in/yaml.v2"
 
 	applicationapi "github.com/juju/juju/api/application"
+	commoncharm "github.com/juju/juju/api/common/charm"
 	app "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
@@ -44,7 +47,7 @@ type deployCharm struct {
 	flagSet         *gnuflag.FlagSet
 	model           ModelCommand
 	numUnits        int
-	origin          applicationapi.CharmOrigin
+	origin          commoncharm.Origin
 	placement       []*instance.Placement
 	placementSpec   string
 	resources       map[string]string
@@ -128,6 +131,16 @@ func (d *deployCharm) deploy(
 	appConfig := make(map[string]string)
 	for k, v := range attr {
 		appConfig[k] = v.(string)
+
+		// Handle @ syntax for including file contents as values so we
+		// are consistent to how 'juju config' works
+		if len(appConfig[k]) < 1 || appConfig[k][0] != '@' {
+			continue
+		}
+
+		if appConfig[k], err = utils.ReadValue(ctx, d.model.Filesystem(), appConfig[k][1:]); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	// Expand the trust flag into the appConfig
@@ -256,9 +269,14 @@ type predeployedLocalCharm struct {
 	userCharmURL *charm.URL
 }
 
+// String returns a string description of the deployer.
+func (d *predeployedLocalCharm) String() string {
+	return fmt.Sprintf("deploy predeployed local charm: %s", d.userCharmURL.String())
+}
+
 // PrepareAndDeploy finishes preparing to deploy a predeployed local charm,
 // then deploys it.
-func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _ *store.CharmStoreAdaptor) error {
+func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _ Resolver, _ store.MacaroonGetter) error {
 	userCharmURL := d.userCharmURL
 	ctx.Verbosef("Preparing to deploy local charm %q again", userCharmURL.Name)
 
@@ -275,27 +293,26 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 	if err := d.validateCharmFlags(); err != nil {
 		return errors.Trace(err)
 	}
+	formattedCharmURL := d.userCharmURL.String()
 
-	charmInfo, err := deployAPI.CharmInfo(d.userCharmURL.String())
+	charmInfo, err := deployAPI.CharmInfo(formattedCharmURL)
 	if err != nil {
-		return err
-	}
-
-	if err := d.validateResourcesNeededForLocalDeploy(charmInfo.Meta); err != nil {
 		return errors.Trace(err)
 	}
-	formattedCharmURL := d.userCharmURL.String()
 	ctx.Infof("Located charm %q.", formattedCharmURL)
-	ctx.Infof("Deploying charm %q.", formattedCharmURL)
 
-	d.origin, err = deduceOrigin(userCharmURL)
-	if err != nil {
+	if err := d.validateResourcesNeededForLocalDeploy(charmInfo.Meta); err != nil {
 		return errors.Trace(err)
 	}
 
 	d.id = charmstore.CharmID{URL: d.userCharmURL}
 	d.series = userCharmURL.Series
+	d.origin, err = utils.DeduceOrigin(userCharmURL, corecharm.Channel{})
+	if err != nil {
+		return errors.Trace(err)
+	}
 
+	ctx.Infof("Deploying charm %q.", formattedCharmURL)
 	return d.deploy(ctx, deployAPI)
 }
 
@@ -305,9 +322,14 @@ type localCharm struct {
 	ch   charm.Charm
 }
 
+// String returns a string description of the deployer.
+func (d *localCharm) String() string {
+	return fmt.Sprintf("deploy local charm: %s", d.curl.String())
+}
+
 // PrepareAndDeploy finishes preparing to deploy a local charm,
 // then deploys it.
-func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _ *store.CharmStoreAdaptor) error {
+func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _ Resolver, _ store.MacaroonGetter) error {
 	ctx.Verbosef("Preparing to deploy local charm: %q ", l.curl.Name)
 	if err := l.validateCharmFlags(); err != nil {
 		return errors.Trace(err)
@@ -323,10 +345,9 @@ func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _
 		// Local charms don't need a channel.
 	}
 	l.series = l.curl.Series
-
-	l.origin, err = deduceOrigin(curl)
+	l.origin, err = utils.DeduceOrigin(curl, corecharm.Channel{})
 	if err != nil {
-		return errors.Trace(err)
+		return err
 	}
 
 	ctx.Infof("Deploying charm %q.", curl.String())
@@ -336,15 +357,23 @@ func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _
 type charmStoreCharm struct {
 	deployCharm
 	userRequestedURL *charm.URL
-	channel          params.Channel
 	clock            jujuclock.Clock
+}
+
+// String returns a string description of the deployer.
+func (d *charmStoreCharm) String() string {
+	return fmt.Sprintf("deploy charm store charm: %s", d.userRequestedURL.String())
 }
 
 // PrepareAndDeploy finishes preparing to deploy a charm store charm,
 // then deploys it.
-func (c *charmStoreCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, cstore *store.CharmStoreAdaptor) error {
+func (c *charmStoreCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver, macaroonGetter store.MacaroonGetter) error {
 	userRequestedURL := c.userRequestedURL
-	ctx.Verbosef("Preparing to deploy %q from the charm store", userRequestedURL.Name)
+	location := "hub"
+	if userRequestedURL.Schema == "cs" {
+		location = "store"
+	}
+	ctx.Verbosef("Preparing to deploy %q from the charm %s", userRequestedURL.Name, location)
 
 	// resolver.resolve potentially updates the series of anything
 	// passed in. Store this for use in seriesSelector.
@@ -362,16 +391,15 @@ func (c *charmStoreCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	}
 
 	// Charm or bundle has been supplied as a URL so we resolve and
-	// deploy using the store but pass in the channel command line
-	// argument so users can target a specific channel.
-	storeCharmOrBundleURL, channel, supportedSeries, err := store.ResolveCharm(
-		cstore.ResolveWithPreferredChannel, userRequestedURL, c.channel,
-	)
+	// deploy using the store but pass in the origin command line
+	// argument so users can target a specific origin.
+	storeCharmOrBundleURL, origin, supportedSeries, err := resolver.ResolveCharm(userRequestedURL, c.origin)
 	if charm.IsUnsupportedSeriesError(err) {
 		return errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 	} else if err != nil {
 		return errors.Trace(err)
 	}
+	c.origin = origin
 
 	if err := c.validateCharmFlags(); err != nil {
 		return errors.Trace(err)
@@ -412,7 +440,7 @@ func (c *charmStoreCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	}
 
 	// Store the charm in the controller
-	curl, csMac, err := store.AddCharmFromURL(deployAPI, cstore.MacaroonGetter, storeCharmOrBundleURL, channel, c.force)
+	curl, csMac, csOrigin, err := store.AddCharmFromURL(deployAPI, macaroonGetter, storeCharmOrBundleURL, c.origin, c.force)
 	if err != nil {
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 			return errors.Trace(termErr.UserErr())
@@ -440,13 +468,10 @@ func (c *charmStoreCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 
 	c.id = charmstore.CharmID{
 		URL:     curl,
-		Channel: channel,
-	}
-	c.origin, err = deduceOrigin(curl)
-	if err != nil {
-		return errors.Trace(err)
+		Channel: csparams.Channel(c.origin.Risk),
 	}
 	c.series = series
 	c.csMac = csMac
+	c.origin = csOrigin
 	return c.deploy(ctx, deployAPI)
 }

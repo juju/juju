@@ -135,9 +135,9 @@ func (s *RemoteFirewallerSuite) TestFirewallRules(c *gc.C) {
 	c.Assert(result.Rules[0].WhitelistCIDRS, jc.SameContents, []string{"192.168.0.0/16"})
 }
 
-var _ = gc.Suite(&OpenedMachinePortsSuite{})
+var _ = gc.Suite(&FirewallerSuite{})
 
-type OpenedMachinePortsSuite struct {
+type FirewallerSuite struct {
 	coretesting.BaseSuite
 
 	resources  *common.Resources
@@ -146,7 +146,7 @@ type OpenedMachinePortsSuite struct {
 	api        *firewaller.FirewallerAPIV6
 }
 
-func (s *OpenedMachinePortsSuite) SetUpTest(c *gc.C) {
+func (s *FirewallerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.resources = common.NewResources()
@@ -171,7 +171,7 @@ func (s *OpenedMachinePortsSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *OpenedMachinePortsSuite) TestOpenedMachinePortRanges(c *gc.C) {
+func (s *FirewallerSuite) TestOpenedMachinePortRanges(c *gc.C) {
 	// Set up our mocks
 	mockMachine := newMockMachine("0")
 	mockMachine.openedPortRanges = newMockMachinePortRanges(
@@ -226,42 +226,66 @@ func (s *OpenedMachinePortsSuite) TestOpenedMachinePortRanges(c *gc.C) {
 	c.Assert(res.Results, gc.HasLen, 1)
 
 	c.Assert(res.Results[0].Error, gc.IsNil)
-	c.Assert(res.Results[0].GroupKey, gc.Equals, "cidr", gc.Commentf("expected group key to be cidr; got %q", res.Results[0].GroupKey))
-	c.Assert(res.Results[0].UnitPortRanges, gc.DeepEquals, []params.OpenUnitPortRanges{
-		// NOTE: results are sorted by unit tag (each port ranges list
-		// is sorted as well).
-		{
-			UnitTag: "unit-mysql-0",
-			PortRangeGroups: map[string][]params.PortRange{
-				// The subnet CIDRs for space "42" that "foo"
-				// is bound to.
-				"192.168.0.0/24": {
-					params.FromNetworkPortRange(network.MustParsePortRange("3306/tcp")),
-				},
-				"192.168.1.0/24": {
-					params.FromNetworkPortRange(network.MustParsePortRange("3306/tcp")),
+	c.Assert(res.Results[0].UnitPortRanges, gc.DeepEquals, map[string][]params.OpenUnitPortRanges{
+		"unit-wordpress-0": {
+			{
+				Endpoint:    "",
+				SubnetCIDRs: []string{"10.0.0.0/24", "10.0.1.0/24", "192.168.0.0/24", "192.168.1.0/24"},
+				PortRanges: []params.PortRange{
+					params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
 				},
 			},
 		},
-		{
-			UnitTag: "unit-wordpress-0",
-			PortRangeGroups: map[string][]params.PortRange{
-				// Wordpress has opened port 80 to
-				// all bound spaces (alpha and 42). We should
-				// get an entry in each subnet
-				"10.0.0.0/24": {
-					params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
-				},
-				"10.0.1.0/24": {
-					params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
-				},
-				"192.168.0.0/24": {
-					params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
-				},
-				"192.168.1.0/24": {
-					params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
+		"unit-mysql-0": {
+			{
+				Endpoint:    "foo",
+				SubnetCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
+				PortRanges: []params.PortRange{
+					params.FromNetworkPortRange(network.MustParsePortRange("3306/tcp")),
 				},
 			},
 		},
 	})
+}
+
+func (s *FirewallerSuite) TestAllSpaceInfos(c *gc.C) {
+	// Set up our mocks
+	s.st.spaceInfos = network.SpaceInfos{
+		{
+			ID:         "42",
+			Name:       "questions-about-the-universe",
+			ProviderId: "provider-id-2",
+			Subnets: []network.SubnetInfo{
+				{
+					ID:                "13",
+					CIDR:              "1.168.1.0/24",
+					ProviderId:        "provider-subnet-id-1",
+					ProviderSpaceId:   "provider-space-id-1",
+					ProviderNetworkId: "provider-network-id-1",
+					VLANTag:           42,
+					AvailabilityZones: []string{"az1", "az2"},
+					SpaceID:           "42",
+					SpaceName:         "questions-about-the-universe",
+					FanInfo: &network.FanCIDRs{
+						FanLocalUnderlay: "192.168.0.0/16",
+						FanOverlay:       "1.0.0.0/8",
+					},
+					IsPublic: true,
+				},
+			}},
+		{ID: "99", Name: "special", Subnets: []network.SubnetInfo{
+			{ID: "999", CIDR: "192.168.2.0/24"},
+		}},
+	}
+
+	// Test call output
+	req := params.SpaceInfosParams{
+		FilterBySpaceIDs: []string{network.AlphaSpaceId, "42"},
+	}
+	res, err := s.api.SpaceInfos(req)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Hydrate a network.SpaceInfos from the response
+	gotSpaceInfos := params.ToNetworkSpaceInfos(res)
+	c.Assert(gotSpaceInfos, gc.DeepEquals, s.st.spaceInfos[0:1], gc.Commentf("expected to get back a filtered list of the space infos"))
 }

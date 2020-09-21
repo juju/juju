@@ -564,6 +564,38 @@ func (s *MigrationExportSuite) TestMultipleApplications(c *gc.C) {
 	c.Assert(applications, gc.HasLen, 3)
 }
 
+func (s *MigrationExportSuite) TestApplicationExposeParameters(c *gc.C) {
+	serverSpace, err := s.State.AddSpace("server", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	app := s.AddTestingApplicationWithBindings(c, "mysql",
+		s.AddTestingCharm(c, "mysql"),
+		map[string]string{
+			"server": serverSpace.Id(),
+		},
+	)
+
+	err = app.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		"server": {
+			ExposeToSpaceIDs: []string{serverSpace.Id()},
+			ExposeToCIDRs:    []string{"13.37.0.0/16"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	applications := model.Applications()
+	c.Assert(applications, gc.HasLen, 1)
+
+	expEps := applications[0].ExposedEndpoints()
+	c.Assert(expEps, gc.HasLen, 1)
+	c.Assert(expEps["server"], gc.Not(gc.IsNil))
+	c.Assert(expEps["server"].ExposeToSpaceIDs(), gc.DeepEquals, []string{serverSpace.Id()})
+	c.Assert(expEps["server"].ExposeToCIDRs(), gc.DeepEquals, []string{"13.37.0.0/16"})
+}
+
 func (s *MigrationExportSuite) TestApplicationExposingOffers(c *gc.C) {
 	_ = s.Factory.MakeUser(c, &factory.UserParams{Name: "admin"})
 	fooUser := s.Factory.MakeUser(c, &factory.UserParams{Name: "foo"})

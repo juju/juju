@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
+	commoncharm "github.com/juju/juju/api/common/charm"
 	apicharms "github.com/juju/juju/api/common/charms"
 	apiparams "github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application/store"
@@ -22,6 +23,23 @@ import (
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/jujuclient"
 )
+
+// DeployerFactory contains a method to get a deployer.
+type DeployerFactory interface {
+	GetDeployer(DeployerConfig, ModelConfigGetter, Resolver) (Deployer, error)
+}
+
+// Deployer defines the functionality of a deployer returned by the
+// factory.
+type Deployer interface {
+	// PrepareAndDeploy finishes preparing to deploy a charm or bundle,
+	// then deploys it.  This is done as one step to accommodate the
+	// call being wrapped by block.ProcessBlockedError.
+	PrepareAndDeploy(*cmd.Context, DeployerAPI, Resolver, store.MacaroonGetter) error
+
+	// String returns a string description of the deployer.
+	String() string
+}
 
 // DeployStepAPI represents a API required for deploying using the step
 // deployment code.
@@ -99,7 +117,7 @@ type ApplicationAPI interface {
 	AddMachines(machineParams []apiparams.AddMachineParams) ([]apiparams.AddMachinesResult, error)
 	AddRelation(endpoints, viaCIDRs []string) (*apiparams.AddRelationResults, error)
 	AddUnits(application.AddUnitsParams) ([]string, error)
-	Expose(application string) error
+	Expose(application string, exposedEndpoints map[string]apiparams.ExposedEndpoint) error
 	GetAnnotations(tags []string) ([]apiparams.AnnotationsGetResult, error)
 	GetConfig(branchName string, appNames ...string) ([]map[string]interface{}, error)
 	GetConstraints(appNames ...string) ([]constraints.Value, error)
@@ -111,11 +129,23 @@ type ApplicationAPI interface {
 	Consume(arg crossmodel.ConsumeApplicationArgs) (string, error)
 }
 
-// BundleResolver defines what we need from a charm store to resolve a
-// bundle and read the bundle data.
-type BundleResolver interface {
-	store.URLResolver
+// Bundle is a local version of the charm.Bundle interface, for test
+// with the Resolver interface.
+type Bundle interface {
+	// Data returns the contents of the bundle's bundle.yaml file.
+	Data() *charm.BundleData // yes
+	// ReadMe returns the contents of the bundle's README.md file.
+	ReadMe() string
+	// ContainsOverlays returns true if the bundle contains any overlays.
+	ContainsOverlays() bool
+}
+
+// Resolver defines what we need  to resolve a charm or bundle and
+// read the bundle data.
+type Resolver interface {
 	GetBundle(*charm.URL, string) (charm.Bundle, error)
+	ResolveBundleURL(*charm.URL, commoncharm.Origin) (*charm.URL, commoncharm.Origin, error)
+	ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin) (*charm.URL, commoncharm.Origin, []string, error)
 }
 
 type ModelConfigGetter interface {

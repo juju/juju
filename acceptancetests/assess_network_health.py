@@ -140,7 +140,7 @@ class AssessNetworkHealth:
             self.existing_series.add(info['series'])
         for series in self.existing_series:
             try:
-                client.deploy('~juju-qa/network-health', series=series,
+                client.deploy('cs:~juju-qa/network-health', series=series,
                               alias='network-health-{}'.format(series))
 
             except subprocess.CalledProcessError:
@@ -384,7 +384,7 @@ class AssessNetworkHealth:
         for app, info in apps.items():
             if 'network-health' not in app:
                 alias = 'network-health-{}'.format(app)
-                client.deploy('~juju-qa/network-health', alias=alias,
+                client.deploy('cs:~juju-qa/network-health', alias=alias,
                               series=info['series'])
                 try:
                     client.juju('add-relation', (app, alias))

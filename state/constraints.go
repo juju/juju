@@ -17,55 +17,58 @@ import (
 
 // constraintsDoc is the Mongo DB representation of a constraints.Value.
 type constraintsDoc struct {
-	DocID          string `bson:"_id,omitempty"`
-	ModelUUID      string `bson:"model-uuid"`
-	Arch           *string
-	CpuCores       *uint64
-	CpuPower       *uint64
-	Mem            *uint64
-	RootDisk       *uint64
-	RootDiskSource *string
-	InstanceType   *string
-	Container      *instance.ContainerType
-	Tags           *[]string
-	Spaces         *[]string
-	VirtType       *string
-	Zones          *[]string
+	DocID            string `bson:"_id,omitempty"`
+	ModelUUID        string `bson:"model-uuid"`
+	Arch             *string
+	CpuCores         *uint64
+	CpuPower         *uint64
+	Mem              *uint64
+	RootDisk         *uint64
+	RootDiskSource   *string
+	InstanceType     *string
+	Container        *instance.ContainerType
+	Tags             *[]string
+	Spaces           *[]string
+	VirtType         *string
+	Zones            *[]string
+	AllocatePublicIP *bool
 }
 
 func newConstraintsDoc(cons constraints.Value, id string) constraintsDoc {
 	result := constraintsDoc{
-		DocID:          id,
-		Arch:           cons.Arch,
-		CpuCores:       cons.CpuCores,
-		CpuPower:       cons.CpuPower,
-		Mem:            cons.Mem,
-		RootDisk:       cons.RootDisk,
-		RootDiskSource: cons.RootDiskSource,
-		InstanceType:   cons.InstanceType,
-		Container:      cons.Container,
-		Tags:           cons.Tags,
-		Spaces:         cons.Spaces,
-		VirtType:       cons.VirtType,
-		Zones:          cons.Zones,
+		DocID:            id,
+		Arch:             cons.Arch,
+		CpuCores:         cons.CpuCores,
+		CpuPower:         cons.CpuPower,
+		Mem:              cons.Mem,
+		RootDisk:         cons.RootDisk,
+		RootDiskSource:   cons.RootDiskSource,
+		InstanceType:     cons.InstanceType,
+		Container:        cons.Container,
+		Tags:             cons.Tags,
+		Spaces:           cons.Spaces,
+		VirtType:         cons.VirtType,
+		Zones:            cons.Zones,
+		AllocatePublicIP: cons.AllocatePublicIP,
 	}
 	return result
 }
 
 func (doc constraintsDoc) value() constraints.Value {
 	result := constraints.Value{
-		Arch:           doc.Arch,
-		CpuCores:       doc.CpuCores,
-		CpuPower:       doc.CpuPower,
-		Mem:            doc.Mem,
-		RootDisk:       doc.RootDisk,
-		RootDiskSource: doc.RootDiskSource,
-		InstanceType:   doc.InstanceType,
-		Container:      doc.Container,
-		Tags:           doc.Tags,
-		Spaces:         doc.Spaces,
-		VirtType:       doc.VirtType,
-		Zones:          doc.Zones,
+		Arch:             doc.Arch,
+		CpuCores:         doc.CpuCores,
+		CpuPower:         doc.CpuPower,
+		Mem:              doc.Mem,
+		RootDisk:         doc.RootDisk,
+		RootDiskSource:   doc.RootDiskSource,
+		InstanceType:     doc.InstanceType,
+		Container:        doc.Container,
+		Tags:             doc.Tags,
+		Spaces:           doc.Spaces,
+		VirtType:         doc.VirtType,
+		Zones:            doc.Zones,
+		AllocatePublicIP: doc.AllocatePublicIP,
 	}
 	return result
 }

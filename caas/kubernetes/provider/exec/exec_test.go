@@ -363,7 +363,7 @@ func (s *execSuite) TestExec(c *gc.C) {
 	select {
 	case err := <-errChan:
 		c.Assert(err, jc.ErrorIsNil)
-	case <-time.After(coretesting.LongWait):
+	case <-time.After(coretesting.ShortWait):
 		c.Fatalf("timed out waiting for Exec return")
 	}
 }
@@ -453,11 +453,8 @@ func (s *execSuite) TestExecCancel(c *gc.C) {
 		switch currentCall {
 		case 0:
 			close(cancel)
-			select {
-			case <-wait:
-			case <-time.After(waitTime):
-				c.Fatalf("timed out waiting for exit")
-			}
+			err := s.clock.WaitAdvance(waitTime, coretesting.LongWait, 1)
+			c.Assert(err, jc.ErrorIsNil)
 		case 1:
 		case 2:
 		case 3:
@@ -474,7 +471,7 @@ func (s *execSuite) TestExecCancel(c *gc.C) {
 	select {
 	case err := <-errChan:
 		c.Assert(err, jc.ErrorIsNil)
-	case <-time.After(waitTime):
+	case <-time.After(coretesting.ShortWait):
 		c.Fatalf("timed out waiting for Exec return")
 	}
 }

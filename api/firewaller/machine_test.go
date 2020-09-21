@@ -4,6 +4,7 @@
 package firewaller_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -74,7 +75,7 @@ func (s *machineSuite) TestInstanceId(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = apiNewMachine.InstanceId()
 	c.Assert(err, gc.ErrorMatches, "machine 3 not provisioned")
-	c.Assert(err, jc.Satisfies, params.IsCodeNotProvisioned)
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 
 	instanceId, err := s.apiMachine.InstanceId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -106,48 +107,6 @@ func (s *machineSuite) TestWatchUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("wordpress/0")
 	wc.AssertNoChange()
-}
-
-func (s *machineSuite) TestActiveSubnets(c *gc.C) {
-	// No ports opened at first, no active subnets.
-	subnets, err := s.apiMachine.ActiveSubnets()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnets, gc.HasLen, 0)
-
-	// Open a port and check again.
-	mustOpenPortRanges(c, s.State, s.units[0], allEndpoints, []network.PortRange{
-		network.MustParsePortRange("1234/tcp"),
-	})
-	subnets, err = s.apiMachine.ActiveSubnets()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnets, jc.DeepEquals, []names.SubnetTag{{}})
-
-	// Remove all ports, no more active subnets.
-	machPortRanges, err := s.machines[0].OpenedPortRanges()
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertRemoveMachinePortsDoc(c, machPortRanges)
-	subnets, err = s.apiMachine.ActiveSubnets()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnets, gc.HasLen, 0)
-}
-
-func (s *machineSuite) TestOpenedPorts(c *gc.C) {
-	unitTag := s.units[0].Tag().(names.UnitTag)
-
-	// No ports opened at first.
-	machPortRanges, err := s.machines[0].OpenedPortRanges()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machPortRanges.UniquePortRanges(), gc.HasLen, 0)
-
-	// Open a port and check again.
-	mustOpenPortRanges(c, s.State, s.units[0], allEndpoints, []network.PortRange{
-		network.MustParsePortRange("1234/tcp"),
-	})
-	ports, err := s.apiMachine.OpenedPorts(names.SubnetTag{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ports, jc.DeepEquals, map[network.PortRange]names.UnitTag{
-		{FromPort: 1234, ToPort: 1234, Protocol: "tcp"}: unitTag,
-	})
 }
 
 func (s *machineSuite) TestIsManual(c *gc.C) {
@@ -194,38 +153,29 @@ func (s *machineSuite) TestOpenedPortRanges(c *gc.C) {
 	mockResponse := params.OpenMachinePortRangesResults{
 		Results: []params.OpenMachinePortRangesResult{
 			{
-				GroupKey: "cidr",
-				UnitPortRanges: []params.OpenUnitPortRanges{
-					{
-						UnitTag: "unit-mysql-0",
-						PortRangeGroups: map[string][]params.PortRange{
-							// The subnet CIDRs for space "42" that "foo"
-							// is bound to.
-							"192.168.0.0/24": {
-								params.FromNetworkPortRange(network.MustParsePortRange("3306/tcp")),
-							},
-							"192.168.1.0/24": {
+				UnitPortRanges: map[string][]params.OpenUnitPortRanges{
+					"unit-mysql-0": {
+						{
+							Endpoint:    "server",
+							SubnetCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
+							PortRanges: []params.PortRange{
 								params.FromNetworkPortRange(network.MustParsePortRange("3306/tcp")),
 							},
 						},
 					},
-					{
-						UnitTag: "unit-wordpress-0",
-						PortRangeGroups: map[string][]params.PortRange{
-							// Wordpress has opened port 80 to
-							// all bound spaces (alpha and 42). We should
-							// get an entry in each subnet
-							"10.0.0.0/24": {
+					"unit-wordpress-0": {
+						{
+							Endpoint:    "website",
+							SubnetCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
+							PortRanges: []params.PortRange{
 								params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
 							},
-							"10.0.1.0/24": {
-								params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
-							},
-							"192.168.0.0/24": {
-								params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
-							},
-							"192.168.1.0/24": {
-								params.FromNetworkPortRange(network.MustParsePortRange("80/tcp")),
+						},
+						{
+							Endpoint:    "metrics",
+							SubnetCIDRs: []string{"10.0.0.0/24", "10.0.1.0/24", "192.168.0.0/24", "192.168.1.0/24"},
+							PortRanges: []params.PortRange{
+								params.FromNetworkPortRange(network.MustParsePortRange("1337/tcp")),
 							},
 						},
 					},
@@ -265,9 +215,10 @@ func (s *machineSuite) TestOpenedPortRanges(c *gc.C) {
 	mach, err := client.Machine(s.machines[0].MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	portsRangesByCIDR, err := mach.OpenedMachinePortRanges()
+	byUnitAndCIDR, byUnitAndEndpoint, err := mach.OpenedMachinePortRanges()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(portsRangesByCIDR, jc.DeepEquals, map[names.UnitTag]network.GroupedPortRanges{
+
+	c.Assert(byUnitAndCIDR, jc.DeepEquals, map[names.UnitTag]network.GroupedPortRanges{
 		names.NewUnitTag("mysql/0"): {
 			"192.168.0.0/24": []network.PortRange{
 				network.MustParsePortRange("3306/tcp"),
@@ -278,16 +229,34 @@ func (s *machineSuite) TestOpenedPortRanges(c *gc.C) {
 		},
 		names.NewUnitTag("wordpress/0"): {
 			"10.0.0.0/24": []network.PortRange{
-				network.MustParsePortRange("80/tcp"),
+				network.MustParsePortRange("1337/tcp"),
 			},
 			"10.0.1.0/24": []network.PortRange{
-				network.MustParsePortRange("80/tcp"),
+				network.MustParsePortRange("1337/tcp"),
 			},
 			"192.168.0.0/24": []network.PortRange{
 				network.MustParsePortRange("80/tcp"),
+				network.MustParsePortRange("1337/tcp"),
 			},
 			"192.168.1.0/24": []network.PortRange{
 				network.MustParsePortRange("80/tcp"),
+				network.MustParsePortRange("1337/tcp"),
+			},
+		},
+	})
+
+	c.Assert(byUnitAndEndpoint, jc.DeepEquals, map[names.UnitTag]network.GroupedPortRanges{
+		names.NewUnitTag("mysql/0"): {
+			"server": []network.PortRange{
+				network.MustParsePortRange("3306/tcp"),
+			},
+		},
+		names.NewUnitTag("wordpress/0"): {
+			"website": []network.PortRange{
+				network.MustParsePortRange("80/tcp"),
+			},
+			"metrics": []network.PortRange{
+				network.MustParsePortRange("1337/tcp"),
 			},
 		},
 	})

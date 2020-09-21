@@ -6,6 +6,7 @@ package applicationoffers_test
 import (
 	stdcontet "context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/juju/charm/v8"
@@ -298,6 +299,7 @@ type mockState struct {
 	common.AddressAndCertGetter
 	modelUUID         string
 	model             *mockModel
+	AdminTag          names.UserTag
 	allmodels         []applicationoffers.Model
 	users             map[string]applicationoffers.User
 	applications      map[string]crossmodel.Application
@@ -463,6 +465,20 @@ func (m *mockState) GetOfferUsers(offerUUID string) (map[string]permission.Acces
 		result[offerAccess.user.Id()] = access
 	}
 	return result, nil
+}
+
+func (m *mockState) UserPermission(subject names.UserTag, target names.Tag) (permission.Access, error) {
+	// This is just used for checking admin or superuser access.
+	if subject.Id() == m.AdminTag.Id() {
+		return permission.AdminAccess, nil
+	}
+	if strings.HasPrefix(subject.Id(), "admin") && target.Kind() == names.ModelTagKind {
+		return permission.AdminAccess, nil
+	}
+	if strings.HasPrefix(subject.Id(), "superuser") && target.Kind() == names.ControllerTagKind {
+		return permission.SuperuserAccess, nil
+	}
+	return permission.NoAccess, nil
 }
 
 func (m *mockState) AllSpaceInfos() (network.SpaceInfos, error) {

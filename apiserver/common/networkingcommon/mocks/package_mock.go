@@ -366,6 +366,20 @@ func (mr *MockLinkLayerDeviceMockRecorder) SetProviderIDOps(arg0 interface{}) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetProviderIDOps", reflect.TypeOf((*MockLinkLayerDevice)(nil).SetProviderIDOps), arg0)
 }
 
+// Type mocks base method
+func (m *MockLinkLayerDevice) Type() network.LinkLayerDeviceType {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Type")
+	ret0, _ := ret[0].(network.LinkLayerDeviceType)
+	return ret0
+}
+
+// Type indicates an expected call of Type
+func (mr *MockLinkLayerDeviceMockRecorder) Type() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Type", reflect.TypeOf((*MockLinkLayerDevice)(nil).Type))
+}
+
 // UpdateOps mocks base method
 func (m *MockLinkLayerDevice) UpdateOps(arg0 state.LinkLayerDeviceArgs) []txn.Op {
 	m.ctrl.T.Helper()

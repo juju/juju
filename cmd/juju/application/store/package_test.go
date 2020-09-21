@@ -9,8 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination ./mocks/store_mock.go github.com/juju/juju/cmd/juju/application/store CharmAdder,MacaroonGetter
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination ./mocks/resolver_mock.go github.com/juju/juju/cmd/juju/application/store URLResolver
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination ./mocks/store_mock.go github.com/juju/juju/cmd/juju/application/store CharmAdder,MacaroonGetter,CharmrepoForDeploy,CharmsAPI
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

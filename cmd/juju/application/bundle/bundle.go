@@ -5,9 +5,10 @@ package bundle
 
 import (
 	"reflect"
+	"sort"
 	"strings"
 
-	"github.com/juju/bundlechanges/v2"
+	"github.com/juju/bundlechanges/v3"
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -130,6 +131,7 @@ func BuildModelRepresentation(
 	}
 
 	// When dealing with bundles the current model generation is always used.
+	sort.Strings(appNames)
 	configValues, err := modelExtractor.GetConfig(model.GenerationMaster, appNames...)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting application options")
@@ -156,6 +158,7 @@ func BuildModelRepresentation(
 		mod.Applications[appNames[i]].Options = options
 	}
 	// Lastly get all the application constraints.
+	sort.Strings(principalApps)
 	constraintValues, err := modelExtractor.GetConstraints(principalApps...)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting application constraints")

@@ -44,6 +44,10 @@ func (s *ListOperationsSuite) TestInit(c *gc.C) {
 		args:        []string{"--units", "valid/0," + invalidUnitId},
 		expectedErr: "invalid unit name \"" + invalidUnitId + "\"",
 	}, {
+		should:      "fail with invalid machine id",
+		args:        []string{"--machines", "0," + invalidMachineId},
+		expectedErr: "invalid machine id \"" + invalidMachineId + "\"",
+	}, {
 		should:      "fail with invalid status value",
 		args:        []string{"--status", "pending," + "error"},
 		expectedErr: `"error" is not a valid task status, want one of \[pending running completed failed cancelled aborting aborted\]`,
@@ -82,6 +86,7 @@ func (s *ListOperationsSuite) TestRunQueryArgs(c *gc.C) {
 	args := []string{
 		"--apps", "mysql,mediawiki",
 		"--units", "mysql/1,mediawiki/0",
+		"--machines", "0,1",
 		"--actions", "backup",
 		"--status", "completed,pending",
 	}
@@ -94,6 +99,7 @@ func (s *ListOperationsSuite) TestRunQueryArgs(c *gc.C) {
 		c.Assert(fakeClient.operationQueryArgs, jc.DeepEquals, params.OperationQueryArgs{
 			Applications: []string{"mysql", "mediawiki"},
 			Units:        []string{"mysql/1", "mediawiki/0"},
+			Machines:     []string{"0", "1"},
 			ActionNames:  []string{"backup"},
 			Status:       []string{"completed", "pending"},
 		})
@@ -133,8 +139,8 @@ var listOperationResults = []params.OperationResult{
 		Actions: []params.ActionResult{{
 			Action: &params.Action{
 				Tag:      "action-6",
-				Receiver: "unit-mysql-1",
-				Name:     "vacuum",
+				Receiver: "machine-1",
+				Name:     "juju-run",
 			},
 		}},
 		Summary:      "operation 5",
@@ -296,13 +302,13 @@ func (s *ListOperationsSuite) TestRunYaml(c *gc.C) {
   summary: operation 5
   status: pending
   action:
-    name: vacuum
+    name: juju-run
     parameters: {}
   timing:
     enqueued: 2013-02-14 06:06:06 +0000 UTC
   tasks:
     "6":
-      host: mysql/1
+      host: "1"
       status: ""
 "7":
   summary: operation 7
