@@ -258,7 +258,7 @@ func (s *provisionerSuite) TestApplicationCharmURL(c *gc.C) {
 		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
 		*(result.(*params.StringResults)) = params.StringResults{
 			Results: []params.StringResult{{
-				Result: "charm",
+				Result: "cs:charm",
 			}},
 		}
 		return nil

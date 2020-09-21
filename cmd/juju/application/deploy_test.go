@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
 	apicharms "github.com/juju/juju/api/charms"
+	commoncharm "github.com/juju/juju/api/common/charm"
 	apicommoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/api/modelconfig"
 	apitesting "github.com/juju/juju/api/testing"
@@ -752,14 +753,14 @@ func (s *DeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 	deployURL.Series = "bionic"
 	s.fakeAPI.Call("Deploy", application.DeployArgs{
 		CharmID:         jjcharmstore.CharmID{URL: &deployURL},
-		CharmOrigin:     apicommoncharms.Origin{Source: apicommoncharms.OriginCharmStore},
+		CharmOrigin:     commoncharm.Origin{Source: commoncharm.OriginCharmStore},
 		ApplicationName: inURL.Name,
 		Series:          "bionic",
 		ConfigYAML:      "aws-integrator:\n  trust: \"true\"\n",
 	}).Returns(error(nil))
 	s.fakeAPI.Call("Deploy", application.DeployArgs{
 		CharmID:         jjcharmstore.CharmID{URL: &deployURL},
-		CharmOrigin:     apicommoncharms.Origin{Source: apicommoncharms.OriginCharmStore},
+		CharmOrigin:     commoncharm.Origin{Source: commoncharm.OriginCharmStore},
 		ApplicationName: inURL.Name,
 		Series:          "bionic",
 	}).Returns(errors.New("expected Deploy for aws-integrator to be called with 'trust: true'"))
@@ -1439,7 +1440,7 @@ func (s *DeploySuite) TestDeployWithTermsNotSigned(c *gc.C) {
 	withCharmRepoResolvable(s.fakeAPI, curl)
 	deployURL := *curl
 	deployURL.Revision = 1
-	origin := apicommoncharms.Origin{Source: "charm-store"}
+	origin := commoncharm.Origin{Source: "charm-store"}
 	s.fakeAPI.Call("AddCharm", &deployURL, origin, false).Returns(origin, error(termsRequiredError))
 	deploy := s.deployCommand()
 
@@ -1450,7 +1451,7 @@ func (s *DeploySuite) TestDeployWithTermsNotSigned(c *gc.C) {
 
 func (s *DeploySuite) TestDeployWithChannel(c *gc.C) {
 	curl := charm.MustParseURL("cs:bionic/dummy-1")
-	origin := apicommoncharms.Origin{Source: apicommoncharms.OriginCharmStore, Risk: "beta"}
+	origin := commoncharm.Origin{Source: commoncharm.OriginCharmStore, Risk: "beta"}
 	s.fakeAPI.Call("ResolveCharm", curl, origin).Returns(
 		curl,
 		origin,
@@ -2011,7 +2012,7 @@ func (s *DeploySuite) TestDeployCharmWithSomeEndpointBindingsSpecifiedSuccess(c 
 	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
 	s.fakeAPI.Call("Deploy", application.DeployArgs{
 		CharmID:         jjcharmstore.CharmID{URL: curl},
-		CharmOrigin:     apicommoncharms.Origin{Source: apicommoncharms.OriginCharmStore},
+		CharmOrigin:     commoncharm.Origin{Source: commoncharm.OriginCharmStore},
 		ApplicationName: curl.Name,
 		Series:          "bionic",
 		NumUnits:        1,
@@ -2459,42 +2460,42 @@ func (f *fakeDeployAPI) ModelGet() (map[string]interface{}, error) {
 	return results[0].(map[string]interface{}), jujutesting.TypeAssertError(results[1])
 }
 
-func (f *fakeDeployAPI) ResolveCharm(url *charm.URL, preferredChannel apicommoncharms.Origin) (
+func (f *fakeDeployAPI) ResolveCharm(url *charm.URL, preferredChannel commoncharm.Origin) (
 	*charm.URL,
-	apicommoncharms.Origin,
+	commoncharm.Origin,
 	[]string,
 	error,
 ) {
 	results := f.MethodCall(f, "ResolveCharm", url, preferredChannel)
 	if results == nil {
 		if url.Schema == "cs" || url.Schema == "ch" {
-			return nil, apicommoncharms.Origin{}, nil, errors.Errorf(
+			return nil, commoncharm.Origin{}, nil, errors.Errorf(
 				"cannot resolve URL %q: charm or bundle not found", url)
 		}
-		return nil, apicommoncharms.Origin{}, nil, errors.Errorf(
+		return nil, commoncharm.Origin{}, nil, errors.Errorf(
 			"unknown schema for charm URL %q", url)
 	}
 	return results[0].(*charm.URL),
-		results[1].(apicommoncharms.Origin),
+		results[1].(commoncharm.Origin),
 		results[2].([]string),
 		jujutesting.TypeAssertError(results[3])
 }
 
-func (f *fakeDeployAPI) ResolveBundleURL(url *charm.URL, preferredChannel apicommoncharms.Origin) (
+func (f *fakeDeployAPI) ResolveBundleURL(url *charm.URL, preferredChannel commoncharm.Origin) (
 	*charm.URL,
-	apicommoncharms.Origin,
+	commoncharm.Origin,
 	error,
 ) {
 	results := f.MethodCall(f, "ResolveBundleURL", url, preferredChannel)
 	if results == nil {
 		if url.Series == "bundle" {
-			return nil, apicommoncharms.Origin{}, errors.Errorf(
+			return nil, commoncharm.Origin{}, errors.Errorf(
 				"cannot resolve URL %q: bundle not found", url)
 		}
-		return nil, apicommoncharms.Origin{}, errors.NotValidf("charmstore bundle %q", url)
+		return nil, commoncharm.Origin{}, errors.NotValidf("charmstore bundle %q", url)
 	}
 	return results[0].(*charm.URL),
-		results[1].(apicommoncharms.Origin),
+		results[1].(commoncharm.Origin),
 		jujutesting.TypeAssertError(results[2])
 }
 
@@ -2526,19 +2527,19 @@ func (f *fakeDeployAPI) AddLocalCharm(url *charm.URL, ch charm.Charm, force bool
 	return results[0].(*charm.URL), jujutesting.TypeAssertError(results[1])
 }
 
-func (f *fakeDeployAPI) AddCharm(url *charm.URL, origin apicommoncharms.Origin, force bool) (apicommoncharms.Origin, error) {
+func (f *fakeDeployAPI) AddCharm(url *charm.URL, origin commoncharm.Origin, force bool) (commoncharm.Origin, error) {
 	results := f.MethodCall(f, "AddCharm", url, origin, force)
-	return results[0].(apicommoncharms.Origin), jujutesting.TypeAssertError(results[1])
+	return results[0].(commoncharm.Origin), jujutesting.TypeAssertError(results[1])
 }
 
 func (f *fakeDeployAPI) AddCharmWithAuthorization(
 	url *charm.URL,
-	origin apicommoncharms.Origin,
+	origin commoncharm.Origin,
 	macaroon *macaroon.Macaroon,
 	force bool,
-) (apicommoncharms.Origin, error) {
+) (commoncharm.Origin, error) {
 	results := f.MethodCall(f, "AddCharmWithAuthorization", url, origin, macaroon, force)
-	return results[0].(apicommoncharms.Origin), jujutesting.TypeAssertError(results[1])
+	return results[0].(commoncharm.Origin), jujutesting.TypeAssertError(results[1])
 }
 
 func (f *fakeDeployAPI) CharmInfo(url string) (*apicommoncharms.CharmInfo, error) {
@@ -2891,7 +2892,7 @@ func withCharmRepoResolvable(
 		resolveURLs = append(resolveURLs, &inURL)
 	}
 	for _, url := range resolveURLs {
-		origin := apicommoncharms.Origin{Source: apicommoncharms.OriginCharmStore}
+		origin := commoncharm.Origin{Source: commoncharm.OriginCharmStore}
 		fakeAPI.Call("ResolveCharm", url, origin).Returns(
 			&resultURL,
 			origin,

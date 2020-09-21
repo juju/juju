@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
+	commoncharm "github.com/juju/juju/api/common/charm"
 	apicommoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/apiserver/params"
 	jujucharmstore "github.com/juju/juju/charmstore"
@@ -101,10 +102,10 @@ func (s *BaseRefreshSuite) SetUpTest(c *gc.C) {
 
 	s.resolvedChannel = csclientparams.StableChannel
 	s.resolveCharm = mockCharmResolver{
-		resolveFunc: func(url *charm.URL, preferredOrigin apicommoncharms.Origin) (*charm.URL, apicommoncharms.Origin, []string, error) {
+		resolveFunc: func(url *charm.URL, preferredOrigin commoncharm.Origin) (*charm.URL, commoncharm.Origin, []string, error) {
 			s.AddCall("ResolveCharm", url, preferredOrigin)
 			if err := s.NextErr(); err != nil {
-				return nil, apicommoncharms.Origin{}, nil, err
+				return nil, commoncharm.Origin{}, nil, err
 			}
 
 			if s.resolvedChannel != "" {
@@ -906,7 +907,7 @@ type mockCharmAdder struct {
 	testing.Stub
 }
 
-func (m *mockCharmAdder) AddCharm(curl *charm.URL, origin apicommoncharms.Origin, force bool) (apicommoncharms.Origin, error) {
+func (m *mockCharmAdder) AddCharm(curl *charm.URL, origin commoncharm.Origin, force bool) (commoncharm.Origin, error) {
 	m.MethodCall(m, "AddCharm", curl, origin, force)
 	return origin, m.NextErr()
 }
@@ -932,10 +933,10 @@ func (m *mockCharmClient) CharmInfo(curl string) (*apicommoncharms.CharmInfo, er
 
 type mockCharmResolver struct {
 	testing.Stub
-	resolveFunc func(url *charm.URL, preferredOrigin apicommoncharms.Origin) (*charm.URL, apicommoncharms.Origin, []string, error)
+	resolveFunc func(url *charm.URL, preferredOrigin commoncharm.Origin) (*charm.URL, commoncharm.Origin, []string, error)
 }
 
-func (m *mockCharmResolver) ResolveCharm(url *charm.URL, preferredOrigin apicommoncharms.Origin) (*charm.URL, apicommoncharms.Origin, []string, error) {
+func (m *mockCharmResolver) ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin) (*charm.URL, commoncharm.Origin, []string, error) {
 	return m.resolveFunc(url, preferredOrigin)
 }
 

@@ -46,7 +46,6 @@ var (
 
 	LabelSetToRequirements = labelSetToRequirements
 	MergeSelectors         = mergeSelectors
-	GetStorageMode         = getStorageMode
 
 	UpdateStrategyForDeployment  = updateStrategyForDeployment
 	UpdateStrategyForStatefulSet = updateStrategyForStatefulSet
