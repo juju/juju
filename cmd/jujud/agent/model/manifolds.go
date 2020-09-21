@@ -486,7 +486,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 				ControllerUUID: agentConfig.Controller().Id(),
 				ModelUUID:      agentConfig.Model().Id(),
 				NewClient: func(caller base.APICaller) caasfirewaller.Client {
-					return caasfirewallerapi.NewClient(caller)
+					return caasfirewallerapi.NewClientLegacy(caller)
 				},
 				NewWorker: caasfirewaller.NewWorker,
 				Logger:    config.LoggingContext.GetLogger("juju.worker.caasfirewaller"),
