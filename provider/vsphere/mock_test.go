@@ -33,10 +33,11 @@ type mockClient struct {
 	mu sync.Mutex
 	testing.Stub
 
-	computeResources      []*mo.ComputeResource
+	computeResources      []vsphereclient.ComputeResource
 	resourcePools         map[string][]*object.ResourcePool
 	createdVirtualMachine *mo.VirtualMachine
 	virtualMachines       []*mo.VirtualMachine
+	folders               *object.DatacenterFolders
 	datastores            []mo.Datastore
 	vmFolder              *object.Folder
 	hasPrivilege          bool
@@ -49,7 +50,7 @@ func (c *mockClient) Close(ctx context.Context) error {
 	return c.NextErr()
 }
 
-func (c *mockClient) ComputeResources(ctx context.Context) ([]*mo.ComputeResource, error) {
+func (c *mockClient) ComputeResources(ctx context.Context) ([]vsphereclient.ComputeResource, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.MethodCall(c, "ComputeResources", ctx)
@@ -68,6 +69,13 @@ func (c *mockClient) CreateVirtualMachine(ctx context.Context, args vsphereclien
 	defer c.mu.Unlock()
 	c.MethodCall(c, "CreateVirtualMachine", ctx, args)
 	return c.createdVirtualMachine, c.NextErr()
+}
+
+func (c *mockClient) Folders(ctx context.Context) (*object.DatacenterFolders, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.MethodCall(c, "Folders", ctx)
+	return c.folders, c.NextErr()
 }
 
 func (c *mockClient) Datastores(ctx context.Context) ([]mo.Datastore, error) {

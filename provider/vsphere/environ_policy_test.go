@@ -4,6 +4,7 @@
 package vsphere_test
 
 import (
+	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
 	jc "github.com/juju/testing/checkers"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
@@ -62,17 +63,18 @@ func (s *environPolSuite) TestConstraintsValidatorVocabArch(c *gc.C) {
 }
 
 func (s *environPolSuite) TestPrecheckInstanceChecksPlacementZone(c *gc.C) {
+	s.client.folders = makeFolders("/DC/host")
 	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{
 		Placement: "zone=some-zone",
 	})
 	c.Assert(err, gc.ErrorMatches, `availability zone "some-zone" not found`)
 
-	s.client.computeResources = []*mo.ComputeResource{
-		newComputeResource("z1"),
-		newComputeResource("z2"),
+	s.client.computeResources = []vsphereclient.ComputeResource{
+		{Resource: newComputeResource("z1"), Path: "/DC/host/z1"},
+		{Resource: newComputeResource("z2"), Path: "/DC/host/z2"},
 	}
 	s.client.resourcePools = map[string][]*object.ResourcePool{
-		"z1/...": {makeResourcePool("pool-1", "/DC/host/z1/Resources")},
+		"/DC/host/z1/...": {makeResourcePool("pool-1", "/DC/host/z1/Resources")},
 	}
 	err = s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{
 		Placement: "zone=z1",
@@ -81,13 +83,14 @@ func (s *environPolSuite) TestPrecheckInstanceChecksPlacementZone(c *gc.C) {
 }
 
 func (s *environPolSuite) TestPrecheckInstanceChecksConstraintZones(c *gc.C) {
-	s.client.computeResources = []*mo.ComputeResource{
-		newComputeResource("z1"),
-		newComputeResource("z2"),
+	s.client.folders = makeFolders("/DC/host")
+	s.client.computeResources = []vsphereclient.ComputeResource{
+		{Resource: newComputeResource("z1"), Path: "/DC/host/z1"},
+		{Resource: newComputeResource("z2"), Path: "/DC/host/z2"},
 	}
 	s.client.resourcePools = map[string][]*object.ResourcePool{
-		"z1/...": {makeResourcePool("pool-1", "/DC/host/z1/Resources")},
-		"z2/...": {
+		"/DC/host/z1/...": {makeResourcePool("pool-1", "/DC/host/z1/Resources")},
+		"/DC/host/z2/...": {
 			// Check we don't get broken by trailing slashes.
 			makeResourcePool("pool-2", "/DC/host/z2/Resources/"),
 			makeResourcePool("pool-3", "/DC/host/z2/Resources/child"),
