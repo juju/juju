@@ -9,8 +9,6 @@ test_deploy_manual() {
 
         cd .. || exit
 
-        # TODO (stickupkid): We currently only support LXD in this test
-        # currently, future tests should run on aws.
         case "${BOOTSTRAP_PROVIDER:-}" in
             "lxd")
                 export BOOTSTRAP_PROVIDER="manual"
@@ -25,7 +23,7 @@ test_deploy_manual() {
                 run "run_deploy_manual_aws"
                 ;;
             *)
-                echo "==> TEST SKIPPED: deploy manual - tests for LXD only"
+                echo "==> TEST SKIPPED: deploy manual - tests for LXD and AWS"
                 ;;
         esac
     )
