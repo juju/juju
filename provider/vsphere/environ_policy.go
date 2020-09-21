@@ -5,10 +5,11 @@ package vsphere
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/utils/arch"
+
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/utils/arch"
 )
 
 // PrecheckInstance is part of the environs.Environ interface.
