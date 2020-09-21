@@ -17,8 +17,8 @@ type RefreshRequestContext struct {
 	ID          string `json:"id"`
 
 	Revision        int                    `json:"revision"`
-	Platform        RefreshRequestPlatform `json:"platform"`
-	TrackingChannel string                 `json:"tracking-channel"`
+	Platform        RefreshRequestPlatform `json:"platform,omitempty"`
+	TrackingChannel string                 `json:"tracking-channel,omitempty"`
 	RefreshedDate   *time.Time             `json:"refresh-date,omitempty"`
 }
 
@@ -39,8 +39,8 @@ type RefreshRequestAction struct {
 }
 
 type RefreshResponses struct {
-	Results   []RefreshResponse `json:"results"`
-	ErrorList APIErrors         `json:"error-list"`
+	Results   []RefreshResponse `json:"results,omitempty"`
+	ErrorList APIErrors         `json:"error-list,omitempty"`
 }
 
 type RefreshResponse struct {

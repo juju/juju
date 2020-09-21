@@ -247,9 +247,12 @@ func convertOrigin(origin corecharm.Origin) params.CharmOrigin {
 func convertParamsOrigin(origin params.CharmOrigin) corecharm.Origin {
 	return corecharm.Origin{
 		Source:   corecharm.Source(origin.Source),
-		ID:       "",
-		Hash:     "",
-		Revision: nil,
-		Channel:  nil,
+		ID:       origin.ID,
+		Hash:     origin.Hash,
+		Revision: origin.Revision,
+		Channel: &corecharm.Channel{
+			Track: *origin.Track,
+			Risk:  corecharm.Risk(origin.Risk),
+		},
 	}
 }

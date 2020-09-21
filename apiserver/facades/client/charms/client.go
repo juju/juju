@@ -428,8 +428,8 @@ func (a *API) charmStrategy(args params.AddCharmWithAuth) (Strategy, error) {
 	if err != nil {
 		return nil, err
 	}
-	strat := a.getStrategyFunc(args.Origin.Source)
-	return strat(repo, args.URL, args.Force)
+	fn := a.getStrategyFunc(args.Origin.Source)
+	return fn(repo, args.URL, args.Force)
 }
 
 type StrategyFunc func(charmRepo corecharm.Repository, url string, force bool) (Strategy, error)
