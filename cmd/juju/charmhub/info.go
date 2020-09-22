@@ -43,7 +43,7 @@ type infoCommand struct {
 
 	api InfoCommandAPI
 
-	verbose       bool
+	config        bool
 	charmOrBundle string
 }
 
@@ -63,6 +63,7 @@ func (c *infoCommand) Info() *cmd.Info {
 // It implements part of the cmd.Command interface.
 func (c *infoCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
+	f.BoolVar(&c.config, "config", false, "display config for this charm")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -107,7 +108,6 @@ func (c *infoCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
 	return c.out.Write(ctx, &view)
 }
 
@@ -138,7 +138,7 @@ func (c *infoCommand) formatter(writer io.Writer, value interface{}) error {
 		return errors.Errorf("unexpected results")
 	}
 
-	if err := makeInfoWriter(writer, c.warningLog, results).Print(); err != nil {
+	if err := makeInfoWriter(writer, c.warningLog, c.config, results).Print(); err != nil {
 		return errors.Trace(err)
 	}
 
