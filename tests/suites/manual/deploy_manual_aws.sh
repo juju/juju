@@ -21,7 +21,7 @@ run_deploy_manual_aws() {
     # get the existing setup and use that.
     # The ingress and egress for this setup is rather lax, but in time we can
     # tighten that up.
-    # All instances should be cleaned up on exiting.
+    # All instances and key-pairs should be cleaned up on exiting.
     OUT=$(aws ec2 describe-images \
             --owners 099720109477 \
             --filters "Name=name,Values=ubuntu/images/hvm-ssd/ubuntu-${series}-?????-amd64-server-????????" 'Name=state,Values=available' \
@@ -83,6 +83,7 @@ run_deploy_manual_aws() {
 
     aws ec2 create-key-pair --key-name "${name}" --query 'KeyMaterial' --output text > ~/.ssh/"${name}".pem
     chmod 400 ~/.ssh/"${name}".pem
+    echo "${name}" >> "${TEST_DIR}/ec2-key-pairs"
 
     launch_and_wait_addr() {
         local name instance_name addr_result
@@ -168,10 +169,17 @@ run_cleanup_deploy_manual_aws() {
     set +e
 
     if [ -f "${TEST_DIR}/ec2-instances" ]; then
-        echo "====> Cleaning up ec2-instances"
+        echo "====> Cleaning up EC2 instances"
         while read -r ec2_instance; do
             aws ec2 terminate-instances --instance-ids="${ec2_instance}" >>"${TEST_DIR}/aws_cleanup"
         done < "${TEST_DIR}/ec2-instances"
+    fi
+
+    if [ -f "${TEST_DIR}/ec2-key-pairs" ]; then
+        echo "====> Cleaning up EC2 key-pairs"
+        while read -r ec2_keypair; do
+            aws ec2 delete-key-pair --key-name="${ec2_keypair}" >>"${TEST_DIR}/aws_cleanup"
+        done < "${TEST_DIR}/ec2-key-pairs"
     fi
 
     set_verbosity
