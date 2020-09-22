@@ -583,12 +583,14 @@ func (c *upgradeJujuCommand) validateModelUpgrade() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// TODO (stickupkid): Define force for validation of model upgrade.
-	if err := client.ValidateModelUpgrade(names.NewModelTag(details.ModelUUID), false); err != nil {
-		return errors.Trace(err)
-	}
 
-	return nil
+	// TODO (stickupkid): Define force for validation of model upgrade.
+	// If the model to upgrade does not implement the minimum facade version
+	// for validating, we return nil.
+	if err = client.ValidateModelUpgrade(names.NewModelTag(details.ModelUUID), false); errors.IsNotImplemented(err) {
+		return nil
+	}
+	return errors.Trace(err)
 }
 
 // environConfigGetter implements environs.EnvironConfigGetter for use

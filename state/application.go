@@ -56,7 +56,7 @@ type ExposedEndpoint struct {
 // include the 0.0.0.0/0 CIDR.
 func (exp ExposedEndpoint) AllowTrafficFromAnyNetwork() bool {
 	for _, cidr := range exp.ExposeToCIDRs {
-		if cidr == firewall.AllNetworksIPV4CIDR {
+		if cidr == firewall.AllNetworksIPV4CIDR || cidr == firewall.AllNetworksIPV6CIDR {
 			return true
 		}
 	}
@@ -774,7 +774,7 @@ func (a *Application) MergeExposeSettings(exposedEndpoints map[string]ExposedEnd
 		// 0.0.0.0/0 CIDR. This matches the "expose to the entire
 		// world" behavior in juju controllers prior to 2.9.
 		if len(exposeParams.ExposeToSpaceIDs)+len(exposeParams.ExposeToCIDRs) == 0 {
-			exposeParams.ExposeToCIDRs = []string{firewall.AllNetworksIPV4CIDR}
+			exposeParams.ExposeToCIDRs = []string{firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR}
 		}
 
 		mergedExposedEndpoints[endpoint] = exposeParams

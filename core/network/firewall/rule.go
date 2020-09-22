@@ -191,6 +191,7 @@ func (rules IngressRules) cidrsByPortRange() map[network.PortRange]set.Strings {
 		}
 		if rule.SourceCIDRs.IsEmpty() {
 			cidrs.Add(AllNetworksIPV4CIDR)
+			cidrs.Add(AllNetworksIPV6CIDR)
 			continue
 		}
 		for cidr := range rule.SourceCIDRs {

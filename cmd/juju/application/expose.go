@@ -140,7 +140,16 @@ func (c *exposeCommand) buildExposedEndpoints() map[string]params.ExposedEndpoin
 	if len(endpoints)+len(spaces)+len(cidrs) == 0 {
 		// No granular expose params required
 		return nil
-	} else if len(endpoints) == 0 && len(spaces) == 0 && len(cidrs) == 1 && cidrs[0] == firewall.AllNetworksIPV4CIDR {
+	}
+
+	var allNetworkCIDRCount int
+	for _, cidr := range cidrs {
+		if cidr == firewall.AllNetworksIPV4CIDR || cidr == firewall.AllNetworksIPV6CIDR {
+			allNetworkCIDRCount++
+		}
+	}
+
+	if len(endpoints) == 0 && len(spaces) == 0 && len(cidrs) == allNetworkCIDRCount {
 		// No granular expose params required; this is equivalent
 		// to "juju expose <application>"
 		return nil

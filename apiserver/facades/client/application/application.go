@@ -1519,7 +1519,7 @@ func (api *APIBase) Expose(args params.ApplicationExpose) error {
 	if len(mappedExposeParams) == 0 {
 		mappedExposeParams = map[string]state.ExposedEndpoint{
 			"": {
-				ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR},
+				ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR},
 			},
 		}
 	}

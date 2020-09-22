@@ -806,9 +806,15 @@ func hasGranularExposeParameters(exposedEndpoints map[string]params.ExposedEndpo
 	} else if allEndpointParams, found := exposedEndpoints[""]; found && len(exposedEndpoints) == 1 {
 		// We have a single entry for the wildcard endpoint; check if
 		// it only includes an expose to all networks CIDR.
+		var allNetworkCIDRCount int
+		for _, cidr := range allEndpointParams.ExposeToCIDRs {
+			if cidr == firewall.AllNetworksIPV4CIDR || cidr == firewall.AllNetworksIPV6CIDR {
+				allNetworkCIDRCount++
+			}
+		}
+
 		if len(allEndpointParams.ExposeToSpaces) == 0 &&
-			len(allEndpointParams.ExposeToCIDRs) == 1 &&
-			allEndpointParams.ExposeToCIDRs[0] == firewall.AllNetworksIPV4CIDR {
+			len(allEndpointParams.ExposeToCIDRs) == allNetworkCIDRCount {
 			return false // equivalent to using non-granular expose like pre 2.9 juju
 		}
 	}
