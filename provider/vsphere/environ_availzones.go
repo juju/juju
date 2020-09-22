@@ -4,6 +4,7 @@
 package vsphere
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/juju/errors"
@@ -70,7 +71,7 @@ func (env *sessionEnviron) AvailabilityZones(ctx context.ProviderCallContext) ([
 		}
 
 		// Add an availability zone for each resource pool under this compute
-		// resource, eg: "/DataCenter1/host/Host1/Resources"
+		// resource
 		pools, err := env.client.ResourcePools(env.ctx, cr.Path+"/...")
 		if err != nil {
 			HandleCredentialError(err, env, ctx)
@@ -93,6 +94,7 @@ func (env *sessionEnviron) AvailabilityZones(ctx context.ProviderCallContext) ([
 		for i, zone := range zones {
 			zoneNames[i] = zone.Name()
 		}
+		sort.Strings(zoneNames)
 		logger.Debugf("fetched availability zones: %q", zoneNames)
 	}
 
@@ -102,20 +104,21 @@ func (env *sessionEnviron) AvailabilityZones(ctx context.ProviderCallContext) ([
 
 // makeAvailZoneName constructs a Vsphere availability zone name from the
 // given paths. Basically it's the path relative to the host folder without
-// the extra "Resources" path segment (which doesn't appear in the UI).
+// the extra "Resources" path segment (which doesn't appear in the UI):
+//
+// * "/DataCenter1/host/Host1/Resources" becomes "Host1"
+// * "/DataCenter1/host/Host1/Resources/ResPool1" becomes "Host1/ResPool1"
+// * "/DataCenter1/host/Host1/Other" becomes "Host1/Other" (shouldn't happen)
 func makeAvailZoneName(hostFolder, crPath, poolPath string) string {
 	poolPath = strings.TrimRight(poolPath, "/")
 	relCrPath := strings.TrimPrefix(crPath, hostFolder+"/")
 	relPoolPath := strings.TrimPrefix(poolPath, crPath+"/")
 	switch {
 	case relPoolPath == "Resources":
-		// "/DataCenter1/host/Host1/Resources" becomes "Host1"
 		return relCrPath
 	case strings.HasPrefix(relPoolPath, "Resources/"):
-		// "/DataCenter1/host/Host1/Resources/ResPool1" becomes "Host1/ResPool1"
 		return relCrPath + "/" + relPoolPath[len("Resources/"):]
 	default:
-		// "/DataCenter1/host/Host1/Other" becomes "Host1/Other" (shouldn't happen)
 		return relCrPath + "/" + relPoolPath
 	}
 }

@@ -66,6 +66,7 @@ func (s *environAvailzonesSuite) TestAvailabilityZones(c *gc.C) {
 	c.Assert(zones[2].Name(), gc.Equals, "z2/child")
 	c.Assert(zones[3].Name(), gc.Equals, "z2/child/nested")
 	c.Assert(zones[4].Name(), gc.Equals, "z2/child/nested/other")
+	c.Assert(zones[5].Name(), gc.Equals, "z2/Other/thing")
 }
 
 func (s *environAvailzonesSuite) TestAvailabilityZonesInFolder(c *gc.C) {
