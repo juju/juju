@@ -20,17 +20,11 @@ type State interface {
 	firewall.State
 
 	ModelUUID() string
-
 	GetMacaroon(entity names.Tag) (*macaroon.Macaroon, error)
-
 	WatchOpenedPorts() state.StringsWatcher
-
 	FindEntity(tag names.Tag) (state.Entity, error)
-
 	FirewallRule(service corefirewall.WellKnownServiceType) (*state.FirewallRule, error)
-
 	AllEndpointBindings() (map[string]map[string]string, error)
-
 	SpaceInfos() (network.SpaceInfos, error)
 }
 

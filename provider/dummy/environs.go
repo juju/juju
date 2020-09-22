@@ -1839,25 +1839,25 @@ func (inst *dummyInstance) OpenPorts(ctx context.ProviderCallContext, machineId 
 		InstanceId: inst.Id(),
 		Rules:      rules,
 	}
-	for _, r := range rules {
-		if len(r.SourceCIDRs) == 0 {
-			r.SourceCIDRs.Add(firewall.AllNetworksIPV4CIDR)
+	for _, newRule := range rules {
+		if len(newRule.SourceCIDRs) == 0 {
+			newRule.SourceCIDRs.Add(firewall.AllNetworksIPV4CIDR)
 		}
 		found := false
-		for i, rule := range inst.rules {
-			if r.PortRange == rule.PortRange {
-				ruleCopy := r
-				inst.rules[i] = ruleCopy
-				found = true
-				break
+
+		for i, existingRule := range inst.rules {
+			if newRule.PortRange != existingRule.PortRange {
+				continue
 			}
-			if r.String() == rule.String() {
-				found = true
-				break
-			}
+
+			// Append CIDRs from incoming rule
+			inst.rules[i].SourceCIDRs = existingRule.SourceCIDRs.Union(newRule.SourceCIDRs)
+			found = true
+			break
 		}
+
 		if !found {
-			inst.rules = append(inst.rules, r)
+			inst.rules = append(inst.rules, newRule)
 		}
 	}
 	return nil
@@ -1883,13 +1883,28 @@ func (inst *dummyInstance) ClosePorts(ctx context.ProviderCallContext, machineId
 		InstanceId: inst.Id(),
 		Rules:      rules,
 	}
-	for _, r := range rules {
-		for i, rule := range inst.rules {
-			if r.String() == rule.String() {
-				inst.rules = inst.rules[:i+copy(inst.rules[i:], inst.rules[i+1:])]
+
+	var updatedRules firewall.IngressRules
+
+nextRule:
+	for _, existingRule := range inst.rules {
+		for _, removeRule := range rules {
+			if removeRule.PortRange != existingRule.PortRange {
+				continue // port not matched
+			}
+
+			existingRule.SourceCIDRs = existingRule.SourceCIDRs.Difference(removeRule.SourceCIDRs)
+
+			// If the rule is empty, OR the entry to be removed
+			// has no CIDRs, drop the rule.
+			if len(existingRule.SourceCIDRs) == 0 || len(removeRule.SourceCIDRs) == 0 {
+				continue nextRule // drop existing rule
 			}
 		}
+
+		updatedRules = append(updatedRules, existingRule)
 	}
+	inst.rules = updatedRules
 	return nil
 }
 

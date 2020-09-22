@@ -117,7 +117,7 @@ func prepareHost(config Config) PrepareHostFunc {
 			MachineTag:         config.MachineTag,
 			Logger:             log,
 		})
-		return preparer.Prepare(containerTag)
+		return errors.Trace(preparer.Prepare(containerTag))
 	}
 }
 

@@ -1049,7 +1049,7 @@ func (k *kubernetesClient) ensureService(
 			return errors.Annotatef(err, "configuring devices for %s", appName)
 		}
 	}
-	if err := processConstraints(&workloadSpec.Pod, appName, params.Constraints); err != nil {
+	if err := processConstraints(&workloadSpec.Pod.PodSpec, appName, params.Constraints); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1085,7 +1085,7 @@ func (k *kubernetesClient) ensureService(
 		}
 	}
 
-	if err = validateDeploymentType(params.Deployment.DeploymentType, params, workloadSpec); err != nil {
+	if err = validateDeploymentType(params.Deployment.DeploymentType, params, workloadSpec.Service); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1160,9 +1160,12 @@ func (k *kubernetesClient) ensureService(
 	return nil
 }
 
-func validateDeploymentType(t caas.DeploymentType, params *caas.ServiceParams, workloadSpec *workloadSpec) error {
-	if t != caas.DeploymentStateful {
-		if workloadSpec.Service != nil && workloadSpec.Service.ScalePolicy != "" {
+func validateDeploymentType(deploymentType caas.DeploymentType, params *caas.ServiceParams, svcSpec *specs.ServiceSpec) error {
+	if svcSpec == nil {
+		return nil
+	}
+	if deploymentType != caas.DeploymentStateful {
+		if svcSpec.ScalePolicy != "" {
 			return errors.NewNotValid(nil, fmt.Sprintf("ScalePolicy is only supported for %s applications", caas.DeploymentStateful))
 		}
 	}
@@ -1262,7 +1265,7 @@ func (k *kubernetesClient) configurePodFiles(
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if err = k8sstorage.PushUniqueVolume(&workloadSpec.Pod, vol, false); err != nil {
+			if err = k8sstorage.PushUniqueVolume(&workloadSpec.Pod.PodSpec, vol, false); err != nil {
 				return errors.Trace(err)
 			}
 			workloadSpec.Pod.Containers[i].VolumeMounts = append(workloadSpec.Pod.Containers[i].VolumeMounts, core.VolumeMount{
@@ -1413,6 +1416,29 @@ func podAnnotations(annotations k8sannotations.Annotation) k8sannotations.Annota
 		Add("seccomp.security.beta.kubernetes.io/pod", "docker/default")
 }
 
+func updateStrategyForDaemonSet(strategy specs.UpdateStrategy) (o apps.DaemonSetUpdateStrategy, err error) {
+	switch strategyType := apps.DaemonSetUpdateStrategyType(strategy.Type); strategyType {
+	case apps.RollingUpdateDaemonSetStrategyType, apps.OnDeleteDaemonSetStrategyType:
+		if strategy.RollingUpdate == nil {
+			return o, errors.New("rolling update spec is required")
+		}
+		if strategy.RollingUpdate.Partition != nil || strategy.RollingUpdate.MaxSurge != nil {
+			return o, errors.NotValidf("rolling update spec for daemonset")
+		}
+		if strategy.RollingUpdate.MaxUnavailable == nil {
+			return o, errors.NewNotValid(nil, "rolling update spec maxUnavailable is missing")
+		}
+		return apps.DaemonSetUpdateStrategy{
+			Type: strategyType,
+			RollingUpdate: &apps.RollingUpdateDaemonSet{
+				MaxUnavailable: k8sspecs.IntOrStringToK8s(*strategy.RollingUpdate.MaxUnavailable),
+			},
+		}, nil
+	default:
+		return o, errors.NotValidf("strategy type %q for daemonset", strategyType)
+	}
+}
+
 func (k *kubernetesClient) configureDaemonSet(
 	appName, deploymentName string,
 	annotations k8sannotations.Annotation,
@@ -1454,12 +1480,18 @@ func (k *kubernetesClient) configureDaemonSet(
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: deploymentName + "-",
 					Labels:       k.getDaemonSetLabels(appName),
-					Annotations:  podAnnotations(annotations.Copy()).ToMap(),
+					Annotations:  podAnnotations(k8sannotations.New(workloadSpec.Pod.Annotations).Merge(annotations).Copy()).ToMap(),
 				},
-				Spec: workloadSpec.Pod,
+				Spec: workloadSpec.Pod.PodSpec,
 			},
 		},
 	}
+	if workloadSpec.Service != nil && workloadSpec.Service.UpdateStrategy != nil {
+		if daemonSet.Spec.UpdateStrategy, err = updateStrategyForDaemonSet(*workloadSpec.Service.UpdateStrategy); err != nil {
+			return cleanUps, errors.Trace(err)
+		}
+	}
+
 	handlePVC := func(pvc core.PersistentVolumeClaim, mountPath string, readOnly bool) error {
 		cs, err := k.configurePVCForStatelessResource(pvc, mountPath, readOnly, &daemonSet.Spec.Template.Spec)
 		cleanUps = append(cleanUps, cs...)
@@ -1474,6 +1506,34 @@ func (k *kubernetesClient) configureDaemonSet(
 	cU, err := k.ensureDaemonSet(daemonSet)
 	cleanUps = append(cleanUps, cU)
 	return cleanUps, errors.Trace(err)
+}
+
+func updateStrategyForDeployment(strategy specs.UpdateStrategy) (o apps.DeploymentStrategy, err error) {
+	switch strategyType := apps.DeploymentStrategyType(strategy.Type); strategyType {
+	case apps.RecreateDeploymentStrategyType, apps.RollingUpdateDeploymentStrategyType:
+		if strategy.RollingUpdate == nil {
+			return o, errors.New("rolling update spec is required")
+		}
+		if strategy.RollingUpdate.Partition != nil {
+			return o, errors.NotValidf("rolling update spec for deployment")
+		}
+		if strategy.RollingUpdate.MaxSurge == nil && strategy.RollingUpdate.MaxUnavailable == nil {
+			return o, errors.NewNotValid(nil, "empty rolling update spec")
+		}
+		o = apps.DeploymentStrategy{
+			Type:          strategyType,
+			RollingUpdate: &apps.RollingUpdateDeployment{},
+		}
+		if strategy.RollingUpdate.MaxSurge != nil {
+			o.RollingUpdate.MaxSurge = k8sspecs.IntOrStringToK8s(*strategy.RollingUpdate.MaxSurge)
+		}
+		if strategy.RollingUpdate.MaxUnavailable != nil {
+			o.RollingUpdate.MaxUnavailable = k8sspecs.IntOrStringToK8s(*strategy.RollingUpdate.MaxUnavailable)
+		}
+		return o, nil
+	default:
+		return o, errors.NotValidf("strategy type %q for deployment", strategyType)
+	}
 }
 
 func (k *kubernetesClient) configureDeployment(
@@ -1519,11 +1579,16 @@ func (k *kubernetesClient) configureDeployment(
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: deploymentName + "-",
 					Labels:       utils.LabelsForApp(appName),
-					Annotations:  podAnnotations(annotations.Copy()).ToMap(),
+					Annotations:  podAnnotations(k8sannotations.New(workloadSpec.Pod.Annotations).Merge(annotations).Copy()).ToMap(),
 				},
-				Spec: workloadSpec.Pod,
+				Spec: workloadSpec.Pod.PodSpec,
 			},
 		},
+	}
+	if workloadSpec.Service != nil && workloadSpec.Service.UpdateStrategy != nil {
+		if deployment.Spec.Strategy, err = updateStrategyForDeployment(*workloadSpec.Service.UpdateStrategy); err != nil {
+			return cleanUps, errors.Trace(err)
+		}
 	}
 	handlePVC := func(pvc core.PersistentVolumeClaim, mountPath string, readOnly bool) error {
 		cs, err := k.configurePVCForStatelessResource(pvc, mountPath, readOnly, &deployment.Spec.Template.Spec)
@@ -2221,7 +2286,7 @@ func filesetConfigMap(configMapName string, labels, annotations map[string]strin
 
 // workloadSpec represents the k8s resources need to be created for the workload.
 type workloadSpec struct {
-	Pod     core.PodSpec `json:"pod"`
+	Pod     k8sspecs.PodSpecWithAnnotations
 	Service *specs.ServiceSpec
 
 	Secrets                         []k8sspecs.K8sSecret
@@ -2278,11 +2343,11 @@ func processContainers(deploymentName string, podSpec *specs.PodSpec, spec *core
 func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec,
 	operatorImagePath string) (*workloadSpec, error) {
 	var spec workloadSpec
-	if err := processContainers(deploymentName, podSpec, &spec.Pod); err != nil {
+	if err := processContainers(deploymentName, podSpec, &spec.Pod.PodSpec); err != nil {
 		logger.Errorf("unable to parse %q pod spec: \n%+v", appName, *podSpec)
 		return nil, errors.Annotatef(err, "processing container specs for app %q", appName)
 	}
-	if err := ensureJujuInitContainer(&spec.Pod, operatorImagePath); err != nil {
+	if err := ensureJujuInitContainer(&spec.Pod.PodSpec, operatorImagePath); err != nil {
 		return nil, errors.Annotatef(err, "adding init container for app %q", appName)
 	}
 
@@ -2313,6 +2378,7 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec,
 			spec.ValidatingWebhookConfigurations = k8sResources.ValidatingWebhookConfigurations
 			spec.IngressResources = k8sResources.IngressResources
 			if k8sResources.Pod != nil {
+				spec.Pod.Annotations = k8sResources.Pod.Annotations.Copy()
 				spec.Pod.RestartPolicy = k8sResources.Pod.RestartPolicy
 				spec.Pod.ActiveDeadlineSeconds = k8sResources.Pod.ActiveDeadlineSeconds
 				spec.Pod.TerminationGracePeriodSeconds = k8sResources.Pod.TerminationGracePeriodSeconds
@@ -2321,6 +2387,8 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec,
 				spec.Pod.DNSPolicy = k8sResources.Pod.DNSPolicy
 				spec.Pod.HostNetwork = k8sResources.Pod.HostNetwork
 				spec.Pod.HostPID = k8sResources.Pod.HostPID
+				spec.Pod.PriorityClassName = k8sResources.Pod.PriorityClassName
+				spec.Pod.Priority = k8sResources.Pod.Priority
 			}
 			spec.ServiceAccounts = append(spec.ServiceAccounts, &k8sResources.K8sRBACResources)
 		}

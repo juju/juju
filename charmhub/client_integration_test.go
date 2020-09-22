@@ -22,7 +22,8 @@ type ClientSuite struct {
 var _ = gc.Suite(&ClientSuite{})
 
 func (s *ClientSuite) TestLiveInfoRequest(c *gc.C) {
-	config := charmhub.CharmHubConfig()
+	config, err := charmhub.CharmHubConfig(&charmhub.FakeLogger{})
+	c.Assert(err, jc.ErrorIsNil)
 
 	client, err := charmhub.NewClient(config)
 	c.Assert(err, jc.ErrorIsNil)
@@ -33,7 +34,8 @@ func (s *ClientSuite) TestLiveInfoRequest(c *gc.C) {
 }
 
 func (s *ClientSuite) TestLiveFindRequest(c *gc.C) {
-	config := charmhub.CharmHubConfig()
+	config, err := charmhub.CharmHubConfig(&charmhub.FakeLogger{})
+	c.Assert(err, jc.ErrorIsNil)
 
 	client, err := charmhub.NewClient(config)
 	c.Assert(err, jc.ErrorIsNil)

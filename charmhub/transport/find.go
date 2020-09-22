@@ -5,7 +5,7 @@ package transport
 
 type FindResponses struct {
 	Results   []FindResponse `json:"results"`
-	ErrorList []APIError     `json:"error-list"`
+	ErrorList APIErrors      `json:"error-list"`
 }
 
 type FindResponse struct {

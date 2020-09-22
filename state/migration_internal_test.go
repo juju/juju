@@ -407,6 +407,7 @@ func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {
 		"CharmOrigin",
 		"ForceCharm",
 		"Exposed",
+		"ExposedEndpoints",
 		"MinUnits",
 		"MetricCredentials",
 		"PasswordHash",
@@ -582,6 +583,7 @@ func (s *MigrationSuite) TestConstraintsDocFields(c *gc.C) {
 		"Spaces",
 		"VirtType",
 		"Zones",
+		"AllocatePublicIP",
 	)
 	s.AssertExportedFields(c, constraintsDoc{}, fields)
 }

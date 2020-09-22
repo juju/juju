@@ -10,6 +10,10 @@ import (
 // UpgradeSeriesStatus is the current status of a series upgrade for units
 type UpgradeSeriesStatus string
 
+func (s UpgradeSeriesStatus) String() string {
+	return string(s)
+}
+
 var UpgradeSeriesStatusOrder = map[UpgradeSeriesStatus]int{
 	UpgradeSeriesNotStarted:       0,
 	UpgradeSeriesPrepareStarted:   1,

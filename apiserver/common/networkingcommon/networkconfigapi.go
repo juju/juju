@@ -193,6 +193,8 @@ func newUpdateMachineLinkLayerOp(
 // Build (state.ModelOperation) returns the transaction operations used to
 // merge incoming provider link-layer data with that in state.
 func (o *updateMachineLinkLayerOp) Build(_ int) ([]txn.Op, error) {
+	o.ClearProcessed()
+
 	if err := o.PopulateExistingDevices(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -248,7 +250,7 @@ func (o *updateMachineLinkLayerOp) processExistingDevice(dev LinkLayerDevice) ([
 
 	ops := dev.UpdateOps(networkDeviceToStateArgs(*incomingDev))
 
-	incomingAddrs := o.MatchingIncomingAddrs(dev.MACAddress())
+	incomingAddrs := o.MatchingIncomingAddrs(dev.Name())
 
 	for _, addr := range o.DeviceAddresses(dev) {
 		existingAddrOps, err := o.processExistingDeviceAddress(dev, addr, incomingAddrs)
@@ -263,7 +265,7 @@ func (o *updateMachineLinkLayerOp) processExistingDevice(dev LinkLayerDevice) ([
 		return nil, errors.Trace(err)
 	}
 
-	o.MarkDevProcessed(dev.MACAddress())
+	o.MarkDevProcessed(dev.Name())
 	return append(ops, newAddrOps...), nil
 }
 
@@ -281,7 +283,7 @@ func (o *updateMachineLinkLayerOp) processExistingDeviceNotObserved(dev LinkLaye
 		// If the machine is the authority for this address,
 		// we can delete it; otherwise leave it alone.
 		if addr.Origin() == network.OriginMachine {
-			logger.Debugf("removing address %q from device %q", addr.Value(), dev.Name())
+			logger.Debugf("machine %q: removing address %q from device %q", o.machine.Id(), addr.Value(), dev.Name())
 			ops = append(ops, addr.RemoveOps()...)
 			removing++
 		}
@@ -308,8 +310,8 @@ func (o *updateMachineLinkLayerOp) processExistingDeviceAddress(
 	// update it.
 	for _, incomingAddr := range incomingAddrs {
 		if strings.HasPrefix(incomingAddr.CIDRAddress, addrValue) &&
-			!o.IsAddrProcessed(dev.MACAddress(), incomingAddr.CIDRAddress) {
-			o.MarkAddrProcessed(dev.MACAddress(), incomingAddr.CIDRAddress)
+			!o.IsAddrProcessed(dev.Name(), incomingAddr.CIDRAddress) {
+			o.MarkAddrProcessed(dev.Name(), incomingAddr.CIDRAddress)
 
 			ops, err := addr.UpdateOps(incomingAddr)
 			return ops, errors.Trace(err)
@@ -318,7 +320,7 @@ func (o *updateMachineLinkLayerOp) processExistingDeviceAddress(
 
 	// Otherwise if we are the authority, delete it.
 	if addr.Origin() == network.OriginMachine {
-		logger.Debugf("removing address %q from device %q", addrValue, addr.DeviceName())
+		logger.Infof("machine %q: removing address %q from device %q", o.machine.Id(), addrValue, addr.DeviceName())
 		return addr.RemoveOps(), nil
 	}
 
@@ -332,27 +334,17 @@ func (o *updateMachineLinkLayerOp) processExistingDeviceNewAddresses(
 ) ([]txn.Op, error) {
 	var ops []txn.Op
 	for _, addr := range incomingAddrs {
-		if o.IsAddrProcessed(dev.MACAddress(), addr.CIDRAddress) {
-			continue
-		}
+		if !o.IsAddrProcessed(dev.Name(), addr.CIDRAddress) {
+			logger.Infof("machine %q: adding address %q to device %q", o.machine.Id(), addr.CIDRAddress, dev.Name())
 
-		addOps, err := dev.AddAddressOps(addr)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ops = append(ops, addOps...)
-
-		// Since this device has new or changing addresses,
-		// ensure we have discovered all the subnets it is connected to.
-		if o.discoverSubnets {
-			subNetOps, err := o.processSubnets(dev.MACAddress())
+			addOps, err := dev.AddAddressOps(addr)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			ops = append(ops, subNetOps...)
-		}
+			ops = append(ops, addOps...)
 
-		o.MarkAddrProcessed(dev.MACAddress(), addr.CIDRAddress)
+			o.MarkAddrProcessed(dev.Name(), addr.CIDRAddress)
+		}
 	}
 	return ops, nil
 }
@@ -366,11 +358,17 @@ func (o *updateMachineLinkLayerOp) processNewDevices() ([]txn.Op, error) {
 			continue
 		}
 
-		logger.Debugf("adding new device %q (%s) with addresses %v",
-			dev.InterfaceName, dev.MACAddress, dev.Addresses)
+		addrs := o.MatchingIncomingAddrs(dev.InterfaceName)
+		addrValues := make([]string, len(addrs))
+		for i, addr := range addrs {
+			addrValues[i] = addr.CIDRAddress
+		}
+
+		logger.Infof("machine %q: adding new device %q (%s) with addresses %v",
+			o.machine.Id(), dev.InterfaceName, dev.MACAddress, addrValues)
 
 		addOps, err := o.machine.AddLinkLayerDeviceOps(
-			networkDeviceToStateArgs(dev), o.MatchingIncomingAddrs(dev.MACAddress)...)
+			networkDeviceToStateArgs(dev), addrs...)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -379,14 +377,14 @@ func (o *updateMachineLinkLayerOp) processNewDevices() ([]txn.Op, error) {
 		// Since this is a new device, ensure that we have
 		// discovered all the subnets it is connected to.
 		if o.discoverSubnets {
-			subNetOps, err := o.processSubnets(dev.MACAddress)
+			subNetOps, err := o.processSubnets(dev.InterfaceName)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 			ops = append(ops, subNetOps...)
 		}
 
-		o.MarkDevProcessed(dev.MACAddress)
+		o.MarkDevProcessed(dev.InterfaceName)
 	}
 	return ops, nil
 }
@@ -394,11 +392,11 @@ func (o *updateMachineLinkLayerOp) processNewDevices() ([]txn.Op, error) {
 // processSubnets takes an incoming NIC hardware address and ensures that the
 // subnets of addresses on the device are present in state.
 // Loopback subnets are ignored.
-func (o *updateMachineLinkLayerOp) processSubnets(hwAddress string) ([]txn.Op, error) {
+func (o *updateMachineLinkLayerOp) processSubnets(name string) ([]txn.Op, error) {
 	// Accrue all incoming CIDRs matching the input device.
 	cidrSet := set.NewStrings()
 	var isVLAN bool
-	for _, matching := range o.Incoming().GetByHardwareAddress(hwAddress) {
+	for _, matching := range o.Incoming().GetByName(name) {
 		cidr := matching.CIDR
 		if cidr == "" || matching.InterfaceType == network.LoopbackInterface {
 			continue
@@ -440,9 +438,10 @@ func (o *updateMachineLinkLayerOp) processRemovalCandidates() []txn.Op {
 	var ops []txn.Op
 	for _, dev := range o.removalCandidates {
 		if o.observedParentDevices.Contains(dev.Name()) {
-			logger.Warningf("device %q (%s) not removed; it has incoming child devices", dev.Name(), dev.MACAddress())
+			logger.Warningf("machine %q: device %q (%s) not removed; it has incoming child devices",
+				o.machine.Id(), dev.Name(), dev.MACAddress())
 		} else {
-			logger.Debugf("removing device %q (%s)", dev.Name(), dev.MACAddress())
+			logger.Infof("machine %q: removing device %q (%s)", o.machine.Id(), dev.Name(), dev.MACAddress())
 			ops = append(ops, dev.RemoveOps()...)
 		}
 	}

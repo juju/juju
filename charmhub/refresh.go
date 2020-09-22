@@ -5,10 +5,10 @@ package charmhub
 
 import (
 	"context"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/kr/pretty"
 
 	"github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
@@ -38,13 +38,15 @@ const (
 type RefreshClient struct {
 	path   path.Path
 	client RESTClient
+	logger Logger
 }
 
 // NewRefreshClient creates a RefreshClient for requesting
-func NewRefreshClient(path path.Path, client RESTClient) *RefreshClient {
+func NewRefreshClient(path path.Path, client RESTClient, logger Logger) *RefreshClient {
 	return &RefreshClient{
 		path:   path,
 		client: client,
+		logger: logger,
 	}
 }
 
@@ -59,6 +61,7 @@ type RefreshConfig interface {
 
 // Refresh is used to refresh installed charms to a more suitable revision.
 func (c *RefreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]transport.RefreshResponse, error) {
+	c.logger.Debugf("Refresh(%s)", pretty.Sprint(config))
 	req, err := config.Build()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -68,14 +71,8 @@ func (c *RefreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]tr
 		return nil, errors.Trace(err)
 	}
 
-	if len(resp.ErrorList) > 0 {
-		var combined []string
-		for _, err := range resp.ErrorList {
-			if err.Message != "" {
-				combined = append(combined, err.Message)
-			}
-		}
-		return nil, errors.Errorf(strings.Join(combined, "\n"))
+	if err := resp.ErrorList.Combine(); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	return resp.Results, config.Ensure(resp.Results)
@@ -129,7 +126,7 @@ func (c refreshOne) Build() (transport.RefreshRequest, error) {
 		Actions: []transport.RefreshRequestAction{{
 			Action:      string(RefreshAction),
 			InstanceKey: c.instanceKey,
-			ID:          c.ID,
+			ID:          &c.ID,
 		}},
 	}, nil
 }
@@ -146,6 +143,7 @@ func (c refreshOne) Ensure(responses []transport.RefreshResponse) error {
 
 type executeOne struct {
 	ID       string
+	Name     string
 	Revision *int
 	Channel  *string
 	OS       string
@@ -156,26 +154,9 @@ type executeOne struct {
 	instanceKey string
 }
 
-// InstallOne creates a request config for requesting only one charm.
-func InstallOne(id string, revision int, channel, os, series string) (RefreshConfig, error) {
-	uuid, err := utils.NewUUID()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return executeOne{
-		action:      InstallAction,
-		instanceKey: uuid.String(),
-		ID:          id,
-		Revision:    &revision,
-		Channel:     &channel,
-		OS:          os,
-		Series:      series,
-	}, nil
-}
-
 // InstallOneFromRevision creates a request config using the revision and not
 // the channel for requesting only one charm.
-func InstallOneFromRevision(id string, revision int, os, series string) (RefreshConfig, error) {
+func InstallOneFromRevision(name string, revision int, os, series string) (RefreshConfig, error) {
 	uuid, err := utils.NewUUID()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -183,7 +164,7 @@ func InstallOneFromRevision(id string, revision int, os, series string) (Refresh
 	return executeOne{
 		action:      InstallAction,
 		instanceKey: uuid.String(),
-		ID:          id,
+		Name:        name,
 		Revision:    &revision,
 		OS:          os,
 		Series:      series,
@@ -192,7 +173,7 @@ func InstallOneFromRevision(id string, revision int, os, series string) (Refresh
 
 // InstallOneFromChannel creates a request config using the channel and not the
 // revision for requesting only one charm.
-func InstallOneFromChannel(id string, channel, os, series string) (RefreshConfig, error) {
+func InstallOneFromChannel(name string, channel, os, series string) (RefreshConfig, error) {
 	uuid, err := utils.NewUUID()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -200,7 +181,7 @@ func InstallOneFromChannel(id string, channel, os, series string) (RefreshConfig
 	return executeOne{
 		action:      InstallAction,
 		instanceKey: uuid.String(),
-		ID:          id,
+		Name:        name,
 		Channel:     &channel,
 		OS:          os,
 		Series:      series,
@@ -243,7 +224,7 @@ func DownloadOneFromRevision(id string, revision int, os, series string) (Refres
 
 // DownloadOneFromChannel creates a request config using the channel and not the
 // revision for requesting only one charm.
-func DownloadOneFromChannel(id string, channel, os, series string) (RefreshConfig, error) {
+func DownloadOneFromChannel(name string, channel, os, series string) (RefreshConfig, error) {
 	uuid, err := utils.NewUUID()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -251,7 +232,7 @@ func DownloadOneFromChannel(id string, channel, os, series string) (RefreshConfi
 	return executeOne{
 		action:      DownloadAction,
 		instanceKey: uuid.String(),
-		ID:          id,
+		Name:        name,
 		Channel:     &channel,
 		OS:          os,
 		Series:      series,
@@ -266,7 +247,7 @@ func (c executeOne) Build() (transport.RefreshRequest, error) {
 		Actions: []transport.RefreshRequestAction{{
 			Action:      string(c.action),
 			InstanceKey: c.instanceKey,
-			ID:          c.ID,
+			Name:        &c.Name,
 			Revision:    c.Revision,
 			Channel:     c.Channel,
 			Platform: &transport.RefreshRequestPlatform{

@@ -123,6 +123,21 @@ func (IngressRuleSuite) TestRulesEquality(c *gc.C) {
 	c.Assert(setB.EqualTo(setC), jc.IsFalse)
 }
 
+func (IngressRuleSuite) TestUniqueRules(c *gc.C) {
+	in := IngressRules{
+		NewIngressRule(network.MustParsePortRange("80/tcp"), "10.0.0.0/24", "192.168.0.0/24"),
+		NewIngressRule(network.MustParsePortRange("123/tcp"), "192.168.0.0/24", "10.0.0.0/24"),
+		NewIngressRule(network.MustParsePortRange("80/tcp"), "10.0.0.0/24", "192.168.0.0/24"),
+	}
+
+	exp := IngressRules{
+		NewIngressRule(network.MustParsePortRange("80/tcp"), "10.0.0.0/24", "192.168.0.0/24"),
+		NewIngressRule(network.MustParsePortRange("123/tcp"), "192.168.0.0/24", "10.0.0.0/24"),
+	}
+
+	c.Assert(in.UniqueRules(), gc.DeepEquals, exp)
+}
+
 func (IngressRuleSuite) TestDiffOpenAll(c *gc.C) {
 	wanted := IngressRules{
 		NewIngressRule(network.MustParsePortRange("80-90/tcp"), "0.0.0.0/0"),

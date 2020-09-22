@@ -5,7 +5,9 @@ package deployer
 
 import (
 	"archive/zip"
+	"fmt"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -14,30 +16,27 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/resource"
 	"github.com/juju/charmrepo/v6"
-	"github.com/juju/charmrepo/v6/csclient/params"
 	jujuclock "github.com/juju/clock"
-	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.application.deployer")
-
-type DeployerFactory interface {
-	GetDeployer(DeployerConfig, ModelConfigGetter, *store.CharmStoreAdaptor) (Deployer, error)
-}
 
 // NewDeployerFactory returns a factory setup with the API and
 // function dependencies required by every deployer.
@@ -54,24 +53,15 @@ func NewDeployerFactory(dep DeployerDependencies) DeployerFactory {
 	return d
 }
 
-// Deployer defines the functionality of a deployer returned by the
-// factory.
-type Deployer interface {
-	// PrepareAndDeploy finishes preparing to deploy a charm or bundle,
-	// then deploys it.  This is done as one step to accomidate the
-	// call being wrapped by block.ProcessBlockedError.
-	PrepareAndDeploy(*cmd.Context, DeployerAPI, *store.CharmStoreAdaptor) error
-}
-
 // GetDeployer returns the correct deployer to use based on the cfg provided.
 // A ModelConfigGetter and CharmStoreAdaptor needed to find the deployer.
-func (d *factory) GetDeployer(cfg DeployerConfig, getter ModelConfigGetter, cstoreAPI *store.CharmStoreAdaptor) (Deployer, error) {
+func (d *factory) GetDeployer(cfg DeployerConfig, getter ModelConfigGetter, resolver Resolver) (Deployer, error) {
 	d.setConfig(cfg)
 	maybeDeployers := []func() (Deployer, error){
 		d.maybeReadLocalBundle,
 		func() (Deployer, error) { return d.maybeReadLocalCharm(getter) },
 		d.maybePredeployedLocalCharm,
-		func() (Deployer, error) { return d.maybeReadCharmstoreBundle(cstoreAPI) },
+		func() (Deployer, error) { return d.maybeReadCharmstoreBundle(resolver) },
 		d.charmStoreCharm, // This always returns a Deployer
 	}
 	for _, d := range maybeDeployers {
@@ -132,7 +122,7 @@ type DeployerConfig struct {
 	BundleMachines       map[string]string
 	BundleOverlayFile    []string
 	BundleStorage        map[string]map[string]storage.Constraints
-	Channel              params.Channel
+	Channel              corecharm.Channel
 	CharmOrBundle        string
 	ConfigOptions        common.ConfigFlag
 	ConstraintsStr       string
@@ -166,7 +156,7 @@ type factory struct {
 	attachStorage     []string
 	charmOrBundle     string
 	bundleOverlayFile []string
-	channel           params.Channel
+	channel           corecharm.Channel
 	series            string
 	force             bool
 	dryRun            bool
@@ -273,7 +263,6 @@ func (d *factory) newDeployBundle(ds charm.BundleDataSource) deployBundle {
 		force:                d.force,
 		trust:                d.trust,
 		bundleDataSource:     ds,
-		channel:              d.channel,
 		newConsumeDetailsAPI: d.newConsumeDetailsAPI,
 		deployResources:      d.deployResources,
 		useExistingMachines:  d.useExisting,
@@ -281,6 +270,7 @@ func (d *factory) newDeployBundle(ds charm.BundleDataSource) deployBundle {
 		bundleStorage:        d.bundleStorage,
 		bundleDevices:        d.bundleDevices,
 		bundleOverlayFile:    d.bundleOverlayFile,
+		bundleDir:            d.charmOrBundle,
 	}
 }
 
@@ -370,9 +360,18 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 	}, err
 }
 
-func (d *factory) maybeReadCharmstoreBundle(cstore *store.CharmStoreAdaptor) (Deployer, error) {
+func (d *factory) maybeReadCharmstoreBundle(resolver Resolver) (Deployer, error) {
+	curl, err := resolveCharmURL(d.charmOrBundle)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	origin, err := utils.DeduceOrigin(curl, d.channel)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// validate this is a charmstore bundle
-	bundleURL, channel, err := store.ResolveBundleURL(cstore, d.charmOrBundle, d.channel)
+	bundleURL, origin, err := resolver.ResolveBundleURL(curl, origin)
 	if charm.IsUnsupportedSeriesError(errors.Cause(err)) {
 		return nil, errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 	}
@@ -387,7 +386,7 @@ func (d *factory) maybeReadCharmstoreBundle(cstore *store.CharmStoreAdaptor) (De
 		return nil, errors.Trace(err)
 	}
 
-	// Validated, [repare to Deploy
+	// Validated, prepare to Deploy
 	// TODO(bundles) - Ideally, we would like to expose a GetBundleDataSource method for the charmstore.
 	// As a short-term solution and given that we don't
 	// want to support (for now at least) multi-doc bundles
@@ -398,31 +397,70 @@ func (d *factory) maybeReadCharmstoreBundle(cstore *store.CharmStoreAdaptor) (De
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	bundle, err := cstore.GetBundle(bundleURL, filepath.Join(dir, bundleURL.Name))
+	bundle, err := resolver.GetBundle(bundleURL, filepath.Join(dir, bundleURL.Name))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	db := d.newDeployBundle(store.NewResolvedBundle(bundle))
 	db.bundleURL = bundleURL
-	db.channel = channel
+	db.origin = origin
 	db.bundleOverlayFile = d.bundleOverlayFile
 	return &charmstoreBundle{deployBundle: db}, nil
 }
 
 func (d *factory) charmStoreCharm() (Deployer, error) {
 	// Validate we have a charm store change
-	userRequestedURL, err := charm.ParseURL(d.charmOrBundle)
+	userRequestedURL, err := resolveCharmURL(d.charmOrBundle)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	origin, err := utils.DeduceOrigin(userRequestedURL, d.channel)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
+	deployCharm := d.newDeployCharm()
+	deployCharm.origin = origin
 	return &charmStoreCharm{
-		deployCharm:      d.newDeployCharm(),
+		deployCharm:      deployCharm,
 		userRequestedURL: userRequestedURL,
-		channel:          d.channel,
 		clock:            d.clock,
 	}, nil
+}
+
+func resolveCharmURL(path string) (*charm.URL, error) {
+	// If the charmhub integration is in effect, then we ensure that schema is
+	// defined and we can parse the URL correctly.
+	if featureflag.Enabled(feature.CharmHubIntegration) {
+		var err error
+		path, err = charm.EnsureSchema(path)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		return charm.ParseURL(path)
+	}
+
+	u, err := url.Parse(path)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// We don't expect the charmhub url scheme to show up here, as the feature
+	// flag isn't enabled. Return
+	if charm.CharmHub.Matches(u.Scheme) {
+		// Replicate the charm url parsing error here to keep things consistent.
+		return nil, errors.Errorf(`unexpected charm schema: cannot parse URL %q: schema "ch" not valid`, path)
+	}
+
+	// If we find a scheme that is empty, force it to become a charmstore scheme
+	// so every other subsequent parse url call knows the correct type.
+	if u.Scheme == "" {
+		return charm.ParseURL(fmt.Sprintf("cs:%s", u.Path))
+	}
+
+	return charm.ParseURL(path)
 }
 
 // Returns the first string that isn't empty.

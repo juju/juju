@@ -8,7 +8,7 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"github.com/juju/bundlechanges/v2"
+	"github.com/juju/bundlechanges/v3"
 	"github.com/juju/charm/v8"
 	"github.com/juju/charmrepo/v6"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
@@ -20,12 +20,15 @@ import (
 	"github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
+	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	appbundle "github.com/juju/juju/cmd/juju/application/bundle"
 	"github.com/juju/juju/cmd/juju/application/store"
+	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 )
 
@@ -63,7 +66,8 @@ type bundleDiffCommand struct {
 	modelcmd.ModelCommandBase
 	bundle         string
 	bundleOverlays []string
-	channel        csparams.Channel
+	channelStr     string
+	channel        corecharm.Channel
 	annotations    bool
 
 	bundleMachines map[string]string
@@ -94,7 +98,7 @@ func (c *bundleDiffCommand) Info() *cmd.Info {
 // SetFlags is part of cmd.Command.
 func (c *bundleDiffCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.StringVar((*string)(&c.channel), "channel", "", "Channel to use when getting the bundle from the charm store")
+	f.StringVar(&c.channelStr, "channel", "", "Channel to use when getting the bundle from the charm store or charm hub")
 	f.Var(cmd.NewAppendStringsValue(&c.bundleOverlays), "overlay", "Bundles to overlay on the primary bundle, applied in order")
 	f.StringVar(&c.machineMap, "map-machines", "", "Indicates how existing machines correspond to bundle machines")
 	f.BoolVar(&c.annotations, "annotations", false, "Include differences in annotations")
@@ -112,7 +116,12 @@ func (c *bundleDiffCommand) Init(args []string) error {
 		return errors.Annotate(err, "error in --map-machines")
 	}
 	c.bundleMachines = mapping
-
+	if c.channelStr != "" {
+		c.channel, err = corecharm.ParseChannel(c.channelStr)
+		if err != nil {
+			return errors.Annotate(err, "error in --channel")
+		}
+	}
 	return cmd.CheckEmpty(args[1:])
 }
 
@@ -122,7 +131,7 @@ func (c *bundleDiffCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer apiRoot.Close()
+	defer func() { _ = apiRoot.Close() }()
 
 	// Load up the bundle data, with includes and overlays.
 	baseSrc, err := c.bundleDataSource(ctx)
@@ -157,7 +166,7 @@ func (c *bundleDiffCommand) Run(ctx *cmd.Context) error {
 	}
 
 	encoder := yaml.NewEncoder(ctx.Stdout)
-	defer encoder.Close()
+	defer func() { _ = encoder.Close() }()
 	err = encoder.Encode(diff)
 	if err != nil {
 		return errors.Trace(err)
@@ -218,11 +227,19 @@ func (c *bundleDiffCommand) bundleDataSource(ctx *cmd.Context) (charm.BundleData
 	}
 
 	// Not a local bundle, so it must be from the charmstore.
-	charmStore, err := c.charmStore()
+	bURL, err := charm.ParseURL(c.bundle)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	bundleURL, _, err := store.ResolveBundleURL(charmStore, c.bundle, c.channel)
+	origin, err := utils.DeduceOrigin(bURL, c.channel)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	charmAdaptor, err := c.charmAdaptor()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	bundleURL, _, err := charmAdaptor.ResolveBundleURL(bURL, origin)
 	if err != nil && !errors.IsNotValid(err) {
 		return nil, errors.Trace(err)
 	}
@@ -235,7 +252,7 @@ func (c *bundleDiffCommand) bundleDataSource(ctx *cmd.Context) (charm.BundleData
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	bundle, err := charmStore.GetBundle(bundleURL, dir)
+	bundle, err := charmAdaptor.GetBundle(bundleURL, dir)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -243,16 +260,16 @@ func (c *bundleDiffCommand) bundleDataSource(ctx *cmd.Context) (charm.BundleData
 	return store.NewResolvedBundle(bundle), nil
 }
 
-func (c *bundleDiffCommand) charmStore() (BundleResolver, error) {
+func (c *bundleDiffCommand) charmAdaptor() (BundleResolver, error) {
 	if c._charmStore != nil {
 		return c._charmStore, nil
 	}
-	controllerAPIRoot, err := c.NewControllerAPIRoot()
+	apiRoot, err := c.ModelCommandBase.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer controllerAPIRoot.Close()
-	csURL, err := getCharmStoreAPIURL(controllerAPIRoot)
+	defer func() { _ = apiRoot.Close() }()
+	csURL, err := getCharmStoreAPIURL(apiRoot)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -260,8 +277,12 @@ func (c *bundleDiffCommand) charmStore() (BundleResolver, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cstoreClient := store.NewCharmStoreClient(bakeryClient, csURL).WithChannel(c.channel)
-	return charmrepo.NewCharmStoreFromClient(cstoreClient), nil
+	// TODO: (hml) 2020-09-14
+	// Update to use charm hub or charm store
+	risk := csparams.Channel(c.channel.Risk)
+	cstoreClient := store.NewCharmStoreClient(bakeryClient, csURL).WithChannel(risk)
+	charmRepo := charmrepo.NewCharmStoreFromClient(cstoreClient)
+	return store.NewCharmAdaptor(charmRepo, apiRoot.BestFacadeVersion("Charms"), nil), nil
 }
 
 func (c *bundleDiffCommand) readModel(apiRoot base.APICallCloser) (*bundlechanges.Model, error) {
@@ -322,6 +343,6 @@ func (e *extractorImpl) Sequences() (map[string]int, error) {
 // BundleResolver defines what we need from a charm store to resolve a
 // bundle and read the bundle data.
 type BundleResolver interface {
-	store.URLResolver
+	ResolveBundleURL(*charm.URL, commoncharm.Origin) (*charm.URL, commoncharm.Origin, error)
 	GetBundle(*charm.URL, string) (charm.Bundle, error)
 }

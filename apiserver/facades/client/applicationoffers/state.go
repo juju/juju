@@ -86,6 +86,10 @@ type stateShim struct {
 	st *state.State
 }
 
+func (s stateShim) UserPermission(subject names.UserTag, target names.Tag) (permission.Access, error) {
+	return s.st.UserPermission(subject, target)
+}
+
 func (s stateShim) CreateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error {
 	return s.st.CreateOfferAccess(offer, user, access)
 }

@@ -746,7 +746,16 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 	c.Assert(len(actions), gc.Equals, 0)
 }
 
-func (s *ActionSuite) TestFindActionTagsById(c *gc.C) {
+func (s *ActionSuite) TestFindUnitActionTagsById(c *gc.C) {
+	s.assertFindActionTagsById(c, s.unit.Tag())
+}
+
+func (s *ActionSuite) TestFindMachineActionTagsById(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{})
+	s.assertFindActionTagsById(c, machine.Tag())
+}
+
+func (s *ActionSuite) assertFindActionTagsById(c *gc.C, receiver names.Tag) {
 	s.toSupportNewActionID(c)
 
 	actions := []struct {
@@ -762,7 +771,7 @@ func (s *ActionSuite) TestFindActionTagsById(c *gc.C) {
 	operationID, err := s.Model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
 	for _, action := range actions {
-		_, err := s.model.EnqueueAction(operationID, s.unit.Tag(), action.Name, action.Parameters)
+		_, err := s.model.EnqueueAction(operationID, receiver, action.Name, action.Parameters)
 		c.Check(err, gc.Equals, nil)
 	}
 

@@ -3,6 +3,7 @@
 package gen
 
 import (
+	"fmt"
 	"go/ast"
 	"go/token"
 	"go/types"
@@ -43,11 +44,13 @@ type Option func(*options)
 
 type options struct {
 	adminFacades bool
+	facadeGroups []FacadeGroup
 }
 
 func newOptions() *options {
 	return &options{
 		adminFacades: false,
+		facadeGroups: []FacadeGroup{Latest},
 	}
 }
 
@@ -55,6 +58,13 @@ func newOptions() *options {
 func WithAdminFacades(adminFacades bool) Option {
 	return func(options *options) {
 		options.adminFacades = adminFacades
+	}
+}
+
+// WithFacadeGroups sets the facadeGroups on the option
+func WithFacadeGroups(facadeGroups []FacadeGroup) Option {
+	return func(options *options) {
+		options.facadeGroups = facadeGroups
 	}
 }
 
@@ -78,23 +88,36 @@ func Generate(pkgRegistry PackageRegistry, linker Linker, client APIServer, opti
 		facades = append(facades, adminFacades...)
 	}
 
-	latest := make(map[string]facade.Details)
-	for _, facade := range facades {
-		if f, ok := latest[facade.Name]; ok && facade.Version < f.Version {
-			continue
+	// Compose all the facade groups together.
+	var groupFacades [][]facade.Details
+	for _, group := range opts.facadeGroups {
+		groupFacades = append(groupFacades, Filter(group, facades, registry))
+	}
+
+	unique := make(map[string]facade.Details)
+	for _, list := range groupFacades {
+		for _, f := range list {
+			// Ensure that we create a unique namespace so that any facades that
+			// are composed together are repeated.
+			unique[fmt.Sprintf("%s:%d", f.Name, f.Version)] = f
 		}
-		latest[facade.Name] = facade
 	}
-	latestFacades := make([]facade.Details, 0, len(latest))
-	for _, v := range latest {
-		latestFacades = append(latestFacades, v)
+	facades = make([]facade.Details, 0, len(unique))
+	for _, f := range unique {
+		facades = append(facades, f)
 	}
-	sort.Slice(latestFacades, func(i, j int) bool {
-		return latestFacades[i].Name < latestFacades[j].Name
+	sort.Slice(facades, func(i, j int) bool {
+		if facades[i].Name < facades[j].Name {
+			return true
+		}
+		if facades[i].Name > facades[j].Name {
+			return false
+		}
+		return facades[i].Version < facades[j].Version
 	})
 
-	result := make([]FacadeSchema, len(latestFacades))
-	for i, facade := range latestFacades {
+	result := make([]FacadeSchema, len(facades))
+	for i, facade := range facades {
 		// select the latest version from the facade list
 		version := facade.Version
 

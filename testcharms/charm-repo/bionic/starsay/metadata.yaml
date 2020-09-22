@@ -4,6 +4,9 @@ maintainer: Nate Finch <nate.finch@gmail.com>
 description: Doesn't do anything at all.
 tags:
   - application
+provides:
+  admin:
+    interface: http
 resources:
   store-resource:
     type: file

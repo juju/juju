@@ -4,7 +4,7 @@ saas:
     url: test:admin/default.mysql
 applications:
   wordpress:
-    charm: wordpress
+    charm: cs:wordpress
     num_units: 1
 relations:
 - - wordpress:db

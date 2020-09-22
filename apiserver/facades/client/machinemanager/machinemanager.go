@@ -491,6 +491,27 @@ func (mm *MachineManagerAPI) UpgradeSeriesValidate(
 			continue
 		}
 
+		// If we've already got a series lock on upgrade, don't go any further.
+		if locked, err := machine.IsLockedForSeriesUpgrade(); err != nil && errors.IsNotFound(errors.Cause(err)) {
+			results[i].Error = apiservererrors.ServerError(err)
+			continue
+		} else if locked {
+			// Grab the status from upgrade series and add it to the error.
+			status, err := machine.UpgradeSeriesStatus()
+			if err != nil {
+				results[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+			// Additionally add the status to the underlying params error. This
+			// gives a typed error to the client, which can then decode ths
+			// optional information later on.
+			results[i].Error = apiservererrors.ServerError(&apiservererrors.UpgradeSeriesValidationError{
+				Cause:  errors.Errorf("upgrade series lock found for %q; series upgrade is in the %q state", machine.Id(), status),
+				Status: status.String(),
+			})
+			continue
+		}
+
 		err = mm.validateSeries(arg.Series, machine.Series(), tag)
 		if err != nil {
 			results[i].Error = apiservererrors.ServerError(err)

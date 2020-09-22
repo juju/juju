@@ -23,8 +23,8 @@ import (
 	"path"
 	"strings"
 
+	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
-
 	charmhubpath "github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/version"
@@ -46,6 +46,13 @@ var (
 
 const defaultMinMultipartUploadSize = 5 * 1024 * 1024
 
+type Logger interface {
+	IsTraceEnabled() bool
+
+	Debugf(string, ...interface{})
+	Tracef(string, ...interface{})
+}
+
 // Config holds configuration for creating a new charm hub client.
 type Config struct {
 	// URL holds the base endpoint URL of the charmHub,
@@ -63,17 +70,23 @@ type Config struct {
 	// requests. These headers augment the headers required for sending requests
 	// and allow overriding existing headers.
 	Headers http.Header
+
+	Logger Logger
 }
 
 // CharmHubConfig defines a charmHub client configuration for targeting the
 // snapcraft API.
-func CharmHubConfig() Config {
-	return CharmHubConfigFromURL(CharmHubServerURL)
+func CharmHubConfig(logger Logger) (Config, error) {
+	return CharmHubConfigFromURL(CharmHubServerURL, logger)
 }
 
 // CharmHubConfigFromURL defines a charmHub client configuration with a given
 // URL for targeting the API.
-func CharmHubConfigFromURL(url string) Config {
+func CharmHubConfigFromURL(url string, logger Logger) (Config, error) {
+	if logger == nil {
+		return Config{}, errors.NotValidf("nil logger")
+	}
+
 	// By default we want to specify a default user-agent here. In the future
 	// we should ensure this probably contains model UUID and cloud.
 	headers := make(http.Header)
@@ -84,7 +97,8 @@ func CharmHubConfigFromURL(url string) Config {
 		Version: CharmHubServerVersion,
 		Entity:  CharmHubServerEntity,
 		Headers: headers,
-	}
+		Logger:  logger,
+	}, nil
 }
 
 // BasePath returns the base configuration path for speaking to the server API.
@@ -100,10 +114,12 @@ func (c Config) BasePath() (charmhubpath.Path, error) {
 
 // Client represents the client side of a charm store.
 type Client struct {
-	url           string
-	infoClient    *InfoClient
-	findClient    *FindClient
-	refreshClient *RefreshClient
+	url            string
+	infoClient     *InfoClient
+	findClient     *FindClient
+	downloadClient *DownloadClient
+	refreshClient  *RefreshClient
+	logger         Logger
 }
 
 // NewClient creates a new charmHub client from the supplied configuration.
@@ -128,15 +144,23 @@ func NewClient(config Config) (*Client, error) {
 		return nil, errors.Annotate(err, "constructing refresh path")
 	}
 
+	config.Logger.Tracef("NewClient to %q", config.URL)
+
 	httpClient := DefaultHTTPTransport()
 	apiRequester := NewAPIRequester(httpClient)
-	restClient := NewHTTPRESTClient(apiRequester, config.Headers)
+	restClient := NewHTTPRESTClient(apiRequester, config.Headers, config.Logger)
+	fileSystem := DefaultFileSystem()
 
 	return &Client{
 		url:           base.String(),
-		infoClient:    NewInfoClient(infoPath, restClient),
-		findClient:    NewFindClient(findPath, restClient),
-		refreshClient: NewRefreshClient(refreshPath, restClient),
+		infoClient:    NewInfoClient(infoPath, restClient, config.Logger),
+		findClient:    NewFindClient(findPath, restClient, config.Logger),
+		refreshClient: NewRefreshClient(refreshPath, restClient, config.Logger),
+		// download client doesn't require a path here, as the download could
+		// be from any server in theory. That information is found from the
+		// refresh response.
+		downloadClient: NewDownloadClient(httpClient, fileSystem, config.Logger),
+		logger:         config.Logger,
 	}, nil
 }
 
@@ -159,4 +183,9 @@ func (c *Client) Find(ctx context.Context, name string) ([]transport.FindRespons
 // updating a series of charms to the latest version.
 func (c *Client) Refresh(ctx context.Context, config RefreshConfig) ([]transport.RefreshResponse, error) {
 	return c.refreshClient.Refresh(ctx, config)
+}
+
+// Download defines a client for downloading charms directly.
+func (c *Client) Download(ctx context.Context, resourceURL *url.URL, archivePath string) (*charm.CharmArchive, error) {
+	return c.downloadClient.Download(ctx, resourceURL, archivePath)
 }

@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/cmd/juju/application/store"
+	"github.com/juju/juju/cmd/juju/application/refresher"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -22,48 +22,49 @@ import (
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/deployer_mock.go github.com/juju/juju/cmd/juju/application/deployer Deployer,DeployerFactory
 
-func NewUpgradeCharmCommandForTest(
+func NewRefreshCommandForTest(
 	store jujuclient.ClientStore,
 	apiOpen api.OpenFunc,
 	deployResources resourceadapters.DeployResourcesFunc,
-	resolveCharm store.ResolveCharmFunc,
 	newCharmStore NewCharmStoreFunc,
+	newCharmResolver NewCharmResolverFunc,
 	newCharmAdder NewCharmAdderFunc,
 	newCharmClient func(base.APICallCloser) utils.CharmClient,
-	newCharmUpgradeClient func(base.APICallCloser) CharmAPIClient,
+	newCharmRefreshClient func(base.APICallCloser) CharmRefreshClient,
 	newResourceLister func(base.APICallCloser) (utils.ResourceLister, error),
 	charmStoreURLGetter func(base.APICallCloser) (string, error),
 	newSpacesClient func(base.APICallCloser) SpacesAPI,
 ) cmd.Command {
-	cmd := &upgradeCharmCommand{
+	cmd := &refreshCommand{
 		DeployResources:       deployResources,
-		ResolveCharm:          resolveCharm,
 		NewCharmAdder:         newCharmAdder,
 		NewCharmClient:        newCharmClient,
-		NewCharmUpgradeClient: newCharmUpgradeClient,
+		NewCharmRefreshClient: newCharmRefreshClient,
 		NewResourceLister:     newResourceLister,
 		CharmStoreURLGetter:   charmStoreURLGetter,
 		NewSpacesClient:       newSpacesClient,
 		NewCharmStore:         newCharmStore,
+		NewCharmResolver:      newCharmResolver,
+		NewRefresherFactory:   refresher.NewRefresherFactory,
 	}
 	cmd.SetClientStore(store)
 	cmd.SetAPIOpen(apiOpen)
 	return modelcmd.Wrap(cmd)
 }
 
-func NewUpgradeCharmCommandForStateTest(
+func NewRefreshCommandForStateTest(
 	newCharmStore NewCharmStoreFunc,
 	newCharmAdder NewCharmAdderFunc,
 	newCharmClient func(base.APICallCloser) utils.CharmClient,
 	deployResources resourceadapters.DeployResourcesFunc,
-	newCharmAPIClient func(conn base.APICallCloser) CharmAPIClient,
+	newCharmAPIClient func(conn base.APICallCloser) CharmRefreshClient,
 ) cmd.Command {
-	cmd := newUpgradeCharmCommand()
+	cmd := newRefreshCommand()
 	cmd.NewCharmStore = newCharmStore
 	cmd.NewCharmAdder = newCharmAdder
 	cmd.NewCharmClient = newCharmClient
 	if newCharmAPIClient != nil {
-		cmd.NewCharmUpgradeClient = newCharmAPIClient
+		cmd.NewCharmRefreshClient = newCharmAPIClient
 	}
 	cmd.DeployResources = deployResources
 	return modelcmd.Wrap(cmd)

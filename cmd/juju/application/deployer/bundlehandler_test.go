@@ -11,7 +11,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -20,7 +19,8 @@ import (
 
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
-	apicommoncharms "github.com/juju/juju/api/common/charms"
+	commoncharm "github.com/juju/juju/api/common/charm"
+	apicharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
@@ -36,7 +36,7 @@ import (
 
 type BundleDeployCharmStoreSuite struct {
 	allWatcher     *mocks.MockAllWatch
-	bundleResolver *mocks.MockBundleResolver
+	bundleResolver *mocks.MockResolver
 	deployerAPI    *mocks.MockDeployerAPI
 	stdOut         *mocks.MockWriter
 	stdErr         *mocks.MockWriter
@@ -69,7 +69,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleNotFoundCharmStore(c *gc.C
 	// bundleHandler.addCharm():
 	curl, err := charm.ParseURL("cs:bundle/no-such")
 	c.Assert(err, jc.ErrorIsNil)
-	s.expectResolveWithPreferredChannel(errors.NotFoundf("bundle"), 1)
+	s.expectResolveCharm(errors.NotFoundf("bundle"), 1)
 	bundleData := &charm.BundleData{
 		Applications: map[string]*charm.ApplicationSpec{
 			"no-such": {
@@ -118,8 +118,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleSuccess(c *gc.C) {
 	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "xenial")
 
 	c.Check(s.output.String(), gc.Equals, ""+
-		"Resolving charm: cs:mysql-42\n"+
-		"Resolving charm: cs:wordpress-47\n"+
+		"Resolving charm via charmstore: cs:mysql-42\n"+
+		"Resolving charm via charmstore: cs:wordpress-47\n"+
 		"Executing changes:\n"+
 		"- upload charm cs:mysql-42 for series xenial\n"+
 		"- deploy application mysql on xenial using cs:mysql-42\n"+
@@ -165,9 +165,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithInvalidSeries(c *gc.C)
 
 	mysqlCurl, err := charm.ParseURL("cs:mysql-42")
 	c.Assert(err, jc.ErrorIsNil)
-	s.expectResolveWithPreferredChannel(nil, 2)
+	s.expectResolveCharm(nil, 2)
 	s.expectAddCharm(false)
-	charmInfo := &apicommoncharms.CharmInfo{
+	charmInfo := &apicharms.CharmInfo{
 		Revision: mysqlCurl.Revision,
 		URL:      mysqlCurl.String(),
 		Meta: &charm.Meta{
@@ -177,7 +177,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithInvalidSeries(c *gc.C)
 	s.expectCharmInfo(mysqlCurl.String(), charmInfo)
 
 	// For wordpress
-	s.expectResolveWithPreferredChannel(nil, 1)
+	s.expectResolveCharm(nil, 1)
 
 	bundleData, err := charm.ReadBundleData(strings.NewReader(wordpressBundleInvalidSeries))
 	c.Assert(err, jc.ErrorIsNil)
@@ -226,8 +226,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithInvalidSeriesWithForce
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "bionic")
 	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "precise")
 	c.Check(s.output.String(), gc.Equals, ""+
-		"Resolving charm: cs:mysql-42\n"+
-		"Resolving charm: cs:wordpress-47\n"+
+		"Resolving charm via charmstore: cs:mysql-42\n"+
+		"Resolving charm via charmstore: cs:wordpress-47\n"+
 		"Executing changes:\n"+
 		"- upload charm cs:mysql-42 for series precise\n"+
 		"- deploy application mysql on precise using cs:mysql-42\n"+
@@ -299,8 +299,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployKubernetesBundleSuccess(c *gc.C)
 	s.assertDeployArgsStorage(c, "mariadb", map[string]storage.Constraints{"database": {Pool: "mariadb-pv", Size: 0x14, Count: 0x1}})
 
 	c.Check(s.output.String(), gc.Equals, ""+
-		"Resolving charm: cs:~juju/gitlab-k8s\n"+
-		"Resolving charm: cs:~juju/mariadb-k8s\n"+
+		"Resolving charm via charmstore: cs:~juju/gitlab-k8s\n"+
+		"Resolving charm via charmstore: cs:~juju/mariadb-k8s\n"+
 		"Executing changes:\n"+
 		"- upload charm cs:~juju/gitlab-k8s for series kubernetes\n"+
 		"- deploy application gitlab with 1 unit on kubernetes using cs:~juju/gitlab-k8s\n"+
@@ -367,8 +367,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleStorage(c *gc.C) {
 	s.assertDeployArgsStorage(c, "mysql", map[string]storage.Constraints{"database": {Pool: "mysql-pv", Size: 0x14, Count: 0x1}})
 
 	c.Check(s.output.String(), gc.Equals, ""+
-		"Resolving charm: cs:mysql-42\n"+
-		"Resolving charm: cs:wordpress-47\n"+
+		"Resolving charm via charmstore: cs:mysql-42\n"+
+		"Resolving charm via charmstore: cs:wordpress-47\n"+
 		"Executing changes:\n"+
 		"- upload charm cs:mysql-42 for series bionic\n"+
 		"- deploy application mysql on bionic using cs:mysql-42\n"+
@@ -434,7 +434,11 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleDevices(c *gc.C) {
 
 	spec := s.bundleDeploySpec()
 	spec.bundleDevices = map[string]map[string]devices.Constraints{
-		"bitcoin-miner": {"bitcoinminer": {Count: 10, Type: "nvidia.com/gpu"}},
+		"bitcoin-miner": {
+			"bitcoinminer": {
+				Count: 10, Type: "nvidia.com/gpu",
+			},
+		},
 	}
 	_, err = bundleDeploy(bundleData, spec)
 	c.Assert(err, jc.ErrorIsNil)
@@ -447,8 +451,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleDevices(c *gc.C) {
 	)
 
 	c.Check(s.output.String(), gc.Equals, ""+
-		"Resolving charm: bitcoin-miner\n"+
-		"Resolving charm: dashboard4miner\n"+
+		"Resolving charm via charmstore: cs:bitcoin-miner\n"+
+		"Resolving charm via charmstore: cs:dashboard4miner\n"+
 		"Executing changes:\n"+
 		"- upload charm cs:bitcoin-miner for series kubernetes\n"+
 		"- deploy application bitcoin-miner with 1 unit on kubernetes using cs:bitcoin-miner\n"+
@@ -462,10 +466,10 @@ const kubernetesBitcoinBundle = `
 bundle: kubernetes
 applications:
     dashboard4miner:
-        charm: dashboard4miner
+        charm: cs:dashboard4miner
         num_units: 1
     bitcoin-miner:
-        charm: bitcoin-miner
+        charm: cs:bitcoin-miner
         num_units: 1
         devices:
             bitcoinminer: 1,nvidia.com/gpu
@@ -510,8 +514,8 @@ func (s *BundleDeployCharmStoreSuite) TestDryRunExistingModel(c *gc.C) {
 	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "bionic")
 
 	expectedOutput := "" +
-		"Resolving charm: cs:mysql-42\n" +
-		"Resolving charm: cs:wordpress-47\n" +
+		"Resolving charm via charmstore: cs:mysql-42\n" +
+		"Resolving charm via charmstore: cs:wordpress-47\n" +
 		"Executing changes:\n" +
 		"- upload charm cs:mysql-42 for series bionic\n" +
 		"- deploy application mysql on bionic using cs:mysql-42\n" +
@@ -548,8 +552,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidMachineContainerTyp
 	wordpressCurl, err := charm.ParseURL("cs:wordpress-47")
 	c.Assert(err, jc.ErrorIsNil)
 	s.expectAddCharm(false)
-	s.expectResolveWithPreferredChannel(nil, 2)
-	charmInfo := &apicommoncharms.CharmInfo{
+	s.expectResolveCharm(nil, 2)
+	charmInfo := &apicharms.CharmInfo{
 		Revision: wordpressCurl.Revision,
 		URL:      wordpressCurl.String(),
 		Meta: &charm.Meta{
@@ -585,8 +589,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleUnitPlacedToMachines(c *gc
 	wordpressCurl, err := charm.ParseURL("cs:wordpress-47")
 	c.Assert(err, jc.ErrorIsNil)
 	s.expectAddCharm(false)
-	s.expectResolveWithPreferredChannel(nil, 2)
-	charmInfo := &apicommoncharms.CharmInfo{
+	s.expectResolveCharm(nil, 2)
+	charmInfo := &apicharms.CharmInfo{
 		Revision: wordpressCurl.Revision,
 		URL:      wordpressCurl.String(),
 		Meta: &charm.Meta{
@@ -633,7 +637,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleUnitPlacedToMachines(c *gc
 	_, err = bundleDeploy(bundleData, s.bundleDeploySpec())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(s.output.String(), gc.Equals, ""+
-		"Resolving charm: cs:wordpress-47\n"+
+		"Resolving charm via charmstore: cs:wordpress-47\n"+
 		"Executing changes:\n"+
 		"- upload charm cs:wordpress-47 for series bionic\n"+
 		"- deploy application wp on bionic using cs:wordpress-47\n"+
@@ -685,11 +689,11 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleExpose(c *gc.C) {
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "bionic")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(s.output.String(), gc.Equals, ""+
-		"Resolving charm: cs:wordpress-47\n"+
+		"Resolving charm via charmstore: cs:wordpress-47\n"+
 		"Executing changes:\n"+
 		"- upload charm cs:wordpress-47\n"+
 		"- deploy application wordpress using cs:wordpress-47\n"+
-		"- expose wordpress\n"+
+		"- expose all endpoints of wordpress and allow access from CIDR 0.0.0.0/0\n"+
 		"- add unit wordpress/0 to new machine 0\n"+
 		"Deploy of bundle completed.\n")
 }
@@ -736,16 +740,16 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMultipleRelations(c *gc.C)
        series: bionic
        applications:
            wordpress:
-               charm: wordpress-47
+               charm: cs:wordpress-47
                num_units: 1
            mysql:
-               charm: mysql-32
+               charm: cs:mysql-32
                num_units: 1
            postgres:
-               charm: xenial/postgres-2
+               charm: cs:xenial/postgres-2
                num_units: 1
            varnish:
-               charm: xenial/varnish
+               charm: cs:xenial/varnish
                num_units: 1
        relations:
            - ["wordpress:db", "mysql:server"]
@@ -760,10 +764,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMultipleRelations(c *gc.C)
 	s.assertDeployArgs(c, varnishCurl.String(), "varnish", "xenial")
 	s.assertDeployArgs(c, pgresCurl.String(), "postgres", "xenial")
 	c.Check(s.output.String(), gc.Equals, ""+
-		"Resolving charm: mysql-32\n"+
-		"Resolving charm: xenial/postgres-2\n"+
-		"Resolving charm: xenial/varnish\n"+
-		"Resolving charm: wordpress-47\n"+
+		"Resolving charm via charmstore: cs:mysql-32\n"+
+		"Resolving charm via charmstore: cs:xenial/postgres-2\n"+
+		"Resolving charm via charmstore: cs:xenial/varnish\n"+
+		"Resolving charm via charmstore: cs:wordpress-47\n"+
 		"Executing changes:\n"+
 		"- upload charm cs:mysql-32 for series bionic\n"+
 		"- deploy application mysql on bionic using cs:mysql-32\n"+
@@ -899,12 +903,12 @@ func (s *BundleDeployCharmStoreSuite) setupCharmUnits(charmUnits []charmUnit) {
 	for _, chUnit := range charmUnits {
 		switch chUnit.curl.Schema {
 		case "cs":
-			s.expectResolveWithPreferredChannel(nil, 2)
+			s.expectResolveCharm(nil, 2)
 			s.expectAddCharm(chUnit.force)
 		case "local":
 			s.expectAddLocalCharm(chUnit.curl, chUnit.force)
 		}
-		charmInfo := &apicommoncharms.CharmInfo{
+		charmInfo := &apicharms.CharmInfo{
 			Revision: chUnit.curl.Revision,
 			URL:      chUnit.curl.String(),
 			Meta: &charm.Meta{
@@ -923,7 +927,7 @@ func (s *BundleDeployCharmStoreSuite) setupCharmUnits(charmUnits []charmUnit) {
 func (s *BundleDeployCharmStoreSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.deployerAPI = mocks.NewMockDeployerAPI(ctrl)
-	s.bundleResolver = mocks.NewMockBundleResolver(ctrl)
+	s.bundleResolver = mocks.NewMockResolver(ctrl)
 	s.allWatcher = mocks.NewMockAllWatch(ctrl)
 	s.stdOut = mocks.NewMockWriter(ctrl)
 	s.stdErr = mocks.NewMockWriter(ctrl)
@@ -1022,14 +1026,14 @@ func (s *BundleDeployCharmStoreSuite) expectDeployerAPIModelGet(c *gc.C) {
 	s.deployerAPI.EXPECT().ModelGet().Return(cfg.AllAttrs(), nil)
 }
 
-func (s *BundleDeployCharmStoreSuite) expectResolveWithPreferredChannel(err error, times int) {
-	s.bundleResolver.EXPECT().ResolveWithPreferredChannel(
+func (s *BundleDeployCharmStoreSuite) expectResolveCharm(err error, times int) {
+	s.bundleResolver.EXPECT().ResolveCharm(
 		gomock.AssignableToTypeOf(&charm.URL{}),
-		csparams.NoChannel,
+		gomock.AssignableToTypeOf(commoncharm.Origin{}),
 	).DoAndReturn(
 		// Ensure the same curl that is provided, is returned.
-		func(curl *charm.URL, channel csparams.Channel) (*charm.URL, csparams.Channel, []string, error) {
-			return curl, csparams.NoChannel, []string{"bionic", "focal", "xenial"}, err
+		func(curl *charm.URL, origin commoncharm.Origin) (*charm.URL, commoncharm.Origin, []string, error) {
+			return curl, origin, []string{"bionic", "focal", "xenial"}, err
 		}).Times(times)
 }
 
@@ -1038,7 +1042,14 @@ func (s *BundleDeployCharmStoreSuite) expectBestFacadeVersion() {
 }
 
 func (s *BundleDeployCharmStoreSuite) expectAddCharm(force bool) {
-	s.deployerAPI.EXPECT().AddCharm(gomock.AssignableToTypeOf(&charm.URL{}), csparams.NoChannel, force).Return(nil)
+	s.deployerAPI.EXPECT().AddCharm(
+		gomock.AssignableToTypeOf(&charm.URL{}),
+		gomock.AssignableToTypeOf(commoncharm.Origin{}),
+		force,
+	).DoAndReturn(
+		func(_ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
+			return origin, nil
+		})
 }
 
 func (s *BundleDeployCharmStoreSuite) expectAddLocalCharm(curl *charm.URL, force bool) {
@@ -1057,7 +1068,7 @@ func (m charmInterfaceMatcher) String() string {
 	return fmt.Sprintf("Require charm.Charm as arg")
 }
 
-func (s *BundleDeployCharmStoreSuite) expectCharmInfo(name string, info *apicommoncharms.CharmInfo) {
+func (s *BundleDeployCharmStoreSuite) expectCharmInfo(name string, info *apicharms.CharmInfo) {
 	s.deployerAPI.EXPECT().CharmInfo(name).Return(info, nil)
 }
 
@@ -1073,7 +1084,7 @@ func (s *BundleDeployCharmStoreSuite) expectDeploy() {
 }
 
 func (s *BundleDeployCharmStoreSuite) expectExpose(app string) {
-	s.deployerAPI.EXPECT().Expose(app).Return(nil)
+	s.deployerAPI.EXPECT().Expose(app, gomock.Any()).Return(nil)
 }
 
 func (s *BundleDeployCharmStoreSuite) expectAddMachine(machine, series string) {

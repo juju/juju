@@ -36,17 +36,31 @@ func (m *MockDeployer) EXPECT() *MockDeployerMockRecorder {
 }
 
 // PrepareAndDeploy mocks base method
-func (m *MockDeployer) PrepareAndDeploy(arg0 *cmd.Context, arg1 deployer.DeployerAPI, arg2 *store.CharmStoreAdaptor) error {
+func (m *MockDeployer) PrepareAndDeploy(arg0 *cmd.Context, arg1 deployer.DeployerAPI, arg2 deployer.Resolver, arg3 store.MacaroonGetter) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrepareAndDeploy", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "PrepareAndDeploy", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // PrepareAndDeploy indicates an expected call of PrepareAndDeploy
-func (mr *MockDeployerMockRecorder) PrepareAndDeploy(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockDeployerMockRecorder) PrepareAndDeploy(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareAndDeploy", reflect.TypeOf((*MockDeployer)(nil).PrepareAndDeploy), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareAndDeploy", reflect.TypeOf((*MockDeployer)(nil).PrepareAndDeploy), arg0, arg1, arg2, arg3)
+}
+
+// String mocks base method
+func (m *MockDeployer) String() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "String")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// String indicates an expected call of String
+func (mr *MockDeployerMockRecorder) String() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "String", reflect.TypeOf((*MockDeployer)(nil).String))
 }
 
 // MockDeployerFactory is a mock of DeployerFactory interface
@@ -73,7 +87,7 @@ func (m *MockDeployerFactory) EXPECT() *MockDeployerFactoryMockRecorder {
 }
 
 // GetDeployer mocks base method
-func (m *MockDeployerFactory) GetDeployer(arg0 deployer.DeployerConfig, arg1 deployer.ModelConfigGetter, arg2 *store.CharmStoreAdaptor) (deployer.Deployer, error) {
+func (m *MockDeployerFactory) GetDeployer(arg0 deployer.DeployerConfig, arg1 deployer.ModelConfigGetter, arg2 deployer.Resolver) (deployer.Deployer, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetDeployer", arg0, arg1, arg2)
 	ret0, _ := ret[0].(deployer.Deployer)

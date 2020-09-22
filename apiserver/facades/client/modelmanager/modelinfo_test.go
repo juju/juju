@@ -171,19 +171,23 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 	s.callContext = context.NewCloudCallContext()
 
 	var err error
-	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, nil, &s.authorizer, s.st.model, s.callContext)
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, nil, nil, &s.authorizer, s.st.model, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
 	var err error
-	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, nil, s.authorizer, s.st.model, s.callContext)
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, nil, nil, s.authorizer, s.st.model, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *modelInfoSuite) TestModelInfoV7(c *gc.C) {
-	api := &modelmanager.ModelManagerAPIV7{s.modelmanager}
+	api := &modelmanager.ModelManagerAPIV7{
+		&modelmanager.ModelManagerAPIV8{
+			s.modelmanager,
+		},
+	}
 
 	results, err := api.ModelInfo(params.Entities{
 		Entities: []params.Entity{{

@@ -266,7 +266,17 @@ func (c *Client) GetConsumeDetails(urlStr string) (params.ConsumeOfferDetails, e
 
 	found := params.ConsumeOfferDetailsResults{}
 
-	err = c.facade.FacadeCall("GetConsumeDetails", params.OfferURLs{[]string{urlStr}, bakery.LatestVersion}, &found)
+	offerURLs := params.OfferURLs{[]string{urlStr}, bakery.LatestVersion}
+	var args interface{}
+	if c.facade.BestAPIVersion() < 3 {
+		args = offerURLs
+	} else {
+		args = params.ConsumeOfferDetailsArg{
+			OfferURLs: offerURLs,
+		}
+	}
+
+	err = c.facade.FacadeCall("GetConsumeDetails", args, &found)
 	if err != nil {
 		return params.ConsumeOfferDetails{}, errors.Trace(err)
 	}

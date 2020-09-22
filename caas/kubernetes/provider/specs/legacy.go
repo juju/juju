@@ -137,6 +137,7 @@ func (p podSpecLegacy) ToLatest() *specs.PodSpec {
 	}
 
 	iPodSpec := &PodSpec{
+		Annotations:                   p.k8sPodSpecLegacy.Annotations.Copy(),
 		RestartPolicy:                 p.k8sPodSpecLegacy.RestartPolicy,
 		ActiveDeadlineSeconds:         p.k8sPodSpecLegacy.ActiveDeadlineSeconds,
 		TerminationGracePeriodSeconds: p.k8sPodSpecLegacy.TerminationGracePeriodSeconds,

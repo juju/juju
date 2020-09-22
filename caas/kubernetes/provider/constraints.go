@@ -15,6 +15,7 @@ var unsupportedConstraints = []string{
 	constraints.Arch,
 	constraints.InstanceType,
 	constraints.Spaces,
+	constraints.AllocatePublicIP,
 }
 
 // ConstraintsValidator returns a Validator value which is used to

@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/api/application"
 	basetesting "github.com/juju/juju/api/base/testing"
+	apicharm "github.com/juju/juju/api/common/charm"
 	apitesting "github.com/juju/juju/api/testing"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
@@ -37,11 +38,11 @@ type applicationSuite struct {
 var _ = gc.Suite(&applicationSuite{})
 
 func newClient(f basetesting.APICallerFunc) *application.Client {
-	return application.NewClient(basetesting.BestVersionCaller{APICallerFunc: f, BestVersion: 8})
+	return newClientWithVersion(f, 13)
 }
 
-func newClientV4(f basetesting.APICallerFunc) *application.Client {
-	return application.NewClient(basetesting.BestVersionCaller{APICallerFunc: f, BestVersion: 4})
+func newClientWithVersion(f basetesting.APICallerFunc, version int) *application.Client {
+	return application.NewClient(basetesting.BestVersionCaller{APICallerFunc: f, BestVersion: version})
 }
 
 func (s *applicationSuite) TestSetApplicationMetricCredentials(c *gc.C) {
@@ -118,10 +119,10 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 
 	args := application.DeployArgs{
 		CharmID: charmstore.CharmID{
-			URL: charm.MustParseURL("trusty/a-charm-1"),
+			URL: charm.MustParseURL("cs:trusty/a-charm-1"),
 		},
-		CharmOrigin: application.CharmOrigin{
-			Source: "charm-store",
+		CharmOrigin: apicharm.Origin{
+			Source: apicharm.OriginCharmStore,
 		},
 		ApplicationName:  "applicationA",
 		Series:           "series",
@@ -249,12 +250,12 @@ func (s *applicationSuite) TestApplicationGetCharmURL(c *gc.C) {
 		c.Assert(args.BranchName, gc.Equals, newBranchName)
 
 		result := response.(*params.StringResult)
-		result.Result = "curl"
+		result.Result = "cs:curl"
 		return nil
 	})
 	curl, err := client.GetCharmURL(newBranchName, "application")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(curl, gc.DeepEquals, charm.MustParseURL("curl"))
+	c.Assert(curl, gc.DeepEquals, charm.MustParseURL("cs:curl"))
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -290,7 +291,7 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 	cfg := application.SetCharmConfig{
 		ApplicationName: "application",
 		CharmID: charmstore.CharmID{
-			URL: charm.MustParseURL("trusty/application-1"),
+			URL: charm.MustParseURL("cs:trusty/application-1"),
 		},
 		ConfigSettings: map[string]string{
 			"a": "b",
@@ -384,7 +385,7 @@ func (s *applicationSuite) TestDestroyApplicationsV4(c *gc.C) {
 			DestroyedUnits:   []params.Entity{{Tag: "unit-bar-1"}},
 		},
 	}}
-	client := newClientV4(func(objType string, version int, id, request string, a, response interface{}) error {
+	client := newClientWithVersion(func(objType string, version int, id, request string, a, response interface{}) error {
 		c.Assert(request, gc.Equals, "DestroyApplication")
 		c.Assert(a, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{
@@ -396,7 +397,7 @@ func (s *applicationSuite) TestDestroyApplicationsV4(c *gc.C) {
 		out := response.(*params.DestroyApplicationResults)
 		*out = params.DestroyApplicationResults{expectedResults}
 		return nil
-	})
+	}, 4) // use version 4
 	results, err := client.DestroyApplications(application.DestroyApplicationsParams{
 		Applications: []string{"foo", "bar"},
 	})
@@ -432,11 +433,11 @@ func (s *applicationSuite) TestDestroyApplicationsInvalidIds(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, expectedResults)
 }
 
-func (s *applicationSuite) TestDestroyConsumedApplications(c *gc.C) {
+func (s *applicationSuite) TestDestroyConsumedApplicationsV8(c *gc.C) {
 	expectedResults := []params.ErrorResult{{
 		Error: &params.Error{Message: "boo"},
 	}, {}}
-	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+	client := newClientWithVersion(func(objType string, version int, id, request string, a, response interface{}) error {
 		c.Assert(request, gc.Equals, "DestroyConsumedApplications")
 		c.Assert(a, jc.DeepEquals, params.DestroyConsumedApplicationsParams{
 			Applications: []params.DestroyConsumedApplicationParams{
@@ -448,7 +449,7 @@ func (s *applicationSuite) TestDestroyConsumedApplications(c *gc.C) {
 		out := response.(*params.ErrorResults)
 		*out = params.ErrorResults{expectedResults}
 		return nil
-	})
+	}, 8) // use V8
 	destroyParams := application.DestroyConsumedApplicationParams{
 		[]string{"foo", "bar"}, false, nil,
 	}
@@ -593,7 +594,7 @@ func (s *applicationSuite) TestDestroyUnitsV4(c *gc.C) {
 			DetachedStorage:  []params.Entity{{Tag: "storage-pgdata-1"}},
 		},
 	}}
-	client := newClientV4(func(objType string, version int, id, request string, a, response interface{}) error {
+	client := newClientWithVersion(func(objType string, version int, id, request string, a, response interface{}) error {
 		c.Assert(request, gc.Equals, "DestroyUnit")
 		c.Assert(a, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{
@@ -605,7 +606,7 @@ func (s *applicationSuite) TestDestroyUnitsV4(c *gc.C) {
 		out := response.(*params.DestroyUnitResults)
 		*out = params.DestroyUnitResults{expectedResults}
 		return nil
-	})
+	}, 4) // use V4
 	results, err := client.DestroyUnits(application.DestroyUnitsParams{
 		Units: []string{"foo/0", "bar/1"},
 	})
@@ -1686,7 +1687,7 @@ func (s *applicationSuite) TestUnitsInfo(c *gc.C) {
 	})
 }
 
-func (s *applicationSuite) TestUnitssInfoResultMismatch(c *gc.C) {
+func (s *applicationSuite) TestUnitsInfoResultMismatch(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, a, response interface{}) error {
 			c.Assert(request, gc.Equals, "UnitsInfo")
@@ -1708,4 +1709,111 @@ func (s *applicationSuite) TestUnitssInfoResultMismatch(c *gc.C) {
 		},
 	)
 	c.Assert(err, gc.ErrorMatches, "expected 2 results, got 3")
+}
+
+func (s *applicationSuite) TestExposeVersionChecks(c *gc.C) {
+	specs := []struct {
+		descr            string
+		facadeVersion    int
+		exposedEndpoints map[string]params.ExposedEndpoint
+		expErr           string
+	}{
+		{
+			descr:         "use expose parameters with pre 2.9 controller",
+			facadeVersion: 12,
+			exposedEndpoints: map[string]params.ExposedEndpoint{
+				"foo": {
+					ExposeToSpaces: []string{"outer"},
+				},
+			},
+			expErr: "controller does not support granular expose parameters; applying this change would make all open application ports accessible from 0.0.0.0/0",
+		},
+		{
+			descr:         "use expose parameters with pre 2.9 controller but expose all endpoints to 0.0.0.0/0",
+			facadeVersion: 12,
+			exposedEndpoints: map[string]params.ExposedEndpoint{
+				"": {
+					ExposeToCIDRs: []string{"0.0.0.0/0"},
+				},
+			},
+			expErr: "",
+		},
+		{
+			descr:            "don't use expose parameters",
+			facadeVersion:    12,
+			exposedEndpoints: nil,
+			expErr:           "",
+		},
+		{
+			descr:         "use expose parameters with 2.9 controller",
+			facadeVersion: 13,
+			exposedEndpoints: map[string]params.ExposedEndpoint{
+				"": {
+					ExposeToCIDRs: []string{"0.0.0.0/0"},
+				},
+				"foo": {
+					ExposeToSpaces: []string{"outer"},
+				},
+			},
+			expErr: "",
+		},
+	}
+
+	for i, spec := range specs {
+		c.Logf("%d. %s", i, spec.descr)
+
+		client := newClientWithVersion(func(objType string, version int, id, request string, a, response interface{}) error {
+			return nil
+		}, spec.facadeVersion)
+
+		err := client.Expose("foo", spec.exposedEndpoints)
+		if spec.expErr == "" {
+			c.Assert(err, jc.ErrorIsNil)
+		} else {
+			c.Assert(err, gc.ErrorMatches, spec.expErr)
+		}
+	}
+}
+
+func (s *applicationSuite) TestUnexposeVersionChecks(c *gc.C) {
+	specs := []struct {
+		descr            string
+		facadeVersion    int
+		exposedEndpoints []string
+		expErr           string
+	}{
+		{
+			descr:            "use exposed endpoints with pre 2.9 controller",
+			facadeVersion:    12,
+			exposedEndpoints: []string{"foo"},
+			expErr:           "controller does not support granular expose parameters; applying this change would unexpose the application",
+		},
+		{
+			descr:            "don't use expose parameters",
+			facadeVersion:    12,
+			exposedEndpoints: nil,
+			expErr:           "",
+		},
+		{
+			descr:            "use exposed endpoints with 2.9 controller",
+			facadeVersion:    13,
+			exposedEndpoints: []string{"foo"},
+			expErr:           "",
+		},
+	}
+
+	for i, spec := range specs {
+		c.Logf("%d. %s", i, spec.descr)
+
+		client := newClientWithVersion(func(objType string, version int, id, request string, a, response interface{}) error {
+			return nil
+		}, spec.facadeVersion)
+
+		err := client.Unexpose("foo", spec.exposedEndpoints)
+		if spec.expErr == "" {
+			c.Assert(err, jc.ErrorIsNil)
+		} else {
+			c.Assert(err, gc.ErrorMatches, spec.expErr)
+		}
+	}
 }

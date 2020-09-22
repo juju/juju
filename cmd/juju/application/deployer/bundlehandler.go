@@ -4,6 +4,7 @@
 package deployer
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/bundlechanges/v2"
+	"github.com/juju/bundlechanges/v3"
 	"github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/resource"
 	"github.com/juju/charmrepo/v6"
@@ -27,6 +28,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
+	commoncharm "github.com/juju/juju/api/common/charm"
 	app "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
@@ -34,6 +36,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/devices"
@@ -65,10 +68,10 @@ type bundleDeploySpec struct {
 	bundleDir         string
 	bundleURL         *charm.URL
 	bundleOverlayFile []string
-	channel           csparams.Channel
+	origin            commoncharm.Origin
 
 	deployAPI            DeployerAPI
-	bundleResolver       BundleResolver
+	bundleResolver       Resolver
 	authorizer           store.MacaroonGetter
 	getConsumeDetailsAPI func(*charm.OfferURL) (ConsumeDetails, error)
 	deployResources      resourceadapters.DeployResourcesFunc
@@ -138,12 +141,12 @@ type bundleHandler struct {
 	//   implicitly created by adding a unit without a machine spec.
 	results map[string]string
 
-	// channel identifies the default channel to use for the bundle.
-	channel csparams.Channel
+	// origin identifies the default channel to use for the bundle.
+	origin commoncharm.Origin
 
 	// deployAPI is used to interact with the environment.
 	deployAPI            DeployerAPI
-	bundleResolver       BundleResolver
+	bundleResolver       Resolver
 	authorizer           store.MacaroonGetter
 	getConsumeDetailsAPI func(*charm.OfferURL) (ConsumeDetails, error)
 	deployResources      resourceadapters.DeployResourcesFunc
@@ -185,7 +188,7 @@ type bundleHandler struct {
 	model *bundlechanges.Model
 
 	macaroons map[*charm.URL]*macaroon.Macaroon
-	channels  map[*charm.URL]csparams.Channel
+	origins   map[*charm.URL]commoncharm.Origin
 
 	// watcher holds an environment mega-watcher used to keep the environment
 	// status up to date.
@@ -224,7 +227,7 @@ func makeBundleHandler(bundleData *charm.BundleData, spec bundleDeploySpec) *bun
 		bundleDir:            spec.bundleDir,
 		applications:         applications,
 		results:              make(map[string]string),
-		channel:              spec.channel,
+		origin:               spec.origin,
 		deployAPI:            spec.deployAPI,
 		bundleResolver:       spec.bundleResolver,
 		authorizer:           spec.authorizer,
@@ -238,7 +241,7 @@ func makeBundleHandler(bundleData *charm.BundleData, spec bundleDeploySpec) *bun
 		bundleURL:            spec.bundleURL,
 		unitStatus:           make(map[string]string),
 		macaroons:            make(map[*charm.URL]*macaroon.Macaroon),
-		channels:             make(map[*charm.URL]csparams.Channel),
+		origins:              make(map[*charm.URL]commoncharm.Origin),
 
 		targetModelName: spec.targetModelName,
 		targetModelUUID: spec.targetModelUUID,
@@ -290,7 +293,6 @@ func (h *bundleHandler) makeModel(
 //     and if they do, resolve the implicitness in order to compare
 //     with relations in the model.
 func (h *bundleHandler) resolveCharmsAndEndpoints() error {
-
 	deployedApps := set.NewStrings()
 
 	for _, name := range h.applications.SortedValues() {
@@ -315,16 +317,38 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 			continue
 		}
 
-		var fromChannel string
-		if spec.Channel != "" {
-			fromChannel = fmt.Sprintf(" from channel: %s", spec.Channel)
-		}
-		h.ctx.Infof("Resolving charm: %s%s", spec.Charm, fromChannel)
-		ch, err := charm.ParseURL(spec.Charm)
+		ch, err := resolveCharmURL(spec.Charm)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		url, _, _, err := store.ResolveCharm(h.bundleResolver.ResolveWithPreferredChannel, ch, csparams.Channel(spec.Channel))
+
+		var via string
+		switch {
+		case charm.CharmHub.Matches(ch.Schema):
+			via = "via charmhub: "
+		case charm.CharmStore.Matches(ch.Schema):
+			via = "via charmstore: "
+		case charm.Local.Matches(ch.Schema):
+			via = "via local filesystem: "
+		default:
+			via = ": "
+		}
+
+		var fromChannel string
+		var channel corecharm.Channel
+		if spec.Channel != "" {
+			fromChannel = fmt.Sprintf(" from channel: %s", spec.Channel)
+			channel, err = corecharm.ParseChannel(spec.Channel)
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
+		h.ctx.Infof("Resolving charm %s%s%s", via, ch.FullPath(), fromChannel)
+		origin, err := utils.DeduceOrigin(ch, channel)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		url, _, _, err := h.bundleResolver.ResolveCharm(ch, origin)
 		if err != nil {
 			return errors.Annotatef(err, "cannot resolve URL %q", spec.Charm)
 		}
@@ -398,7 +422,7 @@ func (h *bundleHandler) handleChanges() error {
 
 	// Deploy the bundle.
 	for i, change := range h.changes {
-		fmt.Fprintf(h.ctx.Stdout, "- %s\n", change.Description())
+		fmt.Fprint(h.ctx.Stdout, fmtChange(change))
 		logger.Tracef("%d: change %s", i, pretty.Sprint(change))
 		switch change := change.(type) {
 		case *bundlechanges.AddCharmChange:
@@ -444,6 +468,14 @@ func (h *bundleHandler) handleChanges() error {
 	return nil
 }
 
+func fmtChange(ch bundlechanges.Change) string {
+	var buf bytes.Buffer
+	for _, desc := range ch.Description() {
+		fmt.Fprintf(&buf, "- %s\n", desc)
+	}
+	return buf.String()
+}
+
 func (h *bundleHandler) isLocalCharm(name string) bool {
 	return strings.HasPrefix(name, ".") || filepath.IsAbs(name)
 }
@@ -454,15 +486,15 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		return nil
 	}
 	id := change.Id()
-	p := change.Params
+	chParms := change.Params
 	// First attempt to interpret as a local path.
-	if h.isLocalCharm(p.Charm) {
-		charmPath := p.Charm
+	if h.isLocalCharm(chParms.Charm) {
+		charmPath := chParms.Charm
 		if !filepath.IsAbs(charmPath) {
 			charmPath = filepath.Join(h.bundleDir, charmPath)
 		}
 
-		series := p.Series
+		series := chParms.Series
 		if series == "" {
 			series = h.data.Series
 		}
@@ -486,27 +518,35 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	}
 
 	// Not a local charm, so grab from the store.
-	ch, err := charm.ParseURL(p.Charm)
+	ch, err := resolveCharmURL(chParms.Charm)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// A channel is needed whether the risk is valid or not.
+	channel, _ := corecharm.ParseChannel(chParms.Channel)
+	origin, err := utils.DeduceOrigin(ch, channel)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	url, channel, _, err := store.ResolveCharm(h.bundleResolver.ResolveWithPreferredChannel, ch, csparams.Channel(p.Channel))
+	url, origin, _, err := h.bundleResolver.ResolveCharm(ch, origin)
 	if err != nil {
-		return errors.Annotatef(err, "cannot resolve URL %q", p.Charm)
+		return errors.Annotatef(err, "cannot resolve URL %q", chParms.Charm)
 	}
 	if url.Series == "bundle" {
-		return errors.Errorf("expected charm URL, got bundle URL %q", p.Charm)
+		return errors.Errorf("expected charm URL, got bundle URL %q", chParms.Charm)
 	}
+
 	var macaroon *macaroon.Macaroon
-	url, macaroon, err = store.AddCharmFromURL(h.deployAPI, h.authorizer, url, channel, h.force)
+	var charmOrigin commoncharm.Origin
+	url, macaroon, charmOrigin, err = store.AddCharmFromURL(h.deployAPI, h.authorizer, url, origin, h.force)
 	if err != nil {
-		return errors.Annotatef(err, "cannot add charm %q", p.Charm)
+		return errors.Annotatef(err, "cannot add charm %q", chParms.Charm)
 	}
 	logger.Debugf("added charm %s", url)
 	h.results[id] = url.String()
 	h.macaroons[url] = macaroon
-	h.channels[url] = channel
+	h.origins[url] = charmOrigin
 	return nil
 }
 
@@ -540,14 +580,14 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	}
 
 	p := change.Params
-	cURL, err := charm.ParseURL(resolve(p.Charm, h.results))
+	cURL, err := resolveCharmURL(resolve(p.Charm, h.results))
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	chID := charmstore.CharmID{
 		URL:     cURL,
-		Channel: h.channels[cURL],
+		Channel: csparams.Channel(h.origins[cURL].Risk),
 	}
 	macaroon := h.macaroons[cURL]
 
@@ -672,8 +712,13 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	if h.data.Type == "kubernetes" {
 		numUnits = p.NumUnits
 	}
-
-	origin, err := deduceOrigin(chID.URL)
+	var track string
+	if h.origin.Track != nil {
+		track = *h.origin.Track
+	}
+	// A channel is needed whether the risk is valid or not.
+	channel, _ := corecharm.MakeChannel(track, h.origin.Risk, "")
+	origin, err := utils.DeduceOrigin(chID.URL, channel)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -914,14 +959,14 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 	}
 
 	p := change.Params
-	cURL, err := charm.ParseURL(resolve(p.Charm, h.results))
+	cURL, err := resolveCharmURL(resolve(p.Charm, h.results))
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	chID := charmstore.CharmID{
 		URL:     cURL,
-		Channel: h.channels[cURL],
+		Channel: csparams.Channel(h.origins[cURL].Risk),
 	}
 	macaroon := h.macaroons[cURL]
 
@@ -1026,7 +1071,15 @@ func (h *bundleHandler) exposeApplication(change *bundlechanges.ExposeChange) er
 	}
 
 	application := resolve(change.Params.Application, h.results)
-	if err := h.deployAPI.Expose(application); err != nil {
+	exposedEndpoints := make(map[string]params.ExposedEndpoint)
+	for endpointName, exposeDetails := range change.Params.ExposedEndpoints {
+		exposedEndpoints[endpointName] = params.ExposedEndpoint{
+			ExposeToSpaces: exposeDetails.ExposeToSpaces,
+			ExposeToCIDRs:  exposeDetails.ExposeToCIDRs,
+		}
+	}
+
+	if err := h.deployAPI.Expose(application, exposedEndpoints); err != nil {
 		return errors.Annotatef(err, "cannot expose application %s", application)
 	}
 	return nil

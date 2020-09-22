@@ -96,7 +96,7 @@ func ParseChannel(s string) (Channel, error) {
 	case 3:
 		track, risk, branch = &p[0], &p[1], &p[2]
 	default:
-		return Channel{}, errors.Errorf("channel is malformed and has to many components %q", s)
+		return Channel{}, errors.Errorf("channel is malformed and has too many components %q", s)
 	}
 
 	ch := Channel{}

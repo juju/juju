@@ -180,12 +180,44 @@ type AddCharm struct {
 	Force   bool   `json:"force"`
 }
 
-// AddCharmWithAuthorization holds the arguments for making an AddCharmWithAuthorization API call.
+// AddCharmWithOrigin holds the arguments for making an AddCharm API call via the
+// Charms facade.
+type AddCharmWithOrigin struct {
+	URL    string      `json:"url"`
+	Origin CharmOrigin `json:"charm-origin"`
+	Force  bool        `json:"force"`
+}
+
+// AddCharmWithAuthorization holds the arguments for making an
+// AddCharmWithAuthorization API call.
 type AddCharmWithAuthorization struct {
 	URL                string             `json:"url"`
 	Channel            string             `json:"channel"`
 	CharmStoreMacaroon *macaroon.Macaroon `json:"macaroon"`
 	Force              bool               `json:"force"`
+}
+
+// AddCharmWithAuth holds the arguments for making an
+// AddCharmWithAuth API call via the Charms facade.
+type AddCharmWithAuth struct {
+	URL                string             `json:"url"`
+	Origin             CharmOrigin        `json:"charm-origin"`
+	CharmStoreMacaroon *macaroon.Macaroon `json:"macaroon"`
+	Force              bool               `json:"force"`
+}
+
+// CharmOriginResult holds the results of AddCharms calls where
+// a CharmOrigin was used.
+type CharmOriginResult struct {
+	Origin CharmOrigin `json:"charm-origin"`
+	Error  *Error      `json:"error,omitempty"`
+}
+
+// CharmURLOriginResult holds the results of the charm's url and origin.
+type CharmURLOriginResult struct {
+	URL    string      `json:"url"`
+	Origin CharmOrigin `json:"charm-origin"`
+	Error  *Error      `json:"error,omitempty"`
 }
 
 // AddMachineParams encapsulates the parameters used to create a new machine.
@@ -578,6 +610,33 @@ type ResolveCharmResult struct {
 // ResolveCharmResults holds results of the ResolveCharms call.
 type ResolveCharmResults struct {
 	URLs []ResolveCharmResult `json:"urls"`
+}
+
+// ResolveCharmWithChannel contains a charm reference with the desired
+// channel to be resolved.
+type ResolveCharmWithChannel struct {
+	Reference string      `json:"reference"`
+	Origin    CharmOrigin `json:"charm-origin"`
+}
+
+// ResolveCharmsWithChannel contains of slice of data on charms to be
+// resolved.
+type ResolveCharmsWithChannel struct {
+	Resolve  []ResolveCharmWithChannel `json:"resolve"`
+	Macaroon *macaroon.Macaroon        `json:"macaroon,omitempty"`
+}
+
+// ResolveCharmWithChannelResult is the result of a single charm resolution.
+type ResolveCharmWithChannelResult struct {
+	URL             string      `json:"url"`
+	Origin          CharmOrigin `json:"charm-origin"`
+	SupportedSeries []string    `json:"supported-series"`
+	Error           *Error      `json:"error,omitempty"`
+}
+
+// ResolveCharmWithChannelResults holds the results of ResolveCharmsWithChannel.
+type ResolveCharmWithChannelResults struct {
+	Results []ResolveCharmWithChannelResult
 }
 
 // AllWatcherId holds the id of an AllWatcher.
@@ -1160,6 +1219,15 @@ type UpgradeSeriesUnitsResults struct {
 type UpgradeSeriesUnitsResult struct {
 	Error     *Error   `json:"error,omitempty"`
 	UnitNames []string `json:"unit-names"`
+}
+
+type UpgradeSeriesValidationErrorInfo struct {
+	Status string
+}
+
+// AsMap encodes the error info as a map that can be attached to an Error.
+func (e UpgradeSeriesValidationErrorInfo) AsMap() map[string]interface{} {
+	return serializeToMap(e)
 }
 
 type ProfileArg struct {

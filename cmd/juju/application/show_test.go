@@ -153,10 +153,24 @@ func (s *ShowSuite) createTestApplicationInfo(name string, suffix string) *param
 	}
 }
 
+func (s *ShowSuite) createTestApplicationInfoWithExposedEndpoints(name string, suffix string) *params.ApplicationResult {
+	app := s.createTestApplicationInfo(name, suffix)
+	app.ExposedEndpoints = map[string]params.ExposedEndpoint{
+		"": {
+			ExposeToCIDRs: []string{"192.168.0.0/24"},
+		},
+		"website": {
+			ExposeToSpaces: []string{"non-euclidean-geometry"},
+		},
+	}
+
+	return app
+}
+
 func (s *ShowSuite) TestShow(c *gc.C) {
 	s.mockAPI.applicationsInfoFunc = func([]names.ApplicationTag) ([]params.ApplicationInfoResult, error) {
 		return []params.ApplicationInfoResult{
-			{Result: s.createTestApplicationInfo("wordpress", "")},
+			{Result: s.createTestApplicationInfoWithExposedEndpoints("wordpress", "")},
 		}, nil
 	}
 	s.assertRunShow(c, showTest{
@@ -173,21 +187,29 @@ wordpress:
     root-disk: 8192
   principal: true
   exposed: false
+  exposed-endpoints:
+    "":
+      expose-to-cidrs:
+      - 192.168.0.0/24
+    website:
+      expose-to-spaces:
+      - non-euclidean-geometry
   remote: false
   endpoint-bindings:
     juju-info: myspace
 `[1:],
 	})
 }
+
 func (s *ShowSuite) TestShowJSON(c *gc.C) {
 	s.mockAPI.applicationsInfoFunc = func([]names.ApplicationTag) ([]params.ApplicationInfoResult, error) {
 		return []params.ApplicationInfoResult{
-			{Result: s.createTestApplicationInfo("wordpress", "")},
+			{Result: s.createTestApplicationInfoWithExposedEndpoints("wordpress", "")},
 		}, nil
 	}
 	s.assertRunShow(c, showTest{
 		args:   []string{"wordpress", "--format", "json"},
-		stdout: "{\"wordpress\":{\"charm\":\"charm-wordpress\",\"series\":\"quantal\",\"channel\":\"development\",\"constraints\":{\"arch\":\"amd64\",\"cores\":1,\"mem\":4096,\"root-disk\":8192},\"principal\":true,\"exposed\":false,\"remote\":false,\"endpoint-bindings\":{\"juju-info\":\"myspace\"}}}\n",
+		stdout: "{\"wordpress\":{\"charm\":\"charm-wordpress\",\"series\":\"quantal\",\"channel\":\"development\",\"constraints\":{\"arch\":\"amd64\",\"cores\":1,\"mem\":4096,\"root-disk\":8192},\"principal\":true,\"exposed\":false,\"exposed-endpoints\":{\"\":{\"expose-to-cidrs\":[\"192.168.0.0/24\"]},\"website\":{\"expose-to-spaces\":[\"non-euclidean-geometry\"]}},\"remote\":false,\"endpoint-bindings\":{\"juju-info\":\"myspace\"}}}\n",
 	})
 }
 

@@ -35,7 +35,7 @@ func (s *charmSuite) TestCharm(c *gc.C) {
 		return nil
 	})
 	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-	curl := charm.MustParseURL("mysql")
+	curl := charm.MustParseURL("cs:mysql")
 	ch, err := client.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL(), jc.DeepEquals, curl)
@@ -43,7 +43,7 @@ func (s *charmSuite) TestCharm(c *gc.C) {
 }
 
 func (s *charmSuite) TestArchiveSha256(c *gc.C) {
-	curl := charm.MustParseURL("mysql")
+	curl := charm.MustParseURL("cs:mysql")
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, gc.Equals, "Uniter")
 		c.Assert(id, gc.Equals, "")
@@ -68,7 +68,7 @@ func (s *charmSuite) TestArchiveSha256(c *gc.C) {
 }
 
 func (s *charmSuite) TestLXDProfileRequired(c *gc.C) {
-	curl := charm.MustParseURL("mysql")
+	curl := charm.MustParseURL("cs:mysql")
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, gc.Equals, "Uniter")
 		c.Assert(id, gc.Equals, "")

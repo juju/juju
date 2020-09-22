@@ -839,6 +839,7 @@ func (c *neutronFirewaller) closePortsInGroup(ctx context.ProviderCallContext, n
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	neutronClient := c.environ.neutron()
 	// TODO: Hey look ma, it's quadratic
 	for _, rule := range rules {
@@ -853,7 +854,11 @@ func (c *neutronFirewaller) closePortsInGroup(ctx context.ProviderCallContext, n
 				handleCredentialError(err, ctx)
 				return errors.Trace(err)
 			}
-			break
+
+			// The rule to be removed may contain multiple CIDRs;
+			// even though we matched it to one of the group rules
+			// we should keep searching other rules whose IPPrefix
+			// may match one of the other CIDRs.
 		}
 	}
 	return nil

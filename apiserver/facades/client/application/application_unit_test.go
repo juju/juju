@@ -12,6 +12,7 @@ import (
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
+	"github.com/juju/schema"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -312,6 +313,9 @@ func (s *ApplicationSuite) TestSetCharmStorageConstraints(c *gc.C) {
 	app := s.backend.applications["postgresql"]
 	app.CheckCall(c, 2, "SetCharm", state.SetCharmConfig{
 		Charm: &state.Charm{},
+		CharmOrigin: &state.CharmOrigin{
+			Source: "charm-store",
+		},
 		StorageConstraints: map[string]state.StorageConstraints{
 			"a": {},
 			"b": {Pool: "radiant"},
@@ -364,6 +368,64 @@ func (s *ApplicationSuite) TestDeployCAASOperatorProtectedByFlag(c *gc.C) {
 	c.Assert(msg, gc.Matches, `feature flag "k8s-operators" is required for deploying k8s operator charms`)
 }
 
+func (s *ApplicationSuite) TestUpdateCAASApplicationSettings(c *gc.C) {
+	s.model.modelType = state.ModelTypeCAAS
+	s.setAPIUser(c, names.NewUserTag("admin"))
+	s.backend.charm = &mockCharm{
+		meta: &charm.Meta{
+			Deployment: &charm.Deployment{
+				DeploymentMode: charm.ModeOperator,
+			},
+		},
+	}
+
+	// Update settings for the application.
+	args := params.ApplicationUpdate{
+		ApplicationName: "postgresql",
+		SettingsYAML:    "postgresql:\n  stringOption: bar\n  juju-external-hostname: foo",
+	}
+	err := s.api.Update(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	pgApp := s.backend.applications["postgresql"]
+	pgApp.CheckCall(c, 2, "UpdateCharmConfig", "master", charm.Settings{
+		"stringOption": "bar",
+	})
+
+	appDefaults := caas.ConfigDefaults(k8s.ConfigDefaults())
+	appCfgSchema, err := caas.ConfigSchema(k8s.ConfigSchema())
+	c.Assert(err, jc.ErrorIsNil)
+	appCfgSchema, appDefaults, err = application.AddTrustSchemaAndDefaults(appCfgSchema, appDefaults)
+	c.Assert(err, jc.ErrorIsNil)
+
+	appCfg, err := coreapplication.NewConfig(map[string]interface{}{
+		"juju-external-hostname": "foo",
+	}, appCfgSchema, appDefaults)
+	c.Assert(err, jc.ErrorIsNil)
+
+	pgApp.CheckCall(c, 3, "UpdateApplicationConfig", appCfg.Attributes(), []string(nil), appCfgSchema, schema.Defaults(nil))
+}
+
+func (s *ApplicationSuite) TestUpdateCAASApplicationSettingsInIAASModelTriggersError(c *gc.C) {
+	s.model.modelType = state.ModelTypeIAAS
+	s.setAPIUser(c, names.NewUserTag("admin"))
+	s.backend.charm = &mockCharm{
+		meta: &charm.Meta{
+			Deployment: &charm.Deployment{
+				DeploymentMode: charm.ModeOperator,
+			},
+		},
+	}
+
+	// Update settings for the application.
+	args := params.ApplicationUpdate{
+		ApplicationName: "postgresql",
+		SettingsYAML:    "postgresql:\n  stringOption: bar\n  juju-external-hostname: foo",
+	}
+	err := s.api.Update(args)
+	c.Assert(err, gc.ErrorMatches, `.*unknown option "juju-external-hostname"`, gc.Commentf("expected to get an error when attempting to set CAAS-specific app setting in IAAS model"))
+}
+
 func (s *ApplicationSuite) TestSetCharmConfigSettings(c *gc.C) {
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
@@ -375,7 +437,10 @@ func (s *ApplicationSuite) TestSetCharmConfigSettings(c *gc.C) {
 	s.backend.charm.CheckCallNames(c, "Config")
 	app := s.backend.applications["postgresql"]
 	app.CheckCall(c, 2, "SetCharm", state.SetCharmConfig{
-		Charm:          &state.Charm{},
+		Charm: &state.Charm{},
+		CharmOrigin: &state.CharmOrigin{
+			Source: "charm-store",
+		},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	})
 }
@@ -394,7 +459,10 @@ postgresql:
 	s.backend.charm.CheckCallNames(c, "Config")
 	app := s.backend.applications["postgresql"]
 	app.CheckCall(c, 2, "SetCharm", state.SetCharmConfig{
-		Charm:          &state.Charm{},
+		Charm: &state.Charm{},
+		CharmOrigin: &state.CharmOrigin{
+			Source: "charm-store",
+		},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	})
 }
@@ -411,7 +479,10 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithNewerAgentVersion(c *gc.C) 
 	app := s.backend.applications["postgresql"]
 	app.CheckCallNames(c, "Charm", "AgentTools", "SetCharm")
 	app.CheckCall(c, 2, "SetCharm", state.SetCharmConfig{
-		Charm:          &state.Charm{},
+		Charm: &state.Charm{},
+		CharmOrigin: &state.CharmOrigin{
+			Source: "charm-store",
+		},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	})
 }
@@ -449,7 +520,10 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithEmptyProfile(c *gc.C) {
 	app := s.backend.applications["postgresql"]
 	app.CheckCallNames(c, "Charm", "AgentTools", "SetCharm")
 	app.CheckCall(c, 2, "SetCharm", state.SetCharmConfig{
-		Charm:          &state.Charm{},
+		Charm: &state.Charm{},
+		CharmOrigin: &state.CharmOrigin{
+			Source: "charm-store",
+		},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	})
 }
@@ -757,7 +831,7 @@ func (s *ApplicationSuite) TestDeployAttachStorage(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
-	ch := "latest/stable"
+	track := "latest"
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
@@ -768,8 +842,9 @@ func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
 			ApplicationName: "bar",
 			CharmURL:        "cs:bar-0",
 			CharmOrigin: &params.CharmOrigin{
-				Source:  "charm-store",
-				Channel: &ch,
+				Source: "charm-store",
+				Risk:   "stable",
+				Track:  &track,
 			},
 			NumUnits: 1,
 		}, {
@@ -777,6 +852,7 @@ func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
 			CharmURL:        "hub-0",
 			CharmOrigin: &params.CharmOrigin{
 				Source: "charm-hub",
+				Risk:   "stable",
 			},
 			NumUnits: 1,
 		}},
@@ -1899,7 +1975,7 @@ func (s *ApplicationSuite) TestCAASExposeWithHostname(c *gc.C) {
 		ApplicationName: "postgresql",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	app.CheckCallNames(c, "ApplicationConfig", "SetExposed")
+	app.CheckCallNames(c, "ApplicationConfig", "MergeExposeSettings")
 }
 
 func (s *ApplicationSuite) TestApplicationsInfoOne(c *gc.C) {
@@ -1919,7 +1995,46 @@ func (s *ApplicationSuite) TestApplicationsInfoOne(c *gc.C) {
 		},
 	})
 	app := s.backend.applications["postgresql"]
-	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "EndpointBindings", "Series", "Channel", "EndpointBindings", "IsPrincipal", "IsExposed", "IsRemote")
+	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "EndpointBindings", "Series", "Channel", "EndpointBindings", "ExposedEndpoints", "IsPrincipal", "IsExposed", "IsRemote")
+}
+
+func (s *ApplicationSuite) TestApplicationsInfoOneWithExposedEndpoints(c *gc.C) {
+	s.backend.spaceInfos = network.SpaceInfos{
+		{
+			ID:   "42",
+			Name: "non-euclidean-geometry",
+		},
+	}
+	app := s.backend.applications["postgresql"]
+	app.exposedEndpoints = map[string]state.ExposedEndpoint{
+		"server": {
+			ExposeToSpaceIDs: []string{"42"},
+			ExposeToCIDRs:    []string{"10.0.0.0/24", "192.168.0.0/24"},
+		},
+	}
+
+	entities := []params.Entity{{Tag: "application-postgresql"}}
+	result, err := s.api.ApplicationsInfo(params.Entities{entities})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, len(entities))
+	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.ApplicationResult{
+		Tag:         "application-postgresql",
+		Charm:       "charm-postgresql",
+		Series:      "quantal",
+		Channel:     "development",
+		Constraints: constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
+		Principal:   true,
+		EndpointBindings: map[string]string{
+			"juju-info": "myspace",
+		},
+		ExposedEndpoints: map[string]params.ExposedEndpoint{
+			"server": {
+				ExposeToSpaces: []string{"non-euclidean-geometry"},
+				ExposeToCIDRs:  []string{"10.0.0.0/24", "192.168.0.0/24"},
+			},
+		},
+	})
+	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "EndpointBindings", "Series", "Channel", "EndpointBindings", "ExposedEndpoints", "IsPrincipal", "IsExposed", "IsRemote")
 }
 
 func (s *ApplicationSuite) TestApplicationsInfoDetailsErr(c *gc.C) {
@@ -1970,7 +2085,7 @@ func (s *ApplicationSuite) TestApplicationsInfoMany(c *gc.C) {
 	c.Assert(result.Results[1].Error, gc.ErrorMatches, `application "wordpress" not found`)
 	c.Assert(result.Results[2].Error, gc.ErrorMatches, `"unit-postgresql-0" is not a valid application tag`)
 	app := s.backend.applications["postgresql"]
-	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "EndpointBindings", "Series", "Channel", "EndpointBindings", "IsPrincipal", "IsExposed", "IsRemote")
+	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "EndpointBindings", "Series", "Channel", "EndpointBindings", "ExposedEndpoints", "IsPrincipal", "IsExposed", "IsRemote")
 }
 
 func (s *ApplicationSuite) TestApplicationMergeBindingsErr(c *gc.C) {

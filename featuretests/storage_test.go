@@ -250,7 +250,7 @@ func (s *cmdStorageSuite) TestListPoolsTabular(c *gc.C) {
 	stdout, _, err := runPoolList(c)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := `
-Name                      Provider                  Attrs
+Name                      Provider                  Attributes
 block                     loop                      it=works
 loop                      loop                      
 machinescoped             machinescoped             

@@ -95,6 +95,7 @@ func makeNetworkInterface(nicName, vmName string, ipConfigurations ...network.In
 		Tags: tags,
 		InterfacePropertiesFormat: &network.InterfacePropertiesFormat{
 			IPConfigurations: &ipConfigurations,
+			Primary:          to.BoolPtr(true),
 		},
 	}
 }
@@ -287,9 +288,38 @@ func (s *instanceSuite) TestIngressRulesEmpty(c *gc.C) {
 	c.Assert(rules, gc.HasLen, 0)
 }
 
+func (s *instanceSuite) setupSecurityGroupRules(nsgRules ...network.SecurityRule) *azuretesting.Senders {
+	nsg := &network.SecurityGroup{
+		ID:   &internalSecurityGroupPath,
+		Name: to.StringPtr("juju-internal-nsg"),
+		SecurityGroupPropertiesFormat: &network.SecurityGroupPropertiesFormat{
+			SecurityRules: &nsgRules,
+		},
+	}
+	nic0IPConfigurations := []network.InterfaceIPConfiguration{
+		makeIPConfiguration("10.0.0.4"),
+	}
+	nic0IPConfigurations[0].Primary = to.BoolPtr(true)
+	nic0IPConfigurations[0].Subnet = &network.Subnet{
+		ID: &internalSubnetPath,
+		SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
+			NetworkSecurityGroup: nsg,
+		},
+	}
+	s.networkInterfaces = []network.Interface{
+		makeNetworkInterface("nic-0", "machine-0", nic0IPConfigurations...),
+		makeNetworkInterface("nic-2", "machine-0"),
+		// unrelated NIC
+		makeNetworkInterface("nic-3", "machine-1"),
+	}
+	return &azuretesting.Senders{
+		makeSender(internalSubnetPath, nic0IPConfigurations[0].Subnet), // GET: subnets to get security group
+		networkSecurityGroupSender(nsgRules),
+	}
+}
+
 func (s *instanceSuite) TestIngressRules(c *gc.C) {
-	inst := s.getInstance(c)
-	nsgSender := networkSecurityGroupSender([]network.SecurityRule{{
+	nsgRules := []network.SecurityRule{{
 		Name: to.StringPtr("machine-0-xyzzy"),
 		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
 			Protocol:             network.SecurityRuleProtocolUDP,
@@ -373,8 +403,11 @@ func (s *instanceSuite) TestIngressRules(c *gc.C) {
 			Priority:             to.Int32Ptr(199), // internal range
 			Direction:            network.SecurityRuleDirectionInbound,
 		},
-	}})
-	s.sender = azuretesting.Senders{nsgSender}
+	}}
+	nsgSender := s.setupSecurityGroupRules(nsgRules...)
+	inst := s.getInstance(c)
+	s.sender = *nsgSender
+
 	fwInst, ok := inst.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 
@@ -389,6 +422,7 @@ func (s *instanceSuite) TestIngressRules(c *gc.C) {
 }
 
 func (s *instanceSuite) TestInstanceClosePorts(c *gc.C) {
+	nsgSender := s.setupSecurityGroupRules()
 	inst := s.getInstance(c)
 	fwInst, ok := inst.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
@@ -398,7 +432,7 @@ func (s *instanceSuite) TestInstanceClosePorts(c *gc.C) {
 	notFoundSender.AppendAndRepeatResponse(mocks.NewResponseWithStatus(
 		"rule not found", http.StatusNotFound,
 	), 2)
-	s.sender = azuretesting.Senders{sender, notFoundSender, notFoundSender, notFoundSender}
+	s.sender = azuretesting.Senders{nsgSender, sender, notFoundSender, notFoundSender, notFoundSender}
 
 	err := fwInst.ClosePorts(s.callCtx, "0", firewall.IngressRules{
 		firewall.NewIngressRule(corenetwork.MustParsePortRange("1000/tcp")),
@@ -407,43 +441,27 @@ func (s *instanceSuite) TestInstanceClosePorts(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(s.requests, gc.HasLen, 4)
-	c.Assert(s.requests[0].Method, gc.Equals, "DELETE")
-	c.Assert(s.requests[0].URL.Path, gc.Equals, securityRulePath("machine-0-tcp-1000"))
+	c.Assert(s.requests, gc.HasLen, 5)
+	c.Assert(s.requests[0].Method, gc.Equals, "GET")
+	c.Assert(s.requests[0].URL.Path, gc.Equals, internalSubnetPath)
 	c.Assert(s.requests[1].Method, gc.Equals, "DELETE")
-	c.Assert(s.requests[1].URL.Path, gc.Equals, securityRulePath("machine-0-udp-1000-2000"))
+	c.Assert(s.requests[1].URL.Path, gc.Equals, securityRulePath("machine-0-tcp-1000"))
 	c.Assert(s.requests[2].Method, gc.Equals, "DELETE")
-	c.Assert(s.requests[2].URL.Path, gc.Equals, securityRulePath("machine-0-udp-1000-2000-cidr-10-0-0-0-24"))
+	c.Assert(s.requests[2].URL.Path, gc.Equals, securityRulePath("machine-0-udp-1000-2000"))
 	c.Assert(s.requests[3].Method, gc.Equals, "DELETE")
-	c.Assert(s.requests[3].URL.Path, gc.Equals, securityRulePath("machine-0-udp-1000-2000-cidr-192-168-1-0-24"))
+	c.Assert(s.requests[3].URL.Path, gc.Equals, securityRulePath("machine-0-udp-1000-2000-cidr-10-0-0-0-24"))
+	c.Assert(s.requests[4].Method, gc.Equals, "DELETE")
+	c.Assert(s.requests[4].URL.Path, gc.Equals, securityRulePath("machine-0-udp-1000-2000-cidr-192-168-1-0-24"))
 }
 
 func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
-	internalSubnetId := path.Join(
-		"/subscriptions", fakeSubscriptionId,
-		"resourceGroups/juju-testmodel-model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		"providers/Microsoft.Network/virtualnetworks/juju-internal-network/subnets/juju-internal-subnet",
-	)
-	ipConfiguration := network.InterfaceIPConfiguration{
-		InterfaceIPConfigurationPropertiesFormat: &network.InterfaceIPConfigurationPropertiesFormat{
-			Primary:          to.BoolPtr(true),
-			PrivateIPAddress: to.StringPtr("10.0.0.4"),
-			Subnet: &network.Subnet{
-				ID: to.StringPtr(internalSubnetId),
-			},
-		},
-	}
-	s.networkInterfaces = []network.Interface{
-		makeNetworkInterface("nic-0", "machine-0", ipConfiguration),
-	}
-
+	nsgSender := s.setupSecurityGroupRules()
 	inst := s.getInstance(c)
 	fwInst, ok := inst.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 
 	okSender := mocks.NewSender()
 	okSender.AppendResponse(mocks.NewResponseWithContent("{}"))
-	nsgSender := networkSecurityGroupSender(nil)
 	s.sender = azuretesting.Senders{nsgSender, okSender, okSender, okSender, okSender}
 
 	err := fwInst.OpenPorts(s.callCtx, "0", firewall.IngressRules{
@@ -455,7 +473,7 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 
 	c.Assert(s.requests, gc.HasLen, 5)
 	c.Assert(s.requests[0].Method, gc.Equals, "GET")
-	c.Assert(s.requests[0].URL.Path, gc.Equals, internalSecurityGroupPath)
+	c.Assert(s.requests[0].URL.Path, gc.Equals, internalSubnetPath)
 	c.Assert(s.requests[1].Method, gc.Equals, "PUT")
 	c.Assert(s.requests[1].URL.Path, gc.Equals, securityRulePath("machine-0-tcp-1000"))
 	assertRequestBody(c, s.requests[1], &network.SecurityRule{
@@ -519,31 +537,7 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 }
 
 func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
-	internalSubnetId := path.Join(
-		"/subscriptions", fakeSubscriptionId,
-		"resourceGroups/juju-testmodel-model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		"providers/Microsoft.Network/virtualnetworks/juju-internal-network/subnets/juju-internal-subnet",
-	)
-	ipConfiguration := network.InterfaceIPConfiguration{
-		InterfaceIPConfigurationPropertiesFormat: &network.InterfaceIPConfigurationPropertiesFormat{
-			Primary:          to.BoolPtr(true),
-			PrivateIPAddress: to.StringPtr("10.0.0.4"),
-			Subnet: &network.Subnet{
-				ID: to.StringPtr(internalSubnetId),
-			},
-		},
-	}
-	s.networkInterfaces = []network.Interface{
-		makeNetworkInterface("nic-0", "machine-0", ipConfiguration),
-	}
-
-	inst := s.getInstance(c)
-	fwInst, ok := inst.(instances.InstanceFirewaller)
-	c.Assert(ok, gc.Equals, true)
-
-	okSender := mocks.NewSender()
-	okSender.AppendResponse(mocks.NewResponseWithContent("{}"))
-	nsgSender := networkSecurityGroupSender([]network.SecurityRule{{
+	nsgRule := network.SecurityRule{
 		Name: to.StringPtr("machine-0-tcp-1000"),
 		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
 			Protocol:             network.SecurityRuleProtocolAsterisk,
@@ -552,7 +546,14 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
 			Priority:             to.Int32Ptr(202),
 			Direction:            network.SecurityRuleDirectionInbound,
 		},
-	}})
+	}
+	nsgSender := s.setupSecurityGroupRules(nsgRule)
+	inst := s.getInstance(c)
+	fwInst, ok := inst.(instances.InstanceFirewaller)
+	c.Assert(ok, gc.Equals, true)
+
+	okSender := mocks.NewSender()
+	okSender.AppendResponse(mocks.NewResponseWithContent("{}"))
 	s.sender = azuretesting.Senders{nsgSender, okSender, okSender}
 
 	err := fwInst.OpenPorts(s.callCtx, "0", firewall.IngressRules{
@@ -563,7 +564,7 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
 
 	c.Assert(s.requests, gc.HasLen, 2)
 	c.Assert(s.requests[0].Method, gc.Equals, "GET")
-	c.Assert(s.requests[0].URL.Path, gc.Equals, internalSecurityGroupPath)
+	c.Assert(s.requests[0].URL.Path, gc.Equals, internalSubnetPath)
 	c.Assert(s.requests[1].Method, gc.Equals, "PUT")
 	c.Assert(s.requests[1].URL.Path, gc.Equals, securityRulePath("machine-0-udp-1000-2000"))
 	assertRequestBody(c, s.requests[1], &network.SecurityRule{
@@ -582,11 +583,15 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
 }
 
 func (s *instanceSuite) TestInstanceOpenPortsNoInternalAddress(c *gc.C) {
+	s.networkInterfaces = []network.Interface{
+		makeNetworkInterface("nic-0", "machine-0"),
+	}
 	inst := s.getInstance(c)
 	fwInst, ok := inst.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 	err := fwInst.OpenPorts(s.callCtx, "0", nil)
-	c.Assert(err, gc.ErrorMatches, "internal network address not found")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.requests, gc.HasLen, 0)
 }
 
 func (s *instanceSuite) TestAllInstances(c *gc.C) {
@@ -620,6 +625,12 @@ var internalSecurityGroupPath = path.Join(
 	"/subscriptions", fakeSubscriptionId,
 	"resourceGroups", "juju-testmodel-"+testing.ModelTag.Id()[:8],
 	"providers/Microsoft.Network/networkSecurityGroups/juju-internal-nsg",
+)
+
+var internalSubnetPath = path.Join(
+	"/subscriptions", fakeSubscriptionId,
+	"resourceGroups/juju-testmodel-model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+	"providers/Microsoft.Network/virtualNetworks/juju-internal-network/subnets/juju-internal-subnet",
 )
 
 func securityRulePath(ruleName string) string {

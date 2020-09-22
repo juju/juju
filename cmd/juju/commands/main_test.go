@@ -414,6 +414,7 @@ var commandNames = []string{
 	"offers",
 	"payloads",
 	"plans",
+	"refresh",
 	"regions",
 	"register",
 	"relate", //alias for add-relation

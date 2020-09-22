@@ -18,12 +18,14 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/base"
+	apicharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/storage"
 )
 
@@ -65,32 +67,6 @@ func (c *Client) ModelUUID() string {
 	return tag.Id()
 }
 
-// CharmOriginSource represents the source of the charm.
-type CharmOriginSource string
-
-func (c CharmOriginSource) String() string {
-	return string(c)
-}
-
-const (
-	// OriginLocal represents a local charm.
-	OriginLocal CharmOriginSource = "local"
-	// OriginCharmStore represents a charm from the now old charm-store.
-	OriginCharmStore CharmOriginSource = "charm-store"
-	// OriginCharmHub represents a charm from the new charm-hub.
-	OriginCharmHub CharmOriginSource = "charm-hub"
-)
-
-// CharmOrigin holds the information about where the charm originates.
-type CharmOrigin struct {
-	Source   CharmOriginSource
-	ID       string
-	Hash     string
-	Risk     string
-	Revision *int
-	Channel  *string
-}
-
 // DeployArgs holds the arguments to be sent to Client.ApplicationDeploy.
 type DeployArgs struct {
 	// CharmID identifies the charm to deploy.
@@ -98,7 +74,7 @@ type DeployArgs struct {
 
 	// CharmOrigin holds information about where the charm originally came from,
 	// this includes the store.
-	CharmOrigin CharmOrigin
+	CharmOrigin apicharm.Origin
 
 	// ApplicationName is the name to give the application.
 	ApplicationName string
@@ -165,18 +141,13 @@ func (c *Client) Deploy(args DeployArgs) error {
 		}
 		attachStorage[i] = names.NewStorageTag(id).String()
 	}
+	origin := args.CharmOrigin.ParamsCharmOrigin()
 	deployArgs := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			ApplicationName: args.ApplicationName,
-			Series:          args.Series,
-			CharmURL:        args.CharmID.URL.String(),
-			CharmOrigin: &params.CharmOrigin{
-				Source:   args.CharmOrigin.Source.String(),
-				ID:       args.CharmOrigin.ID,
-				Hash:     args.CharmOrigin.Hash,
-				Revision: args.CharmOrigin.Revision,
-				Channel:  args.CharmOrigin.Channel,
-			},
+			ApplicationName:  args.ApplicationName,
+			Series:           args.Series,
+			CharmURL:         args.CharmID.URL.String(),
+			CharmOrigin:      &origin,
 			Channel:          string(args.CharmID.Channel),
 			NumUnits:         args.NumUnits,
 			ConfigYAML:       args.ConfigYAML,
@@ -809,16 +780,53 @@ func (c *Client) SetConstraints(application string, constraints constraints.Valu
 }
 
 // Expose changes the juju-managed firewall to expose any ports that
-// were also explicitly marked by units as open.
-func (c *Client) Expose(application string) error {
-	args := params.ApplicationExpose{ApplicationName: application}
+// were also explicitly marked by units as open. The exposedEndpoints argument
+// can be used to restrict the set of ports that get exposed and at the same
+// time specify which spaces and/or CIDRs should be able to access these ports
+// on a per endpoint basis.
+//
+// If the exposedEndpoints parameter is empty, the controller will expose *all*
+// open ports of the application to 0.0.0.0/0. This matches the behavior of
+// pre-2.9 juju controllers.
+func (c *Client) Expose(application string, exposedEndpoints map[string]params.ExposedEndpoint) error {
+	if c.BestAPIVersion() < 13 && hasGranularExposeParameters(exposedEndpoints) {
+		return errors.NewNotSupported(nil, "controller does not support granular expose parameters; applying this change would make all open application ports accessible from 0.0.0.0/0")
+	}
+
+	args := params.ApplicationExpose{
+		ApplicationName:  application,
+		ExposedEndpoints: exposedEndpoints,
+	}
 	return c.facade.FacadeCall("Expose", args, nil)
+}
+
+func hasGranularExposeParameters(exposedEndpoints map[string]params.ExposedEndpoint) bool {
+	if len(exposedEndpoints) == 0 { // empty list; using non-granular expose like pre 2.9 juju
+		return false
+	} else if allEndpointParams, found := exposedEndpoints[""]; found && len(exposedEndpoints) == 1 {
+		// We have a single entry for the wildcard endpoint; check if
+		// it only includes an expose to all networks CIDR.
+		if len(allEndpointParams.ExposeToSpaces) == 0 &&
+			len(allEndpointParams.ExposeToCIDRs) == 1 &&
+			allEndpointParams.ExposeToCIDRs[0] == firewall.AllNetworksIPV4CIDR {
+			return false // equivalent to using non-granular expose like pre 2.9 juju
+		}
+	}
+
+	return true
 }
 
 // Unexpose changes the juju-managed firewall to unexpose any ports that
 // were also explicitly marked by units as open.
-func (c *Client) Unexpose(application string) error {
-	args := params.ApplicationUnexpose{ApplicationName: application}
+func (c *Client) Unexpose(application string, endpoints []string) error {
+	if c.BestAPIVersion() < 13 && len(endpoints) > 0 {
+		return errors.NewNotSupported(nil, "controller does not support granular expose parameters; applying this change would unexpose the application")
+	}
+
+	args := params.ApplicationUnexpose{
+		ApplicationName:  application,
+		ExposedEndpoints: endpoints,
+	}
 	return c.facade.FacadeCall("Unexpose", args, nil)
 }
 

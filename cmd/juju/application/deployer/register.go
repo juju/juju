@@ -120,7 +120,7 @@ func (r *RegisterMeteredCharm) RunPre(api DeployStepAPI, bakeryClient *httpbaker
 }
 
 // RunPost sends credentials obtained during the call to RunPre to the controller.
-func (r *RegisterMeteredCharm) RunPost(api DeployStepAPI, bakeryClient *httpbakery.Client, ctx *cmd.Context, deployInfo DeploymentInfo, prevErr error) error {
+func (r *RegisterMeteredCharm) RunPost(api DeployStepAPI, _ *httpbakery.Client, _ *cmd.Context, deployInfo DeploymentInfo, prevErr error) error {
 	if prevErr != nil {
 		return nil
 	}

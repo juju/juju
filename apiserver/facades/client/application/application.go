@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -106,7 +107,8 @@ type APIv12 struct {
 }
 
 // APIv13 provides the Application API facade for version 13.
-// It adds CharmOrigin.
+// It adds CharmOrigin. The ApplicationsInfo call populates the exposed
+// endpoints field in its response entries.
 type APIv13 struct {
 	*APIBase
 }
@@ -536,13 +538,18 @@ func splitApplicationAndCharmConfigFromYAML(modelType state.ModelType, inYaml, a
 	outYaml string,
 	_ error,
 ) {
-	var allSettings map[string]map[string]interface{}
+	var allSettings map[string]interface{}
 	if err := goyaml.Unmarshal([]byte(inYaml), &allSettings); err != nil {
 		return nil, "", errors.Annotate(err, "cannot parse settings data")
 	}
-	settings, ok := allSettings[appName]
+	settings, ok := allSettings[appName].(map[interface{}]interface{})
 	if !ok {
-		return nil, "", errors.Errorf("no settings found for %q", appName)
+		// Application key not present; it might be 'juju get' output.
+		if _, err := charmConfigFromConfigValues(allSettings); err != nil {
+			return nil, "", errors.Errorf("no settings found for %q", appName)
+		}
+
+		return nil, inYaml, nil
 	}
 
 	providerSchema, _, err := applicationConfigSchema(modelType)
@@ -553,8 +560,8 @@ func splitApplicationAndCharmConfigFromYAML(modelType state.ModelType, inYaml, a
 
 	appConfigAttrs := make(map[string]interface{})
 	for k, v := range settings {
-		if appConfigKeys.Contains(k) {
-			appConfigAttrs[k] = v
+		if key, ok := k.(string); ok && appConfigKeys.Contains(key) {
+			appConfigAttrs[key] = v
 			delete(settings, k)
 		}
 	}
@@ -702,58 +709,9 @@ func deployApplication(
 		}
 	}
 
-	// Split out the app config from the charm config for any config
-	// passed in as a map as opposed to YAML.
-	var appConfig map[string]interface{}
-	var charmConfig map[string]string
-	if len(args.Config) > 0 {
-		if appConfig, charmConfig, err = splitApplicationAndCharmConfig(modelType, args.Config); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	// Split out the app config from the charm config for any config
-	// passed in as YAML.
-	var charmYamlConfig string
-	appSettings := make(map[string]interface{})
-	if len(args.ConfigYAML) > 0 {
-		if appSettings, charmYamlConfig, err = splitApplicationAndCharmConfigFromYAML(modelType, args.ConfigYAML, args.ApplicationName); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	// Overlay any app settings in YAML with those from config map.
-	for k, v := range appConfig {
-		appSettings[k] = v
-	}
-
-	var applicationConfig *application.Config
-	configSchema, defaults, err := applicationConfigSchema(modelType)
+	appConfig, _, charmSettings, err := parseCharmSettings(modelType, ch, args.ApplicationName, args.Config, args.ConfigYAML)
 	if err != nil {
 		return errors.Trace(err)
-	}
-	applicationConfig, err = application.NewConfig(appSettings, configSchema, defaults)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	var settings = make(charm.Settings)
-	if len(charmYamlConfig) > 0 {
-		settings, err = ch.Config().ParseSettingsYAML([]byte(charmYamlConfig), args.ApplicationName)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-	// Overlay any settings in YAML with those from config map.
-	if len(charmConfig) > 0 {
-		// Parse config in a compatible way (see function comment).
-		overrideSettings, err := parseSettingsCompatible(ch.Config(), charmConfig)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		for k, v := range overrideSettings {
-			settings[k] = v
-		}
 	}
 
 	// Parse storage tags in AttachStorage.
@@ -784,8 +742,8 @@ func deployApplication(
 		CharmOrigin:       origin,
 		Channel:           csparams.Channel(args.Channel),
 		NumUnits:          args.NumUnits,
-		ApplicationConfig: applicationConfig,
-		CharmConfig:       settings,
+		ApplicationConfig: appConfig,
+		CharmConfig:       charmSettings,
 		Constraints:       args.Constraints,
 		Placement:         args.Placement,
 		Storage:           args.Storage,
@@ -800,12 +758,20 @@ func deployApplication(
 func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreChannel string) (corecharm.Origin, error) {
 	switch {
 	case origin == nil || origin.Source == "" || origin.Source == "charm-store":
+		var rev *int
+		if curl.Revision != -1 {
+			rev = &curl.Revision
+		}
+		var origin *corecharm.Channel
+		if charmStoreChannel != "" {
+			origin = &corecharm.Channel{
+				Risk: corecharm.Risk(charmStoreChannel),
+			}
+		}
 		return corecharm.Origin{
 			Source:   corecharm.CharmStore,
-			Revision: &curl.Revision,
-			Channel: &corecharm.Channel{
-				Risk: corecharm.Risk(charmStoreChannel),
-			},
+			Revision: rev,
+			Channel:  origin,
 		}, nil
 	case origin.Source == "local":
 		return corecharm.Origin{
@@ -814,12 +780,15 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreC
 		}, nil
 	}
 
+	var track string
+	if origin.Track != nil {
+		track = *origin.Track
+	}
+	// We do guarantee that there will be a risk value.
+	// Ignore the error, as only caused by risk as an
+	// empty string.
 	var channel *corecharm.Channel
-	if origin.Channel != nil {
-		ch, err := corecharm.ParseChannel(*origin.Channel)
-		if err != nil {
-			return corecharm.Origin{}, errors.Trace(err)
-		}
+	if ch, err := corecharm.MakeChannel(track, origin.Risk, ""); err == nil {
 		channel = &ch
 	}
 
@@ -830,6 +799,80 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreC
 		Revision: origin.Revision,
 		Channel:  channel,
 	}, nil
+}
+
+// parseCharmSettings parses, verifies and combines the config settings for a
+// charm as specified by the provided config map and config yaml payload. Any
+// model-specific application settings will be automatically extracted and
+// returned back as an *application.Config.
+func parseCharmSettings(modelType state.ModelType, ch Charm, appName string, config map[string]string, configYaml string) (*application.Config, environschema.Fields, charm.Settings, error) {
+	// Split out the app config from the charm config for any config
+	// passed in as a map as opposed to YAML.
+	var (
+		applicationConfig map[string]interface{}
+		charmConfig       map[string]string
+		err               error
+	)
+	if len(config) > 0 {
+		if applicationConfig, charmConfig, err = splitApplicationAndCharmConfig(modelType, config); err != nil {
+			return nil, nil, nil, errors.Trace(err)
+		}
+	}
+
+	// Split out the app config from the charm config for any config
+	// passed in as YAML.
+	var (
+		charmYamlConfig string
+		appSettings     = make(map[string]interface{})
+	)
+	if len(configYaml) != 0 {
+		if appSettings, charmYamlConfig, err = splitApplicationAndCharmConfigFromYAML(modelType, configYaml, appName); err != nil {
+			return nil, nil, nil, errors.Trace(err)
+		}
+	}
+
+	// Entries from the string-based config map always override any entries
+	// provided via the YAML payload.
+	for k, v := range applicationConfig {
+		appSettings[k] = v
+	}
+
+	appCfgSchema, defaults, err := applicationConfigSchema(modelType)
+	if err != nil {
+		return nil, nil, nil, errors.Trace(err)
+	}
+	appConfig, err := application.NewConfig(appSettings, appCfgSchema, defaults)
+	if err != nil {
+		return nil, nil, nil, errors.Trace(err)
+	}
+
+	charmSettings := make(charm.Settings)
+	if len(charmYamlConfig) > 0 {
+		if charmSettings, err = ch.Config().ParseSettingsYAML([]byte(charmYamlConfig), appName); err != nil {
+			// Check if this is 'juju get' output and parse it as such
+			jujuGetSettings, pErr := charmConfigFromYamlConfigValues(charmYamlConfig)
+			if pErr != nil {
+				// Not 'juju output' either; return original error
+				return nil, nil, nil, errors.Trace(err)
+			}
+			charmSettings = jujuGetSettings
+		}
+	}
+
+	// Entries from the string-based config map always override any entries
+	// provided via the YAML payload.
+	if len(charmConfig) != 0 {
+		// Parse config in a compatible way (see function comment).
+		overrideSettings, err := parseSettingsCompatible(ch.Config(), charmConfig)
+		if err != nil {
+			return nil, nil, nil, errors.Trace(err)
+		}
+		for k, v := range overrideSettings {
+			charmSettings[k] = v
+		}
+	}
+
+	return appConfig, appCfgSchema, charmSettings, nil
 }
 
 // checkMachinePlacement does a non-exhaustive validation of any supplied
@@ -877,23 +920,6 @@ func checkMachinePlacement(backend Backend, args params.ApplicationDeploy) error
 	return nil
 }
 
-// applicationSetSettingsStrings updates the settings for the given application,
-// taking the configuration from a map of strings.
-func applicationSetSettingsStrings(
-	application Application, gen string, settings map[string]string,
-) error {
-	ch, _, err := application.Charm()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// Parse config in a compatible way (see function comment).
-	changes, err := parseSettingsCompatible(ch.Config(), settings)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return application.UpdateCharmConfig(gen, changes)
-}
-
 // parseSettingsCompatible parses setting strings in a way that is
 // compatible with the behavior before this CL based on the issue
 // http://pad.lv/1194945. Until then setting an option to an empty
@@ -930,6 +956,7 @@ func parseSettingsCompatible(charmConfig *charm.Config, settings map[string]stri
 type setCharmParams struct {
 	AppName               string
 	Application           Application
+	CharmOrigin           *params.CharmOrigin
 	Channel               csparams.Channel
 	ConfigSettingsStrings map[string]string
 	ConfigSettingsYAML    string
@@ -994,22 +1021,33 @@ func (api *APIBase) Update(args params.ApplicationUpdate) error {
 		args.Generation = model.GenerationMaster
 	}
 
-	// Set up application's settings.
-	// If the config change is generational, add the app to the generation.
-	configChange := false
-	if args.SettingsYAML != "" {
-		err = applicationSetCharmConfigYAML(args.ApplicationName, app, args.Generation, args.SettingsYAML)
-		if err != nil {
-			return errors.Annotate(err, "setting configuration from YAML")
-		}
-		configChange = true
-	} else if len(args.SettingsStrings) > 0 {
-		if err = applicationSetSettingsStrings(app, args.Generation, args.SettingsStrings); err != nil {
-			return errors.Trace(err)
-		}
-		configChange = true
+	// Update settings for charm and/or application.
+	ch, _, err := app.Charm()
+	if err != nil {
+		return errors.Annotate(err, "obtaining charm for this application")
 	}
-	if configChange && args.Generation != model.GenerationMaster {
+
+	appConfig, appConfigSchema, charmSettings, err := parseCharmSettings(api.modelType, ch, app.Name(), args.SettingsStrings, args.SettingsYAML)
+	if err != nil {
+		return errors.Annotate(err, "parsing settings for application")
+	}
+
+	var configChanged bool
+	if len(charmSettings) != 0 {
+		if err = app.UpdateCharmConfig(args.Generation, charmSettings); err != nil {
+			return errors.Annotate(err, "updating charm config settings")
+		}
+		configChanged = true
+	}
+	if cfgAttrs := appConfig.Attributes(); len(cfgAttrs) > 0 {
+		if err = app.UpdateApplicationConfig(cfgAttrs, nil, appConfigSchema, nil); err != nil {
+			return errors.Annotate(err, "updating application config settings")
+		}
+		configChanged = true
+	}
+
+	// If the config change is generational, add the app to the generation.
+	if configChanged && args.Generation != model.GenerationMaster {
 		if err := api.addAppToBranch(args.Generation, args.ApplicationName); err != nil {
 			return errors.Trace(err)
 		}
@@ -1037,7 +1075,7 @@ func (api *APIBase) updateCharm(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return api.applicationSetCharm(params, aCharm)
+	return api.applicationSetCharm(params, aCharm, nil)
 }
 
 // UpdateApplicationSeries updates the application series. Series for
@@ -1087,6 +1125,25 @@ func (api *APIBase) updateOneApplicationSeries(arg params.UpdateSeriesArg) error
 }
 
 // SetCharm sets the charm for a given for the application.
+func (api *APIv12) SetCharm(args params.ApplicationSetCharmV12) error {
+	newArgs := params.ApplicationSetCharm{
+		ApplicationName:    args.ApplicationName,
+		Generation:         args.Generation,
+		CharmURL:           args.CharmURL,
+		Channel:            args.Channel,
+		ConfigSettings:     args.ConfigSettings,
+		ConfigSettingsYAML: args.ConfigSettingsYAML,
+		Force:              args.Force,
+		ForceUnits:         args.ForceUnits,
+		ForceSeries:        args.ForceSeries,
+		ResourceIDs:        args.ResourceIDs,
+		StorageConstraints: args.StorageConstraints,
+		EndpointBindings:   args.EndpointBindings,
+	}
+	return api.APIBase.SetCharm(newArgs)
+}
+
+// SetCharm sets the charm for a given for the application.
 func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 	if err := api.checkCanWrite(); err != nil {
 		return err
@@ -1106,6 +1163,7 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 		setCharmParams{
 			AppName:               args.ApplicationName,
 			Application:           oneApplication,
+			CharmOrigin:           args.CharmOrigin,
 			Channel:               channel,
 			ConfigSettingsStrings: args.ConfigSettings,
 			ConfigSettingsYAML:    args.ConfigSettingsYAML,
@@ -1164,6 +1222,10 @@ func (api *APIBase) setCharmWithAgentValidation(
 	if err != nil {
 		logger.Debugf("Unable to locate current charm: %v", err)
 	}
+	newOrigin, err := convertCharmOrigin(params.CharmOrigin, curl, string(params.Channel))
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if api.modelType == state.ModelTypeCAAS {
 		// We need to disallow updates that k8s does not yet support,
 		// eg changing the filesystem or device directives, or deployment info.
@@ -1179,7 +1241,7 @@ func (api *APIBase) setCharmWithAgentValidation(
 		if unsupportedReason != "" {
 			return errors.NotSupportedf(unsupportedReason)
 		}
-		return api.applicationSetCharm(params, newCharm)
+		return api.applicationSetCharm(params, newCharm, stateCharmOrigin(newOrigin))
 	}
 
 	// Check if the controller agent tools version is greater than the
@@ -1206,13 +1268,14 @@ func (api *APIBase) setCharmWithAgentValidation(
 		}
 	}
 
-	return api.applicationSetCharm(params, newCharm)
+	return api.applicationSetCharm(params, newCharm, stateCharmOrigin(newOrigin))
 }
 
 // applicationSetCharm sets the charm for the given for the application.
 func (api *APIBase) applicationSetCharm(
 	params setCharmParams,
 	stateCharm Charm,
+	stateOrigin *state.CharmOrigin,
 ) error {
 	var err error
 	var settings charm.Settings
@@ -1241,6 +1304,7 @@ func (api *APIBase) applicationSetCharm(
 	force := params.Force
 	cfg := state.SetCharmConfig{
 		Charm:              api.stateCharm(stateCharm),
+		CharmOrigin:        stateOrigin,
 		Channel:            params.Channel,
 		ConfigSettings:     settings,
 		ForceSeries:        force.ForceSeries,
@@ -1253,9 +1317,19 @@ func (api *APIBase) applicationSetCharm(
 	return params.Application.SetCharm(cfg)
 }
 
-// charmConfigFromGetYaml will parse a yaml produced by juju get and generate
-// charm.Settings from it that can then be sent to the application.
-func charmConfigFromGetYaml(yamlContents map[string]interface{}) (charm.Settings, error) {
+// charmConfigFromYamlConfigValues will parse a yaml produced by juju get and
+// generate charm.Settings from it that can then be sent to the application.
+func charmConfigFromYamlConfigValues(yamlContents string) (charm.Settings, error) {
+	var allSettings map[string]interface{}
+	if err := goyaml.Unmarshal([]byte(yamlContents), &allSettings); err != nil {
+		return nil, errors.Annotate(err, "cannot parse settings data")
+	}
+	return charmConfigFromConfigValues(allSettings)
+}
+
+// charmConfigFromConfigValues will parse a yaml produced by juju get and
+// generate charm.Settings from it that can then be sent to the application.
+func charmConfigFromConfigValues(yamlContents map[string]interface{}) (charm.Settings, error) {
 	onlySettings := charm.Settings{}
 	settingsMap, ok := yamlContents["settings"].(map[interface{}]interface{})
 	if !ok {
@@ -1281,37 +1355,6 @@ func charmConfigFromGetYaml(yamlContents map[string]interface{}) (charm.Settings
 	return onlySettings, nil
 }
 
-// applicationSetCharmConfigYAML updates the charm config for the
-// given application, taking the configuration from a YAML string.
-func applicationSetCharmConfigYAML(
-	appName string, application Application, gen string, settings string,
-) error {
-	b := []byte(settings)
-	var all map[string]interface{}
-	if err := goyaml.Unmarshal(b, &all); err != nil {
-		return errors.Annotate(err, "parsing settings data")
-	}
-	// The file is already in the right format.
-	if _, ok := all[appName]; !ok {
-		changes, err := charmConfigFromGetYaml(all)
-		if err != nil {
-			return errors.Annotate(err, "processing YAML generated by get")
-		}
-		return errors.Annotate(application.UpdateCharmConfig(gen, changes), "updating settings with application YAML")
-	}
-
-	ch, _, err := application.Charm()
-	if err != nil {
-		return errors.Annotate(err, "obtaining charm for this application")
-	}
-
-	changes, err := ch.Config().ParseSettingsYAML(b, appName)
-	if err != nil {
-		return errors.Annotate(err, "creating config from YAML")
-	}
-	return errors.Annotate(application.UpdateCharmConfig(gen, changes), "updating settings")
-}
-
 // GetCharmURL returns the charm URL the given application is
 // running at present.
 func (api *APIBase) GetCharmURL(args params.ApplicationGet) (params.StringResult, error) {
@@ -1324,6 +1367,53 @@ func (api *APIBase) GetCharmURL(args params.ApplicationGet) (params.StringResult
 	}
 	charmURL, _ := oneApplication.CharmURL()
 	return params.StringResult{Result: charmURL.String()}, nil
+}
+
+// GetCharmURLOrigin isn't on the V12 API.
+func (api *APIv12) GetCharmURLOrigin(_ struct{}) {}
+
+// GetCharmURLOrigin returns the charm URL and charm origin the given
+// application is running at present.
+func (api *APIBase) GetCharmURLOrigin(args params.ApplicationGet) (params.CharmURLOriginResult, error) {
+	if err := api.checkCanWrite(); err != nil {
+		return params.CharmURLOriginResult{}, errors.Trace(err)
+	}
+	oneApplication, err := api.backend.Application(args.ApplicationName)
+	if err != nil {
+		return params.CharmURLOriginResult{Error: apiservererrors.ServerError(err)}, nil
+	}
+	charmURL, _ := oneApplication.CharmURL()
+	result := params.CharmURLOriginResult{URL: charmURL.String()}
+	chOrigin := oneApplication.CharmOrigin()
+	if chOrigin == nil {
+		result.Error = apiservererrors.ServerError(errors.NotFoundf("charm origin for %q", args.ApplicationName))
+		return result, nil
+	}
+	result.Origin = makeParamsCharmOrigin(chOrigin)
+	return result, nil
+}
+
+func makeParamsCharmOrigin(origin *state.CharmOrigin) params.CharmOrigin {
+	var rev *int
+	if origin.Revision != nil {
+		rev = origin.Revision
+	}
+	var track *string
+	var risk string
+	if origin.Channel != nil {
+		risk = origin.Channel.Risk
+		if origin.Channel.Track != "" {
+			track = &origin.Channel.Track
+		}
+	}
+	return params.CharmOrigin{
+		Source:   origin.Source,
+		ID:       origin.ID,
+		Hash:     origin.Hash,
+		Risk:     risk,
+		Revision: rev,
+		Track:    track,
+	}
 }
 
 // Set implements the server side of Application.Set.
@@ -1424,7 +1514,70 @@ func (api *APIBase) Expose(args params.ApplicationExpose) error {
 					"juju config %s %s=<value>", caas.JujuExternalHostNameKey, args.ApplicationName, caas.JujuExternalHostNameKey)
 		}
 	}
-	return app.SetExposed()
+
+	// Map space names to space IDs before calling SetExposed
+	mappedExposeParams, err := api.mapExposedEndpointParams(args.ExposedEndpoints)
+	if err != nil {
+		return apiservererrors.ServerError(err)
+	}
+
+	// If an empty exposedEndpoints list is provided, all endpoints should
+	// be exposed. This emulates the expose behavior of pre 2.9 controllers.
+	if len(mappedExposeParams) == 0 {
+		mappedExposeParams = map[string]state.ExposedEndpoint{
+			"": {
+				ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR},
+			},
+		}
+	}
+
+	if err = app.MergeExposeSettings(mappedExposeParams); err != nil {
+		return apiservererrors.ServerError(err)
+	}
+	return nil
+}
+
+func (api *APIBase) mapExposedEndpointParams(params map[string]params.ExposedEndpoint) (map[string]state.ExposedEndpoint, error) {
+	if len(params) == 0 {
+		return nil, nil
+	}
+
+	var (
+		spaceInfos network.SpaceInfos
+		err        error
+		res        = make(map[string]state.ExposedEndpoint, len(params))
+	)
+
+	for endpointName, exposeDetails := range params {
+		mappedParam := state.ExposedEndpoint{
+			ExposeToCIDRs: exposeDetails.ExposeToCIDRs,
+		}
+
+		if len(exposeDetails.ExposeToSpaces) != 0 {
+			// Lazily fetch SpaceInfos
+			if spaceInfos == nil {
+				if spaceInfos, err = api.backend.AllSpaceInfos(); err != nil {
+					return nil, err
+				}
+			}
+
+			spaceIDs := make([]string, len(exposeDetails.ExposeToSpaces))
+			for i, spaceName := range exposeDetails.ExposeToSpaces {
+				sp := spaceInfos.GetByName(spaceName)
+				if sp == nil {
+					return nil, errors.NotFoundf("space %q", spaceName)
+				}
+
+				spaceIDs[i] = sp.ID
+			}
+			mappedParam.ExposeToSpaceIDs = spaceIDs
+		}
+
+		res[endpointName] = mappedParam
+
+	}
+
+	return res, nil
 }
 
 // Unexpose changes the juju-managed firewall to unexpose any ports that
@@ -1440,7 +1593,14 @@ func (api *APIBase) Unexpose(args params.ApplicationUnexpose) error {
 	if err != nil {
 		return err
 	}
-	return app.ClearExposed()
+
+	// No endpoints specified; unexpose application
+	if len(args.ExposedEndpoints) == 0 {
+		return app.ClearExposed()
+	}
+
+	// Unset expose settings for the specified endpoints
+	return app.UnsetExposeSettings(args.ExposedEndpoints)
 }
 
 // AddUnits adds a given number of units to an application.
@@ -2589,6 +2749,12 @@ func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfo
 			continue
 		}
 
+		exposedEndpoints, err := api.mapExposedEndpointsFromState(app.ExposedEndpoints())
+		if err != nil {
+			out[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
 		out[i].Result = &params.ApplicationResult{
 			Tag:              tag.String(),
 			Charm:            details.Charm,
@@ -2599,9 +2765,52 @@ func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfo
 			Exposed:          app.IsExposed(),
 			Remote:           app.IsRemote(),
 			EndpointBindings: bindingsMap,
+			ExposedEndpoints: exposedEndpoints,
 		}
 	}
 	return params.ApplicationInfoResults{out}, nil
+}
+
+func (api *APIBase) mapExposedEndpointsFromState(exposedEndpoints map[string]state.ExposedEndpoint) (map[string]params.ExposedEndpoint, error) {
+	if len(exposedEndpoints) == 0 {
+		return nil, nil
+	}
+
+	var (
+		spaceInfos network.SpaceInfos
+		err        error
+		res        = make(map[string]params.ExposedEndpoint, len(exposedEndpoints))
+	)
+
+	for endpointName, exposeDetails := range exposedEndpoints {
+		mappedParam := params.ExposedEndpoint{
+			ExposeToCIDRs: exposeDetails.ExposeToCIDRs,
+		}
+
+		if len(exposeDetails.ExposeToSpaceIDs) != 0 {
+			// Lazily fetch SpaceInfos
+			if spaceInfos == nil {
+				if spaceInfos, err = api.backend.AllSpaceInfos(); err != nil {
+					return nil, err
+				}
+			}
+
+			spaceNames := make([]string, len(exposeDetails.ExposeToSpaceIDs))
+			for i, spaceID := range exposeDetails.ExposeToSpaceIDs {
+				sp := spaceInfos.GetByID(spaceID)
+				if sp == nil {
+					return nil, errors.NotFoundf("space with ID %q", spaceID)
+				}
+
+				spaceNames[i] = string(sp.Name)
+			}
+			mappedParam.ExposeToSpaces = spaceNames
+		}
+
+		res[endpointName] = mappedParam
+	}
+
+	return res, nil
 }
 
 // MergeBindings merges operator-defined bindings with the current bindings for

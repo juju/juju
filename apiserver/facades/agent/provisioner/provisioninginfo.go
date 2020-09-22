@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/storage"
@@ -486,8 +487,21 @@ func (api *ProvisionerAPI) subnetsAndZonesForSpace(machineID string, spaceName s
 
 		zones := subnet.AvailabilityZones()
 		if len(zones) == 0 {
-			logger.Warningf(warningPrefix + "no availability zone(s) set")
-			continue
+			// For most providers we expect availability zones but Azure
+			// uses Availability Sets instead. So in that case we accept
+			// an empty map.
+			m, err := api.st.Model()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			cfg, err := m.Config()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if cfg.Type() != azure.ProviderType {
+				logger.Warningf(warningPrefix + "no availability zone(s) set")
+				continue
+			}
 		}
 
 		subnetsToZones[string(providerID)] = zones

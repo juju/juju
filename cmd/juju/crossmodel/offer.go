@@ -163,7 +163,7 @@ func (c *offerCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	url := jujucrossmodel.MakeURL(ownerTag.Name(), unqualifiedModelName, c.OfferName, "")
+	url := jujucrossmodel.MakeURL(ownerTag.Id(), unqualifiedModelName, c.OfferName, "")
 	ep := strings.Join(c.Endpoints, ", ")
 	ctx.Infof("Application %q endpoints [%s] available at %q", c.Application, ep, url)
 	return nil

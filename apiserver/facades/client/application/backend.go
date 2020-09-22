@@ -75,12 +75,14 @@ type Application interface {
 	Charm() (Charm, bool, error)
 	CharmURL() (*charm.URL, bool)
 	Channel() csparams.Channel
+	CharmOrigin() *state.CharmOrigin
 	ClearExposed() error
 	CharmConfig(string) (charm.Settings, error)
 	Constraints() (constraints.Value, error)
 	Destroy() error
 	DestroyOperation() *state.DestroyApplicationOperation
 	EndpointBindings() (Bindings, error)
+	ExposedEndpoints() map[string]state.ExposedEndpoint
 	Endpoints() ([]state.Endpoint, error)
 	IsExposed() bool
 	IsPrincipal() bool
@@ -88,7 +90,8 @@ type Application interface {
 	Series() string
 	SetCharm(state.SetCharmConfig) error
 	SetConstraints(constraints.Value) error
-	SetExposed() error
+	MergeExposeSettings(map[string]state.ExposedEndpoint) error
+	UnsetExposeSettings([]string) error
 	SetMetricCredentials([]byte) error
 	SetMinUnits(int) error
 	UpdateApplicationSeries(string, bool) error

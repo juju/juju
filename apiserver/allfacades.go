@@ -161,6 +161,7 @@ func AllFacades() *facade.Registry {
 
 	reg("ApplicationOffers", 1, applicationoffers.NewOffersAPI)
 	reg("ApplicationOffers", 2, applicationoffers.NewOffersAPIV2)
+	reg("ApplicationOffers", 3, applicationoffers.NewOffersAPIV3) // Add user to consume offers details  args.
 	reg("ApplicationScaler", 1, applicationscaler.NewAPI)
 	reg("Backups", 1, backups.NewFacade)
 	reg("Backups", 2, backups.NewFacadeV2)
@@ -172,6 +173,7 @@ func AllFacades() *facade.Registry {
 	reg("CharmHub", 1, charmhub.NewFacade)
 	reg("CharmRevisionUpdater", 2, charmrevisionupdater.NewCharmRevisionUpdaterAPI)
 	reg("Charms", 2, charms.NewFacade)
+	reg("Charms", 3, charms.NewFacadeV3)
 	reg("Cleaner", 2, cleaner.NewCleanerAPI)
 	reg("Client", 1, client.NewFacadeV1)
 	reg("Client", 2, client.NewFacade)
@@ -278,6 +280,7 @@ func AllFacades() *facade.Registry {
 	reg("ModelManager", 6, modelmanager.NewFacadeV6) // Adds cloud specific default config
 	reg("ModelManager", 7, modelmanager.NewFacadeV7) // DestroyModels gains 'force' and max-wait' parameters.
 	reg("ModelManager", 8, modelmanager.NewFacadeV8) // ModelInfo gains credential validity in return.
+	reg("ModelManager", 9, modelmanager.NewFacadeV9) // Adds ValidateModelUpgrade
 	reg("ModelUpgrader", 1, modelupgrader.NewStateFacade)
 
 	reg("Payloads", 1, payloads.NewFacade)

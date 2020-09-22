@@ -917,7 +917,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigRelinquishUnseen(c *gc
 	dev := mocks.NewMockLinkLayerDevice(ctrl)
 	dExp := dev.EXPECT()
 	dExp.MACAddress().Return("01:01:01:01:01:01").MinTimes(1)
-	dExp.Name().Return("eth0")
+	dExp.Name().Return("eth0").MinTimes(1)
 	dExp.SetProviderIDOps(network.Id("")).Return([]txn.Op{{C: "dev-provider-id"}}, nil)
 
 	// Address should be set back to machine origin.
@@ -968,7 +968,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkClaimProviderOrigin(c *gc.C)
 	dev := mocks.NewMockLinkLayerDevice(ctrl)
 	dExp := dev.EXPECT()
 	dExp.MACAddress().Return("00:00:00:00:00:00").MinTimes(1)
-	dExp.Name().Return("eth0")
+	dExp.Name().Return("eth0").MinTimes(1)
 	dExp.ProviderID().Return(network.Id(""))
 	dExp.SetProviderIDOps(network.Id("p-dev")).Return([]txn.Op{{C: "dev-provider-id"}}, nil)
 
@@ -994,7 +994,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkClaimProviderOrigin(c *gc.C)
 				Configs: []params.NetworkConfig{
 					{
 						// This should still be matched based on hardware address.
-						InterfaceName:     "some-provider-esoteria",
+						InterfaceName:     "",
 						MACAddress:        "00:00:00:00:00:00",
 						ProviderId:        "p-dev",
 						ProviderAddressId: "p-addr",
@@ -1005,7 +1005,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkClaimProviderOrigin(c *gc.C)
 					},
 					{
 						// A duplicate (MAC and addresses) should make no difference.
-						InterfaceName:     "more-provider-esoteria",
+						InterfaceName:     "",
 						MACAddress:        "00:00:00:00:00:00",
 						ProviderId:        "p-dev",
 						ProviderAddressId: "p-addr",
@@ -1035,6 +1035,52 @@ func (s *InstancePollerSuite) TestSetProviderNetworkClaimProviderOrigin(c *gc.C)
 		}
 	}
 	c.Assert(buildCalled, jc.IsTrue)
+}
+
+func (s *InstancePollerSuite) TestSetProviderNetworkProviderIDGoesToEthernetDev(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.setDefaultSpaceInfo()
+
+	// Ethernet device will have the provider ID set.
+	ethDev := mocks.NewMockLinkLayerDevice(ctrl)
+	ethExp := ethDev.EXPECT()
+	ethExp.MACAddress().Return("00:00:00:00:00:00").MinTimes(1)
+	ethExp.Name().Return("eth0").MinTimes(1)
+	ethExp.ProviderID().Return(network.Id("")).MinTimes(1)
+	ethExp.SetProviderIDOps(network.Id("p-dev")).Return([]txn.Op{{C: "dev-provider-id"}}, nil)
+
+	// Bridge has the same MAC, but will not get the provider ID.
+	brDev := mocks.NewMockLinkLayerDevice(ctrl)
+	brExp := brDev.EXPECT()
+	brExp.MACAddress().Return("00:00:00:00:00:00").MinTimes(1)
+	brExp.Name().Return("br-eth0").AnyTimes()
+	brExp.Type().Return(network.BridgeDevice)
+
+	s.st.SetMachineInfo(c, machineInfo{
+		id:               "1",
+		instanceStatus:   statusInfo("foo"),
+		linkLayerDevices: []networkingcommon.LinkLayerDevice{ethDev, brDev},
+		addresses:        []networkingcommon.LinkLayerAddress{},
+	})
+
+	_, err := s.api.SetProviderNetworkConfig(params.SetProviderNetworkConfig{
+		Args: []params.ProviderNetworkConfig{
+			{
+				Tag: "machine-1",
+				Configs: []params.NetworkConfig{
+					{
+						// This should still be matched based on hardware address.
+						InterfaceName: "",
+						MACAddress:    "00:00:00:00:00:00",
+						ProviderId:    "p-dev",
+					},
+				},
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *InstancePollerSuite) setDefaultSpaceInfo() {

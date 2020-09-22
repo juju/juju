@@ -8,17 +8,19 @@ import (
 	"strings"
 
 	"github.com/juju/charm/v8"
-	"github.com/juju/charmrepo/v6/csclient/params"
+	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/applicationoffers"
 	apicharms "github.com/juju/juju/api/charms"
+	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/api/spaces"
@@ -29,6 +31,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/model"
@@ -95,6 +98,7 @@ type spacesClient struct {
 }
 
 type deployAPIAdapter struct {
+	charmsAPIVersion int
 	api.Connection
 	*apiClient
 	*charmsClient
@@ -135,6 +139,20 @@ func (a *deployAPIAdapter) SetAnnotation(annotations map[string]map[string]strin
 
 func (a *deployAPIAdapter) GetAnnotations(tags []string) ([]apiparams.AnnotationsGetResult, error) {
 	return a.annotationsClient.Get(tags)
+}
+
+func (a *deployAPIAdapter) AddCharm(curl *charm.URL, origin commoncharm.Origin, force bool) (commoncharm.Origin, error) {
+	if a.charmsAPIVersion > 2 {
+		return a.charmsClient.AddCharm(curl, origin, force)
+	}
+	return origin, a.apiClient.AddCharm(curl, csparams.Channel(origin.Risk), force)
+}
+
+func (a *deployAPIAdapter) AddCharmWithAuthorization(curl *charm.URL, origin commoncharm.Origin, mac *macaroon.Macaroon, force bool) (commoncharm.Origin, error) {
+	if a.charmsAPIVersion > 2 {
+		return a.charmsClient.AddCharmWithAuthorization(curl, origin, mac, force)
+	}
+	return origin, a.apiClient.AddCharmWithAuthorization(curl, csparams.Channel(origin.Risk), mac, force)
 }
 
 // NewDeployCommand returns a command to deploy applications.
@@ -178,6 +196,7 @@ func newDeployCommand() *DeployCommand {
 			Connection:        apiRoot,
 			apiClient:         &apiClient{Client: apiRoot.Client()},
 			charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
+			charmsAPIVersion:  apiRoot.BestFacadeVersion("Charms"),
 			applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
 			modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
 			annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
@@ -194,6 +213,9 @@ func newDeployCommand() *DeployCommand {
 		return applicationoffers.NewClient(root), nil
 	}
 	deployCmd.NewDeployerFactory = deployer.NewDeployerFactory
+	deployCmd.NewResolver = func(charmrepo store.CharmrepoForDeploy, charmsAPIVersion int, charmsAPI store.CharmsAPI) deployer.Resolver {
+		return store.NewCharmAdaptor(charmrepo, charmsAPIVersion, charmsAPI)
+	}
 	return deployCmd
 }
 
@@ -209,9 +231,11 @@ type DeployCommand struct {
 	// configuration to be merged with the main bundle.
 	BundleOverlayFile []string
 
-	// Channel holds the charmstore channel to use when obtaining
+	// Channel holds the channel to use when obtaining
 	// the charm to be deployed.
-	Channel params.Channel
+	Channel corecharm.Channel
+
+	channelStr string
 
 	// Series is the series of the charm to deploy.
 	Series string
@@ -267,6 +291,9 @@ type DeployCommand struct {
 
 	// NewCharmRepo stores a function which returns a charm store client.
 	NewCharmRepo func() (*store.CharmStoreAdaptor, error)
+
+	// NewResolver stores a function which returns a charm adaptor.
+	NewResolver func(charmrepo store.CharmrepoForDeploy, charmsAPIVersion int, charmsAPI store.CharmsAPI) deployer.Resolver
 
 	// NewDeployerFactory stores a function which returns a deployer factory.
 	NewDeployerFactory func(dep deployer.DeployerDependencies) deployer.DeployerFactory
@@ -399,7 +426,15 @@ values. For example,
 
   juju deploy mediawiki --config name='my media wiki' --config mycfg.yaml
 
-if mycfg.yaml contains a value for 'name', it will override the earlier 'my
+Similar to the 'juju config' command, if the value begins with an '@' character,
+it will be treated as a path to a config file and its contents will be assigned
+to the specified key. For example,
+
+  juju deploy mediawiki --config name='@wiki-name.txt"
+
+will set the 'name' key to the contents of file 'wiki-name.txt'.
+
+If mycfg.yaml contains a value for 'name', it will override the earlier 'my
 media wiki' value. The same applies to single value options. For example,
 
   juju deploy mediawiki --config name='a media wiki' --config name='my wiki'
@@ -537,7 +572,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.UnitCommandBase.SetFlags(f)
 	c.ModelCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "Number of application units to deploy for principal charms")
-	f.StringVar((*string)(&c.Channel), "channel", "", "Channel to use when getting the charm or bundle from the charm store")
+	f.StringVar(&c.channelStr, "channel", "", "Channel to use when deploying a charm or bundle from the charm store, or charm hub")
 	f.Var(&c.ConfigOptions, "config", "Either a path to yaml-formatted application config file or a key=value pair ")
 
 	f.BoolVar(&c.Trust, "trust", false, "Allows charm to run hooks that require access credentials")
@@ -608,6 +643,12 @@ func (c *DeployCommand) Init(args []string) error {
 		// So we do not want to fail here if we encountered NotFoundErr, we want to
 		// do a late validation at Run().
 		c.unknownModel = true
+	}
+	if c.channelStr != "" {
+		c.Channel, err = corecharm.ParseChannel(c.channelStr)
+		if err != nil {
+			return errors.Annotate(err, "error in --channel")
+		}
 	}
 	return nil
 }
@@ -702,13 +743,15 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		step.SetPlanURL(apiRoot.PlanURL())
 	}
 
+	charmAdapter := c.NewResolver(cstoreAPI, apiRoot.BestFacadeVersion("Charms"), apicharms.NewClient(apiRoot))
+
 	factory, cfg := c.getDeployerFactory()
-	deploy, err := factory.GetDeployer(cfg, apiRoot, cstoreAPI)
+	deploy, err := factory.GetDeployer(cfg, apiRoot, charmAdapter)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	return block.ProcessBlockedError(deploy.PrepareAndDeploy(ctx, apiRoot, cstoreAPI), block.BlockChange)
+	return block.ProcessBlockedError(deploy.PrepareAndDeploy(ctx, apiRoot, charmAdapter, cstoreAPI.MacaroonGetter), block.BlockChange)
 }
 
 func (c *DeployCommand) parseBindFlag(api SpacesAPI) error {

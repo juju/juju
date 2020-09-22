@@ -566,6 +566,12 @@
                         "limit": {
                             "type": "integer"
                         },
+                        "machines": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
                         "offset": {
                             "type": "integer"
                         },
@@ -1989,7 +1995,7 @@
     },
     {
         "Name": "Application",
-        "Description": "APIv13 provides the Application API facade for version 13.\nIt adds CharmOrigin.",
+        "Description": "APIv13 provides the Application API facade for version 13.\nIt adds CharmOrigin. The ApplicationsInfo call populates the exposed\nendpoints field in its response entries.",
         "Version": 13,
         "AvailableTo": [
             "controller-machine-agent",
@@ -2179,6 +2185,18 @@
                         }
                     },
                     "description": "GetCharmURL returns the charm URL the given application is\nrunning at present."
+                },
+                "GetCharmURLOrigin": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/ApplicationGet"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/CharmURLOriginResult"
+                        }
+                    },
+                    "description": "GetCharmURLOrigin returns the charm URL and charm origin the given\napplication is running at present."
                 },
                 "GetConfig": {
                     "type": "object",
@@ -2661,6 +2679,14 @@
                     "properties": {
                         "application": {
                             "type": "string"
+                        },
+                        "exposed-endpoints": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/ExposedEndpoint"
+                                }
+                            }
                         }
                     },
                     "additionalProperties": false,
@@ -2962,6 +2988,14 @@
                         "exposed": {
                             "type": "boolean"
                         },
+                        "exposed-endpoints": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/ExposedEndpoint"
+                                }
+                            }
+                        },
                         "principal": {
                             "type": "boolean"
                         },
@@ -3016,6 +3050,9 @@
                         },
                         "channel": {
                             "type": "string"
+                        },
+                        "charm-origin": {
+                            "$ref": "#/definitions/CharmOrigin"
                         },
                         "charm-url": {
                             "type": "string"
@@ -3084,11 +3121,18 @@
                     "properties": {
                         "application": {
                             "type": "string"
+                        },
+                        "exposed-endpoints": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "application"
+                        "application",
+                        "exposed-endpoints"
                     ]
                 },
                 "ApplicationUnset": {
@@ -3119,9 +3163,6 @@
                     "properties": {
                         "application": {
                             "type": "string"
-                        },
-                        "charm-origin": {
-                            "$ref": "#/definitions/CharmOrigin"
                         },
                         "charm-url": {
                             "type": "string"
@@ -3185,9 +3226,6 @@
                 "CharmOrigin": {
                     "type": "object",
                     "properties": {
-                        "channel": {
-                            "type": "string"
-                        },
                         "hash": {
                             "type": "string"
                         },
@@ -3197,7 +3235,13 @@
                         "revision": {
                             "type": "integer"
                         },
+                        "risk": {
+                            "type": "string"
+                        },
                         "source": {
+                            "type": "string"
+                        },
+                        "track": {
                             "type": "string"
                         }
                     },
@@ -3237,6 +3281,25 @@
                         "optional",
                         "limit",
                         "scope"
+                    ]
+                },
+                "CharmURLOriginResult": {
+                    "type": "object",
+                    "properties": {
+                        "charm-origin": {
+                            "$ref": "#/definitions/CharmOrigin"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "url": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "url",
+                        "charm-origin"
                     ]
                 },
                 "ConfigResult": {
@@ -3709,6 +3772,24 @@
                     "required": [
                         "results"
                     ]
+                },
+                "ExposedEndpoint": {
+                    "type": "object",
+                    "properties": {
+                        "expose-to-cidrs": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "expose-to-spaces": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
                 },
                 "ExternalControllerInfo": {
                     "type": "object",
@@ -4186,6 +4267,9 @@
                 "Value": {
                     "type": "object",
                     "properties": {
+                        "allocate-public-ip": {
+                            "type": "boolean"
+                        },
                         "arch": {
                             "type": "string"
                         },
@@ -4239,8 +4323,8 @@
     },
     {
         "Name": "ApplicationOffers",
-        "Description": "OffersAPIV2 implements the cross model interface V2.",
-        "Version": 2,
+        "Description": "OffersAPIV3 implements the cross model interface V3.",
+        "Version": 3,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -4290,13 +4374,13 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/OfferURLs"
+                            "$ref": "#/definitions/ConsumeOfferDetailsArg"
                         },
                         "Result": {
                             "$ref": "#/definitions/ConsumeOfferDetailsResults"
                         }
                     },
-                    "description": "GetConsumeDetails returns the details necessary to pass to another model to\nconsume the specified offers represented by the urls."
+                    "description": "GetConsumeDetails returns the details necessary to pass to another model\nto allow the specified args user to consume the offers represented by the args URLs."
                 },
                 "ListApplicationOffers": {
                     "type": "object",
@@ -4560,6 +4644,21 @@
                         }
                     },
                     "additionalProperties": false
+                },
+                "ConsumeOfferDetailsArg": {
+                    "type": "object",
+                    "properties": {
+                        "offer-urls": {
+                            "$ref": "#/definitions/OfferURLs"
+                        },
+                        "user-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "offer-urls"
+                    ]
                 },
                 "ConsumeOfferDetailsResult": {
                     "type": "object",
@@ -9908,6 +10007,9 @@
                 "Value": {
                     "type": "object",
                     "properties": {
+                        "allocate-public-ip": {
+                            "type": "boolean"
+                        },
                         "arch": {
                             "type": "string"
                         },
@@ -10388,13 +10490,37 @@
     {
         "Name": "Charms",
         "Description": "API implements the charms interface and is the concrete\nimplementation of the API end point.",
-        "Version": 2,
+        "Version": 3,
         "AvailableTo": [
             "model-user"
         ],
         "Schema": {
             "type": "object",
             "properties": {
+                "AddCharm": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/AddCharmWithOrigin"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/CharmOriginResult"
+                        }
+                    },
+                    "description": "AddCharm adds the given charm URL (which must include revision) to the\nenvironment, if it does not exist yet. Local charms are not supported,\nonly charm store and charm hub URLs. See also AddLocalCharm()."
+                },
+                "AddCharmWithAuthorization": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/AddCharmWithAuth"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/CharmOriginResult"
+                        }
+                    },
+                    "description": "AddCharmWithAuthorization adds the given charm URL (which must include\nrevision) to the environment, if it does not exist yet. Local charms are\nnot supported, only charm store and charm hub URLs. See also AddLocalCharm().\n\nThe authorization macaroon, args.CharmStoreMacaroon, may be\nomitted, in which case this call is equivalent to AddCharm."
+                },
                 "CharmInfo": {
                     "type": "object",
                     "properties": {
@@ -10429,10 +10555,66 @@
                             "$ref": "#/definitions/CharmsListResult"
                         }
                     },
-                    "description": "List returns a list of charm URLs currently in the state.\nIf supplied parameter contains any names, the result will be filtered\nto return only the charms with supplied names."
+                    "description": "List returns a list of charm URLs currently in the state.\nIf supplied parameter contains any names, the result will\nbe filtered to return only the charms with supplied names."
+                },
+                "ResolveCharms": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/ResolveCharmsWithChannel"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ResolveCharmWithChannelResults"
+                        }
+                    },
+                    "description": "ResolveCharms resolves the given charm URLs with an optionally specified\npreferred channel.  Channel provided via CharmOrigin."
                 }
             },
             "definitions": {
+                "AddCharmWithAuth": {
+                    "type": "object",
+                    "properties": {
+                        "charm-origin": {
+                            "$ref": "#/definitions/CharmOrigin"
+                        },
+                        "force": {
+                            "type": "boolean"
+                        },
+                        "macaroon": {
+                            "$ref": "#/definitions/Macaroon"
+                        },
+                        "url": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "url",
+                        "charm-origin",
+                        "macaroon",
+                        "force"
+                    ]
+                },
+                "AddCharmWithOrigin": {
+                    "type": "object",
+                    "properties": {
+                        "charm-origin": {
+                            "$ref": "#/definitions/CharmOrigin"
+                        },
+                        "force": {
+                            "type": "boolean"
+                        },
+                        "url": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "url",
+                        "charm-origin",
+                        "force"
+                    ]
+                },
                 "Charm": {
                     "type": "object",
                     "properties": {
@@ -10767,6 +10949,49 @@
                         "type"
                     ]
                 },
+                "CharmOrigin": {
+                    "type": "object",
+                    "properties": {
+                        "hash": {
+                            "type": "string"
+                        },
+                        "id": {
+                            "type": "string"
+                        },
+                        "revision": {
+                            "type": "integer"
+                        },
+                        "risk": {
+                            "type": "string"
+                        },
+                        "source": {
+                            "type": "string"
+                        },
+                        "track": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "source",
+                        "id"
+                    ]
+                },
+                "CharmOriginResult": {
+                    "type": "object",
+                    "properties": {
+                        "charm-origin": {
+                            "$ref": "#/definitions/CharmOrigin"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "charm-origin"
+                    ]
+                },
                 "CharmPayloadClass": {
                     "type": "object",
                     "properties": {
@@ -10942,6 +11167,31 @@
                         "charm-urls"
                     ]
                 },
+                "Error": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "string"
+                        },
+                        "info": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "message": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "message",
+                        "code"
+                    ]
+                },
                 "IsMeteredResult": {
                     "type": "object",
                     "properties": {
@@ -10952,6 +11202,85 @@
                     "additionalProperties": false,
                     "required": [
                         "metered"
+                    ]
+                },
+                "Macaroon": {
+                    "type": "object",
+                    "additionalProperties": false
+                },
+                "ResolveCharmWithChannel": {
+                    "type": "object",
+                    "properties": {
+                        "charm-origin": {
+                            "$ref": "#/definitions/CharmOrigin"
+                        },
+                        "reference": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "reference",
+                        "charm-origin"
+                    ]
+                },
+                "ResolveCharmWithChannelResult": {
+                    "type": "object",
+                    "properties": {
+                        "charm-origin": {
+                            "$ref": "#/definitions/CharmOrigin"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "supported-series": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "url": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "url",
+                        "charm-origin",
+                        "supported-series"
+                    ]
+                },
+                "ResolveCharmWithChannelResults": {
+                    "type": "object",
+                    "properties": {
+                        "Results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ResolveCharmWithChannelResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Results"
+                    ]
+                },
+                "ResolveCharmsWithChannel": {
+                    "type": "object",
+                    "properties": {
+                        "macaroon": {
+                            "$ref": "#/definitions/Macaroon"
+                        },
+                        "resolve": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ResolveCharmWithChannel"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "resolve"
                     ]
                 }
             }
@@ -11057,7 +11386,8 @@
                         "Params": {
                             "$ref": "#/definitions/AddCharm"
                         }
-                    }
+                    },
+                    "description": "NOTE: AddCharm is deprecated as of juju 2.9 and charms facade version 3.\nPlease discontinue use and move to the charms facade version.\n\nTODO: remove in juju 3.0"
                 },
                 "AddCharmWithAuthorization": {
                     "type": "object",
@@ -11066,7 +11396,7 @@
                             "$ref": "#/definitions/AddCharmWithAuthorization"
                         }
                     },
-                    "description": "AddCharmWithAuthorization adds the given charm URL (which must include revision) to\nthe model, if it does not exist yet. Local charms are not\nsupported, only charm store URLs. See also AddLocalCharm().\n\nThe authorization macaroon, args.CharmStoreMacaroon, may be\nomitted, in which case this call is equivalent to AddCharm."
+                    "description": "AddCharmWithAuthorization adds the given charm URL (which must include\nrevision) to the model, if it does not exist yet. Local charms are not\nsupported, only charm store URLs. See also AddLocalCharm().\n\nThe authorization macaroon, args.CharmStoreMacaroon, may be omitted, in\nwhich case this call is equivalent to AddCharm.\n\nNOTE: AddCharmWithAuthorization is deprecated as of juju 2.9 and charms\nfacade version 3. Please discontinue use and move to the charms facade\nversion.\n\nTODO: remove in juju 3.0"
                 },
                 "AddMachines": {
                     "type": "object",
@@ -11267,7 +11597,7 @@
                             "$ref": "#/definitions/ResolveCharmResults"
                         }
                     },
-                    "description": "ResolveCharm resolves the best available charm URLs with series, for charm\nlocations without a series specified."
+                    "description": "ResolveCharm resolves the best available charm URLs with series, for charm\nlocations without a series specified.\n\nNOTE: ResolveCharms is deprecated as of juju 2.9 and charms facade version 3.\nPlease discontinue use and move to the charms facade version.\n\nTODO: remove in juju 3.0"
                 },
                 "Resolved": {
                     "type": "object",
@@ -13381,6 +13711,9 @@
                 "Value": {
                     "type": "object",
                     "properties": {
+                        "allocate-public-ip": {
+                            "type": "boolean"
+                        },
                         "arch": {
                             "type": "string"
                         },
@@ -14531,6 +14864,9 @@
                 "Value": {
                     "type": "object",
                     "properties": {
+                        "allocate-public-ip": {
+                            "type": "boolean"
+                        },
                         "arch": {
                             "type": "string"
                         },
@@ -18260,41 +18596,17 @@
                     },
                     "description": "GetCloudSpec constructs the CloudSpec for a validated and authorized model."
                 },
-                "GetExposed": {
+                "GetExposeInfo": {
                     "type": "object",
                     "properties": {
                         "Params": {
                             "$ref": "#/definitions/Entities"
                         },
                         "Result": {
-                            "$ref": "#/definitions/BoolResults"
+                            "$ref": "#/definitions/ExposeInfoResults"
                         }
                     },
-                    "description": "GetExposed returns the exposed flag value for each given application."
-                },
-                "GetMachineActiveSubnets": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/StringsResults"
-                        }
-                    },
-                    "description": "GetMachineActiveSubnets returns the tags of the all subnets that each machine\n(in args) has open ports on."
-                },
-                "GetMachinePorts": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/MachinePortsParams"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/MachinePortsResults"
-                        }
-                    },
-                    "description": "GetMachinePorts returns the port ranges opened on a machine across all\nsubnets as a map mapping port ranges to the tags of the units that opened\nthem."
+                    "description": "GetExposeInfo returns the expose flag and per-endpoint expose settings\nfor the specified applications."
                 },
                 "InstanceId": {
                     "type": "object",
@@ -18351,7 +18663,7 @@
                             "$ref": "#/definitions/OpenMachinePortRangesResults"
                         }
                     },
-                    "description": "OpenedMachinePortRanges returns a list of the opened port ranges for the\nspecified machines where each result is broken down by unit and by subnet\nCIDR."
+                    "description": "OpenedMachinePortRanges returns a list of the opened port ranges for the\nspecified machines where each result is broken down by unit. The list of\nopened ports for each unit is further grouped by endpoint name and includes\nthe subnet CIDRs that belong to the space that each endpoint is bound to."
                 },
                 "SetRelationsStatus": {
                     "type": "object",
@@ -18364,6 +18676,18 @@
                         }
                     },
                     "description": "SetRelationsStatus sets the status for the specified relations."
+                },
+                "SpaceInfos": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SpaceInfosParams"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/SpaceInfos"
+                        }
+                    },
+                    "description": "SpaceInfos returns a comprehensive representation of either all spaces or\na filtered subset of the known spaces and their associated subnet details."
                 },
                 "Watch": {
                     "type": "object",
@@ -18451,6 +18775,18 @@
                         }
                     },
                     "description": "WatchOpenedPorts returns a new StringsWatcher for each given\nmodel tag."
+                },
+                "WatchSubnets": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringsWatchResult"
+                        }
+                    },
+                    "description": "WatchSubnets returns a new StringsWatcher that watches the specified\nsubnet tags or all tags if no entities are specified."
                 },
                 "WatchUnits": {
                     "type": "object",
@@ -18744,6 +19080,75 @@
                         "results"
                     ]
                 },
+                "ExposeInfoResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "exposed": {
+                            "type": "boolean"
+                        },
+                        "exposed-endpoints": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/ExposedEndpoint"
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "ExposeInfoResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ExposeInfoResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "ExposedEndpoint": {
+                    "type": "object",
+                    "properties": {
+                        "expose-to-cidrs": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "expose-to-spaces": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "FanConfigEntry": {
+                    "type": "object",
+                    "properties": {
+                        "overlay": {
+                            "type": "string"
+                        },
+                        "underlay": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "underlay",
+                        "overlay"
+                    ]
+                },
                 "FirewallRule": {
                     "type": "object",
                     "properties": {
@@ -18853,90 +19258,6 @@
                         "results"
                     ]
                 },
-                "MachinePortRange": {
-                    "type": "object",
-                    "properties": {
-                        "port-range": {
-                            "$ref": "#/definitions/PortRange"
-                        },
-                        "relation-tag": {
-                            "type": "string"
-                        },
-                        "unit-tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "unit-tag",
-                        "relation-tag",
-                        "port-range"
-                    ]
-                },
-                "MachinePorts": {
-                    "type": "object",
-                    "properties": {
-                        "machine-tag": {
-                            "type": "string"
-                        },
-                        "subnet-tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "machine-tag",
-                        "subnet-tag"
-                    ]
-                },
-                "MachinePortsParams": {
-                    "type": "object",
-                    "properties": {
-                        "params": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/MachinePorts"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "params"
-                    ]
-                },
-                "MachinePortsResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "ports": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/MachinePortRange"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "ports"
-                    ]
-                },
-                "MachinePortsResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/MachinePortsResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
                 "ModelConfigResult": {
                     "type": "object",
                     "properties": {
@@ -18995,19 +19316,20 @@
                         "error": {
                             "$ref": "#/definitions/Error"
                         },
-                        "group-key": {
-                            "type": "string"
-                        },
                         "unit-port-ranges": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/OpenUnitPortRanges"
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/definitions/OpenUnitPortRanges"
+                                    }
+                                }
                             }
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "group-key",
                         "unit-port-ranges"
                     ]
                 },
@@ -19029,25 +19351,27 @@
                 "OpenUnitPortRanges": {
                     "type": "object",
                     "properties": {
-                        "port-range-groups": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/definitions/PortRange"
-                                    }
-                                }
+                        "endpoint": {
+                            "type": "string"
+                        },
+                        "port-ranges": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/PortRange"
                             }
                         },
-                        "unit-tag": {
-                            "type": "string"
+                        "subnet-cidrs": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "unit-tag",
-                        "port-range-groups"
+                        "endpoint",
+                        "port-ranges",
+                        "subnet-cidrs"
                     ]
                 },
                 "PortRange": {
@@ -19085,6 +19409,55 @@
                         "entities"
                     ]
                 },
+                "SpaceInfo": {
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "provider-id": {
+                            "type": "string"
+                        },
+                        "subnets": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SubnetV3"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "id",
+                        "name"
+                    ]
+                },
+                "SpaceInfos": {
+                    "type": "object",
+                    "properties": {
+                        "space-infos": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SpaceInfo"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "SpaceInfosParams": {
+                    "type": "object",
+                    "properties": {
+                        "space-ids": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                },
                 "StringResult": {
                     "type": "object",
                     "properties": {
@@ -19107,36 +19480,6 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/StringResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
-                "StringsResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "result": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "StringsResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/StringsResult"
                             }
                         }
                     },
@@ -19179,6 +19522,163 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "Subnet": {
+                    "type": "object",
+                    "properties": {
+                        "cidr": {
+                            "type": "string"
+                        },
+                        "life": {
+                            "type": "string"
+                        },
+                        "provider-id": {
+                            "type": "string"
+                        },
+                        "provider-network-id": {
+                            "type": "string"
+                        },
+                        "provider-space-id": {
+                            "type": "string"
+                        },
+                        "space-tag": {
+                            "type": "string"
+                        },
+                        "status": {
+                            "type": "string"
+                        },
+                        "vlan-tag": {
+                            "type": "integer"
+                        },
+                        "zones": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "cidr",
+                        "vlan-tag",
+                        "life",
+                        "space-tag",
+                        "zones"
+                    ]
+                },
+                "SubnetV2": {
+                    "type": "object",
+                    "properties": {
+                        "Subnet": {
+                            "$ref": "#/definitions/Subnet"
+                        },
+                        "cidr": {
+                            "type": "string"
+                        },
+                        "id": {
+                            "type": "string"
+                        },
+                        "life": {
+                            "type": "string"
+                        },
+                        "provider-id": {
+                            "type": "string"
+                        },
+                        "provider-network-id": {
+                            "type": "string"
+                        },
+                        "provider-space-id": {
+                            "type": "string"
+                        },
+                        "space-tag": {
+                            "type": "string"
+                        },
+                        "status": {
+                            "type": "string"
+                        },
+                        "vlan-tag": {
+                            "type": "integer"
+                        },
+                        "zones": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "cidr",
+                        "vlan-tag",
+                        "life",
+                        "space-tag",
+                        "zones",
+                        "Subnet"
+                    ]
+                },
+                "SubnetV3": {
+                    "type": "object",
+                    "properties": {
+                        "Subnet": {
+                            "$ref": "#/definitions/Subnet"
+                        },
+                        "SubnetV2": {
+                            "$ref": "#/definitions/SubnetV2"
+                        },
+                        "cidr": {
+                            "type": "string"
+                        },
+                        "fan-info": {
+                            "$ref": "#/definitions/FanConfigEntry"
+                        },
+                        "id": {
+                            "type": "string"
+                        },
+                        "is-public": {
+                            "type": "boolean"
+                        },
+                        "life": {
+                            "type": "string"
+                        },
+                        "provider-id": {
+                            "type": "string"
+                        },
+                        "provider-network-id": {
+                            "type": "string"
+                        },
+                        "provider-space-id": {
+                            "type": "string"
+                        },
+                        "space-id": {
+                            "type": "string"
+                        },
+                        "space-tag": {
+                            "type": "string"
+                        },
+                        "status": {
+                            "type": "string"
+                        },
+                        "vlan-tag": {
+                            "type": "integer"
+                        },
+                        "zones": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "cidr",
+                        "vlan-tag",
+                        "life",
+                        "space-tag",
+                        "zones",
+                        "Subnet",
+                        "SubnetV2",
+                        "space-id"
                     ]
                 }
             }
@@ -19336,6 +19836,9 @@
                 "Value": {
                     "type": "object",
                     "properties": {
+                        "allocate-public-ip": {
+                            "type": "boolean"
+                        },
                         "arch": {
                             "type": "string"
                         },
@@ -23243,6 +23746,9 @@
                 "Value": {
                     "type": "object",
                     "properties": {
+                        "allocate-public-ip": {
+                            "type": "boolean"
+                        },
                         "arch": {
                             "type": "string"
                         },
@@ -26792,7 +27298,7 @@
     {
         "Name": "ModelManager",
         "Description": "ModelManagerAPI implements the model manager interface and is\nthe concrete implementation of the api end point.",
-        "Version": 8,
+        "Version": 9,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -26812,7 +27318,7 @@
                             "$ref": "#/definitions/ErrorResults"
                         }
                     },
-                    "description": "ChangeModelCredentials changes cloud credential reference for models.\nThese new cloud credentials must already exist on the controller."
+                    "description": "ChangeModelCredential changes cloud credential reference for models.\nThese new cloud credentials must already exist on the controller."
                 },
                 "CreateModel": {
                     "type": "object",
@@ -26896,7 +27402,7 @@
                             "$ref": "#/definitions/ModelDefaultsResults"
                         }
                     },
-                    "description": "ModelDefaults returns the default config values for the specified clouds."
+                    "description": "ModelDefaultsForClouds returns the default config values for the specified\nclouds."
                 },
                 "ModelInfo": {
                     "type": "object",
@@ -26957,6 +27463,18 @@
                         }
                     },
                     "description": "UnsetModelDefaults removes the specified default model settings."
+                },
+                "ValidateModelUpgrades": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/ValidateModelUpgradeParams"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "ValidateModelUpgrades validates if a model is allowed to perform an upgrade.\nExamples of why you would want to block a model upgrade, would be situations\nlike upgrade-series. If performing an upgrade-series we don't know the\ncurrent status of the machine, so performing an upgrade-model can lead to\nbad unintended errors down the line."
                 }
             },
             "definitions": {
@@ -28018,6 +28536,37 @@
                     "additionalProperties": false,
                     "required": [
                         "user-models"
+                    ]
+                },
+                "ValidateModelUpgradeParam": {
+                    "type": "object",
+                    "properties": {
+                        "model-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "model-tag"
+                    ]
+                },
+                "ValidateModelUpgradeParams": {
+                    "type": "object",
+                    "properties": {
+                        "force": {
+                            "type": "boolean"
+                        },
+                        "model": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ValidateModelUpgradeParam"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "model",
+                        "force"
                     ]
                 }
             }
@@ -31347,6 +31896,9 @@
                 "Value": {
                     "type": "object",
                     "properties": {
+                        "allocate-public-ip": {
+                            "type": "boolean"
+                        },
                         "arch": {
                             "type": "string"
                         },
@@ -39195,17 +39747,17 @@
                         }
                     }
                 },
-                "OpenedMachinePortRanges": {
+                "OpenedMachinePortRangesByEndpoint": {
                     "type": "object",
                     "properties": {
                         "Params": {
                             "$ref": "#/definitions/Entities"
                         },
                         "Result": {
-                            "$ref": "#/definitions/OpenMachinePortRangesResults"
+                            "$ref": "#/definitions/OpenMachinePortRangesByEndpointResults"
                         }
                     },
-                    "description": "OpenedMachinePortRanges returns the port ranges opened by each unit on the\nprovided machines grouped by application endpoint."
+                    "description": "OpenedMachinePortRangesByEndpoint returns the port ranges opened by each\nunit on the provided machines grouped by application endpoint."
                 },
                 "PrivateAddress": {
                     "type": "object",
@@ -41121,35 +41673,36 @@
                         "results"
                     ]
                 },
-                "OpenMachinePortRangesResult": {
+                "OpenMachinePortRangesByEndpointResult": {
                     "type": "object",
                     "properties": {
                         "error": {
                             "$ref": "#/definitions/Error"
                         },
-                        "group-key": {
-                            "type": "string"
-                        },
                         "unit-port-ranges": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/OpenUnitPortRanges"
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/definitions/OpenUnitPortRangesByEndpoint"
+                                    }
+                                }
                             }
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "group-key",
                         "unit-port-ranges"
                     ]
                 },
-                "OpenMachinePortRangesResults": {
+                "OpenMachinePortRangesByEndpointResults": {
                     "type": "object",
                     "properties": {
                         "results": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/OpenMachinePortRangesResult"
+                                "$ref": "#/definitions/OpenMachinePortRangesByEndpointResult"
                             }
                         }
                     },
@@ -41158,28 +41711,23 @@
                         "results"
                     ]
                 },
-                "OpenUnitPortRanges": {
+                "OpenUnitPortRangesByEndpoint": {
                     "type": "object",
                     "properties": {
-                        "port-range-groups": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/definitions/PortRange"
-                                    }
-                                }
-                            }
-                        },
-                        "unit-tag": {
+                        "endpoint": {
                             "type": "string"
+                        },
+                        "port-ranges": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/PortRange"
+                            }
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "unit-tag",
-                        "port-range-groups"
+                        "endpoint",
+                        "port-ranges"
                     ]
                 },
                 "PodSpec": {

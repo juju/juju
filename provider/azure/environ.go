@@ -318,9 +318,15 @@ func (env *azureEnviron) createCommonResourceDeployment(
 	rules []network.SecurityRule,
 	commonResources ...armtemplates.Resource,
 ) error {
-	commonResources = append(commonResources, networkTemplateResources(
-		env.location, tags, nil, rules,
-	)...)
+	// Only create network resources if the user has not
+	// specified their own to use.
+	if env.config.virtualNetworkName == "" {
+		networkResources, _ := networkTemplateResources(env.location, tags, nil, rules)
+		commonResources = append(commonResources, networkResources...)
+	}
+	if len(commonResources) == 0 {
+		return nil
+	}
 
 	// We perform this deployment asynchronously, to avoid blocking
 	// the "juju add-model" command; Create is called synchronously.
@@ -424,8 +430,8 @@ func (env *azureEnviron) ConstraintsValidator(ctx context.ProviderCallContext) (
 
 // PrecheckInstance is defined on the environs.InstancePrechecker interface.
 func (env *azureEnviron) PrecheckInstance(ctx context.ProviderCallContext, args environs.PrecheckInstanceParams) error {
-	if args.Placement != "" {
-		return fmt.Errorf("unknown placement directive: %s", args.Placement)
+	if _, err := env.findPlacementSubnet(ctx, args.Placement); err != nil {
+		return errors.Trace(err)
 	}
 	if !args.Constraints.HasInstanceType() {
 		return nil
@@ -463,7 +469,6 @@ func (env *azureEnviron) StartInstance(ctx context.ProviderCallContext, args env
 		names.NewControllerTag(args.ControllerUUID),
 		env.config,
 	)
-	storageAccountType := env.config.storageAccountType
 	imageStream := env.config.ImageStream()
 	instanceTypes, err := env.getInstanceTypesLocked(ctx)
 	if err != nil {
@@ -552,10 +557,15 @@ func (env *azureEnviron) StartInstance(ctx context.ProviderCallContext, args env
 	// machine with this.
 	vmTags[jujuMachineNameTag] = vmName
 
+	// Use a public IP by default unless a constraint
+	// explicitly forbids it.
+	usePublicIP := true
+	if args.Constraints.HasAllocatePublicIP() {
+		usePublicIP = *args.Constraints.AllocatePublicIP
+	}
 	if err := env.createVirtualMachine(
 		ctx, vmName, vmTags, envTags,
-		instanceSpec, args.InstanceConfig,
-		storageAccountType,
+		instanceSpec, args, usePublicIP,
 	); err != nil {
 		logger.Errorf("creating instance failed, destroying: %v", err)
 		if err := env.StopInstances(ctx, instance.Id(vmName)); err != nil {
@@ -590,14 +600,16 @@ func (env *azureEnviron) createVirtualMachine(
 	vmName string,
 	vmTags, envTags map[string]string,
 	instanceSpec *instances.InstanceSpec,
-	instanceConfig *instancecfg.InstanceConfig,
-	storageAccountType string,
+	args environs.StartInstanceParams,
+	usePublicIP bool,
 ) error {
 	deploymentsClient := resources.DeploymentsClient{
 		BaseClient: env.resources,
 	}
+	instanceConfig := args.InstanceConfig
+	controller := instanceConfig.Controller != nil
 	apiPorts := make([]int, 0, 2)
-	if instanceConfig.Controller != nil {
+	if controller {
 		apiPorts = append(apiPorts, instanceConfig.Controller.Config.APIPort())
 		if instanceConfig.Controller.Config.AutocertDNSName() != "" {
 			// Open port 80 as well as it handles Let's Encrypt HTTP challenge.
@@ -613,18 +625,17 @@ func (env *azureEnviron) createVirtualMachine(
 
 	var nicDependsOn, vmDependsOn []string
 	var resources []armtemplates.Resource
-	createCommonResources := instanceConfig.Bootstrap != nil
-	if createCommonResources {
+	bootstrapping := instanceConfig.Bootstrap != nil
+	// We only need to deal with creating network resources
+	// if the user has not specified their own to use.
+	if bootstrapping && env.config.virtualNetworkName == "" && args.Placement == "" {
 		// We're starting the bootstrap machine, so we will create the
-		// common resources in the same deployment.
-		resources = append(resources,
-			networkTemplateResources(env.location, envTags, apiPorts, nil)...,
-		)
-		nicDependsOn = append(nicDependsOn, fmt.Sprintf(
-			`[resourceId('Microsoft.Network/virtualNetworks', '%s')]`,
-			internalNetworkName,
-		))
-	} else {
+		// networking resources in the same deployment.
+		networkResources, dependsOn := networkTemplateResources(env.location, envTags, apiPorts, nil)
+		resources = append(resources, networkResources...)
+		nicDependsOn = append(nicDependsOn, dependsOn...)
+	}
+	if !bootstrapping {
 		// Wait for the common resource deployment to complete.
 		if err := env.waitCommonResourcesCreated(); err != nil {
 			return errors.Annotate(
@@ -655,7 +666,7 @@ func (env *azureEnviron) createVirtualMachine(
 	storageProfile, err := newStorageProfile(
 		vmName,
 		maybeStorageAccount,
-		storageAccountType,
+		env.config.storageAccountType,
 		instanceSpec,
 	)
 	if err != nil {
@@ -708,77 +719,90 @@ func (env *azureEnviron) createVirtualMachine(
 		vmDependsOn = append(vmDependsOn, availabilitySetId)
 	}
 
-	publicIPAddressName := vmName + "-public-ip"
-	publicIPAddressId := fmt.Sprintf(`[resourceId('Microsoft.Network/publicIPAddresses', '%s')]`, publicIPAddressName)
-	publicIPAddressAllocationMethod := network.Static
-	if env.config.loadBalancerSkuName == string(network.LoadBalancerSkuNameBasic) {
-		publicIPAddressAllocationMethod = network.Dynamic // preserve the settings that were used in Juju 2.4 and earlier
-	}
-	resources = append(resources, armtemplates.Resource{
-		APIVersion: networkAPIVersion,
-		Type:       "Microsoft.Network/publicIPAddresses",
-		Name:       publicIPAddressName,
-		Location:   env.location,
-		Tags:       vmTags,
-		Sku:        &armtemplates.Sku{Name: env.config.loadBalancerSkuName},
-		Properties: &network.PublicIPAddressPropertiesFormat{
-			PublicIPAddressVersion:   network.IPv4,
-			PublicIPAllocationMethod: publicIPAddressAllocationMethod,
-		},
-	})
-
-	// Controller and non-controller machines are assigned to separate
-	// subnets. This enables us to create controller-specific NSG rules
-	// just by targeting the controller subnet.
-	subnetName := internalSubnetName
-	subnetPrefix := internalSubnetPrefix
-	if instanceConfig.Controller != nil {
-		subnetName = controllerSubnetName
-		subnetPrefix = controllerSubnetPrefix
-	}
-	subnetId := fmt.Sprintf(
-		`[concat(resourceId('Microsoft.Network/virtualNetworks', '%s'), '/subnets/%s')]`,
-		internalNetworkName, subnetName,
-	)
-
-	privateIP, err := machineSubnetIP(subnetPrefix, instanceConfig.MachineId)
+	placementSubnetID, err := env.findPlacementSubnet(ctx, args.Placement)
 	if err != nil {
-		return errors.Annotatef(err, "computing private IP address")
+		return common.ZoneIndependentError(err)
 	}
-	nicName := vmName + "-primary"
-	nicId := fmt.Sprintf(`[resourceId('Microsoft.Network/networkInterfaces', '%s')]`, nicName)
-	nicDependsOn = append(nicDependsOn, publicIPAddressId)
-	ipConfigurations := []network.InterfaceIPConfiguration{{
-		Name: to.StringPtr("primary"),
-		InterfaceIPConfigurationPropertiesFormat: &network.InterfaceIPConfigurationPropertiesFormat{
-			Primary:                   to.BoolPtr(true),
-			PrivateIPAddress:          to.StringPtr(privateIP.String()),
-			PrivateIPAllocationMethod: network.Static,
-			Subnet:                    &network.Subnet{ID: to.StringPtr(subnetId)},
-			PublicIPAddress: &network.PublicIPAddress{
-				ID: to.StringPtr(publicIPAddressId),
-			},
-		},
-	}}
-	resources = append(resources, armtemplates.Resource{
-		APIVersion: networkAPIVersion,
-		Type:       "Microsoft.Network/networkInterfaces",
-		Name:       nicName,
-		Location:   env.location,
-		Tags:       vmTags,
-		Properties: &network.InterfacePropertiesFormat{
-			IPConfigurations: &ipConfigurations,
-		},
-		DependsOn: nicDependsOn,
-	})
+	vnetId, subnetIds, err := env.networkInfoForInstance(ctx, args, bootstrapping, controller, placementSubnetID)
+	if err != nil {
+		return common.ZoneIndependentError(err)
+	}
+	logger.Debugf("creating instance using vnet %v, subnets %q", vnetId, subnetIds)
 
-	nics := []compute.NetworkInterfaceReference{{
-		ID: to.StringPtr(nicId),
-		NetworkInterfaceReferenceProperties: &compute.NetworkInterfaceReferenceProperties{
-			Primary: to.BoolPtr(true),
-		},
-	}}
-	vmDependsOn = append(vmDependsOn, nicId)
+	if env.config.virtualNetworkName == "" && bootstrapping {
+		nicDependsOn = append(nicDependsOn, vnetId)
+	}
+
+	var publicIPAddressId string
+	if usePublicIP {
+		publicIPAddressName := vmName + "-public-ip"
+		publicIPAddressId = fmt.Sprintf(`[resourceId('Microsoft.Network/publicIPAddresses', '%s')]`, publicIPAddressName)
+		// Default to static public IP so address is preserved across reboots.
+		publicIPAddressAllocationMethod := network.Static
+		if env.config.loadBalancerSkuName == string(network.LoadBalancerSkuNameBasic) {
+			publicIPAddressAllocationMethod = network.Dynamic // preserve the settings that were used in Juju 2.4 and earlier
+		}
+		resources = append(resources, armtemplates.Resource{
+			APIVersion: networkAPIVersion,
+			Type:       "Microsoft.Network/publicIPAddresses",
+			Name:       publicIPAddressName,
+			Location:   env.location,
+			Tags:       vmTags,
+			Sku:        &armtemplates.Sku{Name: env.config.loadBalancerSkuName},
+			Properties: &network.PublicIPAddressPropertiesFormat{
+				PublicIPAddressVersion:   network.IPv4,
+				PublicIPAllocationMethod: publicIPAddressAllocationMethod,
+			},
+		})
+	}
+
+	// Create one NIC per subnet. The first one is the primary and has
+	// the public IP address if so configured.
+	var nics []compute.NetworkInterfaceReference
+	for i, subnetID := range subnetIds {
+		primary := i == 0
+		ipConfig := &network.InterfaceIPConfigurationPropertiesFormat{
+			Primary:                   to.BoolPtr(primary),
+			PrivateIPAllocationMethod: network.Dynamic,
+			Subnet:                    &network.Subnet{ID: to.StringPtr(string(subnetID))},
+		}
+		if primary && usePublicIP {
+			ipConfig.PublicIPAddress = &network.PublicIPAddress{
+				ID: to.StringPtr(publicIPAddressId),
+			}
+			nicDependsOn = append(nicDependsOn, publicIPAddressId)
+		}
+		ipConfigName := "primary"
+		if i > 0 {
+			ipConfigName = fmt.Sprintf("interface-%d", i)
+		}
+		nicName := vmName + "-" + ipConfigName
+		nicId := fmt.Sprintf(`[resourceId('Microsoft.Network/networkInterfaces', '%s')]`, nicName)
+		ipConfigurations := []network.InterfaceIPConfiguration{{
+			Name:                                     to.StringPtr(ipConfigName),
+			InterfaceIPConfigurationPropertiesFormat: ipConfig,
+		}}
+		resources = append(resources, armtemplates.Resource{
+			APIVersion: networkAPIVersion,
+			Type:       "Microsoft.Network/networkInterfaces",
+			Name:       nicName,
+			Location:   env.location,
+			Tags:       vmTags,
+			Properties: &network.InterfacePropertiesFormat{
+				IPConfigurations: &ipConfigurations,
+			},
+			DependsOn: nicDependsOn,
+		})
+		vmDependsOn = append(vmDependsOn, nicId)
+
+		nics = append(nics, compute.NetworkInterfaceReference{
+			ID: to.StringPtr(nicId),
+			NetworkInterfaceReferenceProperties: &compute.NetworkInterfaceReferenceProperties{
+				Primary: to.BoolPtr(primary),
+			},
+		})
+	}
+
 	resources = append(resources, armtemplates.Resource{
 		APIVersion: computeAPIVersion,
 		Type:       "Microsoft.Compute/virtualMachines",
@@ -932,11 +956,10 @@ func (env *azureEnviron) waitCommonResourcesCreatedLocked() (*resources.Deployme
 		result, err := deploymentsClient.Get(sdkCtx, env.resourceGroup, "common")
 		if err != nil {
 			if result.StatusCode == http.StatusNotFound {
-				// The controller model does not have a "common"
-				// deployment, as its common resources are created
-				// in the machine-0 deployment to keep bootstrap times
-				// optimal. Treat lack of a common deployment as an
-				// indication that the model is the controller model.
+				// The controller model, and also models with bespoke
+				// networks, do not have a "common" deployment
+				// For controller models, common resources are created
+				// in the machine-0 deployment to keep bootstrap times optimal.
 				return nil
 			}
 			return errors.Annotate(err, "querying common deployment")
@@ -1270,8 +1293,6 @@ func (env *azureEnviron) deleteVirtualMachine(
 	vmClient := compute.VirtualMachinesClient{env.compute}
 	diskClient := compute.DisksClient{env.disk}
 	nicClient := network.InterfacesClient{env.network}
-	nsgClient := network.SecurityGroupsClient{env.network}
-	securityRuleClient := network.SecurityRulesClient{env.network}
 	pipClient := network.PublicIPAddressesClient{env.network}
 	deploymentsClient := resources.DeploymentsClient{env.resources}
 	vmName := string(instId)
@@ -1330,9 +1351,9 @@ func (env *azureEnviron) deleteVirtualMachine(
 	}
 	logger.Debugf("- deleting security rules (%s)", vmName)
 	if err := deleteInstanceNetworkSecurityRules(
+		sdkCtx,
 		ctx,
-		env.resourceGroup, instId,
-		nsgClient, securityRuleClient,
+		env, instId, networkInterfaces,
 	); err != nil {
 		return errors.Annotate(err, "deleting network security rules")
 	}

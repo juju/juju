@@ -42,6 +42,13 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.modelmanager")
 
+// ModelManagerV9 defines the methods on the version 9 facade for the
+// modelmanager API endpoint.
+type ModelManagerV9 interface {
+	ModelManagerV8
+	ValidateModelUpgrades(args params.ValidateModelUpgradeParams) (params.ErrorResults, error)
+}
+
 // ModelManagerV8 defines the methods on the version 8 facade for the
 // modelmanager API endpoint.
 type ModelManagerV8 interface {
@@ -115,11 +122,30 @@ type ModelManagerV2 interface {
 
 type newCaasBrokerFunc func(args environs.OpenParams) (caas.Broker, error)
 
+// StatePool represents a point of use interface for getting the state from the
+// pool.
+type StatePool interface {
+	Get(string) (State, error)
+}
+
+// State represents a point of use interface for modelling a current model.
+type State interface {
+	Model() (Model, error)
+	HasUpgradeSeriesLocks() (bool, error)
+	Release() bool
+}
+
+// Model defines a point of use interface for the model from state.
+type Model interface {
+	IsControllerModel() bool
+}
+
 // ModelManagerAPI implements the model manager interface and is
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
 	*common.ModelStatusAPI
 	state       common.ModelManagerBackend
+	statePool   StatePool
 	ctlrState   common.ModelManagerBackend
 	check       *common.BlockChecker
 	authorizer  facade.Authorizer
@@ -131,10 +157,16 @@ type ModelManagerAPI struct {
 	callContext context.ProviderCallContext
 }
 
+// ModelManagerAPIV8 provides a way to wrap the different calls between
+// version 8 and version 8 of the model manager API
+type ModelManagerAPIV8 struct {
+	*ModelManagerAPI
+}
+
 // ModelManagerAPIV7 provides a way to wrap the different calls between
 // version 8 and version 7 of the model manager API
 type ModelManagerAPIV7 struct {
-	*ModelManagerAPI
+	*ModelManagerAPIV8
 }
 
 // ModelManagerAPIV6 provides a way to wrap the different calls between
@@ -168,7 +200,8 @@ type ModelManagerAPIV2 struct {
 }
 
 var (
-	_ ModelManagerV8 = (*ModelManagerAPI)(nil)
+	_ ModelManagerV9 = (*ModelManagerAPI)(nil)
+	_ ModelManagerV8 = (*ModelManagerAPIV8)(nil)
 	_ ModelManagerV7 = (*ModelManagerAPIV7)(nil)
 	_ ModelManagerV6 = (*ModelManagerAPIV6)(nil)
 	_ ModelManagerV5 = (*ModelManagerAPIV5)(nil)
@@ -177,8 +210,8 @@ var (
 	_ ModelManagerV2 = (*ModelManagerAPIV2)(nil)
 )
 
-// NewFacadeV8 is used for API registration.
-func NewFacadeV8(ctx facade.Context) (*ModelManagerAPI, error) {
+// NewFacadeV9 is used for API registration.
+func NewFacadeV9(ctx facade.Context) (*ModelManagerAPI, error) {
 	st := ctx.State()
 	pool := ctx.StatePool()
 	ctlrSt := pool.SystemState()
@@ -207,12 +240,24 @@ func NewFacadeV8(ctx facade.Context) (*ModelManagerAPI, error) {
 	return NewModelManagerAPI(
 		common.NewUserAwareModelManagerBackend(model, pool, apiUser),
 		common.NewModelManagerBackend(ctrlModel, pool),
+		statePoolShim{
+			StatePool: pool,
+		},
 		configGetter,
 		caas.New,
 		auth,
 		model,
 		context.CallContext(st),
 	)
+}
+
+// NewFacadeV8 is used for API registration.
+func NewFacadeV8(ctx facade.Context) (*ModelManagerAPIV8, error) {
+	v9, err := NewFacadeV9(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &ModelManagerAPIV8{v9}, nil
 }
 
 // NewFacadeV7 is used for API registration.
@@ -260,7 +305,7 @@ func NewFacadeV3(ctx facade.Context) (*ModelManagerAPIV3, error) {
 	return &ModelManagerAPIV3{v4}, nil
 }
 
-// NewFacade is used for API registration.
+// NewFacadeV2 is used for API registration.
 func NewFacadeV2(ctx facade.Context) (*ModelManagerAPIV2, error) {
 	v3, err := NewFacadeV3(ctx)
 	if err != nil {
@@ -274,6 +319,7 @@ func NewFacadeV2(ctx facade.Context) (*ModelManagerAPIV2, error) {
 func NewModelManagerAPI(
 	st common.ModelManagerBackend,
 	ctlrSt common.ModelManagerBackend,
+	stPool StatePool,
 	configGetter environs.EnvironConfigGetter,
 	getBroker newCaasBrokerFunc,
 	authorizer facade.Authorizer,
@@ -304,6 +350,7 @@ func NewModelManagerAPI(
 		ModelStatusAPI: common.NewModelStatusAPI(st, authorizer, apiUser),
 		state:          st,
 		ctlrState:      ctlrSt,
+		statePool:      stPool,
 		getBroker:      getBroker,
 		check:          common.NewBlockChecker(st),
 		authorizer:     authorizer,
@@ -1394,7 +1441,8 @@ func changeModelAccess(accessor common.ModelManagerBackend, modelTag names.Model
 	}
 }
 
-// ModelDefaults returns the default config values for the specified clouds.
+// ModelDefaultsForClouds returns the default config values for the specified
+// clouds.
 func (m *ModelManagerAPI) ModelDefaultsForClouds(args params.Entities) (params.ModelDefaultsResults, error) {
 	result := params.ModelDefaultsResults{}
 	if !m.isAdmin {
@@ -1529,22 +1577,22 @@ func (m *ModelManagerAPI) makeRegionSpec(cloudTag, r string) (*environscloudspec
 // ModelStatus is a legacy method call to ensure that we preserve
 // backward compatibility.
 // TODO (anastasiamac 2017-10-26) This should be made obsolete/removed.
-func (s *ModelManagerAPIV2) ModelStatus(req params.Entities) (params.ModelStatusResults, error) {
-	return s.ModelManagerAPI.oldModelStatus(req)
+func (m *ModelManagerAPIV2) ModelStatus(req params.Entities) (params.ModelStatusResults, error) {
+	return m.ModelManagerAPI.oldModelStatus(req)
 }
 
 // ModelStatus is a legacy method call to ensure that we preserve
 // backward compatibility.
 // TODO (anastasiamac 2017-10-26) This should be made obsolete/removed.
-func (s *ModelManagerAPIV3) ModelStatus(req params.Entities) (params.ModelStatusResults, error) {
-	return s.ModelManagerAPI.oldModelStatus(req)
+func (m *ModelManagerAPIV3) ModelStatus(req params.Entities) (params.ModelStatusResults, error) {
+	return m.ModelManagerAPI.oldModelStatus(req)
 }
 
 // ModelStatus is a legacy method call to ensure that we preserve
 // backward compatibility.
 // TODO (anastasiamac 2017-10-26) This should be made obsolete/removed.
-func (s *ModelManagerAPI) oldModelStatus(req params.Entities) (params.ModelStatusResults, error) {
-	results, err := s.ModelStatusAPI.ModelStatus(req)
+func (m *ModelManagerAPI) oldModelStatus(req params.Entities) (params.ModelStatusResults, error) {
+	results, err := m.ModelStatusAPI.ModelStatus(req)
 	if err != nil {
 		return params.ModelStatusResults{}, err
 	}
@@ -1556,7 +1604,7 @@ func (s *ModelManagerAPI) oldModelStatus(req params.Entities) (params.ModelStatu
 	return results, nil
 }
 
-// ChangeModelCredentials changes cloud credential reference for models.
+// ChangeModelCredential changes cloud credential reference for models.
 // These new cloud credentials must already exist on the controller.
 func (m *ModelManagerAPI) ChangeModelCredential(args params.ChangeModelCredentialsParams) (params.ErrorResults, error) {
 	if err := m.check.ChangeAllowed(); err != nil {
@@ -1616,15 +1664,101 @@ func (m *ModelManagerAPI) ChangeModelCredential(args params.ChangeModelCredentia
 			results[i].Error = apiservererrors.ServerError(err)
 		}
 	}
-	return params.ErrorResults{results}, nil
+	return params.ErrorResults{Results: results}, nil
+}
+
+// ValidateModelUpgrades validates if a model is allowed to perform an upgrade.
+// Examples of why you would want to block a model upgrade, would be situations
+// like upgrade-series. If performing an upgrade-series we don't know the
+// current status of the machine, so performing an upgrade-model can lead to
+// bad unintended errors down the line.
+func (m *ModelManagerAPI) ValidateModelUpgrades(args params.ValidateModelUpgradeParams) (params.ErrorResults, error) {
+	if err := m.check.ChangeAllowed(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	controllerAdmin, err := m.authorizer.HasPermission(permission.SuperuserAccess, m.state.ControllerTag())
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	// Only controller or model admin can change cloud credential on a model.
+	checkModelAccess := func(tag names.ModelTag) error {
+		if controllerAdmin {
+			return nil
+		}
+		modelAdmin, err := m.authorizer.HasPermission(permission.AdminAccess, tag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if modelAdmin {
+			return nil
+		}
+		return apiservererrors.ErrPerm
+	}
+
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Models)),
+	}
+	for i, arg := range args.Models {
+		modelTag, err := names.ParseModelTag(arg.ModelTag)
+		if err != nil {
+			results.Results[i] = params.ErrorResult{Error: apiservererrors.ServerError(err)}
+			continue
+		}
+		if err := checkModelAccess(modelTag); err != nil {
+			results.Results[i] = params.ErrorResult{Error: apiservererrors.ServerError(err)}
+			continue
+		}
+
+		// We now need to access the state pool for that given model.
+		st, err := m.statePool.Get(modelTag.Id())
+		if err != nil {
+			results.Results[i] = params.ErrorResult{Error: apiservererrors.ServerError(err)}
+			continue
+		}
+		defer st.Release()
+
+		model, err := st.Model()
+		if err != nil {
+			results.Results[i] = params.ErrorResult{Error: apiservererrors.ServerError(err)}
+			continue
+		}
+
+		// If it's a controller model then we don't require certain validation
+		// checks.
+		if model.IsControllerModel() {
+			continue
+		}
+
+		// Now check for the validation of a model upgrade.
+		if err := m.validateNoSeriesUpgrades(st, args.Force); err != nil {
+			results.Results[i] = params.ErrorResult{Error: apiservererrors.ServerError(err)}
+			continue
+		}
+	}
+	return results, nil
+}
+
+func (m *ModelManagerAPI) validateNoSeriesUpgrades(st State, force bool) error {
+	locked, err := st.HasUpgradeSeriesLocks()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if locked && !force {
+		return errors.Errorf("unexpected upgrade series lock found")
+	}
+	return nil
 }
 
 // Mask out new methods from the old API versions. The API reflection
 // code in rpc/rpcreflect/type.go:newMethod skips 2-argument methods,
 // so this removes the method as far as the RPC machinery is concerned.
-//
+
 // ChangeModelCredential did not exist prior to v5.
 func (*ModelManagerAPIV4) ChangeModelCredential(_, _ struct{}) {}
 
 // ModelDefaultsForClouds did not exist prior to v6.
 func (*ModelManagerAPIV5) ModelDefaultsForClouds(_, _ struct{}) {}
+
+// ValidateModelUpgrade did not exist prior to v9.
+func (*ModelManagerAPIV8) ValidateModelUpgrade(_, _ struct{}) {}
