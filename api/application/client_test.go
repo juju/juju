@@ -1739,6 +1739,16 @@ func (s *applicationSuite) TestExposeVersionChecks(c *gc.C) {
 			expErr: "",
 		},
 		{
+			descr:         "use expose parameters with pre 2.9 controller but expose all endpoints to 0.0.0.0/0 and ::/0",
+			facadeVersion: 12,
+			exposedEndpoints: map[string]params.ExposedEndpoint{
+				"": {
+					ExposeToCIDRs: []string{"0.0.0.0/0", "::/0"},
+				},
+			},
+			expErr: "",
+		},
+		{
 			descr:            "don't use expose parameters",
 			facadeVersion:    12,
 			exposedEndpoints: nil,

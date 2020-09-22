@@ -4801,7 +4801,7 @@ func (s *upgradesSuite) TestExposeWildcardEndpointForExposedApplication(c *gc.C)
 			"exposed":    true,
 			"exposed-endpoints": bson.M{
 				"": bson.M{
-					"to-cidrs": []interface{}{"0.0.0.0/0"},
+					"to-cidrs": []interface{}{"0.0.0.0/0", "::/0"},
 				},
 			},
 		},

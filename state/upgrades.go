@@ -3185,7 +3185,7 @@ func ExposeWildcardEndpointForExposedApplications(pool *StatePool) error {
 
 		var implicitExposedEndpoints = map[string]ExposedEndpoint{
 			"": {
-				ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR},
+				ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR},
 			},
 		}
 

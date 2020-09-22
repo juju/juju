@@ -2468,10 +2468,10 @@ func (s *ApplicationSuite) TestApplicationExposeWithoutSpaceAndCIDR(c *gc.C) {
 
 	exp := map[string]state.ExposedEndpoint{
 		"server": {
-			ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR},
+			ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR},
 		},
 	}
-	c.Assert(s.mysql.ExposedEndpoints(), gc.DeepEquals, exp, gc.Commentf("expected the implicit 0.0.0.0/0 CIDR to be added when an empty ExposedEndpoint value is provided to MergeExposeSettings"))
+	c.Assert(s.mysql.ExposedEndpoints(), gc.DeepEquals, exp, gc.Commentf("expected the implicit 0.0.0.0/0 and ::/0 CIDRs to be added when an empty ExposedEndpoint value is provided to MergeExposeSettings"))
 }
 
 func (s *ApplicationSuite) TestApplicationUnsetExposeEndpoints(c *gc.C) {

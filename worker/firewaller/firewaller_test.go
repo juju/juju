@@ -1269,7 +1269,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressFallbackToPublic(c *gc.C) {
 	for i := 1; i < 30; i++ {
 		ingress = append(ingress, fmt.Sprintf("10.%d.0.1/32", i))
 	}
-	s.assertIngressCidrs(c, ingress, []string{"0.0.0.0/0"})
+	s.assertIngressCidrs(c, ingress, []string{"0.0.0.0/0", "::/0"})
 }
 
 func (s *InstanceModeSuite) TestRemoteRelationIngressFallbackToWhitelist(c *gc.C) {

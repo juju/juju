@@ -2510,7 +2510,7 @@ func (s *applicationSuite) TestApplicationExposeEndpoints(c *gc.C) {
 		ApplicationName: app.Name(),
 		ExposedEndpoints: map[string]params.ExposedEndpoint{
 			// Exposing an endpoint with no expose options implies
-			// expose to 0.0.0.0/0.
+			// expose to 0.0.0.0/0 and ::/0.
 			"monitoring-port": {},
 		},
 	})
@@ -2521,7 +2521,7 @@ func (s *applicationSuite) TestApplicationExposeEndpoints(c *gc.C) {
 	c.Assert(got.IsExposed(), gc.Equals, true)
 	c.Assert(got.ExposedEndpoints(), gc.DeepEquals, map[string]state.ExposedEndpoint{
 		"monitoring-port": {
-			ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR},
+			ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR},
 		},
 	})
 }
@@ -2535,7 +2535,7 @@ func (s *applicationSuite) TestApplicationExposeEndpointsWithPre29Client(c *gc.C
 		ApplicationName: app.Name(),
 		// If no endpoint-specific expose params are provided, the call
 		// will emulate the behavior of a pre 2.9 controller where all
-		// ports are exposed to 0.0.0.0/0.
+		// ports are exposed to 0.0.0.0/0 and ::/0.
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2544,7 +2544,7 @@ func (s *applicationSuite) TestApplicationExposeEndpointsWithPre29Client(c *gc.C
 	c.Assert(got.IsExposed(), gc.Equals, true)
 	c.Assert(got.ExposedEndpoints(), gc.DeepEquals, map[string]state.ExposedEndpoint{
 		"": {
-			ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR},
+			ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR},
 		},
 	})
 }
@@ -2583,7 +2583,7 @@ var applicationExposeTests = []struct {
 		expExposed:  true,
 		expExposedEndpoints: map[string]state.ExposedEndpoint{
 			"": {
-				ExposeToCIDRs: []string{"0.0.0.0/0"},
+				ExposeToCIDRs: []string{"0.0.0.0/0", "::/0"},
 			},
 		},
 	},
@@ -2593,7 +2593,7 @@ var applicationExposeTests = []struct {
 		expExposed:  true,
 		expExposedEndpoints: map[string]state.ExposedEndpoint{
 			"": {
-				ExposeToCIDRs: []string{"0.0.0.0/0"},
+				ExposeToCIDRs: []string{"0.0.0.0/0", "::/0"},
 			},
 		},
 	},
@@ -2715,7 +2715,7 @@ var applicationUnexposeTests = []struct {
 		// The server-admin (and hence the app) should remain exposed
 		expExposed: true,
 		expExposedEndpoints: map[string]state.ExposedEndpoint{
-			"server-admin": {ExposeToCIDRs: []string{"0.0.0.0/0"}},
+			"server-admin": {ExposeToCIDRs: []string{"0.0.0.0/0", "::/0"}},
 		},
 	},
 	{

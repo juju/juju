@@ -956,6 +956,7 @@ func (fw *Firewaller) updateForRemoteRelationIngress(appTag names.ApplicationTag
 		// No relevant firewall rule exists, so go public.
 		if cidrs.Size() == 0 {
 			cidrs.Add(firewall.AllNetworksIPV4CIDR)
+			cidrs.Add(firewall.AllNetworksIPV6CIDR)
 		}
 	}
 
