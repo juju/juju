@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 
+	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	corecharm "github.com/juju/juju/core/charm"
@@ -42,6 +43,8 @@ type RefresherConfig struct {
 	ForceSeries     bool
 }
 
+// RefresherFn defines a function alias to create a Refresher from a given
+// function.
 type RefresherFn = func(RefresherConfig) (Refresher, error)
 
 type factory struct {
@@ -58,6 +61,7 @@ func NewRefresherFactory(deps RefresherDependencies) RefresherFactory {
 	d.refreshers = []RefresherFn{
 		d.maybeReadLocal(deps.CharmAdder, defaultCharmRepo{}),
 		d.maybeCharmStore(deps.Authorizer, deps.CharmAdder, deps.CharmResolver),
+		d.maybeCharmHub(deps.CharmAdder, deps.CharmResolver),
 	}
 	return d
 }
@@ -116,15 +120,34 @@ func (d *factory) maybeReadLocal(charmAdder store.CharmAdder, charmRepo CharmRep
 func (d *factory) maybeCharmStore(authorizer store.MacaroonGetter, charmAdder store.CharmAdder, charmResolver CharmResolver) func(RefresherConfig) (Refresher, error) {
 	return func(cfg RefresherConfig) (Refresher, error) {
 		return &charmStoreRefresher{
-			authorizer:     authorizer,
-			charmAdder:     charmAdder,
-			charmResolver:  charmResolver,
-			charmURL:       cfg.CharmURL,
-			charmRef:       cfg.CharmRef,
-			channel:        cfg.Channel,
-			deployedSeries: cfg.DeployedSeries,
-			force:          cfg.Force,
-			forceSeries:    cfg.ForceSeries,
+			baseRefresher: baseRefresher{
+				charmAdder:     charmAdder,
+				charmResolver:  charmResolver,
+				charmURL:       cfg.CharmURL,
+				charmRef:       cfg.CharmRef,
+				channel:        cfg.Channel,
+				deployedSeries: cfg.DeployedSeries,
+				force:          cfg.Force,
+				forceSeries:    cfg.ForceSeries,
+			},
+			authorizer: authorizer,
+		}, nil
+	}
+}
+
+func (d *factory) maybeCharmHub(charmAdder store.CharmAdder, charmResolver CharmResolver) func(RefresherConfig) (Refresher, error) {
+	return func(cfg RefresherConfig) (Refresher, error) {
+		return &charmHubRefresher{
+			baseRefresher: baseRefresher{
+				charmAdder:     charmAdder,
+				charmResolver:  charmResolver,
+				charmURL:       cfg.CharmURL,
+				charmRef:       cfg.CharmRef,
+				channel:        cfg.Channel,
+				deployedSeries: cfg.DeployedSeries,
+				force:          cfg.Force,
+				forceSeries:    cfg.ForceSeries,
+			},
 		}, nil
 	}
 }
@@ -181,8 +204,7 @@ func (d *localCharmRefresher) String() string {
 	return fmt.Sprintf("attempting to refresh local charm %q", d.charmRef)
 }
 
-type charmStoreRefresher struct {
-	authorizer     store.MacaroonGetter
+type baseRefresher struct {
 	charmAdder     store.CharmAdder
 	charmResolver  CharmResolver
 	charmURL       *charm.URL
@@ -191,6 +213,55 @@ type charmStoreRefresher struct {
 	deployedSeries string
 	force          bool
 	forceSeries    bool
+}
+
+func (r baseRefresher) ResolveCharm() (*charm.URL, commoncharm.Origin, error) {
+	refURL, err := charm.ParseURL(r.charmRef)
+	if err != nil {
+		return nil, commoncharm.Origin{}, errors.Trace(err)
+	}
+
+	origin, err := utils.DeduceOrigin(refURL, r.channel)
+	if err != nil {
+		return nil, commoncharm.Origin{}, errors.Trace(err)
+	}
+
+	// Charm has been supplied as a URL so we resolve and deploy using the store.
+	newURL, origin, supportedSeries, err := r.charmResolver.ResolveCharm(refURL, origin)
+	if err != nil {
+		return nil, commoncharm.Origin{}, errors.Trace(err)
+	}
+
+	_, seriesSupportedErr := charm.SeriesForCharm(r.deployedSeries, supportedSeries)
+	if !r.forceSeries && r.deployedSeries != "" && newURL.Series == "" && seriesSupportedErr != nil {
+		series := []string{"no series"}
+		if len(supportedSeries) > 0 {
+			series = supportedSeries
+		}
+		return nil, commoncharm.Origin{}, errors.Errorf(
+			"cannot upgrade from single series %q charm to a charm supporting %q. Use --force-series to override.",
+			r.deployedSeries, series,
+		)
+	}
+
+	// If no explicit revision was set with either SwitchURL
+	// or Revision flags, discover the latest.
+	if *newURL == *r.charmURL {
+		if refURL.Revision != -1 {
+			return nil, commoncharm.Origin{}, errors.Errorf("already running specified charm %q", newURL)
+		}
+		// No point in trying to upgrade a charm store charm when
+		// we just determined that's the latest revision
+		// available.
+		return nil, commoncharm.Origin{}, errors.Errorf("already running latest charm %q", newURL)
+	}
+
+	return newURL, origin, nil
+}
+
+type charmStoreRefresher struct {
+	baseRefresher
+	authorizer store.MacaroonGetter
 }
 
 // Allowed will attempt to check if the charm store is allowed to refresh.
@@ -259,7 +330,7 @@ func (r *charmStoreRefresher) Refresh() (*CharmID, error) {
 		return nil, errors.Errorf("already running latest charm %q", newURL)
 	}
 
-	curl, csMac, _, err := store.AddCharmFromURL(r.charmAdder, r.authorizer, newURL, origin, r.force, r.deployedSeries)
+	curl, csMac, _, err := store.AddCharmWithAuthorizationFromURL(r.charmAdder, r.authorizer, newURL, origin, r.force, r.deployedSeries)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -279,4 +350,52 @@ type defaultCharmRepo struct{}
 
 func (defaultCharmRepo) NewCharmAtPathForceSeries(path, series string, force bool) (charm.Charm, *charm.URL, error) {
 	return charmrepo.NewCharmAtPathForceSeries(path, series, force)
+}
+
+type charmHubRefresher struct {
+	baseRefresher
+}
+
+// Allowed will attempt to check if the charm store is allowed to refresh.
+// Depending on the charm url, will then determine if that's true or not.
+func (r *charmHubRefresher) Allowed(cfg RefresherConfig) (bool, error) {
+	if featureflag.Enabled(feature.CharmHubIntegration) {
+		path, err := charm.EnsureSchema(cfg.CharmRef)
+		if err != nil {
+			return false, errors.Trace(err)
+		}
+
+		curl, err := charm.ParseURL(path)
+		if err != nil {
+			return false, errors.Trace(err)
+		}
+
+		if charm.CharmHub.Matches(curl.Schema) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// Refresh a given charm hub charm.
+// Bundles are not supported as there is no physical representation in Juju.
+func (r *charmHubRefresher) Refresh() (*CharmID, error) {
+	newURL, origin, err := r.ResolveCharm()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	curl, _, err := store.AddCharmFromURL(r.charmAdder, newURL, origin, r.force, r.deployedSeries)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return &CharmID{
+		URL:    curl,
+		Origin: origin.CoreCharmOrigin(),
+	}, nil
+}
+
+func (r *charmHubRefresher) String() string {
+	return fmt.Sprintf("attempting to refresh charm hub charm %q", r.charmRef)
 }

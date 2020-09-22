@@ -440,7 +440,7 @@ func (c *charmStoreCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	}
 
 	// Store the charm in the controller
-	curl, csMac, csOrigin, err := store.AddCharmFromURL(deployAPI, macaroonGetter, storeCharmOrBundleURL, c.origin, c.force, series)
+	curl, csMac, csOrigin, err := store.AddCharmWithAuthorizationFromURL(deployAPI, macaroonGetter, storeCharmOrBundleURL, c.origin, c.force, series)
 	if err != nil {
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 			return errors.Trace(termErr.UserErr())

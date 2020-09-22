@@ -330,3 +330,97 @@ func (s *charmStoreCharmRefresherSuite) TestRefreshWithARevision(c *gc.C) {
 	_, err = task.Refresh()
 	c.Assert(err, gc.ErrorMatches, `already running specified charm "cs:meshuggah-1"`)
 }
+
+type charmHubCharmRefresherSuite struct{}
+
+var _ = gc.Suite(&charmHubCharmRefresherSuite{})
+
+func (s *charmHubCharmRefresherSuite) TestRefresh(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ref := "ch:meshuggah"
+	curl := charm.MustParseURL(ref)
+	newCurl := charm.MustParseURL(fmt.Sprintf("%s-1", ref))
+	origin := commoncharm.Origin{
+		Source: commoncharm.OriginCharmHub,
+	}
+
+	charmAdder := NewMockCharmAdder(ctrl)
+	charmAdder.EXPECT().AddCharm(newCurl, origin, false).Return(origin, nil)
+
+	charmResolver := NewMockCharmResolver(ctrl)
+	charmResolver.EXPECT().ResolveCharm(curl, origin).Return(newCurl, origin, []string{}, nil)
+
+	cfg := RefresherConfig{
+		CharmURL: curl,
+		CharmRef: ref,
+	}
+
+	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
+	task, err := refresher(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	charmID, err := task.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(charmID, gc.DeepEquals, &CharmID{
+		URL:    newCurl,
+		Origin: origin.CoreCharmOrigin(),
+	})
+}
+
+func (s *charmHubCharmRefresherSuite) TestRefreshWithNoUpdates(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ref := "ch:meshuggah"
+	curl := charm.MustParseURL(ref)
+	origin := commoncharm.Origin{
+		Source: commoncharm.OriginCharmHub,
+	}
+
+	charmAdder := NewMockCharmAdder(ctrl)
+
+	charmResolver := NewMockCharmResolver(ctrl)
+	charmResolver.EXPECT().ResolveCharm(curl, origin).Return(curl, origin, []string{}, nil)
+
+	cfg := RefresherConfig{
+		CharmURL: curl,
+		CharmRef: ref,
+	}
+
+	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
+	task, err := refresher(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = task.Refresh()
+	c.Assert(err, gc.ErrorMatches, `already running latest charm "meshuggah"`)
+}
+
+func (s *charmHubCharmRefresherSuite) TestRefreshWithARevision(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ref := "ch:meshuggah-1"
+	curl := charm.MustParseURL(ref)
+	origin := commoncharm.Origin{
+		Source: commoncharm.OriginCharmHub,
+	}
+
+	charmAdder := NewMockCharmAdder(ctrl)
+
+	charmResolver := NewMockCharmResolver(ctrl)
+	charmResolver.EXPECT().ResolveCharm(curl, origin).Return(curl, origin, []string{}, nil)
+
+	cfg := RefresherConfig{
+		CharmURL: curl,
+		CharmRef: ref,
+	}
+
+	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
+	task, err := refresher(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = task.Refresh()
+	c.Assert(err, gc.ErrorMatches, `already running specified charm "meshuggah-1"`)
+}
