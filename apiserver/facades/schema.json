@@ -2267,18 +2267,6 @@
                     },
                     "description": "Set implements the server side of Application.Set.\nIt does not unset values that are set to an empty string.\nUnset should be used for that."
                 },
-                "SetApplicationsConfig": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/ApplicationConfigSetArgs"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "SetApplicationsConfig implements the server side of Application.SetApplicationsConfig.\nIt does not unset values that are set to an empty string.\nUnset should be used for that."
-                },
                 "SetCharm": {
                     "type": "object",
                     "properties": {
@@ -2287,6 +2275,18 @@
                         }
                     },
                     "description": "SetCharm sets the charm for a given for the application."
+                },
+                "SetConfigs": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/ConfigSetArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "SetConfig implements the server side of Application.SetConfig.  Both\napplication and charm config are set. It does not unset values in\nConfig map that are set to an empty string. Unset should be used for that."
                 },
                 "SetConstraints": {
                     "type": "object",
@@ -2362,15 +2362,6 @@
                         }
                     },
                     "description": "UnsetApplicationsConfig implements the server side of Application.UnsetApplicationsConfig."
-                },
-                "Update": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/ApplicationUpdate"
-                        }
-                    },
-                    "description": "Update updates the application attributes, including charm URL,\nminimum number of units, charm config and constraints.\nAll parameters in params.ApplicationUpdate except the application name are optional."
                 },
                 "UpdateApplicationSeries": {
                     "type": "object",
@@ -2496,46 +2487,6 @@
                     "additionalProperties": false,
                     "required": [
                         "charm-relations"
-                    ]
-                },
-                "ApplicationConfigSet": {
-                    "type": "object",
-                    "properties": {
-                        "application": {
-                            "type": "string"
-                        },
-                        "config": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "generation": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "application",
-                        "generation",
-                        "config"
-                    ]
-                },
-                "ApplicationConfigSetArgs": {
-                    "type": "object",
-                    "properties": {
-                        "Args": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ApplicationConfigSet"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "Args"
                     ]
                 },
                 "ApplicationConfigUnsetArgs": {
@@ -3158,56 +3109,6 @@
                         "options"
                     ]
                 },
-                "ApplicationUpdate": {
-                    "type": "object",
-                    "properties": {
-                        "application": {
-                            "type": "string"
-                        },
-                        "charm-url": {
-                            "type": "string"
-                        },
-                        "constraints": {
-                            "$ref": "#/definitions/Value"
-                        },
-                        "force": {
-                            "type": "boolean"
-                        },
-                        "force-charm-url": {
-                            "type": "boolean"
-                        },
-                        "force-series": {
-                            "type": "boolean"
-                        },
-                        "generation": {
-                            "type": "string"
-                        },
-                        "min-units": {
-                            "type": "integer"
-                        },
-                        "settings": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "settings-yaml": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "application",
-                        "charm-url",
-                        "force-charm-url",
-                        "force-series",
-                        "force",
-                        "settings-yaml",
-                        "generation"
-                    ]
-                },
                 "ApplicationsDeploy": {
                     "type": "object",
                     "properties": {
@@ -3321,6 +3222,50 @@
                     "additionalProperties": false,
                     "required": [
                         "config"
+                    ]
+                },
+                "ConfigSet": {
+                    "type": "object",
+                    "properties": {
+                        "application": {
+                            "type": "string"
+                        },
+                        "config": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "config-yaml": {
+                            "type": "string"
+                        },
+                        "generation": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "application",
+                        "generation",
+                        "config",
+                        "config-yaml"
+                    ]
+                },
+                "ConfigSetArgs": {
+                    "type": "object",
+                    "properties": {
+                        "Args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ConfigSet"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Args"
                     ]
                 },
                 "Constraints": {
