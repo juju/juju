@@ -50,7 +50,7 @@ manual_deploy() {
 
     juju enable-ha >"${TEST_DIR}/enable-ha.log" 2>&1
 
-    juju deploy percona-cluster
+    juju deploy cs:percona-cluster
 
     wait_for "percona-cluster" "$(idle_condition "percona-cluster" 0 0)"
 
