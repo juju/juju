@@ -4,10 +4,12 @@
 package instance
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
 	"strings"
+	"text/scanner"
 
 	"github.com/juju/utils/arch"
 )
@@ -40,10 +42,20 @@ type HardwareCharacteristics struct {
 	AvailabilityZone *string `json:"availability-zone,omitempty" yaml:"availabilityzone,omitempty"`
 }
 
+// quoteIfNeeded quotes s (according to Go string quoting rules) if it
+// contains a space or comma, otherwise returns the original string.
+func quoteIfNeeded(s string) string {
+	if strings.IndexAny(s, " ,") < 0 {
+		// No space in string, return as is
+		return s
+	}
+	return strconv.Quote(s)
+}
+
 func (hc HardwareCharacteristics) String() string {
 	var strs []string
 	if hc.Arch != nil {
-		strs = append(strs, fmt.Sprintf("arch=%s", *hc.Arch))
+		strs = append(strs, fmt.Sprintf("arch=%s", quoteIfNeeded(*hc.Arch)))
 	}
 	if hc.CpuCores != nil {
 		strs = append(strs, fmt.Sprintf("cores=%d", *hc.CpuCores))
@@ -58,13 +70,17 @@ func (hc HardwareCharacteristics) String() string {
 		strs = append(strs, fmt.Sprintf("root-disk=%dM", *hc.RootDisk))
 	}
 	if hc.RootDiskSource != nil {
-		strs = append(strs, fmt.Sprintf("root-disk-source=%s", *hc.RootDiskSource))
+		strs = append(strs, fmt.Sprintf("root-disk-source=%s", quoteIfNeeded(*hc.RootDiskSource)))
 	}
 	if hc.Tags != nil && len(*hc.Tags) > 0 {
-		strs = append(strs, fmt.Sprintf("tags=%s", strings.Join(*hc.Tags, ",")))
+		escapedTags := make([]string, len(*hc.Tags))
+		for i, tag := range *hc.Tags {
+			escapedTags[i] = quoteIfNeeded(tag)
+		}
+		strs = append(strs, fmt.Sprintf("tags=%s", strings.Join(escapedTags, ",")))
 	}
 	if hc.AvailabilityZone != nil && *hc.AvailabilityZone != "" {
-		strs = append(strs, fmt.Sprintf("availability-zone=%s", *hc.AvailabilityZone))
+		strs = append(strs, fmt.Sprintf("availability-zone=%s", quoteIfNeeded(*hc.AvailabilityZone)))
 	}
 	return strings.Join(strs, " ")
 }
@@ -99,51 +115,143 @@ func MustParseHardware(args ...string) HardwareCharacteristics {
 func ParseHardware(args ...string) (HardwareCharacteristics, error) {
 	hc := HardwareCharacteristics{}
 	for _, arg := range args {
-		raws := strings.Split(strings.TrimSpace(arg), " ")
-		for _, raw := range raws {
-			if raw == "" {
-				continue
+		arg = strings.TrimSpace(arg)
+		for arg != "" {
+			var err error
+			arg, err = hc.parseField(arg)
+			if err != nil {
+				return hc, err
 			}
-			if err := hc.setRaw(raw); err != nil {
-				return HardwareCharacteristics{}, err
-			}
+			arg = strings.TrimSpace(arg)
 		}
 	}
 	return hc, nil
 }
 
-// setRaw interprets a name=value string and sets the supplied value.
-func (hc *HardwareCharacteristics) setRaw(raw string) error {
-	eq := strings.Index(raw, "=")
+// parseField parses a single name=value (or name="value") field into the
+// corresponding field of the receiver.
+func (hc *HardwareCharacteristics) parseField(s string) (rest string, err error) {
+	eq := strings.IndexByte(s, '=')
 	if eq <= 0 {
-		return fmt.Errorf("malformed characteristic %q", raw)
+		return s, fmt.Errorf("malformed characteristic %q", s)
 	}
-	name, str := raw[:eq], raw[eq+1:]
-	var err error
+	name, rest := s[:eq], s[eq+1:]
+
 	switch name {
-	case "arch":
-		err = hc.setArch(str)
-	case "cores":
-		err = hc.setCpuCores(str)
-	case "cpu-power":
-		err = hc.setCpuPower(str)
-	case "mem":
-		err = hc.setMem(str)
-	case "root-disk":
-		err = hc.setRootDisk(str)
-	case "root-disk-source":
-		err = hc.setRootDiskSource(str)
 	case "tags":
-		err = hc.setTags(str)
-	case "availability-zone":
-		err = hc.setAvailabilityZone(str)
+		// Tags is a multi-valued field (comma separated)
+		var values []string
+		values, rest, err = parseMulti(rest)
+		if err != nil {
+			return rest, fmt.Errorf("%s: %v", name, err)
+		}
+		err = hc.setTags(values)
 	default:
-		return fmt.Errorf("unknown characteristic %q", name)
+		// All other fields are single-valued
+		var value string
+		value, rest, err = parseSingle(rest, " ")
+		if err != nil {
+			return rest, fmt.Errorf("%s: %v", name, err)
+		}
+		switch name {
+		case "arch":
+			err = hc.setArch(value)
+		case "cores":
+			err = hc.setCpuCores(value)
+		case "cpu-power":
+			err = hc.setCpuPower(value)
+		case "mem":
+			err = hc.setMem(value)
+		case "root-disk":
+			err = hc.setRootDisk(value)
+		case "root-disk-source":
+			err = hc.setRootDiskSource(value)
+		case "availability-zone":
+			err = hc.setAvailabilityZone(value)
+		default:
+			return rest, fmt.Errorf("unknown characteristic %q", name)
+		}
 	}
 	if err != nil {
-		return fmt.Errorf("bad %q characteristic: %v", name, err)
+		return rest, fmt.Errorf("bad %q characteristic: %v", name, err)
 	}
-	return nil
+	return rest, nil
+}
+
+// parseSingle parses a single (optionally quoted) value from s and returns
+// the value and the remainder of the string.
+func parseSingle(s string, seps string) (value, rest string, err error) {
+	if len(s) > 0 && s[0] == '"' {
+		value, rest, err = parseQuotedString(s)
+		if err != nil {
+			return "", rest, err
+		}
+	} else {
+		sepPos := strings.IndexAny(s, seps)
+		value = s
+		if sepPos >= 0 {
+			value, rest = value[:sepPos], value[sepPos:]
+		}
+	}
+	return value, rest, nil
+}
+
+// parseMulti parses multiple (optionally quoted) comma-separated values from s
+// and returns the values and the remainder of the string.
+func parseMulti(s string) (values []string, rest string, err error) {
+	needComma := false
+	rest = s
+	for rest != "" && rest[0] != ' ' {
+		if needComma {
+			if rest[0] != ',' {
+				return values, rest, errors.New("expected comma after quoted value")
+			}
+			rest = rest[1:]
+		}
+		needComma = true
+
+		var value string
+		value, rest, err = parseSingle(rest, ", ")
+		if err != nil {
+			return values, rest, err
+		}
+		values = append(values, value)
+	}
+	return values, rest, nil
+}
+
+// parseQuotedString parses a string name=value argument, returning the
+// unquoted value and the remainder of the string.
+func parseQuotedString(input string) (value, rest string, err error) {
+	// Use text/scanner to find end of quoted string
+	var s scanner.Scanner
+	s.Init(strings.NewReader(input))
+	s.Mode = scanner.ScanStrings
+	s.Whitespace = 0
+	var errMsg string
+	s.Error = func(s *scanner.Scanner, msg string) {
+		// Record first error
+		if errMsg == "" {
+			errMsg = msg
+		}
+	}
+	tok := s.Scan()
+	rest = input[s.Pos().Offset:]
+	if s.ErrorCount > 0 {
+		return "", rest, fmt.Errorf("parsing quoted string: %s", errMsg)
+	}
+	if tok != scanner.String {
+		// Shouldn't happen; we only asked for strings
+		return "", rest, fmt.Errorf("parsing quoted string: unexpected token %s", scanner.TokenString(tok))
+	}
+
+	// And then strconv to unquote it (oddly, text/scanner doesn't unquote)
+	unquoted, err := strconv.Unquote(s.TokenText())
+	if err != nil {
+		// Shouldn't happen; scanner should only return valid quoted strings
+		return "", rest, fmt.Errorf("parsing quoted string: %v", err)
+	}
+	return unquoted, rest, nil
 }
 
 func (hc *HardwareCharacteristics) setArch(str string) error {
@@ -199,11 +307,13 @@ func (hc *HardwareCharacteristics) setRootDiskSource(str string) (err error) {
 	return
 }
 
-func (hc *HardwareCharacteristics) setTags(str string) (err error) {
+func (hc *HardwareCharacteristics) setTags(strs []string) (err error) {
 	if hc.Tags != nil {
 		return fmt.Errorf("already set")
 	}
-	hc.Tags = parseTags(str)
+	if len(strs) > 0 {
+		hc.Tags = &strs
+	}
 	return
 }
 
@@ -215,15 +325,6 @@ func (hc *HardwareCharacteristics) setAvailabilityZone(str string) error {
 		hc.AvailabilityZone = &str
 	}
 	return nil
-}
-
-// parseTags returns the tags in the value s
-func parseTags(s string) *[]string {
-	if s == "" {
-		return &[]string{}
-	}
-	tags := strings.Split(s, ",")
-	return &tags
 }
 
 func parseUint64(str string) (*uint64, error) {
