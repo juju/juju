@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/kr/pretty"
 
 	"github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
@@ -31,7 +32,7 @@ func NewInfoClient(path path.Path, client RESTClient, logger Logger) *InfoClient
 // Info requests the information of a given charm. If that charm doesn't exist
 // an error stating that fact will be returned.
 func (c *InfoClient) Info(ctx context.Context, name string) (transport.InfoResponse, error) {
-	c.logger.Debugf("Info(%s)", name)
+	c.logger.Tracef("Info(%s)", name)
 	var resp transport.InfoResponse
 	path, err := c.path.Join(name)
 	if err != nil {
@@ -42,5 +43,6 @@ func (c *InfoClient) Info(ctx context.Context, name string) (transport.InfoRespo
 		return resp, errors.Trace(err)
 	}
 
+	c.logger.Tracef("Info(%s) unmarshalled: %s", name, pretty.Sprint(resp))
 	return resp, resp.ErrorList.Combine()
 }

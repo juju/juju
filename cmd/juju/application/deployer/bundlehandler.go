@@ -487,6 +487,14 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	}
 	id := change.Id()
 	chParms := change.Params
+
+	// Use the series specified for this charm in the bundle,
+	// fallback to the series specified for the bundle.
+	series := chParms.Series
+	if series == "" {
+		series = h.data.Series
+	}
+
 	// First attempt to interpret as a local path.
 	if h.isLocalCharm(chParms.Charm) {
 		charmPath := chParms.Charm
@@ -494,10 +502,6 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 			charmPath = filepath.Join(h.bundleDir, charmPath)
 		}
 
-		series := chParms.Series
-		if series == "" {
-			series = h.data.Series
-		}
 		ch, curl, err := charmrepo.NewCharmAtPathForceSeries(charmPath, series, h.force)
 		if err != nil && !os.IsNotExist(err) {
 			return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
@@ -539,7 +543,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 
 	var macaroon *macaroon.Macaroon
 	var charmOrigin commoncharm.Origin
-	url, macaroon, charmOrigin, err = store.AddCharmFromURL(h.deployAPI, h.authorizer, url, origin, h.force)
+	url, macaroon, charmOrigin, err = store.AddCharmFromURL(h.deployAPI, h.authorizer, url, origin, h.force, series)
 	if err != nil {
 		return errors.Annotatef(err, "cannot add charm %q", chParms.Charm)
 	}

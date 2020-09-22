@@ -4,15 +4,14 @@
 package transport
 
 type FindResponses struct {
-	Results   []FindResponse `json:"results"`
-	ErrorList APIErrors      `json:"error-list"`
+	Results   []FindResponse `json:"results,omitempty"`
+	ErrorList APIErrors      `json:"error-list,omitempty"`
 }
 
 type FindResponse struct {
-	Type string `json:"type"`
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	// TODO (stickupkid): Swap this over to the new name if it ever happens.
-	Entity         Entity     `json:"charm"`
+	Type           string     `json:"type"`
+	ID             string     `json:"id"`
+	Name           string     `json:"name"`
+	Entity         Entity     `json:"result,omitempty"`
 	DefaultRelease ChannelMap `json:"default-release,omitempty"`
 }

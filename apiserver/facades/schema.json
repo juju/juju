@@ -10086,6 +10086,9 @@
                         "macaroon": {
                             "$ref": "#/definitions/Macaroon"
                         },
+                        "series": {
+                            "type": "string"
+                        },
                         "url": {
                             "type": "string"
                         }
@@ -10095,7 +10098,8 @@
                         "url",
                         "charm-origin",
                         "macaroon",
-                        "force"
+                        "force",
+                        "series"
                     ]
                 },
                 "AddCharmWithOrigin": {
@@ -10107,6 +10111,9 @@
                         "force": {
                             "type": "boolean"
                         },
+                        "series": {
+                            "type": "string"
+                        },
                         "url": {
                             "type": "string"
                         }
@@ -10115,7 +10122,8 @@
                     "required": [
                         "url",
                         "charm-origin",
-                        "force"
+                        "force",
+                        "series"
                     ]
                 },
                 "Charm": {

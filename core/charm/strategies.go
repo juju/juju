@@ -77,7 +77,7 @@ type Strategy struct {
 // DownloadRepo defines methods required for the repo to download a charm.
 type DownloadRepo interface {
 	DownloadCharm(resourceURL, archivePath string) (*charm.CharmArchive, error)
-	FindDownloadURL(*charm.URL, Origin) (*url.URL, Origin, error)
+	FindDownloadURL(*charm.URL, Origin, string) (*url.URL, Origin, error)
 }
 
 // DownloadFromCharmStore will creates a procedure to install a charm from the
@@ -98,7 +98,7 @@ func DownloadFromCharmStore(repository DownloadRepo, url string, force bool) (*S
 
 // DownloadFromCharmHub will creates a procedure to install a charm from the
 // charm hub.
-func DownloadFromCharmHub(repository DownloadRepo, curl string, force bool) (*Strategy, error) {
+func DownloadFromCharmHub(repository DownloadRepo, curl string, force bool, series string) (*Strategy, error) {
 	churl, err := charm.ParseURL(curl)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -107,6 +107,7 @@ func DownloadFromCharmHub(repository DownloadRepo, curl string, force bool) (*St
 		charmURL: churl,
 		store: StoreCharmHub{
 			repository: repository,
+			series:     series,
 		},
 		force: force,
 	}, nil
@@ -282,6 +283,7 @@ func (s StoreCharmStore) Download(curl *charm.URL, file string, origin Origin) (
 // StoreCharmHub defines a type for interacting with the charm hub.
 type StoreCharmHub struct {
 	repository DownloadRepo
+	series     string
 }
 
 // Validate checks to ensure that the schema is valid for the store.
@@ -294,15 +296,15 @@ func (StoreCharmHub) Validate(curl *charm.URL) error {
 
 // Download the charm from the charm hub.
 func (s StoreCharmHub) Download(curl *charm.URL, file string, origin Origin) (StoreCharm, ChecksumCheckFn, Origin, error) {
-	repositoryURL, origin, err := s.repository.FindDownloadURL(curl, origin)
+	repositoryURL, downloadOrigin, err := s.repository.FindDownloadURL(curl, origin, s.series)
 	if err != nil {
-		return nil, nil, origin, errors.Trace(err)
+		return nil, nil, downloadOrigin, errors.Trace(err)
 	}
 	archive, err := s.repository.DownloadCharm(repositoryURL.String(), file)
 	if err != nil {
-		return nil, nil, origin, errors.Trace(err)
+		return nil, nil, downloadOrigin, errors.Trace(err)
 	}
-	return newStoreCharmShim(archive), MatchChecksum(origin.Hash), origin, nil
+	return newStoreCharmShim(archive), MatchChecksum(downloadOrigin.Hash), downloadOrigin, nil
 }
 
 // storeCharmShim massages a *charm.CharmArchive into a LXDProfiler

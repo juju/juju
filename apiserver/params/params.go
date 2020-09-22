@@ -186,6 +186,7 @@ type AddCharmWithOrigin struct {
 	URL    string      `json:"url"`
 	Origin CharmOrigin `json:"charm-origin"`
 	Force  bool        `json:"force"`
+	Series string      `json:"series"`
 }
 
 // AddCharmWithAuthorization holds the arguments for making an
@@ -204,6 +205,7 @@ type AddCharmWithAuth struct {
 	Origin             CharmOrigin        `json:"charm-origin"`
 	CharmStoreMacaroon *macaroon.Macaroon `json:"macaroon"`
 	Force              bool               `json:"force"`
+	Series             string             `json:"series"`
 }
 
 // CharmOriginResult holds the results of AddCharms calls where

@@ -621,7 +621,7 @@ func (s *charmsMockSuite) api(c *gc.C) *charms.API {
 		return s.repository, nil
 	}
 	stratFuc := func(source string) charms.StrategyFunc {
-		return func(charmRepo corecharm.Repository, url string, force bool) (charms.Strategy, error) {
+		return func(charmRepo corecharm.Repository, url string, force bool, series string) (charms.Strategy, error) {
 			return s.strategy, nil
 		}
 	}

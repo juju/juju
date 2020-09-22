@@ -62,33 +62,33 @@ func (mr *MockDeployerAPIMockRecorder) APICall(arg0, arg1, arg2, arg3, arg4, arg
 }
 
 // AddCharm mocks base method
-func (m *MockDeployerAPI) AddCharm(arg0 *charm.URL, arg1 charm0.Origin, arg2 bool) (charm0.Origin, error) {
+func (m *MockDeployerAPI) AddCharm(arg0 *charm.URL, arg1 charm0.Origin, arg2 bool, arg3 string) (charm0.Origin, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddCharm", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "AddCharm", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(charm0.Origin)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddCharm indicates an expected call of AddCharm
-func (mr *MockDeployerAPIMockRecorder) AddCharm(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockDeployerAPIMockRecorder) AddCharm(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCharm", reflect.TypeOf((*MockDeployerAPI)(nil).AddCharm), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCharm", reflect.TypeOf((*MockDeployerAPI)(nil).AddCharm), arg0, arg1, arg2, arg3)
 }
 
 // AddCharmWithAuthorization mocks base method
-func (m *MockDeployerAPI) AddCharmWithAuthorization(arg0 *charm.URL, arg1 charm0.Origin, arg2 *macaroon.Macaroon, arg3 bool) (charm0.Origin, error) {
+func (m *MockDeployerAPI) AddCharmWithAuthorization(arg0 *charm.URL, arg1 charm0.Origin, arg2 *macaroon.Macaroon, arg3 bool, arg4 string) (charm0.Origin, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddCharmWithAuthorization", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "AddCharmWithAuthorization", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(charm0.Origin)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddCharmWithAuthorization indicates an expected call of AddCharmWithAuthorization
-func (mr *MockDeployerAPIMockRecorder) AddCharmWithAuthorization(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockDeployerAPIMockRecorder) AddCharmWithAuthorization(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCharmWithAuthorization", reflect.TypeOf((*MockDeployerAPI)(nil).AddCharmWithAuthorization), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCharmWithAuthorization", reflect.TypeOf((*MockDeployerAPI)(nil).AddCharmWithAuthorization), arg0, arg1, arg2, arg3, arg4)
 }
 
 // AddLocalCharm mocks base method
