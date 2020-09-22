@@ -103,6 +103,9 @@ func transformChannelMap(channelMap []transport.ChannelMap) ([]string, map[strin
 	channels := make(map[string]params.Channel, len(channelMap))
 	for _, cm := range channelMap {
 		ch := cm.Channel
+		if ch.Track == "" {
+			ch.Track = "latest"
+		}
 		chName := ch.Track + "/" + ch.Risk
 		channels[chName] = params.Channel{
 			Revision:   cm.Revision.Revision,
