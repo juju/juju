@@ -58,7 +58,7 @@ func NewAPIConnection(args NewAPIConnectionParams) (_ api.Connection, err error)
 		return nil, errors.Annotatef(err, "cannot work out how to connect")
 	}
 	if len(apiInfo.Addrs) == 0 {
-		return nil, errors.New("no API addresses")
+		return nil, errors.New("no controller API addresses; is bootstrap still in progress?")
 	}
 	// Copy the cache so we'll know whether it's changed so that
 	// we'll update the entry correctly.
