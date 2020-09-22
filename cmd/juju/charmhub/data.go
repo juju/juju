@@ -10,7 +10,6 @@ import (
 )
 
 func convertCharmInfoResult(info charmhub.InfoResponse) (InfoResponse, error) {
-
 	ir := InfoResponse{
 		Type:        info.Type,
 		ID:          info.ID,

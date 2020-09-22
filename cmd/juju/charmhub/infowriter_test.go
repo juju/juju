@@ -79,15 +79,16 @@ channels: |
   latest/candidate:  1.0.3  2019-12-16  (17)  12MB
   latest/beta:       1.0.3  2019-12-16  (17)  12MB
   latest/edge:       1.0.3  2019-12-16  (18)  12MB
-settings:
-  status:
-    type: string
-    description: temporary string for unit status
-    default: hello
-  thing:
-    type: string
-    description: A thing used by the charm.
-    default: "\U0001F381"
+config:
+  settings:
+    status:
+      type: string
+      description: temporary string for unit status
+      default: hello
+    thing:
+      type: string
+      description: A thing used by the charm.
+      default: "\U0001F381"
 `
 	c.Assert(obtained, gc.Equals, expected)
 }
