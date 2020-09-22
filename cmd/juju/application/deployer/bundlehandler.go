@@ -543,7 +543,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 
 	var macaroon *macaroon.Macaroon
 	var charmOrigin commoncharm.Origin
-	url, macaroon, charmOrigin, err = store.AddCharmFromURL(h.deployAPI, h.authorizer, url, origin, h.force, series)
+	url, macaroon, charmOrigin, err = store.AddCharmWithAuthorizationFromURL(h.deployAPI, h.authorizer, url, origin, h.force, series)
 	if err != nil {
 		return errors.Annotatef(err, "cannot add charm %q", chParms.Charm)
 	}
