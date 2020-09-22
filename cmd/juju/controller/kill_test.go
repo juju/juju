@@ -151,8 +151,8 @@ func (s *KillSuite) TestKillWaitForModels_ActuallyWaits(c *gc.C) {
 		c.Fatal("timed out waiting for result")
 	}
 	expect := "" +
-		"Waiting on 1 model, 2 machines, 2 applications\n" +
-		"Waiting on 1 model, 1 machine\n" +
+		"Waiting for 1 model, 2 machines, 2 applications\n" +
+		"Waiting for 1 model, 1 machine\n" +
 		"All hosted models reclaimed, cleaning up controller machines\n"
 
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, expect)
@@ -206,8 +206,8 @@ func (s *KillSuite) TestKillWaitForModels_WaitsForControllerMachines(c *gc.C) {
 		c.Fatal("timed out waiting for result")
 	}
 	expect := "" +
-		"Waiting on 0 model, 2 machines\n" +
-		"Waiting on 0 model, 1 machine\n" +
+		"Waiting for 0 model, 2 machines\n" +
+		"Waiting for 0 model, 1 machine\n" +
 		"All hosted models reclaimed, cleaning up controller machines\n"
 
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, expect)
@@ -256,9 +256,9 @@ func (s *KillSuite) TestKillWaitForModels_TimeoutResetsWithChange(c *gc.C) {
 		c.Fatal("timed out waiting for result")
 	}
 	expect := "" +
-		"Waiting on 1 model, 2 machines, 2 applications, will kill machines directly in 20s\n" +
-		"Waiting on 1 model, 2 machines, 2 applications, will kill machines directly in 15s\n" +
-		"Waiting on 1 model, 1 machine, will kill machines directly in 20s\n" +
+		"Waiting for 1 model, 2 machines, 2 applications, will kill machines directly in 20s\n" +
+		"Waiting for 1 model, 2 machines, 2 applications, will kill machines directly in 15s\n" +
+		"Waiting for 1 model, 1 machine, will kill machines directly in 20s\n" +
 		"All hosted models reclaimed, cleaning up controller machines\n"
 
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, expect)
@@ -296,18 +296,18 @@ func (s *KillSuite) TestKillWaitForModels_TimeoutWithNoChange(c *gc.C) {
 		c.Fatal("timed out waiting for result")
 	}
 	expect := "" +
-		"Waiting on 1 model, 2 machines, 2 applications\n" +
-		"Waiting on 1 model, 2 machines, 2 applications\n" +
-		"Waiting on 1 model, 2 machines, 2 applications\n" +
-		"Waiting on 1 model, 2 machines, 2 applications\n" +
-		"Waiting on 1 model, 2 machines, 2 applications\n" +
-		"Waiting on 1 model, 2 machines, 2 applications\n" +
-		"Waiting on 1 model, 2 machines, 2 applications\n" +
-		"Waiting on 1 model, 2 machines, 2 applications, will kill machines directly in 25s\n" +
-		"Waiting on 1 model, 2 machines, 2 applications, will kill machines directly in 20s\n" +
-		"Waiting on 1 model, 2 machines, 2 applications, will kill machines directly in 15s\n" +
-		"Waiting on 1 model, 2 machines, 2 applications, will kill machines directly in 10s\n" +
-		"Waiting on 1 model, 2 machines, 2 applications, will kill machines directly in 5s\n"
+		"Waiting for 1 model, 2 machines, 2 applications\n" +
+		"Waiting for 1 model, 2 machines, 2 applications\n" +
+		"Waiting for 1 model, 2 machines, 2 applications\n" +
+		"Waiting for 1 model, 2 machines, 2 applications\n" +
+		"Waiting for 1 model, 2 machines, 2 applications\n" +
+		"Waiting for 1 model, 2 machines, 2 applications\n" +
+		"Waiting for 1 model, 2 machines, 2 applications\n" +
+		"Waiting for 1 model, 2 machines, 2 applications, will kill machines directly in 25s\n" +
+		"Waiting for 1 model, 2 machines, 2 applications, will kill machines directly in 20s\n" +
+		"Waiting for 1 model, 2 machines, 2 applications, will kill machines directly in 15s\n" +
+		"Waiting for 1 model, 2 machines, 2 applications, will kill machines directly in 10s\n" +
+		"Waiting for 1 model, 2 machines, 2 applications, will kill machines directly in 5s\n"
 
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, expect)
 }
@@ -555,7 +555,7 @@ func (s *KillSuite) TestFmtControllerStatus(c *gc.C) {
 		ApplicationCount:   8,
 	}
 	out := controller.FmtCtrStatus(data)
-	c.Assert(out, gc.Equals, "Waiting on 3 models, 20 machines, 8 applications")
+	c.Assert(out, gc.Equals, "Waiting for 3 models, 20 machines, 8 applications")
 }
 
 func (s *KillSuite) TestFmtEnvironStatus(c *gc.C) {
