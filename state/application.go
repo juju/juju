@@ -664,6 +664,7 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 		removeSettingsOp(settingsC, a.applicationConfigKey()),
 		removeModelApplicationRefOp(a.st, name),
 		removePodSpecOp(a.ApplicationTag()),
+		// TODO: removeApplicationPortRangeOp(a.ApplicationTag()),
 	)
 	return ops, nil
 }

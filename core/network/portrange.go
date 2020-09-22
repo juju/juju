@@ -71,8 +71,10 @@ type PortRange struct {
 	Protocol string
 }
 
-// IsValid determines if the port range is valid.
-func (p PortRange) Validate() error {
+// Validate determines if the port range is valid.
+func (p PortRange) Validate(
+// isRange bool,
+) error {
 	proto := strings.ToLower(p.Protocol)
 	if proto != "tcp" && proto != "udp" && proto != "icmp" {
 		return errors.Errorf(`invalid protocol %q, expected "tcp", "udp", or "icmp"`, proto)
@@ -84,8 +86,15 @@ func (p PortRange) Validate() error {
 		return errors.Errorf(`protocol "icmp" doesn't support any ports; got "%v"`, p.FromPort)
 	}
 	if p.FromPort > p.ToPort {
-		return errors.Errorf("invalid port range %s", p)
-	} else if p.FromPort <= 0 || p.FromPort > 65535 || p.ToPort <= 0 || p.ToPort > 65535 {
+		// TODO: CAAS `from` `to` are different here.
+		// It's actually a `portmapping` but not a range.
+		// So should we just reuse `PortRange` or create a new `PortMapping` struct?
+		isRange := true
+		if isRange {
+			return errors.Errorf("invalid port range %s", p)
+		}
+	}
+	if p.FromPort <= 0 || p.FromPort > 65535 || p.ToPort <= 0 || p.ToPort > 65535 {
 		return errors.Errorf("port range bounds must be between 1 and 65535, got %d-%d", p.FromPort, p.ToPort)
 	}
 	return nil
