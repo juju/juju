@@ -290,44 +290,9 @@ func (r *charmStoreRefresher) Allowed(cfg RefresherConfig) (bool, error) {
 // Refresh a given charm store charm.
 // Bundles are not supported as there is no physical representation in Juju.
 func (r *charmStoreRefresher) Refresh() (*CharmID, error) {
-	refURL, err := charm.ParseURL(r.charmRef)
+	newURL, origin, err := r.ResolveCharm()
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-
-	origin, err := utils.DeduceOrigin(refURL, r.channel)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// Charm has been supplied as a URL so we resolve and deploy using the store.
-	newURL, origin, supportedSeries, err := r.charmResolver.ResolveCharm(refURL, origin)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	_, seriesSupportedErr := charm.SeriesForCharm(r.deployedSeries, supportedSeries)
-	if !r.forceSeries && r.deployedSeries != "" && newURL.Series == "" && seriesSupportedErr != nil {
-		series := []string{"no series"}
-		if len(supportedSeries) > 0 {
-			series = supportedSeries
-		}
-		return nil, errors.Errorf(
-			"cannot upgrade from single series %q charm to a charm supporting %q. Use --force-series to override.",
-			r.deployedSeries, series,
-		)
-	}
-
-	// If no explicit revision was set with either SwitchURL
-	// or Revision flags, discover the latest.
-	if *newURL == *r.charmURL {
-		if refURL.Revision != -1 {
-			return nil, errors.Errorf("already running specified charm %q", newURL)
-		}
-		// No point in trying to upgrade a charm store charm when
-		// we just determined that's the latest revision
-		// available.
-		return nil, errors.Errorf("already running latest charm %q", newURL)
 	}
 
 	curl, csMac, _, err := store.AddCharmWithAuthorizationFromURL(r.charmAdder, r.authorizer, newURL, origin, r.force, r.deployedSeries)
