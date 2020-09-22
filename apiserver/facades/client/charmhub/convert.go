@@ -103,6 +103,7 @@ func transformChannelMap(channelMap []transport.ChannelMap) ([]string, map[strin
 	channels := make(map[string]params.Channel, len(channelMap))
 	for _, cm := range channelMap {
 		ch := cm.Channel
+		// Per the charmhub/snap channel spec.
 		if ch.Track == "" {
 			ch.Track = "latest"
 		}
