@@ -9622,6 +9622,12 @@
                 "Channel": {
                     "type": "object",
                     "properties": {
+                        "platforms": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Platform"
+                            }
+                        },
                         "released-at": {
                             "type": "string"
                         },
@@ -9648,7 +9654,8 @@
                         "risk",
                         "revision",
                         "size",
-                        "version"
+                        "version",
+                        "platforms"
                     ]
                 },
                 "CharmHubBundle": {
@@ -9915,6 +9922,26 @@
                         "tags",
                         "channel-map",
                         "tracks"
+                    ]
+                },
+                "Platform": {
+                    "type": "object",
+                    "properties": {
+                        "architecture": {
+                            "type": "string"
+                        },
+                        "os": {
+                            "type": "string"
+                        },
+                        "series": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "architecture",
+                        "os",
+                        "series"
                     ]
                 },
                 "Query": {
