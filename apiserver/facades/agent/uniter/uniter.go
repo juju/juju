@@ -3615,7 +3615,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 	if err != nil {
 		return errors.Trace(err)
 	}
-	appTag := names.NewApplicationTag(appName).String()
+	appTag := names.NewApplicationTag(appName)
 
 	var modelOps []state.ModelOperation
 
@@ -3640,10 +3640,30 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 	}
 
 	if len(changes.OpenPorts)+len(changes.ClosePorts) > 0 {
-		unitPortRanges, err := unit.OpenedPortRanges()
-		if err != nil {
-			return errors.Trace(err)
+		var pcp portChangesProcessor
+		if u.m.Type() == state.ModelTypeCAAS {
+			app, err := u.getApplication(appTag)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			pcp, err = app.OpenedPortRanges()
+			if err != nil {
+				return errors.Trace(err)
+			}
+		} else {
+			pcp, err = unit.OpenedPortRanges()
+			if err != nil {
+				return errors.Trace(err)
+			}
 		}
+
+		// app, err := u.getApplication(appTag)
+		// appPortRanges := app.OpenedPortRanges()
+
+		// unitPortRanges, err := unit.OpenedPortRanges()
+		// if err != nil {
+		// 	return errors.Trace(err)
+		// }
 
 		for _, r := range changes.OpenPorts {
 			// Ensure the tag in the port open request matches the root unit name
@@ -3655,7 +3675,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 			// not populate the new Endpoint field; this
 			// effectively opens the port for all endpoints and
 			// emulates pre-2.9 behavior.
-			unitPortRanges.Open(r.Endpoint, corenetwork.PortRange{
+			pcp.Open(r.Endpoint, corenetwork.PortRange{
 				FromPort: r.FromPort,
 				ToPort:   r.ToPort,
 				Protocol: r.Protocol,
@@ -3671,14 +3691,14 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 			// not populate the new Endpoint field; this
 			// effectively closes the port for all endpoints and
 			// emulates pre-2.9 behavior.
-			unitPortRanges.Close(r.Endpoint, corenetwork.PortRange{
+			pcp.Close(r.Endpoint, corenetwork.PortRange{
 				FromPort: r.FromPort,
 				ToPort:   r.ToPort,
 				Protocol: r.Protocol,
 			})
 		}
 
-		modelOps = append(modelOps, unitPortRanges.Changes())
+		modelOps = append(modelOps, pcp.Changes())
 	}
 
 	if changes.SetUnitState != nil {
@@ -3745,7 +3765,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 	if changes.SetPodSpec != nil {
 		// Ensure the application tag for the unit in the change arg
 		// matches the one specified in the SetPodSpec payload.
-		if changes.SetPodSpec.Tag != appTag {
+		if changes.SetPodSpec.Tag != appTag.String() {
 			return errors.BadRequestf("application tag %q in SetPodSpec payload does not match the application for unit %q", changes.SetPodSpec.Tag, changes.Tag)
 		}
 		modelOp, err := u.setPodSpecOperation(changes.SetPodSpec.Tag, changes.SetPodSpec.Spec, unitTag, canAccessApp)
@@ -3758,7 +3778,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 	if changes.SetRawK8sSpec != nil {
 		// Ensure the application tag for the unit in the change arg
 		// matches the one specified in the SetRawK8sSpec payload.
-		if changes.SetRawK8sSpec.Tag != appTag {
+		if changes.SetRawK8sSpec.Tag != appTag.String() {
 			return errors.BadRequestf("application tag %q in SetRawK8sSpec payload does not match the application for unit %q", changes.SetRawK8sSpec.Tag, changes.Tag)
 		}
 		modelOp, err := u.setRawK8sSpecOperation(changes.SetRawK8sSpec.Tag, changes.SetRawK8sSpec.Spec, unitTag, canAccessApp)
@@ -3770,6 +3790,12 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 
 	// Apply all changes in a single transaction.
 	return u.st.ApplyOperation(state.ComposeModelOperations(modelOps...))
+}
+
+type portChangesProcessor interface {
+	Open(endpoint string, portRange corenetwork.PortRange)
+	Close(endpoint string, portRange corenetwork.PortRange)
+	Changes() state.ModelOperation
 }
 
 // WatchInstanceData isn't on the v15 API.
