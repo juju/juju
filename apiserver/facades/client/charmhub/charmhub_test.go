@@ -253,6 +253,7 @@ func getParamsInfoResponse() params.InfoResponse {
 				Size:       12042240,
 				Revision:   16,
 				Version:    "1.0.3",
+				Platforms:  []params.Platform{{Architecture: "all", OS: "ubuntu", Series: "bionic"}},
 			}},
 		Charm: &params.CharmHubCharm{
 			Subordinate: false,
