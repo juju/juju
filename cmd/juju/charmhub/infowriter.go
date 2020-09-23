@@ -23,11 +23,12 @@ import (
 // There are exceptions, slices of strings and tables.  These
 // are transformed into strings.
 
-func makeInfoWriter(w io.Writer, warningLog Log, in *InfoResponse) Printer {
+func makeInfoWriter(w io.Writer, warningLog Log, config bool, in *InfoResponse) Printer {
 	iw := infoWriter{
-		w:        w,
-		warningf: warningLog,
-		in:       in,
+		w:             w,
+		warningf:      warningLog,
+		in:            in,
+		displayConfig: config,
 	}
 	if iw.in.Type == "charm" {
 		return charmInfoWriter{infoWriter: iw}
@@ -36,9 +37,10 @@ func makeInfoWriter(w io.Writer, warningLog Log, in *InfoResponse) Printer {
 }
 
 type infoWriter struct {
-	warningf Log
-	w        io.Writer
-	in       *InfoResponse
+	warningf      Log
+	w             io.Writer
+	in            *InfoResponse
+	displayConfig bool
 }
 
 func (iw infoWriter) print(info interface{}) error {
@@ -136,18 +138,19 @@ func (b bundleInfoWriter) Print() error {
 }
 
 type charmInfoOutput struct {
-	Name        string         `yaml:"name,omitempty"`
-	ID          string         `yaml:"charm-id,omitempty"`
-	Summary     string         `yaml:"summary,omitempty"`
-	Publisher   string         `yaml:"publisher,omitempty"`
-	Supports    string         `yaml:"supports,omitempty"`
-	Tags        string         `yaml:"tags,omitempty"`
-	Subordinate bool           `yaml:"subordinate"`
-	StoreURL    string         `yaml:"store-url,omitempty"`
-	Description string         `yaml:"description,omitempty"`
-	Relations   relationOutput `yaml:"relations,omitempty"`
-	Channels    string         `yaml:"channels,omitempty"`
-	Installed   string         `yaml:"installed,omitempty"`
+	Name        string                 `yaml:"name,omitempty"`
+	ID          string                 `yaml:"charm-id,omitempty"`
+	Summary     string                 `yaml:"summary,omitempty"`
+	Publisher   string                 `yaml:"publisher,omitempty"`
+	Supports    string                 `yaml:"supports,omitempty"`
+	Tags        string                 `yaml:"tags,omitempty"`
+	Subordinate bool                   `yaml:"subordinate"`
+	StoreURL    string                 `yaml:"store-url,omitempty"`
+	Description string                 `yaml:"description,omitempty"`
+	Relations   relationOutput         `yaml:"relations,omitempty"`
+	Channels    string                 `yaml:"channels,omitempty"`
+	Installed   string                 `yaml:"installed,omitempty"`
+	Config      map[string]interface{} `yaml:"config,omitempty"`
 }
 
 type relationOutput struct {
@@ -166,12 +169,17 @@ func (c charmInfoWriter) Print() error {
 		Summary:     c.in.Summary,
 		Publisher:   c.in.Publisher,
 		Supports:    strings.Join(c.in.Series, ", "),
+		StoreURL:    c.in.StoreURL,
 		Description: c.in.Description,
 		Channels:    c.channels(),
 		Tags:        strings.Join(c.in.Tags, ", "),
 	}
 	if c.in.Charm != nil {
 		out.Subordinate = c.in.Charm.Subordinate
+		if c.displayConfig && c.in.Charm.Config != nil {
+			out.Config = make(map[string]interface{}, 1)
+			out.Config["settings"] = c.in.Charm.Config.Options
+		}
 	}
 	if rels, err := c.relations(); err == nil {
 		out.Relations = rels
