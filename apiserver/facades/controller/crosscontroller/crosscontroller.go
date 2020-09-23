@@ -4,6 +4,7 @@
 package crosscontroller
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/apiserver/common"
@@ -17,12 +18,14 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.crosscontroller")
 
 type localControllerInfoFunc func() ([]string, string, error)
+type publicDNSAddressFunc func() (string, error)
 type watchLocalControllerInfoFunc func() state.NotifyWatcher
 
 // CrossControllerAPI provides access to the CrossModelRelations API facade.
 type CrossControllerAPI struct {
 	resources                facade.Resources
 	localControllerInfo      localControllerInfoFunc
+	publicDNSAddress         publicDNSAddressFunc
 	watchLocalControllerInfo watchLocalControllerInfoFunc
 }
 
@@ -32,7 +35,16 @@ func NewStateCrossControllerAPI(ctx facade.Context) (*CrossControllerAPI, error)
 	st := ctx.State()
 	return NewCrossControllerAPI(
 		ctx.Resources(),
-		func() ([]string, string, error) { return common.StateControllerInfo(st) },
+		func() ([]string, string, error) {
+			return common.StateControllerInfo(st)
+		},
+		func() (string, error) {
+			config, err := st.ControllerConfig()
+			if err != nil {
+				return "", errors.Trace(err)
+			}
+			return config.PublicDNSAddress(), nil
+		},
 		st.WatchAPIHostPortsForClients,
 	)
 }
@@ -41,11 +53,13 @@ func NewStateCrossControllerAPI(ctx facade.Context) (*CrossControllerAPI, error)
 func NewCrossControllerAPI(
 	resources facade.Resources,
 	localControllerInfo localControllerInfoFunc,
+	publicDNSAddress publicDNSAddressFunc,
 	watchLocalControllerInfo watchLocalControllerInfoFunc,
 ) (*CrossControllerAPI, error) {
 	return &CrossControllerAPI{
 		resources:                resources,
 		localControllerInfo:      localControllerInfo,
+		publicDNSAddress:         publicDNSAddress,
 		watchLocalControllerInfo: watchLocalControllerInfo,
 	}, nil
 }
@@ -75,7 +89,12 @@ func (api *CrossControllerAPI) ControllerInfo() (params.ControllerAPIInfoResults
 		results.Results[0].Error = apiservererrors.ServerError(err)
 		return results, nil
 	}
-	results.Results[0].Addresses = addrs
+	publicDNSAddress, err := api.publicDNSAddress()
+	if err != nil {
+		results.Results[0].Error = apiservererrors.ServerError(err)
+		return results, nil
+	}
+	results.Results[0].Addresses = append([]string{publicDNSAddress}, addrs...)
 	results.Results[0].CACert = caCert
 	return results, nil
 }

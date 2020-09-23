@@ -314,6 +314,9 @@ const (
 
 	// MeteringURL is the key for the url to use for metrics
 	MeteringURL = "metering-url"
+
+	// PublicDNSAddress is the public DNS address (and port) of the controller.
+	PublicDNSAddress = "public-dns-address"
 )
 
 var (
@@ -347,6 +350,7 @@ var (
 		ModelLogsSize,
 		PruneTxnQueryCount,
 		PruneTxnSleepTime,
+		PublicDNSAddress,
 		JujuHASpace,
 		JujuManagementSpace,
 		AuditingEnabled,
@@ -398,6 +402,7 @@ var (
 		MongoMemoryProfile,
 		PruneTxnQueryCount,
 		PruneTxnSleepTime,
+		PublicDNSAddress,
 		JujuHASpace,
 		JujuManagementSpace,
 		CAASOperatorImagePath,
@@ -788,6 +793,11 @@ func (c Config) PruneTxnSleepTime() time.Duration {
 	return val
 }
 
+// PublicDNSAddress returns the DNS name of the controller.
+func (c Config) PublicDNSAddress() string {
+	return c.asString(PublicDNSAddress)
+}
+
 // JujuHASpace is the network space within which the MongoDB replica-set
 // should communicate.
 func (c Config) JujuHASpace() string {
@@ -1128,6 +1138,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	ModelLogsSize:            schema.String(),
 	PruneTxnQueryCount:       schema.ForceInt(),
 	PruneTxnSleepTime:        schema.String(),
+	PublicDNSAddress:         schema.String(),
 	JujuHASpace:              schema.String(),
 	JujuManagementSpace:      schema.String(),
 	CAASOperatorImagePath:    schema.String(),
@@ -1168,6 +1179,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	ModelLogsSize:            fmt.Sprintf("%vM", DefaultModelLogsSizeMB),
 	PruneTxnQueryCount:       DefaultPruneTxnQueryCount,
 	PruneTxnSleepTime:        DefaultPruneTxnSleepTime,
+	PublicDNSAddress:         schema.Omit,
 	JujuHASpace:              schema.Omit,
 	JujuManagementSpace:      schema.Omit,
 	CAASOperatorImagePath:    schema.Omit,
@@ -1304,6 +1316,10 @@ they don't have any access rights to the controller itself`,
 	PruneTxnSleepTime: {
 		Type:        environschema.Tstring,
 		Description: `The amount of time to sleep between processing each batch query`,
+	},
+	PublicDNSAddress: {
+		Type:        environschema.Tstring,
+		Description: `Public DNS address (with port) of the controller.`,
 	},
 	JujuHASpace: {
 		Type:        environschema.Tstring,
