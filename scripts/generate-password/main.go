@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 )
 
 func main() {

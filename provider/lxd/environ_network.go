@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/set"
+	"github.com/juju/collections/set"
 	lxdapi "github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/core/instance"

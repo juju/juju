@@ -9,7 +9,7 @@ import (
 	"io"
 
 	"github.com/juju/loggo"
-	"github.com/juju/utils/winrm"
+	"github.com/juju/utils/v2/winrm"
 
 	"github.com/juju/juju/apiserver/params"
 )

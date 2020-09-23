@@ -12,10 +12,10 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
-	"github.com/juju/utils/shell"
-	"github.com/juju/utils/ssh"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v2/shell"
+	"github.com/juju/utils/v2/ssh"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig"

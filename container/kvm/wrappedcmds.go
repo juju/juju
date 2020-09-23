@@ -26,8 +26,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/os/series"
-	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/arch"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/container/kvm/libvirt"

@@ -14,7 +14,7 @@ import (
 	"github.com/juju/os/series"
 	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/keyvalues"
+	"github.com/juju/utils/v2/keyvalues"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 

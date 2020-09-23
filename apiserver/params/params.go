@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/proxy"
-	"github.com/juju/utils/ssh"
+	"github.com/juju/utils/v2/ssh"
 	"github.com/juju/version"
 	"gopkg.in/macaroon-bakery.v2/bakery"
 	"gopkg.in/macaroon.v2"

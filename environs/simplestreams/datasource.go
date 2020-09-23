@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 )
 
 // A DataSource retrieves simplestreams metadata.

@@ -15,7 +15,7 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/exec"
+	"github.com/juju/utils/v2/exec"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/caas/mocks"

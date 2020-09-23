@@ -9,7 +9,7 @@ import (
 
 	lc "github.com/joyent/gosdc/localservices/cloudapi"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"

@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
 

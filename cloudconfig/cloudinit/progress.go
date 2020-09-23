@@ -6,7 +6,7 @@ package cloudinit
 import (
 	"fmt"
 
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 )
 
 // progressFdEnvVar is the name of the environment variable set for

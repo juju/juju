@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
 	"github.com/juju/retry"
-	"github.com/juju/utils/deque"
+	"github.com/juju/collections/deque"
 	"github.com/juju/worker/v2"
 	"gopkg.in/tomb.v2"
 

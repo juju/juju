@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
-	sshtesting "github.com/juju/utils/ssh/testing"
+	sshtesting "github.com/juju/utils/v2/ssh/testing"
 	gc "gopkg.in/check.v1"
 
 	keymanagerserver "github.com/juju/juju/apiserver/facades/client/keymanager"

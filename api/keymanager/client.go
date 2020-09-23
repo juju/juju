@@ -4,7 +4,7 @@
 package keymanager
 
 import (
-	"github.com/juju/utils/ssh"
+	"github.com/juju/utils/v2/ssh"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"

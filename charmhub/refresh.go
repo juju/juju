@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/charmhub/path"

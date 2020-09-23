@@ -79,7 +79,8 @@ require (
 	github.com/juju/testing v0.0.0-20200706033705-4c23f9c453cd
 	github.com/juju/txn v0.0.0-20190416045819-5f348e78887d
 	github.com/juju/usso v0.0.0-20160401104424-68a59c96c178 // indirect
-	github.com/juju/utils v0.0.0-20200604140309-9d78121a29e0
+	github.com/juju/utils v0.0.0-20200604140309-9d78121a29e0 // indirect
+	github.com/juju/utils/v2 v2.0.0-20200923005554-4646bfea2ef1
 	github.com/juju/version v0.0.0-20191219164919-81c1be00b9a6
 	github.com/juju/webbrowser v0.0.0-20180907093207-efb9432b2bcb
 	github.com/juju/worker/v2 v2.0.0-20200916234526-d6e694f1c54a
@@ -105,7 +106,7 @@ require (
 	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
-	golang.org/x/crypto v0.0.0-20200728195943-123391ffb6de
+	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
 	golang.org/x/net v0.0.0-20200904194848-62affa334b73
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sys v0.0.0-20200817085935-3ff754bf58a9

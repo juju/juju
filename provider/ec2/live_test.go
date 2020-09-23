@@ -12,7 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 	amzec2 "gopkg.in/amz.v3/ec2"
 	gc "gopkg.in/check.v1"
 

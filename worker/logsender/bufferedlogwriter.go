@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/deque"
+	"github.com/juju/collections/deque"
 )
 
 // LogRecord represents a log message in an agent which is to be

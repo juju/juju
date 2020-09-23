@@ -13,8 +13,8 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
-	utilexec "github.com/juju/utils/exec"
+	"github.com/juju/utils/v2"
+	utilexec "github.com/juju/utils/v2/exec"
 	gc "gopkg.in/check.v1"
 	k8sexec "k8s.io/client-go/util/exec"
 

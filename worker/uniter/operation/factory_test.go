@@ -9,7 +9,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	utilexec "github.com/juju/utils/exec"
+	utilexec "github.com/juju/utils/v2/exec"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/worker/uniter/hook"

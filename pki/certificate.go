@@ -11,7 +11,7 @@ import (
 	"math/big"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 )
 
 // CSRToCertificate copies all fields from a CertificateRequest into a new x509
