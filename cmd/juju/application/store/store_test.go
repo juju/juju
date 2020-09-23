@@ -37,16 +37,14 @@ func (s *storeSuite) TestAddCharmFromURLAddCharmSuccess(c *gc.C) {
 	origin, err := utils.DeduceOrigin(curl, corecharm.Channel{Risk: corecharm.Beta})
 	c.Assert(err, jc.ErrorIsNil)
 
-	obtainedCurl, obtainedMac, _, err := store.AddCharmFromURL(
+	obtainedCurl, _, err := store.AddCharmFromURL(
 		s.charmAdder,
-		s.macaroonGetter,
 		curl,
 		origin,
 		true,
-		"",
+		"focal",
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedMac, gc.IsNil)
 	c.Assert(obtainedCurl.String(), gc.Equals, curl.String())
 }
 
@@ -58,16 +56,14 @@ func (s *storeSuite) TestAddCharmFromURLFailAddCharmFail(c *gc.C) {
 	origin, err := utils.DeduceOrigin(curl, corecharm.Channel{Risk: corecharm.Beta})
 	c.Assert(err, jc.ErrorIsNil)
 
-	obtainedCurl, obtainedMac, _, err := store.AddCharmFromURL(
+	obtainedCurl, _, err := store.AddCharmFromURL(
 		s.charmAdder,
-		s.macaroonGetter,
 		curl,
 		origin,
 		true,
-		"",
+		"focal",
 	)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(obtainedMac, gc.IsNil)
 	c.Assert(obtainedCurl, gc.IsNil)
 }
 
@@ -81,16 +77,81 @@ func (s *storeSuite) TestAddCharmFromURLFailAddCharmFailUnauthorized(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	origin, err := utils.DeduceOrigin(curl, corecharm.Channel{Risk: corecharm.Beta})
 	c.Assert(err, jc.ErrorIsNil)
-	s.expectGet("/delegatable-macaroon?id=" + url.QueryEscape(curl.String()))
-	s.expectAddCharmWithAuthorization()
 
-	obtainedCurl, obtainedMac, _, err := store.AddCharmFromURL(
+	obtainedCurl, _, err := store.AddCharmFromURL(
+		s.charmAdder,
+		curl,
+		origin,
+		true,
+		"focal",
+	)
+	c.Assert(err, jc.Satisfies, errors.IsForbidden)
+	c.Assert(obtainedCurl, gc.IsNil)
+}
+
+func (s *storeSuite) TestAddCharmWithAuthorizationFromURLAddCharmSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectAddCharm(nil)
+
+	curl, err := charm.ParseURL("cs:testme")
+	c.Assert(err, jc.ErrorIsNil)
+	origin, err := utils.DeduceOrigin(curl, corecharm.Channel{Risk: corecharm.Beta})
+	c.Assert(err, jc.ErrorIsNil)
+
+	obtainedCurl, obtainedMac, _, err := store.AddCharmWithAuthorizationFromURL(
 		s.charmAdder,
 		s.macaroonGetter,
 		curl,
 		origin,
 		true,
-		"",
+		"focal",
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedMac, gc.IsNil)
+	c.Assert(obtainedCurl.String(), gc.Equals, curl.String())
+}
+
+func (s *storeSuite) TestAddCharmWithAuthorizationFromURLFailAddCharmFail(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectAddCharm(errors.NotFoundf("testing"))
+	curl, err := charm.ParseURL("cs:testme")
+	c.Assert(err, jc.ErrorIsNil)
+	origin, err := utils.DeduceOrigin(curl, corecharm.Channel{Risk: corecharm.Beta})
+	c.Assert(err, jc.ErrorIsNil)
+
+	obtainedCurl, obtainedMac, _, err := store.AddCharmWithAuthorizationFromURL(
+		s.charmAdder,
+		s.macaroonGetter,
+		curl,
+		origin,
+		true,
+		"focal",
+	)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(obtainedMac, gc.IsNil)
+	c.Assert(obtainedCurl, gc.IsNil)
+}
+
+func (s *storeSuite) TestAddCharmWithAuthorizationFromURLFailAddCharmFailUnauthorized(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectAddCharm(&params.Error{
+		Code:    params.CodeUnauthorized,
+		Message: "permission denied",
+	})
+	curl, err := charm.ParseURL("cs:testme")
+	c.Assert(err, jc.ErrorIsNil)
+	origin, err := utils.DeduceOrigin(curl, corecharm.Channel{Risk: corecharm.Beta})
+	c.Assert(err, jc.ErrorIsNil)
+	s.expectGet("/delegatable-macaroon?id=" + url.QueryEscape(curl.String()))
+	s.expectAddCharmWithAuthorization()
+
+	obtainedCurl, obtainedMac, _, err := store.AddCharmWithAuthorizationFromURL(
+		s.charmAdder,
+		s.macaroonGetter,
+		curl,
+		origin,
+		true,
+		"focal",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedMac, gc.IsNil)
@@ -109,7 +170,7 @@ func (s *storeSuite) expectAddCharm(err error) {
 		gomock.AssignableToTypeOf(&charm.URL{}),
 		gomock.AssignableToTypeOf(commoncharm.Origin{}),
 		true,
-		"",
+		"focal",
 	).DoAndReturn(
 		func(_ *charm.URL, origin commoncharm.Origin, _ bool, _ string) (commoncharm.Origin, error) {
 			return origin, err
@@ -122,7 +183,7 @@ func (s *storeSuite) expectAddCharmWithAuthorization() {
 		gomock.AssignableToTypeOf(commoncharm.Origin{}),
 		gomock.AssignableToTypeOf(&macaroon.Macaroon{}),
 		true,
-		"",
+		"focal",
 	).DoAndReturn(
 		func(_ *charm.URL, origin commoncharm.Origin, _ *macaroon.Macaroon, _ bool, _ string) (commoncharm.Origin, error) {
 			return origin, nil
