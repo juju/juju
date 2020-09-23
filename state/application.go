@@ -2853,6 +2853,20 @@ func (a *Application) SetConstraints(cons constraints.Value) (err error) {
 	return onAbort(a.st.db().RunTransaction(ops), applicationNotAliveErr)
 }
 
+func assertApplicationAliveOp(appName string) txn.Op {
+	return txn.Op{
+		C:      applicationsC,
+		Id:     applicationGlobalKey(appName),
+		Assert: isAliveDoc,
+	}
+}
+
+// OpenedPortRanges returns a ApplicationPortRanges object that can be used to query
+// and/or mutate the port ranges opened by the embedded k8s application.
+func (a *Application) OpenedPortRanges() (ApplicationPortRanges, error) {
+	return getOpenedApplicationPortRanges(a.st, a.Name())
+}
+
 // EndpointBindings returns the mapping for each endpoint name and the space
 // ID it is bound to (or empty if unspecified). When no bindings are stored
 // for the application, defaults are returned.
