@@ -48,4 +48,4 @@ jobs:
       shell: bash
       run: |
         set -euxo pipefail
-        juju upgrade-controller
+        juju upgrade-controller --build-agent
