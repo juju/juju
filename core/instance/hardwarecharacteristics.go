@@ -4,7 +4,6 @@
 package instance
 
 import (
-	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -12,6 +11,7 @@ import (
 	"text/scanner"
 	"unicode"
 
+	"github.com/juju/errors"
 	"github.com/juju/utils/arch"
 )
 
@@ -125,7 +125,7 @@ func ParseHardware(args ...string) (HardwareCharacteristics, error) {
 			var err error
 			arg, err = hc.parseField(arg)
 			if err != nil {
-				return hc, err
+				return hc, errors.Trace(err)
 			}
 			arg = strings.TrimSpace(arg)
 		}
@@ -138,7 +138,7 @@ func ParseHardware(args ...string) (HardwareCharacteristics, error) {
 func (hc *HardwareCharacteristics) parseField(s string) (rest string, err error) {
 	eq := strings.IndexByte(s, '=')
 	if eq <= 0 {
-		return s, fmt.Errorf("malformed characteristic %q", s)
+		return s, errors.Errorf("malformed characteristic %q", s)
 	}
 	name, rest := s[:eq], s[eq+1:]
 
@@ -148,7 +148,7 @@ func (hc *HardwareCharacteristics) parseField(s string) (rest string, err error)
 		var values []string
 		values, rest, err = parseMulti(rest)
 		if err != nil {
-			return rest, fmt.Errorf("%s: %v", name, err)
+			return rest, errors.Errorf("%s: %v", name, err)
 		}
 		err = hc.setTags(values)
 	default:
@@ -156,7 +156,7 @@ func (hc *HardwareCharacteristics) parseField(s string) (rest string, err error)
 		var value string
 		value, rest, err = parseSingle(rest, " ")
 		if err != nil {
-			return rest, fmt.Errorf("%s: %v", name, err)
+			return rest, errors.Errorf("%s: %v", name, err)
 		}
 		switch name {
 		case "arch":
@@ -174,11 +174,11 @@ func (hc *HardwareCharacteristics) parseField(s string) (rest string, err error)
 		case "availability-zone":
 			err = hc.setAvailabilityZone(value)
 		default:
-			return rest, fmt.Errorf("unknown characteristic %q", name)
+			return rest, errors.Errorf("unknown characteristic %q", name)
 		}
 	}
 	if err != nil {
-		return rest, fmt.Errorf("bad %q characteristic: %v", name, err)
+		return rest, errors.Errorf("bad %q characteristic: %v", name, err)
 	}
 	return rest, nil
 }
@@ -189,7 +189,7 @@ func parseSingle(s string, seps string) (value, rest string, err error) {
 	if len(s) > 0 && s[0] == '"' {
 		value, rest, err = parseQuotedString(s)
 		if err != nil {
-			return "", rest, err
+			return "", rest, errors.Trace(err)
 		}
 	} else {
 		sepPos := strings.IndexAny(s, seps)
@@ -218,7 +218,7 @@ func parseMulti(s string) (values []string, rest string, err error) {
 		var value string
 		value, rest, err = parseSingle(rest, ", ")
 		if err != nil {
-			return values, rest, err
+			return values, rest, errors.Trace(err)
 		}
 		if value != "" {
 			values = append(values, value)
@@ -245,28 +245,28 @@ func parseQuotedString(input string) (value, rest string, err error) {
 	tok := s.Scan()
 	rest = input[s.Pos().Offset:]
 	if s.ErrorCount > 0 {
-		return "", rest, fmt.Errorf("parsing quoted string: %s", errMsg)
+		return "", rest, errors.Errorf("parsing quoted string: %s", errMsg)
 	}
 	if tok != scanner.String {
 		// Shouldn't happen; we only asked for strings
-		return "", rest, fmt.Errorf("parsing quoted string: unexpected token %s", scanner.TokenString(tok))
+		return "", rest, errors.Errorf("parsing quoted string: unexpected token %s", scanner.TokenString(tok))
 	}
 
 	// And then strconv to unquote it (oddly, text/scanner doesn't unquote)
 	unquoted, err := strconv.Unquote(s.TokenText())
 	if err != nil {
 		// Shouldn't happen; scanner should only return valid quoted strings
-		return "", rest, fmt.Errorf("parsing quoted string: %v", err)
+		return "", rest, errors.Errorf("parsing quoted string: %v", err)
 	}
 	return unquoted, rest, nil
 }
 
 func (hc *HardwareCharacteristics) setArch(str string) error {
 	if hc.Arch != nil {
-		return fmt.Errorf("already set")
+		return errors.Errorf("already set")
 	}
 	if str != "" && !arch.IsSupportedArch(str) {
-		return fmt.Errorf("%q not recognized", str)
+		return errors.Errorf("%q not recognized", str)
 	}
 	hc.Arch = &str
 	return nil
@@ -274,7 +274,7 @@ func (hc *HardwareCharacteristics) setArch(str string) error {
 
 func (hc *HardwareCharacteristics) setCpuCores(str string) (err error) {
 	if hc.CpuCores != nil {
-		return fmt.Errorf("already set")
+		return errors.Errorf("already set")
 	}
 	hc.CpuCores, err = parseUint64(str)
 	return
@@ -282,7 +282,7 @@ func (hc *HardwareCharacteristics) setCpuCores(str string) (err error) {
 
 func (hc *HardwareCharacteristics) setCpuPower(str string) (err error) {
 	if hc.CpuPower != nil {
-		return fmt.Errorf("already set")
+		return errors.Errorf("already set")
 	}
 	hc.CpuPower, err = parseUint64(str)
 	return
@@ -290,7 +290,7 @@ func (hc *HardwareCharacteristics) setCpuPower(str string) (err error) {
 
 func (hc *HardwareCharacteristics) setMem(str string) (err error) {
 	if hc.Mem != nil {
-		return fmt.Errorf("already set")
+		return errors.Errorf("already set")
 	}
 	hc.Mem, err = parseSize(str)
 	return
@@ -298,7 +298,7 @@ func (hc *HardwareCharacteristics) setMem(str string) (err error) {
 
 func (hc *HardwareCharacteristics) setRootDisk(str string) (err error) {
 	if hc.RootDisk != nil {
-		return fmt.Errorf("already set")
+		return errors.Errorf("already set")
 	}
 	hc.RootDisk, err = parseSize(str)
 	return
@@ -306,7 +306,7 @@ func (hc *HardwareCharacteristics) setRootDisk(str string) (err error) {
 
 func (hc *HardwareCharacteristics) setRootDiskSource(str string) (err error) {
 	if hc.RootDiskSource != nil {
-		return fmt.Errorf("already set")
+		return errors.Errorf("already set")
 	}
 	if str != "" {
 		hc.RootDiskSource = &str
@@ -316,7 +316,7 @@ func (hc *HardwareCharacteristics) setRootDiskSource(str string) (err error) {
 
 func (hc *HardwareCharacteristics) setTags(strs []string) (err error) {
 	if hc.Tags != nil {
-		return fmt.Errorf("already set")
+		return errors.Errorf("already set")
 	}
 	if len(strs) > 0 {
 		hc.Tags = &strs
@@ -326,7 +326,7 @@ func (hc *HardwareCharacteristics) setTags(strs []string) (err error) {
 
 func (hc *HardwareCharacteristics) setAvailabilityZone(str string) error {
 	if hc.AvailabilityZone != nil {
-		return fmt.Errorf("already set")
+		return errors.Errorf("already set")
 	}
 	if str != "" {
 		hc.AvailabilityZone = &str
@@ -339,7 +339,7 @@ func parseUint64(str string) (*uint64, error) {
 	if str != "" {
 		val, err := strconv.ParseUint(str, 10, 64)
 		if err != nil {
-			return nil, fmt.Errorf("must be a non-negative integer")
+			return nil, errors.Errorf("must be a non-negative integer")
 		}
 		value = val
 	}
@@ -356,7 +356,7 @@ func parseSize(str string) (*uint64, error) {
 		}
 		val, err := strconv.ParseFloat(str, 64)
 		if err != nil || val < 0 {
-			return nil, fmt.Errorf("must be a non-negative float with optional M/G/T/P suffix")
+			return nil, errors.Errorf("must be a non-negative float with optional M/G/T/P suffix")
 		}
 		val *= mult
 		value = uint64(math.Ceil(val))
