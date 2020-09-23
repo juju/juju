@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/proxy"
-	"github.com/juju/utils/ssh"
+	"github.com/juju/utils/v2/ssh"
 	"github.com/juju/version"
 	"gopkg.in/macaroon-bakery.v2/bakery"
 	"gopkg.in/macaroon.v2"
@@ -186,6 +186,7 @@ type AddCharmWithOrigin struct {
 	URL    string      `json:"url"`
 	Origin CharmOrigin `json:"charm-origin"`
 	Force  bool        `json:"force"`
+	Series string      `json:"series"`
 }
 
 // AddCharmWithAuthorization holds the arguments for making an
@@ -204,6 +205,7 @@ type AddCharmWithAuth struct {
 	Origin             CharmOrigin        `json:"charm-origin"`
 	CharmStoreMacaroon *macaroon.Macaroon `json:"macaroon"`
 	Force              bool               `json:"force"`
+	Series             string             `json:"series"`
 }
 
 // CharmOriginResult holds the results of AddCharms calls where

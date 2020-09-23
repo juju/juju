@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/shell"
+	"github.com/juju/utils/v2/shell"
 )
 
 // Conf is responsible for defining services. Its fields

@@ -14,7 +14,7 @@ import (
 	"github.com/juju/charmrepo/v6/csclient"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"github.com/juju/version"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
@@ -78,7 +78,7 @@ type Repository interface {
 	// FindDownloadURL returns a url from which a charm can be downloaded
 	// based on the given charm url and charm origin.  A charm origin
 	// updated with the ID and hash for the download is also returned.
-	FindDownloadURL(curl *charm.URL, origin corecharm.Origin) (*url.URL, corecharm.Origin, error)
+	FindDownloadURL(curl *charm.URL, origin corecharm.Origin, series string) (*url.URL, corecharm.Origin, error)
 
 	// DownloadCharm reads the charm referenced by curl or downloadURL into
 	// a file with the given path, which will be created if needed. Note
@@ -260,7 +260,7 @@ func (c *charmRepoShim) DownloadCharm(resourceURL string, archivePath string) (*
 
 // FindDownloadURL is a placeholder required to implement the
 // Repository interface.
-func (c *charmRepoShim) FindDownloadURL(_ *charm.URL, origin corecharm.Origin) (*url.URL, corecharm.Origin, error) {
+func (c *charmRepoShim) FindDownloadURL(_ *charm.URL, origin corecharm.Origin, _ string) (*url.URL, corecharm.Origin, error) {
 	return nil, origin, nil
 }
 

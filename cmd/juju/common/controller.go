@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 
 	"github.com/juju/juju/api/block"
 	"github.com/juju/juju/apiserver/params"

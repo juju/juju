@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"net/url"
+	"strings"
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/charmrepo/v6"
@@ -83,8 +84,8 @@ func (c *chRepo) DownloadCharm(resourceURL string, archivePath string) (*charm.C
 // charm origin is also returned with the ID and hash for the charm
 // to be downloaded.  If the provided charm origin has no ID, it is
 // assumed that the charm is being installed, not refreshed.
-func (c *chRepo) FindDownloadURL(curl *charm.URL, origin corecharm.Origin) (*url.URL, corecharm.Origin, error) {
-	cfg, err := refreshConfig(curl, origin)
+func (c *chRepo) FindDownloadURL(curl *charm.URL, origin corecharm.Origin, series string) (*url.URL, corecharm.Origin, error) {
+	cfg, err := refreshConfig(curl, origin, series)
 	if err != nil {
 		return nil, corecharm.Origin{}, errors.Trace(err)
 	}
@@ -108,7 +109,12 @@ func (c *chRepo) FindDownloadURL(curl *charm.URL, origin corecharm.Origin) (*url
 	return durl, origin, errors.Trace(err)
 }
 
-func refreshConfig(curl *charm.URL, origin corecharm.Origin) (charmhub.RefreshConfig, error) {
+// refreshConfig creates a RefreshConfig for the given input.
+// If the origin.ID is not set, a install refresh config is returned. For
+//   install. Channel and Revision are mutually exclusive in the api, only
+//   one will be used.  Channel first, Revision is a fallback.
+// If the origin.ID is set, a refresh config is returned.
+func refreshConfig(curl *charm.URL, origin corecharm.Origin, charmSeries string) (charmhub.RefreshConfig, error) {
 	var rev int
 	if origin.Revision != nil {
 		rev = *origin.Revision
@@ -118,12 +124,15 @@ func refreshConfig(curl *charm.URL, origin corecharm.Origin) (charmhub.RefreshCo
 		channel = origin.Channel.String()
 	}
 	var seriesOS string
-	if curl.Series != "" {
-		opSys, err := series.GetOSFromSeries(curl.Series)
+	if charmSeries != "" {
+		opSys, err := series.GetOSFromSeries(charmSeries)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		seriesOS = opSys.String()
+		// Note: 21-01-2020
+		// Values passed to the api are case sensitive: ubuntu succeeds and
+		// Ubuntu returns "code": "revision-not-found".
+		seriesOS = strings.ToLower(opSys.String())
 	}
 	var cfg charmhub.RefreshConfig
 	var err error
@@ -132,15 +141,15 @@ func refreshConfig(curl *charm.URL, origin corecharm.Origin) (charmhub.RefreshCo
 	case origin.ID == "" && channel != "":
 		// If there is no origin ID, we haven't downloaded this charm before.
 		// Try channel first.
-		cfg, err = charmhub.InstallOneFromChannel(curl.Name, channel, seriesOS, curl.Series)
+		cfg, err = charmhub.InstallOneFromChannel(curl.Name, channel, seriesOS, charmSeries)
 	case origin.ID == "" && channel == "":
 		// If there is no origin ID, we haven't downloaded this charm before.
 		// No channel, try with revision.
-		cfg, err = charmhub.InstallOneFromRevision(curl.Name, rev, seriesOS, curl.Series)
+		cfg, err = charmhub.InstallOneFromRevision(curl.Name, rev, seriesOS, charmSeries)
 	case origin.ID != "":
 		// This must be a charm upgrade if we have an ID.  Use the refresh action
 		// for metric keeping on the CharmHub side.
-		cfg, err = charmhub.RefreshOne(origin.ID, rev, channel, seriesOS, curl.Series)
+		cfg, err = charmhub.RefreshOne(origin.ID, rev, channel, seriesOS, charmSeries)
 	default:
 		return nil, errors.NotValidf("origin %v", origin)
 	}
@@ -269,7 +278,7 @@ func (c *csRepo) DownloadCharm(resourceURL string, archivePath string) (*charm.C
 	return c.repo.Get(curl, archivePath)
 }
 
-func (c *csRepo) FindDownloadURL(curl *charm.URL, origin corecharm.Origin) (*url.URL, corecharm.Origin, error) {
+func (c *csRepo) FindDownloadURL(curl *charm.URL, origin corecharm.Origin, _ string) (*url.URL, corecharm.Origin, error) {
 	logger.Tracef("CharmStore FindDownloadURL %q", curl)
 	return nil, origin, nil
 }

@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 )
 
 // Details of the domain XML format are at: https://libvirt.org/formatdomain.html

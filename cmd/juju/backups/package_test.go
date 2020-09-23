@@ -14,7 +14,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 
 	apibackups "github.com/juju/juju/api/backups"

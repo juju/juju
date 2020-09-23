@@ -25,7 +25,7 @@ import (
 	gt "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"github.com/juju/worker/v2"
 	gc "gopkg.in/check.v1"
 

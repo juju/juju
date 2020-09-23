@@ -16,7 +16,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/shell"
+	"github.com/juju/utils/v2/shell"
 
 	"github.com/juju/juju/service/common"
 )

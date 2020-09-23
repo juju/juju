@@ -15,7 +15,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
@@ -4792,6 +4792,59 @@ func (s *upgradesSuite) TestAddCharmOriginToApplication(c *gc.C) {
 
 	sort.Sort(expected)
 	s.assertUpgradedData(c, AddCharmOriginToApplications,
+		upgradedData(coll, expected),
+	)
+}
+
+func (s *upgradesSuite) TestExposeWildcardEndpointForExposedApplication(c *gc.C) {
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
+	defer func() {
+		_ = model1.Close()
+		_ = model2.Close()
+	}()
+
+	uuid1 := model1.ModelUUID()
+	uuid2 := model2.ModelUUID()
+
+	coll, closer := s.state.db().GetRawCollection(applicationsC)
+	defer closer()
+
+	err := coll.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid1, "app1"),
+		"model-uuid": uuid1,
+		"charmurl":   charm.MustParseURL("cs:test").String(),
+		"exposed":    true, // exposed application
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = coll.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid2, "app2"),
+		"model-uuid": uuid2,
+		"charmurl":   charm.MustParseURL("local:test").String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := bsonMById{
+		{
+			"_id":        ensureModelUUID(uuid1, "app1"),
+			"model-uuid": uuid1,
+			"charmurl":   "cs:test",
+			"exposed":    true,
+			"exposed-endpoints": bson.M{
+				"": bson.M{
+					"to-cidrs": []interface{}{"0.0.0.0/0", "::/0"},
+				},
+			},
+		},
+		{
+			"_id":        ensureModelUUID(uuid2, "app2"),
+			"model-uuid": uuid2,
+			"charmurl":   "local:test",
+		},
+	}
+
+	sort.Sort(expected)
+	s.assertUpgradedData(c, ExposeWildcardEndpointForExposedApplications,
 		upgradedData(coll, expected),
 	)
 }

@@ -17,7 +17,7 @@ import (
 	"github.com/juju/names/v4"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 
@@ -1687,21 +1687,20 @@ func (s *applicationSuite) checkClientApplicationUpdateSetCharm(c *gc.C, forceCh
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Update the charm for the application.
+	minUnits := 3
 	args := params.ApplicationUpdate{
 		ApplicationName: "application",
-		CharmURL:        curl.String(),
+		MinUnits:        &minUnits,
 		ForceCharmURL:   forceCharmURL,
 	}
-	err = s.applicationAPI.Update(args)
+	api := &application.APIv12{s.applicationAPI}
+	err = api.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the charm has been updated and and the force flag correctly set.
 	app, err := s.State.Application("application")
 	c.Assert(err, jc.ErrorIsNil)
-	ch, force, err := app.Charm()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.URL().String(), gc.Equals, curl.String())
-	c.Assert(force, gc.Equals, forceCharmURL)
+	c.Assert(app.MinUnits(), gc.Equals, minUnits)
 }
 
 func (s *applicationSuite) TestApplicationUpdateSetCharm(c *gc.C) {
@@ -1737,48 +1736,9 @@ func (s *applicationSuite) TestBlockChangeApplicationUpdate(c *gc.C) {
 		CharmURL:        curl,
 		ForceCharmURL:   false,
 	}
-	err := s.applicationAPI.Update(args)
+	api := &application.APIv12{s.applicationAPI}
+	err := api.Update(args)
 	s.AssertBlocked(c, err, "TestBlockChangeApplicationUpdate")
-}
-
-func (s *applicationSuite) TestApplicationUpdateForceSetCharm(c *gc.C) {
-	s.checkClientApplicationUpdateSetCharm(c, true)
-}
-
-func (s *applicationSuite) TestBlockApplicationUpdateForced(c *gc.C) {
-	curl := s.setupApplicationUpdate(c)
-
-	// block all changes. Force should ignore block :)
-	s.BlockAllChanges(c, "TestBlockApplicationUpdateForced")
-	s.BlockDestroyModel(c, "TestBlockApplicationUpdateForced")
-	s.BlockRemoveObject(c, "TestBlockApplicationUpdateForced")
-
-	// Update the charm for the application.
-	args := params.ApplicationUpdate{
-		ApplicationName: "application",
-		CharmURL:        curl,
-		ForceCharmURL:   true,
-	}
-	err := s.applicationAPI.Update(args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Ensure the charm has been updated and and the force flag correctly set.
-	app, err := s.State.Application("application")
-	c.Assert(err, jc.ErrorIsNil)
-	ch, force, err := app.Charm()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.URL().String(), gc.Equals, curl)
-	c.Assert(force, jc.IsTrue)
-}
-
-func (s *applicationSuite) TestApplicationUpdateSetCharmNotFound(c *gc.C) {
-	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	args := params.ApplicationUpdate{
-		ApplicationName: "wordpress",
-		CharmURL:        "cs:precise/wordpress-999999",
-	}
-	err := s.applicationAPI.Update(args)
-	c.Check(err, gc.ErrorMatches, `charm "cs:precise/wordpress-999999" not found`)
 }
 
 func (s *applicationSuite) TestApplicationUpdateSetMinUnits(c *gc.C) {
@@ -1790,7 +1750,8 @@ func (s *applicationSuite) TestApplicationUpdateSetMinUnits(c *gc.C) {
 		ApplicationName: "dummy",
 		MinUnits:        &minUnits,
 	}
-	err := s.applicationAPI.Update(args)
+	api := &application.APIv12{s.applicationAPI}
+	err := api.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the minimum number of units has been set.
@@ -1807,7 +1768,8 @@ func (s *applicationSuite) TestApplicationUpdateSetMinUnitsWithLXDProfile(c *gc.
 		ApplicationName: "lxd-profile",
 		MinUnits:        &minUnits,
 	}
-	err := s.applicationAPI.Update(args)
+	api := &application.APIv12{s.applicationAPI}
+	err := api.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the minimum number of units has been set.
@@ -1834,7 +1796,8 @@ func (s *applicationSuite) TestApplicationUpdateSetMinUnitsError(c *gc.C) {
 		ApplicationName: "dummy",
 		MinUnits:        &minUnits,
 	}
-	err := s.applicationAPI.Update(args)
+	api := &application.APIv12{s.applicationAPI}
+	err := api.Update(args)
 	c.Assert(err, gc.ErrorMatches,
 		`cannot set minimum units for application "dummy": cannot set a negative minimum number of units`)
 
@@ -1861,7 +1824,8 @@ func (s *applicationSuite) testApplicationUpdateSetSettingsStrings(c *gc.C, bran
 		SettingsStrings: map[string]string{"title": "s-title", "username": "s-user"},
 		Generation:      branchName,
 	}
-	err := s.applicationAPI.Update(args)
+	api := &application.APIv12{s.applicationAPI}
+	err := api.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the settings have been correctly updated.
@@ -1884,7 +1848,8 @@ func (s *applicationSuite) TestApplicationUpdateSetSettingsStringsBranch(c *gc.C
 		SettingsStrings: map[string]string{"title": "s-title", "username": "s-user"},
 		Generation:      newBranch,
 	}
-	err := s.applicationAPI.Update(args)
+	api := &application.APIv12{s.applicationAPI}
+	err := api.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the settings have been correctly updated.
@@ -1917,7 +1882,8 @@ func (s *applicationSuite) testApplicationUpdateSetSettingsYAML(c *gc.C, branchN
 		SettingsYAML:    "dummy:\n  title: y-title\n  username: y-user",
 		Generation:      branchName,
 	}
-	err := s.applicationAPI.Update(args)
+	api := &application.APIv12{s.applicationAPI}
+	err := api.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the settings have been correctly updated.
@@ -1940,7 +1906,8 @@ func (s *applicationSuite) TestApplicationUpdateSetSettingsYAMLBranch(c *gc.C) {
 		SettingsYAML:    "dummy:\n  title: y-title\n  username: y-user",
 		Generation:      newBranch,
 	}
-	err := s.applicationAPI.Update(args)
+	api := &application.APIv12{s.applicationAPI}
+	err := api.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the settings have been correctly updated.
@@ -1965,7 +1932,8 @@ func (s *applicationSuite) TestClientApplicationUpdateSetSettingsGetYAML(c *gc.C
 		SettingsYAML:    "charm: dummy\napplication: dummy\nsettings:\n  title:\n    value: y-title\n    type: string\n  username:\n    value: y-user\n  ignore:\n    blah: true",
 		Generation:      model.GenerationMaster,
 	}
-	err := s.applicationAPI.Update(args)
+	api := &application.APIv12{s.applicationAPI}
+	err := api.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the settings have been correctly updated.
@@ -1991,7 +1959,8 @@ func (s *applicationSuite) TestApplicationUpdateCombinedStringAndYAMLSettings(c 
 		SettingsYAML: "dummy:\n  title: s-title",
 		Generation:   newBranch,
 	}
-	err := s.applicationAPI.Update(args)
+	api := &application.APIv12{s.applicationAPI}
+	err := api.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the settings have been correctly updated.
@@ -2016,7 +1985,8 @@ func (s *applicationSuite) TestApplicationUpdateSetConstraints(c *gc.C) {
 		ApplicationName: "dummy",
 		Constraints:     &cons,
 	}
-	err = s.applicationAPI.Update(args)
+	api := &application.APIv12{s.applicationAPI}
+	err = api.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the constraints have been correctly updated.
@@ -2033,6 +2003,12 @@ func (s *applicationSuite) TestApplicationUpdateAllParams(c *gc.C) {
 	}, s.openRepo)
 	c.Assert(err, jc.ErrorIsNil)
 
+	app, err := s.State.Application("application")
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectCurl, expectForce, _ := app.Charm()
+	expectMinUnits := app.MinUnits()
+
 	// Update all the application attributes.
 	minUnits := 3
 	cons, err := constraints.Parse("mem=4096", "cores=2")
@@ -2047,33 +2023,22 @@ func (s *applicationSuite) TestApplicationUpdateAllParams(c *gc.C) {
 		Constraints:     &cons,
 		Generation:      model.GenerationMaster,
 	}
-	err = s.applicationAPI.Update(args)
-	c.Assert(err, jc.ErrorIsNil)
+	api := &application.APIv12{s.applicationAPI}
+	err = api.Update(args)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 
-	// Ensure the application has been correctly updated.
-	app, err := s.State.Application("application")
+	// Ensure the application not been.
+	err = app.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check the charm.
 	ch, force, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.URL().String(), gc.Equals, curl.String())
-	c.Assert(force, jc.IsTrue)
+	c.Assert(ch.URL().String(), gc.Equals, expectCurl.String())
+	c.Assert(force, gc.Equals, expectForce)
 
 	// Check the minimum number of units.
-	c.Assert(app.MinUnits(), gc.Equals, minUnits)
-
-	// Check the settings: also ensure the string settings take precedence
-	// over the YAML ones.
-	expectedSettings := charm.Settings{"blog-title": "string-title"}
-	obtainedSettings, err := app.CharmConfig(model.GenerationMaster)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedSettings, gc.DeepEquals, expectedSettings)
-
-	// Check the constraints.
-	obtainedConstraints, err := app.Constraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedConstraints, gc.DeepEquals, cons)
+	c.Assert(app.MinUnits(), gc.Equals, expectMinUnits)
 }
 
 func (s *applicationSuite) TestApplicationUpdateNoParams(c *gc.C) {
@@ -2081,18 +2046,21 @@ func (s *applicationSuite) TestApplicationUpdateNoParams(c *gc.C) {
 
 	// Calling Update with no parameters set is a no-op.
 	args := params.ApplicationUpdate{ApplicationName: "wordpress"}
-	err := s.applicationAPI.Update(args)
+	api := &application.APIv12{s.applicationAPI}
+	err := api.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *applicationSuite) TestApplicationUpdateNoApplication(c *gc.C) {
-	err := s.applicationAPI.Update(params.ApplicationUpdate{})
+	api := &application.APIv12{s.applicationAPI}
+	err := api.Update(params.ApplicationUpdate{})
 	c.Assert(err, gc.ErrorMatches, `"" is not a valid application name`)
 }
 
 func (s *applicationSuite) TestApplicationUpdateInvalidApplication(c *gc.C) {
 	args := params.ApplicationUpdate{ApplicationName: "no-such-application"}
-	err := s.applicationAPI.Update(args)
+	api := &application.APIv12{s.applicationAPI}
+	err := api.Update(args)
 	c.Assert(err, gc.ErrorMatches, `application "no-such-application" not found`)
 }
 
@@ -2510,7 +2478,7 @@ func (s *applicationSuite) TestApplicationExposeEndpoints(c *gc.C) {
 		ApplicationName: app.Name(),
 		ExposedEndpoints: map[string]params.ExposedEndpoint{
 			// Exposing an endpoint with no expose options implies
-			// expose to 0.0.0.0/0.
+			// expose to 0.0.0.0/0 and ::/0.
 			"monitoring-port": {},
 		},
 	})
@@ -2521,7 +2489,7 @@ func (s *applicationSuite) TestApplicationExposeEndpoints(c *gc.C) {
 	c.Assert(got.IsExposed(), gc.Equals, true)
 	c.Assert(got.ExposedEndpoints(), gc.DeepEquals, map[string]state.ExposedEndpoint{
 		"monitoring-port": {
-			ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR},
+			ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR},
 		},
 	})
 }
@@ -2535,7 +2503,7 @@ func (s *applicationSuite) TestApplicationExposeEndpointsWithPre29Client(c *gc.C
 		ApplicationName: app.Name(),
 		// If no endpoint-specific expose params are provided, the call
 		// will emulate the behavior of a pre 2.9 controller where all
-		// ports are exposed to 0.0.0.0/0.
+		// ports are exposed to 0.0.0.0/0 and ::/0.
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2544,7 +2512,7 @@ func (s *applicationSuite) TestApplicationExposeEndpointsWithPre29Client(c *gc.C
 	c.Assert(got.IsExposed(), gc.Equals, true)
 	c.Assert(got.ExposedEndpoints(), gc.DeepEquals, map[string]state.ExposedEndpoint{
 		"": {
-			ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR},
+			ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR},
 		},
 	})
 }
@@ -2583,7 +2551,7 @@ var applicationExposeTests = []struct {
 		expExposed:  true,
 		expExposedEndpoints: map[string]state.ExposedEndpoint{
 			"": {
-				ExposeToCIDRs: []string{"0.0.0.0/0"},
+				ExposeToCIDRs: []string{"0.0.0.0/0", "::/0"},
 			},
 		},
 	},
@@ -2593,7 +2561,7 @@ var applicationExposeTests = []struct {
 		expExposed:  true,
 		expExposedEndpoints: map[string]state.ExposedEndpoint{
 			"": {
-				ExposeToCIDRs: []string{"0.0.0.0/0"},
+				ExposeToCIDRs: []string{"0.0.0.0/0", "::/0"},
 			},
 		},
 	},
@@ -2715,7 +2683,7 @@ var applicationUnexposeTests = []struct {
 		// The server-admin (and hence the app) should remain exposed
 		expExposed: true,
 		expExposedEndpoints: map[string]state.ExposedEndpoint{
-			"server-admin": {ExposeToCIDRs: []string{"0.0.0.0/0"}},
+			"server-admin": {ExposeToCIDRs: []string{"0.0.0.0/0", "::/0"}},
 		},
 	},
 	{

@@ -21,8 +21,8 @@ import (
 	"github.com/juju/names/v4"
 	jujuos "github.com/juju/os"
 	"github.com/juju/os/series"
-	"github.com/juju/utils"
-	"github.com/juju/utils/exec"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/exec"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"

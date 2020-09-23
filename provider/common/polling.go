@@ -6,7 +6,7 @@ package common
 import (
 	"time"
 
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 )
 
 // Use ShortAttempt to poll for short-term events.

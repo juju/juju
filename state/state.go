@@ -26,7 +26,7 @@ import (
 	"github.com/juju/os/series"
 	"github.com/juju/pubsub"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"github.com/juju/version"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"

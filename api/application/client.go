@@ -806,9 +806,15 @@ func hasGranularExposeParameters(exposedEndpoints map[string]params.ExposedEndpo
 	} else if allEndpointParams, found := exposedEndpoints[""]; found && len(exposedEndpoints) == 1 {
 		// We have a single entry for the wildcard endpoint; check if
 		// it only includes an expose to all networks CIDR.
+		var allNetworkCIDRCount int
+		for _, cidr := range allEndpointParams.ExposeToCIDRs {
+			if cidr == firewall.AllNetworksIPV4CIDR || cidr == firewall.AllNetworksIPV6CIDR {
+				allNetworkCIDRCount++
+			}
+		}
+
 		if len(allEndpointParams.ExposeToSpaces) == 0 &&
-			len(allEndpointParams.ExposeToCIDRs) == 1 &&
-			allEndpointParams.ExposeToCIDRs[0] == firewall.AllNetworksIPV4CIDR {
+			len(allEndpointParams.ExposeToCIDRs) == allNetworkCIDRCount {
 			return false // equivalent to using non-granular expose like pre 2.9 juju
 		}
 	}
@@ -950,9 +956,12 @@ func (c *Client) Consume(arg crossmodel.ConsumeApplicationArgs) (string, error) 
 	return localName, nil
 }
 
-// SetApplicationConfig sets configuration options on an application.
+// SetApplicationConfig sets configuration options on an application and the charm,
+// from the provided map.
+// Note: The name is misleading as charm config is also set.
 func (c *Client) SetApplicationConfig(branchName, application string, config map[string]string) error {
-	if c.BestAPIVersion() < 6 {
+	apiVersion := c.BestAPIVersion()
+	if apiVersion < 6 || apiVersion > 12 {
 		return errors.NotSupportedf("SetApplicationsConfig not supported by this version of Juju")
 	}
 	args := params.ApplicationConfigSetArgs{
@@ -964,6 +973,27 @@ func (c *Client) SetApplicationConfig(branchName, application string, config map
 	}
 	var results params.ErrorResults
 	err := c.facade.FacadeCall("SetApplicationsConfig", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
+}
+
+// SetConfig sets configuration options on an application and the charm.
+func (c *Client) SetConfig(branchName, application, configYAML string, config map[string]string) error {
+	if c.BestAPIVersion() < 13 {
+		return errors.NotSupportedf("SetConfig not supported by this version of Juju")
+	}
+	args := params.ConfigSetArgs{
+		Args: []params.ConfigSet{{
+			ApplicationName: application,
+			Generation:      branchName,
+			Config:          config,
+			ConfigYAML:      configYAML,
+		}},
+	}
+	var results params.ErrorResults
+	err := c.facade.FacadeCall("SetConfigs", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -97,11 +97,12 @@ func (c *Client) ResolveCharms(charms []CharmToResolve) ([]ResolvedCharm, error)
 // If the AddCharm API call fails because of an authorization error
 // when retrieving the charm from the charm store, an error
 // satisfying params.IsCodeUnauthorized will be returned.
-func (c *Client) AddCharm(curl *charm.URL, origin apicharm.Origin, force bool) (apicharm.Origin, error) {
+func (c *Client) AddCharm(curl *charm.URL, origin apicharm.Origin, force bool, series string) (apicharm.Origin, error) {
 	args := params.AddCharmWithOrigin{
 		URL:    curl.String(),
 		Origin: origin.ParamsCharmOrigin(),
 		Force:  force,
+		Series: series,
 	}
 	var result params.CharmOriginResult
 	if err := c.facade.FacadeCall("AddCharm", args, &result); err != nil {
@@ -121,12 +122,13 @@ func (c *Client) AddCharm(curl *charm.URL, origin apicharm.Origin, force bool) (
 // an error satisfying params.IsCodeUnauthorized will be returned.
 // Force is used to overload any validation errors that could occur during
 // a deploy
-func (c *Client) AddCharmWithAuthorization(curl *charm.URL, origin apicharm.Origin, csMac *macaroon.Macaroon, force bool) (apicharm.Origin, error) {
+func (c *Client) AddCharmWithAuthorization(curl *charm.URL, origin apicharm.Origin, csMac *macaroon.Macaroon, force bool, series string) (apicharm.Origin, error) {
 	args := params.AddCharmWithAuth{
 		URL:                curl.String(),
 		Origin:             origin.ParamsCharmOrigin(),
 		CharmStoreMacaroon: csMac,
 		Force:              force,
+		Series:             series,
 	}
 	var result params.CharmOriginResult
 	if err := c.facade.FacadeCall("AddCharmWithAuthorization", args, &result); err != nil {

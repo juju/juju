@@ -19,7 +19,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
-	"github.com/juju/utils/shell"
+	"github.com/juju/utils/v2/shell"
 	"github.com/juju/version"
 	"gopkg.in/yaml.v2"
 

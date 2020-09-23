@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"golang.org/x/net/context"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/googleapi"

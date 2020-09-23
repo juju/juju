@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/environs/storage"

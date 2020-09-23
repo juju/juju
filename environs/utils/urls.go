@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 )
 
 func GetURL(source, basePath string) (string, error) {

@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/utils/keyvalues"
+	"github.com/juju/utils/v2/keyvalues"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucmd "github.com/juju/juju/cmd"

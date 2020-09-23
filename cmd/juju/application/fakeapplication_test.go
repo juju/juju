@@ -111,6 +111,22 @@ func (f *fakeApplicationAPI) SetApplicationConfig(branchName, application string
 	return f.Set(application, config)
 }
 
+func (f *fakeApplicationAPI) SetConfig(branchName, application, configYAML string, config map[string]string) error {
+	if branchName != f.branchName {
+		return errors.Errorf("expected branch %q, got %q", f.branchName, branchName)
+	}
+	if f.err != nil {
+		return f.err
+	}
+
+	if application != f.name {
+		return errors.NotFoundf("application %q", application)
+	}
+
+	f.config = configYAML
+	return f.Set(application, config)
+}
+
 func (f *fakeApplicationAPI) Unset(application string, options []string) error {
 	if f.err != nil {
 		return f.err

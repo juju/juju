@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/constraints"

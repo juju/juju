@@ -5,7 +5,7 @@ package runcommands_test
 
 import (
 	"github.com/juju/testing"
-	"github.com/juju/utils/exec"
+	"github.com/juju/utils/v2/exec"
 
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/runner"

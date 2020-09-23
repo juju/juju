@@ -10,8 +10,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/core/network"
 )
@@ -191,6 +191,7 @@ func (rules IngressRules) cidrsByPortRange() map[network.PortRange]set.Strings {
 		}
 		if rule.SourceCIDRs.IsEmpty() {
 			cidrs.Add(AllNetworksIPV4CIDR)
+			cidrs.Add(AllNetworksIPV6CIDR)
 			continue
 		}
 		for cidr := range rule.SourceCIDRs {

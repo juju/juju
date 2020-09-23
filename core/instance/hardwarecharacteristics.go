@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 )
 
 // HardwareCharacteristics represents the characteristics of the instance (if known).

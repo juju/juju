@@ -22,7 +22,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/os/series"
 	"github.com/juju/replicaset"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/core/network"

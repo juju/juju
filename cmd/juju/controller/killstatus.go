@@ -194,7 +194,7 @@ func s(n int) string {
 
 func fmtCtrStatus(data ctrData) string {
 	modelNo := data.HostedModelCount
-	out := fmt.Sprintf("Waiting on %d model%s", modelNo, s(modelNo))
+	out := fmt.Sprintf("Waiting for %d model%s", modelNo, s(modelNo))
 
 	if machineNo := data.HostedMachineCount; machineNo > 0 {
 		out += fmt.Sprintf(", %d machine%s", machineNo, s(machineNo))

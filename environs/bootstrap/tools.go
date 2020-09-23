@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	jujuos "github.com/juju/os"
 	"github.com/juju/os/series"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/core/constraints"

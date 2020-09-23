@@ -12,7 +12,7 @@ import (
 	model "github.com/juju/juju/core/model"
 	mongo "github.com/juju/juju/mongo"
 	names "github.com/juju/names/v4"
-	shell "github.com/juju/utils/shell"
+	shell "github.com/juju/utils/v2/shell"
 	version "github.com/juju/version"
 	reflect "reflect"
 )

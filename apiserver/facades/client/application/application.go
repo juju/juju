@@ -973,7 +973,9 @@ type forceParams struct {
 // Update updates the application attributes, including charm URL,
 // minimum number of units, charm config and constraints.
 // All parameters in params.ApplicationUpdate except the application name are optional.
-func (api *APIBase) Update(args params.ApplicationUpdate) error {
+// Note: Updating the charm-url via Update is no longer supported.  See SetCharm.
+// Note: This method is no longer supported with facade v13.  See: SetCharm, SetConfigs.
+func (api *APIv12) Update(args params.ApplicationUpdate) error {
 	if err := api.checkCanWrite(); err != nil {
 		return err
 	}
@@ -986,26 +988,10 @@ func (api *APIBase) Update(args params.ApplicationUpdate) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	// Set the charm for the given application.
 	if args.CharmURL != "" {
-		// For now we do not support changing the channel through Update().
-		// TODO(ericsnow) Support it?
-		channel := app.Channel()
-		if err = api.updateCharm(
-			setCharmParams{
-				AppName:     args.ApplicationName,
-				Application: app,
-				Channel:     channel,
-				Force: forceParams{
-					ForceSeries: args.ForceSeries,
-					ForceUnits:  args.ForceCharmURL,
-					Force:       args.Force,
-				},
-			},
-			args.CharmURL,
-		); err != nil {
-			return errors.Trace(err)
-		}
+		return errors.NotSupportedf("updating charm url, see SetCharm")
 	}
 	// Set the minimum number of units for the given application.
 	if args.MinUnits != nil {
@@ -1014,11 +1000,23 @@ func (api *APIBase) Update(args params.ApplicationUpdate) error {
 		}
 	}
 
+	if err := api.setConfig(app, args.Generation, args.SettingsYAML, args.SettingsStrings); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Update application's constraints.
+	if args.Constraints != nil {
+		return app.SetConstraints(*args.Constraints)
+	}
+	return nil
+}
+
+func (api *APIBase) setConfig(app Application, generation, settingsYAML string, settingsStrings map[string]string) error {
 	// We need a guard on the API server-side for direct API callers such as
 	// python-libjuju, and for older clients.
 	// Always default to the master branch.
-	if args.Generation == "" {
-		args.Generation = model.GenerationMaster
+	if generation == "" {
+		generation = model.GenerationMaster
 	}
 
 	// Update settings for charm and/or application.
@@ -1027,14 +1025,14 @@ func (api *APIBase) Update(args params.ApplicationUpdate) error {
 		return errors.Annotate(err, "obtaining charm for this application")
 	}
 
-	appConfig, appConfigSchema, charmSettings, err := parseCharmSettings(api.modelType, ch, app.Name(), args.SettingsStrings, args.SettingsYAML)
+	appConfig, appConfigSchema, charmSettings, err := parseCharmSettings(api.modelType, ch, app.Name(), settingsStrings, settingsYAML)
 	if err != nil {
 		return errors.Annotate(err, "parsing settings for application")
 	}
 
 	var configChanged bool
 	if len(charmSettings) != 0 {
-		if err = app.UpdateCharmConfig(args.Generation, charmSettings); err != nil {
+		if err = app.UpdateCharmConfig(generation, charmSettings); err != nil {
 			return errors.Annotate(err, "updating charm config settings")
 		}
 		configChanged = true
@@ -1047,16 +1045,12 @@ func (api *APIBase) Update(args params.ApplicationUpdate) error {
 	}
 
 	// If the config change is generational, add the app to the generation.
-	if configChanged && args.Generation != model.GenerationMaster {
-		if err := api.addAppToBranch(args.Generation, args.ApplicationName); err != nil {
+	if configChanged && generation != model.GenerationMaster {
+		if err := api.addAppToBranch(generation, app.Name()); err != nil {
 			return errors.Trace(err)
 		}
 	}
 
-	// Update application's constraints.
-	if args.Constraints != nil {
-		return app.SetConstraints(*args.Constraints)
-	}
 	return nil
 }
 
@@ -1526,7 +1520,7 @@ func (api *APIBase) Expose(args params.ApplicationExpose) error {
 	if len(mappedExposeParams) == 0 {
 		mappedExposeParams = map[string]state.ExposedEndpoint{
 			"": {
-				ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR},
+				ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR},
 			},
 		}
 	}
@@ -2528,7 +2522,9 @@ func (u *APIv5) SetApplicationsConfig(_, _ struct{}) {}
 // SetApplicationsConfig implements the server side of Application.SetApplicationsConfig.
 // It does not unset values that are set to an empty string.
 // Unset should be used for that.
-func (api *APIBase) SetApplicationsConfig(args params.ApplicationConfigSetArgs) (params.ErrorResults, error) {
+// Note: SetApplicationsConfig is misleading, both application and charm config are set.
+// Note: For facade version 13 and higher, use SetConfig.
+func (api *APIv12) SetApplicationsConfig(args params.ApplicationConfigSetArgs) (params.ErrorResults, error) {
 	var result params.ErrorResults
 	if err := api.checkCanWrite(); err != nil {
 		return result, errors.Trace(err)
@@ -2538,59 +2534,40 @@ func (api *APIBase) SetApplicationsConfig(args params.ApplicationConfigSetArgs) 
 	}
 	result.Results = make([]params.ErrorResult, len(args.Args))
 	for i, arg := range args.Args {
-		err := api.setApplicationConfig(arg)
+		app, err := api.backend.Application(arg.ApplicationName)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		err = api.setConfig(app, arg.Generation, "", arg.Config)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
 
-func (api *APIBase) setApplicationConfig(arg params.ApplicationConfigSet) error {
-	app, err := api.backend.Application(arg.ApplicationName)
-	if err != nil {
-		return errors.Trace(err)
+// SetConfig implements the server side of Application.SetConfig.  Both
+// application and charm config are set. It does not unset values in
+// Config map that are set to an empty string. Unset should be used for that.
+func (api *APIBase) SetConfigs(args params.ConfigSetArgs) (params.ErrorResults, error) {
+	var result params.ErrorResults
+	if err := api.checkCanWrite(); err != nil {
+		return result, errors.Trace(err)
 	}
-
-	appConfigAttrs, charmConfig, err := splitApplicationAndCharmConfig(api.modelType, arg.Config)
-	if err != nil {
-		return errors.Trace(err)
+	if err := api.check.ChangeAllowed(); err != nil {
+		return result, errors.Trace(err)
 	}
-	configSchema, defaults, err := applicationConfigSchema(api.modelType)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if len(appConfigAttrs) > 0 {
-		if err := app.UpdateApplicationConfig(appConfigAttrs, nil, configSchema, defaults); err != nil {
-			return errors.Annotate(err, "updating application config values")
-		}
-	}
-	if len(charmConfig) > 0 {
-		ch, _, err := app.Charm()
+	result.Results = make([]params.ErrorResult, len(args.Args))
+	for i, arg := range args.Args {
+		app, err := api.backend.Application(arg.ApplicationName)
 		if err != nil {
-			return errors.Trace(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
 		}
-		// Validate the charm and application config.
-		charmConfigChanges, err := ch.Config().ParseSettingsStrings(charmConfig)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		// We need a guard on the API server-side for direct API callers such as
-		// python-libjuju, and for older clients.
-		// Always default to the master branch.
-		if arg.Generation == "" {
-			arg.Generation = model.GenerationMaster
-		}
-		if err := app.UpdateCharmConfig(arg.Generation, charmConfigChanges); err != nil {
-			return errors.Annotate(err, "updating application charm settings")
-		}
-		if arg.Generation != model.GenerationMaster {
-			if err := api.addAppToBranch(arg.Generation, arg.ApplicationName); err != nil {
-				return errors.Trace(err)
-			}
-		}
+		err = api.setConfig(app, arg.Generation, arg.ConfigYAML, arg.Config)
+		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
-	return nil
+	return result, nil
 }
 
 func (api *APIBase) addAppToBranch(branchName string, appName string) error {

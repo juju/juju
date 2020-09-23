@@ -16,7 +16,7 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/voyeur"
+	"github.com/juju/utils/v2/voyeur"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"

@@ -15,7 +15,7 @@ import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
@@ -2483,10 +2483,10 @@ func (s *ApplicationSuite) TestApplicationExposeWithoutSpaceAndCIDR(c *gc.C) {
 
 	exp := map[string]state.ExposedEndpoint{
 		"server": {
-			ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR},
+			ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR},
 		},
 	}
-	c.Assert(s.mysql.ExposedEndpoints(), gc.DeepEquals, exp, gc.Commentf("expected the implicit 0.0.0.0/0 CIDR to be added when an empty ExposedEndpoint value is provided to MergeExposeSettings"))
+	c.Assert(s.mysql.ExposedEndpoints(), gc.DeepEquals, exp, gc.Commentf("expected the implicit 0.0.0.0/0 and ::/0 CIDRs to be added when an empty ExposedEndpoint value is provided to MergeExposeSettings"))
 }
 
 func (s *ApplicationSuite) TestApplicationUnsetExposeEndpoints(c *gc.C) {
