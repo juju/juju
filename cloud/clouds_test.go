@@ -23,7 +23,7 @@ type cloudSuite struct {
 var _ = gc.Suite(&cloudSuite{})
 
 var publicCloudNames = []string{
-	"aws", "aws-china", "aws-gov", "google", "azure", "azure-china", "rackspace", "joyent", "cloudsigma", "oracle", "oracle-classic",
+	"aws", "aws-china", "aws-gov", "google", "azure", "azure-china", "rackspace", "joyent", "cloudsigma", "oracle",
 }
 
 func parsePublicClouds(c *gc.C) map[string]cloud.Cloud {
