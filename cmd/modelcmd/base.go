@@ -249,6 +249,9 @@ func (c *CommandBase) NewAPIRoot(
 	if redirErr, ok := errors.Cause(err).(*api.RedirectError); ok {
 		return nil, newModelMigratedError(store, modelName, redirErr)
 	}
+	if _, ok := errors.Cause(err).(*juju.NoAddressesError); ok {
+		return nil, errors.New("no controller API addresses; is bootstrap still in progress?")
+	}
 	return conn, errors.Trace(err)
 }
 
