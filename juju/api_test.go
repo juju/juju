@@ -162,7 +162,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	st, err := newAPIConnectionFromNames(c, "noconfig", "", store, panicAPIOpen)
-	c.Assert(err, gc.ErrorMatches, "no API addresses")
+	c.Assert(err, jc.Satisfies, juju.IsNoAddressesError)
 	c.Assert(st, gc.IsNil)
 }
 

@@ -46,6 +46,15 @@ type NewAPIConnectionParams struct {
 	ModelUUID string
 }
 
+var errNoAddresses = errors.New("no API addresses")
+
+// IsNoAddressesError reports whether the error (from NewAPIConnection) is an
+// error due to the controller having no API addresses yet (likely because a
+// bootstrap is still in progress).
+func IsNoAddressesError(err error) bool {
+	return errors.Cause(err) == errNoAddresses
+}
+
 // NewAPIConnection returns an api.Connection to the specified Juju controller,
 // with specified account credentials, optionally scoped to the specified model
 // name.
@@ -58,7 +67,7 @@ func NewAPIConnection(args NewAPIConnectionParams) (_ api.Connection, err error)
 		return nil, errors.Annotatef(err, "cannot work out how to connect")
 	}
 	if len(apiInfo.Addrs) == 0 {
-		return nil, errors.New("no API addresses")
+		return nil, errNoAddresses
 	}
 	// Copy the cache so we'll know whether it's changed so that
 	// we'll update the entry correctly.
