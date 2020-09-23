@@ -6,6 +6,7 @@ package charmhub
 import (
 	"io"
 
+	"github.com/juju/charm/v8"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -84,6 +85,17 @@ func (c *infoCommand) Init(args []string) error {
 	return nil
 }
 
+func (c *infoCommand) validateCharmOrBundle(charmOrBundle string) error {
+	curl, err := charm.ParseURL(charmOrBundle)
+	if err != nil {
+		return err
+	}
+	if !charm.CharmHub.Matches(curl.Schema) {
+		return errors.Errorf("%q is not a Charm Hub charm", charmOrBundle)
+	}
+	return nil
+}
+
 // Run is the business logic of the info command.  It implements the meaty
 // part of the cmd.Command interface.
 func (c *infoCommand) Run(ctx *cmd.Context) error {
@@ -109,13 +121,6 @@ func (c *infoCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	return c.out.Write(ctx, &view)
-}
-
-func (c *infoCommand) validateCharmOrBundle(_ string) error {
-	// TODO:
-	// Implement validation of charm hub charm names.  Exit for
-	// charmstore and local charms.
-	return nil
 }
 
 // getAPI returns the API that supplies methods
