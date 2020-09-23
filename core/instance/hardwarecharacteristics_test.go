@@ -313,6 +313,10 @@ var parseHardwareTests = []parseHardwareTestSpec{
 		args:    []string{`root-disk-source="Foo Bar"`},
 		hc:      &HC{RootDiskSource: stringPtr("Foo Bar")},
 	}, {
+		summary: "set root-disk-source quoted - other whitespace",
+		args:    []string{`root-disk-source="\r\n\t"`},
+		hc:      &HC{RootDiskSource: stringPtr("\r\n\t")},
+	}, {
 		summary: "set root-disk-source quoted (with escapes)",
 		args:    []string{`root-disk-source="My Big \"Fat\" Greek Disk"`},
 		hc:      &HC{RootDiskSource: stringPtr(`My Big "Fat" Greek Disk`)},
@@ -338,6 +342,10 @@ var parseHardwareTests = []parseHardwareTestSpec{
 	{
 		summary: "set tags empty",
 		args:    []string{"tags="},
+		hc:      &HC{Tags: nil},
+	}, {
+		summary: "set tags empty (quoted)",
+		args:    []string{`tags=""`},
 		hc:      &HC{Tags: nil},
 	}, {
 		summary: "set tags single",
