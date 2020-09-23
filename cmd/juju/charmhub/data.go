@@ -5,11 +5,12 @@ package charmhub
 
 import (
 	"github.com/juju/charm/v8"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/juju/api/charmhub"
 )
 
-func convertCharmInfoResult(info charmhub.InfoResponse) (InfoResponse, error) {
+func convertCharmInfoResult(info charmhub.InfoResponse, series string) (InfoResponse, error) {
 	ir := InfoResponse{
 		Type:        info.Type,
 		ID:          info.ID,
@@ -20,7 +21,7 @@ func convertCharmInfoResult(info charmhub.InfoResponse) (InfoResponse, error) {
 		Series:      info.Series,
 		StoreURL:    info.StoreURL,
 		Tags:        info.Tags,
-		Channels:    convertChannels(info.Channels),
+		Channels:    convertChannels(info.Channels, series),
 		Tracks:      info.Tracks,
 	}
 
@@ -88,12 +89,32 @@ func convertCharm(in interface{}) (*Charm, error) {
 	}, nil
 }
 
-func convertChannels(in map[string]charmhub.Channel) map[string]Channel {
+func convertChannels(in map[string]charmhub.Channel, series string) map[string]Channel {
 	out := make(map[string]Channel, len(in))
 	for k, v := range in {
-		out[k] = Channel(v)
+		if series != "" {
+			if !channelSeries(v.Platforms).Contains(series) {
+				break
+			}
+		}
+		out[k] = Channel{
+			ReleasedAt: v.ReleasedAt,
+			Track:      v.Track,
+			Risk:       v.Risk,
+			Revision:   v.Revision,
+			Size:       v.Size,
+			Version:    v.Version,
+		}
 	}
 	return out
+}
+
+func channelSeries(platforms []charmhub.Platform) set.Strings {
+	series := set.NewStrings()
+	for _, v := range platforms {
+		series.Add(v.Series)
+	}
+	return series
 }
 
 type InfoResponse struct {
