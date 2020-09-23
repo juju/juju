@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/collections/deque"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/collections/deque"
 )
 
 // LogRecord represents a log message in an agent which is to be

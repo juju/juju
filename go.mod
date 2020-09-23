@@ -61,7 +61,7 @@ require (
 	github.com/juju/loggo v0.0.0-20200526014432-9ce3a2e09b5e
 	github.com/juju/lru v0.0.0-20181205132344-305dec07bf2f // indirect
 	github.com/juju/mutex v0.0.0-20180619145857-d21b13acf4bf
-	github.com/juju/names/v4 v4.0.0-20200424054733-9a8294627524
+	github.com/juju/names/v4 v4.0.0-20200923012352-008effd8611b
 	github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b
 	github.com/juju/os v0.0.0-20200701063157-8e6dd7a2b438
 	github.com/juju/packaging v0.0.0-20200421095529-970596d2622a
@@ -76,7 +76,7 @@ require (
 	github.com/juju/rpcreflect v0.0.0-20200416001309-bb46e9ba1476
 	github.com/juju/schema v1.0.1-0.20190814234152-1f8aaeef0989
 	github.com/juju/terms-client v1.0.2-0.20200331164339-fab45ea044ae
-	github.com/juju/testing v0.0.0-20200706033705-4c23f9c453cd
+	github.com/juju/testing v0.0.0-20200923013621-75df6121fbb0
 	github.com/juju/txn v0.0.0-20190416045819-5f348e78887d
 	github.com/juju/usso v0.0.0-20160401104424-68a59c96c178 // indirect
 	github.com/juju/utils v0.0.0-20200604140309-9d78121a29e0 // indirect
@@ -86,7 +86,6 @@ require (
 	github.com/juju/worker/v2 v2.0.0-20200916234526-d6e694f1c54a
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.2.1
-	github.com/kr/text v0.2.0 // indirect
 	github.com/lestrrat/go-jspointer v0.0.0-20160229021354-f4881e611bdb // indirect
 	github.com/lestrrat/go-jsref v0.0.0-20160601013240-e452c7b5801d // indirect
 	github.com/lestrrat/go-jsschema v0.0.0-20160903131957-b09d7650b822 // indirect
@@ -119,7 +118,7 @@ require (
 	google.golang.org/grpc v1.30.0 // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/amz.v3 v3.0.0-20200811022415-7b63e5e39741
-	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f
+	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b
 	gopkg.in/goose.v2 v2.0.1
 	gopkg.in/httprequest.v1 v1.2.1
 	gopkg.in/ini.v1 v1.10.1

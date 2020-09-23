@@ -471,6 +471,8 @@ github.com/juju/mutex v0.0.0-20180619145857-d21b13acf4bf h1:2d3cilQly1OpAfZcn4QR
 github.com/juju/mutex v0.0.0-20180619145857-d21b13acf4bf/go.mod h1:Y3oOzHH8CQ0Ppt0oCKJ2JFO81/EsWenH5AEqigLH+yY=
 github.com/juju/names/v4 v4.0.0-20200424054733-9a8294627524 h1://n+0e9zPEfQiaZai8nOLKNyWX9eAqC6ifGZJF2+dzw=
 github.com/juju/names/v4 v4.0.0-20200424054733-9a8294627524/go.mod h1:P+u7+RMCDcu1MQsNKKyWSluoCdkCRhXa684WAhITPO8=
+github.com/juju/names/v4 v4.0.0-20200923012352-008effd8611b h1:Di2nkRRNo2VA4exZvivFc9TdAgfpBxXElisMGeltnj4=
+github.com/juju/names/v4 v4.0.0-20200923012352-008effd8611b/go.mod h1:gdlBx0aNufAMkEx3GjT8Yz4MChs3oVjCp/nEz/PrTX4=
 github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b h1:Ow9ltIspVQvDdGAmZRkbL8q62jqOo3MOLtWASCFc//4=
 github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b/go.mod h1:Zqa/vGkXr78k47zM6tFmU9phhxKz/PIdqBzpLhJ86zc=
 github.com/juju/os v0.0.0-20190625135142-88a4c6ac59c1/go.mod h1:buR1fIbfLx3neIA/TKE8ZlS/nRR3keo+hjVqV+VR4ns=
@@ -526,6 +528,8 @@ github.com/juju/testing v0.0.0-20191001232224-ce9dec17d28b/go.mod h1:63prj8cnj0t
 github.com/juju/testing v0.0.0-20200608005635-e4eedbc6f7aa/go.mod h1:hpGvhGHPVbNBraRLZEhoQwFLMrjK8PSlO4D3nDjKYXo=
 github.com/juju/testing v0.0.0-20200706033705-4c23f9c453cd h1:4MRI5TGW0cRgovUipCGLF4uF+31Fo8VzkV2753OAfEE=
 github.com/juju/testing v0.0.0-20200706033705-4c23f9c453cd/go.mod h1:hpGvhGHPVbNBraRLZEhoQwFLMrjK8PSlO4D3nDjKYXo=
+github.com/juju/testing v0.0.0-20200923013621-75df6121fbb0 h1:ZNHhUeJYnc98o0ZpU7/c2TBuQokG5TBiDx8UvhDTIt0=
+github.com/juju/testing v0.0.0-20200923013621-75df6121fbb0/go.mod h1:Ky6DwobyXXeXSqRJCCuHpAtVEGRPOT8gUsFpJhDoXZ8=
 github.com/juju/txn v0.0.0-20190416045819-5f348e78887d h1:8I8WXDHbmcN+HJP4y1O42f2eYuN8U3CeP/y3LVboZZI=
 github.com/juju/txn v0.0.0-20190416045819-5f348e78887d/go.mod h1:ZgVptALKKa9UUv7ItEJVQjFWNG/0bs+tAu0ad0O8DAE=
 github.com/juju/usso v0.0.0-20160401104424-68a59c96c178 h1:+Hw/cvdgko8DzBM+qI+HsEphk08NyNM0ONPFDg5cGis=
@@ -1036,6 +1040,8 @@ gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127/go.mod h1:Co6ibVJAznAaIkqp8
 gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f h1:BLraFXnmrev5lT+xlilqcH8XK9/i0At2xKjWk4p6zsU=
 gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
+gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b h1:QRR6H1YWRnHb4Y/HeNFCTJLFVxaq6wH4YuVdsUOr75U=
+gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/cheggaaa/pb.v1 v1.0.25/go.mod h1:V/YB90LKu/1FcN3WVnfiiE5oMCibMjukxqG/qStrOgw=
 gopkg.in/errgo.v1 v1.0.0-20151007153157-66cb46252b94/go.mod h1:u0ALmqvLRxLI95fkdCEWrE6mhWYZW1aMOJHp5YXLHTg=
 gopkg.in/errgo.v1 v1.0.0-20161222125816-442357a80af5/go.mod h1:u0ALmqvLRxLI95fkdCEWrE6mhWYZW1aMOJHp5YXLHTg=
