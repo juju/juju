@@ -20,8 +20,8 @@ import (
 	"github.com/juju/names/v4"
 	jujuos "github.com/juju/os"
 	"github.com/juju/os/series"
-	"github.com/juju/utils/arch"
-	"github.com/juju/utils/ssh"
+	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v2/ssh"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/agent"

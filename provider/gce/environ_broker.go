@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	jujuos "github.com/juju/os"
 	"github.com/juju/os/series"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"

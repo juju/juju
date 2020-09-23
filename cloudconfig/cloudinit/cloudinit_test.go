@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/packaging"
 	jc "github.com/juju/testing/checkers"
-	sshtesting "github.com/juju/utils/ssh/testing"
+	sshtesting "github.com/juju/utils/v2/ssh/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"

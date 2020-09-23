@@ -31,7 +31,7 @@ func NewFindClient(path path.Path, client RESTClient, logger Logger) *FindClient
 
 // Find searches Charm Hub and provides results matching a string.
 func (c *FindClient) Find(ctx context.Context, query string) ([]transport.FindResponse, error) {
-	c.logger.Debugf("Find(%s)", query)
+	c.logger.Tracef("Find(%s)", query)
 	path, err := c.path.Query("q", query)
 	if err != nil {
 		return nil, errors.Trace(err)

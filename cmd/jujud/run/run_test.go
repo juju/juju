@@ -18,8 +18,8 @@ import (
 	"github.com/juju/names/v4"
 	jujuos "github.com/juju/os"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
-	"github.com/juju/utils/exec"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/exec"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/jujud/agent/config"

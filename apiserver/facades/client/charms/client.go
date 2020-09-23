@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/state"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/mgo.v2"
 
@@ -208,6 +208,7 @@ func (a *API) AddCharm(args params.AddCharmWithOrigin) (params.CharmOriginResult
 		Origin:             args.Origin,
 		CharmStoreMacaroon: nil,
 		Force:              args.Force,
+		Series:             args.Series,
 	})
 }
 
@@ -228,6 +229,10 @@ func (a *API) AddCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.CharmOriginResult, error) {
 	if args.Origin.Source != "charm-hub" && args.Origin.Source != "charm-store" {
 		return params.CharmOriginResult{}, errors.Errorf("unknown schema for charm URL %q", args.URL)
+	}
+
+	if args.Origin.Source == "charm-hub" && args.Series == "" {
+		return params.CharmOriginResult{}, errors.BadRequestf("series required for charm-hub charms")
 	}
 
 	if err := a.checkCanWrite(); err != nil {
@@ -436,20 +441,20 @@ func (a *API) charmStrategy(args params.AddCharmWithAuth) (Strategy, error) {
 	if err != nil {
 		return nil, err
 	}
-	strat := a.getStrategyFunc(args.Origin.Source)
-	return strat(repo, args.URL, args.Force)
+	fn := a.getStrategyFunc(args.Origin.Source)
+	return fn(repo, args.URL, args.Force, args.Series)
 }
 
-type StrategyFunc func(charmRepo corecharm.Repository, url string, force bool) (Strategy, error)
+type StrategyFunc func(charmRepo corecharm.Repository, url string, force bool, series string) (Strategy, error)
 
 func getStrategyFunc(source string) StrategyFunc {
 	if source == "charm-store" {
-		return func(charmRepo corecharm.Repository, url string, force bool) (Strategy, error) {
+		return func(charmRepo corecharm.Repository, url string, force bool, _ string) (Strategy, error) {
 			return corecharm.DownloadFromCharmStore(charmRepo, url, force)
 		}
 	}
-	return func(charmRepo corecharm.Repository, url string, force bool) (Strategy, error) {
-		return corecharm.DownloadFromCharmHub(charmRepo, url, force)
+	return func(charmRepo corecharm.Repository, url string, force bool, series string) (Strategy, error) {
+		return corecharm.DownloadFromCharmHub(charmRepo, url, force, series)
 	}
 }
 

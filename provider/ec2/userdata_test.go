@@ -7,7 +7,7 @@ package ec2_test
 import (
 	"github.com/juju/os"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/cloudinit/cloudinittest"

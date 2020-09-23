@@ -440,13 +440,15 @@ func (c *charmStoreCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	}
 
 	// Store the charm in the controller
-	curl, csMac, csOrigin, err := store.AddCharmFromURL(deployAPI, macaroonGetter, storeCharmOrBundleURL, c.origin, c.force)
+	curl, csMac, csOrigin, err := store.AddCharmFromURL(deployAPI, macaroonGetter, storeCharmOrBundleURL, c.origin, c.force, series)
 	if err != nil {
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 			return errors.Trace(termErr.UserErr())
 		}
 		return errors.Annotatef(err, "storing charm for URL %q", storeCharmOrBundleURL)
 	}
+	formattedCharmURL := curl.String()
+	ctx.Infof("Located charm %q.", formattedCharmURL)
 
 	// If the original series was empty, so we couldn't validate the original
 	// charm series, but the charm url wasn't nil, we can check and validate
@@ -462,10 +464,7 @@ func (c *charmStoreCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		}
 	}
 
-	formattedCharmURL := curl.String()
-	ctx.Infof("Located charm %q.", formattedCharmURL)
 	ctx.Infof("Deploying charm %q.", formattedCharmURL)
-
 	c.id = charmstore.CharmID{
 		URL:     curl,
 		Channel: csparams.Channel(c.origin.Risk),

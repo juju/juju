@@ -18,8 +18,8 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/os/series"
-	"github.com/juju/utils"
-	"github.com/juju/utils/shell"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/shell"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/api"

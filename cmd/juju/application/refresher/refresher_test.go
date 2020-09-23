@@ -251,7 +251,7 @@ func (s *charmStoreCharmRefresherSuite) TestRefresh(c *gc.C) {
 	authorizer := NewMockMacaroonGetter(ctrl)
 
 	charmAdder := NewMockCharmAdder(ctrl)
-	charmAdder.EXPECT().AddCharm(newCurl, origin, false).Return(origin, nil)
+	charmAdder.EXPECT().AddCharm(newCurl, origin, false, "").Return(origin, nil)
 
 	charmResolver := NewMockCharmResolver(ctrl)
 	charmResolver.EXPECT().ResolveCharm(curl, origin).Return(newCurl, origin, []string{}, nil)

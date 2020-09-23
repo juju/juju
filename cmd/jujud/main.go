@@ -23,8 +23,8 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/os/series"
 	proxyutils "github.com/juju/proxy"
-	"github.com/juju/utils/arch"
-	"github.com/juju/utils/exec"
+	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v2/exec"
 	"github.com/juju/version"
 
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"

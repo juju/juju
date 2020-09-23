@@ -52,6 +52,11 @@ func (s *steps29Suite) TestAddCharmOriginToApplications(c *gc.C) {
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
 
+func (s *steps29Suite) TestExposeWildcardEndpointForExposedApplications(c *gc.C) {
+	step := findStateStep(c, v290, `add explicit "expose all endpoints to 0.0.0.0/0" entry for already exposed applications`)
+	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
+}
+
 type mergeAgents29Suite struct {
 	testing.BaseSuite
 

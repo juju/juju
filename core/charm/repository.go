@@ -16,7 +16,7 @@ type Repository interface {
 	// FindDownloadURL returns a url from which a charm can be downloaded
 	// based on the given charm url and charm origin.  A charm origin
 	// updated with the ID and hash for the download is also returned.
-	FindDownloadURL(curl *charm.URL, origin Origin) (*url.URL, Origin, error)
+	FindDownloadURL(curl *charm.URL, origin Origin, series string) (*url.URL, Origin, error)
 
 	// DownloadCharm reads the charm referenced the resource URL or downloads
 	// into a file with the given path, which will be created if needed.

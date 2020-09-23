@@ -10,7 +10,7 @@ import (
 	"runtime"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/ini.v1"
 

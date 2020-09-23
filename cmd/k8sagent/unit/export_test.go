@@ -8,7 +8,7 @@ package unit
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/voyeur"
+	"github.com/juju/utils/v2/voyeur"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"

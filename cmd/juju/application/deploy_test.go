@@ -32,8 +32,8 @@ import (
 	"github.com/juju/os/series"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
-	"github.com/juju/utils/fs"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/fs"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
@@ -1441,7 +1441,7 @@ func (s *DeploySuite) TestDeployWithTermsNotSigned(c *gc.C) {
 	deployURL := *curl
 	deployURL.Revision = 1
 	origin := commoncharm.Origin{Source: "charm-store"}
-	s.fakeAPI.Call("AddCharm", &deployURL, origin, false).Returns(origin, error(termsRequiredError))
+	s.fakeAPI.Call("AddCharm", &deployURL, origin, false, "bionic").Returns(origin, error(termsRequiredError))
 	deploy := s.deployCommand()
 
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:bionic/terms1")
@@ -1471,7 +1471,7 @@ func (s *DeploySuite) TestDeployWithChannel(c *gc.C) {
 		Series:          "bionic",
 		NumUnits:        1,
 	}).Returns(error(nil))
-	s.fakeAPI.Call("AddCharm", curl, origin, false).Returns(origin, error(nil))
+	s.fakeAPI.Call("AddCharm", curl, origin, false, "bionic").Returns(origin, error(nil))
 	withCharmDeployable(
 		s.fakeAPI, curl, "bionic",
 		&charm.Meta{Name: "dummy", Series: []string{"bionic"}},
@@ -1860,7 +1860,7 @@ func (s *FakeStoreStateSuite) setupCharmMaybeAddForce(c *gc.C, url, name, series
 		)
 	}
 	origin, _ := apputils.DeduceOrigin(deployURL, corecharm.Channel{})
-	s.fakeAPI.Call("AddCharm", resolveURL, origin, force).Returns(origin, error(nil))
+	s.fakeAPI.Call("AddCharm", resolveURL, origin, force, series).Returns(origin, error(nil))
 	var chDir charm.Charm
 	var err error
 	chDir, err = charm.ReadCharmDir(testcharms.RepoWithSeries(series).CharmDirPath(name))
@@ -2527,8 +2527,8 @@ func (f *fakeDeployAPI) AddLocalCharm(url *charm.URL, ch charm.Charm, force bool
 	return results[0].(*charm.URL), jujutesting.TypeAssertError(results[1])
 }
 
-func (f *fakeDeployAPI) AddCharm(url *charm.URL, origin commoncharm.Origin, force bool) (commoncharm.Origin, error) {
-	results := f.MethodCall(f, "AddCharm", url, origin, force)
+func (f *fakeDeployAPI) AddCharm(url *charm.URL, origin commoncharm.Origin, force bool, series string) (commoncharm.Origin, error) {
+	results := f.MethodCall(f, "AddCharm", url, origin, force, series)
 	return results[0].(commoncharm.Origin), jujutesting.TypeAssertError(results[1])
 }
 
@@ -2537,8 +2537,9 @@ func (f *fakeDeployAPI) AddCharmWithAuthorization(
 	origin commoncharm.Origin,
 	macaroon *macaroon.Macaroon,
 	force bool,
+	series string,
 ) (commoncharm.Origin, error) {
-	results := f.MethodCall(f, "AddCharmWithAuthorization", url, origin, macaroon, force)
+	results := f.MethodCall(f, "AddCharmWithAuthorization", url, origin, macaroon, force, series)
 	return results[0].(commoncharm.Origin), jujutesting.TypeAssertError(results[1])
 }
 
@@ -2836,7 +2837,7 @@ func withCharmDeployableWithDevicesAndStorage(
 		}
 	}
 	origin, _ := apputils.DeduceOrigin(url, corecharm.Channel{})
-	fakeAPI.Call("AddCharm", &deployURL, origin, force).Returns(origin, error(nil))
+	fakeAPI.Call("AddCharm", &deployURL, origin, force, "bionic").Returns(origin, error(nil))
 	fakeAPI.Call("CharmInfo", deployURL.String()).Returns(
 		&apicommoncharms.CharmInfo{
 			URL:     url.String(),

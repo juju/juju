@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/shell"
+	"github.com/juju/utils/v2/shell"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 

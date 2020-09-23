@@ -135,6 +135,7 @@ func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
 	facadeArgs := params.AddCharmWithOrigin{
 		URL:    curl.String(),
 		Origin: origin.ParamsCharmOrigin(),
+		Series: "bionic",
 	}
 	result := new(params.CharmOriginResult)
 	actualResult := params.CharmOriginResult{
@@ -145,7 +146,7 @@ func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall("AddCharm", facadeArgs, result).SetArg(2, actualResult).Return(nil)
 
 	client := charms.NewClientWithFacade(mockFacadeCaller)
-	got, err := client.AddCharm(curl, origin, false)
+	got, err := client.AddCharm(curl, origin, false, "bionic")
 	c.Assert(err, gc.IsNil)
 	c.Assert(got, gc.DeepEquals, origin)
 }
@@ -167,6 +168,7 @@ func (s *charmsMockSuite) TestAddCharmWithAuthorization(c *gc.C) {
 		URL:                curl.String(),
 		CharmStoreMacaroon: &macaroon.Macaroon{},
 		Origin:             origin.ParamsCharmOrigin(),
+		Series:             "bionic",
 	}
 	result := new(params.CharmOriginResult)
 	actualResult := params.CharmOriginResult{
@@ -177,7 +179,7 @@ func (s *charmsMockSuite) TestAddCharmWithAuthorization(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall("AddCharmWithAuthorization", facadeArgs, result).SetArg(2, actualResult).Return(nil)
 
 	client := charms.NewClientWithFacade(mockFacadeCaller)
-	got, err := client.AddCharmWithAuthorization(curl, origin, &macaroon.Macaroon{}, false)
+	got, err := client.AddCharmWithAuthorization(curl, origin, &macaroon.Macaroon{}, false, "bionic")
 	c.Assert(err, gc.IsNil)
 	c.Assert(got, gc.DeepEquals, origin)
 }

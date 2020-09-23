@@ -19,7 +19,7 @@ import (
 	ociResponse "github.com/juju/go-oracle-cloud/response"
 	"github.com/juju/os"
 	jujuseries "github.com/juju/os/series"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"

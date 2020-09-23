@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/charmhub/path"
@@ -61,7 +61,7 @@ type RefreshConfig interface {
 
 // Refresh is used to refresh installed charms to a more suitable revision.
 func (c *RefreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]transport.RefreshResponse, error) {
-	c.logger.Debugf("Refresh(%s)", pretty.Sprint(config))
+	c.logger.Tracef("Refresh(%s)", pretty.Sprint(config))
 	req, err := config.Build()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -74,7 +74,7 @@ func (c *RefreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]tr
 	if err := resp.ErrorList.Combine(); err != nil {
 		return nil, errors.Trace(err)
 	}
-
+	c.logger.Tracef("Refresh() unmarshalled: %s", pretty.Sprint(resp.Results))
 	return resp.Results, config.Ensure(resp.Results)
 }
 

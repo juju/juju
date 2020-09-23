@@ -846,18 +846,6 @@ func (fw *Firewaller) ingressRulesForExposedMachineUnit(machine *machineData, un
 		rules            firewall.IngressRules
 	)
 
-	// Emulate pre 2.9 behavior: expose all ports to 0.0.0.0/0.
-	if len(exposedEndpoints) == 0 {
-		for _, portRange := range openUnitPortRanges.UniquePortRanges() {
-			rules = append(rules, firewall.NewIngressRule(portRange, firewall.AllNetworksIPV4CIDR))
-		}
-
-		// De-dup and sort rules before returning them back.
-		rules = rules.UniqueRules()
-		sort.Slice(rules, func(i, j int) bool { return rules[i].LessThan(rules[j]) })
-		return rules
-	}
-
 	for exposedEndpoint, exposeDetails := range exposedEndpoints {
 		// Collect the operator-provided CIDRs that should be able to
 		// access the port ranges opened for this endpoint; then resolve
@@ -871,9 +859,20 @@ func (fw *Firewaller) ingressRulesForExposedMachineUnit(machine *machineData, un
 				continue
 			}
 
+			if len(sp.Subnets) == 0 {
+				if exposedEndpoint == "" {
+					fw.logger.Warningf("all endpoints of application %q are exposed to space %q which contains no subnets", unit.applicationd.application.Name(), sp.Name)
+				} else {
+					fw.logger.Warningf("endpoint %q application %q are exposed to space %q which contains no subnets", exposedEndpoint, unit.applicationd.application.Name(), sp.Name)
+				}
+			}
 			for _, subnet := range sp.Subnets {
 				srcCIDRs.Add(subnet.CIDR)
 			}
+		}
+
+		if len(srcCIDRs) == 0 {
+			continue // no rules required
 		}
 
 		// If this is a named (i.e. not the wildcard) endpoint, look up
@@ -957,6 +956,7 @@ func (fw *Firewaller) updateForRemoteRelationIngress(appTag names.ApplicationTag
 		// No relevant firewall rule exists, so go public.
 		if cidrs.Size() == 0 {
 			cidrs.Add(firewall.AllNetworksIPV4CIDR)
+			cidrs.Add(firewall.AllNetworksIPV6CIDR)
 		}
 	}
 

@@ -106,10 +106,6 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 		op:    opClientServiceUnexpose,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Application.Update",
-		op:    opClientServiceUpdate,
-		allow: []names.Tag{userAdmin, userOther},
-	}, {
 		about: "Application.SetCharm",
 		op:    opClientServiceSetCharm,
 		allow: []names.Tag{userAdmin, userOther},
@@ -322,21 +318,6 @@ func opClientSetAnnotations(c *gc.C, st api.Connection, mst *state.State) (func(
 		_, err := annotations.NewClient(st).Set(setParams)
 		c.Assert(err, jc.ErrorIsNil)
 	}, nil
-}
-
-func opClientServiceUpdate(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	args := params.ApplicationUpdate{
-		ApplicationName: "no-such-charm",
-		CharmURL:        "cs:quantal/wordpress-42",
-		ForceCharmURL:   true,
-		SettingsStrings: map[string]string{"blog-title": "foo"},
-		SettingsYAML:    `"wordpress": {"blog-title": "foo"}`,
-	}
-	err := application.NewClient(st).Update(args)
-	if params.IsCodeNotFound(err) {
-		err = nil
-	}
-	return func() {}, err
 }
 
 func opClientServiceSetCharm(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
