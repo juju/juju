@@ -378,19 +378,4 @@ clouds:
         endpoint: https://iaas.eu-frankfurt-1.oraclecloud.com
       uk-london-1:
         endpoint: https://iaas.uk-london-1.oraclecloud.com
-  oracle-classic:
-    type: oracle
-    description: Oracle Cloud Infrastructure Classic
-    auth-types: [ userpass ]
-    regions:
-      uscom-central-1:
-        endpoint: https://compute.uscom-central-1.oraclecloud.com
-      us2:
-        endpoint: https://compute.uscom-central-1.oraclecloud.com
-      us6:
-        endpoint: https://compute.us6.oraclecloud.com
-      em2:
-        endpoint: https://compute.em2.oraclecloud.com
-      em3:
-        endpoint: https://compute.em3.oraclecloud.com
 `

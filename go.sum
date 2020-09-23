@@ -421,8 +421,6 @@ github.com/juju/featureflag v0.0.0-20200423045028-e2f9e1cb1611 h1:qYMzwsKsEBtgdS
 github.com/juju/featureflag v0.0.0-20200423045028-e2f9e1cb1611/go.mod h1:Xyly79yyEtbs4CizvwlQkdV9XLBqytrJm6Pz579cCSA=
 github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d h1:c93kUJDtVAXFEhsCh5jSxyOJmFHuzcihnslQiX8Urwo=
 github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d/go.mod h1:2PavIy+JPciBPrBUjwbNvtwB6RQlve+hkpll6QSNmOE=
-github.com/juju/go-oracle-cloud v0.0.0-20170421134547-932a8cea00a1 h1:prQSgzU8eKdTD+Po4DIYviutE8GMpGp3zkoY0ggVqgY=
-github.com/juju/go-oracle-cloud v0.0.0-20170421134547-932a8cea00a1/go.mod h1:aC7I7BnFXPTr0ruRe6OlLYu5wmuk8/mJGhBCD5TQ49g=
 github.com/juju/go4 v0.0.0-20160222163258-40d72ab9641a h1:45JtCyuNYE+QN9aPuR1ID9++BQU+NMTMudHSuaK0Las=
 github.com/juju/go4 v0.0.0-20160222163258-40d72ab9641a/go.mod h1:RVHtZuvrpETIepiNUrNlih2OynoFf1eM6DGC6dloXzk=
 github.com/juju/gojsonpointer v0.0.0-20150204194629-afe8b77aa08f h1:QzpKmMsaP06HVZnYNlcy1CLIXPytsj2NuzfCHitxuus=
