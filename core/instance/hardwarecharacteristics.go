@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"text/scanner"
+	"unicode"
 
 	"github.com/juju/utils/v2/arch"
 )
@@ -43,10 +44,14 @@ type HardwareCharacteristics struct {
 }
 
 // quoteIfNeeded quotes s (according to Go string quoting rules) if it
-// contains a space or comma, otherwise returns the original string.
+// contains a comma or quote or whitespace character, otherwise it returns the
+// original string.
 func quoteIfNeeded(s string) string {
-	if strings.IndexAny(s, " ,") < 0 {
-		// No space in string, return as is
+	i := strings.IndexFunc(s, func(c rune) bool {
+		return c == ',' || c == '"' || unicode.IsSpace(c)
+	})
+	if i < 0 {
+		// No space or comma or quote in string, return as is
 		return s
 	}
 	return strconv.Quote(s)
@@ -215,7 +220,9 @@ func parseMulti(s string) (values []string, rest string, err error) {
 		if err != nil {
 			return values, rest, err
 		}
-		values = append(values, value)
+		if value != "" {
+			values = append(values, value)
+		}
 	}
 	return values, rest, nil
 }
