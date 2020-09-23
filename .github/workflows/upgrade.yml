@@ -23,7 +23,7 @@ jobs:
         set -euxo pipefail
         lxc network set lxdbr0 ipv6.address none
         sudo snap install juju --classic
-        juju bootstrap localhost
+        juju bootstrap localhost test
         juju status
         juju version
     - name: Checkout
@@ -44,19 +44,57 @@ jobs:
         set -euxo pipefail
         juju status
         juju version
-    - name: Test upgrade
+    - name: Test upgrade controller
+      shell: bash
+      run: |
+        set -euxo pipefail
+        CURRENT=$(juju controllers --format=json | jq -r '.controllers | .test | .["agent-version"]')
+
+        juju upgrade-controller --build-agent
+
+        attempt=0
+        while true; do
+          UPDATED=$(juju controllers --format=json | jq -r '.controllers | .test | .["agent-version"]')
+          if [ "$CURRENT" == "$UPDATED" ]; then
+              echo "Upgrade controller failure"
+              exit 1
+          fi
+          sleep 5
+          attempt=$((attempt+1))
+          if [ "$attempt" -eq 48 ]; then
+              echo "Upgrade controller timed out"
+              exit 1
+          fi
+        done
+
+        PANIC=$(juju debug-log --replay --no-tail -m controller | grep "panic" | wc -m)
+        if [ "$PANIC" -ne 0 ]; then
+            echo "Panic found:"
+            juju debug-log --replay --no-tail -m controller
+            exit 1
+        fi
+    - name: Test upgrade model
       shell: bash
       run: |
         set -euxo pipefail
         CURRENT=$(juju status --format=json 2>/dev/null | jq -r ".model | .version")
 
-        juju upgrade-controller --build-agent
+        juju upgrade-model --build-agent
 
-        UPDATED=$(juju status --format=json 2>/dev/null | jq -r ".model | .version")
-        if [ "$CURRENT" == "$UPDATED" ]; then
-            echo "Upgrade failure"
-            exit 1
-        fi
+        attempt=0
+        while true; do
+          UPDATED=$(juju status --format=json 2>/dev/null | jq -r ".model | .version")
+          if [ "$CURRENT" == "$UPDATED" ]; then
+              echo "Upgrade model failure"
+              exit 1
+          fi
+          sleep 5
+          attempt=$((attempt+1))
+          if [ "$attempt" -eq 48 ]; then
+              echo "Upgrade model timed out"
+              exit 1
+          fi
+        done
 
         PANIC=$(juju debug-log --replay --no-tail -m controller | grep "panic" | wc -m)
         if [ "$PANIC" -ne 0 ]; then
