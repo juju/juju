@@ -17,8 +17,11 @@ var _ = gc.Suite(&HardwareSuite{})
 type parseHardwareTestSpec struct {
 	summary string
 	args    []string
+	hc      *instance.HardwareCharacteristics
 	err     string
 }
+
+type HC = instance.HardwareCharacteristics
 
 func (ts *parseHardwareTestSpec) check(c *gc.C) {
 	hwc, err := instance.ParseHardware(ts.args...)
@@ -42,15 +45,23 @@ func (ts *parseHardwareTestSpec) check(c *gc.C) {
 
 	// Compare the round-tripped HWC.
 	c.Check(cons1, gc.DeepEquals, hwc)
+
+	// If ts.hc is provided, check that too (so we're not just relying on the
+	// round trip via String).
+	if ts.hc != nil {
+		c.Check(hwc, gc.DeepEquals, *ts.hc)
+	}
 }
 
 var parseHardwareTests = []parseHardwareTestSpec{
 	// Simple errors.
 	{
 		summary: "nothing at all",
+		hc:      &HC{},
 	}, {
 		summary: "empty",
 		args:    []string{"     "},
+		hc:      &HC{},
 	}, {
 		summary: "complete nonsense",
 		args:    []string{"cheese"},
@@ -69,15 +80,23 @@ var parseHardwareTests = []parseHardwareTestSpec{
 	{
 		summary: "set arch empty",
 		args:    []string{"arch="},
+		hc:      &HC{Arch: stringPtr("")},
 	}, {
 		summary: "set arch amd64",
 		args:    []string{"arch=amd64"},
+		hc:      &HC{Arch: stringPtr("amd64")},
 	}, {
 		summary: "set arch i386",
 		args:    []string{"arch=i386"},
+		hc:      &HC{Arch: stringPtr("i386")},
 	}, {
 		summary: "set arch armhf",
 		args:    []string{"arch=armhf"},
+		hc:      &HC{Arch: stringPtr("armhf")},
+	}, {
+		summary: "set arch amd64 quoted",
+		args:    []string{`arch="amd64"`},
+		hc:      &HC{Arch: stringPtr("amd64")},
 	}, {
 		summary: "set nonsense arch 1",
 		args:    []string{"arch=cheese"},
@@ -100,12 +119,19 @@ var parseHardwareTests = []parseHardwareTestSpec{
 	{
 		summary: "set cores empty",
 		args:    []string{"cores="},
+		hc:      &HC{CpuCores: uint64Ptr(0)},
 	}, {
 		summary: "set cores zero",
 		args:    []string{"cores=0"},
+		hc:      &HC{CpuCores: uint64Ptr(0)},
 	}, {
 		summary: "set cores",
 		args:    []string{"cores=4"},
+		hc:      &HC{CpuCores: uint64Ptr(4)},
+	}, {
+		summary: "set cores quoted",
+		args:    []string{`cores="4"`},
+		hc:      &HC{CpuCores: uint64Ptr(4)},
 	}, {
 		summary: "set nonsense cores 1",
 		args:    []string{"cores=cheese"},
@@ -132,12 +158,19 @@ var parseHardwareTests = []parseHardwareTestSpec{
 	{
 		summary: "set cpu-power empty",
 		args:    []string{"cpu-power="},
+		hc:      &HC{CpuPower: uint64Ptr(0)},
 	}, {
 		summary: "set cpu-power zero",
 		args:    []string{"cpu-power=0"},
+		hc:      &HC{CpuPower: uint64Ptr(0)},
 	}, {
 		summary: "set cpu-power",
 		args:    []string{"cpu-power=44"},
+		hc:      &HC{CpuPower: uint64Ptr(44)},
+	}, {
+		summary: "set cpu-power quoted",
+		args:    []string{`cpu-power="44"`},
+		hc:      &HC{CpuPower: uint64Ptr(44)},
 	}, {
 		summary: "set nonsense cpu-power 1",
 		args:    []string{"cpu-power=cheese"},
@@ -160,24 +193,35 @@ var parseHardwareTests = []parseHardwareTestSpec{
 	{
 		summary: "set mem empty",
 		args:    []string{"mem="},
+		hc:      &HC{Mem: uint64Ptr(0)},
 	}, {
 		summary: "set mem zero",
 		args:    []string{"mem=0"},
+		hc:      &HC{Mem: uint64Ptr(0)},
 	}, {
 		summary: "set mem without suffix",
 		args:    []string{"mem=512"},
+		hc:      &HC{Mem: uint64Ptr(512)},
 	}, {
 		summary: "set mem with M suffix",
 		args:    []string{"mem=512M"},
+		hc:      &HC{Mem: uint64Ptr(512)},
 	}, {
 		summary: "set mem with G suffix",
 		args:    []string{"mem=1.5G"},
+		hc:      &HC{Mem: uint64Ptr(1536)},
 	}, {
 		summary: "set mem with T suffix",
 		args:    []string{"mem=36.2T"},
+		hc:      &HC{Mem: uint64Ptr(37958452)},
 	}, {
 		summary: "set mem with P suffix",
 		args:    []string{"mem=18.9P"},
+		hc:      &HC{Mem: uint64Ptr(20293720474)},
+	}, {
+		summary: "set mem quoted",
+		args:    []string{`mem="42M"`},
+		hc:      &HC{Mem: uint64Ptr(42)},
 	}, {
 		summary: "set nonsense mem 1",
 		args:    []string{"mem=cheese"},
@@ -204,24 +248,35 @@ var parseHardwareTests = []parseHardwareTestSpec{
 	{
 		summary: "set root-disk empty",
 		args:    []string{"root-disk="},
+		hc:      &HC{RootDisk: uint64Ptr(0)},
 	}, {
 		summary: "set root-disk zero",
 		args:    []string{"root-disk=0"},
+		hc:      &HC{RootDisk: uint64Ptr(0)},
 	}, {
 		summary: "set root-disk without suffix",
 		args:    []string{"root-disk=512"},
+		hc:      &HC{RootDisk: uint64Ptr(512)},
 	}, {
 		summary: "set root-disk with M suffix",
 		args:    []string{"root-disk=512M"},
+		hc:      &HC{RootDisk: uint64Ptr(512)},
 	}, {
 		summary: "set root-disk with G suffix",
 		args:    []string{"root-disk=1.5G"},
+		hc:      &HC{RootDisk: uint64Ptr(1536)},
 	}, {
 		summary: "set root-disk with T suffix",
 		args:    []string{"root-disk=36.2T"},
+		hc:      &HC{RootDisk: uint64Ptr(37958452)},
 	}, {
 		summary: "set root-disk with P suffix",
 		args:    []string{"root-disk=18.9P"},
+		hc:      &HC{RootDisk: uint64Ptr(20293720474)},
+	}, {
+		summary: "set root-disk quoted",
+		args:    []string{`root-disk="1234M"`},
+		hc:      &HC{RootDisk: uint64Ptr(1234)},
 	}, {
 		summary: "set nonsense root-disk 1",
 		args:    []string{"root-disk=cheese"},
@@ -248,9 +303,31 @@ var parseHardwareTests = []parseHardwareTestSpec{
 	{
 		summary: "set root-disk-source empty",
 		args:    []string{"root-disk-source="},
+		hc:      &HC{RootDiskSource: nil},
 	}, {
 		summary: "set root-disk-source",
 		args:    []string{"root-disk-source=something"},
+		hc:      &HC{RootDiskSource: stringPtr("something")},
+	}, {
+		summary: "set root-disk-source quoted",
+		args:    []string{`root-disk-source="Foo Bar"`},
+		hc:      &HC{RootDiskSource: stringPtr("Foo Bar")},
+	}, {
+		summary: "set root-disk-source quoted - other whitespace",
+		args:    []string{`root-disk-source="\r\n\t"`},
+		hc:      &HC{RootDiskSource: stringPtr("\r\n\t")},
+	}, {
+		summary: "set root-disk-source quoted (with escapes)",
+		args:    []string{`root-disk-source="My Big \"Fat\" Greek Disk"`},
+		hc:      &HC{RootDiskSource: stringPtr(`My Big "Fat" Greek Disk`)},
+	}, {
+		summary: "set root-disk-source quoted (no end quote)",
+		args:    []string{`root-disk-source="foo`},
+		err:     `root-disk-source: parsing quoted string: literal not terminated`,
+	}, {
+		summary: "set root-disk-source quoted (invalid escape)",
+		args:    []string{`root-disk-source="foo\zbar"`},
+		err:     `root-disk-source: parsing quoted string: invalid char escape`,
 	}, {
 		summary: "double set root-disk-source together",
 		args:    []string{"root-disk-source=something root-disk-source=something-else"},
@@ -261,13 +338,62 @@ var parseHardwareTests = []parseHardwareTestSpec{
 		err:     `bad "root-disk-source" characteristic: already set`,
 	},
 
+	// "tags" in detail.
+	{
+		summary: "set tags empty",
+		args:    []string{"tags="},
+		hc:      &HC{Tags: nil},
+	}, {
+		summary: "set tags empty (quoted)",
+		args:    []string{`tags=""`},
+		hc:      &HC{Tags: nil},
+	}, {
+		summary: "set tags single",
+		args:    []string{"tags=abc"},
+		hc:      &HC{Tags: &[]string{"abc"}},
+	}, {
+		summary: "set tags multi",
+		args:    []string{"tags=ab,c,def"},
+		hc:      &HC{Tags: &[]string{"ab", "c", "def"}},
+	}, {
+		summary: "set tags single quoted",
+		args:    []string{`tags="one tag"`},
+		hc:      &HC{Tags: &[]string{"one tag"}},
+	}, {
+		summary: "set tags multi quoted",
+		args:    []string{`tags="ab",c,"d e f","g,h"`},
+		hc:      &HC{Tags: &[]string{"ab", "c", "d e f", "g,h"}},
+	}, {
+		summary: "set tags multi quoted with no comma",
+		args:    []string{`tags="ab""c"`},
+		err:     `tags: expected comma after quoted value`,
+	}, {
+		summary: "double set tags together",
+		args:    []string{"tags=ab,c tags=def"},
+		err:     `bad "tags" characteristic: already set`,
+	}, {
+		summary: "double set tags separately",
+		args:    []string{"tags=ab,c", "tags=def"},
+		err:     `bad "tags" characteristic: already set`,
+	},
+
 	// "availability-zone" in detail.
 	{
 		summary: "set availability-zone empty",
 		args:    []string{"availability-zone="},
+		hc:      &HC{AvailabilityZone: nil},
 	}, {
 		summary: "set availability-zone non-empty",
 		args:    []string{"availability-zone=a_zone"},
+		hc:      &HC{AvailabilityZone: stringPtr("a_zone")},
+	}, {
+		summary: "set availability-zone quoted",
+		args:    []string{`availability-zone="A Zone"`},
+		hc:      &HC{AvailabilityZone: stringPtr("A Zone")},
+	}, {
+		summary: "set availability-zone quoted multi errors",
+		args:    []string{`availability-zone="a b",c`},
+		err:     `malformed characteristic ",c"`,
 	}, {
 		summary: "double set availability-zone together",
 		args:    []string{"availability-zone=a_zone availability-zone=a_zone"},
@@ -282,11 +408,42 @@ var parseHardwareTests = []parseHardwareTestSpec{
 	{
 		summary: "kitchen sink together",
 		args:    []string{" root-disk=4G mem=2T  arch=i386  cores=4096 cpu-power=9001 availability-zone=a_zone"},
+		hc: &HC{
+			RootDisk:         uint64Ptr(4096),
+			Mem:              uint64Ptr(2097152),
+			Arch:             stringPtr("i386"),
+			CpuCores:         uint64Ptr(4096),
+			CpuPower:         uint64Ptr(9001),
+			AvailabilityZone: stringPtr("a_zone"),
+		},
 	}, {
 		summary: "kitchen sink separately",
 		args:    []string{"root-disk=4G", "mem=2T", "cores=4096", "cpu-power=9001", "arch=armhf", "availability-zone=a_zone"},
+		hc: &HC{
+			RootDisk:         uint64Ptr(4096),
+			Mem:              uint64Ptr(2097152),
+			Arch:             stringPtr("armhf"),
+			CpuCores:         uint64Ptr(4096),
+			CpuPower:         uint64Ptr(9001),
+			AvailabilityZone: stringPtr("a_zone"),
+		},
+	}, {
+		summary: "kitchen sink together quoted",
+		args:    []string{`root-disk=4G mem=2T arch=i386 cores=4096 cpu-power=9001 availability-zone="A Zone" tags="a b"`},
+		hc: &HC{
+			RootDisk:         uint64Ptr(4096),
+			Mem:              uint64Ptr(2097152),
+			Arch:             stringPtr("i386"),
+			CpuCores:         uint64Ptr(4096),
+			CpuPower:         uint64Ptr(9001),
+			AvailabilityZone: stringPtr("A Zone"),
+			Tags:             &[]string{"a b"},
+		},
 	},
 }
+
+func stringPtr(s string) *string { return &s }
+func uint64Ptr(u uint64) *uint64 { return &u }
 
 func (s *HardwareSuite) TestParseHardware(c *gc.C) {
 	for i, t := range parseHardwareTests {
