@@ -1932,7 +1932,6 @@ cloudsigma
 google                                        
 joyent                                        
 oracle                                        
-oracle-classic                                
 rackspace                                     \n?(localhost\s+)?(microk8s\s+)?
 dummy-cloud                      joe          home
 dummy-cloud-dummy-region-config               
@@ -1996,7 +1995,6 @@ cloudsigma
 google                                        
 joyent                                        
 oracle                                        
-oracle-classic                                
 rackspace                                     \n?(localhost\s+)?(microk8s\s+)?
 dummy-cloud-dummy-region-config               
 dummy-cloud-with-config                       
