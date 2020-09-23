@@ -1,0 +1,51 @@
+name: "Upgrade"
+on: [push, pull_request]
+jobs:
+  upgrade:
+    name: linux-amd64
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+    - name: Install Dependencies
+      shell: bash
+      run: |
+        set -euxo pipefail
+        sudo apt-get remove lxd lxd-client
+        sudo snap install snapcraft --classic
+        sudo snap install lxd
+        sudo lxd waitready
+        sudo lxd init --auto
+        sudo chmod a+wr /var/snap/lxd/common/lxd/unix.socket
+        echo "##[add-path]/snap/bin"
+    - name: Bootstrap Juju latest/stable
+      shell: bash
+      run: |
+        set -euxo pipefail
+        lxc network set lxdbr0 ipv6.address none
+        sudo snap install juju --classic
+        juju bootstrap localhost
+        juju status
+        juju version
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Build snap
+      shell: bash
+      run: |
+        set -euxo pipefail
+        snapcraft --use-lxd
+    - name: Install snap
+      shell: bash
+      run: |
+        set -euxo pipefail
+        sudo snap install *.snap --dangerous --classic
+    - name: Preflight
+      shell: bash
+      run: |
+        set -euxo pipefail
+        juju status
+        juju version
+    - name: Test upgrade
+      shell: bash
+      run: |
+        set -euxo pipefail
+        juju upgrade-controller
