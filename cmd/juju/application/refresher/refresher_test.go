@@ -347,14 +347,15 @@ func (s *charmHubCharmRefresherSuite) TestRefresh(c *gc.C) {
 	}
 
 	charmAdder := NewMockCharmAdder(ctrl)
-	charmAdder.EXPECT().AddCharm(newCurl, origin, false).Return(origin, nil)
+	charmAdder.EXPECT().AddCharm(newCurl, origin, false, "bionic").Return(origin, nil)
 
 	charmResolver := NewMockCharmResolver(ctrl)
 	charmResolver.EXPECT().ResolveCharm(curl, origin).Return(newCurl, origin, []string{}, nil)
 
 	cfg := RefresherConfig{
-		CharmURL: curl,
-		CharmRef: ref,
+		CharmURL:       curl,
+		CharmRef:       ref,
+		DeployedSeries: "bionic",
 	}
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
