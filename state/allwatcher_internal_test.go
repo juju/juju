@@ -2247,6 +2247,34 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 		},
 		func(c *gc.C, st *State) changeTestCase {
 			app := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+			unit, err := app.AddUnit(AddUnitParams{})
+			c.Assert(err, jc.ErrorIsNil)
+			err = unit.SetWorkloadVersion("42.47")
+			c.Assert(err, jc.ErrorIsNil)
+			return changeTestCase{
+				about: "workload version is ignored if there is no application info",
+				initialContents: []multiwatcher.EntityInfo{
+					&multiwatcher.UnitInfo{
+						ModelUUID:   st.ModelUUID(),
+						Name:        "wordpress/0",
+						Application: "wordpress",
+					},
+				},
+				change: watcher.Change{
+					C:  "statuses",
+					Id: st.docID("u#" + unit.Name() + "#charm#sat#workload-version"),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.UnitInfo{
+						ModelUUID:   st.ModelUUID(),
+						Name:        "wordpress/0",
+						Application: "wordpress",
+					},
+				},
+			}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			app := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			setApplicationConfigAttr(c, app, "blog-title", "boring")
 
 			return changeTestCase{

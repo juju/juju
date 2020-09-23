@@ -1284,6 +1284,10 @@ func (s *backingStatus) updateApplicationWorkload(ctx *allWatcherContext, unit *
 		Name:      unit.Application,
 	}
 	info0 := ctx.store.Get(appInfo.EntityID())
+	if info0 == nil {
+		// The parent info doesn't exist. Ignore the workload until it does.
+		return
+	}
 	appInfo = info0.(*multiwatcher.ApplicationInfo)
 	updated := *appInfo
 	updated.WorkloadVersion = s.StatusInfo
@@ -1363,7 +1367,7 @@ func (c *backingConstraints) updated(ctx *allWatcherContext) error {
 	info0 := ctx.store.Get(parentID)
 	switch info := info0.(type) {
 	case nil:
-		// The parent info doesn't exist. Ignore the status until it does.
+		// The parent info doesn't exist. Ignore the constraints until it does.
 		return nil
 	case *multiwatcher.UnitInfo, *multiwatcher.MachineInfo:
 		// We don't (yet) publish unit or machine constraints.
