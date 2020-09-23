@@ -36,6 +36,8 @@ func (env *sessionEnviron) PrecheckInstance(ctx context.ProviderCallContext, arg
 	return nil
 }
 
+// checkZones ensures all the zones (in the constraints) are valid
+// availability zones.
 func (env *sessionEnviron) checkZones(ctx context.ProviderCallContext, zones *[]string) error {
 	if zones == nil || len(*zones) == 0 {
 		return nil
