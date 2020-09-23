@@ -11,8 +11,8 @@ import (
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils"
-	"github.com/juju/utils/exec"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/exec"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/caas"

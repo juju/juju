@@ -17,7 +17,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/os"
 	jujuseries "github.com/juju/os/series"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"

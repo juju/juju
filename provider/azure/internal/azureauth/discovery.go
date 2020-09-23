@@ -12,7 +12,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2016-06-01/subscriptions"
 	"github.com/juju/errors"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 )
 
 const authenticateHeaderKey = "WWW-Authenticate"

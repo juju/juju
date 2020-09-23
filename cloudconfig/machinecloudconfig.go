@@ -12,7 +12,7 @@ import (
 	"github.com/juju/loggo"
 	utilsos "github.com/juju/os"
 	utilsseries "github.com/juju/os/series"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/paths"

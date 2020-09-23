@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/schema"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/juju/osenv"

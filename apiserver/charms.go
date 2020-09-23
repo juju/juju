@@ -21,7 +21,7 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
-	ziputil "github.com/juju/utils/zip"
+	ziputil "github.com/juju/utils/v2/zip"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"

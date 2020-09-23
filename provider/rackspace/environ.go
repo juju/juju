@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	jujuos "github.com/juju/os"
 	"github.com/juju/os/series"
-	"github.com/juju/utils/ssh"
+	"github.com/juju/utils/v2/ssh"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"

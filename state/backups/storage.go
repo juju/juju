@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/filestorage"
+	"github.com/juju/utils/v2/filestorage"
 	"github.com/juju/version"
 	"gopkg.in/juju/blobstore.v2"
 	"gopkg.in/mgo.v2"

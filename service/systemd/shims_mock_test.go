@@ -6,7 +6,7 @@ package systemd
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	exec "github.com/juju/utils/exec"
+	exec "github.com/juju/utils/v2/exec"
 	reflect "reflect"
 )
 

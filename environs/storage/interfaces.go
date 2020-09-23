@@ -6,7 +6,7 @@ package storage
 import (
 	"io"
 
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 )
 
 // A StorageReader can retrieve and list files from a storage provider.

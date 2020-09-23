@@ -5,7 +5,7 @@ package metricsender
 
 import (
 	wireformat "github.com/juju/romulus/wireformat/metrics"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 )
 
 // NopSender is a sender that acts like everything worked fine
