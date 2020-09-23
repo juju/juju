@@ -52,10 +52,10 @@ func (mr *MockClientMockRecorder) Close(arg0 interface{}) *gomock.Call {
 }
 
 // ComputeResources mocks base method
-func (m *MockClient) ComputeResources(arg0 context.Context) ([]*mo.ComputeResource, error) {
+func (m *MockClient) ComputeResources(arg0 context.Context) ([]vsphereclient.ComputeResource, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ComputeResources", arg0)
-	ret0, _ := ret[0].([]*mo.ComputeResource)
+	ret0, _ := ret[0].([]vsphereclient.ComputeResource)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -152,6 +152,21 @@ func (m *MockClient) FindFolder(arg0 context.Context, arg1 string) (*object.Fold
 func (mr *MockClientMockRecorder) FindFolder(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindFolder", reflect.TypeOf((*MockClient)(nil).FindFolder), arg0, arg1)
+}
+
+// Folders mocks base method
+func (m *MockClient) Folders(arg0 context.Context) (*object.DatacenterFolders, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Folders", arg0)
+	ret0, _ := ret[0].(*object.DatacenterFolders)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Folders indicates an expected call of Folders
+func (mr *MockClientMockRecorder) Folders(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Folders", reflect.TypeOf((*MockClient)(nil).Folders), arg0)
 }
 
 // MoveVMFolderInto mocks base method

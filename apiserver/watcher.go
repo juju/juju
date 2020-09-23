@@ -181,16 +181,13 @@ func (aw *SrvAllWatcher) translateApplication(info multiwatcher.EntityInfo) para
 		return nil
 	}
 
-	// Get the application status from the cache if it is unset.
-	applicationStatus := multiwatcher.StatusInfo{Current: status.Unknown}
-	if orig.Status.Current == status.Unset {
-		if model, err := aw.controller.Model(orig.ModelUUID); err == nil {
-			cachedApp, err := model.Application(orig.Name)
-			if err == nil {
-				applicationStatus = multiwatcher.NewStatusInfo(cachedApp.Status(), nil)
-			}
-		}
-	} else {
+	// If the application status is unset, then set it to unknown. It is
+	// expected that downstream clients (model cache, pylibjuju, jslibjuju)
+	// correctly interpret the unknown status from the unit status. If the unit
+	// status is not found, then fall back to unknown.
+	// If a charm author has set the application status, then show that instead.
+	applicationStatus := multiwatcher.StatusInfo{Current: status.Unset}
+	if orig.Status.Current != status.Unset {
 		applicationStatus = orig.Status
 	}
 
