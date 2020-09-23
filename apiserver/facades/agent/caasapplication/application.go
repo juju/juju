@@ -9,18 +9,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v8"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 
 	"github.com/juju/juju/agent"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/state"
@@ -95,15 +95,17 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 		return errResp(errors.NotProvisionedf("application"))
 	}
 
-	ch, _, err := application.Charm()
-	if err != nil {
-		return errResp(err)
-	}
+	// TODO(new-charms): handle deployment other than statefulset
+	// ch, _, err := application.Charm()
+	// if err != nil {
+	// 	return errResp(err)
+	// }
+	deploymentType := caas.DeploymentStateful
 
 	containerID := args.PodName
 	var unitName *string
-	switch ch.Meta().Deployment.DeploymentType {
-	case charm.DeploymentStateful:
+	switch deploymentType {
+	case caas.DeploymentStateful:
 		splitPodName := strings.Split(args.PodName, "-")
 		ord, err := strconv.Atoi(splitPodName[len(splitPodName)-1])
 		if err != nil {
@@ -111,7 +113,7 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 		}
 		n := fmt.Sprintf("%s/%d", application.Name(), ord)
 		unitName = &n
-	case charm.DeploymentStateless, charm.DeploymentDaemon:
+	case caas.DeploymentStateless, caas.DeploymentDaemon:
 		// Both handled the same way.
 	default:
 		return errResp(errors.NotSupportedf("unknown deployment type"))

@@ -303,16 +303,17 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 			return nil, errors.Trace(err)
 		}
 
+		supportedSeries := ch.Meta().ComputedSeries()
 		seriesSelector := seriesSelector{
 			seriesFlag:          seriesName,
-			supportedSeries:     ch.Meta().Series,
+			supportedSeries:     supportedSeries,
 			supportedJujuSeries: workloadSeries,
 			force:               d.force,
 			conf:                modelCfg,
 			fromBundle:          false,
 		}
 
-		if len(ch.Meta().Series) == 0 {
+		if len(supportedSeries) == 0 {
 			logger.Warningf("%s does not declare supported series in metadata.yml", ch.Meta().Name)
 		}
 
@@ -499,6 +500,8 @@ var getModelConfig = func(api ModelConfigGetter) (*config.Config, error) {
 }
 
 func (d *factory) validateCharmSeries(seriesName string, imageStream string) error {
+	// TODO(new-charms): handle systems
+
 	// attempt to locate the charm series from the list of known juju series
 	// that we currently support.
 	workloadSeries, err := supportedJujuSeries(d.clock.Now(), seriesName, imageStream)
@@ -521,7 +524,9 @@ func (d *factory) validateCharmSeries(seriesName string, imageStream string) err
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return model.ValidateSeries(modelType, seriesName)
+
+	// TODO(new-charms): handle charm v2
+	return model.ValidateSeries(modelType, seriesName, true)
 }
 
 // validateCharmSeriesWithName calls the validateCharmSeries, but handles the

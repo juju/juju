@@ -714,7 +714,7 @@ type hasMeta interface {
 
 func validateCharmSeries(modelType ModelType, series string, ch hasMeta) error {
 	if series == "" {
-		allSeries := ch.Meta().Series
+		allSeries := ch.Meta().ComputedSeries()
 		if len(allSeries) > 0 {
 			series = allSeries[0]
 		}
@@ -724,7 +724,7 @@ func validateCharmSeries(modelType ModelType, series string, ch hasMeta) error {
 	if series == "" {
 		return nil
 	}
-	return model.ValidateSeries(model.ModelType(modelType), series)
+	return model.ValidateSeries(model.ModelType(modelType), series, ch.Meta().Format() >= charm.FormatV2)
 }
 
 // AllCharms returns all charms in state.

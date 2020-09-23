@@ -41,19 +41,34 @@ type Model struct {
 var caasOS = set.NewStrings(os.Kubernetes.String())
 
 // ValidateSeries ensures the charm series is valid for the model type.
-func ValidateSeries(modelType ModelType, charmSeries string) error {
-	os, err := series.GetOSFromSeries(charmSeries)
+func ValidateSeries(modelType ModelType, charmSeries string, charmV2 bool) error {
+	system, err := series.ParseSystemFromSeries(charmSeries)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	switch modelType {
-	case CAAS:
-		if !caasOS.Contains(os.String()) {
-			return errors.NotValidf("series %q in a kubernetes model", charmSeries)
+	if system.Resource != "" {
+		switch modelType {
+		case CAAS:
+			// CAAS models support using a resource as the system.
+			return nil
+		case IAAS:
+			return errors.NotValidf("IAAS models don't support systems referencing a resource")
 		}
-	case IAAS:
-		if caasOS.Contains(os.String()) {
-			return errors.NotValidf("series %q in a non container model", charmSeries)
+	}
+	if !charmV2 {
+		os, err := series.GetOSFromSeries(charmSeries)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		switch modelType {
+		case CAAS:
+			if !caasOS.Contains(os.String()) {
+				return errors.NotValidf("series %q in a kubernetes model", charmSeries)
+			}
+		case IAAS:
+			if caasOS.Contains(os.String()) {
+				return errors.NotValidf("series %q in a non container model", charmSeries)
+			}
 		}
 	}
 	return nil

@@ -7,17 +7,22 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/os"
+
 	"github.com/juju/charm/v8"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
+	"github.com/juju/os/series"
 	"github.com/juju/retry"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 )
@@ -97,13 +102,12 @@ func (a *appWorker) loop() error {
 	}
 	if charmInfo == nil ||
 		charmInfo.Meta == nil ||
-		charmInfo.Meta.Deployment == nil ||
-		charmInfo.Meta.Deployment.DeploymentMode != charm.ModeEmbedded {
-		return errors.Errorf("charm missing deployment mode or received non-embedded mode")
+		charmInfo.Meta.Format() < charm.FormatV2 {
+		return errors.Errorf("charm version 2 or greater required")
 	}
 
-	app := a.broker.Application(a.name,
-		caas.DeploymentType(charmInfo.Meta.Deployment.DeploymentType))
+	// TODO(new-charms): support more than statefulset
+	app := a.broker.Application(a.name, caas.DeploymentStateful)
 
 	var appChanges watcher.NotifyChannel
 	var replicaChanges watcher.NotifyChannel
@@ -227,8 +231,71 @@ func (a *appWorker) alive(app caas.Application) error {
 		return errors.Annotate(err, "failed to get provisioning info")
 	}
 
+	images, err := a.facade.ApplicationOCIResources(a.name)
+	if err != nil {
+		return errors.Annotate(err, "failed to get oci image resources")
+	}
+
+	baseSystem, err := series.ParseSystemFromSeries(provisionInfo.Series)
+	if err != nil {
+		return errors.Annotate(err, "failed to parse series as a system")
+	}
+
+	ch := charmInfo.Charm()
+	charmBaseImage := resources.DockerImageDetails{}
+	if baseSystem.Resource != "" {
+		image, ok := images[baseSystem.Resource]
+		if !ok {
+			return errors.NotFoundf("referenced charm base image resource %s", baseSystem.Resource)
+		}
+		charmBaseImage = image
+	} else {
+		charmBaseImage.RegistryPath, err = podcfg.ImageForSystem(provisionInfo.ImageRepo, baseSystem)
+		if err != nil {
+			return errors.Annotate(err, "failed to get image for system")
+		}
+	}
+
+	containers := make(map[string]caas.ContainerConfig)
+	for k, v := range ch.Meta().Containers {
+		container := caas.ContainerConfig{
+			Name: k,
+		}
+		if len(v.Systems) != 1 {
+			return errors.NotValidf("containers currently only support declaring one system")
+		}
+		system := v.Systems[0]
+		if system.Resource != "" {
+			image, ok := images[system.Resource]
+			if !ok {
+				return errors.NotFoundf("referenced charm base image resource %s", system.Resource)
+			}
+			container.Image = image
+		} else {
+			// TODO(new-charm): Unify juju/charm System and juju/os/series System
+			o, err := os.ParseSystemOS(system.OS)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			container.Image.RegistryPath, err = podcfg.ImageForSystem(provisionInfo.ImageRepo, series.System{
+				OS:       o,
+				Version:  system.Version,
+				Resource: system.Resource,
+			})
+			if err != nil {
+				return errors.Annotate(err, "failed to get image for system")
+			}
+		}
+		for _, m := range v.Mounts {
+			container.Mounts = append(container.Mounts, caas.MountConfig{
+				StorageName: m.Storage,
+				Path:        m.Location,
+			})
+		}
+		containers[k] = container
+	}
+
 	config := caas.ApplicationConfig{
-		Charm:                charmInfo.Charm(),
 		IntroductionSecret:   password,
 		AgentVersion:         provisionInfo.Version,
 		AgentImagePath:       provisionInfo.ImagePath,
@@ -238,6 +305,8 @@ func (a *appWorker) alive(app caas.Application) error {
 		Constraints:          provisionInfo.Constraints,
 		Filesystems:          provisionInfo.Filesystems,
 		Devices:              provisionInfo.Devices,
+		CharmBaseImage:       charmBaseImage,
+		Containers:           containers,
 	}
 	err = app.Ensure(config)
 	if err != nil {

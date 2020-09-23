@@ -7,6 +7,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/os"
+
+	"github.com/juju/errors"
+	"github.com/juju/os/series"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/controller"
@@ -94,4 +98,26 @@ func imageRepoToPath(imageRepo string, ver version.Number) string {
 	}
 	path := fmt.Sprintf("%s/%s", imageRepo, JujudOCIName)
 	return tagImagePath(path, ver)
+}
+
+// ImageForSystem returns the OCI image path for a generic system.
+// NOTE: resource referenced systems are not resolved via ImageForSystem.
+func ImageForSystem(imageRepo string, system series.System) (string, error) {
+	if system.Resource != "" {
+		return "", errors.NotValidf("system can't reference a resource")
+	}
+	if system.OS == os.Unknown {
+		return "", errors.NotValidf("system must specify os")
+	}
+	if system.OS == os.Kubernetes {
+		return "", errors.NotValidf("kubernetes is not a valid system os")
+	}
+	if imageRepo == "" {
+		imageRepo = JujudOCINamespace
+	}
+	image := fmt.Sprintf("%s/%s", imageRepo, system.OS.SystemString())
+	if system.Version != "" {
+		image = fmt.Sprintf("%s:%s", image, system.Version)
+	}
+	return image, nil
 }

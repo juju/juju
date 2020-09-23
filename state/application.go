@@ -1473,7 +1473,8 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		}
 	} else if !cfg.ForceSeries {
 		supported := false
-		for _, oneSeries := range cfg.Charm.Meta().Series {
+		charmSeries := cfg.Charm.Meta().ComputedSeries()
+		for _, oneSeries := range charmSeries {
 			if oneSeries == a.doc.Series {
 				supported = true
 				break
@@ -1481,8 +1482,8 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		}
 		if !supported {
 			supportedSeries := "no series"
-			if len(cfg.Charm.Meta().Series) > 0 {
-				supportedSeries = strings.Join(cfg.Charm.Meta().Series, ", ")
+			if len(charmSeries) > 0 {
+				supportedSeries = strings.Join(charmSeries, ", ")
 			}
 			return errors.Errorf("only these series are supported: %v", supportedSeries)
 		}
@@ -1497,7 +1498,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 			return err
 		}
 		supportedOS := false
-		supportedSeries := cfg.Charm.Meta().Series
+		supportedSeries := cfg.Charm.Meta().ComputedSeries()
 		for _, chSeries := range supportedSeries {
 			charmSeriesOS, err := series.GetOSFromSeries(chSeries)
 			if err != nil {
@@ -1824,7 +1825,7 @@ func (a *Application) VerifySupportedSeries(series string, force bool) error {
 	if err != nil {
 		return err
 	}
-	supportedSeries := ch.Meta().Series
+	supportedSeries := ch.Meta().ComputedSeries()
 	if len(supportedSeries) == 0 {
 		supportedSeries = append(supportedSeries, ch.URL().Series)
 	}
@@ -2961,7 +2962,7 @@ func CheckApplicationExpectsWorkload(m *Model, appName string) (bool, error) {
 		return true, nil
 	}
 
-	// Check embedded charm
+	// Check charm v2
 	app, err := m.State().Application(appName)
 	if err != nil {
 		return false, errors.Trace(err)
@@ -2970,8 +2971,7 @@ func CheckApplicationExpectsWorkload(m *Model, appName string) (bool, error) {
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	deployment := ch.Meta().Deployment
-	if deployment != nil && deployment.DeploymentMode == charm.ModeEmbedded {
+	if ch.Meta().Format() >= charm.FormatV2 {
 		return false, nil
 	}
 

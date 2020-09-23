@@ -4,6 +4,8 @@
 package caasapplicationprovisioner
 
 import (
+	"io"
+
 	"github.com/juju/charm/v8"
 	"github.com/juju/names/v4"
 
@@ -12,6 +14,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 )
 
@@ -20,7 +23,6 @@ import (
 type CAASApplicationProvisionerState interface {
 	ControllerConfig() (controller.Config, error)
 	StateServingInfo() (controller.StateServingInfo, error)
-	WatchApplications() state.StringsWatcher
 	Addresses() ([]string, error)
 	ModelUUID() string
 	Model() (Model, error)
@@ -28,6 +30,7 @@ type CAASApplicationProvisionerState interface {
 	WatchAPIHostPortsForAgents() state.NotifyWatcher
 	Application(string) (Application, error)
 	ResolveConstraints(cons constraints.Value) (constraints.Value, error)
+	Resources() (Resources, error)
 }
 
 type Model interface {
@@ -46,6 +49,7 @@ type Application interface {
 	Name() string
 	Constraints() (constraints.Value, error)
 	Life() state.Life
+	Series() string
 }
 
 type Charm interface {
@@ -58,6 +62,10 @@ type Unit interface {
 	DestroyOperation() *state.DestroyUnitOperation
 	EnsureDead() error
 	ContainerInfo() (state.CloudContainer, error)
+}
+
+type Resources interface {
+	OpenResource(applicationID string, name string) (resource.Resource, io.ReadCloser, error)
 }
 
 type stateShim struct {
@@ -78,6 +86,10 @@ func (s stateShim) Application(name string) (Application, error) {
 		return nil, err
 	}
 	return &applicationShim{app}, nil
+}
+
+func (s stateShim) Resources() (Resources, error) {
+	return s.State.Resources()
 }
 
 type applicationShim struct {

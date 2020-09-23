@@ -6,6 +6,7 @@ package caasapplicationprovisioner
 import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/names/v4"
 	"github.com/juju/version"
 
@@ -113,6 +114,8 @@ type ProvisioningInfo struct {
 	Constraints  constraints.Value
 	Filesystems  []storage.KubernetesFilesystemParams
 	Devices      []devices.KubernetesDeviceParams
+	Series       string
+	ImageRepo    string
 }
 
 // ProvisioningInfo returns the info needed to provision an operator for an application.
@@ -139,6 +142,8 @@ func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, err
 		CACert:       r.CACert,
 		Tags:         r.Tags,
 		Constraints:  r.Constraints,
+		Series:       r.Series,
+		ImageRepo:    r.ImageRepo,
 	}
 
 	for _, fs := range r.Filesystems {
@@ -278,4 +283,35 @@ func (c *Client) GarbageCollect(
 		return err
 	}
 	return result.OneError()
+}
+
+// ApplicationOCIResources returns all the OCI image resources for an application.
+func (c *Client) ApplicationOCIResources(appName string) (map[string]resources.DockerImageDetails, error) {
+	args := params.Entities{Entities: []params.Entity{{
+		Tag: names.NewApplicationTag(appName).String(),
+	}}}
+	var result params.CAASApplicationOCIResourceResults
+	if err := c.facade.FacadeCall("ApplicationOCIResources", args, &result); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(result.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d",
+			len(result.Results))
+	}
+	res := result.Results[0]
+	if res.Error != nil {
+		return nil, errors.Annotatef(res.Error, "unable to fetch OCI image resources for %s", appName)
+	}
+	if res.Result == nil {
+		return nil, errors.Errorf("missing result")
+	}
+	images := make(map[string]resources.DockerImageDetails)
+	for k, v := range res.Result.Images {
+		images[k] = resources.DockerImageDetails{
+			RegistryPath: v.RegistryPath,
+			Username:     v.Username,
+			Password:     v.Password,
+		}
+	}
+	return images, nil
 }

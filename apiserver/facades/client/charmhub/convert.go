@@ -89,7 +89,7 @@ func transformStoreURL(clientURL, name string) string {
 // transformSeries returns a slice of supported series for that revision.
 func transformSeries(channel transport.ChannelMap) []string {
 	if meta := unmarshalCharmMetadata(channel.Revision.MetadataYAML); meta != nil {
-		return meta.Series
+		return meta.ComputedSeries()
 	}
 	return nil
 }
@@ -128,7 +128,7 @@ func convertCharm(info transport.InfoResponse) (*params.CharmHubCharm, []string)
 	if meta := unmarshalCharmMetadata(info.DefaultRelease.Revision.MetadataYAML); meta != nil {
 		charmHubCharm.Subordinate = meta.Subordinate
 		charmHubCharm.Relations = transformRelations(meta.Requires, meta.Provides)
-		series = meta.Series
+		series = meta.ComputedSeries()
 	}
 	if cfg := unmarshalCharmConfig(info.DefaultRelease.Revision.ConfigYAML); cfg != nil {
 		charmHubCharm.Config = params.ToCharmOptionMap(cfg)

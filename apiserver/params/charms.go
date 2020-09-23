@@ -127,6 +127,11 @@ type CharmMeta struct {
 	Resources      map[string]CharmResourceMeta `json:"resources,omitempty"`
 	Terms          []string                     `json:"terms,omitempty"`
 	MinJujuVersion string                       `json:"min-juju-version,omitempty"`
+
+	Systems       []CharmSystem             `json:"systems,omitempty"`
+	Platforms     []string                  `json:"platforms,omitempty"`
+	Architectures []string                  `json:"architectures,omitempty"`
+	Containers    map[string]CharmContainer `json:"containers,omitempty"`
 }
 
 // Charm holds all the charm data that the client needs.
@@ -177,13 +182,23 @@ type CharmDeployment struct {
 	MinVersion     string `json:"min-version"`
 }
 
-// CharmServicePort represents service ports mapping from Unit to Service
-type CharmServicePort struct {
-	Name        string `json:"name"`
-	Port        int    `json:"port"`
-	TargetPort  int    `json:"target-port"`
-	Protocol    string `json:"protocol"`
-	AppProtocol string `json:"app-protocol"`
+// CharmSystem mirrors charm.System
+type CharmSystem struct {
+	OS       string `json:"os,omitempty"`
+	Version  string `json:"version,omitempty"`
+	Resource string `json:"resource,omitempty"`
+}
+
+// CharmContainer mirrors charm.Container
+type CharmContainer struct {
+	Systems []CharmSystem `json:"systems,omitempty"`
+	Mounts  []CharmMount  `json:"mounts,omitempty"`
+}
+
+// CharmMount mirrors charm.Mount
+type CharmMount struct {
+	Storage  string `json:"storage,omitempty"`
+	Location string `json:"location,omitempty"`
 }
 
 // CharmLXDProfile mirrors charm.LXDProfile

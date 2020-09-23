@@ -17,6 +17,7 @@ import (
 	charmscommon "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 )
@@ -36,6 +37,7 @@ type CAASProvisionerFacade interface {
 	SetOperatorStatus(appName string, status status.Status, message string, data map[string]interface{}) error
 	Units(appName string) ([]names.Tag, error)
 	GarbageCollect(appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error
+	ApplicationOCIResources(appName string) (map[string]resources.DockerImageDetails, error)
 }
 
 // CAASBroker exposes CAAS broker functionality to a worker.

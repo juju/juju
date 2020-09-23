@@ -10,9 +10,9 @@ import (
 	"strings"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/set"
 	"github.com/kr/pretty"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -118,22 +118,6 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	}()
 	logger.Debugf("creating/updating %s application", a.name)
 
-	if config.Charm == nil {
-		return errors.NotValidf("charm was missing for %v application", a.name)
-	}
-	charmDeployment := config.Charm.Meta().Deployment
-	if charmDeployment == nil {
-		return errors.NotValidf("charm missing deployment config for %v application", a.name)
-	}
-
-	if string(a.deploymentType) != string(charmDeployment.DeploymentType) {
-		return errors.NotValidf("charm deployment type %q mismatch with application %q", charmDeployment.DeploymentType, a.deploymentType)
-	}
-
-	if string(charmDeployment.DeploymentMode) != string(caas.ModeEmbedded) {
-		return errors.NotValidf("charm deployment mode is not %q", caas.ModeEmbedded)
-	}
-
 	applier := a.newApplier()
 	secret := resources.Secret{
 		Secret: corev1.Secret{
@@ -174,9 +158,20 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 			MountPath: mountPath,
 		}, nil
 	}
-	var handleVolumeMount handleVolumeMountFunc = func(m corev1.VolumeMount) error {
+	var handleVolumeMount handleVolumeMountFunc = func(storageName string, m corev1.VolumeMount) error {
 		for i := range podSpec.Containers {
-			podSpec.Containers[i].VolumeMounts = append(podSpec.Containers[i].VolumeMounts, m)
+			name := podSpec.Containers[i].Name
+			if name == unitContainerName {
+				podSpec.Containers[i].VolumeMounts = append(podSpec.Containers[i].VolumeMounts, m)
+				continue
+			}
+			for _, mount := range config.Containers[name].Mounts {
+				if mount.StorageName == storageName {
+					volumeMountCopy := m
+					volumeMountCopy.MountPath = mount.Path
+					podSpec.Containers[i].VolumeMounts = append(podSpec.Containers[i].VolumeMounts, volumeMountCopy)
+				}
+			}
 		}
 		return nil
 	}
@@ -420,6 +415,10 @@ func (a *app) configureDefaultService(annotation annotations.Annotation) (err er
 		Spec: corev1.ServiceSpec{
 			Selector: a.labels(),
 			Type:     corev1.ServiceTypeClusterIP,
+			Ports: []corev1.ServicePort{{
+				Name: "placeholder",
+				Port: 65535,
+			}},
 		},
 	})
 	if err = svc.Get(context.Background(), a.client); errors.IsNotFound(err) {
@@ -734,17 +733,71 @@ func (a *app) State() (caas.ApplicationState, error) {
 func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec, error) {
 	appSecret := a.secretName()
 
-	if config.Charm.Meta().Deployment == nil {
-		return nil, errors.NotValidf("charm missing deployment")
-	}
-	containerImageName := "test-image" //config.Charm.Meta().Deployment.ContainerImageName
-	if containerImageName == "" {
-		return nil, errors.NotValidf("charm missing container-image-name")
-	}
-
 	jujuDataDir, err := paths.DataDir("kubernetes")
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	containerNames := []string(nil)
+	containers := []caas.ContainerConfig(nil)
+	for _, v := range config.Containers {
+		containerNames = append(containerNames, v.Name)
+		containers = append(containers, v)
+	}
+	sort.Strings(containerNames)
+	sort.Slice(containers, func(i, j int) bool {
+		return containers[i].Name < containers[j].Name
+	})
+
+	containerSpecs := []corev1.Container{{
+		Name:            unitContainerName,
+		ImagePullPolicy: corev1.PullIfNotPresent,
+		Image:           config.CharmBaseImage.RegistryPath,
+		WorkingDir:      jujuDataDir,
+		Command:         []string{"/usr/bin/k8sagent"},
+		Args:            []string{"unit", "--data-dir", jujuDataDir},
+		Env: []corev1.EnvVar{{
+			Name:  "JUJU_CONTAINER_NAMES",
+			Value: strings.Join(containerNames, ","),
+		}},
+		VolumeMounts: []corev1.VolumeMount{{
+			Name:      "juju-data-dir",
+			MountPath: "/usr/bin/k8sagent",
+			SubPath:   "usr/bin/k8sagent",
+			ReadOnly:  true,
+		}, {
+			Name:      "juju-data-dir",
+			MountPath: jujuDataDir,
+			SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
+		}, {
+			Name:      "juju-data-dir",
+			MountPath: "/var/run/containers",
+			SubPath:   "var/run/containers",
+		}},
+	}}
+
+	for _, v := range containers {
+		container := corev1.Container{
+			Name:            v.Name,
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			Image:           v.Image.RegistryPath,
+			Command:         []string{"/usr/bin/pebble"},
+			Env: []corev1.EnvVar{{
+				Name:  "JUJU_CONTAINER_NAME",
+				Value: v.Name,
+			}},
+			VolumeMounts: []corev1.VolumeMount{{
+				Name:      "juju-data-dir",
+				MountPath: "/usr/bin/pebble",
+				SubPath:   "usr/bin/pebble",
+				ReadOnly:  true,
+			}, {
+				Name:      "juju-data-dir",
+				MountPath: "/var/run/container",
+				SubPath:   fmt.Sprintf("var/run/containers/%s", v.Name),
+			}},
+		}
+		containerSpecs = append(containerSpecs, container)
 	}
 
 	automountToken := false
@@ -757,24 +810,24 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			WorkingDir:      jujuDataDir,
 			Command:         []string{"/opt/k8sagent"},
 			Args:            []string{"init"},
-			Env: []corev1.EnvVar{
-				{
-					Name: "JUJU_K8S_POD_NAME",
-					ValueFrom: &corev1.EnvVarSource{
-						FieldRef: &corev1.ObjectFieldSelector{
-							FieldPath: "metadata.name",
-						},
+			Env: []corev1.EnvVar{{
+				Name:  "JUJU_CONTAINER_NAMES",
+				Value: strings.Join(containerNames, ","),
+			}, {
+				Name: "JUJU_K8S_POD_NAME",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "metadata.name",
 					},
 				},
-				{
-					Name: "JUJU_K8S_POD_UUID",
-					ValueFrom: &corev1.EnvVarSource{
-						FieldRef: &corev1.ObjectFieldSelector{
-							FieldPath: "metadata.uid",
-						},
+			}, {
+				Name: "JUJU_K8S_POD_UUID",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "metadata.uid",
 					},
 				},
-			},
+			}},
 			EnvFrom: []corev1.EnvFromSource{{
 				SecretRef: &corev1.SecretEnvSource{
 					LocalObjectReference: corev1.LocalObjectReference{
@@ -790,38 +843,17 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				Name:      "juju-data-dir",
 				MountPath: "/shared/usr/bin",
 				SubPath:   "usr/bin",
+			}, {
+				Name:      "juju-data-dir",
+				MountPath: "/var/run/containers",
+				SubPath:   "var/run/containers",
 			}},
 		}},
-		Containers: []corev1.Container{{
-			Name:            unitContainerName,
-			ImagePullPolicy: corev1.PullIfNotPresent,
-			Image:           config.AgentImagePath,
-			WorkingDir:      jujuDataDir,
-			Command:         []string{"/opt/k8sagent"},
-			Args:            []string{"unit", "--data-dir", jujuDataDir},
-			VolumeMounts: []corev1.VolumeMount{{
-				Name:      "juju-data-dir",
-				MountPath: jujuDataDir,
-				SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
-			}},
-		}, {
-			Name:            config.Charm.Meta().Name,
-			ImagePullPolicy: corev1.PullIfNotPresent,
-			Image:           containerImageName,
-			Command:         []string{"/usr/bin/pebble"},
-			VolumeMounts: []corev1.VolumeMount{{
-				Name:      "juju-data-dir",
-				MountPath: "/usr/bin/pebble",
-				SubPath:   "usr/bin/pebble",
-				ReadOnly:  true,
-			}},
-		}},
+		Containers: containerSpecs,
 		Volumes: []corev1.Volume{{
 			Name: "juju-data-dir",
 			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{
-					SizeLimit: resource.NewScaledQuantity(1, resource.Giga),
-				},
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
 		}},
 	}, nil
@@ -872,8 +904,12 @@ func (a *app) getStorageUniqPrefix(getMeta func() (annotationGetter, error)) (st
 
 type handleVolumeFunc func(vol corev1.Volume, mountPath string, readOnly bool) (*corev1.VolumeMount, error)
 type handlePVCFunc func(pvc corev1.PersistentVolumeClaim, mountPath string, readOnly bool) (*corev1.VolumeMount, error)
-type handleVolumeMountFunc func(corev1.VolumeMount) error
+type handleVolumeMountFunc func(string, corev1.VolumeMount) error
 type handleStorageClassFunc func(storagev1.StorageClass) error
+
+func (a *app) volumeName(storageName string) string {
+	return fmt.Sprintf("%s-%s", a.name, storageName)
+}
 
 func (a *app) configureStorage(
 	storageUniqueID string,
@@ -903,7 +939,7 @@ func (a *app) configureStorage(
 			readOnly = fs.Attachment.ReadOnly
 		}
 
-		name := fmt.Sprintf("%s-%s", a.name, fs.StorageName)
+		name := a.volumeName(fs.StorageName)
 		pvcNameGetter := func(volName string) string { return fmt.Sprintf("%s-%s", volName, storageUniqueID) }
 
 		vol, pvc, sc, err := a.filesystemToVolumeInfo(name, fs, storageClassMap, pvcNameGetter)
@@ -936,7 +972,7 @@ func (a *app) configureStorage(
 		}
 
 		if volumeMount != nil {
-			if err = handleVolumeMount(*volumeMount); err != nil {
+			if err = handleVolumeMount(fs.StorageName, *volumeMount); err != nil {
 				return errors.Trace(err)
 			}
 		}

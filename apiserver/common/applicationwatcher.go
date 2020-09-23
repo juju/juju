@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
@@ -140,17 +139,13 @@ func (w *applicationWatcher) handle(changes []string) ([]string, error) {
 		switch w.filter {
 		case ApplicationFilterCAASLegacy:
 			meta := ch.Meta()
-			if meta.Deployment != nil && meta.Deployment.DeploymentMode == charm.ModeEmbedded {
+			if meta.Format() >= charm.FormatV2 {
 				// Filter out embedded applications.
 				continue
 			}
 		case ApplicationFilterCAASEmbedded:
 			meta := ch.Meta()
-			if meta.Deployment == nil {
-				// Filter out application that defaulted to legacy deployment mode.
-				continue
-			}
-			if meta.Deployment.DeploymentMode != charm.ModeEmbedded {
+			if meta.Format() == charm.FormatV1 {
 				// Filter out non-embedded applications.
 				continue
 			}
@@ -163,7 +158,7 @@ func (w *applicationWatcher) handle(changes []string) ([]string, error) {
 }
 
 // Changes is part of corewatcher.StringsWatcher.
-func (w *applicationWatcher) Changes() corewatcher.StringsChannel {
+func (w *applicationWatcher) Changes() <-chan []string {
 	return w.out
 }
 

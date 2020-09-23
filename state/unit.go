@@ -146,11 +146,7 @@ func (u *Unit) IsEmbedded() (bool, error) {
 	if meta == nil {
 		return false, nil
 	}
-	deployment := meta.Deployment
-	if deployment == nil {
-		return false, nil
-	}
-	return deployment.DeploymentMode == charm.ModeEmbedded, nil
+	return u.modelType == ModelTypeIAAS && meta.Format() >= charm.FormatV2, nil
 }
 
 // Application returns the application.

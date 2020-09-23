@@ -43,7 +43,7 @@ require (
 	github.com/joyent/gosign v0.0.0-20140524000734-0da0d5f13420
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
 	github.com/juju/bundlechanges/v3 v3.0.0-20200909112830-2eb08291b192
-	github.com/juju/charm/v8 v8.0.0-20200918105822-d7e8e94ba938
+	github.com/juju/charm/v8 v8.0.0-20200923053153-205fa6e80ebf
 	github.com/juju/charmrepo/v6 v6.0.0-20200817155725-120bd7a8b1ed
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
 	github.com/juju/cmd v0.0.0-20200108104440-8e43f3faa5c9
@@ -64,7 +64,7 @@ require (
 	github.com/juju/mutex v0.0.0-20180619145857-d21b13acf4bf
 	github.com/juju/names/v4 v4.0.0-20200923012352-008effd8611b
 	github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b
-	github.com/juju/os v0.0.0-20200701063157-8e6dd7a2b438
+	github.com/juju/os v0.0.0-20200923052219-e4c9b9a6564c
 	github.com/juju/packaging v0.0.0-20200421095529-970596d2622a
 	github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93
 	github.com/juju/proxy v0.0.0-20180523025733-5f8741c297b4
@@ -80,7 +80,7 @@ require (
 	github.com/juju/testing v0.0.0-20200923013621-75df6121fbb0
 	github.com/juju/txn v0.0.0-20190416045819-5f348e78887d
 	github.com/juju/usso v0.0.0-20160401104424-68a59c96c178 // indirect
-	github.com/juju/utils v0.0.0-20200604140309-9d78121a29e0
+	github.com/juju/utils v0.0.0-20200604140309-9d78121a29e0 // indirect
 	github.com/juju/utils/v2 v2.0.0-20200923005554-4646bfea2ef1
 	github.com/juju/version v0.0.0-20191219164919-81c1be00b9a6
 	github.com/juju/webbrowser v0.0.0-20180907093207-efb9432b2bcb
@@ -137,7 +137,7 @@ require (
 	gopkg.in/robfig/cron.v2 v2.0.0-20150107220207-be2e0b0deed5 // indirect
 	gopkg.in/tomb.v2 v2.0.0-20161208151619-d5d1b5820637
 	gopkg.in/yaml.v2 v2.3.0
-	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
+	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
 	k8s.io/api v0.18.6
 	k8s.io/apiextensions-apiserver v0.18.6
 	k8s.io/apimachinery v0.18.6
@@ -186,4 +186,6 @@ replace (
 	k8s.io/sample-apiserver v0.0.0 => k8s.io/sample-apiserver v0.18.6
 )
 
-replace github.com/juju/charm/v8 => github.com/hpidcock/charm/v8 v8.0.0-20200921072628-48fce167a0e4
+replace github.com/juju/charm/v8 => github.com/hpidcock-juju/charm/v8 v8.0.0-20200923053153-205fa6e80ebf
+
+replace github.com/juju/os => github.com/hpidcock/os v0.0.0-20200923052219-e4c9b9a6564c
