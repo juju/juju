@@ -439,7 +439,7 @@ func (c *Client) createImportSpec(
 		for i, e := range spec.Error {
 			messages[i] = e.LocalizedMessage
 		}
-		message := strings.Join(messages, "; ")
+		message := strings.Join(messages, "\n")
 		c.logger.Debugf("CreateImportSpec fault: messages=%s", message)
 		return nil, errors.New(message)
 	}
