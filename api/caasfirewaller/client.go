@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -39,14 +40,10 @@ type ClientEmbedded struct {
 
 // NewClientEmbedded returns a client used to access the CAAS unit provisioner API.
 func NewClientEmbedded(caller base.APICaller) *ClientEmbedded {
-	// TODO(embedded): add OpenedPorts and ClosedPorts API for caasfirewallerembedded worker to fetch port mapping changes.
 	facadeCaller := base.NewFacadeCaller(caller, "CAASFirewallerEmbedded")
-	charmsClient := charmscommon.NewCharmsClient(facadeCaller)
 	return &ClientEmbedded{
-		Client: &Client{
-			facade: facadeCaller,
-		},
-		CharmsClient: charmsClient,
+		Client:       &Client{facade: facadeCaller},
+		CharmsClient: charmscommon.NewCharmsClient(facadeCaller),
 	}
 }
 
@@ -78,6 +75,31 @@ func (c *ClientEmbedded) WatchOpenedPorts() (watcher.StringsWatcher, error) {
 	}
 	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
 	return w, nil
+}
+
+// GetApplicationOpenedPorts returns all the opened ports for each given application.
+func (c *ClientEmbedded) GetApplicationOpenedPorts(appName string) (network.GroupedPortRanges, error) {
+	args := params.Entities{Entities: []params.Entity{{
+		Tag: names.NewApplicationTag(appName).String(),
+	}}}
+	var result params.ApplicationOpenedPortsResults
+	if err := c.facade.FacadeCall("GetApplicationOpenedPorts", args, &result); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(result.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(result.Results))
+	}
+	res := result.Results[0]
+	if res.Error != nil {
+		return nil, errors.Annotatef(res.Error, "unable to fetch opened ports for application %s", appName)
+	}
+	out := make(network.GroupedPortRanges)
+	for _, pgs := range res.ApplicationPortRanges {
+		for _, pg := range pgs.PortRanges {
+			out[pgs.Endpoint] = append(out[pgs.Endpoint], pg.NetworkPortRange())
+		}
+	}
+	return out, nil
 }
 
 // ApplicationCharmInfo finds the CharmInfo for an application.

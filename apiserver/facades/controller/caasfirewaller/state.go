@@ -28,6 +28,7 @@ type Application interface {
 	ApplicationConfig() (application.ConfigAttributes, error)
 	Watch() state.NotifyWatcher
 	Charm() (ch Charm, force bool, err error)
+	OpenedPortRanges() (state.ApplicationPortRanges, error)
 }
 
 type Charm interface {

@@ -805,6 +805,26 @@ type MachinePortsResults struct {
 	Results []MachinePortsResult `json:"results"`
 }
 
+// ApplicationOpenedPorts describes the set of port ranges that have been
+// opened by an application for an endpoint.
+type ApplicationOpenedPorts struct {
+	Endpoint   string      `json:"endpoint"`
+	PortRanges []PortRange `json:"port-ranges"`
+}
+
+// ApplicationOpenedPortsResult holds a single result of the
+// CAASFirewallerEmbedded.GetApplicationOpenedPorts() API calls.
+type ApplicationOpenedPortsResult struct {
+	Error                 *Error                   `json:"error,omitempty"`
+	ApplicationPortRanges []ApplicationOpenedPorts `json:"application-port-ranges"`
+}
+
+// ApplicationOpenedPortsResults holds all the results of the
+// CAASFirewallerEmbedded.GetApplicationOpenedPorts() API calls.
+type ApplicationOpenedPortsResults struct {
+	Results []ApplicationOpenedPortsResult `json:"results"`
+}
+
 // OpenMachinePortRangesByEndpointResults holds the results of a request to the
 // uniter's OpenedMachinePortRangesByEndpoint API.
 type OpenMachinePortRangesByEndpointResults struct {
@@ -860,7 +880,7 @@ type APIHostPortsResult struct {
 	Servers [][]HostPort `json:"servers"`
 }
 
-// MachineHostPorts transforms the APIHostPortsResult into a slice of
+// MachineHostsPorts transforms the APIHostPortsResult into a slice of
 // MachineHostPorts.
 func (r APIHostPortsResult) MachineHostsPorts() []network.MachineHostPorts {
 	return ToMachineHostsPorts(r.Servers)
