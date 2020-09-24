@@ -32,7 +32,6 @@ import (
 	"github.com/juju/juju/api/charms"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/apiserver/params"
-	jujucharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/application/deployer"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
@@ -88,7 +87,7 @@ func (s *BaseRefreshSuite) SetUpTest(c *gc.C) {
 
 	s.deployResources = func(
 		applicationID string,
-		chID jujucharmstore.CharmID,
+		chID resourceadapters.CharmID,
 		csMac *macaroon.Macaroon,
 		filesAndRevisions map[string]string,
 		resources map[string]charmresource.Meta,
@@ -222,9 +221,12 @@ func (s *RefreshSuite) TestStorageConstraints(c *gc.C) {
 
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "foo",
-		CharmID: jujucharmstore.CharmID{
-			URL:     s.resolvedCharmURL,
-			Channel: csclientparams.StableChannel,
+		CharmID: application.CharmID{
+			URL: s.resolvedCharmURL,
+			Origin: commoncharm.Origin{
+				Source: "charm-store",
+				Risk:   "stable",
+			},
 		},
 		StorageConstraints: map[string]storage.Constraints{
 			"bar": {Pool: "baz", Count: 1},
@@ -272,9 +274,12 @@ func (s *RefreshSuite) TestConfigSettings(c *gc.C) {
 
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "foo",
-		CharmID: jujucharmstore.CharmID{
-			URL:     s.resolvedCharmURL,
-			Channel: csclientparams.StableChannel,
+		CharmID: application.CharmID{
+			URL: s.resolvedCharmURL,
+			Origin: commoncharm.Origin{
+				Source: "charm-store",
+				Risk:   "stable",
+			},
 		},
 		ConfigSettingsYAML: "foo:{}",
 	})
@@ -325,9 +330,12 @@ func (s *RefreshSuite) testUpgradeWithBind(c *gc.C, expectedBindings map[string]
 
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "foo",
-		CharmID: jujucharmstore.CharmID{
-			URL:     s.resolvedCharmURL,
-			Channel: csclientparams.StableChannel,
+		CharmID: application.CharmID{
+			URL: s.resolvedCharmURL,
+			Origin: commoncharm.Origin{
+				Source: "charm-store",
+				Risk:   "stable",
+			},
 		},
 		EndpointBindings: expectedBindings,
 	})
@@ -545,9 +553,12 @@ func (s *RefreshSuite) TestUpgradeWithChannel(c *gc.C) {
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "foo",
-		CharmID: jujucharmstore.CharmID{
-			URL:     s.resolvedCharmURL,
-			Channel: csclientparams.BetaChannel,
+		CharmID: application.CharmID{
+			URL: s.resolvedCharmURL,
+			Origin: commoncharm.Origin{
+				Source: "charm-store",
+				Risk:   "beta",
+			},
 		},
 	})
 }
@@ -563,9 +574,12 @@ func (s *RefreshSuite) TestRefreshShouldRespectDeployedChannelByDefault(c *gc.C)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "foo",
-		CharmID: jujucharmstore.CharmID{
-			URL:     s.resolvedCharmURL,
-			Channel: csclientparams.BetaChannel,
+		CharmID: application.CharmID{
+			URL: s.resolvedCharmURL,
+			Origin: commoncharm.Origin{
+				Source: "charm-store",
+				Risk:   "beta",
+			},
 		},
 	})
 }
@@ -582,9 +596,12 @@ func (s *RefreshSuite) TestSwitch(c *gc.C) {
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "foo",
-		CharmID: jujucharmstore.CharmID{
-			URL:     s.resolvedCharmURL,
-			Channel: csclientparams.StableChannel,
+		CharmID: application.CharmID{
+			URL: s.resolvedCharmURL,
+			Origin: commoncharm.Origin{
+				Source: "charm-store",
+				Risk:   "stable",
+			},
 		},
 	})
 	var curl *charm.URL

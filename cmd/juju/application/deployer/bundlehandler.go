@@ -16,7 +16,6 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/resource"
 	"github.com/juju/charmrepo/v6"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
@@ -31,7 +30,6 @@ import (
 	commoncharm "github.com/juju/juju/api/common/charm"
 	app "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/charmstore"
 	appbundle "github.com/juju/juju/cmd/juju/application/bundle"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
@@ -594,9 +592,20 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		return errors.Errorf("unexpected application charm URL %q", p.Charm)
 	}
 
-	chID := charmstore.CharmID{
-		URL:     cURL,
-		Channel: csparams.Channel(h.origins[*cURL].Risk),
+	var origin commoncharm.Origin
+	if o, ok := h.origins[*cURL]; ok {
+		origin = o
+	} else {
+		o, err := utils.DeduceOrigin(cURL, corecharm.Channel{})
+		if err != nil {
+			return errors.Trace(err)
+		}
+		origin = o
+	}
+
+	chID := application.CharmID{
+		URL:    cURL,
+		Origin: origin,
 	}
 	macaroon := h.macaroons[*cURL]
 
@@ -679,7 +688,10 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 
 	resNames2IDs, err := h.deployResources(
 		p.Application,
-		chID,
+		resourceadapters.CharmID{
+			URL:     chID.URL,
+			Channel: chID.Origin.Risk,
+		},
 		macaroon,
 		resources,
 		charmInfo.Meta.Resources,
@@ -727,7 +739,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	}
 	// A channel is needed whether the risk is valid or not.
 	channel, _ := corecharm.MakeChannel(track, h.origin.Risk, "")
-	origin, err := utils.DeduceOrigin(chID.URL, channel)
+	origin, err = utils.DeduceOrigin(chID.URL, channel)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -975,9 +987,9 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 		return errors.Errorf("unexpected upgrade charm URL %q", p.Charm)
 	}
 
-	chID := charmstore.CharmID{
-		URL:     cURL,
-		Channel: csparams.Channel(h.origins[*cURL].Risk),
+	chID := application.CharmID{
+		URL:    cURL,
+		Origin: h.origins[*cURL],
 	}
 	macaroon := h.macaroons[*cURL]
 
@@ -999,7 +1011,10 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 	if len(filtered) != 0 {
 		resNames2IDs, err = h.deployResources(
 			p.Application,
-			chID,
+			resourceadapters.CharmID{
+				URL:     chID.URL,
+				Channel: chID.Origin.Risk,
+			},
 			macaroon,
 			resources,
 			filtered,

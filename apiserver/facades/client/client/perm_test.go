@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc"
@@ -323,7 +322,7 @@ func opClientSetAnnotations(c *gc.C, st api.Connection, mst *state.State) (func(
 func opClientServiceSetCharm(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	cfg := application.SetCharmConfig{
 		ApplicationName: "nosuch",
-		CharmID: charmstore.CharmID{
+		CharmID: application.CharmID{
 			URL: charm.MustParseURL("local:quantal/wordpress"),
 		},
 	}

@@ -16,6 +16,7 @@ import (
 	csclientparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/juju/api/charms"
+	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -24,7 +25,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
-	jjcharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -136,7 +136,7 @@ func (s *RefreshStoreResourceSuite) TestDeployStarsaySuccess(c *gc.C) {
 
 	deploy := newDeployCommand()
 	deploy.DeployResources = func(applicationID string,
-		chID jjcharmstore.CharmID,
+		chID resourceadapters.CharmID,
 		csMac *macaroon.Macaroon,
 		filesAndRevisions map[string]string,
 		resources map[string]charmresource.Meta,
@@ -259,7 +259,7 @@ Deploying charm "cs:bionic/starsay-1".`
 			return charmClient
 		},
 		func(applicationID string,
-			chID jjcharmstore.CharmID,
+			chID resourceadapters.CharmID,
 			csMac *macaroon.Macaroon,
 			filesAndRevisions map[string]string,
 			resources map[string]charmresource.Meta,

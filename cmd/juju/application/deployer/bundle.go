@@ -11,10 +11,12 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/api/application"
 	commoncharm "github.com/juju/juju/api/common/charm"
-	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/application/bundle"
 	"github.com/juju/juju/cmd/juju/application/store"
+	"github.com/juju/juju/cmd/juju/application/utils"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
@@ -102,7 +104,7 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 		}
 	}
 
-	for application, applicationSpec := range bundleData.Applications {
+	for app, applicationSpec := range bundleData.Applications {
 		if applicationSpec.Plan != "" {
 			for _, step := range d.steps {
 				s := step
@@ -112,9 +114,17 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 					return errors.Trace(err)
 				}
 
+				origin, err := utils.DeduceOrigin(charmURL, corecharm.Channel{})
+				if err != nil {
+					return errors.Trace(err)
+				}
+
 				deployInfo := DeploymentInfo{
-					CharmID:         charmstore.CharmID{URL: charmURL},
-					ApplicationName: application,
+					CharmID: application.CharmID{
+						URL:    charmURL,
+						Origin: origin,
+					},
+					ApplicationName: app,
 					ApplicationPlan: applicationSpec.Plan,
 					ModelUUID:       d.targetModelUUID,
 					Force:           d.force,

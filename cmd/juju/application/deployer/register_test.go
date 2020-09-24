@@ -16,8 +16,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
+	"github.com/juju/juju/api/application"
 	apicharms "github.com/juju/juju/api/charms"
-	"github.com/juju/juju/charmstore"
 )
 
 var _ = gc.Suite(&registrationSuite{})
@@ -58,7 +58,7 @@ func (s *registrationSuite) TearDownTest(c *gc.C) {
 func (s *registrationSuite) TestMeteredCharm(c *gc.C) {
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
-		CharmID: charmstore.CharmID{
+		CharmID: application.CharmID{
 			URL: charm.MustParseURL("cs:quantal/metered-1"),
 		},
 		ApplicationName: "application name",
@@ -97,7 +97,7 @@ func (s *registrationSuite) TestMeteredCharm(c *gc.C) {
 func (s *registrationSuite) TestOptionalPlanMeteredCharm(c *gc.C) {
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
-		CharmID: charmstore.CharmID{
+		CharmID: application.CharmID{
 			URL: charm.MustParseURL("cs:quantal/metered-1"),
 		},
 		ApplicationName: "application name",
@@ -136,7 +136,7 @@ func (s *registrationSuite) TestOptionalPlanMeteredCharm(c *gc.C) {
 func (s *registrationSuite) TestPlanNotSpecifiedCharm(c *gc.C) {
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
-		CharmID: charmstore.CharmID{
+		CharmID: application.CharmID{
 			URL: charm.MustParseURL("cs:quantal/metered-1"),
 		},
 		ApplicationName: "application name",
@@ -176,7 +176,7 @@ func (s *registrationSuite) TestMeteredCharmAPIError(c *gc.C) {
 	s.stub.SetErrors(nil, errors.New("something failed"))
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
-		CharmID: charmstore.CharmID{
+		CharmID: application.CharmID{
 			URL: charm.MustParseURL("cs:quantal/metered-1"),
 		},
 		ApplicationName: "application name",
@@ -205,7 +205,7 @@ func (s *registrationSuite) TestMeteredCharmAPIError(c *gc.C) {
 func (s *registrationSuite) TestMeteredCharmInvalidAllocation(c *gc.C) {
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
-		CharmID: charmstore.CharmID{
+		CharmID: application.CharmID{
 			URL: charm.MustParseURL("cs:quantal/metered-1"),
 		},
 		ApplicationName: "application name",
@@ -230,7 +230,7 @@ func (s *registrationSuite) TestMeteredCharmInvalidAllocation(c *gc.C) {
 func (s *registrationSuite) TestMeteredCharmDefaultBudgetAllocation(c *gc.C) {
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
-		CharmID: charmstore.CharmID{
+		CharmID: application.CharmID{
 			URL: charm.MustParseURL("cs:quantal/metered-1"),
 		},
 		ApplicationName: "application name",
@@ -269,7 +269,7 @@ func (s *registrationSuite) TestMeteredCharmDefaultBudgetAllocation(c *gc.C) {
 func (s *registrationSuite) TestMeteredCharmDeployError(c *gc.C) {
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
-		CharmID: charmstore.CharmID{
+		CharmID: application.CharmID{
 			URL: charm.MustParseURL("cs:quantal/metered-1"),
 		},
 		ApplicationName: "application name",
@@ -301,7 +301,7 @@ func (s *registrationSuite) TestMeteredCharmDeployError(c *gc.C) {
 func (s *registrationSuite) TestMeteredLocalCharmWithPlan(c *gc.C) {
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
-		CharmID: charmstore.CharmID{
+		CharmID: application.CharmID{
 			URL: charm.MustParseURL("local:quantal/metered-1"),
 		},
 		ApplicationName: "application name",
@@ -344,7 +344,7 @@ func (s *registrationSuite) TestMeteredLocalCharmNoPlan(c *gc.C) {
 	}
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
-		CharmID: charmstore.CharmID{
+		CharmID: application.CharmID{
 			URL: charm.MustParseURL("local:quantal/metered-1"),
 		},
 		ApplicationName: "application name",
@@ -386,7 +386,7 @@ func (s *registrationSuite) TestMeteredCharmNoPlanSet(c *gc.C) {
 		PlanURL:        s.server.URL}
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
-		CharmID: charmstore.CharmID{
+		CharmID: application.CharmID{
 			URL: charm.MustParseURL("cs:quantal/metered-1"),
 		},
 		ApplicationName: "application name",
@@ -431,7 +431,7 @@ func (s *registrationSuite) TestMeteredCharmNoDefaultPlan(c *gc.C) {
 		PlanURL:        s.server.URL}
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
-		CharmID: charmstore.CharmID{
+		CharmID: application.CharmID{
 			URL: charm.MustParseURL("cs:quantal/metered-1"),
 		},
 		ApplicationName: "application name",
@@ -461,7 +461,7 @@ func (s *registrationSuite) TestMeteredCharmNoAvailablePlan(c *gc.C) {
 		PlanURL:        s.server.URL}
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
-		CharmID: charmstore.CharmID{
+		CharmID: application.CharmID{
 			URL: charm.MustParseURL("cs:quantal/metered-1"),
 		},
 		ApplicationName: "application name",
@@ -490,7 +490,7 @@ func (s *registrationSuite) TestMeteredCharmFailToQueryDefaultCharm(c *gc.C) {
 		PlanURL:        s.server.URL}
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
-		CharmID: charmstore.CharmID{
+		CharmID: application.CharmID{
 			URL: charm.MustParseURL("cs:quantal/metered-1"),
 		},
 		ApplicationName: "application name",
@@ -513,7 +513,7 @@ func (s *registrationSuite) TestMeteredCharmFailToQueryDefaultCharm(c *gc.C) {
 func (s *registrationSuite) TestUnmeteredCharm(c *gc.C) {
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
-		CharmID: charmstore.CharmID{
+		CharmID: application.CharmID{
 			URL: charm.MustParseURL("cs:quantal/unmetered-1"),
 		},
 		ApplicationName: "application name",
@@ -539,7 +539,7 @@ func (s *registrationSuite) TestFailedAuth(c *gc.C) {
 	s.stub.SetErrors(nil, errors.Errorf("could not authorize"))
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
-		CharmID: charmstore.CharmID{
+		CharmID: application.CharmID{
 			URL: charm.MustParseURL("cs:quantal/metered-1"),
 		},
 		ApplicationName: "application name",
@@ -624,7 +624,7 @@ func (s *registrationSuite) TestPlanArgumentPlanRequiredInteraction(c *gc.C) {
 		}
 		client := httpbakery.NewClient()
 		d := DeploymentInfo{
-			CharmID: charmstore.CharmID{
+			CharmID: application.CharmID{
 				URL: charm.MustParseURL("cs:quantal/metered-1"),
 			},
 			ApplicationName: "application name",
@@ -754,7 +754,7 @@ func (s *noPlanRegistrationSuite) TearDownTest(c *gc.C) {
 func (s *noPlanRegistrationSuite) TestOptionalPlanMeteredCharm(c *gc.C) {
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
-		CharmID: charmstore.CharmID{
+		CharmID: application.CharmID{
 			URL: charm.MustParseURL("cs:quantal/metered-1"),
 		},
 		ApplicationName: "application name",
@@ -777,7 +777,7 @@ func (s *noPlanRegistrationSuite) TestOptionalPlanMeteredCharm(c *gc.C) {
 func (s *noPlanRegistrationSuite) TestPlanNotSpecifiedCharm(c *gc.C) {
 	client := httpbakery.NewClient()
 	d := DeploymentInfo{
-		CharmID: charmstore.CharmID{
+		CharmID: application.CharmID{
 			URL: charm.MustParseURL("cs:quantal/metered-1"),
 		},
 		ApplicationName: "application name",

@@ -6,7 +6,9 @@ package resourceadapters
 import (
 	"strconv"
 
+	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
+	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
 	"gopkg.in/macaroon.v2"
 
@@ -17,10 +19,22 @@ import (
 	"github.com/juju/juju/resource/api/client"
 )
 
+// CharmID represents the underlying charm for a given application. This
+// includes both the URL and the channel.
+type CharmID struct {
+
+	// URL of the given charm, includes the reference name and a revision.
+	// Old style charm URLs are also supported i.e. charmstore.
+	URL *charm.URL
+
+	// Channel represents the underlying channel for the resources.
+	Channel string
+}
+
 // DeployResourcesFunc is the function type of DeployResources.
 type DeployResourcesFunc func(
 	applicationID string,
-	chID charmstore.CharmID,
+	chID CharmID,
 	csMac *macaroon.Macaroon,
 	filesAndRevisions map[string]string,
 	resources map[string]charmresource.Meta,
@@ -33,7 +47,7 @@ type DeployResourcesFunc func(
 // metadata. It returns a map of resource name to pending resource IDs.
 func DeployResources(
 	applicationID string,
-	chID charmstore.CharmID,
+	chID CharmID,
 	csMac *macaroon.Macaroon,
 	filesAndRevisions map[string]string,
 	resources map[string]charmresource.Meta,
@@ -63,8 +77,11 @@ func DeployResources(
 	}
 
 	ids, err = resourcecmd.DeployResources(resourcecmd.DeployResourcesArgs{
-		ApplicationID:      applicationID,
-		CharmID:            chID,
+		ApplicationID: applicationID,
+		CharmID: charmstore.CharmID{
+			URL:     chID.URL,
+			Channel: csparams.Channel(chID.Channel),
+		},
 		CharmStoreMacaroon: csMac,
 		ResourceValues:     filenames,
 		Revisions:          revisions,
