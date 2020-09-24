@@ -2853,10 +2853,10 @@ func (a *Application) SetConstraints(cons constraints.Value) (err error) {
 	return onAbort(a.st.db().RunTransaction(ops), applicationNotAliveErr)
 }
 
-func assertApplicationAliveOp(appName string) txn.Op {
+func assertApplicationAliveOp(docID string) txn.Op {
 	return txn.Op{
 		C:      applicationsC,
-		Id:     applicationGlobalKey(appName),
+		Id:     docID,
 		Assert: isAliveDoc,
 	}
 }
