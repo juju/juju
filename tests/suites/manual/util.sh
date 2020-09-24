@@ -31,6 +31,35 @@ launch_and_wait_addr_ec2() {
     eval $addr_result="'${address}'"
 }
 
+ensure_valid_ssh_hosts() {
+    # shellcheck disable=SC2154
+    for addr in "$@"; do
+        ssh-keygen -f "${HOME}/.ssh/known_hosts" -R ubuntu@"${addr}"
+
+        attempt=0
+        while [ ${attempt} -lt 10 ]; do
+            OUT=$(ssh -T -n -i ~/.ssh/"${name}".pem \
+                -o IdentitiesOnly=yes \
+                -o StrictHostKeyChecking=no \
+                -o AddKeysToAgent=yes \
+                -o UserKnownHostsFile="${HOME}/.ssh/known_hosts" \
+                ubuntu@"${addr}" 2>&1 || true)
+            if echo "${OUT}" | grep -q -v "Could not resolve hostname"; then
+                echo "Adding ssh key to ${addr}"
+                break
+            fi
+
+            sleep 1
+            attempt=$((attempt+1))
+        done
+
+        if [ "${attempt}" -ge 10 ]; then
+            echo "Failed to add key to ${addr}"
+            exit 1
+        fi
+    done
+}
+
 run_cleanup_deploy_manual_aws() {
     set +e
 
