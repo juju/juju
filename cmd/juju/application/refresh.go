@@ -316,7 +316,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	charmRefreshClient := c.NewCharmRefreshClient(apiRoot)
-	oldURL, _, err := charmRefreshClient.GetCharmURLOrigin(generation, c.ApplicationName)
+	oldURL, oldOrigin, err := charmRefreshClient.GetCharmURLOrigin(generation, c.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -372,6 +372,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	cfg := refresher.RefresherConfig{
 		ApplicationName: c.ApplicationName,
 		CharmURL:        oldURL,
+		CharmOrigin:     oldOrigin.CoreCharmOrigin(),
 		CharmRef:        newRef,
 		Channel:         c.Channel,
 		DeployedSeries:  applicationInfo.Series,

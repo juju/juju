@@ -36,6 +36,7 @@ type RefresherDependencies struct {
 type RefresherConfig struct {
 	ApplicationName string
 	CharmURL        *charm.URL
+	CharmOrigin     corecharm.Origin
 	CharmRef        string
 	Channel         corecharm.Channel
 	DeployedSeries  string
@@ -121,14 +122,16 @@ func (d *factory) maybeCharmStore(authorizer store.MacaroonGetter, charmAdder st
 	return func(cfg RefresherConfig) (Refresher, error) {
 		return &charmStoreRefresher{
 			baseRefresher: baseRefresher{
-				charmAdder:     charmAdder,
-				charmResolver:  charmResolver,
-				charmURL:       cfg.CharmURL,
-				charmRef:       cfg.CharmRef,
-				channel:        cfg.Channel,
-				deployedSeries: cfg.DeployedSeries,
-				force:          cfg.Force,
-				forceSeries:    cfg.ForceSeries,
+				charmAdder:      charmAdder,
+				charmResolver:   charmResolver,
+				resolveOriginFn: charmStoreResolveOrigin,
+				charmURL:        cfg.CharmURL,
+				charmOrigin:     cfg.CharmOrigin,
+				charmRef:        cfg.CharmRef,
+				channel:         cfg.Channel,
+				deployedSeries:  cfg.DeployedSeries,
+				force:           cfg.Force,
+				forceSeries:     cfg.ForceSeries,
 			},
 			authorizer: authorizer,
 		}, nil
@@ -139,14 +142,16 @@ func (d *factory) maybeCharmHub(charmAdder store.CharmAdder, charmResolver Charm
 	return func(cfg RefresherConfig) (Refresher, error) {
 		return &charmHubRefresher{
 			baseRefresher: baseRefresher{
-				charmAdder:     charmAdder,
-				charmResolver:  charmResolver,
-				charmURL:       cfg.CharmURL,
-				charmRef:       cfg.CharmRef,
-				channel:        cfg.Channel,
-				deployedSeries: cfg.DeployedSeries,
-				force:          cfg.Force,
-				forceSeries:    cfg.ForceSeries,
+				charmAdder:      charmAdder,
+				charmResolver:   charmResolver,
+				resolveOriginFn: charmHubResolveOrigin,
+				charmURL:        cfg.CharmURL,
+				charmOrigin:     cfg.CharmOrigin,
+				charmRef:        cfg.CharmRef,
+				channel:         cfg.Channel,
+				deployedSeries:  cfg.DeployedSeries,
+				force:           cfg.Force,
+				forceSeries:     cfg.ForceSeries,
 			},
 		}, nil
 	}
@@ -204,15 +209,21 @@ func (d *localCharmRefresher) String() string {
 	return fmt.Sprintf("attempting to refresh local charm %q", d.charmRef)
 }
 
+// ResolveOriginFunc attempts to resolve a new charm Origin from the given
+// arguments, ensuring that we work for multiple stores (charmhub vs charmstore)
+type ResolveOriginFunc = func(*charm.URL, corecharm.Origin, corecharm.Channel) (commoncharm.Origin, error)
+
 type baseRefresher struct {
-	charmAdder     store.CharmAdder
-	charmResolver  CharmResolver
-	charmURL       *charm.URL
-	charmRef       string
-	channel        corecharm.Channel
-	deployedSeries string
-	force          bool
-	forceSeries    bool
+	charmAdder      store.CharmAdder
+	charmResolver   CharmResolver
+	resolveOriginFn ResolveOriginFunc
+	charmURL        *charm.URL
+	charmOrigin     corecharm.Origin
+	charmRef        string
+	channel         corecharm.Channel
+	deployedSeries  string
+	force           bool
+	forceSeries     bool
 }
 
 func (r baseRefresher) ResolveCharm() (*charm.URL, commoncharm.Origin, error) {
@@ -221,13 +232,17 @@ func (r baseRefresher) ResolveCharm() (*charm.URL, commoncharm.Origin, error) {
 		return nil, commoncharm.Origin{}, errors.Trace(err)
 	}
 
-	origin, err := utils.DeduceOrigin(refURL, r.channel)
+	// Take the current origin and apply the user supplied channel, so that
+	// when attemptting to resolve the new charm URL, we pick up everything
+	// that already exists, but we get the destination of where the user wants
+	// to get to.
+	destOrigin, err := r.resolveOriginFn(refURL, r.charmOrigin, r.channel)
 	if err != nil {
 		return nil, commoncharm.Origin{}, errors.Trace(err)
 	}
 
 	// Charm has been supplied as a URL so we resolve and deploy using the store.
-	newURL, origin, supportedSeries, err := r.charmResolver.ResolveCharm(refURL, origin)
+	newURL, origin, supportedSeries, err := r.charmResolver.ResolveCharm(refURL, destOrigin)
 	if err != nil {
 		return nil, commoncharm.Origin{}, errors.Trace(err)
 	}
@@ -257,6 +272,17 @@ func (r baseRefresher) ResolveCharm() (*charm.URL, commoncharm.Origin, error) {
 	}
 
 	return newURL, origin, nil
+}
+
+// charmStoreResolveOrigin attempts to resolve the origin required to resolve
+// a charm. It does this by deducing the origin from the charm URL and the
+// incoming channel.
+func charmStoreResolveOrigin(curl *charm.URL, _ corecharm.Origin, channel corecharm.Channel) (commoncharm.Origin, error) {
+	result, err := utils.DeduceOrigin(curl, channel)
+	if err != nil {
+		return commoncharm.Origin{}, errors.Trace(err)
+	}
+	return result, nil
 }
 
 type charmStoreRefresher struct {
@@ -315,6 +341,14 @@ type defaultCharmRepo struct{}
 
 func (defaultCharmRepo) NewCharmAtPathForceSeries(path, series string, force bool) (charm.Charm, *charm.URL, error) {
 	return charmrepo.NewCharmAtPathForceSeries(path, series, force)
+}
+
+// charmHubResolveOrigin attempts to resolve the origin required to resolve
+// a charm. It does this by updating the incoming origin with the user requested
+// channel, so we can correctly resolve the charm.
+func charmHubResolveOrigin(_ *charm.URL, origin corecharm.Origin, channel corecharm.Channel) (commoncharm.Origin, error) {
+	origin.Channel = &channel
+	return commoncharm.CoreCharmOrigin(origin), nil
 }
 
 type charmHubRefresher struct {
