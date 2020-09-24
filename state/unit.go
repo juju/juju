@@ -146,7 +146,8 @@ func (u *Unit) IsEmbedded() (bool, error) {
 	if meta == nil {
 		return false, nil
 	}
-	return u.modelType == ModelTypeIAAS && meta.Format() >= charm.FormatV2, nil
+	// TODO(new-charms): Determine a better way represent this.
+	return u.modelType == ModelTypeCAAS && meta.Format() >= charm.FormatV2, nil
 }
 
 // Application returns the application.
