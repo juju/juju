@@ -95,7 +95,7 @@ func NewRefreshCommand() cmd.Command {
 // CharmRefreshClient defines a subset of the application facade, as required
 // by the refresh command.
 type CharmRefreshClient interface {
-	GetCharmURL(string, string) (*charm.URL, error)
+	GetCharmURLOrigin(string, string) (*charm.URL, commoncharm.Origin, error)
 	Get(string, string) (*params.ApplicationGetResults, error)
 	SetCharm(string, application.SetCharmConfig) error
 }
@@ -316,7 +316,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	charmRefreshClient := c.NewCharmRefreshClient(apiRoot)
-	oldURL, err := charmRefreshClient.GetCharmURL(generation, c.ApplicationName)
+	oldURL, _, err := charmRefreshClient.GetCharmURLOrigin(generation, c.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
 	}
