@@ -6,8 +6,8 @@ package deployer
 import (
 	"github.com/juju/romulus"
 
-	apicommoncharms "github.com/juju/juju/api/common/charms"
-	"github.com/juju/juju/charmstore"
+	"github.com/juju/juju/api/application"
+	apicharms "github.com/juju/juju/api/charms"
 )
 
 func Steps() []DeployStep {
@@ -24,10 +24,10 @@ func Steps() []DeployStep {
 // DeploymentInfo is used to maintain all deployment information for
 // deployment steps.
 type DeploymentInfo struct {
-	CharmID         charmstore.CharmID
+	CharmID         application.CharmID
 	ApplicationName string
 	ModelUUID       string
-	CharmInfo       *apicommoncharms.CharmInfo
+	CharmInfo       *apicharms.CharmInfo
 	ApplicationPlan string
 	Force           bool
 }

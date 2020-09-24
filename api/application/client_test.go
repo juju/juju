@@ -20,7 +20,6 @@ import (
 	apitesting "github.com/juju/juju/api/testing"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
@@ -118,7 +117,7 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 	})
 
 	args := application.DeployArgs{
-		CharmID: charmstore.CharmID{
+		CharmID: application.CharmID{
 			URL: charm.MustParseURL("cs:trusty/a-charm-1"),
 		},
 		CharmOrigin: apicharm.Origin{
@@ -297,6 +296,10 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(args.ApplicationName, gc.Equals, "application")
 		c.Assert(args.CharmURL, gc.Equals, "cs:trusty/application-1")
+		c.Assert(args.CharmOrigin, gc.DeepEquals, &params.CharmOrigin{
+			Source: "charm-hub",
+			Risk:   "edge",
+		})
 		c.Assert(args.ConfigSettings, jc.DeepEquals, map[string]string{
 			"a": "b",
 			"c": "d",
@@ -316,8 +319,12 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 	})
 	cfg := application.SetCharmConfig{
 		ApplicationName: "application",
-		CharmID: charmstore.CharmID{
+		CharmID: application.CharmID{
 			URL: charm.MustParseURL("cs:trusty/application-1"),
+			Origin: apicharm.Origin{
+				Source: "charm-hub",
+				Risk:   "edge",
+			},
 		},
 		ConfigSettings: map[string]string{
 			"a": "b",
