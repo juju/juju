@@ -1104,7 +1104,7 @@ serviceAccount:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `roles is required`)
+	c.Assert(err, gc.ErrorMatches, `invalid primary service account: roles is required`)
 }
 
 func (s *v3SpecsSuite) TestValidateCustomResourceDefinitions(c *gc.C) {
@@ -1297,6 +1297,7 @@ func (s *v3SpecsSuite) TestPrimeServiceAccountToK8sRBACResources(c *gc.C) {
 			Roles: []specs.Role{
 				{
 					Global: true,
+					Name:   "test-role",
 					Rules: []specs.PolicyRule{
 						{
 							APIGroups: []string{""},
@@ -1312,7 +1313,6 @@ func (s *v3SpecsSuite) TestPrimeServiceAccountToK8sRBACResources(c *gc.C) {
 	primeSA.SetName("test-app-rbac")
 	c.Assert(primeSA.Validate(), jc.ErrorIsNil)
 	c.Assert(primeSA.GetName(), gc.DeepEquals, "test-app-rbac")
-	c.Assert(primeSA.Roles[0].Name, gc.DeepEquals, "test-app-rbac")
 
 	sa, err := k8sspecs.PrimeServiceAccountToK8sRBACResources(primeSA)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1325,7 +1325,7 @@ func (s *v3SpecsSuite) TestPrimeServiceAccountToK8sRBACResources(c *gc.C) {
 					AutomountServiceAccountToken: boolPtr(true),
 					Roles: []specs.Role{
 						{
-							Name:   "test-app-rbac",
+							Name:   "test-role",
 							Global: true,
 							Rules: []specs.PolicyRule{
 								{
@@ -1340,6 +1340,39 @@ func (s *v3SpecsSuite) TestPrimeServiceAccountToK8sRBACResources(c *gc.C) {
 			},
 		},
 	})
+}
+
+func (s *v3SpecsSuite) TestPrimeServiceAccountValidate(c *gc.C) {
+	primeSA := specs.PrimeServiceAccountSpecV3{
+		ServiceAccountSpecV3: specs.ServiceAccountSpecV3{
+			AutomountServiceAccountToken: boolPtr(true),
+			Roles: []specs.Role{
+				{
+					Global: true,
+					Name:   "test-role",
+					Rules: []specs.PolicyRule{
+						{
+							APIGroups: []string{""},
+							Resources: []string{"pods"},
+							Verbs:     []string{"get", "watch", "list"},
+						},
+					},
+				}, {
+					Global: true,
+					// No name set.
+					Name: "",
+					Rules: []specs.PolicyRule{
+						{
+							APIGroups: []string{""},
+							Resources: []string{"pods"},
+							Verbs:     []string{"get", "watch", "list"},
+						},
+					},
+				},
+			},
+		},
+	}
+	c.Assert(primeSA.Validate(), gc.ErrorMatches, "invalid primary service account: either all or none of the roles should have a name set")
 }
 
 type tcK8sRBACResources struct {
@@ -1383,7 +1416,7 @@ func (s *v3SpecsSuite) TestK8sRBACResourcesValidate(c *gc.C) {
 					},
 				},
 			},
-			ErrStr: `duplicated role name "cluster-role2" not valid`,
+			ErrStr: `invalid service account "sa2": duplicated role name "cluster-role2" not valid`,
 		},
 		{
 			Spec: k8sspecs.K8sRBACResources{
@@ -1463,7 +1496,7 @@ func (s *v3SpecsSuite) TestK8sRBACResourcesValidate(c *gc.C) {
 					},
 				},
 			},
-			ErrStr: `either all or none of the roles of the service account "sa2" should have a name set`,
+			ErrStr: `invalid service account "sa2": either all or none of the roles should have a name set`,
 		},
 	} {
 		c.Logf("checking K8sRBACResources Validate %d", i)

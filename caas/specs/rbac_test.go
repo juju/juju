@@ -4,11 +4,10 @@
 package specs_test
 
 import (
-	// jc "github.com/juju/testing/checkers"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas/specs"
-	// "github.com/juju/juju/testing"
 )
 
 func (s *typesSuite) TestServiceAccountSpecV2Validate(c *gc.C) {
@@ -55,17 +54,27 @@ func (s *typesSuite) TestServiceAccountSpecV3Validate(c *gc.C) {
 		},
 	}
 	c.Assert(spec.Validate(), gc.ErrorMatches, `rules is required`)
+
+	spec.Roles[0].Rules = []specs.PolicyRule{
+		{
+			APIGroups: []string{""},
+			Resources: []string{"pods"},
+			Verbs:     []string{"get", "watch", "list"},
+		},
+	}
+	c.Assert(spec.Validate(), jc.ErrorIsNil)
 }
 
 func (s *typesSuite) TestPrimeServiceAccountSpecV3Validate(c *gc.C) {
 	spec := specs.PrimeServiceAccountSpecV3{}
-	c.Assert(spec.Validate(), gc.ErrorMatches, `roles is required`)
+	c.Assert(spec.Validate(), gc.ErrorMatches, `invalid primary service account: roles is required`)
 
 	spec = specs.PrimeServiceAccountSpecV3{
 		ServiceAccountSpecV3: specs.ServiceAccountSpecV3{
 			Roles: []specs.Role{
 				{
 					Global: true,
+					Name:   "foo",
 					Rules: []specs.PolicyRule{
 						{
 							APIGroups: []string{""},
@@ -87,27 +96,5 @@ func (s *typesSuite) TestPrimeServiceAccountSpecV3Validate(c *gc.C) {
 			},
 		},
 	}
-	c.Assert(spec.Validate(), gc.ErrorMatches, `the prime service can only have one role or cluster role`)
-}
-
-func (s *typesSuite) TestPrimeServiceAccountSpecV3SetName(c *gc.C) {
-	spec := specs.PrimeServiceAccountSpecV3{
-		ServiceAccountSpecV3: specs.ServiceAccountSpecV3{
-			Roles: []specs.Role{
-				{
-					Global: true,
-					Rules: []specs.PolicyRule{
-						{
-							APIGroups: []string{""},
-							Resources: []string{"pods"},
-							Verbs:     []string{"get", "watch", "list"},
-						},
-					},
-				},
-			},
-		},
-	}
-	spec.SetName("mariadb-k8s")
-	c.Assert(spec.GetName(), gc.DeepEquals, "mariadb-k8s")
-	c.Assert(spec.Roles[0].Name, gc.DeepEquals, "mariadb-k8s")
+	c.Assert(spec.Validate(), gc.ErrorMatches, `invalid primary service account: either all or none of the roles should have a name set`)
 }

@@ -23,7 +23,6 @@ func (spec *PodSpecV3) Validate() error {
 		return errors.Trace(err)
 	}
 	if spec.ServiceAccount != nil {
-		// TODO: do we want to restrict the prime sa can only have 1 role/clusterrole???????
 		return errors.Trace(spec.ServiceAccount.Validate())
 	}
 	return nil

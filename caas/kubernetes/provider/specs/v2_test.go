@@ -495,7 +495,6 @@ echo "do some stuff here for gitlab-init container"
 						AutomountServiceAccountToken: boolPtr(true),
 						Roles: []specs.Role{
 							{
-								Name:   "k8sServiceAccount1",
 								Global: true,
 								Rules: []specs.PolicyRule{
 									{
@@ -870,7 +869,7 @@ serviceAccount:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `rules is required`)
+	c.Assert(err, gc.ErrorMatches, `invalid primary service account: rules is required`)
 }
 
 func (s *v2SpecsSuite) TestValidateCustomResourceDefinitions(c *gc.C) {
