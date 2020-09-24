@@ -31,3 +31,24 @@ launch_and_wait_addr_ec2() {
     eval $addr_result="'${address}'"
 }
 
+run_cleanup_deploy_manual_aws() {
+    set +e
+
+    if [ -f "${TEST_DIR}/ec2-instances" ]; then
+        echo "====> Cleaning up EC2 instances"
+        while read -r ec2_instance; do
+            aws ec2 terminate-instances --instance-ids="${ec2_instance}" >>"${TEST_DIR}/aws_cleanup"
+        done < "${TEST_DIR}/ec2-instances"
+    fi
+
+    if [ -f "${TEST_DIR}/ec2-key-pairs" ]; then
+        echo "====> Cleaning up EC2 key-pairs"
+        while read -r ec2_keypair; do
+            aws ec2 delete-key-pair --key-name="${ec2_keypair}" >>"${TEST_DIR}/aws_cleanup"
+        done < "${TEST_DIR}/ec2-key-pairs"
+    fi
+
+    set_verbosity
+
+    echo "====> Completed cleaning up aws"
+}
