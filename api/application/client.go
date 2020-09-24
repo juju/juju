@@ -188,6 +188,29 @@ func (c *Client) GetCharmURL(branchName, applicationName string) (*charm.URL, er
 	return charm.ParseURL(result.Result)
 }
 
+// GetCharmURLOrigin returns the charm URL the given application is
+// running at present.
+func (c *Client) GetCharmURLOrigin(branchName, applicationName string) (*charm.URL, apicharm.Origin, error) {
+	args := params.ApplicationGet{
+		ApplicationName: applicationName,
+		BranchName:      branchName,
+	}
+
+	var result params.CharmURLOriginResult
+	err := c.facade.FacadeCall("GetCharmURLOrigin", args, &result)
+	if err != nil {
+		return nil, apicharm.Origin{}, errors.Trace(err)
+	}
+	if result.Error != nil {
+		return nil, apicharm.Origin{}, errors.Trace(result.Error)
+	}
+	curl, err := charm.ParseURL(result.URL)
+	if err != nil {
+		return nil, apicharm.Origin{}, errors.Trace(err)
+	}
+	return curl, apicharm.APICharmOrigin(result.Origin), nil
+}
+
 // GetConfig returns the charm configuration settings for each of the
 // applications. If any of the applications are not found, an error is
 // returned.

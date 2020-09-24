@@ -259,6 +259,32 @@ func (s *applicationSuite) TestApplicationGetCharmURL(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
+func (s *applicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
+	var called bool
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		called = true
+		c.Assert(request, gc.Equals, "GetCharmURLOrigin")
+		args, ok := a.(params.ApplicationGet)
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(args.ApplicationName, gc.Equals, "application")
+		c.Assert(args.BranchName, gc.Equals, newBranchName)
+
+		result := response.(*params.CharmURLOriginResult)
+		result.URL = "cs:curl"
+		result.Origin = params.CharmOrigin{
+			Risk: "edge",
+		}
+		return nil
+	})
+	curl, origin, err := client.GetCharmURLOrigin(newBranchName, "application")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(curl, gc.DeepEquals, charm.MustParseURL("cs:curl"))
+	c.Assert(origin, gc.DeepEquals, apicharm.Origin{
+		Risk: "edge",
+	})
+	c.Assert(called, jc.IsTrue)
+}
+
 func (s *applicationSuite) TestSetCharm(c *gc.C) {
 	var called bool
 	toUint64Ptr := func(v uint64) *uint64 {
