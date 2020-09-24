@@ -3600,7 +3600,10 @@ func (u *UniterAPI) CommitHookChanges(args params.CommitHookChangesArgs) (params
 	return params.ErrorResults{Results: res}, nil
 }
 
-func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes params.CommitHookChangesArg, canAccessUnit, canAccessApp common.AuthFunc) error {
+func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes params.CommitHookChangesArg, canAccessUnit, canAccessApp common.AuthFunc) (err error) {
+	defer func() {
+		logger.Criticalf("commitHookChangesForOneUnit err %#v", err)
+	}()
 	unit, err := u.getUnit(unitTag)
 	if err != nil {
 		return errors.Trace(err)
