@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
@@ -51,8 +50,13 @@ func NewApplicationWatcherFacade(st AppWatcherState, resources facade.Resources,
 }
 
 // WatchApplications starts a StringsWatcher to watch applications deployed to this model.
-func (a *ApplicationWatcherFacade) WatchApplications() (params.StringsWatchResult, error) {
+func (a *ApplicationWatcherFacade) WatchApplications() (result params.StringsWatchResult, err error) {
 	watch := a.state.WatchApplications()
+	defer func() {
+		if err != nil {
+			_ = watch.Stop()
+		}
+	}()
 	if a.filter == ApplicationFilterNone {
 		// Consume the initial event and forward it to the result.
 		if changes, ok := <-watch.Changes(); ok {
@@ -65,7 +69,6 @@ func (a *ApplicationWatcherFacade) WatchApplications() (params.StringsWatchResul
 	}
 	filterWatcher, err := newApplicationWatcher(a.state, watch, a.filter)
 	if err != nil {
-		_ = watch.Stop()
 		return params.StringsWatchResult{}, errors.Trace(err)
 	}
 	// Consume the initial event and forward it to the result.
@@ -87,7 +90,7 @@ type applicationWatcher struct {
 	catacomb catacomb.Catacomb
 }
 
-func newApplicationWatcher(st AppWatcherState, source state.StringsWatcher, filter ApplicationFilter) (*applicationWatcher, error) {
+func newApplicationWatcher(st AppWatcherState, source state.StringsWatcher, filter ApplicationFilter) (state.StringsWatcher, error) {
 	w := &applicationWatcher{
 		state:  st,
 		source: source,
@@ -163,7 +166,7 @@ func (w *applicationWatcher) handle(changes []string) ([]string, error) {
 }
 
 // Changes is part of corewatcher.StringsWatcher.
-func (w *applicationWatcher) Changes() corewatcher.StringsChannel {
+func (w *applicationWatcher) Changes() <-chan []string {
 	return w.out
 }
 
