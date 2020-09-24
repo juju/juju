@@ -1108,6 +1108,7 @@ func (ctx *HookContext) doFlush(process string) error {
 		}
 		for endpointName, portRanges := range ctx.portRangeChanges.pendingCloseRanges {
 			for _, pr := range portRanges {
+				ctx.logger.Errorf("ClosePortRange  %#v", pr)
 				b.ClosePortRange(endpointName, pr)
 			}
 		}

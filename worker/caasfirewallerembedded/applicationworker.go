@@ -60,11 +60,11 @@ func (pg portRanges) equal(in portRanges) bool {
 }
 
 func (pg portRanges) toServicePorts() []caas.ServicePort {
-	out := make([]caas.ServicePort, len(pg))
+	var out []caas.ServicePort
 	for p := range pg {
 		out = append(out, caas.ServicePort{
-			// TODO(embedded): add name to `network.PortRange`?
-			// Name:       p.Name,
+			// k8s complains about `/`.
+			Name:       strings.Replace(p.String(), "/", "-", -1),
 			Port:       p.FromPort,
 			TargetPort: p.ToPort,
 			Protocol:   p.Protocol,
@@ -136,20 +136,19 @@ func (w *applicationWorker) setUp() (err error) {
 		charmInfo.Meta == nil ||
 		charmInfo.Meta.Deployment == nil ||
 		charmInfo.Meta.Deployment.DeploymentMode != charm.ModeEmbedded {
-		return errors.Errorf("charm missing deployment mode or received non-embedded mode")
+		// return errors.Errorf("charm missing deployment mode or received non-embedded mode")
 	}
 
 	app := w.broker.Application(w.appName, caas.DeploymentType(charmInfo.Meta.Deployment.DeploymentType))
 	w.portMutator = app
 	w.serviceUpdater = app
 
-	// TODO(embedded):
-	/*
-		if ports, err := w.firewallerAPI.OpenedPorts(w.appName); err != nil {
-			return errors.Annotatef(err, "failed to get initial openned ports for application")
-		}
-		w.currentPorts = newPortRanges(ports)
-	*/
+	ports, err := w.firewallerAPI.GetApplicationOpenedPorts(w.appName)
+	if err != nil {
+		return errors.Annotatef(err, "failed to get initial openned ports for application")
+	}
+	// Currently k8s application does not support endpoints, so there is always only one portranges under `""` endpoint.
+	w.currentPorts = newPortRanges(ports.UniquePortRanges())
 	return nil
 }
 
@@ -196,24 +195,30 @@ func (w *applicationWorker) loop() (err error) {
 }
 
 func (w *applicationWorker) onPortChanged() (err error) {
-	// TODO(embedded):
-	/*
-		ports, err := w.firewallerAPI.OpenedPorts(w.appName)
-		if err != nil {
-			return err
-		}
-		changedPortRanges := newPortRanges(ports)
-		if w.current.equal(changedPortRanges){
-			logger.Tracef("no port changes for app %q", w.appName)
-			return nil
-		}
-		w.currentPorts = changedPortRanges
-		return w.portMutator.UpdatePorts(w.currentPorts.toServicePorts(), false)
-	*/
-	return nil
+	ports, err := w.firewallerAPI.GetApplicationOpenedPorts(w.appName)
+	if err != nil {
+		return err
+	}
+	changedPortRanges := newPortRanges(ports.UniquePortRanges())
+	w.logger.Warningf("onPortChanged w.currentPorts %#v, changedPortRanges %#v", w.currentPorts, changedPortRanges)
+	if w.currentPorts.equal(changedPortRanges) {
+		w.logger.Debugf("no port changes for app %q", w.appName)
+		return nil
+	}
+	w.currentPorts = changedPortRanges
+	w.initial = false
+	err = w.portMutator.UpdatePorts(w.currentPorts.toServicePorts(), false)
+	if err != nil {
+		w.logger.Warningf("onPortChanged err %#v, err %q", err, err.Error())
+	}
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	return errors.Annotatef(err, "updating service port for application %q", w.appName)
 }
 
 func (w *applicationWorker) onApplicationChanged() (err error) {
+	w.logger.Warningf("onApplicationChanged")
 	defer func() {
 		// Not found could be because the app got removed or there's
 		// no container service created yet as the app is still being set up.
