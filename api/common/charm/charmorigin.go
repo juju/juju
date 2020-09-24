@@ -82,3 +82,24 @@ func APICharmOrigin(origin params.CharmOrigin) Origin {
 		Track:    origin.Track,
 	}
 }
+
+// CoreCharmOrigin is a helper function to convert params.CharmOrigin
+// to an Origin.
+func CoreCharmOrigin(origin corecharm.Origin) Origin {
+	var ch corecharm.Channel
+	if origin.Channel != nil {
+		ch = *origin.Channel
+	}
+	var track *string
+	if ch.Track != "" {
+		track = &ch.Track
+	}
+	return Origin{
+		Source:   OriginSource(origin.Source),
+		ID:       origin.ID,
+		Hash:     origin.Hash,
+		Revision: origin.Revision,
+		Risk:     string(ch.Risk),
+		Track:    track,
+	}
+}
