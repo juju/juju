@@ -205,12 +205,18 @@ func (w *applicationWorker) onPortChanged() (err error) {
 		w.logger.Debugf("no port changes for app %q", w.appName)
 		return nil
 	}
-	w.currentPorts = changedPortRanges
-	w.initial = false
-	err = w.portMutator.UpdatePorts(w.currentPorts.toServicePorts(), false)
-	if err != nil {
-		w.logger.Warningf("onPortChanged err %#v, err %q", err, err.Error())
+	if err = w.portMutator.UpdatePorts(changedPortRanges.toServicePorts(), false); err == nil {
+
+		// for testing, remove me
+		w.logger.Warningf("onPortChanged all good err %v", err)
+
+		w.currentPorts = changedPortRanges
+		return nil
 	}
+
+	// for testing, remove me
+	w.logger.Warningf("onPortChanged err %#v, err %q", err, err.Error())
+
 	if errors.IsNotFound(err) {
 		return nil
 	}
