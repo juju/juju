@@ -99,11 +99,11 @@ func (c *applicationCommand) Run(ctx *cmd.Context) error {
 		_ = watcher.Stop()
 	}()
 
-	var timedout bool
+	timeout := make(chan struct{})
 	go func() {
 		select {
 		case <-time.After(c.Timeout):
-			timedout = true
+			close(timeout)
 			watcher.Stop()
 		}
 	}()
@@ -114,10 +114,12 @@ func (c *applicationCommand) Run(ctx *cmd.Context) error {
 	for {
 		deltas, err := watcher.Next()
 		if err != nil {
-			if timedout {
-				return errors.Errorf("timedout waiting for application %q to reach goal state %q", c.Name, c.State)
+			select {
+			case <-timeout:
+				return errors.Errorf("timed out waiting for application %q to reach goal state %q", c.Name, c.State)
+			default:
+				return errors.Trace(err)
 			}
-			return errors.Trace(err)
 		}
 
 		for _, delta := range deltas {
