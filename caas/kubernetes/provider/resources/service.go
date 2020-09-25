@@ -46,7 +46,7 @@ func (s *Service) Apply(ctx context.Context, client kubernetes.Interface) error 
 	if err != nil {
 		return errors.Trace(err)
 	}
-	res, err := api.Patch(ctx, s.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{
+	res, err := api.Patch(ctx, s.Name, types.MergePatchType, data, metav1.PatchOptions{
 		FieldManager: JujuFieldManager,
 	})
 	if k8serrors.IsNotFound(err) {
