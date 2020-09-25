@@ -40,7 +40,11 @@ import (
 var logger = loggo.GetLogger("juju.kubernetes.provider.application")
 
 const (
-	unitContainerName = "juju-unit-agent"
+	unitContainerName            = "juju-unit-agent"
+	agentProbeInitialDelay int32 = 30
+	agentProbePeriod       int32 = 10
+	agentProbeSuccess      int32 = 1
+	agentProbeFailure      int32 = 2
 )
 
 type app struct {
@@ -799,6 +803,48 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			WorkingDir:      jujuDataDir,
 			Command:         []string{"/opt/k8sagent"},
 			Args:            []string{"unit", "--data-dir", jujuDataDir},
+			Env: []corev1.EnvVar{
+				corev1.EnvVar{
+					Name:  constants.EnvAgentHTTPProbePort,
+					Value: constants.AgentHTTPProbePort,
+				},
+			},
+			LivenessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: constants.AgentHTTPPathLiveness,
+						Port: intstr.FromString(constants.AgentHTTPProbePort),
+					},
+				},
+				InitialDelaySeconds: agentProbeInitialDelay,
+				PeriodSeconds:       agentProbePeriod,
+				SuccessThreshold:    agentProbeSuccess,
+				FailureThreshold:    agentProbeFailure,
+			},
+			ReadinessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: constants.AgentHTTPPathReadiness,
+						Port: intstr.FromString(constants.AgentHTTPProbePort),
+					},
+				},
+				InitialDelaySeconds: agentProbeInitialDelay,
+				PeriodSeconds:       agentProbePeriod,
+				SuccessThreshold:    agentProbeSuccess,
+				FailureThreshold:    agentProbeFailure,
+			},
+			StartupProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: constants.AgentHTTPPathStartup,
+						Port: intstr.FromString(constants.AgentHTTPProbePort),
+					},
+				},
+				InitialDelaySeconds: agentProbeInitialDelay,
+				PeriodSeconds:       agentProbePeriod,
+				SuccessThreshold:    agentProbeSuccess,
+				FailureThreshold:    agentProbeFailure,
+			},
 			VolumeMounts: []corev1.VolumeMount{{
 				Name:      "juju-data-dir",
 				MountPath: jujuDataDir,

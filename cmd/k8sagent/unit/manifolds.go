@@ -25,12 +25,14 @@ import (
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/apiconfigwatcher"
+	"github.com/juju/juju/worker/caasprober"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/leadership"
 	wlogger "github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/migrationflag"
 	"github.com/juju/juju/worker/migrationminion"
+	"github.com/juju/juju/worker/muxhttpserver"
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/retrystrategy"
 	"github.com/juju/juju/worker/uniter"
@@ -68,6 +70,10 @@ type manifoldsConfig struct {
 	// PreviousAgentVersion passes through the version the unit
 	// agent was running before the current restart.
 	PreviousAgentVersion version.Number
+
+	// ProbePort describes the http port to operator on for recieving agent
+	// probe requests.
+	ProbePort string
 
 	// MachineLock is a central source for acquiring the machine lock.
 	// This is used by a number of workers to ensure serialisation of actions
@@ -184,6 +190,20 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			Logger:        loggo.GetLogger("juju.worker.apiaddressupdater"),
 		})),
 
+		// Probe HTTP server is a http server for handling probe requests from
+		// Kubernetes. It provides a mux that is used by the caas prober to
+		// register handlers.
+		probeHTTPServerName: muxhttpserver.Manifold(muxhttpserver.ManifoldConfig{
+			Logger: loggo.GetLogger("juju.worker.probehttpserver"),
+			Port:   config.ProbePort,
+		}),
+
+		// Kubernetes probe handler responsible for reporting status for
+		// Kubernetes probes
+		caasProberName: caasprober.Manifold(caasprober.ManifoldConfig{
+			MuxName: probeHTTPServerName,
+		}),
+
 		// The charmdir resource coordinates whether the charm directory is
 		// available or not; after 'start' hook and before 'stop' hook
 		// executes, and not during upgrades.
@@ -261,6 +281,9 @@ const (
 	migrationFortressName     = "migration-fortress"
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMinionName       = "migration-minion"
+
+	caasProberName      = "caas-prober"
+	probeHTTPServerName = "probe-http-server"
 
 	proxyConfigUpdaterName   = "proxy-config-updater"
 	loggingConfigUpdaterName = "logging-config-updater"

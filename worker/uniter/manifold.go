@@ -153,6 +153,21 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
+func manifoldOutput(in worker.Worker, out interface{}) error {
+	inUniter, ok := in.(*Uniter)
+	if !ok {
+		return errors.Errorf("expected Uniter, got %T", in)
+	}
+
+	switch result := out.(type) {
+	case **Probe:
+		*result = &inUniter.Probe
+	default:
+		return errors.Errorf("unexpected type, got %T", out)
+	}
+	return nil
+}
+
 // TranslateFortressErrors turns errors returned by dependent
 // manifolds due to fortress lockdown (i.e. model migration) into an
 // error which causes the resolver loop to be restarted. When this
