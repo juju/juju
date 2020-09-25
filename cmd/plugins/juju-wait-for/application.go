@@ -111,7 +111,6 @@ func (c *applicationCommand) Run(ctx *cmd.Context) error {
 	var applicationFound bool
 	var applicationStatus string
 
-LOOP:
 	for {
 		deltas, err := watcher.Next()
 		if err != nil {
@@ -121,7 +120,6 @@ LOOP:
 			return errors.Trace(err)
 		}
 
-	DELTAS:
 		for _, delta := range deltas {
 			switch entityInfo := delta.Entity.(type) {
 			case *params.ApplicationInfo:
@@ -134,14 +132,14 @@ LOOP:
 					// We've not found the current status, let's attempt to
 					// derive it.
 					applicationFound = true
-					break DELTAS
+					break
 				}
 			}
 		}
 
 		if !applicationFound {
 			logger.Infof("application %q not found, waiting...", c.Name)
-			continue LOOP
+			continue
 		}
 
 		var logOutput bool
