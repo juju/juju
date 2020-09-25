@@ -81,7 +81,7 @@ func (c *applicationCommand) Info() *cmd.Info {
 func (c *applicationCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.waitForCommandBase.SetFlags(f)
 	f.StringVar(&c.State, "state", "active", "goal state of the application")
-	f.DurationVar(&c.Timeout, "timeout", time.Minute, "how long to wait, before timing out")
+	f.DurationVar(&c.Timeout, "timeout", time.Minute*10, "how long to wait, before timing out")
 }
 
 // Run implements Command.Run.
