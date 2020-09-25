@@ -12,6 +12,7 @@ import (
 
 type portRangeChangeRecorder struct {
 	machinePortRanges map[names.UnitTag]network.GroupedPortRanges
+	appPortRanges     network.GroupedPortRanges
 
 	// The tag of the unit that the following pending open/close ranges apply to.
 	unitTag            names.UnitTag
@@ -19,9 +20,14 @@ type portRangeChangeRecorder struct {
 	pendingCloseRanges network.GroupedPortRanges
 }
 
-func newPortRangeChangeRecorder(unit names.UnitTag, machinePortRanges map[names.UnitTag]network.GroupedPortRanges) *portRangeChangeRecorder {
+func newPortRangeChangeRecorder(
+	unit names.UnitTag,
+	machinePortRanges map[names.UnitTag]network.GroupedPortRanges,
+	appPortRanges network.GroupedPortRanges,
+) *portRangeChangeRecorder {
 	return &portRangeChangeRecorder{
 		machinePortRanges: machinePortRanges,
+		appPortRanges:     appPortRanges,
 		unitTag:           unit,
 	}
 }
@@ -115,7 +121,7 @@ func (r *portRangeChangeRecorder) ClosePortRange(endpointName string, portRange 
 	}
 
 	// If the machine has no open ports then this is a no-op.
-	if len(r.machinePortRanges) == 0 {
+	if len(r.machinePortRanges)+len(r.appPortRanges) == 0 {
 		return nil
 	}
 
@@ -171,11 +177,14 @@ func (r *portRangeChangeRecorder) checkForConflict(incomingEndpoint string, inco
 // OpenedUnitPortRanges returns the set of port ranges currently open by the
 // current unit grouped by endpoint.
 func (r *portRangeChangeRecorder) OpenedUnitPortRanges() network.GroupedPortRanges {
-	return r.machinePortRanges[r.unitTag]
+	if len(r.machinePortRanges[r.unitTag]) > 0 {
+		return r.machinePortRanges[r.unitTag]
+	}
+	return r.appPortRanges
 }
 
 // PendingChanges returns the set of recorded open/close port range requests
-// (grouped by endpoint mame) for the current unit.
+// (grouped by endpoint name) for the current unit.
 func (r *portRangeChangeRecorder) PendingChanges() (network.GroupedPortRanges, network.GroupedPortRanges) {
 	return r.pendingOpenRanges, r.pendingCloseRanges
 }

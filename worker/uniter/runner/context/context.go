@@ -97,7 +97,7 @@ type ComponentFunc func(ComponentConfig) (jujuc.ContextComponent, error)
 
 var registeredComponentFuncs = map[string]ComponentFunc{}
 
-// Add the named component factory func to the registry.
+// RegisterComponentFunc adds the named component factory func to the registry.
 func RegisterComponentFunc(name string, f ComponentFunc) error {
 	if _, ok := registeredComponentFuncs[name]; ok {
 		return errors.AlreadyExistsf("%s", name)
@@ -692,6 +692,7 @@ func (ctx *HookContext) AddUnitStorage(cons map[string]params.StorageConstraints
 // OpenPortRange marks the supplied port range for opening.
 // Implements jujuc.HookContext.ContextNetworking, part of runner.Context.
 func (ctx *HookContext) OpenPortRange(endpointName string, portRange network.PortRange) error {
+	ctx.logger.Criticalf("HookContext.OpenPortRange endpointName %q, portRange %#v", endpointName, portRange)
 	return ctx.portRangeChanges.OpenPortRange(endpointName, portRange)
 }
 
@@ -700,6 +701,7 @@ func (ctx *HookContext) OpenPortRange(endpointName string, portRange network.Por
 // separately by a co- located unit).
 // Implements jujuc.HookContext.ContextNetworking, part of runner.Context.
 func (ctx *HookContext) ClosePortRange(endpointName string, portRange network.PortRange) error {
+	ctx.logger.Criticalf("HookContext.ClosePortRange endpointName %q, portRange %#v", endpointName, portRange)
 	return ctx.portRangeChanges.ClosePortRange(endpointName, portRange)
 }
 
@@ -710,7 +712,7 @@ func (ctx *HookContext) OpenedPortRanges() network.GroupedPortRanges {
 	return ctx.portRangeChanges.OpenedUnitPortRanges()
 }
 
-// Config returns the current application configuration of the executing unit.
+// ConfigSettings returns the current application configuration of the executing unit.
 // Implements jujuc.HookContext.ContextUnit, part of runner.Context.
 func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 	if ctx.configSettings == nil {
@@ -1095,6 +1097,8 @@ func (ctx *HookContext) doFlush(process string) error {
 		b.UpdateRelationUnitSettings(rctx.RelationTag().String(), unitSettings, appSettings)
 	}
 
+	ctx.logger.Criticalf("ctx.portRangeChanges.pendingOpenRanges %#v", ctx.portRangeChanges.pendingOpenRanges)
+	ctx.logger.Criticalf("ctx.portRangeChanges.pendingCloseRanges %#v", ctx.portRangeChanges.pendingCloseRanges)
 	if len(ctx.portRangeChanges.pendingOpenRanges)+len(ctx.portRangeChanges.pendingCloseRanges) > 0 {
 		// Open/Close port can be done on leaders only for CAAS model.
 		if err := ctx.caasLeaderShipCheck(); err != nil {
