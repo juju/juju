@@ -115,6 +115,7 @@ func transformChannelMap(channelMap []transport.ChannelMap) ([]string, map[strin
 			Track:      ch.Track,
 			Size:       cm.Revision.Download.Size,
 			Version:    cm.Revision.Version,
+			Platforms:  convertPlatforms(cm.Revision.Platforms),
 		}
 		if !seen.Contains(ch.Track) {
 			seen.Add(ch.Track)
@@ -122,6 +123,14 @@ func transformChannelMap(channelMap []transport.ChannelMap) ([]string, map[strin
 		}
 	}
 	return trackList, channels
+}
+
+func convertPlatforms(in []transport.Platform) []params.Platform {
+	out := make([]params.Platform, len(in))
+	for i, v := range in {
+		out[i] = params.Platform(v)
+	}
+	return out
 }
 
 func convertCharm(info transport.InfoResponse) (*params.CharmHubCharm, []string) {
