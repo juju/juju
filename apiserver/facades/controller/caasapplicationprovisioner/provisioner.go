@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
-	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/version"
@@ -113,20 +112,6 @@ func NewCAASApplicationProvisionerAPI(
 		storagePoolManager: storagePoolManager,
 		registry:           registry,
 	}, nil
-}
-
-// WatchApplications starts a StringsWatcher to watch CAAS applications
-// deployed to this model.
-func (a *API) WatchApplications() (params.StringsWatchResult, error) {
-	watch := a.state.WatchApplications()
-	// Consume the initial event and forward it to the result.
-	if changes, ok := <-watch.Changes(); ok {
-		return params.StringsWatchResult{
-			StringsWatcherId: a.resources.Register(watch),
-			Changes:          changes,
-		}, nil
-	}
-	return params.StringsWatchResult{}, watcher.EnsureErr(watch)
 }
 
 // ProvisioningInfo returns the info needed to provision a caas application.
