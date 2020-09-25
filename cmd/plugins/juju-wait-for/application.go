@@ -9,6 +9,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -39,8 +40,6 @@ name
    application name identifier
 
 options:
--m, --model (= "")
-   juju model to operate in
 --state (= "active")
    state of the application to wait-for
 `
@@ -64,6 +63,9 @@ func (c *applicationCommand) Init(args []string) (err error) {
 	if len(args) != 1 {
 		return errors.New("only one application name can be supplied as an argument to this command")
 	}
+	if ok := names.IsValidApplication(args[0]); !ok {
+		return errors.Errorf("%q is not valid application name", args[0])
+	}
 	c.Name = args[0]
 	return nil
 }
@@ -72,6 +74,7 @@ func (c *applicationCommand) Init(args []string) (err error) {
 func (c *applicationCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "application",
+		Args:    "[<name>]",
 		Purpose: "wait for an application to reach a goal state",
 		Doc:     applicationCommandDoc,
 	})
