@@ -10,6 +10,7 @@ import (
 	caasapplicationprovisioner "github.com/juju/juju/api/caasapplicationprovisioner"
 	charms "github.com/juju/juju/api/common/charms"
 	life "github.com/juju/juju/core/life"
+	resources "github.com/juju/juju/core/resources"
 	status "github.com/juju/juju/core/status"
 	watcher "github.com/juju/juju/core/watcher"
 	names "github.com/juju/names/v4"
@@ -52,6 +53,21 @@ func (m *MockCAASProvisionerFacade) ApplicationCharmURL(arg0 string) (*charm.URL
 func (mr *MockCAASProvisionerFacadeMockRecorder) ApplicationCharmURL(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationCharmURL", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).ApplicationCharmURL), arg0)
+}
+
+// ApplicationOCIResources mocks base method
+func (m *MockCAASProvisionerFacade) ApplicationOCIResources(arg0 string) (map[string]resources.DockerImageDetails, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ApplicationOCIResources", arg0)
+	ret0, _ := ret[0].(map[string]resources.DockerImageDetails)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ApplicationOCIResources indicates an expected call of ApplicationOCIResources
+func (mr *MockCAASProvisionerFacadeMockRecorder) ApplicationOCIResources(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationOCIResources", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).ApplicationOCIResources), arg0)
 }
 
 // CharmInfo mocks base method

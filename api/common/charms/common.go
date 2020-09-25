@@ -8,6 +8,8 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/resource"
 	"github.com/juju/errors"
+	"github.com/juju/systems"
+	"github.com/juju/systems/channel"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/api/base"
@@ -74,6 +76,14 @@ func convertCharmMeta(meta *params.CharmMeta) (*charm.Meta, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	systems, err := convertCharmSystems(meta.Systems)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	containers, err := convertCharmContainers(meta.Containers)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	result := &charm.Meta{
 		Name:           meta.Name,
 		Summary:        meta.Summary,
@@ -93,10 +103,10 @@ func convertCharmMeta(meta *params.CharmMeta) (*charm.Meta, error) {
 		Resources:      resources,
 		Terms:          meta.Terms,
 		MinJujuVersion: minVersion,
-		Systems:        convertCharmSystems(meta.Systems),
+		Systems:        systems,
 		Platforms:      convertCharmPlatforms(meta.Platforms),
 		Architectures:  convertCharmArchitectures(meta.Architectures),
-		Containers:     convertCharmContainers(meta.Containers),
+		Containers:     containers,
 	}
 	return result, nil
 }
@@ -349,16 +359,24 @@ func (c *charmImpl) Revision() int {
 	return c.info.Revision
 }
 
-func convertCharmSystems(input []params.CharmSystem) []charm.System {
-	systems := []charm.System(nil)
+func convertCharmSystems(input []params.CharmSystem) ([]systems.System, error) {
+	var err error
+	res := []systems.System(nil)
 	for _, v := range input {
-		systems = append(systems, charm.System{
+		ch := channel.Channel{}
+		if v.Channel != "" {
+			ch, err = channel.Parse(v.Channel)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		res = append(res, systems.System{
 			OS:       v.OS,
-			Version:  v.Version,
+			Channel:  ch,
 			Resource: v.Resource,
 		})
 	}
-	return systems
+	return res, nil
 }
 
 func convertCharmPlatforms(input []string) []charm.Platform {
@@ -377,18 +395,22 @@ func convertCharmArchitectures(input []string) []charm.Architecture {
 	return architectures
 }
 
-func convertCharmContainers(input map[string]params.CharmContainer) map[string]charm.Container {
+func convertCharmContainers(input map[string]params.CharmContainer) (map[string]charm.Container, error) {
 	containers := map[string]charm.Container{}
 	for k, v := range input {
+		systems, err := convertCharmSystems(v.Systems)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		containers[k] = charm.Container{
-			Systems: convertCharmSystems(v.Systems),
+			Systems: systems,
 			Mounts:  convertCharmMounts(v.Mounts),
 		}
 	}
 	if len(containers) == 0 {
-		return nil
+		return nil, nil
 	}
-	return containers
+	return containers, nil
 }
 
 func convertCharmMounts(input []params.CharmMount) []charm.Mount {

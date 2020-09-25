@@ -8,9 +8,12 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
+	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/systems"
+	"github.com/juju/systems/channel"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/workertest"
@@ -21,6 +24,7 @@ import (
 	"github.com/juju/juju/caas"
 	caasmocks "github.com/juju/juju/caas/mocks"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
 	coretesting "github.com/juju/juju/testing"
@@ -63,13 +67,35 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 	appCharmInfo := &charmscommon.CharmInfo{
 		Meta: &charm.Meta{
 			Name: "test",
-			Deployment: &charm.Deployment{
-				DeploymentMode: charm.ModeEmbedded,
-				DeploymentType: charm.DeploymentStateful,
+			Platforms: []charm.Platform{
+				charm.PlatformKubernetes,
+			},
+			Systems: []systems.System{{
+				OS:      systems.Ubuntu,
+				Channel: channel.MustParse("20.04/stable"),
+			}},
+			Containers: map[string]charm.Container{
+				"test": charm.Container{
+					Systems: []systems.System{{
+						Resource: "test-oci",
+					}},
+				},
+			},
+			Resources: map[string]charmresource.Meta{
+				"test-oci": charmresource.Meta{
+					Type: charmresource.TypeContainerImage,
+				},
 			},
 		},
 	}
-	appProvisioningInfo := api.ProvisioningInfo{}
+	appProvisioningInfo := api.ProvisioningInfo{
+		Series: "focal",
+	}
+	ociResources := map[string]resources.DockerImageDetails{
+		"test-oci": resources.DockerImageDetails{
+			RegistryPath: "some/test:img",
+		},
+	}
 
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	facade.EXPECT().Units("application-test").AnyTimes().DoAndReturn(func(string) ([]names.Tag, error) {
@@ -86,6 +112,9 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 	})
 	facade.EXPECT().ProvisioningInfo("application-test").AnyTimes().DoAndReturn(func(string) (api.ProvisioningInfo, error) {
 		return appProvisioningInfo, nil
+	})
+	facade.EXPECT().ApplicationOCIResources("application-test").AnyTimes().DoAndReturn(func(string) (map[string]resources.DockerImageDetails, error) {
+		return ociResources, nil
 	})
 
 	appChan := make(chan struct{}, 1)
@@ -115,7 +144,19 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 			mc := jc.NewMultiChecker()
 			mc.AddExpr(`_.IntroductionSecret`, gc.HasLen, 24)
 			mc.AddExpr(`_.Charm`, gc.NotNil)
-			c.Check(config, mc, caas.ApplicationConfig{})
+			c.Check(config, mc, caas.ApplicationConfig{
+				CharmBaseImage: resources.DockerImageDetails{
+					RegistryPath: "jujusolutions/ubuntu:20.04",
+				},
+				Containers: map[string]caas.ContainerConfig{
+					"test": caas.ContainerConfig{
+						Name: "test",
+						Image: resources.DockerImageDetails{
+							RegistryPath: "some/test:img",
+						},
+					},
+				},
+			})
 			appDeploymentState.Exists = true
 			appState.DesiredReplicas = 1
 			appState.Replicas = []string{"test-0"}

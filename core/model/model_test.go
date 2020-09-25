@@ -29,7 +29,27 @@ func (*ModelSuite) TestValidateSeries(c *gc.C) {
 		{model.CAAS, "bionic", false},
 		{model.CAAS, "kubernetes", true},
 	} {
-		err := model.ValidateSeries(t.modelType, t.series)
+		err := model.ValidateSeries(t.modelType, t.series, false)
+		if t.valid {
+			c.Check(err, jc.ErrorIsNil)
+		} else {
+			c.Check(err, jc.Satisfies, errors.IsNotValid)
+		}
+	}
+}
+
+func (*ModelSuite) TestValidateSeriesNewCharm(c *gc.C) {
+	for _, t := range []struct {
+		modelType model.ModelType
+		series    string
+		valid     bool
+	}{
+		{model.IAAS, "bionic", true},
+		{model.IAAS, "bionic", true},
+		{model.CAAS, "bionic", true},
+		{model.CAAS, "bionic", true},
+	} {
+		err := model.ValidateSeries(t.modelType, t.series, true)
 		if t.valid {
 			c.Check(err, jc.ErrorIsNil)
 		} else {

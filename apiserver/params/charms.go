@@ -185,7 +185,7 @@ type CharmDeployment struct {
 // CharmSystem mirrors charm.System
 type CharmSystem struct {
 	OS       string `json:"os,omitempty"`
-	Version  string `json:"version,omitempty"`
+	Channel  string `json:"channel,omitempty"`
 	Resource string `json:"resource,omitempty"`
 }
 

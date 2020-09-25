@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/os"
 	"github.com/juju/os/series"
+	"github.com/juju/systems"
 )
 
 // ModelType indicates a model type.
@@ -42,20 +43,21 @@ var caasOS = set.NewStrings(os.Kubernetes.String())
 
 // ValidateSeries ensures the charm series is valid for the model type.
 func ValidateSeries(modelType ModelType, charmSeries string, charmV2 bool) error {
-	system, err := series.ParseSystemFromSeries(charmSeries)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if system.Resource != "" {
-		switch modelType {
-		case CAAS:
-			// CAAS models support using a resource as the system.
-			return nil
-		case IAAS:
-			return errors.NotValidf("IAAS models don't support systems referencing a resource")
+	if charmV2 {
+		system, err := systems.ParseSystemFromSeries(charmSeries)
+		if err != nil {
+			return errors.Trace(err)
 		}
-	}
-	if !charmV2 {
+		if system.Resource != "" {
+			switch modelType {
+			case CAAS:
+				// CAAS models support using a resource as the system.
+				return nil
+			case IAAS:
+				return errors.NotValidf("IAAS models don't support systems referencing a resource")
+			}
+		}
+	} else {
 		os, err := series.GetOSFromSeries(charmSeries)
 		if err != nil {
 			return errors.Trace(err)

@@ -7384,13 +7384,13 @@
                 "CharmSystem": {
                     "type": "object",
                     "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
                         "os": {
                             "type": "string"
                         },
                         "resource": {
-                            "type": "string"
-                        },
-                        "version": {
                             "type": "string"
                         }
                     },
@@ -8865,13 +8865,13 @@
                 "CharmSystem": {
                     "type": "object",
                     "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
                         "os": {
                             "type": "string"
                         },
                         "resource": {
-                            "type": "string"
-                        },
-                        "version": {
                             "type": "string"
                         }
                     },
@@ -13062,13 +13062,13 @@
                 "CharmSystem": {
                     "type": "object",
                     "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
                         "os": {
                             "type": "string"
                         },
                         "resource": {
-                            "type": "string"
-                        },
-                        "version": {
                             "type": "string"
                         }
                     },

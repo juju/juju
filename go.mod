@@ -43,7 +43,7 @@ require (
 	github.com/joyent/gosign v0.0.0-20140524000734-0da0d5f13420
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
 	github.com/juju/bundlechanges/v3 v3.0.0-20200909112830-2eb08291b192
-	github.com/juju/charm/v8 v8.0.0-20200923053153-205fa6e80ebf
+	github.com/juju/charm/v8 v8.0.0-20200925052646-bb021a575610
 	github.com/juju/charmrepo/v6 v6.0.0-20200817155725-120bd7a8b1ed
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
 	github.com/juju/cmd v0.0.0-20200108104440-8e43f3faa5c9
@@ -64,7 +64,7 @@ require (
 	github.com/juju/mutex v0.0.0-20180619145857-d21b13acf4bf
 	github.com/juju/names/v4 v4.0.0-20200923012352-008effd8611b
 	github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b
-	github.com/juju/os v0.0.0-20200923052219-e4c9b9a6564c
+	github.com/juju/os v0.0.0-20200701063157-8e6dd7a2b438
 	github.com/juju/packaging v0.0.0-20200421095529-970596d2622a
 	github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93
 	github.com/juju/proxy v0.0.0-20180523025733-5f8741c297b4
@@ -76,6 +76,7 @@ require (
 	github.com/juju/romulus v0.0.0-20191205211046-fd7cab26ac5f
 	github.com/juju/rpcreflect v0.0.0-20200416001309-bb46e9ba1476
 	github.com/juju/schema v1.0.1-0.20190814234152-1f8aaeef0989
+	github.com/juju/systems v0.0.0-20200925032749-8c613192c759
 	github.com/juju/terms-client v1.0.2-0.20200331164339-fab45ea044ae
 	github.com/juju/testing v0.0.0-20200923013621-75df6121fbb0
 	github.com/juju/txn v0.0.0-20190416045819-5f348e78887d
@@ -107,9 +108,9 @@ require (
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
-	golang.org/x/net v0.0.0-20200904194848-62affa334b73
+	golang.org/x/net v0.0.0-20200923182212-328152dc79b1
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
-	golang.org/x/sys v0.0.0-20200817085935-3ff754bf58a9
+	golang.org/x/sys v0.0.0-20200923182605-d9f96fdee20d
 	golang.org/x/text v0.3.3 // indirect
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	golang.org/x/tools v0.0.0-20200725200936-102e7d357031
@@ -185,7 +186,3 @@ replace (
 	k8s.io/metrics v0.0.0 => k8s.io/metrics v0.18.6
 	k8s.io/sample-apiserver v0.0.0 => k8s.io/sample-apiserver v0.18.6
 )
-
-replace github.com/juju/charm/v8 => github.com/hpidcock-juju/charm/v8 v8.0.0-20200923053153-205fa6e80ebf
-
-replace github.com/juju/os => github.com/hpidcock/os v0.0.0-20200923052219-e4c9b9a6564c

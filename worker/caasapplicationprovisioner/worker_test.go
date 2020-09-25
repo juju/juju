@@ -132,7 +132,7 @@ func (s *CAASApplicationSuite) TestWorkerStartOnceNotify(c *gc.C) {
 
 	c.Assert(called, gc.Equals, 1)
 	c.Assert(notifyWorker, gc.NotNil)
+	time.Sleep(coretesting.ShortWait)
 	workertest.CleanKill(c, provisioner)
-
 	notifyWorker.CheckCallNames(c, "Notify", "Notify", "Notify")
 }

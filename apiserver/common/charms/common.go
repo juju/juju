@@ -8,6 +8,7 @@ import (
 	"github.com/juju/charm/v8/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
+	"github.com/juju/systems"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -352,12 +353,12 @@ func convertCharmDevices(devices map[string]charm.Device) map[string]params.Char
 	return results
 }
 
-func convertCharmSystems(input []charm.System) []params.CharmSystem {
+func convertCharmSystems(input []systems.System) []params.CharmSystem {
 	systems := []params.CharmSystem(nil)
 	for _, v := range input {
 		systems = append(systems, params.CharmSystem{
 			OS:       v.OS,
-			Version:  v.Version,
+			Channel:  v.Channel.String(),
 			Resource: v.Resource,
 		})
 	}

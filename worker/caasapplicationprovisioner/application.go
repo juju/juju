@@ -7,14 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/os"
-
 	"github.com/juju/charm/v8"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
 	"github.com/juju/retry"
+	"github.com/juju/systems"
 	"github.com/juju/utils/v2"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
@@ -236,7 +234,7 @@ func (a *appWorker) alive(app caas.Application) error {
 		return errors.Annotate(err, "failed to get oci image resources")
 	}
 
-	baseSystem, err := series.ParseSystemFromSeries(provisionInfo.Series)
+	baseSystem, err := systems.ParseSystemFromSeries(provisionInfo.Series)
 	if err != nil {
 		return errors.Annotate(err, "failed to parse series as a system")
 	}
@@ -272,16 +270,7 @@ func (a *appWorker) alive(app caas.Application) error {
 			}
 			container.Image = image
 		} else {
-			// TODO(new-charm): Unify juju/charm System and juju/os/series System
-			o, err := os.ParseSystemOS(system.OS)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			container.Image.RegistryPath, err = podcfg.ImageForSystem(provisionInfo.ImageRepo, series.System{
-				OS:       o,
-				Version:  system.Version,
-				Resource: system.Resource,
-			})
+			container.Image.RegistryPath, err = podcfg.ImageForSystem(provisionInfo.ImageRepo, system)
 			if err != nil {
 				return errors.Annotate(err, "failed to get image for system")
 			}
