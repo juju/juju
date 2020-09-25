@@ -63,11 +63,15 @@ run_spaces_manual_aws() {
     fi
     subs="${OUT}"
 
-    # Ensure we have a security group allowing SSH access.
+    # Ensure we have a security group allowing SSH and controller access.
     OUT=$(aws ec2 describe-security-groups | jq ".SecurityGroups[] | select(.GroupName==\"ci-spaces-manual-ssh\")" || true)
     if [ -z "${OUT}" ]; then
         sg_id=$(aws ec2 create-security-group --group-name "ci-spaces-manual-ssh" --description "SSH access for manual spaces test" --query 'GroupId' --output text)
         aws ec2 authorize-security-group-ingress --group-id "${sg_id}" --protocol tcp --port 22 --cidr 0.0.0.0/0
+        aws ec2 authorize-security-group-ingress --group-id "${sg_id}" --protocol tcp --port 17070 --cidr 0.0.0.0/0
+        aws ec2 authorize-security-group-ingress --group-id "${sg_id}" --protocol udp --port 17070 --cidr 0.0.0.0/0
+        aws ec2 authorize-security-group-ingress --group-id "${sg_id}" --protocol tcp --port 0-65535 --source-group "${sg_id}"
+        aws ec2 authorize-security-group-ingress --group-id "${sg_id}" --protocol udp --port 0-65535 --source-group "${sg_id}"
     else
         sg_id=$(echo "${OUT}" | jq -r '.GroupId')
     fi
@@ -107,14 +111,14 @@ EOF
 
     # Each machine is in a different subnet,
     # which will be discovered when the agent starts.
-    #juju add-machine ssh:ubuntu@"${addr_m1}" >"${TEST_DIR}/add-machine-1.log" 2>&1
-    #juju add-machine ssh:ubuntu@"${addr_m2}" >"${TEST_DIR}/add-machine-2.log" 2>&1
-    #juju add-machine ssh:ubuntu@"${addr_m3}" >"${TEST_DIR}/add-machine-3.log" 2>&1
+    juju add-machine ssh:ubuntu@"${addr_m1}" >"${TEST_DIR}/add-machine-1.log" 2>&1
+    juju add-machine ssh:ubuntu@"${addr_m2}" >"${TEST_DIR}/add-machine-2.log" 2>&1
+    juju add-machine ssh:ubuntu@"${addr_m3}" >"${TEST_DIR}/add-machine-3.log" 2>&1
 
-    #juju add-space space-1 172.31.0.0/20
-    #juju add-space space-2 172.31.16.0/20
-    #juju add-space space-3 172.31.32.0/20
-
+    # The discovered subnets then be carved into spaces.
+    juju add-space space-1 172.31.0.0/20
+    juju add-space space-2 172.31.16.0/20
+    juju add-space space-3 172.31.32.0/20
 }
 
 
