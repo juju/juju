@@ -6718,6 +6718,15 @@
                         }
                     },
                     "description": "Units returns all the units for each application specified."
+                },
+                "WatchApplications": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/StringsWatchResult"
+                        }
+                    },
+                    "description": "WatchApplications starts a StringsWatcher to watch applications deployed to this model."
                 }
             },
             "definitions": {
@@ -7730,6 +7739,27 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "StringsWatchResult": {
+                    "type": "object",
+                    "properties": {
+                        "changes": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "watcher-id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "watcher-id"
                     ]
                 },
                 "Value": {
@@ -41504,6 +41534,18 @@
                         }
                     }
                 },
+                "OpenedApplicationPortRangesByEndpoint": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ApplicationOpenedPortsResults"
+                        }
+                    },
+                    "description": "OpenedApplicationPortRangesByEndpoint returns the port ranges opened by each\napplication grouped by application endpoint."
+                },
                 "OpenedMachinePortRangesByEndpoint": {
                     "type": "object",
                     "properties": {
@@ -42281,6 +42323,58 @@
                         "value",
                         "type",
                         "scope"
+                    ]
+                },
+                "ApplicationOpenedPorts": {
+                    "type": "object",
+                    "properties": {
+                        "endpoint": {
+                            "type": "string"
+                        },
+                        "port-ranges": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/PortRange"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "endpoint",
+                        "port-ranges"
+                    ]
+                },
+                "ApplicationOpenedPortsResult": {
+                    "type": "object",
+                    "properties": {
+                        "application-port-ranges": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ApplicationOpenedPorts"
+                            }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "application-port-ranges"
+                    ]
+                },
+                "ApplicationOpenedPortsResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ApplicationOpenedPortsResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
                     ]
                 },
                 "ApplicationStatusResult": {

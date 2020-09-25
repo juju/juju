@@ -395,7 +395,7 @@ func (st *State) AllMachinePorts(machineTag names.MachineTag) (map[network.PortR
 	return portsMap, nil
 }
 
-// OpenedMachinePortRanges returns all port ranges currently open on the given
+// OpenedMachinePortRangesByEndpoint returns all port ranges currently open on the given
 // machine, grouped by unit tag and application endpoint.
 func (st *State) OpenedMachinePortRangesByEndpoint(machineTag names.MachineTag) (map[names.UnitTag]network.GroupedPortRanges, error) {
 	if st.BestAPIVersion() < 17 {
@@ -435,6 +435,36 @@ func (st *State) OpenedMachinePortRangesByEndpoint(machineTag names.MachineTag) 
 		}
 	}
 	return portRangeMap, nil
+}
+
+// OpenedApplicationPortRangesByEndpoint returns all port ranges currently open for the given
+// application, grouped by application endpoint.
+func (st *State) OpenedApplicationPortRangesByEndpoint(appTag names.ApplicationTag) (network.GroupedPortRanges, error) {
+	if st.BestAPIVersion() < 17 {
+		// OpenedApplicationPortRangesByEndpoint() was introduced in UniterAPIV17.
+		return nil, errors.NotImplementedf("OpenedApplicationPortRangesByEndpoint() (need V17+)")
+	}
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: appTag.String()}},
+	}
+	var result params.ApplicationOpenedPortsResults
+	if err := st.facade.FacadeCall("OpenedApplicationPortRangesByEndpoint", args, &result); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(result.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(result.Results))
+	}
+	res := result.Results[0]
+	if res.Error != nil {
+		return nil, errors.Annotatef(res.Error, "unable to fetch opened ports for application %s", appTag)
+	}
+	out := make(network.GroupedPortRanges)
+	for _, pgs := range res.ApplicationPortRanges {
+		for _, pg := range pgs.PortRanges {
+			out[pgs.Endpoint] = append(out[pgs.Endpoint], pg.NetworkPortRange())
+		}
+	}
+	return out, nil
 }
 
 // WatchRelationUnits returns a watcher that notifies of changes to the

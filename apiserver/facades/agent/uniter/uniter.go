@@ -457,6 +457,57 @@ func (u *UniterAPI) OpenedMachinePortRangesByEndpoint(args params.Entities) (par
 	return result, nil
 }
 
+// OpenedApplicationPortRangesByEndpoint is not available in V16 of the API.
+func (u *UniterAPIV16) OpenedApplicationPortRangesByEndpoint(_ struct{}) {}
+
+// OpenedApplicationPortRangesByEndpoint returns the port ranges opened by each
+// application grouped by application endpoint.
+func (u *UniterAPI) OpenedApplicationPortRangesByEndpoint(args params.Entities) (params.ApplicationOpenedPortsResults, error) {
+	result := params.ApplicationOpenedPortsResults{
+		Results: make([]params.ApplicationOpenedPortsResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+
+	for i, entity := range args.Entities {
+		appTag, err := names.ParseApplicationTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		app, err := u.st.Application(appTag.Id())
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		openedPortRanges, err := app.OpenedPortRanges()
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		for endpointName, pgs := range openedPortRanges.ByEndpoint() {
+			result.Results[i].ApplicationPortRanges = append(
+				result.Results[i].ApplicationPortRanges,
+				u.applicationOpenedPortsForEndpoint(endpointName, pgs),
+			)
+		}
+	}
+	return result, nil
+}
+
+func (u *UniterAPI) applicationOpenedPortsForEndpoint(endpointName string, pgs []corenetwork.PortRange) params.ApplicationOpenedPorts {
+	o := params.ApplicationOpenedPorts{
+		Endpoint:   endpointName,
+		PortRanges: make([]params.PortRange, len(pgs)),
+	}
+	for i, pg := range pgs {
+		o.PortRanges[i] = params.FromNetworkPortRange(pg)
+	}
+	return o
+}
+
 // AllMachinePorts returns all opened port ranges for each given
 // machine (on all networks).
 //
