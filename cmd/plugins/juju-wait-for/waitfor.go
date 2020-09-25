@@ -10,7 +10,6 @@ import (
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	_ "github.com/juju/juju/provider/all"
@@ -21,10 +20,6 @@ var logger = loggo.GetLogger("juju.plugins.waitfor")
 var waitForDoc = `
 Juju wait-for attempts to wait for a given entity to reach a goal state.
 `
-
-type waitForCommandBase struct {
-	modelcmd.ModelCommandBase
-}
 
 // Main registers subcommands for the juju-metadata executable, and hands over control
 // to the cmd package. This function is not redundant with main, because it
@@ -52,6 +47,7 @@ func NewSuperCommand() cmd.Command {
 		Purpose:     "tools for generating and validating image and tools metadata",
 		Log:         &cmd.Log{}})
 
+	waitFor.Register(newModelCommand())
 	waitFor.Register(newApplicationCommand())
 	return waitFor
 }

@@ -17,6 +17,7 @@ require (
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/coreos/go-systemd/v22 v22.0.0-20200316104309-cb8b64719ae3
+	github.com/davecgh/go-spew v1.1.1
 	github.com/dnaeon/go-vcr v1.0.1 // indirect
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect

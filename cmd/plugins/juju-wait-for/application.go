@@ -4,14 +4,11 @@
 package main
 
 import (
-	"time"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -29,6 +26,7 @@ func newApplicationCommand() cmd.Command {
 			Client: client,
 		}, nil
 	}
+	cmd.waitForFn = cmd.waitFor
 	return modelcmd.Wrap(cmd)
 }
 
@@ -40,19 +38,20 @@ name
    application name identifier
 
 options:
---state (= "active")
-   state of the application to wait-for
+--status (= "active")
+   status of the application to wait-for
+--life (= "alive")
+   life of the application to wait-for
 `
 
 // applicationCommand stores image metadata in Juju environment.
 type applicationCommand struct {
 	waitForCommandBase
 
-	newWatchAllAPIFunc func() (WatchAllAPI, error)
+	life   string
+	status string
 
-	Name    string
-	State   string
-	Timeout time.Duration
+	predicate Predicate
 }
 
 // Init implements Command.Init.
@@ -66,7 +65,20 @@ func (c *applicationCommand) Init(args []string) (err error) {
 	if ok := names.IsValidApplication(args[0]); !ok {
 		return errors.Errorf("%q is not valid application name", args[0])
 	}
-	c.Name = args[0]
+	c.name = args[0]
+
+	predicates := map[string]Predicate{
+		"life":   LifePredicate("alive"),
+		"status": StatusPredicate("active"),
+	}
+	if c.life != "" {
+		predicates["life"] = LifePredicate(c.life)
+	}
+	if c.status != "" {
+		predicates["status"] = StatusPredicate(c.status)
+	}
+	c.predicate = ComposePredicates(predicates)
+
 	return nil
 }
 
@@ -83,129 +95,65 @@ func (c *applicationCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *applicationCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.waitForCommandBase.SetFlags(f)
-	f.StringVar(&c.State, "state", "active", "goal state of the application")
-	f.DurationVar(&c.Timeout, "timeout", time.Minute*10, "how long to wait, before timing out")
+	f.StringVar(&c.life, "life", "", "goal state for the life of a application")
+	f.StringVar(&c.status, "status", "", "goal state for the status of a application")
 }
 
-// Run implements Command.Run.
-func (c *applicationCommand) Run(ctx *cmd.Context) error {
-	client, err := c.newWatchAllAPIFunc()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	watcher, err := client.WatchAll()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer func() {
-		_ = watcher.Stop()
-	}()
-
-	timeout := make(chan struct{})
-	go func() {
-		select {
-		case <-time.After(c.Timeout):
-			close(timeout)
-			watcher.Stop()
-		}
-	}()
-
-	var applicationFound bool
-	var applicationStatus string
-
-	for {
-		deltas, err := watcher.Next()
-		if err != nil {
-			select {
-			case <-timeout:
-				return errors.Errorf("timed out waiting for application %q to reach goal state %q", c.Name, c.State)
-			default:
-				return errors.Trace(err)
+func (c *applicationCommand) waitFor(name string, state State, deltas []params.Delta) State {
+	for _, delta := range deltas {
+		switch entityInfo := delta.Entity.(type) {
+		case *params.ApplicationInfo:
+			if entityInfo.Name == name {
+				if c.predicate(entityInfo) {
+					state.Complete = true
+					return state
+				}
+				state.Found = true
+				state.EntityInfo = entityInfo
+				break
 			}
 		}
+	}
 
+	if !state.Found {
+		logger.Infof("application %q not found, waiting...", name)
+		return state
+	}
+
+	var logOutput bool
+	appInfo := state.EntityInfo.(*params.ApplicationInfo)
+	currentStatus := appInfo.Status.Current
+
+	// If the application is unset, the derive it from the units.
+	if currentStatus.String() == "unset" {
+		statuses := make([]status.StatusInfo, 0)
 		for _, delta := range deltas {
 			switch entityInfo := delta.Entity.(type) {
-			case *params.ApplicationInfo:
-				if entityInfo.Name == c.Name {
-					// If the application already has a status that is the valid
-					// state, skip everything and just return.
-					if applicationStatus = entityInfo.Status.Current.String(); applicationStatus == c.State {
-						return nil
-					}
-					// We've not found the current status, let's attempt to
-					// derive it.
-					applicationFound = true
-					break
+			case *params.UnitInfo:
+				if entityInfo.Application == name {
+					logOutput = true
+
+					agentStatus := entityInfo.WorkloadStatus
+					statuses = append(statuses, status.StatusInfo{
+						Status: agentStatus.Current,
+					})
 				}
 			}
 		}
 
-		if !applicationFound {
-			logger.Infof("application %q not found, waiting...", c.Name)
-			continue
-		}
-
-		var logOutput bool
-		currentStatus := applicationStatus
-
-		// If the application is unset, the derive it from the units.
-		if currentStatus == "unset" {
-			statuses := make([]status.StatusInfo, 0)
-			for _, delta := range deltas {
-				switch entityInfo := delta.Entity.(type) {
-				case *params.UnitInfo:
-					if entityInfo.Application == c.Name {
-						logOutput = true
-
-						agentStatus := entityInfo.WorkloadStatus
-						statuses = append(statuses, status.StatusInfo{
-							Status: agentStatus.Current,
-						})
-					}
-				}
-			}
-
-			derived := status.DeriveStatus(statuses)
-			currentStatus = derived.Status.String()
-		}
-
-		if currentStatus == c.State {
-			return nil
-		}
-
-		if logOutput {
-			logger.Infof("application %q found with %q, waiting for goal state: %q", c.Name, currentStatus, c.State)
-		}
+		derived := status.DeriveStatus(statuses)
+		currentStatus = derived.Status
 	}
-}
 
-// AllWatcher represents methods used on the AllWatcher
-// Primarily to facilitate mock tests.
-type AllWatcher interface {
+	appInfo.Status.Current = currentStatus
 
-	// Next returns a new set of deltas from a watcher previously created
-	// by the WatchAll or WatchAllModels API calls. It will block until
-	// there are deltas to return.
-	Next() ([]params.Delta, error)
+	if c.predicate(appInfo) {
+		state.Complete = true
+		return state
+	}
 
-	// Stop shutdowns down a watcher previously created by the WatchAll or
-	// WatchAllModels API calls
-	Stop() error
-}
-
-// WatchAllAPI defines the API methods that allow the watching of a given item.
-type WatchAllAPI interface {
-	// WatchAll returns an AllWatcher, from which you can request the Next
-	// collection of Deltas.
-	WatchAll() (AllWatcher, error)
-}
-
-type watchAllAPIShim struct {
-	*api.Client
-}
-
-func (s watchAllAPIShim) WatchAll() (AllWatcher, error) {
-	return s.Client.WatchAll()
+	if logOutput {
+		logger.Infof("application %q found with %q, waiting for goal state", name, currentStatus)
+	}
+	return state
 }
