@@ -56,6 +56,7 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.MongoMemoryProfile,
 		controller.PruneTxnQueryCount,
 		controller.PruneTxnSleepTime,
+		controller.PublicDNSAddress,
 		controller.MaxCharmStateSize,
 		controller.MaxAgentStateSize,
 		controller.NonSyncedWritesToRaftLog,
@@ -96,10 +97,12 @@ func (s *ControllerSuite) TestUpdateControllerConfig(c *gc.C) {
 	// Sanity check.
 	c.Check(cfg.AuditingEnabled(), gc.Equals, false)
 	c.Check(cfg.AuditLogCaptureArgs(), gc.Equals, true)
+	c.Assert(cfg.PublicDNSAddress(), gc.Equals, "")
 
 	err = s.State.UpdateControllerConfig(map[string]interface{}{
 		controller.AuditingEnabled:     true,
 		controller.AuditLogCaptureArgs: false,
+		controller.PublicDNSAddress:    "controller.test.com:1234",
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -108,6 +111,7 @@ func (s *ControllerSuite) TestUpdateControllerConfig(c *gc.C) {
 
 	c.Assert(newCfg.AuditingEnabled(), gc.Equals, true)
 	c.Assert(newCfg.AuditLogCaptureArgs(), gc.Equals, false)
+	c.Assert(newCfg.PublicDNSAddress(), gc.Equals, "controller.test.com:1234")
 }
 
 func (s *ControllerSuite) TestUpdateControllerConfigRemoveYieldsDefaults(c *gc.C) {
