@@ -1412,6 +1412,23 @@ func (s *applicationSuite) TestUpdatePortsDaemonUpdate(c *gc.C) {
 	}, false), jc.ErrorIsNil)
 }
 
+func (s *applicationSuite) TestUpdatePortsInvalidProtocol(c *gc.C) {
+	app, ctrl := s.getApp(c, caas.DeploymentStateful, true)
+	defer ctrl.Finish()
+
+	_, err := s.client.CoreV1().Services("test").Create(context.TODO(), getDefaultSvc(), metav1.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(app.UpdatePorts([]caas.ServicePort{
+		{
+			Name:       "port1",
+			Port:       80,
+			TargetPort: 8080,
+			Protocol:   "bad-protocol",
+		},
+	}, false), gc.ErrorMatches, `protocol "bad-protocol" for service "port1" not valid`)
+}
+
 type fakeCharm struct {
 	// TODO: remove this once `api/common/charms.CharmInfo` has upgraded to use the new charm.Charm.
 	Name       string
