@@ -52,6 +52,10 @@ type InstanceSpec struct {
 	// AvailabilityZone holds the name of the availability zone in which
 	// to create the instance.
 	AvailabilityZone string
+
+	// AllocatePublicIP is true if the instance should be assigned a public IP
+	// address, exposing it to access from outside the internal network.
+	AllocatePublicIP bool
 }
 
 func (is InstanceSpec) raw() *compute.Instance {
@@ -82,7 +86,7 @@ func (is InstanceSpec) disks() []*compute.AttachedDisk {
 func (is InstanceSpec) networkInterfaces() []*compute.NetworkInterface {
 	var result []*compute.NetworkInterface
 	for _, name := range is.NetworkInterfaces {
-		result = append(result, is.Network.newInterface(name))
+		result = append(result, is.Network.newInterface(name, is.AllocatePublicIP))
 	}
 	return result
 }
