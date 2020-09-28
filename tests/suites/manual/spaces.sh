@@ -81,6 +81,8 @@ run_spaces_manual_aws() {
     chmod 400 ~/.ssh/"${name}".pem
     echo "${name}" >> "${TEST_DIR}/ec2-key-pairs"
 
+    local addr_c addr_m1 addr_m2 addr_m3
+
     launch_and_wait_addr_ec2 "${name}" "${controller}" "${image_id}" "$(echo "${subs}" | sed -n 1p)" "${sg_id}" addr_c
     launch_and_wait_addr_ec2 "${name}" "${machine1}" "${image_id}" "$(echo "${subs}" | sed -n 1p)" "${sg_id}" addr_m1
     launch_and_wait_addr_ec2 "${name}" "${machine2}" "${image_id}" "$(echo "${subs}" | sed -n 2p)" "${sg_id}" addr_m2
