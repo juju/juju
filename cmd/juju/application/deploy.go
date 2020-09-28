@@ -12,7 +12,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/names/v4"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -28,6 +27,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/application/deployer"
 	"github.com/juju/juju/cmd/juju/application/store"
+	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -609,8 +609,8 @@ func (c *DeployCommand) Init(args []string) error {
 	}
 	switch len(args) {
 	case 2:
-		if !names.IsValidApplication(args[1]) {
-			return errors.Errorf("invalid application name %q", args[1])
+		if err := utils.ValidateApplicationName(args[1]); err != nil {
+			return errors.Trace(err)
 		}
 		c.ApplicationName = args[1]
 		fallthrough

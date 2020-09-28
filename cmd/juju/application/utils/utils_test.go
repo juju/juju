@@ -16,8 +16,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/utils/mocks"
 )
 
-type utilsSuite struct {
-}
+type utilsSuite struct{}
 
 var _ = gc.Suite(&utilsSuite{})
 
