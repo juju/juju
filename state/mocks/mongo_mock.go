@@ -5,12 +5,11 @@
 package mocks
 
 import (
-	reflect "reflect"
-	time "time"
-
 	gomock "github.com/golang/mock/gomock"
 	mongo "github.com/juju/juju/mongo"
-	mgo_v2 "gopkg.in/mgo.v2"
+	mgo "gopkg.in/mgo.v2"
+	reflect "reflect"
+	time "time"
 )
 
 // MockCollection is a mock of Collection interface
@@ -94,10 +93,10 @@ func (mr *MockCollectionMockRecorder) Name() *gomock.Call {
 }
 
 // Pipe mocks base method
-func (m *MockCollection) Pipe(arg0 interface{}) *mgo_v2.Pipe {
+func (m *MockCollection) Pipe(arg0 interface{}) *mgo.Pipe {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Pipe", arg0)
-	ret0, _ := ret[0].(*mgo_v2.Pipe)
+	ret0, _ := ret[0].(*mgo.Pipe)
 	return ret0
 }
 
@@ -159,10 +158,10 @@ func (mr *MockQueryMockRecorder) All(arg0 interface{}) *gomock.Call {
 }
 
 // Apply mocks base method
-func (m *MockQuery) Apply(arg0 mgo_v2.Change, arg1 interface{}) (*mgo_v2.ChangeInfo, error) {
+func (m *MockQuery) Apply(arg0 mgo.Change, arg1 interface{}) (*mgo.ChangeInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Apply", arg0, arg1)
-	ret0, _ := ret[0].(*mgo_v2.ChangeInfo)
+	ret0, _ := ret[0].(*mgo.ChangeInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -319,10 +318,10 @@ func (mr *MockQueryMockRecorder) LogReplay() *gomock.Call {
 }
 
 // MapReduce mocks base method
-func (m *MockQuery) MapReduce(arg0 *mgo_v2.MapReduce, arg1 interface{}) (*mgo_v2.MapReduceInfo, error) {
+func (m *MockQuery) MapReduce(arg0 *mgo.MapReduce, arg1 interface{}) (*mgo.MapReduceInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MapReduce", arg0, arg1)
-	ret0, _ := ret[0].(*mgo_v2.MapReduceInfo)
+	ret0, _ := ret[0].(*mgo.MapReduceInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -450,10 +449,10 @@ func (mr *MockQueryMockRecorder) Sort(arg0 ...interface{}) *gomock.Call {
 }
 
 // Tail mocks base method
-func (m *MockQuery) Tail(arg0 time.Duration) *mgo_v2.Iter {
+func (m *MockQuery) Tail(arg0 time.Duration) *mgo.Iter {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Tail", arg0)
-	ret0, _ := ret[0].(*mgo_v2.Iter)
+	ret0, _ := ret[0].(*mgo.Iter)
 	return ret0
 }
 

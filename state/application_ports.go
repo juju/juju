@@ -14,6 +14,8 @@ import (
 	"github.com/juju/juju/core/network"
 )
 
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/application_ports_mock.go github.com/juju/juju/state ApplicationPortRanges
+
 // applicationPortRangesDoc represents the state of ports opened for an application.
 type applicationPortRangesDoc struct {
 	DocID           string                    `bson:"_id"`
@@ -219,9 +221,8 @@ func (op *applicationPortRangesOperation) Build(attempt int) ([]txn.Op, error) {
 	}
 
 	ops := []txn.Op{
-		// ????????
-		// assertModelNotDeadOp(op.apr.st.ModelUUID()),
-		// assertApplicationAliveOp(op.apr.doc.DocID),
+		assertModelNotDeadOp(op.apr.st.ModelUUID()),
+		assertApplicationAliveOp(op.apr.st.docID(op.apr.ApplicationName())),
 	}
 
 	portListModified, err := op.mergePendingOpenPortRanges()

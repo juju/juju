@@ -5,14 +5,13 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	mongo "github.com/juju/juju/mongo"
 	state "github.com/juju/juju/state"
 	txn "github.com/juju/txn"
-	mgo_v2 "gopkg.in/mgo.v2"
+	mgo "gopkg.in/mgo.v2"
 	txn0 "gopkg.in/mgo.v2/txn"
+	reflect "reflect"
 )
 
 // MockDatabase is a mock of Database interface
@@ -99,10 +98,10 @@ func (mr *MockDatabaseMockRecorder) GetCollectionFor(arg0, arg1 interface{}) *go
 }
 
 // GetRawCollection mocks base method
-func (m *MockDatabase) GetRawCollection(arg0 string) (*mgo_v2.Collection, state.SessionCloser) {
+func (m *MockDatabase) GetRawCollection(arg0 string) (*mgo.Collection, state.SessionCloser) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetRawCollection", arg0)
-	ret0, _ := ret[0].(*mgo_v2.Collection)
+	ret0, _ := ret[0].(*mgo.Collection)
 	ret1, _ := ret[1].(state.SessionCloser)
 	return ret0, ret1
 }

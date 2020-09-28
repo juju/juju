@@ -5,11 +5,10 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	network "github.com/juju/juju/core/network"
 	state "github.com/juju/juju/state"
+	reflect "reflect"
 )
 
 // MockEndpointBinding is a mock of EndpointBinding interface
