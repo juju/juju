@@ -8143,7 +8143,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/Entities"
+                            "$ref": "#/definitions/Entity"
                         },
                         "Result": {
                             "$ref": "#/definitions/ApplicationOpenedPortsResults"
@@ -41538,7 +41538,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/Entities"
+                            "$ref": "#/definitions/Entity"
                         },
                         "Result": {
                             "$ref": "#/definitions/ApplicationOpenedPortsResults"
