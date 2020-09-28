@@ -312,23 +312,6 @@ clouds:
         endpoint: https://identity.api.rackspacecloud.com/v2.0
       hkg:
         endpoint: https://identity.api.rackspacecloud.com/v2.0
-  joyent:
-    type: joyent
-    description: Joyent Cloud
-    auth-types: [ userpass ]
-    regions:
-      us-east-1:
-        endpoint: https://us-east-1.api.joyentcloud.com
-      us-east-2:
-        endpoint: https://us-east-2.api.joyentcloud.com
-      us-east-3:
-        endpoint: https://us-east-3.api.joyentcloud.com
-      us-west-1:
-        endpoint: https://us-west-1.api.joyentcloud.com
-      us-sw-1:
-        endpoint: https://us-sw-1.api.joyentcloud.com
-      eu-ams-1:
-        endpoint: https://eu-ams-1.api.joyentcloud.com
   cloudsigma:
     type: cloudsigma
     description: CloudSigma Cloud

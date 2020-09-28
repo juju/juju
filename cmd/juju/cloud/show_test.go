@@ -320,34 +320,6 @@ region-config:
 `[1:], openstackProviderConfig}, ""))
 }
 
-func (s *showSuite) TestShowWithRegionConfigAndFlagNoExtraOut(c *gc.C) {
-	ctx, err := cmdtesting.RunCommand(c, cloud.NewShowCloudCommand(), "joyent", "--include-config", "--client")
-	c.Assert(err, jc.ErrorIsNil)
-	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, `
-
-Client cloud "joyent":
-
-defined: public
-type: joyent
-description: Joyent Cloud
-auth-types: [userpass]
-regions:
-  us-east-1:
-    endpoint: https://us-east-1.api.joyentcloud.com
-  us-east-2:
-    endpoint: https://us-east-2.api.joyentcloud.com
-  us-east-3:
-    endpoint: https://us-east-3.api.joyentcloud.com
-  us-west-1:
-    endpoint: https://us-west-1.api.joyentcloud.com
-  us-sw-1:
-    endpoint: https://us-sw-1.api.joyentcloud.com
-  eu-ams-1:
-    endpoint: https://eu-ams-1.api.joyentcloud.com
-`[1:])
-}
-
 var yamlWithCert = `
 clouds:
   homestack:
