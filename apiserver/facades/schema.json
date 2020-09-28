@@ -11475,6 +11475,14 @@
                         "exposed": {
                             "type": "boolean"
                         },
+                        "exposed-endpoints": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/ExposedEndpoint"
+                                }
+                            }
+                        },
                         "int": {
                             "type": "integer"
                         },
@@ -11928,6 +11936,24 @@
                     "required": [
                         "results"
                     ]
+                },
+                "ExposedEndpoint": {
+                    "type": "object",
+                    "properties": {
+                        "expose-to-cidrs": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "expose-to-spaces": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
                 },
                 "FindToolsParams": {
                     "type": "object",
