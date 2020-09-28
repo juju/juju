@@ -4,6 +4,8 @@
 package caasfirewaller
 
 import (
+	"sort"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -254,38 +256,36 @@ func (f *FacadeEmbedded) watchOneModelOpenedPorts(tag names.Tag) (string, []stri
 }
 
 // GetApplicationOpenedPorts returns all the opened ports for each given application tag.
-func (f *FacadeEmbedded) GetApplicationOpenedPorts(args params.Entities) (params.ApplicationOpenedPortsResults, error) {
+func (f *FacadeEmbedded) GetApplicationOpenedPorts(arg params.Entity) (params.ApplicationOpenedPortsResults, error) {
 	result := params.ApplicationOpenedPortsResults{
-		Results: make([]params.ApplicationOpenedPortsResult, len(args.Entities)),
+		Results: make([]params.ApplicationOpenedPortsResult, 1),
 	}
-	if len(args.Entities) == 0 {
+
+	appTag, err := names.ParseApplicationTag(arg.Tag)
+	if err != nil {
+		result.Results[0].Error = apiservererrors.ServerError(err)
 		return result, nil
 	}
 
-	for i, entity := range args.Entities {
-		appTag, err := names.ParseApplicationTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		app, err := f.state.Application(appTag.Id())
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		openedPortRanges, err := app.OpenedPortRanges()
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		for endpointName, pgs := range openedPortRanges.ByEndpoint() {
-			result.Results[i].ApplicationPortRanges = append(
-				result.Results[i].ApplicationPortRanges,
-				f.applicationOpenedPortsForEndpoint(endpointName, pgs),
-			)
-		}
+	app, err := f.state.Application(appTag.Id())
+	if err != nil {
+		result.Results[0].Error = apiservererrors.ServerError(err)
+		return result, nil
 	}
+	openedPortRanges, err := app.OpenedPortRanges()
+	if err != nil {
+		result.Results[0].Error = apiservererrors.ServerError(err)
+		return result, nil
+	}
+	for endpointName, pgs := range openedPortRanges.ByEndpoint() {
+		result.Results[0].ApplicationPortRanges = append(
+			result.Results[0].ApplicationPortRanges,
+			f.applicationOpenedPortsForEndpoint(endpointName, pgs),
+		)
+	}
+	sort.Slice(result.Results[0].ApplicationPortRanges, func(i, j int) bool {
+		return result.Results[0].ApplicationPortRanges[i].Endpoint < result.Results[0].ApplicationPortRanges[j].Endpoint
+	})
 	return result, nil
 }
 

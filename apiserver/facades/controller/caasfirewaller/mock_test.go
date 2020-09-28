@@ -49,13 +49,30 @@ func (st *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
 	return &st.application, nil
 }
 
+func (st *mockState) Charm(curl *charm.URL) (*state.Charm, error) {
+	st.MethodCall(st, "Charm", curl)
+	if err := st.NextErr(); err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+func (st *mockState) Model() (*state.Model, error) {
+	st.MethodCall(st, "Model")
+	if err := st.NextErr(); err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
 type mockApplication struct {
 	testing.Stub
 	life    state.Life
 	exposed bool
 	watcher state.NotifyWatcher
 
-	charm mockAppWatcherCharm
+	charm         mockAppWatcherCharm
+	appPortRanges state.ApplicationPortRanges
 }
 
 func (*mockApplication) Tag() names.Tag {
@@ -80,6 +97,11 @@ func (a *mockApplication) ApplicationConfig() (application.ConfigAttributes, err
 func (a *mockApplication) Watch() state.NotifyWatcher {
 	a.MethodCall(a, "Watch")
 	return a.watcher
+}
+
+func (a *mockApplication) OpenedPortRanges() (state.ApplicationPortRanges, error) {
+	a.MethodCall(a, "OpenedPortRanges")
+	return a.appPortRanges, nil
 }
 
 func (a *mockApplication) Charm() (caasfirewaller.Charm, bool, error) {

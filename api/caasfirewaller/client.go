@@ -79,11 +79,11 @@ func (c *ClientEmbedded) WatchOpenedPorts() (watcher.StringsWatcher, error) {
 
 // GetApplicationOpenedPorts returns all the opened ports for each given application.
 func (c *ClientEmbedded) GetApplicationOpenedPorts(appName string) (network.GroupedPortRanges, error) {
-	args := params.Entities{Entities: []params.Entity{{
+	arg := params.Entity{
 		Tag: names.NewApplicationTag(appName).String(),
-	}}}
+	}
 	var result params.ApplicationOpenedPortsResults
-	if err := c.facade.FacadeCall("GetApplicationOpenedPorts", args, &result); err != nil {
+	if err := c.facade.FacadeCall("GetApplicationOpenedPorts", arg, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(result.Results) != 1 {

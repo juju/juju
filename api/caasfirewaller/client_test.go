@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -85,6 +86,50 @@ func (s *firewallerEmbeddedSuite) TestWatchOpenedPorts(c *gc.C) {
 	watcher, err := client.WatchOpenedPorts()
 	c.Assert(watcher, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
+}
+
+func (s *firewallerEmbeddedSuite) TestGetApplicationOpenedPorts(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, s.objType)
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "GetApplicationOpenedPorts")
+		c.Check(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{
+				Tag: "application-gitlab",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ApplicationOpenedPortsResults{})
+		*(result.(*params.ApplicationOpenedPortsResults)) = params.ApplicationOpenedPortsResults{
+			Results: []params.ApplicationOpenedPortsResult{{
+				ApplicationPortRanges: []params.ApplicationOpenedPorts{
+					{
+						PortRanges: []params.PortRange{
+							{
+								FromPort: 80,
+								ToPort:   8080,
+								Protocol: "tcp",
+							},
+						},
+					},
+				},
+			}},
+		}
+		return nil
+	})
+
+	client := caasfirewaller.NewClientEmbedded(apiCaller)
+	result, err := client.GetApplicationOpenedPorts("gitlab")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, network.GroupedPortRanges{
+		"": []network.PortRange{
+			{
+				FromPort: 80,
+				ToPort:   8080,
+				Protocol: "tcp",
+			},
+		},
+	})
 }
 
 func (s *firewallerEmbeddedSuite) TestApplicationCharmInfo(c *gc.C) {
