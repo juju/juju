@@ -34,11 +34,10 @@ func (env *environ) PrecheckInstance(ctx context.ProviderCallContext, args envir
 var unsupportedConstraints = []string{
 	constraints.Tags,
 	constraints.VirtType,
-	constraints.AllocatePublicIP,
 }
 
 // instanceTypeConstraints defines the fields defined on each of the
-// instance types.  See instancetypes.go.
+// instance types. See instancetypes.go.
 var instanceTypeConstraints = []string{
 	constraints.Arch, // Arches
 	constraints.Cores,
@@ -52,26 +51,18 @@ var instanceTypeConstraints = []string{
 func (env *environ) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 
-	// conflicts
-
-	// TODO(ericsnow) Are these correct?
 	validator.RegisterConflicts(
 		[]string{constraints.InstanceType},
 		instanceTypeConstraints,
 	)
 
-	// unsupported
-
 	validator.RegisterUnsupported(unsupportedConstraints)
-
-	// vocab
 
 	instTypeNames := make([]string, len(allInstanceTypes))
 	for i, itype := range allInstanceTypes {
 		instTypeNames[i] = itype.Name
 	}
 	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
-
 	validator.RegisterVocabulary(constraints.Container, []string{vtype})
 
 	return validator, nil
