@@ -444,11 +444,9 @@ func (st *State) OpenedApplicationPortRangesByEndpoint(appTag names.ApplicationT
 		// OpenedApplicationPortRangesByEndpoint() was introduced in UniterAPIV17.
 		return nil, errors.NotImplementedf("OpenedApplicationPortRangesByEndpoint() (need V17+)")
 	}
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: appTag.String()}},
-	}
+	arg := params.Entity{Tag: appTag.String()}
 	var result params.ApplicationOpenedPortsResults
-	if err := st.facade.FacadeCall("OpenedApplicationPortRangesByEndpoint", args, &result); err != nil {
+	if err := st.facade.FacadeCall("OpenedApplicationPortRangesByEndpoint", arg, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(result.Results) != 1 {
