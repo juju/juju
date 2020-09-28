@@ -258,7 +258,13 @@ var initErrorTests = []struct {
 		err:  `unrecognized args: \["hotdog"\]`,
 	}, {
 		args: []string{"craziness", "burble-1"},
-		err:  `invalid application name "burble-1"`,
+		err:  `invalid application name "burble-1", unexpected number\(s\) found after hyphen`,
+	}, {
+		args: []string{"craziness", "Burble-1"},
+		err:  `invalid application name "Burble-1", unexpected uppercase character`,
+	}, {
+		args: []string{"craziness", "bu£rble"},
+		err:  `invalid application name "bu£rble", unexpected character £`,
 	}, {
 		args: []string{"craziness", "burble1", "-n", "0"},
 		err:  `--num-units must be a positive integer`,
@@ -737,7 +743,7 @@ func (s *DeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 
 	// The aws-integrator charm requires trust and since the operator passes
 	// --trust we expect to see a "trust: true" config value in the yaml
-	// config passed to Deplly.
+	// config passed to deploy.
 	//
 	// As withCharmDeployable does not support passing a "ConfigYAML"
 	// it's easier to just invoke it to set up all other calls and then
