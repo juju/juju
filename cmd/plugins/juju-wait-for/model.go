@@ -4,6 +4,8 @@
 package main
 
 import (
+	"time"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -12,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/plugins/juju-wait-for/query"
 )
 
 func newModelCommand() cmd.Command {
@@ -25,7 +28,6 @@ func newModelCommand() cmd.Command {
 			Client: client,
 		}, nil
 	}
-	cmd.waitForFn = cmd.waitFor
 	return modelcmd.Wrap(cmd)
 }
 
@@ -37,48 +39,18 @@ name
    model name identifier
 
 options:
---status (= "available")
-   status of the model to wait-for
---life (= "alive")
-   life of the model to wait-for
+--query (= "life=alive")
+   query represents the goal state of a given model
 `
 
-// modelCommand stores image metadata in Juju environment.
+// modelCommand defines a command for waiting for models.
 type modelCommand struct {
 	waitForCommandBase
 
-	life   string
-	status string
-
-	predicate Predicate
-}
-
-// Init implements Command.Init.
-func (c *modelCommand) Init(args []string) (err error) {
-	if len(args) == 0 {
-		return errors.New("model name must be supplied when waiting for an model")
-	}
-	if len(args) != 1 {
-		return errors.New("only one model name can be supplied as an argument to this command")
-	}
-	if ok := names.IsValidModelName(args[0]); !ok {
-		return errors.Errorf("%q is not valid model name", args[0])
-	}
-	c.name = args[0]
-
-	predicates := map[string]Predicate{
-		"life":   LifePredicate("alive"),
-		"status": StatusPredicate("available"),
-	}
-	if c.life != "" {
-		predicates["life"] = LifePredicate(c.life)
-	}
-	if c.status != "" {
-		predicates["status"] = StatusPredicate(c.status)
-	}
-	c.predicate = ComposePredicates(predicates)
-
-	return nil
+	name    string
+	query   string
+	timeout time.Duration
+	found   bool
 }
 
 // Info implements Command.Info.
@@ -94,30 +66,64 @@ func (c *modelCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *modelCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.waitForCommandBase.SetFlags(f)
-	f.StringVar(&c.life, "life", "", "goal state for the life of a model")
-	f.StringVar(&c.status, "status", "", "goal state for the status of a model")
+	f.StringVar(&c.query, "query", "life=alive", "query the goal state")
+	f.DurationVar(&c.timeout, "timeout", time.Minute*10, "how long to wait, before timing out")
 }
 
-func (c *modelCommand) waitFor(name string, state State, deltas []params.Delta) State {
+// Init implements Command.Init.
+func (c *modelCommand) Init(args []string) (err error) {
+	if len(args) == 0 {
+		return errors.New("model name must be supplied when waiting for an model")
+	}
+	if len(args) != 1 {
+		return errors.New("only one model name can be supplied as an argument to this command")
+	}
+	if ok := names.IsValidModelName(args[0]); !ok {
+		return errors.Errorf("%q is not valid model name", args[0])
+	}
+	c.name = args[0]
+
+	return nil
+}
+
+func (c *modelCommand) Run(ctx *cmd.Context) error {
+	query, err := query.Parse(c.query)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	client, err := c.newWatchAllAPIFunc()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	strategy := &Strategy{
+		Client:  client,
+		Timeout: c.timeout,
+	}
+	err = strategy.Run(c.name, query, c.waitFor)
+	return errors.Trace(err)
+}
+
+func (c *modelCommand) waitFor(name string, deltas []params.Delta, fn query.Predicate) bool {
 	for _, delta := range deltas {
 		switch entityInfo := delta.Entity.(type) {
 		case *params.ModelUpdate:
 			if entityInfo.Name == name {
-				if c.predicate(entityInfo) {
-					state.Complete = true
-					return state
+				if fn(entityInfo) {
+					return true
 				}
 			}
-			state.Found = true
+			c.found = true
 			break
 		}
 	}
 
-	if !state.Found {
+	if !c.found {
 		logger.Infof("model %q not found, waiting...", name)
-		return state
+		return false
 	}
 
 	logger.Infof("model %q found, waiting...", name)
-	return state
+	return false
 }
