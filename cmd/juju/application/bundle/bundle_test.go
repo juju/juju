@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/bundlechanges/v3"
 	"github.com/juju/charm/v8"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -251,6 +252,64 @@ func (s *composeAndVerifyRepSuite) setupOverlayFile(c *gc.C) {
 		ioutil.WriteFile(
 			filepath.Join(s.overlayDir, "title"), []byte("magic bundle config"), 0644),
 		jc.ErrorIsNil)
+}
+
+func (s *buildModelRepSuite) TestBuildModelRepresentationApplicationsWithExposedEndpoints(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectGetAnnotations(c, []string{"machine-0", "application-wordpress"})
+	s.expectGetConstraintsWordpress()
+	s.expectEmptySequences()
+
+	s.modelExtractor.EXPECT().GetConfig(model.GenerationMaster, "wordpress").Return(nil, nil)
+
+	status := &params.FullStatus{
+		Model: params.ModelStatusInfo{
+			Name: "default",
+		},
+		Machines: map[string]params.MachineStatus{
+			"0": {Series: "bionic"},
+		},
+		Applications: map[string]params.ApplicationStatus{
+			"wordpress": {
+				Series: "bionic",
+				Life:   life.Alive,
+				Units: map[string]params.UnitStatus{
+					"0": {Machine: "0"},
+				},
+				ExposedEndpoints: map[string]params.ExposedEndpoint{
+					"": {
+						ExposeToCIDRs: []string{"10.0.0.0/24"},
+					},
+					"website": {
+						ExposeToSpaces: []string{"inner", "outer"},
+						ExposeToCIDRs:  []string{"192.168.0.0/24"},
+					},
+				},
+			},
+		},
+	}
+	machines := map[string]string{}
+
+	obtainedModel, err := BuildModelRepresentation(status, s.modelExtractor, false, machines)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedModel.Applications, gc.HasLen, 1)
+	obtainedWordpress, ok := obtainedModel.Applications["wordpress"]
+	c.Assert(ok, jc.IsTrue)
+
+	c.Assert(obtainedWordpress.ExposedEndpoints, gc.DeepEquals, map[string]bundlechanges.ExposedEndpoint{
+		"": {
+			ExposeToCIDRs: []string{"10.0.0.0/24"},
+		},
+		"website": {
+			ExposeToSpaces: []string{"inner", "outer"},
+			ExposeToCIDRs:  []string{"192.168.0.0/24"},
+		},
+	})
+
+	c.Assert(obtainedModel.Machines, gc.HasLen, 1)
+	c.Assert(obtainedModel.Relations, gc.HasLen, 0)
+	c.Assert(obtainedModel.Sequence, gc.HasLen, 0)
+	c.Assert(obtainedModel.MachineMap, gc.HasLen, 0)
 }
 
 func (s *composeAndVerifyRepSuite) setupMocks(c *gc.C) *gomock.Controller {

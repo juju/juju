@@ -915,6 +915,19 @@ func (s *UpgradeJujuSuite) TestUpgradeValidateModel(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `a message from the server about the problem`)
 }
 
+func (s *UpgradeJujuSuite) TestUpgradeValidateModelNotImplementedNoError(c *gc.C) {
+	fakeAPI := NewFakeUpgradeJujuAPI(c, s.State)
+
+	fakeAPI.setUpgradeErr = errors.NotImplementedf("")
+
+	command := s.upgradeJujuCommand(nil, fakeAPI, fakeAPI, fakeAPI, fakeAPI)
+	err := cmdtesting.InitCommand(command, []string{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = command.Run(cmdtesting.Context(c))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *UpgradeJujuSuite) TestUpgradeInProgress(c *gc.C) {
 	fakeAPI := NewFakeUpgradeJujuAPI(c, s.State)
 	fakeAPI.setVersionErr = &params.Error{

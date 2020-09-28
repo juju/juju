@@ -66,6 +66,15 @@ func BuildModelRepresentation(
 			Series:        appStatus.Series,
 			SubordinateTo: appStatus.SubordinateTo,
 		}
+		if len(appStatus.ExposedEndpoints) != 0 {
+			app.ExposedEndpoints = make(map[string]bundlechanges.ExposedEndpoint)
+			for endpoint, exposeDetails := range appStatus.ExposedEndpoints {
+				app.ExposedEndpoints[endpoint] = bundlechanges.ExposedEndpoint{
+					ExposeToSpaces: exposeDetails.ExposeToSpaces,
+					ExposeToCIDRs:  exposeDetails.ExposeToCIDRs,
+				}
+			}
+		}
 		for unitName, unit := range appStatus.Units {
 			app.Units = append(app.Units, bundlechanges.Unit{
 				Name:    unitName,

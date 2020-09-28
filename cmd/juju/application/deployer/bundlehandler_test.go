@@ -693,7 +693,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleExpose(c *gc.C) {
 		"Executing changes:\n"+
 		"- upload charm cs:wordpress-47\n"+
 		"- deploy application wordpress using cs:wordpress-47\n"+
-		"- expose all endpoints of wordpress and allow access from CIDR 0.0.0.0/0\n"+
+		"- expose all endpoints of wordpress and allow access from CIDRs 0.0.0.0/0 and ::/0\n"+
 		"- add unit wordpress/0 to new machine 0\n"+
 		"Deploy of bundle completed.\n")
 }
