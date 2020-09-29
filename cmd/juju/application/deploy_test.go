@@ -258,7 +258,7 @@ var initErrorTests = []struct {
 		err:  `unrecognized args: \["hotdog"\]`,
 	}, {
 		args: []string{"craziness", "burble-1"},
-		err:  `invalid application name "burble-1", unexpected number\(s\) found after hyphen`,
+		err:  `invalid application name "burble-1", unexpected number\(s\) found after last hyphen`,
 	}, {
 		args: []string{"craziness", "Burble-1"},
 		err:  `invalid application name "Burble-1", unexpected uppercase character`,

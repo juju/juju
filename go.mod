@@ -58,7 +58,7 @@ require (
 	github.com/juju/loggo v0.0.0-20200526014432-9ce3a2e09b5e
 	github.com/juju/lru v0.0.0-20181205132344-305dec07bf2f // indirect
 	github.com/juju/mutex v0.0.0-20180619145857-d21b13acf4bf
-	github.com/juju/names/v4 v4.0.0-20200923012352-008effd8611b
+	github.com/juju/names/v4 v4.0.0-20200929085019-be23e191fee0
 	github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b
 	github.com/juju/os v0.0.0-20200701063157-8e6dd7a2b438
 	github.com/juju/packaging v0.0.0-20200421095529-970596d2622a
@@ -104,7 +104,7 @@ require (
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
-	golang.org/x/net v0.0.0-20200923182212-328152dc79b1
+	golang.org/x/net v0.0.0-20200927032502-5d4f70055728
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sys v0.0.0-20200923182605-d9f96fdee20d
 	golang.org/x/text v0.3.3 // indirect
