@@ -730,15 +730,23 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	if h.data.Type == "kubernetes" {
 		numUnits = p.NumUnits
 	}
-	var track string
-	if h.origin.Track != nil {
-		track = *h.origin.Track
-	}
-	// A channel is needed whether the risk is valid or not.
-	channel, _ := corecharm.MakeChannel(track, h.origin.Risk, "")
-	origin, err = utils.DeduceOrigin(chID.URL, channel)
-	if err != nil {
-		return errors.Trace(err)
+
+	// For charmstore charms we require a corrected channel for deploying an
+	// application. This isn't required for any other store type (local,
+	// charmhub).
+	// We should remove this when charmstore charms are defunct and remove this
+	// specialization.
+	if charm.CharmStore.Matches(chID.URL.Schema) {
+		var track string
+		if h.origin.Track != nil {
+			track = *h.origin.Track
+		}
+		// A channel is needed whether the risk is valid or not.
+		channel, _ := corecharm.MakeChannel(track, h.origin.Risk, "")
+		origin, err = utils.DeduceOrigin(chID.URL, channel)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	// Deploy the application.
