@@ -47,6 +47,10 @@ type ApplicationPortRanges interface {
 	// application endpoint.
 	ByEndpoint() network.GroupedPortRanges
 
+	// UniquePortRanges returns a slice of unique open PortRanges for
+	// an application.
+	UniquePortRanges() []network.PortRange
+
 	// Open records a request for opening the specified port range for the
 	// specified endpoint.
 	Open(endpoint string, portRange network.PortRange)
@@ -63,10 +67,6 @@ type ApplicationPortRanges interface {
 
 	Remove() error
 	Refresh() error
-
-	// UniquePortRanges returns a slice of unique open PortRanges for
-	// an application.
-	UniquePortRanges() []network.PortRange
 }
 
 type applicationPortRanges struct {
@@ -95,7 +95,6 @@ func (p *applicationPortRanges) Open(endpoint string, portRange network.PortRang
 	}
 
 	p.pendingOpenRanges[endpoint] = append(p.pendingOpenRanges[endpoint], portRange)
-	logger.Criticalf("Open endpoint %q, portRange -> %#v, p.pendingOpenRanges %#v", endpoint, portRange, p.pendingOpenRanges)
 }
 
 // Close records a request for closing a particular port range for the
@@ -106,7 +105,11 @@ func (p *applicationPortRanges) Close(endpoint string, portRange network.PortRan
 	}
 
 	p.pendingCloseRanges[endpoint] = append(p.pendingCloseRanges[endpoint], portRange)
-	logger.Criticalf("Close endpoint %q, portRange -> %#v, p.pendingCloseRanges %#v", endpoint, portRange, p.pendingCloseRanges)
+}
+
+func (p *applicationPortRanges) clearPendingRecords() {
+	p.pendingOpenRanges = make(network.GroupedPortRanges)
+	p.pendingCloseRanges = make(network.GroupedPortRanges)
 }
 
 // Persisted returns true if the underlying document for this instance exists
@@ -203,6 +206,8 @@ func newApplicationPortRangesOperation(apr *applicationPortRanges) ModelOperatio
 }
 
 func (op *applicationPortRangesOperation) Build(attempt int) ([]txn.Op, error) {
+	defer op.apr.clearPendingRecords()
+
 	if err := checkModelNotDead(op.apr.st); err != nil {
 		return nil, errors.Annotate(err, "cannot open/close ports")
 	}
@@ -248,7 +253,6 @@ func (op *applicationPortRangesOperation) Build(attempt int) ([]txn.Op, error) {
 	} else if len(op.updatedPortRanges) == 0 {
 		// Port list is empty; get rid of ports document.
 		ops = append(ops, op.apr.removeOps()...)
-		logger.Criticalf("removeOps...")
 	} else {
 		assert := bson.D{
 			{Name: "txn-revno", Value: op.apr.doc.TxnRevno},
@@ -291,15 +295,16 @@ func (op *applicationPortRangesOperation) mergePendingClosePortRanges() (bool, e
 func (op *applicationPortRangesOperation) removePortRange(endpointName string, portRange network.PortRange) bool {
 	var modified bool
 	existingRanges := op.updatedPortRanges[endpointName]
-	for i, existingRange := range existingRanges {
-		if existingRange != portRange {
+	for i, v := range existingRanges {
+		if v != portRange {
 			continue
 		}
-		logger.Criticalf("removePortRange portRange %q", portRange)
-		logger.Criticalf("removePortRange 1 existingRanges %q", existingRanges)
 		existingRanges = append(existingRanges[:i], existingRanges[i+1:]...)
-		logger.Criticalf("removePortRange 2 existingRanges %q", existingRanges)
-		op.updatedPortRanges[endpointName] = existingRanges
+		if len(existingRanges) == 0 {
+			delete(op.updatedPortRanges, endpointName)
+		} else {
+			op.updatedPortRanges[endpointName] = existingRanges
+		}
 		modified = true
 	}
 	return modified
