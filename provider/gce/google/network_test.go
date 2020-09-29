@@ -33,7 +33,7 @@ func (s *networkSuite) TestNetworkSpecNewInterface(c *gc.C) {
 	spec := google.NetworkSpec{
 		Name: "spam",
 	}
-	netIF := google.NewNetInterface(spec, "eggs")
+	netIF := google.NewNetInterface(spec, "eggs", true)
 
 	c.Check(netIF, gc.DeepEquals, &compute.NetworkInterface{
 		Network: "global/networks/spam",
