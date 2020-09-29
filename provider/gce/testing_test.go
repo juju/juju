@@ -199,7 +199,6 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 		InstanceConfig: instanceConfig,
 		Tools:          tools,
 		Constraints:    cons,
-		//Placement: "",
 	}
 
 	s.InstanceType = allInstanceTypes[0]
