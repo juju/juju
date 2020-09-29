@@ -187,8 +187,10 @@ func (c *Client) GetCharmURL(branchName, applicationName string) (*charm.URL, er
 	return charm.ParseURL(result.Result)
 }
 
-// GetCharmURLOrigin returns the charm URL the given application is
-// running at present.
+// GetCharmURLOrigin returns the charm URL along with the charm Origin for the
+// given application is running at present.
+// The charm origin gives more information about the location of the charm and
+// what revision/channel it came from.
 func (c *Client) GetCharmURLOrigin(branchName, applicationName string) (*charm.URL, apicharm.Origin, error) {
 	args := params.ApplicationGet{
 		ApplicationName: applicationName,
