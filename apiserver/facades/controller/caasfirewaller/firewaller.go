@@ -132,9 +132,7 @@ type FacadeEmbedded struct {
 func NewStateFacadeEmbedded(ctx facade.Context) (*FacadeEmbedded, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
-	// For TESTING
-	// appWatcherFacade := common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterCAASEmbedded)
-	appWatcherFacade := common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterCAASLegacy)
+	appWatcherFacade := common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterCAASEmbedded)
 
 	st := ctx.State()
 	commonCharmsAPI, err := charmscommon.NewCharmsAPI(st, authorizer)
