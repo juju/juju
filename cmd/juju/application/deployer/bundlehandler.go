@@ -93,7 +93,7 @@ type bundleDeploySpec struct {
 //
 // Note: deployBundle expects that spec.BundleData points to a verified bundle
 // that has all required external overlays applied.
-func bundleDeploy(bundleData *charm.BundleData, spec bundleDeploySpec) (map[*charm.URL]*macaroon.Macaroon, error) {
+func bundleDeploy(bundleData *charm.BundleData, spec bundleDeploySpec) (map[charm.URL]*macaroon.Macaroon, error) {
 	// TODO: move bundle parsing and checking into the handler.
 	h := makeBundleHandler(bundleData, spec)
 	if err := h.makeModel(spec.useExistingMachines, spec.bundleMachines); err != nil {
@@ -187,8 +187,8 @@ type bundleHandler struct {
 
 	model *bundlechanges.Model
 
-	macaroons map[*charm.URL]*macaroon.Macaroon
-	origins   map[*charm.URL]commoncharm.Origin
+	macaroons map[charm.URL]*macaroon.Macaroon
+	origins   map[charm.URL]commoncharm.Origin
 
 	// watcher holds an environment mega-watcher used to keep the environment
 	// status up to date.
@@ -240,8 +240,8 @@ func makeBundleHandler(bundleData *charm.BundleData, spec bundleDeploySpec) *bun
 		data:                 bundleData,
 		bundleURL:            spec.bundleURL,
 		unitStatus:           make(map[string]string),
-		macaroons:            make(map[*charm.URL]*macaroon.Macaroon),
-		origins:              make(map[*charm.URL]commoncharm.Origin),
+		macaroons:            make(map[charm.URL]*macaroon.Macaroon),
+		origins:              make(map[charm.URL]commoncharm.Origin),
 
 		targetModelName: spec.targetModelName,
 		targetModelUUID: spec.targetModelUUID,
@@ -486,18 +486,18 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		return nil
 	}
 	id := change.Id()
-	chParms := change.Params
+	chParams := change.Params
 
 	// Use the series specified for this charm in the bundle,
 	// fallback to the series specified for the bundle.
-	series := chParms.Series
+	series := chParams.Series
 	if series == "" {
 		series = h.data.Series
 	}
 
 	// First attempt to interpret as a local path.
-	if h.isLocalCharm(chParms.Charm) {
-		charmPath := chParms.Charm
+	if h.isLocalCharm(chParams.Charm) {
+		charmPath := chParams.Charm
 		if !filepath.IsAbs(charmPath) {
 			charmPath = filepath.Join(h.bundleDir, charmPath)
 		}
@@ -522,12 +522,12 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	}
 
 	// Not a local charm, so grab from the store.
-	ch, err := resolveCharmURL(chParms.Charm)
+	ch, err := resolveCharmURL(chParams.Charm)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	// A channel is needed whether the risk is valid or not.
-	channel, _ := corecharm.ParseChannel(chParms.Channel)
+	channel, _ := corecharm.ParseChannel(chParams.Channel)
 	origin, err := utils.DeduceOrigin(ch, channel)
 	if err != nil {
 		return errors.Trace(err)
@@ -535,22 +535,25 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 
 	url, origin, _, err := h.bundleResolver.ResolveCharm(ch, origin)
 	if err != nil {
-		return errors.Annotatef(err, "cannot resolve URL %q", chParms.Charm)
+		return errors.Annotatef(err, "cannot resolve URL %q", chParams.Charm)
 	}
 	if url.Series == "bundle" {
-		return errors.Errorf("expected charm URL, got bundle URL %q", chParms.Charm)
+		return errors.Errorf("expected charm URL, got bundle URL %q", chParams.Charm)
 	}
 
 	var macaroon *macaroon.Macaroon
 	var charmOrigin commoncharm.Origin
 	url, macaroon, charmOrigin, err = store.AddCharmWithAuthorizationFromURL(h.deployAPI, h.authorizer, url, origin, h.force, series)
 	if err != nil {
-		return errors.Annotatef(err, "cannot add charm %q", chParms.Charm)
+		return errors.Annotatef(err, "cannot add charm %q", chParams.Charm)
+	} else if url == nil {
+		return errors.Errorf("unexpected charm URL %q", chParams.Charm)
 	}
+
 	logger.Debugf("added charm %s", url)
 	h.results[id] = url.String()
-	h.macaroons[url] = macaroon
-	h.origins[url] = charmOrigin
+	h.macaroons[*url] = macaroon
+	h.origins[*url] = charmOrigin
 	return nil
 }
 
@@ -587,13 +590,15 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	cURL, err := resolveCharmURL(resolve(p.Charm, h.results))
 	if err != nil {
 		return errors.Trace(err)
+	} else if cURL == nil {
+		return errors.Errorf("unexpected application charm URL %q", p.Charm)
 	}
 
 	chID := charmstore.CharmID{
 		URL:     cURL,
-		Channel: csparams.Channel(h.origins[cURL].Risk),
+		Channel: csparams.Channel(h.origins[*cURL].Risk),
 	}
-	macaroon := h.macaroons[cURL]
+	macaroon := h.macaroons[*cURL]
 
 	h.results[change.Id()] = p.Application
 	ch := chID.URL.String()
@@ -966,13 +971,15 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 	cURL, err := resolveCharmURL(resolve(p.Charm, h.results))
 	if err != nil {
 		return errors.Trace(err)
+	} else if cURL == nil {
+		return errors.Errorf("unexpected upgrade charm URL %q", p.Charm)
 	}
 
 	chID := charmstore.CharmID{
 		URL:     cURL,
-		Channel: csparams.Channel(h.origins[cURL].Risk),
+		Channel: csparams.Channel(h.origins[*cURL].Risk),
 	}
-	macaroon := h.macaroons[cURL]
+	macaroon := h.macaroons[*cURL]
 
 	meta, err := utils.GetMetaResources(cURL, h.deployAPI)
 	if err != nil {
