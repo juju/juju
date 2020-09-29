@@ -173,26 +173,29 @@ func archName(in string) string {
 	return in
 }
 
-func (e *environ) supportedInstanceTypes(ec2Session ec2iface.EC2API, ctx context.ProviderCallContext) (result []instances.InstanceType, err error) {
+func (e *environ) supportedInstanceTypes(ec2Session ec2iface.EC2API, ctx context.ProviderCallContext) ([]instances.InstanceType, error) {
 	e.instTypesMutex.Lock()
 	defer e.instTypesMutex.Unlock()
-
-	defer func() {
-		if err == nil {
-			if len(e.instTypes) == 0 {
-				logger.Tracef("got instance types:\n%#v", result)
-			}
-			e.instTypes = result
-		}
-	}()
 
 	// Use a cached copy if populated as it's mildly
 	// expensive to fetch each time.
 	// TODO(wallyworld) - consider using a cache with expiry
-	if len(e.instTypes) > 0 {
-		return e.instTypes, nil
+	if len(e.instTypes) == 0 {
+		instTypes, err := e.collectSupportedInstanceTypes(ec2Session, ctx)
+		if err != nil {
+			return nil, err
+		}
+		e.instTypes = instTypes
 	}
 
+	return e.instTypes, nil
+}
+
+// collectSupportedInstanceTypes queries several EC2 APIs and combines the
+// results into a slice of InstanceType values.
+//
+// This method must be called while holding the instTypesMutex.
+func (e *environ) collectSupportedInstanceTypes(ec2Session ec2iface.EC2API, ctx context.ProviderCallContext) ([]instances.InstanceType, error) {
 	const (
 		maxOfferingsResults = 1000
 		maxTypesPage        = 100
@@ -372,8 +375,11 @@ func instanceTypeCosts(ec2Session ec2iface.EC2API, instTypeNames []*string, zone
 			// Only look at Linux results (to reduce total number of results;
 			// it's only an estimate anyway)
 			{
-				Name:   aws.String("product-description"),
-				Values: []*string{aws.String("Linux/UNIX")},
+				Name: aws.String("product-description"),
+				Values: []*string{
+					aws.String("Linux/UNIX"),
+					aws.String("Linux/UNIX (Amazon VPC)"),
+				},
 			},
 		},
 	}
