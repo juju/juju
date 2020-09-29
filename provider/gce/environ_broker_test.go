@@ -158,6 +158,24 @@ func (s *environBrokerSuite) TestNewRawInstance(c *gc.C) {
 	c.Check(inst, jc.DeepEquals, s.BaseInstance)
 }
 
+func (s *environBrokerSuite) TestNewRawInstanceNoPublicIP(c *gc.C) {
+	s.FakeConn.Inst = s.BaseInstance
+	s.FakeCommon.AZInstances = []common.AvailabilityZoneInstances{{
+		ZoneName:  "home-zone",
+		Instances: []instance.Id{s.Instance.Id()},
+	}}
+
+	public := false
+	s.StartInstArgs.Constraints.AllocatePublicIP = &public
+
+	inst, err := gce.NewRawInstance(s.Env, s.CallCtx, s.StartInstArgs, s.spec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	nics := inst.NetworkInterfaces()
+	c.Assert(nics, gc.HasLen, 1)
+	c.Assert(nics[0].AccessConfigs, gc.HasLen, 0)
+}
+
 func (s *environBrokerSuite) TestNewRawInstanceZoneInvalidCredentialError(c *gc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
