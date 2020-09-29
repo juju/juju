@@ -372,8 +372,11 @@ func instanceTypeCosts(ec2Session ec2iface.EC2API, instTypeNames []*string, zone
 			// Only look at Linux results (to reduce total number of results;
 			// it's only an estimate anyway)
 			{
-				Name:   aws.String("product-description"),
-				Values: []*string{aws.String("Linux/UNIX")},
+				Name: aws.String("product-description"),
+				Values: []*string{
+					aws.String("Linux/UNIX"),
+					aws.String("Linux/UNIX (Amazon VPC)"),
+				},
 			},
 		},
 	}
