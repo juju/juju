@@ -235,14 +235,15 @@ type OpPutFile struct {
 // environProvider represents the dummy provider.  There is only ever one
 // instance of this type (dummy)
 type environProvider struct {
-	mu                     sync.Mutex
-	ops                    chan<- Operation
-	newStatePolicy         state.NewPolicyFunc
-	supportsSpaces         bool
-	supportsSpaceDiscovery bool
-	apiPort                int
-	controllerState        *environState
-	state                  map[string]*environState
+	mu                         sync.Mutex
+	ops                        chan<- Operation
+	newStatePolicy             state.NewPolicyFunc
+	supportsRulesWithIPV6CIDRs bool
+	supportsSpaces             bool
+	supportsSpaceDiscovery     bool
+	apiPort                    int
+	controllerState            *environState
+	state                      map[string]*environState
 }
 
 // APIPort returns the random api port used by the given provider instance.
@@ -310,11 +311,12 @@ func init() {
 
 // dummy is the dummy environmentProvider singleton.
 var dummy = environProvider{
-	ops:                    discardOperations,
-	state:                  make(map[string]*environState),
-	newStatePolicy:         stateenvirons.GetNewPolicyFunc(),
-	supportsSpaces:         true,
-	supportsSpaceDiscovery: false,
+	ops:                        discardOperations,
+	state:                      make(map[string]*environState),
+	newStatePolicy:             stateenvirons.GetNewPolicyFunc(),
+	supportsSpaces:             true,
+	supportsSpaceDiscovery:     false,
+	supportsRulesWithIPV6CIDRs: true,
 }
 
 // Reset resets the entire dummy environment and forgets any registered
@@ -330,6 +332,7 @@ func Reset(c *gc.C) {
 	dummy.newStatePolicy = stateenvirons.GetNewPolicyFunc()
 	dummy.supportsSpaces = true
 	dummy.supportsSpaceDiscovery = false
+	dummy.supportsRulesWithIPV6CIDRs = true
 	dummy.mu.Unlock()
 
 	// NOTE(axw) we must destroy the old states without holding
@@ -526,6 +529,15 @@ func SetSupportsSpaces(supports bool) bool {
 	defer dummy.mu.Unlock()
 	current := dummy.supportsSpaces
 	dummy.supportsSpaces = supports
+	return current
+}
+
+// SetSupportsRulesWithIPV6CIDRs allows to toggle support for IPV6 CIDRs in firewall rules.
+func SetSupportsRulesWithIPV6CIDRs(supports bool) bool {
+	dummy.mu.Lock()
+	defer dummy.mu.Unlock()
+	current := dummy.supportsRulesWithIPV6CIDRs
+	dummy.supportsRulesWithIPV6CIDRs = supports
 	return current
 }
 
@@ -1728,6 +1740,19 @@ func (e *environ) IngressRules(ctx context.ProviderCallContext) (rules firewall.
 	}
 	rules.Sort()
 	return
+}
+
+// SupportsRulesWithIPV6CIDRs returns true if the environment supports ingress
+// rules containing IPV6 CIDRs. It is part of the FirewallFeatureQuerier
+// interface.
+func (e *environ) SupportsRulesWithIPV6CIDRs(context.ProviderCallContext) (bool, error) {
+	if err := e.checkBroken("SupportsRulesWithIPV6CIDRs"); err != nil {
+		return false, err
+	}
+
+	dummy.mu.Lock()
+	defer dummy.mu.Unlock()
+	return dummy.supportsRulesWithIPV6CIDRs, nil
 }
 
 func (*environ) Provider() environs.EnvironProvider {
