@@ -50,8 +50,8 @@ func SetInstanceSpec(inst *Instance, spec *InstanceSpec) {
 	inst.spec = spec
 }
 
-func NewNetInterface(spec NetworkSpec, name string) *compute.NetworkInterface {
-	return spec.newInterface(name)
+func NewNetInterface(spec NetworkSpec, name string, allocatePublicIP bool) *compute.NetworkInterface {
+	return spec.newInterface(name, allocatePublicIP)
 }
 
 func ConnAddInstance(conn *Connection, inst *compute.Instance, mtype string, zone string) error {
