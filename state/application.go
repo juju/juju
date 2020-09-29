@@ -664,8 +664,13 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 		removeSettingsOp(settingsC, a.applicationConfigKey()),
 		removeModelApplicationRefOp(a.st, name),
 		removePodSpecOp(a.ApplicationTag()),
-		// TODO: removeApplicationPortRangeOp(a.ApplicationTag()),
 	)
+
+	openedApplicationPortRanges, err := getOpenedApplicationPortRanges(a.st, a.Name())
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, openedApplicationPortRanges.removeOps()...)
 	return ops, nil
 }
 

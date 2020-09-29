@@ -173,6 +173,9 @@ func (p *applicationPortRanges) ByEndpoint() network.GroupedPortRanges {
 }
 
 func (p *applicationPortRanges) removeOps() []txn.Op {
+	if !p.docExists {
+		return nil
+	}
 	return []txn.Op{{
 		C:      openedPortsC,
 		Id:     p.doc.DocID,

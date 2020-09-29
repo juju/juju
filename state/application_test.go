@@ -2847,6 +2847,28 @@ func (s *ApplicationSuite) TestDestroyWithRemovableRelation(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *ApplicationSuite) TestDestroyWithRemovableApplicationOpenedPortRanges(c *gc.C) {
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	appPortRanges, err := wordpress.OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 0)
+	appPortRanges.Open(allEndpoints, network.MustParsePortRange("100-200/tcp"))
+	// appPortRanges.Open("monitoring-port", network.MustParsePortRange("10-20/udp"))
+	c.Assert(s.State.ApplyOperation(appPortRanges.Changes()), jc.ErrorIsNil)
+	err = appPortRanges.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 1)
+
+	// Destroy a application; check application and
+	// openedApplicationportRanges removed.
+	err = wordpress.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = wordpress.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	err = appPortRanges.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *ApplicationSuite) TestDestroyWithReferencedRelation(c *gc.C) {
 	s.assertDestroyWithReferencedRelation(c, true)
 }
