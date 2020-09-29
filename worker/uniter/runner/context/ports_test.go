@@ -24,9 +24,10 @@ type portRangeTest struct {
 	targetEndpoint  string
 	targetPortRange network.PortRange
 
-	machinePortRanges  map[names.UnitTag]network.GroupedPortRanges
-	pendingOpenRanges  network.GroupedPortRanges
-	pendingCloseRanges network.GroupedPortRanges
+	machinePortRanges     map[names.UnitTag]network.GroupedPortRanges
+	applicationPortRanges network.GroupedPortRanges
+	pendingOpenRanges     network.GroupedPortRanges
+	pendingCloseRanges    network.GroupedPortRanges
 
 	expectErr          string
 	expectPendingOpen  network.GroupedPortRanges
@@ -129,7 +130,7 @@ func (s *PortRangeChangeRecorderSuite) TestOpenPortRange(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.about)
 
-		rec := newPortRangeChangeRecorder(targetUnit, test.machinePortRanges)
+		rec := newPortRangeChangeRecorder(targetUnit, test.machinePortRanges, test.applicationPortRanges)
 		rec.pendingOpenRanges = test.pendingOpenRanges
 		rec.pendingCloseRanges = test.pendingCloseRanges
 
@@ -257,7 +258,7 @@ func (s *PortRangeChangeRecorderSuite) TestClosePortRange(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.about)
 
-		rec := newPortRangeChangeRecorder(targetUnit, test.machinePortRanges)
+		rec := newPortRangeChangeRecorder(targetUnit, test.machinePortRanges, test.applicationPortRanges)
 		rec.pendingOpenRanges = test.pendingOpenRanges
 		rec.pendingCloseRanges = test.pendingCloseRanges
 

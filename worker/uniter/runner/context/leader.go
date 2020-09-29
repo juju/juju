@@ -21,6 +21,8 @@ type LeadershipSettingsAccessor interface {
 	Merge(applicationName, unitName string, settings map[string]string) error
 }
 
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/leadershipcontext_mock.go github.com/juju/juju/worker/uniter/runner/context LeadershipContext
+
 // LeadershipContext provides several hooks.Context methods. It
 // exists separately of HookContext for clarity, and ease of testing.
 type LeadershipContext interface {

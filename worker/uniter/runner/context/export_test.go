@@ -13,6 +13,8 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/worker/uniter/runner/context/mocks"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -44,6 +46,7 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 		id:                  hcParams.ID,
 		uuid:                hcParams.UUID,
 		modelName:           hcParams.ModelName,
+		modelType:           model.IAAS,
 		unitName:            hcParams.Unit.Name(),
 		relationId:          hcParams.RelationID,
 		remoteUnitName:      hcParams.RemoteUnitName,
@@ -74,7 +77,11 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ctx.portRangeChanges = newPortRangeChangeRecorder(hcParams.Unit.Tag(), machPorts)
+	appPortRanges, err := hcParams.State.OpenedApplicationPortRangesByEndpoint(hcParams.Unit.ApplicationTag())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ctx.portRangeChanges = newPortRangeChangeRecorder(hcParams.Unit.Tag(), machPorts, appPortRanges)
 
 	statusCode, statusInfo, err := hcParams.Unit.MeterStatus()
 	if err != nil {
@@ -87,11 +94,15 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 	return ctx, nil
 }
 
-func NewMockUnitHookContext(unitName string, mockUnit *mocks.MockHookUnit) *HookContext {
+func NewMockUnitHookContext(unitName string, mockUnit *mocks.MockHookUnit, modelType model.ModelType, leadershipContext LeadershipContext) *HookContext {
 	return &HookContext{
-		unit:             mockUnit,
-		logger:           loggo.GetLogger("test"),
-		portRangeChanges: newPortRangeChangeRecorder(names.NewUnitTag(unitName), nil),
+		unit:              mockUnit,
+		logger:            loggo.GetLogger("test"),
+		modelType:         modelType,
+		LeadershipContext: leadershipContext,
+		portRangeChanges: newPortRangeChangeRecorder(names.NewUnitTag(unitName), nil, network.GroupedPortRanges{
+			"": []network.PortRange{network.MustParsePortRange("666-888/tcp")},
+		}),
 	}
 }
 
@@ -101,20 +112,20 @@ func NewMockUnitHookContextWithState(unitName string, mockUnit *mocks.MockHookUn
 		unit:             mockUnit,
 		state:            state,
 		logger:           loggo.GetLogger("test"),
-		portRangeChanges: newPortRangeChangeRecorder(names.NewUnitTag(unitName), nil),
+		portRangeChanges: newPortRangeChangeRecorder(names.NewUnitTag(unitName), nil, nil),
 	}
 }
 
 // SetEnvironmentHookContextRelation exists purely to set the fields used in hookVars.
 // It makes no assumptions about the validity of context.
-func SetEnvironmentHookContextRelation(context *HookContext, relationId int, endpointName, remoteUnitName, remoteAppName, departingUnitName string) {
-	context.relationId = relationId
+func SetEnvironmentHookContextRelation(context *HookContext, relationID int, endpointName, remoteUnitName, remoteAppName, departingUnitName string) {
+	context.relationId = relationID
 	context.remoteUnitName = remoteUnitName
 	context.remoteApplicationName = remoteAppName
 	context.relations = map[int]*ContextRelation{
-		relationId: {
+		relationID: {
 			endpointName: endpointName,
-			relationId:   relationId,
+			relationId:   relationID,
 		},
 	}
 	context.departingUnitName = departingUnitName

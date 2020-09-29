@@ -568,15 +568,16 @@ func (p *mockProcess) Pid() int {
 var _ = gc.Suite(&mockHookContextSuite{})
 
 type mockHookContextSuite struct {
-	mockUnit  *mocks.MockHookUnit
-	mockCache params.UnitStateResult
+	mockUnit              *mocks.MockHookUnit
+	mockLeadershipContext *mocks.MockLeadershipContext
+	mockCache             params.UnitStateResult
 }
 
 func (s *mockHookContextSuite) TestDeleteCharmStateValue(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectStateValues()
 
-	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit)
+	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit, model.IAAS, s.mockLeadershipContext)
 	err := hookContext.DeleteCharmStateValue("one")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -589,7 +590,7 @@ func (s *mockHookContextSuite) TestDeleteCacheStateErr(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.mockUnit.EXPECT().State().Return(params.UnitStateResult{}, errors.Errorf("testing an error"))
 
-	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit)
+	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit, model.IAAS, s.mockLeadershipContext)
 	err := hookContext.DeleteCharmStateValue("five")
 	c.Assert(err, gc.ErrorMatches, "loading unit state from database: testing an error")
 }
@@ -598,7 +599,7 @@ func (s *mockHookContextSuite) TestGetCharmState(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectStateValues()
 
-	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit)
+	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit, model.IAAS, s.mockLeadershipContext)
 	obtainedCache, err := hookContext.GetCharmState()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedCache, gc.DeepEquals, s.mockCache.CharmState)
@@ -608,7 +609,7 @@ func (s *mockHookContextSuite) TestGetCharmStateStateErr(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.mockUnit.EXPECT().State().Return(params.UnitStateResult{}, errors.Errorf("testing an error"))
 
-	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit)
+	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit, model.IAAS, s.mockLeadershipContext)
 	_, err := hookContext.GetCharmState()
 	c.Assert(err, gc.ErrorMatches, "loading unit state from database: testing an error")
 }
@@ -617,7 +618,7 @@ func (s *mockHookContextSuite) TestGetCharmStateValue(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectStateValues()
 
-	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit)
+	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit, model.IAAS, s.mockLeadershipContext)
 	obtainedVale, err := hookContext.GetCharmStateValue("one")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedVale, gc.Equals, "two")
@@ -627,7 +628,7 @@ func (s *mockHookContextSuite) TestGetCharmStateValueEmpty(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectStateValues()
 
-	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit)
+	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit, model.IAAS, s.mockLeadershipContext)
 	obtainedVale, err := hookContext.GetCharmStateValue("seven")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedVale, gc.Equals, "")
@@ -637,7 +638,7 @@ func (s *mockHookContextSuite) TestGetCharmStateValueNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectStateValues()
 
-	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit)
+	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit, model.IAAS, s.mockLeadershipContext)
 	obtainedCache, err := hookContext.GetCharmStateValue("five")
 	c.Assert(err, gc.ErrorMatches, "\"five\" not found")
 	c.Assert(obtainedCache, gc.Equals, "")
@@ -647,7 +648,7 @@ func (s *mockHookContextSuite) TestGetCharmStateValueStateErr(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.mockUnit.EXPECT().State().Return(params.UnitStateResult{}, errors.Errorf("testing an error"))
 
-	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit)
+	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit, model.IAAS, s.mockLeadershipContext)
 	_, err := hookContext.GetCharmStateValue("key")
 	c.Assert(err, gc.ErrorMatches, "loading unit state from database: testing an error")
 }
@@ -663,7 +664,7 @@ func (s *mockHookContextSuite) TestSetCache(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectStateValues()
 
-	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit)
+	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit, model.IAAS, s.mockLeadershipContext)
 
 	// Test key len limit
 	err := hookContext.SetCharmStateValue(
@@ -690,7 +691,7 @@ func (s *mockHookContextSuite) TestSetCacheEmptyStartState(c *gc.C) {
 }
 
 func (s *mockHookContextSuite) testSetCache(c *gc.C) {
-	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit)
+	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit, model.IAAS, s.mockLeadershipContext)
 	err := hookContext.SetCharmStateValue("five", "six")
 	c.Assert(err, jc.ErrorIsNil)
 	obtainedCache, err := hookContext.GetCharmState()
@@ -704,14 +705,14 @@ func (s *mockHookContextSuite) TestSetCacheStateErr(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.mockUnit.EXPECT().State().Return(params.UnitStateResult{}, errors.Errorf("testing an error"))
 
-	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit)
+	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit, model.IAAS, s.mockLeadershipContext)
 	err := hookContext.SetCharmStateValue("five", "six")
 	c.Assert(err, gc.ErrorMatches, "loading unit state from database: testing an error")
 }
 
 func (s *mockHookContextSuite) TestFlushWithNonDirtyCache(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit)
+	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit, model.IAAS, s.mockLeadershipContext)
 	s.expectStateValues()
 	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0"))
 
@@ -729,7 +730,7 @@ func (s *mockHookContextSuite) TestFlushWithNonDirtyCache(c *gc.C) {
 
 func (s *mockHookContextSuite) TestSequentialFlushOfCacheValues(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit)
+	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit, model.IAAS, s.mockLeadershipContext)
 
 	// We expect a single call for the following API endpoints
 	s.expectStateValues()
@@ -763,9 +764,99 @@ func (s *mockHookContextSuite) TestSequentialFlushOfCacheValues(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *mockHookContextSuite) TestOpenPortRange(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit, model.CAAS, s.mockLeadershipContext)
+
+	s.mockLeadershipContext.EXPECT().IsLeader().Return(true, nil)
+
+	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).Times(1)
+	s.mockUnit.EXPECT().CommitHookChanges(params.CommitHookChangesArgs{
+		Args: []params.CommitHookChangesArg{
+			{
+				Tag: "unit-wordpress-0",
+				OpenPorts: []params.EntityPortRange{
+					{
+						Tag:      "unit-wordpress-0",
+						Endpoint: "",
+						Protocol: "tcp",
+						FromPort: 100,
+						ToPort:   200,
+					},
+				},
+			},
+		},
+	}).Return(nil)
+
+	err := hookContext.OpenPortRange("", network.MustParsePortRange("100-200/tcp"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = hookContext.Flush("success", nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *mockHookContextSuite) TestClosePortRange(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit, model.CAAS, s.mockLeadershipContext)
+
+	s.mockLeadershipContext.EXPECT().IsLeader().Return(true, nil)
+	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).Times(1)
+	s.mockUnit.EXPECT().CommitHookChanges(params.CommitHookChangesArgs{
+		Args: []params.CommitHookChangesArg{
+			{
+				Tag: "unit-wordpress-0",
+				ClosePorts: []params.EntityPortRange{
+					{
+						Tag:      "unit-wordpress-0",
+						Endpoint: "",
+						Protocol: "tcp",
+						FromPort: 666,
+						ToPort:   888,
+					},
+				},
+			},
+		},
+	}).Return(nil)
+
+	err := hookContext.ClosePortRange("", network.MustParsePortRange("666-888/tcp"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = hookContext.Flush("success", nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *mockHookContextSuite) TestOpenPortRangeFailedForNonLeaderUnit(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit, model.CAAS, s.mockLeadershipContext)
+
+	s.mockLeadershipContext.EXPECT().IsLeader().Return(false, nil)
+	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).Times(1)
+
+	err := hookContext.OpenPortRange("", network.MustParsePortRange("100-200/tcp"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = hookContext.Flush("success", nil)
+	c.Assert(err, gc.ErrorMatches, `this unit is not the leader`)
+}
+
+func (s *mockHookContextSuite) TestClosePortRangeFailedForNonLeaderUnit(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	hookContext := context.NewMockUnitHookContext("wordpress/0", s.mockUnit, model.CAAS, s.mockLeadershipContext)
+
+	s.mockLeadershipContext.EXPECT().IsLeader().Return(false, nil)
+	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).Times(1)
+
+	err := hookContext.ClosePortRange("", network.MustParsePortRange("666-888/tcp"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = hookContext.Flush("success", nil)
+	c.Assert(err, gc.ErrorMatches, `this unit is not the leader`)
+}
+
 func (s *mockHookContextSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockUnit = mocks.NewMockHookUnit(ctrl)
+	s.mockLeadershipContext = mocks.NewMockLeadershipContext(ctrl)
 	return ctrl
 }
 

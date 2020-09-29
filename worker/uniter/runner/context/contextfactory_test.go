@@ -840,9 +840,10 @@ func (s *ContextFactorySuite) TestReadApplicationSettings(c *gc.C) {
 type StubLeadershipContext struct {
 	context.LeadershipContext
 	*testing.Stub
+	isLeader bool
 }
 
 func (stub *StubLeadershipContext) IsLeader() (bool, error) {
 	stub.MethodCall(stub, "IsLeader")
-	return false, stub.NextErr()
+	return stub.isLeader, stub.NextErr()
 }

@@ -692,7 +692,6 @@ func (ctx *HookContext) AddUnitStorage(cons map[string]params.StorageConstraints
 // OpenPortRange marks the supplied port range for opening.
 // Implements jujuc.HookContext.ContextNetworking, part of runner.Context.
 func (ctx *HookContext) OpenPortRange(endpointName string, portRange network.PortRange) error {
-	ctx.logger.Criticalf("HookContext.OpenPortRange endpointName %q, portRange %#v", endpointName, portRange)
 	return ctx.portRangeChanges.OpenPortRange(endpointName, portRange)
 }
 
@@ -701,7 +700,6 @@ func (ctx *HookContext) OpenPortRange(endpointName string, portRange network.Por
 // separately by a co- located unit).
 // Implements jujuc.HookContext.ContextNetworking, part of runner.Context.
 func (ctx *HookContext) ClosePortRange(endpointName string, portRange network.PortRange) error {
-	ctx.logger.Criticalf("HookContext.ClosePortRange endpointName %q, portRange %#v", endpointName, portRange)
 	return ctx.portRangeChanges.ClosePortRange(endpointName, portRange)
 }
 
@@ -1097,8 +1095,6 @@ func (ctx *HookContext) doFlush(process string) error {
 		b.UpdateRelationUnitSettings(rctx.RelationTag().String(), unitSettings, appSettings)
 	}
 
-	ctx.logger.Criticalf("ctx.portRangeChanges.pendingOpenRanges %#v", ctx.portRangeChanges.pendingOpenRanges)
-	ctx.logger.Criticalf("ctx.portRangeChanges.pendingCloseRanges %#v", ctx.portRangeChanges.pendingCloseRanges)
 	if len(ctx.portRangeChanges.pendingOpenRanges)+len(ctx.portRangeChanges.pendingCloseRanges) > 0 {
 		// Open/Close port can be done on leaders only for CAAS model.
 		if err := ctx.caasLeaderShipCheck(); err != nil {
@@ -1112,7 +1108,6 @@ func (ctx *HookContext) doFlush(process string) error {
 		}
 		for endpointName, portRanges := range ctx.portRangeChanges.pendingCloseRanges {
 			for _, pr := range portRanges {
-				ctx.logger.Errorf("ClosePortRange  %#v", pr)
 				b.ClosePortRange(endpointName, pr)
 			}
 		}
