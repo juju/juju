@@ -489,10 +489,14 @@ func (u *UniterAPI) OpenedApplicationPortRangesByEndpoint(entity params.Entity) 
 			u.applicationOpenedPortsForEndpoint(endpointName, pgs),
 		)
 	}
+	sort.Slice(result.Results[0].ApplicationPortRanges, func(i, j int) bool {
+		return result.Results[0].ApplicationPortRanges[i].Endpoint < result.Results[0].ApplicationPortRanges[j].Endpoint
+	})
 	return result, nil
 }
 
 func (u *UniterAPI) applicationOpenedPortsForEndpoint(endpointName string, pgs []corenetwork.PortRange) params.ApplicationOpenedPorts {
+	corenetwork.SortPortRanges(pgs)
 	o := params.ApplicationOpenedPorts{
 		Endpoint:   endpointName,
 		PortRanges: make([]params.PortRange, len(pgs)),

@@ -290,6 +290,7 @@ func (f *FacadeEmbedded) GetApplicationOpenedPorts(arg params.Entity) (params.Ap
 }
 
 func (f *FacadeEmbedded) applicationOpenedPortsForEndpoint(endpointName string, pgs []network.PortRange) params.ApplicationOpenedPorts {
+	network.SortPortRanges(pgs)
 	o := params.ApplicationOpenedPorts{
 		Endpoint:   endpointName,
 		PortRanges: make([]params.PortRange, len(pgs)),
