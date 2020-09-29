@@ -209,21 +209,26 @@ func (m *mockClock) After(duration time.Duration) <-chan time.Time {
 }
 
 func (s *InstanceModeSuite) newFirewaller(c *gc.C) worker.Worker {
-	return s.newFirewallerWithClock(c, &mockClock{c: c})
+	return s.newFirewallerWithClockAndIPV6CIDRSupport(c, &mockClock{c: c}, true)
 }
 
 func (s *InstanceModeSuite) newFirewallerWithClock(c *gc.C, clock clock.Clock) worker.Worker {
+	return s.newFirewallerWithClockAndIPV6CIDRSupport(c, clock, true)
+}
+
+func (s *InstanceModeSuite) newFirewallerWithClockAndIPV6CIDRSupport(c *gc.C, clock clock.Clock, ipv6CIDRSupport bool) worker.Worker {
 	s.clock = clock
 	fwEnv, ok := s.Environ.(environs.Firewaller)
 	c.Assert(ok, gc.Equals, true)
 
 	cfg := firewaller.Config{
-		ModelUUID:          s.State.ModelUUID(),
-		Mode:               config.FwInstance,
-		EnvironFirewaller:  fwEnv,
-		EnvironInstances:   s.Environ,
-		FirewallerAPI:      s.firewaller,
-		RemoteRelationsApi: s.remoteRelations,
+		ModelUUID:              s.State.ModelUUID(),
+		Mode:                   config.FwInstance,
+		EnvironFirewaller:      fwEnv,
+		EnvironInstances:       s.Environ,
+		EnvironIPV6CIDRSupport: ipv6CIDRSupport,
+		FirewallerAPI:          s.firewaller,
+		RemoteRelationsApi:     s.remoteRelations,
 		NewCrossModelFacadeFunc: func(*api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
 		},
@@ -1568,6 +1573,34 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceH
 	s.assertIngressRules(c, inst, m.Id(), nil)
 }
 
+func (s *InstanceModeSuite) TestExposeToIPV6CIDRsOnIPV4OnlyProvider(c *gc.C) {
+	supportsIPV6CIDRs := false
+	fw := s.newFirewallerWithClockAndIPV6CIDRSupport(c, &mockClock{c: c}, supportsIPV6CIDRs)
+	defer statetesting.AssertKillAndWait(c, fw)
+
+	app := s.AddTestingApplication(c, "wordpress", s.charm)
+
+	u, m := s.addUnit(c, app)
+	inst := s.startInstance(c, m)
+
+	mustOpenPortRanges(c, s.State, u, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
+	})
+
+	err := app.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		allEndpoints: {
+			ExposeToCIDRs: []string{"10.0.0.0/24", "2002::1234:abcd:ffff:c0a8:101/64"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Since the provider only supports IPV4 CIDRs, the firewall worker
+	// will filter the IPV6 CIDRs when opening ports.
+	s.assertIngressRules(c, inst, m.Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), "10.0.0.0/24"),
+	})
+}
+
 type modelOp struct {
 	ops []txn.Op
 }
@@ -1590,16 +1623,21 @@ func (s *GlobalModeSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *GlobalModeSuite) newFirewaller(c *gc.C) worker.Worker {
+	return s.newFirewallerWithIPV6CIDRSupport(c, true)
+}
+
+func (s *GlobalModeSuite) newFirewallerWithIPV6CIDRSupport(c *gc.C, supportIPV6CIDRs bool) worker.Worker {
 	fwEnv, ok := s.Environ.(environs.Firewaller)
 	c.Assert(ok, gc.Equals, true)
 
 	cfg := firewaller.Config{
-		ModelUUID:          s.State.ModelUUID(),
-		Mode:               config.FwGlobal,
-		EnvironFirewaller:  fwEnv,
-		EnvironInstances:   s.Environ,
-		FirewallerAPI:      s.firewaller,
-		RemoteRelationsApi: s.remoteRelations,
+		ModelUUID:              s.State.ModelUUID(),
+		Mode:                   config.FwGlobal,
+		EnvironFirewaller:      fwEnv,
+		EnvironInstances:       s.Environ,
+		EnvironIPV6CIDRSupport: supportIPV6CIDRs,
+		FirewallerAPI:          s.firewaller,
+		RemoteRelationsApi:     s.remoteRelations,
 		NewCrossModelFacadeFunc: func(*api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
 		},
@@ -1855,6 +1893,32 @@ func (s *GlobalModeSuite) TestRestartPortCount(c *gc.C) {
 		network.MustParsePortRange("80/tcp"),
 	})
 	s.assertEnvironPorts(c, nil)
+}
+
+func (s *GlobalModeSuite) TestExposeToIPV6CIDRsOnIPV4OnlyProvider(c *gc.C) {
+	supportsIPV6CIDRs := false
+	fw := s.newFirewallerWithIPV6CIDRSupport(c, supportsIPV6CIDRs)
+	defer statetesting.AssertKillAndWait(c, fw)
+
+	app := s.AddTestingApplication(c, "wordpress", s.charm)
+	u, _ := s.addUnit(c, app)
+
+	mustOpenPortRanges(c, s.State, u, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
+	})
+
+	err := app.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		allEndpoints: {
+			ExposeToCIDRs: []string{"10.0.0.0/24", "2002::1234:abcd:ffff:c0a8:101/64"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Since the provider only supports IPV4 CIDRs, the firewall worker
+	// will filter the IPV6 CIDRs when opening ports.
+	s.assertEnvironPorts(c, firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), "10.0.0.0/24"),
+	})
 }
 
 type NoneModeSuite struct {

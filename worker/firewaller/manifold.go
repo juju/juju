@@ -139,12 +139,23 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 		return nil, errors.Trace(err)
 	}
 
+	// Check if the env supports IPV6 CIDRs for firewall ingress rules.
+	var envIPV6CIDRSupport bool
+	if featQuerier, ok := environ.(environs.FirewallFeatureQuerier); ok {
+		var err error
+		cloudCtx := common.NewCloudCallContext(credentialAPI, nil)
+		if envIPV6CIDRSupport, err = featQuerier.SupportsRulesWithIPV6CIDRs(cloudCtx); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
 	w, err := cfg.NewFirewallerWorker(Config{
 		ModelUUID:               agent.CurrentConfig().Model().Id(),
 		RemoteRelationsApi:      remoteRelationsAPI,
 		FirewallerAPI:           firewallerAPI,
 		EnvironFirewaller:       fwEnv,
 		EnvironInstances:        environ,
+		EnvironIPV6CIDRSupport:  envIPV6CIDRSupport,
 		Mode:                    mode,
 		NewCrossModelFacadeFunc: crossmodelFirewallerFacadeFunc(cfg.NewControllerConnection),
 		CredentialAPI:           credentialAPI,
