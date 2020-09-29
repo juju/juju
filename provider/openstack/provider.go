@@ -2343,3 +2343,10 @@ func (*Environ) AreSpacesRoutable(ctx context.ProviderCallContext, space1, space
 func (*Environ) SSHAddresses(ctx context.ProviderCallContext, addresses corenetwork.SpaceAddresses) (corenetwork.SpaceAddresses, error) {
 	return addresses, nil
 }
+
+// SupportsRulesWithIPV6CIDRs returns true if the environment supports ingress
+// rules containing IPV6 CIDRs. It is part of the FirewallFeatureQuerier
+// interface.
+func (e *Environ) SupportsRulesWithIPV6CIDRs(ctx context.ProviderCallContext) (bool, error) {
+	return true, nil
+}
