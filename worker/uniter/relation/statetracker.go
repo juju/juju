@@ -25,7 +25,7 @@ import (
 type LeadershipContextFunc func(accessor context.LeadershipSettingsAccessor, tracker leadership.Tracker, unitName string) context.LeadershipContext
 
 // RelationStateTrackerConfig contains configuration values for creating a new
-// RlationStateTracker instance.
+// RelationStateTracker instance.
 type RelationStateTrackerConfig struct {
 	State                *uniter.State
 	Unit                 *uniter.Unit

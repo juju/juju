@@ -266,7 +266,6 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 }
 
 func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
-
 	defer func() {
 		// If this is a CAAS unit, then dead errors are fairly normal ways to exit
 		// the uniter main loop, but the parent operator agent needs to keep running.
@@ -297,48 +296,9 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	}
 	u.logger.Infof("unit %q started", u.unit)
 
-	// Install is a special case, as it must run before there
-	// is any remote state, and before the remote state watcher
-	// is started.
-	var charmURL *corecharm.URL
-	var charmModifiedVersion int
-	var canApplyCharmProfile bool
-	opState := u.operationExecutor.State()
-	if opState.Kind == operation.Install {
-		u.logger.Infof("resuming charm install")
-		canApplyCharmProfile, err = u.unit.CanApplyLXDProfile()
-		if err != nil {
-			return err
-		}
-		if canApplyCharmProfile {
-			// Note: canApplyCharmProfile will be false for a CAAS model.
-			// Verify the charm profile before proceeding.
-			if err := u.verifyCharmProfile(opState.CharmURL); err != nil {
-				return err
-			}
-		}
-		op, err := u.operationFactory.NewInstall(opState.CharmURL)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if err := u.operationExecutor.Run(op, nil); err != nil {
-			return errors.Trace(err)
-		}
-		charmURL = opState.CharmURL
-	} else {
-		curl, err := u.unit.CharmURL()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		charmURL = curl
-		app, err := u.unit.Application()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		charmModifiedVersion, err = app.CharmModifiedVersion()
-		if err != nil {
-			return errors.Trace(err)
-		}
+	canApplyCharmProfile, charmURL, charmModifiedVersion, err := u.charmState()
+	if err != nil {
+		return err
 	}
 
 	var (
@@ -377,7 +337,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 
 		if watcher != nil {
 			// watcher added to catacomb, will kill uniter if there's an error.
-			worker.Stop(watcher)
+			_ = worker.Stop(watcher)
 		}
 		var err error
 		watcher, err = remotestate.NewWatcher(
@@ -493,6 +453,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			// CAAS remote units should trigger remote update of the charm every start.
 			OutdatedRemoteCharm: u.isRemoteUnit,
 		}
+
 		for err == nil {
 			err = resolver.Loop(resolver.LoopConfig{
 				Logger:        u.logger.Child("resolver"),
@@ -525,6 +486,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				// creating LocalState.
 				charmURL = localState.CharmURL
 				charmModifiedVersion = localState.CharmModifiedVersion
+
 				// leave err assigned, causing loop to break
 			default:
 				// We need to set conflicted from here, because error
@@ -589,6 +551,65 @@ func (u *Uniter) verifyCharmProfile(curl *corecharm.URL) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// charmState returns data for the local state setup.
+// While gathering the data, look for interrupted Install or pending
+// charm upgrade, execute if found.
+func (u *Uniter) charmState() (bool, *corecharm.URL, int, error) {
+	// Install is a special case, as it must run before there
+	// is any remote state, and before the remote state watcher
+	// is started.
+	var charmURL *corecharm.URL
+	var charmModifiedVersion int
+
+	canApplyCharmProfile, err := u.unit.CanApplyLXDProfile()
+	if err != nil {
+		return canApplyCharmProfile, charmURL, charmModifiedVersion, err
+	}
+
+	opState := u.operationExecutor.State()
+	if opState.Kind == operation.Install {
+		u.logger.Infof("resuming charm install")
+		if canApplyCharmProfile {
+			// Note: canApplyCharmProfile will be false for a CAAS model.
+			// Verify the charm profile before proceeding.
+			if err := u.verifyCharmProfile(opState.CharmURL); err != nil {
+				return canApplyCharmProfile, charmURL, charmModifiedVersion, err
+			}
+		}
+		op, err := u.operationFactory.NewInstall(opState.CharmURL)
+		if err != nil {
+			return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
+		}
+		if err := u.operationExecutor.Run(op, nil); err != nil {
+			return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
+		}
+		charmURL = opState.CharmURL
+		return canApplyCharmProfile, charmURL, charmModifiedVersion, nil
+	}
+
+	// No install needed, find the curl and start.
+	curl, err := u.unit.CharmURL()
+	if err != nil {
+		return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
+	}
+	charmURL = curl
+	app, err := u.unit.Application()
+	if err != nil {
+		return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
+	}
+
+	// TODO (hml) 25-09-2020 - investigate
+	// This assumes that the uniter is not restarting after an application
+	// changed notification, with changes to CharmModifiedVersion, but before
+	// it could be acted on.
+	charmModifiedVersion, err = app.CharmModifiedVersion()
+	if err != nil {
+		return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
+	}
+
+	return canApplyCharmProfile, charmURL, charmModifiedVersion, nil
 }
 
 func (u *Uniter) terminate() error {

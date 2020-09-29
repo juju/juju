@@ -7,6 +7,7 @@ import (
 	"github.com/juju/charm/v7/hooks"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
@@ -19,6 +20,7 @@ var logger interface{}
 // Logger represents the logging methods used in this package.
 type Logger interface {
 	Errorf(string, ...interface{})
+	Debugf(string, ...interface{})
 	Tracef(string, ...interface{})
 }
 
@@ -67,6 +69,13 @@ func Loop(cfg LoopConfig, localState *LocalState) error {
 
 	// Initialize charmdir availability before entering the loop in case we're recovering from a restart.
 	err := updateCharmDir(cfg.Logger, cfg.Executor.State(), cfg.CharmDirGuard, cfg.Abort)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// If we're restarting the loop, ensure any pending charm upgrade is run
+	// before continuing.
+	err = checkCharmUpgrade(cfg.Logger, cfg.Watcher.Snapshot(), rf, cfg.Executor)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -166,4 +175,54 @@ func updateCharmDir(logger Logger, opState operation.State, guard fortress.Guard
 	} else {
 		return guard.Lockdown(abort)
 	}
+}
+
+func checkCharmUpgrade(logger Logger, remote remotestate.Snapshot, rf *resolverOpFactory, ex operation.Executor) error {
+	// If we restarted due to error with a pending charm upgrade available,
+	// do the upgrade now.  There are cases (lp:1895040) where the error was
+	// caused because not all units were upgraded before relation-created
+	// hooks were attempted for peer relations.  Do this before the remote
+	// state watcher is started.  It will not trigger an upgrade, until the
+	// next applicationChanged event.  Could get stuck in an error loop.
+
+	local := rf.LocalState
+	local.State = ex.State()
+
+	// If the unit isn't started or already upgrading, no need to start an upgrade.
+	if !local.State.Started || local.State.Kind == operation.Upgrade ||
+		(local.State.Hook != nil && local.State.Hook.Kind == hooks.UpgradeCharm) ||
+		remote.CharmURL == nil {
+		return nil
+	}
+
+	if *local.CharmURL == *remote.CharmURL {
+		return nil
+	}
+
+	if remote.CharmProfileRequired {
+		if remote.LXDProfileName == "" {
+			return nil
+		}
+		rev, err := lxdprofile.ProfileRevision(remote.LXDProfileName)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if rev != remote.CharmURL.Revision {
+			logger.Tracef("Charm profile required: current revision %d does not match new revision %d", rev, remote.CharmURL.Revision)
+			return nil
+		}
+	}
+
+	logger.Debugf("execute pending upgrade from %s to %s after uniter loop restart", local.CharmURL, remote.CharmURL)
+	op, err := rf.NewUpgrade(remote.CharmURL)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err = ex.Run(op, nil); err != nil {
+		return errors.Trace(err)
+	}
+	if local.Restart {
+		return ErrRestart
+	}
+	return nil
 }
