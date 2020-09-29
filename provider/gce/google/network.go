@@ -40,6 +40,10 @@ func (ns *NetworkSpec) Path() string {
 
 // newInterface builds up all the data needed by the GCE API to create
 // a new interface connected to the network.
+// If allocatePublicIP is false the interface will not have a public IP.
+// Such interfaces can not access the public internet unless a facility like
+// Cloud NAT is recruited by the VPC where they reside.
+// See: https://cloud.google.com/nat/docs/using-nat#gcloud_11
 func (ns *NetworkSpec) newInterface(name string, allocatePublicIP bool) *compute.NetworkInterface {
 	nic := &compute.NetworkInterface{
 		Network: ns.Path(),
