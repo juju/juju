@@ -592,15 +592,12 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		return errors.Errorf("unexpected application charm URL %q", p.Charm)
 	}
 
-	var origin commoncharm.Origin
-	if o, ok := h.origins[*cURL]; ok {
-		origin = o
-	} else {
-		o, err := utils.DeduceOrigin(cURL, corecharm.Channel{})
-		if err != nil {
-			return errors.Trace(err)
-		}
-		origin = o
+	origin, ok := h.origins[*cURL]
+	if !ok {
+		// It is expected that the addCharm is done before addApplication.
+		// We require that order to be correct otherwise it's impossible for
+		// us to deploy an application without a charm.
+		return errors.Errorf("unexpected charm url %q, no charm found for application %q", cURL.String(), p.Application)
 	}
 
 	chID := application.CharmID{
