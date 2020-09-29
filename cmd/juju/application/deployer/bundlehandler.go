@@ -515,6 +515,12 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 			}
 			logger.Debugf("added charm %s", curl)
 			h.results[id] = curl.String()
+			// We know we're a local charm and local charms don't require an
+			// explicit tailored origin. Instead we can just use a placeholder
+			// to ensure correctness for later on in addApplication.
+			h.origins[*curl] = commoncharm.Origin{
+				Source: commoncharm.OriginLocal,
+			}
 			return nil
 		}
 	}
