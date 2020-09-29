@@ -807,3 +807,25 @@ func MergedAddresses(machineAddresses, providerAddresses []SpaceAddress) []Space
 	}
 	return merged
 }
+
+// CIDRAddressType returns back an AddressType to indicate whether the supplied
+// CIDR corresponds to an IPV4 or IPV6 range. An error will be returned if a
+// non-valid CIDR is provided.
+//
+// Caveat: if the provided CIDR corresponds to an IPV6 range with a 4in6
+// prefix, the function will classify it as an IPV4 address. This is a known
+// limitation of the go stdlib IP parsing code but it's not something that we
+// are likely to encounter in the wild so there is no need to add extra logic
+// to work around it.
+func CIDRAddressType(cidr string) (AddressType, error) {
+	_, netIP, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return "", err
+	}
+
+	if netIP.IP.To4() != nil {
+		return IPv4Address, nil
+	}
+
+	return IPv6Address, nil
+}
