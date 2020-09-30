@@ -284,6 +284,7 @@ func (a *appWorker) alive(app caas.Application) error {
 		containers[k] = container
 	}
 
+	// TODO(embedded): container.Mounts[*].Path <= consolidate? => provisionInfo.Filesystems[*].Attachment.Path
 	config := caas.ApplicationConfig{
 		IntroductionSecret:   password,
 		AgentVersion:         provisionInfo.Version,

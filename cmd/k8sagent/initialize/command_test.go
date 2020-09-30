@@ -93,6 +93,8 @@ apiport: 17070`[1:])
 		s.fileReaderWriter.EXPECT().WriteFile(`/var/lib/juju/template-agent.conf`, data, os.FileMode(0644)).Return(nil),
 		s.fileReaderWriter.EXPECT().ReadFile("/opt/pebble").Times(1).Return(pebbleBytes, nil),
 		s.fileReaderWriter.EXPECT().WriteFile("/shared/usr/bin/pebble", pebbleBytes, os.FileMode(0755)).Return(nil),
+		s.fileReaderWriter.EXPECT().ReadFile("/opt/k8sagent").Times(1).Return(pebbleBytes, nil),
+		s.fileReaderWriter.EXPECT().WriteFile("/shared/usr/bin/k8sagent", pebbleBytes, os.FileMode(0755)).Return(nil),
 
 		s.applicationAPI.EXPECT().Close().Times(1).Return(nil),
 	)
