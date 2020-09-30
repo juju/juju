@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/testing"
@@ -44,7 +43,7 @@ func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs []k8s
 	statefulSetArg := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "app-name",
-			Labels: utils.LabelsForApp("app-name", false),
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
 				"juju-app-uuid":                  "appuuid",
 				"juju.io/controller":             testing.ControllerTag.Id(),
@@ -54,12 +53,12 @@ func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs []k8s
 		Spec: appsv1.StatefulSetSpec{
 			Replicas: &numUnits,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: utils.SelectorLabelsForApp("app-name", false),
+				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
 			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: utils.SelectorLabelsForApp("app-name", false),
+					Labels: map[string]string{"app.kubernetes.io/name": "app-name"},
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
@@ -177,13 +176,9 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreate(c *gc.C) 
 
 	cfg1 := &admissionregistration.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-example-mutatingwebhookconfiguration",
-			Namespace: "test",
-			Labels: utils.LabelsMerge(
-				utils.LabelsForApp("app-name", false),
-				utils.LabelsForModel("test", false),
-				utils.LabelsJuju,
-			),
+			Name:        "test-example-mutatingwebhookconfiguration",
+			Namespace:   "test",
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Webhooks: []admissionregistration.MutatingWebhook{webhook1},
@@ -245,13 +240,9 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateKeepName(c
 
 	cfg1 := &admissionregistration.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "example-mutatingwebhookconfiguration", // This name kept no change.
-			Namespace: "test",
-			Labels: utils.LabelsMerge(
-				utils.LabelsForApp("app-name", false),
-				utils.LabelsForModel("test", false),
-				utils.LabelsJuju,
-			),
+			Name:        "example-mutatingwebhookconfiguration", // This name kept no change.
+			Namespace:   "test",
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id(), "juju.io/disable-name-prefix": "true"},
 		},
 		Webhooks: []admissionregistration.MutatingWebhook{webhook1},
@@ -310,13 +301,9 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsUpdate(c *gc.C) 
 
 	cfg1 := &admissionregistration.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-example-mutatingwebhookconfiguration",
-			Namespace: "test",
-			Labels: utils.LabelsMerge(
-				utils.LabelsForApp("app-name", false),
-				utils.LabelsForModel("test", false),
-				utils.LabelsJuju,
-			),
+			Name:        "test-example-mutatingwebhookconfiguration",
+			Namespace:   "test",
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Webhooks: []admissionregistration.MutatingWebhook{webhook1},
@@ -350,11 +337,8 @@ func (s *K8sBrokerSuite) assertValidatingWebhookConfigurations(c *gc.C, cfgs []k
 	numUnits := int32(2)
 	statefulSetArg := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "app-name",
-			Labels: utils.LabelsMerge(
-				utils.LabelsForApp("app-name", false),
-				utils.LabelsJuju,
-			),
+			Name:   "app-name",
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
 				"juju-app-uuid":                  "appuuid",
 				"juju.io/controller":             testing.ControllerTag.Id(),
@@ -364,12 +348,12 @@ func (s *K8sBrokerSuite) assertValidatingWebhookConfigurations(c *gc.C, cfgs []k
 		Spec: appsv1.StatefulSetSpec{
 			Replicas: &numUnits,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: utils.SelectorLabelsForApp("app-name", false),
+				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
 			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: utils.SelectorLabelsForApp("app-name", false),
+					Labels: map[string]string{"app.kubernetes.io/name": "app-name"},
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
@@ -483,13 +467,9 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreate(c *gc.C
 
 	cfg1 := &admissionregistration.ValidatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-example-validatingwebhookconfiguration",
-			Namespace: "test",
-			Labels: utils.LabelsMerge(
-				utils.LabelsForApp("app-name", false),
-				utils.LabelsForModel("test", false),
-				utils.LabelsJuju,
-			),
+			Name:        "test-example-validatingwebhookconfiguration",
+			Namespace:   "test",
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Webhooks: []admissionregistration.ValidatingWebhook{webhook1},
@@ -551,13 +531,9 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateKeepName
 
 	cfg1 := &admissionregistration.ValidatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "example-validatingwebhookconfiguration", // This name kept no change.
-			Namespace: "test",
-			Labels: utils.LabelsMerge(
-				utils.LabelsForApp("app-name", false),
-				utils.LabelsForModel("test", false),
-				utils.LabelsJuju,
-			),
+			Name:        "example-validatingwebhookconfiguration", // This name kept no change.
+			Namespace:   "test",
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id(), "juju.io/disable-name-prefix": "true"},
 		},
 		Webhooks: []admissionregistration.ValidatingWebhook{webhook1},
@@ -616,13 +592,9 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsUpdate(c *gc.C
 
 	cfg1 := &admissionregistration.ValidatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-example-validatingwebhookconfiguration",
-			Namespace: "test",
-			Labels: utils.LabelsMerge(
-				utils.LabelsForApp("app-name", false),
-				utils.LabelsForModel("test", false),
-				utils.LabelsJuju,
-			),
+			Name:        "test-example-validatingwebhookconfiguration",
+			Namespace:   "test",
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Webhooks: []admissionregistration.ValidatingWebhook{webhook1},

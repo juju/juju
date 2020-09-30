@@ -22,7 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8swatchertest "github.com/juju/juju/caas/kubernetes/provider/watcher/test"
 	"github.com/juju/juju/testing"
 )
@@ -34,11 +33,8 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownSuccess(c *
 	// CRs of this Cluster scope CRD will get deleted.
 	crdClusterScope := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "tfjobs.kubeflow.org",
-			Labels: utils.LabelsMerge(
-				utils.LabelsForApp("app-name", false),
-				utils.LabelsForModel("test", false),
-			),
+			Name:   "tfjobs.kubeflow.org",
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.kubernetes.io/name": "test"},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   "kubeflow.org",
@@ -92,11 +88,8 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownSuccess(c *
 	// CRs of this namespaced scope CRD will be skipped.
 	crdNamespacedScope := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "tfjobs.kubeflow.org",
-			Labels: utils.LabelsMerge(
-				utils.LabelsForApp("app-name", false),
-				utils.LabelsForModel("test", false),
-			),
+			Name:   "tfjobs.kubeflow.org",
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.kubernetes.io/name": "test"},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   "kubeflow.org",
@@ -304,11 +297,8 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownTimeout(c *
 	// CRs of this Cluster scope CRD will get deleted.
 	crdClusterScope := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "tfjobs.kubeflow.org",
-			Labels: utils.LabelsMerge(
-				utils.LabelsForApp("app-name", false),
-				utils.LabelsForModel("test", false),
-			),
+			Name:   "tfjobs.kubeflow.org",
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.kubernetes.io/name": "test"},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   "kubeflow.org",
@@ -362,11 +352,8 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownTimeout(c *
 	// CRs of this namespaced scope CRD will be skipped.
 	crdNamespacedScope := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "tfjobs.kubeflow.org",
-			Labels: utils.LabelsMerge(
-				utils.LabelsForApp("app-name", false),
-				utils.LabelsForModel("test", false),
-			),
+			Name:   "tfjobs.kubeflow.org",
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.kubernetes.io/name": "test"},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   "kubeflow.org",
