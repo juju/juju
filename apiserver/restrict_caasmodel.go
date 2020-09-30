@@ -71,14 +71,16 @@ var commonModelFacadeNames = set.NewStrings(
 var caasModelFacadeNames = set.NewStrings(
 	"CAASAdmission",
 	"CAASAgent",
-	"CAASApplicationProvisioner",
 	"CAASFirewaller",
 	"CAASModelOperator",
 	"CAASOperator",
 	"CAASOperatorProvisioner",
 	"CAASOperatorUpgrader",
 	"CAASUnitProvisioner",
+
+	// For embedded applications.
 	"CAASApplication",
+	"CAASApplicationProvisioner",
 	"CAASFirewallerEmbedded",
 )
 

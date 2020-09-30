@@ -4,6 +4,11 @@
 package caasapplicationprovisioner_test
 
 import (
+	"bytes"
+	"encoding/json"
+	"io"
+	"io/ioutil"
+
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -16,8 +21,10 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
@@ -31,6 +38,7 @@ type mockState struct {
 	model              *mockModel
 	applicationWatcher *mockStringsWatcher
 	app                *mockApplication
+	resource           *mockResources
 	operatorRepo       string
 }
 
@@ -92,6 +100,21 @@ func (st *mockState) ResolveConstraints(cons constraints.Value) (constraints.Val
 		return constraints.Value{}, err
 	}
 	return cons, nil
+}
+
+func (st *mockState) Resources() (caasapplicationprovisioner.Resources, error) {
+	st.MethodCall(st, "Resources")
+	return st.resource, nil
+}
+
+type mockResources struct {
+	caasapplicationprovisioner.Resources
+	resource *resources.DockerImageDetails
+}
+
+func (m *mockResources) OpenResource(applicationID string, name string) (resource.Resource, io.ReadCloser, error) {
+	out, err := json.Marshal(m.resource)
+	return resource.Resource{}, ioutil.NopCloser(bytes.NewBuffer(out)), err
 }
 
 type mockStorageRegistry struct {
@@ -164,6 +187,7 @@ type mockApplication struct {
 	life               state.Life
 	tag                names.Tag
 	password           string
+	series             string
 	charm              caasapplicationprovisioner.Charm
 	units              []*mockUnit
 	constraints        constraints.Value
@@ -242,6 +266,11 @@ func (a *mockApplication) DeviceConstraints() (map[string]state.DeviceConstraint
 func (a *mockApplication) Name() string {
 	a.MethodCall(a, "Name")
 	return a.tag.Id()
+}
+
+func (a *mockApplication) Series() string {
+	a.MethodCall(a, "Series")
+	return a.series
 }
 
 func (a *mockApplication) SetOperatorStatus(statusInfo status.StatusInfo) error {

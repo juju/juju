@@ -49,6 +49,22 @@ func (st *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
 	return &st.application, nil
 }
 
+func (st *mockState) Charm(curl *charm.URL) (*state.Charm, error) {
+	st.MethodCall(st, "Charm", curl)
+	if err := st.NextErr(); err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+func (st *mockState) Model() (*state.Model, error) {
+	st.MethodCall(st, "Model")
+	if err := st.NextErr(); err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
 type mockApplication struct {
 	testing.Stub
 	life    state.Life

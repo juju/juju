@@ -643,7 +643,7 @@ func (a *API) ApplicationOCIResources(args params.Entities) (params.CAASApplicat
 				break
 			}
 			rsc, err := readDockImageResource(reader)
-			reader.Close()
+			_ = reader.Close()
 			if err != nil {
 				res.Results[i].Error = apiservererrors.ServerError(err)
 				break
