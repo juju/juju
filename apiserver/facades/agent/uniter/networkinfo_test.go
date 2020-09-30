@@ -55,7 +55,7 @@ func (s *networkInfoSuite) TestNetworksForRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = machine.SetProviderAddresses(
-		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("10.2.3.4", network.ScopeCloudLocal),
 		network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -66,8 +66,8 @@ func (s *networkInfoSuite) TestNetworksForRelation(c *gc.C) {
 
 	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
 	c.Assert(ingress, gc.DeepEquals,
-		network.SpaceAddresses{network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal)})
-	c.Assert(egress, gc.DeepEquals, []string{"1.2.3.4/32"})
+		network.SpaceAddresses{network.NewScopedSpaceAddress("10.2.3.4", network.ScopeCloudLocal)})
+	c.Assert(egress, gc.DeepEquals, []string{"10.2.3.4/32"})
 }
 
 func (s *networkInfoSuite) addDevicesWithAddresses(c *gc.C, machine *state.Machine, addresses ...string) {
@@ -159,7 +159,7 @@ func (s *networkInfoSuite) TestNetworksForBinding(c *gc.C) {
 func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 	_ = s.setupSpace(c, "space-1", "1.2.0.0/16", false)
 	_ = s.setupSpace(c, "space-2", "2.2.0.0/16", false)
-	spaceID3 := s.setupSpace(c, "space-3", "3.2.0.0/16", false)
+	spaceID3 := s.setupSpace(c, "space-3", "10.2.0.0/16", false)
 	_ = s.setupSpace(c, "public-4", "4.2.0.0/16", true)
 
 	// We want to have all bindings set so that no actual binding is
@@ -181,13 +181,13 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 	addresses := []network.SpaceAddress{
 		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
 		network.NewScopedSpaceAddress("2.2.3.4", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("3.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("10.2.3.4", network.ScopeCloudLocal),
 		network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic),
 	}
 	err = machine.SetProviderAddresses(addresses...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.addDevicesWithAddresses(c, machine, "1.2.3.4/16", "2.2.3.4/16", "3.2.3.4/16", "4.3.2.1/16")
+	s.addDevicesWithAddresses(c, machine, "1.2.3.4/16", "2.2.3.4/16", "10.2.3.4/16", "4.3.2.1/16")
 
 	netInfo := s.newNetworkInfo(c, prr.pu0.UnitTag(), nil)
 	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel, true)
@@ -195,8 +195,8 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 
 	c.Assert(boundSpace, gc.Equals, spaceID3)
 	c.Assert(ingress, gc.DeepEquals,
-		network.SpaceAddresses{network.NewScopedSpaceAddress("3.2.3.4", network.ScopeCloudLocal)})
-	c.Assert(egress, gc.DeepEquals, []string{"3.2.3.4/32"})
+		network.SpaceAddresses{network.NewScopedSpaceAddress("10.2.3.4", network.ScopeCloudLocal)})
+	c.Assert(egress, gc.DeepEquals, []string{"10.2.3.4/32"})
 }
 
 func (s *networkInfoSuite) TestNetworksForRelationRemoteRelation(c *gc.C) {
