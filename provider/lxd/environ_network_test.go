@@ -37,6 +37,26 @@ func (s *environNetSuite) TestSubnetsForUnknownContainer(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *environNetSuite) TestSubnetsForServersThatLackRequiredAPIExtensions(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	srv := NewMockServer(ctrl)
+	srv.EXPECT().GetNetworkNames().Return(nil, errors.New(`server is missing the required "network" API extension`)).AnyTimes()
+
+	env := s.NewEnviron(c, srv, nil).(*environ)
+	ctx := context.NewCloudCallContext()
+
+	// Space support and by extension, subnet detection is not available.
+	supportsSpaces, err := env.SupportsSpaces(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(supportsSpaces, jc.IsFalse, gc.Commentf("expected SupportsSpaces to return false when the lxd server lacks the 'network' extension"))
+
+	// Try to grab subnet details anyway!
+	_, err = env.Subnets(ctx, instance.UnknownId, nil)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+}
+
 func (s *environNetSuite) TestSubnetsForKnownContainer(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
