@@ -35,6 +35,10 @@ func (d *dummyUpgradeCAASModel) Client() kubernetes.Interface {
 	return d.client
 }
 
+func (d *dummyUpgradeCAASModel) IsLegacyLabels() bool {
+	return false
+}
+
 func (d *dummyUpgradeCAASModel) Namespace() string {
 	return "test"
 }
@@ -83,6 +87,6 @@ func (s *modelUpgraderSuite) TestModelOperatorUpgrade(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(de.Spec.Template.Spec.Containers[0].Image, gc.Equals, newImagePath)
 
-	c.Assert(de.Annotations[constants.LabelVersion], gc.Equals, version.MustParse("9.9.9").String())
-	c.Assert(de.Spec.Template.Annotations[constants.LabelVersion], gc.Equals, version.MustParse("9.9.9").String())
+	c.Assert(de.Annotations[constants.AnnotationJujuVersion], gc.Equals, version.MustParse("9.9.9").String())
+	c.Assert(de.Spec.Template.Annotations[constants.AnnotationJujuVersion], gc.Equals, version.MustParse("9.9.9").String())
 }

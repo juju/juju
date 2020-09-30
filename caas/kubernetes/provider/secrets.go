@@ -20,10 +20,8 @@ import (
 	k8sannotations "github.com/juju/juju/core/annotations"
 )
 
-func (k *kubernetesClient) getSecretLabels(appName string) map[string]string {
-	return map[string]string{
-		constants.LabelApplication: appName,
-	}
+func getSecretLabels(appName string, legacy bool) map[string]string {
+	return utils.LabelsForApp(appName, legacy)
 }
 
 func processSecretData(in map[string]string) (_ map[string][]byte, err error) {
@@ -42,7 +40,7 @@ func (k *kubernetesClient) ensureSecrets(appName string, annotations k8sannotati
 			ObjectMeta: v1.ObjectMeta{
 				Name:        v.Name,
 				Namespace:   k.namespace,
-				Labels:      k.getSecretLabels(appName),
+				Labels:      getSecretLabels(appName, k.IsLegacyLabels()),
 				Annotations: annotations.Merge(v.Annotations),
 			},
 			Type:       v.Type,
@@ -81,7 +79,7 @@ func (k *kubernetesClient) ensureOCIImageSecret(
 		ObjectMeta: v1.ObjectMeta{
 			Name:        imageSecretName,
 			Namespace:   k.namespace,
-			Labels:      k.getSecretLabels(appName),
+			Labels:      getSecretLabels(appName, k.IsLegacyLabels()),
 			Annotations: annotations.ToMap()},
 		Type: core.SecretTypeDockerConfigJson,
 		Data: map[string][]byte{
@@ -175,7 +173,8 @@ func (k *kubernetesClient) deleteSecrets(appName string) error {
 	err := k.client().CoreV1().Secrets(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
 		PropagationPolicy: &constants.DefaultPropagationPolicy,
 	}, v1.ListOptions{
-		LabelSelector: utils.LabelSetToSelector(k.getSecretLabels(appName)).String(),
+		LabelSelector: utils.LabelSetToSelector(
+			getSecretLabels(appName, k.IsLegacyLabels())).String(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

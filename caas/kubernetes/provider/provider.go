@@ -62,7 +62,9 @@ func (defaultRunner) RunCommands(run exec.RunParams) (*exec.ExecResponse, error)
 	return exec.RunCommands(run)
 }
 
-func newK8sClient(c *rest.Config) (
+// NewK8sClients returns the k8s clients to access a cluster.
+// Override for testing.
+var NewK8sClients = func(c *rest.Config) (
 	k8sClient kubernetes.Interface,
 	apiextensionsclient apiextensionsclientset.Interface,
 	dynamicClient dynamic.Interface,
@@ -127,7 +129,7 @@ func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, 
 	// disregard this one in favour of a new one pinned to the correct
 	// controller namespace when we find it.
 	broker, err := newK8sBroker(
-		args.ControllerUUID, k8sRestConfig, args.Config, args.Config.Name(), newK8sClient, newRestClient,
+		args.ControllerUUID, k8sRestConfig, args.Config, args.Config.Name(), NewK8sClients, newRestClient,
 		k8swatcher.NewKubernetesNotifyWatcher, k8swatcher.NewKubernetesStringsWatcher, randomPrefix,
 		jujuclock.WallClock)
 	if err != nil {
@@ -147,7 +149,7 @@ func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, 
 
 	return newK8sBroker(
 		args.ControllerUUID, k8sRestConfig, args.Config, ns,
-		newK8sClient, newRestClient, k8swatcher.NewKubernetesNotifyWatcher, k8swatcher.NewKubernetesStringsWatcher,
+		NewK8sClients, newRestClient, k8swatcher.NewKubernetesNotifyWatcher, k8swatcher.NewKubernetesStringsWatcher,
 		randomPrefix, jujuclock.WallClock)
 }
 
