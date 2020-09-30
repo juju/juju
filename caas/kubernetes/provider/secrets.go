@@ -21,11 +21,7 @@ import (
 )
 
 func getSecretLabels(appName string, legacy bool) map[string]string {
-	labels := utils.LabelsForApp(appName, legacy)
-	if !legacy {
-		labels = utils.LabelsMerge(labels, utils.LabelsJuju)
-	}
-	return labels
+	return utils.LabelsForApp(appName, legacy)
 }
 
 func processSecretData(in map[string]string) (_ map[string][]byte, err error) {

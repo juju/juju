@@ -337,16 +337,13 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	s.ensureJujuNamespaceAnnotations(true, ns)
 	svcNotProvisioned := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "juju-controller-test-service",
-			Namespace: s.getNamespace(),
-			Labels: utils.LabelsMerge(
-				utils.LabelsForApp("juju-controller-test", false),
-				utils.LabelsJuju,
-			),
+			Name:        "juju-controller-test-service",
+			Namespace:   s.getNamespace(),
+			Labels:      utils.LabelsForApp("juju-controller-test", false),
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Spec: core.ServiceSpec{
-			Selector: utils.LabelsForApp("juju-controller-test", false),
+			Selector: utils.SelectorLabelsForApp("juju-controller-test", false),
 			Type:     core.ServiceType("ClusterIP"),
 			Ports: []core.ServicePort{
 				{
@@ -362,16 +359,13 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	svcPublicIP := "1.1.1.1"
 	svcProvisioned := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "juju-controller-test-service",
-			Namespace: s.getNamespace(),
-			Labels: utils.LabelsMerge(
-				utils.LabelsForApp("juju-controller-test", false),
-				utils.LabelsJuju,
-			),
+			Name:        "juju-controller-test-service",
+			Namespace:   s.getNamespace(),
+			Labels:      utils.LabelsForApp("juju-controller-test", false),
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Spec: core.ServiceSpec{
-			Selector: utils.LabelsForApp("juju-controller-test", false),
+			Selector: utils.SelectorLabelsForApp("juju-controller-test", false),
 			Type:     core.ServiceType("LoadBalancer"),
 			Ports: []core.ServicePort{
 				{
@@ -386,24 +380,18 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 
 	emptySecret := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "juju-controller-test-secret",
-			Namespace: s.getNamespace(),
-			Labels: utils.LabelsMerge(
-				utils.LabelsForApp("juju-controller-test", false),
-				utils.LabelsJuju,
-			),
+			Name:        "juju-controller-test-secret",
+			Namespace:   s.getNamespace(),
+			Labels:      utils.LabelsForApp("juju-controller-test", false),
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Type: core.SecretTypeOpaque,
 	}
 	secretWithSharedSecretAdded := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "juju-controller-test-secret",
-			Namespace: s.getNamespace(),
-			Labels: utils.LabelsMerge(
-				utils.LabelsForApp("juju-controller-test", false),
-				utils.LabelsJuju,
-			),
+			Name:        "juju-controller-test-secret",
+			Namespace:   s.getNamespace(),
+			Labels:      utils.LabelsForApp("juju-controller-test", false),
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Type: core.SecretTypeOpaque,
@@ -413,12 +401,9 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	}
 	secretWithServerPEMAdded := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "juju-controller-test-secret",
-			Namespace: s.getNamespace(),
-			Labels: utils.LabelsMerge(
-				utils.LabelsForApp("juju-controller-test", false),
-				utils.LabelsJuju,
-			),
+			Name:        "juju-controller-test-secret",
+			Namespace:   s.getNamespace(),
+			Labels:      utils.LabelsForApp("juju-controller-test", false),
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Type: core.SecretTypeOpaque,
@@ -430,12 +415,9 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 
 	emptyConfigMap := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "juju-controller-test-configmap",
-			Namespace: s.getNamespace(),
-			Labels: utils.LabelsMerge(
-				utils.LabelsForApp("juju-controller-test", false),
-				utils.LabelsJuju,
-			),
+			Name:        "juju-controller-test-configmap",
+			Namespace:   s.getNamespace(),
+			Labels:      utils.LabelsForApp("juju-controller-test", false),
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 	}
@@ -444,12 +426,9 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 
 	configMapWithBootstrapParamsAdded := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "juju-controller-test-configmap",
-			Namespace: s.getNamespace(),
-			Labels: utils.LabelsMerge(
-				utils.LabelsForApp("juju-controller-test", false),
-				utils.LabelsJuju,
-			),
+			Name:        "juju-controller-test-configmap",
+			Namespace:   s.getNamespace(),
+			Labels:      utils.LabelsForApp("juju-controller-test", false),
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Data: map[string]string{
@@ -458,12 +437,9 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	}
 	configMapWithAgentConfAdded := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "juju-controller-test-configmap",
-			Namespace: s.getNamespace(),
-			Labels: utils.LabelsMerge(
-				utils.LabelsForApp("juju-controller-test", false),
-				utils.LabelsJuju,
-			),
+			Name:        "juju-controller-test-configmap",
+			Namespace:   s.getNamespace(),
+			Labels:      utils.LabelsForApp("juju-controller-test", false),
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Data: map[string]string{
@@ -476,28 +452,22 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	fileMode := int32(256)
 	statefulSetSpec := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "juju-controller-test",
-			Namespace: s.getNamespace(),
-			Labels: utils.LabelsMerge(
-				utils.LabelsForApp("juju-controller-test", false),
-				utils.LabelsJuju,
-			),
+			Name:        "juju-controller-test",
+			Namespace:   s.getNamespace(),
+			Labels:      utils.LabelsForApp("juju-controller-test", false),
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Spec: apps.StatefulSetSpec{
 			ServiceName: "juju-controller-test-service",
 			Replicas:    &numberOfPods,
 			Selector: &v1.LabelSelector{
-				MatchLabels: utils.LabelsForApp("juju-controller-test", false),
+				MatchLabels: utils.SelectorLabelsForApp("juju-controller-test", false),
 			},
 			VolumeClaimTemplates: []core.PersistentVolumeClaim{
 				{
 					ObjectMeta: v1.ObjectMeta{
-						Name: "storage",
-						Labels: utils.LabelsMerge(
-							utils.LabelsForApp("juju-controller-test", false),
-							utils.LabelsJuju,
-						),
+						Name:        "storage",
+						Labels:      utils.LabelsForApp("juju-controller-test", false),
 						Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 					},
 					Spec: core.PersistentVolumeClaimSpec{
@@ -515,7 +485,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 				ObjectMeta: v1.ObjectMeta{
 					Name:        "controller-0",
 					Namespace:   s.getNamespace(),
-					Labels:      utils.LabelsForApp("juju-controller-test", false),
+					Labels:      utils.SelectorLabelsForApp("juju-controller-test", false),
 					Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 				},
 				Spec: core.PodSpec{

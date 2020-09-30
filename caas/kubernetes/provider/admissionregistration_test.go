@@ -43,11 +43,8 @@ func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs []k8s
 	numUnits := int32(2)
 	statefulSetArg := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "app-name",
-			Labels: utils.LabelsMerge(
-				utils.LabelsForApp("app-name", false),
-				utils.LabelsJuju,
-			),
+			Name:   "app-name",
+			Labels: utils.LabelsForApp("app-name", false),
 			Annotations: map[string]string{
 				"juju-app-uuid":                  "appuuid",
 				"juju.io/controller":             testing.ControllerTag.Id(),
@@ -57,12 +54,12 @@ func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs []k8s
 		Spec: appsv1.StatefulSetSpec{
 			Replicas: &numUnits,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: utils.LabelsForApp("app-name", false),
+				MatchLabels: utils.SelectorLabelsForApp("app-name", false),
 			},
 			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: utils.LabelsForApp("app-name", false),
+					Labels: utils.SelectorLabelsForApp("app-name", false),
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
@@ -367,12 +364,12 @@ func (s *K8sBrokerSuite) assertValidatingWebhookConfigurations(c *gc.C, cfgs []k
 		Spec: appsv1.StatefulSetSpec{
 			Replicas: &numUnits,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: utils.LabelsForApp("app-name", false),
+				MatchLabels: utils.SelectorLabelsForApp("app-name", false),
 			},
 			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: utils.LabelsForApp("app-name", false),
+					Labels: utils.SelectorLabelsForApp("app-name", false),
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",

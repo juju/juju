@@ -54,6 +54,16 @@ func LabelSetToSelector(l labels.Set) labels.Selector {
 // LabelsForApp returns the labels that should be on a k8s object for a given
 // application name
 func LabelsForApp(name string, legacy bool) labels.Set {
+	result := SelectorLabelsForApp(name, legacy)
+	if legacy {
+		return result
+	}
+	return LabelsMerge(result, LabelsJuju)
+}
+
+// SelectorLabelsForApp returns the pod selector labels that should be on
+// a k8s object for a given application name
+func SelectorLabelsForApp(name string, legacy bool) labels.Set {
 	if legacy {
 		return labels.Set{
 			constants.LegacyLabelKubernetesAppName: name,

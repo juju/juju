@@ -114,7 +114,7 @@ func (l *LabelSuite) TestLabelSetToSelector(c *gc.C) {
 	}
 }
 
-func (l *LabelSuite) TestLabelsForApp(c *gc.C) {
+func (l *LabelSuite) TestSelectorLabelsForApp(c *gc.C) {
 	tests := []struct {
 		AppName        string
 		ExpectedLabels labels.Set
@@ -137,7 +137,123 @@ func (l *LabelSuite) TestLabelsForApp(c *gc.C) {
 	}
 
 	for _, test := range tests {
+		rval := utils.SelectorLabelsForApp(test.AppName, test.Legacy)
+		c.Assert(rval, jc.DeepEquals, test.ExpectedLabels)
+	}
+}
+
+func (l *LabelSuite) TestLabelsForApp(c *gc.C) {
+	tests := []struct {
+		AppName        string
+		ExpectedLabels labels.Set
+		Legacy         bool
+	}{
+		{
+			AppName: "tlm-boom",
+			ExpectedLabels: labels.Set{
+				"app.kubernetes.io/name":       "tlm-boom",
+				"app.kubernetes.io/managed-by": "juju",
+			},
+			Legacy: false,
+		},
+		{
+			AppName: "tlm-boom",
+			ExpectedLabels: labels.Set{
+				"juju-app": "tlm-boom",
+			},
+			Legacy: true,
+		},
+	}
+
+	for _, test := range tests {
 		rval := utils.LabelsForApp(test.AppName, test.Legacy)
+		c.Assert(rval, jc.DeepEquals, test.ExpectedLabels)
+	}
+}
+
+func (l *LabelSuite) TestLabelsForStorage(c *gc.C) {
+	tests := []struct {
+		AppName        string
+		ExpectedLabels labels.Set
+		Legacy         bool
+	}{
+		{
+			AppName: "tlm-boom",
+			ExpectedLabels: labels.Set{
+				"storage.juju.is/name": "tlm-boom",
+			},
+			Legacy: false,
+		},
+		{
+			AppName: "tlm-boom",
+			ExpectedLabels: labels.Set{
+				"juju-storage": "tlm-boom",
+			},
+			Legacy: true,
+		},
+	}
+
+	for _, test := range tests {
+		rval := utils.LabelsForStorage(test.AppName, test.Legacy)
+		c.Assert(rval, jc.DeepEquals, test.ExpectedLabels)
+	}
+}
+
+func (l *LabelSuite) TestLabelsForModel(c *gc.C) {
+	tests := []struct {
+		AppName        string
+		ExpectedLabels labels.Set
+		Legacy         bool
+	}{
+		{
+			AppName: "tlm-boom",
+			ExpectedLabels: labels.Set{
+				"model.juju.is/name": "tlm-boom",
+			},
+			Legacy: false,
+		},
+		{
+			AppName: "tlm-boom",
+			ExpectedLabels: labels.Set{
+				"juju-model": "tlm-boom",
+			},
+			Legacy: true,
+		},
+	}
+
+	for _, test := range tests {
+		rval := utils.LabelsForModel(test.AppName, test.Legacy)
+		c.Assert(rval, jc.DeepEquals, test.ExpectedLabels)
+	}
+}
+
+func (l *LabelSuite) TestLabelsForOperator(c *gc.C) {
+	tests := []struct {
+		AppName        string
+		Target         string
+		ExpectedLabels labels.Set
+		Legacy         bool
+	}{
+		{
+			AppName: "tlm-boom",
+			Target:  "harry",
+			ExpectedLabels: labels.Set{
+				"operator.juju.is/name":   "tlm-boom",
+				"operator.juju.is/target": "harry",
+			},
+			Legacy: false,
+		},
+		{
+			AppName: "tlm-boom",
+			ExpectedLabels: labels.Set{
+				"juju-operator": "tlm-boom",
+			},
+			Legacy: true,
+		},
+	}
+
+	for _, test := range tests {
+		rval := utils.LabelsForOperator(test.AppName, test.Target, test.Legacy)
 		c.Assert(rval, jc.DeepEquals, test.ExpectedLabels)
 	}
 }
@@ -163,5 +279,12 @@ func (l *LabelSuite) TestLabelForKeyValue(c *gc.C) {
 	}
 }
 
-func (l *LabelSuite) TestLabelMerge(c *gc.C) {
+func (l *LabelSuite) TestLabelsMerge(c *gc.C) {
+	one := labels.Set{"foo": "bar"}
+	two := labels.Set{"foo": "baz", "up": "down"}
+	result := utils.LabelsMerge(one, two)
+	c.Assert(result, jc.DeepEquals, labels.Set{
+		"foo": "baz",
+		"up":  "down",
+	})
 }
