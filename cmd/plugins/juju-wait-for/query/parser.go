@@ -54,6 +54,8 @@ func NewParser(lex *Lexer) *Parser {
 		FLOAT:  p.parseFloat,
 		STRING: p.parseString,
 		LPAREN: p.parseGroup,
+		TRUE:   p.parseBool,
+		FALSE:  p.parseBool,
 	}
 	p.infix = map[TokenType]InfixFunc{
 		EQ:      p.parseInfixExpression,
@@ -67,7 +69,7 @@ func NewParser(lex *Lexer) *Parser {
 }
 
 // Run the parser to the end, which is either an EOF or an error.
-func (p *Parser) Run() (QueryExpression, error) {
+func (p *Parser) Run() (*QueryExpression, error) {
 	var exp QueryExpression
 	for p.currentToken.Type != EOF {
 		exp.Expressions = append(exp.Expressions, p.parseExpressionStatement())
@@ -76,8 +78,9 @@ func (p *Parser) Run() (QueryExpression, error) {
 	var err error
 	if len(p.errors) > 0 {
 		err = errors.Errorf(strings.Join(p.errors, "\n"))
+		return nil, errors.Trace(err)
 	}
-	return exp, err
+	return &exp, nil
 }
 
 func (p *Parser) parseIdentifier() Expression {
@@ -89,6 +92,18 @@ func (p *Parser) parseIdentifier() Expression {
 func (p *Parser) parseString() Expression {
 	return &String{
 		Token: p.currentToken,
+	}
+}
+
+func (p *Parser) parseBool() Expression {
+	value, err := strconv.ParseBool(p.currentToken.Literal)
+	if err != nil {
+		msg := fmt.Sprintf("Syntax Error:%v could not parse %q as bool", p.currentToken.Pos, p.currentToken.Literal)
+		p.errors = append(p.errors, msg)
+	}
+	return &Bool{
+		Token: p.currentToken,
+		Value: value,
 	}
 }
 

@@ -15,7 +15,7 @@ var _ = gc.Suite(&parserSuite{})
 
 func (p *parserSuite) TestParser(c *gc.C) {
 	//query := `((life=="alive" && status!="active") || life=="dead")`
-	query := `life = dead`
+	query := `life == "dead"`
 
 	lex := NewLexer(query)
 	parser := NewParser(lex)

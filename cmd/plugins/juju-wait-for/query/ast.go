@@ -5,6 +5,7 @@ package query
 
 import (
 	"bytes"
+	"fmt"
 	"unicode/utf8"
 )
 
@@ -145,7 +146,7 @@ func (i *String) End() Position {
 	}
 }
 
-func (i *String) String() string { return i.Token.Literal }
+func (i *String) String() string { return fmt.Sprintf("%q", i.Token.Literal) }
 
 // Empty represents an empty expression
 type Empty struct {
@@ -207,3 +208,25 @@ func (i *Float) End() Position {
 }
 
 func (i *Float) String() string { return i.Token.Literal }
+
+// Bool represents an bool for a given AST block
+type Bool struct {
+	Token Token
+	Value bool
+}
+
+// Pos returns the first position of the bool.
+func (i *Bool) Pos() Position {
+	return i.Token.Pos
+}
+
+// End returns the last position of the bool.
+func (i *Bool) End() Position {
+	length := utf8.RuneCountInString(i.Token.Literal)
+	return Position{
+		Line:   i.Token.Pos.Line,
+		Column: i.Token.Pos.Column + length,
+	}
+}
+
+func (i *Bool) String() string { return i.Token.Literal }

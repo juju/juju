@@ -4,6 +4,8 @@
 package main
 
 import (
+	"reflect"
+	"strings"
 	"time"
 
 	"github.com/juju/cmd"
@@ -87,11 +89,6 @@ func (c *modelCommand) Init(args []string) (err error) {
 }
 
 func (c *modelCommand) Run(ctx *cmd.Context) error {
-	query, err := query.Parse(c.query)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	client, err := c.newWatchAllAPIFunc()
 	if err != nil {
 		return errors.Trace(err)
@@ -101,16 +98,18 @@ func (c *modelCommand) Run(ctx *cmd.Context) error {
 		Client:  client,
 		Timeout: c.timeout,
 	}
-	err = strategy.Run(c.name, query, c.waitFor)
+	err = strategy.Run(c.name, c.query, c.waitFor)
 	return errors.Trace(err)
 }
 
-func (c *modelCommand) waitFor(name string, deltas []params.Delta, fn query.Predicate) bool {
+func (c *modelCommand) waitFor(name string, deltas []params.Delta, q query.Query) bool {
 	for _, delta := range deltas {
 		switch entityInfo := delta.Entity.(type) {
 		case *params.ModelUpdate:
 			if entityInfo.Name == name {
-				if fn(entityInfo) {
+				if res, err := q.Run(ModelScope{
+					ModelInfo: entityInfo,
+				}); res && err == nil {
 					return true
 				}
 			}
@@ -126,4 +125,24 @@ func (c *modelCommand) waitFor(name string, deltas []params.Delta, fn query.Pred
 
 	logger.Infof("model %q found, waiting...", name)
 	return false
+}
+
+// ModelScope allows the query to introspect a model entity.
+type ModelScope struct {
+	ModelInfo *params.ModelUpdate
+}
+
+// GetIdentValue returns the value of the identifier in a given scope.
+func (m ModelScope) GetIdentValue(name string) (interface{}, error) {
+	refType := reflect.TypeOf(m.ModelInfo).Elem()
+	for i := 0; i < refType.NumField(); i++ {
+		field := refType.Field(i)
+		v := strings.Split(field.Tag.Get("json"), ",")[0]
+		if v == name {
+			refValue := reflect.ValueOf(m.ModelInfo).Elem()
+			data := refValue.Field(i).Interface()
+			return data, nil
+		}
+	}
+	return nil, errors.Errorf("Runtime Error: identifier %q not found on Model", name)
 }

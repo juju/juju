@@ -48,7 +48,6 @@ func NewSuperCommand() cmd.Command {
 		Log:         &cmd.Log{}})
 
 	waitFor.Register(newModelCommand())
-	waitFor.Register(newApplicationCommand())
 	return waitFor
 }
 

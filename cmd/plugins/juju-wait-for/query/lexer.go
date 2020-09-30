@@ -142,7 +142,14 @@ func (l *Lexer) readRunesToken() Token {
 		return tok
 	case isLetter(l.char):
 		tok.Literal = l.readIdentifier()
-		tok.Type = IDENT
+		switch strings.ToLower(tok.Literal) {
+		case "true":
+			tok.Type = TRUE
+		case "false":
+			tok.Type = FALSE
+		default:
+			tok.Type = IDENT
+		}
 		return tok
 	case isDigit(l.char):
 		literal, _ := l.readNumber()
@@ -172,7 +179,7 @@ func (l *Lexer) skipWhitespace() {
 
 func (l *Lexer) readIdentifier() string {
 	position := l.position
-	for isLetter(l.char) || isDigit(l.char) {
+	for isLetter(l.char) || isDigit(l.char) || l.char == '-' {
 		l.ReadNext()
 	}
 	return string(l.input[position:l.position])

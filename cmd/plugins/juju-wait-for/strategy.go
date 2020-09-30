@@ -14,7 +14,7 @@ import (
 
 // StrategyFunc defines a way to change the underlying stategy function that
 // can be changed depending on the callee.
-type StrategyFunc func(string, []params.Delta, query.Predicate) bool
+type StrategyFunc func(string, []params.Delta, query.Query) bool
 
 // Strategy defines a series of instructions to run for a given wait for
 // plan.
@@ -24,8 +24,8 @@ type Strategy struct {
 }
 
 // Run the strategy and return the given result set.
-func (s *Strategy) Run(name string, q query.Query, fn StrategyFunc) error {
-	predicate, err := query.PredicateInterpreter(q)
+func (s *Strategy) Run(name string, input string, fn StrategyFunc) error {
+	q, err := query.Parse(input)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -58,7 +58,7 @@ func (s *Strategy) Run(name string, q query.Query, fn StrategyFunc) error {
 			}
 		}
 
-		if done := fn(name, deltas, predicate); done {
+		if done := fn(name, deltas, q); done {
 			return nil
 		}
 	}
