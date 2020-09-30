@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/systems"
+	"github.com/juju/systems/channel"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/controller"
@@ -110,8 +111,11 @@ func ImageForSystem(imageRepo string, system systems.System) (string, error) {
 	if imageRepo == "" {
 		imageRepo = JujudOCINamespace
 	}
+	if len(system.Channel.Track) == 0 || len(system.Channel.Risk) == 0 {
+		return "", errors.NotValidf("channel %q", system.Channel)
+	}
 	tag := system.Channel.Track
-	if system.Channel.Risk != "stable" {
+	if system.Channel.Risk != channel.Stable {
 		tag = fmt.Sprintf("%s-%s", tag, system.Channel.Risk)
 	}
 	image := fmt.Sprintf("%s/%s:%s", imageRepo, system.OS, tag)
