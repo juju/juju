@@ -40,7 +40,8 @@ import (
 var logger = loggo.GetLogger("juju.kubernetes.provider.application")
 
 const (
-	unitContainerName = "juju-unit-agent"
+	unitContainerName     = "juju-unit-agent"
+	jujuDataDirVolumeName = "juju-data-dir"
 )
 
 type app struct {
@@ -168,6 +169,8 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 			for _, mount := range config.Containers[name].Mounts {
 				if mount.StorageName == storageName {
 					volumeMountCopy := m
+					// TODO(embedded): volumeMountCopy.MountPath was defined in `caas.ApplicationConfig.Filesystems[*].Attachment.Path`.
+					// Consolidate `caas.ApplicationConfig.Filesystems[*].Attachment.Path` and `caas.ApplicationConfig.Containers[*].Mounts[*].Path`!!!
 					volumeMountCopy.MountPath = mount.Path
 					podSpec.Containers[i].VolumeMounts = append(podSpec.Containers[i].VolumeMounts, volumeMountCopy)
 				}
@@ -429,6 +432,8 @@ func (a *app) configureDefaultService(annotation annotations.Annotation) (err er
 
 // UpdateService updates the default service with specific service type and port mappings.
 func (a *app) UpdateService(param caas.ServiceParam) error {
+	// TODO(embedded): the special `65535` port mapping needs to be excluded for any service mutation.
+
 	// This method will be used for juju [un]expose.
 	// TODO(embedded): it might be changed later when we have proper modelling for the juju expose for the embedded charms.
 	svc, err := a.getService()
@@ -468,6 +473,7 @@ func (a *app) getService() (*resources.Service, error) {
 
 // UpdatePorts updates port mappings on the specified service.
 func (a *app) UpdatePorts(ports []caas.ServicePort, updateContainerPorts bool) (err error) {
+	// TODO(embedded): the special `65535` port mapping needs to be excluded for any service mutation.
 	svc, err := a.getService()
 	if err != nil {
 		return errors.Annotatef(err, "getting existing service %q", a.name)
@@ -760,20 +766,24 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			Name:  "JUJU_CONTAINER_NAMES",
 			Value: strings.Join(containerNames, ","),
 		}},
-		VolumeMounts: []corev1.VolumeMount{{
-			Name:      "juju-data-dir",
-			MountPath: "/usr/bin/k8sagent",
-			SubPath:   "usr/bin/k8sagent",
-			ReadOnly:  true,
-		}, {
-			Name:      "juju-data-dir",
-			MountPath: jujuDataDir,
-			SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
-		}, {
-			Name:      "juju-data-dir",
-			MountPath: "/var/run/containers",
-			SubPath:   "var/run/containers",
-		}},
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      jujuDataDirVolumeName,
+				MountPath: "/usr/bin/k8sagent",
+				SubPath:   "usr/bin/k8sagent",
+				ReadOnly:  true,
+			},
+			{
+				Name:      jujuDataDirVolumeName,
+				MountPath: jujuDataDir,
+				SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
+			},
+			{
+				Name:      jujuDataDirVolumeName,
+				MountPath: "/var/run/containers",
+				SubPath:   "var/run/containers",
+			},
+		},
 	}}
 
 	for _, v := range containers {
@@ -786,16 +796,19 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				Name:  "JUJU_CONTAINER_NAME",
 				Value: v.Name,
 			}},
-			VolumeMounts: []corev1.VolumeMount{{
-				Name:      "juju-data-dir",
-				MountPath: "/usr/bin/pebble",
-				SubPath:   "usr/bin/pebble",
-				ReadOnly:  true,
-			}, {
-				Name:      "juju-data-dir",
-				MountPath: "/var/run/container",
-				SubPath:   fmt.Sprintf("var/run/containers/%s", v.Name),
-			}},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      jujuDataDirVolumeName,
+					MountPath: "/usr/bin/pebble",
+					SubPath:   "usr/bin/pebble",
+					ReadOnly:  true,
+				},
+				{
+					Name:      jujuDataDirVolumeName,
+					MountPath: "/var/run/container",
+					SubPath:   fmt.Sprintf("var/run/containers/%s", v.Name),
+				},
+			},
 		}
 		containerSpecs = append(containerSpecs, container)
 	}
@@ -810,52 +823,64 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			WorkingDir:      jujuDataDir,
 			Command:         []string{"/opt/k8sagent"},
 			Args:            []string{"init"},
-			Env: []corev1.EnvVar{{
-				Name:  "JUJU_CONTAINER_NAMES",
-				Value: strings.Join(containerNames, ","),
-			}, {
-				Name: "JUJU_K8S_POD_NAME",
-				ValueFrom: &corev1.EnvVarSource{
-					FieldRef: &corev1.ObjectFieldSelector{
-						FieldPath: "metadata.name",
+			Env: []corev1.EnvVar{
+				{
+					Name:  "JUJU_CONTAINER_NAMES",
+					Value: strings.Join(containerNames, ","),
+				},
+				{
+					Name: "JUJU_K8S_POD_NAME",
+					ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{
+							FieldPath: "metadata.name",
+						},
 					},
 				},
-			}, {
-				Name: "JUJU_K8S_POD_UUID",
-				ValueFrom: &corev1.EnvVarSource{
-					FieldRef: &corev1.ObjectFieldSelector{
-						FieldPath: "metadata.uid",
+				{
+					Name: "JUJU_K8S_POD_UUID",
+					ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{
+							FieldPath: "metadata.uid",
+						},
 					},
 				},
-			}},
-			EnvFrom: []corev1.EnvFromSource{{
-				SecretRef: &corev1.SecretEnvSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: appSecret,
+			},
+			EnvFrom: []corev1.EnvFromSource{
+				{
+					SecretRef: &corev1.SecretEnvSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: appSecret,
+						},
 					},
 				},
-			}},
-			VolumeMounts: []corev1.VolumeMount{{
-				Name:      "juju-data-dir",
-				MountPath: jujuDataDir,
-				SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
-			}, {
-				Name:      "juju-data-dir",
-				MountPath: "/shared/usr/bin",
-				SubPath:   "usr/bin",
-			}, {
-				Name:      "juju-data-dir",
-				MountPath: "/var/run/containers",
-				SubPath:   "var/run/containers",
-			}},
-		}},
-		Containers: containerSpecs,
-		Volumes: []corev1.Volume{{
-			Name: "juju-data-dir",
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      jujuDataDirVolumeName,
+					MountPath: jujuDataDir,
+					SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
+				},
+				{
+					Name:      jujuDataDirVolumeName,
+					MountPath: "/shared/usr/bin",
+					SubPath:   "usr/bin",
+				},
+				{
+					Name:      jujuDataDirVolumeName,
+					MountPath: "/var/run/containers",
+					SubPath:   "var/run/containers",
+				},
 			},
 		}},
+		Containers: containerSpecs,
+		Volumes: []corev1.Volume{
+			{
+				Name: jujuDataDirVolumeName,
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			},
+		},
 	}, nil
 }
 
