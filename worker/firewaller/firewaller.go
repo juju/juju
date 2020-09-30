@@ -83,12 +83,13 @@ type newCrossModelFacadeFunc func(*api.Info) (CrossModelFirewallerFacadeCloser, 
 
 // Config defines the operation of a Worker.
 type Config struct {
-	ModelUUID          string
-	Mode               string
-	FirewallerAPI      FirewallerAPI
-	RemoteRelationsApi *remoterelations.Client
-	EnvironFirewaller  EnvironFirewaller
-	EnvironInstances   EnvironInstances
+	ModelUUID              string
+	Mode                   string
+	FirewallerAPI          FirewallerAPI
+	RemoteRelationsApi     *remoterelations.Client
+	EnvironFirewaller      EnvironFirewaller
+	EnvironInstances       EnvironInstances
+	EnvironIPV6CIDRSupport bool
 
 	NewCrossModelFacadeFunc newCrossModelFacadeFunc
 
@@ -149,6 +150,10 @@ type Firewaller struct {
 	globalMode           bool
 	globalIngressRuleRef map[string]int // map of rule names to count of occurrences
 
+	// Set to true if the environment supports ingress rules containing
+	// IPV6 CIDRs.
+	envIPV6CIDRSupport bool
+
 	modelUUID                  string
 	newRemoteFirewallerAPIFunc newCrossModelFacadeFunc
 	remoteRelationsWatcher     watcher.StringsWatcher
@@ -176,6 +181,7 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 		remoteRelationsApi:         cfg.RemoteRelationsApi,
 		environFirewaller:          cfg.EnvironFirewaller,
 		environInstances:           cfg.EnvironInstances,
+		envIPV6CIDRSupport:         cfg.EnvironIPV6CIDRSupport,
 		newRemoteFirewallerAPIFunc: cfg.NewCrossModelFacadeFunc,
 		modelUUID:                  cfg.ModelUUID,
 		machineds:                  make(map[names.MachineTag]*machineData),
@@ -799,6 +805,14 @@ func (fw *Firewaller) gatherIngressRules(machines ...*machineData) (firewall.Ing
 	if err := want.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	// Substrates that do not support IPV6 CIDRs will complain if we pass
+	// an IPV6 CIDR. To work around this issue, we filter out any IPV6
+	// CIDRs from the collected ingress rule list.
+	if !fw.envIPV6CIDRSupport {
+		want = want.RemoveCIDRsMatchingAddressType(network.IPv6Address)
+	}
+
 	return want, nil
 }
 

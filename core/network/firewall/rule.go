@@ -221,3 +221,33 @@ nextRule:
 
 	return uniqueRules
 }
+
+// RemoveCIDRsMatchingAddressType returns a new list of rules where any CIDR
+// whose address type corresponds to the specified AddressType argument has
+// been removed.
+func (rules IngressRules) RemoveCIDRsMatchingAddressType(removeAddrType network.AddressType) IngressRules {
+	var out IngressRules
+
+	for _, rule := range rules {
+		filteredCIDRS := set.NewStrings(rule.SourceCIDRs.Values()...)
+		for srcCIDR := range rule.SourceCIDRs {
+			if addrType, _ := network.CIDRAddressType(srcCIDR); addrType == removeAddrType {
+				filteredCIDRS.Remove(srcCIDR)
+			}
+		}
+
+		if filteredCIDRS.IsEmpty() {
+			continue
+		}
+
+		out = append(out, IngressRule{
+			PortRange:   rule.PortRange,
+			SourceCIDRs: filteredCIDRS,
+		})
+
+	}
+
+	uniqueRules := out.UniqueRules()
+	uniqueRules.Sort()
+	return uniqueRules
+}

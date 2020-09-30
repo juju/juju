@@ -258,3 +258,18 @@ func (IngressRuleSuite) TestDiffRangesClosesPortsIfRulesAreDisjoint(c *gc.C) {
 	c.Assert(toOpen, gc.DeepEquals, wanted)
 	c.Assert(toClose, gc.DeepEquals, current)
 }
+
+func (IngressRuleSuite) TestRemoveCIDRsMatchingAddressType(c *gc.C) {
+	in := IngressRules{
+		NewIngressRule(network.MustParsePortRange("80/tcp"), "35.187.158.35/32"),
+		// We expect these rules to be de-dupped once the IPV6 CIDRs get removed
+		NewIngressRule(network.MustParsePortRange("81/tcp"), "35.187.1.35/32", "::/0"),
+		NewIngressRule(network.MustParsePortRange("81/tcp"), "35.187.1.35/32", "2002::1234:abcd:ffff:c0a8:101/64"),
+	}
+
+	out := in.RemoveCIDRsMatchingAddressType(network.IPv6Address)
+	c.Assert(out, gc.DeepEquals, IngressRules{
+		NewIngressRule(network.MustParsePortRange("80/tcp"), "35.187.158.35/32"),
+		NewIngressRule(network.MustParsePortRange("81/tcp"), "35.187.1.35/32"),
+	})
+}

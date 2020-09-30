@@ -490,6 +490,14 @@ type Firewaller interface {
 	IngressRules(ctx context.ProviderCallContext) (firewall.IngressRules, error)
 }
 
+// FirewallFeatureQuerier exposes methods for detecting what features the
+// environment firewall supports.
+type FirewallFeatureQuerier interface {
+	// SupportsRulesWithIPV6CIDRs returns true if the environment supports
+	// ingress rules containing IPV6 CIDRs.
+	SupportsRulesWithIPV6CIDRs(ctx context.ProviderCallContext) (bool, error)
+}
+
 // InstanceTagger is an interface that can be used for tagging instances.
 type InstanceTagger interface {
 	// TagInstance tags the given instance with the specified tags.
