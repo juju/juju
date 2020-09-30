@@ -16,6 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -92,6 +93,67 @@ func (s *networkInfoSuite) addDevicesWithAddresses(c *gc.C, machine *state.Machi
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(deviceAddresses, gc.HasLen, 1)
 	}
+}
+
+func (s *networkInfoSuite) TestNetworksForBinding(c *gc.C) {
+	// Add subnets for the addresses that the machine will have.
+	// We are testing a space-less deployment here.
+	_, err := s.State.AddSubnet(network.SubnetInfo{
+		CIDR:    "10.2.0.0/16",
+		SpaceID: network.AlphaSpaceId,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.AddSubnet(network.SubnetInfo{
+		CIDR:    "100.2.3.0/24",
+		SpaceID: network.AlphaSpaceId,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	bindings := map[string]string{
+		"":             network.AlphaSpaceName,
+		"server-admin": network.AlphaSpaceName,
+	}
+	app := s.AddTestingApplicationWithBindings(c, "mysql", s.AddTestingCharm(c, "mysql"), bindings)
+
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.AssignToNewMachine(), jc.ErrorIsNil)
+
+	id, err := unit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.Machine(id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// We need at least one address on the machine itself, because these are
+	// retrieved up-front to use as a fallback when we fail to locate addresses
+	// on link-layer devices.
+	addresses := []network.SpaceAddress{
+		network.NewSpaceAddress("10.2.3.4/16"),
+	}
+	err = machine.SetProviderAddresses(addresses...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.addDevicesWithAddresses(c, machine, "10.2.3.4/16", "100.2.3.4/24")
+
+	netInfo := s.newNetworkInfo(c, unit.UnitTag(), nil)
+	result, err := netInfo.ProcessAPIRequest(params.NetworkInfoParams{
+		Unit:      unit.UnitTag().String(),
+		Endpoints: []string{"server-admin"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	res := result.Results
+	c.Assert(res, gc.HasLen, 1)
+
+	binding, ok := res["server-admin"]
+	c.Assert(ok, jc.IsTrue)
+
+	ingress := binding.IngressAddresses
+	c.Assert(len(ingress), jc.GreaterThan, 0)
+
+	// Sorting should place the public address before the cloud-local one.
+	c.Check(ingress[0], gc.Equals, "100.2.3.4")
 }
 
 func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
