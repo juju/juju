@@ -72,7 +72,7 @@ func (l *LabelSuite) TestIsLegacyModelLabels(c *gc.C) {
 			Namespace: &core.Namespace{
 				ObjectMeta: meta.ObjectMeta{
 					Name:   "legacy-model-label-test-1",
-					Labels: utils.LabelsForModel("legacy-model-label-test-1", false),
+					Labels: map[string]string{"model.juju.is/name": "legacy-model-label-test-1"},
 				},
 			},
 		},
