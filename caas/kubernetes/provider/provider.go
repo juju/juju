@@ -16,8 +16,6 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
 	"github.com/juju/juju/cloud"
 	jujucloud "github.com/juju/juju/cloud"
@@ -132,7 +130,7 @@ func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, 
 	// controller namespace when we find it.
 	broker, err := newK8sBroker(
 		args.ControllerUUID, k8sRestConfig, args.Config, args.Config.Name(), NewK8sClients, newRestClient,
-		k8swatcher.NewKubernetesNotifyWatcher, k8swatcher.NewKubernetesStringsWatcher, utils.RandomPrefix,
+		k8swatcher.NewKubernetesNotifyWatcher, k8swatcher.NewKubernetesStringsWatcher, randomPrefix,
 		jujuclock.WallClock)
 	if err != nil {
 		return nil, err
@@ -152,7 +150,7 @@ func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, 
 	return newK8sBroker(
 		args.ControllerUUID, k8sRestConfig, args.Config, ns,
 		NewK8sClients, newRestClient, k8swatcher.NewKubernetesNotifyWatcher, k8swatcher.NewKubernetesStringsWatcher,
-		utils.RandomPrefix, jujuclock.WallClock)
+		randomPrefix, jujuclock.WallClock)
 }
 
 // CloudSchema returns the schema for adding new clouds of this type.
@@ -173,10 +171,10 @@ func (p kubernetesEnvironProvider) PrepareConfig(args environs.PrepareConfigPara
 	// Set the default storage sources.
 	attrs := make(map[string]interface{})
 	if _, ok := args.Config.StorageDefaultBlockSource(); !ok {
-		attrs[config.StorageDefaultBlockSourceKey] = constants.StorageProviderType
+		attrs[config.StorageDefaultBlockSourceKey] = K8s_ProviderType
 	}
 	if _, ok := args.Config.StorageDefaultFilesystemSource(); !ok {
-		attrs[config.StorageDefaultFilesystemSourceKey] = constants.StorageProviderType
+		attrs[config.StorageDefaultFilesystemSourceKey] = K8s_ProviderType
 	}
 	return args.Config.Apply(attrs)
 }
