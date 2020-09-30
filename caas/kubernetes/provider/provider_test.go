@@ -74,6 +74,17 @@ func (s *providerSuite) TestRegistered(c *gc.C) {
 	c.Assert(provider, gc.NotNil)
 }
 
+func (s *providerSuite) TestOpen(c *gc.C) {
+	c.Skip("need to plug in fake broker")
+	config := fakeConfig(c)
+	broker, err := s.provider.Open(environs.OpenParams{
+		Cloud:  fakeCloudSpec(),
+		Config: config,
+	})
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(broker, gc.NotNil)
+}
+
 func (s *providerSuite) TestOpenInvalidCloudSpec(c *gc.C) {
 	spec := fakeCloudSpec()
 	spec.Name = ""
