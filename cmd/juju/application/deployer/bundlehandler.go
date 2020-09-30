@@ -346,7 +346,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		url, _, _, err := h.bundleResolver.ResolveCharm(ch, origin)
+		url, origin, _, err := h.bundleResolver.ResolveCharm(ch, origin)
 		if err != nil {
 			return errors.Annotatef(err, "cannot resolve URL %q", spec.Charm)
 		}
@@ -355,6 +355,13 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		}
 
 		spec.Charm = url.String()
+
+		// Ensure we set the origin for a resolved charm. When an upgrade with a
+		// bundle happens, we need to ensure that we have all the existing
+		// charm origins as well as any potential new ones.
+		// Specifically this happens when a bundle is re-using a charm from
+		// another application, but giving it a new name.
+		h.origins[*url] = origin
 	}
 
 	// TODO(thumper): the InferEndpoints code is deeply wedged in the
@@ -600,10 +607,13 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 
 	origin, ok := h.origins[*cURL]
 	if !ok {
-		// It is expected that the addCharm is done before addApplication.
-		// We require that order to be correct otherwise it's impossible for
-		// us to deploy an application without a charm.
-		return errors.Errorf("unexpected charm url %q, no charm found for application %q", cURL.String(), p.Application)
+		// This should never happen, essentially we have a charm url that has
+		// never been deployed previously, or has never been added with
+		// setCharm.
+		// TODO (stickupkid): We could in theory deduce the origin, but that
+		// will be ok for charmstore and local, but will be horribly wrong
+		// for charmhub.
+		return errors.Annotatef(err, "unexpected charm url %q, charm not found for application %q", cURL.String(), p.Application)
 	}
 
 	chID := application.CharmID{

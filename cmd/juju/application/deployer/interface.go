@@ -118,16 +118,21 @@ type ApplicationAPI interface {
 	AddRelation(endpoints, viaCIDRs []string) (*apiparams.AddRelationResults, error)
 	AddUnits(application.AddUnitsParams) ([]string, error)
 	Expose(application string, exposedEndpoints map[string]apiparams.ExposedEndpoint) error
+
 	GetAnnotations(tags []string) ([]apiparams.AnnotationsGetResult, error)
-	GetConfig(branchName string, appNames ...string) ([]map[string]interface{}, error)
-	GetConstraints(appNames ...string) ([]constraints.Value, error)
 	SetAnnotation(annotations map[string]map[string]string) ([]apiparams.ErrorResult, error)
+
+	GetCharmURLOrigin(string, string) (*charm.URL, commoncharm.Origin, error)
 	SetCharm(string, application.SetCharmConfig) error
+
+	GetConfig(branchName string, appNames ...string) ([]map[string]interface{}, error)
+	SetConfig(branchName string, application, configYAML string, config map[string]string) error
+
+	GetConstraints(appNames ...string) ([]constraints.Value, error)
 	SetConstraints(application string, constraints constraints.Value) error
 
 	// Deprecate use of Update, use SetConfig instead.
 	Update(apiparams.ApplicationUpdate) error
-	SetConfig(branchName string, application, configYAML string, config map[string]string) error
 
 	ScaleApplication(application.ScaleApplicationParams) (apiparams.ScaleApplicationResult, error)
 	Consume(arg crossmodel.ConsumeApplicationArgs) (string, error)
