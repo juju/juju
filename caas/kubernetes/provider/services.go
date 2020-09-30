@@ -18,11 +18,7 @@ import (
 )
 
 func getServiceLabels(appName string, legacy bool) map[string]string {
-	labels := utils.LabelsForApp(appName, legacy)
-	if !legacy {
-		labels = utils.LabelsMerge(labels, utils.LabelsJuju)
-	}
-	return labels
+	return utils.LabelsForApp(appName, legacy)
 }
 
 func (k *kubernetesClient) ensureServicesForApp(appName string, annotations k8sannotations.Annotation, services []k8sspecs.K8sService) (cleanUps []func(), err error) {

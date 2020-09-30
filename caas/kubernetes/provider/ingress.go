@@ -21,11 +21,7 @@ import (
 )
 
 func (k *kubernetesClient) getIngressLabels(appName string) map[string]string {
-	labels := utils.LabelsForApp(appName, k.IsLegacyLabels())
-	if !k.IsLegacyLabels() {
-		labels = utils.LabelsMerge(labels, utils.LabelsJuju)
-	}
-	return labels
+	return utils.LabelsForApp(appName, k.IsLegacyLabels())
 }
 
 // TODO(caas): should we overwrite the existing `juju expose` created ingress if user runs upgrade-charm with new ingress podspec v2.

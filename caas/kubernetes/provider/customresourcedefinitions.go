@@ -31,22 +31,14 @@ import (
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/crd_getter_mock.go github.com/juju/juju/caas/kubernetes/provider CRDGetterInterface
 
 func (k *kubernetesClient) getAPIExtensionLabelsGlobal(appName string) map[string]string {
-	labels := utils.LabelsMerge(
+	return utils.LabelsMerge(
 		utils.LabelsForApp(appName, k.IsLegacyLabels()),
 		utils.LabelsForModel(k.CurrentModel(), k.IsLegacyLabels()),
 	)
-	if !k.IsLegacyLabels() {
-		labels = utils.LabelsMerge(labels, utils.LabelsJuju)
-	}
-	return labels
 }
 
 func (k *kubernetesClient) getAPIExtensionLabelsNamespaced(appName string) map[string]string {
-	labels := utils.LabelsForApp(appName, k.IsLegacyLabels())
-	if !k.IsLegacyLabels() {
-		labels = utils.LabelsMerge(labels, utils.LabelsJuju)
-	}
-	return labels
+	return utils.LabelsForApp(appName, k.IsLegacyLabels())
 }
 
 func (k *kubernetesClient) getCRLabels(appName string, scope apiextensionsv1beta1.ResourceScope) map[string]string {

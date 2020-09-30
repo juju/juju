@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
-	"github.com/juju/juju/caas/specs"
 )
 
 // AppNameForServiceAccount returns the juju application name associated with a
@@ -42,23 +41,7 @@ func RBACLabels(appName, model string, global, legacy bool) map[string]string {
 	if global {
 		labels = utils.LabelsMerge(labels, utils.LabelsForModel(model, legacy))
 	}
-	if !legacy {
-		labels = utils.LabelsMerge(labels, utils.LabelsJuju)
-	}
 	return labels
-}
-
-func toK8sRules(rules []specs.PolicyRule) (out []rbacv1.PolicyRule) {
-	for _, r := range rules {
-		out = append(out, rbacv1.PolicyRule{
-			Verbs:           r.Verbs,
-			APIGroups:       r.APIGroups,
-			Resources:       r.Resources,
-			ResourceNames:   r.ResourceNames,
-			NonResourceURLs: r.NonResourceURLs,
-		})
-	}
-	return out
 }
 
 func (k *kubernetesClient) ensureServiceAccountForApp(

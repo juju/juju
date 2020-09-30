@@ -900,7 +900,7 @@ func (k *kubernetesClient) applyRawK8sSpec(
 	}
 
 	labelGetter := func(isNamespaced bool) map[string]string {
-		labels := utils.LabelsForApp(appName, k.IsLegacyLabels())
+		labels := utils.SelectorLabelsForApp(appName, k.IsLegacyLabels())
 		if !isNamespaced {
 			labels = utils.LabelsMerge(
 				labels,
@@ -1502,16 +1502,11 @@ func (k *kubernetesClient) configureDaemonSet(
 		return cleanUps, errors.Trace(err)
 	}
 
-	selectorLabels := k.getDaemonSetLabels(appName)
-	labels := selectorLabels
-	if !k.IsLegacyLabels() {
-		labels = utils.LabelsMerge(labels, utils.LabelsJuju)
-	}
-
+	selectorLabels := utils.SelectorLabelsForApp(appName, k.IsLegacyLabels())
 	daemonSet := &apps.DaemonSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   deploymentName,
-			Labels: labels,
+			Labels: utils.LabelsForApp(appName, k.IsLegacyLabels()),
 			Annotations: k8sannotations.New(nil).
 				Merge(annotations).
 				Add(annotationKeyApplicationUUID, storageUniqueID).ToMap(),
@@ -1519,7 +1514,7 @@ func (k *kubernetesClient) configureDaemonSet(
 		Spec: apps.DaemonSetSpec{
 			// TODO(caas): DaemonSetUpdateStrategy support.
 			Selector: &v1.LabelSelector{
-				MatchLabels: selectorLabels,
+				MatchLabels: utils.SelectorLabelsForApp(appName, k.IsLegacyLabels()),
 			},
 			RevisionHistoryLimit: int32Ptr(daemonsetRevisionHistoryLimit),
 			Template: core.PodTemplateSpec{
@@ -1606,13 +1601,13 @@ func (k *kubernetesClient) configureDeployment(
 	if err != nil {
 		return cleanUps, errors.Trace(err)
 	}
+
+	selectorLabels := utils.SelectorLabelsForApp(appName, k.IsLegacyLabels())
+
 	deployment := &apps.Deployment{
 		ObjectMeta: v1.ObjectMeta{
-			Name: deploymentName,
-			Labels: utils.LabelsMerge(
-				utils.LabelsForApp(appName, k.IsLegacyLabels()),
-				utils.LabelsJuju,
-			),
+			Name:   deploymentName,
+			Labels: utils.LabelsForApp(appName, k.IsLegacyLabels()),
 			Annotations: k8sannotations.New(nil).
 				Merge(annotations).
 				Add(annotationKeyApplicationUUID, storageUniqueID).ToMap(),
@@ -1622,12 +1617,12 @@ func (k *kubernetesClient) configureDeployment(
 			Replicas:             replicas,
 			RevisionHistoryLimit: int32Ptr(deploymentRevisionHistoryLimit),
 			Selector: &v1.LabelSelector{
-				MatchLabels: utils.LabelsForApp(appName, k.IsLegacyLabels()),
+				MatchLabels: selectorLabels,
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: deploymentName + "-",
-					Labels:       utils.LabelsForApp(appName, k.IsLegacyLabels()),
+					Labels:       selectorLabels,
 					Annotations:  podAnnotations(k8sannotations.New(workloadSpec.Pod.Annotations).Merge(annotations).Copy()).ToMap(),
 				},
 				Spec: workloadSpec.Pod.PodSpec,
@@ -1827,15 +1822,12 @@ func (k *kubernetesClient) configureService(
 	}
 	service := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
-			Name: deploymentName,
-			Labels: utils.LabelsMerge(
-				utils.LabelsForApp(appName, k.IsLegacyLabels()),
-				utils.LabelsJuju,
-			),
+			Name:        deploymentName,
+			Labels:      utils.LabelsForApp(appName, k.IsLegacyLabels()),
 			Annotations: annotations,
 		},
 		Spec: core.ServiceSpec{
-			Selector:                 utils.LabelsForApp(appName, k.IsLegacyLabels()),
+			Selector:                 utils.SelectorLabelsForApp(appName, k.IsLegacyLabels()),
 			Type:                     serviceType,
 			Ports:                    ports,
 			ExternalIPs:              config.Get(serviceExternalIPsConfigKey, []string(nil)).([]string),
@@ -1854,17 +1846,14 @@ func (k *kubernetesClient) configureHeadlessService(
 	logger.Debugf("creating/updating headless service for %s", appName)
 	service := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
-			Name: headlessServiceName(deploymentName),
-			Labels: utils.LabelsMerge(
-				utils.LabelsForApp(appName, k.IsLegacyLabels()),
-				utils.LabelsJuju,
-			),
+			Name:   headlessServiceName(deploymentName),
+			Labels: utils.LabelsForApp(appName, k.IsLegacyLabels()),
 			Annotations: k8sannotations.New(nil).
 				Merge(annotations).
 				Add("service.alpha.kubernetes.io/tolerate-unready-endpoints", "true").ToMap(),
 		},
 		Spec: core.ServiceSpec{
-			Selector:                 utils.LabelsForApp(appName, k.IsLegacyLabels()),
+			Selector:                 utils.SelectorLabelsForApp(appName, k.IsLegacyLabels()),
 			Type:                     core.ServiceTypeClusterIP,
 			ClusterIP:                "None",
 			PublishNotReadyAddresses: true,
@@ -1945,7 +1934,7 @@ func (k *kubernetesClient) applicationSelector(appName string, mode caas.Deploym
 		return operatorSelector(appName, k.IsLegacyLabels())
 	}
 	return utils.LabelSetToSelector(
-		utils.LabelsForApp(appName, k.IsLegacyLabels())).String()
+		utils.SelectorLabelsForApp(appName, k.IsLegacyLabels())).String()
 }
 
 // AnnotateUnit annotates the specified pod (name or uid) with a unit tag.

@@ -202,11 +202,8 @@ func newcontrollerStack(
 	agentConfig.SetStateServingInfo(si)
 	pcfg.Bootstrap.StateServingInfo = si
 
-	selectorLabels := providerutils.LabelsForApp(stackName, false)
-	labels := providerutils.LabelsMerge(
-		selectorLabels,
-		providerutils.LabelsJuju,
-	)
+	selectorLabels := providerutils.SelectorLabelsForApp(stackName, false)
+	labels := providerutils.LabelsForApp(stackName, false)
 
 	cs := &controllerStack{
 		ctx:              ctx,

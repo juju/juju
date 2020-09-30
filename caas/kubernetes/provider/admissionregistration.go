@@ -21,15 +21,10 @@ import (
 )
 
 func (k *kubernetesClient) getAdmissionControllerLabels(appName string) map[string]string {
-	labels := utils.LabelsMerge(
+	return utils.LabelsMerge(
 		utils.LabelsForApp(appName, k.IsLegacyLabels()),
 		utils.LabelsForModel(k.CurrentModel(), k.IsLegacyLabels()),
 	)
-
-	if !k.IsLegacyLabels() {
-		labels = utils.LabelsMerge(labels, utils.LabelsJuju)
-	}
-	return labels
 }
 
 var annotationDisableNamePrefixKey = constants.AnnotationKey("disable-name-prefix")
