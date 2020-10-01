@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
@@ -60,6 +61,9 @@ var (
 	// aliveInstanceStates are the states which we filter by when listing
 	// instances in an environment.
 	aliveInstanceStates = []string{"pending", "running"}
+
+	// Ensure that environ imlements FirewallFeatureQuerier.
+	_ environs.FirewallFeatureQuerier = (*environ)(nil)
 )
 
 type environ struct {
@@ -1698,7 +1702,16 @@ func rulesToIPPerms(rules firewall.IngressRules) []ec2.IPPerm {
 		if len(r.SourceCIDRs) == 0 {
 			ipPerms[i].SourceIPs = []string{defaultRouteCIDRBlock}
 		} else {
-			ipPerms[i].SourceIPs = r.SourceCIDRs.SortedValues()
+			for _, cidr := range r.SourceCIDRs.SortedValues() {
+				// CIDRs are pre-validated; if an invalid CIDR
+				// reaches this loop, it will be skipped.
+				addrType, _ := network.CIDRAddressType(cidr)
+				if addrType == network.IPv4Address {
+					ipPerms[i].SourceIPs = append(ipPerms[i].SourceIPs, cidr)
+				} else if addrType == network.IPv6Address {
+					ipPerms[i].SourceIPV6IPs = append(ipPerms[i].SourceIPV6IPs, cidr)
+				}
+			}
 		}
 	}
 	return ipPerms
@@ -1761,9 +1774,9 @@ func (e *environ) ingressRulesInGroup(ctx context.ProviderCallContext, name stri
 		return nil, err
 	}
 	for _, p := range group.IPPerms {
-		ips := p.SourceIPs
+		ips := append(p.SourceIPs, p.SourceIPV6IPs...)
 		if len(ips) == 0 {
-			ips = []string{defaultRouteCIDRBlock}
+			ips = append(ips, defaultRouteCIDRBlock)
 		}
 		portRange := corenetwork.PortRange{Protocol: p.Protocol, FromPort: p.FromPort, ToPort: p.ToPort}
 		rules = append(rules, firewall.NewIngressRule(portRange, ips...))
@@ -2405,4 +2418,12 @@ func (e *environ) SetCloudSpec(spec environscloudspec.CloudSpec) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// SupportsRulesWithIPV6CIDRs returns true if the environment supports
+// ingress rules containing IPV6 CIDRs.
+//
+// This is part of the environs.FirewallFeatureQuerier interface.
+func (e *environ) SupportsRulesWithIPV6CIDRs(context.ProviderCallContext) (bool, error) {
+	return true, nil
 }
