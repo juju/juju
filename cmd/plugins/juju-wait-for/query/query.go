@@ -45,36 +45,11 @@ func (q Query) Run(scope Scope) (bool, error) {
 
 	// Attempt to workout if the result of the query is a boolean. This is a bit
 	// harder in go as we might have a lot of types that could be returned.
-	switch r := res.(type) {
-	case nil:
+	if res == nil {
 		return false, nil
-	case bool:
-		return r, nil
-	case int:
-		return r > 0, nil
-	case int8:
-		return r > 0, nil
-	case int16:
-		return r > 0, nil
-	case int32:
-		return r > 0, nil
-	case int64:
-		return r > 0, nil
-	case uint:
-		return r > 0, nil
-	case uint8:
-		return r > 0, nil
-	case uint16:
-		return r > 0, nil
-	case uint32:
-		return r > 0, nil
-	case uint64:
-		return r > 0, nil
-	case string:
-		return r != "", nil
 	}
-
-	return false, errors.Errorf("Runtime Error: unknown query return type %T", res)
+	ref := reflect.ValueOf(res)
+	return !ref.IsZero(), nil
 }
 
 func (q Query) run(e Expression, scope Scope) (interface{}, error) {
