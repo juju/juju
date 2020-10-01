@@ -140,6 +140,15 @@ func (l *Lexer) readRunesToken() Token {
 		tok.Literal = ""
 		tok.Type = EOF
 		return tok
+	case isDigit(l.char):
+		literal := l.readNumber()
+		if strings.Contains(literal, ".") {
+			tok.Type = FLOAT
+		} else {
+			tok.Type = INT
+		}
+		tok.Literal = literal
+		return tok
 	case isLetter(l.char):
 		tok.Literal = l.readIdentifier()
 		switch strings.ToLower(tok.Literal) {
@@ -150,15 +159,6 @@ func (l *Lexer) readRunesToken() Token {
 		default:
 			tok.Type = IDENT
 		}
-		return tok
-	case isDigit(l.char):
-		literal, _ := l.readNumber()
-		if strings.Contains(literal, ".") {
-			tok.Type = FLOAT
-		} else {
-			tok.Type = INT
-		}
-		tok.Literal = literal
 		return tok
 	case isQuote(l.char):
 		if s, err := l.readString(l.char); err == nil {
@@ -205,28 +205,23 @@ func (l *Lexer) readString(r rune) (string, error) {
 }
 
 // scanNumber returns number begining at current position.
-func (l *Lexer) readNumber() (string, error) {
+func (l *Lexer) readNumber() string {
 	var ret []rune
 
 	ret = append(ret, l.char)
 	l.ReadNext()
 
-	if l.char == '0' {
+	for isDigit(l.char) || l.char == '.' {
+		if l.char == '.' {
+			if l.Peek() == '.' {
+				return string(ret)
+			}
+		}
+
 		ret = append(ret, l.char)
 		l.ReadNext()
-	} else {
-		for isDigit(l.char) || l.char == '.' {
-			if l.char == '.' {
-				if l.Peek() == '.' {
-					return string(ret), nil
-				}
-			}
-
-			ret = append(ret, l.char)
-			l.ReadNext()
-		}
 	}
-	return string(ret), nil
+	return string(ret)
 }
 
 func (l *Lexer) getPosition() Position {

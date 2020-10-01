@@ -6,6 +6,7 @@ package query
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"unicode/utf8"
 )
 
@@ -68,10 +69,13 @@ func (es *ExpressionStatement) End() Position {
 func (es *ExpressionStatement) String() string {
 	if es.Expression != nil {
 		str := es.Expression.String()
-		if str[len(str)-1:] != ";" {
-			str = str + ";"
+		if str == "" {
+			return ";"
 		}
-		return str
+		if str[len(str)-1:] != ";" {
+			str += ";"
+		}
+		return strings.TrimSpace(str)
 	}
 	return ""
 }

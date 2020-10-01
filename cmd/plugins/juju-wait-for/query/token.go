@@ -108,6 +108,13 @@ func MakeToken(tokenType TokenType, char rune) Token {
 	}
 }
 
+var (
+	// UnknownToken can be used as a sentinel token for a unknown state.
+	UnknownToken = Token{
+		Type: UNKNOWN,
+	}
+)
+
 var tokenMap = map[rune]TokenType{
 	'=': ASSIGN,
 	';': SEMICOLON,
