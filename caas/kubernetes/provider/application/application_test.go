@@ -26,6 +26,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/application"
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	resourcesmocks "github.com/juju/juju/caas/kubernetes/provider/resources/mocks"
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
@@ -265,6 +266,46 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 					Name:  "JUJU_CONTAINER_NAMES",
 					Value: "gitlab",
 				},
+				{
+					Name:  constants.EnvAgentHTTPProbePort,
+					Value: constants.AgentHTTPProbePort,
+				},
+			},
+			LivenessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: constants.AgentHTTPPathLiveness,
+						Port: intstr.FromString(constants.AgentHTTPProbePort),
+					},
+				},
+				InitialDelaySeconds: 30,
+				PeriodSeconds:       10,
+				SuccessThreshold:    1,
+				FailureThreshold:    2,
+			},
+			ReadinessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: constants.AgentHTTPPathReadiness,
+						Port: intstr.FromString(constants.AgentHTTPProbePort),
+					},
+				},
+				InitialDelaySeconds: 30,
+				PeriodSeconds:       10,
+				SuccessThreshold:    1,
+				FailureThreshold:    2,
+			},
+			StartupProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: constants.AgentHTTPPathStartup,
+						Port: intstr.FromString(constants.AgentHTTPProbePort),
+					},
+				},
+				InitialDelaySeconds: 30,
+				PeriodSeconds:       10,
+				SuccessThreshold:    1,
+				FailureThreshold:    2,
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{

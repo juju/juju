@@ -40,8 +40,12 @@ import (
 var logger = loggo.GetLogger("juju.kubernetes.provider.application")
 
 const (
-	unitContainerName     = "juju-unit-agent"
-	jujuDataDirVolumeName = "juju-data-dir"
+	unitContainerName            = "juju-unit-agent"
+	jujuDataDirVolumeName        = "juju-data-dir"
+	agentProbeInitialDelay int32 = 30
+	agentProbePeriod       int32 = 10
+	agentProbeSuccess      int32 = 1
+	agentProbeFailure      int32 = 2
 )
 
 type app struct {
@@ -762,10 +766,52 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		WorkingDir:      jujuDataDir,
 		Command:         []string{"/usr/bin/k8sagent"},
 		Args:            []string{"unit", "--data-dir", jujuDataDir},
-		Env: []corev1.EnvVar{{
-			Name:  "JUJU_CONTAINER_NAMES",
-			Value: strings.Join(containerNames, ","),
-		}},
+		Env: []corev1.EnvVar{
+			{
+				Name:  "JUJU_CONTAINER_NAMES",
+				Value: strings.Join(containerNames, ","),
+			},
+			{
+				Name:  constants.EnvAgentHTTPProbePort,
+				Value: constants.AgentHTTPProbePort,
+			},
+		},
+		LivenessProbe: &corev1.Probe{
+			Handler: corev1.Handler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: constants.AgentHTTPPathLiveness,
+					Port: intstr.FromString(constants.AgentHTTPProbePort),
+				},
+			},
+			InitialDelaySeconds: agentProbeInitialDelay,
+			PeriodSeconds:       agentProbePeriod,
+			SuccessThreshold:    agentProbeSuccess,
+			FailureThreshold:    agentProbeFailure,
+		},
+		ReadinessProbe: &corev1.Probe{
+			Handler: corev1.Handler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: constants.AgentHTTPPathReadiness,
+					Port: intstr.FromString(constants.AgentHTTPProbePort),
+				},
+			},
+			InitialDelaySeconds: agentProbeInitialDelay,
+			PeriodSeconds:       agentProbePeriod,
+			SuccessThreshold:    agentProbeSuccess,
+			FailureThreshold:    agentProbeFailure,
+		},
+		StartupProbe: &corev1.Probe{
+			Handler: corev1.Handler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: constants.AgentHTTPPathStartup,
+					Port: intstr.FromString(constants.AgentHTTPProbePort),
+				},
+			},
+			InitialDelaySeconds: agentProbeInitialDelay,
+			PeriodSeconds:       agentProbePeriod,
+			SuccessThreshold:    agentProbeSuccess,
+			FailureThreshold:    agentProbeFailure,
+		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      jujuDataDirVolumeName,

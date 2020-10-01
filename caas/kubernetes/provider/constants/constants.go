@@ -10,6 +10,18 @@ import (
 )
 
 const (
+	// AgentHTTPProbePort is the default port used by the HTTP server responding
+	// to caas probes
+	AgentHTTPProbePort = "3856"
+
+	// AgentHTTPPathLiveness is the path used for liveness probes on the agent
+	AgentHTTPPathLiveness = "/liveness"
+
+	// AgentHTTPPathReadiness is the path used for readiness probes on the agent
+	AgentHTTPPathReadiness = "/readiness"
+
+	// AgentHTTPPathStartup is the path used for startup probes on the agent
+	AgentHTTPPathStartup = "/startup"
 
 	// JujuRunServerSocketPort is the port used by juju run callbacks.
 	JujuRunServerSocketPort = 30666

@@ -203,6 +203,11 @@ func (c *k8sUnitAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 
 // Workers returns a dependency.Engine running the k8s unit agent's responsibilities.
 func (c *k8sUnitAgent) workers() (worker.Worker, error) {
+	probePort := os.Getenv(k8sconstants.EnvAgentHTTPProbePort)
+	if probePort == "" {
+		return nil, errors.NotValidf("env %s missing", k8sconstants.EnvAgentHTTPProbePort)
+	}
+
 	updateAgentConfLogging := func(loggingConfig string) error {
 		return c.AgentConf.ChangeConfig(func(setter agent.ConfigSetter) error {
 			setter.SetLoggingConfig(loggingConfig)
@@ -220,6 +225,7 @@ func (c *k8sUnitAgent) workers() (worker.Worker, error) {
 		PrometheusRegisterer: c.prometheusRegistry,
 		UpdateLoggerConfig:   updateAgentConfLogging,
 		PreviousAgentVersion: agentConfig.UpgradedToVersion(),
+		ProbePort:            probePort,
 		MachineLock:          c.machineLock,
 		Clock:                c.clk,
 	}

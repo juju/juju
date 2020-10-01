@@ -19,10 +19,14 @@ type ManifoldConfig struct {
 }
 
 func Manifold(config ManifoldConfig) dependency.Manifold {
+	inputs := []string{}
+
+	if config.AuthorityName != "" {
+		inputs = append(inputs, config.AuthorityName)
+	}
+
 	return dependency.Manifold{
-		Inputs: []string{
-			config.AuthorityName,
-		},
+		Inputs: inputs,
 		Output: manifoldOutput,
 		Start:  config.Start,
 	}
