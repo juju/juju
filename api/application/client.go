@@ -192,6 +192,36 @@ func (c *Client) GetCharmURL(branchName, applicationName string) (*charm.URL, er
 // The charm origin gives more information about the location of the charm and
 // what revision/channel it came from.
 func (c *Client) GetCharmURLOrigin(branchName, applicationName string) (*charm.URL, apicharm.Origin, error) {
+	// Handle the issue where the client can't talk to older API versions of the
+	// API. Luckily we can polyfill the missing return type.
+	if c.BestAPIVersion() < 13 {
+		charmURL, err := c.GetCharmURL(branchName, applicationName)
+		if err != nil {
+			return nil, apicharm.Origin{}, errors.Trace(err)
+		}
+
+		// We need to ensure that we don't handle charmhub charms, as the rest
+		// of the API won't correctly handle that either.
+		var origin apicharm.Origin
+		switch charmURL.Schema {
+		case "cs":
+			origin = apicharm.Origin{
+				Source: apicharm.OriginCharmStore,
+			}
+		case "local":
+			origin = apicharm.Origin{
+				Source: apicharm.OriginLocal,
+			}
+		default:
+			return nil, apicharm.Origin{}, errors.Errorf("unexpected charm store %q", charmURL.Schema)
+		}
+
+		if err != nil {
+			return nil, apicharm.Origin{}, errors.Trace(err)
+		}
+		return charmURL, origin, nil
+	}
+
 	args := params.ApplicationGet{
 		ApplicationName: applicationName,
 		BranchName:      branchName,
