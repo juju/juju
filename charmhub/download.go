@@ -51,17 +51,17 @@ func NewDownloadClient(transport Transport, fileSystem FileSystem, logger Logger
 	}
 }
 
-// Download returns a charm archive retrieved from the given URL.
+// Download returns a charm zip retrieved from the given URL.
 // It is expected that the archive path doesn't already exist and if it does, it
 // will error out. It is expected that the callee handles the clean up of the
 // archivePath.
 // TODO (stickupkid): We should either create and remove, or take a file and
 // let the callee remove. The fact that the operations are asymmetrical can lead
 // to unexpected expectations; namely leaking of files.
-func (c *DownloadClient) Download(ctx context.Context, resourceURL *url.URL, archivePath string) (*charm.CharmArchive, error) {
+func (c *DownloadClient) Download(ctx context.Context, resourceURL *url.URL, archivePath string) error {
 	f, err := c.fileSystem.Create(archivePath)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 	defer func() {
 		_ = f.Close()
@@ -69,7 +69,7 @@ func (c *DownloadClient) Download(ctx context.Context, resourceURL *url.URL, arc
 
 	r, err := c.downloadFromURL(ctx, resourceURL)
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot retrieve %q", resourceURL)
+		return errors.Annotatef(err, "cannot retrieve %q", resourceURL)
 	}
 	defer func() {
 		_ = r.Close()
@@ -79,6 +79,16 @@ func (c *DownloadClient) Download(ctx context.Context, resourceURL *url.URL, arc
 	// we don't have the information to hand. That information is further up the
 	// stack.
 	if _, err := io.Copy(f, r); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+// DownloadAndRead returns a charm archive retrieved from the given URL.
+func (c *DownloadClient) DownloadAndRead(ctx context.Context, resourceURL *url.URL, archivePath string) (*charm.CharmArchive, error) {
+	err := c.Download(ctx, resourceURL, archivePath)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 

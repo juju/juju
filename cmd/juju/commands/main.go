@@ -561,6 +561,7 @@ func registerCommands(r commandRegistry) {
 	if featureflag.Enabled(feature.CharmHubIntegration) {
 		r.Register(charmhub.NewInfoCommand())
 		r.Register(charmhub.NewFindCommand())
+		r.Register(charmhub.NewDownloadCommand())
 	}
 
 	// Commands registered elsewhere.

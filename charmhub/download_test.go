@@ -27,7 +27,7 @@ type DownloadSuite struct {
 
 var _ = gc.Suite(&DownloadSuite{})
 
-func (s *DownloadSuite) TestDownload(c *gc.C) {
+func (s *DownloadSuite) TestDownloadAndRead(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -55,11 +55,11 @@ func (s *DownloadSuite) TestDownload(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	client := NewDownloadClient(transport, fileSystem, &FakeLogger{})
-	_, err = client.Download(context.TODO(), serverURL, tmpFile.Name())
+	_, err = client.DownloadAndRead(context.TODO(), serverURL, tmpFile.Name())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *DownloadSuite) TestDownloadWithNotFoundStatusCode(c *gc.C) {
+func (s *DownloadSuite) TestDownloadAndReadWithNotFoundStatusCode(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -85,11 +85,11 @@ func (s *DownloadSuite) TestDownloadWithNotFoundStatusCode(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	client := NewDownloadClient(transport, fileSystem, &FakeLogger{})
-	_, err = client.Download(context.TODO(), serverURL, tmpFile.Name())
+	_, err = client.DownloadAndRead(context.TODO(), serverURL, tmpFile.Name())
 	c.Assert(err, gc.ErrorMatches, `cannot retrieve "http://meshuggah.rocks": archive not found`)
 }
 
-func (s *DownloadSuite) TestDownloadWithFailedStatusCode(c *gc.C) {
+func (s *DownloadSuite) TestDownloadAndReadWithFailedStatusCode(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -115,7 +115,7 @@ func (s *DownloadSuite) TestDownloadWithFailedStatusCode(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	client := NewDownloadClient(transport, fileSystem, &FakeLogger{})
-	_, err = client.Download(context.TODO(), serverURL, tmpFile.Name())
+	_, err = client.DownloadAndRead(context.TODO(), serverURL, tmpFile.Name())
 	c.Assert(err, gc.ErrorMatches, `cannot retrieve "http://meshuggah.rocks": unable to locate archive`)
 }
 
