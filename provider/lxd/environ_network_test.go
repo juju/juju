@@ -180,7 +180,7 @@ func (s *environNetSuite) TestSubnetDiscoveryFallbackForOlderLXDs(c *gc.C) {
 	// Even though ovs-br0 is returned by the LXD API, it is *not* bridged
 	// into the container we will be introspecting and so this subnet will
 	// not be reported back. This is a caveat of the fallback code.
-	srv.EXPECT().GetNetworkNames().Return([]string{"lo", "ovsbr0", "lxdbr0"}, nil)
+	srv.EXPECT().GetNetworkNames().Return([]string{"lo", "ovsbr0", "lxdbr0"}, nil).AnyTimes()
 
 	// This error will trigger the fallback codepath
 	srv.EXPECT().GetNetworkState("lo").Return(nil, errors.New(`server is missing the required "network_state" API extension`))
@@ -241,6 +241,13 @@ func (s *environNetSuite) TestSubnetDiscoveryFallbackForOlderLXDs(c *gc.C) {
 	env := s.NewEnviron(c, srv, nil).(*environ)
 
 	ctx := context.NewCloudCallContext()
+
+	// Spaces should be supported
+	supportsSpaces, err := env.SupportsSpaces(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(supportsSpaces, jc.IsTrue)
+
+	// List subnets
 	subnets, err := env.Subnets(ctx, instance.UnknownId, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
