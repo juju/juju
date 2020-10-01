@@ -30,6 +30,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/kubernetes/provider"
+	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/leadership"
@@ -106,6 +108,7 @@ func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
 
 	s.leadershipChecker = &fakeLeadershipChecker{false}
 	s.uniter = s.newUniterAPI(c, s.State, s.authorizer)
+	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 }
 
 // setupState creates 2 machines, 2 services and adds a unit to each service.
@@ -4413,6 +4416,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.uniterSuiteBase.JujuConnSuite.SetUpTest(c)
+	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 
 	net := map[string][]string{
 		"public":     {"8.8.0.0/16", "1.0.0.0/12"},

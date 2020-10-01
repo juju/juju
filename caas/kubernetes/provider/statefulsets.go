@@ -21,9 +21,7 @@ import (
 )
 
 func (k *kubernetesClient) getStatefulSetLabels(appName string) map[string]string {
-	return map[string]string{
-		constants.LabelApplication: appName,
-	}
+	return utils.LabelsForApp(appName, k.IsLegacyLabels())
 }
 
 func updateStrategyForStatefulSet(strategy specs.UpdateStrategy) (o apps.StatefulSetUpdateStrategy, err error) {
@@ -67,6 +65,8 @@ func (k *kubernetesClient) configureStatefulSet(
 		return errors.Trace(err)
 	}
 
+	selectorLabels := utils.SelectorLabelsForApp(appName, k.IsLegacyLabels())
+
 	statefulSet := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   deploymentName,
@@ -78,12 +78,12 @@ func (k *kubernetesClient) configureStatefulSet(
 		Spec: apps.StatefulSetSpec{
 			Replicas: replicas,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{constants.LabelApplication: appName},
+				MatchLabels: selectorLabels,
 			},
 			RevisionHistoryLimit: int32Ptr(statefulSetRevisionHistoryLimit),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels:      k.getStatefulSetLabels(appName),
+					Labels:      selectorLabels,
 					Annotations: podAnnotations(k8sannotations.New(workloadSpec.Pod.Annotations).Merge(annotations).Copy()).ToMap(),
 				},
 			},

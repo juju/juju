@@ -3,6 +3,16 @@
 
 package constants
 
+const (
+	// AnnotationJujuStorageName is the Juju annotation that represents a
+	// storage objects associated Juju name.
+	AnnotationJujuStorageName = "storage.juju.is/name"
+
+	// AnnotationJujuVersion is the version annotation used on operator
+	// deployments.
+	AnnotationJujuVersion = "juju.is/version"
+)
+
 // AnnotationKey returns a key for annotations.
 func AnnotationKey(name string) string {
 	return AnnotationPrefix + "/" + name

@@ -20,7 +20,9 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
+	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	jujudagent "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
@@ -55,6 +57,7 @@ func (s *CAASOperatorSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
 
 	// Set up a CAAS model to replace the IAAS one.
+	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 	st := s.Factory.MakeCAASModel(c, nil)
 	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
 	s.State = st

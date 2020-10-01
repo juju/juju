@@ -20,6 +20,8 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/testing"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/caas/kubernetes/provider"
+	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
@@ -854,6 +856,7 @@ var _ = gc.Suite(&CAASStatusSuite{})
 
 func (s *CAASStatusSuite) SetUpTest(c *gc.C) {
 	s.baseSuite.SetUpTest(c)
+	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 
 	// Set up a CAAS model to replace the IAAS one.
 	st := s.Factory.MakeCAASModel(c, nil)

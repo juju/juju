@@ -13,6 +13,8 @@ func (k *kubernetesClient) Application(name string, deploymentType caas.Deployme
 	return application.NewApplication(name,
 		k.namespace,
 		k.modelUUID,
+		k.CurrentModel(),
+		k.IsLegacyLabels(),
 		deploymentType,
 		k.client(),
 		k.newWatcher,

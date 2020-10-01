@@ -45,6 +45,9 @@ type ModelOperatorBroker interface {
 
 	// Namespace returns the current default namespace targeted by this broker.
 	Namespace() string
+
+	// IsLegacyLabels indicates if this provider is operating on a legacy label schema
+	IsLegacyLabels() bool
 }
 
 // modelOperatorBrokerBridge provides a pluggable struct of funcs to implement
@@ -54,6 +57,7 @@ type modelOperatorBrokerBridge struct {
 	ensureDeployment func(*apps.Deployment) error
 	ensureService    func(*core.Service) error
 	namespace        func() string
+	isLegacyLabels   func() bool
 }
 
 const (
@@ -62,6 +66,8 @@ const (
 	EnvModelAgentCAASServiceName      = "SERVICE_NAME"
 	EnvModelAgentCAASServiceNamespace = "SERVICE_NAMESPACE"
 	EnvModelAgentHTTPPort             = "HTTP_PORT"
+
+	OperatorModelTarget = "model"
 )
 
 var (
@@ -100,6 +106,13 @@ func (m *modelOperatorBrokerBridge) Namespace() string {
 	return m.namespace()
 }
 
+func (m *modelOperatorBrokerBridge) IsLegacyLabels() bool {
+	if m.isLegacyLabels == nil {
+		return true
+	}
+	return m.isLegacyLabels()
+}
+
 func ensureModelOperator(
 	modelUUID,
 	agentPath string,
@@ -109,10 +122,16 @@ func ensureModelOperator(
 	operatorName := modelOperatorName
 	modelTag := names.NewModelTag(modelUUID)
 
+	selectorLabels := utils.LabelsForOperator(operatorName, OperatorModelTarget, broker.IsLegacyLabels())
+	labels := selectorLabels
+	if !broker.IsLegacyLabels() {
+		labels = utils.LabelsMerge(labels, utils.LabelsJuju)
+	}
+
 	configMap := modelOperatorConfigMap(
 		broker.Namespace(),
 		operatorName,
-		map[string]string{},
+		labels,
 		config.AgentConf)
 
 	if err := broker.EnsureConfigMap(configMap); err != nil {
@@ -145,7 +164,7 @@ func ensureModelOperator(
 	}
 
 	service := modelOperatorService(
-		operatorName, broker.Namespace(), map[string]string{}, config.Port)
+		operatorName, broker.Namespace(), labels, selectorLabels, config.Port)
 	if err := broker.EnsureService(service); err != nil {
 		return errors.Annotate(err, "ensuring model operater service")
 	}
@@ -153,7 +172,8 @@ func ensureModelOperator(
 	deployment, err := modelOperatorDeployment(
 		operatorName,
 		broker.Namespace(),
-		map[string]string{},
+		labels,
+		selectorLabels,
 		config.OperatorImagePath,
 		config.Port,
 		modelUUID,
@@ -184,7 +204,8 @@ func (k *kubernetesClient) EnsureModelOperator(
 			_, err := k.ensureK8sService(svc)
 			return err
 		},
-		namespace: func() string { return k.namespace },
+		namespace:      func() string { return k.namespace },
+		isLegacyLabels: k.IsLegacyLabels,
 	}
 
 	return ensureModelOperator(modelUUID, agentPath, config, bridge)
@@ -223,13 +244,12 @@ func modelOperatorConfigMap(
 	labels map[string]string,
 	agentConf []byte,
 ) *core.ConfigMap {
-	moLabels := modelOperatorLabels(operatorName)
 
 	return &core.ConfigMap{
 		ObjectMeta: meta.ObjectMeta{
 			Name:      operatorName,
 			Namespace: namespace,
-			Labels:    utils.AppendLabels(labels, moLabels),
+			Labels:    labels,
 		},
 		Data: map[string]string{
 			modelOperatorConfigMapAgentConfKey(operatorName): string(agentConf),
@@ -240,7 +260,8 @@ func modelOperatorConfigMap(
 func modelOperatorDeployment(
 	operatorName,
 	namespace string,
-	labels map[string]string,
+	labels,
+	selectorLabels map[string]string,
 	operatorImagePath string,
 	port int32,
 	modelUUID string,
@@ -248,8 +269,6 @@ func modelOperatorDeployment(
 	volumes []core.Volume,
 	volumeMounts []core.VolumeMount,
 ) (*apps.Deployment, error) {
-
-	moLabels := modelOperatorLabels(operatorName)
 
 	jujudCmd := fmt.Sprintf("$JUJU_TOOLS_DIR/jujud model --model-uuid=%s", modelUUID)
 	jujuDataDir, err := paths.DataDir("kubernetes")
@@ -261,16 +280,16 @@ func modelOperatorDeployment(
 		ObjectMeta: meta.ObjectMeta{
 			Name:      operatorName,
 			Namespace: namespace,
-			Labels:    utils.AppendLabels(labels, moLabels),
+			Labels:    labels,
 		},
 		Spec: apps.DeploymentSpec{
 			Replicas: int32Ptr(1),
 			Selector: &meta.LabelSelector{
-				MatchLabels: moLabels,
+				MatchLabels: selectorLabels,
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: meta.ObjectMeta{
-					Labels: moLabels,
+					Labels: selectorLabels,
 				},
 				Spec: core.PodSpec{
 					Containers: []core.Container{{
@@ -344,28 +363,21 @@ func (k *kubernetesClient) modelOperatorDeploymentExists(operatorName string) (b
 	return true, nil
 }
 
-func modelOperatorLabels(operatorName string) map[string]string {
-	return map[string]string{
-		constants.LabelModelOperator: operatorName,
-	}
-}
-
 func modelOperatorService(
 	operatorName,
 	namespace string,
-	labels map[string]string,
+	labels,
+	selectorLabels map[string]string,
 	port int32,
 ) *core.Service {
-	moLabels := modelOperatorLabels(operatorName)
-
 	return &core.Service{
 		ObjectMeta: meta.ObjectMeta{
 			Name:      operatorName,
 			Namespace: namespace,
-			Labels:    moLabels,
+			Labels:    labels,
 		},
 		Spec: core.ServiceSpec{
-			Selector: moLabels,
+			Selector: selectorLabels,
 			Type:     core.ServiceTypeClusterIP,
 			Ports: []core.ServicePort{
 				{

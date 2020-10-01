@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	cache "k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
@@ -51,7 +51,9 @@ const (
 type app struct {
 	name           string
 	namespace      string
-	model          string
+	modelUUID      string
+	modelName      string
+	legacyLabels   bool
 	deploymentType caas.DeploymentType
 	client         kubernetes.Interface
 	newWatcher     k8swatcher.NewK8sWatcherFunc
@@ -67,7 +69,9 @@ type app struct {
 func NewApplication(
 	name string,
 	namespace string,
-	model string,
+	modelUUID string,
+	modelName string,
+	legacyLabels bool,
 	deploymentType caas.DeploymentType,
 	client kubernetes.Interface,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
@@ -77,7 +81,9 @@ func NewApplication(
 	return newApplication(
 		name,
 		namespace,
-		model,
+		modelUUID,
+		modelName,
+		legacyLabels,
 		deploymentType,
 		client,
 		newWatcher,
@@ -90,7 +96,9 @@ func NewApplication(
 func newApplication(
 	name string,
 	namespace string,
-	model string,
+	modelUUID string,
+	modelName string,
+	legacyLabels bool,
 	deploymentType caas.DeploymentType,
 	client kubernetes.Interface,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
@@ -101,7 +109,9 @@ func newApplication(
 	return &app{
 		name:           name,
 		namespace:      namespace,
-		model:          model,
+		modelUUID:      modelUUID,
+		modelName:      modelName,
+		legacyLabels:   legacyLabels,
 		deploymentType: deploymentType,
 		client:         client,
 		newWatcher:     newWatcher,
@@ -134,7 +144,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 			},
 			Data: map[string][]byte{
 				"JUJU_K8S_APPLICATION":          []byte(a.name),
-				"JUJU_K8S_MODEL":                []byte(a.model),
+				"JUJU_K8S_MODEL":                []byte(a.modelUUID),
 				"JUJU_K8S_APPLICATION_PASSWORD": []byte(config.IntroductionSecret),
 				"JUJU_K8S_CONTROLLER_ADDRESSES": []byte(config.ControllerAddresses),
 				"JUJU_K8S_CONTROLLER_CA_CERT":   []byte(config.ControllerCertBundle),
@@ -239,11 +249,11 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 				Spec: appsv1.StatefulSetSpec{
 					Replicas: &numPods,
 					Selector: &metav1.LabelSelector{
-						MatchLabels: a.labels(),
+						MatchLabels: a.selectorLabels(),
 					},
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
-							Labels:      a.labels(),
+							Labels:      a.selectorLabels(),
 							Annotations: a.annotations(config),
 						},
 						Spec: *podSpec,
@@ -291,11 +301,11 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 				Spec: appsv1.DeploymentSpec{
 					Replicas: &numPods,
 					Selector: &metav1.LabelSelector{
-						MatchLabels: a.labels(),
+						MatchLabels: a.selectorLabels(),
 					},
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
-							Labels:      a.labels(),
+							Labels:      a.selectorLabels(),
 							Annotations: a.annotations(config),
 						},
 						Spec: *podSpec,
@@ -324,11 +334,11 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 				},
 				Spec: appsv1.DaemonSetSpec{
 					Selector: &metav1.LabelSelector{
-						MatchLabels: a.labels(),
+						MatchLabels: a.selectorLabels(),
 					},
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
-							Labels:      a.labels(),
+							Labels:      a.selectorLabels(),
 							Annotations: a.annotations(config),
 						},
 						Spec: *podSpec,
@@ -402,7 +412,7 @@ func (a *app) configureHeadlessService(name string, annotation annotations.Annot
 				Add("service.alpha.kubernetes.io/tolerate-unready-endpoints", "true"),
 		},
 		Spec: corev1.ServiceSpec{
-			Selector:                 a.labels(),
+			Selector:                 a.selectorLabels(),
 			Type:                     corev1.ServiceTypeClusterIP,
 			ClusterIP:                "None",
 			PublishNotReadyAddresses: true,
@@ -420,7 +430,7 @@ func (a *app) configureDefaultService(annotation annotations.Annotation) (err er
 			Annotations: annotation,
 		},
 		Spec: corev1.ServiceSpec{
-			Selector: a.labels(),
+			Selector: a.selectorLabels(),
 			Type:     corev1.ServiceTypeClusterIP,
 			Ports: []corev1.ServicePort{{
 				Name: "placeholder",
@@ -932,18 +942,23 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 
 func (a *app) annotations(config caas.ApplicationConfig) annotations.Annotation {
 	return k8sutils.ResourceTagsToAnnotations(config.ResourceTags).
-		Add(constants.LabelVersion, config.AgentVersion.String())
+		Merge(k8sutils.AnnotationsForVersion(config.AgentVersion.String(), a.legacyLabels))
 }
 
 func (a *app) labels() map[string]string {
 	// TODO: add modelUUID for global resources?
-	return map[string]string{constants.LabelApplication: a.name}
+	return k8sutils.LabelsForApp(a.name, a.legacyLabels)
+}
+
+func (a *app) selectorLabels() map[string]string {
+	return k8sutils.SelectorLabelsForApp(a.name, a.legacyLabels)
+
 }
 
 func (a *app) labelSelector() string {
-	return k8sutils.LabelSetToSelector(map[string]string{
-		constants.LabelApplication: a.name,
-	}).String()
+	return k8sutils.LabelSetToSelector(
+		k8sutils.SelectorLabelsForApp(a.name, a.legacyLabels),
+	).String()
 }
 
 func (a *app) fieldSelector() string {
@@ -1085,17 +1100,23 @@ func (a *app) filesystemToVolumeInfo(name string,
 	} else if _, ok := storageClasses[qualifiedStorageClassName]; ok {
 		params.StorageConfig.StorageClass = qualifiedStorageClassName
 	} else {
-		sp := storage.StorageProvisioner(a.namespace, *params)
-		newStorageClass = storage.StorageClassSpec(sp)
+		sp := storage.StorageProvisioner(a.namespace, a.modelName, *params)
+		newStorageClass = storage.StorageClassSpec(sp, a.legacyLabels)
 		params.StorageConfig.StorageClass = newStorageClass.Name
 	}
+
+	labels := k8sutils.LabelsMerge(
+		k8sutils.LabelsForStorage(fs.StorageName, a.legacyLabels),
+		k8sutils.LabelsJuju)
 
 	pvcSpec := storage.PersistentVolumeClaimSpec(*params)
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: params.Name,
+			Name:   params.Name,
+			Labels: labels,
 			Annotations: k8sutils.ResourceTagsToAnnotations(fs.ResourceTags).
-				Add(constants.LabelStorage, fs.StorageName).ToMap(),
+				Merge(k8sutils.AnnotationsForStorage(fs.StorageName, a.legacyLabels)).
+				ToMap(),
 		},
 		Spec: *pvcSpec,
 	}

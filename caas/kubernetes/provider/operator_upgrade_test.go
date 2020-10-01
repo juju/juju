@@ -46,6 +46,10 @@ func (d *DummyUpgradeCAASOperator) DeploymentName(n string, _ bool) string {
 	return n
 }
 
+func (d *DummyUpgradeCAASOperator) IsLegacyLabels() bool {
+	return false
+}
+
 func (d *DummyUpgradeCAASOperator) Namespace() string {
 	return "test"
 }

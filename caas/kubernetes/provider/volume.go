@@ -176,8 +176,8 @@ func (k *kubernetesClient) EnsureStorageProvisioner(cfg caas.StorageProvisioner)
 		bindMode := storagev1.VolumeBindingMode(cfg.VolumeBindingMode)
 		sc.VolumeBindingMode = &bindMode
 	}
-	if cfg.Namespace != "" {
-		sc.Labels = map[string]string{constants.LabelModel: k.namespace}
+	if cfg.Model != "" {
+		sc.Labels = utils.LabelsForModel(cfg.Model, k.IsLegacyLabels())
 	}
 	_, err = k.client().StorageV1().StorageClasses().Create(context.TODO(), sc, v1.CreateOptions{})
 	if err != nil {
@@ -207,7 +207,7 @@ func (k *kubernetesClient) maybeGetVolumeClaimSpec(params storage.VolumeParams) 
 		params.StorageConfig.StorageClass = storageClassName
 		sc, _, err := k.EnsureStorageProvisioner(caas.StorageProvisioner{
 			Name:          params.StorageConfig.StorageClass,
-			Namespace:     k.namespace,
+			Model:         k.CurrentModel(),
 			Provisioner:   params.StorageConfig.StorageProvisioner,
 			Parameters:    params.StorageConfig.Parameters,
 			ReclaimPolicy: string(params.StorageConfig.ReclaimPolicy),
@@ -265,11 +265,17 @@ func (k *kubernetesClient) filesystemToVolumeInfo(
 		return nil, nil, errors.Annotatef(err, "finding volume for %s", fs.StorageName)
 	}
 
+	labels := utils.LabelsMerge(
+		utils.LabelsForStorage(fs.StorageName, k.IsLegacyLabels()),
+		utils.LabelsJuju)
+
 	pvc = &core.PersistentVolumeClaim{
 		ObjectMeta: v1.ObjectMeta{
 			Name: params.Name,
 			Annotations: utils.ResourceTagsToAnnotations(fs.ResourceTags).
-				Add(constants.LabelStorage, fs.StorageName).ToMap(),
+				Merge(utils.AnnotationsForStorage(fs.StorageName, k.IsLegacyLabels())).
+				ToMap(),
+			Labels: labels,
 		},
 		Spec: *pvcSpec,
 	}
@@ -318,7 +324,7 @@ func (k *kubernetesClient) volumeInfoForPVC(vol core.Volume, volMount core.Volum
 		return nil, nil
 	}
 
-	storageName := pvc.Labels[constants.LabelStorage]
+	storageName := utils.StorageNameFromLabels(pvc.Labels)
 	if storageName == "" {
 		if valid := constants.LegacyPVNameRegexp.MatchString(volMount.Name); valid {
 			storageName = constants.LegacyPVNameRegexp.ReplaceAllString(volMount.Name, "$storageName")

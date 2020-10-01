@@ -15,6 +15,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
+	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
+	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
@@ -931,6 +933,7 @@ func (s *CleanupSuite) TestCleanupCAASUnitWithStorage(c *gc.C) {
 }
 
 func (s *CleanupSuite) assertCleanupCAASEntityWithStorage(c *gc.C, deleteOp func(*state.State, *state.Application) error) {
+	s.PatchValue(&k8sprovider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
 	sb, err := state.NewStorageBackend(st)

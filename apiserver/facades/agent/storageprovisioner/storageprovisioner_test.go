@@ -18,6 +18,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/kubernetes/provider"
+	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs"
@@ -94,6 +96,7 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 	s.provisionerSuite.SetUpTest(c)
 	s.provisionerSuite.storageSetUp = s
 
+	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 	caasSt := s.Factory.MakeCAASModel(c, nil)
 	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
 	s.State = caasSt
