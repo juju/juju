@@ -1362,6 +1362,48 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleUnitColocationWithUnit(c *
 	})
 }
 
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleSwitch(c *gc.C) {
+	s.setupCharm(c, "cs:bionic/django-42", "dummy", "bionic")
+	s.setupCharm(c, "cs:bionic/rails-0", "dummy", "bionic")
+
+	err := s.DeployBundleYAML(c, `
+        applications:
+            django:
+                charm: cs:bionic/django-42
+                num_units: 1
+            ror:
+                charm: cs:rails
+                num_units: 1
+    `)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertUnitsCreated(c, map[string]string{
+		"django/0": "0",
+		"ror/0":    "1",
+	})
+
+	logger.Tracef("--------------------------------------------------------------------------")
+
+	// Redeploy a very similar bundle with another application unit. The new unit
+	// is placed on the first unit of memcached. Due to ordering of the applications
+	// there is no deterministic way to determine "least crowded" in a meaningful way.
+	content := `
+        applications:
+            django:
+                charm: cs:bionic/django-42
+                num_units: 1
+            node:
+                charm: cs:bionic/django-42
+                num_units: 1
+    `
+	stdOut, _, err := s.DeployBundleYAMLWithOutput(c, content)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(stdOut, gc.Equals, ""+
+		"Executing changes:\n"+
+		"- deploy application node on bionic using cs:bionic/django-42\n"+
+		"- add unit node/0 to new machine 2",
+	)
+}
+
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleMassiveUnitColocation(c *gc.C) {
 	s.setupCharm(c, "cs:bionic/django-42", "dummy", "bionic")
 	s.setupCharm(c, "cs:bionic/mem-47", "dummy", "bionic")

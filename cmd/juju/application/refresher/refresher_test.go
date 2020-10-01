@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	commoncharm "github.com/juju/juju/api/common/charm"
+	corecharm "github.com/juju/juju/core/charm"
 )
 
 type refresherFactorySuite struct{}
@@ -353,7 +354,10 @@ func (s *charmHubCharmRefresherSuite) TestRefresh(c *gc.C) {
 	charmResolver.EXPECT().ResolveCharm(curl, origin).Return(newCurl, origin, []string{}, nil)
 
 	cfg := RefresherConfig{
-		CharmURL:       curl,
+		CharmURL: curl,
+		CharmOrigin: corecharm.Origin{
+			Source: corecharm.CharmHub,
+		},
 		CharmRef:       ref,
 		DeployedSeries: "bionic",
 	}
@@ -387,6 +391,9 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithNoUpdates(c *gc.C) {
 
 	cfg := RefresherConfig{
 		CharmURL: curl,
+		CharmOrigin: corecharm.Origin{
+			Source: corecharm.CharmHub,
+		},
 		CharmRef: ref,
 	}
 
@@ -415,7 +422,48 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithARevision(c *gc.C) {
 
 	cfg := RefresherConfig{
 		CharmURL: curl,
+		CharmOrigin: corecharm.Origin{
+			Source: corecharm.CharmHub,
+		},
 		CharmRef: ref,
+	}
+
+	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
+	task, err := refresher(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = task.Refresh()
+	c.Assert(err, gc.ErrorMatches, `already running specified charm "meshuggah-1"`)
+}
+
+func (s *charmHubCharmRefresherSuite) TestRefreshWithOriginChannel(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ref := "ch:meshuggah-1"
+	curl := charm.MustParseURL(ref)
+	origin := commoncharm.Origin{
+		Source: commoncharm.OriginCharmHub,
+		Risk:   "beta",
+	}
+
+	charmAdder := NewMockCharmAdder(ctrl)
+
+	charmResolver := NewMockCharmResolver(ctrl)
+	charmResolver.EXPECT().ResolveCharm(curl, origin).Return(curl, origin, []string{}, nil)
+
+	cfg := RefresherConfig{
+		CharmURL: curl,
+		CharmOrigin: corecharm.Origin{
+			Source: corecharm.CharmHub,
+			Channel: &corecharm.Channel{
+				Risk: corecharm.Edge,
+			},
+		},
+		CharmRef: ref,
+		Channel: corecharm.Channel{
+			Risk: corecharm.Beta,
+		},
 	}
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)

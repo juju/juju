@@ -314,7 +314,7 @@ class AssessNetworkHealth:
         apps = client.get_status().get_applications()
         exposed = [app for app, e in apps.items() if e.get('exposed')
                    is True and 'network-health' not in app]
-        if len(exposed) is 0:
+        if len(exposed) == 0:
             nh_only = True
             log.info('No exposed units, testing with network-health '
                      'charms only.')
@@ -438,7 +438,7 @@ class AssessNetworkHealth:
             if not res:
                 error = 'Machine {} failed internet connection.'.format(unit)
                 error_string.append(error)
-        if exposed and exposed['fail'] is not ():
+        if exposed and exposed['fail'] != ():
             error = ('Application(s) {0} failed expose '
                      'test'.format(exposed['fail']))
             error_string.append(error)

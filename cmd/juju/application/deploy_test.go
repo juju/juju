@@ -47,8 +47,6 @@ import (
 	"github.com/juju/juju/api/modelconfig"
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/params"
-	jjcharmstore "github.com/juju/juju/charmstore"
-	jujucharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/application/deployer"
 	"github.com/juju/juju/cmd/juju/application/mocks"
 	"github.com/juju/juju/cmd/juju/application/store"
@@ -152,7 +150,7 @@ func (s *DeploySuiteBase) SetUpTest(c *gc.C) {
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 	s.DeployResources = func(applicationID string,
-		chID jjcharmstore.CharmID,
+		chID resourceadapters.CharmID,
 		csMac *macaroon.Macaroon,
 		filesAndRevisions map[string]string,
 		resources map[string]charmresource.Meta,
@@ -754,19 +752,27 @@ func (s *DeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 		nil, false, false, 0, nil, nil,
 	)
 
+	origin := commoncharm.Origin{Source: commoncharm.OriginCharmStore}
+
 	deployURL := *inURL
 	deployURL.Revision = 1
 	deployURL.Series = "bionic"
 	s.fakeAPI.Call("Deploy", application.DeployArgs{
-		CharmID:         jjcharmstore.CharmID{URL: &deployURL},
-		CharmOrigin:     commoncharm.Origin{Source: commoncharm.OriginCharmStore},
+		CharmID: application.CharmID{
+			URL:    &deployURL,
+			Origin: origin,
+		},
+		CharmOrigin:     origin,
 		ApplicationName: inURL.Name,
 		Series:          "bionic",
 		ConfigYAML:      "aws-integrator:\n  trust: \"true\"\n",
 	}).Returns(error(nil))
 	s.fakeAPI.Call("Deploy", application.DeployArgs{
-		CharmID:         jjcharmstore.CharmID{URL: &deployURL},
-		CharmOrigin:     commoncharm.Origin{Source: commoncharm.OriginCharmStore},
+		CharmID: application.CharmID{
+			URL:    &deployURL,
+			Origin: origin,
+		},
+		CharmOrigin:     origin,
 		ApplicationName: inURL.Name,
 		Series:          "bionic",
 	}).Returns(errors.New("expected Deploy for aws-integrator to be called with 'trust: true'"))
@@ -1113,7 +1119,7 @@ func (s *CAASDeploySuite) TestDevices(c *gc.C) {
 	)
 	s.DeployResources = func(
 		applicationID string,
-		chID jjcharmstore.CharmID,
+		chID resourceadapters.CharmID,
 		csMac *macaroon.Macaroon,
 		filesAndRevisions map[string]string,
 		resources map[string]charmresource.Meta,
@@ -1446,7 +1452,7 @@ func (s *DeploySuite) TestDeployWithTermsNotSigned(c *gc.C) {
 	withCharmRepoResolvable(s.fakeAPI, curl)
 	deployURL := *curl
 	deployURL.Revision = 1
-	origin := commoncharm.Origin{Source: "charm-store"}
+	origin := commoncharm.Origin{Source: commoncharm.OriginCharmStore}
 	s.fakeAPI.Call("AddCharm", &deployURL, origin, false, "bionic").Returns(origin, error(termsRequiredError))
 	deploy := s.deployCommand()
 
@@ -1471,7 +1477,10 @@ func (s *DeploySuite) TestDeployWithChannel(c *gc.C) {
 		error(nil),
 	)
 	s.fakeAPI.Call("Deploy", application.DeployArgs{
-		CharmID:         jjcharmstore.CharmID{URL: curl, Channel: csclientparams.BetaChannel},
+		CharmID: application.CharmID{
+			URL:    curl,
+			Origin: origin,
+		},
 		CharmOrigin:     origin,
 		ApplicationName: curl.Name,
 		Series:          "bionic",
@@ -1534,7 +1543,15 @@ func (s *DeploySuite) TestAddMetricCredentials(c *gc.C) {
 	setMetricCredentialsCall := s.fakeAPI.Call("SetMetricCredentials", meteredURL.Name, creds).Returns(error(nil))
 
 	s.fakeAPI.Call("Deploy", application.DeployArgs{
-		CharmID:         jjcharmstore.CharmID{URL: meteredURL},
+		CharmID: application.CharmID{
+			URL: meteredURL,
+			Origin: commoncharm.Origin{
+				Source: commoncharm.OriginCharmStore,
+			},
+		},
+		CharmOrigin: commoncharm.Origin{
+			Source: commoncharm.OriginCharmStore,
+		},
 		ApplicationName: meteredURL.Name,
 		Series:          "bionic",
 		NumUnits:        1,
@@ -1575,7 +1592,15 @@ func (s *DeploySuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 	setMetricCredentialsCall := s.fakeAPI.Call("SetMetricCredentials", meteredURL.Name, creds).Returns(error(nil))
 
 	s.fakeAPI.Call("Deploy", application.DeployArgs{
-		CharmID:         jjcharmstore.CharmID{URL: meteredURL},
+		CharmID: application.CharmID{
+			URL: meteredURL,
+			Origin: commoncharm.Origin{
+				Source: commoncharm.OriginCharmStore,
+			},
+		},
+		CharmOrigin: commoncharm.Origin{
+			Source: commoncharm.OriginCharmStore,
+		},
 		ApplicationName: meteredURL.Name,
 		Series:          "bionic",
 		NumUnits:        1,
@@ -1607,7 +1632,15 @@ func (s *DeploySuite) TestSetMetricCredentialsNotCalledForUnmeteredCharm(c *gc.C
 	withCharmDeployable(s.fakeAPI, charmURL, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
 	s.fakeAPI.Call("Deploy", application.DeployArgs{
-		CharmID:         jjcharmstore.CharmID{URL: charmURL},
+		CharmID: application.CharmID{
+			URL: charmURL,
+			Origin: commoncharm.Origin{
+				Source: commoncharm.OriginCharmStore,
+			},
+		},
+		CharmOrigin: commoncharm.Origin{
+			Source: commoncharm.OriginCharmStore,
+		},
 		ApplicationName: charmURL.Name,
 		Series:          charmURL.Series,
 		NumUnits:        1,
@@ -1657,7 +1690,15 @@ pings:
 	defer server.Close()
 
 	s.fakeAPI.Call("Deploy", application.DeployArgs{
-		CharmID:         jjcharmstore.CharmID{URL: curl},
+		CharmID: application.CharmID{
+			URL: curl,
+			Origin: commoncharm.Origin{
+				Source: commoncharm.OriginLocal,
+			},
+		},
+		CharmOrigin: commoncharm.Origin{
+			Source: commoncharm.OriginLocal,
+		},
 		ApplicationName: curl.Name,
 		Series:          "bionic",
 		NumUnits:        1,
@@ -1704,7 +1745,13 @@ pings:
 	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
 
 	s.fakeAPI.Call("Deploy", application.DeployArgs{
-		CharmID:         jjcharmstore.CharmID{URL: curl},
+		CharmID: application.CharmID{
+			URL:    curl,
+			Origin: commoncharm.Origin{},
+		},
+		CharmOrigin: commoncharm.Origin{
+			Source: commoncharm.OriginLocal,
+		},
 		ApplicationName: curl.Name,
 		Series:          curl.Series,
 		NumUnits:        1,
@@ -2017,8 +2064,15 @@ func (s *DeploySuite) TestDeployCharmWithSomeEndpointBindingsSpecifiedSuccess(c 
 	withCharmRepoResolvable(s.fakeAPI, curl)
 	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
 	s.fakeAPI.Call("Deploy", application.DeployArgs{
-		CharmID:         jjcharmstore.CharmID{URL: curl},
-		CharmOrigin:     commoncharm.Origin{Source: commoncharm.OriginCharmStore},
+		CharmID: application.CharmID{
+			URL: curl,
+			Origin: commoncharm.Origin{
+				Source: commoncharm.OriginCharmStore,
+			},
+		},
+		CharmOrigin: commoncharm.Origin{
+			Source: commoncharm.OriginCharmStore,
+		},
 		ApplicationName: curl.Name,
 		Series:          "bionic",
 		NumUnits:        1,
@@ -2358,7 +2412,7 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 		},
 		DeployResources: func(
 			applicationID string,
-			chID jujucharmstore.CharmID,
+			chID resourceadapters.CharmID,
 			csMac *macaroon.Macaroon,
 			filesAndRevisions map[string]string,
 			resources map[string]charmresource.Meta,
@@ -2853,7 +2907,10 @@ func withCharmDeployableWithDevicesAndStorage(
 		error(nil),
 	)
 	fakeAPI.Call("Deploy", application.DeployArgs{
-		CharmID:         jjcharmstore.CharmID{URL: &deployURL},
+		CharmID: application.CharmID{
+			URL:    &deployURL,
+			Origin: origin,
+		},
 		CharmOrigin:     origin,
 		ApplicationName: appName,
 		Series:          series,

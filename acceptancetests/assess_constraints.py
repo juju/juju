@@ -158,7 +158,7 @@ class Constraints:
         instance_data = get_instance_spec(self.instance_type)
         for (key, value) in instance_data.iteritems():
             # Temperary fix until cpu-cores -> cores switch is finished.
-            if key is 'cores' and 'cpu-cores' in actual_data:
+            if key == 'cores' and 'cpu-cores' in actual_data:
                 key = 'cpu-cores'
             if key not in actual_data:
                 raise JujuAssertionError('Missing data:', key)

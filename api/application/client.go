@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/api/base"
 	apicharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/devices"
@@ -70,7 +69,7 @@ func (c *Client) ModelUUID() string {
 // DeployArgs holds the arguments to be sent to Client.ApplicationDeploy.
 type DeployArgs struct {
 	// CharmID identifies the charm to deploy.
-	CharmID charmstore.CharmID
+	CharmID CharmID
 
 	// CharmOrigin holds information about where the charm originally came from,
 	// this includes the store.
@@ -148,7 +147,7 @@ func (c *Client) Deploy(args DeployArgs) error {
 			Series:           args.Series,
 			CharmURL:         args.CharmID.URL.String(),
 			CharmOrigin:      &origin,
-			Channel:          string(args.CharmID.Channel),
+			Channel:          origin.Risk,
 			NumUnits:         args.NumUnits,
 			ConfigYAML:       args.ConfigYAML,
 			Config:           args.Config,
@@ -186,6 +185,61 @@ func (c *Client) GetCharmURL(branchName, applicationName string) (*charm.URL, er
 		return nil, errors.Trace(result.Error)
 	}
 	return charm.ParseURL(result.Result)
+}
+
+// GetCharmURLOrigin returns the charm URL along with the charm Origin for the
+// given application is running at present.
+// The charm origin gives more information about the location of the charm and
+// what revision/channel it came from.
+func (c *Client) GetCharmURLOrigin(branchName, applicationName string) (*charm.URL, apicharm.Origin, error) {
+	// Handle the issue where the client can't talk to older API versions of the
+	// API. Luckily we can polyfill the missing return type.
+	if c.BestAPIVersion() < 13 {
+		charmURL, err := c.GetCharmURL(branchName, applicationName)
+		if err != nil {
+			return nil, apicharm.Origin{}, errors.Trace(err)
+		}
+
+		// We need to ensure that we don't handle charmhub charms, as the rest
+		// of the API won't correctly handle that either.
+		var origin apicharm.Origin
+		switch charmURL.Schema {
+		case "cs":
+			origin = apicharm.Origin{
+				Source: apicharm.OriginCharmStore,
+			}
+		case "local":
+			origin = apicharm.Origin{
+				Source: apicharm.OriginLocal,
+			}
+		default:
+			return nil, apicharm.Origin{}, errors.Errorf("unexpected charm store %q", charmURL.Schema)
+		}
+
+		if err != nil {
+			return nil, apicharm.Origin{}, errors.Trace(err)
+		}
+		return charmURL, origin, nil
+	}
+
+	args := params.ApplicationGet{
+		ApplicationName: applicationName,
+		BranchName:      branchName,
+	}
+
+	var result params.CharmURLOriginResult
+	err := c.facade.FacadeCall("GetCharmURLOrigin", args, &result)
+	if err != nil {
+		return nil, apicharm.Origin{}, errors.Trace(err)
+	}
+	if result.Error != nil {
+		return nil, apicharm.Origin{}, errors.Trace(result.Error)
+	}
+	curl, err := charm.ParseURL(result.URL)
+	if err != nil {
+		return nil, apicharm.Origin{}, errors.Trace(err)
+	}
+	return curl, apicharm.APICharmOrigin(result.Origin), nil
 }
 
 // GetConfig returns the charm configuration settings for each of the
@@ -281,6 +335,20 @@ func describeV5(config map[string]interface{}) (map[string]interface{}, error) {
 	return config, nil
 }
 
+// CharmID represents the underlying charm for a given application. This
+// includes both the URL and the origin.
+type CharmID struct {
+
+	// URL of the given charm, includes the reference name and a revision.
+	// Old style charm URLs are also supported i.e. charmstore.
+	URL *charm.URL
+
+	// Origin holds the origin of a charm. This includes the source of the
+	// charm, along with the revision and channel to identify where the charm
+	// originated from.
+	Origin apicharm.Origin
+}
+
 // SetCharmConfig holds the configuration for setting a new revision of a charm
 // on a application.
 type SetCharmConfig struct {
@@ -288,7 +356,7 @@ type SetCharmConfig struct {
 	ApplicationName string
 
 	// CharmID identifies the charm.
-	CharmID charmstore.CharmID
+	CharmID CharmID
 
 	// ConfigSettings is the charm settings to set during the upgrade.
 	// This field is only understood by Application facade version 2
@@ -351,10 +419,15 @@ func (c *Client) SetCharm(branchName string, cfg SetCharmConfig) error {
 			}
 		}
 	}
+
+	origin := cfg.CharmID.Origin
+	paramsCharmOrigin := origin.ParamsCharmOrigin()
+
 	args := params.ApplicationSetCharm{
 		ApplicationName:    cfg.ApplicationName,
 		CharmURL:           cfg.CharmID.URL.String(),
-		Channel:            string(cfg.CharmID.Channel),
+		CharmOrigin:        &paramsCharmOrigin,
+		Channel:            origin.Risk,
 		ConfigSettings:     cfg.ConfigSettings,
 		ConfigSettingsYAML: cfg.ConfigSettingsYAML,
 		Force:              cfg.Force,
