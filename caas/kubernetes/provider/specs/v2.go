@@ -40,10 +40,15 @@ func fileSetsV2ToFileSets(fs []specs.FileSetV2) (out []specs.FileSet) {
 			Name:      f.Name,
 			MountPath: f.MountPath,
 		}
-		for k, v := range f.Files {
+
+		// We sort the keys of the files here to get a deterministic ordering.
+		// See lp:1895598
+		keys := specs.SortKeysForFiles(f.Files)
+
+		for _, k := range keys {
 			newf.Files = append(newf.Files, specs.File{
 				Path:    k,
-				Content: v,
+				Content: f.Files[k],
 			})
 		}
 		out = append(out, newf)

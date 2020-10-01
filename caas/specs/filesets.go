@@ -6,6 +6,7 @@ package specs
 import (
 	"fmt"
 	"reflect"
+	"sort"
 
 	"github.com/juju/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -52,6 +53,17 @@ func (fs FileSet) EqualVolume(another FileSet) bool {
 		return false
 	}
 	return true
+}
+
+// SortKeysForFiles returns a slice of all the keys for a given files map
+// sorted in increasing order as per sort.String
+func SortKeysForFiles(f map[string]string) []string {
+	keys := make([]string, 0, len(f))
+	for k := range f {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // Validate validates FileSet.
