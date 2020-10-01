@@ -21,9 +21,3 @@ func (s *querySuite) TestQuery(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	fmt.Println(query.Run(GlobalScope{}))
 }
-
-type GlobalScope struct{}
-
-func (g GlobalScope) GetIdentValue(name string) (interface{}, error) {
-	return name, nil
-}

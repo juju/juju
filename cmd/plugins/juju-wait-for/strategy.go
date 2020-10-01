@@ -4,6 +4,8 @@
 package main
 
 import (
+	"reflect"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -62,4 +64,24 @@ func (s *Strategy) Run(name string, input string, fn StrategyFunc) error {
 			return nil
 		}
 	}
+}
+
+// GenericScope allows the query to introspect an entity.
+type GenericScope struct {
+	Info params.EntityInfo
+}
+
+// GetIdentValue returns the value of the identifier in a given scope.
+func (m GenericScope) GetIdentValue(name string) (interface{}, error) {
+	refType := reflect.TypeOf(m.Info).Elem()
+	for i := 0; i < refType.NumField(); i++ {
+		field := refType.Field(i)
+		v := strings.Split(field.Tag.Get("json"), ",")[0]
+		if v == name {
+			refValue := reflect.ValueOf(m.Info).Elem()
+			data := refValue.Field(i).Interface()
+			return data, nil
+		}
+	}
+	return nil, errors.Errorf("Runtime Error: identifier %q not found on EntityInfo", name)
 }

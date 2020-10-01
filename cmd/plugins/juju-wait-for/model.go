@@ -4,8 +4,6 @@
 package main
 
 import (
-	"reflect"
-	"strings"
 	"time"
 
 	"github.com/juju/cmd"
@@ -134,15 +132,15 @@ type ModelScope struct {
 
 // GetIdentValue returns the value of the identifier in a given scope.
 func (m ModelScope) GetIdentValue(name string) (interface{}, error) {
-	refType := reflect.TypeOf(m.ModelInfo).Elem()
-	for i := 0; i < refType.NumField(); i++ {
-		field := refType.Field(i)
-		v := strings.Split(field.Tag.Get("json"), ",")[0]
-		if v == name {
-			refValue := reflect.ValueOf(m.ModelInfo).Elem()
-			data := refValue.Field(i).Interface()
-			return data, nil
-		}
+	switch name {
+	case "name":
+		return m.ModelInfo.Name, nil
+	case "life":
+		return string(m.ModelInfo.Life), nil
+	case "is-controller":
+		return m.ModelInfo.IsController, nil
+	case "status":
+		return string(m.ModelInfo.Status.Current), nil
 	}
-	return nil, errors.Errorf("Runtime Error: identifier %q not found on Model", name)
+	return nil, errors.Errorf("Runtime Error: identifier %q not found on ModelInfo", name)
 }
