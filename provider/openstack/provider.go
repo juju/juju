@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/cmd/juju/interact"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
@@ -2070,6 +2071,15 @@ func rulesToRuleInfo(groupId string, rules firewall.IngressRules) []neutron.Rule
 			sourceCIDRs = append(sourceCIDRs, firewall.AllNetworksIPV4CIDR)
 		}
 		for _, sr := range sourceCIDRs {
+			addrType, _ := network.CIDRAddressType(sr)
+			if addrType == network.IPv4Address {
+				ruleInfo.EthernetType = "IPv4"
+			} else if addrType == network.IPv6Address {
+				ruleInfo.EthernetType = "IPv6"
+			} else {
+				// Should never happen; ignore CIDR
+				continue
+			}
 			ruleInfo.RemoteIPPrefix = sr
 			result = append(result, ruleInfo)
 		}
