@@ -780,7 +780,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path: constants.AgentHTTPPathLiveness,
-					Port: intstr.FromString(constants.AgentHTTPProbePort),
+					Port: intstr.Parse(constants.AgentHTTPProbePort),
 				},
 			},
 			InitialDelaySeconds: agentProbeInitialDelay,
@@ -792,7 +792,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path: constants.AgentHTTPPathReadiness,
-					Port: intstr.FromString(constants.AgentHTTPProbePort),
+					Port: intstr.Parse(constants.AgentHTTPProbePort),
 				},
 			},
 			InitialDelaySeconds: agentProbeInitialDelay,
@@ -804,7 +804,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path: constants.AgentHTTPPathStartup,
-					Port: intstr.FromString(constants.AgentHTTPProbePort),
+					Port: intstr.Parse(constants.AgentHTTPProbePort),
 				},
 			},
 			InitialDelaySeconds: agentProbeInitialDelay,
