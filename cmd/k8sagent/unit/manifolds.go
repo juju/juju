@@ -71,7 +71,7 @@ type manifoldsConfig struct {
 	// agent was running before the current restart.
 	PreviousAgentVersion version.Number
 
-	// ProbePort describes the http port to operator on for recieving agent
+	// ProbePort describes the http port to operator on for receiving agent
 	// probe requests.
 	ProbePort string
 

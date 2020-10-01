@@ -70,14 +70,14 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 				Channel: channel.MustParse("20.04/stable"),
 			}},
 			Containers: map[string]charm.Container{
-				"test": charm.Container{
+				"test": {
 					Systems: []systems.System{{
 						Resource: "test-oci",
 					}},
 				},
 			},
 			Resources: map[string]charmresource.Meta{
-				"test-oci": charmresource.Meta{
+				"test-oci": {
 					Type: charmresource.TypeContainerImage,
 				},
 			},
@@ -87,7 +87,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		Series: "focal",
 	}
 	ociResources := map[string]resources.DockerImageDetails{
-		"test-oci": resources.DockerImageDetails{
+		"test-oci": {
 			RegistryPath: "some/test:img",
 		},
 	}
@@ -147,7 +147,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 					RegistryPath: "jujusolutions/ubuntu:20.04",
 				},
 				Containers: map[string]caas.ContainerConfig{
-					"test": caas.ContainerConfig{
+					"test": {
 						Name: "test",
 						Image: resources.DockerImageDetails{
 							RegistryPath: "some/test:img",

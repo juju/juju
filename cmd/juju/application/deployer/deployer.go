@@ -347,7 +347,7 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 	}
 
 	// Avoid deploying charm if it's not valid for the model.
-	if err := d.validateCharmSeriesWithName(seriesName, curl.Name, imageStream); err != nil {
+	if err := d.validateCharmSeriesWithName(seriesName, curl.Name, imageStream, ch.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := d.validateResourcesNeededForLocalDeploy(ch.Meta()); err != nil {
@@ -499,7 +499,7 @@ var getModelConfig = func(api ModelConfigGetter) (*config.Config, error) {
 	return config.New(config.NoDefaults, attrs)
 }
 
-func (d *factory) validateCharmSeries(seriesName string, imageStream string) error {
+func (d *factory) validateCharmSeries(seriesName string, imageStream string, charmMeta *charm.Meta) error {
 	// TODO(new-charms): handle systems
 
 	// attempt to locate the charm series from the list of known juju series
@@ -524,16 +524,14 @@ func (d *factory) validateCharmSeries(seriesName string, imageStream string) err
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	// TODO(new-charms): handle charm v2
-	return model.ValidateSeries(modelType, seriesName, true)
+	return model.ValidateSeries(modelType, seriesName, charmMeta.Format() >= charm.FormatV2)
 }
 
 // validateCharmSeriesWithName calls the validateCharmSeries, but handles the
 // error return value to check for NotSupported error and returns a custom error
 // message if that's found.
-func (d *factory) validateCharmSeriesWithName(series, name string, imageStream string) error {
-	err := d.validateCharmSeries(series, imageStream)
+func (d *factory) validateCharmSeriesWithName(series, name string, imageStream string, charmMeta *charm.Meta) error {
+	err := d.validateCharmSeries(series, imageStream, charmMeta)
 	return charmValidationError(series, name, errors.Trace(err))
 }
 

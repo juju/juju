@@ -100,7 +100,7 @@ func (s *appWorkerSuite) TestWorker(c *gc.C) {
 				Channel: channel.MustParse("20.04/stable"),
 			}},
 			Containers: map[string]charm.Container{
-				"test": charm.Container{
+				"test": {
 					Systems: []systems.System{{
 						OS:      systems.Ubuntu,
 						Channel: channel.MustParse("20.04/stable"),
