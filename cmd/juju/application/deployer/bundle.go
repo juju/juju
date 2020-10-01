@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/cmd/juju/application/bundle"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
@@ -114,7 +113,7 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 					return errors.Trace(err)
 				}
 
-				origin, err := utils.DeduceOrigin(charmURL, corecharm.Channel{})
+				origin, err := utils.DeduceOrigin(charmURL, d.origin.CoreChannel())
 				if err != nil {
 					return errors.Trace(err)
 				}
