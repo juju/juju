@@ -156,8 +156,9 @@ func (env *environ) imageURLBase(os jujuos.OSType) (string, error) {
 // newRawInstance is where the new physical instance is actually
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
-func (env *environ) newRawInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams, spec *instances.InstanceSpec) (_ *google.Instance, err error) {
-
+func (env *environ) newRawInstance(
+	ctx context.ProviderCallContext, args environs.StartInstanceParams, spec *instances.InstanceSpec,
+) (_ *google.Instance, err error) {
 	hostname, err := env.namespace.Hostname(args.InstanceConfig.MachineId)
 	if err != nil {
 		return nil, common.ZoneIndependentError(err)
@@ -192,10 +193,11 @@ func (env *environ) newRawInstance(ctx context.ProviderCallContext, args environ
 		return nil, common.ZoneIndependentError(err)
 	}
 
-	// TODO(ericsnow) Use the env ID for the network name (instead of default)?
-	// TODO(ericsnow) Make the network name configurable?
-	// TODO(ericsnow) Support multiple networks?
-	// TODO(ericsnow) Use a different net interface name? Configurable?
+	allocatePublicIP := true
+	if args.Constraints.HasAllocatePublicIP() {
+		allocatePublicIP = *args.Constraints.AllocatePublicIP
+	}
+
 	inst, err := env.gce.AddInstance(google.InstanceSpec{
 		ID:                hostname,
 		Type:              spec.InstanceType.Name,
@@ -204,7 +206,7 @@ func (env *environ) newRawInstance(ctx context.ProviderCallContext, args environ
 		Metadata:          metadata,
 		Tags:              tags,
 		AvailabilityZone:  args.AvailabilityZone,
-		// Network is omitted (left empty).
+		AllocatePublicIP:  allocatePublicIP,
 	})
 	if err != nil {
 		// We currently treat all AddInstance failures
@@ -212,6 +214,7 @@ func (env *environ) newRawInstance(ctx context.ProviderCallContext, args environ
 		// another zone.
 		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
 	}
+
 	return inst, nil
 }
 
