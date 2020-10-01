@@ -65,7 +65,7 @@ func (s *downloadSuite) TestRunWithCustomCharmHubURL(c *gc.C) {
 		modelConfigAPI: s.modelConfigAPI,
 		charmHubClient: s.charmHubClient,
 	}
-	cmdtesting.InitCommand(command, []string{"--charmhub-url=" + url, "test"})
+	cmdtesting.InitCommand(command, []string{"--charm-hub-url=" + url, "test"})
 	ctx := commandContextForTest(c)
 	err := command.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)

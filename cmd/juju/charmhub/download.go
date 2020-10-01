@@ -71,7 +71,7 @@ func (c *downloadCommand) Info() *cmd.Info {
 // It implements part of the cmd.Command interface.
 func (c *downloadCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.StringVar(&c.charmHubURL, "charmhub-url", "", "specify url for querying the charmhub store")
+	f.StringVar(&c.charmHubURL, "charm-hub-url", "", "specify url for querying the charmhub store")
 	f.StringVar(&c.archivePath, "path", "", "path to download the charm to")
 }
 
