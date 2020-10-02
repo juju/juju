@@ -1984,12 +1984,12 @@ func (k *kubernetesClient) AnnotateUnit(appName string, mode caas.DeploymentMode
 // WatchUnits returns a watcher which notifies when there
 // are changes to units of the specified application.
 func (k *kubernetesClient) WatchUnits(appName string, mode caas.DeploymentMode) (watcher.NotifyWatcher, error) {
-	selector := utils.LabelSetToSelector(utils.LabelsForApp(appName, k.IsLegacyLabels()))
-	logger.Debugf("selecting units %q to watch", selector.String())
+	selector := k.applicationSelector(appName, mode)
+	logger.Debugf("selecting units %q to watch", selector)
 	factory := informers.NewSharedInformerFactoryWithOptions(k.client(), 0,
 		informers.WithNamespace(k.namespace),
 		informers.WithTweakListOptions(func(o *v1.ListOptions) {
-			o.LabelSelector = selector.String()
+			o.LabelSelector = selector
 		}),
 	)
 	return k.newWatcher(factory.Core().V1().Pods().Informer(), appName, k.clock)

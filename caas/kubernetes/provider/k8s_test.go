@@ -6872,22 +6872,43 @@ func (s *K8sBrokerSuite) assertAnnotateUnitByUID(c *gc.C, mode caas.DeploymentMo
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *K8sBrokerSuite) TestWatchUnits(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	podWatcher, podFirer := k8swatchertest.NewKubernetesTestWatcher()
+	s.k8sWatcherFn = func(si cache.SharedIndexInformer, n string, _ jujuclock.Clock) (k8swatcher.KubernetesNotifyWatcher, error) {
+		c.Assert(n, gc.Equals, "test")
+		return podWatcher, nil
+	}
+
+	w, err := s.broker.WatchUnits("test", caas.ModeWorkload)
+	c.Assert(err, jc.ErrorIsNil)
+
+	podFirer()
+
+	select {
+	case _, ok := <-w.Changes():
+		c.Assert(ok, jc.IsTrue)
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for event")
+	}
+}
+
 func (s *K8sBrokerSuite) TestWatchContainerStart(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	podWatcher, podFirer := k8swatchertest.NewKubernetesTestStringsWatcher()
 	var filter k8swatcher.K8sStringsWatcherFilterFunc
-	s.k8sStringsWatcherFn = k8swatcher.NewK8sStringsWatcherFunc(
-		func(_ cache.SharedIndexInformer,
-			_ string,
-			_ jujuclock.Clock,
-			_ []string,
-			ff k8swatcher.K8sStringsWatcherFilterFunc) (k8swatcher.KubernetesStringsWatcher, error) {
-			filter = ff
-			return podWatcher, nil
-		},
-	)
+	s.k8sStringsWatcherFn = func(_ cache.SharedIndexInformer,
+		_ string,
+		_ jujuclock.Clock,
+		_ []string,
+		ff k8swatcher.K8sStringsWatcherFilterFunc) (k8swatcher.KubernetesStringsWatcher, error) {
+		filter = ff
+		return podWatcher, nil
+	}
 
 	podList := &core.PodList{
 		Items: []core.Pod{{
@@ -6965,16 +6986,14 @@ func (s *K8sBrokerSuite) TestWatchContainerStartRegex(c *gc.C) {
 
 	podWatcher, podFirer := k8swatchertest.NewKubernetesTestStringsWatcher()
 	var filter k8swatcher.K8sStringsWatcherFilterFunc
-	s.k8sStringsWatcherFn = k8swatcher.NewK8sStringsWatcherFunc(
-		func(_ cache.SharedIndexInformer,
-			_ string,
-			_ jujuclock.Clock,
-			_ []string,
-			ff k8swatcher.K8sStringsWatcherFilterFunc) (k8swatcher.KubernetesStringsWatcher, error) {
-			filter = ff
-			return podWatcher, nil
-		},
-	)
+	s.k8sStringsWatcherFn = func(_ cache.SharedIndexInformer,
+		_ string,
+		_ jujuclock.Clock,
+		_ []string,
+		ff k8swatcher.K8sStringsWatcherFilterFunc) (k8swatcher.KubernetesStringsWatcher, error) {
+		filter = ff
+		return podWatcher, nil
+	}
 
 	pod := core.Pod{
 		ObjectMeta: v1.ObjectMeta{
@@ -7088,16 +7107,14 @@ func (s *K8sBrokerSuite) TestWatchContainerStartDefault(c *gc.C) {
 
 	podWatcher, podFirer := k8swatchertest.NewKubernetesTestStringsWatcher()
 	var filter k8swatcher.K8sStringsWatcherFilterFunc
-	s.k8sStringsWatcherFn = k8swatcher.NewK8sStringsWatcherFunc(
-		func(_ cache.SharedIndexInformer,
-			_ string,
-			_ jujuclock.Clock,
-			_ []string,
-			ff k8swatcher.K8sStringsWatcherFilterFunc) (k8swatcher.KubernetesStringsWatcher, error) {
-			filter = ff
-			return podWatcher, nil
-		},
-	)
+	s.k8sStringsWatcherFn = func(_ cache.SharedIndexInformer,
+		_ string,
+		_ jujuclock.Clock,
+		_ []string,
+		ff k8swatcher.K8sStringsWatcherFilterFunc) (k8swatcher.KubernetesStringsWatcher, error) {
+		filter = ff
+		return podWatcher, nil
+	}
 
 	podList := &core.PodList{
 		Items: []core.Pod{{
@@ -7176,16 +7193,14 @@ func (s *K8sBrokerSuite) TestWatchContainerStartDefaultWaitForUnit(c *gc.C) {
 
 	podWatcher, podFirer := k8swatchertest.NewKubernetesTestStringsWatcher()
 	var filter k8swatcher.K8sStringsWatcherFilterFunc
-	s.k8sStringsWatcherFn = k8swatcher.NewK8sStringsWatcherFunc(
-		func(_ cache.SharedIndexInformer,
-			_ string,
-			_ jujuclock.Clock,
-			_ []string,
-			ff k8swatcher.K8sStringsWatcherFilterFunc) (k8swatcher.KubernetesStringsWatcher, error) {
-			filter = ff
-			return podWatcher, nil
-		},
-	)
+	s.k8sStringsWatcherFn = func(_ cache.SharedIndexInformer,
+		_ string,
+		_ jujuclock.Clock,
+		_ []string,
+		ff k8swatcher.K8sStringsWatcherFilterFunc) (k8swatcher.KubernetesStringsWatcher, error) {
+		filter = ff
+		return podWatcher, nil
+	}
 
 	podList := &core.PodList{
 		Items: []core.Pod{{

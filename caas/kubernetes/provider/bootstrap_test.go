@@ -770,14 +770,14 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 	watchers := []k8swatcher.KubernetesNotifyWatcher{podWatcher, eventWatcher}
 	watchCallCount := 0
 
-	s.k8sWatcherFn = k8swatcher.NewK8sWatcherFunc(func(_ cache.SharedIndexInformer, n string, _ jujuclock.Clock) (k8swatcher.KubernetesNotifyWatcher, error) {
+	s.k8sWatcherFn = func(_ cache.SharedIndexInformer, n string, _ jujuclock.Clock) (k8swatcher.KubernetesNotifyWatcher, error) {
 		if watchCallCount >= len(watchers) {
 			return nil, errors.NotFoundf("no watcher available for index %d", watchCallCount)
 		}
 		w := watchers[watchCallCount]
 		watchCallCount++
 		return w, nil
-	})
+	}
 
 	gomock.InOrder(
 		// create namespace.
