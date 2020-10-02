@@ -11,7 +11,6 @@ import (
 	admission "k8s.io/api/admissionregistration/v1beta1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/juju/juju/caas/kubernetes/provider"
 	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/pki"
 )
@@ -79,7 +78,7 @@ func NewAdmissionCreator(
 				},
 				FailurePolicy: &failurePolicy,
 				MatchPolicy:   &matchPolicy,
-				Name:          provider.MakeK8sDomain(Component),
+				Name:          k8sutils.MakeK8sDomain(Component),
 				NamespaceSelector: &meta.LabelSelector{
 					MatchLabels: k8sutils.LabelsForModel(modelName, legacyLabels),
 				},

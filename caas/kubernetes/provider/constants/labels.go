@@ -36,14 +36,6 @@ const (
 	// describe their name.
 	LabelJujuStorageName = "storage.juju.is/name"
 
-	// LegacyAnnotationStorageName is the legacy annotation used by Juju for
-	// dictating storage name on k8s storage objects.
-	LegacyAnnotationStorageName = "juju-storage"
-
-	// LegacyAnnotationVersion is the legacy annotation used by Juju for
-	// dictating juju agent version on operators.
-	LegacyAnnotationVersion = "juju-version"
-
 	// LegacyLabelKubernetesAppName is the legacy label key used for juju app
 	// identification. This purely exists to maintain backwards functionality.
 	// See https://bugs.launchpad.net/juju/+bug/1888513

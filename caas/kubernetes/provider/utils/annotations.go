@@ -4,6 +4,13 @@
 package utils
 
 import (
+	"crypto/rand"
+	"fmt"
+	"io"
+	"strings"
+
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/environs/tags"
@@ -46,47 +53,61 @@ func AnnotationVersionKey(legacy bool) string {
 	return constants.AnnotationJujuVersion
 }
 
-func annotationKey(name string, legacy bool) string {
+// MakeK8sDomain builds and returns a Kubernetes resource domain for the
+// provided components. Func is idempotent
+func MakeK8sDomain(components ...string) string {
+	return fmt.Sprintf("%s.%s", strings.Join(components, "."), constants.Domain)
+}
+
+func annotationKey(name, suffix string, legacy bool) string {
 	if legacy {
 		return constants.LegacyAnnotationPrefix + "/" + name
 	}
-	return constants.AnnotationPrefix + "/" + name
+	return MakeK8sDomain(name) + "/" + suffix
 }
 
 // AnnotationModelUUIDKey returns the key used in annotations
 // to describe the model UUID.
 func AnnotationModelUUIDKey(legacy bool) string {
-	return annotationKey("model", legacy)
+	return annotationKey("model", "id", legacy)
 }
 
 // AnnotationControllerUUIDKey returns the key used in annotations
 // to describe the controller UUID.
 func AnnotationControllerUUIDKey(legacy bool) string {
-	return annotationKey("controller", legacy)
+	return annotationKey("controller", "id", legacy)
 }
 
 // AnnotationControllerIsControllerKey returns the key used in annotations
 // to describe if this pod is a controller pod.
 func AnnotationControllerIsControllerKey(legacy bool) string {
-	return annotationKey("is-controller", legacy)
+	return annotationKey("controller", "is-controller", legacy)
 }
 
 // AnnotationUnit returns the key used in annotations
 // to describe the Juju unit.
 func AnnotationUnit(legacy bool) string {
-	return annotationKey("unit", legacy)
+	return annotationKey("unit", "id", legacy)
 }
 
 // AnnotationCharmModifiedVersionKey returns the key used in annotations
 // to describe the charm modified version.
 func AnnotationCharmModifiedVersionKey(legacy bool) string {
-	return annotationKey("charm-modified-version", legacy)
+	return annotationKey("charm", "modified-version", legacy)
 }
 
 // AnnotationDisableNameKey returns the key used in annotations
 // to describe the disabled name prefix.
 func AnnotationDisableNameKey(legacy bool) string {
-	return annotationKey("disable-name-prefix", legacy)
+	return annotationKey("model", "disable-prefix", legacy)
+}
+
+// AnnotationKeyApplicationUUID is the key of annotation for recording pvc unique ID.
+func AnnotationKeyApplicationUUID(legacy bool) string {
+	if legacy {
+		return "juju-app-uuid"
+	}
+	return MakeK8sDomain("app") + "/uuid"
 }
 
 // ResourceTagsToAnnotations creates annotations from the resource tags.
@@ -104,4 +125,16 @@ func ResourceTagsToAnnotations(in map[string]string, legacy bool) annotations.An
 		out.Add(k, v)
 	}
 	return out
+}
+
+// RandomPrefixFunc defines a function used to generate a random hex string.
+type RandomPrefixFunc func() (string, error)
+
+// RandomPrefix returns a random string for storage related annotations.
+func RandomPrefix() (string, error) {
+	var randPrefixBytes [4]byte
+	if _, err := io.ReadFull(rand.Reader, randPrefixBytes[0:4]); err != nil {
+		return "", errors.Trace(err)
+	}
+	return fmt.Sprintf("%x", randPrefixBytes), nil
 }

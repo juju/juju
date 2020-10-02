@@ -140,7 +140,7 @@ func (k *kubernetesClient) deleteCustomResourceDefinitionsForApp(appName string)
 
 func (k *kubernetesClient) deleteCustomResourceDefinitions(selector k8slabels.Selector) error {
 	err := k.extendedClient().ApiextensionsV1beta1().CustomResourceDefinitions().DeleteCollection(context.TODO(), v1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, v1.ListOptions{
 		LabelSelector: selector.String(),
 	})
@@ -178,7 +178,7 @@ func (k *kubernetesClient) deleteCustomResources(selectorGetter func(apiextensio
 				return errors.Trace(err)
 			}
 			err = crdClient.DeleteCollection(context.TODO(), v1.DeleteOptions{
-				PropagationPolicy: &constants.DefaultPropagationPolicy,
+				PropagationPolicy: constants.DefaultPropagationPolicy(),
 			}, v1.ListOptions{
 				LabelSelector: selector.String(),
 			})

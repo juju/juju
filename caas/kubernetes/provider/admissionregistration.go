@@ -145,7 +145,7 @@ func (k *kubernetesClient) listMutatingWebhookConfigurations(selector k8slabels.
 
 func (k *kubernetesClient) deleteMutatingWebhookConfigurations(selector k8slabels.Selector) error {
 	err := k.client().AdmissionregistrationV1beta1().MutatingWebhookConfigurations().DeleteCollection(context.TODO(), metav1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, metav1.ListOptions{
 		LabelSelector: selector.String(),
 	})
@@ -263,7 +263,7 @@ func (k *kubernetesClient) listValidatingWebhookConfigurations(selector k8slabel
 
 func (k *kubernetesClient) deleteValidatingWebhookConfigurations(selector k8slabels.Selector) error {
 	err := k.client().AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().DeleteCollection(context.TODO(), metav1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, metav1.ListOptions{
 		LabelSelector: selector.String(),
 	})
