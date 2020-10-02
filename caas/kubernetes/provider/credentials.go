@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 )
@@ -101,7 +102,7 @@ func (environProviderCredentials) supportedAuthTypes() cloud.AuthTypes {
 
 // DetectCredentials is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, error) {
-	clientConfigFunc, err := clientconfig.NewClientConfigReader(CAASProviderType)
+	clientConfigFunc, err := clientconfig.NewClientConfigReader(constants.CAASProviderType)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

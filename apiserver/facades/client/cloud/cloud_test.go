@@ -21,7 +21,7 @@ import (
 	cloudfacade "github.com/juju/juju/apiserver/facades/client/cloud"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
@@ -328,14 +328,14 @@ func (s *cloudSuite) TestAddCloudK8sForceIrrelevant(c *gc.C) {
 	s.backend.controllerCfg = controller.Config{
 		"features": []interface{}{"multi-cloud"},
 	}
-	addCloudArg := createAddCloudParam(string(provider.K8s_ProviderType))
+	addCloudArg := createAddCloudParam(string(k8sconstants.CAASProviderType))
 	add := func() {
 		err := s.api.AddCloud(addCloudArg)
 		c.Assert(err, jc.ErrorIsNil)
 		s.backend.CheckCalls(c, []gitjujutesting.StubCall{
 			{"AddCloud", []interface{}{cloud.Cloud{
 				Name:      "newcloudname",
-				Type:      string(provider.K8s_ProviderType),
+				Type:      string(k8sconstants.CAASProviderType),
 				AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
 				Endpoint:  "fake-endpoint",
 				Regions:   []cloud.Region{{Name: "nether", Endpoint: "nether-endpoint"}},

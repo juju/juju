@@ -8,11 +8,12 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 )
 
-const k8sSeries = CAASProviderType
+const k8sSeries = constants.CAASProviderType
 
 // PrecheckInstance performs a preflight check on the specified
 // series and constraints, ensuring that they are possibly valid for
@@ -38,9 +39,10 @@ func (k *kubernetesClient) PrecheckInstance(ctx context.ProviderCallContext, par
 		return errors.NotSupportedf("constraints %v", strings.Join(unsupported, ","))
 	}
 
-	if params.Series != k8sSeries {
-		return errors.NotValidf("series %q", params.Series)
-	}
+	// TODO(embedded): handle systems
+	//if params.Series != k8sSeries {
+	//	return errors.NotValidf("series %q", params.Series)
+	//}
 
 	if params.Placement != "" {
 		return errors.NotValidf("placement directive %q", params.Placement)

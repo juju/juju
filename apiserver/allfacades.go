@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/agent"
 	"github.com/juju/juju/apiserver/facades/agent/caasadmission"
 	"github.com/juju/juju/apiserver/facades/agent/caasagent"
+	"github.com/juju/juju/apiserver/facades/agent/caasapplication"
 	"github.com/juju/juju/apiserver/facades/agent/caasoperator"
 	"github.com/juju/juju/apiserver/facades/agent/credentialvalidator"
 	"github.com/juju/juju/apiserver/facades/agent/deployer"
@@ -75,6 +76,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/actionpruner"
 	"github.com/juju/juju/apiserver/facades/controller/agenttools"
 	"github.com/juju/juju/apiserver/facades/controller/applicationscaler"
+	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
 	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
 	"github.com/juju/juju/apiserver/facades/controller/caasmodeloperator"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
@@ -186,7 +188,8 @@ func AllFacades() *facade.Registry {
 
 	// CAAS related facades.
 	// Move these to the correct place above once the feature flag disappears.
-	reg("CAASFirewaller", 1, caasfirewaller.NewStateFacade)
+	reg("CAASFirewaller", 1, caasfirewaller.NewStateFacadeLegacy)
+	reg("CAASFirewallerEmbedded", 1, caasfirewaller.NewStateFacadeEmbedded)
 	reg("CAASOperator", 1, caasoperator.NewStateFacade)
 	reg("CAASAdmission", 1, caasadmission.NewStateFacade)
 	reg("CAASAgent", 1, caasagent.NewStateFacade)
@@ -194,6 +197,8 @@ func AllFacades() *facade.Registry {
 	reg("CAASOperatorProvisioner", 1, caasoperatorprovisioner.NewStateCAASOperatorProvisionerAPI)
 	reg("CAASOperatorUpgrader", 1, caasoperatorupgrader.NewStateCAASOperatorUpgraderAPI)
 	reg("CAASUnitProvisioner", 1, caasunitprovisioner.NewStateFacade)
+	reg("CAASApplication", 1, caasapplication.NewStateFacade)
+	reg("CAASApplicationProvisioner", 1, caasapplicationprovisioner.NewStateCAASApplicationProvisionerAPI)
 
 	reg("Controller", 3, controller.NewControllerAPIv3)
 	reg("Controller", 4, controller.NewControllerAPIv4)

@@ -50,6 +50,7 @@ type ManifoldConfig struct {
 	HookRetryStrategyName string
 	TranslateResolverErr  func(error) error
 	Logger                Logger
+	Embedded              bool
 }
 
 // Validate ensures all the required values for the config are set.
@@ -142,6 +143,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				Clock:                 manifoldConfig.Clock,
 				RebootQuerier:         reboot.NewMonitor(agentConfig.TransientDataDir()),
 				Logger:                config.Logger,
+				Embedded:              config.Embedded,
 			})
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -149,6 +151,21 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			return uniter, nil
 		},
 	}
+}
+
+func manifoldOutput(in worker.Worker, out interface{}) error {
+	inUniter, ok := in.(*Uniter)
+	if !ok {
+		return errors.Errorf("expected Uniter, got %T", in)
+	}
+
+	switch result := out.(type) {
+	case **Probe:
+		*result = &inUniter.Probe
+	default:
+		return errors.Errorf("unexpected type, got %T", out)
+	}
+	return nil
 }
 
 // TranslateFortressErrors turns errors returned by dependent

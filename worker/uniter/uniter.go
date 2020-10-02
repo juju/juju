@@ -81,6 +81,7 @@ type Uniter struct {
 	paths     Paths
 	unit      *uniter.Unit
 	modelType model.ModelType
+	embedded  bool
 	storage   *storage.Attachments
 	clock     clock.Clock
 
@@ -104,6 +105,8 @@ type Uniter struct {
 	charmDirGuard     fortress.Guard
 
 	hookLock machinelock.Lock
+
+	Probe Probe
 
 	// TODO(axw) move the runListener and run-command code outside of the
 	// uniter, and introduce a separate worker. Each worker would feed
@@ -182,6 +185,7 @@ type UniterParams struct {
 	Observer      UniterExecutionObserver
 	RebootQuerier RebootQuerier
 	Logger        Logger
+	Embedded      bool
 }
 
 // NewOperationExecutorFunc is a func which returns an operations.Executor.
@@ -245,6 +249,7 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 			runListener:                   uniterParams.RunListener,
 			rebootQuerier:                 uniterParams.RebootQuerier,
 			logger:                        uniterParams.Logger,
+			embedded:                      uniterParams.Embedded,
 		}
 		plan := catacomb.Plan{
 			Site: &u.catacomb,
@@ -388,6 +393,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				ModelType:                     u.modelType,
 				Logger:                        u.logger.Child("remotestate"),
 				CanApplyCharmProfile:          canApplyCharmProfile,
+				Embedded:                      u.embedded,
 			})
 		if err != nil {
 			return errors.Trace(err)
@@ -627,7 +633,7 @@ func (u *Uniter) terminate() error {
 // an individual agent for that unit.
 func (u *Uniter) stopUnitError() error {
 	u.logger.Debugf("u.modelType: %s", u.modelType)
-	if u.modelType == model.CAAS {
+	if u.modelType == model.CAAS && !u.embedded {
 		return ErrCAASUnitDead
 	}
 	return jworker.ErrTerminateAgent

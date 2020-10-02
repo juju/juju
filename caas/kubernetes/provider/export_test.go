@@ -31,7 +31,6 @@ var (
 	OperatorPod            = operatorPod
 	ExtractRegistryURL     = extractRegistryURL
 	CreateDockerConfigJSON = createDockerConfigJSON
-	NewStorageConfig       = newStorageConfig
 	ControllerCorelation   = controllerCorelation
 	GetLocalMicroK8sConfig = getLocalMicroK8sConfig
 	AttemptMicroK8sCloud   = attemptMicroK8sCloudInternal
@@ -40,7 +39,6 @@ var (
 	ToYaml                 = toYaml
 	Indent                 = indent
 	ProcessSecretData      = processSecretData
-	PushUniqueVolume       = pushUniqueVolume
 
 	CompileK8sCloudCheckers                    = compileK8sCloudCheckers
 	CompileLifecycleApplicationRemovalSelector = compileLifecycleApplicationRemovalSelector
@@ -48,7 +46,6 @@ var (
 
 	LabelSetToRequirements = labelSetToRequirements
 	MergeSelectors         = mergeSelectors
-	GetStorageMode         = getStorageMode
 
 	UpdateStrategyForDeployment  = updateStrategyForDeployment
 	UpdateStrategyForStatefulSet = updateStrategyForStatefulSet
@@ -159,18 +156,6 @@ func (k *kubernetesClient) DeleteNamespaceModelTeardown(ctx context.Context, wg 
 
 func StorageProvider(k8sClient kubernetes.Interface, namespace string) storage.Provider {
 	return &storageProvider{&kubernetesClient{clientUnlocked: k8sClient, namespace: namespace}}
-}
-
-func GetStorageClass(cfg *storageConfig) string {
-	return cfg.storageClass
-}
-
-func GetStorageProvisioner(cfg *storageConfig) string {
-	return cfg.storageProvisioner
-}
-
-func GetStorageParameters(cfg *storageConfig) map[string]string {
-	return cfg.parameters
 }
 
 func GetCloudProviderFromNodeMeta(node core.Node) (string, string) {

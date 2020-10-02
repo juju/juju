@@ -716,7 +716,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	}
 
 	// Figure out what series we need to deploy with.
-	supportedSeries := charmInfo.Meta.Series
+	supportedSeries := charmInfo.Meta.ComputedSeries()
 	if len(supportedSeries) == 0 && chID.URL.Series != "" {
 		supportedSeries = []string{chID.URL.Series}
 	}

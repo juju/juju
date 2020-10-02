@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caasfirewaller_test
+package caasfirewaller
 
 import (
 	"testing"
@@ -12,3 +12,12 @@ import (
 func TestAll(t *testing.T) {
 	gc.TestingT(t)
 }
+
+var (
+	NewFacadeLegacyForTest   = newFacadeLegacy
+	NewFacadeEmbeddedForTest = newFacadeEmbedded
+)
+
+type (
+	StateShim = stateShim
+)

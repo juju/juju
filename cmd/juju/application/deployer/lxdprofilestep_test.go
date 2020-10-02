@@ -5,11 +5,11 @@ package deployer_test
 
 import (
 	"github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v8"
+	"github.com/juju/charm/v8"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
-	apicharms "github.com/juju/juju/api/charms"
+	apicommoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/cmd/juju/application/deployer"
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
 )
@@ -25,7 +25,7 @@ func (*ValidateLXDProfileCharmSuite) TestRunPreWithNoLXDProfile(c *gc.C) {
 	defer ctrl.Finish()
 
 	deployInfo := deployer.DeploymentInfo{
-		CharmInfo: &apicharms.CharmInfo{},
+		CharmInfo: &apicommoncharms.CharmInfo{},
 	}
 
 	mockDeployStepAPI := mocks.NewMockDeployStepAPI(ctrl)
@@ -40,7 +40,7 @@ func (*ValidateLXDProfileCharmSuite) TestRunPreWithLXDProfile(c *gc.C) {
 	defer ctrl.Finish()
 
 	deployInfo := deployer.DeploymentInfo{
-		CharmInfo: &apicharms.CharmInfo{
+		CharmInfo: &apicommoncharms.CharmInfo{
 			LXDProfile: &charm.LXDProfile{
 				Config: map[string]string{
 					"security.nesting": "true",
@@ -61,7 +61,7 @@ func (*ValidateLXDProfileCharmSuite) TestRunPreWithInvalidLXDProfile(c *gc.C) {
 	defer ctrl.Finish()
 
 	deployInfo := deployer.DeploymentInfo{
-		CharmInfo: &apicharms.CharmInfo{
+		CharmInfo: &apicommoncharms.CharmInfo{
 			LXDProfile: &charm.LXDProfile{
 				Config: map[string]string{
 					"boot.autostart": "true",
@@ -82,7 +82,7 @@ func (*ValidateLXDProfileCharmSuite) TestRunPreWithNoLXDProfileAndForce(c *gc.C)
 	defer ctrl.Finish()
 
 	deployInfo := deployer.DeploymentInfo{
-		CharmInfo: &apicharms.CharmInfo{},
+		CharmInfo: &apicommoncharms.CharmInfo{},
 		Force:     true,
 	}
 
@@ -98,7 +98,7 @@ func (*ValidateLXDProfileCharmSuite) TestRunPreWithLXDProfileAndForce(c *gc.C) {
 	defer ctrl.Finish()
 
 	deployInfo := deployer.DeploymentInfo{
-		CharmInfo: &apicharms.CharmInfo{
+		CharmInfo: &apicommoncharms.CharmInfo{
 			LXDProfile: &charm.LXDProfile{
 				Config: map[string]string{
 					"security.nesting": "true",
@@ -120,7 +120,7 @@ func (*ValidateLXDProfileCharmSuite) TestRunPreWithInvalidLXDProfileAndForce(c *
 	defer ctrl.Finish()
 
 	deployInfo := deployer.DeploymentInfo{
-		CharmInfo: &apicharms.CharmInfo{
+		CharmInfo: &apicommoncharms.CharmInfo{
 			LXDProfile: &charm.LXDProfile{
 				Config: map[string]string{
 					"boot.autostart": "true",

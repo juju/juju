@@ -238,7 +238,7 @@ func (c *chRepo) resolveViaChannelMap(curl *charm.URL, origin params.CharmOrigin
 	if err != nil {
 		return nil, params.CharmOrigin{}, nil, errors.Annotatef(err, "cannot unmarshal charm metadata")
 	}
-	return curl, origin, meta.Series, nil
+	return curl, origin, meta.ComputedSeries(), nil
 }
 
 func unmarshalCharmMetadata(metadataYAML string) (*charm.Meta, error) {

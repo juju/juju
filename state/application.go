@@ -1473,7 +1473,8 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		}
 	} else if !cfg.ForceSeries {
 		supported := false
-		for _, oneSeries := range cfg.Charm.Meta().Series {
+		charmSeries := cfg.Charm.Meta().ComputedSeries()
+		for _, oneSeries := range charmSeries {
 			if oneSeries == a.doc.Series {
 				supported = true
 				break
@@ -1481,8 +1482,8 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		}
 		if !supported {
 			supportedSeries := "no series"
-			if len(cfg.Charm.Meta().Series) > 0 {
-				supportedSeries = strings.Join(cfg.Charm.Meta().Series, ", ")
+			if len(charmSeries) > 0 {
+				supportedSeries = strings.Join(charmSeries, ", ")
 			}
 			return errors.Errorf("only these series are supported: %v", supportedSeries)
 		}
@@ -1497,7 +1498,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 			return err
 		}
 		supportedOS := false
-		supportedSeries := cfg.Charm.Meta().Series
+		supportedSeries := cfg.Charm.Meta().ComputedSeries()
 		for _, chSeries := range supportedSeries {
 			charmSeriesOS, err := series.GetOSFromSeries(chSeries)
 			if err != nil {
@@ -1824,7 +1825,7 @@ func (a *Application) VerifySupportedSeries(series string, force bool) error {
 	if err != nil {
 		return err
 	}
-	supportedSeries := ch.Meta().Series
+	supportedSeries := ch.Meta().ComputedSeries()
 	if len(supportedSeries) == 0 {
 		supportedSeries = append(supportedSeries, ch.URL().Series)
 	}
@@ -2086,6 +2087,7 @@ func (a *Application) addUnitOps(
 		providerId:         args.ProviderId,
 		address:            args.Address,
 		ports:              args.Ports,
+		unitName:           args.UnitName,
 	})
 	if err != nil {
 		return uNames, ops, errors.Trace(err)
@@ -2108,6 +2110,7 @@ type applicationAddUnitOpsArgs struct {
 	providerId *string
 	address    *string
 	ports      *[]string
+	unitName   *string
 }
 
 // addApplicationUnitOps is just like addUnitOps but explicitly takes a
@@ -2127,9 +2130,15 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	} else if !a.doc.Subordinate && args.principalName != "" {
 		return "", nil, errors.New("application is not a subordinate")
 	}
-	name, err := a.newUnitName()
-	if err != nil {
-		return "", nil, errors.Trace(err)
+	var name string
+	if args.unitName != nil {
+		name = *args.unitName
+	} else {
+		newName, err := a.newUnitName()
+		if err != nil {
+			return "", nil, errors.Trace(err)
+		}
+		name = newName
 	}
 	unitTag := names.NewUnitTag(name)
 
@@ -2402,6 +2411,9 @@ type AddUnitParams struct {
 	// Ports are the open ports on the container.
 	Ports *[]string
 
+	// UnitName is for CAAS models when creating stateful units.
+	UnitName *string
+
 	// machineID is only passed in if the unit being created is
 	// a subordinate and refers to the machine that is hosting the principal.
 	machineID string
@@ -2461,6 +2473,7 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 		removeMeterStatusOp(a.st, u.globalMeterStatusKey()),
 		removeStatusOp(a.st, u.globalAgentKey()),
 		removeStatusOp(a.st, u.globalKey()),
+		removeStatusOp(a.st, u.globalWorkloadVersionKey()),
 		removeUnitStateOp(a.st, u.globalKey()),
 		removeStatusOp(a.st, u.globalCloudContainerKey()),
 		removeConstraintsOp(u.globalAgentKey()),
@@ -2948,6 +2961,20 @@ func CheckApplicationExpectsWorkload(m *Model, appName string) (bool, error) {
 		// IAAS models alway have a unit workload.
 		return true, nil
 	}
+
+	// Check charm v2
+	app, err := m.State().Application(appName)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	ch, _, err := app.Charm()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	if ch.Meta().Format() >= charm.FormatV2 {
+		return false, nil
+	}
+
 	_, err = cm.PodSpec(names.NewApplicationTag(appName))
 	if err != nil && !errors.IsNotFound(err) {
 		return false, errors.Trace(err)
@@ -3205,6 +3232,7 @@ type UnitUpdateProperties struct {
 	ProviderId           *string
 	Address              *string
 	Ports                *[]string
+	UnitName             *string
 	AgentStatus          *status.StatusInfo
 	UnitStatus           *status.StatusInfo
 	CloudContainerStatus *status.StatusInfo
@@ -3299,6 +3327,7 @@ func (op *AddUnitOperation) Build(attempt int) ([]txn.Op, error) {
 		ProviderId: op.props.ProviderId,
 		Address:    op.props.Address,
 		Ports:      op.props.Ports,
+		UnitName:   op.props.UnitName,
 	}
 	name, addOps, err := op.application.addUnitOps("", addUnitArgs, nil)
 	if err != nil {

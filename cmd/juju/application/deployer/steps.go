@@ -7,7 +7,7 @@ import (
 	"github.com/juju/romulus"
 
 	"github.com/juju/juju/api/application"
-	apicharms "github.com/juju/juju/api/charms"
+	apicommoncharms "github.com/juju/juju/api/common/charms"
 )
 
 func Steps() []DeployStep {
@@ -27,7 +27,7 @@ type DeploymentInfo struct {
 	CharmID         application.CharmID
 	ApplicationName string
 	ModelUUID       string
-	CharmInfo       *apicharms.CharmInfo
+	CharmInfo       *apicommoncharms.CharmInfo
 	ApplicationPlan string
 	Force           bool
 }

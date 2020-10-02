@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
@@ -101,7 +101,7 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&jujuversion.OfficialBuild, 666)
 
 	facade, err := caasunitprovisioner.NewFacade(
-		s.resources, s.authorizer, s.st, s.storage, s.devices, s.storagePoolManager, s.registry, s.clock)
+		s.resources, s.authorizer, s.st, s.storage, s.devices, s.storagePoolManager, s.registry, nil, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 }
@@ -111,21 +111,8 @@ func (s *CAASProvisionerSuite) TestPermission(c *gc.C) {
 		Tag: names.NewMachineTag("0"),
 	}
 	_, err := caasunitprovisioner.NewFacade(
-		s.resources, s.authorizer, s.st, s.storage, s.devices, s.storagePoolManager, s.registry, s.clock)
+		s.resources, s.authorizer, s.st, s.storage, s.devices, s.storagePoolManager, s.registry, nil, s.clock)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-}
-
-func (s *CAASProvisionerSuite) TestWatchApplications(c *gc.C) {
-	applicationNames := []string{"db2", "hadoop"}
-	s.applicationsChanges <- applicationNames
-	result, err := s.facade.WatchApplications()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.StringsWatcherId, gc.Equals, "1")
-	c.Assert(result.Changes, jc.DeepEquals, applicationNames)
-
-	resource := s.resources.Get("1")
-	c.Assert(resource, gc.Equals, s.st.applicationsWatcher)
 }
 
 func (s *CAASProvisionerSuite) TestWatchPodSpec(c *gc.C) {
@@ -230,7 +217,7 @@ func (s *CAASProvisionerSuite) assertProvisioningInfo(c *gc.C, isRawK8sSpec bool
 	expectedFileSystems := map[string]params.KubernetesFilesystemParams{
 		"data": {
 			StorageName: "data",
-			Provider:    string(provider.K8s_ProviderType),
+			Provider:    string(k8sconstants.StorageProviderType),
 			Size:        100,
 			Attributes: map[string]interface{}{
 				"storage-class": "k8s-storage",
@@ -241,7 +228,7 @@ func (s *CAASProvisionerSuite) assertProvisioningInfo(c *gc.C, isRawK8sSpec bool
 				"juju-model-uuid":      coretesting.ModelTag.Id(),
 				"juju-controller-uuid": coretesting.ControllerTag.Id()},
 			Attachment: &params.KubernetesFilesystemAttachmentParams{
-				Provider:   string(provider.K8s_ProviderType),
+				Provider:   string(k8sconstants.StorageProviderType),
 				MountPoint: "/var/lib/juju/storage/data/0",
 				ReadOnly:   true,
 			},

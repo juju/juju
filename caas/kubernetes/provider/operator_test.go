@@ -1090,7 +1090,7 @@ func (s *K8sBrokerSuite) TestOperatorExists(c *gc.C) {
 
 	exists, err := s.broker.OperatorExists("test-app")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exists, jc.DeepEquals, caas.OperatorState{
+	c.Assert(exists, jc.DeepEquals, caas.DeploymentState{
 		Exists:      true,
 		Terminating: false,
 	})
@@ -1113,7 +1113,7 @@ func (s *K8sBrokerSuite) TestOperatorExistsTerminating(c *gc.C) {
 
 	exists, err := s.broker.OperatorExists("test-app")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exists, jc.DeepEquals, caas.OperatorState{
+	c.Assert(exists, jc.DeepEquals, caas.DeploymentState{
 		Exists:      true,
 		Terminating: true,
 	})
@@ -1144,11 +1144,15 @@ func (s *K8sBrokerSuite) TestOperatorExistsTerminated(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Get(gomock.Any(), "test-app-operator", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
+		s.mockPods.EXPECT().List(gomock.Any(), v1.ListOptions{
+			LabelSelector: "operator.juju.is/name=test-app,operator.juju.is/target=application",
+		}).
+			Return(&core.PodList{}, nil),
 	)
 
 	exists, err := s.broker.OperatorExists("test-app")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exists, jc.DeepEquals, caas.OperatorState{
+	c.Assert(exists, jc.DeepEquals, caas.DeploymentState{
 		Exists:      false,
 		Terminating: false,
 	})
@@ -1183,7 +1187,7 @@ func (s *K8sBrokerSuite) TestOperatorExistsTerminatedMostly(c *gc.C) {
 
 	exists, err := s.broker.OperatorExists("test-app")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exists, jc.DeepEquals, caas.OperatorState{
+	c.Assert(exists, jc.DeepEquals, caas.DeploymentState{
 		Exists:      true,
 		Terminating: true,
 	})

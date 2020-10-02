@@ -12,6 +12,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"
 	storageprovider "github.com/juju/juju/storage/provider"
@@ -32,7 +33,7 @@ func (s *storageSuite) TestValidateConfig(c *gc.C) {
 	defer ctrl.Finish()
 
 	p := s.k8sProvider(c, ctrl)
-	cfg, err := storage.NewConfig("name", provider.K8s_ProviderType, map[string]interface{}{
+	cfg, err := storage.NewConfig("name", constants.StorageProviderType, map[string]interface{}{
 		"storage-class":       "my-storage",
 		"storage-provisioner": "aws-storage",
 		"storage-label":       "storage-fred",
@@ -52,28 +53,13 @@ func (s *storageSuite) TestValidateConfigError(c *gc.C) {
 	defer ctrl.Finish()
 
 	p := s.k8sProvider(c, ctrl)
-	cfg, err := storage.NewConfig("name", provider.K8s_ProviderType, map[string]interface{}{
+	cfg, err := storage.NewConfig("name", constants.StorageProviderType, map[string]interface{}{
 		"storage-class":       "",
 		"storage-provisioner": "aws-storage",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = p.ValidateConfig(cfg)
 	c.Assert(err, gc.ErrorMatches, "storage-class must be specified if storage-provisioner is specified")
-}
-
-func (s *storageSuite) TestNewStorageConfig(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
-
-	cfg, err := provider.NewStorageConfig(map[string]interface{}{
-		"storage-class":       "juju-ebs",
-		"storage-provisioner": "ebs",
-		"parameters.type":     "gp2",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(provider.GetStorageClass(cfg), gc.Equals, "juju-ebs")
-	c.Assert(provider.GetStorageProvisioner(cfg), gc.Equals, "ebs")
-	c.Assert(provider.GetStorageParameters(cfg), jc.DeepEquals, map[string]string{"type": "gp2"})
 }
 
 func (s *storageSuite) TestSupports(c *gc.C) {
@@ -209,68 +195,6 @@ func (s *storageSuite) TestValidateStorageProvider(c *gc.C) {
 		err := provider.ValidateStorageProvider(t.providerType, t.attrs)
 		if t.err == "" {
 			c.Check(err, jc.ErrorIsNil)
-		} else {
-			c.Check(err, gc.ErrorMatches, t.err)
-		}
-	}
-}
-
-func (s *storageSuite) TestGetStorageMode(c *gc.C) {
-	type testCase struct {
-		attrs map[string]interface{}
-		mode  core.PersistentVolumeAccessMode
-		err   string
-	}
-
-	for i, t := range []testCase{
-		{
-			attrs: map[string]interface{}{
-				"storage-mode": "RWO",
-			},
-			mode: core.ReadWriteOnce,
-		},
-		{
-			attrs: map[string]interface{}{
-				"storage-mode": "ReadWriteOnce",
-			},
-			mode: core.ReadWriteOnce,
-		},
-		{
-			attrs: map[string]interface{}{
-				"storage-mode": "RWX",
-			},
-			mode: core.ReadWriteMany,
-		},
-		{
-			attrs: map[string]interface{}{
-				"storage-mode": "ReadWriteMany",
-			},
-			mode: core.ReadWriteMany,
-		},
-		{
-			attrs: map[string]interface{}{
-				"storage-mode": "ROX",
-			},
-			mode: core.ReadOnlyMany,
-		},
-		{
-			attrs: map[string]interface{}{
-				"storage-mode": "ReadOnlyMany",
-			},
-			mode: core.ReadOnlyMany,
-		},
-		{
-			attrs: map[string]interface{}{
-				"storage-mode": "bad-mode",
-			},
-			err: `storage mode "bad-mode" not supported`,
-		},
-	} {
-		c.Logf("testing get storage mode %d", i)
-		mode, err := provider.GetStorageMode(t.attrs)
-		if t.err == "" {
-			c.Check(err, jc.ErrorIsNil)
-			c.Check(*mode, jc.DeepEquals, t.mode)
 		} else {
 			c.Check(err, gc.ErrorMatches, t.err)
 		}

@@ -11,6 +11,7 @@ import (
 	"time" // Only used for time types.
 
 	"github.com/juju/charm/v8"
+	charmrepotesting "github.com/juju/charmrepo/v6/testing"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/description/v2"
@@ -173,8 +174,18 @@ func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
 	return addCharm(c, st, "quantal", testcharms.Repo.CharmDir(name))
 }
 
+func getCharmRepo(series string) *charmrepotesting.Repo {
+	// ALl testing charms for state are under `quantal` except `kubernetes`.
+	if series == "kubernetes" {
+		return testcharms.RepoForSeries(series)
+	}
+	return testcharms.Repo
+}
+
 func AddTestingCharmForSeries(c *gc.C, st *State, series, name string) *Charm {
-	return addCharm(c, st, series, testcharms.RepoForSeries(series).CharmDir(name))
+	// Existing logic!
+	// Get charm from `quantal` dir or `kubernetes`.
+	return addCharm(c, st, series, getCharmRepo(series).CharmDir(name))
 }
 
 func AddTestingCharmMultiSeries(c *gc.C, st *State, name string) *Charm {
@@ -261,8 +272,8 @@ func addTestingApplication(c *gc.C, params addTestingApplicationParams) *Applica
 	return app
 }
 
-func AddCustomCharm(c *gc.C, st *State, name, filename, content, series string, revision int) *Charm {
-	path := testcharms.RepoForSeries(series).ClonedDirPath(c.MkDir(), name)
+func addCustomCharm(c *gc.C, st *State, repo *charmrepotesting.Repo, name, filename, content, series string, revision int) *Charm {
+	path := repo.ClonedDirPath(c.MkDir(), name)
 	if filename != "" {
 		config := filepath.Join(path, filename)
 		err := ioutil.WriteFile(config, []byte(content), 0644)
@@ -274,6 +285,15 @@ func AddCustomCharm(c *gc.C, st *State, name, filename, content, series string, 
 		ch.SetRevision(revision)
 	}
 	return addCharm(c, st, series, ch)
+}
+
+func AddCustomCharmForSeries(c *gc.C, st *State, name, filename, content, series string, revision int) *Charm {
+	// Copy charm from `series` dir.
+	return addCustomCharm(c, st, testcharms.RepoForSeries(series), name, filename, content, series, revision)
+}
+
+func AddCustomCharm(c *gc.C, st *State, name, filename, content, series string, revision int) *Charm {
+	return addCustomCharm(c, st, getCharmRepo(series), name, filename, content, series, revision)
 }
 
 func addCharm(c *gc.C, st *State, series string, ch charm.Charm) *Charm {

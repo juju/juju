@@ -8,12 +8,12 @@ import (
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/gnuflag"
-	"github.com/juju/juju/api/charms"
-	"github.com/juju/juju/core/instance"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	apicommoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/cmd/juju/application/utils/mocks"
+	"github.com/juju/juju/core/instance"
 )
 
 type utilsSuite struct{}
@@ -71,7 +71,7 @@ func (s *utilsResourceSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *utilsResourceSuite) expectCharmInfo(str string) {
-	charmInfo := &charms.CharmInfo{
+	charmInfo := &apicommoncharms.CharmInfo{
 		Meta: &charm.Meta{
 			Resources: map[string]charmresource.Meta{
 				"test": {Name: "Testme"},

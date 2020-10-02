@@ -41,9 +41,9 @@ import (
 	"github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/charms"
 	apicharms "github.com/juju/juju/api/charms"
 	commoncharm "github.com/juju/juju/api/common/charm"
+	apicommoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/api/modelconfig"
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/params"
@@ -1323,6 +1323,13 @@ func (s *DeploySuite) TestForceMachineSubordinate(c *gc.C) {
 }
 
 func (s *DeploySuite) TestNonLocalCannotHostUnits(c *gc.C) {
+	s.fakeAPI.Call("CharmInfo", "local:dummy").Returns(
+		&apicommoncharms.CharmInfo{
+			URL:  "local:dummy",
+			Meta: &charm.Meta{Name: "dummy", Series: []string{"bionic"}},
+		},
+		error(nil),
+	)
 	err := s.runDeploy(c, "--to", "0", "local:dummy", "portlandia")
 	c.Assert(err, gc.Not(gc.ErrorMatches), "machine 0 is the controller for a local model and cannot host units")
 }
@@ -1454,6 +1461,13 @@ func (s *DeploySuite) TestDeployWithTermsNotSigned(c *gc.C) {
 	deployURL.Revision = 1
 	origin := commoncharm.Origin{Source: commoncharm.OriginCharmStore}
 	s.fakeAPI.Call("AddCharm", &deployURL, origin, false, "bionic").Returns(origin, error(termsRequiredError))
+	s.fakeAPI.Call("CharmInfo", deployURL.String()).Returns(
+		&apicommoncharms.CharmInfo{
+			URL:  deployURL.String(),
+			Meta: &charm.Meta{Name: "dummy", Series: []string{"bionic"}},
+		},
+		error(nil),
+	)
 	deploy := s.deployCommand()
 
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:bionic/terms1")
@@ -2603,9 +2617,9 @@ func (f *fakeDeployAPI) AddCharmWithAuthorization(
 	return results[0].(commoncharm.Origin), jujutesting.TypeAssertError(results[1])
 }
 
-func (f *fakeDeployAPI) CharmInfo(url string) (*charms.CharmInfo, error) {
+func (f *fakeDeployAPI) CharmInfo(url string) (*apicommoncharms.CharmInfo, error) {
 	results := f.MethodCall(f, "CharmInfo", url)
-	return results[0].(*charms.CharmInfo), jujutesting.TypeAssertError(results[1])
+	return results[0].(*apicommoncharms.CharmInfo), jujutesting.TypeAssertError(results[1])
 }
 
 func (f *fakeDeployAPI) Deploy(args application.DeployArgs) error {
@@ -2899,7 +2913,7 @@ func withCharmDeployableWithDevicesAndStorage(
 	origin, _ := apputils.DeduceOrigin(url, corecharm.Channel{})
 	fakeAPI.Call("AddCharm", &deployURL, origin, force, "bionic").Returns(origin, error(nil))
 	fakeAPI.Call("CharmInfo", deployURL.String()).Returns(
-		&charms.CharmInfo{
+		&apicommoncharms.CharmInfo{
 			URL:     url.String(),
 			Meta:    meta,
 			Metrics: metrics,

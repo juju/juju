@@ -44,67 +44,6 @@ func (s *charmsMockSuite) TestIsMeteredFalse(c *gc.C) {
 	c.Assert(got, jc.IsTrue)
 }
 
-func (s *charmsMockSuite) TestCharmInfo(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-
-	url := "local:quantal/dummy-1"
-	args := params.CharmURL{URL: url}
-	info := new(params.Charm)
-
-	p := params.Charm{
-		Revision: 1,
-		URL:      url,
-		Config: map[string]params.CharmOption{
-			"config": {
-				Type:        "type",
-				Description: "config-type option",
-			},
-		},
-		LXDProfile: &params.CharmLXDProfile{
-			Description: "LXDProfile",
-			Devices: map[string]map[string]string{
-				"tun": {
-					"path": "/dev/net/tun",
-					"type": "unix-char",
-				},
-			},
-		},
-	}
-
-	mockFacadeCaller.EXPECT().FacadeCall("CharmInfo", args, info).SetArg(2, p).Return(nil)
-
-	client := charms.NewClientWithFacade(mockFacadeCaller)
-	got, err := client.CharmInfo(url)
-	c.Assert(err, gc.IsNil)
-
-	want := &charms.CharmInfo{
-		Revision: 1,
-		URL:      url,
-		Config: &charm.Config{
-			Options: map[string]charm.Option{
-				"config": {
-					Type:        "type",
-					Description: "config-type option",
-				},
-			},
-		},
-		LXDProfile: &charm.LXDProfile{
-			Description: "LXDProfile",
-			Config:      map[string]string{},
-			Devices: map[string]map[string]string{
-				"tun": {
-					"path": "/dev/net/tun",
-					"type": "unix-char",
-				},
-			},
-		},
-	}
-	c.Assert(got, gc.DeepEquals, want)
-}
-
 func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

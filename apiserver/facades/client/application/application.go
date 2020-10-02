@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
@@ -629,10 +630,10 @@ func caasPrecheck(
 		if err != nil {
 			return errors.Annotatef(err, "getting operator storage params for %q", args.ApplicationName)
 		}
-		if sp.Provider != string(k8s.K8s_ProviderType) {
+		if sp.Provider != string(k8sconstants.StorageProviderType) {
 			poolName := cfg.AllAttrs()[k8s.OperatorStorageKey]
 			return errors.Errorf(
-				"the %q storage pool requires a provider type of %q, not %q", poolName, k8s.K8s_ProviderType, sp.Provider)
+				"the %q storage pool requires a provider type of %q, not %q", poolName, k8sconstants.StorageProviderType, sp.Provider)
 		}
 		if err := caasBroker.ValidateStorageClass(sp.Attributes); err != nil {
 			return errors.Trace(err)
