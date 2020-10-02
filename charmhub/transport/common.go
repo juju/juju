@@ -36,7 +36,7 @@ type Revision struct {
 }
 
 type Download struct {
-	HashSHA265 string `json:"hash-sha-265"`
+	HashSHA256 string `json:"hash-sha-256"`
 	Size       int    `json:"size"`
 	URL        string `json:"url"`
 }
