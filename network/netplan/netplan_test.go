@@ -99,6 +99,25 @@ network:
     br0:
       interfaces: [wlp1s0, switchports]
       dhcp4: false
+    ovs0:
+      interfaces: [patch0-1, eth0, bond0]
+      addresses:
+      - 10.5.48.11/20
+      openvswitch:
+        controller:
+          addresses:
+          - unix:/var/run/openvswitch/ovs0.mgmt
+          connection-mode: out-of-band
+        external-ids:
+          iface-id: myhostname
+        fail-mode: secure
+        mcast-snooping: true
+        other-config:
+          disable-in-band: true
+        protocols:
+        - OpenFlow10
+        - OpenFlow11
+        - OpenFlow12
   routes:
   - to: 0.0.0.0/0
     via: 11.0.0.1

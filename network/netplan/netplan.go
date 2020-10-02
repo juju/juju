@@ -78,9 +78,10 @@ type BridgeParameters struct {
 }
 
 type Bridge struct {
-	Interfaces []string `yaml:"interfaces,omitempty,flow"`
-	Interface  `yaml:",inline"`
-	Parameters BridgeParameters `yaml:"parameters,omitempty"`
+	Interfaces    []string `yaml:"interfaces,omitempty,flow"`
+	Interface     `yaml:",inline"`
+	Parameters    BridgeParameters       `yaml:"parameters,omitempty"`
+	OVSParameters map[string]interface{} `yaml:"openvswitch,omitempty"`
 }
 
 type Route struct {
