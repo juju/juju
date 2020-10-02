@@ -87,6 +87,14 @@ func (c *downloadCommand) Init(args []string) error {
 		return errors.Trace(err)
 	}
 	c.charmOrBundle = args[0]
+
+	if c.charmHubURL != "" {
+		_, err := url.ParseRequestURI(c.charmHubURL)
+		if err != nil {
+			return errors.Annotatef(err, "unexpected charm-hub-url")
+		}
+	}
+
 	return nil
 }
 

@@ -49,9 +49,11 @@ func (s *downloadSuite) TestRun(c *gc.C) {
 		charmHubClient: s.charmHubClient,
 	}
 	cmd := modelcmd.Wrap(command)
-	cmdtesting.InitCommand(cmd, []string{"test"})
+	err := cmdtesting.InitCommand(cmd, []string{"test"})
+	c.Assert(err, jc.ErrorIsNil)
+
 	ctx := commandContextForTest(c)
-	err := cmd.Run(ctx)
+	err = cmd.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -67,10 +69,25 @@ func (s *downloadSuite) TestRunWithCustomCharmHubURL(c *gc.C) {
 		modelConfigAPI: s.modelConfigAPI,
 		charmHubClient: s.charmHubClient,
 	}
-	cmdtesting.InitCommand(command, []string{"--charm-hub-url=" + url, "test"})
-	ctx := commandContextForTest(c)
-	err := command.Run(ctx)
+	err := cmdtesting.InitCommand(command, []string{"--charm-hub-url=" + url, "test"})
 	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := commandContextForTest(c)
+	err = command.Run(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *downloadSuite) TestRunWithCustomInvalidCharmHubURL(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	url := "meshuggah"
+
+	command := &downloadCommand{
+		modelConfigAPI: s.modelConfigAPI,
+		charmHubClient: s.charmHubClient,
+	}
+	err := cmdtesting.InitCommand(command, []string{"--charm-hub-url=" + url, "test"})
+	c.Assert(err, gc.ErrorMatches, `unexpected charm-hub-url: parse "meshuggah": invalid URI for request`)
 }
 
 func (s *downloadSuite) setUpMocks(c *gc.C) *gomock.Controller {
