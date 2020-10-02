@@ -12,6 +12,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
+	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
+	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
@@ -29,6 +31,7 @@ type CAASFixture struct {
 
 func (s *CAASFixture) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
+	s.PatchValue(&k8sprovider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 }
 
 // createTestModelConfig returns a new model config and its UUID for testing.

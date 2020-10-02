@@ -312,23 +312,6 @@ clouds:
         endpoint: https://identity.api.rackspacecloud.com/v2.0
       hkg:
         endpoint: https://identity.api.rackspacecloud.com/v2.0
-  joyent:
-    type: joyent
-    description: Joyent Cloud
-    auth-types: [ userpass ]
-    regions:
-      us-east-1:
-        endpoint: https://us-east-1.api.joyentcloud.com
-      us-east-2:
-        endpoint: https://us-east-2.api.joyentcloud.com
-      us-east-3:
-        endpoint: https://us-east-3.api.joyentcloud.com
-      us-west-1:
-        endpoint: https://us-west-1.api.joyentcloud.com
-      us-sw-1:
-        endpoint: https://us-sw-1.api.joyentcloud.com
-      eu-ams-1:
-        endpoint: https://eu-ams-1.api.joyentcloud.com
   cloudsigma:
     type: cloudsigma
     description: CloudSigma Cloud
@@ -371,18 +354,3 @@ clouds:
         endpoint: https://iaas.eu-frankfurt-1.oraclecloud.com
       uk-london-1:
         endpoint: https://iaas.uk-london-1.oraclecloud.com
-  oracle-classic:
-    type: oracle
-    description: Oracle Cloud Infrastructure Classic
-    auth-types: [ userpass ]
-    regions:
-      uscom-central-1:
-        endpoint: https://compute.uscom-central-1.oraclecloud.com
-      us2:
-        endpoint: https://compute.uscom-central-1.oraclecloud.com
-      us6:
-        endpoint: https://compute.us6.oraclecloud.com
-      em2:
-        endpoint: https://compute.em2.oraclecloud.com
-      em3:
-        endpoint: https://compute.em3.oraclecloud.com

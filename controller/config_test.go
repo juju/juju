@@ -339,6 +339,12 @@ var newConfigTests = []struct {
 		controller.NonSyncedWritesToRaftLog: "I live dangerously",
 	},
 	expectError: `non-synced-writes-to-raft-log: expected bool, got string\("I live dangerously"\)`,
+}, {
+	about: "public-dns-address: expect string, got number",
+	config: controller.Config{
+		controller.PublicDNSAddress: 42,
+	},
+	expectError: `public-dns-address: expected string, got int\(42\)`,
 }, {}}
 
 func (s *ConfigSuite) TestNewConfig(c *gc.C) {
@@ -432,6 +438,18 @@ func (s *ConfigSuite) TestPruneTxnQueryCount(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cfg.PruneTxnQueryCount(), gc.Equals, 500)
 	c.Check(cfg.PruneTxnSleepTime(), gc.Equals, 5*time.Millisecond)
+}
+
+func (s *ConfigSuite) TestPublicDNSAddressConfigValue(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			"public-dns-address": "controller.test.com:12345",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cfg.PublicDNSAddress(), gc.Equals, "controller.test.com:12345")
 }
 
 func (s *ConfigSuite) TestNetworkSpaceConfigValues(c *gc.C) {

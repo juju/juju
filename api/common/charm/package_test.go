@@ -1,7 +1,7 @@
-// Copyright 2017 Canonical Ltd.
+// Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package network_test
+package charm_test
 
 import (
 	"testing"
@@ -9,6 +9,6 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-func TestPackage(t *testing.T) {
+func TestAll(t *testing.T) {
 	gc.TestingT(t)
 }

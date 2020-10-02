@@ -39,6 +39,18 @@ type Origin struct {
 	Track *string
 }
 
+// CoreChannel returns the core charm channel.
+func (o Origin) CoreChannel() corecharm.Channel {
+	var track string
+	if o.Track != nil {
+		track = *o.Track
+	}
+	return corecharm.Channel{
+		Track: track,
+		Risk:  corecharm.Risk(o.Risk),
+	}
+}
+
 // ParamsCharmOrigin is a helper method to get a params version
 // of this structure.
 func (o Origin) ParamsCharmOrigin() params.CharmOrigin {
@@ -80,5 +92,26 @@ func APICharmOrigin(origin params.CharmOrigin) Origin {
 		Risk:     origin.Risk,
 		Revision: origin.Revision,
 		Track:    origin.Track,
+	}
+}
+
+// CoreCharmOrigin is a helper function to convert params.CharmOrigin
+// to an Origin.
+func CoreCharmOrigin(origin corecharm.Origin) Origin {
+	var ch corecharm.Channel
+	if origin.Channel != nil {
+		ch = *origin.Channel
+	}
+	var track *string
+	if ch.Track != "" {
+		track = &ch.Track
+	}
+	return Origin{
+		Source:   OriginSource(origin.Source),
+		ID:       origin.ID,
+		Hash:     origin.Hash,
+		Revision: origin.Revision,
+		Risk:     string(ch.Risk),
+		Track:    track,
 	}
 }

@@ -28,6 +28,8 @@ import (
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
+	providerutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/podcfg"
@@ -108,6 +110,7 @@ type controllerStack struct {
 	ctx environs.BootstrapContext
 
 	stackName        string
+	selectorLabels   map[string]string
 	stackLabels      map[string]string
 	stackAnnotations map[string]string
 	broker           *kubernetesClient
@@ -140,7 +143,8 @@ type controllerStacker interface {
 
 func controllerCorelation(broker *kubernetesClient) (string, error) {
 	// ensure controller specific annotations.
-	_ = broker.addAnnotations(constants.AnnotationControllerIsControllerKey(), "true")
+	controllerUUIDKey := k8sutils.AnnotationControllerIsControllerKey(false)
+	_ = broker.addAnnotations(controllerUUIDKey, "true")
 
 	ns, err := broker.listNamespacesByAnnotations(broker.GetAnnotations())
 	if errors.IsNotFound(err) || ns == nil {
@@ -200,11 +204,16 @@ func newcontrollerStack(
 	agentConfig.SetStateServingInfo(si)
 	pcfg.Bootstrap.StateServingInfo = si
 
+	selectorLabels := providerutils.SelectorLabelsForApp(stackName, false)
+	labels := providerutils.LabelsForApp(stackName, false)
+
+	controllerUUIDKey := k8sutils.AnnotationControllerUUIDKey(false)
 	cs := &controllerStack{
 		ctx:              ctx,
 		stackName:        stackName,
-		stackLabels:      map[string]string{constants.LabelApplication: stackName},
-		stackAnnotations: map[string]string{constants.AnnotationControllerUUIDKey(): pcfg.ControllerTag.Id()},
+		selectorLabels:   selectorLabels,
+		stackLabels:      labels,
+		stackAnnotations: map[string]string{controllerUUIDKey: pcfg.ControllerTag.Id()},
 		broker:           broker,
 
 		pcfg:        pcfg,
@@ -409,7 +418,7 @@ func (c *controllerStack) createControllerService() error {
 			Annotations: c.stackAnnotations,
 		},
 		Spec: core.ServiceSpec{
-			Selector: c.stackLabels,
+			Selector: c.selectorLabels,
 			Type:     controllerSvcSpec.ServiceType,
 			Ports: []core.ServicePort{
 				{
@@ -465,6 +474,7 @@ func (c *controllerStack) createControllerService() error {
 			logger.Debugf("polling k8s controller svc DNS, in %d attempt, %v", attempt, err)
 		},
 	}
+
 	return errors.Trace(retry.Call(retryCallArgs))
 }
 
@@ -574,11 +584,11 @@ func (c *controllerStack) createControllerStatefulset() error {
 			ServiceName: c.resourceNameService,
 			Replicas:    &numberOfPods,
 			Selector: &v1.LabelSelector{
-				MatchLabels: c.stackLabels,
+				MatchLabels: c.selectorLabels,
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels:      c.stackLabels,
+					Labels:      c.selectorLabels,
 					Name:        c.pcfg.GetPodName(), // This really should not be set.
 					Namespace:   c.broker.GetCurrentNamespace(),
 					Annotations: c.stackAnnotations,

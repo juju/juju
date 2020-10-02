@@ -159,6 +159,16 @@ func (*Suite) TestPortsToIPPerms(c *gc.C) {
 			ToPort:    82,
 			SourceIPs: []string{"0.0.0.0/0", "192.168.1.0/24"},
 		}},
+	}, {
+		about: "mixed IPV4 and IPV6 CIDRs",
+		rules: firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80-82/tcp"), "192.168.1.0/24", "0.0.0.0/0", "::/0")},
+		expected: []amzec2.IPPerm{{
+			Protocol:      "tcp",
+			FromPort:      80,
+			ToPort:        82,
+			SourceIPs:     []string{"0.0.0.0/0", "192.168.1.0/24"},
+			SourceIPV6IPs: []string{"::/0"},
+		}},
 	}}
 
 	for i, t := range testCases {

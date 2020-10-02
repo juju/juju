@@ -20,10 +20,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	cache "k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
@@ -51,7 +52,9 @@ const (
 type app struct {
 	name           string
 	namespace      string
-	model          string
+	modelUUID      string
+	modelName      string
+	legacyLabels   bool
 	deploymentType caas.DeploymentType
 	client         kubernetes.Interface
 	newWatcher     k8swatcher.NewK8sWatcherFunc
@@ -67,7 +70,9 @@ type app struct {
 func NewApplication(
 	name string,
 	namespace string,
-	model string,
+	modelUUID string,
+	modelName string,
+	legacyLabels bool,
 	deploymentType caas.DeploymentType,
 	client kubernetes.Interface,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
@@ -77,7 +82,9 @@ func NewApplication(
 	return newApplication(
 		name,
 		namespace,
-		model,
+		modelUUID,
+		modelName,
+		legacyLabels,
 		deploymentType,
 		client,
 		newWatcher,
@@ -90,7 +97,9 @@ func NewApplication(
 func newApplication(
 	name string,
 	namespace string,
-	model string,
+	modelUUID string,
+	modelName string,
+	legacyLabels bool,
 	deploymentType caas.DeploymentType,
 	client kubernetes.Interface,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
@@ -101,7 +110,9 @@ func newApplication(
 	return &app{
 		name:           name,
 		namespace:      namespace,
-		model:          model,
+		modelUUID:      modelUUID,
+		modelName:      modelName,
+		legacyLabels:   legacyLabels,
 		deploymentType: deploymentType,
 		client:         client,
 		newWatcher:     newWatcher,
@@ -134,7 +145,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 			},
 			Data: map[string][]byte{
 				"JUJU_K8S_APPLICATION":          []byte(a.name),
-				"JUJU_K8S_MODEL":                []byte(a.model),
+				"JUJU_K8S_MODEL":                []byte(a.modelUUID),
 				"JUJU_K8S_APPLICATION_PASSWORD": []byte(config.IntroductionSecret),
 				"JUJU_K8S_CONTROLLER_ADDRESSES": []byte(config.ControllerAddresses),
 				"JUJU_K8S_CONTROLLER_CA_CERT":   []byte(config.ControllerCertBundle),
@@ -239,11 +250,11 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 				Spec: appsv1.StatefulSetSpec{
 					Replicas: &numPods,
 					Selector: &metav1.LabelSelector{
-						MatchLabels: a.labels(),
+						MatchLabels: a.selectorLabels(),
 					},
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
-							Labels:      a.labels(),
+							Labels:      a.selectorLabels(),
 							Annotations: a.annotations(config),
 						},
 						Spec: *podSpec,
@@ -291,11 +302,11 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 				Spec: appsv1.DeploymentSpec{
 					Replicas: &numPods,
 					Selector: &metav1.LabelSelector{
-						MatchLabels: a.labels(),
+						MatchLabels: a.selectorLabels(),
 					},
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
-							Labels:      a.labels(),
+							Labels:      a.selectorLabels(),
 							Annotations: a.annotations(config),
 						},
 						Spec: *podSpec,
@@ -324,11 +335,11 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 				},
 				Spec: appsv1.DaemonSetSpec{
 					Selector: &metav1.LabelSelector{
-						MatchLabels: a.labels(),
+						MatchLabels: a.selectorLabels(),
 					},
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
-							Labels:      a.labels(),
+							Labels:      a.selectorLabels(),
 							Annotations: a.annotations(config),
 						},
 						Spec: *podSpec,
@@ -402,7 +413,7 @@ func (a *app) configureHeadlessService(name string, annotation annotations.Annot
 				Add("service.alpha.kubernetes.io/tolerate-unready-endpoints", "true"),
 		},
 		Spec: corev1.ServiceSpec{
-			Selector:                 a.labels(),
+			Selector:                 a.selectorLabels(),
 			Type:                     corev1.ServiceTypeClusterIP,
 			ClusterIP:                "None",
 			PublishNotReadyAddresses: true,
@@ -420,7 +431,7 @@ func (a *app) configureDefaultService(annotation annotations.Annotation) (err er
 			Annotations: annotation,
 		},
 		Spec: corev1.ServiceSpec{
-			Selector: a.labels(),
+			Selector: a.selectorLabels(),
 			Type:     corev1.ServiceTypeClusterIP,
 			Ports: []corev1.ServicePort{{
 				Name: "placeholder",
@@ -436,8 +447,6 @@ func (a *app) configureDefaultService(annotation annotations.Annotation) (err er
 
 // UpdateService updates the default service with specific service type and port mappings.
 func (a *app) UpdateService(param caas.ServiceParam) error {
-	// TODO(embedded): the special `65535` port mapping needs to be excluded for any service mutation.
-
 	// This method will be used for juju [un]expose.
 	// TODO(embedded): it might be changed later when we have proper modelling for the juju expose for the embedded charms.
 	svc, err := a.getService()
@@ -477,7 +486,6 @@ func (a *app) getService() (*resources.Service, error) {
 
 // UpdatePorts updates port mappings on the specified service.
 func (a *app) UpdatePorts(ports []caas.ServicePort, updateContainerPorts bool) (err error) {
-	// TODO(embedded): the special `65535` port mapping needs to be excluded for any service mutation.
 	svc, err := a.getService()
 	if err != nil {
 		return errors.Annotatef(err, "getting existing service %q", a.name)
@@ -931,19 +939,23 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 }
 
 func (a *app) annotations(config caas.ApplicationConfig) annotations.Annotation {
-	return k8sutils.ResourceTagsToAnnotations(config.ResourceTags).
-		Add(constants.LabelVersion, config.AgentVersion.String())
+	return k8sutils.ResourceTagsToAnnotations(config.ResourceTags, a.legacyLabels).
+		Merge(k8sutils.AnnotationsForVersion(config.AgentVersion.String(), a.legacyLabels))
 }
 
-func (a *app) labels() map[string]string {
+func (a *app) labels() labels.Set {
 	// TODO: add modelUUID for global resources?
-	return map[string]string{constants.LabelApplication: a.name}
+	return k8sutils.LabelsForApp(a.name, a.legacyLabels)
+}
+
+func (a *app) selectorLabels() labels.Set {
+	return k8sutils.SelectorLabelsForApp(a.name, a.legacyLabels)
 }
 
 func (a *app) labelSelector() string {
-	return k8sutils.LabelSetToSelector(map[string]string{
-		constants.LabelApplication: a.name,
-	}).String()
+	return k8sutils.LabelSetToSelector(
+		k8sutils.SelectorLabelsForApp(a.name, a.legacyLabels),
+	).String()
 }
 
 func (a *app) fieldSelector() string {
@@ -1085,17 +1097,23 @@ func (a *app) filesystemToVolumeInfo(name string,
 	} else if _, ok := storageClasses[qualifiedStorageClassName]; ok {
 		params.StorageConfig.StorageClass = qualifiedStorageClassName
 	} else {
-		sp := storage.StorageProvisioner(a.namespace, *params)
-		newStorageClass = storage.StorageClassSpec(sp)
+		sp := storage.StorageProvisioner(a.namespace, a.modelName, *params)
+		newStorageClass = storage.StorageClassSpec(sp, a.legacyLabels)
 		params.StorageConfig.StorageClass = newStorageClass.Name
 	}
+
+	labels := k8sutils.LabelsMerge(
+		k8sutils.LabelsForStorage(fs.StorageName, a.legacyLabels),
+		k8sutils.LabelsJuju)
 
 	pvcSpec := storage.PersistentVolumeClaimSpec(*params)
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: params.Name,
-			Annotations: k8sutils.ResourceTagsToAnnotations(fs.ResourceTags).
-				Add(constants.LabelStorage, fs.StorageName).ToMap(),
+			Name:   params.Name,
+			Labels: labels,
+			Annotations: k8sutils.ResourceTagsToAnnotations(fs.ResourceTags, a.legacyLabels).
+				Merge(k8sutils.AnnotationsForStorage(fs.StorageName, a.legacyLabels)).
+				ToMap(),
 		},
 		Spec: *pvcSpec,
 	}

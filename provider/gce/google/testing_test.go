@@ -126,6 +126,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		Metadata:          s.Metadata,
 		Tags:              []string{"spam"},
 		AvailabilityZone:  "a-zone",
+		AllocatePublicIP:  true,
 	}
 	s.Instance = Instance{
 		InstanceSummary: InstanceSummary{

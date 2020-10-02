@@ -40,21 +40,23 @@ func (ns *NetworkSpec) Path() string {
 
 // newInterface builds up all the data needed by the GCE API to create
 // a new interface connected to the network.
-func (ns *NetworkSpec) newInterface(name string) *compute.NetworkInterface {
-	var access []*compute.AccessConfig
-	if name != "" {
-		// This interface has an internet connection.
-		access = append(access, &compute.AccessConfig{
+// If allocatePublicIP is false the interface will not have a public IP.
+// Such interfaces can not access the public internet unless a facility like
+// Cloud NAT is recruited by the VPC where they reside.
+// See: https://cloud.google.com/nat/docs/using-nat#gcloud_11
+func (ns *NetworkSpec) newInterface(name string, allocatePublicIP bool) *compute.NetworkInterface {
+	nic := &compute.NetworkInterface{
+		Network: ns.Path(),
+	}
+
+	if allocatePublicIP {
+		nic.AccessConfigs = []*compute.AccessConfig{{
 			Name: name,
 			Type: NetworkAccessOneToOneNAT,
-			// NatIP (only set if using a reserved public IP)
-		})
-		// TODO(ericsnow) Will we need to support more access configs?
+		}}
 	}
-	return &compute.NetworkInterface{
-		Network:       ns.Path(),
-		AccessConfigs: access,
-	}
+
+	return nic
 }
 
 // firewallSpec expands a port range set in to compute.FirewallAllowed

@@ -609,8 +609,8 @@ func (c *DeployCommand) Init(args []string) error {
 	}
 	switch len(args) {
 	case 2:
-		if !names.IsValidApplication(args[1]) {
-			return errors.Errorf("invalid application name %q", args[1])
+		if err := names.ValidateApplicationName(args[1]); err != nil {
+			return errors.Trace(err)
 		}
 		c.ApplicationName = args[1]
 		fallthrough

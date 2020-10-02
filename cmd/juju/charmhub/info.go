@@ -6,13 +6,16 @@ package charmhub
 import (
 	"io"
 
+	"github.com/juju/charm/v8"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/api/charmhub"
+	"github.com/juju/juju/api/modelconfig"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs/config"
 )
 
 const (
@@ -20,6 +23,9 @@ const (
 	infoDoc     = `
 The charm can be specified by name or by path. Names are looked for both in the
 store and in the deployed charms.
+
+Channels displayed are supported by the default series for this model.  To see
+channels supported with other series, use the --series flag.
 
 Examples:
     juju info postgresql
@@ -41,10 +47,12 @@ type infoCommand struct {
 	out        cmd.Output
 	warningLog Log
 
-	api InfoCommandAPI
+	infoCommandAPI InfoCommandAPI
+	modelConfigAPI ModelConfigGetter
 
-	verbose       bool
+	config        bool
 	charmOrBundle string
+	series        string
 }
 
 // Info returns help related info about the command, it implements
@@ -63,11 +71,13 @@ func (c *infoCommand) Info() *cmd.Info {
 // It implements part of the cmd.Command interface.
 func (c *infoCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
+	f.BoolVar(&c.config, "config", false, "display config for this charm")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
 		"tabular": c.formatter,
 	})
+	f.StringVar(&c.series, "series", "", "display channels supported by provided series")
 }
 
 // Init initializes the info command, including validating the provided
@@ -83,16 +93,30 @@ func (c *infoCommand) Init(args []string) error {
 	return nil
 }
 
-// Run is the business logic of the info command.  It implements the meaty
-// part of the cmd.Command interface.
-func (c *infoCommand) Run(ctx *cmd.Context) error {
-	client, err := c.getAPI()
+func (c *infoCommand) validateCharmOrBundle(charmOrBundle string) error {
+	curl, err := charm.ParseURL(charmOrBundle)
 	if err != nil {
 		return err
 	}
-	defer func() { _ = client.Close() }()
+	if !charm.CharmHub.Matches(curl.Schema) {
+		return errors.Errorf("%q is not a Charm Hub charm", charmOrBundle)
+	}
+	return nil
+}
 
-	info, err := client.Info(c.charmOrBundle)
+// Run is the business logic of the info command.  It implements the meaty
+// part of the cmd.Command interface.
+func (c *infoCommand) Run(ctx *cmd.Context) error {
+	charmHubClient, modelConfigClient, err := c.getAPI()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = charmHubClient.Close() }()
+
+	if err := c.verifySeries(modelConfigClient); err != nil {
+		return err
+	}
+	info, err := charmHubClient.Info(c.charmOrBundle)
 	if err != nil {
 		return err
 	}
@@ -103,33 +127,44 @@ func (c *infoCommand) Run(ctx *cmd.Context) error {
 	// it up later.
 	c.warningLog = ctx.Warningf
 
-	view, err := convertCharmInfoResult(info)
+	view, err := convertCharmInfoResult(info, c.series)
 	if err != nil {
 		return errors.Trace(err)
 	}
-
 	return c.out.Write(ctx, &view)
 }
 
-func (c *infoCommand) validateCharmOrBundle(_ string) error {
-	// TODO:
-	// Implement validation of charm hub charm names.  Exit for
-	// charmstore and local charms.
+func (c *infoCommand) verifySeries(modelConfigClient ModelConfigGetter) error {
+	if c.series != "" {
+		return nil
+	}
+	attrs, err := modelConfigClient.ModelGet()
+	if err != nil {
+		return err
+	}
+	cfg, err := config.New(config.NoDefaults, attrs)
+	if err != nil {
+		return err
+	}
+	if defaultSeries, explicit := cfg.DefaultSeries(); explicit {
+		c.series = defaultSeries
+	}
 	return nil
 }
 
 // getAPI returns the API that supplies methods
 // required to execute this command.
-func (c *infoCommand) getAPI() (InfoCommandAPI, error) {
-	if c.api != nil {
-		return c.api, nil
+func (c *infoCommand) getAPI() (InfoCommandAPI, ModelConfigGetter, error) {
+	if c.infoCommandAPI != nil && c.modelConfigAPI != nil {
+		// This is for testing purposes, for testing, both values
+		// should be set.
+		return c.infoCommandAPI, c.modelConfigAPI, nil
 	}
 	api, err := c.NewAPIRoot()
 	if err != nil {
-		return nil, errors.Annotate(err, "opening API connection")
+		return nil, nil, errors.Annotate(err, "opening API connection")
 	}
-	client := charmhub.NewClient(api)
-	return client, nil
+	return charmhub.NewClient(api), modelconfig.NewClient(api), nil
 }
 
 func (c *infoCommand) formatter(writer io.Writer, value interface{}) error {
@@ -138,7 +173,7 @@ func (c *infoCommand) formatter(writer io.Writer, value interface{}) error {
 		return errors.Errorf("unexpected results")
 	}
 
-	if err := makeInfoWriter(writer, c.warningLog, results).Print(); err != nil {
+	if err := makeInfoWriter(writer, c.warningLog, c.config, results).Print(); err != nil {
 		return errors.Trace(err)
 	}
 

@@ -65,13 +65,6 @@ import (
 var logger = loggo.GetLogger("juju.kubernetes.provider")
 
 const (
-	// Domain is the primary TLD for juju when giving resource domains to
-	// Kubernetes
-	Domain = "juju.is"
-
-	// annotationKeyApplicationUUID is the key of annotation for recording pvc unique ID.
-	annotationKeyApplicationUUID = "juju-app-uuid"
-
 	// labelResourceLifeCycleKey defines the label key for lifecycle of the global resources.
 	labelResourceLifeCycleKey             = "juju-resource-lifecycle"
 	labelResourceLifeCycleValueModel      = "model"
@@ -130,6 +123,10 @@ type kubernetesClient struct {
 	// informerFactoryUnlocked informer factory setup for tracking this model
 	informerFactoryUnlocked informers.SharedInformerFactory
 
+	// isLegacyLabels describes if this client should use and implement legacy
+	// labels or new ones
+	isLegacyLabels bool
+
 	// randomPrefix generates an annotation for stateful sets.
 	randomPrefix utils.RandomPrefixFunc
 }
@@ -183,6 +180,12 @@ func newK8sBroker(
 		return nil, errors.NotValidf("modelUUID is required")
 	}
 
+	isLegacy, err := utils.IsLegacyModelLabels(
+		newCfg.Config.Name(), k8sClient.CoreV1().Namespaces())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	client := &kubernetesClient{
 		clock:                       clock,
 		clientUnlocked:              k8sClient,
@@ -203,11 +206,12 @@ func newK8sBroker(
 		newRestClient:     newRestClient,
 		randomPrefix:      randomPrefix,
 		annotations: k8sannotations.New(nil).
-			Add(constants.AnnotationModelUUIDKey(), modelUUID),
+			Add(utils.AnnotationModelUUIDKey(isLegacy), modelUUID),
+		isLegacyLabels: isLegacy,
 	}
 	if controllerUUID != "" {
 		// controllerUUID could be empty in add-k8s without -c because there might be no controller yet.
-		client.annotations.Add(constants.AnnotationControllerUUIDKey(), controllerUUID)
+		client.annotations.Add(utils.AnnotationControllerUUIDKey(isLegacy), controllerUUID)
 	}
 	return client, nil
 }
@@ -218,12 +222,6 @@ func (k *kubernetesClient) GetAnnotations() k8sannotations.Annotation {
 }
 
 var k8sversionNumberExtractor = regexp.MustCompile("[0-9]+")
-
-// MakeK8sDomain builds and returns a Kubernetes resource domain for the
-// provided components. Func is idempotent
-func MakeK8sDomain(components ...string) string {
-	return fmt.Sprintf("%s.%s", strings.Join(components, "."), Domain)
-}
 
 // Version returns cluster version information.
 func (k *kubernetesClient) Version() (ver *version.Number, err error) {
@@ -412,7 +410,7 @@ please choose a different hosted model name then try again.`, hostedModelName),
 			if errors.IsNotFound(err) {
 				// all good.
 				// ensure controller specific annotations.
-				_ = broker.addAnnotations(constants.AnnotationControllerIsControllerKey(), "true")
+				_ = broker.addAnnotations(utils.AnnotationControllerIsControllerKey(k.IsLegacyLabels()), "true")
 				return nil
 			}
 			if err == nil {
@@ -450,8 +448,8 @@ func (k *kubernetesClient) DestroyController(ctx envcontext.ProviderCallContext,
 	// ensures all annnotations are set correctly, then we will accurately find the controller namespace to destroy it.
 	k.annotations.Merge(
 		k8sannotations.New(nil).
-			Add(constants.AnnotationControllerUUIDKey(), controllerUUID).
-			Add(constants.AnnotationControllerIsControllerKey(), "true"),
+			Add(utils.AnnotationControllerUUIDKey(k.IsLegacyLabels()), controllerUUID).
+			Add(utils.AnnotationControllerIsControllerKey(k.IsLegacyLabels()), "true"),
 	)
 	return k.Destroy(ctx)
 }
@@ -604,8 +602,16 @@ func getSvcAddresses(svc *core.Service, includeClusterIP bool) []network.Provide
 // GetService returns the service for the specified application.
 func (k *kubernetesClient) GetService(appName string, mode caas.DeploymentMode, includeClusterIP bool) (*caas.Service, error) {
 	services := k.client().CoreV1().Services(k.namespace)
+	labels := utils.LabelsForApp(appName, k.IsLegacyLabels())
+	if mode == caas.ModeOperator {
+		labels = utils.LabelsForOperator(appName, OperatorAppTarget, k.IsLegacyLabels())
+	}
+	if !k.IsLegacyLabels() {
+		labels = utils.LabelsMerge(labels, utils.LabelsJuju)
+	}
+
 	servicesList, err := services.List(context.TODO(), v1.ListOptions{
-		LabelSelector: applicationSelector(appName, mode),
+		LabelSelector: utils.LabelSetToSelector(labels).String(),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -876,9 +882,16 @@ func (k *kubernetesClient) applyRawK8sSpec(
 	}
 
 	labelGetter := func(isNamespaced bool) map[string]string {
-		return k.getlabelsForApp(appName, isNamespaced)
+		labels := utils.SelectorLabelsForApp(appName, k.IsLegacyLabels())
+		if !isNamespaced {
+			labels = utils.LabelsMerge(
+				labels,
+				utils.LabelsForModel(k.CurrentModel(), k.IsLegacyLabels()),
+			)
+		}
+		return labels
 	}
-	annotations := utils.ResourceTagsToAnnotations(params.ResourceTags)
+	annotations := utils.ResourceTagsToAnnotations(params.ResourceTags, k.IsLegacyLabels())
 
 	builder := k8sspecs.New(
 		deploymentName, k.namespace, params.Deployment, k.k8sConfig(),
@@ -953,7 +966,7 @@ func (k *kubernetesClient) ensureService(
 		return errors.Annotatef(err, "parsing unit spec for %s", appName)
 	}
 
-	annotations := utils.ResourceTagsToAnnotations(params.ResourceTags)
+	annotations := utils.ResourceTagsToAnnotations(params.ResourceTags, k.IsLegacyLabels())
 
 	// ensure services.
 	if len(workloadSpec.Services) > 0 {
@@ -1129,7 +1142,7 @@ func (k *kubernetesClient) ensureService(
 		// CharmModifiedVersion is added for triggering rolling upgrade on workload pods to synchronise
 		// charm files to workload pods via init container when charm was upgraded.
 		// This approach was inspired from `kubectl rollout restart`.
-		Add(constants.AnnotationCharmModifiedVersionKey(), strconv.Itoa(params.CharmModifiedVersion))
+		Add(utils.AnnotationCharmModifiedVersionKey(k.IsLegacyLabels()), strconv.Itoa(params.CharmModifiedVersion))
 
 	switch params.Deployment.DeploymentType {
 	case caas.DeploymentStateful:
@@ -1208,7 +1221,7 @@ type annotationGetter interface {
 func (k *kubernetesClient) getStorageUniqPrefix(getMeta func() (annotationGetter, error)) (string, error) {
 	r, err := getMeta()
 	if err == nil {
-		if uniqID := r.GetAnnotations()[annotationKeyApplicationUUID]; uniqID != "" {
+		if uniqID := r.GetAnnotations()[utils.AnnotationKeyApplicationUUID(k.IsLegacyLabels())]; uniqID != "" {
 			return uniqID, nil
 		}
 	} else if !errors.IsNotFound(err) {
@@ -1462,24 +1475,26 @@ func (k *kubernetesClient) configureDaemonSet(
 	if err != nil {
 		return cleanUps, errors.Trace(err)
 	}
+
+	selectorLabels := utils.SelectorLabelsForApp(appName, k.IsLegacyLabels())
 	daemonSet := &apps.DaemonSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   deploymentName,
-			Labels: k.getDaemonSetLabels(appName),
+			Labels: utils.LabelsForApp(appName, k.IsLegacyLabels()),
 			Annotations: k8sannotations.New(nil).
 				Merge(annotations).
-				Add(annotationKeyApplicationUUID, storageUniqueID).ToMap(),
+				Add(utils.AnnotationKeyApplicationUUID(k.IsLegacyLabels()), storageUniqueID).ToMap(),
 		},
 		Spec: apps.DaemonSetSpec{
 			// TODO(caas): DaemonSetUpdateStrategy support.
 			Selector: &v1.LabelSelector{
-				MatchLabels: k.getDaemonSetLabels(appName),
+				MatchLabels: selectorLabels,
 			},
 			RevisionHistoryLimit: int32Ptr(daemonsetRevisionHistoryLimit),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: deploymentName + "-",
-					Labels:       k.getDaemonSetLabels(appName),
+					Labels:       selectorLabels,
 					Annotations:  podAnnotations(k8sannotations.New(workloadSpec.Pod.Annotations).Merge(annotations).Copy()).ToMap(),
 				},
 				Spec: workloadSpec.Pod.PodSpec,
@@ -1560,25 +1575,27 @@ func (k *kubernetesClient) configureDeployment(
 	if err != nil {
 		return cleanUps, errors.Trace(err)
 	}
+
+	selectorLabels := utils.SelectorLabelsForApp(appName, k.IsLegacyLabels())
 	deployment := &apps.Deployment{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   deploymentName,
-			Labels: utils.LabelsForApp(appName),
+			Labels: utils.LabelsForApp(appName, k.IsLegacyLabels()),
 			Annotations: k8sannotations.New(nil).
 				Merge(annotations).
-				Add(annotationKeyApplicationUUID, storageUniqueID).ToMap(),
+				Add(utils.AnnotationKeyApplicationUUID(k.IsLegacyLabels()), storageUniqueID).ToMap(),
 		},
 		Spec: apps.DeploymentSpec{
 			// TODO(caas): DeploymentStrategy support.
 			Replicas:             replicas,
 			RevisionHistoryLimit: int32Ptr(deploymentRevisionHistoryLimit),
 			Selector: &v1.LabelSelector{
-				MatchLabels: utils.LabelsForApp(appName),
+				MatchLabels: selectorLabels,
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: deploymentName + "-",
-					Labels:       utils.LabelsForApp(appName),
+					Labels:       selectorLabels,
 					Annotations:  podAnnotations(k8sannotations.New(workloadSpec.Pod.Annotations).Merge(annotations).Copy()).ToMap(),
 				},
 				Spec: workloadSpec.Pod.PodSpec,
@@ -1665,7 +1682,8 @@ func (k *kubernetesClient) deleteDeployments(appName string) error {
 	err := k.client().AppsV1().Deployments(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
 		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, v1.ListOptions{
-		LabelSelector: utils.LabelSetToSelector(utils.LabelsForApp(appName)).String(),
+		LabelSelector: utils.LabelSetToSelector(
+			utils.LabelsForApp(appName, k.IsLegacyLabels())).String(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil
@@ -1778,11 +1796,11 @@ func (k *kubernetesClient) configureService(
 	service := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        deploymentName,
-			Labels:      utils.LabelsForApp(appName),
+			Labels:      utils.LabelsForApp(appName, k.IsLegacyLabels()),
 			Annotations: annotations,
 		},
 		Spec: core.ServiceSpec{
-			Selector:                 utils.LabelsForApp(appName),
+			Selector:                 utils.SelectorLabelsForApp(appName, k.IsLegacyLabels()),
 			Type:                     serviceType,
 			Ports:                    ports,
 			ExternalIPs:              config.Get(serviceExternalIPsConfigKey, []string(nil)).([]string),
@@ -1802,13 +1820,13 @@ func (k *kubernetesClient) configureHeadlessService(
 	service := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   headlessServiceName(deploymentName),
-			Labels: utils.LabelsForApp(appName),
+			Labels: utils.LabelsForApp(appName, k.IsLegacyLabels()),
 			Annotations: k8sannotations.New(nil).
 				Merge(annotations).
 				Add("service.alpha.kubernetes.io/tolerate-unready-endpoints", "true").ToMap(),
 		},
 		Spec: core.ServiceSpec{
-			Selector:                 utils.LabelsForApp(appName),
+			Selector:                 utils.SelectorLabelsForApp(appName, k.IsLegacyLabels()),
 			Type:                     core.ServiceTypeClusterIP,
 			ClusterIP:                "None",
 			PublishNotReadyAddresses: true,
@@ -1884,19 +1902,12 @@ func (k *kubernetesClient) UnexposeService(appName string) error {
 	return errors.Trace(k.deleteIngress(deploymentName, ""))
 }
 
-func operatorSelector(appName string) string {
-	return utils.LabelSetToSelector(map[string]string{
-		constants.LabelOperator: appName,
-	}).String()
-}
-
-func applicationSelector(appName string, mode caas.DeploymentMode) string {
+func (k *kubernetesClient) applicationSelector(appName string, mode caas.DeploymentMode) string {
 	if mode == caas.ModeOperator {
-		return operatorSelector(appName)
+		return operatorSelector(appName, k.IsLegacyLabels())
 	}
-	return utils.LabelSetToSelector(map[string]string{
-		constants.LabelApplication: appName,
-	}).String()
+	return utils.LabelSetToSelector(
+		utils.SelectorLabelsForApp(appName, k.IsLegacyLabels())).String()
 }
 
 // AnnotateUnit annotates the specified pod (name or uid) with a unit tag.
@@ -1909,7 +1920,7 @@ func (k *kubernetesClient) AnnotateUnit(appName string, mode caas.DeploymentMode
 			return errors.Trace(err)
 		}
 		pods, err := pods.List(context.TODO(), v1.ListOptions{
-			LabelSelector: applicationSelector(appName, mode),
+			LabelSelector: k.applicationSelector(appName, mode),
 		})
 		// TODO(caas): remove getting pod by Id (a bit expensive) once we started to store podName in cloudContainer doc.
 		if err != nil {
@@ -1931,10 +1942,10 @@ func (k *kubernetesClient) AnnotateUnit(appName string, mode caas.DeploymentMode
 		pod.Annotations = make(map[string]string)
 	}
 	unitID := unit.Id()
-	if pod.Annotations[constants.AnnotationUnit()] == unitID {
+	if pod.Annotations[utils.AnnotationUnit(k.IsLegacyLabels())] == unitID {
 		return nil
 	}
-	pod.Annotations[constants.AnnotationUnit()] = unitID
+	pod.Annotations[utils.AnnotationUnit(k.IsLegacyLabels())] = unitID
 
 	_, err = pods.Update(context.TODO(), pod, v1.UpdateOptions{})
 	if k8serrors.IsNotFound(err) {
@@ -1946,7 +1957,7 @@ func (k *kubernetesClient) AnnotateUnit(appName string, mode caas.DeploymentMode
 // WatchUnits returns a watcher which notifies when there
 // are changes to units of the specified application.
 func (k *kubernetesClient) WatchUnits(appName string, mode caas.DeploymentMode) (watcher.NotifyWatcher, error) {
-	selector := applicationSelector(appName, mode)
+	selector := k.applicationSelector(appName, mode)
 	logger.Debugf("selecting units %q to watch", selector)
 	factory := informers.NewSharedInformerFactoryWithOptions(k.client(), 0,
 		informers.WithNamespace(k.namespace),
@@ -1963,7 +1974,7 @@ func (k *kubernetesClient) WatchUnits(appName string, mode caas.DeploymentMode) 
 // is used.
 func (k *kubernetesClient) WatchContainerStart(appName string, containerName string) (watcher.StringsWatcher, error) {
 	pods := k.client().CoreV1().Pods(k.namespace)
-	selector := applicationSelector(appName, caas.ModeWorkload)
+	selector := k.applicationSelector(appName, caas.ModeWorkload)
 	logger.Debugf("selecting units %q to watch", selector)
 	factory := informers.NewSharedInformerFactoryWithOptions(k.client(), 0,
 		informers.WithNamespace(k.namespace),
@@ -1985,7 +1996,7 @@ func (k *kubernetesClient) WatchContainerStart(appName string, containerName str
 	}
 
 	running := func(pod *core.Pod) set.Strings {
-		if _, ok := pod.Annotations[constants.AnnotationUnit()]; !ok {
+		if _, ok := pod.Annotations[utils.AnnotationUnit(k.IsLegacyLabels())]; !ok {
 			// Ignore pods that aren't annotated as a unit yet.
 			return set.Strings{}
 		}
@@ -2056,7 +2067,7 @@ func (k *kubernetesClient) WatchService(appName string, mode caas.DeploymentMode
 	factory := informers.NewSharedInformerFactoryWithOptions(k.client(), 0,
 		informers.WithNamespace(k.namespace),
 		informers.WithTweakListOptions(func(o *v1.ListOptions) {
-			o.LabelSelector = applicationSelector(appName, mode)
+			o.LabelSelector = k.applicationSelector(appName, mode)
 		}),
 	)
 
@@ -2077,7 +2088,7 @@ func (k *kubernetesClient) WatchService(appName string, mode caas.DeploymentMode
 func (k *kubernetesClient) Units(appName string, mode caas.DeploymentMode) ([]caas.Unit, error) {
 	pods := k.client().CoreV1().Pods(k.namespace)
 	podsList, err := pods.List(context.TODO(), v1.ListOptions{
-		LabelSelector: applicationSelector(appName, mode),
+		LabelSelector: k.applicationSelector(appName, mode),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

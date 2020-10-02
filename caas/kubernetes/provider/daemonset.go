@@ -16,12 +16,6 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 )
 
-func (k *kubernetesClient) getDaemonSetLabels(appName string) map[string]string {
-	return map[string]string{
-		constants.LabelApplication: appName,
-	}
-}
-
 func (k *kubernetesClient) ensureDaemonSet(spec *apps.DaemonSet) (func(), error) {
 	cleanUp := func() {}
 	out, err := k.createDaemonSet(spec)
@@ -94,10 +88,11 @@ func (k *kubernetesClient) listDaemonSets(labels map[string]string) ([]apps.Daem
 }
 
 func (k *kubernetesClient) deleteDaemonSets(appName string) error {
+	labels := utils.LabelsForApp(appName, k.IsLegacyLabels())
 	err := k.client().AppsV1().DaemonSets(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
 		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, v1.ListOptions{
-		LabelSelector: utils.LabelSetToSelector(k.getDaemonSetLabels(appName)).String(),
+		LabelSelector: utils.LabelSetToSelector(labels).String(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

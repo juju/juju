@@ -47,12 +47,19 @@ type FindResponse struct {
 }
 
 type Channel struct {
-	ReleasedAt string `json:"released-at"`
-	Track      string `json:"track"`
-	Risk       string `json:"risk"`
-	Revision   int    `json:"revision"`
-	Size       int    `json:"size"`
-	Version    string `json:"version"`
+	ReleasedAt string     `json:"released-at"`
+	Track      string     `json:"track"`
+	Risk       string     `json:"risk"`
+	Revision   int        `json:"revision"`
+	Size       int        `json:"size"`
+	Version    string     `json:"version"`
+	Platforms  []Platform `json:"platforms"`
+}
+
+type Platform struct {
+	Architecture string `json:"architecture"`
+	OS           string `json:"os"`
+	Series       string `json:"series"`
 }
 
 type CharmHubCharm struct {

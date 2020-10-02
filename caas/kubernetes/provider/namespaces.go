@@ -20,7 +20,8 @@ import (
 )
 
 var requireAnnotationsForNameSpace = []string{
-	constants.AnnotationControllerUUIDKey(), constants.AnnotationModelUUIDKey(),
+	utils.AnnotationControllerUUIDKey(false),
+	utils.AnnotationModelUUIDKey(false),
 }
 
 func checkNamespaceOwnedByJuju(ns *core.Namespace, annotationMap map[string]string) error {
@@ -110,7 +111,7 @@ func (k *kubernetesClient) GetCurrentNamespace() string {
 
 func (k *kubernetesClient) ensureNamespaceAnnotations(ns *core.Namespace) error {
 	annotations := k8sannotations.New(ns.GetAnnotations()).Merge(k.annotations)
-	// check required keys are set: constants.AnnotationControllerUUIDKey(), constants.AnnotationModelUUIDKey().
+	// check required keys are set: constants.AnnotationControllerUUIDKey, constants.AnnotationModelUUIDKey.
 	if err := annotations.CheckKeysNonEmpty(requireAnnotationsForNameSpace...); err != nil {
 		return errors.Trace(err)
 	}
@@ -121,7 +122,10 @@ func (k *kubernetesClient) ensureNamespaceAnnotations(ns *core.Namespace) error 
 // createNamespace creates a named namespace.
 func (k *kubernetesClient) createNamespace(name string) error {
 	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: name}}
-	ns.SetLabels(utils.AppendLabels(ns.GetLabels(), utils.LabelsForModel(k.CurrentModel())))
+	ns.SetLabels(utils.LabelsMerge(
+		ns.GetLabels(),
+		utils.LabelsForModel(k.CurrentModel(), false),
+		utils.LabelsJuju))
 	if err := k.ensureNamespaceAnnotations(ns); err != nil {
 		return errors.Trace(err)
 	}

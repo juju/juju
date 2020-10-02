@@ -133,7 +133,7 @@ def calc_stats(prefix, values, include_count=False, test_duration=0):
     if include_count:
         stats[prefix+'count'] = len(values)
 
-    if test_duration is not 0:
+    if test_duration != 0:
         stats[prefix+'rate'] = float(len(values)) / float(test_duration)
 
     return stats

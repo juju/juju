@@ -290,6 +290,115 @@ relations:
 	c.Assert(strings.Contains(cmdtesting.Stdout(ctx), exp[1:]), jc.IsTrue)
 }
 
+func (s *diffSuite) TestExposedEndpoints(c *gc.C) {
+	specs := []struct {
+		descr                 string
+		modelExposedEndpoints map[string]params.ExposedEndpoint
+		bundle                string
+		expDiff               string
+	}{
+		{
+			descr: "2.8-compatible bundle with expose:true",
+			modelExposedEndpoints: map[string]params.ExposedEndpoint{
+				"": {
+					ExposeToSpaces: []string{"alpha"},
+					ExposeToCIDRs:  []string{"10.0.0.0/24"},
+				},
+			},
+			bundle: `
+applications:
+  prometheus:
+    charm: 'cs:prometheus2-7'
+    num_units: 1
+    series: xenial
+    expose: true
+    to:
+      - 0
+machines:
+  '0':
+    series: xenial
+`[1:],
+			expDiff: `
+applications:
+  prometheus:
+    exposed_endpoints:
+      "":
+        bundle:
+          expose_to_cidrs:
+          - 0.0.0.0/0
+          - ::/0
+        model:
+          expose_to_spaces:
+          - alpha
+          expose_to_cidrs:
+          - 10.0.0.0/24
+`[1:],
+		},
+		{
+			descr: "2.9-compatible bundle with expose settings in overlay section",
+			modelExposedEndpoints: map[string]params.ExposedEndpoint{
+				"website": {
+					ExposeToSpaces: []string{"alpha"},
+					ExposeToCIDRs:  []string{"10.0.0.0/24"},
+				},
+			},
+			bundle: `
+applications:
+  prometheus:
+    charm: 'cs:prometheus2-7'
+    num_units: 1
+    series: xenial
+    to:
+      - 0
+machines:
+  '0':
+    series: xenial
+---
+applications:
+  prometheus:
+    exposed-endpoints:
+      "":
+        expose-to-cidrs:
+        - 0.0.0.0/0
+      website:
+        expose-to-cidrs:
+        - 40.0.0.0/24
+`[1:],
+			expDiff: `
+applications:
+  prometheus:
+    exposed_endpoints:
+      "":
+        bundle:
+          expose_to_cidrs:
+          - 0.0.0.0/0
+        model: null
+      website:
+        bundle:
+          expose_to_cidrs:
+          - 40.0.0.0/24
+        model:
+          expose_to_spaces:
+          - alpha
+          expose_to_cidrs:
+          - 10.0.0.0/24
+`[1:],
+		},
+	}
+
+	for i, spec := range specs {
+		c.Logf("test %d: %s", i, spec.descr)
+
+		s.apiRoot = &mockAPIRoot{responses: makeAPIResponsesWithExposedEndpoints(spec.modelExposedEndpoints)}
+
+		ctx, err := s.runDiffBundle(c, s.writeLocalBundle(c, spec.bundle))
+		c.Assert(err, jc.ErrorIsNil)
+
+		c.Log(cmdtesting.Stdout(ctx))
+		c.Assert(cmdtesting.Stdout(ctx), gc.Equals, spec.expDiff)
+	}
+}
+
 func (s *diffSuite) writeLocalBundle(c *gc.C, content string) string {
 	return s.writeFile(c, "bundle.yaml", content)
 }
@@ -372,6 +481,43 @@ func makeAPIResponsesWithRelations(relations []params.RelationStatus) map[string
 				Constraints: constraints.Value{CpuCores: &cores},
 			}},
 		},
+	}
+}
+
+func makeAPIResponsesWithExposedEndpoints(exposedEndpoints map[string]params.ExposedEndpoint) map[string]interface{} {
+	return map[string]interface{}{
+		"ModelConfig.ModelGet": params.ModelConfigResults{
+			Config: map[string]params.ConfigValue{
+				"uuid":           {Value: testing.ModelTag.Id()},
+				"type":           {Value: "iaas"},
+				"name":           {Value: "horse"},
+				"default-series": {Value: "xenial"},
+			},
+		},
+		"Client.FullStatus": params.FullStatus{
+			Applications: map[string]params.ApplicationStatus{
+				"prometheus": {
+					Charm:  "cs:prometheus2-7",
+					Series: "xenial",
+					Life:   "alive",
+					Units: map[string]params.UnitStatus{
+						"prometheus/0": {Machine: "0"},
+					},
+					ExposedEndpoints: exposedEndpoints,
+				},
+			},
+			Machines: map[string]params.MachineStatus{
+				"0": {Series: "xenial"},
+			},
+		},
+		"Annotations.Get": params.AnnotationsGetResults{
+			Results: []params.AnnotationsGetResult{{
+				EntityTag: "application-prometheus",
+			}},
+		},
+		"ModelConfig.Sequences":      params.ModelSequencesResult{},
+		"Application.CharmConfig":    params.ApplicationGetConfigResults{},
+		"Application.GetConstraints": params.ApplicationGetConstraintsResults{},
 	}
 }
 

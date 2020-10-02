@@ -26,3 +26,7 @@ type FindCommandAPI interface {
 	Find(string) ([]charmhub.FindResponse, error)
 	Close() error
 }
+
+type ModelConfigGetter interface {
+	ModelGet() (map[string]interface{}, error)
+}

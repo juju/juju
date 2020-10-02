@@ -96,7 +96,23 @@ func convertCharm(in interface{}) *Charm {
 func convertChannels(in map[string]params.Channel) map[string]Channel {
 	out := make(map[string]Channel, len(in))
 	for k, v := range in {
-		out[k] = Channel(v)
+		out[k] = Channel{
+			ReleasedAt: v.ReleasedAt,
+			Track:      v.Track,
+			Risk:       v.Risk,
+			Revision:   v.Revision,
+			Size:       v.Size,
+			Version:    v.Version,
+			Platforms:  convertPlatforms(v.Platforms),
+		}
+	}
+	return out
+}
+
+func convertPlatforms(in []params.Platform) []Platform {
+	out := make([]Platform, len(in))
+	for i, v := range in {
+		out[i] = Platform(v)
 	}
 	return out
 }
@@ -132,12 +148,19 @@ type FindResponse struct {
 }
 
 type Channel struct {
-	ReleasedAt string `json:"released-at"`
-	Track      string `json:"track"`
-	Risk       string `json:"risk"`
-	Revision   int    `json:"revision"`
-	Size       int    `json:"size"`
-	Version    string `json:"version"`
+	ReleasedAt string     `json:"released-at"`
+	Track      string     `json:"track"`
+	Risk       string     `json:"risk"`
+	Revision   int        `json:"revision"`
+	Size       int        `json:"size"`
+	Version    string     `json:"version"`
+	Platforms  []Platform `json:"platforms"`
+}
+
+type Platform struct {
+	Architecture string `json:"architecture"`
+	OS           string `json:"os"`
+	Series       string `json:"series"`
 }
 
 // Charm matches a params.CharmHubCharm

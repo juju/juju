@@ -4,6 +4,7 @@
 package vsphere
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/juju/errors"
@@ -16,35 +17,15 @@ import (
 	"github.com/juju/juju/environs/context"
 )
 
-// poolPathPrefixParts is the number of path components to chop off a
-// resource pool's path to get its availability zone path. The paths
-// look like:
-// /<datacenter name>/host/<compute resource name>/Resources/<pool path...>
-// So there are 5 parts to the prefix (counting the
-// blank one from the leading /).
-const poolPathPrefixParts = 5
-
 type vmwareAvailZone struct {
 	r    mo.ComputeResource
 	pool *object.ResourcePool
+	name string
 }
 
-// Name implements common.AvailabilityZone
+// Name returns the "name" of the Vsphere availability zone.
 func (z *vmwareAvailZone) Name() string {
-	// The name for this zone is the compute resource name and the
-	// path of the pool without the prefix, so for
-	// /QA/host/aron.internal/Resources/High/Child, the name should be
-	// aron.internal/High/Child.
-	path := strings.TrimRight(z.pool.InventoryPath, "/")
-	parts := strings.Split(path, "/")
-	poolPath := ""
-	if len(parts) > poolPathPrefixParts {
-		// This isn't the root pool for this compute resource, include
-		// the pool's path.
-		poolPath = "/" + strings.Join(parts[poolPathPrefixParts:], "/")
-	}
-
-	return z.r.Name + poolPath
+	return z.name
 }
 
 // Available implements common.AvailabilityZone
@@ -63,35 +44,83 @@ func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) (zones ne
 
 // AvailabilityZones is part of the common.ZonedEnviron interface.
 func (env *sessionEnviron) AvailabilityZones(ctx context.ProviderCallContext) (network.AvailabilityZones, error) {
-	if env.zones == nil {
-		computeResources, err := env.client.ComputeResources(env.ctx)
+	if len(env.zones) > 0 {
+		// This is relatively expensive to compute, so cache it on the session
+		return env.zones, nil
+	}
+
+	folders, err := env.client.Folders(env.ctx)
+	if err != nil {
+		HandleCredentialError(err, env, ctx)
+		return nil, errors.Trace(err)
+	}
+	logger.Tracef("host folder InventoryPath=%q, Name=%q",
+		folders.HostFolder.InventoryPath, folders.HostFolder.Name())
+	hostFolder := folders.HostFolder.InventoryPath
+
+	computeResources, err := env.client.ComputeResources(env.ctx)
+	if err != nil {
+		HandleCredentialError(err, env, ctx)
+		return nil, errors.Trace(err)
+	}
+	var zones network.AvailabilityZones
+	for _, cr := range computeResources {
+		if cr.Resource.Summary.GetComputeResourceSummary().EffectiveCpu == 0 {
+			logger.Debugf("skipping empty compute resource %q", cr.Resource.Name)
+			continue
+		}
+
+		// Add an availability zone for each resource pool under this compute
+		// resource
+		pools, err := env.client.ResourcePools(env.ctx, cr.Path+"/...")
 		if err != nil {
 			HandleCredentialError(err, env, ctx)
 			return nil, errors.Trace(err)
 		}
-		var zones network.AvailabilityZones
-		for _, cr := range computeResources {
-			if cr.Summary.GetComputeResourceSummary().EffectiveCpu == 0 {
-				logger.Debugf("skipping empty compute resource %q", cr.Name)
-				continue
+		for _, pool := range pools {
+			zone := &vmwareAvailZone{
+				r:    *cr.Resource,
+				pool: pool,
+				name: makeAvailZoneName(hostFolder, cr.Path, pool.InventoryPath),
 			}
-			pools, err := env.client.ResourcePools(env.ctx, cr.Name+"/...")
-			if err != nil {
-				HandleCredentialError(err, env, ctx)
-				return nil, errors.Trace(err)
-			}
-			for _, pool := range pools {
-				zone := &vmwareAvailZone{
-					r:    *cr,
-					pool: pool,
-				}
-				logger.Tracef("zone: %q", zone.Name())
-				zones = append(zones, zone)
-			}
+			logger.Tracef("zone: %s (cr.Name=%q pool.InventoryPath=%q)",
+				zone.Name(), zone.r.Name, zone.pool.InventoryPath)
+			zones = append(zones, zone)
 		}
-		env.zones = zones
 	}
+
+	if logger.IsDebugEnabled() {
+		zoneNames := make([]string, len(zones))
+		for i, zone := range zones {
+			zoneNames[i] = zone.Name()
+		}
+		sort.Strings(zoneNames)
+		logger.Debugf("fetched availability zones: %q", zoneNames)
+	}
+
+	env.zones = zones
 	return env.zones, nil
+}
+
+// makeAvailZoneName constructs a Vsphere availability zone name from the
+// given paths. Basically it's the path relative to the host folder without
+// the extra "Resources" path segment (which doesn't appear in the UI):
+//
+// * "/DataCenter1/host/Host1/Resources" becomes "Host1"
+// * "/DataCenter1/host/Host1/Resources/ResPool1" becomes "Host1/ResPool1"
+// * "/DataCenter1/host/Host1/Other" becomes "Host1/Other" (shouldn't happen)
+func makeAvailZoneName(hostFolder, crPath, poolPath string) string {
+	poolPath = strings.TrimRight(poolPath, "/")
+	relCrPath := strings.TrimPrefix(crPath, hostFolder+"/")
+	relPoolPath := strings.TrimPrefix(poolPath, crPath+"/")
+	switch {
+	case relPoolPath == "Resources":
+		return relCrPath
+	case strings.HasPrefix(relPoolPath, "Resources/"):
+		return relCrPath + "/" + relPoolPath[len("Resources/"):]
+	default:
+		return relCrPath + "/" + relPoolPath
+	}
 }
 
 // InstanceAvailabilityZoneNames is part of the common.ZonedEnviron interface.

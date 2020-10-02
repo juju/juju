@@ -16,8 +16,7 @@ import (
 	"github.com/juju/juju/core/instance"
 )
 
-type utilsSuite struct {
-}
+type utilsSuite struct{}
 
 var _ = gc.Suite(&utilsSuite{})
 

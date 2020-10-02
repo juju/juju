@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/caas"
 	constants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	resources "github.com/juju/juju/caas/kubernetes/provider/resources"
+	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/core/status"
 	storage "github.com/juju/juju/storage"
 	storageprovider "github.com/juju/juju/storage/provider"
@@ -92,30 +93,8 @@ func VolumeSourceForFilesystem(fs storage.KubernetesFilesystemParams) (*corev1.V
 	}
 }
 
-// FindStorageClass returns storage class.
-func FindStorageClass(
-	ctx context.Context,
-	client kubernetes.Interface,
-	name string,
-	namespace string,
-) (*storagev1.StorageClass, error) {
-	sc := resources.NewStorageClass(constants.QualifiedStorageClassName(namespace, name), nil)
-	err := sc.Get(ctx, client)
-	if err == nil {
-		return &sc.StorageClass, nil
-	} else if err != nil {
-		return nil, errors.Trace(err)
-	}
-	fallbackSc := resources.NewStorageClass(name, nil)
-	err = sc.Get(ctx, client)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &fallbackSc.StorageClass, nil
-}
-
 // StorageClassSpec converts storage provisioner config to k8s storage class.
-func StorageClassSpec(cfg caas.StorageProvisioner) *storagev1.StorageClass {
+func StorageClassSpec(cfg caas.StorageProvisioner, legacyLabels bool) *storagev1.StorageClass {
 	sc := storagev1.StorageClass{}
 	sc.Name = constants.QualifiedStorageClassName(cfg.Namespace, cfg.Name)
 	sc.Provisioner = cfg.Provisioner
@@ -128,8 +107,8 @@ func StorageClassSpec(cfg caas.StorageProvisioner) *storagev1.StorageClass {
 		bindMode := storagev1.VolumeBindingMode(cfg.VolumeBindingMode)
 		sc.VolumeBindingMode = &bindMode
 	}
-	if cfg.Namespace != "" {
-		sc.Labels = map[string]string{constants.LabelModel: cfg.Namespace}
+	if cfg.Model != "" {
+		sc.Labels = utils.LabelsForModel(cfg.Model, legacyLabels)
 	}
 	return &sc
 }
@@ -157,7 +136,7 @@ func FilesystemInfo(ctx context.Context, client kubernetes.Interface,
 		return nil, nil
 	}
 
-	storageName := pvc.Labels[constants.LabelStorage]
+	storageName := utils.StorageNameFromLabels(pvc.Labels)
 	if storageName == "" {
 		if valid := constants.LegacyPVNameRegexp.MatchString(volumeMount.Name); valid {
 			storageName = constants.LegacyPVNameRegexp.ReplaceAllString(volumeMount.Name, "$storageName")
@@ -224,10 +203,11 @@ func PersistentVolumeClaimSpec(params VolumeParams) *corev1.PersistentVolumeClai
 }
 
 // StorageProvisioner returns storage provisioner.
-func StorageProvisioner(namespace string, params VolumeParams) caas.StorageProvisioner {
+func StorageProvisioner(namespace, model string, params VolumeParams) caas.StorageProvisioner {
 	return caas.StorageProvisioner{
 		Name:          params.StorageConfig.StorageClass,
 		Namespace:     namespace,
+		Model:         model,
 		Provisioner:   params.StorageConfig.StorageProvisioner,
 		Parameters:    params.StorageConfig.Parameters,
 		ReclaimPolicy: string(params.StorageConfig.ReclaimPolicy),

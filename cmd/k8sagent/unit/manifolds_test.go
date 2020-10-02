@@ -54,6 +54,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"proxy-config-updater",
 		"logging-config-updater",
 		"api-address-updater",
+
 		"caas-prober",
 		"probe-http-server",
 	}
@@ -69,6 +70,8 @@ func (*ManifoldsSuite) TestMigrationGuards(c *gc.C) {
 		"agent",
 		"api-config-watcher",
 		"api-caller",
+		"caas-prober",
+		"probe-http-server",
 		"log-sender",
 
 		"migration-fortress",

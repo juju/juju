@@ -184,7 +184,7 @@ type RedirectError struct {
 }
 
 func (e *RedirectError) Error() string {
-	return fmt.Sprintf("redirection to alternative server required")
+	return "redirection to alternative server required"
 }
 
 // Open establishes a connection to the API server using the Info

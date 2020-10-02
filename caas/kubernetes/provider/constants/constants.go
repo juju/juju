@@ -10,6 +10,10 @@ import (
 )
 
 const (
+	// Domain is the primary TLD for juju when giving resource domains to
+	// Kubernetes
+	Domain = "juju.is"
+
 	// AgentHTTPProbePort is the default port used by the HTTP server responding
 	// to caas probes
 	AgentHTTPProbePort = "3856"

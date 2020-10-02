@@ -10,6 +10,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/kubernetes/provider"
+	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/model"
 	coreapplication "github.com/juju/juju/core/application"
@@ -252,6 +254,7 @@ settings:
     type: string
     value: admin001
 `
+	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 	st := s.Factory.MakeCAASModel(c, &factory.ModelParams{Name: "caas-model"})
 
 	// Ensure the new CAAS model is in the local store.

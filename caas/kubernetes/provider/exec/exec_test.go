@@ -488,7 +488,7 @@ func (s *execSuite) TestModelNameToNameSpace(c *gc.C) {
 	defer ctrl.Finish()
 
 	gomock.InOrder(
-		s.mockNamespaces.EXPECT().List(gomock.Any(), metav1.ListOptions{LabelSelector: "juju-model=controller"}).
+		s.mockNamespaces.EXPECT().List(gomock.Any(), metav1.ListOptions{LabelSelector: "model.juju.is/name=controller"}).
 			Return(&core.NamespaceList{Items: []core.Namespace{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "controller-k1"},
@@ -496,7 +496,7 @@ func (s *execSuite) TestModelNameToNameSpace(c *gc.C) {
 			}}, nil),
 	)
 
-	nsName, err := exec.ModelNameToNameSpace("controller", s.mockNamespaces)
+	nsName, err := exec.ModelNameToNameSpace("controller", false, s.mockNamespaces)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(nsName, gc.DeepEquals, "controller-k1")
 }

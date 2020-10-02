@@ -13,7 +13,6 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	coreresources "github.com/juju/juju/core/resources"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -32,6 +31,7 @@ import (
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
 	k8swatchertest "github.com/juju/juju/caas/kubernetes/provider/watcher/test"
 	"github.com/juju/juju/core/paths"
+	coreresources "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
@@ -85,7 +85,7 @@ func (s *applicationSuite) getApp(c *gc.C, deploymentType caas.DeploymentType, m
 	s.applier = resourcesmocks.NewMockApplier(ctrl)
 
 	return application.NewApplicationForTest(
-		s.appName, s.namespace, s.namespace,
+		s.appName, s.namespace, "deadbeef", s.namespace, false,
 		deploymentType,
 		s.client,
 		watcherFn,
@@ -105,14 +105,17 @@ func (s *applicationSuite) getApp(c *gc.C, deploymentType caas.DeploymentType, m
 func (s *applicationSuite) assertEnsure(c *gc.C, deploymentType caas.DeploymentType, checkMainResource func()) {
 	appSecret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        "gitlab-application-config",
-			Namespace:   "test",
-			Labels:      map[string]string{"juju-app": "gitlab"},
-			Annotations: map[string]string{"juju-version": "0.0.0"},
+			Name:      "gitlab-application-config",
+			Namespace: "test",
+			Labels: map[string]string{
+				"app.kubernetes.io/name":       "gitlab",
+				"app.kubernetes.io/managed-by": "juju",
+			},
+			Annotations: map[string]string{"juju.is/version": "0.0.0"},
 		},
 		Data: map[string][]byte{
 			"JUJU_K8S_APPLICATION":          []byte("gitlab"),
-			"JUJU_K8S_MODEL":                []byte("test"),
+			"JUJU_K8S_MODEL":                []byte("deadbeef"),
 			"JUJU_K8S_APPLICATION_PASSWORD": []byte(""),
 			"JUJU_K8S_CONTROLLER_ADDRESSES": []byte(""),
 			"JUJU_K8S_CONTROLLER_CA_CERT":   []byte(""),
@@ -120,13 +123,16 @@ func (s *applicationSuite) assertEnsure(c *gc.C, deploymentType caas.DeploymentT
 	}
 	appSvc := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        "gitlab",
-			Namespace:   "test",
-			Labels:      map[string]string{"juju-app": "gitlab"},
-			Annotations: map[string]string{"juju-version": "0.0.0"},
+			Name:      "gitlab",
+			Namespace: "test",
+			Labels: map[string]string{
+				"app.kubernetes.io/name":       "gitlab",
+				"app.kubernetes.io/managed-by": "juju",
+			},
+			Annotations: map[string]string{"juju.is/version": "0.0.0"},
 		},
 		Spec: corev1.ServiceSpec{
-			Selector: map[string]string{"juju-app": "gitlab"},
+			Selector: map[string]string{"app.kubernetes.io/name": "gitlab"},
 			Type:     corev1.ServiceTypeClusterIP,
 			Ports: []corev1.ServicePort{{
 				Name: "placeholder",
@@ -386,14 +392,17 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "gitlab-endpoints",
 					Namespace: "test",
-					Labels:    map[string]string{"juju-app": "gitlab"},
+					Labels: map[string]string{
+						"app.kubernetes.io/name":       "gitlab",
+						"app.kubernetes.io/managed-by": "juju",
+					},
 					Annotations: map[string]string{
-						"juju-version": "0.0.0",
+						"juju.is/version": "0.0.0",
 						"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
 					},
 				},
 				Spec: corev1.ServiceSpec{
-					Selector:                 map[string]string{"juju-app": "gitlab"},
+					Selector:                 map[string]string{"app.kubernetes.io/name": "gitlab"},
 					Type:                     corev1.ServiceTypeClusterIP,
 					ClusterIP:                "None",
 					PublishNotReadyAddresses: true,
@@ -406,21 +415,26 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "gitlab",
 					Namespace: "test",
-					Labels:    map[string]string{"juju-app": "gitlab"},
+					Labels: map[string]string{
+						"app.kubernetes.io/name":       "gitlab",
+						"app.kubernetes.io/managed-by": "juju",
+					},
 					Annotations: map[string]string{
-						"juju-version":     "0.0.0",
+						"juju.is/version":  "0.0.0",
 						"juju.io/app-uuid": "appuuid",
 					},
 				},
 				Spec: appsv1.StatefulSetSpec{
 					Replicas: application.Int32Ptr(1),
 					Selector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{"juju-app": "gitlab"},
+						MatchLabels: map[string]string{
+							"app.kubernetes.io/name": "gitlab",
+						},
 					},
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
-							Labels:      map[string]string{"juju-app": "gitlab"},
-							Annotations: map[string]string{"juju-version": "0.0.0"},
+							Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
+							Annotations: map[string]string{"juju.is/version": "0.0.0"},
 						},
 						Spec: getPodSpec(c),
 					},
@@ -428,9 +442,13 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 						{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "gitlab-database-appuuid",
+								Labels: map[string]string{
+									"storage.juju.is/name":         "database",
+									"app.kubernetes.io/managed-by": "juju",
+								},
 								Annotations: map[string]string{
-									"foo":          "bar",
-									"juju-storage": "database",
+									"foo":                  "bar",
+									"storage.juju.is/name": "database",
 								}},
 							Spec: corev1.PersistentVolumeClaimSpec{
 								StorageClassName: application.StrPtr("test-workload-storage"),
@@ -462,9 +480,13 @@ func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "gitlab-database-appuuid",
 					Namespace: "test",
+					Labels: map[string]string{
+						"storage.juju.is/name":         "database",
+						"app.kubernetes.io/managed-by": "juju",
+					},
 					Annotations: map[string]string{
-						"foo":          "bar",
-						"juju-storage": "database",
+						"foo":                  "bar",
+						"storage.juju.is/name": "database",
 					},
 				},
 				Spec: corev1.PersistentVolumeClaimSpec{
@@ -490,21 +512,24 @@ func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "gitlab",
 					Namespace: "test",
-					Labels:    map[string]string{"juju-app": "gitlab"},
+					Labels: map[string]string{
+						"app.kubernetes.io/name":       "gitlab",
+						"app.kubernetes.io/managed-by": "juju",
+					},
 					Annotations: map[string]string{
-						"juju-version":     "0.0.0",
+						"juju.is/version":  "0.0.0",
 						"juju.io/app-uuid": "appuuid",
 					},
 				},
 				Spec: appsv1.DeploymentSpec{
 					Replicas: application.Int32Ptr(1),
 					Selector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{"juju-app": "gitlab"},
+						MatchLabels: map[string]string{"app.kubernetes.io/name": "gitlab"},
 					},
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
-							Labels:      map[string]string{"juju-app": "gitlab"},
-							Annotations: map[string]string{"juju-version": "0.0.0"},
+							Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
+							Annotations: map[string]string{"juju.is/version": "0.0.0"},
 						},
 						Spec: podSpec,
 					},
@@ -526,9 +551,13 @@ func (s *applicationSuite) TestEnsureDaemon(c *gc.C) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "gitlab-database-appuuid",
 					Namespace: "test",
+					Labels: map[string]string{
+						"storage.juju.is/name":         "database",
+						"app.kubernetes.io/managed-by": "juju",
+					},
 					Annotations: map[string]string{
-						"foo":          "bar",
-						"juju-storage": "database",
+						"foo":                  "bar",
+						"storage.juju.is/name": "database",
 					},
 				},
 				Spec: corev1.PersistentVolumeClaimSpec{
@@ -554,20 +583,23 @@ func (s *applicationSuite) TestEnsureDaemon(c *gc.C) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "gitlab",
 					Namespace: "test",
-					Labels:    map[string]string{"juju-app": "gitlab"},
+					Labels: map[string]string{
+						"app.kubernetes.io/name":       "gitlab",
+						"app.kubernetes.io/managed-by": "juju",
+					},
 					Annotations: map[string]string{
-						"juju-version":     "0.0.0",
+						"juju.is/version":  "0.0.0",
 						"juju.io/app-uuid": "appuuid",
 					},
 				},
 				Spec: appsv1.DaemonSetSpec{
 					Selector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{"juju-app": "gitlab"},
+						MatchLabels: map[string]string{"app.kubernetes.io/name": "gitlab"},
 					},
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
-							Labels:      map[string]string{"juju-app": "gitlab"},
-							Annotations: map[string]string{"juju-version": "0.0.0"},
+							Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
+							Annotations: map[string]string{"juju.is/version": "0.0.0"},
 						},
 						Spec: podSpec,
 					},
@@ -578,7 +610,7 @@ func (s *applicationSuite) TestEnsureDaemon(c *gc.C) {
 }
 
 func (s *applicationSuite) TestExistsNotsupported(c *gc.C) {
-	app, _ := s.getApp(c, caas.DeploymentType("notsupported"), false)
+	app, _ := s.getApp(c, "notsupported", false)
 	_, err := app.Exists()
 	c.Assert(err, gc.ErrorMatches, `unknown deployment type not supported`)
 }
@@ -595,14 +627,17 @@ func (s *applicationSuite) TestExistsDeployment(c *gc.C) {
 	// ensure a terminating Deployment.
 	dr := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        "gitlab",
-			Namespace:   "test",
-			Labels:      map[string]string{"juju-app": "gitlab"},
-			Annotations: map[string]string{"juju-version": "0.0.0"},
+			Name:      "gitlab",
+			Namespace: "test",
+			Labels: map[string]string{
+				"app.kubernetes.io/name":       "gitlab",
+				"app.kubernetes.io/managed-by": "juju",
+			},
+			Annotations: map[string]string{"juju.is/version": "0.0.0"},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "gitlab"},
+				MatchLabels: map[string]string{"app.kubernetes.io/name": "gitlab"},
 			},
 		},
 	}
@@ -631,14 +666,17 @@ func (s *applicationSuite) TestExistsStatefulSet(c *gc.C) {
 	// ensure a terminating Statefulset.
 	sr := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        "gitlab",
-			Namespace:   "test",
-			Labels:      map[string]string{"juju-app": "gitlab"},
-			Annotations: map[string]string{"juju-version": "0.0.0"},
+			Name:      "gitlab",
+			Namespace: "test",
+			Labels: map[string]string{
+				"app.kubernetes.io/name":       "gitlab",
+				"app.kubernetes.io/managed-by": "juju",
+			},
+			Annotations: map[string]string{"juju.is/version": "0.0.0"},
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "gitlab"},
+				MatchLabels: map[string]string{"app.kubernetes.io/name": "gitlab"},
 			},
 		},
 	}
@@ -668,14 +706,17 @@ func (s *applicationSuite) TestExistsDaemonSet(c *gc.C) {
 	// ensure a terminating Daemonset.
 	dmr := &appsv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        "gitlab",
-			Namespace:   "test",
-			Labels:      map[string]string{"juju-app": "gitlab"},
-			Annotations: map[string]string{"juju-version": "0.0.0"},
+			Name:      "gitlab",
+			Namespace: "test",
+			Labels: map[string]string{
+				"app.kubernetes.io/name":       "gitlab",
+				"app.kubernetes.io/managed-by": "juju",
+			},
+			Annotations: map[string]string{"juju.is/version": "0.0.0"},
 		},
 		Spec: appsv1.DaemonSetSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "gitlab"},
+				MatchLabels: map[string]string{"app.kubernetes.io/name": "gitlab"},
 			},
 		},
 	}
@@ -734,7 +775,7 @@ func (s *applicationSuite) TestDeleteDaemon(c *gc.C) {
 }
 
 func (s *applicationSuite) TestWatchNotsupported(c *gc.C) {
-	app, ctrl := s.getApp(c, caas.DeploymentType("notsupported"), true)
+	app, ctrl := s.getApp(c, "notsupported", true)
 	defer ctrl.Finish()
 
 	s.k8sWatcherFn = func(_ cache.SharedIndexInformer, _ string, _ jujuclock.Clock) (k8swatcher.KubernetesNotifyWatcher, error) {
@@ -787,7 +828,7 @@ func (s *applicationSuite) TestWatchReplicas(c *gc.C) {
 }
 
 func (s *applicationSuite) TestStateNotsupported(c *gc.C) {
-	app, _ := s.getApp(c, caas.DeploymentType("notsupported"), false)
+	app, _ := s.getApp(c, "notsupported", false)
 	_, err := app.State()
 	c.Assert(err, gc.ErrorMatches, `unknown deployment type not supported`)
 }
@@ -803,8 +844,8 @@ func (s *applicationSuite) assertState(c *gc.C, deploymentType caas.DeploymentTy
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "pod1",
 			Namespace:   "test",
-			Labels:      map[string]string{"juju-app": "gitlab"},
-			Annotations: map[string]string{"juju-version": "0.0.0"},
+			Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
+			Annotations: map[string]string{"juju.is/version": "0.0.0"},
 		},
 	}
 	_, err := s.client.CoreV1().Pods("test").Create(context.TODO(),
@@ -816,8 +857,8 @@ func (s *applicationSuite) assertState(c *gc.C, deploymentType caas.DeploymentTy
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "pod2",
 			Namespace:   "test",
-			Labels:      map[string]string{"juju-app": "gitlab"},
-			Annotations: map[string]string{"juju-version": "0.0.0"},
+			Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
+			Annotations: map[string]string{"juju.is/version": "0.0.0"},
 		},
 	}
 	_, err = s.client.CoreV1().Pods("test").Create(context.TODO(),
@@ -837,14 +878,17 @@ func (s *applicationSuite) TestStateStateful(c *gc.C) {
 
 		dmr := &appsv1.StatefulSet{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        "gitlab",
-				Namespace:   "test",
-				Labels:      map[string]string{"juju-app": "gitlab"},
-				Annotations: map[string]string{"juju-version": "0.0.0"},
+				Name:      "gitlab",
+				Namespace: "test",
+				Labels: map[string]string{
+					"app.kubernetes.io/name":       "gitlab",
+					"app.kubernetes.io/managed-by": "juju",
+				},
+				Annotations: map[string]string{"juju.is/version": "0.0.0"},
 			},
 			Spec: appsv1.StatefulSetSpec{
 				Selector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{"juju-app": "gitlab"},
+					MatchLabels: map[string]string{"app.kubernetes.io/name": "gitlab"},
 				},
 				Replicas: application.Int32Ptr(int32(desiredReplicas)),
 			},
@@ -862,14 +906,17 @@ func (s *applicationSuite) TestStateStateless(c *gc.C) {
 
 		dmr := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        "gitlab",
-				Namespace:   "test",
-				Labels:      map[string]string{"juju-app": "gitlab"},
-				Annotations: map[string]string{"juju-version": "0.0.0"},
+				Name:      "gitlab",
+				Namespace: "test",
+				Labels: map[string]string{
+					"app.kubernetes.io/name":       "gitlab",
+					"app.kubernetes.io/managed-by": "juju",
+				},
+				Annotations: map[string]string{"juju.is/version": "0.0.0"},
 			},
 			Spec: appsv1.DeploymentSpec{
 				Selector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{"juju-app": "gitlab"},
+					MatchLabels: map[string]string{"app.kubernetes.io/name": "gitlab"},
 				},
 				Replicas: application.Int32Ptr(int32(desiredReplicas)),
 			},
@@ -887,14 +934,17 @@ func (s *applicationSuite) TestStateDaemon(c *gc.C) {
 
 		dmr := &appsv1.DaemonSet{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        "gitlab",
-				Namespace:   "test",
-				Labels:      map[string]string{"juju-app": "gitlab"},
-				Annotations: map[string]string{"juju-version": "0.0.0"},
+				Name:      "gitlab",
+				Namespace: "test",
+				Labels: map[string]string{
+					"app.kubernetes.io/name":       "gitlab",
+					"app.kubernetes.io/managed-by": "juju",
+				},
+				Annotations: map[string]string{"juju.is/version": "0.0.0"},
 			},
 			Spec: appsv1.DaemonSetSpec{
 				Selector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{"juju-app": "gitlab"},
+					MatchLabels: map[string]string{"app.kubernetes.io/name": "gitlab"},
 				},
 			},
 			Status: appsv1.DaemonSetStatus{
@@ -911,14 +961,18 @@ func (s *applicationSuite) TestStateDaemon(c *gc.C) {
 func getDefaultSvc() *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        "gitlab",
-			Namespace:   "test",
-			Labels:      map[string]string{"juju-app": "gitlab"},
-			Annotations: map[string]string{"juju-version": "0.0.0"},
+			Name:      "gitlab",
+			Namespace: "test",
+			Labels: map[string]string{
+				"app.kubernetes.io/name":       "gitlab",
+				"app.kubernetes.io/managed-by": "juju",
+			},
+			Annotations: map[string]string{"juju.is/version": "0.0.0"},
 		},
 		Spec: corev1.ServiceSpec{
-			Selector: map[string]string{"juju-app": "gitlab"},
-			Type:     corev1.ServiceTypeClusterIP,
+			Selector: map[string]string{"app.kubernetes.io/name": "gitlab"},
+
+			Type: corev1.ServiceTypeClusterIP,
 		},
 	}
 }
@@ -935,20 +989,23 @@ func (s *applicationSuite) TestUpdatePortsStatelessUpdateContainerPorts(c *gc.C)
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "gitlab",
 				Namespace: "test",
-				Labels:    map[string]string{"juju-app": "gitlab"},
+				Labels: map[string]string{
+					"app.kubernetes.io/name":       "gitlab",
+					"app.kubernetes.io/managed-by": "juju",
+				},
 				Annotations: map[string]string{
-					"juju-version":     "0.0.0",
+					"juju.is/version":  "0.0.0",
 					"juju.io/app-uuid": "appuuid",
 				},
 			},
 			Spec: appsv1.DeploymentSpec{
 				Selector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{"juju-app": "gitlab"},
+					MatchLabels: map[string]string{"app.kubernetes.io/name": "gitlab"},
 				},
 				Template: corev1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
-						Labels:      map[string]string{"juju-app": "gitlab"},
-						Annotations: map[string]string{"juju-version": "0.0.0"},
+						Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
+						Annotations: map[string]string{"juju.is/version": "0.0.0"},
 					},
 					Spec: corev1.PodSpec{
 						Containers: []corev1.Container{{
@@ -958,6 +1015,46 @@ func (s *applicationSuite) TestUpdatePortsStatelessUpdateContainerPorts(c *gc.C)
 							WorkingDir:      "/var/lib/juju",
 							Command:         []string{"/opt/k8sagent"},
 							Args:            []string{"unit", "--data-dir", "/var/lib/juju"},
+							Env: []corev1.EnvVar{{
+								Name:  "HTTP_PROBE_PORT",
+								Value: "3856",
+							}},
+							LivenessProbe: &corev1.Probe{
+								Handler: corev1.Handler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/liveness",
+										Port: intstr.FromString("3856"),
+									},
+								},
+								InitialDelaySeconds: 30,
+								PeriodSeconds:       10,
+								SuccessThreshold:    1,
+								FailureThreshold:    2,
+							},
+							ReadinessProbe: &corev1.Probe{
+								Handler: corev1.Handler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/readiness",
+										Port: intstr.FromString("3856"),
+									},
+								},
+								InitialDelaySeconds: 30,
+								PeriodSeconds:       10,
+								SuccessThreshold:    1,
+								FailureThreshold:    2,
+							},
+							StartupProbe: &corev1.Probe{
+								Handler: corev1.Handler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/startup",
+										Port: intstr.FromString("3856"),
+									},
+								},
+								InitialDelaySeconds: 30,
+								PeriodSeconds:       10,
+								SuccessThreshold:    1,
+								FailureThreshold:    2,
+							},
 						}, {
 							Name:            "gitlab",
 							ImagePullPolicy: corev1.PullIfNotPresent,
@@ -1017,20 +1114,23 @@ func (s *applicationSuite) TestUpdatePortsStatefulUpdateContainerPorts(c *gc.C) 
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "gitlab",
 				Namespace: "test",
-				Labels:    map[string]string{"juju-app": "gitlab"},
+				Labels: map[string]string{
+					"app.kubernetes.io/name":       "gitlab",
+					"app.kubernetes.io/managed-by": "juju",
+				},
 				Annotations: map[string]string{
-					"juju-version":     "0.0.0",
+					"juju.is/version":  "0.0.0",
 					"juju.io/app-uuid": "appuuid",
 				},
 			},
 			Spec: appsv1.StatefulSetSpec{
 				Selector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{"juju-app": "gitlab"},
+					MatchLabels: map[string]string{"app.kubernetes.io/name": "gitlab"},
 				},
 				Template: corev1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
-						Labels:      map[string]string{"juju-app": "gitlab"},
-						Annotations: map[string]string{"juju-version": "0.0.0"},
+						Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
+						Annotations: map[string]string{"juju.is/version": "0.0.0"},
 					},
 					Spec: corev1.PodSpec{
 						Containers: []corev1.Container{{
@@ -1040,6 +1140,46 @@ func (s *applicationSuite) TestUpdatePortsStatefulUpdateContainerPorts(c *gc.C) 
 							WorkingDir:      "/var/lib/juju",
 							Command:         []string{"/opt/k8sagent"},
 							Args:            []string{"unit", "--data-dir", "/var/lib/juju"},
+							Env: []corev1.EnvVar{{
+								Name:  "HTTP_PROBE_PORT",
+								Value: "3856",
+							}},
+							LivenessProbe: &corev1.Probe{
+								Handler: corev1.Handler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/liveness",
+										Port: intstr.FromString("3856"),
+									},
+								},
+								InitialDelaySeconds: 30,
+								PeriodSeconds:       10,
+								SuccessThreshold:    1,
+								FailureThreshold:    2,
+							},
+							ReadinessProbe: &corev1.Probe{
+								Handler: corev1.Handler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/readiness",
+										Port: intstr.FromString("3856"),
+									},
+								},
+								InitialDelaySeconds: 30,
+								PeriodSeconds:       10,
+								SuccessThreshold:    1,
+								FailureThreshold:    2,
+							},
+							StartupProbe: &corev1.Probe{
+								Handler: corev1.Handler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/startup",
+										Port: intstr.FromString("3856"),
+									},
+								},
+								InitialDelaySeconds: 30,
+								PeriodSeconds:       10,
+								SuccessThreshold:    1,
+								FailureThreshold:    2,
+							},
 						}, {
 							Name:            "gitlab",
 							ImagePullPolicy: corev1.PullIfNotPresent,
@@ -1099,20 +1239,23 @@ func (s *applicationSuite) TestUpdatePortsDaemonUpdateContainerPorts(c *gc.C) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "gitlab",
 				Namespace: "test",
-				Labels:    map[string]string{"juju-app": "gitlab"},
+				Labels: map[string]string{
+					"app.kubernetes.io/name":       "gitlab",
+					"app.kubernetes.io/managed-by": "juju",
+				},
 				Annotations: map[string]string{
-					"juju-version":     "0.0.0",
+					"juju.is/version":  "0.0.0",
 					"juju.io/app-uuid": "appuuid",
 				},
 			},
 			Spec: appsv1.DaemonSetSpec{
 				Selector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{"juju-app": "gitlab"},
+					MatchLabels: map[string]string{"app.kubernetes.io/name": "gitlab"},
 				},
 				Template: corev1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
-						Labels:      map[string]string{"juju-app": "gitlab"},
-						Annotations: map[string]string{"juju-version": "0.0.0"},
+						Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
+						Annotations: map[string]string{"juju.is/version": "0.0.0"},
 					},
 					Spec: corev1.PodSpec{
 						Containers: []corev1.Container{{

@@ -167,7 +167,14 @@ func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 		}
 		// We don't want to introduce CaaS broker here, but only use exec client.
 		podAPI := c.execClient.RawClient().CoreV1().Pods(c.execClient.NameSpace())
-		if providerID, err = k8sprovider.GetOperatorPodName(podAPI, appName); err != nil {
+		providerID, err = k8sprovider.GetOperatorPodName(
+			podAPI,
+			c.execClient.RawClient().CoreV1().Namespaces(),
+			c.execClient.NameSpace(),
+			appName,
+		)
+
+		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		if len(providerID) == 0 {

@@ -6,6 +6,10 @@ package mocks
 
 import (
 	context "context"
+	http "net/http"
+	url "net/url"
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
 	api "github.com/juju/juju/api"
@@ -19,9 +23,6 @@ import (
 	names "github.com/juju/names/v4"
 	httprequest "gopkg.in/httprequest.v1"
 	macaroon "gopkg.in/macaroon.v2"
-	http "net/http"
-	url "net/url"
-	reflect "reflect"
 )
 
 // MockDeployerAPI is a mock of DeployerAPI interface
@@ -308,6 +309,22 @@ func (m *MockDeployerAPI) GetAnnotations(arg0 []string) ([]params.AnnotationsGet
 func (mr *MockDeployerAPIMockRecorder) GetAnnotations(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAnnotations", reflect.TypeOf((*MockDeployerAPI)(nil).GetAnnotations), arg0)
+}
+
+// GetCharmURLOrigin mocks base method
+func (m *MockDeployerAPI) GetCharmURLOrigin(arg0, arg1 string) (*charm.URL, charm0.Origin, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCharmURLOrigin", arg0, arg1)
+	ret0, _ := ret[0].(*charm.URL)
+	ret1, _ := ret[1].(charm0.Origin)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetCharmURLOrigin indicates an expected call of GetCharmURLOrigin
+func (mr *MockDeployerAPIMockRecorder) GetCharmURLOrigin(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmURLOrigin", reflect.TypeOf((*MockDeployerAPI)(nil).GetCharmURLOrigin), arg0, arg1)
 }
 
 // GetConfig mocks base method

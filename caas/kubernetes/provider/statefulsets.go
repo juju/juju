@@ -20,12 +20,6 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-func (k *kubernetesClient) getStatefulSetLabels(appName string) map[string]string {
-	return map[string]string{
-		constants.LabelApplication: appName,
-	}
-}
-
 func updateStrategyForStatefulSet(strategy specs.UpdateStrategy) (o apps.StatefulSetUpdateStrategy, err error) {
 	switch strategyType := apps.StatefulSetUpdateStrategyType(strategy.Type); strategyType {
 	case apps.RollingUpdateStatefulSetStrategyType, apps.OnDeleteStatefulSetStrategyType:
@@ -67,23 +61,24 @@ func (k *kubernetesClient) configureStatefulSet(
 		return errors.Trace(err)
 	}
 
+	selectorLabels := utils.SelectorLabelsForApp(appName, k.IsLegacyLabels())
 	statefulSet := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   deploymentName,
-			Labels: k.getStatefulSetLabels(appName),
+			Labels: utils.LabelsForApp(appName, k.IsLegacyLabels()),
 			Annotations: k8sannotations.New(nil).
 				Merge(annotations).
-				Add(annotationKeyApplicationUUID, storageUniqueID).ToMap(),
+				Add(utils.AnnotationKeyApplicationUUID(k.IsLegacyLabels()), storageUniqueID).ToMap(),
 		},
 		Spec: apps.StatefulSetSpec{
 			Replicas: replicas,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{constants.LabelApplication: appName},
+				MatchLabels: selectorLabels,
 			},
 			RevisionHistoryLimit: int32Ptr(statefulSetRevisionHistoryLimit),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels:      k.getStatefulSetLabels(appName),
+					Labels:      selectorLabels,
 					Annotations: podAnnotations(k8sannotations.New(workloadSpec.Pod.Annotations).Merge(annotations).Copy()).ToMap(),
 				},
 			},
@@ -197,10 +192,11 @@ func (k *kubernetesClient) deleteStatefulSet(name string) error {
 
 // deleteStatefulSet deletes all statefulset resources for an application.
 func (k *kubernetesClient) deleteStatefulSets(appName string) error {
+	labels := utils.LabelsForApp(appName, k.IsLegacyLabels())
 	err := k.client().AppsV1().StatefulSets(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
 		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, v1.ListOptions{
-		LabelSelector: utils.LabelSetToSelector(k.getStatefulSetLabels(appName)).String(),
+		LabelSelector: utils.LabelSetToSelector(labels).String(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

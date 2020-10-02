@@ -11,7 +11,6 @@ import (
 	admission "k8s.io/api/admissionregistration/v1beta1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/juju/juju/caas/kubernetes/provider"
 	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/pki"
 )
@@ -47,6 +46,7 @@ func (a AdmissionCreatorFunc) EnsureMutatingWebhookConfiguration() (func(), erro
 func NewAdmissionCreator(
 	authority pki.Authority,
 	namespace, modelName string,
+	legacyLabels bool,
 	ensureConfig func(*admission.MutatingWebhookConfiguration) (func(), error),
 	service *admission.ServiceReference) (AdmissionCreator, error) {
 
@@ -65,7 +65,7 @@ func NewAdmissionCreator(
 	// MutatingWebjook Obj
 	obj := admission.MutatingWebhookConfiguration{
 		ObjectMeta: meta.ObjectMeta{
-			Labels:    k8sutils.LabelsForModel(modelName),
+			Labels:    k8sutils.LabelsForModel(modelName, legacyLabels),
 			Name:      fmt.Sprintf("juju-model-admission-%s", namespace),
 			Namespace: namespace,
 		},
@@ -78,9 +78,9 @@ func NewAdmissionCreator(
 				},
 				FailurePolicy: &failurePolicy,
 				MatchPolicy:   &matchPolicy,
-				Name:          provider.MakeK8sDomain(Component),
+				Name:          k8sutils.MakeK8sDomain(Component),
 				NamespaceSelector: &meta.LabelSelector{
-					MatchLabels: k8sutils.LabelsForModel(modelName),
+					MatchLabels: k8sutils.LabelsForModel(modelName, legacyLabels),
 				},
 				Rules: []admission.RuleWithOperations{
 					{

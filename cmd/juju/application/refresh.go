@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/spaces"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/charmstore"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/application/refresher"
 	"github.com/juju/juju/cmd/juju/application/store"
@@ -95,7 +94,7 @@ func NewRefreshCommand() cmd.Command {
 // CharmRefreshClient defines a subset of the application facade, as required
 // by the refresh command.
 type CharmRefreshClient interface {
-	GetCharmURL(string, string) (*charm.URL, error)
+	GetCharmURLOrigin(string, string) (*charm.URL, commoncharm.Origin, error)
 	Get(string, string) (*params.ApplicationGetResults, error)
 	SetCharm(string, application.SetCharmConfig) error
 }
@@ -316,7 +315,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	charmRefreshClient := c.NewCharmRefreshClient(apiRoot)
-	oldURL, err := charmRefreshClient.GetCharmURL(generation, c.ApplicationName)
+	oldURL, oldOrigin, err := charmRefreshClient.GetCharmURLOrigin(generation, c.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -372,6 +371,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	cfg := refresher.RefresherConfig{
 		ApplicationName: c.ApplicationName,
 		CharmURL:        oldURL,
+		CharmOrigin:     oldOrigin.CoreCharmOrigin(),
 		CharmRef:        newRef,
 		Channel:         c.Channel,
 		DeployedSeries:  applicationInfo.Series,
@@ -396,7 +396,10 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	// If it's the charmhub, we don't upgrade any resources as they're currently
 	// not supported. For now we do our best to create a valid charm.ID, but
 	// will most likely fail.
-	chID := deduceCharmID(curl, charmID.Origin)
+	chID := application.CharmID{
+		URL:    curl,
+		Origin: commoncharm.CoreCharmOrigin(charmID.Origin),
+	}
 	resourceIDs := make(map[string]string)
 	if !charm.CharmHub.Matches(curl.Schema) {
 		// Next, upgrade resources.
@@ -530,7 +533,7 @@ func (c *refreshCommand) checkApplicationFacadeSupport(verQuerier versionQuerier
 func (c *refreshCommand) upgradeResources(
 	apiRoot base.APICallCloser,
 	resourceLister utils.ResourceLister,
-	chID charmstore.CharmID,
+	chID application.CharmID,
 	csMac *macaroon.Macaroon,
 	meta map[string]charmresource.Meta,
 ) (map[string]string, error) {
@@ -551,7 +554,10 @@ func (c *refreshCommand) upgradeResources(
 	// checked further down the stack.
 	ids, err := c.DeployResources(
 		c.ApplicationName,
-		chID,
+		resourceadapters.CharmID{
+			URL:     chID.URL,
+			Channel: chID.Origin.Risk,
+		},
 		csMac,
 		c.Resources,
 		filtered,
@@ -654,15 +660,4 @@ func (c *refreshCommand) getRefresherFactory(apiRoot api.Connection) (refresher.
 		CharmResolver: c.NewCharmResolver(apiRoot, charmStore),
 	}
 	return c.NewRefresherFactory(deps), nil
-}
-
-func deduceCharmID(curl *charm.URL, origin corecharm.Origin) charmstore.CharmID {
-	var channel csparams.Channel
-	if origin.Channel != nil {
-		channel = csparams.Channel(origin.Channel.Risk)
-	}
-	return charmstore.CharmID{
-		URL:     curl,
-		Channel: channel,
-	}
 }
