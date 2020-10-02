@@ -5,9 +5,8 @@ package charmhub
 
 import (
 	"context"
+	"fmt"
 	"net/url"
-	"os"
-	"syscall"
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/cmd"
@@ -25,7 +24,8 @@ import (
 const (
 	downloadSummary = "Locates and then downloads a CharmHub charm."
 	downloadDoc     = `
-Download a charm from the CharmHub store by a specified name.
+Download a charm to the current directory from the CharmHub store
+by a specified name.
 
 Examples:
     juju download postgresql
@@ -145,14 +145,7 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	var fileSystem charmhub.FileSystem
-	if c.archivePath != "" {
-		fileSystem = charmhub.DefaultFileSystem()
-	} else {
-		fileSystem = stdoutFileSystem{}
-	}
-
-	client, err := c.getCharmHubClient(config, fileSystem)
+	client, err := c.getCharmHubClient(config)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -172,7 +165,12 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	return client.Download(ctx, resourceURL, c.archivePath)
+	path := c.archivePath
+	if c.archivePath == "" {
+		path = fmt.Sprintf("%s.%s", info.Name, info.Type)
+	}
+
+	return client.Download(ctx, resourceURL, path)
 }
 
 // getAPI returns the API that supplies methods
@@ -203,11 +201,11 @@ func (c *downloadCommand) getModelConfig() (*config.Config, error) {
 	return config.New(config.NoDefaults, attrs)
 }
 
-func (c *downloadCommand) getCharmHubClient(config charmhub.Config, fileSystem charmhub.FileSystem) (CharmHubClient, error) {
+func (c *downloadCommand) getCharmHubClient(config charmhub.Config) (CharmHubClient, error) {
 	if c.charmHubClient != nil {
 		return c.charmHubClient, nil
 	}
-	return charmhub.NewClientWithFileSystem(config, fileSystem)
+	return charmhub.NewClient(config)
 }
 
 // CharmHubClient defines a charmhub client, used for querying the charmhub
@@ -233,13 +231,4 @@ func (d downloadLogger) Debugf(msg string, args ...interface{}) {
 }
 
 func (d downloadLogger) Tracef(msg string, args ...interface{}) {
-}
-
-type stdoutFileSystem struct {
-}
-
-// Create creates or truncates the named file. If the file already exists,
-// it is truncated.
-func (stdoutFileSystem) Create(string) (*os.File, error) {
-	return os.NewFile(uintptr(syscall.Stdout), "/dev/stdout"), nil
 }
