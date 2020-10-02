@@ -100,21 +100,21 @@ var hostRegionsTestCases = []hostRegionTestcase{
 		expectedCloud:   "gce",
 		expectedRegions: set.NewStrings(""),
 		nodes: newNodeList(map[string]string{
-			"juju.io/cloud": "gce",
+			"juju.is/cloud": "gce",
 		}),
 	},
 	{
 		expectedCloud:   "ec2",
 		expectedRegions: set.NewStrings(""),
 		nodes: newNodeList(map[string]string{
-			"juju.io/cloud": "ec2",
+			"juju.is/cloud": "ec2",
 		}),
 	},
 	{
 		expectedCloud:   "azure",
 		expectedRegions: set.NewStrings(""),
 		nodes: newNodeList(map[string]string{
-			"juju.io/cloud": "azure",
+			"juju.is/cloud": "azure",
 		}),
 	},
 	{
@@ -402,7 +402,7 @@ func (s *K8sMetadataSuite) TestAnnotatedWorkloadStorageClass(c *gc.C) {
 				ObjectMeta: v1.ObjectMeta{
 					Name: "juju-preferred-workload-storage",
 					Annotations: map[string]string{
-						"juju.io/workload-storage": "true",
+						"juju.is/workload-storage": "true",
 					},
 				},
 				Provisioner: "kubernetes.io/aws-ebs",
@@ -438,7 +438,7 @@ func (s *K8sMetadataSuite) TestAnnotatedWorkloadAndOperatorStorageClass(c *gc.C)
 					ObjectMeta: v1.ObjectMeta{
 						Name: "juju-preferred-workload-storage",
 						Annotations: map[string]string{
-							"juju.io/workload-storage": "true",
+							"juju.is/workload-storage": "true",
 						},
 					},
 					Provisioner: "kubernetes.io/aws-ebs",
@@ -448,7 +448,7 @@ func (s *K8sMetadataSuite) TestAnnotatedWorkloadAndOperatorStorageClass(c *gc.C)
 					ObjectMeta: v1.ObjectMeta{
 						Name: "juju-preferred-operator-storage",
 						Annotations: map[string]string{
-							"juju.io/operator-storage": "true",
+							"juju.is/operator-storage": "true",
 						},
 					},
 					Provisioner: "kubernetes.io/aws-ebs",

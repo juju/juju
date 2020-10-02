@@ -25,8 +25,8 @@ const (
 	// TemplateFileNameAgentConf is the template agent.conf file name.
 	TemplateFileNameAgentConf = "template-" + agent.AgentConfigFilename
 
-	// AnnotationPrefix of juju annotations
-	AnnotationPrefix = "juju.io"
+	// AnnotationPrefix of juju annotations.
+	AnnotationPrefix = "juju.is"
 
 	// LabelJujuAppCreatedBy is a Juju application label to apply to objects
 	// created by applications managed by Juju. Think istio, kubeflow etc
@@ -68,6 +68,9 @@ const (
 	// describe their name.
 	LabelJujuStorageName = "storage.juju.is/name"
 
+	// LegacyAnnotationPrefix is the legacy prefix of juju annotations.
+	LegacyAnnotationPrefix = "juju.io"
+
 	// LegacyAnnotationStorageName is the legacy annotation used by Juju for
 	// dictating storage name on k8s storage objects.
 	LegacyAnnotationStorageName = "juju-storage"
@@ -102,16 +105,6 @@ const (
 	LegacyLabelStorageName = "juju-storage"
 )
 
-func AnnotationKey(name string) string {
-	return AnnotationPrefix + "/" + name
-}
-
 var (
 	DefaultPropagationPolicy = metav1.DeletePropagationForeground
-
-	AnnotationModelUUIDKey              = AnnotationKey("model")
-	AnnotationControllerUUIDKey         = AnnotationKey("controller")
-	AnnotationControllerIsControllerKey = AnnotationKey("is-controller")
-	AnnotationUnit                      = AnnotationKey("unit")
-	AnnotationCharmModifiedVersionKey   = AnnotationKey("charm-modified-version")
 )

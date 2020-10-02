@@ -27,13 +27,12 @@ func (k *kubernetesClient) getAdmissionControllerLabels(appName string) map[stri
 	)
 }
 
-var annotationDisableNamePrefixKey = constants.AnnotationKey("disable-name-prefix")
-
 const annotationDisableNamePrefixValue = "true"
 
-func decideNameForGlobalResource(meta k8sspecs.Meta, namespace string) string {
+func decideNameForGlobalResource(meta k8sspecs.Meta, namespace string, isLegacy bool) string {
 	name := meta.Name
-	if k8sannotations.New(meta.Annotations).Has(annotationDisableNamePrefixKey, annotationDisableNamePrefixValue) {
+	key := utils.AnnotationDisableNameKey(isLegacy)
+	if k8sannotations.New(meta.Annotations).Has(key, annotationDisableNamePrefixValue) {
 		return name
 	}
 	return fmt.Sprintf("%s-%s", namespace, name)
@@ -45,7 +44,7 @@ func (k *kubernetesClient) ensureMutatingWebhookConfigurations(
 	for _, v := range cfgs {
 		spec := &admissionregistration.MutatingWebhookConfiguration{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        decideNameForGlobalResource(v.Meta, k.namespace),
+				Name:        decideNameForGlobalResource(v.Meta, k.namespace, k.IsLegacyLabels()),
 				Namespace:   k.namespace,
 				Labels:      utils.LabelsMerge(v.Labels, k.getAdmissionControllerLabels(appName)),
 				Annotations: k8sannotations.New(v.Annotations).Merge(annotations),
@@ -167,7 +166,7 @@ func (k *kubernetesClient) ensureValidatingWebhookConfigurations(
 	for _, v := range cfgs {
 		spec := &admissionregistration.ValidatingWebhookConfiguration{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        decideNameForGlobalResource(v.Meta, k.namespace),
+				Name:        decideNameForGlobalResource(v.Meta, k.namespace, k.IsLegacyLabels()),
 				Namespace:   k.namespace,
 				Labels:      utils.LabelsMerge(v.Labels, k.getAdmissionControllerLabels(appName)),
 				Annotations: k8sannotations.New(v.Annotations).Merge(annotations),

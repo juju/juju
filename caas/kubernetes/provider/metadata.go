@@ -91,8 +91,8 @@ func isDefaultStorageClass(sc storage.StorageClass) bool {
 }
 
 const (
-	operatorStorageClassAnnotationKey = "juju.io/operator-storage"
-	workloadStorageClassAnnotationKey = "juju.io/workload-storage"
+	operatorStorageClassAnnotationKey = "juju.is/operator-storage"
+	workloadStorageClassAnnotationKey = "juju.is/workload-storage"
 )
 
 func toCaaSStorageProvisioner(sc storage.StorageClass) *caas.StorageProvisioner {

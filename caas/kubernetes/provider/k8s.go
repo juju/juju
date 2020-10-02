@@ -217,12 +217,12 @@ func newK8sBroker(
 		newRestClient:     newRestClient,
 		randomPrefix:      randomPrefix,
 		annotations: k8sannotations.New(nil).
-			Add(constants.AnnotationModelUUIDKey, modelUUID),
+			Add(utils.AnnotationModelUUIDKey(isLegacy), modelUUID),
 		isLegacyLabels: isLegacy,
 	}
 	if controllerUUID != "" {
 		// controllerUUID could be empty in add-k8s without -c because there might be no controller yet.
-		client.annotations.Add(constants.AnnotationControllerUUIDKey, controllerUUID)
+		client.annotations.Add(utils.AnnotationControllerUUIDKey(isLegacy), controllerUUID)
 	}
 	return client, nil
 }
@@ -427,7 +427,7 @@ please choose a different hosted model name then try again.`, hostedModelName),
 			if errors.IsNotFound(err) {
 				// all good.
 				// ensure controller specific annotations.
-				_ = broker.addAnnotations(constants.AnnotationControllerIsControllerKey, "true")
+				_ = broker.addAnnotations(utils.AnnotationControllerIsControllerKey(k.IsLegacyLabels()), "true")
 				return nil
 			}
 			if err == nil {
@@ -465,8 +465,8 @@ func (k *kubernetesClient) DestroyController(ctx envcontext.ProviderCallContext,
 	// ensures all annnotations are set correctly, then we will accurately find the controller namespace to destroy it.
 	k.annotations.Merge(
 		k8sannotations.New(nil).
-			Add(constants.AnnotationControllerUUIDKey, controllerUUID).
-			Add(constants.AnnotationControllerIsControllerKey, "true"),
+			Add(utils.AnnotationControllerUUIDKey(k.IsLegacyLabels()), controllerUUID).
+			Add(utils.AnnotationControllerIsControllerKey(k.IsLegacyLabels()), "true"),
 	)
 	return k.Destroy(ctx)
 }
@@ -909,7 +909,7 @@ func (k *kubernetesClient) applyRawK8sSpec(
 		}
 		return labels
 	}
-	annotations := utils.ResourceTagsToAnnotations(params.ResourceTags)
+	annotations := utils.ResourceTagsToAnnotations(params.ResourceTags, k.IsLegacyLabels())
 
 	builder := k8sspecs.New(
 		deploymentName, k.namespace, params.Deployment, k.k8sConfig(),
@@ -984,7 +984,7 @@ func (k *kubernetesClient) ensureService(
 		return errors.Annotatef(err, "parsing unit spec for %s", appName)
 	}
 
-	annotations := utils.ResourceTagsToAnnotations(params.ResourceTags)
+	annotations := utils.ResourceTagsToAnnotations(params.ResourceTags, k.IsLegacyLabels())
 
 	// ensure services.
 	if len(workloadSpec.Services) > 0 {
@@ -1160,7 +1160,7 @@ func (k *kubernetesClient) ensureService(
 		// CharmModifiedVersion is added for triggering rolling upgrade on workload pods to synchronise
 		// charm files to workload pods via init container when charm was upgraded.
 		// This approach was inspired from `kubectl rollout restart`.
-		Add(constants.AnnotationCharmModifiedVersionKey, strconv.Itoa(params.CharmModifiedVersion))
+		Add(utils.AnnotationCharmModifiedVersionKey(k.IsLegacyLabels()), strconv.Itoa(params.CharmModifiedVersion))
 
 	switch params.Deployment.DeploymentType {
 	case caas.DeploymentStateful:
@@ -1969,10 +1969,10 @@ func (k *kubernetesClient) AnnotateUnit(appName string, mode caas.DeploymentMode
 		pod.Annotations = make(map[string]string)
 	}
 	unitID := unit.Id()
-	if pod.Annotations[constants.AnnotationUnit] == unitID {
+	if pod.Annotations[utils.AnnotationUnit(k.IsLegacyLabels())] == unitID {
 		return nil
 	}
-	pod.Annotations[constants.AnnotationUnit] = unitID
+	pod.Annotations[utils.AnnotationUnit(k.IsLegacyLabels())] = unitID
 
 	_, err = pods.Update(context.TODO(), pod, v1.UpdateOptions{})
 	if k8serrors.IsNotFound(err) {
@@ -2023,7 +2023,7 @@ func (k *kubernetesClient) WatchContainerStart(appName string, containerName str
 	}
 
 	running := func(pod *core.Pod) set.Strings {
-		if _, ok := pod.Annotations[constants.AnnotationUnit]; !ok {
+		if _, ok := pod.Annotations[utils.AnnotationUnit(k.IsLegacyLabels())]; !ok {
 			// Ignore pods that aren't annotated as a unit yet.
 			return set.Strings{}
 		}

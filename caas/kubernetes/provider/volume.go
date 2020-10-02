@@ -317,7 +317,7 @@ func (k *kubernetesClient) filesystemToVolumeInfo(
 	pvc = &core.PersistentVolumeClaim{
 		ObjectMeta: v1.ObjectMeta{
 			Name: params.pvcName,
-			Annotations: utils.ResourceTagsToAnnotations(fs.ResourceTags).
+			Annotations: utils.ResourceTagsToAnnotations(fs.ResourceTags, k.IsLegacyLabels()).
 				Merge(utils.AnnotationsForStorage(fs.StorageName, k.IsLegacyLabels())).
 				ToMap(),
 			Labels: labels,
