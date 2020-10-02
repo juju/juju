@@ -51,7 +51,8 @@ func NewDownloadClient(transport Transport, fileSystem FileSystem, logger Logger
 	}
 }
 
-// Download returns a charm zip retrieved from the given URL.
+// Download returns the raw charm zip file, which is retrieved from the given
+// URL.
 // It is expected that the archive path doesn't already exist and if it does, it
 // will error out. It is expected that the callee handles the clean up of the
 // archivePath.

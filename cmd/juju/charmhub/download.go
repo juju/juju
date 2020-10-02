@@ -73,8 +73,8 @@ func (c *downloadCommand) Info() *cmd.Info {
 // It implements part of the cmd.Command interface.
 func (c *downloadCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.StringVar(&c.charmHubURL, "charm-hub-url", "", "specify url for querying the charmhub store")
-	f.StringVar(&c.archivePath, "path", "", "path to download the charm to")
+	f.StringVar(&c.charmHubURL, "charm-hub-url", "", "override the model config by specifying the charmhub url for querying the store")
+	f.StringVar(&c.archivePath, "filepath", "", "filepath location of the charm to download to")
 }
 
 // Init initializes the download command, including validating the provided
@@ -93,7 +93,7 @@ func (c *downloadCommand) Init(args []string) error {
 func (c *downloadCommand) validateCharmOrBundle(charmOrBundle string) error {
 	curl, err := charm.ParseURL(charmOrBundle)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "unexpected charm or bundle name")
 	}
 	if !charm.CharmHub.Matches(curl.Schema) {
 		return errors.Errorf("%q is not a Charm Hub charm", charmOrBundle)
@@ -157,8 +157,8 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	// TODO (stickupkid): All the user to specify the location of the download
-	// path.
+	// TODO (stickupkid): Allow the user to specify the channel location for
+	// the download URL.
 	resourceURL, err := url.Parse(info.DefaultRelease.Revision.Download.URL)
 	if err != nil {
 		return errors.Trace(err)

@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/cmd/juju/charmhub/mocks"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 type downloadSuite struct {
@@ -47,9 +48,10 @@ func (s *downloadSuite) TestRun(c *gc.C) {
 		modelConfigAPI: s.modelConfigAPI,
 		charmHubClient: s.charmHubClient,
 	}
-	cmdtesting.InitCommand(command, []string{"test"})
+	cmd := modelcmd.Wrap(command)
+	cmdtesting.InitCommand(cmd, []string{"test"})
 	ctx := commandContextForTest(c)
-	err := command.Run(ctx)
+	err := cmd.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
