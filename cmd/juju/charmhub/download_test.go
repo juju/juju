@@ -14,14 +14,25 @@ import (
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/cmd/juju/charmhub/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/testing"
 )
 
 type downloadSuite struct {
+	testing.FakeJujuXDGDataHomeSuite
+	store *jujuclient.MemStore
+
 	charmHubClient *mocks.MockCharmHubClient
 	modelConfigAPI *mocks.MockModelConfigGetter
 }
 
 var _ = gc.Suite(&downloadSuite{})
+
+func (s *downloadSuite) SetUpTest(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.store = jujuclienttesting.MinimalStore()
+}
 
 func (s *downloadSuite) TestInitNoArgs(c *gc.C) {
 	command := &downloadCommand{}
@@ -48,7 +59,8 @@ func (s *downloadSuite) TestRun(c *gc.C) {
 		modelConfigAPI: s.modelConfigAPI,
 		charmHubClient: s.charmHubClient,
 	}
-	cmd := modelcmd.Wrap(command)
+	command.SetClientStore(s.store)
+	cmd := modelcmd.Wrap(command, modelcmd.WrapSkipModelInit)
 	err := cmdtesting.InitCommand(cmd, []string{"test"})
 	c.Assert(err, jc.ErrorIsNil)
 
