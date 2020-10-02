@@ -369,11 +369,11 @@ func (s *BaseSuite) k8sNewFakeWatcher() *watch.RaceFreeFakeWatcher {
 
 func (s *BaseSuite) ensureJujuNamespaceAnnotations(isController bool, ns *core.Namespace) *core.Namespace {
 	annotations := map[string]string{
-		"juju.io/controller": testing.ControllerTag.Id(),
-		"juju.io/model":      s.cfg.UUID(),
+		"juju.is/controller": testing.ControllerTag.Id(),
+		"juju.is/model":      s.cfg.UUID(),
 	}
 	if isController {
-		annotations["juju.io/is-controller"] = "true"
+		annotations["juju.is/is-controller"] = "true"
 	}
 	ns.SetAnnotations(annotations)
 	return ns

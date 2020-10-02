@@ -354,7 +354,7 @@ kubernetesResources:
       labels:
         foo: bar
       annotations:
-        juju.io/disable-name-prefix: "true"
+        juju.is/disable-name-prefix: "true"
       webhooks:
         - name: "example.mutatingwebhookconfiguration.com"
           failurePolicy: Ignore
@@ -383,7 +383,7 @@ kubernetesResources:
       labels:
         foo: bar
       annotations:
-        juju.io/disable-name-prefix: "true"
+        juju.is/disable-name-prefix: "true"
       webhooks:
         - name: "pod-policy.example.com"
           rules:
@@ -970,7 +970,7 @@ password: shhhh`[1:],
 						Meta: k8sspecs.Meta{
 							Name:        "example-mutatingwebhookconfiguration",
 							Labels:      map[string]string{"foo": "bar"},
-							Annotations: map[string]string{"juju.io/disable-name-prefix": "true"},
+							Annotations: map[string]string{"juju.is/disable-name-prefix": "true"},
 						},
 						Webhooks: []admissionregistration.MutatingWebhook{webhook1},
 					},
@@ -980,7 +980,7 @@ password: shhhh`[1:],
 						Meta: k8sspecs.Meta{
 							Name:        "pod-policy.example.com",
 							Labels:      map[string]string{"foo": "bar"},
-							Annotations: map[string]string{"juju.io/disable-name-prefix": "true"},
+							Annotations: map[string]string{"juju.is/disable-name-prefix": "true"},
 						},
 						Webhooks: []admissionregistration.ValidatingWebhook{webhook2},
 					},
@@ -1476,7 +1476,7 @@ func (s *v3SpecsSuite) TestK8sRBACResourcesToK8s(c *gc.C) {
 	appName := "app-name"
 	annotations := map[string]string{
 		"fred":               "mary",
-		"juju.io/controller": testing.ControllerTag.Id(),
+		"juju.is/controller": testing.ControllerTag.Id(),
 	}
 	prefixNameSpace := func(name string) string {
 		return fmt.Sprintf("%s-%s", namespace, name)

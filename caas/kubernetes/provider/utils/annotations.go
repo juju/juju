@@ -36,7 +36,7 @@ func AnnotationsForVersion(vers string, legacy bool) annotations.Annotation {
 	}
 }
 
-// AnnotationVersionKey returns the key used un in annotations to describe the
+// AnnotationVersionKey returns the key used in annotations to describe the
 // Juju version. Legacy controls if the key returns is a legacy annotation key
 // or newer style.
 func AnnotationVersionKey(legacy bool) string {
@@ -46,10 +46,54 @@ func AnnotationVersionKey(legacy bool) string {
 	return constants.AnnotationJujuVersion
 }
 
-func ResourceTagsToAnnotations(in map[string]string) annotations.Annotation {
+func annotationKey(name string, legacy bool) string {
+	if legacy {
+		return constants.LegacyAnnotationPrefix + "/" + name
+	}
+	return constants.AnnotationPrefix + "/" + name
+}
+
+// AnnotationModelUUIDKey returns the key used in annotations
+// to describe the model UUID.
+func AnnotationModelUUIDKey(legacy bool) string {
+	return annotationKey("model", legacy)
+}
+
+// AnnotationControllerUUIDKey returns the key used in annotations
+// to describe the controller UUID.
+func AnnotationControllerUUIDKey(legacy bool) string {
+	return annotationKey("controller", legacy)
+}
+
+// AnnotationControllerIsControllerKey returns the key used in annotations
+// to describe if this pod is a controller pod.
+func AnnotationControllerIsControllerKey(legacy bool) string {
+	return annotationKey("is-controller", legacy)
+}
+
+// AnnotationUnit returns the key used in annotations
+// to describe the Juju unit.
+func AnnotationUnit(legacy bool) string {
+	return annotationKey("unit", legacy)
+}
+
+// AnnotationCharmModifiedVersionKey returns the key used in annotations
+// to describe the charm modified version.
+func AnnotationCharmModifiedVersionKey(legacy bool) string {
+	return annotationKey("charm-modified-version", legacy)
+}
+
+// AnnotationDisableNameKey returns the key used in annotations
+// to describe the disabled name prefix.
+func AnnotationDisableNameKey(legacy bool) string {
+	return annotationKey("disable-name-prefix", legacy)
+}
+
+// ResourceTagsToAnnotations creates annotations from the resource tags.
+func ResourceTagsToAnnotations(in map[string]string, legacy bool) annotations.Annotation {
 	tagsAnnotationsMap := map[string]string{
-		tags.JujuController: constants.AnnotationControllerUUIDKey,
-		tags.JujuModel:      constants.AnnotationModelUUIDKey,
+		tags.JujuController: AnnotationControllerUUIDKey(legacy),
+		tags.JujuModel:      AnnotationModelUUIDKey(legacy),
 	}
 
 	out := annotations.New(nil)

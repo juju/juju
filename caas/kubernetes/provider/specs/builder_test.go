@@ -111,7 +111,7 @@ func (s *builderSuite) SetUpTest(c *gc.C) {
 		map[string]string{
 			"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 			"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-			"juju.io/controller":                       testing.ControllerTag.Id(),
+			"juju.is/controller":                       testing.ControllerTag.Id(),
 		},
 	)
 }

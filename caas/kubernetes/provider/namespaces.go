@@ -20,7 +20,8 @@ import (
 )
 
 var requireAnnotationsForNameSpace = []string{
-	constants.AnnotationControllerUUIDKey(), constants.AnnotationModelUUIDKey(),
+	utils.AnnotationControllerUUIDKey(false),
+	utils.AnnotationModelUUIDKey(false),
 }
 
 func checkNamespaceOwnedByJuju(ns *core.Namespace, annotationMap map[string]string) error {
@@ -110,7 +111,7 @@ func (k *kubernetesClient) GetCurrentNamespace() string {
 
 func (k *kubernetesClient) ensureNamespaceAnnotations(ns *core.Namespace) error {
 	annotations := k8sannotations.New(ns.GetAnnotations()).Merge(k.annotations)
-	// check required keys are set: constants.AnnotationControllerUUIDKey(), constants.AnnotationModelUUIDKey().
+	// check required keys are set: constants.AnnotationControllerUUIDKey, constants.AnnotationModelUUIDKey.
 	if err := annotations.CheckKeysNonEmpty(requireAnnotationsForNameSpace...); err != nil {
 		return errors.Trace(err)
 	}
@@ -153,7 +154,7 @@ func (k *kubernetesClient) deleteNamespace() error {
 	}
 
 	err = k.client().CoreV1().Namespaces().Delete(context.TODO(), k.namespace, v1.DeleteOptions{
-		PropagationPolicy: constants.DefaultPropagationPolicy(),
+		PropagationPolicy: &constants.DefaultPropagationPolicy,
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

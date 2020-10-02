@@ -123,15 +123,15 @@ func (s *bootstrapSuite) TestControllerCorelation(c *gc.C) {
 	existingNs := core.Namespace{}
 	existingNs.SetName("controller-1")
 	existingNs.SetAnnotations(map[string]string{
-		"juju.io/model":         s.cfg.UUID(),
-		"juju.io/controller":    testing.ControllerTag.Id(),
-		"juju.io/is-controller": "true",
+		"juju.is/model":         s.cfg.UUID(),
+		"juju.is/controller":    testing.ControllerTag.Id(),
+		"juju.is/is-controller": "true",
 	})
 
 	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, s.getNamespace())
 	c.Assert(s.broker.GetAnnotations().ToMap(), jc.DeepEquals, map[string]string{
-		"juju.io/model":      s.cfg.UUID(),
-		"juju.io/controller": testing.ControllerTag.Id(),
+		"juju.is/model":      s.cfg.UUID(),
+		"juju.is/controller": testing.ControllerTag.Id(),
 	})
 
 	gomock.InOrder(
@@ -145,9 +145,9 @@ func (s *bootstrapSuite) TestControllerCorelation(c *gc.C) {
 		// "is-controller" is set as well.
 		s.broker.GetAnnotations().ToMap(), jc.DeepEquals,
 		map[string]string{
-			"juju.io/model":         s.cfg.UUID(),
-			"juju.io/controller":    testing.ControllerTag.Id(),
-			"juju.io/is-controller": "true",
+			"juju.is/model":         s.cfg.UUID(),
+			"juju.is/controller":    testing.ControllerTag.Id(),
+			"juju.is/is-controller": "true",
 		},
 	)
 	// controller namespace linked back(changed from 'controller' to 'controller-1')
@@ -295,13 +295,13 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	c.Assert(
 		s.broker.GetAnnotations().ToMap(), jc.DeepEquals,
 		map[string]string{
-			"juju.io/model":      s.cfg.UUID(),
-			"juju.io/controller": testing.ControllerTag.Id(),
+			"juju.is/model":      s.cfg.UUID(),
+			"juju.is/controller": testing.ControllerTag.Id(),
 		},
 	)
 
 	// Done in broker.Bootstrap method actually.
-	s.broker.GetAnnotations().Add("juju.io/is-controller", "true")
+	s.broker.GetAnnotations().Add("juju.is/is-controller", "true")
 
 	s.pcfg.Bootstrap.Timeout = 10 * time.Minute
 	s.pcfg.Bootstrap.ControllerExternalIPs = []string{"10.0.0.1"}
@@ -337,7 +337,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			Name:        "juju-controller-test-service",
 			Namespace:   s.getNamespace(),
 			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "juju-controller-test"},
-			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
+			Annotations: map[string]string{"juju.is/controller": testing.ControllerTag.Id()},
 		},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{"app.kubernetes.io/name": "juju-controller-test"},
@@ -359,7 +359,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			Name:        "juju-controller-test-service",
 			Namespace:   s.getNamespace(),
 			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "juju-controller-test"},
-			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
+			Annotations: map[string]string{"juju.is/controller": testing.ControllerTag.Id()},
 		},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{"app.kubernetes.io/name": "juju-controller-test"},
@@ -380,7 +380,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			Name:        "juju-controller-test-secret",
 			Namespace:   s.getNamespace(),
 			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "juju-controller-test"},
-			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
+			Annotations: map[string]string{"juju.is/controller": testing.ControllerTag.Id()},
 		},
 		Type: core.SecretTypeOpaque,
 	}
@@ -389,7 +389,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			Name:        "juju-controller-test-secret",
 			Namespace:   s.getNamespace(),
 			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "juju-controller-test"},
-			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
+			Annotations: map[string]string{"juju.is/controller": testing.ControllerTag.Id()},
 		},
 		Type: core.SecretTypeOpaque,
 		Data: map[string][]byte{
@@ -401,7 +401,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			Name:        "juju-controller-test-secret",
 			Namespace:   s.getNamespace(),
 			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "juju-controller-test"},
-			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
+			Annotations: map[string]string{"juju.is/controller": testing.ControllerTag.Id()},
 		},
 		Type: core.SecretTypeOpaque,
 		Data: map[string][]byte{
@@ -415,7 +415,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			Name:        "juju-controller-test-configmap",
 			Namespace:   s.getNamespace(),
 			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "juju-controller-test"},
-			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
+			Annotations: map[string]string{"juju.is/controller": testing.ControllerTag.Id()},
 		},
 	}
 	bootstrapParamsContent, err := s.pcfg.Bootstrap.StateInitializationParams.Marshal()
@@ -426,7 +426,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			Name:        "juju-controller-test-configmap",
 			Namespace:   s.getNamespace(),
 			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "juju-controller-test"},
-			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
+			Annotations: map[string]string{"juju.is/controller": testing.ControllerTag.Id()},
 		},
 		Data: map[string]string{
 			"bootstrap-params": string(bootstrapParamsContent),
@@ -437,7 +437,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			Name:        "juju-controller-test-configmap",
 			Namespace:   s.getNamespace(),
 			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "juju-controller-test"},
-			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
+			Annotations: map[string]string{"juju.is/controller": testing.ControllerTag.Id()},
 		},
 		Data: map[string]string{
 			"bootstrap-params": string(bootstrapParamsContent),
@@ -452,7 +452,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			Name:        "juju-controller-test",
 			Namespace:   s.getNamespace(),
 			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "juju-controller-test"},
-			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
+			Annotations: map[string]string{"juju.is/controller": testing.ControllerTag.Id()},
 		},
 		Spec: apps.StatefulSetSpec{
 			ServiceName: "juju-controller-test-service",
@@ -465,7 +465,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 					ObjectMeta: v1.ObjectMeta{
 						Name:        "storage",
 						Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "juju-controller-test"},
-						Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
+						Annotations: map[string]string{"juju.is/controller": testing.ControllerTag.Id()},
 					},
 					Spec: core.PersistentVolumeClaimSpec{
 						StorageClassName: &scName,
@@ -483,7 +483,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 					Name:        "controller-0",
 					Namespace:   s.getNamespace(),
 					Labels:      map[string]string{"app.kubernetes.io/name": "juju-controller-test"},
-					Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
+					Annotations: map[string]string{"juju.is/controller": testing.ControllerTag.Id()},
 				},
 				Spec: core.PodSpec{
 					RestartPolicy: core.RestartPolicyAlways,
