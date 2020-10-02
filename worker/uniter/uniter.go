@@ -384,12 +384,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		return nil
 	}
 
-	var rebootDetected bool
-	if u.modelType == model.IAAS {
-		if rebootDetected, err = u.rebootQuerier.Query(unitTag); err != nil {
-			return errors.Annotatef(err, "could not check reboot status for %q", unitTag)
-		}
-	} else if u.modelType == model.CAAS && u.isRemoteUnit {
+	if u.modelType == model.CAAS && u.isRemoteUnit {
 		if u.containerRunningStatusChannel == nil {
 			return errors.NotValidf("ContainerRunningStatusChannel missing for CAAS remote unit")
 		}
@@ -398,10 +393,18 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		}
 	}
 
+	var rebootDetected bool
+
 	for {
 		if err = restartWatcher(); err != nil {
 			err = errors.Annotate(err, "(re)starting watcher")
 			break
+		}
+
+		if u.modelType == model.IAAS {
+			if rebootDetected, err = u.rebootQuerier.Query(unitTag); err != nil {
+				return errors.Annotatef(err, "could not check reboot status for %q", unitTag)
+			}
 		}
 
 		cfg := ResolverConfig{
