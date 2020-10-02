@@ -4,14 +4,18 @@
 package caasapplicationprovisioner
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"sort"
 
-	"github.com/juju/charm/v8"
+	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/set"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
@@ -25,12 +29,12 @@ import (
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
-	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/version"
@@ -113,20 +117,6 @@ func NewCAASApplicationProvisionerAPI(
 		storagePoolManager: storagePoolManager,
 		registry:           registry,
 	}, nil
-}
-
-// WatchApplications starts a StringsWatcher to watch CAAS applications
-// deployed to this model.
-func (a *API) WatchApplications() (params.StringsWatchResult, error) {
-	watch := a.state.WatchApplications()
-	// Consume the initial event and forward it to the result.
-	if changes, ok := <-watch.Changes(); ok {
-		return params.StringsWatchResult{
-			StringsWatcherId: a.resources.Register(watch),
-			Changes:          changes,
-		}, nil
-	}
-	return params.StringsWatchResult{}, watcher.EnsureErr(watch)
 }
 
 // ProvisioningInfo returns the info needed to provision a caas application.
@@ -224,6 +214,8 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		Filesystems:  filesystemParams,
 		Devices:      devices,
 		Constraints:  mergedCons,
+		Series:       app.Series(),
+		ImageRepo:    cfg.CAASImageRepo(),
 	}, nil
 }
 
@@ -310,13 +302,13 @@ func (a *API) garbageCollectOneApplication(args params.CAASApplicationGarbageCol
 	if err != nil {
 		return errors.Trace(err)
 	}
-	observedUnitTags := set.NewTags()
+	observedUnitTags := set.NewStrings()
 	for _, v := range args.ObservedUnits.Entities {
 		tag, err := names.ParseUnitTag(v.Tag)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		observedUnitTags.Add(tag)
+		observedUnitTags.Add(tag.String())
 	}
 	app, err := a.state.Application(appName.Id())
 	if err != nil {
@@ -327,15 +319,12 @@ func (a *API) garbageCollectOneApplication(args params.CAASApplicationGarbageCol
 		return errors.NotValidf("cannot force unit remove while alive")
 	}
 
-	ch, _, err := app.Charm()
+	// TODO(embedded): support more than statefulset
+	/*ch, _, err := app.Charm()
 	if err != nil {
 		return errors.Trace(err)
-	}
-	if ch.Meta() == nil ||
-		ch.Meta().Deployment == nil {
-		return errors.Errorf("charm missing deployment info")
-	}
-	deploymentType := ch.Meta().Deployment.DeploymentType
+	}*/
+	deploymentType := caas.DeploymentStateful
 
 	model, err := a.state.Model()
 	if err != nil {
@@ -345,9 +334,9 @@ func (a *API) garbageCollectOneApplication(args params.CAASApplicationGarbageCol
 	if err != nil {
 		return errors.Trace(err)
 	}
-	foundUnits := set.NewTags()
+	foundUnits := set.NewStrings()
 	for _, v := range containers {
-		foundUnits.Add(names.NewUnitTag(v.Unit()))
+		foundUnits.Add(names.NewUnitTag(v.Unit()).String())
 	}
 
 	units, err := app.AllUnits()
@@ -359,25 +348,25 @@ func (a *API) garbageCollectOneApplication(args params.CAASApplicationGarbageCol
 	for _, unit := range units {
 		tag := unit.Tag()
 		if !args.Force {
-			if !observedUnitTags.Contains(tag) {
-				// Was not known yet when pulling kuberentes state.
+			if !observedUnitTags.Contains(tag.String()) {
+				// Was not known yet when pulling kubernetes state.
 				logger.Debugf("skipping unit %q because it was not known to the worker", tag.String())
 				continue
 			}
-			if foundUnits.Contains(tag) {
+			if foundUnits.Contains(tag.String()) {
 				// Not ready to be deleted.
 				logger.Debugf("skipping unit %q because the pod still exists", tag.String())
 				continue
 			}
 			switch deploymentType {
-			case charm.DeploymentStateful:
+			case caas.DeploymentStateful:
 				ordinal := tag.(names.UnitTag).Number()
 				if ordinal < args.DesiredReplicas {
 					// Don't delete units that will reappear.
 					logger.Debugf("skipping unit %q because its still needed", tag.String())
 					continue
 				}
-			case charm.DeploymentStateless, charm.DeploymentDaemon:
+			case caas.DeploymentStateless, caas.DeploymentDaemon:
 				ci, err := unit.ContainerInfo()
 				if errors.IsNotFound(err) {
 					logger.Debugf("skipping unit %q because it hasn't been assigned a pod", tag.String())
@@ -614,4 +603,78 @@ func (a *API) devicesParams(app Application) ([]params.KubernetesDeviceParams, e
 		})
 	}
 	return devicesParams, nil
+}
+
+// ApplicationOCIResources returns the OCI image resources for an application.
+func (a *API) ApplicationOCIResources(args params.Entities) (params.CAASApplicationOCIResourceResults, error) {
+	resources, err := a.state.Resources()
+	if err != nil {
+		return params.CAASApplicationOCIResourceResults{}, errors.Trace(err)
+	}
+	res := params.CAASApplicationOCIResourceResults{
+		Results: make([]params.CAASApplicationOCIResourceResult, len(args.Entities)),
+	}
+	for i, entity := range args.Entities {
+		appTag, err := names.ParseApplicationTag(entity.Tag)
+		if err != nil {
+			res.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		app, err := a.state.Application(appTag.Id())
+		if err != nil {
+			res.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		ch, _, err := app.Charm()
+		if err != nil {
+			res.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		imageResources := params.CAASApplicationOCIResources{
+			Images: make(map[string]params.DockerImageInfo),
+		}
+		for _, v := range ch.Meta().Resources {
+			if v.Type != charmresource.TypeContainerImage {
+				continue
+			}
+			_, reader, err := resources.OpenResource(appTag.Id(), v.Name)
+			if err != nil {
+				res.Results[i].Error = apiservererrors.ServerError(err)
+				break
+			}
+			rsc, err := readDockerImageResource(reader)
+			_ = reader.Close()
+			if err != nil {
+				res.Results[i].Error = apiservererrors.ServerError(err)
+				break
+			}
+			imageResources.Images[v.Name] = rsc
+		}
+		if res.Results[i].Error != nil {
+			continue
+		}
+		res.Results[i].Result = &imageResources
+	}
+	return res, nil
+}
+
+func readDockerImageResource(reader io.Reader) (params.DockerImageInfo, error) {
+	var details resources.DockerImageDetails
+	contents, err := ioutil.ReadAll(reader)
+	if err != nil {
+		return params.DockerImageInfo{}, errors.Trace(err)
+	}
+	if err := json.Unmarshal(contents, &details); err != nil {
+		if err := yaml.Unmarshal(contents, &details); err != nil {
+			return params.DockerImageInfo{}, errors.Annotate(err, "file neither valid json or yaml")
+		}
+	}
+	if err := resources.ValidateDockerRegistryPath(details.RegistryPath); err != nil {
+		return params.DockerImageInfo{}, err
+	}
+	return params.DockerImageInfo{
+		RegistryPath: details.RegistryPath,
+		Username:     details.Username,
+		Password:     details.Password,
+	}, nil
 }

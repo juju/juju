@@ -6,6 +6,8 @@ package common_test
 import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
+	"github.com/juju/systems"
+	"github.com/juju/systems/channel"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -24,8 +26,16 @@ func (s *applicationWatcherSuite) TestEmbeddedFilter(c *gc.C) {
 	app1 := &mockAppWatcherApplication{
 		charm: mockAppWatcherCharm{
 			meta: &charm.Meta{
-				Deployment: &charm.Deployment{
-					DeploymentMode: charm.ModeEmbedded,
+				// charm.FormatV2.
+				Systems: []systems.System{
+					{
+						OS: "ubuntu",
+						Channel: channel.Channel{
+							Name:  "20.04/stable",
+							Risk:  "stable",
+							Track: "20.04",
+						},
+					},
 				},
 			},
 		},
@@ -33,6 +43,7 @@ func (s *applicationWatcherSuite) TestEmbeddedFilter(c *gc.C) {
 	app2 := &mockAppWatcherApplication{
 		charm: mockAppWatcherCharm{
 			meta: &charm.Meta{
+				// charm.FormatV1.
 				Deployment: &charm.Deployment{
 					DeploymentMode: charm.ModeWorkload,
 				},
@@ -65,8 +76,16 @@ func (s *applicationWatcherSuite) TestLegacyFilter(c *gc.C) {
 	app1 := &mockAppWatcherApplication{
 		charm: mockAppWatcherCharm{
 			meta: &charm.Meta{
-				Deployment: &charm.Deployment{
-					DeploymentMode: charm.ModeEmbedded,
+				// charm.FormatV2.
+				Systems: []systems.System{
+					{
+						OS: "ubuntu",
+						Channel: channel.Channel{
+							Name:  "20.04/stable",
+							Risk:  "stable",
+							Track: "20.04",
+						},
+					},
 				},
 			},
 		},
@@ -74,6 +93,7 @@ func (s *applicationWatcherSuite) TestLegacyFilter(c *gc.C) {
 	app2 := &mockAppWatcherApplication{
 		charm: mockAppWatcherCharm{
 			meta: &charm.Meta{
+				// charm.FormatV1.
 				Deployment: &charm.Deployment{
 					DeploymentMode: charm.ModeWorkload,
 				},
@@ -106,8 +126,16 @@ func (s *applicationWatcherSuite) TestNoFilter(c *gc.C) {
 	app1 := &mockAppWatcherApplication{
 		charm: mockAppWatcherCharm{
 			meta: &charm.Meta{
-				Deployment: &charm.Deployment{
-					DeploymentMode: charm.ModeEmbedded,
+				// charm.FormatV2.
+				Systems: []systems.System{
+					{
+						OS: "ubuntu",
+						Channel: channel.Channel{
+							Name:  "20.04/stable",
+							Risk:  "stable",
+							Track: "20.04",
+						},
+					},
 				},
 			},
 		},

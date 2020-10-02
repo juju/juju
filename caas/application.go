@@ -4,11 +4,11 @@
 package caas
 
 import (
-	"github.com/juju/charm/v8"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/storage"
 )
@@ -62,6 +62,12 @@ type ApplicationConfig struct {
 	// AgentImagePath is the docker registry URL for the image.
 	AgentImagePath string
 
+	// CharmBaseImage is the docker image used by the charm.
+	CharmBaseImage resources.DockerImageDetails
+
+	// Containers is the list of containers that make up the container (excluding uniter and init containers).
+	Containers map[string]ContainerConfig
+
 	// IntroductionSecret
 	IntroductionSecret string
 	// ControllerAddresses is a comma separated list of controller addresses.
@@ -70,9 +76,6 @@ type ApplicationConfig struct {
 	ControllerAddresses string
 	// ControllerCertBundle is a PEM cert bundle for talking to the Juju controller.
 	ControllerCertBundle string
-
-	// Charm of the Application.
-	Charm charm.Charm
 
 	// ResourceTags is a set of tags to set on the operator pod.
 	ResourceTags map[string]string
@@ -86,4 +89,25 @@ type ApplicationConfig struct {
 
 	// Devices is a set of parameters for Devices that is required.
 	Devices []devices.KubernetesDeviceParams
+}
+
+// ContainerConfig describes a container that is deployed alonside the uniter/charm container.
+type ContainerConfig struct {
+	// Name of the container.
+	Name string
+
+	// Image used to create the container.
+	Image resources.DockerImageDetails
+
+	// Mounts to storage that are to be provided within this container.
+	Mounts []MountConfig
+}
+
+// MountConfig describes a storage that should be mounted to a container.
+type MountConfig struct {
+	// StorageName is the name of the storage as specified in the charm.
+	StorageName string
+
+	// Path is the mount point inside the container.
+	Path string
 }

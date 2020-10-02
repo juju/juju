@@ -13,6 +13,7 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	coreresources "github.com/juju/juju/core/resources"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -25,6 +26,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/application"
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	resourcesmocks "github.com/juju/juju/caas/kubernetes/provider/resources/mocks"
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
@@ -100,46 +102,6 @@ func (s *applicationSuite) getApp(c *gc.C, deploymentType caas.DeploymentType, m
 	), ctrl
 }
 
-func (s *applicationSuite) getCharm(deployment *charm.Deployment) charm.Charm {
-	return &fakeCharm{
-		s.appName,
-		deployment,
-	}
-}
-
-func (s *applicationSuite) TestEnsureFailed(c *gc.C) {
-	app, _ := s.getApp(c, caas.DeploymentType("notsupported"), false)
-	c.Assert(app.Ensure(
-		caas.ApplicationConfig{
-			Charm: s.getCharm(&charm.Deployment{
-				DeploymentType: charm.DeploymentType("notsupported"),
-				DeploymentMode: charm.DeploymentMode(caas.ModeEmbedded),
-			}),
-		},
-	), gc.ErrorMatches, `unknown deployment type not supported`)
-
-	app, _ = s.getApp(c, caas.DeploymentStateless, false)
-	c.Assert(app.Ensure(
-		caas.ApplicationConfig{},
-	), gc.ErrorMatches, `charm was missing for gitlab application not valid`)
-
-	c.Assert(app.Ensure(
-		caas.ApplicationConfig{
-			Charm: s.getCharm(&charm.Deployment{
-				DeploymentType: charm.DeploymentStateful,
-			}),
-		},
-	), gc.ErrorMatches, `charm deployment type "stateful" mismatch with application "stateless" not valid`)
-
-	c.Assert(app.Ensure(
-		caas.ApplicationConfig{
-			Charm: s.getCharm(&charm.Deployment{
-				DeploymentType: charm.DeploymentStateless,
-			}),
-		},
-	), gc.ErrorMatches, `charm deployment mode is not "embedded" not valid`)
-}
-
 func (s *applicationSuite) assertEnsure(c *gc.C, deploymentType caas.DeploymentType, checkMainResource func()) {
 	appSecret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -166,6 +128,10 @@ func (s *applicationSuite) assertEnsure(c *gc.C, deploymentType caas.DeploymentT
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{"juju-app": "gitlab"},
 			Type:     corev1.ServiceTypeClusterIP,
+			Ports: []corev1.ServicePort{{
+				Name: "placeholder",
+				Port: 65535,
+			}},
 		},
 	}
 
@@ -174,28 +140,45 @@ func (s *applicationSuite) assertEnsure(c *gc.C, deploymentType caas.DeploymentT
 	c.Assert(app.Ensure(
 		caas.ApplicationConfig{
 			AgentImagePath: "operator/image-path",
-			Charm: s.getCharm(&charm.Deployment{
-				DeploymentType: charm.DeploymentType(deploymentType),
-				DeploymentMode: charm.DeploymentMode(caas.ModeEmbedded),
-			}),
-			Filesystems: []storage.KubernetesFilesystemParams{{
-				StorageName: "database",
-				Size:        100,
-				Provider:    "kubernetes",
-				Attributes:  map[string]interface{}{"storage-class": "workload-storage"},
-				Attachment: &storage.KubernetesFilesystemAttachmentParams{
-					Path: "path/to/here",
+			CharmBaseImage: coreresources.DockerImageDetails{
+				RegistryPath: "ubuntu:20.04",
+			},
+			Filesystems: []storage.KubernetesFilesystemParams{
+				{
+					StorageName: "database",
+					Size:        100,
+					Provider:    "kubernetes",
+					Attributes:  map[string]interface{}{"storage-class": "workload-storage"},
+					Attachment: &storage.KubernetesFilesystemAttachmentParams{
+						Path: "path/to/here",
+					},
+					ResourceTags: map[string]string{"foo": "bar"},
 				},
-				ResourceTags: map[string]string{"foo": "bar"},
-			}, {
-				StorageName: "logs",
-				Size:        200,
-				Provider:    "tmpfs",
-				Attributes:  map[string]interface{}{"storage-medium": "Memory"},
-				Attachment: &storage.KubernetesFilesystemAttachmentParams{
-					Path: "path/to/there",
+				// TODO(embedded): fix here - all filesystems will not be mounted if it's not in `Containers[*].Mounts`
+				// {
+				// 	StorageName: "logs",
+				// 	Size:        200,
+				// 	Provider:    "tmpfs",
+				// 	Attributes:  map[string]interface{}{"storage-medium": "Memory"},
+				// 	Attachment: &storage.KubernetesFilesystemAttachmentParams{
+				// 		Path: "path/to/there",
+				// 	},
+				// },
+			},
+			Containers: map[string]caas.ContainerConfig{
+				"gitlab": {
+					Name: "gitlab",
+					Image: coreresources.DockerImageDetails{
+						RegistryPath: "gitlab-image:latest",
+					},
+					Mounts: []caas.MountConfig{
+						{
+							StorageName: "database",
+							Path:        "path/to/here",
+						},
+					},
 				},
-			}},
+			},
 		},
 	), jc.ErrorIsNil)
 
@@ -208,7 +191,190 @@ func (s *applicationSuite) assertEnsure(c *gc.C, deploymentType caas.DeploymentT
 	c.Assert(svc, gc.DeepEquals, &appSvc)
 
 	checkMainResource()
+}
 
+func getPodSpec(c *gc.C) corev1.PodSpec {
+	jujuDataDir, err := paths.DataDir("kubernetes")
+	c.Assert(err, jc.ErrorIsNil)
+	return corev1.PodSpec{
+		AutomountServiceAccountToken: application.BoolPtr(false),
+		InitContainers: []corev1.Container{{
+			Name:            "juju-unit-init",
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			Image:           "operator/image-path",
+			WorkingDir:      jujuDataDir,
+			Command:         []string{"/opt/k8sagent"},
+			Args:            []string{"init"},
+			Env: []corev1.EnvVar{
+				{
+					Name:  "JUJU_CONTAINER_NAMES",
+					Value: "gitlab",
+				},
+				{
+					Name: "JUJU_K8S_POD_NAME",
+					ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{
+							FieldPath: "metadata.name",
+						},
+					},
+				},
+				{
+					Name: "JUJU_K8S_POD_UUID",
+					ValueFrom: &corev1.EnvVarSource{
+						FieldRef: &corev1.ObjectFieldSelector{
+							FieldPath: "metadata.uid",
+						},
+					},
+				},
+			},
+			EnvFrom: []corev1.EnvFromSource{
+				{
+					SecretRef: &corev1.SecretEnvSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "gitlab-application-config",
+						},
+					},
+				},
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "juju-data-dir",
+					MountPath: jujuDataDir,
+					SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
+				},
+				{
+					Name:      "juju-data-dir",
+					MountPath: "/shared/usr/bin",
+					SubPath:   "usr/bin",
+				},
+				{
+					Name:      "juju-data-dir",
+					MountPath: "/var/run/containers",
+					SubPath:   "var/run/containers",
+				},
+			},
+		}},
+		Containers: []corev1.Container{{
+			Name:            "juju-unit-agent",
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			Image:           "ubuntu:20.04",
+			WorkingDir:      jujuDataDir,
+			Command:         []string{"/usr/bin/k8sagent"},
+			Args:            []string{"unit", "--data-dir", jujuDataDir},
+			Env: []corev1.EnvVar{
+				{
+					Name:  "JUJU_CONTAINER_NAMES",
+					Value: "gitlab",
+				},
+				{
+					Name:  constants.EnvAgentHTTPProbePort,
+					Value: constants.AgentHTTPProbePort,
+				},
+			},
+			LivenessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: constants.AgentHTTPPathLiveness,
+						Port: intstr.Parse(constants.AgentHTTPProbePort),
+					},
+				},
+				InitialDelaySeconds: 30,
+				PeriodSeconds:       10,
+				SuccessThreshold:    1,
+				FailureThreshold:    2,
+			},
+			ReadinessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: constants.AgentHTTPPathReadiness,
+						Port: intstr.Parse(constants.AgentHTTPProbePort),
+					},
+				},
+				InitialDelaySeconds: 30,
+				PeriodSeconds:       10,
+				SuccessThreshold:    1,
+				FailureThreshold:    2,
+			},
+			StartupProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: constants.AgentHTTPPathStartup,
+						Port: intstr.Parse(constants.AgentHTTPProbePort),
+					},
+				},
+				InitialDelaySeconds: 30,
+				PeriodSeconds:       10,
+				SuccessThreshold:    1,
+				FailureThreshold:    2,
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "juju-data-dir",
+					MountPath: "/usr/bin/k8sagent",
+					SubPath:   "usr/bin/k8sagent",
+					ReadOnly:  true,
+				},
+				{
+					Name:      "juju-data-dir",
+					MountPath: jujuDataDir,
+					SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
+				},
+				{
+					Name:      "juju-data-dir",
+					MountPath: "/var/run/containers",
+					SubPath:   "var/run/containers",
+				},
+				{
+					Name:      "gitlab-database-appuuid",
+					MountPath: "path/to/here",
+				},
+				// {
+				// 	Name:      "gitlab-logs",
+				// 	MountPath: "path/to/there",
+				// },
+			},
+		}, {
+			Name:            "gitlab",
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			Image:           "gitlab-image:latest",
+			Command:         []string{"/usr/bin/pebble"},
+			Env: []corev1.EnvVar{
+				{
+					Name:  "JUJU_CONTAINER_NAME",
+					Value: "gitlab",
+				},
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "juju-data-dir",
+					MountPath: "/usr/bin/pebble",
+					SubPath:   "usr/bin/pebble",
+					ReadOnly:  true,
+				},
+				{
+					Name:      "juju-data-dir",
+					MountPath: "/var/run/container",
+					SubPath:   "var/run/containers/gitlab",
+				},
+				{
+					Name:      "gitlab-database-appuuid",
+					MountPath: "path/to/here",
+				},
+				// {
+				// 	Name:      "gitlab-logs",
+				// 	MountPath: "path/to/there",
+				// },
+			},
+		}},
+		Volumes: []corev1.Volume{
+			{
+				Name: "juju-data-dir",
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			},
+		},
+	}
 }
 
 func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
@@ -236,8 +402,6 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 
 			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
-			jujuDataDir, err := paths.DataDir("kubernetes")
-			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(ss, gc.DeepEquals, &appsv1.StatefulSet{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "gitlab",
@@ -258,105 +422,7 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 							Labels:      map[string]string{"juju-app": "gitlab"},
 							Annotations: map[string]string{"juju-version": "0.0.0"},
 						},
-						Spec: corev1.PodSpec{
-							AutomountServiceAccountToken: application.BoolPtr(false),
-							InitContainers: []corev1.Container{{
-								Name:            "juju-unit-init",
-								ImagePullPolicy: corev1.PullIfNotPresent,
-								Image:           "operator/image-path",
-								WorkingDir:      jujuDataDir,
-								Command:         []string{"/opt/k8sagent"},
-								Args:            []string{"init"},
-								Env: []corev1.EnvVar{
-									{
-										Name: "JUJU_K8S_POD_NAME",
-										ValueFrom: &corev1.EnvVarSource{
-											FieldRef: &corev1.ObjectFieldSelector{
-												FieldPath: "metadata.name",
-											},
-										},
-									},
-									{
-										Name: "JUJU_K8S_POD_UUID",
-										ValueFrom: &corev1.EnvVarSource{
-											FieldRef: &corev1.ObjectFieldSelector{
-												FieldPath: "metadata.uid",
-											},
-										},
-									},
-								},
-								EnvFrom: []corev1.EnvFromSource{{
-									SecretRef: &corev1.SecretEnvSource{
-										LocalObjectReference: corev1.LocalObjectReference{
-											Name: "gitlab-application-config",
-										},
-									},
-								}},
-								VolumeMounts: []corev1.VolumeMount{{
-									Name:      "juju-data-dir",
-									MountPath: jujuDataDir,
-									SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
-								}, {
-									Name:      "juju-data-dir",
-									MountPath: "/shared/usr/bin",
-									SubPath:   "usr/bin",
-								}},
-							}},
-							Containers: []corev1.Container{{
-								Name:            "juju-unit-agent",
-								ImagePullPolicy: corev1.PullIfNotPresent,
-								Image:           "operator/image-path",
-								WorkingDir:      jujuDataDir,
-								Command:         []string{"/opt/k8sagent"},
-								Args:            []string{"unit", "--data-dir", jujuDataDir},
-								VolumeMounts: []corev1.VolumeMount{
-									{
-										Name:      "juju-data-dir",
-										MountPath: jujuDataDir,
-										SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
-									},
-									{
-										Name:      "gitlab-database-appuuid",
-										MountPath: "path/to/here",
-									},
-									{
-										Name:      "gitlab-logs",
-										MountPath: "path/to/there",
-									},
-								},
-							}, {
-								Name:            "gitlab",
-								ImagePullPolicy: corev1.PullIfNotPresent,
-								Image:           "test-image",
-								Command:         []string{"/usr/bin/pebble"},
-								VolumeMounts: []corev1.VolumeMount{
-									{
-										Name:      "juju-data-dir",
-										MountPath: "/usr/bin/pebble",
-										SubPath:   "usr/bin/pebble",
-										ReadOnly:  true,
-									},
-									{
-										Name:      "gitlab-database-appuuid",
-										MountPath: "path/to/here",
-									},
-									{
-										Name:      "gitlab-logs",
-										MountPath: "path/to/there",
-									},
-								},
-							}},
-							Volumes: []corev1.Volume{
-								{
-									Name: "juju-data-dir",
-									VolumeSource: corev1.VolumeSource{
-										EmptyDir: &corev1.EmptyDirVolumeSource{
-											SizeLimit: k8sresource.NewScaledQuantity(1, k8sresource.Giga),
-										},
-									},
-								},
-							},
-						},
+						Spec: getPodSpec(c),
 					},
 					VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
 						{
@@ -412,10 +478,14 @@ func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 				},
 			})
 
-			jujuDataDir, err := paths.DataDir("kubernetes")
-			c.Assert(err, jc.ErrorIsNil)
-			size, err := k8sresource.ParseQuantity("200Mi")
-			c.Assert(err, jc.ErrorIsNil)
+			podSpec := getPodSpec(c)
+			podSpec.Volumes = append(podSpec.Volumes, corev1.Volume{
+				Name: "gitlab-database-appuuid",
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "gitlab-database-appuuid",
+					}},
+			})
 			c.Assert(ss, gc.DeepEquals, &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "gitlab",
@@ -436,119 +506,7 @@ func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 							Labels:      map[string]string{"juju-app": "gitlab"},
 							Annotations: map[string]string{"juju-version": "0.0.0"},
 						},
-						Spec: corev1.PodSpec{
-							AutomountServiceAccountToken: application.BoolPtr(false),
-							InitContainers: []corev1.Container{{
-								Name:            "juju-unit-init",
-								ImagePullPolicy: corev1.PullIfNotPresent,
-								Image:           "operator/image-path",
-								WorkingDir:      jujuDataDir,
-								Command:         []string{"/opt/k8sagent"},
-								Args:            []string{"init"},
-								Env: []corev1.EnvVar{
-									{
-										Name: "JUJU_K8S_POD_NAME",
-										ValueFrom: &corev1.EnvVarSource{
-											FieldRef: &corev1.ObjectFieldSelector{
-												FieldPath: "metadata.name",
-											},
-										},
-									},
-									{
-										Name: "JUJU_K8S_POD_UUID",
-										ValueFrom: &corev1.EnvVarSource{
-											FieldRef: &corev1.ObjectFieldSelector{
-												FieldPath: "metadata.uid",
-											},
-										},
-									},
-								},
-								EnvFrom: []corev1.EnvFromSource{{
-									SecretRef: &corev1.SecretEnvSource{
-										LocalObjectReference: corev1.LocalObjectReference{
-											Name: "gitlab-application-config",
-										},
-									},
-								}},
-								VolumeMounts: []corev1.VolumeMount{{
-									Name:      "juju-data-dir",
-									MountPath: jujuDataDir,
-									SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
-								}, {
-									Name:      "juju-data-dir",
-									MountPath: "/shared/usr/bin",
-									SubPath:   "usr/bin",
-								}},
-							}},
-							Containers: []corev1.Container{{
-								Name:            "juju-unit-agent",
-								ImagePullPolicy: corev1.PullIfNotPresent,
-								Image:           "operator/image-path",
-								WorkingDir:      jujuDataDir,
-								Command:         []string{"/opt/k8sagent"},
-								Args:            []string{"unit", "--data-dir", jujuDataDir},
-								VolumeMounts: []corev1.VolumeMount{
-									{
-										Name:      "juju-data-dir",
-										MountPath: jujuDataDir,
-										SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
-									},
-									{
-										Name:      "gitlab-database-appuuid",
-										MountPath: "path/to/here",
-									},
-									{
-										Name:      "gitlab-logs",
-										MountPath: "path/to/there",
-									},
-								},
-							}, {
-								Name:            "gitlab",
-								ImagePullPolicy: corev1.PullIfNotPresent,
-								Image:           "test-image",
-								Command:         []string{"/usr/bin/pebble"},
-								VolumeMounts: []corev1.VolumeMount{
-									{
-										Name:      "juju-data-dir",
-										MountPath: "/usr/bin/pebble",
-										SubPath:   "usr/bin/pebble",
-										ReadOnly:  true,
-									},
-									{
-										Name:      "gitlab-database-appuuid",
-										MountPath: "path/to/here",
-									},
-									{
-										Name:      "gitlab-logs",
-										MountPath: "path/to/there",
-									},
-								},
-							}},
-							Volumes: []corev1.Volume{
-								{
-									Name: "juju-data-dir",
-									VolumeSource: corev1.VolumeSource{
-										EmptyDir: &corev1.EmptyDirVolumeSource{
-											SizeLimit: k8sresource.NewScaledQuantity(1, k8sresource.Giga),
-										},
-									},
-								},
-								{
-									Name: "gitlab-database-appuuid",
-									VolumeSource: corev1.VolumeSource{
-										PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-											ClaimName: "gitlab-database-appuuid",
-										}},
-								},
-								{
-									Name: "gitlab-logs",
-									VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{
-										SizeLimit: &size,
-										Medium:    "Memory",
-									}},
-								},
-							},
-						},
+						Spec: podSpec,
 					},
 				},
 			})
@@ -584,10 +542,14 @@ func (s *applicationSuite) TestEnsureDaemon(c *gc.C) {
 				},
 			})
 
-			jujuDataDir, err := paths.DataDir("kubernetes")
-			c.Assert(err, jc.ErrorIsNil)
-			size, err := k8sresource.ParseQuantity("200Mi")
-			c.Assert(err, jc.ErrorIsNil)
+			podSpec := getPodSpec(c)
+			podSpec.Volumes = append(podSpec.Volumes, corev1.Volume{
+				Name: "gitlab-database-appuuid",
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "gitlab-database-appuuid",
+					}},
+			})
 			c.Assert(ss, gc.DeepEquals, &appsv1.DaemonSet{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "gitlab",
@@ -607,119 +569,7 @@ func (s *applicationSuite) TestEnsureDaemon(c *gc.C) {
 							Labels:      map[string]string{"juju-app": "gitlab"},
 							Annotations: map[string]string{"juju-version": "0.0.0"},
 						},
-						Spec: corev1.PodSpec{
-							AutomountServiceAccountToken: application.BoolPtr(false),
-							InitContainers: []corev1.Container{{
-								Name:            "juju-unit-init",
-								ImagePullPolicy: corev1.PullIfNotPresent,
-								Image:           "operator/image-path",
-								WorkingDir:      jujuDataDir,
-								Command:         []string{"/opt/k8sagent"},
-								Args:            []string{"init"},
-								Env: []corev1.EnvVar{
-									{
-										Name: "JUJU_K8S_POD_NAME",
-										ValueFrom: &corev1.EnvVarSource{
-											FieldRef: &corev1.ObjectFieldSelector{
-												FieldPath: "metadata.name",
-											},
-										},
-									},
-									{
-										Name: "JUJU_K8S_POD_UUID",
-										ValueFrom: &corev1.EnvVarSource{
-											FieldRef: &corev1.ObjectFieldSelector{
-												FieldPath: "metadata.uid",
-											},
-										},
-									},
-								},
-								EnvFrom: []corev1.EnvFromSource{{
-									SecretRef: &corev1.SecretEnvSource{
-										LocalObjectReference: corev1.LocalObjectReference{
-											Name: "gitlab-application-config",
-										},
-									},
-								}},
-								VolumeMounts: []corev1.VolumeMount{{
-									Name:      "juju-data-dir",
-									MountPath: jujuDataDir,
-									SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
-								}, {
-									Name:      "juju-data-dir",
-									MountPath: "/shared/usr/bin",
-									SubPath:   "usr/bin",
-								}},
-							}},
-							Containers: []corev1.Container{{
-								Name:            "juju-unit-agent",
-								ImagePullPolicy: corev1.PullIfNotPresent,
-								Image:           "operator/image-path",
-								WorkingDir:      jujuDataDir,
-								Command:         []string{"/opt/k8sagent"},
-								Args:            []string{"unit", "--data-dir", jujuDataDir},
-								VolumeMounts: []corev1.VolumeMount{
-									{
-										Name:      "juju-data-dir",
-										MountPath: jujuDataDir,
-										SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
-									},
-									{
-										Name:      "gitlab-database-appuuid",
-										MountPath: "path/to/here",
-									},
-									{
-										Name:      "gitlab-logs",
-										MountPath: "path/to/there",
-									},
-								},
-							}, {
-								Name:            "gitlab",
-								ImagePullPolicy: corev1.PullIfNotPresent,
-								Image:           "test-image",
-								Command:         []string{"/usr/bin/pebble"},
-								VolumeMounts: []corev1.VolumeMount{
-									{
-										Name:      "juju-data-dir",
-										MountPath: "/usr/bin/pebble",
-										SubPath:   "usr/bin/pebble",
-										ReadOnly:  true,
-									},
-									{
-										Name:      "gitlab-database-appuuid",
-										MountPath: "path/to/here",
-									},
-									{
-										Name:      "gitlab-logs",
-										MountPath: "path/to/there",
-									},
-								},
-							}},
-							Volumes: []corev1.Volume{
-								{
-									Name: "juju-data-dir",
-									VolumeSource: corev1.VolumeSource{
-										EmptyDir: &corev1.EmptyDirVolumeSource{
-											SizeLimit: k8sresource.NewScaledQuantity(1, k8sresource.Giga),
-										},
-									},
-								},
-								{
-									Name: "gitlab-database-appuuid",
-									VolumeSource: corev1.VolumeSource{
-										PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-											ClaimName: "gitlab-database-appuuid",
-										}},
-								},
-								{
-									Name: "gitlab-logs",
-									VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{
-										SizeLimit: &size,
-										Medium:    "Memory",
-									}},
-								},
-							},
-						},
+						Spec: podSpec,
 					},
 				},
 			})

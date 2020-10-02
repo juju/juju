@@ -8,6 +8,7 @@ import (
 	"github.com/juju/charm/v8/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
+	"github.com/juju/systems"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -127,6 +128,10 @@ func convertCharmMeta(meta *charm.Meta) *params.CharmMeta {
 		Resources:      convertCharmResourceMetaMap(meta.Resources),
 		Terms:          meta.Terms,
 		MinJujuVersion: meta.MinJujuVersion.String(),
+		Systems:        convertCharmSystems(meta.Systems),
+		Platforms:      convertCharmPlatforms(meta.Platforms),
+		Architectures:  convertCharmArchitectures(meta.Architectures),
+		Containers:     convertCharmContainers(meta.Containers),
 	}
 }
 
@@ -346,4 +351,57 @@ func convertCharmDevices(devices map[string]charm.Device) map[string]params.Char
 		}
 	}
 	return results
+}
+
+func convertCharmSystems(input []systems.System) []params.CharmSystem {
+	systems := []params.CharmSystem(nil)
+	for _, v := range input {
+		systems = append(systems, params.CharmSystem{
+			OS:       v.OS,
+			Channel:  v.Channel.String(),
+			Resource: v.Resource,
+		})
+	}
+	return systems
+}
+
+func convertCharmPlatforms(input []charm.Platform) []string {
+	platforms := []string(nil)
+	for _, v := range input {
+		platforms = append(platforms, string(v))
+	}
+	return platforms
+}
+
+func convertCharmArchitectures(input []charm.Architecture) []string {
+	architectures := []string(nil)
+	for _, v := range input {
+		architectures = append(architectures, string(v))
+	}
+	return architectures
+}
+
+func convertCharmContainers(input map[string]charm.Container) map[string]params.CharmContainer {
+	containers := map[string]params.CharmContainer{}
+	for k, v := range input {
+		containers[k] = params.CharmContainer{
+			Systems: convertCharmSystems(v.Systems),
+			Mounts:  convertCharmMounts(v.Mounts),
+		}
+	}
+	if len(containers) == 0 {
+		return nil
+	}
+	return containers
+}
+
+func convertCharmMounts(input []charm.Mount) []params.CharmMount {
+	mounts := []params.CharmMount(nil)
+	for _, v := range input {
+		mounts = append(mounts, params.CharmMount{
+			Storage:  v.Storage,
+			Location: v.Location,
+		})
+	}
+	return mounts
 }

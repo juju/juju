@@ -4931,16 +4931,19 @@ func (s *ApplicationSuite) TestCAASEmbeddedCharm(c *gc.C) {
 	f := factory.NewFactory(st, s.StatePool)
 
 	charmDef := `
-name: mysql
+name: cockroachdb
 description: foo
 summary: foo
-series:
+platforms:
   - kubernetes
-deployment:
-  mode: embedded
+architectures:
+  - amd64
+systems:
+  - os: ubuntu
+    channel: 20.04/stable
 `
-	ch := state.AddCustomCharm(c, st, "mysql", "metadata.yaml", charmDef, "kubernetes", 1)
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: ch})
+	ch := state.AddCustomCharmForSeries(c, st, "cockroach", "metadata.yaml", charmDef, "focal", 1)
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "cockroachdb", Charm: ch})
 
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -4966,7 +4969,7 @@ series:
 deployment:
   mode: workload
 `
-	ch := state.AddCustomCharm(c, st, "mysql", "metadata.yaml", charmDef, "kubernetes", 1)
+	ch := state.AddCustomCharmForSeries(c, st, "mysql", "metadata.yaml", charmDef, "kubernetes", 1)
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: ch})
 
 	unit, err := app.AddUnit(state.AddUnitParams{})

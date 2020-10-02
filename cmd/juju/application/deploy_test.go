@@ -1311,6 +1311,13 @@ func (s *DeploySuite) TestForceMachineSubordinate(c *gc.C) {
 }
 
 func (s *DeploySuite) TestNonLocalCannotHostUnits(c *gc.C) {
+	s.fakeAPI.Call("CharmInfo", "local:dummy").Returns(
+		&apicommoncharms.CharmInfo{
+			URL:  "local:dummy",
+			Meta: &charm.Meta{Name: "dummy", Series: []string{"bionic"}},
+		},
+		error(nil),
+	)
 	err := s.runDeploy(c, "--to", "0", "local:dummy", "portlandia")
 	c.Assert(err, gc.Not(gc.ErrorMatches), "machine 0 is the controller for a local model and cannot host units")
 }
@@ -1442,6 +1449,13 @@ func (s *DeploySuite) TestDeployWithTermsNotSigned(c *gc.C) {
 	deployURL.Revision = 1
 	origin := commoncharm.Origin{Source: "charm-store"}
 	s.fakeAPI.Call("AddCharm", &deployURL, origin, false, "bionic").Returns(origin, error(termsRequiredError))
+	s.fakeAPI.Call("CharmInfo", deployURL.String()).Returns(
+		&apicommoncharms.CharmInfo{
+			URL:  deployURL.String(),
+			Meta: &charm.Meta{Name: "dummy", Series: []string{"bionic"}},
+		},
+		error(nil),
+	)
 	deploy := s.deployCommand()
 
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:bionic/terms1")

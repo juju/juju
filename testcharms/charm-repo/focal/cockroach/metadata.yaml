@@ -1,0 +1,28 @@
+name: cockroachdb
+summary: cockroachdb
+maintainers: ["Harry Pidcock <harry.pidcock@canonical.com>"]
+description: cockroachdb
+platforms:
+  - kubernetes
+architectures:
+  - amd64
+systems:
+  - os: ubuntu
+    channel: 20.04/stable
+containers:
+  cockroachdb:
+    systems:
+      - resource: cockroachdb-image
+    mounts:
+      - storage: database
+        location: /cockroach/cockroach-data
+storage:
+  database:
+    type: filesystem
+provides:
+  db:
+    interface: roach
+resources:
+  cockroachdb-image:
+    type: oci-image
+    description: OCI image used for cockroachdb

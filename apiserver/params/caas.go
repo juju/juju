@@ -43,6 +43,8 @@ type CAASApplicationProvisioningInfo struct {
 	Filesystems  []KubernetesFilesystemParams `json:"filesystems,omitempty"`
 	Volumes      []KubernetesVolumeParams     `json:"volumes,omitempty"`
 	Devices      []KubernetesDeviceParams     `json:"devices,omitempty"`
+	Series       string                       `json:"series,omitempty"`
+	ImageRepo    string                       `json:"image-repo,omitempty"`
 	Error        *Error                       `json:"error,omitempty"`
 }
 
@@ -60,4 +62,32 @@ type CAASApplicationGarbageCollectArg struct {
 // gone away permanently.
 type CAASApplicationGarbageCollectArgs struct {
 	Args []CAASApplicationGarbageCollectArg `json:"args"`
+}
+
+// DockerImageInfo holds the details for a Docker resource type.
+type DockerImageInfo struct {
+	// RegistryPath holds the path of the Docker image (including host and sha256) in a docker registry.
+	RegistryPath string `json:"image-name"`
+
+	// Username holds the username used to gain access to a non-public image.
+	Username string `json:"username,omitempty"`
+
+	// Password holds the password used to gain access to a non-public image.
+	Password string `json:"password,omitempty"`
+}
+
+// CAASApplicationOCIResourceResults holds all the image results for queried applications.
+type CAASApplicationOCIResourceResults struct {
+	Results []CAASApplicationOCIResourceResult `json:"results"`
+}
+
+// CAASApplicationOCIResourceResult holds the image result or error for the queried application.
+type CAASApplicationOCIResourceResult struct {
+	Result *CAASApplicationOCIResources `json:"result,omitempty"`
+	Error  *Error                       `json:"error,omitempty"`
+}
+
+// CAASApplicationOCIResources holds a list of image OCI resources.
+type CAASApplicationOCIResources struct {
+	Images map[string]DockerImageInfo `json:"images"`
 }

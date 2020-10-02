@@ -43,7 +43,7 @@ require (
 	github.com/joyent/gosign v0.0.0-20140524000734-0da0d5f13420
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
 	github.com/juju/bundlechanges/v3 v3.0.0-20200909112830-2eb08291b192
-	github.com/juju/charm/v8 v8.0.0-20200918105822-d7e8e94ba938
+	github.com/juju/charm/v8 v8.0.0-20200925052646-bb021a575610
 	github.com/juju/charmrepo/v6 v6.0.0-20200817155725-120bd7a8b1ed
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
 	github.com/juju/cmd v0.0.0-20200108104440-8e43f3faa5c9
@@ -76,6 +76,7 @@ require (
 	github.com/juju/romulus v0.0.0-20191205211046-fd7cab26ac5f
 	github.com/juju/rpcreflect v0.0.0-20200416001309-bb46e9ba1476
 	github.com/juju/schema v1.0.1-0.20190814234152-1f8aaeef0989
+	github.com/juju/systems v0.0.0-20200925032749-8c613192c759
 	github.com/juju/terms-client v1.0.2-0.20200331164339-fab45ea044ae
 	github.com/juju/testing v0.0.0-20200923013621-75df6121fbb0
 	github.com/juju/txn v0.0.0-20190416045819-5f348e78887d
@@ -107,9 +108,9 @@ require (
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
-	golang.org/x/net v0.0.0-20200904194848-62affa334b73
+	golang.org/x/net v0.0.0-20200923182212-328152dc79b1
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
-	golang.org/x/sys v0.0.0-20200817085935-3ff754bf58a9
+	golang.org/x/sys v0.0.0-20200923182605-d9f96fdee20d
 	golang.org/x/text v0.3.3 // indirect
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	golang.org/x/tools v0.0.0-20200725200936-102e7d357031
@@ -137,7 +138,7 @@ require (
 	gopkg.in/robfig/cron.v2 v2.0.0-20150107220207-be2e0b0deed5 // indirect
 	gopkg.in/tomb.v2 v2.0.0-20161208151619-d5d1b5820637
 	gopkg.in/yaml.v2 v2.3.0
-	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
+	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
 	k8s.io/api v0.18.6
 	k8s.io/apiextensions-apiserver v0.18.6
 	k8s.io/apimachinery v0.18.6
@@ -159,8 +160,6 @@ replace gopkg.in/yaml.v2 => github.com/juju/yaml v0.0.0-20200420012109-12a32b78d
 replace github.com/dustin/go-humanize v1.0.0 => github.com/dustin/go-humanize v0.0.0-20141228071148-145fabdb1ab7
 
 replace github.com/hashicorp/raft-boltdb => github.com/juju/raft-boltdb v0.0.0-20200518034108-40b112c917c5
-
-replace github.com/juju/charm/v7 => github.com/hpidcock/charm/v7 v7.0.0-20200720023205-b471240a6312
 
 replace (
 	k8s.io/api v0.0.0 => k8s.io/api v0.18.6
@@ -185,5 +184,3 @@ replace (
 	k8s.io/metrics v0.0.0 => k8s.io/metrics v0.18.6
 	k8s.io/sample-apiserver v0.0.0 => k8s.io/sample-apiserver v0.18.6
 )
-
-replace github.com/juju/charm/v8 => github.com/hpidcock/charm/v8 v8.0.0-20200921072628-48fce167a0e4

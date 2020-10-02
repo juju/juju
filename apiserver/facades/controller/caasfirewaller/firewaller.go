@@ -8,6 +8,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
@@ -119,6 +120,7 @@ func (f *Facade) getApplicationConfig(tagString string) (map[string]interface{},
 // FacadeEmbedded provides access to the CAASFireWaller API facade for embedded applications.
 type FacadeEmbedded struct {
 	*Facade
+	*charmscommon.CharmsAPI
 
 	accessModel common.GetAuthFunc
 }
@@ -127,12 +129,17 @@ type FacadeEmbedded struct {
 func NewStateFacadeEmbedded(ctx facade.Context) (*FacadeEmbedded, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
+	commonCharmsAPI, err := charmscommon.NewCharmsAPI(ctx.State(), authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	appWatcherFacade := common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterCAASEmbedded)
 	return newFacadeEmbedded(
 		resources,
 		authorizer,
 		&stateShim{ctx.State()},
 		appWatcherFacade,
+		commonCharmsAPI,
 	)
 }
 
@@ -141,6 +148,7 @@ func newFacadeEmbedded(
 	authorizer facade.Authorizer,
 	st CAASFirewallerState,
 	applicationWatcherFacade *common.ApplicationWatcherFacade,
+	commonCharmsAPI *charmscommon.CharmsAPI,
 ) (*FacadeEmbedded, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -148,6 +156,7 @@ func newFacadeEmbedded(
 	accessApplication := common.AuthFuncForTagKind(names.ApplicationTagKind)
 
 	return &FacadeEmbedded{
+		CharmsAPI:   commonCharmsAPI,
 		accessModel: common.AuthFuncForTagKind(names.ModelTagKind),
 		Facade: &Facade{
 			LifeGetter: common.NewLifeGetter(
@@ -161,9 +170,9 @@ func newFacadeEmbedded(
 				resources,
 				accessApplication,
 			),
+			ApplicationWatcherFacade: applicationWatcherFacade,
 			resources:                resources,
 			state:                    st,
-			ApplicationWatcherFacade: applicationWatcherFacade,
 		},
 	}, nil
 }

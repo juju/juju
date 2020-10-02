@@ -6,11 +6,14 @@ package caasfirewaller_test
 import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/names/v4"
+	"github.com/juju/systems"
+	"github.com/juju/systems/channel"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
 	"github.com/juju/juju/apiserver/params"
@@ -33,9 +36,7 @@ type firewallerBaseSuite struct {
 	authorizer *apiservertesting.FakeAuthorizer
 	facade     facadeCommon
 
-	deploymentMode charm.DeploymentMode
-
-	newFunc func(resources facade.Resources,
+	newFunc func(c *gc.C, resources facade.Resources,
 		authorizer facade.Authorizer,
 		st *mockState,
 	) (facadeCommon, error)
@@ -46,9 +47,8 @@ type firewallerLegacySuite struct {
 }
 
 var _ = gc.Suite(&firewallerLegacySuite{
-	firewallerBaseSuite{
-		deploymentMode: charm.ModeWorkload,
-		newFunc: func(resources facade.Resources,
+	firewallerBaseSuite: firewallerBaseSuite{
+		newFunc: func(c *gc.C, resources facade.Resources,
 			authorizer facade.Authorizer,
 			st *mockState,
 		) (facadeCommon, error) {
@@ -71,33 +71,52 @@ func firewallerStateToAppWatcherState(st *mockState) *mockAppWatcherState {
 
 type firewallerEmbeddedSuite struct {
 	firewallerBaseSuite
+
+	facade facadeEmbedded
 }
 
 var _ = gc.Suite(&firewallerEmbeddedSuite{
-	firewallerBaseSuite{
-		deploymentMode: charm.ModeEmbedded,
-		newFunc: func(resources facade.Resources,
+	firewallerBaseSuite: firewallerBaseSuite{
+		newFunc: func(c *gc.C, resources facade.Resources,
 			authorizer facade.Authorizer,
 			st *mockState,
 		) (facadeCommon, error) {
+			commonCharmsAPI, err := charmscommon.NewCharmsAPI(st, authorizer)
+			c.Assert(err, jc.ErrorIsNil)
 			return caasfirewaller.NewFacadeEmbeddedForTest(
 				resources, authorizer, st,
 				common.NewApplicationWatcherFacade(firewallerStateToAppWatcherState(st), resources, common.ApplicationFilterCAASEmbedded),
+				commonCharmsAPI,
 			)
 		},
 	},
 })
 
+func (s *firewallerEmbeddedSuite) SetUpTest(c *gc.C) {
+	s.firewallerBaseSuite.SetUpTest(c)
+
+	// charm.FormatV2.
+	s.st.application.charm.meta.Systems = []systems.System{
+		{
+			OS: "ubuntu",
+			Channel: channel.Channel{
+				Name:  "20.04/stable",
+				Risk:  "stable",
+				Track: "20.04",
+			},
+		},
+	}
+
+	var ok bool
+	s.facade, ok = s.firewallerBaseSuite.facade.(facadeEmbedded)
+	c.Assert(ok, jc.IsTrue)
+}
+
 func (s *firewallerEmbeddedSuite) TestWatchOpenedPorts(c *gc.C) {
 	openPortsChanges := []string{"port1", "port2"}
 	s.openPortsChanges <- openPortsChanges
 
-	facade, err := caasfirewaller.NewFacadeEmbeddedForTest(
-		s.resources, s.authorizer, s.st,
-		common.NewApplicationWatcherFacade(firewallerStateToAppWatcherState(s.st), s.resources, common.ApplicationFilterCAASEmbedded),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	results, err := facade.WatchOpenedPorts(params.Entities{
+	results, err := s.facade.WatchOpenedPorts(params.Entities{
 		Entities: []params.Entity{{
 			Tag: "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		}},
@@ -109,12 +128,30 @@ func (s *firewallerEmbeddedSuite) TestWatchOpenedPorts(c *gc.C) {
 	c.Assert(result.Changes, jc.DeepEquals, openPortsChanges)
 }
 
+func (s *firewallerEmbeddedSuite) TestApplicationCharmURLs(c *gc.C) {
+	results, err := s.facade.ApplicationCharmURLs(params.Entities{
+		Entities: []params.Entity{{
+			Tag: "application-gitlab",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	result := results.Results[0]
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.Result, gc.Equals, "cs:gitlab")
+}
+
 type facadeCommon interface {
 	IsExposed(args params.Entities) (params.BoolResults, error)
 	ApplicationsConfig(args params.Entities) (params.ApplicationGetConfigResults, error)
 	WatchApplications() (params.StringsWatchResult, error)
 	Life(args params.Entities) (params.LifeResults, error)
 	Watch(args params.Entities) (params.NotifyWatchResults, error)
+}
+
+type facadeEmbedded interface {
+	facadeCommon
+	WatchOpenedPorts(args params.Entities) (params.StringsWatchResults, error)
+	ApplicationCharmURLs(args params.Entities) (params.StringResults, error)
 }
 
 func (s *firewallerBaseSuite) SetUpTest(c *gc.C) {
@@ -130,10 +167,9 @@ func (s *firewallerBaseSuite) SetUpTest(c *gc.C) {
 			watcher: appExposedWatcher,
 			charm: mockAppWatcherCharm{
 				meta: &charm.Meta{
-					Deployment: &charm.Deployment{
-						DeploymentMode: s.deploymentMode,
-					},
+					Deployment: &charm.Deployment{},
 				},
+				url: &charm.URL{Schema: "cs", Name: "gitlab", Revision: -1},
 			},
 		},
 		applicationsWatcher: statetesting.NewMockStringsWatcher(s.applicationsChanges),
@@ -150,7 +186,7 @@ func (s *firewallerBaseSuite) SetUpTest(c *gc.C) {
 		Controller: true,
 	}
 
-	facade, err := s.newFunc(s.resources, s.authorizer, s.st)
+	facade, err := s.newFunc(c, s.resources, s.authorizer, s.st)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 }
@@ -159,7 +195,7 @@ func (s *firewallerBaseSuite) TestPermission(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: names.NewMachineTag("0"),
 	}
-	_, err := s.newFunc(s.resources, s.authorizer, s.st)
+	_, err := s.newFunc(c, s.resources, s.authorizer, s.st)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 

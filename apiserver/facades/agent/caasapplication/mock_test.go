@@ -8,6 +8,8 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
+	"github.com/juju/systems"
+	"github.com/juju/systems/channel"
 	"github.com/juju/testing"
 	"github.com/juju/version"
 
@@ -47,9 +49,19 @@ func newMockState() *mockState {
 				url:    charm.MustParseURL("cs:gitlab-1"),
 				sha256: "fake-sha256",
 				meta: &charm.Meta{
+					// charm.FormatV2.
+					Systems: []systems.System{
+						{
+							OS: "ubuntu",
+							Channel: channel.Channel{
+								Name:  "20.04/stable",
+								Risk:  "stable",
+								Track: "20.04",
+							},
+						},
+					},
 					Deployment: &charm.Deployment{
 						DeploymentType: charm.DeploymentStateful,
-						DeploymentMode: charm.ModeEmbedded,
 					},
 				},
 			},

@@ -1041,6 +1041,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// TODO(embedded): handle systems
 	if err := validateCharmSeries(model.Type(), args.Series, args.Charm); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1311,9 +1312,10 @@ func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) err
 		if series := args.Charm.URL().Series; series != "" {
 			supportedSeries = []string{series}
 		} else {
-			supportedSeries = args.Charm.Meta().Series
+			supportedSeries = args.Charm.Meta().ComputedSeries()
 		}
 		if len(supportedSeries) > 0 {
+			// TODO(embedded): handle computed series
 			seriesOS, err := series.GetOSFromSeries(args.Series)
 			if err != nil {
 				return errors.Trace(err)
@@ -2022,7 +2024,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				if !ep.ImplementedBy(ch) {
 					return nil, errors.Errorf("%q does not implement %q", ep.ApplicationName, ep)
 				}
-				charmSeries := ch.Meta().Series
+				charmSeries := ch.Meta().ComputedSeries()
 				if len(charmSeries) == 0 {
 					charmSeries = []string{localApp.doc.Series}
 				}

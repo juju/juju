@@ -94,7 +94,7 @@ func (s *CAASApplicationSuite) TestWorkerStartOnceNotify(c *gc.C) {
 	}
 	called := 0
 	workerChan := make(chan struct{})
-	var notifyWorker *mockNotifyWorker
+	var notifyWorker = &mockNotifyWorker{Worker: workertest.NewErrorWorker(nil)}
 	newWorker := func(config caasapplicationprovisioner.AppWorkerConfig) func() (worker.Worker, error) {
 		called++
 		mc := jc.NewMultiChecker()
@@ -108,7 +108,6 @@ func (s *CAASApplicationSuite) TestWorkerStartOnceNotify(c *gc.C) {
 		})
 		return func() (worker.Worker, error) {
 			close(workerChan)
-			notifyWorker = &mockNotifyWorker{Worker: workertest.NewErrorWorker(nil)}
 			return notifyWorker, nil
 		}
 	}
@@ -132,7 +131,9 @@ func (s *CAASApplicationSuite) TestWorkerStartOnceNotify(c *gc.C) {
 
 	c.Assert(called, gc.Equals, 1)
 	c.Assert(notifyWorker, gc.NotNil)
-	workertest.CleanKill(c, provisioner)
-
-	notifyWorker.CheckCallNames(c, "Notify", "Notify", "Notify")
+	select {
+	case <-time.After(coretesting.ShortWait):
+		workertest.CleanKill(c, provisioner)
+		notifyWorker.CheckCallNames(c, "Notify", "Notify", "Notify")
+	}
 }

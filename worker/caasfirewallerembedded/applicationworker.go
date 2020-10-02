@@ -134,12 +134,12 @@ func (w *applicationWorker) setUp() (err error) {
 	}
 	if charmInfo == nil ||
 		charmInfo.Meta == nil ||
-		charmInfo.Meta.Deployment == nil ||
-		charmInfo.Meta.Deployment.DeploymentMode != charm.ModeEmbedded {
-		return errors.Errorf("charm missing deployment mode or received non-embedded mode")
+		charmInfo.Meta.Format() < charm.FormatV2 {
+		return errors.Errorf("charm must be version 2 or greater")
 	}
 
-	app := w.broker.Application(w.appName, caas.DeploymentType(charmInfo.Meta.Deployment.DeploymentType))
+	// TODO(embedded): support deployment other than statefulset
+	app := w.broker.Application(w.appName, caas.DeploymentStateful)
 	w.portMutator = app
 	w.serviceUpdater = app
 

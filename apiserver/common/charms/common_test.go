@@ -40,6 +40,7 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 	var clientCharmInfoTests = []struct {
 		about    string
 		charm    string
+		series   string
 		url      string
 		expected params.Charm
 		err      string
@@ -234,6 +235,71 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 			},
 		},
 		{
+			about: "retrieves new format 2 charm info",
+			// Use cockroach for tests so that we can compare Provides and Requires.
+			charm:  "cockroach",
+			series: "focal",
+			url:    "local:focal/cockroachdb-0",
+			expected: params.Charm{
+				Revision: 0,
+				URL:      "local:focal/cockroachdb-0",
+				Config:   map[string]params.CharmOption{},
+				Meta: &params.CharmMeta{
+					Name:          "cockroachdb",
+					Summary:       "cockroachdb",
+					Description:   "cockroachdb",
+					Platforms:     []string{"kubernetes"},
+					Architectures: []string{"amd64"},
+					Systems: []params.CharmSystem{
+						{
+							OS:      "ubuntu",
+							Channel: "20.04/stable",
+						},
+					},
+					Containers: map[string]params.CharmContainer{
+						"cockroachdb": {
+							Systems: []params.CharmSystem{
+								{
+									Resource: "cockroachdb-image",
+								},
+							},
+							Mounts: []params.CharmMount{
+								{
+									Storage:  "database",
+									Location: "/cockroach/cockroach-data",
+								},
+							},
+						},
+					},
+					Storage: map[string]params.CharmStorage{
+						"database": {
+							Name:     "database",
+							Type:     "filesystem",
+							CountMin: 1,
+							CountMax: 1,
+						},
+					},
+					Provides: map[string]params.CharmRelation{
+						"db": {
+							Name:      "db",
+							Role:      "provider",
+							Interface: "roach",
+							Scope:     "global",
+						},
+					},
+					Resources: map[string]params.CharmResourceMeta{
+						"cockroachdb-image": {
+							Name:        "cockroachdb-image",
+							Type:        "oci-image",
+							Description: "OCI image used for cockroachdb",
+						},
+					},
+					MinJujuVersion: "0.0.0",
+				},
+				Actions: &params.CharmActions{},
+			},
+		},
+		{
 			about: "invalid URL",
 			charm: "wordpress",
 			url:   "not-valid!",
@@ -255,7 +321,11 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 
 	for i, t := range clientCharmInfoTests {
 		c.Logf("test %d. %s", i, t.about)
-		s.AddTestingCharm(c, t.charm)
+		if t.series != "" {
+			s.AddTestingCharmForSeries(c, t.charm, t.series)
+		} else {
+			s.AddTestingCharm(c, t.charm)
+		}
 		info, err := s.api.CharmInfo(params.CharmURL{URL: t.url})
 		if t.err != "" {
 			c.Check(err, gc.ErrorMatches, t.err)

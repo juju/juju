@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/api/caasapplicationprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 )
 
@@ -149,6 +150,8 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 				Version:      vers,
 				APIAddresses: []string{"10.0.0.1:1"},
 				Tags:         map[string]string{"foo": "bar"},
+				Series:       "bionic",
+				ImageRepo:    "jujuqa",
 			}}}
 		return nil
 	})
@@ -159,6 +162,42 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 		Version:      vers,
 		APIAddresses: []string{"10.0.0.1:1"},
 		Tags:         map[string]string{"foo": "bar"},
+		Series:       "bionic",
+		ImageRepo:    "jujuqa",
+	})
+}
+
+func (s *provisionerSuite) TestApplicationOCIResources(c *gc.C) {
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		c.Check(objType, gc.Equals, "CAASApplicationProvisioner")
+		c.Check(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "ApplicationOCIResources")
+		c.Assert(a, jc.DeepEquals, params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.CAASApplicationOCIResourceResults{})
+		*(result.(*params.CAASApplicationOCIResourceResults)) = params.CAASApplicationOCIResourceResults{
+			Results: []params.CAASApplicationOCIResourceResult{
+				{
+					Result: &params.CAASApplicationOCIResources{
+						Images: map[string]params.DockerImageInfo{
+							"cockroachdb-image": {
+								RegistryPath: "cockroachdb/cockroach:v20.1.4",
+								Username:     "jujuqa",
+								Password:     "pwd",
+							},
+						},
+					},
+				},
+			}}
+		return nil
+	})
+	imageResources, err := client.ApplicationOCIResources("gitlab")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(imageResources, jc.DeepEquals, map[string]resources.DockerImageDetails{
+		"cockroachdb-image": {
+			RegistryPath: "cockroachdb/cockroach:v20.1.4",
+			Username:     "jujuqa",
+			Password:     "pwd",
+		},
 	})
 }
 
