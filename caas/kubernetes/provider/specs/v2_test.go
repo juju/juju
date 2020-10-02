@@ -91,6 +91,9 @@ containers:
           file1: |
             [config]
             foo: bar
+          file: |
+            [config]
+            foo: bar
   - name: gitlab-helper
     image: gitlab-helper/latest
     ports:
@@ -401,6 +404,7 @@ echo "do some stuff here for gitlab container"
 						MountPath: "/var/lib/foo",
 						VolumeSource: specs.VolumeSource{
 							Files: []specs.File{
+								{Path: "file", Content: expectedFileContent},
 								{Path: "file1", Content: expectedFileContent},
 							},
 						},
