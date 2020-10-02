@@ -66,13 +66,6 @@ import (
 var logger = loggo.GetLogger("juju.kubernetes.provider")
 
 const (
-	// Domain is the primary TLD for juju when giving resource domains to
-	// Kubernetes
-	Domain = "juju.is"
-
-	// annotationKeyApplicationUUID is the key of annotation for recording pvc unique ID.
-	annotationKeyApplicationUUID = "juju-app-uuid"
-
 	// labelResourceLifeCycleKey defines the label key for lifecycle of the global resources.
 	labelResourceLifeCycleKey             = "juju-resource-lifecycle"
 	labelResourceLifeCycleValueModel      = "model"
@@ -233,12 +226,6 @@ func (k *kubernetesClient) GetAnnotations() k8sannotations.Annotation {
 }
 
 var k8sversionNumberExtractor = regexp.MustCompile("[0-9]+")
-
-// MakeK8sDomain builds and returns a Kubernetes resource domain for the
-// provided components. Func is idempotent
-func MakeK8sDomain(components ...string) string {
-	return fmt.Sprintf("%s.%s", strings.Join(components, "."), Domain)
-}
 
 // Version returns cluster version information.
 func (k *kubernetesClient) Version() (ver *version.Number, err error) {
@@ -1247,7 +1234,7 @@ type annotationGetter interface {
 func (k *kubernetesClient) getStorageUniqPrefix(getMeta func() (annotationGetter, error)) (string, error) {
 	r, err := getMeta()
 	if err == nil {
-		if uniqID := r.GetAnnotations()[annotationKeyApplicationUUID]; uniqID != "" {
+		if uniqID := r.GetAnnotations()[utils.AnnotationKeyApplicationUUID(k.IsLegacyLabels())]; uniqID != "" {
 			return uniqID, nil
 		}
 	} else if !errors.IsNotFound(err) {
@@ -1509,7 +1496,7 @@ func (k *kubernetesClient) configureDaemonSet(
 			Labels: utils.LabelsForApp(appName, k.IsLegacyLabels()),
 			Annotations: k8sannotations.New(nil).
 				Merge(annotations).
-				Add(annotationKeyApplicationUUID, storageUniqueID).ToMap(),
+				Add(utils.AnnotationKeyApplicationUUID(k.IsLegacyLabels()), storageUniqueID).ToMap(),
 		},
 		Spec: apps.DaemonSetSpec{
 			// TODO(caas): DaemonSetUpdateStrategy support.
@@ -1610,7 +1597,7 @@ func (k *kubernetesClient) configureDeployment(
 			Labels: utils.LabelsForApp(appName, k.IsLegacyLabels()),
 			Annotations: k8sannotations.New(nil).
 				Merge(annotations).
-				Add(annotationKeyApplicationUUID, storageUniqueID).ToMap(),
+				Add(utils.AnnotationKeyApplicationUUID(k.IsLegacyLabels()), storageUniqueID).ToMap(),
 		},
 		Spec: apps.DeploymentSpec{
 			// TODO(caas): DeploymentStrategy support.

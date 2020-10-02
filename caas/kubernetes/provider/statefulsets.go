@@ -68,7 +68,7 @@ func (k *kubernetesClient) configureStatefulSet(
 			Labels: utils.LabelsForApp(appName, k.IsLegacyLabels()),
 			Annotations: k8sannotations.New(nil).
 				Merge(annotations).
-				Add(annotationKeyApplicationUUID, storageUniqueID).ToMap(),
+				Add(utils.AnnotationKeyApplicationUUID(k.IsLegacyLabels()), storageUniqueID).ToMap(),
 		},
 		Spec: apps.StatefulSetSpec{
 			Replicas: replicas,

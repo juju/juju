@@ -10,6 +10,10 @@ import (
 )
 
 const (
+	// Domain is the primary TLD for juju when giving resource domains to
+	// Kubernetes
+	Domain = "juju.is"
+
 	// OperatorPodIPEnvName is the environment name for operator pod IP.
 	OperatorPodIPEnvName = "JUJU_OPERATOR_POD_IP"
 
@@ -24,9 +28,6 @@ const (
 
 	// TemplateFileNameAgentConf is the template agent.conf file name.
 	TemplateFileNameAgentConf = "template-" + agent.AgentConfigFilename
-
-	// AnnotationPrefix of juju annotations.
-	AnnotationPrefix = "juju.is"
 
 	// LabelJujuAppCreatedBy is a Juju application label to apply to objects
 	// created by applications managed by Juju. Think istio, kubeflow etc
