@@ -4942,7 +4942,7 @@ systems:
   - os: ubuntu
     channel: 20.04/stable
 `
-	ch := state.AddCustomCharm(c, st, "cockroach", "metadata.yaml", charmDef, "focal", 1)
+	ch := state.AddCustomCharmForSeries(c, st, "cockroach", "metadata.yaml", charmDef, "focal", 1)
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "cockroachdb", Charm: ch})
 
 	unit, err := app.AddUnit(state.AddUnitParams{})
@@ -4969,7 +4969,7 @@ series:
 deployment:
   mode: workload
 `
-	ch := state.AddCustomCharm(c, st, "mysql", "metadata.yaml", charmDef, "kubernetes", 1)
+	ch := state.AddCustomCharmForSeries(c, st, "mysql", "metadata.yaml", charmDef, "kubernetes", 1)
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: ch})
 
 	unit, err := app.AddUnit(state.AddUnitParams{})

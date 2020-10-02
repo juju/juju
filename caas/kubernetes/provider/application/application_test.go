@@ -275,7 +275,7 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 				Handler: corev1.Handler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path: constants.AgentHTTPPathLiveness,
-						Port: intstr.FromString(constants.AgentHTTPProbePort),
+						Port: intstr.Parse(constants.AgentHTTPProbePort),
 					},
 				},
 				InitialDelaySeconds: 30,
@@ -287,7 +287,7 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 				Handler: corev1.Handler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path: constants.AgentHTTPPathReadiness,
-						Port: intstr.FromString(constants.AgentHTTPProbePort),
+						Port: intstr.Parse(constants.AgentHTTPProbePort),
 					},
 				},
 				InitialDelaySeconds: 30,
@@ -299,7 +299,7 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 				Handler: corev1.Handler{
 					HTTPGet: &corev1.HTTPGetAction{
 						Path: constants.AgentHTTPPathStartup,
-						Port: intstr.FromString(constants.AgentHTTPProbePort),
+						Port: intstr.Parse(constants.AgentHTTPProbePort),
 					},
 				},
 				InitialDelaySeconds: 30,
