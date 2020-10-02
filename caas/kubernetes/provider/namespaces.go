@@ -20,7 +20,8 @@ import (
 )
 
 var requireAnnotationsForNameSpace = []string{
-	constants.AnnotationControllerUUIDKey, constants.AnnotationModelUUIDKey,
+	utils.AnnotationControllerUUIDKey(false),
+	utils.AnnotationModelUUIDKey(false),
 }
 
 func checkNamespaceOwnedByJuju(ns *core.Namespace, annotationMap map[string]string) error {

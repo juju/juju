@@ -183,7 +183,7 @@ func (k *kubernetesClient) EnsureOperator(name, agentPath string, config *caas.O
 		labels = utils.LabelsMerge(selectorLabels, utils.LabelsJuju)
 	}
 
-	annotations := utils.ResourceTagsToAnnotations(config.ResourceTags).
+	annotations := utils.ResourceTagsToAnnotations(config.ResourceTags, k.IsLegacyLabels()).
 		Merge(utils.AnnotationsForVersion(config.Version.String(), k.IsLegacyLabels()))
 
 	var cleanups []func()
@@ -360,7 +360,7 @@ func (k *kubernetesClient) operatorVolumeClaim(
 	return &core.PersistentVolumeClaim{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        params.pvcName,
-			Annotations: utils.ResourceTagsToAnnotations(storageParams.ResourceTags).ToMap()},
+			Annotations: utils.ResourceTagsToAnnotations(storageParams.ResourceTags, k.IsLegacyLabels()).ToMap()},
 		Spec: *pvcSpec,
 	}, nil
 }

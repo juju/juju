@@ -39,9 +39,9 @@ func (s *K8sBrokerSuite) assertIngressResources(c *gc.C, IngressResources []k8ss
 			Name:   "app-name",
 			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju-app-uuid":                  "appuuid",
-				"juju.io/controller":             testing.ControllerTag.Id(),
-				"juju.io/charm-modified-version": "0",
+				"app.juju.is/uuid":               "appuuid",
+				"controller.juju.is/id":          testing.ControllerTag.Id(),
+				"charm.juju.is/modified-version": "0",
 			},
 		},
 		Spec: appsv1.StatefulSetSpec{
@@ -56,8 +56,8 @@ func (s *K8sBrokerSuite) assertIngressResources(c *gc.C, IngressResources []k8ss
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"juju.io/controller":                       testing.ControllerTag.Id(),
-						"juju.io/charm-modified-version":           "0",
+						"controller.juju.is/id":                    testing.ControllerTag.Id(),
+						"charm.juju.is/modified-version":           "0",
 					},
 				},
 				Spec: podSpec,
@@ -165,7 +165,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesCreate(c *gc.C) {
 			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "foo": "bar"},
 			Annotations: map[string]string{
 				"nginx.ingress.kubernetes.io/rewrite-target": "/",
-				"juju.io/controller":                         "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+				"controller.juju.is/id":                      "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 			},
 		},
 		Spec: extensionsv1beta1.IngressSpec{
@@ -217,7 +217,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdate(c *gc.C) {
 			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "foo": "bar"},
 			Annotations: map[string]string{
 				"nginx.ingress.kubernetes.io/rewrite-target": "/",
-				"juju.io/controller":                         "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+				"controller.juju.is/id":                      "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 			},
 		},
 		Spec: extensionsv1beta1.IngressSpec{
@@ -273,7 +273,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithExis
 				Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "foo": "bar"},
 				Annotations: map[string]string{
 					"nginx.ingress.kubernetes.io/rewrite-target": "/",
-					"juju.io/controller":                         "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+					"controller.juju.is/id":                      "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 				},
 			},
 			Spec: extensionsv1beta1.IngressSpec{

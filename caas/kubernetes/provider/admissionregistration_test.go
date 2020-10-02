@@ -45,9 +45,9 @@ func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs []k8s
 			Name:   "app-name",
 			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju-app-uuid":                  "appuuid",
-				"juju.io/controller":             testing.ControllerTag.Id(),
-				"juju.io/charm-modified-version": "0",
+				"app.juju.is/uuid":               "appuuid",
+				"controller.juju.is/id":          testing.ControllerTag.Id(),
+				"charm.juju.is/modified-version": "0",
 			},
 		},
 		Spec: appsv1.StatefulSetSpec{
@@ -62,8 +62,8 @@ func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs []k8s
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"juju.io/controller":                       testing.ControllerTag.Id(),
-						"juju.io/charm-modified-version":           "0",
+						"controller.juju.is/id":                    testing.ControllerTag.Id(),
+						"charm.juju.is/modified-version":           "0",
 					},
 				},
 				Spec: podSpec,
@@ -179,7 +179,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreate(c *gc.C) 
 			Name:        "test-example-mutatingwebhookconfiguration",
 			Namespace:   "test",
 			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
-			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
+			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
 		},
 		Webhooks: []admissionregistration.MutatingWebhook{webhook1},
 	}
@@ -232,7 +232,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateKeepName(c
 		{
 			Meta: k8sspecs.Meta{
 				Name:        "example-mutatingwebhookconfiguration",
-				Annotations: map[string]string{"juju.io/disable-name-prefix": "true"},
+				Annotations: map[string]string{"model.juju.is/disable-prefix": "true"},
 			},
 			Webhooks: []admissionregistration.MutatingWebhook{webhook1},
 		},
@@ -243,7 +243,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateKeepName(c
 			Name:        "example-mutatingwebhookconfiguration", // This name kept no change.
 			Namespace:   "test",
 			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
-			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id(), "juju.io/disable-name-prefix": "true"},
+			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id(), "model.juju.is/disable-prefix": "true"},
 		},
 		Webhooks: []admissionregistration.MutatingWebhook{webhook1},
 	}
@@ -304,7 +304,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsUpdate(c *gc.C) 
 			Name:        "test-example-mutatingwebhookconfiguration",
 			Namespace:   "test",
 			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
-			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
+			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
 		},
 		Webhooks: []admissionregistration.MutatingWebhook{webhook1},
 	}
@@ -340,9 +340,9 @@ func (s *K8sBrokerSuite) assertValidatingWebhookConfigurations(c *gc.C, cfgs []k
 			Name:   "app-name",
 			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju-app-uuid":                  "appuuid",
-				"juju.io/controller":             testing.ControllerTag.Id(),
-				"juju.io/charm-modified-version": "0",
+				"app.juju.is/uuid":               "appuuid",
+				"controller.juju.is/id":          testing.ControllerTag.Id(),
+				"charm.juju.is/modified-version": "0",
 			},
 		},
 		Spec: appsv1.StatefulSetSpec{
@@ -357,8 +357,8 @@ func (s *K8sBrokerSuite) assertValidatingWebhookConfigurations(c *gc.C, cfgs []k
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"juju.io/controller":                       testing.ControllerTag.Id(),
-						"juju.io/charm-modified-version":           "0",
+						"controller.juju.is/id":                    testing.ControllerTag.Id(),
+						"charm.juju.is/modified-version":           "0",
 					},
 				},
 				Spec: podSpec,
@@ -470,7 +470,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreate(c *gc.C
 			Name:        "test-example-validatingwebhookconfiguration",
 			Namespace:   "test",
 			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
-			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
+			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
 		},
 		Webhooks: []admissionregistration.ValidatingWebhook{webhook1},
 	}
@@ -523,7 +523,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateKeepName
 		{
 			Meta: k8sspecs.Meta{
 				Name:        "example-validatingwebhookconfiguration",
-				Annotations: map[string]string{"juju.io/disable-name-prefix": "true"},
+				Annotations: map[string]string{"model.juju.is/disable-prefix": "true"},
 			},
 			Webhooks: []admissionregistration.ValidatingWebhook{webhook1},
 		},
@@ -534,7 +534,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateKeepName
 			Name:        "example-validatingwebhookconfiguration", // This name kept no change.
 			Namespace:   "test",
 			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
-			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id(), "juju.io/disable-name-prefix": "true"},
+			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id(), "model.juju.is/disable-prefix": "true"},
 		},
 		Webhooks: []admissionregistration.ValidatingWebhook{webhook1},
 	}
@@ -595,7 +595,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsUpdate(c *gc.C
 			Name:        "test-example-validatingwebhookconfiguration",
 			Namespace:   "test",
 			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
-			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
+			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
 		},
 		Webhooks: []admissionregistration.ValidatingWebhook{webhook1},
 	}

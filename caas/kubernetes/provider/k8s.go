@@ -66,13 +66,6 @@ import (
 var logger = loggo.GetLogger("juju.kubernetes.provider")
 
 const (
-	// Domain is the primary TLD for juju when giving resource domains to
-	// Kubernetes
-	Domain = "juju.is"
-
-	// annotationKeyApplicationUUID is the key of annotation for recording pvc unique ID.
-	annotationKeyApplicationUUID = "juju-app-uuid"
-
 	// labelResourceLifeCycleKey defines the label key for lifecycle of the global resources.
 	labelResourceLifeCycleKey             = "juju-resource-lifecycle"
 	labelResourceLifeCycleValueModel      = "model"
@@ -217,12 +210,12 @@ func newK8sBroker(
 		newRestClient:     newRestClient,
 		randomPrefix:      randomPrefix,
 		annotations: k8sannotations.New(nil).
-			Add(constants.AnnotationModelUUIDKey, modelUUID),
+			Add(utils.AnnotationModelUUIDKey(isLegacy), modelUUID),
 		isLegacyLabels: isLegacy,
 	}
 	if controllerUUID != "" {
 		// controllerUUID could be empty in add-k8s without -c because there might be no controller yet.
-		client.annotations.Add(constants.AnnotationControllerUUIDKey, controllerUUID)
+		client.annotations.Add(utils.AnnotationControllerUUIDKey(isLegacy), controllerUUID)
 	}
 	return client, nil
 }
@@ -233,12 +226,6 @@ func (k *kubernetesClient) GetAnnotations() k8sannotations.Annotation {
 }
 
 var k8sversionNumberExtractor = regexp.MustCompile("[0-9]+")
-
-// MakeK8sDomain builds and returns a Kubernetes resource domain for the
-// provided components. Func is idempotent
-func MakeK8sDomain(components ...string) string {
-	return fmt.Sprintf("%s.%s", strings.Join(components, "."), Domain)
-}
 
 // Version returns cluster version information.
 func (k *kubernetesClient) Version() (ver *version.Number, err error) {
@@ -427,7 +414,7 @@ please choose a different hosted model name then try again.`, hostedModelName),
 			if errors.IsNotFound(err) {
 				// all good.
 				// ensure controller specific annotations.
-				_ = broker.addAnnotations(constants.AnnotationControllerIsControllerKey, "true")
+				_ = broker.addAnnotations(utils.AnnotationControllerIsControllerKey(k.IsLegacyLabels()), "true")
 				return nil
 			}
 			if err == nil {
@@ -465,8 +452,8 @@ func (k *kubernetesClient) DestroyController(ctx envcontext.ProviderCallContext,
 	// ensures all annnotations are set correctly, then we will accurately find the controller namespace to destroy it.
 	k.annotations.Merge(
 		k8sannotations.New(nil).
-			Add(constants.AnnotationControllerUUIDKey, controllerUUID).
-			Add(constants.AnnotationControllerIsControllerKey, "true"),
+			Add(utils.AnnotationControllerUUIDKey(k.IsLegacyLabels()), controllerUUID).
+			Add(utils.AnnotationControllerIsControllerKey(k.IsLegacyLabels()), "true"),
 	)
 	return k.Destroy(ctx)
 }
@@ -909,7 +896,7 @@ func (k *kubernetesClient) applyRawK8sSpec(
 		}
 		return labels
 	}
-	annotations := utils.ResourceTagsToAnnotations(params.ResourceTags)
+	annotations := utils.ResourceTagsToAnnotations(params.ResourceTags, k.IsLegacyLabels())
 
 	builder := k8sspecs.New(
 		deploymentName, k.namespace, params.Deployment, k.k8sConfig(),
@@ -984,7 +971,7 @@ func (k *kubernetesClient) ensureService(
 		return errors.Annotatef(err, "parsing unit spec for %s", appName)
 	}
 
-	annotations := utils.ResourceTagsToAnnotations(params.ResourceTags)
+	annotations := utils.ResourceTagsToAnnotations(params.ResourceTags, k.IsLegacyLabels())
 
 	// ensure services.
 	if len(workloadSpec.Services) > 0 {
@@ -1160,7 +1147,7 @@ func (k *kubernetesClient) ensureService(
 		// CharmModifiedVersion is added for triggering rolling upgrade on workload pods to synchronise
 		// charm files to workload pods via init container when charm was upgraded.
 		// This approach was inspired from `kubectl rollout restart`.
-		Add(constants.AnnotationCharmModifiedVersionKey, strconv.Itoa(params.CharmModifiedVersion))
+		Add(utils.AnnotationCharmModifiedVersionKey(k.IsLegacyLabels()), strconv.Itoa(params.CharmModifiedVersion))
 
 	switch params.Deployment.DeploymentType {
 	case caas.DeploymentStateful:
@@ -1247,7 +1234,7 @@ type annotationGetter interface {
 func (k *kubernetesClient) getStorageUniqPrefix(getMeta func() (annotationGetter, error)) (string, error) {
 	r, err := getMeta()
 	if err == nil {
-		if uniqID := r.GetAnnotations()[annotationKeyApplicationUUID]; uniqID != "" {
+		if uniqID := r.GetAnnotations()[utils.AnnotationKeyApplicationUUID(k.IsLegacyLabels())]; uniqID != "" {
 			return uniqID, nil
 		}
 	} else if !errors.IsNotFound(err) {
@@ -1509,7 +1496,7 @@ func (k *kubernetesClient) configureDaemonSet(
 			Labels: utils.LabelsForApp(appName, k.IsLegacyLabels()),
 			Annotations: k8sannotations.New(nil).
 				Merge(annotations).
-				Add(annotationKeyApplicationUUID, storageUniqueID).ToMap(),
+				Add(utils.AnnotationKeyApplicationUUID(k.IsLegacyLabels()), storageUniqueID).ToMap(),
 		},
 		Spec: apps.DaemonSetSpec{
 			// TODO(caas): DaemonSetUpdateStrategy support.
@@ -1610,7 +1597,7 @@ func (k *kubernetesClient) configureDeployment(
 			Labels: utils.LabelsForApp(appName, k.IsLegacyLabels()),
 			Annotations: k8sannotations.New(nil).
 				Merge(annotations).
-				Add(annotationKeyApplicationUUID, storageUniqueID).ToMap(),
+				Add(utils.AnnotationKeyApplicationUUID(k.IsLegacyLabels()), storageUniqueID).ToMap(),
 		},
 		Spec: apps.DeploymentSpec{
 			// TODO(caas): DeploymentStrategy support.
@@ -1969,10 +1956,10 @@ func (k *kubernetesClient) AnnotateUnit(appName string, mode caas.DeploymentMode
 		pod.Annotations = make(map[string]string)
 	}
 	unitID := unit.Id()
-	if pod.Annotations[constants.AnnotationUnit] == unitID {
+	if pod.Annotations[utils.AnnotationUnit(k.IsLegacyLabels())] == unitID {
 		return nil
 	}
-	pod.Annotations[constants.AnnotationUnit] = unitID
+	pod.Annotations[utils.AnnotationUnit(k.IsLegacyLabels())] = unitID
 
 	_, err = pods.Update(context.TODO(), pod, v1.UpdateOptions{})
 	if k8serrors.IsNotFound(err) {
@@ -2023,7 +2010,7 @@ func (k *kubernetesClient) WatchContainerStart(appName string, containerName str
 	}
 
 	running := func(pod *core.Pod) set.Strings {
-		if _, ok := pod.Annotations[constants.AnnotationUnit]; !ok {
+		if _, ok := pod.Annotations[utils.AnnotationUnit(k.IsLegacyLabels())]; !ok {
 			// Ignore pods that aren't annotated as a unit yet.
 			return set.Strings{}
 		}

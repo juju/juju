@@ -28,6 +28,7 @@ import (
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	providerutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig"
@@ -142,7 +143,8 @@ type controllerStacker interface {
 
 func controllerCorelation(broker *kubernetesClient) (string, error) {
 	// ensure controller specific annotations.
-	_ = broker.addAnnotations(constants.AnnotationControllerIsControllerKey, "true")
+	controllerUUIDKey := k8sutils.AnnotationControllerIsControllerKey(false)
+	_ = broker.addAnnotations(controllerUUIDKey, "true")
 
 	ns, err := broker.listNamespacesByAnnotations(broker.GetAnnotations())
 	if errors.IsNotFound(err) || ns == nil {
@@ -205,12 +207,13 @@ func newcontrollerStack(
 	selectorLabels := providerutils.SelectorLabelsForApp(stackName, false)
 	labels := providerutils.LabelsForApp(stackName, false)
 
+	controllerUUIDKey := k8sutils.AnnotationControllerUUIDKey(false)
 	cs := &controllerStack{
 		ctx:              ctx,
 		stackName:        stackName,
 		selectorLabels:   selectorLabels,
 		stackLabels:      labels,
-		stackAnnotations: map[string]string{constants.AnnotationControllerUUIDKey: pcfg.ControllerTag.Id()},
+		stackAnnotations: map[string]string{controllerUUIDKey: pcfg.ControllerTag.Id()},
 		broker:           broker,
 
 		pcfg:        pcfg,

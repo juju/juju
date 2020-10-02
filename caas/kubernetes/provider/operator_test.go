@@ -31,9 +31,9 @@ type OperatorSuite struct {
 var _ = gc.Suite(&OperatorSuite{})
 
 var operatorAnnotations = map[string]string{
-	"fred":               "mary",
-	"juju.is/version":    "2.99.0",
-	"juju.io/controller": testing.ControllerTag.Id(),
+	"fred":                  "mary",
+	"juju.is/version":       "2.99.0",
+	"controller.juju.is/id": testing.ControllerTag.Id(),
 }
 
 var operatorServiceArg = &core.Service{
@@ -41,9 +41,9 @@ var operatorServiceArg = &core.Service{
 		Name:   "test-operator",
 		Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "test", "operator.juju.is/target": "application"},
 		Annotations: map[string]string{
-			"fred":               "mary",
-			"juju.is/version":    "2.99.0",
-			"juju.io/controller": testing.ControllerTag.Id(),
+			"fred":                  "mary",
+			"juju.is/version":       "2.99.0",
+			"controller.juju.is/id": testing.ControllerTag.Id(),
 		},
 	},
 	Spec: core.ServiceSpec{
@@ -151,9 +151,9 @@ func operatorStatefulSetArg(numUnits int32, scName, serviceAccountName string, w
 				ObjectMeta: v1.ObjectMeta{
 					Labels: map[string]string{"operator.juju.is/name": "test", "operator.juju.is/target": "application"},
 					Annotations: map[string]string{
-						"fred":               "mary",
-						"juju.is/version":    "2.99.0",
-						"juju.io/controller": testing.ControllerTag.Id(),
+						"fred":                  "mary",
+						"juju.is/version":       "2.99.0",
+						"controller.juju.is/id": testing.ControllerTag.Id(),
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 					},
@@ -186,8 +186,8 @@ func operatorStatefulSetArg(numUnits int32, scName, serviceAccountName string, w
 
 func (s *K8sSuite) TestOperatorPodConfig(c *gc.C) {
 	tags := map[string]string{
-		"fred":               "mary",
-		"juju.io/controller": testing.ControllerTag.Id(),
+		"fred":                  "mary",
+		"controller.juju.is/id": testing.ControllerTag.Id(),
 	}
 	labels := map[string]string{"operator.juju.is/name": "gitlab", "operator.juju.is/target": "application"}
 	pod, err := provider.OperatorPod("gitlab", "gitlab", "10666", "/var/lib/juju", "jujusolutions/jujud-operator", "2.99.0", labels, tags, "operator-service-account")
@@ -195,8 +195,8 @@ func (s *K8sSuite) TestOperatorPodConfig(c *gc.C) {
 	c.Assert(pod.Name, gc.Equals, "gitlab")
 	c.Assert(pod.Labels, jc.DeepEquals, labels)
 	c.Assert(pod.Annotations, jc.DeepEquals, map[string]string{
-		"fred":               "mary",
-		"juju.io/controller": testing.ControllerTag.Id(),
+		"fred":                  "mary",
+		"controller.juju.is/id": testing.ControllerTag.Id(),
 		"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 		"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 	})
@@ -981,8 +981,8 @@ func (s *K8sBrokerSuite) TestOperator(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name: "test-operator",
 			Annotations: map[string]string{
-				"juju.is/version":    "2.99.0",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"juju.is/version":       "2.99.0",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		Spec: core.PodSpec{
@@ -999,8 +999,8 @@ func (s *K8sBrokerSuite) TestOperator(c *gc.C) {
 	ss := apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Annotations: map[string]string{
-				"juju.is/version":    "2.99.0",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"juju.is/version":       "2.99.0",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		Spec: apps.StatefulSetSpec{
@@ -1049,8 +1049,8 @@ func (s *K8sBrokerSuite) TestOperatorNoPodFound(c *gc.C) {
 	ss := apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Annotations: map[string]string{
-				"juju-version":       "2.99.0",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"juju-version":          "2.99.0",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		Spec: apps.StatefulSetSpec{
