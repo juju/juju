@@ -24,7 +24,9 @@ const showModelCommandDoc = `Show information about the current or specified mod
 
 func NewShowCommand() cmd.Command {
 	showCmd := &showModelCommand{}
-	return modelcmd.Wrap(showCmd, modelcmd.WrapSkipModelFlags)
+	return modelcmd.Wrap(showCmd,
+		modelcmd.WrapSkipModelFlags,
+	)
 }
 
 // showModelCommand shows all the users with access to the current model.

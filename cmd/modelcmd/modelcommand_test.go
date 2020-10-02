@@ -228,12 +228,36 @@ func (s *ModelCommandSuite) TestBootstrapContextNoVerify(c *gc.C) {
 
 func (s *ModelCommandSuite) TestWrapWithoutFlags(c *gc.C) {
 	cmd := new(testCommand)
-	wrapped := modelcmd.Wrap(cmd, modelcmd.WrapSkipModelFlags)
+	wrapped := modelcmd.Wrap(cmd,
+		modelcmd.WrapSkipModelFlags,
+		modelcmd.WrapSkipModelInit,
+	)
 	args := []string{"-m", "testmodel"}
 	err := cmdtesting.InitCommand(wrapped, args)
 	// 1st position is always the flag
 	msg := fmt.Sprintf("option provided but not defined: %v", args[0])
 	c.Assert(err, gc.ErrorMatches, msg)
+}
+
+func (s *ModelCommandSuite) TestWrapWithFlagsAndWithoutModelInit(c *gc.C) {
+	cmd := new(testCommand)
+	wrapped := modelcmd.Wrap(cmd,
+		modelcmd.WrapSkipModelInit,
+	)
+	args := []string{"-m", "testmodel"}
+	err := cmdtesting.InitCommand(wrapped, args)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ModelCommandSuite) TestWrapWithModelInit(c *gc.C) {
+	modelCmd := new(testCommand)
+	wrapped := modelcmd.Wrap(modelCmd,
+		modelcmd.WrapSkipModelInit,
+	)
+	args := []string{}
+
+	_, err := cmdtesting.RunCommand(c, wrapped, args...)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ModelCommandSuite) TestInnerCommand(c *gc.C) {

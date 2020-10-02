@@ -32,6 +32,7 @@ Examples:
 
 See also:
     find
+    download
 `
 )
 

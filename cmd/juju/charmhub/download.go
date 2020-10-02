@@ -38,7 +38,9 @@ See also:
 
 // NewDownloadCommand wraps downloadCommand with sane model settings.
 func NewDownloadCommand() cmd.Command {
-	return modelcmd.Wrap(&downloadCommand{})
+	return modelcmd.Wrap(&downloadCommand{},
+		modelcmd.WrapSkipModelInit,
+	)
 }
 
 // downloadCommand supplies the "download" CLI command used for downloading
@@ -106,6 +108,20 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	if c.charmHubURL != "" {
 		charmHubURL = c.charmHubURL
 	} else {
+		// This is a horrible workaround for the fact that this command can work
+		// with and without a bootstrapped controller.
+		// To correctly handle the fact that we want to lazily connect to a
+		// controller, we have to grab the model identifier once we know what
+		// we want to do (based on the flags) and then call the init the model
+		// callstack.
+		// The reason this exists is because everything is curated for you, but
+		// when we do need to customize this workflow, it unfortunately gets in
+		// the way.
+		modelIdentifier, _ := c.ModelCommandBase.ModelIdentifier()
+		if err := c.ModelCommandBase.SetModelIdentifier(modelIdentifier, true); err != nil {
+			return errors.Trace(err)
+		}
+
 		config, err := c.getModelConfig()
 		if err != nil {
 			return errors.Trace(err)
