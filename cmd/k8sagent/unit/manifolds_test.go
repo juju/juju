@@ -54,6 +54,8 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"proxy-config-updater",
 		"logging-config-updater",
 		"api-address-updater",
+		"caas-prober",
+		"probe-http-server",
 	}
 	keys := make([]string, 0, len(manifolds))
 	for k := range manifolds {
@@ -181,5 +183,9 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"api-config-watcher",
 		"migration-fortress",
 		"migration-inactive-flag",
+	},
+	"probe-http-server": {},
+	"caas-prober": {
+		"probe-http-server",
 	},
 }
