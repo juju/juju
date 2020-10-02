@@ -43,7 +43,6 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"uniter",
 		"log-sender",
 
-		"caas-prober",
 		"charm-dir",
 		"leadership-tracker",
 		"hook-retry-strategy",
@@ -52,10 +51,10 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"migration-inactive-flag",
 		"migration-minion",
 
-		"probe-http-server",
 		"proxy-config-updater",
 		"logging-config-updater",
 		"api-address-updater",
+
 		"caas-prober",
 		"probe-http-server",
 	}
@@ -127,9 +126,6 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"migration-fortress",
 		"migration-inactive-flag",
 	},
-
-	"caas-prober":       {"probe-http-server"},
-	"probe-http-server": {},
 
 	"log-sender": {"agent", "api-caller", "api-config-watcher"},
 
