@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strings"
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/cmd"
@@ -170,7 +171,21 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 		path = fmt.Sprintf("%s.%s", info.Name, info.Type)
 	}
 
-	return client.Download(ctx, resourceURL, path)
+	cmdContext.Infof("Fetching %s %q", info.Type, info.Name)
+
+	if err := client.Download(ctx, resourceURL, path); err != nil {
+		return errors.Trace(err)
+	}
+
+	if !strings.HasPrefix(path, "/") {
+		path = fmt.Sprintf("./%s", path)
+	}
+
+	cmdContext.Infof(`
+Install the %q %s with:
+    juju deploy %s`[1:], info.Name, info.Type, path)
+
+	return nil
 }
 
 // getAPI returns the API that supplies methods
