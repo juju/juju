@@ -1041,7 +1041,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// TODO(new-charms): handle systems
+	// TODO(embedded): handle systems
 	if err := validateCharmSeries(model.Type(), args.Series, args.Charm); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1315,7 +1315,7 @@ func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) err
 			supportedSeries = args.Charm.Meta().ComputedSeries()
 		}
 		if len(supportedSeries) > 0 {
-			// TODO(new-charms): handle computed series
+			// TODO(embedded): handle computed series
 			seriesOS, err := series.GetOSFromSeries(args.Series)
 			if err != nil {
 				return errors.Trace(err)

@@ -104,7 +104,7 @@ func (a *appWorker) loop() error {
 		return errors.Errorf("charm version 2 or greater required")
 	}
 
-	// TODO(new-charms): support more than statefulset
+	// TODO(embedded): support more than statefulset
 	app := a.broker.Application(a.name, caas.DeploymentStateful)
 
 	var appChanges watcher.NotifyChannel

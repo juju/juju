@@ -500,7 +500,7 @@ var getModelConfig = func(api ModelConfigGetter) (*config.Config, error) {
 }
 
 func (d *factory) validateCharmSeries(seriesName string, imageStream string, charmMeta *charm.Meta) error {
-	// TODO(new-charms): handle systems
+	// TODO(embedded): handle systems
 
 	// attempt to locate the charm series from the list of known juju series
 	// that we currently support.
@@ -524,7 +524,7 @@ func (d *factory) validateCharmSeries(seriesName string, imageStream string, cha
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return model.ValidateSeries(modelType, seriesName, charmMeta.Format() >= charm.FormatV2)
+	return model.ValidateSeries(modelType, seriesName, charmMeta.Format())
 }
 
 // validateCharmSeriesWithName calls the validateCharmSeries, but handles the

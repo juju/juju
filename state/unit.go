@@ -146,7 +146,7 @@ func (u *Unit) IsEmbedded() (bool, error) {
 	if meta == nil {
 		return false, nil
 	}
-	// TODO(new-charms): Determine a better way represent this.
+	// TODO(embedded): Determine a better way represent this.
 	return u.modelType == ModelTypeCAAS && meta.Format() >= charm.FormatV2, nil
 }
 

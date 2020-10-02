@@ -724,7 +724,7 @@ func validateCharmSeries(modelType ModelType, series string, ch hasMeta) error {
 	if series == "" {
 		return nil
 	}
-	return model.ValidateSeries(model.ModelType(modelType), series, ch.Meta().Format() >= charm.FormatV2)
+	return model.ValidateSeries(model.ModelType(modelType), series, ch.Meta().Format())
 }
 
 // AllCharms returns all charms in state.

@@ -52,11 +52,6 @@ func NewApplicationWatcherFacade(st AppWatcherState, resources facade.Resources,
 // WatchApplications starts a StringsWatcher to watch applications deployed to this model.
 func (a *ApplicationWatcherFacade) WatchApplications() (_ params.StringsWatchResult, err error) {
 	watch := a.state.WatchApplications()
-	defer func() {
-		if err != nil {
-			_ = watch.Stop()
-		}
-	}()
 	if a.filter == ApplicationFilterNone {
 		// Consume the initial event and forward it to the result.
 		if changes, ok := <-watch.Changes(); ok {

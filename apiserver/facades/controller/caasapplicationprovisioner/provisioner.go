@@ -15,7 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
@@ -319,11 +319,11 @@ func (a *API) garbageCollectOneApplication(args params.CAASApplicationGarbageCol
 		return errors.NotValidf("cannot force unit remove while alive")
 	}
 
+	// TODO(embedded): support more than statefulset
 	/*ch, _, err := app.Charm()
 	if err != nil {
 		return errors.Trace(err)
 	}*/
-	// TODO(new-charms): support more than statefulset
 	deploymentType := caas.DeploymentStateful
 
 	model, err := a.state.Model()
@@ -349,7 +349,7 @@ func (a *API) garbageCollectOneApplication(args params.CAASApplicationGarbageCol
 		tag := unit.Tag()
 		if !args.Force {
 			if !observedUnitTags.Contains(tag.String()) {
-				// Was not known yet when pulling kuberentes state.
+				// Was not known yet when pulling kubernetes state.
 				logger.Debugf("skipping unit %q because it was not known to the worker", tag.String())
 				continue
 			}
@@ -642,7 +642,7 @@ func (a *API) ApplicationOCIResources(args params.Entities) (params.CAASApplicat
 				res.Results[i].Error = apiservererrors.ServerError(err)
 				break
 			}
-			rsc, err := readDockImageResource(reader)
+			rsc, err := readDockerImageResource(reader)
 			_ = reader.Close()
 			if err != nil {
 				res.Results[i].Error = apiservererrors.ServerError(err)
@@ -658,7 +658,7 @@ func (a *API) ApplicationOCIResources(args params.Entities) (params.CAASApplicat
 	return res, nil
 }
 
-func readDockImageResource(reader io.Reader) (params.DockerImageInfo, error) {
+func readDockerImageResource(reader io.Reader) (params.DockerImageInfo, error) {
 	var details resources.DockerImageDetails
 	contents, err := ioutil.ReadAll(reader)
 	if err != nil {

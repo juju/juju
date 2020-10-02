@@ -61,7 +61,7 @@ type seriesSelector struct {
 // - default from charm metadata supported series / series in url
 // - default LTS
 func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
-	// TODO(new-charms): handle systems
+	// TODO(embedded): handle systems
 
 	// User has requested a series with --series.
 	if s.seriesFlag != "" {
@@ -120,7 +120,7 @@ func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
 // userRequested checks the series the user has requested, and returns it if it
 // is supported, or if they used --force.
 func (s seriesSelector) userRequested(requestedSeries string) (string, error) {
-	// TODO(new-charms): handle computed series
+	// TODO(embedded): handle computed series
 	series, err := charm.SeriesForCharm(requestedSeries, s.supportedSeries)
 	if s.force {
 		series = requestedSeries

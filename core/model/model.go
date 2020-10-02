@@ -4,6 +4,7 @@
 package model
 
 import (
+	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/os"
@@ -42,8 +43,8 @@ type Model struct {
 var caasOS = set.NewStrings(os.Kubernetes.String())
 
 // ValidateSeries ensures the charm series is valid for the model type.
-func ValidateSeries(modelType ModelType, charmSeries string, charmV2 bool) error {
-	if charmV2 {
+func ValidateSeries(modelType ModelType, charmSeries string, charmFormat charm.Format) error {
+	if charmFormat >= charm.FormatV2 {
 		system, err := systems.ParseSystemFromSeries(charmSeries)
 		if err != nil {
 			return errors.Trace(err)

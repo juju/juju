@@ -4,6 +4,7 @@
 package model_test
 
 import (
+	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -29,7 +30,7 @@ func (*ModelSuite) TestValidateSeries(c *gc.C) {
 		{model.CAAS, "bionic", false},
 		{model.CAAS, "kubernetes", true},
 	} {
-		err := model.ValidateSeries(t.modelType, t.series, false)
+		err := model.ValidateSeries(t.modelType, t.series, charm.FormatV1)
 		if t.valid {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
@@ -49,7 +50,7 @@ func (*ModelSuite) TestValidateSeriesNewCharm(c *gc.C) {
 		{model.CAAS, "bionic", true},
 		{model.CAAS, "bionic", true},
 	} {
-		err := model.ValidateSeries(t.modelType, t.series, true)
+		err := model.ValidateSeries(t.modelType, t.series, charm.FormatV2)
 		if t.valid {
 			c.Check(err, jc.ErrorIsNil)
 		} else {

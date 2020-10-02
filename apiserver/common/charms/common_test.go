@@ -236,7 +236,7 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 		},
 		{
 			about: "retrieves new format 2 charm info",
-			// Use wordpress for tests so that we can compare Provides and Requires.
+			// Use cockroach for tests so that we can compare Provides and Requires.
 			charm:  "cockroach",
 			series: "focal",
 			url:    "local:focal/cockroachdb-0",
@@ -321,7 +321,7 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 
 	for i, t := range clientCharmInfoTests {
 		c.Logf("test %d. %s", i, t.about)
-		if len(t.series) > 0 {
+		if t.series != "" {
 			s.AddTestingCharmForSeries(c, t.charm, t.series)
 		} else {
 			s.AddTestingCharm(c, t.charm)
