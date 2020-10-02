@@ -442,11 +442,11 @@ type StrategyFunc func(charmRepo corecharm.Repository, url string, force bool, s
 func getStrategyFunc(source string) StrategyFunc {
 	if source == "charm-store" {
 		return func(charmRepo corecharm.Repository, url string, force bool, _ string) (Strategy, error) {
-			return corecharm.DownloadFromCharmStore(charmRepo, url, force)
+			return corecharm.DownloadFromCharmStore(logger.Child("strategy"), charmRepo, url, force)
 		}
 	}
 	return func(charmRepo corecharm.Repository, url string, force bool, series string) (Strategy, error) {
-		return corecharm.DownloadFromCharmHub(charmRepo, url, force, series)
+		return corecharm.DownloadFromCharmHub(logger.Child("strategy"), charmRepo, url, force, series)
 	}
 }
 
