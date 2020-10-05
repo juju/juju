@@ -47,6 +47,7 @@ func NewSuperCommand() cmd.Command {
 		Purpose:     "tools for generating and validating image and tools metadata",
 		Log:         &cmd.Log{}})
 
+	waitFor.Register(newApplicationCommand())
 	waitFor.Register(newModelCommand())
 	return waitFor
 }

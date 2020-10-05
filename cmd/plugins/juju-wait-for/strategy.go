@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/plugins/juju-wait-for/api"
 	"github.com/juju/juju/cmd/plugins/juju-wait-for/query"
 )
 
@@ -21,7 +22,7 @@ type StrategyFunc func(string, []params.Delta, query.Query) bool
 // Strategy defines a series of instructions to run for a given wait for
 // plan.
 type Strategy struct {
-	Client  WatchAllAPI
+	Client  api.WatchAllAPI
 	Timeout time.Duration
 }
 
@@ -45,7 +46,7 @@ func (s *Strategy) Run(name string, input string, fn StrategyFunc) error {
 		select {
 		case <-time.After(s.Timeout):
 			close(timeout)
-			watcher.Stop()
+			_ = watcher.Stop()
 		}
 	}()
 
@@ -83,5 +84,5 @@ func (m GenericScope) GetIdentValue(name string) (interface{}, error) {
 			return data, nil
 		}
 	}
-	return nil, errors.Errorf("Runtime Error: identifier %q not found on EntityInfo", name)
+	return nil, errors.Errorf("Runtime Error: identifier %q not found on Info", name)
 }

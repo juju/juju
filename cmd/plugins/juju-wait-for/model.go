@@ -14,12 +14,14 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/plugins/juju-wait-for/api"
 	"github.com/juju/juju/cmd/plugins/juju-wait-for/query"
+	"github.com/juju/juju/core/life"
 )
 
 func newModelCommand() cmd.Command {
 	cmd := &modelCommand{}
-	cmd.newWatchAllAPIFunc = func() (WatchAllAPI, error) {
+	cmd.newWatchAllAPIFunc = func() (api.WatchAllAPI, error) {
 		client, err := cmd.NewAPIClient()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -39,7 +41,7 @@ name
    model name identifier
 
 options:
---query (= "life=alive")
+--query (= 'life=="available"')
    query represents the goal state of a given model
 `
 
@@ -66,7 +68,7 @@ func (c *modelCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *modelCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.waitForCommandBase.SetFlags(f)
-	f.StringVar(&c.query, "query", "life=alive", "query the goal state")
+	f.StringVar(&c.query, "query", "life==available", "query the goal state")
 	f.DurationVar(&c.timeout, "timeout", time.Minute*10, "how long to wait, before timing out")
 }
 
@@ -102,6 +104,8 @@ func (c *modelCommand) Run(ctx *cmd.Context) error {
 
 func (c *modelCommand) waitFor(name string, deltas []params.Delta, q query.Query) bool {
 	for _, delta := range deltas {
+		logger.Tracef("delta %T: %v", delta.Entity, delta.Entity)
+
 		switch entityInfo := delta.Entity.(type) {
 		case *params.ModelUpdate:
 			if entityInfo.Name == name {
@@ -110,8 +114,8 @@ func (c *modelCommand) waitFor(name string, deltas []params.Delta, q query.Query
 				}); res && err == nil {
 					return true
 				}
+				c.found = entityInfo.Life != life.Dead
 			}
-			c.found = true
 			break
 		}
 	}
