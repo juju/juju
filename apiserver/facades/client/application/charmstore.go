@@ -110,7 +110,7 @@ func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthoriz
 
 	// TODO (stickupkid): This should be abstracted out in the future to
 	// accommodate the charmhub adapter.
-	strategy, err := corecharm.DownloadFromCharmStore(repo, args.URL, args.Force)
+	strategy, err := corecharm.DownloadFromCharmStore(logger.Child("strategy"), repo, args.URL, args.Force)
 	if err != nil {
 		return errors.Trace(err)
 	}

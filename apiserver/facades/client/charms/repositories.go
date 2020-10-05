@@ -97,14 +97,13 @@ func (c *chRepo) FindDownloadURL(curl *charm.URL, origin corecharm.Origin, serie
 		return nil, corecharm.Origin{}, errors.Errorf("More than 1 result found")
 	}
 	findResult := result[0]
-	logger.Tracef("FindDownloadURL received %+v", findResult)
 	if findResult.Error != nil {
 		// TODO: (hml) 4-sep-2020
 		// When list of error codes available, create real error for them.
 		return nil, corecharm.Origin{}, errors.Errorf("%s: %s", findResult.Error.Code, findResult.Error.Message)
 	}
 	origin.ID = findResult.Entity.ID
-	origin.Hash = findResult.Entity.Download.HashSHA265
+	origin.Hash = findResult.Entity.Download.HashSHA256
 	durl, err := url.Parse(findResult.Entity.Download.URL)
 	return durl, origin, errors.Trace(err)
 }

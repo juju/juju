@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/utils/v2"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
@@ -32,6 +33,23 @@ type StoreCharm interface {
 	charm.Charm
 	charm.LXDProfiler
 	Version() string
+}
+
+// Logger defines the logging methods that the package uses.
+type Logger interface {
+	Tracef(string, ...interface{})
+	Debugf(string, ...interface{})
+	Errorf(string, ...interface{})
+
+	Child(name string) Logger
+}
+
+type loggerShim struct {
+	loggo.Logger
+}
+
+func (l *loggerShim) Child(name string) Logger {
+	return &loggerShim{l.Logger.Child(name)}
 }
 
 // Store defines the store for which the charm is being downloaded from.
@@ -72,6 +90,7 @@ type Strategy struct {
 	store      Store
 	force      bool
 	deferFuncs []func() error
+	logger     Logger
 }
 
 // DownloadRepo defines methods required for the repo to download a charm.
@@ -82,34 +101,40 @@ type DownloadRepo interface {
 
 // DownloadFromCharmStore will creates a procedure to install a charm from the
 // charm store.
-func DownloadFromCharmStore(repository DownloadRepo, url string, force bool) (*Strategy, error) {
+func DownloadFromCharmStore(logger loggo.Logger, repository DownloadRepo, url string, force bool) (*Strategy, error) {
 	curl, err := charm.ParseURL(url)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	log := &loggerShim{logger}
 	return &Strategy{
 		charmURL: curl,
 		store: StoreCharmStore{
 			repository: repository,
+			logger:     log.Child("charmstore"),
 		},
-		force: force,
+		force:  force,
+		logger: log,
 	}, nil
 }
 
 // DownloadFromCharmHub will creates a procedure to install a charm from the
 // charm hub.
-func DownloadFromCharmHub(repository DownloadRepo, curl string, force bool, series string) (*Strategy, error) {
+func DownloadFromCharmHub(logger loggo.Logger, repository DownloadRepo, curl string, force bool, series string) (*Strategy, error) {
 	churl, err := charm.ParseURL(curl)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	log := &loggerShim{logger}
 	return &Strategy{
 		charmURL: churl,
 		store: StoreCharmHub{
 			repository: repository,
 			series:     series,
+			logger:     log.Child("charmhub"),
 		},
-		force: force,
+		force:  force,
+		logger: log,
 	}, nil
 }
 
@@ -150,6 +175,7 @@ type DownloadResult struct {
 // Includes downloading the blob to a temp file and validating the contents
 // of the charm.Meta and LXD profile data.
 func (p *Strategy) Run(state State, version JujuVersionValidator, origin Origin) (DownloadResult, bool, Origin, error) {
+	p.logger.Tracef("Run %+v", origin)
 	ch, err := state.PrepareCharmUpload(p.charmURL)
 	if err != nil {
 		return DownloadResult{}, false, origin, errors.Trace(err)
@@ -238,8 +264,10 @@ func (p *Strategy) downloadResult(file string, checksum ChecksumCheckFn) (Downlo
 		return DownloadResult{}, errors.Annotate(err, "cannot calculate SHA256 hash of charm")
 	}
 
+	p.logger.Tracef("downloadResult(%q) sha: %q, size: %d", tar.Name(), sha, size)
+
 	if !checksum(sha) {
-		return DownloadResult{}, errors.Annotate(err, "invalid download checksum")
+		return DownloadResult{}, errors.NotValidf("download checksum")
 	}
 
 	if _, err := tar.Seek(0, 0); err != nil {
@@ -256,6 +284,7 @@ func (p *Strategy) downloadResult(file string, checksum ChecksumCheckFn) (Downlo
 // StoreCharmStore defines a type for interacting with the charm store.
 type StoreCharmStore struct {
 	repository DownloadRepo
+	logger     Logger
 }
 
 // Validate checks to ensure that the schema is valid for the store.
@@ -268,6 +297,7 @@ func (StoreCharmStore) Validate(curl *charm.URL) error {
 
 // Download the charm from the charm store.
 func (s StoreCharmStore) Download(curl *charm.URL, file string, origin Origin) (StoreCharm, ChecksumCheckFn, Origin, error) {
+	s.logger.Tracef("Download(%s) %s", curl)
 	archive, err := s.repository.DownloadCharm(curl.String(), file)
 	if err != nil {
 		if cause := errors.Cause(err); httpbakery.IsDischargeError(cause) || httpbakery.IsInteractionError(cause) {
@@ -284,6 +314,7 @@ func (s StoreCharmStore) Download(curl *charm.URL, file string, origin Origin) (
 type StoreCharmHub struct {
 	repository DownloadRepo
 	series     string
+	logger     Logger
 }
 
 // Validate checks to ensure that the schema is valid for the store.
@@ -296,6 +327,7 @@ func (StoreCharmHub) Validate(curl *charm.URL) error {
 
 // Download the charm from the charm hub.
 func (s StoreCharmHub) Download(curl *charm.URL, file string, origin Origin) (StoreCharm, ChecksumCheckFn, Origin, error) {
+	s.logger.Tracef("Download(%s) %s", curl)
 	repositoryURL, downloadOrigin, err := s.repository.FindDownloadURL(curl, origin, s.series)
 	if err != nil {
 		return nil, nil, downloadOrigin, errors.Trace(err)

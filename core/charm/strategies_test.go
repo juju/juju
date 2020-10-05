@@ -35,6 +35,7 @@ func (s strategySuite) TestValidate(c *gc.C) {
 	strategy := &Strategy{
 		charmURL: curl,
 		store:    mockStore,
+		logger:   &fakeLogger{},
 	}
 	err := strategy.Validate()
 	c.Assert(err, jc.ErrorIsNil)
@@ -52,6 +53,7 @@ func (s strategySuite) TestValidateWithError(c *gc.C) {
 	strategy := &Strategy{
 		charmURL: curl,
 		store:    mockStore,
+		logger:   &fakeLogger{},
 	}
 	err := strategy.Validate()
 	c.Assert(err, gc.ErrorMatches, "boom")
@@ -65,7 +67,7 @@ func (s strategySuite) TestDownloadResult(c *gc.C) {
 	err = file.Sync()
 	c.Assert(err, jc.ErrorIsNil)
 
-	strategy := &Strategy{}
+	strategy := &Strategy{logger: &fakeLogger{}}
 	result, err := strategy.downloadResult(file.Name(), AlwaysMatchChecksum)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.SHA256, gc.Equals, "4e97ed7423be2ea12939e8fdd592cfb3dcd4d0097d7d193ef998ab6b4db70461")
@@ -96,6 +98,7 @@ func (s strategySuite) TestRunWithCharmAlreadyUploaded(c *gc.C) {
 	strategy := &Strategy{
 		charmURL: curl,
 		store:    mockStore,
+		logger:   &fakeLogger{},
 	}
 	_, alreadyExists, _, err := strategy.Run(mockState, mockVersionValidator, Origin{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -117,6 +120,7 @@ func (s strategySuite) TestRunWithPrepareUploadError(c *gc.C) {
 	strategy := &Strategy{
 		charmURL: curl,
 		store:    mockStore,
+		logger:   &fakeLogger{},
 	}
 	_, alreadyExists, _, err := strategy.Run(mockState, mockVersionValidator, Origin{})
 	c.Assert(err, gc.ErrorMatches, "boom")
@@ -154,6 +158,7 @@ func (s strategySuite) TestRun(c *gc.C) {
 	strategy := &Strategy{
 		charmURL: curl,
 		store:    mockStore,
+		logger:   &fakeLogger{},
 	}
 	_, alreadyExists, _, err := strategy.Run(mockState, mockVersionValidator, Origin{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -196,6 +201,7 @@ func (s strategySuite) TestRunWithInvalidLXDProfile(c *gc.C) {
 	strategy := &Strategy{
 		charmURL: curl,
 		store:    mockStore,
+		logger:   &fakeLogger{},
 	}
 	_, alreadyExists, _, err := strategy.Run(mockState, mockVersionValidator, Origin{})
 	c.Assert(err, gc.ErrorMatches, `cannot add charm: invalid lxd-profile.yaml: contains config value "boot"`)
@@ -237,6 +243,7 @@ func (s strategySuite) TestFinishAfterRun(c *gc.C) {
 	strategy := &Strategy{
 		charmURL: curl,
 		store:    mockStore,
+		logger:   &fakeLogger{},
 	}
 	_, alreadyExists, _, err := strategy.Run(mockState, mockVersionValidator, Origin{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -256,4 +263,14 @@ func mustWriteToTempFile(c *gc.C, mockCharm *MockStoreCharm) func(*charm.URL, st
 
 		return mockCharm, AlwaysMatchChecksum, origin, nil
 	}
+}
+
+type fakeLogger struct {
+}
+
+func (l *fakeLogger) Errorf(_ string, _ ...interface{}) {}
+func (l *fakeLogger) Debugf(_ string, _ ...interface{}) {}
+func (l *fakeLogger) Tracef(_ string, _ ...interface{}) {}
+func (l *fakeLogger) Child(string) Logger {
+	return &fakeLogger{}
 }

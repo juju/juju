@@ -89,6 +89,7 @@ func (h *charmsHandler) ServeUnsupported(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *charmsHandler) ServePost(w http.ResponseWriter, r *http.Request) error {
+	logger.Child("charmsHandler").Tracef("ServePost(%s)", r.URL)
 	if r.Method != "POST" {
 		return errors.Trace(emitUnsupportedMethodErr(r.Method))
 	}
@@ -108,6 +109,7 @@ func (h *charmsHandler) ServePost(w http.ResponseWriter, r *http.Request) error 
 }
 
 func (h *charmsHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
+	logger.Child("charmsHandler").Tracef("ServeGet(%s)", r.URL)
 	if r.Method != "GET" {
 		return errors.Trace(emitUnsupportedMethodErr(r.Method))
 	}
@@ -515,6 +517,7 @@ func sendBundleContent(
 	archivePath string,
 	sender bundleContentSenderFunc,
 ) error {
+	logger.Child("charmhttp").Tracef("sendBundleContent %q", archivePath)
 	bundle, err := charm.ReadCharmArchive(archivePath)
 	if err != nil {
 		return errors.Annotatef(err, "unable to read archive in %q", archivePath)

@@ -120,7 +120,7 @@ func (s *FindSuite) TestFindRequestPayload(c *gc.C) {
 					ConfigYAML: "one: 1\ntwo: 2\nitems: [1,2,3,4]\n\"",
 					CreatedAt:  "2019-12-16T19:20:26.673192+00:00",
 					Download: transport.Download{
-						HashSHA265: "92a8b825ed1108ab64864a7df05eb84ed3925a8d5e4741169185f77cef9b52517ad4b79396bab43b19e544a908ec83c4",
+						HashSHA256: "92a8b825ed1108ab64864a7df05eb84ed3925a8d5e4741169185f77cef9b52517ad4b79396bab43b19e544a908ec83c4",
 						Size:       12042240,
 						URL:        "https://api.snapcraft.io/api/v1/snaps/download/QLLfVfIKfcnTZiPFnmGcigB2vB605ZY7_16.snap",
 					},
