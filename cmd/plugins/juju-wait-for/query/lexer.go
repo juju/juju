@@ -204,7 +204,7 @@ func (l *Lexer) readString(r rune) (string, error) {
 	}
 }
 
-// scanNumber returns number begining at current position.
+// scanNumber returns number beginning at current position.
 func (l *Lexer) readNumber() string {
 	var ret []rune
 
