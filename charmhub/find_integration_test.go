@@ -34,8 +34,8 @@ func (s *FindClientSuite) TestLiveFindRequest(c *gc.C) {
 	restClient := charmhub.NewHTTPRESTClient(apiRequester, nil, &charmhub.FakeLogger{})
 
 	client := charmhub.NewFindClient(findPath, restClient, &charmhub.FakeLogger{})
-	responses, err := client.Find(context.TODO(), "wordpress")
+	responses, err := client.Find(context.TODO(), "ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(responses), jc.GreaterThan, 1)
-	c.Assert(responses[0].Name, gc.Equals, "wordpress")
+	c.Assert(responses[0].Name, gc.Equals, "ubuntu")
 }

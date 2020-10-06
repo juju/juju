@@ -84,12 +84,10 @@ func (s *charmHubAPISuite) expectClient() {
 }
 
 func (s *charmHubAPISuite) expectInfo() {
-	s.client.EXPECT().URL().Return("https://someurl.com")
 	s.client.EXPECT().Info(gomock.Any(), "wordpress").Return(getCharmHubInfoResponse(), nil)
 }
 
 func (s *charmHubAPISuite) expectFind() {
-	s.client.EXPECT().URL().Return("https://someurl.com")
 	s.client.EXPECT().Find(gomock.Any(), "wordpress").Return(getCharmHubFindResponses(), nil)
 }
 
@@ -195,7 +193,8 @@ func getCharmHubResponse() ([]transport.ChannelMap, transport.Entity, transport.
 			Publisher: map[string]string{
 				"display-name": "Wordress Charmers",
 			},
-			Summary: "WordPress is a full featured web blogging tool, this charm deploys it.",
+			Summary:  "WordPress is a full featured web blogging tool, this charm deploys it.",
+			StoreURL: "https://someurl.com/wordpress",
 			UsedBy: []string{
 				"wordpress-everlast",
 				"wordpress-jorge",

@@ -5,8 +5,6 @@ package charmhub
 
 import (
 	"bytes"
-	"fmt"
-	"strings"
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
@@ -16,7 +14,7 @@ import (
 	"github.com/juju/juju/charmhub/transport"
 )
 
-func convertCharmInfoResult(info transport.InfoResponse, clientURL string) params.InfoResponse {
+func convertCharmInfoResult(info transport.InfoResponse) params.InfoResponse {
 	ir := params.InfoResponse{
 		Type:        info.Type,
 		ID:          info.ID,
@@ -25,7 +23,7 @@ func convertCharmInfoResult(info transport.InfoResponse, clientURL string) param
 		Publisher:   publisher(info.Entity),
 		Summary:     info.Entity.Summary,
 		Tags:        categories(info.Entity.Categories),
-		StoreURL:    transformStoreURL(clientURL, info.Name),
+		StoreURL:    info.Entity.StoreURL,
 	}
 	switch ir.Type {
 	case "bundle":
@@ -51,15 +49,15 @@ func categories(cats []transport.Category) []string {
 	return result
 }
 
-func convertCharmFindResults(responses []transport.FindResponse, clientURL string) []params.FindResponse {
+func convertCharmFindResults(responses []transport.FindResponse) []params.FindResponse {
 	results := make([]params.FindResponse, len(responses))
 	for k, response := range responses {
-		results[k] = convertCharmFindResult(response, clientURL)
+		results[k] = convertCharmFindResult(response)
 	}
 	return results
 }
 
-func convertCharmFindResult(resp transport.FindResponse, clientURL string) params.FindResponse {
+func convertCharmFindResult(resp transport.FindResponse) params.FindResponse {
 	return params.FindResponse{
 		Type:      resp.Type,
 		ID:        resp.ID,
@@ -68,22 +66,13 @@ func convertCharmFindResult(resp transport.FindResponse, clientURL string) param
 		Summary:   resp.Entity.Summary,
 		Version:   resp.DefaultRelease.Revision.Version,
 		Series:    transformSeries(resp.DefaultRelease),
-		StoreURL:  transformStoreURL(clientURL, resp.Name),
+		StoreURL:  resp.Entity.StoreURL,
 	}
 }
 
 func publisher(ch transport.Entity) string {
 	publisher, _ := ch.Publisher["display-name"]
 	return publisher
-}
-
-// transformStoreURL converts the store url into something we can use in the
-// output.
-// TODO (stickupkid): The API should provide this URL or at least guidance on
-// how to construct it.
-func transformStoreURL(clientURL, name string) string {
-	url := strings.TrimSuffix(clientURL, "/")
-	return fmt.Sprintf("%s/%s", url, name)
 }
 
 // transformSeries returns a slice of supported series for that revision.
