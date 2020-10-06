@@ -271,7 +271,9 @@ func bootstrapCAAS(
 	}
 
 	jujuVersion := jujuversion.Current
-
+	if args.AgentVersion != nil {
+		jujuVersion = *args.AgentVersion
+	}
 	// set agent version before finalizing bootstrap config
 	if err := setBootstrapAgentVersion(environ, jujuVersion); err != nil {
 		return errors.Trace(err)
