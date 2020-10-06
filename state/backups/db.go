@@ -94,8 +94,9 @@ func getBackupTargetDatabases(session DBSession) (set.Strings, error) {
 }
 
 const (
-	dumpName    = "mongodump"
-	restoreName = "mongorestore"
+	dumpName       = "mongodump"
+	restoreName    = "mongorestore"
+	snapToolPrefix = "juju-db."
 )
 
 // DBDumper is any type that dumps something to a dump dir.
@@ -119,12 +120,21 @@ func getMongoToolPath(toolName string, stat func(name string) (os.FileInfo, erro
 	if err != nil {
 		return "", errors.Annotate(err, "failed to get mongod path")
 	}
-	mongoTool := filepath.Join(filepath.Dir(mongod), toolName)
+	mongodDir := filepath.Dir(mongod)
 
+	mongoTool := filepath.Join(mongodDir, toolName)
 	if _, err := stat(mongoTool); err == nil {
-		// It already exists so no need to continue.
+		// Found it alongside mongod binary, so no need to continue.
 		return mongoTool, nil
 	}
+	logger.Tracef("didn't find MongoDB tool %q in %q", toolName, mongodDir)
+
+	// Also try "juju-db.tool" (how it's named in the Snap).
+	mongoTool = filepath.Join(mongodDir, snapToolPrefix+toolName)
+	if _, err := stat(mongoTool); err == nil {
+		return mongoTool, nil
+	}
+	logger.Tracef("didn't find MongoDB tool %q in %q", snapToolPrefix+toolName, mongodDir)
 
 	path, err := lookPath(toolName)
 	if err != nil {

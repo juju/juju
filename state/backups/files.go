@@ -30,8 +30,9 @@ const (
 	nonceFile    = "nonce.txt"
 	authKeysFile = "authorized_keys"
 
-	dbPEM    = mongo.FileNameDBSSLKey
-	dbSecret = "shared-secret"
+	dbPEM           = mongo.FileNameDBSSLKey
+	dbSecret        = "shared-secret"
+	dbSecretSnapDir = "/var/snap/juju-db/common"
 )
 
 // Paths holds the paths that backups needs.
@@ -60,12 +61,25 @@ func GetFilesToBackUp(rootDir string, paths *Paths, oldmachine string) ([]string
 
 	backupFiles := []string{
 		filepath.Join(rootDir, paths.DataDir, toolsDir),
-
 		filepath.Join(rootDir, paths.DataDir, sshIdentFile),
-
 		filepath.Join(rootDir, paths.DataDir, dbPEM),
-		filepath.Join(rootDir, paths.DataDir, dbSecret),
 	}
+
+	// Handle shared-secret (may be in /var/lib/juju or /var/snap/juju-db/common).
+	secret := filepath.Join(rootDir, paths.DataDir, dbSecret)
+	if _, err := os.Stat(secret); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, errors.Trace(err)
+		}
+		secretSnap := filepath.Join(rootDir, dbSecretSnapDir, dbSecret)
+		logger.Tracef("shared-secret not found at %q, trying %q", secret, secretSnap)
+		if _, err := os.Stat(secretSnap); err != nil {
+			return nil, errors.Trace(err)
+		}
+		secret = secretSnap
+	}
+	backupFiles = append(backupFiles, secret)
+
 	backupFiles = append(backupFiles, agentConfs...)
 	backupFiles = append(backupFiles, serviceConfs...)
 
