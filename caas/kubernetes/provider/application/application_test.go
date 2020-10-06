@@ -322,6 +322,12 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 				},
 				{
 					Name:      "juju-data-dir",
+					MountPath: "/usr/bin/jujuc",
+					SubPath:   "usr/bin/jujuc",
+					ReadOnly:  true,
+				},
+				{
+					Name:      "juju-data-dir",
 					MountPath: jujuDataDir,
 					SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
 				},

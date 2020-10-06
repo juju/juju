@@ -95,6 +95,8 @@ apiport: 17070`[1:])
 		s.fileReaderWriter.EXPECT().WriteFile("/shared/usr/bin/pebble", pebbleBytes, os.FileMode(0755)).Return(nil),
 		s.fileReaderWriter.EXPECT().ReadFile("/opt/k8sagent").Times(1).Return(pebbleBytes, nil),
 		s.fileReaderWriter.EXPECT().WriteFile("/shared/usr/bin/k8sagent", pebbleBytes, os.FileMode(0755)).Return(nil),
+		s.fileReaderWriter.EXPECT().ReadFile("/opt/jujuc").Times(1).Return(pebbleBytes, nil),
+		s.fileReaderWriter.EXPECT().WriteFile("/shared/usr/bin/jujuc", pebbleBytes, os.FileMode(0755)).Return(nil),
 
 		s.applicationAPI.EXPECT().Close().Times(1).Return(nil),
 	)
