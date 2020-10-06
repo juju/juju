@@ -217,6 +217,9 @@ type Callbacks interface {
 	// supply a reason as to why it is making the change.
 	SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, reason string) error
 
+	// PostStartHook indiciates that the charms start hook has successfully run
+	PostStartHook()
+
 	// RemoteInit copies the charm to the remote instance. CAAS only.
 	RemoteInit(runningStatus remotestate.ContainerRunningStatus, abort <-chan struct{}) error
 }

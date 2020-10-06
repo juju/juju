@@ -78,62 +78,6 @@ func boolPtr(b bool) *bool {
 	return &b
 }
 
-func (s *K8sSuite) TestPushUniqueVolume(c *gc.C) {
-	podSpec := &core.PodSpec{}
-
-	vol1 := core.Volume{
-		Name: "vol1",
-		VolumeSource: core.VolumeSource{
-			EmptyDir: &core.EmptyDirVolumeSource{},
-		},
-	}
-	vol2 := core.Volume{
-		Name: "vol2",
-		VolumeSource: core.VolumeSource{
-			HostPath: &core.HostPathVolumeSource{
-				Path: "/var/log/gitlab",
-			},
-		},
-	}
-	aDifferentVol2 := core.Volume{
-		Name: "vol2",
-		VolumeSource: core.VolumeSource{
-			HostPath: &core.HostPathVolumeSource{
-				Path: "/var/log/foo",
-			},
-		},
-	}
-	err := provider.PushUniqueVolume(podSpec, vol1, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(podSpec.Volumes, jc.DeepEquals, []core.Volume{
-		vol1,
-	})
-
-	err = provider.PushUniqueVolume(podSpec, vol1, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(podSpec.Volumes, jc.DeepEquals, []core.Volume{
-		vol1,
-	})
-
-	err = provider.PushUniqueVolume(podSpec, vol2, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(podSpec.Volumes, jc.DeepEquals, []core.Volume{
-		vol1, vol2,
-	})
-
-	err = provider.PushUniqueVolume(podSpec, aDifferentVol2, false)
-	c.Assert(err, gc.ErrorMatches, `duplicated volume "vol2" not valid`)
-	c.Assert(podSpec.Volumes, jc.DeepEquals, []core.Volume{
-		vol1, vol2,
-	})
-
-	err = provider.PushUniqueVolume(podSpec, aDifferentVol2, true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(podSpec.Volumes, jc.DeepEquals, []core.Volume{
-		vol1, aDifferentVol2,
-	})
-}
-
 func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 
 	podSpec := specs.PodSpec{

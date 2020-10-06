@@ -59,6 +59,7 @@ type StorageProvisioner struct {
 	Provisioner       string
 	Parameters        map[string]string
 	Namespace         string
+	Model             string
 	ReclaimPolicy     string
 	VolumeBindingMode string
 }

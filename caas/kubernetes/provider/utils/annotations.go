@@ -4,8 +4,12 @@
 package utils
 
 import (
+	"crypto/rand"
 	"fmt"
+	"io"
 	"strings"
+
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/annotations"
@@ -121,4 +125,16 @@ func ResourceTagsToAnnotations(in map[string]string, legacy bool) annotations.An
 		out.Add(k, v)
 	}
 	return out
+}
+
+// RandomPrefixFunc defines a function used to generate a random hex string.
+type RandomPrefixFunc func() (string, error)
+
+// RandomPrefix returns a random string for storage related annotations.
+func RandomPrefix() (string, error) {
+	var randPrefixBytes [4]byte
+	if _, err := io.ReadFull(rand.Reader, randPrefixBytes[0:4]); err != nil {
+		return "", errors.Trace(err)
+	}
+	return fmt.Sprintf("%x", randPrefixBytes), nil
 }

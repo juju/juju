@@ -13,6 +13,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	k8sstorage "github.com/juju/juju/caas/kubernetes/provider/storage"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/caas/specs"
 	k8sannotations "github.com/juju/juju/core/annotations"
@@ -61,7 +62,6 @@ func (k *kubernetesClient) configureStatefulSet(
 	}
 
 	selectorLabels := utils.SelectorLabelsForApp(appName, k.IsLegacyLabels())
-
 	statefulSet := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   deploymentName,
@@ -102,7 +102,7 @@ func (k *kubernetesClient) configureStatefulSet(
 		if readOnly {
 			logger.Warningf("set storage mode to ReadOnlyMany if read only storage is needed")
 		}
-		if err := pushUniqueVolumeClaimTemplate(&statefulSet.Spec, pvc); err != nil {
+		if err := k8sstorage.PushUniqueVolumeClaimTemplate(&statefulSet.Spec, pvc); err != nil {
 			return errors.Trace(err)
 		}
 		podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{
@@ -182,7 +182,7 @@ func (k *kubernetesClient) getStatefulSet(name string) (*apps.StatefulSet, error
 // deleteStatefulSet deletes a statefulset resource.
 func (k *kubernetesClient) deleteStatefulSet(name string) error {
 	err := k.client().AppsV1().StatefulSets(k.namespace).Delete(context.TODO(), name, v1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil
@@ -194,7 +194,7 @@ func (k *kubernetesClient) deleteStatefulSet(name string) error {
 func (k *kubernetesClient) deleteStatefulSets(appName string) error {
 	labels := utils.LabelsForApp(appName, k.IsLegacyLabels())
 	err := k.client().AppsV1().StatefulSets(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, v1.ListOptions{
 		LabelSelector: utils.LabelSetToSelector(labels).String(),
 	})

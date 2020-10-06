@@ -238,10 +238,10 @@ func (s *RelationSuite) TestAddContainerRelationSeriesMustMatch(c *gc.C) {
 }
 
 func (s *RelationSuite) TestAddContainerRelationMultiSeriesMatch(c *gc.C) {
-	principal := s.AddTestingApplication(c, "multi-series", s.AddSeriesCharm(c, "multi-series", "precise"))
+	principal := s.AddTestingApplication(c, "multi-series", s.AddSeriesCharm(c, "multi-series", "quantal"))
 	principalEP, err := principal.Endpoint("multi-directory")
 	c.Assert(err, jc.ErrorIsNil)
-	subord := s.AddTestingApplication(c, "multi-series-subordinate", s.AddSeriesCharm(c, "multi-series-subordinate", "trusty"))
+	subord := s.AddTestingApplication(c, "multi-series-subordinate", s.AddSeriesCharm(c, "multi-series-subordinate", "bionic"))
 	subordEP, err := subord.Endpoint("multi-directory")
 	c.Assert(err, jc.ErrorIsNil)
 

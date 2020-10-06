@@ -24,8 +24,9 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/charms"
+	apicharms "github.com/juju/juju/api/charms"
 	commoncharm "github.com/juju/juju/api/common/charm"
+	apicommoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/spaces"
 	"github.com/juju/juju/apiserver/params"
@@ -46,7 +47,7 @@ func newRefreshCommand() *refreshCommand {
 		DeployResources: resourceadapters.DeployResources,
 		NewCharmAdder:   newCharmAdder,
 		NewCharmClient: func(conn base.APICallCloser) utils.CharmClient {
-			return charms.NewClient(conn)
+			return apicharms.NewClient(conn)
 		},
 		NewCharmRefreshClient: func(conn base.APICallCloser) CharmRefreshClient {
 			return application.NewClient(conn)
@@ -72,7 +73,7 @@ func newRefreshCommand() *refreshCommand {
 		NewCharmResolver: func(apiRoot base.APICallCloser, charmrepo store.CharmrepoForDeploy) CharmResolver {
 			return store.NewCharmAdaptor(charmrepo,
 				apiRoot.BestFacadeVersion("Charms"),
-				charms.NewClient(apiRoot),
+				apicharms.NewClient(apiRoot),
 			)
 		},
 		NewRefresherFactory: refresher.NewRefresherFactory,
@@ -571,7 +572,7 @@ func newCharmAdder(
 ) store.CharmAdder {
 	adder := &charmAdderShim{api: &apiClient{Client: api.Client()}}
 	if api.BestFacadeVersion("Charms") > 2 {
-		adder.charms = &charmsClient{Client: charms.NewClient(api)}
+		adder.charms = &charmsClient{Client: apicharms.NewClient(api)}
 	}
 	return adder
 }
@@ -619,7 +620,7 @@ var getCharmStoreAPIURL = func(conAPIRoot base.APICallCloser) (string, error) {
 	return controllerCfg.CharmStoreURL(), nil
 }
 
-func allEndpoints(ci *charms.CharmInfo) set.Strings {
+func allEndpoints(ci *apicommoncharms.CharmInfo) set.Strings {
 	epSet := set.NewStrings()
 	for n := range ci.Meta.ExtraBindings {
 		epSet.Add(n)

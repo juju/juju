@@ -132,6 +132,24 @@ func (u *Unit) ShouldBeAssigned() bool {
 	return u.modelType == ModelTypeIAAS
 }
 
+// IsEmbedded returns true when using new CAAS charms in embedded mode.
+func (u *Unit) IsEmbedded() (bool, error) {
+	app, err := u.Application()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	ch, _, err := app.Charm()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	meta := ch.Meta()
+	if meta == nil {
+		return false, nil
+	}
+	// TODO(embedded): Determine a better way represent this.
+	return u.modelType == ModelTypeCAAS && meta.Format() >= charm.FormatV2, nil
+}
+
 // Application returns the application.
 func (u *Unit) Application() (*Application, error) {
 	return u.st.Application(u.doc.Application)

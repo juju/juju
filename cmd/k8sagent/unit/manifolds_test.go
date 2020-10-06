@@ -1,6 +1,8 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// +build !windows
+
 package unit_test
 
 import (
@@ -52,6 +54,9 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"proxy-config-updater",
 		"logging-config-updater",
 		"api-address-updater",
+
+		"caas-prober",
+		"probe-http-server",
 	}
 	keys := make([]string, 0, len(manifolds))
 	for k := range manifolds {
@@ -65,6 +70,8 @@ func (*ManifoldsSuite) TestMigrationGuards(c *gc.C) {
 		"agent",
 		"api-config-watcher",
 		"api-caller",
+		"caas-prober",
+		"probe-http-server",
 		"log-sender",
 
 		"migration-fortress",
@@ -179,5 +186,9 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"api-config-watcher",
 		"migration-fortress",
 		"migration-inactive-flag",
+	},
+	"probe-http-server": {},
+	"caas-prober": {
+		"probe-http-server",
 	},
 }

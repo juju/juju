@@ -1044,6 +1044,21 @@ func (s *ApplicationSuite) TestSequenceUnitIds(c *gc.C) {
 	c.Assert(unit.Name(), gc.Equals, "mysql/1")
 }
 
+func (s *ApplicationSuite) TestExplicitUnitName(c *gc.C) {
+	name1 := "mysql/100"
+	unit, err := s.mysql.AddUnit(state.AddUnitParams{
+		UnitName: &name1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.Name(), gc.Equals, name1)
+	name0 := "mysql/0"
+	unit, err = s.mysql.AddUnit(state.AddUnitParams{
+		UnitName: &name0,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.Name(), gc.Equals, name0)
+}
+
 func (s *ApplicationSuite) TestSetCharmWhenDead(c *gc.C) {
 	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
 
@@ -4905,4 +4920,61 @@ func (s *ApplicationSuite) TestDeployedMachinesNotAssignedUnit(c *gc.C) {
 	machines, err := app.DeployedMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 0)
+}
+
+func (s *ApplicationSuite) TestCAASEmbeddedCharm(c *gc.C) {
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS,
+	})
+	defer st.Close()
+	f := factory.NewFactory(st, s.StatePool)
+
+	charmDef := `
+name: cockroachdb
+description: foo
+summary: foo
+platforms:
+  - kubernetes
+architectures:
+  - amd64
+systems:
+  - os: ubuntu
+    channel: 20.04/stable
+`
+	ch := state.AddCustomCharmForSeries(c, st, "cockroach", "metadata.yaml", charmDef, "focal", 1)
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "cockroachdb", Charm: ch})
+
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	embedded, err := unit.IsEmbedded()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(embedded, jc.IsTrue)
+}
+
+func (s *ApplicationSuite) TestCAASNonEmbeddedCharm(c *gc.C) {
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS,
+	})
+	defer st.Close()
+	f := factory.NewFactory(st, s.StatePool)
+
+	charmDef := `
+name: mysql
+description: foo
+summary: foo
+series:
+  - kubernetes
+deployment:
+  mode: workload
+`
+	ch := state.AddCustomCharmForSeries(c, st, "mysql", "metadata.yaml", charmDef, "kubernetes", 1)
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: ch})
+
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	embedded, err := unit.IsEmbedded()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(embedded, jc.IsFalse)
 }

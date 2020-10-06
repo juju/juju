@@ -16,6 +16,7 @@ import (
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/mgo.v2"
 
+	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
@@ -30,6 +31,7 @@ import (
 // API implements the charms interface and is the concrete
 // implementation of the API end point.
 type API struct {
+	*charmscommon.CharmsAPI
 	authorizer   facade.Authorizer
 	backendState BackendState
 	backendModel BackendModel
@@ -84,7 +86,13 @@ func NewFacadeV3(ctx facade.Context) (*API, error) {
 		return nil, errors.Trace(err)
 	}
 
+	commonCharmsAPI, err := charmscommon.NewCharmsAPI(st, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &API{
+		CharmsAPI:            commonCharmsAPI,
 		authorizer:           authorizer,
 		backendState:         newStateShim(st),
 		backendModel:         m,

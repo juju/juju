@@ -11,19 +11,22 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apicharm "github.com/juju/juju/api/common/charm"
+	commoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/apiserver/params"
 )
 
 // Client allows access to the charms API end point.
 type Client struct {
 	base.ClientFacade
+	*commoncharms.CharmsClient
 	facade base.FacadeCaller
 }
 
 // NewClient creates a new client for accessing the charms API.
 func NewClient(st base.APICallCloser) *Client {
 	frontend, backend := base.NewClientFacade(st, "Charms")
-	return &Client{ClientFacade: frontend, facade: backend}
+	commonClient := commoncharms.NewCharmsClient(backend)
+	return &Client{ClientFacade: frontend, CharmsClient: commonClient, facade: backend}
 }
 
 // IsMetered returns whether or not the charm is metered.
@@ -84,40 +87,6 @@ func (c *Client) ResolveCharms(charms []CharmToResolve) ([]ResolvedCharm, error)
 		}
 	}
 	return resolvedCharms, nil
-}
-
-// CharmInfo holds information about a charm.
-type CharmInfo struct {
-	Revision   int
-	URL        string
-	Config     *charm.Config
-	Meta       *charm.Meta
-	Actions    *charm.Actions
-	Metrics    *charm.Metrics
-	LXDProfile *charm.LXDProfile
-}
-
-// CharmInfo returns information about the requested charm.
-func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
-	args := params.CharmURL{URL: charmURL}
-	var info params.Charm
-	if err := c.facade.FacadeCall("CharmInfo", args, &info); err != nil {
-		return nil, errors.Trace(err)
-	}
-	meta, err := convertCharmMeta(info.Meta)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	result := &CharmInfo{
-		Revision:   info.Revision,
-		URL:        info.URL,
-		Config:     params.FromCharmOptionMap(info.Config),
-		Meta:       meta,
-		Actions:    convertCharmActions(info.Actions),
-		Metrics:    convertCharmMetrics(info.Metrics),
-		LXDProfile: convertCharmLXDProfile(info.LXDProfile),
-	}
-	return result, nil
 }
 
 // AddCharm adds the given charm URL (which must include revision) to

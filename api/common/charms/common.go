@@ -1,16 +1,68 @@
-// Copyright 2020 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// charms provides a client for accessing the charms API.
 package charms
 
 import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/resource"
 	"github.com/juju/errors"
+	"github.com/juju/systems"
+	"github.com/juju/systems/channel"
 	"github.com/juju/version"
 
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 )
+
+// CharmsClient allows access to the charms API end point.
+type CharmsClient struct {
+	facade base.FacadeCaller
+}
+
+// NewCharmsClient creates a new client for accessing the charms API.
+func NewCharmsClient(facade base.FacadeCaller) *CharmsClient {
+	return &CharmsClient{facade: facade}
+}
+
+// CharmInfo holds information about a charm.
+type CharmInfo struct {
+	Revision   int
+	URL        string
+	Config     *charm.Config
+	Meta       *charm.Meta
+	Actions    *charm.Actions
+	Metrics    *charm.Metrics
+	LXDProfile *charm.LXDProfile
+}
+
+func (info *CharmInfo) Charm() charm.Charm {
+	return &charmImpl{info}
+}
+
+// CharmInfo returns information about the requested charm.
+func (c *CharmsClient) CharmInfo(charmURL string) (*CharmInfo, error) {
+	args := params.CharmURL{URL: charmURL}
+	var info params.Charm
+	if err := c.facade.FacadeCall("CharmInfo", args, &info); err != nil {
+		return nil, errors.Trace(err)
+	}
+	meta, err := convertCharmMeta(info.Meta)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := &CharmInfo{
+		Revision:   info.Revision,
+		URL:        info.URL,
+		Config:     params.FromCharmOptionMap(info.Config),
+		Meta:       meta,
+		Actions:    convertCharmActions(info.Actions),
+		Metrics:    convertCharmMetrics(info.Metrics),
+		LXDProfile: convertCharmLXDProfile(info.LXDProfile),
+	}
+	return result, nil
+}
 
 func convertCharmMeta(meta *params.CharmMeta) (*charm.Meta, error) {
 	if meta == nil {
@@ -21,6 +73,14 @@ func convertCharmMeta(meta *params.CharmMeta) (*charm.Meta, error) {
 		return nil, errors.Trace(err)
 	}
 	resources, err := convertCharmResourceMetaMap(meta.Resources)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	systems, err := convertCharmSystems(meta.Systems)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	containers, err := convertCharmContainers(meta.Containers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -37,10 +97,16 @@ func convertCharmMeta(meta *params.CharmMeta) (*charm.Meta, error) {
 		Tags:           meta.Tags,
 		Series:         meta.Series,
 		Storage:        convertCharmStorageMap(meta.Storage),
+		Deployment:     convertCharmDeployment(meta.Deployment),
+		Devices:        convertCharmDevices(meta.Devices),
 		PayloadClasses: convertCharmPayloadClassMap(meta.PayloadClasses),
 		Resources:      resources,
 		Terms:          meta.Terms,
 		MinJujuVersion: minVersion,
+		Systems:        systems,
+		Platforms:      convertCharmPlatforms(meta.Platforms),
+		Architectures:  convertCharmArchitectures(meta.Architectures),
+		Containers:     containers,
 	}
 	return result, nil
 }
@@ -238,4 +304,122 @@ func convertCharmLXDProfileDevicesMap(devices map[string]map[string]string) map[
 		result[k] = nested
 	}
 	return result
+}
+
+func convertCharmDeployment(deployment *params.CharmDeployment) *charm.Deployment {
+	if deployment == nil {
+		return nil
+	}
+	return &charm.Deployment{
+		DeploymentType: charm.DeploymentType(deployment.DeploymentType),
+		DeploymentMode: charm.DeploymentMode(deployment.DeploymentMode),
+		ServiceType:    charm.ServiceType(deployment.ServiceType),
+		MinVersion:     deployment.MinVersion,
+	}
+}
+
+func convertCharmDevices(devices map[string]params.CharmDevice) map[string]charm.Device {
+	if devices == nil {
+		return nil
+	}
+	results := make(map[string]charm.Device)
+	for k, v := range devices {
+		results[k] = charm.Device{
+			Name:        v.Name,
+			Description: v.Description,
+			Type:        charm.DeviceType(v.Type),
+			CountMin:    v.CountMin,
+			CountMax:    v.CountMax,
+		}
+	}
+	return results
+}
+
+type charmImpl struct {
+	info *CharmInfo
+}
+
+func (c *charmImpl) Meta() *charm.Meta {
+	return c.info.Meta
+}
+
+func (c *charmImpl) Config() *charm.Config {
+	return c.info.Config
+}
+
+func (c *charmImpl) Metrics() *charm.Metrics {
+	return c.info.Metrics
+}
+
+func (c *charmImpl) Actions() *charm.Actions {
+	return c.info.Actions
+}
+
+func (c *charmImpl) Revision() int {
+	return c.info.Revision
+}
+
+func convertCharmSystems(input []params.CharmSystem) ([]systems.System, error) {
+	var err error
+	res := []systems.System(nil)
+	for _, v := range input {
+		ch := channel.Channel{}
+		if v.Channel != "" {
+			ch, err = channel.Parse(v.Channel)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		res = append(res, systems.System{
+			OS:       v.OS,
+			Channel:  ch,
+			Resource: v.Resource,
+		})
+	}
+	return res, nil
+}
+
+func convertCharmPlatforms(input []string) []charm.Platform {
+	platforms := []charm.Platform(nil)
+	for _, v := range input {
+		platforms = append(platforms, charm.Platform(v))
+	}
+	return platforms
+}
+
+func convertCharmArchitectures(input []string) []charm.Architecture {
+	architectures := []charm.Architecture(nil)
+	for _, v := range input {
+		architectures = append(architectures, charm.Architecture(v))
+	}
+	return architectures
+}
+
+func convertCharmContainers(input map[string]params.CharmContainer) (map[string]charm.Container, error) {
+	containers := map[string]charm.Container{}
+	for k, v := range input {
+		systems, err := convertCharmSystems(v.Systems)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		containers[k] = charm.Container{
+			Systems: systems,
+			Mounts:  convertCharmMounts(v.Mounts),
+		}
+	}
+	if len(containers) == 0 {
+		return nil, nil
+	}
+	return containers, nil
+}
+
+func convertCharmMounts(input []params.CharmMount) []charm.Mount {
+	mounts := []charm.Mount(nil)
+	for _, v := range input {
+		mounts = append(mounts, charm.Mount{
+			Storage:  v.Storage,
+			Location: v.Location,
+		})
+	}
+	return mounts
 }

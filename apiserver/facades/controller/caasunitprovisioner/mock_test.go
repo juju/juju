@@ -13,7 +13,7 @@ import (
 	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
-	"github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
@@ -535,7 +535,7 @@ func (m *mockStoragePoolManager) Get(name string) (*storage.Config, error) {
 	if name == "rootfs" {
 		return nil, errors.NotFoundf("pool %q", name)
 	}
-	return storage.NewConfig(name, provider.K8s_ProviderType, map[string]interface{}{"foo": "bar"})
+	return storage.NewConfig(name, k8sconstants.StorageProviderType, map[string]interface{}{"foo": "bar"})
 }
 
 type mockStorageRegistry struct {

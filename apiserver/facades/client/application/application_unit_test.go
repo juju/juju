@@ -27,6 +27,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
@@ -69,7 +70,7 @@ var _ = gc.Suite(&ApplicationSuite{})
 
 func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
-	s.storagePoolManager = &mockStoragePoolManager{storageType: k8s.K8s_ProviderType}
+	s.storagePoolManager = &mockStoragePoolManager{storageType: k8sconstants.StorageProviderType}
 	s.registry = &mockStorageRegistry{}
 	s.caasBroker = &mockCaasBroker{}
 	api, err := application.NewAPIBase(

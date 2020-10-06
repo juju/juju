@@ -1881,7 +1881,7 @@ func (s *StateSuite) TestAddApplicationCompatibleOSWithSeriesInURL(c *gc.C) {
 
 func (s *StateSuite) TestAddApplicationCompatibleOSWithNoExplicitSupportedSeries(c *gc.C) {
 	// If a charm doesn't declare any series, we can add it with any series we choose.
-	charm := s.AddSeriesCharm(c, "dummy", "")
+	charm := s.AddSeriesCharm(c, "dummy", "bionic")
 	_, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name: "wordpress", Charm: charm,
 		Series: "quantal",

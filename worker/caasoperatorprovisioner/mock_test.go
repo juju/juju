@@ -165,11 +165,11 @@ func (m *mockBroker) EnsureOperator(appName, agentPath string, config *caas.Oper
 	return m.NextErr()
 }
 
-func (m *mockBroker) OperatorExists(appName string) (caas.OperatorState, error) {
+func (m *mockBroker) OperatorExists(appName string) (caas.DeploymentState, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.MethodCall(m, "OperatorExists", appName)
-	return caas.OperatorState{Exists: m.operatorExists, Terminating: m.terminating}, m.NextErr()
+	return caas.DeploymentState{Exists: m.operatorExists, Terminating: m.terminating}, m.NextErr()
 }
 
 func (m *mockBroker) DeleteOperator(appName string) error {

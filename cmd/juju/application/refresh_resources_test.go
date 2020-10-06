@@ -15,8 +15,6 @@ import (
 	charmresource "github.com/juju/charm/v8/resource"
 	csclientparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/juju/api/charms"
-	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -25,10 +23,12 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	apicommoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/testcharms"
 )
 
@@ -238,7 +238,7 @@ Deploying charm "cs:bionic/starsay-1".`
 
 	s.setupCharm(c, "bionic/starsay-2", "starsay", "bionic")
 	charmClient := &mockCharmClient{
-		charmInfo: &charms.CharmInfo{
+		charmInfo: &apicommoncharms.CharmInfo{
 			URL:  "bionic/starsay-2",
 			Meta: &charm.Meta{},
 		},

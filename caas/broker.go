@@ -22,6 +22,8 @@ import (
 	"github.com/juju/juju/storage"
 )
 
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/broker_mock.go github.com/juju/juju/caas Broker
+
 // ContainerEnvironProvider represents a computing and storage provider
 // for a container runtime.
 type ContainerEnvironProvider interface {
@@ -99,6 +101,7 @@ type DeploymentMode string
 const (
 	ModeOperator DeploymentMode = "operator"
 	ModeWorkload DeploymentMode = "workload"
+	ModeEmbedded DeploymentMode = "embedded"
 )
 
 // ServiceType defines a service type.
@@ -153,12 +156,12 @@ type ServiceParams struct {
 	CharmModifiedVersion int
 }
 
-// OperatorState is returned by the OperatorExists call.
-type OperatorState struct {
-	// Exists is true if the operator exists in the cluster.
+// DeploymentState is returned by the OperatorExists call.
+type DeploymentState struct {
+	// Exists is true if the operator/application exists in the cluster.
 	Exists bool
 
-	// Terminating is true if the operator is in Terminating state.
+	// Terminating is true if the operator/application is in Terminating state.
 	Terminating bool
 }
 
@@ -188,7 +191,7 @@ type Broker interface {
 
 	// OperatorExists indicates if the operator for the specified
 	// application exists, and whether the operator is terminating.
-	OperatorExists(appName string) (OperatorState, error)
+	OperatorExists(appName string) (DeploymentState, error)
 
 	// DeleteOperator deletes the specified operator.
 	DeleteOperator(appName string) error
@@ -221,6 +224,9 @@ type Broker interface {
 
 	// Operator returns an Operator with current status and life details.
 	Operator(string) (*Operator, error)
+
+	// Application returns the broker interface for an Application
+	Application(string, DeploymentType) Application
 
 	// ClusterMetadataChecker provides an API to query cluster metadata.
 	ClusterMetadataChecker

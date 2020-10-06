@@ -73,6 +73,8 @@ var allowedCalls = map[string]set.Strings{
 	"modelcmd/filesystem.go": set.NewStrings("*"),
 	// signmetadata is not a whitelisted embedded CLI command.
 	"plugins/juju-metadata/signmetadata.go": set.NewStrings("os.Open"),
+	// k8sagent needs to ensure jujud symlinks.
+	"k8sagent/utils/filesystem.go": set.NewStrings("os.Symlink"),
 }
 
 var ignoredPackages = set.NewStrings(
