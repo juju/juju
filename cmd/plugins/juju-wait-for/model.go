@@ -68,7 +68,7 @@ func (c *modelCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *modelCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.waitForCommandBase.SetFlags(f)
-	f.StringVar(&c.query, "query", "life==available", "query the goal state")
+	f.StringVar(&c.query, "query", `life=="alive" && status=="available"`, "query the goal state")
 	f.DurationVar(&c.timeout, "timeout", time.Minute*10, "how long to wait, before timing out")
 }
 

@@ -85,7 +85,7 @@ func (m GenericScope) GetIdentValue(name string) (query.Ord, error) {
 			case reflect.Int:
 				return query.NewInteger(int64(data.(int))), nil
 			case reflect.Int64:
-				return query.NewInteger(int64(data.(int64))), nil
+				return query.NewInteger(data.(int64)), nil
 			case reflect.Float64:
 				return query.NewFloat(float64(data.(float64))), nil
 			case reflect.String:

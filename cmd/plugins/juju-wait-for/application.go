@@ -130,7 +130,7 @@ func (c *applicationCommand) waitFor(name string, deltas []params.Delta, q query
 	var logOutput bool
 	currentStatus := c.appInfo.Status.Current
 
-	// If the application is unset, the derive it from the units.
+	// If the application is unset, then derive it from the units.
 	if currentStatus.String() == "unset" {
 		statuses := make([]status.StatusInfo, 0)
 		for _, delta := range deltas {
