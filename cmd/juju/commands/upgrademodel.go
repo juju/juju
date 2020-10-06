@@ -583,11 +583,10 @@ func (c *upgradeJujuCommand) validateModelUpgrade() error {
 		return errors.Trace(err)
 	}
 	// TODO (stickupkid): Define force for validation of model upgrade.
-	if err := client.ValidateModelUpgrade(names.NewModelTag(details.ModelUUID), false); err != nil {
-		return errors.Trace(err)
+	if err = client.ValidateModelUpgrade(names.NewModelTag(details.ModelUUID), false); errors.IsNotImplemented(err) {
+		return nil
 	}
-
-	return nil
+	return errors.Trace(err)
 }
 
 // environConfigGetter implements environs.EnvironConfigGetter for use
