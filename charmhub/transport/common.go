@@ -49,6 +49,7 @@ type Entity struct {
 	Publisher   map[string]string `json:"publisher"`
 	Summary     string            `json:"summary"`
 	UsedBy      []string          `json:"used-by"`
+	StoreURL    string            `json:"store-url"`
 }
 
 type Category struct {
