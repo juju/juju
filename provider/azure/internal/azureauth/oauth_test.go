@@ -41,7 +41,7 @@ func (s *OAuthConfigSuite) TestOAuthConfig(c *gc.C) {
 	client := subscriptions.Client{subscriptions.NewWithBaseURI("https://testing.invalid")}
 	client.Sender = oauthConfigSender()
 	sdkCtx := context.Background()
-	cfg, tenantId, err := azureauth.OAuthConfig(sdkCtx, client, "https://testing.invalid", "subscription-id")
+	cfg, tenantId, err := azureauth.OAuthConfig(sdkCtx, client, "subscription-id")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tenantId, gc.Equals, fakeTenantId)
 

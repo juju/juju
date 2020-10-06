@@ -38,6 +38,9 @@ const (
 	// the application.
 	jujuApplicationId = "60a04dc9-1857-425f-8076-5ba81ca53d66"
 
+	// JujuApplicationObjectId is the ObjectId of the Azure application.
+	JujuApplicationObjectId = "8b744cea-179d-4a73-9dff-20d52126030a"
+
 	// passwordExpiryDuration is how long the application password we
 	// set will remain valid.
 	passwordExpiryDuration = 365 * 24 * time.Hour
@@ -144,7 +147,6 @@ func (c *ServicePrincipalCreator) InteractiveCreate(sdkCtx context.Context, stde
 	oauthConfig, tenantId, err := OAuthConfig(
 		sdkCtx,
 		subscriptionsClient,
-		params.ResourceManagerEndpoint,
 		params.SubscriptionId,
 	)
 	if err != nil {

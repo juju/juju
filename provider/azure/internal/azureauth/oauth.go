@@ -17,7 +17,6 @@ import (
 func OAuthConfig(
 	sdkCtx context.Context,
 	client subscriptions.Client,
-	resourceManagerEndpoint string,
 	subscriptionId string,
 ) (*adal.OAuthConfig, string, error) {
 	authURI, err := DiscoverAuthorizationURI(sdkCtx, client, subscriptionId)

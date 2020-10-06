@@ -64,6 +64,20 @@ func isNotFoundResult(resp autorest.Response) bool {
 	return false
 }
 
+func isConflictResult(resp autorest.Response) bool {
+	if resp.Response != nil && resp.StatusCode == http.StatusConflict {
+		return true
+	}
+	return false
+}
+
+func isForbiddenResult(resp autorest.Response) bool {
+	if resp.Response != nil && resp.StatusCode == http.StatusForbidden {
+		return true
+	}
+	return false
+}
+
 // collectAPIVersions returns a map of the latest API version for each
 // possible resource type. This is needed to use the Azure Resource
 // Management API, because the API version requested must match the

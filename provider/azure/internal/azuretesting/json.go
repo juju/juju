@@ -81,6 +81,7 @@ func (m rawValueMaker) rawStructValue(v reflect.Value) reflect.Value {
 		}
 		rv := m.rawValue(v.Field(i))
 		sf.Type = rv.Type()
+		sf.Anonymous = false
 		fields = append(fields, sf)
 		values = append(values, rv)
 	}

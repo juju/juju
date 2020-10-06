@@ -3,11 +3,11 @@ module github.com/juju/juju
 go 1.14
 
 require (
-	github.com/Azure/azure-sdk-for-go v42.0.0+incompatible
-	github.com/Azure/go-autorest/autorest v0.10.0
-	github.com/Azure/go-autorest/autorest/adal v0.8.3
-	github.com/Azure/go-autorest/autorest/date v0.2.0
-	github.com/Azure/go-autorest/autorest/mocks v0.3.0
+	github.com/Azure/azure-sdk-for-go v46.4.0+incompatible
+	github.com/Azure/go-autorest/autorest v0.11.6
+	github.com/Azure/go-autorest/autorest/adal v0.9.4
+	github.com/Azure/go-autorest/autorest/date v0.3.0
+	github.com/Azure/go-autorest/autorest/mocks v0.4.1
 	github.com/Azure/go-autorest/autorest/to v0.3.0
 	github.com/Azure/go-autorest/autorest/validation v0.2.0 // indirect
 	github.com/EvilSuperstars/go-cidrman v0.0.0-20170211231153-4e5a4a63d9b7
@@ -99,7 +99,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/client_model v0.2.0
-	github.com/satori/go.uuid v1.2.0 // indirect
+	github.com/satori/go.uuid v1.2.0
 	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
@@ -161,22 +161,5 @@ replace (
 	k8s.io/api v0.0.0 => k8s.io/api v0.18.6
 	k8s.io/apiextensions-apiserver v0.0.0 => k8s.io/apiextensions-apiserver v0.18.6
 	k8s.io/apimachinery v0.0.0 => k8s.io/apimachinery v0.18.6
-	k8s.io/apiserver v0.0.0 => k8s.io/apiserver v0.18.6
-	k8s.io/cli-runtime v0.0.0 => k8s.io/cli-runtime v0.18.6
 	k8s.io/client-go v0.0.0 => k8s.io/client-go v0.18.6
-	k8s.io/cloud-provider v0.0.0 => k8s.io/cloud-provider v0.18.6
-	k8s.io/cluster-bootstrap v0.0.0 => k8s.io/cluster-bootstrap v0.18.6
-	k8s.io/code-generator v0.0.0 => k8s.io/code-generator v0.18.6
-	k8s.io/component-base v0.0.0 => k8s.io/component-base v0.18.6
-	k8s.io/cri-api v0.0.0 => k8s.io/cri-api v0.18.6
-	k8s.io/csi-translation-lib v0.0.0 => k8s.io/csi-translation-lib v0.18.6
-	k8s.io/kube-aggregator v0.0.0 => k8s.io/kube-aggregator v0.18.6
-	k8s.io/kube-controller-manager v0.0.0 => k8s.io/kube-controller-manager v0.18.6
-	k8s.io/kube-proxy v0.0.0 => k8s.io/kube-proxy v0.18.6
-	k8s.io/kube-scheduler v0.0.0 => k8s.io/kube-scheduler v0.18.6
-	k8s.io/kubectl v0.0.0 => k8s.io/kubectl v0.18.6
-	k8s.io/kubelet v0.0.0 => k8s.io/kubelet v0.18.6
-	k8s.io/legacy-cloud-providers v0.0.0 => k8s.io/legacy-cloud-providers v0.18.6
-	k8s.io/metrics v0.0.0 => k8s.io/metrics v0.18.6
-	k8s.io/sample-apiserver v0.0.0 => k8s.io/sample-apiserver v0.18.6
 )

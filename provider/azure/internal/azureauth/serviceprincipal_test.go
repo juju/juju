@@ -84,12 +84,9 @@ func createServicePrincipalSender() autorest.Sender {
 	})
 }
 
-func createServicePrincipalAlreadyExistsSender(withUTF8BOM bool) autorest.Sender {
+func createServicePrincipalAlreadyExistsSender() autorest.Sender {
 	sender := mocks.NewSender()
 	bodyData := `{"odata.error":{"code":"Request_MultipleObjectsWithSameKeyValue"}}`
-	if withUTF8BOM {
-		bodyData = "\ufeff" + bodyData
-	}
 	body := mocks.NewBody(bodyData)
 	sender.AppendResponse(mocks.NewResponseWithBodyAndStatus(body, http.StatusConflict, ""))
 	return sender
@@ -284,18 +281,6 @@ func (s *InteractiveSuite) TestInteractiveRoleAssignmentAlreadyExists(c *gc.C) {
 }
 
 func (s *InteractiveSuite) TestInteractiveServicePrincipalAlreadyExists(c *gc.C) {
-	s.testInteractiveServicePrincipalAlreadyExists(c, false)
-}
-
-func (s *InteractiveSuite) TestInteractiveServicePrincipalAlreadyExistsWithUTF8BOM(c *gc.C) {
-	// We have observed that Azure sometimes responds with UTF-8 BOMs in
-	// JSON-encoded responses. Go's JSON decoder does not like this, so
-	// we have to strip it off. See:
-	//     https://bugs.launchpad.net/juju/+bug/1657448
-	s.testInteractiveServicePrincipalAlreadyExists(c, true)
-}
-
-func (s *InteractiveSuite) testInteractiveServicePrincipalAlreadyExists(c *gc.C, withUTF8BOM bool) {
 	var requests []*http.Request
 	spc := azureauth.ServicePrincipalCreator{
 		Sender: &azuretesting.Senders{
@@ -305,7 +290,7 @@ func (s *InteractiveSuite) testInteractiveServicePrincipalAlreadyExists(c *gc.C,
 			tokenSender(),
 			tokenSender(),
 			currentUserSender(),
-			createServicePrincipalAlreadyExistsSender(withUTF8BOM),
+			createServicePrincipalAlreadyExistsSender(),
 			servicePrincipalListSender(),
 			passwordCredentialsListSender(),
 			updatePasswordCredentialsSender(),

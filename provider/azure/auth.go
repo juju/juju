@@ -5,7 +5,6 @@ package azure
 
 import (
 	"context"
-	"net/http"
 	"sync"
 
 	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2016-06-01/subscriptions"
@@ -18,67 +17,70 @@ import (
 	"github.com/juju/juju/provider/azure/internal/useragent"
 )
 
-// cloudSpecAuth is an implementation of autorest.Authorizer.
+// cloudSpecAuth provides an implementation of autorest.Authorizer.
 type cloudSpecAuth struct {
-	cloud  environscloudspec.CloudSpec
-	sender autorest.Sender
-	mu     sync.Mutex
-	token  *adal.ServicePrincipalToken
+	cloud    environscloudspec.CloudSpec
+	sender   autorest.Sender
+	mu       sync.Mutex
+	tokens   map[string]*adal.ServicePrincipalToken
+	tenantID string
 }
 
-// WithAuthorization is part of the autorest.Authorizer interface.
-func (c *cloudSpecAuth) WithAuthorization() autorest.PrepareDecorator {
-	return func(p autorest.Preparer) autorest.Preparer {
-		return autorest.PreparerFunc(func(r *http.Request) (*http.Request, error) {
-			r, err := p.Prepare(r)
-			if err != nil {
-				return nil, err
-			}
-			token, err := c.getToken()
-			if err != nil {
-				return nil, err
-			}
-			authorizer := autorest.NewBearerAuthorizer(token)
-			return autorest.CreatePreparer(authorizer.WithAuthorization()).Prepare(r)
-		})
-	}
+func (c *cloudSpecAuth) auth() *autorest.BearerAuthorizerCallback {
+	return autorest.NewBearerAuthorizerCallback(c.sender, func(tenantID, resourceID string) (*autorest.BearerAuthorizer, error) {
+		token, err := c.getToken(resourceID)
+		if err != nil {
+			return nil, errors.Annotate(err, "constructing service principal token for secret")
+		}
+		return autorest.NewBearerAuthorizer(token), nil
+	})
 }
 
 func (c *cloudSpecAuth) refresh() error {
-	token, err := c.getToken()
+	token, err := c.getToken("")
 	if err != nil {
 		return err
 	}
 	return token.Refresh()
 }
 
-func (c *cloudSpecAuth) getToken() (*adal.ServicePrincipalToken, error) {
+func (c *cloudSpecAuth) getToken(resourceID string) (*adal.ServicePrincipalToken, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.token != nil {
-		return c.token, nil
+	if c.tokens == nil {
+		c.tokens = make(map[string]*adal.ServicePrincipalToken)
 	}
-	token, err := AuthToken(c.cloud, c.sender)
+
+	if resourceID == "" {
+		var err error
+		resourceID, err = azureauth.ResourceManagerResourceId(c.cloud.StorageEndpoint)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
+	if token := c.tokens[resourceID]; token != nil {
+		return token, nil
+	}
+	logger.Debugf("get auth token for %v", resourceID)
+	token, tenantID, err := AuthToken(c.cloud, c.sender, resourceID)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotate(err, "constructing service principal token for secret")
 	}
-	c.token = token
-	return c.token, nil
+
+	c.tokens[resourceID] = token
+	c.tenantID = tenantID
+	return token, nil
 }
 
 // AuthToken returns a service principal token, suitable for authorizing
 // Resource Manager API requests, based on the supplied CloudSpec.
-func AuthToken(cloud environscloudspec.CloudSpec, sender autorest.Sender) (*adal.ServicePrincipalToken, error) {
+func AuthToken(cloud environscloudspec.CloudSpec, sender autorest.Sender, resourceID string) (*adal.ServicePrincipalToken, string, error) {
 	if authType := cloud.Credential.AuthType(); authType != clientCredentialsAuthType {
 		// We currently only support a single auth-type for
 		// non-interactive authentication. Interactive auth
 		// is used only to generate a service-principal.
-		return nil, errors.NotSupportedf("auth-type %q", authType)
-	}
-
-	resourceId, err := azureauth.ResourceManagerResourceId(cloud.StorageEndpoint)
-	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, "", errors.NotSupportedf("auth-type %q", authType)
 	}
 
 	credAttrs := cloud.Credential.Attributes()
@@ -89,23 +91,23 @@ func AuthToken(cloud environscloudspec.CloudSpec, sender autorest.Sender) (*adal
 	useragent.UpdateClient(&client.Client)
 	client.Sender = sender
 	sdkCtx := context.Background()
-	oauthConfig, _, err := azureauth.OAuthConfig(sdkCtx, client, cloud.Endpoint, subscriptionId)
+	oauthConfig, tenantID, err := azureauth.OAuthConfig(sdkCtx, client, subscriptionId)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, "", errors.Trace(err)
 	}
 
 	token, err := adal.NewServicePrincipalToken(
 		*oauthConfig,
 		appId,
 		appPassword,
-		resourceId,
+		resourceID,
 	)
 	if err != nil {
-		return nil, errors.Annotate(err, "constructing service principal token")
+		return nil, "", errors.Annotate(err, "constructing service principal token")
 	}
 	tokenClient := autorest.NewClientWithUserAgent("")
 	useragent.UpdateClient(&tokenClient)
 	tokenClient.Sender = sender
 	token.SetSender(&tokenClient)
-	return token, nil
+	return token, tenantID, nil
 }
