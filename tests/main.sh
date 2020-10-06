@@ -32,19 +32,23 @@ import_subdir_files includes
 
 # If adding a test suite, then ensure to add it here to be picked up!
 TEST_NAMES="static_analysis \
+            agents \
             appdata \
             branches \
             caasadmission \
             cli \
             controller \
             deploy \
+            expose_ec2 \
             hooks \
-            hook_tools \
+            hooktools \
             machine \
             manual \
+            model \
+            network \
             relations \
             smoke \
-            model"
+            spaces_ec2"
 
 # Show test suites, can be used to test if a test suite is available or not.
 show_test_suites() {
@@ -100,7 +104,7 @@ show_help() {
         # shellcheck disable=SC2086
         output="${output}\n    $(green ${test})|Runs the ${name} tests"
     done
-    echo -e "${output}" | column -t -s "|"
+    echo "${output}" | column -t -s "|"
 
     echo ""
     echo "Examples:"
