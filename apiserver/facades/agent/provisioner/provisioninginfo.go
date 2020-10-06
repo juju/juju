@@ -186,6 +186,20 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(m *state.Machine,
 		return result, errors.Trace(err)
 	}
 
+	// The root disk source constraint might refer to a storage pool.
+	if result.Constraints.HasRootDiskSource() {
+		sp, err := api.storagePoolManager.Get(*result.Constraints.RootDiskSource)
+		if err != nil && !errors.IsNotFound(err) {
+			return result, errors.Annotate(err, "cannot load storage pool")
+		}
+		if err == nil {
+			result.RootDisk = &params.VolumeParams{
+				Provider:   string(sp.Provider()),
+				Attributes: sp.Attrs(),
+			}
+		}
+	}
+
 	if result.Volumes, result.VolumeAttachments, err = api.machineVolumeParams(m, env); err != nil {
 		return result, errors.Trace(err)
 	}

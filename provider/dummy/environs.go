@@ -199,6 +199,7 @@ type OpStartInstance struct {
 	Constraints       constraints.Value
 	SubnetsToZones    map[corenetwork.Id][]string
 	NetworkInfo       corenetwork.InterfaceInfos
+	RootDisk          *storage.VolumeParams
 	Volumes           []storage.Volume
 	VolumeAttachments []storage.VolumeAttachment
 	Info              *mongo.MongoInfo
@@ -1315,6 +1316,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		PossibleTools:     args.Tools,
 		Constraints:       args.Constraints,
 		SubnetsToZones:    subnetsToZones,
+		RootDisk:          args.RootDisk,
 		Volumes:           volumes,
 		VolumeAttachments: volumeAttachments,
 		Instance:          i,

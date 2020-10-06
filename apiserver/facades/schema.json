@@ -33359,6 +33359,9 @@
                         "placement": {
                             "type": "string"
                         },
+                        "root-disk": {
+                            "$ref": "#/definitions/VolumeParams"
+                        },
                         "series": {
                             "type": "string"
                         },
@@ -33479,6 +33482,9 @@
                         },
                         "placement": {
                             "type": "string"
+                        },
+                        "root-disk": {
+                            "$ref": "#/definitions/VolumeParams"
                         },
                         "series": {
                             "type": "string"
