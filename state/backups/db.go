@@ -97,6 +97,7 @@ const (
 	dumpName       = "mongodump"
 	restoreName    = "mongorestore"
 	snapToolPrefix = "juju-db."
+	snapTmpDir     = "/tmp/snap.juju-db"
 )
 
 // DBDumper is any type that dumps something to a dump dir.
@@ -183,7 +184,27 @@ func (md *mongoDumper) dump(dumpDir string) error {
 	if err := runCommandFn(md.binPath, options...); err != nil {
 		return errors.Annotate(err, "error dumping databases")
 	}
+
+	// If running the juju-db.mongodump Snap, it outputs to
+	// /tmp/snap.juju-db/DUMPDIR, so move to /DUMPDIR as our code expects.
+	if md.isSnap() {
+		actualDir := filepath.Join(snapTmpDir, dumpDir)
+		logger.Tracef("moving from Snap dump dir %q to %q", actualDir, dumpDir)
+		err := os.Remove(dumpDir) // will be empty, delete
+		if err != nil {
+			return errors.Trace(err)
+		}
+		err = os.Rename(actualDir, dumpDir)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	return nil
+}
+
+func (md *mongoDumper) isSnap() bool {
+	return filepath.Base(md.binPath) == snapToolPrefix+dumpName
 }
 
 // Dump dumps the juju state-related databases.  To do this we dump all
