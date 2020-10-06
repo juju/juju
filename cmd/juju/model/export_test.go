@@ -49,7 +49,9 @@ func NewShowCommandForTest(api ShowModelAPI, refreshFunc func(jujuclient.ClientS
 	cmd := &showModelCommand{api: api}
 	cmd.SetClientStore(store)
 	cmd.SetModelRefresh(refreshFunc)
-	return modelcmd.Wrap(cmd, modelcmd.WrapSkipModelFlags)
+	return modelcmd.Wrap(cmd,
+		modelcmd.WrapSkipModelFlags,
+	)
 }
 
 // NewDumpCommandForTest returns a DumpCommand with the api provided as specified.

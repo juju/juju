@@ -32,6 +32,7 @@ Examples:
 
 See also:
     find
+    download
 `
 )
 
@@ -87,7 +88,7 @@ func (c *infoCommand) Init(args []string) error {
 		return errors.Errorf("expected a charm or bundle name")
 	}
 	if err := c.validateCharmOrBundle(args[0]); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	c.charmOrBundle = args[0]
 	return nil
@@ -96,7 +97,7 @@ func (c *infoCommand) Init(args []string) error {
 func (c *infoCommand) validateCharmOrBundle(charmOrBundle string) error {
 	curl, err := charm.ParseURL(charmOrBundle)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if !charm.CharmHub.Matches(curl.Schema) {
 		return errors.Errorf("%q is not a Charm Hub charm", charmOrBundle)
@@ -109,16 +110,16 @@ func (c *infoCommand) validateCharmOrBundle(charmOrBundle string) error {
 func (c *infoCommand) Run(ctx *cmd.Context) error {
 	charmHubClient, modelConfigClient, err := c.getAPI()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	defer func() { _ = charmHubClient.Close() }()
 
 	if err := c.verifySeries(modelConfigClient); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	info, err := charmHubClient.Info(c.charmOrBundle)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	// This is a side effect of the formatting code not wanting to error out
@@ -140,11 +141,11 @@ func (c *infoCommand) verifySeries(modelConfigClient ModelConfigGetter) error {
 	}
 	attrs, err := modelConfigClient.ModelGet()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if defaultSeries, explicit := cfg.DefaultSeries(); explicit {
 		c.series = defaultSeries

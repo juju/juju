@@ -6,6 +6,7 @@ package charmhub
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -14,6 +15,8 @@ import (
 )
 
 type findSuite struct {
+	testing.IsolationSuite
+
 	api *mocks.MockFindCommandAPI
 }
 

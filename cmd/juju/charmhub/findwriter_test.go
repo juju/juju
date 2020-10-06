@@ -6,11 +6,14 @@ package charmhub
 import (
 	"bytes"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
 
-type printFindSuite struct{}
+type printFindSuite struct {
+	testing.IsolationSuite
+}
 
 var _ = gc.Suite(&printFindSuite{})
 

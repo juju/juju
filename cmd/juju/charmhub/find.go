@@ -26,6 +26,7 @@ Examples:
 
 See also:
     info
+    download
 `
 )
 

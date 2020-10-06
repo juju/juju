@@ -124,6 +124,13 @@ type Client struct {
 
 // NewClient creates a new charmHub client from the supplied configuration.
 func NewClient(config Config) (*Client, error) {
+	fileSystem := DefaultFileSystem()
+	return NewClientWithFileSystem(config, fileSystem)
+}
+
+// NewClientWithFileSystem creates a new charmHub client from the supplied
+// configuration and a file system.
+func NewClientWithFileSystem(config Config, fileSystem FileSystem) (*Client, error) {
 	base, err := config.BasePath()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -149,7 +156,6 @@ func NewClient(config Config) (*Client, error) {
 	httpClient := DefaultHTTPTransport()
 	apiRequester := NewAPIRequester(httpClient)
 	restClient := NewHTTPRESTClient(apiRequester, config.Headers, config.Logger)
-	fileSystem := DefaultFileSystem()
 
 	return &Client{
 		url:           base.String(),
@@ -186,6 +192,11 @@ func (c *Client) Refresh(ctx context.Context, config RefreshConfig) ([]transport
 }
 
 // Download defines a client for downloading charms directly.
-func (c *Client) Download(ctx context.Context, resourceURL *url.URL, archivePath string) (*charm.CharmArchive, error) {
+func (c *Client) Download(ctx context.Context, resourceURL *url.URL, archivePath string) error {
 	return c.downloadClient.Download(ctx, resourceURL, archivePath)
+}
+
+// DownloadAndRead defines a client for downloading charms directly.
+func (c *Client) DownloadAndRead(ctx context.Context, resourceURL *url.URL, archivePath string) (*charm.CharmArchive, error) {
+	return c.downloadClient.DownloadAndRead(ctx, resourceURL, archivePath)
 }
