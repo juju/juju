@@ -189,6 +189,7 @@ func (md *mongoDumper) dump(dumpDir string) error {
 // Dump dumps the juju state-related databases.  To do this we dump all
 // databases and then remove any ignored databases from the dump results.
 func (md *mongoDumper) Dump(baseDumpDir string) error {
+	logger.Tracef("dumping Mongo database to %q", baseDumpDir)
 	if err := md.dump(baseDumpDir); err != nil {
 		return errors.Trace(err)
 	}
@@ -225,6 +226,7 @@ func stripIgnored(ignored set.Strings, dumpDir string) error {
 		switch dbName {
 		case storageDBName, "admin":
 			dirname := filepath.Join(dumpDir, dbName)
+			logger.Tracef("stripIgnored deleting dir %q", dirname)
 			if err := os.RemoveAll(dirname); err != nil {
 				return errors.Trace(err)
 			}
@@ -241,7 +243,17 @@ func stripIgnored(ignored set.Strings, dumpDir string) error {
 func listDatabases(dumpDir string) (set.Strings, error) {
 	list, err := ioutil.ReadDir(dumpDir)
 	if err != nil {
-		return set.Strings{}, errors.Trace(err)
+		return nil, errors.Trace(err)
+	}
+
+	logger.Tracef("%d files found in dump dir", len(list))
+	for _, info := range list {
+		logger.Tracef("file found in dump dir: %q dir=%v size=%d",
+			info.Name(), info.IsDir(), info.Size())
+	}
+	if len(list) < 2 {
+		// Should be *at least* oplog.bson and a data directory
+		return nil, errors.Errorf("too few files in dump dir (%d)", len(list))
 	}
 
 	databases := make(set.Strings)
