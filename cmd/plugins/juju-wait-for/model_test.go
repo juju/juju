@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/plugins/juju-wait-for/query"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 )
@@ -23,25 +24,25 @@ func (s *modelScopeSuite) TestGetIdentValue(c *gc.C) {
 	tests := []struct {
 		Field     string
 		ModelInfo *params.ModelUpdate
-		Expected  interface{}
+		Expected  query.Ord
 	}{{
 		Field:     "name",
 		ModelInfo: &params.ModelUpdate{Name: "model name"},
-		Expected:  "model name",
+		Expected:  query.NewString("model name"),
 	}, {
 		Field:     "life",
 		ModelInfo: &params.ModelUpdate{Life: life.Alive},
-		Expected:  "alive",
+		Expected:  query.NewString("alive"),
 	}, {
 		Field:     "is-controller",
 		ModelInfo: &params.ModelUpdate{IsController: false},
-		Expected:  false,
+		Expected:  query.NewBool(false),
 	}, {
 		Field: "status",
 		ModelInfo: &params.ModelUpdate{Status: params.StatusInfo{
 			Current: status.Active,
 		}},
-		Expected: "active",
+		Expected: query.NewString("active"),
 	}}
 	for i, test := range tests {
 		c.Logf("%d: GetIdentValue %q", i, test.Field)

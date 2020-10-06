@@ -35,7 +35,7 @@ func (s *querySuite) TestRunIdent(c *gc.C) {
 	defer ctrl.Finish()
 
 	scope := NewMockScope(ctrl)
-	scope.EXPECT().GetIdentValue("life").Return("alive", nil)
+	scope.EXPECT().GetIdentValue("life").Return(NewString("alive"), nil)
 
 	exp := &QueryExpression{
 		Expressions: []Expression{
@@ -59,7 +59,7 @@ func (s *querySuite) TestRunIdent(c *gc.C) {
 	var query Query
 	result, err := query.run(exp, scope)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, "alive")
+	c.Assert(result, gc.DeepEquals, NewString("alive"))
 }
 
 func (s *querySuite) TestRunString(c *gc.C) {

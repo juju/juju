@@ -5,6 +5,7 @@ package main
 
 import (
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/plugins/juju-wait-for/query"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/testing"
@@ -22,33 +23,33 @@ func (s *applicationScopeSuite) TestGetIdentValue(c *gc.C) {
 	tests := []struct {
 		Field           string
 		ApplicationInfo *params.ApplicationInfo
-		Expected        interface{}
+		Expected        query.Ord
 	}{{
 		Field:           "name",
 		ApplicationInfo: &params.ApplicationInfo{Name: "application name"},
-		Expected:        "application name",
+		Expected:        query.NewString("application name"),
 	}, {
 		Field:           "life",
 		ApplicationInfo: &params.ApplicationInfo{Life: life.Alive},
-		Expected:        "alive",
+		Expected:        query.NewString("alive"),
 	}, {
 		Field:           "charm-url",
 		ApplicationInfo: &params.ApplicationInfo{CharmURL: "cs:charm"},
-		Expected:        "cs:charm",
+		Expected:        query.NewString("cs:charm"),
 	}, {
 		Field:           "subordinate",
 		ApplicationInfo: &params.ApplicationInfo{Subordinate: true},
-		Expected:        true,
+		Expected:        query.NewBool(true),
 	}, {
 		Field: "status",
 		ApplicationInfo: &params.ApplicationInfo{Status: params.StatusInfo{
 			Current: status.Active,
 		}},
-		Expected: "active",
+		Expected: query.NewString("active"),
 	}, {
 		Field:           "workload-version",
 		ApplicationInfo: &params.ApplicationInfo{WorkloadVersion: "1.2.3"},
-		Expected:        "1.2.3",
+		Expected:        query.NewString("1.2.3"),
 	}}
 	for i, test := range tests {
 		c.Logf("%d: GetIdentValue %q", i, test.Field)

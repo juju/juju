@@ -80,8 +80,9 @@ func (m GenericScope) GetIdentValue(name string) (query.Ord, error) {
 		v := strings.Split(field.Tag.Get("json"), ",")[0]
 		if v == name {
 			refValue := reflect.ValueOf(m.Info).Elem()
-			data := refValue.Field(i).Interface()
-			switch refValue.Kind() {
+			fieldValue := refValue.Field(i)
+			data := fieldValue.Interface()
+			switch fieldValue.Kind() {
 			case reflect.Int:
 				return query.NewInteger(int64(data.(int))), nil
 			case reflect.Int64:
@@ -94,7 +95,7 @@ func (m GenericScope) GetIdentValue(name string) (query.Ord, error) {
 				return query.NewBool(data.(bool)), nil
 			}
 
-			return nil, errors.Errorf("Runtime Error: unhandled identifier type %v for %q", refValue.Kind(), name)
+			return nil, errors.Errorf("Runtime Error: unhandled identifier type %q for %q", refValue.Kind(), name)
 		}
 	}
 	return nil, errors.Errorf("Runtime Error: identifier %q not found on Info", name)

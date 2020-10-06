@@ -82,23 +82,19 @@ func (s *genericScopeSuite) TestGetIdentValue(c *gc.C) {
 	tests := []struct {
 		Field    string
 		Info     *MockEntityInfo
-		Expected interface{}
+		Expected query.Ord
 	}{{
 		Field:    "name",
 		Info:     &MockEntityInfo{Name: "generic name"},
-		Expected: "generic name",
+		Expected: query.NewString("generic name"),
 	}, {
 		Field:    "int",
 		Info:     &MockEntityInfo{Integer: 1},
-		Expected: 1,
+		Expected: query.NewInteger(int64(1)),
 	}, {
 		Field:    "bool",
 		Info:     &MockEntityInfo{Boolean: true},
-		Expected: true,
-	}, {
-		Field:    "struct",
-		Info:     &MockEntityInfo{Struct: struct{}{}},
-		Expected: struct{}{},
+		Expected: query.NewBool(true),
 	}}
 	for i, test := range tests {
 		c.Logf("%d: GetIdentValue %q", i, test.Field)
@@ -121,10 +117,9 @@ func (s *genericScopeSuite) TestGetIdentValueError(c *gc.C) {
 }
 
 type MockEntityInfo struct {
-	Name    string   `json:"name"`
-	Integer int      `json:"int"`
-	Boolean bool     `json:"bool"`
-	Struct  struct{} `json:"struct"`
+	Name    string `json:"name"`
+	Integer int    `json:"int"`
+	Boolean bool   `json:"bool"`
 }
 
 func (m *MockEntityInfo) EntityId() params.EntityId {
