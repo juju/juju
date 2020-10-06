@@ -90,21 +90,31 @@ func (c *initCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// TODO(caas): stream read/write
-	pebbleBytes, err := c.fileReaderWriter.ReadFile("/opt/pebble")
+	binary, err := c.fileReaderWriter.ReadFile("/opt/pebble")
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = c.fileReaderWriter.WriteFile("/shared/usr/bin/pebble", pebbleBytes, 0755)
+	err = c.fileReaderWriter.WriteFile("/shared/usr/bin/pebble", binary, 0755)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	// TODO(caas): stream read/write
-	agentBytes, err := c.fileReaderWriter.ReadFile("/opt/k8sagent")
+	binary, err = c.fileReaderWriter.ReadFile("/opt/k8sagent")
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = c.fileReaderWriter.WriteFile("/shared/usr/bin/k8sagent", agentBytes, 0755)
+	err = c.fileReaderWriter.WriteFile("/shared/usr/bin/k8sagent", binary, 0755)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// TODO(caas): stream read/write
+	binary, err = c.fileReaderWriter.ReadFile("/opt/jujuc")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = c.fileReaderWriter.WriteFile("/shared/usr/bin/jujuc", binary, 0755)
 	if err != nil {
 		return errors.Trace(err)
 	}

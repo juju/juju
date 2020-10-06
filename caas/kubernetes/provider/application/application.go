@@ -829,6 +829,12 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			},
 			{
 				Name:      jujuDataDirVolumeName,
+				MountPath: "/usr/bin/jujuc",
+				SubPath:   "usr/bin/jujuc",
+				ReadOnly:  true,
+			},
+			{
+				Name:      jujuDataDirVolumeName,
 				MountPath: jujuDataDir,
 				SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
 			},
