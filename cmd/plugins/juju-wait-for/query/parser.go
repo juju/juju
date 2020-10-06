@@ -16,6 +16,7 @@ const (
 	PCONDOR
 	PCONDAND
 	EQUALS
+	LESSGREATER
 	PPRODUCT
 	CALL
 )
@@ -26,6 +27,10 @@ var precedence = map[TokenType]int{
 	EQ:      EQUALS,
 	NEQ:     EQUALS,
 	LPAREN:  CALL,
+	LT:      LESSGREATER,
+	LE:      LESSGREATER,
+	GT:      LESSGREATER,
+	GE:      LESSGREATER,
 }
 
 type Parser struct {
@@ -62,6 +67,10 @@ func NewParser(lex *Lexer) *Parser {
 		NEQ:     p.parseInfixExpression,
 		CONDAND: p.parseInfixExpression,
 		CONDOR:  p.parseInfixExpression,
+		LT:      p.parseInfixExpression,
+		LE:      p.parseInfixExpression,
+		GT:      p.parseInfixExpression,
+		GE:      p.parseInfixExpression,
 	}
 	p.nextToken()
 	p.nextToken()

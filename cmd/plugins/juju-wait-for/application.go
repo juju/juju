@@ -173,22 +173,24 @@ type ApplicationScope struct {
 }
 
 // GetIdentValue returns the value of the identifier in a given scope.
-func (m ApplicationScope) GetIdentValue(name string) (interface{}, error) {
+func (m ApplicationScope) GetIdentValue(name string) (query.Ord, error) {
 	switch name {
 	case "name":
-		return m.ApplicationInfo.Name, nil
+		return query.NewString(m.ApplicationInfo.Name), nil
 	case "life":
-		return string(m.ApplicationInfo.Life), nil
+		return query.NewString(string(m.ApplicationInfo.Life)), nil
 	case "exposed":
-		return m.ApplicationInfo.Exposed, nil
+		return query.NewBool(m.ApplicationInfo.Exposed), nil
 	case "charm-url":
-		return m.ApplicationInfo.CharmURL, nil
+		return query.NewString(m.ApplicationInfo.CharmURL), nil
+	case "min-units":
+		return query.NewInteger(int64(m.ApplicationInfo.MinUnits)), nil
 	case "subordinate":
-		return m.ApplicationInfo.Subordinate, nil
+		return query.NewBool(m.ApplicationInfo.Subordinate), nil
 	case "status":
-		return string(m.ApplicationInfo.Status.Current), nil
+		return query.NewString(string(m.ApplicationInfo.Status.Current)), nil
 	case "workload-version":
-		return m.ApplicationInfo.WorkloadVersion, nil
+		return query.NewString(m.ApplicationInfo.WorkloadVersion), nil
 	}
 	return nil, errors.Errorf("Runtime Error: identifier %q not found on ApplicationInfo", name)
 }

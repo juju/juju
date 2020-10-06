@@ -18,7 +18,7 @@ func (s *querySuite) TestQueryScope(c *gc.C) {
 	defer ctrl.Finish()
 
 	scope := NewMockScope(ctrl)
-	scope.EXPECT().GetIdentValue("life").Return("alive", nil).Times(2)
+	scope.EXPECT().GetIdentValue("life").Return(&OrdString{value: "alive"}, nil).Times(2)
 
 	src := `life == "death" || life == "alive"`
 
@@ -90,7 +90,7 @@ func (s *querySuite) TestRunString(c *gc.C) {
 	var query Query
 	result, err := query.run(exp, scope)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, "abc")
+	c.Assert(result, gc.DeepEquals, &OrdString{"abc"})
 }
 
 func (s *querySuite) TestRunInteger(c *gc.C) {
@@ -122,7 +122,7 @@ func (s *querySuite) TestRunInteger(c *gc.C) {
 	var query Query
 	result, err := query.run(exp, scope)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, int64(1))
+	c.Assert(result, gc.DeepEquals, &OrdInteger{value: int64(1)})
 }
 
 func (s *querySuite) TestRunFloat(c *gc.C) {
@@ -154,7 +154,7 @@ func (s *querySuite) TestRunFloat(c *gc.C) {
 	var query Query
 	result, err := query.run(exp, scope)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, float64(1.12))
+	c.Assert(result, gc.DeepEquals, &OrdFloat{value: float64(1.12)})
 }
 
 func (s *querySuite) TestRunBool(c *gc.C) {
@@ -186,7 +186,7 @@ func (s *querySuite) TestRunBool(c *gc.C) {
 	var query Query
 	result, err := query.run(exp, scope)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, true)
+	c.Assert(result, gc.DeepEquals, &OrdBool{value: true})
 }
 
 func (s *querySuite) TestRunInfixLogicalAND(c *gc.C) {

@@ -118,6 +118,26 @@ func (l *Lexer) NextToken() Token {
 			} else {
 				tok = MakeToken(BITOR, l.char)
 			}
+		case LT:
+			if l.Peek() == '=' {
+				tok = Token{
+					Type:    LE,
+					Literal: string(l.char) + string(l.Peek()),
+				}
+				l.ReadNext()
+			} else {
+				tok = MakeToken(LT, l.char)
+			}
+		case GT:
+			if l.Peek() == '=' {
+				tok = Token{
+					Type:    GE,
+					Literal: string(l.char) + string(l.Peek()),
+				}
+				l.ReadNext()
+			} else {
+				tok = MakeToken(GT, l.char)
+			}
 		default:
 			tok = MakeToken(t, l.char)
 		}

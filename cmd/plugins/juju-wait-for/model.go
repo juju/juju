@@ -135,16 +135,16 @@ type ModelScope struct {
 }
 
 // GetIdentValue returns the value of the identifier in a given scope.
-func (m ModelScope) GetIdentValue(name string) (interface{}, error) {
+func (m ModelScope) GetIdentValue(name string) (query.Ord, error) {
 	switch name {
 	case "name":
-		return m.ModelInfo.Name, nil
+		return query.NewString(m.ModelInfo.Name), nil
 	case "life":
-		return string(m.ModelInfo.Life), nil
+		return query.NewString(string(m.ModelInfo.Life)), nil
 	case "is-controller":
-		return m.ModelInfo.IsController, nil
+		return query.NewBool(m.ModelInfo.IsController), nil
 	case "status":
-		return string(m.ModelInfo.Status.Current), nil
+		return query.NewString(string(m.ModelInfo.Status.Current)), nil
 	}
 	return nil, errors.Errorf("Runtime Error: identifier %q not found on ModelInfo", name)
 }

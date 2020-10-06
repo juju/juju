@@ -22,6 +22,11 @@ const (
 	ASSIGN // =
 	BANG   // !
 
+	LT // <
+	LE // <=
+	GT // >
+	GE // >=
+
 	COMMA     // ,
 	SEMICOLON // ;
 
@@ -54,6 +59,14 @@ func (t TokenType) String() string {
 		return "=="
 	case NEQ:
 		return "!="
+	case LT:
+		return "<"
+	case LE:
+		return "<="
+	case GT:
+		return ">"
+	case GE:
+		return ">="
 	case COMMA:
 		return ","
 	case SEMICOLON:
@@ -124,4 +137,6 @@ var tokenMap = map[rune]TokenType{
 	'!': BANG,
 	'&': BITAND,
 	'|': BITOR,
+	'<': LT,
+	'>': GT,
 }

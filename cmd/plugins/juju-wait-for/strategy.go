@@ -73,7 +73,7 @@ type GenericScope struct {
 }
 
 // GetIdentValue returns the value of the identifier in a given scope.
-func (m GenericScope) GetIdentValue(name string) (interface{}, error) {
+func (m GenericScope) GetIdentValue(name string) (query.Ord, error) {
 	refType := reflect.TypeOf(m.Info).Elem()
 	for i := 0; i < refType.NumField(); i++ {
 		field := refType.Field(i)
@@ -81,7 +81,20 @@ func (m GenericScope) GetIdentValue(name string) (interface{}, error) {
 		if v == name {
 			refValue := reflect.ValueOf(m.Info).Elem()
 			data := refValue.Field(i).Interface()
-			return data, nil
+			switch refValue.Kind() {
+			case reflect.Int:
+				return query.NewInteger(int64(data.(int))), nil
+			case reflect.Int64:
+				return query.NewInteger(int64(data.(int64))), nil
+			case reflect.Float64:
+				return query.NewFloat(float64(data.(float64))), nil
+			case reflect.String:
+				return query.NewString(data.(string)), nil
+			case reflect.Bool:
+				return query.NewBool(data.(bool)), nil
+			}
+
+			return nil, errors.Errorf("Runtime Error: unhandled identifier type %v for %q", refValue.Kind(), name)
 		}
 	}
 	return nil, errors.Errorf("Runtime Error: identifier %q not found on Info", name)

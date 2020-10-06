@@ -33,10 +33,10 @@ func (m *MockScope) EXPECT() *MockScopeMockRecorder {
 }
 
 // GetIdentValue mocks base method
-func (m *MockScope) GetIdentValue(arg0 string) (interface{}, error) {
+func (m *MockScope) GetIdentValue(arg0 string) (Ord, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetIdentValue", arg0)
-	ret0, _ := ret[0].(interface{})
+	ret0, _ := ret[0].(Ord)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
