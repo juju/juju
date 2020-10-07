@@ -69,6 +69,8 @@ type downloadCommand struct {
 	charmOrBundle string
 	archivePath   string
 	pipeToStdout  bool
+
+	orderedSeries []string
 }
 
 // Info returns help related download about the command, it implements
@@ -117,6 +119,8 @@ func (c *downloadCommand) Init(args []string) error {
 			return errors.Annotatef(err, "unexpected charm-hub-url")
 		}
 	}
+
+	c.orderedSeries = series.SupportedJujuControllerSeries()
 
 	return nil
 }
@@ -208,6 +212,9 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	} else if c.series == "" || info.DefaultRelease.Channel.Platform.Series == c.series {
 		// If there is no channel, fallback to the default release.
 		revision, found = info.DefaultRelease.Revision, true
+	} else if serie := info.DefaultRelease.Channel.Platform.Series; serie != c.series {
+		// Define a specialized message for when the default release is
+		return errors.Errorf("%s %q not found for the default release %q using %s", info.Type, c.charmOrBundle, serie, c.series)
 	}
 
 	if !found {
@@ -325,10 +332,9 @@ func (c *downloadCommand) locateRevisionByChannel(channelMaps []transport.Channe
 	// way we'll always find the newest one first (hopefully the most
 	// supported).
 	// Then attempt to find the revision by a channel.
-	orderedSeries := series.SupportedJujuControllerSeries()
 	channelMap := channelMapBySeries{
 		channelMap: channelMaps,
-		series:     orderedSeries,
+		series:     c.orderedSeries,
 	}
 	sort.Sort(channelMap)
 
@@ -366,13 +372,14 @@ func locateRevisionByChannelMap(channelMap transport.ChannelMap, channel corecha
 	rawChannel := fmt.Sprintf("%s/%s", channelMap.Channel.Track, channelMap.Channel.Risk)
 	if strings.HasPrefix(rawChannel, "/") {
 		rawChannel = rawChannel[1:]
+	} else if strings.HasSuffix(rawChannel, "/") {
+		rawChannel = rawChannel[:len(rawChannel)-1]
 	}
 	charmChannel, err := corecharm.ParseChannel(rawChannel)
 	if err != nil {
 		return transport.Revision{}, false
 	}
 
-	fmt.Println(charmChannel, channelMap.Channel.Platform.Series)
 	// Check that we're an exact match.
 	if channel.Track == charmChannel.Track && channel.Risk == charmChannel.Risk {
 		return channelMap.Revision, true
