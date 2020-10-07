@@ -46,10 +46,10 @@ func (s *strategySuite) TestRun(c *gc.C) {
 		Client:  client,
 		Timeout: time.Minute,
 	}
-	err := strategy.Run("generic", `life=="active"`, func(_ string, d []params.Delta, _ query.Query) bool {
+	err := strategy.Run("generic", `life=="active"`, func(_ string, d []params.Delta, _ query.Query) (bool, error) {
 		executed = true
 		deltas = d
-		return true
+		return true, nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(executed, jc.IsTrue)
@@ -65,9 +65,9 @@ func (s *strategySuite) TestRunWithInvalidQuery(c *gc.C) {
 		Client:  client,
 		Timeout: time.Minute,
 	}
-	err := strategy.Run("generic", `life=="ac`, func(_ string, d []params.Delta, _ query.Query) bool {
+	err := strategy.Run("generic", `life=="ac`, func(_ string, d []params.Delta, _ query.Query) (bool, error) {
 		c.FailNow()
-		return false
+		return false, nil
 	})
 	c.Assert(err, gc.ErrorMatches, `Syntax Error:<:1:7> invalid character '<UNKNOWN>' found`)
 }

@@ -49,6 +49,7 @@ func NewSuperCommand() cmd.Command {
 
 	waitFor.Register(newApplicationCommand())
 	waitFor.Register(newModelCommand())
+	waitFor.Register(newUnitCommand())
 	return waitFor
 }
 

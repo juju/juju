@@ -103,17 +103,18 @@ func (c *applicationCommand) Run(ctx *cmd.Context) error {
 	return errors.Trace(err)
 }
 
-func (c *applicationCommand) waitFor(name string, deltas []params.Delta, q query.Query) bool {
+func (c *applicationCommand) waitFor(name string, deltas []params.Delta, q query.Query) (bool, error) {
 	for _, delta := range deltas {
 		logger.Tracef("delta %T: %v", delta.Entity, delta.Entity)
 
 		switch entityInfo := delta.Entity.(type) {
 		case *params.ApplicationInfo:
 			if entityInfo.Name == name {
-				if res, err := q.Run(ApplicationScope{
-					ApplicationInfo: entityInfo,
-				}); res && err == nil {
-					return true
+				scope := MakeApplicationScope(entityInfo)
+				if res, err := q.Run(scope); query.IsInvalidIdentifierErr(err) {
+					return false, invalidIdentifierError(scope, err)
+				} else if res && err == nil {
+					return true, nil
 				}
 
 				c.found = entityInfo.Life != life.Dead
@@ -124,7 +125,7 @@ func (c *applicationCommand) waitFor(name string, deltas []params.Delta, q query
 
 	if !c.found {
 		logger.Infof("application %q not found, waiting...", name)
-		return false
+		return false, nil
 	}
 
 	var logOutput bool
@@ -154,22 +155,34 @@ func (c *applicationCommand) waitFor(name string, deltas []params.Delta, q query
 	appInfo := c.appInfo
 	appInfo.Status.Current = currentStatus
 
-	if res, err := q.Run(ApplicationScope{
-		ApplicationInfo: &appInfo,
-	}); res && err == nil {
-		return true
+	scope := MakeApplicationScope(&appInfo)
+	if res, err := q.Run(scope); query.IsInvalidIdentifierErr(err) {
+		return false, invalidIdentifierError(scope, err)
+	} else if res && err == nil {
+		return true, nil
 	}
 
 	if logOutput {
 		logger.Infof("application %q found with %q, waiting for goal state", name, currentStatus)
 	}
 
-	return false
+	return false, nil
 }
 
 // ApplicationScope allows the query to introspect a application entity.
 type ApplicationScope struct {
+	GenericScope
 	ApplicationInfo *params.ApplicationInfo
+}
+
+// MakeApplicationScope creates an ApplicationScope from an ApplicationInfo
+func MakeApplicationScope(info *params.ApplicationInfo) ApplicationScope {
+	return ApplicationScope{
+		GenericScope: GenericScope{
+			Info: info,
+		},
+		ApplicationInfo: info,
+	}
 }
 
 // GetIdentValue returns the value of the identifier in a given scope.
@@ -192,5 +205,5 @@ func (m ApplicationScope) GetIdentValue(name string) (query.Ord, error) {
 	case "workload-version":
 		return query.NewString(m.ApplicationInfo.WorkloadVersion), nil
 	}
-	return nil, errors.Errorf("Runtime Error: identifier %q not found on ApplicationInfo", name)
+	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name), "Runtime Error: identifier %q not found on ApplicationInfo", name)
 }
