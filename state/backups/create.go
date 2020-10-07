@@ -134,7 +134,7 @@ func newBuilder(backupDir string, filesToBackUp []string, db DBDumper) (b *build
 		}
 	}()
 
-	// Create all the direcories we need.  We go with user-only
+	// Create all the directories we need.  We go with user-only
 	// permissions on principle; the directories are short-lived so in
 	// practice it shouldn't matter much.
 	err = os.MkdirAll(b.archivePaths.DBDumpDir, 0700)

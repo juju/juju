@@ -8,6 +8,7 @@ package backups
 import (
 	"fmt"
 	"os"
+	"syscall"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -55,6 +56,30 @@ func (s *pathsSuite) TestPathNoDefaultMongo(c *gc.C) {
 	mongoPath, err := getMongoToolPath("tool", osStat, execLookPath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mongoPath, gc.Equals, "/a/fake/mongo/path")
-	c.Assert(calledWithPaths, gc.DeepEquals, []string{"path/to/tool"})
+	c.Assert(calledWithPaths, gc.DeepEquals, []string{
+		"path/to/tool",
+		"path/to/juju-db.tool",
+	})
 	c.Assert(calledWithLookup, gc.DeepEquals, []string{"tool"})
+}
+
+func (s *pathsSuite) TestPathSnapMongo(c *gc.C) {
+	statPaths := []string{}
+	mockStat := func(path string) (os.FileInfo, error) {
+		statPaths = append(statPaths, path)
+		switch path {
+		case "path/to/juju-db.mongodump":
+			return nil, nil // nil FileInfo is okay; value isn't used
+		default:
+			return nil, &os.PathError{Op: "mockStat", Path: path, Err: syscall.ENOENT}
+		}
+	}
+
+	path, err := getMongoToolPath("mongodump", mockStat, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(path, gc.Equals, "path/to/juju-db.mongodump")
+	c.Assert(statPaths, gc.DeepEquals, []string{
+		"path/to/mongodump",
+		"path/to/juju-db.mongodump",
+	})
 }
