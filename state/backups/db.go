@@ -94,8 +94,10 @@ func getBackupTargetDatabases(session DBSession) (set.Strings, error) {
 }
 
 const (
-	dumpName    = "mongodump"
-	restoreName = "mongorestore"
+	dumpName       = "mongodump"
+	restoreName    = "mongorestore"
+	snapToolPrefix = "juju-db."
+	snapTmpDir     = "/tmp/snap.juju-db"
 )
 
 // DBDumper is any type that dumps something to a dump dir.
@@ -119,12 +121,21 @@ func getMongoToolPath(toolName string, stat func(name string) (os.FileInfo, erro
 	if err != nil {
 		return "", errors.Annotate(err, "failed to get mongod path")
 	}
-	mongoTool := filepath.Join(filepath.Dir(mongod), toolName)
+	mongodDir := filepath.Dir(mongod)
 
+	mongoTool := filepath.Join(mongodDir, toolName)
 	if _, err := stat(mongoTool); err == nil {
-		// It already exists so no need to continue.
+		// Found it alongside mongod binary, so no need to continue.
 		return mongoTool, nil
 	}
+	logger.Tracef("didn't find MongoDB tool %q in %q", toolName, mongodDir)
+
+	// Also try "juju-db.tool" (how it's named in the Snap).
+	mongoTool = filepath.Join(mongodDir, snapToolPrefix+toolName)
+	if _, err := stat(mongoTool); err == nil {
+		return mongoTool, nil
+	}
+	logger.Tracef("didn't find MongoDB tool %q in %q", snapToolPrefix+toolName, mongodDir)
 
 	path, err := lookPath(toolName)
 	if err != nil {
@@ -173,12 +184,33 @@ func (md *mongoDumper) dump(dumpDir string) error {
 	if err := runCommandFn(md.binPath, options...); err != nil {
 		return errors.Annotate(err, "error dumping databases")
 	}
+
+	// If running the juju-db.mongodump Snap, it outputs to
+	// /tmp/snap.juju-db/DUMPDIR, so move to /DUMPDIR as our code expects.
+	if md.isSnap() {
+		actualDir := filepath.Join(snapTmpDir, dumpDir)
+		logger.Tracef("moving from Snap dump dir %q to %q", actualDir, dumpDir)
+		err := os.Remove(dumpDir) // will be empty, delete
+		if err != nil {
+			return errors.Trace(err)
+		}
+		err = os.Rename(actualDir, dumpDir)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	return nil
+}
+
+func (md *mongoDumper) isSnap() bool {
+	return filepath.Base(md.binPath) == snapToolPrefix+dumpName
 }
 
 // Dump dumps the juju state-related databases.  To do this we dump all
 // databases and then remove any ignored databases from the dump results.
 func (md *mongoDumper) Dump(baseDumpDir string) error {
+	logger.Tracef("dumping Mongo database to %q", baseDumpDir)
 	if err := md.dump(baseDumpDir); err != nil {
 		return errors.Trace(err)
 	}
@@ -215,6 +247,7 @@ func stripIgnored(ignored set.Strings, dumpDir string) error {
 		switch dbName {
 		case storageDBName, "admin":
 			dirname := filepath.Join(dumpDir, dbName)
+			logger.Tracef("stripIgnored deleting dir %q", dirname)
 			if err := os.RemoveAll(dirname); err != nil {
 				return errors.Trace(err)
 			}
@@ -231,7 +264,17 @@ func stripIgnored(ignored set.Strings, dumpDir string) error {
 func listDatabases(dumpDir string) (set.Strings, error) {
 	list, err := ioutil.ReadDir(dumpDir)
 	if err != nil {
-		return set.Strings{}, errors.Trace(err)
+		return nil, errors.Trace(err)
+	}
+
+	logger.Tracef("%d files found in dump dir", len(list))
+	for _, info := range list {
+		logger.Tracef("file found in dump dir: %q dir=%v size=%d",
+			info.Name(), info.IsDir(), info.Size())
+	}
+	if len(list) < 2 {
+		// Should be *at least* oplog.bson and a data directory
+		return nil, errors.Errorf("too few files in dump dir (%d)", len(list))
 	}
 
 	databases := make(set.Strings)
