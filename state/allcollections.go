@@ -387,9 +387,8 @@ func allCollections() CollectionSchema {
 				{Key: []string{"model-uuid", "name"}},
 			},
 		},
-		subnetsC:              {},
-		linkLayerDevicesC:     {},
-		linkLayerDevicesRefsC: {},
+		subnetsC:          {},
+		linkLayerDevicesC: {},
 		ipAddressesC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "machine-id", "device-name"},
@@ -618,7 +617,6 @@ const (
 	storageInstancesC          = "storageinstances"
 	subnetsC                   = "subnets"
 	linkLayerDevicesC          = "linklayerdevices"
-	linkLayerDevicesRefsC      = "linklayerdevicesrefs"
 	ipAddressesC               = "ip.addresses"
 	toolsmetadataC             = "toolsmetadata"
 	txnLogC                    = "txns.log"

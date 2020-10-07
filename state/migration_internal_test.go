@@ -172,7 +172,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 		// These are recreated whilst migrating other network entities.
 		providerIDsC,
-		linkLayerDevicesRefsC,
 
 		// Recreated whilst migrating actions.
 		actionNotificationsC,
