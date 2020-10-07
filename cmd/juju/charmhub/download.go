@@ -214,7 +214,7 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 		revision, found = info.DefaultRelease.Revision, true
 	} else if serie := info.DefaultRelease.Channel.Platform.Series; serie != c.series {
 		// Define a specialized message for when the default release is
-		return errors.Errorf("%s %q not found for the default release %q using %s", info.Type, c.charmOrBundle, serie, c.series)
+		return errors.Errorf("%s %q not found for the default release series %q matching %q", info.Type, c.charmOrBundle, serie, c.series)
 	}
 
 	if !found {
