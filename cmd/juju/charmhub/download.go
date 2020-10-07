@@ -7,7 +7,9 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"os"
 	"strings"
+	"syscall"
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/cmd"
@@ -28,12 +30,16 @@ const (
 Download a charm to the current directory from the CharmHub store
 by a specified name.
 
+Adding a hyphen as the second argument allows the download to be piped
+to stdout.
+
 Examples:
     juju download postgresql
+    juju download postgresql - > postgresql.charm
 
 See also:
-	info
-	find
+    info
+    find
 `
 )
 
@@ -56,6 +62,7 @@ type downloadCommand struct {
 	charmHubURL   string
 	charmOrBundle string
 	archivePath   string
+	pipeToStdout  bool
 }
 
 // Info returns help related download about the command, it implements
@@ -81,9 +88,16 @@ func (c *downloadCommand) SetFlags(f *gnuflag.FlagSet) {
 // Init initializes the download command, including validating the provided
 // flags. It implements part of the cmd.Command interface.
 func (c *downloadCommand) Init(args []string) error {
-	if len(args) != 1 {
+	if len(args) < 1 || len(args) > 2 {
 		return errors.Errorf("expected a charm or bundle name")
 	}
+	if len(args) == 2 {
+		if args[1] != "-" {
+			return errors.Errorf("expected a charm or bundle name, followed by hyphen to pipe to stdout")
+		}
+		c.pipeToStdout = true
+	}
+
 	if err := c.validateCharmOrBundle(args[0]); err != nil {
 		return errors.Trace(err)
 	}
@@ -146,7 +160,14 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	client, err := c.getCharmHubClient(config)
+	var fileSystem charmhub.FileSystem
+	if c.pipeToStdout {
+		fileSystem = stdoutFileSystem{}
+	} else {
+		fileSystem = charmhub.DefaultFileSystem()
+	}
+
+	client, err := c.getCharmHubClient(config, fileSystem)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -175,6 +196,13 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 
 	if err := client.Download(ctx, resourceURL, path); err != nil {
 		return errors.Trace(err)
+	}
+
+	// If we're piping to stdout, then we don't need to mention how to install
+	// and deploy the charm.
+	if c.pipeToStdout {
+		cmdContext.Infof("Downloading of %s complete", info.Type)
+		return nil
 	}
 
 	if !strings.HasPrefix(path, "/") {
@@ -216,11 +244,11 @@ func (c *downloadCommand) getModelConfig() (*config.Config, error) {
 	return config.New(config.NoDefaults, attrs)
 }
 
-func (c *downloadCommand) getCharmHubClient(config charmhub.Config) (CharmHubClient, error) {
+func (c *downloadCommand) getCharmHubClient(config charmhub.Config, fileSystem charmhub.FileSystem) (CharmHubClient, error) {
 	if c.charmHubClient != nil {
 		return c.charmHubClient, nil
 	}
-	return charmhub.NewClient(config)
+	return charmhub.NewClientWithFileSystem(config, fileSystem)
 }
 
 // CharmHubClient defines a charmhub client, used for querying the charmhub
@@ -246,4 +274,13 @@ func (d downloadLogger) Debugf(msg string, args ...interface{}) {
 }
 
 func (d downloadLogger) Tracef(msg string, args ...interface{}) {
+}
+
+type stdoutFileSystem struct {
+}
+
+// Create creates or truncates the named file. If the file already exists,
+// it is truncated.
+func (stdoutFileSystem) Create(string) (*os.File, error) {
+	return os.NewFile(uintptr(syscall.Stdout), "/dev/stdout"), nil
 }
