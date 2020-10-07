@@ -6,8 +6,10 @@ package charmhub
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/url"
 	"os"
+	"sort"
 	"strings"
 	"syscall"
 
@@ -15,12 +17,14 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/os/series"
 
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -59,6 +63,8 @@ type downloadCommand struct {
 	modelConfigAPI ModelConfigGetter
 	charmHubClient CharmHubClient
 
+	channel       string
+	series        string
 	charmHubURL   string
 	charmOrBundle string
 	archivePath   string
@@ -81,6 +87,8 @@ func (c *downloadCommand) Info() *cmd.Info {
 // It implements part of the cmd.Command interface.
 func (c *downloadCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
+	f.StringVar(&c.channel, "channel", "", "specify a channel to use instead of the default release")
+	f.StringVar(&c.series, "series", "", "specify a series to use")
 	f.StringVar(&c.charmHubURL, "charm-hub-url", "", "override the model config by specifying the charmhub url for querying the store")
 	f.StringVar(&c.archivePath, "filepath", "", "filepath location of the charm to download to")
 }
@@ -180,9 +188,36 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	// TODO (stickupkid): Allow the user to specify the channel location for
-	// the download URL.
-	resourceURL, err := url.Parse(info.DefaultRelease.Revision.Download.URL)
+	var (
+		found    bool
+		revision transport.Revision
+	)
+	if c.channel != "" {
+		charmChannel, err := corecharm.ParseChannel(c.channel)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		// If there is no series, then attempt to select the best one first.
+		if c.series == "" {
+			revision, found = c.locateRevisionByChannel(info.ChannelMap, charmChannel)
+		} else {
+			// We have a series go attempt to find the channel.
+			revision, found = c.locateRevisionByChannelAndSeries(info.ChannelMap, charmChannel, c.series)
+		}
+	} else if c.series == "" || info.DefaultRelease.Channel.Platform.Series == c.series {
+		// If there is no channel, fallback to the default release.
+		revision, found = info.DefaultRelease.Revision, true
+	}
+
+	if !found {
+		if c.series != "" {
+			return errors.Errorf("%s %q not found for %s", info.Type, c.charmOrBundle, c.series)
+		}
+		return errors.Errorf("%s %q not found", info.Type, c.charmOrBundle)
+	}
+
+	resourceURL, err := url.Parse(revision.Download.URL)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -283,4 +318,93 @@ type stdoutFileSystem struct {
 // it is truncated.
 func (stdoutFileSystem) Create(string) (*os.File, error) {
 	return os.NewFile(uintptr(syscall.Stdout), "/dev/stdout"), nil
+}
+
+func (c *downloadCommand) locateRevisionByChannel(channelMaps []transport.ChannelMap, channel corecharm.Channel) (transport.Revision, bool) {
+	// Order the channelMap by the ordered supported controller series. That
+	// way we'll always find the newest one first (hopefully the most
+	// supported).
+	// Then attempt to find the revision by a channel.
+	orderedSeries := series.SupportedJujuControllerSeries()
+	channelMap := channelMapBySeries{
+		channelMap: channelMaps,
+		series:     orderedSeries,
+	}
+	sort.Sort(channelMap)
+
+	for _, channelMap := range channelMap.channelMap {
+		if rev, ok := locateRevisionByChannelMap(channelMap, channel); ok {
+			return rev, true
+		}
+	}
+	return transport.Revision{}, false
+}
+
+func (c *downloadCommand) locateRevisionByChannelAndSeries(channelMaps []transport.ChannelMap, channel corecharm.Channel, series string) (transport.Revision, bool) {
+	// Filter out any channels that aren't of a given series.
+	var filtered []transport.ChannelMap
+	for _, channelMap := range channelMaps {
+		if channelMap.Channel.Platform.Series == series {
+			filtered = append(filtered, channelMap)
+		}
+	}
+
+	// If we don't have any filtered series then we don't know what to do here.
+	if len(filtered) == 0 {
+		return transport.Revision{}, false
+	}
+
+	for _, channelMap := range filtered {
+		if rev, ok := locateRevisionByChannelMap(channelMap, channel); ok {
+			return rev, true
+		}
+	}
+	return transport.Revision{}, false
+}
+
+func locateRevisionByChannelMap(channelMap transport.ChannelMap, channel corecharm.Channel) (transport.Revision, bool) {
+	rawChannel := fmt.Sprintf("%s/%s", channelMap.Channel.Track, channelMap.Channel.Risk)
+	if strings.HasPrefix(rawChannel, "/") {
+		rawChannel = rawChannel[1:]
+	}
+	charmChannel, err := corecharm.ParseChannel(rawChannel)
+	if err != nil {
+		return transport.Revision{}, false
+	}
+
+	fmt.Println(charmChannel, channelMap.Channel.Platform.Series)
+	// Check that we're an exact match.
+	if channel.Track == charmChannel.Track && channel.Risk == charmChannel.Risk {
+		return channelMap.Revision, true
+	}
+
+	return transport.Revision{}, false
+}
+
+type channelMapBySeries struct {
+	channelMap []transport.ChannelMap
+	series     []string
+}
+
+func (s channelMapBySeries) Len() int {
+	return len(s.channelMap)
+}
+
+func (s channelMapBySeries) Swap(i, j int) {
+	s.channelMap[i], s.channelMap[j] = s.channelMap[j], s.channelMap[i]
+}
+
+func (s channelMapBySeries) Less(i, j int) bool {
+	idx1 := s.invertedIndexOf(s.channelMap[i].Channel.Platform.Series)
+	idx2 := s.invertedIndexOf(s.channelMap[j].Channel.Platform.Series)
+	return idx1 > idx2
+}
+
+func (s channelMapBySeries) invertedIndexOf(value string) int {
+	for k, i := range s.series {
+		if i == value {
+			return len(s.series) - k
+		}
+	}
+	return math.MinInt64
 }
