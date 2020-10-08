@@ -16,6 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/core/network"
@@ -56,7 +57,7 @@ func (s *networkInfoSuite) TestNetworksForRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = machine.SetProviderAddresses(
-		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("10.2.3.4", network.ScopeCloudLocal),
 		network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -67,8 +68,8 @@ func (s *networkInfoSuite) TestNetworksForRelation(c *gc.C) {
 
 	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
 	c.Assert(ingress, gc.DeepEquals,
-		network.SpaceAddresses{network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal)})
-	c.Assert(egress, gc.DeepEquals, []string{"1.2.3.4/32"})
+		network.SpaceAddresses{network.NewScopedSpaceAddress("10.2.3.4", network.ScopeCloudLocal)})
+	c.Assert(egress, gc.DeepEquals, []string{"10.2.3.4/32"})
 }
 
 func (s *networkInfoSuite) addDevicesWithAddresses(c *gc.C, machine *state.Machine, addresses ...string) {
@@ -96,10 +97,71 @@ func (s *networkInfoSuite) addDevicesWithAddresses(c *gc.C, machine *state.Machi
 	}
 }
 
+func (s *networkInfoSuite) TestNetworksForBinding(c *gc.C) {
+	// Add subnets for the addresses that the machine will have.
+	// We are testing a space-less deployment here.
+	_, err := s.State.AddSubnet(network.SubnetInfo{
+		CIDR:    "10.2.0.0/16",
+		SpaceID: network.AlphaSpaceId,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.AddSubnet(network.SubnetInfo{
+		CIDR:    "100.2.3.0/24",
+		SpaceID: network.AlphaSpaceId,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	bindings := map[string]string{
+		"":             network.AlphaSpaceName,
+		"server-admin": network.AlphaSpaceName,
+	}
+	app := s.AddTestingApplicationWithBindings(c, "mysql", s.AddTestingCharm(c, "mysql"), bindings)
+
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.AssignToNewMachine(), jc.ErrorIsNil)
+
+	id, err := unit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.Machine(id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// We need at least one address on the machine itself, because these are
+	// retrieved up-front to use as a fallback when we fail to locate addresses
+	// on link-layer devices.
+	addresses := []network.SpaceAddress{
+		network.NewSpaceAddress("10.2.3.4/16"),
+	}
+	err = machine.SetProviderAddresses(addresses...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.addDevicesWithAddresses(c, machine, "10.2.3.4/16", "100.2.3.4/24")
+
+	netInfo := s.newNetworkInfo(c, unit.UnitTag(), nil)
+	result, err := netInfo.ProcessAPIRequest(params.NetworkInfoParams{
+		Unit:      unit.UnitTag().String(),
+		Endpoints: []string{"server-admin"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	res := result.Results
+	c.Assert(res, gc.HasLen, 1)
+
+	binding, ok := res["server-admin"]
+	c.Assert(ok, jc.IsTrue)
+
+	ingress := binding.IngressAddresses
+	c.Assert(len(ingress), jc.GreaterThan, 0)
+
+	// Sorting should place the public address before the cloud-local one.
+	c.Check(ingress[0], gc.Equals, "100.2.3.4")
+}
+
 func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 	_ = s.setupSpace(c, "space-1", "1.2.0.0/16", false)
 	_ = s.setupSpace(c, "space-2", "2.2.0.0/16", false)
-	spaceID3 := s.setupSpace(c, "space-3", "3.2.0.0/16", false)
+	spaceID3 := s.setupSpace(c, "space-3", "10.2.0.0/16", false)
 	_ = s.setupSpace(c, "public-4", "4.2.0.0/16", true)
 
 	// We want to have all bindings set so that no actual binding is
@@ -121,13 +183,13 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 	addresses := []network.SpaceAddress{
 		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
 		network.NewScopedSpaceAddress("2.2.3.4", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("3.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("10.2.3.4", network.ScopeCloudLocal),
 		network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic),
 	}
 	err = machine.SetProviderAddresses(addresses...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.addDevicesWithAddresses(c, machine, "1.2.3.4/16", "2.2.3.4/16", "3.2.3.4/16", "4.3.2.1/16")
+	s.addDevicesWithAddresses(c, machine, "1.2.3.4/16", "2.2.3.4/16", "10.2.3.4/16", "4.3.2.1/16")
 
 	netInfo := s.newNetworkInfo(c, prr.pu0.UnitTag(), nil)
 	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel, true)
@@ -135,8 +197,8 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 
 	c.Assert(boundSpace, gc.Equals, spaceID3)
 	c.Assert(ingress, gc.DeepEquals,
-		network.SpaceAddresses{network.NewScopedSpaceAddress("3.2.3.4", network.ScopeCloudLocal)})
-	c.Assert(egress, gc.DeepEquals, []string{"3.2.3.4/32"})
+		network.SpaceAddresses{network.NewScopedSpaceAddress("10.2.3.4", network.ScopeCloudLocal)})
+	c.Assert(egress, gc.DeepEquals, []string{"10.2.3.4/32"})
 }
 
 func (s *networkInfoSuite) TestNetworksForRelationRemoteRelation(c *gc.C) {

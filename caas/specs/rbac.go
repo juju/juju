@@ -4,6 +4,9 @@
 package specs
 
 import (
+	"fmt"
+
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 )
 
@@ -78,7 +81,24 @@ func (sa ServiceAccountSpecV3) Validate() error {
 			return errors.Trace(err)
 		}
 	}
-	return nil
+	roleNames := set.NewStrings()
+	for _, r := range sa.Roles {
+		if err := r.Validate(); err != nil {
+			return errors.Trace(err)
+		}
+		if r.Name == "" {
+			continue
+		}
+		if roleNames.Contains(r.Name) {
+			return errors.NotValidf("duplicated role name %q", r.Name)
+		}
+		roleNames.Add(r.Name)
+	}
+	if roleNames.Size() == 0 || len(sa.Roles) == roleNames.Size() {
+		// All good.
+		return nil
+	}
+	return errors.NewNotValid(nil, "either all or none of the roles should have a name set")
 }
 
 // PrimeServiceAccountSpecV3 defines spec for creating the prime RBAC resources for version 3.
@@ -95,19 +115,14 @@ func (psa PrimeServiceAccountSpecV3) GetName() string {
 // SetName sets the service accout name.
 func (psa *PrimeServiceAccountSpecV3) SetName(name string) {
 	psa.name = name
-	for i, r := range psa.Roles {
-		r.Name = name
-		psa.Roles[i] = r
-	}
 }
 
 // Validate returns an error if the spec is not valid.
 func (psa PrimeServiceAccountSpecV3) Validate() error {
-	if err := psa.ServiceAccountSpecV3.Validate(); err != nil {
-		return errors.Trace(err)
+	err := psa.ServiceAccountSpecV3.Validate()
+	msg := "invalid primary service account"
+	if psa.name != "" {
+		msg = fmt.Sprintf("%s %q", msg, psa.name)
 	}
-	if len(psa.Roles) > 1 {
-		return errors.NewNotValid(nil, "the prime service can only have one role or cluster role")
-	}
-	return nil
+	return errors.Annotatef(err, msg)
 }

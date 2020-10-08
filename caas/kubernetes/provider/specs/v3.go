@@ -62,7 +62,7 @@ func (sa K8sServiceAccountSpec) Validate() error {
 	if sa.Name == "" {
 		return errors.New("name is missing")
 	}
-	return errors.Trace(sa.ServiceAccountSpecV3.Validate())
+	return errors.Annotatef(sa.ServiceAccountSpecV3.Validate(), "invalid service account %q", sa.Name)
 }
 
 // K8sRBACResources defines a spec for creating RBAC resources.
@@ -90,29 +90,13 @@ type K8sRBACSpecConverter interface {
 func (ks K8sRBACResources) Validate() error {
 	saNames := set.NewStrings()
 	for _, sa := range ks.ServiceAccounts {
-		if err := sa.Validate(); err != nil {
-			return errors.Trace(err)
-		}
 		if saNames.Contains(sa.Name) {
 			return errors.NotValidf("duplicated service account name %q", sa.Name)
 		}
 		saNames.Add(sa.Name)
-
-		roleNames := set.NewStrings()
-		for _, r := range sa.Roles {
-			if r.Name == "" {
-				continue
-			}
-			if roleNames.Contains(r.Name) {
-				return errors.NotValidf("duplicated role name %q", r.Name)
-			}
-			roleNames.Add(r.Name)
+		if err := sa.Validate(); err != nil {
+			return errors.Trace(err)
 		}
-		if roleNames.Size() == 0 || len(sa.Roles) == roleNames.Size() {
-			// All good.
-			continue
-		}
-		return errors.NewNotValid(nil, fmt.Sprintf("either all or none of the roles of the service account %q should have a name set", sa.Name))
 	}
 	return nil
 }
