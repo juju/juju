@@ -170,8 +170,8 @@ func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 		providerID, err = k8sprovider.GetOperatorPodName(
 			podAPI,
 			c.execClient.RawClient().CoreV1().Namespaces(),
-			c.execClient.NameSpace(),
 			appName,
+			c.execClient.NameSpace(),
 		)
 
 		if err != nil {
