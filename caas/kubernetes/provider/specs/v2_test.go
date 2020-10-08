@@ -91,6 +91,9 @@ containers:
           file1: |
             [config]
             foo: bar
+          file: |
+            [config]
+            foo: bar
   - name: gitlab-helper
     image: gitlab-helper/latest
     ports:
@@ -401,6 +404,7 @@ echo "do some stuff here for gitlab container"
 						MountPath: "/var/lib/foo",
 						VolumeSource: specs.VolumeSource{
 							Files: []specs.File{
+								{Path: "file", Content: expectedFileContent},
 								{Path: "file1", Content: expectedFileContent},
 							},
 						},
@@ -495,7 +499,6 @@ echo "do some stuff here for gitlab-init container"
 						AutomountServiceAccountToken: boolPtr(true),
 						Roles: []specs.Role{
 							{
-								Name:   "k8sServiceAccount1",
 								Global: true,
 								Rules: []specs.PolicyRule{
 									{
@@ -870,7 +873,7 @@ serviceAccount:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `rules is required`)
+	c.Assert(err, gc.ErrorMatches, `invalid primary service account: rules is required`)
 }
 
 func (s *v2SpecsSuite) TestValidateCustomResourceDefinitions(c *gc.C) {

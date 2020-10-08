@@ -8,12 +8,15 @@ import (
 	"time"
 
 	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v8/hooks"
 	"github.com/juju/loggo"
+	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
@@ -43,7 +46,7 @@ func (s *LoopSuite) SetUpTest(c *gc.C) {
 	}
 	s.opFactory = &mockOpFactory{}
 	s.executor = &mockOpExecutor{}
-	s.charmURL = charm.MustParseURL("cs:trusty/mysql")
+	s.charmURL = charm.MustParseURL("cs:trusty/mysql-1")
 	s.abort = make(chan struct{})
 }
 
@@ -177,9 +180,9 @@ func (s *LoopSuite) TestLoop(c *gc.C) {
 	_, err := s.loop()
 	c.Assert(err, gc.Equals, resolver.ErrLoopAborted)
 	c.Assert(resolverCalls, gc.Equals, 3)
-	s.executor.CheckCallNames(c, "State", "State", "Run", "State", "State")
+	s.executor.CheckCallNames(c, "State", "State", "State", "Run", "State", "State")
 
-	runArgs := s.executor.Calls()[2].Args
+	runArgs := s.executor.Calls()[3].Args
 	c.Assert(runArgs, gc.HasLen, 2)
 	c.Assert(runArgs[0], gc.DeepEquals, theOp)
 	c.Assert(runArgs[1], gc.NotNil)
@@ -238,7 +241,7 @@ func (s *LoopSuite) TestLoopWithChange(c *gc.C) {
 	_, err := s.loop()
 	c.Assert(err, gc.Equals, resolver.ErrLoopAborted)
 	c.Assert(resolverCalls, gc.Equals, 4)
-	s.executor.CheckCallNames(c, "State", "State", "Run", "State", "State", "State")
+	s.executor.CheckCallNames(c, "State", "State", "State", "Run", "State", "State", "State")
 
 	c.Assert(remoteStateSnapshotCount, gc.Equals, 5)
 	select {
@@ -248,7 +251,7 @@ func (s *LoopSuite) TestLoopWithChange(c *gc.C) {
 	default:
 	}
 
-	runArgs := s.executor.Calls()[2].Args
+	runArgs := s.executor.Calls()[3].Args
 	c.Assert(runArgs, gc.HasLen, 2)
 	c.Assert(runArgs[0], gc.DeepEquals, theOp)
 	c.Assert(runArgs[1], gc.NotNil)
@@ -277,6 +280,135 @@ func (s *LoopSuite) TestNextOpFails(c *gc.C) {
 	})
 	_, err := s.loop()
 	c.Assert(err, gc.ErrorMatches, "NextOp fails")
+}
+
+func (s *LoopSuite) TestCheckCharmUpgradeUpgradeCharmHook(c *gc.C) {
+	s.executor = &mockOpExecutor{
+		Executor: nil,
+		Stub:     envtesting.Stub{},
+		st: operation.State{
+			Started: true,
+			Kind:    operation.Continue,
+			Hook:    &hook.Info{Kind: hooks.UpgradeCharm},
+		},
+		run: nil,
+	}
+	s.testCheckCharmUpgradeDoesNothing(c)
+}
+
+func (s *LoopSuite) TestCheckCharmUpgradeSameURL(c *gc.C) {
+	s.executor = &mockOpExecutor{
+		Executor: nil,
+		Stub:     envtesting.Stub{},
+		st: operation.State{
+			Started: true,
+			Kind:    operation.Continue,
+		},
+		run: nil,
+	}
+	s.watcher = &mockRemoteStateWatcher{
+		snapshot: remotestate.Snapshot{
+			CharmURL: charm.MustParseURL("cs:trusty/mysql-1"),
+		},
+	}
+	s.testCheckCharmUpgradeDoesNothing(c)
+}
+
+func (s *LoopSuite) TestCheckCharmUpgradeIncorrectLXDProfile(c *gc.C) {
+	s.executor = &mockOpExecutor{
+		Executor: nil,
+		Stub:     envtesting.Stub{},
+		st: operation.State{
+			Started: true,
+			Kind:    operation.Continue,
+		},
+		run: nil,
+	}
+	s.watcher = &mockRemoteStateWatcher{
+		snapshot: remotestate.Snapshot{
+			CharmURL:             charm.MustParseURL("cs:trusty/mysql-2"),
+			CharmProfileRequired: true,
+			LXDProfileName:       "juju-test-mysql-1",
+		},
+	}
+	s.testCheckCharmUpgradeDoesNothing(c)
+}
+
+func (s *LoopSuite) testCheckCharmUpgradeDoesNothing(c *gc.C) {
+	s.resolver = resolver.ResolverFunc(func(
+		_ resolver.LocalState,
+		_ remotestate.Snapshot,
+		_ operation.Factory,
+	) (operation.Operation, error) {
+		return nil, resolver.ErrWaiting
+	})
+	close(s.abort)
+	_, err := s.loop()
+	c.Assert(err, gc.Equals, resolver.ErrLoopAborted)
+
+	// Run not called
+	c.Assert(s.executor.Calls(), gc.HasLen, 3)
+	s.executor.CheckCallNames(c, "State", "State", "State")
+}
+
+func (s *LoopSuite) TestCheckCharmUpgrade(c *gc.C) {
+	s.executor = &mockOpExecutor{
+		Executor: nil,
+		Stub:     envtesting.Stub{},
+		st: operation.State{
+			Started: true,
+			Kind:    operation.Continue,
+		},
+		run: nil,
+	}
+	s.watcher = &mockRemoteStateWatcher{
+		snapshot: remotestate.Snapshot{
+			CharmURL: charm.MustParseURL("cs:trusty/mysql-2"),
+		},
+	}
+	s.testCheckCharmUpgradeCallsRun(c)
+}
+
+func (s *LoopSuite) TestCheckCharmUpgradeLXDProfile(c *gc.C) {
+	s.executor = &mockOpExecutor{
+		Executor: nil,
+		Stub:     envtesting.Stub{},
+		st: operation.State{
+			Started: true,
+			Kind:    operation.Continue,
+		},
+		run: nil,
+	}
+	s.watcher = &mockRemoteStateWatcher{
+		snapshot: remotestate.Snapshot{
+			CharmURL:             charm.MustParseURL("cs:trusty/mysql-2"),
+			CharmProfileRequired: true,
+			LXDProfileName:       "juju-test-mysql-2",
+		},
+	}
+	s.testCheckCharmUpgradeCallsRun(c)
+}
+
+func (s *LoopSuite) testCheckCharmUpgradeCallsRun(c *gc.C) {
+	s.opFactory = &mockOpFactory{
+		Factory: nil,
+		Stub:    envtesting.Stub{},
+		op:      mockOp{},
+	}
+	s.resolver = resolver.ResolverFunc(func(
+		_ resolver.LocalState,
+		_ remotestate.Snapshot,
+		_ operation.Factory,
+	) (operation.Operation, error) {
+		return nil, resolver.ErrWaiting
+	})
+	close(s.abort)
+	_, err := s.loop()
+	c.Assert(err, gc.Equals, resolver.ErrLoopAborted)
+
+	// Run not called
+	c.Assert(s.executor.Calls(), gc.HasLen, 4)
+	s.executor.CheckCallNames(c, "State", "State", "Run", "State")
 }
 
 func waitChannel(c *gc.C, ch <-chan interface{}, activity string) interface{} {

@@ -431,6 +431,23 @@ func (q fakeRebootQuerier) Query(names.Tag) (bool, error) {
 	return q.rebootDetected, nil
 }
 
+type fakeRebootQuerierTrueOnce struct {
+	times  int
+	result map[int]bool
+}
+
+func (q *fakeRebootQuerierTrueOnce) Query(_ names.Tag) (bool, error) {
+	retVal := q.result[q.times]
+	q.times += 1
+	return retVal, nil
+}
+
+// mimicRealRebootQuerier returns a reboot querier which mimics
+// the behavior of the uniter without a reboot.
+func mimicRealRebootQuerier() uniter.RebootQuerier {
+	return &fakeRebootQuerierTrueOnce{result: map[int]bool{0: rebootDetected, 1: rebootNotDetected, 2: rebootNotDetected}}
+}
+
 func (s startUniter) step(c *gc.C, ctx *context) {
 	if s.unitTag == "" {
 		s.unitTag = "unit-u-0"
@@ -448,7 +465,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		panic("deployer not set up")
 	}
 	if s.rebootQuerier == nil {
-		s.rebootQuerier = fakeRebootQuerier{}
+		s.rebootQuerier = mimicRealRebootQuerier()
 	}
 	tag, err := names.ParseUnitTag(s.unitTag)
 	if err != nil {
@@ -568,7 +585,7 @@ type verifyWaiting struct{}
 
 func (s verifyWaiting) step(c *gc.C, ctx *context) {
 	step(c, ctx, stopUniter{})
-	step(c, ctx, startUniter{})
+	step(c, ctx, startUniter{rebootQuerier: fakeRebootQuerier{rebootNotDetected}})
 	step(c, ctx, waitHooks{})
 }
 
@@ -578,7 +595,7 @@ type verifyRunning struct {
 
 func (s verifyRunning) step(c *gc.C, ctx *context) {
 	step(c, ctx, stopUniter{})
-	step(c, ctx, startUniter{})
+	step(c, ctx, startUniter{rebootQuerier: fakeRebootQuerier{rebootNotDetected}})
 	var hooks []string
 	if s.minion {
 		hooks = append(hooks, "leader-settings-changed")
@@ -1013,7 +1030,7 @@ func (s verifyWaitingUpgradeError) step(c *gc.C, ctx *context) {
 			err := ctx.unit.SetAgentStatus(sInfo)
 			c.Check(err, jc.ErrorIsNil)
 		}},
-		startUniter{},
+		startUniter{rebootQuerier: &fakeRebootQuerier{rebootNotDetected}},
 	}
 	allSteps := append(verifyCharmSteps, verifyWaitingSteps...)
 	allSteps = append(allSteps, verifyCharmSteps...)

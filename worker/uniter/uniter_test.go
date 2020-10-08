@@ -390,11 +390,7 @@ func (s *UniterSuite) TestUniterStartHook(c *gc.C) {
 			"start hook after reboot",
 			quickStart{},
 			stopUniter{},
-			startUniter{
-				rebootQuerier: fakeRebootQuerier{
-					rebootDetected: true,
-				},
-			},
+			startUniter{},
 			// Since the unit has already been started before and
 			// a reboot was detected, we expect the uniter to
 			// queue a start hook to notify the charms about the
@@ -986,7 +982,7 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 			"unknown local relation dir is removed",
 			quickStartRelation{},
 			stopUniter{},
-			startUniter{},
+			startUniter{rebootQuerier: &fakeRebootQuerier{rebootNotDetected}},
 			// We need some synchronisation point here to ensure that the uniter
 			// has entered the correct place in the resolving loop. Now that we are
 			// no longer always executing config-changed, we poke the config just so

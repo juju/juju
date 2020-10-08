@@ -4,6 +4,7 @@
 package specs_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas/specs"
@@ -310,5 +311,32 @@ func (s *typesSuite) TestValidateFileSetVolumeSource(c *gc.C) {
 	} {
 		c.Logf("#%d: testing VolumeSource.Validate", i)
 		c.Check(tc.spec.Validate("fakeFileSet"), gc.ErrorMatches, tc.errStr)
+	}
+}
+
+func (s *typesSuite) TestSortKeysForFiles(c *gc.C) {
+	tests := []struct {
+		Files        map[string]string
+		ExpectedKeys []string
+	}{
+		{
+			Files: map[string]string{
+				"foo": "bar",
+				"tt":  "ff",
+			},
+			ExpectedKeys: []string{"foo", "tt"},
+		},
+		{
+			Files: map[string]string{
+				"tt":  "ff",
+				"foo": "bar",
+			},
+			ExpectedKeys: []string{"foo", "tt"},
+		},
+	}
+
+	for _, test := range tests {
+		keys := specs.SortKeysForFiles(test.Files)
+		c.Assert(keys, jc.DeepEquals, test.ExpectedKeys)
 	}
 }

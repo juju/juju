@@ -590,7 +590,7 @@ func (n *NetworkInfo) pollForAddress(
 func spaceAddressesFromNetworkInfo(netInfos []network.NetworkInfo) corenetwork.SpaceAddresses {
 	var addrs corenetwork.SpaceAddresses
 	for _, nwInfo := range netInfos {
-		scope := corenetwork.ScopeCloudLocal
+		scope := corenetwork.ScopeUnknown
 		if strings.HasPrefix(nwInfo.InterfaceName, "fan-") {
 			scope = corenetwork.ScopeFanLocal
 		}

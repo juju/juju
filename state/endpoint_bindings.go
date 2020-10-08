@@ -239,16 +239,21 @@ func (b *Bindings) updateOps(txnRevno int64, newMap map[string]string, newMeta *
 	}
 
 	// Ensure that the spaceIDs needed for the bindings exist.
+	spIdMap := set.NewStrings()
 	for _, spID := range b.Map() {
 		sp, err := b.st.Space(spID)
 		if err != nil {
 			return ops, errors.Trace(err)
+		}
+		if spIdMap.Contains(spID) {
+			continue
 		}
 		ops = append(ops, txn.Op{
 			C:      spacesC,
 			Id:     sp.doc.DocId,
 			Assert: txn.DocExists,
 		})
+		spIdMap.Add(spID)
 	}
 
 	// To avoid a potential race where units may suddenly appear on a new
