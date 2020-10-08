@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/provider/gce"
 	"github.com/juju/juju/provider/gce/google"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/version"
 )
 
 type environPolSuite struct {
@@ -22,7 +23,7 @@ type environPolSuite struct {
 var _ = gc.Suite(&environPolSuite{})
 
 func (s *environPolSuite) TestPrecheckInstanceDefaults(c *gc.C) {
-	err := s.Env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS()})
+	err := s.Env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{Series: version.DefaultSupportedLTS()})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 0)
@@ -35,7 +36,7 @@ func (s *environPolSuite) TestPrecheckInstanceFullAPI(c *gc.C) {
 
 	cons := constraints.MustParse("instance-type=n1-standard-1 arch=amd64 root-disk=1G")
 	placement := "zone=home-zone"
-	err := s.Env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Constraints: cons, Placement: placement})
+	err := s.Env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{Series: version.DefaultSupportedLTS(), Constraints: cons, Placement: placement})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
@@ -45,14 +46,14 @@ func (s *environPolSuite) TestPrecheckInstanceFullAPI(c *gc.C) {
 
 func (s *environPolSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 	cons := constraints.MustParse("instance-type=n1-standard-1")
-	err := s.Env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Constraints: cons})
+	err := s.Env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{Series: version.DefaultSupportedLTS(), Constraints: cons})
 
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *environPolSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 	cons := constraints.MustParse("instance-type=n1-standard-1.invalid")
-	err := s.Env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Constraints: cons})
+	err := s.Env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{Series: version.DefaultSupportedLTS(), Constraints: cons})
 
 	c.Check(err, gc.ErrorMatches, `.*invalid GCE instance type.*`)
 }
@@ -60,14 +61,14 @@ func (s *environPolSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 func (s *environPolSuite) TestPrecheckInstanceDiskSize(c *gc.C) {
 	cons := constraints.MustParse("instance-type=n1-standard-1 root-disk=1G")
 	placement := ""
-	err := s.Env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Constraints: cons, Placement: placement})
+	err := s.Env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{Series: version.DefaultSupportedLTS(), Constraints: cons, Placement: placement})
 
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *environPolSuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
 	cons := constraints.MustParse("instance-type=n1-standard-1 arch=i386")
-	err := s.Env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Constraints: cons})
+	err := s.Env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{Series: version.DefaultSupportedLTS(), Constraints: cons})
 
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -78,7 +79,7 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	}
 
 	placement := "zone=a-zone"
-	err := s.Env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Placement: placement})
+	err := s.Env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{Series: version.DefaultSupportedLTS(), Placement: placement})
 
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -89,7 +90,7 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
 	}
 
 	placement := "zone=a-zone"
-	err := s.Env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Placement: placement})
+	err := s.Env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{Series: version.DefaultSupportedLTS(), Placement: placement})
 
 	c.Check(err, gc.ErrorMatches, `.*availability zone "a-zone" is DOWN`)
 }
@@ -100,7 +101,7 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 	}
 
 	placement := "zone=a-zone"
-	err := s.Env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Placement: placement})
+	err := s.Env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{Series: version.DefaultSupportedLTS(), Placement: placement})
 
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -119,7 +120,7 @@ func (s *environPolSuite) testPrecheckInstanceVolumeAvailZone(c *gc.C, placement
 	}
 
 	err := s.Env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{
-		Series:    jujuversion.DefaultSupportedLTS(),
+		Series:    version.DefaultSupportedLTS(),
 		Placement: placement,
 		VolumeAttachments: []storage.VolumeAttachmentParams{{
 			VolumeId: "away-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
@@ -134,7 +135,7 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZoneConflictsVolume(c *gc.C) 
 	}
 
 	err := s.Env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{
-		Series:    jujuversion.DefaultSupportedLTS(),
+		Series:    version.DefaultSupportedLTS(),
 		Placement: "zone=away-zone",
 		VolumeAttachments: []storage.VolumeAttachmentParams{{
 			VolumeId: "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
