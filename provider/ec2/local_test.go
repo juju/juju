@@ -239,7 +239,7 @@ func (t *localServerSuite) SetUpSuite(c *gc.C) {
 	t.BaseSuite.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	t.BaseSuite.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	t.BaseSuite.PatchValue(&series.MustHostSeries, func() string { return series.DefaultSupportedLTS() })
+	t.BaseSuite.PatchValue(&series.MustHostSeries, func() string { return jujuversion.DefaultSupportedLTS() })
 	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
 	t.BaseSuite.PatchValue(&ec2.EC2Session, func(region, accessKey, secretKey string) ec2iface.EC2API {
 		c.Assert(region, gc.Equals, "test")
@@ -1452,7 +1452,7 @@ func (t *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=m1.small root-disk=1G")
 	err := env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
-		Series:      series.DefaultSupportedLTS(),
+		Series:      jujuversion.DefaultSupportedLTS(),
 		Constraints: cons,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1462,7 +1462,7 @@ func (t *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=m1.invalid")
 	err := env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
-		Series:      series.DefaultSupportedLTS(),
+		Series:      jujuversion.DefaultSupportedLTS(),
 		Constraints: cons,
 	})
 	c.Assert(err, gc.ErrorMatches, `invalid AWS instance type "m1.invalid" specified`)
@@ -1472,7 +1472,7 @@ func (t *localServerSuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=cc1.4xlarge arch=i386")
 	err := env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
-		Series:      series.DefaultSupportedLTS(),
+		Series:      jujuversion.DefaultSupportedLTS(),
 		Constraints: cons,
 	})
 	c.Assert(err, gc.ErrorMatches, `invalid AWS instance type "cc1.4xlarge" and arch "i386" specified`)
@@ -1482,7 +1482,7 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-available"
 	err := env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
-		Series:    series.DefaultSupportedLTS(),
+		Series:    jujuversion.DefaultSupportedLTS(),
 		Placement: placement,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1492,7 +1492,7 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-unavailable"
 	err := env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
-		Series:    series.DefaultSupportedLTS(),
+		Series:    jujuversion.DefaultSupportedLTS(),
 		Placement: placement,
 	})
 	c.Assert(err, gc.ErrorMatches, `availability zone "test-unavailable" is "unavailable"`)
@@ -1502,7 +1502,7 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-unknown"
 	err := env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
-		Series:    series.DefaultSupportedLTS(),
+		Series:    jujuversion.DefaultSupportedLTS(),
 		Placement: placement,
 	})
 	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
@@ -1526,7 +1526,7 @@ func (t *localServerSuite) testPrecheckInstanceVolumeAvailZone(c *gc.C, placemen
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
-		Series:    series.DefaultSupportedLTS(),
+		Series:    jujuversion.DefaultSupportedLTS(),
 		Placement: placement,
 		VolumeAttachments: []storage.VolumeAttachmentParams{{
 			AttachmentParams: storage.AttachmentParams{
@@ -1549,7 +1549,7 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZoneVolumeConflict(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
-		Series:    series.DefaultSupportedLTS(),
+		Series:    jujuversion.DefaultSupportedLTS(),
 		Placement: "zone=test-available",
 		VolumeAttachments: []storage.VolumeAttachmentParams{{
 			AttachmentParams: storage.AttachmentParams{
@@ -1570,7 +1570,7 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	env := t.Prepare(c)
 	params, err := env.(simplestreams.MetadataValidator).MetadataLookupParams("test")
 	c.Assert(err, jc.ErrorIsNil)
-	params.Series = series.DefaultSupportedLTS()
+	params.Series = jujuversion.DefaultSupportedLTS()
 	params.Endpoint = region.EC2Endpoint
 	params.Sources, err = environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
