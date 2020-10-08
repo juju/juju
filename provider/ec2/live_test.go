@@ -85,7 +85,7 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.LiveTests.SetUpSuite(c)
 	t.BaseSuite.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	t.BaseSuite.PatchValue(&series.MustHostSeries, func() string { return series.DefaultSupportedLTS() })
+	t.BaseSuite.PatchValue(&series.MustHostSeries, func() string { return jujuversion.DefaultSupportedLTS() })
 	// Use the real ec2 session if we are running with real creds.
 	accessKey := os.Getenv("AWS_ACCESS_KEY_ID")
 	if accessKey == "" {

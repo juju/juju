@@ -79,7 +79,7 @@ func newStorage(suite cleaner, c *gc.C) storage.Storage {
 }
 
 func minimalConfig(c *gc.C) *config.Config {
-	return minimalConfigWithSeries(c, series.DefaultSupportedLTS())
+	return minimalConfigWithSeries(c, jujuversion.DefaultSupportedLTS())
 }
 
 func minimalConfigWithSeries(c *gc.C, series string) *config.Config {
@@ -169,7 +169,7 @@ func (s *BootstrapSuite) TestBootstrapSeries(c *gc.C) {
 		config:        fakeMinimalConfig(c),
 	}
 	ctx := envtesting.BootstrapContext(c)
-	bootstrapSeries := series.DefaultSupportedLTS()
+	bootstrapSeries := jujuversion.DefaultSupportedLTS()
 	availableTools := fakeAvailableTools()
 	availableTools[0].Version.Series = bootstrapSeries
 	result, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
@@ -221,7 +221,7 @@ func (s *BootstrapSuite) TestBootstrapFallbackSeries(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
-	c.Check(result.Series, gc.Equals, series.DefaultSupportedLTS())
+	c.Check(result.Series, gc.Equals, jujuversion.DefaultSupportedLTS())
 }
 
 func (s *BootstrapSuite) TestBootstrapSeriesWithForce(c *gc.C) {
@@ -642,7 +642,7 @@ func (s *BootstrapSuite) TestBootstrapFinalizeCloudInitUserData(c *gc.C) {
 		},
 	}
 	ctx := envtesting.BootstrapContext(c)
-	bootstrapSeries := series.DefaultSupportedLTS()
+	bootstrapSeries := jujuversion.DefaultSupportedLTS()
 	availableTools := fakeAvailableTools()
 	availableTools[0].Version.Series = bootstrapSeries
 	result, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
@@ -928,7 +928,7 @@ func fakeAvailableTools() tools.List {
 			Version: version.Binary{
 				Number: jujuversion.Current,
 				Arch:   arch.HostArch(),
-				Series: series.DefaultSupportedLTS(),
+				Series: jujuversion.DefaultSupportedLTS(),
 			},
 		},
 	}

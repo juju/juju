@@ -191,7 +191,7 @@ func (s *BootstrapSuite) TestRunTests(c *gc.C) {
 // defaultSupportedJujuSeries is used to return canned information about what
 // juju supports in terms of the release cycle
 // see juju/os and documentation https://www.ubuntu.com/about/release-cycle
-var defaultSupportedJujuSeries = set.NewStrings("bionic", "xenial", "trusty", jujutesting.KubernetesSeriesName)
+var defaultSupportedJujuSeries = set.NewStrings("focal", "bionic", "xenial", "trusty", jujutesting.KubernetesSeriesName)
 
 type bootstrapTest struct {
 	info string

@@ -68,6 +68,7 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 // defaultSupportedJujuSeries is used to return canned information about what
@@ -374,7 +375,7 @@ func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeries(c *gc.C) {
 
 func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeriesUseDefaultSeries(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "dummy")
-	curl := charm.MustParseURL(fmt.Sprintf("local:%s/dummy-1", series.DefaultSupportedLTS()))
+	curl := charm.MustParseURL(fmt.Sprintf("local:%s/dummy-1", version.DefaultSupportedLTS()))
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
@@ -1140,7 +1141,7 @@ func (s *DeploySuite) TestDeployStorageFailContainer(c *gc.C) {
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
-	machine, err := s.State.AddMachine(series.DefaultSupportedLTS(), state.JobHostUnits)
+	machine, err := s.State.AddMachine(version.DefaultSupportedLTS(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	container := "lxd:" + machine.Id()
 	err = s.runDeploy(c, charmDir.Path, "--to", container, "--storage", "data=machinescoped,1G")
@@ -1153,7 +1154,7 @@ func (s *DeploySuite) TestPlacement(c *gc.C) {
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 	// Add a machine that will be ignored due to placement directive.
-	machine, err := s.State.AddMachine(series.DefaultSupportedLTS(), state.JobHostUnits)
+	machine, err := s.State.AddMachine(version.DefaultSupportedLTS(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.runDeployForState(c, charmDir.Path, "-n", "1", "--to", "valid", "--series", "bionic")
@@ -1232,9 +1233,9 @@ func (s *DeploySuite) TestForceMachine(c *gc.C) {
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
-	machine, err := s.State.AddMachine(series.DefaultSupportedLTS(), state.JobHostUnits)
+	machine, err := s.State.AddMachine(version.DefaultSupportedLTS(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.runDeployForState(c, "--to", machine.Id(), charmDir.Path, "portlandia", "--series", series.DefaultSupportedLTS())
+	err = s.runDeployForState(c, "--to", machine.Id(), charmDir.Path, "portlandia", "--series", version.DefaultSupportedLTS())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertForceMachine(c, machine.Id())
 }
@@ -1256,12 +1257,12 @@ func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
 	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
 	template := state.MachineTemplate{
-		Series: series.DefaultSupportedLTS(),
+		Series: version.DefaultSupportedLTS(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideNewMachine(template, template, instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.runDeployForState(c, "--to", container.Id(), charmDir.Path, "portlandia", "--series", series.DefaultSupportedLTS())
+	err = s.runDeployForState(c, "--to", container.Id(), charmDir.Path, "portlandia", "--series", version.DefaultSupportedLTS())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertForceMachine(c, container.Id())
 	machines, err := s.State.AllMachines()
@@ -1273,10 +1274,10 @@ func (s *DeploySuite) TestForceMachineNewContainer(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "dummy")
 	curl := charm.MustParseURL("local:bionic/dummy-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	ltsseries := series.DefaultSupportedLTS()
+	ltsseries := version.DefaultSupportedLTS()
 	withCharmDeployable(s.fakeAPI, curl, ltsseries, charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
-	machine, err := s.State.AddMachine(series.DefaultSupportedLTS(), state.JobHostUnits)
+	machine, err := s.State.AddMachine(version.DefaultSupportedLTS(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.runDeployForState(c, "--to", "lxd:"+machine.Id(), charmDir.Path, "portlandia", "--series", ltsseries)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1308,7 +1309,7 @@ func (s *DeploySuite) TestForceMachineNotFound(c *gc.C) {
 }
 
 func (s *DeploySuite) TestForceMachineSubordinate(c *gc.C) {
-	machine, err := s.State.AddMachine(series.DefaultSupportedLTS(), state.JobHostUnits)
+	machine, err := s.State.AddMachine(version.DefaultSupportedLTS(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "logging")
 	curl := charm.MustParseURL("local:bionic/logging-1")
