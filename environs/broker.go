@@ -47,6 +47,9 @@ type StartInstanceParams struct {
 	// zone required to start the instance.
 	AvailabilityZone string
 
+	// RootDisk is a set of parameters for creating the root disk volume.
+	RootDisk *storage.VolumeParams
+
 	// Volumes is a set of parameters for volumes that should be created.
 	//
 	// StartInstance need not check the value of the Attachment field,

@@ -127,6 +127,35 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, expected)
 }
 
+func (s *withoutControllerSuite) TestProvisioningInfoRootDiskVolume(c *gc.C) {
+	pm := poolmanager.New(state.NewStateSettings(s.State), storage.ChainedProviderRegistry{
+		dummy.StorageProviders(),
+		provider.CommonStorageProviders(),
+	})
+	_, err := pm.Create("static-pool", "static", map[string]interface{}{"foo": "bar"})
+	c.Assert(err, jc.ErrorIsNil)
+	template := state.MachineTemplate{
+		Series:      "quantal",
+		Constraints: constraints.MustParse("root-disk-source=static-pool"),
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+	}
+	machine, err := s.State.AddOneMachine(template)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: machine.Tag().String()},
+	}}
+	result, err := s.provisioner.ProvisioningInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(result.Results[0].Result, gc.NotNil)
+
+	c.Assert(result.Results[0].Result.RootDisk, jc.DeepEquals, &params.VolumeParams{
+		Provider:   "static",
+		Attributes: map[string]interface{}{"foo": "bar"},
+	})
+}
+
 func (s *withoutControllerSuite) TestProvisioningInfoWithSingleNegativeAndPositiveSpaceInConstraintsV9(c *gc.C) {
 	s.addSpacesAndSubnets(c)
 

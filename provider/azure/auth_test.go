@@ -36,9 +36,10 @@ func (s *AuthSuite) TestAuthTokenServicePrincipalSecret(c *gc.C) {
 	senders := azuretesting.Senders{
 		discoverAuthSender(),
 	}
-	token, err := azure.AuthToken(spec, &senders)
+	token, tenantID, err := azure.AuthToken(spec, &senders, "https://resource")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(token, gc.NotNil)
+	c.Assert(tenantID, gc.Equals, fakeTenantId)
 }
 
 func (s *AuthSuite) TestAuthTokenInteractive(c *gc.C) {
@@ -52,7 +53,7 @@ func (s *AuthSuite) TestAuthTokenInteractive(c *gc.C) {
 		Credential:       fakeInteractiveCredential(),
 	}
 	senders := azuretesting.Senders{}
-	_, err := azure.AuthToken(spec, &senders)
+	_, _, err := azure.AuthToken(spec, &senders, "")
 	c.Assert(err, gc.ErrorMatches, `auth-type "interactive" not supported`)
 }
 

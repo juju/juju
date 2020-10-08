@@ -14,7 +14,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-10-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-07-01/compute" // This is the version supporting disk encryption sets.
+	keyvaultservices "github.com/Azure/azure-sdk-for-go/services/keyvault/2016-10-01/keyvault"
+	"github.com/Azure/azure-sdk-for-go/services/keyvault/mgmt/2018-02-14/keyvault"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
 	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources"
 	legacystorage "github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2017-10-01/storage" // Pin this legacy storage API to 2017-10-01 since it's only used for unmanaged storage in models was created in 2.2 or earlier.
@@ -72,7 +74,7 @@ const (
 	// used for controller machines.
 	controllerAvailabilitySet = "juju-controller"
 
-	computeAPIVersion = "2018-10-01"
+	computeAPIVersion = "2019-07-01"
 	networkAPIVersion = "2018-08-01"
 	// Note: do not upgrade this storage API anymore because Juju uses managed storage since 2.3 and this API is only used
 	// for models upgraded from 2.2.
@@ -111,6 +113,8 @@ type azureEnviron struct {
 
 	compute            compute.BaseClient
 	disk               compute.BaseClient
+	vault              keyvault.BaseClient
+	vaultKey           keyvaultservices.BaseClient
 	resources          resources.BaseClient
 	storage            legacystorage.BaseClient
 	network            network.BaseClient
@@ -191,6 +195,7 @@ func (env *azureEnviron) initEnviron() error {
 
 	env.compute = compute.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
 	env.disk = compute.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
+	env.vault = keyvault.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
 	env.resources = resources.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
 	env.storage = legacystorage.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
 	env.network = network.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
@@ -200,16 +205,18 @@ func (env *azureEnviron) initEnviron() error {
 		"azure.resources": &env.resources.Client,
 		"azure.storage":   &env.storage.Client,
 		"azure.network":   &env.network.Client,
+		"azure.vault":     &env.vault.Client,
+		"azure.keyvault":  &env.vaultKey.Client,
 	}
 	for id, client := range clients {
 		useragent.UpdateClient(client)
-		client.Authorizer = env.authorizer
-		logger := loggo.GetLogger(id)
+		client.Authorizer = env.authorizer.auth()
+		clientLogger := loggo.GetLogger(id)
 		if env.provider.config.Sender != nil {
 			client.Sender = env.provider.config.Sender
 		}
-		client.ResponseInspector = tracing.RespondDecorator(logger)
-		client.RequestInspector = tracing.PrepareDecorator(logger)
+		client.ResponseInspector = tracing.RespondDecorator(clientLogger)
+		client.RequestInspector = tracing.PrepareDecorator(clientLogger)
 		if env.provider.config.RequestInspector != nil {
 			tracer := client.RequestInspector
 			inspector := env.provider.config.RequestInspector
@@ -563,8 +570,9 @@ func (env *azureEnviron) StartInstance(ctx context.ProviderCallContext, args env
 	if args.Constraints.HasAllocatePublicIP() {
 		usePublicIP = *args.Constraints.AllocatePublicIP
 	}
+	stdCtx := stdcontext.Background()
 	if err := env.createVirtualMachine(
-		ctx, vmName, vmTags, envTags,
+		stdCtx, ctx, vmName, vmTags, envTags,
 		instanceSpec, args, usePublicIP,
 	); err != nil {
 		logger.Errorf("creating instance failed, destroying: %v", err)
@@ -591,11 +599,23 @@ func (env *azureEnviron) StartInstance(ctx context.ProviderCallContext, args env
 	}, nil
 }
 
+// referenceInfo splits a reference to an Azure entity into an
+// optional resource group and name, or just name if no
+// resource group is specified.
+func referenceInfo(entityRef string) (entityRG, entityName string) {
+	parts := strings.Split(entityRef, "/")
+	if len(parts) == 1 {
+		return "", entityRef
+	}
+	return parts[0], parts[1]
+}
+
 // createVirtualMachine creates a virtual machine and related resources.
 //
 // All resources created are tagged with the specified "vmTags", so if
 // this function fails then all resources can be deleted by tag.
 func (env *azureEnviron) createVirtualMachine(
+	stdCtx stdcontext.Context,
 	ctx context.ProviderCallContext,
 	vmName string,
 	vmTags, envTags map[string]string,
@@ -671,6 +691,15 @@ func (env *azureEnviron) createVirtualMachine(
 	)
 	if err != nil {
 		return errors.Annotate(err, "creating storage profile")
+	}
+	diskEncryptionID, err := env.diskEncryptionInfo(stdCtx, ctx, args.RootDisk, envTags)
+	if err != nil {
+		return common.ZoneIndependentError(errors.Annotate(err, "creating disk encryption info"))
+	}
+	if diskEncryptionID != "" && storageProfile.OsDisk.ManagedDisk != nil {
+		storageProfile.OsDisk.ManagedDisk.DiskEncryptionSet = &compute.DiskEncryptionSetParameters{
+			ID: to.StringPtr(diskEncryptionID),
+		}
 	}
 
 	var availabilitySetSubResource *compute.SubResource
@@ -1842,7 +1871,7 @@ func (env *azureEnviron) resourceGroupName(modelTag names.ModelTag, modelName st
 		logger.Debugf("using existing legacy resource group %q for model %q", legacyName, modelName)
 		return legacyName, nil
 	}
-	if err2, ok := err.(autorest.DetailedError); !ok || err2.Response == nil || err2.Response.StatusCode != http.StatusNotFound {
+	if !isNotFoundResult(g.Response) {
 		return "", errors.Trace(err)
 	}
 
@@ -1858,7 +1887,7 @@ func (env *azureEnviron) resourceGroupName(modelTag names.ModelTag, modelName st
 		}
 		return resourceGroup, nil
 	}
-	if err2, ok := err.(autorest.DetailedError); ok && err2.Response.StatusCode == http.StatusNotFound {
+	if isNotFoundResult(g.Response) {
 		return resourceGroup, nil
 	}
 	return "", errors.Trace(err)
@@ -1905,7 +1934,7 @@ func (env *azureEnviron) getInstanceTypesLocked(ctx context.ProviderCallContext)
 
 	client := compute.ResourceSkusClient{env.compute}
 
-	res, err := client.ListComplete(stdcontext.Background())
+	res, err := client.ListComplete(stdcontext.Background(), "")
 	if err != nil {
 		return nil, errorutils.HandleCredentialError(errors.Annotate(err, "listing VM sizes"), ctx)
 	}

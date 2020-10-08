@@ -84,25 +84,33 @@ func hasDenialStatusCode(err error) bool {
 // otherwise the response is passed on to the next Responder.
 func CheckForGraphError(r autorest.Responder) autorest.Responder {
 	return autorest.ResponderFunc(func(resp *http.Response) error {
-		if resp.Body != nil {
-			defer resp.Body.Close()
-			b, err := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			resp.Body = ioutil.NopCloser(bytes.NewReader(b))
-
-			// Remove any UTF-8 BOM, if present.
-			b = bytes.TrimPrefix(b, []byte("\ufeff"))
-			var ge graphrbac.GraphError
-			if err := json.Unmarshal(b, &ge); err == nil {
-				if ge.OdataError != nil && ge.Code != nil {
-					return &GraphError{ge}
-				}
-			}
+		err, _ := maybeGraphError(resp)
+		if err != nil {
+			return errors.Trace(err)
 		}
 		return r.Respond(resp)
 	})
+}
+
+func maybeGraphError(resp *http.Response) (error, bool) {
+	if resp.Body != nil {
+		defer resp.Body.Close()
+		b, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return errors.Trace(err), false
+		}
+		resp.Body = ioutil.NopCloser(bytes.NewReader(b))
+
+		// Remove any UTF-8 BOM, if present.
+		b = bytes.TrimPrefix(b, []byte("\ufeff"))
+		var ge graphrbac.GraphError
+		if err := json.Unmarshal(b, &ge); err == nil {
+			if ge.OdataError != nil && ge.Code != nil {
+				return &GraphError{ge}, true
+			}
+		}
+	}
+	return nil, false
 }
 
 // GraphError is a go error that wraps the graphrbac.GraphError response
@@ -142,6 +150,12 @@ func AsGraphError(err error) *GraphError {
 	}
 	if ge, _ := err.(*GraphError); ge != nil {
 		return ge
+	}
+	if de, ok := err.(*azure.RequestError); ok {
+		ge, ok := maybeGraphError(de.Response)
+		if ok {
+			return ge.(*GraphError)
+		}
 	}
 	return nil
 }

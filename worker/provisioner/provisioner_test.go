@@ -211,7 +211,7 @@ func (s *CommonProvisionerSuite) startUnknownInstance(c *gc.C, id string) instan
 
 func (s *CommonProvisionerSuite) checkStartInstance(c *gc.C, m *state.Machine) instances.Instance {
 	retVal := s.checkStartInstancesCustom(c, []*state.Machine{m}, "pork", s.defaultConstraints,
-		nil, nil, nil, nil, nil, true)
+		nil, nil, nil, nil, nil, nil, true)
 	return retVal[m.Id()]
 }
 
@@ -220,20 +220,21 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(
 	secret string, cons constraints.Value,
 	networkInfo corenetwork.InterfaceInfos,
 	subnetsToZones map[corenetwork.Id][]string,
+	rootDisk *storage.VolumeParams,
 	volumes []storage.Volume,
 	volumeAttachments []storage.VolumeAttachment,
 	checkPossibleTools coretools.List,
 	waitInstanceId bool,
 ) instances.Instance {
 	retVal := s.checkStartInstancesCustom(c, []*state.Machine{m},
-		secret, cons, networkInfo, subnetsToZones, volumes,
+		secret, cons, networkInfo, subnetsToZones, rootDisk, volumes,
 		volumeAttachments, checkPossibleTools, waitInstanceId)
 	return retVal[m.Id()]
 }
 
 func (s *CommonProvisionerSuite) checkStartInstances(c *gc.C, machines []*state.Machine) map[string]instances.Instance {
 	return s.checkStartInstancesCustom(c, machines, "pork", s.defaultConstraints, nil, nil,
-		nil, nil, nil, true)
+		nil, nil, nil, nil, true)
 }
 
 // checkStartInstanceCustom takes a slice of Machines.  A
@@ -243,6 +244,7 @@ func (s *CommonProvisionerSuite) checkStartInstancesCustom(
 	secret string, cons constraints.Value,
 	networkInfo corenetwork.InterfaceInfos,
 	subnetsToZones map[corenetwork.Id][]string,
+	rootDisk *storage.VolumeParams,
 	volumes []storage.Volume,
 	volumeAttachments []storage.VolumeAttachment,
 	checkPossibleTools coretools.List,
@@ -282,6 +284,7 @@ func (s *CommonProvisionerSuite) checkStartInstancesCustom(
 				c.Assert(o.Secret, gc.Equals, secret)
 				c.Assert(o.SubnetsToZones, jc.DeepEquals, subnetsToZones)
 				c.Assert(o.NetworkInfo, jc.DeepEquals, networkInfo)
+				c.Assert(o.RootDisk, jc.DeepEquals, rootDisk)
 				c.Assert(o.Volumes, jc.DeepEquals, volumes)
 				c.Assert(o.VolumeAttachments, jc.DeepEquals, volumeAttachments)
 
@@ -548,7 +551,7 @@ func (s *ProvisionerSuite) TestConstraints(c *gc.C) {
 	p := s.newEnvironProvisioner(c)
 	defer workertest.CleanKill(c, p)
 
-	s.checkStartInstanceCustom(c, m, "pork", cons, nil, nil, nil, nil, nil, true)
+	s.checkStartInstanceCustom(c, m, "pork", cons, nil, nil, nil, nil, nil, nil, true)
 }
 
 func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
@@ -597,7 +600,7 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	defer workertest.CleanKill(c, provisioner)
 	s.checkStartInstanceCustom(
 		c, machine, "pork", constraints.Value{},
-		nil, nil, nil, nil, expectedList, true,
+		nil, nil, nil, nil, nil, expectedList, true,
 	)
 }
 
@@ -1055,7 +1058,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithSpacesSuccess(c *gc.C) {
 		c, m, "pork", cons,
 		nil,
 		expectedSubnetsToZones,
-		nil, nil, nil, true,
+		nil, nil, nil, nil, true,
 	)
 
 	// Cleanup.
@@ -1133,6 +1136,41 @@ func (s *CommonProvisionerSuite) addMachineWithRequestedVolumes(volumes []state.
 	})
 }
 
+func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedRootDisk(c *gc.C) {
+	// Set up a persistent pool.
+	poolManager := poolmanager.New(state.NewStateSettings(s.State), s.Environ)
+	_, err := poolManager.Create("persistent-pool", "static", map[string]interface{}{"persistent": true})
+	c.Assert(err, jc.ErrorIsNil)
+
+	p := s.newEnvironProvisioner(c)
+	defer workertest.CleanKill(c, p)
+
+	cons := constraints.MustParse("root-disk-source=persistent-pool " + s.defaultConstraints.String())
+	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
+		Series:      series.DefaultSupportedLTS(),
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Constraints: cons,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	inst := s.checkStartInstanceCustom(
+		c, m, "pork", cons,
+		nil, nil,
+		&storage.VolumeParams{
+			Provider:   "static",
+			Attributes: map[string]interface{}{"persistent": true},
+		},
+		nil,
+		nil,
+		nil, true,
+	)
+
+	// Cleanup.
+	c.Assert(m.EnsureDead(), gc.IsNil)
+	s.checkStopInstances(c, inst)
+	s.waitForRemovalMark(c, m)
+}
+
 func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedVolumes(c *gc.C) {
 	// Set up a persistent pool.
 	poolManager := poolmanager.New(state.NewStateSettings(s.State), s.Environ)
@@ -1188,7 +1226,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedVolumes(c *gc.C)
 	}}
 	inst := s.checkStartInstanceCustom(
 		c, m, "pork", s.defaultConstraints,
-		nil, nil,
+		nil, nil, nil,
 		expectedVolumes,
 		expectedVolumeAttachments,
 		nil, true,

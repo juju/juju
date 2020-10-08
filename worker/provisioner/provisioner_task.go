@@ -735,6 +735,12 @@ func (task *provisionerTask) constructStartInstanceParams(
 		Abort:             task.catacomb.Dying(),
 		CharmLXDProfiles:  provisioningInfo.CharmLXDProfiles,
 	}
+	if provisioningInfo.RootDisk != nil {
+		startInstanceParams.RootDisk = &storage.VolumeParams{
+			Provider:   storage.ProviderType(provisioningInfo.RootDisk.Provider),
+			Attributes: provisioningInfo.RootDisk.Attributes,
+		}
+	}
 
 	return startInstanceParams, nil
 }

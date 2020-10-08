@@ -790,6 +790,7 @@ type ProvisioningInfoBase struct {
 	Series            string                   `json:"series"`
 	Placement         string                   `json:"placement"`
 	Jobs              []model.MachineJob       `json:"jobs"`
+	RootDisk          *VolumeParams            `json:"root-disk,omitempty"`
 	Volumes           []VolumeParams           `json:"volumes,omitempty"`
 	VolumeAttachments []VolumeAttachmentParams `json:"volume-attachments,omitempty"`
 	Tags              map[string]string        `json:"tags,omitempty"`
