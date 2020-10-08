@@ -78,7 +78,7 @@ If the provided state cannot be restored, this command will fail with
 an explanation.
 
 WARNING: This command is deprecated in favor of the stand-alone
-"juju-restore" program: https://github.com/juju/juju-restore
+"juju-restore" tool: https://github.com/juju/juju-restore
 `
 
 // Info returns the content for --help.
@@ -161,7 +161,7 @@ func (c *restoreCommand) newClient() (*backups.Client, error) {
 
 // Run is the entry point for this command.
 func (c *restoreCommand) Run(ctx *cmd.Context) error {
-	ctx.Warningf(`"juju restore-backup" is deprecated in favor of the stand-alone "juju-restore" program: https://github.com/juju/juju-restore`)
+	ctx.Warningf(`"juju restore-backup" is deprecated in favor of the stand-alone "juju-restore" tool: https://github.com/juju/juju-restore`)
 
 	if err := c.validateIaasController(c.Info().Name); err != nil {
 		return errors.Trace(err)
