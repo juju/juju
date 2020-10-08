@@ -7,7 +7,7 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/os/series"
+	"github.com/juju/juju/version"
 )
 
 const (
@@ -111,7 +111,7 @@ func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
 		return "", err
 	}
 
-	latestLTS := series.DefaultSupportedLTS()
+	latestLTS := version.DefaultSupportedLTS()
 	logger.Infof(msgLatestLTSSeries, latestLTS)
 	return latestLTS, nil
 }
