@@ -45,7 +45,7 @@ require (
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
 	github.com/juju/cmd v0.0.0-20200108104440-8e43f3faa5c9
 	github.com/juju/collections v0.0.0-20200605021417-0d0ec82b7271
-	github.com/juju/description/v2 v2.0.0-20200907123847-ca234e95e1e7
+	github.com/juju/description/v2 v2.0.0-20201008145846-2db1113b4770
 	github.com/juju/errors v0.0.0-20200330140219-3fe23663418f
 	github.com/juju/featureflag v0.0.0-20200423045028-e2f9e1cb1611
 	github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d
@@ -103,10 +103,10 @@ require (
 	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
-	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
-	golang.org/x/net v0.0.0-20200927032502-5d4f70055728
+	golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0
+	golang.org/x/net v0.0.0-20201006153459-a7d1128ccaa0
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
-	golang.org/x/sys v0.0.0-20200923182605-d9f96fdee20d
+	golang.org/x/sys v0.0.0-20200930185726-fdedc70b468f
 	golang.org/x/text v0.3.3 // indirect
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	golang.org/x/tools v0.0.0-20200725200936-102e7d357031
