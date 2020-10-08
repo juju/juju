@@ -159,6 +159,10 @@ func (s *downloadSuite) expectInfo(charmHubURL string) {
 		Type: "charm",
 		Name: "test",
 		DefaultRelease: transport.ChannelMap{
+			Channel: transport.Channel{
+				Track: "latest",
+				Risk:  "stable",
+			},
 			Revision: transport.Revision{
 				Download: transport.Download{
 					URL: charmHubURL,

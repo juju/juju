@@ -193,8 +193,9 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	}
 
 	var (
-		found    bool
-		revision transport.Revision
+		found           bool
+		revision        transport.Revision
+		errorMsgChannel string
 	)
 	if c.channel != "" {
 		charmChannel, err := corecharm.ParseChannel(c.channel)
@@ -209,19 +210,34 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 			// We have a series go attempt to find the channel.
 			revision, found = c.locateRevisionByChannelAndSeries(info.ChannelMap, charmChannel, c.series)
 		}
-	} else if c.series == "" || info.DefaultRelease.Channel.Platform.Series == c.series {
+		errorMsgChannel = charmChannel.String()
+	} else {
+		// If we don't know what the channel is, second guess it.
+		ch := info.DefaultRelease.Channel
+		constructedChannel, err := constructChannelFromTrackAndRisk(ch.Track, ch.Risk)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		errorMsgChannel = constructedChannel.String()
+
 		// If there is no channel, fallback to the default release.
-		revision, found = info.DefaultRelease.Revision, true
-	} else if serie := info.DefaultRelease.Channel.Platform.Series; serie != c.series {
-		// Define a specialized message for when the default release is
-		return errors.Errorf("%s %q not found for the default release series %q matching %q", info.Type, c.charmOrBundle, serie, c.series)
+		if c.series == "" || info.DefaultRelease.Channel.Platform.Series == c.series {
+			revision, found = info.DefaultRelease.Revision, true
+		} else if series := info.DefaultRelease.Channel.Platform.Series; series != c.series {
+			// Define a specialized message for when the default release is
+			errorMsg := `
+%[1]s %q not found for %q channel with series %[4]q matching %q series.
+Suggest using --series=%[4]q to download the %[1]s
+`[1:]
+			return errors.Errorf(errorMsg, info.Type, c.charmOrBundle, errorMsgChannel, series, c.series)
+		}
 	}
 
 	if !found {
 		if c.series != "" {
-			return errors.Errorf("%s %q not found for %s", info.Type, c.charmOrBundle, c.series)
+			return errors.Errorf("%s %q not found for %q channel matching %q series", info.Type, c.charmOrBundle, errorMsgChannel, c.series)
 		}
-		return errors.Errorf("%s %q not found", info.Type, c.charmOrBundle)
+		return errors.Errorf("%s %q not found with in the channel %q", info.Type, c.charmOrBundle, errorMsgChannel)
 	}
 
 	resourceURL, err := url.Parse(revision.Download.URL)
@@ -368,14 +384,18 @@ func (c *downloadCommand) locateRevisionByChannelAndSeries(channelMaps []transpo
 	return transport.Revision{}, false
 }
 
-func locateRevisionByChannelMap(channelMap transport.ChannelMap, channel corecharm.Channel) (transport.Revision, bool) {
-	rawChannel := fmt.Sprintf("%s/%s", channelMap.Channel.Track, channelMap.Channel.Risk)
+func constructChannelFromTrackAndRisk(track, risk string) (corecharm.Channel, error) {
+	rawChannel := fmt.Sprintf("%s/%s", track, risk)
 	if strings.HasPrefix(rawChannel, "/") {
 		rawChannel = rawChannel[1:]
 	} else if strings.HasSuffix(rawChannel, "/") {
 		rawChannel = rawChannel[:len(rawChannel)-1]
 	}
-	charmChannel, err := corecharm.ParseChannel(rawChannel)
+	return corecharm.ParseChannel(rawChannel)
+}
+
+func locateRevisionByChannelMap(channelMap transport.ChannelMap, channel corecharm.Channel) (transport.Revision, bool) {
+	charmChannel, err := constructChannelFromTrackAndRisk(channelMap.Channel.Track, channelMap.Channel.Risk)
 	if err != nil {
 		return transport.Revision{}, false
 	}
