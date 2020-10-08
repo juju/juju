@@ -237,6 +237,9 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		storageUniqueID, err := a.getStorageUniqPrefix(func() (annotationGetter, error) {
 			return a.getStatefulSet()
 		})
+		if err != nil {
+			return errors.Trace(err)
+		}
 		numPods := int32(1)
 		statefulset := resources.StatefulSet{
 			StatefulSet: appsv1.StatefulSet{
@@ -285,6 +288,9 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		storageUniqueID, err := a.getStorageUniqPrefix(func() (annotationGetter, error) {
 			return a.getDeployment()
 		})
+		if err != nil {
+			return errors.Trace(err)
+		}
 		// Config storage to update the podspec with storage info.
 		if err = configureStorage(storageUniqueID, handlePVCForStatelessResource); err != nil {
 			return errors.Trace(err)
@@ -320,6 +326,9 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		storageUniqueID, err := a.getStorageUniqPrefix(func() (annotationGetter, error) {
 			return a.getDaemonSet()
 		})
+		if err != nil {
+			return errors.Trace(err)
+		}
 		// Config storage to update the podspec with storage info.
 		if err = configureStorage(storageUniqueID, handlePVCForStatelessResource); err != nil {
 			return errors.Trace(err)
@@ -485,7 +494,7 @@ func (a *app) getService() (*resources.Service, error) {
 }
 
 // UpdatePorts updates port mappings on the specified service.
-func (a *app) UpdatePorts(ports []caas.ServicePort, updateContainerPorts bool) (err error) {
+func (a *app) UpdatePorts(ports []caas.ServicePort, updateContainerPorts bool) error {
 	svc, err := a.getService()
 	if err != nil {
 		return errors.Annotatef(err, "getting existing service %q", a.name)
@@ -498,12 +507,12 @@ func (a *app) UpdatePorts(ports []caas.ServicePort, updateContainerPorts bool) (
 	applier.Apply(svc)
 
 	if updateContainerPorts {
-		if err = a.updateContainerPorts(applier, svc.Service.Spec.Ports); err != nil {
+		if err := a.updateContainerPorts(applier, svc.Service.Spec.Ports); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	err = applier.Run(context.Background(), a.client, false)
-	return nil
+	return errors.Trace(err)
 }
 
 func convertContainerPort(p corev1.ServicePort) corev1.ContainerPort {
