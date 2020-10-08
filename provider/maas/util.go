@@ -9,13 +9,13 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/os/series"
 	"github.com/juju/utils/v2"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/version"
 )
 
 // extractSystemId extracts the 'system_id' part from an InstanceId.
@@ -48,7 +48,7 @@ type machineInfo struct {
 	Hostname string `yaml:",omitempty"`
 }
 
-var maasDataDir = paths.MustSucceed(paths.DataDir(series.DefaultSupportedLTS()))
+var maasDataDir = paths.MustSucceed(paths.DataDir(version.DefaultSupportedLTS()))
 var _MAASInstanceFilename = path.Join(maasDataDir, "MAASmachine.txt")
 
 // cloudinitRunCmd returns the shell command that, when run, will create the

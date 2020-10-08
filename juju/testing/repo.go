@@ -8,13 +8,13 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
+	"github.com/juju/juju/version"
 )
 
 type RepoSuite struct {
@@ -24,7 +24,7 @@ type RepoSuite struct {
 func (s *RepoSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	// Change the environ's config to ensure we're using the one in state.
-	updateAttrs := map[string]interface{}{"default-series": series.DefaultSupportedLTS()}
+	updateAttrs := map[string]interface{}{"default-series": version.DefaultSupportedLTS()}
 	err := s.Model.UpdateModelConfig(updateAttrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
