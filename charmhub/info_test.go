@@ -53,7 +53,7 @@ func (s *InfoSuite) TestInfoFailure(c *gc.C) {
 	name := "meshuggah"
 
 	restClient := NewMockRESTClient(ctrl)
-	s.expectGetFailure(c, restClient)
+	s.expectGetFailure(restClient)
 
 	client := NewInfoClient(path, restClient, &FakeLogger{})
 	_, err := client.Info(context.TODO(), name)
@@ -80,18 +80,22 @@ func (s *InfoSuite) TestInfoError(c *gc.C) {
 func (s *InfoSuite) expectGet(c *gc.C, client *MockRESTClient, p path.Path, name string) {
 	namedPath, err := p.Join(name)
 	c.Assert(err, jc.ErrorIsNil)
+	namedPath, err = namedPath.Query("fields", defaultInfoFilter())
+	c.Assert(err, jc.ErrorIsNil)
 
 	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).Do(func(_ context.Context, _ path.Path, response *transport.InfoResponse) {
 		response.Name = name
 	}).Return(nil)
 }
 
-func (s *InfoSuite) expectGetFailure(c *gc.C, client *MockRESTClient) {
+func (s *InfoSuite) expectGetFailure(client *MockRESTClient) {
 	client.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.Errorf("boom"))
 }
 
 func (s *InfoSuite) expectGetError(c *gc.C, client *MockRESTClient, p path.Path, name string) {
 	namedPath, err := p.Join(name)
+	c.Assert(err, jc.ErrorIsNil)
+	namedPath, err = namedPath.Query("fields", defaultInfoFilter())
 	c.Assert(err, jc.ErrorIsNil)
 
 	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).Do(func(_ context.Context, _ path.Path, response *transport.InfoResponse) {
