@@ -29,6 +29,12 @@ import (
 )
 
 const (
+	// DefaultReleaseChannel is the channel we should look at if a user didn't
+	// specify a channel.
+	DefaultReleaseChannel = "latest/stable"
+)
+
+const (
 	downloadSummary = "Locates and then downloads a CharmHub charm."
 	downloadDoc     = `
 Download a charm to the current directory from the CharmHub store
@@ -192,52 +198,34 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	var (
-		found           bool
-		revision        transport.Revision
-		errorMsgChannel string
-	)
-	if c.channel != "" {
-		charmChannel, err := corecharm.ParseChannel(c.channel)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		// If there is no series, then attempt to select the best one first.
-		if c.series == "" {
-			revision, found = c.locateRevisionByChannel(info.ChannelMap, charmChannel)
-		} else {
-			// We have a series go attempt to find the channel.
-			revision, found = c.locateRevisionByChannelAndSeries(info.ChannelMap, charmChannel, c.series)
-		}
-		errorMsgChannel = charmChannel.String()
-	} else {
-		// If we don't know what the channel is, second guess it.
-		ch := info.DefaultRelease.Channel
-		constructedChannel, err := constructChannelFromTrackAndRisk(ch.Track, ch.Risk)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		errorMsgChannel = constructedChannel.String()
-
-		// If there is no channel, fallback to the default release.
-		if c.series == "" || info.DefaultRelease.Channel.Platform.Series == c.series {
-			revision, found = info.DefaultRelease.Revision, true
-		} else if series := info.DefaultRelease.Channel.Platform.Series; series != c.series {
-			// Define a specialized message for when the default release is
-			errorMsg := `
-%[1]s %q not found for %q channel with series %[4]q matching %q series.
-Suggest using --series=%[4]q to download the %[1]s
-`[1:]
-			return errors.Errorf(errorMsg, info.Type, c.charmOrBundle, errorMsgChannel, series, c.series)
-		}
+	// Locate a release that we would expect to be default. In this case
+	// we want to fall back to latest/stable. We don't want to use the
+	// info.DefaultRelease here as that isn't actually the default release,
+	// but instead the last release and that's not what we want.
+	if c.channel == "" {
+		c.channel = DefaultReleaseChannel
+	}
+	charmChannel, err := corecharm.ParseChannel(c.channel)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
+	var (
+		found    bool
+		revision transport.Revision
+	)
+	// If there is no series, then attempt to select the best one first.
+	if c.series == "" {
+		revision, found = c.locateRevisionByChannel(info.ChannelMap, charmChannel)
+	} else {
+		// We have a series go attempt to find the channel.
+		revision, found = c.locateRevisionByChannelAndSeries(info.ChannelMap, charmChannel, c.series)
+	}
 	if !found {
 		if c.series != "" {
-			return errors.Errorf("%s %q not found for %q channel matching %q series", info.Type, c.charmOrBundle, errorMsgChannel, c.series)
+			return errors.Errorf("%s %q not found for %q channel matching %q series", info.Type, c.charmOrBundle, c.channel, c.series)
 		}
-		return errors.Errorf("%s %q not found with in the channel %q", info.Type, c.charmOrBundle, errorMsgChannel)
+		return errors.Errorf("%s %q not found with in the channel %q", info.Type, c.charmOrBundle, c.channel)
 	}
 
 	resourceURL, err := url.Parse(revision.Download.URL)
@@ -366,7 +354,7 @@ func (c *downloadCommand) locateRevisionByChannelAndSeries(channelMaps []transpo
 	// Filter out any channels that aren't of a given series.
 	var filtered []transport.ChannelMap
 	for _, channelMap := range channelMaps {
-		if channelMap.Channel.Platform.Series == series {
+		if channelMap.Channel.Platform.Series == series || isSeriesInPlatforms(channelMap.Revision.Platforms, series) {
 			filtered = append(filtered, channelMap)
 		}
 	}
@@ -382,6 +370,15 @@ func (c *downloadCommand) locateRevisionByChannelAndSeries(channelMaps []transpo
 		}
 	}
 	return transport.Revision{}, false
+}
+
+func isSeriesInPlatforms(platforms []transport.Platform, series string) bool {
+	for _, platform := range platforms {
+		if platform.Series == series {
+			return true
+		}
+	}
+	return false
 }
 
 func constructChannelFromTrackAndRisk(track, risk string) (corecharm.Channel, error) {

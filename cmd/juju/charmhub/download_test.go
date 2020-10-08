@@ -158,17 +158,22 @@ func (s *downloadSuite) expectInfo(charmHubURL string) {
 	s.charmHubClient.EXPECT().Info(gomock.Any(), "test").Return(transport.InfoResponse{
 		Type: "charm",
 		Name: "test",
-		DefaultRelease: transport.ChannelMap{
+		ChannelMap: []transport.ChannelMap{{
 			Channel: transport.Channel{
+				Name:  "a",
 				Track: "latest",
 				Risk:  "stable",
+				Platform: transport.Platform{
+					Series: "xenial",
+				},
 			},
 			Revision: transport.Revision{
+				Revision: 1,
 				Download: transport.Download{
 					URL: charmHubURL,
 				},
 			},
-		},
+		}},
 	}, nil)
 }
 
