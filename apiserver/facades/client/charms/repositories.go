@@ -163,10 +163,6 @@ func makeChannel(origin params.CharmOrigin) (corecharm.Channel, error) {
 	if track == "" && origin.Risk == "" {
 		return corecharm.Channel{}, nil
 	}
-	if track == "" {
-		// If Risk only, assume "latest"
-		track = "latest"
-	}
 	return corecharm.MakeChannel(track, origin.Risk, "")
 }
 
