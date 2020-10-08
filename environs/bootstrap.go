@@ -41,6 +41,10 @@ type BootstrapParams struct {
 	// will not be stored in state for the environment.
 	BootstrapConstraints constraints.Value
 
+	// StoragePools is one or more named storage pools to create
+	// in the controller model.
+	StoragePools map[string]map[string]interface{}
+
 	// BootstrapSeries, if specified, is the series to use for the
 	// initial bootstrap machine.
 	BootstrapSeries string

@@ -339,6 +339,10 @@ type StateInitializationParams struct {
 	// to store in environment storage at bootstrap time. This is ignored
 	// in non-bootstrap instances.
 	CustomImageMetadata []*imagemetadata.ImageMetadata
+
+	// StoragePools is one or more named storage pools to create
+	// in the controller model.
+	StoragePools map[string]map[string]interface{}
 }
 
 type stateInitializationParamsInternal struct {
@@ -348,6 +352,7 @@ type stateInitializationParamsInternal struct {
 	ControllerInheritedConfig               map[string]interface{}            `yaml:"controller-config-defaults,omitempty"`
 	RegionInheritedConfig                   cloud.RegionConfig                `yaml:"region-inherited-config,omitempty"`
 	HostedModelConfig                       map[string]interface{}            `yaml:"hosted-model-config,omitempty"`
+	StoragePools                            map[string]map[string]interface{} `yaml:"storage-pools,omitempty"`
 	BootstrapMachineInstanceId              instance.Id                       `yaml:"bootstrap-machine-instance-id,omitempty"`
 	BootstrapMachineConstraints             constraints.Value                 `yaml:"bootstrap-machine-constraints"`
 	BootstrapMachineHardwareCharacteristics *instance.HardwareCharacteristics `yaml:"bootstrap-machine-hardware,omitempty"`
@@ -376,6 +381,7 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 		p.ControllerInheritedConfig,
 		p.RegionInheritedConfig,
 		p.HostedModelConfig,
+		p.StoragePools,
 		p.BootstrapMachineInstanceId,
 		p.BootstrapMachineConstraints,
 		p.BootstrapMachineHardwareCharacteristics,
@@ -415,6 +421,7 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 		ControllerInheritedConfig:               internal.ControllerInheritedConfig,
 		RegionInheritedConfig:                   internal.RegionInheritedConfig,
 		HostedModelConfig:                       internal.HostedModelConfig,
+		StoragePools:                            internal.StoragePools,
 		BootstrapMachineInstanceId:              internal.BootstrapMachineInstanceId,
 		BootstrapMachineConstraints:             internal.BootstrapMachineConstraints,
 		BootstrapMachineHardwareCharacteristics: internal.BootstrapMachineHardwareCharacteristics,

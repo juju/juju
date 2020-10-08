@@ -38,6 +38,8 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
 	coretools "github.com/juju/juju/tools"
 )
 
@@ -208,6 +210,21 @@ func BootstrapInstance(
 		StatusCallback:  instanceStatus,
 		CleanupCallback: statusCleanup,
 	}
+
+	// If a root disk constraint is specified, see if it matches any
+	// storage pools scheduled to be added to the controller model and
+	// set up the root disk accordingly.
+	if args.BootstrapConstraints.HasRootDiskSource() {
+		sp, ok := args.StoragePools[*args.BootstrapConstraints.RootDiskSource]
+		if ok {
+			pType, _ := sp[poolmanager.Type].(string)
+			startInstanceArgs.RootDisk = &storage.VolumeParams{
+				Provider:   storage.ProviderType(pType),
+				Attributes: sp,
+			}
+		}
+	}
+
 	zones, err := startInstanceZones(env, callCtx, startInstanceArgs)
 	if errors.IsNotImplemented(err) {
 		// No zone support, so just call StartInstance with

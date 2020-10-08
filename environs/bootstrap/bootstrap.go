@@ -166,6 +166,10 @@ type BootstrapParams struct {
 	// will be used to test the contents of the .snap at JujuDbSnap.
 	JujuDbSnapAssertionsPath string
 
+	// StoragePools is one or more named storage pools to create
+	// in the controller model.
+	StoragePools map[string]map[string]interface{}
+
 	// Force is used to allow a bootstrap to be run on unsupported series.
 	Force bool
 
@@ -618,6 +622,7 @@ func Bootstrap(
 		CloudRegion:                args.CloudRegion,
 		ControllerConfig:           args.ControllerConfig,
 		ModelConstraints:           args.ModelConstraints,
+		StoragePools:               args.StoragePools,
 		BootstrapSeries:            args.BootstrapSeries,
 		SupportedBootstrapSeries:   args.SupportedBootstrapSeries,
 		Placement:                  args.Placement,
@@ -704,6 +709,7 @@ func finalizeInstanceBootstrapConfig(
 	icfg.Bootstrap.ControllerInheritedConfig = args.ControllerInheritedConfig
 	icfg.Bootstrap.RegionInheritedConfig = args.Cloud.RegionConfig
 	icfg.Bootstrap.HostedModelConfig = args.HostedModelConfig
+	icfg.Bootstrap.StoragePools = args.StoragePools
 	icfg.Bootstrap.Timeout = args.DialOpts.Timeout
 	icfg.Bootstrap.GUI = guiArchive(args.GUIDataSourceBaseURL, cfg.GUIStream(), vers.Major, vers.Minor, true, func(msg string) {
 		ctx.Infof(msg)
@@ -789,6 +795,7 @@ func finalizePodBootstrapConfig(
 	pcfg.Bootstrap.ControllerConfig = args.ControllerConfig
 	pcfg.Bootstrap.ControllerInheritedConfig = args.ControllerInheritedConfig
 	pcfg.Bootstrap.HostedModelConfig = args.HostedModelConfig
+	pcfg.Bootstrap.StoragePools = args.StoragePools
 	pcfg.Bootstrap.Timeout = args.DialOpts.Timeout
 	pcfg.Bootstrap.ControllerServiceType = args.ControllerServiceType
 	pcfg.Bootstrap.ControllerExternalName = args.ControllerExternalName

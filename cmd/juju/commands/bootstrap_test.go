@@ -469,6 +469,14 @@ var bootstrapTests = []bootstrapTest{{
 	info: "resource-group-name needs --no-default-model",
 	args: []string{"--config", "resource-group-name=foo"},
 	err:  `if using resource-group-name "foo" then --no-default-model is required as well`,
+}, {
+	info: "missing storage pool name",
+	args: []string{"--storage-pool", "type=ebs"},
+	err:  `storage pool requires a name`,
+}, {
+	info: "missing storage pool type",
+	args: []string{"--storage-pool", "name=test"},
+	err:  `storage pool requires a type`,
 }}
 
 func (s *BootstrapSuite) TestRunCloudNameUnknown(c *gc.C) {
@@ -925,6 +933,49 @@ func (s *BootstrapSuite) TestBootstrapAttributesCLIOverInherited(c *gc.C) {
 		"inheritedControllerAttrs": {key: true},
 		"userConfigAttrs":          {key: false},
 	})
+}
+
+func (s *BootstrapSuite) TestBootstrapWithStoragePool(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+
+	var bootstrapFuncs fakeBootstrapFuncs
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrapFuncs
+	})
+
+	cmdtesting.RunCommand(
+		c, s.newBootstrapCommand(),
+		"dummy", "devcontroller",
+		"--storage-pool", "name=test",
+		"--storage-pool", "type=loop",
+		"--storage-pool", "foo=bar",
+	)
+
+	c.Assert(bootstrapFuncs.args.StoragePools, jc.DeepEquals, map[string]map[string]interface{}{
+		"test": {
+			"name": "test",
+			"type": "loop",
+			"foo":  "bar",
+		},
+	})
+}
+
+func (s *BootstrapSuite) TestBootstrapWithInvalidStoragePool(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+
+	var bootstrapFuncs fakeBootstrapFuncs
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrapFuncs
+	})
+
+	_, err := cmdtesting.RunCommand(
+		c, s.newBootstrapCommand(),
+		"dummy", "devcontroller",
+		"--storage-pool", "name=test",
+		"--storage-pool", "type=invalid",
+		"--storage-pool", "foo=bar",
+	)
+	c.Assert(err, gc.ErrorMatches, `invalid storage provider config: storage provider "invalid" not found`)
 }
 
 func (s *BootstrapSuite) TestBootstrapWithGUI(c *gc.C) {

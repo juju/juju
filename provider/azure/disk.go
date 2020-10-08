@@ -44,12 +44,13 @@ func (env *azureEnviron) diskEncryptionInfo(
 		return "", nil
 	}
 	logger.Debugf("creating root disk encryption with parameters: %#v", *rootDisk)
+	// The "encrypted" value may arrive as a bool or a string.
 	encryptedStr, ok := rootDisk.Attributes[encryptedKey].(string)
-	encrypted := false
-	if ok {
+	encrypted, _ := rootDisk.Attributes[encryptedKey].(bool)
+	if !encrypted && ok {
 		encrypted, _ = strconv.ParseBool(encryptedStr)
 	}
-	if !ok || !encrypted {
+	if !encrypted {
 		logger.Debugf("encryption not enabled for root disk")
 		return "", nil
 	}
