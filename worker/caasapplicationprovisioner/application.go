@@ -87,9 +87,6 @@ func (a *appWorker) Wait() error {
 }
 
 func (a *appWorker) loop() error {
-	var err error
-	var appLife life.Value = life.Dead
-
 	charmURL, err := a.facade.ApplicationCharmURL(a.name)
 	if err != nil {
 		return errors.Annotatef(err, "failed to get charm url for application")
@@ -107,6 +104,7 @@ func (a *appWorker) loop() error {
 	// TODO(embedded): support more than statefulset
 	app := a.broker.Application(a.name, caas.DeploymentStateful)
 
+	var appLife life.Value
 	var appChanges watcher.NotifyChannel
 	var replicaChanges watcher.NotifyChannel
 
