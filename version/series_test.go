@@ -16,5 +16,5 @@ var _ = gc.Suite(&seriesSuite{})
 
 func (s *seriesSuite) TestDefaultSupportedLTS(c *gc.C) {
 	name := DefaultSupportedLTS()
-	c.Assert(name, gc.Equals, "bionic")
+	c.Assert(name, gc.Equals, "focal")
 }

@@ -218,6 +218,7 @@ const (
 	Disco   SeriesName = "disco"
 	Eoan    SeriesName = "eoan"
 	Focal   SeriesName = "focal"
+	Groovy  SeriesName = "groovy"
 )
 
 var ubuntuSeries = map[SeriesName]SeriesVersion{
@@ -292,12 +293,17 @@ var ubuntuSeries = map[SeriesName]SeriesVersion{
 	Eoan: {
 		WorkloadType: ControllerWorkloadType,
 		Version:      "19.10",
-		Supported:    true,
 	},
 	Focal: {
 		WorkloadType: ControllerWorkloadType,
 		Version:      "20.04",
 		LTS:          true,
+		Supported:    true,
+		ESMSupported: true,
+	},
+	Groovy: {
+		WorkloadType: ControllerWorkloadType,
+		Version:      "20.10",
 		Supported:    false,
 	},
 }

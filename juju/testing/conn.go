@@ -80,7 +80,7 @@ var (
 // defaultSupportedJujuSeries is used to return canned information about what
 // juju supports in terms of the release cycle
 // see juju/os and documentation https://www.ubuntu.com/about/release-cycle
-var defaultSupportedJujuSeries = set.NewStrings("bionic", "xenial", "trusty", KubernetesSeriesName)
+var defaultSupportedJujuSeries = set.NewStrings("focal", "bionic", "xenial", "trusty", KubernetesSeriesName)
 
 // JujuConnSuite provides a freshly bootstrapped juju.Conn
 // for each test. It also includes testing.BaseSuite.

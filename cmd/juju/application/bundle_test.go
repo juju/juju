@@ -1429,8 +1429,11 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMassiveUnitColocation(c *g
                     - kvm:3
         machines:
             1:
+                series: bionic
             2:
+                series: bionic
             3:
+                series: bionic
     `)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUnitsCreated(c, map[string]string{
@@ -1468,8 +1471,11 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMassiveUnitColocation(c *g
                     - lxd:memcached
         machines:
             1:
+                series: bionic
             2:
+                series: bionic
             3:
+                series: bionic
     `
 	stdOut, _, err := s.DeployBundleYAMLWithOutput(c, content)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1516,6 +1522,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithAnnotations_OutputIsCo
         machines:
             1:
                 annotations: {foo: bar}
+                series: bionic
     `)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1557,6 +1564,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleAnnotations(c *gc.C) {
         machines:
             1:
                 annotations: {foo: bar}
+                series: bionic
     `)
 	c.Assert(err, jc.ErrorIsNil)
 	svc, err := s.State.Application("django")
@@ -1586,6 +1594,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleAnnotations(c *gc.C) {
         machines:
             1:
                 annotations: {answer: 42}
+                series: bionic
     `)
 	c.Assert(err, jc.ErrorIsNil)
 	ann, err = s.Model.Annotations(svc)

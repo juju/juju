@@ -101,12 +101,12 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 			expectedSeries: "bionic",
 		},
 		{
-			title: "juju deploy simple --force   # no default series, no supported series, use LTS (bionic)",
+			title: "juju deploy simple --force   # no default series, no supported series, use LTS (focal)",
 			seriesSelector: seriesSelector{
 				force: true,
 				conf:  defaultSeries{},
 			},
-			expectedSeries: "bionic",
+			expectedSeries: "focal",
 		},
 
 		// Now charms with supported series.

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/reboot"
 )
@@ -41,7 +41,7 @@ var _ = gc.Suite(&rebootSuite{})
 func (s *rebootSuite) SetUpTest(c *gc.C) {
 	var err error
 	template := state.MachineTemplate{
-		Series: series.DefaultSupportedLTS(),
+		Series: version.DefaultSupportedLTS(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	s.JujuConnSuite.SetUpTest(c)

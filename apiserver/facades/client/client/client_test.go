@@ -16,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
 	"github.com/juju/replicaset"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -1257,7 +1256,7 @@ func (s *clientSuite) TestClientAddMachinesDefaultSeries(c *gc.C) {
 	c.Assert(len(machines), gc.Equals, 3)
 	for i, machineResult := range machines {
 		c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
-		s.checkMachine(c, machineResult.Machine, series.DefaultSupportedLTS(), apiParams[i].Constraints.String())
+		s.checkMachine(c, machineResult.Machine, jujuversion.DefaultSupportedLTS(), apiParams[i].Constraints.String())
 	}
 }
 
@@ -1273,7 +1272,7 @@ func (s *clientSuite) assertAddMachines(c *gc.C) {
 	c.Assert(len(machines), gc.Equals, 3)
 	for i, machineResult := range machines {
 		c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
-		s.checkMachine(c, machineResult.Machine, series.DefaultSupportedLTS(), apiParams[i].Constraints.String())
+		s.checkMachine(c, machineResult.Machine, jujuversion.DefaultSupportedLTS(), apiParams[i].Constraints.String())
 	}
 }
 
@@ -1349,7 +1348,7 @@ func (s *clientSuite) TestClientAddMachinesWithConstraints(c *gc.C) {
 	c.Assert(len(machines), gc.Equals, 3)
 	for i, machineResult := range machines {
 		c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
-		s.checkMachine(c, machineResult.Machine, series.DefaultSupportedLTS(), apiParams[i].Constraints.String())
+		s.checkMachine(c, machineResult.Machine, jujuversion.DefaultSupportedLTS(), apiParams[i].Constraints.String())
 	}
 }
 
@@ -1439,7 +1438,7 @@ func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
 			c.Assert(machineResult.Error, gc.ErrorMatches, "cannot add a new machine: cannot add a machine with an instance id and no nonce")
 		} else {
 			c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
-			s.checkMachine(c, machineResult.Machine, series.DefaultSupportedLTS(), apiParams[i].Constraints.String())
+			s.checkMachine(c, machineResult.Machine, jujuversion.DefaultSupportedLTS(), apiParams[i].Constraints.String())
 			instanceId := fmt.Sprintf("1234-%d", i)
 			s.checkInstance(c, machineResult.Machine, instanceId, "foo", hc, network.NewSpaceAddresses("1.2.3.4"))
 		}

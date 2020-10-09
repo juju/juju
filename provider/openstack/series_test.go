@@ -56,50 +56,149 @@ func InstanceAddress(publicIP string, addresses map[string][]nova.IPAddress) str
 
 // Include images for arches currently supported.  i386 is no longer
 // supported, so it can be excluded.
+// TODO (stickupkid): Refactor this to actually build this for the given LTS.
 var indexData = `
-		{
-		 "index": {
-		  "com.ubuntu.cloud:released:openstack": {
-		   "updated": "Wed, 01 May 2013 13:31:26 +0000",
-		   "clouds": [
-			{
-			 "region": "{{.Region}}",
-			 "endpoint": "{{.URL}}"
-			}
-		   ],
-		   "cloudname": "test",
-		   "datatype": "image-ids",
-		   "format": "products:1.0",
-		   "products": [
+{
+  "index": {
+  "com.ubuntu.cloud:released:openstack": {
+    "updated": "Wed, 01 May 2013 13:31:26 +0000",
+    "clouds": [
+  {
+    "region": "{{.Region}}",
+    "endpoint": "{{.URL}}"
+  }
+    ],
+    "cloudname": "test",
+    "datatype": "image-ids",
+    "format": "products:1.0",
+    "products": [
+      "com.ubuntu.cloud:server:20.04:s390x",
+      "com.ubuntu.cloud:server:20.04:amd64",
+      "com.ubuntu.cloud:server:20.04:arm64",
+      "com.ubuntu.cloud:server:20.04:ppc64el",
       "com.ubuntu.cloud:server:18.04:s390x",
       "com.ubuntu.cloud:server:18.04:amd64",
       "com.ubuntu.cloud:server:18.04:arm64",
       "com.ubuntu.cloud:server:18.04:ppc64el",
-			"com.ubuntu.cloud:server:16.04:s390x",
-			"com.ubuntu.cloud:server:16.04:amd64",
-			"com.ubuntu.cloud:server:16.04:arm64",
-			"com.ubuntu.cloud:server:16.04:ppc64el",
-			"com.ubuntu.cloud:server:14.04:s390x",
-			"com.ubuntu.cloud:server:14.04:amd64",
-			"com.ubuntu.cloud:server:14.04:arm64",
-			"com.ubuntu.cloud:server:14.04:ppc64el",
-			"com.ubuntu.cloud:server:12.10:amd64",
-			"com.ubuntu.cloud:server:13.04:amd64"
-		   ],
-		   "path": "image-metadata/products.json"
-		  }
-		 },
-		 "updated": "Wed, 01 May 2013 13:31:26 +0000",
-		 "format": "index:1.0"
-		}
+      "com.ubuntu.cloud:server:16.04:s390x",
+      "com.ubuntu.cloud:server:16.04:amd64",
+      "com.ubuntu.cloud:server:16.04:arm64",
+      "com.ubuntu.cloud:server:16.04:ppc64el",
+      "com.ubuntu.cloud:server:14.04:s390x",
+      "com.ubuntu.cloud:server:14.04:amd64",
+      "com.ubuntu.cloud:server:14.04:arm64",
+      "com.ubuntu.cloud:server:14.04:ppc64el",
+      "com.ubuntu.cloud:server:12.10:amd64",
+      "com.ubuntu.cloud:server:13.04:amd64"
+    ],
+    "path": "image-metadata/products.json"
+  }
+  },
+  "updated": "Wed, 01 May 2013 13:31:26 +0000",
+  "format": "index:1.0"
+}
 `
 
 var imagesData = `
 {
  "content_id": "com.ubuntu.cloud:released:openstack",
  "products": {
+    "com.ubuntu.cloud:server:20.04:amd64": {
+      "release": "focal",
+      "version": "20.04",
+      "arch": "amd64",
+      "versions": {
+        "20121218": {
+          "items": {
+            "inst1": {
+              "root_store": "ebs",
+              "virt": "pv",
+              "region": "some-region",
+              "id": "1"
+            },
+            "inst2": {
+              "root_store": "ebs",
+              "virt": "pv",
+              "region": "another-region",
+              "id": "2"
+            }
+          },
+          "pubname": "ubuntu-focal-20.04-amd64-server-20121218",
+          "label": "release"
+        },
+        "20121111": {
+          "items": {
+            "inst3": {
+              "root_store": "ebs",
+              "virt": "pv",
+              "region": "some-region",
+              "id": "3"
+            }
+          },
+          "pubname": "ubuntu-focal-20.04-amd64-server-20121111",
+          "label": "release"
+        }
+      }
+    },
+    "com.ubuntu.cloud:server:20.04:arm64": {
+      "release": "focal",
+      "version": "20.04",
+      "arch": "arm64",
+      "versions": {
+        "20121111": {
+          "items": {
+            "inst1604arm64": {
+              "root_store": "ebs",
+              "virt": "pv",
+              "region": "some-region",
+              "id": "id-1604arm64"
+            }
+          },
+          "pubname": "ubuntu-focal-20.04-arm64-server-20121111",
+          "label": "release"
+        }
+      }
+    },
+    "com.ubuntu.cloud:server:20.04:ppc64el": {
+      "release": "focal",
+      "version": "20.04",
+      "arch": "ppc64el",
+      "versions": {
+        "20121111": {
+          "items": {
+            "inst1604ppc64el": {
+              "root_store": "ebs",
+              "virt": "pv",
+              "region": "some-region",
+              "id": "id-1604ppc64el"
+            }
+          },
+          "pubname": "ubuntu-focal-20.04-ppc64el-server-20121111",
+          "label": "release"
+        }
+      }
+    },
+    "com.ubuntu.cloud:server:20.04:s390x": {
+      "release": "focal",
+      "version": "20.04",
+      "arch": "s390x",
+      "versions": {
+        "20121111": {
+          "items": {
+            "inst1604s390x": {
+              "root_store": "ebs",
+              "virt": "pv",
+              "region": "some-region",
+              "id": "id-1604s390x"
+            }
+          },
+          "pubname": "ubuntu-focal-20.04-s390x-server-20121111",
+          "label": "release"
+        }
+      }
+    },
    "com.ubuntu.cloud:server:18.04:amd64": {
-     "release": "trusty",
+     "release": "bionic",
      "version": "18.04",
      "arch": "amd64",
      "versions": {
@@ -118,7 +217,7 @@ var imagesData = `
              "id": "2"
            }
          },
-         "pubname": "ubuntu-trusty-18.04-amd64-server-20121218",
+         "pubname": "ubuntu-bionic-18.04-amd64-server-20121218",
          "label": "release"
        },
        "20121111": {
@@ -130,13 +229,13 @@ var imagesData = `
              "id": "3"
            }
          },
-         "pubname": "ubuntu-trusty-18.04-amd64-server-20121111",
+         "pubname": "ubuntu-bionic-18.04-amd64-server-20121111",
          "label": "release"
        }
      }
    },
    "com.ubuntu.cloud:server:18.04:arm64": {
-     "release": "xenial",
+     "release": "bionic",
      "version": "18.04",
      "arch": "arm64",
      "versions": {
@@ -149,13 +248,13 @@ var imagesData = `
              "id": "id-1604arm64"
            }
          },
-         "pubname": "ubuntu-xenial-18.04-arm64-server-20121111",
+         "pubname": "ubuntu-bionic-18.04-arm64-server-20121111",
          "label": "release"
        }
      }
    },
    "com.ubuntu.cloud:server:18.04:ppc64el": {
-     "release": "xenial",
+     "release": "bionic",
      "version": "18.04",
      "arch": "ppc64el",
      "versions": {
@@ -168,13 +267,13 @@ var imagesData = `
              "id": "id-1604ppc64el"
            }
          },
-         "pubname": "ubuntu-xenial-18.04-ppc64el-server-20121111",
+         "pubname": "ubuntu-bionic-18.04-ppc64el-server-20121111",
          "label": "release"
        }
      }
    },
    "com.ubuntu.cloud:server:18.04:s390x": {
-     "release": "xenial",
+     "release": "bionic",
      "version": "18.04",
      "arch": "s390x",
      "versions": {
@@ -187,7 +286,7 @@ var imagesData = `
              "id": "id-1604s390x"
            }
          },
-         "pubname": "ubuntu-xenial-18.04-s390x-server-20121111",
+         "pubname": "ubuntu-bionic-18.04-s390x-server-20121111",
          "label": "release"
        }
      }
