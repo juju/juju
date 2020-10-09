@@ -1247,7 +1247,7 @@ func (s *DeploySuite) TestInvalidSeriesForModel(c *gc.C) {
 	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
 	err := s.runDeployForState(c, charmDir.Path, "portlandia", "--series", "kubernetes")
-	c.Assert(err, gc.ErrorMatches, `series "kubernetes" in a non container model not valid`)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "portlandia": series "kubernetes" in a non container model not valid`)
 }
 
 func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
