@@ -55,7 +55,7 @@ type deployCharm struct {
 	storage         map[string]storage.Constraints
 	trust           bool
 
-	validateCharmSeriesWithName           func(series, name string, imageStream string, meta *charm.Meta) error
+	validateCharmSeriesWithName           func(series, name string, imageStream string) error
 	validateResourcesNeededForLocalDeploy func(charmMeta *charm.Meta) error
 }
 
@@ -287,6 +287,11 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 		return errors.Trace(err)
 	}
 
+	// Avoid deploying charm if it's not valid for the model.
+	if err := d.validateCharmSeriesWithName(userCharmURL.Series, userCharmURL.Name, modelCfg.ImageStream()); err != nil {
+		return errors.Trace(err)
+	}
+
 	if err := d.validateCharmFlags(); err != nil {
 		return errors.Trace(err)
 	}
@@ -297,11 +302,6 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 		return errors.Trace(err)
 	}
 	ctx.Infof("Located charm %q.", formattedCharmURL)
-
-	// Avoid deploying charm if it's not valid for the model.
-	if err := d.validateCharmSeriesWithName(userCharmURL.Series, userCharmURL.Name, modelCfg.ImageStream(), charmInfo.Meta); err != nil {
-		return errors.Trace(err)
-	}
 
 	if err := d.validateResourcesNeededForLocalDeploy(charmInfo.Meta); err != nil {
 		return errors.Trace(err)
@@ -425,18 +425,13 @@ func (c *charmStoreCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		fromBundle:          false,
 	}
 
-	charmInfo, err := deployAPI.CharmInfo(storeCharmOrBundleURL.String())
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	// Get the series to use.
 	series, err := selector.charmSeries()
 
 	// Avoid deploying charm if it's not valid for the model.
 	// We check this first before possibly suggesting --force.
 	if err == nil {
-		if err2 := c.validateCharmSeriesWithName(series, storeCharmOrBundleURL.Name, imageStream, charmInfo.Meta); err2 != nil {
+		if err2 := c.validateCharmSeriesWithName(series, storeCharmOrBundleURL.Name, imageStream); err2 != nil {
 			return errors.Trace(err2)
 		}
 	}
@@ -474,7 +469,7 @@ func (c *charmStoreCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	// what we deploy, we should converge the two so that both report identical
 	// values.
 	if curl != nil && series == "" {
-		if err := c.validateCharmSeriesWithName(curl.Series, storeCharmOrBundleURL.Name, imageStream, charmInfo.Meta); err != nil {
+		if err := c.validateCharmSeriesWithName(curl.Series, storeCharmOrBundleURL.Name, imageStream); err != nil {
 			return errors.Trace(err)
 		}
 	}
