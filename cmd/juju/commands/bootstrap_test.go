@@ -1170,9 +1170,10 @@ func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
 			"Looking for packaged Juju agent version 1.2.0 for amd64\n"+
 			"No packaged binary found, preparing local Juju agent binary\n",
 	)
-	c.Check(s.tw.Log(), jc.LogMatches, []jc.SimpleMessage{
-		{loggo.ERROR, "failed to bootstrap model: cannot package bootstrap agent binary: no agent binaries for you"},
-	})
+	c.Check(s.tw.Log(), jc.LogMatches, []jc.SimpleMessage{{
+		Level:   loggo.ERROR,
+		Message: "failed to bootstrap model: cannot package bootstrap agent binary: no agent binaries for you",
+	}})
 }
 
 // createImageMetadata creates some image metadata in a local directory.
