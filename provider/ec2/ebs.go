@@ -1008,9 +1008,9 @@ func blockDeviceNamer(numbers bool) func() (requestName, actualName string, err 
 		if letter > deviceLetterMax {
 			return "", "", errTooManyVolumes
 		}
-		deviceName := devicePrefix + string(letter)
+		deviceName := devicePrefix + string(rune(letter))
 		if numbers {
-			deviceName += string('1' + (n % deviceNumMax))
+			deviceName += string(rune('1' + (n % deviceNumMax)))
 		}
 		n++
 		realDeviceName := renamedDevicePrefix + deviceName[len(devicePrefix):]
