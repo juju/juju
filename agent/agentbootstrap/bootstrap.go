@@ -141,6 +141,7 @@ func InitializeState(
 			StorageProviderRegistry: args.StorageProviderRegistry,
 			EnvironVersion:          args.ControllerModelEnvironVersion,
 		},
+		StoragePools:              args.StoragePools,
 		Cloud:                     args.ControllerCloud,
 		CloudCredentials:          cloudCreds,
 		ControllerConfig:          args.ControllerConfig,

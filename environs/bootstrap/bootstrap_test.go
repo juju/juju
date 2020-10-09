@@ -47,6 +47,7 @@ import (
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
+	corestorage "github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -192,6 +193,32 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *gc.C) {
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	c.Assert(env.args.BootstrapConstraints, gc.DeepEquals, bootstrapCons)
 	c.Assert(env.args.ModelConstraints, gc.DeepEquals, modelCons)
+}
+
+func (s *bootstrapSuite) TestBootstrapWithStoragePools(c *gc.C) {
+	env := newEnviron("foo", useDefaultKeys, nil)
+	s.setDummyStorage(c, env)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+		s.callContext, bootstrap.BootstrapParams{
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			SupportedBootstrapSeries: supportedJujuSeries,
+			StoragePools: map[string]corestorage.Attrs{
+				"spool": {
+					"type": "loop",
+					"foo":  "bar",
+				},
+			},
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.bootstrapCount, gc.Equals, 1)
+	c.Assert(env.args.StoragePools, gc.DeepEquals, map[string]corestorage.Attrs{
+		"spool": {
+			"type": "loop",
+			"foo":  "bar",
+		},
+	})
 }
 
 func (s *bootstrapSuite) TestBootstrapSpecifiedBootstrapSeries(c *gc.C) {

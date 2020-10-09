@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/common"
+	corestorage "github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -500,6 +501,45 @@ func (s *BootstrapSuite) TestStartInstanceNoUsableZones(c *gc.C) {
 		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot start bootstrap instance: no usable availability zones`)
+}
+
+func (s *BootstrapSuite) TestStartInstanceRootDisk(c *gc.C) {
+	startInstance := func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
+		instances.Instance,
+		*instance.HardwareCharacteristics,
+		network.InterfaceInfos,
+		error,
+	) {
+		c.Assert(args.RootDisk, jc.DeepEquals, &corestorage.VolumeParams{
+			Provider: "dummy",
+			Attributes: map[string]interface{}{
+				"type": "dummy",
+				"foo":  "bar",
+			},
+		})
+		hw := instance.MustParseHardware("arch=ppc64el")
+		return &mockInstance{}, &hw, nil, nil
+	}
+	env := &mockEnviron{
+		startInstance: startInstance,
+		config:        fakeMinimalConfig(c),
+	}
+	ctx := envtesting.BootstrapContext(c)
+	availableTools := fakeAvailableTools()
+	result, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
+		ControllerConfig:         coretesting.FakeControllerConfig(),
+		AvailableTools:           availableTools,
+		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+		BootstrapConstraints:     constraints.MustParse("root-disk-source=spool"),
+		StoragePools: map[string]corestorage.Attrs{
+			"spool": {
+				"type": "dummy",
+				"foo":  "bar",
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Arch, gc.Equals, "ppc64el")
 }
 
 func (s *BootstrapSuite) TestSuccess(c *gc.C) {
