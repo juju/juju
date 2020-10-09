@@ -27,7 +27,7 @@ func convertCharmInfoResult(info transport.InfoResponse) params.InfoResponse {
 	}
 	switch ir.Type {
 	case "bundle":
-		ir.Bundle = convertBundle()
+		ir.Bundle = convertBundle(info.Entity.Charms)
 		// TODO (stickupkid): Get the Bundle.Series and set it to the
 		// InfoResponse at a high level.
 	case "charm":
@@ -200,8 +200,15 @@ func formatRelationPart(rels map[string]charm.Relation) (map[string]string, bool
 	return relations, true
 }
 
-func convertBundle() *params.CharmHubBundle {
-	// TODO (hml) 2020-07-06
-	// Implemented once how to get charms in a bundle is defined by the api.
-	return nil
+func convertBundle(charms []transport.Charm) *params.CharmHubBundle {
+	bundle := &params.CharmHubBundle{
+		Charms: make([]params.BundleCharm, len(charms)),
+	}
+	for i, v := range charms {
+		bundle.Charms[i] = params.BundleCharm{
+			Name:      v.Name,
+			PackageID: v.PackageID,
+		}
+	}
+	return bundle
 }

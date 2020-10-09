@@ -68,7 +68,7 @@ func convertBundle(in interface{}) (*Bundle, error) {
 		Charms: make([]BundleCharm, len(inB.Charms)),
 	}
 	for i, c := range inB.Charms {
-		out.Charms[i] = BundleCharm(c)
+		out.Charms[i] = BundleCharm{Name: c.Name}
 	}
 	return &out, nil
 }
@@ -166,6 +166,5 @@ type Bundle struct {
 }
 
 type BundleCharm struct {
-	Name     string `json:"name" yaml:"name"`
-	Revision int    `json:"revision" yaml:"revision"`
+	Name string `json:"name" yaml:"name"`
 }
