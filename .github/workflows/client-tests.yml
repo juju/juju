@@ -56,7 +56,7 @@ jobs:
       if: (matrix.os == 'windows-latest')
       uses: crazy-max/ghaction-chocolatey@v1
       with:
-        args: install mongodb --version=3.6.0
+        args: install mongodb --version=3.6.0 --allow-downgrade
 
     - name: Test client
       run: |
