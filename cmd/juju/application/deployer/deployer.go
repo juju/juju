@@ -541,6 +541,7 @@ func (d *factory) validateCharmSeriesWithName(series, name string, imageStream s
 func charmValidationError(charmSeries, name string, err error) error {
 	if err != nil {
 		if errors.IsNotSupported(err) {
+			panic(err)
 			return errors.Errorf("%v is not available on the following %v", name, err)
 		}
 		return errors.Trace(err)
