@@ -53,7 +53,7 @@ func (s *poolSuite) TestList(c *gc.C) {
 	pools, err := s.poolManager.List()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pools, gc.HasLen, 1)
-	c.Assert(pools[0].Attrs(), gc.DeepEquals, map[string]interface{}{"foo": "bar", "bleep": "bloop"})
+	c.Assert(pools[0].Attrs(), gc.DeepEquals, storage.Attrs{"foo": "bar", "bleep": "bloop"})
 	c.Assert(pools[0].Name(), gc.Equals, "testpool")
 	c.Assert(pools[0].Provider(), gc.Equals, storage.ProviderType("loop"))
 }
@@ -87,36 +87,36 @@ func (s *poolSuite) TestPool(c *gc.C) {
 	s.createSettings(c)
 	p, err := s.poolManager.Get("testpool")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p.Attrs(), gc.DeepEquals, map[string]interface{}{"foo": "bar", "bleep": "bloop"})
+	c.Assert(p.Attrs(), gc.DeepEquals, storage.Attrs{"foo": "bar", "bleep": "bloop"})
 	c.Assert(p.Name(), gc.Equals, "testpool")
 	c.Assert(p.Provider(), gc.Equals, storage.ProviderType("loop"))
 }
 
 func (s *poolSuite) TestCreate(c *gc.C) {
-	created, err := s.poolManager.Create("testpool", storage.ProviderType("loop"), map[string]interface{}{"foo": "bar"})
+	created, err := s.poolManager.Create("testpool", storage.ProviderType("loop"), storage.Attrs{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 	p, err := s.poolManager.Get("testpool")
 	c.Assert(created, gc.DeepEquals, p)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p.Attrs(), gc.DeepEquals, map[string]interface{}{"foo": "bar"})
+	c.Assert(p.Attrs(), gc.DeepEquals, storage.Attrs{"foo": "bar"})
 	c.Assert(p.Name(), gc.Equals, "testpool")
 	c.Assert(p.Provider(), gc.Equals, storage.ProviderType("loop"))
 }
 
 func (s *poolSuite) TestCreateAlreadyExists(c *gc.C) {
-	_, err := s.poolManager.Create("testpool", storage.ProviderType("loop"), map[string]interface{}{"foo": "bar"})
+	_, err := s.poolManager.Create("testpool", storage.ProviderType("loop"), storage.Attrs{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.poolManager.Create("testpool", storage.ProviderType("loop"), map[string]interface{}{"foo": "bar"})
+	_, err = s.poolManager.Create("testpool", storage.ProviderType("loop"), storage.Attrs{"foo": "bar"})
 	c.Assert(err, gc.ErrorMatches, ".*cannot overwrite.*")
 }
 
 func (s *poolSuite) TestCreateMissingName(c *gc.C) {
-	_, err := s.poolManager.Create("", "loop", map[string]interface{}{"foo": "bar"})
+	_, err := s.poolManager.Create("", "loop", storage.Attrs{"foo": "bar"})
 	c.Assert(err, gc.ErrorMatches, "pool name is missing")
 }
 
 func (s *poolSuite) TestCreateMissingType(c *gc.C) {
-	_, err := s.poolManager.Create("testpool", "", map[string]interface{}{"foo": "bar"})
+	_, err := s.poolManager.Create("testpool", "", storage.Attrs{"foo": "bar"})
 	c.Assert(err, gc.ErrorMatches, "provider type is missing")
 }
 
@@ -132,28 +132,28 @@ func (s *poolSuite) TestCreateInvalidConfig(c *gc.C) {
 
 func (s *poolSuite) TestReplace(c *gc.C) {
 	s.createSettings(c)
-	err := s.poolManager.Replace("testpool", "", map[string]interface{}{"zip": "zap"})
+	err := s.poolManager.Replace("testpool", "", storage.Attrs{"zip": "zap"})
 	c.Assert(err, jc.ErrorIsNil)
 	p, err := s.poolManager.Get("testpool")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p.Attrs(), gc.DeepEquals, map[string]interface{}{"zip": "zap"})
+	c.Assert(p.Attrs(), gc.DeepEquals, storage.Attrs{"zip": "zap"})
 	c.Assert(p.Name(), gc.Equals, "testpool")
 	c.Assert(p.Provider(), gc.Equals, storage.ProviderType("loop"))
 }
 
 func (s *poolSuite) TestReplaceMissingName(c *gc.C) {
-	err := s.poolManager.Replace("", "", map[string]interface{}{"foo": "bar"})
+	err := s.poolManager.Replace("", "", storage.Attrs{"foo": "bar"})
 	c.Assert(err, gc.ErrorMatches, "pool name is missing")
 }
 
 func (s *poolSuite) TestReplaceNewProvider(c *gc.C) {
 	s.registry.Providers["notebook"] = &dummystorage.StorageProvider{}
 	s.createSettings(c)
-	err := s.poolManager.Replace("testpool", "notebook", map[string]interface{}{"handwritten": "true"})
+	err := s.poolManager.Replace("testpool", "notebook", storage.Attrs{"handwritten": "true"})
 	c.Assert(err, jc.ErrorIsNil)
 	p, err := s.poolManager.Get("testpool")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p.Attrs(), gc.DeepEquals, map[string]interface{}{"handwritten": "true"})
+	c.Assert(p.Attrs(), gc.DeepEquals, storage.Attrs{"handwritten": "true"})
 	c.Assert(p.Name(), gc.Equals, "testpool")
 	c.Assert(p.Provider(), gc.Equals, storage.ProviderType("notebook"))
 }
@@ -165,12 +165,12 @@ func (s *poolSuite) TestReplaceInvalidConfig(c *gc.C) {
 		},
 	}
 	s.createSettings(c)
-	err := s.poolManager.Replace("testpool", "invalid", map[string]interface{}{"zip": "zap"})
+	err := s.poolManager.Replace("testpool", "invalid", storage.Attrs{"zip": "zap"})
 	c.Assert(err, gc.ErrorMatches, "validating storage provider config: no good")
 }
 
 func (s *poolSuite) TestReplaceNotFound(c *gc.C) {
-	err := s.poolManager.Replace("deadpool", "", map[string]interface{}{"zip": "zap"})
+	err := s.poolManager.Replace("deadpool", "", storage.Attrs{"zip": "zap"})
 	c.Assert(err, gc.ErrorMatches, "pool \"deadpool\" not found")
 }
 

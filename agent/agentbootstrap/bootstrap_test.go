@@ -186,7 +186,7 @@ LXC_BRIDGE="ignored"`[1:])
 			ModelConstraints:              expectModelConstraints,
 			ControllerInheritedConfig:     controllerInheritedConfig,
 			HostedModelConfig:             hostedModelConfigAttrs,
-			StoragePools: map[string]map[string]interface{}{
+			StoragePools: map[string]storage.Attrs{
 				"spool": {
 					"type": "loop",
 					"foo":  "bar",

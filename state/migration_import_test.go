@@ -2216,7 +2216,7 @@ func (s *MigrationImportSuite) TestStoragePools(c *gc.C) {
 	pool := pools[0]
 	c.Assert(pool.Name(), gc.Equals, "test-pool")
 	c.Assert(pool.Provider(), gc.Equals, provider.LoopProviderType)
-	c.Assert(pool.Attrs(), jc.DeepEquals, map[string]interface{}{
+	c.Assert(pool.Attrs(), jc.DeepEquals, storage.Attrs{
 		"value": 42,
 	})
 }

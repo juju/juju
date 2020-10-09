@@ -698,7 +698,7 @@ func (s *InitializeSuite) TestInitializeWithStoragePool(c *gc.C) {
 		},
 		MongoSession:  s.Session,
 		AdminPassword: "dummy-secret",
-		StoragePools: map[string]map[string]interface{}{
+		StoragePools: map[string]storage.Attrs{
 			"spool": {
 				"type": "dummy",
 				"foo":  "bar",

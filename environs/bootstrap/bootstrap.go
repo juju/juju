@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/pki"
+	corestorage "github.com/juju/juju/storage"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -168,7 +169,7 @@ type BootstrapParams struct {
 
 	// StoragePools is one or more named storage pools to create
 	// in the controller model.
-	StoragePools map[string]map[string]interface{}
+	StoragePools map[string]corestorage.Attrs
 
 	// Force is used to allow a bootstrap to be run on unsupported series.
 	Force bool

@@ -47,6 +47,7 @@ import (
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
+	corestorage "github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -203,7 +204,7 @@ func (s *bootstrapSuite) TestBootstrapWithStoragePools(c *gc.C) {
 			AdminSecret:              "admin-secret",
 			CAPrivateKey:             coretesting.CAKey,
 			SupportedBootstrapSeries: supportedJujuSeries,
-			StoragePools: map[string]map[string]interface{}{
+			StoragePools: map[string]corestorage.Attrs{
 				"spool": {
 					"type": "loop",
 					"foo":  "bar",
@@ -212,7 +213,7 @@ func (s *bootstrapSuite) TestBootstrapWithStoragePools(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
-	c.Assert(env.args.StoragePools, gc.DeepEquals, map[string]map[string]interface{}{
+	c.Assert(env.args.StoragePools, gc.DeepEquals, map[string]corestorage.Attrs{
 		"spool": {
 			"type": "loop",
 			"foo":  "bar",

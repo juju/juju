@@ -33,7 +33,7 @@ type InitializeParams struct {
 
 	// StoragePools is one or more named storage pools to create
 	// in the controller model.
-	StoragePools map[string]map[string]interface{}
+	StoragePools map[string]storage.Attrs
 
 	// Cloud contains the properties of the cloud that the
 	// controller runs in.
@@ -440,7 +440,7 @@ func (st *State) createDefaultStoragePoolsOps(registry storage.ProviderRegistry)
 	return ops, nil
 }
 
-func (st *State) createCustomStoragePoolsOps(registry storage.ProviderRegistry, storagePools map[string]map[string]interface{}) ([]txn.Op, error) {
+func (st *State) createCustomStoragePoolsOps(registry storage.ProviderRegistry, storagePools map[string]storage.Attrs) ([]txn.Op, error) {
 	m := poolmanager.MemSettings{make(map[string]map[string]interface{})}
 	pm := poolmanager.New(m, registry)
 	for name, attrs := range storagePools {
@@ -455,8 +455,6 @@ func (st *State) createCustomStoragePoolsOps(registry storage.ProviderRegistry, 
 			)
 		}
 	}
-
-	logger.Criticalf("SP: %#v", m.Settings)
 
 	var ops []txn.Op
 	for key, settings := range m.Settings {

@@ -21,11 +21,14 @@ const (
 	ConfigStorageDir = "storage-dir"
 )
 
+// Attrs defines storage attributes.
+type Attrs map[string]interface{}
+
 // Config defines the configuration for a storage source.
 type Config struct {
 	name     string
 	provider ProviderType
-	attrs    map[string]interface{}
+	attrs    Attrs
 }
 
 var fields = schema.Fields{}
@@ -36,7 +39,7 @@ var configChecker = schema.FieldMap(
 )
 
 // NewConfig creates a new Config for instantiating a storage source.
-func NewConfig(name string, provider ProviderType, attrs map[string]interface{}) (*Config, error) {
+func NewConfig(name string, provider ProviderType, attrs Attrs) (*Config, error) {
 	_, err := configChecker.Coerce(attrs, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "validating common storage config")
@@ -60,11 +63,11 @@ func (c *Config) Provider() ProviderType {
 }
 
 // Attrs returns the configuration attributes for a storage source.
-func (c *Config) Attrs() map[string]interface{} {
+func (c *Config) Attrs() Attrs {
 	if c.attrs == nil {
 		return nil
 	}
-	attrs := make(map[string]interface{})
+	attrs := make(Attrs)
 	for k, v := range c.attrs {
 		attrs[k] = v
 	}

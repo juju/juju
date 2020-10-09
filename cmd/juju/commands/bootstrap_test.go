@@ -59,6 +59,7 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/provider/openstack"
+	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -951,7 +952,7 @@ func (s *BootstrapSuite) TestBootstrapWithStoragePool(c *gc.C) {
 		"--storage-pool", "foo=bar",
 	)
 
-	c.Assert(bootstrapFuncs.args.StoragePools, jc.DeepEquals, map[string]map[string]interface{}{
+	c.Assert(bootstrapFuncs.args.StoragePools, jc.DeepEquals, map[string]storage.Attrs{
 		"test": {
 			"name": "test",
 			"type": "loop",

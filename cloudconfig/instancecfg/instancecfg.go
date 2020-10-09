@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/storage"
 	coretools "github.com/juju/juju/tools"
 )
 
@@ -342,7 +343,7 @@ type StateInitializationParams struct {
 
 	// StoragePools is one or more named storage pools to create
 	// in the controller model.
-	StoragePools map[string]map[string]interface{}
+	StoragePools map[string]storage.Attrs
 }
 
 type stateInitializationParamsInternal struct {
@@ -352,7 +353,7 @@ type stateInitializationParamsInternal struct {
 	ControllerInheritedConfig               map[string]interface{}            `yaml:"controller-config-defaults,omitempty"`
 	RegionInheritedConfig                   cloud.RegionConfig                `yaml:"region-inherited-config,omitempty"`
 	HostedModelConfig                       map[string]interface{}            `yaml:"hosted-model-config,omitempty"`
-	StoragePools                            map[string]map[string]interface{} `yaml:"storage-pools,omitempty"`
+	StoragePools                            map[string]storage.Attrs          `yaml:"storage-pools,omitempty"`
 	BootstrapMachineInstanceId              instance.Id                       `yaml:"bootstrap-machine-instance-id,omitempty"`
 	BootstrapMachineConstraints             constraints.Value                 `yaml:"bootstrap-machine-constraints"`
 	BootstrapMachineHardwareCharacteristics *instance.HardwareCharacteristics `yaml:"bootstrap-machine-hardware,omitempty"`

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 )
 
@@ -43,7 +44,7 @@ type BootstrapParams struct {
 
 	// StoragePools is one or more named storage pools to create
 	// in the controller model.
-	StoragePools map[string]map[string]interface{}
+	StoragePools map[string]storage.Attrs
 
 	// BootstrapSeries, if specified, is the series to use for the
 	// initial bootstrap machine.

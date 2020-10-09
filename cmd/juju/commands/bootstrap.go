@@ -1250,7 +1250,7 @@ type bootstrapConfigs struct {
 	bootstrap                bootstrap.Config
 	inheritedControllerAttrs map[string]interface{}
 	userConfigAttrs          map[string]interface{}
-	storagePools             map[string]map[string]interface{}
+	storagePools             map[string]storage.Attrs
 }
 
 func (c *bootstrapCommand) bootstrapConfigs(
@@ -1314,7 +1314,7 @@ func (c *bootstrapCommand) bootstrapConfigs(
 	if err != nil {
 		return bootstrapConfigs{}, errors.Trace(err)
 	}
-	var storagePools map[string]map[string]interface{}
+	var storagePools map[string]storage.Attrs
 	if len(storagePoolAttrs) > 0 {
 		poolName, _ := storagePoolAttrs[poolmanager.Name].(string)
 		if poolName == "" {
@@ -1324,7 +1324,7 @@ func (c *bootstrapCommand) bootstrapConfigs(
 		if poolType == "" {
 			return bootstrapConfigs{}, errors.NewNotValid(nil, "storage pool requires a type")
 		}
-		storagePools = make(map[string]map[string]interface{})
+		storagePools = make(map[string]storage.Attrs)
 		storagePools[poolName] = storagePoolAttrs
 	}
 

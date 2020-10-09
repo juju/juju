@@ -531,7 +531,7 @@ func (s *BootstrapSuite) TestStartInstanceRootDisk(c *gc.C) {
 		AvailableTools:           availableTools,
 		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
 		BootstrapConstraints:     constraints.MustParse("root-disk-source=spool"),
-		StoragePools: map[string]map[string]interface{}{
+		StoragePools: map[string]corestorage.Attrs{
 			"spool": {
 				"type": "dummy",
 				"foo":  "bar",

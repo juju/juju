@@ -41,7 +41,7 @@ func (s *storageSuite) TestValidateConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = p.ValidateConfig(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.Attrs(), jc.DeepEquals, map[string]interface{}{
+	c.Assert(cfg.Attrs(), jc.DeepEquals, storage.Attrs{
 		"storage-class":       "my-storage",
 		"storage-provisioner": "aws-storage",
 		"storage-label":       "storage-fred",
