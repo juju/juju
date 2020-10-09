@@ -43,6 +43,7 @@ type Download struct {
 
 type Entity struct {
 	Categories  []Category        `json:"categories"`
+	Charms      []Charm           `json:"contains-charms"`
 	Description string            `json:"description"`
 	License     string            `json:"license"`
 	Media       []Media           `json:"media"`
@@ -62,4 +63,10 @@ type Media struct {
 	URL    string `json:"url"`
 	Width  int    `json:"width,omitempty"`
 	Height int    `json:"height,omitempty"`
+}
+
+type Charm struct {
+	Name      string `json:"name"`
+	PackageID string `json:"package-id"`
+	StoreURL  string `json:"store-url"`
 }

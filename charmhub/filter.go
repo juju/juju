@@ -15,8 +15,6 @@ func appendFilterList(value string, filters []string) []string {
 	return retVals
 }
 
-// always present are: type, id, and name
-
 var defaultChannelFilter = []string{
 	"channel.name",
 	"channel.platform.architecture",
@@ -31,6 +29,9 @@ var defaultResultFilter = []string{
 	"result.bugs-url",
 	"result.categories.featured",
 	"result.categories.name",
+	"result.contains-charms.name",
+	"result.contains-charms.package-id",
+	"result.contains-charms.store-url",
 	"result.description",
 	"result.license",
 	"result.media.height",
