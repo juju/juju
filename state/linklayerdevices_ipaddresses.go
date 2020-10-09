@@ -66,7 +66,7 @@ type ipAddressDoc struct {
 	GatewayAddress string `bson:"gateway-address,omitempty"`
 
 	// IsDefaultGateway is set to true if that device/subnet is the default
-	// gw for the machine.
+	// gateway for the machine.
 	IsDefaultGateway bool `bson:"is-default-gateway,omitempty"`
 
 	// Origin represents the authoritative source of the ipAddress.
@@ -77,6 +77,11 @@ type ipAddressDoc struct {
 	// This should always be required, hence the lack of omitempty (upgrade
 	// steps should correctly assign this for all addresses)
 	Origin network.Origin `bson:"origin"`
+
+	// IsShadow indicates whether this address is virtual/floating/shadow
+	// address assigned to a NIC by a provider rather than being associated
+	// directly with a device on-machine.
+	IsShadow bool `bson:"is-shadow,omitempty"`
 }
 
 // Address represents the state of an IP address assigned to a link-layer
@@ -187,8 +192,8 @@ func (addr *Address) GatewayAddress() string {
 	return addr.doc.GatewayAddress
 }
 
-// IsDefaultGateway returns true if this address is used for the default gw on
-// the machine.
+// IsDefaultGateway returns true if this address is used for the default
+// gateway on the machine.
 func (addr *Address) IsDefaultGateway() bool {
 	return addr.doc.IsDefaultGateway
 }
@@ -199,6 +204,14 @@ func (addr *Address) IsDefaultGateway() bool {
 // and is safe to remove.
 func (addr *Address) Origin() network.Origin {
 	return addr.doc.Origin
+}
+
+// IsShadow indicates whether this address is virtual/floating/shadow
+// address. In cross-model relations, we may want to return this address
+// for a device if its non-shadow address is bound to a cloud-local
+// subnet.
+func (addr *Address) IsShadow() bool {
+	return addr.doc.IsShadow
 }
 
 // String returns a human-readable representation of the IP address.

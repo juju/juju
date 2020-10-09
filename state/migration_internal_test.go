@@ -692,6 +692,7 @@ func (s *MigrationSuite) TestIPAddressDocFields(c *gc.C) {
 		"ConfigMethod",
 		"Value",
 		"Origin",
+		"IsShadow",
 	)
 	s.AssertExportedFields(c, ipAddressDoc{}, migrated.Union(ignored))
 }

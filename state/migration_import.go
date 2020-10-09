@@ -1876,6 +1876,7 @@ func (i *importer) addIPAddress(addr description.IPAddress) error {
 		ProviderNetworkID: addr.ProviderNetworkID(),
 		ProviderSubnetID:  addr.ProviderSubnetID(),
 		Origin:            network.Origin(addr.Origin()),
+		IsShadow:          addr.IsShadow(),
 	}
 
 	ops := []txn.Op{{
