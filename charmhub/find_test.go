@@ -53,7 +53,7 @@ func (s *FindSuite) TestFindFailure(c *gc.C) {
 	name := "meshuggah"
 
 	restClient := NewMockRESTClient(ctrl)
-	s.expectGetFailure(c, restClient)
+	s.expectGetFailure(restClient)
 
 	client := NewFindClient(path, restClient, &FakeLogger{})
 	_, err := client.Find(context.TODO(), name)
@@ -63,6 +63,8 @@ func (s *FindSuite) TestFindFailure(c *gc.C) {
 func (s *FindSuite) expectGet(c *gc.C, client *MockRESTClient, p path.Path, name string) {
 	namedPath, err := p.Query("q", name)
 	c.Assert(err, jc.ErrorIsNil)
+	namedPath, err = namedPath.Query("fields", defaultFindFilter())
+	c.Assert(err, jc.ErrorIsNil)
 
 	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).Do(func(_ context.Context, _ path.Path, responses *transport.FindResponses) {
 		responses.Results = []transport.FindResponse{{
@@ -71,7 +73,7 @@ func (s *FindSuite) expectGet(c *gc.C, client *MockRESTClient, p path.Path, name
 	}).Return(nil)
 }
 
-func (s *FindSuite) expectGetFailure(c *gc.C, client *MockRESTClient) {
+func (s *FindSuite) expectGetFailure(client *MockRESTClient) {
 	client.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.Errorf("boom"))
 }
 

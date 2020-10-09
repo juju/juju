@@ -5,6 +5,7 @@ package charmhub
 
 import (
 	"context"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/kr/pretty"
@@ -39,10 +40,29 @@ func (c *InfoClient) Info(ctx context.Context, name string) (transport.InfoRespo
 		return resp, errors.Trace(err)
 	}
 
+	path, err = path.Query("fields", defaultInfoFilter())
+	if err != nil {
+		return resp, errors.Trace(err)
+	}
+
 	if err := c.client.Get(ctx, path, &resp); err != nil {
 		return resp, errors.Trace(err)
 	}
 
 	c.logger.Tracef("Info(%s) unmarshalled: %s", name, pretty.Sprint(resp))
 	return resp, resp.ErrorList.Combine()
+}
+
+// defaultInfoFilter returns a filter string to retrieve all data
+// necessary to fill the transport.InfoResponse.  Without it, we'd
+// receive the Name, ID and Type.
+func defaultInfoFilter() string {
+	filter := defaultResultFilter
+	filter = append(filter, appendFilterList("default-release.revision", defaultDownloadFilter)...)
+	filter = append(filter, appendFilterList("default-release", defaultRevisionFilter)...)
+	filter = append(filter, appendFilterList("default-release", defaultChannelFilter)...)
+	filter = append(filter, appendFilterList("channel-map.revision", defaultDownloadFilter)...)
+	filter = append(filter, appendFilterList("channel-map", defaultRevisionFilter)...)
+	filter = append(filter, appendFilterList("channel-map", defaultChannelFilter)...)
+	return strings.Join(filter, ",")
 }

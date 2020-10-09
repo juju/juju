@@ -5,6 +5,7 @@ package charmhub
 
 import (
 	"context"
+	"strings"
 
 	"github.com/juju/errors"
 
@@ -37,10 +38,26 @@ func (c *FindClient) Find(ctx context.Context, query string) ([]transport.FindRe
 		return nil, errors.Trace(err)
 	}
 
+	path, err = path.Query("fields", defaultFindFilter())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var resp transport.FindResponses
 	if err := c.client.Get(ctx, path, &resp); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return resp.Results, resp.ErrorList.Combine()
+}
+
+// defaultFindFilter returns a filter string to retrieve all data
+// necessary to fill the transport.FindResponse.  Without it, we'd
+// receive the Name, ID and Type.
+func defaultFindFilter() string {
+	filter := defaultResultFilter
+	filter = append(filter, appendFilterList("default-release.revision", defaultDownloadFilter)...)
+	filter = append(filter, appendFilterList("default-release", defaultRevisionFilter)...)
+	filter = append(filter, appendFilterList("default-release", defaultChannelFilter)...)
+	return strings.Join(filter, ",")
 }
