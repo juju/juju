@@ -1241,15 +1241,6 @@ func (s *linkLayerDevicesStateSuite) TestMachineRemoveAlsoRemoveAllLinkLayerDevi
 	s.assertNoDevicesOnMachine(c, s.machine)
 }
 
-func (s *linkLayerDevicesStateSuite) TestMachineSetParentLinkLayerDevicesBeforeTheirChildrenUnchangedProviderIDsOK(c *gc.C) {
-	s.testMachineSetParentLinkLayerDevicesBeforeTheirChildren(c)
-}
-
-func (s *linkLayerDevicesStateSuite) TestMachineSetParentLinkLayerDevicesBeforeTheirChildrenIdempotent(c *gc.C) {
-	s.testMachineSetParentLinkLayerDevicesBeforeTheirChildren(c)
-	s.testMachineSetParentLinkLayerDevicesBeforeTheirChildren(c)
-}
-
 func (s *linkLayerDevicesStateSuite) TestSetDeviceAddressesWithSubnetID(c *gc.C) {
 	s.createSpaceAndSubnetWithProviderID(c, "public", "10.0.0.0/24", "prov-0000")
 	s.createSpaceAndSubnetWithProviderID(c, "private", "10.20.0.0/24", "prov-ffff")
@@ -1348,16 +1339,3 @@ var nestedDevicesArgs = []state.LinkLayerDeviceArgs{{
 	ParentName: "bond0",
 	ProviderID: "104",
 }}
-
-func (s *linkLayerDevicesStateSuite) testMachineSetParentLinkLayerDevicesBeforeTheirChildren(c *gc.C) {
-	err := s.machine.SetParentLinkLayerDevicesBeforeTheirChildren(nestedDevicesArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	allDevices, err := s.machine.AllLinkLayerDevices()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(allDevices, gc.HasLen, len(nestedDevicesArgs))
-	for _, device := range allDevices {
-		if device.Type() != corenetwork.LoopbackDevice && device.Type() != corenetwork.BridgeDevice {
-			c.Check(device.ProviderID(), gc.Not(gc.Equals), corenetwork.Id(""))
-		}
-	}
-}

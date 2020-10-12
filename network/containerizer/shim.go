@@ -79,7 +79,6 @@ type Machine interface {
 	// A better approach could be sought that does not require their
 	// presence here.
 	SetDevicesAddresses(devicesAddresses ...state.LinkLayerDeviceAddress) (err error)
-	SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs []state.LinkLayerDeviceArgs) error
 	SetConstraints(cons constraints.Value) (err error)
 	RemoveAllAddresses() error
 	Raw() *state.Machine

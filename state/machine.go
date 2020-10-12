@@ -1351,13 +1351,6 @@ func (m *Machine) SetInstanceInfo(
 		"setting instance info: machine %v, deviceAddrs: %#v, devicesArgs: %#v",
 		m.Id(), devicesAddrs, devicesArgs)
 
-	if err := m.SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs); err != nil {
-		return errors.Trace(err)
-	}
-	if err := m.SetDevicesAddresses(devicesAddrs...); err != nil {
-		return errors.Trace(err)
-	}
-
 	sb, err := NewStorageBackend(m.st)
 	if err != nil {
 		return errors.Trace(err)
