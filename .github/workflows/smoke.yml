@@ -1,9 +1,9 @@
-name: "Snapcraft"
+name: "Smoke"
 on: [push, pull_request]
 jobs:
 
-  snap:
-    name: linux-amd64
+  smoke:
+    name: Smoke
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
     steps:
@@ -19,6 +19,7 @@ jobs:
         sudo lxd init --auto
         sudo chmod a+wr /var/snap/lxd/common/lxd/unix.socket
         echo "##[add-path]/snap/bin"
+        lxc network set lxdbr0 ipv6.address none
 
     - name: Checkout
       uses: actions/checkout@v2
@@ -35,9 +36,14 @@ jobs:
         set -euxo pipefail
         sudo snap install *.snap --dangerous --classic
 
-    - name: Test bootstrap
+    - name: Preflight
       shell: bash
       run: |
         set -euxo pipefail
-        lxc network set lxdbr0 ipv6.address none
-        juju bootstrap localhost
+        juju status
+        juju version
+
+    - name: Smoke Test
+      shell: bash
+      run: |
+        cd tests && ./main.sh smoke

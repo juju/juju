@@ -1,11 +1,13 @@
 name: "Upgrade"
 on: [push, pull_request]
 jobs:
+
   "upgrade-latest-stable":
     name: upgrade-latest-stable-linux-amd64
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
     steps:
+
     - name: Install Dependencies
       shell: bash
       run: |
@@ -17,6 +19,7 @@ jobs:
         sudo lxd init --auto
         sudo chmod a+wr /var/snap/lxd/common/lxd/unix.socket
         echo "##[add-path]/snap/bin"
+
     - name: Bootstrap Juju latest/stable
       shell: bash
       run: |
@@ -26,24 +29,29 @@ jobs:
         juju bootstrap localhost test
         juju status
         juju version
+
     - name: Checkout
       uses: actions/checkout@v2
+
     - name: Build snap
       shell: bash
       run: |
         set -euxo pipefail
         snapcraft --use-lxd
+
     - name: Install snap
       shell: bash
       run: |
         set -euxo pipefail
         sudo snap install *.snap --dangerous --classic
+
     - name: Preflight
       shell: bash
       run: |
         set -euxo pipefail
         juju status
         juju version
+
     - name: Test upgrade controller
       shell: bash
       run: |
@@ -72,6 +80,7 @@ jobs:
             juju debug-log --replay --no-tail -m controller
             exit 1
         fi
+
     - name: Test upgrade model
       shell: bash
       run: |
@@ -107,6 +116,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
     steps:
+
     - name: Check
       shell: bash
       run: |
@@ -117,6 +127,7 @@ jobs:
         if [ $? -eq 1 ]; then
           echo "::set-env name=RUN_TEST::RUN"
         fi
+
     - name: Install Dependencies
       if: env.RUN_TEST == 'RUN'
       shell: bash
@@ -129,6 +140,7 @@ jobs:
         sudo lxd init --auto
         sudo chmod a+wr /var/snap/lxd/common/lxd/unix.socket
         echo "##[add-path]/snap/bin"
+
     - name: Bootstrap Juju latest/beta
       if: env.RUN_TEST == 'RUN'
       shell: bash
@@ -139,21 +151,25 @@ jobs:
         juju bootstrap localhost test
         juju status
         juju version
+
     - name: Checkout
       if: env.RUN_TEST == 'RUN'
       uses: actions/checkout@v2
+
     - name: Build snap
       if: env.RUN_TEST == 'RUN'
       shell: bash
       run: |
         set -euxo pipefail
         snapcraft --use-lxd
+
     - name: Install snap
       if: env.RUN_TEST == 'RUN'
       shell: bash
       run: |
         set -euxo pipefail
         sudo snap install *.snap --dangerous --classic
+
     - name: Preflight
       if: env.RUN_TEST == 'RUN'
       shell: bash
@@ -161,6 +177,7 @@ jobs:
         set -euxo pipefail
         juju status
         juju version
+
     - name: Test upgrade controller
       if: env.RUN_TEST == 'RUN'
       shell: bash
@@ -190,6 +207,7 @@ jobs:
             juju debug-log --replay --no-tail -m controller
             exit 1
         fi
+
     - name: Test upgrade model
       if: env.RUN_TEST == 'RUN'
       shell: bash
