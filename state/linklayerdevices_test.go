@@ -58,11 +58,6 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesNoArgs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesEmptyArgs(c *gc.C) {
-	args := state.LinkLayerDeviceArgs{}
-	s.assertSetLinkLayerDevicesReturnsNotValidError(c, args, "empty Name not valid")
-}
-
 func (s *linkLayerDevicesStateSuite) assertSetLinkLayerDevicesReturnsNotValidError(c *gc.C, args state.LinkLayerDeviceArgs, errorCauseMatches string) {
 	err := s.assertSetLinkLayerDevicesFailsValidationForArgs(c, args, errorCauseMatches)
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
@@ -80,70 +75,6 @@ func (s *linkLayerDevicesStateSuite) assertSetLinkLayerDevicesFailsForArgs(c *gc
 	return err
 }
 
-func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesSameNameAndParentName(c *gc.C) {
-	args := state.LinkLayerDeviceArgs{
-		Name:       "foo",
-		ParentName: "foo",
-	}
-	s.assertSetLinkLayerDevicesReturnsNotValidError(c, args, `Name and ParentName must be different`)
-}
-
-func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesInvalidType(c *gc.C) {
-	args := state.LinkLayerDeviceArgs{
-		Name: "bar",
-		Type: "bad type",
-	}
-	s.assertSetLinkLayerDevicesReturnsNotValidError(c, args, `Type "bad type" not valid`)
-}
-
-func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesParentNameAsInvalidGlobalKey(c *gc.C) {
-	args := state.LinkLayerDeviceArgs{
-		Name:       "eth0",
-		ParentName: "x#foo#y#bar", // contains the right amount of # but is invalid otherwise.
-	}
-	s.assertSetLinkLayerDevicesReturnsNotValidError(c, args, `ParentName "x#foo#y#bar" format not valid`)
-}
-
-func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesParentNameAsGlobalKeyFailsForNonContainerMachine(c *gc.C) {
-	args := state.LinkLayerDeviceArgs{
-		Name:       "eth0",
-		ParentName: "m#42#d#foo", // any non-container ID here will cause the same error.
-	}
-	s.assertSetLinkLayerDevicesReturnsNotValidError(c, args, `ParentName "m#42#d#foo" for non-container machine "0" not valid`)
-}
-
-func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesParentNameAsGlobalKeyFailsForContainerOnDifferentHost(c *gc.C) {
-	args := state.LinkLayerDeviceArgs{
-		Name:       "eth0",
-		ParentName: "m#42#d#foo", // any ID other than s.containerMachine's parent ID here will cause the same error.
-	}
-	s.addContainerMachine(c)
-	err := s.containerMachine.SetLinkLayerDevices(args)
-	errorPrefix := fmt.Sprintf("cannot set link-layer devices to machine %q: invalid device %q: ", s.containerMachine.Id(), args.Name)
-	c.Assert(err, gc.ErrorMatches, errorPrefix+`ParentName "m#42#d#foo" on non-host machine "42" not valid`)
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
-}
-
-func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesParentNameAsGlobalKeyFailsForContainerIfParentMissing(c *gc.C) {
-	args := state.LinkLayerDeviceArgs{
-		Name:       "eth0",
-		ParentName: "m#0#d#missing",
-	}
-	s.addContainerMachine(c)
-	err := s.containerMachine.SetLinkLayerDevices(args)
-	c.Assert(err, gc.ErrorMatches, `.*parent device "missing" on host machine "0" not found`)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
-func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesInvalidMACAddress(c *gc.C) {
-	args := state.LinkLayerDeviceArgs{
-		Name:       "eth0",
-		Type:       corenetwork.EthernetDevice,
-		MACAddress: "bad mac",
-	}
-	s.assertSetLinkLayerDevicesReturnsNotValidError(c, args, `MACAddress "bad mac" not valid`)
-}
-
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWhenMachineNotAliveOrGone(c *gc.C) {
 	err := s.machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
@@ -158,15 +89,6 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWhenMachineNotAliveO
 	c.Assert(err, jc.ErrorIsNil)
 
 	_ = s.assertSetLinkLayerDevicesFailsForArgs(c, args, `machine "0" not alive`)
-}
-
-func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWithMissingParentSameMachine(c *gc.C) {
-	args := state.LinkLayerDeviceArgs{
-		Name:       "eth0",
-		Type:       corenetwork.EthernetDevice,
-		ParentName: "br-eth0",
-	}
-	s.assertSetLinkLayerDevicesReturnsNotValidError(c, args, `ParentName not valid: device with ID .+ not found`)
 }
 
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesNoParentSuccess(c *gc.C) {
@@ -267,18 +189,6 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesUpdatesProviderIDWhe
 	s.assertSetLinkLayerDevicesSucceedsAndResultMatchesArgs(c, args)
 }
 
-func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesFailsForProviderIDChange(c *gc.C) {
-	args := state.LinkLayerDeviceArgs{
-		Name:       "foo",
-		Type:       corenetwork.EthernetDevice,
-		ProviderID: "42",
-	}
-	s.assertSetLinkLayerDevicesSucceedsAndResultMatchesArgs(c, args)
-
-	args.ProviderID = "43"
-	_ = s.assertSetLinkLayerDevicesFailsForArgs(c, args, `cannot change ProviderID of link layer device "foo"`)
-}
-
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesUpdateWithDuplicateProviderIDFails(c *gc.C) {
 	args := state.LinkLayerDeviceArgs{
 		Name:       "foo",
@@ -322,25 +232,6 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesMultipleArgsWithSame
 	}
 	err := s.machine.SetLinkLayerDevices(foo1, foo2)
 	c.Assert(err, gc.ErrorMatches, `.*invalid device "foo": Name specified more than once`)
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
-}
-
-func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesRefusesToAddParentAndChildrenInTheSameCall(c *gc.C) {
-	allArgs := []state.LinkLayerDeviceArgs{{
-		Name:       "child1",
-		Type:       corenetwork.EthernetDevice,
-		ParentName: "parent1",
-	}, {
-		Name: "parent1",
-		Type: corenetwork.BridgeDevice,
-	}}
-
-	err := s.machine.SetLinkLayerDevices(allArgs...)
-	c.Assert(err, gc.ErrorMatches, `cannot set link-layer devices to machine "0": `+
-		`invalid device "child1": `+
-		`ParentName not valid: `+
-		`device with ID .+ not found`,
-	)
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
 }
 
@@ -996,45 +887,6 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWithTooMuchStateChur
 	s.assertAllLinkLayerDevicesOnMachineMatchCount(c, s.machine, 1) // only the parent remains
 }
 
-func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesRefusesToAddContainerChildDeviceWithNonBridgeParent(c *gc.C) {
-	// Add one device of every type to the host machine, except a BridgeDevice.
-	hostDevicesArgs := []state.LinkLayerDeviceArgs{{
-		Name: "loopback",
-		Type: corenetwork.LoopbackDevice,
-	}, {
-		Name: "ethernet",
-		Type: corenetwork.EthernetDevice,
-	}, {
-		Name: "vlan",
-		Type: corenetwork.VLAN8021QDevice,
-	}, {
-		Name: "bond",
-		Type: corenetwork.BondDevice,
-	}}
-	hostDevices := s.setMultipleDevicesSucceedsAndCheckAllAdded(c, hostDevicesArgs)
-	hostMachineParentDeviceGlobalKeyPrefix := "m#0#d#"
-	s.addContainerMachine(c)
-
-	// Now try setting an EthernetDevice on the container specifying each of the
-	// hostDevices as parent and expect none of them to succeed, as none of the
-	// hostDevices is a BridgeDevice.
-	for _, hostDevice := range hostDevices {
-		parentDeviceGlobalKey := hostMachineParentDeviceGlobalKeyPrefix + hostDevice.Name()
-		containerDeviceArgs := state.LinkLayerDeviceArgs{
-			Name:       "eth0",
-			Type:       corenetwork.EthernetDevice,
-			ParentName: parentDeviceGlobalKey,
-		}
-		err := s.containerMachine.SetLinkLayerDevices(containerDeviceArgs)
-		expectedError := `cannot set .* to machine "0/lxd/0": ` +
-			`invalid device "eth0": ` +
-			`parent device ".*" on host machine "0" must be of type "bridge", not type ".*"`
-		c.Check(err, gc.ErrorMatches, expectedError)
-		c.Check(err, jc.Satisfies, errors.IsNotValid)
-	}
-	s.assertNoDevicesOnMachine(c, s.containerMachine)
-}
-
 func (s *linkLayerDevicesStateSuite) addContainerMachine(c *gc.C) {
 	// Add a container machine with s.machine as its host.
 	containerTemplate := state.MachineTemplate{
@@ -1209,24 +1061,6 @@ func (s *linkLayerDevicesStateSuite) assertSetLinkLayerDevicesToContainerFailsWi
 	}
 	err := s.containerMachine.SetLinkLayerDevices(newChildArgs)
 	c.Assert(err, gc.ErrorMatches, expectedError)
-}
-
-func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesToContainerWhenContainerAndHostRemovedBeforehand(c *gc.C) {
-	beforeHook := func() {
-		// Remove both container and host machines.
-		err := s.containerMachine.EnsureDead()
-		c.Assert(err, jc.ErrorIsNil)
-		err = s.containerMachine.Remove()
-		c.Assert(err, jc.ErrorIsNil)
-		err = s.machine.EnsureDead()
-		c.Assert(err, jc.ErrorIsNil)
-		err = s.machine.Remove()
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
-	s.assertSetLinkLayerDevicesToContainerFailsWithBeforeHook(c, beforeHook,
-		`.*host machine "0" of parent device "br-eth1" not found or not alive`,
-	)
 }
 
 func (s *linkLayerDevicesStateSuite) TestMachineRemoveAlsoRemoveAllLinkLayerDevices(c *gc.C) {

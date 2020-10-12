@@ -198,9 +198,9 @@ func (m *Machine) AddLinkLayerDeviceOps(
 // - Machine is no longer alive or is missing;
 // - Model no longer alive;
 // - errors.NotValidError, when any of the fields in args contain invalid values;
-// - ErrProviderIDNotUnique, when one or more specified ProviderIDs are not unique;
-// Setting new parent devices must be done in a separate call than setting their
-// children on the same machine.
+//
+// Deprecated: (manadart 2020-10-12) This method is only used by tests and is in
+// the process of removal. Do not add new usages of it.
 func (m *Machine) SetLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set link-layer devices to machine %q", m.doc.Id)
 
@@ -293,73 +293,11 @@ func (m *Machine) prepareOneSetLinkLayerDeviceArgs(
 ) (_ *linkLayerDeviceDoc, err error) {
 	defer errors.DeferredAnnotatef(&err, "invalid device %q", args.Name)
 
-	if err := m.validateSetLinkLayerDeviceArgs(args); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	if pendingNames.Contains(args.Name) {
 		return nil, errors.NewNotValid(nil, "Name specified more than once")
 	}
 
 	return m.newLinkLayerDeviceDocFromArgs(args), nil
-}
-
-func (m *Machine) validateSetLinkLayerDeviceArgs(args *LinkLayerDeviceArgs) error {
-	if args.Name == "" {
-		return errors.NotValidf("empty Name")
-	}
-	if !corenetwork.IsValidLinkLayerDeviceName(args.Name) {
-		logger.Warningf(
-			"link-layer device %q on machine %q has invalid name (using anyway)",
-			args.Name, m.Id(),
-		)
-	}
-
-	if args.ParentName != "" {
-		if err := m.validateLinkLayerDeviceParent(args); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	if !corenetwork.IsValidLinkLayerDeviceType(string(args.Type)) {
-		return errors.NotValidf("Type %q", args.Type)
-	}
-
-	if args.MACAddress != "" {
-		if _, err := net.ParseMAC(args.MACAddress); err != nil {
-			return errors.NotValidf("MACAddress %q", args.MACAddress)
-		}
-	}
-	return nil
-}
-
-func (m *Machine) validateLinkLayerDeviceParent(args *LinkLayerDeviceArgs) error {
-	hostMachineID, parentDeviceName, err := parseLinkLayerDeviceParentNameAsGlobalKey(args.ParentName)
-	if err != nil {
-		return errors.Trace(err)
-	} else if hostMachineID == "" {
-		// Not a global key, so validate as usual.
-		if err := m.validateParentDeviceNameWhenNotAGlobalKey(args); errors.IsNotFound(err) {
-			return errors.NewNotValid(err, "ParentName not valid")
-		} else if err != nil {
-			return errors.Trace(err)
-		}
-		return nil
-	}
-	ourParentMachineID, hasParent := m.ParentId()
-	if !hasParent {
-		// Using global key for ParentName not allowed for non-container machine
-		// devices.
-		return errors.NotValidf("ParentName %q for non-container machine %q", args.ParentName, m.Id())
-	}
-	if hostMachineID != ourParentMachineID {
-		// ParentName as global key only allowed when the key's machine ID is
-		// the container's host machine.
-		return errors.NotValidf("ParentName %q on non-host machine %q", args.ParentName, hostMachineID)
-	}
-
-	err = m.verifyHostMachineParentDeviceExistsAndIsABridgeDevice(hostMachineID, parentDeviceName)
-	return errors.Trace(err)
 }
 
 func parseLinkLayerDeviceParentNameAsGlobalKey(parentName string) (hostMachineID, parentDeviceName string, err error) {
@@ -489,15 +427,6 @@ func (m *Machine) setDevicesFromDocsOps(newDocs []linkLayerDeviceDoc) ([]txn.Op,
 
 func (m *Machine) insertLinkLayerDeviceOps(newDoc *linkLayerDeviceDoc) ([]txn.Op, error) {
 	var ops []txn.Op
-	if newDoc.ParentName != "" {
-		newParentDocID, err := m.parentDocIDFromDeviceDoc(newDoc)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if newParentDocID != "" {
-			ops = append(ops, assertLinkLayerDeviceExistsOp(newParentDocID))
-		}
-	}
 	if newDoc.ProviderID != "" {
 		id := corenetwork.Id(newDoc.ProviderID)
 		ops = append(ops, m.st.networkEntityGlobalKeyOp("linklayerdevice", id))
