@@ -92,6 +92,21 @@ func (mr *MockApplicationMockRecorder) State() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockApplication)(nil).State))
 }
 
+// Units mocks base method
+func (m *MockApplication) Units() ([]caas.Unit, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Units")
+	ret0, _ := ret[0].([]caas.Unit)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Units indicates an expected call of Units
+func (mr *MockApplicationMockRecorder) Units() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Units", reflect.TypeOf((*MockApplication)(nil).Units))
+}
+
 // UpdatePorts mocks base method
 func (m *MockApplication) UpdatePorts(arg0 []caas.ServicePort, arg1 bool) error {
 	m.ctrl.T.Helper()

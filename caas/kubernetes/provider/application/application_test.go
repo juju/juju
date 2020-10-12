@@ -5,6 +5,7 @@ package application_test
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	gc "gopkg.in/check.v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -32,6 +34,7 @@ import (
 	k8swatchertest "github.com/juju/juju/caas/kubernetes/provider/watcher/test"
 	"github.com/juju/juju/core/paths"
 	coreresources "github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
@@ -1409,6 +1412,234 @@ func (s *applicationSuite) TestUpdatePortsDaemonUpdate(c *gc.C) {
 			Protocol:   "TCP",
 		},
 	}, false), jc.ErrorIsNil)
+}
+
+func (s *applicationSuite) TestUnits(c *gc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+
+	for i := 0; i < 4; i++ {
+		podSpec := getPodSpec(c)
+		podSpec.Volumes = append(podSpec.Volumes,
+			corev1.Volume{
+				Name: "gitlab-database-appuuid",
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: fmt.Sprintf("gitlab-database-appuuid-gitlab-%d", i),
+					},
+				},
+			},
+		)
+		pod := corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace:   s.namespace,
+				Name:        fmt.Sprintf("%s-%d", s.appName, i),
+				Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
+				Annotations: map[string]string{"juju.is/version": "0.0.0"},
+			},
+			Spec: podSpec,
+			Status: corev1.PodStatus{
+				PodIP: fmt.Sprintf("10.10.10.%d", i),
+			},
+		}
+		switch i {
+		case 0:
+			pod.Status.Phase = corev1.PodRunning
+		case 1:
+			pod.Status.Phase = corev1.PodPending
+		case 2:
+			pod.DeletionTimestamp = &metav1.Time{
+				Time: time.Now(),
+			}
+		case 3:
+			pod.Status.Phase = corev1.PodFailed
+		}
+		_, err := s.client.CoreV1().Pods(s.namespace).Create(context.TODO(), &pod, metav1.CreateOptions{})
+		c.Assert(err, jc.ErrorIsNil)
+
+		pvc := corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: s.namespace,
+				Name:      fmt.Sprintf("gitlab-database-appuuid-gitlab-%d", i),
+			},
+			Spec: corev1.PersistentVolumeClaimSpec{
+				AccessModes: []corev1.PersistentVolumeAccessMode{
+					corev1.ReadWriteOnce,
+				},
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						"storage": resource.MustParse("1Gi"),
+					},
+				},
+				VolumeName: fmt.Sprintf("pv-%d", i),
+			},
+			Status: corev1.PersistentVolumeClaimStatus{
+				AccessModes: []corev1.PersistentVolumeAccessMode{
+					corev1.ReadWriteOnce,
+				},
+				Capacity: corev1.ResourceList{
+					"storage": resource.MustParse("1Gi"),
+				},
+				Phase: corev1.ClaimBound,
+			},
+		}
+		_, err = s.client.CoreV1().PersistentVolumeClaims(s.namespace).Create(context.TODO(), &pvc, metav1.CreateOptions{})
+		c.Assert(err, jc.ErrorIsNil)
+
+		pv := corev1.PersistentVolume{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: fmt.Sprintf("pv-%d", i),
+			},
+			Spec: corev1.PersistentVolumeSpec{
+				AccessModes: []corev1.PersistentVolumeAccessMode{
+					corev1.ReadWriteOnce,
+				},
+				Capacity: corev1.ResourceList{
+					"storage": resource.MustParse("1Gi"),
+				},
+			},
+			Status: corev1.PersistentVolumeStatus{
+				Phase:   corev1.VolumeBound,
+				Message: "volume bound",
+			},
+		}
+		_, err = s.client.CoreV1().PersistentVolumes().Create(context.TODO(), &pv, metav1.CreateOptions{})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	units, err := app.Units()
+	c.Assert(err, jc.ErrorIsNil)
+
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`_[_].Status.Since`, jc.Ignore)
+	mc.AddExpr(`_[_].FilesystemInfo[_].Status.Since`, jc.Ignore)
+	mc.AddExpr(`_[_].FilesystemInfo[_].Volume.Status.Since`, jc.Ignore)
+
+	c.Assert(units, mc, []caas.Unit{
+		{
+			Id:       "gitlab-0",
+			Address:  "10.10.10.0",
+			Ports:    []string(nil),
+			Dying:    false,
+			Stateful: true,
+			Status: status.StatusInfo{
+				Status: "running",
+			},
+			FilesystemInfo: []caas.FilesystemInfo{
+				{
+					StorageName:  "gitlab-database",
+					FilesystemId: "",
+					Size:         1024,
+					MountPoint:   "path/to/here",
+					ReadOnly:     false,
+					Status: status.StatusInfo{
+						Status: "attached",
+					},
+					Volume: caas.VolumeInfo{
+						VolumeId:   "pv-0",
+						Size:       1024,
+						Persistent: false,
+						Status: status.StatusInfo{
+							Status:  "attached",
+							Message: "volume bound",
+						},
+					},
+				},
+			},
+		},
+		{
+			Id:       "gitlab-1",
+			Address:  "10.10.10.1",
+			Ports:    []string(nil),
+			Dying:    false,
+			Stateful: true,
+			Status: status.StatusInfo{
+				Status: "allocating",
+			},
+			FilesystemInfo: []caas.FilesystemInfo{
+				{
+					StorageName:  "gitlab-database",
+					FilesystemId: "",
+					Size:         1024,
+					MountPoint:   "path/to/here",
+					ReadOnly:     false,
+					Status: status.StatusInfo{
+						Status: "attached",
+					},
+					Volume: caas.VolumeInfo{
+						VolumeId:   "pv-1",
+						Size:       1024,
+						Persistent: false,
+						Status: status.StatusInfo{
+							Status:  "attached",
+							Message: "volume bound",
+						},
+					},
+				},
+			},
+		},
+		{
+			Id:       "gitlab-2",
+			Address:  "10.10.10.2",
+			Ports:    []string(nil),
+			Dying:    true,
+			Stateful: true,
+			Status: status.StatusInfo{
+				Status: "terminated",
+			},
+			FilesystemInfo: []caas.FilesystemInfo{
+				{
+					StorageName:  "gitlab-database",
+					FilesystemId: "",
+					Size:         1024,
+					MountPoint:   "path/to/here",
+					ReadOnly:     false,
+					Status: status.StatusInfo{
+						Status: "attached",
+					},
+					Volume: caas.VolumeInfo{
+						VolumeId:   "pv-2",
+						Size:       1024,
+						Persistent: false,
+						Status: status.StatusInfo{
+							Status:  "attached",
+							Message: "volume bound",
+						},
+					},
+				},
+			},
+		},
+		{
+			Id:       "gitlab-3",
+			Address:  "10.10.10.3",
+			Ports:    []string(nil),
+			Dying:    false,
+			Stateful: true,
+			Status: status.StatusInfo{
+				Status: "error",
+			},
+			FilesystemInfo: []caas.FilesystemInfo{
+				{
+					StorageName:  "gitlab-database",
+					FilesystemId: "",
+					Size:         1024,
+					MountPoint:   "path/to/here",
+					ReadOnly:     false,
+					Status: status.StatusInfo{
+						Status: "attached",
+					},
+					Volume: caas.VolumeInfo{
+						VolumeId:   "pv-3",
+						Size:       1024,
+						Persistent: false,
+						Status: status.StatusInfo{
+							Status:  "attached",
+							Message: "volume bound",
+						},
+					},
+				},
+			},
+		},
+	})
 }
 
 type fakeCharm struct {

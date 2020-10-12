@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"io"
 	"io/ioutil"
+	"strings"
+	"time"
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
@@ -278,6 +280,11 @@ func (a *mockApplication) SetOperatorStatus(statusInfo status.StatusInfo) error 
 	return a.NextErr()
 }
 
+func (a *mockApplication) SetStatus(statusInfo status.StatusInfo) error {
+	a.MethodCall(a, "SetStatus", statusInfo)
+	return a.NextErr()
+}
+
 type mockCharm struct {
 	meta *charm.Meta
 	url  *charm.URL
@@ -331,10 +338,11 @@ func (w *mockStringsWatcher) Changes() <-chan []string {
 
 type mockUnit struct {
 	testing.Stub
-	life          state.Life
-	destroyOp     *state.DestroyUnitOperation
-	containerInfo *mockCloudContainer
-	tag           names.Tag
+	life                state.Life
+	destroyOp           *state.DestroyUnitOperation
+	containerInfo       *mockCloudContainer
+	tag                 names.Tag
+	updateUnitOperation *state.UpdateUnitOperation
 }
 
 func (u *mockUnit) Tag() names.Tag {
@@ -354,6 +362,11 @@ func (u *mockUnit) EnsureDead() error {
 func (u *mockUnit) ContainerInfo() (state.CloudContainer, error) {
 	u.MethodCall(u, "ContainerInfo")
 	return u.containerInfo, u.NextErr()
+}
+
+func (u *mockUnit) UpdateOperation(props state.UnitUpdateProperties) *state.UpdateUnitOperation {
+	u.MethodCall(u, "UpdateOperation", props)
+	return u.updateUnitOperation
 }
 
 type mockCloudContainer struct {
@@ -376,4 +389,176 @@ func (c *mockCloudContainer) Address() *network.SpaceAddress {
 
 func (c *mockCloudContainer) Ports() []string {
 	return nil
+}
+
+type mockStorage struct {
+	testing.Stub
+	storageFilesystems map[names.StorageTag]names.FilesystemTag
+	storageVolumes     map[names.StorageTag]names.VolumeTag
+	storageAttachments map[names.UnitTag]names.StorageTag
+	backingVolume      names.VolumeTag
+}
+
+func (m *mockStorage) StorageInstance(tag names.StorageTag) (state.StorageInstance, error) {
+	m.MethodCall(m, "StorageInstance", tag)
+	return &mockStorageInstance{
+		tag:   tag,
+		owner: names.NewUserTag("fred"),
+	}, nil
+}
+
+func (m *mockStorage) AllFilesystems() ([]state.Filesystem, error) {
+	m.MethodCall(m, "AllFilesystems")
+	var result []state.Filesystem
+	for _, fsTag := range m.storageFilesystems {
+		result = append(result, &mockFilesystem{Stub: &m.Stub, tag: fsTag, volTag: m.backingVolume})
+	}
+	return result, nil
+}
+
+func (m *mockStorage) DestroyStorageInstance(tag names.StorageTag, destroyAttachments bool, force bool, maxWait time.Duration) (err error) {
+	m.MethodCall(m, "DestroyStorageInstance", tag, destroyAttachments, force)
+	return nil
+}
+
+func (m *mockStorage) DestroyFilesystem(tag names.FilesystemTag, force bool) (err error) {
+	m.MethodCall(m, "DestroyFilesystem", tag)
+	return nil
+}
+
+func (m *mockStorage) DestroyVolume(tag names.VolumeTag) (err error) {
+	m.MethodCall(m, "DestroyVolume", tag)
+	return nil
+}
+
+func (m *mockStorage) Filesystem(fsTag names.FilesystemTag) (state.Filesystem, error) {
+	m.MethodCall(m, "Filesystem", fsTag)
+	return &mockFilesystem{Stub: &m.Stub, tag: fsTag, volTag: m.backingVolume}, nil
+}
+
+func (m *mockStorage) StorageInstanceFilesystem(tag names.StorageTag) (state.Filesystem, error) {
+	return &mockFilesystem{Stub: &m.Stub, tag: m.storageFilesystems[tag], volTag: m.backingVolume}, nil
+}
+
+func (m *mockStorage) UnitStorageAttachments(unit names.UnitTag) ([]state.StorageAttachment, error) {
+	m.MethodCall(m, "UnitStorageAttachments", unit)
+	return []state.StorageAttachment{
+		&mockStorageAttachment{
+			unit:    unit,
+			storage: m.storageAttachments[unit],
+		},
+	}, nil
+}
+
+func (m *mockStorage) SetFilesystemInfo(fsTag names.FilesystemTag, fsInfo state.FilesystemInfo) error {
+	m.MethodCall(m, "SetFilesystemInfo", fsTag, fsInfo)
+	return nil
+}
+
+func (m *mockStorage) SetFilesystemAttachmentInfo(host names.Tag, fsTag names.FilesystemTag, info state.FilesystemAttachmentInfo) error {
+	m.MethodCall(m, "SetFilesystemAttachmentInfo", host, fsTag, info)
+	return nil
+}
+
+func (m *mockStorage) Volume(volTag names.VolumeTag) (state.Volume, error) {
+	m.MethodCall(m, "Volume", volTag)
+	return &mockVolume{Stub: &m.Stub, tag: volTag}, nil
+}
+
+func (m *mockStorage) StorageInstanceVolume(tag names.StorageTag) (state.Volume, error) {
+	return &mockVolume{Stub: &m.Stub, tag: m.storageVolumes[tag]}, nil
+}
+
+func (m *mockStorage) SetVolumeInfo(volTag names.VolumeTag, volInfo state.VolumeInfo) error {
+	m.MethodCall(m, "SetVolumeInfo", volTag, volInfo)
+	return nil
+}
+
+func (m *mockStorage) SetVolumeAttachmentInfo(host names.Tag, volTag names.VolumeTag, info state.VolumeAttachmentInfo) error {
+	m.MethodCall(m, "SetVolumeAttachmentInfo", host, volTag, info)
+	return nil
+}
+
+type mockStorageInstance struct {
+	state.StorageInstance
+	tag   names.StorageTag
+	owner names.Tag
+}
+
+func (a *mockStorageInstance) Kind() state.StorageKind {
+	return state.StorageKindFilesystem
+}
+
+func (a *mockStorageInstance) Tag() names.Tag {
+	return a.tag
+}
+
+func (a *mockStorageInstance) StorageName() string {
+	id := a.tag.Id()
+	return strings.Split(id, "/")[0]
+}
+
+type mockStorageAttachment struct {
+	state.StorageAttachment
+	testing.Stub
+	unit    names.UnitTag
+	storage names.StorageTag
+}
+
+func (a *mockStorageAttachment) StorageInstance() names.StorageTag {
+	return a.storage
+}
+
+type mockFilesystem struct {
+	*testing.Stub
+	state.Filesystem
+	tag    names.FilesystemTag
+	volTag names.VolumeTag
+}
+
+func (f *mockFilesystem) Tag() names.Tag {
+	return f.FilesystemTag()
+}
+
+func (f *mockFilesystem) FilesystemTag() names.FilesystemTag {
+	return f.tag
+}
+
+func (f *mockFilesystem) Volume() (names.VolumeTag, error) {
+	if f.volTag.Id() == "" {
+		return f.volTag, state.ErrNoBackingVolume
+	}
+	return f.volTag, nil
+}
+
+func (f *mockFilesystem) SetStatus(statusInfo status.StatusInfo) error {
+	f.MethodCall(f, "SetStatus", statusInfo)
+	return nil
+}
+
+func (f *mockFilesystem) Info() (state.FilesystemInfo, error) {
+	return state.FilesystemInfo{}, errors.NotProvisionedf("filesystem")
+}
+
+type mockVolume struct {
+	*testing.Stub
+	state.Volume
+	tag names.VolumeTag
+}
+
+func (v *mockVolume) Tag() names.Tag {
+	return v.VolumeTag()
+}
+
+func (v *mockVolume) VolumeTag() names.VolumeTag {
+	return v.tag
+}
+
+func (v *mockVolume) SetStatus(statusInfo status.StatusInfo) error {
+	v.MethodCall(v, "SetStatus", statusInfo)
+	return nil
+}
+
+func (v *mockVolume) Info() (state.VolumeInfo, error) {
+	return state.VolumeInfo{}, errors.NotProvisionedf("volume")
 }

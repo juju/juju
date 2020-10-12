@@ -5,9 +5,11 @@ package resources
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/errors"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -16,6 +18,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/core/status"
 )
 
 // StatefulSet extends the k8s statefulSet.
@@ -86,4 +89,20 @@ func (ss *StatefulSet) Delete(ctx context.Context, client kubernetes.Interface) 
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// Events emitted by the resource.
+func (ss *StatefulSet) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
+	return ListEventsForObject(ctx, client, ss.Namespace, ss.Name, "StatefulSet")
+}
+
+// ComputeStatus returns a juju status for the resource.
+func (ss *StatefulSet) ComputeStatus(ctx context.Context, client kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error) {
+	if ss.DeletionTimestamp != nil {
+		return "", status.Terminated, ss.DeletionTimestamp.Time, nil
+	}
+	if ss.Status.ReadyReplicas == ss.Status.Replicas {
+		return "", status.Active, now, nil
+	}
+	return "", status.Waiting, now, nil
 }

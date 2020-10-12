@@ -5,18 +5,19 @@ package resources
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/errors"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/core/status"
 )
 
 // PersistentVolumeClaim extends the k8s persistentVolumeClaim.
@@ -89,17 +90,18 @@ func (pvc *PersistentVolumeClaim) Delete(ctx context.Context, client kubernetes.
 	return nil
 }
 
-// Events returns events of the resource.
+// Events emitted by the resource.
 func (pvc *PersistentVolumeClaim) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
-	selector := fields.AndSelectors(
-		fields.OneTermEqualSelector("involvedObject.name", pvc.Name),
-		fields.OneTermEqualSelector("involvedObject.kind", "PersistentVolumeClaim"),
-	).String()
-	eventList, err := client.CoreV1().Events(pvc.Namespace).List(ctx, metav1.ListOptions{
-		FieldSelector: selector,
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
+	return ListEventsForObject(ctx, client, pvc.Namespace, pvc.Name, "PersistentVolumeClaim")
+}
+
+// ComputeStatus returns a juju status for the resource.
+func (pvc *PersistentVolumeClaim) ComputeStatus(ctx context.Context, client kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error) {
+	if pvc.DeletionTimestamp != nil {
+		return "", status.Terminated, pvc.DeletionTimestamp.Time, nil
 	}
-	return eventList.Items, nil
+	if pvc.Status.Phase == corev1.ClaimBound {
+		return string(pvc.Status.Phase), status.Active, now, nil
+	}
+	return string(pvc.Status.Phase), status.Waiting, now, nil
 }

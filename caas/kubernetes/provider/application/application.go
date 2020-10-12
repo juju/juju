@@ -34,6 +34,7 @@ import (
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
 	"github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	jujustorage "github.com/juju/juju/storage"
 )
@@ -233,14 +234,23 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		if err := a.configureHeadlessService(a.name, a.annotations(config)); err != nil {
 			return errors.Annotatef(err, "creating or updating headless service for %q %q", a.deploymentType, a.name)
 		}
-
+		exists := true
+		ss, getErr := a.getStatefulSet()
+		if errors.IsNotFound(getErr) {
+			exists = false
+		} else if getErr != nil {
+			return errors.Trace(getErr)
+		}
 		storageUniqueID, err := a.getStorageUniqPrefix(func() (annotationGetter, error) {
-			return a.getStatefulSet()
+			return ss, getErr
 		})
 		if err != nil {
 			return errors.Trace(err)
 		}
-		numPods := int32(1)
+		var numPods *int32
+		if !exists {
+			numPods = int32Ptr(1)
+		}
 		statefulset := resources.StatefulSet{
 			StatefulSet: appsv1.StatefulSet{
 				ObjectMeta: metav1.ObjectMeta{
@@ -251,7 +261,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 						Add(constants.AnnotationApplicationUUIDKey(), storageUniqueID),
 				},
 				Spec: appsv1.StatefulSetSpec{
-					Replicas: &numPods,
+					Replicas: numPods,
 					Selector: &metav1.LabelSelector{
 						MatchLabels: a.selectorLabels(),
 					},
@@ -285,17 +295,27 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 
 		applier.Apply(&statefulset)
 	case caas.DeploymentStateless:
+		exists := true
+		d, getErr := a.getDeployment()
+		if errors.IsNotFound(getErr) {
+			exists = false
+		} else if getErr != nil {
+			return errors.Trace(getErr)
+		}
 		storageUniqueID, err := a.getStorageUniqPrefix(func() (annotationGetter, error) {
-			return a.getDeployment()
+			return d, getErr
 		})
 		if err != nil {
 			return errors.Trace(err)
+		}
+		var numPods *int32
+		if !exists {
+			numPods = int32Ptr(1)
 		}
 		// Config storage to update the podspec with storage info.
 		if err = configureStorage(storageUniqueID, handlePVCForStatelessResource); err != nil {
 			return errors.Trace(err)
 		}
-		numPods := int32(1)
 		deployment := resources.Deployment{
 			Deployment: appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
@@ -306,7 +326,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 						Add(constants.AnnotationApplicationUUIDKey(), storageUniqueID),
 				},
 				Spec: appsv1.DeploymentSpec{
-					Replicas: &numPods,
+					Replicas: numPods,
 					Selector: &metav1.LabelSelector{
 						MatchLabels: a.selectorLabels(),
 					},
@@ -753,6 +773,80 @@ func (a *app) State() (caas.ApplicationState, error) {
 	}
 	sort.Strings(state.Replicas)
 	return state, nil
+}
+
+// Units of the application fetched from kubernetes by matching pod labels.
+func (a *app) Units() ([]caas.Unit, error) {
+	ctx := context.Background()
+	now := a.clock.Now()
+	var units []caas.Unit
+	pods, err := resources.ListPods(ctx, a.client, a.namespace, metav1.ListOptions{
+		LabelSelector: a.labelSelector(),
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, p := range pods {
+		var ports []string
+		for _, c := range p.Spec.Containers {
+			for _, p := range c.Ports {
+				ports = append(ports, fmt.Sprintf("%v/%v", p.ContainerPort, p.Protocol))
+			}
+		}
+		terminated := p.DeletionTimestamp != nil
+		statusMessage, unitStatus, since, err := p.ComputeStatus(ctx, a.client, now)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		unitInfo := caas.Unit{
+			Id:       p.Name,
+			Address:  p.Status.PodIP,
+			Ports:    ports,
+			Dying:    terminated,
+			Stateful: a.deploymentType == caas.DeploymentStateful,
+			Status: status.StatusInfo{
+				Status:  unitStatus,
+				Message: statusMessage,
+				Since:   &since,
+			},
+		}
+
+		volumesByName := make(map[string]corev1.Volume)
+		for _, pv := range p.Spec.Volumes {
+			volumesByName[pv.Name] = pv
+		}
+
+		// Gather info about how filesystems are attached/mounted to the pod.
+		// The mount name represents the filesystem tag name used by Juju.
+		for _, volMount := range p.Spec.Containers[0].VolumeMounts {
+			if volMount.Name == "juju-data-dir" {
+				continue
+			}
+			vol, ok := volumesByName[volMount.Name]
+			if !ok {
+				logger.Warningf("volume for volume mount %q not found", volMount.Name)
+				continue
+			}
+			fsInfo, err := storage.FilesystemInfo(ctx, a.client, a.namespace, vol, volMount, now)
+			if err != nil {
+				return nil, errors.Annotatef(err, "finding filesystem info for %v", volMount.Name)
+			}
+			if fsInfo == nil {
+				continue
+			}
+			if fsInfo.StorageName == "" {
+				if valid := constants.LegacyPVNameRegexp.MatchString(volMount.Name); valid {
+					fsInfo.StorageName = constants.LegacyPVNameRegexp.ReplaceAllString(volMount.Name, "$storageName")
+				} else if valid := constants.PVNameRegexp.MatchString(volMount.Name); valid {
+					fsInfo.StorageName = constants.PVNameRegexp.ReplaceAllString(volMount.Name, "$storageName")
+				}
+			}
+			logger.Debugf("filesystem info for %v: %+v", volMount.Name, *fsInfo)
+			unitInfo.FilesystemInfo = append(unitInfo.FilesystemInfo, *fsInfo)
+		}
+		units = append(units, unitInfo)
+	}
+	return units, nil
 }
 
 // applicationPodSpec returns a PodSpec for the application pod

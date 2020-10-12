@@ -23,6 +23,7 @@ type Application interface {
 	Watch() (watcher.NotifyWatcher, error)
 	WatchReplicas() (watcher.NotifyWatcher, error)
 	State() (ApplicationState, error)
+	Units() ([]Unit, error)
 
 	ServiceInterface
 }

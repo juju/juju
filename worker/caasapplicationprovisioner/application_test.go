@@ -21,6 +21,7 @@ import (
 
 	api "github.com/juju/juju/api/caasapplicationprovisioner"
 	charmscommon "github.com/juju/juju/api/common/charms"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	caasmocks "github.com/juju/juju/caas/mocks"
 	"github.com/juju/juju/core/life"
@@ -106,23 +107,23 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 	done := make(chan struct{})
 	gomock.InOrder(
 		// Initialize in loop.
-		facade.EXPECT().ApplicationCharmURL("application-test").DoAndReturn(func(string) (*charm.URL, error) {
+		facade.EXPECT().ApplicationCharmURL("test").DoAndReturn(func(string) (*charm.URL, error) {
 			return appCharmURL, nil
 		}),
 		facade.EXPECT().CharmInfo("cs:test").DoAndReturn(func(string) (*charmscommon.CharmInfo, error) {
 			return appCharmInfo, nil
 		}),
-		broker.EXPECT().Application("application-test", caas.DeploymentStateful).DoAndReturn(
+		broker.EXPECT().Application("test", caas.DeploymentStateful).DoAndReturn(
 			func(string, caas.DeploymentType) caas.Application {
 				return brokerApp
 			},
 		),
 
 		// Initial run - Ensure() for the application.
-		facade.EXPECT().Life("application-test").DoAndReturn(func(string) (life.Value, error) {
+		facade.EXPECT().Life("test").DoAndReturn(func(string) (life.Value, error) {
 			return life.Alive, nil
 		}),
-		facade.EXPECT().ApplicationCharmURL("application-test").DoAndReturn(func(string) (*charm.URL, error) {
+		facade.EXPECT().ApplicationCharmURL("test").DoAndReturn(func(string) (*charm.URL, error) {
 			return appCharmURL, nil
 		}),
 		facade.EXPECT().CharmInfo("cs:test").DoAndReturn(func(string) (*charmscommon.CharmInfo, error) {
@@ -131,11 +132,11 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		brokerApp.EXPECT().Exists().DoAndReturn(func() (caas.DeploymentState, error) {
 			return caas.DeploymentState{}, nil
 		}),
-		facade.EXPECT().SetPassword("application-test", gomock.Any()).Return(nil),
-		facade.EXPECT().ProvisioningInfo("application-test").DoAndReturn(func(string) (api.ProvisioningInfo, error) {
+		facade.EXPECT().SetPassword("test", gomock.Any()).Return(nil),
+		facade.EXPECT().ProvisioningInfo("test").DoAndReturn(func(string) (api.ProvisioningInfo, error) {
 			return appProvisioningInfo, nil
 		}),
-		facade.EXPECT().ApplicationOCIResources("application-test").DoAndReturn(func(string) (map[string]resources.DockerImageDetails, error) {
+		facade.EXPECT().ApplicationOCIResources("test").DoAndReturn(func(string) (map[string]resources.DockerImageDetails, error) {
 			return ociResources, nil
 		}),
 		brokerApp.EXPECT().Ensure(gomock.Any()).DoAndReturn(func(config caas.ApplicationConfig) error {
@@ -157,7 +158,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 			})
 			return nil
 		}),
-		facade.EXPECT().SetOperatorStatus("application-test", status.Active, "deployed", nil).Return(nil),
+		facade.EXPECT().SetOperatorStatus("test", status.Active, "deployed", nil).Return(nil),
 		brokerApp.EXPECT().Watch().Return(appWatcher, nil),
 		brokerApp.EXPECT().WatchReplicas().DoAndReturn(func() (watcher.NotifyWatcher, error) {
 			appReplicasChan <- struct{}{}
@@ -165,7 +166,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		}),
 
 		// Got replicaChanges -> updateState().
-		facade.EXPECT().Units("application-test").DoAndReturn(func(string) ([]names.Tag, error) {
+		facade.EXPECT().Units("test").DoAndReturn(func(string) ([]names.Tag, error) {
 			return []names.Tag{
 				names.NewUnitTag("test/0"),
 			}, nil
@@ -176,13 +177,67 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 				Replicas:        []string{"test-0"},
 			}, nil
 		}),
-		facade.EXPECT().GarbageCollect("application-test", []names.Tag{names.NewUnitTag("test/0")}, 1, []string{"test-0"}, false).DoAndReturn(func(appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error {
+		facade.EXPECT().GarbageCollect("test", []names.Tag{names.NewUnitTag("test/0")}, 1, []string{"test-0"}, false).DoAndReturn(func(appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error {
 			appChan <- struct{}{}
 			return nil
 		}),
 
+		brokerApp.EXPECT().Units().Return([]caas.Unit{{
+			Id:      "test-0",
+			Address: "10.10.10.1",
+			Dying:   false,
+			Status: status.StatusInfo{
+				Status: status.Active,
+			},
+			FilesystemInfo: []caas.FilesystemInfo{{
+				StorageName:  "database",
+				FilesystemId: "db-0",
+				Size:         1024,
+				MountPoint:   "/mnt/test",
+				ReadOnly:     false,
+				Status: status.StatusInfo{
+					Status:  status.Active,
+					Message: "bound",
+				},
+				Volume: caas.VolumeInfo{
+					Persistent: true,
+					Size:       1024,
+					VolumeId:   "pv-1234",
+					Status: status.StatusInfo{
+						Status:  status.Active,
+						Message: "bound",
+					},
+				},
+			}},
+		}}, nil),
+		facade.EXPECT().UpdateUnits(params.UpdateApplicationUnits{
+			ApplicationTag: "application-test",
+			Status:         params.EntityStatus{},
+			Units: []params.ApplicationUnitParams{{
+				ProviderId: "test-0",
+				Address:    "10.10.10.1",
+				Status:     "active",
+				FilesystemInfo: []params.KubernetesFilesystemInfo{{
+					StorageName:  "database",
+					FilesystemId: "db-0",
+					Size:         1024,
+					MountPoint:   "/mnt/test",
+					ReadOnly:     false,
+					Status:       "active",
+					Info:         "bound",
+					Volume: params.KubernetesVolumeInfo{
+						Persistent: true,
+						Size:       1024,
+						VolumeId:   "pv-1234",
+						Status:     "active",
+						Info:       "bound",
+					},
+				}},
+			}},
+		}).Return(nil, nil),
+
 		// Got appChanges -> updateState().
-		facade.EXPECT().Units("application-test").DoAndReturn(func(string) ([]names.Tag, error) {
+		facade.EXPECT().Units("test").DoAndReturn(func(string) ([]names.Tag, error) {
 			return []names.Tag{
 				names.NewUnitTag("test/0"),
 			}, nil
@@ -193,13 +248,25 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 				Replicas:        []string(nil),
 			}, nil
 		}),
-		facade.EXPECT().GarbageCollect("application-test", []names.Tag{names.NewUnitTag("test/0")}, 0, []string(nil), false).DoAndReturn(func(appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error {
+		facade.EXPECT().GarbageCollect("test", []names.Tag{names.NewUnitTag("test/0")}, 0, []string(nil), false).DoAndReturn(func(appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error {
 			notifyReady <- struct{}{}
 			return nil
 		}),
 
+		brokerApp.EXPECT().Units().Return([]caas.Unit{{
+			Id:    "test-0",
+			Dying: true,
+			Status: status.StatusInfo{
+				Status: status.Terminated,
+			},
+		}}, nil),
+		facade.EXPECT().UpdateUnits(params.UpdateApplicationUnits{
+			ApplicationTag: "application-test",
+			Status:         params.EntityStatus{},
+		}).Return(nil, nil),
+
 		// 1st Notify() - dying.
-		facade.EXPECT().Life("application-test").DoAndReturn(func(string) (life.Value, error) {
+		facade.EXPECT().Life("test").DoAndReturn(func(string) (life.Value, error) {
 			return life.Dying, nil
 		}),
 		brokerApp.EXPECT().Delete().DoAndReturn(func() error {
@@ -208,7 +275,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		}),
 
 		// 2nd Notify() - dead.
-		facade.EXPECT().Life("application-test").DoAndReturn(func(string) (life.Value, error) {
+		facade.EXPECT().Life("test").DoAndReturn(func(string) (life.Value, error) {
 			return life.Dead, nil
 		}),
 		brokerApp.EXPECT().Delete().DoAndReturn(func() error {
@@ -220,7 +287,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 				Terminating: false,
 			}, nil
 		}),
-		facade.EXPECT().Units("application-test").DoAndReturn(func(string) ([]names.Tag, error) {
+		facade.EXPECT().Units("test").DoAndReturn(func(string) ([]names.Tag, error) {
 			return []names.Tag(nil), nil
 		}),
 		brokerApp.EXPECT().State().DoAndReturn(func() (caas.ApplicationState, error) {
@@ -229,7 +296,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 				Replicas:        []string(nil),
 			}, nil
 		}),
-		facade.EXPECT().GarbageCollect("application-test", []names.Tag(nil), 0, []string(nil), true).DoAndReturn(func(appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error {
+		facade.EXPECT().GarbageCollect("test", []names.Tag(nil), 0, []string(nil), true).DoAndReturn(func(appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error {
 			close(done)
 			close(notifyReady)
 			return nil
@@ -237,7 +304,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 	)
 
 	config := caasapplicationprovisioner.AppWorkerConfig{
-		Name:     "application-test",
+		Name:     "test",
 		Facade:   facade,
 		Broker:   broker,
 		ModelTag: s.modelTag,

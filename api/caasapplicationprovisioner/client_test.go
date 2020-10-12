@@ -307,3 +307,70 @@ func (s *provisionerSuite) TestApplicationCharmURL(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(charmURL, jc.DeepEquals, &charm.URL{Schema: "cs", Name: "charm", Revision: -1})
 }
+
+func (s *provisionerSuite) TestUpdateUnits(c *gc.C) {
+	var called bool
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		called = true
+		c.Check(objType, gc.Equals, "CAASApplicationProvisioner")
+		c.Check(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "UpdateApplicationsUnits")
+		c.Assert(a, jc.DeepEquals, params.UpdateApplicationUnitArgs{
+			Args: []params.UpdateApplicationUnits{
+				{
+					ApplicationTag: "application-app",
+					Units: []params.ApplicationUnitParams{
+						{ProviderId: "uuid", UnitTag: "unit-gitlab-0", Address: "address", Ports: []string{"port"},
+							Status: "active", Info: "message"},
+					},
+				},
+			},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.UpdateApplicationUnitResults{})
+		*(result.(*params.UpdateApplicationUnitResults)) = params.UpdateApplicationUnitResults{
+			Results: []params.UpdateApplicationUnitResult{{
+				Info: &params.UpdateApplicationUnitsInfo{
+					Units: []params.ApplicationUnitInfo{
+						{ProviderId: "uuid", UnitTag: "unit-gitlab-0"},
+					},
+				},
+			}},
+		}
+		return nil
+	})
+	info, err := client.UpdateUnits(params.UpdateApplicationUnits{
+		ApplicationTag: names.NewApplicationTag("app").String(),
+		Units: []params.ApplicationUnitParams{
+			{ProviderId: "uuid", UnitTag: "unit-gitlab-0", Address: "address", Ports: []string{"port"},
+				Status: "active", Info: "message"},
+		},
+	})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(called, jc.IsTrue)
+	c.Check(info, jc.DeepEquals, &params.UpdateApplicationUnitsInfo{
+		Units: []params.ApplicationUnitInfo{
+			{ProviderId: "uuid", UnitTag: "unit-gitlab-0"},
+		},
+	})
+}
+
+func (s *provisionerSuite) TestUpdateUnitsCount(c *gc.C) {
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		c.Assert(result, gc.FitsTypeOf, &params.UpdateApplicationUnitResults{})
+		*(result.(*params.UpdateApplicationUnitResults)) = params.UpdateApplicationUnitResults{
+			Results: []params.UpdateApplicationUnitResult{
+				{Error: &params.Error{Message: "FAIL"}},
+				{Error: &params.Error{Message: "FAIL"}},
+			},
+		}
+		return nil
+	})
+	info, err := client.UpdateUnits(params.UpdateApplicationUnits{
+		ApplicationTag: names.NewApplicationTag("app").String(),
+		Units: []params.ApplicationUnitParams{
+			{ProviderId: "uuid", Address: "address"},
+		},
+	})
+	c.Check(err, gc.ErrorMatches, `expected 1 result\(s\), got 2`)
+	c.Assert(info, gc.IsNil)
+}

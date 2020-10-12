@@ -5,6 +5,7 @@ package resources
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -16,6 +17,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/core/status"
 )
 
 // Service extends the k8s service.
@@ -86,4 +88,17 @@ func (s *Service) Delete(ctx context.Context, client kubernetes.Interface) error
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// Events emitted by the resource.
+func (s *Service) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
+	return ListEventsForObject(ctx, client, s.Namespace, s.Name, "Service")
+}
+
+// ComputeStatus returns a juju status for the resource.
+func (s *Service) ComputeStatus(ctx context.Context, client kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error) {
+	if s.DeletionTimestamp != nil {
+		return "", status.Terminated, s.DeletionTimestamp.Time, nil
+	}
+	return "", status.Active, s.CreationTimestamp.Time, nil
 }

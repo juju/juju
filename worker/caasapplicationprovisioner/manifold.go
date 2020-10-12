@@ -19,6 +19,7 @@ type Logger interface {
 	Debugf(string, ...interface{})
 	Infof(string, ...interface{})
 	Errorf(string, ...interface{})
+	Warningf(string, ...interface{})
 }
 
 // ManifoldConfig defines a CAAS operator provisioner's dependencies.

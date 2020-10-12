@@ -5,9 +5,11 @@ package resources
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/errors"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -16,6 +18,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/core/status"
 )
 
 // DaemonSet extends the k8s daemonset.
@@ -86,4 +89,20 @@ func (ds *DaemonSet) Delete(ctx context.Context, client kubernetes.Interface) er
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// Events emitted by the resource.
+func (ds *DaemonSet) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
+	return ListEventsForObject(ctx, client, ds.Namespace, ds.Name, "DaemonSet")
+}
+
+// ComputeStatus returns a juju status for the resource.
+func (ds *DaemonSet) ComputeStatus(ctx context.Context, client kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error) {
+	if ds.DeletionTimestamp != nil {
+		return "", status.Terminated, ds.DeletionTimestamp.Time, nil
+	}
+	if ds.Status.NumberReady == ds.Status.DesiredNumberScheduled {
+		return "", status.Active, now, nil
+	}
+	return "", status.Waiting, now, nil
 }

@@ -5,6 +5,7 @@ package resources
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -16,6 +17,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/core/status"
 )
 
 // PersistentVolume extends the k8s persistentVolume.
@@ -85,4 +87,23 @@ func (pv *PersistentVolume) Delete(ctx context.Context, client kubernetes.Interf
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// Events emitted by the resource.
+func (pv *PersistentVolume) Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error) {
+	return ListEventsForObject(ctx, client, pv.Namespace, pv.Name, "PersistentVolume")
+}
+
+// ComputeStatus returns a juju status for the resource.
+func (pv *PersistentVolume) ComputeStatus(ctx context.Context, client kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error) {
+	if pv.DeletionTimestamp != nil {
+		return "", status.Terminated, pv.DeletionTimestamp.Time, nil
+	}
+	if pv.Status.Phase == corev1.VolumeBound {
+		return string(pv.Status.Phase), status.Active, now, nil
+	}
+	if pv.Status.Phase == corev1.VolumeAvailable {
+		return string(pv.Status.Phase), status.Active, now, nil
+	}
+	return string(pv.Status.Phase), status.Waiting, now, nil
 }

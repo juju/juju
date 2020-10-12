@@ -4,6 +4,7 @@
 package caasapplicationprovisioner
 
 import (
+	"reflect"
 	"strings"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/core/life"
@@ -107,6 +109,7 @@ func (a *appWorker) loop() error {
 	var appLife life.Value
 	var appChanges watcher.NotifyChannel
 	var replicaChanges watcher.NotifyChannel
+	var lastReportedStatus map[string]status.StatusInfo
 
 	for {
 		select {
@@ -158,12 +161,12 @@ func (a *appWorker) loop() error {
 				return a.dead(app)
 			}
 		case <-appChanges:
-			err = a.updateState(app, false)
+			lastReportedStatus, err = a.updateState(app, false, lastReportedStatus)
 			if err != nil {
 				return errors.Trace(err)
 			}
 		case <-replicaChanges:
-			err = a.updateState(app, false)
+			lastReportedStatus, err = a.updateState(app, false, lastReportedStatus)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -171,24 +174,118 @@ func (a *appWorker) loop() error {
 	}
 }
 
-func (a *appWorker) updateState(app caas.Application, force bool) error {
+func (a *appWorker) updateState(app caas.Application, force bool, lastReportedStatus map[string]status.StatusInfo) (map[string]status.StatusInfo, error) {
 	// Fetching the units here is to ensure happens-before consistency
 	// on the deletion of units.
 	observedUnits, err := a.facade.Units(a.name)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	st, err := app.State()
 	if errors.IsNotFound(err) {
 		// Do nothing
 	} else if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	err = a.facade.GarbageCollect(a.name, observedUnits, st.DesiredReplicas, st.Replicas, force)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	return nil
+	if force {
+		return nil, nil
+	}
+	// TODO: consolidate GarbageCollect and UpdateApplicationUnits into a single call.
+	units, err := app.Units()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	reportedStatus := make(map[string]status.StatusInfo)
+	args := params.UpdateApplicationUnits{
+		ApplicationTag: names.NewApplicationTag(a.name).String(),
+		Status:         params.EntityStatus{},
+	}
+	for _, u := range units {
+		// For pods managed by the substrate, any marked as dying
+		// are treated as non-existing.
+		if u.Dying {
+			continue
+		}
+		unitStatus := u.Status
+		lastStatus, ok := lastReportedStatus[u.Id]
+		reportedStatus[u.Id] = unitStatus
+		// TODO: Determine a better way to propagate status
+		// without constantly overriding the juju state value.
+		if ok {
+			// If we've seen the same status value previously,
+			// report as unknown as this value is ignored.
+			if reflect.DeepEqual(lastStatus, unitStatus) {
+				unitStatus = status.StatusInfo{
+					Status: status.Unknown,
+				}
+			}
+		}
+		unitParams := params.ApplicationUnitParams{
+			ProviderId: u.Id,
+			Address:    u.Address,
+			Ports:      u.Ports,
+			Stateful:   u.Stateful,
+			Status:     unitStatus.Status.String(),
+			Info:       unitStatus.Message,
+			Data:       unitStatus.Data,
+		}
+		// Fill in any filesystem info for volumes attached to the unit.
+		// A unit will not become active until all required volumes are
+		// provisioned, so it makes sense to send this information along
+		// with the units to which they are attached.
+		for _, info := range u.FilesystemInfo {
+			unitParams.FilesystemInfo = append(unitParams.FilesystemInfo, params.KubernetesFilesystemInfo{
+				StorageName:  info.StorageName,
+				FilesystemId: info.FilesystemId,
+				Size:         info.Size,
+				MountPoint:   info.MountPoint,
+				ReadOnly:     info.ReadOnly,
+				Status:       info.Status.Status.String(),
+				Info:         info.Status.Message,
+				Data:         info.Status.Data,
+				Volume: params.KubernetesVolumeInfo{
+					VolumeId:   info.Volume.VolumeId,
+					Size:       info.Volume.Size,
+					Persistent: info.Volume.Persistent,
+					Status:     info.Volume.Status.Status.String(),
+					Info:       info.Volume.Status.Message,
+					Data:       info.Volume.Status.Data,
+				},
+			})
+		}
+		args.Units = append(args.Units, unitParams)
+	}
+
+	appUnitInfo, err := a.facade.UpdateUnits(args)
+	if err != nil {
+		// We can ignore not found errors as the worker will get stopped anyway.
+		// We can also ignore Forbidden errors raised from SetScale because disordered events could happen often.
+		if !errors.IsForbidden(err) && !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		}
+		a.logger.Warningf("update units %v", err)
+	}
+
+	if appUnitInfo != nil {
+		for _, unitInfo := range appUnitInfo.Units {
+			unit, err := names.ParseUnitTag(unitInfo.UnitTag)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			err = a.broker.AnnotateUnit(a.name, caas.ModeEmbedded, unitInfo.ProviderId, unit)
+			if errors.IsNotFound(err) {
+				continue
+			} else if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+	}
+	return reportedStatus, nil
 }
 
 func (a *appWorker) alive(app caas.Application) error {
@@ -330,7 +427,7 @@ func (a *appWorker) dead(app caas.Application) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = a.updateState(app, true)
+	_, err = a.updateState(app, true, nil)
 	if err != nil {
 		return errors.Trace(err)
 	}

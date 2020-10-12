@@ -5,17 +5,17 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
 	caasapplicationprovisioner "github.com/juju/juju/api/caasapplicationprovisioner"
 	charms "github.com/juju/juju/api/common/charms"
+	params "github.com/juju/juju/apiserver/params"
 	life "github.com/juju/juju/core/life"
 	resources "github.com/juju/juju/core/resources"
 	status "github.com/juju/juju/core/status"
 	watcher "github.com/juju/juju/core/watcher"
 	names "github.com/juju/names/v4"
+	reflect "reflect"
 )
 
 // MockCAASProvisionerFacade is a mock of CAASProvisionerFacade interface
@@ -171,6 +171,21 @@ func (m *MockCAASProvisionerFacade) Units(arg0 string) ([]names.Tag, error) {
 func (mr *MockCAASProvisionerFacadeMockRecorder) Units(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Units", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).Units), arg0)
+}
+
+// UpdateUnits mocks base method
+func (m *MockCAASProvisionerFacade) UpdateUnits(arg0 params.UpdateApplicationUnits) (*params.UpdateApplicationUnitsInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateUnits", arg0)
+	ret0, _ := ret[0].(*params.UpdateApplicationUnitsInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateUnits indicates an expected call of UpdateUnits
+func (mr *MockCAASProvisionerFacadeMockRecorder) UpdateUnits(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateUnits", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).UpdateUnits), arg0)
 }
 
 // WatchApplications mocks base method

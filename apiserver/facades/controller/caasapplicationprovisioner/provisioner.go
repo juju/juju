@@ -9,8 +9,10 @@ import (
 	"io"
 	"io/ioutil"
 	"sort"
+	"time"
 
 	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -34,6 +36,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/state"
+	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
@@ -55,8 +58,10 @@ type API struct {
 	resources facade.Resources
 
 	state              CAASApplicationProvisionerState
+	storage            StorageBackend
 	storagePoolManager poolmanager.PoolManager
 	registry           storage.ProviderRegistry
+	clock              clock.Clock
 }
 
 // NewStateCAASApplicationProvisionerAPI provides the signature required for facade registration.
@@ -65,6 +70,10 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error
 	resources := ctx.Resources()
 
 	st := ctx.State()
+	sb, err := state.NewStorageBackend(ctx.State())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	model, err := st.Model()
 	if err != nil {
@@ -82,7 +91,15 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error
 		return nil, errors.Trace(err)
 	}
 
-	api, err := NewCAASApplicationProvisionerAPI(stateShim{st}, resources, authorizer, pm, registry)
+	api, err := NewCAASApplicationProvisionerAPI(
+		stateShim{st},
+		resources,
+		authorizer,
+		sb,
+		pm,
+		registry,
+		clock.WallClock,
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -103,8 +120,10 @@ func NewCAASApplicationProvisionerAPI(
 	st CAASApplicationProvisionerState,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
+	sb StorageBackend,
 	storagePoolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
+	clock clock.Clock,
 ) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -114,8 +133,10 @@ func NewCAASApplicationProvisionerAPI(
 		auth:               authorizer,
 		resources:          resources,
 		state:              st,
+		storage:            sb,
 		storagePoolManager: storagePoolManager,
 		registry:           registry,
+		clock:              clock,
 	}, nil
 }
 
@@ -344,6 +365,7 @@ func (a *API) garbageCollectOneApplication(args params.CAASApplicationGarbageCol
 		return errors.Trace(err)
 	}
 
+	filesystemStatus := make(map[string]status.StatusInfo)
 	op := state.UpdateUnitsOperation{}
 	for _, unit := range units {
 		tag := unit.Tag()
@@ -383,17 +405,42 @@ func (a *API) garbageCollectOneApplication(args params.CAASApplicationGarbageCol
 			}
 		}
 
-		err = unit.EnsureDead()
+		logger.Debugf("deleting unit %q", tag.String())
+
+		// If a unit is removed from the cloud, all filesystems are considered detached.
+		unitStorage, err := a.storage.UnitStorageAttachments(tag.(names.UnitTag))
 		if err != nil {
 			return errors.Trace(err)
 		}
-		logger.Debugf("deleting unit %q", tag.String())
+		for _, sa := range unitStorage {
+			fs, err := a.storage.StorageInstanceFilesystem(sa.StorageInstance())
+			if err != nil {
+				return errors.Trace(err)
+			}
+			filesystemStatus[fs.FilesystemTag().String()] = status.StatusInfo{Status: status.Detached}
+		}
+		cloudContainerStatus := &status.StatusInfo{
+			Status:  status.Terminated,
+			Message: "unit stopped by the cloud",
+		}
+		agentStatus := &status.StatusInfo{
+			Status: status.Idle,
+		}
+		updateProps := state.UnitUpdateProperties{
+			CloudContainerStatus: cloudContainerStatus,
+			AgentStatus:          agentStatus,
+		}
+		op.Updates = append(op.Updates, unit.UpdateOperation(updateProps))
 		destroyOp := unit.DestroyOperation()
 		destroyOp.Force = true
 		op.Deletes = append(op.Deletes, destroyOp)
 	}
 	if len(op.Deletes) == 0 {
 		return nil
+	}
+
+	if err := a.updateFilesystemInfo(nil, filesystemStatus); err != nil {
+		return errors.Annotatef(err, "updating filesystem information for %v", appName)
 	}
 
 	return app.UpdateUnits(&op)
@@ -677,4 +724,521 @@ func readDockerImageResource(reader io.Reader) (params.DockerImageInfo, error) {
 		Username:     details.Username,
 		Password:     details.Password,
 	}, nil
+}
+
+// UpdateApplicationsUnits updates the Juju data model to reflect the given
+// units of the specified application.
+func (a *API) UpdateApplicationsUnits(args params.UpdateApplicationUnitArgs) (params.UpdateApplicationUnitResults, error) {
+	result := params.UpdateApplicationUnitResults{
+		Results: make([]params.UpdateApplicationUnitResult, len(args.Args)),
+	}
+	if len(args.Args) == 0 {
+		return result, nil
+	}
+	for i, appUpdate := range args.Args {
+		appTag, err := names.ParseApplicationTag(appUpdate.ApplicationTag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		app, err := a.state.Application(appTag.Id())
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		if app.Life() != state.Alive {
+			// We ignore any updates for dying applications.
+			logger.Debugf("ignoring unit updates for dying application: %v", app.Name())
+			continue
+		}
+		appStatus := appUpdate.Status
+		if appStatus.Status != "" && appStatus.Status != status.Unknown {
+			now := a.clock.Now()
+			err = app.SetStatus(status.StatusInfo{
+				Status:  appStatus.Status,
+				Message: appStatus.Info,
+				Data:    appStatus.Data,
+				Since:   &now,
+			})
+			if err != nil {
+				result.Results[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+		}
+		appUnitInfo, err := a.updateUnitsFromCloud(app, appUpdate.Units)
+		if err != nil {
+			// Mask any not found errors as the worker (caller) treats them specially
+			// and they are not relevant here.
+			result.Results[i].Error = apiservererrors.ServerError(errors.Mask(err))
+		}
+
+		// Errors from SetScale will also include unit info.
+		if appUnitInfo != nil {
+			result.Results[i].Info = &params.UpdateApplicationUnitsInfo{
+				Units: appUnitInfo,
+			}
+		}
+	}
+	return result, nil
+}
+
+type filesystemInfo struct {
+	unitTag      names.UnitTag
+	providerId   string
+	mountPoint   string
+	readOnly     bool
+	size         uint64
+	filesystemId string
+}
+
+type volumeInfo struct {
+	unitTag    names.UnitTag
+	providerId string
+	readOnly   bool
+	persistent bool
+	size       uint64
+	volumeId   string
+}
+
+func (a *API) updateUnitsFromCloud(app Application, unitUpdates []params.ApplicationUnitParams) ([]params.ApplicationUnitInfo, error) {
+	logger.Debugf("unit updates: %#v", unitUpdates)
+
+	m, err := a.state.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var providerIds []string
+	for _, u := range unitUpdates {
+		providerIds = append(providerIds, u.ProviderId)
+	}
+	containers, err := m.Containers(providerIds...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	units, err := app.AllUnits()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	unitByTag := make(map[string]Unit)
+	for _, v := range units {
+		unitByTag[v.Tag().String()] = v
+	}
+	unitByProviderID := make(map[string]Unit)
+	for _, v := range containers {
+		tag := names.NewUnitTag(v.Unit())
+		unit, ok := unitByTag[tag.String()]
+		if !ok {
+			return nil, errors.NotFoundf("unit %q with provider id %q", tag, v.ProviderId())
+		}
+		unitByProviderID[v.ProviderId()] = unit
+	}
+
+	filesystemUpdates := make(map[string]filesystemInfo)
+	filesystemStatus := make(map[string]status.StatusInfo)
+	volumeUpdates := make(map[string]volumeInfo)
+	volumeStatus := make(map[string]status.StatusInfo)
+
+	processFilesystemParams := func(processedFilesystemIds set.Strings, unitTag names.UnitTag, unitParams params.ApplicationUnitParams) error {
+		// Once a unit is available in the cluster, we consider
+		// its filesystem(s) to be attached since the unit is
+		// not considered ready until this happens.
+		filesystemInfoByName := make(map[string][]params.KubernetesFilesystemInfo)
+		for _, fsInfo := range unitParams.FilesystemInfo {
+			infos := filesystemInfoByName[fsInfo.StorageName]
+			infos = append(infos, fsInfo)
+			filesystemInfoByName[fsInfo.StorageName] = infos
+		}
+
+		for storageName, infos := range filesystemInfoByName {
+			logger.Debugf("updating storage %v for %v", storageName, unitTag)
+			if len(infos) == 0 {
+				continue
+			}
+
+			unitStorage, err := a.storage.UnitStorageAttachments(unitTag)
+			if err != nil {
+				return errors.Trace(err)
+			}
+
+			// Loop over all the storage for the unit and skip storage not
+			// relevant for storageName.
+			// TODO(caas) - Add storage bankend API to get all unit storage instances for a named storage.
+			for _, sa := range unitStorage {
+				si, err := a.storage.StorageInstance(sa.StorageInstance())
+				if errors.IsNotFound(err) {
+					logger.Warningf("ignoring non-existent storage instance %v for unit %v", sa.StorageInstance(), unitTag.Id())
+					continue
+				}
+				if err != nil {
+					return errors.Trace(err)
+				}
+				if si.StorageName() != storageName {
+					continue
+				}
+				fs, err := a.storage.StorageInstanceFilesystem(sa.StorageInstance())
+				if err != nil {
+					return errors.Trace(err)
+				}
+				fsInfo := infos[0]
+				processedFilesystemIds.Add(fsInfo.FilesystemId)
+
+				// k8s reports provisioned info even when the volume is not ready.
+				// Only update state when volume is created so Juju doesn't think
+				// the volume is active when it's not.
+				if fsInfo.Status != status.Pending.String() {
+					filesystemUpdates[fs.FilesystemTag().String()] = filesystemInfo{
+						unitTag:      unitTag,
+						providerId:   unitParams.ProviderId,
+						mountPoint:   fsInfo.MountPoint,
+						readOnly:     fsInfo.ReadOnly,
+						size:         fsInfo.Size,
+						filesystemId: fsInfo.FilesystemId,
+					}
+				}
+				filesystemStatus[fs.FilesystemTag().String()] = status.StatusInfo{
+					Status:  status.Status(fsInfo.Status),
+					Message: fsInfo.Info,
+					Data:    fsInfo.Data,
+				}
+
+				// If the filesystem has a backing volume, get that info also.
+				if _, err := fs.Volume(); err == nil {
+					vol, err := a.storage.StorageInstanceVolume(sa.StorageInstance())
+					if err != nil {
+						return errors.Trace(err)
+					}
+					if fsInfo.Volume.Status != status.Pending.String() {
+						volumeUpdates[vol.VolumeTag().String()] = volumeInfo{
+							unitTag:    unitTag,
+							providerId: unitParams.ProviderId,
+							size:       fsInfo.Volume.Size,
+							volumeId:   fsInfo.Volume.VolumeId,
+							persistent: fsInfo.Volume.Persistent,
+							readOnly:   fsInfo.ReadOnly,
+						}
+					}
+					volumeStatus[vol.VolumeTag().String()] = status.StatusInfo{
+						Status:  status.Status(fsInfo.Volume.Status),
+						Message: fsInfo.Volume.Info,
+						Data:    fsInfo.Volume.Data,
+					}
+				}
+
+				infos = infos[1:]
+				if len(infos) == 0 {
+					break
+				}
+			}
+		}
+		return nil
+	}
+
+	unitUpdate := state.UpdateUnitsOperation{}
+	processedFilesystemIds := set.NewStrings()
+	for _, unitParams := range unitUpdates {
+		unit, ok := unitByProviderID[unitParams.ProviderId]
+		if !ok {
+			logger.Warningf("ignoring non-existent unit with provider id %q", unitParams.ProviderId)
+			continue
+		}
+
+		updateProps := processUnitParams(unitParams)
+		unitUpdate.Updates = append(unitUpdate.Updates, unit.UpdateOperation(*updateProps))
+
+		if len(unitParams.FilesystemInfo) > 0 {
+			err := processFilesystemParams(processedFilesystemIds, unit.Tag().(names.UnitTag), unitParams)
+			if err != nil {
+				return nil, errors.Annotatef(err, "processing filesystems for unit %q", unit.Tag())
+			}
+		}
+	}
+
+	err = app.UpdateUnits(&unitUpdate)
+	// We ignore any updates for dying applications.
+	if stateerrors.IsNotAlive(err) {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// If pods are recreated on the Kubernetes side, new units are created on the Juju
+	// side and so any previously attached filesystems become orphaned and need to
+	// be cleaned up.
+	appName := app.Name()
+	if err := a.cleanupOrphanedFilesystems(processedFilesystemIds); err != nil {
+		return nil, errors.Annotatef(err, "deleting orphaned filesystems for %v", appName)
+	}
+
+	// First do the volume updates as volumes need to be attached before the filesystem updates.
+	if err := a.updateVolumeInfo(volumeUpdates, volumeStatus); err != nil {
+		return nil, errors.Annotatef(err, "updating volume information for %v", appName)
+	}
+
+	if err := a.updateFilesystemInfo(filesystemUpdates, filesystemStatus); err != nil {
+		return nil, errors.Annotatef(err, "updating filesystem information for %v", appName)
+	}
+
+	var appUnitInfo []params.ApplicationUnitInfo
+	for _, c := range containers {
+		appUnitInfo = append(appUnitInfo, params.ApplicationUnitInfo{
+			ProviderId: c.ProviderId(),
+			UnitTag:    names.NewUnitTag(c.Unit()).String(),
+		})
+	}
+	return appUnitInfo, nil
+}
+
+func (a *API) cleanupOrphanedFilesystems(processedFilesystemIds set.Strings) error {
+	// TODO(caas) - record unit id on the filesystem so we can query by unit
+	allFilesystems, err := a.storage.AllFilesystems()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, fs := range allFilesystems {
+		fsInfo, err := fs.Info()
+		if errors.IsNotProvisioned(err) {
+			continue
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !processedFilesystemIds.Contains(fsInfo.FilesystemId) {
+			continue
+		}
+
+		storageTag, err := fs.Storage()
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+		if err != nil {
+			continue
+		}
+
+		si, err := a.storage.StorageInstance(storageTag)
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+		if err != nil {
+			continue
+		}
+		_, ok := si.Owner()
+		if ok {
+			continue
+		}
+
+		logger.Debugf("found orphaned filesystem %v", fs.FilesystemTag())
+		// TODO (anastasiamac 2019-04-04) We can now force storage removal
+		// but for now, while we have not an arg passed in, just hardcode.
+		err = a.storage.DestroyStorageInstance(storageTag, false, false, time.Duration(0))
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+		err = a.storage.DestroyFilesystem(fs.FilesystemTag(), false)
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func (a *API) updateVolumeInfo(volumeUpdates map[string]volumeInfo, volumeStatus map[string]status.StatusInfo) error {
+	// Do it in sorted order so it's deterministic for tests.
+	var volTags []string
+	for tag := range volumeUpdates {
+		volTags = append(volTags, tag)
+	}
+	sort.Strings(volTags)
+
+	logger.Debugf("updating volume data: %+v", volumeUpdates)
+	for _, tagString := range volTags {
+		volTag, _ := names.ParseVolumeTag(tagString)
+		volData := volumeUpdates[tagString]
+
+		vol, err := a.storage.Volume(volTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		// If we have already recorded the provisioning info,
+		// it's an error to try and do it again.
+		_, err = vol.Info()
+		if err != nil && !errors.IsNotProvisioned(err) {
+			return errors.Trace(err)
+		}
+		if err != nil {
+			// Provisioning info not set yet.
+			err = a.storage.SetVolumeInfo(volTag, state.VolumeInfo{
+				Size:       volData.size,
+				VolumeId:   volData.volumeId,
+				Persistent: volData.persistent,
+			})
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
+
+		err = a.storage.SetVolumeAttachmentInfo(volData.unitTag, volTag, state.VolumeAttachmentInfo{
+			ReadOnly: volData.readOnly,
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	// Do it in sorted order so it's deterministic for tests.
+	volTags = []string{}
+	for tag := range volumeStatus {
+		volTags = append(volTags, tag)
+	}
+	sort.Strings(volTags)
+
+	logger.Debugf("updating volume status: %+v", volumeStatus)
+	for _, tagString := range volTags {
+		volTag, _ := names.ParseVolumeTag(tagString)
+		volStatus := volumeStatus[tagString]
+		vol, err := a.storage.Volume(volTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		now := a.clock.Now()
+		err = vol.SetStatus(status.StatusInfo{
+			Status:  volStatus.Status,
+			Message: volStatus.Message,
+			Data:    volStatus.Data,
+			Since:   &now,
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	return nil
+}
+
+func (a *API) updateFilesystemInfo(filesystemUpdates map[string]filesystemInfo, filesystemStatus map[string]status.StatusInfo) error {
+	// Do it in sorted order so it's deterministic for tests.
+	var fsTags []string
+	for tag := range filesystemUpdates {
+		fsTags = append(fsTags, tag)
+	}
+	sort.Strings(fsTags)
+
+	logger.Debugf("updating filesystem data: %+v", filesystemUpdates)
+	for _, tagString := range fsTags {
+		fsTag, _ := names.ParseFilesystemTag(tagString)
+		fsData := filesystemUpdates[tagString]
+
+		fs, err := a.storage.Filesystem(fsTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		// If we have already recorded the provisioning info,
+		// it's an error to try and do it again.
+		_, err = fs.Info()
+		if err != nil && !errors.IsNotProvisioned(err) {
+			return errors.Trace(err)
+		}
+		if err != nil {
+			// Provisioning info not set yet.
+			err = a.storage.SetFilesystemInfo(fsTag, state.FilesystemInfo{
+				Size:         fsData.size,
+				FilesystemId: fsData.filesystemId,
+			})
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
+
+		err = a.storage.SetFilesystemAttachmentInfo(fsData.unitTag, fsTag, state.FilesystemAttachmentInfo{
+			MountPoint: fsData.mountPoint,
+			ReadOnly:   fsData.readOnly,
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	// Do it in sorted order so it's deterministic for tests.
+	fsTags = []string{}
+	for tag := range filesystemStatus {
+		fsTags = append(fsTags, tag)
+	}
+	sort.Strings(fsTags)
+
+	logger.Debugf("updating filesystem status: %+v", filesystemStatus)
+	for _, tagString := range fsTags {
+		fsTag, _ := names.ParseFilesystemTag(tagString)
+		fsStatus := filesystemStatus[tagString]
+		fs, err := a.storage.Filesystem(fsTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		now := a.clock.Now()
+		err = fs.SetStatus(status.StatusInfo{
+			Status:  fsStatus.Status,
+			Message: fsStatus.Message,
+			Data:    fsStatus.Data,
+			Since:   &now,
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	return nil
+}
+
+func processUnitParams(unitParams params.ApplicationUnitParams) *state.UnitUpdateProperties {
+	agentStatus, cloudContainerStatus := updateStatus(unitParams)
+	return &state.UnitUpdateProperties{
+		ProviderId:           &unitParams.ProviderId,
+		Address:              &unitParams.Address,
+		Ports:                &unitParams.Ports,
+		AgentStatus:          agentStatus,
+		CloudContainerStatus: cloudContainerStatus,
+	}
+}
+
+// updateStatus constructs the agent and cloud container status values.
+func updateStatus(params params.ApplicationUnitParams) (
+	agentStatus *status.StatusInfo,
+	cloudContainerStatus *status.StatusInfo,
+) {
+	var containerStatus status.Status
+	switch status.Status(params.Status) {
+	case status.Unknown:
+		// The container runtime can spam us with unimportant
+		// status updates, so ignore any irrelevant ones.
+		return nil, nil
+	case status.Allocating:
+		// The container runtime has decided to restart the pod.
+		agentStatus = &status.StatusInfo{
+			Status:  status.Allocating,
+			Message: params.Info,
+		}
+		containerStatus = status.Waiting
+	case status.Running:
+		// A pod has finished starting so the workload is now active.
+		agentStatus = &status.StatusInfo{
+			Status: status.Idle,
+		}
+		containerStatus = status.Running
+	case status.Error:
+		agentStatus = &status.StatusInfo{
+			Status:  status.Error,
+			Message: params.Info,
+			Data:    params.Data,
+		}
+		containerStatus = status.Error
+	case status.Blocked:
+		containerStatus = status.Blocked
+		agentStatus = &status.StatusInfo{
+			Status: status.Idle,
+		}
+	}
+	cloudContainerStatus = &status.StatusInfo{
+		Status:  containerStatus,
+		Message: params.Info,
+		Data:    params.Data,
+	}
+	return agentStatus, cloudContainerStatus
 }

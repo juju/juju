@@ -15,6 +15,7 @@ import (
 
 	api "github.com/juju/juju/api/caasapplicationprovisioner"
 	charmscommon "github.com/juju/juju/api/common/charms"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/resources"
@@ -38,11 +39,13 @@ type CAASProvisionerFacade interface {
 	Units(appName string) ([]names.Tag, error)
 	GarbageCollect(appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error
 	ApplicationOCIResources(appName string) (map[string]resources.DockerImageDetails, error)
+	UpdateUnits(arg params.UpdateApplicationUnits) (*params.UpdateApplicationUnitsInfo, error)
 }
 
 // CAASBroker exposes CAAS broker functionality to a worker.
 type CAASBroker interface {
 	Application(string, caas.DeploymentType) caas.Application
+	AnnotateUnit(appName string, mode caas.DeploymentMode, podName string, unit names.UnitTag) error
 }
 
 // Config defines the operation of a Worker.
