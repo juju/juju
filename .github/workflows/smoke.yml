@@ -36,13 +36,6 @@ jobs:
         set -euxo pipefail
         sudo snap install *.snap --dangerous --classic
 
-    - name: Preflight
-      shell: bash
-      run: |
-        set -euxo pipefail
-        juju status
-        juju version
-
     - name: Smoke Test
       shell: bash
       run: |
