@@ -18,10 +18,11 @@ run() {
   # Prevent command from killing the script so we can capture its exit code
   # AND output. Also, make sure to grab both STDOUT and STDERR. We should be
   # using set -o pipefail here but that's unfortunately not supported by the shell.
+  set_verbosity
   set +e
   cmd_output=$("${CMD}" "$@" 2>&1)
   cmd_status=$?
-  echo -e "$cmd_output" | OUTPUT "${TEST_DIR}/${TEST_CURRENT}.log"
+  echo "$cmd_output" | OUTPUT "${TEST_DIR}/${TEST_CURRENT}.log"
 
   set_verbosity
   END_TIME=$(date +%s)
