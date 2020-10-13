@@ -216,6 +216,7 @@ func (d *factory) newDeployCharm() deployCharm {
 		placement:       d.placement,
 		placementSpec:   d.placementSpec,
 		resources:       d.resources,
+		series:          d.series,
 		steps:           d.steps,
 		storage:         d.storage,
 		trust:           d.trust,
@@ -276,7 +277,7 @@ func (d *factory) newDeployBundle(ds charm.BundleDataSource) deployBundle {
 
 func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error) {
 	// NOTE: Here we select the series using the algorithm defined by
-	// `seriesSelector.CharmSeries`. This serves to override the algorithm found in
+	// `seriesSelector.charmSeries`. This serves to override the algorithm found in
 	// `charmrepo.NewCharmAtPath` which is outdated (but must still be
 	// called since the code is coupled with path interpretation logic which
 	// cannot easily be factored out).
