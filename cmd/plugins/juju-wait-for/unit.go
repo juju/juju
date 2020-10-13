@@ -4,7 +4,6 @@
 package main
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/cmd"
@@ -175,6 +174,5 @@ func (m UnitScope) GetIdentValue(name string) (query.Ord, error) {
 	case "agent-status":
 		return query.NewString(string(m.UnitInfo.AgentStatus.Current)), nil
 	}
-	fmt.Println(">>", name)
 	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name), "Runtime Error: identifier %q not found on UnitInfo", name)
 }
