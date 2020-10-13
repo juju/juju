@@ -234,6 +234,9 @@ else
 	@echo "skipping to build jujud bin, use existing one at ${JUJUD_BIN_DIR}/."
 endif
 	make build-pebble
+ifneq (${BIN_DIR},${JUJUD_BIN_DIR})
+	@cp ${BIN_DIR}/juju-fake-init ${JUJUD_BIN_DIR}/juju-fake-init
+endif
 
 build-pebble:
 	@mkdir -p ${BIN_DIR}

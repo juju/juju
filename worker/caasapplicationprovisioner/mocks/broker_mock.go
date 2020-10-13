@@ -5,10 +5,10 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	caas "github.com/juju/juju/caas"
+	names "github.com/juju/names/v4"
+	reflect "reflect"
 )
 
 // MockCAASBroker is a mock of CAASBroker interface
@@ -32,6 +32,20 @@ func NewMockCAASBroker(ctrl *gomock.Controller) *MockCAASBroker {
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockCAASBroker) EXPECT() *MockCAASBrokerMockRecorder {
 	return m.recorder
+}
+
+// AnnotateUnit mocks base method
+func (m *MockCAASBroker) AnnotateUnit(arg0 string, arg1 caas.DeploymentMode, arg2 string, arg3 names.UnitTag) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AnnotateUnit", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AnnotateUnit indicates an expected call of AnnotateUnit
+func (mr *MockCAASBrokerMockRecorder) AnnotateUnit(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AnnotateUnit", reflect.TypeOf((*MockCAASBroker)(nil).AnnotateUnit), arg0, arg1, arg2, arg3)
 }
 
 // Application mocks base method

@@ -315,3 +315,22 @@ func (c *Client) ApplicationOCIResources(appName string) (map[string]resources.D
 	}
 	return images, nil
 }
+
+// UpdateUnits updates the state model to reflect the state of the units
+// as reported by the cloud.
+func (c *Client) UpdateUnits(arg params.UpdateApplicationUnits) (*params.UpdateApplicationUnitsInfo, error) {
+	var result params.UpdateApplicationUnitResults
+	args := params.UpdateApplicationUnitArgs{Args: []params.UpdateApplicationUnits{arg}}
+	err := c.facade.FacadeCall("UpdateApplicationsUnits", args, &result)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(result.Results) != len(args.Args) {
+		return nil, errors.Errorf("expected %d result(s), got %d", len(args.Args), len(result.Results))
+	}
+	firstResult := result.Results[0]
+	if firstResult.Error == nil {
+		return firstResult.Info, nil
+	}
+	return firstResult.Info, maybeNotFound(firstResult.Error)
+}

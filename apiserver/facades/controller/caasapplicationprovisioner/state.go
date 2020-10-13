@@ -5,6 +5,7 @@ package caasapplicationprovisioner
 
 import (
 	"io"
+	"time"
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/names/v4"
@@ -50,6 +51,7 @@ type Application interface {
 	Constraints() (constraints.Value, error)
 	Life() state.Life
 	Series() string
+	SetStatus(statusInfo status.StatusInfo) error
 }
 
 type Charm interface {
@@ -62,6 +64,7 @@ type Unit interface {
 	DestroyOperation() *state.DestroyUnitOperation
 	EnsureDead() error
 	ContainerInfo() (state.CloudContainer, error)
+	UpdateOperation(props state.UnitUpdateProperties) *state.UpdateUnitOperation
 }
 
 type Resources interface {
@@ -110,4 +113,25 @@ func (a *applicationShim) AllUnits() ([]Unit, error) {
 		res = append(res, unit)
 	}
 	return res, nil
+}
+
+// StorageBackend provides the subset of backend storage
+// functionality required by the CAAS app provisioner facade.
+type StorageBackend interface {
+	StorageInstance(names.StorageTag) (state.StorageInstance, error)
+	Filesystem(names.FilesystemTag) (state.Filesystem, error)
+	StorageInstanceFilesystem(names.StorageTag) (state.Filesystem, error)
+	UnitStorageAttachments(unit names.UnitTag) ([]state.StorageAttachment, error)
+	SetFilesystemInfo(names.FilesystemTag, state.FilesystemInfo) error
+	SetFilesystemAttachmentInfo(names.Tag, names.FilesystemTag, state.FilesystemAttachmentInfo) error
+	Volume(tag names.VolumeTag) (state.Volume, error)
+	StorageInstanceVolume(tag names.StorageTag) (state.Volume, error)
+	SetVolumeInfo(names.VolumeTag, state.VolumeInfo) error
+	SetVolumeAttachmentInfo(names.Tag, names.VolumeTag, state.VolumeAttachmentInfo) error
+
+	// These are for cleanup up orphaned filesystems when pods are recreated.
+	// TODO(caas) - record unit id on the filesystem so we can query by unit
+	AllFilesystems() ([]state.Filesystem, error)
+	DestroyStorageInstance(tag names.StorageTag, destroyAttachments bool, force bool, maxWait time.Duration) (err error)
+	DestroyFilesystem(tag names.FilesystemTag, force bool) (err error)
 }

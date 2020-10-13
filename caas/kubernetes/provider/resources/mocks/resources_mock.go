@@ -6,11 +6,13 @@ package mocks
 
 import (
 	context "context"
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	resources "github.com/juju/juju/caas/kubernetes/provider/resources"
+	status "github.com/juju/juju/core/status"
+	v1 "k8s.io/api/core/v1"
 	kubernetes "k8s.io/client-go/kubernetes"
+	reflect "reflect"
+	time "time"
 )
 
 // MockResource is a mock of Resource interface
@@ -64,6 +66,23 @@ func (mr *MockResourceMockRecorder) Clone() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Clone", reflect.TypeOf((*MockResource)(nil).Clone))
 }
 
+// ComputeStatus mocks base method
+func (m *MockResource) ComputeStatus(arg0 context.Context, arg1 kubernetes.Interface, arg2 time.Time) (string, status.Status, time.Time, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ComputeStatus", arg0, arg1, arg2)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(status.Status)
+	ret2, _ := ret[2].(time.Time)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
+}
+
+// ComputeStatus indicates an expected call of ComputeStatus
+func (mr *MockResourceMockRecorder) ComputeStatus(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ComputeStatus", reflect.TypeOf((*MockResource)(nil).ComputeStatus), arg0, arg1, arg2)
+}
+
 // Delete mocks base method
 func (m *MockResource) Delete(arg0 context.Context, arg1 kubernetes.Interface) error {
 	m.ctrl.T.Helper()
@@ -76,6 +95,21 @@ func (m *MockResource) Delete(arg0 context.Context, arg1 kubernetes.Interface) e
 func (mr *MockResourceMockRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockResource)(nil).Delete), arg0, arg1)
+}
+
+// Events mocks base method
+func (m *MockResource) Events(arg0 context.Context, arg1 kubernetes.Interface) ([]v1.Event, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Events", arg0, arg1)
+	ret0, _ := ret[0].([]v1.Event)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Events indicates an expected call of Events
+func (mr *MockResourceMockRecorder) Events(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Events", reflect.TypeOf((*MockResource)(nil).Events), arg0, arg1)
 }
 
 // Get mocks base method

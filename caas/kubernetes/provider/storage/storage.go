@@ -115,9 +115,10 @@ func StorageClassSpec(cfg caas.StorageProvisioner, legacyLabels bool) *storagev1
 
 // VolumeInfo returns volume info.
 func VolumeInfo(pv *resources.PersistentVolume, now time.Time) caas.VolumeInfo {
+	size := quantityAsMibiBytes(*pv.Spec.Capacity.Storage())
 	return caas.VolumeInfo{
 		VolumeId:   pv.Name,
-		Size:       uint64(pv.Size()),
+		Size:       size,
 		Persistent: pv.Spec.PersistentVolumeReclaimPolicy == corev1.PersistentVolumeReclaimRetain,
 		Status: status.StatusInfo{
 			Status:  VolumeStatus(pv.Status.Phase),
@@ -129,8 +130,45 @@ func VolumeInfo(pv *resources.PersistentVolume, now time.Time) caas.VolumeInfo {
 
 // FilesystemInfo returns filesystem info.
 func FilesystemInfo(ctx context.Context, client kubernetes.Interface,
-	pvc *resources.PersistentVolumeClaim, volume corev1.Volume, volumeMount corev1.VolumeMount,
+	namespace string, volume corev1.Volume, volumeMount corev1.VolumeMount,
 	now time.Time) (*caas.FilesystemInfo, error) {
+	if volume.EmptyDir != nil {
+		size := uint64(0)
+		if volume.EmptyDir.SizeLimit != nil {
+			size = quantityAsMibiBytes(*volume.EmptyDir.SizeLimit)
+		}
+		return &caas.FilesystemInfo{
+			Size:         size,
+			FilesystemId: volume.Name,
+			MountPoint:   volumeMount.MountPath,
+			ReadOnly:     volumeMount.ReadOnly,
+			Status: status.StatusInfo{
+				Status: status.Attached,
+				Since:  &now,
+			},
+			Volume: caas.VolumeInfo{
+				VolumeId:   volume.Name,
+				Size:       size,
+				Persistent: false,
+				Status: status.StatusInfo{
+					Status: status.Attached,
+					Since:  &now,
+				},
+			},
+		}, nil
+	} else if volume.PersistentVolumeClaim == nil || volume.PersistentVolumeClaim.ClaimName == "" {
+		// Ignore volumes which are not Juju managed filesystems.
+		logger.Debugf("ignoring blank EmptyDir, PersistentVolumeClaim or ClaimName")
+		return nil, errors.NotSupportedf("volume %v", volume)
+	}
+
+	// Handle PVC
+	pvc := resources.NewPersistentVolumeClaim(volume.PersistentVolumeClaim.ClaimName, namespace, nil)
+	err := pvc.Get(ctx, client)
+	if err != nil {
+		return nil, errors.Annotate(err, "unable to get persistent volume claim")
+	}
+
 	if pvc.Status.Phase == corev1.ClaimPending {
 		logger.Debugf(fmt.Sprintf("PersistentVolumeClaim for %v is pending", pvc.Name))
 		return nil, nil
@@ -165,7 +203,7 @@ func FilesystemInfo(ctx context.Context, client kubernetes.Interface,
 	}
 
 	pv := resources.NewPersistentVolume(pvc.Spec.VolumeName, nil)
-	err := pv.Get(ctx, client)
+	err = pv.Get(ctx, client)
 	if errors.IsNotFound(err) {
 		// Ignore volumes which don't exist (yet).
 		return nil, nil
@@ -176,7 +214,7 @@ func FilesystemInfo(ctx context.Context, client kubernetes.Interface,
 
 	return &caas.FilesystemInfo{
 		StorageName:  storageName,
-		Size:         uint64(volume.PersistentVolumeClaim.Size()),
+		Size:         quantityAsMibiBytes(*pvc.Spec.Resources.Requests.Storage()),
 		FilesystemId: string(pvc.UID),
 		MountPoint:   volumeMount.MountPath,
 		ReadOnly:     volumeMount.ReadOnly,
@@ -212,4 +250,8 @@ func StorageProvisioner(namespace, model string, params VolumeParams) caas.Stora
 		Parameters:    params.StorageConfig.Parameters,
 		ReclaimPolicy: string(params.StorageConfig.ReclaimPolicy),
 	}
+}
+
+func quantityAsMibiBytes(q resource.Quantity) uint64 {
+	return uint64(q.MilliValue()) / 1000 / 1024 / 1024
 }

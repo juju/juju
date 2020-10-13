@@ -5,8 +5,12 @@ package resources
 
 import (
 	"context"
+	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/juju/juju/core/status"
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/resources_mock.go github.com/juju/juju/caas/kubernetes/provider/resources Resource,Applier
@@ -28,6 +32,10 @@ type Resource interface {
 	Delete(ctx context.Context, client kubernetes.Interface) error
 	// String returns a string format containing the name and type of the resource.
 	String() string
+	// ComputeStatus returns a juju status for the resource.
+	ComputeStatus(ctx context.Context, client kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error)
+	// Events emitted by the object.
+	Events(ctx context.Context, client kubernetes.Interface) ([]corev1.Event, error)
 }
 
 // Applier defines methods for processing a slice of resource operations.

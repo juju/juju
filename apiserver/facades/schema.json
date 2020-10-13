@@ -6676,6 +6676,18 @@
                     },
                     "description": "Units returns all the units for each application specified."
                 },
+                "UpdateApplicationsUnits": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/UpdateApplicationUnitArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/UpdateApplicationUnitResults"
+                        }
+                    },
+                    "description": "UpdateApplicationsUnits updates the Juju data model to reflect the given\nunits of the specified application."
+                },
                 "WatchApplications": {
                     "type": "object",
                     "properties": {
@@ -6687,6 +6699,75 @@
                 }
             },
             "definitions": {
+                "ApplicationUnitInfo": {
+                    "type": "object",
+                    "properties": {
+                        "provider-id": {
+                            "type": "string"
+                        },
+                        "unit-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "provider-id",
+                        "unit-tag"
+                    ]
+                },
+                "ApplicationUnitParams": {
+                    "type": "object",
+                    "properties": {
+                        "address": {
+                            "type": "string"
+                        },
+                        "data": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "filesystem-info": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/KubernetesFilesystemInfo"
+                            }
+                        },
+                        "info": {
+                            "type": "string"
+                        },
+                        "ports": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "provider-id": {
+                            "type": "string"
+                        },
+                        "stateful": {
+                            "type": "boolean"
+                        },
+                        "status": {
+                            "type": "string"
+                        },
+                        "unit-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "provider-id",
+                        "unit-tag",
+                        "address",
+                        "ports",
+                        "status",
+                        "info"
+                    ]
+                },
                 "CAASApplicationGarbageCollectArg": {
                     "type": "object",
                     "properties": {
@@ -7517,6 +7598,36 @@
                         "changes"
                     ]
                 },
+                "EntityStatus": {
+                    "type": "object",
+                    "properties": {
+                        "data": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "info": {
+                            "type": "string"
+                        },
+                        "since": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "status": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "status",
+                        "info",
+                        "since"
+                    ]
+                },
                 "EntityStatusArgs": {
                     "type": "object",
                     "properties": {
@@ -7639,6 +7750,57 @@
                         "provider"
                     ]
                 },
+                "KubernetesFilesystemInfo": {
+                    "type": "object",
+                    "properties": {
+                        "data": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "filesystem-id": {
+                            "type": "string"
+                        },
+                        "info": {
+                            "type": "string"
+                        },
+                        "mount-point": {
+                            "type": "string"
+                        },
+                        "pool": {
+                            "type": "string"
+                        },
+                        "read-only": {
+                            "type": "boolean"
+                        },
+                        "size": {
+                            "type": "integer"
+                        },
+                        "status": {
+                            "type": "string"
+                        },
+                        "storagename": {
+                            "type": "string"
+                        },
+                        "volume": {
+                            "$ref": "#/definitions/KubernetesVolumeInfo"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "storagename",
+                        "pool",
+                        "size",
+                        "filesystem-id",
+                        "status",
+                        "info",
+                        "volume"
+                    ]
+                },
                 "KubernetesFilesystemParams": {
                     "type": "object",
                     "properties": {
@@ -7692,6 +7854,46 @@
                     "additionalProperties": false,
                     "required": [
                         "provider"
+                    ]
+                },
+                "KubernetesVolumeInfo": {
+                    "type": "object",
+                    "properties": {
+                        "data": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "info": {
+                            "type": "string"
+                        },
+                        "persistent": {
+                            "type": "boolean"
+                        },
+                        "pool": {
+                            "type": "string"
+                        },
+                        "size": {
+                            "type": "integer"
+                        },
+                        "status": {
+                            "type": "string"
+                        },
+                        "volume-id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "volume-id",
+                        "size",
+                        "persistent",
+                        "status",
+                        "info"
                     ]
                 },
                 "KubernetesVolumeParams": {
@@ -7856,6 +8058,91 @@
                     "additionalProperties": false,
                     "required": [
                         "watcher-id"
+                    ]
+                },
+                "UpdateApplicationUnitArgs": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/UpdateApplicationUnits"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "args"
+                    ]
+                },
+                "UpdateApplicationUnitResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "info": {
+                            "$ref": "#/definitions/UpdateApplicationUnitsInfo"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "UpdateApplicationUnitResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/UpdateApplicationUnitResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "UpdateApplicationUnits": {
+                    "type": "object",
+                    "properties": {
+                        "application-tag": {
+                            "type": "string"
+                        },
+                        "generation": {
+                            "type": "integer"
+                        },
+                        "scale": {
+                            "type": "integer"
+                        },
+                        "status": {
+                            "$ref": "#/definitions/EntityStatus"
+                        },
+                        "units": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ApplicationUnitParams"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "application-tag",
+                        "units"
+                    ]
+                },
+                "UpdateApplicationUnitsInfo": {
+                    "type": "object",
+                    "properties": {
+                        "units": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ApplicationUnitInfo"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "units"
                     ]
                 },
                 "Value": {
