@@ -76,9 +76,19 @@ func (p *lexerSuite) TestReadNext(c *gc.C) {
 			Type:    BITOR,
 			Literal: "|",
 		},
+		{
+			Pos:     Position{Offset: 26, Line: 1, Column: 27},
+			Type:    17,
+			Literal: "[",
+		},
+		{
+			Pos:     Position{Offset: 28, Line: 1, Column: 29},
+			Type:    18,
+			Literal: "]",
+		},
 	}
 
-	lex := NewLexer(`a b 1 = 2.1 ! , ; ( ) & |`)
+	lex := NewLexer(`a b 1 = 2.1 ! , ; ( ) & | [ ]`)
 
 	tok := UnknownToken
 	var got []Token

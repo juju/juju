@@ -110,6 +110,37 @@ func (ie *InfixExpression) String() string {
 	return out.String()
 }
 
+// IndexExpression represents an expression that is associated with an operator.
+type IndexExpression struct {
+	Token    Token
+	Operator string
+	Left     Expression
+	Index    Expression
+}
+
+// Pos returns the first position of the identifier.
+func (ie *IndexExpression) Pos() Position {
+	return ie.Token.Pos
+}
+
+// End returns the last position of the identifier.
+func (ie *IndexExpression) End() Position {
+	return ie.Index.End()
+}
+
+func (ie *IndexExpression) String() string {
+	var out bytes.Buffer
+
+	out.WriteString("(")
+	out.WriteString(ie.Left.String())
+	out.WriteString("[")
+	out.WriteString(ie.Index.String())
+	out.WriteString("]")
+	out.WriteString(")")
+
+	return out.String()
+}
+
 // Identifier represents an identifier for a given AST block
 type Identifier struct {
 	Token Token

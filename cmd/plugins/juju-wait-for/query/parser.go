@@ -19,18 +19,20 @@ const (
 	LESSGREATER
 	PPRODUCT
 	CALL
+	INDEX
 )
 
 var precedence = map[TokenType]int{
-	CONDOR:  PCONDOR,
-	CONDAND: PCONDAND,
-	EQ:      EQUALS,
-	NEQ:     EQUALS,
-	LPAREN:  CALL,
-	LT:      LESSGREATER,
-	LE:      LESSGREATER,
-	GT:      LESSGREATER,
-	GE:      LESSGREATER,
+	CONDOR:   PCONDOR,
+	CONDAND:  PCONDAND,
+	EQ:       EQUALS,
+	NEQ:      EQUALS,
+	LPAREN:   CALL,
+	LT:       LESSGREATER,
+	LE:       LESSGREATER,
+	GT:       LESSGREATER,
+	GE:       LESSGREATER,
+	LBRACKET: INDEX,
 }
 
 type Parser struct {
@@ -63,14 +65,15 @@ func NewParser(lex *Lexer) *Parser {
 		FALSE:  p.parseBool,
 	}
 	p.infix = map[TokenType]InfixFunc{
-		EQ:      p.parseInfixExpression,
-		NEQ:     p.parseInfixExpression,
-		CONDAND: p.parseInfixExpression,
-		CONDOR:  p.parseInfixExpression,
-		LT:      p.parseInfixExpression,
-		LE:      p.parseInfixExpression,
-		GT:      p.parseInfixExpression,
-		GE:      p.parseInfixExpression,
+		EQ:       p.parseInfixExpression,
+		NEQ:      p.parseInfixExpression,
+		CONDAND:  p.parseInfixExpression,
+		CONDOR:   p.parseInfixExpression,
+		LT:       p.parseInfixExpression,
+		LE:       p.parseInfixExpression,
+		GT:       p.parseInfixExpression,
+		GE:       p.parseInfixExpression,
+		LBRACKET: p.parseIndex,
 	}
 	p.nextToken()
 	p.nextToken()
@@ -204,6 +207,20 @@ func (p *Parser) parseGroup() Expression {
 		return nil
 	}
 	return exp
+}
+
+func (p *Parser) parseIndex(left Expression) Expression {
+	p.nextToken()
+
+	expression := &IndexExpression{
+		Token: p.currentToken,
+		Left:  left,
+		Index: p.parseExpression(LOWEST),
+	}
+	if !p.expectPeek(RBRACKET) {
+		return nil
+	}
+	return expression
 }
 
 func (p *Parser) currentPrecedence() int {

@@ -9,36 +9,6 @@ import (
 	"github.com/juju/errors"
 )
 
-// InvalidIdentifierError creates an invalid error.
-type InvalidIdentifierError struct {
-	name string
-	err  error
-}
-
-func (e *InvalidIdentifierError) Error() string {
-	return e.err.Error()
-}
-
-// Name returns the name associated with the identifier error.
-func (e *InvalidIdentifierError) Name() string {
-	return e.name
-}
-
-// ErrInvalidIdentifier defines a sentinel error for invalid identifiers.
-func ErrInvalidIdentifier(name string) error {
-	return &InvalidIdentifierError{
-		name: name,
-		err:  errors.Errorf("invalid identifer"),
-	}
-}
-
-// IsInvalidIdentifierErr returns if the error is an ErrInvalidIdentifier error
-func IsInvalidIdentifierErr(err error) bool {
-	err = errors.Cause(err)
-	_, ok := err.(*InvalidIdentifierError)
-	return ok
-}
-
 // Query holds all the arguments for a given query.
 type Query struct {
 	ast *QueryExpression
@@ -97,8 +67,48 @@ func (q Query) run(e Expression, scope Scope) (interface{}, error) {
 			}
 		}
 		return nil, nil
+
 	case *ExpressionStatement:
 		return q.run(node.Expression, scope)
+
+	case *IndexExpression:
+		left, err := q.run(node.Left, scope)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		index, err := q.run(node.Index, scope)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		switch t := left.(type) {
+		case *OrdMapStringInterface:
+			idx, err := expectStringIndex(index)
+			if err != nil {
+				return nil, errors.Annotatef(err, "Runtime Error: %s %v accessing map", shadowType(t), node.Left.Pos())
+			}
+			res, ok := t.value[idx.value]
+			if !ok {
+				return nil, errors.Errorf("Runtime Error: %s %v unexpected index %v accessing map", shadowType(t), node.Left.Pos(), idx.value)
+			}
+			return liftRawResult(res)
+
+		case *OrdMapInterfaceInterface:
+			idx, err := expectOrdIndex(index)
+			if err != nil {
+				return nil, errors.Annotatef(err, "Runtime Error: %s %v accessing map", shadowType(t), node.Left.Pos())
+			}
+			res, ok := t.value[idx.Value()]
+			if !ok {
+				return nil, errors.Errorf("Runtime Error: %s %v unexpected index %v accessing map", shadowType(t), node.Left.Pos(), idx.Value())
+			}
+			return liftRawResult(res)
+
+		default:
+			return nil, errors.Annotatef(ErrInvalidIndex(), "Runtime Error: %T %v unexpected index expression", left, node.Left.Pos())
+		}
+
 	case *InfixExpression:
 		left, err := q.run(node.Left, scope)
 		if err != nil {
@@ -152,153 +162,26 @@ func (q Query) run(e Expression, scope Scope) (interface{}, error) {
 		}
 
 		return nil, errors.Errorf("Runtime Error: %v unexpected operator %s", node.Token.Pos, node.Token.Literal)
+
 	case *Identifier:
 		return scope.GetIdentValue(node.Token.Literal)
+
 	case *Integer:
 		return &OrdInteger{value: node.Value}, nil
+
 	case *Float:
 		return &OrdFloat{value: node.Value}, nil
+
 	case *String:
 		return &OrdString{value: node.Token.Literal}, nil
+
 	case *Bool:
 		return &OrdBool{value: node.Value}, nil
+
 	case *Empty:
 		return nil, nil
 	}
 	return nil, errors.Errorf("Syntax Error: Unexpected expression %T", e)
-}
-
-// Ord represents a ordered datatype.
-type Ord interface {
-	// Less checks if a Ord is less than another Ord
-	Less(Ord) bool
-
-	// Equal checks if an Ord is equal to another Ord.
-	Equal(Ord) bool
-
-	// IsZero returns if the underlying value is zero.
-	IsZero() bool
-}
-
-// OrdInteger defines an ordered integer.
-type OrdInteger struct {
-	value int64
-}
-
-// NewInteger creates a new Ord value
-func NewInteger(value int64) *OrdInteger {
-	return &OrdInteger{value: value}
-}
-
-// Less checks if a OrdInteger is less than another OrdInteger.
-func (o *OrdInteger) Less(other Ord) bool {
-	if i, ok := other.(*OrdInteger); ok {
-		return o.value < i.value
-	}
-	return false
-}
-
-// Equal checks if an OrdInteger is equal to another OrdInteger.
-func (o *OrdInteger) Equal(other Ord) bool {
-	if i, ok := other.(*OrdInteger); ok {
-		return o.value == i.value
-	}
-	return false
-}
-
-// IsZero returns if the underlying value is zero.
-func (o *OrdInteger) IsZero() bool {
-	return o.value < 1
-}
-
-// OrdFloat defines an ordered float.
-type OrdFloat struct {
-	value float64
-}
-
-// NewFloat creates a new Ord value
-func NewFloat(value float64) *OrdFloat {
-	return &OrdFloat{value: value}
-}
-
-// Less checks if a OrdFloat is less than another OrdFloat.
-func (o *OrdFloat) Less(other Ord) bool {
-	if i, ok := other.(*OrdFloat); ok {
-		return o.value < i.value
-	}
-	return false
-}
-
-// Equal checks if an OrdFloat is equal to another OrdFloat.
-func (o *OrdFloat) Equal(other Ord) bool {
-	if i, ok := other.(*OrdFloat); ok {
-		return o.value == i.value
-	}
-	return false
-}
-
-// IsZero returns if the underlying value is zero.
-func (o *OrdFloat) IsZero() bool {
-	return o.value < 1
-}
-
-// OrdString defines an ordered string.
-type OrdString struct {
-	value string
-}
-
-// NewString creates a new Ord value
-func NewString(value string) *OrdString {
-	return &OrdString{value: value}
-}
-
-// Less checks if a OrdString is less than another OrdString.
-func (o *OrdString) Less(other Ord) bool {
-	if i, ok := other.(*OrdString); ok {
-		return o.value < i.value
-	}
-	return false
-}
-
-// Equal checks if an OrdString is equal to another OrdString.
-func (o *OrdString) Equal(other Ord) bool {
-	if i, ok := other.(*OrdString); ok {
-		return o.value == i.value
-	}
-	return false
-}
-
-// IsZero returns if the underlying value is zero.
-func (o *OrdString) IsZero() bool {
-	return o.value == ""
-}
-
-// OrdBool defines an ordered float.
-type OrdBool struct {
-	value bool
-}
-
-// NewBool creates a new Ord value
-func NewBool(value bool) *OrdBool {
-	return &OrdBool{value: value}
-}
-
-// Less checks if a OrdBool is less than another OrdBool.
-func (o *OrdBool) Less(other Ord) bool {
-	return false
-}
-
-// Equal checks if an OrdBool is equal to another OrdBool.
-func (o *OrdBool) Equal(other Ord) bool {
-	if i, ok := other.(*OrdBool); ok {
-		return o.value == i.value
-	}
-	return false
-}
-
-// IsZero returns if the underlying value is zero.
-func (o *OrdBool) IsZero() bool {
-	return o.value == false
 }
 
 func equality(left, right interface{}) bool {
@@ -339,4 +222,24 @@ func valid(o Ord) bool {
 		return o.value > 0
 	}
 	return false
+}
+
+func liftRawResult(value interface{}) (Ord, error) {
+	switch t := value.(type) {
+	case string:
+		return NewString(t), nil
+	case int:
+		return NewInteger(int64(t)), nil
+	case int64:
+		return NewInteger(t), nil
+	case bool:
+		return NewBool(t), nil
+	case float64:
+		return NewFloat(t), nil
+	case map[interface{}]interface{}:
+		return NewMapInterfaceInterface(t), nil
+	case map[string]interface{}:
+		return NewMapStringInterface(t), nil
+	}
+	return nil, errors.Annotatef(ErrInvalidIndex(), "Runtime Error: %v unexpected index type %T", value, value)
 }

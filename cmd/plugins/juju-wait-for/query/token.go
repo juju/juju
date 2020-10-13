@@ -30,8 +30,10 @@ const (
 	COMMA     // ,
 	SEMICOLON // ;
 
-	LPAREN // (
-	RPAREN // )
+	LPAREN   // (
+	RPAREN   // )
+	LBRACKET // [
+	RBRACKET // ]
 
 	BITAND  // &
 	BITOR   // |
@@ -75,6 +77,10 @@ func (t TokenType) String() string {
 		return "("
 	case RPAREN:
 		return ")"
+	case LBRACKET:
+		return "["
+	case RBRACKET:
+		return "]"
 	case BITAND:
 		return "&"
 	case BITOR:
@@ -133,6 +139,8 @@ var tokenMap = map[rune]TokenType{
 	';': SEMICOLON,
 	'(': LPAREN,
 	')': RPAREN,
+	'[': LBRACKET,
+	']': RBRACKET,
 	',': COMMA,
 	'!': BANG,
 	'&': BITAND,

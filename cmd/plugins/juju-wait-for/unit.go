@@ -112,8 +112,12 @@ func (c *unitCommand) waitFor(name string, deltas []params.Delta, q query.Query)
 				scope := MakeUnitScope(entityInfo)
 				if res, err := q.Run(scope); query.IsInvalidIdentifierErr(err) {
 					return false, invalidIdentifierError(scope, err)
+				} else if query.IsInvalidIndexErr(err) {
+					return false, errors.Trace(err)
 				} else if res && err == nil {
 					return true, nil
+				} else if err != nil {
+					logger.Errorf("%v", err)
 				}
 				c.found = entityInfo.Life != life.Dead
 			}
