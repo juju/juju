@@ -111,6 +111,26 @@ func (s *deployerSuite) TestGetDeployerCharmStoreCharm(c *gc.C) {
 	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm store charm: %s", ch.String()))
 }
 
+func (s *deployerSuite) TestCharmStoreSeriesOverride(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectFilesystem()
+	s.expectResolveBundleURL(errors.NotValidf("not a bundle"), 1)
+
+	cfg := s.basicDeployerConfig()
+	cfg.Series = "bionic" // Override the default series (as if --series was specified)
+	ch := charm.MustParseURL("cs:test-charm")
+	s.expectStat(ch.String(), errors.NotFoundf("file"))
+	cfg.CharmOrBundle = ch.String()
+
+	factory := s.newDeployerFactory()
+	deployer, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm store charm: %s", ch.String()))
+
+	charmStoreDeployer := deployer.(*charmStoreCharm)
+	c.Assert(charmStoreDeployer.series, gc.Equals, "bionic")
+}
+
 func (s *deployerSuite) TestGetDeployerLocalBundle(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectFilesystem()
