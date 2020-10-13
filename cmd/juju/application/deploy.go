@@ -645,7 +645,7 @@ func (c *DeployCommand) Init(args []string) error {
 		c.unknownModel = true
 	}
 	if c.channelStr != "" {
-		c.Channel, err = corecharm.ParseChannel(c.channelStr)
+		c.Channel, err = corecharm.ParseChannelNormalize(c.channelStr)
 		if err != nil {
 			return errors.Annotate(err, "error in --channel")
 		}

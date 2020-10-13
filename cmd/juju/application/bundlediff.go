@@ -117,7 +117,7 @@ func (c *bundleDiffCommand) Init(args []string) error {
 	}
 	c.bundleMachines = mapping
 	if c.channelStr != "" {
-		c.channel, err = corecharm.ParseChannel(c.channelStr)
+		c.channel, err = corecharm.ParseChannelNormalize(c.channelStr)
 		if err != nil {
 			return errors.Annotate(err, "error in --channel")
 		}

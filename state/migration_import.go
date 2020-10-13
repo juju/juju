@@ -1293,7 +1293,7 @@ func makeCharmOrigin(a description.Application, curl *charm.URL) (*CharmOrigin, 
 
 	var channel *Channel
 	if serialized := co.Channel(); serialized != "" {
-		c, err := corecharm.ParseChannel(serialized)
+		c, err := corecharm.ParseChannelNormalize(serialized)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

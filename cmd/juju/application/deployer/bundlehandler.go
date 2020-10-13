@@ -336,7 +336,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		var channel corecharm.Channel
 		if spec.Channel != "" {
 			fromChannel = fmt.Sprintf(" from channel: %s", spec.Channel)
-			channel, err = corecharm.ParseChannel(spec.Channel)
+			channel, err = corecharm.ParseChannelNormalize(spec.Channel)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -538,7 +538,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		return errors.Trace(err)
 	}
 	// A channel is needed whether the risk is valid or not.
-	channel, _ := corecharm.ParseChannel(chParams.Channel)
+	channel, _ := corecharm.ParseChannelNormalize(chParams.Channel)
 	origin, err := utils.DeduceOrigin(ch, channel)
 	if err != nil {
 		return errors.Trace(err)

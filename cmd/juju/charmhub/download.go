@@ -205,7 +205,7 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	if c.channel == "" {
 		c.channel = DefaultReleaseChannel
 	}
-	charmChannel, err := corecharm.ParseChannel(c.channel)
+	charmChannel, err := corecharm.ParseChannelNormalize(c.channel)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -388,7 +388,7 @@ func constructChannelFromTrackAndRisk(track, risk string) (corecharm.Channel, er
 	} else if strings.HasSuffix(rawChannel, "/") {
 		rawChannel = rawChannel[:len(rawChannel)-1]
 	}
-	return corecharm.ParseChannel(rawChannel)
+	return corecharm.ParseChannelNormalize(rawChannel)
 }
 
 func locateRevisionByChannelMap(channelMap transport.ChannelMap, channel corecharm.Channel) (transport.Revision, bool) {
