@@ -662,7 +662,7 @@ func (s *linkLayerDevicesStateSuite) TestSetProviderIDOps(c *gc.C) {
 	c.Assert(dev1.ProviderID().String(), gc.Equals, "p1")
 
 	// No-op if already set.
-	ops, err = dev1.SetProviderIDOps("p2")
+	ops, err = dev1.SetProviderIDOps("p1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ops, gc.HasLen, 0)
 
@@ -682,6 +682,11 @@ func (s *linkLayerDevicesStateSuite) TestSetProviderIDOps(c *gc.C) {
 
 	// The global ID is unregistered, so we should be able to reset it.
 	ops, err = dev1.SetProviderIDOps("p1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ops, gc.Not(gc.HasLen), 0)
+
+	// We should be able to change the ID, provided the new ID is unused.
+	ops, err = dev1.SetProviderIDOps("p2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ops, gc.Not(gc.HasLen), 0)
 }

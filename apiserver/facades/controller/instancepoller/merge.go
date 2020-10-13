@@ -25,6 +25,11 @@ type mergeMachineLinkLayerOp struct {
 	// namelessHWAddrs stores the hardware addresses of
 	// incoming devices that have no accompanying name.
 	namelessHWAddrs set.Strings
+
+	// providerIDs is used for observing ID usage for incoming devices.
+	// We consult it to ensure that the same provider ID is not being
+	// used for multiple NICs.
+	providerIDs map[network.Id]string
 }
 
 func newMergeMachineLinkLayerOp(
@@ -40,6 +45,7 @@ func newMergeMachineLinkLayerOp(
 // merge incoming provider link-layer data with that in state.
 func (o *mergeMachineLinkLayerOp) Build(attempt int) ([]txn.Op, error) {
 	o.ClearProcessed()
+	o.providerIDs = make(map[network.Id]string)
 
 	if err := o.PopulateExistingDevices(); err != nil {
 		return nil, errors.Trace(err)
@@ -153,20 +159,42 @@ func (o *mergeMachineLinkLayerOp) processExistingDevice(dev networkingcommon.Lin
 		return ops, errors.Trace(err)
 	}
 
-	// Warn the user that we will not change a provider ID that is already set.
-	// TODO (manadart 2020-06-09): If this is seen in the wild, we should look
-	// into removing/reassigning provider IDs for devices.
+	// Log a warning if we are changing a provider ID that is already set.
 	providerID := dev.ProviderID()
 	if providerID != "" && providerID != incomingDev.ProviderId {
 		logger.Warningf(
-			"not changing provider ID for device %s from %q to %q",
-			dev.MACAddress(), providerID, incomingDev.ProviderId,
+			"changing provider ID for device %q from %q to %q",
+			dev.Name(), providerID, incomingDev.ProviderId,
 		)
-	} else {
-		ops, err = dev.SetProviderIDOps(incomingDev.ProviderId)
-		if err != nil {
+	}
+
+	// Check that the incoming data is not using a provider ID for more
+	// than one device. This is not verified by transaction assertions.
+	if incomingDev.ProviderId != "" {
+		if usedBy, ok := o.providerIDs[incomingDev.ProviderId]; ok {
+			return nil, errors.Errorf(
+				"unable to set provider ID %q for multiple devices: %q, %q",
+				incomingDev.ProviderId, usedBy, dev.Name(),
+			)
+		}
+
+		o.providerIDs[incomingDev.ProviderId] = dev.Name()
+	}
+
+	ops, err = dev.SetProviderIDOps(incomingDev.ProviderId)
+	if err != nil {
+		if !state.IsProviderIDNotUniqueError(err) {
 			return nil, errors.Trace(err)
 		}
+
+		// If this provider ID is already assigned, log a warning and continue.
+		// If the ID is moving from one device to another for whatever reason,
+		// It will be eventually consistent. E.g. removed from the old device
+		// on this pass and added to the new device on the next.
+		logger.Warningf(
+			"not setting provider ID for device %q to %q; it is assigned to another device",
+			dev.Name(), incomingDev.ProviderId,
+		)
 	}
 
 	// Collect normalised addresses for the incoming device.
