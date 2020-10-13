@@ -25,6 +25,11 @@ type mergeMachineLinkLayerOp struct {
 	// namelessHWAddrs stores the hardware addresses of
 	// incoming devices that have no accompanying name.
 	namelessHWAddrs set.Strings
+
+	// providerIDs is used for observing ID usage for incoming devices.
+	// We consult it to ensure that the same provider ID is not being
+	// used for multiple NICs.
+	providerIDs map[network.Id]string
 }
 
 func newMergeMachineLinkLayerOp(
@@ -40,6 +45,7 @@ func newMergeMachineLinkLayerOp(
 // merge incoming provider link-layer data with that in state.
 func (o *mergeMachineLinkLayerOp) Build(attempt int) ([]txn.Op, error) {
 	o.ClearProcessed()
+	o.providerIDs = make(map[network.Id]string)
 
 	if err := o.PopulateExistingDevices(); err != nil {
 		return nil, errors.Trace(err)
@@ -160,6 +166,19 @@ func (o *mergeMachineLinkLayerOp) processExistingDevice(dev networkingcommon.Lin
 			"changing provider ID for device %q from %q to %q",
 			dev.Name(), providerID, incomingDev.ProviderId,
 		)
+	}
+
+	// Check that the incoming data is not using a provider ID for more
+	// than one device. This is not verified by transaction assertions.
+	if incomingDev.ProviderId != "" {
+		if usedBy, ok := o.providerIDs[incomingDev.ProviderId]; ok {
+			return nil, errors.Errorf(
+				"unable to set provider ID %q for multiple devices: %q, %q",
+				incomingDev.ProviderId, usedBy, dev.Name(),
+			)
+		}
+
+		o.providerIDs[incomingDev.ProviderId] = dev.Name()
 	}
 
 	ops, err = dev.SetProviderIDOps(incomingDev.ProviderId)
