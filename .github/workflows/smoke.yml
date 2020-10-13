@@ -95,13 +95,13 @@ jobs:
       shell: bash
       run: |
         set -euxo pipefail
-        CURRENT=$(juju show-controller --format=json | jq -r '.test | .details | .["agent-version"]')
+        CURRENT=$(juju machines -m controller --format=json | jq -r '.machines | .["0"] | .["juju-status"] | .version')
 
         juju upgrade-controller --build-agent
 
         attempt=0
         while true; do
-          UPDATED=$(juju show-controller --format=json | jq -r '.test | .details | .["agent-version"]')
+          UPDATED=$(juju machines -m controller --format=json | jq -r '.machines | .["0"] | .["juju-status"] | .version')
           if [ "$CURRENT" != "$UPDATED" ]; then
               break
           fi
@@ -222,13 +222,13 @@ jobs:
       shell: bash
       run: |
         set -euxo pipefail
-        CURRENT=$(juju show-controller --format=json | jq -r '.test | .details | .["agent-version"]')
+        CURRENT=$(juju machines -m controller --format=json | jq -r '.machines | .["0"] | .["juju-status"] | .version')
 
         juju upgrade-controller --build-agent
 
         attempt=0
         while true; do
-          UPDATED=$(juju show-controller --format=json | jq -r '.test | .details | .["agent-version"]')
+          UPDATED=$(juju machines -m controller --format=json | jq -r '.machines | .["0"] | .["juju-status"] | .version')
           if [ "$CURRENT" != "$UPDATED" ]; then
               break
           fi
