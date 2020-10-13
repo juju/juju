@@ -54,8 +54,9 @@ type modelOperatorBrokerBridge struct {
 }
 
 const (
-	labelModelOperator     = "juju-modeloperator"
-	modelOperatorPortLabel = "api"
+	LabelModelOperatorDisableWebhook = "model.juju.is/disable-webhook"
+	labelModelOperator               = "juju-modeloperator"
+	modelOperatorPortLabel           = "api"
 
 	EnvModelAgentCAASServiceName      = "SERVICE_NAME"
 	EnvModelAgentCAASServiceNamespace = "SERVICE_NAMESPACE"
@@ -63,6 +64,9 @@ const (
 )
 
 var (
+	LabelsModelOperatorDisableWebhook = map[string]string{
+		LabelModelOperatorDisableWebhook: "true",
+	}
 	modelOperatorName = "modeloperator"
 )
 
@@ -247,7 +251,11 @@ func modelOperatorDeployment(
 	volumeMounts []core.VolumeMount,
 ) (*apps.Deployment, error) {
 
-	moLabels := modelOperatorLabels(operatorName)
+	selectorLabels := modelOperatorLabels(operatorName)
+	moLabels := AppendLabels(
+		nil,
+		selectorLabels,
+		LabelsModelOperatorDisableWebhook)
 
 	jujudCmd := fmt.Sprintf("$JUJU_TOOLS_DIR/jujud model --model-uuid=%s", modelUUID)
 	jujuDataDir, err := paths.DataDir("kubernetes")
@@ -264,7 +272,7 @@ func modelOperatorDeployment(
 		Spec: apps.DeploymentSpec{
 			Replicas: int32Ptr(1),
 			Selector: &meta.LabelSelector{
-				MatchLabels: moLabels,
+				MatchLabels: selectorLabels,
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: meta.ObjectMeta{

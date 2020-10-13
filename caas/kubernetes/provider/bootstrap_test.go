@@ -442,9 +442,12 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	fileMode := int32(256)
 	statefulSetSpec := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        "juju-controller-test",
-			Namespace:   s.getNamespace(),
-			Labels:      map[string]string{"juju-app": "juju-controller-test"},
+			Name:      "juju-controller-test",
+			Namespace: s.getNamespace(),
+			Labels: map[string]string{
+				"juju-app":                      "juju-controller-test",
+				"model.juju.is/disable-webhook": "true",
+			},
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Spec: apps.StatefulSetSpec{
@@ -473,9 +476,12 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Name:        "controller-0",
-					Namespace:   s.getNamespace(),
-					Labels:      map[string]string{"juju-app": "juju-controller-test"},
+					Name:      "controller-0",
+					Namespace: s.getNamespace(),
+					Labels: map[string]string{
+						"juju-app":                      "juju-controller-test",
+						"model.juju.is/disable-webhook": "true",
+					},
 					Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 				},
 				Spec: core.PodSpec{
