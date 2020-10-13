@@ -209,7 +209,7 @@ func NewUniter(uniterParams *UniterParams) (*Uniter, error) {
 // StartUniter creates a new Uniter and starts it using the specified runner.
 func StartUniter(runner *worker.Runner, params *UniterParams) error {
 	startFunc := newUniter(params)
-	params.Logger.Debugf("starting uniter for  %q", params.UnitTag.Id())
+	params.Logger.Debugf("starting uniter for %q", params.UnitTag.Id())
 	err := runner.StartWorker(params.UnitTag.Id(), startFunc)
 	return errors.Annotate(err, "error starting uniter worker")
 }
@@ -273,12 +273,12 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			err = nil
 		}
 		if u.runListener != nil {
-			u.runListener.UnregisterRunner(u.unit.Name())
+			u.runListener.UnregisterRunner(unitTag.Id())
 		}
 		if u.localRunListener != nil {
-			u.localRunListener.UnregisterRunner(u.unit.Name())
+			u.localRunListener.UnregisterRunner(unitTag.Id())
 		}
-		u.logger.Infof("unit %q shutting down: %s", u.unit, err)
+		u.logger.Infof("unit %q shutting down: %s", unitTag.Id(), err)
 	}()
 
 	if err := u.init(unitTag); err != nil {
