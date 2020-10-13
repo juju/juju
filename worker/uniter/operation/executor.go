@@ -85,7 +85,7 @@ func (x *executor) Run(op Operation, remoteStateChange <-chan remotestate.Snapsh
 	if op.NeedsGlobalMachineLock() {
 		releaser, err := x.acquireMachineLock(op.String())
 		if err != nil {
-			return errors.Annotate(err, "could not acquire lock")
+			return errors.Annotatef(err, "could not acquire lock for %q", op)
 		}
 		defer x.logger.Debugf("lock released")
 		defer releaser()
