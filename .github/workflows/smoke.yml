@@ -41,129 +41,24 @@ jobs:
       run: |
         cd tests && ./main.sh smoke
 
-  "upgrade-latest-stable":
-    name: "Upgrade latest stable"
+  Upgrade:
+    name: Upgrade
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
+    strategy:
+      matrix:
+        snap_version: ["latest/stable", "latest/beta"]
+
     steps:
 
-    - name: Install Dependencies
-      shell: bash
-      run: |
-        set -euxo pipefail
-        sudo apt-get remove lxd lxd-client
-        sudo snap install snapcraft --classic
-        sudo snap install lxd
-        sudo lxd waitready
-        sudo lxd init --auto
-        sudo chmod a+wr /var/snap/lxd/common/lxd/unix.socket
-        echo "##[add-path]/snap/bin"
-
-    - name: Bootstrap Juju latest/stable
-      shell: bash
-      run: |
-        set -euxo pipefail
-        lxc network set lxdbr0 ipv6.address none
-        sudo snap install juju --classic
-        juju bootstrap localhost test
-        juju status
-        juju version
-
-    - name: Checkout
-      uses: actions/checkout@v2
-
-    - name: Build snap
-      shell: bash
-      run: |
-        set -euxo pipefail
-        snapcraft --use-lxd
-
-    - name: Install snap
-      shell: bash
-      run: |
-        set -euxo pipefail
-        sudo snap install *.snap --dangerous --classic
-
-    - name: Preflight
-      shell: bash
-      run: |
-        set -euxo pipefail
-        juju status
-        juju version
-
-    - name: Test upgrade controller
-      shell: bash
-      run: |
-        set -euxo pipefail
-        CURRENT=$(juju machines -m controller --format=json | jq -r '.machines | .["0"] | .["juju-status"] | .version')
-
-        juju upgrade-controller --build-agent
-
-        attempt=0
-        while true; do
-          UPDATED=$(juju machines -m controller --format=json | jq -r '.machines | .["0"] | .["juju-status"] | .version')
-          if [ "$CURRENT" != "$UPDATED" ]; then
-              break
-          fi
-          sleep 10
-          attempt=$((attempt+1))
-          if [ "$attempt" -eq 48 ]; then
-              echo "Upgrade controller timed out"
-              exit 1
-          fi
-        done
-
-        PANIC=$(juju debug-log --replay --no-tail -m controller | grep "panic" || true)
-        if [ "$PANIC" != "" ]; then
-            echo "Panic found:"
-            juju debug-log --replay --no-tail -m controller
-            exit 1
-        fi
-
-    - name: Test upgrade model
-      shell: bash
-      run: |
-        set -euxo pipefail
-        CURRENT=$(juju show-model default --format=json | jq -r '.default | .["agent-version"]')
-
-        VERSION=$(juju version | cut -d "-" -f 1,2 | xargs -I% echo "%.1")
-        juju upgrade-model --agent-version="$VERSION"
-
-        attempt=0
-        while true; do
-          UPDATED=$(juju show-model default --format=json | jq -r '.default | .["agent-version"]')
-          if [ "$CURRENT" != "$UPDATED" ]; then
-              break
-          fi
-          sleep 10
-          attempt=$((attempt+1))
-          if [ "$attempt" -eq 48 ]; then
-              echo "Upgrade model timed out"
-              exit 1
-          fi
-        done
-
-        PANIC=$(juju debug-log --replay --no-tail | grep "panic" || true)
-        if [ "$PANIC" != "" ]; then
-            echo "Panic found:"
-            juju debug-log --replay --no-tail
-            exit 1
-        fi
-
-  "upgrade-latest-beta":
-    name: "Upgrade latest beta"
-    runs-on: ubuntu-latest
-    if: github.event.pull_request.draft == false
-    steps:
-
-    - name: Check
+    - name: PreCheck
       shell: bash
       run: |
         set -ux
         set +e
-        snap info juju | grep -E "latest/beta:[[:space:]]+\^"
+        OUT=$(snap info juju | grep -E "${{ matrix.snap_version }}:[[:space:]]+\^" || echo "NOT FOUND")
         set -e
-        if [ $? -eq 1 ]; then
+        if [ "$OUT" = "NOT FOUND" ]; then
           echo "::set-env name=RUN_TEST::RUN"
         fi
 
@@ -180,13 +75,13 @@ jobs:
         sudo chmod a+wr /var/snap/lxd/common/lxd/unix.socket
         echo "##[add-path]/snap/bin"
 
-    - name: Bootstrap Juju latest/beta
+    - name: Bootstrap Juju latest/stable
       if: env.RUN_TEST == 'RUN'
       shell: bash
       run: |
         set -euxo pipefail
         lxc network set lxdbr0 ipv6.address none
-        sudo snap install juju --classic --channel="latest/beta"
+        sudo snap install juju --classic --channel=${{ matrix.snap_version }}
         juju bootstrap localhost test
         juju status
         juju version
@@ -255,7 +150,13 @@ jobs:
         CURRENT=$(juju show-model default --format=json | jq -r '.default | .["agent-version"]')
 
         VERSION=$(juju version | cut -d "-" -f 1,2 | xargs -I% echo "%.1")
-        juju upgrade-model --agent-version="$VERSION"
+        while true; do
+            juju upgrade-model --agent-version="$VERSION" 2>&1 | tee -a output.log || true
+            RES=$(cat output.log | grep "upgrade in progress" || echo "NOT-UPGRADING")
+            if [ $RES = "NOT-UPGRADING" ]; then
+                break
+            fi
+        done
 
         attempt=0
         while true; do
