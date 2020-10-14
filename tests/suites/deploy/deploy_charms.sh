@@ -23,7 +23,7 @@ run_deploy_specific_series() {
 
     destroy_model "test-deploy-specific-series"
 
-    echo $series | check "bionic"
+    echo "$series" | check "bionic"
 }
 
 run_deploy_lxd_profile_charm() {
