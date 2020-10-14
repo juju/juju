@@ -591,6 +591,8 @@ def get_stripped_version_number(version_string):
 
 def get_version_string_parts(version_string):
     # strip the series and arch from the built version.
+    if isinstance(version_string, bytes):
+        version_string = version_string.decode()
     version_parts = version_string.split('-')
     if len(version_parts) == 4:
         # Version contains "-<patchname>", reconstruct it after the split.
