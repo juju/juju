@@ -4496,6 +4496,35 @@ func (s *upgradesSuite) TestLimitHandlesPlaceholderCharms(c *gc.C) {
 		upgradedData(col, []bson.M{doc}))
 }
 
+func (s *upgradesSuite) TestRemoveUnusedLinkLayerDeviceProviderIDs(c *gc.C) {
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	defer func() { _ = model1.Close() }()
+
+	// Insert 2 provider IDs.
+	pidCol, pidCloser := s.state.db().GetRawCollection(providerIDsC)
+	defer pidCloser()
+
+	keep := bson.M{"_id": model1.modelUUID() + ":linklayerdevice:keep"}
+	docs := []interface{}{
+		keep,
+		bson.M{"_id": model1.modelUUID() + ":linklayerdevice:delete"},
+	}
+	err := pidCol.Insert(docs...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Insert a device using one of the IDs.
+	lldCol, lldCloser := model1.db().GetCollection(linkLayerDevicesC)
+	defer lldCloser()
+
+	err = lldCol.Writeable().Insert(linkLayerDeviceDoc{
+		ProviderID: "keep",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that we only have the one provider ID left.
+	s.assertUpgradedData(c, RemoveUnusedLinkLayerDeviceProviderIDs, upgradedData(pidCol, []bson.M{keep}))
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }

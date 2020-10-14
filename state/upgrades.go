@@ -3007,3 +3007,36 @@ func ResetDefaultRelationLimitInCharmMetadata(pool *StatePool) (err error) {
 		return errors.Trace(st.db().RunTransaction(ops))
 	}))
 }
+
+func RemoveUnusedLinkLayerDeviceProviderIDs(pool *StatePool) error {
+	st := pool.SystemState()
+
+	const idType = "linklayerdevice"
+
+	lldCol, lldCloser := st.db().GetRawCollection(linkLayerDevicesC)
+	defer lldCloser()
+
+	// Gather the full qualified IDs for used link-layer device provider IDs.
+	var used []string
+	var doc struct {
+		ModelUUID  string `bson:"model-uuid"`
+		ProviderID string `bson:"providerid"`
+	}
+	iter := lldCol.Find(bson.M{"providerid": bson.M{"$exists": true}}).Iter()
+	for iter.Next(&doc) {
+		used = append(used, strings.Join([]string{doc.ModelUUID, idType, doc.ProviderID}, ":"))
+	}
+
+	pidCol, pidCloser := st.db().GetRawCollection(providerIDsC)
+	defer pidCloser()
+
+	// Delete all link-layer device provider IDs we didn't find.
+	_, err := pidCol.RemoveAll(bson.D{{
+		"$and", []bson.D{
+			{{"_id", bson.D{{"$regex", idType}}}},
+			{{"_id", bson.D{{"$nin", used}}}},
+		},
+	}})
+
+	return errors.Trace(err)
+}
