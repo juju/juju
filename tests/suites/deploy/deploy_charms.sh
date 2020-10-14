@@ -19,9 +19,11 @@ run_deploy_specific_series() {
     ensure "test-deploy-specific-series" "${file}"
 
     juju deploy postgresql --series bionic
-    juju status --format=json | jq .applications.postgresql.series | check "bionic"
+    series=$(juju status --format=json | jq ".applications.postgresql.series")
 
     destroy_model "test-deploy-specific-series"
+
+    echo $series | check "bionic"
 }
 
 run_deploy_lxd_profile_charm() {
