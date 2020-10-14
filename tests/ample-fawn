@@ -1,0 +1,9 @@
+Creating Juju controller "ctrl-44iaii1z" on microk8s/localhost
+Fetching Juju Dashboard 0.2.0
+Creating k8s resources for controller "controller-ctrl-44iaii1z"
+Starting controller pod
+Bootstrap agent now started
+Contacting Juju controller at 10.152.183.222 to verify accessibility...
+
+Bootstrap complete, controller "ctrl-44iaii1z" is now available in namespace "controller-ctrl-44iaii1z"
+Initial model "microk8s" added

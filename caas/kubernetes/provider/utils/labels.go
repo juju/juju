@@ -20,6 +20,12 @@ var (
 	LabelsJuju = map[string]string{
 		constants.LabelKubernetesAppManaged: "juju",
 	}
+
+	// LabelsJujuModelOperatorDisableWebhook is a set of labels needed on a
+	// given object to disable admission webhook validation.
+	LabelsJujuModelOperatorDisableWebhook = map[string]string{
+		constants.LabelJujuModelOperatorDisableWebhook: "true",
+	}
 )
 
 // HasLabels returns true if the src contains the labels in has

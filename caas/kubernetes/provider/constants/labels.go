@@ -18,6 +18,10 @@ const (
 	// See https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/#labels
 	LabelKubernetesAppManaged = "app.kubernetes.io/managed-by"
 
+	// LabelJujuModelOperatorDisableWebhook is the label used for bypassing
+	// model admission validation and mutation on objects.
+	LabelJujuModelOperatorDisableWebhook = "model.juju.is/disable-webhook"
+
 	// LabelJujuModelName is the juju label applied for juju models.
 	LabelJujuModelName = "model.juju.is/name"
 

@@ -575,8 +575,11 @@ func (c *controllerStack) createControllerStatefulset() error {
 	numberOfPods := int32(1) // TODO(caas): HA mode!
 	spec := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        c.resourceNameStatefulSet,
-			Labels:      c.stackLabels,
+			Name: c.resourceNameStatefulSet,
+			Labels: providerutils.LabelsMerge(
+				c.stackLabels,
+				providerutils.LabelsJujuModelOperatorDisableWebhook,
+			),
 			Namespace:   c.broker.GetCurrentNamespace(),
 			Annotations: c.stackAnnotations,
 		},
@@ -588,7 +591,10 @@ func (c *controllerStack) createControllerStatefulset() error {
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels:      c.selectorLabels,
+					Labels: providerutils.LabelsMerge(
+						c.selectorLabels,
+						providerutils.LabelsJujuModelOperatorDisableWebhook,
+					),
 					Name:        c.pcfg.GetPodName(), // This really should not be set.
 					Namespace:   c.broker.GetCurrentNamespace(),
 					Annotations: c.stackAnnotations,

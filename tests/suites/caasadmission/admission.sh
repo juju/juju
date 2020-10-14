@@ -139,3 +139,20 @@ juju_app=$(kubectl --kubeconfig "${TEST_DIR}"/kube-sa.json get cm -n "${namespac
 
   echo "$juju_app" | check test-app
 }
+
+# Tests that after the model operator pod restarts it can come back up without
+# having to be validated by itself.
+test_model_chicken_and_egg() {
+  name=test-$(petname)
+
+  namespace=controller-"${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+
+  sleep 15
+  kubectl --kubeconfig "${KUBE_CONFIG}" delete svc modeloperator -n "${namespace}"
+
+  kubectl --kubeconfig "${KUBE_CONFIG}" patch deployment modeloperator -n "${namespace}" -p '{"metadata": {"labels": {"test": "foo"}}}'
+
+  test_value=$(kubectl --kubeconfig "${KUBE_CONFIG}" get deployment -n "${namespace}" modeloperator -o=jsonpath='{.metadata.labels.test}')
+
+  check_contains "${test_value}" "foo"
+}

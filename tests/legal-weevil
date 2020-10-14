@@ -1,0 +1,9 @@
+Creating Juju controller "ctrl-afrt3v22" on microk8s/localhost
+Fetching Juju Dashboard 0.2.0
+Creating k8s resources for controller "controller-ctrl-afrt3v22"
+Starting controller pod
+Bootstrap agent now started
+Contacting Juju controller at 10.152.183.11 to verify accessibility...
+
+Bootstrap complete, controller "ctrl-afrt3v22" is now available in namespace "controller-ctrl-afrt3v22"
+Initial model "microk8s" added

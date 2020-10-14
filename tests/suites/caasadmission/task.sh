@@ -13,4 +13,5 @@ test_caasadmission() {
 
     test_controller_model_admission
     test_new_model_admission
+    test_model_chicken_and_egg
 }

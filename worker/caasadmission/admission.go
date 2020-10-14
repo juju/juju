@@ -11,6 +11,7 @@ import (
 	admission "k8s.io/api/admissionregistration/v1beta1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/pki"
 )
@@ -62,7 +63,7 @@ func NewAdmissionCreator(
 	ruleScope := admission.AllScopes
 	sideEffects := admission.SideEffectClassNone
 
-	// MutatingWebjook Obj
+	// MutatingWebhook Obj
 	obj := admission.MutatingWebhookConfiguration{
 		ObjectMeta: meta.ObjectMeta{
 			Labels:    k8sutils.LabelsForModel(modelName, legacyLabels),
@@ -81,6 +82,14 @@ func NewAdmissionCreator(
 				Name:          k8sutils.MakeK8sDomain(Component),
 				NamespaceSelector: &meta.LabelSelector{
 					MatchLabels: k8sutils.LabelsForModel(modelName, legacyLabels),
+				},
+				ObjectSelector: &meta.LabelSelector{
+					MatchExpressions: []meta.LabelSelectorRequirement{
+						{
+							Key:      k8sconstants.LabelJujuModelOperatorDisableWebhook,
+							Operator: meta.LabelSelectorOpDoesNotExist,
+						},
+					},
 				},
 				Rules: []admission.RuleWithOperations{
 					{
