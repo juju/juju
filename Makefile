@@ -222,10 +222,6 @@ OPERATOR_IMAGE_BUILD_SRC   ?= true
 BUILD_OPERATOR_IMAGE=sh -c '. "${PROJECT_DIR}/make_functions.sh"; build_operator_image "$$@"' build_operator_image
 OPERATOR_IMAGE_PATH=sh -c '. "${PROJECT_DIR}/make_functions.sh"; operator_image_path "$$@"' operator_image_path
 OPERATOR_IMAGE_RELEASE_PATH=sh -c '. "${PROJECT_DIR}/make_functions.sh"; operator_image_release_path "$$@"' operator_image_release_path
-# For the new k8s agent.
-BUILD_K8SAGENT_IMAGE=sh -c '. "${PROJECT_DIR}/make_functions.sh"; build_k8sagent_image "$$@"' build_k8sagent_image
-K8SAGENT_IMAGE_PATH=sh -c '. "${PROJECT_DIR}/make_functions.sh"; k8sagent_image_path "$$@"' k8sagent_image_path
-K8SAGENT_IMAGE_RELEASE_PATH=sh -c '. "${PROJECT_DIR}/make_functions.sh"; k8sagent_image_release_path "$$@"' k8sagent_image_release_path
 
 image-check-build:
 ifeq ($(OPERATOR_IMAGE_BUILD_SRC),true)
@@ -233,43 +229,27 @@ ifeq ($(OPERATOR_IMAGE_BUILD_SRC),true)
 else
 	@echo "skipping to build jujud bin, use existing one at ${JUJUD_BIN_DIR}/."
 endif
-	make build-pebble
-ifneq (${BIN_DIR},${JUJUD_BIN_DIR})
-	@cp ${BIN_DIR}/juju-fake-init ${JUJUD_BIN_DIR}/juju-fake-init
-endif
-
-build-pebble:
-	@mkdir -p ${BIN_DIR}
-	@echo 'go build -mod=$(JUJU_GOMOD_MODE) -o ${BIN_DIR} $(COMPILE_FLAGS) $(LINK_FLAGS) -v github.com/hpidcock/juju-fake-init'
-	@go build -mod=$(JUJU_GOMOD_MODE) -o ${BIN_DIR} $(COMPILE_FLAGS) $(LINK_FLAGS) -v github.com/hpidcock/juju-fake-init
 
 operator-image: image-check-build
 ## operator-image: Build operator image via docker
 	$(BUILD_OPERATOR_IMAGE)
-	
-k8sagent-image: image-check-build
-## k8sagent-image: Build k8sagent image via docker
-	$(BUILD_K8SAGENT_IMAGE)
 
-push-operator-image: operator-image k8sagent-image
+push-operator-image: operator-image
 ## push-operator-image: Push up the newly built operator image via docker
 	@:$(if $(value JUJU_BUILD_NUMBER),, $(error Undefined JUJU_BUILD_NUMBER))
 	docker push "$(shell ${OPERATOR_IMAGE_PATH})"
-	docker push "$(shell ${K8SAGENT_IMAGE_PATH})"
 
-push-release-operator-image: operator-image k8sagent-image
+push-release-operator-image: operator-image
 ## push-release-operator-image: Push up the newly built release operator image via docker
 	docker push "$(shell ${OPERATOR_IMAGE_RELEASE_PATH})"
-	docker push "$(shell ${K8SAGENT_IMAGE_RELEASE_PATH})"
 
 host-install:
 ## install juju for host os/architecture
 	GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) make install
 
-microk8s-operator-update: host-install operator-image k8sagent-image
+microk8s-operator-update: host-install operator-image
 ## microk8s-operator-update: Push up the newly built operator image for use with microk8s
 	docker save "$(shell ${OPERATOR_IMAGE_PATH})" | microk8s.ctr --namespace k8s.io image import -
-	docker save "$(shell ${K8SAGENT_IMAGE_PATH})" | microk8s.ctr --namespace k8s.io image import -
 
 check-k8s-model:
 ## check-k8s-model: Check if k8s model is present in show-model

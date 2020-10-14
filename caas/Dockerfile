@@ -1,4 +1,20 @@
 ARG BASE_IMAGE
+ARG BASE_GOLANG_IMAGE
+
+# Build pebble.
+FROM $BASE_GOLANG_IMAGE AS pebblebuild
+
+ARG GOOS
+ENV GOOS=${GOOS}
+ARG GOARCH
+ENV GOARCH=${GOARCH}
+
+WORKDIR /tmp/pebble
+ADD go.mod .
+ADD go.sum .
+RUN go build -o /usr/local/bin/pebble -ldflags "-s -w -extldflags '-static'" -v github.com/hpidcock/juju-fake-init
+
+# Build operator image.
 FROM $BASE_IMAGE
 
 # Add the syslog user for audit logging.
@@ -31,12 +47,9 @@ COPY requirements.txt /tmp/wheelhouse/requirements.txt
 RUN pip3 install -r /tmp/wheelhouse/requirements.txt
 
 WORKDIR /var/lib/juju
-# copy Juju executables.
-# in-pod agent binary will be "k8sagent".
+COPY jujud /opt/
 COPY jujuc /opt/
-COPY juju-fake-init /opt/pebble
-
-ARG AGENT_BINARY_NAME=jujud
-COPY $AGENT_BINARY_NAME /opt/
+COPY k8sagent /opt/
+COPY --from=pebblebuild /usr/local/bin/pebble /opt/pebble
 
 ENTRYPOINT ["sh", "-c"]
