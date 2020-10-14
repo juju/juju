@@ -176,6 +176,6 @@ type Bundle struct {
 }
 
 type BundleCharm struct {
-	Name     string `json:"name"`
-	Revision int    `json:"revision"`
+	Name      string `json:"name"`
+	PackageID string `json:"package-id"`
 }

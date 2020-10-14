@@ -12263,14 +12263,14 @@
                         "name": {
                             "type": "string"
                         },
-                        "revision": {
-                            "type": "integer"
+                        "package-id": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
                         "name",
-                        "revision"
+                        "package-id"
                     ]
                 },
                 "Channel": {
