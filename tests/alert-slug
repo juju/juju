@@ -1,0 +1,9 @@
+Creating Juju controller "ctrl-7l6lsmjb" on microk8s/localhost
+Fetching Juju Dashboard 0.2.0
+Creating k8s resources for controller "controller-ctrl-7l6lsmjb"
+Starting controller pod
+Bootstrap agent now started
+Contacting Juju controller at 10.152.183.61 to verify accessibility...
+
+Bootstrap complete, controller "ctrl-7l6lsmjb" is now available in namespace "controller-ctrl-7l6lsmjb"
+Initial model "microk8s" added

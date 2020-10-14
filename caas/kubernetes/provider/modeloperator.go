@@ -270,7 +270,6 @@ func modelOperatorDeployment(
 	volumes []core.Volume,
 	volumeMounts []core.VolumeMount,
 ) (*apps.Deployment, error) {
-
 	jujudCmd := fmt.Sprintf("$JUJU_TOOLS_DIR/jujud model --model-uuid=%s", modelUUID)
 	jujuDataDir, err := paths.DataDir("kubernetes")
 	if err != nil {
@@ -281,7 +280,10 @@ func modelOperatorDeployment(
 		ObjectMeta: meta.ObjectMeta{
 			Name:      operatorName,
 			Namespace: namespace,
-			Labels:    labels,
+			Labels: utils.LabelsMerge(
+				labels,
+				utils.LabelsJujuModelOperatorDisableWebhook,
+			),
 		},
 		Spec: apps.DeploymentSpec{
 			Replicas: int32Ptr(1),
@@ -290,7 +292,10 @@ func modelOperatorDeployment(
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: meta.ObjectMeta{
-					Labels: selectorLabels,
+					Labels: utils.LabelsMerge(
+						selectorLabels,
+						utils.LabelsJujuModelOperatorDisableWebhook,
+					),
 				},
 				Spec: core.PodSpec{
 					Containers: []core.Container{{

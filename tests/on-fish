@@ -1,0 +1,9 @@
+Creating Juju controller "ctrl-vip1vx2m" on microk8s/localhost
+Fetching Juju Dashboard 0.2.0
+Creating k8s resources for controller "controller-ctrl-vip1vx2m"
+Starting controller pod
+Bootstrap agent now started
+Contacting Juju controller at 10.152.183.111 to verify accessibility...
+
+Bootstrap complete, controller "ctrl-vip1vx2m" is now available in namespace "controller-ctrl-vip1vx2m"
+Initial model "microk8s" added

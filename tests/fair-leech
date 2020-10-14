@@ -1,0 +1,4 @@
+Creating Juju controller "ctrl-qo7psk9b" on microk8s/localhost
+Fetching Juju Dashboard 0.2.0
+Creating k8s resources for controller "controller-ctrl-qo7psk9b"
+Downloading images
