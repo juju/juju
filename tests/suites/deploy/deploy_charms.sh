@@ -11,6 +11,21 @@ run_deploy_charm() {
     destroy_model "test-deploy-charm"
 }
 
+run_deploy_specific_series() {
+    echo
+
+    file="${TEST_DIR}/test-deploy-specific-series.log"
+
+    ensure "test-deploy-specific-series" "${file}"
+
+    juju deploy postgresql --series bionic
+    series=$(juju status --format=json | jq ".applications.postgresql.series")
+
+    destroy_model "test-deploy-specific-series"
+
+    echo "$series" | check "bionic"
+}
+
 run_deploy_lxd_profile_charm() {
     echo
 
@@ -209,6 +224,7 @@ test_deploy_charms() {
         cd .. || exit
 
         run "run_deploy_charm"
+        run "run_deploy_specific_series"
         run "run_deploy_lxd_to_container"
         run "run_deploy_lxd_profile_charm_container"
 
