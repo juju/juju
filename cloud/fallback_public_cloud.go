@@ -32,6 +32,8 @@ clouds:
         endpoint: https://ec2.eu-central-1.amazonaws.com
       eu-north-1:
         endpoint: https://ec2.eu-north-1.amazonaws.com
+      eu-south-1:
+        endpoint: https://ec2.eu-south-1.amazonaws.com
       ap-east-1:
         endpoint: https://ec2.ap-east-1.amazonaws.com
       ap-south-1:
@@ -50,6 +52,8 @@ clouds:
         endpoint: https://ec2.me-south-1.amazonaws.com
       sa-east-1:
         endpoint: https://ec2.sa-east-1.amazonaws.com
+      af-south-1:
+        endpoint: https://ec2.af-south-1.amazonaws.com
   aws-china:
     type: ec2
     description: Amazon China
