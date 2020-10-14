@@ -91,7 +91,7 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 	mc.AddExpr(`_.Results[0].CACert`, jc.Ignore)
 	c.Assert(result, mc, params.CAASApplicationProvisioningInfoResults{
 		Results: []params.CAASApplicationProvisioningInfo{{
-			ImagePath:    "jujusolutions/k8sagent:2.6-beta3.666",
+			ImagePath:    "jujusolutions/jujud-operator:2.6-beta3.666",
 			Version:      version.MustParse("2.6-beta3"),
 			APIAddresses: []string{"10.0.0.1:1"},
 			Tags: map[string]string{
