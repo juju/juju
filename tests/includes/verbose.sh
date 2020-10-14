@@ -4,16 +4,14 @@ set_verbosity() {
     # the shell debug statements.
     case "${VERBOSE}" in
     1)
-        set -euo pipefail
-        set +x
+        set -eu
         ;;
     2)
-        set -euo pipefail
-        set +x
+        set -eu
         ;;
     11)
         # You asked for it!
-        set -euxo pipefail
+        set -eux
         ;;
     *)
         echo "Unexpected verbose level" >&2
