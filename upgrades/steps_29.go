@@ -47,6 +47,13 @@ func stateStepsFor29() []Step {
 				return context.State().ExposeWildcardEndpointForExposedApplications()
 			},
 		},
+		&upgradeStep{
+			description: "remove unused linklayerdevicesrefs collection",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().RemoveLinkLayerDevicesRefsCollection()
+			},
+		},
 	}
 }
 

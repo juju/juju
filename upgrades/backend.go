@@ -89,6 +89,7 @@ type StateBackend interface {
 	AddCharmHubToModelConfig() error
 	AddCharmOriginToApplications() error
 	ExposeWildcardEndpointForExposedApplications() error
+	RemoveLinkLayerDevicesRefsCollection() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -372,4 +373,8 @@ func (s stateBackend) AddCharmOriginToApplications() error {
 
 func (s stateBackend) ExposeWildcardEndpointForExposedApplications() error {
 	return state.ExposeWildcardEndpointForExposedApplications(s.pool)
+}
+
+func (s stateBackend) RemoveLinkLayerDevicesRefsCollection() error {
+	return state.RemoveLinkLayerDevicesRefsCollection(s.pool)
 }

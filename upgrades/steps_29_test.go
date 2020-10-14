@@ -57,6 +57,11 @@ func (s *steps29Suite) TestExposeWildcardEndpointForExposedApplications(c *gc.C)
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
 
+func (s *steps29Suite) TestRemoveLinkLayerDevicesRefsCollection(c *gc.C) {
+	step := findStateStep(c, v290, "remove unused linklayerdevicesrefs collection")
+	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
+}
+
 type mergeAgents29Suite struct {
 	testing.BaseSuite
 

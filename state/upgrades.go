@@ -3225,3 +3225,17 @@ func ExposeWildcardEndpointForExposedApplications(pool *StatePool) error {
 		return nil
 	}))
 }
+
+func RemoveLinkLayerDevicesRefsCollection(pool *StatePool) error {
+	st := pool.SystemState()
+	col, closer := st.db().GetRawCollection("linklayerdevicesrefs")
+	defer closer()
+
+	// We can't test with errors.IsNotFound here.
+	err := col.DropCollection()
+	if err != nil && strings.Contains(err.Error(), "not found") {
+		return nil
+	}
+
+	return errors.Trace(err)
+}
