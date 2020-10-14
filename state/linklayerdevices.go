@@ -366,7 +366,7 @@ func (st *State) AllLinkLayerDevices() (devices []*LinkLayerDevice, err error) {
 	var sDocs []linkLayerDeviceDoc
 	err = devicesCollection.Find(nil).All(&sDocs)
 	if err != nil {
-		return nil, errors.Errorf("cannot get all link layer devices")
+		return nil, errors.Annotate(err, "retrieving link-layer devices")
 	}
 	for _, d := range sDocs {
 		devices = append(devices, newLinkLayerDevice(st, d))

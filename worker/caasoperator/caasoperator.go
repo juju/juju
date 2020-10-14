@@ -569,7 +569,7 @@ func (op *caasOperator) loop() (err error) {
 				if err := op.makeAgentSymlinks(unitTag); err != nil {
 					return errors.Trace(err)
 				}
-				params := op.config.UniterParams
+				params := *op.config.UniterParams
 				params.ModelType = model.CAAS
 				params.UnitTag = unitTag
 				params.Downloader = op.config.Downloader // TODO(caas): write a cache downloader
@@ -596,7 +596,7 @@ func (op *caasOperator) loop() (err error) {
 					}
 					params.NewRemoteRunnerExecutor = getNewRunnerExecutor(logger, execClient)
 				}
-				if err := op.config.StartUniterFunc(op.runner, params); err != nil {
+				if err := op.config.StartUniterFunc(op.runner, &params); err != nil {
 					return errors.Trace(err)
 				}
 			}
