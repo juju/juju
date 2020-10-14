@@ -61,7 +61,7 @@ func NewAdmissionCreator(
 	ruleScope := admission.AllScopes
 	sideEffects := admission.SideEffectClassNone
 
-	// MutatingWebjook Obj
+	// MutatingWebhook Obj
 	obj := admission.MutatingWebhookConfiguration{
 		ObjectMeta: meta.ObjectMeta{
 			Labels:    provider.LabelsForModel(modelName),
@@ -80,6 +80,14 @@ func NewAdmissionCreator(
 				Name:          provider.MakeK8sDomain(Component),
 				NamespaceSelector: &meta.LabelSelector{
 					MatchLabels: provider.LabelsForModel(modelName),
+				},
+				ObjectSelector: &meta.LabelSelector{
+					MatchExpressions: []meta.LabelSelectorRequirement{
+						{
+							Key:      provider.LabelModelOperatorDisableWebhook,
+							Operator: meta.LabelSelectorOpDoesNotExist,
+						},
+					},
 				},
 				Rules: []admission.RuleWithOperations{
 					{
