@@ -1,3 +1,4 @@
+# run a command and immediately terminate the script when any error occurs.
 run() {
   CMD="${1}"
 
@@ -15,13 +16,8 @@ run() {
 
   START_TIME=$(date +%s)
 
-  # Prevent command from killing the script so we can capture its exit code
-  # AND output. Also, make sure to grab both STDOUT and STDERR. We should be
-  # using set -o pipefail here but that's unfortunately not supported by the shell.
-  set +e
-  cmd_output=$("${CMD}" "$@" 2>&1)
+  "${CMD}" "$@" 2>&1| OUTPUT "${TEST_DIR}/${TEST_CURRENT}.log"
   cmd_status=$?
-  echo -e "$cmd_output" | OUTPUT "${TEST_DIR}/${TEST_CURRENT}.log"
 
   set_verbosity
   END_TIME=$(date +%s)
@@ -32,6 +28,13 @@ run() {
     echo -e "\r===> [ $(red "x") ] Fail: ${DESC} ($((END_TIME-START_TIME))s)"
     exit 1
   fi
+}
+
+# run_linter will run until the end of a pipeline even if there is a failure.
+# This is different from `run` as we require the output of a linter.
+run_linter() {
+  set +e
+  run "$@"
 }
 
 skip() {

@@ -28,7 +28,7 @@ test_static_analysis_python() {
 
     # Shell static analysis
     if which python3 >/dev/null 2>&1; then
-      run "run_compileall"
+      run_linter "run_compileall"
     else
       echo "python3 not found, python static analysis disabled"
     fi
