@@ -5,7 +5,7 @@ run_go_vet() {
   if [ -n "${OUT}" ]; then
     echo ""
     echo "$(red 'Found some issues (go vet):')"
-    echo "\\n${OUT}" >&2
+    echo -e "\\n${OUT}" >&2
     exit 1
   fi
 }
@@ -17,7 +17,7 @@ run_go_lint() {
   if [ -n "${OUT}" ]; then
     echo ""
     echo "$(red 'Found some issues (go lint):')"
-    echo "\\n${OUT}" >&2
+    echo -e "\\n${OUT}" >&2
     exit 1
   fi
 }
@@ -32,7 +32,7 @@ run_go_imports() {
     echo ""
     echo "$(red 'Found some issues (go imports):')"
     for ITEM in ${GOFILES}; do
-      echo "\\ngoimports -w ${ITEM}" >&2
+      echo -e "\\ngoimports -w ${ITEM}" >&2
     done
     exit 1
   fi
@@ -45,7 +45,7 @@ run_deadcode() {
   if [ -n "${OUT}" ]; then
     echo ""
     echo "$(red 'Found some issues (deadcode):')"
-    echo "\\n${OUT}" >&2
+    echo -e "\\n${OUT}" >&2
     exit 1
   fi
 }
@@ -53,11 +53,11 @@ run_deadcode() {
 run_misspell() {
   FILES="${2}"
   # shellcheck disable=SC2086
-  OUT=$(misspell -source=go 2>/dev/null ${FILES} || true)
+  OUT=$(misspell -i=gratuitious ${FILES} 2>/dev/null || true)
   if [ -n "${OUT}" ]; then
     echo ""
     echo "$(red 'Found some issues (misspell):')"
-    echo "\\n${OUT}" >&2
+    echo -e "\\n${OUT}" >&2
     exit 1
   fi
 }
@@ -69,7 +69,7 @@ run_unconvert() {
   if [ -n "${OUT}" ]; then
     echo ""
     echo "$(red 'Found some issues (unconvert):')"
-    echo "\\n${OUT}" >&2
+    echo -e "\\n${OUT}" >&2
     exit 1
   fi
 }
@@ -81,7 +81,7 @@ run_ineffassign() {
   if [ -n "${OUT}" ]; then
     echo ""
     echo "$(red 'Found some issues (ineffassign):')"
-    echo "\\n${OUT}" >&2
+    echo -e "\\n${OUT}" >&2
     exit 1
   fi
 }
@@ -94,7 +94,7 @@ run_go_fmt() {
     echo ""
     echo "$(red 'Found some issues (gofmt):')"
     for ITEM in ${OUT}; do
-      echo "\\ngofmt -s -w ${ITEM}" >&2
+      echo -e "\\ngofmt -s -w ${ITEM}" >&2
     done
     exit 1
   fi
@@ -105,7 +105,7 @@ run_go_tidy() {
   go mod tidy 2>&1
   NEW_SHA=$(cat go.sum | shasum -a 1 | awk '{ print $1 }')
   if [ "${CUR_SHA}" != "${NEW_SHA}" ]; then
-      (>&2 echo "\\nError: go mod sum is out of sync. Run 'go mod tidy' and commit source.")
+      (>&2 echo -e "\\nError: go mod sum is out of sync. Run 'go mod tidy' and commit source.")
       exit 1
   fi
 }
@@ -127,11 +127,11 @@ test_static_analysis_go() {
 
     ## Functions starting by empty line
     # turned off until we get approval of test suite
-    # run "func vet"
+    # run_linter "func vet"
 
     ## go vet, if it exists
     if go help vet >/dev/null 2>&1; then
-      run "run_go_vet" "${PACKAGES}"
+      run_linter "run_go_vet" "${PACKAGES}"
     else
       echo "vet not found, vet static analysis disabled"
     fi
@@ -140,14 +140,14 @@ test_static_analysis_go() {
 
     ## golint
     #if which golint >/dev/null 2>&1; then
-    #  run "run_go_lint" "${PACKAGES}"
+    #  run_linter "run_go_lint" "${PACKAGES}"
     #else
     #  echo "golint not found, golint static analysis disabled"
     #fi
 
     ## goimports
     if which goimports >/dev/null 2>&1; then
-      run "run_go_imports" "${FOLDERS}"
+      run_linter "run_go_imports" "${FOLDERS}"
     else
       echo "goimports not found, goimports static analysis disabled"
     fi
@@ -157,34 +157,34 @@ test_static_analysis_go() {
 
     ## deadcode
     #if which deadcode >/dev/null 2>&1; then
-    #  run "run_deadcode" "${FOLDERS}"
+    #  run_linter "run_deadcode" "${FOLDERS}"
     #else
     #  echo "deadcode not found, deadcode static analysis disabled"
     #fi
 
     ## misspell
     if which misspell >/dev/null 2>&1; then
-      run "run_misspell" "${FILES}"
+       run_linter "run_misspell" "${FILES}"
     else
-      echo "misspell not found, misspell static analysis disabled"
+       echo "misspell not found, misspell static analysis disabled"
     fi
 
     ## unconvert
     if which unconvert >/dev/null 2>&1; then
-      run "run_unconvert" "${PACKAGES}"
+      run_linter "run_unconvert" "${PACKAGES}"
     else
       echo "unconvert not found, unconvert static analysis disabled"
     fi
 
     ## ineffassign
     if which ineffassign >/dev/null 2>&1; then
-      run "run_ineffassign" "${FOLDERS}"
+      run_linter "run_ineffassign" "${FOLDERS}"
     else
       echo "ineffassign not found, ineffassign static analysis disabled"
     fi
 
     ## go fmt
-    run "run_go_fmt" "${FILES}"
-    run "run_go_tidy"
+    run_linter "run_go_fmt" "${FILES}"
+    run_linter "run_go_tidy"
   )
 }

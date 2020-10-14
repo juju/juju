@@ -92,7 +92,7 @@ func (c *APIAddressUpdater) Handle(_ <-chan struct{}) error {
 
 	// Logging to identify lp: 1888453
 	if len(hps) == 0 {
-		c.config.Logger.Warningf("empty API host ports recieved. Updating using existing entries.")
+		c.config.Logger.Warningf("empty API host ports received. Updating using existing entries.")
 	}
 
 	c.config.Logger.Debugf("updating API hostPorts to %+v", hps)
