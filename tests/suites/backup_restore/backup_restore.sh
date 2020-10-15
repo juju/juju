@@ -1,6 +1,10 @@
 run_basic_backup_create() {
     echo
 
+    file="${TEST_DIR}/test-basic-backup-create.log"
+
+    ensure "test-basic-backup-create" "${file}"
+
     juju switch controller
     juju create-backup --filename "${TEST_DIR}/basic_backup.tar.gz"
 
@@ -12,6 +16,8 @@ run_basic_backup_create() {
     test -s "${TEST_DIR}/juju-backup/root.tar"
     echo "checking oplog.bson is present"
     test -s "${TEST_DIR}/juju-backup/dump/oplog.bson"
+
+    destroy_model "test-basic-backup-create"
 }
 
 run_basic_backup_restore() {
