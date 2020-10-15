@@ -15,8 +15,6 @@ DOCKER_USERNAME=${DOCKER_USERNAME:-jujusolutions}
 DOCKER_STAGING_DIR="${BUILD_DIR}/docker-staging"
 DOCKER_BIN=${DOCKER_BIN:-$(which docker)}
 
-BASE_GOLANG_IMAGE="golang:1.14"
-
 _base_image() {
     IMG_linux_amd64="amd64/ubuntu:20.04" \
     IMG_linux_arm64="arm64v8/ubuntu:20.04" \
@@ -53,19 +51,15 @@ build_operator_image() {
 
     # Populate docker build context
     cp "${JUJUD_BIN_DIR}/jujud" "${WORKDIR}/"
-    cp "${JUJUD_BIN_DIR}/jujuc" "${WORKDIR}/" || true
+    cp "${JUJUD_BIN_DIR}/jujuc" "${WORKDIR}/"
     cp "${JUJUD_BIN_DIR}/k8sagent" "${WORKDIR}/"
+    cp "${JUJUD_BIN_DIR}/juju-fake-init" "${WORKDIR}/pebble"
     cp "${PROJECT_DIR}/caas/Dockerfile" "${WORKDIR}/"
     cp "${PROJECT_DIR}/caas/requirements.txt" "${WORKDIR}/"
-    cp "${PROJECT_DIR}/go.mod" "${WORKDIR}/"
-    cp "${PROJECT_DIR}/go.sum" "${WORKDIR}/"
 
     # Build image. We tar up the build context to support docker snap confinement.
     tar cf - -C "${WORKDIR}" . | "${DOCKER_BIN}" build \
         --build-arg BASE_IMAGE=$(_base_image) \
-        --build-arg BASE_GOLANG_IMAGE=${BASE_GOLANG_IMAGE} \
-        --build-arg GOOS=$(go env GOOS) \
-        --build-arg GOARCH=$(go env GOARCH) \
         -t "$(operator_image_path)" - 
     if [ "$(operator_image_path)" != "$(operator_image_release_path)" ]; then
         "${DOCKER_BIN}" tag "$(operator_image_path)" "$(operator_image_release_path)"

@@ -22,6 +22,10 @@ define MAIN_PACKAGES
   github.com/juju/juju/cmd/plugins/juju-wait-for
 endef
 
+ifeq ($(GOOS),linux)
+	MAIN_PACKAGES += github.com/hpidcock/juju-fake-init
+endif
+
 # Allow the tests to take longer on restricted platforms.
 ifeq ($(shell echo "${GOARCH}" | sed -E 's/.*(arm|arm64|ppc64le|ppc64|s390x).*/golang/'), golang)
 	TEST_TIMEOUT := 5400s

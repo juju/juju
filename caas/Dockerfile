@@ -1,20 +1,4 @@
 ARG BASE_IMAGE
-ARG BASE_GOLANG_IMAGE
-
-# Build pebble.
-FROM $BASE_GOLANG_IMAGE AS pebblebuild
-
-ARG GOOS
-ENV GOOS=${GOOS}
-ARG GOARCH
-ENV GOARCH=${GOARCH}
-
-WORKDIR /tmp/pebble
-ADD go.mod .
-ADD go.sum .
-RUN go build -o /usr/local/bin/pebble -ldflags "-s -w -extldflags '-static'" -v github.com/hpidcock/juju-fake-init
-
-# Build operator image.
 FROM $BASE_IMAGE
 
 # Add the syslog user for audit logging.
@@ -50,6 +34,6 @@ WORKDIR /var/lib/juju
 COPY jujud /opt/
 COPY jujuc /opt/
 COPY k8sagent /opt/
-COPY --from=pebblebuild /usr/local/bin/pebble /opt/pebble
+COPY pebble /opt/
 
 ENTRYPOINT ["sh", "-c"]
