@@ -30,10 +30,11 @@ import_subdir_files() {
 
 import_subdir_files includes
 
-# If adding a test suite, then ensure to add it here to be picked up!
-TEST_NAMES="static_analysis \
-            agents \
+# If adding a test suite, then ensure to add it here to be picked up! (Please
+# keep these in alphabetic order.)
+TEST_NAMES="agents \
             appdata \
+            backup_restore \
             branches \
             caasadmission \
             cli \
@@ -48,7 +49,8 @@ TEST_NAMES="static_analysis \
             network \
             relations \
             smoke \
-            spaces_ec2"
+            spaces_ec2 \
+            static_analysis"
 
 # Show test suites, can be used to test if a test suite is available or not.
 show_test_suites() {
