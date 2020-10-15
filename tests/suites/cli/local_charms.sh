@@ -3,7 +3,6 @@ run_deploy_local_charm_revision() {
   echo
 
   file="${TEST_DIR}/local-charm-deploy-git.log"
-
   ensure "local-charm-deploy" "${file}"
 
   TMP=$(mktemp -d -t ci-XXXXXXXXXX)
@@ -34,7 +33,6 @@ run_deploy_local_charm_revision_no_vcs() {
   echo
 
   file="${TEST_DIR}/local-charm-deploy-no-vcs.log"
-
   ensure "local-charm-deploy-no-vcs" "${file}"
 
   TMP=$(mktemp -d -t ci-XXXXXXXXXX)
@@ -49,6 +47,8 @@ run_deploy_local_charm_revision_no_vcs() {
   OUTPUT=$(juju deploy --debug . 2>&1)
 
   check_contains "${OUTPUT}" "charm is not versioned"
+
+  destroy_model "local-charm-deploy-no-vcs"
 }
 
 # Checks the cwd has no vcs but a version file.
@@ -56,7 +56,6 @@ run_deploy_local_charm_revision_no_vcs_but_version_file() {
   echo
 
   file="${TEST_DIR}/local-charm-deploy-version-file.log"
-
   ensure "local-charm-deploy-version-file" "${file}"
 
   TMP=$(mktemp -d -t ci-XXXXXXXXXX)
@@ -84,6 +83,8 @@ run_deploy_local_charm_revision_no_vcs_but_version_file() {
 
   # we expect the debug output to be absolute and not relative.
   check_contains "${OUTPUT}" "${CURRENT_DIRECTORY}"
+
+  destroy_model "local-charm-deploy-version-file"
 }
 
 # Checks whether the cwd is used for the juju local deploy.

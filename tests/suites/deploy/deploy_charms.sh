@@ -140,6 +140,8 @@ run_deploy_lxd_to_machine() {
         fi
         sleep 5
     done
+
+    destroy_model "${model_name}"
 }
 
 run_deploy_lxd_to_container() {
@@ -195,6 +197,8 @@ run_deploy_lxd_to_container() {
         fi
         sleep 5
     done
+
+    destroy_model "${model_name}"
 }
 
 test_deploy_charms() {
