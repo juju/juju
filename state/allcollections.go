@@ -387,8 +387,12 @@ func allCollections() CollectionSchema {
 				{Key: []string{"model-uuid", "name"}},
 			},
 		},
-		subnetsC:          {},
-		linkLayerDevicesC: {},
+		subnetsC: {},
+		linkLayerDevicesC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "machine-id"},
+			}},
+		},
 		ipAddressesC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "machine-id", "device-name"},

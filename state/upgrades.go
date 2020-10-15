@@ -3239,3 +3239,52 @@ func RemoveLinkLayerDevicesRefsCollection(pool *StatePool) error {
 
 	return errors.Trace(err)
 }
+
+func RemoveUnusedLinkLayerDeviceProviderIDs(pool *StatePool) error {
+	st := pool.SystemState()
+
+	const idType = "linklayerdevice"
+	idTypeExp := fmt.Sprintf("^.*:%s:.*$", idType)
+
+	lldCol, lldCloser := st.db().GetRawCollection(linkLayerDevicesC)
+	defer lldCloser()
+
+	// Gather the full qualified IDs for used link-layer device provider IDs.
+	used := set.NewStrings()
+	var doc struct {
+		ModelUUID  string `bson:"model-uuid"`
+		ProviderID string `bson:"providerid"`
+	}
+	iter := lldCol.Find(bson.M{"providerid": bson.M{"$exists": true}}).Iter()
+	for iter.Next(&doc) {
+		used.Add(strings.Join([]string{doc.ModelUUID, idType, doc.ProviderID}, ":"))
+	}
+
+	pidCol, pidCloser := st.db().GetRawCollection(providerIDsC)
+	defer pidCloser()
+
+	// Delete all link-layer device provider IDs we didn't find.
+	// Get a count before and after for logging the delta.
+	before, err := pidCol.Find(nil).Count()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	_, err = pidCol.RemoveAll(bson.D{{
+		"$and", []bson.D{
+			{{"_id", bson.D{{"$regex", idTypeExp}}}},
+			{{"_id", bson.D{{"$nin", used.Values()}}}},
+		},
+	}})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	after, err := pidCol.Find(nil).Count()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	logger.Infof("deleted %d unused link-layer device provider IDs", before-after)
+	return nil
+}
