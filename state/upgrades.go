@@ -3017,14 +3017,14 @@ func RemoveUnusedLinkLayerDeviceProviderIDs(pool *StatePool) error {
 	defer lldCloser()
 
 	// Gather the full qualified IDs for used link-layer device provider IDs.
-	var used []string
+	used := set.NewStrings()
 	var doc struct {
 		ModelUUID  string `bson:"model-uuid"`
 		ProviderID string `bson:"providerid"`
 	}
 	iter := lldCol.Find(bson.M{"providerid": bson.M{"$exists": true}}).Iter()
 	for iter.Next(&doc) {
-		used = append(used, strings.Join([]string{doc.ModelUUID, idType, doc.ProviderID}, ":"))
+		used.Add(strings.Join([]string{doc.ModelUUID, idType, doc.ProviderID}, ":"))
 	}
 
 	pidCol, pidCloser := st.db().GetRawCollection(providerIDsC)
@@ -3033,8 +3033,8 @@ func RemoveUnusedLinkLayerDeviceProviderIDs(pool *StatePool) error {
 	// Delete all link-layer device provider IDs we didn't find.
 	_, err := pidCol.RemoveAll(bson.D{{
 		"$and", []bson.D{
-			{{"_id", bson.D{{"$regex", idType}}}},
-			{{"_id", bson.D{{"$nin", used}}}},
+			{{"_id", bson.D{{"$regex", fmt.Sprintf("^.*:%s:.*$", idType)}}}},
+			{{"_id", bson.D{{"$nin", used.Values()}}}},
 		},
 	}})
 

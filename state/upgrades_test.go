@@ -4500,13 +4500,15 @@ func (s *upgradesSuite) TestRemoveUnusedLinkLayerDeviceProviderIDs(c *gc.C) {
 	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
 	defer func() { _ = model1.Close() }()
 
-	// Insert 2 provider IDs.
+	// Insert 3 provider IDs.
 	pidCol, pidCloser := s.state.db().GetRawCollection(providerIDsC)
 	defer pidCloser()
 
-	keep := bson.M{"_id": model1.modelUUID() + ":linklayerdevice:keep"}
+	keepLLD := bson.M{"_id": model1.modelUUID() + ":linklayerdevice:keep"}
+	keepSubnet := bson.M{"_id": model1.modelUUID() + ":subnet:keep"}
 	docs := []interface{}{
-		keep,
+		keepLLD,
+		keepSubnet,
 		bson.M{"_id": model1.modelUUID() + ":linklayerdevice:delete"},
 	}
 	err := pidCol.Insert(docs...)
@@ -4521,8 +4523,11 @@ func (s *upgradesSuite) TestRemoveUnusedLinkLayerDeviceProviderIDs(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Check that we only have the one provider ID left.
-	s.assertUpgradedData(c, RemoveUnusedLinkLayerDeviceProviderIDs, upgradedData(pidCol, []bson.M{keep}))
+	// Check that only the unreferenced link-layer device ID was removed.
+	s.assertUpgradedData(c, RemoveUnusedLinkLayerDeviceProviderIDs, upgradedData(pidCol, []bson.M{
+		keepLLD,
+		keepSubnet,
+	}))
 }
 
 type docById []bson.M
