@@ -6,8 +6,8 @@ Tests are structured into test suites. Each suite contains a root task (akin
 to a package test) that will setup and run each individual test.
 
 To help break tests down, each test can have a number of subtests. Subtests
-are meant for indivdual units of work, without having to bootstrap a controller
-for every test. Each subtest will just `ensure` that it does have one, failure
+are meant for individual units of work, without having to bootstrap a controller
+for every test. Each subtest will just `ensure` that it does have one; failing
 to find a suitable controller, it will create one for you.
 
 ### Example of a test suite
@@ -33,7 +33,7 @@ test_deploy_bundles() {            # Test
 ## Exit codes / Success
 
 All tests will run through until the end of a test/subtest, unless it encounters
-a none zero exit code. In otherwards if you want to assert something passes,
+a non-zero exit code. In other words, if you want to assert something passes,
 ensure that the command returns `exit 0`. Failure can then be detected of the
 inverse.
 
