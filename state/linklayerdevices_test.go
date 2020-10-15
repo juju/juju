@@ -523,8 +523,12 @@ func (s *linkLayerDevicesStateSuite) TestMachineAllLinkLayerDevicesOnlyReturnsSa
 	results, err := s.machine.AllLinkLayerDevices()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 2)
-	c.Assert(results[0].Name(), gc.Equals, "foo")
-	c.Assert(results[1].Name(), gc.Equals, "foo.42")
+
+	deviceNames := make([]string, 2)
+	for i, res := range results {
+		deviceNames[i] = res.Name()
+	}
+	c.Assert(deviceNames, jc.SameContents, []string{"foo", "foo.42"})
 
 	s.assertNoDevicesOnMachine(c, s.otherStateMachine)
 }
