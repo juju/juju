@@ -85,6 +85,7 @@ type StateBackend interface {
 	AddBakeryConfig() error
 	ReplaceNeverSetWithUnset() error
 	ResetDefaultRelationLimitInCharmMetadata() error
+	RemoveUnusedLinkLayerDeviceProviderIDs() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -352,4 +353,8 @@ func (s stateBackend) ReplaceNeverSetWithUnset() error {
 
 func (s stateBackend) ResetDefaultRelationLimitInCharmMetadata() error {
 	return state.ResetDefaultRelationLimitInCharmMetadata(s.pool)
+}
+
+func (s stateBackend) RemoveUnusedLinkLayerDeviceProviderIDs() error {
+	return state.RemoveUnusedLinkLayerDeviceProviderIDs(s.pool)
 }
