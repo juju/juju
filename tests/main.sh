@@ -294,14 +294,14 @@ if [ "$#" -gt 0 ]; then
         exit
     fi
 
-    run_test "test_${1}" "" "$@"
+    run_test "test_${1}" "" "$@" ""
     TEST_RESULT=success
     exit
 fi
 
 for test in ${TEST_NAMES}; do
     name=$(echo "${test}" | sed -E "s/^run_//g" | sed -E "s/_/ /g")
-    run_test "test_${test}" "${name}"
+    run_test "test_${test}" "${name}" "" ""
 done
 
 TEST_RESULT=success

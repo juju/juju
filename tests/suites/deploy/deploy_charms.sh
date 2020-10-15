@@ -101,7 +101,7 @@ run_deploy_lxd_to_machine() {
     wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
 
     lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-0" | \
-        grep "linux.kernel_modules: ip_tables,ip6_tables"
+        grep -E "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?"
 
     juju upgrade-charm "lxd-profile-alt" --path "${charm}"
 
@@ -112,10 +112,11 @@ run_deploy_lxd_to_machine() {
 
     attempt=0
     while true; do
-        OUT=$(lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-1" | grep "linux.kernel_modules: ip_tables,ip6_tables" || echo 'NOT FOUND')
+        OUT=$(lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-1" | grep -E "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?" || echo 'NOT FOUND')
         if [ "${OUT}" != "NOT FOUND" ]; then
             break
         fi
+        lxc profile show "juju-test-deploy-lxd-machine-lxd-profile-alt-1"
         attempt=$((attempt+1))
         if [ $attempt -eq 10 ]; then
              # shellcheck disable=SC2046
@@ -135,11 +136,13 @@ run_deploy_lxd_to_machine() {
         attempt=$((attempt+1))
         if [ $attempt -eq 10 ]; then
              # shellcheck disable=SC2046
-             echo $(red "timeout: waiting for lxc profile to show 50sec")
+             echo $(red "timeout: waiting for removal of lxc profile 50sec")
              exit 5
         fi
         sleep 5
     done
+
+    destroy_model "${model_name}"
 }
 
 run_deploy_lxd_to_container() {
@@ -156,7 +159,7 @@ run_deploy_lxd_to_container() {
     wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
 
     OUT=$(juju run --machine 0 -- sh -c "sudo lxc profile show \"juju-test-deploy-lxd-container-lxd-profile-alt-0\"")
-    echo "${OUT}" | grep "linux.kernel_modules: ip_tables,ip6_tables"
+    echo "${OUT}" | grep -E "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?"
 
     juju upgrade-charm "lxd-profile-alt" --path "${charm}"
 
@@ -168,7 +171,7 @@ run_deploy_lxd_to_container() {
     attempt=0
     while true; do
         OUT=$(juju run --machine 0 -- sh -c "sudo lxc profile show \"juju-test-deploy-lxd-container-lxd-profile-alt-1\"" || echo 'NOT FOUND')
-        if echo "${OUT}" | grep -q "linux.kernel_modules: ip_tables,ip6_tables"; then
+        if echo "${OUT}" | grep -E -q "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?"; then
             break
         fi
         attempt=$((attempt+1))
@@ -195,6 +198,8 @@ run_deploy_lxd_to_container() {
         fi
         sleep 5
     done
+
+    destroy_model "${model_name}"
 }
 
 test_deploy_charms() {

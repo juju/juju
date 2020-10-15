@@ -1,13 +1,21 @@
 run_model_config_isomorphic() {
   echo
 
+  file="${TEST_DIR}/model-config-isomorphic.log"
+  ensure "model-config-isomorphic" "${file}"
+
   FILE=$(mktemp)
 
   juju model-config --format=yaml | juju model-config --ignore-agent-version -
+
+  destroy_model "model-config-isomorphic"
 }
 
 run_model_config_cloudinit_userdata() {
   echo
+
+  file="${TEST_DIR}/model-config-cloudinit-userdata.log"
+  ensure "model-config-cloudinit-userdata" "${file}"
 
   FILE=$(mktemp)
 
@@ -26,6 +34,8 @@ EOF
 
   # cloudinit-userdata is hidden in the normal output
   juju model-config | grep -q "<value set, see juju model-config cloudinit-userdata>"
+
+  destroy_model "model-config-cloudinit-userdata"
 }
 
 test_model_config() {
