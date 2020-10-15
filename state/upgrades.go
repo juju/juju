@@ -3012,6 +3012,7 @@ func RemoveUnusedLinkLayerDeviceProviderIDs(pool *StatePool) error {
 	st := pool.SystemState()
 
 	const idType = "linklayerdevice"
+	idTypeExp := fmt.Sprintf("^.*:%s:.*$", idType)
 
 	lldCol, lldCloser := st.db().GetRawCollection(linkLayerDevicesC)
 	defer lldCloser()
@@ -3031,12 +3032,27 @@ func RemoveUnusedLinkLayerDeviceProviderIDs(pool *StatePool) error {
 	defer pidCloser()
 
 	// Delete all link-layer device provider IDs we didn't find.
-	_, err := pidCol.RemoveAll(bson.D{{
+	// Get a count before and after for logging the delta.
+	before, err := pidCol.Find(nil).Count()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	_, err = pidCol.RemoveAll(bson.D{{
 		"$and", []bson.D{
-			{{"_id", bson.D{{"$regex", fmt.Sprintf("^.*:%s:.*$", idType)}}}},
+			{{"_id", bson.D{{"$regex", idTypeExp}}}},
 			{{"_id", bson.D{{"$nin", used.Values()}}}},
 		},
 	}})
+	if err != nil {
+		return errors.Trace(err)
+	}
 
-	return errors.Trace(err)
+	after, err := pidCol.Find(nil).Count()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	logger.Infof("deleted %d unused link-layer device provider IDs", before-after)
+	return nil
 }
