@@ -58,16 +58,20 @@ check() {
 
     got=
     while read -r d; do
-        got="${got}\n${d}"
+        if [ -z "${got}" ]; then
+            got="${d}"
+        else
+            got="${got}\n${d}"
+        fi
     done
 
-    OUT=$(echo "${got}" | grep -E "${want}" || true)
-    if [ -z "${OUT}" ]; then
+    OUT=$(echo "${got}" | grep -E "${want}" || echo "(NOT FOUND)")
+    if [ "${OUT}" == "(NOT FOUND)" ]; then
         echo "" >&2
         # shellcheck disable=SC2059
         printf "$(red \"Expected\"): ${want}\n" >&2
         # shellcheck disable=SC2059
-        printf "$(red \"Recieved\"): ${got}\n" >&2
+        printf "$(red \"Received\"): ${got}\n" >&2
         echo "" >&2
         exit 1
     fi

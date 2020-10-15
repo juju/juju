@@ -30,6 +30,6 @@ test_schema() {
         cd .. || exit
 
         # Check for schema changes and ensure they've been committed
-        run "run_schema"
+        run_linter "run_schema"
     )
 }

@@ -49,15 +49,15 @@ test_static_analysis_shell() {
 
     # Shell static analysis
     if which shellcheck >/dev/null 2>&1; then
-      run "run_shellcheck"
+      run_linter "run_shellcheck"
     else
       echo "shellcheck not found, shell static analysis disabled"
     fi
 
     ## Mixed tabs/spaces in scripts
-    run "run_whitespace"
+    run_linter "run_whitespace"
 
     ## Trailing whitespace in scripts
-    run "run_trailing_whitespace"
+    run_linter "run_trailing_whitespace"
   )
 }

@@ -48,7 +48,7 @@ func (config ManifoldConfig) Validate() error {
 		return errors.NotValidf("empty StateName")
 	}
 	if config.MuxName == "" {
-		return errors.NotValidf("emtpy MuxName")
+		return errors.NotValidf("empty MuxName")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
