@@ -148,9 +148,15 @@ func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (interface{}, e
 			return nil, errors.Trace(err)
 		}
 
-		right, err := q.run(node.Right, fnScope, scope)
-		if err != nil {
-			return nil, errors.Trace(err)
+		var right interface{}
+		switch node.Token.Type {
+		case CONDAND, CONDOR:
+			// Don't compute the right handside for a logical operator.
+		default:
+			right, err = q.run(node.Right, fnScope, scope)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 		}
 
 		switch node.Token.Type {
@@ -178,6 +184,25 @@ func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (interface{}, e
 		default:
 			return nil, RuntimeErrorf("%T %v logical AND only allowed on boolean values", left, node.Left.Pos())
 		}
+
+		// Ensure we don't call the right hand expression unless we need to.
+		if node.Token.Type == CONDAND {
+			if !leftOp {
+				return false, nil
+			}
+		} else if node.Token.Type == CONDOR {
+			if leftOp {
+				return true, nil
+			}
+		} else {
+			return nil, RuntimeErrorf("%v unexpected operator %s", node.Token.Pos, node.Token.Literal)
+		}
+
+		right, err = q.run(node.Right, fnScope, scope)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
 		switch op := right.(type) {
 		case *OrdBool:
 			rightOp = op.value
@@ -187,14 +212,7 @@ func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (interface{}, e
 			return nil, RuntimeErrorf("%T %v logical AND only allowed on boolean values", right, node.Right.Pos())
 		}
 
-		switch node.Token.Type {
-		case CONDAND:
-			return leftOp && rightOp, nil
-		case CONDOR:
-			return leftOp || rightOp, nil
-		}
-
-		return nil, RuntimeErrorf("%v unexpected operator %s", node.Token.Pos, node.Token.Literal)
+		return rightOp, nil
 
 	case *Identifier:
 		return scope.GetIdentValue(node.Token.Literal)
