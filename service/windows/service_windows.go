@@ -175,44 +175,12 @@ var getPassword = func() (string, error) {
 // the current system. It is defined as a variable to allow us to mock it out
 // for testing
 var listServices = func() (services []string, err error) {
-	host := syscall.StringToUTF16Ptr(".")
-
-	sc, err := windows.OpenSCManager(host, nil, windows.SC_MANAGER_ALL_ACCESS)
-	defer func() {
-		// The close service handle error is less important than others
-		if err == nil {
-			err = windows.CloseServiceHandle(sc)
-		}
-	}()
+	m, err := mgr.Connect()
 	if err != nil {
 		return nil, err
 	}
-
-	var needed uint32
-	var returned uint32
-	var resume uint32 = 0
-	var enum []enumService
-
-	for {
-		var buf [512]enumService
-		err := enumServicesStatus(sc, SC_ENUM_PROCESS_INFO, windows.SERVICE_WIN32,
-			windows.SERVICE_STATE_ALL, uintptr(unsafe.Pointer(&buf[0])), uint32(unsafe.Sizeof(buf)), &needed, &returned, &resume, nil)
-		if err != nil {
-			if err == windows.ERROR_MORE_DATA {
-				enum = append(enum, buf[:returned]...)
-				continue
-			}
-			return nil, err
-		}
-		enum = append(enum, buf[:returned]...)
-		break
-	}
-
-	services = make([]string, len(enum))
-	for i, v := range enum {
-		services[i] = v.Name()
-	}
-	return services, nil
+	defer m.Disconnect()
+	return m.ListServices()
 }
 
 // SvcManager implements ServiceManager interface
