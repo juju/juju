@@ -4,6 +4,11 @@
 package query
 
 import (
+	"bufio"
+	"bytes"
+	"io"
+	"io/ioutil"
+
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -12,6 +17,62 @@ import (
 type querySuite struct{}
 
 var _ = gc.Suite(&querySuite{})
+
+func (s *querySuite) TestSuccess(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	funcScope := NewMockFuncScope(ctrl)
+	scope := NewMockScope(ctrl)
+
+	res, err := ioutil.ReadFile("./testfiles/success")
+	c.Assert(err, jc.ErrorIsNil)
+
+	buf := bufio.NewReader(bytes.NewBuffer(res))
+	for {
+		line, _, err := buf.ReadLine()
+		if err == io.EOF {
+			break
+		}
+
+		c.Logf("Line: %v", string(line))
+
+		query, err := Parse(string(line))
+		c.Assert(err, jc.ErrorIsNil)
+
+		done, err := query.Run(funcScope, scope)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(done, jc.IsTrue)
+	}
+}
+
+func (s *querySuite) TestFailure(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	funcScope := NewMockFuncScope(ctrl)
+	scope := NewMockScope(ctrl)
+
+	res, err := ioutil.ReadFile("./testfiles/failure")
+	c.Assert(err, jc.ErrorIsNil)
+
+	buf := bufio.NewReader(bytes.NewBuffer(res))
+	for {
+		line, _, err := buf.ReadLine()
+		if err == io.EOF {
+			break
+		}
+
+		c.Logf("Line: %v", string(line))
+
+		query, err := Parse(string(line))
+		c.Assert(err, jc.ErrorIsNil)
+
+		done, err := query.Run(funcScope, scope)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(done, jc.IsFalse)
+	}
+}
 
 func (s *querySuite) TestQueryScope(c *gc.C) {
 	ctrl := gomock.NewController(c)
