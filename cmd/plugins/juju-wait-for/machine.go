@@ -167,6 +167,12 @@ func (m MachineScope) GetIdentValue(name string) (query.Ord, error) {
 		return query.NewString(m.MachineInfo.ContainerType), nil
 	case "config":
 		return query.NewMapStringInterface(m.MachineInfo.Config), nil
+	case "supported-containers":
+		containerTypes := make([]string, len(m.MachineInfo.SupportedContainers))
+		for i, v := range m.MachineInfo.SupportedContainers {
+			containerTypes[i] = string(v)
+		}
+		return query.NewSliceString(containerTypes), nil
 	}
 	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name), "Runtime Error: identifier %q not found on MachineInfo", name)
 }

@@ -229,6 +229,39 @@ func (o *OrdMapInterfaceInterface) Value() interface{} {
 	return o.value
 }
 
+// OrdSliceString defines an ordered []string.
+type OrdSliceString struct {
+	value []string
+}
+
+// NewSliceString creates a new Ord value
+func NewSliceString(value []string) *OrdSliceString {
+	return &OrdSliceString{value: value}
+}
+
+// Less checks if a OrdSliceString is less than another OrdSliceString.
+func (o *OrdSliceString) Less(other Ord) bool {
+	return false
+}
+
+// Equal checks if an OrdSliceString is equal to another OrdSliceString.
+func (o *OrdSliceString) Equal(other Ord) bool {
+	if i, ok := other.(*OrdSliceString); ok {
+		return reflect.DeepEqual(o.value, i.value)
+	}
+	return false
+}
+
+// IsZero returns if the underlying value is zero.
+func (o *OrdSliceString) IsZero() bool {
+	return len(o.value) == 0
+}
+
+// Value defines the shadow type value of the Ord.
+func (o *OrdSliceString) Value() interface{} {
+	return o.value
+}
+
 func expectStringIndex(i interface{}) (*OrdString, error) {
 	ord, ok := i.(Ord)
 	if !ok {
@@ -238,6 +271,20 @@ func expectStringIndex(i interface{}) (*OrdString, error) {
 	idx, ok := i.(*OrdString)
 	if !ok {
 		return nil, RuntimeErrorf("expected string, but got %v", shadowType(ord))
+	}
+
+	return idx, nil
+}
+
+func expectIntegerIndex(i interface{}) (*OrdInteger, error) {
+	ord, ok := i.(Ord)
+	if !ok {
+		return nil, RuntimeErrorf("expected int, but got %T", i)
+	}
+
+	idx, ok := i.(*OrdInteger)
+	if !ok {
+		return nil, RuntimeErrorf("expected int, but got %v", shadowType(ord))
 	}
 
 	return idx, nil
@@ -266,6 +313,8 @@ func shadowType(ord Ord) string {
 		return "map[interface{}]interface{}"
 	case *OrdMapStringInterface:
 		return "map[string]interface{}"
+	case *OrdSliceString:
+		return "[]string"
 	}
 	return "<unknown>"
 }

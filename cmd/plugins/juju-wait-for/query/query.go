@@ -138,6 +138,17 @@ func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (interface{}, e
 			}
 			return liftRawResult(res)
 
+		case *OrdSliceString:
+			idx, err := expectIntegerIndex(index)
+			if err != nil {
+				return nil, errors.Annotatef(err, "%s %v accessing slice", shadowType(t), node.Left.Pos())
+			}
+			num := int(idx.Value().(int64))
+			if num < 0 || num >= len(t.value) {
+				return nil, RuntimeErrorf("%s %v range error accessing slice", shadowType(t), node.Left.Pos(), num)
+			}
+			return liftRawResult(t.value[num])
+
 		default:
 			return nil, RuntimeErrorf("%T %v unexpected index expression", left, node.Left.Pos())
 		}
@@ -295,6 +306,8 @@ func liftRawResult(value interface{}) (Ord, error) {
 		return NewMapInterfaceInterface(t), nil
 	case map[string]interface{}:
 		return NewMapStringInterface(t), nil
+	case []string:
+		return NewSliceString(t), nil
 	}
 	return nil, RuntimeErrorf("%v unexpected index type %T", value, value)
 }

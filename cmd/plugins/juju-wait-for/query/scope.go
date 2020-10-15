@@ -4,6 +4,7 @@
 package query
 
 import (
+	"fmt"
 	"reflect"
 )
 
@@ -25,6 +26,10 @@ func NewGlobalFuncScope() *GlobalFuncScope {
 				default:
 					return -1, RuntimeErrorf("unexpected type %T passed to len", v)
 				}
+			},
+			"print": func(v interface{}) (interface{}, error) {
+				fmt.Printf("%v\n", v)
+				return v, nil
 			},
 		},
 	}
