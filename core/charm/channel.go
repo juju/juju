@@ -72,7 +72,7 @@ func MakeChannel(track, risk, branch string) (Channel, error) {
 
 // MustParseChannel parses a given string or returns a panic.
 func MustParseChannel(s string) Channel {
-	c, err := ParseChannel(s)
+	c, err := ParseChannelNormalize(s)
 	if err != nil {
 		panic(err)
 	}
@@ -80,7 +80,6 @@ func MustParseChannel(s string) Channel {
 }
 
 // ParseChannel parses a string representing a store channel.
-// The returned channel's track, risk and name are normalized.
 func ParseChannel(s string) (Channel, error) {
 	if s == "" {
 		return Channel{}, errors.Errorf("channel cannot be empty")
@@ -130,7 +129,16 @@ func ParseChannel(s string) (Channel, error) {
 		}
 		ch.Branch = *branch
 	}
+	return ch, nil
+}
 
+// ParseChannelNormalize parses a string representing a store channel.
+// The returned channel's track, risk and name are normalized.
+func ParseChannelNormalize(s string) (Channel, error) {
+	ch, err := ParseChannel(s)
+	if err != nil {
+		return Channel{}, err
+	}
 	return ch.Normalize(), nil
 }
 

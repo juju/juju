@@ -168,17 +168,19 @@ func stateDeviceConstraints(cons map[string]devices.Constraints) map[string]stat
 func stateCharmOrigin(origin corecharm.Origin) *state.CharmOrigin {
 	var ch *state.Channel
 	if c := origin.Channel; c != nil {
+		normalizedC := c.Normalize()
 		ch = &state.Channel{
-			Track:  c.Track,
-			Risk:   string(c.Risk),
-			Branch: c.Branch,
+			Track:  normalizedC.Track,
+			Risk:   string(normalizedC.Risk),
+			Branch: normalizedC.Branch,
 		}
 	}
-	return &state.CharmOrigin{
+	stateOrigin := &state.CharmOrigin{
 		Source:   string(origin.Source),
 		ID:       origin.ID,
 		Hash:     origin.Hash,
 		Revision: origin.Revision,
 		Channel:  ch,
 	}
+	return stateOrigin
 }

@@ -349,6 +349,9 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	// Only parse the channel here.  If the channel is normalized, the refresher
+	// cannot determine the difference between the "latest" track and the current
+	// track if only risk is specified.
 	if c.channelStr == "" {
 		c.Channel, _ = corecharm.ParseChannel(applicationInfo.Channel)
 	} else {
@@ -377,6 +380,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		DeployedSeries:  applicationInfo.Series,
 		Force:           c.Force,
 		ForceSeries:     c.ForceSeries,
+		Logger:          ctx,
 	}
 	factory, err := c.getRefresherFactory(apiRoot)
 	if err != nil {

@@ -42,6 +42,7 @@ type RefresherConfig struct {
 	DeployedSeries  string
 	Force           bool
 	ForceSeries     bool
+	Logger          CommandLogger
 }
 
 // RefresherFn defines a function alias to create a Refresher from a given
@@ -132,6 +133,7 @@ func (d *factory) maybeCharmStore(authorizer store.MacaroonGetter, charmAdder st
 				deployedSeries:  cfg.DeployedSeries,
 				force:           cfg.Force,
 				forceSeries:     cfg.ForceSeries,
+				logger:          cfg.Logger,
 			},
 			authorizer: authorizer,
 		}, nil
@@ -152,6 +154,7 @@ func (d *factory) maybeCharmHub(charmAdder store.CharmAdder, charmResolver Charm
 				deployedSeries:  cfg.DeployedSeries,
 				force:           cfg.Force,
 				forceSeries:     cfg.ForceSeries,
+				logger:          cfg.Logger,
 			},
 		}, nil
 	}
@@ -224,16 +227,22 @@ type baseRefresher struct {
 	deployedSeries  string
 	force           bool
 	forceSeries     bool
+	logger          CommandLogger
 }
 
 func (r baseRefresher) ResolveCharm() (*charm.URL, commoncharm.Origin, error) {
+	if r.charmOrigin.Channel != nil {
+		r.logger.Verbosef("Original channel %q", r.charmOrigin.Channel.String())
+	}
+	r.logger.Verbosef("Requested channel %q", r.channel.String())
+
 	refURL, err := charm.ParseURL(r.charmRef)
 	if err != nil {
 		return nil, commoncharm.Origin{}, errors.Trace(err)
 	}
 
 	// Take the current origin and apply the user supplied channel, so that
-	// when attemptting to resolve the new charm URL, we pick up everything
+	// when attempting to resolve the new charm URL, we pick up everything
 	// that already exists, but we get the destination of where the user wants
 	// to get to.
 	destOrigin, err := r.resolveOriginFn(refURL, r.charmOrigin, r.channel)
@@ -270,7 +279,7 @@ func (r baseRefresher) ResolveCharm() (*charm.URL, commoncharm.Origin, error) {
 		// available.
 		return nil, commoncharm.Origin{}, errors.Errorf("already running latest charm %q", newURL)
 	}
-
+	r.logger.Verbosef("Using channel %q", origin.CoreChannel().String())
 	return newURL, origin, nil
 }
 
@@ -347,7 +356,12 @@ func (defaultCharmRepo) NewCharmAtPathForceSeries(path, series string, force boo
 // a charm. It does this by updating the incoming origin with the user requested
 // channel, so we can correctly resolve the charm.
 func charmHubResolveOrigin(_ *charm.URL, origin corecharm.Origin, channel corecharm.Channel) (commoncharm.Origin, error) {
-	origin.Channel = &channel
+	if channel.Track == "" {
+		origin.Channel.Risk = channel.Risk
+		return commoncharm.CoreCharmOrigin(origin), nil
+	}
+	normalizedC := channel.Normalize()
+	origin.Channel = &normalizedC
 	return commoncharm.CoreCharmOrigin(origin), nil
 }
 

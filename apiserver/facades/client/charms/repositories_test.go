@@ -80,14 +80,14 @@ func (s *charmHubRepositoriesSuite) TestResolveWithChannel(c *gc.C) {
 	s.expectInfo(nil)
 
 	curl := charm.MustParseURL("ch:wordpress")
-	track := "latest"
-	origin := params.CharmOrigin{Source: "charm-hub", Risk: "edge", Track: &track}
+	track := "second"
+	origin := params.CharmOrigin{Source: "charm-hub", Risk: "stable", Track: &track}
 
 	resolver := &chRepo{client: s.client}
 	obtainedCurl, obtainedOrigin, obtainedSeries, err := resolver.ResolveWithPreferredChannel(curl, origin)
 	c.Assert(err, jc.ErrorIsNil)
 
-	curl.Revision = 19
+	curl.Revision = 13
 	origin.Revision = &curl.Revision
 	c.Assert(obtainedCurl, jc.DeepEquals, curl)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
@@ -179,7 +179,7 @@ func getCharmHubInfoResponse() transport.InfoResponse {
 func getCharmHubResponse() ([]transport.ChannelMap, transport.ChannelMap) {
 	return []transport.ChannelMap{{
 			Channel: transport.Channel{
-				Name: "latest/stable",
+				Name: "stable",
 				Platform: transport.Platform{
 					Architecture: "all",
 					OS:           "ubuntu",
@@ -200,7 +200,7 @@ func getCharmHubResponse() ([]transport.ChannelMap, transport.ChannelMap) {
 			},
 		}, {
 			Channel: transport.Channel{
-				Name: "latest/candidate",
+				Name: "candidate",
 				Platform: transport.Platform{
 					Architecture: "all",
 					OS:           "ubuntu",
@@ -221,7 +221,7 @@ func getCharmHubResponse() ([]transport.ChannelMap, transport.ChannelMap) {
 			},
 		}, {
 			Channel: transport.Channel{
-				Name: "latest/edge",
+				Name: "edge",
 				Platform: transport.Platform{
 					Architecture: "all",
 					OS:           "ubuntu",
@@ -263,7 +263,7 @@ func getCharmHubResponse() ([]transport.ChannelMap, transport.ChannelMap) {
 			},
 		}}, transport.ChannelMap{
 			Channel: transport.Channel{
-				Name: "latest/stable",
+				Name: "stable",
 				Platform: transport.Platform{
 					Architecture: "all",
 					OS:           "ubuntu",
