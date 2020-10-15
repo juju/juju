@@ -35,9 +35,19 @@ type Scope interface {
 	GetIdentValue(string) (Ord, error)
 }
 
+// FuncScope is used to call functions for a given identifer.
+type FuncScope interface {
+	Call(*Identifier, []Ord) (interface{}, error)
+}
+
+// BuiltinsRun runs the query with a set of builtin functions.
+func (q Query) BuiltinsRun(scope Scope) (bool, error) {
+	return q.Run(NewGlobalFuncScope(), scope)
+}
+
 // Run the query over a given scope.
-func (q Query) Run(scope Scope) (bool, error) {
-	res, err := q.run(q.ast, scope)
+func (q Query) Run(fnScope FuncScope, scope Scope) (bool, error) {
+	res, err := q.run(q.ast, fnScope, scope)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -54,11 +64,11 @@ func (q Query) Run(scope Scope) (bool, error) {
 	return !ref.IsZero(), nil
 }
 
-func (q Query) run(e Expression, scope Scope) (interface{}, error) {
+func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (interface{}, error) {
 	switch node := e.(type) {
 	case *QueryExpression:
 		for _, exp := range node.Expressions {
-			result, err := q.run(exp, scope)
+			result, err := q.run(exp, fnScope, scope)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -69,15 +79,38 @@ func (q Query) run(e Expression, scope Scope) (interface{}, error) {
 		return nil, nil
 
 	case *ExpressionStatement:
-		return q.run(node.Expression, scope)
+		return q.run(node.Expression, fnScope, scope)
+
+	case *CallExpression:
+		fn, ok := node.Name.(*Identifier)
+		if !ok {
+			return nil, RuntimeErrorf("%s %v unexpected function name", shadowType(node.Name.(Ord)), node.Name.Pos())
+		}
+		var args []Ord
+		for _, arg := range node.Arguments {
+			result, err := q.run(arg, fnScope, scope)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ord, err := liftRawResult(result)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			args = append(args, ord)
+		}
+		res, err := fnScope.Call(fn, args)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return liftRawResult(res)
 
 	case *IndexExpression:
-		left, err := q.run(node.Left, scope)
+		left, err := q.run(node.Left, fnScope, scope)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
-		index, err := q.run(node.Index, scope)
+		index, err := q.run(node.Index, fnScope, scope)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -86,36 +119,36 @@ func (q Query) run(e Expression, scope Scope) (interface{}, error) {
 		case *OrdMapStringInterface:
 			idx, err := expectStringIndex(index)
 			if err != nil {
-				return nil, errors.Annotatef(err, "Runtime Error: %s %v accessing map", shadowType(t), node.Left.Pos())
+				return nil, errors.Annotatef(err, "%s %v accessing map", shadowType(t), node.Left.Pos())
 			}
 			res, ok := t.value[idx.value]
 			if !ok {
-				return nil, errors.Errorf("Runtime Error: %s %v unexpected index %v accessing map", shadowType(t), node.Left.Pos(), idx.value)
+				return nil, RuntimeErrorf("%s %v unexpected index %v accessing map", shadowType(t), node.Left.Pos(), idx.value)
 			}
 			return liftRawResult(res)
 
 		case *OrdMapInterfaceInterface:
 			idx, err := expectOrdIndex(index)
 			if err != nil {
-				return nil, errors.Annotatef(err, "Runtime Error: %s %v accessing map", shadowType(t), node.Left.Pos())
+				return nil, errors.Annotatef(err, "%s %v accessing map", shadowType(t), node.Left.Pos())
 			}
 			res, ok := t.value[idx.Value()]
 			if !ok {
-				return nil, errors.Errorf("Runtime Error: %s %v unexpected index %v accessing map", shadowType(t), node.Left.Pos(), idx.Value())
+				return nil, RuntimeErrorf("%s %v unexpected index %v accessing map", shadowType(t), node.Left.Pos(), idx.Value())
 			}
 			return liftRawResult(res)
 
 		default:
-			return nil, errors.Annotatef(ErrInvalidIndex(), "Runtime Error: %T %v unexpected index expression", left, node.Left.Pos())
+			return nil, RuntimeErrorf("%T %v unexpected index expression", left, node.Left.Pos())
 		}
 
 	case *InfixExpression:
-		left, err := q.run(node.Left, scope)
+		left, err := q.run(node.Left, fnScope, scope)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
-		right, err := q.run(node.Right, scope)
+		right, err := q.run(node.Right, fnScope, scope)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -143,7 +176,7 @@ func (q Query) run(e Expression, scope Scope) (interface{}, error) {
 		case bool:
 			leftOp = op
 		default:
-			return nil, errors.Errorf("Runtime Error: %T %v logical AND only allowed on boolean values", left, node.Left.Pos())
+			return nil, RuntimeErrorf("%T %v logical AND only allowed on boolean values", left, node.Left.Pos())
 		}
 		switch op := right.(type) {
 		case *OrdBool:
@@ -151,7 +184,7 @@ func (q Query) run(e Expression, scope Scope) (interface{}, error) {
 		case bool:
 			rightOp = op
 		default:
-			return nil, errors.Errorf("Runtime Error: %T %v logical AND only allowed on boolean values", right, node.Right.Pos())
+			return nil, RuntimeErrorf("%T %v logical AND only allowed on boolean values", right, node.Right.Pos())
 		}
 
 		switch node.Token.Type {
@@ -161,7 +194,7 @@ func (q Query) run(e Expression, scope Scope) (interface{}, error) {
 			return leftOp || rightOp, nil
 		}
 
-		return nil, errors.Errorf("Runtime Error: %v unexpected operator %s", node.Token.Pos, node.Token.Literal)
+		return nil, RuntimeErrorf("%v unexpected operator %s", node.Token.Pos, node.Token.Literal)
 
 	case *Identifier:
 		return scope.GetIdentValue(node.Token.Literal)
@@ -181,7 +214,7 @@ func (q Query) run(e Expression, scope Scope) (interface{}, error) {
 	case *Empty:
 		return nil, nil
 	}
-	return nil, errors.Errorf("Syntax Error: Unexpected expression %T", e)
+	return nil, RuntimeErrorf("Syntax Error: Unexpected expression %T", e)
 }
 
 func equality(left, right interface{}) bool {
@@ -225,6 +258,10 @@ func valid(o Ord) bool {
 }
 
 func liftRawResult(value interface{}) (Ord, error) {
+	if ord, ok := value.(Ord); ok {
+		return ord, nil
+	}
+
 	switch t := value.(type) {
 	case string:
 		return NewString(t), nil
@@ -241,5 +278,5 @@ func liftRawResult(value interface{}) (Ord, error) {
 	case map[string]interface{}:
 		return NewMapStringInterface(t), nil
 	}
-	return nil, errors.Annotatef(ErrInvalidIndex(), "Runtime Error: %v unexpected index type %T", value, value)
+	return nil, RuntimeErrorf("%v unexpected index type %T", value, value)
 }

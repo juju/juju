@@ -35,25 +35,25 @@ func IsInvalidIdentifierErr(err error) bool {
 	return ok
 }
 
-// InvalidIndexError creates an invalid error.
-type InvalidIndexError struct {
+// RuntimeError creates an invalid error.
+type RuntimeError struct {
 	err error
 }
 
-func (e *InvalidIndexError) Error() string {
+func (e *RuntimeError) Error() string {
 	return e.err.Error()
 }
 
-// ErrInvalidIndex defines a sentinel error for invalid index.
-func ErrInvalidIndex() error {
-	return &InvalidIndexError{
-		err: errors.Errorf("invalid index"),
+// RuntimeErrorf defines a sentinel error for invalid index.
+func RuntimeErrorf(msg string, args ...interface{}) error {
+	return &RuntimeError{
+		err: errors.Errorf("Runtime Error: "+msg, args...),
 	}
 }
 
-// IsInvalidIndexErr returns if the error is an ErrInvalidIndex error
-func IsInvalidIndexErr(err error) bool {
+// IsRuntimeError returns if the error is an ErrInvalidIndex error
+func IsRuntimeError(err error) bool {
 	err = errors.Cause(err)
-	_, ok := err.(*InvalidIndexError)
+	_, ok := err.(*RuntimeError)
 	return ok
 }

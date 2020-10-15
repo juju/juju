@@ -74,6 +74,7 @@ func NewParser(lex *Lexer) *Parser {
 		GT:       p.parseInfixExpression,
 		GE:       p.parseInfixExpression,
 		LBRACKET: p.parseIndex,
+		LPAREN:   p.parseCall,
 	}
 	p.nextToken()
 	p.nextToken()
@@ -223,6 +224,36 @@ func (p *Parser) parseIndex(left Expression) Expression {
 	return expression
 }
 
+func (p *Parser) parseCall(left Expression) Expression {
+	if p.isPeekToken(RPAREN) {
+		p.nextToken()
+		return &CallExpression{
+			Token: p.currentToken,
+			Name:  left,
+		}
+	}
+
+	p.nextToken()
+
+	arguments := []Expression{
+		p.parseExpression(LOWEST),
+	}
+	for p.isPeekToken(COMMA) {
+		p.nextToken()
+		p.nextToken()
+		arguments = append(arguments, p.parseExpression(LOWEST))
+	}
+	if !p.expectPeek(RPAREN) {
+		return nil
+	}
+
+	return &CallExpression{
+		Token:     p.currentToken,
+		Name:      left,
+		Arguments: arguments,
+	}
+}
+
 func (p *Parser) currentPrecedence() int {
 	if p, ok := precedence[p.currentToken.Type]; ok {
 		return p
@@ -255,7 +286,7 @@ func (p *Parser) expectPeek(t TokenType) bool {
 		p.nextToken()
 		return true
 	}
-	msg := fmt.Sprintf("Syntax Error:%v expected token to be %s, got %s instead", p.currentToken.Pos, t, p.peekToken.Type)
+	msg := fmt.Sprintf("Syntax Error: %v expected token to be %s, got %s instead", p.currentToken.Pos, t, p.peekToken.Type)
 	p.errors = append(p.errors, msg)
 	return false
 }

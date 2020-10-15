@@ -111,9 +111,9 @@ func (c *applicationCommand) waitFor(name string, deltas []params.Delta, q query
 		case *params.ApplicationInfo:
 			if entityInfo.Name == name {
 				scope := MakeApplicationScope(entityInfo)
-				if res, err := q.Run(scope); query.IsInvalidIdentifierErr(err) {
+				if res, err := q.BuiltinsRun(scope); query.IsInvalidIdentifierErr(err) {
 					return false, invalidIdentifierError(scope, err)
-				} else if query.IsInvalidIndexErr(err) {
+				} else if query.IsRuntimeError(err) {
 					return false, errors.Trace(err)
 				} else if res && err == nil {
 					return true, nil
@@ -160,9 +160,9 @@ func (c *applicationCommand) waitFor(name string, deltas []params.Delta, q query
 	appInfo.Status.Current = currentStatus
 
 	scope := MakeApplicationScope(&appInfo)
-	if res, err := q.Run(scope); query.IsInvalidIdentifierErr(err) {
+	if res, err := q.BuiltinsRun(scope); query.IsInvalidIdentifierErr(err) {
 		return false, invalidIdentifierError(scope, err)
-	} else if query.IsInvalidIndexErr(err) {
+	} else if query.IsRuntimeError(err) {
 		return false, errors.Trace(err)
 	} else if res && err == nil {
 		return true, nil

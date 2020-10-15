@@ -141,6 +141,41 @@ func (ie *IndexExpression) String() string {
 	return out.String()
 }
 
+// CallExpression represents an expression that is associated with an operator.
+type CallExpression struct {
+	Token     Token
+	Name      Expression
+	Arguments []Expression
+}
+
+// Pos returns the first position of the identifier.
+func (ie *CallExpression) Pos() Position {
+	return ie.Token.Pos
+}
+
+// End returns the last position of the identifier.
+func (ie *CallExpression) End() Position {
+	if num := len(ie.Arguments); num > 0 {
+		return ie.Arguments[num-1].End()
+	}
+	return ie.Name.End()
+}
+
+func (ie *CallExpression) String() string {
+	var out bytes.Buffer
+
+	var args []string
+	for _, a := range ie.Arguments {
+		args = append(args, a.String())
+	}
+	out.WriteString(ie.Name.String())
+	out.WriteString("(")
+	out.WriteString(strings.Join(args, ", "))
+	out.WriteString(")")
+
+	return out.String()
+}
+
 // Identifier represents an identifier for a given AST block
 type Identifier struct {
 	Token Token

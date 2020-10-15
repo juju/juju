@@ -110,9 +110,9 @@ func (c *machineCommand) waitFor(id string, deltas []params.Delta, q query.Query
 		case *params.MachineInfo:
 			if entityInfo.Id == id {
 				scope := MakeMachineScope(entityInfo)
-				if res, err := q.Run(scope); query.IsInvalidIdentifierErr(err) {
+				if res, err := q.BuiltinsRun(scope); query.IsInvalidIdentifierErr(err) {
 					return false, invalidIdentifierError(scope, err)
-				} else if query.IsInvalidIndexErr(err) {
+				} else if query.IsRuntimeError(err) {
 					return false, errors.Trace(err)
 				} else if res && err == nil {
 					return true, nil

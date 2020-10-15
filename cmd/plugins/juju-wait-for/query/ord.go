@@ -5,8 +5,6 @@ package query
 
 import (
 	"reflect"
-
-	"github.com/juju/errors"
 )
 
 // Ord represents a ordered datatype.
@@ -234,12 +232,12 @@ func (o *OrdMapInterfaceInterface) Value() interface{} {
 func expectStringIndex(i interface{}) (*OrdString, error) {
 	ord, ok := i.(Ord)
 	if !ok {
-		return nil, errors.Annotatef(ErrInvalidIndex(), "expected string, but got %T", i)
+		return nil, RuntimeErrorf("expected string, but got %T", i)
 	}
 
 	idx, ok := i.(*OrdString)
 	if !ok {
-		return nil, errors.Annotatef(ErrInvalidIndex(), "expected string, but got %v", shadowType(ord))
+		return nil, RuntimeErrorf("expected string, but got %v", shadowType(ord))
 	}
 
 	return idx, nil
@@ -248,7 +246,7 @@ func expectStringIndex(i interface{}) (*OrdString, error) {
 func expectOrdIndex(i interface{}) (Ord, error) {
 	ord, ok := i.(Ord)
 	if !ok {
-		return nil, errors.Annotatef(ErrInvalidIndex(), "expected ord, but got %T", i)
+		return nil, RuntimeErrorf("expected ord, but got %T", i)
 	}
 
 	return ord, nil
