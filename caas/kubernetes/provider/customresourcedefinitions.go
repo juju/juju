@@ -132,7 +132,7 @@ func (k *kubernetesClient) listCustomResourceDefinitions(selector k8slabels.Sele
 
 func (k *kubernetesClient) deleteCustomResourceDefinitionsForApp(appName string) error {
 	selector := mergeSelectors(
-		utils.LabelSetToSelector(k.getAPIExtensionLabelsGlobal(appName)),
+		utils.LabelsToSelector(k.getAPIExtensionLabelsGlobal(appName)),
 		lifecycleApplicationRemovalSelector,
 	)
 	return errors.Trace(k.deleteCustomResourceDefinitions(selector))
@@ -153,7 +153,7 @@ func (k *kubernetesClient) deleteCustomResourceDefinitions(selector k8slabels.Se
 func (k *kubernetesClient) deleteCustomResourcesForApp(appName string) error {
 	selectorGetter := func(crd apiextensionsv1beta1.CustomResourceDefinition) k8slabels.Selector {
 		return mergeSelectors(
-			utils.LabelSetToSelector(k.getCRLabels(appName, crd.Spec.Scope)),
+			utils.LabelsToSelector(k.getCRLabels(appName, crd.Spec.Scope)),
 			lifecycleApplicationRemovalSelector,
 		)
 	}

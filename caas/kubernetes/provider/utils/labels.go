@@ -52,11 +52,6 @@ func IsLegacyModelLabels(model string, namespaceI core.NamespaceInterface) (bool
 	return !HasLabels(ns.Labels, LabelsForModel(model, false)), nil
 }
 
-// LabelSetToSelector converts a set of Kubernetes labels
-func LabelSetToSelector(l labels.Set) labels.Selector {
-	return labels.SelectorFromValidatedSet(l)
-}
-
 // LabelsForApp returns the labels that should be on a k8s object for a given
 // application name
 func LabelsForApp(name string, legacy bool) labels.Set {
@@ -143,6 +138,10 @@ func LabelsToSelector(ls labels.Set) labels.Selector {
 	return labels.SelectorFromValidatedSet(ls)
 }
 
+// StorageNameFromLabels returns the juju storage name used in the provided
+// label set. First checks for the key LabelJujuStorageName and then defaults
+// over to the key LegacyLabelStorageName. If neither key exists an empty string
+// is returned.
 func StorageNameFromLabels(labels labels.Set) string {
 	if labels[constants.LabelJujuStorageName] != "" {
 		return labels[constants.LabelJujuStorageName]

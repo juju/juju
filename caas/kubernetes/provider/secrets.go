@@ -157,7 +157,7 @@ func (k *kubernetesClient) deleteSecret(secretName string, uid types.UID) error 
 
 func (k *kubernetesClient) listSecrets(labels map[string]string) ([]core.Secret, error) {
 	listOps := v1.ListOptions{
-		LabelSelector: utils.LabelSetToSelector(labels).String(),
+		LabelSelector: utils.LabelsToSelector(labels).String(),
 	}
 	secList, err := k.client().CoreV1().Secrets(k.namespace).List(context.TODO(), listOps)
 	if err != nil {
@@ -173,7 +173,7 @@ func (k *kubernetesClient) deleteSecrets(appName string) error {
 	err := k.client().CoreV1().Secrets(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
 		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, v1.ListOptions{
-		LabelSelector: utils.LabelSetToSelector(
+		LabelSelector: utils.LabelsToSelector(
 			getSecretLabels(appName, k.IsLegacyLabels())).String(),
 	})
 	if k8serrors.IsNotFound(err) {

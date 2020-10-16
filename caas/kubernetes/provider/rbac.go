@@ -163,9 +163,9 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 }
 
 func (k *kubernetesClient) deleteAllServiceAccountResources(appName string) error {
-	selectorNamespaced := utils.LabelSetToSelector(
+	selectorNamespaced := utils.LabelsToSelector(
 		RBACLabels(appName, k.CurrentModel(), false, k.IsLegacyLabels()))
-	selectorGlobal := utils.LabelSetToSelector(
+	selectorGlobal := utils.LabelsToSelector(
 		RBACLabels(appName, k.CurrentModel(), true, k.IsLegacyLabels()))
 	if err := k.deleteRoleBindings(selectorNamespaced); err != nil {
 		return errors.Trace(err)
@@ -259,7 +259,7 @@ func (k *kubernetesClient) deleteServiceAccounts(selectors ...k8slabels.Selector
 
 func (k *kubernetesClient) listServiceAccount(labels map[string]string) ([]core.ServiceAccount, error) {
 	listOps := v1.ListOptions{
-		LabelSelector: utils.LabelSetToSelector(labels).String(),
+		LabelSelector: utils.LabelsToSelector(labels).String(),
 	}
 	saList, err := k.client().CoreV1().ServiceAccounts(k.namespace).List(context.TODO(), listOps)
 	if err != nil {
@@ -298,7 +298,7 @@ func (k *kubernetesClient) ensureRole(role *rbacv1.Role) (out *rbacv1.Role, clea
 	if !errors.IsAlreadyExists(err) {
 		return nil, cleanups, errors.Trace(err)
 	}
-	_, err = k.listRoles(utils.LabelSetToSelector(role.GetLabels()))
+	_, err = k.listRoles(utils.LabelsToSelector(role.GetLabels()))
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// role.Name is already used for an existing role.
@@ -384,7 +384,7 @@ func (k *kubernetesClient) ensureClusterRole(cRole *rbacv1.ClusterRole) (out *rb
 	if !errors.IsAlreadyExists(err) {
 		return nil, cleanups, errors.Trace(err)
 	}
-	_, err = k.listClusterRoles(utils.LabelSetToSelector(cRole.GetLabels()))
+	_, err = k.listClusterRoles(utils.LabelsToSelector(cRole.GetLabels()))
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// cRole.Name is already used for an existing cluster role.
@@ -487,7 +487,7 @@ func ensureResourceDeleted(clock jujuclock.Clock, getResource func() error) erro
 func (k *kubernetesClient) ensureRoleBinding(rb *rbacv1.RoleBinding) (out *rbacv1.RoleBinding, cleanups []func(), err error) {
 	isFirstDeploy := false
 	// RoleRef is immutable, so delete first then re-create.
-	rbs, err := k.listRoleBindings(utils.LabelSetToSelector(rb.GetLabels()))
+	rbs, err := k.listRoleBindings(utils.LabelsToSelector(rb.GetLabels()))
 	if errors.IsNotFound(err) {
 		isFirstDeploy = true
 	} else if err != nil {
@@ -593,7 +593,7 @@ func (k *kubernetesClient) updateClusterRoleBinding(crb *rbacv1.ClusterRoleBindi
 func (k *kubernetesClient) ensureClusterRoleBinding(crb *rbacv1.ClusterRoleBinding) (out *rbacv1.ClusterRoleBinding, cleanups []func(), err error) {
 	isFirstDeploy := false
 	// RoleRef is immutable, so delete first then re-create.
-	crbs, err := k.listClusterRoleBindings(utils.LabelSetToSelector(crb.GetLabels()))
+	crbs, err := k.listClusterRoleBindings(utils.LabelsToSelector(crb.GetLabels()))
 	if errors.IsNotFound(err) {
 		isFirstDeploy = true
 	} else if err != nil {

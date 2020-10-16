@@ -80,7 +80,7 @@ func (k *kubernetesClient) deleteServices(appName string) error {
 	api := k.client().CoreV1().Services(k.namespace)
 	services, err := api.List(context.TODO(),
 		v1.ListOptions{
-			LabelSelector: utils.LabelSetToSelector(
+			LabelSelector: utils.LabelsToSelector(
 				getServiceLabels(appName, k.IsLegacyLabels())).String(),
 		},
 	)

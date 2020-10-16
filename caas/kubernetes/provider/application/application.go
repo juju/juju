@@ -1062,7 +1062,7 @@ func (a *app) selectorLabels() labels.Set {
 }
 
 func (a *app) labelSelector() string {
-	return k8sutils.LabelSetToSelector(
+	return k8sutils.LabelsToSelector(
 		k8sutils.SelectorLabelsForApp(a.name, a.legacyLabels),
 	).String()
 }

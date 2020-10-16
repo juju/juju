@@ -2827,7 +2827,7 @@ func (s *K8sBrokerSuite) assertGetService(c *gc.C, mode caas.DeploymentMode, exp
 	}
 	labels := utils.LabelsMerge(selectorLabels, utils.LabelsJuju)
 
-	selector := utils.LabelSetToSelector(labels).String()
+	selector := utils.LabelsToSelector(labels).String()
 	svc := core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
