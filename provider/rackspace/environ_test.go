@@ -228,11 +228,6 @@ func (e *fakeEnviron) AllRunningInstances(callCtx context.ProviderCallContext) (
 	return nil, nil
 }
 
-func (e *fakeEnviron) MaintainInstance(callCtx context.ProviderCallContext, args environs.StartInstanceParams) error {
-	e.Push("MaintainInstance", callCtx, args)
-	return nil
-}
-
 func (e *fakeEnviron) Config() *config.Config {
 	return e.config
 }

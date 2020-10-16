@@ -24,11 +24,6 @@ import (
 	"github.com/juju/juju/tools"
 )
 
-// MaintainInstance is specified in the InstanceBroker interface.
-func (*environ) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
-	return nil
-}
-
 // StartInstance implements environs.InstanceBroker.
 func (env *environ) StartInstance(
 	ctx context.ProviderCallContext, args environs.StartInstanceParams,

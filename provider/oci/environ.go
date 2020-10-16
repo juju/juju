@@ -762,11 +762,6 @@ func (e *Environ) AllRunningInstances(ctx envcontext.ProviderCallContext) ([]ins
 	return e.AllInstances(ctx)
 }
 
-// MaintainInstance implements environs.InstanceBroker.
-func (e *Environ) MaintainInstance(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) error {
-	return nil
-}
-
 // Config implements environs.ConfigGetter.
 func (e *Environ) Config() *config.Config {
 	e.ecfgMutex.Lock()

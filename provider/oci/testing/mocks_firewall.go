@@ -6,10 +6,9 @@ package testing
 
 import (
 	context "context"
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	core "github.com/oracle/oci-go-sdk/core"
+	reflect "reflect"
 )
 
 // MockOCIFirewallClient is a mock of OCIFirewallClient interface
@@ -37,6 +36,7 @@ func (m *MockOCIFirewallClient) EXPECT() *MockOCIFirewallClientMockRecorder {
 
 // CreateSecurityList mocks base method
 func (m *MockOCIFirewallClient) CreateSecurityList(arg0 context.Context, arg1 core.CreateSecurityListRequest) (core.CreateSecurityListResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateSecurityList", arg0, arg1)
 	ret0, _ := ret[0].(core.CreateSecurityListResponse)
 	ret1, _ := ret[1].(error)
@@ -45,11 +45,13 @@ func (m *MockOCIFirewallClient) CreateSecurityList(arg0 context.Context, arg1 co
 
 // CreateSecurityList indicates an expected call of CreateSecurityList
 func (mr *MockOCIFirewallClientMockRecorder) CreateSecurityList(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSecurityList", reflect.TypeOf((*MockOCIFirewallClient)(nil).CreateSecurityList), arg0, arg1)
 }
 
 // DeleteSecurityList mocks base method
 func (m *MockOCIFirewallClient) DeleteSecurityList(arg0 context.Context, arg1 core.DeleteSecurityListRequest) (core.DeleteSecurityListResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteSecurityList", arg0, arg1)
 	ret0, _ := ret[0].(core.DeleteSecurityListResponse)
 	ret1, _ := ret[1].(error)
@@ -58,11 +60,13 @@ func (m *MockOCIFirewallClient) DeleteSecurityList(arg0 context.Context, arg1 co
 
 // DeleteSecurityList indicates an expected call of DeleteSecurityList
 func (mr *MockOCIFirewallClientMockRecorder) DeleteSecurityList(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSecurityList", reflect.TypeOf((*MockOCIFirewallClient)(nil).DeleteSecurityList), arg0, arg1)
 }
 
 // GetSecurityList mocks base method
 func (m *MockOCIFirewallClient) GetSecurityList(arg0 context.Context, arg1 core.GetSecurityListRequest) (core.GetSecurityListResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetSecurityList", arg0, arg1)
 	ret0, _ := ret[0].(core.GetSecurityListResponse)
 	ret1, _ := ret[1].(error)
@@ -71,11 +75,13 @@ func (m *MockOCIFirewallClient) GetSecurityList(arg0 context.Context, arg1 core.
 
 // GetSecurityList indicates an expected call of GetSecurityList
 func (mr *MockOCIFirewallClientMockRecorder) GetSecurityList(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecurityList", reflect.TypeOf((*MockOCIFirewallClient)(nil).GetSecurityList), arg0, arg1)
 }
 
 // ListSecurityLists mocks base method
 func (m *MockOCIFirewallClient) ListSecurityLists(arg0 context.Context, arg1 core.ListSecurityListsRequest) (core.ListSecurityListsResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListSecurityLists", arg0, arg1)
 	ret0, _ := ret[0].(core.ListSecurityListsResponse)
 	ret1, _ := ret[1].(error)
@@ -84,5 +90,6 @@ func (m *MockOCIFirewallClient) ListSecurityLists(arg0 context.Context, arg1 cor
 
 // ListSecurityLists indicates an expected call of ListSecurityLists
 func (mr *MockOCIFirewallClientMockRecorder) ListSecurityLists(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecurityLists", reflect.TypeOf((*MockOCIFirewallClient)(nil).ListSecurityLists), arg0, arg1)
 }

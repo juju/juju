@@ -6,10 +6,9 @@ package testing
 
 import (
 	context "context"
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	core "github.com/oracle/oci-go-sdk/core"
+	reflect "reflect"
 )
 
 // MockOCINetworkingClient is a mock of OCINetworkingClient interface
@@ -37,6 +36,7 @@ func (m *MockOCINetworkingClient) EXPECT() *MockOCINetworkingClientMockRecorder 
 
 // CreateInternetGateway mocks base method
 func (m *MockOCINetworkingClient) CreateInternetGateway(arg0 context.Context, arg1 core.CreateInternetGatewayRequest) (core.CreateInternetGatewayResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateInternetGateway", arg0, arg1)
 	ret0, _ := ret[0].(core.CreateInternetGatewayResponse)
 	ret1, _ := ret[1].(error)
@@ -45,11 +45,13 @@ func (m *MockOCINetworkingClient) CreateInternetGateway(arg0 context.Context, ar
 
 // CreateInternetGateway indicates an expected call of CreateInternetGateway
 func (mr *MockOCINetworkingClientMockRecorder) CreateInternetGateway(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateInternetGateway", reflect.TypeOf((*MockOCINetworkingClient)(nil).CreateInternetGateway), arg0, arg1)
 }
 
 // CreateRouteTable mocks base method
 func (m *MockOCINetworkingClient) CreateRouteTable(arg0 context.Context, arg1 core.CreateRouteTableRequest) (core.CreateRouteTableResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateRouteTable", arg0, arg1)
 	ret0, _ := ret[0].(core.CreateRouteTableResponse)
 	ret1, _ := ret[1].(error)
@@ -58,11 +60,13 @@ func (m *MockOCINetworkingClient) CreateRouteTable(arg0 context.Context, arg1 co
 
 // CreateRouteTable indicates an expected call of CreateRouteTable
 func (mr *MockOCINetworkingClientMockRecorder) CreateRouteTable(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRouteTable", reflect.TypeOf((*MockOCINetworkingClient)(nil).CreateRouteTable), arg0, arg1)
 }
 
 // CreateSubnet mocks base method
 func (m *MockOCINetworkingClient) CreateSubnet(arg0 context.Context, arg1 core.CreateSubnetRequest) (core.CreateSubnetResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateSubnet", arg0, arg1)
 	ret0, _ := ret[0].(core.CreateSubnetResponse)
 	ret1, _ := ret[1].(error)
@@ -71,11 +75,13 @@ func (m *MockOCINetworkingClient) CreateSubnet(arg0 context.Context, arg1 core.C
 
 // CreateSubnet indicates an expected call of CreateSubnet
 func (mr *MockOCINetworkingClientMockRecorder) CreateSubnet(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSubnet", reflect.TypeOf((*MockOCINetworkingClient)(nil).CreateSubnet), arg0, arg1)
 }
 
 // CreateVcn mocks base method
 func (m *MockOCINetworkingClient) CreateVcn(arg0 context.Context, arg1 core.CreateVcnRequest) (core.CreateVcnResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateVcn", arg0, arg1)
 	ret0, _ := ret[0].(core.CreateVcnResponse)
 	ret1, _ := ret[1].(error)
@@ -84,11 +90,13 @@ func (m *MockOCINetworkingClient) CreateVcn(arg0 context.Context, arg1 core.Crea
 
 // CreateVcn indicates an expected call of CreateVcn
 func (mr *MockOCINetworkingClientMockRecorder) CreateVcn(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateVcn", reflect.TypeOf((*MockOCINetworkingClient)(nil).CreateVcn), arg0, arg1)
 }
 
 // DeleteInternetGateway mocks base method
 func (m *MockOCINetworkingClient) DeleteInternetGateway(arg0 context.Context, arg1 core.DeleteInternetGatewayRequest) (core.DeleteInternetGatewayResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteInternetGateway", arg0, arg1)
 	ret0, _ := ret[0].(core.DeleteInternetGatewayResponse)
 	ret1, _ := ret[1].(error)
@@ -97,11 +105,13 @@ func (m *MockOCINetworkingClient) DeleteInternetGateway(arg0 context.Context, ar
 
 // DeleteInternetGateway indicates an expected call of DeleteInternetGateway
 func (mr *MockOCINetworkingClientMockRecorder) DeleteInternetGateway(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteInternetGateway", reflect.TypeOf((*MockOCINetworkingClient)(nil).DeleteInternetGateway), arg0, arg1)
 }
 
 // DeleteRouteTable mocks base method
 func (m *MockOCINetworkingClient) DeleteRouteTable(arg0 context.Context, arg1 core.DeleteRouteTableRequest) (core.DeleteRouteTableResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteRouteTable", arg0, arg1)
 	ret0, _ := ret[0].(core.DeleteRouteTableResponse)
 	ret1, _ := ret[1].(error)
@@ -110,11 +120,13 @@ func (m *MockOCINetworkingClient) DeleteRouteTable(arg0 context.Context, arg1 co
 
 // DeleteRouteTable indicates an expected call of DeleteRouteTable
 func (mr *MockOCINetworkingClientMockRecorder) DeleteRouteTable(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRouteTable", reflect.TypeOf((*MockOCINetworkingClient)(nil).DeleteRouteTable), arg0, arg1)
 }
 
 // DeleteSubnet mocks base method
 func (m *MockOCINetworkingClient) DeleteSubnet(arg0 context.Context, arg1 core.DeleteSubnetRequest) (core.DeleteSubnetResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteSubnet", arg0, arg1)
 	ret0, _ := ret[0].(core.DeleteSubnetResponse)
 	ret1, _ := ret[1].(error)
@@ -123,11 +135,13 @@ func (m *MockOCINetworkingClient) DeleteSubnet(arg0 context.Context, arg1 core.D
 
 // DeleteSubnet indicates an expected call of DeleteSubnet
 func (mr *MockOCINetworkingClientMockRecorder) DeleteSubnet(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSubnet", reflect.TypeOf((*MockOCINetworkingClient)(nil).DeleteSubnet), arg0, arg1)
 }
 
 // DeleteVcn mocks base method
 func (m *MockOCINetworkingClient) DeleteVcn(arg0 context.Context, arg1 core.DeleteVcnRequest) (core.DeleteVcnResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteVcn", arg0, arg1)
 	ret0, _ := ret[0].(core.DeleteVcnResponse)
 	ret1, _ := ret[1].(error)
@@ -136,11 +150,13 @@ func (m *MockOCINetworkingClient) DeleteVcn(arg0 context.Context, arg1 core.Dele
 
 // DeleteVcn indicates an expected call of DeleteVcn
 func (mr *MockOCINetworkingClientMockRecorder) DeleteVcn(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteVcn", reflect.TypeOf((*MockOCINetworkingClient)(nil).DeleteVcn), arg0, arg1)
 }
 
 // GetInternetGateway mocks base method
 func (m *MockOCINetworkingClient) GetInternetGateway(arg0 context.Context, arg1 core.GetInternetGatewayRequest) (core.GetInternetGatewayResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetInternetGateway", arg0, arg1)
 	ret0, _ := ret[0].(core.GetInternetGatewayResponse)
 	ret1, _ := ret[1].(error)
@@ -149,11 +165,13 @@ func (m *MockOCINetworkingClient) GetInternetGateway(arg0 context.Context, arg1 
 
 // GetInternetGateway indicates an expected call of GetInternetGateway
 func (mr *MockOCINetworkingClientMockRecorder) GetInternetGateway(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInternetGateway", reflect.TypeOf((*MockOCINetworkingClient)(nil).GetInternetGateway), arg0, arg1)
 }
 
 // GetRouteTable mocks base method
 func (m *MockOCINetworkingClient) GetRouteTable(arg0 context.Context, arg1 core.GetRouteTableRequest) (core.GetRouteTableResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetRouteTable", arg0, arg1)
 	ret0, _ := ret[0].(core.GetRouteTableResponse)
 	ret1, _ := ret[1].(error)
@@ -162,11 +180,13 @@ func (m *MockOCINetworkingClient) GetRouteTable(arg0 context.Context, arg1 core.
 
 // GetRouteTable indicates an expected call of GetRouteTable
 func (mr *MockOCINetworkingClientMockRecorder) GetRouteTable(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRouteTable", reflect.TypeOf((*MockOCINetworkingClient)(nil).GetRouteTable), arg0, arg1)
 }
 
 // GetSubnet mocks base method
 func (m *MockOCINetworkingClient) GetSubnet(arg0 context.Context, arg1 core.GetSubnetRequest) (core.GetSubnetResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetSubnet", arg0, arg1)
 	ret0, _ := ret[0].(core.GetSubnetResponse)
 	ret1, _ := ret[1].(error)
@@ -175,11 +195,13 @@ func (m *MockOCINetworkingClient) GetSubnet(arg0 context.Context, arg1 core.GetS
 
 // GetSubnet indicates an expected call of GetSubnet
 func (mr *MockOCINetworkingClientMockRecorder) GetSubnet(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSubnet", reflect.TypeOf((*MockOCINetworkingClient)(nil).GetSubnet), arg0, arg1)
 }
 
 // GetVcn mocks base method
 func (m *MockOCINetworkingClient) GetVcn(arg0 context.Context, arg1 core.GetVcnRequest) (core.GetVcnResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetVcn", arg0, arg1)
 	ret0, _ := ret[0].(core.GetVcnResponse)
 	ret1, _ := ret[1].(error)
@@ -188,11 +210,13 @@ func (m *MockOCINetworkingClient) GetVcn(arg0 context.Context, arg1 core.GetVcnR
 
 // GetVcn indicates an expected call of GetVcn
 func (mr *MockOCINetworkingClientMockRecorder) GetVcn(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVcn", reflect.TypeOf((*MockOCINetworkingClient)(nil).GetVcn), arg0, arg1)
 }
 
 // GetVnic mocks base method
 func (m *MockOCINetworkingClient) GetVnic(arg0 context.Context, arg1 core.GetVnicRequest) (core.GetVnicResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetVnic", arg0, arg1)
 	ret0, _ := ret[0].(core.GetVnicResponse)
 	ret1, _ := ret[1].(error)
@@ -201,11 +225,13 @@ func (m *MockOCINetworkingClient) GetVnic(arg0 context.Context, arg1 core.GetVni
 
 // GetVnic indicates an expected call of GetVnic
 func (mr *MockOCINetworkingClientMockRecorder) GetVnic(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVnic", reflect.TypeOf((*MockOCINetworkingClient)(nil).GetVnic), arg0, arg1)
 }
 
 // ListInternetGateways mocks base method
 func (m *MockOCINetworkingClient) ListInternetGateways(arg0 context.Context, arg1 core.ListInternetGatewaysRequest) (core.ListInternetGatewaysResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListInternetGateways", arg0, arg1)
 	ret0, _ := ret[0].(core.ListInternetGatewaysResponse)
 	ret1, _ := ret[1].(error)
@@ -214,11 +240,13 @@ func (m *MockOCINetworkingClient) ListInternetGateways(arg0 context.Context, arg
 
 // ListInternetGateways indicates an expected call of ListInternetGateways
 func (mr *MockOCINetworkingClientMockRecorder) ListInternetGateways(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListInternetGateways", reflect.TypeOf((*MockOCINetworkingClient)(nil).ListInternetGateways), arg0, arg1)
 }
 
 // ListRouteTables mocks base method
 func (m *MockOCINetworkingClient) ListRouteTables(arg0 context.Context, arg1 core.ListRouteTablesRequest) (core.ListRouteTablesResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListRouteTables", arg0, arg1)
 	ret0, _ := ret[0].(core.ListRouteTablesResponse)
 	ret1, _ := ret[1].(error)
@@ -227,11 +255,13 @@ func (m *MockOCINetworkingClient) ListRouteTables(arg0 context.Context, arg1 cor
 
 // ListRouteTables indicates an expected call of ListRouteTables
 func (mr *MockOCINetworkingClientMockRecorder) ListRouteTables(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRouteTables", reflect.TypeOf((*MockOCINetworkingClient)(nil).ListRouteTables), arg0, arg1)
 }
 
 // ListSubnets mocks base method
 func (m *MockOCINetworkingClient) ListSubnets(arg0 context.Context, arg1 core.ListSubnetsRequest) (core.ListSubnetsResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListSubnets", arg0, arg1)
 	ret0, _ := ret[0].(core.ListSubnetsResponse)
 	ret1, _ := ret[1].(error)
@@ -240,11 +270,13 @@ func (m *MockOCINetworkingClient) ListSubnets(arg0 context.Context, arg1 core.Li
 
 // ListSubnets indicates an expected call of ListSubnets
 func (mr *MockOCINetworkingClientMockRecorder) ListSubnets(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSubnets", reflect.TypeOf((*MockOCINetworkingClient)(nil).ListSubnets), arg0, arg1)
 }
 
 // ListVcns mocks base method
 func (m *MockOCINetworkingClient) ListVcns(arg0 context.Context, arg1 core.ListVcnsRequest) (core.ListVcnsResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListVcns", arg0, arg1)
 	ret0, _ := ret[0].(core.ListVcnsResponse)
 	ret1, _ := ret[1].(error)
@@ -253,5 +285,6 @@ func (m *MockOCINetworkingClient) ListVcns(arg0 context.Context, arg1 core.ListV
 
 // ListVcns indicates an expected call of ListVcns
 func (mr *MockOCINetworkingClientMockRecorder) ListVcns(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListVcns", reflect.TypeOf((*MockOCINetworkingClient)(nil).ListVcns), arg0, arg1)
 }

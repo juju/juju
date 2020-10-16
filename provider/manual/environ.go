@@ -62,11 +62,6 @@ type manualEnviron struct {
 var errNoStartInstance = errors.New("manual provider cannot start instances")
 var errNoStopInstance = errors.New("manual provider cannot stop instances")
 
-// MaintainInstance is specified in the InstanceBroker interface.
-func (*manualEnviron) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
-	return nil
-}
-
 func (*manualEnviron) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	return nil, errNoStartInstance
 }

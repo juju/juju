@@ -456,11 +456,6 @@ func (env *azureEnviron) PrecheckInstance(ctx context.ProviderCallContext, args 
 	return fmt.Errorf("invalid instance type %q", *args.Constraints.InstanceType)
 }
 
-// MaintainInstance is specified in the InstanceBroker interface.
-func (*azureEnviron) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
-	return nil
-}
-
 // StartInstance is specified in the InstanceBroker interface.
 func (env *azureEnviron) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	if args.ControllerUUID == "" {

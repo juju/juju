@@ -411,11 +411,6 @@ func (e *environ) DistributeInstances(
 	return common.DistributeInstances(e, ctx, candidates, distributionGroup, limitZones)
 }
 
-// MaintainInstance is specified in the InstanceBroker interface.
-func (*environ) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
-	return nil
-}
-
 // resourceName returns the string to use for a resource's Name tag,
 // to help users identify Juju-managed resources in the AWS console.
 func resourceName(tag names.Tag, envName string) string {

@@ -5,14 +5,13 @@
 package openstack
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	set "github.com/juju/collections/set"
 	instance "github.com/juju/juju/core/instance"
 	network "github.com/juju/juju/core/network"
 	neutron "gopkg.in/goose.v2/neutron"
 	nova "gopkg.in/goose.v2/nova"
+	reflect "reflect"
 )
 
 // MockSSLHostnameConfig is a mock of SSLHostnameConfig interface
