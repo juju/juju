@@ -289,7 +289,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesCorrectlyP
 		"br-eth10-100",
 	}
 
-	err = s.machine.SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs[:])
+	err = s.machine.SetLinkLayerDevices(devicesArgs[:]...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.SetDevicesAddresses(devAddresses...)
 	c.Assert(err, jc.ErrorIsNil)

@@ -4242,9 +4242,13 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 func (s *uniterNetworkConfigSuite) addProvisionedMachineWithDevicesAndAddresses(c *gc.C, addrSuffix int) *state.Machine {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	devicesArgs, devicesAddrs := s.makeMachineDevicesAndAddressesArgs(addrSuffix)
-	err = machine.SetInstanceInfo("i-am", "", "fake_nonce", nil, devicesArgs, devicesAddrs, nil, nil, nil)
+
+	err = machine.SetInstanceInfo("i-am", "", "fake_nonce", nil, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
+
+	devicesArgs, devicesAddrs := s.makeMachineDevicesAndAddressesArgs(addrSuffix)
+	c.Assert(machine.SetLinkLayerDevices(devicesArgs...), jc.ErrorIsNil)
+	c.Assert(machine.SetDevicesAddresses(devicesAddrs...), jc.ErrorIsNil)
 
 	machineAddrs, err := machine.AllAddresses()
 	c.Assert(err, jc.ErrorIsNil)
@@ -4495,9 +4499,12 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 func (s *uniterNetworkInfoSuite) addProvisionedMachineWithDevicesAndAddresses(c *gc.C, addrSuffix int) *state.Machine {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	devicesArgs, devicesAddrs := s.makeMachineDevicesAndAddressesArgs(addrSuffix)
-	err = machine.SetInstanceInfo("i-am", "", "fake_nonce", nil, devicesArgs, devicesAddrs, nil, nil, nil)
+	err = machine.SetInstanceInfo("i-am", "", "fake_nonce", nil, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
+
+	devicesArgs, devicesAddrs := s.makeMachineDevicesAndAddressesArgs(addrSuffix)
+	c.Assert(machine.SetLinkLayerDevices(devicesArgs...), jc.ErrorIsNil)
+	c.Assert(machine.SetDevicesAddresses(devicesAddrs...), jc.ErrorIsNil)
 
 	machineAddrs, err := machine.AllAddresses()
 	c.Assert(err, jc.ErrorIsNil)
