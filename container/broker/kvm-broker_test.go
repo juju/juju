@@ -106,10 +106,6 @@ func (s *kvmBrokerSuite) newKVMBrokerFakeManager(c *gc.C) (environs.InstanceBrok
 	return broker.NewKVMBroker(s.api.PrepareHost, s.api, s.manager, s.agentConfig)
 }
 
-func (s *kvmBrokerSuite) maintainInstance(c *gc.C, broker environs.InstanceBroker, machineId string) {
-	callMaintainInstance(c, s, broker, machineId)
-}
-
 func (s *kvmBrokerSuite) TestStartInstanceWithoutNetworkChanges(c *gc.C) {
 	broker, brokerErr := s.newKVMBroker(c)
 	c.Assert(brokerErr, jc.ErrorIsNil)
@@ -140,7 +136,6 @@ func (s *kvmBrokerSuite) TestMaintainInstanceAddress(c *gc.C) {
 
 	s.api.ResetCalls()
 
-	s.maintainInstance(c, broker, machineId)
 	s.api.CheckCalls(c, []gitjujutesting.StubCall{})
 	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("juju-06f00d-1-kvm-0"))
 	s.assertResults(c, broker, result)

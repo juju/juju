@@ -338,16 +338,6 @@ func callStartInstance(c *gc.C, s patcher, broker environs.InstanceBroker, machi
 	})
 }
 
-func callMaintainInstance(c *gc.C, s patcher, broker environs.InstanceBroker, machineId string) {
-	err := broker.MaintainInstance(context.NewCloudCallContext(), environs.StartInstanceParams{
-		Constraints:    constraints.Value{},
-		Tools:          makePossibleTools(),
-		InstanceConfig: makeInstanceConfig(c, s, machineId),
-		StatusCallback: makeNoOpStatusCallback(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func assertCloudInitUserData(obtained, expected map[string]interface{}, c *gc.C) {
 	c.Assert(obtained, gc.HasLen, len(expected))
 	for obtainedK, obtainedV := range obtained {
