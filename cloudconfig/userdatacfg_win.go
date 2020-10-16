@@ -81,6 +81,7 @@ func (w *windowsConfigure) ConfigureBasic() error {
 		// This is necessary for setACLs to work
 		`$adminsGroup = (New-Object System.Security.Principal.SecurityIdentifier("S-1-5-32-544")).Translate([System.Security.Principal.NTAccount])`,
 		fmt.Sprintf(`icacls "%s" /inheritance:r /grant "${adminsGroup}:(OI)(CI)(F)" /t`, renderer.FromSlash(baseDir)),
+		fmt.Sprintf(`icacls "%s" /inheritance:e /grant "SYSTEM:(OI)(CI)(F)" /t`, renderer.FromSlash(baseDir)),
 	)
 
 	// TODO(bogdanteleaga): This, together with the call above, should be using setACLs, once it starts working across all windows versions properly.
