@@ -171,11 +171,6 @@ type InstanceBroker interface {
 
 	// AllRunningInstances returns all running, available instances currently known to the broker.
 	AllRunningInstances(ctx context.ProviderCallContext) ([]instances.Instance, error)
-
-	// MaintainInstance is used to run actions on jujud startup for existing
-	// instances. It is currently only used to ensure that LXC hosts have the
-	// correct network configuration.
-	MaintainInstance(ctx context.ProviderCallContext, args StartInstanceParams) error
 }
 
 // LXDProfiler defines an interface for dealing with lxd profiles used to

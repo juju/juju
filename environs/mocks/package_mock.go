@@ -249,20 +249,6 @@ func (mr *MockNetworkingEnvironMockRecorder) Instances(arg0, arg1 interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Instances", reflect.TypeOf((*MockNetworkingEnviron)(nil).Instances), arg0, arg1)
 }
 
-// MaintainInstance mocks base method
-func (m *MockNetworkingEnviron) MaintainInstance(arg0 context.ProviderCallContext, arg1 environs.StartInstanceParams) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MaintainInstance", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// MaintainInstance indicates an expected call of MaintainInstance
-func (mr *MockNetworkingEnvironMockRecorder) MaintainInstance(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MaintainInstance", reflect.TypeOf((*MockNetworkingEnviron)(nil).MaintainInstance), arg0, arg1)
-}
-
 // NetworkInterfaces mocks base method
 func (m *MockNetworkingEnviron) NetworkInterfaces(arg0 context.ProviderCallContext, arg1 []instance.Id) ([]network.InterfaceInfos, error) {
 	m.ctrl.T.Helper()
