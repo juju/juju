@@ -11,6 +11,7 @@ export BUILD_AGENT="${BUILD_AGENT:-false}"
 export RUN_SUBTEST="${RUN_SUBTEST:-}"
 
 export CURRENT_LTS="focal"
+export CURRENT_DIR=$(pwd)
 
 OPTIND=1
 VERBOSE=1
@@ -33,6 +34,7 @@ import_subdir_files includes
 # If adding a test suite, then ensure to add it here to be picked up!
 TEST_NAMES="static_analysis \
             appdata \
+            bootstrap \
             branches \
             caasadmission \
             cli \
