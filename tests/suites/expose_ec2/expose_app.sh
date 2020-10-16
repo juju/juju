@@ -109,7 +109,7 @@ assert_export_bundle_output_includes_exposed_endpoints() {
 
     got=$(juju export-bundle)
     exp=$(cat <<-EOF
-series: bionic
+series: focal
 applications:
   ubuntu-lite:
     charm: cs:~jameinel/ubuntu-lite-7

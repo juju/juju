@@ -590,6 +590,43 @@ func (s *K8sSuite) TestPrepareWorkloadSpec(c *gc.C) {
 	})
 }
 
+func (s *K8sSuite) TestPrepareWorkloadSpecPrimarySA(c *gc.C) {
+	podSpec := specs.PodSpec{ServiceAccount: primeServiceAccount}
+	podSpec.Containers = []specs.ContainerSpec{
+		{
+			Name:            "test",
+			Ports:           []specs.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
+			Image:           "juju/image",
+			ImagePullPolicy: "Always",
+		},
+	}
+
+	spec, err := provider.PrepareWorkloadSpec("app-name", "app-name", &podSpec, "operator/image-path")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(provider.Pod(spec), jc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
+		PodSpec: core.PodSpec{
+			ServiceAccountName:           "app-name",
+			AutomountServiceAccountToken: boolPtr(true),
+			InitContainers:               initContainers(),
+			Containers: []core.Container{
+				{
+					Name:            "test",
+					Image:           "juju/image",
+					Ports:           []core.ContainerPort{{ContainerPort: int32(80), Protocol: core.ProtocolTCP}},
+					ImagePullPolicy: core.PullAlways,
+					SecurityContext: &core.SecurityContext{
+						RunAsNonRoot:             boolPtr(false),
+						ReadOnlyRootFilesystem:   boolPtr(false),
+						AllowPrivilegeEscalation: boolPtr(true),
+					},
+					VolumeMounts: dataVolumeMounts(),
+				},
+			},
+			Volumes: dataVolumes(),
+		},
+	})
+}
+
 func getBasicPodspec() *specs.PodSpec {
 	pSpecs := &specs.PodSpec{}
 	pSpecs.Containers = []specs.ContainerSpec{{

@@ -2372,6 +2372,9 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec,
 			return nil, errors.Annotatef(err, "converting prime service account for app %q", appName)
 		}
 		spec.ServiceAccounts = append(spec.ServiceAccounts, primeSA)
+
+		spec.Pod.ServiceAccountName = podSpec.ServiceAccount.GetName()
+		spec.Pod.AutomountServiceAccountToken = podSpec.ServiceAccount.AutomountServiceAccountToken
 	}
 	if podSpec.ProviderPod != nil {
 		pSpec, ok := podSpec.ProviderPod.(*k8sspecs.K8sPodSpec)
@@ -2402,10 +2405,6 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec,
 				spec.Pod.Priority = k8sResources.Pod.Priority
 			}
 			spec.ServiceAccounts = append(spec.ServiceAccounts, &k8sResources.K8sRBACResources)
-		}
-		if podSpec.ServiceAccount != nil {
-			spec.Pod.ServiceAccountName = podSpec.ServiceAccount.GetName()
-			spec.Pod.AutomountServiceAccountToken = podSpec.ServiceAccount.AutomountServiceAccountToken
 		}
 	}
 	return &spec, nil
