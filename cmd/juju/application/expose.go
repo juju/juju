@@ -92,7 +92,7 @@ func (c *exposeCommand) Info() *cmd.Info {
 
 func (c *exposeCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.StringVar(&c.ExposedEndpointsList, "endpoints", "", "Expose only the ports that charms have opened in this comma-delimited list of endpoints")
+	f.StringVar(&c.ExposedEndpointsList, "endpoints", "", "Expose only the ports that charms have opened for this comma-delimited list of endpoints")
 	f.StringVar(&c.ExposeToSpacesList, "to-spaces", "", "A comma-delimited list of spaces that should be able to access the application ports once exposed")
 	f.StringVar(&c.ExposeToCIDRsList, "to-cidrs", "", "A comma-delimited list of CIDRs that should be able to access the application ports once exposed")
 }
