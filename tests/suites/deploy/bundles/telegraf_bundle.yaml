@@ -1,4 +1,4 @@
-series: bionic
+series: focal
 applications:
   influxdb:
     charm: cs:influxdb-22
