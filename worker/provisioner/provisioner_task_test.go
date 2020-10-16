@@ -747,12 +747,6 @@ func (t *testInstanceBroker) AllRunningInstances(ctx context.ProviderCallContext
 	return t.allInstancesFunc(ctx)
 }
 
-func (t *testInstanceBroker) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
-	t.AddCall("MaintainInstance", ctx, args)
-	t.callsChan <- "MaintainInstance"
-	return nil
-}
-
 type testInstance struct {
 	instances.Instance
 	id string

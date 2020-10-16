@@ -39,7 +39,6 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	providercommon "github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/wrench"
@@ -263,17 +262,12 @@ func (task *provisionerTask) processMachines(ids []string) error {
 	}
 
 	// Find machines without an instance ID or that are dead.
-	pending, dead, maintain, err := task.pendingOrDeadOrMaintain(ids)
+	pending, dead, err := task.pendingOrDead(ids)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	if err := task.removeMachines(dead); err != nil {
-		return errors.Trace(err)
-	}
-
-	// Any machines that require maintenance get pinged.
-	if err := task.maintainMachines(maintain); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -330,9 +324,9 @@ func (task *provisionerTask) populateMachineMaps(ids []string) error {
 
 // pendingOrDead looks up machines with ids and returns those that do not
 // have an instance id assigned yet, and also those that are dead.
-func (task *provisionerTask) pendingOrDeadOrMaintain(
+func (task *provisionerTask) pendingOrDead(
 	ids []string,
-) (pending, dead, maintain []apiprovisioner.MachineProvisioner, err error) {
+) (pending, dead []apiprovisioner.MachineProvisioner, err error) {
 	task.machinesMutex.RLock()
 	defer task.machinesMutex.RUnlock()
 	for _, id := range ids {
@@ -351,8 +345,6 @@ func (task *provisionerTask) pendingOrDeadOrMaintain(
 			pending = append(pending, machine)
 		case Dead:
 			dead = append(dead, machine)
-		case Maintain:
-			maintain = append(maintain, machine)
 		}
 	}
 	task.logger.Tracef("pending machines: %v", pending)
@@ -372,10 +364,9 @@ type ClassifiableMachine interface {
 type MachineClassification string
 
 const (
-	None     MachineClassification = "none"
-	Pending  MachineClassification = "Pending"
-	Dead     MachineClassification = "Dead"
-	Maintain MachineClassification = "Maintain"
+	None    MachineClassification = "none"
+	Pending MachineClassification = "Pending"
+	Dead    MachineClassification = "Dead"
 )
 
 func classifyMachine(logger Logger, machine ClassifiableMachine) (
@@ -422,9 +413,6 @@ func classifyMachine(logger Logger, machine ClassifiableMachine) (
 	}
 	logger.Infof("machine %s already started as instance %q", machine.Id(), instId)
 
-	if state.ContainerTypeFromId(machine.Id()) != "" {
-		return Maintain, nil
-	}
 	return None, nil
 }
 
@@ -743,19 +731,6 @@ func (task *provisionerTask) constructStartInstanceParams(
 	}
 
 	return startInstanceParams, nil
-}
-
-func (task *provisionerTask) maintainMachines(machines []apiprovisioner.MachineProvisioner) error {
-	for _, m := range machines {
-		task.logger.Infof("maintainMachines: %v", m)
-		startInstanceParams := environs.StartInstanceParams{}
-		startInstanceParams.InstanceConfig = &instancecfg.InstanceConfig{}
-		startInstanceParams.InstanceConfig.MachineId = m.Id()
-		if err := task.broker.MaintainInstance(task.cloudCallCtx, startInstanceParams); err != nil {
-			return errors.Annotatef(err, "cannot maintain machine %v", m)
-		}
-	}
-	return nil
 }
 
 // AvailabilityZoneMachine keeps track a single zone and which machines
