@@ -189,7 +189,7 @@ type UniterParams struct {
 }
 
 // NewOperationExecutorFunc is a func which returns an operations.Executor.
-type NewOperationExecutorFunc func(operation.ExecutorConfig) (operation.Executor, error)
+type NewOperationExecutorFunc func(string, operation.ExecutorConfig) (operation.Executor, error)
 
 // ProviderIDGetter defines the API to get provider ID.
 type ProviderIDGetter interface {
@@ -783,7 +783,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		CharmURL: charmURL,
 	}
 
-	operationExecutor, err := u.newOperationExecutor(operation.ExecutorConfig{
+	operationExecutor, err := u.newOperationExecutor(u.unit.Name(), operation.ExecutorConfig{
 		StateReadWriter: u.unit,
 		InitialState:    initialState,
 		AcquireLock:     u.acquireExecutionLock,
@@ -857,7 +857,7 @@ func (u *Uniter) acquireExecutionLock(action string) (func(), error) {
 	// Uniter's catacomb into account.
 	spec := machinelock.Spec{
 		Cancel:  u.catacomb.Dying(),
-		Worker:  "uniter",
+		Worker:  fmt.Sprintf("%s uniter", u.unit.Name()),
 		Comment: action,
 	}
 	releaser, err := u.hookLock.Acquire(spec)

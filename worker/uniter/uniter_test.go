@@ -169,13 +169,13 @@ func (s *UniterSuite) TestUniterBootstrap(c *gc.C) {
 			serveCharm{},
 			writeFile{"charm", 0644},
 			createUniter{},
-			waitUniterDead{err: `executing operation "install cs:quantal/wordpress-0": .*` + errNotDir},
+			waitUniterDead{err: `executing operation "install cs:quantal/wordpress-0" for u/0: .*` + errNotDir},
 		), ut(
 			"charm cannot be downloaded",
 			createCharm{},
 			// don't serve charm
 			createUniter{},
-			waitUniterDead{err: `preparing operation "install cs:quantal/wordpress-0": failed to download charm .* not found`},
+			waitUniterDead{err: `preparing operation "install cs:quantal/wordpress-0" for u/0: failed to download charm .* not found`},
 		),
 	})
 }
@@ -1439,8 +1439,8 @@ func (s *UniterSuite) TestTranslateResolverError(c *gc.C) {
 }
 
 func executorFunc(c *gc.C) uniter.NewOperationExecutorFunc {
-	return func(cfg operation.ExecutorConfig) (operation.Executor, error) {
-		e, err := operation.NewExecutor(cfg)
+	return func(unitName string, cfg operation.ExecutorConfig) (operation.Executor, error) {
+		e, err := operation.NewExecutor(unitName, cfg)
 		c.Assert(err, jc.ErrorIsNil)
 		return &mockExecutor{e}, nil
 	}
