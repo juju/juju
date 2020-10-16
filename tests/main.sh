@@ -11,6 +11,7 @@ export BUILD_AGENT="${BUILD_AGENT:-false}"
 export RUN_SUBTEST="${RUN_SUBTEST:-}"
 
 export CURRENT_LTS="focal"
+export CURRENT_DIR=$(pwd)
 
 OPTIND=1
 VERBOSE=1

@@ -1,0 +1,17 @@
+{
+    "format": "index:1.0",
+    "index": {
+        "com.ubuntu.juju:released:tools": {
+           "datatype": "content-download",
+            "format": "products:1.0",
+            "path": "streams/v1/com.ubuntu.juju-released-tools.json",
+            "products": [
+{{- range . }}
+                "com.ubuntu.juju:16.04:{{.Arch}}",
+                "com.ubuntu.juju:18.04:{{.Arch}}",
+                "com.ubuntu.juju:20.04:{{.Arch}}"
+{{- end }}
+            ]
+        }
+    }
+}

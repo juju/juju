@@ -1,0 +1,66 @@
+{
+    "content_id": "com.ubuntu.juju:released:tools",
+    "datatype": "content-download",
+    "format": "products:1.0",
+    "products": {
+{{- range . }}
+        "com.ubuntu.juju:16.04:{{.Arch}}": {
+            "datatype": "content-download",
+            "format": "products:1.0",
+            "ftype": "tar.gz",
+            "release":"xenial",
+            "arch": "{{.Arch}}",
+            "versions": {
+                "{{.Date}}": {
+                    "items": {
+                        "{{.Version}}-{{.Series}}-{{.Arch}}": {
+                            "size": {{.Size}},
+                            "path": "{{.Path}}",
+                            "sha256": "{{.SHA256}}",
+                            "version": "{{.Version}}"
+                        }
+                    }
+                }
+            }
+        },
+        "com.ubuntu.juju:18.04:{{.Arch}}": {
+            "datatype": "content-download",
+            "format": "products:1.0",
+            "ftype": "tar.gz",
+            "release":"bionic",
+            "arch": "{{.Arch}}",
+            "versions": {
+                "{{.Date}}": {
+                    "items": {
+                        "{{.Version}}-{{.Series}}-{{.Arch}}": {
+                            "size": {{.Size}},
+                            "path": "{{.Path}}",
+                            "sha256": "{{.SHA256}}",
+                            "version": "{{.Version}}"
+                        }
+                    }
+                }
+            }
+        },
+        "com.ubuntu.juju:20.04:{{.Arch}}": {
+            "datatype": "content-download",
+            "format": "products:1.0",
+            "ftype": "tar.gz",
+            "release":"focal",
+            "arch": "{{.Arch}}",
+            "versions": {
+                "{{.Date}}": {
+                    "items": {
+                        "{{.Version}}-{{.Series}}-{{.Arch}}": {
+                            "size": {{.Size}},
+                            "path": "{{.Path}}",
+                            "sha256": "{{.SHA256}}",
+                            "version": "{{.Version}}"
+                        }
+                    }
+                }
+            }
+        }
+{{- end }}
+    }
+}
