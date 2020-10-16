@@ -134,20 +134,6 @@ func (mr *MockInstanceBrokerMockRecorder) AllRunningInstances(arg0 interface{}) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllRunningInstances", reflect.TypeOf((*MockInstanceBroker)(nil).AllRunningInstances), arg0)
 }
 
-// MaintainInstance mocks base method
-func (m *MockInstanceBroker) MaintainInstance(arg0 context.ProviderCallContext, arg1 environs.StartInstanceParams) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MaintainInstance", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// MaintainInstance indicates an expected call of MaintainInstance
-func (mr *MockInstanceBrokerMockRecorder) MaintainInstance(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MaintainInstance", reflect.TypeOf((*MockInstanceBroker)(nil).MaintainInstance), arg0, arg1)
-}
-
 // StartInstance mocks base method
 func (m *MockInstanceBroker) StartInstance(arg0 context.ProviderCallContext, arg1 environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	m.ctrl.T.Helper()
