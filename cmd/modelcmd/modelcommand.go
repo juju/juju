@@ -610,9 +610,6 @@ func (w *modelCommandWrapper) Init(args []string) error {
 		if err := w.validateCommandForModelType(false); err != nil {
 			return errors.Trace(err)
 		}
-		if err := w.validateCommandForModelType(false); err != nil {
-			return errors.Trace(err)
-		}
 	}
 
 	if err := w.ModelCommand.Init(args); err != nil {
