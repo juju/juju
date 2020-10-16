@@ -38,7 +38,7 @@ run:
 
 juju unexpose apache2 --endpoints www
 
-Note that when a --endpoints options is provided, the application will still
+Note that when the --endpoints option is provided, the application will still
 remain exposed if any other of its endpoints are still exposed. However, if
 none of its endpoints remain exposed, the application will be instead unexposed. 
 
@@ -68,7 +68,7 @@ func (c *unexposeCommand) Info() *cmd.Info {
 
 func (c *unexposeCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.StringVar(&c.ExposedEndpointsList, "endpoints", "", "Unexpose only the ports that charms have opened in this comma-delimited list of endpoints")
+	f.StringVar(&c.ExposedEndpointsList, "endpoints", "", "Unexpose only the ports that charms have opened for this comma-delimited list of endpoints")
 }
 
 func (c *unexposeCommand) Init(args []string) error {
