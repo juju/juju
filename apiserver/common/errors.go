@@ -288,6 +288,8 @@ func ServerError(err error) *params.Error {
 		code = params.CodeUpgradeInProgress
 	case state.IsHasAttachmentsError(err):
 		code = params.CodeMachineHasAttachedStorage
+	case state.IsHasContainersError(err):
+		code = params.CodeMachineHasContainers
 	case state.IsStorageAttachedError(err):
 		code = params.CodeStorageAttached
 	case isUnknownModelError(err):
