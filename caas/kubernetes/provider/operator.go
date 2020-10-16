@@ -308,7 +308,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 }
 
 func operatorSelector(appName string, legacyLabels bool) string {
-	return utils.LabelSetToSelector(
+	return utils.LabelsToSelector(
 		utils.LabelsForOperator(appName, OperatorAppTarget, legacyLabels)).
 		String()
 }

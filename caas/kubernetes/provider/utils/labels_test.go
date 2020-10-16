@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes/fake"
 
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 )
 
@@ -88,7 +89,7 @@ func (l *LabelSuite) TestIsLegacyModelLabels(c *gc.C) {
 	}
 }
 
-func (l *LabelSuite) TestLabelSetToSelector(c *gc.C) {
+func (l *LabelSuite) TestLabelsToSelector(c *gc.C) {
 	tests := []struct {
 		Labels   labels.Set
 		Selector string
@@ -109,7 +110,7 @@ func (l *LabelSuite) TestLabelSetToSelector(c *gc.C) {
 	}
 
 	for _, test := range tests {
-		rval := utils.LabelSetToSelector(test.Labels)
+		rval := utils.LabelsToSelector(test.Labels)
 		c.Assert(test.Selector, gc.Equals, rval.String())
 	}
 }
@@ -287,4 +288,28 @@ func (l *LabelSuite) TestLabelsMerge(c *gc.C) {
 		"foo": "baz",
 		"up":  "down",
 	})
+}
+
+func (l *LabelSuite) TestStorageNameFromLabels(c *gc.C) {
+	tests := []struct {
+		Labels   labels.Set
+		Expected string
+	}{
+		{
+			Labels:   labels.Set{constants.LabelJujuStorageName: "test1"},
+			Expected: "test1",
+		},
+		{
+			Labels:   labels.Set{constants.LegacyLabelStorageName: "test2"},
+			Expected: "test2",
+		},
+		{
+			Labels:   labels.Set{"foo": "bar"},
+			Expected: "",
+		},
+	}
+
+	for _, test := range tests {
+		c.Assert(utils.StorageNameFromLabels(test.Labels), gc.Equals, test.Expected)
+	}
 }

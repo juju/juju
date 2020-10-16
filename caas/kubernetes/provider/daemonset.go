@@ -75,7 +75,7 @@ func (k *kubernetesClient) deleteDaemonSet(name string, uid types.UID) error {
 
 func (k *kubernetesClient) listDaemonSets(labels map[string]string) ([]apps.DaemonSet, error) {
 	listOps := v1.ListOptions{
-		LabelSelector: utils.LabelSetToSelector(labels).String(),
+		LabelSelector: utils.LabelsToSelector(labels).String(),
 	}
 	out, err := k.client().AppsV1().DaemonSets(k.namespace).List(context.TODO(), listOps)
 	if err != nil {
@@ -92,7 +92,7 @@ func (k *kubernetesClient) deleteDaemonSets(appName string) error {
 	err := k.client().AppsV1().DaemonSets(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
 		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, v1.ListOptions{
-		LabelSelector: utils.LabelSetToSelector(labels).String(),
+		LabelSelector: utils.LabelsToSelector(labels).String(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

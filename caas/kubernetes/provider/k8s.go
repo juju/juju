@@ -611,7 +611,7 @@ func (k *kubernetesClient) GetService(appName string, mode caas.DeploymentMode, 
 	}
 
 	servicesList, err := services.List(context.TODO(), v1.ListOptions{
-		LabelSelector: utils.LabelSetToSelector(labels).String(),
+		LabelSelector: utils.LabelsToSelector(labels).String(),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1682,7 +1682,7 @@ func (k *kubernetesClient) deleteDeployments(appName string) error {
 	err := k.client().AppsV1().Deployments(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
 		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, v1.ListOptions{
-		LabelSelector: utils.LabelSetToSelector(
+		LabelSelector: utils.LabelsToSelector(
 			utils.LabelsForApp(appName, k.IsLegacyLabels())).String(),
 	})
 	if k8serrors.IsNotFound(err) {
@@ -1906,7 +1906,7 @@ func (k *kubernetesClient) applicationSelector(appName string, mode caas.Deploym
 	if mode == caas.ModeOperator {
 		return operatorSelector(appName, k.IsLegacyLabels())
 	}
-	return utils.LabelSetToSelector(
+	return utils.LabelsToSelector(
 		utils.SelectorLabelsForApp(appName, k.IsLegacyLabels())).String()
 }
 

@@ -196,7 +196,7 @@ func (k *kubernetesClient) deleteStatefulSets(appName string) error {
 	err := k.client().AppsV1().StatefulSets(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
 		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, v1.ListOptions{
-		LabelSelector: utils.LabelSetToSelector(labels).String(),
+		LabelSelector: utils.LabelsToSelector(labels).String(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil
