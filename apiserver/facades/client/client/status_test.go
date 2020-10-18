@@ -867,7 +867,7 @@ func (s *CAASStatusSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.Model = m
 
-	hp, err := st.APIHostPortsForClients()
+	hp, err := s.StatePool.SystemState().APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	var addrs []network.SpaceAddress
 	for _, server := range hp {

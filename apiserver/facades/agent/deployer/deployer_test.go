@@ -113,9 +113,10 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	deployer, err := deployer.NewDeployerAPI(
 		facadetest.Context{
 			Auth_:              s.authorizer,
-			LeadershipRevoker_: s.revoker,
 			Resources_:         s.resources,
 			State_:             s.State,
+			StatePool_:         s.StatePool,
+			LeadershipRevoker_: s.revoker,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

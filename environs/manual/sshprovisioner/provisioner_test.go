@@ -140,7 +140,7 @@ func (s *provisionerSuite) TestFinishInstancConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now check what we would've configured it with.
-	icfg, err := client.InstanceConfig(s.State, machineId, agent.BootstrapNonce, "/var/lib/juju")
+	icfg, err := client.InstanceConfig(s.StatePool.SystemState(), s.State, machineId, agent.BootstrapNonce, "/var/lib/juju")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(icfg, gc.NotNil)
 	c.Check(icfg.APIInfo, gc.NotNil)
@@ -167,7 +167,7 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 		}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	icfg, err := client.InstanceConfig(s.State, machineId, agent.BootstrapNonce, "/var/lib/juju")
+	icfg, err := client.InstanceConfig(s.StatePool.SystemState(), s.State, machineId, agent.BootstrapNonce, "/var/lib/juju")
 	c.Assert(err, jc.ErrorIsNil)
 
 	script, err := sshprovisioner.ProvisioningScript(icfg)

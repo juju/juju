@@ -123,7 +123,7 @@ func (s *controllerInfoSuite) TestControllerInfoLocalModel(c *gc.C) {
 		Entities: []params.Entity{{Tag: s.localModel.ModelTag().String()}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
-	apiAddr, err := s.State.APIHostPortsForClients()
+	apiAddr, err := s.StatePool.SystemState().APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results[0].Addresses, gc.HasLen, 1)
 	c.Assert(results.Results[0].Addresses[0], gc.Equals, apiAddr[0][0].String())

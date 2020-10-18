@@ -69,7 +69,7 @@ func NewDeployerAPI(ctx facade.Context) (*DeployerAPI, error) {
 		Remover:         common.NewRemover(st, common.RevokeLeadershipFunc(leadershipRevoker), true, getAuthFunc),
 		PasswordChanger: common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:      common.NewLifeGetter(st, getAuthFunc),
-		APIAddresser:    common.NewAPIAddresser(st, resources),
+		APIAddresser:    common.NewAPIAddresser(ctx.StatePool().SystemState(), resources),
 		UnitsWatcher:    common.NewUnitsWatcher(st, resources, getCanWatch),
 		StatusSetter:    common.NewStatusSetter(st, getAuthFunc),
 		st:              st,

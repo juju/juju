@@ -13,19 +13,24 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// CAASOperatorProvisionerState provides the subset of global state
+// CAASOperatorProvisionerState provides the subset of model state
 // required by the CAAS operator provisioner facade.
 type CAASOperatorProvisionerState interface {
-	ControllerConfig() (controller.Config, error)
-	StateServingInfo() (controller.StateServingInfo, error)
 	WatchApplications() state.StringsWatcher
 	FindEntity(tag names.Tag) (state.Entity, error)
+	Model() (Model, error)
+	Application(string) (Application, error)
+}
+
+// CAASOperatorProvisionerState provides the subset of controller state
+// required by the CAAS operator provisioner facade.
+type CAASControllerState interface {
 	Addresses() ([]string, error)
 	ModelUUID() string
-	Model() (Model, error)
 	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
 	WatchAPIHostPortsForAgents() state.NotifyWatcher
-	Application(string) (Application, error)
+	ControllerConfig() (controller.Config, error)
+	StateServingInfo() (controller.StateServingInfo, error)
 }
 
 type Model interface {

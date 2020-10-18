@@ -37,7 +37,17 @@ type MachinerAPI struct {
 }
 
 // NewMachinerAPI creates a new instance of the Machiner API.
-func NewMachinerAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*MachinerAPI, error) {
+func NewMachinerAPI(ctx facade.Context) (*MachinerAPI, error) {
+	return NewMachinerAPIForState(
+		ctx.StatePool().SystemState(),
+		ctx.State(),
+		ctx.Resources(),
+		ctx.Auth(),
+	)
+}
+
+// NewMachinerAPIForState creates a new instance of the Machiner API.
+func NewMachinerAPIForState(ctrlSt, st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*MachinerAPI, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -56,7 +66,7 @@ func NewMachinerAPI(st *state.State, resources facade.Resources, authorizer faca
 		StatusSetter:       common.NewStatusSetter(st, getCanAccess),
 		DeadEnsurer:        common.NewDeadEnsurer(st, nil, getCanAccess),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, getCanAccess),
-		APIAddresser:       common.NewAPIAddresser(st, resources),
+		APIAddresser:       common.NewAPIAddresser(ctrlSt, resources),
 		NetworkConfigAPI:   netConfigAPI,
 		st:                 st,
 		auth:               authorizer,
@@ -176,9 +186,9 @@ type MachinerAPIV3 struct {
 
 // NewMachinerAPIV1 creates a new instance of the V1 Machiner API.
 func NewMachinerAPIV1(
-	st *state.State, resources facade.Resources, authorizer facade.Authorizer,
+	ctx facade.Context,
 ) (*MachinerAPIV1, error) {
-	api, err := NewMachinerAPIV2(st, resources, authorizer)
+	api, err := NewMachinerAPIV2(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -188,9 +198,9 @@ func NewMachinerAPIV1(
 
 // NewMachinerAPIV2 creates a new instance of the V2 Machiner API.
 func NewMachinerAPIV2(
-	st *state.State, resources facade.Resources, authorizer facade.Authorizer,
+	ctx facade.Context,
 ) (*MachinerAPIV2, error) {
-	api, err := NewMachinerAPIV3(st, resources, authorizer)
+	api, err := NewMachinerAPIV3(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -208,9 +218,9 @@ func (api *MachinerAPIV2) SetObservedNetworkConfig(args params.SetMachineNetwork
 
 // NewMachinerAPIV3 creates a new instance of the V3 Machiner API.
 func NewMachinerAPIV3(
-	st *state.State, resources facade.Resources, authorizer facade.Authorizer,
+	ctx facade.Context,
 ) (*MachinerAPIV3, error) {
-	api, err := NewMachinerAPI(st, resources, authorizer)
+	api, err := NewMachinerAPI(ctx)
 	if err != nil {
 		return nil, err
 	}

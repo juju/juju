@@ -19,19 +19,23 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// CAASApplicationProvisionerState provides the subset of global state
+// CAASApplicationProvisionerState provides the subset of model state
 // required by the CAAS operator provisioner facade.
 type CAASApplicationProvisionerState interface {
-	ControllerConfig() (controller.Config, error)
-	StateServingInfo() (controller.StateServingInfo, error)
-	Addresses() ([]string, error)
-	ModelUUID() string
 	Model() (Model, error)
-	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
-	WatchAPIHostPortsForAgents() state.NotifyWatcher
 	Application(string) (Application, error)
 	ResolveConstraints(cons constraints.Value) (constraints.Value, error)
 	Resources() (Resources, error)
+}
+
+// CAASApplicationProvisionerState provides the subset of controller state
+// required by the CAAS operator provisioner facade.
+type CAASApplicationControllerState interface {
+	ControllerConfig() (controller.Config, error)
+	Addresses() ([]string, error)
+	ModelUUID() string
+	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
+	WatchAPIHostPortsForAgents() state.NotifyWatcher
 }
 
 type Model interface {

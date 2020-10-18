@@ -86,16 +86,6 @@ func (st *mockState) Model() (caasapplicationprovisioner.Model, error) {
 	return st.model, nil
 }
 
-func (st *mockState) StateServingInfo() (controller.StateServingInfo, error) {
-	st.MethodCall(st, "StateServingInfo")
-	if err := st.NextErr(); err != nil {
-		return controller.StateServingInfo{}, err
-	}
-	return controller.StateServingInfo{
-		CAPrivateKey: coretesting.CAKey,
-	}, nil
-}
-
 func (st *mockState) ResolveConstraints(cons constraints.Value) (constraints.Value, error) {
 	st.MethodCall(st, "ResolveConstraints", cons)
 	if err := st.NextErr(); err != nil {

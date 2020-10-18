@@ -49,7 +49,7 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 
 	s.st = newMockState()
 
-	facade, err := caasapplication.NewFacade(s.resources, s.authorizer, s.st, s.clock)
+	facade, err := caasapplication.NewFacade(s.resources, s.authorizer, s.st, s.st, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 }

@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -173,7 +174,12 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithSingleNegativeAndPositi
 		{Tag: placementMachine.Tag().String()},
 	}}
 
-	api, err := provisioner.NewProvisionerAPIV9(s.State, s.resources, s.authorizer)
+	api, err := provisioner.NewProvisionerAPIV9(facadetest.Context{
+		Auth_:      s.authorizer,
+		State_:     s.State,
+		StatePool_: s.StatePool,
+		Resources_: s.resources,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api, gc.NotNil)
 
@@ -696,7 +702,12 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = s.machines[0].Tag()
-	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
+	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+		Auth_:      anAuthorizer,
+		State_:     s.State,
+		StatePool_: s.StatePool,
+		Resources_: s.resources,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)
 

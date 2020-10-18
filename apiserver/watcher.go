@@ -966,10 +966,19 @@ var getMigrationBackend = func(st *state.State) migrationBackend {
 	return st
 }
 
-// migrationBackend defines State functionality required by the
+var getControllerBackend = func(pool *state.StatePool) controllerBackend {
+	return pool.SystemState()
+}
+
+// migrationBackend defines model State functionality required by the
 // migration watchers.
 type migrationBackend interface {
 	LatestMigration() (state.ModelMigration, error)
+}
+
+// migrationBackend defines controller State functionality required by the
+// migration watchers.
+type controllerBackend interface {
 	APIHostPortsForClients() ([]network.SpaceHostPorts, error)
 	ControllerConfig() (controller.Config, error)
 }
@@ -979,6 +988,7 @@ func newMigrationStatusWatcher(context facade.Context) (facade.Facade, error) {
 	auth := context.Auth()
 	resources := context.Resources()
 	st := context.State()
+	pool := context.StatePool()
 
 	if !isAgent(auth) {
 		return nil, apiservererrors.ErrPerm
@@ -991,6 +1001,7 @@ func newMigrationStatusWatcher(context facade.Context) (facade.Facade, error) {
 		watcherCommon: newWatcherCommon(context),
 		watcher:       w,
 		st:            getMigrationBackend(st),
+		ctrlSt:        getControllerBackend(pool),
 	}, nil
 }
 
@@ -998,6 +1009,7 @@ type srvMigrationStatusWatcher struct {
 	watcherCommon
 	watcher state.NotifyWatcher
 	st      migrationBackend
+	ctrlSt  controllerBackend
 }
 
 // Next returns when the status for a model migration for the
@@ -1033,7 +1045,7 @@ func (w *srvMigrationStatusWatcher) Next() (params.MigrationStatus, error) {
 		return empty, errors.Annotate(err, "retrieving source addresses")
 	}
 
-	sourceCACert, err := getControllerCACert(w.st)
+	sourceCACert, err := getControllerCACert(w.ctrlSt)
 	if err != nil {
 		return empty, errors.Annotate(err, "retrieving source CA cert")
 	}
@@ -1055,7 +1067,7 @@ func (w *srvMigrationStatusWatcher) Next() (params.MigrationStatus, error) {
 }
 
 func (w *srvMigrationStatusWatcher) getLocalHostPorts() ([]string, error) {
-	hostports, err := w.st.APIHostPortsForClients()
+	hostports, err := w.ctrlSt.APIHostPortsForClients()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1070,7 +1082,7 @@ func (w *srvMigrationStatusWatcher) getLocalHostPorts() ([]string, error) {
 
 // This is a shim to avoid the need to use a working State into the
 // unit tests. It is tested as part of the client side API tests.
-var getControllerCACert = func(st migrationBackend) (string, error) {
+var getControllerCACert = func(st controllerBackend) (string, error) {
 	cfg, err := st.ControllerConfig()
 	if err != nil {
 		return "", errors.Trace(err)

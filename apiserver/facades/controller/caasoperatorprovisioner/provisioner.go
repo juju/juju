@@ -43,6 +43,7 @@ type API struct {
 	auth      facade.Authorizer
 	resources facade.Resources
 
+	ctrlState          CAASControllerState
 	state              CAASOperatorProvisionerState
 	storagePoolManager poolmanager.PoolManager
 	registry           storage.ProviderRegistry
@@ -64,7 +65,10 @@ func NewStateCAASOperatorProvisionerAPI(ctx facade.Context) (*APIGroup, error) {
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
 	pm := poolmanager.New(state.NewStateSettings(ctx.State()), registry)
 
-	api, err := NewCAASOperatorProvisionerAPI(resources, authorizer, stateShim{ctx.State()}, pm, registry)
+	api, err := NewCAASOperatorProvisionerAPI(resources, authorizer,
+		stateShim{ctx.StatePool().SystemState()},
+		stateShim{ctx.State()},
+		pm, registry)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -79,6 +83,7 @@ func NewStateCAASOperatorProvisionerAPI(ctx facade.Context) (*APIGroup, error) {
 func NewCAASOperatorProvisionerAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
+	ctrlSt CAASControllerState,
 	st CAASOperatorProvisionerState,
 	storagePoolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
@@ -89,9 +94,10 @@ func NewCAASOperatorProvisionerAPI(
 	return &API{
 		PasswordChanger:    common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
 		LifeGetter:         common.NewLifeGetter(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
-		APIAddresser:       common.NewAPIAddresser(st, resources),
+		APIAddresser:       common.NewAPIAddresser(ctrlSt, resources),
 		auth:               authorizer,
 		resources:          resources,
+		ctrlState:          ctrlSt,
 		state:              st,
 		storagePoolManager: storagePoolManager,
 		registry:           registry,
@@ -101,7 +107,7 @@ func NewCAASOperatorProvisionerAPI(
 // OperatorProvisioningInfo returns the info needed to provision an operator.
 func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorProvisioningInfoResults, error) {
 	var result params.OperatorProvisioningInfoResults
-	cfg, err := a.state.ControllerConfig()
+	cfg, err := a.ctrlState.ControllerConfig()
 	if err != nil {
 		return result, err
 	}
@@ -190,13 +196,13 @@ func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorPro
 
 // IssueOperatorCertificate issues an x509 certificate for use by the specified application operator.
 func (a *API) IssueOperatorCertificate(args params.Entities) (params.IssueOperatorCertificateResults, error) {
-	cfg, err := a.state.ControllerConfig()
+	cfg, err := a.ctrlState.ControllerConfig()
 	if err != nil {
 		return params.IssueOperatorCertificateResults{}, errors.Trace(err)
 	}
 	caCert, _ := cfg.CACert()
 
-	si, err := a.state.StateServingInfo()
+	si, err := a.ctrlState.StateServingInfo()
 	if err != nil {
 		return params.IssueOperatorCertificateResults{}, errors.Trace(err)
 	}

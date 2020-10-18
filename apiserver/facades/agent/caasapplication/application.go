@@ -31,6 +31,7 @@ var logger = loggo.GetLogger("juju.apiserver.caasapplication")
 type Facade struct {
 	auth      facade.Authorizer
 	resources facade.Resources
+	ctrlSt    ControllerState
 	state     State
 	model     Model
 	clock     clock.Clock
@@ -40,13 +41,17 @@ type Facade struct {
 func NewStateFacade(ctx facade.Context) (*Facade, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
-	return NewFacade(resources, authorizer, &stateShim{ctx.State()}, ctx.StatePool().Clock())
+	return NewFacade(resources, authorizer,
+		&stateShim{ctx.StatePool().SystemState()},
+		&stateShim{ctx.State()},
+		ctx.StatePool().Clock())
 }
 
 // NewFacade returns a new CAASOperator facade.
 func NewFacade(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
+	ctrlSt ControllerState,
 	st State,
 	clock clock.Clock,
 ) (*Facade, error) {
@@ -60,6 +65,7 @@ func NewFacade(
 	return &Facade{
 		auth:      authorizer,
 		resources: resources,
+		ctrlSt:    ctrlSt,
 		state:     st,
 		model:     model,
 		clock:     clock,
@@ -236,12 +242,12 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 		return errResp(err)
 	}
 
-	controllerConfig, err := f.state.ControllerConfig()
+	controllerConfig, err := f.ctrlSt.ControllerConfig()
 	if err != nil {
 		return errResp(err)
 	}
 
-	apiHostPorts, err := f.state.APIHostPortsForAgents()
+	apiHostPorts, err := f.ctrlSt.APIHostPortsForAgents()
 	if err != nil {
 		return errResp(err)
 	}
