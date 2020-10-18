@@ -1,5 +1,5 @@
-test_backup_restore() {
-    if [ "$(skip 'test_backup_restore')" ]; then
+test_backup() {
+    if [ "$(skip 'test_backup')" ]; then
         echo "==> TEST SKIPPED: Backup and Restore tests"
         return
     fi
