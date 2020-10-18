@@ -34,7 +34,7 @@ import_subdir_files includes
 # keep these in alphabetic order.)
 TEST_NAMES="agents \
             appdata \
-            backup_restore \
+            backup \
             branches \
             caasadmission \
             cli \
@@ -59,7 +59,7 @@ show_test_suites() {
         # shellcheck disable=SC2086
         output="${output}\n${test}"
     done
-    echo "${output}" | column -t -s "|"
+    echo -e "${output}" | column -t -s "|"
     exit 0
 }
 
