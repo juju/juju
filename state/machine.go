@@ -792,7 +792,7 @@ func (original *Machine) advanceLifecycle(life Life, force, dyingAllowContainers
 	// A machine can be set to dying with containers, but cannot have any when
 	// advanced to dead.
 	if !dyingAllowContainers && life == Dying {
-		if err := original.evaulateContainersAdvanceLifecycle(); err != nil {
+		if err := original.advanceLifecycleIfNoContainers(); err != nil {
 			return err
 		}
 	}
@@ -906,7 +906,7 @@ func (original *Machine) advanceLifecycle(life Life, force, dyingAllowContainers
 			}
 
 			if canDie && !dyingAllowContainers {
-				if err := m.evaulateContainersAdvanceLifecycle(); err != nil && !IsHasContainersError(err) {
+				if err := m.advanceLifecycleIfNoContainers(); err != nil && !IsHasContainersError(err) {
 					return nil, err
 				} else if IsHasContainersError(err) {
 					canDie = false
@@ -935,7 +935,7 @@ func (original *Machine) advanceLifecycle(life Life, force, dyingAllowContainers
 		if life == Dead {
 			// A machine may not become Dead until it has no
 			// containers.
-			if err := m.evaulateContainersAdvanceLifecycle(); err != nil {
+			if err := m.advanceLifecycleIfNoContainers(); err != nil {
 				return nil, err
 			}
 			ops = append(ops, m.noContainersOp())
@@ -1059,9 +1059,9 @@ func advanceLifecycleUnitAsserts(principalUnitNames []string) bson.DocElem {
 	}
 }
 
-// evaulateContainersAdvanceLifecycle determines if the machine has
+// advanceLifecycleIfNoContainers determines if the machine has
 // containers, if so, returns the appropriate error.
-func (m *Machine) evaulateContainersAdvanceLifecycle() error {
+func (m *Machine) advanceLifecycleIfNoContainers() error {
 	containers, err := m.Containers()
 	if err != nil {
 		return errors.Annotatef(err, "reading machine %s containers", m)
