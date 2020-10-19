@@ -16,8 +16,8 @@ jobs:
 
     - name: Install Dependencies
       run: |
-        echo "::set-env name=GOPATH::$(go env GOPATH)"
-        echo "::add-path::$(go env GOPATH)/bin"
+        echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
+        echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
         GO111MODULE=off go get -u github.com/client9/misspell/cmd/misspell
         GO111MODULE=off go get -u github.com/tsenart/deadcode
