@@ -55,7 +55,9 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "getting leadership client")
 	}
-	return NewFacade(resources, authorizer, stateShim{ctx.State()},
+	return NewFacade(resources, authorizer,
+		stateShim{ctx.StatePool().SystemState()},
+		stateShim{ctx.State()},
 		caasBroker, leadershipRevoker)
 }
 
@@ -63,6 +65,7 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 func NewFacade(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
+	ctrlSt CAASControllerState,
 	st CAASOperatorState,
 	broker CAASBrokerInterface,
 	leadershipRevoker leadership.Revoker,
@@ -105,7 +108,7 @@ func NewFacade(
 	}
 	return &Facade{
 		LifeGetter:         common.NewLifeGetter(st, canRead),
-		APIAddresser:       common.NewAPIAddresser(st, resources),
+		APIAddresser:       common.NewAPIAddresser(ctrlSt, resources),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, canRead),
 		Remover:            common.NewRemover(st, common.RevokeLeadershipFunc(leadershipRevoker), true, accessUnit),
 		ToolsSetter:        common.NewToolsSetter(st, common.AuthFuncForTag(authorizer.GetAuthTag())),

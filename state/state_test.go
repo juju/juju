@@ -4107,11 +4107,12 @@ func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpace(c *gc.C) {
 	err = s.State.SetAPIHostPorts(newHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
-	gotHostPorts, err := s.State.APIHostPortsForClients()
+	ctrlSt := s.StatePool.SystemState()
+	gotHostPorts, err := ctrlSt.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 
-	gotHostPorts, err = s.State.APIHostPortsForAgents()
+	gotHostPorts, err = ctrlSt.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 
@@ -4122,11 +4123,11 @@ func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpace(c *gc.C) {
 	err = s.State.SetAPIHostPorts(newHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
-	gotHostPorts, err = s.State.APIHostPortsForClients()
+	gotHostPorts, err = ctrlSt.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 
-	gotHostPorts, err = s.State.APIHostPortsForAgents()
+	gotHostPorts, err = ctrlSt.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 }
@@ -4211,11 +4212,12 @@ func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentDifferent(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(revno, gc.Not(gc.Equals), prevAgentsRevno)
 
-	hostPorts, err := s.State.APIHostPortsForClients()
+	ctrlSt := s.StatePool.SystemState()
+	hostPorts, err := ctrlSt.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostPorts, gc.DeepEquals, []network.SpaceHostPorts{hostPorts1})
 
-	hostPorts, err = s.State.APIHostPortsForAgents()
+	hostPorts, err = ctrlSt.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostPorts, gc.DeepEquals, []network.SpaceHostPorts{hostPorts1})
 }
@@ -4254,11 +4256,12 @@ func (s *StateSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
 	err = s.State.SetAPIHostPorts(newHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
-	gotHostPorts, err := s.State.APIHostPortsForClients()
+	ctrlSt := s.StatePool.SystemState()
+	gotHostPorts, err := ctrlSt.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 
-	gotHostPorts, err = s.State.APIHostPortsForAgents()
+	gotHostPorts, err = ctrlSt.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 	// First slice filtered down to the address in the management space.
 	// Second filtered to zero elements, so retains the supplied slice.
@@ -4285,7 +4288,8 @@ func (s *StateSuite) TestSetAPIHostPortsForAgentsNoDocument(c *gc.C) {
 	err = s.State.SetAPIHostPorts(newHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
-	gotHostPorts, err := s.State.APIHostPortsForAgents()
+	ctrlSt := s.StatePool.SystemState()
+	gotHostPorts, err := ctrlSt.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 }
@@ -4310,7 +4314,8 @@ func (s *StateSuite) TestAPIHostPortsForAgentsNoDocument(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(col.FindId(key).One(&bson.D{}), gc.Equals, mgo.ErrNotFound)
 
-	gotHostPorts, err := s.State.APIHostPortsForAgents()
+	ctrlSt := s.StatePool.SystemState()
+	gotHostPorts, err := ctrlSt.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 }

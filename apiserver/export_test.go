@@ -136,16 +136,19 @@ func TestingAboutToRestoreRoot() rpc.Root {
 
 // PatchGetMigrationBackend overrides the getMigrationBackend function
 // to support testing.
-func PatchGetMigrationBackend(p Patcher, st migrationBackend) {
+func PatchGetMigrationBackend(p Patcher, ctrlSt controllerBackend, st migrationBackend) {
 	p.PatchValue(&getMigrationBackend, func(*state.State) migrationBackend {
 		return st
+	})
+	p.PatchValue(&getControllerBackend, func(pool *state.StatePool) controllerBackend {
+		return ctrlSt
 	})
 }
 
 // PatchGetControllerCACert overrides the getControllerCACert function
 // to support testing.
 func PatchGetControllerCACert(p Patcher, caCert string) {
-	p.PatchValue(&getControllerCACert, func(migrationBackend) (string, error) {
+	p.PatchValue(&getControllerCACert, func(backend controllerBackend) (string, error) {
 		return caCert, nil
 	})
 }

@@ -57,6 +57,7 @@ type API struct {
 	auth      facade.Authorizer
 	resources facade.Resources
 
+	ctrlSt             CAASApplicationControllerState
 	state              CAASApplicationProvisionerState
 	storage            StorageBackend
 	storagePoolManager poolmanager.PoolManager
@@ -92,6 +93,7 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error
 	}
 
 	api, err := NewCAASApplicationProvisionerAPI(
+		stateShim{ctx.StatePool().SystemState()},
 		stateShim{st},
 		resources,
 		authorizer,
@@ -117,6 +119,7 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error
 
 // NewCAASApplicationProvisionerAPI returns a new CAAS operator provisioner API facade.
 func NewCAASApplicationProvisionerAPI(
+	ctrlSt CAASApplicationControllerState,
 	st CAASApplicationProvisionerState,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
@@ -132,6 +135,7 @@ func NewCAASApplicationProvisionerAPI(
 	return &API{
 		auth:               authorizer,
 		resources:          resources,
+		ctrlSt:             ctrlSt,
 		state:              st,
 		storage:            sb,
 		storagePoolManager: storagePoolManager,
@@ -166,7 +170,7 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		return nil, errors.Trace(err)
 	}
 
-	cfg, err := a.state.ControllerConfig()
+	cfg, err := a.ctrlSt.ControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -211,7 +215,7 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 	}
 	imagePath := podcfg.GetJujuOCIImagePath(cfg, vers.ToPatch(), version.OfficialBuild)
 
-	apiHostPorts, err := a.state.APIHostPortsForAgents()
+	apiHostPorts, err := a.ctrlSt.APIHostPortsForAgents()
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting api addresses")
 	}

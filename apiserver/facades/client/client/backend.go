@@ -90,6 +90,7 @@ type Model interface {
 // Pool contains the StatePool functionality used in this package.
 type Pool interface {
 	GetModel(string) (*state.Model, func(), error)
+	SystemState() *state.State
 }
 
 // Unit represents a state.Unit.
@@ -143,6 +144,10 @@ func (s *stateShim) AllApplicationOffers() ([]*crossmodel.ApplicationOffer, erro
 
 type poolShim struct {
 	pool *state.StatePool
+}
+
+func (p *poolShim) SystemState() *state.State {
+	return p.pool.SystemState()
 }
 
 func (p *poolShim) GetModel(uuid string) (*state.Model, func(), error) {

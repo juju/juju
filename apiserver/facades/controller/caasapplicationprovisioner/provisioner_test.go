@@ -66,7 +66,8 @@ func (s *CAASApplicationProvisionerSuite) SetUpTest(c *gc.C) {
 	}
 	s.storagePoolManager = &mockStoragePoolManager{}
 	s.registry = &mockStorageRegistry{}
-	api, err := caasapplicationprovisioner.NewCAASApplicationProvisionerAPI(s.st, s.resources, s.authorizer, s.storage, s.storagePoolManager, s.registry, s.clock)
+	api, err := caasapplicationprovisioner.NewCAASApplicationProvisionerAPI(
+		s.st, s.st, s.resources, s.authorizer, s.storage, s.storagePoolManager, s.registry, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
@@ -75,7 +76,8 @@ func (s *CAASApplicationProvisionerSuite) TestPermission(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: names.NewMachineTag("0"),
 	}
-	_, err := caasapplicationprovisioner.NewCAASApplicationProvisionerAPI(s.st, s.resources, s.authorizer, s.storage, s.storagePoolManager, s.registry, s.clock)
+	_, err := caasapplicationprovisioner.NewCAASApplicationProvisionerAPI(
+		s.st, s.st, s.resources, s.authorizer, s.storage, s.storagePoolManager, s.registry, s.clock)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 

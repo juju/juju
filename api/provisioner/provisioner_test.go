@@ -80,7 +80,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	waitForModelWatchersIdle := func(c *gc.C) {
 		s.JujuConnSuite.WaitForModelWatchersIdle(c, s.BackingState.ModelUUID())
 	}
-	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.provisioner, s.BackingState, waitForModelWatchersIdle)
+	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.provisioner, s.StatePool.SystemState(), s.BackingState, waitForModelWatchersIdle)
 }
 
 func (s *provisionerSuite) assertGetOneMachine(c *gc.C, tag names.MachineTag) provisioner.MachineProvisioner {

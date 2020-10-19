@@ -7,6 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -45,7 +46,12 @@ func (s *containerProvisionerSuite) TestPrepareContainerInterfaceInfoPermission(
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = s.machines[1].Tag()
-	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
+	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+		Auth_:      anAuthorizer,
+		State_:     s.State,
+		StatePool_: s.StatePool,
+		Resources_: s.resources,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)
 
@@ -93,7 +99,12 @@ func (s *containerProvisionerSuite) TestHostChangesForContainersPermission(c *gc
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = s.machines[1].Tag()
-	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
+	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+		Auth_:      anAuthorizer,
+		State_:     s.State,
+		StatePool_: s.StatePool,
+		Resources_: s.resources,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)
 

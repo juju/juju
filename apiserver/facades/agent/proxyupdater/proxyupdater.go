@@ -56,12 +56,13 @@ func NewFacadeV2(ctx facade.Context) (*APIv2, error) {
 
 func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 	st := ctx.State()
-	m, err := st.Model()
+	model, err := st.Model()
 	if err != nil {
 		return nil, err
 	}
 	return NewAPIBase(
-		&stateShim{st: st, m: m},
+		ctx.StatePool().SystemState(),
+		model,
 		ctx.Resources(),
 		ctx.Auth(),
 	)
@@ -79,26 +80,33 @@ type APIv2 struct {
 
 type APIBase struct {
 	backend    Backend
+	controller ControllerBackend
 	resources  facade.Resources
 	authorizer facade.Authorizer
 }
 
-// Backend defines the state methods this facade needs, so they can be
-// mocked for testing.
+// Backend defines the model state methods this facade needs,
+// so they can be mocked for testing.
 type Backend interface {
 	ModelConfig() (*config.Config, error)
-	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
-	WatchAPIHostPortsForAgents() state.NotifyWatcher
 	WatchForModelConfigChanges() state.NotifyWatcher
 }
 
+// ControllerBackend defines the controller state methods this facade needs,
+// so they can be mocked for testing.
+type ControllerBackend interface {
+	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
+	WatchAPIHostPortsForAgents() state.NotifyWatcher
+}
+
 // NewAPIBase creates a new server-side API facade with the given Backing.
-func NewAPIBase(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*APIBase, error) {
+func NewAPIBase(controller ControllerBackend, backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*APIBase, error) {
 	if !(authorizer.AuthMachineAgent() || authorizer.AuthUnitAgent() || authorizer.AuthApplicationAgent() || authorizer.AuthModelAgent()) {
 		return nil, apiservererrors.ErrPerm
 	}
 	return &APIBase{
 		backend:    backend,
+		controller: controller,
 		resources:  resources,
 		authorizer: authorizer,
 	}, nil
@@ -109,7 +117,7 @@ func (api *APIBase) oneWatch() params.NotifyWatchResult {
 
 	watch := common.NewMultiNotifyWatcher(
 		api.backend.WatchForModelConfigChanges(),
-		api.backend.WatchAPIHostPortsForAgents())
+		api.controller.WatchAPIHostPortsForAgents())
 
 	if _, ok := <-watch.Changes(); ok {
 		result = params.NotifyWatchResult{
@@ -179,7 +187,7 @@ func (api *APIBase) proxyConfig() params.ProxyConfigResult {
 		return result
 	}
 
-	apiHostPorts, err := api.backend.APIHostPortsForAgents()
+	apiHostPorts, err := api.controller.APIHostPortsForAgents()
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result

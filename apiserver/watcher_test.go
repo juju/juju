@@ -108,7 +108,7 @@ func (s *watcherSuite) TestMigrationStatusWatcher(c *gc.C) {
 	w := apiservertesting.NewFakeNotifyWatcher()
 	id := s.resources.Register(w)
 	s.authorizer.Tag = names.NewMachineTag("12")
-	apiserver.PatchGetMigrationBackend(s, new(fakeMigrationBackend))
+	apiserver.PatchGetMigrationBackend(s, new(fakeMigrationBackend), new(fakeMigrationBackend))
 	apiserver.PatchGetControllerCACert(s, "no worries")
 
 	facade := s.getFacade(c, "MigrationStatusWatcher", 1, id, nopDispose).(migrationStatusWatcher)
@@ -130,7 +130,8 @@ func (s *watcherSuite) TestMigrationStatusWatcherNoMigration(c *gc.C) {
 	w := apiservertesting.NewFakeNotifyWatcher()
 	id := s.resources.Register(w)
 	s.authorizer.Tag = names.NewMachineTag("12")
-	apiserver.PatchGetMigrationBackend(s, &fakeMigrationBackend{noMigration: true})
+	backend := &fakeMigrationBackend{noMigration: true}
+	apiserver.PatchGetMigrationBackend(s, backend, backend)
 
 	facade := s.getFacade(c, "MigrationStatusWatcher", 1, id, nopDispose).(migrationStatusWatcher)
 	defer c.Check(facade.Stop(), jc.ErrorIsNil)

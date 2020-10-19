@@ -278,21 +278,17 @@ func (st *State) apiHostPortsForCAAS(public bool) (addresses []network.SpaceHost
 		logger.Debugf("getting api hostports for CAAS: public %t, addresses %v", public, addresses)
 	}()
 
-	// We are fetching info about the controller cloud service,
-	// so need the controller state.
-	ctrlSt, err := st.newStateNoWorkers(st.ControllerModelUUID())
-	if err != nil {
-		return nil, errors.Trace(err)
+	if st.modelUUID() != st.controllerModelTag.Id() {
+		return nil, errors.Errorf("CAAS API host ports only available on the controller model, not %q", st.modelUUID())
 	}
-	defer func() { _ = ctrlSt.Close() }()
 
-	controllerConfig, err := ctrlSt.ControllerConfig()
+	controllerConfig, err := st.ControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	apiPort := controllerConfig.APIPort()
-	svc, err := ctrlSt.CloudService(controllerConfig.ControllerUUID())
+	svc, err := st.CloudService(controllerConfig.ControllerUUID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

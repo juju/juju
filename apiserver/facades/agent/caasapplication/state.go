@@ -13,12 +13,17 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// State provides the subset of global state
+// State provides the subset of model state
 // required by the CAAS application facade.
 type State interface {
 	Application(string) (Application, error)
 	Model() (Model, error)
 	Unit(name string) (Unit, error)
+}
+
+// ControllerState provides the subset of controller state
+// required by the CAAS application facade.
+type ControllerState interface {
 	ControllerConfig() (jujucontroller.Config, error)
 	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
 }
