@@ -332,7 +332,6 @@ func (e *Environ) ConstraintsValidator(ctx envcontext.ProviderCallContext) (cons
 		constraints.Container,
 		constraints.VirtType,
 		constraints.Tags,
-		constraints.AllocatePublicIP,
 	}
 
 	validator := constraints.NewValidator()
@@ -606,7 +605,11 @@ func (e *Environ) StartInstance(ctx envcontext.ProviderCallContext, args environ
 		rootDiskSizeGB = MinVolumeSizeMB / 1024
 	}
 
-	assignPublicIp := true
+	allocatePublicIP := true
+	if args.Constraints.HasAllocatePublicIP() {
+		allocatePublicIP = *args.Constraints.AllocatePublicIP
+	}
+
 	bootSource := ociCore.InstanceSourceViaImageDetails{
 		ImageId:             &image,
 		BootVolumeSizeInGBs: &rootDiskSizeGB,
@@ -618,7 +621,7 @@ func (e *Environ) StartInstance(ctx envcontext.ProviderCallContext, args environ
 		Shape:              &spec.InstanceType.Name,
 		CreateVnicDetails: &ociCore.CreateVnicDetails{
 			SubnetId:       network.Id,
-			AssignPublicIp: &assignPublicIp,
+			AssignPublicIp: &allocatePublicIP,
 			DisplayName:    &hostname,
 		},
 		DisplayName: &hostname,
@@ -654,9 +657,11 @@ func (e *Environ) StartInstance(ctx envcontext.ProviderCallContext, args environ
 	displayName := shortenMachineId(machineId, 6)
 
 	if desiredStatus == ociCore.InstanceLifecycleStateRunning {
-		if err := instance.waitForPublicIP(ctx); err != nil {
-			providerCommon.HandleCredentialError(err, ctx)
-			return nil, errors.Trace(err)
+		if allocatePublicIP {
+			if err := instance.waitForPublicIP(ctx); err != nil {
+				providerCommon.HandleCredentialError(err, ctx)
+				return nil, errors.Trace(err)
+			}
 		}
 	}
 
