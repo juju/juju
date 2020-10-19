@@ -906,7 +906,7 @@ func (original *Machine) advanceLifecycle(life Life, force, dyingAllowContainers
 			}
 
 			if canDie && !dyingAllowContainers {
-				if err := m.evaulateContainersAdvanceLifecycle(); !IsHasContainersError(err) {
+				if err := m.evaulateContainersAdvanceLifecycle(); err != nil && !IsHasContainersError(err) {
 					return nil, err
 				} else if IsHasContainersError(err) {
 					canDie = false
