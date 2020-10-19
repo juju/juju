@@ -6,6 +6,7 @@ package deployer_test
 import (
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -296,8 +297,10 @@ func stop(c *gc.C, w worker.Worker) {
 type fakeContext struct {
 	deployer.Context
 
-	config   agent.Config
-	deployed set.Strings
+	config agent.Config
+
+	deployed   set.Strings
+	deployedMu sync.Mutex
 }
 
 func (c *fakeContext) Kill() {
@@ -308,17 +311,26 @@ func (c *fakeContext) Wait() error {
 }
 
 func (c *fakeContext) DeployUnit(unitName, initialPassword string) error {
+	c.deployedMu.Lock()
+	defer c.deployedMu.Unlock()
+
 	// Doesn't check for existence.
 	c.deployed.Add(unitName)
 	return nil
 }
 
 func (c *fakeContext) RecallUnit(unitName string) error {
+	c.deployedMu.Lock()
+	defer c.deployedMu.Unlock()
+
 	c.deployed.Remove(unitName)
 	return nil
 }
 
 func (c *fakeContext) DeployedUnits() ([]string, error) {
+	c.deployedMu.Lock()
+	defer c.deployedMu.Unlock()
+
 	return c.deployed.SortedValues(), nil
 }
 
