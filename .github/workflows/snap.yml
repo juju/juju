@@ -18,7 +18,7 @@ jobs:
         sudo lxd waitready
         sudo lxd init --auto
         sudo chmod a+wr /var/snap/lxd/common/lxd/unix.socket
-        echo "##[add-path]/snap/bin"
+        echo "/snap/bin" >> $GITHUB_PATH
 
     - name: Checkout
       uses: actions/checkout@v2

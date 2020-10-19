@@ -18,7 +18,7 @@ jobs:
         sudo lxd waitready
         sudo lxd init --auto
         sudo chmod a+wr /var/snap/lxd/common/lxd/unix.socket
-        echo "##[add-path]/snap/bin"
+        echo "/snap/bin" >> $GITHUB_PATH
         lxc network set lxdbr0 ipv6.address none
 
     - name: Checkout
@@ -59,7 +59,7 @@ jobs:
         OUT=$(snap info juju | grep -E "${{ matrix.snap_version }}:[[:space:]]+\^" || echo "NOT FOUND")
         set -e
         if [ "$OUT" = "NOT FOUND" ]; then
-          echo "::set-env name=RUN_TEST::RUN"
+          echo "RUN_TEST=RUN" >> $GITHUB_ENV
         fi
 
     - name: Install Dependencies
@@ -73,7 +73,7 @@ jobs:
         sudo lxd waitready
         sudo lxd init --auto
         sudo chmod a+wr /var/snap/lxd/common/lxd/unix.socket
-        echo "##[add-path]/snap/bin"
+        echo "/snap/bin" >> $GITHUB_PATH
 
     - name: Bootstrap Juju latest/stable
       if: env.RUN_TEST == 'RUN'
