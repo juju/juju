@@ -157,8 +157,16 @@ func (h *embeddedCLIHandler) runEmbeddedCommands(
 	}
 
 	var cmdErr error
-	lines := linereader.New(in)
-	lines.Timeout = 10 * time.Millisecond
+
+	// Can't use linereader.New() because it starts the Run() goroutine,
+	// so it's not safe to modify fields after that. Construct manually.
+	lines := &linereader.Reader{
+		Reader:  in,
+		Timeout: 10 * time.Millisecond,
+		Ch:      make(chan string),
+	}
+	go lines.Run()
+
 	cmdDone := false
 	outputDone := false
 done:

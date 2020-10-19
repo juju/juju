@@ -444,6 +444,8 @@ github.com/juju/gosigma v0.0.0-20200420012028-063911838a9e h1:JoXBbhRrYNw6EIPGcM
 github.com/juju/gosigma v0.0.0-20200420012028-063911838a9e/go.mod h1:OPBu48GcIJ30kNTA1cm+VbZb6GkQ6vthnr5v6NJ49eM=
 github.com/juju/http v0.0.0-20200729125253-fb155b41a3e2 h1:OecOfP0ioC73BXLmnjb1lDsKNPrK8GCkE9j4BmJVYhs=
 github.com/juju/http v0.0.0-20200729125253-fb155b41a3e2/go.mod h1:lbZ9zbaOw9vMW7XMHGxYTgFadDDfzc4r8Aa7gP8GOYo=
+github.com/juju/http v0.0.0-20201019013536-69ae1d429836 h1:F+KhYWcKHSUf/R7Ovoz+s6VnK1wGFibaCrPXPYijFa4=
+github.com/juju/http v0.0.0-20201019013536-69ae1d429836/go.mod h1:lbZ9zbaOw9vMW7XMHGxYTgFadDDfzc4r8Aa7gP8GOYo=
 github.com/juju/httpprof v0.0.0-20141217160036-14bf14c30767 h1:COsaGcfAONDdIDnGS8yFdxOyReP7zKQEr7jFzCHKDkM=
 github.com/juju/httpprof v0.0.0-20141217160036-14bf14c30767/go.mod h1:+MaLYz4PumRkkyHYeXJ2G5g5cIW0sli2bOfpmbaMV/g=
 github.com/juju/httprequest v1.0.1 h1:p7XMlMkx0A8gW6sws2+uHcRr38f9BvF8MQOfKfJihq4=
