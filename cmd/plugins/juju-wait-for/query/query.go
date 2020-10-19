@@ -9,6 +9,36 @@ import (
 	"github.com/juju/errors"
 )
 
+// InvalidIdentifierError creates an invalid error.
+type InvalidIdentifierError struct {
+	name string
+	err  error
+}
+
+func (e *InvalidIdentifierError) Error() string {
+	return e.err.Error()
+}
+
+// Name returns the name associated with the identifier error.
+func (e *InvalidIdentifierError) Name() string {
+	return e.name
+}
+
+// ErrInvalidIdentifier defines a sentinel error for invalid identifiers.
+func ErrInvalidIdentifier(name string) error {
+	return &InvalidIdentifierError{
+		name: name,
+		err:  errors.Errorf("invalid identifer"),
+	}
+}
+
+// IsInvalidIdentifierErr returns if the error is an ErrInvalidIdentifier error
+func IsInvalidIdentifierErr(err error) bool {
+	err = errors.Cause(err)
+	_, ok := err.(*InvalidIdentifierError)
+	return ok
+}
+
 // Query holds all the arguments for a given query.
 type Query struct {
 	ast *QueryExpression

@@ -41,7 +41,7 @@ name
    model name identifier
 
 options:
---query (= 'life=="available"')
+--query (= 'life=="alive" && status=="available"')
    query represents the goal state of a given model
 `
 
@@ -60,7 +60,7 @@ func (c *modelCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "model",
 		Args:    "[<name>]",
-		Purpose: "wait for an application to reach a goal state",
+		Purpose: "wait for an model to reach a goal state",
 		Doc:     modelCommandDoc,
 	})
 }
@@ -102,17 +102,18 @@ func (c *modelCommand) Run(ctx *cmd.Context) error {
 	return errors.Trace(err)
 }
 
-func (c *modelCommand) waitFor(name string, deltas []params.Delta, q query.Query) bool {
+func (c *modelCommand) waitFor(name string, deltas []params.Delta, q query.Query) (bool, error) {
 	for _, delta := range deltas {
 		logger.Tracef("delta %T: %v", delta.Entity, delta.Entity)
 
 		switch entityInfo := delta.Entity.(type) {
 		case *params.ModelUpdate:
 			if entityInfo.Name == name {
-				if res, err := q.Run(ModelScope{
-					ModelInfo: entityInfo,
-				}); res && err == nil {
-					return true
+				scope := MakeModelScope(entityInfo)
+				if res, err := q.Run(scope); query.IsInvalidIdentifierErr(err) {
+					return false, invalidIdentifierError(scope, err)
+				} else if res && err == nil {
+					return true, nil
 				}
 				c.found = entityInfo.Life != life.Dead
 			}
@@ -122,16 +123,27 @@ func (c *modelCommand) waitFor(name string, deltas []params.Delta, q query.Query
 
 	if !c.found {
 		logger.Infof("model %q not found, waiting...", name)
-		return false
+		return false, nil
 	}
 
 	logger.Infof("model %q found, waiting...", name)
-	return false
+	return false, nil
 }
 
 // ModelScope allows the query to introspect a model entity.
 type ModelScope struct {
+	GenericScope
 	ModelInfo *params.ModelUpdate
+}
+
+// MakeModelScope creates an ModelScope from an ModelUpdate
+func MakeModelScope(info *params.ModelUpdate) ModelScope {
+	return ModelScope{
+		GenericScope: GenericScope{
+			Info: info,
+		},
+		ModelInfo: info,
+	}
 }
 
 // GetIdentValue returns the value of the identifier in a given scope.
@@ -146,5 +158,5 @@ func (m ModelScope) GetIdentValue(name string) (query.Ord, error) {
 	case "status":
 		return query.NewString(string(m.ModelInfo.Status.Current)), nil
 	}
-	return nil, errors.Errorf("Runtime Error: identifier %q not found on ModelInfo", name)
+	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name), "Runtime Error: identifier %q not found on ModelInfo", name)
 }
