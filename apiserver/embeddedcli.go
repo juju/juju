@@ -157,8 +157,7 @@ func (h *embeddedCLIHandler) runEmbeddedCommands(
 	}
 
 	var cmdErr error
-	lines := linereader.New(in)
-	lines.Timeout = 10 * time.Millisecond
+	lines := newLineReader(in)
 	cmdDone := false
 	outputDone := false
 done:
@@ -192,6 +191,21 @@ done:
 		}
 	}
 	return cmdErr
+}
+
+// newLineReader returns a new linereader Reader for the
+// provided io Reader.
+func newLineReader(r io.Reader) *linereader.Reader {
+	// Do the same as linereader.New(), with the juju
+	// timeout values.  Changing the timeout of the
+	// Reader is unsafe after calling New.
+	result := &linereader.Reader{
+		Reader:  r,
+		Timeout: 10 * time.Millisecond,
+		Ch:      make(chan string),
+	}
+	go result.Run()
+	return result
 }
 
 // ExecEmbeddedCommandFunc defines a function which runs a named Juju command
