@@ -93,6 +93,16 @@ func handleRelease(name string, release []Release) func(http.ResponseWriter, *ht
 		products := make(map[string]Product)
 		for _, r := range release {
 			path := fmt.Sprintf("com.ubuntu.juju:%s:%s", r.Version, r.Arch)
+			if p, ok := products[path]; ok {
+				p.Versions[now].Items[fmt.Sprintf("%s-%s-%s", r.JujuVersion, r.Series, r.Arch)] = Version{
+					Size:    r.Size,
+					Path:    r.Path,
+					SHA256:  r.SHA256,
+					Version: r.JujuVersion,
+				}
+				continue
+			}
+
 			products[path] = Product{
 				DataType: "content-download",
 				Format:   "products:1.0",
