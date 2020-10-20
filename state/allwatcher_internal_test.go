@@ -826,7 +826,7 @@ func (s *allWatcherStateSuite) TestChangeCAASUnits(c *gc.C) {
 						PortRanges:  []network.PortRange{},
 						WorkloadStatus: multiwatcher.StatusInfo{
 							Current: "waiting",
-							Message: "agent initializing",
+							Message: "installing agent",
 							Data:    map[string]interface{}{},
 							Since:   &now,
 						},

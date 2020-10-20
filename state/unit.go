@@ -129,7 +129,7 @@ func (u *Unit) ContainerInfo() (CloudContainer, error) {
 // ShouldBeAssigned returns whether the unit should be assigned to a machine.
 // IAAS models require units to be assigned.
 func (u *Unit) ShouldBeAssigned() bool {
-	return u.modelType == ModelTypeIAAS
+	return u.modelType != ModelTypeCAAS
 }
 
 // Application returns the application.
@@ -669,11 +669,32 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 			return nil, errors.Trace(agentErr)
 		}
 	}
+	unitStatusDocId := op.unit.globalKey()
+	unitStatusInfo, unitErr := getStatus(op.unit.st.db(), unitStatusDocId, "unit")
+	if errors.IsNotFound(unitErr) {
+		return nil, errAlreadyDying
+	} else if unitErr != nil {
+		if !op.Force {
+			return nil, errors.Trace(unitErr)
+		}
+	}
 
 	// This has to be a function since we want to delay the evaluation of the value,
 	// in case agent erred out.
 	notAllocating := func() bool {
-		return (isAssigned || !shouldBeAssigned) && agentStatusInfo.Status != status.Allocating
+		// IAAS models need the unit to be assigned.
+		if shouldBeAssigned {
+			return isAssigned && agentStatusInfo.Status != status.Allocating
+		}
+		// For CAAS models, check to see if the unit agent has started.
+		if agentStatusInfo.Status != status.Allocating {
+			return true
+		}
+		// If the agent is still allocating, it may still be queued to run the install hook
+		// so check that the unit agent has started.
+		return (unitStatusInfo.Status != "" && unitStatusInfo.Status != status.Waiting) ||
+			(unitStatusInfo.Message != status.MessageWaitForContainer &&
+				unitStatusInfo.Message != status.MessageInstallingAgent)
 	}
 	if agentErr == nil && notAllocating() {
 		return setDyingOps(agentErr)

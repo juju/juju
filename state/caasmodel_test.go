@@ -410,7 +410,7 @@ func (s *CAASModelSuite) TestCloudContainerHistoryOverwrite(c *gc.C) {
 	statusHistory, err := unit.StatusHistory(status.StatusHistoryFilter{Size: 10})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusHistory, gc.HasLen, 1)
-	c.Assert(statusHistory[0].Message, gc.Equals, status.MessageInitializingAgent)
+	c.Assert(statusHistory[0].Message, gc.Equals, status.MessageInstallingAgent)
 	c.Assert(statusHistory[0].Status, gc.Equals, status.Waiting)
 
 	err = unit.SetStatus(status.StatusInfo{
@@ -435,7 +435,7 @@ func (s *CAASModelSuite) TestCloudContainerHistoryOverwrite(c *gc.C) {
 	c.Assert(statusHistory, gc.HasLen, 2)
 	c.Assert(statusHistory[0].Message, gc.Equals, "Unit Active")
 	c.Assert(statusHistory[0].Status, gc.Equals, status.Active)
-	c.Assert(statusHistory[1].Message, gc.Equals, status.MessageInitializingAgent)
+	c.Assert(statusHistory[1].Message, gc.Equals, status.MessageInstallingAgent)
 	c.Assert(statusHistory[1].Status, gc.Equals, status.Waiting)
 
 	err = unit.SetStatus(status.StatusInfo{
@@ -453,7 +453,7 @@ func (s *CAASModelSuite) TestCloudContainerHistoryOverwrite(c *gc.C) {
 	c.Assert(statusHistory[0].Status, gc.Equals, status.Waiting)
 	c.Assert(statusHistory[1].Message, gc.Equals, "Unit Active")
 	c.Assert(statusHistory[1].Status, gc.Equals, status.Active)
-	c.Assert(statusHistory[2].Message, gc.Equals, status.MessageInitializingAgent)
+	c.Assert(statusHistory[2].Message, gc.Equals, status.MessageInstallingAgent)
 	c.Assert(statusHistory[2].Status, gc.Equals, status.Waiting)
 }
 

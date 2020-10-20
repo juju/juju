@@ -70,7 +70,7 @@ func ApplicationDisplayStatus(applicationStatus, operatorStatus StatusInfo, expe
 	}
 
 	if operatorStatus.Status == Waiting && !expectWorkload {
-		operatorStatus.Message = MessageInitializingAgent
+		operatorStatus.Message = MessageInstallingAgent
 	}
 	return operatorStatus
 
@@ -78,5 +78,7 @@ func ApplicationDisplayStatus(applicationStatus, operatorStatus StatusInfo, expe
 
 func isStatusModified(unitStatus StatusInfo) bool {
 	return (unitStatus.Status != "" && unitStatus.Status != Waiting) ||
-		(unitStatus.Message != MessageWaitForContainer && unitStatus.Message != MessageInitializingAgent)
+		(unitStatus.Message != MessageWaitForContainer &&
+			unitStatus.Message != MessageInitializingAgent &&
+			unitStatus.Message != MessageInstallingAgent)
 }

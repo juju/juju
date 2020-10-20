@@ -280,7 +280,7 @@ func (s *UnitCloudStatusSuite) TestApplicatoinOpeartorStatusChoice(c *gc.C) {
 				Message: "unit",
 			},
 			expectWorkload: false,
-			messageCheck:   "agent initializing",
+			messageCheck:   "installing agent",
 		},
 		{
 			operatorStatus: status.StatusInfo{

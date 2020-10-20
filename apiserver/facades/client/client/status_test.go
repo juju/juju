@@ -872,7 +872,7 @@ func (s *CAASStatusSuite) TestStatusOperatorNotReady(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Applications, gc.HasLen, 1)
 	clearSinceTimes(status)
-	s.assertUnitStatus(c, status.Applications[s.app.Name()], "waiting", "agent initializing")
+	s.assertUnitStatus(c, status.Applications[s.app.Name()], "waiting", "installing agent")
 }
 
 func (s *CAASStatusSuite) TestStatusPodSpecNotSet(c *gc.C) {
@@ -885,7 +885,7 @@ func (s *CAASStatusSuite) TestStatusPodSpecNotSet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Applications, gc.HasLen, 1)
 	clearSinceTimes(status)
-	s.assertUnitStatus(c, status.Applications[s.app.Name()], "waiting", "agent initializing")
+	s.assertUnitStatus(c, status.Applications[s.app.Name()], "waiting", "installing agent")
 }
 
 func (s *CAASStatusSuite) TestStatusPodSpecSet(c *gc.C) {
@@ -938,7 +938,7 @@ func (s *CAASStatusSuite) TestStatusCloudContainerSet(c *gc.C) {
 func (s *CAASStatusSuite) assertUnitStatus(c *gc.C, appStatus params.ApplicationStatus, status, info string) {
 	curl, _ := s.app.CharmURL()
 	workloadVersion := ""
-	if info != "agent initializing" && info != "blocked" {
+	if info != "installing agent" && info != "blocked" {
 		workloadVersion = "gitlab/latest"
 	}
 	c.Assert(appStatus, jc.DeepEquals, params.ApplicationStatus{
