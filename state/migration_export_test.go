@@ -37,7 +37,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/payload"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
@@ -45,6 +44,7 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
+	dummystorage "github.com/juju/juju/storage/provider/dummy"
 	"github.com/juju/juju/testing/factory"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -121,7 +121,7 @@ func (s *MigrationBaseSuite) makeUnitWithStorage(c *gc.C) (*state.Application, *
 	kind := "block"
 	// Create a default pool for block devices.
 	pm := poolmanager.New(state.NewStateSettings(s.State), storage.ChainedProviderRegistry{
-		dummy.StorageProviders(),
+		dummystorage.StorageProviders(),
 		provider.CommonStorageProviders(),
 	})
 	_, err := pm.Create(pool, provider.LoopProviderType, map[string]interface{}{})
