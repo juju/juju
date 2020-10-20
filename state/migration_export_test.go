@@ -24,7 +24,6 @@ import (
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/macaroon.v2"
 
-	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
@@ -2259,7 +2258,7 @@ func (s *MigrationExportSuite) newResource(c *gc.C, appName, name string, revisi
 }
 
 func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
-	mac, err := apitesting.NewMacaroon("apimac")
+	mac, err := newMacaroon("apimac")
 	c.Assert(err, gc.IsNil)
 	dbApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "gravy-rainbow",
@@ -2472,7 +2471,7 @@ func (s *MigrationExportSuite) TestRelationWithNoStatus(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestRemoteRelationSettingsForLocalUnitInCMR(c *gc.C) {
-	mac, err := apitesting.NewMacaroon("apimac")
+	mac, err := newMacaroon("apimac")
 	c.Assert(err, gc.IsNil)
 
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
