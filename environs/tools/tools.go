@@ -121,14 +121,7 @@ func FindTools(env environs.BootstrapEnviron, majorVersion, minorVersion int, st
 	if err != nil {
 		return nil, err
 	}
-	list, err := FindToolsForCloud(sources, cloudSpec, streams, majorVersion, minorVersion, filter)
-	if err != nil {
-		return nil, err
-	}
-	for _, tool := range list {
-		logger.Debugf("Located tool version %s at %s", tool.Version.String(), tool.URL)
-	}
-	return list, nil
+	return FindToolsForCloud(sources, cloudSpec, streams, majorVersion, minorVersion, filter)
 }
 
 // FindToolsForCloud returns a List containing all tools in the given streams, with a given
