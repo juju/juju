@@ -35,12 +35,13 @@ type Logger interface {
 // from separate state watchers, and updates a Snapshot which is sent on a
 // channel upon change.
 type RemoteStateWatcher struct {
-	st          State
-	unit        Unit
-	application Application
-	modelType   model.ModelType
-	embedded    bool
-	logger      Logger
+	st                           State
+	unit                         Unit
+	application                  Application
+	modelType                    model.ModelType
+	embedded                     bool
+	enforcedCharmModifiedVersion int
+	logger                       Logger
 
 	relations                     map[names.RelationTag]*wrappedRelationUnitsWatcher
 	relationUnitsChanges          chan relationUnitsChange
@@ -88,6 +89,7 @@ type WatcherConfig struct {
 	UnitTag                       names.UnitTag
 	ModelType                     model.ModelType
 	Embedded                      bool
+	EnforcedCharmModifiedVersion  int
 	Logger                        Logger
 	CanApplyCharmProfile          bool
 }
@@ -145,7 +147,8 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 			ActionsBlocked: config.ContainerRunningStatusChannel != nil,
 			ActionChanged:  make(map[string]int),
 		},
-		embedded: config.Embedded,
+		embedded:                     config.Embedded,
+		enforcedCharmModifiedVersion: config.EnforcedCharmModifiedVersion,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -759,6 +762,11 @@ func (w *RemoteStateWatcher) applicationChanged() error {
 	ver, err := w.application.CharmModifiedVersion()
 	if err != nil {
 		return errors.Trace(err)
+	}
+	// CAAS embedded charms will wait for the provider to restart/recreate
+	// the unit before performing an upgrade.
+	if w.embedded && ver != w.enforcedCharmModifiedVersion {
+		return nil
 	}
 	w.mu.Lock()
 	w.current.CharmURL = url

@@ -85,7 +85,8 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		},
 	}
 	appProvisioningInfo := api.ProvisioningInfo{
-		Series: "focal",
+		Series:   "focal",
+		CharmURL: appCharmURL,
 	}
 	ociResources := map[string]resources.DockerImageDetails{
 		"test-oci": {
@@ -94,6 +95,10 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 	}
 
 	notifyReady := make(chan struct{}, 1)
+
+	appStateChan := make(chan struct{}, 1)
+	appStateWatcher := watchertest.NewMockNotifyWatcher(appStateChan)
+
 	appChan := make(chan struct{}, 1)
 	appWatcher := watchertest.NewMockNotifyWatcher(appChan)
 
@@ -113,6 +118,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		facade.EXPECT().CharmInfo("cs:test").DoAndReturn(func(string) (*charmscommon.CharmInfo, error) {
 			return appCharmInfo, nil
 		}),
+		facade.EXPECT().SetPassword("test", gomock.Any()).Return(nil),
 		broker.EXPECT().Application("test", caas.DeploymentStateful).DoAndReturn(
 			func(string, caas.DeploymentType) caas.Application {
 				return brokerApp
@@ -123,18 +129,15 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		facade.EXPECT().Life("test").DoAndReturn(func(string) (life.Value, error) {
 			return life.Alive, nil
 		}),
-		facade.EXPECT().ApplicationCharmURL("test").DoAndReturn(func(string) (*charm.URL, error) {
-			return appCharmURL, nil
+		facade.EXPECT().WatchApplication("test").Return(appStateWatcher, nil),
+		facade.EXPECT().ProvisioningInfo("test").DoAndReturn(func(string) (api.ProvisioningInfo, error) {
+			return appProvisioningInfo, nil
 		}),
 		facade.EXPECT().CharmInfo("cs:test").DoAndReturn(func(string) (*charmscommon.CharmInfo, error) {
 			return appCharmInfo, nil
 		}),
 		brokerApp.EXPECT().Exists().DoAndReturn(func() (caas.DeploymentState, error) {
 			return caas.DeploymentState{}, nil
-		}),
-		facade.EXPECT().SetPassword("test", gomock.Any()).Return(nil),
-		facade.EXPECT().ProvisioningInfo("test").DoAndReturn(func(string) (api.ProvisioningInfo, error) {
-			return appProvisioningInfo, nil
 		}),
 		facade.EXPECT().ApplicationOCIResources("test").DoAndReturn(func(string) (map[string]resources.DockerImageDetails, error) {
 			return ociResources, nil
@@ -178,10 +181,8 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 			}, nil
 		}),
 		facade.EXPECT().GarbageCollect("test", []names.Tag{names.NewUnitTag("test/0")}, 1, []string{"test-0"}, false).DoAndReturn(func(appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error {
-			appChan <- struct{}{}
 			return nil
 		}),
-
 		brokerApp.EXPECT().Units().Return([]caas.Unit{{
 			Id:      "test-0",
 			Address: "10.10.10.1",
@@ -234,7 +235,30 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 					},
 				}},
 			}},
-		}).Return(nil, nil),
+		}).DoAndReturn(func(_ params.UpdateApplicationUnits) (*params.UpdateApplicationUnitsInfo, error) {
+			appStateChan <- struct{}{}
+			return nil, nil
+		}),
+
+		// Second run - Ensure() for the application.
+		facade.EXPECT().Life("test").DoAndReturn(func(string) (life.Value, error) {
+			return life.Alive, nil
+		}),
+		facade.EXPECT().ProvisioningInfo("test").DoAndReturn(func(string) (api.ProvisioningInfo, error) {
+			return appProvisioningInfo, nil
+		}),
+		facade.EXPECT().CharmInfo("cs:test").DoAndReturn(func(string) (*charmscommon.CharmInfo, error) {
+			return appCharmInfo, nil
+		}),
+		brokerApp.EXPECT().Exists().DoAndReturn(func() (caas.DeploymentState, error) {
+			return caas.DeploymentState{}, nil
+		}),
+		facade.EXPECT().ApplicationOCIResources("test").DoAndReturn(func(string) (map[string]resources.DockerImageDetails, error) {
+			appChan <- struct{}{}
+			return ociResources, nil
+		}),
+		// Second run should not Ensure since unchanged.
+		facade.EXPECT().SetOperatorStatus("test", status.Active, "unchanged", nil).Return(nil),
 
 		// Got appChanges -> updateState().
 		facade.EXPECT().Units("test").DoAndReturn(func(string) ([]names.Tag, error) {

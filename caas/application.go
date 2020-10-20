@@ -63,6 +63,12 @@ type ApplicationConfig struct {
 	// AgentImagePath is the docker registry URL for the image.
 	AgentImagePath string
 
+	// CharmModifiedVersion is a monotonically incrementing version number
+	// that represents the version of the charm and resources with regards to
+	// this application. The CAAS provider will pass this to the uniter worker
+	// to ensure the container infrastructure matches the charm.
+	CharmModifiedVersion int
+
 	// CharmBaseImage is the docker image used by the charm.
 	CharmBaseImage resources.DockerImageDetails
 

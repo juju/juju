@@ -176,15 +176,16 @@ func (m *mockModel) Containers(providerIds ...string) ([]state.CloudContainer, e
 type mockApplication struct {
 	testing.Stub
 	state.Authenticator
-	life               state.Life
-	tag                names.Tag
-	password           string
-	series             string
-	charm              caasapplicationprovisioner.Charm
-	units              []*mockUnit
-	constraints        constraints.Value
-	storageConstraints map[string]state.StorageConstraints
-	deviceConstraints  map[string]state.DeviceConstraints
+	life                 state.Life
+	tag                  names.Tag
+	password             string
+	series               string
+	charm                caasapplicationprovisioner.Charm
+	units                []*mockUnit
+	constraints          constraints.Value
+	storageConstraints   map[string]state.StorageConstraints
+	deviceConstraints    map[string]state.DeviceConstraints
+	charmModifiedVersion int
 }
 
 func (a *mockApplication) Tag() names.Tag {
@@ -273,6 +274,16 @@ func (a *mockApplication) SetOperatorStatus(statusInfo status.StatusInfo) error 
 func (a *mockApplication) SetStatus(statusInfo status.StatusInfo) error {
 	a.MethodCall(a, "SetStatus", statusInfo)
 	return a.NextErr()
+}
+
+func (a *mockApplication) CharmModifiedVersion() int {
+	a.MethodCall(a, "CharmModifiedVersion")
+	return a.charmModifiedVersion
+}
+
+func (a *mockApplication) CharmURL() (curl *charm.URL, force bool) {
+	a.MethodCall(a, "CharmURL")
+	return a.charm.URL(), false
 }
 
 type mockCharm struct {

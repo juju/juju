@@ -146,24 +146,28 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 		c.Assert(result, gc.FitsTypeOf, &params.CAASApplicationProvisioningInfoResults{})
 		*(result.(*params.CAASApplicationProvisioningInfoResults)) = params.CAASApplicationProvisioningInfoResults{
 			Results: []params.CAASApplicationProvisioningInfo{{
-				ImagePath:    "juju-operator-image",
-				Version:      vers,
-				APIAddresses: []string{"10.0.0.1:1"},
-				Tags:         map[string]string{"foo": "bar"},
-				Series:       "bionic",
-				ImageRepo:    "jujuqa",
+				ImagePath:            "juju-operator-image",
+				Version:              vers,
+				APIAddresses:         []string{"10.0.0.1:1"},
+				Tags:                 map[string]string{"foo": "bar"},
+				Series:               "bionic",
+				ImageRepo:            "jujuqa",
+				CharmModifiedVersion: 1,
+				CharmURL:             "cs:~test/charm-1",
 			}}}
 		return nil
 	})
 	info, err := client.ProvisioningInfo("gitlab")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, caasapplicationprovisioner.ProvisioningInfo{
-		ImagePath:    "juju-operator-image",
-		Version:      vers,
-		APIAddresses: []string{"10.0.0.1:1"},
-		Tags:         map[string]string{"foo": "bar"},
-		Series:       "bionic",
-		ImageRepo:    "jujuqa",
+		ImagePath:            "juju-operator-image",
+		Version:              vers,
+		APIAddresses:         []string{"10.0.0.1:1"},
+		Tags:                 map[string]string{"foo": "bar"},
+		Series:               "bionic",
+		ImageRepo:            "jujuqa",
+		CharmModifiedVersion: 1,
+		CharmURL:             &charm.URL{Schema: "cs", User: "test", Name: "charm", Revision: 1},
 	})
 }
 
@@ -356,6 +360,7 @@ func (s *provisionerSuite) TestUpdateUnits(c *gc.C) {
 
 func (s *provisionerSuite) TestUpdateUnitsCount(c *gc.C) {
 	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		c.Check(objType, gc.Equals, "CAASApplicationProvisioner")
 		c.Assert(result, gc.FitsTypeOf, &params.UpdateApplicationUnitResults{})
 		*(result.(*params.UpdateApplicationUnitResults)) = params.UpdateApplicationUnitResults{
 			Results: []params.UpdateApplicationUnitResult{
@@ -373,4 +378,28 @@ func (s *provisionerSuite) TestUpdateUnitsCount(c *gc.C) {
 	})
 	c.Check(err, gc.ErrorMatches, `expected 1 result\(s\), got 2`)
 	c.Assert(info, gc.IsNil)
+}
+
+func (s *provisionerSuite) TestWatchApplication(c *gc.C) {
+	client := newClient(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CAASApplicationProvisioner")
+		c.Check(version, gc.Equals, 1)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "Watch")
+		c.Assert(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{
+				Tag: "application-gitlab",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResults{})
+		*(result.(*params.NotifyWatchResults)) = params.NotifyWatchResults{
+			Results: []params.NotifyWatchResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		return nil
+	})
+	watcher, err := client.WatchApplication("gitlab")
+	c.Assert(watcher, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "FAIL")
 }

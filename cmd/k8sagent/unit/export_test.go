@@ -28,6 +28,7 @@ type K8sUnitAgentTest interface {
 	ChangeConfig(change agent.ConfigMutator) error
 	CurrentConfig() agent.Config
 	Tag() names.UnitTag
+	CharmModifiedVersion() int
 }
 
 func NewForTest(

@@ -6688,6 +6688,18 @@
                     },
                     "description": "UpdateApplicationsUnits updates the Juju data model to reflect the given\nunits of the specified application."
                 },
+                "Watch": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/NotifyWatchResults"
+                        }
+                    },
+                    "description": "Watch starts an NotifyWatcher for each given entity."
+                },
                 "WatchApplications": {
                     "type": "object",
                     "properties": {
@@ -6868,6 +6880,12 @@
                             }
                         },
                         "ca-cert": {
+                            "type": "string"
+                        },
+                        "charm-modified-version": {
+                            "type": "integer"
+                        },
+                        "charm-url": {
                             "type": "string"
                         },
                         "constraints": {
@@ -7958,6 +7976,36 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/LifeResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "NotifyWatchResult": {
+                    "type": "object",
+                    "properties": {
+                        "NotifyWatcherId": {
+                            "type": "string"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "NotifyWatcherId"
+                    ]
+                },
+                "NotifyWatchResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/NotifyWatchResult"
                             }
                         }
                     },

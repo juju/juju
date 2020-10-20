@@ -39,9 +39,11 @@ type appWorker struct {
 	clock    clock.Clock
 	logger   Logger
 
-	name     string
-	modelTag names.ModelTag
-	changes  chan struct{}
+	name        string
+	modelTag    names.ModelTag
+	changes     chan struct{}
+	password    string
+	lastApplied caas.ApplicationConfig
 }
 
 type AppWorkerConfig struct {
@@ -90,7 +92,10 @@ func (a *appWorker) Wait() error {
 
 func (a *appWorker) loop() error {
 	charmURL, err := a.facade.ApplicationCharmURL(a.name)
-	if err != nil {
+	if errors.IsNotFound(err) {
+		a.logger.Debugf("application %q removed", a.name)
+		return nil
+	} else if err != nil {
 		return errors.Annotatef(err, "failed to get charm url for application")
 	}
 	charmInfo, err := a.facade.CharmInfo(charmURL.String())
@@ -103,73 +108,117 @@ func (a *appWorker) loop() error {
 		return errors.Errorf("charm version 2 or greater required")
 	}
 
+	// Update the password once per worker start to avoid it changing too frequently.
+	a.password, err = utils.RandomPassword()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = a.facade.SetPassword(a.name, a.password)
+	if err != nil {
+		return errors.Annotate(err, "failed to set application api passwords")
+	}
+
 	// TODO(embedded): support more than statefulset
 	app := a.broker.Application(a.name, caas.DeploymentStateful)
 
 	var appLife life.Value
 	var appChanges watcher.NotifyChannel
 	var replicaChanges watcher.NotifyChannel
+	var appStateChanges watcher.NotifyChannel
 	var lastReportedStatus map[string]status.StatusInfo
+
+	done := false
+
+	handleChange := func() error {
+		appLife, err = a.facade.Life(a.name)
+		if errors.IsNotFound(err) {
+			appLife = life.Dead
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		switch appLife {
+		case life.Alive:
+			if appStateChanges == nil {
+				appStateWatcher, err := a.facade.WatchApplication(a.name)
+				if err != nil {
+					return errors.Annotatef(err, "failed to watch for changes to application %q", a.name)
+				}
+				if err := a.catacomb.Add(appStateWatcher); err != nil {
+					return errors.Trace(err)
+				}
+				appStateChanges = appStateWatcher.Changes()
+			}
+			err = a.alive(app)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if appChanges == nil {
+				appWatcher, err := app.Watch()
+				if err != nil {
+					return errors.Annotatef(err, "failed to watch for changes to application %q", a.name)
+				}
+				if err := a.catacomb.Add(appWatcher); err != nil {
+					return errors.Trace(err)
+				}
+				appChanges = appWatcher.Changes()
+			}
+			if replicaChanges == nil {
+				replicaWatcher, err := app.WatchReplicas()
+				if err != nil {
+					return errors.Annotatef(err, "failed to watch for changes to replicas %q", a.name)
+				}
+				if err := a.catacomb.Add(replicaWatcher); err != nil {
+					return errors.Trace(err)
+				}
+				replicaChanges = replicaWatcher.Changes()
+			}
+		case life.Dying:
+			err = a.dying(app)
+			if err != nil {
+				return errors.Trace(err)
+			}
+		case life.Dead:
+			err = a.dead(app)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			done = true
+			return nil
+		}
+		return nil
+	}
 
 	for {
 		select {
-		case <-a.catacomb.Dead():
-			return a.catacomb.Err()
-		case <-a.changes:
-			appLife, err = a.facade.Life(a.name)
-			if errors.IsNotFound(err) {
-				appLife = life.Dead
-			} else if err != nil {
-				return errors.Trace(err)
+		case <-a.catacomb.Dying():
+			return a.catacomb.ErrDying()
+		case <-appStateChanges:
+			// Respond to state changes
+			err = handleChange()
+			if err != nil {
+				return nil
 			}
-			switch appLife {
-			case life.Alive:
-				err = a.alive(app)
-				if err != nil {
-					return errors.Trace(err)
-				}
-				if appChanges == nil {
-					appWatcher, err := app.Watch()
-					if err != nil {
-						return errors.Annotatef(err, "failed to watch for changes to application %q", a.name)
-					}
-					err = a.catacomb.Add(appWatcher)
-					if err != nil {
-						appWatcher.Kill()
-						return errors.Trace(err)
-					}
-					appChanges = appWatcher.Changes()
-				}
-				if replicaChanges == nil {
-					replicaWatcher, err := app.WatchReplicas()
-					if err != nil {
-						return errors.Annotatef(err, "failed to watch for changes to replicas %q", a.name)
-					}
-					err = a.catacomb.Add(replicaWatcher)
-					if err != nil {
-						replicaWatcher.Kill()
-						return errors.Trace(err)
-					}
-					replicaChanges = replicaWatcher.Changes()
-				}
-			case life.Dying:
-				err = a.dying(app)
-				if err != nil {
-					return errors.Trace(err)
-				}
-			case life.Dead:
-				return a.dead(app)
+		case <-a.changes:
+			// Respond to life changes
+			err = handleChange()
+			if err != nil {
+				return nil
 			}
 		case <-appChanges:
+			// Repond to changes in provider application
 			lastReportedStatus, err = a.updateState(app, false, lastReportedStatus)
 			if err != nil {
 				return errors.Trace(err)
 			}
 		case <-replicaChanges:
+			// Respond to changes in replicas of the application
 			lastReportedStatus, err = a.updateState(app, false, lastReportedStatus)
 			if err != nil {
 				return errors.Trace(err)
 			}
+		}
+		if done {
+			return nil
 		}
 	}
 }
@@ -178,7 +227,9 @@ func (a *appWorker) updateState(app caas.Application, force bool, lastReportedSt
 	// Fetching the units here is to ensure happens-before consistency
 	// on the deletion of units.
 	observedUnits, err := a.facade.Units(a.name)
-	if err != nil {
+	if errors.IsNotFound(err) {
+		return nil, nil
+	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 	st, err := app.State()
@@ -188,7 +239,9 @@ func (a *appWorker) updateState(app caas.Application, force bool, lastReportedSt
 		return nil, errors.Trace(err)
 	}
 	err = a.facade.GarbageCollect(a.name, observedUnits, st.DesiredReplicas, st.Replicas, force)
-	if err != nil {
+	if errors.IsNotFound(err) {
+		return nil, nil
+	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if force {
@@ -289,12 +342,17 @@ func (a *appWorker) updateState(app caas.Application, force bool, lastReportedSt
 }
 
 func (a *appWorker) alive(app caas.Application) error {
-	charmURL, err := a.facade.ApplicationCharmURL(a.name)
+	a.logger.Debugf("ensuring application %q exists", a.name)
+
+	provisionInfo, err := a.facade.ProvisioningInfo(a.name)
 	if err != nil {
-		return errors.Annotatef(err, "failed to get charm urls for application")
+		return errors.Annotate(err, "failed to get provisioning info")
+	}
+	if provisionInfo.CharmURL == nil {
+		return errors.Errorf("missing charm url in provision info")
 	}
 
-	charmInfo, err := a.facade.CharmInfo(charmURL.String())
+	charmInfo, err := a.facade.CharmInfo(provisionInfo.CharmURL.String())
 	if err != nil {
 		return errors.Annotatef(err, "failed to get application charm deployment metadata for %q", a.name)
 	}
@@ -308,20 +366,6 @@ func (a *appWorker) alive(app caas.Application) error {
 		if err := a.waitForTerminated(app); err != nil {
 			return errors.Annotatef(err, "%q was terminating and there was an error waiting for it to stop", a.name)
 		}
-	}
-
-	password, err := utils.RandomPassword()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = a.facade.SetPassword(a.name, password)
-	if err != nil {
-		return errors.Annotate(err, "failed to set application api passwords")
-	}
-
-	provisionInfo, err := a.facade.ProvisioningInfo(a.name)
-	if err != nil {
-		return errors.Annotate(err, "failed to get provisioning info")
 	}
 
 	images, err := a.facade.ApplicationOCIResources(a.name)
@@ -381,7 +425,7 @@ func (a *appWorker) alive(app caas.Application) error {
 
 	// TODO(embedded): container.Mounts[*].Path <= consolidate? => provisionInfo.Filesystems[*].Attachment.Path
 	config := caas.ApplicationConfig{
-		IntroductionSecret:   password,
+		IntroductionSecret:   a.password,
 		AgentVersion:         provisionInfo.Version,
 		AgentImagePath:       provisionInfo.ImagePath,
 		ControllerAddresses:  strings.Join(provisionInfo.APIAddresses, ","),
@@ -392,16 +436,22 @@ func (a *appWorker) alive(app caas.Application) error {
 		Devices:              provisionInfo.Devices,
 		CharmBaseImage:       charmBaseImage,
 		Containers:           containers,
+		CharmModifiedVersion: provisionInfo.CharmModifiedVersion,
 	}
-	err = app.Ensure(config)
-	if err != nil {
-		return errors.Annotate(err, "ensuring application")
+	reason := "unchanged"
+	// TODO(embedded): implement Equals method for caas.ApplicationConfig
+	if !reflect.DeepEqual(config, a.lastApplied) {
+		err = app.Ensure(config)
+		if err != nil {
+			return errors.Annotate(err, "ensuring application")
+		}
+		a.lastApplied = config
+		reason = "deployed"
+		if appState.Exists {
+			reason = "updated"
+		}
 	}
 
-	reason := "deployed"
-	if appState.Exists {
-		reason = "updated"
-	}
 	err = a.facade.SetOperatorStatus(a.name, status.Active, reason, nil)
 	if err != nil {
 		return errors.Trace(err)
@@ -411,6 +461,7 @@ func (a *appWorker) alive(app caas.Application) error {
 }
 
 func (a *appWorker) dying(app caas.Application) error {
+	a.logger.Debugf("application %q dying", a.name)
 	err := app.Delete()
 	if err != nil {
 		return errors.Trace(err)
@@ -419,6 +470,7 @@ func (a *appWorker) dying(app caas.Application) error {
 }
 
 func (a *appWorker) dead(app caas.Application) error {
+	a.logger.Debugf("application %q dead", a.name)
 	err := a.dying(app)
 	if err != nil {
 		return errors.Trace(err)

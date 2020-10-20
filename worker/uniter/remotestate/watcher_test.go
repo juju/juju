@@ -24,12 +24,13 @@ import (
 type WatcherSuite struct {
 	coretesting.BaseSuite
 
-	modelType  model.ModelType
-	embedded   bool
-	st         *mockState
-	leadership *mockLeadershipTracker
-	watcher    *remotestate.RemoteStateWatcher
-	clock      *testclock.Clock
+	modelType                    model.ModelType
+	embedded                     bool
+	enforcedCharmModifiedVersion int
+	st                           *mockState
+	leadership                   *mockLeadershipTracker
+	watcher                      *remotestate.RemoteStateWatcher
+	clock                        *testclock.Clock
 
 	applicationWatcher   *mockNotifyWatcher
 	runningStatusWatcher *mockNotifyWatcher
@@ -48,6 +49,10 @@ type WatcherSuiteEmbedded struct {
 	WatcherSuite
 }
 
+type WatcherSuiteEmbeddedCharmModVer struct {
+	WatcherSuiteEmbedded
+}
+
 var _ = gc.Suite(&WatcherSuiteIAAS{
 	WatcherSuite{modelType: model.IAAS},
 })
@@ -57,8 +62,20 @@ var _ = gc.Suite(&WatcherSuiteCAAS{
 
 var _ = gc.Suite(&WatcherSuiteEmbedded{
 	WatcherSuite{
-		modelType: model.CAAS,
-		embedded:  true,
+		modelType:                    model.CAAS,
+		embedded:                     true,
+		enforcedCharmModifiedVersion: 5,
+	},
+})
+
+var _ = gc.Suite(&WatcherSuiteEmbeddedCharmModVer{
+	WatcherSuiteEmbedded{
+		WatcherSuite{
+			modelType: model.CAAS,
+			embedded:  true,
+			// Use a different version than the base tests
+			enforcedCharmModifiedVersion: 4,
+		},
 	},
 })
 
@@ -152,14 +169,15 @@ func (s *WatcherSuite) setupWatcherConfig() remotestate.WatcherConfig {
 		return dummyWaiter{s.clock.After(wait)}
 	}
 	return remotestate.WatcherConfig{
-		Logger:               loggo.GetLogger("test"),
-		State:                s.st,
-		ModelType:            s.modelType,
-		Embedded:             s.embedded,
-		LeadershipTracker:    s.leadership,
-		UnitTag:              s.st.unit.tag,
-		UpdateStatusChannel:  statusTicker,
-		CanApplyCharmProfile: s.modelType == model.IAAS,
+		Logger:                       loggo.GetLogger("test"),
+		State:                        s.st,
+		ModelType:                    s.modelType,
+		Embedded:                     s.embedded,
+		EnforcedCharmModifiedVersion: s.enforcedCharmModifiedVersion,
+		LeadershipTracker:            s.leadership,
+		UnitTag:                      s.st.unit.tag,
+		UpdateStatusChannel:          statusTicker,
+		CanApplyCharmProfile:         s.modelType == model.IAAS,
 	}
 }
 
@@ -952,4 +970,88 @@ func (s *WatcherSuiteEmbedded) TestWatcherConfig(c *gc.C) {
 func (s *WatcherSuite) TestWatcherConfigMissingLogger(c *gc.C) {
 	_, err := remotestate.NewWatcher(remotestate.WatcherConfig{})
 	c.Assert(err, gc.ErrorMatches, "nil Logger not valid")
+}
+
+func (s *WatcherSuiteEmbeddedCharmModVer) TestRemoteStateChanged(c *gc.C) {
+	assertOneChange := func() {
+		assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+		assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
+	}
+
+	s.signalAll()
+	assertOneChange()
+	initial := s.watcher.Snapshot()
+
+	s.st.unit.life = life.Dying
+	s.st.unit.unitWatcher.changes <- struct{}{}
+	assertOneChange()
+	c.Assert(s.watcher.Snapshot().Life, gc.Equals, life.Dying)
+
+	s.st.unit.resolved = params.ResolvedRetryHooks
+	s.st.unit.unitWatcher.changes <- struct{}{}
+	assertOneChange()
+	c.Assert(s.watcher.Snapshot().ResolvedMode, gc.Equals, params.ResolvedRetryHooks)
+
+	s.st.unit.addressesWatcher.changes <- []string{"addresseshash2"}
+	assertOneChange()
+	c.Assert(s.watcher.Snapshot().AddressesHash, gc.Equals, "addresseshash2")
+
+	s.st.unit.storageWatcher.changes <- []string{}
+	assertOneChange()
+
+	s.st.unit.configSettingsWatcher.changes <- []string{"confighash2"}
+	assertOneChange()
+	c.Assert(s.watcher.Snapshot().ConfigHash, gc.Equals, "confighash2")
+
+	s.st.unit.applicationConfigSettingsWatcher.changes <- []string{"trusthash2"}
+	assertOneChange()
+	c.Assert(s.watcher.Snapshot().TrustHash, gc.Equals, "trusthash2")
+
+	s.st.unit.application.leaderSettingsWatcher.changes <- struct{}{}
+	assertOneChange()
+	c.Assert(s.watcher.Snapshot().LeaderSettingsVersion, gc.Equals, initial.LeaderSettingsVersion+1)
+
+	s.st.unit.relationsWatcher.changes <- []string{}
+	assertOneChange()
+
+	if s.modelType == model.IAAS {
+		s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
+		assertOneChange()
+		s.st.unit.instanceDataWatcher.changes <- struct{}{}
+		assertOneChange()
+	}
+	s.st.unit.application.forceUpgrade = true
+	s.applicationWatcher.changes <- struct{}{}
+	assertOneChange()
+
+	// EnforcedCharmModifiedVersion prevents the charm upgrading if it isn't the right version.
+	snapshot := s.watcher.Snapshot()
+	c.Assert(snapshot.CharmModifiedVersion, gc.Equals, 0)
+	c.Assert(snapshot.CharmURL, gc.IsNil)
+	c.Assert(snapshot.ForceCharmUpgrade, gc.Equals, false)
+
+	s.clock.Advance(5 * time.Minute)
+	assertOneChange()
+}
+
+func (s *WatcherSuiteEmbeddedCharmModVer) TestSnapshot(c *gc.C) {
+	s.signalAll()
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	snap := s.watcher.Snapshot()
+	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
+		Life:                  s.st.unit.life,
+		Relations:             map[int]remotestate.RelationSnapshot{},
+		Storage:               map[names.StorageTag]remotestate.StorageSnapshot{},
+		ActionChanged:         map[string]int{},
+		CharmModifiedVersion:  0,
+		CharmURL:              nil,
+		ForceCharmUpgrade:     false,
+		ResolvedMode:          s.st.unit.resolved,
+		ConfigHash:            "confighash",
+		TrustHash:             "trusthash",
+		AddressesHash:         "addresseshash",
+		LeaderSettingsVersion: 1,
+		Leader:                true,
+	})
 }

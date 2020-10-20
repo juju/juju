@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/juju/clock"
@@ -876,7 +877,7 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		Image:           config.CharmBaseImage.RegistryPath,
 		WorkingDir:      jujuDataDir,
 		Command:         []string{"/usr/bin/k8sagent"},
-		Args:            []string{"unit", "--data-dir", jujuDataDir},
+		Args:            []string{"unit", "--data-dir", jujuDataDir, "--charm-modified-version", strconv.Itoa(config.CharmModifiedVersion)},
 		Env: []corev1.EnvVar{
 			{
 				Name:  "JUJU_CONTAINER_NAMES",

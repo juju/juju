@@ -56,6 +56,8 @@ type Application interface {
 	Life() state.Life
 	Series() string
 	SetStatus(statusInfo status.StatusInfo) error
+	CharmModifiedVersion() int
+	CharmURL() (curl *charm.URL, force bool)
 }
 
 type Charm interface {

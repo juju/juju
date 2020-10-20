@@ -10,6 +10,7 @@ import (
 	"github.com/juju/version"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
 	charmscommon "github.com/juju/juju/api/common/charms"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
@@ -106,16 +107,18 @@ func (c *Client) Life(appName string) (life.Value, error) {
 
 // ProvisioningInfo holds the info needed to provision an operator.
 type ProvisioningInfo struct {
-	ImagePath    string
-	Version      version.Number
-	APIAddresses []string
-	CACert       string
-	Tags         map[string]string
-	Constraints  constraints.Value
-	Filesystems  []storage.KubernetesFilesystemParams
-	Devices      []devices.KubernetesDeviceParams
-	Series       string
-	ImageRepo    string
+	ImagePath            string
+	Version              version.Number
+	APIAddresses         []string
+	CACert               string
+	Tags                 map[string]string
+	Constraints          constraints.Value
+	Filesystems          []storage.KubernetesFilesystemParams
+	Devices              []devices.KubernetesDeviceParams
+	Series               string
+	ImageRepo            string
+	CharmModifiedVersion int
+	CharmURL             *charm.URL
 }
 
 // ProvisioningInfo returns the info needed to provision an operator for an application.
@@ -136,14 +139,15 @@ func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, err
 	}
 
 	info := ProvisioningInfo{
-		ImagePath:    r.ImagePath,
-		Version:      r.Version,
-		APIAddresses: r.APIAddresses,
-		CACert:       r.CACert,
-		Tags:         r.Tags,
-		Constraints:  r.Constraints,
-		Series:       r.Series,
-		ImageRepo:    r.ImageRepo,
+		ImagePath:            r.ImagePath,
+		Version:              r.Version,
+		APIAddresses:         r.APIAddresses,
+		CACert:               r.CACert,
+		Tags:                 r.Tags,
+		Constraints:          r.Constraints,
+		Series:               r.Series,
+		ImageRepo:            r.ImageRepo,
+		CharmModifiedVersion: r.CharmModifiedVersion,
 	}
 
 	for _, fs := range r.Filesystems {
@@ -160,6 +164,14 @@ func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, err
 			Count:      device.Count,
 			Attributes: device.Attributes,
 		})
+	}
+
+	if r.CharmURL != "" {
+		charmURL, err := charm.ParseURL(r.CharmURL)
+		if err != nil {
+			return info, errors.Trace(err)
+		}
+		info.CharmURL = charmURL
 	}
 
 	return info, nil
@@ -333,4 +345,10 @@ func (c *Client) UpdateUnits(arg params.UpdateApplicationUnits) (*params.UpdateA
 		return firstResult.Info, nil
 	}
 	return firstResult.Info, maybeNotFound(firstResult.Error)
+}
+
+// WatchApplication returns a NotifyWatcher that notifies of
+// changes to the application in the current model.
+func (c *Client) WatchApplication(appName string) (watcher.NotifyWatcher, error) {
+	return common.Watch(c.facade, "Watch", names.NewApplicationTag(appName))
 }
