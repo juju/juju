@@ -388,9 +388,6 @@ func (st *State) cleanupMachinesForDyingModel(cleanupArgs []bson.Raw) (err error
 		if m.IsManager() {
 			continue
 		}
-		if _, isContainer := m.ParentId(); isContainer {
-			continue
-		}
 		manual, err := m.IsManual()
 		if err != nil {
 			// TODO (force 2019-4-24) we should not break out here but continue with other machines.
@@ -403,7 +400,7 @@ func (st *State) cleanupMachinesForDyingModel(cleanupArgs []bson.Raw) (err error
 			// and resources on the machine. If something is
 			// stuck, then the user can still force-destroy
 			// the manual machines.
-			if err := m.Destroy(); err != nil {
+			if err := m.DestroyWithContainers(); err != nil {
 				// Since we cannot delete a manual machine, we cannot proceed with model destruction even if it is forced.
 				// TODO (force 2019-4-24) However, we should not break out here but continue with other machines.
 				return errors.Trace(errors.Annotatef(err, "could not destroy manual machine %v", m.Id()))
@@ -413,7 +410,7 @@ func (st *State) cleanupMachinesForDyingModel(cleanupArgs []bson.Raw) (err error
 		if force {
 			err = m.ForceDestroy(args.MaxWait)
 		} else {
-			err = m.Destroy()
+			err = m.DestroyWithContainers()
 		}
 		if err != nil {
 			err = errors.Annotatef(err, "while destroying machine %v is", m.Id())
@@ -1281,7 +1278,7 @@ func (st *State) cleanupForceDestroyedMachineInternal(machineID string, maxWait 
 	// again -- which it *probably* will anyway -- the issue can be resolved by
 	// force-destroying the machine again; that's better than adding layer
 	// upon layer of complication here.
-	if err := machine.advanceLifecycle(Dead, true, maxWait); err != nil {
+	if err := machine.advanceLifecycle(Dead, true, false, maxWait); err != nil {
 		return errors.Trace(err)
 	}
 	removePortsOps, err := machine.removePortsOps()
@@ -1351,7 +1348,7 @@ func (st *State) cleanupForceRemoveMachine(machineId string, cleanupArgs []bson.
 	} else if err != nil {
 		return errors.Trace(err)
 	}
-	if err := machine.advanceLifecycle(Dead, true, maxWait); err != nil {
+	if err := machine.advanceLifecycle(Dead, true, false, maxWait); err != nil {
 		return errors.Trace(err)
 	}
 	return machine.Remove()
