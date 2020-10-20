@@ -41,6 +41,7 @@ func newMockState() *mockState {
 	st := &mockState{
 		entities: make(map[string]state.Entity),
 		app: mockApplication{
+			name: "gitlab",
 			life: state.Alive,
 			charm: mockCharm{
 				url:    charm.MustParseURL("cs:gitlab-1"),
@@ -76,6 +77,17 @@ func (st *mockState) Application(id string) (caasoperator.Application, error) {
 		return nil, err
 	}
 	return &st.app, nil
+}
+
+func (st *mockState) ApplicationExists(id string) error {
+	st.MethodCall(st, "ApplicationExists", id)
+	if err := st.NextErr(); err != nil {
+		return err
+	}
+	if st.app.name != id {
+		return errors.NotFoundf("application %q", id)
+	}
+	return nil
 }
 
 func (st *mockState) Model() (caasoperator.Model, error) {
@@ -133,6 +145,7 @@ func (st *mockModel) Containers(providerIds ...string) ([]state.CloudContainer, 
 
 type mockApplication struct {
 	testing.Stub
+	name         string
 	life         state.Life
 	charm        mockCharm
 	forceUpgrade bool
@@ -177,14 +190,6 @@ func (a *mockApplication) WatchUnits() state.StringsWatcher {
 func (a *mockApplication) Watch() state.NotifyWatcher {
 	a.MethodCall(a, "Watch")
 	return a.watcher
-}
-
-func (a *mockApplication) AllUnits() ([]caasoperator.Unit, error) {
-	a.MethodCall(a, "AllUnits")
-	if err := a.NextErr(); err != nil {
-		return nil, err
-	}
-	return []caasoperator.Unit{&mockUnit{}}, nil
 }
 
 func (a *mockApplication) AgentTools() (*tools.Tools, error) {

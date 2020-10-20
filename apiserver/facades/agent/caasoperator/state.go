@@ -49,7 +49,6 @@ type Application interface {
 	CharmModifiedVersion() int
 	SetOperatorStatus(status.StatusInfo) error
 	WatchUnits() state.StringsWatcher
-	AllUnits() ([]Unit, error)
 }
 
 // Charm provides the subset of charm state required by the

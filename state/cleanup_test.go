@@ -193,12 +193,25 @@ func (s *CleanupSuite) TestCleanupControllerModels(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 }
 
+func (s *CleanupSuite) TestCleanupModelMachinesForce(c *gc.C) {
+	s.testCleanupModelMachines(c, true)
+}
+
 func (s *CleanupSuite) TestCleanupModelMachines(c *gc.C) {
+	s.testCleanupModelMachines(c, false)
+}
+
+func (s *CleanupSuite) testCleanupModelMachines(c *gc.C, force bool) {
 	// Create a controller machine, and manual and non-manual
-	// workload machine.
+	// workload machine, the latter with a container workload machine.
 	stateMachine, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	modelMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}, modelMachine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 	manualMachine, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series:     "quantal",
@@ -210,7 +223,7 @@ func (s *CleanupSuite) TestCleanupModelMachines(c *gc.C) {
 
 	// Create a relation with a unit in scope and assigned to the hosted machine.
 	pr := newPeerRelation(c, s.State)
-	err = pr.u0.AssignToMachine(machine)
+	err = pr.u0.AssignToMachine(modelMachine)
 	c.Assert(err, jc.ErrorIsNil)
 	preventPeerUnitsDestroyRemove(c, pr)
 
@@ -221,23 +234,30 @@ func (s *CleanupSuite) TestCleanupModelMachines(c *gc.C) {
 	// Destroy model, check cleanup queued.
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	force := true
 	err = model.Destroy(state.DestroyModelParams{Force: &force})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNeedsCleanup(c)
 
 	// Clean up, and check that the unit has been removed...
-	// There are 4 jobs for the destroy and then the model
-	// cleanup task queues another set because force is used.
-	s.assertCleanupCountDirty(c, 4)
-	assertRemoved(c, pr.u0)
+	if force {
+		// There are 4 jobs for the destroy and then the model
+		// cleanup task queues another set because force is used.
+		s.assertCleanupCountDirty(c, 4)
+		assertRemoved(c, pr.u0)
+		// ...and the unit has departed relation scope...
+		assertNotJoined(c, pr.ru0)
+		// ...and the machine has been removed (since model destroy does a
+		// force-destroy on the machine).
+		c.Assert(modelMachine.Refresh(), jc.Satisfies, errors.IsNotFound)
+		c.Assert(container.Refresh(), jc.Satisfies, errors.IsNotFound)
+	} else {
+		// Without force, in this test, the machines are not marked Dead,
+		// as no call is made to EnsureDead here, but from the machiner.
+		s.assertCleanupCountDirty(c, 2)
+		assertLife(c, modelMachine, state.Dying)
+		assertLife(c, container, state.Dying)
+	}
 
-	// ...and the unit has departed relation scope...
-	assertNotJoined(c, pr.ru0)
-
-	// ...and the machine has been removed (since model destroy does a
-	// force-destroy on the machine).
-	c.Assert(machine.Refresh(), jc.Satisfies, errors.IsNotFound)
 	assertLife(c, manualMachine, state.Dying)
 	assertLife(c, stateMachine, state.Alive)
 }
@@ -1382,7 +1402,7 @@ func (s *CleanupSuite) assertCleanupRuns(c *gc.C) {
 func (s *CleanupSuite) assertNeedsCleanup(c *gc.C) {
 	actual, err := s.State.NeedsCleanup()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actual, jc.IsTrue)
+	c.Assert(actual, jc.IsTrue, gc.Commentf("NeedsCleanup returned false, expected true"))
 }
 
 func (s *CleanupSuite) assertDoesNotNeedCleanup(c *gc.C) {

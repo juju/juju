@@ -820,7 +820,7 @@ func (s *allWatcherStateSuite) TestChangeCAASUnits(c *gc.C) {
 						Life:        "alive",
 						WorkloadStatus: multiwatcher.StatusInfo{
 							Current: "waiting",
-							Message: "agent initializing",
+							Message: "installing agent",
 							Data:    map[string]interface{}{},
 							Since:   &now,
 						},

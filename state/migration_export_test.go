@@ -856,7 +856,7 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State) {
 	if dbModel.Type() == state.ModelTypeCAAS {
 		// Account for the extra cloud container status history addition.
 		c.Assert(workloadHistory, gc.HasLen, expectedHistoryCount+1)
-		c.Assert(workloadHistory[expectedHistoryCount].Message(), gc.Equals, "agent initializing")
+		c.Assert(workloadHistory[expectedHistoryCount].Message(), gc.Equals, "installing agent")
 		c.Assert(workloadHistory[expectedHistoryCount].Value(), gc.Equals, "waiting")
 		c.Assert(workloadHistory[expectedHistoryCount-1].Message(), gc.Equals, "cloud container running")
 		c.Assert(workloadHistory[expectedHistoryCount-1].Value(), gc.Equals, "running")
