@@ -27,12 +27,12 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
+	dummystorage "github.com/juju/juju/storage/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -951,7 +951,7 @@ func (s *MachineSuite) addVolume(c *gc.C, params state.VolumeParams, machineId s
 
 func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	pm := poolmanager.New(state.NewStateSettings(s.State), storage.ChainedProviderRegistry{
-		dummy.StorageProviders(),
+		dummystorage.StorageProviders(),
 		provider.CommonStorageProviders(),
 	})
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})

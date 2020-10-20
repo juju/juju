@@ -17,7 +17,6 @@ import (
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/mgo.v2"
 
-	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
@@ -299,7 +298,7 @@ func (s *CharmSuite) TestAddCharmWithAuth(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	ms, err := dummy.Macaroon()
 	c.Assert(err, jc.ErrorIsNil)
-	apitesting.MacaroonEquals(c, ms[0], info.Macaroon[0])
+	assertMacaroonEquals(c, ms[0], info.Macaroon[0])
 }
 
 func (s *CharmSuite) TestAddCharmUpdatesPlaceholder(c *gc.C) {
@@ -491,7 +490,7 @@ func (s *CharmSuite) TestUpdateUploadedCharm(c *gc.C) {
 	c.Assert(sch.BundleSha256(), gc.Equals, "missing")
 	ms, err := sch.Macaroon()
 	c.Assert(err, jc.ErrorIsNil)
-	apitesting.MacaroonEquals(c, ms[0], info.Macaroon[0])
+	assertMacaroonEquals(c, ms[0], info.Macaroon[0])
 }
 
 func (s *CharmSuite) TestUpdateUploadedCharmEscapesSpecialCharsInConfig(c *gc.C) {

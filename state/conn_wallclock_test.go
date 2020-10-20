@@ -10,11 +10,11 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
+	dummystorage "github.com/juju/juju/storage/provider/dummy"
 	"github.com/juju/juju/testing"
 )
 
@@ -40,7 +40,7 @@ func (cs *ConnWithWallClockSuite) SetUpTest(c *gc.C) {
 	cs.policy = statetesting.MockPolicy{
 		GetStorageProviderRegistry: func() (storage.ProviderRegistry, error) {
 			return storage.ChainedProviderRegistry{
-				dummy.StorageProviders(),
+				dummystorage.StorageProviders(),
 				provider.CommonStorageProviders(),
 			}, nil
 		},

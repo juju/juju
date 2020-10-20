@@ -24,7 +24,6 @@ import (
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/macaroon.v2"
 
-	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
@@ -37,7 +36,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/payload"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
@@ -45,6 +43,7 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
+	dummystorage "github.com/juju/juju/storage/provider/dummy"
 	"github.com/juju/juju/testing/factory"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -121,7 +120,7 @@ func (s *MigrationBaseSuite) makeUnitWithStorage(c *gc.C) (*state.Application, *
 	kind := "block"
 	// Create a default pool for block devices.
 	pm := poolmanager.New(state.NewStateSettings(s.State), storage.ChainedProviderRegistry{
-		dummy.StorageProviders(),
+		dummystorage.StorageProviders(),
 		provider.CommonStorageProviders(),
 	})
 	_, err := pm.Create(pool, provider.LoopProviderType, map[string]interface{}{})
@@ -2259,7 +2258,7 @@ func (s *MigrationExportSuite) newResource(c *gc.C, appName, name string, revisi
 }
 
 func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
-	mac, err := apitesting.NewMacaroon("apimac")
+	mac, err := newMacaroon("apimac")
 	c.Assert(err, gc.IsNil)
 	dbApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "gravy-rainbow",
@@ -2472,7 +2471,7 @@ func (s *MigrationExportSuite) TestRelationWithNoStatus(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestRemoteRelationSettingsForLocalUnitInCMR(c *gc.C) {
-	mac, err := apitesting.NewMacaroon("apimac")
+	mac, err := newMacaroon("apimac")
 	c.Assert(err, gc.IsNil)
 
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{

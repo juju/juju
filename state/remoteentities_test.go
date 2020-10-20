@@ -9,8 +9,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
-
-	apitesting "github.com/juju/juju/api/testing"
 )
 
 type RemoteEntitiesSuite struct {
@@ -74,7 +72,7 @@ func (s *RemoteEntitiesSuite) TestMacaroon(c *gc.C) {
 	s.assertExportLocalEntity(c, entity)
 
 	re := s.State.RemoteEntities()
-	mac, err := apitesting.NewMacaroon("id")
+	mac, err := newMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	err = re.SaveMacaroon(entity, mac)
 	c.Assert(err, jc.ErrorIsNil)
@@ -82,7 +80,7 @@ func (s *RemoteEntitiesSuite) TestMacaroon(c *gc.C) {
 	re = s.State.RemoteEntities()
 	expected, err := re.GetMacaroon(entity)
 	c.Assert(err, jc.ErrorIsNil)
-	apitesting.MacaroonEquals(c, mac, expected)
+	assertMacaroonEquals(c, mac, expected)
 }
 
 func (s *RemoteEntitiesSuite) TestRemoveRemoteEntity(c *gc.C) {
