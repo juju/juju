@@ -78,5 +78,7 @@ func ApplicationDisplayStatus(applicationStatus, operatorStatus StatusInfo, expe
 
 func isStatusModified(unitStatus StatusInfo) bool {
 	return (unitStatus.Status != "" && unitStatus.Status != Waiting) ||
-		(unitStatus.Message != MessageWaitForContainer && unitStatus.Message != MessageInitializingAgent)
+		(unitStatus.Message != MessageWaitForContainer &&
+			unitStatus.Message != MessageInitializingAgent &&
+			unitStatus.Message != MessageInstallingAgent)
 }

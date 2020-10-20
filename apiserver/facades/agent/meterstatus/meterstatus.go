@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	caasapi "github.com/juju/juju/apiserver/common/caas"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
@@ -85,45 +86,16 @@ func NewMeterStatusAPI(
 		return nil, common.ErrPerm
 	}
 
-	var accessCheckerFn = func() (common.AuthFunc, error) {
-		switch tag := authorizer.GetAuthTag().(type) {
-		case names.ApplicationTag:
-			// If called by an application agent, any of the units
-			// belonging to that application can be accessed.
-			app, err := st.Application(tag.Name)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			allUnits, err := app.AllUnits()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return func(tag names.Tag) bool {
-				for _, u := range allUnits {
-					if u.Tag() == tag {
-						return true
-					}
-				}
-				return false
-			}, nil
-		case names.UnitTag:
-			return func(tag names.Tag) bool {
-				return authorizer.AuthOwner(tag)
-			}, nil
-		default:
-			return nil, errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag)
-		}
-	}
-
+	accessUnit := caasapi.CAASUnitAccessor(authorizer, caasapi.Backend(st))
 	return &MeterStatusAPI{
 		state:      st,
-		accessUnit: accessCheckerFn,
+		accessUnit: accessUnit,
 		resources:  resources,
 		UnitStateAPI: common.NewUnitStateAPI(
 			unitStateShim{st},
 			resources,
 			authorizer,
-			accessCheckerFn,
+			accessUnit,
 			logger,
 		),
 	}, nil

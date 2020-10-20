@@ -13,39 +13,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// unitAccessor creates a accessUnit function for accessing a unit
-func unitAccessor(authorizer facade.Authorizer, st *state.State) common.GetAuthFunc {
-	return func() (common.AuthFunc, error) {
-		switch tag := authorizer.GetAuthTag().(type) {
-		case names.ApplicationTag:
-			// If called by an application agent, any of the units
-			// belonging to that application can be accessed.
-			app, err := st.Application(tag.Name)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			allUnits, err := app.AllUnits()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return func(tag names.Tag) bool {
-				for _, u := range allUnits {
-					if u.Tag() == tag {
-						return true
-					}
-				}
-				return false
-			}, nil
-		case names.UnitTag:
-			return func(tag names.Tag) bool {
-				return authorizer.AuthOwner(tag)
-			}, nil
-		default:
-			return nil, errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag)
-		}
-	}
-}
-
 func applicationAccessor(authorizer facade.Authorizer, st *state.State) common.GetAuthFunc {
 	return func() (common.AuthFunc, error) {
 		switch tag := authorizer.GetAuthTag().(type) {

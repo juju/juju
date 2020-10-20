@@ -16,6 +16,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	caasapi "github.com/juju/juju/apiserver/common/caas"
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/facade"
 	leadershipapiserver "github.com/juju/juju/apiserver/facades/agent/leadership"
@@ -178,7 +179,7 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
-	accessUnit := unitAccessor(authorizer, st)
+	accessUnit := caasapi.CAASUnitAccessor(authorizer, caasapi.Backend(st))
 	accessApplication := applicationAccessor(authorizer, st)
 	accessMachine := machineAccessor(authorizer, st)
 	accessCloudSpec := cloudSpecAccessor(authorizer, st)
@@ -303,7 +304,7 @@ func NewUniterAPIV11(context facade.Context) (*UniterAPIV11, error) {
 	authorizer := context.Auth()
 	st := context.State()
 	resources := context.Resources()
-	accessUnit := unitAccessor(authorizer, st)
+	accessUnit := caasapi.CAASUnitAccessor(authorizer, caasapi.Backend(st))
 	return &UniterAPIV11{
 		LXDProfileAPI: NewExternalLXDProfileAPI(st, resources, authorizer, accessUnit, logger),
 		UniterAPIV12:  *uniterAPI,
