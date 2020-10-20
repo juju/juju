@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caas
+package unitcommon
 
 import (
 	"github.com/juju/errors"
@@ -38,9 +38,9 @@ func (b backend) ApplicationExists(name string) error {
 	return err
 }
 
-// CAASUnitAccessor returns an auth function which determines if the
+// UnitAccessor returns an auth function which determines if the
 // authenticated entity can access a unit or application.
-func CAASUnitAccessor(authorizer facade.Authorizer, st ApplicationGetter) common.GetAuthFunc {
+func UnitAccessor(authorizer facade.Authorizer, st ApplicationGetter) common.GetAuthFunc {
 	return func() (common.AuthFunc, error) {
 		switch tag := authorizer.GetAuthTag().(type) {
 		case names.ApplicationTag:

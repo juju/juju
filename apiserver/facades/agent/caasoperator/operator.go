@@ -9,7 +9,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
-	caasapi "github.com/juju/juju/apiserver/common/caas"
+	"github.com/juju/juju/apiserver/common/unitcommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
@@ -57,7 +57,7 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 	}
 	return NewFacade(resources, authorizer,
 		stateShim{ctx.State()},
-		caasapi.Backend(ctx.State()),
+		unitcommon.Backend(ctx.State()),
 		caasBroker, leadershipRevoker)
 }
 
@@ -66,7 +66,7 @@ func NewFacade(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	st CAASOperatorState,
-	appGetter caasapi.ApplicationGetter,
+	appGetter unitcommon.ApplicationGetter,
 	broker CAASBrokerInterface,
 	leadershipRevoker leadership.Revoker,
 ) (*Facade, error) {
@@ -81,7 +81,7 @@ func NewFacade(
 		common.AuthFuncForTagKind(names.ApplicationTagKind),
 		common.AuthFuncForTagKind(names.UnitTagKind),
 	)
-	accessUnit := caasapi.CAASUnitAccessor(authorizer, appGetter)
+	accessUnit := unitcommon.UnitAccessor(authorizer, appGetter)
 	return &Facade{
 		LifeGetter:         common.NewLifeGetter(st, canRead),
 		APIAddresser:       common.NewAPIAddresser(st, resources),

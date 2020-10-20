@@ -181,7 +181,7 @@ func (s *ApplicationSuite) TestDisplayStatusOperatorWaiting(c *gc.C) {
 		Name: "test",
 	})
 	expected := s.status(status.Waiting, time.Now())
-	expected.Message = status.MessageInitializingAgent
+	expected.Message = status.MessageInstallingAgent
 	model.UpdateApplication(cache.ApplicationChange{
 		Name:           "app",
 		Status:         s.status(status.Active, time.Now()),

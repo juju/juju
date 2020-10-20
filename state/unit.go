@@ -688,7 +688,7 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 		}
 		// For CAAS models, check to see if the unit agent has started.
 		if agentStatusInfo.Status != status.Allocating {
-			return false
+			return true
 		}
 		// If the agent is still allocating, it may still be queued to run the install hook
 		// so check that the unit agent has started.

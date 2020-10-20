@@ -70,7 +70,7 @@ func ApplicationDisplayStatus(applicationStatus, operatorStatus StatusInfo, expe
 	}
 
 	if operatorStatus.Status == Waiting && !expectWorkload {
-		operatorStatus.Message = MessageInitializingAgent
+		operatorStatus.Message = MessageInstallingAgent
 	}
 	return operatorStatus
 

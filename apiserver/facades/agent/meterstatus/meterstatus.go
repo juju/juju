@@ -10,7 +10,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
-	caasapi "github.com/juju/juju/apiserver/common/caas"
+	"github.com/juju/juju/apiserver/common/unitcommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
@@ -86,7 +86,7 @@ func NewMeterStatusAPI(
 		return nil, common.ErrPerm
 	}
 
-	accessUnit := caasapi.CAASUnitAccessor(authorizer, caasapi.Backend(st))
+	accessUnit := unitcommon.UnitAccessor(authorizer, unitcommon.Backend(st))
 	return &MeterStatusAPI{
 		state:      st,
 		accessUnit: accessUnit,

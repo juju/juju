@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caas_test
+package unitcommon_test
 
 import (
 	"github.com/juju/errors"
@@ -10,15 +10,15 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common/caas"
+	"github.com/juju/juju/apiserver/common/unitcommon"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 )
 
-type CaasSuite struct {
+type UnitAccessorSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&CaasSuite{})
+var _ = gc.Suite(&UnitAccessorSuite{})
 
 type appGetter struct {
 	exits bool
@@ -31,11 +31,11 @@ func (a appGetter) ApplicationExists(name string) error {
 	return errors.NotFoundf("application %q", name)
 }
 
-func (s *CaasSuite) TestApplicationAgent(c *gc.C) {
+func (s *UnitAccessorSuite) TestApplicationAgent(c *gc.C) {
 	auth := apiservertesting.FakeAuthorizer{
 		Tag: names.NewApplicationTag("gitlab"),
 	}
-	getAuthFunc := caas.CAASUnitAccessor(auth, appGetter{true})
+	getAuthFunc := unitcommon.UnitAccessor(auth, appGetter{true})
 	authFunc, err := getAuthFunc()
 	c.Assert(err, jc.ErrorIsNil)
 	ok := authFunc(names.NewUnitTag("gitlab/0"))
@@ -44,20 +44,20 @@ func (s *CaasSuite) TestApplicationAgent(c *gc.C) {
 	c.Assert(ok, jc.IsFalse)
 }
 
-func (s *CaasSuite) TestApplicationNotFound(c *gc.C) {
+func (s *UnitAccessorSuite) TestApplicationNotFound(c *gc.C) {
 	auth := apiservertesting.FakeAuthorizer{
 		Tag: names.NewApplicationTag("gitlab"),
 	}
-	getAuthFunc := caas.CAASUnitAccessor(auth, appGetter{false})
+	getAuthFunc := unitcommon.UnitAccessor(auth, appGetter{false})
 	_, err := getAuthFunc()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *CaasSuite) TestUnitAgent(c *gc.C) {
+func (s *UnitAccessorSuite) TestUnitAgent(c *gc.C) {
 	auth := apiservertesting.FakeAuthorizer{
 		Tag: names.NewUnitTag("gitlab/0"),
 	}
-	getAuthFunc := caas.CAASUnitAccessor(auth, appGetter{true})
+	getAuthFunc := unitcommon.UnitAccessor(auth, appGetter{true})
 	authFunc, err := getAuthFunc()
 	c.Assert(err, jc.ErrorIsNil)
 	ok := authFunc(names.NewUnitTag("gitlab/0"))
