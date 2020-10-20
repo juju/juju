@@ -1,6 +1,6 @@
 test_bootstrap() {
     if [ "$(skip 'test_bootstrap')" ]; then
-        echo "==> TEST SKIPPED: upgrade tests"
+        echo "==> TEST SKIPPED: bootstrap tests"
         return
     fi
 
