@@ -20,37 +20,28 @@ import errno
 import json
 import logging
 import os
-import pexpect
 import re
 import shutil
-import six
 import subprocess
 import sys
 import time
-import yaml
-from collections import (
-    defaultdict,
-    namedtuple,
-)
-from contextlib import (
-    contextmanager,
-)
+from collections import defaultdict, namedtuple
+from contextlib import contextmanager
 from copy import deepcopy
 from itertools import chain
 from locale import getpreferredencoding
 
-from jujupy.backend import (
-    JujuBackend,
-)
+import pexpect
+import six
+import yaml
+
+from jujupy.backend import JujuBackend
 from jujupy.configuration import (
     get_bootstrap_config_path,
     get_juju_home,
     get_selected_environment,
 )
-from jujupy.controller import (
-    Controllers,
-    ControllerConfig,
-)
+from jujupy.controller import ControllerConfig, Controllers
 from jujupy.exceptions import (
     AgentsNotStarted,
     ApplicationsNotStarted,
@@ -65,14 +56,10 @@ from jujupy.exceptions import (
     VotingNotEnabled,
     WorkloadsNotReady,
 )
-from jujupy.status import (
-    AGENTS_READY,
-    coalesce_agent_status,
-    Status,
-)
+from jujupy.status import AGENTS_READY, Status, coalesce_agent_status
 from jujupy.utility import (
-    _dns_name_for_machine,
     JujuResourceTimeout,
+    _dns_name_for_machine,
     pause,
     qualified_model_name,
     skip_on_missing_file,
@@ -861,6 +848,7 @@ class ModelClient:
         :param machine_ids: The ids of the machine to remove.
         :return: A WaitMachineNotPresent instance for client.wait_for.
         """
+        machine_ids = machine_ids.split(',') if isinstance(machine_ids, str) else machine_ids
         options = ()
         if force:
             options = options + ('--force',)
