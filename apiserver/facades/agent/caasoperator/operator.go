@@ -9,6 +9,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/unitcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
@@ -58,6 +59,7 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 	return NewFacade(resources, authorizer,
 		stateShim{ctx.StatePool().SystemState()},
 		stateShim{ctx.State()},
+		unitcommon.Backend(ctx.State()),
 		caasBroker, leadershipRevoker)
 }
 
@@ -67,6 +69,7 @@ func NewFacade(
 	authorizer facade.Authorizer,
 	ctrlSt CAASControllerState,
 	st CAASOperatorState,
+	appGetter unitcommon.ApplicationGetter,
 	broker CAASBrokerInterface,
 	leadershipRevoker leadership.Revoker,
 ) (*Facade, error) {
@@ -81,31 +84,7 @@ func NewFacade(
 		common.AuthFuncForTagKind(names.ApplicationTagKind),
 		common.AuthFuncForTagKind(names.UnitTagKind),
 	)
-	accessUnit := func() (common.AuthFunc, error) {
-		switch tag := authorizer.GetAuthTag().(type) {
-		case names.ApplicationTag:
-			// Any of the units belonging to
-			// the application can be accessed.
-			app, err := st.Application(tag.Name)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			allUnits, err := app.AllUnits()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return func(tag names.Tag) bool {
-				for _, u := range allUnits {
-					if u.Tag() == tag {
-						return true
-					}
-				}
-				return false
-			}, nil
-		default:
-			return nil, errors.Errorf("expected names.ApplicationTag, got %T", tag)
-		}
-	}
+	accessUnit := unitcommon.UnitAccessor(authorizer, appGetter)
 	return &Facade{
 		LifeGetter:         common.NewLifeGetter(st, canRead),
 		APIAddresser:       common.NewAPIAddresser(ctrlSt, resources),

@@ -459,14 +459,7 @@ def main():
             args.juju,
         ]
     elif assess == "container_networking":
-        machine_types = {
-            'kvm': 'KVM_MACHINE',
-            'lxc': 'LXC_MACHINE',
-            'lxd': 'LXD_MACHINE',
-        }
-        machine_type = machine_types[args.machine_type]
-        testrun_argv.extend(["--machine-type", machine_type])
-
+        testrun_argv.extend(["--machine-type", args.machine_type])
         if args.space_constraint:
             testrun_argv.extend(["--space-constraint", args.space_constraint])
     elif assess == "constraints":

@@ -620,9 +620,20 @@ func (m *Machine) PasswordValid(password string) bool {
 // nothing otherwise. Destroy will fail if the machine has principal
 // units assigned, or if the machine has JobManageModel.
 // If the machine has assigned units, Destroy will return
-// a HasAssignedUnitsError.
+// a HasAssignedUnitsError.  If the machine has containers, Destroy
+// will return HasContainersError.
 func (m *Machine) Destroy() error {
-	return errors.Trace(m.advanceLifecycle(Dying, false, 0))
+	return errors.Trace(m.advanceLifecycle(Dying, false, false, 0))
+}
+
+// DestroyWithContainers sets the machine lifecycle to Dying if it is Alive.
+// It does nothing otherwise. DestroyWithContainers will fail if the machine
+// has principal units assigned, or if the machine has JobManageModel. If the
+// machine has assigned units, DestroyWithContainers will return a
+// HasAssignedUnitsError.  The machine is allowed to have containers.  Use with
+// caution.  Intended for model tear down.
+func (m *Machine) DestroyWithContainers() error {
+	return m.advanceLifecycle(Dying, false, true, 0)
 }
 
 // ForceDestroy queues the machine for complete removal, including the
@@ -690,7 +701,7 @@ func (m *Machine) forceDestroyOps(maxWait time.Duration) ([]txn.Op, error) {
 // If the machine has assigned units, EnsureDead will return
 // a HasAssignedUnitsError.
 func (m *Machine) EnsureDead() error {
-	return m.advanceLifecycle(Dead, false, 0)
+	return m.advanceLifecycle(Dead, false, false, 0)
 }
 
 // Containers returns the container ids belonging to a parent machine.
@@ -726,14 +737,22 @@ func (m *Machine) IsContainer() bool {
 // than the supplied value. If the machine already has that lifecycle
 // value, or a later one, no changes will be made to remote state. If
 // the machine has any responsibilities that preclude a valid change in
-// lifecycle, it will return an error.
-func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Duration) (err error) {
-	containers, err := original.Containers()
-	if err != nil {
-		return err
+// lifecycle, it will return an error. dyingAllowContainers indicates
+// whether the machine can have containers when moving to the dying state.
+// Not allowed for moving to dead.
+func (original *Machine) advanceLifecycle(life Life, force, dyingAllowContainers bool, maxWait time.Duration) (err error) {
+	logger.Debugf("%s.advanceLifecycle(%s, %t, %t)", original.Id(), life, force, dyingAllowContainers)
+
+	if life == Dead && dyingAllowContainers {
+		return errors.BadRequestf("life cannot be Dead if dyingAllowContainers true.")
 	}
-	if len(containers) > 0 {
-		return newHasContainersError(original.doc.Id, containers)
+
+	// A machine can be set to dying with containers, but cannot have any when
+	// advanced to dead.
+	if !dyingAllowContainers && life == Dying {
+		if err := original.advanceLifecycleIfNoContainers(); err != nil {
+			return err
+		}
 	}
 
 	locked, err := original.IsLockedForSeriesUpgrade()
@@ -759,18 +778,8 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 		}
 	}()
 
-	ops := []txn.Op{
-		{
-			C:      machinesC,
-			Id:     m.doc.DocID,
-			Update: bson.D{{"$set", bson.D{{"life", life}}}},
-		},
-		{
-			C:      machineUpgradeSeriesLocksC,
-			Id:     m.doc.Id,
-			Assert: txn.DocMissing,
-		},
-	}
+	ops := m.advanceLifecyleInitialOps(life)
+
 	// multiple attempts: one with original data, one with refreshed data, and a final
 	// one intended to determine the cause of failure of the preceding attempt.
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -799,8 +808,9 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 			if m.doc.Life != Alive {
 				return nil, jujutxn.ErrNoOperations
 			}
-			// Manager nodes are allowed to go to dying even when they have the vote, as that is used as the signal
-			// that they should lose their vote
+			// Manager nodes are allowed to go to dying even when they have
+			// the vote, as that is used as the signal that they should lose
+			// their vote.
 			asserts = append(asserts, isAliveDoc...)
 		case Dead:
 			if m.doc.Life == Dead {
@@ -815,15 +825,7 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 			asserts = append(asserts, bson.DocElem{
 				Name: "jobs", Value: bson.D{{Name: "$nin", Value: []MachineJob{JobManageModel}}}})
 			asserts = append(asserts, notDeadDoc...)
-			controllerOp := txn.Op{
-				C:  controllersC,
-				Id: modelGlobalKey,
-				Assert: bson.D{
-					{"has-vote", bson.M{"$ne": true}},
-					{"wants-vote", bson.M{"$ne": true}},
-				},
-			}
-			ops = append(ops, controllerOp)
+			ops = append(ops, controllerAdvanceLifecyleVoteOp())
 		default:
 			panic(fmt.Errorf("cannot advance lifecycle to %v", life))
 		}
@@ -841,17 +843,9 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 				ops[0].Update = bson.D{
 					{"$set", bson.D{{"life", life}}},
 				}
-				controllerIds, err := m.st.ControllerIds()
+				controllerOp, err := m.controllerIDsOp()
 				if err != nil {
-					return nil, errors.Annotatef(err, "reading controller info")
-				}
-				if len(controllerIds) <= 1 {
-					return nil, errors.Errorf("controller %s is the only controller", m.Id())
-				}
-				controllerOp := txn.Op{
-					C:      controllersC,
-					Id:     modelGlobalKey,
-					Assert: bson.D{{"controller-ids", controllerIds}},
+					return nil, errors.Trace(err)
 				}
 				ops = append(ops, controllerOp)
 				ops = append(ops, setControllerWantsVoteOp(m.st, m.doc.Id, false))
@@ -860,48 +854,29 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 			var principalUnitNames []string
 			for _, principalUnit := range m.doc.Principals {
 				principalUnitNames = append(principalUnitNames, principalUnit)
-				u, err := m.st.Unit(principalUnit)
+				canDie, err = m.assessCanDieUnit(principalUnit)
 				if err != nil {
-					return nil, errors.Annotatef(err, "reading machine %s principal unit %v", m, m.doc.Principals[0])
+					return nil, errors.Trace(err)
 				}
-				app, err := u.Application()
-				if err != nil {
-					return nil, errors.Annotatef(err, "reading machine %s principal unit application %v", m, u.doc.Application)
-				}
-				if u.Life() == Alive && app.Life() == Alive {
-					canDie = false
+				if !canDie {
 					break
 				}
 			}
 
-			if canDie {
-				containers, err := m.Containers()
-				if err != nil {
-					return nil, errors.Annotatef(err, "reading machine %s containers", m)
+			if canDie && !dyingAllowContainers {
+				if err := m.advanceLifecycleIfNoContainers(); err != nil && !IsHasContainersError(err) {
+					return nil, err
+				} else if IsHasContainersError(err) {
+					canDie = false
 				}
-				canDie = len(containers) == 0
-				containerCheck := txn.Op{
-					C:  containerRefsC,
-					Id: m.doc.DocID,
-					Assert: bson.D{{"$or", []bson.D{
-						{{"children", bson.D{{"$size", 0}}}},
-						{{"children", bson.D{{"$exists", false}}}},
-					}}},
-				}
-				ops = append(ops, containerCheck)
+				ops = append(ops, m.noContainersOp())
 			}
+
 			cleanupOp := newCleanupOp(cleanupDyingMachine, m.doc.Id, force, maxWait)
 			ops = append(ops, cleanupOp)
 
 			if canDie {
-				checkUnits := bson.DocElem{
-					Name: "$or", Value: []bson.D{
-						{{Name: "principals", Value: principalUnitNames}},
-						{{Name: "principals", Value: bson.D{{"$size", 0}}}},
-						{{Name: "principals", Value: bson.D{{"$exists", false}}}},
-					},
-				}
-				ops[0].Assert = append(asserts, checkUnits)
+				ops[0].Assert = append(asserts, advanceLifecycleUnitAsserts(principalUnitNames))
 				txnLogger.Debugf("txn moving machine %q to %s", m.Id(), life)
 				return ops, nil
 			}
@@ -910,14 +885,15 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 		if len(m.doc.Principals) > 0 {
 			return nil, newHasAssignedUnitsError(m.doc.Id, m.doc.Principals)
 		}
-		asserts = append(asserts, bson.DocElem{
-			Name: "$or", Value: []bson.D{
-				{{"principals", bson.D{{"$size", 0}}}},
-				{{"principals", bson.D{{"$exists", false}}}},
-			},
-		})
+		asserts = append(asserts, noUnitAsserts())
 
 		if life == Dead {
+			// A machine may not become Dead until it has no
+			// containers.
+			if err := m.advanceLifecycleIfNoContainers(); err != nil {
+				return nil, err
+			}
+			ops = append(ops, m.noContainersOp())
 			if isController(&m.doc) {
 				return nil, errors.Errorf("machine %s is still responsible for being a controller", m.Id())
 			}
@@ -939,6 +915,117 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 		err = errors.Annotatef(err, "machine %s cannot advance lifecycle", m)
 	}
 	return err
+}
+
+func (m *Machine) advanceLifecyleInitialOps(life Life) []txn.Op {
+	return []txn.Op{
+		{
+			C:      machinesC,
+			Id:     m.doc.DocID,
+			Update: bson.D{{"$set", bson.D{{"life", life}}}},
+		},
+		{
+			C:      machineUpgradeSeriesLocksC,
+			Id:     m.doc.Id,
+			Assert: txn.DocMissing,
+		},
+	}
+}
+
+func controllerAdvanceLifecyleVoteOp() txn.Op {
+	return txn.Op{
+		C:  controllersC,
+		Id: modelGlobalKey,
+		Assert: bson.D{
+			{"has-vote", bson.M{"$ne": true}},
+			{"wants-vote", bson.M{"$ne": true}},
+		},
+	}
+}
+
+// controllerIDsOp returns an Op to assert that the machine's
+// controllerIDs do not change.
+func (m *Machine) controllerIDsOp() (txn.Op, error) {
+	controllerIds, err := m.st.ControllerIds()
+	if err != nil {
+		return txn.Op{}, errors.Annotatef(err, "reading controller info")
+	}
+	if len(controllerIds) <= 1 {
+		return txn.Op{}, errors.Errorf("controller %s is the only controller", m.Id())
+	}
+	return txn.Op{
+		C:      controllersC,
+		Id:     modelGlobalKey,
+		Assert: bson.D{{"controller-ids", controllerIds}},
+	}, nil
+}
+
+// noContainersOp returns an Op to assert that the machine
+// has no containers.
+func (m *Machine) noContainersOp() txn.Op {
+	return txn.Op{
+		C:  containerRefsC,
+		Id: m.doc.DocID,
+		Assert: bson.D{{"$or", []bson.D{
+			{{"children", bson.D{{"$size", 0}}}},
+			{{"children", bson.D{{"$exists", false}}}},
+		}}},
+	}
+}
+
+// assessCanDieUnit returns true if the machine can die, based on
+// evaluating the provided unit.
+func (m *Machine) assessCanDieUnit(principalUnit string) (bool, error) {
+	canDie := true
+	u, err := m.st.Unit(principalUnit)
+	if err != nil {
+		return false, errors.Annotatef(err, "reading machine %s principal unit %v", m, m.doc.Principals[0])
+	}
+	app, err := u.Application()
+	if err != nil {
+		return false, errors.Annotatef(err, "reading machine %s principal unit application %v", m, u.doc.Application)
+	}
+	if u.Life() == Alive && app.Life() == Alive {
+		canDie = false
+	}
+	return canDie, nil
+}
+
+// noUnitAsserts returns bson DocElem which assert that there are
+// no units for the machine.
+func noUnitAsserts() bson.DocElem {
+	return bson.DocElem{
+		Name: "$or", Value: []bson.D{
+			{{"principals", bson.D{{"$size", 0}}}},
+			{{"principals", bson.D{{"$exists", false}}}},
+		},
+	}
+}
+
+// advanceLifecycleUnitAsserts returns bson DocElem which assert that there are
+// no units for the machine, or that the list of units has not changed.
+func advanceLifecycleUnitAsserts(principalUnitNames []string) bson.DocElem {
+	return bson.DocElem{
+		Name: "$or", Value: []bson.D{
+			{{Name: "principals", Value: principalUnitNames}},
+			{{Name: "principals", Value: bson.D{{"$size", 0}}}},
+			{{Name: "principals", Value: bson.D{{"$exists", false}}}},
+		},
+	}
+}
+
+// advanceLifecycleIfNoContainers determines if the machine has
+// containers, if so, returns the appropriate error.
+func (m *Machine) advanceLifecycleIfNoContainers() error {
+	containers, err := m.Containers()
+	if err != nil {
+		return errors.Annotatef(err, "reading machine %s containers", m)
+	}
+
+	if len(containers) > 0 {
+		return newHasContainersError(m.doc.Id, containers)
+	}
+	return nil
 }
 
 // assertNoPersistentStorage ensures that there are no persistent volumes or

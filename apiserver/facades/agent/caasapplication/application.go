@@ -42,7 +42,7 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
 	return NewFacade(resources, authorizer,
-		&stateShim{ctx.StatePool().SystemState()},
+		ctx.StatePool().SystemState(),
 		&stateShim{ctx.State()},
 		ctx.StatePool().Clock())
 }

@@ -2178,7 +2178,7 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	}
 	unitStatusDoc := &statusDoc{
 		Status:     status.Waiting,
-		StatusInfo: status.MessageInitializingAgent,
+		StatusInfo: status.MessageInstallingAgent,
 		Updated:    now.UnixNano(),
 	}
 	meterStatus := &meterStatusDoc{Code: MeterNotSet.String()}

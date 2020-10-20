@@ -49,7 +49,7 @@ func (r *Remover) removeEntity(tag names.Tag) error {
 	if !ok {
 		return apiservererrors.NotSupportedError(tag, "removal")
 	}
-	// Only remove entites that are not Alive.
+	// Only remove entities that are not Alive.
 	if life := remover.Life(); life == state.Alive {
 		return fmt.Errorf("cannot remove entity %q: still alive", tag.String())
 	}

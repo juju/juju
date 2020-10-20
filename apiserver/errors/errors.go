@@ -291,6 +291,8 @@ func ServerError(err error) *params.Error {
 		code = params.CodeUpgradeInProgress
 	case stateerrors.IsHasAttachmentsError(err):
 		code = params.CodeMachineHasAttachedStorage
+	case stateerrors.IsHasContainersError(err):
+		code = params.CodeMachineHasContainers
 	case stateerrors.IsStorageAttachedError(err):
 		code = params.CodeStorageAttached
 	case isUnknownModelError(err):

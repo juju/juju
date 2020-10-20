@@ -54,7 +54,7 @@ func (s *CAASOperatorSuite) SetUpTest(c *gc.C) {
 	s.broker = &mockBroker{}
 	s.revoker = &mockLeadershipRevoker{revoked: set.NewStrings()}
 
-	facade, err := caasoperator.NewFacade(s.resources, s.authorizer, s.st, s.st, s.broker, s.revoker)
+	facade, err := caasoperator.NewFacade(s.resources, s.authorizer, s.st, s.st, s.st, s.broker, s.revoker)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 }
@@ -63,7 +63,7 @@ func (s *CAASOperatorSuite) TestPermission(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: names.NewMachineTag("0"),
 	}
-	_, err := caasoperator.NewFacade(s.resources, s.authorizer, s.st, s.st, s.broker, nil)
+	_, err := caasoperator.NewFacade(s.resources, s.authorizer, s.st, s.st, s.st, s.broker, nil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 

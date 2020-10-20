@@ -85,13 +85,21 @@ func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 	}
 	mr.machine = m
 
-	if mr.config.ClearMachineAddressesOnStart {
+	switch {
+	case corelife.IsNotAlive(m.Life()):
+		// Can happen when the machiner is restarting after a failure in EnsureDead.
+		// Since we're dying or dead, no need handle the machine addresses.
+		logger.Infof("%q not alive", mr.config.Tag)
+		return m.Watch()
+	case mr.config.ClearMachineAddressesOnStart:
 		logger.Debugf("machiner configured to reset machine %q addresses to empty", mr.config.Tag)
 		if err := m.SetMachineAddresses(nil); err != nil {
 			return nil, errors.Annotate(err, "resetting machine addresses")
 		}
-	} else {
-		// Set the addresses in state to the host's addresses.
+	default:
+		// Set the addresses in state to the host's addresses if the
+		// machine is alive.  No need to set addresses if the machine
+		// is dying or dead on a worker restart.
 		if err := setMachineAddresses(mr.config.Tag, m); err != nil {
 			return nil, errors.Annotate(err, "setting machine addresses")
 		}
@@ -182,6 +190,7 @@ func (mr *Machiner) Handle(_ <-chan struct{}) error {
 
 		return nil
 	}
+
 	logger.Debugf("%q is now %s", mr.config.Tag, life)
 	if err := mr.machine.SetStatus(status.Stopped, "", nil); err != nil {
 		return errors.Annotatef(err, "%s failed to set status stopped", mr.config.Tag)
@@ -191,14 +200,21 @@ func (mr *Machiner) Handle(_ <-chan struct{}) error {
 	// assigned, or storage attached, this will fail with
 	// CodeHasAssignedUnits or CodeMachineHasAttachedStorage respectively.
 	// Once units or storage are removed, the watcher will trigger again
-	// and we'll reattempt.
+	// and we'll reattempt.  If the machine has containers, EnsureDead will
+	// fail with CodeMachineHasContainers.  However the watcher will not
+	// trigger again, so fail and let the machiner restart and try again.
 	if err := mr.machine.EnsureDead(); err != nil {
 		if params.IsCodeHasAssignedUnits(err) {
+			logger.Tracef("machine still has units")
 			return nil
 		}
 		if params.IsCodeMachineHasAttachedStorage(err) {
 			logger.Tracef("machine still has storage attached")
 			return nil
+		}
+		if params.IsCodeMachineHasContainers(err) {
+			logger.Tracef("machine still has containers")
+			return errors.Annotatef(err, "%q", mr.config.Tag)
 		}
 		err = errors.Annotatef(err, "%s failed to set machine to dead", mr.config.Tag)
 		if e := mr.machine.SetStatus(status.Error, errors.Annotate(err, "destroying machine").Error(), nil); e != nil {

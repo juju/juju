@@ -20,7 +20,7 @@ import (
 
 // getAllUnitNames returns a sequence of valid Unit objects from state. If any
 // of the application names or unit names are not found, an error is returned.
-func getAllUnitNames(st *state.State, units, services []string) (result []names.Tag, err error) {
+func getAllUnitNames(st *state.State, units, applications []string) (result []names.Tag, err error) {
 	var leaders map[string]string
 	getLeader := func(appName string) (string, error) {
 		if leaders == nil {
@@ -54,7 +54,7 @@ func getAllUnitNames(st *state.State, units, services []string) (result []names.
 		unitsSet.Add(leaderUnit)
 	}
 
-	for _, name := range services {
+	for _, name := range applications {
 		service, err := st.Application(name)
 		if err != nil {
 			return nil, err
