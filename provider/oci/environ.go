@@ -332,7 +332,6 @@ func (e *Environ) ConstraintsValidator(ctx envcontext.ProviderCallContext) (cons
 		constraints.Container,
 		constraints.VirtType,
 		constraints.Tags,
-		constraints.AllocatePublicIP,
 	}
 
 	validator := constraints.NewValidator()
@@ -471,20 +470,31 @@ func shortenMachineId(machineId *string, nRunesShown int) string {
 }
 
 // StartInstance implements environs.InstanceBroker.
-func (e *Environ) StartInstance(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (e *Environ) StartInstance(
+	ctx envcontext.ProviderCallContext, args environs.StartInstanceParams,
+) (*environs.StartInstanceResult, error) {
+	result, err := e.startInstance(ctx, args)
+	if err != nil {
+		providerCommon.HandleCredentialError(err, ctx)
+		return nil, errors.Trace(err)
+	}
+	return result, nil
+}
+
+func (e *Environ) startInstance(
+	ctx envcontext.ProviderCallContext, args environs.StartInstanceParams,
+) (*environs.StartInstanceResult, error) {
 	if args.ControllerUUID == "" {
 		return nil, errors.NotFoundf("Controller UUID")
 	}
 
 	networks, err := e.ensureNetworksAndSubnets(ctx, args.ControllerUUID, e.Config().UUID())
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
 		return nil, errors.Trace(err)
 	}
 
 	zones, err := e.AvailabilityZones(ctx)
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
 		return nil, errors.Trace(err)
 	}
 
@@ -495,7 +505,6 @@ func (e *Environ) StartInstance(ctx envcontext.ProviderCallContext, args environ
 	// from cache
 	imgCache, err := refreshImageCache(e.Compute, e.ecfg().compartmentID())
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
 		return nil, errors.Trace(err)
 	}
 	logger.Tracef("Image cache contains: %# v", pretty.Formatter(imgCache))
@@ -524,31 +533,23 @@ func (e *Environ) StartInstance(ctx envcontext.ProviderCallContext, args environ
 		},
 	)
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
 		return nil, errors.Trace(err)
 	}
 
 	tools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
 		return nil, errors.Trace(err)
 	}
 	logger.Tracef("agent binaries: %v", tools)
 	if err = args.InstanceConfig.SetTools(tools); err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
 		return nil, errors.Trace(err)
 	}
 
-	if err = instancecfg.FinishInstanceConfig(
-		args.InstanceConfig,
-		e.Config(),
-	); err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
+	if err = instancecfg.FinishInstanceConfig(args.InstanceConfig, e.Config()); err != nil {
 		return nil, errors.Trace(err)
 	}
 	hostname, err := e.namespace.Hostname(args.InstanceConfig.MachineId)
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
 		return nil, errors.Trace(err)
 	}
 	tags := args.InstanceConfig.Tags
@@ -572,7 +573,6 @@ func (e *Environ) StartInstance(ctx envcontext.ProviderCallContext, args environ
 
 	cloudcfg, err := e.getCloudInitConfig(series, apiPort, statePort)
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
 		return nil, errors.Annotate(err, "cannot create cloudinit template")
 	}
 
@@ -584,7 +584,6 @@ func (e *Environ) StartInstance(ctx envcontext.ProviderCallContext, args environ
 		OCIRenderer{},
 	)
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
 		return nil, errors.Annotate(err, "cannot make user data")
 	}
 
@@ -606,7 +605,11 @@ func (e *Environ) StartInstance(ctx envcontext.ProviderCallContext, args environ
 		rootDiskSizeGB = MinVolumeSizeMB / 1024
 	}
 
-	assignPublicIp := true
+	allocatePublicIP := true
+	if args.Constraints.HasAllocatePublicIP() {
+		allocatePublicIP = *args.Constraints.AllocatePublicIP
+	}
+
 	bootSource := ociCore.InstanceSourceViaImageDetails{
 		ImageId:             &image,
 		BootVolumeSizeInGBs: &rootDiskSizeGB,
@@ -618,7 +621,7 @@ func (e *Environ) StartInstance(ctx envcontext.ProviderCallContext, args environ
 		Shape:              &spec.InstanceType.Name,
 		CreateVnicDetails: &ociCore.CreateVnicDetails{
 			SubnetId:       network.Id,
-			AssignPublicIp: &assignPublicIp,
+			AssignPublicIp: &allocatePublicIP,
 			DisplayName:    &hostname,
 		},
 		DisplayName: &hostname,
@@ -634,28 +637,24 @@ func (e *Environ) StartInstance(ctx envcontext.ProviderCallContext, args environ
 
 	response, err := e.Compute.LaunchInstance(context.Background(), request)
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
 		return nil, errors.Trace(err)
 	}
 
 	instance, err := newInstance(response.Instance, e)
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
 		return nil, errors.Trace(err)
 	}
 
 	machineId := response.Instance.Id
 	timeout := 10 * time.Minute
 	if err := instance.waitForMachineStatus(desiredStatus, timeout); err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
 		return nil, errors.Trace(err)
 	}
 	logger.Infof("started instance %q", *machineId)
 	displayName := shortenMachineId(machineId, 6)
 
-	if desiredStatus == ociCore.InstanceLifecycleStateRunning {
+	if desiredStatus == ociCore.InstanceLifecycleStateRunning && allocatePublicIP {
 		if err := instance.waitForPublicIP(ctx); err != nil {
-			providerCommon.HandleCredentialError(err, ctx)
 			return nil, errors.Trace(err)
 		}
 	}

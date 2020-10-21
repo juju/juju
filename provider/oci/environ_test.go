@@ -835,7 +835,9 @@ func (e *environSuite) TestAllRunningInstancesExtraUnrelatedInstance(c *gc.C) {
 	c.Check(len(ids), gc.Equals, 2)
 }
 
-func (e *environSuite) setupLaunchInstanceExpectations(isController bool, tags map[string]string) {
+func (e *environSuite) setupLaunchInstanceExpectations(
+	isController bool, tags map[string]string, publicIP bool, launchInstanceMatcher gomock.Matcher,
+) {
 	inst := ociCore.Instance{
 		AvailabilityDomain: makeStringPointer("fakeZone1"),
 		CompartmentId:      &e.testCompartment,
@@ -849,7 +851,7 @@ func (e *environSuite) setupLaunchInstanceExpectations(isController bool, tags m
 	responseLaunch := ociCore.LaunchInstanceResponse{
 		Instance: inst,
 	}
-	e.compute.EXPECT().LaunchInstance(context.Background(), gomock.Any()).Return(responseLaunch, nil)
+	e.compute.EXPECT().LaunchInstance(context.Background(), launchInstanceMatcher).Return(responseLaunch, nil)
 
 	getInst := inst
 	if isController {
@@ -890,8 +892,12 @@ func (e *environSuite) setupLaunchInstanceExpectations(isController bool, tags m
 			},
 		})
 
-		e.compute.EXPECT().ListVnicAttachments(context.Background(), attachRequest).Return(attachResponse, nil)
-		e.netw.EXPECT().GetVnic(context.Background(), vnicRequest[0]).Return(vnicResponse[0], nil)
+		// These calls are only expected if we assign a public IP.
+		// They occur when polling for the IP after the instance is started.
+		if publicIP {
+			e.compute.EXPECT().ListVnicAttachments(context.Background(), attachRequest).Return(attachResponse, nil)
+			e.netw.EXPECT().GetVnic(context.Background(), vnicRequest[0]).Return(vnicResponse[0], nil)
+		}
 	}
 }
 
@@ -904,7 +910,8 @@ func (e *environSuite) setupEnsureNetworksExpectations(vcnId string, machineTags
 	e.setupListSubnetsExpectations(vcnId, "fakeRouteTableId", machineTags, 1)
 }
 
-func (e *environSuite) setupStartInstanceExpectations(isController bool) {
+func (e *environSuite) setupStartInstanceExpectations(
+	isController bool, publicIP bool, launchInstanceMatcher gomock.Matcher) {
 	vcnId := "fakeVCNId"
 	machineTags := map[string]string{
 		tags.JujuController: testing.ControllerTag.Id(),
@@ -917,14 +924,14 @@ func (e *environSuite) setupStartInstanceExpectations(isController bool) {
 
 	e.setupEnsureNetworksExpectations(vcnId, machineTags)
 	e.setupListImagesExpectations()
-	e.setupLaunchInstanceExpectations(isController, machineTags)
+	e.setupLaunchInstanceExpectations(isController, machineTags, publicIP, launchInstanceMatcher)
 }
 
 func (e *environSuite) TestBootstrap(c *gc.C) {
 	ctrl := e.patchEnv(c)
 	defer ctrl.Finish()
 
-	e.setupStartInstanceExpectations(true)
+	e.setupStartInstanceExpectations(true, true, gomock.Any())
 
 	ctx := envtesting.BootstrapContext(c)
 	_, err := e.env.Bootstrap(ctx, nil,
@@ -933,6 +940,34 @@ func (e *environSuite) TestBootstrap(c *gc.C) {
 			AvailableTools:           makeToolsList("trusty"),
 			BootstrapSeries:          "trusty",
 			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
+		})
+	c.Assert(err, gc.IsNil)
+}
+
+type noPublicIPMatcher struct{}
+
+func (noPublicIPMatcher) Matches(arg interface{}) bool {
+	li := arg.(ociCore.LaunchInstanceRequest)
+	assign := *li.CreateVnicDetails.AssignPublicIp
+	return !assign
+}
+
+func (noPublicIPMatcher) String() string { return "" }
+
+func (e *environSuite) TestBootstrapNoAllocatePublicIP(c *gc.C) {
+	ctrl := e.patchEnv(c)
+	defer ctrl.Finish()
+
+	e.setupStartInstanceExpectations(true, false, noPublicIPMatcher{})
+
+	ctx := envtesting.BootstrapContext(c)
+	_, err := e.env.Bootstrap(ctx, nil,
+		environs.BootstrapParams{
+			ControllerConfig:         testing.FakeControllerConfig(),
+			AvailableTools:           makeToolsList("trusty"),
+			BootstrapSeries:          "trusty",
+			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
+			BootstrapConstraints:     constraints.MustParse("allocate-public-ip=false"),
 		})
 	c.Assert(err, gc.IsNil)
 }
