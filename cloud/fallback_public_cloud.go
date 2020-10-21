@@ -87,6 +87,10 @@ clouds:
         endpoint: https://www.googleapis.com
       us-west2:
         endpoint: https://www.googleapis.com
+      us-west3:
+        endpoint: https://www.googleapis.com
+      us-west4:
+        endpoint: https://www.googleapis.com
       asia-east1:
         endpoint: https://www.googleapis.com
       asia-east2:
@@ -100,6 +104,8 @@ clouds:
       asia-south1:
         endpoint: https://www.googleapis.com
       asia-southeast1:
+        endpoint: https://www.googleapis.com
+      asia-southeast2:
         endpoint: https://www.googleapis.com
       australia-southeast1:
         endpoint: https://www.googleapis.com
