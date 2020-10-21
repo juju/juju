@@ -355,7 +355,7 @@ two: stopped`[1:])
 
 func (s *introspectionSuite) TestUnitStatusTimeout(c *gc.C) {
 	unsub := s.hub.Subscribe(agent.UnitStatusTopic, func(string, interface{}) {
-		s.clock.Advance(10 * time.Second)
+		s.clock.WaitAdvance(10 * time.Second, time.Second, 1)
 	})
 	defer unsub()
 
@@ -556,6 +556,7 @@ func newPrometheusGatherer() prometheus.Gatherer {
 func unixSocketHTTPClient(socketPath string) *http.Client {
 	return &http.Client{
 		Transport: unixSocketHTTPTransport(socketPath),
+		Timeout: 15 * time.Second,
 	}
 }
 
