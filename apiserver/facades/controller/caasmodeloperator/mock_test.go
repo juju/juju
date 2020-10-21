@@ -22,7 +22,7 @@ type mockModel struct {
 }
 
 type mockState struct {
-	common.AddressAndCertGetter
+	common.APIAddressAccessor
 	operatorRepo string
 	model        *mockModel
 }

@@ -22,7 +22,7 @@ type CAASModelOperatorState interface {
 // CAASModelOperatorState provides the subset of controller state required by the
 // model operator provisioner.
 type CAASControllerState interface {
-	common.AddressAndCertGetter
+	common.APIAddressAccessor
 	ControllerConfig() (controller.Config, error)
 }
 

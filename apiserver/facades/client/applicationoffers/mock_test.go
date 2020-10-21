@@ -296,7 +296,7 @@ type offerAccess struct {
 
 type mockState struct {
 	crossmodel.Backend
-	common.AddressAndCertGetter
+	common.APIAddressAccessor
 	modelUUID         string
 	model             *mockModel
 	AdminTag          names.UserTag
@@ -311,7 +311,7 @@ type mockState struct {
 	relationNetworks  state.RelationNetworks
 }
 
-func (m *mockState) GetAddressAndCertGetter() common.AddressAndCertGetter {
+func (m *mockState) GetAddressAndCertGetter() common.APIAddressAccessor {
 	return m
 }
 

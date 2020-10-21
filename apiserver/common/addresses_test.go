@@ -35,8 +35,8 @@ func (s *stateAddresserSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-// Verify that AddressAndCertGetter is satisfied by *state.State.
-var _ common.AddressAndCertGetter = (*state.State)(nil)
+// Verify that APIAddressAccessor is satisfied by *state.State.
+var _ common.APIAddressAccessor = (*state.State)(nil)
 
 func (s *stateAddresserSuite) TestStateAddresses(c *gc.C) {
 	result, err := s.addresser.StateAddresses()
@@ -92,7 +92,7 @@ func (s *apiAddresserSuite) TestAPIAddressesPrivateFirst(c *gc.C) {
 	})
 }
 
-var _ common.AddressAndCertGetter = fakeAddresses{}
+var _ common.APIAddressAccessor = fakeAddresses{}
 
 type fakeAddresses struct {
 	hostPorts []network.SpaceHostPorts

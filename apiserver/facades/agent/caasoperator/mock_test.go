@@ -28,7 +28,7 @@ import (
 
 type mockState struct {
 	testing.Stub
-	common.AddressAndCertGetter
+	common.APIAddressAccessor
 	entities map[string]state.Entity
 	app      mockApplication
 	unit     mockUnit

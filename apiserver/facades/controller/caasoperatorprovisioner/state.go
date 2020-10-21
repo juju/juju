@@ -25,7 +25,7 @@ type CAASOperatorProvisionerState interface {
 // CAASControllerState provides the subset of controller state
 // required by the CAAS operator provisioner facade.
 type CAASControllerState interface {
-	common.AddressAndCertGetter
+	common.APIAddressAccessor
 	ControllerConfig() (controller.Config, error)
 	StateServingInfo() (controller.StateServingInfo, error)
 }
