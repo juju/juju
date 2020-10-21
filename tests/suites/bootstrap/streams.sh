@@ -30,8 +30,8 @@ run_simplestream_metadata() {
     wait_for "ubuntu" "$(idle_condition "ubuntu")"
 }
 
-test_stream() {
-    if [ -n "$(skip 'test_stream')" ]; then
+test_bootstrap_simplestream() {
+    if [ -n "$(skip 'test_bootstrap_simplestream')" ]; then
         echo "==> SKIP: Asked to skip stream tests"
         return
     fi

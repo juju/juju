@@ -9,5 +9,5 @@ test_bootstrap() {
     echo "==> Checking for dependencies"
     check_dependencies juju jujud juju-metadata python
 
-    test_stream
+    test_bootstrap_simplestream
 }
