@@ -21,6 +21,9 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.machine")
 
+// TODO (manadart 2020-10-21): Remove the ModelUUID method
+// from the next version of this facade.
+
 // MachinerAPI implements the API used by the machiner worker.
 type MachinerAPI struct {
 	*common.LifeGetter
@@ -164,6 +167,14 @@ func (api *MachinerAPI) RecordAgentStartTime(args params.Entities) (params.Error
 		}
 	}
 	return results, nil
+}
+
+// ModelUUID returns the model UUID that this machine resides in.
+// It is implemented here directly as a result of removing it from
+// embedded APIAddresser *without* bumping the facade version.
+// It should be blanked when this facade version is next incremented.
+func (api *MachinerAPI) ModelUUID() params.StringResult {
+	return params.StringResult{Result: api.st.ModelUUID()}
 }
 
 // MachinerAPIV1 implements the V1 API used by the machiner worker.

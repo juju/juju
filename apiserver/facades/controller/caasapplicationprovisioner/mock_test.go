@@ -86,6 +86,11 @@ func (st *mockState) Model() (caasapplicationprovisioner.Model, error) {
 	return st.model, nil
 }
 
+func (st *mockState) ModelUUID() string {
+	st.MethodCall(st, "ModelUUID")
+	return coretesting.ModelTag.Id()
+}
+
 func (st *mockState) ResolveConstraints(cons constraints.Value) (constraints.Value, error) {
 	st.MethodCall(st, "ResolveConstraints", cons)
 	if err := st.NextErr(); err != nil {

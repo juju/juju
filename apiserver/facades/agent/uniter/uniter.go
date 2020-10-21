@@ -40,6 +40,9 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.uniter")
 
+// TODO (manadart 2020-10-21): Remove the ModelUUID method
+// from the next version of this facade.
+
 // UniterAPI implements the latest version (v17) of the Uniter API, which
 // augments the payload of the CommitHookChanges API call and introduces
 // the OpenedMachinePortRanges call as a replacement for AllMachinePorts.
@@ -82,7 +85,7 @@ type UniterAPI struct {
 }
 
 // UniterAPIV16 implements version (v16) of the Uniter API, which adds
-// LXDPorfileAPIV2.
+// LXDProfileAPIV2.
 type UniterAPIV16 struct {
 	UniterAPI
 }
@@ -1165,6 +1168,14 @@ func (u *UniterAPI) ClosePorts(args params.EntitiesPortRanges) (params.ErrorResu
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
+}
+
+// ModelUUID returns the model UUID that this unit resides in.
+// It is implemented here directly as a result of removing it from
+// embedded APIAddresser *without* bumping the facade version.
+// It should be blanked when this facade version is next incremented.
+func (u *UniterAPI) ModelUUID() params.StringResult {
+	return params.StringResult{Result: u.m.UUID()}
 }
 
 // WatchConfigSettings returns a NotifyWatcher for observing changes

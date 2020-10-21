@@ -39,6 +39,10 @@ func (st *mockState) APIHostPortsForAgents() ([]network.SpaceHostPorts, error) {
 	}, nil
 }
 
+func (st *mockState) ModelUUID() string {
+	return st.model.UUID()
+}
+
 func (st *mockState) ControllerConfig() (controller.Config, error) {
 	cfg := coretesting.FakeControllerConfig()
 	cfg[controller.CAASImageRepo] = st.operatorRepo

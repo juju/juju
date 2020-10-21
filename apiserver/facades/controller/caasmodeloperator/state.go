@@ -17,6 +17,7 @@ import (
 type CAASModelOperatorState interface {
 	FindEntity(tag names.Tag) (state.Entity, error)
 	Model() (Model, error)
+	ModelUUID() string
 }
 
 // CAASModelOperatorState provides the subset of controller state required by the

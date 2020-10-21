@@ -71,6 +71,11 @@ func (st *mockState) WatchAPIHostPortsForAgents() state.NotifyWatcher {
 	return apiservertesting.NewFakeNotifyWatcher()
 }
 
+func (st *mockState) ModelUUID() string {
+	st.MethodCall(st, "ModelUUID")
+	return coretesting.ModelTag.Id()
+}
+
 func (st *mockState) Application(id string) (caasoperator.Application, error) {
 	st.MethodCall(st, "Application", id)
 	if err := st.NextErr(); err != nil {
