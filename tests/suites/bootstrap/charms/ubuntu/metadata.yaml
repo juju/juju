@@ -9,8 +9,7 @@ requires:
   sink:
     interface: dummy-token
 series:
-  - trusty
-  - xenial
+  - focal
   - bionic
-  - disco
-  - eoan
+  - xenial
+  - trusty

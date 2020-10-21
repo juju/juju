@@ -1,33 +1,32 @@
-run_stream() {
+run_simplestream_metadata() {
     VERSION=$(jujud version)
-    JUJUD_VERSION=$(echo "${VERSION}" | cut -d '-' -f 1)
+    JUJUD_VERSION=$(jujud_version)
     echo "===> Using jujud version ${JUJUD_VERSION}"
 
-    add_clean_func "remove_tools"
-    add_tools "${VERSION}"
-  
+    add_clean_func "remove_bootstrap_tools"
+    add_bootstrap_tools "${VERSION}"
+
+    add_clean_func "remove_bootstrap_metadata"
+    juju metadata generate-agents \
+        --clean \
+        --prevent-fallback \
+        -d "./tests/suites/bootstrap/streams/"
+
     add_clean_func "kill_server"
-    start_server "${VERSION}" "${JUJUD_VERSION}"
+    start_server
 
-    sleep 5
-
-    ip_address=$(cat "${TEST_DIR}/server.log" | head -n 1)
-    if [ -z "${ip_address}" ]; then
-        echo "IP Address not found"
-        exit 1
-    fi
+    ip_address=$(ip -4 -o addr show scope global | awk '{gsub(/\/.*/,"",$4); print $4}' | head -n 1)
 
     name="test-bootstrap-stream"
 
     file="${TEST_DIR}/test-bootstrap-stream.log"
     juju bootstrap "lxd" "${name}" \
-        --config agent-metadata-url="http://${ip_address}:8081/" \
+        --config agent-metadata-url="http://${ip_address}:8000/" \
         --config test-mode=true \
         --agent-version="${JUJUD_VERSION}" 2>&1 | OUTPUT "${file}"
     echo "${name}" >> "${TEST_DIR}/jujus"
 
     juju deploy ./tests/suites/bootstrap/charms/ubuntu
-
     wait_for "ubuntu" "$(idle_condition "ubuntu")"
 }
 
@@ -42,11 +41,11 @@ test_stream() {
 
         cd .. || exit
 
-        run "run_stream"
+        run "run_simplestream_metadata"
     )
 }
 
-add_tools() {
+add_bootstrap_tools() {
     local version jujud_path
 
     version=${1}
@@ -55,37 +54,32 @@ add_tools() {
     cp "${jujud_path}" "${TEST_DIR}"
     cd "${TEST_DIR}" || exit
 
-    tar -zcvf "${version}".tar.gz jujud >/dev/null
+    tar -zcvf "juju-${version}.tgz" jujud >/dev/null
     cd "${CURRENT_DIR}/.." || exit
 
-    mv "${TEST_DIR}"/"${version}".tar.gz ./tests/suites/bootstrap/streams/tools/agent/
+    mkdir -p "./tests/suites/bootstrap/streams/tools/released/"
+    mv "${TEST_DIR}/juju-${version}.tgz" "./tests/suites/bootstrap/streams/tools/released"
 }
 
-remove_tools() {
+remove_bootstrap_tools() {
     cd "${CURRENT_DIR}/.." || exit
 
     echo "==> Removing tools"
-    rm -f ./tests/suites/bootstrap/streams/tools/agent/*.tar.gz || true
+    rm -rf ./tests/suites/bootstrap/streams/tools/released || true
     echo "==> Removed tools"
 }
 
+remove_bootstrap_metadata() {
+    cd "${CURRENT_DIR}/.." || exit
+
+    echo "==> Removing metadata"
+    rm -rf ./tests/suites/bootstrap/streams/tools/streams || true
+    echo "==> Removed metadata"
+}
+
 start_server() {
-    local version jujud_version
-
-    version=${1}
-    jujud_version=${2}
-
-    # We need to build here, if we use `go run` then we end up with the PID of
-    # `go run`, but not of the server itself, which is not what we want.
-    go build -o "${TEST_DIR}"/server ./tests/streams/server/main.go
-
-    "${TEST_DIR}"/server \
-        --release="released,focal-20.04-amd64,${jujud_version},agent/${version}.tar.gz" \
-        --release="released,bionic-18.04-amd64,${jujud_version},agent/${version}.tar.gz" \
-        ./tests/suites/bootstrap/streams/ >"${TEST_DIR}/server.log" 2>&1 &
+    python -m http.server --directory "./tests/suites/bootstrap/streams/tools" 8000 >"${TEST_DIR}/server.log" 2>&1 &
     SERVER_PID=$!
-
-    echo "${SERVER_PID}"
 
     echo "${SERVER_PID}" > "${TEST_DIR}/server.pid"
 }

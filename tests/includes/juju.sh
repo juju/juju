@@ -6,6 +6,17 @@ juju_version() {
     echo "${version}"
 }
 
+jujud_version() {
+    version=$(jujud version)
+
+    # shellcheck disable=SC2116
+    version=$(echo "${version%-*}")
+    # shellcheck disable=SC2116
+    version=$(echo "${version%-*}")
+
+    echo "${version}"
+}
+
 # ensure will check if there is a bootstrapped controller that it can take
 # advantage of, failing that it will bootstrap a new controller for you.
 #
