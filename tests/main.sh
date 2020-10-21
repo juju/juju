@@ -12,6 +12,9 @@ export RUN_SUBTEST="${RUN_SUBTEST:-}"
 
 export CURRENT_LTS="focal"
 
+current_pwd=$(pwd)
+export CURRENT_DIR="${current_pwd}"
+
 OPTIND=1
 VERBOSE=1
 RUN_ALL="false"
@@ -35,6 +38,7 @@ import_subdir_files includes
 TEST_NAMES="agents \
             appdata \
             backup \
+            bootstrap \
             branches \
             caasadmission \
             cli \

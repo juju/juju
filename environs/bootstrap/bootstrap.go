@@ -457,10 +457,15 @@ func bootstrapIAAS(
 		if err != nil && !errors.IsNotFound(err) {
 			return err
 		}
-		if len(availableTools) != 0 && args.AgentVersion == nil {
-			// If agent version was not specified in the arguments,
-			// we always want the latest/newest available.
-			agentVersion, availableTools = availableTools.Newest()
+		if len(availableTools) != 0 {
+			if args.AgentVersion == nil {
+				// If agent version was not specified in the arguments,
+				// we always want the latest/newest available.
+				agentVersion, availableTools = availableTools.Newest()
+			}
+			for _, tool := range availableTools {
+				ctx.Infof("Located Juju agent version %s at %s", tool.Version, tool.URL)
+			}
 		}
 	}
 	// If there are no prepackaged tools and a specific version has not been
