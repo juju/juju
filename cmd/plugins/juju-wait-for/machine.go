@@ -110,9 +110,9 @@ func (c *machineCommand) waitFor(id string, deltas []params.Delta, q query.Query
 		case *params.MachineInfo:
 			if entityInfo.Id == id {
 				scope := MakeMachineScope(entityInfo)
-				if res, err := q.Run(scope); query.IsInvalidIdentifierErr(err) {
-					return false, invalidIdentifierError(scope, err)
-				} else if res && err == nil {
+				if done, err := runQuery(q, scope); err != nil {
+					return false, errors.Trace(err)
+				} else if done {
 					return true, nil
 				}
 				c.found = entityInfo.Life != life.Dead
@@ -161,6 +161,14 @@ func (m MachineScope) GetIdentValue(name string) (query.Ord, error) {
 		return query.NewString(m.MachineInfo.Series), nil
 	case "container-type":
 		return query.NewString(m.MachineInfo.ContainerType), nil
+	case "config":
+		return query.NewMapStringInterface(m.MachineInfo.Config), nil
+	case "supported-containers":
+		containerTypes := make([]string, len(m.MachineInfo.SupportedContainers))
+		for i, v := range m.MachineInfo.SupportedContainers {
+			containerTypes[i] = string(v)
+		}
+		return query.NewSliceString(containerTypes), nil
 	}
 	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name), "Runtime Error: identifier %q not found on MachineInfo", name)
 }

@@ -110,11 +110,12 @@ func (c *unitCommand) waitFor(name string, deltas []params.Delta, q query.Query)
 		case *params.UnitInfo:
 			if entityInfo.Name == name {
 				scope := MakeUnitScope(entityInfo)
-				if res, err := q.Run(scope); query.IsInvalidIdentifierErr(err) {
-					return false, invalidIdentifierError(scope, err)
-				} else if res && err == nil {
+				if done, err := runQuery(q, scope); err != nil {
+					return false, errors.Trace(err)
+				} else if done {
 					return true, nil
 				}
+
 				c.found = entityInfo.Life != life.Dead
 			}
 			break

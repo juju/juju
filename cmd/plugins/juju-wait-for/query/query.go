@@ -9,36 +9,6 @@ import (
 	"github.com/juju/errors"
 )
 
-// InvalidIdentifierError creates an invalid error.
-type InvalidIdentifierError struct {
-	name string
-	err  error
-}
-
-func (e *InvalidIdentifierError) Error() string {
-	return e.err.Error()
-}
-
-// Name returns the name associated with the identifier error.
-func (e *InvalidIdentifierError) Name() string {
-	return e.name
-}
-
-// ErrInvalidIdentifier defines a sentinel error for invalid identifiers.
-func ErrInvalidIdentifier(name string) error {
-	return &InvalidIdentifierError{
-		name: name,
-		err:  errors.Errorf("invalid identifer"),
-	}
-}
-
-// IsInvalidIdentifierErr returns if the error is an ErrInvalidIdentifier error
-func IsInvalidIdentifierErr(err error) bool {
-	err = errors.Cause(err)
-	_, ok := err.(*InvalidIdentifierError)
-	return ok
-}
-
 // Query holds all the arguments for a given query.
 type Query struct {
 	ast *QueryExpression
@@ -65,9 +35,19 @@ type Scope interface {
 	GetIdentValue(string) (Ord, error)
 }
 
+// FuncScope is used to call functions for a given identifer.
+type FuncScope interface {
+	Call(*Identifier, []Ord) (interface{}, error)
+}
+
+// BuiltinsRun runs the query with a set of builtin functions.
+func (q Query) BuiltinsRun(scope Scope) (bool, error) {
+	return q.Run(NewGlobalFuncScope(), scope)
+}
+
 // Run the query over a given scope.
-func (q Query) Run(scope Scope) (bool, error) {
-	res, err := q.run(q.ast, scope)
+func (q Query) Run(fnScope FuncScope, scope Scope) (bool, error) {
+	res, err := q.run(q.ast, fnScope, scope)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -84,11 +64,11 @@ func (q Query) Run(scope Scope) (bool, error) {
 	return !ref.IsZero(), nil
 }
 
-func (q Query) run(e Expression, scope Scope) (interface{}, error) {
+func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (interface{}, error) {
 	switch node := e.(type) {
 	case *QueryExpression:
 		for _, exp := range node.Expressions {
-			result, err := q.run(exp, scope)
+			result, err := q.run(exp, fnScope, scope)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -97,17 +77,97 @@ func (q Query) run(e Expression, scope Scope) (interface{}, error) {
 			}
 		}
 		return nil, nil
+
 	case *ExpressionStatement:
-		return q.run(node.Expression, scope)
-	case *InfixExpression:
-		left, err := q.run(node.Left, scope)
+		return q.run(node.Expression, fnScope, scope)
+
+	case *CallExpression:
+		fn, ok := node.Name.(*Identifier)
+		if !ok {
+			return nil, RuntimeErrorf("%s %v unexpected function name", shadowType(node.Name.(Ord)), node.Name.Pos())
+		}
+		var args []Ord
+		for _, arg := range node.Arguments {
+			result, err := q.run(arg, fnScope, scope)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ord, err := liftRawResult(result)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			args = append(args, ord)
+		}
+		res, err := fnScope.Call(fn, args)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return liftRawResult(res)
+
+	case *IndexExpression:
+		left, err := q.run(node.Left, fnScope, scope)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
-		right, err := q.run(node.Right, scope)
+		index, err := q.run(node.Index, fnScope, scope)
 		if err != nil {
 			return nil, errors.Trace(err)
+		}
+
+		switch t := left.(type) {
+		case *OrdMapStringInterface:
+			idx, err := expectStringIndex(index)
+			if err != nil {
+				return nil, errors.Annotatef(err, "%s %v accessing map", shadowType(t), node.Left.Pos())
+			}
+			res, ok := t.value[idx.value]
+			if !ok {
+				return nil, RuntimeErrorf("%s %v unexpected index %v accessing map", shadowType(t), node.Left.Pos(), idx.value)
+			}
+			return liftRawResult(res)
+
+		case *OrdMapInterfaceInterface:
+			idx, err := expectOrdIndex(index)
+			if err != nil {
+				return nil, errors.Annotatef(err, "%s %v accessing map", shadowType(t), node.Left.Pos())
+			}
+			res, ok := t.value[idx.Value()]
+			if !ok {
+				return nil, RuntimeErrorf("%s %v unexpected index %v accessing map", shadowType(t), node.Left.Pos(), idx.Value())
+			}
+			return liftRawResult(res)
+
+		case *OrdSliceString:
+			idx, err := expectIntegerIndex(index)
+			if err != nil {
+				return nil, errors.Annotatef(err, "%s %v accessing slice", shadowType(t), node.Left.Pos())
+			}
+			num := int(idx.Value().(int64))
+			if num < 0 || num >= len(t.value) {
+				return nil, RuntimeErrorf("%s %v range error accessing slice", shadowType(t), node.Left.Pos(), num)
+			}
+			return liftRawResult(t.value[num])
+
+		default:
+			return nil, RuntimeErrorf("%T %v unexpected index expression", left, node.Left.Pos())
+		}
+
+	case *InfixExpression:
+		left, err := q.run(node.Left, fnScope, scope)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		var right interface{}
+		switch node.Token.Type {
+		case CONDAND, CONDOR:
+			// Don't compute the right handside for a logical operator.
+		default:
+			right, err = q.run(node.Right, fnScope, scope)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 		}
 
 		switch node.Token.Type {
@@ -133,172 +193,57 @@ func (q Query) run(e Expression, scope Scope) (interface{}, error) {
 		case bool:
 			leftOp = op
 		default:
-			return nil, errors.Errorf("Runtime Error: %T %v logical AND only allowed on boolean values", left, node.Left.Pos())
+			return nil, RuntimeErrorf("%T %v logical AND only allowed on boolean values", left, node.Left.Pos())
 		}
+
+		// Ensure we don't call the right hand expression unless we need to.
+		if node.Token.Type == CONDAND {
+			if !leftOp {
+				return false, nil
+			}
+		} else if node.Token.Type == CONDOR {
+			if leftOp {
+				return true, nil
+			}
+		} else {
+			return nil, RuntimeErrorf("%v unexpected operator %s", node.Token.Pos, node.Token.Literal)
+		}
+
+		right, err = q.run(node.Right, fnScope, scope)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
 		switch op := right.(type) {
 		case *OrdBool:
 			rightOp = op.value
 		case bool:
 			rightOp = op
 		default:
-			return nil, errors.Errorf("Runtime Error: %T %v logical AND only allowed on boolean values", right, node.Right.Pos())
+			return nil, RuntimeErrorf("%T %v logical AND only allowed on boolean values", right, node.Right.Pos())
 		}
 
-		switch node.Token.Type {
-		case CONDAND:
-			return leftOp && rightOp, nil
-		case CONDOR:
-			return leftOp || rightOp, nil
-		}
+		return rightOp, nil
 
-		return nil, errors.Errorf("Runtime Error: %v unexpected operator %s", node.Token.Pos, node.Token.Literal)
 	case *Identifier:
 		return scope.GetIdentValue(node.Token.Literal)
+
 	case *Integer:
 		return &OrdInteger{value: node.Value}, nil
+
 	case *Float:
 		return &OrdFloat{value: node.Value}, nil
+
 	case *String:
 		return &OrdString{value: node.Token.Literal}, nil
+
 	case *Bool:
 		return &OrdBool{value: node.Value}, nil
+
 	case *Empty:
 		return nil, nil
 	}
-	return nil, errors.Errorf("Syntax Error: Unexpected expression %T", e)
-}
-
-// Ord represents a ordered datatype.
-type Ord interface {
-	// Less checks if a Ord is less than another Ord
-	Less(Ord) bool
-
-	// Equal checks if an Ord is equal to another Ord.
-	Equal(Ord) bool
-
-	// IsZero returns if the underlying value is zero.
-	IsZero() bool
-}
-
-// OrdInteger defines an ordered integer.
-type OrdInteger struct {
-	value int64
-}
-
-// NewInteger creates a new Ord value
-func NewInteger(value int64) *OrdInteger {
-	return &OrdInteger{value: value}
-}
-
-// Less checks if a OrdInteger is less than another OrdInteger.
-func (o *OrdInteger) Less(other Ord) bool {
-	if i, ok := other.(*OrdInteger); ok {
-		return o.value < i.value
-	}
-	return false
-}
-
-// Equal checks if an OrdInteger is equal to another OrdInteger.
-func (o *OrdInteger) Equal(other Ord) bool {
-	if i, ok := other.(*OrdInteger); ok {
-		return o.value == i.value
-	}
-	return false
-}
-
-// IsZero returns if the underlying value is zero.
-func (o *OrdInteger) IsZero() bool {
-	return o.value < 1
-}
-
-// OrdFloat defines an ordered float.
-type OrdFloat struct {
-	value float64
-}
-
-// NewFloat creates a new Ord value
-func NewFloat(value float64) *OrdFloat {
-	return &OrdFloat{value: value}
-}
-
-// Less checks if a OrdFloat is less than another OrdFloat.
-func (o *OrdFloat) Less(other Ord) bool {
-	if i, ok := other.(*OrdFloat); ok {
-		return o.value < i.value
-	}
-	return false
-}
-
-// Equal checks if an OrdFloat is equal to another OrdFloat.
-func (o *OrdFloat) Equal(other Ord) bool {
-	if i, ok := other.(*OrdFloat); ok {
-		return o.value == i.value
-	}
-	return false
-}
-
-// IsZero returns if the underlying value is zero.
-func (o *OrdFloat) IsZero() bool {
-	return o.value < 1
-}
-
-// OrdString defines an ordered string.
-type OrdString struct {
-	value string
-}
-
-// NewString creates a new Ord value
-func NewString(value string) *OrdString {
-	return &OrdString{value: value}
-}
-
-// Less checks if a OrdString is less than another OrdString.
-func (o *OrdString) Less(other Ord) bool {
-	if i, ok := other.(*OrdString); ok {
-		return o.value < i.value
-	}
-	return false
-}
-
-// Equal checks if an OrdString is equal to another OrdString.
-func (o *OrdString) Equal(other Ord) bool {
-	if i, ok := other.(*OrdString); ok {
-		return o.value == i.value
-	}
-	return false
-}
-
-// IsZero returns if the underlying value is zero.
-func (o *OrdString) IsZero() bool {
-	return o.value == ""
-}
-
-// OrdBool defines an ordered float.
-type OrdBool struct {
-	value bool
-}
-
-// NewBool creates a new Ord value
-func NewBool(value bool) *OrdBool {
-	return &OrdBool{value: value}
-}
-
-// Less checks if a OrdBool is less than another OrdBool.
-func (o *OrdBool) Less(other Ord) bool {
-	return false
-}
-
-// Equal checks if an OrdBool is equal to another OrdBool.
-func (o *OrdBool) Equal(other Ord) bool {
-	if i, ok := other.(*OrdBool); ok {
-		return o.value == i.value
-	}
-	return false
-}
-
-// IsZero returns if the underlying value is zero.
-func (o *OrdBool) IsZero() bool {
-	return o.value == false
+	return nil, RuntimeErrorf("Syntax Error: Unexpected expression %T", e)
 }
 
 func equality(left, right interface{}) bool {
@@ -339,4 +284,30 @@ func valid(o Ord) bool {
 		return o.value > 0
 	}
 	return false
+}
+
+func liftRawResult(value interface{}) (Ord, error) {
+	if ord, ok := value.(Ord); ok {
+		return ord, nil
+	}
+
+	switch t := value.(type) {
+	case string:
+		return NewString(t), nil
+	case int:
+		return NewInteger(int64(t)), nil
+	case int64:
+		return NewInteger(t), nil
+	case bool:
+		return NewBool(t), nil
+	case float64:
+		return NewFloat(t), nil
+	case map[interface{}]interface{}:
+		return NewMapInterfaceInterface(t), nil
+	case map[string]interface{}:
+		return NewMapStringInterface(t), nil
+	case []string:
+		return NewSliceString(t), nil
+	}
+	return nil, RuntimeErrorf("%v unexpected index type %T", value, value)
 }

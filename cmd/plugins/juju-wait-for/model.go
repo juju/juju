@@ -110,11 +110,12 @@ func (c *modelCommand) waitFor(name string, deltas []params.Delta, q query.Query
 		case *params.ModelUpdate:
 			if entityInfo.Name == name {
 				scope := MakeModelScope(entityInfo)
-				if res, err := q.Run(scope); query.IsInvalidIdentifierErr(err) {
-					return false, invalidIdentifierError(scope, err)
-				} else if res && err == nil {
+				if done, err := runQuery(q, scope); err != nil {
+					return false, errors.Trace(err)
+				} else if done {
 					return true, nil
 				}
+
 				c.found = entityInfo.Life != life.Dead
 			}
 			break
@@ -157,6 +158,8 @@ func (m ModelScope) GetIdentValue(name string) (query.Ord, error) {
 		return query.NewBool(m.ModelInfo.IsController), nil
 	case "status":
 		return query.NewString(string(m.ModelInfo.Status.Current)), nil
+	case "config":
+		return query.NewMapStringInterface(m.ModelInfo.Config), nil
 	}
 	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name), "Runtime Error: identifier %q not found on ModelInfo", name)
 }

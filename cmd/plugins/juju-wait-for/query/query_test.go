@@ -4,6 +4,11 @@
 package query
 
 import (
+	"bufio"
+	"bytes"
+	"io"
+	"io/ioutil"
+
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -13,9 +18,67 @@ type querySuite struct{}
 
 var _ = gc.Suite(&querySuite{})
 
+func (s *querySuite) TestSuccess(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	funcScope := NewMockFuncScope(ctrl)
+	scope := NewMockScope(ctrl)
+
+	res, err := ioutil.ReadFile("./testfiles/success")
+	c.Assert(err, jc.ErrorIsNil)
+
+	buf := bufio.NewReader(bytes.NewBuffer(res))
+	for {
+		line, _, err := buf.ReadLine()
+		if err == io.EOF {
+			break
+		}
+
+		c.Logf("Line: %v", string(line))
+
+		query, err := Parse(string(line))
+		c.Assert(err, jc.ErrorIsNil)
+
+		done, err := query.Run(funcScope, scope)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(done, jc.IsTrue)
+	}
+}
+
+func (s *querySuite) TestFailure(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	funcScope := NewMockFuncScope(ctrl)
+	scope := NewMockScope(ctrl)
+
+	res, err := ioutil.ReadFile("./testfiles/failure")
+	c.Assert(err, jc.ErrorIsNil)
+
+	buf := bufio.NewReader(bytes.NewBuffer(res))
+	for {
+		line, _, err := buf.ReadLine()
+		if err == io.EOF {
+			break
+		}
+
+		c.Logf("Line: %v", string(line))
+
+		query, err := Parse(string(line))
+		c.Assert(err, jc.ErrorIsNil)
+
+		done, err := query.Run(funcScope, scope)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(done, jc.IsFalse)
+	}
+}
+
 func (s *querySuite) TestQueryScope(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+
+	funcScope := NewMockFuncScope(ctrl)
 
 	scope := NewMockScope(ctrl)
 	scope.EXPECT().GetIdentValue("life").Return(&OrdString{value: "alive"}, nil).Times(2)
@@ -25,7 +88,7 @@ func (s *querySuite) TestQueryScope(c *gc.C) {
 	query, err := Parse(src)
 	c.Assert(err, jc.ErrorIsNil)
 
-	done, err := query.Run(scope)
+	done, err := query.Run(funcScope, scope)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(done, jc.IsTrue)
 }
@@ -33,6 +96,8 @@ func (s *querySuite) TestQueryScope(c *gc.C) {
 func (s *querySuite) TestRunIdent(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+
+	funcScope := NewMockFuncScope(ctrl)
 
 	scope := NewMockScope(ctrl)
 	scope.EXPECT().GetIdentValue("life").Return(NewString("alive"), nil)
@@ -57,7 +122,7 @@ func (s *querySuite) TestRunIdent(c *gc.C) {
 	}
 
 	var query Query
-	result, err := query.run(exp, scope)
+	result, err := query.run(exp, funcScope, scope)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, NewString("alive"))
 }
@@ -66,6 +131,7 @@ func (s *querySuite) TestRunString(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	funcScope := NewMockFuncScope(ctrl)
 	scope := NewMockScope(ctrl)
 
 	exp := &QueryExpression{
@@ -88,7 +154,7 @@ func (s *querySuite) TestRunString(c *gc.C) {
 	}
 
 	var query Query
-	result, err := query.run(exp, scope)
+	result, err := query.run(exp, funcScope, scope)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, &OrdString{"abc"})
 }
@@ -97,6 +163,7 @@ func (s *querySuite) TestRunInteger(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	funcScope := NewMockFuncScope(ctrl)
 	scope := NewMockScope(ctrl)
 
 	exp := &QueryExpression{
@@ -120,7 +187,7 @@ func (s *querySuite) TestRunInteger(c *gc.C) {
 	}
 
 	var query Query
-	result, err := query.run(exp, scope)
+	result, err := query.run(exp, funcScope, scope)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, &OrdInteger{value: int64(1)})
 }
@@ -129,6 +196,7 @@ func (s *querySuite) TestRunFloat(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	funcScope := NewMockFuncScope(ctrl)
 	scope := NewMockScope(ctrl)
 
 	exp := &QueryExpression{
@@ -152,7 +220,7 @@ func (s *querySuite) TestRunFloat(c *gc.C) {
 	}
 
 	var query Query
-	result, err := query.run(exp, scope)
+	result, err := query.run(exp, funcScope, scope)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, &OrdFloat{value: float64(1.12)})
 }
@@ -161,6 +229,7 @@ func (s *querySuite) TestRunBool(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	funcScope := NewMockFuncScope(ctrl)
 	scope := NewMockScope(ctrl)
 
 	exp := &QueryExpression{
@@ -184,7 +253,7 @@ func (s *querySuite) TestRunBool(c *gc.C) {
 	}
 
 	var query Query
-	result, err := query.run(exp, scope)
+	result, err := query.run(exp, funcScope, scope)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, &OrdBool{value: true})
 }
@@ -193,6 +262,7 @@ func (s *querySuite) TestRunInfixLogicalAND(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	funcScope := NewMockFuncScope(ctrl)
 	scope := NewMockScope(ctrl)
 
 	exp := &QueryExpression{
@@ -232,7 +302,7 @@ func (s *querySuite) TestRunInfixLogicalAND(c *gc.C) {
 	}
 
 	var query Query
-	result, err := query.run(exp, scope)
+	result, err := query.run(exp, funcScope, scope)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, true)
 }
@@ -241,6 +311,7 @@ func (s *querySuite) TestRunInfixLogicalOR(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	funcScope := NewMockFuncScope(ctrl)
 	scope := NewMockScope(ctrl)
 
 	exp := &QueryExpression{
@@ -280,7 +351,7 @@ func (s *querySuite) TestRunInfixLogicalOR(c *gc.C) {
 	}
 
 	var query Query
-	result, err := query.run(exp, scope)
+	result, err := query.run(exp, funcScope, scope)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, true)
 }
