@@ -110,16 +110,24 @@ func (c *HTTPRESTClient) Get(ctx context.Context, path path.Path, result interfa
 		return errors.Annotate(err, "can not make new request")
 	}
 
+	// Compose the request headers.
+	headers := make(http.Header)
+	headers.Set("Accept", "application/json")
+	headers.Set("Content-Type", "application/json")
+
+	req.Header = c.composeHeaders(headers)
+
 	if c.logger.IsTraceEnabled() {
 		if data, err := httputil.DumpRequest(req, true); err == nil {
-			c.logger.Tracef("Post request %s", data)
+			c.logger.Tracef("Get request %s", data)
 		} else {
-			c.logger.Tracef("Post request DumpRequest error %s", err.Error())
+			c.logger.Tracef("Get request DumpRequest error %s", err.Error())
 		}
 	}
 
 	resp, err := c.transport.Do(req)
 	if err != nil {
+		c.logger.Tracef("Get Do failed with %+v", err)
 		return errors.Trace(err)
 	}
 	defer func() { _ = resp.Body.Close() }()
@@ -171,6 +179,7 @@ func (c *HTTPRESTClient) Post(ctx context.Context, path path.Path, body, result 
 
 	resp, err := c.transport.Do(req)
 	if err != nil {
+		c.logger.Tracef("Post Do failed with %+v", err)
 		return errors.Trace(err)
 	}
 	defer func() { _ = resp.Body.Close() }()

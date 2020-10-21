@@ -52,7 +52,9 @@ func (u Path) Query(key string, value string) (Path, error) {
 		return Path{}, errors.Trace(err)
 	}
 
-	baseQuery.Add(key, value)
+	if value != "" {
+		baseQuery.Add(key, value)
+	}
 
 	newURL, err := url.Parse(u.base.String())
 	if err != nil {
