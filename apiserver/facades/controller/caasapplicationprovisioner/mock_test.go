@@ -36,7 +36,7 @@ import (
 type mockState struct {
 	testing.Stub
 
-	common.AddressAndCertGetter
+	common.APIAddressAccessor
 	model              *mockModel
 	applicationWatcher *mockStringsWatcher
 	app                *mockApplication
@@ -84,6 +84,11 @@ func (st *mockState) Model() (caasapplicationprovisioner.Model, error) {
 		return nil, err
 	}
 	return st.model, nil
+}
+
+func (st *mockState) ModelUUID() string {
+	st.MethodCall(st, "ModelUUID")
+	return coretesting.ModelTag.Id()
 }
 
 func (st *mockState) ResolveConstraints(cons constraints.Value) (constraints.Value, error) {

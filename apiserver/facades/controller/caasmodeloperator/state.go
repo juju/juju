@@ -6,8 +6,8 @@ package caasmodeloperator
 import (
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
@@ -17,15 +17,13 @@ import (
 type CAASModelOperatorState interface {
 	FindEntity(tag names.Tag) (state.Entity, error)
 	Model() (Model, error)
+	ModelUUID() string
 }
 
 // CAASModelOperatorState provides the subset of controller state required by the
 // model operator provisioner.
 type CAASControllerState interface {
-	Addresses() ([]string, error)
-	ModelUUID() string
-	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
-	WatchAPIHostPortsForAgents() state.NotifyWatcher
+	common.APIAddressAccessor
 	ControllerConfig() (controller.Config, error)
 }
 

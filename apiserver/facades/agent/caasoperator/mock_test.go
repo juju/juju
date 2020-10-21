@@ -28,7 +28,7 @@ import (
 
 type mockState struct {
 	testing.Stub
-	common.AddressAndCertGetter
+	common.APIAddressAccessor
 	entities map[string]state.Entity
 	app      mockApplication
 	unit     mockUnit
@@ -69,6 +69,11 @@ func (st *mockState) APIHostPortsForAgents() ([]network.SpaceHostPorts, error) {
 func (st *mockState) WatchAPIHostPortsForAgents() state.NotifyWatcher {
 	st.MethodCall(st, "WatchAPIHostPortsForAgents")
 	return apiservertesting.NewFakeNotifyWatcher()
+}
+
+func (st *mockState) ModelUUID() string {
+	st.MethodCall(st, "ModelUUID")
+	return coretesting.ModelTag.Id()
 }
 
 func (st *mockState) Application(id string) (caasoperator.Application, error) {

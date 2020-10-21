@@ -39,21 +39,6 @@ func (a *APIAddresser) APIAddresses() ([]string, error) {
 	return result.Result, nil
 }
 
-// ModelUUID returns the model UUID to connect to the model
-// that the current connection is for.
-//
-// TODO(axw) this has bugger all to do with addresses, and
-// so should not be on this type. Get it from somewhere else,
-// e.g. by passing it into the model-specific workers.
-func (a *APIAddresser) ModelUUID() (string, error) {
-	var result params.StringResult
-	err := a.facade.FacadeCall("ModelUUID", nil, &result)
-	if err != nil {
-		return "", err
-	}
-	return result.Result, nil
-}
-
 // APIHostPorts returns the host/port addresses of the API servers.
 func (a *APIAddresser) APIHostPorts() ([]network.ProviderHostPorts, error) {
 	var result params.APIHostPortsResult

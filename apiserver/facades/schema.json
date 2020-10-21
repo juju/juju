@@ -9380,7 +9380,7 @@
     },
     {
         "Name": "CAASModelOperator",
-        "Description": "API represents the controller model operator facade",
+        "Description": "API represents the controller model operator facade.",
         "Version": 1,
         "AvailableTo": [
             "controller-machine-agent"
@@ -9422,7 +9422,7 @@
                             "$ref": "#/definitions/StringResult"
                         }
                     },
-                    "description": "ModelUUID returns the model UUID to connect to the model\nthat the current connection is for."
+                    "description": "ModelUUID returns the model UUID that this facade is used to operate.\nIt is implemented here directly as a result of removing it from\nembedded APIAddresser *without* bumping the facade version.\nIt should be blanked when this facade version is next incremented."
                 },
                 "SetPasswords": {
                     "type": "object",
@@ -9706,7 +9706,7 @@
     },
     {
         "Name": "CAASOperator",
-        "Description": "",
+        "Description": "Facade is the CAAS operator API facade.",
         "Version": 1,
         "AvailableTo": [
             "controller-machine-agent",
@@ -9775,7 +9775,7 @@
                             "$ref": "#/definitions/StringResult"
                         }
                     },
-                    "description": "ModelUUID returns the model UUID to connect to the model\nthat the current connection is for."
+                    "description": "ModelUUID returns the model UUID that this facade is used to operate.\nIt is implemented here directly as a result of removing it from\nembedded APIAddresser *without* bumping the facade version.\nIt should be blanked when this facade version is next incremented."
                 },
                 "Remove": {
                     "type": "object",
@@ -10510,7 +10510,7 @@
                             "$ref": "#/definitions/StringResult"
                         }
                     },
-                    "description": "ModelUUID returns the model UUID to connect to the model\nthat the current connection is for."
+                    "description": "ModelUUID returns the model UUID that this facade is used to operate.\nIt is implemented here directly as a result of removing it from\nembedded APIAddresser *without* bumping the facade version.\nIt should be blanked when this facade version is next incremented."
                 },
                 "OperatorProvisioningInfo": {
                     "type": "object",
@@ -19532,7 +19532,7 @@
                             "$ref": "#/definitions/StringResult"
                         }
                     },
-                    "description": "ModelUUID returns the model UUID to connect to the model\nthat the current connection is for."
+                    "description": "ModelUUID returns the model UUID that this facade is deploying into.\nIt is implemented here directly as a result of removing it from\nembedded APIAddresser *without* bumping the facade version.\nIt should be blanked when this facade version is next incremented."
                 },
                 "Remove": {
                     "type": "object",
@@ -26393,7 +26393,7 @@
                             "$ref": "#/definitions/StringResult"
                         }
                     },
-                    "description": "ModelUUID returns the model UUID to connect to the model\nthat the current connection is for."
+                    "description": "ModelUUID returns the model UUID that this machine resides in.\nIt is implemented here directly as a result of removing it from\nembedded APIAddresser *without* bumping the facade version.\nIt should be blanked when this facade version is next incremented."
                 },
                 "RecordAgentStartTime": {
                     "type": "object",
@@ -32111,7 +32111,7 @@
                             "$ref": "#/definitions/StringResult"
                         }
                     },
-                    "description": "ModelUUID returns the model UUID to connect to the model\nthat the current connection is for."
+                    "description": "ModelUUID returns the model UUID that the current connection is for."
                 },
                 "PrepareContainerInterfaceInfo": {
                     "type": "object",
@@ -42017,7 +42017,7 @@
                             "$ref": "#/definitions/StringResult"
                         }
                     },
-                    "description": "ModelUUID returns the model UUID to connect to the model\nthat the current connection is for."
+                    "description": "ModelUUID returns the model UUID that this unit resides in.\nIt is implemented here directly as a result of removing it from\nembedded APIAddresser *without* bumping the facade version.\nIt should be blanked when this facade version is next incremented."
                 },
                 "NetworkInfo": {
                     "type": "object",

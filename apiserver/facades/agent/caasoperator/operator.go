@@ -22,6 +22,10 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
+// TODO (manadart 2020-10-21): Remove the ModelUUID method
+// from the next version of this facade.
+
+// Facade is the CAAS operator API facade.
 type Facade struct {
 	auth      facade.Authorizer
 	resources facade.Resources
@@ -283,4 +287,12 @@ func (f *Facade) watchContainerStart(tagString string, containerName string) (st
 		return f.resources.Register(uw), changes, nil
 	}
 	return "", nil, watcher.EnsureErr(uw)
+}
+
+// ModelUUID returns the model UUID that this facade is used to operate.
+// It is implemented here directly as a result of removing it from
+// embedded APIAddresser *without* bumping the facade version.
+// It should be blanked when this facade version is next incremented.
+func (f *Facade) ModelUUID() params.StringResult {
+	return params.StringResult{Result: f.model.UUID()}
 }

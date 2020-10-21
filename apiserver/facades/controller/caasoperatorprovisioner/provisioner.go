@@ -35,6 +35,10 @@ type APIGroup struct {
 	*API
 }
 
+// TODO (manadart 2020-10-21): Remove the ModelUUID method
+// from the next version of this facade.
+
+// API is CAAS operator provisioner API facade.
 type API struct {
 	*common.PasswordChanger
 	*common.LifeGetter
@@ -252,6 +256,18 @@ func (a *API) IssueOperatorCertificate(args params.Entities) (params.IssueOperat
 	}
 
 	return res, nil
+}
+
+// ModelUUID returns the model UUID that this facade is used to operate.
+// It is implemented here directly as a result of removing it from
+// embedded APIAddresser *without* bumping the facade version.
+// It should be blanked when this facade version is next incremented.
+func (a *API) ModelUUID() params.StringResult {
+	m, err := a.state.Model()
+	if err != nil {
+		return params.StringResult{Error: apiservererrors.ServerError(err)}
+	}
+	return params.StringResult{Result: m.UUID()}
 }
 
 // CharmStorageParams returns filesystem parameters needed
