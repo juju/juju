@@ -129,7 +129,7 @@ func (u *Unit) ContainerInfo() (CloudContainer, error) {
 // ShouldBeAssigned returns whether the unit should be assigned to a machine.
 // IAAS models require units to be assigned.
 func (u *Unit) ShouldBeAssigned() bool {
-	return u.modelType != ModelTypeCAAS
+	return u.modelType == ModelTypeIAAS
 }
 
 // Application returns the application.

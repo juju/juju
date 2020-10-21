@@ -555,7 +555,7 @@ func (u *backingUnit) updated(ctx *allWatcherContext) error {
 		info.CharmURL = u.CharmURL.String()
 	}
 
-	// Construct a unit for the purpose of retieving other fields as necessary.
+	// Construct a unit for the purpose of retrieving other fields as necessary.
 	modelType, err := ctx.modelType()
 	if err != nil {
 		return errors.Annotatef(err, "get model type for %q", ctx.modelUUID)
