@@ -15,7 +15,6 @@ import (
 // and the CA public certificate.
 type AddressAndCertGetter interface {
 	Addresses() ([]string, error)
-	ModelUUID() string
 	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
 	WatchAPIHostPortsForAgents() state.NotifyWatcher
 }
@@ -93,12 +92,6 @@ func apiAddresses(getter APIHostPortsForAgentsGetter) ([]string, error) {
 		}
 	}
 	return addrs, nil
-}
-
-// ModelUUID returns the model UUID to connect to the model
-// that the current connection is for.
-func (a *APIAddresser) ModelUUID() params.StringResult {
-	return params.StringResult{Result: a.getter.ModelUUID()}
 }
 
 // StateAddresser implements a common set of methods for getting state

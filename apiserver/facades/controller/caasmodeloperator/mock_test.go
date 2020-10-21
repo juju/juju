@@ -56,10 +56,6 @@ func (st *mockState) Model() (caasmodeloperator.Model, error) {
 	return st.model, nil
 }
 
-func (st *mockState) ModelUUID() string {
-	return st.model.UUID()
-}
-
 func (m *mockModel) Tag() names.Tag {
 	return m.tag
 }

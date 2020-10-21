@@ -7,8 +7,8 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
@@ -22,13 +22,10 @@ type CAASOperatorProvisionerState interface {
 	Application(string) (Application, error)
 }
 
-// CAASOperatorProvisionerState provides the subset of controller state
+// CAASControllerState provides the subset of controller state
 // required by the CAAS operator provisioner facade.
 type CAASControllerState interface {
-	Addresses() ([]string, error)
-	ModelUUID() string
-	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
-	WatchAPIHostPortsForAgents() state.NotifyWatcher
+	common.AddressAndCertGetter
 	ControllerConfig() (controller.Config, error)
 	StateServingInfo() (controller.StateServingInfo, error)
 }

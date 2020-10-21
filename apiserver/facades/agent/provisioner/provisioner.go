@@ -1522,6 +1522,11 @@ func (api *ProvisionerAPI) setOneMachineCharmProfiles(machineTag string, profile
 	return machine.SetCharmProfiles(profiles)
 }
 
+// ModelUUID returns the model UUID that the current connection is for.
+func (api *ProvisionerAPI) ModelUUID() params.StringResult {
+	return params.StringResult{Result: api.st.ModelUUID()}
+}
+
 // SetUpgradeCharmProfileComplete recorded that the result of updating
 // the machine's charm profile(s)
 //

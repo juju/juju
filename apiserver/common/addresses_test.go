@@ -92,11 +92,6 @@ func (s *apiAddresserSuite) TestAPIAddressesPrivateFirst(c *gc.C) {
 	})
 }
 
-func (s *apiAddresserSuite) TestModelUUID(c *gc.C) {
-	result := s.addresser.ModelUUID()
-	c.Assert(result.Result, gc.Equals, "the model uuid")
-}
-
 var _ common.AddressAndCertGetter = fakeAddresses{}
 
 type fakeAddresses struct {
@@ -109,10 +104,6 @@ func (fakeAddresses) Addresses() ([]string, error) {
 
 func (fakeAddresses) ControllerConfig() (controller.Config, error) {
 	return coretesting.FakeControllerConfig(), nil
-}
-
-func (fakeAddresses) ModelUUID() string {
-	return "the model uuid"
 }
 
 func (f fakeAddresses) APIHostPortsForAgents() ([]network.SpaceHostPorts, error) {
