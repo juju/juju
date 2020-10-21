@@ -464,7 +464,7 @@ func bootstrapIAAS(
 				agentVersion, availableTools = availableTools.Newest()
 			}
 			for _, tool := range availableTools {
-				ctx.Infof("Located Juju agent version %s for %s at %s", tool.Version, bootstrapArch, tool.URL)
+				ctx.Infof("Located Juju agent version %s at %s", tool.Version, tool.URL)
 			}
 		}
 	}
