@@ -110,14 +110,10 @@ func (c *machineCommand) waitFor(id string, deltas []params.Delta, q query.Query
 		case *params.MachineInfo:
 			if entityInfo.Id == id {
 				scope := MakeMachineScope(entityInfo)
-				if res, err := q.BuiltinsRun(scope); query.IsInvalidIdentifierErr(err) {
-					return false, invalidIdentifierError(scope, err)
-				} else if query.IsRuntimeError(err) {
+				if done, err := runQuery(q, scope); err != nil {
 					return false, errors.Trace(err)
-				} else if res && err == nil {
+				} else if done {
 					return true, nil
-				} else if err != nil {
-					logger.Errorf("%v", err)
 				}
 				c.found = entityInfo.Life != life.Dead
 			}

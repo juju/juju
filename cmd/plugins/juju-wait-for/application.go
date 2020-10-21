@@ -111,14 +111,10 @@ func (c *applicationCommand) waitFor(name string, deltas []params.Delta, q query
 		case *params.ApplicationInfo:
 			if entityInfo.Name == name {
 				scope := MakeApplicationScope(entityInfo)
-				if res, err := q.BuiltinsRun(scope); query.IsInvalidIdentifierErr(err) {
-					return false, invalidIdentifierError(scope, err)
-				} else if query.IsRuntimeError(err) {
+				if done, err := runQuery(q, scope); err != nil {
 					return false, errors.Trace(err)
-				} else if res && err == nil {
+				} else if done {
 					return true, nil
-				} else if err != nil {
-					logger.Errorf("%v", err)
 				}
 
 				c.found = entityInfo.Life != life.Dead
@@ -160,14 +156,10 @@ func (c *applicationCommand) waitFor(name string, deltas []params.Delta, q query
 	appInfo.Status.Current = currentStatus
 
 	scope := MakeApplicationScope(&appInfo)
-	if res, err := q.BuiltinsRun(scope); query.IsInvalidIdentifierErr(err) {
-		return false, invalidIdentifierError(scope, err)
-	} else if query.IsRuntimeError(err) {
+	if done, err := runQuery(q, scope); err != nil {
 		return false, errors.Trace(err)
-	} else if res && err == nil {
+	} else if done {
 		return true, nil
-	} else if err != nil {
-		logger.Errorf("%v", err)
 	}
 
 	if logOutput {
