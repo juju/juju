@@ -46,9 +46,9 @@ type validateAgentsMetadataCommand struct {
 
 var validateAgentsMetadataDoc = `
 validate-agents loads simplestreams metadata and validates the contents by
-looking for agent binaries belonging to the specified series, architecture, 
-for the specified cloud. If version is specified, agent binaries matching the 
-exact specified version are found. It is also possible to just specify the
+looking for agent binaries belonging to the specified series and architecture, 
+for the specified cloud. If version is specified, only agent binaries matching
+that exact version will be considered. It is also possible to just specify the
 major (and optionally minor) version numbers to search for.
 
 The cloud specification comes from the current Juju model, as specified in
@@ -109,7 +109,7 @@ RETVAL=$?
 func (c *validateAgentsMetadataCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "validate-agents",
-		Purpose: "validate agent metadata and ensure agent binary .tgz tarball(s) exist for Juju version(s)",
+		Purpose: "check that compressed tar archives (.tgz) for the Juju agent binaries are available",
 		Doc:     validateAgentsMetadataDoc,
 		Aliases: []string{"validate-tools"},
 	})
