@@ -22,12 +22,13 @@ import (
 	coretools "github.com/juju/juju/tools"
 )
 
-func newToolsMetadataCommand() cmd.Command {
-	return &toolsMetadataCommand{}
+func newGenerateAgentsCommand() cmd.Command {
+	return &generateAgentsCommand{}
 }
 
-// toolsMetadataCommand is used to generate simplestreams metadata for juju agents.
-type toolsMetadataCommand struct {
+// generateAgentsCommand is used to generate simplestreams metadata for juju
+// agents.
+type generateAgentsCommand struct {
 	cmd.CommandBase
 	fetch           bool
 	metadataDir     string
@@ -37,7 +38,7 @@ type toolsMetadataCommand struct {
 	preventFallback bool
 }
 
-const toolsMetadataDoc = `
+const generateAgentsDoc = `
 generate-agents creates the simplestreams metadata for agents.
 
 This command works by scanning a directory for agent binary tarballs from which 
@@ -53,7 +54,7 @@ The stream for which metadata is generated is specified using the --stream
 parameter (default is "released"). Metadata can be generated for any supported 
 stream - released, proposed, testing, devel.
 
-Tools tarballs can are located in either a sub directory called "releases" 
+Agent tarballs can are located in either a sub directory called "releases" 
 (legacy), or a directory named after the stream. The tarballs are expected to be
 in the format of "juju-<version>-<series>-<arch>.tgz" and will not be picked
 up for writing the streams. If in the event there is no tarballs, then the
@@ -84,16 +85,16 @@ juju metadata generate-agents -d <workingdir> --stream proposed
 juju metadata generate-agents -d <workingdir> --stream proposed --clean
 `
 
-func (c *toolsMetadataCommand) Info() *cmd.Info {
+func (c *generateAgentsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "generate-agents",
 		Purpose: "generate simplestreams agent metadata",
-		Doc:     toolsMetadataDoc,
+		Doc:     generateAgentsDoc,
 		Aliases: []string{"generate-tools"},
 	})
 }
 
-func (c *toolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *generateAgentsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.metadataDir, "d", "", "local directory in which to store metadata")
 	f.StringVar(&c.stream, "stream", envtools.ReleasedStream,
 		"simplestreams stream for which to generate the metadata")
@@ -105,7 +106,7 @@ func (c *toolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 		"prevent falling back to the public cloud if no binaries are found")
 }
 
-func (c *toolsMetadataCommand) Run(context *cmd.Context) error {
+func (c *generateAgentsCommand) Run(context *cmd.Context) error {
 	writer := loggo.NewMinimumLevelWriter(
 		cmd.NewCommandLogWriter("juju.environs.tools", context.Stdout, context.Stderr),
 		loggo.INFO)
@@ -134,7 +135,7 @@ func (c *toolsMetadataCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		toolsList, err = envtools.FindToolsForCloud(toolsDataSources(source), simplestreams.CloudSpec{}, []string{c.stream}, -1, -1, coretools.Filter{})
+		toolsList, err = envtools.FindToolsForCloud(makeDataSources(source), simplestreams.CloudSpec{}, []string{c.stream}, -1, -1, coretools.Filter{})
 	}
 	if err != nil {
 		return errors.Trace(err)
@@ -151,7 +152,7 @@ func (c *toolsMetadataCommand) Run(context *cmd.Context) error {
 	return errors.Trace(mergeAndWriteMetadata(targetStorage, c.stream, c.stream, c.clean, toolsList, writeMirrors))
 }
 
-func toolsDataSources(urls ...string) []simplestreams.DataSource {
+func makeDataSources(urls ...string) []simplestreams.DataSource {
 	dataSources := make([]simplestreams.DataSource, len(urls))
 	for i, url := range urls {
 		dataSources[i] = simplestreams.NewDataSource(
