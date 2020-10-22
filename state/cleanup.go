@@ -707,7 +707,6 @@ func (st *State) cleanupUnitsForDyingApplication(applicationname string, cleanup
 	units, closer := st.db().GetCollection(unitsC)
 	defer closer()
 
-	unit := Unit{st: st}
 	sel := bson.D{{"application", applicationname}}
 	// If we're forcing then include dying and dead units, since we
 	// still want the opportunity to schedule fallback cleanups if the
@@ -717,7 +716,14 @@ func (st *State) cleanupUnitsForDyingApplication(applicationname string, cleanup
 	}
 	iter := units.Find(sel).Iter()
 	defer closeIter(iter, &err, "reading unit document")
-	for iter.Next(&unit.doc) {
+
+	m, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	var unitDoc unitDoc
+	for iter.Next(&unitDoc) {
+		unit := newUnit(st, m.Type(), &unitDoc)
 		op := unit.DestroyOperation()
 		op.DestroyStorage = destroyStorage
 		op.Force = force

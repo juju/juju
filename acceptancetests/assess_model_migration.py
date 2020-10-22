@@ -5,10 +5,6 @@ from __future__ import print_function
 
 import argparse
 from contextlib import contextmanager
-from distutils.version import (
-    LooseVersion,
-    StrictVersion
-    )
 import logging
 import os
 from subprocess import CalledProcessError
@@ -20,9 +16,6 @@ from assess_user_grant_revoke import User
 from deploy_stack import (
     BootstrapManager,
     get_random_string
-    )
-from jujupy.client import (
-    get_stripped_version_number,
 )
 from jujupy.wait_condition import (
     ModelCheckFailed,
@@ -32,7 +25,7 @@ from jujupy.workloads import (
     assert_deployed_charm_is_responding,
     deploy_dummy_source_to_new_model,
     deploy_simple_server_to_new_model,
-    )
+)
 from remote import remote_from_address
 from utility import (
     JujuAssertionError,
@@ -41,7 +34,7 @@ from utility import (
     qualified_model_name,
     temp_dir,
     until_timeout,
-    )
+)
 
 
 __metaclass__ = type
@@ -313,13 +306,10 @@ def ensure_superuser_can_migrate_other_user_models(
         attempt_client.env.environment,
         attempt_client.env.user_name)
 
-    source_client.juju(
-        'migrate',
-        (user_qualified_model_name, dest_client.env.controller.name),
+    migration_client = source_client.migrate(
+        user_qualified_model_name, user_qualified_model_name, dest_client,
         include_e=False)
 
-    migration_client = dest_client.clone(
-        dest_client.env.clone(user_qualified_model_name))
     wait_for_model(
         migration_client, user_qualified_model_name)
     migration_client.wait_for_started()
@@ -333,12 +323,10 @@ def migrate_model_to_controller(
     log.info('Initiating migration process')
     model_name = get_full_model_name(source_client, include_user_name)
 
-    source_client.juju(
-        'migrate',
-        (model_name, dest_client.env.controller.name),
-        include_e=False)
-    migration_target_client = dest_client.clone(
-        dest_client.env.clone(source_client.env.environment))
+    migration_target_client = source_client.migrate(
+        model_name, source_client.env.environment, dest_client,
+        include_e=False,
+        )
 
     try:
         wait_for_model(migration_target_client, source_client.env.environment)
@@ -353,7 +341,7 @@ def migrate_model_to_controller(
             'Attempting show-model for affected models.')
         try:
             source_client.juju('show-model', (model_name), include_e=False)
-        except:
+        except:  # noqa
             log.info('Ignoring failed output.')
             pass
 
@@ -363,7 +351,7 @@ def migrate_model_to_controller(
                 get_full_model_name(
                     migration_target_client, include_user_name),
                 include_e=False)
-        except:
+        except:  # noqa
             log.info('Ignoring failed output.')
             pass
         raise e
@@ -471,9 +459,8 @@ def ensure_migration_rolls_back_on_failure(source_client, dest_client):
     """
     test_model, application = deploy_simple_server_to_new_model(
         source_client, 'rollmeback')
-    test_model.juju(
-        'migrate',
-        (test_model.env.environment, dest_client.env.controller.name),
+    test_model.migrate(
+        test_model.env.environment, test_model.env.environment, dest_client,
         include_e=False)
     # Once migration has started interrupt it
     wait_for_migrating(test_model)
