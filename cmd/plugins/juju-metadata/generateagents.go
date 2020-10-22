@@ -54,7 +54,7 @@ The stream for which metadata is generated is specified using the --stream
 parameter (default is "released"). Metadata can be generated for any supported 
 stream - released, proposed, testing, devel.
 
-Tools tarballs can are located in either a sub directory called "releases" 
+Agent tarballs can are located in either a sub directory called "releases" 
 (legacy), or a directory named after the stream. The tarballs are expected to be
 in the format of "juju-<version>-<series>-<arch>.tgz" and will not be picked
 up for writing the streams. If in the event there is no tarballs, then the
