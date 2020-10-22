@@ -359,6 +359,9 @@ func Reset(c *gc.C) {
 			Delay:    time.Millisecond,
 			Clock:    clock.WallClock,
 			Attempts: 5,
+			NotifyFunc: func(lastError error, attempt int) {
+				logger.Infof("retrying MgoServer.Reset() after attempt %d: %v", attempt, lastError)
+			},
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}
