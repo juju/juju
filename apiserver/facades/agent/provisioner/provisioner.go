@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/core/constraints"
+	corecontainer "github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
@@ -87,7 +88,7 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 			}
 			switch tag := tag.(type) {
 			case names.MachineTag:
-				parentId := state.ParentId(tag.Id())
+				parentId := corecontainer.ParentId(tag.Id())
 				if parentId == "" {
 					// All top-level machines are accessible by the controller.
 					return isModelManager

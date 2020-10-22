@@ -21,6 +21,7 @@ import (
 
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/constraints"
+	corecontainer "github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
@@ -723,7 +724,7 @@ func (m *Machine) Containers() ([]string, error) {
 
 // ParentId returns the Id of the host machine if this machine is a container.
 func (m *Machine) ParentId() (string, bool) {
-	parentId := ParentId(m.Id())
+	parentId := corecontainer.ParentId(m.Id())
 	return parentId, parentId != ""
 }
 
@@ -2033,7 +2034,7 @@ func (m *Machine) markInvalidContainers() error {
 		return err
 	}
 	for _, containerId := range currentContainers {
-		if !isSupportedContainer(ContainerTypeFromId(containerId), m.doc.SupportedContainers) {
+		if !isSupportedContainer(corecontainer.ContainerTypeFromId(containerId), m.doc.SupportedContainers) {
 			container, err := m.st.Machine(containerId)
 			if err != nil {
 				logger.Errorf("loading container %v to mark as invalid: %v", containerId, err)
@@ -2047,7 +2048,7 @@ func (m *Machine) markInvalidContainers() error {
 				continue
 			}
 			if statusInfo.Status == status.Pending {
-				containerType := ContainerTypeFromId(containerId)
+				containerType := corecontainer.ContainerTypeFromId(containerId)
 				now := m.st.clock().Now()
 				s := status.StatusInfo{
 					Status:  status.Error,

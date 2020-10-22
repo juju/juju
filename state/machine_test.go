@@ -21,6 +21,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/constraints"
+	corecontainer "github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -2517,7 +2518,7 @@ func (s *MachineSuite) TestSupportsNoContainersSetsAllToError(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(statusInfo.Status, gc.Equals, status.Error)
 		c.Assert(statusInfo.Message, gc.Equals, "unsupported container")
-		containerType := state.ContainerTypeFromId(container.Id())
+		containerType := corecontainer.ContainerTypeFromId(container.Id())
 		c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{"type": string(containerType)})
 	}
 }

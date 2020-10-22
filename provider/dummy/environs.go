@@ -59,6 +59,7 @@ import (
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/lxdprofile"
@@ -1216,7 +1217,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	var hc *instance.HardwareCharacteristics
 	// To match current system capability, only provide hardware characteristics for
 	// environ machines, not containers.
-	if state.ParentId(machineId) == "" {
+	if container.ParentId(machineId) == "" {
 		// Assume that the provided Availability Zone won't fail,
 		// though one is required.
 		var zone string

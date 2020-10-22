@@ -3703,30 +3703,6 @@ func (s *StateSuite) TestWatchRemoteRelationsDiesOnStateClose(c *gc.C) {
 	})
 }
 
-func (s *StateSuite) TestNestingLevel(c *gc.C) {
-	c.Assert(state.NestingLevel("0"), gc.Equals, 0)
-	c.Assert(state.NestingLevel("0/lxd/1"), gc.Equals, 1)
-	c.Assert(state.NestingLevel("0/lxd/1/kvm/0"), gc.Equals, 2)
-}
-
-func (s *StateSuite) TestTopParentId(c *gc.C) {
-	c.Assert(state.TopParentId("0"), gc.Equals, "0")
-	c.Assert(state.TopParentId("0/lxd/1"), gc.Equals, "0")
-	c.Assert(state.TopParentId("0/lxd/1/kvm/2"), gc.Equals, "0")
-}
-
-func (s *StateSuite) TestParentId(c *gc.C) {
-	c.Assert(state.ParentId("0"), gc.Equals, "")
-	c.Assert(state.ParentId("0/lxd/1"), gc.Equals, "0")
-	c.Assert(state.ParentId("0/lxd/1/kvm/0"), gc.Equals, "0/lxd/1")
-}
-
-func (s *StateSuite) TestContainerTypeFromId(c *gc.C) {
-	c.Assert(state.ContainerTypeFromId("0"), gc.Equals, instance.ContainerType(""))
-	c.Assert(state.ContainerTypeFromId("0/lxd/1"), gc.Equals, instance.LXD)
-	c.Assert(state.ContainerTypeFromId("0/lxd/1/kvm/0"), gc.Equals, instance.KVM)
-}
-
 func (s *StateSuite) TestIsUpgradeInProgressError(c *gc.C) {
 	c.Assert(stateerrors.IsUpgradeInProgressError(errors.New("foo")), jc.IsFalse)
 	c.Assert(stateerrors.IsUpgradeInProgressError(stateerrors.ErrUpgradeInProgress), jc.IsTrue)

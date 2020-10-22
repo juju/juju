@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/controller"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
@@ -452,7 +453,7 @@ func (i *importer) machine(m description.Machine) error {
 	// 3. create op for adding in instance data
 	prereqOps = append(prereqOps, i.machineInstanceOp(mdoc, instance))
 
-	if parentId := ParentId(mdoc.Id); parentId != "" {
+	if parentId := container.ParentId(mdoc.Id); parentId != "" {
 		prereqOps = append(prereqOps,
 			// Update containers record for host machine.
 			addChildToContainerRefOp(i.st, parentId, mdoc.Id),

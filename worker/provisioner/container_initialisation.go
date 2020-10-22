@@ -19,12 +19,12 @@ import (
 	"github.com/juju/juju/container/broker"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxd"
+	corecontainer "github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state"
 	workercommon "github.com/juju/juju/worker/common"
 )
 
@@ -108,7 +108,7 @@ func (cs *ContainerSetup) Handle(abort <-chan struct{}, containerIds []string) (
 
 	cs.logger.Infof("initial container setup with ids: %v", containerIds)
 	for _, id := range containerIds {
-		containerType := state.ContainerTypeFromId(id)
+		containerType := corecontainer.ContainerTypeFromId(id)
 		// If this container type has been dealt with, do nothing.
 		if atomic.LoadInt32(cs.setupDone[containerType]) != 0 {
 			continue

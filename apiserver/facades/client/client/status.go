@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/core/cache"
+	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
@@ -582,7 +583,7 @@ func (context *statusContext) fetchMachines(st Backend) error {
 			// Only top level host machines go directly into the machine map.
 			context.machines[m.Id()] = []*state.Machine{m}
 		} else {
-			topParentId := state.TopParentId(m.Id())
+			topParentId := container.TopParentId(m.Id())
 			machines := context.machines[topParentId]
 			context.machines[topParentId] = append(machines, m)
 		}
@@ -932,7 +933,7 @@ func (c *statusContext) processMachines() map[string]params.MachineStatus {
 		aCache[id] = hostStatus
 
 		for _, machine := range machines[1:] {
-			parent, ok := aCache[state.ParentId(machine.Id())]
+			parent, ok := aCache[container.ParentId(machine.Id())]
 			if !ok {
 				logger.Errorf("programmer error, please file a bug, reference this whole log line: %q, %q", id, machine.Id())
 				continue

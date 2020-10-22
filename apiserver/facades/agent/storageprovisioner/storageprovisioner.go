@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner/internal/filesystemwatcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/state"
@@ -73,7 +74,7 @@ func NewStorageProvisionerAPIv3(
 			// scoped to their own machine.
 			return true
 		}
-		parentId := state.ParentId(tag.Id())
+		parentId := container.ParentId(tag.Id())
 		if parentId == "" {
 			return allowController && authorizer.AuthController()
 		}
