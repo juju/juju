@@ -256,6 +256,15 @@ const (
 	// CharmHubURLKey is the key for the url to use for CharmHub API calls
 	CharmHubURLKey = "charm-hub-url"
 
+	// ModeKey is the key for defining the mode that a given model should be
+	// using.
+	// It is expected that when in a different mode, Juju will perform in a
+	// different state.
+	// The lack of a mode means it will default into compatibility mode.
+	//
+	//  - strict mode ensures that we handle any fallbacks as errors.
+	ModeKey = "mode"
+
 	//
 	// Deprecated Settings Attributes
 	//
@@ -264,6 +273,10 @@ const (
 	// machine worker not to discover any machine addresses
 	// on start up.
 	IgnoreMachineAddresses = "ignore-machine-addresses"
+
+	// TestModeKey is the key for identifying the model should be run in test
+	// mode.
+	TestModeKey = "test-mode"
 )
 
 // ParseHarvestMode parses description of harvesting method and
@@ -473,7 +486,8 @@ var defaultConfigValues = map[string]interface{}{
 	"enable-os-refresh-update":    true,
 	"enable-os-upgrade":           true,
 	"development":                 false,
-	"test-mode":                   false,
+	TestModeKey:                   false,
+	ModeKey:                       "",
 	TransmitVendorMetricsKey:      true,
 	UpdateStatusHookInterval:      DefaultUpdateStatusHookInterval,
 	EgressSubnets:                 "",
@@ -759,7 +773,11 @@ func Validate(cfg, old *Config) error {
 	}
 
 	if err := cfg.validateDefaultSpace(); err != nil {
-		return err
+		return errors.Trace(err)
+	}
+
+	if err := cfg.validateMode(); err != nil {
+		return errors.Trace(err)
 	}
 
 	// Check the immutable config values.  These can't change
@@ -1331,6 +1349,27 @@ func (c *Config) validateCharmHubURL() error {
 	return nil
 }
 
+// Mode returns the mode type for the configuration.
+// Only three modes exist at the moment (strict, test or ""). Empty string
+// implies compatible mode.
+func (c *Config) Mode() (string, bool) {
+	v, ok := c.defined[ModeKey].(string)
+	return v, ok
+}
+
+func (c *Config) validateMode() error {
+	if v, ok := c.defined[ModeKey].(string); ok && v != "" {
+		for _, mode := range strings.Split(v, ",") {
+			switch strings.TrimSpace(mode) {
+			case "strict":
+			default:
+				return errors.NotValidf("mode %q", v)
+			}
+		}
+	}
+	return nil
+}
+
 // DisableNetworkManagement reports whether Juju is allowed to
 // configure and manage networking inside the environment.
 func (c *Config) DisableNetworkManagement() (bool, bool) {
@@ -1588,7 +1627,8 @@ var alwaysOptional = schema.Defaults{
 	"disable-network-management":  schema.Omit,
 	IgnoreMachineAddresses:        schema.Omit,
 	AutomaticallyRetryHooks:       schema.Omit,
-	"test-mode":                   schema.Omit,
+	TestModeKey:                   schema.Omit,
+	ModeKey:                       schema.Omit,
 	TransmitVendorMetricsKey:      schema.Omit,
 	NetBondReconfigureDelayKey:    schema.Omit,
 	ContainerNetworkingMethod:     schema.Omit,
@@ -2015,11 +2055,19 @@ global or per instance security groups.`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	"test-mode": {
+	TestModeKey: {
 		Description: `Whether the model is intended for testing.
 If true, accessing the charm store does not affect statistical
 data of the store. (default false)`,
 		Type:  environschema.Tbool,
+		Group: environschema.EnvironGroup,
+	},
+	ModeKey: {
+		Description: `Mode sets the type of mode the model should run in.
+If the mode is set to "strict" then errors will be used instead of
+using fallbacks. By default mode is set to be lenient and use fallbacks
+where possible. (default "")`,
+		Type:  environschema.Tstring,
 		Group: environschema.EnvironGroup,
 	},
 	TypeKey: {
