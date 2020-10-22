@@ -313,13 +313,10 @@ def ensure_superuser_can_migrate_other_user_models(
         attempt_client.env.environment,
         attempt_client.env.user_name)
 
-    source_client.juju(
-        'migrate',
-        (user_qualified_model_name, dest_client.env.controller.name),
+    migration_client = source_client.migrate(
+        user_qualified_model_name, user_qualified_model_name, dest_client,
         include_e=False)
 
-    migration_client = dest_client.clone(
-        dest_client.env.clone(user_qualified_model_name))
     wait_for_model(
         migration_client, user_qualified_model_name)
     migration_client.wait_for_started()
@@ -333,12 +330,10 @@ def migrate_model_to_controller(
     log.info('Initiating migration process')
     model_name = get_full_model_name(source_client, include_user_name)
 
-    source_client.juju(
-        'migrate',
-        (model_name, dest_client.env.controller.name),
-        include_e=False)
-    migration_target_client = dest_client.clone(
-        dest_client.env.clone(source_client.env.environment))
+    migration_target_client = source_client.migrate(
+        model_name, source_client.env.environment, dest_client,
+        include_e=False,
+        )
 
     try:
         wait_for_model(migration_target_client, source_client.env.environment)
@@ -471,9 +466,8 @@ def ensure_migration_rolls_back_on_failure(source_client, dest_client):
     """
     test_model, application = deploy_simple_server_to_new_model(
         source_client, 'rollmeback')
-    test_model.juju(
-        'migrate',
-        (test_model.env.environment, dest_client.env.controller.name),
+    test_model.migrate(
+        test_model.env.environment, test_model.env.environment, dest_client,
         include_e=False)
     # Once migration has started interrupt it
     wait_for_migrating(test_model)
