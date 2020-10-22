@@ -46,7 +46,6 @@ type ProvisionerAPI struct {
 	*common.DeadEnsurer
 	*common.PasswordChanger
 	*common.LifeGetter
-	*common.StateAddresser
 	*common.APIAddresser
 	*common.ModelWatcher
 	*common.ModelMachinesWatcher
@@ -144,7 +143,6 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 		DeadEnsurer:             common.NewDeadEnsurer(st, nil, getAuthFunc),
 		PasswordChanger:         common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:              common.NewLifeGetter(st, getAuthFunc),
-		StateAddresser:          common.NewStateAddresser(st),
 		APIAddresser:            common.NewAPIAddresser(ctx.StatePool().SystemState(), resources),
 		ModelWatcher:            common.NewModelWatcher(model, resources, authorizer),
 		ModelMachinesWatcher:    common.NewModelMachinesWatcher(st, resources, authorizer),

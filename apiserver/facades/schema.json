@@ -32322,15 +32322,6 @@
                     },
                     "description": "SetSupportedContainers updates the list of containers supported by the machines passed in args."
                 },
-                "StateAddresses": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/StringsResult"
-                        }
-                    },
-                    "description": "StateAddresses returns the list of addresses used to connect to the state."
-                },
                 "Status": {
                     "type": "object",
                     "properties": {

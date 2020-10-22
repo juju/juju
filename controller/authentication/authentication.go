@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/api"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
-	"github.com/juju/juju/mongo"
 )
 
 // TaggedPasswordChanger defines an interface for a entity with a
@@ -25,7 +24,7 @@ type TaggedPasswordChanger interface {
 // AuthenticationProvider defines the single method that the provisioner
 // task needs to set up authentication for a machine.
 type AuthenticationProvider interface {
-	SetupAuthentication(machine TaggedPasswordChanger) (*mongo.MongoInfo, *api.Info, error)
+	SetupAuthentication(machine TaggedPasswordChanger) (*api.Info, error)
 }
 
 // NewAPIAuthenticator gets the state and api info once from the
@@ -43,24 +42,12 @@ func NewAPIAuthenticator(st *apiprovisioner.State) (AuthenticationProvider, erro
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var stateInfo *mongo.MongoInfo
-	stateAddresses, err := st.StateAddresses()
-	// We may not have stateAddresses (we don't on K8s), but the common case is that we don't need them
-	//  (we only need them for controller machines).
-	if err == nil {
-		stateInfo = &mongo.MongoInfo{
-			Info: mongo.Info{
-				Addrs:  stateAddresses,
-				CACert: caCert,
-			},
-		}
-	}
 	apiInfo := &api.Info{
 		Addrs:    apiAddresses,
 		CACert:   caCert,
 		ModelTag: names.NewModelTag(modelUUID),
 	}
-	return &simpleAuth{stateInfo, apiInfo}, nil
+	return &simpleAuth{apiInfo}, nil
 }
 
 // SetupAuthentication generates a random password for the given machine,
@@ -68,32 +55,24 @@ func NewAPIAuthenticator(st *apiprovisioner.State) (AuthenticationProvider, erro
 // info arguments with the tag and password.
 func SetupAuthentication(
 	machine TaggedPasswordChanger,
-	stateInfo *mongo.MongoInfo,
 	apiInfo *api.Info,
-) (*mongo.MongoInfo, *api.Info, error) {
-	auth := simpleAuth{stateInfo, apiInfo}
+) (*api.Info, error) {
+	auth := simpleAuth{apiInfo}
 	return auth.SetupAuthentication(machine)
 }
 
 type simpleAuth struct {
-	stateInfo *mongo.MongoInfo
-	apiInfo   *api.Info
+	apiInfo *api.Info
 }
 
-func (auth *simpleAuth) SetupAuthentication(machine TaggedPasswordChanger) (*mongo.MongoInfo, *api.Info, error) {
+// SetupAuthentication implements AuthenticationProvider.
+func (auth *simpleAuth) SetupAuthentication(machine TaggedPasswordChanger) (*api.Info, error) {
 	password, err := utils.RandomPassword()
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot make password for machine %v: %v", machine, err)
+		return nil, fmt.Errorf("cannot make password for machine %v: %v", machine, err)
 	}
 	if err := machine.SetPassword(password); err != nil {
-		return nil, nil, fmt.Errorf("cannot set API password for machine %v: %v", machine, err)
-	}
-	var stateInfo *mongo.MongoInfo
-	if auth.stateInfo != nil {
-		stateInfoCopy := *auth.stateInfo
-		stateInfo = &stateInfoCopy
-		stateInfo.Tag = machine.Tag()
-		stateInfo.Password = password
+		return nil, fmt.Errorf("cannot set API password for machine %v: %v", machine, err)
 	}
 	var apiInfo *api.Info
 	if auth.apiInfo != nil {
@@ -102,5 +81,5 @@ func (auth *simpleAuth) SetupAuthentication(machine TaggedPasswordChanger) (*mon
 		apiInfo.Tag = machine.Tag()
 		apiInfo.Password = password
 	}
-	return stateInfo, apiInfo, nil
+	return apiInfo, nil
 }

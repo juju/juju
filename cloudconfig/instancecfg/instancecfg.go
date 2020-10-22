@@ -35,7 +35,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/storage"
@@ -197,13 +196,6 @@ type InstanceConfig struct {
 // ControllerConfig represents controller-specific initialization information
 // for a new juju instance. This is only relevant for controller machines.
 type ControllerConfig struct {
-	// MongoInfo holds the means for the new instance to communicate with the
-	// juju state database. Unless the new instance is running a controller
-	// (Controller is set), there must be at least one controller address supplied.
-	// The entity name must match that of the instance being started,
-	// or be empty when starting a controller.
-	MongoInfo *mongo.MongoInfo
-
 	// Config contains controller config attributes.
 	Config controller.Config
 
@@ -464,14 +456,6 @@ func (cfg *InstanceConfig) AgentConfig(
 	tag names.Tag,
 	toolsVersion version.Number,
 ) (agent.ConfigSetter, error) {
-	var password, cacert string
-	if cfg.Controller == nil {
-		password = cfg.APIInfo.Password
-		cacert = cfg.APIInfo.CACert
-	} else {
-		password = cfg.Controller.MongoInfo.Password
-		cacert = cfg.Controller.MongoInfo.CACert
-	}
 	configParams := agent.AgentConfigParams{
 		Paths: agent.Paths{
 			DataDir:          cfg.DataDir,
@@ -482,10 +466,10 @@ func (cfg *InstanceConfig) AgentConfig(
 		Jobs:              cfg.Jobs,
 		Tag:               tag,
 		UpgradedToVersion: toolsVersion,
-		Password:          password,
+		Password:          cfg.APIInfo.Password,
 		Nonce:             cfg.MachineNonce,
 		APIAddresses:      cfg.APIHostAddrs(),
-		CACert:            cacert,
+		CACert:            cfg.APIInfo.CACert,
 		Values:            cfg.AgentEnvironment,
 		Controller:        cfg.ControllerTag,
 		Model:             cfg.APIInfo.ModelTag,
@@ -509,19 +493,6 @@ func (cfg *InstanceConfig) SnapDir() string {
 // GUITools returns the directory where the Juju GUI release is stored.
 func (cfg *InstanceConfig) GUITools() string {
 	return agenttools.SharedGUIDir(cfg.DataDir)
-}
-
-func (cfg *InstanceConfig) stateHostAddrs() []string {
-	var hosts []string
-	if cfg.Bootstrap != nil {
-		hosts = append(hosts, net.JoinHostPort(
-			"localhost", strconv.Itoa(cfg.Bootstrap.StateServingInfo.StatePort)),
-		)
-	}
-	if cfg.Controller != nil {
-		hosts = append(hosts, cfg.Controller.MongoInfo.Addrs...)
-	}
-	return hosts
 }
 
 func (cfg *InstanceConfig) APIHostAddrs() []string {
@@ -684,11 +655,6 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 	if cfg.MachineNonce == "" {
 		return errors.New("missing machine nonce")
 	}
-	if cfg.Controller != nil {
-		if err := cfg.verifyControllerConfig(); err != nil {
-			return errors.Trace(err)
-		}
-	}
 	if cfg.Bootstrap != nil {
 		if err := cfg.verifyBootstrapConfig(); err != nil {
 			return errors.Trace(err)
@@ -712,24 +678,8 @@ func (cfg *InstanceConfig) verifyBootstrapConfig() (err error) {
 	if err := cfg.Bootstrap.VerifyConfig(); err != nil {
 		return errors.Trace(err)
 	}
-	if cfg.APIInfo.Tag != nil || cfg.Controller.MongoInfo.Tag != nil {
+	if cfg.APIInfo.Tag != nil {
 		return errors.New("entity tag must be nil when bootstrapping")
-	}
-	return nil
-}
-
-func (cfg *InstanceConfig) verifyControllerConfig() (err error) {
-	defer errors.DeferredAnnotatef(&err, "invalid controller configuration")
-	if err := cfg.Controller.VerifyConfig(); err != nil {
-		return errors.Trace(err)
-	}
-	if cfg.Bootstrap == nil {
-		if len(cfg.Controller.MongoInfo.Addrs) == 0 {
-			return errors.New("missing state hosts")
-		}
-		if cfg.Controller.MongoInfo.Tag != names.NewMachineTag(cfg.MachineId) {
-			return errors.New("entity tag must match started machine")
-		}
 	}
 	return nil
 }
@@ -756,17 +706,6 @@ func (cfg *BootstrapConfig) VerifyConfig() (err error) {
 	}
 	if cfg.BootstrapMachineInstanceId == "" {
 		return errors.New("missing bootstrap machine instance ID")
-	}
-	return nil
-}
-
-// VerifyConfig verifies that the ControllerConfig is valid.
-func (cfg *ControllerConfig) VerifyConfig() error {
-	if cfg.MongoInfo == nil {
-		return errors.New("missing state info")
-	}
-	if len(cfg.MongoInfo.CACert) == 0 {
-		return errors.New("missing CA certificate")
 	}
 	return nil
 }

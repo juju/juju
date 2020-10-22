@@ -672,18 +672,6 @@ func (s *provisionerSuite) TestWatchModelMachines(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
-	err := s.machine.SetProviderAddresses(corenetwork.NewSpaceAddress("0.1.2.3"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	stateAddresses, err := s.State.Addresses()
-	c.Assert(err, jc.ErrorIsNil)
-
-	addresses, err := s.provisioner.StateAddresses()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addresses, gc.DeepEquals, stateAddresses)
-}
-
 func (s *provisionerSuite) getManagerConfig(c *gc.C, typ instance.ContainerType) map[string]string {
 	args := params.ContainerManagerConfigParams{Type: typ}
 	result, err := s.provisioner.ContainerManagerConfig(args)

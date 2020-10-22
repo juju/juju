@@ -93,26 +93,3 @@ func apiAddresses(getter APIHostPortsForAgentsGetter) ([]string, error) {
 	}
 	return addrs, nil
 }
-
-// StateAddresser implements a common set of methods for getting state
-// server addresses, and the CA certificate used to authenticate them.
-type StateAddresser struct {
-	getter APIAddressAccessor
-}
-
-// NewStateAddresser returns a new StateAddresser that uses the given
-// st value to fetch its addresses.
-func NewStateAddresser(getter APIAddressAccessor) *StateAddresser {
-	return &StateAddresser{getter}
-}
-
-// StateAddresses returns the list of addresses used to connect to the state.
-func (a *StateAddresser) StateAddresses() (params.StringsResult, error) {
-	addrs, err := a.getter.Addresses()
-	if err != nil {
-		return params.StringsResult{}, err
-	}
-	return params.StringsResult{
-		Result: addrs,
-	}, nil
-}

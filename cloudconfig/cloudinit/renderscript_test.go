@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/mongo"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 )
@@ -69,9 +68,6 @@ func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.B
 			Password: "password",
 			CACert:   coretesting.CACert,
 			ModelTag: coretesting.ModelTag,
-		}
-		icfg.Controller.MongoInfo = &mongo.MongoInfo{
-			Password: "password", Info: mongo.Info{CACert: coretesting.CACert},
 		}
 		icfg.Bootstrap.ControllerModelConfig = modelConfig
 		icfg.Bootstrap.BootstrapMachineInstanceId = "instance-id"

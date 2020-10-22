@@ -137,16 +137,6 @@ func (st *State) WatchMachineErrorRetry() (watcher.NotifyWatcher, error) {
 	return w, nil
 }
 
-// StateAddresses returns the list of addresses used to connect to the state.
-func (st *State) StateAddresses() ([]string, error) {
-	var result params.StringsResult
-	err := st.facade.FacadeCall("StateAddresses", nil, &result)
-	if err != nil {
-		return nil, err
-	}
-	return result.Result, nil
-}
-
 // ContainerManagerConfig returns information from the model config that is
 // needed for configuring the container manager.
 func (st *State) ContainerManagerConfig(args params.ContainerManagerConfigParams) (result params.ContainerManagerConfig, err error) {

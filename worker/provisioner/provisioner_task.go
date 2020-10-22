@@ -559,7 +559,7 @@ func (task *provisionerTask) constructInstanceConfig(
 	pInfo *params.ProvisioningInfoV10,
 ) (*instancecfg.InstanceConfig, error) {
 
-	stateInfo, apiInfo, err := auth.SetupAuthentication(machine)
+	apiInfo, err := auth.SetupAuthentication(machine)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to setup authentication")
 	}
@@ -595,13 +595,8 @@ func (task *provisionerTask) constructInstanceConfig(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if stateInfo == nil {
-			return nil, errors.Errorf("Job needs state, but stateInfo is nil: jobs %v for %v",
-				instanceConfig.Jobs, machine.Tag().String())
-		}
 		instanceConfig.Controller = &instancecfg.ControllerConfig{
 			PublicImageSigningKey: publicKey,
-			MongoInfo:             stateInfo,
 		}
 		instanceConfig.Controller.Config = make(map[string]interface{})
 		for k, v := range pInfo.ControllerConfig {

@@ -14,35 +14,15 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-type stateAddresserSuite struct {
-	addresser *common.StateAddresser
-}
-
 type apiAddresserSuite struct {
 	addresser *common.APIAddresser
 	fake      *fakeAddresses
 }
 
-var _ = gc.Suite(&stateAddresserSuite{})
 var _ = gc.Suite(&apiAddresserSuite{})
-
-func (s *stateAddresserSuite) SetUpTest(c *gc.C) {
-	s.addresser = common.NewStateAddresser(fakeAddresses{
-		hostPorts: []network.SpaceHostPorts{
-			network.NewSpaceHostPorts(1, "apiaddresses"),
-			network.NewSpaceHostPorts(2, "apiaddresses"),
-		},
-	})
-}
 
 // Verify that APIAddressAccessor is satisfied by *state.State.
 var _ common.APIAddressAccessor = (*state.State)(nil)
-
-func (s *stateAddresserSuite) TestStateAddresses(c *gc.C) {
-	result, err := s.addresser.StateAddresses()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Result, gc.DeepEquals, []string{"addresses:1", "addresses:2"})
-}
 
 func (s *apiAddresserSuite) SetUpTest(c *gc.C) {
 	s.fake = &fakeAddresses{

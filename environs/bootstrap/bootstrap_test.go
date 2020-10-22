@@ -45,7 +45,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/keys"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
 	corestorage "github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
@@ -1330,9 +1329,6 @@ func (s *bootstrapSuite) TestFinishBootstrapConfig(c *gc.C) {
 		Password: password,
 		CACert:   coretesting.CACert,
 		ModelTag: coretesting.ModelTag,
-	})
-	c.Check(icfg.Controller.MongoInfo, jc.DeepEquals, &mongo.MongoInfo{
-		Password: password, Info: mongo.Info{CACert: coretesting.CACert},
 	})
 	c.Check(icfg.Bootstrap.ControllerInheritedConfig, gc.DeepEquals, map[string]interface{}{"ftp-proxy": "http://proxy"})
 	c.Check(icfg.Bootstrap.RegionInheritedConfig, jc.DeepEquals, cloud.RegionConfig{

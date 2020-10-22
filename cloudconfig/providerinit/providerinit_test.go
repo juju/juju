@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/testing"
@@ -197,16 +196,6 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 				Cert:         testing.ServerCert,
 				PrivateKey:   testing.ServerKey,
 				CAPrivateKey: testing.CAKey,
-			},
-		}
-		cfg.Controller = &instancecfg.ControllerConfig{
-			MongoInfo: &mongo.MongoInfo{
-				Info: mongo.Info{
-					Addrs:  []string{"127.0.0.1:1234"},
-					CACert: "CA CERT\n" + testing.CACert,
-				},
-				Password: "pw1",
-				Tag:      names.NewMachineTag("10"),
 			},
 		}
 	}

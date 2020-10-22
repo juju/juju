@@ -37,7 +37,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 )
@@ -229,15 +228,7 @@ func (cfg *testInstanceConfig) setSeries(series string, build int) *testInstance
 // a controller instance.
 func (cfg *testInstanceConfig) setController() *testInstanceConfig {
 	cfg.setMachineID("0")
-	cfg.Controller = &instancecfg.ControllerConfig{
-		MongoInfo: &mongo.MongoInfo{
-			Password: "arble",
-			Info: mongo.Info{
-				Addrs:  []string{"state-addr.testing.invalid:12345"},
-				CACert: "CA CERT\n" + testing.CACert,
-			},
-		},
-	}
+	cfg.Controller = &instancecfg.ControllerConfig{}
 	cfg.Bootstrap = &instancecfg.BootstrapConfig{
 		StateInitializationParams: instancecfg.StateInitializationParams{
 			BootstrapMachineInstanceId:  "i-bootstrap",
@@ -1074,9 +1065,6 @@ var verifyTests = []struct {
 	{"invalid bootstrap configuration: missing model configuration", func(cfg *instancecfg.InstanceConfig) {
 		cfg.Bootstrap.ControllerModelConfig = nil
 	}},
-	{"invalid controller configuration: missing state info", func(cfg *instancecfg.InstanceConfig) {
-		cfg.Controller.MongoInfo = nil
-	}},
 	{"missing API info", func(cfg *instancecfg.InstanceConfig) {
 		cfg.APIInfo = nil
 	}},
@@ -1087,26 +1075,13 @@ var verifyTests = []struct {
 			CACert: testing.CACert,
 		}
 	}},
-	{"invalid controller configuration: missing state hosts", func(cfg *instancecfg.InstanceConfig) {
-		cfg.Bootstrap = nil
-		cfg.Controller.MongoInfo = &mongo.MongoInfo{
-			Tag: names.NewMachineTag("99"),
-			Info: mongo.Info{
-				CACert: testing.CACert,
-			},
-		}
-	}},
 	{"missing API hosts", func(cfg *instancecfg.InstanceConfig) {
 		cfg.Bootstrap = nil
-		cfg.Controller.MongoInfo.Tag = names.NewMachineTag("99")
 		cfg.APIInfo = &api.Info{
 			Tag:      names.NewMachineTag("99"),
 			CACert:   testing.CACert,
 			ModelTag: testing.ModelTag,
 		}
-	}},
-	{"invalid controller configuration: missing CA certificate", func(cfg *instancecfg.InstanceConfig) {
-		cfg.Controller.MongoInfo.CACert = ""
 	}},
 	{"invalid bootstrap configuration: missing controller certificate", func(cfg *instancecfg.InstanceConfig) {
 		cfg.Bootstrap.StateServingInfo.Cert = ""
@@ -1131,27 +1106,6 @@ var verifyTests = []struct {
 	}},
 	{"missing cloud-init output log path", func(cfg *instancecfg.InstanceConfig) {
 		cfg.CloudInitOutputLog = ""
-	}},
-	{"invalid controller configuration: entity tag must match started machine", func(cfg *instancecfg.InstanceConfig) {
-		cfg.Bootstrap = nil
-		cfg.Controller.MongoInfo.Tag = names.NewMachineTag("0")
-	}},
-	{"invalid controller configuration: entity tag must match started machine", func(cfg *instancecfg.InstanceConfig) {
-		cfg.Bootstrap = nil
-		cfg.Controller.MongoInfo.Tag = nil // admin user
-	}},
-	{"API entity tag must match started machine", func(cfg *instancecfg.InstanceConfig) {
-		cfg.Bootstrap = nil
-		cfg.Controller.MongoInfo.Tag = names.NewMachineTag("99")
-		cfg.APIInfo.Tag = names.NewMachineTag("0")
-	}},
-	{"API entity tag must match started machine", func(cfg *instancecfg.InstanceConfig) {
-		cfg.Bootstrap = nil
-		cfg.Controller.MongoInfo.Tag = names.NewMachineTag("99")
-		cfg.APIInfo.Tag = nil
-	}},
-	{"invalid bootstrap configuration: entity tag must be nil when bootstrapping", func(cfg *instancecfg.InstanceConfig) {
-		cfg.Controller.MongoInfo.Tag = names.NewMachineTag("0")
 	}},
 	{"invalid bootstrap configuration: entity tag must be nil when bootstrapping", func(cfg *instancecfg.InstanceConfig) {
 		cfg.APIInfo.Tag = names.NewMachineTag("0")
@@ -1184,15 +1138,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 				},
 				StateServingInfo: stateServingInfo,
 			},
-			Controller: &instancecfg.ControllerConfig{
-				MongoInfo: &mongo.MongoInfo{
-					Info: mongo.Info{
-						Addrs:  []string{"host:98765"},
-						CACert: testing.CACert,
-					},
-					Password: "password",
-				},
-			},
+			Controller:       &instancecfg.ControllerConfig{},
 			ControllerTag:    testing.ControllerTag,
 			MachineId:        "99",
 			AuthorizedKeys:   "sshkey1",
@@ -1202,6 +1148,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 				Addrs:    []string{"host:9999"},
 				CACert:   testing.CACert,
 				ModelTag: testing.ModelTag,
+				Password: "password",
 			},
 			DataDir:                 jujuDataDir("quantal"),
 			LogDir:                  jujuLogDir("quantal"),
