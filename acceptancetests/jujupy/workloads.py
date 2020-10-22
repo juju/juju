@@ -110,16 +110,21 @@ def assert_keystone_is_responding(client):
     if '{"versions": {"values":' not in resp.content:
         raise AssertionError('Got unexpected keystone page content: {}'.format(resp.content))
 
+
 def deploy_simple_server_to_new_model(
         client, model_name, resource_contents=None, series='xenial'):
     # As per bug LP:1709773 deploy 2 primary apps and have a subordinate
     #  related to both
     new_model = client.add_model(client.env.clone(model_name))
+    new_model.deploy('cs:nrpe', series=series)
+    new_model.deploy('cs:nagios', series=series)
+    new_model.juju('add-relation', ('nrpe:monitors', 'nagios:monitors'))
+
     application = deploy_simple_resource_server(
-        new_model, resource_contents, series)
+        new_model, resource_contents, series,
+    )
     _, deploy_complete = new_model.deploy('cs:ubuntu', series=series)
     new_model.wait_for(deploy_complete)
-    new_model.deploy('cs:nrpe', series=series)
     new_model.juju('add-relation', ('nrpe', application))
     new_model.juju('add-relation', ('nrpe', 'ubuntu'))
     # Need to wait for the subordinate charms too.
