@@ -612,11 +612,11 @@ type testFile struct {
 
 func (s *ConfigSuite) TestConfig(c *gc.C) {
 	files := []gitjujutesting.TestFile{
-		{".ssh/id_dsa.pub", "dsa"},
-		{".ssh/id_rsa.pub", "rsa\n"},
-		{".ssh/identity.pub", "identity"},
-		{".ssh/authorized_keys", "auth0\n# first\nauth1\n\n"},
-		{".ssh/authorized_keys2", "auth2\nauth3\n"},
+		{Name: ".ssh/id_dsa.pub", Data: "dsa"},
+		{Name: ".ssh/id_rsa.pub", Data: "rsa\n"},
+		{Name: ".ssh/identity.pub", Data: "identity"},
+		{Name: ".ssh/authorized_keys", Data: "auth0\n# first\nauth1\n\n"},
+		{Name: ".ssh/authorized_keys2", Data: "auth2\nauth3\n"},
 	}
 	s.FakeHomeSuite.Home.AddFiles(c, files...)
 	for i, test := range configTests {
@@ -711,9 +711,9 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	}
 
 	if v, ok := test.attrs["provisioner-harvest-mode"]; ok {
-		hvstMeth, err := config.ParseHarvestMode(v.(string))
+		harvestMeth, err := config.ParseHarvestMode(v.(string))
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(cfg.ProvisionerHarvestMode(), gc.Equals, hvstMeth)
+		c.Assert(cfg.ProvisionerHarvestMode(), gc.Equals, harvestMeth)
 	} else {
 		c.Assert(cfg.ProvisionerHarvestMode(), gc.Equals, config.HarvestDestroyed)
 	}
@@ -900,7 +900,7 @@ var validationTests = []validationTest{{
 
 func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 	files := []gitjujutesting.TestFile{
-		{".ssh/identity.pub", "identity"},
+		{Name: ".ssh/identity.pub", Data: "identity"},
 	}
 	s.FakeHomeSuite.Home.AddFiles(c, files...)
 
@@ -952,11 +952,11 @@ var configValidateCloudInitUserDataTests = []configValidateCloudInitUserDataTest
 
 func (s *ConfigSuite) TestValidateCloudInitUserData(c *gc.C) {
 	files := []gitjujutesting.TestFile{
-		{".ssh/id_dsa.pub", "dsa"},
-		{".ssh/id_rsa.pub", "rsa\n"},
-		{".ssh/identity.pub", "identity"},
-		{".ssh/authorized_keys", "auth0\n# first\nauth1\n\n"},
-		{".ssh/authorized_keys2", "auth2\nauth3\n"},
+		{Name: ".ssh/id_dsa.pub", Data: "dsa"},
+		{Name: ".ssh/id_rsa.pub", Data: "rsa\n"},
+		{Name: ".ssh/identity.pub", Data: "identity"},
+		{Name: ".ssh/authorized_keys", Data: "auth0\n# first\nauth1\n\n"},
+		{Name: ".ssh/authorized_keys2", Data: "auth2\nauth3\n"},
 	}
 	s.FakeHomeSuite.Home.AddFiles(c, files...)
 	for i, test := range configValidateCloudInitUserDataTests {
@@ -982,7 +982,7 @@ func (test configValidateCloudInitUserDataTest) checkNew(c *gc.C) {
 
 func (s *ConfigSuite) addJujuFiles(c *gc.C) {
 	s.FakeHomeSuite.Home.AddFiles(c, []gitjujutesting.TestFile{
-		{".ssh/id_rsa.pub", "rsa\n"},
+		{Name: ".ssh/id_rsa.pub", Data: "rsa\n"},
 	}...)
 }
 

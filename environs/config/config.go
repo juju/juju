@@ -315,21 +315,22 @@ func (method HarvestMode) String() string {
 	panic("Unknown harvesting method.")
 }
 
-// None returns whether or not the None harvesting flag is set.
+// HarvestNone returns whether or not the None harvesting flag is set.
 func (method HarvestMode) HarvestNone() bool {
 	return method&HarvestNone != 0
 }
 
-// Destroyed returns whether or not the Destroyed harvesting flag is set.
+// HarvestDestroyed returns whether or not the Destroyed harvesting flag is set.
 func (method HarvestMode) HarvestDestroyed() bool {
 	return method&HarvestDestroyed != 0
 }
 
-// Unknown returns whether or not the Unknown harvesting flag is set.
+// HarvestUnknown returns whether or not the Unknown harvesting flag is set.
 func (method HarvestMode) HarvestUnknown() bool {
 	return method&HarvestUnknown != 0
 }
 
+// HasDefaultSeries defines a interface if a type has a default series or not.
 type HasDefaultSeries interface {
 	DefaultSeries() (string, bool)
 }
@@ -363,8 +364,12 @@ type Config struct {
 type Defaulting bool
 
 const (
+	// UseDefaults defines a constant for indicating of the default should be
+	// used for the configuration.
 	UseDefaults Defaulting = true
-	NoDefaults  Defaulting = false
+	// NoDefaults defines a constant for indicating that no defaults should be
+	// used for the configuration.
+	NoDefaults Defaulting = false
 )
 
 // TODO(rog) update the doc comment below - it's getting messy
@@ -420,11 +425,15 @@ const (
 	// DefaultStatusHistorySize is the default value for MaxStatusHistorySize.
 	DefaultStatusHistorySize = "5G"
 
-	// DefaultUpdateStatusHookInterval is the default value for UpdateStatusHookInterval
+	// DefaultUpdateStatusHookInterval is the default value for
+	// UpdateStatusHookInterval
 	DefaultUpdateStatusHookInterval = "5m"
 
+	// DefaultActionResultsAge is the default for the age of the results for an
+	// action.
 	DefaultActionResultsAge = "336h" // 2 weeks
 
+	// DefaultActionResultsSize is the default size of the action results.
 	DefaultActionResultsSize = "5G"
 )
 
@@ -654,15 +663,15 @@ func Validate(cfg, old *Config) error {
 	}
 
 	if v, ok := cfg.defined[UpdateStatusHookInterval].(string); ok {
-		if f, err := time.ParseDuration(v); err != nil {
+		duration, err := time.ParseDuration(v)
+		if err != nil {
 			return errors.Annotate(err, "invalid update status hook interval in model configuration")
-		} else {
-			if f < 1*time.Minute {
-				return errors.Annotatef(err, "update status hook frequency %v cannot be less than 1m", f)
-			}
-			if f > 60*time.Minute {
-				return errors.Annotatef(err, "update status hook frequency %v cannot be greater than 60m", f)
-			}
+		}
+		if duration < 1*time.Minute {
+			return errors.Annotatef(err, "update status hook frequency %v cannot be less than 1m", duration)
+		}
+		if duration > 60*time.Minute {
+			return errors.Annotatef(err, "update status hook frequency %v cannot be greater than 60m", duration)
 		}
 	}
 
@@ -741,12 +750,12 @@ func Validate(cfg, old *Config) error {
 		diffSet := propertySet.Difference(whiteListSet)
 
 		if !diffSet.IsEmpty() {
-			return fmt.Errorf("container-inherit-properties: %s not allowed", strings.Join(diffSet.SortedValues(), ", "))
+			return errors.Errorf("container-inherit-properties: %s not allowed", strings.Join(diffSet.SortedValues(), ", "))
 		}
 	}
 
 	if err := cfg.validateCharmHubURL(); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	if err := cfg.validateDefaultSpace(); err != nil {
@@ -1189,21 +1198,21 @@ func (c *Config) Development() bool {
 // EnableOSRefreshUpdate returns whether or not newly provisioned
 // instances should run their respective OS's update capability.
 func (c *Config) EnableOSRefreshUpdate() bool {
-	if val, ok := c.defined["enable-os-refresh-update"].(bool); !ok {
+	val, ok := c.defined["enable-os-refresh-update"].(bool)
+	if !ok {
 		return true
-	} else {
-		return val
 	}
+	return val
 }
 
 // EnableOSUpgrade returns whether or not newly provisioned instances
 // should run their respective OS's upgrade capability.
 func (c *Config) EnableOSUpgrade() bool {
-	if val, ok := c.defined["enable-os-upgrade"].(bool); !ok {
+	val, ok := c.defined["enable-os-upgrade"].(bool)
+	if !ok {
 		return true
-	} else {
-		return val
 	}
+	return val
 }
 
 // SSLHostnameVerification returns weather the environment has requested
@@ -1226,21 +1235,21 @@ func (c *Config) BackupDir() string {
 // AutomaticallyRetryHooks returns whether we should automatically retry hooks.
 // By default this should be true.
 func (c *Config) AutomaticallyRetryHooks() bool {
-	if val, ok := c.defined["automatically-retry-hooks"].(bool); !ok {
+	val, ok := c.defined["automatically-retry-hooks"].(bool)
+	if !ok {
 		return true
-	} else {
-		return val
 	}
+	return val
 }
 
 // TransmitVendorMetrics returns whether the controller sends charm-collected metrics
 // in this model for anonymized aggregate analytics. By default this should be true.
 func (c *Config) TransmitVendorMetrics() bool {
-	if val, ok := c.defined[TransmitVendorMetricsKey].(bool); !ok {
+	val, ok := c.defined[TransmitVendorMetricsKey].(bool)
+	if !ok {
 		return true
-	} else {
-		return val
 	}
+	return val
 }
 
 // ProvisionerHarvestMode reports the harvesting methodology the
@@ -1644,8 +1653,8 @@ var (
 // of juju that does recognise the fields, but that their presence is still
 // anomalous to some degree and should be flagged (and that there is thereby
 // a mechanism for observing fields that really are typos etc).
-func (cfg *Config) ValidateUnknownAttrs(extrafields schema.Fields, defaults schema.Defaults) (map[string]interface{}, error) {
-	attrs := cfg.UnknownAttrs()
+func (c *Config) ValidateUnknownAttrs(extrafields schema.Fields, defaults schema.Defaults) (map[string]interface{}, error) {
+	attrs := c.UnknownAttrs()
 	checker := schema.FieldMap(extrafields, defaults)
 	coerced, err := checker.Coerce(attrs, nil)
 	if err != nil {
