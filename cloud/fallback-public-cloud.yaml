@@ -265,7 +265,7 @@ clouds:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
         identity-endpoint: https://graph.windows.net
-      switzerlandeast:
+      switzerlandnorth:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
         identity-endpoint: https://graph.windows.net
