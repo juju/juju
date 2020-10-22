@@ -7,9 +7,9 @@ run_simplestream_metadata() {
     FOCAL_VERSION=$(series_version "${VERSION}" "focal")
     BIONIC_VERSION=$(series_version "${VERSION}" "bionic")
 
-    OUT=$(snap install juju --classic --channel="${STABLE_VERSION}/stable" || echo "FALLBACK")
+    OUT=$(sudo snap install juju --classic --channel="${STABLE_VERSION}/stable" || echo "FALLBACK")
     if [ "${OUT}" == "FALLBACK" ]; then
-        snap refresh juju --channel="${STABLE_VERSION}/stable"
+        sudo snap refresh juju --channel="${STABLE_VERSION}/stable"
     fi
 
     add_clean_func "remove_upgrade_tools"
