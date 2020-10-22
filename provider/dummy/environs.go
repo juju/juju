@@ -1164,11 +1164,6 @@ func (e *environ) ConstraintsValidator(ctx context.ProviderCallContext) (constra
 	return validator, nil
 }
 
-// MaintainInstance is specified in the InstanceBroker interface.
-func (*environ) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
-	return nil
-}
-
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	defer delay()

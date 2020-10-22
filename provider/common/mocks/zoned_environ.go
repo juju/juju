@@ -261,20 +261,6 @@ func (mr *MockZonedEnvironMockRecorder) Instances(arg0, arg1 interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Instances", reflect.TypeOf((*MockZonedEnviron)(nil).Instances), arg0, arg1)
 }
 
-// MaintainInstance mocks base method
-func (m *MockZonedEnviron) MaintainInstance(arg0 context.ProviderCallContext, arg1 environs.StartInstanceParams) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MaintainInstance", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// MaintainInstance indicates an expected call of MaintainInstance
-func (mr *MockZonedEnvironMockRecorder) MaintainInstance(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MaintainInstance", reflect.TypeOf((*MockZonedEnviron)(nil).MaintainInstance), arg0, arg1)
-}
-
 // PrecheckInstance mocks base method
 func (m *MockZonedEnviron) PrecheckInstance(arg0 context.ProviderCallContext, arg1 environs.PrecheckInstanceParams) error {
 	m.ctrl.T.Helper()

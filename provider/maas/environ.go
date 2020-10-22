@@ -930,11 +930,6 @@ func (env *maasEnviron) DistributeInstances(
 	return common.DistributeInstances(env, ctx, candidates, distributionGroup, limitZones)
 }
 
-// MaintainInstance is specified in the InstanceBroker interface.
-func (*maasEnviron) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
-	return nil
-}
-
 // StartInstance is specified in the InstanceBroker interface.
 func (env *maasEnviron) StartInstance(
 	ctx context.ProviderCallContext,

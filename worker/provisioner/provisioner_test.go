@@ -973,13 +973,6 @@ var machineClassificationTests = []machineClassificationTest{{
 	expectErrFmt:   "failed to ensure machine dead id:%s.*",
 }}
 
-var machineClassificationTestsRequireMaintenance = machineClassificationTest{
-	description:    "Machine needs maintaining",
-	life:           life.Alive,
-	status:         status.Started,
-	classification: provisioner.Maintain,
-}
-
 var machineClassificationTestsNoMaintenance = machineClassificationTest{
 	description:    "Machine doesn't need maintaining",
 	life:           life.Alive,
@@ -991,7 +984,7 @@ func (s *MachineClassifySuite) TestMachineClassification(c *gc.C) {
 	test := func(t machineClassificationTest, id string) {
 		// Run a sub-test from the test table
 		s2e := func(s string) error {
-			// Little helper to turn a non-empty string into a useful error for "ErrorMaches"
+			// Little helper to turn a non-empty string into a useful error for "ErrorMatches"
 			if s != "" {
 				return &params.Error{Code: s}
 			}
@@ -1009,18 +1002,7 @@ func (s *MachineClassifySuite) TestMachineClassification(c *gc.C) {
 		c.Assert(classification, gc.Equals, t.classification)
 	}
 
-	machineIds := []string{"0/kvm/0", "0"}
-	for _, id := range machineIds {
-		tests := machineClassificationTests
-		if id == "0" {
-			tests = append(tests, machineClassificationTestsNoMaintenance)
-		} else {
-			tests = append(tests, machineClassificationTestsRequireMaintenance)
-		}
-		for _, t := range tests {
-			test(t, id)
-		}
-	}
+	test(machineClassificationTestsNoMaintenance, "0")
 }
 
 func (s *ProvisionerSuite) TestProvisioningMachinesWithSpacesSuccess(c *gc.C) {

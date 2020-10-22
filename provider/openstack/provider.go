@@ -1061,11 +1061,6 @@ func (e *Environ) DistributeInstances(
 	return valid, nil
 }
 
-// MaintainInstance is specified in the InstanceBroker interface.
-func (*Environ) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
-	return nil
-}
-
 // StartInstance is specified in the InstanceBroker interface.
 func (e *Environ) StartInstance(
 	ctx context.ProviderCallContext, args environs.StartInstanceParams,
