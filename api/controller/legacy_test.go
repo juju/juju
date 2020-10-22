@@ -248,7 +248,7 @@ func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
 
 	select {
 	case <-srvStopped:
-	case <-time.After(time.Minute):
+	case <-time.After(time.Minute): // LongWait (10s) didn't seem quite long enough, see LP 1900931
 		c.Fatal("timed out waiting for server to stop")
 	}
 
