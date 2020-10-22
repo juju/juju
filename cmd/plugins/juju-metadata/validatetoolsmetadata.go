@@ -24,11 +24,11 @@ import (
 )
 
 func newValidateToolsMetadataCommand() cmd.Command {
-	return modelcmd.WrapController(&validateToolsMetadataCommand{})
+	return modelcmd.WrapController(&validateAgentsMetadataCommand{})
 }
 
-// validateToolsMetadataCommand
-type validateToolsMetadataCommand struct {
+// validateAgentsMetadataCommand
+type validateAgentsMetadataCommand struct {
 	modelcmd.ControllerCommandBase
 
 	out          cmd.Output
@@ -44,12 +44,12 @@ type validateToolsMetadataCommand struct {
 	minor        int
 }
 
-var validateToolsMetadataDoc = `
+var validateAgentsMetadataDoc = `
 validate-agents loads simplestreams metadata and validates the contents by
-looking for agent binaries belonging to the specified series, architecture, for the
-specified cloud. If version is specified, agent binaries matching the exact specified
-version are found. It is also possible to just specify the major (and optionally
-minor) version numbers to search for.
+looking for agent binaries belonging to the specified series, architecture, 
+for the specified cloud. If version is specified, agent binaries matching the 
+exact specified version are found. It is also possible to just specify the
+major (and optionally minor) version numbers to search for.
 
 The cloud specification comes from the current Juju model, as specified in
 the usual way from either the -m option, or JUJU_MODEL. Series, Region, and
@@ -79,7 +79,8 @@ Examples:
  
   juju metadata validate-agents -m 2.1
 
- - validate using the current model settings and list all agent binaries found for any series
+ - validate using the current model settings and list all agent binaries found 
+   for any series
  
   juju metadata validate-agents --series=
 
@@ -94,7 +95,7 @@ Examples:
 A key use case is to validate newly generated metadata prior to deployment to
 production. In this case, the metadata is placed in a local directory, a cloud
 provider type is specified (ec2, openstack etc), and the validation is performed
-for each supported series, version, and arcgitecture.
+for each supported series, version, and architecture.
 
 Example bash snippet:
 
@@ -102,20 +103,19 @@ Example bash snippet:
 
 juju metadata validate-agents -p ec2 -r us-east-1 -s precise --juju-version 1.12.0 -d <some directory>
 RETVAL=$?
-[ $RETVAL -eq 0 ] && echo Success
-[ $RETVAL -ne 0 ] && echo Failure
+[ $RETVAL -eq 0 ] && echo Success || echo "Failure"
 `
 
-func (c *validateToolsMetadataCommand) Info() *cmd.Info {
+func (c *validateAgentsMetadataCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "validate-agents",
-		Purpose: "validate agent metadata and ensure agent binary tarball(s) exist for Juju version(s)",
-		Doc:     validateToolsMetadataDoc,
+		Purpose: "validate agent metadata and ensure agent binary .tgz tarball(s) exist for Juju version(s)",
+		Doc:     validateAgentsMetadataDoc,
 		Aliases: []string{"validate-tools"},
 	})
 }
 
-func (c *validateToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *validateAgentsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 	f.StringVar(&c.providerType, "p", "", "the provider type eg ec2, openstack")
 	f.StringVar(&c.metadataDir, "d", "", "directory where metadata files are found")
@@ -129,7 +129,7 @@ func (c *validateToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.stream, "stream", tools.ReleasedStream, "simplestreams stream for which to generate the metadata")
 }
 
-func (c *validateToolsMetadataCommand) Init(args []string) error {
+func (c *validateAgentsMetadataCommand) Init(args []string) error {
 	if c.providerType != "" {
 		if c.region == "" {
 			return errors.Errorf("region required if provider type is specified")
@@ -150,7 +150,7 @@ func (c *validateToolsMetadataCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-func (c *validateToolsMetadataCommand) Run(context *cmd.Context) error {
+func (c *validateAgentsMetadataCommand) Run(context *cmd.Context) error {
 	var params *simplestreams.MetadataLookupParams
 	if c.providerType == "" {
 		context.Infof("no provider type specified, using bootstrapped cloud")
@@ -214,7 +214,7 @@ func (c *validateToolsMetadataCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		params.Sources = toolsDataSources(toolsURL)
+		params.Sources = makeDataSources(toolsURL)
 	}
 	params.Stream = c.stream
 
