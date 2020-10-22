@@ -1402,7 +1402,7 @@ class ModelClient:
         # we're deploying a complex set of machines/containers.
         return retvar, CommandComplete(WaitAgentsStarted(wait_timeout), ct)
 
-    def migrate(self, full_model_name, model_name, dest_client, include_e=False):
+    def migrate(self, full_model_name, model_name, dest_client, include_e=True):
         self.juju(
             'migrate',
             (full_model_name, dest_client.env.controller.name),

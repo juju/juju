@@ -5,10 +5,6 @@ from __future__ import print_function
 
 import argparse
 from contextlib import contextmanager
-from distutils.version import (
-    LooseVersion,
-    StrictVersion
-    )
 import logging
 import os
 from subprocess import CalledProcessError
@@ -20,9 +16,6 @@ from assess_user_grant_revoke import User
 from deploy_stack import (
     BootstrapManager,
     get_random_string
-    )
-from jujupy.client import (
-    get_stripped_version_number,
 )
 from jujupy.wait_condition import (
     ModelCheckFailed,
@@ -32,7 +25,7 @@ from jujupy.workloads import (
     assert_deployed_charm_is_responding,
     deploy_dummy_source_to_new_model,
     deploy_simple_server_to_new_model,
-    )
+)
 from remote import remote_from_address
 from utility import (
     JujuAssertionError,
@@ -41,7 +34,7 @@ from utility import (
     qualified_model_name,
     temp_dir,
     until_timeout,
-    )
+)
 
 
 __metaclass__ = type
@@ -348,7 +341,7 @@ def migrate_model_to_controller(
             'Attempting show-model for affected models.')
         try:
             source_client.juju('show-model', (model_name), include_e=False)
-        except:
+        except:  # noqa
             log.info('Ignoring failed output.')
             pass
 
@@ -358,7 +351,7 @@ def migrate_model_to_controller(
                 get_full_model_name(
                     migration_target_client, include_user_name),
                 include_e=False)
-        except:
+        except:  # noqa
             log.info('Ignoring failed output.')
             pass
         raise e
