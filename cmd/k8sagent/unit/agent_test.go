@@ -104,6 +104,7 @@ func (s *k8sUnitAgentSuite) TestParseSuccess(c *gc.C) {
 
 	err := cmdtesting.InitCommand(s.cmd, []string{
 		"--data-dir", s.dataDir,
+		"--charm-modified-version", "10",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -111,7 +112,7 @@ func (s *k8sUnitAgentSuite) TestParseSuccess(c *gc.C) {
 	c.Assert(s.cmd.Tag().String(), jc.DeepEquals, `unit-wordpress-0`)
 	c.Assert(s.cmd.CurrentConfig().Controller().String(), jc.DeepEquals, `controller-deadbeef-1bad-500d-9000-4b1d0d06f00d`)
 	c.Assert(s.cmd.CurrentConfig().Model().String(), jc.DeepEquals, `model-deadbeef-0bad-400d-8000-4b1d0d06f00d`)
-
+	c.Assert(s.cmd.CharmModifiedVersion(), gc.Equals, 10)
 }
 
 func (s *k8sUnitAgentSuite) TestParseUnknown(c *gc.C) {

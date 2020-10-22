@@ -34,18 +34,20 @@ type CAASApplicationProvisioningInfoResults struct {
 
 // CAASApplicationProvisioningInfo holds info needed to provision a caas application.
 type CAASApplicationProvisioningInfo struct {
-	ImagePath    string                       `json:"image-path"`
-	Version      version.Number               `json:"version"`
-	APIAddresses []string                     `json:"api-addresses"`
-	CACert       string                       `json:"ca-cert"`
-	Constraints  constraints.Value            `json:"constraints"`
-	Tags         map[string]string            `json:"tags,omitempty"`
-	Filesystems  []KubernetesFilesystemParams `json:"filesystems,omitempty"`
-	Volumes      []KubernetesVolumeParams     `json:"volumes,omitempty"`
-	Devices      []KubernetesDeviceParams     `json:"devices,omitempty"`
-	Series       string                       `json:"series,omitempty"`
-	ImageRepo    string                       `json:"image-repo,omitempty"`
-	Error        *Error                       `json:"error,omitempty"`
+	ImagePath            string                       `json:"image-path"`
+	Version              version.Number               `json:"version"`
+	APIAddresses         []string                     `json:"api-addresses"`
+	CACert               string                       `json:"ca-cert"`
+	Constraints          constraints.Value            `json:"constraints"`
+	Tags                 map[string]string            `json:"tags,omitempty"`
+	Filesystems          []KubernetesFilesystemParams `json:"filesystems,omitempty"`
+	Volumes              []KubernetesVolumeParams     `json:"volumes,omitempty"`
+	Devices              []KubernetesDeviceParams     `json:"devices,omitempty"`
+	Series               string                       `json:"series,omitempty"`
+	ImageRepo            string                       `json:"image-repo,omitempty"`
+	CharmModifiedVersion int                          `json:"charm-modified-version,omitempty"`
+	CharmURL             string                       `json:"charm-url,omitempty"`
+	Error                *Error                       `json:"error,omitempty"`
 }
 
 // CAASApplicationGarbageCollectArg holds info needed to cleanup units that have

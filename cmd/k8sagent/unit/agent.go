@@ -46,6 +46,7 @@ var logger = loggo.GetLogger("juju.cmd.k8sagent.unit")
 type k8sUnitAgent struct {
 	cmd.CommandBase
 	agentconf.AgentConf
+
 	configChangedVal *voyeur.Value
 	clk              clock.Clock
 	runner           *worker.Runner
@@ -59,6 +60,8 @@ type k8sUnitAgent struct {
 	prometheusRegistry *prometheus.Registry
 
 	fileReaderWriter utils.FileReaderWriter
+
+	charmModifiedVersion int
 }
 
 // New creates k8sagent unit command.
@@ -90,6 +93,11 @@ func (c *k8sUnitAgent) Info() *cmd.Info {
 // SetFlags implements Command.
 func (c *k8sUnitAgent) SetFlags(f *gnuflag.FlagSet) {
 	c.AgentConf.AddFlags(f)
+	f.IntVar(&c.charmModifiedVersion, "charm-modified-version", -1, "charm modified version to validate downloaded charm is for the provided infrastructure")
+}
+
+func (c *k8sUnitAgent) CharmModifiedVersion() int {
+	return c.charmModifiedVersion
 }
 
 func (c *k8sUnitAgent) ensureAgentConf(dataDir string) error {
@@ -231,6 +239,7 @@ func (c *k8sUnitAgent) workers() (worker.Worker, error) {
 		ProbePort:            probePort,
 		MachineLock:          c.machineLock,
 		Clock:                c.clk,
+		CharmModifiedVersion: c.CharmModifiedVersion(),
 	}
 	manifolds := Manifolds(cfg)
 

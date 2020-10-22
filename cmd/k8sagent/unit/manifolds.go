@@ -82,6 +82,10 @@ type manifoldsConfig struct {
 
 	// Clock contains the clock that will be made available to manifolds.
 	Clock clock.Clock
+
+	// CharmModifiedVersion to validate downloaded charm is for the provided
+	// infrastructure.
+	CharmModifiedVersion int
 }
 
 // Manifolds returns a set of co-configured manifolds covering the various
@@ -236,17 +240,18 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 		// coming weeks, and to need one per unit in a consolidated agent
 		// (and probably one for each component broken out).
 		uniterName: ifNotMigrating(uniter.Manifold(uniter.ManifoldConfig{
-			AgentName:             agentName,
-			ModelType:             model.CAAS,
-			APICallerName:         apiCallerName,
-			MachineLock:           config.MachineLock,
-			Clock:                 config.Clock,
-			LeadershipTrackerName: leadershipTrackerName,
-			CharmDirName:          charmDirName,
-			HookRetryStrategyName: hookRetryStrategyName,
-			TranslateResolverErr:  uniter.TranslateFortressErrors,
-			Logger:                loggo.GetLogger("juju.worker.uniter"),
-			Embedded:              true,
+			AgentName:                    agentName,
+			ModelType:                    model.CAAS,
+			APICallerName:                apiCallerName,
+			MachineLock:                  config.MachineLock,
+			Clock:                        config.Clock,
+			LeadershipTrackerName:        leadershipTrackerName,
+			CharmDirName:                 charmDirName,
+			HookRetryStrategyName:        hookRetryStrategyName,
+			TranslateResolverErr:         uniter.TranslateFortressErrors,
+			Logger:                       loggo.GetLogger("juju.worker.uniter"),
+			Embedded:                     true,
+			EnforcedCharmModifiedVersion: config.CharmModifiedVersion,
 		})),
 	}
 }

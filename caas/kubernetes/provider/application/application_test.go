@@ -152,6 +152,7 @@ func (s *applicationSuite) assertEnsure(c *gc.C, deploymentType caas.DeploymentT
 			CharmBaseImage: coreresources.DockerImageDetails{
 				RegistryPath: "ubuntu:20.04",
 			},
+			CharmModifiedVersion: 9001,
 			Filesystems: []storage.KubernetesFilesystemParams{
 				{
 					StorageName: "database",
@@ -269,7 +270,7 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 			Image:           "ubuntu:20.04",
 			WorkingDir:      jujuDataDir,
 			Command:         []string{"/usr/bin/k8sagent"},
-			Args:            []string{"unit", "--data-dir", jujuDataDir},
+			Args:            []string{"unit", "--data-dir", jujuDataDir, "--charm-modified-version", "9001"},
 			Env: []corev1.EnvVar{
 				{
 					Name:  "JUJU_CONTAINER_NAMES",

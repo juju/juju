@@ -76,14 +76,15 @@ type RemoteInitFunc func(remotestate.ContainerRunningStatus, <-chan struct{}) er
 // delegated to Mode values, which are expected to react to events and direct
 // the uniter's responses to them.
 type Uniter struct {
-	catacomb  catacomb.Catacomb
-	st        *uniter.State
-	paths     Paths
-	unit      *uniter.Unit
-	modelType model.ModelType
-	embedded  bool
-	storage   *storage.Attachments
-	clock     clock.Clock
+	catacomb                     catacomb.Catacomb
+	st                           *uniter.State
+	paths                        Paths
+	unit                         *uniter.Unit
+	modelType                    model.ModelType
+	embedded                     bool
+	enforcedCharmModifiedVersion int
+	storage                      *storage.Attachments
+	clock                        clock.Clock
 
 	relationStateTracker relation.RelationStateTracker
 
@@ -182,10 +183,11 @@ type UniterParams struct {
 	// TODO (mattyw, wallyworld, fwereade) Having the observer here make this approach a bit more legitimate, but it isn't.
 	// the observer is only a stop gap to be used in tests. A better approach would be to have the uniter tests start hooks
 	// that write to files, and have the tests watch the output to know that hooks have finished.
-	Observer      UniterExecutionObserver
-	RebootQuerier RebootQuerier
-	Logger        Logger
-	Embedded      bool
+	Observer                     UniterExecutionObserver
+	RebootQuerier                RebootQuerier
+	Logger                       Logger
+	Embedded                     bool
+	EnforcedCharmModifiedVersion int
 }
 
 // NewOperationExecutorFunc is a func which returns an operations.Executor.
@@ -250,6 +252,7 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 			rebootQuerier:                 uniterParams.RebootQuerier,
 			logger:                        uniterParams.Logger,
 			embedded:                      uniterParams.Embedded,
+			enforcedCharmModifiedVersion:  uniterParams.EnforcedCharmModifiedVersion,
 		}
 		plan := catacomb.Plan{
 			Site: &u.catacomb,
@@ -306,6 +309,15 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		return err
 	}
 
+	// Check we are running the correct charm version.
+	if u.embedded && u.enforcedCharmModifiedVersion != -1 {
+		if charmModifiedVersion != u.enforcedCharmModifiedVersion {
+			u.logger.Infof("remote charm modified version (%d) does not match agent's (%d)",
+				charmModifiedVersion, u.enforcedCharmModifiedVersion)
+			return u.stopUnitError()
+		}
+	}
+
 	var watcher *remotestate.RemoteStateWatcher
 
 	u.logger.Infof("hooks are retried %v", u.hookRetryStrategy.ShouldRetry)
@@ -354,6 +366,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				Logger:                        u.logger.Child("remotestate"),
 				CanApplyCharmProfile:          canApplyCharmProfile,
 				Embedded:                      u.embedded,
+				EnforcedCharmModifiedVersion:  u.enforcedCharmModifiedVersion,
 			})
 		if err != nil {
 			return errors.Trace(err)

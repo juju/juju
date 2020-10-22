@@ -83,8 +83,16 @@ func (s *CAASApplicationProvisionerSuite) TestPermission(c *gc.C) {
 
 func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 	s.st.app = &mockApplication{
-		life:  state.Alive,
-		charm: &mockCharm{meta: &charm.Meta{}},
+		life: state.Alive,
+		charm: &mockCharm{
+			meta: &charm.Meta{},
+			url: &charm.URL{
+				Schema:   "cs",
+				Name:     "gitlab",
+				Revision: -1,
+			},
+		},
+		charmModifiedVersion: 10,
 	}
 	result, err := s.api.ProvisioningInfo(params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -100,14 +108,23 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 				"juju-model-uuid":      coretesting.ModelTag.Id(),
 				"juju-controller-uuid": coretesting.ControllerTag.Id(),
 			},
+			CharmURL:             "cs:gitlab",
+			CharmModifiedVersion: 10,
 		}},
 	})
 }
 
 func (s *CAASApplicationProvisionerSuite) TestSetOperatorStatus(c *gc.C) {
 	s.st.app = &mockApplication{
-		life:  state.Alive,
-		charm: &mockCharm{meta: &charm.Meta{}},
+		life: state.Alive,
+		charm: &mockCharm{
+			meta: &charm.Meta{},
+			url: &charm.URL{
+				Schema:   "cs",
+				Name:     "gitlab",
+				Revision: -1,
+			},
+		},
 	}
 	result, err := s.api.SetOperatorStatus(params.SetStatus{
 		Entities: []params.EntityStatusArgs{{
@@ -124,8 +141,15 @@ func (s *CAASApplicationProvisionerSuite) TestSetOperatorStatus(c *gc.C) {
 
 func (s *CAASApplicationProvisionerSuite) TestUnits(c *gc.C) {
 	s.st.app = &mockApplication{
-		life:  state.Alive,
-		charm: &mockCharm{meta: &charm.Meta{}},
+		life: state.Alive,
+		charm: &mockCharm{
+			meta: &charm.Meta{},
+			url: &charm.URL{
+				Schema:   "cs",
+				Name:     "gitlab",
+				Revision: -1,
+			},
+		},
 		units: []*mockUnit{
 			{tag: names.NewUnitTag("gitlab/0")},
 			{tag: names.NewUnitTag("gitlab/1")},
@@ -166,6 +190,11 @@ func (s *CAASApplicationProvisionerSuite) TestGarbageCollectStateful(c *gc.C) {
 						},
 					},
 				},
+			},
+			url: &charm.URL{
+				Schema:   "cs",
+				Name:     "gitlab",
+				Revision: -1,
 			},
 		},
 		units: []*mockUnit{
@@ -235,6 +264,11 @@ func (s *CAASApplicationProvisionerSuite) TestGarbageCollectDeployment(c *gc.C) 
 					},
 				},
 			},
+			url: &charm.URL{
+				Schema:   "cs",
+				Name:     "gitlab",
+				Revision: -1,
+			},
 		},
 		units: []*mockUnit{
 			{
@@ -302,6 +336,11 @@ func (s *CAASApplicationProvisionerSuite) TestGarbageCollectDaemon(c *gc.C) {
 						},
 					},
 				},
+			},
+			url: &charm.URL{
+				Schema:   "cs",
+				Name:     "gitlab",
+				Revision: -1,
 			},
 		},
 		units: []*mockUnit{
@@ -372,6 +411,11 @@ func (s *CAASApplicationProvisionerSuite) TestGarbageCollectForced(c *gc.C) {
 						},
 					},
 				},
+			},
+			url: &charm.URL{
+				Schema:   "cs",
+				Name:     "gitlab",
+				Revision: -1,
 			},
 		},
 		units: []*mockUnit{
@@ -512,6 +556,11 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithStorage
 						},
 					},
 				},
+			},
+			url: &charm.URL{
+				Schema:   "cs",
+				Name:     "gitlab",
+				Revision: -1,
 			},
 		},
 		units: []*mockUnit{
@@ -690,6 +739,11 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithoutStor
 						},
 					},
 				},
+			},
+			url: &charm.URL{
+				Schema:   "cs",
+				Name:     "gitlab",
+				Revision: -1,
 			},
 		},
 		units: []*mockUnit{

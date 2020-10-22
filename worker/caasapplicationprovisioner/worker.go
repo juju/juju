@@ -40,6 +40,7 @@ type CAASProvisionerFacade interface {
 	GarbageCollect(appName string, observedUnits []names.Tag, desiredReplicas int, activePodNames []string, force bool) error
 	ApplicationOCIResources(appName string) (map[string]resources.DockerImageDetails, error)
 	UpdateUnits(arg params.UpdateApplicationUnits) (*params.UpdateApplicationUnitsInfo, error)
+	WatchApplication(appName string) (watcher.NotifyWatcher, error)
 }
 
 // CAASBroker exposes CAAS broker functionality to a worker.

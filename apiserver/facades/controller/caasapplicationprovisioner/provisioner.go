@@ -48,6 +48,7 @@ var logger = loggo.GetLogger("juju.apiserver.caasapplicationprovisioner")
 type APIGroup struct {
 	*common.PasswordChanger
 	*common.LifeGetter
+	*common.AgentEntityWatcher
 	*charmscommon.CharmsAPI
 	*common.ApplicationWatcherFacade
 	*API
@@ -109,6 +110,7 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error
 	apiGroup := &APIGroup{
 		PasswordChanger:          common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
 		LifeGetter:               common.NewLifeGetter(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
+		AgentEntityWatcher:       common.NewAgentEntityWatcher(st, resources, common.AuthFuncForTagKind(names.ApplicationTagKind)),
 		CharmsAPI:                commonCharmsAPI,
 		ApplicationWatcherFacade: common.NewApplicationWatcherFacadeFromState(st, resources, common.ApplicationFilterCAASEmbedded),
 		API:                      api,
@@ -229,18 +231,20 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		}
 	}
 	caCert, _ := cfg.CACert()
-
+	charmURL, _ := app.CharmURL()
 	return &params.CAASApplicationProvisioningInfo{
-		ImagePath:    imagePath,
-		Version:      vers,
-		APIAddresses: addrs,
-		CACert:       caCert,
-		Tags:         resourceTags,
-		Filesystems:  filesystemParams,
-		Devices:      devices,
-		Constraints:  mergedCons,
-		Series:       app.Series(),
-		ImageRepo:    cfg.CAASImageRepo(),
+		ImagePath:            imagePath,
+		Version:              vers,
+		APIAddresses:         addrs,
+		CACert:               caCert,
+		Tags:                 resourceTags,
+		Filesystems:          filesystemParams,
+		Devices:              devices,
+		Constraints:          mergedCons,
+		Series:               app.Series(),
+		ImageRepo:            cfg.CAASImageRepo(),
+		CharmModifiedVersion: app.CharmModifiedVersion(),
+		CharmURL:             charmURL.String(),
 	}, nil
 }
 
