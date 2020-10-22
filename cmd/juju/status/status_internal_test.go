@@ -103,6 +103,10 @@ type agentStatusSetter interface {
 	SetAgentStatus(agent string, status corepresence.Status)
 }
 
+type idleModelWatcherRequirer interface {
+	requireModelWatchersIdle() bool
+}
+
 type context struct {
 	st            *state.State
 	pool          *state.StatePool
@@ -114,7 +118,7 @@ type context struct {
 	skipTest      bool
 }
 
-func (ctx *context) run(c *gc.C, steps []stepper) {
+func (ctx *context) run(c *gc.C, steps []stepper, waitForWatchersFn func(*gc.C, string)) {
 	for i, s := range steps {
 		if ctx.skipTest {
 			c.Logf("skipping test %d", i)
@@ -122,6 +126,9 @@ func (ctx *context) run(c *gc.C, steps []stepper) {
 		}
 		c.Logf("step %d", i)
 		c.Logf("%#v", s)
+		if req, ok := s.(idleModelWatcherRequirer); ok && req.requireModelWatchersIdle() {
+			waitForWatchersFn(c, ctx.st.ModelUUID())
+		}
 		s.step(c, ctx)
 	}
 }
@@ -4605,6 +4612,13 @@ func (e expect) step(c *gc.C, ctx *context) {
 	scopedExpect{e.what, nil, e.output, e.stderr}.step(c, ctx)
 }
 
+// Ensure that we model watchers to become idle before running step(). This
+// avoids time-related races when updating the cached status that can in turn
+// make status tests behave inconsistently.
+func (e expect) requireModelWatchersIdle() bool {
+	return true
+}
+
 type setToolsUpgradeAvailable struct{}
 
 func (ua setToolsUpgradeAvailable) step(c *gc.C, ctx *context) {
@@ -4621,7 +4635,7 @@ func (s *StatusSuite) TestStatusAllFormats(c *gc.C) {
 			// Prepare context and run all steps to setup.
 			ctx := s.newContext(c)
 			defer s.resetContext(c, ctx)
-			ctx.run(c, t.steps)
+			ctx.run(c, t.steps, s.WaitForModelWatchersIdle)
 		}(t)
 	}
 }
@@ -4875,7 +4889,7 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 		setAgentStatus{"logging/1", status.Error, "somehow lost in all those logs", nil},
 	}
 
-	ctx.run(c, steps)
+	ctx.run(c, steps, s.WaitForModelWatchersIdle)
 
 	const expected = `
 - mysql/0: 10.0.2.1 (agent:idle, workload:active)
@@ -5348,7 +5362,7 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 		setUnitStatus{"logging/1", status.Active, "", nil},
 	}
 
-	ctx.run(c, steps)
+	ctx.run(c, steps, s.WaitForModelWatchersIdle)
 	return ctx
 }
 
@@ -5785,7 +5799,7 @@ func (s *StatusSuite) TestIsoTimeFormat(c *gc.C) {
 		ctx := s.newContext(c)
 		ctx.expectIsoTime = true
 		defer s.resetContext(c, ctx)
-		ctx.run(c, t.steps)
+		ctx.run(c, t.steps, s.WaitForModelWatchersIdle)
 	}(statusTimeTest)
 }
 
