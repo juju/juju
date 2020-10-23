@@ -98,7 +98,7 @@ func InstanceConfig(ctrlSt *state.State, st *state.State, machineId, nonce, data
 		ModelTag: model.ModelTag(),
 	}
 
-	_, apiInfo, err = authentication.SetupAuthentication(machine, nil, apiInfo)
+	apiInfo, err = authentication.SetupAuthentication(machine, apiInfo)
 	if err != nil {
 		return nil, errors.Annotate(err, "setting up machine authentication")
 	}

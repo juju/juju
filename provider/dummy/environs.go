@@ -59,6 +59,7 @@ import (
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/lxdprofile"
@@ -202,7 +203,6 @@ type OpStartInstance struct {
 	RootDisk          *storage.VolumeParams
 	Volumes           []storage.Volume
 	VolumeAttachments []storage.VolumeAttachment
-	Info              *mongo.MongoInfo
 	Jobs              []model.MachineJob
 	APIInfo           *api.Info
 	Secret            string
@@ -901,7 +901,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 				CloudCredentials: cloudCredentials,
 				MongoSession:     session,
 				NewPolicy:        estate.newStatePolicy,
-				AdminPassword:    icfg.Controller.MongoInfo.Password,
+				AdminPassword:    icfg.APIInfo.Password,
 			})
 			if err != nil {
 				return err
@@ -915,10 +915,10 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			if err := st.SetModelConstraints(args.ModelConstraints); err != nil {
 				return errors.Trace(err)
 			}
-			if err := st.SetAdminMongoPassword(icfg.Controller.MongoInfo.Password); err != nil {
+			if err := st.SetAdminMongoPassword(icfg.APIInfo.Password); err != nil {
 				return errors.Trace(err)
 			}
-			if err := st.MongoSession().DB("admin").Login("admin", icfg.Controller.MongoInfo.Password); err != nil {
+			if err := st.MongoSession().DB("admin").Login("admin", icfg.APIInfo.Password); err != nil {
 				return err
 			}
 			env, err := st.Model()
@@ -932,8 +932,8 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			// We log this out for test purposes only. No one in real life can use
 			// a dummy provider for anything other than testing, so logging the password
 			// here is fine.
-			logger.Debugf("setting password for %q to %q", owner.Name(), icfg.Controller.MongoInfo.Password)
-			owner.SetPassword(icfg.Controller.MongoInfo.Password)
+			logger.Debugf("setting password for %q to %q", owner.Name(), icfg.APIInfo.Password)
+			owner.SetPassword(icfg.APIInfo.Password)
 			statePool := controller.StatePool()
 			stateAuthenticator, err := stateauthenticator.NewAuthenticator(statePool, clock.WallClock)
 			if err != nil {
@@ -1193,7 +1193,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		return nil, errors.New("cannot start instance: missing machine nonce")
 	}
 	if args.InstanceConfig.Controller != nil {
-		if args.InstanceConfig.Controller.MongoInfo.Tag != names.NewMachineTag(machineId) {
+		if args.InstanceConfig.APIInfo.Tag != names.NewMachineTag(machineId) {
 			return nil, errors.New("entity tag must match started machine")
 		}
 	}
@@ -1220,7 +1220,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	var hc *instance.HardwareCharacteristics
 	// To match current system capability, only provide hardware characteristics for
 	// environ machines, not containers.
-	if state.ParentId(machineId) == "" {
+	if container.ParentId(machineId) == "" {
 		// Assume that the provided Availability Zone won't fail,
 		// though one is required.
 		var zone string
@@ -1301,10 +1301,6 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 			},
 		}
 	}
-	var mongoInfo *mongo.MongoInfo
-	if args.InstanceConfig.Controller != nil {
-		mongoInfo = args.InstanceConfig.Controller.MongoInfo
-	}
 	estate.insts[i.id] = i
 	estate.maxId++
 	estate.ops <- OpStartInstance{
@@ -1319,7 +1315,6 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		VolumeAttachments: volumeAttachments,
 		Instance:          i,
 		Jobs:              args.InstanceConfig.Jobs,
-		Info:              mongoInfo,
 		APIInfo:           args.InstanceConfig.APIInfo,
 		AgentEnvironment:  args.InstanceConfig.AgentEnvironment,
 		Secret:            e.ecfg().secret(),

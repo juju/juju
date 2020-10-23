@@ -32,7 +32,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -74,9 +73,6 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 		Password: "password",
 		CACert:   testing.CACert,
 		ModelTag: testing.ModelTag,
-	}
-	pcfg.Controller.MongoInfo = &mongo.MongoInfo{
-		Password: "password", Info: mongo.Info{CACert: testing.CACert},
 	}
 	pcfg.Bootstrap.ControllerModelConfig = s.cfg
 	pcfg.Bootstrap.BootstrapMachineInstanceId = "instance-id"

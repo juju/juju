@@ -1860,17 +1860,6 @@ func (s *withControllerSuite) TestAPIAddresses(c *gc.C) {
 	})
 }
 
-func (s *withControllerSuite) TestStateAddresses(c *gc.C) {
-	addresses, err := s.State.Addresses()
-	c.Assert(err, jc.ErrorIsNil)
-
-	result, err := s.provisioner.StateAddresses()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.StringsResult{
-		Result: addresses,
-	})
-}
-
 func (s *withControllerSuite) TestCACert(c *gc.C) {
 	result, err := s.provisioner.CACert()
 	c.Assert(err, jc.ErrorIsNil)

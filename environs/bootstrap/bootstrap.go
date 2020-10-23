@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/pki"
 	corestorage "github.com/juju/juju/storage"
 	coretools "github.com/juju/juju/tools"
@@ -657,8 +656,8 @@ func finalizeInstanceBootstrapConfig(
 	environVersion int,
 	customImageMetadata []*imagemetadata.ImageMetadata,
 ) error {
-	if icfg.APIInfo != nil || icfg.Controller.MongoInfo != nil {
-		return errors.New("machine configuration already has api/state info")
+	if icfg.APIInfo != nil {
+		return errors.New("machine configuration already has api info")
 	}
 	controllerCfg := icfg.Controller.Config
 	caCert, hasCACert := controllerCfg.CACert()
@@ -669,10 +668,6 @@ func finalizeInstanceBootstrapConfig(
 		Password: args.AdminSecret,
 		CACert:   caCert,
 		ModelTag: names.NewModelTag(cfg.UUID()),
-	}
-	icfg.Controller.MongoInfo = &mongo.MongoInfo{
-		Password: args.AdminSecret,
-		Info:     mongo.Info{CACert: caCert},
 	}
 
 	authority, err := pki.NewDefaultAuthorityPemCAKey(
@@ -733,8 +728,8 @@ func finalizePodBootstrapConfig(
 	args BootstrapParams,
 	cfg *config.Config,
 ) error {
-	if pcfg.APIInfo != nil || pcfg.Controller.MongoInfo != nil {
-		return errors.New("machine configuration already has api/state info")
+	if pcfg.APIInfo != nil {
+		return errors.New("machine configuration already has api info")
 	}
 
 	controllerCfg := pcfg.Controller.Config
@@ -746,10 +741,6 @@ func finalizePodBootstrapConfig(
 		Password: args.AdminSecret,
 		CACert:   caCert,
 		ModelTag: names.NewModelTag(cfg.UUID()),
-	}
-	pcfg.Controller.MongoInfo = &mongo.MongoInfo{
-		Password: args.AdminSecret,
-		Info:     mongo.Info{CACert: caCert},
 	}
 
 	authority, err := pki.NewDefaultAuthorityPemCAKey(

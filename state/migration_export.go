@@ -18,6 +18,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/feature"
@@ -385,7 +386,7 @@ func (e *exporter) machines() error {
 		e.logger.Debugf("export machine %s", machine.Id())
 
 		var exParent description.Machine
-		if parentId := ParentId(machine.Id()); parentId != "" {
+		if parentId := container.ParentId(machine.Id()); parentId != "" {
 			var found bool
 			exParent, found = machineMap[parentId]
 			if !found {

@@ -17,6 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage/poolmanager"
@@ -337,8 +338,8 @@ func (s *AssignSuite) assertAssignUnitToNewMachineContainerConstraint(c *gc.C) {
 	err = unit.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	machineId := s.assertAssignedUnit(c, unit)
-	c.Assert(state.ParentId(machineId), gc.Not(gc.Equals), "")
-	c.Assert(state.ContainerTypeFromId(machineId), gc.Equals, instance.LXD)
+	c.Assert(container.ParentId(machineId), gc.Not(gc.Equals), "")
+	c.Assert(container.ContainerTypeFromId(machineId), gc.Equals, instance.LXD)
 }
 
 func (s *AssignSuite) TestAssignUnitToNewMachineContainerConstraint(c *gc.C) {
@@ -572,7 +573,7 @@ func (s *AssignSuite) assertAssignUnitNewPolicyNoContainer(c *gc.C) {
 	assertMachineCount(c, s.State, 2)
 	id, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(state.ParentId(id), gc.Equals, "")
+	c.Assert(container.ParentId(id), gc.Equals, "")
 }
 
 func (s *AssignSuite) TestAssignUnitNewPolicy(c *gc.C) {
