@@ -1401,7 +1401,7 @@ class ModelClient:
         # we're deploying a complex set of machines/containers.
         return retvar, CommandComplete(WaitAgentsStarted(wait_timeout), ct)
 
-    def migrate(self, full_model_name, model_name, dest_client, include_e=True):
+    def migrate(self, full_model_name, model_name, src_model_client, dest_client, include_e=True):
         self.juju(
             'migrate',
             (full_model_name, dest_client.env.controller.name),
@@ -1409,8 +1409,7 @@ class ModelClient:
         )
         # the specified source model has been migrated to the dest client,
         # so remove it from self._backend._added_models,
-        src_model = self.clone(self.env.clone(model_name))
-        self._backend.untrack_model(src_model)
+        self._backend.untrack_model(src_model_client)
 
         migration_target_client = dest_client.clone(
             dest_client.env.clone(model_name),

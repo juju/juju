@@ -206,7 +206,7 @@ def ensure_api_login_redirects(source_client, dest_client):
     log.info('Attempting migration process')
 
     migrated_model_client = migrate_model_to_controller(
-        new_model_client, dest_client)
+        new_model_client, source_client, dest_client)
 
     # check show model controller details
     assert_model_has_correct_controller_uuid(migrated_model_client)
@@ -275,7 +275,7 @@ def ensure_migration_with_resources_succeeds(source_client, dest_client):
     test_model, application = deploy_simple_server_to_new_model(
         source_client, 'example-model-resource', resource_contents)
     migration_target_client = migrate_model_to_controller(
-        test_model, dest_client)
+        test_model, source_client, dest_client)
     assert_model_migrated_successfully(
         migration_target_client, application, resource_contents)
 
@@ -307,7 +307,7 @@ def ensure_superuser_can_migrate_other_user_models(
         attempt_client.env.user_name)
 
     migration_client = source_client.migrate(
-        user_qualified_model_name, user_qualified_model_name, dest_client,
+        user_qualified_model_name, user_qualified_model_name, attempt_client, dest_client,
         include_e=False)
 
     wait_for_model(
@@ -319,20 +319,20 @@ def ensure_superuser_can_migrate_other_user_models(
 
 
 def migrate_model_to_controller(
-        source_client, dest_client, include_user_name=False):
+        source_model, source_client, dest_client, include_user_name=False):
     log.info('Initiating migration process')
-    model_name = get_full_model_name(source_client, include_user_name)
+    model_name = get_full_model_name(source_model, include_user_name)
 
     migration_target_client = source_client.migrate(
-        model_name, source_client.env.environment, dest_client,
+        model_name, source_model.env.environment, source_model, dest_client,
         include_e=False,
         )
 
     try:
-        wait_for_model(migration_target_client, source_client.env.environment)
+        wait_for_model(migration_target_client, source_model.env.environment)
         migration_target_client.wait_for_started()
         wait_until_model_disappears(
-            source_client, source_client.env.environment, timeout=480)
+            source_model, source_model.env.environment, timeout=480)
     except JujuAssertionError as e:
         # Attempt to show model details as it might log migration failure
         # message.
@@ -340,13 +340,13 @@ def migrate_model_to_controller(
             'Model failed to migrate. '
             'Attempting show-model for affected models.')
         try:
-            source_client.juju('show-model', (model_name), include_e=False)
+            source_model.juju('show-model', (model_name), include_e=False)
         except:  # noqa
             log.info('Ignoring failed output.')
             pass
 
         try:
-            source_client.juju(
+            source_model.juju(
                 'show-model',
                 get_full_model_name(
                     migration_target_client, include_user_name),
@@ -423,7 +423,9 @@ def ensure_model_logs_are_migrated(source_client, dest_client, timeout=600):
     before_migration_logs = new_model_client.get_juju_output(
         'debug-log', '--no-tail', '-l', 'DEBUG')
     log.info('Attempting migration process')
-    migrated_model = migrate_model_to_controller(new_model_client, dest_client)
+    migrated_model = migrate_model_to_controller(
+        new_model_client, source_client, dest_client,
+    )
 
     assert_logs_appear_in_client_model(
         migrated_model, before_migration_logs, timeout)
@@ -460,7 +462,7 @@ def ensure_migration_rolls_back_on_failure(source_client, dest_client):
     test_model, application = deploy_simple_server_to_new_model(
         source_client, 'rollmeback')
     test_model.migrate(
-        test_model.env.environment, test_model.env.environment, dest_client,
+        test_model.env.environment, test_model.env.environment, test_model, dest_client,
         include_e=False)
     # Once migration has started interrupt it
     wait_for_migrating(test_model)
@@ -534,7 +536,7 @@ def ensure_migrating_with_superuser_user_permissions_succeeds(
         user_source_client, 'super-permissions')
     log.info('Attempting migration process')
     migrated_client = migrate_model_to_controller(
-        user_new_model, user_dest_client, include_user_name=True)
+        user_new_model, source_client, user_dest_client, include_user_name=True)
     log.info('SUCCESS: superuser migrated other user model.')
     migrated_client.destroy_model()
 
