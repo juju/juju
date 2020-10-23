@@ -47,6 +47,7 @@ parts:
       - github.com/juju/juju/cmd/jujuc
       - github.com/juju/juju/cmd/jujud
       - github.com/juju/juju/cmd/plugins/juju-metadata
+      - github.com/juju/juju/cmd/plugins/juju-wait-for
     # go-external-strings is not supported by the standard go plugin.
     # these strings are filled in by CI.
     go-external-strings:
