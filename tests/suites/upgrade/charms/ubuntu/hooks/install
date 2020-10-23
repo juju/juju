@@ -1,0 +1,2 @@
+#!/bin/bash
+status-set "active" "called in install hook"

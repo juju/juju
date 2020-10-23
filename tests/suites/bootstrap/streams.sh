@@ -13,7 +13,7 @@ run_simplestream_metadata() {
         -d "./tests/suites/bootstrap/streams/"
 
     add_clean_func "kill_server"
-    start_server
+    start_server "./tests/suites/bootstrap/streams/tools"
 
     ip_address=$(ip -4 -o addr show scope global | awk '{gsub(/\/.*/,"",$4); print $4}' | head -n 1)
 
@@ -75,26 +75,4 @@ remove_bootstrap_metadata() {
     echo "==> Removing metadata"
     rm -rf ./tests/suites/bootstrap/streams/tools/streams || true
     echo "==> Removed metadata"
-}
-
-start_server() {
-    python -m http.server --directory "./tests/suites/bootstrap/streams/tools" 8000 >"${TEST_DIR}/server.log" 2>&1 &
-    SERVER_PID=$!
-
-    echo "${SERVER_PID}" > "${TEST_DIR}/server.pid"
-}
-
-kill_server() {
-    if [ ! -f "${TEST_DIR}/server.pid" ]; then
-      return
-    fi
-
-    pid=$(cat "${TEST_DIR}/server.pid" | head -n 1 || echo "NOT FOUND")
-    if [ "${pid}" == "NOT FOUND" ]; then
-        return
-    fi
-
-    echo "==> Killing server"
-    kill -9 "${pid}" >/dev/null 2>&1 || true
-    echo "==> Killed server (PID is $(green "${pid}"))"
 }
