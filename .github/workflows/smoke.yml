@@ -165,7 +165,7 @@ jobs:
 
         VERSION=$(juju version | cut -d "-" -f 1,2 | xargs -I% echo "%.1")
         while true; do
-            juju upgrade-model --agent-version="$VERSION" 2>&1 | tee -a output.log || true
+            juju upgrade-model --agent-version="$VERSION" 2>&1 | tee output.log || true
             RES=$(cat output.log | grep "upgrade in progress" || echo "NOT-UPGRADING")
             if [ "$RES" = "NOT-UPGRADING" ]; then
                 break
