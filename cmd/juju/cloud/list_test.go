@@ -13,6 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	cloudapi "github.com/juju/juju/api/cloud"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/juju/osenv"
@@ -94,7 +95,7 @@ func (s *listSuite) TestListController(c *gc.C) {
 
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--format", "yaml", "-c", "mycontroller")
 	c.Assert(err, jc.ErrorIsNil)
-	s.api.CheckCallNames(c, "Clouds", "Close")
+	s.api.CheckCallNames(c, "Clouds", "CloudInfo", "Close")
 	c.Assert(cmd.ControllerName, gc.Equals, "mycontroller")
 
 	c.Assert(cmdtesting.Stdout(ctx), jc.Contains, `
@@ -106,6 +107,10 @@ beehive:
   regions:
     regionone:
       endpoint: http://boston/1.0
+  users:
+    fred:
+      display-name: Fred
+      access: admin
 `[1:])
 }
 
@@ -131,7 +136,7 @@ func (s *listSuite) TestListClientAndController(c *gc.C) {
 
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
-	s.api.CheckCallNames(c, "Clouds", "Close")
+	s.api.CheckCallNames(c, "Clouds", "CloudInfo", "Close")
 	c.Assert(cmd.ControllerName, gc.Equals, "mycontroller")
 
 	c.Assert(cmdtesting.Stdout(ctx), jc.Contains, `
@@ -143,6 +148,10 @@ beehive:
   regions:
     regionone:
       endpoint: http://boston/1.0
+  users:
+    fred:
+      display-name: Fred
+      access: admin
 `[1:])
 }
 
@@ -169,7 +178,7 @@ func (s *listSuite) TestListEmbedded(c *gc.C) {
 
 	ctx, err := cmdtesting.RunCommand(c, cmd)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api.CheckCallNames(c, "Clouds", "Close")
+	s.api.CheckCallNames(c, "Clouds", "CloudInfo", "Close")
 	c.Assert(cmd.ControllerName, gc.Equals, "mycontroller")
 
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
@@ -203,7 +212,7 @@ func (s *listSuite) TestListKubernetes(c *gc.C) {
 
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--controller", "mycontroller", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
-	s.api.CheckCallNames(c, "Clouds", "Close")
+	s.api.CheckCallNames(c, "Clouds", "CloudInfo", "Close")
 	c.Assert(cmd.ControllerName, gc.Equals, "mycontroller")
 	c.Assert(cmdtesting.Stdout(ctx), jc.Contains, `
 beehive:
@@ -214,6 +223,10 @@ beehive:
   regions:
     default:
       endpoint: http://cluster/default
+  users:
+    fred:
+      display-name: Fred
+      access: admin
 `[1:])
 }
 
@@ -251,7 +264,7 @@ func (s *listSuite) assertListTabular(c *gc.C, expectedOutput string) {
 
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--controller", "mycontroller", "--format", "tabular")
 	c.Assert(err, jc.ErrorIsNil)
-	s.api.CheckCallNames(c, "Clouds", "Close")
+	s.api.CheckCallNames(c, "Clouds", "CloudInfo", "Close")
 	c.Assert(cmd.ControllerName, gc.Equals, "mycontroller")
 
 	out := cmdtesting.Stdout(ctx)
@@ -380,4 +393,21 @@ func (api *fakeListCloudsAPI) Close() error {
 func (api *fakeListCloudsAPI) Clouds() (map[names.CloudTag]jujucloud.Cloud, error) {
 	api.AddCall("Clouds")
 	return api.controllerClouds, nil
+}
+
+func (api *fakeListCloudsAPI) CloudInfo(tags []names.CloudTag) ([]cloudapi.CloudInfo, error) {
+	api.AddCall("CloudInfo", tags)
+	var result []cloudapi.CloudInfo
+	for _, cloud := range api.controllerClouds {
+		result = append(result, cloudapi.CloudInfo{
+			Cloud: cloud,
+			Users: map[string]cloudapi.CloudUserInfo{
+				"fred": {
+					DisplayName: "Fred",
+					Access:      "admin",
+				},
+			},
+		})
+	}
+	return result, api.NextErr()
 }

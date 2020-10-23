@@ -90,6 +90,7 @@ See also:
 
 type ListCloudsAPI interface {
 	Clouds() (map[names.CloudTag]jujucloud.Cloud, error)
+	CloudInfo(tags []names.CloudTag) ([]cloudapi.CloudInfo, error)
 	Close() error
 }
 
@@ -164,8 +165,18 @@ func (c *listCloudsCommand) getCloudList(ctxt *cmd.Context) (*cloudList, error) 
 			if err != nil {
 				return errors.Trace(err)
 			}
+			tags := make([]names.CloudTag, len(controllerClouds))
+			i := 0
 			for _, cloud := range controllerClouds {
-				cloudDetails := makeCloudDetails(c.Store, cloud)
+				tags[i] = names.NewCloudTag(cloud.Name)
+				i++
+			}
+			cloudInfos, err := api.CloudInfo(tags)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			for _, cloud := range cloudInfos {
+				cloudDetails := makeCloudDetailsForUser(c.Store, cloud)
 				details.remote[cloud.Name] = cloudDetails
 			}
 			return nil

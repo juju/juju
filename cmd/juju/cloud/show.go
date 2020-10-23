@@ -60,7 +60,7 @@ See also:
 `
 
 type showCloudAPI interface {
-	Cloud(tag names.CloudTag) (jujucloud.Cloud, error)
+	CloudInfo(tags []names.CloudTag) ([]cloudapi.CloudInfo, error)
 	Close() error
 }
 
@@ -216,11 +216,11 @@ func (c *showCloudCommand) getControllerCloud() (*CloudDetails, error) {
 		return nil, err
 	}
 	defer api.Close()
-	controllerCloud, err := api.Cloud(names.NewCloudTag(c.CloudName))
+	controllerCloud, err := api.CloudInfo([]names.CloudTag{names.NewCloudTag(c.CloudName)})
 	if err != nil {
 		return nil, err
 	}
-	cloud := makeCloudDetails(c.Store, controllerCloud)
+	cloud := makeCloudDetailsForUser(c.Store, controllerCloud[0])
 	return cloud, nil
 }
 
@@ -231,7 +231,7 @@ func (c *showCloudCommand) getLocalCloud() (*CloudDetails, error) {
 	}
 	cloud, ok := details[c.CloudName]
 	if !ok {
-		return nil, errors.NotFoundf("cloud %q", c.CloudName)
+		return nil, errors.NotFoundf("cloud %q, %v", c.CloudName, details)
 	}
 	return cloud, nil
 }
@@ -242,6 +242,12 @@ type RegionDetails struct {
 	Endpoint         string `yaml:"endpoint,omitempty" json:"endpoint,omitempty"`
 	IdentityEndpoint string `yaml:"identity-endpoint,omitempty" json:"identity-endpoint,omitempty"`
 	StorageEndpoint  string `yaml:"storage-endpoint,omitempty" json:"storage-endpoint,omitempty"`
+}
+
+// CloudUserInfo holds user access info for a cloud.
+type CloudUserInfo struct {
+	DisplayName string `yaml:"display-name,omitempty" json:"display-name,omitempty"`
+	Access      string `yaml:"access" json:"access"`
 }
 
 // CloudDetails holds cloud details.
@@ -264,9 +270,14 @@ type CloudDetails struct {
 	Config        map[string]interface{}   `yaml:"config,omitempty" json:"config,omitempty"`
 	RegionConfig  jujucloud.RegionConfig   `yaml:"region-config,omitempty" json:"region-config,omitempty"`
 	CACredentials []string                 `yaml:"ca-credentials,omitempty" json:"ca-credentials,omitempty"`
+	Users         map[string]CloudUserInfo `json:"users,omitempty" yaml:"users,omitempty"`
 }
 
 func makeCloudDetails(store jujuclient.CredentialGetter, cloud jujucloud.Cloud) *CloudDetails {
+	return makeCloudDetailsForUser(store, cloudapi.CloudInfo{Cloud: cloud})
+}
+
+func makeCloudDetailsForUser(store jujuclient.CredentialGetter, cloud cloudapi.CloudInfo) *CloudDetails {
 	result := &CloudDetails{
 		Source:           "public",
 		CloudType:        cloud.Type,
@@ -277,6 +288,7 @@ func makeCloudDetails(store jujuclient.CredentialGetter, cloud jujucloud.Cloud) 
 		RegionConfig:     cloud.RegionConfig,
 		CloudDescription: cloud.Description,
 		CACredentials:    cloud.CACertificates,
+		Users:            make(map[string]CloudUserInfo),
 	}
 	result.AuthTypes = make([]string, len(cloud.AuthTypes))
 	for i, at := range cloud.AuthTypes {
@@ -300,6 +312,12 @@ func makeCloudDetails(store jujuclient.CredentialGetter, cloud jujucloud.Cloud) 
 	if cred, err := store.CredentialForCloud(cloud.Name); err == nil {
 		result.DefaultRegion = cred.DefaultRegion
 		result.CredentialCount = len(cred.AuthCredentials)
+	}
+	for name, user := range cloud.Users {
+		result.Users[name] = CloudUserInfo{
+			DisplayName: user.DisplayName,
+			Access:      user.Access,
+		}
 	}
 	return result
 }
