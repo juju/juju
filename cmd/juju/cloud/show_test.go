@@ -13,6 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	cloudapi "github.com/juju/juju/api/cloud"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/juju/osenv"
@@ -112,7 +113,7 @@ func (s *showSuite) TestShowKubernetes(c *gc.C) {
 		})
 	ctx, err := cmdtesting.RunCommand(c, command, "--controller", "mycontroller", "beehive")
 	c.Assert(err, jc.ErrorIsNil)
-	s.api.CheckCallNames(c, "Cloud", "Close")
+	s.api.CheckCallNames(c, "CloudInfo", "Close")
 	c.Assert(command.ControllerName, gc.Equals, "mycontroller")
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, `
@@ -126,6 +127,10 @@ endpoint: http://cluster
 regions:
   default:
     endpoint: http://cluster/default
+users:
+  fred:
+    display-name: Fred
+    access: admin
 `[1:])
 }
 
@@ -154,7 +159,7 @@ func (s *showSuite) TestShowControllerCloudNoLocal(c *gc.C) {
 		})
 	ctx, err := cmdtesting.RunCommand(c, command, "beehive", "-c", "mycontroller")
 	c.Assert(err, jc.ErrorIsNil)
-	s.api.CheckCallNames(c, "Cloud", "Close")
+	s.api.CheckCallNames(c, "CloudInfo", "Close")
 	c.Assert(command.ControllerName, gc.Equals, "mycontroller")
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, `
@@ -168,6 +173,10 @@ endpoint: http://myopenstack
 regions:
   regionone:
     endpoint: http://boston/1.0
+users:
+  fred:
+    display-name: Fred
+    access: admin
 `[1:])
 }
 
@@ -180,7 +189,7 @@ func (s *showSuite) TestShowControllerAndLocalCloud(c *gc.C) {
 		})
 	ctx, err := cmdtesting.RunCommand(c, command, "aws-china")
 	c.Assert(err, jc.ErrorIsNil)
-	s.api.CheckCallNames(c, "Cloud", "Close")
+	s.api.CheckCallNames(c, "CloudInfo", "Close")
 	c.Assert(command.ControllerName, gc.Equals, "mycontroller")
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, `
@@ -194,6 +203,10 @@ endpoint: http://myopenstack
 regions:
   regionone:
     endpoint: http://boston/1.0
+users:
+  fred:
+    display-name: Fred
+    access: admin
 
 Client cloud "aws-china":
 
@@ -406,4 +419,17 @@ func (api *fakeShowCloudAPI) Close() error {
 func (api *fakeShowCloudAPI) Cloud(tag names.CloudTag) (jujucloud.Cloud, error) {
 	api.AddCall("Cloud", tag)
 	return api.cloud, api.NextErr()
+}
+
+func (api *fakeShowCloudAPI) CloudInfo(tags []names.CloudTag) ([]cloudapi.CloudInfo, error) {
+	api.AddCall("CloudInfo", tags)
+	return []cloudapi.CloudInfo{{
+		Cloud: api.cloud,
+		Users: map[string]cloudapi.CloudUserInfo{
+			"fred": {
+				DisplayName: "Fred",
+				Access:      "admin",
+			},
+		},
+	}}, api.NextErr()
 }
