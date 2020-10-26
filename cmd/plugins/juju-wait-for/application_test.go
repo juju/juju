@@ -23,7 +23,7 @@ func (s *applicationScopeSuite) TestGetIdentValue(c *gc.C) {
 	tests := []struct {
 		Field           string
 		ApplicationInfo *params.ApplicationInfo
-		Expected        query.Ord
+		Expected        query.Box
 	}{{
 		Field:           "name",
 		ApplicationInfo: &params.ApplicationInfo{Name: "application name"},
@@ -54,6 +54,7 @@ func (s *applicationScopeSuite) TestGetIdentValue(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("%d: GetIdentValue %q", i, test.Field)
 		scope := ApplicationScope{
+			Scope:           NewGenericScope(),
 			ApplicationInfo: test.ApplicationInfo,
 		}
 		result, err := scope.GetIdentValue(test.Field)
@@ -64,6 +65,7 @@ func (s *applicationScopeSuite) TestGetIdentValue(c *gc.C) {
 
 func (s *applicationScopeSuite) TestGetIdentValueError(c *gc.C) {
 	scope := ApplicationScope{
+		Scope:           NewGenericScope(),
 		ApplicationInfo: &params.ApplicationInfo{},
 	}
 	result, err := scope.GetIdentValue("bad")

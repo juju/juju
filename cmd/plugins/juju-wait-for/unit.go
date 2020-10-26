@@ -128,22 +128,29 @@ func (c *unitCommand) waitFor(name string, deltas []params.Delta, q query.Query)
 
 // UnitScope allows the query to introspect a unit entity.
 type UnitScope struct {
-	GenericScope
+	query.Scope
 	UnitInfo *params.UnitInfo
 }
 
 // MakeUnitScope creates an UnitScope from an UnitInfo
 func MakeUnitScope(info *params.UnitInfo) UnitScope {
 	return UnitScope{
-		GenericScope: GenericScope{
-			Info: info,
-		},
+		Scope:    NewGenericScope(),
 		UnitInfo: info,
 	}
 }
 
+// GetIdents returns the identifiers with in a given scope.
+func (m UnitScope) GetIdents() []string {
+	return append(getIdents(m.UnitInfo), m.Scope.GetIdents()...)
+}
+
 // GetIdentValue returns the value of the identifier in a given scope.
-func (m UnitScope) GetIdentValue(name string) (query.Ord, error) {
+func (m UnitScope) GetIdentValue(name string) (query.Box, error) {
+	if box, err := m.Scope.GetIdentValue(name); err == nil {
+		return box, nil
+	}
+
 	switch name {
 	case "name":
 		return query.NewString(m.UnitInfo.Name), nil
@@ -171,4 +178,11 @@ func (m UnitScope) GetIdentValue(name string) (query.Ord, error) {
 		return query.NewString(string(m.UnitInfo.AgentStatus.Current)), nil
 	}
 	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name), "Runtime Error: identifier %q not found on UnitInfo", name)
+}
+
+// Clone creates a new scope.
+func (m UnitScope) Clone() query.Scope {
+	x := m
+	x.Scope = m.Scope.Clone()
+	return x
 }

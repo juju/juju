@@ -127,22 +127,29 @@ func (c *machineCommand) waitFor(id string, deltas []params.Delta, q query.Query
 
 // MachineScope allows the query to introspect a model entity.
 type MachineScope struct {
-	GenericScope
+	query.Scope
 	MachineInfo *params.MachineInfo
 }
 
 // MakeMachineScope creates an MachineScope from an MachineInfo
 func MakeMachineScope(info *params.MachineInfo) MachineScope {
 	return MachineScope{
-		GenericScope: GenericScope{
-			Info: info,
-		},
+		Scope:       NewGenericScope(),
 		MachineInfo: info,
 	}
 }
 
+// GetIdents returns the identifiers with in a given scope.
+func (m MachineScope) GetIdents() []string {
+	return append(getIdents(m.MachineInfo), m.Scope.GetIdents()...)
+}
+
 // GetIdentValue returns the value of the identifier in a given scope.
-func (m MachineScope) GetIdentValue(name string) (query.Ord, error) {
+func (m MachineScope) GetIdentValue(name string) (query.Box, error) {
+	if box, err := m.Scope.GetIdentValue(name); err == nil {
+		return box, nil
+	}
+
 	switch name {
 	case "id":
 		return query.NewString(m.MachineInfo.Id), nil
@@ -166,4 +173,11 @@ func (m MachineScope) GetIdentValue(name string) (query.Ord, error) {
 		return query.NewSliceString(containerTypes), nil
 	}
 	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name), "Runtime Error: identifier %q not found on MachineInfo", name)
+}
+
+// Clone creates a new scope.
+func (m MachineScope) Clone() query.Scope {
+	x := m
+	x.Scope = m.Scope.Clone()
+	return x
 }

@@ -4,6 +4,7 @@
 package query
 
 import (
+	"fmt"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -31,18 +32,29 @@ func Parse(src string) (Query, error) {
 
 // Scope is used to identify a given expression of a global mutated object.
 type Scope interface {
+
+	// GetIdents returns the identifers that are supported for a given scope.
+	GetIdents() []string
+
 	// GetIdentValue returns the value of the identifier in a given scope.
-	GetIdentValue(string) (Ord, error)
+	GetIdentValue(string) (Box, error)
+
+	// SetIdentValue sets a nwe ident and it's value on a given scope.
+	SetIdentValue(string, interface{})
+
+	// Clone a given scope
+	Clone() Scope
 }
 
 // FuncScope is used to call functions for a given identifer.
 type FuncScope interface {
-	Call(*Identifier, []Ord) (interface{}, error)
+	Add(string, func(interface{}) (interface{}, error))
+	Call(*Identifier, []Box) (interface{}, error)
 }
 
 // BuiltinsRun runs the query with a set of builtin functions.
 func (q Query) BuiltinsRun(scope Scope) (bool, error) {
-	return q.Run(NewGlobalFuncScope(), scope)
+	return q.Run(NewGlobalFuncScope(scope), scope)
 }
 
 // Run the query over a given scope.
@@ -57,8 +69,8 @@ func (q Query) Run(fnScope FuncScope, scope Scope) (bool, error) {
 	if res == nil {
 		return false, nil
 	}
-	if ord, ok := res.(Ord); ok {
-		return !ord.IsZero(), nil
+	if box, ok := res.(Box); ok {
+		return !box.IsZero(), nil
 	}
 	ref := reflect.ValueOf(res)
 	return !ref.IsZero(), nil
@@ -84,15 +96,15 @@ func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (interface{}, e
 	case *CallExpression:
 		fn, ok := node.Name.(*Identifier)
 		if !ok {
-			return nil, RuntimeErrorf("%s %v unexpected function name", shadowType(node.Name.(Ord)), node.Name.Pos())
+			return nil, RuntimeErrorf("%s %v unexpected function name", shadowType(node.Name.(Box)), node.Name.Pos())
 		}
-		var args []Ord
+		var args []Box
 		for _, arg := range node.Arguments {
 			result, err := q.run(arg, fnScope, scope)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			ord, err := liftRawResult(result)
+			ord, err := ConvertRawResult(result)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -102,7 +114,31 @@ func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (interface{}, e
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return liftRawResult(res)
+		return ConvertRawResult(res)
+
+	case *LambdaExpression:
+		arg, ok := node.Argument.(*Identifier)
+		if !ok {
+			return nil, RuntimeErrorf("%s %v unexpected argument", shadowType(node.Argument.(Box)), node.Argument.Pos())
+		}
+
+		return NewLambda(arg, func(arg *Identifier, scope Scope) ([]Box, error) {
+			fmt.Println("HERE", arg, scope)
+			var results []Box
+			for _, expr := range node.Expressions {
+				result, err := q.run(expr, fnScope, scope)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				ord, err := ConvertRawResult(result)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				results = append(results, ord)
+			}
+			fmt.Println("RESULTS", results)
+			return results, nil
+		}), nil
 
 	case *IndexExpression:
 		left, err := q.run(node.Left, fnScope, scope)
@@ -116,7 +152,7 @@ func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (interface{}, e
 		}
 
 		switch t := left.(type) {
-		case *OrdMapStringInterface:
+		case *BoxMapStringInterface:
 			idx, err := expectStringIndex(index)
 			if err != nil {
 				return nil, errors.Annotatef(err, "%s %v accessing map", shadowType(t), node.Left.Pos())
@@ -125,10 +161,10 @@ func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (interface{}, e
 			if !ok {
 				return nil, RuntimeErrorf("%s %v unexpected index %v accessing map", shadowType(t), node.Left.Pos(), idx.value)
 			}
-			return liftRawResult(res)
+			return ConvertRawResult(res)
 
-		case *OrdMapInterfaceInterface:
-			idx, err := expectOrdIndex(index)
+		case *BoxMapInterfaceInterface:
+			idx, err := expectBoxIndex(index)
 			if err != nil {
 				return nil, errors.Annotatef(err, "%s %v accessing map", shadowType(t), node.Left.Pos())
 			}
@@ -136,9 +172,9 @@ func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (interface{}, e
 			if !ok {
 				return nil, RuntimeErrorf("%s %v unexpected index %v accessing map", shadowType(t), node.Left.Pos(), idx.Value())
 			}
-			return liftRawResult(res)
+			return ConvertRawResult(res)
 
-		case *OrdSliceString:
+		case *BoxSliceString:
 			idx, err := expectIntegerIndex(index)
 			if err != nil {
 				return nil, errors.Annotatef(err, "%s %v accessing slice", shadowType(t), node.Left.Pos())
@@ -147,7 +183,7 @@ func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (interface{}, e
 			if num < 0 || num >= len(t.value) {
 				return nil, RuntimeErrorf("%s %v range error accessing slice", shadowType(t), node.Left.Pos(), num)
 			}
-			return liftRawResult(t.value[num])
+			return ConvertRawResult(t.value[num])
 
 		default:
 			return nil, RuntimeErrorf("%T %v unexpected index expression", left, node.Left.Pos())
@@ -188,7 +224,7 @@ func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (interface{}, e
 		// Everything onwards expects to work on logical operators.
 		var leftOp, rightOp bool
 		switch op := left.(type) {
-		case *OrdBool:
+		case *BoxBool:
 			leftOp = op.value
 		case bool:
 			leftOp = op
@@ -215,7 +251,7 @@ func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (interface{}, e
 		}
 
 		switch op := right.(type) {
-		case *OrdBool:
+		case *BoxBool:
 			rightOp = op.value
 		case bool:
 			rightOp = op
@@ -229,16 +265,16 @@ func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (interface{}, e
 		return scope.GetIdentValue(node.Token.Literal)
 
 	case *Integer:
-		return &OrdInteger{value: node.Value}, nil
+		return &BoxInteger{value: node.Value}, nil
 
 	case *Float:
-		return &OrdFloat{value: node.Value}, nil
+		return &BoxFloat{value: node.Value}, nil
 
 	case *String:
-		return &OrdString{value: node.Token.Literal}, nil
+		return &BoxString{value: node.Token.Literal}, nil
 
 	case *Bool:
-		return &OrdBool{value: node.Value}, nil
+		return &BoxBool{value: node.Value}, nil
 
 	case *Empty:
 		return nil, nil
@@ -247,8 +283,8 @@ func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (interface{}, e
 }
 
 func equality(left, right interface{}) bool {
-	a, ok1 := left.(Ord)
-	b, ok2 := right.(Ord)
+	a, ok1 := left.(Box)
+	b, ok2 := right.(Box)
 
 	if !ok1 || !ok2 {
 		return a == b
@@ -257,8 +293,8 @@ func equality(left, right interface{}) bool {
 }
 
 func lessThan(left, right interface{}) bool {
-	a, ok1 := left.(Ord)
-	b, ok2 := right.(Ord)
+	a, ok1 := left.(Box)
+	b, ok2 := right.(Box)
 
 	if !ok1 || !ok2 {
 		return false
@@ -268,8 +304,8 @@ func lessThan(left, right interface{}) bool {
 }
 
 func lessThanOrEqual(left, right interface{}) bool {
-	a, ok1 := left.(Ord)
-	b, ok2 := right.(Ord)
+	a, ok1 := left.(Box)
+	b, ok2 := right.(Box)
 
 	if !ok1 || !ok2 {
 		return false
@@ -278,16 +314,16 @@ func lessThanOrEqual(left, right interface{}) bool {
 	return a.Less(b) || a.Equal(b)
 }
 
-func valid(o Ord) bool {
+func valid(o Box) bool {
 	switch o := o.(type) {
-	case *OrdInteger:
+	case *BoxInteger:
 		return o.value > 0
 	}
 	return false
 }
 
-func liftRawResult(value interface{}) (Ord, error) {
-	if ord, ok := value.(Ord); ok {
+func ConvertRawResult(value interface{}) (Box, error) {
+	if ord, ok := value.(Box); ok {
 		return ord, nil
 	}
 

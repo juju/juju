@@ -11,12 +11,14 @@ import (
 // GlobalFuncScope defines a set of builtin functions that can be executed based
 // on a set of arguments.
 type GlobalFuncScope struct {
+	scope Scope
 	funcs map[string]interface{}
 }
 
 // NewGlobalFuncScope creates a new scope for executing functions.
-func NewGlobalFuncScope() *GlobalFuncScope {
+func NewGlobalFuncScope(scope Scope) *GlobalFuncScope {
 	return &GlobalFuncScope{
+		scope: scope,
 		funcs: map[string]interface{}{
 			"len": func(v interface{}) (int, error) {
 				val := reflect.ValueOf(v)
@@ -35,8 +37,13 @@ func NewGlobalFuncScope() *GlobalFuncScope {
 	}
 }
 
+// Add a function to the global scope.
+func (s *GlobalFuncScope) Add(name string, fn func(interface{}) (interface{}, error)) {
+	s.funcs[name] = fn
+}
+
 // Call a function with a set of arguments.
-func (s *GlobalFuncScope) Call(ident *Identifier, params []Ord) (interface{}, error) {
+func (s *GlobalFuncScope) Call(ident *Identifier, params []Box) (interface{}, error) {
 	name := ident.Token.Literal
 	fn, ok := s.funcs[name]
 	if !ok {

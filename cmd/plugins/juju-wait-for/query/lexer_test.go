@@ -234,6 +234,15 @@ func (p *lexerSuite) TestReadNextIdent(c *gc.C) {
 			Type:    IDENT,
 			Literal: "space",
 		}},
+	}, {
+		Input: `_`,
+		Expected: []Token{{
+			Type: -1,
+		}, {
+			Pos:     Position{Offset: 0, Line: 1, Column: 1},
+			Type:    UNDERSCORE,
+			Literal: "_",
+		}},
 	}}
 
 	for _, test := range tests {

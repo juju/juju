@@ -166,22 +166,29 @@ func (c *applicationCommand) waitFor(name string, deltas []params.Delta, q query
 
 // ApplicationScope allows the query to introspect a application entity.
 type ApplicationScope struct {
-	GenericScope
+	query.Scope
 	ApplicationInfo *params.ApplicationInfo
 }
 
 // MakeApplicationScope creates an ApplicationScope from an ApplicationInfo
 func MakeApplicationScope(info *params.ApplicationInfo) ApplicationScope {
 	return ApplicationScope{
-		GenericScope: GenericScope{
-			Info: info,
-		},
+		Scope:           NewGenericScope(),
 		ApplicationInfo: info,
 	}
 }
 
+// GetIdents returns the identifiers with in a given scope.
+func (m ApplicationScope) GetIdents() []string {
+	return append(getIdents(m.ApplicationInfo), m.Scope.GetIdents()...)
+}
+
 // GetIdentValue returns the value of the identifier in a given scope.
-func (m ApplicationScope) GetIdentValue(name string) (query.Ord, error) {
+func (m ApplicationScope) GetIdentValue(name string) (query.Box, error) {
+	if box, err := m.Scope.GetIdentValue(name); err == nil {
+		return box, nil
+	}
+
 	switch name {
 	case "name":
 		return query.NewString(m.ApplicationInfo.Name), nil
@@ -201,4 +208,11 @@ func (m ApplicationScope) GetIdentValue(name string) (query.Ord, error) {
 		return query.NewString(m.ApplicationInfo.WorkloadVersion), nil
 	}
 	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name), "Runtime Error: identifier %q not found on ApplicationInfo", name)
+}
+
+// Clone creates a new scope.
+func (m ApplicationScope) Clone() query.Scope {
+	x := m
+	x.Scope = m.Scope.Clone()
+	return x
 }

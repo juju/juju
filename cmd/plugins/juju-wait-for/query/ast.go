@@ -176,6 +176,43 @@ func (ie *CallExpression) String() string {
 	return out.String()
 }
 
+// LambdaExpression represents an expression that is associated with an
+// operator.
+type LambdaExpression struct {
+	Token       Token
+	Argument    Expression
+	Expressions []Expression
+}
+
+// Pos returns the first position of the identifier.
+func (ie *LambdaExpression) Pos() Position {
+	return ie.Token.Pos
+}
+
+// End returns the last position of the identifier.
+func (ie *LambdaExpression) End() Position {
+	if num := len(ie.Expressions); num > 0 {
+		return ie.Expressions[num-1].End()
+	}
+	return ie.Token.Pos
+}
+
+func (ie *LambdaExpression) String() string {
+	var out bytes.Buffer
+
+	var exprs []string
+	for _, a := range ie.Expressions {
+		exprs = append(exprs, a.String())
+	}
+	out.WriteString("(")
+	out.WriteString(ie.Argument.String())
+	out.WriteString("=>")
+	out.WriteString(strings.Join(exprs, "; "))
+	out.WriteString(")")
+
+	return out.String()
+}
+
 // Identifier represents an identifier for a given AST block
 type Identifier struct {
 	Token Token

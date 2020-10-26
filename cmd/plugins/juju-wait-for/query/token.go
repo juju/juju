@@ -41,6 +41,9 @@ const (
 	CONDOR  // ||
 	TRUE    // TRUE
 	FALSE   // FALSE
+
+	LAMBDA     // =>
+	UNDERSCORE // _
 )
 
 func (t TokenType) String() string {
@@ -69,6 +72,10 @@ func (t TokenType) String() string {
 		return ">"
 	case GE:
 		return ">="
+	case LAMBDA:
+		return "=>"
+	case UNDERSCORE:
+		return "_"
 	case COMMA:
 		return ","
 	case SEMICOLON:
@@ -147,4 +154,5 @@ var tokenMap = map[rune]TokenType{
 	'|': BITOR,
 	'<': LT,
 	'>': GT,
+	'_': UNDERSCORE,
 }

@@ -24,7 +24,7 @@ func (s *machineScopeSuite) TestGetIdentValue(c *gc.C) {
 	tests := []struct {
 		Field       string
 		MachineInfo *params.MachineInfo
-		Expected    query.Ord
+		Expected    query.Box
 	}{{
 		Field:       "id",
 		MachineInfo: &params.MachineInfo{Id: "0/lxd/0"},
@@ -57,6 +57,7 @@ func (s *machineScopeSuite) TestGetIdentValue(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("%d: GetIdentValue %q", i, test.Field)
 		scope := MachineScope{
+			Scope:       NewGenericScope(),
 			MachineInfo: test.MachineInfo,
 		}
 		result, err := scope.GetIdentValue(test.Field)
@@ -67,6 +68,7 @@ func (s *machineScopeSuite) TestGetIdentValue(c *gc.C) {
 
 func (s *machineScopeSuite) TestGetIdentValueError(c *gc.C) {
 	scope := MachineScope{
+		Scope:       NewGenericScope(),
 		MachineInfo: &params.MachineInfo{},
 	}
 	result, err := scope.GetIdentValue("bad")

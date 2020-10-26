@@ -320,3 +320,46 @@ func (p *parserSuite) TestParserInfixLogicalOR(c *gc.C) {
 		},
 	})
 }
+
+func (p *parserSuite) TestParserInfixLambda(c *gc.C) {
+	query := `_ => _`
+
+	lex := NewLexer(query)
+	parser := NewParser(lex)
+	exp, err := parser.Run()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(exp, gc.DeepEquals, &QueryExpression{
+		Expressions: []Expression{
+			&ExpressionStatement{
+				Expression: &LambdaExpression{
+					Argument: &Identifier{
+						Token: Token{
+							Pos:     Position{Line: 1, Column: 1, Offset: 0},
+							Type:    UNDERSCORE,
+							Literal: "_",
+						},
+					},
+					Expressions: []Expression{
+						&Identifier{
+							Token: Token{
+								Pos:     Position{Line: 1, Column: 6, Offset: 5},
+								Type:    UNDERSCORE,
+								Literal: "_",
+							},
+						},
+					},
+					Token: Token{
+						Pos:     Position{Line: 1, Column: 3, Offset: 2},
+						Type:    LAMBDA,
+						Literal: "=>",
+					},
+				},
+				Token: Token{
+					Pos:     Position{Line: 1, Column: 1, Offset: 0},
+					Type:    UNDERSCORE,
+					Literal: "_",
+				},
+			},
+		},
+	})
+}
