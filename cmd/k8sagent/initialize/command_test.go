@@ -6,6 +6,9 @@
 package initialize_test
 
 import (
+	"bytes"
+	"io"
+	"io/ioutil"
 	"os"
 
 	"github.com/golang/mock/gomock"
@@ -81,7 +84,17 @@ upgradedToVersion: 2.9-beta1
 apiaddresses:
 - localhost:17070
 apiport: 17070`[1:])
-	pebbleBytes := []byte(`pebble`)
+	expectedBytes := []byte(`bytes bytes lots of bytes`)
+
+	pebbleWritten := bytes.NewBuffer(nil)
+	k8sAgentWritten := bytes.NewBuffer(nil)
+	jujucWritten := bytes.NewBuffer(nil)
+	s.fileReaderWriter.EXPECT().Reader("/opt/pebble").Times(1).Return(ioutil.NopCloser(bytes.NewReader(expectedBytes)), nil)
+	s.fileReaderWriter.EXPECT().Writer("/charm/bin/pebble", os.FileMode(0755)).Return(NopWriteCloser(pebbleWritten), nil)
+	s.fileReaderWriter.EXPECT().Reader("/opt/k8sagent").Times(1).Return(ioutil.NopCloser(bytes.NewReader(expectedBytes)), nil)
+	s.fileReaderWriter.EXPECT().Writer("/charm/bin/k8sagent", os.FileMode(0755)).Return(NopWriteCloser(k8sAgentWritten), nil)
+	s.fileReaderWriter.EXPECT().Reader("/opt/jujuc").Times(1).Return(ioutil.NopCloser(bytes.NewReader(expectedBytes)), nil)
+	s.fileReaderWriter.EXPECT().Writer("/charm/bin/jujuc", os.FileMode(0755)).Return(NopWriteCloser(jujucWritten), nil)
 
 	gomock.InOrder(
 		s.applicationAPI.EXPECT().UnitIntroduction(`gitlab-0`, `gitlab-uuid`).Times(1).Return(&caasapplication.UnitConfig{
@@ -89,18 +102,34 @@ apiport: 17070`[1:])
 			AgentConf: data,
 		}, nil),
 
-		s.fileReaderWriter.EXPECT().MkdirAll(`/var/lib/juju`, os.FileMode(0755)).Return(nil),
-		s.fileReaderWriter.EXPECT().WriteFile(`/var/lib/juju/template-agent.conf`, data, os.FileMode(0644)).Return(nil),
-		s.fileReaderWriter.EXPECT().ReadFile("/opt/pebble").Times(1).Return(pebbleBytes, nil),
-		s.fileReaderWriter.EXPECT().WriteFile("/shared/usr/bin/pebble", pebbleBytes, os.FileMode(0755)).Return(nil),
-		s.fileReaderWriter.EXPECT().ReadFile("/opt/k8sagent").Times(1).Return(pebbleBytes, nil),
-		s.fileReaderWriter.EXPECT().WriteFile("/shared/usr/bin/k8sagent", pebbleBytes, os.FileMode(0755)).Return(nil),
-		s.fileReaderWriter.EXPECT().ReadFile("/opt/jujuc").Times(1).Return(pebbleBytes, nil),
-		s.fileReaderWriter.EXPECT().WriteFile("/shared/usr/bin/jujuc", pebbleBytes, os.FileMode(0755)).Return(nil),
+		s.fileReaderWriter.EXPECT().MkdirAll("/var/lib/juju", os.FileMode(0755)).Return(nil),
+		s.fileReaderWriter.EXPECT().WriteFile("/var/lib/juju/template-agent.conf", data, os.FileMode(0644)).Return(nil),
+		s.fileReaderWriter.EXPECT().MkdirAll("/charm/bin", os.FileMode(0755)).Return(nil),
 
 		s.applicationAPI.EXPECT().Close().Times(1).Return(nil),
 	)
 
-	_, err := cmdtesting.RunCommand(c, s.cmd)
+	_, err := cmdtesting.RunCommand(c, s.cmd,
+		"--data-dir", "/var/lib/juju",
+		"--bin-dir", "/charm/bin",
+	)
 	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(pebbleWritten.Bytes(), jc.SameContents, expectedBytes)
+	c.Assert(k8sAgentWritten.Bytes(), jc.SameContents, expectedBytes)
+	c.Assert(jujucWritten.Bytes(), jc.SameContents, expectedBytes)
+}
+
+type nopWriterCloser struct {
+	io.Writer
+}
+
+var _ io.WriteCloser = (*nopWriterCloser)(nil)
+
+func (*nopWriterCloser) Close() error {
+	return nil
+}
+
+func NopWriteCloser(w io.Writer) io.WriteCloser {
+	return &nopWriterCloser{w}
 }

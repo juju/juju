@@ -5,10 +5,10 @@
 package mocks
 
 import (
+	gomock "github.com/golang/mock/gomock"
+	io "io"
 	os "os"
 	reflect "reflect"
-
-	gomock "github.com/golang/mock/gomock"
 )
 
 // MockFileReaderWriter is a mock of FileReaderWriter interface
@@ -63,6 +63,21 @@ func (mr *MockFileReaderWriterMockRecorder) ReadFile(arg0 interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadFile", reflect.TypeOf((*MockFileReaderWriter)(nil).ReadFile), arg0)
 }
 
+// Reader mocks base method
+func (m *MockFileReaderWriter) Reader(arg0 string) (io.ReadCloser, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Reader", arg0)
+	ret0, _ := ret[0].(io.ReadCloser)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Reader indicates an expected call of Reader
+func (mr *MockFileReaderWriterMockRecorder) Reader(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reader", reflect.TypeOf((*MockFileReaderWriter)(nil).Reader), arg0)
+}
+
 // Symlink mocks base method
 func (m *MockFileReaderWriter) Symlink(arg0, arg1 string) error {
 	m.ctrl.T.Helper()
@@ -89,4 +104,19 @@ func (m *MockFileReaderWriter) WriteFile(arg0 string, arg1 []byte, arg2 os.FileM
 func (mr *MockFileReaderWriterMockRecorder) WriteFile(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteFile", reflect.TypeOf((*MockFileReaderWriter)(nil).WriteFile), arg0, arg1, arg2)
+}
+
+// Writer mocks base method
+func (m *MockFileReaderWriter) Writer(arg0 string, arg1 os.FileMode) (io.WriteCloser, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Writer", arg0, arg1)
+	ret0, _ := ret[0].(io.WriteCloser)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Writer indicates an expected call of Writer
+func (mr *MockFileReaderWriterMockRecorder) Writer(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Writer", reflect.TypeOf((*MockFileReaderWriter)(nil).Writer), arg0, arg1)
 }

@@ -36,6 +36,7 @@ func NewForTest(
 	bufferedLogger *logsender.BufferedLogWriter,
 	configChangedVal *voyeur.Value,
 	fileReaderWriter utils.FileReaderWriter,
+	environment utils.Environment,
 ) K8sUnitAgentTest {
 	return &k8sUnitAgent{
 		ctx:              ctx,
@@ -43,6 +44,7 @@ func NewForTest(
 		bufferedLogger:   bufferedLogger,
 		configChangedVal: configChangedVal,
 		fileReaderWriter: fileReaderWriter,
+		environment:      environment,
 	}
 }
 

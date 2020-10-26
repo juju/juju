@@ -43,8 +43,8 @@ import (
 var logger = loggo.GetLogger("juju.kubernetes.provider.application")
 
 const (
-	unitContainerName            = "juju-unit-agent"
-	jujuDataDirVolumeName        = "juju-data-dir"
+	unitContainerName            = "charm"
+	charmVolumeName              = "charm-data"
 	agentProbeInitialDelay int32 = 30
 	agentProbePeriod       int32 = 10
 	agentProbeSuccess      int32 = 1
@@ -820,7 +820,7 @@ func (a *app) Units() ([]caas.Unit, error) {
 		// Gather info about how filesystems are attached/mounted to the pod.
 		// The mount name represents the filesystem tag name used by Juju.
 		for _, volMount := range p.Spec.Containers[0].VolumeMounts {
-			if volMount.Name == "juju-data-dir" {
+			if volMount.Name == charmVolumeName {
 				continue
 			}
 			vol, ok := volumesByName[volMount.Name]
@@ -876,8 +876,13 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Image:           config.CharmBaseImage.RegistryPath,
 		WorkingDir:      jujuDataDir,
-		Command:         []string{"/usr/bin/k8sagent"},
-		Args:            []string{"unit", "--data-dir", jujuDataDir, "--charm-modified-version", strconv.Itoa(config.CharmModifiedVersion)},
+		Command:         []string{"/charm/bin/k8sagent"},
+		Args: []string{
+			"unit",
+			"--data-dir", jujuDataDir,
+			"--charm-modified-version", strconv.Itoa(config.CharmModifiedVersion),
+			"--append-env", "PATH=$PATH:/charm/bin",
+		},
 		Env: []corev1.EnvVar{
 			{
 				Name:  "JUJU_CONTAINER_NAMES",
@@ -926,26 +931,20 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      jujuDataDirVolumeName,
-				MountPath: "/usr/bin/k8sagent",
-				SubPath:   "usr/bin/k8sagent",
+				Name:      charmVolumeName,
+				MountPath: "/charm/bin",
+				SubPath:   "charm/bin",
 				ReadOnly:  true,
 			},
 			{
-				Name:      jujuDataDirVolumeName,
-				MountPath: "/usr/bin/jujuc",
-				SubPath:   "usr/bin/jujuc",
-				ReadOnly:  true,
-			},
-			{
-				Name:      jujuDataDirVolumeName,
+				Name:      charmVolumeName,
 				MountPath: jujuDataDir,
 				SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
 			},
 			{
-				Name:      jujuDataDirVolumeName,
-				MountPath: "/var/run/containers",
-				SubPath:   "var/run/containers",
+				Name:      charmVolumeName,
+				MountPath: "/charm/containers",
+				SubPath:   "charm/containers",
 			},
 		},
 	}}
@@ -955,22 +954,27 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			Name:            v.Name,
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Image:           v.Image.RegistryPath,
-			Command:         []string{"/usr/bin/pebble"},
+			Command:         []string{"/charm/bin/pebble"},
+			Args: []string{
+				"listen",
+				"--socket", "/charm/container/pebble.sock",
+				"--append-env", "PATH=$PATH:/charm/bin",
+			},
 			Env: []corev1.EnvVar{{
 				Name:  "JUJU_CONTAINER_NAME",
 				Value: v.Name,
 			}},
 			VolumeMounts: []corev1.VolumeMount{
 				{
-					Name:      jujuDataDirVolumeName,
-					MountPath: "/usr/bin/pebble",
-					SubPath:   "usr/bin/pebble",
+					Name:      charmVolumeName,
+					MountPath: "/charm/bin/pebble",
+					SubPath:   "charm/bin/pebble",
 					ReadOnly:  true,
 				},
 				{
-					Name:      jujuDataDirVolumeName,
-					MountPath: "/var/run/container",
-					SubPath:   fmt.Sprintf("var/run/containers/%s", v.Name),
+					Name:      charmVolumeName,
+					MountPath: "/charm/container",
+					SubPath:   fmt.Sprintf("charm/containers/%s", v.Name),
 				},
 			},
 		}
@@ -981,12 +985,12 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 	return &corev1.PodSpec{
 		AutomountServiceAccountToken: &automountToken,
 		InitContainers: []corev1.Container{{
-			Name:            "juju-unit-init",
+			Name:            "charm-init",
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Image:           config.AgentImagePath,
 			WorkingDir:      jujuDataDir,
 			Command:         []string{"/opt/k8sagent"},
-			Args:            []string{"init"},
+			Args:            []string{"init", "--data-dir", jujuDataDir, "--bin-dir", "/charm/bin"},
 			Env: []corev1.EnvVar{
 				{
 					Name:  "JUJU_CONTAINER_NAMES",
@@ -1020,26 +1024,26 @@ func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{
-					Name:      jujuDataDirVolumeName,
+					Name:      charmVolumeName,
 					MountPath: jujuDataDir,
 					SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
 				},
 				{
-					Name:      jujuDataDirVolumeName,
-					MountPath: "/shared/usr/bin",
-					SubPath:   "usr/bin",
+					Name:      charmVolumeName,
+					MountPath: "/charm/bin",
+					SubPath:   "charm/bin",
 				},
 				{
-					Name:      jujuDataDirVolumeName,
-					MountPath: "/var/run/containers",
-					SubPath:   "var/run/containers",
+					Name:      charmVolumeName,
+					MountPath: "/charm/containers",
+					SubPath:   "charm/containers",
 				},
 			},
 		}},
 		Containers: containerSpecs,
 		Volumes: []corev1.Volume{
 			{
-				Name: jujuDataDirVolumeName,
+				Name: charmVolumeName,
 				VolumeSource: corev1.VolumeSource{
 					EmptyDir: &corev1.EmptyDirVolumeSource{},
 				},

@@ -4,6 +4,7 @@
 package utils
 
 import (
+	"io"
 	"io/ioutil"
 	"os"
 )
@@ -14,6 +15,9 @@ import (
 type FileReaderWriter interface {
 	ReadFile(filename string) ([]byte, error)
 	WriteFile(filename string, data []byte, perm os.FileMode) error
+
+	Reader(filename string) (io.ReadCloser, error)
+	Writer(filename string, perm os.FileMode) (io.WriteCloser, error)
 
 	MkdirAll(path string, perm os.FileMode) error
 	Symlink(oldname, newname string) error
@@ -42,4 +46,12 @@ func (fileReaderWriter) MkdirAll(path string, perm os.FileMode) error {
 
 func (fileReaderWriter) Symlink(oldname, newname string) error {
 	return os.Symlink(oldname, newname)
+}
+
+func (fileReaderWriter) Reader(filename string) (io.ReadCloser, error) {
+	return os.OpenFile(filename, os.O_RDONLY, 0)
+}
+
+func (fileReaderWriter) Writer(filename string, perm os.FileMode) (io.WriteCloser, error) {
+	return os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, perm)
 }
