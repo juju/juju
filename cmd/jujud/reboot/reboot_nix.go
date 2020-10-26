@@ -26,7 +26,7 @@ sleep %d
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	_, err = f.WriteString(script)
 	if err != nil {
@@ -61,12 +61,12 @@ func scheduleAction(action params.RebootAction, after int) error {
 	if err != nil {
 		return err
 	}
-	// Use the "at" command to schedule a reboot without blocking
+	// Use the "nohup" command to run the reboot script without blocking.
 	scheduled := []string{
-		"at",
-		"-f",
+		"nohup",
+		"sh",
 		script,
-		"now",
+		"&",
 	}
 	return runCommand(scheduled)
 }
