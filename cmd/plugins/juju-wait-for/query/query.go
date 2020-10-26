@@ -104,11 +104,11 @@ func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (interface{}, e
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			ord, err := ConvertRawResult(result)
+			box, err := ConvertRawResult(result)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			args = append(args, ord)
+			args = append(args, box)
 		}
 		res, err := fnScope.Call(fn, args)
 		if err != nil {
@@ -132,11 +132,11 @@ func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (interface{}, e
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
-				ord, err := ConvertRawResult(result)
+				box, err := ConvertRawResult(result)
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
-				results = append(results, ord)
+				results = append(results, box)
 			}
 			return results, nil
 		}), nil
@@ -191,15 +191,15 @@ func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (interface{}, e
 		}
 
 	case *AccessorExpression:
-		parent, ok := node.Left.(*Identifier)
-		if !ok {
-			return nil, RuntimeErrorf("%T %v unexpected identifier", node.Left, node.Left.Pos())
+		parent, err := q.getName(node.Left, fnScope, scope)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
-		child, ok := node.Right.(*Identifier)
-		if !ok {
-			return nil, RuntimeErrorf("%T %v unexpected identifier", node.Right, node.Right.Pos())
+		child, err := q.getName(node.Right, fnScope, scope)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
-		return scope.GetIdentValue(fmt.Sprintf("%s.%s", parent.Token.Literal, child.Token.Literal))
+		return scope.GetIdentValue(fmt.Sprintf("%s.%s", parent, child))
 
 	case *InfixExpression:
 		left, err := q.run(node.Left, fnScope, scope)
@@ -294,6 +294,27 @@ func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (interface{}, e
 	return nil, RuntimeErrorf("Syntax Error: Unexpected expression %T", e)
 }
 
+func (q *Query) getName(node Expression, fnScope FuncScope, scope Scope) (string, error) {
+	parent, ok := node.(*Identifier)
+	if ok {
+		return parent.Token.Literal, nil
+	}
+
+	box, err := q.run(node, fnScope, scope)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	b, ok := box.(Box)
+	if !ok {
+		return "", RuntimeErrorf("%T %v unexpected identifier", node, node.Pos())
+	}
+	raw, ok := b.Value().(string)
+	if !ok {
+		return "", RuntimeErrorf("%T %v unexpected name type", node, node.Pos())
+	}
+	return raw, nil
+}
+
 func equality(left, right interface{}) bool {
 	a, ok1 := left.(Box)
 	b, ok2 := right.(Box)
@@ -335,8 +356,8 @@ func valid(o Box) bool {
 }
 
 func ConvertRawResult(value interface{}) (Box, error) {
-	if ord, ok := value.(Box); ok {
-		return ord, nil
+	if box, ok := value.(Box); ok {
+		return box, nil
 	}
 
 	switch t := value.(type) {

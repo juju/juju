@@ -33,7 +33,7 @@ func (m *MockFuncScope) EXPECT() *MockFuncScopeMockRecorder {
 }
 
 // Add mocks base method
-func (m *MockFuncScope) Add(arg0 string, arg1 func(interface{}) (interface{}, error)) {
+func (m *MockFuncScope) Add(arg0 string, arg1 interface{}) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Add", arg0, arg1)
 }
@@ -82,20 +82,6 @@ func (m *MockScope) EXPECT() *MockScopeMockRecorder {
 	return m.recorder
 }
 
-// Clone mocks base method
-func (m *MockScope) Clone() Scope {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Clone")
-	ret0, _ := ret[0].(Scope)
-	return ret0
-}
-
-// Clone indicates an expected call of Clone
-func (mr *MockScopeMockRecorder) Clone() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Clone", reflect.TypeOf((*MockScope)(nil).Clone))
-}
-
 // GetIdentValue mocks base method
 func (m *MockScope) GetIdentValue(arg0 string) (Box, error) {
 	m.ctrl.T.Helper()
@@ -123,16 +109,4 @@ func (m *MockScope) GetIdents() []string {
 func (mr *MockScopeMockRecorder) GetIdents() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIdents", reflect.TypeOf((*MockScope)(nil).GetIdents))
-}
-
-// SetIdentValue mocks base method
-func (m *MockScope) SetIdentValue(arg0 string, arg1 Box) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetIdentValue", arg0, arg1)
-}
-
-// SetIdentValue indicates an expected call of SetIdentValue
-func (mr *MockScopeMockRecorder) SetIdentValue(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetIdentValue", reflect.TypeOf((*MockScope)(nil).SetIdentValue), arg0, arg1)
 }

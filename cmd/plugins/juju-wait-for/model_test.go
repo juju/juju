@@ -47,7 +47,6 @@ func (s *modelScopeSuite) TestGetIdentValue(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("%d: GetIdentValue %q", i, test.Field)
 		scope := ModelScope{
-			Scope:     NewGenericScope(),
 			ModelInfo: test.ModelInfo,
 		}
 		result, err := scope.GetIdentValue(test.Field)
@@ -58,7 +57,6 @@ func (s *modelScopeSuite) TestGetIdentValue(c *gc.C) {
 
 func (s *modelScopeSuite) TestGetIdentValueError(c *gc.C) {
 	scope := ModelScope{
-		Scope:     NewGenericScope(),
 		ModelInfo: &params.ModelUpdate{},
 	}
 	result, err := scope.GetIdentValue("bad")
