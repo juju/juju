@@ -32,6 +32,7 @@ ifeq ($(shell echo "${GOARCH}" | sed -E 's/.*(arm|arm64|ppc64le|ppc64|s390x).*/g
 else
 	TEST_TIMEOUT := 1800s
 endif
+TEST_TIMEOUT:=$(TEST_TIMEOUT)
 
 # Limit concurrency on s390x.
 ifeq ($(shell echo "${GOARCH}" | sed -E 's/.*(s390x).*/golang/'), golang)
