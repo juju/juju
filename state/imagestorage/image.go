@@ -236,6 +236,7 @@ func (s *imageStorage) Image(kind, series, arch string) (*Metadata, io.ReadClose
 	managedStorage := s.getManagedStorage(session)
 	image, err := s.imageBlob(managedStorage, metadataDoc.Path)
 	if err != nil {
+		session.Close()
 		return nil, nil, err
 	}
 	metadata := &Metadata{

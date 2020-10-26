@@ -28,37 +28,31 @@ import (
 var _ = gc.Suite(&ImageSuite{})
 
 func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
+	testing.MgoTestPackage(t)
 }
 
 type ImageSuite struct {
-	testing.BaseSuite
-	mongo              *gitjujutesting.MgoInstance
-	session            *mgo.Session
+	gitjujutesting.IsolatedMgoSuite
 	storage            imagestorage.Storage
 	metadataCollection *mgo.Collection
 	txnRunner          jujutxn.Runner
 }
 
 func (s *ImageSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.mongo = &gitjujutesting.MgoInstance{}
-	s.mongo.Start(nil)
-
-	var err error
-	s.session, err = s.mongo.Dial()
-	c.Assert(err, gc.IsNil)
-	s.storage = imagestorage.NewStorage(s.session, "my-uuid")
+	s.IsolatedMgoSuite.SetUpTest(c)
+	s.storage = imagestorage.NewStorage(s.Session, "my-uuid")
 	s.metadataCollection = imagestorage.MetadataCollection(s.storage)
 	s.txnRunner = jujutxn.NewRunner(jujutxn.RunnerParams{Database: s.metadataCollection.Database})
 	s.patchTransactionRunner()
 }
 
 func (s *ImageSuite) TearDownTest(c *gc.C) {
-	s.session.Close()
-	s.mongo.DestroyWithLog()
-	s.BaseSuite.TearDownTest(c)
+	s.txnRunner = nil
+	s.metadataCollection = nil
+	s.storage = nil
+	s.IsolatedMgoSuite.TearDownTest(c)
 }
+
 func (s *ImageSuite) patchTransactionRunner() {
 	s.PatchValue(imagestorage.TxnRunner, func(db *mgo.Database) txn.Runner {
 		return s.txnRunner
@@ -126,7 +120,7 @@ func (s *ImageSuite) TestImage(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(err, gc.ErrorMatches, `resource at path "buckets/my-uuid/path" not found`)
 
-	managedStorage := imagestorage.ManagedStorage(s.storage, s.session)
+	managedStorage := imagestorage.ManagedStorage(s.storage, s.Session)
 	err = managedStorage.PutForBucket("my-uuid", "path", strings.NewReader("blah"), 4)
 	c.Assert(err, gc.IsNil)
 
@@ -152,7 +146,7 @@ func (s *ImageSuite) TestAddImageRemovesExisting(c *gc.C) {
 	// Add a metadata doc and a blob at a known path, then
 	// call AddImage and ensure the original blob is removed.
 	s.addMetadataDoc(c, "lxc", "trusty", "amd64", 3, "hash(abc)", "path", "http://path")
-	managedStorage := imagestorage.ManagedStorage(s.storage, s.session)
+	managedStorage := imagestorage.ManagedStorage(s.storage, s.Session)
 	err := managedStorage.PutForBucket("my-uuid", "path", strings.NewReader("blah"), 4)
 	c.Assert(err, gc.IsNil)
 
@@ -181,11 +175,11 @@ func (s *ImageSuite) TestAddImageRemovesExistingRemoveFails(c *gc.C) {
 	// the original blob, but does not return an error if it
 	// fails.
 	s.addMetadataDoc(c, "lxc", "trusty", "amd64", 3, "hash(abc)", "path", "http://path")
-	managedStorage := imagestorage.ManagedStorage(s.storage, s.session)
+	managedStorage := imagestorage.ManagedStorage(s.storage, s.Session)
 	err := managedStorage.PutForBucket("my-uuid", "path", strings.NewReader("blah"), 4)
 	c.Assert(err, gc.IsNil)
 
-	storage := imagestorage.NewStorage(s.session, "my-uuid")
+	storage := imagestorage.NewStorage(s.Session, "my-uuid")
 	s.PatchValue(imagestorage.GetManagedStorage, imagestorage.RemoveFailsManagedStorage)
 	addedMetadata := &imagestorage.Metadata{
 		ModelUUID: "my-uuid",
@@ -216,7 +210,7 @@ func (errorTransactionRunner) Run(transactions txn.TransactionSource) error {
 }
 
 func (s *ImageSuite) TestAddImageRemovesBlobOnFailure(c *gc.C) {
-	storage := imagestorage.NewStorage(s.session, "my-uuid")
+	storage := imagestorage.NewStorage(s.Session, "my-uuid")
 	s.txnRunner = errorTransactionRunner{s.txnRunner}
 	addedMetadata := &imagestorage.Metadata{
 		ModelUUID: "my-uuid",
@@ -231,13 +225,13 @@ func (s *ImageSuite) TestAddImageRemovesBlobOnFailure(c *gc.C) {
 
 	path := fmt.Sprintf(
 		"images/%s-%s-%s:%s", addedMetadata.Kind, addedMetadata.Series, addedMetadata.Arch, addedMetadata.SHA256)
-	managedStorage := imagestorage.ManagedStorage(s.storage, s.session)
+	managedStorage := imagestorage.ManagedStorage(s.storage, s.Session)
 	_, _, err = managedStorage.GetForBucket("my-uuid", path)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *ImageSuite) TestAddImageRemovesBlobOnFailureRemoveFails(c *gc.C) {
-	storage := imagestorage.NewStorage(s.session, "my-uuid")
+	storage := imagestorage.NewStorage(s.Session, "my-uuid")
 	s.PatchValue(imagestorage.GetManagedStorage, imagestorage.RemoveFailsManagedStorage)
 	s.txnRunner = errorTransactionRunner{s.txnRunner}
 	addedMetadata := &imagestorage.Metadata{
@@ -254,7 +248,7 @@ func (s *ImageSuite) TestAddImageRemovesBlobOnFailureRemoveFails(c *gc.C) {
 	// blob should still be there, because the removal failed.
 	path := fmt.Sprintf(
 		"images/%s-%s-%s:%s", addedMetadata.Kind, addedMetadata.Series, addedMetadata.Arch, addedMetadata.SHA256)
-	managedStorage := imagestorage.ManagedStorage(s.storage, s.session)
+	managedStorage := imagestorage.ManagedStorage(s.storage, s.Session)
 	r, _, err := managedStorage.GetForBucket("my-uuid", path)
 	c.Assert(err, gc.IsNil)
 	r.Close()
@@ -300,7 +294,7 @@ func (s *ImageSuite) TestAddImageConcurrent(c *gc.C) {
 	addMetadata := func() {
 		err := s.storage.AddImage(strings.NewReader("0"), metadata0)
 		c.Assert(err, gc.IsNil)
-		managedStorage := imagestorage.ManagedStorage(s.storage, s.session)
+		managedStorage := imagestorage.ManagedStorage(s.storage, s.Session)
 		r, _, err := managedStorage.GetForBucket("my-uuid", "images/lxc-trusty-amd64:0")
 		c.Assert(err, gc.IsNil)
 		r.Close()
@@ -311,7 +305,7 @@ func (s *ImageSuite) TestAddImageConcurrent(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Blob added in before-hook should be removed.
-	managedStorage := imagestorage.ManagedStorage(s.storage, s.session)
+	managedStorage := imagestorage.ManagedStorage(s.storage, s.Session)
 	_, _, err = managedStorage.GetForBucket("my-uuid", "images/lxc-trusty-amd64:0")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
@@ -340,7 +334,7 @@ func (s *ImageSuite) TestAddImageExcessiveContention(c *gc.C) {
 	// There should be no blobs apart from the last one added by the before-hook.
 	for _, metadata := range metadata[:3] {
 		path := fmt.Sprintf("images/%s-%s-%s:%s", metadata.Kind, metadata.Series, metadata.Arch, metadata.SHA256)
-		managedStorage := imagestorage.ManagedStorage(s.storage, s.session)
+		managedStorage := imagestorage.ManagedStorage(s.storage, s.Session)
 		_, _, err = managedStorage.GetForBucket("my-uuid", path)
 		c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	}
@@ -350,7 +344,7 @@ func (s *ImageSuite) TestAddImageExcessiveContention(c *gc.C) {
 
 func (s *ImageSuite) TestDeleteImage(c *gc.C) {
 	s.addMetadataDoc(c, "lxc", "trusty", "amd64", 3, "hash(abc)", "images/lxc-trusty-amd64:sha256", "http://lxc-trusty-amd64")
-	managedStorage := imagestorage.ManagedStorage(s.storage, s.session)
+	managedStorage := imagestorage.ManagedStorage(s.storage, s.Session)
 	err := managedStorage.PutForBucket("my-uuid", "images/lxc-trusty-amd64:sha256", strings.NewReader("blah"), 4)
 	c.Assert(err, gc.IsNil)
 
