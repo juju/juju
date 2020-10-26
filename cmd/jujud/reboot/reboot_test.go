@@ -1,162 +1,107 @@
-// Copyright 2014 Canonical Ltd.
-// Copyright 2014 Cloudbase Solutions SRL
+// Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package reboot_test
 
 import (
-	"os"
-	"path/filepath"
-	"strings"
-	stdtesting "testing"
-
-	"github.com/juju/names/v4"
-	"github.com/juju/testing"
+	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/jujud/reboot"
-	"github.com/juju/juju/core/instance"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
-	svctesting "github.com/juju/juju/service/common/testing"
-	coretesting "github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/cmd/jujud/reboot/mocks"
+	"github.com/juju/juju/environs/instances"
 )
 
-func TestAll(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
+type NewRebootSuite struct {
+	agentConfig      *mocks.MockAgentConfig
+	containerManager *mocks.MockManager
+	instance         *mocks.MockInstance
+	model            *mocks.MockModel
+	rebootWaiter     *mocks.MockRebootWaiter
+	service          *mocks.MockService
 }
 
-type RebootSuite struct {
-	jujutesting.JujuConnSuite
+var _ = gc.Suite(&NewRebootSuite{})
 
-	acfg    agent.Config
-	mgoInst testing.MgoInstance
-	st      api.Connection
+func (s *NewRebootSuite) TestExecuteReboot(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectManagerIsInitialized(false, false)
+	s.expectHostSeries("focal")
+	s.expectListServices()
+	s.expectStopDeployedUnits()
+	s.expectScheduleAction()
 
-	tmpDir           string
-	rebootScriptName string
-
-	services    []*svctesting.FakeService
-	serviceData *svctesting.FakeServiceData
-}
-
-var _ = gc.Suite(&RebootSuite{})
-
-func (s *RebootSuite) SetUpSuite(c *gc.C) {
-	s.JujuConnSuite.SetUpSuite(c)
-
-	// These tests only patch out LXC, so only run full-stack tests
-	// over LXC.
-	s.PatchValue(&instance.ContainerTypes, []instance.ContainerType{instance.LXD})
-}
-
-func (s *RebootSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	testing.PatchExecutableAsEchoArgs(c, s, rebootBin)
-	s.PatchEnvironment("TEMP", c.MkDir())
-
-	s.tmpDir = c.MkDir()
-	s.rebootScriptName = "juju-reboot-script"
-	s.PatchValue(reboot.TmpFile, func() (*os.File, error) {
-		script := s.rebootScript(c)
-		return os.Create(script)
-	})
-
-	s.mgoInst.EnableAuth = true
-	err := s.mgoInst.Start(coretesting.Certs)
+	err := s.newRebootWaiter().ExecuteReboot(params.ShouldReboot)
 	c.Assert(err, jc.ErrorIsNil)
+}
 
-	configParams := agent.AgentConfigParams{
-		Paths:             agent.Paths{DataDir: c.MkDir()},
-		Tag:               names.NewMachineTag("0"),
-		UpgradedToVersion: jujuversion.Current,
-		APIAddresses:      []string{"localhost:17070"},
-		CACert:            coretesting.CACert,
-		Password:          "fake",
-		Controller:        s.State.ControllerTag(),
-		Model:             s.Model.ModelTag(),
-		MongoVersion:      mongo.Mongo24,
-	}
-	s.st, _ = s.OpenAPIAsNewMachine(c)
+func (s *NewRebootSuite) TestExecuteRebootWaitForContainers(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectManagerIsInitialized(true, false)
+	s.expectManagerIsInitialized(true, false)
+	s.expectListContainers()
+	s.expectHostSeries("focal")
+	s.expectListServices()
+	s.expectStopDeployedUnits()
+	s.expectScheduleAction()
 
-	s.acfg, err = agent.NewAgentConfig(configParams)
+	err := s.newRebootWaiter().ExecuteReboot(params.ShouldReboot)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *NewRebootSuite) newRebootWaiter() *reboot.Reboot {
+	return reboot.NewRebootForTest(s.agentConfig, s.rebootWaiter)
+}
+
+func (s *NewRebootSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.agentConfig = mocks.NewMockAgentConfig(ctrl)
+	s.containerManager = mocks.NewMockManager(ctrl)
+	s.instance = mocks.NewMockInstance(ctrl)
+	s.model = mocks.NewMockModel(ctrl)
+	s.rebootWaiter = mocks.NewMockRebootWaiter(ctrl)
+	s.service = mocks.NewMockService(ctrl)
+
+	s.agentConfig.EXPECT().Model().Return(s.model).AnyTimes()
+	s.model.EXPECT().Id().Return("model-uuid").AnyTimes()
+
+	s.rebootWaiter.EXPECT().NewContainerManager(gomock.Any(), gomock.Any()).Return(s.containerManager, nil).AnyTimes()
+	return ctrl
+}
+
+func (s *NewRebootSuite) expectManagerIsInitialized(lxd, kvm bool) {
+	s.containerManager.EXPECT().IsInitialized().Return(lxd)
+	s.containerManager.EXPECT().IsInitialized().Return(kvm)
+}
+
+func (s *NewRebootSuite) expectHostSeries(name string) {
+	s.rebootWaiter.EXPECT().HostSeries().Return(name, nil)
+}
+
+func (s *NewRebootSuite) expectListServices() {
 	fakeServices := []string{
 		"jujud-machine-1",
 		"jujud-unit-drupal-1",
 		"jujud-unit-mysql-1",
 		"fake-random-service",
 	}
-	for _, fake := range fakeServices {
-		s.addService(fake)
-	}
-	testing.PatchValue(&service.NewService, s.newService)
-	testing.PatchValue(&service.ListServices, s.listServices)
+	s.rebootWaiter.EXPECT().ListServices().Return(fakeServices, nil)
 }
 
-func (s *RebootSuite) addService(name string) {
-	svc, _ := s.newService(name, common.Conf{}, "")
-	svc.Install()
-	svc.Start()
+func (s *NewRebootSuite) expectStopDeployedUnits() {
+	s.rebootWaiter.EXPECT().NewService("jujud-unit-drupal-1", gomock.Any(), gomock.Any()).Return(s.service, nil)
+	s.rebootWaiter.EXPECT().NewService("jujud-unit-mysql-1", gomock.Any(), gomock.Any()).Return(s.service, nil)
+	s.service.EXPECT().Stop().Times(2)
 }
 
-func (s *RebootSuite) listServices() ([]string, error) {
-	return s.serviceData.InstalledNames(), nil
+func (s *NewRebootSuite) expectScheduleAction() {
+	s.rebootWaiter.EXPECT().ScheduleAction(gomock.Any(), gomock.Any()).Return(nil)
 }
 
-func (s *RebootSuite) newService(name string, conf common.Conf, series string) (service.Service, error) {
-	for _, svc := range s.services {
-		if svc.Name() == name {
-			return svc, nil
-		}
-	}
-	if s.serviceData == nil {
-		s.serviceData = svctesting.NewFakeServiceData()
-	}
-	svc := &svctesting.FakeService{
-		FakeServiceData: s.serviceData,
-		Service: common.Service{
-			Name: name,
-			Conf: common.Conf{},
-		},
-	}
-	s.services = append(s.services, svc)
-	return svc, nil
-}
-
-func (s *RebootSuite) TestRebootStopUnits(c *gc.C) {
-	w, err := reboot.NewRebootWaiter(s.acfg)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = w.ExecuteReboot(params.ShouldReboot)
-	c.Assert(err, jc.ErrorIsNil)
-
-	for _, svc := range s.services {
-		name := svc.Name()
-		if strings.HasPrefix(name, `jujud-unit-`) {
-			running, err := svc.Running()
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(running, jc.IsFalse)
-		} else {
-			running, err := svc.Running()
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(running, jc.IsTrue)
-		}
-	}
-}
-
-func (s *RebootSuite) TearDownTest(c *gc.C) {
-	s.mgoInst.Destroy()
-	s.JujuConnSuite.TearDownTest(c)
-}
-
-func (s *RebootSuite) rebootScript(c *gc.C) string {
-	return filepath.Join(s.tmpDir, s.rebootScriptName)
+func (s *NewRebootSuite) expectListContainers() {
+	inst := []instances.Instance{s.instance}
+	s.containerManager.EXPECT().ListContainers().Return(inst, nil)
+	s.containerManager.EXPECT().ListContainers().Return([]instances.Instance{}, nil)
 }
