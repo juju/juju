@@ -41,19 +41,37 @@ Model config yaml can be piped from stdin from the output of the command stdout.
 Some model-config configuration are read-only, to prevent the command exiting on
 read-only fields, setting "ignore-read-only-fields" will cause it to skip over
 the fields when they're encountered.
+
+The reset flag will set the provided key(s) to the model default for those key(s).
+Any key not in the default model config, will be deleted.
 `
 	modelConfigHelpDocKeys = `
 The following keys are available:
 `
 	modelConfigHelpDocPartTwo = `
 Examples:
+
+Print the value of default-series:
     juju model-config default-series
+
+Print the model config of model mycontroller:mymodel:
     juju model-config -m mycontroller:mymodel
+
+Set the value of ftp-proxy to 10.0.0.1:8000:
     juju model-config ftp-proxy=10.0.0.1:8000
+
+Set the value of ftp-proxy to 10.0.0.1:8000, and set the values defined in
+path/to/file.yaml:
     juju model-config ftp-proxy=10.0.0.1:8000 path/to/file.yaml
+
+Set the model config key value pairs defined in a file:
     juju model-config path/to/file.yaml
+
+Set model config values of a specific model:
     juju model-config -m othercontroller:mymodel default-series=yakkety test-mode=false
-    juju model-config --reset default-series test-mode
+
+Reset the values of the provided keys to model defaults:
+    juju model-config --reset default-series,test-mode
 
 See also:
     models
@@ -201,7 +219,7 @@ func (c *configCommand) SetFlags(f *gnuflag.FlagSet) {
 		"tabular": formatConfigTabular,
 		"yaml":    cmd.FormatYaml,
 	})
-	f.Var(cmd.NewAppendStringsValue(&c.reset), "reset", "Reset the provided comma delimited keys")
+	f.Var(cmd.NewAppendStringsValue(&c.reset), "reset", "Reset the provided comma delimited keys, deletes keys not in the model config")
 	f.BoolVar(&c.ignoreAgentVersion, "ignore-agent-version", false, "Skip the error when passing in the agent version configuration (deprecated)")
 	f.BoolVar(&c.ignoreReadOnlyFields, "ignore-read-only-fields", false, "Ignore read only fields that might cause errors to be emitted while processing yaml documents")
 }
