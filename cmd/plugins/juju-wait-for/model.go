@@ -116,9 +116,16 @@ func (c *modelCommand) waitFor(name string, deltas []params.Delta, q query.Query
 
 		switch entityInfo := delta.Entity.(type) {
 		case *params.ApplicationInfo:
+			if delta.Removed {
+				delete(c.applications, entityInfo.Name)
+				break
+			}
 			c.applications[entityInfo.Name] = entityInfo
 		case *params.ModelUpdate:
 			if entityInfo.Name == name {
+				if delta.Removed {
+					return false, errors.Errorf("model %v removed", name)
+				}
 				modelUpdate = entityInfo
 				c.found = entityInfo.Life != life.Dead
 			}
@@ -126,7 +133,7 @@ func (c *modelCommand) waitFor(name string, deltas []params.Delta, q query.Query
 
 		if modelUpdate != nil {
 			scope := MakeModelScope(c, modelUpdate)
-			if done, err := c.runModelQuery(q, scope); err != nil {
+			if done, err := runQuery(q, scope); err != nil {
 				return false, errors.Trace(err)
 			} else if done {
 				return true, nil
@@ -143,66 +150,8 @@ func (c *modelCommand) waitFor(name string, deltas []params.Delta, q query.Query
 	return false, nil
 }
 
-func (c *modelCommand) runModelQuery(q query.Query, scope query.Scope) (bool, error) {
-	fnScope := query.NewGlobalFuncScope(scope)
-	fnScope.Add("applications", func(expr interface{}) (interface{}, error) {
-		lambda, ok := expr.(*query.BoxLambda)
-		if !ok {
-			return nil, query.RuntimeErrorf("unexpected query %T", expr)
-		}
-
-		name := "applications"
-		ord, err := scope.GetIdentValue(name)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		var (
-			called bool
-			result = true
-		)
-		ord.ForEach(func(value interface{}) bool {
-			called = true
-
-			newScope := scope.Clone()
-			newScope.SetIdentValue(lambda.CallName(), value)
-
-			var results []query.Box
-			results, err = lambda.Call(newScope)
-			if err != nil {
-				return false
-			}
-			var lambdaResult bool
-			for _, result := range results {
-				lambdaResult = !result.IsZero()
-			}
-			result = result && lambdaResult
-			return result
-		})
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if !called {
-			return false, nil
-		}
-		return result, nil
-	})
-
-	if res, err := q.Run(fnScope, scope); query.IsInvalidIdentifierErr(err) {
-		return false, invalidIdentifierError(scope, err)
-	} else if query.IsRuntimeError(err) {
-		return false, errors.Trace(err)
-	} else if res && err == nil {
-		return true, nil
-	} else if err != nil {
-		logger.Errorf("%v", err)
-	}
-	return false, nil
-}
-
 // ModelScope allows the query to introspect a model entity.
 type ModelScope struct {
-	query.Scope
 	ModelInfo *params.ModelUpdate
 	Model     *modelCommand
 }
@@ -210,7 +159,6 @@ type ModelScope struct {
 // MakeModelScope creates an ModelScope from an ModelUpdate
 func MakeModelScope(model *modelCommand, info *params.ModelUpdate) ModelScope {
 	return ModelScope{
-		Scope:     NewGenericScope(),
 		ModelInfo: info,
 		Model:     model,
 	}
@@ -218,15 +166,11 @@ func MakeModelScope(model *modelCommand, info *params.ModelUpdate) ModelScope {
 
 // GetIdents returns the identifiers with in a given scope.
 func (m ModelScope) GetIdents() []string {
-	return append(getIdents(m.ModelInfo), m.Scope.GetIdents()...)
+	return getIdents(m.ModelInfo)
 }
 
 // GetIdentValue returns the value of the identifier in a given scope.
 func (m ModelScope) GetIdentValue(name string) (query.Box, error) {
-	if box, err := m.Scope.GetIdentValue(name); err == nil {
-		return box, nil
-	}
-
 	switch name {
 	case "name":
 		return query.NewString(m.ModelInfo.Name), nil
@@ -239,25 +183,22 @@ func (m ModelScope) GetIdentValue(name string) (query.Box, error) {
 	case "config":
 		return query.NewMapStringInterface(m.ModelInfo.Config), nil
 	case "applications":
-		return NewApplications(m.Model.applications), nil
+		scopes := make(map[string]query.Scope)
+		for k, v := range m.Model.applications {
+			scopes[k] = MakeApplicationScope(v)
+		}
+		return NewApplications(scopes), nil
 	}
 	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name), "Runtime Error: identifier %q not found on ModelInfo", name)
 }
 
-// Clone creates a new scope.
-func (m ModelScope) Clone() query.Scope {
-	x := m
-	x.Scope = m.Scope.Clone()
-	return x
-}
-
 // ApplicationsBox defines an ordered integer.
 type ApplicationsBox struct {
-	applications map[string]*params.ApplicationInfo
+	applications map[string]query.Scope
 }
 
 // NewApplications creates a new Box value
-func NewApplications(applications map[string]*params.ApplicationInfo) *ApplicationsBox {
+func NewApplications(applications map[string]query.Scope) *ApplicationsBox {
 	return &ApplicationsBox{
 		applications: applications,
 	}
@@ -280,7 +221,7 @@ func (o *ApplicationsBox) IsZero() bool {
 
 // Value defines the shadow type value of the Box.
 func (o *ApplicationsBox) Value() interface{} {
-	return o.applications
+	return o
 }
 
 // ForEach iterates over each value in the box.

@@ -80,7 +80,7 @@ func (es *ExpressionStatement) String() string {
 	return ""
 }
 
-// InfixExpression represents an expression that is associated with an operator.
+// AccessorExpression represents an expression that is associated with an operator.
 type InfixExpression struct {
 	Token    Token
 	Operator string
@@ -106,6 +106,33 @@ func (ie *InfixExpression) String() string {
 	out.WriteString(" " + ie.Operator + " ")
 	out.WriteString(ie.Right.String())
 	out.WriteString(")")
+
+	return out.String()
+}
+
+// AccessorExpression represents an expression that is associated with an operator.
+type AccessorExpression struct {
+	Token Token
+	Right Expression
+	Left  Expression
+}
+
+// Pos returns the first position of the identifier.
+func (ie *AccessorExpression) Pos() Position {
+	return ie.Token.Pos
+}
+
+// End returns the last position of the identifier.
+func (ie *AccessorExpression) End() Position {
+	return ie.Right.End()
+}
+
+func (ie *AccessorExpression) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(ie.Left.String())
+	out.WriteString(".")
+	out.WriteString(ie.Right.String())
 
 	return out.String()
 }

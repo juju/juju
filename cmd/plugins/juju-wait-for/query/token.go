@@ -44,6 +44,7 @@ const (
 
 	LAMBDA     // =>
 	UNDERSCORE // _
+	PERIOD     // .
 )
 
 func (t TokenType) String() string {
@@ -76,6 +77,8 @@ func (t TokenType) String() string {
 		return "=>"
 	case UNDERSCORE:
 		return "_"
+	case PERIOD:
+		return "."
 	case COMMA:
 		return ","
 	case SEMICOLON:
@@ -155,4 +158,5 @@ var tokenMap = map[rune]TokenType{
 	'<': LT,
 	'>': GT,
 	'_': UNDERSCORE,
+	'.': PERIOD,
 }

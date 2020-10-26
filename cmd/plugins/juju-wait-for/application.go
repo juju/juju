@@ -105,6 +105,10 @@ func (c *applicationCommand) waitFor(name string, deltas []params.Delta, q query
 		switch entityInfo := delta.Entity.(type) {
 		case *params.ApplicationInfo:
 			if entityInfo.Name == name {
+				if delta.Removed {
+					return false, errors.Errorf("application %v removed", name)
+				}
+
 				scope := MakeApplicationScope(entityInfo)
 				if done, err := runQuery(q, scope); err != nil {
 					return false, errors.Trace(err)
@@ -133,6 +137,10 @@ func (c *applicationCommand) waitFor(name string, deltas []params.Delta, q query
 			switch entityInfo := delta.Entity.(type) {
 			case *params.UnitInfo:
 				if entityInfo.Application == name {
+					if delta.Removed {
+						continue
+					}
+
 					logOutput = true
 
 					agentStatus := entityInfo.WorkloadStatus
@@ -166,29 +174,23 @@ func (c *applicationCommand) waitFor(name string, deltas []params.Delta, q query
 
 // ApplicationScope allows the query to introspect a application entity.
 type ApplicationScope struct {
-	query.Scope
 	ApplicationInfo *params.ApplicationInfo
 }
 
 // MakeApplicationScope creates an ApplicationScope from an ApplicationInfo
 func MakeApplicationScope(info *params.ApplicationInfo) ApplicationScope {
 	return ApplicationScope{
-		Scope:           NewGenericScope(),
 		ApplicationInfo: info,
 	}
 }
 
 // GetIdents returns the identifiers with in a given scope.
 func (m ApplicationScope) GetIdents() []string {
-	return append(getIdents(m.ApplicationInfo), m.Scope.GetIdents()...)
+	return getIdents(m.ApplicationInfo)
 }
 
 // GetIdentValue returns the value of the identifier in a given scope.
 func (m ApplicationScope) GetIdentValue(name string) (query.Box, error) {
-	if box, err := m.Scope.GetIdentValue(name); err == nil {
-		return box, nil
-	}
-
 	switch name {
 	case "name":
 		return query.NewString(m.ApplicationInfo.Name), nil
@@ -208,11 +210,4 @@ func (m ApplicationScope) GetIdentValue(name string) (query.Box, error) {
 		return query.NewString(m.ApplicationInfo.WorkloadVersion), nil
 	}
 	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name), "Runtime Error: identifier %q not found on ApplicationInfo", name)
-}
-
-// Clone creates a new scope.
-func (m ApplicationScope) Clone() query.Scope {
-	x := m
-	x.Scope = m.Scope.Clone()
-	return x
 }

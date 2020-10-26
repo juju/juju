@@ -314,11 +314,11 @@ func (o *BoxSliceString) ForEach(fn func(interface{}) bool) {
 // BoxLambda defines an ordered integer.
 type BoxLambda struct {
 	arg *Identifier
-	fn  func(*Identifier, Scope) ([]Box, error)
+	fn  func(Scope) ([]Box, error)
 }
 
 // NewLambda creates a new Box value
-func NewLambda(arg *Identifier, fn func(*Identifier, Scope) ([]Box, error)) *BoxLambda {
+func NewLambda(arg *Identifier, fn func(Scope) ([]Box, error)) *BoxLambda {
 	return &BoxLambda{
 		arg: arg,
 		fn:  fn,
@@ -345,14 +345,14 @@ func (o *BoxLambda) Value() interface{} {
 	return o
 }
 
-// CallName is the name expected to be seen in the lambda.
-func (o *BoxLambda) CallName() string {
+// ArgName is the name expected to be seen in the lambda.
+func (o *BoxLambda) ArgName() string {
 	return o.arg.Token.Literal
 }
 
 // Call the underlying lambda
 func (o *BoxLambda) Call(scope Scope) ([]Box, error) {
-	return o.fn(o.arg, scope)
+	return o.fn(scope)
 }
 
 // ForEach iterates over each value in the box.

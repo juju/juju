@@ -34,6 +34,7 @@ var precedence = map[TokenType]int{
 	GT:       LESSGREATER,
 	GE:       LESSGREATER,
 	LBRACKET: INDEX,
+	PERIOD:   INDEX,
 }
 
 type Parser struct {
@@ -75,6 +76,7 @@ func NewParser(lex *Lexer) *Parser {
 		LE:       p.parseInfixExpression,
 		GT:       p.parseInfixExpression,
 		GE:       p.parseInfixExpression,
+		PERIOD:   p.parseAccessor,
 		LBRACKET: p.parseIndex,
 		LPAREN:   p.parseCall,
 		LAMBDA:   p.parseLambda,
@@ -290,6 +292,18 @@ func (p *Parser) parseLambda(left Expression) Expression {
 		Token:       p.currentToken,
 		Argument:    left,
 		Expressions: expressions,
+	}
+}
+
+func (p *Parser) parseAccessor(left Expression) Expression {
+	precedence := p.currentPrecedence()
+	p.nextToken()
+	right := p.parseExpression(precedence)
+
+	return &AccessorExpression{
+		Token: p.currentToken,
+		Left:  left,
+		Right: right,
 	}
 }
 

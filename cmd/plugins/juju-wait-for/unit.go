@@ -104,6 +104,10 @@ func (c *unitCommand) waitFor(name string, deltas []params.Delta, q query.Query)
 		switch entityInfo := delta.Entity.(type) {
 		case *params.UnitInfo:
 			if entityInfo.Name == name {
+				if delta.Removed {
+					return false, errors.Errorf("unit %v removed", name)
+				}
+
 				scope := MakeUnitScope(entityInfo)
 				if done, err := runQuery(q, scope); err != nil {
 					return false, errors.Trace(err)
@@ -128,29 +132,23 @@ func (c *unitCommand) waitFor(name string, deltas []params.Delta, q query.Query)
 
 // UnitScope allows the query to introspect a unit entity.
 type UnitScope struct {
-	query.Scope
 	UnitInfo *params.UnitInfo
 }
 
 // MakeUnitScope creates an UnitScope from an UnitInfo
 func MakeUnitScope(info *params.UnitInfo) UnitScope {
 	return UnitScope{
-		Scope:    NewGenericScope(),
 		UnitInfo: info,
 	}
 }
 
 // GetIdents returns the identifiers with in a given scope.
 func (m UnitScope) GetIdents() []string {
-	return append(getIdents(m.UnitInfo), m.Scope.GetIdents()...)
+	return getIdents(m.UnitInfo)
 }
 
 // GetIdentValue returns the value of the identifier in a given scope.
 func (m UnitScope) GetIdentValue(name string) (query.Box, error) {
-	if box, err := m.Scope.GetIdentValue(name); err == nil {
-		return box, nil
-	}
-
 	switch name {
 	case "name":
 		return query.NewString(m.UnitInfo.Name), nil
@@ -178,11 +176,4 @@ func (m UnitScope) GetIdentValue(name string) (query.Box, error) {
 		return query.NewString(string(m.UnitInfo.AgentStatus.Current)), nil
 	}
 	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name), "Runtime Error: identifier %q not found on UnitInfo", name)
-}
-
-// Clone creates a new scope.
-func (m UnitScope) Clone() query.Scope {
-	x := m
-	x.Scope = m.Scope.Clone()
-	return x
 }

@@ -38,17 +38,11 @@ type Scope interface {
 
 	// GetIdentValue returns the value of the identifier in a given scope.
 	GetIdentValue(string) (Box, error)
-
-	// SetIdentValue sets a nwe ident and it's value on a given scope.
-	SetIdentValue(string, interface{})
-
-	// Clone a given scope
-	Clone() Scope
 }
 
 // FuncScope is used to call functions for a given identifer.
 type FuncScope interface {
-	Add(string, func(interface{}) (interface{}, error))
+	Add(string, interface{})
 	Call(*Identifier, []Box) (interface{}, error)
 }
 
@@ -77,6 +71,9 @@ func (q Query) Run(fnScope FuncScope, scope Scope) (bool, error) {
 }
 
 func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (interface{}, error) {
+	// Useful for debugging.
+	// fmt.Printf("%[1]T %[1]v\n", e)
+
 	switch node := e.(type) {
 	case *QueryExpression:
 		for _, exp := range node.Expressions {
@@ -96,7 +93,10 @@ func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (interface{}, e
 	case *CallExpression:
 		fn, ok := node.Name.(*Identifier)
 		if !ok {
-			return nil, RuntimeErrorf("%s %v unexpected function name", shadowType(node.Name.(Box)), node.Name.Pos())
+			if box, ok := node.Name.(Box); ok {
+				return nil, RuntimeErrorf("%s %v unexpected function name", shadowType(box), node.Name.Pos())
+			}
+			return nil, RuntimeErrorf("%v unexpected function name", node.Name.Pos())
 		}
 		var args []Box
 		for _, arg := range node.Arguments {
@@ -119,11 +119,13 @@ func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (interface{}, e
 	case *LambdaExpression:
 		arg, ok := node.Argument.(*Identifier)
 		if !ok {
-			return nil, RuntimeErrorf("%s %v unexpected argument", shadowType(node.Argument.(Box)), node.Argument.Pos())
+			if box, ok := node.Argument.(Box); ok {
+				return nil, RuntimeErrorf("%s %v unexpected argument", shadowType(box), node.Argument.Pos())
+			}
+			return nil, RuntimeErrorf("%v unexpected argument", node.Argument.Pos())
 		}
 
-		return NewLambda(arg, func(arg *Identifier, scope Scope) ([]Box, error) {
-			fmt.Println("HERE", arg, scope)
+		return NewLambda(arg, func(scope Scope) ([]Box, error) {
 			var results []Box
 			for _, expr := range node.Expressions {
 				result, err := q.run(expr, fnScope, scope)
@@ -136,7 +138,6 @@ func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (interface{}, e
 				}
 				results = append(results, ord)
 			}
-			fmt.Println("RESULTS", results)
 			return results, nil
 		}), nil
 
@@ -188,6 +189,17 @@ func (q Query) run(e Expression, fnScope FuncScope, scope Scope) (interface{}, e
 		default:
 			return nil, RuntimeErrorf("%T %v unexpected index expression", left, node.Left.Pos())
 		}
+
+	case *AccessorExpression:
+		parent, ok := node.Left.(*Identifier)
+		if !ok {
+			return nil, RuntimeErrorf("%T %v unexpected identifier", node.Left, node.Left.Pos())
+		}
+		child, ok := node.Right.(*Identifier)
+		if !ok {
+			return nil, RuntimeErrorf("%T %v unexpected identifier", node.Right, node.Right.Pos())
+		}
+		return scope.GetIdentValue(fmt.Sprintf("%s.%s", parent.Token.Literal, child.Token.Literal))
 
 	case *InfixExpression:
 		left, err := q.run(node.Left, fnScope, scope)
@@ -345,5 +357,6 @@ func ConvertRawResult(value interface{}) (Box, error) {
 	case []string:
 		return NewSliceString(t), nil
 	}
+
 	return nil, RuntimeErrorf("%v unexpected index type %T", value, value)
 }
