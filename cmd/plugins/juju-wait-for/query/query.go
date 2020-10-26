@@ -53,6 +53,9 @@ func (q Query) BuiltinsRun(scope Scope) (bool, error) {
 
 // Run the query over a given scope.
 func (q Query) Run(fnScope FuncScope, scope Scope) (bool, error) {
+	// Useful for debugging.
+	// fmt.Println(q.ast)
+
 	res, err := q.run(q.ast, fnScope, scope)
 	if err != nil {
 		return false, errors.Trace(err)

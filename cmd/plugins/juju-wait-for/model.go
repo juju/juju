@@ -22,6 +22,7 @@ import (
 func newModelCommand() cmd.Command {
 	cmd := &modelCommand{
 		applications: make(map[string]*params.ApplicationInfo),
+		units:        make(map[string]*params.UnitInfo),
 	}
 	cmd.newWatchAllAPIFunc = func() (api.WatchAllAPI, error) {
 		client, err := cmd.NewAPIClient()
@@ -57,6 +58,7 @@ type modelCommand struct {
 	found   bool
 
 	applications map[string]*params.ApplicationInfo
+	units        map[string]*params.UnitInfo
 }
 
 // Info implements Command.Info.
@@ -121,6 +123,14 @@ func (c *modelCommand) waitFor(name string, deltas []params.Delta, q query.Query
 				break
 			}
 			c.applications[entityInfo.Name] = entityInfo
+
+		case *params.UnitInfo:
+			if delta.Removed {
+				delete(c.units, entityInfo.Name)
+				break
+			}
+			c.units[entityInfo.Name] = entityInfo
+
 		case *params.ModelUpdate:
 			if entityInfo.Name == name {
 				if delta.Removed {
@@ -184,49 +194,68 @@ func (m ModelScope) GetIdentValue(name string) (query.Box, error) {
 		return query.NewMapStringInterface(m.ModelInfo.Config), nil
 	case "applications":
 		scopes := make(map[string]query.Scope)
-		for k, v := range m.Model.applications {
-			scopes[k] = MakeApplicationScope(v)
+		for k, app := range m.Model.applications {
+			units := make(map[string]*params.UnitInfo)
+			for n, unit := range m.Model.units {
+				if unit.Application == app.Name {
+					units[n] = unit
+				}
+			}
+
+			currentStatus := app.Status.Current
+			newStatus := deriveApplicationStatus(currentStatus, units)
+
+			appInfo := app
+			appInfo.Status.Current = newStatus
+
+			scopes[k] = MakeApplicationScope(appInfo)
 		}
-		return NewApplications(scopes), nil
+		return NewScopedBox(scopes), nil
+	case "units":
+		scopes := make(map[string]query.Scope)
+		for k, unit := range m.Model.units {
+			scopes[k] = MakeUnitScope(unit)
+		}
+		return NewScopedBox(scopes), nil
 	}
 	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name), "Runtime Error: identifier %q not found on ModelInfo", name)
 }
 
-// ApplicationsBox defines an ordered integer.
-type ApplicationsBox struct {
-	applications map[string]query.Scope
+// ScopedBox defines an ordered integer.
+type ScopedBox struct {
+	scopes map[string]query.Scope
 }
 
-// NewApplications creates a new Box value
-func NewApplications(applications map[string]query.Scope) *ApplicationsBox {
-	return &ApplicationsBox{
-		applications: applications,
+// NewScopedBox creates a new Box value
+func NewScopedBox(scopes map[string]query.Scope) *ScopedBox {
+	return &ScopedBox{
+		scopes: scopes,
 	}
 }
 
-// Less checks if a ApplicationsBox is less than another ApplicationsBox.
-func (o *ApplicationsBox) Less(other query.Box) bool {
+// Less checks if a ScopedBox is less than another ScopedBox.
+func (o *ScopedBox) Less(other query.Box) bool {
 	return false
 }
 
-// Equal checks if an ApplicationsBox is equal to another ApplicationsBox.
-func (o *ApplicationsBox) Equal(other query.Box) bool {
+// Equal checks if an ScopedBox is equal to another ScopedBox.
+func (o *ScopedBox) Equal(other query.Box) bool {
 	return false
 }
 
 // IsZero returns if the underlying value is zero.
-func (o *ApplicationsBox) IsZero() bool {
-	return len(o.applications) == 0
+func (o *ScopedBox) IsZero() bool {
+	return len(o.scopes) == 0
 }
 
 // Value defines the shadow type value of the Box.
-func (o *ApplicationsBox) Value() interface{} {
+func (o *ScopedBox) Value() interface{} {
 	return o
 }
 
 // ForEach iterates over each value in the box.
-func (o *ApplicationsBox) ForEach(fn func(interface{}) bool) {
-	for _, v := range o.applications {
+func (o *ScopedBox) ForEach(fn func(interface{}) bool) {
+	for _, v := range o.scopes {
 		if !fn(v) {
 			return
 		}

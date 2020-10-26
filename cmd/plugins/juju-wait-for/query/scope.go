@@ -33,7 +33,7 @@ func NewGlobalFuncScope(scope Scope) *GlobalFuncScope {
 				}
 			},
 			"print": func(v interface{}) (interface{}, error) {
-				fmt.Printf("%v\n", v)
+				fmt.Printf("%+v\n", v)
 				return v, nil
 			},
 			"forEach": func(values, expr interface{}) (interface{}, error) {
@@ -150,7 +150,9 @@ func (m NestedScope) GetIdentValue(name string) (Box, error) {
 		return m.base.GetIdentValue(name)
 	}
 	if len(parts) != 2 {
-		return nil, errors.Errorf("Runtime Error: identifier %q not found on scope value", name)
+		return &BoxNestedScope{
+			value: scope,
+		}, nil
 	}
 	return scope.GetIdentValue(parts[1])
 }
@@ -158,4 +160,34 @@ func (m NestedScope) GetIdentValue(name string) (Box, error) {
 // SetScope will set a scope on a given scope.
 func (m NestedScope) SetScope(name string, scope Scope) {
 	m.scopes[name] = scope
+}
+
+// BoxNestedScope defines an ordered integer.
+type BoxNestedScope struct {
+	value Scope
+}
+
+// Less checks if a BoxNestedScope is less than another BoxNestedScope.
+func (o *BoxNestedScope) Less(other Box) bool {
+	return false
+}
+
+// Equal checks if an BoxNestedScope is equal to another BoxNestedScope.
+func (o *BoxNestedScope) Equal(other Box) bool {
+	return false
+}
+
+// IsZero returns if the underlying value is zero.
+func (o *BoxNestedScope) IsZero() bool {
+	return false
+}
+
+// Value defines the shadow type value of the Box.
+func (o *BoxNestedScope) Value() interface{} {
+	return o.value
+}
+
+// ForEach iterates over each value in the box.
+func (o *BoxNestedScope) ForEach(fn func(interface{}) bool) {
+	// Do nothing here!
 }
