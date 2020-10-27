@@ -487,7 +487,7 @@ var defaultConfigValues = map[string]interface{}{
 	"enable-os-upgrade":           true,
 	"development":                 false,
 	TestModeKey:                   false,
-	ModeKey:                       "",
+	ModeKey:                       []string{},
 	TransmitVendorMetricsKey:      true,
 	UpdateStatusHookInterval:      DefaultUpdateStatusHookInterval,
 	EgressSubnets:                 "",
@@ -840,6 +840,8 @@ func isEmpty(val interface{}) bool {
 	case string:
 		return val == ""
 	case []interface{}:
+		return len(val) == 0
+	case []string:
 		return len(val) == 0
 	case map[string]string:
 		return len(val) == 0
@@ -1350,21 +1352,24 @@ func (c *Config) validateCharmHubURL() error {
 }
 
 // Mode returns the mode type for the configuration.
-// Only three modes exist at the moment (strict, test or ""). Empty string
+// Only three modes exist at the moment (strict or ""). Empty string
 // implies compatible mode.
-func (c *Config) Mode() (string, bool) {
-	v, ok := c.defined[ModeKey].(string)
-	return v, ok
+func (c *Config) Mode() ([]string, bool) {
+	if modes, ok := c.defined[ModeKey]; ok {
+		if m, ok := modes.([]string); ok {
+			return set.NewStrings(m...).SortedValues(), ok
+		}
+	}
+	return []string{}, false
 }
 
 func (c *Config) validateMode() error {
-	if v, ok := c.defined[ModeKey].(string); ok && v != "" {
-		for _, mode := range strings.Split(v, ",") {
-			switch strings.TrimSpace(mode) {
-			case "strict":
-			default:
-				return errors.NotValidf("mode %q", v)
-			}
+	modes, _ := c.Mode()
+	for _, mode := range modes {
+		switch strings.TrimSpace(mode) {
+		case "strict":
+		default:
+			return errors.NotValidf("mode %q", mode)
 		}
 	}
 	return nil
@@ -2067,7 +2072,7 @@ data of the store. (default false)`,
 If the mode is set to "strict" then errors will be used instead of
 using fallbacks. By default mode is set to be lenient and use fallbacks
 where possible. (default "")`,
-		Type:  environschema.Tstring,
+		Type:  environschema.Tlist,
 		Group: environschema.EnvironGroup,
 	},
 	TypeKey: {

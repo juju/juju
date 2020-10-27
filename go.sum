@@ -1094,6 +1094,8 @@ gopkg.in/juju/charmstore.v5 v5.7.1 h1:rBe/X8cPNzegeiTjT8PMf8Ul/E5jsQYzfncpEMqHFl
 gopkg.in/juju/charmstore.v5 v5.7.1/go.mod h1:wJ7iRLP4tEbR8Fv2t4Jueuj3TQmZgrqnG/Bb8cbCt7c=
 gopkg.in/juju/environschema.v1 v1.0.0 h1:51vT1bzbP9fntQ0I9ECSlku2p19Szj/N2beZFeIH2kM=
 gopkg.in/juju/environschema.v1 v1.0.0/go.mod h1:WTgU3KXKCVoO9bMmG/4KHzoaRvLeoxfjArpgd1MGWFA=
+gopkg.in/juju/environschema.v1 v1.0.1-0.20201027142642-c89a4490670a h1:tOwxh73E6us6t6MJHVe/erls2255hEwFKY8TJ40wcWY=
+gopkg.in/juju/environschema.v1 v1.0.1-0.20201027142642-c89a4490670a/go.mod h1:WTgU3KXKCVoO9bMmG/4KHzoaRvLeoxfjArpgd1MGWFA=
 gopkg.in/juju/idmclient.v1 v1.0.0-20180320161856-203d20774ce8 h1:gW6CxMJ4C4R7VQ0PUk2mtNl5WSqdruCkd+JUepUovoE=
 gopkg.in/juju/idmclient.v1 v1.0.0-20180320161856-203d20774ce8/go.mod h1:yZ1Jx1AYkBmv6lrKV6jWBKHZAeF9SgPj6QiqAiJo3ew=
 gopkg.in/juju/jujusvg.v3 v3.0.0-20180629065738-1ebf5c5481e8 h1:Xq1uwjNDSbxdZtkVgBD49tcYA7ZAzKLE3Vzz7VNyXv0=

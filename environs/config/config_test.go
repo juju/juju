@@ -417,7 +417,7 @@ var configTests = []configTest{
 		about:       "Mode flag specified",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"mode": "strict",
+			"mode": []interface{}{"strict"},
 		}),
 	}, {
 		about:       "valid uuid",
@@ -1180,8 +1180,8 @@ func (s *ConfigSuite) TestCharmHubURL(c *gc.C) {
 func (s *ConfigSuite) TestMode(c *gc.C) {
 	config := newTestConfig(c, testing.Attrs{})
 	mode, ok := config.Mode()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(mode, gc.Equals, "")
+	c.Assert(ok, jc.IsFalse)
+	c.Assert(mode, gc.DeepEquals, []string{})
 }
 
 func (s *ConfigSuite) TestCharmHubURLSettingValue(c *gc.C) {
