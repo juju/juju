@@ -5,6 +5,8 @@ package query
 
 import (
 	"reflect"
+
+	"github.com/juju/collections/set"
 )
 
 // Ord represents an ordered type
@@ -223,8 +225,12 @@ func (o *BoxMapStringInterface) Value() interface{} {
 
 // ForEach iterates over each value in the box.
 func (o *BoxMapStringInterface) ForEach(fn func(interface{}) bool) {
-	for _, v := range o.value {
-		if !fn(v) {
+	names := set.NewStrings()
+	for k := range o.value {
+		names.Add(k)
+	}
+	for _, v := range names.SortedValues() {
+		if !fn(o.value[v]) {
 			return
 		}
 	}
