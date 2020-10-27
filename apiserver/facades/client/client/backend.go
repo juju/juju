@@ -62,7 +62,6 @@ type Backend interface {
 	Machine(string) (*state.Machine, error)
 	Model() (*state.Model, error)
 	ModelConfig() (*config.Config, error)
-	ModelConfigValues() (config.ConfigValues, error)
 	ModelConstraints() (constraints.Value, error)
 	ModelTag() names.ModelTag
 	ModelUUID() string
@@ -115,10 +114,6 @@ type stateShim struct {
 
 func (s stateShim) UpdateModelConfig(u map[string]interface{}, r []string, a ...state.ValidateConfigFunc) error {
 	return s.model.UpdateModelConfig(u, r, a...)
-}
-
-func (s stateShim) ModelConfigValues() (config.ConfigValues, error) {
-	return s.model.ModelConfigValues()
 }
 
 func (s *stateShim) Annotations(entity state.GlobalEntity) (map[string]string, error) {
