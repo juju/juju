@@ -23,9 +23,7 @@ func (s *querySuite) TestSuccess(c *gc.C) {
 	defer ctrl.Finish()
 
 	funcScope := NewMockFuncScope(ctrl)
-
-	// This represents the lambda call.
-	funcScope.EXPECT().Call(gomock.Any(), gomock.Any()).Return(true, nil)
+	funcScope.EXPECT().Call(gomock.Any(), gomock.Any()).Return(true, nil).AnyTimes()
 
 	scope := NewMockScope(ctrl)
 
@@ -55,6 +53,8 @@ func (s *querySuite) TestFailure(c *gc.C) {
 	defer ctrl.Finish()
 
 	funcScope := NewMockFuncScope(ctrl)
+	funcScope.EXPECT().Call(gomock.Any(), gomock.Any()).Return(false, nil).AnyTimes()
+
 	scope := NewMockScope(ctrl)
 
 	res, err := ioutil.ReadFile("./testfiles/failure")

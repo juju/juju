@@ -15,3 +15,7 @@ name => _
 name => name
 name => name == "hello"
 lambda(name => _)
+lambda(name => true) && true
+lambda(name => false) || true
+lambda(name => false) || (true && 1 > 0)
+lambda(name => 1 > 0) && lambda(name => 1 > 0) && lambda(name => 1 > 0)
