@@ -22,6 +22,7 @@ import (
 func newModelCommand() cmd.Command {
 	cmd := &modelCommand{
 		applications: make(map[string]*params.ApplicationInfo),
+		machines:     make(map[string]*params.MachineInfo),
 		units:        make(map[string]*params.UnitInfo),
 	}
 	cmd.newWatchAllAPIFunc = func() (api.WatchAllAPI, error) {
@@ -57,7 +58,11 @@ type modelCommand struct {
 	timeout time.Duration
 	found   bool
 
+	// TODO (stickupkid): Generalize this to become a local cache, similar to
+	// the model cache but not with the hierarchy or complexity (for example,
+	// we don't need the mark+sweep gc).
 	applications map[string]*params.ApplicationInfo
+	machines     map[string]*params.MachineInfo
 	units        map[string]*params.UnitInfo
 }
 
@@ -123,6 +128,13 @@ func (c *modelCommand) waitFor(name string, deltas []params.Delta, q query.Query
 				break
 			}
 			c.applications[entityInfo.Name] = entityInfo
+
+		case *params.MachineInfo:
+			if delta.Removed {
+				delete(c.machines, entityInfo.Id)
+				break
+			}
+			c.machines[entityInfo.Id] = entityInfo
 
 		case *params.UnitInfo:
 			if delta.Removed {
@@ -211,6 +223,12 @@ func (m ModelScope) GetIdentValue(name string) (query.Box, error) {
 			scopes[k] = MakeApplicationScope(appInfo)
 		}
 		return NewScopedBox(scopes), nil
+	case "machines":
+		scopes := make(map[string]query.Scope)
+		for k, machine := range m.Model.machines {
+			scopes[k] = MakeMachineScope(machine)
+		}
+		return NewScopedBox(scopes), nil
 	case "units":
 		scopes := make(map[string]query.Scope)
 		for k, unit := range m.Model.units {
@@ -221,7 +239,8 @@ func (m ModelScope) GetIdentValue(name string) (query.Box, error) {
 	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name), "Runtime Error: identifier %q not found on ModelInfo", name)
 }
 
-// ScopedBox defines an ordered integer.
+// ScopedBox defines a scoped box of scopes.
+// Lifts any scope into a box to be used later on.
 type ScopedBox struct {
 	scopes map[string]query.Scope
 }
@@ -234,12 +253,12 @@ func NewScopedBox(scopes map[string]query.Scope) *ScopedBox {
 }
 
 // Less checks if a ScopedBox is less than another ScopedBox.
-func (o *ScopedBox) Less(other query.Box) bool {
+func (o *ScopedBox) Less(other query.Ord) bool {
 	return false
 }
 
 // Equal checks if an ScopedBox is equal to another ScopedBox.
-func (o *ScopedBox) Equal(other query.Box) bool {
+func (o *ScopedBox) Equal(other query.Ord) bool {
 	return false
 }
 

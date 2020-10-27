@@ -7,21 +7,24 @@ import (
 	"reflect"
 )
 
-// Box represents a ordered datatype.
-type Box interface {
+// Ord represents an ordered type
+type Ord interface {
 	// Less checks if a Box is less than another Box
-	Less(Box) bool
+	Less(Ord) bool
 
 	// Equal checks if an Box is equal to another Box.
-	Equal(Box) bool
+	Equal(Ord) bool
+}
+
+// Box represents a boxed datatype.
+type Box interface {
+	Ord
 
 	// IsZero returns if the underlying value is zero.
 	IsZero() bool
 
 	// Value defines the shadow type value of the Box.
 	Value() interface{}
-
-	ForEach(func(interface{}) bool)
 }
 
 // BoxInteger defines an ordered integer.
@@ -35,7 +38,7 @@ func NewInteger(value int64) *BoxInteger {
 }
 
 // Less checks if a BoxInteger is less than another BoxInteger.
-func (o *BoxInteger) Less(other Box) bool {
+func (o *BoxInteger) Less(other Ord) bool {
 	if i, ok := other.(*BoxInteger); ok {
 		return o.value < i.value
 	}
@@ -43,7 +46,7 @@ func (o *BoxInteger) Less(other Box) bool {
 }
 
 // Equal checks if an BoxInteger is equal to another BoxInteger.
-func (o *BoxInteger) Equal(other Box) bool {
+func (o *BoxInteger) Equal(other Ord) bool {
 	if i, ok := other.(*BoxInteger); ok {
 		return o.value == i.value
 	}
@@ -76,7 +79,7 @@ func NewFloat(value float64) *BoxFloat {
 }
 
 // Less checks if a BoxFloat is less than another BoxFloat.
-func (o *BoxFloat) Less(other Box) bool {
+func (o *BoxFloat) Less(other Ord) bool {
 	if i, ok := other.(*BoxFloat); ok {
 		return o.value < i.value
 	}
@@ -84,7 +87,7 @@ func (o *BoxFloat) Less(other Box) bool {
 }
 
 // Equal checks if an BoxFloat is equal to another BoxFloat.
-func (o *BoxFloat) Equal(other Box) bool {
+func (o *BoxFloat) Equal(other Ord) bool {
 	if i, ok := other.(*BoxFloat); ok {
 		return o.value == i.value
 	}
@@ -117,7 +120,7 @@ func NewString(value string) *BoxString {
 }
 
 // Less checks if a BoxString is less than another BoxString.
-func (o *BoxString) Less(other Box) bool {
+func (o *BoxString) Less(other Ord) bool {
 	if i, ok := other.(*BoxString); ok {
 		return o.value < i.value
 	}
@@ -125,7 +128,7 @@ func (o *BoxString) Less(other Box) bool {
 }
 
 // Equal checks if an BoxString is equal to another BoxString.
-func (o *BoxString) Equal(other Box) bool {
+func (o *BoxString) Equal(other Ord) bool {
 	if i, ok := other.(*BoxString); ok {
 		return o.value == i.value
 	}
@@ -158,12 +161,12 @@ func NewBool(value bool) *BoxBool {
 }
 
 // Less checks if a BoxBool is less than another BoxBool.
-func (o *BoxBool) Less(other Box) bool {
+func (o *BoxBool) Less(other Ord) bool {
 	return false
 }
 
 // Equal checks if an BoxBool is equal to another BoxBool.
-func (o *BoxBool) Equal(other Box) bool {
+func (o *BoxBool) Equal(other Ord) bool {
 	if i, ok := other.(*BoxBool); ok {
 		return o.value == i.value
 	}
@@ -196,12 +199,12 @@ func NewMapStringInterface(value map[string]interface{}) *BoxMapStringInterface 
 }
 
 // Less checks if a BoxMapStringInterface is less than another BoxMapStringInterface.
-func (o *BoxMapStringInterface) Less(other Box) bool {
+func (o *BoxMapStringInterface) Less(other Ord) bool {
 	return false
 }
 
 // Equal checks if an BoxMapStringInterface is equal to another BoxMapStringInterface.
-func (o *BoxMapStringInterface) Equal(other Box) bool {
+func (o *BoxMapStringInterface) Equal(other Ord) bool {
 	if i, ok := other.(*BoxMapStringInterface); ok {
 		return reflect.DeepEqual(o.value, i.value)
 	}
@@ -238,12 +241,12 @@ func NewMapInterfaceInterface(value map[interface{}]interface{}) *BoxMapInterfac
 }
 
 // Less checks if a BoxMapInterfaceInterface is less than another BoxMapInterfaceInterface.
-func (o *BoxMapInterfaceInterface) Less(other Box) bool {
+func (o *BoxMapInterfaceInterface) Less(other Ord) bool {
 	return false
 }
 
 // Equal checks if an BoxMapInterfaceInterface is equal to another BoxMapInterfaceInterface.
-func (o *BoxMapInterfaceInterface) Equal(other Box) bool {
+func (o *BoxMapInterfaceInterface) Equal(other Ord) bool {
 	if i, ok := other.(*BoxMapInterfaceInterface); ok {
 		return reflect.DeepEqual(o.value, i.value)
 	}
@@ -280,12 +283,12 @@ func NewSliceString(value []string) *BoxSliceString {
 }
 
 // Less checks if a BoxSliceString is less than another BoxSliceString.
-func (o *BoxSliceString) Less(other Box) bool {
+func (o *BoxSliceString) Less(other Ord) bool {
 	return false
 }
 
 // Equal checks if an BoxSliceString is equal to another BoxSliceString.
-func (o *BoxSliceString) Equal(other Box) bool {
+func (o *BoxSliceString) Equal(other Ord) bool {
 	if i, ok := other.(*BoxSliceString); ok {
 		return reflect.DeepEqual(o.value, i.value)
 	}
@@ -326,12 +329,12 @@ func NewLambda(arg *Identifier, fn func(Scope) ([]Box, error)) *BoxLambda {
 }
 
 // Less checks if a BoxLambda is less than another BoxLambda.
-func (o *BoxLambda) Less(other Box) bool {
+func (o *BoxLambda) Less(other Ord) bool {
 	return false
 }
 
 // Equal checks if an BoxLambda is equal to another BoxLambda.
-func (o *BoxLambda) Equal(other Box) bool {
+func (o *BoxLambda) Equal(other Ord) bool {
 	return false
 }
 
@@ -353,11 +356,6 @@ func (o *BoxLambda) ArgName() string {
 // Call the underlying lambda
 func (o *BoxLambda) Call(scope Scope) ([]Box, error) {
 	return o.fn(scope)
-}
-
-// ForEach iterates over each value in the box.
-func (o *BoxLambda) ForEach(fn func(interface{}) bool) {
-	// Do nothing here!
 }
 
 func expectStringIndex(i interface{}) (*BoxString, error) {

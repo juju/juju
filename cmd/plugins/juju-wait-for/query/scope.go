@@ -51,7 +51,7 @@ func NewGlobalFuncScope(scope Scope) *GlobalFuncScope {
 					called bool
 					result = true
 				)
-				scopes.ForEach(func(value interface{}) bool {
+				ForEach(scopes, func(value interface{}) bool {
 					called = true
 
 					nestedScope, ok := value.(Scope)
@@ -168,12 +168,12 @@ type BoxNestedScope struct {
 }
 
 // Less checks if a BoxNestedScope is less than another BoxNestedScope.
-func (o *BoxNestedScope) Less(other Box) bool {
+func (o *BoxNestedScope) Less(other Ord) bool {
 	return false
 }
 
 // Equal checks if an BoxNestedScope is equal to another BoxNestedScope.
-func (o *BoxNestedScope) Equal(other Box) bool {
+func (o *BoxNestedScope) Equal(other Ord) bool {
 	return false
 }
 
@@ -187,7 +187,13 @@ func (o *BoxNestedScope) Value() interface{} {
 	return o.value
 }
 
-// ForEach iterates over each value in the box.
-func (o *BoxNestedScope) ForEach(fn func(interface{}) bool) {
-	// Do nothing here!
+// ForEach will call the function on every value within a Box.
+// If a Box isn't an iterable then we perform a no-op.
+func ForEach(box Box, fn func(value interface{}) bool) {
+	type iterable interface {
+		ForEach(func(interface{}) bool)
+	}
+	if e, ok := box.(iterable); ok {
+		e.ForEach(fn)
+	}
 }
