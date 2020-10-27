@@ -16,6 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	jujutesting "github.com/juju/juju/testing"
 )
 
 // on linux we use the "nohup" command to run a reboot
@@ -30,7 +31,7 @@ sleep 15
 shutdown -h now`
 
 type NixRebootSuite struct {
-	testing.IsolationSuite
+	jujutesting.BaseSuite
 	tmpDir           string
 	rebootScriptName string
 }
@@ -38,13 +39,7 @@ type NixRebootSuite struct {
 var _ = gc.Suite(&NixRebootSuite{})
 
 func (s *NixRebootSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
-	// TODO (hml) 2020-10-26
-	// Find correct test suite to avoid:
-	// Add `/usr/bin` to PATH, otherwise can't find `tee` used
-	// in the `nohup` script written in PatchExecutableAsEchoArgs.
-	// If using JujuConnSuite, this is not an issue.
-	s.PatchEnvironment("PATH", "/usr/bin")
+	s.BaseSuite.SetUpTest(c)
 	testing.PatchExecutableAsEchoArgs(c, s, rebootBin)
 	s.tmpDir = c.MkDir()
 	s.rebootScriptName = "juju-reboot-script"
