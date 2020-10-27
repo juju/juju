@@ -97,8 +97,7 @@ var (
 	jujuRun           = paths.MustSucceed(paths.JujuRun(series.MustHostSeries()))
 	jujuDumpLogs      = paths.MustSucceed(paths.JujuDumpLogs(series.MustHostSeries()))
 	jujuIntrospect    = paths.MustSucceed(paths.JujuIntrospect(series.MustHostSeries()))
-	jujuUpdateSeries  = paths.MustSucceed(paths.JujuUpdateSeries(series.MustHostSeries()))
-	jujudSymlinks     = []string{jujuRun, jujuDumpLogs, jujuIntrospect, jujuUpdateSeries}
+	jujudSymlinks     = []string{jujuRun, jujuDumpLogs, jujuIntrospect}
 	caasJujudSymlinks = []string{jujuRun, jujuDumpLogs, jujuIntrospect}
 
 	// The following are defined as variables to allow the tests to
