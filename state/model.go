@@ -1152,6 +1152,11 @@ func IsHasHostedModelsError(err error) bool {
 	return ok
 }
 
+// NewHasPersistentStorageError returns hasPersistentStorageError.
+func NewHasPersistentStorageError() error {
+	return hasPersistentStorageError{}
+}
+
 type hasPersistentStorageError struct{}
 
 func (hasPersistentStorageError) Error() string {
