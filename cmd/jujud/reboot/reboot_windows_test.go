@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	jujutesting "github.com/juju/juju/testing"
 )
 
 const (
@@ -36,7 +37,12 @@ func (s *WinRebootSuite) shutdownCommandParams(c *gc.C) []string {
 }
 
 type WinRebootSuite struct {
-	testing.IsolationSuite
+	jujutesting.BaseSuite
+}
+
+func (s *WinRebootSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	testing.PatchExecutableAsEchoArgs(c, s, rebootBin)
 }
 
 var _ = gc.Suite(&WinRebootSuite{})
