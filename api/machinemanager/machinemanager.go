@@ -41,11 +41,17 @@ func (client *Client) AddMachines(machineParams []params.AddMachineParams) ([]pa
 		MachineParams: machineParams,
 	}
 	results := new(params.AddMachinesResults)
+
 	err := client.facade.FacadeCall("AddMachines", args, results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if len(results.Machines) != len(machineParams) {
 		return nil, errors.Errorf("expected %d result, got %d", len(machineParams), len(results.Machines))
 	}
-	return results.Machines, err
+
+	return results.Machines, nil
 }
 
 // DestroyMachines removes a given set of machines.
