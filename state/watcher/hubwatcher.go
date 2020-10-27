@@ -177,7 +177,13 @@ func (w *HubWatcher) receiveEvent(topic string, data interface{}) {
 	case txnWatcherStarting:
 		// We don't do anything on a start.
 	case txnWatcherSyncErr:
-		w.tomb.Kill(errors.New("txn watcher sync error"))
+		syncErr, ok := data.(error)
+		if ok {
+			syncErr = errors.Annotate(syncErr, "hub txn watcher sync error")
+		} else {
+			syncErr = errors.New("hub txn watcher sync unknown error")
+		}
+		w.tomb.Kill(syncErr)
 	case txnWatcherCollection:
 		change, ok := data.(Change)
 		if !ok {

@@ -78,10 +78,12 @@ func (s *TxnWatcherSuite) newWatcher(c *gc.C, expect int) (*watcher.TxnWatcher, 
 	logger := loggo.GetLogger("test")
 	logger.SetLogLevel(loggo.TRACE)
 	w, err := watcher.NewTxnWatcher(watcher.TxnWatcherConfig{
-		ChangeLog: s.log,
-		Hub:       hub,
-		Clock:     s.clock,
-		Logger:    logger,
+		Session:        s.MgoSuite.Session,
+		JujuDBName:     "juju",
+		CollectionName: s.log.Name,
+		Hub:            hub,
+		Clock:          s.clock,
+		Logger:         logger,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	// Wait for the main loop to have started.
