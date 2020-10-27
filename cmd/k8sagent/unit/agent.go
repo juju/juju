@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/juju/clock"
@@ -60,8 +61,10 @@ type k8sUnitAgent struct {
 	prometheusRegistry *prometheus.Registry
 
 	fileReaderWriter utils.FileReaderWriter
+	environment      utils.Environment
 
 	charmModifiedVersion int
+	envVars              []string
 }
 
 // New creates k8sagent unit command.
@@ -79,6 +82,7 @@ func New(ctx *cmd.Context, bufferedLogger *logsender.BufferedLogWriter) (cmd.Com
 		bufferedLogger:     bufferedLogger,
 		prometheusRegistry: prometheusRegistry,
 		fileReaderWriter:   utils.NewFileReaderWriter(),
+		environment:        utils.NewEnvironment(),
 	}, nil
 }
 
@@ -94,6 +98,7 @@ func (c *k8sUnitAgent) Info() *cmd.Info {
 func (c *k8sUnitAgent) SetFlags(f *gnuflag.FlagSet) {
 	c.AgentConf.AddFlags(f)
 	f.IntVar(&c.charmModifiedVersion, "charm-modified-version", -1, "charm modified version to validate downloaded charm is for the provided infrastructure")
+	f.Var(cmd.NewAppendStringsValue(&c.envVars), "append-env", "can be specified multiple times and with the form ENV_VAR=VALUE where VALUE can be empty or contain unexpanded variables using $OTHER_ENV")
 }
 
 func (c *k8sUnitAgent) CharmModifiedVersion() int {
@@ -133,6 +138,33 @@ func (c *k8sUnitAgent) Init(args []string) error {
 	if err := c.AgentConf.CheckArgs(args); err != nil {
 		return err
 	}
+
+	// Append environment with passed in values.
+	for _, e := range c.envVars {
+		kv := strings.SplitN(e, "=", 2)
+		k, v := "", ""
+		switch len(kv) {
+		case 1:
+			k = kv[0]
+		case 2:
+			k = kv[0]
+			v = kv[1]
+		default:
+			return errors.NotValidf("invalid K=V pair for --append-env")
+		}
+		if v == "" {
+			err := c.environment.Unsetenv(k)
+			if err != nil {
+				return errors.Trace(err)
+			}
+		} else {
+			err := c.environment.Setenv(k, c.environment.ExpandEnv(v))
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
+	}
+
 	c.runner = worker.NewRunner(worker.RunnerParams{
 		IsFatal:       agenterrors.IsFatal,
 		MoreImportant: agenterrors.MoreImportant,

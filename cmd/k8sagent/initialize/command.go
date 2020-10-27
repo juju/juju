@@ -4,11 +4,15 @@
 package initialize
 
 import (
+	"context"
+	"io"
 	"path"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -16,7 +20,6 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/k8sagent/utils"
-	corepaths "github.com/juju/juju/core/paths"
 	"github.com/juju/juju/worker/apicaller"
 )
 
@@ -28,6 +31,9 @@ type initCommand struct {
 	identity         identityFunc
 	applicationAPI   ApplicationAPI
 	fileReaderWriter utils.FileReaderWriter
+
+	dataDir string
+	binDir  string
 }
 
 // ApplicationAPI provides methods for unit introduction.
@@ -43,6 +49,12 @@ func New() cmd.Command {
 		identity:         defaultIdentity,
 		fileReaderWriter: utils.NewFileReaderWriter(),
 	}
+}
+
+// SetFlags implements Command.
+func (c *initCommand) SetFlags(f *gnuflag.FlagSet) {
+	f.StringVar(&c.dataDir, "data-dir", "", "directory for juju data")
+	f.StringVar(&c.binDir, "bin-dir", "", "copy juju binaries to this directory")
 }
 
 // Info returns a description of the command.
@@ -64,6 +76,16 @@ func (c *initCommand) getApplicationAPI() (ApplicationAPI, error) {
 	return c.applicationAPI, nil
 }
 
+func (c *initCommand) Init(args []string) error {
+	if c.dataDir == "" {
+		return errors.NotValidf("--data-dir")
+	}
+	if c.binDir == "" {
+		return errors.NotValidf("--bin-dir")
+	}
+	return c.CommandBase.Init(args)
+}
+
 func (c *initCommand) Run(ctx *cmd.Context) error {
 	ctx.Infof("starting k8sagent init command")
 
@@ -79,47 +101,46 @@ func (c *initCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	dataDir, _ := corepaths.DataDir("kubernetes")
-	if err = c.fileReaderWriter.MkdirAll(dataDir, 0755); err != nil {
+	if err = c.fileReaderWriter.MkdirAll(c.dataDir, 0755); err != nil {
 		return errors.Trace(err)
 	}
 
-	templateConfigPath := path.Join(dataDir, k8sconstants.TemplateFileNameAgentConf)
+	templateConfigPath := path.Join(c.dataDir, k8sconstants.TemplateFileNameAgentConf)
 	if err = c.fileReaderWriter.WriteFile(templateConfigPath, unitConfig.AgentConf, 0644); err != nil {
 		return errors.Trace(err)
 	}
 
-	// TODO(caas): stream read/write
-	binary, err := c.fileReaderWriter.ReadFile("/opt/pebble")
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = c.fileReaderWriter.WriteFile("/shared/usr/bin/pebble", binary, 0755)
-	if err != nil {
+	if err = c.fileReaderWriter.MkdirAll(c.binDir, 0755); err != nil {
 		return errors.Trace(err)
 	}
 
-	// TODO(caas): stream read/write
-	binary, err = c.fileReaderWriter.ReadFile("/opt/k8sagent")
-	if err != nil {
-		return errors.Trace(err)
+	eg, _ := errgroup.WithContext(context.Background())
+	doCopy := func(src string, dst string) {
+		eg.Go(func() error {
+			srcStream, err := c.fileReaderWriter.Reader(src)
+			if err != nil {
+				return errors.Annotatef(err, "opening %q for reading", src)
+			}
+			defer srcStream.Close()
+			dstStream, err := c.fileReaderWriter.Writer(dst, 0755)
+			if err != nil {
+				return errors.Annotatef(err, "opening %q for writing", dst)
+			}
+			defer dstStream.Close()
+			_, err = io.Copy(dstStream, srcStream)
+			if err == io.EOF {
+				return nil
+			} else if err != nil {
+				return errors.Annotatef(err, "copying %q to %q", src, dst)
+			}
+			ctx.Infof("copied %q to %q", src, dst)
+			return nil
+		})
 	}
-	err = c.fileReaderWriter.WriteFile("/shared/usr/bin/k8sagent", binary, 0755)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// TODO(caas): stream read/write
-	binary, err = c.fileReaderWriter.ReadFile("/opt/jujuc")
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = c.fileReaderWriter.WriteFile("/shared/usr/bin/jujuc", binary, 0755)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
+	doCopy("/opt/pebble", path.Join(c.binDir, "pebble"))
+	doCopy("/opt/k8sagent", path.Join(c.binDir, "k8sagent"))
+	doCopy("/opt/jujuc", path.Join(c.binDir, "jujuc"))
+	return eg.Wait()
 }
 
 func (c *initCommand) CurrentConfig() agent.Config {

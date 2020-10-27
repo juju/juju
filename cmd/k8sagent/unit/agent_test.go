@@ -35,6 +35,7 @@ type k8sUnitAgentSuite struct {
 	rootDir          string
 	dataDir          string
 	fileReaderWriter *utilsmocks.MockFileReaderWriter
+	environment      *utilsmocks.MockEnvironment
 	cmd              unit.K8sUnitAgentTest
 }
 
@@ -70,7 +71,8 @@ func (s *k8sUnitAgentSuite) TearDownTest(c *gc.C) {
 func (s *k8sUnitAgentSuite) setupCommand(c *gc.C, configChangedVal *voyeur.Value) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.fileReaderWriter = utilsmocks.NewMockFileReaderWriter(ctrl)
-	s.cmd = unit.NewForTest(nil, s.newBufferedLogWriter(), configChangedVal, s.fileReaderWriter)
+	s.environment = utilsmocks.NewMockEnvironment(ctrl)
+	s.cmd = unit.NewForTest(nil, s.newBufferedLogWriter(), configChangedVal, s.fileReaderWriter, s.environment)
 	return ctrl
 }
 
@@ -95,6 +97,9 @@ func (s *k8sUnitAgentSuite) TestParseSuccess(c *gc.C) {
 
 	toolsDir := filepath.Join(s.dataDir, "tools", "unit-wordpress-0")
 	gomock.InOrder(
+		s.environment.EXPECT().ExpandEnv("$PATH:test-bin").Return("old-path:test-bin"),
+		s.environment.EXPECT().Setenv("PATH", "old-path:test-bin").Return(nil),
+		s.environment.EXPECT().Unsetenv("DELETE").Return(nil),
 		s.fileReaderWriter.EXPECT().MkdirAll(toolsDir, os.FileMode(0755)).Return(nil),
 		s.fileReaderWriter.EXPECT().Symlink(gomock.Any(), filepath.Join(toolsDir, jnames.K8sAgent)).Return(nil),
 		s.fileReaderWriter.EXPECT().Symlink(gomock.Any(), filepath.Join(toolsDir, jnames.JujuRun)).Return(nil),
@@ -105,6 +110,8 @@ func (s *k8sUnitAgentSuite) TestParseSuccess(c *gc.C) {
 	err := cmdtesting.InitCommand(s.cmd, []string{
 		"--data-dir", s.dataDir,
 		"--charm-modified-version", "10",
+		"--append-env", "PATH=$PATH:test-bin",
+		"--append-env", "DELETE=",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
