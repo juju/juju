@@ -108,6 +108,31 @@ func (s *destroyModelSuite) TestDestroyModelBlocked(c *gc.C) {
 	s.modelManager.models[0].CheckNoCalls(c)
 }
 
+func (s *destroyModelSuite) TestDestroyModelIgnoresErrorsWithForce(c *gc.C) {
+	s.modelManager.models[0].SetErrors(
+		errors.New("nope"),
+	)
+
+	true_ := true
+	err := common.DestroyModel(s.modelManager, nil, &true_, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.modelManager.CheckCallNames(c, "GetBlockForType", "GetBlockForType", "GetBlockForType", "Model")
+	s.modelManager.models[0].CheckCallNames(c, "Destroy")
+}
+
+func (s *destroyModelSuite) TestDestroyModelNotIgnoreErrorsrWithForce(c *gc.C) {
+	s.modelManager.models[0].SetErrors(
+		state.NewHasPersistentStorageError(),
+	)
+	true_ := true
+	err := common.DestroyModel(s.modelManager, nil, &true_, nil)
+	c.Assert(err, jc.Satisfies, state.IsHasPersistentStorageError)
+
+	s.modelManager.CheckCallNames(c, "GetBlockForType", "GetBlockForType", "GetBlockForType", "Model")
+	s.modelManager.models[0].CheckCallNames(c, "Destroy")
+}
+
 func (s *destroyModelSuite) TestDestroyControllerNonControllerModel(c *gc.C) {
 	s.modelManager.models[0].tag = s.modelManager.models[1].tag
 	err := common.DestroyController(s.modelManager, false, nil)
