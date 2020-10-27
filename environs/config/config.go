@@ -487,7 +487,7 @@ var defaultConfigValues = map[string]interface{}{
 	"enable-os-upgrade":           true,
 	"development":                 false,
 	TestModeKey:                   false,
-	ModeKey:                       []string{},
+	ModeKey:                       []interface{}{},
 	TransmitVendorMetricsKey:      true,
 	UpdateStatusHookInterval:      DefaultUpdateStatusHookInterval,
 	EgressSubnets:                 "",
