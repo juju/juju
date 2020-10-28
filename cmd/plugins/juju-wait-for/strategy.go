@@ -8,11 +8,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/retry"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/plugins/juju-wait-for/api"
 	"github.com/juju/juju/cmd/plugins/juju-wait-for/query"
+	"github.com/juju/juju/rpc"
 )
 
 // StrategyFunc defines a way to change the underlying stategy function that
@@ -22,8 +25,8 @@ type StrategyFunc func(string, []params.Delta, query.Query) (bool, error)
 // Strategy defines a series of instructions to run for a given wait for
 // plan.
 type Strategy struct {
-	Client  api.WatchAllAPI
-	Timeout time.Duration
+	ClientFn func() (api.WatchAllAPI, error)
+	Timeout  time.Duration
 }
 
 // Run the strategy and return the given result set.
@@ -33,7 +36,29 @@ func (s *Strategy) Run(name string, input string, fn StrategyFunc) error {
 		return errors.Trace(err)
 	}
 
-	watcher, err := s.Client.WatchAll()
+	return retry.Call(retry.CallArgs{
+		Clock:       clock.WallClock,
+		Delay:       5 * time.Second,
+		MaxDuration: s.Timeout,
+		Func: func() error {
+			return s.run(q, name, input, fn)
+		},
+		IsFatalError: func(err error) bool {
+			if e, ok := errors.Cause(err).(*rpc.RequestError); ok && isWatcherStopped(e) {
+				return false
+			}
+			return true
+		},
+	})
+}
+
+func (s *Strategy) run(q query.Query, name string, input string, fn StrategyFunc) error {
+	client, err := s.ClientFn()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	watcher, err := client.WatchAll()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -67,6 +92,12 @@ func (s *Strategy) Run(name string, input string, fn StrategyFunc) error {
 			return nil
 		}
 	}
+}
+
+func isWatcherStopped(e *rpc.RequestError) bool {
+	// Currently multiwatcher.ErrStopped doesn't expose an error code or
+	// underlying error to know if a watcher is stopped or not.
+	return strings.Contains(e.Message, "watcher was stopped")
 }
 
 // GenericScope allows the query to introspect an entity.

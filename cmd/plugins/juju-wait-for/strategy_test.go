@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/plugins/juju-wait-for/api"
 	"github.com/juju/juju/cmd/plugins/juju-wait-for/api/mocks"
 	"github.com/juju/juju/cmd/plugins/juju-wait-for/query"
 )
@@ -43,7 +44,9 @@ func (s *strategySuite) TestRun(c *gc.C) {
 	var deltas []params.Delta
 
 	strategy := Strategy{
-		Client:  client,
+		ClientFn: func() (api.WatchAllAPI, error) {
+			return client, nil
+		},
 		Timeout: time.Minute,
 	}
 	err := strategy.Run("generic", `life=="active"`, func(_ string, d []params.Delta, _ query.Query) (bool, error) {
@@ -62,7 +65,9 @@ func (s *strategySuite) TestRunWithInvalidQuery(c *gc.C) {
 
 	client := mocks.NewMockWatchAllAPI(ctrl)
 	strategy := Strategy{
-		Client:  client,
+		ClientFn: func() (api.WatchAllAPI, error) {
+			return client, nil
+		},
 		Timeout: time.Minute,
 	}
 	err := strategy.Run("generic", `life=="ac`, func(_ string, d []params.Delta, _ query.Query) (bool, error) {
