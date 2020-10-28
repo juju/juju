@@ -63,9 +63,8 @@ def assess_cross_model_relations_single_controller(args):
     with bs_manager.booted_context(args.upload_tools):
         offer_model = bs_manager.client
         with temporary_model(offer_model, 'consume-model') as consume_model:
-                ensure_cmr_offer_management(offer_model)
-                ensure_cmr_offer_consumption_and_relation(
-                    offer_model, consume_model)
+            ensure_cmr_offer_management(offer_model)
+            ensure_cmr_offer_consumption_and_relation(offer_model, consume_model)
 
 
 def assess_cross_model_relations_multiple_controllers(args):
