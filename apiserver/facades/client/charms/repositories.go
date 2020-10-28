@@ -166,9 +166,9 @@ func makeChannel(origin params.CharmOrigin) (corecharm.Channel, error) {
 	return corecharm.MakeChannel(track, origin.Risk, "")
 }
 
-func findChannelMap(rev int, preferredChannel corecharm.Channel, channelMaps []transport.ChannelMap) (transport.ChannelMap, error) {
+func findChannelMap(rev int, preferredChannel corecharm.Channel, channelMaps []transport.InfoChannelMap) (transport.InfoChannelMap, error) {
 	if len(channelMaps) == 0 {
-		return transport.ChannelMap{}, errors.NotValidf("no channels provided by CharmHub")
+		return transport.InfoChannelMap{}, errors.NotValidf("no channels provided by CharmHub")
 	}
 	switch {
 	case preferredChannel.String() != "" && rev != -1:
@@ -180,7 +180,7 @@ func findChannelMap(rev int, preferredChannel corecharm.Channel, channelMaps []t
 	}
 }
 
-func findByRevision(rev int, channelMaps []transport.ChannelMap) (transport.ChannelMap, error) {
+func findByRevision(rev int, channelMaps []transport.InfoChannelMap) (transport.InfoChannelMap, error) {
 	for _, cMap := range channelMaps {
 		if cMap.Revision.Revision == rev {
 			// Channel map is in order of most newest/stable channel,
@@ -188,32 +188,32 @@ func findByRevision(rev int, channelMaps []transport.ChannelMap) (transport.Chan
 			return cMap, nil
 		}
 	}
-	return transport.ChannelMap{}, errors.NotFoundf("charm revision %d", rev)
+	return transport.InfoChannelMap{}, errors.NotFoundf("charm revision %d", rev)
 }
 
-func findByChannel(preferredChannel corecharm.Channel, channelMaps []transport.ChannelMap) (transport.ChannelMap, error) {
+func findByChannel(preferredChannel corecharm.Channel, channelMaps []transport.InfoChannelMap) (transport.InfoChannelMap, error) {
 	for _, cMap := range channelMaps {
 		if matchChannel(preferredChannel, cMap.Channel) {
 			return cMap, nil
 		}
 	}
-	return transport.ChannelMap{}, errors.NotFoundf("channel %q", preferredChannel.String())
+	return transport.InfoChannelMap{}, errors.NotFoundf("channel %q", preferredChannel.String())
 }
 
-func findByRevisionAndChannel(rev int, preferredChannel corecharm.Channel, channelMaps []transport.ChannelMap) (transport.ChannelMap, error) {
+func findByRevisionAndChannel(rev int, preferredChannel corecharm.Channel, channelMaps []transport.InfoChannelMap) (transport.InfoChannelMap, error) {
 	for _, cMap := range channelMaps {
 		if cMap.Revision.Revision == rev && matchChannel(preferredChannel, cMap.Channel) {
 			return cMap, nil
 		}
 	}
-	return transport.ChannelMap{}, errors.NotFoundf("charm revision %d for channel %q", rev, preferredChannel.String())
+	return transport.InfoChannelMap{}, errors.NotFoundf("charm revision %d for channel %q", rev, preferredChannel.String())
 }
 
 func matchChannel(one corecharm.Channel, two transport.Channel) bool {
 	return one.String() == two.Name
 }
 
-func (c *chRepo) resolveViaChannelMap(curl *charm.URL, origin params.CharmOrigin, channelMap transport.ChannelMap) (*charm.URL, params.CharmOrigin, []string, error) {
+func (c *chRepo) resolveViaChannelMap(curl *charm.URL, origin params.CharmOrigin, channelMap transport.InfoChannelMap) (*charm.URL, params.CharmOrigin, []string, error) {
 	mapChannel := channelMap.Channel
 	mapRevision := channelMap.Revision
 

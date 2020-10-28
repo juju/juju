@@ -176,8 +176,8 @@ func getCharmHubInfoResponse() transport.InfoResponse {
 	}
 }
 
-func getCharmHubResponse() ([]transport.ChannelMap, transport.ChannelMap) {
-	return []transport.ChannelMap{{
+func getCharmHubResponse() ([]transport.InfoChannelMap, transport.InfoChannelMap) {
+	return []transport.InfoChannelMap{{
 			Channel: transport.Channel{
 				Name: "stable",
 				Platform: transport.Platform{
@@ -188,7 +188,7 @@ func getCharmHubResponse() ([]transport.ChannelMap, transport.ChannelMap) {
 				Risk:  "stable",
 				Track: "latest",
 			},
-			Revision: transport.Revision{
+			Revision: transport.InfoRevision{
 				MetadataYAML: entityMeta,
 				Platforms: []transport.Platform{{
 					Architecture: "all",
@@ -209,7 +209,7 @@ func getCharmHubResponse() ([]transport.ChannelMap, transport.ChannelMap) {
 				Risk:  "candidate",
 				Track: "latest",
 			},
-			Revision: transport.Revision{
+			Revision: transport.InfoRevision{
 				MetadataYAML: entityMeta,
 				Platforms: []transport.Platform{{
 					Architecture: "all",
@@ -230,7 +230,7 @@ func getCharmHubResponse() ([]transport.ChannelMap, transport.ChannelMap) {
 				Risk:  "edge",
 				Track: "latest",
 			},
-			Revision: transport.Revision{
+			Revision: transport.InfoRevision{
 				MetadataYAML: entityMeta,
 				Platforms: []transport.Platform{{
 					Architecture: "all",
@@ -251,7 +251,7 @@ func getCharmHubResponse() ([]transport.ChannelMap, transport.ChannelMap) {
 				Risk:  "stable",
 				Track: "second",
 			},
-			Revision: transport.Revision{
+			Revision: transport.InfoRevision{
 				MetadataYAML: entityMeta,
 				Platforms: []transport.Platform{{
 					Architecture: "all",
@@ -261,7 +261,7 @@ func getCharmHubResponse() ([]transport.ChannelMap, transport.ChannelMap) {
 				Revision: 13,
 				Version:  "1.0.3",
 			},
-		}}, transport.ChannelMap{
+		}}, transport.InfoChannelMap{
 			Channel: transport.Channel{
 				Name: "stable",
 				Platform: transport.Platform{
@@ -272,7 +272,7 @@ func getCharmHubResponse() ([]transport.ChannelMap, transport.ChannelMap) {
 				Risk:  "stable",
 				Track: "latest",
 			},
-			Revision: transport.Revision{
+			Revision: transport.InfoRevision{
 				MetadataYAML: entityMeta,
 				Platforms: []transport.Platform{{
 					Architecture: "all",
