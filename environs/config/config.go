@@ -487,7 +487,6 @@ var defaultConfigValues = map[string]interface{}{
 	"enable-os-upgrade":           true,
 	"development":                 false,
 	TestModeKey:                   false,
-	ModeKey:                       []interface{}{},
 	TransmitVendorMetricsKey:      true,
 	UpdateStatusHookInterval:      DefaultUpdateStatusHookInterval,
 	EgressSubnets:                 "",
@@ -1723,8 +1722,9 @@ func (c *Config) ValidateUnknownAttrs(extrafields schema.Fields, defaults schema
 				}
 			}
 			result[name] = value
-			// The only allowed types for unknown attributes are string, int, float and bool
-			switch value.(type) {
+			// The only allowed types for unknown attributes are string, int,
+			// float, bool and []interface{} (which is really []string)
+			switch t := value.(type) {
 			case string:
 				continue
 			case int:
@@ -1734,6 +1734,13 @@ func (c *Config) ValidateUnknownAttrs(extrafields schema.Fields, defaults schema
 			case float32:
 				continue
 			case float64:
+				continue
+			case []interface{}:
+				for _, val := range t {
+					if _, ok := val.(string); !ok {
+						return nil, fmt.Errorf("%s: unknown type (%q)", name, value)
+					}
+				}
 				continue
 			default:
 				return nil, fmt.Errorf("%s: unknown type (%q)", name, value)
