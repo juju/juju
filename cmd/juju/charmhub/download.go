@@ -212,7 +212,7 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 
 	var (
 		found    bool
-		revision transport.Revision
+		revision transport.InfoRevision
 	)
 	// If there is no series, then attempt to select the best one first.
 	if c.series == "" {
@@ -331,7 +331,7 @@ func (stdoutFileSystem) Create(string) (*os.File, error) {
 	return os.NewFile(uintptr(syscall.Stdout), "/dev/stdout"), nil
 }
 
-func (c *downloadCommand) locateRevisionByChannel(channelMaps []transport.ChannelMap, channel corecharm.Channel) (transport.Revision, bool) {
+func (c *downloadCommand) locateRevisionByChannel(channelMaps []transport.InfoChannelMap, channel corecharm.Channel) (transport.InfoRevision, bool) {
 	// Order the channelMap by the ordered supported controller series. That
 	// way we'll always find the newest one first (hopefully the most
 	// supported).
@@ -347,12 +347,12 @@ func (c *downloadCommand) locateRevisionByChannel(channelMaps []transport.Channe
 			return rev, true
 		}
 	}
-	return transport.Revision{}, false
+	return transport.InfoRevision{}, false
 }
 
-func (c *downloadCommand) locateRevisionByChannelAndSeries(channelMaps []transport.ChannelMap, channel corecharm.Channel, series string) (transport.Revision, bool) {
+func (c *downloadCommand) locateRevisionByChannelAndSeries(channelMaps []transport.InfoChannelMap, channel corecharm.Channel, series string) (transport.InfoRevision, bool) {
 	// Filter out any channels that aren't of a given series.
-	var filtered []transport.ChannelMap
+	var filtered []transport.InfoChannelMap
 	for _, channelMap := range channelMaps {
 		if channelMap.Channel.Platform.Series == series || isSeriesInPlatforms(channelMap.Revision.Platforms, series) {
 			filtered = append(filtered, channelMap)
@@ -361,7 +361,7 @@ func (c *downloadCommand) locateRevisionByChannelAndSeries(channelMaps []transpo
 
 	// If we don't have any filtered series then we don't know what to do here.
 	if len(filtered) == 0 {
-		return transport.Revision{}, false
+		return transport.InfoRevision{}, false
 	}
 
 	for _, channelMap := range filtered {
@@ -369,7 +369,7 @@ func (c *downloadCommand) locateRevisionByChannelAndSeries(channelMaps []transpo
 			return rev, true
 		}
 	}
-	return transport.Revision{}, false
+	return transport.InfoRevision{}, false
 }
 
 func isSeriesInPlatforms(platforms []transport.Platform, series string) bool {
@@ -391,10 +391,10 @@ func constructChannelFromTrackAndRisk(track, risk string) (corecharm.Channel, er
 	return corecharm.ParseChannelNormalize(rawChannel)
 }
 
-func locateRevisionByChannelMap(channelMap transport.ChannelMap, channel corecharm.Channel) (transport.Revision, bool) {
+func locateRevisionByChannelMap(channelMap transport.InfoChannelMap, channel corecharm.Channel) (transport.InfoRevision, bool) {
 	charmChannel, err := constructChannelFromTrackAndRisk(channelMap.Channel.Track, channelMap.Channel.Risk)
 	if err != nil {
-		return transport.Revision{}, false
+		return transport.InfoRevision{}, false
 	}
 
 	// Check that we're an exact match.
@@ -402,11 +402,11 @@ func locateRevisionByChannelMap(channelMap transport.ChannelMap, channel corecha
 		return channelMap.Revision, true
 	}
 
-	return transport.Revision{}, false
+	return transport.InfoRevision{}, false
 }
 
 type channelMapBySeries struct {
-	channelMap []transport.ChannelMap
+	channelMap []transport.InfoChannelMap
 	series     []string
 }
 
