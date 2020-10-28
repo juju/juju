@@ -721,7 +721,7 @@ func (p *CloudFileReader) ReadCloudFromFile(cloudFile string, ctxt *cmd.Context)
 		return nil, errors.Trace(err)
 	}
 	if len(specifiedClouds) == 0 {
-		return nil, errors.New("no personal clouds are defined")
+		return nil, errors.New("no clouds found in parsed yaml, please validate yaml keys")
 	}
 
 	var newCloud jujucloud.Cloud
