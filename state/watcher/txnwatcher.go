@@ -4,6 +4,7 @@
 package watcher
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -36,7 +37,7 @@ const (
 
 	txnWatcherShortWait = 10 * time.Millisecond
 
-	maxSyncRetries           = 10
+	maxSyncRetries           = 8
 	txnWatcherErrorShortWait = 500 * time.Millisecond
 )
 
@@ -57,6 +58,9 @@ var (
 	// ErrorStrategy is used to determine how long
 	// to delay between poll intervals when attempting
 	// to recover from a mongo error.
+	// Given an initial delay of 500ms and 8 retries,
+	// we'll retry roughly like so:
+	// .5, 1, 2, 4, 8, 16, 30, 30
 	//
 	// It must not be changed when any watchers are active.
 	ErrorStrategy retry.Strategy = retry.Exponential{
@@ -70,10 +74,15 @@ var (
 	TxnPollNotifyFunc func()
 )
 
-type txnChange struct {
-	collection string
-	docID      interface{}
-	revID      int64
+type outOfSyncError struct {
+	lastCollectionId interface{}
+	lastSeenId       interface{}
+}
+
+func (e outOfSyncError) Error() string {
+	return fmt.Sprintf("txn watcher out of sync\nlast collection id: %v\nlast seen id: %v",
+		e.lastCollectionId,
+		e.lastSeenId)
 }
 
 // A TxnWatcher watches the txns.log collection and publishes all change events
@@ -323,7 +332,7 @@ func (w *TxnWatcher) loop() error {
 
 		if err == nil {
 			if syncRetryCount > 0 {
-				w.logger.Tracef("txn sync watcher recovered after %d retries", syncRetryCount)
+				w.logger.Infof("txn sync watcher recovered after %d retries", syncRetryCount)
 			}
 			// Something's happened, so reset the exponential backoff
 			// so we'll retry again quickly.
@@ -338,7 +347,8 @@ func (w *TxnWatcher) loop() error {
 			}
 		} else {
 			w.logger.Warningf("txn watcher sync error: %v\ncurrent retry count %d", err, syncRetryCount)
-			if syncRetryCount > maxSyncRetries {
+			_, isSyncError := errors.Cause(err).(outOfSyncError)
+			if isSyncError || syncRetryCount > maxSyncRetries {
 				w.hub.Publish(txnWatcherSyncErr, err)
 				return errors.Trace(err)
 			}
@@ -348,6 +358,9 @@ func (w *TxnWatcher) loop() error {
 				// An error occurred so set up the error retry strategy.
 				backoff = ErrorStrategy.NewTimer(w.clock.Now())
 				next = w.clock.After(txnWatcherErrorShortWait)
+			}
+			if w.notifySync != nil {
+				w.notifySync()
 			}
 		}
 	}
@@ -396,7 +409,10 @@ func (w *TxnWatcher) sync(log *mgo.Collection) (bool, error) {
 	seen := make(map[watchKey]bool)
 	first := true
 	lastId := w.lastId
-	var entry bson.D
+	var (
+		entry      bson.D
+		lastSeenId interface{}
+	)
 	for iter.Next(&entry) {
 		w.iteratorStepCount++
 		if len(entry) == 0 {
@@ -411,6 +427,7 @@ func (w *TxnWatcher) sync(log *mgo.Collection) (bool, error) {
 			w.lastId = id.Value
 			first = false
 		}
+		lastSeenId = id.Value
 		if id.Value == lastId {
 			break
 		}
@@ -457,6 +474,14 @@ func (w *TxnWatcher) sync(log *mgo.Collection) (bool, error) {
 	}
 	if err := iter.Close(); err != nil {
 		return false, errors.Annotate(err, "watcher iteration error")
+	}
+	// If we have exited the iterator without consuming all the txns since we
+	// last synced, or the collection has looped that's an issue.
+	if lastId != nil && lastSeenId != lastId {
+		return false, outOfSyncError{
+			lastCollectionId: lastId,
+			lastSeenId:       lastSeenId,
+		}
 	}
 	return added, nil
 }
