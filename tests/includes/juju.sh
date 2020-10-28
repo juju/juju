@@ -57,11 +57,14 @@ bootstrap() {
         "aws")
             provider="aws"
             ;;
+        "localhost")
+            provider="lxd"
+            ;;
         "lxd")
             provider="lxd"
             ;;
-        "localhost")
-            provider="lxd"
+        "lxd-remote")
+            provider="lxd-remote"
             ;;
         "manual")
             manual_name=${1}
