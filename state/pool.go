@@ -16,6 +16,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub"
 	"github.com/juju/worker/v2"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/watcher"
@@ -116,12 +117,14 @@ type StatePool struct {
 
 	// watcherRunner makes sure the TxnWatcher stays running.
 	watcherRunner *worker.Runner
+	// txnWatcherSession is used exclusively for the TxnWatcher.
+	txnWatcherSession *mgo.Session
 }
 
 // OpenStatePool returns a new StatePool instance.
-func OpenStatePool(args OpenParams) (*StatePool, error) {
+func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 	logger.Tracef("opening state pool")
-	if err := args.Validate(); err != nil {
+	if err = args.Validate(); err != nil {
 		return nil, errors.Annotate(err, "validating args")
 	}
 
@@ -174,15 +177,21 @@ func OpenStatePool(args OpenParams) (*StatePool, error) {
 		RestartDelay: time.Second,
 		Clock:        args.Clock,
 	})
-	pool.watcherRunner.StartWorker(txnLogWorker, func() (worker.Worker, error) {
+	pool.txnWatcherSession = args.MongoSession.Copy()
+	if err = pool.watcherRunner.StartWorker(txnLogWorker, func() (worker.Worker, error) {
 		return watcher.NewTxnWatcher(
 			watcher.TxnWatcherConfig{
-				ChangeLog: st.getTxnLogCollection(),
-				Hub:       pool.hub,
-				Clock:     args.Clock,
-				Logger:    loggo.GetLogger("juju.state.pool.txnwatcher"),
+				Session:        pool.txnWatcherSession,
+				JujuDBName:     jujuDB,
+				CollectionName: txnLogC,
+				Hub:            pool.hub,
+				Clock:          args.Clock,
+				Logger:         loggo.GetLogger("juju.state.pool.txnwatcher"),
 			})
-	})
+	}); err != nil {
+		pool.txnWatcherSession.Close()
+		return nil, errors.Trace(err)
+	}
 	return pool, nil
 }
 
@@ -411,7 +420,8 @@ func (p *StatePool) Close() error {
 	}
 	p.mu.Lock()
 	if p.watcherRunner != nil {
-		worker.Stop(p.watcherRunner)
+		_ = worker.Stop(p.watcherRunner)
+		p.txnWatcherSession.Close()
 	}
 	p.mu.Unlock()
 	// As with above and the other watchers. Unlock while releas

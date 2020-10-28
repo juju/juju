@@ -4,6 +4,7 @@
 package watcher
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -14,6 +15,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/wrench"
 )
 
 // Hub represents a pubsub hub. The TxnWatcher only ever publishes
@@ -34,6 +36,9 @@ const (
 	txnWatcherCollection = "collection"
 
 	txnWatcherShortWait = 10 * time.Millisecond
+
+	maxSyncRetries           = 8
+	txnWatcherErrorShortWait = 500 * time.Millisecond
 )
 
 var (
@@ -50,15 +55,34 @@ var (
 		MaxDelay: 5 * time.Second,
 	}
 
+	// ErrorStrategy is used to determine how long
+	// to delay between poll intervals when attempting
+	// to recover from a mongo error.
+	// Given an initial delay of 500ms and 8 retries,
+	// we'll retry roughly like so:
+	// .5, 1, 2, 4, 8, 16, 30, 30
+	//
+	// It must not be changed when any watchers are active.
+	ErrorStrategy retry.Strategy = retry.Exponential{
+		Initial:  txnWatcherErrorShortWait,
+		Factor:   2.0,
+		MaxDelay: 30 * time.Second,
+	}
+
 	// TxnPollNotifyFunc allows tests to be able to specify
 	// callbacks each time the database has been polled and processed.
 	TxnPollNotifyFunc func()
 )
 
-type txnChange struct {
-	collection string
-	docID      interface{}
-	revID      int64
+type outOfSyncError struct {
+	lastCollectionId interface{}
+	lastSeenId       interface{}
+}
+
+func (e outOfSyncError) Error() string {
+	return fmt.Sprintf("txn watcher out of sync\nlast collection id: %v\nlast seen id: %v",
+		e.lastCollectionId,
+		e.lastSeenId)
 }
 
 // A TxnWatcher watches the txns.log collection and publishes all change events
@@ -68,9 +92,11 @@ type TxnWatcher struct {
 	clock  Clock
 	logger Logger
 
-	tomb         tomb.Tomb
-	iteratorFunc func() mongo.Iterator
-	log          *mgo.Collection
+	tomb           tomb.Tomb
+	iteratorFunc   func(*mgo.Collection) mongo.Iterator
+	session        *mgo.Session
+	jujuDBName     string
+	collectionName string
 
 	// notifySync is copied from the package variable when the watcher
 	// is created.
@@ -104,8 +130,12 @@ type TxnWatcher struct {
 // TxnWatcherConfig contains the configuration parameters required
 // for a NewTxnWatcher.
 type TxnWatcherConfig struct {
-	// ChangeLog is usually the tnxs.log collection.
-	ChangeLog *mgo.Collection
+	// Session is used exclusively fot this TxnWatcher.
+	Session *mgo.Session
+	// JujuDBName is the Juju database name, usually "juju".
+	JujuDBName string
+	// CollectionName is txn logs collection name, usually "txns.log".
+	CollectionName string
 	// Hub is where the changes are published to.
 	Hub Hub
 	// Clock allows tests to control the advancing of time.
@@ -114,13 +144,19 @@ type TxnWatcherConfig struct {
 	Logger Logger
 	// IteratorFunc can be overridden in tests to control what values the
 	// watcher sees.
-	IteratorFunc func() mongo.Iterator
+	IteratorFunc func(*mgo.Collection) mongo.Iterator
 }
 
 // Validate ensures that all the values that have to be set are set.
 func (config TxnWatcherConfig) Validate() error {
-	if config.ChangeLog == nil {
-		return errors.NotValidf("missing ChangeLog")
+	if config.Session == nil {
+		return errors.NotValidf("missing Session")
+	}
+	if config.CollectionName == "" {
+		return errors.NotValidf("missing CollectionName")
+	}
+	if config.JujuDBName == "" {
+		return errors.NotValidf("missing JujuDBName")
 	}
 	if config.Hub == nil {
 		return errors.NotValidf("missing Hub")
@@ -139,13 +175,15 @@ func NewTxnWatcher(config TxnWatcherConfig) (*TxnWatcher, error) {
 	}
 
 	w := &TxnWatcher{
-		hub:           config.Hub,
-		clock:         config.Clock,
-		logger:        config.Logger,
-		log:           config.ChangeLog,
-		iteratorFunc:  config.IteratorFunc,
-		notifySync:    TxnPollNotifyFunc,
-		reportRequest: make(chan chan map[string]interface{}),
+		hub:            config.Hub,
+		clock:          config.Clock,
+		logger:         config.Logger,
+		session:        config.Session,
+		jujuDBName:     config.JujuDBName,
+		collectionName: config.CollectionName,
+		iteratorFunc:   config.IteratorFunc,
+		notifySync:     TxnPollNotifyFunc,
+		reportRequest:  make(chan chan map[string]interface{}),
 	}
 	if w.iteratorFunc == nil {
 		w.iteratorFunc = w.iter
@@ -213,6 +251,14 @@ func (w *TxnWatcher) Report() map[string]interface{} {
 	}
 }
 
+// getTxnLogCollection returns the raw mongodb txns collection.
+func (w *TxnWatcher) getTxnLogCollection() *mgo.Collection {
+	if w.session.Ping() != nil {
+		w.session.Refresh()
+	}
+	return w.session.DB(w.jujuDBName).C(w.collectionName)
+}
+
 // loop implements the main watcher loop.
 // period is the delay between each sync.
 func (w *TxnWatcher) loop() error {
@@ -220,13 +266,20 @@ func (w *TxnWatcher) loop() error {
 	defer w.logger.Tracef("loop finished")
 	// Make sure we have read the last ID before telling people
 	// we have started.
-	if err := w.initLastId(); err != nil {
+	logCollection := w.getTxnLogCollection()
+	if err := w.initLastId(logCollection); err != nil {
 		return errors.Trace(err)
 	}
+
+	// Initially we have no retries and will use the
+	// polling backoff strategy.
+	syncRetryCount := 0
+	backoffStrategy := PollStrategy
+
 	// Also make sure we have prepared the timer before
 	// we tell people we've started.
 	now := w.clock.Now()
-	backoff := PollStrategy.NewTimer(now)
+	backoff := backoffStrategy.NewTimer(now)
 	d, _ := backoff.NextSleep(now)
 	next := w.clock.After(d)
 	w.hub.Publish(txnWatcherStarting, nil)
@@ -238,7 +291,7 @@ func (w *TxnWatcher) loop() error {
 			d, ok := backoff.NextSleep(w.clock.Now())
 			if !ok {
 				// This shouldn't happen, but be defensive.
-				backoff = PollStrategy.NewTimer(w.clock.Now())
+				backoff = backoffStrategy.NewTimer(w.clock.Now())
 			}
 			next = w.clock.After(d)
 		case resCh := <-w.reportRequest:
@@ -266,19 +319,49 @@ func (w *TxnWatcher) loop() error {
 			continue
 		}
 
-		added, err := w.sync()
-		if err != nil {
-			w.hub.Publish(txnWatcherSyncErr, nil)
-			return errors.Trace(err)
+		if logCollection == nil {
+			// On error the log collection will be set to nil so get it again.
+			// This will refresh the mongo session if needed.
+			logCollection = w.getTxnLogCollection()
 		}
-		w.flush()
-		if added {
+		added, err := w.sync(logCollection)
+		if wrench.IsActive("txnwatcher", "sync-error") {
+			added = false
+			err = errors.New("test sync watcher error")
+		}
+
+		if err == nil {
+			if syncRetryCount > 0 {
+				w.logger.Infof("txn sync watcher recovered after %d retries", syncRetryCount)
+			}
 			// Something's happened, so reset the exponential backoff
 			// so we'll retry again quickly.
-			backoff = PollStrategy.NewTimer(w.clock.Now())
-			next = w.clock.After(txnWatcherShortWait)
-		} else if w.notifySync != nil {
-			w.notifySync()
+			if syncRetryCount > 0 || added {
+				backoff = PollStrategy.NewTimer(w.clock.Now())
+				next = w.clock.After(txnWatcherShortWait)
+			}
+			syncRetryCount = 0
+			w.flush()
+			if !added && w.notifySync != nil {
+				w.notifySync()
+			}
+		} else {
+			w.logger.Warningf("txn watcher sync error: %v\ncurrent retry count %d", err, syncRetryCount)
+			_, isSyncError := errors.Cause(err).(outOfSyncError)
+			if isSyncError || syncRetryCount > maxSyncRetries {
+				w.hub.Publish(txnWatcherSyncErr, err)
+				return errors.Trace(err)
+			}
+			logCollection = nil
+			syncRetryCount++
+			if syncRetryCount == 1 {
+				// An error occurred so set up the error retry strategy.
+				backoff = ErrorStrategy.NewTimer(w.clock.Now())
+				next = w.clock.After(txnWatcherErrorShortWait)
+			}
+			if w.notifySync != nil {
+				w.notifySync()
+			}
 		}
 	}
 }
@@ -300,11 +383,11 @@ func (w *TxnWatcher) flush() {
 // initLastId reads the most recent changelog document and initializes
 // lastId with it. This causes all history that precedes the creation
 // of the watcher to be ignored.
-func (w *TxnWatcher) initLastId() error {
+func (w *TxnWatcher) initLastId(log *mgo.Collection) error {
 	var entry struct {
 		Id interface{} `bson:"_id"`
 	}
-	err := w.log.Find(nil).Sort("-$natural").One(&entry)
+	err := log.Find(nil).Sort("-$natural").One(&entry)
 	if err != nil && err != mgo.ErrNotFound {
 		return errors.Trace(err)
 	}
@@ -312,21 +395,24 @@ func (w *TxnWatcher) initLastId() error {
 	return nil
 }
 
-func (w *TxnWatcher) iter() mongo.Iterator {
-	return w.log.Find(nil).Batch(10).Sort("-$natural").Iter()
+func (w *TxnWatcher) iter(log *mgo.Collection) mongo.Iterator {
+	return log.Find(nil).Batch(10).Sort("-$natural").Iter()
 }
 
 // sync updates the watcher knowledge from the database, and
 // queues events to observing channels.
-func (w *TxnWatcher) sync() (bool, error) {
+func (w *TxnWatcher) sync(log *mgo.Collection) (bool, error) {
 	w.logger.Tracef("txn watcher %p starting sync", w)
 	added := false
 	// Iterate through log events in reverse insertion order (newest first).
-	iter := w.iteratorFunc()
+	iter := w.iteratorFunc(log)
 	seen := make(map[watchKey]bool)
 	first := true
 	lastId := w.lastId
-	var entry bson.D
+	var (
+		entry      bson.D
+		lastSeenId interface{}
+	)
 	for iter.Next(&entry) {
 		w.iteratorStepCount++
 		if len(entry) == 0 {
@@ -341,6 +427,7 @@ func (w *TxnWatcher) sync() (bool, error) {
 			w.lastId = id.Value
 			first = false
 		}
+		lastSeenId = id.Value
 		if id.Value == lastId {
 			break
 		}
@@ -387,6 +474,14 @@ func (w *TxnWatcher) sync() (bool, error) {
 	}
 	if err := iter.Close(); err != nil {
 		return false, errors.Annotate(err, "watcher iteration error")
+	}
+	// If we have exited the iterator without consuming all the txns since we
+	// last synced, or the collection has looped that's an issue.
+	if lastId != nil && lastSeenId != lastId {
+		return false, outOfSyncError{
+			lastCollectionId: lastId,
+			lastSeenId:       lastSeenId,
+		}
 	}
 	return added, nil
 }

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 	jc "github.com/juju/testing/checkers"
@@ -86,7 +87,7 @@ func (s *HubWatcherSuite) TestTxnWatcherSyncErrWorker(c *gc.C) {
 	// When the TxnWatcher hits a sync error and restarts, the hub watcher needs
 	// to restart too as there may be missed events, so all the watches this hub
 	// has need to be invalidated. This happens by the worker dying.
-	s.hub.Publish(watcher.TxnWatcherSyncErr, nil)
+	s.hub.Publish(watcher.TxnWatcherSyncErr, errors.New("boom"))
 
 	select {
 	case <-s.w.Dead():
@@ -94,7 +95,7 @@ func (s *HubWatcherSuite) TestTxnWatcherSyncErrWorker(c *gc.C) {
 		c.Fatalf("Dead channel should have fired")
 	}
 
-	c.Assert(s.w.Err(), gc.ErrorMatches, "txn watcher sync error")
+	c.Assert(s.w.Err(), gc.ErrorMatches, "hub txn watcher sync error: boom")
 }
 
 func (s *HubWatcherSuite) TestWatchBeforeKnown(c *gc.C) {

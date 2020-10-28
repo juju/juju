@@ -491,15 +491,6 @@ func (st *State) EnsureModelRemoved() error {
 	return nil
 }
 
-// getTxnLogCollection returns the raw mongodb txns collection, which is
-// needed to interact with the state/watcher package.
-func (st *State) getTxnLogCollection() *mgo.Collection {
-	if st.Ping() != nil {
-		st.session.Refresh()
-	}
-	return st.session.DB(jujuDB).C(txnLogC)
-}
-
 // newDB returns a database connection using a new session, along with
 // a closer function for the session. This is useful where you need to work
 // with various collections in a single session, so don't want to call
