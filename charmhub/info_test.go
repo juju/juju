@@ -110,7 +110,7 @@ func (s *InfoSuite) TestInfoRequestPayload(c *gc.C) {
 		Name: "wordpress",
 		Type: "object",
 		ID:   "charmCHARMcharmCHARMcharmCHARM01",
-		ChannelMap: []transport.ChannelMap{{
+		ChannelMap: []transport.InfoChannelMap{{
 			Channel: transport.Channel{
 				Name: "latest/stable",
 				Platform: transport.Platform{
@@ -122,7 +122,7 @@ func (s *InfoSuite) TestInfoRequestPayload(c *gc.C) {
 				Risk:       "stable",
 				Track:      "latest",
 			},
-			Revision: transport.Revision{
+			Revision: transport.InfoRevision{
 				ConfigYAML: "one: 1\ntwo: 2\nitems: [1,2,3,4]\n\"",
 				CreatedAt:  "2019-12-16T19:20:26.673192+00:00",
 				Download: transport.Download{
@@ -163,7 +163,7 @@ func (s *InfoSuite) TestInfoRequestPayload(c *gc.C) {
 				"wordpress-site",
 			},
 		},
-		DefaultRelease: transport.ChannelMap{
+		DefaultRelease: transport.InfoChannelMap{
 			Channel: transport.Channel{
 				Name: "latest/stable",
 				Platform: transport.Platform{
@@ -175,7 +175,7 @@ func (s *InfoSuite) TestInfoRequestPayload(c *gc.C) {
 				Risk:       "stable",
 				Track:      "latest",
 			},
-			Revision: transport.Revision{
+			Revision: transport.InfoRevision{
 				ConfigYAML: "one: 1\ntwo: 2\nitems: [1,2,3,4]\n\"",
 				CreatedAt:  "2019-12-16T19:20:26.673192+00:00",
 				Download: transport.Download{
