@@ -558,6 +558,7 @@ type ModelInfo struct {
 	Owner           string
 	ControllerUUID  string
 	IsController    bool
+	IsUpgrading     bool
 	Cloud           string
 	CloudRegion     string
 	CloudCredential string

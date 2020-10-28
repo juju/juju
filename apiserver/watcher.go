@@ -153,6 +153,7 @@ func (aw *SrvAllWatcher) translateModel(info multiwatcher.EntityInfo) params.Ent
 		Owner:          orig.Owner,
 		ControllerUUID: orig.ControllerUUID,
 		IsController:   orig.IsController,
+		IsUpgrading:    orig.IsUpgrading,
 		Config:         orig.Config,
 		Status:         aw.translateStatus(orig.Status),
 		Constraints:    orig.Constraints,

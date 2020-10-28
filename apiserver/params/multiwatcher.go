@@ -400,6 +400,7 @@ type ModelUpdate struct {
 	Owner          string                 `json:"owner"`
 	ControllerUUID string                 `json:"controller-uuid"`
 	IsController   bool                   `json:"is-controller"`
+	IsUpgrading    bool                   `json:"is-upgrading"`
 	Config         map[string]interface{} `json:"config,omitempty"`
 	Status         StatusInfo             `json:"status"`
 	Constraints    constraints.Value      `json:"constraints"`

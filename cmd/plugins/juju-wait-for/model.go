@@ -4,6 +4,7 @@
 package main
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/cmd"
@@ -108,6 +109,7 @@ func (c *modelCommand) waitFor(name string, deltas []params.Delta, q query.Query
 
 		switch entityInfo := delta.Entity.(type) {
 		case *params.ModelUpdate:
+			fmt.Println(entityInfo)
 			if entityInfo.Name == name {
 				scope := MakeModelScope(entityInfo)
 				if done, err := runQuery(q, scope); err != nil {

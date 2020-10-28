@@ -110,6 +110,10 @@ func makeAllWatcherCollectionInfo(collNames []string) map[string]allWatcherState
 		case podSpecsC:
 			collection.docType = reflect.TypeOf(backingPodSpec{})
 			collection.subsidiary = true
+		case upgradeInfoC:
+			allWatcherLogger.Criticalf("UPGRADE INFO")
+			collection.docType = reflect.TypeOf(backingUpgradeInfo{})
+			collection.subsidiary = true
 		default:
 			allWatcherLogger.Criticalf("programming error: unknown collection %q", collName)
 		}
@@ -209,6 +213,12 @@ func (e *backingModel) updated(ctx *allWatcherContext) error {
 		}
 
 		info.UserPermissions = permissions
+
+		upgrading, err := ctx.getUpgradingData()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		info.IsUpgrading = upgrading
 	} else {
 		oldInfo := oldInfo.(*multiwatcher.ModelInfo)
 		info.Annotations = oldInfo.Annotations
@@ -216,6 +226,7 @@ func (e *backingModel) updated(ctx *allWatcherContext) error {
 		info.Constraints = oldInfo.Constraints
 		info.Status = oldInfo.Status
 		info.UserPermissions = oldInfo.UserPermissions
+		info.IsUpgrading = oldInfo.IsUpgrading
 	}
 
 	ctx.store.Update(info)
@@ -308,6 +319,60 @@ func (e *backingPermission) getModelInfo(ctx *allWatcherContext, modelUUID strin
 func (e *backingPermission) mongoID() string {
 	allWatcherLogger.Criticalf("programming error: attempting to get mongoID from permissions document")
 	return ""
+}
+
+type backingUpgradeInfo upgradeInfoDoc
+
+func (e *backingUpgradeInfo) updated(ctx *allWatcherContext) error {
+	allWatcherLogger.Criticalf(`upgrade info "%s" updated`, ctx.modelUUID)
+
+	info := e.getModelInfo(ctx, ctx.modelUUID)
+	if info == nil {
+		return nil
+	}
+
+	upgrading, err := ctx.state.IsUpgrading()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	info.IsUpgrading = upgrading
+
+	ctx.store.Update(info)
+	return nil
+}
+
+func (e *backingUpgradeInfo) removed(ctx *allWatcherContext) error {
+	allWatcherLogger.Criticalf(`upgrade info "%s" removed`, ctx.modelUUID)
+
+	info := e.getModelInfo(ctx, ctx.modelUUID)
+	if info == nil {
+		return nil
+	}
+
+	info.IsUpgrading = false
+
+	ctx.store.Update(info)
+	return nil
+}
+
+func (e *backingUpgradeInfo) mongoID() string {
+	allWatcherLogger.Criticalf("programming error: attempting to get mongoID from upgrade info document")
+	return ""
+}
+
+func (e *backingUpgradeInfo) getModelInfo(ctx *allWatcherContext, modelUUID string) *multiwatcher.ModelInfo {
+	// NOTE: we can't use the modelUUID from the ctx here because it is the
+	// modelUUID of the system state.
+	storeKey := &multiwatcher.ModelInfo{
+		ModelUUID: modelUUID,
+	}
+	info0 := ctx.store.Get(storeKey.EntityID())
+	switch info := info0.(type) {
+	case *multiwatcher.ModelInfo:
+		return info
+	}
+	// In all other cases, which really should be never, return nil.
+	return nil
 }
 
 type backingMachine machineDoc
@@ -1641,6 +1706,7 @@ func NewAllWatcherBacking(pool *StatePool) AllWatcherBacking {
 		remoteApplicationsC,
 		statusesC,
 		settingsC,
+		upgradeInfoC,
 		// And for CAAS we need to watch these...
 		podSpecsC,
 	}
@@ -1850,6 +1916,10 @@ func normaliseStatusData(data map[string]interface{}) map[string]interface{} {
 	return data
 }
 
+type upgradingData struct {
+	isUpgrading bool
+}
+
 type allWatcherContext struct {
 	state     *State
 	store     multiwatcher.Store
@@ -1866,6 +1936,7 @@ type allWatcherContext struct {
 	// A map of the existing MachinePortRanges where the keys are machine IDs.
 	openPortRanges map[string]MachinePortRanges
 	userAccess     map[string]map[string]permission.Access
+	upgradingData  *upgradingData
 }
 
 func (ctx *allWatcherContext) loadSubsidiaryCollections() error {
@@ -1889,6 +1960,9 @@ func (ctx *allWatcherContext) loadSubsidiaryCollections() error {
 	}
 	if err := ctx.loadPermissions(); err != nil {
 		return errors.Annotatef(err, "permissions")
+	}
+	if err := ctx.loadUpgradingData(); err != nil {
+		return errors.Annotatef(err, "upgrading data")
 	}
 	return nil
 }
@@ -2021,6 +2095,18 @@ func (ctx *allWatcherContext) loadConstraints() error {
 	return nil
 }
 
+func (ctx *allWatcherContext) loadUpgradingData() error {
+	upgrading, err := ctx.state.IsUpgrading()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ctx.upgradingData = &upgradingData{
+		isUpgrading: upgrading,
+	}
+
+	return nil
+}
+
 func (ctx *allWatcherContext) removeFromStore(kind string) {
 	ctx.store.Remove(multiwatcher.EntityID{
 		Kind:      kind,
@@ -2114,9 +2200,8 @@ func (ctx *allWatcherContext) getInstanceData(id string) (instanceData, error) {
 		cached, found := ctx.instances[gKey]
 		if found {
 			return cached, nil
-		} else {
-			return instanceData{}, errors.NotFoundf("instance data for machine %v", id)
 		}
+		return instanceData{}, errors.NotFoundf("instance data for machine %v", id)
 	}
 	return getInstanceData(ctx.state, id)
 }
@@ -2139,6 +2224,17 @@ func (ctx *allWatcherContext) permissionsForModel(uuid string) (map[string]permi
 		result[user] = perm.access()
 	}
 	return result, nil
+}
+
+func (ctx *allWatcherContext) getUpgradingData() (bool, error) {
+	if ctx.upgradingData != nil {
+		return ctx.upgradingData.isUpgrading, nil
+	}
+	upgrading, err := ctx.state.IsUpgrading()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return upgrading, nil
 }
 
 func (ctx *allWatcherContext) getUnitPortRangesByEndpoint(unit *Unit) (network.GroupedPortRanges, error) {
