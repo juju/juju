@@ -34,7 +34,7 @@ func convertCharmInfoResult(info transport.InfoResponse) params.InfoResponse {
 		ir.Charm, ir.Series = convertCharm(info)
 	}
 
-	ir.Tracks, ir.Channels = transformChannelMap(info.ChannelMap)
+	ir.Tracks, ir.Channels = transformInfoChannelMap(info.ChannelMap)
 	return ir
 }
 
@@ -65,7 +65,7 @@ func convertCharmFindResult(resp transport.FindResponse) params.FindResponse {
 		Publisher: publisher(resp.Entity),
 		Summary:   resp.Entity.Summary,
 		Version:   resp.DefaultRelease.Revision.Version,
-		Series:    transformSeries(resp.DefaultRelease),
+		Series:    transformFindSeries(resp.DefaultRelease),
 		StoreURL:  resp.Entity.StoreURL,
 	}
 }
@@ -75,18 +75,22 @@ func publisher(ch transport.Entity) string {
 	return publisher
 }
 
-// transformSeries returns a slice of supported series for that revision.
-func transformSeries(channel transport.ChannelMap) []string {
-	if meta := unmarshalCharmMetadata(channel.Revision.MetadataYAML); meta != nil {
-		return meta.ComputedSeries()
+// transformFindSeries returns a slice of supported series for that revision.
+func transformFindSeries(channel transport.FindChannelMap) []string {
+	if len(channel.Revision.Platforms) < 1 {
+		return nil
 	}
-	return nil
+	results := make([]string, len(channel.Revision.Platforms))
+	for i, p := range channel.Revision.Platforms {
+		results[i] = p.Series
+	}
+	return results
 }
 
-// transformChannelMap returns channel map data in a format that facilitates
+// transformInfoChannelMap returns channel map data in a format that facilitates
 // determining track order and open vs closed channels for displaying channel
 // data.
-func transformChannelMap(channelMap []transport.ChannelMap) ([]string, map[string]params.Channel) {
+func transformInfoChannelMap(channelMap []transport.InfoChannelMap) ([]string, map[string]params.Channel) {
 	trackList := []string{}
 	seen := set.NewStrings("")
 	channels := make(map[string]params.Channel, len(channelMap))
