@@ -45,17 +45,6 @@ var defaultResultFilter = []string{
 	"result.website",
 }
 
-var defaultRevisionFilter = []string{
-	"revision.config-yaml",
-	"revision.created-at",
-	"revision.metadata-yaml",
-	"revision.platforms.architecture",
-	"revision.platforms.os",
-	"revision.platforms.series",
-	"revision.revision",
-	"revision.version",
-}
-
 var defaultDownloadFilter = []string{
 	"download.hash-sha-256",
 	"download.size",
