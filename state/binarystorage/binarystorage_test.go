@@ -18,7 +18,6 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/blobstore.v2"
-	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/binarystorage"
@@ -28,43 +27,50 @@ import (
 const current = "2.0.42-trusty-amd64"
 
 func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
+	testing.MgoTestPackage(t)
 }
 
 type binaryStorageSuite struct {
-	testing.BaseSuite
-	mongo              *gitjujutesting.MgoInstance
-	session            *mgo.Session
+	gitjujutesting.IsolatedMgoSuite
+
 	storage            binarystorage.Storage
 	managedStorage     blobstore.ManagedStorage
 	metadataCollection mongo.Collection
 	txnRunner          jujutxn.Runner
+
+	cleanUps []func(*gc.C)
 }
 
 var _ = gc.Suite(&binaryStorageSuite{})
 
 func (s *binaryStorageSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.mongo = &gitjujutesting.MgoInstance{}
-	s.mongo.Start(nil)
+	s.IsolatedMgoSuite.SetUpTest(c)
 
-	var err error
+	catalogue := s.Session.DB("catalogue")
+	rs := blobstore.NewGridFS("blobstore", "blobstore", catalogue.Session)
 	var closer func()
-	s.session, err = s.mongo.Dial()
-	c.Assert(err, jc.ErrorIsNil)
-	rs := blobstore.NewGridFS("blobstore", "blobstore", s.session)
-	catalogue := s.session.DB("catalogue")
-	s.managedStorage = blobstore.NewManagedStorage(catalogue, rs)
 	s.metadataCollection, closer = mongo.CollectionFromName(catalogue, "binarymetadata")
-	s.AddCleanup(func(*gc.C) { closer() })
+	s.addCleanup(func(*gc.C) { closer() })
+	s.managedStorage = blobstore.NewManagedStorage(s.metadataCollection.Writeable().Underlying().Database, rs)
 	s.txnRunner = jujutxn.NewRunner(jujutxn.RunnerParams{Database: catalogue})
 	s.storage = binarystorage.New("my-uuid", s.managedStorage, s.metadataCollection, s.txnRunner)
 }
 
+func (s *binaryStorageSuite) addCleanup(f func(*gc.C)) {
+	s.cleanUps = append(s.cleanUps, f)
+}
+
 func (s *binaryStorageSuite) TearDownTest(c *gc.C) {
-	s.session.Close()
-	s.mongo.DestroyWithLog()
-	s.BaseSuite.TearDownTest(c)
+	for _, f := range s.cleanUps {
+		// Ensure to close sessions before IsolatedMgoSuite.TearDownTest here.
+		f(c)
+	}
+
+	s.storage = nil
+	s.managedStorage = nil
+	s.metadataCollection = nil
+	s.txnRunner = nil
+	s.IsolatedMgoSuite.TearDownTest(c)
 }
 
 func (s *binaryStorageSuite) TestAdd(c *gc.C) {

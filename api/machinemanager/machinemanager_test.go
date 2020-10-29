@@ -75,7 +75,7 @@ func (s *MachinemanagerSuite) TestAddMachinesClientError(c *gc.C) {
 	st := newClient(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return errors.New("blargh")
 	})
-	_, err := st.AddMachines(nil)
+	_, err := st.AddMachines([]params.AddMachineParams{{Series: "focal"}})
 	c.Check(err, gc.ErrorMatches, "blargh")
 }
 
