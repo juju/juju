@@ -1200,6 +1200,13 @@ func (s *ConfigSuite) TestMode(c *gc.C) {
 	mode, ok := config.Mode()
 	c.Assert(ok, jc.IsFalse)
 	c.Assert(mode, gc.DeepEquals, []string{})
+
+	config = newTestConfig(c, testing.Attrs{
+		"mode": []interface{}{"strict"},
+	})
+	mode, ok = config.Mode()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(mode, gc.DeepEquals, []string{"strict"})
 }
 
 func (s *ConfigSuite) TestCharmHubURLSettingValue(c *gc.C) {
