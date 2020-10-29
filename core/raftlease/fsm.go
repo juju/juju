@@ -120,7 +120,7 @@ func (f *FSM) ensureGroup(key lease.Key) map[lease.Key]*entry {
 func (f *FSM) claim(key lease.Key, holder string, duration time.Duration) *response {
 	entries := f.ensureGroup(key)
 	if _, found := entries[key]; found {
-		return invalidResponse()
+		return alreadyHeldResponse()
 	}
 	entries[key] = &entry{
 		holder:   holder,
@@ -356,10 +356,6 @@ func (r *response) Notify(target NotifyTarget) {
 	for _, expiredKey := range r.expired {
 		target.Expired(expiredKey)
 	}
-}
-
-func invalidResponse() *response {
-	return &response{err: lease.ErrInvalid}
 }
 
 // Apply is part of raft.FSM.
@@ -707,10 +703,10 @@ func (c *Command) String() string {
 	}
 }
 
-// UnmarshalCommand converts a marshalled command []byte into a
-// command.
-func UnmarshalCommand(data []byte) (*Command, error) {
-	var result Command
-	err := yaml.Unmarshal(data, &result)
-	return &result, err
+func invalidResponse() *response {
+	return &response{err: lease.ErrInvalid}
+}
+
+func alreadyHeldResponse() *response {
+	return &response{err: lease.ErrHeld}
 }

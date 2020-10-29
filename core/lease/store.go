@@ -169,6 +169,12 @@ func IsInvalid(err error) bool {
 	return errors.Cause(err) == ErrInvalid
 }
 
+// IsHeld returns whether the specified error represents ErrHeld
+// (even if it's wrapped).
+func IsHeld(err error) bool {
+	return errors.Cause(err) == ErrHeld
+}
+
 // IsTimeout returns whether the specified error represents ErrTimeout
 // (even if it's wrapped).
 func IsTimeout(err error) bool {

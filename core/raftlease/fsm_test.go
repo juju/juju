@@ -70,13 +70,13 @@ func (s *fsmSuite) TestClaim(c *gc.C) {
 
 	// Can't claim it again.
 	resp = s.apply(c, command)
-	c.Assert(resp.Error(), jc.Satisfies, lease.IsInvalid)
+	c.Assert(resp.Error(), jc.Satisfies, lease.IsHeld)
 	assertNoNotifications(c, resp)
 
 	// Someone else trying to claim the lease.
 	command.Holder = "you"
 	resp = s.apply(c, command)
-	c.Assert(resp.Error(), jc.Satisfies, lease.IsInvalid)
+	c.Assert(resp.Error(), jc.Satisfies, lease.IsHeld)
 	assertNoNotifications(c, resp)
 }
 
