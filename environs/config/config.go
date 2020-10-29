@@ -1738,12 +1738,12 @@ func (c *Config) ValidateUnknownAttrs(extrafields schema.Fields, defaults schema
 			case []interface{}:
 				for _, val := range t {
 					if _, ok := val.(string); !ok {
-						return nil, fmt.Errorf("%s: unknown type (%q)", name, value)
+						return nil, errors.Errorf("%s: unknown type (%v)", name, value)
 					}
 				}
 				continue
 			default:
-				return nil, fmt.Errorf("%s: unknown type (%q)", name, value)
+				return nil, errors.Errorf("%s: unknown type (%q)", name, value)
 			}
 		}
 	}

@@ -995,12 +995,13 @@ func (s *ConfigSuite) addJujuFiles(c *gc.C) {
 func (s *ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
 	s.addJujuFiles(c)
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"name":       "myenv",
-		"type":       "other",
-		"uuid":       testing.ModelTag.Id(),
-		"extra-info": "official extra user data",
-		"known":      "this",
-		"unknown":    "that",
+		"name":              "myenv",
+		"type":              "other",
+		"uuid":              testing.ModelTag.Id(),
+		"extra-info":        "official extra user data",
+		"known":             "this",
+		"unknown":           "that",
+		"unknown-part-deux": []interface{}{"meshuggah"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1008,8 +1009,9 @@ func (s *ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
 	attrs, err := cfg.ValidateUnknownAttrs(nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attrs, gc.DeepEquals, map[string]interface{}{
-		"known":   "this",
-		"unknown": "that",
+		"known":             "this",
+		"unknown":           "that",
+		"unknown-part-deux": []interface{}{"meshuggah"},
 	})
 
 	// Valid field: that and other attrs passed through.
@@ -1017,8 +1019,9 @@ func (s *ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
 	attrs, err = cfg.ValidateUnknownAttrs(fields, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attrs, gc.DeepEquals, map[string]interface{}{
-		"known":   "this",
-		"unknown": "that",
+		"known":             "this",
+		"unknown":           "that",
+		"unknown-part-deux": []interface{}{"meshuggah"},
 	})
 
 	// Default field: inserted.
@@ -1027,9 +1030,10 @@ func (s *ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
 	attrs, err = cfg.ValidateUnknownAttrs(fields, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attrs, gc.DeepEquals, map[string]interface{}{
-		"known":   "this",
-		"unknown": "that",
-		"default": "the other",
+		"known":             "this",
+		"unknown":           "that",
+		"unknown-part-deux": []interface{}{"meshuggah"},
+		"default":           "the other",
 	})
 
 	// Invalid field: failure.
@@ -1050,6 +1054,20 @@ func (s *ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = cfg.ValidateUnknownAttrs(nil, nil)
 	c.Assert(err.Error(), gc.Equals, `mapAttr: unknown type (map["foo":"bar"])`)
+
+	// Completely unknown attr, not-simple field type: failure.
+	cfg, err = config.New(config.UseDefaults, map[string]interface{}{
+		"name":       "myenv",
+		"type":       "other",
+		"uuid":       testing.ModelTag.Id(),
+		"extra-info": "official extra user data",
+		"known":      "this",
+		"unknown":    "that",
+		"bad":        []interface{}{1},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = cfg.ValidateUnknownAttrs(nil, nil)
+	c.Assert(err.Error(), gc.Equals, `bad: unknown type ([1])`)
 }
 
 type testAttr struct {
