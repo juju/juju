@@ -14,6 +14,7 @@ test_model() {
     bootstrap "test-models" "${file}"
 
     # Tests that need to be run are added here.
+    test_model_config
     test_model_migration
 
     destroy_controller "test-models"

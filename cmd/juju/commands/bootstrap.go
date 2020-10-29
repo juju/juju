@@ -1289,8 +1289,9 @@ func (c *bootstrapCommand) bootstrapConfigs(
 	}
 	// The provider may define some custom attributes specific
 	// to the provider. These will be added to the model config.
-	providerAttrs := make(map[string]interface{})
+	var providerAttrs map[string]interface{}
 	if ps, ok := provider.(config.ConfigSchemaSource); ok {
+		providerAttrs = make(map[string]interface{})
 		for attr := range ps.ConfigSchema() {
 			// Start with the model defaults, and if also specified
 			// in the user config attrs, they override the model default.
@@ -1302,12 +1303,12 @@ func (c *bootstrapCommand) bootstrapConfigs(
 			}
 		}
 		fields := schema.FieldMap(ps.ConfigSchema(), ps.ConfigDefaults())
-		if coercedAttrs, err := fields.Coerce(providerAttrs, nil); err != nil {
+		coercedAttrs, err := fields.Coerce(providerAttrs, nil)
+		if err != nil {
 			return bootstrapConfigs{},
 				errors.Annotatef(err, "invalid attribute value(s) for %v cloud", cloud.Type)
-		} else {
-			providerAttrs = coercedAttrs.(map[string]interface{})
 		}
+		providerAttrs = coercedAttrs.(map[string]interface{})
 	}
 
 	storagePoolAttrs, err := c.storagePool.ReadAttrs(ctx)
