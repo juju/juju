@@ -59,10 +59,21 @@ func (c *InfoClient) Info(ctx context.Context, name string) (transport.InfoRespo
 func defaultInfoFilter() string {
 	filter := defaultResultFilter
 	filter = append(filter, appendFilterList("default-release.revision", defaultDownloadFilter)...)
-	filter = append(filter, appendFilterList("default-release", defaultRevisionFilter)...)
+	filter = append(filter, appendFilterList("default-release", infoRevisionFilter)...)
 	filter = append(filter, appendFilterList("default-release", defaultChannelFilter)...)
 	filter = append(filter, appendFilterList("channel-map.revision", defaultDownloadFilter)...)
-	filter = append(filter, appendFilterList("channel-map", defaultRevisionFilter)...)
+	filter = append(filter, appendFilterList("channel-map", infoRevisionFilter)...)
 	filter = append(filter, appendFilterList("channel-map", defaultChannelFilter)...)
 	return strings.Join(filter, ",")
+}
+
+var infoRevisionFilter = []string{
+	"revision.config-yaml",
+	"revision.created-at",
+	"revision.metadata-yaml",
+	"revision.platforms.architecture",
+	"revision.platforms.os",
+	"revision.platforms.series",
+	"revision.revision",
+	"revision.version",
 }

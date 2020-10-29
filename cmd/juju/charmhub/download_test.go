@@ -158,7 +158,7 @@ func (s *downloadSuite) expectInfo(charmHubURL string) {
 	s.charmHubClient.EXPECT().Info(gomock.Any(), "test").Return(transport.InfoResponse{
 		Type: "charm",
 		Name: "test",
-		ChannelMap: []transport.ChannelMap{{
+		ChannelMap: []transport.InfoChannelMap{{
 			Channel: transport.Channel{
 				Name:  "a",
 				Track: "latest",
@@ -167,7 +167,7 @@ func (s *downloadSuite) expectInfo(charmHubURL string) {
 					Series: "xenial",
 				},
 			},
-			Revision: transport.Revision{
+			Revision: transport.InfoRevision{
 				Revision: 1,
 				Download: transport.Download{
 					URL: charmHubURL,
@@ -187,7 +187,7 @@ func (s *downloadSuite) TestLocateRevisionByChannel(c *gc.C) {
 	command := &downloadCommand{
 		orderedSeries: []string{"focal", "bionic"},
 	}
-	revision, found := command.locateRevisionByChannel([]transport.ChannelMap{{
+	revision, found := command.locateRevisionByChannel([]transport.InfoChannelMap{{
 		Channel: transport.Channel{
 			Name:  "a",
 			Track: "latest",
@@ -196,7 +196,7 @@ func (s *downloadSuite) TestLocateRevisionByChannel(c *gc.C) {
 				Series: "xenial",
 			},
 		},
-		Revision: transport.Revision{
+		Revision: transport.InfoRevision{
 			Revision: 1,
 		},
 	}, {
@@ -208,7 +208,7 @@ func (s *downloadSuite) TestLocateRevisionByChannel(c *gc.C) {
 				Series: "bionic",
 			},
 		},
-		Revision: transport.Revision{
+		Revision: transport.InfoRevision{
 			Revision: 2,
 		},
 	}, {
@@ -220,7 +220,7 @@ func (s *downloadSuite) TestLocateRevisionByChannel(c *gc.C) {
 				Series: "focal",
 			},
 		},
-		Revision: transport.Revision{
+		Revision: transport.InfoRevision{
 			Revision: 3,
 		},
 	}, {
@@ -232,7 +232,7 @@ func (s *downloadSuite) TestLocateRevisionByChannel(c *gc.C) {
 				Series: "focal",
 			},
 		},
-		Revision: transport.Revision{
+		Revision: transport.InfoRevision{
 			Revision: 4,
 		},
 	}}, corecharm.MustParseChannel("latest/stable"))
@@ -245,7 +245,7 @@ func (s *downloadSuite) TestLocateRevisionByChannelAndSeries(c *gc.C) {
 	command := &downloadCommand{
 		orderedSeries: []string{"focal", "bionic"},
 	}
-	revision, found := command.locateRevisionByChannelAndSeries([]transport.ChannelMap{{
+	revision, found := command.locateRevisionByChannelAndSeries([]transport.InfoChannelMap{{
 		Channel: transport.Channel{
 			Name:  "a",
 			Track: "latest",
@@ -254,7 +254,7 @@ func (s *downloadSuite) TestLocateRevisionByChannelAndSeries(c *gc.C) {
 				Series: "xenial",
 			},
 		},
-		Revision: transport.Revision{
+		Revision: transport.InfoRevision{
 			Revision: 1,
 		},
 	}, {
@@ -266,7 +266,7 @@ func (s *downloadSuite) TestLocateRevisionByChannelAndSeries(c *gc.C) {
 				Series: "bionic",
 			},
 		},
-		Revision: transport.Revision{
+		Revision: transport.InfoRevision{
 			Revision: 2,
 		},
 	}, {
@@ -278,7 +278,7 @@ func (s *downloadSuite) TestLocateRevisionByChannelAndSeries(c *gc.C) {
 				Series: "focal",
 			},
 		},
-		Revision: transport.Revision{
+		Revision: transport.InfoRevision{
 			Revision: 3,
 		},
 	}, {
@@ -290,7 +290,7 @@ func (s *downloadSuite) TestLocateRevisionByChannelAndSeries(c *gc.C) {
 				Series: "focal",
 			},
 		},
-		Revision: transport.Revision{
+		Revision: transport.InfoRevision{
 			Revision: 4,
 		},
 	}}, corecharm.MustParseChannel("latest/stable"), "focal")
@@ -324,12 +324,12 @@ func (s *downloadSuite) TestLocateRevisionByChannelMap(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("test %d", i)
 
-		revision, found := locateRevisionByChannelMap(transport.ChannelMap{
+		revision, found := locateRevisionByChannelMap(transport.InfoChannelMap{
 			Channel: transport.Channel{
 				Track: test.InputTrack,
 				Risk:  test.InputRisk,
 			},
-			Revision: transport.Revision{
+			Revision: transport.InfoRevision{
 				Revision: 1,
 			},
 		}, corecharm.MustParseChannel(test.Channel))
@@ -341,7 +341,7 @@ func (s *downloadSuite) TestLocateRevisionByChannelMap(c *gc.C) {
 
 func (s *downloadSuite) TestChannelMapSort(c *gc.C) {
 	series := channelMapBySeries{
-		channelMap: []transport.ChannelMap{{
+		channelMap: []transport.InfoChannelMap{{
 			Channel: transport.Channel{
 				Name: "a",
 				Platform: transport.Platform{
