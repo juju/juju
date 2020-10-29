@@ -211,11 +211,6 @@ func (r *RestoreSuite) TestUpdateMongoEntries(c *gc.C) {
 }
 
 func (r *RestoreSuite) TestNewConnection(c *gc.C) {
-	server := &gitjujutesting.MgoInstance{}
-	err := server.Start(coretesting.Certs)
-	c.Assert(err, jc.ErrorIsNil)
-	defer server.DestroyWithLog()
-
 	ctlr := statetesting.InitializeWithArgs(c,
 		statetesting.InitializeArgs{
 			Owner: names.NewLocalUserTag("test-admin"),
