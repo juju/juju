@@ -147,6 +147,11 @@ var (
 	// a new error at a suitable level of abstraction.
 	ErrInvalid = errors.New("invalid lease operation")
 
+	// ErrHeld indicates that a claim operation was impossible to fulfill
+	// because the lease is already held.
+	// This operation should not be retried.
+	ErrHeld = errors.New("lease already held")
+
 	// ErrTimeout indicates that a Store operation failed because it
 	// couldn't update the underlying lease information. This is probably
 	// a transient error due to changes in the cluster, and indicates that
