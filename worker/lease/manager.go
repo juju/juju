@@ -303,8 +303,9 @@ func (manager *Manager) retryingClaim(claim claim) {
 		// Doing it this way, we'll wake up, and then see we can sleep
 		// for a bit longer. But we'll always wake up in time.
 		manager.ensureNextTimeout(claim.duration)
-		// respond after ensuring the timeout, at least for the test suite to be sure
-		// the timer has been updated by the time it gets Claim() to return.
+		// respond after ensuring the timeout, at least for the test suite to
+		// be sure the timer has been updated by the time it gets Claim()
+		// to return.
 		claim.respond(nil)
 	} else {
 		switch {
@@ -313,7 +314,8 @@ func (manager *Manager) retryingClaim(claim claim) {
 			manager.config.Logger.Warningf("[%s] retrying timed out while handling claim %q for %q",
 				manager.logContext, claim.leaseKey, claim.holderName)
 		case lease.IsInvalid(err):
-			// we want to see this, but it doesn't indicate something a user can do something about
+			// we want to see this, but it doesn't indicate something a user
+			// can do something about.
 			manager.config.Logger.Infof("[%s] got %v after %d retries, denying claim %q for %q",
 				manager.logContext, err, maxRetries, claim.leaseKey, claim.holderName)
 			claim.respond(lease.ErrClaimDenied)
