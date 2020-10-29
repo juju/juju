@@ -93,6 +93,14 @@ func (c *modelCommand) Run(ctx *cmd.Context) error {
 		ClientFn: c.newWatchAllAPIFunc,
 		Timeout:  c.timeout,
 	}
+	strategy.Subscribe(func(event EventType) {
+		switch event {
+		case WatchAllStarted:
+			// When a watch has started, we should prime all the local caches,
+			// this means we should evict all items in the model and resync them
+			// again.
+		}
+	})
 	err := strategy.Run(c.name, c.query, c.waitFor)
 	return errors.Trace(err)
 }

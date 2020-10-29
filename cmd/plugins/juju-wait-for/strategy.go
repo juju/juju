@@ -18,6 +18,18 @@ import (
 	"github.com/juju/juju/rpc"
 )
 
+// EventType represents what type of event is being passed.
+type EventType int
+
+const (
+	// WatchAllStarted defines if a watcher has started.
+	WatchAllStarted EventType = iota
+)
+
+// Callback represents a way to subscribe to a given event and be called for
+// all events and up to the implementation to filter for a given event.
+type Callback = func(EventType)
+
 // StrategyFunc defines a way to change the underlying stategy function that
 // can be changed depending on the callee.
 type StrategyFunc func(string, []params.Delta, query.Query) (bool, error)
@@ -25,8 +37,14 @@ type StrategyFunc func(string, []params.Delta, query.Query) (bool, error)
 // Strategy defines a series of instructions to run for a given wait for
 // plan.
 type Strategy struct {
-	ClientFn func() (api.WatchAllAPI, error)
-	Timeout  time.Duration
+	ClientFn    func() (api.WatchAllAPI, error)
+	Timeout     time.Duration
+	subscribers []Callback
+}
+
+// Subscribe a subscriber to an events coming out of the strategy.
+func (s *Strategy) Subscribe(sub Callback) {
+	s.subscribers = append(s.subscribers, sub)
 }
 
 // Run the strategy and return the given result set.
@@ -41,6 +59,7 @@ func (s *Strategy) Run(name string, input string, fn StrategyFunc) error {
 		Delay:       5 * time.Second,
 		MaxDuration: s.Timeout,
 		Func: func() error {
+			s.dispatch(WatchAllStarted)
 			return s.run(q, name, input, fn)
 		},
 		IsFatalError: func(err error) bool {
@@ -91,6 +110,12 @@ func (s *Strategy) run(q query.Query, name string, input string, fn StrategyFunc
 		} else if done {
 			return nil
 		}
+	}
+}
+
+func (s *Strategy) dispatch(event EventType) {
+	for _, fn := range s.subscribers {
+		fn(event)
 	}
 }
 

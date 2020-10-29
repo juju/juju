@@ -59,6 +59,41 @@ func (s *strategySuite) TestRun(c *gc.C) {
 	c.Assert(deltas, gc.DeepEquals, expected)
 }
 
+func (s *strategySuite) TestRunWithCallback(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	expected := []params.Delta{{
+		Entity: &MockEntityInfo{
+			Name: "meshuggah",
+		},
+	}}
+
+	allWatcher := mocks.NewMockAllWatcher(ctrl)
+	allWatcher.EXPECT().Next().Return(expected, nil)
+	allWatcher.EXPECT().Stop()
+
+	client := mocks.NewMockWatchAllAPI(ctrl)
+	client.EXPECT().WatchAll().Return(allWatcher, nil)
+
+	var eventType EventType
+
+	strategy := Strategy{
+		ClientFn: func() (api.WatchAllAPI, error) {
+			return client, nil
+		},
+		Timeout: time.Minute,
+	}
+	strategy.Subscribe(func(event EventType) {
+		eventType = event
+	})
+	err := strategy.Run("generic", `life=="active"`, func(_ string, d []params.Delta, _ query.Query) (bool, error) {
+		return true, nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(eventType, gc.Equals, WatchAllStarted)
+}
+
 func (s *strategySuite) TestRunWithInvalidQuery(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
