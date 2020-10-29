@@ -239,6 +239,7 @@ def assert_saas_url_is_correct(client, offer_name, offer_url):
             'consumed offer.')
     log.info('PASS: SAAS URL is correct.')
 
+
 def deploy_and_offer_db_app(client):
     """Deploy mysql application and offer it's db endpoint.
 

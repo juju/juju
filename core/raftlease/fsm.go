@@ -437,7 +437,7 @@ func (f *FSM) Snapshot() (raft.FSMSnapshot, error) {
 
 // Restore is part of raft.FSM.
 func (f *FSM) Restore(reader io.ReadCloser) error {
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	var snapshot Snapshot
 	decoder := yaml.NewDecoder(reader)
@@ -691,8 +691,8 @@ func (c *Command) String() string {
 	switch c.Operation {
 	case OperationSetTime:
 		return fmt.Sprintf(
-			"Command(ver: %d, op: %s, new time: %v)",
-			c.Version, c.Operation, c.NewTime,
+			"Command(ver: %d, op: %s, old time: %v, new time: %v)",
+			c.Version, c.Operation, c.OldTime, c.NewTime,
 		)
 	case OperationPin, OperationUnpin:
 		return fmt.Sprintf(
