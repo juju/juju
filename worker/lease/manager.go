@@ -368,7 +368,7 @@ func (manager *Manager) handleClaim(claim claim) (bool, error) {
 	return true, nil
 }
 
-// retryingRevoke handles timeouts when unclaiming, and responds to the
+// retryingRevoke handles timeouts when revoking, and responds to the
 // revoking party when it eventually succeeds or fails, or if it times
 // out after a number of retries.
 func (manager *Manager) retryingRevoke(revoke revoke) {
