@@ -485,8 +485,8 @@ github.com/juju/os v0.0.0-20190625135142-88a4c6ac59c1/go.mod h1:buR1fIbfLx3neIA/
 github.com/juju/os v0.0.0-20191022170002-da411304426c/go.mod h1:buR1fIbfLx3neIA/TKE8ZlS/nRR3keo+hjVqV+VR4ns=
 github.com/juju/os v0.0.0-20200701063157-8e6dd7a2b438 h1:OJQkulSmv3WklByylSxQxsyQXD3ufLXa8pzcnj7JhLk=
 github.com/juju/os v0.0.0-20200701063157-8e6dd7a2b438/go.mod h1:aswA7dG+jFZC4cTmuTphPpWS9jm7NXP5dG6jEPvfQBY=
-github.com/juju/os v0.0.0-20201009104722-9ea36b308caa h1:2EaAdGJlb83txyv3wwJnSbsUyEEDkgO/4xlcRrTRa7A=
-github.com/juju/os v0.0.0-20201009104722-9ea36b308caa/go.mod h1:aswA7dG+jFZC4cTmuTphPpWS9jm7NXP5dG6jEPvfQBY=
+github.com/juju/os v0.0.0-20201029152849-68703c0e39a2 h1:bIQ+0f4YGosp1CU8YoOUARfX96s4ateTf3k2vcTB5Os=
+github.com/juju/os v0.0.0-20201029152849-68703c0e39a2/go.mod h1:aswA7dG+jFZC4cTmuTphPpWS9jm7NXP5dG6jEPvfQBY=
 github.com/juju/packaging v0.0.0-20200421095529-970596d2622a h1:dMBYD9gIFbskcksH9ib+OvmOwwkJTS5ldwvZq3axlbY=
 github.com/juju/packaging v0.0.0-20200421095529-970596d2622a/go.mod h1:Brg98KsCnaxL6UxQ4pbVFlT4MoQO7x0kSzwnuvRbUy8=
 github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93 h1:nlmpG1/Pv5elsi69wXhLkBhefGPE19bOCJ/xVwovl7A=
