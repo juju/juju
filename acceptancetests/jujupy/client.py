@@ -2383,18 +2383,19 @@ def register_user_interactively(client, token, controller_name):
     try:
         child = client.expect('register', (token), include_e=False)
         child.logfile = sys.stdout
+        pwd = client.env.user_name + '_password'
         child.expect(u'Enter a new password:')
-        child.sendline(client.env.user_name + '_password')
+        child.sendline(pwd)
         child.expect(u'Confirm password:')
-        child.sendline(client.env.user_name + '_password')
+        child.sendline(pwd)
         child.expect(u'Enter a name for this controller( \[.*\])?:')
         child.sendline(controller_name)
         client._end_pexpect_session(child)
-    except pexpect.TIMEOUT:
+    except pexpect.TIMEOUT as e:
         log.error('Buffer: {}'.format(child.buffer))
         log.error('Before: {}'.format(child.before))
         raise Exception(
-            'Registering user failed: pexpect session timed out')
+            'Registering user failed: pexpect session timed out: {}'.format(e))
 
 
 def juju_home_path(juju_home, dir_name):

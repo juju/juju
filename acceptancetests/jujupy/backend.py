@@ -235,7 +235,7 @@ class JujuBackend:
         if extra_env is not None:
             env.update(extra_env)
         # pexpect.spawn expects a string. This is better than trying to extract
-        # command + args from the returned tuple (as there could be an intial
+        # command + args from the returned tuple (as there could be an initial
         # timing command tacked on).
         command_string = ' '.join(quote(a) for a in args)
         with scoped_environ(env):
