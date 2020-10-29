@@ -1517,6 +1517,9 @@ func (s *bootstrapSuite) TestTargetArchOverride(c *gc.C) {
 }
 
 func (s *bootstrapSuite) TestTargetSeriesAndArchOverridePriority(c *gc.C) {
+	s.PatchValue(&arch.HostArch, func() string {
+		return arch.AMD64
+	})
 	env := newBootstrapEnvironWithHardwareDetection("foo", "haiku", "riscv", useDefaultKeys, nil)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		s.callContext, bootstrap.BootstrapParams{
