@@ -90,16 +90,11 @@ func (c *applicationCommand) Init(args []string) (err error) {
 }
 
 func (c *applicationCommand) Run(ctx *cmd.Context) error {
-	client, err := c.newWatchAllAPIFunc()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	strategy := &Strategy{
-		Client:  client,
-		Timeout: c.timeout,
+		ClientFn: c.newWatchAllAPIFunc,
+		Timeout:  c.timeout,
 	}
-	err = strategy.Run(c.name, c.query, c.waitFor)
+	err := strategy.Run(c.name, c.query, c.waitFor)
 	return errors.Trace(err)
 }
 
