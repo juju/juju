@@ -2025,11 +2025,22 @@ class ModelClient:
         self.controller_juju('logout', ())
         self.env.user_name = ''
 
-    def _end_pexpect_session(self, session):
+    def _end_pexpect_session(self, session, prefinish_steps=None):
         """Pexpect doesn't return buffers, or handle exceptions well.
         This method attempts to ensure any relevant data is returned to the
         test output in the event of a failure, or the unexpected"""
-        session.expect(pexpect.EOF)
+        if prefinish_steps is None:
+            session.expect(pexpect.EOF)
+        else:
+            try:
+                for f in prefinish_steps:
+                    f(session)
+            except pexpect.EOF:
+                # all good, session has been finished.
+                pass
+            else:
+                # finishes session now.
+                session.expect(pexpect.EOF)
         session.close()
         if session.exitstatus != 0:
             log.error('Buffer: {}'.format(session.buffer))
@@ -2376,17 +2387,32 @@ def register_user_interactively(client, token, controller_name):
     :param token: Token string to use when registering.
     :param controller_name: String to use when naming the controller.
     """
+
+    child = client.expect('register', (token), include_e=False)
+    child.logfile = sys.stdout
+    user_name = client.env.user_name
+    password = user_name + '_password'
     try:
-        child = client.expect('register', (token), include_e=False)
-        child.logfile = sys.stdout
-        pwd = client.env.user_name + '_password'
         child.expect(u'Enter a new password:')
-        child.sendline(pwd)
+        child.sendline(password)
         child.expect(u'Confirm password:')
-        child.sendline(pwd)
+        child.sendline(password)
         child.expect(u'Enter a name for this controller( \[.*\])?:')
         child.sendline(controller_name)
-        client._end_pexpect_session(child)
+
+        def login_if_need(session):
+            try:
+                # jenkins clock out of sync, so login needed.
+                session.expect(
+                    u'please enter password for {0} on {1}:'.format(
+                        user_name, controller_name,
+                    ),
+                )
+                session.sendline(password)
+            except pexpect.EOF:
+                # no login needed, raise to top level.
+                raise
+        client._end_pexpect_session(child, [login_if_need])
     except pexpect.TIMEOUT as e:
         log.error('Buffer: {}'.format(child.buffer))
         log.error('Before: {}'.format(child.before))
