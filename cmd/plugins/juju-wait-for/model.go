@@ -20,11 +20,7 @@ import (
 )
 
 func newModelCommand() cmd.Command {
-	cmd := &modelCommand{
-		applications: make(map[string]*params.ApplicationInfo),
-		machines:     make(map[string]*params.MachineInfo),
-		units:        make(map[string]*params.UnitInfo),
-	}
+	cmd := &modelCommand{}
 	cmd.newWatchAllAPIFunc = func() (api.WatchAllAPI, error) {
 		client, err := cmd.NewAPIClient()
 		if err != nil {
@@ -107,13 +103,17 @@ func (c *modelCommand) Run(ctx *cmd.Context) error {
 	strategy.Subscribe(func(event EventType) {
 		switch event {
 		case WatchAllStarted:
-			// When a watch has started, we should prime all the local caches,
-			// this means we should evict all items in the model and resync them
-			// again.
+			c.primeCache()
 		}
 	})
 	err := strategy.Run(c.name, c.query, c.waitFor)
 	return errors.Trace(err)
+}
+
+func (c *modelCommand) primeCache() {
+	c.applications = make(map[string]*params.ApplicationInfo)
+	c.machines = make(map[string]*params.MachineInfo)
+	c.units = make(map[string]*params.UnitInfo)
 }
 
 func (c *modelCommand) waitFor(name string, deltas []params.Delta, q query.Query) (bool, error) {
