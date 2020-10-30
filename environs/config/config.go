@@ -1351,14 +1351,26 @@ func (c *Config) validateCharmHubURL() error {
 }
 
 // Mode returns the mode type for the configuration.
-// Only three modes exist at the moment (strict or ""). Empty string
+// Only two modes exist at the moment (strict or ""). Empty string
 // implies compatible mode.
 func (c *Config) Mode() ([]string, bool) {
-	if modes, ok := c.defined[ModeKey]; ok {
-		if m, ok := modes.([]string); ok {
-			return set.NewStrings(m...).SortedValues(), ok
-		}
+	modes, ok := c.defined[ModeKey]
+	if !ok {
+		return []string{}, false
 	}
+	if m, ok := modes.([]interface{}); ok {
+		s := set.NewStrings()
+		for _, v := range m {
+			// Let's be safe here, even though we have validated the type in
+			// a prior step, via the schema.List(schema.String()) type, I would
+			// rather see defensive code than a panic at runtime.
+			if str, ok := v.(string); ok {
+				s.Add(str)
+			}
+		}
+		return s.SortedValues(), ok
+	}
+
 	return []string{}, false
 }
 

@@ -6,12 +6,12 @@ run_model_config() {
     file="${TEST_DIR}/test-model-config.log"
     ensure "model-config" "${file}"
 
-    juju model-config mode=strict
+    juju model-config mode="[strict]"
     juju model-config mode | grep "strict"
-    juju model-config mode=""
-    juju model-config mode | wc -m | grep "0"
-    juju model-config mode="boom" || echo "ERROR" | grep "ERROR"
-
+    juju model-config mode="[]"
+    juju model-config mode | grep "\[\]"
+    juju model-config mode="[boom]" || echo "ERROR" | grep "ERROR"
+    juju model-config --reset mode
 
     destroy_model "model-config"
 }
