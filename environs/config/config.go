@@ -1364,7 +1364,7 @@ func (c *Config) Mode() ([]string, bool) {
 			// Let's be safe here, even though we have validated the type in
 			// a prior step, via the schema.List(schema.String()) type, I would
 			// rather see defensive code than a panic at runtime.
-			if str, ok := v.(string); !ok {
+			if str, ok := v.(string); ok {
 				s.Add(str)
 			}
 		}
