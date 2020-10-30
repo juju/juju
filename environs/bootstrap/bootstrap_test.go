@@ -1520,8 +1520,14 @@ func (s *bootstrapSuite) TestTargetSeriesAndArchOverridePriority(c *gc.C) {
 	s.PatchValue(&arch.HostArch, func() string {
 		return arch.AMD64
 	})
+	metadataDir := c.MkDir()
+	s.PatchValue(&envtools.DefaultBaseURL, metadataDir)
+	stor, err := filestorage.NewFileStorageWriter(metadataDir)
+	c.Assert(err, jc.ErrorIsNil)
+	envtesting.UploadFakeTools(c, stor, "released", "released")
+
 	env := newBootstrapEnvironWithHardwareDetection("foo", "haiku", "riscv", useDefaultKeys, nil)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		s.callContext, bootstrap.BootstrapParams{
 			AdminSecret:              "fake-moon-landing",
 			CAPrivateKey:             coretesting.CAKey,
@@ -1532,10 +1538,11 @@ func (s *bootstrapSuite) TestTargetSeriesAndArchOverridePriority(c *gc.C) {
 				c.Assert(build, jc.IsTrue)
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
-			// Operator provided constraints must always supesede
+			// Operator provided constraints must always supersede
 			// any values reported by the environment.
 			BootstrapSeries:      "bionic",
 			BootstrapConstraints: constraints.MustParse("arch=amd64"),
+			MetadataDir:          metadataDir,
 		})
 
 	c.Assert(err, jc.ErrorIsNil)
