@@ -314,10 +314,18 @@ func (manager *Manager) retryingClaim(claim claim) {
 			manager.config.Logger.Warningf("[%s] retrying timed out while handling claim %q for %q",
 				manager.logContext, claim.leaseKey, claim.holderName)
 		case lease.IsInvalid(err):
-			// we want to see this, but it doesn't indicate something a user
+			// We want to see this, but it doesn't indicate something a user
 			// can do something about.
 			manager.config.Logger.Infof("[%s] got %v after %d retries, denying claim %q for %q",
 				manager.logContext, err, maxRetries, claim.leaseKey, claim.holderName)
+			claim.respond(lease.ErrClaimDenied)
+		case lease.IsHeld(err):
+			// This can happen in HA if the original check for an extant lease
+			// (against the local node) returned nothing, but the leader FSM
+			// has this lease being held by another entity.
+			manager.config.Logger.Tracef(
+				"[%s] %s asked for lease %s, held by by another entity; local Raft node may syncing",
+				manager.logContext, claim.holderName, claim.leaseKey.Lease)
 			claim.respond(lease.ErrClaimDenied)
 		default:
 			// Stop the main loop because we got an abnormal error
