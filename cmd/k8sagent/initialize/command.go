@@ -133,7 +133,6 @@ func (c *initCommand) Run(ctx *cmd.Context) error {
 			} else if err != nil {
 				return errors.Annotatef(err, "copying %q to %q", src, dst)
 			}
-			ctx.Infof("copied %q to %q", src, dst)
 			return nil
 		})
 	}
