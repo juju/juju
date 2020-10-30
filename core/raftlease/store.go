@@ -246,7 +246,7 @@ func (s *Store) runOnLeader(command *Command, stop <-chan struct{}) error {
 	start := time.Now()
 	defer func() {
 		elapsed := time.Now().Sub(start)
-		logger.Tracef("runOnLeader elapsed from publish: %v", elapsed.Round(time.Millisecond))
+		logger.Tracef("runOnLeader %v, elapsed from publish: %v", command.Operation, elapsed.Round(time.Millisecond))
 	}()
 	_, err = s.hub.Publish(s.config.RequestTopic, ForwardRequest{
 		Command:       string(bytes),
