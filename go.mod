@@ -75,7 +75,7 @@ require (
 	github.com/juju/rpcreflect v0.0.0-20200416001309-bb46e9ba1476
 	github.com/juju/schema v1.0.1-0.20190814234152-1f8aaeef0989
 	github.com/juju/terms-client v1.0.2-0.20200331164339-fab45ea044ae
-	github.com/juju/testing v0.0.0-20200706033705-4c23f9c453cd
+	github.com/juju/testing v0.0.0-20200923013621-75df6121fbb0
 	github.com/juju/txn v0.0.0-20190416045819-5f348e78887d
 	github.com/juju/usso v0.0.0-20160401104424-68a59c96c178 // indirect
 	github.com/juju/utils v0.0.0-20200604140309-9d78121a29e0
@@ -84,7 +84,6 @@ require (
 	github.com/juju/worker/v2 v2.0.0-20200916234526-d6e694f1c54a
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.1.0
-	github.com/kr/text v0.2.0 // indirect
 	github.com/lestrrat/go-jspointer v0.0.0-20160229021354-f4881e611bdb // indirect
 	github.com/lestrrat/go-jsref v0.0.0-20160601013240-e452c7b5801d // indirect
 	github.com/lestrrat/go-jsschema v0.0.0-20160903131957-b09d7650b822 // indirect
@@ -93,12 +92,7 @@ require (
 	github.com/lestrrat/go-structinfo v0.0.0-20160308131105-f74c056fe41f // indirect
 	github.com/lunixbochs/vtclean v1.0.0 // indirect
 	github.com/lxc/lxd v0.0.0-20200306132355-582edb00c72c
-	github.com/masterzen/azure-sdk-for-go v3.2.0-beta.0.20161014135628-ee4f0065d00c+incompatible // indirect
-	github.com/masterzen/simplexml v0.0.0-20160608183007-4572e39b1ab9 // indirect
-	github.com/masterzen/winrm v0.0.0-20161014151040-7a535cd943fc // indirect
-	github.com/masterzen/xmlpath v0.0.0-20140218185901-13f4951698ad // indirect
 	github.com/mattn/go-isatty v0.0.4
-	github.com/nu7hatch/gouuid v0.0.0-20131221200532-179d4d0c4d8d // indirect
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/oracle/oci-go-sdk v5.7.0+incompatible
 	github.com/pascaldekloe/goe v0.1.0 // indirect
@@ -109,14 +103,14 @@ require (
 	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
-	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
-	golang.org/x/net v0.0.0-20200904194848-62affa334b73
+	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897
+	golang.org/x/net v0.0.0-20201029221708-28c70e62bb1d
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
-	golang.org/x/sys v0.0.0-20200420163511-1957bb5e6d1f
+	golang.org/x/sys v0.0.0-20200930185726-fdedc70b468f
 	golang.org/x/tools v0.0.0-20190920225731-5eefd052ad72
 	google.golang.org/api v0.4.0
 	gopkg.in/amz.v3 v3.0.0-20200811022415-7b63e5e39741
-	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f
+	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b
 	gopkg.in/goose.v2 v2.0.1
 	gopkg.in/httprequest.v1 v1.2.0
 	gopkg.in/ini.v1 v1.10.1
@@ -140,7 +134,6 @@ require (
 	k8s.io/apimachinery v0.17.5-beta.0
 	k8s.io/client-go v0.0.0-20200131194156-19522ff28802
 	k8s.io/utils v0.0.0-20200124190032-861946025e34 // indirect
-	launchpad.net/xmlpath v0.0.0-20130614043138-000000000004 // indirect
 	sigs.k8s.io/yaml v1.2.0 // indirect
 )
 
