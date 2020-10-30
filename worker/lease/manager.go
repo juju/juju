@@ -324,7 +324,7 @@ func (manager *Manager) retryingClaim(claim claim) {
 			// (against the local node) returned nothing, but the leader FSM
 			// has this lease being held by another entity.
 			manager.config.Logger.Tracef(
-				"[%s] %s asked for lease %s, held by by another entity; local Raft node may syncing",
+				"[%s] %s asked for lease %s, held by by another entity; local Raft node may be syncing",
 				manager.logContext, claim.holderName, claim.leaseKey.Lease)
 			claim.respond(lease.ErrClaimDenied)
 		default:
