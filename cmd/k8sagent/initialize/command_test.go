@@ -84,16 +84,18 @@ upgradedToVersion: 2.9-beta1
 apiaddresses:
 - localhost:17070
 apiport: 17070`[1:])
-	expectedBytes := []byte(`bytes bytes lots of bytes`)
+	expectedPebble := []byte(`PEBBLE`)
+	expectedK8sagent := []byte(`K8SAGENT`)
+	expectedJujuc := []byte(`JUJUC`)
 
 	pebbleWritten := bytes.NewBuffer(nil)
 	k8sAgentWritten := bytes.NewBuffer(nil)
 	jujucWritten := bytes.NewBuffer(nil)
-	s.fileReaderWriter.EXPECT().Reader("/opt/pebble").Times(1).Return(ioutil.NopCloser(bytes.NewReader(expectedBytes)), nil)
+	s.fileReaderWriter.EXPECT().Reader("/opt/pebble").Times(1).Return(ioutil.NopCloser(bytes.NewReader(expectedPebble)), nil)
 	s.fileReaderWriter.EXPECT().Writer("/charm/bin/pebble", os.FileMode(0755)).Return(NopWriteCloser(pebbleWritten), nil)
-	s.fileReaderWriter.EXPECT().Reader("/opt/k8sagent").Times(1).Return(ioutil.NopCloser(bytes.NewReader(expectedBytes)), nil)
+	s.fileReaderWriter.EXPECT().Reader("/opt/k8sagent").Times(1).Return(ioutil.NopCloser(bytes.NewReader(expectedK8sagent)), nil)
 	s.fileReaderWriter.EXPECT().Writer("/charm/bin/k8sagent", os.FileMode(0755)).Return(NopWriteCloser(k8sAgentWritten), nil)
-	s.fileReaderWriter.EXPECT().Reader("/opt/jujuc").Times(1).Return(ioutil.NopCloser(bytes.NewReader(expectedBytes)), nil)
+	s.fileReaderWriter.EXPECT().Reader("/opt/jujuc").Times(1).Return(ioutil.NopCloser(bytes.NewReader(expectedJujuc)), nil)
 	s.fileReaderWriter.EXPECT().Writer("/charm/bin/jujuc", os.FileMode(0755)).Return(NopWriteCloser(jujucWritten), nil)
 
 	gomock.InOrder(
@@ -115,9 +117,9 @@ apiport: 17070`[1:])
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(pebbleWritten.Bytes(), jc.SameContents, expectedBytes)
-	c.Assert(k8sAgentWritten.Bytes(), jc.SameContents, expectedBytes)
-	c.Assert(jujucWritten.Bytes(), jc.SameContents, expectedBytes)
+	c.Assert(pebbleWritten.Bytes(), jc.SameContents, expectedPebble)
+	c.Assert(k8sAgentWritten.Bytes(), jc.SameContents, expectedK8sagent)
+	c.Assert(jujucWritten.Bytes(), jc.SameContents, expectedJujuc)
 }
 
 type nopWriterCloser struct {
