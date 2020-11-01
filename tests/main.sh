@@ -41,6 +41,7 @@ TEST_NAMES="agents \
             bootstrap \
             branches \
             caasadmission \
+            charmhub \
             cli \
             controller \
             deploy \
@@ -127,7 +128,7 @@ show_help() {
     echo "requires piping the output from stdout and stderr into a output.log,"
     echo "which is then copied into the artifact tar file on test cleanup):"
     echo ""
-    echo "    $(green './main.sh -V -a artifact.tar.gz -x output.log 2>&1|tee output.log')"
+    echo "    $(green './main.sh -v -a artifact.tar.gz -x output.log 2>&1|tee output.log')"
     exit 1
 }
 
