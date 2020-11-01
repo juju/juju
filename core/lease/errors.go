@@ -24,7 +24,7 @@ var (
 	ErrInvalid = errors.New("invalid lease operation")
 
 	// ErrHeld indicates that a claim operation was impossible to fulfill
-	// because the has been claimed on behalf of another entity.
+	// because the lease has been claimed on behalf of another entity.
 	// This operation should not be retried.
 	ErrHeld = errors.New("lease already held")
 
