@@ -378,7 +378,7 @@ func (c *configCommand) setConfig(client applicationAPI, ctx *cmd.Context) error
 			break
 		}
 		err = client.Set(c.applicationName, settings)
-	case ver < 12:
+	case ver < 13:
 		if settingsYAML != "" {
 			err = c.callUpdate(client, settingsYAML)
 			break
