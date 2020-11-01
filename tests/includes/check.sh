@@ -51,6 +51,23 @@ check_contains() {
     fi
 }
 
+check_gt() {
+    local input value chk
+
+    input=${1}
+    shift
+
+    value=${1}
+    shift
+
+    if [ "${input}" > "${value}" ]; then
+        echo "Success: \"${input}\" > \"${value}\"" >&2
+    else
+        printf "Expected \"${input}\" > \"${value}\"\n"  >&2
+        exit 1
+    fi
+}
+
 check() {
     local want got
 
