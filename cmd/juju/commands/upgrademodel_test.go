@@ -629,6 +629,14 @@ func (s *UpgradeJujuSuite) TestFailUploadOnNonController(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "--build-agent can only be used with the controller model")
 }
 
+func (s *UpgradeJujuSuite) TestFailUploadNoControllerModelPermission(c *gc.C) {
+	fakeAPI := NewFakeUpgradeJujuAPI(c, s.State)
+	fakeAPI.modelConfigErr = params.Error{Code: params.CodeUnauthorized}
+	command := s.upgradeJujuCommand(nil, nil, nil, nil, fakeAPI)
+	_, err := cmdtesting.RunCommand(c, command, "--build-agent")
+	c.Assert(err, gc.ErrorMatches, "--build-agent can only be used with the controller model but you don't have permission to access that model")
+}
+
 func (s *UpgradeJujuSuite) TestUpgradeJujuWithIgnoreAgentVersions(c *gc.C) {
 	s.Reset(c)
 	fakeAPI := &fakeUpgradeJujuAPINoState{
@@ -1045,6 +1053,7 @@ type fakeUpgradeJujuAPI struct {
 	nextVersion               version.Binary
 	setVersionErr             error
 	setUpgradeErr             error
+	modelConfigErr            error
 	abortCurrentUpgradeCalled bool
 	setVersionCalledWith      version.Number
 	setIgnoreCalledWith       bool
@@ -1070,7 +1079,7 @@ func (a *fakeUpgradeJujuAPI) ControllerConfig() (controller.Config, error) {
 func (a *fakeUpgradeJujuAPI) ModelConfig() (map[string]interface{}, error) {
 	return map[string]interface{}{
 		"uuid": a.st.ControllerModelUUID(),
-	}, nil
+	}, a.modelConfigErr
 }
 
 func (a *fakeUpgradeJujuAPI) addTools(tools ...string) {
