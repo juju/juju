@@ -371,7 +371,7 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 	env := s.Prepare(c)
 	// An error occurs if no suitable image is found.
 	_, err := joyent.FindInstanceSpec(env, "saucy", "amd64", "mem=4G", nil)
-	c.Assert(err, gc.ErrorMatches, `no "saucy" images in some-region with arches \[amd64\]`)
+	c.Assert(err, gc.ErrorMatches, `no metadata for "saucy" images in some-region with arches \[amd64\]`)
 }
 
 func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
