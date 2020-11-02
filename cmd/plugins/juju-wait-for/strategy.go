@@ -30,7 +30,7 @@ const (
 // all events and up to the implementation to filter for a given event.
 type Callback = func(EventType)
 
-// StrategyFunc defines a way to change the underlying stategy function that
+// StrategyFunc defines a way to change the underlying strategy function that
 // can be changed depending on the callee.
 type StrategyFunc func(string, []params.Delta, query.Query) (bool, error)
 
@@ -180,7 +180,7 @@ func (m *GenericScope) GetIdentValue(name string) (query.Box, error) {
 	return nil, errors.Errorf("Runtime Error: identifier %q not found on scope value", name)
 }
 
-// SetIdentValue sets a nwe ident and it's value on a given scope.
+// SetIdentValue sets a new ident and it's value on a given scope.
 func (m *GenericScope) SetIdentValue(name string, value interface{}) {
 	m.scopes[name] = value
 }

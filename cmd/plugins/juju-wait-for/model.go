@@ -57,6 +57,7 @@ type modelCommand struct {
 	// TODO (stickupkid): Generalize this to become a local cache, similar to
 	// the model cache but not with the hierarchy or complexity (for example,
 	// we don't need the mark+sweep gc).
+	model        *params.ModelUpdate
 	applications map[string]*params.ApplicationInfo
 	machines     map[string]*params.MachineInfo
 	units        map[string]*params.UnitInfo
@@ -117,7 +118,6 @@ func (c *modelCommand) primeCache() {
 }
 
 func (c *modelCommand) waitFor(name string, deltas []params.Delta, q query.Query) (bool, error) {
-	var modelUpdate *params.ModelUpdate
 	for _, delta := range deltas {
 		logger.Tracef("delta %T: %v", delta.Entity, delta.Entity)
 
@@ -148,18 +148,18 @@ func (c *modelCommand) waitFor(name string, deltas []params.Delta, q query.Query
 				if delta.Removed {
 					return false, errors.Errorf("model %v removed", name)
 				}
-				modelUpdate = entityInfo
+				c.model = entityInfo
 				c.found = entityInfo.Life != life.Dead
 			}
 		}
+	}
 
-		if modelUpdate != nil {
-			scope := MakeModelScope(c, modelUpdate)
-			if done, err := runQuery(q, scope); err != nil {
-				return false, errors.Trace(err)
-			} else if done {
-				return true, nil
-			}
+	if c.model != nil {
+		scope := MakeModelScope(c)
+		if done, err := runQuery(q, scope); err != nil {
+			return false, errors.Trace(err)
+		} else if done {
+			return true, nil
 		}
 	}
 
@@ -179,9 +179,9 @@ type ModelScope struct {
 }
 
 // MakeModelScope creates an ModelScope from an ModelUpdate
-func MakeModelScope(model *modelCommand, info *params.ModelUpdate) ModelScope {
+func MakeModelScope(model *modelCommand) ModelScope {
 	return ModelScope{
-		ModelInfo: info,
+		ModelInfo: model.model,
 		Model:     model,
 	}
 }
