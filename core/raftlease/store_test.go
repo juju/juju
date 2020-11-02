@@ -898,24 +898,32 @@ func (s *storeSuite) TestAsResponseError(c *gc.C) {
 		raftlease.AsResponseError(lease.ErrInvalid),
 		gc.DeepEquals,
 		&raftlease.ResponseError{
-			"invalid lease operation",
-			"invalid",
+			Message: "invalid lease operation",
+			Code:    "invalid",
 		},
 	)
 	c.Assert(
 		raftlease.AsResponseError(globalclock.ErrConcurrentUpdate),
 		gc.DeepEquals,
 		&raftlease.ResponseError{
-			"clock was updated concurrently, retry",
-			"concurrent-update",
+			Message: "clock was updated concurrently, retry",
+			Code:    "concurrent-update",
+		},
+	)
+	c.Assert(
+		raftlease.AsResponseError(lease.ErrHeld),
+		gc.DeepEquals,
+		&raftlease.ResponseError{
+			Message: "lease already held",
+			Code:    "already-held",
 		},
 	)
 	c.Assert(
 		raftlease.AsResponseError(errors.Errorf("generic")),
 		gc.DeepEquals,
 		&raftlease.ResponseError{
-			"generic",
-			"error",
+			Message: "generic",
+			Code:    "error",
 		},
 	)
 }

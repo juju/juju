@@ -324,6 +324,8 @@ func AsResponseError(err error) *ResponseError {
 		code = "invalid"
 	case globalclock.ErrConcurrentUpdate:
 		code = "concurrent-update"
+	case lease.ErrHeld:
+		code = "already-held"
 	default:
 		code = "error"
 	}
@@ -345,6 +347,8 @@ func RecoverError(resp *ResponseError) error {
 		return lease.ErrInvalid
 	case "concurrent-update":
 		return globalclock.ErrConcurrentUpdate
+	case "already-held":
+		return lease.ErrHeld
 	default:
 		return errors.New(resp.Message)
 	}
