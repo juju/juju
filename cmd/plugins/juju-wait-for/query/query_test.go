@@ -23,6 +23,8 @@ func (s *querySuite) TestSuccess(c *gc.C) {
 	defer ctrl.Finish()
 
 	funcScope := NewMockFuncScope(ctrl)
+	funcScope.EXPECT().Call(gomock.Any(), gomock.Any()).Return(true, nil).AnyTimes()
+
 	scope := NewMockScope(ctrl)
 
 	res, err := ioutil.ReadFile("./testfiles/success")
@@ -51,6 +53,8 @@ func (s *querySuite) TestFailure(c *gc.C) {
 	defer ctrl.Finish()
 
 	funcScope := NewMockFuncScope(ctrl)
+	funcScope.EXPECT().Call(gomock.Any(), gomock.Any()).Return(false, nil).AnyTimes()
+
 	scope := NewMockScope(ctrl)
 
 	res, err := ioutil.ReadFile("./testfiles/failure")
@@ -81,7 +85,7 @@ func (s *querySuite) TestQueryScope(c *gc.C) {
 	funcScope := NewMockFuncScope(ctrl)
 
 	scope := NewMockScope(ctrl)
-	scope.EXPECT().GetIdentValue("life").Return(&OrdString{value: "alive"}, nil).Times(2)
+	scope.EXPECT().GetIdentValue("life").Return(&BoxString{value: "alive"}, nil).Times(2)
 
 	src := `life == "death" || life == "alive"`
 
@@ -156,7 +160,7 @@ func (s *querySuite) TestRunString(c *gc.C) {
 	var query Query
 	result, err := query.run(exp, funcScope, scope)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, &OrdString{"abc"})
+	c.Assert(result, gc.DeepEquals, &BoxString{"abc"})
 }
 
 func (s *querySuite) TestRunInteger(c *gc.C) {
@@ -189,7 +193,7 @@ func (s *querySuite) TestRunInteger(c *gc.C) {
 	var query Query
 	result, err := query.run(exp, funcScope, scope)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, &OrdInteger{value: int64(1)})
+	c.Assert(result, gc.DeepEquals, &BoxInteger{value: int64(1)})
 }
 
 func (s *querySuite) TestRunFloat(c *gc.C) {
@@ -222,7 +226,7 @@ func (s *querySuite) TestRunFloat(c *gc.C) {
 	var query Query
 	result, err := query.run(exp, funcScope, scope)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, &OrdFloat{value: float64(1.12)})
+	c.Assert(result, gc.DeepEquals, &BoxFloat{value: float64(1.12)})
 }
 
 func (s *querySuite) TestRunBool(c *gc.C) {
@@ -255,7 +259,7 @@ func (s *querySuite) TestRunBool(c *gc.C) {
 	var query Query
 	result, err := query.run(exp, funcScope, scope)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, &OrdBool{value: true})
+	c.Assert(result, gc.DeepEquals, &BoxBool{value: true})
 }
 
 func (s *querySuite) TestRunInfixLogicalAND(c *gc.C) {

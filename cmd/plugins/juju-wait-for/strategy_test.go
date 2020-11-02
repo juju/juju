@@ -112,50 +112,6 @@ func (s *strategySuite) TestRunWithInvalidQuery(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `Syntax Error:<:1:7> invalid character '<UNKNOWN>' found`)
 }
 
-type genericScopeSuite struct {
-	testing.IsolationSuite
-}
-
-var _ = gc.Suite(&genericScopeSuite{})
-
-func (s *genericScopeSuite) TestGetIdentValue(c *gc.C) {
-	tests := []struct {
-		Field    string
-		Info     *MockEntityInfo
-		Expected query.Ord
-	}{{
-		Field:    "name",
-		Info:     &MockEntityInfo{Name: "generic name"},
-		Expected: query.NewString("generic name"),
-	}, {
-		Field:    "int",
-		Info:     &MockEntityInfo{Integer: 1},
-		Expected: query.NewInteger(int64(1)),
-	}, {
-		Field:    "bool",
-		Info:     &MockEntityInfo{Boolean: true},
-		Expected: query.NewBool(true),
-	}}
-	for i, test := range tests {
-		c.Logf("%d: GetIdentValue %q", i, test.Field)
-		scope := GenericScope{
-			Info: test.Info,
-		}
-		result, err := scope.GetIdentValue(test.Field)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(result, gc.DeepEquals, test.Expected)
-	}
-}
-
-func (s *genericScopeSuite) TestGetIdentValueError(c *gc.C) {
-	scope := GenericScope{
-		Info: &MockEntityInfo{},
-	}
-	result, err := scope.GetIdentValue("bad")
-	c.Assert(err, gc.ErrorMatches, `Runtime Error: identifier "bad" not found on Info`)
-	c.Assert(result, gc.IsNil)
-}
-
 type MockEntityInfo struct {
 	Name    string `json:"name"`
 	Integer int    `json:"int"`

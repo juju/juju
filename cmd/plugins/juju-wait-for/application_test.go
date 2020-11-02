@@ -23,7 +23,7 @@ func (s *applicationScopeSuite) TestGetIdentValue(c *gc.C) {
 	tests := []struct {
 		Field           string
 		ApplicationInfo *params.ApplicationInfo
-		Expected        query.Ord
+		Expected        query.Box
 	}{{
 		Field:           "name",
 		ApplicationInfo: &params.ApplicationInfo{Name: "application name"},

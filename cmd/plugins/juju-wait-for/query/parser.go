@@ -28,11 +28,13 @@ var precedence = map[TokenType]int{
 	EQ:       EQUALS,
 	NEQ:      EQUALS,
 	LPAREN:   CALL,
+	LAMBDA:   CALL,
 	LT:       LESSGREATER,
 	LE:       LESSGREATER,
 	GT:       LESSGREATER,
 	GE:       LESSGREATER,
 	LBRACKET: INDEX,
+	PERIOD:   INDEX,
 }
 
 type Parser struct {
@@ -56,13 +58,14 @@ func NewParser(lex *Lexer) *Parser {
 		lex: lex,
 	}
 	p.prefix = map[TokenType]PrefixFunc{
-		IDENT:  p.parseIdentifier,
-		INT:    p.parseInteger,
-		FLOAT:  p.parseFloat,
-		STRING: p.parseString,
-		LPAREN: p.parseGroup,
-		TRUE:   p.parseBool,
-		FALSE:  p.parseBool,
+		IDENT:      p.parseIdentifier,
+		UNDERSCORE: p.parseIdentifier,
+		INT:        p.parseInteger,
+		FLOAT:      p.parseFloat,
+		STRING:     p.parseString,
+		LPAREN:     p.parseGroup,
+		TRUE:       p.parseBool,
+		FALSE:      p.parseBool,
 	}
 	p.infix = map[TokenType]InfixFunc{
 		EQ:       p.parseInfixExpression,
@@ -73,8 +76,10 @@ func NewParser(lex *Lexer) *Parser {
 		LE:       p.parseInfixExpression,
 		GT:       p.parseInfixExpression,
 		GE:       p.parseInfixExpression,
+		PERIOD:   p.parseAccessor,
 		LBRACKET: p.parseIndex,
 		LPAREN:   p.parseCall,
+		LAMBDA:   p.parseLambda,
 	}
 	p.nextToken()
 	p.nextToken()
@@ -226,9 +231,10 @@ func (p *Parser) parseIndex(left Expression) Expression {
 
 func (p *Parser) parseCall(left Expression) Expression {
 	if p.isPeekToken(RPAREN) {
+		currentToken := p.currentToken
 		p.nextToken()
 		return &CallExpression{
-			Token: p.currentToken,
+			Token: currentToken,
 			Name:  left,
 		}
 	}
@@ -251,6 +257,53 @@ func (p *Parser) parseCall(left Expression) Expression {
 		Token:     p.currentToken,
 		Name:      left,
 		Arguments: arguments,
+	}
+}
+
+func (p *Parser) parseLambda(left Expression) Expression {
+	if p.isPeekToken(UNDERSCORE) {
+		currentToken := p.currentToken
+		p.nextToken()
+		return &LambdaExpression{
+			Token:    currentToken,
+			Argument: left,
+			Expressions: []Expression{
+				p.parseExpression(LOWEST),
+			},
+		}
+	}
+
+	p.nextToken()
+
+	expressions := []Expression{
+		p.parseExpression(LOWEST),
+	}
+	for p.isPeekToken(SEMICOLON) {
+		p.nextToken()
+		p.nextToken()
+		expressions = append(expressions, p.parseExpression(LOWEST))
+	}
+	if !p.isPeekToken(EOF) && !p.isPeekToken(RPAREN) {
+		p.expectPeek(RPAREN)
+		return nil
+	}
+
+	return &LambdaExpression{
+		Token:       p.currentToken,
+		Argument:    left,
+		Expressions: expressions,
+	}
+}
+
+func (p *Parser) parseAccessor(left Expression) Expression {
+	precedence := p.currentPrecedence()
+	p.nextToken()
+	right := p.parseExpression(precedence)
+
+	return &AccessorExpression{
+		Token: p.currentToken,
+		Left:  left,
+		Right: right,
 	}
 }
 

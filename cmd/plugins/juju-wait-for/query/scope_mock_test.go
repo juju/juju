@@ -32,8 +32,20 @@ func (m *MockFuncScope) EXPECT() *MockFuncScopeMockRecorder {
 	return m.recorder
 }
 
+// Add mocks base method
+func (m *MockFuncScope) Add(arg0 string, arg1 interface{}) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Add", arg0, arg1)
+}
+
+// Add indicates an expected call of Add
+func (mr *MockFuncScopeMockRecorder) Add(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Add", reflect.TypeOf((*MockFuncScope)(nil).Add), arg0, arg1)
+}
+
 // Call mocks base method
-func (m *MockFuncScope) Call(arg0 *Identifier, arg1 []Ord) (interface{}, error) {
+func (m *MockFuncScope) Call(arg0 *Identifier, arg1 []Box) (interface{}, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Call", arg0, arg1)
 	ret0, _ := ret[0].(interface{})
@@ -71,10 +83,10 @@ func (m *MockScope) EXPECT() *MockScopeMockRecorder {
 }
 
 // GetIdentValue mocks base method
-func (m *MockScope) GetIdentValue(arg0 string) (Ord, error) {
+func (m *MockScope) GetIdentValue(arg0 string) (Box, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetIdentValue", arg0)
-	ret0, _ := ret[0].(Ord)
+	ret0, _ := ret[0].(Box)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -83,4 +95,18 @@ func (m *MockScope) GetIdentValue(arg0 string) (Ord, error) {
 func (mr *MockScopeMockRecorder) GetIdentValue(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIdentValue", reflect.TypeOf((*MockScope)(nil).GetIdentValue), arg0)
+}
+
+// GetIdents mocks base method
+func (m *MockScope) GetIdents() []string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetIdents")
+	ret0, _ := ret[0].([]string)
+	return ret0
+}
+
+// GetIdents indicates an expected call of GetIdents
+func (mr *MockScopeMockRecorder) GetIdents() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIdents", reflect.TypeOf((*MockScope)(nil).GetIdents))
 }

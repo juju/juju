@@ -4,7 +4,9 @@
 package main
 
 import (
+	"reflect"
 	"sort"
+	"strings"
 
 	"github.com/juju/errors"
 
@@ -30,7 +32,7 @@ func (s watchAllAPIShim) WatchAll() (api.AllWatcher, error) {
 
 // runQuery handles the more complex error handling of a query with a given
 // scope.
-func runQuery(q query.Query, scope Scope) (bool, error) {
+func runQuery(q query.Query, scope query.Scope) (bool, error) {
 	if res, err := q.BuiltinsRun(scope); query.IsInvalidIdentifierErr(err) {
 		return false, invalidIdentifierError(scope, err)
 	} else if query.IsRuntimeError(err) {
@@ -43,15 +45,24 @@ func runQuery(q query.Query, scope Scope) (bool, error) {
 	return false, nil
 }
 
-// Scope defines a local scope used to get identifiers of a given scope.
-type Scope interface {
-	query.Scope
+func getIdents(q interface{}) []string {
+	var res []string
 
-	// GetIdents returns the identifers that are supported for a given scope.
-	GetIdents() []string
+	refType := reflect.TypeOf(q).Elem()
+	for i := 0; i < refType.NumField(); i++ {
+		field := refType.Field(i)
+		v := strings.Split(field.Tag.Get("json"), ",")[0]
+		refValue := reflect.ValueOf(q).Elem()
+
+		switch refValue.Field(i).Kind() {
+		case reflect.Int, reflect.Int64, reflect.Float64, reflect.String, reflect.Bool:
+			res = append(res, v)
+		}
+	}
+	return res
 }
 
-func invalidIdentifierError(scope Scope, err error) error {
+func invalidIdentifierError(scope query.Scope, err error) error {
 	if !query.IsInvalidIdentifierErr(err) {
 		return errors.Trace(err)
 	}

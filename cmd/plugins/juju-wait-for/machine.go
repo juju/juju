@@ -104,6 +104,10 @@ func (c *machineCommand) waitFor(id string, deltas []params.Delta, q query.Query
 		switch entityInfo := delta.Entity.(type) {
 		case *params.MachineInfo:
 			if entityInfo.Id == id {
+				if delta.Removed {
+					return false, errors.Errorf("machine %v removed", id)
+				}
+
 				scope := MakeMachineScope(entityInfo)
 				if done, err := runQuery(q, scope); err != nil {
 					return false, errors.Trace(err)
@@ -127,22 +131,23 @@ func (c *machineCommand) waitFor(id string, deltas []params.Delta, q query.Query
 
 // MachineScope allows the query to introspect a model entity.
 type MachineScope struct {
-	GenericScope
 	MachineInfo *params.MachineInfo
 }
 
 // MakeMachineScope creates an MachineScope from an MachineInfo
 func MakeMachineScope(info *params.MachineInfo) MachineScope {
 	return MachineScope{
-		GenericScope: GenericScope{
-			Info: info,
-		},
 		MachineInfo: info,
 	}
 }
 
+// GetIdents returns the identifiers with in a given scope.
+func (m MachineScope) GetIdents() []string {
+	return getIdents(m.MachineInfo)
+}
+
 // GetIdentValue returns the value of the identifier in a given scope.
-func (m MachineScope) GetIdentValue(name string) (query.Ord, error) {
+func (m MachineScope) GetIdentValue(name string) (query.Box, error) {
 	switch name {
 	case "id":
 		return query.NewString(m.MachineInfo.Id), nil

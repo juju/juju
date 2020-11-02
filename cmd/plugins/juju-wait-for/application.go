@@ -105,6 +105,10 @@ func (c *applicationCommand) waitFor(name string, deltas []params.Delta, q query
 		switch entityInfo := delta.Entity.(type) {
 		case *params.ApplicationInfo:
 			if entityInfo.Name == name {
+				if delta.Removed {
+					return false, errors.Errorf("application %v removed", name)
+				}
+
 				scope := MakeApplicationScope(entityInfo)
 				if done, err := runQuery(q, scope); err != nil {
 					return false, errors.Trace(err)
@@ -123,32 +127,25 @@ func (c *applicationCommand) waitFor(name string, deltas []params.Delta, q query
 		return false, nil
 	}
 
-	var logOutput bool
 	currentStatus := c.appInfo.Status.Current
 
-	// If the application is unset, then derive it from the units.
-	if currentStatus.String() == "unset" {
-		statuses := make([]status.StatusInfo, 0)
-		for _, delta := range deltas {
-			switch entityInfo := delta.Entity.(type) {
-			case *params.UnitInfo:
-				if entityInfo.Application == name {
-					logOutput = true
-
-					agentStatus := entityInfo.WorkloadStatus
-					statuses = append(statuses, status.StatusInfo{
-						Status: agentStatus.Current,
-					})
-				}
+	units := make(map[string]*params.UnitInfo)
+	for _, delta := range deltas {
+		switch entityInfo := delta.Entity.(type) {
+		case *params.UnitInfo:
+			if delta.Removed {
+				delete(units, entityInfo.Name)
+			}
+			if entityInfo.Application == name {
+				units[entityInfo.Name] = entityInfo
 			}
 		}
-
-		derived := status.DeriveStatus(statuses)
-		currentStatus = derived.Status
 	}
 
+	logOutput := currentStatus.String() != "unset" && len(units) > 0
+
 	appInfo := c.appInfo
-	appInfo.Status.Current = currentStatus
+	appInfo.Status.Current = deriveApplicationStatus(currentStatus, units)
 
 	scope := MakeApplicationScope(&appInfo)
 	if done, err := runQuery(q, scope); err != nil {
@@ -166,22 +163,23 @@ func (c *applicationCommand) waitFor(name string, deltas []params.Delta, q query
 
 // ApplicationScope allows the query to introspect a application entity.
 type ApplicationScope struct {
-	GenericScope
 	ApplicationInfo *params.ApplicationInfo
 }
 
 // MakeApplicationScope creates an ApplicationScope from an ApplicationInfo
 func MakeApplicationScope(info *params.ApplicationInfo) ApplicationScope {
 	return ApplicationScope{
-		GenericScope: GenericScope{
-			Info: info,
-		},
 		ApplicationInfo: info,
 	}
 }
 
+// GetIdents returns the identifiers with in a given scope.
+func (m ApplicationScope) GetIdents() []string {
+	return getIdents(m.ApplicationInfo)
+}
+
 // GetIdentValue returns the value of the identifier in a given scope.
-func (m ApplicationScope) GetIdentValue(name string) (query.Ord, error) {
+func (m ApplicationScope) GetIdentValue(name string) (query.Box, error) {
 	switch name {
 	case "name":
 		return query.NewString(m.ApplicationInfo.Name), nil
@@ -201,4 +199,22 @@ func (m ApplicationScope) GetIdentValue(name string) (query.Ord, error) {
 		return query.NewString(m.ApplicationInfo.WorkloadVersion), nil
 	}
 	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name), "Runtime Error: identifier %q not found on ApplicationInfo", name)
+}
+
+func deriveApplicationStatus(currentStatus status.Status, units map[string]*params.UnitInfo) status.Status {
+	// If the application is unset, then derive it from the units.
+	if currentStatus.String() != "unset" {
+		return currentStatus
+	}
+
+	statuses := make([]status.StatusInfo, 0)
+	for _, unit := range units {
+		agentStatus := unit.WorkloadStatus
+		statuses = append(statuses, status.StatusInfo{
+			Status: agentStatus.Current,
+		})
+	}
+
+	derived := status.DeriveStatus(statuses)
+	return derived.Status
 }

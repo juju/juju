@@ -30,7 +30,7 @@ const (
 // all events and up to the implementation to filter for a given event.
 type Callback = func(EventType)
 
-// StrategyFunc defines a way to change the underlying stategy function that
+// StrategyFunc defines a way to change the underlying strategy function that
 // can be changed depending on the callee.
 type StrategyFunc func(string, []params.Delta, query.Query) (bool, error)
 
@@ -127,17 +127,38 @@ func isWatcherStopped(e *rpc.RequestError) bool {
 
 // GenericScope allows the query to introspect an entity.
 type GenericScope struct {
-	Info params.EntityInfo
+	scopes map[string]interface{}
+}
+
+// NewGenericScope creates a new GenericScope
+func NewGenericScope() *GenericScope {
+	return &GenericScope{
+		scopes: make(map[string]interface{}),
+	}
+}
+
+// GetIdents returns the names of all the available idents.
+func (m *GenericScope) GetIdents() []string {
+	var results []string
+	for k := range m.scopes {
+		results = append(results, k)
+	}
+	return results
 }
 
 // GetIdentValue returns the value of the identifier in a given scope.
-func (m GenericScope) GetIdentValue(name string) (query.Ord, error) {
-	refType := reflect.TypeOf(m.Info).Elem()
+func (m *GenericScope) GetIdentValue(name string) (query.Box, error) {
+	scope, ok := m.scopes[name]
+	if !ok {
+		return nil, errors.Errorf("Runtime Error: identifier %q not found on scope", name)
+	}
+
+	refType := reflect.TypeOf(scope).Elem()
 	for i := 0; i < refType.NumField(); i++ {
 		field := refType.Field(i)
 		v := strings.Split(field.Tag.Get("json"), ",")[0]
 		if v == name {
-			refValue := reflect.ValueOf(m.Info).Elem()
+			refValue := reflect.ValueOf(scope).Elem()
 			fieldValue := refValue.Field(i)
 			data := fieldValue.Interface()
 			switch fieldValue.Kind() {
@@ -156,23 +177,21 @@ func (m GenericScope) GetIdentValue(name string) (query.Ord, error) {
 			return nil, errors.Errorf("Runtime Error: unhandled identifier type %q for %q", refValue.Kind(), name)
 		}
 	}
-	return nil, errors.Errorf("Runtime Error: identifier %q not found on Info", name)
+	return nil, errors.Errorf("Runtime Error: identifier %q not found on scope value", name)
 }
 
-// GetIdents returns the identifers that are supported for a given scope.
-func (m GenericScope) GetIdents() []string {
-	var res []string
+// SetIdentValue sets a new ident and it's value on a given scope.
+func (m *GenericScope) SetIdentValue(name string, value interface{}) {
+	m.scopes[name] = value
+}
 
-	refType := reflect.TypeOf(m.Info).Elem()
-	for i := 0; i < refType.NumField(); i++ {
-		field := refType.Field(i)
-		v := strings.Split(field.Tag.Get("json"), ",")[0]
-		refValue := reflect.ValueOf(m.Info).Elem()
-
-		switch refValue.Field(i).Kind() {
-		case reflect.Int, reflect.Int64, reflect.Float64, reflect.String, reflect.Bool:
-			res = append(res, v)
-		}
+// Clone a given scope.
+func (m *GenericScope) Clone() query.Scope {
+	scopes := make(map[string]interface{}, len(m.scopes))
+	for k, v := range m.scopes {
+		scopes[k] = v
 	}
-	return res
+	return &GenericScope{
+		scopes: scopes,
+	}
 }

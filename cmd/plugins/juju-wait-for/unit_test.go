@@ -24,7 +24,7 @@ func (s *unitScopeSuite) TestGetIdentValue(c *gc.C) {
 	tests := []struct {
 		Field    string
 		UnitInfo *params.UnitInfo
-		Expected query.Ord
+		Expected query.Box
 	}{{
 		Field:    "name",
 		UnitInfo: &params.UnitInfo{Name: "model name"},

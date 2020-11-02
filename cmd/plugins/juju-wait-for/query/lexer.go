@@ -79,65 +79,73 @@ func (l *Lexer) NextToken() Token {
 	if t, ok := tokenMap[l.char]; ok {
 		switch t {
 		case ASSIGN:
-			if l.Peek() == '=' {
+			if peek := l.Peek(); peek == '=' {
 				tok = Token{
 					Type:    EQ,
-					Literal: string(l.char) + string(l.Peek()),
+					Literal: string(l.char) + string(peek),
+				}
+				l.ReadNext()
+			} else if peek == '>' {
+				tok = Token{
+					Type:    LAMBDA,
+					Literal: string(l.char) + string(peek),
 				}
 				l.ReadNext()
 			} else {
 				tok = MakeToken(ASSIGN, l.char)
 			}
 		case BANG:
-			if l.Peek() == '=' {
+			if peek := l.Peek(); peek == '=' {
 				tok = Token{
 					Type:    NEQ,
-					Literal: string(l.char) + string(l.Peek()),
+					Literal: string(l.char) + string(peek),
 				}
 				l.ReadNext()
 			} else {
 				tok = MakeToken(BANG, l.char)
 			}
 		case BITAND:
-			if l.Peek() == '&' {
+			if peek := l.Peek(); peek == '&' {
 				tok = Token{
 					Type:    CONDAND,
-					Literal: string(l.char) + string(l.Peek()),
+					Literal: string(l.char) + string(peek),
 				}
 				l.ReadNext()
 			} else {
 				tok = MakeToken(BITAND, l.char)
 			}
 		case BITOR:
-			if l.Peek() == '|' {
+			if peek := l.Peek(); peek == '|' {
 				tok = Token{
 					Type:    CONDOR,
-					Literal: string(l.char) + string(l.Peek()),
+					Literal: string(l.char) + string(peek),
 				}
 				l.ReadNext()
 			} else {
 				tok = MakeToken(BITOR, l.char)
 			}
 		case LT:
-			if l.Peek() == '=' {
+			if peek := l.Peek(); peek == '=' {
 				tok = Token{
 					Type:    LE,
-					Literal: string(l.char) + string(l.Peek()),
+					Literal: string(l.char) + string(peek),
 				}
 				l.ReadNext()
 			} else {
 				tok = MakeToken(LT, l.char)
 			}
 		case GT:
-			if l.Peek() == '=' {
+			if peek := l.Peek(); peek == '=' {
 				tok = Token{
 					Type:    GE,
-					Literal: string(l.char) + string(l.Peek()),
+					Literal: string(l.char) + string(peek),
 				}
 				l.ReadNext()
 			} else {
 				tok = MakeToken(GT, l.char)
 			}
+		case UNDERSCORE:
+			tok = MakeToken(UNDERSCORE, l.char)
 		default:
 			tok = MakeToken(t, l.char)
 		}
@@ -176,6 +184,8 @@ func (l *Lexer) readRunesToken() Token {
 			tok.Type = TRUE
 		case "false":
 			tok.Type = FALSE
+		case "_":
+			tok.Type = UNDERSCORE
 		default:
 			tok.Type = IDENT
 		}

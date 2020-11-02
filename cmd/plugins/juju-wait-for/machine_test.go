@@ -24,7 +24,7 @@ func (s *machineScopeSuite) TestGetIdentValue(c *gc.C) {
 	tests := []struct {
 		Field       string
 		MachineInfo *params.MachineInfo
-		Expected    query.Ord
+		Expected    query.Box
 	}{{
 		Field:       "id",
 		MachineInfo: &params.MachineInfo{Id: "0/lxd/0"},

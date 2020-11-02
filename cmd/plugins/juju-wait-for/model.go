@@ -53,6 +53,14 @@ type modelCommand struct {
 	query   string
 	timeout time.Duration
 	found   bool
+
+	// TODO (stickupkid): Generalize this to become a local cache, similar to
+	// the model cache but not with the hierarchy or complexity (for example,
+	// we don't need the mark+sweep gc).
+	model        *params.ModelUpdate
+	applications map[string]*params.ApplicationInfo
+	machines     map[string]*params.MachineInfo
+	units        map[string]*params.UnitInfo
 }
 
 // Info implements Command.Info.
@@ -96,13 +104,17 @@ func (c *modelCommand) Run(ctx *cmd.Context) error {
 	strategy.Subscribe(func(event EventType) {
 		switch event {
 		case WatchAllStarted:
-			// When a watch has started, we should prime all the local caches,
-			// this means we should evict all items in the model and resync them
-			// again.
+			c.primeCache()
 		}
 	})
 	err := strategy.Run(c.name, c.query, c.waitFor)
 	return errors.Trace(err)
+}
+
+func (c *modelCommand) primeCache() {
+	c.applications = make(map[string]*params.ApplicationInfo)
+	c.machines = make(map[string]*params.MachineInfo)
+	c.units = make(map[string]*params.UnitInfo)
 }
 
 func (c *modelCommand) waitFor(name string, deltas []params.Delta, q query.Query) (bool, error) {
@@ -110,18 +122,44 @@ func (c *modelCommand) waitFor(name string, deltas []params.Delta, q query.Query
 		logger.Tracef("delta %T: %v", delta.Entity, delta.Entity)
 
 		switch entityInfo := delta.Entity.(type) {
+		case *params.ApplicationInfo:
+			if delta.Removed {
+				delete(c.applications, entityInfo.Name)
+				break
+			}
+			c.applications[entityInfo.Name] = entityInfo
+
+		case *params.MachineInfo:
+			if delta.Removed {
+				delete(c.machines, entityInfo.Id)
+				break
+			}
+			c.machines[entityInfo.Id] = entityInfo
+
+		case *params.UnitInfo:
+			if delta.Removed {
+				delete(c.units, entityInfo.Name)
+				break
+			}
+			c.units[entityInfo.Name] = entityInfo
+
 		case *params.ModelUpdate:
 			if entityInfo.Name == name {
-				scope := MakeModelScope(entityInfo)
-				if done, err := runQuery(q, scope); err != nil {
-					return false, errors.Trace(err)
-				} else if done {
-					return true, nil
+				if delta.Removed {
+					return false, errors.Errorf("model %v removed", name)
 				}
-
+				c.model = entityInfo
 				c.found = entityInfo.Life != life.Dead
 			}
-			break
+		}
+	}
+
+	if c.model != nil {
+		scope := MakeModelScope(c)
+		if done, err := runQuery(q, scope); err != nil {
+			return false, errors.Trace(err)
+		} else if done {
+			return true, nil
 		}
 	}
 
@@ -136,22 +174,25 @@ func (c *modelCommand) waitFor(name string, deltas []params.Delta, q query.Query
 
 // ModelScope allows the query to introspect a model entity.
 type ModelScope struct {
-	GenericScope
 	ModelInfo *params.ModelUpdate
+	Model     *modelCommand
 }
 
 // MakeModelScope creates an ModelScope from an ModelUpdate
-func MakeModelScope(info *params.ModelUpdate) ModelScope {
+func MakeModelScope(model *modelCommand) ModelScope {
 	return ModelScope{
-		GenericScope: GenericScope{
-			Info: info,
-		},
-		ModelInfo: info,
+		ModelInfo: model.model,
+		Model:     model,
 	}
 }
 
+// GetIdents returns the identifiers with in a given scope.
+func (m ModelScope) GetIdents() []string {
+	return getIdents(m.ModelInfo)
+}
+
 // GetIdentValue returns the value of the identifier in a given scope.
-func (m ModelScope) GetIdentValue(name string) (query.Ord, error) {
+func (m ModelScope) GetIdentValue(name string) (query.Box, error) {
 	switch name {
 	case "name":
 		return query.NewString(m.ModelInfo.Name), nil
@@ -163,6 +204,79 @@ func (m ModelScope) GetIdentValue(name string) (query.Ord, error) {
 		return query.NewString(string(m.ModelInfo.Status.Current)), nil
 	case "config":
 		return query.NewMapStringInterface(m.ModelInfo.Config), nil
+	case "applications":
+		scopes := make(map[string]query.Scope)
+		for k, app := range m.Model.applications {
+			units := make(map[string]*params.UnitInfo)
+			for n, unit := range m.Model.units {
+				if unit.Application == app.Name {
+					units[n] = unit
+				}
+			}
+
+			currentStatus := app.Status.Current
+			newStatus := deriveApplicationStatus(currentStatus, units)
+
+			appInfo := app
+			appInfo.Status.Current = newStatus
+
+			scopes[k] = MakeApplicationScope(appInfo)
+		}
+		return NewScopedBox(scopes), nil
+	case "machines":
+		scopes := make(map[string]query.Scope)
+		for k, machine := range m.Model.machines {
+			scopes[k] = MakeMachineScope(machine)
+		}
+		return NewScopedBox(scopes), nil
+	case "units":
+		scopes := make(map[string]query.Scope)
+		for k, unit := range m.Model.units {
+			scopes[k] = MakeUnitScope(unit)
+		}
+		return NewScopedBox(scopes), nil
 	}
 	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name), "Runtime Error: identifier %q not found on ModelInfo", name)
+}
+
+// ScopedBox defines a scoped box of scopes.
+// Lifts any scope into a box to be used later on.
+type ScopedBox struct {
+	scopes map[string]query.Scope
+}
+
+// NewScopedBox creates a new Box value
+func NewScopedBox(scopes map[string]query.Scope) *ScopedBox {
+	return &ScopedBox{
+		scopes: scopes,
+	}
+}
+
+// Less checks if a ScopedBox is less than another ScopedBox.
+func (o *ScopedBox) Less(other query.Ord) bool {
+	return false
+}
+
+// Equal checks if an ScopedBox is equal to another ScopedBox.
+func (o *ScopedBox) Equal(other query.Ord) bool {
+	return false
+}
+
+// IsZero returns if the underlying value is zero.
+func (o *ScopedBox) IsZero() bool {
+	return len(o.scopes) == 0
+}
+
+// Value defines the shadow type value of the Box.
+func (o *ScopedBox) Value() interface{} {
+	return o
+}
+
+// ForEach iterates over each value in the box.
+func (o *ScopedBox) ForEach(fn func(interface{}) bool) {
+	for _, v := range o.scopes {
+		if !fn(v) {
+			return
+		}
+	}
 }

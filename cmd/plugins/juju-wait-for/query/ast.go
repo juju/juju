@@ -80,7 +80,7 @@ func (es *ExpressionStatement) String() string {
 	return ""
 }
 
-// InfixExpression represents an expression that is associated with an operator.
+// AccessorExpression represents an expression that is associated with an operator.
 type InfixExpression struct {
 	Token    Token
 	Operator string
@@ -106,6 +106,33 @@ func (ie *InfixExpression) String() string {
 	out.WriteString(" " + ie.Operator + " ")
 	out.WriteString(ie.Right.String())
 	out.WriteString(")")
+
+	return out.String()
+}
+
+// AccessorExpression represents an expression that is associated with an operator.
+type AccessorExpression struct {
+	Token Token
+	Right Expression
+	Left  Expression
+}
+
+// Pos returns the first position of the identifier.
+func (ie *AccessorExpression) Pos() Position {
+	return ie.Token.Pos
+}
+
+// End returns the last position of the identifier.
+func (ie *AccessorExpression) End() Position {
+	return ie.Right.End()
+}
+
+func (ie *AccessorExpression) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(ie.Left.String())
+	out.WriteString(".")
+	out.WriteString(ie.Right.String())
 
 	return out.String()
 }
@@ -171,6 +198,43 @@ func (ie *CallExpression) String() string {
 	out.WriteString(ie.Name.String())
 	out.WriteString("(")
 	out.WriteString(strings.Join(args, ", "))
+	out.WriteString(")")
+
+	return out.String()
+}
+
+// LambdaExpression represents an expression that is associated with an
+// operator.
+type LambdaExpression struct {
+	Token       Token
+	Argument    Expression
+	Expressions []Expression
+}
+
+// Pos returns the first position of the identifier.
+func (ie *LambdaExpression) Pos() Position {
+	return ie.Token.Pos
+}
+
+// End returns the last position of the identifier.
+func (ie *LambdaExpression) End() Position {
+	if num := len(ie.Expressions); num > 0 {
+		return ie.Expressions[num-1].End()
+	}
+	return ie.Token.Pos
+}
+
+func (ie *LambdaExpression) String() string {
+	var out bytes.Buffer
+
+	var exprs []string
+	for _, a := range ie.Expressions {
+		exprs = append(exprs, a.String())
+	}
+	out.WriteString("(")
+	out.WriteString(ie.Argument.String())
+	out.WriteString("=>")
+	out.WriteString(strings.Join(exprs, "; "))
 	out.WriteString(")")
 
 	return out.String()
