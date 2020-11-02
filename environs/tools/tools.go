@@ -63,20 +63,6 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, stream string, major
 	return toolsConstraint, nil
 }
 
-// HasAgentMirror is an optional interface that an Environ may
-// implement to support agent/tools mirror lookup.
-//
-// TODO(axw) 2016-04-11 #1568715
-// This exists only because we currently lack
-// image simplestreams usable by the new Azure
-// Resource Manager provider. When we have that,
-// we can use "HasRegion" everywhere.
-type HasAgentMirror interface {
-	// AgentMirror returns the CloudSpec to use for looking up agent
-	// binaries.
-	AgentMirror() (simplestreams.CloudSpec, error)
-}
-
 // FindTools returns a List containing all tools in the given stream, with a given
 // major.minor version number available in the cloud instance, filtered by filter.
 // If minorVersion = -1, then only majorVersion is considered.
@@ -87,10 +73,6 @@ func FindTools(env environs.BootstrapEnviron, majorVersion, minorVersion int, st
 	switch env := env.(type) {
 	case simplestreams.HasRegion:
 		if cloudSpec, err = env.Region(); err != nil {
-			return nil, err
-		}
-	case HasAgentMirror:
-		if cloudSpec, err = env.AgentMirror(); err != nil {
 			return nil, err
 		}
 	}

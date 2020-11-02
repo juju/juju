@@ -5,8 +5,6 @@ package lease
 
 import (
 	"time"
-
-	"github.com/juju/errors"
 )
 
 const (
@@ -18,16 +16,6 @@ const (
 	// controller leases.
 	SingularControllerNamespace = "singular-controller"
 )
-
-// ErrClaimDenied indicates that a Claimer.Claim() has been denied.
-var ErrClaimDenied = errors.New("lease claim denied")
-
-// ErrNotHeld indicates that some holder does not hold some lease.
-var ErrNotHeld = errors.New("lease not held")
-
-// ErrWaitCancelled is returned by Claimer.WaitUntilExpired if the
-// cancel channel is closed.
-var ErrWaitCancelled = errors.New("waiting for lease cancelled by client")
 
 // Claimer exposes lease acquisition and expiry notification capabilities.
 type Claimer interface {
