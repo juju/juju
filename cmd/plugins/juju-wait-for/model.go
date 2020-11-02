@@ -4,12 +4,14 @@
 package main
 
 import (
+	"io/ioutil"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
@@ -18,6 +20,9 @@ import (
 	"github.com/juju/juju/cmd/plugins/juju-wait-for/query"
 	"github.com/juju/juju/core/life"
 )
+
+// DefaultModelQuery defines the default model query for waiting for a model.
+const DefaultModelQuery = `life=="alive" && status=="available"`
 
 func newModelCommand() cmd.Command {
 	cmd := &modelCommand{}
@@ -51,8 +56,11 @@ type modelCommand struct {
 
 	name    string
 	query   string
+	yaml    string
 	timeout time.Duration
 	found   bool
+
+	goalState YAMLGoalState
 
 	// TODO (stickupkid): Generalize this to become a local cache, similar to
 	// the model cache but not with the hierarchy or complexity (for example,
@@ -76,12 +84,17 @@ func (c *modelCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *modelCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.waitForCommandBase.SetFlags(f)
-	f.StringVar(&c.query, "query", `life=="alive" && status=="available"`, "query the goal state")
+	f.StringVar(&c.query, "query", DefaultModelQuery, "query the goal state")
+	f.StringVar(&c.yaml, "yaml", "", "yaml representing the goal state")
 	f.DurationVar(&c.timeout, "timeout", time.Minute*10, "how long to wait, before timing out")
 }
 
 // Init implements Command.Init.
 func (c *modelCommand) Init(args []string) (err error) {
+	if c.yaml != "" && c.query != DefaultModelQuery {
+		return errors.Errorf("only one argument can be supplied at one time")
+	}
+
 	if len(args) == 0 {
 		return errors.New("model name must be supplied when waiting for an model")
 	}
@@ -92,6 +105,19 @@ func (c *modelCommand) Init(args []string) (err error) {
 		return errors.Errorf("%q is not valid model name", args[0])
 	}
 	c.name = args[0]
+
+	if c.yaml != "" {
+		bytes, err := ioutil.ReadFile(c.yaml)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := yaml.Unmarshal(bytes, &c.goalState); err != nil {
+			return errors.Trace(err)
+		}
+
+		c.query, err = constructQuery(c.goalState)
+		return errors.Trace(err)
+	}
 
 	return nil
 }
@@ -279,4 +305,74 @@ func (o *ScopedBox) ForEach(fn func(interface{}) bool) {
 			return
 		}
 	}
+}
+
+// YAMLGoalState creates a query from the following format:
+//
+//    model:
+//        name: "test"
+//        applications:
+//            - name: "mysql"
+//              status: "active"
+//            - name: "wordpress"
+//              status: "active"
+//
+// Results in the following query:
+//
+//    name == "test" && forEach(applications, app => app.name == "mysql" && app.status == "active") && forEach(applications, app => app.name == "wordpress" && app.status == "active")
+//
+// TODO (stickupkid): Optimise the double for loop, could be written like:
+//
+//    name == "test" && forEach(applications, app => (app.name == "mysql" || app.name == "wordpress") && app.status == "active")
+//
+type YAMLGoalState struct {
+	Model ModelGoalState `yaml:"model"`
+}
+
+// ModelGoalState defines a model goal state.
+type ModelGoalState struct {
+	Name         string                 `yaml:"name,omitempty"`
+	Applications []ApplicationGoalState `yaml:"applications,omitempty"`
+}
+
+// Query generates a query from the ModelGoalState.
+func (m ModelGoalState) Query() (query.Builder, error) {
+	var builders query.Builders
+	if m.Name != "" {
+		builders = append(builders, query.Equality("name", m.Name))
+	}
+	for _, app := range m.Applications {
+		localApp := app
+		query := builders.ForEach("applications", "app", func() (query.Builder, error) {
+			return localApp.Query()
+		})
+		builders = append(builders, query)
+	}
+	return builders.LogicalAND(), nil
+}
+
+// ApplicationGoalState defines a application goal state.
+type ApplicationGoalState struct {
+	Name   string `yaml:"name,omitempty"`
+	Status string `yaml:"status,omitempty"`
+}
+
+// Query generates a query from the ApplicationGoalState.
+func (m ApplicationGoalState) Query() (query.Builder, error) {
+	var builders query.Builders
+	if m.Name != "" {
+		builders = append(builders, query.Equality("name", m.Name))
+	}
+	if m.Status != "" {
+		builders = append(builders, query.Equality("status", m.Status))
+	}
+	return builders.LogicalAND(), nil
+}
+
+func constructQuery(goalState YAMLGoalState) (string, error) {
+	queries, err := goalState.Model.Query()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return queries.Build("")
 }
