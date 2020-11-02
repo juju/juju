@@ -209,21 +209,6 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithRegionOverride(c 
 	s.assertCommandOutput(c, expected, out, defaultIndexFileName, defaultImageFileName)
 }
 
-func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithNoHasRegion(c *gc.C) {
-	ctx, err := runImageMetadata(c, s.store,
-		"-d", s.dir, "-c", "azure-controller", "-r", "region", "-u", "endpoint", "-i", "1234",
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	out := cmdtesting.Stdout(ctx)
-	expected := expectedMetadata{
-		series:   "raring",
-		arch:     "amd64",
-		region:   "region",
-		endpoint: "endpoint",
-	}
-	s.assertCommandOutput(c, expected, out, defaultIndexFileName, defaultImageFileName)
-}
-
 type errTestParams struct {
 	args []string
 }
@@ -240,10 +225,6 @@ var errTests = []errTestParams{
 	{
 		// Missing endpoint
 		args: []string{"-i", "1234", "-u", "endpoint", "-a", "arch", "-s", "precise"},
-	},
-	{
-		// Missing endpoint/region for model with no HasRegion interface
-		args: []string{"-i", "1234", "-c", "azure-controller"},
 	},
 }
 
