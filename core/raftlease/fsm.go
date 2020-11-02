@@ -119,7 +119,16 @@ func (f *FSM) ensureGroup(key lease.Key) map[lease.Key]*entry {
 
 func (f *FSM) claim(key lease.Key, holder string, duration time.Duration) *response {
 	entries := f.ensureGroup(key)
-	if _, found := entries[key]; found {
+	if entry, found := entries[key]; found {
+		// If the claim is for a lease held by someone else,
+		// indicate it is already held so they should not retry.
+		if entry.holder != holder {
+			return alreadyHeldResponse()
+		}
+
+		// If a claim (instead of an extension) is being made by the lease
+		// holder, this may be due to a HA situation where the local Raft node
+		// is not in sync with the leader. Let them retry.
 		return invalidResponse()
 	}
 	entries[key] = &entry{
@@ -358,10 +367,6 @@ func (r *response) Notify(target NotifyTarget) {
 	}
 }
 
-func invalidResponse() *response {
-	return &response{err: lease.ErrInvalid}
-}
-
 // Apply is part of raft.FSM.
 func (f *FSM) Apply(log *raft.Log) interface{} {
 	var command Command
@@ -504,7 +509,7 @@ type Snapshot struct {
 func (s *Snapshot) Persist(sink raft.SnapshotSink) (err error) {
 	defer func() {
 		if err != nil {
-			sink.Cancel()
+			_ = sink.Cancel()
 		}
 	}()
 
@@ -707,10 +712,10 @@ func (c *Command) String() string {
 	}
 }
 
-// UnmarshalCommand converts a marshalled command []byte into a
-// command.
-func UnmarshalCommand(data []byte) (*Command, error) {
-	var result Command
-	err := yaml.Unmarshal(data, &result)
-	return &result, err
+func invalidResponse() *response {
+	return &response{err: lease.ErrInvalid}
+}
+
+func alreadyHeldResponse() *response {
+	return &response{err: lease.ErrHeld}
 }
