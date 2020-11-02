@@ -627,7 +627,7 @@ class TestStatus(FakeHomeTestCase):
         self.assertEqual(e.state, failure)
 
     def test_check_agents_started_read_juju_status_error(self):
-        failures = ['no "centos7" images in us-east-1 with arches [amd64]',
+        failures = ['no metadata for "centos7" images in us-east-1 with arches [amd64]',
                     'sending new instance request: GCE operation ' +
                     '"operation-143" failed', '']
         for failure in failures:

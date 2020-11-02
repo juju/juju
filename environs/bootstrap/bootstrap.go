@@ -904,9 +904,6 @@ func bootstrapImageMetadata(
 	}
 
 	logger.Debugf("found %d image metadata from all image data sources", len(publicImageMetadata))
-	if len(publicImageMetadata) == 0 {
-		return nil, errors.New("no image metadata found")
-	}
 	return publicImageMetadata, nil
 }
 

@@ -284,7 +284,7 @@ var findInstanceSpecErrorTests = []struct {
 	{
 		series: series.DefaultSupportedLTS(),
 		arches: []string{"arm"},
-		err:    fmt.Sprintf(`no "%s" images in test with arches \[arm\]`, series.DefaultSupportedLTS()),
+		err:    fmt.Sprintf(`no metadata for "%s" images in test with arches \[arm\]`, series.DefaultSupportedLTS()),
 	}, {
 		series: "raring",
 		arches: []string{"amd64", "i386"},
