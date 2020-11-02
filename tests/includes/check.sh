@@ -44,10 +44,27 @@ check_contains() {
 
     chk=$(echo "${input}" | grep "${value}" || true)
     if [ -z "${chk}" ]; then
-        printf "Expected \"${value}\" not found\n\n%s\n" "${input}" >&2
+        printf "Expected \"%s\" not found\n\n%s\n" "${value}" "${input}" >&2
         exit 1
     else
         echo "Success: \"${value}\" found" >&2
+    fi
+}
+
+check_gt() {
+    local input value chk
+
+    input=${1}
+    shift
+
+    value=${1}
+    shift
+
+    if [[ "${input}" > "${value}" ]]; then
+        echo "Success: \"%s\" > \"%s\"" "${input}" "${value}" >&2
+    else
+        printf "Expected \"%s\" > \"%s\"\n" "${input}" "${value}" >&2
+        exit 1
     fi
 }
 
