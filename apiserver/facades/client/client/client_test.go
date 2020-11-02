@@ -976,7 +976,6 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	watcher, err := s.APIState.Client().WatchAll()
 	c.Assert(err, jc.ErrorIsNil)
@@ -984,14 +983,41 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 		err := watcher.Stop()
 		c.Assert(err, jc.ErrorIsNil)
 	}()
-	deltas, err := watcher.Next()
-	c.Assert(err, jc.ErrorIsNil)
-	// model, machine, and remote application
-	c.Assert(len(deltas), gc.Equals, 3)
+
+	watcherNextError := make(chan error)
+	var allDeltas []params.Delta
+
+	// Accrue deltas until we get 3 deltas - one each for model, machine
+	// and remote application.
+	// Send any error out on the result channel, because gc.C is not
+	// Goroutine safe.
+	go func() {
+		for len(allDeltas) < 3 {
+			deltas, err := watcher.Next()
+			if err != nil {
+				watcherNextError <- err
+				return
+			}
+			allDeltas = append(allDeltas, deltas...)
+		}
+		watcherNextError <- nil
+	}()
+
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
+
+	select {
+	case err := <-watcherNextError:
+		c.Assert(err, jc.ErrorIsNil)
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for watcher delta accrual to complete")
+	}
+
+	// A delta each for model, machine, and remote application.
+	c.Assert(len(allDeltas), gc.Equals, 3)
 	var dMachine *params.MachineInfo
 	var dApp *params.RemoteApplicationUpdate
-	for i := 0; (dMachine == nil || dApp == nil) && i < len(deltas); i++ {
-		entity := deltas[i].Entity
+	for i := 0; (dMachine == nil || dApp == nil) && i < len(allDeltas); i++ {
+		entity := allDeltas[i].Entity
 		switch entity.EntityId().Kind {
 		case multiwatcher.MachineKind:
 			dMachine = entity.(*params.MachineInfo)
@@ -1027,7 +1053,7 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 		WantsVote:               true,
 	}) {
 		c.Logf("got:")
-		for _, d := range deltas {
+		for _, d := range allDeltas {
 			c.Logf("%#v\n", d.Entity)
 		}
 	}
@@ -1042,7 +1068,7 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 		},
 	}) {
 		c.Logf("got:")
-		for _, d := range deltas {
+		for _, d := range allDeltas {
 			c.Logf("%#v\n", d.Entity)
 		}
 	}
