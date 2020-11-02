@@ -15,6 +15,7 @@ test_charmhub() {
 
     bootstrap "test-charmhub" "${file}"
 
+    test_charmhub_download
     test_charmhub_find
     test_charmhub_info
 
