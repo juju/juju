@@ -99,7 +99,10 @@ func AnnotationCharmModifiedVersionKey(legacy bool) string {
 // AnnotationDisableNameKey returns the key used in annotations
 // to describe the disabled name prefix.
 func AnnotationDisableNameKey(legacy bool) string {
-	return annotationKey("model", "disable-prefix", legacy)
+	if legacy {
+		return annotationKey("disable-name-prefix", "", true)
+	}
+	return annotationKey("model", "disable-prefix", false)
 }
 
 // AnnotationKeyApplicationUUID is the key of annotation for recording pvc unique ID.
