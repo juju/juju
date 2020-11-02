@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
 
@@ -63,7 +64,7 @@ type InstanceSpec struct {
 func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanceTypes []InstanceType) (*InstanceSpec, error) {
 	logger.Debugf("instance constraints %+v", ic)
 	if len(possibleImages) == 0 {
-		return nil, fmt.Errorf("no %q images in %s with arches %s",
+		return nil, errors.Errorf("no metadata for %q images in %s with arches %s",
 			ic.Series, ic.Region, ic.Arches)
 	}
 

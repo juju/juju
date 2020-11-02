@@ -2046,16 +2046,10 @@ func (env *azureEnviron) getStorageAccountKeyLocked(accountName string, refresh 
 	return key, nil
 }
 
-// AgentMirror is specified in the tools.HasAgentMirror interface.
-//
-// TODO(axw) 2016-04-11 #1568715
-// When we have image simplestreams, we should rename this to "Region",
-// to implement simplestreams.HasRegion.
-func (env *azureEnviron) AgentMirror() (simplestreams.CloudSpec, error) {
+// Region is specified in the HasRegion interface.
+func (e *azureEnviron) Region() (simplestreams.CloudSpec, error) {
 	return simplestreams.CloudSpec{
-		Region: env.location,
-		// The endpoints published in simplestreams
-		// data are the storage endpoints.
-		Endpoint: fmt.Sprintf("https://%s/", env.storageEndpoint),
+		Region:   e.cloud.Region,
+		Endpoint: e.cloud.Endpoint,
 	}, nil
 }
