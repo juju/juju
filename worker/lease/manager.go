@@ -192,8 +192,8 @@ func (manager *Manager) loop() error {
 }
 
 func (manager *Manager) lookupLease(leaseKey lease.Key) (lease.Info, bool) {
-	lease, exists := manager.config.Store.Leases(leaseKey)[leaseKey]
-	return lease, exists
+	l, exists := manager.config.Store.Leases(leaseKey)[leaseKey]
+	return l, exists
 }
 
 // choose breaks the select out of loop to make the blocking logic clearer.
@@ -472,39 +472,28 @@ func (manager *Manager) handleRevoke(revoke revoke) error {
 // request, and is communicated back to the check's originator.
 func (manager *Manager) handleCheck(check check) error {
 	key := check.leaseKey
-	store := manager.config.Store
+
 	manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s",
 		manager.logContext, key.Lease, check.holderName)
 
 	info, found := manager.lookupLease(key)
+
+	var response error
 	if !found || info.Holder != check.holderName {
-		// TODO(jam): 2019-02-05 Currently raftlease.Store.Refresh does nothing.
-		//  We probably shouldn't have this refresh-and-try-again if it is going to be a no-op.
-		//  Instead we should probably just report failure.
 		if found {
-			manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, found held by %s, refreshing",
+			manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, found held by %s",
 				manager.logContext, key.Lease, check.holderName, info.Holder)
 		} else {
-			manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not found, refreshing",
-				manager.logContext, key.Lease, check.holderName)
-		}
-		if err := store.Refresh(); err != nil {
-			return errors.Trace(err)
-		}
-		info, found = manager.lookupLease(key)
-		if !found {
 			// Someone thought they were the leader and held a Claim or they wouldn't
 			// have tried to do a mutating operation. However, when they actually
 			// got to this point, we detected that they were, actually, out of
 			// date. Schedule a sync
 			manager.ensureNextTimeout(time.Millisecond)
-		}
-	}
 
-	var response error
-	if !found || info.Holder != check.holderName {
-		manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not held",
-			manager.logContext, key.Lease, check.holderName)
+			manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not found",
+				manager.logContext, key.Lease, check.holderName)
+		}
+
 		response = lease.ErrNotHeld
 	} else if check.trapdoorKey != nil {
 		response = info.Trapdoor(check.attempt, check.trapdoorKey)

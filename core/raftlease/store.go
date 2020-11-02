@@ -163,11 +163,6 @@ func (s *Store) addTrapdoors(leaseMap map[lease.Key]lease.Info) {
 	}
 }
 
-// Refresh is part of lease.Store.
-func (s *Store) Refresh() error {
-	return nil
-}
-
 // PinLease is part of lease.Store.
 func (s *Store) PinLease(key lease.Key, entity string, stop <-chan struct{}) error {
 	return errors.Trace(s.pinOp(OperationPin, key, entity, stop))

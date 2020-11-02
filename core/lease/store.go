@@ -43,9 +43,6 @@ type Store interface {
 	// are many models.
 	LeaseGroup(namespace, modelUUID string) map[Key]Info
 
-	// Refresh reads all lease state from the database.
-	Refresh() error
-
 	// Pin ensures that the current holder of the lease for the input key will
 	// not lose the lease to expiry.
 	// If there is no current holder of the lease, the next claimant will be

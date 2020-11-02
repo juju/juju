@@ -143,11 +143,6 @@ func (s *leaseStore) LeaseGroup(namespace, modelUUID string) map[lease.Key]lease
 	return results
 }
 
-// Refresh is part of lease.Store.
-func (s *leaseStore) Refresh() error {
-	return nil
-}
-
 // PinLease is part of lease.Store.
 func (s *leaseStore) PinLease(key lease.Key, entity string, _ <-chan struct{}) error {
 	return errors.NotImplementedf("lease pinning")
