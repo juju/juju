@@ -23,14 +23,18 @@ type AnnotationKeySupplier func() string
 // specific only and should be combined with other annotations where
 // appropriate.
 func AnnotationsForStorage(name string, legacy bool) annotations.Annotation {
-	if legacy {
-		return annotations.Annotation{
-			constants.LegacyAnnotationStorageName: name,
-		}
-	}
 	return annotations.Annotation{
-		constants.AnnotationJujuStorageName: name,
+		AnnotationJujuStorageKey(legacy): name,
 	}
+}
+
+// AnnotationJujuStorageKey returns the key used in annotations
+// to describe the storage UUID.
+func AnnotationJujuStorageKey(legacy bool) string {
+	if legacy {
+		return "juju-storage"
+	}
+	return annotationKey("storage", "name", false)
 }
 
 // AnnotationsForVersion provides the annotations that should be placed on an
@@ -48,20 +52,26 @@ func AnnotationsForVersion(vers string, legacy bool) annotations.Annotation {
 // or newer style.
 func AnnotationVersionKey(legacy bool) string {
 	if legacy {
-		return constants.LegacyAnnotationVersion
+		return "juju-version"
 	}
-	return constants.AnnotationJujuVersion
+	return annotationKey("", "version", false)
 }
 
 // MakeK8sDomain builds and returns a Kubernetes resource domain for the
 // provided components. Func is idempotent
 func MakeK8sDomain(components ...string) string {
-	return fmt.Sprintf("%s.%s", strings.Join(components, "."), constants.Domain)
+	var parts []string
+	for _, v := range components {
+		if v != "" {
+			parts = append(parts, v)
+		}
+	}
+	return strings.Join(append(parts, constants.Domain), ".")
 }
 
 func annotationKey(name, suffix string, legacy bool) string {
 	if legacy {
-		return constants.LegacyAnnotationPrefix + "/" + name
+		return constants.LegacyDomain + "/" + name
 	}
 	return MakeK8sDomain(name) + "/" + suffix
 }
@@ -69,6 +79,9 @@ func annotationKey(name, suffix string, legacy bool) string {
 // AnnotationModelUUIDKey returns the key used in annotations
 // to describe the model UUID.
 func AnnotationModelUUIDKey(legacy bool) string {
+	if legacy {
+		return "juju-model"
+	}
 	return annotationKey("model", "id", legacy)
 }
 
@@ -81,25 +94,34 @@ func AnnotationControllerUUIDKey(legacy bool) string {
 // AnnotationControllerIsControllerKey returns the key used in annotations
 // to describe if this pod is a controller pod.
 func AnnotationControllerIsControllerKey(legacy bool) string {
-	return annotationKey("controller", "is-controller", legacy)
+	if legacy {
+		return annotationKey("is-controller", "", true)
+	}
+	return annotationKey("controller", "is-controller", false)
 }
 
-// AnnotationUnit returns the key used in annotations
+// AnnotationUnitKey returns the key used in annotations
 // to describe the Juju unit.
-func AnnotationUnit(legacy bool) string {
+func AnnotationUnitKey(legacy bool) string {
 	return annotationKey("unit", "id", legacy)
 }
 
 // AnnotationCharmModifiedVersionKey returns the key used in annotations
 // to describe the charm modified version.
 func AnnotationCharmModifiedVersionKey(legacy bool) string {
-	return annotationKey("charm", "modified-version", legacy)
+	if legacy {
+		return annotationKey("charm-modified-version", "", true)
+	}
+	return annotationKey("charm", "modified-version", false)
 }
 
 // AnnotationDisableNameKey returns the key used in annotations
 // to describe the disabled name prefix.
 func AnnotationDisableNameKey(legacy bool) string {
-	return annotationKey("model", "disable-prefix", legacy)
+	if legacy {
+		return annotationKey("disable-name-prefix", "", true)
+	}
+	return annotationKey("model", "disable-prefix", false)
 }
 
 // AnnotationKeyApplicationUUID is the key of annotation for recording pvc unique ID.

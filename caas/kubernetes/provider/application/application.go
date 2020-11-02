@@ -259,7 +259,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 					Namespace: a.namespace,
 					Labels:    a.labels(),
 					Annotations: a.annotations(config).
-						Add(constants.AnnotationApplicationUUIDKey(), storageUniqueID),
+						Add(k8sutils.AnnotationKeyApplicationUUID(false), storageUniqueID),
 				},
 				Spec: appsv1.StatefulSetSpec{
 					Replicas: numPods,
@@ -324,7 +324,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 					Namespace: a.namespace,
 					Labels:    a.labels(),
 					Annotations: a.annotations(config).
-						Add(constants.AnnotationApplicationUUIDKey(), storageUniqueID),
+						Add(k8sutils.AnnotationKeyApplicationUUID(false), storageUniqueID),
 				},
 				Spec: appsv1.DeploymentSpec{
 					Replicas: numPods,
@@ -361,7 +361,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 					Namespace: a.namespace,
 					Labels:    a.labels(),
 					Annotations: a.annotations(config).
-						Add(constants.AnnotationApplicationUUIDKey(), storageUniqueID),
+						Add(k8sutils.AnnotationKeyApplicationUUID(false), storageUniqueID),
 				},
 				Spec: appsv1.DaemonSetSpec{
 					Selector: &metav1.LabelSelector{
@@ -1090,7 +1090,7 @@ type annotationGetter interface {
 func (a *app) getStorageUniqPrefix(getMeta func() (annotationGetter, error)) (string, error) {
 	if r, err := getMeta(); err == nil {
 		// TODO: remove this function with existing one once we consolidated the annotation keys.
-		if uniqID := r.GetAnnotations()[constants.AnnotationApplicationUUIDKey()]; len(uniqID) > 0 {
+		if uniqID := r.GetAnnotations()[k8sutils.AnnotationKeyApplicationUUID(false)]; len(uniqID) > 0 {
 			return uniqID, nil
 		}
 	} else if !errors.IsNotFound(err) {
