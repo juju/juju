@@ -18,7 +18,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/cloudconfig/podcfg"
 )
 
@@ -90,8 +90,8 @@ func (s *ControllerUpgraderSuite) TestControllerUpgrade(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ss.Spec.Template.Spec.Containers[0].Image, gc.Equals, newImagePath)
 
-	c.Assert(ss.Annotations[constants.AnnotationJujuVersion], gc.Equals, version.MustParse("9.9.9").String())
-	c.Assert(ss.Spec.Template.Annotations[constants.AnnotationJujuVersion], gc.Equals, version.MustParse("9.9.9").String())
+	c.Assert(ss.Annotations[utils.AnnotationVersionKey(false)], gc.Equals, version.MustParse("9.9.9").String())
+	c.Assert(ss.Spec.Template.Annotations[utils.AnnotationVersionKey(false)], gc.Equals, version.MustParse("9.9.9").String())
 }
 
 func (s *ControllerUpgraderSuite) TestControllerDoesNotExist(c *gc.C) {

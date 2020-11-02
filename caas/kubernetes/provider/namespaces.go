@@ -111,7 +111,7 @@ func (k *kubernetesClient) GetCurrentNamespace() string {
 
 func (k *kubernetesClient) ensureNamespaceAnnotations(ns *core.Namespace) error {
 	annotations := k8sannotations.New(ns.GetAnnotations()).Merge(k.annotations)
-	// check required keys are set: constants.AnnotationControllerUUIDKey, constants.AnnotationModelUUIDKey.
+	// check required keys are set: utils.AnnotationControllerUUIDKey, utils.AnnotationModelUUIDKey.
 	if err := annotations.CheckKeysNonEmpty(requireAnnotationsForNameSpace...); err != nil {
 		return errors.Trace(err)
 	}

@@ -1942,10 +1942,10 @@ func (k *kubernetesClient) AnnotateUnit(appName string, mode caas.DeploymentMode
 		pod.Annotations = make(map[string]string)
 	}
 	unitID := unit.Id()
-	if pod.Annotations[utils.AnnotationUnit(k.IsLegacyLabels())] == unitID {
+	if pod.Annotations[utils.AnnotationUnitKey(k.IsLegacyLabels())] == unitID {
 		return nil
 	}
-	pod.Annotations[utils.AnnotationUnit(k.IsLegacyLabels())] = unitID
+	pod.Annotations[utils.AnnotationUnitKey(k.IsLegacyLabels())] = unitID
 
 	_, err = pods.Update(context.TODO(), pod, v1.UpdateOptions{})
 	if k8serrors.IsNotFound(err) {
@@ -1996,7 +1996,7 @@ func (k *kubernetesClient) WatchContainerStart(appName string, containerName str
 	}
 
 	running := func(pod *core.Pod) set.Strings {
-		if _, ok := pod.Annotations[utils.AnnotationUnit(k.IsLegacyLabels())]; !ok {
+		if _, ok := pod.Annotations[utils.AnnotationUnitKey(k.IsLegacyLabels())]; !ok {
 			// Ignore pods that aren't annotated as a unit yet.
 			return set.Strings{}
 		}

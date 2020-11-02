@@ -426,7 +426,7 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 					},
 					Annotations: map[string]string{
 						"juju.is/version":  "0.0.0",
-						"juju.io/app-uuid": "appuuid",
+						"app.juju.is/uuid": "appuuid",
 					},
 				},
 				Spec: appsv1.StatefulSetSpec{
@@ -523,7 +523,7 @@ func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 					},
 					Annotations: map[string]string{
 						"juju.is/version":  "0.0.0",
-						"juju.io/app-uuid": "appuuid",
+						"app.juju.is/uuid": "appuuid",
 					},
 				},
 				Spec: appsv1.DeploymentSpec{
@@ -594,7 +594,7 @@ func (s *applicationSuite) TestEnsureDaemon(c *gc.C) {
 					},
 					Annotations: map[string]string{
 						"juju.is/version":  "0.0.0",
-						"juju.io/app-uuid": "appuuid",
+						"app.juju.is/uuid": "appuuid",
 					},
 				},
 				Spec: appsv1.DaemonSetSpec{
@@ -1000,7 +1000,7 @@ func (s *applicationSuite) TestUpdatePortsStatelessUpdateContainerPorts(c *gc.C)
 				},
 				Annotations: map[string]string{
 					"juju.is/version":  "0.0.0",
-					"juju.io/app-uuid": "appuuid",
+					"app.juju.is/uuid": "appuuid",
 				},
 			},
 			Spec: appsv1.DeploymentSpec{
@@ -1126,7 +1126,7 @@ func (s *applicationSuite) TestUpdatePortsStatefulUpdateContainerPorts(c *gc.C) 
 				},
 				Annotations: map[string]string{
 					"juju.is/version":  "0.0.0",
-					"juju.io/app-uuid": "appuuid",
+					"app.juju.is/uuid": "appuuid",
 				},
 			},
 			Spec: appsv1.StatefulSetSpec{
@@ -1252,7 +1252,7 @@ func (s *applicationSuite) TestUpdatePortsDaemonUpdateContainerPorts(c *gc.C) {
 				},
 				Annotations: map[string]string{
 					"juju.is/version":  "0.0.0",
-					"juju.io/app-uuid": "appuuid",
+					"app.juju.is/uuid": "appuuid",
 				},
 			},
 			Spec: appsv1.DaemonSetSpec{

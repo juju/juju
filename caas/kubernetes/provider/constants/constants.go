@@ -14,6 +14,10 @@ const (
 	// Kubernetes
 	Domain = "juju.is"
 
+	// LegacyDomain is the legacy primary TLD for juju when giving resource domains to
+	// Kubernetes
+	LegacyDomain = "juju.io"
+
 	// AgentHTTPProbePort is the default port used by the HTTP server responding
 	// to caas probes
 	AgentHTTPProbePort = "3856"
