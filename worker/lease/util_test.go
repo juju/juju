@@ -214,11 +214,6 @@ func (store *Store) RevokeLease(lease lease.Key, holder string, stop <-chan stru
 	return store.call("RevokeLease", []interface{}{lease, holder})
 }
 
-// Refresh is part of the lease.Store interface.
-func (store *Store) Refresh() error {
-	return store.call("Refresh", nil)
-}
-
 // PinLease is part of the corelease.Store interface.
 func (store *Store) PinLease(key lease.Key, entity string, stop <-chan struct{}) error {
 	return store.call("PinLease", []interface{}{key, entity})

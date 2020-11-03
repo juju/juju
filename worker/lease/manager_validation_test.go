@@ -148,25 +148,22 @@ func (s *ValidationSuite) TestToken_HolderName(c *gc.C) {
 	})
 }
 
-func (s *ValidationSuite) TestToken_OutPtr(c *gc.C) {
+func (s *ValidationSuite) TestTokenOutPtr(c *gc.C) {
 	expectKey := "bad"
 	expectErr := errors.New("bad")
 
 	fix := &Fixture{
-		expectCalls: []call{{
-			method: "Refresh",
-			callback: func(leases map[corelease.Key]corelease.Info) {
-				leases[key("redis")] = corelease.Info{
-					Holder: "redis/0",
-					Expiry: offset(time.Second),
-					Trapdoor: func(attempt int, gotKey interface{}) error {
-						c.Check(attempt, gc.Equals, 27)
-						c.Check(gotKey, gc.Equals, &expectKey)
-						return expectErr
-					},
-				}
+		leases: map[corelease.Key]corelease.Info{
+			key("redis"): {
+				Holder: "redis/0",
+				Expiry: offset(time.Second),
+				Trapdoor: func(attempt int, gotKey interface{}) error {
+					c.Check(attempt, gc.Equals, 27)
+					c.Check(gotKey, gc.Equals, &expectKey)
+					return expectErr
+				},
 			},
-		}},
+		},
 	}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		token := getChecker(c, manager).Token("redis", "redis/0")
