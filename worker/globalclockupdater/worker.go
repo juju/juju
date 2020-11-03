@@ -113,7 +113,7 @@ func (w *updaterWorker) loop() error {
 			now := w.config.LocalClock.Now()
 			amount := now.Sub(last)
 			err := w.updater.Advance(amount, w.tomb.Dying())
-			if globalclock.IsConcurrentUpdate(err) {
+			if globalclock.IsOutOfSyncUpdate(err) {
 				w.config.Logger.Tracef("concurrent update, backing off for %s", backoff)
 				last = w.config.LocalClock.Now()
 				timer.Reset(backoff)

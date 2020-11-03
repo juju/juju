@@ -200,7 +200,7 @@ func (s *Store) Advance(duration time.Duration, stop <-chan struct{}) error {
 		OldTime:   s.prevTime,
 		NewTime:   newTime,
 	}, stop)
-	if globalclock.IsConcurrentUpdate(err) {
+	if globalclock.IsOutOfSyncUpdate(err) {
 		// Someone else updated before us - get the new time.
 		s.prevTime = s.fsm.GlobalTime()
 	} else if lease.IsTimeout(err) {
@@ -334,7 +334,7 @@ func AsResponseError(err error) *ResponseError {
 	switch errors.Cause(err) {
 	case lease.ErrInvalid:
 		code = "invalid"
-	case globalclock.ErrConcurrentUpdate:
+	case globalclock.ErrOutOfSyncUpdate:
 		code = "concurrent-update"
 	case lease.ErrHeld:
 		code = "already-held"
@@ -358,7 +358,7 @@ func RecoverError(resp *ResponseError) error {
 	case "invalid":
 		return lease.ErrInvalid
 	case "concurrent-update":
-		return globalclock.ErrConcurrentUpdate
+		return globalclock.ErrOutOfSyncUpdate
 	case "already-held":
 		return lease.ErrHeld
 	default:

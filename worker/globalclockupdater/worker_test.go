@@ -119,7 +119,7 @@ func (s *WorkerSuite) TestWorkerBackoffOnConcurrentUpdate(c *gc.C) {
 	c.Check(worker, gc.NotNil)
 	defer workertest.CleanKill(c, worker)
 
-	s.updater.SetErrors(errors.Annotate(globalclock.ErrConcurrentUpdate, "context info"))
+	s.updater.SetErrors(errors.Annotate(globalclock.ErrOutOfSyncUpdate, "context info"))
 
 	waitAdvance(c, s.localClock, time.Second)
 	select {
