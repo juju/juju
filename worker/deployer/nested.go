@@ -21,6 +21,7 @@ import (
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	message "github.com/juju/juju/pubsub/agent"
 	jworker "github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/common/reboot"
 )
 
 const (
@@ -35,6 +36,12 @@ type Logger interface {
 	Infof(string, ...interface{})
 	Debugf(string, ...interface{})
 	Tracef(string, ...interface{})
+}
+
+// RebootMonitorStatePurger is implemented by types that can clean up the
+// internal reboot-tracking state for a particular entity.
+type RebootMonitorStatePurger interface {
+	PurgeState(tag names.Tag) error
 }
 
 // The nested deployer context is responsible for creating dependency engine
@@ -57,18 +64,23 @@ type nestedContext struct {
 	runner *worker.Runner
 	hub    Hub
 	unsub  func()
+
+	// rebootMonitorStatePurger allows the deployer to clean up the
+	// internal reboot tracking state when a unit gets removed.
+	rebootMonitorStatePurger RebootMonitorStatePurger
 }
 
 // ContextConfig contains all the information that the nested context
 // needs to run.
 type ContextConfig struct {
-	Agent            agent.Agent
-	Clock            clock.Clock
-	Hub              Hub
-	Logger           Logger
-	UnitEngineConfig func() dependency.EngineConfig
-	SetupLogging     func(*loggo.Context, agent.Config)
-	UnitManifolds    func(config UnitManifoldsConfig) dependency.Manifolds
+	Agent                    agent.Agent
+	Clock                    clock.Clock
+	Hub                      Hub
+	Logger                   Logger
+	UnitEngineConfig         func() dependency.EngineConfig
+	SetupLogging             func(*loggo.Context, agent.Config)
+	UnitManifolds            func(config UnitManifoldsConfig) dependency.Manifolds
+	RebootMonitorStatePurger RebootMonitorStatePurger
 }
 
 // Validate ensures all the required values are set.
@@ -125,7 +137,12 @@ func NewNestedContext(config ContextConfig) (Context, error) {
 			MoreImportant: agenterrors.MoreImportant,
 			RestartDelay:  jworker.RestartDelay,
 		}),
-		hub: config.Hub,
+		hub:                      config.Hub,
+		rebootMonitorStatePurger: config.RebootMonitorStatePurger,
+	}
+
+	if context.rebootMonitorStatePurger == nil {
+		context.rebootMonitorStatePurger = reboot.NewMonitor(agentConfig.TransientDataDir())
 	}
 
 	unsubStop := context.hub.Subscribe(message.StopUnitTopic, context.stopUnitRequest)
@@ -487,9 +504,18 @@ func (c *nestedContext) RecallUnit(unitName string) error {
 	}
 
 	// Remove agent directory.
-	agentDir := agent.Dir(c.agentConfig.DataDir(), names.NewUnitTag(unitName))
+	tag := names.NewUnitTag(unitName)
+	agentDir := agent.Dir(c.agentConfig.DataDir(), tag)
 	if err := os.RemoveAll(agentDir); err != nil {
 		return errors.Annotate(err, "unable to remove agent dir")
+	}
+
+	// Ensure that the reboot monitor flag files for the unit are also
+	// cleaned up. This not really important if the machine is about to
+	// be recycled but it must be done for manual machines as the flag files
+	// will linger around until a reboot occurs.
+	if err := c.rebootMonitorStatePurger.PurgeState(tag); err != nil {
+		return errors.Trace(err)
 	}
 
 	return nil
