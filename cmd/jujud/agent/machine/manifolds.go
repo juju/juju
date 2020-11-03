@@ -103,10 +103,6 @@ const (
 	// global clock updates.
 	globalClockUpdaterUpdateInterval = 1 * time.Second
 
-	// globalClockUpdaterBackoffDelay is the amount of time to
-	// delay when a concurrent global clock update is detected.
-	globalClockUpdaterBackoffDelay = 10 * time.Second
-
 	// leaseRequestTopic is the pubsub topic that lease FSM updates
 	// will be published on.
 	leaseRequestTopic = "lease.request"
@@ -553,7 +549,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			RaftName:         raftForwarderName,
 			NewWorker:        globalclockupdater.NewWorker,
 			UpdateInterval:   globalClockUpdaterUpdateInterval,
-			BackoffDelay:     globalClockUpdaterBackoffDelay,
 			Logger:           loggo.GetLogger("juju.worker.globalclockupdater.raft"),
 		}),
 
