@@ -139,15 +139,10 @@ func (a *Application) setDetails(details ApplicationChange) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	// If this is the first receipt of details, set the removal message.
-	if a.removalMessage == nil {
-		a.removalMessage = RemoveApplication{
-			ModelUUID: details.ModelUUID,
-			Name:      details.Name,
-		}
-	}
-
-	a.setStale(false)
+	a.setRemovalMessage(RemoveApplication{
+		ModelUUID: details.ModelUUID,
+		Name:      details.Name,
+	})
 
 	if a.details.CharmURL != details.CharmURL {
 		a.hub.Publish(applicationCharmURLChange, appCharmUrlChange{appName: a.details.Name, chURL: details.CharmURL})
