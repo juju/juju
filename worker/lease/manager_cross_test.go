@@ -135,9 +135,6 @@ func (s *CrossSuite) testChecks(c *gc.C, lease1, lease2 corelease.Key) {
 				Trapdoor: corelease.LockedTrapdoor,
 			},
 		},
-		expectCalls: []call{{
-			method: "Refresh",
-		}},
 	}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		checker1, err := manager.Checker(lease1.Namespace, lease1.ModelUUID)
