@@ -23,7 +23,6 @@ type ManifoldConfig struct {
 
 	NewWorker      func(Config) (worker.Worker, error)
 	UpdateInterval time.Duration
-	BackoffDelay   time.Duration
 	Logger         Logger
 }
 
@@ -42,9 +41,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.UpdateInterval <= 0 {
 		return errors.NotValidf("non-positive UpdateInterval")
-	}
-	if config.BackoffDelay <= 0 {
-		return errors.NotValidf("non-positive BackoffDelay")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -68,8 +64,8 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	// We don't need anything from raft directly, but ensure it's
-	// running before continuing.
+	// This enforces a dependency on the Raft forwarder,
+	// effectively ensuring this worker is only active on the Raft leader.
 	if err := context.Get(config.RaftName, nil); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -79,18 +75,13 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	worker, err := config.NewWorker(Config{
+	w, err := config.NewWorker(Config{
 		NewUpdater: func() (globalclock.Updater, error) {
 			return updater, nil
 		},
 		LocalClock:     config.Clock,
 		UpdateInterval: config.UpdateInterval,
-		BackoffDelay:   config.BackoffDelay,
 		Logger:         config.Logger,
 	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return worker, nil
+	return w, errors.Trace(err)
 }
