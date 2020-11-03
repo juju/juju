@@ -156,6 +156,39 @@ wait_for_machine_netif_count() {
         sleep "${SHORT_TIMEOUT}"
         attempt=$((attempt+1))
     done
+
+}
+
+# wait_for_subordinate_count blocks until the number of subordinates
+# to the desired unit becomes equal to the desired value.
+#
+# ```
+# wait_for_subordinate_count <applicaiton name> <principal unit num> <count>
+#
+# example:
+# wait_for_subordinate_count mysql 0 3
+# ```
+wait_for_subordinate_count() {
+    local name unit_index count
+
+    name=${1}
+    unit_index=${2:-0}
+    count=${3:-0}
+
+    attempt=0
+    # shellcheck disable=SC2046,SC2143
+    until [ $(juju status --format json | jq -r ".applications | .[\"${name}\"] | .units | .[\"${name}/${unit_index}\"] | .subordinates | length" | grep "${count}") ]; do
+        # shellcheck disable=SC2046,SC2143
+        echo "[+] (attempt ${attempt}) subordinate count for unit ${name}/${unit_index} = "$(juju status --format json | jq -r ".applications | .[\"${name}\"] | .units | .[\"${name}/${unit_index}\"] | .subordinates  | length")
+        sleep "${SHORT_TIMEOUT}"
+        attempt=$((attempt+1))
+    done
+
+    if [ "${attempt}" -gt 0 ]; then
+        echo "[+] $(green 'Completed polling status')"
+        juju status 2>&1 | sed 's/^/    | /g'
+        sleep "${SHORT_TIMEOUT}"
+    fi
 }
 
 # wait_for_model blocks until a model appears
