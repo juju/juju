@@ -193,6 +193,7 @@ func (s *Store) pinOp(operation string, key lease.Key, entity string, stop <-cha
 func (s *Store) Advance(duration time.Duration, stop <-chan struct{}) error {
 	s.prevTimeMu.Lock()
 	defer s.prevTimeMu.Unlock()
+
 	newTime := s.prevTime.Add(duration)
 	err := s.runOnLeader(&Command{
 		Version:   CommandVersion,
@@ -200,17 +201,25 @@ func (s *Store) Advance(duration time.Duration, stop <-chan struct{}) error {
 		OldTime:   s.prevTime,
 		NewTime:   newTime,
 	}, stop)
-	if globalclock.IsOutOfSyncUpdate(err) {
-		// Someone else updated before us - get the new time.
-		s.prevTime = s.fsm.GlobalTime()
-	} else if lease.IsTimeout(err) {
-		// Convert this to a globalclock timeout to match the Updater
-		// interface.
-		err = globalclock.ErrTimeout
-	} else if err == nil {
-		s.prevTime = newTime
+
+	if err != nil {
+		// If we timed out, convert the error to match the Updater interface.
+		if lease.IsTimeout(err) {
+			return globalclock.ErrTimeout
+		}
+
+		// If we had an incorrect notion of global time, just resync.
+		// The caller needs no awareness of this condition.
+		if globalclock.IsOutOfSyncUpdate(err) {
+			s.prevTime = s.fsm.GlobalTime()
+			return nil
+		}
+
+		return errors.Trace(err)
 	}
-	return errors.Trace(err)
+
+	s.prevTime = newTime
+	return nil
 }
 
 func (s *Store) runOnLeader(command *Command, stop <-chan struct{}) error {
@@ -335,7 +344,7 @@ func AsResponseError(err error) *ResponseError {
 	case lease.ErrInvalid:
 		code = "invalid"
 	case globalclock.ErrOutOfSyncUpdate:
-		code = "concurrent-update"
+		code = "out-of-sync"
 	case lease.ErrHeld:
 		code = "already-held"
 	default:
@@ -357,7 +366,7 @@ func RecoverError(resp *ResponseError) error {
 	switch resp.Code {
 	case "invalid":
 		return lease.ErrInvalid
-	case "concurrent-update":
+	case "out-of-sync":
 		return globalclock.ErrOutOfSyncUpdate
 	case "already-held":
 		return lease.ErrHeld
