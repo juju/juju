@@ -42,15 +42,11 @@ func (c *Charm) DefaultConfig() map[string]interface{} {
 }
 
 func (c *Charm) setDetails(details CharmChange) {
-	// If this is the first receipt of details, set the removal message.
-	if c.removalMessage == nil {
-		c.removalMessage = RemoveCharm{
-			ModelUUID: details.ModelUUID,
-			CharmURL:  details.CharmURL,
-		}
-	}
+	c.setRemovalMessage(RemoveCharm{
+		ModelUUID: details.ModelUUID,
+		CharmURL:  details.CharmURL,
+	})
 
-	c.setStale(false)
 	c.details = details
 }
 
