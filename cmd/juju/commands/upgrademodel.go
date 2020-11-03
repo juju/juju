@@ -445,14 +445,20 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 	}
 
 	controllerModelConfig, err := controllerClient.ModelConfig()
-	if err != nil {
+	if err != nil && !params.IsCodeUnauthorized(err) {
 		return err
 	}
-	isControllerModel := cfg.UUID() == controllerModelConfig[config.UUIDKey]
-	if c.BuildAgent && !isControllerModel {
+	haveControllerModelPermission := err == nil
+	isControllerModel := haveControllerModelPermission && cfg.UUID() == controllerModelConfig[config.UUIDKey]
+	if c.BuildAgent {
 		// For UploadTools, model must be the "controller" model,
 		// that is, modelUUID == controllerUUID
-		return errors.Errorf("--build-agent can only be used with the controller model")
+		if !haveControllerModelPermission {
+			return errors.New("--build-agent can only be used with the controller model but you don't have permission to access that model")
+		}
+		if !isControllerModel {
+			return errors.Errorf("--build-agent can only be used with the controller model")
+		}
 	}
 	controllerCfg, err := controllerClient.ControllerConfig()
 	if err != nil {
