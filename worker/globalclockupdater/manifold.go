@@ -66,6 +66,8 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	// This enforces a dependency on the Raft forwarder,
 	// effectively ensuring this worker is only active on the Raft leader.
+	// By extension, this also ensures that Raft is running on the node
+	// before we begin updating its FSM clock.
 	if err := context.Get(config.RaftName, nil); err != nil {
 		return nil, errors.Trace(err)
 	}

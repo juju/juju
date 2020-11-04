@@ -34,7 +34,7 @@ type Updater interface {
 	// ErrTimeout the Updater should be considered invalid, and the
 	// caller should obtain a new Updater. Failing to do so could lead
 	// to non-monotonic time, since there is no way of knowing in
-	// general whether or not the database was updated.
+	// general whether or not the clock was updated.
 	Advance(d time.Duration, stop <-chan struct{}) error
 }
 
