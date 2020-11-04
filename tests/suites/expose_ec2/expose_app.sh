@@ -107,17 +107,8 @@ assert_ingress_cidrs_for_port_range() {
 assert_export_bundle_output_includes_exposed_endpoints() {
     echo "==> Checking that export-bundle output contains the exposed endpoint settings"
 
-    got=$(juju export-bundle)
+    got=$(juju export-bundle | sed -n '/---/,$p' | tail +1)
     exp=$(cat <<-EOF
-series: %s
-applications:
-  ubuntu-lite:
-    charm: cs:~jameinel/ubuntu-lite-7
-    num_units: 1
-    to:
-    - "0"
-machines:
-  "0": {}
 --- # overlay.yaml
 applications:
   ubuntu-lite:
@@ -132,9 +123,6 @@ applications:
         - 2002:0:0:1234::/64
 EOF
 )
-    series=$(juju show-machine 0 --format=json | jq -r '.machines | .["0"] | .series')
-    # shellcheck disable=SC2059
-    exp=$(printf "${exp}" "${series}")
 
     if [ "$got" != "$exp" ]; then
       # shellcheck disable=SC2046
