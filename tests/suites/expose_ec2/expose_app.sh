@@ -133,6 +133,7 @@ applications:
 EOF
 )
     series=$(juju show-machine 0 --format=json | jq -r '.machines | .["0"] | .series')
+    # shellcheck disable=SC2059
     exp=$(printf "${exp}" "${series}")
 
     if [ "$got" != "$exp" ]; then
