@@ -46,6 +46,9 @@ bootstrap() {
         "aws")
             provider="aws"
             ;;
+        "ec2")
+            provider="aws"
+            ;;
         "localhost")
             provider="lxd"
             ;;
