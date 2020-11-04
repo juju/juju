@@ -5,11 +5,16 @@ package modelcmd
 
 import (
 	"github.com/juju/cmd"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	"github.com/juju/juju/jujuclient"
 )
 
 var NewAPIContext = newAPIContext
+
+func Interactor(ctx *apiContext) httpbakery.Interactor {
+	return ctx.interactor
+}
 
 func SetRunStarted(b interface {
 	setRunStarted()

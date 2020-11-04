@@ -32,6 +32,8 @@ type AuthOpts struct {
 	// NoBrowser specifies that web-browser-based auth should
 	// not be used when authenticating.
 	NoBrowser bool
+	// Embedded is true for commands run inside a controller.
+	Embedded bool
 }
 
 func (o *AuthOpts) SetFlags(f *gnuflag.FlagSet) {
@@ -62,20 +64,25 @@ func newAPIContext(ctxt *cmd.Context, opts *AuthOpts, store jujuclient.CookieSto
 		domain:    os.Getenv("JUJU_USER_DOMAIN"),
 	}
 	var interactor httpbakery.Interactor
-	if ctxt != nil && opts != nil && opts.NoBrowser {
-		filler := &form.IOFiller{
-			In:  ctxt.Stdin,
-			Out: ctxt.Stdout,
+	embedded := ctxt != nil && opts != nil && opts.Embedded
+	noBrowser := ctxt != nil && opts != nil && opts.NoBrowser
+	if !embedded {
+		// Only support discharge interactions if command is not embedded.
+		if noBrowser {
+			filler := &form.IOFiller{
+				In:  ctxt.Stdin,
+				Out: ctxt.Stdout,
+			}
+			interactor = ussologin.NewInteractor(ussologin.StoreTokenGetter{
+				Store: jujuclient.NewTokenStore(),
+				TokenGetter: ussologin.FormTokenGetter{
+					Filler: filler,
+					Name:   "juju",
+				},
+			})
+		} else {
+			interactor = httpbakery.WebBrowserInteractor{}
 		}
-		interactor = ussologin.NewInteractor(ussologin.StoreTokenGetter{
-			Store: jujuclient.NewTokenStore(),
-			TokenGetter: ussologin.FormTokenGetter{
-				Filler: filler,
-				Name:   "juju",
-			},
-		})
-	} else {
-		interactor = httpbakery.WebBrowserInteractor{}
 	}
 	return &apiContext{
 		jar:        jar,
@@ -94,7 +101,9 @@ func (ctx *apiContext) CookieJar() http.CookieJar {
 func (ctx *apiContext) NewBakeryClient() *httpbakery.Client {
 	client := httpbakery.NewClient()
 	client.Jar = ctx.jar
-	client.AddInteractor(ctx.interactor)
+	if ctx.interactor != nil {
+		client.AddInteractor(ctx.interactor)
+	}
 	return client
 }
 
