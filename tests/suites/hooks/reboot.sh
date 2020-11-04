@@ -10,7 +10,7 @@ run_start_hook_fires_after_reboot() {
     # log level is WARNING.
     juju model-config -m "${model_name}" logging-config="<root>=INFO;unit=DEBUG"
 
-    juju deploy cs:~jameinel/ubuntu-lite-7
+    juju deploy cs:~jameinel/ubuntu-lite-6
     wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
     # Ensure that the implicit start hook after reboot detection does not
@@ -26,6 +26,7 @@ run_start_hook_fires_after_reboot() {
 
     # Restart the unit agent and ensure that the implicit start hook still
     # does not fire
+    wait_for_systemd_service_files_to_appear "ubuntu-lite/0"
     echo "[+] ensuring that implicit start hook does not fire after restarting the unit agent"
     juju run --unit ubuntu-lite/0 'sudo service jujud-unit-ubuntu-lite-0 restart'
     echo
@@ -38,6 +39,22 @@ run_start_hook_fires_after_reboot() {
       echo $(red "Uniter incorrectly assumed a reboot occurred after restarting the agent")
       exit 1
     fi
+
+    # Ensure that the implicit start hook does not fire after upgrading the unit
+    juju upgrade-charm ubuntu-lite --revision 7
+    echo
+    sleep 1
+    wait_for "ubuntu-lite" "$(charm_rev "ubuntu-lite" 7)"
+    logs=$(juju debug-log --include-module juju.worker.uniter --replay --no-tail | grep -n "reboot detected" || true)
+    echo "$logs" | sed 's/^/    | /g'
+    if [ -n "$logs" ]; then
+      # shellcheck disable=SC2046
+      echo $(red "Uniter incorrectly assumed a reboot occurred after restarting the agent")
+      exit 1
+    fi
+
+    sleep 1
+    wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
     # Trigger a reboot and verify that the implicit start hook fires
     echo "[+] ensuring that implicit start hook fires after a machine reboot"
@@ -87,7 +104,8 @@ run_reboot_monitor_state_cleanup() {
     echo "[+] Verifying that reboot monitor state files are removed once a subordinate gets removed"
     juju remove-relation rsyslog-forwarder mysql
     wait_for "mysql" "$(idle_condition "mysql")"
-    sleep 5 # there is probably a better way to wait for the subordinate to be removed.
+
+    wait_for_subordinate_count "mysql"
     num_files=$(juju ssh mysql/0 'ls -1 /var/run/juju/reboot-monitor/ | wc -l' 2>/dev/null | tr -d "[:space:]")
     echo "   | number of monitor state files: ''${num_files}"
     if [ "$num_files" != "1" ]; then
