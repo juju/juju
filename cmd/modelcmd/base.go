@@ -317,6 +317,7 @@ func (c *CommandBase) NewAPIConnectionParams(
 	return newAPIConnectionParams(
 		store, controllerName, modelName,
 		accountDetails,
+		c.Embedded,
 		bakeryClient,
 		c.apiOpen,
 		getPassword,
@@ -452,6 +453,7 @@ func (c *CommandBase) getAPIContext(store jujuclient.CookieStore, controllerName
 	if controllerName == "" {
 		return nil, errors.New("cannot get API context from empty controller name")
 	}
+	c.authOpts.Embedded = c.Embedded
 	ctx, err := newAPIContext(c.cmdContext, &c.authOpts, store, controllerName)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -534,6 +536,7 @@ func newAPIConnectionParams(
 	controllerName,
 	modelName string,
 	accountDetails *jujuclient.AccountDetails,
+	embedded bool,
 	bakery *httpbakery.Client,
 	apiOpen api.OpenFunc,
 	getPassword func(string) (string, error),
@@ -553,7 +556,7 @@ func newAPIConnectionParams(
 	dialOpts.BakeryClient = bakery
 
 	// Embedded clients with macaroons cannot discharge.
-	if accountDetails != nil && len(accountDetails.Macaroons) == 0 {
+	if accountDetails != nil && !embedded {
 		bakery.InteractionMethods = []httpbakery.Interactor{
 			authentication.NewInteractor(accountDetails.User, getPassword),
 			httpbakery.WebBrowserInteractor{},

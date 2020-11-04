@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 
+	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
@@ -91,4 +92,38 @@ func assertClientGet(c *gc.C, client *httpbakery.Client, url string, expectBody 
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
 	data, _ := ioutil.ReadAll(resp.Body)
 	c.Assert(string(data), gc.Equals, expectBody)
+}
+
+func (s *APIContextSuite) TestNewAPIContextEmbedded(c *gc.C) {
+	store := jujuclient.NewFileClientStore()
+	cmdCtx, err := cmd.DefaultContext()
+	c.Assert(err, jc.ErrorIsNil)
+	opts := modelcmd.AuthOpts{Embedded: true}
+	ctx, err := modelcmd.NewAPIContext(cmdCtx, &opts, store, "testcontroller")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelcmd.Interactor(ctx), gc.IsNil)
+}
+
+func (s *APIContextSuite) TestNewAPIContextNoBrowser(c *gc.C) {
+	store := jujuclient.NewFileClientStore()
+	cmdCtx, err := cmd.DefaultContext()
+	c.Assert(err, jc.ErrorIsNil)
+	opts := modelcmd.AuthOpts{NoBrowser: true}
+	ctx, err := modelcmd.NewAPIContext(cmdCtx, &opts, store, "testcontroller")
+	c.Assert(err, jc.ErrorIsNil)
+	interactor := modelcmd.Interactor(ctx)
+	c.Assert(interactor, gc.Not(gc.IsNil))
+	c.Assert(interactor.Kind(), gc.Equals, "usso_oauth")
+}
+
+func (s *APIContextSuite) TestNewAPIContextBrowser(c *gc.C) {
+	store := jujuclient.NewFileClientStore()
+	cmdCtx, err := cmd.DefaultContext()
+	c.Assert(err, jc.ErrorIsNil)
+	opts := modelcmd.AuthOpts{}
+	ctx, err := modelcmd.NewAPIContext(cmdCtx, &opts, store, "testcontroller")
+	c.Assert(err, jc.ErrorIsNil)
+	interactor := modelcmd.Interactor(ctx)
+	c.Assert(interactor, gc.Not(gc.IsNil))
+	c.Assert(interactor.Kind(), gc.Equals, "browser-window")
 }
