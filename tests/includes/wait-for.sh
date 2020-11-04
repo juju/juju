@@ -188,3 +188,39 @@ wait_for_model() {
         sleep "${SHORT_TIMEOUT}"
     fi
 }
+
+# wait_for_systemd_service_files_to_appear blocks until the systemd service
+# file for a unit is written to disk.
+#
+# ```
+# wait_for_systemd_service_files_to_appear <unit_name>
+#
+# example:
+# wait_for_systemd_service_files_to_appear "ubuntu-lite/0"
+# ```
+wait_for_systemd_service_files_to_appear() {
+    local unit
+
+    unit=${1}
+    # shellcheck disable=SC2086
+    svc_file_path="/etc/systemd/system/jujud-unit-$(echo -n ${1} | tr '/' '-').service"
+
+    attempt=0
+    # shellcheck disable=SC2046,SC2143
+    while [ "$attempt" != "3" ]; do
+        echo "[+] (attempt ${attempt}) waiting for the systemd unit files for ${unit} to appear"
+
+        svc_present=$(juju ssh "${unit}" "ls ${svc_file_path} 2>/dev/null || echo -n 'missing'")
+        if [ "${svc_present}" != "missing" ]; then
+          echo "[+] systemd unit files for ${unit} are now available"
+          return
+        fi
+
+        sleep "${SHORT_TIMEOUT}"
+        attempt=$((attempt+1))
+    done
+
+    # shellcheck disable=SC2046
+    echo $(red "Timed out waiting for the systemd unit files for ${unit} to appear")
+    exit 1
+}
