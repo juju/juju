@@ -109,7 +109,7 @@ assert_export_bundle_output_includes_exposed_endpoints() {
 
     got=$(juju export-bundle)
     exp=$(cat <<-EOF
-series: focal
+series: %s
 applications:
   ubuntu-lite:
     charm: cs:~jameinel/ubuntu-lite-7
@@ -132,6 +132,8 @@ applications:
         - 2002:0:0:1234::/64
 EOF
 )
+    series=$(juju show-machine 0 --format=json | jq -r '.machines | .["0"] | .series')
+    exp=$(printf "${exp}" "${series}")
 
     if [ "$got" != "$exp" ]; then
       # shellcheck disable=SC2046
