@@ -24,14 +24,13 @@ run_start_hook_fires_after_reboot() {
       exit 1
     fi
 
-    # Restart the unit agent and ensure that the implicit start hook still
-    # does not fire
-    wait_for_systemd_service_files_to_appear "ubuntu-lite/0"
-    echo "[+] ensuring that implicit start hook does not fire after restarting the unit agent"
-    # juju run --unit ubuntu-lite/0 'sudo service jujud-unit-ubuntu-lite-0 restart'
-    juju upgrade-charm ubuntu-lite --revision 7
+    # Restart the agent and ensure that the implicit start hook still
+    # does not fire. In juju 2.9+, we use a unified agent so we need to restart
+    # the machine agent.
+    echo "[+] ensuring that implicit start hook does not fire after restarting the (unified) unit agent"
+    juju ssh ubuntu-lite/0 'sudo service jujud-machine-0 restart'
     echo
-    wait_for "ubuntu-lite" "$(charm_rev "ubuntu-lite" 7)"
+    wait_for "ubuntu-lite" "$(charm_rev "ubuntu-lite" 6)"
     logs=$(juju debug-log --include-module juju.worker.uniter --replay --no-tail | grep -n "reboot detected" || true)
     echo "$logs" | sed 's/^/    | /g'
     if [ -n "$logs" ]; then
