@@ -273,7 +273,11 @@ type predeployedLocalCharm struct {
 
 // String returns a string description of the deployer.
 func (d *predeployedLocalCharm) String() string {
-	return fmt.Sprintf("deploy predeployed local charm: %s", d.userCharmURL.String())
+	str := fmt.Sprintf("deploy predeployed local charm: %s", d.userCharmURL.String())
+	if d.origin == (commoncharm.Origin{}) {
+		return str
+	}
+	return fmt.Sprintf("%s with origin: %s", str, d.origin.CoreChannel().String())
 }
 
 // PrepareAndDeploy finishes preparing to deploy a predeployed local charm,
@@ -330,8 +334,8 @@ type localCharm struct {
 }
 
 // String returns a string description of the deployer.
-func (d *localCharm) String() string {
-	return fmt.Sprintf("deploy local charm: %s", d.curl.String())
+func (l *localCharm) String() string {
+	return fmt.Sprintf("deploy local charm: %s", l.curl.String())
 }
 
 // PrepareAndDeploy finishes preparing to deploy a local charm,
@@ -371,8 +375,12 @@ type charmStoreCharm struct {
 }
 
 // String returns a string description of the deployer.
-func (d *charmStoreCharm) String() string {
-	return fmt.Sprintf("deploy charm store charm: %s", d.userRequestedURL.String())
+func (c *charmStoreCharm) String() string {
+	str := fmt.Sprintf("deploy charm store charm: %s", c.userRequestedURL.String())
+	if c.origin == (commoncharm.Origin{Source: commoncharm.OriginCharmStore}) {
+		return str
+	}
+	return fmt.Sprintf("%s with origin: %s", str, c.origin.CoreChannel().String())
 }
 
 // PrepareAndDeploy finishes preparing to deploy a charm store charm,

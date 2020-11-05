@@ -201,7 +201,11 @@ type localBundle struct {
 
 // String returns a string description of the deployer.
 func (d *localBundle) String() string {
-	return fmt.Sprintf("deploy local bundle from: %s", d.bundleDir)
+	str := fmt.Sprintf("deploy local bundle from: %s", d.bundleDir)
+	if d.origin == (commoncharm.Origin{}) {
+		return str
+	}
+	return fmt.Sprintf("%s with origin: %s", str, d.origin.CoreChannel().String())
 }
 
 // PrepareAndDeploy deploys a local bundle, no further preparation is needed.
