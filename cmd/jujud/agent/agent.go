@@ -22,6 +22,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/state/mgo"
 )
 
 // EngineErrorDelay is the amount of time the dependency engine waits
@@ -143,6 +144,7 @@ func setupAgentLogging(config agent.Config) {
 		if err != nil {
 			logger.Errorf("problem setting logging config %v", err)
 		}
+		mgo.ConfigureMgoLogging()
 	}
 
 	if flags := featureflag.String(); flags != "" {
