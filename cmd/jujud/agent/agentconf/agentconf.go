@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/jujud/agent/config"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
+	"github.com/juju/juju/state/mgo"
 )
 
 // AgentConf is a terribly confused interface.
@@ -133,6 +134,7 @@ func SetupAgentLogging(context *loggo.Context, config agent.Config) {
 		if err != nil {
 			logger.Errorf("problem setting logging config %v", err)
 		}
+		mgo.ConfigureMgoLogging()
 	}
 
 	if flags := featureflag.String(); flags != "" {
