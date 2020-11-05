@@ -32,13 +32,16 @@ const (
 )
 
 var (
+	// Idle* vars below are used for testing. Last changed by tlm on 05/11/20
+	// Changed IdleTime to a larger value to allow high churn tests to catch up
+
 	// IdleFunc allows tests to be able to get callbacks when the controller
 	// hasn't been given any changes for a specified time.
 	IdleFunc func()
 
 	// IdleTime relates to how long the controller needs to wait with no changes
 	// to be considered idle.
-	IdleTime = 50 * time.Millisecond
+	IdleTime = 200 * time.Millisecond
 )
 
 // Clock defines the clockish methods used by the controller.
