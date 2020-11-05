@@ -161,9 +161,7 @@ test_deploy_bundles() {
 
         case "${BOOTSTRAP_PROVIDER:-}" in
             "lxd")
-                run "run_deploy_lxd_profile_bundle_openstack"
-                run "run_deploy_lxd_profile_bundle"
-                ;;
+                ;&
             "localhost")
                 run "run_deploy_lxd_profile_bundle_openstack"
                 run "run_deploy_lxd_profile_bundle"

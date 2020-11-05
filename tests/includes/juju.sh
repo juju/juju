@@ -44,14 +44,12 @@ bootstrap() {
     local provider name output model bootstrapped_name
     case "${BOOTSTRAP_PROVIDER:-}" in
         "aws")
-            provider="aws"
-            ;;
+            ;&
         "ec2")
             provider="aws"
             ;;
         "localhost")
-            provider="lxd"
-            ;;
+            ;&
         "lxd")
             provider="lxd"
             ;;
