@@ -43,14 +43,10 @@ ensure() {
 bootstrap() {
     local provider name output model bootstrapped_name
     case "${BOOTSTRAP_PROVIDER:-}" in
-        "aws")
-            ;&
-        "ec2")
+        "aws" | "ec2")
             provider="aws"
             ;;
-        "localhost")
-            ;&
-        "lxd")
+        "localhost" | "lxd")
             provider="lxd"
             ;;
         "lxd-remote")

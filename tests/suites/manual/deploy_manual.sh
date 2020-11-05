@@ -12,15 +12,11 @@ test_deploy_manual() {
         # TODO (stickupkid): We currently only support LXD in this test
         # currently, future tests should run on aws.
         case "${BOOTSTRAP_PROVIDER:-}" in
-            "lxd")
-                ;&
-            "localhost")
+            "lxd" | "localhost")
                 export BOOTSTRAP_PROVIDER="manual"
                 run "run_deploy_manual_lxd"
                 ;;
-            "aws")
-                ;&
-            "ec2")
+            "aws" | "ec2")
                 export BOOTSTRAP_PROVIDER="manual"
                 run "run_deploy_manual_aws"
                 ;;

@@ -13,9 +13,7 @@ test_deploy_os() {
 
 
         case "${BOOTSTRAP_PROVIDER:-}" in
-            "ec2")
-                ;&
-            "aws")
+            "ec2" | "aws")
                 run "run_deploy_centos"
                 ;;
             *)
