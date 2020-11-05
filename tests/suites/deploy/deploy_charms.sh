@@ -218,17 +218,14 @@ test_deploy_charms() {
         run "run_deploy_lxd_profile_charm_container"
 
         case "${BOOTSTRAP_PROVIDER:-}" in
-            "lxd")
-                run "run_deploy_lxd_to_machine"
-                run "run_deploy_lxd_profile_charm"
-                run "run_deploy_local_lxd_profile_charm"
-                ;;
-            "localhost")
+            "lxd" | "localhost")
                 run "run_deploy_lxd_to_machine"
                 run "run_deploy_lxd_profile_charm"
                 run "run_deploy_local_lxd_profile_charm"
                 ;;
             *)
+                echo "==> TEST SKIPPED: deploy_lxd_to_machine - tests for LXD only"
+                echo "==> TEST SKIPPED: deploy_lxd_profile_charm - tests for LXD only"
                 echo "==> TEST SKIPPED: deploy_local_lxd_profile_charm - tests for LXD only"
                 ;;
         esac
