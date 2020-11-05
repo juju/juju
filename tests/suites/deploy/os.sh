@@ -41,7 +41,12 @@ run_deploy_centos() {
 
     juju metadata add-image --series centos7 ami-0bc06212a56393ee1
 
-    juju deploy ./tests/suites/deploy/charms/centos-dummy-sink --series centos7
+    #
+    # There is a specific list of instance types which can be used with
+    # this image.  Sometimes juju chooses the wrong one e.g. t3a.medium.
+    # Ensure we use one that is allowed.
+    #
+    juju deploy ./tests/suites/deploy/charms/centos-dummy-sink --series centos7 --constraints instance-type=t3.medium
 
     series=$(juju status --format=json | jq '.applications."dummy-sink".series')
     echo "$series" | check "centos7"
