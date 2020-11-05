@@ -14,10 +14,12 @@ test_deploy_os() {
 
         case "${BOOTSTRAP_PROVIDER:-}" in
             "ec2")
+                ;&
+            "aws")
                 run "run_deploy_centos"
                 ;;
             *)
-                echo "==> TEST SKIPPED: deploy_centos - tests for LXD only"
+                echo "==> TEST SKIPPED: deploy_centos - tests for AWS only"
                 ;;
         esac
     )
@@ -27,12 +29,15 @@ run_deploy_centos() {
     echo
 
     name="test-deploy-centos"
+    file="${TEST_DIR}/${name}.log"
+
+    ensure "${name}" "${file}"
 
     #
     # Images have been setup and and subscribed for juju-qa aws
     # in us-west-2.  Take care editing the details.
     #
-    juju add-model "${name}" aws/us-west-2
+    juju add-model test-deploy-centos-west2 aws/us-west-2
 
     juju metadata add-image --series centos7 ami-0bc06212a56393ee1
 
@@ -44,4 +49,5 @@ run_deploy_centos() {
     wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
 
     destroy_model "${name}"
+    destroy_model "test-deploy-centos-west2"
 }
