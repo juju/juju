@@ -138,7 +138,7 @@ func (s *storeSuite) TestClaimTimeout(c *gc.C) {
 			}()
 			// Jump time forward further than the 1-second forward
 			// timeout.
-			c.Assert(s.clock.WaitAdvance(2*time.Second, coretesting.LongWait, 1), jc.ErrorIsNil)
+			c.Assert(s.clock.WaitAdvance(2*time.Second, coretesting.LongWait, 2), jc.ErrorIsNil)
 
 			select {
 			case err := <-errChan:
@@ -280,7 +280,7 @@ func (s *storeSuite) TestExtendLeaseTimeout(c *gc.C) {
 
 			// Jump time forward further than the 1-second forward
 			// timeout.
-			c.Assert(s.clock.WaitAdvance(2*time.Second, coretesting.LongWait, 1), jc.ErrorIsNil)
+			c.Assert(s.clock.WaitAdvance(2*time.Second, coretesting.LongWait, 2), jc.ErrorIsNil)
 
 			select {
 			case err := <-errChan:
@@ -386,7 +386,7 @@ func (s *storeSuite) TestRevokeLeaseTimeout(c *gc.C) {
 
 			// Jump time forward further than the 1-second forward
 			// timeout.
-			c.Assert(s.clock.WaitAdvance(2*time.Second, coretesting.LongWait, 1), jc.ErrorIsNil)
+			c.Assert(s.clock.WaitAdvance(2*time.Second, coretesting.LongWait, 2), jc.ErrorIsNil)
 
 			select {
 			case err := <-errChan:
@@ -570,7 +570,7 @@ func (s *storeSuite) TestPinTimeout(c *gc.C) {
 				)
 			}()
 			// Move time forward so the request is timed out
-			c.Assert(s.clock.WaitAdvance(2*time.Second, coretesting.LongWait, 1), jc.ErrorIsNil)
+			c.Assert(s.clock.WaitAdvance(2*time.Second, coretesting.LongWait, 2), jc.ErrorIsNil)
 
 			select {
 			case err := <-errChan:
@@ -672,7 +672,7 @@ func (s *storeSuite) TestUnpinTimeout(c *gc.C) {
 				)
 			}()
 			// Move time forward so the request is timed out
-			c.Assert(s.clock.WaitAdvance(2*time.Second, coretesting.LongWait, 1), jc.ErrorIsNil)
+			c.Assert(s.clock.WaitAdvance(2*time.Second, coretesting.LongWait, 2), jc.ErrorIsNil)
 
 			select {
 			case err := <-errChan:
@@ -841,7 +841,7 @@ func (s *storeSuite) TestAdvanceTimeout(c *gc.C) {
 			}()
 
 			// Move time forward to trigger the timeout.
-			c.Assert(s.clock.WaitAdvance(2*time.Second, coretesting.LongWait, 1), jc.ErrorIsNil)
+			c.Assert(s.clock.WaitAdvance(2*time.Second, coretesting.LongWait, 2), jc.ErrorIsNil)
 
 			select {
 			case err := <-errChan:
