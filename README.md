@@ -53,7 +53,7 @@ model at the direction of the administrator.
 
 ## Open Operator Collection
 
-A world's [largest collection of operators](https://charmhub.io/) all use
+The world's [largest collection of operators](https://charmhub.io/) all use
 Juju as their OLM. The Charmhub community emphasizes quality, collaboration
 and consistency. Publish your own operator and share integration code for
 other operators to connect to your application.
