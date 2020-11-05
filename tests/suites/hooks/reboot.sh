@@ -26,6 +26,7 @@ run_start_hook_fires_after_reboot() {
 
     # Restart the unit agent and ensure that the implicit start hook still
     # does not fire
+    wait_for_systemd_service_files_to_appear "ubuntu-lite/0"
     echo "[+] ensuring that implicit start hook does not fire after restarting the unit agent"
     # juju run --unit ubuntu-lite/0 'sudo service jujud-unit-ubuntu-lite-0 restart'
     juju upgrade-charm ubuntu-lite --revision 7
@@ -38,6 +39,22 @@ run_start_hook_fires_after_reboot() {
       echo $(red "Uniter incorrectly assumed a reboot occurred after restarting the agent")
       exit 1
     fi
+    sleep 1
+    wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
+
+    # Ensure that the implicit start hook does not fire after upgrading the unit
+    juju upgrade-charm ubuntu-lite --revision 7
+    echo
+    sleep 1
+    wait_for "ubuntu-lite" "$(charm_rev "ubuntu-lite" 7)"
+    logs=$(juju debug-log --include-module juju.worker.uniter --replay --no-tail | grep -n "reboot detected" || true)
+    echo "$logs" | sed 's/^/    | /g'
+    if [ -n "$logs" ]; then
+      # shellcheck disable=SC2046
+      echo $(red "Uniter incorrectly assumed a reboot occurred after restarting the agent")
+      exit 1
+    fi
+
     sleep 1
     wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
