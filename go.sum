@@ -347,8 +347,8 @@ github.com/juju/lumberjack v2.0.0-20200420012306-ddfd864a6ade+incompatible h1:7L
 github.com/juju/lumberjack v2.0.0-20200420012306-ddfd864a6ade+incompatible/go.mod h1:YQBneJkXlAAye6yHFYH8CabVID+0Oq2by8DDKGj5OIU=
 github.com/juju/mempool v0.0.0-20160205104927-24974d6c264f h1:a3Vd00a20dTKLpyS2hdUafNG5zxQdTw5KhDMK5C0a8U=
 github.com/juju/mempool v0.0.0-20160205104927-24974d6c264f/go.mod h1:+7K7MqWi5xWI+s1LyB2g0Di71jZo27y+XOlmhNtV1Y0=
-github.com/juju/mgo v2.0.0-20190418114320-e9d4866cb7fc+incompatible h1:QRdXk1MzzBiLHL8GHNJVnrsh8y3AW8h6CQkTr9qtKXI=
-github.com/juju/mgo v2.0.0-20190418114320-e9d4866cb7fc+incompatible/go.mod h1:7a/cakyF0q2iwjcD35dn0dgVCdKnLW5j/5iCCAFu7vg=
+github.com/juju/mgo v2.0.0-20201105041946-086e3ddaf23c+incompatible h1:4R9otumcue1OMv/MimLav3Ikyx2t2YYlpLIzE3EFJFs=
+github.com/juju/mgo v2.0.0-20201105041946-086e3ddaf23c+incompatible/go.mod h1:7a/cakyF0q2iwjcD35dn0dgVCdKnLW5j/5iCCAFu7vg=
 github.com/juju/mgomonitor v0.0.0-20181029151116-52206bb0cd31 h1:v6GpXmpXOD6KwPbApRlwDGQxf1FpS6gfLdfVbE4ZLzk=
 github.com/juju/mgomonitor v0.0.0-20181029151116-52206bb0cd31/go.mod h1:m6E+J+I+cE+6rcaVxSI4HwGLIEOCSOBMYedt3Sewh+U=
 github.com/juju/mgotest v1.0.1 h1:XvuZ2whmkHZ5G+Y/wQaSe28p2FyTwcBaqTzStn+QaLc=
