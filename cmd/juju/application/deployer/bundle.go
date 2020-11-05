@@ -215,7 +215,11 @@ type charmstoreBundle struct {
 
 // String returns a string description of the deployer.
 func (d *charmstoreBundle) String() string {
-	return fmt.Sprintf("deploy charm store bundle: %s", d.bundleURL.String())
+	str := fmt.Sprintf("deploy charm store bundle: %s", d.bundleURL.String())
+	if d.origin == (commoncharm.Origin{}) {
+		return str
+	}
+	return fmt.Sprintf("%s with origin: %s", str, d.origin.CoreChannel().String())
 }
 
 // PrepareAndDeploy deploys a local bundle, no further preparation is needed.

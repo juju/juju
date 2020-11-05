@@ -734,6 +734,30 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 	}
 }
 
+func (s *DeploySuite) TestDeployBundleWithChannel(c *gc.C) {
+	withAllWatcher(s.fakeAPI)
+
+	// The second charm from the bundle does not require trust so no
+	// additional configuration should be injected
+	ubURL := charm.MustParseURL("cs:~jameinel/ubuntu-lite-7")
+	withCharmRepoResolvable(s.fakeAPI, ubURL)
+	withCharmDeployable(
+		s.fakeAPI, ubURL, "bionic",
+		&charm.Meta{Name: "ubuntu-lite", Series: []string{"bionic"}},
+		nil, false, false, 0, nil, nil,
+	)
+
+	s.fakeAPI.Call("AddUnits", application.AddUnitsParams{
+		ApplicationName: "ubuntu-lite",
+		NumUnits:        1,
+	}).Returns([]string{"ubuntu-lite/0"}, error(nil))
+
+	deploy := s.deployCommand()
+	bundlePath := testcharms.RepoWithSeries("bionic").ClonedBundleDirPath(c.MkDir(), "basic")
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), bundlePath, "--channel", "edge")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *DeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 	withAllWatcher(s.fakeAPI)
 
