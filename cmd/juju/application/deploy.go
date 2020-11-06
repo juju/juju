@@ -318,18 +318,25 @@ type DeployCommand struct {
 	unknownModel bool
 }
 
+// TODO (stickupkid): Update/re-write the following doc for charmhub related
+// charm urls.
 const deployDoc = `
-A charm can be referred to by its simple name and a series can optionally be
-specified:
+A charm or bundle can be referred to by its simple name and a series or channel
+can optionally be specified:
 
-  juju deploy postgresql
-  juju deploy bionic/postgresql
   juju deploy cs:postgresql
   juju deploy cs:bionic/postgresql
-  juju deploy postgresql --series bionic
+  juju deploy cs:postgresql --series bionic
+  juju deploy cs:postgresql --channel edge
 
 All the above deployments use remote charms found in the Charm Store (denoted
-by 'cs') and therefore also make use of "charm URLs".
+by 'cs' prefix) and therefore also make use of "charm URLs".
+
+If a channel is specified, it will be used as the source for looking up the
+charm or bundle from the Charm Store. When used in a bundle deployment context,
+the specified channel is only used for retrieving the bundle and is ignored when
+looking up the charms referenced by the bundle. However, each charm within a
+bundle is allowed to explicitly specify the channel used to look it up.
 
 A versioned charm URL will be expanded as expected. For example, 'mysql-56'
 becomes 'cs:bionic/mysql-56'.

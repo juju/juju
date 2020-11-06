@@ -26,6 +26,7 @@ import (
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
@@ -184,6 +185,28 @@ func (s *deployerSuite) TestGetDeployerCharmStoreBundle(c *gc.C) {
 	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm store bundle: %s", bundle.String()))
 }
 
+func (s *deployerSuite) TestGetDeployerCharmStoreBundleWithChannel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectFilesystem()
+
+	s.expectResolveBundleURL(nil, 1)
+
+	bundle := charm.MustParseURL("cs:test-bundle")
+	cfg := s.channelDeployerConfig()
+	cfg.Series = "bionic"
+	cfg.FlagSet = &gnuflag.FlagSet{}
+	cfg.CharmOrBundle = bundle.String()
+	s.expectStat(bundle.String(), errors.NotFoundf("file"))
+	s.expectModelType()
+	s.expectGetBundle(nil)
+	s.expectData()
+
+	factory := s.newDeployerFactory()
+	deployer, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm store bundle: %s", bundle.String()))
+}
+
 func (s *deployerSuite) TestResolveCharmURL(c *gc.C) {
 	tests := []struct {
 		path string
@@ -293,6 +316,15 @@ func (s *deployerSuite) newDeployerFactory() DeployerFactory {
 func (s *deployerSuite) basicDeployerConfig() DeployerConfig {
 	return DeployerConfig{
 		Series: "focal",
+	}
+}
+
+func (s *deployerSuite) channelDeployerConfig() DeployerConfig {
+	return DeployerConfig{
+		Series: "focal",
+		Channel: corecharm.Channel{
+			Risk: "edge",
+		},
 	}
 }
 

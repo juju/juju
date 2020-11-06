@@ -372,8 +372,14 @@ func (d *factory) maybeReadCharmstoreBundle(resolver Resolver) (Deployer, error)
 		return nil, errors.Trace(err)
 	}
 
-	// validate this is a charmstore bundle
-	bundleURL, origin, err := resolver.ResolveBundleURL(curl, origin)
+	// Resolve the bundle URL using the channel supplied via the channel
+	// supplied. All charms with in this bundle unless pinned via a channel are
+	// NOT expected to be in the same channel as the bundle channel.
+	// The pinning of a bundle does not flow down to charms as well. Each charm
+	// has it's own channel supplied via a bundle, if no is supplied then the
+	// channel is worked out via the resolving what is available.
+	// See: LP:1677404 and LP:1832873
+	bundleURL, _, err := resolver.ResolveBundleURL(curl, origin)
 	if charm.IsUnsupportedSeriesError(errors.Cause(err)) {
 		return nil, errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 	}
@@ -406,7 +412,6 @@ func (d *factory) maybeReadCharmstoreBundle(resolver Resolver) (Deployer, error)
 
 	db := d.newDeployBundle(store.NewResolvedBundle(bundle))
 	db.bundleURL = bundleURL
-	db.origin = origin
 	db.bundleOverlayFile = d.bundleOverlayFile
 	return &charmstoreBundle{deployBundle: db}, nil
 }

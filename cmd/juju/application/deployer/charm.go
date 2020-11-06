@@ -253,6 +253,7 @@ func (d *deployCharm) deploy(
 }
 
 var (
+	// BundleOnlyFlags represents what flags are used for bundles only.
 	// TODO(thumper): support dry-run for apps as well as bundles.
 	BundleOnlyFlags = []string{
 		"overlay", "dry-run", "map-machines",
@@ -273,7 +274,11 @@ type predeployedLocalCharm struct {
 
 // String returns a string description of the deployer.
 func (d *predeployedLocalCharm) String() string {
-	return fmt.Sprintf("deploy predeployed local charm: %s", d.userCharmURL.String())
+	str := fmt.Sprintf("deploy predeployed local charm: %s", d.userCharmURL.String())
+	if isEmptyOrigin(d.origin, commoncharm.OriginLocal) {
+		return str
+	}
+	return fmt.Sprintf("%s from channel %s", str, d.origin.CoreChannel().String())
 }
 
 // PrepareAndDeploy finishes preparing to deploy a predeployed local charm,
@@ -330,8 +335,8 @@ type localCharm struct {
 }
 
 // String returns a string description of the deployer.
-func (d *localCharm) String() string {
-	return fmt.Sprintf("deploy local charm: %s", d.curl.String())
+func (l *localCharm) String() string {
+	return fmt.Sprintf("deploy local charm: %s", l.curl.String())
 }
 
 // PrepareAndDeploy finishes preparing to deploy a local charm,
@@ -371,8 +376,12 @@ type charmStoreCharm struct {
 }
 
 // String returns a string description of the deployer.
-func (d *charmStoreCharm) String() string {
-	return fmt.Sprintf("deploy charm store charm: %s", d.userRequestedURL.String())
+func (c *charmStoreCharm) String() string {
+	str := fmt.Sprintf("deploy charm store charm: %s", c.userRequestedURL.String())
+	if isEmptyOrigin(c.origin, commoncharm.OriginCharmStore) {
+		return str
+	}
+	return fmt.Sprintf("%s from channel %s", str, c.origin.CoreChannel().String())
 }
 
 // PrepareAndDeploy finishes preparing to deploy a charm store charm,
@@ -483,4 +492,16 @@ func (c *charmStoreCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	c.csMac = csMac
 	c.origin = csOrigin
 	return c.deploy(ctx, deployAPI)
+}
+
+func isEmptyOrigin(origin commoncharm.Origin, source commoncharm.OriginSource) bool {
+	other := commoncharm.Origin{}
+	if origin == other {
+		return true
+	}
+	other.Source = source
+	if origin == other {
+		return true
+	}
+	return false
 }
