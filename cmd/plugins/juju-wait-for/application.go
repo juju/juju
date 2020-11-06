@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
@@ -51,9 +52,11 @@ type applicationCommand struct {
 	name    string
 	query   string
 	timeout time.Duration
+	summary bool
 
 	found   bool
 	appInfo params.ApplicationInfo
+	units   map[string]*params.UnitInfo
 }
 
 // Info implements Command.Info.
@@ -71,6 +74,7 @@ func (c *applicationCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.waitForCommandBase.SetFlags(f)
 	f.StringVar(&c.query, "query", `life=="alive" && status=="active"`, "query the goal state")
 	f.DurationVar(&c.timeout, "timeout", time.Minute*10, "how long to wait, before timing out")
+	f.BoolVar(&c.summary, "summary", true, "output a summary of the application query if successful")
 }
 
 // Init implements Command.Init.
@@ -90,85 +94,132 @@ func (c *applicationCommand) Init(args []string) (err error) {
 }
 
 func (c *applicationCommand) Run(ctx *cmd.Context) error {
+	scopedContext := ScopeContext{
+		idents: set.NewStrings(),
+	}
+
 	strategy := &Strategy{
 		ClientFn: c.newWatchAllAPIFunc,
 		Timeout:  c.timeout,
 	}
-	err := strategy.Run(c.name, c.query, c.waitFor)
-	return errors.Trace(err)
+	strategy.Subscribe(func(event EventType) {
+		switch event {
+		case WatchAllStarted:
+			c.primeCache()
+		}
+	})
+	err := strategy.Run(c.name, c.query, c.waitFor(scopedContext))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if c.summary {
+		switch c.appInfo.Life {
+		case life.Dead:
+			ctx.Infof("%s has been removed", c.name)
+		case life.Dying:
+			ctx.Infof("%s is being removed", c.name)
+		default:
+			ctx.Infof("%s is running", c.name)
+
+			idents := scopedContext.RecordedIdents()
+			for _, ident := range idents {
+				// We have to special case status here because of the issue that
+				// unset propagates through and we have to read it via the unit
+				// information.
+				if ident == "status" {
+					currentStatus := c.appInfo.Status.Current
+					currentStatus = deriveApplicationStatus(currentStatus, c.units)
+					ctx.Infof("  - %s: %v", ident, currentStatus)
+					continue
+				}
+
+				scope := MakeApplicationScope(scopedContext, &c.appInfo)
+				box, err := scope.GetIdentValue(ident)
+				if err != nil {
+					continue
+				}
+				ctx.Infof("  - %s: %v", ident, box.Value())
+			}
+		}
+	}
+	return nil
 }
 
-func (c *applicationCommand) waitFor(name string, deltas []params.Delta, q query.Query) (bool, error) {
-	for _, delta := range deltas {
-		logger.Tracef("delta %T: %v", delta.Entity, delta.Entity)
+func (c *applicationCommand) primeCache() {
+	c.units = make(map[string]*params.UnitInfo)
+}
 
-		switch entityInfo := delta.Entity.(type) {
-		case *params.ApplicationInfo:
-			if entityInfo.Name == name {
+func (c *applicationCommand) waitFor(ctx ScopeContext) func(string, []params.Delta, query.Query) (bool, error) {
+	return func(name string, deltas []params.Delta, q query.Query) (bool, error) {
+		for _, delta := range deltas {
+			logger.Tracef("delta %T: %v", delta.Entity, delta.Entity)
+
+			switch entityInfo := delta.Entity.(type) {
+			case *params.ApplicationInfo:
+				if entityInfo.Name == name {
+					if delta.Removed {
+						return false, errors.Errorf("application %v removed", name)
+					}
+
+					c.appInfo = *entityInfo
+
+					scope := MakeApplicationScope(ctx, entityInfo)
+					if done, err := runQuery(q, scope); err != nil {
+						return false, errors.Trace(err)
+					} else if done {
+						return true, nil
+					}
+
+					c.found = entityInfo.Life != life.Dead
+				}
+
+			case *params.UnitInfo:
 				if delta.Removed {
-					return false, errors.Errorf("application %v removed", name)
+					delete(c.units, entityInfo.Name)
+					break
 				}
-
-				scope := MakeApplicationScope(entityInfo)
-				if done, err := runQuery(q, scope); err != nil {
-					return false, errors.Trace(err)
-				} else if done {
-					return true, nil
+				if entityInfo.Application == name {
+					c.units[entityInfo.Name] = entityInfo
 				}
-
-				c.found = entityInfo.Life != life.Dead
-				c.appInfo = *entityInfo
 			}
 		}
-	}
 
-	if !c.found {
-		logger.Infof("application %q not found, waiting...", name)
+		if !c.found {
+			logger.Infof("application %q not found, waiting...", name)
+			return false, nil
+		}
+
+		currentStatus := c.appInfo.Status.Current
+		logOutput := currentStatus.String() != "unset" && len(c.units) > 0
+
+		appInfo := c.appInfo
+		appInfo.Status.Current = deriveApplicationStatus(currentStatus, c.units)
+
+		scope := MakeApplicationScope(ctx, &appInfo)
+		if done, err := runQuery(q, scope); err != nil {
+			return false, errors.Trace(err)
+		} else if done {
+			return true, nil
+		}
+
+		if logOutput {
+			logger.Infof("application %q found with %q, waiting for goal state", name, currentStatus)
+		}
+
 		return false, nil
 	}
-
-	currentStatus := c.appInfo.Status.Current
-
-	units := make(map[string]*params.UnitInfo)
-	for _, delta := range deltas {
-		switch entityInfo := delta.Entity.(type) {
-		case *params.UnitInfo:
-			if delta.Removed {
-				delete(units, entityInfo.Name)
-			}
-			if entityInfo.Application == name {
-				units[entityInfo.Name] = entityInfo
-			}
-		}
-	}
-
-	logOutput := currentStatus.String() != "unset" && len(units) > 0
-
-	appInfo := c.appInfo
-	appInfo.Status.Current = deriveApplicationStatus(currentStatus, units)
-
-	scope := MakeApplicationScope(&appInfo)
-	if done, err := runQuery(q, scope); err != nil {
-		return false, errors.Trace(err)
-	} else if done {
-		return true, nil
-	}
-
-	if logOutput {
-		logger.Infof("application %q found with %q, waiting for goal state", name, currentStatus)
-	}
-
-	return false, nil
 }
 
 // ApplicationScope allows the query to introspect a application entity.
 type ApplicationScope struct {
+	ctx             ScopeContext
 	ApplicationInfo *params.ApplicationInfo
 }
 
 // MakeApplicationScope creates an ApplicationScope from an ApplicationInfo
-func MakeApplicationScope(info *params.ApplicationInfo) ApplicationScope {
+func MakeApplicationScope(ctx ScopeContext, info *params.ApplicationInfo) ApplicationScope {
 	return ApplicationScope{
+		ctx:             ctx,
 		ApplicationInfo: info,
 	}
 }
@@ -180,6 +231,8 @@ func (m ApplicationScope) GetIdents() []string {
 
 // GetIdentValue returns the value of the identifier in a given scope.
 func (m ApplicationScope) GetIdentValue(name string) (query.Box, error) {
+	m.ctx.RecordIdent(name)
+
 	switch name {
 	case "name":
 		return query.NewString(m.ApplicationInfo.Name), nil

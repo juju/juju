@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 
@@ -194,4 +195,19 @@ func (m *GenericScope) Clone() query.Scope {
 	return &GenericScope{
 		scopes: scopes,
 	}
+}
+
+// ScopeContext defines a context for a given scope.
+type ScopeContext struct {
+	idents set.Strings
+}
+
+// RecordIdent records the witnessing of a ident.
+func (c ScopeContext) RecordIdent(ident string) {
+	c.idents.Add(ident)
+}
+
+// RecordedIdents returns the witnessed idents via a scoped context.
+func (c ScopeContext) RecordedIdents() []string {
+	return c.idents.SortedValues()
 }

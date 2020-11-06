@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
@@ -97,6 +98,10 @@ func (c *modelCommand) Init(args []string) (err error) {
 }
 
 func (c *modelCommand) Run(ctx *cmd.Context) error {
+	scopedContext := ScopeContext{
+		idents: set.NewStrings(),
+	}
+
 	strategy := &Strategy{
 		ClientFn: c.newWatchAllAPIFunc,
 		Timeout:  c.timeout,
@@ -107,7 +112,7 @@ func (c *modelCommand) Run(ctx *cmd.Context) error {
 			c.primeCache()
 		}
 	})
-	err := strategy.Run(c.name, c.query, c.waitFor)
+	err := strategy.Run(c.name, c.query, c.waitFor(scopedContext))
 	return errors.Trace(err)
 }
 
@@ -117,70 +122,74 @@ func (c *modelCommand) primeCache() {
 	c.units = make(map[string]*params.UnitInfo)
 }
 
-func (c *modelCommand) waitFor(name string, deltas []params.Delta, q query.Query) (bool, error) {
-	for _, delta := range deltas {
-		logger.Tracef("delta %T: %v", delta.Entity, delta.Entity)
+func (c *modelCommand) waitFor(ctx ScopeContext) func(string, []params.Delta, query.Query) (bool, error) {
+	return func(name string, deltas []params.Delta, q query.Query) (bool, error) {
+		for _, delta := range deltas {
+			logger.Tracef("delta %T: %v", delta.Entity, delta.Entity)
 
-		switch entityInfo := delta.Entity.(type) {
-		case *params.ApplicationInfo:
-			if delta.Removed {
-				delete(c.applications, entityInfo.Name)
-				break
-			}
-			c.applications[entityInfo.Name] = entityInfo
-
-		case *params.MachineInfo:
-			if delta.Removed {
-				delete(c.machines, entityInfo.Id)
-				break
-			}
-			c.machines[entityInfo.Id] = entityInfo
-
-		case *params.UnitInfo:
-			if delta.Removed {
-				delete(c.units, entityInfo.Name)
-				break
-			}
-			c.units[entityInfo.Name] = entityInfo
-
-		case *params.ModelUpdate:
-			if entityInfo.Name == name {
+			switch entityInfo := delta.Entity.(type) {
+			case *params.ApplicationInfo:
 				if delta.Removed {
-					return false, errors.Errorf("model %v removed", name)
+					delete(c.applications, entityInfo.Name)
+					break
 				}
-				c.model = entityInfo
-				c.found = entityInfo.Life != life.Dead
+				c.applications[entityInfo.Name] = entityInfo
+
+			case *params.MachineInfo:
+				if delta.Removed {
+					delete(c.machines, entityInfo.Id)
+					break
+				}
+				c.machines[entityInfo.Id] = entityInfo
+
+			case *params.UnitInfo:
+				if delta.Removed {
+					delete(c.units, entityInfo.Name)
+					break
+				}
+				c.units[entityInfo.Name] = entityInfo
+
+			case *params.ModelUpdate:
+				if entityInfo.Name == name {
+					if delta.Removed {
+						return false, errors.Errorf("model %v removed", name)
+					}
+					c.model = entityInfo
+					c.found = entityInfo.Life != life.Dead
+				}
 			}
 		}
-	}
 
-	if c.model != nil {
-		scope := MakeModelScope(c)
-		if done, err := runQuery(q, scope); err != nil {
-			return false, errors.Trace(err)
-		} else if done {
-			return true, nil
+		if c.model != nil {
+			scope := MakeModelScope(ctx, c)
+			if done, err := runQuery(q, scope); err != nil {
+				return false, errors.Trace(err)
+			} else if done {
+				return true, nil
+			}
 		}
-	}
 
-	if !c.found {
-		logger.Infof("model %q not found, waiting...", name)
+		if !c.found {
+			logger.Infof("model %q not found, waiting...", name)
+			return false, nil
+		}
+
+		logger.Infof("model %q found, waiting...", name)
 		return false, nil
 	}
-
-	logger.Infof("model %q found, waiting...", name)
-	return false, nil
 }
 
 // ModelScope allows the query to introspect a model entity.
 type ModelScope struct {
+	ctx       ScopeContext
 	ModelInfo *params.ModelUpdate
 	Model     *modelCommand
 }
 
 // MakeModelScope creates an ModelScope from an ModelUpdate
-func MakeModelScope(model *modelCommand) ModelScope {
+func MakeModelScope(ctx ScopeContext, model *modelCommand) ModelScope {
 	return ModelScope{
+		ctx:       ctx,
 		ModelInfo: model.model,
 		Model:     model,
 	}
@@ -220,7 +229,7 @@ func (m ModelScope) GetIdentValue(name string) (query.Box, error) {
 			appInfo := app
 			appInfo.Status.Current = newStatus
 
-			scopes[k] = MakeApplicationScope(appInfo)
+			scopes[k] = MakeApplicationScope(m.ctx, appInfo)
 		}
 		return NewScopedBox(scopes), nil
 	case "machines":
