@@ -1,5 +1,5 @@
 test_charmhub() {
-      if [ "$(skip 'test-charmhub')" ]; then
+      if [ "$(skip 'test_charmhub')" ]; then
         echo "==> TEST SKIPPED: Charm Hub tests"
         return
     fi
@@ -16,6 +16,7 @@ test_charmhub() {
     bootstrap "test-charmhub" "${file}"
 
     test_charmhub_find
+    test_charmhub_info
 
     destroy_controller "test-charmhub"
 
