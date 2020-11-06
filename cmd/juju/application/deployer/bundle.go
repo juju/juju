@@ -202,10 +202,10 @@ type localBundle struct {
 // String returns a string description of the deployer.
 func (d *localBundle) String() string {
 	str := fmt.Sprintf("deploy local bundle from: %s", d.bundleDir)
-	if d.origin == (commoncharm.Origin{}) {
+	if isEmptyOrigin(d.origin, commoncharm.OriginLocal) {
 		return str
 	}
-	return fmt.Sprintf("%s with origin: %s", str, d.origin.CoreChannel().String())
+	return fmt.Sprintf("%s from channel %s", str, d.origin.CoreChannel().String())
 }
 
 // PrepareAndDeploy deploys a local bundle, no further preparation is needed.
@@ -220,10 +220,10 @@ type charmstoreBundle struct {
 // String returns a string description of the deployer.
 func (d *charmstoreBundle) String() string {
 	str := fmt.Sprintf("deploy charm store bundle: %s", d.bundleURL.String())
-	if d.origin == (commoncharm.Origin{}) {
+	if isEmptyOrigin(d.origin, commoncharm.OriginCharmStore) {
 		return str
 	}
-	return fmt.Sprintf("%s with origin: %s", str, d.origin.CoreChannel().String())
+	return fmt.Sprintf("%s from channel %s", str, d.origin.CoreChannel().String())
 }
 
 // PrepareAndDeploy deploys a local bundle, no further preparation is needed.

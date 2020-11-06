@@ -367,7 +367,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	} else if newURL.Scheme != "" && newURL.Scheme != "local" {
 		// If not upgrading from a local path, display the channel we
 		// are pulling the charm from.
-		channel := fmt.Sprintf(" (channel: %s)", c.Channel)
+		channel := fmt.Sprintf(" from channel %s", c.Channel)
 		ctx.Infof("Looking up metadata for charm %v%s", newRef, channel)
 	}
 

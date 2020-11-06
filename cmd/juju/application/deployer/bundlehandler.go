@@ -335,7 +335,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		var fromChannel string
 		var channel corecharm.Channel
 		if spec.Channel != "" {
-			fromChannel = fmt.Sprintf(" from channel: %s", spec.Channel)
+			fromChannel = fmt.Sprintf(" from channel %s", spec.Channel)
 			channel, err = corecharm.ParseChannelNormalize(spec.Channel)
 			if err != nil {
 				return errors.Trace(err)
