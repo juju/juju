@@ -81,10 +81,15 @@ func (b *Branch) CompletedBy() string {
 }
 
 func (b *Branch) setDetails(details BranchChange) {
-	b.setRemovalMessage(RemoveBranch{
-		ModelUUID: details.ModelUUID,
-		Id:        details.Id,
-	})
+	// If this is the first receipt of details, set the removal message.
+	if b.removalMessage == nil {
+		b.removalMessage = RemoveBranch{
+			ModelUUID: details.ModelUUID,
+			Id:        details.Id,
+		}
+	}
+
+	b.setStale(false)
 
 	b.details = details
 	b.hub.Publish(branchChange, b.copy())

@@ -160,10 +160,15 @@ func (m *Machine) containerRegexp() (*regexp.Regexp, error) {
 }
 
 func (m *Machine) setDetails(details MachineChange) {
-	m.setRemovalMessage(RemoveMachine{
-		ModelUUID: details.ModelUUID,
-		Id:        details.Id,
-	})
+	// If this is the first receipt of details, set the removal message.
+	if m.removalMessage == nil {
+		m.removalMessage = RemoveMachine{
+			ModelUUID: details.ModelUUID,
+			Id:        details.Id,
+		}
+	}
+
+	m.setStale(false)
 
 	provisioned := details.InstanceId != m.details.InstanceId
 	m.details = details

@@ -560,9 +560,14 @@ func (m *Model) removeBranch(ch RemoveBranch) error {
 func (m *Model) setDetails(details ModelChange) {
 	m.mu.Lock()
 
-	m.setRemovalMessage(RemoveModel{
-		ModelUUID: details.ModelUUID,
-	})
+	// If this is the first receipt of details, set the removal message.
+	if m.removalMessage == nil {
+		m.removalMessage = RemoveModel{
+			ModelUUID: details.ModelUUID,
+		}
+	}
+
+	m.setStale(false)
 	m.details = details
 
 	hashCache, configHash := newHashCache(details.Config, m.metrics.ModelHashCacheHit, m.metrics.ModelHashCacheMiss)

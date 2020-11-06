@@ -183,14 +183,17 @@ func (u *Unit) WatchConfigSettings() (*CharmConfigWatcher, error) {
 func (u *Unit) setDetails(details UnitChange) {
 	var newSubordinate bool
 
-	if u.setRemovalMessage(RemoveUnit{
-		ModelUUID: details.ModelUUID,
-		Name:      details.Name,
-	}) {
-		// First receipt of the details so we
-		// may have a new subordinate also.
+	// If this is the first receipt of details, set the removal message.
+	if u.removalMessage == nil {
+		u.removalMessage = RemoveUnit{
+			ModelUUID: details.ModelUUID,
+			Name:      details.Name,
+		}
+
 		newSubordinate = details.Subordinate
 	}
+
+	u.setStale(false)
 
 	landingOnMachine := u.details.MachineId != details.MachineId
 	u.details = details
