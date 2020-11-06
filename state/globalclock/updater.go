@@ -41,6 +41,9 @@ func NewUpdater(config UpdaterConfig) (*Updater, error) {
 // Updater provides a means of updating the global clock time.
 //
 // Updater is not goroutine-safe.
+// TODO (manadart 2020-11-03): This implementation is no longer used,
+// except by upgrade steps.
+// Remove it and the steps for Juju 3.0.
 type Updater struct {
 	config UpdaterConfig
 	time   time.Time
@@ -49,12 +52,12 @@ type Updater struct {
 // Advance adds the given duration to the global clock, ensuring
 // that the clock has not been updated concurrently.
 //
-// Advance will return ErrConcurrentUpdate if another updater
+// Advance will return ErrOutOfSyncUpdate if another updater
 // updates the clock concurrently. In this case, the updater
 // will refresh its view of the clock, and the caller can
 // attempt Advance later.
 //
-// If Advance returns any error other than ErrConcurrentUpdate,
+// If Advance returns any error other than ErrOutOfSyncUpdate,
 // the Updater should be considered invalid, and the caller
 // should obtain a new Updater. Failing to do so could lead
 // to non-monotonic time, since there is no way of knowing in
@@ -79,7 +82,7 @@ func (u *Updater) Advance(d time.Duration, _ <-chan struct{}) error {
 				return errors.Annotate(err, "refreshing time after write conflict")
 			}
 			u.time = t
-			return globalclock.ErrConcurrentUpdate
+			return globalclock.ErrOutOfSyncUpdate
 		}
 		return errors.Annotatef(err,
 			"adding %s to current time %s", d, u.time,

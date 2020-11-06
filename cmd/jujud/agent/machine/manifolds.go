@@ -103,10 +103,6 @@ const (
 	// global clock updates.
 	globalClockUpdaterUpdateInterval = 1 * time.Second
 
-	// globalClockUpdaterBackoffDelay is the amount of time to
-	// delay when a concurrent global clock update is detected.
-	globalClockUpdaterBackoffDelay = 10 * time.Second
-
 	// leaseRequestTopic is the pubsub topic that lease FSM updates
 	// will be published on.
 	leaseRequestTopic = "lease.request"
@@ -542,16 +538,17 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:            loggo.GetLogger("juju.worker.migrationminion"),
 		}),
 
-		// We run clock updaters for every controller machine to
-		// ensure the lease clock is updated monotonically and at a
-		// rate no faster than real time.
+		// We start clock updaters for every controller machine to ensure the
+		// lease clock is updated monotonically and at a rate no faster than
+		// real time.
+		// In practice, dependency on the Raft forwarder means that this worker
+		// will only ever be running on the Raft leader node.
 		leaseClockUpdaterName: globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
 			Clock:            config.Clock,
 			LeaseManagerName: leaseManagerName,
 			RaftName:         raftForwarderName,
 			NewWorker:        globalclockupdater.NewWorker,
 			UpdateInterval:   globalClockUpdaterUpdateInterval,
-			BackoffDelay:     globalClockUpdaterBackoffDelay,
 			Logger:           loggo.GetLogger("juju.worker.globalclockupdater.raft"),
 		}),
 

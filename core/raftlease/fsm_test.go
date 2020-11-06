@@ -223,7 +223,7 @@ func (s *fsmSuite) TestSetTime(c *gc.C) {
 		Operation: raftlease.OperationSetTime,
 		OldTime:   zero,
 		NewTime:   zero.Add(time.Second),
-	}).Error(), jc.Satisfies, globalclock.IsConcurrentUpdate)
+	}).Error(), jc.Satisfies, globalclock.IsOutOfSyncUpdate)
 }
 
 func (s *fsmSuite) TestSetTimeExpiresLeases(c *gc.C) {

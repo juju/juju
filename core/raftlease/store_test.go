@@ -786,7 +786,7 @@ func (s *storeSuite) TestAdvanceConcurrentUpdate(c *gc.C) {
 	s.handleHubRequest(c,
 		func() {
 			err := s.store.Advance(10*time.Second, nil)
-			c.Assert(err, jc.Satisfies, globalclock.IsConcurrentUpdate)
+			c.Assert(err, jc.Satisfies, globalclock.IsOutOfSyncUpdate)
 		},
 		raftlease.Command{
 			Version:   1,
@@ -799,7 +799,7 @@ func (s *storeSuite) TestAdvanceConcurrentUpdate(c *gc.C) {
 				req.ResponseTopic,
 				raftlease.ForwardResponse{
 					Error: &raftlease.ResponseError{
-						Code: "concurrent-update",
+						Code: "out-of-sync",
 					},
 				},
 			)
@@ -903,11 +903,11 @@ func (s *storeSuite) TestAsResponseError(c *gc.C) {
 		},
 	)
 	c.Assert(
-		raftlease.AsResponseError(globalclock.ErrConcurrentUpdate),
+		raftlease.AsResponseError(globalclock.ErrOutOfSyncUpdate),
 		gc.DeepEquals,
 		&raftlease.ResponseError{
-			Message: "clock was updated concurrently, retry",
-			Code:    "concurrent-update",
+			Message: "clock update attempt by out-of-sync caller, retry",
+			Code:    "out-of-sync",
 		},
 	)
 	c.Assert(
@@ -937,7 +937,7 @@ func (s *storeSuite) TestRecoverError(c *gc.C) {
 		})
 	}
 	c.Assert(re("", "invalid"), jc.Satisfies, lease.IsInvalid)
-	c.Assert(re("", "concurrent-update"), jc.Satisfies, globalclock.IsConcurrentUpdate)
+	c.Assert(re("", "out-of-sync"), jc.Satisfies, globalclock.IsOutOfSyncUpdate)
 	c.Assert(re("something", "else"), gc.ErrorMatches, "something")
 }
 
