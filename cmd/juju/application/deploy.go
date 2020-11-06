@@ -332,10 +332,11 @@ can optionally be specified:
 All the above deployments use remote charms found in the Charm Store (denoted
 by 'cs' prefix) and therefore also make use of "charm URLs".
 
-Specifying a channel source will use that as the source to look for the charm or
-bundle from the Charm Store. Using a channel with a bundle will refer to
-the bundle only, to override a charm source in a bundle requires setting
-channel per each required charm.
+If a channel is specified, it will be used as the source for looking up the
+charm or bundle from the Charm Store. When used in a bundle deployment context,
+the specified channel is only used for retrieving the bundle and is ignored when
+looking up the charms referenced by the bundle. However, each charm within a
+bundle is allowed to explicitly specify the channel used to look it up.
 
 A versioned charm URL will be expanded as expected. For example, 'mysql-56'
 becomes 'cs:bionic/mysql-56'.
