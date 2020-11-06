@@ -199,7 +199,19 @@ func (m *GenericScope) Clone() query.Scope {
 
 // ScopeContext defines a context for a given scope.
 type ScopeContext struct {
-	idents set.Strings
+	idents   set.Strings
+	children map[string]map[string]ScopeContext
+}
+
+func MakeScopeContext() ScopeContext {
+	return ScopeContext{
+		idents: set.NewStrings(),
+		children: map[string]map[string]ScopeContext{
+			"applications": make(map[string]ScopeContext),
+			"machines":     make(map[string]ScopeContext),
+			"units":        make(map[string]ScopeContext),
+		},
+	}
 }
 
 // RecordIdent records the witnessing of a ident.
@@ -210,4 +222,18 @@ func (c ScopeContext) RecordIdent(ident string) {
 // RecordedIdents returns the witnessed idents via a scoped context.
 func (c ScopeContext) RecordedIdents() []string {
 	return c.idents.SortedValues()
+}
+
+// SubScope creates a subscope of all idents for a given context.
+func (c ScopeContext) SubScope(entityName, name string) ScopeContext {
+	if child, ok := c.children[entityName][name]; ok {
+		return child
+	}
+	ctx := MakeScopeContext()
+	c.children[entityName][name] = ctx
+	return ctx
+}
+
+type LogContext interface {
+	Infof(string, ...interface{})
 }

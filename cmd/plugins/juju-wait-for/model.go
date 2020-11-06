@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
@@ -53,6 +52,7 @@ type modelCommand struct {
 	name    string
 	query   string
 	timeout time.Duration
+	summary bool
 	found   bool
 
 	// TODO (stickupkid): Generalize this to become a local cache, similar to
@@ -79,6 +79,7 @@ func (c *modelCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.waitForCommandBase.SetFlags(f)
 	f.StringVar(&c.query, "query", `life=="alive" && status=="available"`, "query the goal state")
 	f.DurationVar(&c.timeout, "timeout", time.Minute*10, "how long to wait, before timing out")
+	f.BoolVar(&c.summary, "summary", true, "output a summary of the application query on exit")
 }
 
 // Init implements Command.Init.
@@ -98,9 +99,23 @@ func (c *modelCommand) Init(args []string) (err error) {
 }
 
 func (c *modelCommand) Run(ctx *cmd.Context) error {
-	scopedContext := ScopeContext{
-		idents: set.NewStrings(),
-	}
+	scopedContext := MakeScopeContext()
+
+	defer func() {
+		if !c.summary {
+			return
+		}
+
+		switch c.model.Life {
+		case life.Dead:
+			ctx.Infof("Model %q has been removed", c.name)
+		case life.Dying:
+			ctx.Infof("Model %q is being removed", c.name)
+		default:
+			ctx.Infof("Model %q is running", c.name)
+			outputModelSummary(ctx, scopedContext, c)
+		}
+	}()
 
 	strategy := &Strategy{
 		ClientFn: c.newWatchAllAPIFunc,
@@ -204,14 +219,19 @@ func (m ModelScope) GetIdents() []string {
 func (m ModelScope) GetIdentValue(name string) (query.Box, error) {
 	switch name {
 	case "name":
+		m.ctx.RecordIdent(name)
 		return query.NewString(m.ModelInfo.Name), nil
 	case "life":
+		m.ctx.RecordIdent(name)
 		return query.NewString(string(m.ModelInfo.Life)), nil
 	case "is-controller":
+		m.ctx.RecordIdent(name)
 		return query.NewBool(m.ModelInfo.IsController), nil
 	case "status":
+		m.ctx.RecordIdent(name)
 		return query.NewString(string(m.ModelInfo.Status.Current)), nil
 	case "config":
+		m.ctx.RecordIdent(name)
 		return query.NewMapStringInterface(m.ModelInfo.Config), nil
 	case "applications":
 		scopes := make(map[string]query.Scope)
@@ -229,7 +249,7 @@ func (m ModelScope) GetIdentValue(name string) (query.Box, error) {
 			appInfo := app
 			appInfo.Status.Current = newStatus
 
-			scopes[k] = MakeApplicationScope(m.ctx, appInfo)
+			scopes[k] = MakeApplicationScope(m.ctx.SubScope(name, app.Name), appInfo)
 		}
 		return NewScopedBox(scopes), nil
 	case "machines":
@@ -286,6 +306,45 @@ func (o *ScopedBox) ForEach(fn func(interface{}) bool) {
 	for _, v := range o.scopes {
 		if !fn(v) {
 			return
+		}
+	}
+}
+
+func outputModelSummary(ctx LogContext, scopedContext ScopeContext, c *modelCommand) {
+	idents := scopedContext.RecordedIdents()
+	for _, ident := range idents {
+		scope := MakeModelScope(scopedContext, c)
+		box, err := scope.GetIdentValue(ident)
+		if err != nil {
+			continue
+		}
+		ctx.Infof("  - %s: %v", ident, box.Value())
+	}
+	for entity, scopes := range scopedContext.children {
+		if len(scopes) > 0 {
+			ctx.Infof("  %s:", entity)
+		}
+		for name, sctx := range scopes {
+			idents := sctx.RecordedIdents()
+
+			var scope query.Scope
+			switch entity {
+			case "applications":
+				appInfo := c.applications[name]
+				scope = MakeApplicationScope(scopedContext, appInfo)
+			}
+			if scope == nil {
+				continue
+			}
+
+			ctx.Infof("    %s:", name)
+			for _, ident := range idents {
+				box, err := scope.GetIdentValue(ident)
+				if err != nil {
+					continue
+				}
+				ctx.Infof("      - %s: %v", ident, box.Value())
+			}
 		}
 	}
 }

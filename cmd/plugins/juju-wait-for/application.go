@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
@@ -74,7 +73,7 @@ func (c *applicationCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.waitForCommandBase.SetFlags(f)
 	f.StringVar(&c.query, "query", `life=="alive" && status=="active"`, "query the goal state")
 	f.DurationVar(&c.timeout, "timeout", time.Minute*10, "how long to wait, before timing out")
-	f.BoolVar(&c.summary, "summary", true, "output a summary of the application query if successful")
+	f.BoolVar(&c.summary, "summary", true, "output a summary of the application query on exit")
 }
 
 // Init implements Command.Init.
@@ -94,9 +93,23 @@ func (c *applicationCommand) Init(args []string) (err error) {
 }
 
 func (c *applicationCommand) Run(ctx *cmd.Context) error {
-	scopedContext := ScopeContext{
-		idents: set.NewStrings(),
-	}
+	scopedContext := MakeScopeContext()
+
+	defer func() {
+		if !c.summary {
+			return
+		}
+
+		switch c.appInfo.Life {
+		case life.Dead:
+			ctx.Infof("Application %q has been removed", c.name)
+		case life.Dying:
+			ctx.Infof("Application %q is being removed", c.name)
+		default:
+			ctx.Infof("Application %q is running", c.name)
+			outputApplicationSummary(ctx, scopedContext, &c.appInfo, c.units)
+		}
+	}()
 
 	strategy := &Strategy{
 		ClientFn: c.newWatchAllAPIFunc,
@@ -109,40 +122,7 @@ func (c *applicationCommand) Run(ctx *cmd.Context) error {
 		}
 	})
 	err := strategy.Run(c.name, c.query, c.waitFor(scopedContext))
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if c.summary {
-		switch c.appInfo.Life {
-		case life.Dead:
-			ctx.Infof("%s has been removed", c.name)
-		case life.Dying:
-			ctx.Infof("%s is being removed", c.name)
-		default:
-			ctx.Infof("%s is running", c.name)
-
-			idents := scopedContext.RecordedIdents()
-			for _, ident := range idents {
-				// We have to special case status here because of the issue that
-				// unset propagates through and we have to read it via the unit
-				// information.
-				if ident == "status" {
-					currentStatus := c.appInfo.Status.Current
-					currentStatus = deriveApplicationStatus(currentStatus, c.units)
-					ctx.Infof("  - %s: %v", ident, currentStatus)
-					continue
-				}
-
-				scope := MakeApplicationScope(scopedContext, &c.appInfo)
-				box, err := scope.GetIdentValue(ident)
-				if err != nil {
-					continue
-				}
-				ctx.Infof("  - %s: %v", ident, box.Value())
-			}
-		}
-	}
-	return nil
+	return errors.Trace(err)
 }
 
 func (c *applicationCommand) primeCache() {
@@ -270,4 +250,26 @@ func deriveApplicationStatus(currentStatus status.Status, units map[string]*para
 
 	derived := status.DeriveStatus(statuses)
 	return derived.Status
+}
+
+func outputApplicationSummary(ctx LogContext, scopedContext ScopeContext, appInfo *params.ApplicationInfo, units map[string]*params.UnitInfo) {
+	idents := scopedContext.RecordedIdents()
+	for _, ident := range idents {
+		// We have to special case status here because of the issue that
+		// unset propagates through and we have to read it via the unit
+		// information.
+		if ident == "status" {
+			currentStatus := appInfo.Status.Current
+			currentStatus = deriveApplicationStatus(currentStatus, units)
+			ctx.Infof("  - %s: %v", ident, currentStatus)
+			continue
+		}
+
+		scope := MakeApplicationScope(scopedContext, appInfo)
+		box, err := scope.GetIdentValue(ident)
+		if err != nil {
+			continue
+		}
+		ctx.Infof("  - %s: %v", ident, box.Value())
+	}
 }
