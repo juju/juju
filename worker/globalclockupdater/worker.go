@@ -17,6 +17,7 @@ import (
 // Logger defines the methods we use from loggo.Logger.
 type Logger interface {
 	Tracef(string, ...interface{})
+	Infof(string, ...interface{})
 	Warningf(string, ...interface{})
 }
 
@@ -103,10 +104,14 @@ func (w *updaterWorker) loop() error {
 			// we initially read or last updated the clock.
 			now := w.config.LocalClock.Now()
 			amount := now.Sub(last)
-			err := w.updater.Advance(amount, w.tomb.Dying())
-			if err != nil {
-				if globalclock.IsTimeout(err) {
-					w.config.Logger.Warningf("timed out updating clock, retrying in %s", interval)
+
+			if err := w.updater.Advance(amount, w.tomb.Dying()); err != nil {
+				// If the error is known and retryable, just keep attempting to
+				// tick the clock.
+				// The specific error is already logged at warning level by
+				// the lease store.
+				if globalclock.IsTimeout(err) || globalclock.IsOutOfSyncUpdate(err) {
+					w.config.Logger.Infof("retrying lease clock update in %s", interval)
 					timer.Reset(interval)
 					continue
 				}
@@ -115,11 +120,11 @@ func (w *updaterWorker) loop() error {
 				case <-w.tomb.Dying():
 					return tomb.ErrDying
 				default:
-					return errors.Annotate(err, "updating global clock")
+					return errors.Annotate(err, "updating lease clock")
 				}
 			}
 
-			w.config.Logger.Tracef("incremented global time by %s", interval)
+			w.config.Logger.Tracef("incremented lease clock by %s", interval)
 			last = w.config.LocalClock.Now()
 			timer.Reset(interval)
 		}

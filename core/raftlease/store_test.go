@@ -786,7 +786,7 @@ func (s *storeSuite) TestAdvanceConcurrentUpdate(c *gc.C) {
 	s.handleHubRequest(c,
 		func() {
 			err := s.store.Advance(10*time.Second, nil)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, jc.Satisfies, globalclock.IsOutOfSyncUpdate)
 		},
 		raftlease.Command{
 			Version:   1,

@@ -124,8 +124,34 @@ func (s *WorkerSuite) TestWorkerHandlesTimeout(c *gc.C) {
 		c.Fatal("timed out waiting for update")
 	}
 
-	// The worker should try again next time, adding the total missed
-	// time.
+	// The worker should try again next time,
+	// adding the total missed time.
+	waitAdvance(c, s.localClock, time.Second)
+	select {
+	case d := <-s.updater.added:
+		c.Assert(d, gc.Equals, 2*time.Second)
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for update")
+	}
+}
+
+func (s *WorkerSuite) TestWorkerHandlesOutOfSync(c *gc.C) {
+	worker, err := globalclockupdater.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, worker)
+
+	s.updater.SetErrors(errors.Annotate(globalclock.ErrOutOfSyncUpdate, "some context"))
+
+	waitAdvance(c, s.localClock, time.Second)
+	select {
+	case d := <-s.updater.added:
+		c.Assert(d, gc.Equals, time.Second)
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for update")
+	}
+
+	// The worker should try again next time,
+	// adding the total missed time.
 	waitAdvance(c, s.localClock, time.Second)
 	select {
 	case d := <-s.updater.added:
@@ -144,7 +170,7 @@ func (s *WorkerSuite) TestWorkerUpdateErrorStopsWorker(c *gc.C) {
 	s.updater.SetErrors(errors.New("burp"))
 	waitAdvance(c, s.localClock, time.Second)
 	err = workertest.CheckKilled(c, worker)
-	c.Assert(err, gc.ErrorMatches, "updating global clock: burp")
+	c.Assert(err, gc.ErrorMatches, "updating lease clock: burp")
 }
 
 type stubUpdater struct {
