@@ -674,6 +674,49 @@ func (s *localServerSuite) TestStartInstanceNetworksDifferentAZ(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *localServerSuite) TestStartInstanceNetworksEmptyAZ(c *gc.C) {
+	// Modify the Openstack service that is created by default,
+	// to clear the networks.
+	model := neutronmodel.New()
+	for _, net := range model.AllNetworks() {
+		_ = model.RemoveNetwork(net.Id)
+	}
+
+	// Add 2 networks to the Openstack service, one private,
+	// one external without availability zones.  LP: 1891227.
+	err := model.AddNetwork(neutron.NetworkV2{
+		Id:        "1",
+		Name:      "no-az-net",
+		SubnetIds: []string{"sub-net"},
+		External:  false,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.AddNetwork(neutron.NetworkV2{
+		Id:        "2",
+		Name:      "ext-no-az-net",
+		SubnetIds: []string{"ext-sub-net"},
+		External:  true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.srv.OpenstackSvc.Neutron.AddNeutronModel(model)
+	s.srv.OpenstackSvc.Nova.AddNeutronModel(model)
+
+	// Set floating ip to ensure we try to find the external
+	// network.
+	cfg, err := s.env.Config().Apply(coretesting.Attrs{
+		"network":         "no-az-net", // az = nova
+		"use-floating-ip": true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.StopInstances(s.callCtx, inst.Id())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *localServerSuite) TestStartInstanceNetworkNoExternalNetInAZ(c *gc.C) {
 	cfg, err := s.env.Config().Apply(coretesting.Attrs{
 		"network":         "net", // az = nova
