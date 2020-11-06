@@ -153,16 +153,15 @@ func (m *residentManager) evictions() ([]uint64, map[uint64]interface{}) {
 	var removalIds []uint64
 	removalMessages := make(map[uint64]interface{})
 	for id, r := range m.residents {
-		r.mu.Lock()
-		if r.stale {
+		if r.isStale() {
 			if r.removalMessage == nil {
 				logger.Warningf("cache resident %d has no removal message; skipping eviction", id)
-			} else {
-				removalIds = append(removalIds, id)
-				removalMessages[id] = r.removalMessage
+				continue
 			}
+
+			removalIds = append(removalIds, id)
+			removalMessages[id] = r.removalMessage
 		}
-		r.mu.Unlock()
 	}
 	sort.Sort(uint64Reverse(removalIds))
 
@@ -277,23 +276,16 @@ func (r *Resident) deregisterWorker(id uint64) {
 	r.mu.Unlock()
 }
 
+func (r *Resident) isStale() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.stale
+}
+
 func (r *Resident) setStale(stale bool) {
 	r.mu.Lock()
 	r.stale = stale
 	r.mu.Unlock()
-}
-
-func (r *Resident) setRemovalMessage(msg interface{}) bool {
-	// If this is the first receipt of details, set the removal message.
-	r.mu.Lock()
-	wasNil := false
-	if r.removalMessage == nil {
-		r.removalMessage = msg
-		wasNil = true
-	}
-	r.stale = false
-	r.mu.Unlock()
-	return wasNil
 }
 
 // unint64Reverse facilitates sorting of a slice in *descending* order.
