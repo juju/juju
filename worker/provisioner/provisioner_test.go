@@ -1534,12 +1534,13 @@ func assertAvailabilityZoneMachines(c *gc.C,
 }
 
 // assertAvailabilityZoneMachinesDistribution checks to see if the
-// machines have been distributed over the zones.  This check method
-// works where there are no machine errors in the test case.
+// machines have been distributed over the zones (with a maximum delta
+// between the max and min number of machines of maxDelta). This check
+// method works where there are no machine errors in the test case.
 //
 // Which machine it will be in which zone is dependent on the order in
 // which they are provisioned, therefore almost impossible to predict.
-func assertAvailabilityZoneMachinesDistribution(c *gc.C, obtained []provisioner.AvailabilityZoneMachine) {
+func assertAvailabilityZoneMachinesDistribution(c *gc.C, obtained []provisioner.AvailabilityZoneMachine, maxDelta int) {
 	// Are the machines evenly distributed?  No zone should have
 	// 2 machines more than any other zone.
 	min, max := 1, 0
@@ -1552,10 +1553,10 @@ func assertAvailabilityZoneMachinesDistribution(c *gc.C, obtained []provisioner.
 			max = count
 		}
 	}
-	c.Assert(max-min, jc.LessThan, 2)
+	c.Assert(max-min, jc.LessThan, maxDelta+1)
 }
 
-// assertAvailabilityZoneMachinesDistribution checks to see if
+// checkAvailabilityZoneMachinesDistributionGroups checks to see if
 // the distribution groups have been honored.
 func checkAvailabilityZoneMachinesDistributionGroups(c *gc.C, groups map[names.MachineTag][]string, obtained []provisioner.AvailabilityZoneMachine) error {
 	// The set containing the machines in a distribution group and the
@@ -1601,7 +1602,7 @@ func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStartMachines(c *gc.C) {
 
 	availabilityZoneMachines := provisioner.GetCopyAvailabilityZoneMachines(task)
 	assertAvailabilityZoneMachines(c, machines, nil, availabilityZoneMachines)
-	assertAvailabilityZoneMachinesDistribution(c, availabilityZoneMachines)
+	assertAvailabilityZoneMachinesDistribution(c, availabilityZoneMachines, 1)
 }
 
 func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStartMachinesAZFailures(c *gc.C) {
@@ -1625,7 +1626,13 @@ func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStartMachinesAZFailures(c
 
 	availabilityZoneMachines := provisioner.GetCopyAvailabilityZoneMachines(task)
 	assertAvailabilityZoneMachines(c, machines, nil, availabilityZoneMachines)
-	assertAvailabilityZoneMachinesDistribution(c, availabilityZoneMachines)
+
+	// The reason maxDelta is 2 here is because in certain failure cases this
+	// may start two machines on each of two zones, and none on the other (if
+	// the failing machine is started second or third, and the subsequent
+	// machines are started before markMachineFailedInAZ() is called). See
+	// https://github.com/juju/juju/pull/12267 for more detail.
+	assertAvailabilityZoneMachinesDistribution(c, availabilityZoneMachines, 2)
 }
 
 func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStartMachinesWithDG(c *gc.C) {
@@ -1720,7 +1727,7 @@ func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStopMachines(c *gc.C) {
 
 	availabilityZoneMachines := provisioner.GetCopyAvailabilityZoneMachines(task)
 	assertAvailabilityZoneMachines(c, machines, nil, availabilityZoneMachines)
-	assertAvailabilityZoneMachinesDistribution(c, availabilityZoneMachines)
+	assertAvailabilityZoneMachinesDistribution(c, availabilityZoneMachines, 1)
 
 	c.Assert(machines[0].EnsureDead(), gc.IsNil)
 	s.waitForRemovalMark(c, machines[0])
@@ -1750,7 +1757,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesFailMachine(c *gc.C) {
 
 	availabilityZoneMachines := provisioner.GetCopyAvailabilityZoneMachines(task)
 	assertAvailabilityZoneMachines(c, machines, nil, availabilityZoneMachines)
-	assertAvailabilityZoneMachinesDistribution(c, availabilityZoneMachines)
+	assertAvailabilityZoneMachinesDistribution(c, availabilityZoneMachines, 1)
 }
 
 func (s *ProvisionerSuite) TestAvailabilityZoneMachinesRestartTask(c *gc.C) {
@@ -1764,7 +1771,7 @@ func (s *ProvisionerSuite) TestAvailabilityZoneMachinesRestartTask(c *gc.C) {
 
 	availabilityZoneMachinesBefore := provisioner.GetCopyAvailabilityZoneMachines(task)
 	assertAvailabilityZoneMachines(c, machines, nil, availabilityZoneMachinesBefore)
-	assertAvailabilityZoneMachinesDistribution(c, availabilityZoneMachinesBefore)
+	assertAvailabilityZoneMachinesDistribution(c, availabilityZoneMachinesBefore, 1)
 
 	workertest.CleanKill(c, task)
 	newTask := s.newProvisionerTask(c, config.HarvestDestroyed, s.Environ, s.provisioner, &mockDistributionGroupFinder{}, mockToolsFinder{})
