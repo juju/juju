@@ -141,7 +141,7 @@ replace github.com/altoros/gosigma => github.com/juju/gosigma v0.0.0-20200420012
 
 replace gopkg.in/natefinch/lumberjack.v2 => github.com/juju/lumberjack v2.0.0-20200420012306-ddfd864a6ade+incompatible
 
-replace gopkg.in/mgo.v2 => github.com/juju/mgo v2.0.0-20201105041946-086e3ddaf23c+incompatible
+replace gopkg.in/mgo.v2 => github.com/juju/mgo v2.0.0-20201106044211-d9585b0b0d28+incompatible
 
 replace github.com/hashicorp/raft => github.com/juju/raft v2.0.0-20200420012049-88ad3b3f0a54+incompatible
 
