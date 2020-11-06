@@ -511,12 +511,12 @@ def deploy_job():
     if not args.logs:
         args.logs = generate_default_clean_dir(args.temp_env_name)
     if series is None:
-        series = 'precise'
+        series = 'bionic'
     charm_series = series
     # Don't need windows or centos state servers.
     if series.startswith("win") or series.startswith("centos"):
-        logging.info('Setting default series to trusty for win and centos.')
-        series = 'trusty'
+        logging.info('Setting default series to bionic for win and centos.')
+        series = 'bionic'
     return _deploy_job(args, charm_series, series)
 
 

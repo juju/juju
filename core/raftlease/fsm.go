@@ -200,7 +200,7 @@ func (f *FSM) unpin(key lease.Key, entity string) *response {
 
 func (f *FSM) setTime(oldTime, newTime time.Time) *response {
 	if f.globalTime != oldTime {
-		return &response{err: globalclock.ErrConcurrentUpdate}
+		return &response{err: globalclock.ErrOutOfSyncUpdate}
 	}
 	f.globalTime = newTime
 	return &response{expired: f.removeExpired(newTime)}
