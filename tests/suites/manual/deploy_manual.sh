@@ -10,20 +10,16 @@ test_deploy_manual() {
         cd .. || exit
 
         case "${BOOTSTRAP_PROVIDER:-}" in
-            "lxd")
+            "lxd" | "localhost")
                 export BOOTSTRAP_PROVIDER="manual"
                 run "run_deploy_manual_lxd"
                 ;;
-            "localhost")
-                export BOOTSTRAP_PROVIDER="manual"
-                run "run_deploy_manual_lxd"
-                ;;
-            "aws")
+            "aws" | "ec2")
                 export BOOTSTRAP_PROVIDER="manual"
                 run "run_deploy_manual_aws"
                 ;;
             *)
-                echo "==> TEST SKIPPED: deploy manual - tests for LXD and AWS"
+                echo "==> TEST SKIPPED: deploy manual - tests for LXD and AWS only"
                 ;;
         esac
     )
