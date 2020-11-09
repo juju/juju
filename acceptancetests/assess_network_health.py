@@ -140,7 +140,9 @@ class AssessNetworkHealth:
             self.existing_series.add(info['series'])
         for series in self.existing_series:
             try:
-                client.deploy('~juju-qa/network-health', series=series,
+                # TODO: The latest network-health charm (11 onwards) is broken;
+                # it doesn't properly install charmhelpers.
+                client.deploy('~juju-qa/network-health-10', series=series,
                               alias='network-health-{}'.format(series))
 
             except subprocess.CalledProcessError:
@@ -384,7 +386,9 @@ class AssessNetworkHealth:
         for app, info in apps.items():
             if 'network-health' not in app:
                 alias = 'network-health-{}'.format(app)
-                client.deploy('~juju-qa/network-health', alias=alias,
+                # The latest network-health charm (11 onwards) is broken;
+                # it doesn't properly install charmhelpers.
+                client.deploy('~juju-qa/network-health-10', alias=alias,
                               series=info['series'])
                 try:
                     client.juju('add-relation', (app, alias))
