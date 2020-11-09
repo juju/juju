@@ -10,9 +10,9 @@ import (
 )
 
 var (
-	// ErrConcurrentUpdate is returned by Updater.Advance when the
+	// ErrOutOfSyncUpdate is returned by Updater.Advance when the
 	// clock value has been changed since the last read.
-	ErrConcurrentUpdate = errors.New("clock was updated concurrently, retry")
+	ErrOutOfSyncUpdate = errors.New("clock update attempt by out-of-sync caller, retry")
 
 	// ErrTimeout is returned by Updater.Advance if the attempt to
 	// update the global clock timed out - in that case the advance
@@ -25,23 +25,23 @@ type Updater interface {
 	// Advance adds the given duration to the global clock, ensuring
 	// that the clock has not been updated concurrently.
 	//
-	// Advance will return ErrConcurrentUpdate if another updater
-	// updates the clock concurrently. In this case, the updater
-	// will refresh its view of the clock, and the caller can
-	// attempt Advance later.
+	// Advance will return ErrOutOfSyncUpdate an attempt is made to advance the
+	// clock from a last known time not equal to the authoritative global time.
+	// In this case, the updater will refresh its view of the clock,
+	// and the caller can attempt Advance later.
 	//
-	// If Advance returns any error other than ErrConcurrentUpdate or
+	// If Advance returns any error other than ErrOutOfSyncUpdate or
 	// ErrTimeout the Updater should be considered invalid, and the
 	// caller should obtain a new Updater. Failing to do so could lead
 	// to non-monotonic time, since there is no way of knowing in
-	// general whether or not the database was updated.
+	// general whether or not the clock was updated.
 	Advance(d time.Duration, stop <-chan struct{}) error
 }
 
-// IsConcurrentUpdate returns whether the specified error represents
-// ErrConcurrentUpdate (even if it's wrapped).
-func IsConcurrentUpdate(err error) bool {
-	return errors.Cause(err) == ErrConcurrentUpdate
+// IsOutOfSyncUpdate returns whether the specified error represents
+// ErrOutOfSyncUpdate (even if it's wrapped).
+func IsOutOfSyncUpdate(err error) bool {
+	return errors.Cause(err) == ErrOutOfSyncUpdate
 }
 
 // IsTimeout returns whether the specified error represents ErrTimeout

@@ -17,6 +17,7 @@ import (
 // Logger defines the methods we use from loggo.Logger.
 type Logger interface {
 	Tracef(string, ...interface{})
+	Infof(string, ...interface{})
 	Warningf(string, ...interface{})
 }
 
@@ -32,10 +33,6 @@ type Config struct {
 	// UpdateInterval is the amount of time in between clock updates.
 	UpdateInterval time.Duration
 
-	// BackoffDelay is the amount of time to delay before attempting
-	// another update when a concurrent write is detected.
-	BackoffDelay time.Duration
-
 	// Logger determines where we write log messages.
 	Logger Logger
 }
@@ -50,9 +47,6 @@ func (config Config) Validate() error {
 	}
 	if config.UpdateInterval <= 0 {
 		return errors.NotValidf("non-positive UpdateInterval")
-	}
-	if config.BackoffDelay <= 0 {
-		return errors.NotValidf("non-positive BackoffDelay")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -96,7 +90,6 @@ func (w *updaterWorker) Wait() error {
 
 func (w *updaterWorker) loop() error {
 	interval := w.config.UpdateInterval
-	backoff := w.config.BackoffDelay
 
 	last := w.config.LocalClock.Now()
 	timer := w.config.LocalClock.NewTimer(interval)
@@ -107,30 +100,31 @@ func (w *updaterWorker) loop() error {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-timer.Chan():
-			// Increment the global time by the amount of time
-			// since the moment after we initially read or last
-			// updated the clock.
+			// Increment the global time by the duration since
+			// we initially read or last updated the clock.
 			now := w.config.LocalClock.Now()
 			amount := now.Sub(last)
-			err := w.updater.Advance(amount, w.tomb.Dying())
-			if globalclock.IsConcurrentUpdate(err) {
-				w.config.Logger.Tracef("concurrent update, backing off for %s", backoff)
-				last = w.config.LocalClock.Now()
-				timer.Reset(backoff)
-				continue
-			} else if globalclock.IsTimeout(err) {
-				w.config.Logger.Warningf("timed out updating clock, retrying in %s", interval)
-				timer.Reset(interval)
-				continue
-			} else if err != nil {
+
+			if err := w.updater.Advance(amount, w.tomb.Dying()); err != nil {
+				// If the error is known and retryable, just keep attempting to
+				// tick the clock.
+				// The specific error is already logged at warning level by
+				// the lease store.
+				if globalclock.IsTimeout(err) || globalclock.IsOutOfSyncUpdate(err) {
+					w.config.Logger.Infof("retrying lease clock update in %s", interval)
+					timer.Reset(interval)
+					continue
+				}
+
 				select {
 				case <-w.tomb.Dying():
 					return tomb.ErrDying
 				default:
-					return errors.Annotate(err, "updating global clock")
+					return errors.Annotate(err, "updating lease clock")
 				}
 			}
-			w.config.Logger.Tracef("incremented global time by %s", interval)
+
+			w.config.Logger.Tracef("incremented lease clock by %s", interval)
 			last = w.config.LocalClock.Now()
 			timer.Reset(interval)
 		}
