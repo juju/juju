@@ -186,40 +186,51 @@ func (n *NeutronNetworking) getExternalNetworkIDs() ([]string, error) {
 		}
 	}
 
-	if len(extNetworkIds) == 0 {
-		// Create slice of network.Ids for external networks in the same AZ as
-		// the instance's network, to find an existing floating ip in, or allocate
-		// a new floating ip from.
-		configNetwork := n.env.ecfg().network()
-		netId, err := resolveNeutronNetwork(neutronClient, configNetwork, false)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		netDetails, err := neutronClient.GetNetworkV2(netId)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+	// We have an external network ID, no need to search.
+	if len(extNetworkIds) > 0 {
+		return extNetworkIds, nil
+	}
 
-		availabilityZones := netDetails.AvailabilityZones
-		if len(availabilityZones) == 0 {
-			// No availability zones is valid, check for empty string
-			// to ensure we still find the external network with no
-			// AZ specified.  lp: 1891227
-			availabilityZones = []string{""}
-		}
-		for _, az := range availabilityZones {
-			extNetIds, _ := getExternalNeutronNetworksByAZ(n.env, az)
-			if len(extNetIds) > 0 {
-				extNetworkIds = append(extNetworkIds, extNetIds...)
-			}
-		}
+	// Create slice of network.Ids for external networks in the same AZ as
+	// the instance's network, to find an existing floating ip in, or allocate
+	// a new floating ip from.
+	configNetwork := n.env.ecfg().network()
+	netId, err := resolveNeutronNetwork(neutronClient, configNetwork, false)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	netDetails, err := neutronClient.GetNetworkV2(netId)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
-		if len(extNetworkIds) == 0 {
-			return nil, errors.NotFoundf(
-				"could not find an external network in availability zone %s", netDetails.AvailabilityZones)
+	availabilityZones := netDetails.AvailabilityZones
+	if len(availabilityZones) == 0 {
+		// No availability zones is valid, check for empty string
+		// to ensure we still find the external network with no
+		// AZ specified.  lp: 1891227
+		availabilityZones = []string{""}
+	}
+	for _, az := range availabilityZones {
+		extNetIds, _ := getExternalNeutronNetworksByAZ(n.env, az)
+		if len(extNetIds) > 0 {
+			extNetworkIds = append(extNetworkIds, extNetIds...)
 		}
 	}
-	return extNetworkIds, nil
+
+	// We have an external network ID, no need for specific error message.
+	if len(extNetworkIds) > 0 {
+		return extNetworkIds, nil
+	}
+
+	var returnErr error
+	if len(netDetails.AvailabilityZones) == 0 {
+		returnErr = errors.NotFoundf("could not find an external network, network availability zones not in use")
+	} else {
+		returnErr = errors.NotFoundf(
+			"could not find an external network in availability zone(s) %s", netDetails.AvailabilityZones)
+	}
+	return nil, returnErr
 }
 
 // getExternalNeutronNetworksByAZ returns all external networks within the
