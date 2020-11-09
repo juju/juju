@@ -4,12 +4,14 @@
 package main
 
 import (
+	"io"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
@@ -113,7 +115,7 @@ func (c *modelCommand) Run(ctx *cmd.Context) error {
 			ctx.Infof("Model %q is being removed", c.name)
 		default:
 			ctx.Infof("Model %q is running", c.name)
-			outputModelSummary(ctx, scopedContext, c)
+			outputModelSummary(ctx.Stdout, scopedContext, c)
 		}
 	}()
 
@@ -255,7 +257,7 @@ func (m ModelScope) GetIdentValue(name string) (query.Box, error) {
 	case "machines":
 		scopes := make(map[string]query.Scope)
 		for k, machine := range m.Model.machines {
-			scopes[k] = MakeMachineScope(machine)
+			scopes[k] = MakeMachineScope(m.ctx.SubScope(name, machine.Id), machine)
 		}
 		return NewScopedBox(scopes), nil
 	case "units":
@@ -310,7 +312,17 @@ func (o *ScopedBox) ForEach(fn func(interface{}) bool) {
 	}
 }
 
-func outputModelSummary(ctx LogContext, scopedContext ScopeContext, c *modelCommand) {
+func outputModelSummary(writer io.Writer, scopedContext ScopeContext, c *modelCommand) {
+	result := struct {
+		Elements     map[string]interface{}            `yaml:"properties"`
+		Applications map[string]map[string]interface{} `yaml:"applications,omitempty"`
+		Machines     map[string]map[string]interface{} `yaml:"machines,omitempty"`
+	}{
+		Elements:     make(map[string]interface{}),
+		Applications: make(map[string]map[string]interface{}),
+		Machines:     make(map[string]map[string]interface{}),
+	}
+
 	idents := scopedContext.RecordedIdents()
 	for _, ident := range idents {
 		scope := MakeModelScope(scopedContext, c)
@@ -318,12 +330,9 @@ func outputModelSummary(ctx LogContext, scopedContext ScopeContext, c *modelComm
 		if err != nil {
 			continue
 		}
-		ctx.Infof("  - %s: %v", ident, box.Value())
+		result.Elements[ident] = box.Value()
 	}
 	for entity, scopes := range scopedContext.children {
-		if len(scopes) > 0 {
-			ctx.Infof("  %s:", entity)
-		}
 		for name, sctx := range scopes {
 			idents := sctx.RecordedIdents()
 
@@ -332,19 +341,40 @@ func outputModelSummary(ctx LogContext, scopedContext ScopeContext, c *modelComm
 			case "applications":
 				appInfo := c.applications[name]
 				scope = MakeApplicationScope(scopedContext, appInfo)
-			}
-			if scope == nil {
-				continue
-			}
 
-			ctx.Infof("    %s:", name)
-			for _, ident := range idents {
-				box, err := scope.GetIdentValue(ident)
-				if err != nil {
+				if scope == nil {
 					continue
 				}
-				ctx.Infof("      - %s: %v", ident, box.Value())
+
+				result.Applications[name] = make(map[string]interface{})
+
+				for _, ident := range idents {
+					box, err := scope.GetIdentValue(ident)
+					if err != nil {
+						continue
+					}
+					result.Applications[name][ident] = box.Value()
+				}
+			case "machines":
+				machineInfo := c.machines[name]
+				scope = MakeMachineScope(scopedContext, machineInfo)
+
+				if scope == nil {
+					continue
+				}
+
+				result.Machines[name] = make(map[string]interface{})
+
+				for _, ident := range idents {
+					box, err := scope.GetIdentValue(ident)
+					if err != nil {
+						continue
+					}
+					result.Machines[name][ident] = box.Value()
+				}
 			}
 		}
 	}
+
+	_ = yaml.NewEncoder(writer).Encode(result)
 }

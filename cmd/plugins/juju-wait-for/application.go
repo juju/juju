@@ -4,12 +4,14 @@
 package main
 
 import (
+	"io"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
@@ -107,7 +109,7 @@ func (c *applicationCommand) Run(ctx *cmd.Context) error {
 			ctx.Infof("Application %q is being removed", c.name)
 		default:
 			ctx.Infof("Application %q is running", c.name)
-			outputApplicationSummary(ctx, scopedContext, &c.appInfo, c.units)
+			outputApplicationSummary(ctx.Stdout, scopedContext, &c.appInfo, c.units)
 		}
 	}()
 
@@ -252,7 +254,13 @@ func deriveApplicationStatus(currentStatus status.Status, units map[string]*para
 	return derived.Status
 }
 
-func outputApplicationSummary(ctx LogContext, scopedContext ScopeContext, appInfo *params.ApplicationInfo, units map[string]*params.UnitInfo) {
+func outputApplicationSummary(writer io.Writer, scopedContext ScopeContext, appInfo *params.ApplicationInfo, units map[string]*params.UnitInfo) {
+	result := struct {
+		Elements map[string]interface{} `yaml:"properties"`
+	}{
+		Elements: make(map[string]interface{}),
+	}
+
 	idents := scopedContext.RecordedIdents()
 	for _, ident := range idents {
 		// We have to special case status here because of the issue that
@@ -261,7 +269,7 @@ func outputApplicationSummary(ctx LogContext, scopedContext ScopeContext, appInf
 		if ident == "status" {
 			currentStatus := appInfo.Status.Current
 			currentStatus = deriveApplicationStatus(currentStatus, units)
-			ctx.Infof("  - %s: %v", ident, currentStatus)
+			result.Elements[ident] = currentStatus.String()
 			continue
 		}
 
@@ -270,6 +278,8 @@ func outputApplicationSummary(ctx LogContext, scopedContext ScopeContext, appInf
 		if err != nil {
 			continue
 		}
-		ctx.Infof("  - %s: %v", ident, box.Value())
+		result.Elements[ident] = box.Value()
 	}
+
+	_ = yaml.NewEncoder(writer).Encode(result)
 }
