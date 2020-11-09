@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/worker/caasoperatorprovisioner"
 	"github.com/juju/juju/worker/caasunitprovisioner"
 	"github.com/juju/juju/worker/charmrevision"
-	"github.com/juju/juju/worker/charmrevision/charmrevisionmanifold"
 	"github.com/juju/juju/worker/cleaner"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/credentialvalidator"
@@ -262,14 +261,14 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// that it happens sometimes, even when we try to avoid
 		// it.
 
-		charmRevisionUpdaterName: ifNotMigrating(charmrevisionmanifold.Manifold(charmrevisionmanifold.ManifoldConfig{
+		charmRevisionUpdaterName: ifNotMigrating(charmrevision.Manifold(charmrevision.ManifoldConfig{
 			APICallerName: apiCallerName,
 			Clock:         config.Clock,
 			Period:        config.CharmRevisionUpdateInterval,
 
-			NewFacade: charmrevisionmanifold.NewAPIFacade,
+			NewFacade: charmrevision.NewAPIFacade,
 			NewWorker: charmrevision.NewWorker,
-			// No Logger defined in charmrevision or charmrevisionmanifold package.
+			// No Logger defined in the charmrevision package.
 		})),
 		remoteRelationsName: ifNotMigrating(remoterelations.Manifold(remoterelations.ManifoldConfig{
 			AgentName:                agentName,

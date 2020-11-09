@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package charmrevisionmanifold
+package charmrevision
 
 import (
 	"time"
@@ -13,12 +13,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charmrevisionupdater"
-	"github.com/juju/juju/worker/charmrevision"
 )
-
-// logger is here to stop the desire of creating a package level logger.
-// Don't do this, instead pass one passed as manifold config.
-var logger interface{}
 
 // ManifoldConfig describes how to create a worker that checks for updates
 // available to deployed charms in an environment.
@@ -34,7 +29,7 @@ type ManifoldConfig struct {
 	// NewAPIFacade, are suitable implementations for most clients.
 	Period    time.Duration
 	NewFacade func(base.APICaller) (Facade, error)
-	NewWorker func(charmrevision.Config) (worker.Worker, error)
+	NewWorker func(Config) (worker.Worker, error)
 }
 
 // Manifold returns a dependency.Manifold that runs a charm revision worker
@@ -57,7 +52,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Annotatef(err, "cannot create facade")
 			}
 
-			worker, err := config.NewWorker(charmrevision.Config{
+			worker, err := config.NewWorker(Config{
 				RevisionUpdater: facade,
 				Clock:           config.Clock,
 				Period:          config.Period,
@@ -77,5 +72,5 @@ func NewAPIFacade(apiCaller base.APICaller) (Facade, error) {
 
 // Facade has all the controller methods used by the charm revision worker.
 type Facade interface {
-	charmrevision.RevisionUpdater
+	RevisionUpdater
 }
