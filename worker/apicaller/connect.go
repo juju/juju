@@ -13,22 +13,10 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent"
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 )
 
 var (
-	// checkProvisionedStrategy defines the evil uninterruptible
-	// retry strategy for "handling" ErrNotProvisioned. It exists
-	// in the name of stability; as the code evolves, it would be
-	// great to see its function moved up a level or two.
-	//
-	// TODO(katco): 2016-08-09: lp:1611427
-	checkProvisionedStrategy = utils.AttemptStrategy{
-		Total: 10 * time.Minute,
-		Delay: 5 * time.Second,
-	}
-
 	// newConnFacade should similarly move up a level so it can
 	// be explicitly configured without export_test hackery
 	newConnFacade = apiagent.NewConnFacade
@@ -60,95 +48,16 @@ func OnlyConnect(a agent.Agent, apiOpen api.OpenFunc, logger Logger) (api.Connec
 }
 
 // connectFallback opens an API connection using the supplied info,
-// or a copy using the fallbackPassword; blocks for up to 5 minutes
-// if it encounters a CodeNotProvisioned error, periodically retrying;
-// and eventually, having either succeeded, failed, or timed out, returns:
+// or a copy using the fallbackPassword returns:
 //
 //   * (if successful) the connection, and whether the fallback was used
 //   * (otherwise) whatever error it most recently encountered
 //
-// It's clear that it still has machine-agent concerns still baked in,
-// but there's no obvious practical path to separating those entirely at
-// the moment.
-//
-// (The right answer is probably to treat CodeNotProvisioned as a normal
-// error and depend on (currently nonexistent) exponential backoff in
-// the framework: either it'll work soon enough, or the controller will
-// spot the error and nuke the machine anyway. No harm leaving the local
-// agent running and occasionally polling for changes -- it won't do much
-// until it's managed to log in, and any suicide-cutoff point we pick here
-// will be objectively bad in some circumstances.)
 func connectFallback(
 	apiOpen api.OpenFunc, info *api.Info, fallbackPassword string, logger Logger,
-) (
-	conn api.Connection, didFallback bool, err error,
-) {
-	// We expect to assign to `conn`, `err`, *and* `info` in
-	// the course of this operation: wrapping this repeated
-	// atom in a func currently seems to be less treacherous
-	// than the alternatives.
-	var tryConnect = func() {
-		conn, err = apiOpen(info, api.DialOpts{
-			// The DialTimeout is for connecting to the underlying
-			// socket. We use three seconds because it should be fast
-			// but it is possible to add a manual machine to a distant
-			// controller such that the round trip time could be as high
-			// as 500ms.
-			DialTimeout: 3 * time.Second,
-			// The delay between connecting to a different controller. Setting this to 0 means we try all controllers
-			// simultaneously. We set it to approximately how long the TLS handshake takes, to avoid doing TLS
-			// handshakes to a controller that we are going to end up ignoring.
-			DialAddressInterval: 200 * time.Millisecond,
-			// The timeout is for the complete login handshake.
-			// If the server is rate limiting, it will normally pause
-			// before responding to the login request, but the pause is
-			// in the realm of five to ten seconds.
-			Timeout: time.Minute,
-		})
-	}
-
-	didFallback = info.Password == ""
-	// Try to connect, trying both the primary and fallback
-	// passwords if necessary; and update info, and remember
-	// which password we used.
-	if !didFallback {
-		logger.Debugf("connecting with current password")
-		tryConnect()
-		if params.IsCodeUnauthorized(err) || errors.Cause(err) == common.ErrBadCreds {
-			didFallback = true
-
-		}
-	}
-	if didFallback {
-		// We've perhaps used the wrong password, so
-		// try again with the fallback password.
-		infoCopy := *info
-		info = &infoCopy
-		info.Password = fallbackPassword
-		logger.Debugf("connecting with old password")
-		tryConnect()
-	}
-
-	// We might be a machine agent that's started before its
-	// provisioner has had a chance to report instance data
-	// to the machine; wait a fair while to ensure we really
-	// are in the (expected rare) provisioner-crash situation
-	// that would cause permanent CodeNotProvisioned (which
-	// indicates that the controller has forgotten about us,
-	// and is provisioning a new instance, so we really should
-	// uninstall).
-	//
-	// Yes, it's dumb that this can't be interrupted, and that
-	// it's not configurable without patching.
-	if params.IsCodeNotProvisioned(err) {
-		for a := checkProvisionedStrategy.Start(); a.Next(); {
-			tryConnect()
-			if !params.IsCodeNotProvisioned(err) {
-				break
-			}
-		}
-	}
-
+) (api.Connection, bool, error) {
+	strategy := DefaultConnectStrategy(apiOpen, logger)
+	conn, err := strategy.Connect(info, fallbackPassword)
 	// At this point we've run out of reasons to retry connecting,
 	// and just go with whatever error we last saw (if any).
 	if err != nil {
@@ -159,7 +68,7 @@ func connectFallback(
 		shortModelUUID(info.ModelTag),
 		info.Tag.String(),
 		conn.Addr())
-	return conn, didFallback, nil
+	return conn, strategy.RequiredFallback(), nil
 }
 
 func shortModelUUID(model names.ModelTag) string {

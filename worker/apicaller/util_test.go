@@ -9,7 +9,6 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	"github.com/juju/worker/v2"
 	gc "gopkg.in/check.v1"
 
@@ -161,26 +160,6 @@ func lifeTest(c *gc.C, stub *testing.Stub, life apiagent.Life, test func() (api.
 	unpatch := testing.PatchValue(apicaller.NewConnFacade, newFacade)
 	defer unpatch()
 	return test()
-}
-
-// TODO(katco): 2016-08-09: lp:1611427
-func strategyTest(stub *testing.Stub, strategy utils.AttemptStrategy, test func(api.OpenFunc) (api.Connection, error)) (api.Connection, error) {
-	unpatch := testing.PatchValue(apicaller.Strategy, strategy)
-	defer unpatch()
-	return test(func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
-		// copy because I don't trust what might happen to info
-		stub.AddCall("apiOpen", *info, opts)
-		err := stub.NextErr()
-		if err != nil {
-			return nil, err
-		}
-		return &mockConn{stub: stub}, nil
-	})
-}
-
-func checkOpenCalls(c *gc.C, stub *testing.Stub, passwords ...string) {
-	calls := openCalls(names.ModelTag{}, testEntity, passwords...)
-	stub.CheckCalls(c, calls)
 }
 
 func openCalls(model names.ModelTag, entity names.Tag, passwords ...string) []testing.StubCall {
