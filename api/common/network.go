@@ -9,6 +9,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/vishvananda/netlink"
 
 	"github.com/juju/juju/apiserver/params"
 	corenetwork "github.com/juju/juju/core/network"
@@ -30,7 +31,7 @@ type NetworkConfigSource interface {
 
 	// InterfaceAddresses returns information about all addresses assigned to
 	// the network interface with the given name.
-	InterfaceAddresses(name string) ([]net.Addr, error)
+	InterfaceAddresses(name string) ([]netlink.Addr, error)
 
 	// DefaultRoute returns the gateway IP address and device name of the
 	// default route on the machine. If there is no default route (known),
@@ -55,12 +56,18 @@ func (n *netPackageConfigSource) Interfaces() ([]net.Interface, error) {
 }
 
 // InterfaceAddresses implements NetworkConfigSource.
-func (n *netPackageConfigSource) InterfaceAddresses(name string) ([]net.Addr, error) {
-	iface, err := net.InterfaceByName(name)
+func (n *netPackageConfigSource) InterfaceAddresses(name string) ([]netlink.Addr, error) {
+	link, err := netlink.LinkByName(name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return iface.Addrs()
+
+	addrs, err := netlink.AddrList(link, netlink.FAMILY_ALL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return addrs, nil
 }
 
 // DefaultRoute implements NetworkConfigSource.
@@ -239,41 +246,26 @@ func updateParentForBridgePorts(bridgeName, sysClassNetPath string, nameToConfig
 	}
 }
 
-func interfaceAddressToNetworkConfig(interfaceName, configType string, address net.Addr) (params.NetworkConfig, error) {
+func interfaceAddressToNetworkConfig(interfaceName, configType string, addr netlink.Addr) (params.NetworkConfig, error) {
 	config := params.NetworkConfig{
 		ConfigType: configType,
 	}
 
-	cidrAddress := address.String()
-	if cidrAddress == "" {
-		return config, nil
-	}
-
-	ip, ipNet, err := net.ParseCIDR(cidrAddress)
-	if err != nil {
-		logger.Tracef("cannot parse %q on interface %q as CIDR, trying as IP address: %v", cidrAddress, interfaceName, err)
-		if ip = net.ParseIP(cidrAddress); ip == nil {
-			return config, errors.Errorf("cannot parse IP address %q on interface %q", cidrAddress, interfaceName)
-		} else {
-			ipNet = &net.IPNet{IP: ip}
-		}
-	}
-	if ip.To4() == nil && ip.IsLinkLocalUnicast() {
+	if addr.IP.To4() == nil && addr.IP.IsLinkLocalUnicast() {
 		// TODO(macgreagoir) IPv6. Skip link-local for now until we decide how to handle them.
-		logger.Tracef("skipping observed IPv6 link-local address %q on %q", ip, interfaceName)
+		logger.Tracef("skipping observed IPv6 link-local address %q on %q", addr.IP.String(), interfaceName)
 		return config, nil
 	}
 
-	if ipNet.Mask != nil {
-		config.CIDR = ipNet.String()
+	if addr.IPNet.Mask != nil {
+		config.CIDR = addr.IPNet.String()
 	}
-	config.Address = ip.String()
+	config.Address = addr.IP.String()
 	if configType != string(corenetwork.ConfigLoopback) {
 		config.ConfigType = string(corenetwork.ConfigStatic)
 	}
 
-	// TODO(dimitern): Add DNS servers, search domains, and gateway
-	// later.
+	// TODO(dimitern): Add DNS servers, search domains, and gateway later.
 
 	return config, nil
 }
