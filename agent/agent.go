@@ -898,6 +898,23 @@ func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
 	if !ok {
 		return nil, false
 	}
+	addrs := c.apiDetails.addresses
+	var netAddrs network.SpaceAddresses
+	for _, addr := range addrs {
+		host, _, err := net.SplitHostPort(addr)
+		if err != nil {
+			return nil, false
+		}
+		if host == "localhost" {
+			continue
+		}
+		netAddrs = append(netAddrs, network.NewSpaceAddress(host))
+	}
+	// We should only be connecting to mongo on cloud local addresses,
+	// not fan or public etc.
+	hostPorts := network.SpaceAddressesWithPort(netAddrs, ssi.StatePort)
+	mongoAddrs := hostPorts.AllMatchingScope(network.ScopeMatchCloudLocal)
+
 	// We return localhost first and then all addresses of known API
 	// endpoints - this lets us connect to other Mongo instances and start
 	// state even if our own Mongo has not started yet (see lp:1749383 #1).
@@ -905,20 +922,11 @@ func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
 	// and when/if this changes localhost should resolve to IPv6 loopback
 	// in any case (lp:1644009). Review.
 	local := net.JoinHostPort("localhost", strconv.Itoa(ssi.StatePort))
-	addrs := []string{local}
-
-	for _, addr := range c.apiDetails.addresses {
-		host, _, err := net.SplitHostPort(addr)
-		if err != nil {
-			return nil, false
-		}
-		if host := net.JoinHostPort(host, strconv.Itoa(ssi.StatePort)); host != local {
-			addrs = append(addrs, host)
-		}
-	}
+	mongoAddrs = append([]string{local}, mongoAddrs...)
+	logger.Debugf("potential mongo addresses: %v", mongoAddrs)
 	return &mongo.MongoInfo{
 		Info: mongo.Info{
-			Addrs:  addrs,
+			Addrs:  mongoAddrs,
 			CACert: c.caCert,
 		},
 		Password: c.statePassword,
