@@ -57,18 +57,17 @@ func connectFallback(
 	apiOpen api.OpenFunc, info *api.Info, fallbackPassword string, logger Logger,
 ) (api.Connection, bool, error) {
 	strategy := DefaultConnectStrategy(apiOpen, logger)
-	conn, err := strategy.Connect(info, fallbackPassword)
-	// At this point we've run out of reasons to retry connecting,
-	// and just go with whatever error we last saw (if any).
+	conn, requiredFallback, err := strategy.Connect(info, fallbackPassword)
 	if err != nil {
 		logger.Debugf("[%s] failed to connect", shortModelUUID(info.ModelTag))
 		return nil, false, errors.Trace(err)
 	}
+
 	logger.Infof("[%s] %q successfully connected to %q",
 		shortModelUUID(info.ModelTag),
 		info.Tag.String(),
 		conn.Addr())
-	return conn, strategy.RequiredFallback(), nil
+	return conn, requiredFallback, nil
 }
 
 func shortModelUUID(model names.ModelTag) string {
