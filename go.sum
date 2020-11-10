@@ -414,8 +414,8 @@ github.com/juju/testing v0.0.0-20200608005635-e4eedbc6f7aa h1:v1ZEHRVaUgTIkxzYaT
 github.com/juju/testing v0.0.0-20200608005635-e4eedbc6f7aa/go.mod h1:hpGvhGHPVbNBraRLZEhoQwFLMrjK8PSlO4D3nDjKYXo=
 github.com/juju/testing v0.0.0-20200923013621-75df6121fbb0 h1:ZNHhUeJYnc98o0ZpU7/c2TBuQokG5TBiDx8UvhDTIt0=
 github.com/juju/testing v0.0.0-20200923013621-75df6121fbb0/go.mod h1:Ky6DwobyXXeXSqRJCCuHpAtVEGRPOT8gUsFpJhDoXZ8=
-github.com/juju/txn v0.0.0-20190612234757-afeb83d59782 h1:FcaMWAFKHuxS7UAaB/GuLWrqI9L7f20m6aXaxg+t5lY=
-github.com/juju/txn v0.0.0-20190612234757-afeb83d59782/go.mod h1:ZgVptALKKa9UUv7ItEJVQjFWNG/0bs+tAu0ad0O8DAE=
+github.com/juju/txn v0.0.0-20201106143451-65a67d427a16 h1:Kw4yEO8U7Y5QGtI56b+oWt1LGyf4docfHRU4RmYf1KM=
+github.com/juju/txn v0.0.0-20201106143451-65a67d427a16/go.mod h1:ZgVptALKKa9UUv7ItEJVQjFWNG/0bs+tAu0ad0O8DAE=
 github.com/juju/usso v0.0.0-20160401104424-68a59c96c178 h1:+Hw/cvdgko8DzBM+qI+HsEphk08NyNM0ONPFDg5cGis=
 github.com/juju/usso v0.0.0-20160401104424-68a59c96c178/go.mod h1:sHjHrlB/5phHrKswH7VZpKFJhg4RcqsFDR27U3GKViI=
 github.com/juju/utils v0.0.0-20160526025251-ffea6ead0c37/go.mod h1:6/KLg8Wz/y2KVGWEpkK9vMNGkOnu4k/cqs8Z1fKjTOk=
