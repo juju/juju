@@ -79,7 +79,7 @@ func (b *BufferedLogger) Log(in []state.LogRecord) error {
 // Flush flushes any buffered log records to the underlying Logger.
 func (b *BufferedLogger) Flush() error {
 	b.mu.Lock()
-	b.mu.Unlock()
+	defer b.mu.Unlock()
 	return b.flush()
 }
 
