@@ -14,7 +14,19 @@ type authSuite struct {
 
 var _ = gc.Suite(&authSuite{})
 
-func (s *authSuite) TestNewConnection(c *gc.C) {
+func (s *authSuite) TestNewComputeService(c *gc.C) {
 	_, err := newComputeService(s.Credentials)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *authSuite) TestCreateJWTConfig(c *gc.C) {
+	cfg, err := newJWTConfig(s.Credentials)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.Scopes, jc.DeepEquals, scopes)
+}
+
+func (s *authSuite) TestCreateJWTConfigWithNoJSONKey(c *gc.C) {
+	cfg, err := newJWTConfig(&Credentials{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.Scopes, jc.DeepEquals, scopes)
 }
