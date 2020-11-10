@@ -517,6 +517,7 @@ func (s *PortsDocSuite) TestWatchPorts(c *gc.C) {
 	// No port ranges open initially, no changes.
 	w := s.State.WatchOpenedPorts()
 	c.Assert(w, gc.NotNil)
+	s.WaitHubWatcherStarting(c)
 
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)

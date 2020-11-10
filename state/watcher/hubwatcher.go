@@ -19,6 +19,11 @@ var (
 	// when the hub watcher hasn't notified any watchers for a specified time.
 	HubWatcherIdleFunc func(string)
 
+	// HubWatcherStartingFunc allows tests to be able to get a callback
+	// when the hub watcher is starting up (when the transaction watcher's
+	// starting event is received).
+	HubWatcherStartingFunc func()
+
 	// HubWatcherIdleTime relates to how long the hub needs to wait
 	// having notified no watchers to be considered idle.
 	HubWatcherIdleTime = 50 * time.Millisecond
@@ -41,11 +46,12 @@ const filterFactor = 0.01
 // HubWatcher listens to events from the hub and passes them on to the registered
 // watchers.
 type HubWatcher struct {
-	hub       HubSource
-	clock     Clock
-	modelUUID string
-	idleFunc  func(string)
-	logger    Logger
+	hub          HubSource
+	clock        Clock
+	modelUUID    string
+	idleFunc     func(string)
+	startingFunc func()
+	logger       Logger
 
 	tomb tomb.Tomb
 
@@ -144,14 +150,15 @@ func newHubWatcher(hub HubSource, clock Clock, modelUUID string, logger Logger) 
 	}
 	started := make(chan struct{})
 	w := &HubWatcher{
-		hub:       hub,
-		clock:     clock,
-		modelUUID: modelUUID,
-		idleFunc:  HubWatcherIdleFunc,
-		logger:    logger,
-		watches:   make(map[watchKey][]watchInfo),
-		request:   make(chan interface{}),
-		changes:   make(chan Change),
+		hub:          hub,
+		clock:        clock,
+		modelUUID:    modelUUID,
+		idleFunc:     HubWatcherIdleFunc,
+		startingFunc: HubWatcherStartingFunc,
+		logger:       logger,
+		watches:      make(map[watchKey][]watchInfo),
+		request:      make(chan interface{}),
+		changes:      make(chan Change),
 	}
 	w.tomb.Go(func() error {
 		unsub := hub.SubscribeMatch(
@@ -175,7 +182,10 @@ func newHubWatcher(hub HubSource, clock Clock, modelUUID string, logger Logger) 
 func (w *HubWatcher) receiveEvent(topic string, data interface{}) {
 	switch topic {
 	case txnWatcherStarting:
-		// We don't do anything on a start.
+		if w.startingFunc != nil {
+			w.logger.Debugf("txnWatcherStarting received, calling startingFunc")
+			w.startingFunc()
+		}
 	case txnWatcherSyncErr:
 		w.tomb.Kill(errors.New("txn watcher sync error"))
 	case txnWatcherCollection:

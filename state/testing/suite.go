@@ -45,6 +45,7 @@ type StateSuite struct {
 	RegionConfig              cloud.RegionConfig
 	Clock                     *testclock.Clock
 	txnSyncNotify             chan struct{}
+	hubWatcherStarting        chan struct{}
 	modelWatcherIdle          chan string
 	modelWatcherMutex         *sync.Mutex
 }
@@ -64,10 +65,12 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.txnSyncNotify = make(chan struct{})
+	s.hubWatcherStarting = make(chan struct{})
 	s.modelWatcherIdle = nil
 	s.modelWatcherMutex = &sync.Mutex{}
 	s.PatchValue(&statewatcher.TxnPollNotifyFunc, s.txnNotifyFunc)
 	s.PatchValue(&statewatcher.HubWatcherIdleFunc, s.hubWatcherIdleFunc)
+	s.PatchValue(&statewatcher.HubWatcherStartingFunc, s.hubWatcherStartingFunc)
 
 	s.Owner = names.NewLocalUserTag("test-admin")
 	initialTime := s.InitialTime
@@ -139,6 +142,20 @@ func (s *StateSuite) hubWatcherIdleFunc(modelUUID string) {
 	select {
 	case idleChan <- modelUUID:
 	case <-time.After(testing.ShortWait):
+	}
+}
+
+func (s *StateSuite) hubWatcherStartingFunc() {
+	// Signal starting event by closing channel
+	close(s.hubWatcherStarting)
+}
+
+func (s *StateSuite) WaitHubWatcherStarting(c *gc.C) {
+	select {
+	case <-s.hubWatcherStarting:
+		// Successfully received event
+	case <-time.After(jujutesting.LongWait):
+		c.Fatal("no starting event sent")
 	}
 }
 
