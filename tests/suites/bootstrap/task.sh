@@ -7,7 +7,8 @@ test_bootstrap() {
     set_verbosity
 
     echo "==> Checking for dependencies"
-    check_dependencies juju jujud juju-metadata python
+    check_dependencies juju jujud python3
+    check_juju_dependencies metadata
 
     test_bootstrap_simplestream
 }
