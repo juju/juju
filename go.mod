@@ -56,7 +56,7 @@ require (
 	github.com/juju/jsonschema v0.0.0-20161102181919-a0ef8b74ebcf
 	github.com/juju/jsonschema-gen v0.0.0-20200416014454-d924343d72b2
 	github.com/juju/loggo v0.0.0-20200526014432-9ce3a2e09b5e
-	github.com/juju/lru v0.0.0-20181205132344-305dec07bf2f // indirect
+	github.com/juju/lru v0.0.0-20190314140547-92a0afabdc41 // indirect
 	github.com/juju/mutex v0.0.0-20180619145857-d21b13acf4bf
 	github.com/juju/names/v4 v4.0.0-20200929085019-be23e191fee0
 	github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b
@@ -75,7 +75,7 @@ require (
 	github.com/juju/systems v0.0.0-20200925032749-8c613192c759
 	github.com/juju/terms-client v1.0.2-0.20200331164339-fab45ea044ae
 	github.com/juju/testing v0.0.0-20201030020617-7189b3728523
-	github.com/juju/txn v0.0.0-20190416045819-5f348e78887d
+	github.com/juju/txn v0.0.0-20201106143451-65a67d427a16
 	github.com/juju/usso v0.0.0-20160401104424-68a59c96c178 // indirect
 	github.com/juju/utils v0.0.0-20200604140309-9d78121a29e0 // indirect
 	github.com/juju/utils/v2 v2.0.0-20200923005554-4646bfea2ef1
