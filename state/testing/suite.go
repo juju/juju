@@ -146,8 +146,7 @@ func (s *StateSuite) hubWatcherIdleFunc(modelUUID string) {
 }
 
 func (s *StateSuite) hubWatcherStartingFunc() {
-	// Signal starting event by closing channel
-	close(s.hubWatcherStarting)
+	s.hubWatcherStarting <- struct{}{}
 }
 
 func (s *StateSuite) WaitHubWatcherStarting(c *gc.C) {
