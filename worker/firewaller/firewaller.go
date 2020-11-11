@@ -157,6 +157,19 @@ type Firewaller struct {
 	logger                     Logger
 
 	cloudCallContext context.ProviderCallContext
+
+	// To synchronize calls to unexported methods called by tests
+	startMachineEvent chan startMachineEventInfo
+	getMachinedsEvent chan getMachinedsEventInfo
+}
+
+type startMachineEventInfo struct {
+	tag    names.MachineTag
+	result chan error
+}
+
+type getMachinedsEventInfo struct {
+	result chan map[names.MachineTag]*machineData
 }
 
 // NewFirewaller returns a new Firewaller.
@@ -195,7 +208,9 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 			// For any failures, try again in 1 minute.
 			RestartDelay: time.Minute,
 		}),
-		cloudCallContext: common.NewCloudCallContext(cfg.CredentialAPI, nil),
+		cloudCallContext:  common.NewCloudCallContext(cfg.CredentialAPI, nil),
+		startMachineEvent: make(chan startMachineEventInfo),
+		getMachinedsEvent: make(chan getMachinedsEventInfo),
 	}
 
 	switch cfg.Mode {
@@ -321,6 +336,15 @@ func (fw *Firewaller) loop() error {
 			if err := fw.flushUnits(unitds); err != nil {
 				return errors.Annotate(err, "cannot change firewall ports")
 			}
+		case info := <-fw.startMachineEvent:
+			info.result <- fw.startMachine(info.tag)
+		case info := <-fw.getMachinedsEvent:
+			// Make a copy of the map so test has an "atomic" view
+			machineds := make(map[names.MachineTag]*machineData)
+			for k, v := range fw.machineds {
+				machineds[k] = v
+			}
+			info.result <- machineds
 		}
 	}
 }

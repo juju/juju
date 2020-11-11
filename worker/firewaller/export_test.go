@@ -6,9 +6,15 @@ package firewaller
 import "github.com/juju/names/v4"
 
 func StartMachine(fw *Firewaller, tag names.MachineTag) error {
-	return fw.startMachine(tag)
+	// Use channels to synchronize access to unexported startMachine method
+	result := make(chan error)
+	fw.startMachineEvent <- startMachineEventInfo{tag, result}
+	return <-result
 }
 
 func GetMachineds(fw *Firewaller) map[names.MachineTag]*machineData {
-	return fw.machineds
+	// Use channels to synchronize access to unexported getMachineds method
+	result := make(chan map[names.MachineTag]*machineData)
+	fw.getMachinedsEvent <- getMachinedsEventInfo{result}
+	return <-result
 }
