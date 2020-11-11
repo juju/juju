@@ -188,6 +188,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 	spec, err := provider.PrepareWorkloadSpec("app-name", "app-name", &podSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider.Pod(spec), jc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
+		Labels:      map[string]string{},
 		Annotations: annotations.Annotation{},
 		PodSpec: core.PodSpec{
 			RestartPolicy:                 core.RestartPolicyOnFailure,
@@ -391,6 +392,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithEnvAndEnvFrom(c *gc.C) {
 	spec, err := provider.PrepareWorkloadSpec("app-name", "app-name", &podSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider.Pod(spec), jc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
+		Labels:      map[string]string{},
 		Annotations: annotations.Annotation{},
 		PodSpec: core.PodSpec{
 			RestartPolicy:                 core.RestartPolicyOnFailure,
@@ -577,6 +579,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpec(c *gc.C) {
 	podSpec.ProviderPod = &k8sspecs.K8sPodSpec{
 		KubernetesResources: &k8sspecs.KubernetesResources{
 			Pod: &k8sspecs.PodSpec{
+				Labels:                        map[string]string{"foo": "bax"},
 				Annotations:                   map[string]string{"foo": "baz"},
 				RestartPolicy:                 core.RestartPolicyOnFailure,
 				ActiveDeadlineSeconds:         int64Ptr(10),
@@ -606,6 +609,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpec(c *gc.C) {
 	spec, err := provider.PrepareWorkloadSpec("app-name", "app-name", &podSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider.Pod(spec), jc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
+		Labels:      map[string]string{"foo": "bax"},
 		Annotations: map[string]string{"foo": "baz"},
 		PodSpec: core.PodSpec{
 			RestartPolicy:                 core.RestartPolicyOnFailure,
@@ -5030,7 +5034,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 	basicPodSpec := getBasicPodspec()
 	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
 		KubernetesResources: &k8sspecs.KubernetesResources{
-			Pod: &k8sspecs.PodSpec{Annotations: map[string]string{"foo": "baz"}},
+			Pod: &k8sspecs.PodSpec{
+				Labels:      map[string]string{"foo": "bax"},
+				Annotations: map[string]string{"foo": "baz"},
+			},
 		},
 	}
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
@@ -5054,6 +5061,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 	})
 	statefulSetArg := unitStatefulSetArg(2, "workload-storage", podSpec)
 	statefulSetArg.Spec.Template.Annotations["foo"] = "baz"
+	statefulSetArg.Spec.Template.Labels["foo"] = "bax"
 	ociImageSecret := s.getOCIImageSecret(c, nil)
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
@@ -5616,7 +5624,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageCreate(c *gc.C)
 	basicPodSpec := getBasicPodspec()
 	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
 		KubernetesResources: &k8sspecs.KubernetesResources{
-			Pod: &k8sspecs.PodSpec{Annotations: map[string]string{"foo": "baz"}},
+			Pod: &k8sspecs.PodSpec{
+				Labels:      map[string]string{"foo": "bax"},
+				Annotations: map[string]string{"foo": "baz"},
+			},
 		},
 	}
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
@@ -5704,7 +5715,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageCreate(c *gc.C)
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: "app-name-",
-					Labels:       map[string]string{"juju-app": "app-name"},
+					Labels:       map[string]string{"juju-app": "app-name", "foo": "bax"},
 					Annotations: map[string]string{
 						"foo": "baz",
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
