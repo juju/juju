@@ -174,11 +174,11 @@ func newHubWatcher(hub HubSource, clock Clock, modelUUID string, logger Logger) 
 
 func (w *HubWatcher) receiveEvent(topic string, data interface{}) {
 	switch topic {
-	case txnWatcherStarting:
+	case TxnWatcherStarting:
 		// We don't do anything on a start.
-	case txnWatcherSyncErr:
+	case TxnWatcherSyncErr:
 		w.tomb.Kill(errors.New("txn watcher sync error"))
-	case txnWatcherCollection:
+	case TxnWatcherCollection:
 		change, ok := data.(Change)
 		if !ok {
 			w.logger.Warningf("incoming event not a Change")

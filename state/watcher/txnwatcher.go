@@ -29,9 +29,15 @@ type Clock interface {
 }
 
 const (
-	txnWatcherStarting   = "starting"
-	txnWatcherSyncErr    = "sync err"
-	txnWatcherCollection = "collection"
+	// TxnWatcherStarting is published to the TxnWatcher's hub after it has
+	// fully started up.
+	TxnWatcherStarting = "starting"
+	// TxnWatcherSyncErr is published to the TxnWatcher's hub if there's a
+	// sync error (e.g., an error iterating through the collection's rows).
+	TxnWatcherSyncErr = "sync err"
+	// TxnWatcherCollection is published to the TxnWatcher's hub for each
+	// change (data is the Change instance).
+	TxnWatcherCollection = "collection"
 
 	txnWatcherShortWait = 10 * time.Millisecond
 )
@@ -229,7 +235,7 @@ func (w *TxnWatcher) loop() error {
 	backoff := PollStrategy.NewTimer(now)
 	d, _ := backoff.NextSleep(now)
 	next := w.clock.After(d)
-	w.hub.Publish(txnWatcherStarting, nil)
+	w.hub.Publish(TxnWatcherStarting, nil)
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -268,7 +274,7 @@ func (w *TxnWatcher) loop() error {
 
 		added, err := w.sync()
 		if err != nil {
-			w.hub.Publish(txnWatcherSyncErr, nil)
+			w.hub.Publish(TxnWatcherSyncErr, nil)
 			return errors.Trace(err)
 		}
 		w.flush()
@@ -288,7 +294,7 @@ func (w *TxnWatcher) flush() {
 	// refreshEvents are stored newest first.
 	for i := len(w.syncEvents) - 1; i >= 0; i-- {
 		e := w.syncEvents[i]
-		w.hub.Publish(txnWatcherCollection, e)
+		w.hub.Publish(TxnWatcherCollection, e)
 	}
 	w.averageSyncLen = (filterFactor * float64(len(w.syncEvents))) + ((1.0 - filterFactor) * w.averageSyncLen)
 	w.syncEventsLastLen = len(w.syncEvents)
