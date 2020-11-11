@@ -225,6 +225,9 @@ func (s *deployerSuite) TestResolveCharmURL(c *gc.C) {
 		path: "cs:~user/series/name",
 		url:  &charm.URL{Schema: "cs", User: "user", Name: "name", Series: "series", Revision: -1},
 	}, {
+		path: "~user/series/name",
+		url:  &charm.URL{Schema: "cs", User: "user", Name: "name", Series: "series", Revision: -1},
+	}, {
 		path: "ch:~user/series/name",
 		err:  errors.Errorf(`unexpected charm schema: cannot parse URL "ch:~user/series/name": schema "ch" not valid`),
 	}}

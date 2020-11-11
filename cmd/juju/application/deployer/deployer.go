@@ -183,7 +183,7 @@ func (d *factory) maybePredeployedLocalCharm() (Deployer, error) {
 	// If the charm's schema is local, we should definitively attempt
 	// to deploy a charm that's already deployed in the
 	// environment.
-	userCharmURL, err := charm.ParseURL(d.charmOrBundle)
+	userCharmURL, err := resolveCharmURL(d.charmOrBundle)
 	if err != nil {
 		return nil, errors.Trace(err)
 	} else if userCharmURL.Schema != "local" {
@@ -449,13 +449,19 @@ func resolveCharmURL(path string) (*charm.URL, error) {
 		return charm.ParseURL(path)
 	}
 
+	// If the prefix is just a `~` then we know that this is a user charm and
+	// we should prefix the url with a `cs:`.
+	if strings.HasPrefix(path, "~") {
+		path = fmt.Sprintf("cs:%s", path)
+	}
+
 	u, err := url.Parse(path)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	// We don't expect the charmhub url scheme to show up here, as the feature
-	// flag isn't enabled. Return
+	// flag isn't enabled.
 	if charm.CharmHub.Matches(u.Scheme) {
 		// Replicate the charm url parsing error here to keep things consistent.
 		return nil, errors.Errorf(`unexpected charm schema: cannot parse URL %q: schema "ch" not valid`, path)
@@ -463,7 +469,8 @@ func resolveCharmURL(path string) (*charm.URL, error) {
 
 	// If we find a scheme that is empty, force it to become a charmstore scheme
 	// so every other subsequent parse url call knows the correct type.
-	if u.Scheme == "" {
+	// Ensure we don't prefix a absolute path with a cs: prefix.
+	if u.Scheme == "" && !strings.HasPrefix(u.Path, "/") {
 		return charm.ParseURL(fmt.Sprintf("cs:%s", u.Path))
 	}
 
