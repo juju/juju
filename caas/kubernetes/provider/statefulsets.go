@@ -78,7 +78,7 @@ func (k *kubernetesClient) configureStatefulSet(
 			RevisionHistoryLimit: int32Ptr(statefulSetRevisionHistoryLimit),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels:      selectorLabels,
+					Labels:      utils.LabelsMerge(workloadSpec.Pod.Labels, selectorLabels),
 					Annotations: podAnnotations(k8sannotations.New(workloadSpec.Pod.Annotations).Merge(annotations).Copy()).ToMap(),
 				},
 			},

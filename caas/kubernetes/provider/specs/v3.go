@@ -324,11 +324,6 @@ func (krs *KubernetesResources) Validate() error {
 			return errors.Trace(err)
 		}
 	}
-	for k, crs := range krs.CustomResources {
-		if len(crs) == 0 {
-			return errors.NotValidf("empty custom resources %q", k)
-		}
-	}
 
 	for _, webhook := range krs.MutatingWebhookConfigurations {
 		if err := webhook.Validate(); err != nil {

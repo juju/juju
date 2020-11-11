@@ -854,8 +854,8 @@ def maas_account_from_boot_config(env):
     manager = MAASAccount(*args)
     try:
         manager.login()
-    except subprocess.CalledProcessError:
-        log.info("Could not login with MAAS 2.0 API, trying 1.0")
+    except subprocess.CalledProcessError as e:
+        log.info("Could not login with MAAS 2.0 API, trying 1.0! err -> %s", e)
         manager = MAAS1Account(*args)
         manager.login()
     yield manager

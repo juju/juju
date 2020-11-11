@@ -119,6 +119,8 @@ type StatePool struct {
 	watcherRunner *worker.Runner
 	// txnWatcherSession is used exclusively for the TxnWatcher.
 	txnWatcherSession *mgo.Session
+	// watcherStarted is closed after the TxnWatcher is fully started.
+	watcherStarted chan struct{}
 }
 
 // OpenStatePool returns a new StatePool instance.
@@ -129,8 +131,9 @@ func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 	}
 
 	pool := &StatePool{
-		pool: make(map[string]*PoolItem),
-		hub:  pubsub.NewSimpleHub(nil),
+		pool:           make(map[string]*PoolItem),
+		hub:            pubsub.NewSimpleHub(nil),
+		watcherStarted: make(chan struct{}),
 	}
 
 	session := args.MongoSession.Copy()
@@ -176,6 +179,9 @@ func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 		IsFatal:      func(err error) bool { return errors.Cause(err) == errPoolClosed },
 		RestartDelay: time.Second,
 		Clock:        args.Clock,
+	})
+	pool.hub.Subscribe(watcher.TxnWatcherStarting, func(string, interface{}) {
+		close(pool.watcherStarted)
 	})
 	pool.txnWatcherSession = args.MongoSession.Copy()
 	if err = pool.watcherRunner.StartWorker(txnLogWorker, func() (worker.Worker, error) {
@@ -477,4 +483,10 @@ func (p *StatePool) Report() map[string]interface{} {
 	}
 	p.mu.Unlock()
 	return report
+}
+
+// TxnWatcherStarted returns a channel that is closed when the pool's
+// TxnWatcher has fully started.
+func (p *StatePool) TxnWatcherStarted() <-chan struct{} {
+	return p.watcherStarted
 }
