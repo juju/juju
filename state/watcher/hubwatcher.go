@@ -19,11 +19,6 @@ var (
 	// when the hub watcher hasn't notified any watchers for a specified time.
 	HubWatcherIdleFunc func(string)
 
-	// HubWatcherStartingFunc allows tests to be able to get a callback
-	// when the hub watcher is starting up (when the transaction watcher's
-	// starting event is received).
-	HubWatcherStartingFunc func()
-
 	// HubWatcherIdleTime relates to how long the hub needs to wait
 	// having notified no watchers to be considered idle.
 	HubWatcherIdleTime = 50 * time.Millisecond
@@ -46,12 +41,11 @@ const filterFactor = 0.01
 // HubWatcher listens to events from the hub and passes them on to the registered
 // watchers.
 type HubWatcher struct {
-	hub          HubSource
-	clock        Clock
-	modelUUID    string
-	idleFunc     func(string)
-	startingFunc func()
-	logger       Logger
+	hub       HubSource
+	clock     Clock
+	modelUUID string
+	idleFunc  func(string)
+	logger    Logger
 
 	tomb tomb.Tomb
 
@@ -69,6 +63,10 @@ type HubWatcher struct {
 
 	// changes are events published to the hub.
 	changes chan Change
+
+	// txnWatcherStarted is closed after the watcher's TxnWatcher has fully
+	// started.
+	txnWatcherStarted chan struct{}
 
 	// lastSyncLen was the length of syncEvents in the last flush()
 	lastSyncLen int
@@ -150,15 +148,15 @@ func newHubWatcher(hub HubSource, clock Clock, modelUUID string, logger Logger) 
 	}
 	started := make(chan struct{})
 	w := &HubWatcher{
-		hub:          hub,
-		clock:        clock,
-		modelUUID:    modelUUID,
-		idleFunc:     HubWatcherIdleFunc,
-		startingFunc: HubWatcherStartingFunc,
-		logger:       logger,
-		watches:      make(map[watchKey][]watchInfo),
-		request:      make(chan interface{}),
-		changes:      make(chan Change),
+		hub:               hub,
+		clock:             clock,
+		modelUUID:         modelUUID,
+		idleFunc:          HubWatcherIdleFunc,
+		logger:            logger,
+		watches:           make(map[watchKey][]watchInfo),
+		request:           make(chan interface{}),
+		changes:           make(chan Change),
+		txnWatcherStarted: make(chan struct{}),
 	}
 	w.tomb.Go(func() error {
 		unsub := hub.SubscribeMatch(
@@ -179,13 +177,16 @@ func newHubWatcher(hub HubSource, clock Clock, modelUUID string, logger Logger) 
 	return w, started
 }
 
+// TxnWatcherStarted returns a channel that is closed after the watcher's
+// TxnWatcher has fully started.
+func (w *HubWatcher) TxnWatcherStarted() <-chan struct{} {
+	return w.txnWatcherStarted
+}
+
 func (w *HubWatcher) receiveEvent(topic string, data interface{}) {
 	switch topic {
 	case txnWatcherStarting:
-		if w.startingFunc != nil {
-			w.logger.Debugf("txnWatcherStarting received, calling startingFunc")
-			w.startingFunc()
-		}
+		close(w.txnWatcherStarted)
 	case txnWatcherSyncErr:
 		w.tomb.Kill(errors.New("txn watcher sync error"))
 	case txnWatcherCollection:

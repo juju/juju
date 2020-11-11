@@ -56,7 +56,8 @@ func (st stateShim) FindEntity(tag names.Tag) (state.Entity, error) {
 }
 
 func (st stateShim) WatchOpenedPorts() state.StringsWatcher {
-	return st.st.WatchOpenedPorts()
+	w, _ := st.st.WatchOpenedPorts()
+	return w
 }
 
 func (st stateShim) FirewallRule(service corefirewall.WellKnownServiceType) (*state.FirewallRule, error) {

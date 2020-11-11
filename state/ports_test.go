@@ -6,8 +6,10 @@ package state_test
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
+	coretesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
 	gc "gopkg.in/check.v1"
@@ -515,9 +517,14 @@ func (s *PortsDocSuite) TestRemovePortsDoc(c *gc.C) {
 func (s *PortsDocSuite) TestWatchPorts(c *gc.C) {
 
 	// No port ranges open initially, no changes.
-	w := s.State.WatchOpenedPorts()
+	w, started := s.State.WatchOpenedPorts()
 	c.Assert(w, gc.NotNil)
-	s.WaitHubWatcherStarting(c)
+	select {
+	case <-started:
+		// Started successfully
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for ports watcher to start")
+	}
 
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)

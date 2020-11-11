@@ -3472,11 +3472,14 @@ var _ Watcher = (*openedPortsWatcher)(nil)
 // the openedPorts collection. Reported changes have the following format:
 // "<machine-id>:[<subnet-CIDR>]", i.e. "0:10.20.0.0/16" or "1:" (empty subnet
 // ID is allowed for backwards-compatibility).
-func (st *State) WatchOpenedPorts() StringsWatcher {
+//
+// The returned channel (useful mainly for testing) will be closed when the
+// watcher is fully started (txnWatcherStarting event).
+func (st *State) WatchOpenedPorts() (StringsWatcher, <-chan struct{}) {
 	return newOpenedPortsWatcher(st)
 }
 
-func newOpenedPortsWatcher(backend modelBackend) StringsWatcher {
+func newOpenedPortsWatcher(backend modelBackend) (StringsWatcher, <-chan struct{}) {
 	w := &openedPortsWatcher{
 		commonWatcher: newCommonWatcher(backend),
 		known:         make(map[string]int64),
@@ -3487,7 +3490,8 @@ func newOpenedPortsWatcher(backend modelBackend) StringsWatcher {
 		return w.loop()
 	})
 
-	return w
+	hubWatcher := w.commonWatcher.watcher.(*watcher.HubWatcher)
+	return w, hubWatcher.TxnWatcherStarted()
 }
 
 // Changes returns the event channel for w
