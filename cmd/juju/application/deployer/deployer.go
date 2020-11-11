@@ -469,7 +469,8 @@ func resolveCharmURL(path string) (*charm.URL, error) {
 
 	// If we find a scheme that is empty, force it to become a charmstore scheme
 	// so every other subsequent parse url call knows the correct type.
-	if u.Scheme == "" {
+	// Ensure we don't prefix a absolute path with a cs: prefix.
+	if u.Scheme == "" && !strings.HasPrefix(u.Path, "/") {
 		return charm.ParseURL(fmt.Sprintf("cs:%s", u.Path))
 	}
 
