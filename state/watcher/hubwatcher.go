@@ -64,10 +64,6 @@ type HubWatcher struct {
 	// changes are events published to the hub.
 	changes chan Change
 
-	// txnWatcherStarted is closed after the watcher's TxnWatcher has fully
-	// started.
-	txnWatcherStarted chan struct{}
-
 	// lastSyncLen was the length of syncEvents in the last flush()
 	lastSyncLen int
 
@@ -148,15 +144,14 @@ func newHubWatcher(hub HubSource, clock Clock, modelUUID string, logger Logger) 
 	}
 	started := make(chan struct{})
 	w := &HubWatcher{
-		hub:               hub,
-		clock:             clock,
-		modelUUID:         modelUUID,
-		idleFunc:          HubWatcherIdleFunc,
-		logger:            logger,
-		watches:           make(map[watchKey][]watchInfo),
-		request:           make(chan interface{}),
-		changes:           make(chan Change),
-		txnWatcherStarted: make(chan struct{}),
+		hub:       hub,
+		clock:     clock,
+		modelUUID: modelUUID,
+		idleFunc:  HubWatcherIdleFunc,
+		logger:    logger,
+		watches:   make(map[watchKey][]watchInfo),
+		request:   make(chan interface{}),
+		changes:   make(chan Change),
 	}
 	w.tomb.Go(func() error {
 		unsub := hub.SubscribeMatch(
@@ -177,19 +172,13 @@ func newHubWatcher(hub HubSource, clock Clock, modelUUID string, logger Logger) 
 	return w, started
 }
 
-// TxnWatcherStarted returns a channel that is closed after the watcher's
-// TxnWatcher has fully started.
-func (w *HubWatcher) TxnWatcherStarted() <-chan struct{} {
-	return w.txnWatcherStarted
-}
-
 func (w *HubWatcher) receiveEvent(topic string, data interface{}) {
 	switch topic {
-	case txnWatcherStarting:
-		close(w.txnWatcherStarted)
-	case txnWatcherSyncErr:
+	case TxnWatcherStarting:
+		// We don't do anything on a start.
+	case TxnWatcherSyncErr:
 		w.tomb.Kill(errors.New("txn watcher sync error"))
-	case txnWatcherCollection:
+	case TxnWatcherCollection:
 		change, ok := data.(Change)
 		if !ok {
 			w.logger.Warningf("incoming event not a Change")

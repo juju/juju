@@ -467,8 +467,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 		}, {
 			about: "open ports",
 			getWatcher: func(st *state.State) interface{} {
-				w, _ := st.WatchOpenedPorts()
-				return w
+				return st.WatchOpenedPorts()
 			},
 			setUpState: func(st *state.State) bool {
 				f := factory.NewFactory(st, s.StatePool)

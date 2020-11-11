@@ -517,10 +517,10 @@ func (s *PortsDocSuite) TestRemovePortsDoc(c *gc.C) {
 func (s *PortsDocSuite) TestWatchPorts(c *gc.C) {
 
 	// No port ranges open initially, no changes.
-	w, started := s.State.WatchOpenedPorts()
+	w := s.State.WatchOpenedPorts()
 	c.Assert(w, gc.NotNil)
 	select {
-	case <-started:
+	case <-s.StatePool.TxnWatcherStarted():
 		// Started successfully
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for ports watcher to start")
