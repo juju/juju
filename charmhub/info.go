@@ -104,22 +104,32 @@ func (c *InfoClient) Info(ctx context.Context, name string, options ...InfoOptio
 // receive the Name, ID and Type.
 func defaultInfoFilter() string {
 	filter := defaultResultFilter
+	filter = append(filter, defaultMediaFilter...)
 	filter = append(filter, appendFilterList("default-release.revision", defaultDownloadFilter)...)
-	filter = append(filter, appendFilterList("default-release", infoRevisionFilter)...)
+	filter = append(filter, appendFilterList("default-release", infoDefaultRevisionFilter)...)
 	filter = append(filter, appendFilterList("default-release", defaultChannelFilter)...)
 	filter = append(filter, appendFilterList("channel-map.revision", defaultDownloadFilter)...)
-	filter = append(filter, appendFilterList("channel-map", infoRevisionFilter)...)
+	filter = append(filter, appendFilterList("channel-map", infoChannelMapRevisionFilter)...)
 	filter = append(filter, appendFilterList("channel-map", defaultChannelFilter)...)
 	filter = append(filter, appendFilterList("default-release.resources", resourceFilter)...)
 	filter = append(filter, appendFilterList("channel-map.resources", resourceFilter)...)
 	return strings.Join(filter, ",")
 }
 
-var infoRevisionFilter = []string{
+var infoDefaultRevisionFilter = []string{
 	"revision.config-yaml",
 	"revision.created-at",
 	"revision.metadata-yaml",
 	"revision.bundle-yaml",
+	"revision.platforms.architecture",
+	"revision.platforms.os",
+	"revision.platforms.series",
+	"revision.revision",
+	"revision.version",
+}
+
+var infoChannelMapRevisionFilter = []string{
+	"revision.created-at",
 	"revision.platforms.architecture",
 	"revision.platforms.os",
 	"revision.platforms.series",

@@ -74,6 +74,12 @@ func (t *APIRequester) Do(req *http.Request) (*http.Response, error) {
 		return resp, nil
 	}
 
+	if data, err := httputil.DumpResponse(resp, true); err == nil {
+		t.logger.Errorf("Response %s", data)
+	} else {
+		t.logger.Errorf("Response DumpResponse error %s", err.Error())
+	}
+
 	var potentialInvalidURL bool
 	if resp.StatusCode == http.StatusNotFound {
 		potentialInvalidURL = true

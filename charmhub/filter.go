@@ -34,15 +34,18 @@ var defaultResultFilter = []string{
 	"result.contains-charms.store-url",
 	"result.description",
 	"result.license",
-	"result.media.height",
-	"result.media.type",
-	"result.media.url",
-	"result.media.width",
 	"result.publisher.display-name",
 	"result.store-url",
 	"result.summary",
 	"result.used-by",
 	"result.website",
+}
+
+var defaultMediaFilter = []string{
+	"result.media.height",
+	"result.media.type",
+	"result.media.url",
+	"result.media.width",
 }
 
 var defaultDownloadFilter = []string{
