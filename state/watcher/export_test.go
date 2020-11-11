@@ -4,9 +4,6 @@
 package watcher
 
 const (
-	TxnWatcherStarting       = txnWatcherStarting
-	TxnWatcherSyncErr        = txnWatcherSyncErr
-	TxnWatcherCollection     = txnWatcherCollection
 	TxnWatcherShortWait      = txnWatcherShortWait
 	TxnWatcherErrorShortWait = txnWatcherErrorShortWait
 )

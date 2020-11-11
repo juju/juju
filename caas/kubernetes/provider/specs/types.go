@@ -81,8 +81,9 @@ func (*K8sContainerSpec) Validate() error {
 	return nil
 }
 
-// PodSpecWithAnnotations wraps a k8s podspec to add annotations.
+// PodSpecWithAnnotations wraps a k8s podspec to add annotations and labels.
 type PodSpecWithAnnotations struct {
+	Labels      map[string]string
 	Annotations annotations.Annotation
 	core.PodSpec
 }
@@ -90,6 +91,7 @@ type PodSpecWithAnnotations struct {
 // PodSpec is a subset of v1.PodSpec which defines
 // attributes we expose for charms to set.
 type PodSpec struct {
+	Labels                        map[string]string        `json:"labels,omitempty" yaml:"labels,omitempty"`
 	Annotations                   annotations.Annotation   `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 	RestartPolicy                 core.RestartPolicy       `json:"restartPolicy,omitempty" yaml:"restartPolicy,omitempty"`
 	ActiveDeadlineSeconds         *int64                   `json:"activeDeadlineSeconds,omitempty" yaml:"activeDeadlineSeconds,omitempty"`
@@ -110,6 +112,8 @@ func (ps PodSpec) IsEmpty() bool {
 		ps.TerminationGracePeriodSeconds == nil &&
 		ps.SecurityContext == nil &&
 		len(ps.ReadinessGates) == 0 &&
+		len(ps.Labels) == 0 &&
+		len(ps.Annotations) == 0 &&
 		ps.DNSPolicy == ""
 }
 
@@ -144,14 +148,6 @@ func validateLabels(labels map[string]string) error {
 
 type k8sContainersInterface interface {
 	Validate() error
-}
-
-func parseContainers(in string, containerSpec k8sContainersInterface) error {
-	decoder := newStrictYAMLOrJSONDecoder(strings.NewReader(in), len(in))
-	if err := decoder.Decode(containerSpec); err != nil {
-		return errors.Trace(err)
-	}
-	return errors.Trace(containerSpec.Validate())
 }
 
 // ParseRawK8sSpec parses a k8s format of YAML file which defines how to

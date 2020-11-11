@@ -26,6 +26,9 @@ test_deploy_os() {
 run_deploy_centos() {
     echo
 
+    echo "==> Checking for dependencies"
+    check_juju_dependencies metadata
+
     name="test-deploy-centos"
     file="${TEST_DIR}/${name}.log"
 

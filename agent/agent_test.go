@@ -491,6 +491,18 @@ func (*suite) TestAPIInfoServesStandardAPIPortWhenControllerAPIPortNotSet(c *gc.
 
 func (*suite) TestMongoInfo(c *gc.C) {
 	attrParams := attributeParams
+	attrParams.APIAddresses = []string{"foo.example:1235", "bar.example:1236", "localhost:88", "3.4.2.1:1070"}
+	servingInfo := stateServingInfo()
+	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	mongoInfo, ok := conf.MongoInfo()
+	c.Assert(ok, jc.IsTrue)
+	c.Check(mongoInfo.Info.Addrs, jc.DeepEquals, []string{"localhost:69", "3.4.2.1:69"})
+	c.Check(mongoInfo.Info.DisableTLS, jc.IsFalse)
+}
+
+func (*suite) TestMongoInfoNoCloudLocalAvailable(c *gc.C) {
+	attrParams := attributeParams
 	attrParams.APIAddresses = []string{"foo.example:1235", "bar.example:1236", "localhost:88"}
 	servingInfo := stateServingInfo()
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
@@ -503,7 +515,7 @@ func (*suite) TestMongoInfo(c *gc.C) {
 
 func (*suite) TestPromotedMongoInfo(c *gc.C) {
 	attrParams := attributeParams
-	attrParams.APIAddresses = []string{"foo.example:1235", "bar.example:1236", "localhost:88"}
+	attrParams.APIAddresses = []string{"foo.example:1235", "bar.example:1236", "localhost:88", "3.4.2.1:1070"}
 	conf, err := agent.NewAgentConfig(attrParams)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -518,7 +530,7 @@ func (*suite) TestPromotedMongoInfo(c *gc.C) {
 
 	mongoInfo, ok = conf.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
-	c.Check(mongoInfo.Info.Addrs, jc.DeepEquals, []string{"localhost:69", "foo.example:69", "bar.example:69"})
+	c.Check(mongoInfo.Info.Addrs, jc.DeepEquals, []string{"localhost:69", "3.4.2.1:69"})
 	c.Check(mongoInfo.Info.DisableTLS, jc.IsFalse)
 }
 

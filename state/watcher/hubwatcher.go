@@ -174,9 +174,9 @@ func newHubWatcher(hub HubSource, clock Clock, modelUUID string, logger Logger) 
 
 func (w *HubWatcher) receiveEvent(topic string, data interface{}) {
 	switch topic {
-	case txnWatcherStarting:
+	case TxnWatcherStarting:
 		// We don't do anything on a start.
-	case txnWatcherSyncErr:
+	case TxnWatcherSyncErr:
 		syncErr, ok := data.(error)
 		if ok {
 			syncErr = errors.Annotate(syncErr, "hub txn watcher sync error")
@@ -184,7 +184,7 @@ func (w *HubWatcher) receiveEvent(topic string, data interface{}) {
 			syncErr = errors.New("hub txn watcher sync unknown error")
 		}
 		w.tomb.Kill(syncErr)
-	case txnWatcherCollection:
+	case TxnWatcherCollection:
 		change, ok := data.(Change)
 		if !ok {
 			w.logger.Warningf("incoming event not a Change")

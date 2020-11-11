@@ -1494,7 +1494,7 @@ func (k *kubernetesClient) configureDaemonSet(
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: deploymentName + "-",
-					Labels:       selectorLabels,
+					Labels:       utils.LabelsMerge(workloadSpec.Pod.Labels, selectorLabels),
 					Annotations:  podAnnotations(k8sannotations.New(workloadSpec.Pod.Annotations).Merge(annotations).Copy()).ToMap(),
 				},
 				Spec: workloadSpec.Pod.PodSpec,
@@ -1595,7 +1595,7 @@ func (k *kubernetesClient) configureDeployment(
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: deploymentName + "-",
-					Labels:       selectorLabels,
+					Labels:       utils.LabelsMerge(workloadSpec.Pod.Labels, selectorLabels),
 					Annotations:  podAnnotations(k8sannotations.New(workloadSpec.Pod.Annotations).Merge(annotations).Copy()).ToMap(),
 				},
 				Spec: workloadSpec.Pod.PodSpec,
@@ -2392,6 +2392,7 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec,
 			spec.ValidatingWebhookConfigurations = k8sResources.ValidatingWebhookConfigurations
 			spec.IngressResources = k8sResources.IngressResources
 			if k8sResources.Pod != nil {
+				spec.Pod.Labels = utils.LabelsMerge(nil, k8sResources.Pod.Labels)
 				spec.Pod.Annotations = k8sResources.Pod.Annotations.Copy()
 				spec.Pod.RestartPolicy = k8sResources.Pod.RestartPolicy
 				spec.Pod.ActiveDeadlineSeconds = k8sResources.Pod.ActiveDeadlineSeconds

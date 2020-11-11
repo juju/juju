@@ -31,9 +31,15 @@ type Clock interface {
 }
 
 const (
-	txnWatcherStarting   = "starting"
-	txnWatcherSyncErr    = "sync err"
-	txnWatcherCollection = "collection"
+	// TxnWatcherStarting is published to the TxnWatcher's hub after it has
+	// fully started up.
+	TxnWatcherStarting = "starting"
+	// TxnWatcherSyncErr is published to the TxnWatcher's hub if there's a
+	// sync error (e.g., an error iterating through the collection's rows).
+	TxnWatcherSyncErr = "sync err"
+	// TxnWatcherCollection is published to the TxnWatcher's hub for each
+	// change (data is the Change instance).
+	TxnWatcherCollection = "collection"
 
 	txnWatcherShortWait = 10 * time.Millisecond
 
@@ -282,7 +288,7 @@ func (w *TxnWatcher) loop() error {
 	backoff := backoffStrategy.NewTimer(now)
 	d, _ := backoff.NextSleep(now)
 	next := w.clock.After(d)
-	w.hub.Publish(txnWatcherStarting, nil)
+	w.hub.Publish(TxnWatcherStarting, nil)
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -349,7 +355,7 @@ func (w *TxnWatcher) loop() error {
 			w.logger.Warningf("txn watcher sync error: %v\ncurrent retry count %d", err, syncRetryCount)
 			_, isSyncError := errors.Cause(err).(outOfSyncError)
 			if isSyncError || syncRetryCount > maxSyncRetries {
-				w.hub.Publish(txnWatcherSyncErr, err)
+				w.hub.Publish(TxnWatcherSyncErr, err)
 				return errors.Trace(err)
 			}
 			logCollection = nil
@@ -371,7 +377,7 @@ func (w *TxnWatcher) flush() {
 	// refreshEvents are stored newest first.
 	for i := len(w.syncEvents) - 1; i >= 0; i-- {
 		e := w.syncEvents[i]
-		w.hub.Publish(txnWatcherCollection, e)
+		w.hub.Publish(TxnWatcherCollection, e)
 	}
 	w.averageSyncLen = (filterFactor * float64(len(w.syncEvents))) + ((1.0 - filterFactor) * w.averageSyncLen)
 	w.syncEventsLastLen = len(w.syncEvents)

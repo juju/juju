@@ -145,6 +145,12 @@ func (p podSpecLegacy) ToLatest() *specs.PodSpec {
 		ReadinessGates:                p.k8sPodSpecLegacy.ReadinessGates,
 		DNSPolicy:                     p.k8sPodSpecLegacy.DNSPolicy,
 	}
+	if len(p.k8sPodSpecLegacy.Labels) > 0 {
+		iPodSpec.Labels = make(map[string]string)
+		for k, v := range p.k8sPodSpecLegacy.Labels {
+			iPodSpec.Labels[k] = v
+		}
+	}
 	if !iPodSpec.IsEmpty() || p.k8sPodSpecLegacy.CustomResourceDefinitions != nil {
 		pSpec.ProviderPod = &K8sPodSpec{
 			KubernetesResources: &KubernetesResources{
