@@ -142,7 +142,7 @@ class AssessNetworkHealth:
             try:
                 # TODO: The latest network-health charm (11 onwards) is broken;
                 # it doesn't properly install charmhelpers.
-                client.deploy('~juju-qa/network-health-10', series=series,
+                client.deploy('cs:~juju-qa/network-health-10', series=series,
                               alias='network-health-{}'.format(series))
 
             except subprocess.CalledProcessError:
@@ -388,7 +388,7 @@ class AssessNetworkHealth:
                 alias = 'network-health-{}'.format(app)
                 # The latest network-health charm (11 onwards) is broken;
                 # it doesn't properly install charmhelpers.
-                client.deploy('~juju-qa/network-health-10', alias=alias,
+                client.deploy('cs:~juju-qa/network-health-10', alias=alias,
                               series=info['series'])
                 try:
                     client.juju('add-relation', (app, alias))
