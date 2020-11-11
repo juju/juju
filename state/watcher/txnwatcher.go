@@ -29,8 +29,14 @@ type Clock interface {
 }
 
 const (
-	TxnWatcherStarting   = "starting"
-	TxnWatcherSyncErr    = "sync err"
+	// TxnWatcherStarting is published to the TxnWatcher's hub after it has
+	// fully started up.
+	TxnWatcherStarting = "starting"
+	// TxnWatcherSyncErr is published to the TxnWatcher's hub if there's a
+	// sync error (e.g., an error iterating through the collection's rows).
+	TxnWatcherSyncErr = "sync err"
+	// TxnWatcherCollection is published to the TxnWatcher's hub for each
+	// change (data is the Change instance).
 	TxnWatcherCollection = "collection"
 
 	txnWatcherShortWait = 10 * time.Millisecond
