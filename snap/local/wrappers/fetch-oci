@@ -13,7 +13,7 @@ if ! which timeout; then
     exit 0
 fi
 
-timeout 2m sh <<EOT || echo true
+timeout 2m sh <<EOT || echo "Timed out waiting to install microk8s image."
 container_cmd=microk8s.ctr
 image_arg="--namespace k8s.io images"
 if ! which $container_cmd; then
