@@ -9,6 +9,7 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -376,6 +377,9 @@ type CAASAddressesSuite struct {
 var _ = gc.Suite(&CAASAddressesSuite{})
 
 func (s *CAASAddressesSuite) SetUpTest(c *gc.C) {
+	s.ControllerConfig = map[string]interface{}{
+		controller.ControllerName: "trump",
+	}
 	s.StateSuite.SetUpTest(c)
 	state.SetModelTypeToCAAS(c, s.State, s.Model)
 }
@@ -384,6 +388,11 @@ func (s *CAASAddressesSuite) TestAPIHostPortsCloudLocalOnly(c *gc.C) {
 	machineAddr := network.MachineAddress{
 		Value: "10.10.10.10",
 		Type:  network.IPv4Address,
+		Scope: network.ScopeCloudLocal,
+	}
+	localDNSAddr := network.MachineAddress{
+		Value: "controller-service.controller-trump.svc.cluster.local",
+		Type:  network.HostName,
 		Scope: network.ScopeCloudLocal,
 	}
 
@@ -395,6 +404,9 @@ func (s *CAASAddressesSuite) TestAPIHostPortsCloudLocalOnly(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	exp := []network.SpaceHostPorts{{{
+		SpaceAddress: network.SpaceAddress{MachineAddress: localDNSAddr},
+		NetPort:      17777,
+	}, {
 		SpaceAddress: network.SpaceAddress{MachineAddress: machineAddr},
 		NetPort:      17777,
 	}}}
@@ -408,6 +420,10 @@ func (s *CAASAddressesSuite) TestAPIHostPortsCloudLocalOnly(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.DeepEquals, exp)
 
+	exp = []network.SpaceHostPorts{{{
+		SpaceAddress: network.SpaceAddress{MachineAddress: machineAddr},
+		NetPort:      17777,
+	}}}
 	addrs, err = st.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.DeepEquals, exp)
@@ -419,6 +435,11 @@ func (s *CAASAddressesSuite) TestAPIHostPortsPublicOnly(c *gc.C) {
 		Type:  network.IPv4Address,
 		Scope: network.ScopePublic,
 	}
+	localDNSAddr := network.MachineAddress{
+		Value: "controller-service.controller-trump.svc.cluster.local",
+		Type:  network.HostName,
+		Scope: network.ScopeCloudLocal,
+	}
 
 	_, err := s.State.SaveCloudService(state.SaveCloudServiceArgs{
 		Id:         s.Model.ControllerUUID(),
@@ -428,6 +449,9 @@ func (s *CAASAddressesSuite) TestAPIHostPortsPublicOnly(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	exp := []network.SpaceHostPorts{{{
+		SpaceAddress: network.SpaceAddress{MachineAddress: localDNSAddr},
+		NetPort:      17777,
+	}, {
 		SpaceAddress: network.SpaceAddress{MachineAddress: machineAddr},
 		NetPort:      17777,
 	}}}
@@ -441,6 +465,10 @@ func (s *CAASAddressesSuite) TestAPIHostPortsPublicOnly(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.DeepEquals, exp)
 
+	exp = []network.SpaceHostPorts{{{
+		SpaceAddress: network.SpaceAddress{MachineAddress: machineAddr},
+		NetPort:      17777,
+	}}}
 	addrs, err = st.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.DeepEquals, exp)
@@ -467,6 +495,11 @@ func (s *CAASAddressesSuite) TestAPIHostPortsMultiple(c *gc.C) {
 		Type:  network.IPv4Address,
 		Scope: network.ScopeCloudLocal,
 	}
+	localDNSAddr := network.MachineAddress{
+		Value: "controller-service.controller-trump.svc.cluster.local",
+		Type:  network.HostName,
+		Scope: network.ScopeCloudLocal,
+	}
 
 	_, err := s.State.SaveCloudService(state.SaveCloudServiceArgs{
 		Id:         s.Model.ControllerUUID(),
@@ -489,7 +522,11 @@ func (s *CAASAddressesSuite) TestAPIHostPortsMultiple(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Local-cloud addresses must come first.
-	c.Assert(addrs[0][:2], jc.SameContents, network.SpaceHostPorts{
+	c.Assert(addrs[0][:3], jc.SameContents, network.SpaceHostPorts{
+		{
+			SpaceAddress: network.SpaceAddress{MachineAddress: localDNSAddr},
+			NetPort:      17777,
+		},
 		{
 			SpaceAddress: network.SpaceAddress{MachineAddress: machineAddr3},
 			NetPort:      17777,
@@ -512,7 +549,7 @@ func (s *CAASAddressesSuite) TestAPIHostPortsMultiple(c *gc.C) {
 	}
 
 	// Public ones should also follow.
-	c.Assert(addrs[0][2:], jc.SameContents, exp)
+	c.Assert(addrs[0][3:], jc.SameContents, exp)
 
 	// Only the public ones should be returned.
 	addrs, err = st.APIHostPortsForClients()
