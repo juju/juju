@@ -399,7 +399,7 @@ func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ni := s.newNetworkInfo(c, unit.UnitTag(), nil)
-	netInfo := ni.(uniter.NetworkInfoIAAS)
+	netInfo := ni.(*uniter.NetworkInfoIAAS)
 
 	res, err := netInfo.MachineNetworkInfos(spaceIDDefault, spaceIDDMZ, "666", network.AlphaSpaceId)
 	c.Assert(err, jc.ErrorIsNil)
@@ -466,7 +466,7 @@ func (s *networkInfoSuite) TestMachineNetworkInfosAlphaNoSubnets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ni := s.newNetworkInfo(c, unit.UnitTag(), nil)
-	netInfo := ni.(uniter.NetworkInfoIAAS)
+	netInfo := ni.(*uniter.NetworkInfoIAAS)
 
 	res, err := netInfo.MachineNetworkInfos(network.AlphaSpaceId)
 	c.Assert(err, jc.ErrorIsNil)
