@@ -28,6 +28,10 @@ func (defaultOSEnviron) IsTerminal() bool {
 	return terminal.IsTerminal(1)
 }
 
+// canUnicode is taken from the snapd equivalent. They have a battle tested
+// version that is identical to this, but is not exported as a package or
+// library for us to use. So it has been lifted in it's entirety here.
+// https://github.com/snapcore/snapd/blob/master/cmd/snap/color.go
 func canUnicode(mode string, os OSEnviron) bool {
 	switch mode {
 	case "always":
