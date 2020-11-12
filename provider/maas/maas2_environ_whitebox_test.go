@@ -445,7 +445,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodePassedAgentName(c *gc.C) {
 	suite.setupFakeTools(c)
 	env = suite.makeEnviron(c, nil)
 
-	_, err := env.acquireNode2(suite.callCtx, "", "", "", constraints.Value{}, nil, nil)
+	_, err := env.acquireNode2(suite.callCtx, "", "", "", constraints.Value{}, nil, nil, nil)
 
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -460,7 +460,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodePassesPositiveAndNegativeTags(c *
 	_, err := env.acquireNode2(suite.callCtx,
 		"", "", "",
 		constraints.Value{Tags: stringslicep("tag1", "^tag2", "tag3", "^tag4")},
-		nil, nil,
+		nil, nil, nil,
 	)
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -494,32 +494,23 @@ func (suite *maas2EnvironSuite) TestAcquireNodePassesPositiveAndNegativeSpaces(c
 	expected := gomaasapi.AllocateMachineArgs{
 		NotSpace: []string{"6", "8"},
 		Interfaces: []gomaasapi.InterfaceSpec{
-			{Label: "0", Space: "5"},
-			{Label: "1", Space: "7"},
+			{Label: "5", Space: "5"},
+			{Label: "7", Space: "7"},
 		},
 	}
 	env, _ := suite.injectControllerWithSpacesAndCheck(c, getFourSpaces(), expected)
 
-	_, err := env.acquireNode2(suite.callCtx,
-		"", "", "",
-		constraints.Value{Spaces: stringslicep("space-1", "^space-2", "space-3", "^space-4")},
-		nil, nil,
-	)
+	cons := constraints.Value{Spaces: stringslicep("space-1", "^space-2", "space-3", "^space-4")}
+	positiveSpaceIDs, negativeSpaceIDs, err := env.networkSpaceRequirements(suite.callCtx, nil, cons)
 	c.Check(err, jc.ErrorIsNil)
-}
 
-func (suite *maas2EnvironSuite) TestAcquireNodeDisambiguatesNamedLabelsFromIndexedUpToALimit(c *gc.C) {
-	env, _ := suite.injectControllerWithSpacesAndCheck(c, getFourSpaces(), gomaasapi.AllocateMachineArgs{})
-	var shortLimit uint = 0
-	suite.PatchValue(&numericLabelLimit, shortLimit)
-
-	_, err := env.acquireNode2(suite.callCtx,
+	_, err = env.acquireNode2(suite.callCtx,
 		"", "", "",
-		constraints.Value{Spaces: stringslicep("space-1", "^space-2", "space-3", "^space-4")},
-		[]interfaceBinding{{"0", "first-clash"}, {"1", "final-clash"}},
+		cons,
+		positiveSpaceIDs, negativeSpaceIDs,
 		nil,
 	)
-	c.Assert(err, gc.ErrorMatches, `too many conflicting numeric labels, giving up.`)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (suite *maas2EnvironSuite) TestAcquireNodeStorage(c *gc.C) {
@@ -568,7 +559,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeStorage(c *gc.C) {
 			return test.expected
 		}
 		env = suite.makeEnviron(c, nil)
-		_, err := env.acquireNode2(suite.callCtx, "", "", "", constraints.Value{}, nil, test.volumes)
+		_, err := env.acquireNode2(suite.callCtx, "", "", "", constraints.Value{}, nil, nil, test.volumes)
 		c.Check(err, jc.ErrorIsNil)
 	}
 }
@@ -592,6 +583,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
 		spaces: getTwoSpaces(),
 	})
 	suite.setupFakeTools(c)
+
 	// Add some constraints, including spaces to verify specified bindings
 	// always override any spaces constraints.
 	cons := constraints.Value{
@@ -599,79 +591,44 @@ func (suite *maas2EnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
 	}
 	// In the tests below Space 2 means foo, Space 3 means bar.
 	for i, test := range []struct {
-		interfaces        []interfaceBinding
+		descr             string
+		endpointBindings  map[string]corenetwork.Id
 		expectedPositives []gomaasapi.InterfaceSpec
 		expectedNegatives []string
 		expectedError     string
-	}{{ // without specified bindings, spaces constraints are used instead.
-		interfaces:        nil,
-		expectedPositives: []gomaasapi.InterfaceSpec{{"0", "2"}},
+	}{{
+		descr:             "no bindings and space constraints",
+		expectedPositives: []gomaasapi.InterfaceSpec{{Label: "2", Space: "2"}},
 		expectedNegatives: []string{"3"},
 		expectedError:     "",
 	}, {
-		interfaces:        []interfaceBinding{{"name-1", "space-1"}},
-		expectedPositives: []gomaasapi.InterfaceSpec{{"name-1", "space-1"}, {"0", "2"}},
+		descr:            "bindings and no space constraints",
+		endpointBindings: map[string]corenetwork.Id{"name-1": "space-1"},
+		expectedPositives: []gomaasapi.InterfaceSpec{
+			{Label: "2", Space: "2"},
+			{Label: "space-1", Space: "space-1"},
+		},
 		expectedNegatives: []string{"3"},
 	}, {
-		interfaces: []interfaceBinding{
-			{"name-1", "7"},
-			{"name-2", "8"},
-			{"name-3", "9"},
+		descr: "bindings (to the same provider space ID) and space constraints",
+		endpointBindings: map[string]corenetwork.Id{
+			"":         "999", // we should get a NIC in this space even if none of the endpoints are bound to it
+			"name-1":   "1",
+			"name-2":   "1",
+			"name-3":   "2",
+			"name-4":   "42",
+			"to-alpha": corenetwork.AlphaSpaceName, // alpha space is not present on maas and is skipped
 		},
-		expectedPositives: []gomaasapi.InterfaceSpec{{"name-1", "7"}, {"name-2", "8"}, {"name-3", "9"}, {"0", "2"}},
+		expectedPositives: []gomaasapi.InterfaceSpec{
+			{Label: "1", Space: "1"},
+			{Label: "2", Space: "2"},
+			{Label: "42", Space: "42"},
+			{Label: "999", Space: "999"},
+		},
 		expectedNegatives: []string{"3"},
-	}, {
-		interfaces:        []interfaceBinding{{"", "anything"}},
-		expectedPositives: []gomaasapi.InterfaceSpec{{"0", "anything"}, {"1", "2"}},
-		expectedNegatives: []string{"3"},
-	}, {
-		interfaces:    []interfaceBinding{{"shared-db", "3"}},
-		expectedError: `negative space "bar" from constraints clashes with interface bindings`,
-	}, {
-		interfaces: []interfaceBinding{
-			{"shared-db", "1"},
-			{"db", "1"},
-		},
-		expectedPositives: []gomaasapi.InterfaceSpec{{"shared-db", "1"}, {"db", "1"}, {"0", "2"}},
-		expectedNegatives: []string{"3"},
-	}, {
-		interfaces:    []interfaceBinding{{"", ""}},
-		expectedError: `invalid interface binding "": space provider ID is required`,
-	}, {
-		interfaces: []interfaceBinding{
-			{"valid", "ok"},
-			{"", "valid-but-ignored-space"},
-			{"valid-name-empty-space", ""},
-			{"", ""},
-		},
-		expectedError: `invalid interface binding "valid-name-empty-space": space provider ID is required`,
-	}, {
-		interfaces:    []interfaceBinding{{"foo", ""}},
-		expectedError: `invalid interface binding "foo": space provider ID is required`,
-	}, {
-		interfaces: []interfaceBinding{
-			{"bar", ""},
-			{"valid", "ok"},
-			{"", "valid-but-ignored-space"},
-			{"", ""},
-		},
-		expectedError: `invalid interface binding "bar": space provider ID is required`,
-	}, {
-		interfaces: []interfaceBinding{
-			{"dup-name", "1"},
-			{"dup-name", "2"},
-		},
-		expectedError: `duplicated interface binding "dup-name"`,
-	}, {
-		interfaces: []interfaceBinding{
-			{"valid-1", "0"},
-			{"dup-name", "1"},
-			{"dup-name", "2"},
-			{"valid-2", "3"},
-		},
-		expectedError: `duplicated interface binding "dup-name"`,
 	}} {
-		c.Logf("test #%d: interfaces=%v", i, test.interfaces)
+		c.Logf("test #%d: %s", i, test.descr)
+
 		env = suite.makeEnviron(c, nil)
 		getNegatives = func() []string {
 			return test.expectedNegatives
@@ -679,7 +636,11 @@ func (suite *maas2EnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
 		getPositives = func() []gomaasapi.InterfaceSpec {
 			return test.expectedPositives
 		}
-		_, err := env.acquireNode2(suite.callCtx, "", "", "", cons, test.interfaces, nil)
+
+		positiveSpaceIDs, negativeSpaceIDs, err := env.networkSpaceRequirements(suite.callCtx, test.endpointBindings, cons)
+		c.Check(err, jc.ErrorIsNil)
+
+		_, err = env.acquireNode2(suite.callCtx, "", "", "", cons, positiveSpaceIDs, negativeSpaceIDs, nil)
 		if test.expectedError != "" {
 			c.Check(err, gc.ErrorMatches, test.expectedError)
 			c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -702,42 +663,6 @@ func getTwoSpaces() []gomaasapi.Space {
 			id:      3,
 		},
 	}
-}
-
-func (suite *maas2EnvironSuite) TestAcquireNodeConvertsSpaceNames(c *gc.C) {
-	expected := gomaasapi.AllocateMachineArgs{
-		NotSpace:   []string{"3"},
-		Interfaces: []gomaasapi.InterfaceSpec{{Label: "0", Space: "2"}},
-	}
-	env, _ := suite.injectControllerWithSpacesAndCheck(c, getTwoSpaces(), expected)
-	cons := constraints.Value{
-		Spaces: stringslicep("foo", "^bar"),
-	}
-	_, err := env.acquireNode2(suite.callCtx, "", "", "", cons, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (suite *maas2EnvironSuite) TestAcquireNodeTranslatesSpaceNames(c *gc.C) {
-	expected := gomaasapi.AllocateMachineArgs{
-		NotSpace:   []string{"3"},
-		Interfaces: []gomaasapi.InterfaceSpec{{Label: "0", Space: "2"}},
-	}
-	env, _ := suite.injectControllerWithSpacesAndCheck(c, getTwoSpaces(), expected)
-	cons := constraints.Value{
-		Spaces: stringslicep("foo-1", "^bar-3"),
-	}
-	_, err := env.acquireNode2(suite.callCtx, "", "", "", cons, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (suite *maas2EnvironSuite) TestAcquireNodeUnrecognisedSpace(c *gc.C) {
-	suite.injectController(&fakeController{})
-	env := suite.makeEnviron(c, nil)
-	cons := constraints.Value{
-		Spaces: stringslicep("baz"),
-	}
-	_, err := env.acquireNode2(suite.callCtx, "", "", "", cons, nil, nil)
-	c.Assert(err, gc.ErrorMatches, `unrecognised space in constraint "baz"`)
 }
 
 func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentError(c *gc.C) {
