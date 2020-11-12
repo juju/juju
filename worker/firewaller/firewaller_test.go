@@ -464,7 +464,7 @@ func (s *InstanceModeSuite) TestStartWithUnexposedApplication(c *gc.C) {
 }
 
 func (s *InstanceModeSuite) TestStartMachineWithManualMachine(c *gc.C) {
-	watching := make(chan names.MachineTag, 2) // buffered to ensure test never blocks
+	watching := make(chan names.MachineTag, 10) // buffer to ensure test never blocks
 	s.watchMachineNotify = func(tag names.MachineTag) {
 		watching <- tag
 	}

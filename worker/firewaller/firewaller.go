@@ -96,7 +96,8 @@ type Config struct {
 	CredentialAPI common.CredentialAPI
 
 	// WatchMachineNotify is called when the Firewaller starts watching the
-	// machine with the given tag (manual machines aren't watched).
+	// machine with the given tag (manual machines aren't watched). This
+	// should only be used for testing.
 	WatchMachineNotify func(tag names.MachineTag)
 }
 
@@ -162,6 +163,7 @@ type Firewaller struct {
 
 	cloudCallContext context.ProviderCallContext
 
+	// Only used for testing
 	watchMachineNotify func(tag names.MachineTag)
 }
 
