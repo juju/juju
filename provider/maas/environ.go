@@ -779,26 +779,78 @@ func (env *maasEnviron) spaceNamesToSpaceInfo(
 	return positiveSpaceIds, negativeSpaceIds, nil
 }
 
+// networkSpaceRequirements combines the space requirements for the application
+// bindings and the specified constraints and returns back a set of provider
+// space IDs for which a NIC needs to be provisioned in the instance we are
+// about to launch and a second (negative) set of space IDs that must not be
+// present in the launched instance NICs.
+func (env *maasEnviron) networkSpaceRequirements(ctx context.ProviderCallContext, endpointToProviderSpaceID map[string]corenetwork.Id, cons constraints.Value) (set.Strings, set.Strings, error) {
+	positiveSpaceIds := set.NewStrings()
+	negativeSpaceIds := set.NewStrings()
+
+	// Iterate the application bindings and add each bound space ID to the
+	// positive space set.
+	for _, providerSpaceID := range endpointToProviderSpaceID {
+		// The alpha space is not part of the MAAS space list. When the
+		// code that maps between space IDs and provider space IDs
+		// encounters a space that it cannot map, it passes the space
+		// name through.
+		if providerSpaceID == corenetwork.AlphaSpaceName {
+			continue
+		}
+
+		positiveSpaceIds.Add(string(providerSpaceID))
+	}
+
+	// Convert space constraints into a list of space IDs to include and
+	// a list of space IDs to omit.
+	positiveSpaceNames, negativeSpaceNames := convertSpacesFromConstraints(cons.Spaces)
+	positiveSpaceInfo, negativeSpaceInfo, err := env.spaceNamesToSpaceInfo(ctx, positiveSpaceNames, negativeSpaceNames)
+	if err != nil {
+		// Spaces are not supported by this MAAS instance.
+		if errors.IsNotSupported(err) {
+			return nil, nil, nil
+		}
+
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return nil, nil, errors.Trace(err)
+	}
+
+	// Append required space IDs from constraints.
+	for _, si := range positiveSpaceInfo {
+		if si.ProviderId == "" {
+			continue
+		}
+		positiveSpaceIds.Add(string(si.ProviderId))
+	}
+
+	// Calculate negative space ID set and check for clashes with the positive set.
+	for _, si := range negativeSpaceInfo {
+		if si.ProviderId == "" {
+			continue
+		}
+
+		if positiveSpaceIds.Contains(string(si.ProviderId)) {
+			return nil, nil, errors.NewNotValid(nil, fmt.Sprintf("negative space %q from constraints clashes with required spaces for instance NICs", si.Name))
+		}
+
+		negativeSpaceIds.Add(string(si.ProviderId))
+	}
+
+	return positiveSpaceIds, negativeSpaceIds, nil
+}
+
 // acquireNode2 allocates a machine from MAAS2.
 func (env *maasEnviron) acquireNode2(
 	ctx context.ProviderCallContext,
 	nodeName, zoneName, systemId string,
 	cons constraints.Value,
-	interfaces []interfaceBinding,
+	positiveSpaceIDs set.Strings,
+	negativeSpaceIDs set.Strings,
 	volumes []volumeInfo,
 ) (maasInstance, error) {
 	acquireParams := convertConstraints2(cons)
-	positiveSpaceNames, negativeSpaceNames := convertSpacesFromConstraints(cons.Spaces)
-	positiveSpaces, negativeSpaces, err := env.spaceNamesToSpaceInfo(ctx, positiveSpaceNames, negativeSpaceNames)
-	// If spaces aren't supported the constraints should be empty anyway.
-	if err != nil && !errors.IsNotSupported(err) {
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
-		return nil, errors.Trace(err)
-	}
-	err = addInterfaces2(&acquireParams, interfaces, positiveSpaces, negativeSpaces)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	addInterfaces2(&acquireParams, positiveSpaceIDs, negativeSpaceIDs)
 	addStorage2(&acquireParams, volumes)
 	acquireParams.AgentName = env.uuid
 	if zoneName != "" {
@@ -828,7 +880,8 @@ func (env *maasEnviron) acquireNode(
 	ctx context.ProviderCallContext,
 	nodeName, zoneName, systemId string,
 	cons constraints.Value,
-	interfaces []interfaceBinding,
+	positiveSpaceIDs set.Strings,
+	negativeSpaceIDs set.Strings,
 	volumes []volumeInfo,
 ) (gomaasapi.MAASObject, error) {
 
@@ -842,16 +895,7 @@ func (env *maasEnviron) acquireNode(
 	// demand (which may fail) if not handled properly.
 
 	acquireParams := convertConstraints(cons)
-	positiveSpaceNames, negativeSpaceNames := convertSpacesFromConstraints(cons.Spaces)
-	positiveSpaces, negativeSpaces, err := env.spaceNamesToSpaceInfo(ctx, positiveSpaceNames, negativeSpaceNames)
-	// If spaces aren't supported the constraints should be empty anyway.
-	if err != nil && !errors.IsNotSupported(err) {
-		return gomaasapi.MAASObject{}, errors.Trace(err)
-	}
-	err = addInterfaces(acquireParams, interfaces, positiveSpaces, negativeSpaces)
-	if err != nil {
-		return gomaasapi.MAASObject{}, errors.Trace(err)
-	}
+	addInterfaces(acquireParams, positiveSpaceIDs, negativeSpaceIDs)
 	addStorage(acquireParams, volumes)
 	acquireParams.Add("agent_name", env.uuid)
 	if zoneName != "" {
@@ -864,13 +908,15 @@ func (env *maasEnviron) acquireNode(
 		acquireParams.Add("system_id", systemId)
 	}
 
-	var result gomaasapi.JSONObject
+	var (
+		result gomaasapi.JSONObject
+		err    error
+	)
 	for a := shortAttempt.Start(); a.Next(); {
 		client := env.getMAASClient().GetSubObject("nodes/")
 		logger.Tracef("calling acquire with params: %+v", acquireParams)
-		result, err = client.CallPost("acquire", acquireParams)
-		if err == nil {
-			break
+		if result, err = client.CallPost("acquire", acquireParams); err == nil {
+			break // Got a result back.
 		}
 	}
 	if err != nil {
@@ -972,20 +1018,12 @@ func (env *maasEnviron) StartInstance(
 		return nil, common.ZoneIndependentError(errors.Annotate(err, "invalid volume parameters"))
 	}
 
-	var interfaceBindings []interfaceBinding
-	if len(args.EndpointBindings) != 0 {
-		for endpoint, spaceProviderID := range args.EndpointBindings {
-			// Ignore alpha space bindings, which we assume will be the result
-			// defaults. It doesn't have a provider ID, and so will be passed
-			// by name.
-			if spaceProviderID != corenetwork.AlphaSpaceName {
-				interfaceBindings = append(interfaceBindings, interfaceBinding{
-					Name:            endpoint,
-					SpaceProviderId: string(spaceProviderID),
-				})
-			}
-		}
+	// Calculate network space requirements.
+	positiveSpaceIDs, negativeSpaceIDs, err := env.networkSpaceRequirements(ctx, args.EndpointBindings, args.Constraints)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+
 	selectNode := env.selectNode2
 	if !env.usingMAAS2() {
 		selectNode = env.selectNode
@@ -996,7 +1034,8 @@ func (env *maasEnviron) StartInstance(
 			AvailabilityZone: availabilityZone,
 			NodeName:         nodeName,
 			SystemId:         systemId,
-			Interfaces:       interfaceBindings,
+			PositiveSpaceIDs: positiveSpaceIDs,
+			NegativeSpaceIDs: negativeSpaceIDs,
 			Volumes:          volumes,
 		})
 	if selectNodeErr != nil {
@@ -1295,7 +1334,8 @@ type selectNodeArgs struct {
 	NodeName         string
 	SystemId         string
 	Constraints      constraints.Value
-	Interfaces       []interfaceBinding
+	PositiveSpaceIDs set.Strings
+	NegativeSpaceIDs set.Strings
 	Volumes          []volumeInfo
 }
 
@@ -1311,7 +1351,8 @@ func (env *maasEnviron) selectNode(ctx context.ProviderCallContext, args selectN
 		args.AvailabilityZone,
 		args.SystemId,
 		args.Constraints,
-		args.Interfaces,
+		args.PositiveSpaceIDs,
+		args.NegativeSpaceIDs,
 		args.Volumes,
 	)
 	if err != nil {
@@ -1340,7 +1381,8 @@ func (env *maasEnviron) selectNode2(ctx context.ProviderCallContext, args select
 		args.AvailabilityZone,
 		args.SystemId,
 		args.Constraints,
-		args.Interfaces,
+		args.PositiveSpaceIDs,
+		args.NegativeSpaceIDs,
 		args.Volumes,
 	)
 	if err != nil {

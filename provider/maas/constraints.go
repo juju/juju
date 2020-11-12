@@ -9,11 +9,9 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
 
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/context"
 )
 
@@ -134,172 +132,46 @@ func parseDelimitedValues(rawValues []string) (positives, negatives []string) {
 	return positives, negatives
 }
 
-// interfaceBinding defines a requirement that a node interface must satisfy in
-// order for that node to get selected and started, based on deploy-time
-// bindings of a service.
-//
-// TODO(dimitern): Once the services have bindings defined in state, a version
-// of this should go to the network package (needs to be non-MAAS-specifc
-// first). Also, we need to transform Juju space names from constraints into
-// MAAS space provider IDs.
-type interfaceBinding struct {
-	Name            string
-	SpaceProviderId string
-
-	// add more as needed.
-}
-
-// numericLabelLimit is a sentinel value used in addInterfaces to limit the
-// number of disambiguation inner loop iterations in case named labels clash
-// with numeric labels for spaces coming from constraints. It's defined here to
-// facilitate testing this behavior.
-var numericLabelLimit uint = 0xffff
-
-// addInterfaces converts a slice of interface bindings, positiveSpaces and
-// negativeSpaces coming from constraints to the format MAAS expects for the
-// "interfaces" and "not_networks" arguments to acquire node. Returns an error
-// satisfying errors.IsNotValid() if the bindings contains duplicates, empty
-// Name/ProviderSpaceID, or if negative spaces clash with specified bindings.
-// Duplicates between specified bindings and positiveSpaces are silently
-// skipped.
-func addInterfaces(
-	params url.Values,
-	bindings []interfaceBinding,
-	positiveSpaces, negativeSpaces []network.SpaceInfo,
-) error {
-	combinedBindings, negatives, err := getBindings(bindings, positiveSpaces, negativeSpaces)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if len(combinedBindings) > 0 {
-		combinedBindingsString := make([]string, len(combinedBindings))
-		for i, binding := range combinedBindings {
-			combinedBindingsString[i] = fmt.Sprintf("%s:space=%s", binding.Name, binding.SpaceProviderId)
+// addInterfaces converts a slice of positiveSpaces and negativeSpaces coming
+// from application bindings and provided constraints to the format MAAS
+// expects for the "interfaces" and "not_networks" arguments to acquire node.
+func addInterfaces(params url.Values, positiveSpaceIDs, negativeSpaceIDs set.Strings) {
+	if len(positiveSpaceIDs) > 0 {
+		var ifList []string
+		for _, providerSpaceID := range positiveSpaceIDs.SortedValues() {
+			ifList = append(ifList, fmt.Sprintf("space=%s", providerSpaceID))
 		}
-		params.Add("interfaces", strings.Join(combinedBindingsString, ";"))
+		params.Add("interfaces", strings.Join(ifList, ";"))
 	}
-	if len(negatives) > 0 {
-		for _, binding := range negatives {
-			notNetwork := fmt.Sprintf("space:%s", binding.SpaceProviderId)
+
+	if len(negativeSpaceIDs) > 0 {
+		for _, providerSpaceID := range negativeSpaceIDs.SortedValues() {
+			notNetwork := fmt.Sprintf("space:%s", providerSpaceID)
 			params.Add("not_networks", notNetwork)
 		}
 	}
-	return nil
 }
 
-func getBindings(
-	bindings []interfaceBinding,
-	positiveSpaces, negativeSpaces []network.SpaceInfo,
-) ([]interfaceBinding, []interfaceBinding, error) {
-	var (
-		index            uint
-		combinedBindings []interfaceBinding
-	)
-	namesSet := set.NewStrings()
-	spacesSet := set.NewStrings()
-	createLabel := func(index uint, namesSet set.Strings) (string, uint, error) {
-		var label string
-		for {
-			label = fmt.Sprintf("%v", index)
-			if !namesSet.Contains(label) {
-				break
-			}
-			if index > numericLabelLimit { // ...just to make sure we won't loop forever.
-				return "", index, errors.Errorf("too many conflicting numeric labels, giving up.")
-			}
-			index++
+func addInterfaces2(params *gomaasapi.AllocateMachineArgs, positiveSpaceIDs, negativeSpaceIDs set.Strings) {
+	if len(positiveSpaceIDs) > 0 {
+		for _, providerSpaceID := range positiveSpaceIDs.SortedValues() {
+			// NOTE(achilleasa): use the provider ID as the label for the
+			// iface. Using the space name might seem to be more
+			// user-friendly but space names can change after the machine
+			// gets provisioned so they should not be used for labeling things.
+			params.Interfaces = append(
+				params.Interfaces,
+				gomaasapi.InterfaceSpec{
+					Label: providerSpaceID,
+					Space: providerSpaceID,
+				},
+			)
 		}
-		namesSet.Add(label)
-		return label, index, nil
-	}
-	for _, binding := range bindings {
-		switch {
-		case binding.SpaceProviderId == "":
-			return nil, nil, errors.NewNotValid(nil, fmt.Sprintf(
-				"invalid interface binding %q: space provider ID is required",
-				binding.Name,
-			))
-		case binding.Name == "":
-			var label string
-			var err error
-			label, index, err = createLabel(index, namesSet)
-			if err != nil {
-				return nil, nil, errors.Trace(err)
-			}
-			binding.Name = label
-		case namesSet.Contains(binding.Name):
-			return nil, nil, errors.NewNotValid(nil, fmt.Sprintf(
-				"duplicated interface binding %q",
-				binding.Name,
-			))
-		}
-		namesSet.Add(binding.Name)
-		spacesSet.Add(binding.SpaceProviderId)
-
-		combinedBindings = append(combinedBindings, binding)
 	}
 
-	for _, space := range positiveSpaces {
-		if spacesSet.Contains(string(space.ProviderId)) {
-			// Skip duplicates in positiveSpaces.
-			continue
-		}
-		spacesSet.Add(string(space.ProviderId))
-
-		var label string
-		var err error
-		label, index, err = createLabel(index, namesSet)
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-		// Make sure we pick a label that doesn't clash with possible bindings.
-		combinedBindings = append(combinedBindings, interfaceBinding{label, string(space.ProviderId)})
+	if len(negativeSpaceIDs) != 0 {
+		params.NotSpace = negativeSpaceIDs.SortedValues()
 	}
-
-	var negatives []interfaceBinding
-	for _, space := range negativeSpaces {
-		if spacesSet.Contains(string(space.ProviderId)) {
-			return nil, nil, errors.NewNotValid(nil, fmt.Sprintf(
-				"negative space %q from constraints clashes with interface bindings",
-				space.Name,
-			))
-		}
-		var label string
-		var err error
-		label, index, err = createLabel(index, namesSet)
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-		negatives = append(negatives, interfaceBinding{label, string(space.ProviderId)})
-	}
-	return combinedBindings, negatives, nil
-}
-
-func addInterfaces2(
-	params *gomaasapi.AllocateMachineArgs,
-	bindings []interfaceBinding,
-	positiveSpaces, negativeSpaces []network.SpaceInfo,
-) error {
-	combinedBindings, negatives, err := getBindings(bindings, positiveSpaces, negativeSpaces)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if len(combinedBindings) > 0 {
-		interfaceSpecs := make([]gomaasapi.InterfaceSpec, len(combinedBindings))
-		for i, space := range combinedBindings {
-			interfaceSpecs[i] = gomaasapi.InterfaceSpec{Label: space.Name, Space: space.SpaceProviderId}
-		}
-		params.Interfaces = interfaceSpecs
-	}
-	if len(negatives) > 0 {
-		negativeStrings := make([]string, len(negatives))
-		for i, space := range negatives {
-			negativeStrings[i] = space.SpaceProviderId
-		}
-		params.NotSpace = negativeStrings
-	}
-	return nil
 }
 
 // addStorage converts volume information into url.Values object suitable to
