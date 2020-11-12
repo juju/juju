@@ -1509,6 +1509,69 @@ func (s *ActionPruningSuite) TestPruneOperationsBySizeOldestFirst(c *gc.C) {
 	c.Assert(len(youngerEntries), jc.GreaterThan, len(olderEntries))
 }
 
+func (s *ActionPruningSuite) TestPruneOperationsBySizeKeepsIncomplete(c *gc.C) {
+	clock := testclock.NewClock(coretesting.NonZeroTime())
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
+	application := s.Factory.MakeApplication(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
+
+	const numOperationEntriesOlder = 5
+	const numOperationEntriesYounger = 5
+	const numOperationEntriesIncomplete = 5
+	const tasksPerOperation = 3
+	const numOperationEntries = numOperationEntriesOlder + numOperationEntriesYounger + numOperationEntriesIncomplete
+	const maxLogSize = 5 //MB
+
+	olderTime := clock.Now().Add(-1 * time.Hour)
+	youngerTime := clock.Now()
+
+	state.PrimeOperations(c, time.Time{}, unit, numOperationEntriesIncomplete, tasksPerOperation)
+	state.PrimeOperations(c, olderTime, unit, numOperationEntriesOlder, tasksPerOperation)
+	state.PrimeOperations(c, youngerTime, unit, numOperationEntriesYounger, tasksPerOperation)
+
+	actions, err := unit.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actions, gc.HasLen, tasksPerOperation*numOperationEntries)
+	ops, err := s.Model.AllOperations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ops, gc.HasLen, numOperationEntries)
+
+	err = state.PruneOperations(s.State, 0, maxLogSize)
+	c.Assert(err, jc.ErrorIsNil)
+
+	actions, err = unit.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+
+	var olderEntries []time.Time
+	var youngerEntries []time.Time
+	var incompleteEntries []time.Time
+	zero := time.Time{}
+	for _, entry := range actions {
+		if entry.Completed() == zero {
+			incompleteEntries = append(incompleteEntries, entry.Completed())
+		} else if entry.Completed().Before(youngerTime.Round(time.Second)) {
+			olderEntries = append(olderEntries, entry.Completed())
+		} else {
+			youngerEntries = append(youngerEntries, entry.Completed())
+		}
+	}
+	c.Assert(youngerEntries, gc.HasLen, 0)
+	c.Assert(olderEntries, gc.HasLen, 0)
+	c.Assert(len(incompleteEntries), gc.Not(gc.Equals), 0)
+
+	ops, err = s.Model.AllOperations()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The test here is to see if the remaining count is relatively close to
+	// the max log size x 2. I would expect the number of remaining entries to
+	// be no greater than 2 x 1.5 x the max log size in MB since each entry is
+	// about 500kB (in memory) in size. 1.5x is probably good enough to ensure
+	// this test doesn't flake.
+	c.Assert(float64(len(actions)), jc.LessThan, 2.0*maxLogSize*1.5)
+	c.Assert(float64(len(ops)), gc.Equals, float64(len(actions))/3.0)
+}
+
 func (s *ActionPruningSuite) TestPruneOperationsByAge(c *gc.C) {
 	clock := testclock.NewClock(time.Now())
 	err := s.State.SetClockForTesting(clock)
