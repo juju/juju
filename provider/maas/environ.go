@@ -786,18 +786,7 @@ func (env *maasEnviron) networkSpaceRequirements(ctx context.ProviderCallContext
 
 	// Iterate the application bindings and add each bound space ID to the
 	// positive space set.
-	for epName, providerSpaceID := range endpointToProviderSpaceID {
-		// The default space is applied at deploy time to all endpoints
-		// that are not explicitly bound but should be ignored when
-		// collecting the spaces we need. Consider this edge case:
-		// an explicit space binding is provided for all endpoints as
-		// well as a default one that is *different* from all others.
-		// In this case, we shouldn't request for a NIC in the default
-		// space as it is not actually going to be used.
-		if epName == "" {
-			continue
-		}
-
+	for _, providerSpaceID := range endpointToProviderSpaceID {
 		// The alpha space is not part of the MAAS space list. When the
 		// code that maps between space IDs and provider space IDs
 		// encounters a space that it cannot map, it passes the space

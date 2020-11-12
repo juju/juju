@@ -483,14 +483,14 @@ func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
 	}, {
 		descr: "bindings (to the same provider space ID) and space constraints",
 		endpointBindings: map[string]network.Id{
-			"":         "bogus", // the default space is ignored; it has already been applied to any non-explicitly specified endpoints
+			"":         "52", // we should get a NIC in this space even if none of the endpoints are bound to it
 			"name-1":   "1",
 			"name-2":   "1",
 			"name-3":   "2",
 			"name-4":   "3",
 			"to-alpha": network.AlphaSpaceName, // alpha space is not present on maas and is skipped
 		},
-		expectedPositives: "space=1;space=2;space=3;space=5",
+		expectedPositives: "space=1;space=2;space=3;space=5;space=52",
 		expectedNegatives: "space:6",
 	}} {
 		suite.testMAASObject.TestServer.Clear()

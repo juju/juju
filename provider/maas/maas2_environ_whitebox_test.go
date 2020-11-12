@@ -612,7 +612,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
 	}, {
 		descr: "bindings (to the same provider space ID) and space constraints",
 		endpointBindings: map[string]corenetwork.Id{
-			"":         "bogus", // the default space is ignored; it has already been applied to any non-explicitly specified endpoints
+			"":         "999", // we should get a NIC in this space even if none of the endpoints are bound to it
 			"name-1":   "1",
 			"name-2":   "1",
 			"name-3":   "2",
@@ -623,6 +623,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
 			{Label: "1", Space: "1"},
 			{Label: "2", Space: "2"},
 			{Label: "42", Space: "42"},
+			{Label: "999", Space: "999"},
 		},
 		expectedNegatives: []string{"3"},
 	}} {
