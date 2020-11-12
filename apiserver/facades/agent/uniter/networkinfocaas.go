@@ -152,7 +152,7 @@ func (n *NetworkInfoCAAS) getRelationNetworkInfo(
 		return "", "", nil, nil, errors.Trace(err)
 	}
 
-	pollAddr := false
+	var pollAddr bool
 	svcType := cfg.GetString(k8sprovider.ServiceTypeConfigKey, "")
 	switch k8score.ServiceType(svcType) {
 	case k8score.ServiceTypeLoadBalancer, k8score.ServiceTypeExternalName:

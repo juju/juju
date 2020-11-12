@@ -24,8 +24,6 @@ type NetworkInfo interface {
 	NetworksForRelation(
 		binding string, rel *state.Relation, pollPublic bool,
 	) (boundSpace string, ingress corenetwork.SpaceAddresses, egress []string, err error)
-
-	init(unit *state.Unit) error
 }
 
 // TODO (manadart 2019-10-09):
@@ -53,49 +51,44 @@ type NetworkInfoBase struct {
 // NewNetworkInfo initialises and returns a new NetworkInfo
 // based on the input state and unit tag.
 func NewNetworkInfo(st *state.State, tag names.UnitTag, retryFactory func() retry.CallArgs) (NetworkInfo, error) {
-	base := &NetworkInfoBase{
-		st:           st,
-		retryFactory: retryFactory,
-	}
-
 	unit, err := st.Unit(tag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var netInfo NetworkInfo
-	if unit.ShouldBeAssigned() {
-		netInfo = &NetworkInfoIAAS{base}
-	} else {
-		netInfo = &NetworkInfoCAAS{base}
-	}
-
-	err = netInfo.init(unit)
-	return netInfo, errors.Trace(err)
-}
-
-// init uses the member state to initialise NetworkInfoBase entities
-// in preparation for the retrieval of network information.
-func (n *NetworkInfoBase) init(unit *state.Unit) error {
-	var err error
-
-	n.unit = unit
-
-	if n.app, err = n.unit.Application(); err != nil {
-		return errors.Trace(err)
-	}
-
-	bindings, err := n.app.EndpointBindings()
+	app, err := unit.Application()
 	if err != nil {
-		return errors.Trace(err)
-	}
-	n.bindings = bindings.Map()
-
-	if n.defaultEgress, err = n.getModelEgressSubnets(); err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
-	return nil
+	bindings, err := app.EndpointBindings()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	cfg, err := model.ModelConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	base := &NetworkInfoBase{
+		st:            st,
+		unit:          unit,
+		app:           app,
+		bindings:      bindings.Map(),
+		defaultEgress: cfg.EgressSubnets(),
+		retryFactory:  retryFactory,
+	}
+
+	if unit.ShouldBeAssigned() {
+		return &NetworkInfoIAAS{base}, nil
+	}
+	return &NetworkInfoCAAS{base}, nil
 }
 
 // getModelEgressSubnets returns model configuration for egress subnets.
