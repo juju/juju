@@ -6,15 +6,15 @@ package uniter
 import (
 	"fmt"
 
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
-	k8score "k8s.io/api/core/v1"
-
 	"github.com/juju/errors"
+	k8score "k8s.io/api/core/v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
 )
 
 // NetworkInfoCAAS is used to provide network info for CAAS units.
@@ -152,13 +152,57 @@ func (n *NetworkInfoCAAS) getRelationNetworkInfo(
 		return "", "", nil, nil, errors.Trace(err)
 	}
 
-	pollPublic := false
+	pollAddr := false
 	svcType := cfg.GetString(k8sprovider.ServiceTypeConfigKey, "")
 	switch k8score.ServiceType(svcType) {
 	case k8score.ServiceTypeLoadBalancer, k8score.ServiceTypeExternalName:
-		pollPublic = true
+		pollAddr = true
 	}
 
-	space, ingress, egress, err := n.NetworksForRelation(endpoint, rel, pollPublic)
+	space, ingress, egress, err := n.NetworksForRelation(endpoint, rel, pollAddr)
 	return endpoint, space, ingress, egress, errors.Trace(err)
+}
+
+// NetworksForRelation returns the ingress and egress addresses for
+// a relation and unit.
+// The ingress addresses depend on if the relation is cross-model
+// and whether the relation endpoint is bound to a space.
+func (n *NetworkInfoBase) NetworksForRelation(
+	_ string, rel *state.Relation, pollAddr bool,
+) (string, corenetwork.SpaceAddresses, []string, error) {
+	egress, err := n.getRelationEgressSubnets(rel)
+	if err != nil {
+		return "", nil, nil, errors.Trace(err)
+	}
+
+	var ingress corenetwork.SpaceAddresses
+	if pollAddr {
+		if ingress, err = n.maybeGetUnitAddress(rel); err != nil {
+			return "", nil, nil, errors.Trace(err)
+		}
+	}
+
+	if len(ingress) == 0 {
+		addrs, err := n.unit.AllAddresses()
+		if err != nil {
+			logger.Warningf("no service address for unit %q in relation %q", n.unit.Name(), rel)
+		} else {
+			for _, addr := range addrs {
+				if addr.Scope != corenetwork.ScopeMachineLocal {
+					ingress = append(ingress, addr)
+				}
+			}
+		}
+	}
+
+	corenetwork.SortAddresses(ingress)
+
+	// If no egress subnets defined, We default to the ingress address.
+	if len(egress) == 0 && len(ingress) > 0 {
+		egress, err = network.FormatAsCIDR([]string{ingress[0].Value})
+		if err != nil {
+			return "", nil, nil, errors.Trace(err)
+		}
+	}
+	return corenetwork.AlphaSpaceId, ingress, egress, nil
 }

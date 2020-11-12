@@ -4,7 +4,6 @@
 package uniter
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
@@ -128,253 +127,49 @@ func (n *NetworkInfoBase) getRelationAndEndpointName(relationID int) (*state.Rel
 	return rel, endpoint.Name, nil
 }
 
-// NetworksForRelation returns the ingress and egress addresses for
-// a relation and unit.
-// The ingress addresses depend on if the relation is cross-model
-// and whether the relation endpoint is bound to a space.
-func (n *NetworkInfoBase) NetworksForRelation(
-	binding string, rel *state.Relation, pollPublic bool,
-) (boundSpace string, ingress corenetwork.SpaceAddresses, egress []string, _ error) {
-	relEgress := state.NewRelationEgressNetworks(n.st)
-	egressSubnets, err := relEgress.Networks(rel.Tag().Id())
-	if err != nil && !errors.IsNotFound(err) {
-		return "", nil, nil, errors.Trace(err)
-	} else if err == nil {
-		egress = egressSubnets.CIDRS()
-	} else {
-		egress = n.defaultEgress
-	}
-
-	boundSpace, err = n.spaceForBinding(binding)
-	if err != nil && !errors.IsNotValid(err) {
-		return "", nil, nil, errors.Trace(err)
-	}
-
-	fallbackIngressToPrivateAddr := func() error {
-		address, err := n.pollForAddress(n.unit.PrivateAddress)
-		if err != nil {
-			logger.Warningf("no private address for unit %q in relation %q", n.unit.Name(), rel)
-		} else if address.Value != "" {
-			ingress = append(ingress, address)
-		}
-		return nil
-	}
-
-	// If the endpoint for this relation is not bound to a space, or
-	// is bound to the default space, we need to look up the ingress
-	// address info which is aware of cross model relations.
-	if boundSpace == corenetwork.AlphaSpaceId || err != nil {
-		_, crossModel, err := rel.RemoteApplication()
-		if err != nil {
-			return "", nil, nil, errors.Trace(err)
-		}
-		if crossModel && (n.unit.ShouldBeAssigned() || pollPublic) {
-			address, err := n.pollForAddress(n.unit.PublicAddress)
-			if err != nil {
-				logger.Warningf(
-					"no public address for unit %q in cross model relation %q, will use private address",
-					n.unit.Name(), rel,
-				)
-			} else if address.Value != "" {
-				ingress = append(ingress, address)
-			}
-			if len(ingress) == 0 {
-				if err := fallbackIngressToPrivateAddr(); err != nil {
-					return "", nil, nil, errors.Trace(err)
-				}
-			}
-		}
-	}
-
-	if len(ingress) == 0 {
-		if n.unit.ShouldBeAssigned() {
-			// We don't yet have an ingress address, so pick one from the space to
-			// which the endpoint is bound.
-			networkInfos, err := n.machineNetworkInfos(boundSpace)
-			if err != nil {
-				return "", nil, nil, errors.Trace(err)
-			}
-			ingress = spaceAddressesFromNetworkInfo(networkInfos[boundSpace].NetworkInfos)
-		} else {
-			// Be be consistent with IAAS behaviour above, we'll return all addresses.
-			addrs, err := n.unit.AllAddresses()
-			if err != nil {
-				logger.Warningf("no service address for unit %q in relation %q", n.unit.Name(), rel)
-			} else {
-				for _, addr := range addrs {
-					if addr.Scope != corenetwork.ScopeMachineLocal {
-						ingress = append(ingress, addr)
-					}
-				}
-			}
-		}
-	}
-
-	corenetwork.SortAddresses(ingress)
-
-	// If no egress subnets defined, We default to the ingress address.
-	if len(egress) == 0 && len(ingress) > 0 {
-		egress, err = network.FormatAsCIDR([]string{ingress[0].Value})
-		if err != nil {
-			return "", nil, nil, errors.Trace(err)
-		}
-	}
-	return boundSpace, ingress, egress, nil
-}
-
-// machineNetworkInfos returns network info for the unit's machine based on
-// devices with addresses in the input spaces.
-func (n *NetworkInfoBase) machineNetworkInfos(spaceIDs ...string) (map[string]machineNetworkInfoResult, error) {
-	machineID, err := n.unit.AssignedMachineId()
+// getRelationEgressSubnets returns the egress CIDRs for the input relation.
+// If no networks are found, return the model default egress CIDRS.
+func (n *NetworkInfoBase) getRelationEgressSubnets(rel *state.Relation) ([]string, error) {
+	egressSubnets, err := state.NewRelationEgressNetworks(n.st).Networks(rel.Tag().Id())
 	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	machine, err := n.st.Machine(machineID)
-	if err != nil {
+		if errors.IsNotFound(err) {
+			return n.defaultEgress, nil
+		}
 		return nil, errors.Trace(err)
 	}
 
-	spaceSet := set.NewStrings(spaceIDs...)
-
-	results := make(map[string]machineNetworkInfoResult)
-
-	var privateIPAddress string
-
-	if spaceSet.Contains(corenetwork.AlphaSpaceId) {
-		var err error
-		privateMachineAddress, err := n.pollForAddress(machine.PrivateAddress)
-		if err != nil {
-			results[corenetwork.AlphaSpaceId] = machineNetworkInfoResult{Error: errors.Annotatef(
-				err, "getting machine %q preferred private address", machine.MachineTag())}
-
-			// Remove this ID to prevent further processing.
-			spaceSet.Remove(corenetwork.AlphaSpaceId)
-		} else {
-			privateIPAddress = privateMachineAddress.Value
-		}
-	}
-
-	// Link-layer devices are set in a single transaction for all devices
-	// observed on the machine, so the first result will include them all.
-	var addresses []*state.Address
-	retryArg := n.retryFactory()
-	retryArg.Func = func() error {
-		var err error
-		addresses, err = machine.AllAddresses()
-		return err
-	}
-	retryArg.IsFatalError = func(err error) bool {
-		return err != nil
-	}
-	if err := retry.Call(retryArg); err != nil {
-		result := machineNetworkInfoResult{Error: errors.Annotate(err, "getting devices addresses")}
-		for _, id := range spaceSet.Values() {
-			if _, ok := results[id]; !ok {
-				results[id] = result
-			}
-		}
-		return results, nil
-	}
-
-	logger.Debugf("Looking for address from %v in spaces %v", addresses, spaceIDs)
-
-	var privateLinkLayerAddress *state.Address
-	for _, addr := range addresses {
-		subnet, err := addr.Subnet()
-		switch {
-		case errors.IsNotFound(err):
-			logger.Debugf("skipping %s: not linked to a known subnet (%v)", addr, err)
-
-			// For a space-less model, we will not have subnets populated,
-			// and will therefore not find a subnet for the address.
-			// Capture the link-layer information for machine private address
-			// so that we can return as much information as possible.
-			// TODO (manadart 2020-02-21): This will not be required once
-			// discovery (or population of subnets by other means) is
-			// introduced for the non-space IAAS providers (LXD, manual, etc).
-			if addr.Value() == privateIPAddress {
-				privateLinkLayerAddress = addr
-			}
-		case err != nil:
-			logger.Errorf("cannot get subnet for address %q - %q", addr, err)
-		default:
-			if spaceSet.Contains(subnet.SpaceID()) {
-				r := results[subnet.SpaceID()]
-				r.NetworkInfos, err = addAddressToResult(r.NetworkInfos, addr)
-				if err != nil {
-					r.Error = err
-				} else {
-					results[subnet.SpaceID()] = r
-				}
-			}
-
-			// TODO (manadart 2020-02-21): This reflects the behaviour prior
-			// to the introduction of the alpha space.
-			// It mimics the old behaviour for the empty space ("").
-			// If that was passed in, we included the machine's preferred
-			// local-cloud address no matter what space it was in,
-			// treating the request as space-agnostic.
-			// To preserve this behaviour, we return the address as a result
-			// in the alpha space no matter its *real* space if addresses in
-			// the alpha space were requested.
-			// This should be removed with the institution of universal mutable
-			// spaces.
-			if spaceSet.Contains(corenetwork.AlphaSpaceId) && addr.Value() == privateIPAddress {
-				r := results[corenetwork.AlphaSpaceId]
-				r.NetworkInfos, err = addAddressToResult(r.NetworkInfos, addr)
-				if err != nil {
-					r.Error = err
-				} else {
-					results[corenetwork.AlphaSpaceId] = r
-				}
-			}
-		}
-	}
-
-	// If addresses in the alpha space were requested and we populated none,
-	// then we are working with a space-less provider.
-	// If we found a link-layer device for the machine's private address,
-	// use that information, otherwise return the minimal result based on
-	// the IP.
-	// TODO (manadart 2020-02-21): As mentioned above, this is not required
-	// when we have subnets populated for all providers.
-	if r, ok := results[corenetwork.AlphaSpaceId]; !ok && spaceSet.Contains(corenetwork.AlphaSpaceId) {
-		if privateLinkLayerAddress != nil {
-			r.NetworkInfos, _ = addAddressToResult(r.NetworkInfos, privateLinkLayerAddress)
-		} else {
-			r.NetworkInfos = []network.NetworkInfo{{
-				Addresses: []network.InterfaceAddress{{
-					Address: privateIPAddress,
-				}},
-			}}
-		}
-
-		results[corenetwork.AlphaSpaceId] = r
-	}
-
-	for _, id := range spaceSet.Values() {
-		if _, ok := results[id]; !ok {
-			results[id] = machineNetworkInfoResult{
-				Error: errors.Errorf("machine %q has no devices in space %q", machineID, id),
-			}
-		}
-	}
-	return results, nil
+	return egressSubnets.CIDRS(), nil
 }
 
-// spaceForBinding returns the space id
-// associated with the specified endpoint.
-func (n *NetworkInfoBase) spaceForBinding(endpoint string) (string, error) {
-	boundSpace, known := n.bindings[endpoint]
-	if !known {
-		// If default binding is not explicitly defined, use the default space.
-		// This should no longer be the case....
-		if endpoint == "" {
-			return corenetwork.AlphaSpaceId, nil
-		}
-		return "", errors.NewNotValid(nil, fmt.Sprintf("binding id %q not defined by the unit's charm", endpoint))
+// maybeGetUnitAddress returns an address for the member unit if either the
+// input relation is cross-model and pollAddr is passed as true.
+// The unit public address is preferred, but we will fall back to the private
+// address if it does not become available in the polling window.
+func (n *NetworkInfoBase) maybeGetUnitAddress(rel *state.Relation) (corenetwork.SpaceAddresses, error) {
+	_, crossModel, err := rel.RemoteApplication()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return boundSpace, nil
+	if !crossModel {
+		return nil, nil
+	}
+
+	address, err := n.pollForAddress(n.unit.PublicAddress)
+	if err != nil {
+		logger.Warningf(
+			"no public address for unit %q in cross model relation %q, will use private address", n.unit.Name(), rel)
+	} else if address.Value != "" {
+		return corenetwork.SpaceAddresses{address}, nil
+	}
+
+	address, err = n.pollForAddress(n.unit.PrivateAddress)
+	if err != nil {
+		logger.Warningf("no private address for unit %q in relation %q", n.unit.Name(), rel)
+	} else if address.Value != "" {
+		return corenetwork.SpaceAddresses{address}, nil
+	}
+
+	return nil, nil
 }
 
 func (n *NetworkInfoBase) pollForAddress(

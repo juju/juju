@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/retry"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -120,6 +121,212 @@ func (n *NetworkInfoIAAS) getRelationNetworkInfo(
 
 	space, ingress, egress, err := n.NetworksForRelation(endpoint, rel, true)
 	return endpoint, space, ingress, egress, errors.Trace(err)
+}
+
+// NetworksForRelation returns the ingress and egress addresses for
+// a relation and unit.
+// The ingress addresses depend on if the relation is cross-model
+// and whether the relation endpoint is bound to a space.
+func (n *NetworkInfoIAAS) NetworksForRelation(
+	binding string, rel *state.Relation, _ bool,
+) (string, corenetwork.SpaceAddresses, []string, error) {
+	boundSpace, err := n.spaceForBinding(binding)
+	if err != nil && !errors.IsNotValid(err) {
+		return "", nil, nil, errors.Trace(err)
+	}
+
+	// If the endpoint for this relation is not bound to a space,
+	// or is bound to the default space, populate ingress
+	// addresses the input relation and pollPublic flag.
+	var ingress corenetwork.SpaceAddresses
+	if boundSpace == corenetwork.AlphaSpaceId || err != nil {
+		addrs, err := n.maybeGetUnitAddress(rel)
+		if err != nil {
+			return "", nil, nil, errors.Trace(err)
+		}
+		ingress = addrs
+	}
+
+	// We don't yet have any ingress addresses,
+	// so pick one from the space to which the endpoint is bound.
+	if len(ingress) == 0 {
+		networkInfos, err := n.machineNetworkInfos(boundSpace)
+		if err != nil {
+			return "", nil, nil, errors.Trace(err)
+		}
+		ingress = spaceAddressesFromNetworkInfo(networkInfos[boundSpace].NetworkInfos)
+	}
+
+	corenetwork.SortAddresses(ingress)
+
+	egress, err := n.getRelationEgressSubnets(rel)
+	if err != nil {
+		return "", nil, nil, errors.Trace(err)
+	}
+
+	// If no egress subnets defined, We default to the ingress address.
+	if len(egress) == 0 && len(ingress) > 0 {
+		egress, err = network.FormatAsCIDR([]string{ingress[0].Value})
+		if err != nil {
+			return "", nil, nil, errors.Trace(err)
+		}
+	}
+	return boundSpace, ingress, egress, nil
+}
+
+// spaceForBinding returns the space id
+// associated with the specified endpoint.
+func (n *NetworkInfoBase) spaceForBinding(endpoint string) (string, error) {
+	boundSpace, known := n.bindings[endpoint]
+	if !known {
+		// If default binding is not explicitly defined, use the default space.
+		// This should no longer be the case....
+		if endpoint == "" {
+			return corenetwork.AlphaSpaceId, nil
+		}
+		return "", errors.NewNotValid(nil, fmt.Sprintf("binding id %q not defined by the unit's charm", endpoint))
+	}
+	return boundSpace, nil
+}
+
+// machineNetworkInfos returns network info for the unit's machine based on
+// devices with addresses in the input spaces.
+func (n *NetworkInfoBase) machineNetworkInfos(spaceIDs ...string) (map[string]machineNetworkInfoResult, error) {
+	machineID, err := n.unit.AssignedMachineId()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	machine, err := n.st.Machine(machineID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	spaceSet := set.NewStrings(spaceIDs...)
+
+	results := make(map[string]machineNetworkInfoResult)
+
+	var privateIPAddress string
+
+	if spaceSet.Contains(corenetwork.AlphaSpaceId) {
+		var err error
+		privateMachineAddress, err := n.pollForAddress(machine.PrivateAddress)
+		if err != nil {
+			results[corenetwork.AlphaSpaceId] = machineNetworkInfoResult{Error: errors.Annotatef(
+				err, "getting machine %q preferred private address", machine.MachineTag())}
+
+			// Remove this ID to prevent further processing.
+			spaceSet.Remove(corenetwork.AlphaSpaceId)
+		} else {
+			privateIPAddress = privateMachineAddress.Value
+		}
+	}
+
+	// Link-layer devices are set in a single transaction for all devices
+	// observed on the machine, so the first result will include them all.
+	var addresses []*state.Address
+	retryArg := n.retryFactory()
+	retryArg.Func = func() error {
+		var err error
+		addresses, err = machine.AllAddresses()
+		return err
+	}
+	retryArg.IsFatalError = func(err error) bool {
+		return err != nil
+	}
+	if err := retry.Call(retryArg); err != nil {
+		result := machineNetworkInfoResult{Error: errors.Annotate(err, "getting devices addresses")}
+		for _, id := range spaceSet.Values() {
+			if _, ok := results[id]; !ok {
+				results[id] = result
+			}
+		}
+		return results, nil
+	}
+
+	logger.Debugf("Looking for address from %v in spaces %v", addresses, spaceIDs)
+
+	var privateLinkLayerAddress *state.Address
+	for _, addr := range addresses {
+		subnet, err := addr.Subnet()
+		switch {
+		case errors.IsNotFound(err):
+			logger.Debugf("skipping %s: not linked to a known subnet (%v)", addr, err)
+
+			// For a space-less model, we will not have subnets populated,
+			// and will therefore not find a subnet for the address.
+			// Capture the link-layer information for machine private address
+			// so that we can return as much information as possible.
+			// TODO (manadart 2020-02-21): This will not be required once
+			// discovery (or population of subnets by other means) is
+			// introduced for the non-space IAAS providers (LXD, manual, etc).
+			if addr.Value() == privateIPAddress {
+				privateLinkLayerAddress = addr
+			}
+		case err != nil:
+			logger.Errorf("cannot get subnet for address %q - %q", addr, err)
+		default:
+			if spaceSet.Contains(subnet.SpaceID()) {
+				r := results[subnet.SpaceID()]
+				r.NetworkInfos, err = addAddressToResult(r.NetworkInfos, addr)
+				if err != nil {
+					r.Error = err
+				} else {
+					results[subnet.SpaceID()] = r
+				}
+			}
+
+			// TODO (manadart 2020-02-21): This reflects the behaviour prior
+			// to the introduction of the alpha space.
+			// It mimics the old behaviour for the empty space ("").
+			// If that was passed in, we included the machine's preferred
+			// local-cloud address no matter what space it was in,
+			// treating the request as space-agnostic.
+			// To preserve this behaviour, we return the address as a result
+			// in the alpha space no matter its *real* space if addresses in
+			// the alpha space were requested.
+			// This should be removed with the institution of universal mutable
+			// spaces.
+			if spaceSet.Contains(corenetwork.AlphaSpaceId) && addr.Value() == privateIPAddress {
+				r := results[corenetwork.AlphaSpaceId]
+				r.NetworkInfos, err = addAddressToResult(r.NetworkInfos, addr)
+				if err != nil {
+					r.Error = err
+				} else {
+					results[corenetwork.AlphaSpaceId] = r
+				}
+			}
+		}
+	}
+
+	// If addresses in the alpha space were requested and we populated none,
+	// then we are working with a space-less provider.
+	// If we found a link-layer device for the machine's private address,
+	// use that information, otherwise return the minimal result based on
+	// the IP.
+	// TODO (manadart 2020-02-21): As mentioned above, this is not required
+	// when we have subnets populated for all providers.
+	if r, ok := results[corenetwork.AlphaSpaceId]; !ok && spaceSet.Contains(corenetwork.AlphaSpaceId) {
+		if privateLinkLayerAddress != nil {
+			r.NetworkInfos, _ = addAddressToResult(r.NetworkInfos, privateLinkLayerAddress)
+		} else {
+			r.NetworkInfos = []network.NetworkInfo{{
+				Addresses: []network.InterfaceAddress{{
+					Address: privateIPAddress,
+				}},
+			}}
+		}
+
+		results[corenetwork.AlphaSpaceId] = r
+	}
+
+	for _, id := range spaceSet.Values() {
+		if _, ok := results[id]; !ok {
+			results[id] = machineNetworkInfoResult{
+				Error: errors.Errorf("machine %q has no devices in space %q", machineID, id),
+			}
+		}
+	}
+	return results, nil
 }
 
 // TODO (manadart 2020-08-20): The logic below was moved over from the state
