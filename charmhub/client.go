@@ -114,12 +114,13 @@ func (c Config) BasePath() (charmhubpath.Path, error) {
 
 // Client represents the client side of a charm store.
 type Client struct {
-	url            string
-	infoClient     *InfoClient
-	findClient     *FindClient
-	downloadClient *DownloadClient
-	refreshClient  *RefreshClient
-	logger         Logger
+	url             string
+	infoClient      *InfoClient
+	findClient      *FindClient
+	downloadClient  *DownloadClient
+	refreshClient   *RefreshClient
+	resourcesClient *ResourcesClient
+	logger          Logger
 }
 
 // NewClient creates a new charmHub client from the supplied configuration.
@@ -151,6 +152,11 @@ func NewClientWithFileSystem(config Config, fileSystem FileSystem) (*Client, err
 		return nil, errors.Annotate(err, "constructing refresh path")
 	}
 
+	resourcesPath, err := base.Join("resources")
+	if err != nil {
+		return nil, errors.Annotate(err, "constructing resources path")
+	}
+
 	config.Logger.Tracef("NewClient to %q", config.URL)
 
 	httpClient := DefaultHTTPTransport()
@@ -165,8 +171,9 @@ func NewClientWithFileSystem(config Config, fileSystem FileSystem) (*Client, err
 		// download client doesn't require a path here, as the download could
 		// be from any server in theory. That information is found from the
 		// refresh response.
-		downloadClient: NewDownloadClient(httpClient, fileSystem, config.Logger),
-		logger:         config.Logger,
+		downloadClient:  NewDownloadClient(httpClient, fileSystem, config.Logger),
+		resourcesClient: NewResourcesClient(resourcesPath, restClient, config.Logger),
+		logger:          config.Logger,
 	}, nil
 }
 
