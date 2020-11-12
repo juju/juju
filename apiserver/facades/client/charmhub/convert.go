@@ -91,9 +91,11 @@ func transformFindSeries(channel transport.FindChannelMap) []string {
 // determining track order and open vs closed channels for displaying channel
 // data.
 func transformInfoChannelMap(channelMap []transport.InfoChannelMap) ([]string, map[string]params.Channel) {
-	trackList := []string{}
+	var trackList []string
+
 	seen := set.NewStrings("")
 	channels := make(map[string]params.Channel, len(channelMap))
+
 	for _, cm := range channelMap {
 		ch := cm.Channel
 		// Per the charmhub/snap channel spec.

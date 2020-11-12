@@ -10,6 +10,9 @@ import (
 	"github.com/juju/juju/api/charmhub"
 )
 
+// SeriesAll defines platform that targets all series.
+const SeriesAll = "all"
+
 func convertCharmInfoResult(info charmhub.InfoResponse, series string) (InfoResponse, error) {
 	ir := InfoResponse{
 		Type:        info.Type,
@@ -92,11 +95,13 @@ func convertCharm(in interface{}) (*Charm, error) {
 func convertChannels(in map[string]charmhub.Channel, series string) map[string]Channel {
 	out := make(map[string]Channel, len(in))
 	for k, v := range in {
-		if series != "" {
-			if !channelSeries(v.Platforms).Contains(series) {
-				break
-			}
+		// If the platforms contains the all series, then we need to display
+		// all the channels for that given
+		allSeries := channelSeries(v.Platforms).Contains(SeriesAll)
+		if !allSeries && (series != "" && !channelSeries(v.Platforms).Contains(series)) {
+			continue
 		}
+
 		out[k] = Channel{
 			ReleasedAt: v.ReleasedAt,
 			Track:      v.Track,

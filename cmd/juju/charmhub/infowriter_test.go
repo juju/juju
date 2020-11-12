@@ -21,7 +21,7 @@ var _ = gc.Suite(&printInfoSuite{})
 func (s *printInfoSuite) TestCharmPrintInfo(c *gc.C) {
 	ir := getCharmInfoResponse()
 	ctx := commandContextForTest(c)
-	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, &ir)
+	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", &ir)
 	err := iw.Print()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -55,7 +55,7 @@ channels: |
 func (s *printInfoSuite) TestCharmPrintInfoWithConfig(c *gc.C) {
 	ir := getCharmInfoResponse()
 	ctx := commandContextForTest(c)
-	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, true, &ir)
+	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, true, "never", &ir)
 	err := iw.Print()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -99,7 +99,7 @@ config:
 func (s *printInfoSuite) TestBundleChannelClosed(c *gc.C) {
 	ir := getBundleInfoClosedTrack()
 	ctx := commandContextForTest(c)
-	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, &ir)
+	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", &ir)
 	err := iw.Print()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -118,10 +118,32 @@ channels: |
 	c.Assert(obtained, gc.Equals, expected)
 }
 
+func (s *printInfoSuite) TestBundleChannelClosedWithUnicode(c *gc.C) {
+	ir := getBundleInfoClosedTrack()
+	ctx := commandContextForTest(c)
+	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "always", &ir)
+	err := iw.Print()
+	c.Assert(err, jc.ErrorIsNil)
+
+	obtained := ctx.Stdout.(*bytes.Buffer).String()
+	expected := `name: osm
+channels: |
+  latest/stable:     1.0.3  2019-12-16  (15)  12MB
+  latest/candidate:  1.0.3  2019-12-16  (16)  12MB
+  latest/beta:       1.0.3  2019-12-16  (17)  12MB
+  latest/edge:       1.0.3  2019-12-16  (18)  12MB
+  2.8/stable:        –
+  2.8/candidate:     1.0.3  2019-12-13  (56)  12MB
+  2.8/beta:          ↑
+  2.8/edge:          1.0.3  2019-12-17  (60)  12MB
+`
+	c.Assert(obtained, gc.Equals, expected)
+}
+
 func (s *printInfoSuite) TestBundlePrintInfo(c *gc.C) {
 	ir := getBundleInfoResponse()
 	ctx := commandContextForTest(c)
-	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, &ir)
+	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", &ir)
 	err := iw.Print()
 	c.Assert(err, jc.ErrorIsNil)
 

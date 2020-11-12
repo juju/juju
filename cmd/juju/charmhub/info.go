@@ -54,6 +54,8 @@ type infoCommand struct {
 	config        bool
 	charmOrBundle string
 	series        string
+
+	unicode string
 }
 
 // Info returns help related info about the command, it implements
@@ -73,6 +75,7 @@ func (c *infoCommand) Info() *cmd.Info {
 func (c *infoCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.config, "config", false, "display config for this charm")
+	f.StringVar(&c.unicode, "unicode", "auto", "display output using unicode <auto|never|always>")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -91,6 +94,14 @@ func (c *infoCommand) Init(args []string) error {
 		return errors.Trace(err)
 	}
 	c.charmOrBundle = args[0]
+
+	switch c.unicode {
+	case "auto", "never", "always":
+	case "":
+		c.unicode = "auto"
+	default:
+		return errors.Errorf("unexpected unicode flag value %q, expected <auto|never|always>", c.unicode)
+	}
 	return nil
 }
 
@@ -174,7 +185,7 @@ func (c *infoCommand) formatter(writer io.Writer, value interface{}) error {
 		return errors.Errorf("unexpected results")
 	}
 
-	if err := makeInfoWriter(writer, c.warningLog, c.config, results).Print(); err != nil {
+	if err := makeInfoWriter(writer, c.warningLog, c.config, c.unicode, results).Print(); err != nil {
 		return errors.Trace(err)
 	}
 
