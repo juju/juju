@@ -21,6 +21,7 @@ type NetworkInfoIAAS struct {
 	*NetworkInfoBase
 }
 
+// ProcessAPIRequest handles a request to the uniter API NetworkInfo method.
 func (n *NetworkInfoIAAS) ProcessAPIRequest(args params.NetworkInfoParams) (params.NetworkInfoResults, error) {
 	spaces := set.NewStrings()
 	bindings := make(map[string]string)
@@ -105,6 +106,20 @@ func (n *NetworkInfoIAAS) ProcessAPIRequest(args params.NetworkInfoParams) (para
 	}
 
 	return dedupNetworkInfoResults(result), nil
+}
+
+// getRelationNetworkInfo returns the endpoint name, network space
+// and ingress/egress addresses for the input relation ID.
+func (n *NetworkInfoIAAS) getRelationNetworkInfo(
+	relationId int,
+) (string, string, corenetwork.SpaceAddresses, []string, error) {
+	rel, endpoint, err := n.getRelationAndEndpointName(relationId)
+	if err != nil {
+		return "", "", nil, nil, errors.Trace(err)
+	}
+
+	space, ingress, egress, err := n.NetworksForRelation(endpoint, rel, true)
+	return endpoint, space, ingress, egress, errors.Trace(err)
 }
 
 // TODO (manadart 2020-08-20): The logic below was moved over from the state

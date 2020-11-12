@@ -6,7 +6,9 @@ package uniter
 import (
 	"fmt"
 
-	"github.com/juju/collections/set"
+	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
+	k8score "k8s.io/api/core/v1"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common"
@@ -20,31 +22,27 @@ type NetworkInfoCAAS struct {
 	*NetworkInfoBase
 }
 
+// ProcessAPIRequest handles a request to the uniter API NetworkInfo method.
 func (n *NetworkInfoCAAS) ProcessAPIRequest(args params.NetworkInfoParams) (params.NetworkInfoResults, error) {
-	spaces := set.NewStrings()
 	bindings := make(map[string]string)
 	endpointEgressSubnets := make(map[string][]string)
 
 	result := params.NetworkInfoResults{
 		Results: make(map[string]params.NetworkInfoResult),
 	}
+
 	// For each of the endpoints in the request, get the bound space and
 	// initialise the endpoint egress map with the model's configured
-	// egress subnets. Keep track of the spaces that we observe.
+	// egress subnets.
 	for _, endpoint := range args.Endpoints {
 		binding, ok := n.bindings[endpoint]
 		if ok {
-			spaces.Add(binding)
+			// In practice this is always the alpha space in CAAS.
+			// This loop serves as validation of input until this changes.
 			bindings[endpoint] = binding
 		} else {
-			// If default binding is not explicitly defined, use the default space.
-			// This should no longer be the case....
-			if endpoint == "" {
-				bindings[endpoint] = corenetwork.AlphaSpaceId
-			} else {
-				err := errors.NewNotValid(nil, fmt.Sprintf("binding name %q not defined by the unit's charm", endpoint))
-				result.Results[endpoint] = params.NetworkInfoResult{Error: common.ServerError(err)}
-			}
+			err := errors.NewNotValid(nil, fmt.Sprintf("binding name %q not defined by the unit's charm", endpoint))
+			result.Results[endpoint] = params.NetworkInfoResult{Error: common.ServerError(err)}
 		}
 		endpointEgressSubnets[endpoint] = n.defaultEgress
 	}
@@ -54,21 +52,16 @@ func (n *NetworkInfoCAAS) ProcessAPIRequest(args params.NetworkInfoParams) (para
 	// If we are working in a relation context, get the network information for
 	// the relation and set it for the relation's binding.
 	if args.RelationId != nil {
-		endpoint, space, ingress, egress, err := n.getRelationNetworkInfo(*args.RelationId)
+		endpoint, _, ingress, egress, err := n.getRelationNetworkInfo(*args.RelationId)
 		if err != nil {
 			return params.NetworkInfoResults{}, err
 		}
 
-		spaces.Add(space)
 		if len(egress) > 0 {
 			endpointEgressSubnets[endpoint] = egress
 		}
 		endpointIngressAddresses[endpoint] = ingress
 	}
-
-	var (
-		defaultIngressAddresses []string
-	)
 
 	// For CAAS units, we build up a minimal result struct
 	// based on the default space and unit public/private addresses,
@@ -84,6 +77,7 @@ func (n *NetworkInfoCAAS) ProcessAPIRequest(args params.NetworkInfoParams) (para
 	// For CAAS models, we need to default ingress addresses to all available
 	// addresses so record those in the default ingress address slice.
 	var interfaceAddr []network.InterfaceAddress
+	var defaultIngressAddresses []string
 	for _, a := range addrs {
 		if a.Scope == corenetwork.ScopeMachineLocal {
 			interfaceAddr = append(interfaceAddr, network.InterfaceAddress{Address: a.Value})
@@ -141,4 +135,30 @@ func (n *NetworkInfoCAAS) ProcessAPIRequest(args params.NetworkInfoParams) (para
 	}
 
 	return dedupNetworkInfoResults(result), nil
+}
+
+// getRelationNetworkInfo returns the endpoint name, network space
+// and ingress/egress addresses for the input relation ID.
+func (n *NetworkInfoCAAS) getRelationNetworkInfo(
+	relationId int,
+) (string, string, corenetwork.SpaceAddresses, []string, error) {
+	rel, endpoint, err := n.getRelationAndEndpointName(relationId)
+	if err != nil {
+		return "", "", nil, nil, errors.Trace(err)
+	}
+
+	cfg, err := n.app.ApplicationConfig()
+	if err != nil {
+		return "", "", nil, nil, errors.Trace(err)
+	}
+
+	pollPublic := false
+	svcType := cfg.GetString(k8sprovider.ServiceTypeConfigKey, "")
+	switch k8score.ServiceType(svcType) {
+	case k8score.ServiceTypeLoadBalancer, k8score.ServiceTypeExternalName:
+		pollPublic = true
+	}
+
+	space, ingress, egress, err := n.NetworksForRelation(endpoint, rel, pollPublic)
+	return endpoint, space, ingress, egress, errors.Trace(err)
 }

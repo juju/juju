@@ -13,10 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
-	k8score "k8s.io/api/core/v1"
 
 	"github.com/juju/juju/apiserver/params"
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -53,7 +51,7 @@ type NetworkInfoBase struct {
 	bindings      map[string]string
 }
 
-// NewNetworkInfo initialises and returns a new NetworkInfoBase
+// NewNetworkInfo initialises and returns a new NetworkInfo
 // based on the input state and unit tag.
 func NewNetworkInfo(st *state.State, tag names.UnitTag, retryFactory func() retry.CallArgs) (NetworkInfo, error) {
 	base := &NetworkInfoBase{
@@ -70,7 +68,7 @@ func NewNetworkInfo(st *state.State, tag names.UnitTag, retryFactory func() retr
 	if unit.ShouldBeAssigned() {
 		netInfo = &NetworkInfoIAAS{base}
 	} else {
-		netInfo = &NetworkInfoIAAS{base}
+		netInfo = &NetworkInfoCAAS{base}
 	}
 
 	err = netInfo.init(unit)
@@ -114,92 +112,20 @@ func (n *NetworkInfoBase) getModelEgressSubnets() ([]string, error) {
 	return cfg.EgressSubnets(), nil
 }
 
-// ProcessAPIRequest handles a request to the uniter API NetworkInfo method.
-// TODO (manadart 2019-10-09): This method verges on impossible to reason about
-// and should be rewritten.
-
-func dedupNetworkInfoResults(info params.NetworkInfoResults) params.NetworkInfoResults {
-	for epName, res := range info.Results {
-		if res.Error != nil {
-			continue
-		}
-		res.IngressAddresses = dedupStringListPreservingOrder(res.IngressAddresses)
-		res.EgressSubnets = dedupStringListPreservingOrder(res.EgressSubnets)
-		for infoIdx, info := range res.Info {
-			res.Info[infoIdx].Addresses = dedupAddrList(info.Addresses)
-		}
-		info.Results[epName] = res
-	}
-
-	return info
-}
-
-func dedupStringListPreservingOrder(values []string) []string {
-	// Ideally, we would use a set.Strings(values).Values() here but since
-	// it does not preserve the insertion order we need to do this manually.
-	seen := set.NewStrings()
-	out := make([]string, 0, len(values))
-	for _, v := range values {
-		if seen.Contains(v) {
-			continue
-		}
-		seen.Add(v)
-		out = append(out, v)
-	}
-
-	return out
-}
-
-func dedupAddrList(addrList []params.InterfaceAddress) []params.InterfaceAddress {
-	if len(addrList) <= 1 {
-		return addrList
-	}
-
-	uniqueAddrList := make([]params.InterfaceAddress, 0, len(addrList))
-	seenAddrSet := set.NewStrings()
-	for _, addr := range addrList {
-		if seenAddrSet.Contains(addr.Address) {
-			continue
-		}
-
-		seenAddrSet.Add(addr.Address)
-		uniqueAddrList = append(uniqueAddrList, addr)
-	}
-
-	return uniqueAddrList
-}
-
-// getRelationNetworkInfo returns the endpoint name, network space
-// and ingress/egress addresses for the input relation ID.
-func (n *NetworkInfoBase) getRelationNetworkInfo(
-	relationId int,
-) (string, string, corenetwork.SpaceAddresses, []string, error) {
-	rel, err := n.st.Relation(relationId)
+// getRelationAndEndpointName returns the relation for the input ID
+// and the name of the endpoint used by the relation.
+func (n *NetworkInfoBase) getRelationAndEndpointName(relationID int) (*state.Relation, string, error) {
+	rel, err := n.st.Relation(relationID)
 	if err != nil {
-		return "", "", nil, nil, errors.Trace(err)
+		return nil, "", errors.Trace(err)
 	}
+
 	endpoint, err := rel.Endpoint(n.unit.ApplicationName())
 	if err != nil {
-		return "", "", nil, nil, errors.Trace(err)
+		return nil, "", errors.Trace(err)
 	}
 
-	pollPublic := n.unit.ShouldBeAssigned()
-	// For k8s services which may have a public
-	// address, we want to poll in case it's not ready yet.
-	if !pollPublic {
-		cfg, err := n.app.ApplicationConfig()
-		if err != nil {
-			return "", "", nil, nil, errors.Trace(err)
-		}
-		svcType := cfg.GetString(k8sprovider.ServiceTypeConfigKey, "")
-		switch k8score.ServiceType(svcType) {
-		case k8score.ServiceTypeLoadBalancer, k8score.ServiceTypeExternalName:
-			pollPublic = true
-		}
-	}
-
-	space, ingress, egress, err := n.NetworksForRelation(endpoint.Name, rel, pollPublic)
-	return endpoint.Name, space, ingress, egress, errors.Trace(err)
+	return rel, endpoint.Name, nil
 }
 
 // NetworksForRelation returns the ingress and egress addresses for
@@ -465,6 +391,57 @@ func (n *NetworkInfoBase) pollForAddress(
 		return !network.IsNoAddressError(err)
 	}
 	return address, retry.Call(retryArg)
+}
+
+func dedupNetworkInfoResults(info params.NetworkInfoResults) params.NetworkInfoResults {
+	for epName, res := range info.Results {
+		if res.Error != nil {
+			continue
+		}
+		res.IngressAddresses = dedupStringListPreservingOrder(res.IngressAddresses)
+		res.EgressSubnets = dedupStringListPreservingOrder(res.EgressSubnets)
+		for infoIdx, info := range res.Info {
+			res.Info[infoIdx].Addresses = dedupAddrList(info.Addresses)
+		}
+		info.Results[epName] = res
+	}
+
+	return info
+}
+
+func dedupStringListPreservingOrder(values []string) []string {
+	// Ideally, we would use a set.Strings(values).Values() here but since
+	// it does not preserve the insertion order we need to do this manually.
+	seen := set.NewStrings()
+	out := make([]string, 0, len(values))
+	for _, v := range values {
+		if seen.Contains(v) {
+			continue
+		}
+		seen.Add(v)
+		out = append(out, v)
+	}
+
+	return out
+}
+
+func dedupAddrList(addrList []params.InterfaceAddress) []params.InterfaceAddress {
+	if len(addrList) <= 1 {
+		return addrList
+	}
+
+	uniqueAddrList := make([]params.InterfaceAddress, 0, len(addrList))
+	seenAddrSet := set.NewStrings()
+	for _, addr := range addrList {
+		if seenAddrSet.Contains(addr.Address) {
+			continue
+		}
+
+		seenAddrSet.Add(addr.Address)
+		uniqueAddrList = append(uniqueAddrList, addr)
+	}
+
+	return uniqueAddrList
 }
 
 // spaceAddressesFromNetworkInfo returns a SpaceAddresses collection
