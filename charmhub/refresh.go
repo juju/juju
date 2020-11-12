@@ -5,6 +5,7 @@ package charmhub
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/v2"
@@ -67,13 +68,18 @@ func (c *RefreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]tr
 		return nil, errors.Trace(err)
 	}
 	var resp transport.RefreshResponses
-	if err := c.client.Post(ctx, c.path, req, &resp); err != nil {
+	restResp, err := c.client.Post(ctx, c.path, req, &resp)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	if err := resp.ErrorList.Combine(); err != nil {
-		return nil, errors.Trace(err)
+	if resultErr := resp.ErrorList.Combine(); resultErr != nil {
+		if restResp.StatusCode == http.StatusNotFound {
+			return nil, errors.NewNotFound(resultErr, "")
+		}
+		return nil, errors.Trace(resultErr)
 	}
+
 	c.logger.Tracef("Refresh() unmarshalled: %s", pretty.Sprint(resp.Results))
 	return resp.Results, config.Ensure(resp.Results)
 }

@@ -101,7 +101,7 @@ func (s *RESTSuite) TestGet(c *gc.C) {
 	client := NewHTTPRESTClient(mockTransport, nil, &FakeLogger{})
 
 	var result interface{}
-	err := client.Get(context.TODO(), base, &result)
+	_, err := client.Get(context.TODO(), base, &result)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(recievedURL, gc.Equals, "http://api.foo.bar")
 }
@@ -116,7 +116,7 @@ func (s *RESTSuite) TestGetWithInvalidContext(c *gc.C) {
 	base := MustMakePath(c, "http://api.foo.bar")
 
 	var result interface{}
-	err := client.Get(nil, base, &result)
+	_, err := client.Get(nil, base, &result)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
 
@@ -132,7 +132,7 @@ func (s *RESTSuite) TestGetWithFailure(c *gc.C) {
 	base := MustMakePath(c, "http://api.foo.bar")
 
 	var result interface{}
-	err := client.Get(context.TODO(), base, &result)
+	_, err := client.Get(context.TODO(), base, &result)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
 
@@ -148,7 +148,7 @@ func (s *RESTSuite) TestGetWithUnmarshalFailure(c *gc.C) {
 	base := MustMakePath(c, "http://api.foo.bar")
 
 	var result interface{}
-	err := client.Get(context.TODO(), base, &result)
+	_, err := client.Get(context.TODO(), base, &result)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
 

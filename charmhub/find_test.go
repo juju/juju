@@ -70,11 +70,11 @@ func (s *FindSuite) expectGet(c *gc.C, client *MockRESTClient, p path.Path, name
 		responses.Results = []transport.FindResponse{{
 			Name: name,
 		}}
-	}).Return(nil)
+	}).Return(RESTResponse{StatusCode: http.StatusOK}, nil)
 }
 
 func (s *FindSuite) expectGetFailure(client *MockRESTClient) {
-	client.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.Errorf("boom"))
+	client.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(RESTResponse{StatusCode: http.StatusInternalServerError}, errors.Errorf("boom"))
 }
 
 func (s *FindSuite) TestFindRequestPayload(c *gc.C) {

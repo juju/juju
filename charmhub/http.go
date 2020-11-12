@@ -74,12 +74,17 @@ func (t *APIRequester) Do(req *http.Request) (*http.Response, error) {
 	return resp, nil
 }
 
+// RESTResponse abstracts away the underlying response from the implementation.
+type RESTResponse struct {
+	StatusCode int
+}
+
 // RESTClient defines a type for making requests to a server.
 type RESTClient interface {
 	// Get performs GET requests to a given Path.
-	Get(context.Context, path.Path, interface{}) error
+	Get(context.Context, path.Path, interface{}) (RESTResponse, error)
 	// Post performs POST requests to a given Path.
-	Post(context.Context, path.Path, interface{}, interface{}) error
+	Post(context.Context, path.Path, interface{}, interface{}) (RESTResponse, error)
 }
 
 // HTTPRESTClient represents a RESTClient that expects to interact with a
@@ -104,10 +109,10 @@ func NewHTTPRESTClient(transport Transport, headers http.Header, logger Logger) 
 // parsing the result as JSON into the given result value, which should
 // be a pointer to the expected data, but may be nil if no result is
 // desired.
-func (c *HTTPRESTClient) Get(ctx context.Context, path path.Path, result interface{}) error {
+func (c *HTTPRESTClient) Get(ctx context.Context, path path.Path, result interface{}) (RESTResponse, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", path.String(), nil)
 	if err != nil {
-		return errors.Annotate(err, "can not make new request")
+		return RESTResponse{}, errors.Annotate(err, "can not make new request")
 	}
 
 	// Compose the request headers.
@@ -128,7 +133,7 @@ func (c *HTTPRESTClient) Get(ctx context.Context, path path.Path, result interfa
 	resp, err := c.transport.Do(req)
 	if err != nil {
 		c.logger.Tracef("Get Do failed with %+v", err)
-		return errors.Trace(err)
+		return RESTResponse{}, errors.Trace(err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -141,9 +146,12 @@ func (c *HTTPRESTClient) Get(ctx context.Context, path path.Path, result interfa
 	}
 	// Parse the response.
 	if err := httprequest.UnmarshalJSONResponse(resp, result); err != nil {
-		return errors.Annotate(err, "charm hub client get")
+		return RESTResponse{}, errors.Annotate(err, "charm hub client get")
 	}
-	return nil
+
+	return RESTResponse{
+		StatusCode: resp.StatusCode,
+	}, nil
 }
 
 // Post makes a POST request to the given path in the CharmHub (not
@@ -151,15 +159,15 @@ func (c *HTTPRESTClient) Get(ctx context.Context, path path.Path, result interfa
 // parsing the result as JSON into the given result value, which should
 // be a pointer to the expected data, but may be nil if no result is
 // desired.
-func (c *HTTPRESTClient) Post(ctx context.Context, path path.Path, body, result interface{}) error {
+func (c *HTTPRESTClient) Post(ctx context.Context, path path.Path, body, result interface{}) (RESTResponse, error) {
 	buffer := new(bytes.Buffer)
 	if err := json.NewEncoder(buffer).Encode(body); err != nil {
-		return errors.Trace(err)
+		return RESTResponse{}, errors.Trace(err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST", path.String(), buffer)
 	if err != nil {
-		return errors.Annotate(err, "can not make new request")
+		return RESTResponse{}, errors.Annotate(err, "can not make new request")
 	}
 
 	// Compose the request headers.
@@ -180,7 +188,7 @@ func (c *HTTPRESTClient) Post(ctx context.Context, path path.Path, body, result 
 	resp, err := c.transport.Do(req)
 	if err != nil {
 		c.logger.Tracef("Post Do failed with %+v", err)
-		return errors.Trace(err)
+		return RESTResponse{}, errors.Trace(err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -194,9 +202,11 @@ func (c *HTTPRESTClient) Post(ctx context.Context, path path.Path, body, result 
 
 	// Parse the response.
 	if err := httprequest.UnmarshalJSONResponse(resp, result); err != nil {
-		return errors.Annotate(err, "charm hub client get")
+		return RESTResponse{}, errors.Annotate(err, "charm hub client get")
 	}
-	return nil
+	return RESTResponse{
+		StatusCode: resp.StatusCode,
+	}, nil
 }
 
 // composeHeaders creates a new set of headers from scratch.
