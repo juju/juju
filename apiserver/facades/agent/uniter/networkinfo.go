@@ -23,6 +23,15 @@ import (
 	"github.com/juju/juju/state"
 )
 
+type NetworkInfo interface {
+	ProcessAPIRequest(params.NetworkInfoParams) (params.NetworkInfoResults, error)
+	NetworksForRelation(
+		binding string, rel *state.Relation, pollPublic bool,
+	) (boundSpace string, ingress corenetwork.SpaceAddresses, egress []string, err error)
+
+	init(unit *state.Unit) error
+}
+
 // TODO (manadart 2019-10-09):
 // This module was pulled together out of the state package and the uniter API.
 // It lacks sufficient coverage with direct unit tests, relying instead on the
@@ -30,9 +39,9 @@ import (
 // Over time, the state types should be indirected, mocks generated, and
 // appropriate tests added.
 
-// NetworkInfo is responsible for processing requests for network data
+// NetworkInfoBase is responsible for processing requests for network data
 // for unit endpoint bindings and/or relations.
-type NetworkInfo struct {
+type NetworkInfoBase struct {
 	st *state.State
 	// retryFactory returns a retry strategy template used to poll for
 	// addresses that may not yet have landed in state,
@@ -45,25 +54,36 @@ type NetworkInfo struct {
 	bindings      map[string]string
 }
 
-// NewNetworkInfo initialises and returns a new NetworkInfo
+// NewNetworkInfo initialises and returns a new NetworkInfoBase
 // based on the input state and unit tag.
-func NewNetworkInfo(st *state.State, tag names.UnitTag, retryFactory func() retry.CallArgs) (*NetworkInfo, error) {
-	netInfo := &NetworkInfo{
+func NewNetworkInfo(st *state.State, tag names.UnitTag, retryFactory func() retry.CallArgs) (NetworkInfo, error) {
+	base := &NetworkInfoBase{
 		st:           st,
 		retryFactory: retryFactory,
 	}
-	err := netInfo.init(tag)
+
+	unit, err := st.Unit(tag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var netInfo NetworkInfo
+	if unit.ShouldBeAssigned() {
+		netInfo = NetworkInfoIAAS{base}
+	} else {
+		netInfo = NetworkInfoIAAS{base}
+	}
+
+	err = netInfo.init(unit)
 	return netInfo, errors.Trace(err)
 }
 
-// init uses the member state to initialise NetworkInfo entities
+// init uses the member state to initialise NetworkInfoBase entities
 // in preparation for the retrieval of network information.
-func (n *NetworkInfo) init(tag names.UnitTag) error {
+func (n *NetworkInfoBase) init(unit *state.Unit) error {
 	var err error
 
-	if n.unit, err = n.st.Unit(tag.Id()); err != nil {
-		return errors.Trace(err)
-	}
+	n.unit = unit
 
 	if n.app, err = n.unit.Application(); err != nil {
 		return errors.Trace(err)
@@ -83,7 +103,7 @@ func (n *NetworkInfo) init(tag names.UnitTag) error {
 }
 
 // getModelEgressSubnets returns model configuration for egress subnets.
-func (n *NetworkInfo) getModelEgressSubnets() ([]string, error) {
+func (n *NetworkInfoBase) getModelEgressSubnets() ([]string, error) {
 	model, err := n.st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -98,7 +118,7 @@ func (n *NetworkInfo) getModelEgressSubnets() ([]string, error) {
 // ProcessAPIRequest handles a request to the uniter API NetworkInfo method.
 // TODO (manadart 2019-10-09): This method verges on impossible to reason about
 // and should be rewritten.
-func (n *NetworkInfo) ProcessAPIRequest(args params.NetworkInfoParams) (params.NetworkInfoResults, error) {
+func (n *NetworkInfoBase) ProcessAPIRequest(args params.NetworkInfoParams) (params.NetworkInfoResults, error) {
 	spaces := set.NewStrings()
 	bindings := make(map[string]string)
 	endpointEgressSubnets := make(map[string][]string)
@@ -284,7 +304,7 @@ func dedupAddrList(addrList []params.InterfaceAddress) []params.InterfaceAddress
 
 // getRelationNetworkInfo returns the endpoint name, network space
 // and ingress/egress addresses for the input relation ID.
-func (n *NetworkInfo) getRelationNetworkInfo(
+func (n *NetworkInfoBase) getRelationNetworkInfo(
 	relationId int,
 ) (string, string, corenetwork.SpaceAddresses, []string, error) {
 	rel, err := n.st.Relation(relationId)
@@ -319,7 +339,7 @@ func (n *NetworkInfo) getRelationNetworkInfo(
 // a relation and unit.
 // The ingress addresses depend on if the relation is cross-model
 // and whether the relation endpoint is bound to a space.
-func (n *NetworkInfo) NetworksForRelation(
+func (n *NetworkInfoBase) NetworksForRelation(
 	binding string, rel *state.Relation, pollPublic bool,
 ) (boundSpace string, ingress corenetwork.SpaceAddresses, egress []string, _ error) {
 	relEgress := state.NewRelationEgressNetworks(n.st)
@@ -411,7 +431,7 @@ func (n *NetworkInfo) NetworksForRelation(
 
 // machineNetworkInfos returns network info for the unit's machine based on
 // devices with addresses in the input spaces.
-func (n *NetworkInfo) machineNetworkInfos(spaceIDs ...string) (map[string]machineNetworkInfoResult, error) {
+func (n *NetworkInfoBase) machineNetworkInfos(spaceIDs ...string) (map[string]machineNetworkInfoResult, error) {
 	machineID, err := n.unit.AssignedMachineId()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -551,7 +571,7 @@ func (n *NetworkInfo) machineNetworkInfos(spaceIDs ...string) (map[string]machin
 
 // spaceForBinding returns the space id
 // associated with the specified endpoint.
-func (n *NetworkInfo) spaceForBinding(endpoint string) (string, error) {
+func (n *NetworkInfoBase) spaceForBinding(endpoint string) (string, error) {
 	boundSpace, known := n.bindings[endpoint]
 	if !known {
 		// If default binding is not explicitly defined, use the default space.
@@ -564,7 +584,7 @@ func (n *NetworkInfo) spaceForBinding(endpoint string) (string, error) {
 	return boundSpace, nil
 }
 
-func (n *NetworkInfo) pollForAddress(
+func (n *NetworkInfoBase) pollForAddress(
 	fetcher func() (corenetwork.SpaceAddress, error),
 ) (corenetwork.SpaceAddress, error) {
 	var address corenetwork.SpaceAddress
@@ -607,75 +627,5 @@ var defaultRetryFactory = func() retry.CallArgs {
 		Clock:       clock.WallClock,
 		Delay:       3 * time.Second,
 		MaxDuration: 30 * time.Second,
-	}
-}
-
-// TODO (manadart 2020-08-20): The logic below was moved over from the state
-// package when machine.GetNetworkInfoForSpaces was removed from state and
-// implemented here. It is an unnecessary convolution and should be factored
-// out in favour of a simpler return from machineNetworkInfos.
-
-// MachineNetworkInfoResult contains an error or a list of NetworkInfo
-// structures for a specific space.
-type machineNetworkInfoResult struct {
-	NetworkInfos []network.NetworkInfo
-	Error        error
-}
-
-// Add address to a device in list or create a new device with this address.
-func addAddressToResult(networkInfos []network.NetworkInfo, address *state.Address) ([]network.NetworkInfo, error) {
-	deviceAddr := network.InterfaceAddress{
-		Address: address.Value(),
-		CIDR:    address.SubnetCIDR(),
-	}
-	for i := range networkInfos {
-		networkInfo := &networkInfos[i]
-		if networkInfo.InterfaceName == address.DeviceName() {
-			networkInfo.Addresses = append(networkInfo.Addresses, deviceAddr)
-			return networkInfos, nil
-		}
-	}
-
-	var MAC string
-	device, err := address.Device()
-	if err == nil {
-		MAC = device.MACAddress()
-	} else if !errors.IsNotFound(err) {
-		return nil, errors.Trace(err)
-	}
-
-	networkInfo := network.NetworkInfo{
-		InterfaceName: address.DeviceName(),
-		MACAddress:    MAC,
-		Addresses:     []network.InterfaceAddress{deviceAddr},
-	}
-	return append(networkInfos, networkInfo), nil
-}
-
-func machineNetworkInfoResultToNetworkInfoResult(inResult machineNetworkInfoResult) params.NetworkInfoResult {
-	if inResult.Error != nil {
-		return params.NetworkInfoResult{Error: common.ServerError(inResult.Error)}
-	}
-	infos := make([]params.NetworkInfo, len(inResult.NetworkInfos))
-	for i, info := range inResult.NetworkInfos {
-		infos[i] = networkToParamsNetworkInfo(info)
-	}
-	return params.NetworkInfoResult{
-		Info: infos,
-	}
-}
-
-func networkToParamsNetworkInfo(info network.NetworkInfo) params.NetworkInfo {
-	addresses := make([]params.InterfaceAddress, len(info.Addresses))
-	for i, addr := range info.Addresses {
-		addresses[i] = params.InterfaceAddress{
-			Address: addr.Address,
-			CIDR:    addr.CIDR,
-		}
-	}
-	return params.NetworkInfo{
-		MACAddress:    info.MACAddress,
-		InterfaceName: info.InterfaceName,
-		Addresses:     addresses,
 	}
 }
