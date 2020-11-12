@@ -398,7 +398,9 @@ func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
 		network.NewScopedSpaceAddress("10.20.0.20", network.ScopeCloudLocal))
 	c.Assert(err, jc.ErrorIsNil)
 
-	netInfo := s.newNetworkInfo(c, unit.UnitTag(), nil)
+	ni := s.newNetworkInfo(c, unit.UnitTag(), nil)
+	netInfo := ni.(*uniter.NetworkInfoIAAS)
+
 	res, err := netInfo.MachineNetworkInfos(spaceIDDefault, spaceIDDMZ, "666", network.AlphaSpaceId)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, gc.HasLen, 4)
@@ -463,7 +465,9 @@ func (s *networkInfoSuite) TestMachineNetworkInfosAlphaNoSubnets(c *gc.C) {
 		network.NewScopedSpaceAddress("10.20.0.20", network.ScopeCloudLocal))
 	c.Assert(err, jc.ErrorIsNil)
 
-	netInfo := s.newNetworkInfo(c, unit.UnitTag(), nil)
+	ni := s.newNetworkInfo(c, unit.UnitTag(), nil)
+	netInfo := ni.(*uniter.NetworkInfoIAAS)
+
 	res, err := netInfo.MachineNetworkInfos(network.AlphaSpaceId)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, gc.HasLen, 1)
@@ -533,7 +537,7 @@ func (s *networkInfoSuite) createNICWithIP(
 
 func (s *networkInfoSuite) newNetworkInfo(
 	c *gc.C, tag names.UnitTag, retryFactory func() retry.CallArgs,
-) *uniter.NetworkInfo {
+) uniter.NetworkInfo {
 	// Allow the caller to supply nil if this is not important.
 	// We fill it with an optimistic default.
 	if retryFactory == nil {
