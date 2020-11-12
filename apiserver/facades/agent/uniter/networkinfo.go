@@ -398,12 +398,23 @@ func (n *NetworkInfo) NetworksForRelation(
 	}
 
 	corenetwork.SortAddresses(ingress)
-
-	// If no egress subnets defined, We default to the ingress address.
-	if len(egress) == 0 && len(ingress) > 0 {
-		egress, err = network.FormatAsCIDR([]string{ingress[0].Value})
-		if err != nil {
-			return "", nil, nil, errors.Trace(err)
+	if len(egress) == 0 {
+		var addr corenetwork.SpaceAddress
+		// If no egress subnets defined, We default to the ingress address for IaaS
+		// and pod address for CaaS.
+		if n.unit.ShouldBeAssigned() && len(ingress) > 0 {
+			addr = ingress[0]
+		} else {
+			addr, err = n.unit.PrivateAddress()
+			if err != nil && !network.IsNoAddressError(err) {
+				return "", nil, nil, errors.Trace(err)
+			}
+		}
+		if addr.Value != "" {
+			egress, err = network.FormatAsCIDR([]string{addr.Value})
+			if err != nil {
+				return "", nil, nil, errors.Trace(err)
+			}
 		}
 	}
 	return boundSpace, ingress, egress, nil
