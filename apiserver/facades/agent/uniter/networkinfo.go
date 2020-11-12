@@ -402,8 +402,10 @@ func (n *NetworkInfo) NetworksForRelation(
 		var addr corenetwork.SpaceAddress
 		// If no egress subnets defined, We default to the ingress address for IaaS
 		// and pod address for CaaS.
-		if n.unit.ShouldBeAssigned() && len(ingress) > 0 {
-			addr = ingress[0]
+		if n.unit.ShouldBeAssigned() {
+			if len(ingress) > 0 {
+				addr = ingress[0]
+			}
 		} else {
 			addr, err = n.unit.PrivateAddress()
 			if err != nil && !network.IsNoAddressError(err) {
