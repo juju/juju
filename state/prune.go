@@ -64,6 +64,18 @@ func pruneCollectionAndChildren(mb modelBackend, maxHistoryTime time.Duration, m
 	if err := p.pruneByAge(); err != nil {
 		return errors.Trace(err)
 	}
+	// First try pruning, excluding any items that
+	// have an age field that is not yet set.
+	// ie only prune completed items.
+	if err := p.pruneBySize(); err != nil {
+		return errors.Trace(err)
+	}
+	if ageField == "" {
+		return nil
+	}
+	// If needed, prune additional incomplete items to
+	// get under the size limit.
+	p.ageField = ""
 	return errors.Trace(p.pruneBySize())
 }
 
@@ -212,7 +224,27 @@ func (p *collectionPruner) pruneBySize() error {
 		return nil
 	}
 
-	iter := p.coll.Find(p.filter).Sort(p.ageField).Limit(toDelete).Select(bson.M{"_id": 1}).Iter()
+	// If age field is set, add a filter which
+	// excludes those items where the age field
+	// is not set, ie only prune completed items.
+	var filter bson.D
+	if p.ageField != "" {
+		var notSet interface{}
+		if p.timeUnit == NanoSeconds {
+			notSet = 0
+		} else {
+			notSet = time.Time{}
+		}
+		filter = bson.D{
+			{p.ageField, bson.M{"$gt": notSet}},
+		}
+	}
+	filter = append(filter, p.filter...)
+	query := p.coll.Find(filter)
+	if p.ageField != "" {
+		query = query.Sort(p.ageField)
+	}
+	iter := query.Limit(toDelete).Select(bson.M{"_id": 1}).Iter()
 	defer iter.Close()
 
 	template := fmt.Sprintf("%s size pruning: deleted %%d of %d (estimated)", p.coll.Name, toDelete)
