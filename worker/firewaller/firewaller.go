@@ -94,6 +94,10 @@ type Config struct {
 	Logger Logger
 
 	CredentialAPI common.CredentialAPI
+
+	// WatchMachineNotify is called when the Firewaller starts watching the
+	// machine with the given tag (manual machines aren't watched).
+	WatchMachineNotify func(tag names.MachineTag)
 }
 
 // Validate returns an error if cfg cannot drive a Worker.
@@ -158,18 +162,7 @@ type Firewaller struct {
 
 	cloudCallContext context.ProviderCallContext
 
-	// To synchronize calls to unexported methods called by tests
-	startMachineEvent chan startMachineEventInfo
-	getMachinedsEvent chan getMachinedsEventInfo
-}
-
-type startMachineEventInfo struct {
-	tag    names.MachineTag
-	result chan error
-}
-
-type getMachinedsEventInfo struct {
-	result chan map[names.MachineTag]*machineData
+	watchMachineNotify func(tag names.MachineTag)
 }
 
 // NewFirewaller returns a new Firewaller.
@@ -208,9 +201,8 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 			// For any failures, try again in 1 minute.
 			RestartDelay: time.Minute,
 		}),
-		cloudCallContext:  common.NewCloudCallContext(cfg.CredentialAPI, nil),
-		startMachineEvent: make(chan startMachineEventInfo),
-		getMachinedsEvent: make(chan getMachinedsEventInfo),
+		cloudCallContext:   common.NewCloudCallContext(cfg.CredentialAPI, nil),
+		watchMachineNotify: cfg.WatchMachineNotify,
 	}
 
 	switch cfg.Mode {
@@ -336,15 +328,6 @@ func (fw *Firewaller) loop() error {
 			if err := fw.flushUnits(unitds); err != nil {
 				return errors.Annotate(err, "cannot change firewall ports")
 			}
-		case info := <-fw.startMachineEvent:
-			info.result <- fw.startMachine(info.tag)
-		case info := <-fw.getMachinedsEvent:
-			// Make a copy of the map so test has an "atomic" view
-			machineds := make(map[names.MachineTag]*machineData)
-			for k, v := range fw.machineds {
-				machineds[k] = v
-			}
-			info.result <- machineds
 		}
 	}
 }
@@ -440,10 +423,14 @@ func (fw *Firewaller) startMachine(tag names.MachineTag) error {
 
 	// register the machined with the firewaller's catacomb.
 	err = fw.catacomb.Add(machined)
-	if err == nil {
-		fw.logger.Debugf("started watching %q", tag)
+	if err != nil {
+		return errors.Trace(err)
 	}
-	return err
+	fw.logger.Debugf("started watching %q", tag)
+	if fw.watchMachineNotify != nil {
+		fw.watchMachineNotify(tag)
+	}
+	return nil
 }
 
 // startUnit creates a new data value for tracking details of the unit
