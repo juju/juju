@@ -249,8 +249,10 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 		logger.Errorf("failed to parse charm: %v", err)
 	} else {
 		switch curl.Schema {
+		case "ch":
+			charmOrigin = "charmhub"
 		case "cs":
-			charmOrigin = "jujucharms"
+			charmOrigin = "charmstore"
 		case "local":
 			charmOrigin = "local"
 		default:
