@@ -95,14 +95,8 @@ func (n *NetworkInfoCAAS) ProcessAPIRequest(args params.NetworkInfoParams) (para
 		// The binding address information based on link layer devices.
 		info := machineNetworkInfoResultToNetworkInfoResult(networkInfos[space])
 
-		// Set egress and ingress address information.
 		info.EgressSubnets = endpointEgressSubnets[endpoint]
-
-		ingressAddrs := make([]string, len(endpointIngressAddresses[endpoint]))
-		for i, addr := range endpointIngressAddresses[endpoint] {
-			ingressAddrs[i] = addr.Value
-		}
-		info.IngressAddresses = ingressAddrs
+		info.IngressAddresses = endpointIngressAddresses[endpoint].Values()
 
 		// If there is no ingress address explicitly defined for a given
 		// binding, set the ingress addresses to either any defaults set above,
@@ -114,19 +108,11 @@ func (n *NetworkInfoCAAS) ProcessAPIRequest(args params.NetworkInfoParams) (para
 		if len(info.IngressAddresses) == 0 {
 			ingress := spaceAddressesFromNetworkInfo(networkInfos[space].NetworkInfos)
 			corenetwork.SortAddresses(ingress)
-			info.IngressAddresses = make([]string, len(ingress))
-			for i, addr := range ingress {
-				info.IngressAddresses[i] = addr.Value
-			}
+			info.IngressAddresses = ingress.Values()
 		}
 
-		// If there is no egress subnet explicitly defined for a given binding,
-		// default to the first ingress address. This matches the behaviour when
-		// there's a relation in place.
-		if len(info.EgressSubnets) == 0 && len(info.IngressAddresses) > 0 {
-			var err error
-			info.EgressSubnets, err = network.FormatAsCIDR([]string{info.IngressAddresses[0]})
-			if err != nil {
+		if len(info.EgressSubnets) == 0 {
+			if info.EgressSubnets, err = n.getEgressFromIngress(info.IngressAddresses); err != nil {
 				return result, errors.Trace(err)
 			}
 		}

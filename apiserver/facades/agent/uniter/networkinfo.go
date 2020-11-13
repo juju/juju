@@ -142,11 +142,6 @@ func (n *NetworkInfoBase) maybeGetUnitAddress(rel *state.Relation) (corenetwork.
 // for the relation, falling back to configured model egress.
 // If there are none, it attempts to resolve a subnet from the input
 // ingress addresses.
-// There can be situations (observed for CAAS) where the preferred ingress
-// address is a FQDN for a load-balancer, which is intended to point at a
-// service that is not yet up.
-// We employ the retry strategy here to give time for the FQDN to be resolvable
-// to an IP address.
 func (n *NetworkInfoBase) getEgressForRelation(
 	rel *state.Relation, ingress corenetwork.SpaceAddresses,
 ) ([]string, error) {
@@ -168,6 +163,18 @@ func (n *NetworkInfoBase) getEgressForRelation(
 		return n.defaultEgress, nil
 	}
 
+	egress, err := n.getEgressFromIngress(ingress.Values())
+	return egress, errors.Trace(err)
+}
+
+// getEgressFromIngress returns a subnet corresponding to the first address
+// (if available) in the input ingress address list.
+// There can be situations (observed for CAAS) where the preferred ingress
+// address is a FQDN for a load-balancer, which is intended to point at a
+// service that is not yet up.
+// We employ the retry strategy here to give time for the FQDN to be resolvable
+// to an IP address.
+func (n *NetworkInfoBase) getEgressFromIngress(ingress []string) ([]string, error) {
 	if len(ingress) == 0 {
 		return nil, nil
 	}
@@ -176,7 +183,7 @@ func (n *NetworkInfoBase) getEgressForRelation(
 	retryArg := n.retryFactory()
 	retryArg.Func = func() error {
 		var err error
-		egress, err = network.FormatAsCIDR([]string{ingress[0].Value})
+		egress, err = network.FormatAsCIDR([]string{ingress[0]})
 		return err
 	}
 	retryArg.IsFatalError = func(err error) bool {
