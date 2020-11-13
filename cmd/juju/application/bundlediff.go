@@ -6,6 +6,7 @@ package application
 import (
 	"fmt"
 	"io/ioutil"
+	"path/filepath"
 	"strings"
 
 	"github.com/juju/bundlechanges"
@@ -229,11 +230,15 @@ func (c *bundleDiffCommand) bundleDataSource(ctx *cmd.Context) (charm.BundleData
 		return nil, errors.Errorf("couldn't interpret %q as a local or charmstore bundle", c.bundle)
 	}
 
-	dir, err := ioutil.TempDir("", bundleURL.Name)
+	// GetBundle creates the directory so we actually want to create a temp
+	// directory then add a namespace (bundle name) so that charmstore get
+	// bundle can create it.
+	dir, err := ioutil.TempDir("", "bundle-diff-")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	bundle, err := charmStore.GetBundle(bundleURL, dir)
+	bundlePath := filepath.Join(dir, bundleURL.Name)
+	bundle, err := charmStore.GetBundle(bundleURL, bundlePath)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
