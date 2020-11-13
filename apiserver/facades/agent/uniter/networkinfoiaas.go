@@ -159,18 +159,11 @@ func (n *NetworkInfoIAAS) NetworksForRelation(
 
 	corenetwork.SortAddresses(ingress)
 
-	egress, err := n.getRelationEgressSubnets(rel)
+	egress, err := n.getEgressForRelation(rel, ingress)
 	if err != nil {
 		return "", nil, nil, errors.Trace(err)
 	}
 
-	// If no egress subnets defined, We default to the ingress address.
-	if len(egress) == 0 && len(ingress) > 0 {
-		egress, err = network.FormatAsCIDR([]string{ingress[0].Value})
-		if err != nil {
-			return "", nil, nil, errors.Trace(err)
-		}
-	}
 	return boundSpace, ingress, egress, nil
 }
 

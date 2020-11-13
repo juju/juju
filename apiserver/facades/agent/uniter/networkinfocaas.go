@@ -170,12 +170,9 @@ func (n *NetworkInfoCAAS) getRelationNetworkInfo(
 func (n *NetworkInfoBase) NetworksForRelation(
 	_ string, rel *state.Relation, pollAddr bool,
 ) (string, corenetwork.SpaceAddresses, []string, error) {
-	egress, err := n.getRelationEgressSubnets(rel)
-	if err != nil {
-		return "", nil, nil, errors.Trace(err)
-	}
-
 	var ingress corenetwork.SpaceAddresses
+	var err error
+
 	if pollAddr {
 		if ingress, err = n.maybeGetUnitAddress(rel); err != nil {
 			return "", nil, nil, errors.Trace(err)
@@ -197,12 +194,10 @@ func (n *NetworkInfoBase) NetworksForRelation(
 
 	corenetwork.SortAddresses(ingress)
 
-	// If no egress subnets defined, We default to the ingress address.
-	if len(egress) == 0 && len(ingress) > 0 {
-		egress, err = network.FormatAsCIDR([]string{ingress[0].Value})
-		if err != nil {
-			return "", nil, nil, errors.Trace(err)
-		}
+	egress, err := n.getEgressForRelation(rel, ingress)
+	if err != nil {
+		return "", nil, nil, errors.Trace(err)
 	}
+
 	return corenetwork.AlphaSpaceId, ingress, egress, nil
 }
