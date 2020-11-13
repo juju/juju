@@ -43,6 +43,8 @@ type Logger interface {
 	Infof(string, ...interface{})
 	Errorf(string, ...interface{})
 	Warningf(string, ...interface{})
+
+	Child(string) loggo.Logger
 }
 
 // ManifoldConfig defines the names of the manifolds on which a
@@ -235,7 +237,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				UpdateStatusSignal:   uniter.NewUpdateStatusTimer(),
 				HookRetryStrategy:    hookRetryStrategy,
 				TranslateResolverErr: config.TranslateResolverErr,
-				Logger:               loggo.GetLogger("juju.worker.uniter"),
+				Logger:               wCfg.Logger.Child("uniter"),
 			}
 			wCfg.UniterParams.SocketConfig, err = socketConfig(operatorInfo)
 			if err != nil {
