@@ -723,7 +723,7 @@ func addRemoteRU(c *gc.C, rel *state.Relation, unitName string) *state.RelationU
 var testingRetryFactory = func() retry.CallArgs {
 	return retry.CallArgs{
 		Clock:       clock.WallClock,
-		Delay:       3 * time.Second,
-		MaxDuration: 30 * time.Second,
+		Delay:       1 * time.Millisecond,
+		MaxDuration: 3 * time.Millisecond,
 	}
 }
