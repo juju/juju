@@ -6,6 +6,7 @@ package application
 import (
 	"fmt"
 	"io/ioutil"
+	"path"
 	"strings"
 
 	"github.com/juju/bundlechanges/v3"
@@ -248,11 +249,12 @@ func (c *bundleDiffCommand) bundleDataSource(ctx *cmd.Context) (charm.BundleData
 		return nil, errors.Errorf("couldn't interpret %q as a local or charmstore bundle", c.bundle)
 	}
 
-	dir, err := ioutil.TempDir("", bundleURL.Name)
+	dir, err := ioutil.TempDir("", "bundle-diff-")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	bundle, err := charmAdaptor.GetBundle(bundleURL, dir)
+	bundlePath := path.Join(dir, bundleURL.Name)
+	bundle, err := charmAdaptor.GetBundle(bundleURL, bundlePath)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -264,7 +266,11 @@ func (c *bundleDiffCommand) charmAdaptor() (BundleResolver, error) {
 	if c._charmStore != nil {
 		return c._charmStore, nil
 	}
-	apiRoot, err := c.ModelCommandBase.NewAPIRoot()
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	apiRoot, err := c.CommandBase.NewAPIRoot(c.ClientStore(), controllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
