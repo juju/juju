@@ -6,7 +6,7 @@ package application
 import (
 	"fmt"
 	"io/ioutil"
-	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/juju/bundlechanges/v3"
@@ -253,7 +253,7 @@ func (c *bundleDiffCommand) bundleDataSource(ctx *cmd.Context) (charm.BundleData
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	bundlePath := path.Join(dir, bundleURL.Name)
+	bundlePath := filepath.Join(dir, bundleURL.Name)
 	bundle, err := charmAdaptor.GetBundle(bundleURL, bundlePath)
 	if err != nil {
 		return nil, errors.Trace(err)
