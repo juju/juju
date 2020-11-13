@@ -120,7 +120,7 @@ func (c *infoCommand) Run(ctx *cmd.Context) error {
 	}
 	info, err := charmHubClient.Info(c.charmOrBundle)
 	if params.IsCodeNotFound(err) {
-		return errors.Wrap(err, errors.Errorf("No charm or bundle info found for %q.", c.charmOrBundle))
+		return errors.Wrap(err, errors.Errorf("No information found for charm or bundle with the name %q", c.charmOrBundle))
 	} else if err != nil {
 		return errors.Trace(err)
 	}
