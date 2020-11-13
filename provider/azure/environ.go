@@ -273,7 +273,7 @@ func (env *azureEnviron) Bootstrap(
 			return nil, errors.Annotate(cancelResult, "aborting failed bootstrap")
 		}
 
-		// The cleanup the resource group.
+		// Then cleanup the resource group.
 		if err := env.Destroy(callCtx); err != nil {
 			logger.Errorf("failed to destroy model: %v", err)
 		}
@@ -1794,42 +1794,17 @@ func (env *azureEnviron) deleteResourcesInGroup(ctx context.ProviderCallContext,
 	}()
 
 	// Find all the resources tagged as belonging to this model.
-	resourcesClient := resources.Client{env.resources}
 	filter := fmt.Sprintf("tagName eq '%s' and tagValue eq '%s'", tags.JujuModel, env.config.UUID())
-	result, err := resourcesClient.ListByResourceGroupComplete(sdkCtx, resourceGroup, filter, "", nil)
+	resourceItems, err := env.getModelResources(sdkCtx, resourceGroup, filter)
 	if err != nil {
-		return errors.Annotate(err, "listing resources to delete")
-	}
-
-	var resourceItems []resources.GenericResourceExpanded
-	for result.NotDone() {
-		resourceItems = append(resourceItems, result.Value())
-		err = result.NextWithContext(sdkCtx)
-		if err != nil {
-			return errors.Trace(err)
-		}
+		return errors.Trace(err)
 	}
 
 	// Older APIs can ignore the filter above, so query the hard way just in case.
 	if len(resourceItems) == 0 {
-		result, err = resourcesClient.ListByResourceGroupComplete(sdkCtx, resourceGroup, "", "", nil)
+		resourceItems, err = env.getModelResources(sdkCtx, resourceGroup, filter)
 		if err != nil {
-			return errors.Annotate(err, "listing resources to delete")
-		}
-		for result.NotDone() {
-			res := result.Value()
-			fullRes, err := resourcesClient.GetByID(sdkCtx, to.String(res.ID), computeAPIVersion)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if env.config.UUID() != to.String(fullRes.Tags[tags.JujuModel]) {
-				continue
-			}
-			resourceItems = append(resourceItems, res)
-			err = result.NextWithContext(sdkCtx)
-			if err != nil {
-				return errors.Trace(err)
-			}
+			return errors.Trace(err)
 		}
 	}
 
@@ -1862,14 +1837,50 @@ func (env *azureEnviron) deleteResourcesInGroup(ctx context.ProviderCallContext,
 	}
 
 	// Loop until all remaining resources are deleted.
+	// For safety, add an upper retry limit; in reality, this will never be hit.
 	remainingResources := otherResources
-	for len(remainingResources) > 0 {
+	retries := 0
+	for len(remainingResources) > 0 && retries < 10 {
 		remainingResources, err = env.deleteResources(sdkCtx, remainingResources)
 		if err != nil {
 			return errors.Trace(err)
 		}
+		retries++
+	}
+	if len(remainingResources) > 0 {
+		logger.Warningf("could not delete all Azure resources, remaining: %v", remainingResources)
 	}
 	return nil
+}
+
+func (env *azureEnviron) getModelResources(sdkCtx stdcontext.Context, resourceGroup, modelFilter string) ([]resources.GenericResourceExpanded, error) {
+	resourcesClient := resources.Client{env.resources}
+	result, err := resourcesClient.ListByResourceGroupComplete(sdkCtx, resourceGroup, modelFilter, "", nil)
+	if err != nil {
+		return nil, errors.Annotate(err, "listing resources to delete")
+	}
+
+	var resourceItems []resources.GenericResourceExpanded
+	for result.NotDone() {
+		res := result.Value()
+		// If no modelFilter specified, we need to check that the resource
+		// belongs to this model.
+		if modelFilter == "" {
+			fullRes, err := resourcesClient.GetByID(sdkCtx, to.String(res.ID), computeAPIVersion)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if env.config.UUID() != to.String(fullRes.Tags[tags.JujuModel]) {
+				continue
+			}
+		}
+		resourceItems = append(resourceItems, res)
+		err = result.NextWithContext(sdkCtx)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	return resourceItems, nil
 }
 
 // deleteResources deletes the specified resources, returning any that
