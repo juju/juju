@@ -215,8 +215,8 @@ func (s *InfoSuite) TestInfoRequestPayload(c *gc.C) {
 	infoPath, err := basePath.Join("info")
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiRequester := NewAPIRequester(DefaultHTTPTransport())
-	restClient := NewHTTPRESTClient(apiRequester, nil, &FakeLogger{})
+	apiRequester := NewAPIRequester(DefaultHTTPTransport(), &FakeLogger{})
+	restClient := NewHTTPRESTClient(apiRequester, nil)
 
 	client := NewInfoClient(infoPath, restClient, &FakeLogger{})
 	response, err := client.Info(context.TODO(), "wordpress")

@@ -34,22 +34,41 @@ func DefaultHTTPTransport() *http.Client {
 // error handling.
 type APIRequester struct {
 	transport Transport
+	logger    Logger
 }
 
 // NewAPIRequester creates a new http.Client for making requests to a server.
-func NewAPIRequester(transport Transport) *APIRequester {
+func NewAPIRequester(transport Transport, logger Logger) *APIRequester {
 	return &APIRequester{
 		transport: transport,
+		logger:    logger,
 	}
 }
 
 // Do performs the *http.Request and returns a *http.Response or an error
 // if it fails to construct the transport.
 func (t *APIRequester) Do(req *http.Request) (*http.Response, error) {
+	if t.logger.IsTraceEnabled() {
+		if data, err := httputil.DumpRequest(req, true); err == nil {
+			t.logger.Tracef("%s request %s", req.Method, data)
+		} else {
+			t.logger.Tracef("%s request DumpRequest error %s", req.Method, err.Error())
+		}
+	}
+
 	resp, err := t.transport.Do(req)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	if t.logger.IsTraceEnabled() {
+		if data, err := httputil.DumpResponse(resp, true); err == nil {
+			t.logger.Tracef("%s response %s", req.Method, data)
+		} else {
+			t.logger.Tracef("%s response DumpResponse error %s", req.Method, err.Error())
+		}
+	}
+
 	if resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusNoContent {
 		return resp, nil
 	}
@@ -92,15 +111,13 @@ type RESTClient interface {
 type HTTPRESTClient struct {
 	transport Transport
 	headers   http.Header
-	logger    Logger
 }
 
 // NewHTTPRESTClient creates a new HTTPRESTClient
-func NewHTTPRESTClient(transport Transport, headers http.Header, logger Logger) *HTTPRESTClient {
+func NewHTTPRESTClient(transport Transport, headers http.Header) *HTTPRESTClient {
 	return &HTTPRESTClient{
 		transport: transport,
 		headers:   headers,
-		logger:    logger,
 	}
 }
 
@@ -122,28 +139,12 @@ func (c *HTTPRESTClient) Get(ctx context.Context, path path.Path, result interfa
 
 	req.Header = c.composeHeaders(headers)
 
-	if c.logger.IsTraceEnabled() {
-		if data, err := httputil.DumpRequest(req, true); err == nil {
-			c.logger.Tracef("Get request %s", data)
-		} else {
-			c.logger.Tracef("Get request DumpRequest error %s", err.Error())
-		}
-	}
-
 	resp, err := c.transport.Do(req)
 	if err != nil {
-		c.logger.Tracef("Get Do failed with %+v", err)
 		return RESTResponse{}, errors.Trace(err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	if c.logger.IsTraceEnabled() {
-		if data, err := httputil.DumpResponse(resp, true); err == nil {
-			c.logger.Tracef("Get response %s", data)
-		} else {
-			c.logger.Tracef("Get response DumpResponse error %s", err.Error())
-		}
-	}
 	// Parse the response.
 	if err := httprequest.UnmarshalJSONResponse(resp, result); err != nil {
 		return RESTResponse{}, errors.Annotate(err, "charm hub client get")
@@ -177,28 +178,11 @@ func (c *HTTPRESTClient) Post(ctx context.Context, path path.Path, body, result 
 
 	req.Header = c.composeHeaders(headers)
 
-	if c.logger.IsTraceEnabled() {
-		if data, err := httputil.DumpRequest(req, true); err == nil {
-			c.logger.Tracef("Post request %s", data)
-		} else {
-			c.logger.Tracef("Post request DumpRequest error %s", err.Error())
-		}
-	}
-
 	resp, err := c.transport.Do(req)
 	if err != nil {
-		c.logger.Tracef("Post Do failed with %+v", err)
 		return RESTResponse{}, errors.Trace(err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-
-	if c.logger.IsTraceEnabled() {
-		if data, err := httputil.DumpResponse(resp, true); err == nil {
-			c.logger.Tracef("Post response %s", data)
-		} else {
-			c.logger.Tracef("Post response DumpResponse error %s", err.Error())
-		}
-	}
 
 	// Parse the response.
 	if err := httprequest.UnmarshalJSONResponse(resp, result); err != nil {

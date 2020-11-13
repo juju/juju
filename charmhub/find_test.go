@@ -157,8 +157,8 @@ func (s *FindSuite) TestFindRequestPayload(c *gc.C) {
 	findPath, err := basePath.Join("find")
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiRequester := NewAPIRequester(DefaultHTTPTransport())
-	restClient := NewHTTPRESTClient(apiRequester, nil, &FakeLogger{})
+	apiRequester := NewAPIRequester(DefaultHTTPTransport(), &FakeLogger{})
+	restClient := NewHTTPRESTClient(apiRequester, nil)
 
 	client := NewFindClient(findPath, restClient, &FakeLogger{})
 	responses, err := client.Find(context.TODO(), "wordpress")
@@ -194,8 +194,8 @@ func (s *FindSuite) TestFindErrorPayload(c *gc.C) {
 	findPath, err := basePath.Join("find")
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiRequester := NewAPIRequester(DefaultHTTPTransport())
-	restClient := NewHTTPRESTClient(apiRequester, nil, &FakeLogger{})
+	apiRequester := NewAPIRequester(DefaultHTTPTransport(), &FakeLogger{})
+	restClient := NewHTTPRESTClient(apiRequester, nil)
 
 	client := NewFindClient(findPath, restClient, &FakeLogger{})
 	_, err = client.Find(context.TODO(), "wordpress")

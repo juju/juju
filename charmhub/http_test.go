@@ -30,7 +30,7 @@ func (s *APIRequesterSuite) TestDo(c *gc.C) {
 	mockTransport := NewMockTransport(ctrl)
 	mockTransport.EXPECT().Do(req).Return(emptyResponse(), nil)
 
-	requester := NewAPIRequester(mockTransport)
+	requester := NewAPIRequester(mockTransport, &FakeLogger{})
 	resp, err := requester.Do(req)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
@@ -45,7 +45,7 @@ func (s *APIRequesterSuite) TestDoWithFailure(c *gc.C) {
 	mockTransport := NewMockTransport(ctrl)
 	mockTransport.EXPECT().Do(req).Return(emptyResponse(), errors.Errorf("boom"))
 
-	requester := NewAPIRequester(mockTransport)
+	requester := NewAPIRequester(mockTransport, &FakeLogger{})
 	_, err := requester.Do(req)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
@@ -59,7 +59,7 @@ func (s *APIRequesterSuite) TestDoWithInvalidContentType(c *gc.C) {
 	mockTransport := NewMockTransport(ctrl)
 	mockTransport.EXPECT().Do(req).Return(invalidContentTypeResponse(), nil)
 
-	requester := NewAPIRequester(mockTransport)
+	requester := NewAPIRequester(mockTransport, &FakeLogger{})
 	_, err := requester.Do(req)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
@@ -73,7 +73,7 @@ func (s *APIRequesterSuite) TestDoWithNotFoundResponse(c *gc.C) {
 	mockTransport := NewMockTransport(ctrl)
 	mockTransport.EXPECT().Do(req).Return(notFoundResponse(), nil)
 
-	requester := NewAPIRequester(mockTransport)
+	requester := NewAPIRequester(mockTransport, &FakeLogger{})
 	resp, err := requester.Do(req)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusNotFound)
@@ -98,7 +98,7 @@ func (s *RESTSuite) TestGet(c *gc.C) {
 
 	base := MustMakePath(c, "http://api.foo.bar")
 
-	client := NewHTTPRESTClient(mockTransport, nil, &FakeLogger{})
+	client := NewHTTPRESTClient(mockTransport, nil)
 
 	var result interface{}
 	_, err := client.Get(context.TODO(), base, &result)
@@ -111,7 +111,7 @@ func (s *RESTSuite) TestGetWithInvalidContext(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockTransport := NewMockTransport(ctrl)
-	client := NewHTTPRESTClient(mockTransport, nil, &FakeLogger{})
+	client := NewHTTPRESTClient(mockTransport, nil)
 
 	base := MustMakePath(c, "http://api.foo.bar")
 
@@ -127,7 +127,7 @@ func (s *RESTSuite) TestGetWithFailure(c *gc.C) {
 	mockTransport := NewMockTransport(ctrl)
 	mockTransport.EXPECT().Do(gomock.Any()).Return(emptyResponse(), errors.Errorf("boom"))
 
-	client := NewHTTPRESTClient(mockTransport, nil, &FakeLogger{})
+	client := NewHTTPRESTClient(mockTransport, nil)
 
 	base := MustMakePath(c, "http://api.foo.bar")
 
@@ -143,7 +143,7 @@ func (s *RESTSuite) TestGetWithUnmarshalFailure(c *gc.C) {
 	mockTransport := NewMockTransport(ctrl)
 	mockTransport.EXPECT().Do(gomock.Any()).Return(invalidResponse(), nil)
 
-	client := NewHTTPRESTClient(mockTransport, nil, &FakeLogger{})
+	client := NewHTTPRESTClient(mockTransport, nil)
 
 	base := MustMakePath(c, "http://api.foo.bar")
 
