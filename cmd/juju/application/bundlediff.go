@@ -230,6 +230,9 @@ func (c *bundleDiffCommand) bundleDataSource(ctx *cmd.Context) (charm.BundleData
 		return nil, errors.Errorf("couldn't interpret %q as a local or charmstore bundle", c.bundle)
 	}
 
+	// GetBundle creates the directory so we actually want to create a temp
+	// directory then add a namespace (bundle name) so that charmstore get
+	// bundle can create it.
 	dir, err := ioutil.TempDir("", "bundle-diff-")
 	if err != nil {
 		return nil, errors.Trace(err)
