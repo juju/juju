@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/api/charmhub"
 	"github.com/juju/juju/api/modelconfig"
+	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/config"
@@ -118,7 +119,9 @@ func (c *infoCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	info, err := charmHubClient.Info(c.charmOrBundle)
-	if err != nil {
+	if params.IsCodeNotFound(err) {
+		return errors.Wrap(err, errors.Errorf("No charm or bundle info found for %q.", c.charmOrBundle))
+	} else if err != nil {
 		return errors.Trace(err)
 	}
 
