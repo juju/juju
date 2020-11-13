@@ -85,11 +85,11 @@ func (s *InfoSuite) expectGet(c *gc.C, client *MockRESTClient, p path.Path, name
 
 	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).Do(func(_ context.Context, _ path.Path, response *transport.InfoResponse) {
 		response.Name = name
-	}).Return(nil)
+	}).Return(RESTResponse{}, nil)
 }
 
 func (s *InfoSuite) expectGetFailure(client *MockRESTClient) {
-	client.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.Errorf("boom"))
+	client.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(RESTResponse{StatusCode: http.StatusInternalServerError}, errors.Errorf("boom"))
 }
 
 func (s *InfoSuite) expectGetError(c *gc.C, client *MockRESTClient, p path.Path, name string) {
@@ -102,7 +102,7 @@ func (s *InfoSuite) expectGetError(c *gc.C, client *MockRESTClient, p path.Path,
 		response.ErrorList = []transport.APIError{{
 			Message: "not found",
 		}}
-	}).Return(nil)
+	}).Return(RESTResponse{StatusCode: http.StatusNotFound}, nil)
 }
 
 func (s *InfoSuite) TestInfoRequestPayload(c *gc.C) {
@@ -215,8 +215,8 @@ func (s *InfoSuite) TestInfoRequestPayload(c *gc.C) {
 	infoPath, err := basePath.Join("info")
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiRequester := NewAPIRequester(DefaultHTTPTransport())
-	restClient := NewHTTPRESTClient(apiRequester, nil, &FakeLogger{})
+	apiRequester := NewAPIRequester(DefaultHTTPTransport(), &FakeLogger{})
+	restClient := NewHTTPRESTClient(apiRequester, nil)
 
 	client := NewInfoClient(infoPath, restClient, &FakeLogger{})
 	response, err := client.Info(context.TODO(), "wordpress")

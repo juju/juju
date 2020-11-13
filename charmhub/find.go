@@ -5,6 +5,7 @@ package charmhub
 
 import (
 	"context"
+	"net/http"
 	"strings"
 
 	"github.com/juju/errors"
@@ -44,11 +45,19 @@ func (c *FindClient) Find(ctx context.Context, query string) ([]transport.FindRe
 	}
 
 	var resp transport.FindResponses
-	if err := c.client.Get(ctx, path, &resp); err != nil {
+	restResp, err := c.client.Get(ctx, path, &resp)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return resp.Results, resp.ErrorList.Combine()
+	if resultErr := resp.ErrorList.Combine(); resultErr != nil {
+		if restResp.StatusCode == http.StatusNotFound {
+			return nil, errors.NewNotFound(resultErr, "")
+		}
+		return nil, resultErr
+	}
+
+	return resp.Results, nil
 }
 
 // defaultFindFilter returns a filter string to retrieve all data

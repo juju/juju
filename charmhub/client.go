@@ -46,6 +46,7 @@ var (
 
 const defaultMinMultipartUploadSize = 5 * 1024 * 1024
 
+// Logger is a in place interface to represent a logger for consuming.
 type Logger interface {
 	IsTraceEnabled() bool
 
@@ -154,8 +155,8 @@ func NewClientWithFileSystem(config Config, fileSystem FileSystem) (*Client, err
 	config.Logger.Tracef("NewClient to %q", config.URL)
 
 	httpClient := DefaultHTTPTransport()
-	apiRequester := NewAPIRequester(httpClient)
-	restClient := NewHTTPRESTClient(apiRequester, config.Headers, config.Logger)
+	apiRequester := NewAPIRequester(httpClient, config.Logger)
+	restClient := NewHTTPRESTClient(apiRequester, config.Headers)
 
 	return &Client{
 		url:           base.String(),

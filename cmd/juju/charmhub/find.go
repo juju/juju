@@ -12,6 +12,7 @@ import (
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/api/charmhub"
+	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -92,8 +93,10 @@ func (c *findCommand) Run(ctx *cmd.Context) error {
 	defer func() { _ = client.Close() }()
 
 	results, err := client.Find(c.query)
-	if err != nil {
-		return err
+	if params.IsCodeNotFound(err) {
+		return errors.Wrap(err, errors.Errorf("Nothing found for query %q.", c.query))
+	} else if err != nil {
+		return errors.Trace(err)
 	}
 
 	// This is a side effect of the formatting code not wanting to error out

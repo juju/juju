@@ -5,6 +5,7 @@ package charmhub
 
 import (
 	"context"
+	"net/http"
 
 	gomock "github.com/golang/mock/gomock"
 	"github.com/juju/errors"
@@ -92,11 +93,11 @@ func (s *RefreshSuite) expectPost(c *gc.C, client *MockRESTClient, p path.Path, 
 			InstanceKey: "foo-bar",
 			Name:        name,
 		}}
-	}).Return(nil)
+	}).Return(RESTResponse{StatusCode: http.StatusOK}, nil)
 }
 
 func (s *RefreshSuite) expectPostFailure(c *gc.C, client *MockRESTClient) {
-	client.EXPECT().Post(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.Errorf("boom"))
+	client.EXPECT().Post(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(RESTResponse{StatusCode: http.StatusInternalServerError}, errors.Errorf("boom"))
 }
 
 func DefineInstanceKey(c *gc.C, config RefreshConfig, key string) RefreshConfig {

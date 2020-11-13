@@ -5,10 +5,10 @@ package charmhub
 
 import (
 	"context"
+	"net/http"
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/kr/pretty"
 
 	"github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
@@ -45,12 +45,19 @@ func (c *InfoClient) Info(ctx context.Context, name string) (transport.InfoRespo
 		return resp, errors.Trace(err)
 	}
 
-	if err := c.client.Get(ctx, path, &resp); err != nil {
+	restResp, err := c.client.Get(ctx, path, &resp)
+	if err != nil {
 		return resp, errors.Trace(err)
 	}
 
-	c.logger.Tracef("Info(%s) unmarshalled: %s", name, pretty.Sprint(resp))
-	return resp, resp.ErrorList.Combine()
+	if resultErr := resp.ErrorList.Combine(); resultErr != nil {
+		if restResp.StatusCode == http.StatusNotFound {
+			return resp, errors.NewNotFound(resultErr, "")
+		}
+		return resp, resultErr
+	}
+
+	return resp, nil
 }
 
 // defaultInfoFilter returns a filter string to retrieve all data

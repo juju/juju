@@ -70,11 +70,11 @@ func (s *FindSuite) expectGet(c *gc.C, client *MockRESTClient, p path.Path, name
 		responses.Results = []transport.FindResponse{{
 			Name: name,
 		}}
-	}).Return(nil)
+	}).Return(RESTResponse{StatusCode: http.StatusOK}, nil)
 }
 
 func (s *FindSuite) expectGetFailure(client *MockRESTClient) {
-	client.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.Errorf("boom"))
+	client.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(RESTResponse{StatusCode: http.StatusInternalServerError}, errors.Errorf("boom"))
 }
 
 func (s *FindSuite) TestFindRequestPayload(c *gc.C) {
@@ -157,8 +157,8 @@ func (s *FindSuite) TestFindRequestPayload(c *gc.C) {
 	findPath, err := basePath.Join("find")
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiRequester := NewAPIRequester(DefaultHTTPTransport())
-	restClient := NewHTTPRESTClient(apiRequester, nil, &FakeLogger{})
+	apiRequester := NewAPIRequester(DefaultHTTPTransport(), &FakeLogger{})
+	restClient := NewHTTPRESTClient(apiRequester, nil)
 
 	client := NewFindClient(findPath, restClient, &FakeLogger{})
 	responses, err := client.Find(context.TODO(), "wordpress")
@@ -194,8 +194,8 @@ func (s *FindSuite) TestFindErrorPayload(c *gc.C) {
 	findPath, err := basePath.Join("find")
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiRequester := NewAPIRequester(DefaultHTTPTransport())
-	restClient := NewHTTPRESTClient(apiRequester, nil, &FakeLogger{})
+	apiRequester := NewAPIRequester(DefaultHTTPTransport(), &FakeLogger{})
+	restClient := NewHTTPRESTClient(apiRequester, nil)
 
 	client := NewFindClient(findPath, restClient, &FakeLogger{})
 	_, err = client.Find(context.TODO(), "wordpress")
