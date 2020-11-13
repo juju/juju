@@ -202,7 +202,7 @@ func (c *HTTPRESTClient) Post(ctx context.Context, path path.Path, body, result 
 
 	// Parse the response.
 	if err := httprequest.UnmarshalJSONResponse(resp, result); err != nil {
-		return RESTResponse{}, errors.Annotate(err, "charm hub client get")
+		return RESTResponse{}, errors.Annotate(err, "charm hub client post")
 	}
 	return RESTResponse{
 		StatusCode: resp.StatusCode,
