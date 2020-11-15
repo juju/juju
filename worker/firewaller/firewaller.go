@@ -94,6 +94,11 @@ type Config struct {
 	Logger Logger
 
 	CredentialAPI common.CredentialAPI
+
+	// WatchMachineNotify is called when the Firewaller starts watching the
+	// machine with the given tag (manual machines aren't watched). This
+	// should only be used for testing.
+	WatchMachineNotify func(tag names.MachineTag)
 }
 
 // Validate returns an error if cfg cannot drive a Worker.
@@ -157,6 +162,9 @@ type Firewaller struct {
 	logger                     Logger
 
 	cloudCallContext context.ProviderCallContext
+
+	// Only used for testing
+	watchMachineNotify func(tag names.MachineTag)
 }
 
 // NewFirewaller returns a new Firewaller.
@@ -195,7 +203,8 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 			// For any failures, try again in 1 minute.
 			RestartDelay: time.Minute,
 		}),
-		cloudCallContext: common.NewCloudCallContext(cfg.CredentialAPI, nil),
+		cloudCallContext:   common.NewCloudCallContext(cfg.CredentialAPI, nil),
+		watchMachineNotify: cfg.WatchMachineNotify,
 	}
 
 	switch cfg.Mode {
@@ -416,10 +425,14 @@ func (fw *Firewaller) startMachine(tag names.MachineTag) error {
 
 	// register the machined with the firewaller's catacomb.
 	err = fw.catacomb.Add(machined)
-	if err == nil {
-		fw.logger.Debugf("started watching %q", tag)
+	if err != nil {
+		return errors.Trace(err)
 	}
-	return err
+	fw.logger.Debugf("started watching %q", tag)
+	if fw.watchMachineNotify != nil {
+		fw.watchMachineNotify(tag)
+	}
+	return nil
 }
 
 // startUnit creates a new data value for tracking details of the unit
