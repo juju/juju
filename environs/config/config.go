@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/logfwd/syslog"
 	"github.com/juju/juju/network"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.environs.config")
@@ -451,7 +452,7 @@ var defaultConfigValues = map[string]interface{}{
 	NetBondReconfigureDelayKey: 17,
 	ContainerNetworkingMethod:  "",
 
-	"default-series":              series.DefaultSupportedLTS(),
+	"default-series":              jujuversion.DefaultSupportedLTS(),
 	ProvisionerHarvestModeKey:     HarvestDestroyed.String(),
 	ResourceTagsKey:               "",
 	"logging-config":              "",
