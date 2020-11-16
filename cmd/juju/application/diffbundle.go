@@ -16,7 +16,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api/annotations"
@@ -108,7 +107,7 @@ func (c *diffBundleCommand) Info() *cmd.Info {
 // SetFlags is part of cmd.Command.
 func (c *diffBundleCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.StringVar(&c.channelStr, "channel", "", "Channel to use when getting the bundle from the charm store or charm hub")
+	f.StringVar(&c.channelStr, "channel", "", "Channel to use when getting the bundle from the charm hub or charm store")
 	f.Var(cmd.NewAppendStringsValue(&c.bundleOverlays), "overlay", "Bundles to overlay on the primary bundle, applied in order")
 	f.StringVar(&c.machineMap, "map-machines", "", "Indicates how existing machines correspond to bundle machines")
 	f.BoolVar(&c.annotations, "annotations", false, "Include differences in annotations")
@@ -271,72 +270,41 @@ func (c *diffBundleCommand) bundleDataSource(ctx *cmd.Context, apiRoot base.APIC
 }
 
 func (c *diffBundleCommand) charmAdaptor(apiRoot base.APICallCloser, curl *charm.URL) (BundleResolver, error) {
-	var resolver BundleResolverFactory
 	switch curl.Schema {
 	case "cs":
-		resolver = charmStoreBundleResolver{
-			APIRootFn: func() (base.APICallCloser, error) {
-				return c.newControllerAPIRootFn()
-			},
-			BakeryClientFn: c.BakeryClient,
-			Channel:        c.channel,
+		apiRoot, err := c.newControllerAPIRootFn()
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
+		defer func() { _ = apiRoot.Close() }()
+		csURL, err := getCharmStoreAPIURL(apiRoot)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		bakeryClient, err := c.BakeryClient()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		risk := csparams.Channel(c.channel.Risk)
+		cstoreClient := store.NewCharmStoreClient(bakeryClient, csURL).WithChannel(risk)
+		charmRepo := charmrepo.NewCharmStoreFromClient(cstoreClient)
+		return store.NewCharmAdaptor(charmRepo, apiRoot.BestFacadeVersion("Charms"), apicharms.NewClient(apiRoot)), nil
+
 	case "ch":
-		resolver = charmHubBundleResolver{
-			APIRoot: apiRoot,
-		}
-	default:
-		return nil, errors.Errorf("unknown charm url schema")
-	}
-	return resolver.GetBundleResolver()
-}
-
-// BundleResolverFactory defines a factory for creating bundle resolvers.
-type BundleResolverFactory interface {
-	GetBundleResolver() (BundleResolver, error)
-}
-
-type charmStoreBundleResolver struct {
-	APIRootFn      func() (base.APICallCloser, error)
-	BakeryClientFn func() (*httpbakery.Client, error)
-	Channel        corecharm.Channel
-}
-
-func (r charmStoreBundleResolver) GetBundleResolver() (BundleResolver, error) {
-	apiRoot, err := r.APIRootFn()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer func() { _ = apiRoot.Close() }()
-	csURL, err := getCharmStoreAPIURL(apiRoot)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	bakeryClient, err := r.BakeryClientFn()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	risk := csparams.Channel(r.Channel.Risk)
-	cstoreClient := store.NewCharmStoreClient(bakeryClient, csURL).WithChannel(risk)
-	charmRepo := charmrepo.NewCharmStoreFromClient(cstoreClient)
-	return store.NewCharmAdaptor(charmRepo, apiRoot.BestFacadeVersion("Charms"), apicharms.NewClient(apiRoot)), nil
-}
-
-type charmHubBundleResolver struct {
-	APIRoot base.APICallCloser
-}
-
-func (r charmHubBundleResolver) GetBundleResolver() (BundleResolver, error) {
-	// We have to replicate some of the store constructor here so we can give a
-	// better error message than the more cryptic one.
-	bestVersion := r.APIRoot.BestFacadeVersion("Charms")
-	if bestVersion < 3 {
-		msg := `
+		// We have to replicate some of the store constructor here so we can give a
+		// better error message than the more cryptic one.
+		bestVersion := apiRoot.BestFacadeVersion("Charms")
+		if bestVersion < 3 {
+			msg := `
 Current controller version is not compatible with CharmHub bundles.
 Consider using a CharmStore bundle instead.`
-		return nil, errors.Errorf(msg[1:])
+			return nil, errors.Errorf(msg[1:])
+		}
+		return store.NewCharmAdaptor(nil, bestVersion, apicharms.NewClient(apiRoot)), nil
+
+	default:
+		return nil, errors.Errorf("unknown charm url schema: %q", curl.Schema)
 	}
-	return store.NewCharmAdaptor(nil, bestVersion, apicharms.NewClient(r.APIRoot)), nil
 }
 
 func (c *diffBundleCommand) readModel(apiRoot base.APICallCloser) (*bundlechanges.Model, error) {
