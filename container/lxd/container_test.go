@@ -64,6 +64,7 @@ func (s *containerSuite) TestContainerAddDiskNoDevices(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := map[string]string{
+		"type":     "disk",
 		"path":     "/",
 		"source":   "source",
 		"pool":     "default",
