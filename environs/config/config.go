@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/os/series"
 	"github.com/juju/proxy"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
@@ -334,7 +335,7 @@ type HasDefaultSeries interface {
 // The fact that PreferredSeries doesn't take an argument for a default series
 // as a fallback. We then have to expose this so we can exercise the branching
 // code for other scenarios makes me sad.
-var GetDefaultSupportedLTS = jujuversion.DefaultSupportedLTS
+var GetDefaultSupportedLTS = series.DefaultSupportedLTS
 
 // PreferredSeries returns the preferred series to use when a charm does not
 // explicitly specify a series.
