@@ -271,7 +271,7 @@ func (c *diffBundleCommand) bundleDataSource(ctx *cmd.Context, apiRoot base.APIC
 
 func (c *diffBundleCommand) charmAdaptor(apiRoot base.APICallCloser, curl *charm.URL) (BundleResolver, error) {
 	switch curl.Schema {
-	case "cs":
+	case charm.CharmStore.String():
 		apiRoot, err := c.newControllerAPIRootFn()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -290,7 +290,7 @@ func (c *diffBundleCommand) charmAdaptor(apiRoot base.APICallCloser, curl *charm
 		charmRepo := charmrepo.NewCharmStoreFromClient(cstoreClient)
 		return store.NewCharmAdaptor(charmRepo, apiRoot.BestFacadeVersion("Charms"), apicharms.NewClient(apiRoot)), nil
 
-	case "ch":
+	case charm.CharmHub.String():
 		// We have to replicate some of the store constructor here so we can give a
 		// better error message than the more cryptic one.
 		bestVersion := apiRoot.BestFacadeVersion("Charms")
