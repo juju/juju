@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
 	"github.com/juju/proxy"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/logfwd/syslog"
 	"github.com/juju/juju/network"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.environs.config")
@@ -334,7 +334,7 @@ type HasDefaultSeries interface {
 // The fact that PreferredSeries doesn't take an argument for a default series
 // as a fallback. We then have to expose this so we can exercise the branching
 // code for other scenarios makes me sad.
-var GetDefaultSupportedLTS = series.DefaultSupportedLTS
+var GetDefaultSupportedLTS = jujuversion.DefaultSupportedLTS
 
 // PreferredSeries returns the preferred series to use when a charm does not
 // explicitly specify a series.
@@ -451,7 +451,7 @@ var defaultConfigValues = map[string]interface{}{
 	NetBondReconfigureDelayKey: 17,
 	ContainerNetworkingMethod:  "",
 
-	"default-series":              series.DefaultSupportedLTS(),
+	"default-series":              jujuversion.DefaultSupportedLTS(),
 	ProvisionerHarvestModeKey:     HarvestDestroyed.String(),
 	ResourceTagsKey:               "",
 	"logging-config":              "",

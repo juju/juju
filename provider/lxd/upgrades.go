@@ -8,10 +8,10 @@ import (
 	"path"
 
 	"github.com/juju/errors"
-	"github.com/juju/os/series"
 
 	"github.com/juju/juju/cloud"
 	jujupaths "github.com/juju/juju/core/paths"
+	"github.com/juju/juju/version"
 )
 
 // ReadLegacyCloudCredentials reads cloud credentials off disk for an old
@@ -22,7 +22,7 @@ import (
 // satisfying errors.IsNotFound will be returned.
 func ReadLegacyCloudCredentials(readFile func(string) ([]byte, error)) (cloud.Credential, error) {
 	var (
-		jujuConfDir    = jujupaths.MustSucceed(jujupaths.ConfDir(series.DefaultSupportedLTS()))
+		jujuConfDir    = jujupaths.MustSucceed(jujupaths.ConfDir(version.DefaultSupportedLTS()))
 		clientCertPath = path.Join(jujuConfDir, "lxd-client.crt")
 		clientKeyPath  = path.Join(jujuConfDir, "lxd-client.key")
 		serverCertPath = path.Join(jujuConfDir, "lxd-server.crt")

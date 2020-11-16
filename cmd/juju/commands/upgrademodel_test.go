@@ -464,7 +464,7 @@ func (s *UpgradeBaseSuite) assertUpgradeTests(c *gc.C, tests []upgradeTest, upgr
 
 		for _, uploaded := range test.expectUploaded {
 			// Substitute latest LTS for placeholder in expected series for uploaded tools
-			uploaded = strings.Replace(uploaded, "%LTS%", series.DefaultSupportedLTS(), 1)
+			uploaded = strings.Replace(uploaded, "%LTS%", jujuversion.DefaultSupportedLTS(), 1)
 			vers := version.MustParseBinary(uploaded)
 			s.checkToolsUploaded(c, vers, agentVersion)
 		}
