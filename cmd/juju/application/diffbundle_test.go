@@ -50,12 +50,12 @@ func (s *diffSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *diffSuite) runDiffBundle(c *gc.C, args ...string) (*cmd.Context, error) {
-	return s.runDiffBundleWithCharmAdapter(c, func(*charm.URL) (application.BundleResolver, error) {
+	return s.runDiffBundleWithCharmAdapter(c, func(base.APICallCloser, *charm.URL) (application.BundleResolver, error) {
 		return s.charmStore, nil
 	}, args...)
 }
 
-func (s *diffSuite) runDiffBundleWithCharmAdapter(c *gc.C, charmAdataperFn func(*charm.URL) (application.BundleResolver, error), args ...string) (*cmd.Context, error) {
+func (s *diffSuite) runDiffBundleWithCharmAdapter(c *gc.C, charmAdataperFn func(base.APICallCloser, *charm.URL) (application.BundleResolver, error), args ...string) (*cmd.Context, error) {
 	store := jujuclienttesting.MinimalStore()
 	store.Models["enz"] = &jujuclient.ControllerModels{
 		CurrentModel: "golden/horse",

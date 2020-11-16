@@ -39,7 +39,7 @@ func (c *CharmAdaptor) ResolveCharm(url *charm.URL, preferredOrigin commoncharm.
 	if c.charmsAPIVersion >= 3 {
 		resolved, err := c.charmsAPI.ResolveCharms([]apicharm.CharmToResolve{{URL: url, Origin: preferredOrigin}})
 		if err != nil {
-			return nil, commoncharm.Origin{}, nil, err
+			return nil, commoncharm.Origin{}, nil, errors.Trace(err)
 		}
 		return resolved[0].URL, resolved[0].Origin, resolved[0].SupportedSeries, resolved[0].Error
 	}

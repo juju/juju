@@ -84,7 +84,7 @@ type diffBundleCommand struct {
 	bundleMachines map[string]string
 	machineMap     string
 
-	charmAdaptorFn         func(*charm.URL) (BundleResolver, error)
+	charmAdaptorFn         func(base.APICallCloser, *charm.URL) (BundleResolver, error)
 	newAPIRootFn           func() (base.APICallCloser, error)
 	newControllerAPIRootFn func() (base.APICallCloser, error)
 }
@@ -144,7 +144,7 @@ func (c *diffBundleCommand) Run(ctx *cmd.Context) error {
 	defer func() { _ = apiRoot.Close() }()
 
 	// Load up the bundle data, with includes and overlays.
-	baseSrc, err := c.bundleDataSource(ctx)
+	baseSrc, err := c.bundleDataSource(ctx, apiRoot)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -217,7 +217,7 @@ func missingRelationEndpoint(rel string) bool {
 	return len(tokens) != 2 || tokens[1] == ""
 }
 
-func (c *diffBundleCommand) bundleDataSource(ctx *cmd.Context) (charm.BundleDataSource, error) {
+func (c *diffBundleCommand) bundleDataSource(ctx *cmd.Context, apiRoot base.APICallCloser) (charm.BundleDataSource, error) {
 	ds, err := charm.LocalBundleDataSource(c.bundle)
 
 	// NotValid/NotFound means we should try interpreting it as a charm store
@@ -238,7 +238,7 @@ func (c *diffBundleCommand) bundleDataSource(ctx *cmd.Context) (charm.BundleData
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	charmAdaptor, err := c.charmAdaptorFn(bURL)
+	charmAdaptor, err := c.charmAdaptorFn(apiRoot, bURL)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -267,7 +267,7 @@ func (c *diffBundleCommand) bundleDataSource(ctx *cmd.Context) (charm.BundleData
 	return store.NewResolvedBundle(bundle), nil
 }
 
-func (c *diffBundleCommand) charmAdaptor(curl *charm.URL) (BundleResolver, error) {
+func (c *diffBundleCommand) charmAdaptor(apiRoot base.APICallCloser, curl *charm.URL) (BundleResolver, error) {
 	var resolver BundleResolverFactory
 	switch curl.Schema {
 	case "cs":
@@ -280,9 +280,7 @@ func (c *diffBundleCommand) charmAdaptor(curl *charm.URL) (BundleResolver, error
 		}
 	case "ch":
 		resolver = charmHubBundleResolver{
-			APIRootFn: func() (base.APICallCloser, error) {
-				return c.newAPIRootFn()
-			},
+			APIRoot: apiRoot,
 		}
 	default:
 		return nil, errors.Errorf("unknown charm url schema")
@@ -322,26 +320,20 @@ func (r charmStoreBundleResolver) GetBundleResolver() (BundleResolver, error) {
 }
 
 type charmHubBundleResolver struct {
-	APIRootFn func() (base.APICallCloser, error)
+	APIRoot base.APICallCloser
 }
 
 func (r charmHubBundleResolver) GetBundleResolver() (BundleResolver, error) {
-	apiRoot, err := r.APIRootFn()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer func() { _ = apiRoot.Close() }()
-
 	// We have to replicate some of the store constructor here so we can give a
 	// better error message than the more cryptic one.
-	bestVersion := apiRoot.BestFacadeVersion("Charms")
+	bestVersion := r.APIRoot.BestFacadeVersion("Charms")
 	if bestVersion < 3 {
 		msg := `
 Current controller version is not compatible with CharmHub bundles.
 Consider using a CharmStore bundle instead.`
 		return nil, errors.Errorf(msg[1:])
 	}
-	return store.NewCharmAdaptor(nil, bestVersion, apicharms.NewClient(apiRoot)), nil
+	return store.NewCharmAdaptor(nil, bestVersion, apicharms.NewClient(r.APIRoot)), nil
 }
 
 func (c *diffBundleCommand) readModel(apiRoot base.APICallCloser) (*bundlechanges.Model, error) {
