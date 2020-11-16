@@ -23,6 +23,7 @@ import (
 	azurestorage "github.com/Azure/azure-sdk-for-go/storage"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -32,6 +33,7 @@ import (
 	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/core/constraints"
@@ -260,6 +262,26 @@ func (env *azureEnviron) Bootstrap(
 	result, err := common.Bootstrap(ctx, env, callCtx, args)
 	if err != nil {
 		logger.Errorf("bootstrap failed, destroying model: %v", err)
+
+		// First cancel the in-progress deployment.
+		var wg sync.WaitGroup
+		var cancelResult error
+		logger.Debugf("canceling deployment for bootstrap instance")
+		wg.Add(1)
+		go func(id string) {
+			defer wg.Done()
+			sdkCtx := stdcontext.Background()
+			cancelResult = errors.Annotatef(
+				env.cancelDeployment(callCtx, sdkCtx, id),
+				"canceling deployment %q", id,
+			)
+		}(names.NewMachineTag(agent.BootstrapControllerId).String())
+		wg.Wait()
+		if cancelResult != nil && !errors.IsNotFound(cancelResult) {
+			return nil, errors.Annotate(cancelResult, "aborting failed bootstrap")
+		}
+
+		// Then cleanup the resource group.
 		if err := env.Destroy(callCtx); err != nil {
 			logger.Errorf("failed to destroy model: %v", err)
 		}
@@ -1722,7 +1744,7 @@ func (env *azureEnviron) DestroyController(ctx context.ProviderCallContext, cont
 
 func (env *azureEnviron) deleteControllerManagedResourceGroups(ctx context.ProviderCallContext, controllerUUID string) error {
 	filter := fmt.Sprintf(
-		"tagname eq '%s' and tagvalue eq '%s'",
+		"tagName eq '%s' and tagValue eq '%s'",
 		tags.JujuController, controllerUUID,
 	)
 	client := resources.GroupsClient{env.resources}
@@ -1810,39 +1832,151 @@ func (env *azureEnviron) deleteResourceGroup(ctx context.ProviderCallContext, sd
 	return nil
 }
 
-func (env *azureEnviron) deleteResourcesInGroup(ctx context.ProviderCallContext, sdkCtx stdcontext.Context, resourceGroup string) error {
+func (env *azureEnviron) deleteResourcesInGroup(ctx context.ProviderCallContext, sdkCtx stdcontext.Context, resourceGroup string) (err error) {
 	logger.Debugf("deleting all resources in %s", resourceGroup)
 
-	// We purge the contents of a resource group by deploying an empty deployment.
-	client := resources.DeploymentsClient{env.resources}
-	template := armtemplates.Template{
-		Resources: []armtemplates.Resource{},
-	}
-	templateMap, err := template.Map()
+	defer func() {
+		err = errorutils.HandleCredentialError(err, ctx)
+	}()
+
+	// Find all the resources tagged as belonging to this model.
+	filter := fmt.Sprintf("tagName eq '%s' and tagValue eq '%s'", tags.JujuModel, env.config.UUID())
+	resourceItems, err := env.getModelResources(sdkCtx, resourceGroup, filter)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	deployment := resources.Deployment{
-		Properties: &resources.DeploymentProperties{
-			Mode:     resources.Complete,
-			Template: &templateMap,
-		},
-	}
-	future, err := client.CreateOrUpdate(
-		sdkCtx,
-		resourceGroup,
-		"purge-resource-group",
-		deployment,
-	)
-	if err != nil {
-		return errorutils.HandleCredentialError(errors.Annotatef(err, "purging resource group %q", resourceGroup), ctx)
+
+	// Older APIs can ignore the filter above, so query the hard way just in case.
+	if len(resourceItems) == 0 {
+		resourceItems, err = env.getModelResources(sdkCtx, resourceGroup, filter)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 
-	err = future.WaitForCompletionRef(sdkCtx, client.Client)
+	// These will be deleted as part of stopping the instance below.
+	machineResourceTypes := set.NewStrings(
+		"Microsoft.Compute/virtualMachines",
+		"Microsoft.Compute/disks",
+		"Microsoft.Network/publicIPAddresses",
+		"Microsoft.Network/networkInterfaces",
+	)
+
+	var ids []instance.Id
+	var otherResources []resources.GenericResourceExpanded
+	for _, r := range resourceItems {
+		rType := to.String(r.Type)
+		logger.Debugf("resource to delete: %v (%v)", to.String(r.Name), rType)
+		if !machineResourceTypes.Contains(rType) {
+			otherResources = append(otherResources, r)
+			continue
+		}
+		if rType == "Microsoft.Compute/virtualMachines" {
+			ids = append(ids, instance.Id(to.String(r.Name)))
+		}
+	}
+
+	// Stopping instances will also remove most of their dependent resources.
+	err = env.StopInstances(ctx, ids...)
 	if err != nil {
-		return errors.Annotatef(err, "purging resource group %q", resourceGroup)
+		return errors.Annotatef(err, "deleting machine instances %q", ids)
+	}
+
+	// Loop until all remaining resources are deleted.
+	// For safety, add an upper retry limit; in reality, this will never be hit.
+	remainingResources := otherResources
+	retries := 0
+	for len(remainingResources) > 0 && retries < 10 {
+		remainingResources, err = env.deleteResources(sdkCtx, remainingResources)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		retries++
+	}
+	if len(remainingResources) > 0 {
+		logger.Warningf("could not delete all Azure resources, remaining: %v", remainingResources)
 	}
 	return nil
+}
+
+func (env *azureEnviron) getModelResources(sdkCtx stdcontext.Context, resourceGroup, modelFilter string) ([]resources.GenericResourceExpanded, error) {
+	resourcesClient := resources.Client{env.resources}
+	result, err := resourcesClient.ListByResourceGroupComplete(sdkCtx, resourceGroup, modelFilter, "", nil)
+	if err != nil {
+		return nil, errors.Annotate(err, "listing resources to delete")
+	}
+
+	var resourceItems []resources.GenericResourceExpanded
+	for result.NotDone() {
+		res := result.Value()
+		// If no modelFilter specified, we need to check that the resource
+		// belongs to this model.
+		if modelFilter == "" {
+			fullRes, err := resourcesClient.GetByID(sdkCtx, to.String(res.ID), computeAPIVersion)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if env.config.UUID() != to.String(fullRes.Tags[tags.JujuModel]) {
+				continue
+			}
+		}
+		resourceItems = append(resourceItems, res)
+		err = result.NextWithContext(sdkCtx)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	return resourceItems, nil
+}
+
+// deleteResources deletes the specified resources, returning any that
+// cannot be deleted because they are in use.
+func (env *azureEnviron) deleteResources(sdkCtx stdcontext.Context, toDelete []resources.GenericResourceExpanded) ([]resources.GenericResourceExpanded, error) {
+	logger.Debugf("deleting %d resources", len(toDelete))
+
+	resourcesClient := resources.Client{env.resources}
+	resourcesClient.ResponseInspector = errorutils.CheckForDetailedError
+
+	var remainingResources []resources.GenericResourceExpanded
+	var wg sync.WaitGroup
+	deleteResults := make([]error, len(toDelete))
+	for i, res := range toDelete {
+		id := to.String(res.ID)
+		logger.Debugf("- deleting resource %q", id)
+		wg.Add(1)
+		go func(i int, id string) {
+			defer wg.Done()
+			result, err := resourcesClient.DeleteByID(sdkCtx, id, computeAPIVersion)
+			if err != nil {
+				// If the resource is in use, don't error, just queue it up for another pass.
+				if se, ok := errorutils.ServiceError(err); ok && strings.HasPrefix(se.Code, "InUse") {
+					remainingResources = append(remainingResources, toDelete[i])
+				} else {
+					deleteResults[i] = errors.Annotatef(err, "deleting resource %q: %v", id, err)
+				}
+				return
+			}
+			if err = result.WaitForCompletionRef(sdkCtx, resourcesClient.Client); err != nil {
+				resp := result.Response()
+				if !isNotFoundResponse(resp) {
+					deleteResults[i] = errors.Annotatef(err, "deleting resource %q: %v", id, err)
+				}
+			}
+		}(i, id)
+	}
+	wg.Wait()
+
+	var errStrings []string
+	for i, err := range deleteResults {
+		if err != nil && !errors.IsNotFound(err) {
+			msg := fmt.Sprintf("error deleting resource %q: %#v", to.String(toDelete[i].ID), err)
+			errStrings = append(errStrings, msg)
+		}
+	}
+	if len(errStrings) > 0 {
+		return nil, errors.Annotate(errors.New(strings.Join(errStrings, "\n")), "deleting resources")
+	}
+	return remainingResources, nil
 }
 
 // Provider is specified in the Environ interface.

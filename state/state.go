@@ -2300,9 +2300,6 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 	return errors.Errorf("unknown unit assignment policy: %q", policy)
 }
 
-type hasStartSync interface {
-	StartSync()
-}
 type hasAdvance interface {
 	Advance(time.Duration)
 }
@@ -2318,9 +2315,6 @@ func (st *State) StartSync() {
 		// The state testing StateSuite type changes the polling interval
 		// of the pool's txnwatcher to be one second.
 		advanceable.Advance(time.Second)
-	}
-	if syncable, ok := st.workers.txnLogWatcher().(hasStartSync); ok {
-		syncable.StartSync()
 	}
 }
 

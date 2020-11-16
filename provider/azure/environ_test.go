@@ -20,7 +20,9 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
 	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources"
 	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2018-07-01/storage"
+	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/adal"
+	autorestazure "github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/mocks"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/clock/testclock"
@@ -2150,14 +2152,48 @@ func (s *environSuite) TestDestroyHostedModel(c *gc.C) {
 func (s *environSuite) TestDestroyHostedModelCustomResourceGroup(c *gc.C) {
 	env := s.openEnviron(c,
 		testing.Attrs{"controller-uuid": utils.MustNewUUID().String(), "resource-group-name": "foo"})
+	res := []resources.GenericResourceExpanded{{
+		ID:   to.StringPtr("id-0"),
+		Name: to.StringPtr("machine-0"),
+		Type: to.StringPtr("Microsoft.Compute/virtualMachines"),
+	}, {
+		ID:   to.StringPtr("id-0"),
+		Name: to.StringPtr("machine-0-disk"),
+		Type: to.StringPtr("Microsoft.Compute/disks"),
+	}, {
+		ID:   to.StringPtr("networkSecurityGroups/nsg-0"),
+		Name: to.StringPtr("nsg-0"),
+		Type: to.StringPtr("Microsoft.Network/networkSecurityGroups"),
+	}}
+	resourceListResult := resources.ListResult{Value: &res}
+
+	nic0IPConfiguration := makeIPConfiguration("192.168.0.4")
+	nic0IPConfiguration.PublicIPAddress = &network.PublicIPAddress{}
+	nic0 := makeNetworkInterface("nic-0", "machine-0", nic0IPConfiguration)
+
+	machine0Blob := azuretesting.MockStorageBlob{Name_: "machine-0"}
+	s.osvhdsContainer.Blobs_ = []azurestorage.Blob{&machine0Blob}
+
 	s.sender = azuretesting.Senders{
-		makeSender("/deployments/purge-resource-group", nil), // PUT
+		makeSender(".*/resourceGroups/foo/resources.*", resourceListResult), // GET
+		makeSender(".*/deployments/machine-0/cancel", nil),                  // POST
+		s.storageAccountSender(),
+		s.storageAccountKeysSender(),
+		s.networkInterfacesSender(nic0),
+		s.publicIPAddressesSender(makePublicIPAddress("pip-0", "machine-0", "1.2.3.4")),
+		makeSender(".*/virtualMachines/machine-0", nil), // DELETE
+		s.makeErrorSender(c, "/networkSecurityGroups/nsg-0", autorest.DetailedError{Original: autorestazure.ServiceError{Code: "InUse"}}, 1), // DELETE
 	}
 	err := env.Destroy(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.requests, gc.HasLen, 1)
-	c.Assert(s.requests[0].Method, gc.Equals, "PUT")
-	c.Assert(s.requests[0].URL.Path, gc.Equals, "/subscriptions/22222222-2222-2222-2222-222222222222/resourcegroups/foo/providers/Microsoft.Resources/deployments/purge-resource-group")
+	c.Assert(s.requests, gc.HasLen, 9)
+	c.Assert(s.requests[0].Method, gc.Equals, "GET")
+	c.Assert(s.requests[0].URL.Query().Get("$filter"), gc.Equals, fmt.Sprintf(
+		"tagName eq 'juju-model-uuid' and tagValue eq '%s'",
+		testing.ModelTag.Id(),
+	))
+	c.Assert(s.requests[7].Method, gc.Equals, "DELETE")
+	c.Assert(s.requests[8].Method, gc.Equals, "DELETE")
 }
 
 func (s *environSuite) TestDestroyHostedModelWithInvalidCredential(c *gc.C) {
@@ -2191,7 +2227,7 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 	c.Assert(s.requests, gc.HasLen, 3)
 	c.Assert(s.requests[0].Method, gc.Equals, "GET")
 	c.Assert(s.requests[0].URL.Query().Get("$filter"), gc.Equals, fmt.Sprintf(
-		"tagname eq 'juju-controller-uuid' and tagvalue eq '%s'",
+		"tagName eq 'juju-controller-uuid' and tagValue eq '%s'",
 		testing.ControllerTag.Id(),
 	))
 	c.Assert(s.requests[1].Method, gc.Equals, "DELETE")
@@ -2217,7 +2253,7 @@ func (s *environSuite) TestDestroyControllerWithInvalidCredential(c *gc.C) {
 	c.Assert(s.requests, gc.HasLen, 1)
 	c.Assert(s.requests[0].Method, gc.Equals, "GET")
 	c.Assert(s.requests[0].URL.Query().Get("$filter"), gc.Equals, fmt.Sprintf(
-		"tagname eq 'juju-controller-uuid' and tagvalue eq '%s'",
+		"tagName eq 'juju-controller-uuid' and tagValue eq '%s'",
 		testing.ControllerTag.Id(),
 	))
 }

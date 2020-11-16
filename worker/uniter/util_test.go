@@ -207,17 +207,53 @@ func (ctx *context) matchHooks(c *gc.C) (match, cannotMatch, overshoot bool) {
 	defer ctx.mu.Unlock()
 	c.Logf("actual hooks: %#v", ctx.hooksCompleted)
 	c.Logf("expected hooks: %#v", ctx.hooks)
-	for i, e := range ctx.hooks {
-		if i >= len(ctx.hooksCompleted) {
+
+	// If hooks are automatically retried, this may cause stutter in the actual observed
+	// hooks depending on timing of the test steps. For the purposes of evaluating expected
+	// hooks, the loop below skips over any retried, failed hooks
+	// (up to the allowed retry limit for tests which is at most 2 in practice).
+
+	const allowedHookRetryCount = 2
+
+	previousFailedHook := ""
+	retryCount := 0
+	totalDuplicateFails := 0
+	numCompletedHooks := len(ctx.hooksCompleted)
+	numExpectedHooks := len(ctx.hooks)
+
+	for hooksIndex := 0; hooksIndex < numExpectedHooks; {
+		hooksCompletedIndex := hooksIndex + totalDuplicateFails
+		if hooksCompletedIndex >= len(ctx.hooksCompleted) {
 			// not all hooks have fired yet
 			return false, false, false
 		}
-		if ctx.hooksCompleted[i] != e {
+		completedHook := ctx.hooksCompleted[hooksCompletedIndex]
+		if completedHook != ctx.hooks[hooksIndex] {
+			if completedHook == previousFailedHook && retryCount < allowedHookRetryCount {
+				retryCount++
+				totalDuplicateFails++
+				continue
+			}
 			cannotMatch = true
 			return false, cannotMatch, false
 		}
+		hooksIndex++
+		if strings.HasPrefix(completedHook, "fail-") {
+			previousFailedHook = completedHook
+		} else {
+			retryCount = 0
+			previousFailedHook = ""
+		}
 	}
-	return true, false, len(ctx.hooksCompleted) > len(ctx.hooks)
+
+	// Ensure any duplicate hook failures at the end of the sequence are counted.
+	for i := 0; i < numCompletedHooks-numExpectedHooks; i++ {
+		if ctx.hooksCompleted[numExpectedHooks+i] != previousFailedHook {
+			break
+		}
+		totalDuplicateFails++
+	}
+	return true, false, numCompletedHooks > numExpectedHooks+totalDuplicateFails
 }
 
 type uniterTest struct {
