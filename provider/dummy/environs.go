@@ -37,6 +37,7 @@ import (
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/os/series"
 	"github.com/juju/pubsub"
 	"github.com/juju/retry"
 	"github.com/juju/schema"
@@ -81,7 +82,6 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/lease"
 	"github.com/juju/juju/worker/modelcache"
@@ -122,7 +122,7 @@ func SampleConfig() testing.Attrs {
 		"firewall-mode":             config.FwInstance,
 		"ssl-hostname-verification": true,
 		"development":               false,
-		"default-series":            jujuversion.DefaultSupportedLTS(),
+		"default-series":            series.DefaultSupportedLTS(),
 		"default-space":             "",
 		"secret":                    "pork",
 		"controller":                true,
