@@ -242,11 +242,18 @@ func (c *diffBundleCommand) bundleDataSource(ctx *cmd.Context, apiRoot base.APIC
 		return nil, errors.Trace(err)
 	}
 	bundleURL, _, err := charmAdaptor.ResolveBundleURL(bURL, origin)
-	if err != nil && !errors.IsNotValid(err) {
+	if err != nil {
+		// Handle the charmhub failures during a resolving a bundle.
+		isCharmHub := charm.CharmHub.Matches(bURL.Schema)
+		if isCharmHub && errors.IsNotSupported(err) {
+			msg := `
+Current controller version is not compatible with CharmHub bundles.
+Consider using a CharmStore bundle instead.`
+			return nil, errors.Errorf(msg[1:])
+		} else if isCharmHub && errors.IsNotValid(err) {
+			return nil, errors.Errorf("%q can not be found or is not a valid bundle", c.bundle)
+		}
 		return nil, errors.Trace(err)
-	}
-	if charm.CharmHub.Matches(bURL.Schema) && errors.IsNotValid(err) {
-		return nil, errors.Errorf("%q can not be found or is not a valid bundle", c.bundle)
 	}
 	if bundleURL == nil {
 		// This isn't a charmstore bundle either! Complain.
@@ -270,41 +277,28 @@ func (c *diffBundleCommand) bundleDataSource(ctx *cmd.Context, apiRoot base.APIC
 }
 
 func (c *diffBundleCommand) charmAdaptor(apiRoot base.APICallCloser, curl *charm.URL) (BundleResolver, error) {
-	switch curl.Schema {
-	case charm.CharmStore.String():
-		apiRoot, err := c.newControllerAPIRootFn()
+	charmstoreFallback := func() (store.CharmrepoForDeploy, error) {
+		controllerAPIRoot, err := c.newControllerAPIRootFn()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		defer func() { _ = apiRoot.Close() }()
-		csURL, err := getCharmStoreAPIURL(apiRoot)
+		defer func() { _ = controllerAPIRoot.Close() }()
+		csURL, err := getCharmStoreAPIURL(controllerAPIRoot)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+
 		bakeryClient, err := c.BakeryClient()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+
 		risk := csparams.Channel(c.channel.Risk)
 		cstoreClient := store.NewCharmStoreClient(bakeryClient, csURL).WithChannel(risk)
-		charmRepo := charmrepo.NewCharmStoreFromClient(cstoreClient)
-		return store.NewCharmAdaptor(charmRepo, apiRoot.BestFacadeVersion("Charms"), apicharms.NewClient(apiRoot)), nil
-
-	case charm.CharmHub.String():
-		// We have to replicate some of the store constructor here so we can give a
-		// better error message than the more cryptic one.
-		bestVersion := apiRoot.BestFacadeVersion("Charms")
-		if bestVersion < 3 {
-			msg := `
-Current controller version is not compatible with CharmHub bundles.
-Consider using a CharmStore bundle instead.`
-			return nil, errors.Errorf(msg[1:])
-		}
-		return store.NewCharmAdaptor(nil, bestVersion, apicharms.NewClient(apiRoot)), nil
-
-	default:
-		return nil, errors.Errorf("unknown charm url schema: %q", curl.Schema)
+		return charmrepo.NewCharmStoreFromClient(cstoreClient), nil
 	}
+
+	return store.NewCharmAdaptor(apicharms.NewClient(apiRoot), charmstoreFallback), nil
 }
 
 func (c *diffBundleCommand) readModel(apiRoot base.APICallCloser) (*bundlechanges.Model, error) {

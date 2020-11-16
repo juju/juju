@@ -7,6 +7,7 @@ import (
 	"github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
@@ -86,6 +87,7 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 			},
 		}}
 
+	mockFacadeCaller.EXPECT().BestAPIVersion().Return(3)
 	mockFacadeCaller.EXPECT().FacadeCall("ResolveCharms", facadeArgs, resolve).SetArg(2, p).Return(nil)
 
 	client := charms.NewClientWithFacade(mockFacadeCaller)
@@ -117,6 +119,20 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 		},
 	}
 	c.Assert(got, gc.DeepEquals, want)
+}
+
+func (s *charmsMockSuite) TestResolveCharmsIsNotSupported(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().BestAPIVersion().Return(2)
+
+	client := charms.NewClientWithFacade(mockFacadeCaller)
+
+	args := []charms.CharmToResolve{}
+	_, err := client.ResolveCharms(args)
+	c.Assert(errors.IsNotSupported(err), jc.IsTrue)
 }
 
 func (s *charmsMockSuite) TestAddCharm(c *gc.C) {

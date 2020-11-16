@@ -103,7 +103,7 @@ func (s *DeploySuiteBase) deployCommandForState() *DeployCommand {
 	deploy.NewCharmRepo = func() (*store.CharmStoreAdaptor, error) {
 		return s.fakeAPI.CharmStoreAdaptor, nil
 	}
-	deploy.NewResolver = func(charmrepo store.CharmrepoForDeploy, charmsAPIVersion int, charmsAPI store.CharmsAPI) deployer.Resolver {
+	deploy.NewResolver = func(charmsAPI store.CharmsAPI, charmRepoFn store.CharmRepoFunc) deployer.Resolver {
 		return s.fakeAPI
 	}
 	deploy.NewConsumeDetailsAPI = func(url *charm.OfferURL) (deployer.ConsumeDetails, error) {
@@ -124,7 +124,7 @@ func (s *DeploySuiteBase) runDeployForState(c *gc.C, args ...string) error {
 	deploy.NewCharmRepo = func() (*store.CharmStoreAdaptor, error) {
 		return s.fakeAPI.CharmStoreAdaptor, nil
 	}
-	deploy.NewResolver = func(charmrepo store.CharmrepoForDeploy, charmsAPIVersion int, charmsAPI store.CharmsAPI) deployer.Resolver {
+	deploy.NewResolver = func(charmsAPI store.CharmsAPI, charmRepoFn store.CharmRepoFunc) deployer.Resolver {
 		return s.fakeAPI
 	}
 	deploy.NewConsumeDetailsAPI = func(url *charm.OfferURL) (deployer.ConsumeDetails, error) {
@@ -1028,7 +1028,7 @@ func (s *CAASDeploySuiteBase) runDeploy(c *gc.C, fakeAPI *fakeDeployAPI, args ..
 		NewCharmRepo: func() (*store.CharmStoreAdaptor, error) {
 			return &store.CharmStoreAdaptor{MacaroonGetter: &noopMacaroonGetter{}}, nil
 		},
-		NewResolver: func(charmrepo store.CharmrepoForDeploy, charmsAPIVersion int, charmsAPI store.CharmsAPI) deployer.Resolver {
+		NewResolver: func(charmsAPI store.CharmsAPI, charmRepoFn store.CharmRepoFunc) deployer.Resolver {
 			return fakeAPI
 		},
 		NewDeployerFactory: fakeAPI.deployerFactoryFunc,
@@ -2509,14 +2509,14 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 				CharmrepoForDeploy: charmrepo.NewCharmStoreFromClient(cstoreClient),
 			}, nil
 		}
-		deployCmd.NewResolver = func(charmrepo store.CharmrepoForDeploy, charmsAPIVersion int, charmsAPI store.CharmsAPI) deployer.Resolver {
-			return store.NewCharmAdaptor(charmrepo, charmsAPIVersion, charmsAPI)
+		deployCmd.NewResolver = func(charmsAPI store.CharmsAPI, charmRepoFn store.CharmRepoFunc) deployer.Resolver {
+			return store.NewCharmAdaptor(charmsAPI, charmRepoFn)
 		}
 		deployCmd.NewDeployerFactory = deployer.NewDeployerFactory
 	} else {
 		deployCmd.NewDeployerFactory = fakeAPI.deployerFactoryFunc
 		deployCmd.NewCharmRepo = fakeAPI.charmRepoFunc
-		deployCmd.NewResolver = func(charmrepo store.CharmrepoForDeploy, charmsAPIVersion int, charmsAPI store.CharmsAPI) deployer.Resolver {
+		deployCmd.NewResolver = func(charmsAPI store.CharmsAPI, charmRepoFn store.CharmRepoFunc) deployer.Resolver {
 			return fakeAPI
 		}
 	}

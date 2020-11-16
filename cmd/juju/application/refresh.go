@@ -71,9 +71,10 @@ func newRefreshCommand() *refreshCommand {
 			return getCharmStore(bakeryClient, csURL, channel)
 		},
 		NewCharmResolver: func(apiRoot base.APICallCloser, charmrepo store.CharmrepoForDeploy) CharmResolver {
-			return store.NewCharmAdaptor(charmrepo,
-				apiRoot.BestFacadeVersion("Charms"),
-				apicharms.NewClient(apiRoot),
+			return store.NewCharmAdaptor(apicharms.NewClient(apiRoot),
+				func() (store.CharmrepoForDeploy, error) {
+					return charmrepo, nil
+				},
 			)
 		},
 		NewRefresherFactory: refresher.NewRefresherFactory,
