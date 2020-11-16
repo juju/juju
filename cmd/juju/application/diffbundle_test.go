@@ -63,7 +63,7 @@ func (s *diffSuite) runDiffBundleWithCharmAdapter(c *gc.C, charmAdataperFn func(
 			ModelType: model.IAAS,
 		}},
 	}
-	command := application.NewBundleDiffCommandForTest(s.apiRoot, charmAdataperFn, store)
+	command := application.NewDiffBundleCommandForTest(s.apiRoot, charmAdataperFn, store)
 	return cmdtesting.RunCommandInDir(c, command, args, s.dir)
 }
 

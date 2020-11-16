@@ -199,8 +199,8 @@ func NewScaleCommandForTest(api scaleApplicationAPI, store jujuclient.ClientStor
 	return modelcmd.Wrap(cmd)
 }
 
-func NewBundleDiffCommandForTest(api base.APICallCloser, charmStoreFn func(*charm.URL) (BundleResolver, error), store jujuclient.ClientStore) modelcmd.ModelCommand {
-	cmd := &bundleDiffCommand{
+func NewDiffBundleCommandForTest(api base.APICallCloser, charmStoreFn func(*charm.URL) (BundleResolver, error), store jujuclient.ClientStore) modelcmd.ModelCommand {
+	cmd := &diffBundleCommand{
 		newAPIRootFn: func() (base.APICallCloser, error) {
 			return api, nil
 		},
