@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/os/series"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
@@ -39,7 +40,6 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/common/mocks"
 	coretesting "github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/provisioner"
 )
 
@@ -864,7 +864,7 @@ func (m *testMachine) ProvisioningInfo() (*params.ProvisioningInfoV10, error) {
 	return &params.ProvisioningInfoV10{
 		ProvisioningInfoBase: params.ProvisioningInfoBase{
 			ControllerConfig: coretesting.FakeControllerConfig(),
-			Series:           jujuversion.DefaultSupportedLTS(),
+			Series:           series.DefaultSupportedLTS(),
 			Constraints:      constraints.MustParse(m.constraints),
 		},
 		ProvisioningNetworkTopology: m.topology,

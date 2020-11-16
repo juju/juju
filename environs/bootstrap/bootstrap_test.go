@@ -61,7 +61,7 @@ var (
 	// Ensure that we add the default supported series so that tests that
 	// use the default supported lts internally will always work in the
 	// future.
-	supportedJujuSeries = set.NewStrings("precise", "trusty", "quantal", "bionic", jujuversion.DefaultSupportedLTS())
+	supportedJujuSeries = set.NewStrings("precise", "trusty", "quantal", "bionic", series.DefaultSupportedLTS())
 )
 
 type bootstrapSuite struct {
@@ -221,7 +221,7 @@ func (s *bootstrapSuite) TestBootstrapFallbackBootstrapSeries(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	cfg, err := env.Config().Apply(map[string]interface{}{
-		"default-series": jujuversion.DefaultSupportedLTS(),
+		"default-series": series.DefaultSupportedLTS(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	env.cfg = cfg
@@ -235,7 +235,7 @@ func (s *bootstrapSuite) TestBootstrapFallbackBootstrapSeries(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(env.bootstrapCount, gc.Equals, 1)
-	c.Check(env.args.AvailableTools.AllSeries(), jc.SameContents, []string{jujuversion.DefaultSupportedLTS()})
+	c.Check(env.args.AvailableTools.AllSeries(), jc.SameContents, []string{series.DefaultSupportedLTS()})
 }
 
 func (s *bootstrapSuite) TestBootstrapForcedBootstrapSeries(c *gc.C) {
@@ -1365,7 +1365,7 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(c *gc.C, clientMajor, cli
 	})
 	defer envtools.UnregisterToolsDataSourceFunc("local storage")
 
-	supportedSeries := jujuversion.DefaultSupportedLTS()
+	supportedSeries := series.DefaultSupportedLTS()
 	toolsBinaries := []version.Binary{
 		version.MustParseBinary(fmt.Sprintf("10.11.12-%s-amd64", supportedSeries)),
 		version.MustParseBinary(fmt.Sprintf("10.11.13-%s-amd64", supportedSeries)),
@@ -1608,7 +1608,7 @@ func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx cont
 		e.instanceConfig = icfg
 		return nil
 	}
-	series := jujuversion.DefaultSupportedLTS()
+	series := series.DefaultSupportedLTS()
 	if args.BootstrapSeries != "" {
 		series = args.BootstrapSeries
 	}

@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -22,7 +23,6 @@ import (
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 type ImageMetadataSuite struct {
@@ -171,7 +171,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesLatestLTS(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	expected := expectedMetadata{
-		series: version.DefaultSupportedLTS(),
+		series: series.DefaultSupportedLTS(),
 		arch:   "arch",
 	}
 	s.assertCommandOutput(c, expected, out, defaultIndexFileName, defaultImageFileName)

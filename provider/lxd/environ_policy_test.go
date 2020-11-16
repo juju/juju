@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/lxc/lxd/shared/api"
@@ -16,7 +17,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/lxd"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type environPolicySuite struct {
@@ -38,7 +38,7 @@ func (s *environPolicySuite) TestPrecheckInstanceDefaults(c *gc.C) {
 	svr := lxd.NewMockServer(ctrl)
 
 	env := s.NewEnviron(c, svr, nil)
-	err := env.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS()})
+	err := env.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{Series: series.DefaultSupportedLTS()})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -50,7 +50,7 @@ func (s *environPolicySuite) TestPrecheckInstanceHasInstanceType(c *gc.C) {
 	env := s.NewEnviron(c, svr, nil)
 
 	cons := constraints.MustParse("instance-type=some-instance-type")
-	err := env.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Constraints: cons})
+	err := env.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{Series: series.DefaultSupportedLTS(), Constraints: cons})
 
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -63,7 +63,7 @@ func (s *environPolicySuite) TestPrecheckInstanceDiskSize(c *gc.C) {
 	env := s.NewEnviron(c, svr, nil)
 
 	cons := constraints.MustParse("root-disk=1G")
-	err := env.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Constraints: cons})
+	err := env.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{Series: series.DefaultSupportedLTS(), Constraints: cons})
 
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -76,7 +76,7 @@ func (s *environPolicySuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
 	cons := constraints.MustParse("arch=i386")
 
 	env := s.NewEnviron(c, svr, nil)
-	err := env.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Constraints: cons})
+	err := env.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{Series: series.DefaultSupportedLTS(), Constraints: cons})
 
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -106,7 +106,7 @@ func (s *environPolicySuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	)
 
 	placement := "zone=a-zone"
-	err := env.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Placement: placement})
+	err := env.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{Series: series.DefaultSupportedLTS(), Placement: placement})
 
 	c.Check(err, gc.ErrorMatches, `availability zone "a-zone" not valid`)
 }

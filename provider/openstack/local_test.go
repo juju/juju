@@ -1539,7 +1539,7 @@ func (s *localServerSuite) TestFindImageInstanceConstraint(c *gc.C) {
 	}}
 
 	spec, err := openstack.FindInstanceSpec(
-		env, jujuversion.DefaultSupportedLTS(), "amd64", "instance-type=m1.tiny",
+		env, series.DefaultSupportedLTS(), "amd64", "instance-type=m1.tiny",
 		imageMetadata,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1556,7 +1556,7 @@ func (s *localServerSuite) TestFindInstanceImageConstraintHypervisor(c *gc.C) {
 	}}
 
 	spec, err := openstack.FindInstanceSpec(
-		env, jujuversion.DefaultSupportedLTS(), "amd64", "virt-type="+testVirtType,
+		env, series.DefaultSupportedLTS(), "amd64", "virt-type="+testVirtType,
 		imageMetadata,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1575,7 +1575,7 @@ func (s *localServerSuite) TestFindInstanceImageWithHypervisorNoConstraint(c *gc
 	}}
 
 	spec, err := openstack.FindInstanceSpec(
-		env, jujuversion.DefaultSupportedLTS(), "amd64", "",
+		env, series.DefaultSupportedLTS(), "amd64", "",
 		imageMetadata,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1592,7 +1592,7 @@ func (s *localServerSuite) TestFindInstanceNoConstraint(c *gc.C) {
 	}}
 
 	spec, err := openstack.FindInstanceSpec(
-		env, jujuversion.DefaultSupportedLTS(), "amd64", "",
+		env, series.DefaultSupportedLTS(), "amd64", "",
 		imageMetadata,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1607,7 +1607,7 @@ func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
 		Arch: "amd64",
 	}}
 	_, err := openstack.FindInstanceSpec(
-		env, jujuversion.DefaultSupportedLTS(), "amd64", "instance-type=m1.large",
+		env, series.DefaultSupportedLTS(), "amd64", "instance-type=m1.large",
 		imageMetadata,
 	)
 	c.Assert(err, gc.ErrorMatches, `no instance types in some-region matching constraints "instance-type=m1.large"`)
@@ -1616,46 +1616,46 @@ func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
 func (s *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 	env := s.Open(c, s.env.Config())
 	cons := constraints.MustParse("instance-type=m1.small")
-	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Constraints: cons})
+	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: series.DefaultSupportedLTS(), Constraints: cons})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 	env := s.Open(c, s.env.Config())
 	cons := constraints.MustParse("instance-type=m1.large")
-	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Constraints: cons})
+	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: series.DefaultSupportedLTS(), Constraints: cons})
 	c.Assert(err, gc.ErrorMatches, `invalid Openstack flavour "m1.large" specified`)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceInvalidRootDiskConstraint(c *gc.C) {
 	env := s.Open(c, s.env.Config())
 	cons := constraints.MustParse("instance-type=m1.small root-disk=10G")
-	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Constraints: cons})
+	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: series.DefaultSupportedLTS(), Constraints: cons})
 	c.Assert(err, gc.ErrorMatches, `constraint root-disk cannot be specified with instance-type unless constraint root-disk-source=volume`)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	placement := "zone=test-available"
-	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Placement: placement})
+	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: series.DefaultSupportedLTS(), Placement: placement})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
 	placement := "zone=test-unavailable"
-	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Placement: placement})
-	c.Assert(err, gc.ErrorMatches, `zone "test-unavailable" is unavailable`)
+	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: series.DefaultSupportedLTS(), Placement: placement})
+	c.Assert(err, gc.ErrorMatches, `availability zone "test-unavailable" is unavailable`)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 	placement := "zone=test-unknown"
-	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Placement: placement})
+	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: series.DefaultSupportedLTS(), Placement: placement})
 	c.Assert(err, gc.ErrorMatches, `availability zone "test-unknown" not valid`)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceAvailZonesUnsupported(c *gc.C) {
 	s.srv.Nova.SetAvailabilityZones() // no availability zone support
 	placement := "zone=test-unknown"
-	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Placement: placement})
+	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: series.DefaultSupportedLTS(), Placement: placement})
 	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
 }
 
@@ -1689,7 +1689,7 @@ func (s *localServerSuite) testPrecheckInstanceVolumeAvailZones(c *gc.C, placeme
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{
-		Series:            jujuversion.DefaultSupportedLTS(),
+		Series:            series.DefaultSupportedLTS(),
 		Placement:         placement,
 		VolumeAttachments: []storage.VolumeAttachmentParams{{VolumeId: "foo"}},
 	})
@@ -1724,7 +1724,7 @@ func (s *localServerSuite) TestPrecheckInstanceAvailZonesConflictsVolume(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{
-		Series:            jujuversion.DefaultSupportedLTS(),
+		Series:            series.DefaultSupportedLTS(),
 		Placement:         "zone=az2",
 		VolumeAttachments: []storage.VolumeAttachmentParams{{VolumeId: "foo"}},
 	})
