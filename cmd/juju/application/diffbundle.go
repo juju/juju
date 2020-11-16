@@ -246,6 +246,9 @@ func (c *diffBundleCommand) bundleDataSource(ctx *cmd.Context, apiRoot base.APIC
 	if err != nil && !errors.IsNotValid(err) {
 		return nil, errors.Trace(err)
 	}
+	if charm.CharmHub.Matches(bURL.Schema) && errors.IsNotValid(err) {
+		return nil, errors.Errorf("%q can not be found or is not a valid bundle", c.bundle)
+	}
 	if bundleURL == nil {
 		// This isn't a charmstore bundle either! Complain.
 		return nil, errors.Errorf("couldn't interpret %q as a local or charmstore bundle", c.bundle)
