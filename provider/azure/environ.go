@@ -1862,24 +1862,32 @@ func (env *azureEnviron) deleteResourcesInGroup(ctx context.ProviderCallContext,
 		"Microsoft.Network/networkInterfaces",
 	)
 
-	var ids []instance.Id
-	var otherResources []resources.GenericResourceExpanded
+	var (
+		instIds        []instance.Id
+		vaultNames     []string
+		otherResources []resources.GenericResourceExpanded
+	)
 	for _, r := range resourceItems {
 		rType := to.String(r.Type)
 		logger.Debugf("resource to delete: %v (%v)", to.String(r.Name), rType)
-		if !machineResourceTypes.Contains(rType) {
-			otherResources = append(otherResources, r)
+		// Vault resources are handled by a separate client.
+		if rType == "Microsoft.KeyVault/vaults" {
+			vaultNames = append(vaultNames, to.String(r.Name))
 			continue
 		}
 		if rType == "Microsoft.Compute/virtualMachines" {
-			ids = append(ids, instance.Id(to.String(r.Name)))
+			instIds = append(instIds, instance.Id(to.String(r.Name)))
+			continue
+		}
+		if !machineResourceTypes.Contains(rType) {
+			otherResources = append(otherResources, r)
 		}
 	}
 
 	// Stopping instances will also remove most of their dependent resources.
-	err = env.StopInstances(ctx, ids...)
+	err = env.StopInstances(ctx, instIds...)
 	if err != nil {
-		return errors.Annotatef(err, "deleting machine instances %q", ids)
+		return errors.Annotatef(err, "deleting machine instances %q", instIds)
 	}
 
 	// Loop until all remaining resources are deleted.
@@ -1895,6 +1903,13 @@ func (env *azureEnviron) deleteResourcesInGroup(ctx context.ProviderCallContext,
 	}
 	if len(remainingResources) > 0 {
 		logger.Warningf("could not delete all Azure resources, remaining: %v", remainingResources)
+	}
+
+	// Lastly delete the vault resources.
+	for _, vaultName := range vaultNames {
+		if err := env.deleteVault(sdkCtx, ctx, vaultName); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	return nil
 }

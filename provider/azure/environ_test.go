@@ -2164,6 +2164,10 @@ func (s *environSuite) TestDestroyHostedModelCustomResourceGroup(c *gc.C) {
 		ID:   to.StringPtr("networkSecurityGroups/nsg-0"),
 		Name: to.StringPtr("nsg-0"),
 		Type: to.StringPtr("Microsoft.Network/networkSecurityGroups"),
+	}, {
+		ID:   to.StringPtr("vaults/secret-0"),
+		Name: to.StringPtr("secret-0"),
+		Type: to.StringPtr("Microsoft.KeyVault/vaults"),
 	}}
 	resourceListResult := resources.ListResult{Value: &res}
 
@@ -2183,10 +2187,11 @@ func (s *environSuite) TestDestroyHostedModelCustomResourceGroup(c *gc.C) {
 		s.publicIPAddressesSender(makePublicIPAddress("pip-0", "machine-0", "1.2.3.4")),
 		makeSender(".*/virtualMachines/machine-0", nil), // DELETE
 		s.makeErrorSender(c, "/networkSecurityGroups/nsg-0", autorest.DetailedError{Original: autorestazure.ServiceError{Code: "InUse"}}, 1), // DELETE
+		makeSender(".*/vaults/secret-0", nil), // DELETE
 	}
 	err := env.Destroy(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.requests, gc.HasLen, 9)
+	c.Assert(s.requests, gc.HasLen, 10)
 	c.Assert(s.requests[0].Method, gc.Equals, "GET")
 	c.Assert(s.requests[0].URL.Query().Get("$filter"), gc.Equals, fmt.Sprintf(
 		"tagName eq 'juju-model-uuid' and tagValue eq '%s'",
@@ -2194,6 +2199,7 @@ func (s *environSuite) TestDestroyHostedModelCustomResourceGroup(c *gc.C) {
 	))
 	c.Assert(s.requests[7].Method, gc.Equals, "DELETE")
 	c.Assert(s.requests[8].Method, gc.Equals, "DELETE")
+	c.Assert(s.requests[9].Method, gc.Equals, "DELETE")
 }
 
 func (s *environSuite) TestDestroyHostedModelWithInvalidCredential(c *gc.C) {
