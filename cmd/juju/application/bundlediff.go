@@ -48,10 +48,10 @@ generation.
 
 Examples:
     juju diff-bundle localbundle.yaml
-    juju diff-bundle canonical-kubernetes
+    juju diff-bundle cs:canonical-kubernetes
     juju diff-bundle -m othermodel hadoop-spark
-    juju diff-bundle mongodb-cluster --channel beta
-    juju diff-bundle canonical-kubernetes --overlay local-config.yaml --overlay extra.yaml
+    juju diff-bundle cs:mongodb-cluster --channel beta
+    juju diff-bundle cs:canonical-kubernetes --overlay local-config.yaml --overlay extra.yaml
     juju diff-bundle localbundle.yaml --map-machines 3=4
 
 See also:
@@ -61,7 +61,15 @@ See also:
 // NewBundleDiffCommand returns a command to compare a bundle against
 // the selected model.
 func NewBundleDiffCommand() cmd.Command {
-	return modelcmd.Wrap(&bundleDiffCommand{})
+	cmd := &bundleDiffCommand{}
+	cmd.charmAdaptorFn = cmd.charmAdaptor
+	cmd.newAPIRootFn = func() (base.APICallCloser, error) {
+		return cmd.NewAPIRoot()
+	}
+	cmd.newControllerAPIRootFn = func() (base.APICallCloser, error) {
+		return cmd.NewControllerAPIRoot()
+	}
+	return modelcmd.Wrap(cmd)
 }
 
 // bundleDiffCommand compares a bundle to a model.
@@ -76,10 +84,9 @@ type bundleDiffCommand struct {
 	bundleMachines map[string]string
 	machineMap     string
 
-	// These are set in tests to enable mocking out the API and the
-	// charm store.
-	_apiRoot    base.APICallCloser
-	_charmStore BundleResolver
+	charmAdaptorFn         func(*charm.URL) (BundleResolver, error)
+	newAPIRootFn           func() (base.APICallCloser, error)
+	newControllerAPIRootFn func() (base.APICallCloser, error)
 }
 
 // IsSuperCommand is part of cmd.Command.
@@ -130,7 +137,7 @@ func (c *bundleDiffCommand) Init(args []string) error {
 
 // Run is part of cmd.Command.
 func (c *bundleDiffCommand) Run(ctx *cmd.Context) error {
-	apiRoot, err := c.newAPIRoot()
+	apiRoot, err := c.newAPIRootFn()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -210,13 +217,6 @@ func missingRelationEndpoint(rel string) bool {
 	return len(tokens) != 2 || tokens[1] == ""
 }
 
-func (c *bundleDiffCommand) newAPIRoot() (base.APICallCloser, error) {
-	if c._apiRoot != nil {
-		return c._apiRoot, nil
-	}
-	return c.NewAPIRoot()
-}
-
 func (c *bundleDiffCommand) bundleDataSource(ctx *cmd.Context) (charm.BundleDataSource, error) {
 	ds, err := charm.LocalBundleDataSource(c.bundle)
 
@@ -238,7 +238,7 @@ func (c *bundleDiffCommand) bundleDataSource(ctx *cmd.Context) (charm.BundleData
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	charmAdaptor, err := c.charmAdaptor(bURL)
+	charmAdaptor, err := c.charmAdaptorFn(bURL)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -273,7 +273,7 @@ func (c *bundleDiffCommand) charmAdaptor(curl *charm.URL) (BundleResolver, error
 	case "cs":
 		resolver = charmStoreBundleResolver{
 			APIRootFn: func() (base.APICallCloser, error) {
-				return c.NewControllerAPIRoot()
+				return c.newControllerAPIRootFn()
 			},
 			BakeryClientFn: c.BakeryClient,
 			Channel:        c.channel,
@@ -281,7 +281,7 @@ func (c *bundleDiffCommand) charmAdaptor(curl *charm.URL) (BundleResolver, error
 	case "ch":
 		resolver = charmHubBundleResolver{
 			APIRootFn: func() (base.APICallCloser, error) {
-				return c.NewAPIRoot()
+				return c.newAPIRootFn()
 			},
 		}
 	default:

@@ -6,6 +6,7 @@ package application
 import (
 	"time"
 
+	"github.com/juju/charm/v8"
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	gc "gopkg.in/check.v1"
@@ -198,10 +199,19 @@ func NewScaleCommandForTest(api scaleApplicationAPI, store jujuclient.ClientStor
 	return modelcmd.Wrap(cmd)
 }
 
-func NewBundleDiffCommandForTest(api base.APICallCloser, charmStore BundleResolver, store jujuclient.ClientStore) modelcmd.ModelCommand {
+func NewBundleDiffCommandForTest(api base.APICallCloser, charmStoreFn func(*charm.URL) (BundleResolver, error), store jujuclient.ClientStore) modelcmd.ModelCommand {
 	cmd := &bundleDiffCommand{
-		_apiRoot:    api,
-		_charmStore: charmStore,
+		newAPIRootFn: func() (base.APICallCloser, error) {
+			return api, nil
+		},
+		newControllerAPIRootFn: func() (base.APICallCloser, error) {
+			return api, nil
+		},
+	}
+	if charmStoreFn != nil {
+		cmd.charmAdaptorFn = charmStoreFn
+	} else {
+		cmd.charmAdaptorFn = cmd.charmAdaptor
 	}
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
