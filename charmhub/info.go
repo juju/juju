@@ -71,6 +71,8 @@ func defaultInfoFilter() string {
 	filter = append(filter, appendFilterList("channel-map.revision", defaultDownloadFilter)...)
 	filter = append(filter, appendFilterList("channel-map", infoRevisionFilter)...)
 	filter = append(filter, appendFilterList("channel-map", defaultChannelFilter)...)
+	filter = append(filter, appendFilterList("default-release.resources", resourceFilter)...)
+	filter = append(filter, appendFilterList("channel-map.resources", resourceFilter)...)
 	return strings.Join(filter, ",")
 }
 

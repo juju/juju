@@ -14,8 +14,9 @@ type InfoResponse struct {
 }
 
 type InfoChannelMap struct {
-	Channel  Channel      `json:"channel,omitempty"`
-	Revision InfoRevision `json:"revision,omitempty"`
+	Channel   Channel            `json:"channel,omitempty"`
+	Resources []ResourceRevision `json:"resources,omitempty"`
+	Revision  InfoRevision       `json:"revision,omitempty"`
 }
 
 // InfoRevision is different from FindRevision.  It has additional
