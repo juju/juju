@@ -288,6 +288,21 @@ func (env *azureEnviron) ensureVault(
 	return &vault, &vaultParams, nil
 }
 
+func (env *azureEnviron) deleteVault(stdCtx stdcontext.Context, ctx context.ProviderCallContext, vaultName string) error {
+	logger.Debugf("delete vault key %q", vaultName)
+	vaultClient := keyvault.VaultsClient{
+		BaseClient: env.vault,
+	}
+	result, err := vaultClient.Delete(stdCtx, env.resourceGroup, vaultName)
+	if err != nil {
+		errorutils.HandleCredentialError(err, ctx)
+		if !isNotFoundResult(result) {
+			return errors.Annotatef(err, "deleting vault key %q", vaultName)
+		}
+	}
+	return nil
+}
+
 // createVaultKey creates, or recovers a soft deleted key,
 // in the specified vault.
 func (env *azureEnviron) createVaultKey(

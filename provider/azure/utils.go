@@ -7,7 +7,6 @@ import (
 	stdcontext "context"
 	"math/rand"
 	"net/http"
-	"time"
 
 	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources"
 	"github.com/Azure/go-autorest/autorest"
@@ -18,19 +17,6 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/azure/internal/errorutils"
 )
-
-const (
-	retryDelay       = 5 * time.Second
-	maxRetryDelay    = 1 * time.Minute
-	maxRetryDuration = 5 * time.Minute
-)
-
-func toTags(tags *map[string]*string) map[string]string {
-	if tags == nil {
-		return nil
-	}
-	return to.StringMap(*tags)
-}
 
 // randomAdminPassword returns a random administrator password for
 // Windows machines.

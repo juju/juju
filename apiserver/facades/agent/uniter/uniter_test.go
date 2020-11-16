@@ -3627,6 +3627,7 @@ func (s *uniterSuite) TestRelationEgressSubnets(c *gc.C) {
 	// Check model attributes are overridden by setting up a value.
 	err := s.Model.UpdateModelConfig(map[string]interface{}{"egress-subnets": "192.168.0.0/16"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
+
 	egress := state.NewRelationEgressNetworks(s.State)
 	_, err = egress.Save(relTag.Id(), false, []string{"10.0.0.0/16", "10.1.2.0/8"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3635,6 +3636,7 @@ func (s *uniterSuite) TestRelationEgressSubnets(c *gc.C) {
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: relTag.String(), Unit: "unit-mysql-0"},
 	}}
+
 	result, err := thisUniter.EnterScope(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{

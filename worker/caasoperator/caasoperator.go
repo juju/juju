@@ -213,7 +213,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 	paths := config.getPaths()
-	logger := loggo.GetLogger("juju.worker.uniter.charm")
+	logger := config.Logger.Child("charm")
 	deployer, err := jujucharm.NewDeployer(
 		paths.State.CharmDir,
 		paths.State.DeployerDir,
@@ -240,7 +240,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 
 			// For any failures, try again in 3 seconds.
 			RestartDelay: 3 * time.Second,
-			Logger:       config.Logger,
+			Logger:       config.Logger.Child("runner"),
 		}),
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -389,6 +389,11 @@ func (op *caasOperator) loop() (err error) {
 	logger := op.config.Logger
 
 	defer func() {
+		if err == nil {
+			logger.Debugf("operator %q is peacefully shutting down", op.config.Application)
+		} else {
+			logger.Warningf("operator %q is shutting down, err: %s", op.config.Application, err.Error())
+		}
 		if errors.IsNotFound(err) {
 			err = jworker.ErrTerminateAgent
 		}
@@ -533,21 +538,27 @@ func (op *caasOperator) loop() (err error) {
 				if err != nil && !errors.IsNotFound(err) {
 					return errors.Trace(err)
 				}
+				logger.Debugf("got unit change %q (%s)", unitID, unitLife)
 				unitTag := names.NewUnitTag(unitID)
 				if errors.IsNotFound(err) || unitLife == life.Dead {
 					delete(aliveUnits, unitID)
 					delete(unitRunningChannels, unitID)
+					logger.Debugf("stopping uniter for dead unit %q", unitID)
 					if err := op.runner.StopWorker(unitID); err != nil {
 						return err
 					}
+					logger.Debugf("removing unit dir for dead unit %q", unitID)
 					// Remove the unit's directory
 					if err := op.removeUnitDir(unitTag); err != nil {
 						return err
 					}
+					logger.Debugf("removing dead unit %q", unitID)
 					// Remove the unit from state.
 					if err := op.config.UnitRemover.RemoveUnit(unitID); err != nil {
 						return err
 					}
+					// Nothing to do for a dead unit further.
+					continue
 				} else {
 					if _, ok := aliveUnits[unitID]; !ok {
 						aliveUnits[unitID] = make(chan struct{})

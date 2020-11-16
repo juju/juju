@@ -115,10 +115,15 @@ func (s *firewallerBaseSuite) assertIngressRules(c *gc.C, inst instances.Instanc
 	start := time.Now()
 	for {
 		s.BackingState.StartSync()
+
+		// Make it more likely for the dust to have settled (there still may
+		// be rare cases where a test passes when it shouldn't if expected
+		// is nil, which is the initial value).
+		time.Sleep(coretesting.ShortWait)
+
 		got, err := fwInst.IngressRules(s.callCtx, machineId)
 		if err != nil {
 			c.Fatal(err)
-			return
 		}
 		got.Sort()
 		expected.Sort()
@@ -128,7 +133,6 @@ func (s *firewallerBaseSuite) assertIngressRules(c *gc.C, inst instances.Instanc
 		}
 		if time.Since(start) > coretesting.LongWait {
 			c.Fatalf("timed out: expected %q; got %q", expected, got)
-			return
 		}
 		time.Sleep(coretesting.ShortWait)
 	}
@@ -146,7 +150,6 @@ func (s *firewallerBaseSuite) assertEnvironPorts(c *gc.C, expected firewall.Ingr
 		got, err := fwEnv.IngressRules(s.callCtx)
 		if err != nil {
 			c.Fatal(err)
-			return
 		}
 		got.Sort()
 		expected.Sort()
@@ -156,7 +159,6 @@ func (s *firewallerBaseSuite) assertEnvironPorts(c *gc.C, expected firewall.Ingr
 		}
 		if time.Since(start) > coretesting.LongWait {
 			c.Fatalf("timed out: expected %q; got %q", expected, got)
-			return
 		}
 		time.Sleep(coretesting.ShortWait)
 	}
@@ -184,6 +186,7 @@ func (s *firewallerBaseSuite) startInstance(c *gc.C, m *state.Machine) instances
 
 type InstanceModeSuite struct {
 	firewallerBaseSuite
+	watchMachineNotify func(tag names.MachineTag)
 }
 
 var _ = gc.Suite(&InstanceModeSuite{})
@@ -232,9 +235,10 @@ func (s *InstanceModeSuite) newFirewallerWithClockAndIPV6CIDRSupport(c *gc.C, cl
 		NewCrossModelFacadeFunc: func(*api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
 		},
-		Clock:         s.clock,
-		Logger:        loggo.GetLogger("test"),
-		CredentialAPI: s.credentialsFacade,
+		Clock:              s.clock,
+		Logger:             loggo.GetLogger("test"),
+		CredentialAPI:      s.credentialsFacade,
+		WatchMachineNotify: s.watchMachineNotify,
 	}
 	fw, err := firewaller.NewFirewaller(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -514,35 +518,45 @@ func (s *InstanceModeSuite) TestStartWithUnexposedApplication(c *gc.C) {
 	})
 }
 
-func assertMachineInMachineds(c *gc.C, fw *firewaller.Firewaller, tag names.MachineTag, find bool) {
-	machineds := firewaller.GetMachineds(fw)
-	_, found := machineds[tag]
-	c.Assert(found, gc.Equals, find)
-}
-
 func (s *InstanceModeSuite) TestStartMachineWithManualMachine(c *gc.C) {
+	watching := make(chan names.MachineTag, 10) // buffer to ensure test never blocks
+	s.watchMachineNotify = func(tag names.MachineTag) {
+		watching <- tag
+	}
+	assertWatching := func(expected names.MachineTag) {
+		select {
+		case got := <-watching:
+			c.Assert(got, gc.Equals, expected)
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("timed out waiting to watch machine %v", expected.Id())
+		}
+	}
+
 	fw := s.newFirewaller(c)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	m, err := s.State.AddOneMachine(state.MachineTemplate{
+	// Wait for manager machine (started by setUpTest)
+	assertWatching(names.NewMachineTag("0"))
+
+	_, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series:     "quantal",
 		Jobs:       []state.MachineJob{state.JobHostUnits},
 		InstanceId: "2",
 		Nonce:      "manual:",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = firewaller.StartMachine(fw.(*firewaller.Firewaller), m.MachineTag())
-	c.Assert(err, jc.ErrorIsNil)
-	assertMachineInMachineds(c, fw.(*firewaller.Firewaller), m.MachineTag(), false)
+	select {
+	case tag := <-watching:
+		c.Fatalf("shouldn't be watching manual machine %v", tag)
+	case <-time.After(coretesting.ShortWait):
+	}
 
-	m2, err := s.State.AddOneMachine(state.MachineTemplate{
+	m, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = firewaller.StartMachine(fw.(*firewaller.Firewaller), m2.MachineTag())
-	c.Assert(err, jc.ErrorIsNil)
-	assertMachineInMachineds(c, fw.(*firewaller.Firewaller), m2.MachineTag(), true)
+	assertWatching(m.MachineTag())
 }
 
 func (s *InstanceModeSuite) TestSetClearExposedApplication(c *gc.C) {

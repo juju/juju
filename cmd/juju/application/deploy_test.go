@@ -1257,9 +1257,9 @@ func (s *DeploySuite) TestForceMachine(c *gc.C) {
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
-	machine, err := s.State.AddMachine("bionic", state.JobHostUnits)
+	machine, err := s.State.AddMachine(version.DefaultSupportedLTS(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.runDeployForState(c, "--to", machine.Id(), charmDir.Path, "portlandia", "--series", "bionic")
+	err = s.runDeployForState(c, "--to", machine.Id(), charmDir.Path, "portlandia", "--series", version.DefaultSupportedLTS())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertForceMachine(c, machine.Id())
 }
@@ -1281,12 +1281,12 @@ func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
 	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
 	template := state.MachineTemplate{
-		Series: "bionic",
+		Series: version.DefaultSupportedLTS(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideNewMachine(template, template, instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.runDeployForState(c, "--to", container.Id(), charmDir.Path, "portlandia", "--series", "bionic")
+	err = s.runDeployForState(c, "--to", container.Id(), charmDir.Path, "portlandia", "--series", version.DefaultSupportedLTS())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertForceMachine(c, container.Id())
 	machines, err := s.State.AllMachines()
@@ -1298,9 +1298,10 @@ func (s *DeploySuite) TestForceMachineNewContainer(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "dummy")
 	curl := charm.MustParseURL("local:bionic/dummy-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+	ltsseries := version.DefaultSupportedLTS()
+	withCharmDeployable(s.fakeAPI, curl, ltsseries, charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
-	machine, err := s.State.AddMachine("bionic", state.JobHostUnits)
+	machine, err := s.State.AddMachine(version.DefaultSupportedLTS(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.runDeployForState(c, "--to", "lxd:"+machine.Id(), charmDir.Path, "portlandia", "--series", "bionic")
 	c.Assert(err, jc.ErrorIsNil)
