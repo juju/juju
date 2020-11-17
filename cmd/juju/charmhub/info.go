@@ -4,7 +4,9 @@
 package charmhub
 
 import (
+	"fmt"
 	"io"
+	"strings"
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/cmd"
@@ -16,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -39,7 +42,9 @@ See also:
 
 // NewInfoCommand wraps infoCommand with sane model settings.
 func NewInfoCommand() cmd.Command {
-	return modelcmd.Wrap(&infoCommand{})
+	return modelcmd.Wrap(&infoCommand{
+		arches: corecharm.DefaultArches(),
+	})
 }
 
 // infoCommand supplies the "info" CLI command used to display info
@@ -56,6 +61,7 @@ type infoCommand struct {
 	charmOrBundle string
 
 	arch   string
+	arches corecharm.Arches
 	series string
 
 	unicode string
@@ -84,7 +90,9 @@ func (c *infoCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json":    cmd.FormatJson,
 		"tabular": c.formatter,
 	})
-	f.StringVar(&c.arch, "arch", ArchAll, "display channels supported by provided arch <all|amd64|arm64|ppc64|s390>")
+
+	archList := strings.Join(c.arches.StringList(), "|")
+	f.StringVar(&c.arch, "arch", ArchAll, fmt.Sprintf("display channels supported by provided arch <%s>", archList))
 	f.StringVar(&c.series, "series", SeriesAll, "display channels supported by provided series")
 }
 
@@ -107,17 +115,20 @@ func (c *infoCommand) Init(args []string) error {
 		return errors.Errorf("unexpected unicode flag value %q, expected <auto|never|always>", c.unicode)
 	}
 
-	switch c.arch {
-	case "all", "amd64", "arm64", "ppc64", "s390":
-	case "":
-		c.arch = "all"
-	default:
-		return errors.Errorf("unexpected architecture flag value %q, expected <all|amd64|arm64|ppc64|s390>", c.arch)
+	// If the architecture is empty, ensure we normalize it to all to prevent
+	// complicated comparison checking.
+	if c.arch == "" {
+		c.arch = ArchAll
+	}
+
+	if !c.arches.Contains(corecharm.Arch(c.arch)) {
+		archList := strings.Join(c.arches.StringList(), "|")
+		return errors.Errorf("unexpected architecture flag value %q, expected <%s>", c.arch, archList)
 	}
 
 	// It's much harder to specify the series we support in a list fashion.
 	if c.series == "" {
-		c.series = "all"
+		c.series = SeriesAll
 	}
 
 	return nil

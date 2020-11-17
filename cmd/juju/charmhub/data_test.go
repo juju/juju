@@ -29,7 +29,7 @@ func (filterSuite) TestConvertChannels(c *gc.C) {
 		Arch:   "all",
 		Series: "all",
 		Input: map[string]charmhub.Channel{
-			"latest/stable": charmhub.Channel{
+			"latest/stable": {
 				Platforms: []charmhub.Platform{{
 					Architecture: "all",
 					Series:       "bionic",
@@ -37,7 +37,7 @@ func (filterSuite) TestConvertChannels(c *gc.C) {
 			},
 		},
 		Expected: map[string]charmhub.Channel{
-			"latest/stable": charmhub.Channel{
+			"latest/stable": {
 				Platforms: []charmhub.Platform{{
 					Architecture: "all",
 					Series:       "bionic",
@@ -49,7 +49,7 @@ func (filterSuite) TestConvertChannels(c *gc.C) {
 		Arch:   "all",
 		Series: "bionic",
 		Input: map[string]charmhub.Channel{
-			"latest/stable": charmhub.Channel{
+			"latest/stable": {
 				Platforms: []charmhub.Platform{{
 					Architecture: "all",
 					Series:       "bionic",
@@ -57,7 +57,7 @@ func (filterSuite) TestConvertChannels(c *gc.C) {
 			},
 		},
 		Expected: map[string]charmhub.Channel{
-			"latest/stable": charmhub.Channel{
+			"latest/stable": {
 				Platforms: []charmhub.Platform{{
 					Architecture: "all",
 					Series:       "bionic",
@@ -69,7 +69,7 @@ func (filterSuite) TestConvertChannels(c *gc.C) {
 		Arch:   "amd64",
 		Series: "all",
 		Input: map[string]charmhub.Channel{
-			"latest/stable": charmhub.Channel{
+			"latest/stable": {
 				Platforms: []charmhub.Platform{{
 					Architecture: "amd64",
 					Series:       "bionic",
@@ -77,7 +77,7 @@ func (filterSuite) TestConvertChannels(c *gc.C) {
 			},
 		},
 		Expected: map[string]charmhub.Channel{
-			"latest/stable": charmhub.Channel{
+			"latest/stable": {
 				Platforms: []charmhub.Platform{{
 					Architecture: "amd64",
 					Series:       "bionic",
@@ -89,7 +89,7 @@ func (filterSuite) TestConvertChannels(c *gc.C) {
 		Arch:   "ppc64",
 		Series: "focal",
 		Input: map[string]charmhub.Channel{
-			"latest/stable": charmhub.Channel{
+			"latest/stable": {
 				Platforms: []charmhub.Platform{{
 					Architecture: "amd64",
 					Series:       "bionic",
@@ -102,7 +102,7 @@ func (filterSuite) TestConvertChannels(c *gc.C) {
 		Arch:   "amd64",
 		Series: "bionic",
 		Input: map[string]charmhub.Channel{
-			"latest/stable": charmhub.Channel{
+			"latest/stable": {
 				Platforms: []charmhub.Platform{{
 					Architecture: "all",
 					Series:       "bionic",
@@ -110,7 +110,7 @@ func (filterSuite) TestConvertChannels(c *gc.C) {
 			},
 		},
 		Expected: map[string]charmhub.Channel{
-			"latest/stable": charmhub.Channel{
+			"latest/stable": {
 				Platforms: []charmhub.Platform{{
 					Architecture: "all",
 					Series:       "bionic",
@@ -122,7 +122,7 @@ func (filterSuite) TestConvertChannels(c *gc.C) {
 		Arch:   "amd64",
 		Series: "focal",
 		Input: map[string]charmhub.Channel{
-			"latest/stable": charmhub.Channel{
+			"latest/stable": {
 				Platforms: []charmhub.Platform{{
 					Architecture: "all",
 					Series:       "bionic",
@@ -135,13 +135,13 @@ func (filterSuite) TestConvertChannels(c *gc.C) {
 		Arch:   "amd64",
 		Series: "focal",
 		Input: map[string]charmhub.Channel{
-			"latest/stable": charmhub.Channel{
+			"latest/stable": {
 				Platforms: []charmhub.Platform{{
 					Architecture: "all",
 					Series:       "focal",
 				}},
 			},
-			"latest/edge": charmhub.Channel{
+			"latest/edge": {
 				Platforms: []charmhub.Platform{{
 					Architecture: "amd64",
 					Series:       "bionic",
@@ -149,7 +149,7 @@ func (filterSuite) TestConvertChannels(c *gc.C) {
 			},
 		},
 		Expected: map[string]charmhub.Channel{
-			"latest/stable": charmhub.Channel{
+			"latest/stable": {
 				Platforms: []charmhub.Platform{{
 					Architecture: "all",
 					Series:       "focal",
@@ -161,13 +161,13 @@ func (filterSuite) TestConvertChannels(c *gc.C) {
 		Arch:   "amd64",
 		Series: "bionic",
 		Input: map[string]charmhub.Channel{
-			"latest/stable": charmhub.Channel{
+			"latest/stable": {
 				Platforms: []charmhub.Platform{{
 					Architecture: "all",
 					Series:       "focal",
 				}},
 			},
-			"latest/edge": charmhub.Channel{
+			"latest/edge": {
 				Platforms: []charmhub.Platform{{
 					Architecture: "amd64",
 					Series:       "bionic",
@@ -175,7 +175,7 @@ func (filterSuite) TestConvertChannels(c *gc.C) {
 			},
 		},
 		Expected: map[string]charmhub.Channel{
-			"latest/edge": charmhub.Channel{
+			"latest/edge": {
 				Platforms: []charmhub.Platform{{
 					Architecture: "amd64",
 					Series:       "bionic",
@@ -187,7 +187,7 @@ func (filterSuite) TestConvertChannels(c *gc.C) {
 		Arch:   "ppc64",
 		Series: "focal",
 		Input: map[string]charmhub.Channel{
-			"latest/stable": charmhub.Channel{
+			"latest/stable": {
 				Platforms: []charmhub.Platform{{
 					Architecture: "arm64",
 					Series:       "bionic",

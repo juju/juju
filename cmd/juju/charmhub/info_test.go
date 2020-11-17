@@ -7,6 +7,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
 	"github.com/juju/cmd/cmdtesting"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/environs/config"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -29,7 +30,9 @@ func (s *infoSuite) TestInitNoArgs(c *gc.C) {
 }
 
 func (s *infoSuite) TestInitSuccess(c *gc.C) {
-	command := &infoCommand{}
+	command := &infoCommand{
+		arches: corecharm.DefaultArches(),
+	}
 	err := command.Init([]string{"test"})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -45,7 +48,11 @@ func (s *infoSuite) TestRun(c *gc.C) {
 	s.expectModelConfig(c, "bionic")
 	s.expectInfo()
 
-	command := &infoCommand{infoCommandAPI: s.infoCommandAPI, modelConfigAPI: s.modelConfigAPI, charmOrBundle: "test"}
+	command := &infoCommand{
+		infoCommandAPI: s.infoCommandAPI,
+		modelConfigAPI: s.modelConfigAPI,
+		arches:         corecharm.DefaultArches(),
+	}
 
 	err := cmdtesting.InitCommand(command, []string{"test"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -60,7 +67,11 @@ func (s *infoSuite) TestRunJSON(c *gc.C) {
 	s.expectInfo()
 	s.expectModelConfig(c, "bionic")
 
-	command := &infoCommand{infoCommandAPI: s.infoCommandAPI, modelConfigAPI: s.modelConfigAPI, charmOrBundle: "test"}
+	command := &infoCommand{
+		infoCommandAPI: s.infoCommandAPI,
+		modelConfigAPI: s.modelConfigAPI,
+		arches:         corecharm.DefaultArches(),
+	}
 
 	err := cmdtesting.InitCommand(command, []string{"test", "--format", "json"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -76,7 +87,11 @@ func (s *infoSuite) TestRunJSONSpecifySeriesNotDefault(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.expectInfo()
 
-	command := &infoCommand{infoCommandAPI: s.infoCommandAPI, modelConfigAPI: s.modelConfigAPI, charmOrBundle: "test"}
+	command := &infoCommand{
+		infoCommandAPI: s.infoCommandAPI,
+		modelConfigAPI: s.modelConfigAPI,
+		arches:         corecharm.DefaultArches(),
+	}
 
 	err := cmdtesting.InitCommand(command, []string{"test", "--format", "json", "--series", "xenial"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -93,7 +108,11 @@ func (s *infoSuite) TestRunJSONSpecifyArch(c *gc.C) {
 	s.expectInfo()
 	s.expectModelConfig(c, "bionic")
 
-	command := &infoCommand{infoCommandAPI: s.infoCommandAPI, modelConfigAPI: s.modelConfigAPI, charmOrBundle: "test"}
+	command := &infoCommand{
+		infoCommandAPI: s.infoCommandAPI,
+		modelConfigAPI: s.modelConfigAPI,
+		arches:         corecharm.DefaultArches(),
+	}
 
 	err := cmdtesting.InitCommand(command, []string{"test", "--format", "json", "--arch", "amd64"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -110,7 +129,11 @@ func (s *infoSuite) TestRunJSONDefaultSeriesNotFoundNoChannel(c *gc.C) {
 	s.expectInfo()
 	s.expectModelConfig(c, "quantal")
 
-	command := &infoCommand{infoCommandAPI: s.infoCommandAPI, modelConfigAPI: s.modelConfigAPI, charmOrBundle: "test"}
+	command := &infoCommand{
+		infoCommandAPI: s.infoCommandAPI,
+		modelConfigAPI: s.modelConfigAPI,
+		arches:         corecharm.DefaultArches(),
+	}
 
 	err := cmdtesting.InitCommand(command, []string{"test", "--format", "json"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -127,7 +150,11 @@ func (s *infoSuite) TestRunYAML(c *gc.C) {
 	s.expectInfo()
 	s.expectModelConfig(c, "bionic")
 
-	command := &infoCommand{infoCommandAPI: s.infoCommandAPI, modelConfigAPI: s.modelConfigAPI, charmOrBundle: "test"}
+	command := &infoCommand{
+		infoCommandAPI: s.infoCommandAPI,
+		modelConfigAPI: s.modelConfigAPI,
+		arches:         corecharm.DefaultArches(),
+	}
 
 	err := cmdtesting.InitCommand(command, []string{"test", "--format", "yaml"})
 	c.Assert(err, jc.ErrorIsNil)
