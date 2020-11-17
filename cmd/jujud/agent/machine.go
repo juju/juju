@@ -623,6 +623,7 @@ func (a *MachineAgent) makeEngineCreator(
 			WorkerFunc:         introspection.NewWorker,
 			Clock:              clock.WallClock,
 			LocalHub:           localHub,
+			CentralHub:         a.centralHub,
 			LeaseFSM:           manifoldsCfg.LeaseFSM,
 		}); err != nil {
 			// If the introspection worker failed to start, we just log error

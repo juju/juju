@@ -44,13 +44,21 @@ type Reporter interface {
 
 // Clock represents the ability to wait for a bit.
 type Clock interface {
+	Now() time.Time
 	After(time.Duration) <-chan time.Time
 }
 
-// Hub is a pubsub hub used for internal messaging.
-type Hub interface {
+// SimpleHub is a pubsub hub used for internal messaging.
+type SimpleHub interface {
 	Publish(topic string, data interface{}) <-chan struct{}
 	Subscribe(topic string, handler func(string, interface{})) func()
+}
+
+// StructuredHub is a pubsub hub used for messaging within the HA
+// controller applications.
+type StructuredHub interface {
+	Publish(topic string, data interface{}) (<-chan struct{}, error)
+	Subscribe(topic string, handler interface{}) (func(), error)
 }
 
 // Leases provides the methods needed to expose the lease internals.
@@ -68,7 +76,8 @@ type Config struct {
 	PrometheusGatherer prometheus.Gatherer
 	Presence           presence.Recorder
 	Clock              Clock
-	Hub                Hub
+	LocalHub           SimpleHub
+	CentralHub         StructuredHub
 	Leases             Leases
 }
 
@@ -95,7 +104,8 @@ type socketListener struct {
 	presence           presence.Recorder
 	leases             Leases
 	clock              Clock
-	hub                Hub
+	localHub           SimpleHub
+	centralHub         StructuredHub
 	done               chan struct{}
 }
 
@@ -131,7 +141,8 @@ func NewWorker(config Config) (worker.Worker, error) {
 		presence:           config.Presence,
 		leases:             config.Leases,
 		clock:              config.Clock,
-		hub:                config.Hub,
+		localHub:           config.LocalHub,
+		centralHub:         config.CentralHub,
 		done:               make(chan struct{}),
 	}
 	go w.serve()
@@ -202,10 +213,18 @@ func (w *socketListener) RegisterHTTPHandlers(
 		handle("/presence", presenceHandler{w.presence})
 	}
 	handle("/machinelock", machineLockHandler{w.machineLock})
-	if w.hub != nil {
-		handle("/units", unitsHandler{w.clock, w.hub, w.done})
+	if w.localHub != nil {
+		handle("/units", unitsHandler{w.clock, w.localHub, w.done})
 	}
-	handle("/leases", leaseHandler{w.leases})
+	leases := leaseHandler{
+		leases: w.leases,
+		hub:    w.centralHub,
+		clock:  w.clock,
+	}
+	handle("/leases", http.HandlerFunc(leases.list))
+	if w.centralHub != nil {
+		handle("/leases/revoke", http.HandlerFunc(leases.revoke))
+	}
 }
 
 type depengineHandler struct {
@@ -342,7 +361,7 @@ func (a ValueSort) Less(i, j int) bool {
 
 type unitsHandler struct {
 	clock Clock
-	hub   Hub
+	hub   SimpleHub
 	done  <-chan struct{}
 }
 
