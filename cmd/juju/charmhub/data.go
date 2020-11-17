@@ -7,13 +7,20 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/api/charmhub"
 )
 
-// SeriesAll defines platform that targets all series.
-const SeriesAll = "all"
+const (
+	// SeriesAll defines a platform that targets all series.
+	SeriesAll = "all"
+	// ArchAll defines a platform that targets all architectures.
+	ArchAll = "all"
+)
 
-func convertCharmInfoResult(info charmhub.InfoResponse, series string) (InfoResponse, error) {
+func convertCharmInfoResult(info charmhub.InfoResponse, arch, series string) (InfoResponse, error) {
+	channels := filterChannels(info.Channels, arch, series)
+
 	ir := InfoResponse{
 		Type:        info.Type,
 		ID:          info.ID,
@@ -24,7 +31,7 @@ func convertCharmInfoResult(info charmhub.InfoResponse, series string) (InfoResp
 		Series:      info.Series,
 		StoreURL:    info.StoreURL,
 		Tags:        info.Tags,
-		Channels:    convertChannels(info.Channels, series),
+		Channels:    convertChannels(channels),
 		Tracks:      info.Tracks,
 	}
 
@@ -92,16 +99,9 @@ func convertCharm(in interface{}) (*Charm, error) {
 	}, nil
 }
 
-func convertChannels(in map[string]charmhub.Channel, series string) map[string]Channel {
+func convertChannels(in map[string]charmhub.Channel) map[string]Channel {
 	out := make(map[string]Channel, len(in))
 	for k, v := range in {
-		// If the platforms contains the all series, then we need to display
-		// all the channels for that given
-		allSeries := channelSeries(v.Platforms).Contains(SeriesAll)
-		if !allSeries && (series != "" && !channelSeries(v.Platforms).Contains(series)) {
-			continue
-		}
-
 		out[k] = Channel{
 			ReleasedAt: v.ReleasedAt,
 			Track:      v.Track,
@@ -111,7 +111,34 @@ func convertChannels(in map[string]charmhub.Channel, series string) map[string]C
 			Version:    v.Version,
 		}
 	}
+
 	return out
+}
+
+func filterChannels(in map[string]charmhub.Channel, architecture, series string) map[string]charmhub.Channel {
+	allArch := architecture == ArchAll
+	allSeries := series == SeriesAll
+
+	// If we're searching for everything then we can skip the filtering logic
+	// and return immediately.
+	if allArch && allSeries {
+		return in
+	}
+
+	// Channels that match any part of the criteria should be witnessed and
+	// kept.
+	witnessed := make(map[string]charmhub.Channel)
+
+	for k, v := range in {
+		archSet := channelArches(v.Platforms)
+		seriesSet := channelSeries(v.Platforms)
+
+		if (allArch || archSet.Contains(architecture) || archSet.Contains(ArchAll)) &&
+			(allSeries || seriesSet.Contains(series) || seriesSet.Contains(SeriesAll)) {
+			witnessed[k] = v
+		}
+	}
+	return witnessed
 }
 
 func channelSeries(platforms []charmhub.Platform) set.Strings {
@@ -122,6 +149,14 @@ func channelSeries(platforms []charmhub.Platform) set.Strings {
 	return series
 }
 
+func channelArches(platforms []charmhub.Platform) set.Strings {
+	arches := set.NewStrings()
+	for _, v := range platforms {
+		arches.Add(v.Architecture)
+	}
+	return arches
+}
+
 type InfoResponse struct {
 	Type        string             `json:"type" yaml:"type"`
 	ID          string             `json:"id" yaml:"id"`
@@ -129,6 +164,7 @@ type InfoResponse struct {
 	Description string             `json:"description" yaml:"description"`
 	Publisher   string             `json:"publisher" yaml:"publisher"`
 	Summary     string             `json:"summary" yaml:"summary"`
+	Arches      []string           `json:"arches,omitempty" yaml:"arches,omitempty"`
 	Series      []string           `json:"series,omitempty" yaml:"series,omitempty"`
 	StoreURL    string             `json:"store-url" yaml:"store-url"`
 	Tags        []string           `json:"tags,omitempty" yaml:"tags,omitempty"`
@@ -145,6 +181,7 @@ type FindResponse struct {
 	Publisher string   `json:"publisher" yaml:"publisher"`
 	Summary   string   `json:"summary" yaml:"summary"`
 	Version   string   `json:"version" yaml:"version"`
+	Arches    []string `json:"arches,omitempty" yaml:"arches,omitempty"`
 	Series    []string `json:"series,omitempty" yaml:"series,omitempty"`
 	StoreURL  string   `json:"store-url" yaml:"store-url"`
 }

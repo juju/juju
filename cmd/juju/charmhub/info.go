@@ -54,7 +54,9 @@ type infoCommand struct {
 
 	config        bool
 	charmOrBundle string
-	series        string
+
+	arch   string
+	series string
 
 	unicode string
 }
@@ -82,7 +84,8 @@ func (c *infoCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json":    cmd.FormatJson,
 		"tabular": c.formatter,
 	})
-	f.StringVar(&c.series, "series", "", "display channels supported by provided series")
+	f.StringVar(&c.arch, "arch", ArchAll, "display channels supported by provided arch <all|amd64|arm64|ppc64|s390>")
+	f.StringVar(&c.series, "series", SeriesAll, "display channels supported by provided series")
 }
 
 // Init initializes the info command, including validating the provided
@@ -103,6 +106,20 @@ func (c *infoCommand) Init(args []string) error {
 	default:
 		return errors.Errorf("unexpected unicode flag value %q, expected <auto|never|always>", c.unicode)
 	}
+
+	switch c.arch {
+	case "all", "amd64", "arm64", "ppc64", "s390":
+	case "":
+		c.arch = "all"
+	default:
+		return errors.Errorf("unexpected architecture flag value %q, expected <all|amd64|arm64|ppc64|s390>", c.arch)
+	}
+
+	// It's much harder to specify the series we support in a list fashion.
+	if c.series == "" {
+		c.series = "all"
+	}
+
 	return nil
 }
 
@@ -142,7 +159,7 @@ func (c *infoCommand) Run(ctx *cmd.Context) error {
 	// it up later.
 	c.warningLog = ctx.Warningf
 
-	view, err := convertCharmInfoResult(info, c.series)
+	view, err := convertCharmInfoResult(info, c.arch, c.series)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -150,7 +167,7 @@ func (c *infoCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *infoCommand) verifySeries(modelConfigClient ModelConfigGetter) error {
-	if c.series != "" {
+	if c.series != SeriesAll {
 		return nil
 	}
 	attrs, err := modelConfigClient.ModelGet()

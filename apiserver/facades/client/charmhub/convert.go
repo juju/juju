@@ -123,7 +123,11 @@ func transformInfoChannelMap(channelMap []transport.InfoChannelMap) ([]string, m
 func convertPlatforms(in []transport.Platform) []params.Platform {
 	out := make([]params.Platform, len(in))
 	for i, v := range in {
-		out[i] = params.Platform(v)
+		out[i] = params.Platform{
+			Architecture: v.Architecture,
+			OS:           v.OS,
+			Series:       v.Series,
+		}
 	}
 	return out
 }
@@ -195,12 +199,12 @@ func transformRelations(requires, provides map[string]charm.Relation) map[string
 	return relations
 }
 
-func formatRelationPart(rels map[string]charm.Relation) (map[string]string, bool) {
-	if len(rels) <= 0 {
+func formatRelationPart(r map[string]charm.Relation) (map[string]string, bool) {
+	if len(r) <= 0 {
 		return nil, false
 	}
-	relations := make(map[string]string, len(rels))
-	for k, v := range rels {
+	relations := make(map[string]string, len(r))
+	for k, v := range r {
 		relations[k] = v.Interface
 	}
 	return relations, true
