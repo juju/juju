@@ -40,12 +40,22 @@ var _ = gc.Suite(&diffSuite{})
 
 func (s *diffSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.apiRoot = &mockAPIRoot{responses: makeAPIResponses()}
+	s.apiRoot = &mockAPIRoot{
+		responses:                 makeAPIResponses(),
+		bestFacadeVersion:         make(map[string]int),
+		bestFacadeVersionFallback: 42,
+	}
 	s.charmStore = &mockCharmStore{}
 	s.dir = c.MkDir()
 }
 
 func (s *diffSuite) runDiffBundle(c *gc.C, args ...string) (*cmd.Context, error) {
+	return s.runDiffBundleWithCharmAdapter(c, func(base.APICallCloser, *charm.URL) (application.BundleResolver, error) {
+		return s.charmStore, nil
+	}, args...)
+}
+
+func (s *diffSuite) runDiffBundleWithCharmAdapter(c *gc.C, charmAdataperFn func(base.APICallCloser, *charm.URL) (application.BundleResolver, error), args ...string) (*cmd.Context, error) {
 	store := jujuclienttesting.MinimalStore()
 	store.Models["enz"] = &jujuclient.ControllerModels{
 		CurrentModel: "golden/horse",
@@ -53,7 +63,7 @@ func (s *diffSuite) runDiffBundle(c *gc.C, args ...string) (*cmd.Context, error)
 			ModelType: model.IAAS,
 		}},
 	}
-	command := application.NewBundleDiffCommandForTest(s.apiRoot, s.charmStore, store)
+	command := application.NewDiffBundleCommandForTest(s.apiRoot, charmAdataperFn, store)
 	return cmdtesting.RunCommandInDir(c, command, args, s.dir)
 }
 
@@ -96,7 +106,7 @@ func (s *diffSuite) TestNotABundle(c *gc.C) {
 }
 
 func (s *diffSuite) TestLocalBundle(c *gc.C) {
-	ctx, err := s.runDiffBundle(c, s.writeLocalBundle(c, testBundle))
+	ctx, err := s.runDiffBundle(c, s.writeLocalBundle(c, testCharmStoreBundle))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 applications:
@@ -117,7 +127,7 @@ machines:
 }
 
 func (s *diffSuite) TestIncludeAnnotations(c *gc.C) {
-	ctx, err := s.runDiffBundle(c, "--annotations", s.writeLocalBundle(c, testBundle))
+	ctx, err := s.runDiffBundle(c, "--annotations", s.writeLocalBundle(c, testCharmStoreBundle))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 applications:
@@ -169,7 +179,7 @@ func (s *diffSuite) TestHandlesOverlays(c *gc.C) {
 	ctx, err := s.runDiffBundle(c,
 		"--overlay", path1,
 		"--overlay", path2,
-		s.writeLocalBundle(c, testBundle))
+		s.writeLocalBundle(c, testCharmStoreBundle))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 applications:
@@ -199,7 +209,7 @@ relations:
 }
 
 func (s *diffSuite) TestCharmStoreBundle(c *gc.C) {
-	bundleData, err := charm.ReadBundleData(strings.NewReader(testBundle))
+	bundleData, err := charm.ReadBundleData(strings.NewReader(testCharmStoreBundle))
 	c.Assert(err, jc.ErrorIsNil)
 	s.charmStore.url = &charm.URL{
 		Schema: "cs",
@@ -238,7 +248,7 @@ func (s *diffSuite) TestBundleNotFound(c *gc.C) {
 func (s *diffSuite) TestMachineMap(c *gc.C) {
 	ctx, err := s.runDiffBundle(c,
 		"--map-machines", "0=1",
-		s.writeLocalBundle(c, testBundle))
+		s.writeLocalBundle(c, testCharmStoreBundle))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 applications:
@@ -262,6 +272,61 @@ machines:
 `[1:])
 }
 
+func (s *diffSuite) TestCharmHubBundle(c *gc.C) {
+	bundleData, err := charm.ReadBundleData(strings.NewReader(testCharmHubBundle))
+	c.Assert(err, jc.ErrorIsNil)
+	s.charmStore.url = &charm.URL{
+		Schema: "ch",
+		Name:   "my-bundle",
+		Series: "bundle",
+	}
+	s.charmStore.bundle = &mockBundle{data: bundleData}
+
+	ctx, err := s.runDiffBundle(c, "my-bundle")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+applications:
+  grafana:
+    missing: bundle
+  prometheus:
+    options:
+      ontology:
+        bundle: anselm
+        model: kant
+    constraints:
+      bundle: cores=4
+      model: cores=3
+machines:
+  "1":
+    missing: bundle
+`[1:])
+}
+
+func (s *diffSuite) TestCharmHubBundleWithInvalidController(c *gc.C) {
+	s.apiRoot = &mockAPIRoot{
+		responses: makeAPIResponses(),
+		bestFacadeVersion: map[string]int{
+			"Charms": 1,
+		},
+		bestFacadeVersionFallback: 42,
+	}
+
+	bundleData, err := charm.ReadBundleData(strings.NewReader(testCharmHubBundle))
+	c.Assert(err, jc.ErrorIsNil)
+	s.charmStore.url = &charm.URL{
+		Schema: "ch",
+		Name:   "my-bundle",
+		Series: "bundle",
+	}
+	s.charmStore.bundle = &mockBundle{data: bundleData}
+
+	_, err = s.runDiffBundleWithCharmAdapter(c, nil, "my-bundle")
+	c.Assert(err, gc.ErrorMatches, `
+Current controller version is not compatible with CharmHub bundles.
+Consider using a CharmStore bundle instead.`[1:])
+}
+
 func (s *diffSuite) TestRelationsWithMissingEndpoints(c *gc.C) {
 	rels := []params.RelationStatus{
 		{
@@ -271,7 +336,11 @@ func (s *diffSuite) TestRelationsWithMissingEndpoints(c *gc.C) {
 			},
 		},
 	}
-	s.apiRoot = &mockAPIRoot{responses: makeAPIResponsesWithRelations(rels)}
+	s.apiRoot = &mockAPIRoot{
+		responses:                 makeAPIResponsesWithRelations(rels),
+		bestFacadeVersion:         make(map[string]int),
+		bestFacadeVersionFallback: 42,
+	}
 
 	ctx, err := s.runDiffBundle(c, s.writeLocalBundle(c, withMissingRelationEndpoints))
 	c.Assert(err, jc.ErrorIsNil)
@@ -389,7 +458,11 @@ applications:
 	for i, spec := range specs {
 		c.Logf("test %d: %s", i, spec.descr)
 
-		s.apiRoot = &mockAPIRoot{responses: makeAPIResponsesWithExposedEndpoints(spec.modelExposedEndpoints)}
+		s.apiRoot = &mockAPIRoot{
+			responses:                 makeAPIResponsesWithExposedEndpoints(spec.modelExposedEndpoints),
+			bestFacadeVersion:         make(map[string]int),
+			bestFacadeVersionFallback: 42,
+		}
 
 		ctx, err := s.runDiffBundle(c, s.writeLocalBundle(c, spec.bundle))
 		c.Assert(err, jc.ErrorIsNil)
@@ -550,13 +623,18 @@ func (b *mockBundle) ContainsOverlays() bool  { return false }
 type mockAPIRoot struct {
 	base.APICallCloser
 
-	stub      jujutesting.Stub
-	responses map[string]interface{}
+	stub                      jujutesting.Stub
+	responses                 map[string]interface{}
+	bestFacadeVersion         map[string]int
+	bestFacadeVersionFallback int
 }
 
 func (r *mockAPIRoot) BestFacadeVersion(name string) int {
 	r.stub.AddCall("BestFacadeVersion", name)
-	return 42
+	if version, ok := r.bestFacadeVersion[name]; ok {
+		return version
+	}
+	return r.bestFacadeVersionFallback
 }
 
 func (r *mockAPIRoot) APICall(objType string, version int, id, request string, params, response interface{}) error {
@@ -581,7 +659,24 @@ func (r *mockAPIRoot) Close() error {
 }
 
 const (
-	testBundle = `
+	testCharmStoreBundle = `
+applications:
+  prometheus:
+    charm: 'cs:prometheus2-7'
+    num_units: 1
+    series: xenial
+    options:
+      ontology: anselm
+    annotations:
+      aspect: west
+    constraints: 'cores=4'
+    to:
+      - 0
+machines:
+  '0':
+    series: xenial
+`
+	testCharmHubBundle = `
 applications:
   prometheus:
     charm: 'cs:prometheus2-7'

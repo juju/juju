@@ -12,21 +12,21 @@ import (
 	commoncharm "github.com/juju/juju/api/common/charm"
 )
 
+type CharmRepoFunc = func() (CharmrepoForDeploy, error)
+
 // CharmAdaptor handles prep work for deploying charms: resolving charms
 // and bundles and getting bundle contents.  This is done via the charmstore
 // or the charms API depending on the API's version.
 type CharmAdaptor struct {
-	charmrepo        CharmrepoForDeploy
-	charmsAPIVersion int
-	charmsAPI        CharmsAPI
+	charmsAPI   CharmsAPI
+	charmRepoFn CharmRepoFunc
 }
 
 // NewCharmAdaptor returns a CharmAdaptor.
-func NewCharmAdaptor(charmrepo CharmrepoForDeploy, charmsAPIVersion int, charmsAPI CharmsAPI) *CharmAdaptor {
+func NewCharmAdaptor(charmsAPI CharmsAPI, charmRepoFn CharmRepoFunc) *CharmAdaptor {
 	return &CharmAdaptor{
-		charmsAPIVersion: charmsAPIVersion,
-		charmrepo:        charmrepo,
-		charmsAPI:        charmsAPI,
+		charmsAPI:   charmsAPI,
+		charmRepoFn: charmRepoFn,
 	}
 }
 
@@ -36,19 +36,26 @@ func NewCharmAdaptor(charmrepo CharmrepoForDeploy, charmsAPIVersion int, charmsA
 // Resolving a CharmHub charm is only supported if the controller has a
 // Charms API version of 3 or greater.
 func (c *CharmAdaptor) ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin) (*charm.URL, commoncharm.Origin, []string, error) {
-	if c.charmsAPIVersion >= 3 {
-		resolved, err := c.charmsAPI.ResolveCharms([]apicharm.CharmToResolve{{URL: url, Origin: preferredOrigin}})
-		if err != nil {
-			return nil, commoncharm.Origin{}, nil, err
+	resolved, err := c.charmsAPI.ResolveCharms([]apicharm.CharmToResolve{{URL: url, Origin: preferredOrigin}})
+	if errors.IsNotSupported(err) {
+		if charm.CharmHub.Matches(url.Schema) {
+			return nil, commoncharm.Origin{}, nil, errors.Trace(err)
 		}
-		return resolved[0].URL, resolved[0].Origin, resolved[0].SupportedSeries, resolved[0].Error
+		return c.resolveCharmFallback(url, preferredOrigin)
+	}
+	if err != nil {
+		return nil, commoncharm.Origin{}, nil, errors.Trace(err)
+	}
+	return resolved[0].URL, resolved[0].Origin, resolved[0].SupportedSeries, resolved[0].Error
+}
+
+func (c *CharmAdaptor) resolveCharmFallback(url *charm.URL, preferredOrigin commoncharm.Origin) (*charm.URL, commoncharm.Origin, []string, error) {
+	charmRepo, err := c.charmRepoFn()
+	if err != nil {
+		return nil, commoncharm.Origin{}, nil, errors.Trace(err)
 	}
 
-	if url.Schema != "cs" {
-		return nil, commoncharm.Origin{}, nil, errors.Errorf("unknown schema for charm URL %q", url)
-	}
-
-	resultURL, channel, supportedSeries, err := c.charmrepo.ResolveWithPreferredChannel(url, csparams.Channel(preferredOrigin.Risk))
+	resultURL, channel, supportedSeries, err := charmRepo.ResolveWithPreferredChannel(url, csparams.Channel(preferredOrigin.Risk))
 	if err != nil {
 		return nil, commoncharm.Origin{}, nil, errors.Trace(err)
 	}
@@ -81,8 +88,13 @@ func (c *CharmAdaptor) ResolveBundleURL(maybeBundle *charm.URL, preferredOrigin 
 	return storeCharmOrBundleURL, origin, nil
 }
 
+// GetBundle returns a bundle from a given charmstore path.
 func (c *CharmAdaptor) GetBundle(bundleURL *charm.URL, path string) (charm.Bundle, error) {
 	// TODO (hml) 2020-08-25
 	// Implement the CharmsAPI version for this.
-	return c.charmrepo.GetBundle(bundleURL, path)
+	charmRepo, err := c.charmRepoFn()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return charmRepo.GetBundle(bundleURL, path)
 }

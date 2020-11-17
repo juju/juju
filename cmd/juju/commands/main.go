@@ -452,7 +452,7 @@ func registerCommands(r commandRegistry) {
 	r.Register(application.NewUnexposeCommand())
 	r.Register(application.NewApplicationGetConstraintsCommand())
 	r.Register(application.NewApplicationSetConstraintsCommand())
-	r.Register(application.NewBundleDiffCommand())
+	r.Register(application.NewDiffBundleCommand())
 	r.Register(application.NewShowApplicationCommand())
 	r.Register(application.NewShowUnitCommand())
 

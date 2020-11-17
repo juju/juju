@@ -213,8 +213,8 @@ func newDeployCommand() *DeployCommand {
 		return applicationoffers.NewClient(root), nil
 	}
 	deployCmd.NewDeployerFactory = deployer.NewDeployerFactory
-	deployCmd.NewResolver = func(charmrepo store.CharmrepoForDeploy, charmsAPIVersion int, charmsAPI store.CharmsAPI) deployer.Resolver {
-		return store.NewCharmAdaptor(charmrepo, charmsAPIVersion, charmsAPI)
+	deployCmd.NewResolver = func(charmsAPI store.CharmsAPI, charmRepoFn store.CharmRepoFunc) deployer.Resolver {
+		return store.NewCharmAdaptor(charmsAPI, charmRepoFn)
 	}
 	return deployCmd
 }
@@ -293,7 +293,7 @@ type DeployCommand struct {
 	NewCharmRepo func() (*store.CharmStoreAdaptor, error)
 
 	// NewResolver stores a function which returns a charm adaptor.
-	NewResolver func(charmrepo store.CharmrepoForDeploy, charmsAPIVersion int, charmsAPI store.CharmsAPI) deployer.Resolver
+	NewResolver func(store.CharmsAPI, store.CharmRepoFunc) deployer.Resolver
 
 	// NewDeployerFactory stores a function which returns a deployer factory.
 	NewDeployerFactory func(dep deployer.DeployerDependencies) deployer.DeployerFactory
@@ -718,6 +718,7 @@ func parseMachineMap(value string) (bool, map[string]string, error) {
 	return useExisting, mapping, nil
 }
 
+// Run executes a deploy command with a given context.
 func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if c.unknownModel {
 		if err := c.validateStorageByModelType(); err != nil {
@@ -750,7 +751,9 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		step.SetPlanURL(apiRoot.PlanURL())
 	}
 
-	charmAdapter := c.NewResolver(cstoreAPI, apiRoot.BestFacadeVersion("Charms"), apicharms.NewClient(apiRoot))
+	charmAdapter := c.NewResolver(apicharms.NewClient(apiRoot), func() (store.CharmrepoForDeploy, error) {
+		return cstoreAPI, nil
+	})
 
 	factory, cfg := c.getDeployerFactory()
 	deploy, err := factory.GetDeployer(cfg, apiRoot, charmAdapter)

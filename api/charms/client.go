@@ -55,7 +55,13 @@ type ResolvedCharm struct {
 
 // ResolveCharms resolves the given charm URLs with an optionally specified
 // preferred channel.
+// ResolveCharms is only supported in version 3 and above, it is expected that
+// the consumer of the client is intended to handle the fallback.
 func (c *Client) ResolveCharms(charms []CharmToResolve) ([]ResolvedCharm, error) {
+	if c.facade.BestAPIVersion() < 3 {
+		return nil, errors.NotSupportedf("resolve charms")
+	}
+
 	args := params.ResolveCharmsWithChannel{
 		Resolve: make([]params.ResolveCharmWithChannel, len(charms)),
 	}
