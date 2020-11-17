@@ -246,6 +246,21 @@ func (mr *MockStoreMockRecorder) Download(arg0, arg1, arg2 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Download", reflect.TypeOf((*MockStore)(nil).Download), arg0, arg1, arg2)
 }
 
+// DownloadOrigin mocks base method
+func (m *MockStore) DownloadOrigin(arg0 *charm.URL, arg1 Origin) (Origin, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DownloadOrigin", arg0, arg1)
+	ret0, _ := ret[0].(Origin)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DownloadOrigin indicates an expected call of DownloadOrigin
+func (mr *MockStoreMockRecorder) DownloadOrigin(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadOrigin", reflect.TypeOf((*MockStore)(nil).DownloadOrigin), arg0, arg1)
+}
+
 // Validate mocks base method
 func (m *MockStore) Validate(arg0 *charm.URL) error {
 	m.ctrl.T.Helper()

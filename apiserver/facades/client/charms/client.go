@@ -260,7 +260,11 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 		return params.CharmOriginResult{}, errors.Trace(err)
 	} else if alreadyExists {
 		// Nothing to do here, as it already exists in state.
-		return params.CharmOriginResult{}, nil
+		// However we still need the origin with ID and hash for
+		// CharmHub charms.
+		return params.CharmOriginResult{
+			Origin: convertOrigin(origin),
+		}, nil
 	}
 
 	ca := CharmArchive{
