@@ -30,7 +30,7 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/keys"
 	coretesting "github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
+	version "github.com/juju/juju/version"
 )
 
 const maas2VersionResponse = `{"version": "unknown", "subversion": "", "capabilities": ["networks-management", "static-ipaddresses", "ipv6-deployment-ubuntu", "devices-management", "storage-deployment-ubuntu", "network-deployment-ubuntu"]}`
@@ -78,9 +78,9 @@ func (s *baseProviderSuite) SetUpSuite(c *gc.C) {
 func (s *baseProviderSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
-	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	s.PatchValue(&series.MustHostSeries, func() string { return jujuversion.DefaultSupportedLTS() })
+	s.PatchValue(&series.MustHostSeries, func() string { return version.DefaultSupportedLTS() })
 	s.callCtx = &context.CloudCallContext{
 		InvalidateCredentialFunc: func(string) error {
 			s.invalidCredential = true
