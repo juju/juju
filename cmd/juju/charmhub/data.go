@@ -110,6 +110,8 @@ func convertChannels(in map[string]charmhub.Channel) map[string]Channel {
 			Revision:   v.Revision,
 			Size:       v.Size,
 			Version:    v.Version,
+			Series:     channelSeries(v.Platforms).SortedValues(),
+			Arches:     channelArches(v.Platforms).SortedValues(),
 		}
 	}
 
@@ -165,7 +167,6 @@ type InfoResponse struct {
 	Description string             `json:"description" yaml:"description"`
 	Publisher   string             `json:"publisher" yaml:"publisher"`
 	Summary     string             `json:"summary" yaml:"summary"`
-	Arches      []string           `json:"arches,omitempty" yaml:"arches,omitempty"`
 	Series      []string           `json:"series,omitempty" yaml:"series,omitempty"`
 	StoreURL    string             `json:"store-url" yaml:"store-url"`
 	Tags        []string           `json:"tags,omitempty" yaml:"tags,omitempty"`
@@ -182,18 +183,19 @@ type FindResponse struct {
 	Publisher string   `json:"publisher" yaml:"publisher"`
 	Summary   string   `json:"summary" yaml:"summary"`
 	Version   string   `json:"version" yaml:"version"`
-	Arches    []string `json:"arches,omitempty" yaml:"arches,omitempty"`
 	Series    []string `json:"series,omitempty" yaml:"series,omitempty"`
 	StoreURL  string   `json:"store-url" yaml:"store-url"`
 }
 
 type Channel struct {
-	ReleasedAt string `json:"released-at" yaml:"released-at"`
-	Track      string `json:"track" yaml:"track"`
-	Risk       string `json:"risk" yaml:"risk"`
-	Revision   int    `json:"revision" yaml:"revision"`
-	Size       int    `json:"size" yaml:"size"`
-	Version    string `json:"version" yaml:"version"`
+	ReleasedAt string   `json:"released-at" yaml:"released-at"`
+	Track      string   `json:"track" yaml:"track"`
+	Risk       string   `json:"risk" yaml:"risk"`
+	Revision   int      `json:"revision" yaml:"revision"`
+	Size       int      `json:"size" yaml:"size"`
+	Version    string   `json:"version" yaml:"version"`
+	Arches     []string `json:"architectures" yaml:"architectures"`
+	Series     []string `json:"series" yaml:"series"`
 }
 
 // Charm matches a params.CharmHubCharm
