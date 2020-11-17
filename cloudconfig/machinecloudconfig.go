@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	utilsos "github.com/juju/os"
-	utilsseries "github.com/juju/os/series"
+	utilsos "github.com/juju/os/v2"
+	utilsseries "github.com/juju/os/v2/series"
 	"github.com/juju/utils/v2"
 	"gopkg.in/yaml.v2"
 

@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	jujuos "github.com/juju/os"
-	"github.com/juju/os/series"
+	jujuos "github.com/juju/os/v2"
+	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v2"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"

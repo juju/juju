@@ -7,8 +7,8 @@ import (
 	"os/exec"
 	"runtime"
 
-	"github.com/juju/os"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2"
+	"github.com/juju/os/v2/series"
 	gc "gopkg.in/check.v1"
 )
 

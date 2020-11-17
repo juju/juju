@@ -7,8 +7,8 @@ package paths
 import (
 	"os"
 
-	jujuos "github.com/juju/os"
-	"github.com/juju/os/series"
+	jujuos "github.com/juju/os/v2"
+	"github.com/juju/os/v2/series"
 )
 
 type osVarType int

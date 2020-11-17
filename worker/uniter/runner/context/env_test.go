@@ -10,8 +10,8 @@ import (
 	"sort"
 
 	"github.com/juju/names/v4"
-	jujuos "github.com/juju/os"
-	"github.com/juju/os/series"
+	jujuos "github.com/juju/os/v2"
+	"github.com/juju/os/v2/series"
 	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/keyvalues"

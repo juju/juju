@@ -6,7 +6,7 @@ package lxd
 import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/os"
+	"github.com/juju/os/v2"
 	"github.com/juju/utils/v2/arch"
 	lxd "github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared"

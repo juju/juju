@@ -6,7 +6,7 @@ package ec2
 import (
 	"fmt"
 
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 

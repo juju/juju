@@ -19,7 +19,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 	"github.com/juju/pubsub"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils/v2"

@@ -11,7 +11,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

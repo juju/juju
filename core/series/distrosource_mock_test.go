@@ -6,7 +6,7 @@ package series
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	series "github.com/juju/os/series"
+	series "github.com/juju/os/v2/series"
 	reflect "reflect"
 )
 

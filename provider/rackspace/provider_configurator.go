@@ -5,8 +5,8 @@ package rackspace
 
 import (
 	"github.com/juju/errors"
-	jujuos "github.com/juju/os"
-	jujuseries "github.com/juju/os/series"
+	jujuos "github.com/juju/os/v2"
+	jujuseries "github.com/juju/os/v2/series"
 	"github.com/juju/schema"
 	"gopkg.in/goose.v2/nova"
 

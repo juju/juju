@@ -16,7 +16,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 	exttest "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/arch"

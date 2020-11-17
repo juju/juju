@@ -4,8 +4,8 @@
 package common
 
 import (
-	jujuos "github.com/juju/os"
-	jujuseries "github.com/juju/os/series"
+	jujuos "github.com/juju/os/v2"
+	jujuseries "github.com/juju/os/v2/series"
 )
 
 // MinRootDiskSizeGiB is the minimum size for the root disk of an

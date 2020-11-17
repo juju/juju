@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 )
 
 // DistroSource is the source of the underlying distro source for supported
