@@ -73,11 +73,8 @@ func (op *setPodSpecOperation) buildTxn(_ int) ([]txn.Op, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "setting pod spec")
 	}
-	if app.Life() != Alive {
-		return nil, errors.Annotate(
-			errors.Errorf("application %s not alive", appName),
-			"setting pod spec",
-		)
+	if app.Life() == Dead {
+		return nil, errors.NotValidf("setting pod-spec on dead application %s", appName)
 	}
 	// The app's charm may not be there yet (as is the case when migrating).
 	// This check is for checking the k8s-spec-set/k8s-raw-set call.
@@ -92,7 +89,7 @@ func (op *setPodSpecOperation) buildTxn(_ int) ([]txn.Op, error) {
 	prereqOps = append(prereqOps, txn.Op{
 		C:      applicationsC,
 		Id:     app.doc.DocID,
-		Assert: isAliveDoc,
+		Assert: notDeadDoc,
 	})
 
 	sop := txn.Op{
