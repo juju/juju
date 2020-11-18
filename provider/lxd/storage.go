@@ -97,7 +97,7 @@ type lxdStorageConfig struct {
 func newLXDStorageConfig(attrs map[string]interface{}) (*lxdStorageConfig, error) {
 	coerced, err := lxdStorageConfigChecker.Coerce(attrs, nil)
 	if err != nil {
-		return nil, errors.Annotate(err, "validating Azure storage config")
+		return nil, errors.Annotate(err, "validating LXD storage config")
 	}
 	attrs = coerced.(map[string]interface{})
 

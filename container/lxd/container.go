@@ -134,6 +134,7 @@ func (c *Container) AddDisk(name, path, source, pool string, readOnly bool) erro
 	c.Devices[name] = map[string]string{
 		"path":   path,
 		"source": source,
+		"type":   "disk",
 	}
 	if pool != "" {
 		c.Devices[name]["pool"] = pool

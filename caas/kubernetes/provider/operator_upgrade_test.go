@@ -162,6 +162,79 @@ func (o *OperatorUpgraderSuite) TestStatefulSetInitUpgrade(c *gc.C) {
 	c.Assert(ready, jc.IsTrue)
 }
 
+func (o *OperatorUpgraderSuite) TestStatefulSetInitUpgradePodNotReadyYet(c *gc.C) {
+	var (
+		appName      = "testinitss"
+		oldImagePath = fmt.Sprintf("%s/%s:9.9.8", podcfg.JujudOCINamespace, podcfg.JujudOCIName)
+		newImagePath = fmt.Sprintf("%s/%s:9.9.9", podcfg.JujudOCINamespace, podcfg.JujudOCIName)
+	)
+
+	_, err := o.broker.Client().AppsV1().StatefulSets(o.broker.Namespace()).Create(
+		context.TODO(),
+		&apps.StatefulSet{
+			ObjectMeta: meta.ObjectMeta{
+				Name: o.broker.DeploymentName(appName, true),
+			},
+			Spec: apps.StatefulSetSpec{
+				Selector: &meta.LabelSelector{
+					MatchLabels: map[string]string{
+						"match-label": "true",
+					},
+				},
+				Template: core.PodTemplateSpec{
+					Spec: core.PodSpec{
+						InitContainers: []core.Container{
+							{
+								Name:  caas.InitContainerName,
+								Image: oldImagePath,
+							},
+						},
+					},
+				},
+			},
+		}, meta.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	podChecker, err := operatorInitUpgrade(appName, newImagePath, o.broker)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ss, err := o.broker.Client().AppsV1().StatefulSets(o.broker.Namespace()).
+		Get(context.TODO(), o.broker.DeploymentName(appName, true), meta.GetOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ss.Spec.Template.Spec.InitContainers[0].Image, gc.Equals, newImagePath)
+
+	ready, err := podChecker()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ready, jc.IsFalse)
+
+	_, err = o.broker.Client().CoreV1().Pods(o.broker.Namespace()).Create(
+		context.TODO(),
+		&core.Pod{
+			ObjectMeta: meta.ObjectMeta{
+				Name: "pod1",
+				Labels: map[string]string{
+					"match-label": "true",
+				},
+			},
+			Spec: core.PodSpec{
+				InitContainers: []core.Container{
+					{
+						Name:  caas.InitContainerName,
+						Image: newImagePath,
+					},
+				},
+			},
+			Status: core.PodStatus{
+				Phase: core.PodRunning,
+			},
+		}, meta.CreateOptions{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ready, err = podChecker()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ready, jc.IsTrue)
+}
+
 func (o *OperatorUpgraderSuite) TestDaemonSetInitUpgrade(c *gc.C) {
 	var (
 		appName      = "testinitds"

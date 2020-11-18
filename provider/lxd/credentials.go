@@ -203,16 +203,20 @@ func (p environProviderCredentials) detectRemoteCredentials(certPEM, keyPEM []by
 	for name, remote := range config.Remotes {
 		if remote.Protocol == lxdnames.ProviderType {
 			certPath := filepath.Join(configDir, "servercerts", fmt.Sprintf("%s.crt", name))
-			serverCert, err := p.lxcConfigReader.ReadCert(certPath)
-			if err != nil {
-				logger.Errorf("unable to read certificate from %s with error %s", certPath, err)
-				continue
-			}
-			credential := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
+			authConfig := map[string]string{
 				credAttrClientCert: string(certPEM),
 				credAttrClientKey:  string(keyPEM),
-				credAttrServerCert: string(serverCert),
-			})
+			}
+			serverCert, err := p.lxcConfigReader.ReadCert(certPath)
+			if err != nil {
+				if !os.IsNotExist(errors.Cause(err)) {
+					logger.Errorf("unable to read certificate from %s with error %s", certPath, err)
+					continue
+				}
+			} else {
+				authConfig[credAttrServerCert] = string(serverCert)
+			}
+			credential := cloud.NewCredential(cloud.CertificateAuthType, authConfig)
 			credential.Label = fmt.Sprintf("LXD credential %q", name)
 			credentials[name] = credential
 		}
