@@ -5,7 +5,6 @@ package application
 
 import (
 	"fmt"
-	"net/url"
 
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
@@ -362,14 +361,11 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	newURL, err := url.Parse(newRef)
-	if err != nil {
-		return errors.Trace(err)
-	} else if newURL.Scheme != "" && newURL.Scheme != "local" {
+	if oldOrigin.Source != commoncharm.OriginLocal {
 		// If not upgrading from a local path, display the channel we
 		// are pulling the charm from.
-		channel := fmt.Sprintf(" from channel %s", c.Channel)
-		ctx.Infof("Looking up metadata for charm %v%s", newRef, channel)
+		channel := fmt.Sprintf(" from channel %s", oldOrigin.CoreChannel().String())
+		ctx.Infof("Looking up metadata for %s charm %q%s", oldOrigin.Source, oldURL.Name, channel)
 	}
 
 	cfg := refresher.RefresherConfig{
@@ -396,7 +392,11 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	}
 	// The current charm URL that's been found and selected.
 	curl := charmID.URL
-	ctx.Infof("Added charm %q to the model.", curl)
+	channel := ""
+	if charmID.Origin.Source == corecharm.CharmHub || charmID.Origin.Source == corecharm.CharmStore {
+		channel = fmt.Sprintf(" in channel %s", charmID.Origin.Channel.String())
+	}
+	ctx.Infof("Added %s charm %q, revision %d%s, to the model", oldOrigin.Source, curl.Name, curl.Revision, channel)
 
 	// If it's the charmhub, we don't upgrade any resources as they're currently
 	// not supported. For now we do our best to create a valid charm.ID, but
