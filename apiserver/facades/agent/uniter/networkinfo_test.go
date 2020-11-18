@@ -9,10 +9,9 @@ import (
 	"net"
 	"time"
 
-	"github.com/juju/errors"
-
 	"github.com/juju/charm/v7"
 	"github.com/juju/clock"
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
 	jc "github.com/juju/testing/checkers"
@@ -74,7 +73,33 @@ func (s *networkInfoSuite) TestNetworksForRelation(c *gc.C) {
 	c.Assert(egress, gc.DeepEquals, []string{"10.2.3.4/32"})
 }
 
-func (s *networkInfoSuite) TestNetworksForRelationEgressHostnameRetry(c *gc.C) {
+func (s *networkInfoSuite) TestNetworksForRelationEgressHostnameSuccess(c *gc.C) {
+	prr := s.newProReqRelation(c, charm.ScopeGlobal)
+	err := prr.pu0.AssignToNewMachine()
+	c.Assert(err, jc.ErrorIsNil)
+	id, err := prr.pu0.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.Machine(id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr := corenetwork.NewSpaceAddress("host.goodname.somewhere")
+	err = machine.SetProviderAddresses(addr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.PatchValue(&network.ResolverFunc, func(string, hostname string) (*net.IPAddr, error) {
+		return &net.IPAddr{IP: net.ParseIP("10.2.3.4")}, nil
+	})
+
+	netInfo := s.newNetworkInfo(c, prr.pu0.UnitTag(), testingRetryFactory)
+	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(boundSpace, gc.Equals, corenetwork.AlphaSpaceId)
+	c.Assert(ingress, gc.DeepEquals, corenetwork.SpaceAddresses{addr})
+	c.Assert(egress, gc.DeepEquals, []string{"10.2.3.4/32"})
+}
+
+func (s *networkInfoSuite) TestNetworksForRelationEgressHostnameDNSErrorNoResult(c *gc.C) {
 	prr := s.newProReqRelation(c, charm.ScopeGlobal)
 	err := prr.pu0.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
@@ -87,34 +112,43 @@ func (s *networkInfoSuite) TestNetworksForRelationEgressHostnameRetry(c *gc.C) {
 	err = machine.SetProviderAddresses(addr)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// First time failure for the hostname.
+	// Failure to resolve the hostname.
 	s.PatchValue(&network.ResolverFunc, func(string, hostname string) (*net.IPAddr, error) {
-		return nil, errors.Errorf("Nope")
+		return nil, &net.DNSError{Err: "nope"}
 	})
 
-	retryFactory := func() retry.CallArgs {
-		return retry.CallArgs{
-			Clock:       clock.WallClock,
-			Delay:       1 * time.Millisecond,
-			MaxDuration: coretesting.LongWait,
-			NotifyFunc: func(lastError error, attempt int) {
-				// Then set it up to return an IP address.
-				if attempt == 1 {
-					s.PatchValue(&network.ResolverFunc, func(string, hostname string) (*net.IPAddr, error) {
-						return &net.IPAddr{IP: net.ParseIP("10.2.3.4")}, nil
-					})
-				}
-			},
-		}
-	}
-
-	netInfo := s.newNetworkInfo(c, prr.pu0.UnitTag(), retryFactory)
+	netInfo := s.newNetworkInfo(c, prr.pu0.UnitTag(), testingRetryFactory)
 	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(boundSpace, gc.Equals, corenetwork.AlphaSpaceId)
 	c.Assert(ingress, gc.DeepEquals, corenetwork.SpaceAddresses{addr})
-	c.Assert(egress, gc.DeepEquals, []string{"10.2.3.4/32"})
+
+	// We return a nil slice, not an error, for DNS errors during resolution.
+	c.Assert(egress, gc.IsNil)
+}
+
+func (s *networkInfoSuite) TestNetworksForRelationEgressHostnameError(c *gc.C) {
+	prr := s.newProReqRelation(c, charm.ScopeGlobal)
+	err := prr.pu0.AssignToNewMachine()
+	c.Assert(err, jc.ErrorIsNil)
+	id, err := prr.pu0.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.Machine(id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr := corenetwork.NewSpaceAddress("host.badname.somewhere")
+	err = machine.SetProviderAddresses(addr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Non-DNS resolution error.
+	s.PatchValue(&network.ResolverFunc, func(string, hostname string) (*net.IPAddr, error) {
+		return nil, errors.New("nope")
+	})
+
+	netInfo := s.newNetworkInfo(c, prr.pu0.UnitTag(), testingRetryFactory)
+	_, _, _, err = netInfo.NetworksForRelation("", prr.rel, true)
+	c.Assert(err, gc.ErrorMatches, "nope")
 }
 
 func (s *networkInfoSuite) addDevicesWithAddresses(c *gc.C, machine *state.Machine, addresses ...string) {

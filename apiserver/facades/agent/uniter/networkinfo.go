@@ -4,6 +4,7 @@
 package uniter
 
 import (
+	"net"
 	"strings"
 	"time"
 
@@ -172,24 +173,20 @@ func (n *NetworkInfoBase) getEgressForRelation(
 // There can be situations (observed for CAAS) where the preferred ingress
 // address is a FQDN for a load-balancer, which is intended to point at a
 // service that is not yet up.
-// We employ the retry strategy here to give time for the FQDN to be resolvable
-// to an IP address.
+// If we cannot resolve the FQDN, log a warning and return a nil result.
 func (n *NetworkInfoBase) getEgressFromIngress(ingress []string) ([]string, error) {
 	if len(ingress) == 0 {
 		return nil, nil
 	}
 
-	var egress []string
-	retryArg := n.retryFactory()
-	retryArg.Func = func() error {
-		var err error
-		egress, err = network.FormatAsCIDR([]string{ingress[0]})
-		return err
+	egress, err := network.FormatAsCIDR([]string{ingress[0]})
+	if err != nil {
+		if _, ok := errors.Cause(err).(*net.DNSError); ok {
+			logger.Warningf("unable to determine egress subnet for %q: %s", ingress[0], err.Error())
+			return nil, nil
+		}
 	}
-	retryArg.IsFatalError = func(err error) bool {
-		return false
-	}
-	return egress, retry.Call(retryArg)
+	return egress, errors.Trace(err)
 }
 
 func (n *NetworkInfoBase) pollForAddress(
