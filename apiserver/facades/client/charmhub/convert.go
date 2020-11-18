@@ -58,16 +58,18 @@ func convertCharmFindResults(responses []transport.FindResponse) []params.FindRe
 }
 
 func convertCharmFindResult(resp transport.FindResponse) params.FindResponse {
-	return params.FindResponse{
+	result := params.FindResponse{
 		Type:      resp.Type,
 		ID:        resp.ID,
 		Name:      resp.Name,
 		Publisher: publisher(resp.Entity),
 		Summary:   resp.Entity.Summary,
 		Version:   resp.DefaultRelease.Revision.Version,
-		Series:    transformFindSeries(resp.DefaultRelease),
 		StoreURL:  resp.Entity.StoreURL,
 	}
+	supported := transformFindArchitectureSeries(resp.DefaultRelease)
+	result.Arches, result.Series = supported.Architectures, supported.Series
+	return result
 }
 
 func publisher(ch transport.Entity) string {
@@ -75,16 +77,31 @@ func publisher(ch transport.Entity) string {
 	return publisher
 }
 
-// transformFindSeries returns a slice of supported series for that revision.
-func transformFindSeries(channel transport.FindChannelMap) []string {
+// supported defines a tuple of extracted items from a platform.
+type supported struct {
+	Architectures []string
+	Series        []string
+}
+
+// transformFindArchitectureSeries returns a supported type which contains
+// architectures and series for a given channel map.
+func transformFindArchitectureSeries(channel transport.FindChannelMap) supported {
 	if len(channel.Revision.Platforms) < 1 {
-		return nil
+		return supported{}
 	}
-	results := make([]string, len(channel.Revision.Platforms))
-	for i, p := range channel.Revision.Platforms {
-		results[i] = p.Series
+
+	var (
+		arches = set.NewStrings()
+		series = set.NewStrings()
+	)
+	for _, p := range channel.Revision.Platforms {
+		arches.Add(p.Architecture)
+		series.Add(p.Series)
 	}
-	return results
+	return supported{
+		Architectures: arches.SortedValues(),
+		Series:        series.SortedValues(),
+	}
 }
 
 // transformInfoChannelMap returns channel map data in a format that facilitates

@@ -6,6 +6,7 @@ package charmhub
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -15,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	corecharm "github.com/juju/juju/core/charm"
 )
 
 const (
@@ -33,7 +35,9 @@ See also:
 
 // NewFindCommand wraps findCommand with sane model settings.
 func NewFindCommand() cmd.Command {
-	return modelcmd.Wrap(&findCommand{})
+	return modelcmd.Wrap(&findCommand{
+		arches: corecharm.AllArches(),
+	})
 }
 
 // findCommand supplies the "find" CLI command used to display find information.
@@ -45,6 +49,10 @@ type findCommand struct {
 	api FindCommandAPI
 
 	query string
+
+	arch   string
+	arches corecharm.Arches
+	series string
 }
 
 // Find returns help related info about the command, it implements
@@ -70,6 +78,8 @@ func (c *findCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 	// TODO (stickupkid): add the following:
 	// --narrow
+	f.StringVar(&c.arch, "arch", ArchAll, fmt.Sprintf("display for a given arch <%s>", c.archArgumentList()))
+	f.StringVar(&c.series, "series", SeriesAll, "display for a given series")
 }
 
 // Init initializes the find command, including validating the provided
@@ -80,6 +90,22 @@ func (c *findCommand) Init(args []string) error {
 	if len(args) > 0 {
 		c.query = args[0]
 	}
+
+	// If the architecture is empty, ensure we normalize it to all to prevent
+	// complicated comparison checking.
+	if c.arch == "" {
+		c.arch = ArchAll
+	}
+
+	if c.arch != ArchAll && !c.arches.Contains(c.arch) {
+		return errors.Errorf("unexpected architecture flag value %q, expected <%s>", c.arch, c.archArgumentList())
+	}
+
+	// It's much harder to specify the series we support in a list fashion.
+	if c.series == "" {
+		c.series = SeriesAll
+	}
+
 	return nil
 }
 
@@ -104,6 +130,8 @@ func (c *findCommand) Run(ctx *cmd.Context) error {
 	// We store it on the command before attempting to output, so we can pick
 	// it up later.
 	c.warningLog = ctx.Warningf
+
+	results = filterFindResults(results, c.arch, c.series)
 
 	return c.output(ctx, results)
 }
@@ -162,4 +190,9 @@ func (c *findCommand) formatter(writer io.Writer, value interface{}) error {
 	}
 
 	return nil
+}
+
+func (c *findCommand) archArgumentList() string {
+	archList := strings.Join(c.arches.StringList(), "|")
+	return fmt.Sprintf("%s|%s", ArchAll, archList)
 }

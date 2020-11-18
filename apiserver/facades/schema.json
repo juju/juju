@@ -12514,6 +12514,12 @@
                 "FindResponse": {
                     "type": "object",
                     "properties": {
+                        "architectures": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
                         "id": {
                             "type": "string"
                         },
@@ -12550,7 +12556,6 @@
                         "publisher",
                         "summary",
                         "version",
-                        "series",
                         "store-url"
                     ]
                 },
