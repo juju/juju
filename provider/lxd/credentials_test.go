@@ -208,6 +208,58 @@ func (s *credentialsSuite) TestRemoteDetectCredentials(c *gc.C) {
 	})
 }
 
+func (s *credentialsSuite) TestRemoteDetectCredentialsNoRemoteCert(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
+	s.setupLocalhost(deps, c)
+
+	deps.configReader.EXPECT().ReadConfig(".config/lxc/config.yml").Return(lxd.LXCConfig{
+		DefaultRemote: "localhost",
+		Remotes: map[string]lxd.LXCRemoteConfig{
+			"nuc1": {
+				Addr:     "https://10.0.0.1:8443",
+				AuthType: "certificate",
+				Protocol: "lxd",
+				Public:   false,
+			},
+		},
+	}, nil)
+	deps.configReader.EXPECT().ReadCert(".config/lxc/servercerts/nuc1.crt").Return(nil, os.ErrNotExist)
+	deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", nil)
+	deps.server.EXPECT().ServerCertificate().Return(coretesting.ServerCert)
+
+	credentials, err := deps.provider.DetectCredentials()
+	c.Assert(err, jc.ErrorIsNil)
+
+	nuc1Credential := cloud.NewCredential(
+		cloud.CertificateAuthType,
+		map[string]string{
+			"client-cert": coretesting.CACert,
+			"client-key":  coretesting.CAKey,
+		},
+	)
+	nuc1Credential.Label = `LXD credential "nuc1"`
+
+	localCredential := cloud.NewCredential(
+		cloud.CertificateAuthType,
+		map[string]string{
+			"client-cert": coretesting.CACert,
+			"client-key":  coretesting.CAKey,
+			"server-cert": coretesting.ServerCert,
+		},
+	)
+	localCredential.Label = `LXD credential "localhost"`
+
+	c.Assert(credentials, jc.DeepEquals, &cloud.CloudCredential{
+		AuthCredentials: map[string]cloud.Credential{
+			"nuc1":      nuc1Credential,
+			"localhost": localCredential,
+		},
+	})
+}
+
 func (s *credentialsSuite) TestRemoteDetectCredentialsWithConfigFailure(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
