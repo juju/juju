@@ -105,7 +105,7 @@ func operatorInitUpgrade(appName, imagePath string, broker UpgradeCAASOperatorBr
 				List(context.TODO(), meta.ListOptions{
 					LabelSelector: labelSelector,
 				})
-			if k8serrors.IsNotFound(err) {
+			if k8serrors.IsNotFound(err) || (err == nil && len(podList.Items) == 0) {
 				// Not found means not ready.
 				logger.Tracef("listing pod %q, not found yet", selector.String())
 				return false, nil
