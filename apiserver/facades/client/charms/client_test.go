@@ -348,7 +348,7 @@ func (s *charmsMockSuite) TestAddCharmAlreadyExists(c *gc.C) {
 	}
 	obtained, err := api.AddCharm(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.DeepEquals, params.CharmOriginResult{})
+	c.Assert(obtained, gc.DeepEquals, params.CharmOriginResult{Origin: params.CharmOrigin{Source: "charm-store"}})
 }
 
 func (s *charmsMockSuite) TestAddCharmWithAuthorization(c *gc.C) {

@@ -419,7 +419,6 @@ func (c *charmStoreCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		return errors.Trace(err)
 	}
 	c.origin = origin
-
 	if err := c.validateCharmFlags(); err != nil {
 		return errors.Trace(err)
 	}
@@ -484,13 +483,13 @@ func (c *charmStoreCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	}
 
 	ctx.Infof("Deploying charm %q.", formattedCharmURL)
+	c.series = series
+	c.csMac = csMac
+	c.origin = csOrigin
 	c.id = application.CharmID{
 		URL:    curl,
 		Origin: c.origin,
 	}
-	c.series = series
-	c.csMac = csMac
-	c.origin = csOrigin
 	return c.deploy(ctx, deployAPI)
 }
 

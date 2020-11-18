@@ -87,6 +87,11 @@ func (s strategySuite) TestRunWithCharmAlreadyUploaded(c *gc.C) {
 	curl := charm.MustParseURL("cs:redis-0")
 
 	mockStore := NewMockStore(ctrl)
+	mockStore.EXPECT().DownloadOrigin(curl, gomock.AssignableToTypeOf(Origin{})).DoAndReturn(
+		func(curl *charm.URL, origin Origin) (Origin, error) {
+			return origin, nil
+		},
+	)
 	mockVersionValidator := NewMockJujuVersionValidator(ctrl)
 
 	mockStateCharm := NewMockStateCharm(ctrl)
@@ -100,9 +105,10 @@ func (s strategySuite) TestRunWithCharmAlreadyUploaded(c *gc.C) {
 		store:    mockStore,
 		logger:   &fakeLogger{},
 	}
-	_, alreadyExists, _, err := strategy.Run(mockState, mockVersionValidator, Origin{})
+	_, alreadyExists, obtainedOrigin, err := strategy.Run(mockState, mockVersionValidator, Origin{Source: CharmHub})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(alreadyExists, jc.IsTrue)
+	c.Assert(obtainedOrigin, jc.DeepEquals, Origin{Source: CharmHub})
 }
 
 func (s strategySuite) TestRunWithPrepareUploadError(c *gc.C) {

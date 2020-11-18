@@ -58,6 +58,9 @@ type Store interface {
 	Validate(*charm.URL) error
 	// Download a charm from the store using the charm URL.
 	Download(*charm.URL, string, Origin) (StoreCharm, ChecksumCheckFn, Origin, error)
+	// DownloadOrigin returns an origin with the id and hash, without
+	// downloading the charm.
+	DownloadOrigin(curl *charm.URL, origin Origin) (Origin, error)
 }
 
 // ChecksumCheckFn defines a function for running checksums against.
@@ -183,7 +186,8 @@ func (p *Strategy) Run(state State, version JujuVersionValidator, origin Origin)
 
 	// Charm is already in state, so we can exit out early.
 	if ch.IsUploaded() {
-		return DownloadResult{}, true, origin, nil
+		origin, err := p.store.DownloadOrigin(p.charmURL, origin)
+		return DownloadResult{}, true, origin, errors.Trace(err)
 	}
 
 	// Get the charm and its information from the store.
@@ -310,6 +314,11 @@ func (s StoreCharmStore) Download(curl *charm.URL, file string, origin Origin) (
 	return newStoreCharmShim(archive), AlwaysMatchChecksum, origin, nil
 }
 
+// DownloadOrigin returns the same origin provided.  This operation is required for CharmHub.
+func (s StoreCharmStore) DownloadOrigin(_ *charm.URL, origin Origin) (Origin, error) {
+	return origin, nil
+}
+
 // StoreCharmHub defines a type for interacting with the charm hub.
 type StoreCharmHub struct {
 	repository DownloadRepo
@@ -337,6 +346,14 @@ func (s StoreCharmHub) Download(curl *charm.URL, file string, origin Origin) (St
 		return nil, nil, downloadOrigin, errors.Trace(err)
 	}
 	return newStoreCharmShim(archive), MatchChecksum(downloadOrigin.Hash), downloadOrigin, nil
+}
+
+// DownloadOrigin returns an origin with the id and hash, without
+// downloading the charm.
+func (s StoreCharmHub) DownloadOrigin(curl *charm.URL, origin Origin) (Origin, error) {
+	s.logger.Tracef("DownloadOrigin(%s) %s", curl)
+	_, downloadOrigin, err := s.repository.FindDownloadURL(curl, origin, s.series)
+	return downloadOrigin, errors.Trace(err)
 }
 
 // storeCharmShim massages a *charm.CharmArchive into a LXDProfiler
