@@ -9,9 +9,10 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/charmhub"
+	corecharm "github.com/juju/juju/core/charm"
 )
 
-var (
+const (
 	// SeriesAll defines a platform that targets all series.
 	SeriesAll = "all"
 	// ArchAll defines a platform that targets all architectures.
@@ -135,7 +136,7 @@ func filterChannels(in map[string]charmhub.Channel, architecture, series string)
 		archSet := channelArches(v.Platforms)
 		seriesSet := channelSeries(v.Platforms)
 
-		if (allArch || archSet.Contains(architecture) || archSet.Contains(ArchAll)) &&
+		if (allArch || archSet.Contains(architecture)) &&
 			(allSeries || seriesSet.Contains(series) || seriesSet.Contains(SeriesAll)) {
 			witnessed[k] = v
 		}
@@ -155,6 +156,12 @@ func channelArches(platforms []charmhub.Platform) set.Strings {
 	arches := set.NewStrings()
 	for _, v := range platforms {
 		arches.Add(v.Architecture)
+	}
+	// If the platform contains all the arches, just return them exploded.
+	// This makes the filtering logic simpler for plucking an architecture out
+	// of the channels, we should aim to do the same for series.
+	if arches.Contains(ArchAll) {
+		return set.NewStrings(corecharm.AllArches().StringList()...)
 	}
 	return arches
 }

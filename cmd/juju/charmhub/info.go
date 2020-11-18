@@ -120,7 +120,7 @@ func (c *infoCommand) Init(args []string) error {
 		c.arch = ArchAll
 	}
 
-	if c.arch != ArchAll && !c.arches.Contains(corecharm.Arch(c.arch)) {
+	if c.arch != ArchAll && !c.arches.Contains(c.arch) {
 		return errors.Errorf("unexpected architecture flag value %q, expected <%s>", c.arch, c.archArgumentList())
 	}
 
