@@ -39,9 +39,9 @@ require (
 	github.com/hpidcock/juju-fake-init v0.0.0-20201026041434-e95018795575
 	github.com/imdario/mergo v0.3.10 // indirect
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
-	github.com/juju/bundlechanges/v3 v3.0.0-20200922122015-fa9072606a43
-	github.com/juju/charm/v8 v8.0.0-20200925052646-bb021a575610
-	github.com/juju/charmrepo/v6 v6.0.0-20200817155725-120bd7a8b1ed
+	github.com/juju/bundlechanges/v3 v3.0.0-20201118044951-0e6ce11ef6c6
+	github.com/juju/charm/v8 v8.0.0-20201117030444-62c13a9fe0f0
+	github.com/juju/charmrepo/v6 v6.0.0-20201118043529-e9fbdc1a746f
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
 	github.com/juju/cmd v0.0.0-20200108104440-8e43f3faa5c9
 	github.com/juju/collections v0.0.0-20200605021417-0d0ec82b7271
@@ -60,8 +60,8 @@ require (
 	github.com/juju/mutex v0.0.0-20180619145857-d21b13acf4bf
 	github.com/juju/names/v4 v4.0.0-20200929085019-be23e191fee0
 	github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b
-	github.com/juju/os v0.0.0-20201115220950-10720519c304 // indirect
-	github.com/juju/os/v2 v2.0.0-20201117013158-3cd53d90e30f
+	github.com/juju/os v1.0.0 // indirect
+	github.com/juju/os/v2 v2.0.0
 	github.com/juju/packaging v0.0.0-20200421095529-970596d2622a
 	github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93
 	github.com/juju/proxy v0.0.0-20180523025733-5f8741c297b4
@@ -81,7 +81,7 @@ require (
 	github.com/juju/utils v0.0.0-20200604140309-9d78121a29e0 // indirect
 	github.com/juju/utils/v2 v2.0.0-20200923005554-4646bfea2ef1
 	github.com/juju/version v0.0.0-20191219164919-81c1be00b9a6
-	github.com/juju/webbrowser v0.0.0-20180907093207-efb9432b2bcb
+	github.com/juju/webbrowser v1.0.0
 	github.com/juju/worker/v2 v2.0.0-20200916234526-d6e694f1c54a
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.2.1
@@ -100,15 +100,16 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/client_model v0.2.0
+	github.com/rogpeppe/fastuuid v1.2.0 // indirect
 	github.com/satori/go.uuid v1.2.0
 	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
-	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897
-	golang.org/x/net v0.0.0-20201029221708-28c70e62bb1d
+	golang.org/x/crypto v0.0.0-20201117144127-c1f2f97bffc9
+	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
-	golang.org/x/sys v0.0.0-20200930185726-fdedc70b468f
+	golang.org/x/sys v0.0.0-20201117222635-ba5294a509c7
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	golang.org/x/tools v0.0.0-20200725200936-102e7d357031
 	google.golang.org/api v0.29.0
@@ -124,7 +125,7 @@ require (
 	gopkg.in/juju/idmclient.v1 v1.0.0-20180320161856-203d20774ce8
 	gopkg.in/juju/names.v3 v3.0.0-20200331100531-2c9a102df211 // indirect
 	gopkg.in/juju/worker.v1 v1.0.0-20191018043616-19a698a7150f // indirect
-	gopkg.in/macaroon-bakery.v2 v2.1.1-0.20190613120608-6734dc66fe81
+	gopkg.in/macaroon-bakery.v2 v2.2.0
 	gopkg.in/macaroon.v2 v2.1.0
 	gopkg.in/mgo.v2 v2.0.0-20190816093944-a6b53ec6cb22
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
