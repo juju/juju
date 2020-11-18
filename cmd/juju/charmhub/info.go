@@ -43,7 +43,7 @@ See also:
 // NewInfoCommand wraps infoCommand with sane model settings.
 func NewInfoCommand() cmd.Command {
 	return modelcmd.Wrap(&infoCommand{
-		arches: corecharm.DefaultArches(),
+		arches: corecharm.AllArches(),
 	})
 }
 
@@ -91,8 +91,7 @@ func (c *infoCommand) SetFlags(f *gnuflag.FlagSet) {
 		"tabular": c.formatter,
 	})
 
-	archList := strings.Join(c.arches.StringList(), "|")
-	f.StringVar(&c.arch, "arch", ArchAll, fmt.Sprintf("display channels supported by provided arch <%s>", archList))
+	f.StringVar(&c.arch, "arch", ArchAll, fmt.Sprintf("display channels supported by provided arch <%s>", c.archArgumentList()))
 	f.StringVar(&c.series, "series", SeriesAll, "display channels supported by provided series")
 }
 
@@ -121,9 +120,8 @@ func (c *infoCommand) Init(args []string) error {
 		c.arch = ArchAll
 	}
 
-	if !c.arches.Contains(corecharm.Arch(c.arch)) {
-		archList := strings.Join(c.arches.StringList(), "|")
-		return errors.Errorf("unexpected architecture flag value %q, expected <%s>", c.arch, archList)
+	if c.arch != ArchAll && !c.arches.Contains(corecharm.Arch(c.arch)) {
+		return errors.Errorf("unexpected architecture flag value %q, expected <%s>", c.arch, c.archArgumentList())
 	}
 
 	// It's much harder to specify the series we support in a list fashion.
@@ -221,4 +219,9 @@ func (c *infoCommand) formatter(writer io.Writer, value interface{}) error {
 	}
 
 	return nil
+}
+
+func (c *infoCommand) archArgumentList() string {
+	archList := strings.Join(c.arches.StringList(), "|")
+	return fmt.Sprintf("%s|%s", ArchAll, archList)
 }

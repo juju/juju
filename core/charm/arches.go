@@ -4,20 +4,15 @@
 package charm
 
 import (
-	"sort"
+	"strings"
+
+	"github.com/juju/collections/set"
 )
 
 // Arch represents a platform architecture.
-type Arch string
-
-func (a Arch) String() string {
-	return string(a)
-}
+type Arch = string
 
 const (
-	// ArchAll represents an architecture for all architectures.
-	ArchAll Arch = "all"
-
 	// ArchAMD64 defines a amd64 architecture.
 	ArchAMD64 Arch = "amd64"
 
@@ -33,49 +28,28 @@ const (
 
 // Arches defines a list of arches to compare against.
 type Arches struct {
-	set map[Arch]struct{}
+	set set.Strings
 }
 
-// DefaultArches creates a series of arches to compare against.
-func DefaultArches() Arches {
+// AllArches creates a series of arches to compare against.
+func AllArches() Arches {
 	return Arches{
-		set: map[Arch]struct{}{
-			ArchAll:   {},
-			ArchAMD64: {},
-			ArchARM64: {},
-			ArchPPC64: {},
-			ArchS390:  {},
-		},
+		set: set.NewStrings(ArchAMD64, ArchARM64, ArchPPC64, ArchS390),
 	}
 }
 
 // Contains checks to see if a given arch is found with in the list.
 func (a Arches) Contains(arch Arch) bool {
-	_, ok := a.set[arch]
-	return ok
+	return a.set.Contains(arch)
 }
 
 // StringList returns an ordered list of strings.
 // ArchAll will always be the front of the slice to show importance of the enum
 // value.
 func (a Arches) StringList() []string {
-	var prependAll bool
+	return a.set.SortedValues()
+}
 
-	list := make([]string, 0)
-	for arch := range a.set {
-		if arch == ArchAll {
-			prependAll = true
-			continue
-		}
-		list = append(list, string(arch))
-	}
-	sort.Slice(list, func(i, j int) bool {
-		return list[i] < list[j]
-	})
-
-	if !prependAll {
-		return list
-	}
-
-	return append([]string{string(ArchAll)}, list...)
+func (a Arches) String() string {
+	return strings.Join(a.set.SortedValues(), ",")
 }

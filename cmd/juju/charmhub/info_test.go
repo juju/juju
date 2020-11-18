@@ -31,7 +31,7 @@ func (s *infoSuite) TestInitNoArgs(c *gc.C) {
 
 func (s *infoSuite) TestInitSuccess(c *gc.C) {
 	command := &infoCommand{
-		arches: corecharm.DefaultArches(),
+		arches: corecharm.AllArches(),
 	}
 	err := command.Init([]string{"test"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -51,7 +51,7 @@ func (s *infoSuite) TestRun(c *gc.C) {
 	command := &infoCommand{
 		infoCommandAPI: s.infoCommandAPI,
 		modelConfigAPI: s.modelConfigAPI,
-		arches:         corecharm.DefaultArches(),
+		arches:         corecharm.AllArches(),
 	}
 
 	err := cmdtesting.InitCommand(command, []string{"test"})
@@ -70,7 +70,7 @@ func (s *infoSuite) TestRunJSON(c *gc.C) {
 	command := &infoCommand{
 		infoCommandAPI: s.infoCommandAPI,
 		modelConfigAPI: s.modelConfigAPI,
-		arches:         corecharm.DefaultArches(),
+		arches:         corecharm.AllArches(),
 	}
 
 	err := cmdtesting.InitCommand(command, []string{"test", "--format", "json"})
@@ -90,7 +90,7 @@ func (s *infoSuite) TestRunJSONSpecifySeriesNotDefault(c *gc.C) {
 	command := &infoCommand{
 		infoCommandAPI: s.infoCommandAPI,
 		modelConfigAPI: s.modelConfigAPI,
-		arches:         corecharm.DefaultArches(),
+		arches:         corecharm.AllArches(),
 	}
 
 	err := cmdtesting.InitCommand(command, []string{"test", "--format", "json", "--series", "xenial"})
@@ -111,7 +111,7 @@ func (s *infoSuite) TestRunJSONSpecifyArch(c *gc.C) {
 	command := &infoCommand{
 		infoCommandAPI: s.infoCommandAPI,
 		modelConfigAPI: s.modelConfigAPI,
-		arches:         corecharm.DefaultArches(),
+		arches:         corecharm.AllArches(),
 	}
 
 	err := cmdtesting.InitCommand(command, []string{"test", "--format", "json", "--arch", "amd64"})
@@ -132,7 +132,7 @@ func (s *infoSuite) TestRunJSONDefaultSeriesNotFoundNoChannel(c *gc.C) {
 	command := &infoCommand{
 		infoCommandAPI: s.infoCommandAPI,
 		modelConfigAPI: s.modelConfigAPI,
-		arches:         corecharm.DefaultArches(),
+		arches:         corecharm.AllArches(),
 	}
 
 	err := cmdtesting.InitCommand(command, []string{"test", "--format", "json"})
@@ -153,7 +153,7 @@ func (s *infoSuite) TestRunYAML(c *gc.C) {
 	command := &infoCommand{
 		infoCommandAPI: s.infoCommandAPI,
 		modelConfigAPI: s.modelConfigAPI,
-		arches:         corecharm.DefaultArches(),
+		arches:         corecharm.AllArches(),
 	}
 
 	err := cmdtesting.InitCommand(command, []string{"test", "--format", "yaml"})

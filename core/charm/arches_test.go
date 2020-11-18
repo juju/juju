@@ -17,12 +17,17 @@ type archSuite struct {
 var _ = gc.Suite(&archSuite{})
 
 func (s archSuite) TestContains(c *gc.C) {
-	arches := charm.DefaultArches()
+	arches := charm.AllArches()
 	c.Assert(arches.Contains(charm.ArchAMD64), jc.IsTrue)
 	c.Assert(arches.Contains(charm.Arch("risc")), jc.IsFalse)
 }
 
 func (s archSuite) TestStringList(c *gc.C) {
-	arches := charm.DefaultArches()
-	c.Assert(arches.StringList(), jc.DeepEquals, []string{"all", "amd64", "arm64", "ppc64", "s390"})
+	arches := charm.AllArches()
+	c.Assert(arches.StringList(), jc.DeepEquals, []string{"amd64", "arm64", "ppc64", "s390"})
+}
+
+func (s archSuite) TestString(c *gc.C) {
+	arches := charm.AllArches()
+	c.Assert(arches.String(), gc.Equals, "amd64,arm64,ppc64,s390")
 }

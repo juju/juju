@@ -9,14 +9,13 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/charmhub"
-	corecharm "github.com/juju/juju/core/charm"
 )
 
 var (
 	// SeriesAll defines a platform that targets all series.
 	SeriesAll = "all"
 	// ArchAll defines a platform that targets all architectures.
-	ArchAll = corecharm.ArchAll.String()
+	ArchAll = "all"
 )
 
 func convertCharmInfoResult(info charmhub.InfoResponse, arch, series string) (InfoResponse, error) {
