@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/names/v4"
-	jujuos "github.com/juju/os"
+	jujuos "github.com/juju/os/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

@@ -11,7 +11,7 @@ import (
 
 	// https://bugs.launchpad.net/juju-core/+bug/1470820
 	"github.com/juju/errors"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/mgr"

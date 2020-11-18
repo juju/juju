@@ -19,7 +19,7 @@ import (
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os"
+	"github.com/juju/os/v2"
 	"github.com/juju/proxy"
 	"github.com/juju/version"
 

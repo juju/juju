@@ -17,7 +17,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/charmhub"

@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/os"
-	jujuseries "github.com/juju/os/series"
+	"github.com/juju/os/v2"
+	jujuseries "github.com/juju/os/v2/series"
 	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 	"github.com/kr/pretty"

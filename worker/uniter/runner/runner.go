@@ -21,7 +21,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	jujuos "github.com/juju/os"
+	jujuos "github.com/juju/os/v2"
 	"github.com/juju/utils/v2"
 	utilexec "github.com/juju/utils/v2/exec"
 	"github.com/kballard/go-shellquote"

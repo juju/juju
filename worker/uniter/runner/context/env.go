@@ -6,8 +6,8 @@ package context
 import (
 	"path/filepath"
 
-	jujuos "github.com/juju/os"
-	"github.com/juju/os/series"
+	jujuos "github.com/juju/os/v2"
+	"github.com/juju/os/v2/series"
 )
 
 // GetEnvFunc is passed to OSDependentEnvVars and called

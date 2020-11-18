@@ -8,7 +8,7 @@ import (
 	"runtime"
 
 	"github.com/juju/errors"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/core/paths"

@@ -18,7 +18,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"

@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 
 	"github.com/juju/juju/environs/simplestreams"
 )

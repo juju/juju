@@ -16,7 +16,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 	"github.com/juju/schema"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/v2"

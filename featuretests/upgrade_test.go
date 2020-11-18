@@ -13,7 +13,7 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 	pacman "github.com/juju/packaging/manager"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"

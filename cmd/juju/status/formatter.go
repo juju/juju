@@ -12,8 +12,8 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v4"
 	"github.com/juju/naturalsort"
-	"github.com/juju/os"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2"
+	"github.com/juju/os/v2/series"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"

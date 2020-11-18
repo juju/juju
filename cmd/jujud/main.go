@@ -21,7 +21,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 	proxyutils "github.com/juju/proxy"
 	"github.com/juju/utils/v2/arch"
 	"github.com/juju/utils/v2/exec"

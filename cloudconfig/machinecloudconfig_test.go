@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/loggo"
-	utilsseries "github.com/juju/os/series"
+	utilsseries "github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
