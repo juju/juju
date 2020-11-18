@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -42,7 +42,7 @@ See also:
 func NewInfoCommand() cmd.Command {
 	return modelcmd.Wrap(&infoCommand{
 		charmhubCommand: &charmhubCommand{
-			arches: corecharm.AllArches(),
+			arches: arch.AllArches(),
 		},
 	})
 }

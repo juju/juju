@@ -18,12 +18,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/os/v2/series"
+	utilsarch "github.com/juju/utils/arch"
 
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/environs/config"
 )
@@ -57,10 +59,11 @@ See also:
 func NewDownloadCommand() cmd.Command {
 	return modelcmd.Wrap(&downloadCommand{
 		charmhubCommand: &charmhubCommand{
-			arches: corecharm.AllArches(),
-		}},
-		modelcmd.WrapSkipModelInit,
-	)
+			arches: arch.AllArches(),
+		},
+		fallbackArch:  utilsarch.HostArch(),
+		orderedSeries: series.SupportedJujuControllerSeries(),
+	}, modelcmd.WrapSkipModelInit)
 }
 
 // downloadCommand supplies the "download" CLI command used for downloading
@@ -74,12 +77,12 @@ type downloadCommand struct {
 	charmHubClient CharmHubClient
 
 	channel       string
-	series        string
 	charmHubURL   string
 	charmOrBundle string
 	archivePath   string
 	pipeToStdout  bool
 
+	fallbackArch  string
 	orderedSeries []string
 }
 
@@ -133,8 +136,6 @@ func (c *downloadCommand) Init(args []string) error {
 			return errors.Annotatef(err, "unexpected charm-hub-url")
 		}
 	}
-
-	c.orderedSeries = series.SupportedJujuControllerSeries()
 
 	return nil
 }
@@ -222,12 +223,15 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 		found    bool
 		revision transport.InfoRevision
 	)
-	// If there is no series, then attempt to select the best one first.
-	if c.series == "" {
-		revision, found = c.locateRevisionByChannel(info.ChannelMap, charmChannel)
-	} else {
-		// We have a series go attempt to find the channel.
-		revision, found = c.locateRevisionByChannelAndSeries(info.ChannelMap, charmChannel, c.series)
+	switch {
+	case c.arch == ArchAll && c.series == SeriesAll:
+		revision, found = c.locateRevisionByChannelByArch(info.ChannelMap, charmChannel, c.fallbackArch)
+	case c.arch != ArchAll && c.series == SeriesAll:
+		revision, found = c.locateRevisionByChannelByArch(info.ChannelMap, charmChannel, c.arch)
+	case c.arch == ArchAll && c.series != SeriesAll:
+		revision, found = c.locateRevisionByChannelBySeries(info.ChannelMap, charmChannel, c.series)
+	default:
+		revision, found = c.locateRevisionByChannelByArchAndSeries(info.ChannelMap, charmChannel, c.arch, c.series)
 	}
 	if !found {
 		if c.series != "" {
@@ -339,7 +343,7 @@ func (stdoutFileSystem) Create(string) (*os.File, error) {
 	return os.NewFile(uintptr(syscall.Stdout), "/dev/stdout"), nil
 }
 
-func (c *downloadCommand) locateRevisionByChannel(channelMaps []transport.InfoChannelMap, channel corecharm.Channel) (transport.InfoRevision, bool) {
+func (c *downloadCommand) locateRevisionByChannelByArch(channelMaps []transport.InfoChannelMap, channel corecharm.Channel, arch string) (transport.InfoRevision, bool) {
 	// Order the channelMap by the ordered supported controller series. That
 	// way we'll always find the newest one first (hopefully the most
 	// supported).
@@ -350,7 +354,17 @@ func (c *downloadCommand) locateRevisionByChannel(channelMaps []transport.InfoCh
 	}
 	sort.Sort(channelMap)
 
+	var filtered []transport.InfoChannelMap
 	for _, channelMap := range channelMap.channelMap {
+		platformArch := channelMap.Channel.Platform.Architecture
+		if (platformArch == arch || platformArch == ArchAll) ||
+			isArchInPlatforms(channelMap.Revision.Platforms, arch) ||
+			isArchInPlatforms(channelMap.Revision.Platforms, ArchAll) {
+			filtered = append(filtered, channelMap)
+		}
+	}
+
+	for _, channelMap := range filtered {
 		if rev, ok := locateRevisionByChannelMap(channelMap, channel); ok {
 			return rev, true
 		}
@@ -358,7 +372,7 @@ func (c *downloadCommand) locateRevisionByChannel(channelMaps []transport.InfoCh
 	return transport.InfoRevision{}, false
 }
 
-func (c *downloadCommand) locateRevisionByChannelAndSeries(channelMaps []transport.InfoChannelMap, channel corecharm.Channel, series string) (transport.InfoRevision, bool) {
+func (c *downloadCommand) locateRevisionByChannelBySeries(channelMaps []transport.InfoChannelMap, channel corecharm.Channel, series string) (transport.InfoRevision, bool) {
 	// Filter out any channels that aren't of a given series.
 	var filtered []transport.InfoChannelMap
 	for _, channelMap := range channelMaps {
@@ -380,9 +394,41 @@ func (c *downloadCommand) locateRevisionByChannelAndSeries(channelMaps []transpo
 	return transport.InfoRevision{}, false
 }
 
+func (c *downloadCommand) locateRevisionByChannelByArchAndSeries(channelMaps []transport.InfoChannelMap, channel corecharm.Channel, arch, series string) (transport.InfoRevision, bool) {
+	// Filter out any channels that aren't of a given series.
+	var filtered []transport.InfoChannelMap
+	for _, channelMap := range channelMaps {
+		if (channelMap.Channel.Platform.Architecture == arch || isArchInPlatforms(channelMap.Revision.Platforms, arch)) &&
+			(channelMap.Channel.Platform.Series == series || isSeriesInPlatforms(channelMap.Revision.Platforms, series)) {
+			filtered = append(filtered, channelMap)
+		}
+	}
+
+	// If we don't have any filtered series then we don't know what to do here.
+	if len(filtered) == 0 {
+		return transport.InfoRevision{}, false
+	}
+
+	for _, channelMap := range filtered {
+		if rev, ok := locateRevisionByChannelMap(channelMap, channel); ok {
+			return rev, true
+		}
+	}
+	return transport.InfoRevision{}, false
+}
+
 func isSeriesInPlatforms(platforms []transport.Platform, series string) bool {
 	for _, platform := range platforms {
 		if platform.Series == series {
+			return true
+		}
+	}
+	return false
+}
+
+func isArchInPlatforms(platforms []transport.Platform, arch string) bool {
+	for _, platform := range platforms {
+		if platform.Architecture == arch {
 			return true
 		}
 	}

@@ -10,14 +10,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/juju/cmd/modelcmd"
-	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/arch"
 )
 
 type charmhubCommand struct {
 	modelcmd.ModelCommandBase
 
 	arch   string
-	arches corecharm.Arches
+	arches arch.Arches
 	series string
 }
 
