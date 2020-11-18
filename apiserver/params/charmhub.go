@@ -42,7 +42,8 @@ type FindResponse struct {
 	Publisher string   `json:"publisher"`
 	Summary   string   `json:"summary"`
 	Version   string   `json:"version"`
-	Series    []string `json:"series"`
+	Arches    []string `json:"architectures,omitempty"`
+	Series    []string `json:"series,omitempty"`
 	StoreURL  string   `json:"store-url"`
 }
 

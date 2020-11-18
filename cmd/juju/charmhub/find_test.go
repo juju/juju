@@ -38,32 +38,44 @@ func (s *findSuite) TestInitSuccess(c *gc.C) {
 func (s *findSuite) TestRun(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.expectFind()
+
 	command := &findCommand{api: s.api, query: "test"}
-	cmdtesting.InitCommand(command, []string{})
+
+	err := cmdtesting.InitCommand(command, []string{})
+	c.Assert(err, jc.ErrorIsNil)
+
 	ctx := commandContextForTest(c)
-	err := command.Run(ctx)
+	err = command.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *findSuite) TestRunJSON(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.expectFind()
+
 	command := &findCommand{api: s.api, query: "test"}
-	cmdtesting.InitCommand(command, []string{"--format", "json"})
-	ctx := commandContextForTest(c)
-	err := command.Run(ctx)
+
+	err := cmdtesting.InitCommand(command, []string{"--format", "json"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `[{"type":"object","id":"charmCHARMcharmCHARMcharmCHARM01","name":"wordpress","publisher":"Wordress Charmers","summary":"WordPress is a full featured web blogging tool, this charm deploys it.","version":"1.0.3","series":["bionic"],"store-url":"https://someurl.com/wordpress"}]
+
+	ctx := commandContextForTest(c)
+	err = command.Run(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `[{"type":"object","id":"charmCHARMcharmCHARMcharmCHARM01","name":"wordpress","publisher":"Wordress Charmers","summary":"WordPress is a full featured web blogging tool, this charm deploys it.","version":"1.0.3","architectures":["all"],"series":["bionic"],"store-url":"https://someurl.com/wordpress"}]
 `)
 }
 
 func (s *findSuite) TestRunYAML(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.expectFind()
+
 	command := &findCommand{api: s.api, query: "test"}
-	cmdtesting.InitCommand(command, []string{"--format", "yaml"})
+
+	err := cmdtesting.InitCommand(command, []string{"--format", "yaml"})
+	c.Assert(err, jc.ErrorIsNil)
+
 	ctx := commandContextForTest(c)
-	err := command.Run(ctx)
+	err = command.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 - type: object
@@ -72,6 +84,8 @@ func (s *findSuite) TestRunYAML(c *gc.C) {
   publisher: Wordress Charmers
   summary: WordPress is a full featured web blogging tool, this charm deploys it.
   version: 1.0.3
+  architectures:
+  - all
   series:
   - bionic
   store-url: https://someurl.com/wordpress
@@ -93,6 +107,7 @@ func (s *findSuite) expectFind() {
 		Publisher: "Wordress Charmers",
 		Summary:   "WordPress is a full featured web blogging tool, this charm deploys it.",
 		Version:   "1.0.3",
+		Arches:    []string{"all"},
 		Series:    []string{"bionic"},
 		StoreURL:  "https://someurl.com/wordpress",
 	}}, nil)

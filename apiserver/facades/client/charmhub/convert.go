@@ -58,16 +58,17 @@ func convertCharmFindResults(responses []transport.FindResponse) []params.FindRe
 }
 
 func convertCharmFindResult(resp transport.FindResponse) params.FindResponse {
-	return params.FindResponse{
+	result := params.FindResponse{
 		Type:      resp.Type,
 		ID:        resp.ID,
 		Name:      resp.Name,
 		Publisher: publisher(resp.Entity),
 		Summary:   resp.Entity.Summary,
 		Version:   resp.DefaultRelease.Revision.Version,
-		Series:    transformFindSeries(resp.DefaultRelease),
 		StoreURL:  resp.Entity.StoreURL,
 	}
+	result.Arches, result.Series = transformFindArchitectureSeries(resp.DefaultRelease)
+	return result
 }
 
 func publisher(ch transport.Entity) string {
@@ -75,16 +76,22 @@ func publisher(ch transport.Entity) string {
 	return publisher
 }
 
-// transformFindSeries returns a slice of supported series for that revision.
-func transformFindSeries(channel transport.FindChannelMap) []string {
+// transformFindArchitectureSeries returns a slice of supported series for
+// that revision.
+func transformFindArchitectureSeries(channel transport.FindChannelMap) ([]string, []string) {
 	if len(channel.Revision.Platforms) < 1 {
-		return nil
+		return nil, nil
 	}
-	results := make([]string, len(channel.Revision.Platforms))
-	for i, p := range channel.Revision.Platforms {
-		results[i] = p.Series
+
+	var (
+		arches = set.NewStrings()
+		series = set.NewStrings()
+	)
+	for _, p := range channel.Revision.Platforms {
+		arches.Add(p.Architecture)
+		series.Add(p.Series)
 	}
-	return results
+	return arches.SortedValues(), series.SortedValues()
 }
 
 // transformInfoChannelMap returns channel map data in a format that facilitates

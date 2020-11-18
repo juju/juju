@@ -31,22 +31,22 @@ type findWriter struct {
 }
 
 func (f findWriter) Print() error {
-
 	buffer := bytes.NewBufferString("")
 
 	tw := output.TabWriter(buffer)
 
-	fmt.Fprintf(tw, "Name\tBundle\tVersion\tSupports\tPublisher\tSummary\n")
+	fmt.Fprintf(tw, "Name\tBundle\tVersion\tArchitectures\tSupports\tPublisher\tSummary\n")
 	for _, result := range f.in {
 		summary, err := oneLine(result.Summary)
 		if err != nil {
 			f.warningf("%v", err)
 		}
 
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 			result.Name,
 			f.bundle(result),
 			result.Version,
+			strings.Join(result.Arches, ","),
 			strings.Join(result.Series, ","),
 			result.Publisher,
 			summary,

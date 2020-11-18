@@ -51,6 +51,7 @@ func convertCharmFindResult(resp params.FindResponse) FindResponse {
 		Publisher: resp.Publisher,
 		Summary:   resp.Summary,
 		Version:   resp.Version,
+		Arches:    resp.Arches,
 		Series:    resp.Series,
 		StoreURL:  resp.StoreURL,
 	}
@@ -143,6 +144,7 @@ type FindResponse struct {
 	Publisher string   `json:"publisher"`
 	Summary   string   `json:"summary"`
 	Version   string   `json:"version"`
+	Arches    []string `json:"architectures,omitempty"`
 	Series    []string `json:"series,omitempty"`
 	StoreURL  string   `json:"store-url"`
 }

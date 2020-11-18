@@ -17,7 +17,7 @@ type filterSuite struct {
 
 var _ = gc.Suite(&filterSuite{})
 
-func (filterSuite) TestConvertChannels(c *gc.C) {
+func (filterSuite) TestFilterChannels(c *gc.C) {
 	tests := []struct {
 		Name     string
 		Arch     string
@@ -202,6 +202,147 @@ func (filterSuite) TestConvertChannels(c *gc.C) {
 	for k, v := range tests {
 		c.Logf("Test %d %s", k, v.Name)
 		got := filterChannels(v.Input, v.Arch, v.Series)
+		c.Assert(got, jc.DeepEquals, v.Expected)
+	}
+}
+
+func (filterSuite) TestFilterFindResults(c *gc.C) {
+	tests := []struct {
+		Name     string
+		Arch     string
+		Series   string
+		Input    []charmhub.FindResponse
+		Expected []charmhub.FindResponse
+	}{{
+		Name:   "match all",
+		Arch:   "all",
+		Series: "all",
+		Input: []charmhub.FindResponse{{
+			Name:   "meshuggah",
+			Arches: []string{"all"},
+			Series: []string{"all"},
+		}},
+		Expected: []charmhub.FindResponse{{
+			Name:   "meshuggah",
+			Arches: []string{"all"},
+			Series: []string{"all"},
+		}},
+	}, {
+		Name:   "match all architectures",
+		Arch:   "all",
+		Series: "bionic",
+		Input: []charmhub.FindResponse{{
+			Name:   "meshuggah",
+			Arches: []string{"all"},
+			Series: []string{"bionic"},
+		}},
+		Expected: []charmhub.FindResponse{{
+			Name:   "meshuggah",
+			Arches: []string{"all"},
+			Series: []string{"bionic"},
+		}},
+	}, {
+		Name:   "match all series",
+		Arch:   "amd64",
+		Series: "all",
+		Input: []charmhub.FindResponse{{
+			Name:   "meshuggah",
+			Arches: []string{"amd64"},
+			Series: []string{"bionic"},
+		}},
+		Expected: []charmhub.FindResponse{{
+			Name:   "meshuggah",
+			Arches: []string{"amd64"},
+			Series: []string{"bionic"},
+		}},
+	}, {
+		Name:   "match only ppc64 with focal series",
+		Arch:   "ppc64",
+		Series: "focal",
+		Input: []charmhub.FindResponse{{
+			Name:   "meshuggah",
+			Arches: []string{"amd64"},
+			Series: []string{"bionic"},
+		}},
+		Expected: []charmhub.FindResponse{},
+	}, {
+		Name:   "response has all architectures with same series",
+		Arch:   "amd64",
+		Series: "bionic",
+		Input: []charmhub.FindResponse{{
+			Name:   "meshuggah",
+			Arches: []string{"all"},
+			Series: []string{"bionic"},
+		}},
+		Expected: []charmhub.FindResponse{{
+			Name:   "meshuggah",
+			Arches: []string{"all"},
+			Series: []string{"bionic"},
+		}},
+	}, {
+		Name:   "response has all architectures with no matching series",
+		Arch:   "amd64",
+		Series: "focal",
+		Input: []charmhub.FindResponse{{
+			Name:   "meshuggah",
+			Arches: []string{"all"},
+			Series: []string{"bionic"},
+		}},
+		Expected: []charmhub.FindResponse{},
+	}, {
+		Name:   "multiple responses has all architectures with same series",
+		Arch:   "amd64",
+		Series: "focal",
+		Input: []charmhub.FindResponse{{
+			Name:   "meshuggah",
+			Arches: []string{"all"},
+			Series: []string{"focal"},
+		}, {
+			Name:   "black tongue",
+			Arches: []string{"amd64"},
+			Series: []string{"bionic"},
+		}},
+		Expected: []charmhub.FindResponse{{
+			Name:   "meshuggah",
+			Arches: []string{"all"},
+			Series: []string{"focal"},
+		}},
+	}, {
+		Name:   "multiple responses has all architectures with no matching series",
+		Arch:   "amd64",
+		Series: "bionic",
+		Input: []charmhub.FindResponse{{
+			Name:   "meshuggah",
+			Arches: []string{"all"},
+			Series: []string{"focal"},
+		}, {
+			Name:   "black tongue",
+			Arches: []string{"amd64"},
+			Series: []string{"bionic"},
+		}},
+		Expected: []charmhub.FindResponse{{
+			Name:   "black tongue",
+			Arches: []string{"amd64"},
+			Series: []string{"bionic"},
+		}},
+	}, {
+		Name:   "no valid responses",
+		Arch:   "ppc64",
+		Series: "focal",
+		Input: []charmhub.FindResponse{{
+			Name:   "meshuggah",
+			Arches: []string{"arm64"},
+			Series: []string{"bionic"},
+		}, {
+			Name:   "black tongue",
+			Arches: []string{"ppc64"},
+			Series: []string{"bionic"},
+		}},
+		Expected: []charmhub.FindResponse{},
+	}}
+	for k, v := range tests {
+		c.Logf("Test %d %s", k, v.Name)
+		got := filterFindResults(v.Input, v.Arch, v.Series)
 		c.Assert(got, jc.DeepEquals, v.Expected)
 	}
 }

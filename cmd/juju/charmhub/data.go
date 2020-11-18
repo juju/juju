@@ -62,6 +62,7 @@ func convertCharmFindResult(resp charmhub.FindResponse) FindResponse {
 		Publisher: resp.Publisher,
 		Summary:   resp.Summary,
 		Version:   resp.Version,
+		Arches:    resp.Arches,
 		Series:    resp.Series,
 		StoreURL:  resp.StoreURL,
 	}
@@ -166,6 +167,34 @@ func channelArches(platforms []charmhub.Platform) set.Strings {
 	return arches
 }
 
+func filterFindResults(in []charmhub.FindResponse, architecture, series string) []charmhub.FindResponse {
+	allArch := architecture == ArchAll
+	allSeries := series == SeriesAll
+
+	// If we're searching for everything then we can skip the filtering logic
+	// and return immediately.
+	if allArch && allSeries {
+		return in
+	}
+
+	witnessed := make([]charmhub.FindResponse, 0)
+
+	for _, resp := range in {
+		archSet := set.NewStrings(resp.Arches...)
+		if archSet.Contains(ArchAll) {
+			archSet = set.NewStrings(corecharm.AllArches().StringList()...)
+		}
+		seriesSet := set.NewStrings(resp.Series...)
+
+		if (allArch || archSet.Contains(architecture)) &&
+			(allSeries || seriesSet.Contains(series) || seriesSet.Contains(SeriesAll)) {
+			witnessed = append(witnessed, resp)
+		}
+	}
+
+	return witnessed
+}
+
 type InfoResponse struct {
 	Type        string             `json:"type" yaml:"type"`
 	ID          string             `json:"id" yaml:"id"`
@@ -189,6 +218,7 @@ type FindResponse struct {
 	Publisher string   `json:"publisher" yaml:"publisher"`
 	Summary   string   `json:"summary" yaml:"summary"`
 	Version   string   `json:"version" yaml:"version"`
+	Arches    []string `json:"architectures,omitempty" yaml:"architectures,omitempty"`
 	Series    []string `json:"series,omitempty" yaml:"series,omitempty"`
 	StoreURL  string   `json:"store-url" yaml:"store-url"`
 }
