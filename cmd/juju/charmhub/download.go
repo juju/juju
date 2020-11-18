@@ -55,7 +55,10 @@ See also:
 
 // NewDownloadCommand wraps downloadCommand with sane model settings.
 func NewDownloadCommand() cmd.Command {
-	return modelcmd.Wrap(&downloadCommand{},
+	return modelcmd.Wrap(&downloadCommand{
+		charmhubCommand: &charmhubCommand{
+			arches: corecharm.AllArches(),
+		}},
 		modelcmd.WrapSkipModelInit,
 	)
 }
@@ -63,7 +66,8 @@ func NewDownloadCommand() cmd.Command {
 // downloadCommand supplies the "download" CLI command used for downloading
 // charm snaps.
 type downloadCommand struct {
-	modelcmd.ModelCommandBase
+	*charmhubCommand
+
 	out cmd.Output
 
 	modelConfigAPI ModelConfigGetter
@@ -94,9 +98,9 @@ func (c *downloadCommand) Info() *cmd.Info {
 // SetFlags defines flags which can be used with the download command.
 // It implements part of the cmd.Command interface.
 func (c *downloadCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.ModelCommandBase.SetFlags(f)
+	c.charmhubCommand.SetFlags(f)
+
 	f.StringVar(&c.channel, "channel", "", "specify a channel to use instead of the default release")
-	f.StringVar(&c.series, "series", "", "specify a series to use")
 	f.StringVar(&c.charmHubURL, "charm-hub-url", "", "override the model config by specifying the charmhub url for querying the store")
 	f.StringVar(&c.archivePath, "filepath", "", "filepath location of the charm to download to")
 }
@@ -104,6 +108,10 @@ func (c *downloadCommand) SetFlags(f *gnuflag.FlagSet) {
 // Init initializes the download command, including validating the provided
 // flags. It implements part of the cmd.Command interface.
 func (c *downloadCommand) Init(args []string) error {
+	if err := c.charmhubCommand.Init(args); err != nil {
+		return errors.Trace(err)
+	}
+
 	if len(args) < 1 || len(args) > 2 {
 		return errors.Errorf("expected a charm or bundle name")
 	}

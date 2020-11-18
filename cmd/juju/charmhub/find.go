@@ -6,7 +6,6 @@ package charmhub
 import (
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -36,23 +35,22 @@ See also:
 // NewFindCommand wraps findCommand with sane model settings.
 func NewFindCommand() cmd.Command {
 	return modelcmd.Wrap(&findCommand{
-		arches: corecharm.AllArches(),
+		charmhubCommand: &charmhubCommand{
+			arches: corecharm.AllArches(),
+		},
 	})
 }
 
 // findCommand supplies the "find" CLI command used to display find information.
 type findCommand struct {
-	modelcmd.ModelCommandBase
+	*charmhubCommand
+
 	out        cmd.Output
 	warningLog Log
 
 	api FindCommandAPI
 
 	query string
-
-	arch   string
-	arches corecharm.Arches
-	series string
 }
 
 // Find returns help related info about the command, it implements
@@ -70,7 +68,8 @@ func (c *findCommand) Info() *cmd.Info {
 // SetFlags defines flags which can be used with the find command.
 // It implements part of the cmd.Command interface.
 func (c *findCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.ModelCommandBase.SetFlags(f)
+	c.charmhubCommand.SetFlags(f)
+
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -78,32 +77,19 @@ func (c *findCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 	// TODO (stickupkid): add the following:
 	// --narrow
-	f.StringVar(&c.arch, "arch", ArchAll, fmt.Sprintf("display for a given arch <%s>", c.archArgumentList()))
-	f.StringVar(&c.series, "series", SeriesAll, "display for a given series")
 }
 
 // Init initializes the find command, including validating the provided
 // flags. It implements part of the cmd.Command interface.
 func (c *findCommand) Init(args []string) error {
+	if err := c.charmhubCommand.Init(args); err != nil {
+		return errors.Trace(err)
+	}
+
 	// We allow searching of empty queries, which will return a list of
 	// "interesting charms".
 	if len(args) > 0 {
 		c.query = args[0]
-	}
-
-	// If the architecture is empty, ensure we normalize it to all to prevent
-	// complicated comparison checking.
-	if c.arch == "" {
-		c.arch = ArchAll
-	}
-
-	if c.arch != ArchAll && !c.arches.Contains(c.arch) {
-		return errors.Errorf("unexpected architecture flag value %q, expected <%s>", c.arch, c.archArgumentList())
-	}
-
-	// It's much harder to specify the series we support in a list fashion.
-	if c.series == "" {
-		c.series = SeriesAll
 	}
 
 	return nil
@@ -190,9 +176,4 @@ func (c *findCommand) formatter(writer io.Writer, value interface{}) error {
 	}
 
 	return nil
-}
-
-func (c *findCommand) archArgumentList() string {
-	archList := strings.Join(c.arches.StringList(), "|")
-	return fmt.Sprintf("%s|%s", ArchAll, archList)
 }

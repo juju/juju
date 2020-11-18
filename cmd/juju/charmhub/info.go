@@ -4,9 +4,7 @@
 package charmhub
 
 import (
-	"fmt"
 	"io"
-	"strings"
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/cmd"
@@ -43,14 +41,17 @@ See also:
 // NewInfoCommand wraps infoCommand with sane model settings.
 func NewInfoCommand() cmd.Command {
 	return modelcmd.Wrap(&infoCommand{
-		arches: corecharm.AllArches(),
+		charmhubCommand: &charmhubCommand{
+			arches: corecharm.AllArches(),
+		},
 	})
 }
 
 // infoCommand supplies the "info" CLI command used to display info
 // about charm snaps.
 type infoCommand struct {
-	modelcmd.ModelCommandBase
+	*charmhubCommand
+
 	out        cmd.Output
 	warningLog Log
 
@@ -59,10 +60,6 @@ type infoCommand struct {
 
 	config        bool
 	charmOrBundle string
-
-	arch   string
-	arches corecharm.Arches
-	series string
 
 	unicode string
 }
@@ -82,7 +79,8 @@ func (c *infoCommand) Info() *cmd.Info {
 // SetFlags defines flags which can be used with the info command.
 // It implements part of the cmd.Command interface.
 func (c *infoCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.ModelCommandBase.SetFlags(f)
+	c.charmhubCommand.SetFlags(f)
+
 	f.BoolVar(&c.config, "config", false, "display config for this charm")
 	f.StringVar(&c.unicode, "unicode", "auto", "display output using unicode <auto|never|always>")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
@@ -90,14 +88,15 @@ func (c *infoCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json":    cmd.FormatJson,
 		"tabular": c.formatter,
 	})
-
-	f.StringVar(&c.arch, "arch", ArchAll, fmt.Sprintf("display channels supported by provided arch <%s>", c.archArgumentList()))
-	f.StringVar(&c.series, "series", SeriesAll, "display channels supported by provided series")
 }
 
 // Init initializes the info command, including validating the provided
 // flags. It implements part of the cmd.Command interface.
 func (c *infoCommand) Init(args []string) error {
+	if err := c.charmhubCommand.Init(args); err != nil {
+		return errors.Trace(err)
+	}
+
 	if len(args) != 1 {
 		return errors.Errorf("expected a charm or bundle name")
 	}
@@ -112,21 +111,6 @@ func (c *infoCommand) Init(args []string) error {
 		c.unicode = "auto"
 	default:
 		return errors.Errorf("unexpected unicode flag value %q, expected <auto|never|always>", c.unicode)
-	}
-
-	// If the architecture is empty, ensure we normalize it to all to prevent
-	// complicated comparison checking.
-	if c.arch == "" {
-		c.arch = ArchAll
-	}
-
-	if c.arch != ArchAll && !c.arches.Contains(c.arch) {
-		return errors.Errorf("unexpected architecture flag value %q, expected <%s>", c.arch, c.archArgumentList())
-	}
-
-	// It's much harder to specify the series we support in a list fashion.
-	if c.series == "" {
-		c.series = SeriesAll
 	}
 
 	return nil
@@ -219,9 +203,4 @@ func (c *infoCommand) formatter(writer io.Writer, value interface{}) error {
 	}
 
 	return nil
-}
-
-func (c *infoCommand) archArgumentList() string {
-	archList := strings.Join(c.arches.StringList(), "|")
-	return fmt.Sprintf("%s|%s", ArchAll, archList)
 }
