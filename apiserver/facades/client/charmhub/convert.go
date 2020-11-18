@@ -67,7 +67,8 @@ func convertCharmFindResult(resp transport.FindResponse) params.FindResponse {
 		Version:   resp.DefaultRelease.Revision.Version,
 		StoreURL:  resp.Entity.StoreURL,
 	}
-	result.Arches, result.Series = transformFindArchitectureSeries(resp.DefaultRelease)
+	supported := transformFindArchitectureSeries(resp.DefaultRelease)
+	result.Arches, result.Series = supported.Architectures, supported.Series
 	return result
 }
 
@@ -76,11 +77,17 @@ func publisher(ch transport.Entity) string {
 	return publisher
 }
 
-// transformFindArchitectureSeries returns a slice of supported series for
-// that revision.
-func transformFindArchitectureSeries(channel transport.FindChannelMap) ([]string, []string) {
+// supported defines a tuple of extracted items from a platform.
+type supported struct {
+	Architectures []string
+	Series        []string
+}
+
+// transformFindArchitectureSeries returns a supported type which contains
+// architectures and series for a given channel map.
+func transformFindArchitectureSeries(channel transport.FindChannelMap) supported {
 	if len(channel.Revision.Platforms) < 1 {
-		return nil, nil
+		return supported{}
 	}
 
 	var (
@@ -91,7 +98,10 @@ func transformFindArchitectureSeries(channel transport.FindChannelMap) ([]string
 		arches.Add(p.Architecture)
 		series.Add(p.Series)
 	}
-	return arches.SortedValues(), series.SortedValues()
+	return supported{
+		Architectures: arches.SortedValues(),
+		Series:        series.SortedValues(),
+	}
 }
 
 // transformInfoChannelMap returns channel map data in a format that facilitates
