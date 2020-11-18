@@ -4,7 +4,9 @@
 package charmhub
 
 import (
+	"fmt"
 	"io"
+	"strings"
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/cmd"
@@ -16,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -39,7 +42,9 @@ See also:
 
 // NewInfoCommand wraps infoCommand with sane model settings.
 func NewInfoCommand() cmd.Command {
-	return modelcmd.Wrap(&infoCommand{})
+	return modelcmd.Wrap(&infoCommand{
+		arches: corecharm.AllArches(),
+	})
 }
 
 // infoCommand supplies the "info" CLI command used to display info
@@ -54,7 +59,10 @@ type infoCommand struct {
 
 	config        bool
 	charmOrBundle string
-	series        string
+
+	arch   string
+	arches corecharm.Arches
+	series string
 
 	unicode string
 }
@@ -82,7 +90,9 @@ func (c *infoCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json":    cmd.FormatJson,
 		"tabular": c.formatter,
 	})
-	f.StringVar(&c.series, "series", "", "display channels supported by provided series")
+
+	f.StringVar(&c.arch, "arch", ArchAll, fmt.Sprintf("display channels supported by provided arch <%s>", c.archArgumentList()))
+	f.StringVar(&c.series, "series", SeriesAll, "display channels supported by provided series")
 }
 
 // Init initializes the info command, including validating the provided
@@ -103,6 +113,22 @@ func (c *infoCommand) Init(args []string) error {
 	default:
 		return errors.Errorf("unexpected unicode flag value %q, expected <auto|never|always>", c.unicode)
 	}
+
+	// If the architecture is empty, ensure we normalize it to all to prevent
+	// complicated comparison checking.
+	if c.arch == "" {
+		c.arch = ArchAll
+	}
+
+	if c.arch != ArchAll && !c.arches.Contains(c.arch) {
+		return errors.Errorf("unexpected architecture flag value %q, expected <%s>", c.arch, c.archArgumentList())
+	}
+
+	// It's much harder to specify the series we support in a list fashion.
+	if c.series == "" {
+		c.series = SeriesAll
+	}
+
 	return nil
 }
 
@@ -142,7 +168,7 @@ func (c *infoCommand) Run(ctx *cmd.Context) error {
 	// it up later.
 	c.warningLog = ctx.Warningf
 
-	view, err := convertCharmInfoResult(info, c.series)
+	view, err := convertCharmInfoResult(info, c.arch, c.series)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -150,7 +176,7 @@ func (c *infoCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *infoCommand) verifySeries(modelConfigClient ModelConfigGetter) error {
-	if c.series != "" {
+	if c.series != SeriesAll {
 		return nil
 	}
 	attrs, err := modelConfigClient.ModelGet()
@@ -193,4 +219,9 @@ func (c *infoCommand) formatter(writer io.Writer, value interface{}) error {
 	}
 
 	return nil
+}
+
+func (c *infoCommand) archArgumentList() string {
+	archList := strings.Join(c.arches.StringList(), "|")
+	return fmt.Sprintf("%s|%s", ArchAll, archList)
 }

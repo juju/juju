@@ -7,13 +7,21 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/api/charmhub"
+	corecharm "github.com/juju/juju/core/charm"
 )
 
-// SeriesAll defines platform that targets all series.
-const SeriesAll = "all"
+const (
+	// SeriesAll defines a platform that targets all series.
+	SeriesAll = "all"
+	// ArchAll defines a platform that targets all architectures.
+	ArchAll = "all"
+)
 
-func convertCharmInfoResult(info charmhub.InfoResponse, series string) (InfoResponse, error) {
+func convertCharmInfoResult(info charmhub.InfoResponse, arch, series string) (InfoResponse, error) {
+	channels := filterChannels(info.Channels, arch, series)
+
 	ir := InfoResponse{
 		Type:        info.Type,
 		ID:          info.ID,
@@ -24,7 +32,7 @@ func convertCharmInfoResult(info charmhub.InfoResponse, series string) (InfoResp
 		Series:      info.Series,
 		StoreURL:    info.StoreURL,
 		Tags:        info.Tags,
-		Channels:    convertChannels(info.Channels, series),
+		Channels:    convertChannels(channels),
 		Tracks:      info.Tracks,
 	}
 
@@ -92,16 +100,9 @@ func convertCharm(in interface{}) (*Charm, error) {
 	}, nil
 }
 
-func convertChannels(in map[string]charmhub.Channel, series string) map[string]Channel {
+func convertChannels(in map[string]charmhub.Channel) map[string]Channel {
 	out := make(map[string]Channel, len(in))
 	for k, v := range in {
-		// If the platforms contains the all series, then we need to display
-		// all the channels for that given
-		allSeries := channelSeries(v.Platforms).Contains(SeriesAll)
-		if !allSeries && (series != "" && !channelSeries(v.Platforms).Contains(series)) {
-			continue
-		}
-
 		out[k] = Channel{
 			ReleasedAt: v.ReleasedAt,
 			Track:      v.Track,
@@ -109,9 +110,38 @@ func convertChannels(in map[string]charmhub.Channel, series string) map[string]C
 			Revision:   v.Revision,
 			Size:       v.Size,
 			Version:    v.Version,
+			Series:     channelSeries(v.Platforms).SortedValues(),
+			Arches:     channelArches(v.Platforms).SortedValues(),
 		}
 	}
+
 	return out
+}
+
+func filterChannels(in map[string]charmhub.Channel, architecture, series string) map[string]charmhub.Channel {
+	allArch := architecture == ArchAll
+	allSeries := series == SeriesAll
+
+	// If we're searching for everything then we can skip the filtering logic
+	// and return immediately.
+	if allArch && allSeries {
+		return in
+	}
+
+	// Channels that match any part of the criteria should be witnessed and
+	// kept.
+	witnessed := make(map[string]charmhub.Channel)
+
+	for k, v := range in {
+		archSet := channelArches(v.Platforms)
+		seriesSet := channelSeries(v.Platforms)
+
+		if (allArch || archSet.Contains(architecture)) &&
+			(allSeries || seriesSet.Contains(series) || seriesSet.Contains(SeriesAll)) {
+			witnessed[k] = v
+		}
+	}
+	return witnessed
 }
 
 func channelSeries(platforms []charmhub.Platform) set.Strings {
@@ -120,6 +150,20 @@ func channelSeries(platforms []charmhub.Platform) set.Strings {
 		series.Add(v.Series)
 	}
 	return series
+}
+
+func channelArches(platforms []charmhub.Platform) set.Strings {
+	arches := set.NewStrings()
+	for _, v := range platforms {
+		arches.Add(v.Architecture)
+	}
+	// If the platform contains all the arches, just return them exploded.
+	// This makes the filtering logic simpler for plucking an architecture out
+	// of the channels, we should aim to do the same for series.
+	if arches.Contains(ArchAll) {
+		return set.NewStrings(corecharm.AllArches().StringList()...)
+	}
+	return arches
 }
 
 type InfoResponse struct {
@@ -150,12 +194,14 @@ type FindResponse struct {
 }
 
 type Channel struct {
-	ReleasedAt string `json:"released-at" yaml:"released-at"`
-	Track      string `json:"track" yaml:"track"`
-	Risk       string `json:"risk" yaml:"risk"`
-	Revision   int    `json:"revision" yaml:"revision"`
-	Size       int    `json:"size" yaml:"size"`
-	Version    string `json:"version" yaml:"version"`
+	ReleasedAt string   `json:"released-at" yaml:"released-at"`
+	Track      string   `json:"track" yaml:"track"`
+	Risk       string   `json:"risk" yaml:"risk"`
+	Revision   int      `json:"revision" yaml:"revision"`
+	Size       int      `json:"size" yaml:"size"`
+	Version    string   `json:"version" yaml:"version"`
+	Arches     []string `json:"architectures" yaml:"architectures"`
+	Series     []string `json:"series" yaml:"series"`
 }
 
 // Charm matches a params.CharmHubCharm

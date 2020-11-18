@@ -7,6 +7,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
 	"github.com/juju/cmd/cmdtesting"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/environs/config"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -29,7 +30,9 @@ func (s *infoSuite) TestInitNoArgs(c *gc.C) {
 }
 
 func (s *infoSuite) TestInitSuccess(c *gc.C) {
-	command := &infoCommand{}
+	command := &infoCommand{
+		arches: corecharm.AllArches(),
+	}
 	err := command.Init([]string{"test"})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -44,10 +47,18 @@ func (s *infoSuite) TestRun(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.expectModelConfig(c, "bionic")
 	s.expectInfo()
-	command := &infoCommand{infoCommandAPI: s.infoCommandAPI, modelConfigAPI: s.modelConfigAPI, charmOrBundle: "test"}
-	cmdtesting.InitCommand(command, []string{})
+
+	command := &infoCommand{
+		infoCommandAPI: s.infoCommandAPI,
+		modelConfigAPI: s.modelConfigAPI,
+		arches:         corecharm.AllArches(),
+	}
+
+	err := cmdtesting.InitCommand(command, []string{"test"})
+	c.Assert(err, jc.ErrorIsNil)
+
 	ctx := commandContextForTest(c)
-	err := command.Run(ctx)
+	err = command.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -55,24 +66,61 @@ func (s *infoSuite) TestRunJSON(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.expectInfo()
 	s.expectModelConfig(c, "bionic")
-	command := &infoCommand{infoCommandAPI: s.infoCommandAPI, modelConfigAPI: s.modelConfigAPI, charmOrBundle: "test"}
-	cmdtesting.InitCommand(command, []string{"--format", "json"})
-	ctx := commandContextForTest(c)
-	err := command.Run(ctx)
+
+	command := &infoCommand{
+		infoCommandAPI: s.infoCommandAPI,
+		modelConfigAPI: s.modelConfigAPI,
+		arches:         corecharm.AllArches(),
+	}
+
+	err := cmdtesting.InitCommand(command, []string{"test", "--format", "json"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `{"type":"charm","id":"charmCHARMcharmCHARMcharmCHARM01","name":"wordpress","description":"This will install and setup WordPress optimized to run in the cloud.","publisher":"Wordress Charmers","summary":"WordPress is a full featured web blogging tool, this charm deploys it.","series":["bionic","xenial"],"store-url":"https://someurl.com/wordpress","tags":["app","seven"],"charm":{"config":{"Options":{"agility-ratio":{"Type":"float","Description":"A number from 0 to 1 indicating agility.","Default":null},"outlook":{"Type":"string","Description":"No default outlook.","Default":null},"reticulate-splines":{"Type":"boolean","Description":"Whether to reticulate splines on launch, or not.","Default":null},"skill-level":{"Type":"int","Description":"A number indicating skill.","Default":null},"subtitle":{"Type":"string","Description":"An optional subtitle used for the application.","Default":""},"title":{"Type":"string","Description":"A descriptive title used for the application.","Default":"My Title"},"username":{"Type":"string","Description":"The name of the initial account (given admin permissions).","Default":"admin001"}}},"relations":{"provides":{"source":"dummy-token"},"requires":{"sink":"dummy-token"}},"used-by":["wordpress-everlast","wordpress-jorge","wordpress-site"]},"channel-map":{"latest/stable":{"released-at":"2019-12-16T19:44:44.076943+00:00","track":"latest","risk":"stable","revision":16,"size":12042240,"version":"1.0.3"}},"tracks":["latest"]}
+
+	ctx := commandContextForTest(c)
+	err = command.Run(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `{"type":"charm","id":"charmCHARMcharmCHARMcharmCHARM01","name":"wordpress","description":"This will install and setup WordPress optimized to run in the cloud.","publisher":"Wordress Charmers","summary":"WordPress is a full featured web blogging tool, this charm deploys it.","series":["bionic","xenial"],"store-url":"https://someurl.com/wordpress","tags":["app","seven"],"charm":{"config":{"Options":{"agility-ratio":{"Type":"float","Description":"A number from 0 to 1 indicating agility.","Default":null},"outlook":{"Type":"string","Description":"No default outlook.","Default":null},"reticulate-splines":{"Type":"boolean","Description":"Whether to reticulate splines on launch, or not.","Default":null},"skill-level":{"Type":"int","Description":"A number indicating skill.","Default":null},"subtitle":{"Type":"string","Description":"An optional subtitle used for the application.","Default":""},"title":{"Type":"string","Description":"A descriptive title used for the application.","Default":"My Title"},"username":{"Type":"string","Description":"The name of the initial account (given admin permissions).","Default":"admin001"}}},"relations":{"provides":{"source":"dummy-token"},"requires":{"sink":"dummy-token"}},"used-by":["wordpress-everlast","wordpress-jorge","wordpress-site"]},"channel-map":{"latest/stable":{"released-at":"2019-12-16T19:44:44.076943+00:00","track":"latest","risk":"stable","revision":16,"size":12042240,"version":"1.0.3","architectures":["amd64"],"series":["bionic","xenial"]}},"tracks":["latest"]}
 `)
 }
 
 func (s *infoSuite) TestRunJSONSpecifySeriesNotDefault(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.expectInfo()
-	command := &infoCommand{infoCommandAPI: s.infoCommandAPI, modelConfigAPI: s.modelConfigAPI, charmOrBundle: "test"}
-	cmdtesting.InitCommand(command, []string{"--format", "json", "--series", "xenial"})
-	ctx := commandContextForTest(c)
-	err := command.Run(ctx)
+
+	command := &infoCommand{
+		infoCommandAPI: s.infoCommandAPI,
+		modelConfigAPI: s.modelConfigAPI,
+		arches:         corecharm.AllArches(),
+	}
+
+	err := cmdtesting.InitCommand(command, []string{"test", "--format", "json", "--series", "xenial"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `{"type":"charm","id":"charmCHARMcharmCHARMcharmCHARM01","name":"wordpress","description":"This will install and setup WordPress optimized to run in the cloud.","publisher":"Wordress Charmers","summary":"WordPress is a full featured web blogging tool, this charm deploys it.","series":["bionic","xenial"],"store-url":"https://someurl.com/wordpress","tags":["app","seven"],"charm":{"config":{"Options":{"agility-ratio":{"Type":"float","Description":"A number from 0 to 1 indicating agility.","Default":null},"outlook":{"Type":"string","Description":"No default outlook.","Default":null},"reticulate-splines":{"Type":"boolean","Description":"Whether to reticulate splines on launch, or not.","Default":null},"skill-level":{"Type":"int","Description":"A number indicating skill.","Default":null},"subtitle":{"Type":"string","Description":"An optional subtitle used for the application.","Default":""},"title":{"Type":"string","Description":"A descriptive title used for the application.","Default":"My Title"},"username":{"Type":"string","Description":"The name of the initial account (given admin permissions).","Default":"admin001"}}},"relations":{"provides":{"source":"dummy-token"},"requires":{"sink":"dummy-token"}},"used-by":["wordpress-everlast","wordpress-jorge","wordpress-site"]},"channel-map":{"latest/stable":{"released-at":"2019-12-16T19:44:44.076943+00:00","track":"latest","risk":"stable","revision":16,"size":12042240,"version":"1.0.3"}},"tracks":["latest"]}
+
+	ctx := commandContextForTest(c)
+	err = command.Run(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `{"type":"charm","id":"charmCHARMcharmCHARMcharmCHARM01","name":"wordpress","description":"This will install and setup WordPress optimized to run in the cloud.","publisher":"Wordress Charmers","summary":"WordPress is a full featured web blogging tool, this charm deploys it.","series":["bionic","xenial"],"store-url":"https://someurl.com/wordpress","tags":["app","seven"],"charm":{"config":{"Options":{"agility-ratio":{"Type":"float","Description":"A number from 0 to 1 indicating agility.","Default":null},"outlook":{"Type":"string","Description":"No default outlook.","Default":null},"reticulate-splines":{"Type":"boolean","Description":"Whether to reticulate splines on launch, or not.","Default":null},"skill-level":{"Type":"int","Description":"A number indicating skill.","Default":null},"subtitle":{"Type":"string","Description":"An optional subtitle used for the application.","Default":""},"title":{"Type":"string","Description":"A descriptive title used for the application.","Default":"My Title"},"username":{"Type":"string","Description":"The name of the initial account (given admin permissions).","Default":"admin001"}}},"relations":{"provides":{"source":"dummy-token"},"requires":{"sink":"dummy-token"}},"used-by":["wordpress-everlast","wordpress-jorge","wordpress-site"]},"channel-map":{"latest/stable":{"released-at":"2019-12-16T19:44:44.076943+00:00","track":"latest","risk":"stable","revision":16,"size":12042240,"version":"1.0.3","architectures":["amd64"],"series":["bionic","xenial"]}},"tracks":["latest"]}
+`)
+}
+
+func (s *infoSuite) TestRunJSONSpecifyArch(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.expectInfo()
+	s.expectModelConfig(c, "bionic")
+
+	command := &infoCommand{
+		infoCommandAPI: s.infoCommandAPI,
+		modelConfigAPI: s.modelConfigAPI,
+		arches:         corecharm.AllArches(),
+	}
+
+	err := cmdtesting.InitCommand(command, []string{"test", "--format", "json", "--arch", "amd64"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := commandContextForTest(c)
+	err = command.Run(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `{"type":"charm","id":"charmCHARMcharmCHARMcharmCHARM01","name":"wordpress","description":"This will install and setup WordPress optimized to run in the cloud.","publisher":"Wordress Charmers","summary":"WordPress is a full featured web blogging tool, this charm deploys it.","series":["bionic","xenial"],"store-url":"https://someurl.com/wordpress","tags":["app","seven"],"charm":{"config":{"Options":{"agility-ratio":{"Type":"float","Description":"A number from 0 to 1 indicating agility.","Default":null},"outlook":{"Type":"string","Description":"No default outlook.","Default":null},"reticulate-splines":{"Type":"boolean","Description":"Whether to reticulate splines on launch, or not.","Default":null},"skill-level":{"Type":"int","Description":"A number indicating skill.","Default":null},"subtitle":{"Type":"string","Description":"An optional subtitle used for the application.","Default":""},"title":{"Type":"string","Description":"A descriptive title used for the application.","Default":"My Title"},"username":{"Type":"string","Description":"The name of the initial account (given admin permissions).","Default":"admin001"}}},"relations":{"provides":{"source":"dummy-token"},"requires":{"sink":"dummy-token"}},"used-by":["wordpress-everlast","wordpress-jorge","wordpress-site"]},"channel-map":{"latest/stable":{"released-at":"2019-12-16T19:44:44.076943+00:00","track":"latest","risk":"stable","revision":16,"size":12042240,"version":"1.0.3","architectures":["amd64"],"series":["bionic","xenial"]}},"tracks":["latest"]}
 `)
 }
 
@@ -80,10 +128,18 @@ func (s *infoSuite) TestRunJSONDefaultSeriesNotFoundNoChannel(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.expectInfo()
 	s.expectModelConfig(c, "quantal")
-	command := &infoCommand{infoCommandAPI: s.infoCommandAPI, modelConfigAPI: s.modelConfigAPI, charmOrBundle: "test"}
-	cmdtesting.InitCommand(command, []string{"--format", "json"})
+
+	command := &infoCommand{
+		infoCommandAPI: s.infoCommandAPI,
+		modelConfigAPI: s.modelConfigAPI,
+		arches:         corecharm.AllArches(),
+	}
+
+	err := cmdtesting.InitCommand(command, []string{"test", "--format", "json"})
+	c.Assert(err, jc.ErrorIsNil)
+
 	ctx := commandContextForTest(c)
-	err := command.Run(ctx)
+	err = command.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `{"type":"charm","id":"charmCHARMcharmCHARMcharmCHARM01","name":"wordpress","description":"This will install and setup WordPress optimized to run in the cloud.","publisher":"Wordress Charmers","summary":"WordPress is a full featured web blogging tool, this charm deploys it.","series":["bionic","xenial"],"store-url":"https://someurl.com/wordpress","tags":["app","seven"],"charm":{"config":{"Options":{"agility-ratio":{"Type":"float","Description":"A number from 0 to 1 indicating agility.","Default":null},"outlook":{"Type":"string","Description":"No default outlook.","Default":null},"reticulate-splines":{"Type":"boolean","Description":"Whether to reticulate splines on launch, or not.","Default":null},"skill-level":{"Type":"int","Description":"A number indicating skill.","Default":null},"subtitle":{"Type":"string","Description":"An optional subtitle used for the application.","Default":""},"title":{"Type":"string","Description":"A descriptive title used for the application.","Default":"My Title"},"username":{"Type":"string","Description":"The name of the initial account (given admin permissions).","Default":"admin001"}}},"relations":{"provides":{"source":"dummy-token"},"requires":{"sink":"dummy-token"}},"used-by":["wordpress-everlast","wordpress-jorge","wordpress-site"]},"channel-map":{},"tracks":["latest"]}
 `)
@@ -93,10 +149,18 @@ func (s *infoSuite) TestRunYAML(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.expectInfo()
 	s.expectModelConfig(c, "bionic")
-	command := &infoCommand{infoCommandAPI: s.infoCommandAPI, modelConfigAPI: s.modelConfigAPI, charmOrBundle: "test"}
-	cmdtesting.InitCommand(command, []string{"--format", "yaml"})
+
+	command := &infoCommand{
+		infoCommandAPI: s.infoCommandAPI,
+		modelConfigAPI: s.modelConfigAPI,
+		arches:         corecharm.AllArches(),
+	}
+
+	err := cmdtesting.InitCommand(command, []string{"test", "--format", "yaml"})
+	c.Assert(err, jc.ErrorIsNil)
+
 	ctx := commandContextForTest(c)
-	err := command.Run(ctx)
+	err = command.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 type: charm
@@ -156,6 +220,11 @@ channel-map:
     revision: 16
     size: 12042240
     version: 1.0.3
+    architectures:
+    - amd64
+    series:
+    - bionic
+    - xenial
 tracks:
 - latest
 `[1:])
@@ -189,7 +258,10 @@ func (s *infoSuite) expectInfo() {
 				Size:       12042240,
 				Revision:   16,
 				Version:    "1.0.3",
-				Platforms:  []charmhub.Platform{{Series: "bionic"}, {Series: "xenial"}},
+				Platforms: []charmhub.Platform{
+					{Architecture: "amd64", Series: "bionic"},
+					{Architecture: "amd64", Series: "xenial"},
+				},
 			}},
 		Charm: &charmhub.Charm{
 			Subordinate: false,
