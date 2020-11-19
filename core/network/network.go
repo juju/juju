@@ -6,6 +6,7 @@ package network
 import (
 	"fmt"
 	"math/rand"
+	"net"
 	"sort"
 
 	"github.com/juju/loggo"
@@ -107,4 +108,32 @@ func (s IDSet) SortedValues() []Id {
 		return values[i] < values[j]
 	})
 	return values
+}
+
+// SubnetsForAddresses returns subnets corresponding to the first address
+// (if available) in the input address list.
+// There can be situations (observed for CAAS) where the addresses can
+// contain a FQDN.
+// For these cases we log a warning and eschew subnet determination.
+func SubnetsForAddresses(addrs []string) []string {
+	var subs []string
+	for _, a := range addrs {
+		// We don't expect this to be the case, but guard conservatively.
+		if _, _, err := net.ParseCIDR(a); err == nil {
+			subs = append(subs, a)
+			continue
+		}
+
+		if addr := net.ParseIP(a); addr != nil {
+			if addr.To4() != nil {
+				subs = append(subs, addr.String()+"/32")
+			} else {
+				subs = append(subs, addr.String()+"/128")
+			}
+			continue
+		}
+
+		logger.Warningf("unable to determine egress subnet for %q", a)
+	}
+	return subs
 }

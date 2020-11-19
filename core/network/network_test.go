@@ -102,3 +102,16 @@ func assertValues(c *gc.C, s network.IDSet, expected ...network.Id) {
 	sorted := s.SortedValues()
 	c.Assert(sorted, gc.DeepEquals, expected)
 }
+
+func (s *NetworkSuite) TestSubnetsForAddresses(c *gc.C) {
+	addrs := []string{
+		"10.10.10.10",
+		"75ae:3af:968e:3a33:55e2:6379:fa67:d790",
+		"some.host.name",
+	}
+
+	c.Check(network.SubnetsForAddresses(addrs), gc.DeepEquals, []string{
+		"10.10.10.10/32",
+		"75ae:3af:968e:3a33:55e2:6379:fa67:d790/128",
+	})
+}
