@@ -38,10 +38,15 @@ type NetworkInfo interface {
 // for unit endpoint bindings and/or relations.
 type NetworkInfoBase struct {
 	st *state.State
+
 	// retryFactory returns a retry strategy template used to poll for
 	// and resolve addresses that may not yet have landed in state,
 	// such as for CAAS services.
 	retryFactory func() retry.CallArgs
+
+	// lookupHost is a function for returning a list of IP addresses in
+	// string form that correspond to an input host/address.
+	lookupHost func(string) ([]string, error)
 
 	unit          *state.Unit
 	app           *state.Application
@@ -51,7 +56,17 @@ type NetworkInfoBase struct {
 
 // NewNetworkInfo initialises and returns a new NetworkInfo
 // based on the input state and unit tag.
-func NewNetworkInfo(st *state.State, tag names.UnitTag, retryFactory func() retry.CallArgs) (NetworkInfo, error) {
+func NewNetworkInfo(st *state.State, tag names.UnitTag) (NetworkInfo, error) {
+	n, err := NewNetworkInfoForStrategy(st, tag, defaultRetryFactory, net.LookupHost)
+	return n, errors.Trace(err)
+}
+
+// NewNetworkInfoWithBehaviour initialises and returns a new NetworkInfo
+// based on the input state and unit tag, allowing further specification of
+// behaviour via the input retry factory and host resolver.
+func NewNetworkInfoForStrategy(
+	st *state.State, tag names.UnitTag, retryFactory func() retry.CallArgs, lookupHost func(string) ([]string, error),
+) (NetworkInfo, error) {
 	unit, err := st.Unit(tag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -84,6 +99,7 @@ func NewNetworkInfo(st *state.State, tag names.UnitTag, retryFactory func() retr
 		bindings:      bindings.Map(),
 		defaultEgress: cfg.EgressSubnets(),
 		retryFactory:  retryFactory,
+		lookupHost:    lookupHost,
 	}
 
 	if unit.ShouldBeAssigned() {
@@ -164,29 +180,18 @@ func (n *NetworkInfoBase) getEgressForRelation(
 		return n.defaultEgress, nil
 	}
 
-	egress, err := n.getEgressFromIngress(ingress.Values())
-	return egress, errors.Trace(err)
+	return subnetsForAddresses(ingress.Values()), nil
 }
 
-// getEgressFromIngress returns a subnet corresponding to the first address
-// (if available) in the input ingress address list.
-// There can be situations (observed for CAAS) where the preferred ingress
-// address is a FQDN for a load-balancer, which is intended to point at a
-// service that is not yet up.
-// If we cannot resolve the FQDN, log a warning and return a nil result.
-func (n *NetworkInfoBase) getEgressFromIngress(ingress []string) ([]string, error) {
-	if len(ingress) == 0 {
-		return nil, nil
+// subnetsForAddresses wraps the core/network method of the same name,
+// limiting the return to container at most one result.
+// TODO (manadart 2020-11-19): This preserves prior behaviour,
+// but should we just return them all?
+func subnetsForAddresses(addrs []string) []string {
+	if egress := corenetwork.SubnetsForAddresses(addrs); len(egress) > 0 {
+		return egress[:1]
 	}
-
-	egress, err := network.FormatAsCIDR([]string{ingress[0]})
-	if err != nil {
-		if _, ok := errors.Cause(err).(*net.DNSError); ok {
-			logger.Warningf("unable to determine egress subnet for %q: %s", ingress[0], err.Error())
-			return nil, nil
-		}
-	}
-	return egress, errors.Trace(err)
+	return nil
 }
 
 func (n *NetworkInfoBase) pollForAddress(
@@ -205,15 +210,15 @@ func (n *NetworkInfoBase) pollForAddress(
 	return address, retry.Call(retryArg)
 }
 
-func dedupNetworkInfoResults(info params.NetworkInfoResults) params.NetworkInfoResults {
+func uniqueNetworkInfoResults(info params.NetworkInfoResults) params.NetworkInfoResults {
 	for epName, res := range info.Results {
 		if res.Error != nil {
 			continue
 		}
-		res.IngressAddresses = dedupStringListPreservingOrder(res.IngressAddresses)
-		res.EgressSubnets = dedupStringListPreservingOrder(res.EgressSubnets)
+		res.IngressAddresses = uniqueStringsPreservingOrder(res.IngressAddresses)
+		res.EgressSubnets = uniqueStringsPreservingOrder(res.EgressSubnets)
 		for infoIdx, info := range res.Info {
-			res.Info[infoIdx].Addresses = dedupAddrList(info.Addresses)
+			res.Info[infoIdx].Addresses = uniqueInterfaceAddresses(info.Addresses)
 		}
 		info.Results[epName] = res
 	}
@@ -221,7 +226,7 @@ func dedupNetworkInfoResults(info params.NetworkInfoResults) params.NetworkInfoR
 	return info
 }
 
-func dedupStringListPreservingOrder(values []string) []string {
+func uniqueStringsPreservingOrder(values []string) []string {
 	// Ideally, we would use a set.Strings(values).Values() here but since
 	// it does not preserve the insertion order we need to do this manually.
 	seen := set.NewStrings()
@@ -237,7 +242,7 @@ func dedupStringListPreservingOrder(values []string) []string {
 	return out
 }
 
-func dedupAddrList(addrList []params.InterfaceAddress) []params.InterfaceAddress {
+func uniqueInterfaceAddresses(addrList []params.InterfaceAddress) []params.InterfaceAddress {
 	if len(addrList) <= 1 {
 		return addrList
 	}

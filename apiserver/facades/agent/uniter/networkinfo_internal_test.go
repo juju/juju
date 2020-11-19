@@ -14,9 +14,9 @@ type networkInfoSuite struct {
 
 var _ = gc.Suite(&networkInfoSuite{})
 
-// TestNetworkInfoDedupLogic ensures that we don't get a regression for
-// LP1864072.
-func (s *networkInfoSuite) TestNetworkInfoDedupLogic(c *gc.C) {
+// TestUniqueNetworkInfoResults ensures that
+// we don't get a regression for LP1864072.
+func (s *networkInfoSuite) TestUniqueNetworkInfoResults(c *gc.C) {
 	resWithDups := params.NetworkInfoResults{
 		Results: map[string]params.NetworkInfoResult{
 			"ep0": {
@@ -134,6 +134,6 @@ func (s *networkInfoSuite) TestNetworkInfoDedupLogic(c *gc.C) {
 		},
 	}
 
-	filteredRes := dedupNetworkInfoResults(resWithDups)
+	filteredRes := uniqueNetworkInfoResults(resWithDups)
 	c.Assert(filteredRes, gc.DeepEquals, expRes)
 }

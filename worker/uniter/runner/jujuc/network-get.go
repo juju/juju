@@ -30,8 +30,6 @@ type NetworkGetCommand struct {
 	egressSubnets  bool
 	keys           []string
 
-	resolveIngressAddresses bool
-
 	// deprecated
 	primaryAddress bool
 
@@ -66,8 +64,6 @@ If more than one flag is specified, a map of values is returned.
                     as the address that should be advertised to its peers.
     --ingress-address: the address the local unit should advertise as being used for incoming connections.
     --egress-subnets: subnets (in CIDR notation) from which traffic on this relation will originate.
-If --resolve-ingress-addresses is set to false, then any ingress addresses which are FQDN are included
-without attempting to resolve them to an IP address.
 `
 	return jujucmd.Info(&cmd.Info{
 		Name:    "network-get",
@@ -84,7 +80,6 @@ func (c *NetworkGetCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.bindAddress, "bind-address", false, "get the address for the binding on which the unit should listen")
 	f.BoolVar(&c.ingressAddress, "ingress-address", false, "get the ingress address for the binding")
 	f.BoolVar(&c.egressSubnets, "egress-subnets", false, "get the egress subnets for the binding")
-	f.BoolVar(&c.resolveIngressAddresses, "resolve-ingress-addresses", true, "resolve any ingress FQDN hostnames to an IP address")
 	f.Var(c.relationIdProxy, "r", "specify a relation by id")
 	f.Var(c.relationIdProxy, "relation", "")
 }
@@ -131,7 +126,7 @@ func (c *NetworkGetCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(ni.Error)
 	}
 
-	ni = resolveNetworkInfoAddresses(ni, LookupHost, c.resolveIngressAddresses)
+	ni = resolveNetworkInfoAddresses(ni, LookupHost)
 
 	// If no specific attributes were asked for, write everything we know.
 	if !c.primaryAddress && len(c.keys) == 0 {
@@ -182,7 +177,7 @@ func (c *NetworkGetCommand) Run(ctx *cmd.Context) error {
 // but rather the IP, that is, it might be better to do the resolution on input
 // rather than output (network-get) as we do here.
 func resolveNetworkInfoAddresses(
-	netInfoResult params.NetworkInfoResult, lookupHost resolver, resolveIngressAddresses bool,
+	netInfoResult params.NetworkInfoResult, lookupHost resolver,
 ) params.NetworkInfoResult {
 	// Maintain a cache of host-name -> address resolutions.
 	resolved := make(map[string]string)
@@ -205,10 +200,6 @@ func resolveNetworkInfoAddresses(
 				netInfoResult.Info[i].Addresses[j] = addr
 			}
 		}
-	}
-
-	if !resolveIngressAddresses {
-		return netInfoResult
 	}
 
 	// Resolve addresses in IngressAddresses.
