@@ -221,15 +221,15 @@ func (n *NetworkInfoBase) pollForAddress(
 	return address, retry.Call(retryArg)
 }
 
-func dedupNetworkInfoResults(info params.NetworkInfoResults) params.NetworkInfoResults {
+func uniqueNetworkInfoResults(info params.NetworkInfoResults) params.NetworkInfoResults {
 	for epName, res := range info.Results {
 		if res.Error != nil {
 			continue
 		}
-		res.IngressAddresses = dedupStringListPreservingOrder(res.IngressAddresses)
-		res.EgressSubnets = dedupStringListPreservingOrder(res.EgressSubnets)
+		res.IngressAddresses = uniqueStringsPreservingOrder(res.IngressAddresses)
+		res.EgressSubnets = uniqueStringsPreservingOrder(res.EgressSubnets)
 		for infoIdx, info := range res.Info {
-			res.Info[infoIdx].Addresses = dedupAddrList(info.Addresses)
+			res.Info[infoIdx].Addresses = uniqueInterfaceAddresses(info.Addresses)
 		}
 		info.Results[epName] = res
 	}
@@ -237,7 +237,7 @@ func dedupNetworkInfoResults(info params.NetworkInfoResults) params.NetworkInfoR
 	return info
 }
 
-func dedupStringListPreservingOrder(values []string) []string {
+func uniqueStringsPreservingOrder(values []string) []string {
 	// Ideally, we would use a set.Strings(values).Values() here but since
 	// it does not preserve the insertion order we need to do this manually.
 	seen := set.NewStrings()
@@ -253,7 +253,7 @@ func dedupStringListPreservingOrder(values []string) []string {
 	return out
 }
 
-func dedupAddrList(addrList []params.InterfaceAddress) []params.InterfaceAddress {
+func uniqueInterfaceAddresses(addrList []params.InterfaceAddress) []params.InterfaceAddress {
 	if len(addrList) <= 1 {
 		return addrList
 	}

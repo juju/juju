@@ -92,7 +92,7 @@ func (n *NetworkInfoIAAS) ProcessAPIRequest(args params.NetworkInfoParams) (para
 		result.Results[endpoint] = info
 	}
 
-	return dedupNetworkInfoResults(result), nil
+	return result, nil
 }
 
 // getRelationNetworkInfo returns the endpoint name, network space

@@ -2503,7 +2503,11 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 		return params.NetworkInfoResults{}, err
 	}
 
-	return netInfo.ProcessAPIRequest(args)
+	res, err := netInfo.ProcessAPIRequest(args)
+	if err != nil {
+		return params.NetworkInfoResults{}, err
+	}
+	return uniqueNetworkInfoResults(res), nil
 }
 
 // WatchUnitRelations returns a StringsWatcher, for each given
