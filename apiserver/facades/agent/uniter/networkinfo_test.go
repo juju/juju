@@ -6,10 +6,12 @@ package uniter_test
 import (
 	"fmt"
 	"math/rand"
+	"net"
 	"time"
 
 	"github.com/juju/charm/v7"
 	"github.com/juju/clock"
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
 	jc "github.com/juju/testing/checkers"
@@ -17,8 +19,9 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/network"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -55,8 +58,8 @@ func (s *networkInfoSuite) TestNetworksForRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = machine.SetProviderAddresses(
-		network.NewScopedSpaceAddress("10.2.3.4", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic),
+		corenetwork.NewScopedSpaceAddress("10.2.3.4", corenetwork.ScopeCloudLocal),
+		corenetwork.NewScopedSpaceAddress("4.3.2.1", corenetwork.ScopePublic),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -64,10 +67,88 @@ func (s *networkInfoSuite) TestNetworksForRelation(c *gc.C) {
 	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel, true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
+	c.Assert(boundSpace, gc.Equals, corenetwork.AlphaSpaceId)
 	c.Assert(ingress, gc.DeepEquals,
-		network.SpaceAddresses{network.NewScopedSpaceAddress("10.2.3.4", network.ScopeCloudLocal)})
+		corenetwork.SpaceAddresses{corenetwork.NewScopedSpaceAddress("10.2.3.4", corenetwork.ScopeCloudLocal)})
 	c.Assert(egress, gc.DeepEquals, []string{"10.2.3.4/32"})
+}
+
+func (s *networkInfoSuite) TestNetworksForRelationEgressHostnameSuccess(c *gc.C) {
+	prr := s.newProReqRelation(c, charm.ScopeGlobal)
+	err := prr.pu0.AssignToNewMachine()
+	c.Assert(err, jc.ErrorIsNil)
+	id, err := prr.pu0.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.Machine(id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr := corenetwork.NewSpaceAddress("host.goodname.somewhere")
+	err = machine.SetProviderAddresses(addr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.PatchValue(&network.ResolverFunc, func(string, hostname string) (*net.IPAddr, error) {
+		return &net.IPAddr{IP: net.ParseIP("10.2.3.4")}, nil
+	})
+
+	netInfo := s.newNetworkInfo(c, prr.pu0.UnitTag(), testingRetryFactory)
+	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(boundSpace, gc.Equals, corenetwork.AlphaSpaceId)
+	c.Assert(ingress, gc.DeepEquals, corenetwork.SpaceAddresses{addr})
+	c.Assert(egress, gc.DeepEquals, []string{"10.2.3.4/32"})
+}
+
+func (s *networkInfoSuite) TestNetworksForRelationEgressHostnameDNSErrorNoResult(c *gc.C) {
+	prr := s.newProReqRelation(c, charm.ScopeGlobal)
+	err := prr.pu0.AssignToNewMachine()
+	c.Assert(err, jc.ErrorIsNil)
+	id, err := prr.pu0.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.Machine(id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr := corenetwork.NewSpaceAddress("host.badname.somewhere")
+	err = machine.SetProviderAddresses(addr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Failure to resolve the hostname.
+	s.PatchValue(&network.ResolverFunc, func(string, hostname string) (*net.IPAddr, error) {
+		return nil, &net.DNSError{Err: "nope"}
+	})
+
+	netInfo := s.newNetworkInfo(c, prr.pu0.UnitTag(), testingRetryFactory)
+	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(boundSpace, gc.Equals, corenetwork.AlphaSpaceId)
+	c.Assert(ingress, gc.DeepEquals, corenetwork.SpaceAddresses{addr})
+
+	// We return a nil slice, not an error, for DNS errors during resolution.
+	c.Assert(egress, gc.IsNil)
+}
+
+func (s *networkInfoSuite) TestNetworksForRelationEgressHostnameError(c *gc.C) {
+	prr := s.newProReqRelation(c, charm.ScopeGlobal)
+	err := prr.pu0.AssignToNewMachine()
+	c.Assert(err, jc.ErrorIsNil)
+	id, err := prr.pu0.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.Machine(id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr := corenetwork.NewSpaceAddress("host.badname.somewhere")
+	err = machine.SetProviderAddresses(addr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Non-DNS resolution error.
+	s.PatchValue(&network.ResolverFunc, func(string, hostname string) (*net.IPAddr, error) {
+		return nil, errors.New("nope")
+	})
+
+	netInfo := s.newNetworkInfo(c, prr.pu0.UnitTag(), testingRetryFactory)
+	_, _, _, err = netInfo.NetworksForRelation("", prr.rel, true)
+	c.Assert(err, gc.ErrorMatches, "nope")
 }
 
 func (s *networkInfoSuite) addDevicesWithAddresses(c *gc.C, machine *state.Machine, addresses ...string) {
@@ -75,7 +156,7 @@ func (s *networkInfoSuite) addDevicesWithAddresses(c *gc.C, machine *state.Machi
 		name := fmt.Sprintf("e%x", rand.Int31())
 		deviceArgs := state.LinkLayerDeviceArgs{
 			Name: name,
-			Type: network.EthernetDevice,
+			Type: corenetwork.EthernetDevice,
 		}
 		err := machine.SetLinkLayerDevices(deviceArgs)
 		c.Assert(err, jc.ErrorIsNil)
@@ -84,7 +165,7 @@ func (s *networkInfoSuite) addDevicesWithAddresses(c *gc.C, machine *state.Machi
 
 		addressesArg := state.LinkLayerDeviceAddress{
 			DeviceName:   name,
-			ConfigMethod: network.StaticAddress,
+			ConfigMethod: corenetwork.StaticAddress,
 			CIDRAddress:  address,
 		}
 		err = machine.SetDevicesAddresses(addressesArg)
@@ -98,21 +179,21 @@ func (s *networkInfoSuite) addDevicesWithAddresses(c *gc.C, machine *state.Machi
 func (s *networkInfoSuite) TestNetworksForBinding(c *gc.C) {
 	// Add subnets for the addresses that the machine will have.
 	// We are testing a space-less deployment here.
-	_, err := s.State.AddSubnet(network.SubnetInfo{
+	_, err := s.State.AddSubnet(corenetwork.SubnetInfo{
 		CIDR:    "10.2.0.0/16",
-		SpaceID: network.AlphaSpaceId,
+		SpaceID: corenetwork.AlphaSpaceId,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.State.AddSubnet(network.SubnetInfo{
+	_, err = s.State.AddSubnet(corenetwork.SubnetInfo{
 		CIDR:    "100.2.3.0/24",
-		SpaceID: network.AlphaSpaceId,
+		SpaceID: corenetwork.AlphaSpaceId,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	bindings := map[string]string{
-		"":             network.AlphaSpaceName,
-		"server-admin": network.AlphaSpaceName,
+		"":             corenetwork.AlphaSpaceName,
+		"server-admin": corenetwork.AlphaSpaceName,
 	}
 	app := s.AddTestingApplicationWithBindings(c, "mysql", s.AddTestingCharm(c, "mysql"), bindings)
 
@@ -128,8 +209,8 @@ func (s *networkInfoSuite) TestNetworksForBinding(c *gc.C) {
 	// We need at least one address on the machine itself, because these are
 	// retrieved up-front to use as a fallback when we fail to locate addresses
 	// on link-layer devices.
-	addresses := []network.SpaceAddress{
-		network.NewSpaceAddress("10.2.3.4/16"),
+	addresses := []corenetwork.SpaceAddress{
+		corenetwork.NewSpaceAddress("10.2.3.4/16"),
 	}
 	err = machine.SetProviderAddresses(addresses...)
 	c.Assert(err, jc.ErrorIsNil)
@@ -178,11 +259,11 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 	machine, err := s.State.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
-	addresses := []network.SpaceAddress{
-		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("2.2.3.4", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("10.2.3.4", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic),
+	addresses := []corenetwork.SpaceAddress{
+		corenetwork.NewScopedSpaceAddress("1.2.3.4", corenetwork.ScopeCloudLocal),
+		corenetwork.NewScopedSpaceAddress("2.2.3.4", corenetwork.ScopeCloudLocal),
+		corenetwork.NewScopedSpaceAddress("10.2.3.4", corenetwork.ScopeCloudLocal),
+		corenetwork.NewScopedSpaceAddress("4.3.2.1", corenetwork.ScopePublic),
 	}
 	err = machine.SetProviderAddresses(addresses...)
 	c.Assert(err, jc.ErrorIsNil)
@@ -195,7 +276,7 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 
 	c.Assert(boundSpace, gc.Equals, spaceID3)
 	c.Assert(ingress, gc.DeepEquals,
-		network.SpaceAddresses{network.NewScopedSpaceAddress("10.2.3.4", network.ScopeCloudLocal)})
+		corenetwork.SpaceAddresses{corenetwork.NewScopedSpaceAddress("10.2.3.4", corenetwork.ScopeCloudLocal)})
 	c.Assert(egress, gc.DeepEquals, []string{"10.2.3.4/32"})
 }
 
@@ -209,8 +290,8 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = machine.SetProviderAddresses(
-		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic),
+		corenetwork.NewScopedSpaceAddress("1.2.3.4", corenetwork.ScopeCloudLocal),
+		corenetwork.NewScopedSpaceAddress("4.3.2.1", corenetwork.ScopePublic),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -218,9 +299,9 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelation(c *gc.C) {
 	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel, true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
+	c.Assert(boundSpace, gc.Equals, corenetwork.AlphaSpaceId)
 	c.Assert(ingress, gc.DeepEquals,
-		network.SpaceAddresses{network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic)})
+		corenetwork.SpaceAddresses{corenetwork.NewScopedSpaceAddress("4.3.2.1", corenetwork.ScopePublic)})
 	c.Assert(egress, gc.DeepEquals, []string{"4.3.2.1/32"})
 }
 
@@ -234,7 +315,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationNoPublicAddr(c *
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = machine.SetProviderAddresses(
-		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
+		corenetwork.NewScopedSpaceAddress("1.2.3.4", corenetwork.ScopeCloudLocal),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -242,9 +323,9 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationNoPublicAddr(c *
 	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel, true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
+	c.Assert(boundSpace, gc.Equals, corenetwork.AlphaSpaceId)
 	c.Assert(ingress, gc.DeepEquals,
-		network.SpaceAddresses{network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal)})
+		corenetwork.SpaceAddresses{corenetwork.NewScopedSpaceAddress("1.2.3.4", corenetwork.ScopeCloudLocal)})
 	c.Assert(egress, gc.DeepEquals, []string{"1.2.3.4/32"})
 }
 
@@ -265,7 +346,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPublicAdd
 			NotifyFunc: func(lastError error, attempt int) {
 				// Set the address after one failed retrieval attempt.
 				if attempt == 1 {
-					err := machine.SetProviderAddresses(network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic))
+					err := machine.SetProviderAddresses(corenetwork.NewScopedSpaceAddress("4.3.2.1", corenetwork.ScopePublic))
 					c.Assert(err, jc.ErrorIsNil)
 				}
 			},
@@ -276,9 +357,9 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPublicAdd
 	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel, true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
+	c.Assert(boundSpace, gc.Equals, corenetwork.AlphaSpaceId)
 	c.Assert(ingress, gc.DeepEquals,
-		network.SpaceAddresses{network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic)})
+		corenetwork.SpaceAddresses{corenetwork.NewScopedSpaceAddress("4.3.2.1", corenetwork.ScopePublic)})
 	c.Assert(egress, gc.DeepEquals, []string{"4.3.2.1/32"})
 }
 
@@ -313,7 +394,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPrivateAd
 			NotifyFunc: func(lastError error, attempt int) {
 				// Set the private address after one failed retrieval attempt.
 				if attempt == 1 {
-					err := machine.SetProviderAddresses(network.NewScopedSpaceAddress("4.3.2.1", network.ScopeCloudLocal))
+					err := machine.SetProviderAddresses(corenetwork.NewScopedSpaceAddress("4.3.2.1", corenetwork.ScopeCloudLocal))
 					c.Assert(err, jc.ErrorIsNil)
 				}
 			},
@@ -324,9 +405,9 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPrivateAd
 	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel, true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
+	c.Assert(boundSpace, gc.Equals, corenetwork.AlphaSpaceId)
 	c.Assert(ingress, gc.DeepEquals,
-		network.SpaceAddresses{network.NewScopedSpaceAddress("4.3.2.1", network.ScopeCloudLocal)})
+		corenetwork.SpaceAddresses{corenetwork.NewScopedSpaceAddress("4.3.2.1", corenetwork.ScopeCloudLocal)})
 	c.Assert(egress, gc.DeepEquals, []string{"4.3.2.1/32"})
 }
 
@@ -343,19 +424,19 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 	prr := newProReqRelationForApps(c, st, mysql, gitlab)
 
 	// We need to instantiate this with the new CAAS model state.
-	netInfo, err := uniter.NewNetworkInfo(st, prr.pu0.UnitTag(), nil)
+	netInfo, err := uniter.NewNetworkInfo(st, prr.pu0.UnitTag(), testingRetryFactory)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// First no address.
 	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel, true)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
+	c.Assert(boundSpace, gc.Equals, corenetwork.AlphaSpaceId)
 	c.Assert(ingress, gc.HasLen, 0)
 	c.Assert(egress, gc.HasLen, 0)
 
 	// Add a application address.
-	err = mysql.UpdateCloudService("", network.SpaceAddresses{
-		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
+	err = mysql.UpdateCloudService("", corenetwork.SpaceAddresses{
+		corenetwork.NewScopedSpaceAddress("1.2.3.4", corenetwork.ScopeCloudLocal),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = prr.pu0.Refresh()
@@ -363,9 +444,9 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 	boundSpace, ingress, egress, err = netInfo.NetworksForRelation("", prr.rel, true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
+	c.Assert(boundSpace, gc.Equals, corenetwork.AlphaSpaceId)
 	c.Assert(ingress, gc.DeepEquals,
-		network.SpaceAddresses{network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal)})
+		corenetwork.SpaceAddresses{corenetwork.NewScopedSpaceAddress("1.2.3.4", corenetwork.ScopeCloudLocal)})
 	c.Assert(egress, gc.DeepEquals, []string{"1.2.3.4/32"})
 }
 
@@ -389,19 +470,19 @@ func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.createNICAndBridgeWithIP(c, machine, "eth0", "br-eth0", "10.0.0.20/24")
-	s.createNICWithIP(c, machine, network.EthernetDevice, "eth1", "10.10.0.20/24")
-	s.createNICWithIP(c, machine, network.EthernetDevice, "eth2", "10.20.0.20/24")
+	s.createNICWithIP(c, machine, corenetwork.EthernetDevice, "eth1", "10.10.0.20/24")
+	s.createNICWithIP(c, machine, corenetwork.EthernetDevice, "eth2", "10.20.0.20/24")
 
-	err = machine.SetMachineAddresses(network.NewScopedSpaceAddress("10.0.0.20", network.ScopePublic),
-		network.NewScopedSpaceAddress("10.10.0.20", network.ScopePublic),
-		network.NewScopedSpaceAddress("10.10.0.30", network.ScopePublic),
-		network.NewScopedSpaceAddress("10.20.0.20", network.ScopeCloudLocal))
+	err = machine.SetMachineAddresses(corenetwork.NewScopedSpaceAddress("10.0.0.20", corenetwork.ScopePublic),
+		corenetwork.NewScopedSpaceAddress("10.10.0.20", corenetwork.ScopePublic),
+		corenetwork.NewScopedSpaceAddress("10.10.0.30", corenetwork.ScopePublic),
+		corenetwork.NewScopedSpaceAddress("10.20.0.20", corenetwork.ScopeCloudLocal))
 	c.Assert(err, jc.ErrorIsNil)
 
 	ni := s.newNetworkInfo(c, unit.UnitTag(), nil)
 	netInfo := ni.(*uniter.NetworkInfoIAAS)
 
-	res, err := netInfo.MachineNetworkInfos(spaceIDDefault, spaceIDDMZ, "666", network.AlphaSpaceId)
+	res, err := netInfo.MachineNetworkInfos(spaceIDDefault, spaceIDDMZ, "666", corenetwork.AlphaSpaceId)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, gc.HasLen, 4)
 
@@ -423,7 +504,7 @@ func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
 	c.Check(resDMZ.NetworkInfos[0].Addresses[0].Address, gc.Equals, "10.10.0.20")
 	c.Check(resDMZ.NetworkInfos[0].Addresses[0].CIDR, gc.Equals, "10.10.0.0/24")
 
-	resEmpty, ok := res[network.AlphaSpaceId]
+	resEmpty, ok := res[corenetwork.AlphaSpaceId]
 	c.Assert(ok, jc.IsTrue)
 	c.Check(resEmpty.Error, jc.ErrorIsNil)
 	c.Assert(resEmpty.NetworkInfos, gc.HasLen, 1)
@@ -456,23 +537,23 @@ func (s *networkInfoSuite) TestMachineNetworkInfosAlphaNoSubnets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.createNICAndBridgeWithIP(c, machine, "eth0", "br-eth0", "10.0.0.20/24")
-	s.createNICWithIP(c, machine, network.EthernetDevice, "eth1", "10.10.0.20/24")
-	s.createNICWithIP(c, machine, network.EthernetDevice, "eth2", "10.20.0.20/24")
+	s.createNICWithIP(c, machine, corenetwork.EthernetDevice, "eth1", "10.10.0.20/24")
+	s.createNICWithIP(c, machine, corenetwork.EthernetDevice, "eth2", "10.20.0.20/24")
 
-	err = machine.SetMachineAddresses(network.NewScopedSpaceAddress("10.0.0.20", network.ScopePublic),
-		network.NewScopedSpaceAddress("10.10.0.20", network.ScopePublic),
-		network.NewScopedSpaceAddress("10.10.0.30", network.ScopePublic),
-		network.NewScopedSpaceAddress("10.20.0.20", network.ScopeCloudLocal))
+	err = machine.SetMachineAddresses(corenetwork.NewScopedSpaceAddress("10.0.0.20", corenetwork.ScopePublic),
+		corenetwork.NewScopedSpaceAddress("10.10.0.20", corenetwork.ScopePublic),
+		corenetwork.NewScopedSpaceAddress("10.10.0.30", corenetwork.ScopePublic),
+		corenetwork.NewScopedSpaceAddress("10.20.0.20", corenetwork.ScopeCloudLocal))
 	c.Assert(err, jc.ErrorIsNil)
 
 	ni := s.newNetworkInfo(c, unit.UnitTag(), nil)
 	netInfo := ni.(*uniter.NetworkInfoIAAS)
 
-	res, err := netInfo.MachineNetworkInfos(network.AlphaSpaceId)
+	res, err := netInfo.MachineNetworkInfos(corenetwork.AlphaSpaceId)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, gc.HasLen, 1)
 
-	resEmpty, ok := res[network.AlphaSpaceId]
+	resEmpty, ok := res[corenetwork.AlphaSpaceId]
 	c.Assert(ok, jc.IsTrue)
 	c.Check(resEmpty.Error, jc.ErrorIsNil)
 	c.Assert(resEmpty.NetworkInfos, gc.HasLen, 1)
@@ -483,10 +564,10 @@ func (s *networkInfoSuite) TestMachineNetworkInfosAlphaNoSubnets(c *gc.C) {
 }
 
 func (s *networkInfoSuite) setupSpace(c *gc.C, spaceName, cidr string, public bool) string {
-	space, err := s.State.AddSpace(spaceName, network.Id(spaceName), nil, true)
+	space, err := s.State.AddSpace(spaceName, corenetwork.Id(spaceName), nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.State.AddSubnet(network.SubnetInfo{
+	_, err = s.State.AddSubnet(corenetwork.SubnetInfo{
 		CIDR:    cidr,
 		SpaceID: space.Id(),
 	})
@@ -500,12 +581,12 @@ func (s *networkInfoSuite) setupSpace(c *gc.C, spaceName, cidr string, public bo
 func (s *networkInfoSuite) createNICAndBridgeWithIP(
 	c *gc.C, machine *state.Machine, deviceName, bridgeName, cidrAddress string,
 ) {
-	s.createNICWithIP(c, machine, network.BridgeDevice, bridgeName, cidrAddress)
+	s.createNICWithIP(c, machine, corenetwork.BridgeDevice, bridgeName, cidrAddress)
 
 	err := machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
 			Name:       deviceName,
-			Type:       network.EthernetDevice,
+			Type:       corenetwork.EthernetDevice,
 			ParentName: bridgeName,
 			IsUp:       true,
 		},
@@ -514,7 +595,7 @@ func (s *networkInfoSuite) createNICAndBridgeWithIP(
 }
 
 func (s *networkInfoSuite) createNICWithIP(
-	c *gc.C, machine *state.Machine, deviceType network.LinkLayerDeviceType, deviceName, cidrAddress string,
+	c *gc.C, machine *state.Machine, deviceType corenetwork.LinkLayerDeviceType, deviceName, cidrAddress string,
 ) {
 	err := machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
@@ -529,7 +610,7 @@ func (s *networkInfoSuite) createNICWithIP(
 		state.LinkLayerDeviceAddress{
 			DeviceName:   deviceName,
 			CIDRAddress:  cidrAddress,
-			ConfigMethod: network.StaticAddress,
+			ConfigMethod: corenetwork.StaticAddress,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -671,4 +752,12 @@ func addRemoteRU(c *gc.C, rel *state.Relation, unitName string) *state.RelationU
 	ru, err := rel.RemoteUnit(unitName)
 	c.Assert(err, jc.ErrorIsNil)
 	return ru
+}
+
+var testingRetryFactory = func() retry.CallArgs {
+	return retry.CallArgs{
+		Clock:       clock.WallClock,
+		Delay:       1 * time.Millisecond,
+		MaxDuration: 3 * time.Millisecond,
+	}
 }

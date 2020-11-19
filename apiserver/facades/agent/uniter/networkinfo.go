@@ -4,6 +4,7 @@
 package uniter
 
 import (
+	"net"
 	"strings"
 	"time"
 
@@ -38,8 +39,8 @@ type NetworkInfo interface {
 type NetworkInfoBase struct {
 	st *state.State
 	// retryFactory returns a retry strategy template used to poll for
-	// addresses that may not yet have landed in state,
-	// such as for CAAS containers or HA syncing.
+	// and resolve addresses that may not yet have landed in state,
+	// such as for CAAS services.
 	retryFactory func() retry.CallArgs
 
 	unit          *state.Unit
@@ -91,19 +92,6 @@ func NewNetworkInfo(st *state.State, tag names.UnitTag, retryFactory func() retr
 	return &NetworkInfoCAAS{base}, nil
 }
 
-// getModelEgressSubnets returns model configuration for egress subnets.
-func (n *NetworkInfoBase) getModelEgressSubnets() ([]string, error) {
-	model, err := n.st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	cfg, err := model.ModelConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return cfg.EgressSubnets(), nil
-}
-
 // getRelationAndEndpointName returns the relation for the input ID
 // and the name of the endpoint used by the relation.
 func (n *NetworkInfoBase) getRelationAndEndpointName(relationID int) (*state.Relation, string, error) {
@@ -118,20 +106,6 @@ func (n *NetworkInfoBase) getRelationAndEndpointName(relationID int) (*state.Rel
 	}
 
 	return rel, endpoint.Name, nil
-}
-
-// getRelationEgressSubnets returns the egress CIDRs for the input relation.
-// If no networks are found, return the model default egress CIDRS.
-func (n *NetworkInfoBase) getRelationEgressSubnets(rel *state.Relation) ([]string, error) {
-	egressSubnets, err := state.NewRelationEgressNetworks(n.st).Networks(rel.Tag().Id())
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return n.defaultEgress, nil
-		}
-		return nil, errors.Trace(err)
-	}
-
-	return egressSubnets.CIDRS(), nil
 }
 
 // maybeGetUnitAddress returns an address for the member unit if either the
@@ -163,6 +137,56 @@ func (n *NetworkInfoBase) maybeGetUnitAddress(rel *state.Relation) (corenetwork.
 	}
 
 	return nil, nil
+}
+
+// getEgressForRelation returns any explicitly defined egress subnets
+// for the relation, falling back to configured model egress.
+// If there are none, it attempts to resolve a subnet from the input
+// ingress addresses.
+func (n *NetworkInfoBase) getEgressForRelation(
+	rel *state.Relation, ingress corenetwork.SpaceAddresses,
+) ([]string, error) {
+	egressSubnets, err := state.NewRelationEgressNetworks(n.st).Networks(rel.Tag().Id())
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		}
+	}
+
+	if egressSubnets != nil {
+		egress := egressSubnets.CIDRS()
+		if len(egress) > 0 {
+			return egress, nil
+		}
+	}
+
+	if len(n.defaultEgress) > 0 {
+		return n.defaultEgress, nil
+	}
+
+	egress, err := n.getEgressFromIngress(ingress.Values())
+	return egress, errors.Trace(err)
+}
+
+// getEgressFromIngress returns a subnet corresponding to the first address
+// (if available) in the input ingress address list.
+// There can be situations (observed for CAAS) where the preferred ingress
+// address is a FQDN for a load-balancer, which is intended to point at a
+// service that is not yet up.
+// If we cannot resolve the FQDN, log a warning and return a nil result.
+func (n *NetworkInfoBase) getEgressFromIngress(ingress []string) ([]string, error) {
+	if len(ingress) == 0 {
+		return nil, nil
+	}
+
+	egress, err := network.FormatAsCIDR([]string{ingress[0]})
+	if err != nil {
+		if _, ok := errors.Cause(err).(*net.DNSError); ok {
+			logger.Warningf("unable to determine egress subnet for %q: %s", ingress[0], err.Error())
+			return nil, nil
+		}
+	}
+	return egress, errors.Trace(err)
 }
 
 func (n *NetworkInfoBase) pollForAddress(
