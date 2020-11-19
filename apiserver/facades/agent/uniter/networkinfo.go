@@ -38,10 +38,15 @@ type NetworkInfo interface {
 // for unit endpoint bindings and/or relations.
 type NetworkInfoBase struct {
 	st *state.State
+
 	// retryFactory returns a retry strategy template used to poll for
 	// and resolve addresses that may not yet have landed in state,
 	// such as for CAAS services.
 	retryFactory func() retry.CallArgs
+
+	// lookupHost is a function for returning a list of IP addresses in
+	// string form that correspond to an input host/address.
+	lookupHost func(string) ([]string, error)
 
 	unit          *state.Unit
 	app           *state.Application
@@ -51,7 +56,17 @@ type NetworkInfoBase struct {
 
 // NewNetworkInfo initialises and returns a new NetworkInfo
 // based on the input state and unit tag.
-func NewNetworkInfo(st *state.State, tag names.UnitTag, retryFactory func() retry.CallArgs) (NetworkInfo, error) {
+func NewNetworkInfo(st *state.State, tag names.UnitTag) (NetworkInfo, error) {
+	n, err := NewNetworkInfoForStrategy(st, tag, defaultRetryFactory, net.LookupHost)
+	return n, errors.Trace(err)
+}
+
+// NewNetworkInfoWithBehaviour initialises and returns a new NetworkInfo
+// based on the input state and unit tag, allowing further specification of
+// behaviour via the input retry factory and host resolver.
+func NewNetworkInfoForStrategy(
+	st *state.State, tag names.UnitTag, retryFactory func() retry.CallArgs, lookupHost func(string) ([]string, error),
+) (NetworkInfo, error) {
 	unit, err := st.Unit(tag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -84,6 +99,7 @@ func NewNetworkInfo(st *state.State, tag names.UnitTag, retryFactory func() retr
 		bindings:      bindings.Map(),
 		defaultEgress: cfg.EgressSubnets(),
 		retryFactory:  retryFactory,
+		lookupHost:    lookupHost,
 	}
 
 	if unit.ShouldBeAssigned() {

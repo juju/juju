@@ -424,7 +424,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 	prr := newProReqRelationForApps(c, st, mysql, gitlab)
 
 	// We need to instantiate this with the new CAAS model state.
-	netInfo, err := uniter.NewNetworkInfo(st, prr.pu0.UnitTag(), testingRetryFactory)
+	netInfo, err := uniter.NewNetworkInfoForStrategy(st, prr.pu0.UnitTag(), testingRetryFactory, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// First no address.
@@ -631,7 +631,7 @@ func (s *networkInfoSuite) newNetworkInfo(
 		}
 	}
 
-	ni, err := uniter.NewNetworkInfo(s.State, tag, retryFactory)
+	ni, err := uniter.NewNetworkInfoForStrategy(s.State, tag, retryFactory, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return ni
 }
