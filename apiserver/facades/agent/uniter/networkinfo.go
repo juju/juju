@@ -184,25 +184,36 @@ func (n *NetworkInfoBase) getEgressForRelation(
 	return egress, errors.Trace(err)
 }
 
-// getEgressFromIngress returns a subnet corresponding to the first address
+// getEgressFromIngress returns subnets corresponding to the first address
 // (if available) in the input ingress address list.
 // There can be situations (observed for CAAS) where the preferred ingress
-// address is a FQDN for a load-balancer, which is intended to point at a
-// service that is not yet up.
-// If we cannot resolve the FQDN, log a warning and return a nil result.
+// address is a FQDN.
+// For these cases we log a warning and eschew egress determination.
 func (n *NetworkInfoBase) getEgressFromIngress(ingress []string) ([]string, error) {
-	if len(ingress) == 0 {
-		return nil, nil
-	}
+	var egress []string
+	for _, a := range ingress {
+		// We don't expect this to be the case, but guard conservatively.
+		if _, _, err := net.ParseCIDR(a); err == nil {
+			egress = append(egress, a)
+			continue
+		}
 
-	egress, err := network.FormatAsCIDR([]string{ingress[0]})
-	if err != nil {
-		if _, ok := errors.Cause(err).(*net.DNSError); ok {
-			logger.Warningf("unable to determine egress subnet for %q: %s", ingress[0], err.Error())
+		if addr := net.ParseIP(a); addr != nil {
+			if addr.To4() != nil {
+				egress = append(egress, addr.String()+"/32")
+			} else {
+				egress = append(egress, addr.String()+"/128")
+			}
+		} else {
+			logger.Warningf("unable to determine egress subnet for %q", a)
 			return nil, nil
 		}
 	}
-	return egress, errors.Trace(err)
+
+	if len(egress) == 0 {
+		return nil, nil
+	}
+	return egress[:1], nil
 }
 
 func (n *NetworkInfoBase) pollForAddress(
