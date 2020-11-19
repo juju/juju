@@ -233,7 +233,9 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	default:
 		filterFn = filterByArchitectureAndSeries(c.arch, c.series)
 	}
-	channelMap := filterInfoChannelMap(info.ChannelMap, filterFn)
+
+	channelMap := linkClosedChannels(info.ChannelMap)
+	channelMap = filterInfoChannelMap(channelMap, filterFn)
 	revision, found := locateRevisionByChannel(c.sortInfoChannelMap(channelMap), charmChannel)
 	if !found {
 		if c.series != "" {
@@ -402,6 +404,50 @@ func locateRevisionByChannel(channelMaps []transport.InfoChannelMap, channel cor
 		}
 	}
 	return transport.InfoRevision{}, false
+}
+
+func linkClosedChannels(channelMaps []transport.InfoChannelMap) []transport.InfoChannelMap {
+	witness := make(map[string]map[string]transport.InfoChannelMap)
+	for _, channelMap := range channelMaps {
+		if _, ok := witness[channelMap.Channel.Track]; !ok {
+			witness[channelMap.Channel.Track] = make(map[string]transport.InfoChannelMap)
+		}
+		witness[channelMap.Channel.Track][channelMap.Channel.Risk] = channelMap
+	}
+	for _, risks := range witness {
+		for i := 0; i < len(channelRisks); i++ {
+			risk := channelRisks[i]
+
+			if _, ok := risks[risk]; !ok {
+				// We have a closed channel.
+
+				var last string
+				for k := i - 1; k >= 0; k-- {
+					name := channelRisks[k]
+					if _, ok := risks[name]; ok {
+						last = name
+					}
+				}
+				if last == "" {
+					continue
+				}
+
+				link := risks[last]
+				linkCh := link.Channel
+				linkCh.Risk = risk
+				link.Channel = linkCh
+				risks[risk] = link
+			}
+		}
+	}
+
+	var result []transport.InfoChannelMap
+	for _, risks := range witness {
+		for _, channel := range risks {
+			result = append(result, channel)
+		}
+	}
+	return result
 }
 
 func isSeriesInPlatforms(platforms []transport.Platform, series string) bool {

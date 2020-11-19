@@ -414,6 +414,16 @@ func (s *downloadSuite) TestChannelMapSort(c *gc.C) {
 	c.Assert(names, gc.DeepEquals, []string{"c", "b", "a"})
 }
 
+type linkClosedChannelsSuite struct {
+	jujutesting.IsolationSuite
+}
+
+var _ = gc.Suite(&linkClosedChannelsSuite{})
+
+func (linkClosedChannelsSuite) TestLinkClosedChannels(c *gc.C) {
+
+}
+
 type downloadFilterSuite struct {
 	jujutesting.IsolationSuite
 }
