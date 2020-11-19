@@ -281,7 +281,7 @@ func (s *introspectionSuite) TestUnitUnknownAction(c *gc.C) {
 func (s *introspectionSuite) TestUnitStartWithGet(c *gc.C) {
 	response := s.call(c, "/units?action=start")
 	c.Assert(response.StatusCode, gc.Equals, http.StatusMethodNotAllowed)
-	s.assertBody(c, response, "start requires a POST request")
+	s.assertBody(c, response, `start requires a POST request, got "GET"`)
 }
 
 func (s *introspectionSuite) TestUnitStartMissingUnits(c *gc.C) {
@@ -312,7 +312,7 @@ func (s *introspectionSuite) TestUnitStartUnits(c *gc.C) {
 func (s *introspectionSuite) TestUnitStopWithGet(c *gc.C) {
 	response := s.call(c, "/units?action=stop")
 	c.Assert(response.StatusCode, gc.Equals, http.StatusMethodNotAllowed)
-	s.assertBody(c, response, "stop requires a POST request")
+	s.assertBody(c, response, `stop requires a POST request, got "GET"`)
 }
 
 func (s *introspectionSuite) TestUnitStopMissingUnits(c *gc.C) {
@@ -561,7 +561,7 @@ func (s *introspectionSuite) TestRevokeLeaseMissingModel(c *gc.C) {
 
 	response := s.post(c, "/leases/revoke", url.Values{"lease": {"mysql"}})
 	c.Assert(response.StatusCode, gc.Equals, http.StatusBadRequest)
-	s.assertBody(c, response, `missing model`)
+	s.assertBody(c, response, `missing model uuid`)
 }
 
 func (s *introspectionSuite) setLeaseData() {

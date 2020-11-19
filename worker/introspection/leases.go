@@ -14,8 +14,9 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/core/lease"
+	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/raftlease"
+	"github.com/juju/juju/pubsub/lease"
 )
 
 type leaseHandler struct {
@@ -45,8 +46,7 @@ func (h *leaseHandler) snapshot() (*raftlease.Snapshot, error) {
 func (h *leaseHandler) list(w http.ResponseWriter, r *http.Request) {
 	snapshot, err := h.snapshot()
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintln(w, err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -62,8 +62,7 @@ func (h *leaseHandler) list(w http.ResponseWriter, r *http.Request) {
 
 	bytes, err := yaml.Marshal(h.format(data))
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, "error: %v\n", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.Write(bytes)
@@ -105,9 +104,9 @@ func (h *leaseHandler) translateSnapshot(snapshot *raftlease.Snapshot) *leases {
 	}
 	for key, value := range snapshot.Entries {
 		switch key.Namespace {
-		case lease.SingularControllerNamespace:
+		case corelease.SingularControllerNamespace:
 			result.controller[key.Lease] = makeLeaseInfo(value)
-		case lease.ApplicationLeadershipNamespace:
+		case corelease.ApplicationLeadershipNamespace:
 			model, ok := result.models[key.ModelUUID]
 			if !ok {
 				model = make(map[string]leaseInfo)
@@ -203,43 +202,40 @@ func (h *leaseHandler) format(leases *leases) map[string]interface{} {
 // ServeHTTP is part of the http.Handler interface.
 func (h *leaseHandler) revoke(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		fmt.Fprintln(w, "revoking a lease requires a POST request")
+		http.Error(w, fmt.Sprintf("revoking a lease requires a POST request, got %q", r.Method), http.StatusMethodNotAllowed)
 		return
 	}
 
 	leaseKey, err := h.parseRevokeForm(r)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, err.Error())
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	snapshot, err := h.snapshot()
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintln(w, err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	holder, ok := snapshot.Entries[leaseKey]
 	if !ok {
-		w.WriteHeader(http.StatusBadRequest)
-		if leaseKey.Namespace == lease.SingularControllerNamespace {
-			fmt.Fprintf(w, "singular lease for model %q not found\n", leaseKey.ModelUUID)
+		var msg string
+		if leaseKey.Namespace == corelease.SingularControllerNamespace {
+			msg = fmt.Sprintf("singular lease for model %q not found", leaseKey.ModelUUID)
 		} else {
-			fmt.Fprintf(w, "application lease for model %q and app %q not found\n", leaseKey.ModelUUID, leaseKey.Lease)
+			msg = fmt.Sprintf("application lease for model %q and app %q not found", leaseKey.ModelUUID, leaseKey.Lease)
 		}
+		http.Error(w, msg, http.StatusBadRequest)
 		return
 	}
 
 	if err := h.revokeLeadership(leaseKey, holder.Holder); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintln(w, err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if leaseKey.Namespace == lease.SingularControllerNamespace {
+	if leaseKey.Namespace == corelease.SingularControllerNamespace {
 		fmt.Fprintf(w, "singular lease for model %q revoked\n", leaseKey.ModelUUID)
 	} else {
 		fmt.Fprintf(w, "application lease for model %q and app %q revoked\n", leaseKey.ModelUUID, leaseKey.Lease)
@@ -266,11 +262,8 @@ func (h *leaseHandler) revokeLeadership(key raftlease.SnapshotKey, holder string
 		h.runID = rand.New(source).Int31()
 	}
 
-	// TODO(wallyworld): this should really be in a shared messages.go file under
-	// the top level pubsub package.
-	leaseRequestTopic := "lease.request"
 	requestID := atomic.AddUint64(&h.requestID, 1)
-	responseTopic := fmt.Sprintf("%s.%08x.%d", leaseRequestTopic, h.runID, requestID)
+	responseTopic := fmt.Sprintf("%s.%08x.%d", lease.LeaseRequestTopic, h.runID, requestID)
 
 	responseChan := make(chan raftlease.ForwardResponse, 1)
 	errChan := make(chan error)
@@ -289,7 +282,7 @@ func (h *leaseHandler) revokeLeadership(key raftlease.SnapshotKey, holder string
 	}
 	defer unsubscribe()
 
-	_, err = h.hub.Publish(leaseRequestTopic, raftlease.ForwardRequest{
+	_, err = h.hub.Publish(lease.LeaseRequestTopic, raftlease.ForwardRequest{
 		Command:       string(bytes),
 		ResponseTopic: responseTopic,
 	})
@@ -299,7 +292,7 @@ func (h *leaseHandler) revokeLeadership(key raftlease.SnapshotKey, holder string
 
 	select {
 	case <-h.clock.After(15 * time.Second):
-		return lease.ErrTimeout
+		return corelease.ErrTimeout
 	case err := <-errChan:
 		return errors.Trace(err)
 	case response := <-responseChan:
@@ -315,16 +308,16 @@ func (h *leaseHandler) parseRevokeForm(r *http.Request) (raftlease.SnapshotKey, 
 
 	result.ModelUUID = r.Form.Get("model")
 	if result.ModelUUID == "" {
-		return result, errors.New("missing model")
+		return result, errors.New("missing model uuid")
 	}
 	result.Lease = r.Form.Get("lease")
 	// Default namespace to application, unless overridden.
-	result.Namespace = lease.ApplicationLeadershipNamespace
+	result.Namespace = corelease.ApplicationLeadershipNamespace
 	switch ns := r.Form.Get("ns"); ns {
-	case lease.SingularControllerNamespace:
+	case corelease.SingularControllerNamespace:
 		result.Namespace = ns
 		result.Lease = result.ModelUUID
-	case "", lease.ApplicationLeadershipNamespace:
+	case "", corelease.ApplicationLeadershipNamespace:
 		if result.Lease == "" {
 			return result, errors.New("missing lease")
 		}

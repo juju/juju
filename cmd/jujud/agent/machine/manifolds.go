@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/raftlease"
+	"github.com/juju/juju/pubsub/lease"
 	"github.com/juju/juju/state"
 	proxyconfig "github.com/juju/juju/utils/proxy"
 	jworker "github.com/juju/juju/worker"
@@ -101,10 +102,6 @@ const (
 	// globalClockUpdaterUpdateInterval is the interval between
 	// global clock updates.
 	globalClockUpdaterUpdateInterval = 1 * time.Second
-
-	// leaseRequestTopic is the pubsub topic that lease FSM updates
-	// will be published on.
-	leaseRequestTopic = "lease.request"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
@@ -795,7 +792,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			RaftName:             raftName,
 			StateName:            stateName,
 			CentralHubName:       centralHubName,
-			RequestTopic:         leaseRequestTopic,
+			RequestTopic:         lease.LeaseRequestTopic,
 			Logger:               loggo.GetLogger("juju.worker.raft.raftforwarder"),
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWorker:            raftforwarder.NewWorker,
@@ -810,7 +807,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			CentralHubName:       centralHubName,
 			StateName:            stateName,
 			FSM:                  config.LeaseFSM,
-			RequestTopic:         leaseRequestTopic,
+			RequestTopic:         lease.LeaseRequestTopic,
 			Logger:               loggo.GetLogger("juju.worker.lease.raft"),
 			LogDir:               agentConfig.LogDir(),
 			PrometheusRegisterer: config.PrometheusRegisterer,
