@@ -306,19 +306,6 @@ bind-addresses:
     cidr: 10.33.1.8/24`[1:])
 }
 
-func (s *NetworkGetSuite) TestNetworkGetDoNotResolve(c *gc.C) {
-	s.testScenario(c, []string{"resolvable-hostname", "--resolve-ingress-addresses=false"}, 0, `
-bind-addresses:
-- macaddress: "00:11:22:33:44:33"
-  interfacename: eth3
-  addresses:
-  - hostname: resolvable-hostname
-    address: 10.3.3.3
-    cidr: 10.33.1.8/24
-ingress-addresses:
-- resolvable-hostname`[1:])
-}
-
 func (s *NetworkGetSuite) testScenario(c *gc.C, args []string, code int, out string) {
 	ctx := cmdtesting.Context(c)
 
