@@ -11,11 +11,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charmhub"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/arch"
 )
 
 const (
@@ -35,20 +35,21 @@ See also:
 // NewFindCommand wraps findCommand with sane model settings.
 func NewFindCommand() cmd.Command {
 	return modelcmd.Wrap(&findCommand{
-		charmhubCommand: &charmhubCommand{
-			arches: arch.AllArches(),
+		charmHubCommand: newCharmHubCommand(),
+		CharmHubClientFunc: func(api base.APICallCloser) FindCommandAPI {
+			return charmhub.NewClient(api)
 		},
 	})
 }
 
 // findCommand supplies the "find" CLI command used to display find information.
 type findCommand struct {
-	*charmhubCommand
+	*charmHubCommand
+
+	CharmHubClientFunc func(base.APICallCloser) FindCommandAPI
 
 	out        cmd.Output
 	warningLog Log
-
-	api FindCommandAPI
 
 	query string
 }
@@ -68,7 +69,7 @@ func (c *findCommand) Info() *cmd.Info {
 // SetFlags defines flags which can be used with the find command.
 // It implements part of the cmd.Command interface.
 func (c *findCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.charmhubCommand.SetFlags(f)
+	c.charmHubCommand.SetFlags(f)
 
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
@@ -82,7 +83,7 @@ func (c *findCommand) SetFlags(f *gnuflag.FlagSet) {
 // Init initializes the find command, including validating the provided
 // flags. It implements part of the cmd.Command interface.
 func (c *findCommand) Init(args []string) error {
-	if err := c.charmhubCommand.Init(args); err != nil {
+	if err := c.charmHubCommand.Init(args); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -98,13 +99,19 @@ func (c *findCommand) Init(args []string) error {
 // Run is the business logic of the find command.  It implements the meaty
 // part of the cmd.Command interface.
 func (c *findCommand) Run(ctx *cmd.Context) error {
-	client, err := c.getAPI()
-	if err != nil {
-		return err
+	if err := c.charmHubCommand.Run(ctx); err != nil {
+		return errors.Trace(err)
 	}
-	defer func() { _ = client.Close() }()
 
-	results, err := client.Find(c.query)
+	apiRoot, err := c.APIRootFunc()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer func() { _ = apiRoot.Close() }()
+
+	charmHubClient := c.CharmHubClientFunc(apiRoot)
+
+	results, err := charmHubClient.Find(c.query)
 	if params.IsCodeNotFound(err) {
 		return errors.Wrap(err, errors.Errorf("Nothing found for query %q.", c.query))
 	} else if err != nil {
@@ -120,20 +127,6 @@ func (c *findCommand) Run(ctx *cmd.Context) error {
 	results = filterFindResults(results, c.arch, c.series)
 
 	return c.output(ctx, results)
-}
-
-// getAPI returns the API that supplies methods
-// required to execute this command.
-func (c *findCommand) getAPI() (FindCommandAPI, error) {
-	if c.api != nil {
-		return c.api, nil
-	}
-	api, err := c.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Annotate(err, "opening API connection")
-	}
-	client := charmhub.NewClient(api)
-	return client, nil
 }
 
 func (c *findCommand) output(ctx *cmd.Context, results []charmhub.FindResponse) error {

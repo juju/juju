@@ -20,12 +20,10 @@ import (
 	"github.com/juju/os/v2/series"
 	utilsarch "github.com/juju/utils/arch"
 
-	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/environs/config"
 )
@@ -58,23 +56,23 @@ See also:
 // NewDownloadCommand wraps downloadCommand with sane model settings.
 func NewDownloadCommand() cmd.Command {
 	return modelcmd.Wrap(&downloadCommand{
-		charmhubCommand: &charmhubCommand{
-			arches: arch.AllArches(),
+		charmHubCommand: newCharmHubCommand(),
+		fallbackArch:    utilsarch.HostArch(),
+		orderedSeries:   series.SupportedJujuControllerSeries(),
+		CharmHubClientFunc: func(config charmhub.Config, fs charmhub.FileSystem) (DownloadCommandAPI, error) {
+			return charmhub.NewClientWithFileSystem(config, fs)
 		},
-		fallbackArch:  utilsarch.HostArch(),
-		orderedSeries: series.SupportedJujuControllerSeries(),
 	}, modelcmd.WrapSkipModelInit)
 }
 
 // downloadCommand supplies the "download" CLI command used for downloading
 // charm snaps.
 type downloadCommand struct {
-	*charmhubCommand
+	*charmHubCommand
+
+	CharmHubClientFunc func(charmhub.Config, charmhub.FileSystem) (DownloadCommandAPI, error)
 
 	out cmd.Output
-
-	modelConfigAPI ModelConfigGetter
-	charmHubClient CharmHubClient
 
 	channel       string
 	charmHubURL   string
@@ -101,7 +99,7 @@ func (c *downloadCommand) Info() *cmd.Info {
 // SetFlags defines flags which can be used with the download command.
 // It implements part of the cmd.Command interface.
 func (c *downloadCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.charmhubCommand.SetFlags(f)
+	c.charmHubCommand.SetFlags(f)
 
 	f.StringVar(&c.channel, "channel", "", "specify a channel to use instead of the default release")
 	f.StringVar(&c.charmHubURL, "charm-hub-url", "", "override the model config by specifying the charmhub url for querying the store")
@@ -111,7 +109,7 @@ func (c *downloadCommand) SetFlags(f *gnuflag.FlagSet) {
 // Init initializes the download command, including validating the provided
 // flags. It implements part of the cmd.Command interface.
 func (c *downloadCommand) Init(args []string) error {
-	if err := c.charmhubCommand.Init(args); err != nil {
+	if err := c.charmHubCommand.Init(args); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -154,7 +152,10 @@ func (c *downloadCommand) validateCharmOrBundle(charmOrBundle string) error {
 // Run is the business logic of the download command.  It implements the meaty
 // part of the cmd.Command interface.
 func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
-	var charmHubURL string
+	var (
+		err         error
+		charmHubURL string
+	)
 	if c.charmHubURL != "" {
 		charmHubURL = c.charmHubURL
 	} else {
@@ -172,12 +173,14 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 			return errors.Trace(err)
 		}
 
-		config, err := c.getModelConfig()
-		if err != nil {
+		if err := c.charmHubCommand.Run(cmdContext); err != nil {
 			return errors.Trace(err)
 		}
 
-		charmHubURL, _ = config.CharmHubURL()
+		charmHubURL, err = c.getCharmHubURL()
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	config, err := charmhub.CharmHubConfigFromURL(charmHubURL, downloadLogger{
@@ -194,7 +197,7 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 		fileSystem = charmhub.DefaultFileSystem()
 	}
 
-	client, err := c.getCharmHubClient(config, fileSystem)
+	client, err := c.CharmHubClientFunc(config, fileSystem)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -219,20 +222,19 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	var (
-		found    bool
-		revision transport.InfoRevision
-	)
+	var filterFn FilterInfoChannelMapFunc
 	switch {
 	case c.arch == ArchAll && c.series == SeriesAll:
-		revision, found = c.locateRevisionByChannelByArch(info.ChannelMap, charmChannel, c.fallbackArch)
+		filterFn = filterByArchitecture(c.fallbackArch)
 	case c.arch != ArchAll && c.series == SeriesAll:
-		revision, found = c.locateRevisionByChannelByArch(info.ChannelMap, charmChannel, c.arch)
+		filterFn = filterByArchitecture(c.arch)
 	case c.arch == ArchAll && c.series != SeriesAll:
-		revision, found = c.locateRevisionByChannelBySeries(info.ChannelMap, charmChannel, c.series)
+		filterFn = filterBySeries(c.series)
 	default:
-		revision, found = c.locateRevisionByChannelByArchAndSeries(info.ChannelMap, charmChannel, c.arch, c.series)
+		filterFn = filterByArchitectureAndSeries(c.arch, c.series)
 	}
+	channelMap := filterInfoChannelMap(info.ChannelMap, filterFn)
+	revision, found := locateRevisionByChannel(c.sortInfoChannelMap(channelMap), charmChannel)
 	if !found {
 		if c.series != "" {
 			return errors.Errorf("%s %q not found for %q channel matching %q series", info.Type, c.charmOrBundle, c.channel, c.series)
@@ -250,7 +252,7 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 		path = fmt.Sprintf("%s.%s", info.Name, info.Type)
 	}
 
-	cmdContext.Infof("Fetching %s %q", info.Type, info.Name)
+	cmdContext.Infof("Fetching %s %q using %q channel at revision %d", info.Type, info.Name, charmChannel, revision.Revision)
 
 	if err := client.Download(ctx, resourceURL, path); err != nil {
 		return errors.Trace(err)
@@ -274,39 +276,42 @@ Install the %q %s with:
 	return nil
 }
 
-// getAPI returns the API that supplies methods
-// required to execute this command.
-func (c *downloadCommand) getAPI() (ModelConfigGetter, error) {
-	if c.modelConfigAPI != nil {
-		// This is for testing purposes, for testing, both values
-		// should be set.
-		return c.modelConfigAPI, nil
-	}
-	api, err := c.NewAPIRoot()
+func (c *downloadCommand) getCharmHubURL() (string, error) {
+	apiRoot, err := c.APIRootFunc()
 	if err != nil {
-		return nil, errors.Annotate(err, "opening API connection")
+		return "", errors.Trace(err)
 	}
-	return modelconfig.NewClient(api), nil
+	defer func() { _ = apiRoot.Close() }()
+
+	modelConfigClient := c.ModelConfigClientFunc(apiRoot)
+	defer func() { _ = modelConfigClient.Close() }()
+
+	attrs, err := modelConfigClient.ModelGet()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	config, err := config.New(config.NoDefaults, attrs)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	charmHubURL, _ := config.CharmHubURL()
+	return charmHubURL, nil
 }
 
-func (c *downloadCommand) getModelConfig() (*config.Config, error) {
-	api, err := c.getAPI()
-	if err != nil {
-		return nil, errors.Trace(err)
+func (c *downloadCommand) sortInfoChannelMap(in []transport.InfoChannelMap) []transport.InfoChannelMap {
+	// Order the channelMap by the ordered supported controller series. That
+	// way we'll always find the newest one first (hopefully the most
+	// supported).
+	// Then attempt to find the revision by a channel.
+	channelMap := channelMapBySeries{
+		channelMap: in,
+		series:     c.orderedSeries,
 	}
-	attrs, err := api.ModelGet()
-	if err != nil {
-		return nil, errors.Wrap(err, errors.New("cannot fetch model settings"))
-	}
+	sort.Sort(channelMap)
 
-	return config.New(config.NoDefaults, attrs)
-}
-
-func (c *downloadCommand) getCharmHubClient(config charmhub.Config, fileSystem charmhub.FileSystem) (CharmHubClient, error) {
-	if c.charmHubClient != nil {
-		return c.charmHubClient, nil
-	}
-	return charmhub.NewClientWithFileSystem(config, fileSystem)
+	return channelMap.channelMap
 }
 
 // CharmHubClient defines a charmhub client, used for querying the charmhub
@@ -343,73 +348,45 @@ func (stdoutFileSystem) Create(string) (*os.File, error) {
 	return os.NewFile(uintptr(syscall.Stdout), "/dev/stdout"), nil
 }
 
-func (c *downloadCommand) locateRevisionByChannelByArch(channelMaps []transport.InfoChannelMap, channel corecharm.Channel, arch string) (transport.InfoRevision, bool) {
-	// Order the channelMap by the ordered supported controller series. That
-	// way we'll always find the newest one first (hopefully the most
-	// supported).
-	// Then attempt to find the revision by a channel.
-	channelMap := channelMapBySeries{
-		channelMap: channelMaps,
-		series:     c.orderedSeries,
-	}
-	sort.Sort(channelMap)
-
-	var filtered []transport.InfoChannelMap
-	for _, channelMap := range channelMap.channelMap {
+func filterByArchitecture(arch string) FilterInfoChannelMapFunc {
+	return func(channelMap transport.InfoChannelMap) bool {
 		platformArch := channelMap.Channel.Platform.Architecture
-		if (platformArch == arch || platformArch == ArchAll) ||
+		return (platformArch == arch || platformArch == ArchAll) ||
 			isArchInPlatforms(channelMap.Revision.Platforms, arch) ||
-			isArchInPlatforms(channelMap.Revision.Platforms, ArchAll) {
-			filtered = append(filtered, channelMap)
-		}
+			isArchInPlatforms(channelMap.Revision.Platforms, ArchAll)
 	}
-
-	for _, channelMap := range filtered {
-		if rev, ok := locateRevisionByChannelMap(channelMap, channel); ok {
-			return rev, true
-		}
-	}
-	return transport.InfoRevision{}, false
 }
 
-func (c *downloadCommand) locateRevisionByChannelBySeries(channelMaps []transport.InfoChannelMap, channel corecharm.Channel, series string) (transport.InfoRevision, bool) {
-	// Filter out any channels that aren't of a given series.
-	var filtered []transport.InfoChannelMap
-	for _, channelMap := range channelMaps {
-		if channelMap.Channel.Platform.Series == series || isSeriesInPlatforms(channelMap.Revision.Platforms, series) {
-			filtered = append(filtered, channelMap)
-		}
+func filterBySeries(series string) FilterInfoChannelMapFunc {
+	return func(channelMap transport.InfoChannelMap) bool {
+		return channelMap.Channel.Platform.Series == series ||
+			isSeriesInPlatforms(channelMap.Revision.Platforms, series)
 	}
-
-	// If we don't have any filtered series then we don't know what to do here.
-	if len(filtered) == 0 {
-		return transport.InfoRevision{}, false
-	}
-
-	for _, channelMap := range filtered {
-		if rev, ok := locateRevisionByChannelMap(channelMap, channel); ok {
-			return rev, true
-		}
-	}
-	return transport.InfoRevision{}, false
 }
 
-func (c *downloadCommand) locateRevisionByChannelByArchAndSeries(channelMaps []transport.InfoChannelMap, channel corecharm.Channel, arch, series string) (transport.InfoRevision, bool) {
-	// Filter out any channels that aren't of a given series.
+func filterByArchitectureAndSeries(arch, series string) FilterInfoChannelMapFunc {
+	return func(channelMap transport.InfoChannelMap) bool {
+		return filterByArchitecture(arch)(channelMap) &&
+			filterBySeries(series)(channelMap)
+	}
+}
+
+// FilterInfoChannelMapFunc is a type alias for representing a filter function.
+type FilterInfoChannelMapFunc func(channelMap transport.InfoChannelMap) bool
+
+func filterInfoChannelMap(in []transport.InfoChannelMap, fn FilterInfoChannelMapFunc) []transport.InfoChannelMap {
 	var filtered []transport.InfoChannelMap
-	for _, channelMap := range channelMaps {
-		if (channelMap.Channel.Platform.Architecture == arch || isArchInPlatforms(channelMap.Revision.Platforms, arch)) &&
-			(channelMap.Channel.Platform.Series == series || isSeriesInPlatforms(channelMap.Revision.Platforms, series)) {
-			filtered = append(filtered, channelMap)
+	for _, channelMap := range in {
+		if !fn(channelMap) {
+			continue
 		}
+		filtered = append(filtered, channelMap)
 	}
+	return filtered
+}
 
-	// If we don't have any filtered series then we don't know what to do here.
-	if len(filtered) == 0 {
-		return transport.InfoRevision{}, false
-	}
-
-	for _, channelMap := range filtered {
+func locateRevisionByChannel(channelMaps []transport.InfoChannelMap, channel corecharm.Channel) (transport.InfoRevision, bool) {
+	for _, channelMap := range channelMaps {
 		if rev, ok := locateRevisionByChannelMap(channelMap, channel); ok {
 			return rev, true
 		}
