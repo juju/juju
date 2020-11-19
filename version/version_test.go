@@ -10,13 +10,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	semversion "github.com/juju/version"
 	gc "gopkg.in/check.v1"
-
-	"github.com/juju/juju/testing"
 )
 
-type suite struct {
-	testing.BaseSuite
-}
+type suite struct{}
 
 var _ = gc.Suite(&suite{})
 

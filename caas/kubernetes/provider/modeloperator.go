@@ -258,10 +258,7 @@ func modelOperatorDeployment(
 		LabelsModelOperatorDisableWebhook)
 
 	jujudCmd := fmt.Sprintf("$JUJU_TOOLS_DIR/jujud model --model-uuid=%s", modelUUID)
-	jujuDataDir, err := paths.DataDir("kubernetes")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	jujuDataDir := paths.DataDir(paths.OSUnixLike)
 
 	return &apps.Deployment{
 		ObjectMeta: meta.ObjectMeta{

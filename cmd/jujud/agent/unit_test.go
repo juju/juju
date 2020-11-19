@@ -13,11 +13,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
 	"github.com/juju/utils/voyeur"
-	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/natefinch/lumberjack.v2"
 
@@ -178,11 +175,7 @@ func (s *UnitSuite) TestRunStop(c *gc.C) {
 func (s *UnitSuite) TestUpgrade(c *gc.C) {
 	machine, unit, _, currentTools := s.primeAgent(c)
 	agent := s.newAgent(c, unit)
-	newVers := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	newVers := coretesting.CurrentVersion(c)
 	newVers.Patch++
 	envtesting.AssertUploadFakeToolsVersions(
 		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), newVers)
@@ -214,11 +207,7 @@ func (s *UnitSuite) TestUpgrade(c *gc.C) {
 func (s *UnitSuite) TestUpgradeFailsWithoutTools(c *gc.C) {
 	machine, unit, _, _ := s.primeAgent(c)
 	agent := s.newAgent(c, unit)
-	newVers := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	newVers := coretesting.CurrentVersion(c)
 	newVers.Patch++
 	err := machine.SetAgentVersion(newVers)
 	c.Assert(err, jc.ErrorIsNil)
@@ -256,11 +245,7 @@ func (s *UnitSuite) TestOpenStateFails(c *gc.C) {
 
 func (s *UnitSuite) TestAgentSetsToolsVersion(c *gc.C) {
 	_, unit, _, _ := s.primeAgent(c)
-	vers := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	vers := coretesting.CurrentVersion(c)
 	vers.Minor++
 	err := unit.SetAgentVersion(vers)
 	c.Assert(err, jc.ErrorIsNil)
@@ -282,11 +267,7 @@ func (s *UnitSuite) TestAgentSetsToolsVersion(c *gc.C) {
 			if agentTools.Version.Minor != jujuversion.Current.Minor {
 				continue
 			}
-			current := version.Binary{
-				Number: jujuversion.Current,
-				Arch:   arch.HostArch(),
-				Series: series.MustHostSeries(),
-			}
+			current := coretesting.CurrentVersion(c)
 			c.Assert(agentTools.Version, gc.DeepEquals, current)
 			done = true
 		}

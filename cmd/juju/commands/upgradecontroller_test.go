@@ -12,9 +12,7 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -110,11 +108,7 @@ func (s *UpgradeIAASControllerSuite) TestUpgradeWithRealUpload(c *gc.C) {
 	cmd := s.upgradeControllerCommand(map[int]version.Number{2: version.MustParse("1.99.99")})
 	_, err := cmdtesting.RunCommand(c, cmd, "--build-agent")
 	c.Assert(err, jc.ErrorIsNil)
-	vers := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	vers := coretesting.CurrentVersion(c)
 	vers.Build = 1
 	s.checkToolsUploaded(c, vers, vers.Number)
 }

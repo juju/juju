@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/pkg/errors"
@@ -152,8 +153,8 @@ func assertCreateMachineSuccess(c *gc.C, tmpDir string, expCommands []string) {
 			c.Errorf("failed removing %q in test %s", tmpDir, err)
 		}
 	}()
-	pathfinder := func(s string) (string, error) {
-		return tmpDir, nil
+	pathfinder := func(_ paths.OS) string {
+		return tmpDir
 	}
 
 	hostname := "host00"
@@ -199,8 +200,8 @@ func (commandWrapperSuite) TestDestroyMachineSuccess(c *gc.C) {
 	err = ioutil.WriteFile(filepath.Join(guestBase, "aname-ds.iso"), []byte("diskcontents"), 0700)
 	c.Check(err, jc.ErrorIsNil)
 
-	pathfinder := func(_ string) (string, error) {
-		return tmpDir, nil
+	pathfinder := func(_ paths.OS) string {
+		return tmpDir
 	}
 
 	stub := NewRunStub("success", nil)

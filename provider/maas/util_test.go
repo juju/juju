@@ -41,8 +41,7 @@ func (*utilSuite) TestMachineInfoCloudinitRunCmd(c *gc.C) {
 	hostname := "hostname"
 	info := machineInfo{hostname}
 	filename := "/var/lib/juju/MAASmachine.txt"
-	dataDir, err := paths.DataDir("quantal")
-	c.Assert(err, jc.ErrorIsNil)
+	dataDir := paths.DataDir(paths.OSUnixLike)
 	cloudcfg, err := cloudinit.New("quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	script, err := info.cloudinitRunCmd(cloudcfg)

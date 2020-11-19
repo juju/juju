@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/featureflag"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/loggo"
 	jujuos "github.com/juju/os"
 	"github.com/juju/os/series"
@@ -20,6 +21,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
@@ -327,4 +329,20 @@ func GetExportedFields(arg interface{}) set.Strings {
 	}
 
 	return result
+}
+
+// CurrentVersion returns the current Juju version, asserting on error.
+func CurrentVersion(c *gc.C) version.Binary {
+	return version.Binary{
+		Number: jujuversion.Current,
+		Arch:   arch.HostArch(),
+		Series: HostSeries(c),
+	}
+}
+
+// HostSeries returns series.HostSeries(), asserting on error.
+func HostSeries(c *gc.C) string {
+	hostSeries, err := series.HostSeries()
+	c.Assert(err, jc.ErrorIsNil)
+	return hostSeries
 }

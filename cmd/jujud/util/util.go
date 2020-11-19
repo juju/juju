@@ -8,20 +8,18 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/os/series"
-
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/mongo"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/upgrader"
+	"github.com/juju/loggo"
 )
 
 var (
 	logger            = loggo.GetLogger("juju.cmd.jujud.util")
-	DataDir           = paths.MustSucceed(paths.DataDir(series.MustHostSeries()))
-	LogDir            = paths.MustSucceed(paths.LogDir(series.MustHostSeries()))
+	DataDir           = paths.DataDir(paths.CurrentOS())
+	LogDir            = paths.LogDir(paths.CurrentOS())
 	EnsureMongoServer = mongo.EnsureServer
 )
 

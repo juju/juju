@@ -52,18 +52,19 @@ func (s *machineUpgraderSuite) TestNew(c *gc.C) {
 }
 
 func (s *machineUpgraderSuite) TestSetVersionWrongMachine(c *gc.C) {
-	err := s.st.SetVersion("machine-42", current)
+	err := s.st.SetVersion("machine-42", coretesting.CurrentVersion(c))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *machineUpgraderSuite) TestSetVersionNotMachine(c *gc.C) {
-	err := s.st.SetVersion("foo-42", current)
+	err := s.st.SetVersion("foo-42", coretesting.CurrentVersion(c))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *machineUpgraderSuite) TestSetVersion(c *gc.C) {
+	current := coretesting.CurrentVersion(c)
 	agentTools, err := s.rawMachine.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(agentTools, gc.IsNil)
@@ -90,6 +91,7 @@ func (s *machineUpgraderSuite) TestToolsNotMachine(c *gc.C) {
 }
 
 func (s *machineUpgraderSuite) TestTools(c *gc.C) {
+	current := coretesting.CurrentVersion(c)
 	curTools := &tools.Tools{Version: current, URL: ""}
 	curTools.Version.Minor++
 	s.rawMachine.SetAgentVersion(current)
@@ -133,6 +135,7 @@ func (s *machineUpgraderSuite) TestWatchAPIVersion(c *gc.C) {
 }
 
 func (s *machineUpgraderSuite) TestDesiredVersion(c *gc.C) {
+	current := coretesting.CurrentVersion(c)
 	curTools := &tools.Tools{Version: current, URL: ""}
 	curTools.Version.Minor++
 	s.rawMachine.SetAgentVersion(current)

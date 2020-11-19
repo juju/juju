@@ -147,9 +147,5 @@ func compileLifecycleModelTeardownSelector() k8slabels.Selector {
 }
 
 func getK8sStorageBaseDir() string {
-	s, err := paths.StorageDir(CAASProviderType)
-	if err != nil {
-		panic(err)
-	}
-	return s
+	return paths.StorageDir(paths.OSUnixLike)
 }

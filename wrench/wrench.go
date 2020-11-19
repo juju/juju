@@ -11,17 +11,15 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/juju/loggo"
-	"github.com/juju/os/series"
-
 	"github.com/juju/juju/core/paths"
+	"github.com/juju/loggo"
 )
 
 var (
 	enabledMu sync.Mutex
 	enabled   = true
 
-	dataDir   = paths.MustSucceed(paths.DataDir(series.MustHostSeries()))
+	dataDir   = paths.DataDir(paths.CurrentOS())
 	wrenchDir = filepath.Join(dataDir, "wrench")
 	jujuUid   = os.Getuid()
 )

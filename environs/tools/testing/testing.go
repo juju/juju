@@ -20,7 +20,6 @@ import (
 	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -34,7 +33,6 @@ import (
 	"github.com/juju/juju/juju/names"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	jujuversion "github.com/juju/juju/version"
 )
 
 func GetMockBundleTools(c *gc.C, expectedForceVersion *version.Number) tools.BundleToolsFunc {
@@ -44,11 +42,7 @@ func GetMockBundleTools(c *gc.C, expectedForceVersion *version.Number) tools.Bun
 		} else {
 			c.Assert(forceVersion, gc.IsNil)
 		}
-		vers := version.Binary{
-			Number: jujuversion.Current,
-			Arch:   arch.HostArch(),
-			Series: series.MustHostSeries(),
-		}
+		vers := coretesting.CurrentVersion(c)
 		sha256Hash := fmt.Sprintf("%x", sha256.New().Sum(nil))
 		return vers, false, sha256Hash, nil
 	}
@@ -58,11 +52,7 @@ func GetMockBundleTools(c *gc.C, expectedForceVersion *version.Number) tools.Bun
 // a fake tools tarball.
 func GetMockBuildTools(c *gc.C) sync.BuildAgentTarballFunc {
 	return func(build bool, forceVersion *version.Number, stream string) (*sync.BuiltAgent, error) {
-		vers := version.Binary{
-			Number: jujuversion.Current,
-			Arch:   arch.HostArch(),
-			Series: series.MustHostSeries(),
-		}
+		vers := coretesting.CurrentVersion(c)
 		if forceVersion != nil {
 			vers.Number = *forceVersion
 		}

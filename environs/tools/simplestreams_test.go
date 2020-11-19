@@ -69,10 +69,14 @@ func setupSimpleStreamsTests(t *testing.T) {
 			keys := reflect.ValueOf(liveURLs).MapKeys()
 			t.Fatalf("Unknown vendor %s. Must be one of %s", *vendor, keys)
 		}
+		hostSeries, err := series.HostSeries()
+		if err != nil {
+			t.Fatalf("fetching host series: %v", err)
+		}
 		registerLiveSimpleStreamsTests(testData.baseURL,
 			tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
 				CloudSpec: testData.validCloudSpec,
-				Series:    []string{series.MustHostSeries()},
+				Series:    []string{hostSeries},
 				Arches:    []string{"amd64"},
 				Stream:    "released",
 			}), testData.requireSigned)

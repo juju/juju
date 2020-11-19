@@ -52,7 +52,6 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/provisioner"
 )
 
@@ -173,11 +172,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Id(), gc.Equals, "0")
 
-	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	current := coretesting.CurrentVersion(c)
 	err = machine.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -568,7 +563,7 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.PatchValue(&arch.HostArch, func() string { return currentVersion.Arch })
-	s.PatchValue(&series.MustHostSeries, func() string { return currentVersion.Series })
+	s.PatchValue(&series.HostSeries, func() (string, error) { return currentVersion.Series, nil })
 
 	// Upload some plausible matches, and some that should be filtered out.
 	compatibleVersion := version.MustParseBinary("1.2.3-quantal-arm64")

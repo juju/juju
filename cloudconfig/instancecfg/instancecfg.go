@@ -779,31 +779,16 @@ func NewInstanceConfig(
 	series string,
 	apiInfo *api.Info,
 ) (*InstanceConfig, error) {
-	dataDir, err := paths.DataDir(series)
-	if err != nil {
-		return nil, err
-	}
-	logDir, err := paths.LogDir(series)
-	if err != nil {
-		return nil, err
-	}
-	metricsSpoolDir, err := paths.MetricsSpoolDir(series)
-	if err != nil {
-		return nil, err
-	}
-	transientDataDir, err := paths.TransientDataDir(series)
-	if err != nil {
-		return nil, err
-	}
-	cloudInitOutputLog := path.Join(logDir, "cloud-init-output.log")
+	osType := paths.SeriesToOS(series)
+	logDir := paths.LogDir(osType)
 	icfg := &InstanceConfig{
 		// Fixed entries.
-		DataDir:                 dataDir,
+		DataDir:                 paths.DataDir(osType),
 		LogDir:                  path.Join(logDir, "juju"),
-		MetricsSpoolDir:         metricsSpoolDir,
+		MetricsSpoolDir:         paths.MetricsSpoolDir(osType),
 		Jobs:                    []model.MachineJob{model.JobHostUnits},
-		CloudInitOutputLog:      cloudInitOutputLog,
-		TransientDataDir:        transientDataDir,
+		CloudInitOutputLog:      path.Join(logDir, "cloud-init-output.log"),
+		TransientDataDir:        paths.TransientDataDir(osType),
 		MachineAgentServiceName: "jujud-" + names.NewMachineTag(machineID).String(),
 		Series:                  series,
 		Tags:                    map[string]string{},

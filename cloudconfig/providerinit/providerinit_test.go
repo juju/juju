@@ -49,14 +49,6 @@ type CloudInitSuite struct {
 
 var _ = gc.Suite(&CloudInitSuite{})
 
-// TODO: add this to the utils package
-func must(s string, err error) string {
-	if err != nil {
-		panic(err)
-	}
-	return s
-}
-
 func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 
 	userTag := names.NewLocalUserTag("not-touched")
@@ -143,9 +135,9 @@ func (s *CloudInitSuite) TestControllerUserDataPrecise(c *gc.C) {
 
 func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 	// Use actual series paths instead of local defaults
-	logDir := must(paths.LogDir(series))
-	metricsSpoolDir := must(paths.MetricsSpoolDir(series))
-	dataDir := must(paths.DataDir(series))
+	logDir := paths.LogDir(paths.SeriesToOS(series))
+	metricsSpoolDir := paths.MetricsSpoolDir(paths.SeriesToOS(series))
+	dataDir := paths.DataDir(paths.SeriesToOS(series))
 	toolsList := tools.List{
 		&tools.Tools{
 			URL:     "http://tools.testing/tools/released/juju.tgz",
@@ -292,7 +284,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 
 func (s *CloudInitSuite) TestWindowsUserdataEncoding(c *gc.C) {
 	series := "win8"
-	metricsSpoolDir := must(paths.MetricsSpoolDir("win8"))
+	metricsSpoolDir := paths.MetricsSpoolDir(paths.SeriesToOS(series))
 	toolsList := tools.List{
 		&tools.Tools{
 			URL:     "http://foo.com/tools/released/juju1.2.3-win8-amd64.tgz",
@@ -301,10 +293,8 @@ func (s *CloudInitSuite) TestWindowsUserdataEncoding(c *gc.C) {
 			SHA256:  "1234",
 		},
 	}
-	dataDir, err := paths.DataDir(series)
-	c.Assert(err, jc.ErrorIsNil)
-	logDir, err := paths.LogDir(series)
-	c.Assert(err, jc.ErrorIsNil)
+	dataDir := paths.DataDir(paths.SeriesToOS(series))
+	logDir := paths.LogDir(paths.SeriesToOS(series))
 
 	cfg := instancecfg.InstanceConfig{
 		ControllerTag:    testing.ControllerTag,
@@ -326,7 +316,7 @@ func (s *CloudInitSuite) TestWindowsUserdataEncoding(c *gc.C) {
 		MetricsSpoolDir:         metricsSpoolDir,
 		CloudInitOutputLog:      path.Join(logDir, "cloud-init-output.log"),
 	}
-	err = cfg.SetTools(toolsList)
+	err := cfg.SetTools(toolsList)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ci, err := cloudinit.New("win8")

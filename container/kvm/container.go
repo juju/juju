@@ -25,7 +25,7 @@ type kvmContainer struct {
 	// value if we already know it (like in the list situation).
 	started *bool
 
-	pathfinder func(string) (string, error)
+	pathfinder pathfinderFunc
 	runCmd     runFunc
 }
 
