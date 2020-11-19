@@ -180,40 +180,18 @@ func (n *NetworkInfoBase) getEgressForRelation(
 		return n.defaultEgress, nil
 	}
 
-	egress, err := n.getEgressFromIngress(ingress.Values())
-	return egress, errors.Trace(err)
+	return subnetsForAddresses(ingress.Values()), nil
 }
 
-// getEgressFromIngress returns subnets corresponding to the first address
-// (if available) in the input ingress address list.
-// There can be situations (observed for CAAS) where the preferred ingress
-// address is a FQDN.
-// For these cases we log a warning and eschew egress determination.
-func (n *NetworkInfoBase) getEgressFromIngress(ingress []string) ([]string, error) {
-	var egress []string
-	for _, a := range ingress {
-		// We don't expect this to be the case, but guard conservatively.
-		if _, _, err := net.ParseCIDR(a); err == nil {
-			egress = append(egress, a)
-			continue
-		}
-
-		if addr := net.ParseIP(a); addr != nil {
-			if addr.To4() != nil {
-				egress = append(egress, addr.String()+"/32")
-			} else {
-				egress = append(egress, addr.String()+"/128")
-			}
-		} else {
-			logger.Warningf("unable to determine egress subnet for %q", a)
-			return nil, nil
-		}
+// subnetsForAddresses wraps the core/network method of the same name,
+// limiting the return to container at most one result.
+// TODO (manadart 2020-11-19): This preserves prior behaviour,
+// but should we just return them all?
+func subnetsForAddresses(addrs []string) []string {
+	if egress := corenetwork.SubnetsForAddresses(addrs); len(egress) > 0 {
+		return egress[:1]
 	}
-
-	if len(egress) == 0 {
-		return nil, nil
-	}
-	return egress[:1], nil
+	return nil
 }
 
 func (n *NetworkInfoBase) pollForAddress(

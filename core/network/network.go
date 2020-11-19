@@ -110,8 +110,8 @@ func (s IDSet) SortedValues() []Id {
 	return values
 }
 
-// SubnetsForAddresses returns subnets corresponding to the first address
-// (if available) in the input address list.
+// SubnetsForAddresses returns subnets corresponding to the addresses
+// in the input address list.
 // There can be situations (observed for CAAS) where the addresses can
 // contain a FQDN.
 // For these cases we log a warning and eschew subnet determination.

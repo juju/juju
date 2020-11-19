@@ -84,9 +84,7 @@ func (n *NetworkInfoIAAS) ProcessAPIRequest(args params.NetworkInfoParams) (para
 		}
 
 		if len(info.EgressSubnets) == 0 {
-			if info.EgressSubnets, err = n.getEgressFromIngress(info.IngressAddresses); err != nil {
-				return result, errors.Trace(err)
-			}
+			info.EgressSubnets = subnetsForAddresses(info.IngressAddresses)
 		}
 
 		result.Results[endpoint] = info
