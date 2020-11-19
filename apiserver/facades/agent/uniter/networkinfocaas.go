@@ -115,7 +115,7 @@ func (n *NetworkInfoCAAS) ProcessAPIRequest(args params.NetworkInfoParams) (para
 			info.EgressSubnets = subnetsForAddresses(info.IngressAddresses)
 		}
 
-		result.Results[endpoint] = info
+		result.Results[endpoint] = n.resolveResultHostNames(info)
 	}
 
 	return result, nil

@@ -183,6 +183,82 @@ func (n *NetworkInfoBase) getEgressForRelation(
 	return subnetsForAddresses(ingress.Values()), nil
 }
 
+func (n *NetworkInfoBase) resolveResultHostNames(netInfoResult params.NetworkInfoResult) params.NetworkInfoResult {
+	// Maintain a cache of host-name -> address resolutions.
+	resolved := make(map[string]string)
+	addressForHost := func(hostName string) string {
+		resolvedAddr, ok := resolved[hostName]
+		if !ok {
+			resolvedAddr = n.resolveHostAddress(hostName)
+			resolved[hostName] = resolvedAddr
+		}
+		return resolvedAddr
+	}
+
+	// Resolve addresses in Info.
+	for i, info := range netInfoResult.Info {
+		for j, addr := range info.Addresses {
+			if ip := net.ParseIP(addr.Address); ip == nil {
+				// If the address is not an IP, we assume it is a host name.
+				addr.Hostname = addr.Address
+				addr.Address = addressForHost(addr.Hostname)
+				netInfoResult.Info[i].Addresses[j] = addr
+			}
+		}
+	}
+
+	// Resolve addresses in IngressAddresses.
+	// This is slightly different to the addresses above in that we do not
+	// include anything that does not resolve to a usable address.
+	var newIngress []string
+	for _, addr := range netInfoResult.IngressAddresses {
+		if ip := net.ParseIP(addr); ip != nil {
+			newIngress = append(newIngress, addr)
+			continue
+		}
+		if ipAddr := addressForHost(addr); ipAddr != "" {
+			newIngress = append(newIngress, ipAddr)
+		}
+	}
+	netInfoResult.IngressAddresses = newIngress
+
+	return netInfoResult
+}
+
+func (n *NetworkInfoBase) resolveHostAddress(hostName string) string {
+	resolved, err := n.lookupHost(hostName)
+	if err != nil {
+		logger.Errorf("resolving %q: %v", hostName, err)
+		return ""
+	}
+
+	// This preserves prior behaviour from when resolution was done client-side
+	// within the network-get tool.
+	// This check is probably no longer necessary, but is preserved here
+	// conservatively.
+	for _, addr := range resolved {
+		if ip := net.ParseIP(addr); ip != nil && !ip.IsLoopback() {
+			return addr
+		}
+	}
+
+	if len(resolved) == 0 {
+		logger.Warningf("no addresses resolved for host %q", hostName)
+	} else {
+		// If we got results, but they were all filtered out, then we need to
+		// help out operators with some advice.
+		logger.Warningf(
+			"no usable addresses resolved for host %q\n\t"+
+				"resolved: %v\n\t"+
+				"consider editing the hosts file, or changing host resolution order via /etc/nsswitch.conf",
+			hostName,
+			resolved,
+		)
+	}
+
+	return ""
+}
+
 // subnetsForAddresses wraps the core/network method of the same name,
 // limiting the return to container at most one result.
 // TODO (manadart 2020-11-19): This preserves prior behaviour,
