@@ -50,7 +50,7 @@ func ubuntuEnv(paths Paths, getEnv GetEnvFunc) []string {
 	env = append(env, path...)
 
 	hostSeries, err := series.HostSeries()
-	if err != nil && hostSeries == "trusty" {
+	if err == nil && hostSeries == "trusty" {
 		// Trusty is in ESM at the time of writing and it does not have patch 20150502 for ncurses 5.9
 		// with terminal definitions for "tmux" and "tmux-256color"
 		env = append(env, "TERM=screen-256color")
@@ -73,7 +73,7 @@ func centosEnv(paths Paths, getEnv GetEnvFunc) []string {
 	// versions older than 7 are not supported and centos7 does not have patch 20150502 for ncurses 5.9
 	// with terminal definitions for "tmux" and "tmux-256color"
 	hostSeries, err := series.HostSeries()
-	if err != nil && hostSeries == "centos7" {
+	if err == nil && hostSeries == "centos7" {
 		env = append(env, "TERM=screen-256color")
 	} else {
 		env = append(env, "TERM=tmux-256color")
@@ -94,7 +94,7 @@ func opensuseEnv(paths Paths, getEnv GetEnvFunc) []string {
 	// OpenSUSE 42 does not include patch 20150502 for ncurses 5.9 with
 	// with terminal definitions for "tmux" and "tmux-256color"
 	hostSeries, err := series.HostSeries()
-	if err != nil && hostSeries == "opensuseleap" {
+	if err == nil && hostSeries == "opensuseleap" {
 		env = append(env, "TERM=screen-256color")
 	} else {
 		env = append(env, "TERM=tmux-256color")
