@@ -9,6 +9,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/cmdtesting"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -411,4 +412,196 @@ func (s *downloadSuite) TestChannelMapSort(c *gc.C) {
 	}
 
 	c.Assert(names, gc.DeepEquals, []string{"c", "b", "a"})
+}
+
+type downloadFilterSuite struct {
+	jujutesting.IsolationSuite
+}
+
+var _ = gc.Suite(&downloadFilterSuite{})
+
+func (downloadFilterSuite) TestFilterByArchitecture(c *gc.C) {
+	tests := []struct {
+		Name   string
+		In     string
+		Value  string
+		Result bool
+	}{{
+		Name:   "exact match",
+		In:     "amd64",
+		Value:  "amd64",
+		Result: true,
+	}, {
+		Name:   "no match",
+		In:     "amd64",
+		Value:  "arm64",
+		Result: false,
+	}, {
+		Name:   "any match",
+		In:     "all",
+		Value:  "all",
+		Result: true,
+	}, {
+		Name:   "any filter match",
+		In:     "all",
+		Value:  "arm64",
+		Result: true,
+	}, {
+		Name:   "any value match",
+		In:     "amd64",
+		Value:  "all",
+		Result: true,
+	}}
+
+	for i, test := range tests {
+		c.Logf("Running %d %s", i, test.Name)
+
+		filter := filterByArchitecture(test.In)
+		ok := filter(transport.InfoChannelMap{Channel: transport.Channel{
+			Platform: transport.Platform{
+				Architecture: test.Value,
+			},
+		}})
+		c.Assert(ok, gc.Equals, test.Result)
+	}
+}
+
+func (downloadFilterSuite) TestFilterBySeries(c *gc.C) {
+	tests := []struct {
+		Name   string
+		In     string
+		Value  string
+		Result bool
+	}{{
+		Name:   "exact match",
+		In:     "focal",
+		Value:  "focal",
+		Result: true,
+	}, {
+		Name:   "no match",
+		In:     "focal",
+		Value:  "bionic",
+		Result: false,
+	}, {
+		Name:   "any match",
+		In:     "all",
+		Value:  "all",
+		Result: true,
+	}, {
+		Name:   "any filter match",
+		In:     "all",
+		Value:  "bionic",
+		Result: true,
+	}, {
+		Name:   "any value match",
+		In:     "focal",
+		Value:  "all",
+		Result: true,
+	}}
+
+	for i, test := range tests {
+		c.Logf("Running %d %s", i, test.Name)
+
+		filter := filterBySeries(test.In)
+		ok := filter(transport.InfoChannelMap{Channel: transport.Channel{
+			Platform: transport.Platform{
+				Series: test.Value,
+			},
+		}})
+		c.Assert(ok, gc.Equals, test.Result)
+	}
+}
+
+func (downloadFilterSuite) TestFilterByArchitectureAndSeries(c *gc.C) {
+	tests := []struct {
+		Name     string
+		InArch   string
+		InSeries string
+		Arch     string
+		Series   string
+		Result   bool
+	}{{
+		Name:     "exact match",
+		InArch:   "amd64",
+		Arch:     "amd64",
+		InSeries: "focal",
+		Series:   "focal",
+		Result:   true,
+	}, {
+		Name:     "no match",
+		InArch:   "amd64",
+		Arch:     "arm64",
+		InSeries: "focal",
+		Series:   "bionic",
+		Result:   false,
+	}, {
+		Name:     "no arch match",
+		InArch:   "amd64",
+		Arch:     "arm64",
+		InSeries: "focal",
+		Series:   "focal",
+		Result:   false,
+	}, {
+		Name:     "no series match",
+		InArch:   "amd64",
+		Arch:     "amd64",
+		InSeries: "focal",
+		Series:   "bionic",
+		Result:   false,
+	}, {
+		Name:     "any match",
+		InArch:   "all",
+		Arch:     "all",
+		InSeries: "all",
+		Series:   "all",
+		Result:   true,
+	}, {
+		Name:     "any filter match",
+		InArch:   "all",
+		Arch:     "amd64",
+		InSeries: "all",
+		Series:   "focal",
+		Result:   true,
+	}, {
+		Name:     "any arch filter match",
+		InArch:   "all",
+		Arch:     "amd64",
+		InSeries: "focal",
+		Series:   "focal",
+		Result:   true,
+	}, {
+		Name:     "any series filter match",
+		InArch:   "amd64",
+		Arch:     "amd64",
+		InSeries: "all",
+		Series:   "focal",
+		Result:   true,
+	}, {
+		Name:     "any arch value match",
+		InArch:   "amd64",
+		Arch:     "all",
+		InSeries: "focal",
+		Series:   "focal",
+		Result:   true,
+	}, {
+		Name:     "any series value match",
+		InArch:   "amd64",
+		Arch:     "amd64",
+		InSeries: "focal",
+		Series:   "all",
+		Result:   true,
+	}}
+
+	for i, test := range tests {
+		c.Logf("Running %d %s", i, test.Name)
+
+		filter := filterByArchitectureAndSeries(test.InArch, test.InSeries)
+		ok := filter(transport.InfoChannelMap{Channel: transport.Channel{
+			Platform: transport.Platform{
+				Architecture: test.Arch,
+				Series:       test.Series,
+			},
+		}})
+		c.Assert(ok, gc.Equals, test.Result)
+	}
 }

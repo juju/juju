@@ -350,6 +350,10 @@ func (stdoutFileSystem) Create(string) (*os.File, error) {
 
 func filterByArchitecture(arch string) FilterInfoChannelMapFunc {
 	return func(channelMap transport.InfoChannelMap) bool {
+		if arch == ArchAll {
+			return true
+		}
+
 		platformArch := channelMap.Channel.Platform.Architecture
 		return (platformArch == arch || platformArch == ArchAll) ||
 			isArchInPlatforms(channelMap.Revision.Platforms, arch) ||
@@ -359,8 +363,14 @@ func filterByArchitecture(arch string) FilterInfoChannelMapFunc {
 
 func filterBySeries(series string) FilterInfoChannelMapFunc {
 	return func(channelMap transport.InfoChannelMap) bool {
-		return channelMap.Channel.Platform.Series == series ||
-			isSeriesInPlatforms(channelMap.Revision.Platforms, series)
+		if series == SeriesAll {
+			return true
+		}
+
+		platformSeries := channelMap.Channel.Platform.Series
+		return (platformSeries == series || platformSeries == SeriesAll) ||
+			isSeriesInPlatforms(channelMap.Revision.Platforms, series) ||
+			isSeriesInPlatforms(channelMap.Revision.Platforms, SeriesAll)
 	}
 }
 
