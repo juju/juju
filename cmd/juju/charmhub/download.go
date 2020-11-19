@@ -234,7 +234,10 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 		filterFn = filterByArchitectureAndSeries(c.arch, c.series)
 	}
 
-	channelMap := linkClosedChannels(info.ChannelMap)
+	channelMap, err := linkClosedChannels(info.ChannelMap)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	channelMap = filterInfoChannelMap(channelMap, filterFn)
 	revision, found := locateRevisionByChannel(c.sortInfoChannelMap(channelMap), charmChannel)
 	if !found {
@@ -406,48 +409,71 @@ func locateRevisionByChannel(channelMaps []transport.InfoChannelMap, channel cor
 	return transport.InfoRevision{}, false
 }
 
-func linkClosedChannels(channelMaps []transport.InfoChannelMap) []transport.InfoChannelMap {
-	witness := make(map[string]map[string]transport.InfoChannelMap)
+type channelMapIndex struct {
+	witnessed  bool
+	channelMap transport.InfoChannelMap
+}
+
+func linkClosedChannels(channelMaps []transport.InfoChannelMap) ([]transport.InfoChannelMap, error) {
+	witness := make(map[string][]channelMapIndex)
 	for _, channelMap := range channelMaps {
-		if _, ok := witness[channelMap.Channel.Track]; !ok {
-			witness[channelMap.Channel.Track] = make(map[string]transport.InfoChannelMap)
+		track := channelMap.Channel.Track
+		if witness[track] == nil {
+			witness[track] = make([]channelMapIndex, len(channelRisks))
 		}
-		witness[channelMap.Channel.Track][channelMap.Channel.Risk] = channelMap
+		index := riskIndex(channelMap)
+		if index < 0 {
+			return nil, errors.Errorf("invalid risk %q", channelMap.Channel.Risk)
+		}
+		witness[track][index] = channelMapIndex{
+			witnessed:  true,
+			channelMap: channelMap,
+		}
 	}
-	for _, risks := range witness {
-		for i := 0; i < len(channelRisks); i++ {
-			risk := channelRisks[i]
 
-			if _, ok := risks[risk]; !ok {
-				// We have a closed channel.
+	secondary := make(map[string][]transport.InfoChannelMap)
+	for track, channels := range witness {
+		secondary[track] = make([]transport.InfoChannelMap, len(channelRisks))
 
-				var last string
-				for k := i - 1; k >= 0; k-- {
-					name := channelRisks[k]
-					if _, ok := risks[name]; ok {
-						last = name
-					}
-				}
-				if last == "" {
-					continue
-				}
-
-				link := risks[last]
-				linkCh := link.Channel
-				linkCh.Risk = risk
-				link.Channel = linkCh
-				risks[risk] = link
+		for i, channel := range channels {
+			if channel.witnessed {
+				secondary[track][i] = channel.channelMap
+				continue
 			}
+
+			k := i
+			for ; k >= 0; k-- {
+				if channels[k].witnessed {
+					break
+				}
+			}
+
+			if k == -1 {
+				continue
+			}
+
+			link := channels[k].channelMap
+			link.Channel.Risk = channelRisks[i]
+			secondary[track][i] = link
 		}
 	}
 
 	var result []transport.InfoChannelMap
-	for _, risks := range witness {
+	for _, risks := range secondary {
 		for _, channel := range risks {
 			result = append(result, channel)
 		}
 	}
-	return result
+	return result, nil
+}
+
+func riskIndex(ch transport.InfoChannelMap) int {
+	for i, risk := range channelRisks {
+		if risk == ch.Channel.Risk {
+			return i
+		}
+	}
+	return -1
 }
 
 func isSeriesInPlatforms(platforms []transport.Platform, series string) bool {
