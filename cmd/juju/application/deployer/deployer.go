@@ -367,7 +367,11 @@ func (d *factory) maybeReadCharmstoreBundle(resolver Resolver) (Deployer, error)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	origin, err := utils.DeduceOrigin(curl, d.channel)
+	platform, err := utils.DeducePlatform(d.constraints, d.series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	origin, err := utils.DeduceOrigin(curl, d.channel, platform)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -422,7 +426,11 @@ func (d *factory) charmStoreCharm() (Deployer, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	origin, err := utils.DeduceOrigin(userRequestedURL, d.channel)
+	platform, err := utils.DeducePlatform(d.constraints, d.series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	origin, err := utils.DeduceOrigin(userRequestedURL, d.channel, platform)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

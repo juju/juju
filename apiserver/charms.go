@@ -259,22 +259,22 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 			return nil, errors.Trace(err)
 		}
 
-	// TODO (stickupkid): Handle charmhub charms here, we essentially have the
-	// same workflow, except we won't have a user.
 	case charm.CharmStore:
-		// "cs:" charms may only be uploaded into models which are
-		// being imported during model migrations. There's currently
+		// Use the user argument if provided (users only make sense
+		// with cs: charms).
+		curl.User = query.Get("user")
+		fallthrough
+
+	case charm.CharmHub:
+		// charmstore and charmhub charms may only be uploaded into models
+		// which are being imported during model migrations. There's currently
 		// no other time where it makes sense to accept charm store
 		// charms through this endpoint.
 		if isImporting, err := modelIsImporting(st); err != nil {
 			return nil, errors.Trace(err)
 		} else if !isImporting {
-			return nil, errors.New("cs charms may only be uploaded during model migration import")
+			return nil, errors.New("charms may only be uploaded during model migration import")
 		}
-
-		// Use the user argument if provided (users only make sense
-		// with cs: charms.
-		curl.User = query.Get("user")
 
 		// If a revision argument is provided, it takes precedence
 		// over the revision in the charm archive. This is required to
@@ -290,6 +290,7 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 		if _, err := st.PrepareCharmUpload(curl); err != nil {
 			return nil, errors.Trace(err)
 		}
+
 	default:
 		return nil, errors.Errorf("unsupported schema %q", schema)
 	}

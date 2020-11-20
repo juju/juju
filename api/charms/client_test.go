@@ -141,12 +141,15 @@ func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
 
 	curl := charm.MustParseURL("cs:testme-2")
 	origin := apicharm.Origin{
-		Source:   "charm-store",
-		ID:       "",
-		Hash:     "",
-		Risk:     "stable",
-		Revision: &curl.Revision,
-		Track:    nil,
+		Source:       "charm-store",
+		ID:           "",
+		Hash:         "",
+		Risk:         "stable",
+		Revision:     &curl.Revision,
+		Track:        nil,
+		Architecture: "amd64",
+		OS:           "ubuntu",
+		Series:       "bionic",
 	}
 	facadeArgs := params.AddCharmWithOrigin{
 		URL:    curl.String(),
@@ -162,7 +165,7 @@ func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall("AddCharm", facadeArgs, result).SetArg(2, actualResult).Return(nil)
 
 	client := charms.NewClientWithFacade(mockFacadeCaller)
-	got, err := client.AddCharm(curl, origin, false, "bionic")
+	got, err := client.AddCharm(curl, origin, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, gc.DeepEquals, origin)
 }
@@ -173,12 +176,15 @@ func (s *charmsMockSuite) TestAddCharmWithAuthorization(c *gc.C) {
 
 	curl := charm.MustParseURL("cs:testme-2")
 	origin := apicharm.Origin{
-		Source:   "charm-store",
-		ID:       "",
-		Hash:     "",
-		Risk:     "stable",
-		Revision: &curl.Revision,
-		Track:    nil,
+		Source:       "charm-store",
+		ID:           "",
+		Hash:         "",
+		Risk:         "stable",
+		Revision:     &curl.Revision,
+		Track:        nil,
+		Architecture: "amd64",
+		OS:           "ubuntu",
+		Series:       "bionic",
 	}
 	facadeArgs := params.AddCharmWithAuth{
 		URL:                curl.String(),
@@ -195,7 +201,7 @@ func (s *charmsMockSuite) TestAddCharmWithAuthorization(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall("AddCharmWithAuthorization", facadeArgs, result).SetArg(2, actualResult).Return(nil)
 
 	client := charms.NewClientWithFacade(mockFacadeCaller)
-	got, err := client.AddCharmWithAuthorization(curl, origin, &macaroon.Macaroon{}, false, "bionic")
+	got, err := client.AddCharmWithAuthorization(curl, origin, &macaroon.Macaroon{}, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, gc.DeepEquals, origin)
 }

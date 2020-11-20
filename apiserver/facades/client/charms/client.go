@@ -465,19 +465,21 @@ func (a *API) charmStrategy(args params.AddCharmWithAuth) (Strategy, error) {
 		return nil, err
 	}
 	fn := a.getStrategyFunc(args.Origin.Source)
-	return fn(repo, args.URL, args.Force, args.Series)
+	return fn(repo, args.URL, args.Force)
 }
 
-type StrategyFunc func(charmRepo corecharm.Repository, url string, force bool, series string) (Strategy, error)
+// StrategyFunc defines a function for executing a strategy for downloading a
+// charm.
+type StrategyFunc func(charmRepo corecharm.Repository, url string, force bool) (Strategy, error)
 
 func getStrategyFunc(source string) StrategyFunc {
 	if source == "charm-store" {
-		return func(charmRepo corecharm.Repository, url string, force bool, _ string) (Strategy, error) {
+		return func(charmRepo corecharm.Repository, url string, force bool) (Strategy, error) {
 			return corecharm.DownloadFromCharmStore(logger.Child("strategy"), charmRepo, url, force)
 		}
 	}
-	return func(charmRepo corecharm.Repository, url string, force bool, series string) (Strategy, error) {
-		return corecharm.DownloadFromCharmHub(logger.Child("strategy"), charmRepo, url, force, series)
+	return func(charmRepo corecharm.Repository, url string, force bool) (Strategy, error) {
+		return corecharm.DownloadFromCharmHub(logger.Child("strategy"), charmRepo, url, force)
 	}
 }
 

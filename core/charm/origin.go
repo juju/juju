@@ -39,6 +39,7 @@ type Origin struct {
 	// we should model that correctly here.
 	Revision *int
 	Channel  *Channel
+	Platform Platform
 }
 
 // Platform describes the platform used to install the charm with.

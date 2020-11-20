@@ -1,4 +1,4 @@
-// +build integration
+// build integration
 
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
@@ -22,9 +22,9 @@ type RefreshClientSuite struct {
 var _ = gc.Suite(&RefreshClientSuite{})
 
 func (s *RefreshClientSuite) TestLiveRefreshRequest(c *gc.C) {
-	c.Skip("install is not currently wired up, so the test fails")
+	logger := &charmhub.FakeLogger{}
 
-	config, err := charmhub.CharmHubConfig(&charmhub.FakeLogger{})
+	config, err := charmhub.CharmHubConfig(logger)
 	c.Assert(err, jc.ErrorIsNil)
 	basePath, err := config.BasePath()
 	c.Assert(err, jc.ErrorIsNil)
@@ -32,12 +32,16 @@ func (s *RefreshClientSuite) TestLiveRefreshRequest(c *gc.C) {
 	refreshPath, err := basePath.Join("refresh")
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiRequester := charmhub.NewAPIRequester(charmhub.DefaultHTTPTransport())
-	restClient := charmhub.NewHTTPRESTClient(apiRequester, nil, &charmhub.FakeLogger{})
+	apiRequester := charmhub.NewAPIRequester(charmhub.DefaultHTTPTransport(), logger)
+	restClient := charmhub.NewHTTPRESTClient(apiRequester, nil)
 
-	client := charmhub.NewRefreshClient(refreshPath, restClient, &charmhub.FakeLogger{})
+	client := charmhub.NewRefreshClient(refreshPath, restClient, logger)
 
-	charmConfig, err := charmhub.RefreshOne("wordpress", 17, "latest/stable", "ubuntu", "focal")
+	charmConfig, err := charmhub.RefreshOne("wordpress", 1, "latest/stable", charmhub.RefreshPlatform{
+		OS:           "ubuntu",
+		Series:       "focal",
+		Architecture: "amd64",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	response, err := client.Refresh(context.TODO(), charmConfig)
@@ -49,7 +53,9 @@ func (s *RefreshClientSuite) TestLiveRefreshRequest(c *gc.C) {
 func (s *RefreshClientSuite) TestLiveRefreshManyRequest(c *gc.C) {
 	c.Skip("install is not currently wired up, so the test fails")
 
-	config, err := charmhub.CharmHubConfig(&charmhub.FakeLogger{})
+	logger := &charmhub.FakeLogger{}
+
+	config, err := charmhub.CharmHubConfig(logger)
 	c.Assert(err, jc.ErrorIsNil)
 	basePath, err := config.BasePath()
 	c.Assert(err, jc.ErrorIsNil)
@@ -57,15 +63,23 @@ func (s *RefreshClientSuite) TestLiveRefreshManyRequest(c *gc.C) {
 	refreshPath, err := basePath.Join("refresh")
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiRequester := charmhub.NewAPIRequester(charmhub.DefaultHTTPTransport())
-	restClient := charmhub.NewHTTPRESTClient(apiRequester, nil, &charmhub.FakeLogger{})
+	apiRequester := charmhub.NewAPIRequester(charmhub.DefaultHTTPTransport(), logger)
+	restClient := charmhub.NewHTTPRESTClient(apiRequester, nil)
 
-	client := charmhub.NewRefreshClient(refreshPath, restClient, &charmhub.FakeLogger{})
+	client := charmhub.NewRefreshClient(refreshPath, restClient, logger)
 
-	wordpressConfig, err := charmhub.RefreshOne("wordpress", 16, "latest/stable", "ubuntu", "focal")
+	wordpressConfig, err := charmhub.RefreshOne("wordpress", 16, "latest/stable", charmhub.RefreshPlatform{
+		OS:           "ubuntu",
+		Series:       "focal",
+		Architecture: "amd64",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	mysqlConfig, err := charmhub.RefreshOne("mysql", 1, "latest/stable", "ubuntu", "focal")
+	mysqlConfig, err := charmhub.RefreshOne("mysql", 1, "latest/stable", charmhub.RefreshPlatform{
+		OS:           "ubuntu",
+		Series:       "focal",
+		Architecture: "amd64",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	charmsConfig := charmhub.RefreshMany(wordpressConfig, mysqlConfig)
@@ -80,7 +94,9 @@ func (s *RefreshClientSuite) TestLiveRefreshManyRequest(c *gc.C) {
 func (s *RefreshClientSuite) TestLiveInstallRequest(c *gc.C) {
 	c.Skip("install is not currently wired up, so the test fails")
 
-	config, err := charmhub.CharmHubConfig(&charmhub.FakeLogger{})
+	logger := &charmhub.FakeLogger{}
+
+	config, err := charmhub.CharmHubConfig(logger)
 	c.Assert(err, jc.ErrorIsNil)
 	basePath, err := config.BasePath()
 	c.Assert(err, jc.ErrorIsNil)
@@ -88,12 +104,16 @@ func (s *RefreshClientSuite) TestLiveInstallRequest(c *gc.C) {
 	refreshPath, err := basePath.Join("refresh")
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiRequester := charmhub.NewAPIRequester(charmhub.DefaultHTTPTransport())
-	restClient := charmhub.NewHTTPRESTClient(apiRequester, nil, &charmhub.FakeLogger{})
+	apiRequester := charmhub.NewAPIRequester(charmhub.DefaultHTTPTransport(), logger)
+	restClient := charmhub.NewHTTPRESTClient(apiRequester, nil)
 
-	client := charmhub.NewRefreshClient(refreshPath, restClient, &charmhub.FakeLogger{})
+	client := charmhub.NewRefreshClient(refreshPath, restClient, logger)
 
-	charmConfig, err := charmhub.InstallOneFromRevision("wordpress", 16, "ubuntu", "focal")
+	charmConfig, err := charmhub.InstallOneFromRevision("wordpress", 16, charmhub.RefreshPlatform{
+		OS:           "ubuntu",
+		Series:       "focal",
+		Architecture: "amd64",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	response, err := client.Refresh(context.TODO(), charmConfig)

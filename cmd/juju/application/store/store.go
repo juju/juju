@@ -20,8 +20,8 @@ import (
 
 // AddCharmFromURL calls the appropriate client API calls to add the
 // given charm URL to state.
-func AddCharmFromURL(client CharmAdder, curl *charm.URL, origin commoncharm.Origin, force bool, series string) (*charm.URL, commoncharm.Origin, error) {
-	resultOrigin, err := client.AddCharm(curl, origin, force, series)
+func AddCharmFromURL(client CharmAdder, curl *charm.URL, origin commoncharm.Origin, force bool) (*charm.URL, commoncharm.Origin, error) {
+	resultOrigin, err := client.AddCharm(curl, origin, force)
 	if err != nil {
 		if params.IsCodeUnauthorized(err) {
 			return nil, commoncharm.Origin{}, errors.Forbiddenf(err.Error())
@@ -35,9 +35,9 @@ func AddCharmFromURL(client CharmAdder, curl *charm.URL, origin commoncharm.Orig
 // add the given charm URL to state. For non-public charm URLs, this function
 // also handles the macaroon authorization process using the given csClient.
 // The resulting charm URL of the added charm is displayed on stdout.
-func AddCharmWithAuthorizationFromURL(client CharmAdder, cs MacaroonGetter, curl *charm.URL, origin commoncharm.Origin, force bool, series string) (*charm.URL, *macaroon.Macaroon, commoncharm.Origin, error) {
+func AddCharmWithAuthorizationFromURL(client CharmAdder, cs MacaroonGetter, curl *charm.URL, origin commoncharm.Origin, force bool) (*charm.URL, *macaroon.Macaroon, commoncharm.Origin, error) {
 	var csMac *macaroon.Macaroon
-	resultOrigin, err := client.AddCharm(curl, origin, force, series)
+	resultOrigin, err := client.AddCharm(curl, origin, force)
 	if err != nil {
 		if !params.IsCodeUnauthorized(err) {
 			return nil, nil, commoncharm.Origin{}, errors.Trace(err)
@@ -46,7 +46,7 @@ func AddCharmWithAuthorizationFromURL(client CharmAdder, cs MacaroonGetter, curl
 		if err != nil {
 			return nil, nil, commoncharm.Origin{}, common.MaybeTermsAgreementError(err)
 		}
-		if resultOrigin, err = client.AddCharmWithAuthorization(curl, origin, m, force, series); err != nil {
+		if resultOrigin, err = client.AddCharmWithAuthorization(curl, origin, m, force); err != nil {
 			return nil, nil, commoncharm.Origin{}, errors.Trace(err)
 		}
 		csMac = m

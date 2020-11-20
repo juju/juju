@@ -8,14 +8,17 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
+	"strings"
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/os/series"
 	"github.com/juju/utils/v2"
 	"github.com/kr/pretty"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/lxdprofile"
 )
 
@@ -100,7 +103,7 @@ type Strategy struct {
 // DownloadRepo defines methods required for the repo to download a charm.
 type DownloadRepo interface {
 	DownloadCharm(resourceURL, archivePath string) (*charm.CharmArchive, error)
-	FindDownloadURL(*charm.URL, Origin, string) (*url.URL, Origin, error)
+	FindDownloadURL(*charm.URL, Origin) (*url.URL, Origin, error)
 }
 
 // DownloadFromCharmStore will creates a procedure to install a charm from the
@@ -124,7 +127,7 @@ func DownloadFromCharmStore(logger loggo.Logger, repository DownloadRepo, url st
 
 // DownloadFromCharmHub will creates a procedure to install a charm from the
 // charm hub.
-func DownloadFromCharmHub(logger loggo.Logger, repository DownloadRepo, curl string, force bool, series string) (*Strategy, error) {
+func DownloadFromCharmHub(logger loggo.Logger, repository DownloadRepo, curl string, force bool) (*Strategy, error) {
 	churl, err := charm.ParseURL(curl)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -134,7 +137,6 @@ func DownloadFromCharmHub(logger loggo.Logger, repository DownloadRepo, curl str
 		charmURL: churl,
 		store: StoreCharmHub{
 			repository: repository,
-			series:     series,
 			logger:     log.Child("charmhub"),
 		},
 		force:  force,
@@ -185,9 +187,15 @@ func (p *Strategy) Run(state State, version JujuVersionValidator, origin Origin)
 		return DownloadResult{}, false, origin, errors.Trace(err)
 	}
 
+	seriesOrigin := origin
+	seriesOrigin.Platform, err = p.normalizePlatform(origin.Platform)
+	if err != nil {
+		return DownloadResult{}, false, origin, errors.Trace(err)
+	}
+
 	// Charm is already in state, so we can exit out early.
 	if ch.IsUploaded() {
-		origin, err := p.store.DownloadOrigin(p.charmURL, origin)
+		origin, err := p.store.DownloadOrigin(p.charmURL, seriesOrigin)
 		return DownloadResult{}, true, origin, errors.Trace(err)
 	}
 
@@ -206,7 +214,7 @@ func (p *Strategy) Run(state State, version JujuVersionValidator, origin Origin)
 		return nil
 	})
 
-	archive, checksum, origin, err := p.store.Download(p.charmURL, file.Name(), origin)
+	archive, checksum, origin, err := p.store.Download(p.charmURL, file.Name(), seriesOrigin)
 	if err != nil {
 		return DownloadResult{}, false, origin, errors.Trace(err)
 	}
@@ -250,6 +258,29 @@ func (p *Strategy) Finish() error {
 
 func (p *Strategy) deferFunc(fn func() error) {
 	p.deferFuncs = append(p.deferFuncs, fn)
+}
+
+func (p *Strategy) normalizePlatform(platform Platform) (Platform, error) {
+	os := platform.OS
+	if platform.Series != "" {
+		sys, err := series.GetOSFromSeries(platform.Series)
+		if err != nil {
+			return Platform{}, errors.Trace(err)
+		}
+		// Values passed to the api are case sensitive: ubuntu succeeds and
+		// Ubuntu returns `"code": "revision-not-found"`
+		os = strings.ToLower(sys.String())
+	}
+	arc := platform.Architecture
+	if platform.Architecture == "" {
+		arc = arch.DefaultArchitecture
+	}
+
+	return Platform{
+		Architecture: arc,
+		OS:           os,
+		Series:       platform.Series,
+	}, nil
 }
 
 func (p *Strategy) downloadResult(file string, checksum ChecksumCheckFn) (DownloadResult, error) {
@@ -323,7 +354,7 @@ func (s StoreCharmStore) DownloadOrigin(_ *charm.URL, origin Origin) (Origin, er
 // StoreCharmHub defines a type for interacting with the charm hub.
 type StoreCharmHub struct {
 	repository DownloadRepo
-	series     string
+	platform   Platform
 	logger     Logger
 }
 
@@ -338,7 +369,7 @@ func (StoreCharmHub) Validate(curl *charm.URL) error {
 // Download the charm from the charm hub.
 func (s StoreCharmHub) Download(curl *charm.URL, file string, origin Origin) (StoreCharm, ChecksumCheckFn, Origin, error) {
 	s.logger.Tracef("Download(%s) %s", curl)
-	repositoryURL, downloadOrigin, err := s.repository.FindDownloadURL(curl, origin, s.series)
+	repositoryURL, downloadOrigin, err := s.repository.FindDownloadURL(curl, origin)
 	if err != nil {
 		return nil, nil, downloadOrigin, errors.Trace(err)
 	}
@@ -353,7 +384,7 @@ func (s StoreCharmHub) Download(curl *charm.URL, file string, origin Origin) (St
 // downloading the charm.
 func (s StoreCharmHub) DownloadOrigin(curl *charm.URL, origin Origin) (Origin, error) {
 	s.logger.Tracef("DownloadOrigin(%s) %s", curl, pretty.Sprint(origin))
-	_, downloadOrigin, err := s.repository.FindDownloadURL(curl, origin, s.series)
+	_, downloadOrigin, err := s.repository.FindDownloadURL(curl, origin)
 	return downloadOrigin, errors.Trace(err)
 }
 

@@ -30,9 +30,29 @@ import (
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/environs/config"
 )
+
+const (
+	// SeriesAll defines a platform that targets all series.
+	SeriesAll = "all"
+	// ArchAll defines a platform that targets all architectures.
+	ArchAll = "all"
+)
+
+type ModelConfigGetter interface {
+	ModelGet() (map[string]interface{}, error)
+}
+
+// ModelConfigClient represents a model config client for requesting model
+// configurations.
+type ModelConfigClient interface {
+	ModelConfigGetter
+	Close() error
+}
 
 const bundleDiffDoc = `
 Bundle can be a local bundle file or the name of a bundle in
@@ -60,13 +80,18 @@ See also:
 // NewDiffBundleCommand returns a command to compare a bundle against
 // the selected model.
 func NewDiffBundleCommand() cmd.Command {
-	cmd := &diffBundleCommand{}
+	cmd := &diffBundleCommand{
+		arches: arch.AllArches(),
+	}
 	cmd.charmAdaptorFn = cmd.charmAdaptor
 	cmd.newAPIRootFn = func() (base.APICallCloser, error) {
 		return cmd.NewAPIRoot()
 	}
 	cmd.newControllerAPIRootFn = func() (base.APICallCloser, error) {
 		return cmd.NewControllerAPIRoot()
+	}
+	cmd.modelConfigClientFunc = func(api base.APICallCloser) ModelConfigClient {
+		return modelconfig.NewClient(api)
 	}
 	return modelcmd.Wrap(cmd)
 }
@@ -78,6 +103,9 @@ type diffBundleCommand struct {
 	bundleOverlays []string
 	channelStr     string
 	channel        corecharm.Channel
+	arch           string
+	arches         arch.Arches
+	series         string
 	annotations    bool
 
 	bundleMachines map[string]string
@@ -86,6 +114,7 @@ type diffBundleCommand struct {
 	charmAdaptorFn         func(base.APICallCloser, *charm.URL) (BundleResolver, error)
 	newAPIRootFn           func() (base.APICallCloser, error)
 	newControllerAPIRootFn func() (base.APICallCloser, error)
+	modelConfigClientFunc  func(base.APICallCloser) ModelConfigClient
 }
 
 // IsSuperCommand is part of cmd.Command.
@@ -107,6 +136,9 @@ func (c *diffBundleCommand) Info() *cmd.Info {
 // SetFlags is part of cmd.Command.
 func (c *diffBundleCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
+
+	f.StringVar(&c.arch, "arch", ArchAll, fmt.Sprintf("specify an arch <%s>", c.archArgumentList()))
+	f.StringVar(&c.series, "series", SeriesAll, "specify a series")
 	f.StringVar(&c.channelStr, "channel", "", "Channel to use when getting the bundle from the charm hub or charm store")
 	f.Var(cmd.NewAppendStringsValue(&c.bundleOverlays), "overlay", "Bundles to overlay on the primary bundle, applied in order")
 	f.StringVar(&c.machineMap, "map-machines", "", "Indicates how existing machines correspond to bundle machines")
@@ -131,6 +163,15 @@ func (c *diffBundleCommand) Init(args []string) error {
 			return errors.Annotate(err, "error in --channel")
 		}
 	}
+	// If the architecture is empty, ensure we normalize it to all to prevent
+	// complicated comparison checking.
+	if c.arch == "" {
+		c.arch = ArchAll
+	}
+
+	if c.arch != ArchAll && !c.arches.Contains(c.arch) {
+		return errors.Errorf("unexpected architecture flag value %q, expected <%s>", c.arch, c.archArgumentList())
+	}
 	return cmd.CheckEmpty(args[1:])
 }
 
@@ -141,6 +182,13 @@ func (c *diffBundleCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	defer func() { _ = apiRoot.Close() }()
+
+	modelConfigClient := c.modelConfigClientFunc(apiRoot)
+	defer func() { _ = modelConfigClient.Close() }()
+
+	if err := c.verifySeries(modelConfigClient); err != nil {
+		return errors.Trace(err)
+	}
 
 	// Load up the bundle data, with includes and overlays.
 	baseSrc, err := c.bundleDataSource(ctx, apiRoot)
@@ -228,12 +276,18 @@ func (c *diffBundleCommand) bundleDataSource(ctx *cmd.Context, apiRoot base.APIC
 		return ds, nil
 	}
 
-	// Not a local bundle, so it must be from the charmstore.
+	// Not a local bundle, so it must be from charmhub or the charmstore.
 	bURL, err := charm.ParseURL(c.bundle)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	origin, err := utils.DeduceOrigin(bURL, c.channel)
+	platform, err := utils.DeducePlatform(constraints.Value{
+		Arch: &c.arch,
+	}, c.series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	origin, err := utils.DeduceOrigin(bURL, c.channel, platform)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -328,6 +382,30 @@ func (c *diffBundleCommand) makeModelExtractor(apiRoot base.APICallCloser) appbu
 		annotations: annotations.NewClient(apiRoot),
 		modelConfig: modelconfig.NewClient(apiRoot),
 	}
+}
+
+func (c *diffBundleCommand) verifySeries(modelConfigClient ModelConfigGetter) error {
+	if c.series != "" {
+		return nil
+	}
+
+	attrs, err := modelConfigClient.ModelGet()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	cfg, err := config.New(config.NoDefaults, attrs)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if defaultSeries, explicit := cfg.DefaultSeries(); explicit {
+		c.series = defaultSeries
+	}
+	return nil
+}
+
+func (c *diffBundleCommand) archArgumentList() string {
+	archList := strings.Join(c.arches.StringList(), "|")
+	return fmt.Sprintf("%s|%s", ArchAll, archList)
 }
 
 type extractorImpl struct {

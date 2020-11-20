@@ -17,6 +17,7 @@ require (
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/coreos/go-systemd/v22 v22.0.0-20200316104309-cb8b64719ae3
+	github.com/davecgh/go-spew v1.1.1
 	github.com/dnaeon/go-vcr v1.0.1 // indirect
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect
@@ -60,6 +61,7 @@ require (
 	github.com/juju/mutex v0.0.0-20180619145857-d21b13acf4bf
 	github.com/juju/names/v4 v4.0.0-20200929085019-be23e191fee0
 	github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b
+	github.com/juju/os v0.0.0-20191022170002-da411304426c
 	github.com/juju/os/v2 v2.1.0
 	github.com/juju/packaging v0.0.0-20200421095529-970596d2622a
 	github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93

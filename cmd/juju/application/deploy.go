@@ -141,16 +141,16 @@ func (a *deployAPIAdapter) GetAnnotations(tags []string) ([]apiparams.Annotation
 	return a.annotationsClient.Get(tags)
 }
 
-func (a *deployAPIAdapter) AddCharm(curl *charm.URL, origin commoncharm.Origin, force bool, series string) (commoncharm.Origin, error) {
+func (a *deployAPIAdapter) AddCharm(curl *charm.URL, origin commoncharm.Origin, force bool) (commoncharm.Origin, error) {
 	if a.charmsAPIVersion > 2 {
-		return a.charmsClient.AddCharm(curl, origin, force, series)
+		return a.charmsClient.AddCharm(curl, origin, force)
 	}
 	return origin, a.apiClient.AddCharm(curl, csparams.Channel(origin.Risk), force)
 }
 
-func (a *deployAPIAdapter) AddCharmWithAuthorization(curl *charm.URL, origin commoncharm.Origin, mac *macaroon.Macaroon, force bool, series string) (commoncharm.Origin, error) {
+func (a *deployAPIAdapter) AddCharmWithAuthorization(curl *charm.URL, origin commoncharm.Origin, mac *macaroon.Macaroon, force bool) (commoncharm.Origin, error) {
 	if a.charmsAPIVersion > 2 {
-		return a.charmsClient.AddCharmWithAuthorization(curl, origin, mac, force, series)
+		return a.charmsClient.AddCharmWithAuthorization(curl, origin, mac, force)
 	}
 	return origin, a.apiClient.AddCharmWithAuthorization(curl, csparams.Channel(origin.Risk), mac, force)
 }

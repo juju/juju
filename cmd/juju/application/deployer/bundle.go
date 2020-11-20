@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/juju/core/constraints"
+
 	"github.com/juju/charm/v8"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -112,8 +114,17 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 				if err != nil {
 					return errors.Trace(err)
 				}
+				cons, err := constraints.Parse(applicationSpec.Constraints)
+				if err != nil {
+					return errors.Trace(err)
+				}
 
-				origin, err := utils.DeduceOrigin(charmURL, d.origin.CoreChannel())
+				platform, err := utils.DeducePlatform(cons, applicationSpec.Series)
+				if err != nil {
+					return errors.Trace(err)
+				}
+
+				origin, err := utils.DeduceOrigin(charmURL, d.origin.CoreChannel(), platform)
 				if err != nil {
 					return errors.Trace(err)
 				}
