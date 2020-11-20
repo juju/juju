@@ -22,6 +22,10 @@ type NetworkInfoCAAS struct {
 	*NetworkInfoBase
 }
 
+func newNetworkInfoCAAS(base *NetworkInfoBase) (*NetworkInfoCAAS, error) {
+	return &NetworkInfoCAAS{base}, nil
+}
+
 // ProcessAPIRequest handles a request to the uniter API NetworkInfo method.
 func (n *NetworkInfoCAAS) ProcessAPIRequest(args params.NetworkInfoParams) (params.NetworkInfoResults, error) {
 	bindings := make(map[string]string)
