@@ -223,7 +223,7 @@ func (s *downloadSuite) expectDownload(c *gc.C, charmHubURL string) {
 }
 
 func (s *downloadSuite) TestLocateRevisionByChannel(c *gc.C) {
-	revision, found := locateRevisionByChannel([]transport.InfoChannelMap{{
+	revisions, found := locateRevisionByChannel([]transport.InfoChannelMap{{
 		Channel: transport.Channel{
 			Name:  "a",
 			Track: "latest",
@@ -274,7 +274,8 @@ func (s *downloadSuite) TestLocateRevisionByChannel(c *gc.C) {
 	}}, corecharm.MustParseChannel("latest/stable"))
 
 	c.Assert(found, jc.IsTrue)
-	c.Assert(revision.Revision, gc.Equals, 1)
+	c.Assert(revisions, gc.HasLen, 3)
+	c.Assert(revisions[0].Revision, gc.Equals, 1)
 }
 
 func (s *downloadSuite) TestLocateRevisionByChannelAfterSorted(c *gc.C) {
@@ -331,10 +332,11 @@ func (s *downloadSuite) TestLocateRevisionByChannelAfterSorted(c *gc.C) {
 		},
 	}}
 	in = command.sortInfoChannelMap(in)
-	revision, found := locateRevisionByChannel(in, corecharm.MustParseChannel("latest/stable"))
+	revisions, found := locateRevisionByChannel(in, corecharm.MustParseChannel("latest/stable"))
 
 	c.Assert(found, jc.IsTrue)
-	c.Assert(revision.Revision, gc.Equals, 3)
+	c.Assert(revisions, gc.HasLen, 3)
+	c.Assert(revisions[0].Revision, gc.Equals, 3)
 }
 
 func (s *downloadSuite) TestLocateRevisionByChannelMap(c *gc.C) {
@@ -412,6 +414,44 @@ func (s *downloadSuite) TestChannelMapSort(c *gc.C) {
 	}
 
 	c.Assert(names, gc.DeepEquals, []string{"c", "b", "a"})
+}
+
+type matchingArchesSuite struct {
+	jujutesting.IsolationSuite
+}
+
+var _ = gc.Suite(&matchingArchesSuite{})
+
+func (matchingArchesSuite) TestMatchingArch(c *gc.C) {
+	revisions := []transport.InfoRevision{{
+		Platforms: []transport.Platform{{
+			Architecture: "all",
+		}, {
+			Architecture: "all",
+		}},
+	}, {
+		Platforms: []transport.Platform{{
+			Architecture: "all",
+		}},
+	}}
+	match := hasMatchingArch(revisions)
+	c.Assert(match, jc.IsTrue)
+}
+
+func (matchingArchesSuite) TestNonMatchingArch(c *gc.C) {
+	revisions := []transport.InfoRevision{{
+		Platforms: []transport.Platform{{
+			Architecture: "all",
+		}, {
+			Architecture: "amd64",
+		}},
+	}, {
+		Platforms: []transport.Platform{{
+			Architecture: "all",
+		}},
+	}}
+	match := hasMatchingArch(revisions)
+	c.Assert(match, jc.IsFalse)
 }
 
 type linkClosedChannelsSuite struct {

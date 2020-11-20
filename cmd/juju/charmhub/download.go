@@ -18,7 +18,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/os/v2/series"
-	utilsarch "github.com/juju/utils/arch"
 
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
@@ -57,7 +56,6 @@ See also:
 func NewDownloadCommand() cmd.Command {
 	return modelcmd.Wrap(&downloadCommand{
 		charmHubCommand: newCharmHubCommand(),
-		fallbackArch:    utilsarch.HostArch(),
 		orderedSeries:   series.SupportedJujuControllerSeries(),
 		CharmHubClientFunc: func(config charmhub.Config, fs charmhub.FileSystem) (DownloadCommandAPI, error) {
 			return charmhub.NewClientWithFileSystem(config, fs)
@@ -80,7 +78,6 @@ type downloadCommand struct {
 	archivePath   string
 	pipeToStdout  bool
 
-	fallbackArch  string
 	orderedSeries []string
 }
 
@@ -222,10 +219,16 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	var filterFn FilterInfoChannelMapFunc
+	var (
+		filterFn  FilterInfoChannelMapFunc
+		selectAll = c.arch == ArchAll && c.series == SeriesAll
+	)
 	switch {
-	case c.arch == ArchAll && c.series == SeriesAll:
-		filterFn = filterByArchitecture(c.fallbackArch)
+	case selectAll:
+		// Select every channel for all architectures and all series.
+		filterFn = func(transport.InfoChannelMap) bool {
+			return true
+		}
 	case c.arch != ArchAll && c.series == SeriesAll:
 		filterFn = filterByArchitecture(c.arch)
 	case c.arch == ArchAll && c.series != SeriesAll:
@@ -244,7 +247,7 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	channelMap = filterInfoChannelMap(channelMap, filterFn)
-	revision, found := locateRevisionByChannel(c.sortInfoChannelMap(channelMap), charmChannel)
+	revisions, found := locateRevisionByChannel(c.sortInfoChannelMap(channelMap), charmChannel)
 	if !found {
 		if c.series != "" {
 			return errors.Errorf("%s %q not found for %q channel matching %q series", info.Type, c.charmOrBundle, c.channel, c.series)
@@ -252,6 +255,17 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 		return errors.Errorf("%s %q not found with in the channel %q", info.Type, c.charmOrBundle, c.channel)
 	}
 
+	if selectAll {
+		// Ensure we have just one architecture.
+		if !hasMatchingArch(revisions) {
+			return errors.Errorf("ambiguous architectures found, use --arch flag to specify architecture")
+		}
+	}
+	if len(revisions) == 0 {
+		return errors.Errorf("%s %q not found with in the channel %q", info.Type, c.charmOrBundle, c.channel)
+	}
+
+	revision := revisions[0]
 	resourceURL, err := url.Parse(revision.Download.URL)
 	if err != nil {
 		return errors.Trace(err)
@@ -405,13 +419,32 @@ func filterInfoChannelMap(in []transport.InfoChannelMap, fn FilterInfoChannelMap
 	return filtered
 }
 
-func locateRevisionByChannel(channelMaps []transport.InfoChannelMap, channel corecharm.Channel) (transport.InfoRevision, bool) {
+func locateRevisionByChannel(channelMaps []transport.InfoChannelMap, channel corecharm.Channel) ([]transport.InfoRevision, bool) {
+	var (
+		revisions []transport.InfoRevision
+		found     bool
+	)
 	for _, channelMap := range channelMaps {
 		if rev, ok := locateRevisionByChannelMap(channelMap, channel); ok {
-			return rev, true
+			revisions = append(revisions, rev)
+			found = true
 		}
 	}
-	return transport.InfoRevision{}, false
+	return revisions, found
+}
+
+func hasMatchingArch(revisions []transport.InfoRevision) bool {
+	var arch string
+	for _, rev := range revisions {
+		for _, platform := range rev.Platforms {
+			if arch == "" {
+				arch = platform.Architecture
+			} else if arch != platform.Architecture {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 type channelMapIndex struct {
