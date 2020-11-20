@@ -5,7 +5,6 @@ package jujuc
 
 import (
 	"fmt"
-	"net"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -34,10 +33,6 @@ type NetworkGetCommand struct {
 
 	out cmd.Output
 }
-
-type resolver func(host string) (addrs []string, err error)
-
-var LookupHost resolver = net.LookupHost
 
 func NewNetworkGetCommand(ctx Context) (_ cmd.Command, err error) {
 	cmd := &NetworkGetCommand{ctx: ctx}
