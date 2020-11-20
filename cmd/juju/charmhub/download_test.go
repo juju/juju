@@ -420,7 +420,7 @@ type linkClosedChannelsSuite struct {
 
 var _ = gc.Suite(&linkClosedChannelsSuite{})
 
-func (linkClosedChannelsSuite) TestLinkClosedChannels(c *gc.C) {
+func (linkClosedChannelsSuite) TestLinkClosedChannelsWithOneTrack(c *gc.C) {
 	tests := []struct {
 		Name   string
 		In     []transport.InfoChannelMap
@@ -657,6 +657,87 @@ func (linkClosedChannelsSuite) TestLinkClosedChannels(c *gc.C) {
 				Revision: 35,
 			},
 		}},
+	}, {
+		Name: "edge only",
+		In: []transport.InfoChannelMap{{
+			Channel: transport.Channel{
+				Name:  "e",
+				Track: "latest",
+				Risk:  "edge",
+			},
+			Revision: transport.InfoRevision{
+				Revision: 35,
+			},
+		}},
+		Result: []transport.InfoChannelMap{
+			{},
+			{},
+			{},
+			{
+				Channel: transport.Channel{
+					Name:  "e",
+					Track: "latest",
+					Risk:  "edge",
+				},
+				Revision: transport.InfoRevision{
+					Revision: 35,
+				},
+			},
+		},
+	}, {
+		Name: "edge then candidate",
+		In: []transport.InfoChannelMap{{
+			Channel: transport.Channel{
+				Name:  "c",
+				Track: "latest",
+				Risk:  "candidate",
+			},
+			Revision: transport.InfoRevision{
+				Revision: 35,
+			},
+		}, {
+			Channel: transport.Channel{
+				Name:  "e",
+				Track: "latest",
+				Risk:  "edge",
+			},
+			Revision: transport.InfoRevision{
+				Revision: 33,
+			},
+		}},
+		Result: []transport.InfoChannelMap{
+			{},
+			{
+				Channel: transport.Channel{
+					Name:  "c",
+					Track: "latest",
+					Risk:  "candidate",
+				},
+				Revision: transport.InfoRevision{
+					Revision: 35,
+				},
+			},
+			{
+				Channel: transport.Channel{
+					Name:  "c",
+					Track: "latest",
+					Risk:  "beta",
+				},
+				Revision: transport.InfoRevision{
+					Revision: 35,
+				},
+			},
+			{
+				Channel: transport.Channel{
+					Name:  "e",
+					Track: "latest",
+					Risk:  "edge",
+				},
+				Revision: transport.InfoRevision{
+					Revision: 33,
+				},
+			},
+		},
 	}}
 
 	for i, test := range tests {
@@ -664,6 +745,227 @@ func (linkClosedChannelsSuite) TestLinkClosedChannels(c *gc.C) {
 
 		got, err := linkClosedChannels(test.In)
 		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(got, jc.DeepEquals, test.Result)
+	}
+}
+
+func (linkClosedChannelsSuite) TestLinkClosedChannelsWithMultipleTracks(c *gc.C) {
+	tests := []struct {
+		Name   string
+		In     []transport.InfoChannelMap
+		Result []transport.InfoChannelMap
+	}{{
+		Name: "edge to stable",
+		In: []transport.InfoChannelMap{{
+			Channel: transport.Channel{
+				Name:  "a",
+				Track: "latest",
+				Risk:  "stable",
+			},
+			Revision: transport.InfoRevision{
+				Revision: 33,
+			},
+		}, {
+			Channel: transport.Channel{
+				Name:  "az",
+				Track: "1.0",
+				Risk:  "stable",
+			},
+			Revision: transport.InfoRevision{
+				Revision: 133,
+			},
+		}},
+		Result: []transport.InfoChannelMap{{
+			Channel: transport.Channel{
+				Name:  "a",
+				Track: "latest",
+				Risk:  "stable",
+			},
+			Revision: transport.InfoRevision{
+				Revision: 33,
+			},
+		}, {
+			Channel: transport.Channel{
+				Name:  "a",
+				Track: "latest",
+				Risk:  "candidate",
+			},
+			Revision: transport.InfoRevision{
+				Revision: 33,
+			},
+		}, {
+			Channel: transport.Channel{
+				Name:  "a",
+				Track: "latest",
+				Risk:  "beta",
+			},
+			Revision: transport.InfoRevision{
+				Revision: 33,
+			},
+		}, {
+			Channel: transport.Channel{
+				Name:  "a",
+				Track: "latest",
+				Risk:  "edge",
+			},
+			Revision: transport.InfoRevision{
+				Revision: 33,
+			},
+		}, {
+			Channel: transport.Channel{
+				Name:  "az",
+				Track: "1.0",
+				Risk:  "stable",
+			},
+			Revision: transport.InfoRevision{
+				Revision: 133,
+			},
+		}, {
+			Channel: transport.Channel{
+				Name:  "az",
+				Track: "1.0",
+				Risk:  "candidate",
+			},
+			Revision: transport.InfoRevision{
+				Revision: 133,
+			},
+		}, {
+			Channel: transport.Channel{
+				Name:  "az",
+				Track: "1.0",
+				Risk:  "beta",
+			},
+			Revision: transport.InfoRevision{
+				Revision: 133,
+			},
+		}, {
+			Channel: transport.Channel{
+				Name:  "az",
+				Track: "1.0",
+				Risk:  "edge",
+			},
+			Revision: transport.InfoRevision{
+				Revision: 133,
+			},
+		}},
+	}, {
+		Name: "edge to stable",
+		In: []transport.InfoChannelMap{{
+			Channel: transport.Channel{
+				Name:  "a",
+				Track: "latest",
+				Risk:  "stable",
+			},
+			Revision: transport.InfoRevision{
+				Revision: 33,
+			},
+		}, {
+			Channel: transport.Channel{
+				Name:  "az",
+				Track: "1.0",
+				Risk:  "stable",
+			},
+			Revision: transport.InfoRevision{
+				Revision: 133,
+			},
+		}, {
+			Channel: transport.Channel{
+				Name:  "ez",
+				Track: "1.0",
+				Risk:  "edge",
+			},
+			Revision: transport.InfoRevision{
+				Revision: 134,
+			},
+		}},
+		Result: []transport.InfoChannelMap{{
+			Channel: transport.Channel{
+				Name:  "a",
+				Track: "latest",
+				Risk:  "stable",
+			},
+			Revision: transport.InfoRevision{
+				Revision: 33,
+			},
+		}, {
+			Channel: transport.Channel{
+				Name:  "a",
+				Track: "latest",
+				Risk:  "candidate",
+			},
+			Revision: transport.InfoRevision{
+				Revision: 33,
+			},
+		}, {
+			Channel: transport.Channel{
+				Name:  "a",
+				Track: "latest",
+				Risk:  "beta",
+			},
+			Revision: transport.InfoRevision{
+				Revision: 33,
+			},
+		}, {
+			Channel: transport.Channel{
+				Name:  "a",
+				Track: "latest",
+				Risk:  "edge",
+			},
+			Revision: transport.InfoRevision{
+				Revision: 33,
+			},
+		}, {
+			Channel: transport.Channel{
+				Name:  "az",
+				Track: "1.0",
+				Risk:  "stable",
+			},
+			Revision: transport.InfoRevision{
+				Revision: 133,
+			},
+		}, {
+			Channel: transport.Channel{
+				Name:  "az",
+				Track: "1.0",
+				Risk:  "candidate",
+			},
+			Revision: transport.InfoRevision{
+				Revision: 133,
+			},
+		}, {
+			Channel: transport.Channel{
+				Name:  "az",
+				Track: "1.0",
+				Risk:  "beta",
+			},
+			Revision: transport.InfoRevision{
+				Revision: 133,
+			},
+		}, {
+			Channel: transport.Channel{
+				Name:  "ez",
+				Track: "1.0",
+				Risk:  "edge",
+			},
+			Revision: transport.InfoRevision{
+				Revision: 134,
+			},
+		}},
+	}}
+
+	for i, test := range tests {
+		c.Logf("Running %d %s", i, test.Name)
+
+		got, err := linkClosedChannels(test.In)
+		c.Assert(err, jc.ErrorIsNil)
+
+		sort.Slice(got, func(i, j int) bool {
+			if got[i].Channel.Track == got[j].Channel.Track {
+				return riskIndex(got[i]) < riskIndex(got[j])
+			}
+			return got[i].Channel.Track > got[j].Channel.Track
+		})
+
 		c.Assert(got, jc.DeepEquals, test.Result)
 	}
 }

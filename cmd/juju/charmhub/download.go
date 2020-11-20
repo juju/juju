@@ -234,6 +234,11 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 		filterFn = filterByArchitectureAndSeries(c.arch, c.series)
 	}
 
+	// To allow users to download from closed channels (same UX for snaps), we
+	// link all closed channels to their parent channel, if their parent channel
+	// is also closed, we move to the next.
+	// We do the linking here because we want to ensure that we only ever filter
+	// once ensuring we're always correct.
 	channelMap, err := linkClosedChannels(info.ChannelMap)
 	if err != nil {
 		return errors.Trace(err)
