@@ -434,8 +434,8 @@ func (matchingArchesSuite) TestMatchingArch(c *gc.C) {
 			Architecture: "all",
 		}},
 	}}
-	match := hasMatchingArch(revisions)
-	c.Assert(match, jc.IsTrue)
+	match := listArchitectures(revisions)
+	c.Assert(match, jc.DeepEquals, []string{"all"})
 }
 
 func (matchingArchesSuite) TestNonMatchingArch(c *gc.C) {
@@ -450,8 +450,8 @@ func (matchingArchesSuite) TestNonMatchingArch(c *gc.C) {
 			Architecture: "all",
 		}},
 	}}
-	match := hasMatchingArch(revisions)
-	c.Assert(match, jc.IsFalse)
+	match := listArchitectures(revisions)
+	c.Assert(match, jc.DeepEquals, []string{"all", "amd64"})
 }
 
 type linkClosedChannelsSuite struct {

@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/os/v2/series"
@@ -257,8 +258,9 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 
 	if selectAll {
 		// Ensure we have just one architecture.
-		if !hasMatchingArch(revisions) {
-			return errors.Errorf("ambiguous architectures found, use --arch flag to specify architecture")
+		if arches := listArchitectures(revisions); len(arches) > 1 {
+			list := strings.Join(arches, ",")
+			return errors.Errorf("multiple architectures (%s) found, use --arch flag to specify the one to download", list)
 		}
 	}
 	if len(revisions) == 0 {
@@ -433,18 +435,14 @@ func locateRevisionByChannel(channelMaps []transport.InfoChannelMap, channel cor
 	return revisions, found
 }
 
-func hasMatchingArch(revisions []transport.InfoRevision) bool {
-	var arch string
+func listArchitectures(revisions []transport.InfoRevision) []string {
+	arches := set.NewStrings()
 	for _, rev := range revisions {
 		for _, platform := range rev.Platforms {
-			if arch == "" {
-				arch = platform.Architecture
-			} else if arch != platform.Architecture {
-				return false
-			}
+			arches.Add(platform.Architecture)
 		}
 	}
-	return true
+	return arches.SortedValues()
 }
 
 type channelMapIndex struct {
