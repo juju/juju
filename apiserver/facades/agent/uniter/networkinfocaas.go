@@ -20,10 +20,23 @@ import (
 // NetworkInfoCAAS is used to provide network info for CAAS units.
 type NetworkInfoCAAS struct {
 	*NetworkInfoBase
+
+	addresses corenetwork.SpaceAddresses
 }
 
+// newNetworkInfoCAAS returns a NetworkInfo implementation for a CAAS unit.
+// It pre-populates the unit addresses - these are used on every code path.
 func newNetworkInfoCAAS(base *NetworkInfoBase) (*NetworkInfoCAAS, error) {
-	return &NetworkInfoCAAS{base}, nil
+	addrs, err := base.unit.AllAddresses()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	corenetwork.SortAddresses(addrs)
+
+	return &NetworkInfoCAAS{
+		NetworkInfoBase: base,
+		addresses:       addrs,
+	}, nil
 }
 
 // ProcessAPIRequest handles a request to the uniter API NetworkInfo method.
@@ -67,22 +80,13 @@ func (n *NetworkInfoCAAS) ProcessAPIRequest(args params.NetworkInfoParams) (para
 		endpointIngressAddresses[endpoint] = ingress
 	}
 
-	// For CAAS units, we build up a minimal result struct
-	// based on the default space and unit public/private addresses,
-	// ie the addresses of the CAAS service.
-	addrs, err := n.unit.AllAddresses()
-	if err != nil {
-		return params.NetworkInfoResults{}, err
-	}
-	corenetwork.SortAddresses(addrs)
-
 	// We record the interface addresses as the machine local ones - these
 	// are used later as the binding addresses.
 	// For CAAS models, we need to default ingress addresses to all available
 	// addresses so record those in the default ingress address slice.
 	var interfaceAddr []network.InterfaceAddress
 	var defaultIngressAddresses []string
-	for _, a := range addrs {
+	for _, a := range n.addresses {
 		if a.Scope == corenetwork.ScopeMachineLocal {
 			interfaceAddr = append(interfaceAddr, network.InterfaceAddress{Address: a.Value})
 		} else {
@@ -155,7 +159,7 @@ func (n *NetworkInfoCAAS) getRelationNetworkInfo(
 // a relation and unit.
 // The ingress addresses depend on if the relation is cross-model
 // and whether the relation endpoint is bound to a space.
-func (n *NetworkInfoBase) NetworksForRelation(
+func (n *NetworkInfoCAAS) NetworksForRelation(
 	_ string, rel *state.Relation, pollAddr bool,
 ) (string, corenetwork.SpaceAddresses, []string, error) {
 	var ingress corenetwork.SpaceAddresses
@@ -168,14 +172,9 @@ func (n *NetworkInfoBase) NetworksForRelation(
 	}
 
 	if len(ingress) == 0 {
-		addrs, err := n.unit.AllAddresses()
-		if err != nil {
-			logger.Warningf("no service address for unit %q in relation %q", n.unit.Name(), rel)
-		} else {
-			for _, addr := range addrs {
-				if addr.Scope != corenetwork.ScopeMachineLocal {
-					ingress = append(ingress, addr)
-				}
+		for _, addr := range n.addresses {
+			if addr.Scope != corenetwork.ScopeMachineLocal {
+				ingress = append(ingress, addr)
 			}
 		}
 	}
