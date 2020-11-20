@@ -618,7 +618,7 @@ func (s *RefreshSuite) TestSwitch(c *gc.C) {
 func (s *RefreshSuite) TestSwitchSameURL(c *gc.C) {
 	s.charmAPIClient.charmURL = s.resolvedCharmURL
 	_, err := s.runRefresh(c, "foo", "--switch="+s.resolvedCharmURL.String())
-	c.Assert(err, gc.ErrorMatches, `already running specified charm "cs:quantal/foo-2"`)
+	c.Assert(err, gc.ErrorMatches, `already running specified charm "foo", revision 2`)
 }
 
 func (s *RefreshSuite) TestSwitchDifferentRevision(c *gc.C) {

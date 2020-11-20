@@ -285,7 +285,7 @@ func (s *charmStoreCharmRefresherSuite) TestRefreshWithNoUpdates(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = task.Refresh()
-	c.Assert(err, gc.ErrorMatches, `already running latest charm "cs:meshuggah"`)
+	c.Assert(err, gc.ErrorMatches, `already running latest charm "meshuggah"`)
 }
 
 func (s *charmStoreCharmRefresherSuite) TestRefreshWithARevision(c *gc.C) {
@@ -311,7 +311,7 @@ func (s *charmStoreCharmRefresherSuite) TestRefreshWithARevision(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = task.Refresh()
-	c.Assert(err, gc.ErrorMatches, `already running specified charm "cs:meshuggah-1"`)
+	c.Assert(err, gc.ErrorMatches, `already running specified charm "meshuggah", revision 1`)
 }
 
 type charmHubCharmRefresherSuite struct{}
@@ -397,7 +397,7 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithARevision(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = task.Refresh()
-	c.Assert(err, gc.ErrorMatches, `already running specified charm "meshuggah-1"`)
+	c.Assert(err, gc.ErrorMatches, `already running specified charm "meshuggah", revision 1`)
 }
 
 func (s *charmHubCharmRefresherSuite) TestRefreshWithOriginChannel(c *gc.C) {
@@ -432,7 +432,7 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithOriginChannel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = task.Refresh()
-	c.Assert(err, gc.ErrorMatches, `already running specified charm "meshuggah-1"`)
+	c.Assert(err, gc.ErrorMatches, `already running specified charm "meshuggah", revision 1`)
 }
 
 func basicRefresherConfig(curl *charm.URL, ref string) RefresherConfig {
