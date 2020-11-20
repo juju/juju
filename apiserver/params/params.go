@@ -527,6 +527,7 @@ type LoginRequest struct {
 	BakeryVersion bakery.Version   `json:"bakery-version,omitempty"`
 	CLIArgs       string           `json:"cli-args,omitempty"`
 	UserData      string           `json:"user-data"`
+	ClientVersion string           `json:"client-version,omitempty"`
 }
 
 // LoginRequestCompat holds credentials for identifying an entity to the Login v1

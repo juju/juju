@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/httpcontext"
+	"github.com/juju/juju/apiserver/logsink"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
@@ -237,11 +238,16 @@ func LoginRequest(req *http.Request) (params.LoginRequest, error) {
 	}
 
 	bakeryVersion, _ := strconv.Atoi(req.Header.Get(httpbakery.BakeryProtocolHeader))
-	return params.LoginRequest{
+	loginRequest := params.LoginRequest{
 		AuthTag:       tagPass[0],
 		Credentials:   tagPass[1],
 		Nonce:         req.Header.Get(params.MachineNonceHeader),
 		Macaroons:     macaroons,
 		BakeryVersion: bakery.Version(bakeryVersion),
-	}, nil
+	}
+	clientVersion, err := logsink.JujuClientVersionFromRequest(req)
+	if err == nil {
+		loginRequest.ClientVersion = clientVersion.String()
+	}
+	return loginRequest, nil
 }
