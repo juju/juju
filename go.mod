@@ -62,7 +62,7 @@ require (
 	github.com/juju/mutex v0.0.0-20180619145857-d21b13acf4bf
 	github.com/juju/names/v4 v4.0.0-20200424054733-9a8294627524
 	github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b
-	github.com/juju/os v1.0.0
+	github.com/juju/os v1.1.0
 	github.com/juju/packaging v0.0.0-20200421095529-970596d2622a
 	github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93
 	github.com/juju/proxy v0.0.0-20180523025733-5f8741c297b4
@@ -150,5 +150,3 @@ replace gopkg.in/yaml.v2 => github.com/juju/yaml v0.0.0-20200420012109-12a32b78d
 replace github.com/dustin/go-humanize v1.0.0 => github.com/dustin/go-humanize v0.0.0-20141228071148-145fabdb1ab7
 
 replace github.com/hashicorp/raft-boltdb => github.com/juju/raft-boltdb v0.0.0-20200518034108-40b112c917c5
-
-replace github.com/juju/os => /home/ben/gohack/github.com/juju/os
