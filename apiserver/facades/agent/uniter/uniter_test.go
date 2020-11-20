@@ -5278,7 +5278,7 @@ func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
 			},
 		},
 		EgressSubnets:    []string{"54.32.1.2/32"},
-		IngressAddresses: []string{"54.32.1.2", "192.168.1.2"},
+		IngressAddresses: []string{"54.32.1.2"},
 	}
 
 	uniterAPI := s.newUniterAPI(c, st, s.authorizer)
@@ -5327,7 +5327,7 @@ func (s *uniterSuite) TestNetworkInfoCAASModelNoRelation(c *gc.C) {
 			},
 		},
 		EgressSubnets:    []string{"54.32.1.2/32"},
-		IngressAddresses: []string{"54.32.1.2", "192.168.1.2"},
+		IngressAddresses: []string{"54.32.1.2"},
 	}
 
 	uniterAPI := s.newUniterAPI(c, st, s.authorizer)

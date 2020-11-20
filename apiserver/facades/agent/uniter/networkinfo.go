@@ -129,9 +129,11 @@ func (n *NetworkInfoBase) getRelationAndEndpointName(relationID int) (*state.Rel
 
 // maybeGetUnitAddress returns an address for the member unit if either the
 // input relation is cross-model and pollAddr is passed as true.
-// The unit public address is preferred, but we will fall back to the private
-// address if it does not become available in the polling window.
-func (n *NetworkInfoBase) maybeGetUnitAddress(rel *state.Relation) (corenetwork.SpaceAddresses, error) {
+// The unit public address is preferred, but if directed we fall back to the
+// private address if it does not become available in the polling window.
+func (n *NetworkInfoBase) maybeGetUnitAddress(
+	rel *state.Relation, fallbackPrivate bool,
+) (corenetwork.SpaceAddresses, error) {
 	_, crossModel, err := rel.RemoteApplication()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -143,11 +145,16 @@ func (n *NetworkInfoBase) maybeGetUnitAddress(rel *state.Relation) (corenetwork.
 	address, err := n.pollForAddress(n.unit.PublicAddress)
 	if err != nil {
 		logger.Warningf(
-			"no public address for unit %q in cross model relation %q, will use private address", n.unit.Name(), rel)
+			"no public address for unit %q in cross model relation %q", n.unit.Name(), rel)
 	} else if address.Value != "" {
 		return corenetwork.SpaceAddresses{address}, nil
 	}
 
+	if !fallbackPrivate {
+		return nil, nil
+	}
+
+	logger.Warningf("attempting fallback to private address")
 	address, err = n.pollForAddress(n.unit.PrivateAddress)
 	if err != nil {
 		logger.Warningf("no private address for unit %q in relation %q", n.unit.Name(), rel)

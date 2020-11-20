@@ -26,12 +26,18 @@ type NetworkInfoCAAS struct {
 
 // newNetworkInfoCAAS returns a NetworkInfo implementation for a CAAS unit.
 // It pre-populates the unit addresses - these are used on every code path.
+// If there are no configured model egress subnets, we use the addresses to
+// populate defaults for the unit.
 func newNetworkInfoCAAS(base *NetworkInfoBase) (*NetworkInfoCAAS, error) {
 	addrs, err := base.unit.AllAddresses()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	corenetwork.SortAddresses(addrs)
+
+	if len(base.defaultEgress) == 0 {
+		base.defaultEgress = subnetsForAddresses(addrs.Values())
+	}
 
 	return &NetworkInfoCAAS{
 		NetworkInfoBase: base,
@@ -61,7 +67,6 @@ func (n *NetworkInfoCAAS) ProcessAPIRequest(args params.NetworkInfoParams) (para
 			err := errors.NewNotValid(nil, fmt.Sprintf("binding name %q not defined by the unit's charm", endpoint))
 			result.Results[endpoint] = params.NetworkInfoResult{Error: common.ServerError(err)}
 		}
-		endpointEgressSubnets[endpoint] = n.defaultEgress
 	}
 
 	endpointIngressAddresses := make(map[string]corenetwork.SpaceAddresses)
@@ -80,23 +85,22 @@ func (n *NetworkInfoCAAS) ProcessAPIRequest(args params.NetworkInfoParams) (para
 		endpointIngressAddresses[endpoint] = ingress
 	}
 
-	// We record the interface addresses as the machine local ones - these
-	// are used later as the binding addresses.
-	// For CAAS models, we need to default ingress addresses to all available
-	// addresses so record those in the default ingress address slice.
+	// We record the interface addresses as the machine local ones.
+	// These are used later as the binding addresses.
+	// For CAAS models, we need to default ingress addresses to public ones.
 	var interfaceAddr []network.InterfaceAddress
 	var defaultIngressAddresses []string
 	for _, a := range n.addresses {
-		if a.Scope == corenetwork.ScopeMachineLocal {
+		switch a.Scope {
+		case corenetwork.ScopeMachineLocal:
 			interfaceAddr = append(interfaceAddr, network.InterfaceAddress{Address: a.Value})
-		} else {
+		case corenetwork.ScopePublic:
 			defaultIngressAddresses = append(defaultIngressAddresses, a.Value)
 		}
 	}
 
-	networkInfos := make(map[string]machineNetworkInfoResult)
-	networkInfos[corenetwork.AlphaSpaceId] = machineNetworkInfoResult{
-		NetworkInfos: []network.NetworkInfo{{Addresses: interfaceAddr}},
+	networkInfos := map[string]machineNetworkInfoResult{
+		corenetwork.AlphaSpaceId: {NetworkInfos: []network.NetworkInfo{{Addresses: interfaceAddr}}},
 	}
 
 	for endpoint, space := range bindings {
@@ -120,7 +124,7 @@ func (n *NetworkInfoCAAS) ProcessAPIRequest(args params.NetworkInfoParams) (para
 		}
 
 		if len(info.EgressSubnets) == 0 {
-			info.EgressSubnets = subnetsForAddresses(info.IngressAddresses)
+			info.EgressSubnets = n.defaultEgress
 		}
 
 		result.Results[endpoint] = n.resolveResultHostNames(info)
@@ -166,22 +170,26 @@ func (n *NetworkInfoCAAS) NetworksForRelation(
 	var err error
 
 	if pollAddr {
-		if ingress, err = n.maybeGetUnitAddress(rel); err != nil {
+		if ingress, err = n.maybeGetUnitAddress(rel, false); err != nil {
 			return "", nil, nil, errors.Trace(err)
 		}
 	}
 
+	// Ingress addresses can only be public addresses for CAAS.
+	// The are always scoped explicitly and are either public or local-cloud.
+	// See: caas/kubernetes/provider/k8s.go
 	if len(ingress) == 0 {
 		for _, addr := range n.addresses {
-			if addr.Scope != corenetwork.ScopeMachineLocal {
+			if addr.Scope == corenetwork.ScopePublic {
 				ingress = append(ingress, addr)
 			}
 		}
 	}
 
-	corenetwork.SortAddresses(ingress)
-
-	egress, err := n.getEgressForRelation(rel, ingress)
+	// We can pass nil as ingress here, because we have already set
+	// n.defaultEgress to either the model configuration or those generated
+	// for the unit.
+	egress, err := n.getEgressForRelation(rel, nil)
 	if err != nil {
 		return "", nil, nil, errors.Trace(err)
 	}

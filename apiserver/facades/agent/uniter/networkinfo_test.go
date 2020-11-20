@@ -408,7 +408,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 
 	// Add a application address.
 	err = mysql.UpdateCloudService("", network.SpaceAddresses{
-		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("1.2.3.4", network.ScopePublic),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = prr.pu0.Refresh()
@@ -423,7 +423,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 
 	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
 	c.Assert(ingress, gc.DeepEquals,
-		network.SpaceAddresses{network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal)})
+		network.SpaceAddresses{network.NewScopedSpaceAddress("1.2.3.4", network.ScopePublic)})
 	c.Assert(egress, gc.DeepEquals, []string{"1.2.3.4/32"})
 }
 
