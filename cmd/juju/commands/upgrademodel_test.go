@@ -418,7 +418,7 @@ func (s *UpgradeBaseSuite) assertUpgradeTests(c *gc.C, tests []upgradeTest, upgr
 		current := version.MustParseBinary(test.currentVersion)
 		s.PatchValue(&jujuversion.Current, current.Number)
 		s.PatchValue(&arch.HostArch, func() string { return current.Arch })
-		s.PatchValue(&series.MustHostSeries, func() string { return current.Series })
+		s.PatchValue(&series.HostSeries, func() (string, error) { return current.Series, nil })
 		com := upgradeJujuCommand(test.upgradeMap)
 		if err := cmdtesting.InitCommand(com, test.args); err != nil {
 			if test.expectInitErr != "" {
@@ -485,7 +485,7 @@ func (s *UpgradeBaseSuite) checkToolsUploaded(c *gc.C, vers version.Binary, agen
 	expectContent := version.Binary{
 		Number: agentVersion,
 		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
+		Series: coretesting.HostSeries(c),
 	}
 	checkToolsContent(c, data, "jujud contents "+expectContent.String())
 }
@@ -549,11 +549,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 	command := s.upgradeJujuCommandNoAPI(map[int]version.Number{2: version.MustParse("1.99.99")})
 	_, err := cmdtesting.RunCommand(c, command, "--build-agent")
 	c.Assert(err, jc.ErrorIsNil)
-	vers := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	vers := coretesting.CurrentVersion(c)
 	vers.Build = 1
 	s.checkToolsUploaded(c, vers, vers.Number)
 }
@@ -739,7 +735,7 @@ func (s *UpgradeBaseSuite) setUpEnvAndTools(c *gc.C, currentVersion string, agen
 	current := version.MustParseBinary(currentVersion)
 	s.PatchValue(&jujuversion.Current, current.Number)
 	s.PatchValue(&arch.HostArch, func() string { return current.Arch })
-	s.PatchValue(&series.MustHostSeries, func() string { return current.Series })
+	s.PatchValue(&series.HostSeries, func() (string, error) { return current.Series, nil })
 
 	tmpDir := c.MkDir()
 	updateAttrs := map[string]interface{}{
@@ -1028,11 +1024,7 @@ func (s *UpgradeJujuSuite) TestResetPreviousUpgrade(c *gc.C) {
 }
 
 func NewFakeUpgradeJujuAPI(c *gc.C, st *state.State) *fakeUpgradeJujuAPI {
-	nextVersion := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	nextVersion := coretesting.CurrentVersion(c)
 	nextVersion.Minor++
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)

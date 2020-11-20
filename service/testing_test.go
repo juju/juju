@@ -77,7 +77,7 @@ func (s *BaseSuite) PatchAttempts(retries int) {
 }
 
 func (s *BaseSuite) PatchSeries(ser string) {
-	s.PatchValue(&series.MustHostSeries, func() string { return ser })
+	s.PatchValue(&series.HostSeries, func() (string, error) { return ser, nil })
 }
 
 func NewDiscoveryCheck(name string, running bool, failure error) discoveryCheck {

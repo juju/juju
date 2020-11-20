@@ -461,7 +461,10 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 	var zeroVersion Version
 	tweakSysctlForMongo(mongoKernelTweaks)
 
-	hostSeries := series.MustHostSeries()
+	hostSeries, err := series.HostSeries()
+	if err != nil {
+		return zeroVersion, errors.Trace(err)
+	}
 	mongoDep := dependency.Mongo(args.SetNUMAControlPolicy, args.JujuDBSnapChannel)
 	usingMongoFromSnap := providesMongoAsSnap(mongoDep, hostSeries) || featureflag.Enabled(feature.MongoDbSnap)
 

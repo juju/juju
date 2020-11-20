@@ -5,10 +5,8 @@ package upgrader_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -18,8 +16,8 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type unitUpgraderSuite struct {
@@ -36,12 +34,6 @@ type unitUpgraderSuite struct {
 }
 
 var _ = gc.Suite(&unitUpgraderSuite{})
-
-var current = version.Binary{
-	Number: jujuversion.Current,
-	Arch:   arch.HostArch(),
-	Series: series.MustHostSeries(),
-}
 
 func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
@@ -73,18 +65,19 @@ func (s *unitUpgraderSuite) addMachineApplicationCharmAndUnit(c *gc.C, appName s
 }
 
 func (s *unitUpgraderSuite) TestSetVersionWrongUnit(c *gc.C) {
-	err := s.st.SetVersion("unit-wordpress-42", current)
+	err := s.st.SetVersion("unit-wordpress-42", testing.CurrentVersion(c))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *unitUpgraderSuite) TestSetVersionNotUnit(c *gc.C) {
-	err := s.st.SetVersion("foo-42", current)
+	err := s.st.SetVersion("foo-42", testing.CurrentVersion(c))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *unitUpgraderSuite) TestSetVersion(c *gc.C) {
+	current := testing.CurrentVersion(c)
 	agentTools, err := s.rawUnit.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(agentTools, gc.IsNil)
@@ -111,6 +104,7 @@ func (s *unitUpgraderSuite) TestToolsNotUnit(c *gc.C) {
 }
 
 func (s *unitUpgraderSuite) TestTools(c *gc.C) {
+	current := testing.CurrentVersion(c)
 	curTools := &tools.Tools{Version: current, URL: ""}
 	curTools.Version.Minor++
 	s.rawMachine.SetAgentVersion(current)
@@ -157,6 +151,7 @@ func (s *unitUpgraderSuite) TestWatchAPIVersionNotUnit(c *gc.C) {
 }
 
 func (s *unitUpgraderSuite) TestDesiredVersion(c *gc.C) {
+	current := testing.CurrentVersion(c)
 	curTools := &tools.Tools{Version: current, URL: ""}
 	curTools.Version.Minor++
 	s.rawMachine.SetAgentVersion(current)

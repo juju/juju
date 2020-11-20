@@ -74,10 +74,14 @@ func (v *versionCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (v *versionCommand) Init(args []string) error {
+	ser, err := series.HostSeries()
+	if err != nil {
+		ser = "unknown"
+	}
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
+		Series: ser,
 	}
 	detail := versionDetail{
 		Version:       current,

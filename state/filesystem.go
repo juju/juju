@@ -1389,10 +1389,7 @@ func FilesystemMountPoint(
 	tag names.StorageTag,
 	series string,
 ) (string, error) {
-	storageDir, err := paths.StorageDir(series)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
+	storageDir := paths.StorageDir(paths.SeriesToOS(series))
 	if strings.HasPrefix(meta.Location, storageDir) {
 		return "", errors.Errorf(
 			"invalid location %q: must not fall within %q",

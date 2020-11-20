@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/os/series"
 	"github.com/juju/utils"
 	goyaml "gopkg.in/yaml.v2"
 
@@ -48,17 +47,14 @@ type machineInfo struct {
 	Hostname string `yaml:",omitempty"`
 }
 
-var maasDataDir = paths.MustSucceed(paths.DataDir(series.DefaultSupportedLTS()))
+var maasDataDir = paths.DataDir(paths.OSUnixLike)
 var _MAASInstanceFilename = path.Join(maasDataDir, "MAASmachine.txt")
 
 // cloudinitRunCmd returns the shell command that, when run, will create the
 // "machine info" file containing the hostname of a machine.
 // That command is destined to be used by cloudinit.
 func (info *machineInfo) cloudinitRunCmd(cloudcfg cloudinit.CloudConfig) (string, error) {
-	dataDir, err := paths.DataDir(cloudcfg.GetSeries())
-	if err != nil {
-		return "", errors.Trace(err)
-	}
+	dataDir := paths.DataDir(paths.SeriesToOS(cloudcfg.GetSeries()))
 	yaml, err := goyaml.Marshal(info)
 	if err != nil {
 		return "", errors.Trace(err)

@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -192,12 +193,12 @@ func newTestServer() *httptest.Server {
 
 // newTmpdir creates a tmpdir and returns pathfinder func that returns the
 // tmpdir.
-func newTmpdir() (string, func(string) (string, error), bool) {
+func newTmpdir() (string, pathfinderFunc, bool) {
 	td, err := ioutil.TempDir("", "juju-test-kvm-internalSuite")
 	if err != nil {
 		return "", nil, false
 	}
-	pathfinder := func(string) (string, error) { return td, nil }
+	pathfinder := func(_ paths.OS) string { return td }
 	return td, pathfinder, true
 }
 

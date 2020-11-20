@@ -9,17 +9,14 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
 	"github.com/juju/utils/symlink"
-	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/juju/names"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/testing"
 )
 
 type SymlinksSuite struct {
@@ -30,11 +27,7 @@ var _ = gc.Suite(&SymlinksSuite{})
 
 func (s *SymlinksSuite) SetUpTest(c *gc.C) {
 	s.dataDir = c.MkDir()
-	s.toolsDir = tools.SharedToolsDir(s.dataDir, version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	})
+	s.toolsDir = tools.SharedToolsDir(s.dataDir, testing.CurrentVersion(c))
 	err := os.MkdirAll(s.toolsDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("created %s", s.toolsDir)

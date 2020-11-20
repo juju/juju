@@ -943,11 +943,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		c.Skip("HasProvisioner is false; cannot test deployment")
 	}
 
-	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	current := coretesting.CurrentVersion(c)
 	other := current
 	other.Series = "quantal"
 	if current == other {

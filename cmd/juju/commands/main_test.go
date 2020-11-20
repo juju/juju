@@ -18,11 +18,9 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
-	"github.com/juju/os/series"
+	jujuos "github.com/juju/os"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
-	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	jujucloud "github.com/juju/juju/cloud"
@@ -160,20 +158,12 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		summary: "check version command returns a fully qualified version string",
 		args:    []string{"version"},
 		code:    0,
-		out: version.Binary{
-			Number: jujuversion.Current,
-			Arch:   arch.HostArch(),
-			Series: series.MustHostSeries(),
-		}.String() + "\n",
+		out:     testing.CurrentVersion(c).String() + "\n",
 	}, {
 		summary: "check --version command returns a fully qualified version string",
 		args:    []string{"--version"},
 		code:    0,
-		out: version.Binary{
-			Number: jujuversion.Current,
-			Arch:   arch.HostArch(),
-			Series: series.MustHostSeries(),
-		}.String() + "\n",
+		out:     testing.CurrentVersion(c).String() + "\n",
 	}} {
 		c.Logf("test %d: %s", i, t.summary)
 		out := badrun(c, t.code, t.args...)
@@ -215,7 +205,7 @@ func (s *MainSuite) TestFirstRun2xFrom1xOnUbuntu(c *gc.C) {
 
 	// Code should only run on ubuntu series, so patch out the series for
 	// when non-ubuntu OSes run this test.
-	s.PatchValue(&series.MustHostSeries, func() string { return "trusty" })
+	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 
 	argChan := make(chan []string, 1)
 
@@ -263,7 +253,7 @@ Since Juju 2 is being run for the first time, downloaded the latest public cloud
 
 func (s *MainSuite) TestFirstRun2xFrom1xNotUbuntu(c *gc.C) {
 	// Code should only run on ubuntu series, so pretend to be something else.
-	s.PatchValue(&series.MustHostSeries, func() string { return "win8" })
+	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Windows })
 
 	argChan := make(chan []string, 1)
 
@@ -302,7 +292,7 @@ Since Juju 2 is being run for the first time, downloaded the latest public cloud
 
 func (s *MainSuite) TestFirstRun2xFrom1xNotUbuntuQuiet(c *gc.C) {
 	// Code should only run on ubuntu series, so pretend to be something else.
-	s.PatchValue(&series.MustHostSeries, func() string { return "win8" })
+	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Windows })
 
 	argChan := make(chan []string, 1)
 
@@ -339,9 +329,9 @@ func (s *MainSuite) TestFirstRun2xFrom1xNotUbuntuQuiet(c *gc.C) {
 }
 
 func (s *MainSuite) TestNoWarn1xWith2xData(c *gc.C) {
-	// Code should only rnu on ubuntu series, so patch out the series for
+	// Code should only run on ubuntu series, so patch out the series for
 	// when non-ubuntu OSes run this test.
-	s.PatchValue(&series.MustHostSeries, func() string { return "trusty" })
+	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 
 	argChan := make(chan []string, 1)
 
@@ -372,9 +362,9 @@ func (s *MainSuite) TestNoWarn1xWith2xData(c *gc.C) {
 }
 
 func (s *MainSuite) TestNoWarnWithNo1xOr2xData(c *gc.C) {
-	// Code should only rnu on ubuntu series, so patch out the series for
+	// Code should only run on ubuntu series, so patch out the series for
 	// when non-ubuntu OSes run this test.
-	s.PatchValue(&series.MustHostSeries, func() string { return "trusty" })
+	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 
 	argChan := make(chan []string, 1)
 	// we shouldn't actually be running anything, but if we do, this will
@@ -454,12 +444,7 @@ func makeValidOldHome(c *gc.C) {
 }
 
 func checkVersionOutput(c *gc.C, output string) {
-	ver := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
-
+	ver := testing.CurrentVersion(c)
 	c.Check(output, gc.Equals, ver.String()+"\n")
 }
 

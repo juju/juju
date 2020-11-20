@@ -19,7 +19,6 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
 	"github.com/juju/pubsub"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils"
@@ -89,10 +88,10 @@ import (
 
 var (
 	logger            = loggo.GetLogger("juju.cmd.jujud")
-	jujuRun           = paths.MustSucceed(paths.JujuRun(series.MustHostSeries()))
-	jujuDumpLogs      = paths.MustSucceed(paths.JujuDumpLogs(series.MustHostSeries()))
-	jujuIntrospect    = paths.MustSucceed(paths.JujuIntrospect(series.MustHostSeries()))
-	jujuUpdateSeries  = paths.MustSucceed(paths.JujuUpdateSeries(series.MustHostSeries()))
+	jujuRun           = paths.JujuRun(paths.CurrentOS())
+	jujuDumpLogs      = paths.JujuDumpLogs(paths.CurrentOS())
+	jujuIntrospect    = paths.JujuIntrospect(paths.CurrentOS())
+	jujuUpdateSeries  = paths.JujuUpdateSeries(paths.CurrentOS())
 	jujudSymlinks     = []string{jujuRun, jujuDumpLogs, jujuIntrospect, jujuUpdateSeries}
 	caasJujudSymlinks = []string{jujuRun, jujuDumpLogs, jujuIntrospect}
 

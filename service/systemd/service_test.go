@@ -72,9 +72,7 @@ var _ = gc.Suite(&initSystemSuite{})
 func (s *initSystemSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	dataDir, err := paths.DataDir("vivid")
-	c.Assert(err, jc.ErrorIsNil)
-	s.dataDir = dataDir
+	s.dataDir = paths.DataDir(paths.OSUnixLike)
 
 	// Set up the service config.
 	tagStr := "machine-0"

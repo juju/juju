@@ -13,9 +13,7 @@ import (
 	"sort"
 
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -26,7 +24,6 @@ import (
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/deployer"
 )
 
@@ -163,11 +160,7 @@ var fakeJujud = "#!/bin/bash --norc\n# fake-jujud\nexit 0\n"
 func (fix *SimpleToolsFixture) SetUp(c *gc.C, dataDir string) {
 	fix.dataDir = dataDir
 	fix.logDir = c.MkDir()
-	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	current := testing.CurrentVersion(c)
 	toolsDir := tools.SharedToolsDir(fix.dataDir, current)
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)

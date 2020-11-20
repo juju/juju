@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -280,7 +279,7 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Id(), gc.Equals, "0")
 	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageModel})
-	c.Assert(m.Series(), gc.Equals, series.MustHostSeries())
+	c.Assert(m.Series(), gc.Equals, testing.HostSeries(c))
 	c.Assert(m.CheckProvisioned(agent.BootstrapNonce), jc.IsTrue)
 	c.Assert(m.Addresses(), jc.DeepEquals, filteredAddrs)
 	gotBootstrapConstraints, err := m.Constraints()

@@ -16,10 +16,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -29,9 +27,9 @@ import (
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	coretools "github.com/juju/juju/tools"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type toolsSuite struct {
@@ -380,13 +378,8 @@ func (s *toolsSuite) TestUploadSeriesExpanded(c *gc.C) {
 }
 
 func (s *toolsSuite) TestDownloadModelUUIDPath(c *gc.C) {
-	v := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
 	tools := s.storeFakeTools(c, s.State, "abc", binarystorage.Metadata{
-		Version: v.String(),
+		Version: testing.CurrentVersion(c).String(),
 		Size:    3,
 		SHA256:  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
 	})
@@ -397,13 +390,8 @@ func (s *toolsSuite) TestDownloadOtherModelUUIDPath(c *gc.C) {
 	newSt := s.Factory.MakeModel(c, nil)
 	defer newSt.Close()
 
-	v := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
 	tools := s.storeFakeTools(c, newSt, "abc", binarystorage.Metadata{
-		Version: v.String(),
+		Version: testing.CurrentVersion(c).String(),
 		Size:    3,
 		SHA256:  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
 	})
@@ -411,13 +399,8 @@ func (s *toolsSuite) TestDownloadOtherModelUUIDPath(c *gc.C) {
 }
 
 func (s *toolsSuite) TestDownloadTopLevelPath(c *gc.C) {
-	v := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
 	tools := s.storeFakeTools(c, s.State, "abc", binarystorage.Metadata{
-		Version: v.String(),
+		Version: testing.CurrentVersion(c).String(),
 		Size:    3,
 		SHA256:  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
 	})

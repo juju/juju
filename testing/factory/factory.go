@@ -13,7 +13,6 @@ import (
 	"github.com/juju/charm/v7"
 	charmresource "github.com/juju/charm/v7/resource"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
@@ -314,11 +313,7 @@ func (factory *Factory) MakeMachineNested(c *gc.C, parentId string, params *Mach
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetProvisioned(params.InstanceId, params.DisplayName, params.Nonce, params.Characteristics)
 	c.Assert(err, jc.ErrorIsNil)
-	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	current := testing.CurrentVersion(c)
 	err = m.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 	return m
@@ -384,11 +379,7 @@ func (factory *Factory) makeMachineReturningPassword(c *gc.C, params *MachinePar
 		err := machine.SetProviderAddresses(params.Addresses...)
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	current := testing.CurrentVersion(c)
 	err = machine.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 	return machine, params.Password

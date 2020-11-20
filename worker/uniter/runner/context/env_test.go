@@ -206,7 +206,7 @@ func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 
 	// As TERM is series-specific we need to make sure all supported versions are covered.
 	for _, testSeries := range series.OSSupportedSeries(jujuos.Ubuntu) {
-		s.PatchValue(&series.MustHostSeries, func() string { return testSeries })
+		s.PatchValue(&series.HostSeries, func() (string, error) { return testSeries, nil })
 		ubuntuVars := []string{
 			"APT_LISTCHANGES_FRONTEND=none",
 			"DEBIAN_FRONTEND=noninteractive",
@@ -255,7 +255,7 @@ func (s *EnvSuite) TestEnvCentos(c *gc.C) {
 
 	// As TERM is series-specific we need to make sure all supported versions are covered.
 	for _, testSeries := range series.OSSupportedSeries(jujuos.CentOS) {
-		s.PatchValue(&series.MustHostSeries, func() string { return testSeries })
+		s.PatchValue(&series.HostSeries, func() (string, error) { return testSeries, nil })
 		centosVars := []string{
 			"LANG=C.UTF-8",
 			"PATH=path-to-tools:foo:bar",
@@ -302,7 +302,7 @@ func (s *EnvSuite) TestEnvOpenSUSE(c *gc.C) {
 
 	// As TERM is series-specific we need to make sure all supported versions are covered.
 	for _, testSeries := range series.OSSupportedSeries(jujuos.OpenSUSE) {
-		s.PatchValue(&series.MustHostSeries, func() string { return testSeries })
+		s.PatchValue(&series.HostSeries, func() (string, error) { return testSeries, nil })
 		openSUSEVars := []string{
 			"LANG=C.UTF-8",
 			"PATH=path-to-tools:foo:bar",

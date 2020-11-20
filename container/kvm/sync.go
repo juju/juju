@@ -17,8 +17,6 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/os/series"
-
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/environs/imagedownloads"
 	"github.com/juju/juju/environs/simplestreams"
@@ -53,10 +51,7 @@ func (p syncParams) One() (*imagedownloads.Metadata, error) {
 
 func (p syncParams) exists() error {
 	fName := backingFileName(p.series, p.arch)
-	baseDir, err := paths.DataDir(series.MustHostSeries())
-	if err != nil {
-		return errors.Trace(err)
-	}
+	baseDir := paths.DataDir(paths.CurrentOS())
 	imagePath := filepath.Join(baseDir, kvm, guestDir, fName)
 
 	if _, err := os.Stat(imagePath); err == nil {
@@ -268,7 +263,7 @@ func (i *Image) cleanupAll() {
 	}
 }
 
-func newDefaultFetcher(md *imagedownloads.Metadata, imageDownloadURL string, pathfinder func(string) (string, error), callback ProgressCallback) (*fetcher, error) {
+func newDefaultFetcher(md *imagedownloads.Metadata, imageDownloadURL string, pathfinder pathfinderFunc, callback ProgressCallback) (*fetcher, error) {
 	i, err := newImage(md, imageDownloadURL, pathfinder, callback)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -285,16 +280,13 @@ func newDefaultFetcher(md *imagedownloads.Metadata, imageDownloadURL string, pat
 	return &fetcher{metadata: md, image: i, client: client, req: req, imageDownloadURL: imageDownloadURL}, nil
 }
 
-func newImage(md *imagedownloads.Metadata, imageDownloadURL string, pathfinder func(string) (string, error), callback ProgressCallback) (*Image, error) {
+func newImage(md *imagedownloads.Metadata, imageDownloadURL string, pathfinder pathfinderFunc, callback ProgressCallback) (*Image, error) {
 	// Setup names and paths.
 	dlURL, err := md.DownloadURL(imageDownloadURL)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	baseDir, err := pathfinder(series.MustHostSeries())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	baseDir := pathfinder(paths.CurrentOS())
 
 	// Closing this is deferred in Image.write.
 	fh, err := ioutil.TempFile("", fmt.Sprintf("juju-kvm-%s-", path.Base(dlURL.String())))

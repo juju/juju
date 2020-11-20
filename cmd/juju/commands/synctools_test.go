@@ -11,10 +11,8 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -26,7 +24,6 @@ import (
 	"github.com/juju/juju/jujuclient"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type syncToolsSuite struct {
@@ -264,11 +261,7 @@ func (s *syncToolsSuite) TestAPIAdapterFindToolsAPIError(c *gc.C) {
 
 func (s *syncToolsSuite) TestAPIAdapterUploadTools(c *gc.C) {
 	uploadToolsErr := errors.New("uh oh")
-	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	current := coretesting.CurrentVersion(c)
 	fake := fakeSyncToolsAPI{
 		uploadTools: func(r io.Reader, v version.Binary, additionalSeries ...string) (coretools.List, error) {
 			data, err := ioutil.ReadAll(r)

@@ -24,7 +24,6 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
@@ -122,11 +121,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.makeTestModel(c)
 
 	// Create fake tools.tar.gz and downloaded-tools.txt.
-	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	current := testing.CurrentVersion(c)
 	toolsDir := filepath.FromSlash(agenttools.SharedToolsDir(s.dataDir, current))
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
@@ -677,12 +672,8 @@ func (s *BootstrapSuite) TestDownloadedToolsMetadata(c *gc.C) {
 func (s *BootstrapSuite) TestUploadedToolsMetadata(c *gc.C) {
 	// Tools uploaded over ssh.
 	s.writeDownloadedTools(c, &tools.Tools{
-		Version: version.Binary{
-			Number: jujuversion.Current,
-			Arch:   arch.HostArch(),
-			Series: series.MustHostSeries(),
-		},
-		URL: "file:///does/not/matter",
+		Version: testing.CurrentVersion(c),
+		URL:     "file:///does/not/matter",
 	})
 	s.testToolsMetadata(c, true)
 }
@@ -711,14 +702,14 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 		for _, ser := range series.SupportedSeries() {
 			os, err := series.GetOSFromSeries(ser)
 			c.Assert(err, jc.ErrorIsNil)
-			hostos, err := series.GetOSFromSeries(series.MustHostSeries())
+			hostos, err := series.GetOSFromSeries(testing.HostSeries(c))
 			c.Assert(err, jc.ErrorIsNil)
 			if os == hostos || os.IsLinux() && hostos.IsLinux() {
 				expectedSeries.Add(ser)
 			}
 		}
 	} else {
-		expectedSeries.Add(series.MustHostSeries())
+		expectedSeries.Add(testing.HostSeries(c))
 	}
 
 	storage, err := st.ToolsStorage()

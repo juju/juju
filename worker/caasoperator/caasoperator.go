@@ -49,9 +49,9 @@ import (
 var logger interface{}
 
 var (
-	jujuRun        = paths.MustSucceed(paths.JujuRun(series.MustHostSeries()))
-	jujuDumpLogs   = paths.MustSucceed(paths.JujuDumpLogs(series.MustHostSeries()))
-	jujuIntrospect = paths.MustSucceed(paths.JujuIntrospect(series.MustHostSeries()))
+	jujuRun        = paths.JujuRun(paths.CurrentOS())
+	jujuDumpLogs   = paths.JujuDumpLogs(paths.CurrentOS())
+	jujuIntrospect = paths.JujuIntrospect(paths.CurrentOS())
 
 	jujudSymlinks = []string{
 		jujuRun,
@@ -316,11 +316,11 @@ func (op *caasOperator) removeUnitDir(unitTag names.UnitTag) error {
 	return os.RemoveAll(unitAgentDir)
 }
 
-func toBinaryVersion(vers version.Number) version.Binary {
+func toBinaryVersion(vers version.Number, hostSeries string) version.Binary {
 	outVers := version.Binary{
 		Number: vers,
 		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
+		Series: hostSeries,
 	}
 	return outVers
 }
@@ -407,8 +407,12 @@ func (op *caasOperator) loop() (err error) {
 	logger.Infof("operator %q started", op.config.Application)
 
 	// Start by reporting current tools (which includes arch/series).
+	hostSeries, err := series.HostSeries()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if err := op.config.VersionSetter.SetVersion(
-		op.config.Application, toBinaryVersion(jujuversion.Current)); err != nil {
+		op.config.Application, toBinaryVersion(jujuversion.Current, hostSeries)); err != nil {
 		return errors.Annotate(err, "cannot set agent version")
 	}
 
