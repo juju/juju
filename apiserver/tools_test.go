@@ -16,7 +16,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/version"
@@ -28,6 +27,7 @@ import (
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	coretools "github.com/juju/juju/tools"
 )

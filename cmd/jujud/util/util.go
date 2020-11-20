@@ -8,12 +8,13 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
+
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/mongo"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/upgrader"
-	"github.com/juju/loggo"
 )
 
 var (

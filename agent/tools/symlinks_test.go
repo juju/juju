@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/symlink"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/juju/names"
+	"github.com/juju/juju/testing"
 )
 
 type SymlinksSuite struct {
