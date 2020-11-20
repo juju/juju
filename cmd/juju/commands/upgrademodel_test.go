@@ -482,7 +482,11 @@ func (s *UpgradeBaseSuite) checkToolsUploaded(c *gc.C, vers version.Binary, agen
 	data, err := ioutil.ReadAll(r)
 	r.Close()
 	c.Check(err, jc.ErrorIsNil)
-	expectContent := coretesting.CurrentVersion(c)
+	expectContent := version.Binary{
+		Number: agentVersion,
+		Arch:   arch.HostArch(),
+		Series: coretesting.HostSeries(c),
+	}
 	checkToolsContent(c, data, "jujud contents "+expectContent.String())
 }
 

@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/featureflag"
-	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/loggo"
 	jujuos "github.com/juju/os"
 	"github.com/juju/os/series"
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/wrench"
 )
 

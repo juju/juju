@@ -11,8 +11,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/juju/juju/core/paths"
 	"github.com/juju/loggo"
+
+	"github.com/juju/juju/core/paths"
 )
 
 var (
