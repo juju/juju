@@ -28,7 +28,7 @@ Trigger metrics collection
 
 This command waits for the metric collection to finish before returning.
 You may abort this command and it will continue to run asynchronously.
-Results may be checked by 'juju show-action-status'.
+Results may be checked by 'juju show-task'.
 `
 
 const (
@@ -93,11 +93,11 @@ func parseRunOutput(result params.ActionResult) (string, string, error) {
 	if result.Error != nil {
 		return "", "", result.Error
 	}
-	stdout, ok := result.Output["Stdout"].(string)
+	stdout, ok := result.Output["stdout"].(string)
 	if !ok {
 		return "", "", errors.New("could not read stdout")
 	}
-	stderr, ok := result.Output["Stderr"].(string)
+	stderr, ok := result.Output["stderr"].(string)
 	if !ok {
 		return "", "", errors.New("could not read stderr")
 	}
@@ -240,5 +240,5 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 
 // getActionResult abstracts over the action CLI function that we use here to fetch results
 var getActionResult = func(c runClient, actionId string, wait *time.Timer) (params.ActionResult, error) {
-	return action.GetActionResult(c, actionId, wait, false)
+	return action.GetActionResult(c, actionId, wait)
 }

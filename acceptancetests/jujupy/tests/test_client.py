@@ -2832,7 +2832,7 @@ class TestModelClient(ClientTest):
             out = client.action_fetch("123")
             self.assertEqual(out, ret)
         mock.assert_called_once_with(
-            'show-action-output', '123', "--wait", "1m"
+            'show-task', '123', "--wait", "1m"
         )
 
     def test_action_fetch_timeout(self):
@@ -2864,10 +2864,10 @@ class TestModelClient(ClientTest):
     def test_run(self):
         client = fake_juju_client(cls=ModelClient)
         run_list = [
-            {"MachineId": "1",
-             "Stdout": "Linux\n",
-             "ReturnCode": 255,
-             "Stderr": "Permission denied (publickey,password)"}]
+            {"machine": "1",
+             "stdout": "Linux\n",
+             "return-code": 255,
+             "stderr": "Permission denied (publickey,password)"}]
         run_output = json.dumps(run_list)
         with patch.object(client._backend, 'get_juju_output',
                           return_value=run_output) as gjo_mock:

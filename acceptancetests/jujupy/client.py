@@ -1886,7 +1886,7 @@ class ModelClient:
         cases where it's available.
         Returns the yaml output of the fetched action.
         """
-        out = self.get_juju_output("show-action-output", id, "--wait", timeout)
+        out = self.get_juju_output("show-task", id, "--wait", timeout)
         status = yaml.safe_load(out)["status"]
         if status != "completed":
             action_name = '' if not action else ' "{}"'.format(action)

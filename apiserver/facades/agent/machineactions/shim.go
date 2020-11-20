@@ -40,5 +40,5 @@ func (shim backendShim) TagToActionReceiverFn(findEntity func(names.Tag) (state.
 }
 
 func (shim backendShim) ConvertActions(ar state.ActionReceiver, fn common.GetActionsFn) ([]params.ActionResult, error) {
-	return common.ConvertActions(ar, fn, true)
+	return common.ConvertActions(ar, fn)
 }

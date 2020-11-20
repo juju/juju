@@ -853,7 +853,7 @@ func (ctx *HookContext) SetActionFailed() error {
 // upon completion of the Action.  It returns an error if not called on an
 // Action-containing HookContext.
 // Implements jujuc.ActionHookContext.actionHookContext, part of runner.Context.
-func (ctx *HookContext) UpdateActionResults(keys []string, value string) error {
+func (ctx *HookContext) UpdateActionResults(keys []string, value interface{}) error {
 	ctx.actionDataMu.Lock()
 	defer ctx.actionDataMu.Unlock()
 	if ctx.actionData == nil {

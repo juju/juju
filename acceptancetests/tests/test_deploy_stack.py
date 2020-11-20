@@ -104,14 +104,14 @@ class DeployStackTestCase(FakeHomeTestCase):
         env = JujuData('foo', {'type': 'nonlocal'})
         client = ModelClient(env, None, None)
         response_ok = json.dumps(
-            [{"MachineId": "1", "Stdout": "Linux\n"},
-             {"MachineId": "2", "Stdout": "Linux\n"}])
+            [{"MachineId": "1", "stdout": "Linux\n"},
+             {"MachineId": "2", "stdout": "Linux\n"}])
         response_err = json.dumps([
-            {"MachineId": "1", "Stdout": "Linux\n"},
+            {"MachineId": "1", "stdout": "Linux\n"},
             {"MachineId": "2",
-             "Stdout": "Linux\n",
-             "ReturnCode": 255,
-             "Stderr": "Permission denied (publickey,password)"}])
+             "stdout": "Linux\n",
+             "return-code": 255,
+             "stderr": "Permission denied (publickey,password)"}])
         with patch.object(client, 'get_juju_output', autospec=True,
                           return_value=response_ok) as gjo_mock:
             responses = assess_juju_run(client)
@@ -1063,8 +1063,8 @@ class TestTestUpgrade(FakeHomeTestCase):
                 'agent-version': '2.0-rc2'}},
             'services': {}})
         juju_run_out = json.dumps([
-            {"MachineId": "1", "Stdout": "Linux\n"},
-            {"MachineId": "2", "Stdout": "Linux\n"}])
+            {"machine": "1", "stdout": "Linux\n"},
+            {"machine": "2", "stdout": "Linux\n"}])
         list_models = json.dumps(
             {'models': [
                 {'name': 'controller'},

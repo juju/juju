@@ -333,31 +333,30 @@ func encodeBytes(input []byte) (value string, encoding string) {
 }
 
 func (runner *runner) updateActionResults(results *utilexec.ExecResponse) error {
-	// TODO(juju3) - use lower case here
-	if err := runner.context.UpdateActionResults([]string{"Code"}, fmt.Sprintf("%d", results.Code)); err != nil {
+	if err := runner.context.UpdateActionResults([]string{"return-code"}, results.Code); err != nil {
 		return errors.Trace(err)
 	}
 
 	stdout, encoding := encodeBytes(results.Stdout)
 	if stdout != "" {
-		if err := runner.context.UpdateActionResults([]string{"Stdout"}, stdout); err != nil {
+		if err := runner.context.UpdateActionResults([]string{"stdout"}, stdout); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	if encoding != "utf8" {
-		if err := runner.context.UpdateActionResults([]string{"StdoutEncoding"}, encoding); err != nil {
+		if err := runner.context.UpdateActionResults([]string{"stdout-encoding"}, encoding); err != nil {
 			return errors.Trace(err)
 		}
 	}
 
 	stderr, encoding := encodeBytes(results.Stderr)
 	if stderr != "" {
-		if err := runner.context.UpdateActionResults([]string{"Stderr"}, stderr); err != nil {
+		if err := runner.context.UpdateActionResults([]string{"stderr"}, stderr); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	if encoding != "utf8" {
-		if err := runner.context.UpdateActionResults([]string{"StderrEncoding"}, encoding); err != nil {
+		if err := runner.context.UpdateActionResults([]string{"stderr-encoding"}, encoding); err != nil {
 			return errors.Trace(err)
 		}
 	}

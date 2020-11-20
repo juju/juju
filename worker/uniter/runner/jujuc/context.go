@@ -86,7 +86,7 @@ type actionHookContext interface {
 	// UpdateActionResults inserts new values for use with action-set.
 	// The results struct will be delivered to the controller upon
 	// completion of the Action.
-	UpdateActionResults(keys []string, value string) error
+	UpdateActionResults(keys []string, value interface{}) error
 
 	// SetActionMessage sets a message for the Action.
 	SetActionMessage(string) error

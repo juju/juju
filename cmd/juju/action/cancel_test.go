@@ -29,35 +29,15 @@ func (s *CancelSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *CancelSuite) TestRun(c *gc.C) {
-	prefix := "deadbeef"
-	fakeid := prefix + "-0000-4000-8000-feedfacebeef"
-	fakeid2 := prefix + "-0001-4000-8000-feedfacebeef"
-	faketag := "action-" + fakeid
-	faketag2 := "action-" + fakeid2
-
-	emptyArgs := []string{}
-	emptyPrefixArgs := []string{}
-	prefixArgs := []string{prefix}
-	result1 := []params.ActionResult{{Action: &params.Action{}, Status: "some-random-status"}}
-	result2 := []params.ActionResult{{Action: &params.Action{}, Status: "a status"}, {Action: &params.Action{}, Status: "another status"}}
-
-	errNotFound := "no actions specified"
-	errNotFoundForPrefix := `no actions found matching prefix ` + prefix + `, no actions have been canceled`
-	errFoundTagButNotCanceled := `identifier\(s\) \["` + prefix + `"\] matched action\(s\) \[.*\], but no actions were canceled`
+	result1 := []params.ActionResult{{Action: &params.Action{Tag: "action-1"}, Status: "some-random-status"}}
+	result2 := []params.ActionResult{{Action: &params.Action{Tag: "action-2"}, Status: "a status"}, {Action: &params.Action{Tag: "action-3"}, Status: "another status"}}
 
 	tests := []cancelTestCase{
-		{expectError: errNotFound},
-		{args: emptyArgs, expectError: errNotFound},
-		{args: emptyArgs, tags: tagsForIdPrefix("", faketag, faketag2), expectError: errNotFound},
-		{args: emptyPrefixArgs, expectError: errNotFound},
-		{args: emptyPrefixArgs, tags: tagsForIdPrefix("", faketag, faketag2), expectError: errNotFound},
-		{args: prefixArgs, expectError: errNotFoundForPrefix},
-		{args: prefixArgs, expectError: errNotFoundForPrefix, tags: tagsForIdPrefix(prefix)},
-		{args: prefixArgs, expectError: errNotFoundForPrefix, tags: tagsForIdPrefix(prefix, "bb", "bc")},
-		{args: prefixArgs, expectError: errFoundTagButNotCanceled, tags: tagsForIdPrefix(prefix, faketag, faketag2)},
-		{args: prefixArgs, expectError: errFoundTagButNotCanceled, tags: tagsForIdPrefix(prefix, faketag)},
-		{args: prefixArgs, tags: tagsForIdPrefix(prefix, faketag), results: result1},
-		{args: prefixArgs, tags: tagsForIdPrefix(prefix, faketag, faketag2), results: result2},
+		{expectError: "no task IDs specified"},
+		{args: []string{}, expectError: "no task IDs specified"},
+		{args: []string{"3"}, expectError: "no tasks found, no tasks have been canceled"},
+		{args: []string{"1"}, results: result1},
+		{args: []string{"2", "3"}, results: result2},
 	}
 
 	for i, test := range tests {
@@ -71,9 +51,7 @@ func (s *CancelSuite) runTestCase(c *gc.C, tc cancelTestCase) {
 		fakeClient := makeFakeClient(
 			0*time.Second, // No API delay
 			5*time.Second, // 5 second test timeout
-			tc.tags,
 			tc.results,
-			tc.actionsByNames,
 			"", // No API error
 		)
 
@@ -99,9 +77,7 @@ func (s *CancelSuite) runTestCase(c *gc.C, tc cancelTestCase) {
 }
 
 type cancelTestCase struct {
-	args           []string
-	expectError    string
-	tags           params.FindTagsResults
-	results        []params.ActionResult
-	actionsByNames params.ActionsByNames
+	args        []string
+	expectError string
+	results     []params.ActionResult
 }

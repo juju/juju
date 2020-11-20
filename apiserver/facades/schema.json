@@ -1,8 +1,8 @@
 [
     {
         "Name": "Action",
-        "Description": "APIv6 provides the Action API facade for version 6.",
-        "Version": 6,
+        "Description": "APIv7 provides the Action API facade for version 7.",
+        "Version": 7,
         "AvailableTo": [
             "model-user"
         ],
@@ -45,18 +45,6 @@
                     },
                     "description": "Cancel attempts to cancel enqueued Actions from running."
                 },
-                "Enqueue": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Actions"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ActionResults"
-                        }
-                    },
-                    "description": "Enqueue takes a list of Actions and queues them up to be executed by\nthe designated ActionReceiver, returning the params.Action for each\nenqueued Action, or an error if there was a problem enqueueing the\nAction."
-                },
                 "EnqueueOperation": {
                     "type": "object",
                     "properties": {
@@ -69,53 +57,6 @@
                     },
                     "description": "EnqueueOperation takes a list of Actions and queues them up to be executed as\nan operation, each action running as a task on the the designated ActionReceiver.\nWe return the ID of the overall operation and each individual task."
                 },
-                "FindActionTagsByPrefix": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/FindTags"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/FindTagsResults"
-                        }
-                    },
-                    "description": "FindActionTagsByPrefix takes a list of string prefixes and finds\ncorresponding ActionTags that match that prefix.\nTODO(juju3) - rename API method since we only need prefix matching for UUIDs"
-                },
-                "FindActionsByNames": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/FindActionsByNames"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ActionsByNames"
-                        }
-                    }
-                },
-                "ListAll": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ActionsByReceivers"
-                        }
-                    },
-                    "description": "ListAll takes a list of Entities representing ActionReceivers and\nreturns all of the Actions that have been enqueued or run by each of\nthose Entities."
-                },
-                "ListCompleted": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ActionsByReceivers"
-                        }
-                    },
-                    "description": "ListCompleted takes a list of Entities representing ActionReceivers\nand returns all of the Actions that have been run on each of those\nEntities."
-                },
                 "ListOperations": {
                     "type": "object",
                     "properties": {
@@ -127,30 +68,6 @@
                         }
                     },
                     "description": "ListOperations fetches the called actions for specified apps/units."
-                },
-                "ListPending": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ActionsByReceivers"
-                        }
-                    },
-                    "description": "ListPending takes a list of Entities representing ActionReceivers\nand returns all of the Actions that are enqueued for each of those\nEntities."
-                },
-                "ListRunning": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ActionsByReceivers"
-                        }
-                    },
-                    "description": "ListRunning takes a list of Entities representing ActionReceivers and\nreturns all of the Actions that have are running on each of those\nEntities."
                 },
                 "Operations": {
                     "type": "object",
@@ -339,66 +256,6 @@
                     },
                     "additionalProperties": false
                 },
-                "ActionsByName": {
-                    "type": "object",
-                    "properties": {
-                        "actions": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ActionResult"
-                            }
-                        },
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "name": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "ActionsByNames": {
-                    "type": "object",
-                    "properties": {
-                        "actions": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ActionsByName"
-                            }
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "ActionsByReceiver": {
-                    "type": "object",
-                    "properties": {
-                        "actions": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ActionResult"
-                            }
-                        },
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "receiver": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "ActionsByReceivers": {
-                    "type": "object",
-                    "properties": {
-                        "actions": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ActionsByReceiver"
-                            }
-                        }
-                    },
-                    "additionalProperties": false
-                },
                 "ApplicationCharmActionsResult": {
                     "type": "object",
                     "properties": {
@@ -499,53 +356,6 @@
                     "required": [
                         "message",
                         "code"
-                    ]
-                },
-                "FindActionsByNames": {
-                    "type": "object",
-                    "properties": {
-                        "names": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "FindTags": {
-                    "type": "object",
-                    "properties": {
-                        "prefixes": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "prefixes"
-                    ]
-                },
-                "FindTagsResults": {
-                    "type": "object",
-                    "properties": {
-                        "matches": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/definitions/Entity"
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "matches"
                     ]
                 },
                 "OperationQueryArgs": {

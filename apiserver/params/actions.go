@@ -104,24 +104,6 @@ type ActionsQueryResult struct {
 	Error    *Error       `json:"error,omitempty"`
 }
 
-// ActionsByNames wrap a slice of Actions for API calls.
-type ActionsByNames struct {
-	Actions []ActionsByName `json:"actions,omitempty"`
-}
-
-// ActionsByName is a bulk API call wrapper containing actions
-// as results.
-type ActionsByName struct {
-	Name    string         `json:"name,omitempty"`
-	Actions []ActionResult `json:"actions,omitempty"`
-	Error   *Error         `json:"error,omitempty"`
-}
-
-// FindActionsByName finds actions given an action name.
-type FindActionsByNames struct {
-	ActionNames []string `json:"names,omitempty"`
-}
-
 // OperationQueryArgs holds args for listing operations.
 type OperationQueryArgs struct {
 	Applications []string `json:"applications,omitempty"`

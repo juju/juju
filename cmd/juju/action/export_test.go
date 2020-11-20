@@ -19,16 +19,8 @@ var (
 	AddValueToMap      = addValueToMap
 )
 
-type ShowOutputCommand struct {
-	*showOutputCommand
-}
-
 type ShowOperationCommand struct {
 	*showOperationCommand
-}
-
-type StatusCommand struct {
-	*statusCommand
 }
 
 type CancelCommand struct {
@@ -63,30 +55,6 @@ func (c *RunCommand) Args() [][]string {
 	return c.args
 }
 
-type RunActionCommand struct {
-	*runActionCommand
-}
-
-func (c *RunActionCommand) UnitNames() []string {
-	return c.unitReceivers
-}
-
-func (c *RunActionCommand) ActionName() string {
-	return c.actionName
-}
-
-func (c *RunActionCommand) ParseStrings() bool {
-	return c.parseStrings
-}
-
-func (c *RunActionCommand) ParamsYAML() cmd.FileVar {
-	return c.paramsYAML
-}
-
-func (c *RunActionCommand) Args() [][]string {
-	return c.args
-}
-
 type ListCommand struct {
 	*listCommand
 }
@@ -115,25 +83,18 @@ type ListOperationsCommand struct {
 	*listOperationsCommand
 }
 
-func NewShowOutputCommandForTest(store jujuclient.ClientStore, logMessage func(*cmd.Context, string)) (cmd.Command, *ShowOutputCommand) {
-	c := &showOutputCommand{
-		compat:            true,
+func NewShowTaskCommandForTest(store jujuclient.ClientStore, logMessage func(*cmd.Context, string)) (cmd.Command, *showTaskCommand) {
+	c := &showTaskCommand{
 		logMessageHandler: logMessage,
 	}
 	c.SetClientStore(store)
-	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &ShowOutputCommand{c}
+	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), c
 }
 
 func NewShowOperationCommandForTest(store jujuclient.ClientStore) (cmd.Command, *ShowOperationCommand) {
 	c := &showOperationCommand{}
 	c.SetClientStore(store)
 	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &ShowOperationCommand{c}
-}
-
-func NewStatusCommandForTest(store jujuclient.ClientStore) (cmd.Command, *StatusCommand) {
-	c := &statusCommand{}
-	c.SetClientStore(store)
-	return modelcmd.Wrap(c), &StatusCommand{c}
 }
 
 func NewCancelCommandForTest(store jujuclient.ClientStore) (cmd.Command, *CancelCommand) {
@@ -160,12 +121,6 @@ func NewRunCommandForTest(store jujuclient.ClientStore, logMessage func(*cmd.Con
 	}
 	c.SetClientStore(store)
 	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &RunCommand{c}
-}
-
-func NewRunActionCommandForTest(store jujuclient.ClientStore) (cmd.Command, *RunActionCommand) {
-	c := &runActionCommand{}
-	c.SetClientStore(store)
-	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &RunActionCommand{c}
 }
 
 func ActionResultsToMap(results []params.ActionResult) map[string]interface{} {

@@ -307,7 +307,6 @@ timing:
 				t.withAPIDelay,
 				t.withAPITimeout,
 				t.withAPIResponse,
-				params.ActionsByNames{},
 				t.withAPIError,
 			)
 			testRunOperationHelper(
@@ -356,7 +355,6 @@ func testRunOperationHelper(c *gc.C, s *ShowOperationSuite, client *fakeAPIClien
 func makeFakeOperationClient(
 	delay, timeout time.Duration,
 	response []params.OperationResult,
-	actionsByNames params.ActionsByNames,
 	errStr string,
 ) *fakeAPIClient {
 	var delayTimer *time.Timer
@@ -367,8 +365,6 @@ func makeFakeOperationClient(
 		delay:            delayTimer,
 		timeout:          time.NewTimer(timeout),
 		operationResults: response,
-		actionsByNames:   actionsByNames,
-		apiVersion:       5,
 	}
 	if errStr != "" {
 		client.apiErr = errors.New(errStr)

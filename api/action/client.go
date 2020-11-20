@@ -80,24 +80,6 @@ func maybeNotFound(err *params.Error) error {
 	return errors.NewNotFound(err, "")
 }
 
-// FindActionTagsByPrefix takes a list of string prefixes and finds
-// corresponding ActionTags that match that prefix.
-func (c *Client) FindActionTagsByPrefix(arg params.FindTags) (params.FindTagsResults, error) {
-	results := params.FindTagsResults{}
-	err := c.facade.FacadeCall("FindActionTagsByPrefix", arg, &results)
-	return results, err
-}
-
-// Enqueue takes a list of Actions and queues them up to be executed by
-// the designated ActionReceiver, returning the params.Action for each
-// queued Action, or an error if there was a problem queueing up the
-// Action.
-func (c *Client) Enqueue(arg params.Actions) (params.ActionResults, error) {
-	results := params.ActionResults{}
-	err := c.facade.FacadeCall("Enqueue", arg, &results)
-	return results, err
-}
-
 // EnqueueOperation takes a list of Actions and queues them up to be executed as
 // an operation, each action running as a task on the the designated ActionReceiver.
 // We return the ID of the overall operation and each individual task.
@@ -107,14 +89,6 @@ func (c *Client) EnqueueOperation(arg params.Actions) (params.EnqueuedActions, e
 		return results, errors.Errorf("EnqueueOperation not supported by this version (%d) of Juju", v)
 	}
 	err := c.facade.FacadeCall("EnqueueOperation", arg, &results)
-	return results, err
-}
-
-// FindActionsByNames takes a list of action names and returns actions for
-// every name.
-func (c *Client) FindActionsByNames(arg params.FindActionsByNames) (params.ActionsByNames, error) {
-	results := params.ActionsByNames{}
-	err := c.facade.FacadeCall("FindActionsByNames", arg, &results)
 	return results, err
 }
 
