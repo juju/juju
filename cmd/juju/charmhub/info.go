@@ -4,22 +4,18 @@
 package charmhub
 
 import (
-	"fmt"
 	"io"
-	"strings"
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charmhub"
-	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/environs/config"
 )
 
 const (
@@ -43,26 +39,25 @@ See also:
 // NewInfoCommand wraps infoCommand with sane model settings.
 func NewInfoCommand() cmd.Command {
 	return modelcmd.Wrap(&infoCommand{
-		arches: corecharm.AllArches(),
+		charmHubCommand: newCharmHubCommand(),
+		CharmHubClientFunc: func(api base.APICallCloser) InfoCommandAPI {
+			return charmhub.NewClient(api)
+		},
 	})
 }
 
 // infoCommand supplies the "info" CLI command used to display info
 // about charm snaps.
 type infoCommand struct {
-	modelcmd.ModelCommandBase
+	*charmHubCommand
+
 	out        cmd.Output
 	warningLog Log
 
-	infoCommandAPI InfoCommandAPI
-	modelConfigAPI ModelConfigGetter
+	CharmHubClientFunc func(base.APICallCloser) InfoCommandAPI
 
 	config        bool
 	charmOrBundle string
-
-	arch   string
-	arches corecharm.Arches
-	series string
 
 	unicode string
 }
@@ -82,7 +77,8 @@ func (c *infoCommand) Info() *cmd.Info {
 // SetFlags defines flags which can be used with the info command.
 // It implements part of the cmd.Command interface.
 func (c *infoCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.ModelCommandBase.SetFlags(f)
+	c.charmHubCommand.SetFlags(f)
+
 	f.BoolVar(&c.config, "config", false, "display config for this charm")
 	f.StringVar(&c.unicode, "unicode", "auto", "display output using unicode <auto|never|always>")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
@@ -90,14 +86,15 @@ func (c *infoCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json":    cmd.FormatJson,
 		"tabular": c.formatter,
 	})
-
-	f.StringVar(&c.arch, "arch", ArchAll, fmt.Sprintf("display channels supported by provided arch <%s>", c.archArgumentList()))
-	f.StringVar(&c.series, "series", SeriesAll, "display channels supported by provided series")
 }
 
 // Init initializes the info command, including validating the provided
 // flags. It implements part of the cmd.Command interface.
 func (c *infoCommand) Init(args []string) error {
+	if err := c.charmHubCommand.Init(args); err != nil {
+		return errors.Trace(err)
+	}
+
 	if len(args) != 1 {
 		return errors.Errorf("expected a charm or bundle name")
 	}
@@ -112,21 +109,6 @@ func (c *infoCommand) Init(args []string) error {
 		c.unicode = "auto"
 	default:
 		return errors.Errorf("unexpected unicode flag value %q, expected <auto|never|always>", c.unicode)
-	}
-
-	// If the architecture is empty, ensure we normalize it to all to prevent
-	// complicated comparison checking.
-	if c.arch == "" {
-		c.arch = ArchAll
-	}
-
-	if c.arch != ArchAll && !c.arches.Contains(c.arch) {
-		return errors.Errorf("unexpected architecture flag value %q, expected <%s>", c.arch, c.archArgumentList())
-	}
-
-	// It's much harder to specify the series we support in a list fashion.
-	if c.series == "" {
-		c.series = SeriesAll
 	}
 
 	return nil
@@ -146,15 +128,18 @@ func (c *infoCommand) validateCharmOrBundle(charmOrBundle string) error {
 // Run is the business logic of the info command.  It implements the meaty
 // part of the cmd.Command interface.
 func (c *infoCommand) Run(ctx *cmd.Context) error {
-	charmHubClient, modelConfigClient, err := c.getAPI()
+	if err := c.charmHubCommand.Run(ctx); err != nil {
+		return errors.Trace(err)
+	}
+
+	apiRoot, err := c.APIRootFunc()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer func() { _ = charmHubClient.Close() }()
+	defer func() { _ = apiRoot.Close() }()
 
-	if err := c.verifySeries(modelConfigClient); err != nil {
-		return errors.Trace(err)
-	}
+	charmHubClient := c.CharmHubClientFunc(apiRoot)
+
 	info, err := charmHubClient.Info(c.charmOrBundle)
 	if params.IsCodeNotFound(err) {
 		return errors.Wrap(err, errors.Errorf("No information found for charm or bundle with the name %q", c.charmOrBundle))
@@ -175,39 +160,6 @@ func (c *infoCommand) Run(ctx *cmd.Context) error {
 	return c.out.Write(ctx, &view)
 }
 
-func (c *infoCommand) verifySeries(modelConfigClient ModelConfigGetter) error {
-	if c.series != SeriesAll {
-		return nil
-	}
-	attrs, err := modelConfigClient.ModelGet()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	cfg, err := config.New(config.NoDefaults, attrs)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if defaultSeries, explicit := cfg.DefaultSeries(); explicit {
-		c.series = defaultSeries
-	}
-	return nil
-}
-
-// getAPI returns the API that supplies methods
-// required to execute this command.
-func (c *infoCommand) getAPI() (InfoCommandAPI, ModelConfigGetter, error) {
-	if c.infoCommandAPI != nil && c.modelConfigAPI != nil {
-		// This is for testing purposes, for testing, both values
-		// should be set.
-		return c.infoCommandAPI, c.modelConfigAPI, nil
-	}
-	api, err := c.NewAPIRoot()
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "opening API connection")
-	}
-	return charmhub.NewClient(api), modelconfig.NewClient(api), nil
-}
-
 func (c *infoCommand) formatter(writer io.Writer, value interface{}) error {
 	results, ok := value.(*InfoResponse)
 	if !ok {
@@ -219,9 +171,4 @@ func (c *infoCommand) formatter(writer io.Writer, value interface{}) error {
 	}
 
 	return nil
-}
-
-func (c *infoCommand) archArgumentList() string {
-	archList := strings.Join(c.arches.StringList(), "|")
-	return fmt.Sprintf("%s|%s", ArchAll, archList)
 }

@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/charmhub"
-	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/arch"
 )
 
 const (
@@ -162,7 +162,7 @@ func channelArches(platforms []charmhub.Platform) set.Strings {
 	// This makes the filtering logic simpler for plucking an architecture out
 	// of the channels, we should aim to do the same for series.
 	if arches.Contains(ArchAll) {
-		return set.NewStrings(corecharm.AllArches().StringList()...)
+		return set.NewStrings(arch.AllArches().StringList()...)
 	}
 	return arches
 }
@@ -182,7 +182,7 @@ func filterFindResults(in []charmhub.FindResponse, architecture, series string) 
 	for _, resp := range in {
 		archSet := set.NewStrings(resp.Arches...)
 		if archSet.Contains(ArchAll) {
-			archSet = set.NewStrings(corecharm.AllArches().StringList()...)
+			archSet = set.NewStrings(arch.AllArches().StringList()...)
 		}
 		seriesSet := set.NewStrings(resp.Series...)
 

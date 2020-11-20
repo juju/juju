@@ -1,30 +1,17 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package charm
+package arch
 
 import (
 	"strings"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/utils/arch"
 )
 
 // Arch represents a platform architecture.
 type Arch = string
-
-const (
-	// ArchAMD64 defines a amd64 architecture.
-	ArchAMD64 Arch = "amd64"
-
-	// ArchARM64 defines a arm64 architecture.
-	ArchARM64 Arch = "arm64"
-
-	// ArchPPC64 defines a ppc64 architecture.
-	ArchPPC64 Arch = "ppc64"
-
-	// ArchS390 defines a s390 architecture.
-	ArchS390 Arch = "s390"
-)
 
 // Arches defines a list of arches to compare against.
 type Arches struct {
@@ -34,7 +21,7 @@ type Arches struct {
 // AllArches creates a series of arches to compare against.
 func AllArches() Arches {
 	return Arches{
-		set: set.NewStrings(ArchAMD64, ArchARM64, ArchPPC64, ArchS390),
+		set: set.NewStrings(arch.AllSupportedArches...),
 	}
 }
 
