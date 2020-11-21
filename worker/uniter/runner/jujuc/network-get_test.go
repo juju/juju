@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -25,10 +24,6 @@ var _ = gc.Suite(&NetworkGetSuite{})
 
 func (s *NetworkGetSuite) SetUpSuite(c *gc.C) {
 	s.ContextSuite.SetUpSuite(c)
-	lookupHost := func(host string) (addrs []string, err error) {
-		return []string{"127.0.1.1", "10.3.3.3"}, nil
-	}
-	testing.PatchValue(&jujuc.LookupHost, lookupHost)
 }
 
 func (s *NetworkGetSuite) createCommand(c *gc.C) cmd.Command {
@@ -112,29 +107,6 @@ func (s *NetworkGetSuite) createCommand(c *gc.C) cmd.Command {
 		},
 		IngressAddresses: []string{"100.1.2.3", "100.4.3.2"},
 		EgressSubnets:    []string{"192.168.1.0/8", "10.0.0.0/8"},
-	}
-
-	// This should not happen. A hostname should never populate the address
-	// field. However, until the code is updated to prevent addresses from
-	// being populated by Hostnames (e.g. Change the Address field type from
-	// `string` to `net.IP` which will ensure all code paths exclude string
-	// population) we will have this check in place to ensure that hostnames
-	// are resolved to IPs and that hostnames populate a distinct field.
-	// `network-get --primary-address` and the like should only ever return
-	// IPs.
-	presetBindings["resolvable-hostname"] = params.NetworkInfoResult{
-		Info: []params.NetworkInfo{
-			{MACAddress: "00:11:22:33:44:33",
-				InterfaceName: "eth3",
-				Addresses: []params.InterfaceAddress{
-					{
-						Address: "resolvable-hostname",
-						CIDR:    "10.33.1.8/24",
-					},
-				},
-			},
-		},
-		IngressAddresses: []string{"resolvable-hostname"},
 	}
 
 	hctx.info.NetworkInterface.NetworkInfoResults = presetBindings
@@ -271,39 +243,10 @@ egress-subnets:
 ingress-addresses:
 - 100.1.2.3
 - 100.4.3.2`[1:],
-	}, {
-		summary: "a resolvable hostname as address, no args",
-		args:    []string{"resolvable-hostname"},
-		out: `
-bind-addresses:
-- macaddress: "00:11:22:33:44:33"
-  interfacename: eth3
-  addresses:
-  - hostname: resolvable-hostname
-    address: 10.3.3.3
-    cidr: 10.33.1.8/24
-ingress-addresses:
-- 10.3.3.3`[1:],
 	}} {
 		c.Logf("test %d: %s", i, t.summary)
 		s.testScenario(c, t.args, t.code, t.out)
 	}
-}
-
-func (s *NetworkGetSuite) TestNetworkGetLoopbackOnly(c *gc.C) {
-	lookupHost := func(host string) (addrs []string, err error) {
-		return []string{"127.0.1.1"}, nil
-	}
-	testing.PatchValue(&jujuc.LookupHost, lookupHost)
-
-	s.testScenario(c, []string{"resolvable-hostname"}, 0, `
-bind-addresses:
-- macaddress: "00:11:22:33:44:33"
-  interfacename: eth3
-  addresses:
-  - hostname: resolvable-hostname
-    address: ""
-    cidr: 10.33.1.8/24`[1:])
 }
 
 func (s *NetworkGetSuite) testScenario(c *gc.C, args []string, code int, out string) {
