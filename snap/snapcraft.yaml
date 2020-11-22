@@ -1,7 +1,9 @@
 name: juju
 version: 2.9-rc3
-summary: juju client
-description: Through the use of charms, juju provides you with shareable, re-usable, and repeatable expressions of devops best practices.
+summary: Juju CLI
+description: |
+  Model-driven operator lifecycle manager for multi cloud and hybrid cloud
+  application management on K8s and machines.
 confinement: classic
 grade: devel
 base: core18
