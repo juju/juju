@@ -17,7 +17,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
-	jujuos "github.com/juju/os"
+	jujuos "github.com/juju/os/v2"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

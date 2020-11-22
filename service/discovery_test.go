@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/juju/testing"
-	jujuos "github.com/juju/os"
+	jujuos "github.com/juju/os/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/exec"
 	"github.com/juju/version"
