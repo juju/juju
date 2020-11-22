@@ -118,6 +118,10 @@ func (n *NetworkInfoIAAS) getRelationNetworkInfo(
 func (n *NetworkInfoIAAS) NetworksForRelation(
 	binding string, rel *state.Relation, _ bool,
 ) (string, corenetwork.SpaceAddresses, []string, error) {
+	if err := n.setCrossModelStatus(rel); err != nil {
+		return "", nil, nil, errors.Trace(err)
+	}
+
 	boundSpace, err := n.spaceForBinding(binding)
 	if err != nil && !errors.IsNotValid(err) {
 		return "", nil, nil, errors.Trace(err)

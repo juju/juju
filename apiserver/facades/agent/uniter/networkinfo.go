@@ -52,6 +52,10 @@ type NetworkInfoBase struct {
 	app           *state.Application
 	defaultEgress []string
 	bindings      map[string]string
+
+	// isCrossModelRelation indicates if this NetworkInfo is operating in the
+	// context of a cross-model relation.
+	isCrossModelRelation bool
 }
 
 // NewNetworkInfo initialises and returns a new NetworkInfo
@@ -127,6 +131,12 @@ func (n *NetworkInfoBase) getRelationAndEndpointName(relationID int) (*state.Rel
 	return rel, endpoint.Name, nil
 }
 
+func (n *NetworkInfoBase) setCrossModelStatus(rel *state.Relation) error {
+	var err error
+	_, n.isCrossModelRelation, err = rel.RemoteApplication()
+	return errors.Trace(err)
+}
+
 // maybeGetUnitAddress returns an address for the member unit if either the
 // input relation is cross-model and pollAddr is passed as true.
 // The unit public address is preferred, but if directed we fall back to the
@@ -134,11 +144,7 @@ func (n *NetworkInfoBase) getRelationAndEndpointName(relationID int) (*state.Rel
 func (n *NetworkInfoBase) maybeGetUnitAddress(
 	rel *state.Relation, fallbackPrivate bool,
 ) (corenetwork.SpaceAddresses, error) {
-	_, crossModel, err := rel.RemoteApplication()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if !crossModel {
+	if !n.isCrossModelRelation {
 		return nil, nil
 	}
 

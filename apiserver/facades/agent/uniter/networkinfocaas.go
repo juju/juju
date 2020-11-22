@@ -169,6 +169,10 @@ func (n *NetworkInfoCAAS) NetworksForRelation(
 	var ingress corenetwork.SpaceAddresses
 	var err error
 
+	if err = n.setCrossModelStatus(rel); err != nil {
+		return "", nil, nil, errors.Trace(err)
+	}
+
 	if pollAddr {
 		if ingress, err = n.maybeGetUnitAddress(rel, false); err != nil {
 			return "", nil, nil, errors.Trace(err)
@@ -176,8 +180,7 @@ func (n *NetworkInfoCAAS) NetworksForRelation(
 	}
 
 	// Ingress addresses can only be public addresses for CAAS.
-	// The are always scoped explicitly and are either public or local-cloud.
-	// See: caas/kubernetes/provider/k8s.go
+	// The are always scoped explicitly. See: caas/kubernetes/provider/k8s.go.
 	if len(ingress) == 0 {
 		for _, addr := range n.addresses {
 			if addr.Scope == corenetwork.ScopePublic {
