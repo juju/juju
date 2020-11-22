@@ -4,6 +4,7 @@
 package uniter
 
 import (
+	"net"
 	"strings"
 	"time"
 
@@ -37,10 +38,15 @@ type NetworkInfo interface {
 // for unit endpoint bindings and/or relations.
 type NetworkInfoBase struct {
 	st *state.State
+
 	// retryFactory returns a retry strategy template used to poll for
-	// addresses that may not yet have landed in state,
-	// such as for CAAS containers or HA syncing.
+	// and resolve addresses that may not yet have landed in state,
+	// such as for CAAS services.
 	retryFactory func() retry.CallArgs
+
+	// lookupHost is a function for returning a list of IP addresses in
+	// string form that correspond to an input host/address.
+	lookupHost func(string) ([]string, error)
 
 	unit          *state.Unit
 	app           *state.Application
@@ -50,7 +56,17 @@ type NetworkInfoBase struct {
 
 // NewNetworkInfo initialises and returns a new NetworkInfo
 // based on the input state and unit tag.
-func NewNetworkInfo(st *state.State, tag names.UnitTag, retryFactory func() retry.CallArgs) (NetworkInfo, error) {
+func NewNetworkInfo(st *state.State, tag names.UnitTag) (NetworkInfo, error) {
+	n, err := NewNetworkInfoForStrategy(st, tag, defaultRetryFactory, net.LookupHost)
+	return n, errors.Trace(err)
+}
+
+// NewNetworkInfoWithBehaviour initialises and returns a new NetworkInfo
+// based on the input state and unit tag, allowing further specification of
+// behaviour via the input retry factory and host resolver.
+func NewNetworkInfoForStrategy(
+	st *state.State, tag names.UnitTag, retryFactory func() retry.CallArgs, lookupHost func(string) ([]string, error),
+) (NetworkInfo, error) {
 	unit, err := st.Unit(tag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -83,25 +99,13 @@ func NewNetworkInfo(st *state.State, tag names.UnitTag, retryFactory func() retr
 		bindings:      bindings.Map(),
 		defaultEgress: cfg.EgressSubnets(),
 		retryFactory:  retryFactory,
+		lookupHost:    lookupHost,
 	}
 
 	if unit.ShouldBeAssigned() {
 		return &NetworkInfoIAAS{base}, nil
 	}
 	return &NetworkInfoCAAS{base}, nil
-}
-
-// getModelEgressSubnets returns model configuration for egress subnets.
-func (n *NetworkInfoBase) getModelEgressSubnets() ([]string, error) {
-	model, err := n.st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	cfg, err := model.ModelConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return cfg.EgressSubnets(), nil
 }
 
 // getRelationAndEndpointName returns the relation for the input ID
@@ -118,20 +122,6 @@ func (n *NetworkInfoBase) getRelationAndEndpointName(relationID int) (*state.Rel
 	}
 
 	return rel, endpoint.Name, nil
-}
-
-// getRelationEgressSubnets returns the egress CIDRs for the input relation.
-// If no networks are found, return the model default egress CIDRS.
-func (n *NetworkInfoBase) getRelationEgressSubnets(rel *state.Relation) ([]string, error) {
-	egressSubnets, err := state.NewRelationEgressNetworks(n.st).Networks(rel.Tag().Id())
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return n.defaultEgress, nil
-		}
-		return nil, errors.Trace(err)
-	}
-
-	return egressSubnets.CIDRS(), nil
 }
 
 // maybeGetUnitAddress returns an address for the member unit if either the
@@ -165,6 +155,121 @@ func (n *NetworkInfoBase) maybeGetUnitAddress(rel *state.Relation) (corenetwork.
 	return nil, nil
 }
 
+// getEgressForRelation returns any explicitly defined egress subnets
+// for the relation, falling back to configured model egress.
+// If there are none, it attempts to resolve a subnet from the input
+// ingress addresses.
+func (n *NetworkInfoBase) getEgressForRelation(
+	rel *state.Relation, ingress corenetwork.SpaceAddresses,
+) ([]string, error) {
+	egressSubnets, err := state.NewRelationEgressNetworks(n.st).Networks(rel.Tag().Id())
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		}
+	}
+
+	if egressSubnets != nil {
+		egress := egressSubnets.CIDRS()
+		if len(egress) > 0 {
+			return egress, nil
+		}
+	}
+
+	if len(n.defaultEgress) > 0 {
+		return n.defaultEgress, nil
+	}
+
+	return subnetsForAddresses(ingress.Values()), nil
+}
+
+func (n *NetworkInfoBase) resolveResultHostNames(netInfoResult params.NetworkInfoResult) params.NetworkInfoResult {
+	// Maintain a cache of host-name -> address resolutions.
+	resolved := make(map[string]string)
+	addressForHost := func(hostName string) string {
+		resolvedAddr, ok := resolved[hostName]
+		if !ok {
+			resolvedAddr = n.resolveHostAddress(hostName)
+			resolved[hostName] = resolvedAddr
+		}
+		return resolvedAddr
+	}
+
+	// Resolve addresses in Info.
+	for i, info := range netInfoResult.Info {
+		for j, addr := range info.Addresses {
+			if ip := net.ParseIP(addr.Address); ip == nil {
+				// If the address is not an IP, we assume it is a host name.
+				addr.Hostname = addr.Address
+				addr.Address = addressForHost(addr.Hostname)
+				netInfoResult.Info[i].Addresses[j] = addr
+			}
+		}
+	}
+
+	// Resolve addresses in IngressAddresses.
+	// This is slightly different to the addresses above in that we do not
+	// include anything that does not resolve to a usable address.
+	var newIngress []string
+	for _, addr := range netInfoResult.IngressAddresses {
+		if ip := net.ParseIP(addr); ip != nil {
+			newIngress = append(newIngress, addr)
+			continue
+		}
+		if ipAddr := addressForHost(addr); ipAddr != "" {
+			newIngress = append(newIngress, ipAddr)
+		}
+	}
+	netInfoResult.IngressAddresses = newIngress
+
+	return netInfoResult
+}
+
+func (n *NetworkInfoBase) resolveHostAddress(hostName string) string {
+	resolved, err := n.lookupHost(hostName)
+	if err != nil {
+		logger.Errorf("resolving %q: %v", hostName, err)
+		return ""
+	}
+
+	// This preserves prior behaviour from when resolution was done client-side
+	// within the network-get tool.
+	// This check is probably no longer necessary, but is preserved here
+	// conservatively.
+	for _, addr := range resolved {
+		if ip := net.ParseIP(addr); ip != nil && !ip.IsLoopback() {
+			return addr
+		}
+	}
+
+	if len(resolved) == 0 {
+		logger.Warningf("no addresses resolved for host %q", hostName)
+	} else {
+		// If we got results, but they were all filtered out, then we need to
+		// help out operators with some advice.
+		logger.Warningf(
+			"no usable addresses resolved for host %q\n\t"+
+				"resolved: %v\n\t"+
+				"consider editing the hosts file, or changing host resolution order via /etc/nsswitch.conf",
+			hostName,
+			resolved,
+		)
+	}
+
+	return ""
+}
+
+// subnetsForAddresses wraps the core/network method of the same name,
+// limiting the return to container at most one result.
+// TODO (manadart 2020-11-19): This preserves prior behaviour,
+// but should we just return them all?
+func subnetsForAddresses(addrs []string) []string {
+	if egress := corenetwork.SubnetsForAddresses(addrs); len(egress) > 0 {
+		return egress[:1]
+	}
+	return nil
+}
+
 func (n *NetworkInfoBase) pollForAddress(
 	fetcher func() (corenetwork.SpaceAddress, error),
 ) (corenetwork.SpaceAddress, error) {
@@ -181,15 +286,15 @@ func (n *NetworkInfoBase) pollForAddress(
 	return address, retry.Call(retryArg)
 }
 
-func dedupNetworkInfoResults(info params.NetworkInfoResults) params.NetworkInfoResults {
+func uniqueNetworkInfoResults(info params.NetworkInfoResults) params.NetworkInfoResults {
 	for epName, res := range info.Results {
 		if res.Error != nil {
 			continue
 		}
-		res.IngressAddresses = dedupStringListPreservingOrder(res.IngressAddresses)
-		res.EgressSubnets = dedupStringListPreservingOrder(res.EgressSubnets)
+		res.IngressAddresses = uniqueStringsPreservingOrder(res.IngressAddresses)
+		res.EgressSubnets = uniqueStringsPreservingOrder(res.EgressSubnets)
 		for infoIdx, info := range res.Info {
-			res.Info[infoIdx].Addresses = dedupAddrList(info.Addresses)
+			res.Info[infoIdx].Addresses = uniqueInterfaceAddresses(info.Addresses)
 		}
 		info.Results[epName] = res
 	}
@@ -197,7 +302,7 @@ func dedupNetworkInfoResults(info params.NetworkInfoResults) params.NetworkInfoR
 	return info
 }
 
-func dedupStringListPreservingOrder(values []string) []string {
+func uniqueStringsPreservingOrder(values []string) []string {
 	// Ideally, we would use a set.Strings(values).Values() here but since
 	// it does not preserve the insertion order we need to do this manually.
 	seen := set.NewStrings()
@@ -213,7 +318,7 @@ func dedupStringListPreservingOrder(values []string) []string {
 	return out
 }
 
-func dedupAddrList(addrList []params.InterfaceAddress) []params.InterfaceAddress {
+func uniqueInterfaceAddresses(addrList []params.InterfaceAddress) []params.InterfaceAddress {
 	if len(addrList) <= 1 {
 		return addrList
 	}

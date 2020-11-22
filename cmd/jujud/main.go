@@ -232,10 +232,14 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		return 1, errors.Trace(err)
 	}
 
+	ser, err := series.HostSeries()
+	if err != nil {
+		ser = "unknown"
+	}
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
+		Series: ser,
 	}
 	detail := versionDetail{
 		Version:       current.String(),

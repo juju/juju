@@ -80,7 +80,7 @@ func (s *baseProviderSuite) SetUpTest(c *gc.C) {
 	s.ToolsFixture.SetUpTest(c)
 	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	s.PatchValue(&series.MustHostSeries, func() string { return version.DefaultSupportedLTS() })
+	s.PatchValue(&series.HostSeries, func() (string, error) { return version.DefaultSupportedLTS(), nil })
 	s.callCtx = &context.CloudCallContext{
 		InvalidateCredentialFunc: func(string) error {
 			s.invalidCredential = true

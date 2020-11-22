@@ -11,10 +11,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
-	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -60,11 +58,7 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	// wedged, so dump the logs.
 	coretesting.DumpTestLogsAfter(time.Minute, c, s)
 
-	s.oldVersion = version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	s.oldVersion = coretesting.CurrentVersion(c)
 	s.oldVersion.Major = 1
 	s.oldVersion.Minor = 16
 

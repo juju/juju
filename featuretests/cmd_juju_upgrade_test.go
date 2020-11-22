@@ -39,7 +39,7 @@ func (s *cmdUpgradeSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	supported := series.SupportedLts()
-	supported = append(supported, series.MustHostSeries())
+	supported = append(supported, testing.HostSeries(c))
 	for _, aSeries := range supported {
 		s.AddToolsToState(c, version.MustParseBinary(fmt.Sprintf("%v-%v-amd64", newVersion, aSeries)))
 	}

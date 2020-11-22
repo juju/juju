@@ -15,13 +15,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
-	"github.com/juju/utils/v2/arch"
 	"github.com/juju/utils/v2/symlink"
-	"github.com/juju/version"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
@@ -39,7 +36,6 @@ import (
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/caasoperator"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/remotestate"
@@ -275,11 +271,7 @@ func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 
 	s.client.CheckCallNames(c, "Charm", "SetStatus", "SetVersion", "WatchUnits", "WatchContainerStart", "SetStatus", "Watch", "Charm", "Life")
 	s.client.CheckCall(c, 0, "Charm", "gitlab")
-	s.client.CheckCall(c, 2, "SetVersion", "gitlab", version.Binary{
-		Number: jujuversion.Current,
-		Series: series.MustHostSeries(),
-		Arch:   arch.HostArch(),
-	})
+	s.client.CheckCall(c, 2, "SetVersion", "gitlab", coretesting.CurrentVersion(c))
 	s.client.CheckCall(c, 3, "WatchUnits", "gitlab")
 	s.client.CheckCall(c, 4, "WatchContainerStart", "gitlab", "(?:juju-pod-init|)")
 	s.client.CheckCall(c, 6, "Watch", "gitlab")
@@ -536,11 +528,7 @@ func (s *WorkerSuite) TestContainerStart(c *gc.C) {
 
 	s.client.CheckCallNames(c, "Charm", "SetStatus", "SetVersion", "WatchUnits", "WatchContainerStart", "SetStatus", "Watch", "Charm", "Life")
 	s.client.CheckCall(c, 0, "Charm", "gitlab")
-	s.client.CheckCall(c, 2, "SetVersion", "gitlab", version.Binary{
-		Number: jujuversion.Current,
-		Series: series.MustHostSeries(),
-		Arch:   arch.HostArch(),
-	})
+	s.client.CheckCall(c, 2, "SetVersion", "gitlab", coretesting.CurrentVersion(c))
 	s.client.CheckCall(c, 3, "WatchUnits", "gitlab")
 	s.client.CheckCall(c, 4, "WatchContainerStart", "gitlab", "(?:juju-pod-init|)")
 	s.client.CheckCall(c, 6, "Watch", "gitlab")
@@ -585,11 +573,7 @@ func (s *WorkerSuite) TestOperatorNoWaitContainerStart(c *gc.C) {
 
 	s.client.CheckCallNames(c, "Charm", "SetStatus", "SetVersion", "WatchUnits", "SetStatus", "Watch", "Charm", "Life")
 	s.client.CheckCall(c, 0, "Charm", "gitlab")
-	s.client.CheckCall(c, 2, "SetVersion", "gitlab", version.Binary{
-		Number: jujuversion.Current,
-		Series: series.MustHostSeries(),
-		Arch:   arch.HostArch(),
-	})
+	s.client.CheckCall(c, 2, "SetVersion", "gitlab", coretesting.CurrentVersion(c))
 	s.client.CheckCall(c, 3, "WatchUnits", "gitlab")
 	s.client.CheckCall(c, 5, "Watch", "gitlab")
 }

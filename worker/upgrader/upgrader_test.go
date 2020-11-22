@@ -74,7 +74,7 @@ func (s *UpgraderSuite) SetUpTest(c *gc.C) {
 
 func (s *UpgraderSuite) patchVersion(v version.Binary) {
 	s.PatchValue(&arch.HostArch, func() string { return v.Arch })
-	s.PatchValue(&series.MustHostSeries, func() string { return v.Series })
+	s.PatchValue(&series.HostSeries, func() (string, error) { return v.Series, nil })
 	vers := v.Number
 	vers.Build = 666
 	s.PatchValue(&jujuversion.Current, vers)

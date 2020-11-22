@@ -291,35 +291,3 @@ func (s *CIDRSuite) TestSubnetInAnyRange(c *gc.C) {
 		c.Assert(result, gc.Equals, t.included)
 	}
 }
-
-// This test shows that FormatAsCIDR will resolve a resolvable hostname to an IP
-// address before formatting as a CIDR.
-func (s *CIDRSuite) TestParseCIDR(c *gc.C) {
-	exampleAddress := "10.10.10.10"
-	exampleHostname := "Hostname"
-	expectedCIDR := "10.10.10.10/32"
-	testAddresses := []struct {
-		address string
-		cidr    string
-	}{{
-		address: exampleAddress,
-		cidr:    expectedCIDR,
-	}, {
-		address: exampleHostname,
-		cidr:    expectedCIDR,
-	}}
-
-	s.PatchValue(&network.ResolverFunc, func(string, hostname string) (*net.IPAddr, error) {
-		return &net.IPAddr{IP: net.ParseIP(exampleAddress)}, nil
-	})
-
-	for _, testAddress := range testAddresses {
-		actualCIDRs, err := network.FormatAsCIDR([]string{testAddress.address})
-		c.Assert(err, jc.ErrorIsNil)
-		if len(actualCIDRs) <= 0 {
-			c.Fail()
-		}
-		actualCIDR := actualCIDRs[0]
-		c.Assert(actualCIDR, gc.Equals, expectedCIDR)
-	}
-}

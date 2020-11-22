@@ -13,11 +13,9 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2/series"
 	pacman "github.com/juju/packaging/manager"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
-	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -73,11 +71,7 @@ func (s *upgradeSuite) SetUpSuite(c *gc.C) {
 func (s *upgradeSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
 
-	s.oldVersion = version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	s.oldVersion = coretesting.CurrentVersion(c)
 	s.oldVersion.Major = 2
 	s.oldVersion.Minor = 1
 
@@ -219,11 +213,7 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherControllerDoesntStartUpgrad
 			c.Fatalf("didn't see UpgradeReadyError, instead got: %v", agentErr)
 		}
 		// Confirm that the downgrade is back to the previous version.
-		current := version.Binary{
-			Number: jujuversion.Current,
-			Arch:   arch.HostArch(),
-			Series: series.MustHostSeries(),
-		}
+		current := coretesting.CurrentVersion(c)
 		c.Assert(upgradeReadyErr.OldTools, gc.Equals, current)
 		c.Assert(upgradeReadyErr.NewTools, gc.Equals, s.oldVersion)
 

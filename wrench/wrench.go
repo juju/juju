@@ -12,7 +12,6 @@ import (
 	"sync"
 
 	"github.com/juju/loggo"
-	"github.com/juju/os/v2/series"
 
 	"github.com/juju/juju/core/paths"
 )
@@ -21,7 +20,7 @@ var (
 	enabledMu sync.Mutex
 	enabled   = true
 
-	dataDir   = paths.MustSucceed(paths.DataDir(series.MustHostSeries()))
+	dataDir   = paths.DataDir(paths.CurrentOS())
 	wrenchDir = filepath.Join(dataDir, "wrench")
 	jujuUid   = os.Getuid()
 )

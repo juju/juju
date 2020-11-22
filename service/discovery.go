@@ -23,7 +23,11 @@ import (
 // DiscoverService returns an interface to a service appropriate
 // for the current system
 func DiscoverService(name string, conf common.Conf) (Service, error) {
-	initName, err := discoverInitSystem(series.MustHostSeries())
+	hostSeries, err := series.HostSeries()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	initName, err := discoverInitSystem(hostSeries)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

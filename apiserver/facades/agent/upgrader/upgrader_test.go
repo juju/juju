@@ -8,9 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -209,11 +207,7 @@ func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 }
 
 func (s *upgraderSuite) TestToolsForAgent(c *gc.C) {
-	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	current := coretesting.CurrentVersion(c)
 	agent := params.Entity{Tag: s.rawMachine.Tag().String()}
 
 	// The machine must have its existing tools set before we query for the
@@ -253,11 +247,7 @@ func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 		AgentTools: []params.EntityVersion{{
 			Tag: s.rawMachine.Tag().String(),
 			Tools: &params.Version{
-				Version: version.Binary{
-					Number: jujuversion.Current,
-					Arch:   arch.HostArch(),
-					Series: series.MustHostSeries(),
-				},
+				Version: coretesting.CurrentVersion(c),
 			},
 		}},
 	}
@@ -269,11 +259,7 @@ func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 }
 
 func (s *upgraderSuite) TestSetTools(c *gc.C) {
-	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	current := coretesting.CurrentVersion(c)
 	_, err := s.rawMachine.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	args := params.EntitiesVersion{
@@ -353,11 +339,7 @@ func (s *upgraderSuite) TestDesiredVersionForAgent(c *gc.C) {
 func (s *upgraderSuite) bumpDesiredAgentVersion(c *gc.C) version.Number {
 	// In order to call SetModelAgentVersion we have to first SetTools on
 	// all the existing machines
-	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	current := coretesting.CurrentVersion(c)
 	s.apiMachine.SetAgentVersion(current)
 	s.rawMachine.SetAgentVersion(current)
 	newer := current

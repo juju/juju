@@ -61,15 +61,15 @@ var (
 )
 
 func jujuLogDir(series string) string {
-	return path.Join(must(paths.LogDir(series)), "juju")
+	return path.Join(paths.LogDir(paths.SeriesToOS(series)), "juju")
 }
 
 func jujuDataDir(series string) string {
-	return must(paths.DataDir(series))
+	return paths.DataDir(paths.SeriesToOS(series))
 }
 
 func jujuTransientDataDir(series string) string {
-	return must(paths.TransientDataDir(series))
+	return paths.TransientDataDir(paths.SeriesToOS(series))
 }
 
 func cloudInitOutputLog(logDir string) string {
@@ -77,15 +77,7 @@ func cloudInitOutputLog(logDir string) string {
 }
 
 func metricsSpoolDir(series string) string {
-	return must(paths.MetricsSpoolDir(series))
-}
-
-// TODO: add this to the utils package
-func must(s string, err error) string {
-	if err != nil {
-		panic(err)
-	}
-	return s
+	return paths.MetricsSpoolDir(paths.SeriesToOS(series))
 }
 
 var stateServingInfo = controller.StateServingInfo{

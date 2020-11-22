@@ -60,6 +60,7 @@ require (
 	github.com/juju/mutex v0.0.0-20180619145857-d21b13acf4bf
 	github.com/juju/names/v4 v4.0.0-20200929085019-be23e191fee0
 	github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b
+	github.com/juju/os v0.0.0-20191022170002-da411304426c
 	github.com/juju/os/v2 v2.0.0
 	github.com/juju/packaging v0.0.0-20200421095529-970596d2622a
 	github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93
@@ -162,3 +163,5 @@ replace (
 	k8s.io/apimachinery v0.0.0 => k8s.io/apimachinery v0.18.6
 	k8s.io/client-go v0.0.0 => k8s.io/client-go v0.18.6
 )
+
+replace github.com/juju/os/v2 => /home/ben/gohack/github.com/juju/os/v2

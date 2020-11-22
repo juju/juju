@@ -20,6 +20,7 @@ import (
 	"github.com/juju/http"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	jujuos "github.com/juju/os/v2"
 	"github.com/juju/os/v2/series"
 	"github.com/juju/pubsub"
 	gitjujutesting "github.com/juju/testing"
@@ -74,7 +75,7 @@ const (
 var (
 	// KubernetesSeriesName is the kubernetes series name that is validated at
 	// runtime, otherwise it panics.
-	KubernetesSeriesName = strings.ToLower(series.MustOSFromSeries("kubernetes").String())
+	KubernetesSeriesName = strings.ToLower(jujuos.Kubernetes.String())
 )
 
 // defaultSupportedJujuSeries is used to return canned information about what
@@ -436,7 +437,12 @@ func DefaultVersions(conf *config.Config) []version.Binary {
 	supported := series.SupportedLts()
 	defaultSeries := set.NewStrings(supported...)
 	defaultSeries.Add(config.PreferredSeries(conf))
-	defaultSeries.Add(series.MustHostSeries())
+
+	hostSeries, err := series.HostSeries()
+	if err != nil {
+		defaultSeries.Add(hostSeries)
+	}
+
 	agentVersion, set := conf.AgentVersion()
 	if !set {
 		agentVersion = jujuversion.Current

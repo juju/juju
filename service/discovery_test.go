@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
-	jujuos "github.com/juju/os/v2"
-	"github.com/juju/os/v2/series"
+	"github.com/juju/juju/testing"
+	jujuos "github.com/juju/os"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/exec"
 	"github.com/juju/version"
@@ -182,13 +182,13 @@ func (s *discoverySuite) TestDiscoverServiceLocalHost(c *gc.C) {
 	case "windows":
 		localInitSystem = service.InitSystemWindows
 	case "linux":
-		localInitSystem, err = service.VersionInitSystem(series.MustHostSeries())
+		localInitSystem, err = service.VersionInitSystem(testing.HostSeries(c))
 	}
 	c.Assert(err, gc.IsNil)
 
 	test := discoveryTest{
 		os:       jujuos.HostOS(),
-		series:   series.MustHostSeries(),
+		series:   testing.HostSeries(c),
 		expected: localInitSystem,
 	}
 	test.disableVersionDiscovery(s)
@@ -346,7 +346,7 @@ func (s *discoverySuite) TestDiscoverInitSystemScriptBash(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	initSystem, err := service.DiscoverInitSystem(series.MustHostSeries())
+	initSystem, err := service.DiscoverInitSystem(testing.HostSeries(c))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(response.Code, gc.Equals, 0)
 	c.Check(string(response.Stdout), gc.Equals, initSystem)
@@ -365,7 +365,7 @@ func (s *discoverySuite) TestDiscoverInitSystemScriptPosix(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	initSystem, err := service.DiscoverInitSystem(series.MustHostSeries())
+	initSystem, err := service.DiscoverInitSystem(testing.HostSeries(c))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(response.Code, gc.Equals, 0)
 	c.Check(string(response.Stdout), gc.Equals, initSystem)
@@ -407,7 +407,7 @@ func (s *discoverySuite) TestNewShellSelectCommandBash(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	initSystem, err := service.DiscoverInitSystem(series.MustHostSeries())
+	initSystem, err := service.DiscoverInitSystem(testing.HostSeries(c))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(response.Code, gc.Equals, 0)
 	c.Check(string(response.Stdout), gc.Equals, initSystem)
@@ -432,7 +432,7 @@ func (s *discoverySuite) TestNewShellSelectCommandPosix(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	initSystem, err := service.DiscoverInitSystem(series.MustHostSeries())
+	initSystem, err := service.DiscoverInitSystem(testing.HostSeries(c))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(response.Code, gc.Equals, 0)
 	c.Check(string(response.Stdout), gc.Equals, initSystem)

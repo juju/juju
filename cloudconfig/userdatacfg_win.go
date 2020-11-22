@@ -50,12 +50,7 @@ func (w *windowsConfigure) Configure() error {
 
 // ConfigureBasic implements UserdataConfig.ConfigureBasic
 func (w *windowsConfigure) ConfigureBasic() error {
-
-	tmpDir, err := paths.TempDir(w.icfg.Series)
-	if err != nil {
-		return err
-	}
-
+	tmpDir := paths.TempDir(paths.SeriesToOS(w.icfg.Series))
 	renderer := w.conf.ShellRenderer()
 	dataDir := renderer.FromSlash(w.icfg.DataDir)
 	transientDataDir := renderer.FromSlash(w.icfg.TransientDataDir)

@@ -6,9 +6,7 @@ package upgrader_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -19,6 +17,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -39,12 +38,6 @@ type unitUpgraderSuite struct {
 }
 
 var _ = gc.Suite(&unitUpgraderSuite{})
-
-var current = version.Binary{
-	Number: jujuversion.Current,
-	Arch:   arch.HostArch(),
-	Series: series.MustHostSeries(),
-}
 
 func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
@@ -163,6 +156,7 @@ func (s *unitUpgraderSuite) TestToolsForAgent(c *gc.C) {
 	// The machine must have its existing tools set before we query for the
 	// next tools. This is so that we can grab Arch and Series without
 	// having to pass it in again
+	current := testing.CurrentVersion(c)
 	err := s.rawMachine.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -195,11 +189,7 @@ func (s *unitUpgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 		AgentTools: []params.EntityVersion{{
 			Tag: s.rawUnit.Tag().String(),
 			Tools: &params.Version{
-				Version: version.Binary{
-					Number: jujuversion.Current,
-					Arch:   arch.HostArch(),
-					Series: series.MustHostSeries(),
-				},
+				Version: testing.CurrentVersion(c),
 			},
 		}},
 	}
@@ -211,11 +201,7 @@ func (s *unitUpgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 }
 
 func (s *unitUpgraderSuite) TestSetTools(c *gc.C) {
-	cur := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	cur := testing.CurrentVersion(c)
 	_, err := s.rawUnit.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	args := params.EntitiesVersion{
@@ -269,11 +255,7 @@ func (s *unitUpgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
 }
 
 func (s *unitUpgraderSuite) TestDesiredVersionNoticesMixedAgents(c *gc.C) {
-	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	current := testing.CurrentVersion(c)
 	err := s.rawMachine.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{
@@ -294,11 +276,7 @@ func (s *unitUpgraderSuite) TestDesiredVersionNoticesMixedAgents(c *gc.C) {
 }
 
 func (s *unitUpgraderSuite) TestDesiredVersionForAgent(c *gc.C) {
-	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	current := testing.CurrentVersion(c)
 	err := s.rawMachine.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{{Tag: s.rawUnit.Tag().String()}}}

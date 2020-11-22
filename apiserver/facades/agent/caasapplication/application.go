@@ -264,8 +264,8 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 
 	caCert, _ := controllerConfig.CACert()
 	version, _ := f.model.AgentVersion()
-	dataDir, _ := paths.DataDir("kubernetes")
-	logDir, _ := paths.LogDir("kubernetes")
+	dataDir := paths.DataDir(paths.OSUnixLike)
+	logDir := paths.LogDir(paths.OSUnixLike)
 
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{

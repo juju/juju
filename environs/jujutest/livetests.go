@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
-	"github.com/juju/os/v2/series"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
@@ -946,11 +945,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		c.Skip("HasProvisioner is false; cannot test deployment")
 	}
 
-	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	current := coretesting.CurrentVersion(c)
 	other := current
 	other.Series = "quantal"
 	if current == other {

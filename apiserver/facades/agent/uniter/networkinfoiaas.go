@@ -74,39 +74,23 @@ func (n *NetworkInfoIAAS) ProcessAPIRequest(args params.NetworkInfoParams) (para
 		// The binding address information based on link layer devices.
 		info := machineNetworkInfoResultToNetworkInfoResult(networkInfos[space])
 
-		// Set egress and ingress address information.
 		info.EgressSubnets = endpointEgressSubnets[endpoint]
-
-		ingressAddrs := make([]string, len(endpointIngressAddresses[endpoint]))
-		for i, addr := range endpointIngressAddresses[endpoint] {
-			ingressAddrs[i] = addr.Value
-		}
-		info.IngressAddresses = ingressAddrs
+		info.IngressAddresses = endpointIngressAddresses[endpoint].Values()
 
 		if len(info.IngressAddresses) == 0 {
 			ingress := spaceAddressesFromNetworkInfo(networkInfos[space].NetworkInfos)
 			corenetwork.SortAddresses(ingress)
-			info.IngressAddresses = make([]string, len(ingress))
-			for i, addr := range ingress {
-				info.IngressAddresses[i] = addr.Value
-			}
+			info.IngressAddresses = ingress.Values()
 		}
 
-		// If there is no egress subnet explicitly defined for a given binding,
-		// default to the first ingress address. This matches the behaviour when
-		// there's a relation in place.
-		if len(info.EgressSubnets) == 0 && len(info.IngressAddresses) > 0 {
-			var err error
-			info.EgressSubnets, err = network.FormatAsCIDR([]string{info.IngressAddresses[0]})
-			if err != nil {
-				return result, errors.Trace(err)
-			}
+		if len(info.EgressSubnets) == 0 {
+			info.EgressSubnets = subnetsForAddresses(info.IngressAddresses)
 		}
 
-		result.Results[endpoint] = info
+		result.Results[endpoint] = n.resolveResultHostNames(info)
 	}
 
-	return dedupNetworkInfoResults(result), nil
+	return result, nil
 }
 
 // getRelationNetworkInfo returns the endpoint name, network space
@@ -159,18 +143,11 @@ func (n *NetworkInfoIAAS) NetworksForRelation(
 
 	corenetwork.SortAddresses(ingress)
 
-	egress, err := n.getRelationEgressSubnets(rel)
+	egress, err := n.getEgressForRelation(rel, ingress)
 	if err != nil {
 		return "", nil, nil, errors.Trace(err)
 	}
 
-	// If no egress subnets defined, We default to the ingress address.
-	if len(egress) == 0 && len(ingress) > 0 {
-		egress, err = network.FormatAsCIDR([]string{ingress[0].Value})
-		if err != nil {
-			return "", nil, nil, errors.Trace(err)
-		}
-	}
 	return boundSpace, ingress, egress, nil
 }
 

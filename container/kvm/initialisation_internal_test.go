@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/packaging"
 	"github.com/juju/juju/packaging/dependency"
 	"github.com/juju/testing"
@@ -30,8 +31,8 @@ func (initialisationInternalSuite) TestCreatePool(c *gc.C) {
 		}
 	}()
 	c.Check(err, jc.ErrorIsNil)
-	pathfinder := func(s string) (string, error) {
-		return tmpDir, nil
+	pathfinder := func(_ paths.OS) string {
+		return tmpDir
 	}
 	stub := runStub{}
 	chown := func(string) error { return nil }
@@ -54,8 +55,8 @@ func (initialisationInternalSuite) TestStartPool(c *gc.C) {
 		}
 	}()
 	c.Check(err, jc.ErrorIsNil)
-	pathfinder := func(s string) (string, error) {
-		return tmpDir, nil
+	pathfinder := func(_ paths.OS) string {
+		return tmpDir
 	}
 	poolInfo := &libvirtPool{Name: "juju-pool", Autostart: "no", State: "inactive"}
 	stub := runStub{}
@@ -78,8 +79,8 @@ func (initialisationInternalSuite) TestAutoStartPool(c *gc.C) {
 		}
 	}()
 	c.Check(err, jc.ErrorIsNil)
-	pathfinder := func(s string) (string, error) {
-		return tmpDir, nil
+	pathfinder := func(_ paths.OS) string {
+		return tmpDir
 	}
 	poolInfo := &libvirtPool{Name: "juju-pool", Autostart: "no", State: "running"}
 	stub := runStub{}

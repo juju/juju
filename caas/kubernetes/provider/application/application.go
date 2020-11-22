@@ -855,10 +855,7 @@ func (a *app) Units() ([]caas.Unit, error) {
 func (a *app) applicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec, error) {
 	appSecret := a.secretName()
 
-	jujuDataDir, err := paths.DataDir("kubernetes")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	jujuDataDir := paths.DataDir(paths.OSUnixLike)
 
 	containerNames := []string(nil)
 	containers := []caas.ContainerConfig(nil)

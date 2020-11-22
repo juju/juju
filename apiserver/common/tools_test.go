@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/state/stateenvirons"
+	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -33,12 +34,6 @@ type toolsSuite struct {
 }
 
 var _ = gc.Suite(&toolsSuite{})
-
-var current = version.Binary{
-	Number: jujuversion.Current,
-	Arch:   arch.HostArch(),
-	Series: series.MustHostSeries(),
-}
 
 func (s *toolsSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
@@ -63,6 +58,7 @@ func (s *toolsSuite) TestTools(c *gc.C) {
 	)
 	c.Assert(tg, gc.NotNil)
 
+	current := coretesting.CurrentVersion(c)
 	err := s.machine0.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -113,6 +109,7 @@ func (s *toolsSuite) TestSetTools(c *gc.C) {
 	ts := common.NewToolsSetter(s.State, getCanWrite)
 	c.Assert(ts, gc.NotNil)
 
+	current := coretesting.CurrentVersion(c)
 	err := s.machine0.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -154,7 +151,7 @@ func (s *toolsSuite) TestToolsSetError(c *gc.C) {
 		AgentTools: []params.EntityVersion{{
 			Tag: "machine-42",
 			Tools: &params.Version{
-				Version: current,
+				Version: coretesting.CurrentVersion(c),
 			},
 		}},
 	}
@@ -250,7 +247,7 @@ func (s *toolsSuite) TestFindToolsExactInStorage(c *gc.C) {
 	}
 
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	s.PatchValue(&series.MustHostSeries, func() string { return "trusty" })
+	s.PatchValue(&series.HostSeries, func() (string, error) { return "trusty", nil })
 	s.PatchValue(&jujuversion.Current, version.MustParseBinary("1.22-beta1-trusty-amd64").Number)
 	s.testFindToolsExact(c, mockToolsStorage, true, true)
 	s.PatchValue(&jujuversion.Current, version.MustParseBinary("1.22.0-trusty-amd64").Number)
@@ -267,10 +264,11 @@ func (s *toolsSuite) TestFindToolsExactNotInStorage(c *gc.C) {
 
 func (s *toolsSuite) testFindToolsExact(c *gc.C, t common.ToolsStorageGetter, inStorage bool, develVersion bool) {
 	var called bool
+	current := coretesting.CurrentVersion(c)
 	s.PatchValue(common.EnvtoolsFindTools, func(e environs.BootstrapEnviron, major, minor int, stream []string, filter coretools.Filter) (list coretools.List, err error) {
 		called = true
 		c.Assert(filter.Number, gc.Equals, jujuversion.Current)
-		c.Assert(filter.Series, gc.Equals, series.MustHostSeries())
+		c.Assert(filter.Series, gc.Equals, current.Series)
 		c.Assert(filter.Arch, gc.Equals, arch.HostArch())
 		if develVersion {
 			c.Assert(stream, gc.DeepEquals, []string{"devel", "proposed", "released"})
@@ -287,7 +285,7 @@ func (s *toolsSuite) testFindToolsExact(c *gc.C, t common.ToolsStorageGetter, in
 		Number:       jujuversion.Current,
 		MajorVersion: -1,
 		MinorVersion: -1,
-		Series:       series.MustHostSeries(),
+		Series:       current.Series,
 		Arch:         arch.HostArch(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -326,13 +324,13 @@ func (s *toolsSuite) TestFindToolsToolsStorageError(c *gc.C) {
 
 func (s *toolsSuite) TestToolsURLGetterNoAPIHostPorts(c *gc.C) {
 	g := common.NewToolsURLGetter("my-uuid", mockAPIHostPortsGetter{})
-	_, err := g.ToolsURLs(current)
+	_, err := g.ToolsURLs(coretesting.CurrentVersion(c))
 	c.Assert(err, gc.ErrorMatches, "no suitable API server address to pick from")
 }
 
 func (s *toolsSuite) TestToolsURLGetterAPIHostPortsError(c *gc.C) {
 	g := common.NewToolsURLGetter("my-uuid", mockAPIHostPortsGetter{err: errors.New("oh noes")})
-	_, err := g.ToolsURLs(current)
+	_, err := g.ToolsURLs(coretesting.CurrentVersion(c))
 	c.Assert(err, gc.ErrorMatches, "oh noes")
 }
 
@@ -342,6 +340,7 @@ func (s *toolsSuite) TestToolsURLGetter(c *gc.C) {
 			network.NewSpaceHostPorts(1234, "0.1.2.3"),
 		},
 	})
+	current := coretesting.CurrentVersion(c)
 	urls, err := g.ToolsURLs(current)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(urls, jc.DeepEquals, []string{
