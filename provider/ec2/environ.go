@@ -1804,7 +1804,7 @@ func (e *environ) IngressRules(ctx context.ProviderCallContext) (firewall.Ingres
 }
 
 func (*environ) Provider() environs.EnvironProvider {
-	return &providerInstance
+	return &environProvider{}
 }
 
 func (e *environ) instanceSecurityGroups(ctx context.ProviderCallContext, instIDs []instance.Id, states ...string) ([]ec2.SecurityGroup, error) {

@@ -3,7 +3,7 @@ clouds:
   aws:
     type: ec2
     description: Amazon Web Services
-    auth-types: [ access-key ]
+    auth-types: [access-key]
     regions:
       us-east-1:
         endpoint: https://ec2.us-east-1.amazonaws.com
@@ -46,7 +46,7 @@ clouds:
   aws-china:
     type: ec2
     description: Amazon China
-    auth-types: [ access-key ]
+    auth-types: [access-key]
     regions:
       cn-north-1:
         endpoint: https://ec2.cn-north-1.amazonaws.com.cn
@@ -55,7 +55,7 @@ clouds:
   aws-gov:
     type: ec2
     description: Amazon (USA Government)
-    auth-types: [ access-key ]
+    auth-types: [access-key]
     regions:
       us-gov-west-1:
         endpoint: https://ec2.us-gov-west-1.amazonaws.com
@@ -64,7 +64,7 @@ clouds:
   google:
     type: gce
     description: Google Cloud Platform
-    auth-types: [ jsonfile, oauth2 ]
+    auth-types: [jsonfile, oauth2]
     regions:
       us-east1:
         endpoint: https://www.googleapis.com
@@ -111,7 +111,7 @@ clouds:
   azure:
     type: azure
     description: Microsoft Azure
-    auth-types: [ interactive, service-principal-secret ]
+    auth-types: [interactive, service-principal-secret]
     regions:
       centralus:
         endpoint: https://management.azure.com
@@ -220,7 +220,7 @@ clouds:
       koreacentral:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net        
+        identity-endpoint: https://graph.windows.net
       koreasouth:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
@@ -276,7 +276,7 @@ clouds:
   azure-china:
     type: azure
     description: Microsoft Azure China
-    auth-types: [ interactive, service-principal-secret ]
+    auth-types: [interactive, service-principal-secret]
     regions:
       chinaeast:
         endpoint: https://management.chinacloudapi.cn
@@ -297,7 +297,7 @@ clouds:
   rackspace:
     type: rackspace
     description: Rackspace Cloud
-    auth-types: [ userpass ]
+    auth-types: [userpass]
     endpoint: https://identity.api.rackspacecloud.com/v2.0
     regions:
       dfw:
@@ -315,7 +315,7 @@ clouds:
   joyent:
     type: joyent
     description: Joyent Cloud
-    auth-types: [ userpass ]
+    auth-types: [userpass]
     regions:
       us-east-1:
         endpoint: https://us-east-1.api.joyentcloud.com
@@ -332,7 +332,7 @@ clouds:
   cloudsigma:
     type: cloudsigma
     description: CloudSigma Cloud
-    auth-types: [ userpass ]
+    auth-types: [userpass]
     regions:
       dub:
         endpoint: https://dub.cloudsigma.com/api/2.0/
@@ -361,7 +361,7 @@ clouds:
   oracle:
     type: oci
     description: Oracle Cloud Infrastructure
-    auth-types: [ httpsig ]
+    auth-types: [httpsig]
     regions:
       us-phoenix-1:
         endpoint: https://iaas.us-phoenix-1.oraclecloud.com
@@ -374,7 +374,7 @@ clouds:
   oracle-classic:
     type: oracle
     description: Oracle Cloud Infrastructure Classic
-    auth-types: [ userpass ]
+    auth-types: [userpass]
     regions:
       uscom-central-1:
         endpoint: https://compute.uscom-central-1.oraclecloud.com
@@ -386,3 +386,78 @@ clouds:
         endpoint: https://compute.em2.oraclecloud.com
       em3:
         endpoint: https://compute.em3.oraclecloud.com
+  packet:
+    type: packet
+    description: Packet Bare Metal
+    auth-types: [access-key]
+    regions:
+      sin2:
+        endpoint: https://api.packet.net/
+      am6:
+        endpoint: https://api.packet.net/
+      DA3:
+        endpoint: https://api.packet.net/
+      pit1:
+        endpoint: https://api.packet.net/
+      iad2:
+        endpoint: https://api.packet.net/
+      sin3:
+        endpoint: https://api.packet.net/
+      sjc1:
+        endpoint: https://api.packet.net/
+      sv15:
+        endpoint: https://api.packet.net/
+      den42:
+        endpoint: https://api.packet.net/
+      dtw1:
+        endpoint: https://api.packet.net/
+      gsp1:
+        endpoint: https://api.packet.net/
+      dc13:
+        endpoint: https://api.packet.net/
+      fra2:
+        endpoint: https://api.packet.net/
+      sin1:
+        endpoint: https://api.packet.net/
+      lax2:
+        endpoint: https://api.packet.net/
+      ny5:
+        endpoint: https://api.packet.net/
+      syd2:
+        endpoint: https://api.packet.net/
+      hkg1:
+        endpoint: https://api.packet.net/
+      sea2:
+        endpoint: https://api.packet.net/
+      mci1:
+        endpoint: https://api.packet.net/
+      bos2:
+        endpoint: https://api.packet.net/
+      dfw1:
+        endpoint: https://api.packet.net/
+      iad1:
+        endpoint: https://api.packet.net/
+      ams1:
+        endpoint: https://api.packet.net/
+      nrt1:
+        endpoint: https://api.packet.net/
+      yyz1:
+        endpoint: https://api.packet.net/
+      atl2:
+        endpoint: https://api.packet.net/
+      sea1:
+        endpoint: https://api.packet.net/
+      lax1:
+        endpoint: https://api.packet.net/
+      mrs1:
+        endpoint: https://api.packet.net/
+      dfw2:
+        endpoint: https://api.packet.net/
+      iah1:
+        endpoint: https://api.packet.net/
+      phx1:
+        endpoint: https://api.packet.net/
+      ord4:
+        endpoint: https://api.packet.net/
+      ewr1:
+        endpoint: https://api.packet.net/

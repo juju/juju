@@ -492,7 +492,7 @@ func hostBootstrapSSHOptions(
 	}()
 
 	options := &ssh.Options{}
-	options.SetStrictHostKeyChecking(ssh.StrictHostChecksYes)
+	options.SetStrictHostKeyChecking(ssh.StrictHostChecksNo)
 
 	// If any host keys are being injected, we'll set up a
 	// known_hosts file with their contents, and accept only

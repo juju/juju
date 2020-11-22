@@ -393,4 +393,79 @@ clouds:
         endpoint: https://compute.em2.oraclecloud.com
       em3:
         endpoint: https://compute.em3.oraclecloud.com
+  packet:
+    type: packet
+    description: Packet Bare Metal
+    auth-types: [access-key]
+    regions:
+      sin2:
+        endpoint: https://https://api.packet.net/
+      am6:
+        endpoint: https://https://api.packet.net/
+      DA3:
+        endpoint: https://https://api.packet.net/
+      pit1:
+        endpoint: https://https://api.packet.net/
+      iad2:
+        endpoint: https://https://api.packet.net/
+      sin3:
+        endpoint: https://https://api.packet.net/
+      sjc1:
+        endpoint: https://https://api.packet.net/
+      sv15:
+        endpoint: https://https://api.packet.net/
+      den42:
+        endpoint: https://https://api.packet.net/
+      dtw1:
+        endpoint: https://https://api.packet.net/
+      gsp1:
+        endpoint: https://https://api.packet.net/
+      dc13:
+        endpoint: https://https://api.packet.net/
+      fra2:
+        endpoint: https://https://api.packet.net/
+      sin1:
+        endpoint: https://https://api.packet.net/
+      lax2:
+        endpoint: https://https://api.packet.net/
+      ny5:
+        endpoint: https://https://api.packet.net/
+      syd2:
+        endpoint: https://https://api.packet.net/
+      hkg1:
+        endpoint: https://https://api.packet.net/
+      sea2:
+        endpoint: https://https://api.packet.net/
+      mci1:
+        endpoint: https://https://api.packet.net/
+      bos2:
+        endpoint: https://https://api.packet.net/
+      dfw1:
+        endpoint: https://https://api.packet.net/
+      iad1:
+        endpoint: https://https://api.packet.net/
+      ams1:
+        endpoint: https://https://api.packet.net/
+      nrt1:
+        endpoint: https://https://api.packet.net/
+      yyz1:
+        endpoint: https://https://api.packet.net/
+      atl2:
+        endpoint: https://https://api.packet.net/
+      sea1:
+        endpoint: https://https://api.packet.net/
+      lax1:
+        endpoint: https://https://api.packet.net/
+      mrs1:
+        endpoint: https://https://api.packet.net/
+      dfw2:
+        endpoint: https://https://api.packet.net/
+      iah1:
+        endpoint: https://https://api.packet.net/
+      phx1:
+        endpoint: https://https://api.packet.net/
+      ord4:
+        endpoint: https://https://api.packet.net/
+      ewr1:
+        endpoint: https://https://api.packet.net/
 `

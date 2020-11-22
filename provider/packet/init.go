@@ -1,0 +1,17 @@
+// Copyright 2015 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package packet
+
+import (
+	"github.com/juju/juju/environs"
+)
+
+const (
+	providerType = "packet"
+)
+
+func init() {
+	trace()
+	environs.RegisterProvider(providerType, environProvider{})
+}
