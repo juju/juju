@@ -180,13 +180,19 @@ func (n *NetworkInfoCAAS) NetworksForRelation(
 	}
 
 	// Ingress addresses can only be public addresses for CAAS.
-	// The are always scoped explicitly. See: caas/kubernetes/provider/k8s.go.
+	// They are always scoped explicitly. See: caas/kubernetes/provider/k8s.go.
 	if len(ingress) == 0 {
 		for _, addr := range n.addresses {
 			if addr.Scope == corenetwork.ScopePublic {
 				ingress = append(ingress, addr)
 			}
 		}
+	}
+
+	// If we are working with a cross-model relation, omit any non-public scope
+	// addresses from the default egress.
+	if n.isCrossModelRelation {
+		n.defaultEgress = subnetsForAddresses(ingress.Values())
 	}
 
 	// We can pass nil as ingress here, because we have already set
