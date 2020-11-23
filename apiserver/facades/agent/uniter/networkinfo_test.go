@@ -413,6 +413,11 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = prr.pu0.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
+
+	// We need a new instance here, because unit addresses
+	// are populated in the constructor.
+	netInfo, err = uniter.NewNetworkInfoForStrategy(st, prr.pu0.UnitTag(), nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
 	boundSpace, ingress, egress, err = netInfo.NetworksForRelation("", prr.rel, true)
 	c.Assert(err, jc.ErrorIsNil)
 

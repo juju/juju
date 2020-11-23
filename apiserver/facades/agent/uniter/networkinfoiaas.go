@@ -22,6 +22,10 @@ type NetworkInfoIAAS struct {
 	*NetworkInfoBase
 }
 
+func newNetworkInfoIAAS(base *NetworkInfoBase) (*NetworkInfoIAAS, error) {
+	return &NetworkInfoIAAS{base}, nil
+}
+
 // ProcessAPIRequest handles a request to the uniter API NetworkInfo method.
 func (n *NetworkInfoIAAS) ProcessAPIRequest(args params.NetworkInfoParams) (params.NetworkInfoResults, error) {
 	spaces := set.NewStrings()
