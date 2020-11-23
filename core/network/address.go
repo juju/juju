@@ -539,6 +539,20 @@ func NewSpaceAddresses(inAddresses ...string) (outAddresses SpaceAddresses) {
 	return outAddresses
 }
 
+// Values returns a slice of strings containing the IP/host-name of each of
+// the receiver addresses.
+func (sas SpaceAddresses) Values() []string {
+	if sas == nil {
+		return nil
+	}
+
+	values := make([]string, len(sas))
+	for i, a := range sas {
+		values[i] = a.Value
+	}
+	return values
+}
+
 // ToProviderAddresses transforms the SpaceAddresses to ProviderAddresses by using
 // the input lookup for conversion of space ID to space info.
 func (sas SpaceAddresses) ToProviderAddresses(lookup SpaceLookup) (ProviderAddresses, error) {

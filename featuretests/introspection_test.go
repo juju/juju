@@ -12,7 +12,6 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/arch"
@@ -69,11 +68,7 @@ func (s *introspectionSuite) startMachineAgent(c *gc.C) (*agentcmd.MachineAgent,
 	err := m.SetMongoPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 
-	vers := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	vers := testing.CurrentVersion(c)
 	return s.startAgent(c, m.Tag(), password, vers, false)
 }
 

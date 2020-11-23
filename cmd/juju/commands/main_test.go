@@ -17,11 +17,9 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
-	"github.com/juju/os/v2/series"
+	jujuos "github.com/juju/os/v2"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	jujucloud "github.com/juju/juju/cloud"
@@ -33,7 +31,6 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type MainSuite struct {
@@ -159,20 +156,12 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		summary: "check version command returns a fully qualified version string",
 		args:    []string{"version"},
 		code:    0,
-		out: version.Binary{
-			Number: jujuversion.Current,
-			Arch:   arch.HostArch(),
-			Series: series.MustHostSeries(),
-		}.String() + "\n",
+		out:     testing.CurrentVersion(c).String() + "\n",
 	}, {
 		summary: "check --version command returns a fully qualified version string",
 		args:    []string{"--version"},
 		code:    0,
-		out: version.Binary{
-			Number: jujuversion.Current,
-			Arch:   arch.HostArch(),
-			Series: series.MustHostSeries(),
-		}.String() + "\n",
+		out:     testing.CurrentVersion(c).String() + "\n",
 	}} {
 		c.Logf("test %d: %s", i, t.summary)
 		out := badrun(c, t.code, t.args...)
@@ -209,7 +198,7 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 func (s *MainSuite) TestNoWarn2xFirstRun(c *gc.C) {
 	// Code should only rnu on ubuntu series, so patch out the series for
 	// when non-ubuntu OSes run this test.
-	s.PatchValue(&series.MustHostSeries, func() string { return "trusty" })
+	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 
 	argChan := make(chan []string, 1)
 	// we shouldn't actually be running anything, but if we do, this will
@@ -281,12 +270,7 @@ func (s *MainSuite) TestRunNoUpdateCloud(c *gc.C) {
 }
 
 func checkVersionOutput(c *gc.C, output string) {
-	ver := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
-
+	ver := testing.CurrentVersion(c)
 	c.Check(output, gc.Equals, ver.String()+"\n")
 }
 

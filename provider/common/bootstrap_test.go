@@ -652,7 +652,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 
 func (s *BootstrapSuite) TestBootstrapFinalizeCloudInitUserData(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
-	s.PatchValue(&series.MustHostSeries, func() string { return "xenial" })
+	s.PatchValue(&series.HostSeries, func() (string, error) { return "xenial", nil })
 	checkHardware := instance.MustParseHardware("arch=ppc64el mem=2T")
 
 	var innerInstanceConfig *instancecfg.InstanceConfig

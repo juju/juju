@@ -258,23 +258,12 @@ func NewControllerPodConfig(
 	series string,
 	apiInfo *api.Info,
 ) (*ControllerPodConfig, error) {
-	dataDir, err := paths.DataDir(series)
-	if err != nil {
-		return nil, err
-	}
-	logDir, err := paths.LogDir(series)
-	if err != nil {
-		return nil, err
-	}
-	metricsSpoolDir, err := paths.MetricsSpoolDir(series)
-	if err != nil {
-		return nil, err
-	}
+	osType := paths.SeriesToOS(series)
 	pcfg := &ControllerPodConfig{
 		// Fixed entries.
-		DataDir:         dataDir,
-		LogDir:          path.Join(logDir, "juju"),
-		MetricsSpoolDir: metricsSpoolDir,
+		DataDir:         paths.DataDir(osType),
+		LogDir:          path.Join(paths.LogDir(osType), "juju"),
+		MetricsSpoolDir: paths.MetricsSpoolDir(osType),
 		Tags:            map[string]string{},
 		// Parameter entries.
 		ControllerTag:  controllerTag,

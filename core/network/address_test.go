@@ -850,6 +850,12 @@ func (s *AddressSuite) TestSpaceAddressesToProviderAddresses(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *AddressSuite) TestSpaceAddressesValues(c *gc.C) {
+	values := []string{"1.2.3.4", "2.3.4.5", "3.4.5.6"}
+	addrs := network.NewSpaceAddresses(values...)
+	c.Check(addrs.Values(), gc.DeepEquals, values)
+}
+
 func (s *AddressSuite) TestAddressValueForCIDR(c *gc.C) {
 	type test struct {
 		IP   string

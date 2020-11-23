@@ -10,11 +10,9 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/arch"
-	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -774,11 +772,7 @@ func (s *provisionerSuite) TestFindToolsLogicError(c *gc.C) {
 }
 
 func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logicError error) {
-	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	current := coretesting.CurrentVersion(c)
 	var toolsList = coretools.List{&coretools.Tools{Version: current}}
 	var called bool
 	var a string
@@ -793,7 +787,7 @@ func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logi
 		c.Assert(request, gc.Equals, "FindTools")
 		expected := params.FindToolsParams{
 			Number:       jujuversion.Current,
-			Series:       series.MustHostSeries(),
+			Series:       current.Series,
 			Arch:         a,
 			MinorVersion: -1,
 			MajorVersion: -1,
@@ -806,7 +800,7 @@ func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logi
 		}
 		return apiError
 	})
-	apiList, err := s.provisioner.FindTools(jujuversion.Current, series.MustHostSeries(), a)
+	apiList, err := s.provisioner.FindTools(jujuversion.Current, current.Series, a)
 	c.Assert(called, jc.IsTrue)
 	if apiError != nil {
 		c.Assert(err, gc.Equals, apiError)

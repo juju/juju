@@ -17,7 +17,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/shell"
 	"github.com/juju/version"
@@ -43,11 +42,11 @@ const (
 
 // These are base values used for the corresponding defaults.
 var (
-	logDir           = paths.MustSucceed(paths.LogDir(series.MustHostSeries()))
-	dataDir          = paths.MustSucceed(paths.DataDir(series.MustHostSeries()))
-	transientDataDir = paths.MustSucceed(paths.TransientDataDir(series.MustHostSeries()))
-	confDir          = paths.MustSucceed(paths.ConfDir(series.MustHostSeries()))
-	metricsSpoolDir  = paths.MustSucceed(paths.MetricsSpoolDir(series.MustHostSeries()))
+	logDir           = paths.LogDir(paths.CurrentOS())
+	dataDir          = paths.DataDir(paths.CurrentOS())
+	transientDataDir = paths.TransientDataDir(paths.CurrentOS())
+	confDir          = paths.ConfDir(paths.CurrentOS())
+	metricsSpoolDir  = paths.MetricsSpoolDir(paths.CurrentOS())
 )
 
 // Agent exposes the agent's configuration to other components. This

@@ -240,7 +240,7 @@ func (t *localServerSuite) SetUpSuite(c *gc.C) {
 	t.BaseSuite.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	t.BaseSuite.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	t.BaseSuite.PatchValue(&series.MustHostSeries, func() string { return jujuversion.DefaultSupportedLTS() })
+	t.BaseSuite.PatchValue(&series.HostSeries, func() (string, error) { return jujuversion.DefaultSupportedLTS(), nil })
 	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
 	t.BaseSuite.PatchValue(&ec2.EC2Session, func(region, accessKey, secretKey string) ec2iface.EC2API {
 		c.Assert(region, gc.Equals, "test")

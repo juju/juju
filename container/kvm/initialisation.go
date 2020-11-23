@@ -57,11 +57,13 @@ func ensureDependencies() error {
 	return nil
 }
 
+type pathfinderFunc func(paths.OS) string
+
 // ensurePool creates the libvirt storage pool and ensures its is active.
 // runCmd and chownFunc are here for testing. runCmd so we can check the
 // right shell out calls are made, and chownFunc because we cannot chown
 // unless we are root.
-func ensurePool(poolInfo *libvirtPool, pathfinder func(string) (string, error), runCmd runFunc, chownFunc func(string) error) error {
+func ensurePool(poolInfo *libvirtPool, pathfinder pathfinderFunc, runCmd runFunc, chownFunc func(string) error) error {
 	poolDir, err := guestPath(pathfinder)
 	if err != nil {
 		return errors.Trace(err)

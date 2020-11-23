@@ -16,7 +16,7 @@ var KVMPath = &kvmPath
 
 // MakeCreateMachineParamsTestable adds test values to non exported values on
 // CreateMachineParams.
-func MakeCreateMachineParamsTestable(params *CreateMachineParams, pathfinder func(string) (string, error), runCmd runFunc, arch string) {
+func MakeCreateMachineParamsTestable(params *CreateMachineParams, pathfinder pathfinderFunc, runCmd runFunc, arch string) {
 	params.findPath = pathfinder
 	params.runCmd = runCmd
 	params.runCmdAsRoot = runCmd
@@ -30,7 +30,7 @@ func NewEmptyKvmContainer() *kvmContainer {
 }
 
 // NewTestContainer returns a new container for testing.
-func NewTestContainer(name string, runCmd runFunc, pathfinder func(string) (string, error)) *kvmContainer {
+func NewTestContainer(name string, runCmd runFunc, pathfinder pathfinderFunc) *kvmContainer {
 	return &kvmContainer{name: name, runCmd: runCmd, pathfinder: pathfinder}
 }
 

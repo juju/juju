@@ -721,10 +721,7 @@ func operatorPod(
 
 	appTag := names.NewApplicationTag(appName)
 	jujudCmd := fmt.Sprintf("$JUJU_TOOLS_DIR/jujud caasoperator --application-name=%s --debug", appName)
-	jujuDataDir, err := paths.DataDir("kubernetes")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	jujuDataDir := paths.DataDir(paths.OSUnixLike)
 	mountToken := true
 	return &core.Pod{
 		ObjectMeta: v1.ObjectMeta{

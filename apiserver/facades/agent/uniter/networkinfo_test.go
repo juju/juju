@@ -4,6 +4,7 @@
 package uniter_test
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"time"
@@ -62,7 +63,7 @@ func (s *networkInfoSuite) TestNetworksForRelation(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	netInfo := s.newNetworkInfo(c, prr.pu0.UnitTag(), nil)
+	netInfo := s.newNetworkInfo(c, prr.pu0.UnitTag(), nil, nil)
 	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel, true)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -97,7 +98,7 @@ func (s *networkInfoSuite) addDevicesWithAddresses(c *gc.C, machine *state.Machi
 	}
 }
 
-func (s *networkInfoSuite) TestNetworksForBinding(c *gc.C) {
+func (s *networkInfoSuite) TestProcessAPIRequestForBinding(c *gc.C) {
 	// Add subnets for the addresses that the machine will have.
 	// We are testing a space-less deployment here.
 	_, err := s.State.AddSubnet(network.SubnetInfo{
@@ -138,7 +139,7 @@ func (s *networkInfoSuite) TestNetworksForBinding(c *gc.C) {
 
 	s.addDevicesWithAddresses(c, machine, "10.2.3.4/16", "100.2.3.4/24")
 
-	netInfo := s.newNetworkInfo(c, unit.UnitTag(), nil)
+	netInfo := s.newNetworkInfo(c, unit.UnitTag(), nil, nil)
 	result, err := netInfo.ProcessAPIRequest(params.NetworkInfoParams{
 		Unit:      unit.UnitTag().String(),
 		Endpoints: []string{"server-admin"},
@@ -158,11 +159,63 @@ func (s *networkInfoSuite) TestNetworksForBinding(c *gc.C) {
 	c.Check(ingress[0], gc.Equals, "100.2.3.4")
 }
 
+func (s *networkInfoSuite) TestAPIRequestForRelationHostNameNoEgress(c *gc.C) {
+	prr := s.newProReqRelation(c, charm.ScopeGlobal)
+	err := prr.pu0.AssignToNewMachine()
+	c.Assert(err, jc.ErrorIsNil)
+	id, err := prr.pu0.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.Machine(id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The only address is a host-name, resolvable to the IP below.
+	host := "host.at.somewhere"
+	ip := "100.2.3.4"
+
+	addr := network.NewSpaceAddress(host)
+	err = machine.SetProviderAddresses(addr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	lookup := func(addr string) ([]string, error) {
+		if addr == host {
+			return []string{ip}, nil
+		}
+		return nil, errors.New("bad horsey")
+	}
+
+	netInfo := s.newNetworkInfo(c, prr.pu0.UnitTag(), nil, lookup)
+
+	rID := prr.rel.Id()
+	result, err := netInfo.ProcessAPIRequest(params.NetworkInfoParams{
+		Unit:       names.NewUnitTag(prr.pru0.UnitName()).String(),
+		Endpoints:  []string{"server"},
+		RelationId: &rID,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	res := result.Results
+	c.Assert(res, gc.HasLen, 1)
+
+	binding, ok := res["server"]
+	c.Assert(ok, jc.IsTrue)
+
+	ingress := binding.IngressAddresses
+	c.Assert(ingress, gc.HasLen, 1)
+	c.Check(ingress[0], gc.Equals, ip)
+
+	c.Assert(binding.Info, gc.HasLen, 1)
+
+	addrs := binding.Info[0].Addresses
+	c.Check(addrs, gc.HasLen, 1)
+	c.Check(addrs[0].Hostname, gc.Equals, host)
+	c.Check(addrs[0].Address, gc.Equals, ip)
+}
+
 func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
-	_ = s.setupSpace(c, "space-1", "1.2.0.0/16", false)
-	_ = s.setupSpace(c, "space-2", "2.2.0.0/16", false)
-	spaceID3 := s.setupSpace(c, "space-3", "10.2.0.0/16", false)
-	_ = s.setupSpace(c, "public-4", "4.2.0.0/16", true)
+	_ = s.setupSpace(c, "space-1", "1.2.0.0/16")
+	_ = s.setupSpace(c, "space-2", "2.2.0.0/16")
+	spaceID3 := s.setupSpace(c, "space-3", "10.2.0.0/16")
+	_ = s.setupSpace(c, "public-4", "4.2.0.0/16")
 
 	// We want to have all bindings set so that no actual binding is
 	// really set to the default.
@@ -191,7 +244,7 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 
 	s.addDevicesWithAddresses(c, machine, "1.2.3.4/16", "2.2.3.4/16", "10.2.3.4/16", "4.3.2.1/16")
 
-	netInfo := s.newNetworkInfo(c, prr.pu0.UnitTag(), nil)
+	netInfo := s.newNetworkInfo(c, prr.pu0.UnitTag(), nil, nil)
 	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel, true)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -216,7 +269,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelation(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	netInfo := s.newNetworkInfo(c, prr.ru0.UnitTag(), nil)
+	netInfo := s.newNetworkInfo(c, prr.ru0.UnitTag(), nil, nil)
 	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel, true)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -240,7 +293,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationNoPublicAddr(c *
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	netInfo := s.newNetworkInfo(c, prr.ru0.UnitTag(), nil)
+	netInfo := s.newNetworkInfo(c, prr.ru0.UnitTag(), nil, nil)
 	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel, true)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -274,7 +327,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPublicAdd
 		}
 	}
 
-	netInfo := s.newNetworkInfo(c, prr.ru0.UnitTag(), retryFactory)
+	netInfo := s.newNetworkInfo(c, prr.ru0.UnitTag(), retryFactory, nil)
 	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel, true)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -322,7 +375,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPrivateAd
 		}
 	}
 
-	netInfo := s.newNetworkInfo(c, prr.ru0.UnitTag(), retryFactory)
+	netInfo := s.newNetworkInfo(c, prr.ru0.UnitTag(), retryFactory, nil)
 	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel, true)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -346,7 +399,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 	prr := newProReqRelationForApps(c, st, mysql, gitlab)
 
 	// We need to instantiate this with the new CAAS model state.
-	netInfo, err := uniter.NewNetworkInfo(st, prr.pu0.UnitTag(), nil)
+	netInfo, err := uniter.NewNetworkInfoForStrategy(st, prr.pu0.UnitTag(), nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// First no address.
@@ -373,9 +426,9 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 }
 
 func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
-	spaceIDDefault := s.setupSpace(c, "default", "10.0.0.0/24", true)
-	spaceIDDMZ := s.setupSpace(c, "dmz", "10.10.0.0/24", true)
-	_ = s.setupSpace(c, "private", "10.20.0.0/24", false)
+	spaceIDDefault := s.setupSpace(c, "default", "10.0.0.0/24")
+	spaceIDDMZ := s.setupSpace(c, "dmz", "10.10.0.0/24")
+	_ = s.setupSpace(c, "private", "10.20.0.0/24")
 
 	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 
@@ -401,7 +454,7 @@ func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
 		network.NewScopedSpaceAddress("10.20.0.20", network.ScopeCloudLocal))
 	c.Assert(err, jc.ErrorIsNil)
 
-	ni := s.newNetworkInfo(c, unit.UnitTag(), nil)
+	ni := s.newNetworkInfo(c, unit.UnitTag(), nil, nil)
 	netInfo := ni.(*uniter.NetworkInfoIAAS)
 
 	res, err := netInfo.MachineNetworkInfos(spaceIDDefault, spaceIDDMZ, "666", network.AlphaSpaceId)
@@ -468,7 +521,7 @@ func (s *networkInfoSuite) TestMachineNetworkInfosAlphaNoSubnets(c *gc.C) {
 		network.NewScopedSpaceAddress("10.20.0.20", network.ScopeCloudLocal))
 	c.Assert(err, jc.ErrorIsNil)
 
-	ni := s.newNetworkInfo(c, unit.UnitTag(), nil)
+	ni := s.newNetworkInfo(c, unit.UnitTag(), nil, nil)
 	netInfo := ni.(*uniter.NetworkInfoIAAS)
 
 	res, err := netInfo.MachineNetworkInfos(network.AlphaSpaceId)
@@ -485,7 +538,7 @@ func (s *networkInfoSuite) TestMachineNetworkInfosAlphaNoSubnets(c *gc.C) {
 	c.Check(resEmpty.NetworkInfos[0].Addresses[0].CIDR, gc.Equals, "10.20.0.0/24")
 }
 
-func (s *networkInfoSuite) setupSpace(c *gc.C, spaceName, cidr string, public bool) string {
+func (s *networkInfoSuite) setupSpace(c *gc.C, spaceName, cidr string) string {
 	space, err := s.State.AddSpace(spaceName, network.Id(spaceName), nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -539,7 +592,7 @@ func (s *networkInfoSuite) createNICWithIP(
 }
 
 func (s *networkInfoSuite) newNetworkInfo(
-	c *gc.C, tag names.UnitTag, retryFactory func() retry.CallArgs,
+	c *gc.C, tag names.UnitTag, retryFactory func() retry.CallArgs, lookupHost func(string) ([]string, error),
 ) uniter.NetworkInfo {
 	// Allow the caller to supply nil if this is not important.
 	// We fill it with an optimistic default.
@@ -553,33 +606,35 @@ func (s *networkInfoSuite) newNetworkInfo(
 		}
 	}
 
-	ni, err := uniter.NewNetworkInfo(s.State, tag, retryFactory)
+	ni, err := uniter.NewNetworkInfoForStrategy(s.State, tag, retryFactory, lookupHost)
 	c.Assert(err, jc.ErrorIsNil)
 	return ni
 }
 
 func (s *networkInfoSuite) newProReqRelationWithBindings(
-	c *gc.C, scope charm.RelationScope, pbindings, rbindings map[string]string,
+	c *gc.C, scope charm.RelationScope, pBindings, rBindings map[string]string,
 ) *ProReqRelation {
-	papp := s.AddTestingApplicationWithBindings(c, "mysql", s.AddTestingCharm(c, "mysql"), pbindings)
+	papp := s.AddTestingApplicationWithBindings(c, "mysql", s.AddTestingCharm(c, "mysql"), pBindings)
 	var rapp *state.Application
 	if scope == charm.ScopeGlobal {
-		rapp = s.AddTestingApplicationWithBindings(c, "wordpress", s.AddTestingCharm(c, "wordpress"), rbindings)
+		rapp = s.AddTestingApplicationWithBindings(c, "wordpress", s.AddTestingCharm(c, "wordpress"), rBindings)
 	} else {
-		rapp = s.AddTestingApplicationWithBindings(c, "logging", s.AddTestingCharm(c, "logging"), rbindings)
+		rapp = s.AddTestingApplicationWithBindings(c, "logging", s.AddTestingCharm(c, "logging"), rBindings)
 	}
 	return newProReqRelationForApps(c, s.State, papp, rapp)
 }
 
 func (s *networkInfoSuite) newProReqRelation(c *gc.C, scope charm.RelationScope) *ProReqRelation {
-	papp := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	var rapp *state.Application
+	pApp := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+
+	var rApp *state.Application
 	if scope == charm.ScopeGlobal {
-		rapp = s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+		rApp = s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	} else {
-		rapp = s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
+		rApp = s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	}
-	return newProReqRelationForApps(c, s.State, papp, rapp)
+
+	return newProReqRelationForApps(c, s.State, pApp, rApp)
 }
 
 func (s *networkInfoSuite) newRemoteProReqRelation(c *gc.C) *RemoteProReqRelation {

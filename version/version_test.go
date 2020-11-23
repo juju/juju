@@ -7,15 +7,12 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	semversion "github.com/juju/version"
 	gc "gopkg.in/check.v1"
 )
 
-type suite struct {
-	testing.IsolationSuite
-}
+type suite struct{}
 
 var _ = gc.Suite(&suite{})
 

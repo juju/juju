@@ -204,8 +204,7 @@ func (s *applicationSuite) assertEnsure(c *gc.C, deploymentType caas.DeploymentT
 }
 
 func getPodSpec(c *gc.C) corev1.PodSpec {
-	jujuDataDir, err := paths.DataDir("kubernetes")
-	c.Assert(err, jc.ErrorIsNil)
+	jujuDataDir := paths.DataDir(paths.OSUnixLike)
 	return corev1.PodSpec{
 		AutomountServiceAccountToken: application.BoolPtr(false),
 		InitContainers: []corev1.Container{{
