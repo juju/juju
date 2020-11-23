@@ -2837,13 +2837,33 @@ func (a *Application) SetConstraints(cons constraints.Value) (err error) {
 	} else if err != nil {
 		return err
 	}
+
 	if a.doc.Subordinate {
 		return ErrSubordinateConstraints
 	}
+
+	// If the architecture has already been set, do not allow the application
+	// architecture to change.
+	// Note: we don't apply this check in validate constraints as we have no
+	// way to know if it's a model or an application (former we do allow
+	// changes).
+	current, err := a.Constraints()
+	if !errors.IsNotFound(err) {
+		if err != nil {
+			return errors.Annotate(err, "unable to read constraints")
+		}
+		if current.Arch == nil && cons.Arch != nil {
+			return errors.NotSupportedf("changing architecture")
+		} else if current.Arch != nil && cons.Arch != nil && *current.Arch != *cons.Arch {
+			return errors.NotSupportedf("changing architecture (%s)", *current.Arch)
+		}
+	}
+
 	defer errors.DeferredAnnotatef(&err, "cannot set constraints")
 	if a.doc.Life != Alive {
 		return applicationNotAliveErr
 	}
+
 	ops := []txn.Op{{
 		C:      applicationsC,
 		Id:     a.doc.DocID,

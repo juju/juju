@@ -3151,6 +3151,44 @@ func (s *ApplicationSuite) TestConstraints(c *gc.C) {
 	c.Assert(&cons6, jc.Satisfies, constraints.IsEmpty)
 }
 
+func (s *ApplicationSuite) TestArchConstraints(c *gc.C) {
+	// Constraints are initially empty (for now).
+	cons, err := s.mysql.Constraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
+
+	arch := arch.HostArch()
+
+	// Constraints can be set.
+	cons2 := constraints.Value{Arch: &arch}
+	err = s.mysql.SetConstraints(cons2)
+	c.Assert(err, jc.ErrorIsNil)
+	cons3, err := s.mysql.Constraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons3, gc.DeepEquals, cons2)
+
+	// Constraints are completely overwritten when re-set.
+	altArch := "arm64"
+	cons4 := constraints.Value{Arch: &altArch}
+	err = s.mysql.SetConstraints(cons4)
+	c.Assert(err, gc.ErrorMatches, "changing architecture not supported")
+
+	// Destroy the existing application; there's no way to directly assert
+	// that the constraints are deleted...
+	err = s.mysql.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	assertRemoved(c, s.mysql)
+
+	// ...but we can check that old constraints do not affect new applications
+	// with matching names.
+	ch, _, err := s.mysql.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	mysql := s.AddTestingApplication(c, s.mysql.Name(), ch)
+	cons6, err := mysql.Constraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(&cons6, jc.Satisfies, constraints.IsEmpty)
+}
+
 func (s *ApplicationSuite) TestSetInvalidConstraints(c *gc.C) {
 	cons := constraints.MustParse("mem=4G instance-type=foo")
 	err := s.mysql.SetConstraints(cons)
