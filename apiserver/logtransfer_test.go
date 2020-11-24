@@ -6,7 +6,6 @@ package apiserver_test
 import (
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -51,9 +50,7 @@ func (s *logtransferSuite) SetUpTest(c *gc.C) {
 	s.machinePassword = password
 	s.setUserAccess(c, permission.SuperuserAccess)
 
-	url := s.URL("/migrate/logtransfer", url.Values{
-		"jujuclientversion": {version.Current.String()},
-	})
+	url := s.URL("/migrate/logtransfer", nil)
 	url.Scheme = "wss"
 	s.url = url.String()
 
@@ -65,6 +62,7 @@ func (s *logtransferSuite) SetUpTest(c *gc.C) {
 func (s *logtransferSuite) makeAuthHeader() http.Header {
 	header := utils.BasicAuthHeader(s.userTag.String(), s.password)
 	header.Add(params.MigrationModelHTTPHeader, s.State.ModelUUID())
+	header.Add(params.JujuClientVersion, version.Current.String())
 	return header
 }
 
@@ -106,12 +104,14 @@ func (s *logtransferSuite) TestRejectsBadMigratingModelUUID(c *gc.C) {
 }
 
 func (s *logtransferSuite) TestRejectsInvalidVersion(c *gc.C) {
-	url := s.URL("/migrate/logtransfer", url.Values{"jujuclientversion": {"blah"}})
+	url := s.URL("/migrate/logtransfer", nil)
 	url.Scheme = "wss"
-	conn, _, err := dialWebsocketFromURL(c, url.String(), s.makeAuthHeader())
+	hdr := s.makeAuthHeader()
+	hdr.Set("X-Juju-ClientVersion", "blah")
+	conn, _, err := dialWebsocketFromURL(c, url.String(), hdr)
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
-	websockettest.AssertJSONError(c, conn, `^initialising migration logsink session: invalid jujuclientversion "blah".*`)
+	websockettest.AssertJSONError(c, conn, `^initialising migration logsink session: invalid X-Juju-ClientVersion "blah".*`)
 	websockettest.AssertWebsocketClosed(c, conn)
 }
 

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/ratelimit"
-	"github.com/juju/version"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/apiserver/httpcontext"
@@ -375,20 +374,6 @@ func (h *logSinkHandler) sendError(ws *websocket.Conn, req *http.Request, err er
 		logger.Errorf("closing websocket, %v", err)
 		ws.Close()
 	}
-}
-
-// JujuClientVersionFromRequest returns the Juju client version
-// number from the HTTP request.
-func JujuClientVersionFromRequest(req *http.Request) (version.Number, error) {
-	verStr := req.URL.Query().Get("jujuclientversion")
-	if verStr == "" {
-		return version.Zero, errors.New(`missing "jujuclientversion" in URL query`)
-	}
-	ver, err := version.Parse(verStr)
-	if err != nil {
-		return version.Zero, errors.Annotatef(err, "invalid jujuclientversion %q", verStr)
-	}
-	return ver, nil
 }
 
 // ratelimitClock adapts clock.Clock to ratelimit.Clock.

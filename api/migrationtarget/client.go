@@ -179,6 +179,7 @@ func (c *Client) httpPost(modelUUID string, content io.ReadSeeker, endpoint, con
 // logs records can be fed into. The objects written should be params.LogRecords.
 func (c *Client) OpenLogTransferStream(modelUUID string) (base.Stream, error) {
 	attrs := url.Values{}
+	// TODO(wallyworld) - remove in juju 4
 	attrs.Set("jujuclientversion", jujuversion.Current.String())
 	headers := http.Header{}
 	headers.Set(params.MigrationModelHTTPHeader, modelUUID)

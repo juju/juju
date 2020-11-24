@@ -418,6 +418,7 @@ func (st *state) connectStream(path string, attrs url.Values, extraHeaders http.
 	} else {
 		requestHeader = make(http.Header)
 	}
+	requestHeader.Set(params.JujuClientVersion, jujuversion.Current.String())
 	requestHeader.Set("Origin", "http://localhost/")
 	if st.nonce != "" {
 		requestHeader.Set(params.MachineNonceHeader, st.nonce)

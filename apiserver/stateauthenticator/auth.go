@@ -14,6 +14,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
+	"github.com/juju/version"
 	"gopkg.in/macaroon-bakery.v2/bakery"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
@@ -22,7 +23,6 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/httpcontext"
-	"github.com/juju/juju/apiserver/logsink"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
@@ -245,9 +245,12 @@ func LoginRequest(req *http.Request) (params.LoginRequest, error) {
 		Macaroons:     macaroons,
 		BakeryVersion: bakery.Version(bakeryVersion),
 	}
-	clientVersion, err := logsink.JujuClientVersionFromRequest(req)
-	if err == nil {
-		loginRequest.ClientVersion = clientVersion.String()
+	// Default client version to 2 since older 2.x clients
+	// don't send this field.
+	requestClientVersion := version.Number{Major: 2}
+	if clientVersion, err := common.JujuClientVersionFromRequest(req); err == nil {
+		requestClientVersion = clientVersion
 	}
+	loginRequest.ClientVersion = requestClientVersion.String()
 	return loginRequest, nil
 }
