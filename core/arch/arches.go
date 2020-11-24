@@ -10,6 +10,12 @@ import (
 	"github.com/juju/utils/arch"
 )
 
+const (
+	// DefaultArchitecture represents the default architecture we expect to use
+	// if none is present.
+	DefaultArchitecture = arch.AMD64
+)
+
 // Arch represents a platform architecture.
 type Arch = string
 
