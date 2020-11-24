@@ -3,6 +3,6 @@ peer="$(snapctl get --slot :peers content)"
 (
     echo "hook $0 $@"
     echo "disconnected $peer"
-    echo "$0 is stopping $SNAP_NAME.fetch-oci"
-    snapctl stop --disable $SNAP_NAME.fetch-oci
+    echo "$0 is stopping $SNAP_INSTANCE_NAME.fetch-oci"
+    snapctl stop --disable $SNAP_INSTANCE_NAME.fetch-oci
 ) >> $SNAP_COMMON/hook.log

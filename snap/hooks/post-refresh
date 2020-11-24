@@ -1,8 +1,8 @@
 #!/bin/sh
 (
     echo "hook $0 $@" 
-    echo "$0 is starting $SNAP_NAME.fetch-oci"
-    snapctl start $SNAP_NAME.fetch-oci
-    echo "$0 is stopping $SNAP_NAME.fetch-oci"
-    snapctl stop --disable $SNAP_NAME.fetch-oci
+    echo "$0 is starting $SNAP_INSTANCE_NAME.fetch-oci"
+    snapctl start $SNAP_INSTANCE_NAME.fetch-oci
+    echo "$0 is stopping $SNAP_INSTANCE_NAME.fetch-oci"
+    snapctl stop --disable $SNAP_INSTANCE_NAME.fetch-oci
 ) >> $SNAP_COMMON/hook.log
