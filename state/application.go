@@ -27,6 +27,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/model"
@@ -2852,7 +2853,7 @@ func (a *Application) SetConstraints(cons constraints.Value) (err error) {
 		if err != nil {
 			return errors.Annotate(err, "unable to read constraints")
 		}
-		if current.Arch == nil && cons.Arch != nil {
+		if current.Arch == nil && cons.Arch != nil && *cons.Arch != arch.DefaultArchitecture {
 			return errors.NotSupportedf("changing architecture")
 		} else if current.Arch != nil && cons.Arch != nil && *current.Arch != *cons.Arch {
 			return errors.NotSupportedf("changing architecture (%s)", *current.Arch)

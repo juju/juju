@@ -3157,21 +3157,26 @@ func (s *ApplicationSuite) TestArchConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
 
-	arch := arch.HostArch()
+	// Constraints can not be set if it already exists and is different than
+	// the default architecture.
+	armArch := "arm64"
+	cons1 := constraints.Value{Arch: &armArch}
+	err = s.mysql.SetConstraints(cons1)
+	c.Assert(err, gc.ErrorMatches, "changing architecture not supported")
 
 	// Constraints can be set.
-	cons2 := constraints.Value{Arch: &arch}
+	amdArch := "amd64"
+	cons2 := constraints.Value{Arch: &amdArch}
 	err = s.mysql.SetConstraints(cons2)
 	c.Assert(err, jc.ErrorIsNil)
 	cons3, err := s.mysql.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons3, gc.DeepEquals, cons2)
 
-	// Constraints are completely overwritten when re-set.
-	altArch := "arm64"
-	cons4 := constraints.Value{Arch: &altArch}
+	// Constraints error out if it's already set.
+	cons4 := constraints.Value{Arch: &armArch}
 	err = s.mysql.SetConstraints(cons4)
-	c.Assert(err, gc.ErrorMatches, "changing architecture not supported")
+	c.Assert(err, gc.ErrorMatches, "changing architecture \\(amd64\\) not supported")
 
 	// Destroy the existing application; there's no way to directly assert
 	// that the constraints are deleted...
