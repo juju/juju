@@ -23,10 +23,9 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/tools"
 )
 
@@ -1541,8 +1540,8 @@ func (m *Machine) SetInstanceInfo(
 // that the machine reported with the same address value.
 // Provider-reported addresses always come before machine-reported
 // addresses. Duplicates are removed.
-func (m *Machine) Addresses() (addresses corenetwork.SpaceAddresses) {
-	return corenetwork.MergedAddresses(networkAddresses(m.doc.MachineAddresses), networkAddresses(m.doc.Addresses))
+func (m *Machine) Addresses() (addresses network.SpaceAddresses) {
+	return network.MergedAddresses(networkAddresses(m.doc.MachineAddresses), networkAddresses(m.doc.Addresses))
 }
 
 func containsAddress(addresses []address, address address) bool {
@@ -1556,7 +1555,7 @@ func containsAddress(addresses []address, address address) bool {
 
 // PublicAddress returns a public address for the machine. If no address is
 // available it returns an error that satisfies network.IsNoAddressError().
-func (m *Machine) PublicAddress() (corenetwork.SpaceAddress, error) {
+func (m *Machine) PublicAddress() (network.SpaceAddress, error) {
 	publicAddress := m.doc.PreferredPublicAddress.networkAddress()
 	var err error
 	if publicAddress.Value == "" {
@@ -1573,7 +1572,7 @@ func maybeGetNewAddress(
 	addr address,
 	providerAddresses,
 	machineAddresses []address,
-	getAddr func([]address) corenetwork.SpaceAddress,
+	getAddr func([]address) network.SpaceAddress,
 	checkScope func(address) bool,
 ) (address, bool) {
 	// For picking the best address, try provider addresses first.
@@ -1581,9 +1580,9 @@ func maybeGetNewAddress(
 	netAddr := getAddr(providerAddresses)
 	if netAddr.Value == "" {
 		netAddr = getAddr(machineAddresses)
-		newAddr = fromNetworkAddress(netAddr, corenetwork.OriginMachine)
+		newAddr = fromNetworkAddress(netAddr, network.OriginMachine)
 	} else {
-		newAddr = fromNetworkAddress(netAddr, corenetwork.OriginProvider)
+		newAddr = fromNetworkAddress(netAddr, network.OriginProvider)
 	}
 	// The order of these checks is important. If the stored address is
 	// empty we *always* want to check for a new address so we do that
@@ -1598,8 +1597,8 @@ func maybeGetNewAddress(
 	if !containsAddress(providerAddresses, addr) && !containsAddress(machineAddresses, addr) {
 		return newAddr, true
 	}
-	if corenetwork.Origin(addr.Origin) != corenetwork.OriginProvider &&
-		corenetwork.Origin(newAddr.Origin) == corenetwork.OriginProvider {
+	if network.Origin(addr.Origin) != network.OriginProvider &&
+		network.Origin(newAddr.Origin) == network.OriginProvider {
 		return newAddr, true
 	}
 	if !checkScope(addr) {
@@ -1615,7 +1614,7 @@ func maybeGetNewAddress(
 
 // PrivateAddress returns a private address for the machine. If no address is
 // available it returns an error that satisfies network.IsNoAddressError().
-func (m *Machine) PrivateAddress() (corenetwork.SpaceAddress, error) {
+func (m *Machine) PrivateAddress() (network.SpaceAddress, error) {
 	privateAddress := m.doc.PreferredPrivateAddress.networkAddress()
 	var err error
 	if privateAddress.Value == "" {
@@ -1674,11 +1673,11 @@ func (m *Machine) setPublicAddressOps(providerAddresses []address, machineAddres
 
 	// Always prefer an exact match if available.
 	checkScope := func(addr address) bool {
-		return corenetwork.ExactScopeMatch(addr.networkAddress(), corenetwork.ScopePublic)
+		return network.ExactScopeMatch(addr.networkAddress(), network.ScopePublic)
 	}
 	// Without an exact match, prefer a fallback match.
-	getAddr := func(addresses []address) corenetwork.SpaceAddress {
-		addr, _ := networkAddresses(addresses).OneMatchingScope(corenetwork.ScopeMatchPublic)
+	getAddr := func(addresses []address) network.SpaceAddress {
+		addr, _ := networkAddresses(addresses).OneMatchingScope(network.ScopeMatchPublic)
 		return addr
 	}
 
@@ -1696,12 +1695,12 @@ func (m *Machine) setPrivateAddressOps(providerAddresses []address, machineAddre
 	privateAddress := m.doc.PreferredPrivateAddress
 	// Always prefer an exact match if available.
 	checkScope := func(addr address) bool {
-		return corenetwork.ExactScopeMatch(
-			addr.networkAddress(), corenetwork.ScopeMachineLocal, corenetwork.ScopeCloudLocal, corenetwork.ScopeFanLocal)
+		return network.ExactScopeMatch(
+			addr.networkAddress(), network.ScopeMachineLocal, network.ScopeCloudLocal, network.ScopeFanLocal)
 	}
 	// Without an exact match, prefer a fallback match.
-	getAddr := func(addresses []address) corenetwork.SpaceAddress {
-		addr, _ := networkAddresses(addresses).OneMatchingScope(corenetwork.ScopeMatchCloudLocal)
+	getAddr := func(addresses []address) network.SpaceAddress {
+		addr, _ := networkAddresses(addresses).OneMatchingScope(network.ScopeMatchCloudLocal)
 		return addr
 	}
 
@@ -1716,14 +1715,14 @@ func (m *Machine) setPrivateAddressOps(providerAddresses []address, machineAddre
 
 // SetProviderAddresses records any addresses related to the machine, sourced
 // by asking the provider.
-func (m *Machine) SetProviderAddresses(addresses ...corenetwork.SpaceAddress) error {
+func (m *Machine) SetProviderAddresses(addresses ...network.SpaceAddress) error {
 	err := m.setAddresses(nil, &addresses)
 	return errors.Annotatef(err, "cannot set addresses of machine %v", m)
 }
 
 // ProviderAddresses returns any hostnames and ips associated with a machine,
 // as determined by asking the provider.
-func (m *Machine) ProviderAddresses() (addresses corenetwork.SpaceAddresses) {
+func (m *Machine) ProviderAddresses() (addresses network.SpaceAddresses) {
 	for _, address := range m.doc.Addresses {
 		addresses = append(addresses, address.networkAddress())
 	}
@@ -1733,13 +1732,13 @@ func (m *Machine) ProviderAddresses() (addresses corenetwork.SpaceAddresses) {
 // AddressesBySpaceID groups the machine addresses by space id and
 // returns the result as a map where the space id is used a the key.
 // Loopback addresses are skipped.
-func (m *Machine) AddressesBySpaceID() (map[string][]corenetwork.SpaceAddress, error) {
+func (m *Machine) AddressesBySpaceID() (map[string][]network.SpaceAddress, error) {
 	addresses, err := m.AllAddresses()
 	if err != nil {
 		return nil, err
 	}
 
-	res := make(map[string][]corenetwork.SpaceAddress)
+	res := make(map[string][]network.SpaceAddress)
 	for _, address := range addresses {
 		// TODO(achilleasa): currently, addresses do not come with
 		// resolved space IDs (except MAAS). For the time being, we
@@ -1761,7 +1760,7 @@ func (m *Machine) AddressesBySpaceID() (map[string][]corenetwork.SpaceAddress, e
 
 // MachineAddresses returns any hostnames and ips associated with a machine,
 // determined by asking the machine itself.
-func (m *Machine) MachineAddresses() (addresses corenetwork.SpaceAddresses) {
+func (m *Machine) MachineAddresses() (addresses network.SpaceAddresses) {
 	for _, address := range m.doc.MachineAddresses {
 		addresses = append(addresses, address.networkAddress())
 	}
@@ -1770,7 +1769,7 @@ func (m *Machine) MachineAddresses() (addresses corenetwork.SpaceAddresses) {
 
 // SetMachineAddresses records any addresses related to the machine, sourced
 // by asking the machine.
-func (m *Machine) SetMachineAddresses(addresses ...corenetwork.SpaceAddress) error {
+func (m *Machine) SetMachineAddresses(addresses ...network.SpaceAddress) error {
 	err := m.setAddresses(&addresses, nil)
 	return errors.Annotatef(err, "cannot set machine addresses of machine %v", m)
 }
@@ -1779,7 +1778,7 @@ func (m *Machine) SetMachineAddresses(addresses ...corenetwork.SpaceAddress) err
 // MachineAddresses, depending on the field argument). Changes are
 // only predicated on the machine not being Dead; concurrent address
 // changes are ignored.
-func (m *Machine) setAddresses(machineAddresses, providerAddresses *[]corenetwork.SpaceAddress) error {
+func (m *Machine) setAddresses(machineAddresses, providerAddresses *[]network.SpaceAddress) error {
 	var (
 		machineStateAddresses, providerStateAddresses []address
 		newPrivate, newPublic                         *address
@@ -1827,17 +1826,17 @@ func (m *Machine) setAddresses(machineAddresses, providerAddresses *[]corenetwor
 }
 
 func (m *Machine) setAddressesOps(
-	machineAddresses, providerAddresses *[]corenetwork.SpaceAddress,
+	machineAddresses, providerAddresses *[]network.SpaceAddress,
 ) (_ []txn.Op, machineStateAddresses, providerStateAddresses []address, newPrivate, newPublic *address, _ error) {
 
 	if m.doc.Life == Dead {
 		return nil, nil, nil, nil, nil, ErrDead
 	}
 
-	fromNetwork := func(in corenetwork.SpaceAddresses, origin corenetwork.Origin) []address {
-		sorted := make(corenetwork.SpaceAddresses, len(in))
+	fromNetwork := func(in network.SpaceAddresses, origin network.Origin) []address {
+		sorted := make(network.SpaceAddresses, len(in))
 		copy(sorted, in)
-		corenetwork.SortAddresses(sorted)
+		network.SortAddresses(sorted)
 		return fromNetworkAddresses(sorted, origin)
 	}
 
@@ -1845,11 +1844,11 @@ func (m *Machine) setAddressesOps(
 	machineStateAddresses = m.doc.MachineAddresses
 	providerStateAddresses = m.doc.Addresses
 	if machineAddresses != nil {
-		machineStateAddresses = fromNetwork(*machineAddresses, corenetwork.OriginMachine)
+		machineStateAddresses = fromNetwork(*machineAddresses, network.OriginMachine)
 		set = append(set, bson.DocElem{Name: "machineaddresses", Value: machineStateAddresses})
 	}
 	if providerAddresses != nil {
-		providerStateAddresses = fromNetwork(*providerAddresses, corenetwork.OriginProvider)
+		providerStateAddresses = fromNetwork(*providerAddresses, network.OriginProvider)
 		set = append(set, bson.DocElem{Name: "addresses", Value: providerStateAddresses})
 	}
 
@@ -2307,8 +2306,8 @@ type UpdateMachineOperation struct {
 
 	AgentVersion      *version.Binary
 	Constraints       *constraints.Value
-	MachineAddresses  *[]corenetwork.SpaceAddress
-	ProviderAddresses *[]corenetwork.SpaceAddress
+	MachineAddresses  *[]network.SpaceAddress
+	ProviderAddresses *[]network.SpaceAddress
 	PasswordHash      *string
 }
 

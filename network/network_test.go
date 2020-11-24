@@ -4,7 +4,6 @@
 package network_test
 
 import (
-	"errors"
 	"io/ioutil"
 	"net"
 	"path/filepath"
@@ -176,13 +175,6 @@ LXC_BRIDGE="ignored"`[1:])
 		"localhost",
 	)
 	c.Assert(network.FilterBridgeAddresses(inputAddresses), jc.DeepEquals, filteredAddresses)
-}
-
-func (s *NetworkSuite) TestNoAddressError(c *gc.C) {
-	err := network.NoAddressError("fake")
-	c.Assert(err, gc.ErrorMatches, `no fake address\(es\)`)
-	c.Assert(network.IsNoAddressError(err), jc.IsTrue)
-	c.Assert(network.IsNoAddressError(errors.New("address found")), jc.IsFalse)
 }
 
 func checkQuoteSpaceSet(c *gc.C, expected string, spaces ...string) {

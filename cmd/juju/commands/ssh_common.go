@@ -23,8 +23,7 @@ import (
 	"github.com/juju/juju/api/sshclient"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 	jujussh "github.com/juju/juju/network/ssh"
 )
 
@@ -418,7 +417,7 @@ func (c *SSHCommon) reachableAddressGetter(entity string) (string, error) {
 		}
 	}
 
-	usable := corenetwork.NewMachineHostPorts(SSHPort, addresses...).HostPorts().FilterUnusable()
+	usable := network.NewMachineHostPorts(SSHPort, addresses...).HostPorts().FilterUnusable()
 	best, err := c.hostChecker.FindHost(usable, publicKeys)
 	if err != nil {
 		return "", errors.Trace(err)

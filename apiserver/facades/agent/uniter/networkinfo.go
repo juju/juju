@@ -307,7 +307,7 @@ func (n *NetworkInfoBase) pollForAddress(
 		return err
 	}
 	retryArg.IsFatalError = func(err error) bool {
-		return !network.IsNoAddressError(err)
+		return !corenetwork.IsNoAddressError(err)
 	}
 	return address, retry.Call(retryArg)
 }

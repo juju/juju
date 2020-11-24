@@ -26,10 +26,9 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	mgoutils "github.com/juju/juju/mongo/utils"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/tools"
 )
 
@@ -366,8 +365,8 @@ func (op *UpdateUnitOperation) Build(attempt int) ([]txn.Op, error) {
 		containerInfo.ProviderId = newProviderId
 	}
 	if op.props.Address != nil {
-		networkAddr := corenetwork.NewScopedSpaceAddress(*op.props.Address, corenetwork.ScopeMachineLocal)
-		addr := fromNetworkAddress(networkAddr, corenetwork.OriginProvider)
+		networkAddr := network.NewScopedSpaceAddress(*op.props.Address, network.ScopeMachineLocal)
+		addr := fromNetworkAddress(networkAddr, network.OriginProvider)
 		containerInfo.Address = &addr
 	}
 	if op.props.Ports != nil {
@@ -1155,20 +1154,20 @@ func (u *Unit) noAssignedMachineOp() txn.Op {
 }
 
 // PublicAddress returns the public address of the unit.
-func (u *Unit) PublicAddress() (corenetwork.SpaceAddress, error) {
+func (u *Unit) PublicAddress() (network.SpaceAddress, error) {
 	if !u.ShouldBeAssigned() {
 		return u.scopedAddress("public")
 	}
 	m, err := u.machine()
 	if err != nil {
 		unitLogger.Tracef("%v", err)
-		return corenetwork.SpaceAddress{}, errors.Trace(err)
+		return network.SpaceAddress{}, errors.Trace(err)
 	}
 	return m.PublicAddress()
 }
 
 // PrivateAddress returns the private address of the unit.
-func (u *Unit) PrivateAddress() (corenetwork.SpaceAddress, error) {
+func (u *Unit) PrivateAddress() (network.SpaceAddress, error) {
 	if !u.ShouldBeAssigned() {
 		addr, err := u.scopedAddress("private")
 		if network.IsNoAddressError(err) {
@@ -1179,7 +1178,7 @@ func (u *Unit) PrivateAddress() (corenetwork.SpaceAddress, error) {
 	m, err := u.machine()
 	if err != nil {
 		unitLogger.Tracef("%v", err)
-		return corenetwork.SpaceAddress{}, errors.Trace(err)
+		return network.SpaceAddress{}, errors.Trace(err)
 	}
 	return m.PrivateAddress()
 }
@@ -1188,7 +1187,7 @@ func (u *Unit) PrivateAddress() (corenetwork.SpaceAddress, error) {
 // plus the container address of the unit (if known).
 // Only relevant for CAAS models - will return an empty
 // slice for IAAS models.
-func (u *Unit) AllAddresses() (addrs corenetwork.SpaceAddresses, _ error) {
+func (u *Unit) AllAddresses() (addrs network.SpaceAddresses, _ error) {
 	if u.ShouldBeAssigned() {
 		return addrs, nil
 	}
@@ -1216,7 +1215,7 @@ func (u *Unit) AllAddresses() (addrs corenetwork.SpaceAddresses, _ error) {
 
 // serviceAddresses returns the addresses of the service
 // managing the pods in which the unit workload is running.
-func (u *Unit) serviceAddresses() (corenetwork.SpaceAddresses, error) {
+func (u *Unit) serviceAddresses() (network.SpaceAddresses, error) {
 	app, err := u.Application()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1229,51 +1228,51 @@ func (u *Unit) serviceAddresses() (corenetwork.SpaceAddresses, error) {
 }
 
 // containerAddress returns the address of the pod's container.
-func (u *Unit) containerAddress() (corenetwork.SpaceAddress, error) {
+func (u *Unit) containerAddress() (network.SpaceAddress, error) {
 	containerInfo, err := u.cloudContainer()
 	if errors.IsNotFound(err) {
-		return corenetwork.SpaceAddress{}, network.NoAddressError("container")
+		return network.SpaceAddress{}, network.NoAddressError("container")
 	}
 	if err != nil {
-		return corenetwork.SpaceAddress{}, errors.Trace(err)
+		return network.SpaceAddress{}, errors.Trace(err)
 	}
 	addr := containerInfo.Address
 	if addr == nil {
-		return corenetwork.SpaceAddress{}, network.NoAddressError("container")
+		return network.SpaceAddress{}, network.NoAddressError("container")
 	}
 	return addr.networkAddress(), nil
 }
 
-func (u *Unit) scopedAddress(scope string) (corenetwork.SpaceAddress, error) {
+func (u *Unit) scopedAddress(scope string) (network.SpaceAddress, error) {
 	addresses, err := u.AllAddresses()
 	if err != nil {
-		return corenetwork.SpaceAddress{}, errors.Trace(err)
+		return network.SpaceAddress{}, errors.Trace(err)
 	}
 	if len(addresses) == 0 {
-		return corenetwork.SpaceAddress{}, network.NoAddressError(scope)
+		return network.SpaceAddress{}, network.NoAddressError(scope)
 	}
-	getStrictPublicAddr := func(addresses corenetwork.SpaceAddresses) (corenetwork.SpaceAddress, bool) {
-		addr, ok := addresses.OneMatchingScope(corenetwork.ScopeMatchPublic)
-		return addr, ok && addr.Scope == corenetwork.ScopePublic
-	}
-
-	getInternalAddr := func(addresses corenetwork.SpaceAddresses) (corenetwork.SpaceAddress, bool) {
-		return addresses.OneMatchingScope(corenetwork.ScopeMatchCloudLocal)
+	getStrictPublicAddr := func(addresses network.SpaceAddresses) (network.SpaceAddress, bool) {
+		addr, ok := addresses.OneMatchingScope(network.ScopeMatchPublic)
+		return addr, ok && addr.Scope == network.ScopePublic
 	}
 
-	var addrMatch func(corenetwork.SpaceAddresses) (corenetwork.SpaceAddress, bool)
+	getInternalAddr := func(addresses network.SpaceAddresses) (network.SpaceAddress, bool) {
+		return addresses.OneMatchingScope(network.ScopeMatchCloudLocal)
+	}
+
+	var addrMatch func(network.SpaceAddresses) (network.SpaceAddress, bool)
 	switch scope {
 	case "public":
 		addrMatch = getStrictPublicAddr
 	case "private":
 		addrMatch = getInternalAddr
 	default:
-		return corenetwork.SpaceAddress{}, errors.NotValidf("address scope %q", scope)
+		return network.SpaceAddress{}, errors.NotValidf("address scope %q", scope)
 	}
 
 	addr, found := addrMatch(addresses)
 	if !found {
-		return corenetwork.SpaceAddress{}, network.NoAddressError(scope)
+		return network.SpaceAddress{}, network.NoAddressError(scope)
 	}
 	return addr, nil
 }
@@ -1430,7 +1429,7 @@ func (u *Unit) SetStatus(unitStatus status.StatusInfo) error {
 //
 // NOTE(achilleasa): we should probably refactor this in the future to work
 // with endpoints instead of subnet IDs.
-func (u *Unit) OpenClosePortsOnSubnet(subnetID string, openPortRanges, closePortRanges []corenetwork.PortRange) error {
+func (u *Unit) OpenClosePortsOnSubnet(subnetID string, openPortRanges, closePortRanges []network.PortRange) error {
 	annotateErr := func(err error) error {
 		openIsEmpty := len(openPortRanges) == 0
 		closeIsEmpty := len(closePortRanges) == 0
@@ -1472,7 +1471,7 @@ func (u *Unit) OpenClosePortsOnSubnet(subnetID string, openPortRanges, closePort
 //
 // NOTE(achilleasa): we should probably refactor this in the future to work
 // with endpoints instead of subnet IDs.
-func (u *Unit) OpenClosePortsOnSubnetOperation(subnetID string, openPortRanges, closePortRanges []corenetwork.PortRange) (ModelOperation, error) {
+func (u *Unit) OpenClosePortsOnSubnetOperation(subnetID string, openPortRanges, closePortRanges []network.PortRange) (ModelOperation, error) {
 	machineID, err := u.AssignedMachineId()
 	if err != nil {
 		return nil, errors.Annotatef(err, "unit %q has no assigned machine", u)
@@ -1498,7 +1497,7 @@ func (u *Unit) OpenClosePortsOnSubnetOperation(subnetID string, openPortRanges, 
 	return machinePorts.OpenClosePortsOperation(openRanges, closeRanges)
 }
 
-func convertPortRange(unitName string, p corenetwork.PortRange) PortRange {
+func convertPortRange(unitName string, p network.PortRange) PortRange {
 	return PortRange{
 		UnitName: unitName,
 		FromPort: p.FromPort,
@@ -1530,7 +1529,7 @@ func (u *Unit) checkSubnetAliveWhenSet(subnetID string) error {
 // it must refer to an existing, alive subnet, otherwise an error is returned.
 // Also, when no ports are yet open for the unit on that subnet, no error and
 // empty slice is returned.
-func (u *Unit) OpenedPortsOnSubnet(subnetID string) ([]corenetwork.PortRange, error) {
+func (u *Unit) OpenedPortsOnSubnet(subnetID string) ([]network.PortRange, error) {
 	machineID, err := u.AssignedMachineId()
 	if err != nil {
 		return nil, errors.Annotatef(err, "unit %q has no assigned machine", u)
@@ -1541,7 +1540,7 @@ func (u *Unit) OpenedPortsOnSubnet(subnetID string) ([]corenetwork.PortRange, er
 	}
 
 	machinePorts, err := getPorts(u.st, machineID, subnetID)
-	var result []corenetwork.PortRange
+	var result []network.PortRange
 	if errors.IsNotFound(err) {
 		return result, nil
 	} else if err != nil {
@@ -1549,13 +1548,13 @@ func (u *Unit) OpenedPortsOnSubnet(subnetID string) ([]corenetwork.PortRange, er
 	}
 	ports := machinePorts.PortsForUnit(u.Name())
 	for _, port := range ports {
-		result = append(result, corenetwork.PortRange{
+		result = append(result, network.PortRange{
 			Protocol: port.Protocol,
 			FromPort: port.FromPort,
 			ToPort:   port.ToPort,
 		})
 	}
-	corenetwork.SortPortRanges(result)
+	network.SortPortRanges(result)
 	return result, nil
 }
 
@@ -1564,7 +1563,7 @@ func (u *Unit) OpenedPortsOnSubnet(subnetID string) ([]corenetwork.PortRange, er
 //
 // TODO(dimitern): This should be removed once we use OpenedPortsOnSubnet across
 // the board, passing subnet IDs explicitly.
-func (u *Unit) OpenedPorts() ([]corenetwork.PortRange, error) {
+func (u *Unit) OpenedPorts() ([]network.PortRange, error) {
 	return u.OpenedPortsOnSubnet("")
 }
 

@@ -22,12 +22,11 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
@@ -1712,13 +1711,13 @@ func (s *MachineSuite) TestSetProviderAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
-	addresses := corenetwork.SpaceAddresses{
-		corenetwork.NewSpaceAddress("127.0.0.1"),
+	addresses := network.SpaceAddresses{
+		network.NewSpaceAddress("127.0.0.1"),
 		{
-			MachineAddress: corenetwork.MachineAddress{
+			MachineAddress: network.MachineAddress{
 				Value: "8.8.8.8",
-				Type:  corenetwork.IPv4Address,
-				Scope: corenetwork.ScopeCloudLocal,
+				Type:  network.IPv4Address,
+				Scope: network.ScopeCloudLocal,
 			},
 			SpaceID: "1",
 		},
@@ -1728,7 +1727,7 @@ func (s *MachineSuite) TestSetProviderAddresses(c *gc.C) {
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
-	corenetwork.SortAddresses(addresses)
+	network.SortAddresses(addresses)
 	c.Assert(machine.Addresses(), jc.DeepEquals, addresses)
 }
 
@@ -1739,7 +1738,7 @@ func (s *MachineSuite) TestSetProviderAddressesWithContainers(c *gc.C) {
 
 	// When setting all addresses the subnet addresses have to be
 	// filtered out.
-	addresses := corenetwork.NewSpaceAddresses(
+	addresses := network.NewSpaceAddresses(
 		"127.0.0.1",
 		"8.8.8.8",
 	)
@@ -1748,7 +1747,7 @@ func (s *MachineSuite) TestSetProviderAddressesWithContainers(c *gc.C) {
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedAddresses := corenetwork.NewSpaceAddresses("8.8.8.8", "127.0.0.1")
+	expectedAddresses := network.NewSpaceAddresses("8.8.8.8", "127.0.0.1")
 	c.Assert(machine.Addresses(), jc.DeepEquals, expectedAddresses)
 }
 
@@ -1766,13 +1765,13 @@ func (s *MachineSuite) TestSetProviderAddressesOnContainer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// When setting all addresses the subnet address has to accepted.
-	addresses := corenetwork.NewSpaceAddresses("127.0.0.1")
+	addresses := network.NewSpaceAddresses("127.0.0.1")
 	err = container.SetProviderAddresses(addresses...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = container.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedAddresses := corenetwork.NewSpaceAddresses("127.0.0.1")
+	expectedAddresses := network.NewSpaceAddresses("127.0.0.1")
 	c.Assert(container.Addresses(), jc.DeepEquals, expectedAddresses)
 }
 
@@ -1781,13 +1780,13 @@ func (s *MachineSuite) TestSetMachineAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
-	addresses := corenetwork.NewSpaceAddresses("127.0.0.1", "8.8.8.8")
+	addresses := network.NewSpaceAddresses("127.0.0.1", "8.8.8.8")
 	err = machine.SetMachineAddresses(addresses...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedAddresses := corenetwork.NewSpaceAddresses("8.8.8.8", "127.0.0.1")
+	expectedAddresses := network.NewSpaceAddresses("8.8.8.8", "127.0.0.1")
 	c.Assert(machine.MachineAddresses(), jc.DeepEquals, expectedAddresses)
 }
 
@@ -1797,7 +1796,7 @@ func (s *MachineSuite) TestSetEmptyMachineAddresses(c *gc.C) {
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
 	// Add some machine addresses initially to make sure they're removed.
-	addresses := corenetwork.NewSpaceAddresses("127.0.0.1", "8.8.8.8")
+	addresses := network.NewSpaceAddresses("127.0.0.1", "8.8.8.8")
 	err = machine.SetMachineAddresses(addresses...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.Refresh()
@@ -1818,7 +1817,7 @@ func (s *MachineSuite) TestMergedAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
-	providerAddresses := corenetwork.NewSpaceAddresses(
+	providerAddresses := network.NewSpaceAddresses(
 		"127.0.0.2",
 		"8.8.8.8",
 		"fc00::1",
@@ -1831,7 +1830,7 @@ func (s *MachineSuite) TestMergedAddresses(c *gc.C) {
 	err = machine.SetProviderAddresses(providerAddresses...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	machineAddresses := corenetwork.NewSpaceAddresses(
+	machineAddresses := network.NewSpaceAddresses(
 		"127.0.0.1",
 		"localhost",
 		"2001:db8::1",
@@ -1851,7 +1850,7 @@ func (s *MachineSuite) TestMergedAddresses(c *gc.C) {
 	// Duplicates are removed, then when calling Addresses() both
 	// sources are merged while preservig the provider addresses
 	// order.
-	c.Assert(machine.Addresses(), jc.DeepEquals, corenetwork.NewSpaceAddresses(
+	c.Assert(machine.Addresses(), jc.DeepEquals, network.NewSpaceAddresses(
 		"8.8.8.8",
 		"2001:db8::1",
 		"example.org",
@@ -1871,8 +1870,8 @@ func (s *MachineSuite) TestSetProviderAddressesConcurrentChangeDifferent(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
-	addr0 := corenetwork.NewSpaceAddress("127.0.0.1")
-	addr1 := corenetwork.NewSpaceAddress("8.8.8.8")
+	addr0 := network.NewSpaceAddress("127.0.0.1")
+	addr1 := network.NewSpaceAddress("8.8.8.8")
 
 	defer state.SetBeforeHooks(c, s.State, func() {
 		machine, err := s.State.Machine(machine.Id())
@@ -1883,7 +1882,7 @@ func (s *MachineSuite) TestSetProviderAddressesConcurrentChangeDifferent(c *gc.C
 
 	err = machine.SetProviderAddresses(addr0, addr1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machine.Addresses(), jc.SameContents, corenetwork.SpaceAddresses{addr0, addr1})
+	c.Assert(machine.Addresses(), jc.SameContents, network.SpaceAddresses{addr0, addr1})
 }
 
 func (s *MachineSuite) TestSetProviderAddressesConcurrentChangeEqual(c *gc.C) {
@@ -1894,8 +1893,8 @@ func (s *MachineSuite) TestSetProviderAddressesConcurrentChangeEqual(c *gc.C) {
 	revno0, err := state.TxnRevno(s.State, "machines", machineDocID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	addr0 := corenetwork.NewSpaceAddress("127.0.0.1")
-	addr1 := corenetwork.NewSpaceAddress("8.8.8.8")
+	addr0 := network.NewSpaceAddress("127.0.0.1")
+	addr1 := network.NewSpaceAddress("8.8.8.8")
 
 	var revno1 int64
 	defer state.SetBeforeHooks(c, s.State, func() {
@@ -1915,7 +1914,7 @@ func (s *MachineSuite) TestSetProviderAddressesConcurrentChangeEqual(c *gc.C) {
 	revno2, err := state.TxnRevno(s.State, "machines", machineDocID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(revno2, jc.GreaterThan, revno1)
-	c.Assert(machine.Addresses(), jc.SameContents, corenetwork.SpaceAddresses{addr0, addr1})
+	c.Assert(machine.Addresses(), jc.SameContents, network.SpaceAddresses{addr0, addr1})
 }
 
 func (s *MachineSuite) TestSetProviderAddressesInvalidateMemory(c *gc.C) {
@@ -1924,8 +1923,8 @@ func (s *MachineSuite) TestSetProviderAddressesInvalidateMemory(c *gc.C) {
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 	machineDocID := state.DocID(s.State, machine.Id())
 
-	addr0 := corenetwork.NewSpaceAddress("127.0.0.1")
-	addr1 := corenetwork.NewSpaceAddress("8.8.8.8")
+	addr0 := network.NewSpaceAddress("127.0.0.1")
+	addr1 := network.NewSpaceAddress("8.8.8.8")
 
 	// Set addresses to [addr0] initially. We'll get a separate Machine
 	// object to update addresses, to ensure that the in-memory cache of
@@ -1943,39 +1942,39 @@ func (s *MachineSuite) TestSetProviderAddressesInvalidateMemory(c *gc.C) {
 	revno1, err := state.TxnRevno(s.State, "machines", machineDocID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(revno1, jc.GreaterThan, revno0)
-	c.Assert(machine.Addresses(), jc.SameContents, corenetwork.SpaceAddresses{addr0})
-	c.Assert(machine2.Addresses(), jc.SameContents, corenetwork.SpaceAddresses{addr1})
+	c.Assert(machine.Addresses(), jc.SameContents, network.SpaceAddresses{addr0})
+	c.Assert(machine2.Addresses(), jc.SameContents, network.SpaceAddresses{addr1})
 
 	err = machine.SetProviderAddresses(addr0)
 	c.Assert(err, jc.ErrorIsNil)
 	revno2, err := state.TxnRevno(s.State, "machines", machineDocID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(revno2, jc.GreaterThan, revno1)
-	c.Assert(machine.Addresses(), jc.SameContents, corenetwork.SpaceAddresses{addr0})
+	c.Assert(machine.Addresses(), jc.SameContents, network.SpaceAddresses{addr0})
 }
 
 func (s *MachineSuite) TestPublicAddressSetOnNewMachine(c *gc.C) {
 	m, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series:    "quantal",
 		Jobs:      []state.MachineJob{state.JobHostUnits},
-		Addresses: corenetwork.NewSpaceAddresses("10.0.0.1", "8.8.8.8"),
+		Addresses: network.NewSpaceAddresses("10.0.0.1", "8.8.8.8"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	addr, err := m.PublicAddress()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr, jc.DeepEquals, corenetwork.NewSpaceAddress("8.8.8.8"))
+	c.Assert(addr, jc.DeepEquals, network.NewSpaceAddress("8.8.8.8"))
 }
 
 func (s *MachineSuite) TestPrivateAddressSetOnNewMachine(c *gc.C) {
 	m, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series:    "quantal",
 		Jobs:      []state.MachineJob{state.JobHostUnits},
-		Addresses: corenetwork.NewSpaceAddresses("10.0.0.1", "8.8.8.8"),
+		Addresses: network.NewSpaceAddresses("10.0.0.1", "8.8.8.8"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	addr, err := m.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr, jc.DeepEquals, corenetwork.NewSpaceAddress("10.0.0.1"))
+	c.Assert(addr, jc.DeepEquals, network.NewSpaceAddress("10.0.0.1"))
 }
 
 func (s *MachineSuite) TestPublicAddressEmptyAddresses(c *gc.C) {
@@ -2002,7 +2001,7 @@ func (s *MachineSuite) TestPublicAddress(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetProviderAddresses(corenetwork.NewSpaceAddress("8.8.8.8"))
+	err = machine.SetProviderAddresses(network.NewSpaceAddress("8.8.8.8"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err := machine.PublicAddress()
@@ -2014,7 +2013,7 @@ func (s *MachineSuite) TestPrivateAddress(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetMachineAddresses(corenetwork.NewSpaceAddress("10.0.0.1"))
+	err = machine.SetMachineAddresses(network.NewSpaceAddress("10.0.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err := machine.PrivateAddress()
@@ -2026,14 +2025,14 @@ func (s *MachineSuite) TestPublicAddressBetterMatch(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetMachineAddresses(corenetwork.NewSpaceAddress("10.0.0.1"))
+	err = machine.SetMachineAddresses(network.NewSpaceAddress("10.0.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err := machine.PublicAddress()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr.Value, gc.Equals, "10.0.0.1")
 
-	err = machine.SetProviderAddresses(corenetwork.NewSpaceAddress("8.8.8.8"))
+	err = machine.SetProviderAddresses(network.NewSpaceAddress("8.8.8.8"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err = machine.PublicAddress()
@@ -2045,14 +2044,14 @@ func (s *MachineSuite) TestPrivateAddressBetterMatch(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetProviderAddresses(corenetwork.NewSpaceAddress("8.8.8.8"))
+	err = machine.SetProviderAddresses(network.NewSpaceAddress("8.8.8.8"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err := machine.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr.Value, gc.Equals, "8.8.8.8")
 
-	err = machine.SetProviderAddresses(corenetwork.NewSpaceAddress("8.8.8.8"), corenetwork.NewSpaceAddress("10.0.0.1"))
+	err = machine.SetProviderAddresses(network.NewSpaceAddress("8.8.8.8"), network.NewSpaceAddress("10.0.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err = machine.PrivateAddress()
@@ -2064,14 +2063,14 @@ func (s *MachineSuite) TestPublicAddressChanges(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetProviderAddresses(corenetwork.NewSpaceAddress("8.8.8.8"))
+	err = machine.SetProviderAddresses(network.NewSpaceAddress("8.8.8.8"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err := machine.PublicAddress()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr.Value, gc.Equals, "8.8.8.8")
 
-	err = machine.SetProviderAddresses(corenetwork.NewSpaceAddress("8.8.4.4"))
+	err = machine.SetProviderAddresses(network.NewSpaceAddress("8.8.4.4"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err = machine.PublicAddress()
@@ -2083,14 +2082,14 @@ func (s *MachineSuite) TestPrivateAddressChanges(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetMachineAddresses(corenetwork.NewSpaceAddress("10.0.0.2"))
+	err = machine.SetMachineAddresses(network.NewSpaceAddress("10.0.0.2"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err := machine.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr.Value, gc.Equals, "10.0.0.2")
 
-	err = machine.SetMachineAddresses(corenetwork.NewSpaceAddress("10.0.0.1"))
+	err = machine.SetMachineAddresses(network.NewSpaceAddress("10.0.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err = machine.PrivateAddress()
@@ -2102,7 +2101,7 @@ func (s *MachineSuite) TestAddressesDeadMachine(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetProviderAddresses(corenetwork.NewSpaceAddress("10.0.0.2"), corenetwork.NewSpaceAddress("8.8.4.4"))
+	err = machine.SetProviderAddresses(network.NewSpaceAddress("10.0.0.2"), network.NewSpaceAddress("8.8.4.4"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err := machine.PrivateAddress()
@@ -2130,7 +2129,7 @@ func (s *MachineSuite) TestStablePrivateAddress(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetMachineAddresses(corenetwork.NewSpaceAddress("10.0.0.2"))
+	err = machine.SetMachineAddresses(network.NewSpaceAddress("10.0.0.2"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err := machine.PrivateAddress()
@@ -2139,7 +2138,7 @@ func (s *MachineSuite) TestStablePrivateAddress(c *gc.C) {
 
 	// Now add an address that would previously have sorted before the
 	// default.
-	err = machine.SetMachineAddresses(corenetwork.NewSpaceAddress("10.0.0.1"), corenetwork.NewSpaceAddress("10.0.0.2"))
+	err = machine.SetMachineAddresses(network.NewSpaceAddress("10.0.0.1"), network.NewSpaceAddress("10.0.0.2"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assert the address is unchanged.
@@ -2152,7 +2151,7 @@ func (s *MachineSuite) TestStablePublicAddress(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetProviderAddresses(corenetwork.NewSpaceAddress("8.8.8.8"))
+	err = machine.SetProviderAddresses(network.NewSpaceAddress("8.8.8.8"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err := machine.PublicAddress()
@@ -2161,7 +2160,7 @@ func (s *MachineSuite) TestStablePublicAddress(c *gc.C) {
 
 	// Now add an address that would previously have sorted before the
 	// default.
-	err = machine.SetProviderAddresses(corenetwork.NewSpaceAddress("8.8.4.4"), corenetwork.NewSpaceAddress("8.8.8.8"))
+	err = machine.SetProviderAddresses(network.NewSpaceAddress("8.8.4.4"), network.NewSpaceAddress("8.8.8.8"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assert the address is unchanged.
@@ -2176,29 +2175,29 @@ func (s *MachineSuite) TestAddressesRaceMachineFirst(c *gc.C) {
 
 	changeAddresses := jujutxn.TestHook{
 		Before: func() {
-			err = machine.SetProviderAddresses(corenetwork.NewSpaceAddress("8.8.8.8"))
+			err = machine.SetProviderAddresses(network.NewSpaceAddress("8.8.8.8"))
 			c.Assert(err, jc.ErrorIsNil)
 			address, err := machine.PublicAddress()
 			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(address, jc.DeepEquals, corenetwork.NewSpaceAddress("8.8.8.8"))
+			c.Assert(address, jc.DeepEquals, network.NewSpaceAddress("8.8.8.8"))
 			address, err = machine.PrivateAddress()
 			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(address, jc.DeepEquals, corenetwork.NewSpaceAddress("8.8.8.8"))
+			c.Assert(address, jc.DeepEquals, network.NewSpaceAddress("8.8.8.8"))
 		},
 	}
 	defer state.SetTestHooks(c, s.State, changeAddresses).Check()
 
-	err = machine.SetMachineAddresses(corenetwork.NewSpaceAddress("8.8.4.4"))
+	err = machine.SetMachineAddresses(network.NewSpaceAddress("8.8.4.4"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	machine, err = s.State.Machine(machine.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	address, err := machine.PublicAddress()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(address, jc.DeepEquals, corenetwork.NewSpaceAddress("8.8.8.8"))
+	c.Assert(address, jc.DeepEquals, network.NewSpaceAddress("8.8.8.8"))
 	address, err = machine.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(address, jc.DeepEquals, corenetwork.NewSpaceAddress("8.8.8.8"))
+	c.Assert(address, jc.DeepEquals, network.NewSpaceAddress("8.8.8.8"))
 }
 
 func (s *MachineSuite) TestAddressesRaceProviderFirst(c *gc.C) {
@@ -2207,36 +2206,36 @@ func (s *MachineSuite) TestAddressesRaceProviderFirst(c *gc.C) {
 
 	changeAddresses := jujutxn.TestHook{
 		Before: func() {
-			err = machine.SetMachineAddresses(corenetwork.NewSpaceAddress("10.0.0.1"))
+			err = machine.SetMachineAddresses(network.NewSpaceAddress("10.0.0.1"))
 			c.Assert(err, jc.ErrorIsNil)
 			address, err := machine.PublicAddress()
 			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(address, jc.DeepEquals, corenetwork.NewSpaceAddress("10.0.0.1"))
+			c.Assert(address, jc.DeepEquals, network.NewSpaceAddress("10.0.0.1"))
 			address, err = machine.PrivateAddress()
 			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(address, jc.DeepEquals, corenetwork.NewSpaceAddress("10.0.0.1"))
+			c.Assert(address, jc.DeepEquals, network.NewSpaceAddress("10.0.0.1"))
 		},
 	}
 	defer state.SetTestHooks(c, s.State, changeAddresses).Check()
 
-	err = machine.SetProviderAddresses(corenetwork.NewSpaceAddress("8.8.4.4"))
+	err = machine.SetProviderAddresses(network.NewSpaceAddress("8.8.4.4"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	machine, err = s.State.Machine(machine.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	address, err := machine.PublicAddress()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(address, jc.DeepEquals, corenetwork.NewSpaceAddress("8.8.4.4"))
+	c.Assert(address, jc.DeepEquals, network.NewSpaceAddress("8.8.4.4"))
 	address, err = machine.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(address, jc.DeepEquals, corenetwork.NewSpaceAddress("8.8.4.4"))
+	c.Assert(address, jc.DeepEquals, network.NewSpaceAddress("8.8.4.4"))
 }
 
 func (s *MachineSuite) TestPrivateAddressPrefersProvider(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetMachineAddresses(corenetwork.NewSpaceAddress("8.8.8.8"), corenetwork.NewSpaceAddress("10.0.0.2"))
+	err = machine.SetMachineAddresses(network.NewSpaceAddress("8.8.8.8"), network.NewSpaceAddress("10.0.0.2"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err := machine.PublicAddress()
@@ -2246,7 +2245,7 @@ func (s *MachineSuite) TestPrivateAddressPrefersProvider(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr.Value, gc.Equals, "10.0.0.2")
 
-	err = machine.SetProviderAddresses(corenetwork.NewSpaceAddress("10.0.0.1"))
+	err = machine.SetProviderAddresses(network.NewSpaceAddress("10.0.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err = machine.PublicAddress()
@@ -2261,7 +2260,7 @@ func (s *MachineSuite) TestPublicAddressPrefersProvider(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetMachineAddresses(corenetwork.NewSpaceAddress("8.8.8.8"), corenetwork.NewSpaceAddress("10.0.0.2"))
+	err = machine.SetMachineAddresses(network.NewSpaceAddress("8.8.8.8"), network.NewSpaceAddress("10.0.0.2"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err := machine.PublicAddress()
@@ -2271,7 +2270,7 @@ func (s *MachineSuite) TestPublicAddressPrefersProvider(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr.Value, gc.Equals, "10.0.0.2")
 
-	err = machine.SetProviderAddresses(corenetwork.NewSpaceAddress("8.8.4.4"))
+	err = machine.SetProviderAddresses(network.NewSpaceAddress("8.8.4.4"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err = machine.PublicAddress()
@@ -2286,7 +2285,7 @@ func (s *MachineSuite) TestAddressesPrefersProviderBoth(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetMachineAddresses(corenetwork.NewSpaceAddress("8.8.8.8"), corenetwork.NewSpaceAddress("10.0.0.1"))
+	err = machine.SetMachineAddresses(network.NewSpaceAddress("8.8.8.8"), network.NewSpaceAddress("10.0.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err := machine.PublicAddress()
@@ -2296,7 +2295,7 @@ func (s *MachineSuite) TestAddressesPrefersProviderBoth(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr.Value, gc.Equals, "10.0.0.1")
 
-	err = machine.SetProviderAddresses(corenetwork.NewSpaceAddress("8.8.4.4"), corenetwork.NewSpaceAddress("10.0.0.2"))
+	err = machine.SetProviderAddresses(network.NewSpaceAddress("8.8.4.4"), network.NewSpaceAddress("10.0.0.2"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err = machine.PublicAddress()
@@ -2811,27 +2810,27 @@ func (s *MachineSuite) TestWatchAddresses(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Set machine addresses: reported.
-	err = machine.SetMachineAddresses(corenetwork.NewSpaceAddress("abc"))
+	err = machine.SetMachineAddresses(network.NewSpaceAddress("abc"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Set provider addresses eclipsing machine addresses: reported.
-	err = machine.SetProviderAddresses(corenetwork.NewScopedSpaceAddress("abc", corenetwork.ScopePublic))
+	err = machine.SetProviderAddresses(network.NewScopedSpaceAddress("abc", network.ScopePublic))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Set same machine eclipsed by provider addresses: not reported.
-	err = machine.SetMachineAddresses(corenetwork.NewScopedSpaceAddress("abc", corenetwork.ScopeCloudLocal))
+	err = machine.SetMachineAddresses(network.NewScopedSpaceAddress("abc", network.ScopeCloudLocal))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	// Set different machine addresses: reported.
-	err = machine.SetMachineAddresses(corenetwork.NewSpaceAddress("def"))
+	err = machine.SetMachineAddresses(network.NewSpaceAddress("def"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Set different provider addresses: reported.
-	err = machine.SetMachineAddresses(corenetwork.NewScopedSpaceAddress("def", corenetwork.ScopePublic))
+	err = machine.SetMachineAddresses(network.NewScopedSpaceAddress("def", network.ScopePublic))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
