@@ -102,10 +102,13 @@ func NewNetworkInfoForStrategy(
 		lookupHost:    lookupHost,
 	}
 
+	var netInfo NetworkInfo
 	if unit.ShouldBeAssigned() {
-		return &NetworkInfoIAAS{base}, nil
+		netInfo, err = newNetworkInfoIAAS(base)
+	} else {
+		netInfo, err = newNetworkInfoCAAS(base)
 	}
-	return &NetworkInfoCAAS{base}, nil
+	return netInfo, errors.Trace(err)
 }
 
 // getRelationAndEndpointName returns the relation for the input ID
