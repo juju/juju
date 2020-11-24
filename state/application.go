@@ -2845,18 +2845,23 @@ func (a *Application) SetConstraints(cons constraints.Value) (err error) {
 
 	// If the architecture has already been set, do not allow the application
 	// architecture to change.
-	// Note: we don't apply this check in validate constraints as we have no
-	// way to know if it's a model or an application (former we do allow
-	// changes).
-	if current, consErr := a.Constraints(); !errors.IsNotFound(consErr) && (cons.Arch != nil && *cons.Arch != "") {
+	//
+	// If the constraints returns a not found error, we don't actually care,
+	// this implies that it's never been set and we want to just take all the
+	// valid constraints.
+	if current, consErr := a.Constraints(); !errors.IsNotFound(consErr) {
 		if consErr != nil {
 			return errors.Annotate(consErr, "unable to read constraints")
 		}
-
-		if (current.Arch == nil || *current.Arch == "") && *cons.Arch != arch.DefaultArchitecture {
-			return errors.NotSupportedf("changing architecture")
-		} else if current.Arch != nil && *current.Arch != "" && *current.Arch != *cons.Arch {
-			return errors.NotSupportedf("changing architecture (%s)", *current.Arch)
+		// If the incoming arch has a value we only care about that. If the
+		// value is empty we can assume that we want the existing current value
+		// that is set or not.
+		if cons.Arch != nil && *cons.Arch != "" {
+			if (current.Arch == nil || *current.Arch == "") && *cons.Arch != arch.DefaultArchitecture {
+				return errors.NotSupportedf("changing architecture")
+			} else if current.Arch != nil && *current.Arch != "" && *current.Arch != *cons.Arch {
+				return errors.NotSupportedf("changing architecture (%s)", *current.Arch)
+			}
 		}
 	}
 
