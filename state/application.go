@@ -2849,13 +2849,13 @@ func (a *Application) SetConstraints(cons constraints.Value) (err error) {
 	// way to know if it's a model or an application (former we do allow
 	// changes).
 	current, err := a.Constraints()
-	if !errors.IsNotFound(err) {
+	if !errors.IsNotFound(err) && cons.Arch != nil {
 		if err != nil {
 			return errors.Annotate(err, "unable to read constraints")
 		}
-		if current.Arch == nil && cons.Arch != nil && *cons.Arch != arch.DefaultArchitecture {
+		if current.Arch == nil && *cons.Arch != arch.DefaultArchitecture {
 			return errors.NotSupportedf("changing architecture")
-		} else if current.Arch != nil && cons.Arch != nil && *current.Arch != *cons.Arch {
+		} else if current.Arch != nil && *current.Arch != *cons.Arch {
 			return errors.NotSupportedf("changing architecture (%s)", *current.Arch)
 		}
 	}
