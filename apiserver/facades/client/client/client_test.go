@@ -921,42 +921,65 @@ func (s *clientSuite) TestClientWatchAllReadPermission(c *gc.C) {
 		err := watcher.Stop()
 		c.Assert(err, jc.ErrorIsNil)
 	}()
-	deltas, err := watcher.Next()
-	c.Assert(err, jc.ErrorIsNil)
-	// Model and machine deltas returned.
-	c.Assert(len(deltas), gc.Equals, 2)
-	var d0 *params.MachineInfo
-	for _, delta := range deltas {
-		d, ok := delta.Entity.(*params.MachineInfo)
-		if ok {
-			d0 = d
-			break
+
+	deltasCh := make(chan []params.Delta)
+	go func() {
+		for {
+			deltas, err := watcher.Next()
+			if err != nil {
+				return // watcher stopped
+			}
+			deltasCh <- deltas
 		}
+	}()
+
+	machineReady := func(got *params.MachineInfo) bool {
+		equal, _ := jc.DeepEqual(got, &params.MachineInfo{
+			ModelUUID:  s.State.ModelUUID(),
+			Id:         m.Id(),
+			InstanceId: "i-0",
+			AgentStatus: params.StatusInfo{
+				Current: status.Pending,
+			},
+			InstanceStatus: params.StatusInfo{
+				Current: status.Pending,
+			},
+			Life:                    life.Alive,
+			Series:                  "quantal",
+			Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
+			Addresses:               []params.Address{},
+			HardwareCharacteristics: &instance.HardwareCharacteristics{},
+			HasVote:                 false,
+			WantsVote:               true,
+		})
+		return equal
 	}
-	c.Assert(d0, gc.NotNil)
-	d0.AgentStatus.Since = nil
-	d0.InstanceStatus.Since = nil
-	if !c.Check(d0, jc.DeepEquals, &params.MachineInfo{
-		ModelUUID:  s.State.ModelUUID(),
-		Id:         m.Id(),
-		InstanceId: "i-0",
-		AgentStatus: params.StatusInfo{
-			Current: status.Pending,
-		},
-		InstanceStatus: params.StatusInfo{
-			Current: status.Pending,
-		},
-		Life:                    life.Alive,
-		Series:                  "quantal",
-		Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
-		Addresses:               []params.Address{},
-		HardwareCharacteristics: &instance.HardwareCharacteristics{},
-		HasVote:                 false,
-		WantsVote:               true,
-	}) {
-		c.Logf("got:")
-		for _, d := range deltas {
-			c.Logf("%#v\n", d.Entity)
+
+	machineMatched := false
+	timeout := time.After(coretesting.LongWait)
+	i := 0
+	for !machineMatched {
+		select {
+		case deltas := <-deltasCh:
+			for _, delta := range deltas {
+				entity := delta.Entity
+				c.Logf("delta.Entity %d kind %s: %#v", i, entity.EntityId().Kind, entity)
+				i++
+
+				switch entity.EntityId().Kind {
+				case multiwatcher.MachineKind:
+					machine := entity.(*params.MachineInfo)
+					machine.AgentStatus.Since = nil
+					machine.InstanceStatus.Since = nil
+					if machineReady(machine) {
+						machineMatched = true
+					} else {
+						c.Log("machine delta not yet matched")
+					}
+				}
+			}
+		case <-timeout:
+			c.Fatal("timed out waiting for watcher deltas to be ready")
 		}
 	}
 }
@@ -995,92 +1018,87 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
-	watcherNextError := make(chan error)
-	var allDeltas []params.Delta
-
-	// Accrue deltas until we get 3 deltas - one each for model, machine
-	// and remote application.
-	// Send any error out on the result channel, because gc.C is not
-	// Goroutine safe.
+	deltasCh := make(chan []params.Delta)
 	go func() {
-		for len(allDeltas) < 3 {
+		for {
 			deltas, err := watcher.Next()
 			if err != nil {
-				watcherNextError <- err
-				return
+				return // watcher stopped
 			}
-			allDeltas = append(allDeltas, deltas...)
+			deltasCh <- deltas
 		}
-		watcherNextError <- nil
 	}()
 
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
-
-	select {
-	case err := <-watcherNextError:
-		c.Assert(err, jc.ErrorIsNil)
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for watcher delta accrual to complete")
+	machineReady := func(got *params.MachineInfo) bool {
+		equal, _ := jc.DeepEqual(got, &params.MachineInfo{
+			ModelUUID:  s.State.ModelUUID(),
+			Id:         m.Id(),
+			InstanceId: "i-0",
+			AgentStatus: params.StatusInfo{
+				Current: status.Pending,
+			},
+			InstanceStatus: params.StatusInfo{
+				Current: status.Pending,
+			},
+			Life:                    life.Alive,
+			Series:                  "quantal",
+			Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
+			Addresses:               []params.Address{},
+			HardwareCharacteristics: &instance.HardwareCharacteristics{},
+			HasVote:                 false,
+			WantsVote:               true,
+		})
+		return equal
 	}
 
-	// A delta each for model, machine, and remote application.
-	c.Assert(len(allDeltas), gc.Equals, 3)
-	var dMachine *params.MachineInfo
-	var dApp *params.RemoteApplicationUpdate
-	for i := 0; (dMachine == nil || dApp == nil) && i < len(allDeltas); i++ {
-		entity := allDeltas[i].Entity
-		switch entity.EntityId().Kind {
-		case multiwatcher.MachineKind:
-			dMachine = entity.(*params.MachineInfo)
-		case multiwatcher.RemoteApplicationKind:
-			dApp = entity.(*params.RemoteApplicationUpdate)
-		default:
-			// don't worry about the model
-		}
+	appReady := func(got *params.RemoteApplicationUpdate) bool {
+		equal, _ := jc.DeepEqual(got, &params.RemoteApplicationUpdate{
+			Name:      "remote-db2",
+			ModelUUID: s.State.ModelUUID(),
+			OfferUUID: "offer-uuid",
+			OfferURL:  "admin/prod.db2",
+			Life:      "alive",
+			Status: params.StatusInfo{
+				Current: status.Unknown,
+			},
+		})
+		return equal
 	}
-	c.Assert(dMachine, gc.NotNil)
-	c.Assert(dApp, gc.NotNil)
 
-	dMachine.AgentStatus.Since = nil
-	dMachine.InstanceStatus.Since = nil
-	dApp.Status.Since = nil
+	machineMatched := false
+	appMatched := false
+	timeout := time.After(coretesting.LongWait)
+	i := 0
+	for !machineMatched || !appMatched {
+		select {
+		case deltas := <-deltasCh:
+			for _, delta := range deltas {
+				entity := delta.Entity
+				c.Logf("delta.Entity %d kind %s: %#v", i, entity.EntityId().Kind, entity)
+				i++
 
-	if !c.Check(dMachine, jc.DeepEquals, &params.MachineInfo{
-		ModelUUID:  s.State.ModelUUID(),
-		Id:         m.Id(),
-		InstanceId: "i-0",
-		AgentStatus: params.StatusInfo{
-			Current: status.Pending,
-		},
-		InstanceStatus: params.StatusInfo{
-			Current: status.Pending,
-		},
-		Life:                    life.Alive,
-		Series:                  "quantal",
-		Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
-		Addresses:               []params.Address{},
-		HardwareCharacteristics: &instance.HardwareCharacteristics{},
-		HasVote:                 false,
-		WantsVote:               true,
-	}) {
-		c.Logf("got:")
-		for _, d := range allDeltas {
-			c.Logf("%#v\n", d.Entity)
-		}
-	}
-	if !c.Check(dApp, jc.DeepEquals, &params.RemoteApplicationUpdate{
-		Name:      "remote-db2",
-		ModelUUID: s.State.ModelUUID(),
-		OfferUUID: "offer-uuid",
-		OfferURL:  "admin/prod.db2",
-		Life:      "alive",
-		Status: params.StatusInfo{
-			Current: status.Unknown,
-		},
-	}) {
-		c.Logf("got:")
-		for _, d := range allDeltas {
-			c.Logf("%#v\n", d.Entity)
+				switch entity.EntityId().Kind {
+				case multiwatcher.MachineKind:
+					machine := entity.(*params.MachineInfo)
+					machine.AgentStatus.Since = nil
+					machine.InstanceStatus.Since = nil
+					if machineReady(machine) {
+						machineMatched = true
+					} else {
+						c.Log("machine delta not yet matched")
+					}
+				case multiwatcher.RemoteApplicationKind:
+					app := entity.(*params.RemoteApplicationUpdate)
+					app.Status.Since = nil
+					if appReady(app) {
+						appMatched = true
+					} else {
+						c.Log("remote application delta not yet matched")
+					}
+				}
+			}
+		case <-timeout:
+			c.Fatal("timed out waiting for watcher deltas to be ready")
 		}
 	}
 }
