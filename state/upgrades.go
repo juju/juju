@@ -24,7 +24,9 @@ import (
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/permission"
@@ -3287,4 +3289,139 @@ func RemoveUnusedLinkLayerDeviceProviderIDs(pool *StatePool) error {
 
 	logger.Infof("deleted %d unused link-layer device provider IDs", before-after)
 	return nil
+}
+
+// AddDerivedArchitectureApplicationConstraint inserts the architecture
+// into the application constraint if it's missing one. To ensure we have a
+// good representation of the correct architecture we query the units for their
+// existing architecture and get a quorum.
+func AddDerivedArchitectureApplicationConstraint(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(applicationsC)
+		defer closer()
+
+		var docs []applicationDoc
+		if err := col.Find(nil).All(&docs); err != nil {
+			return errors.Trace(err)
+		}
+
+		type appCons struct {
+			App         applicationDoc
+			Constraints constraints.Value
+		}
+
+		appConstraints := make(map[string]appCons)
+		for _, doc := range docs {
+			// Existing constraints don't apply here, in the future they do,
+			// but not here.
+			if doc.Subordinate {
+				continue
+			}
+
+			appKey := applicationGlobalKey(doc.Name)
+			constraint, err := readConstraints(st, appKey)
+			if errors.IsNotFound(err) {
+				// We don't care for applications with no constraints
+				// (placeholders for example)
+				continue
+			} else if err != nil {
+				return errors.Trace(err)
+			}
+
+			// If the constraint has been explicitly set ignore the application
+			// and move on.
+			if constraint.Arch != nil && *constraint.Arch != "" {
+				continue
+			}
+
+			appConstraints[doc.Name] = appCons{
+				App:         doc,
+				Constraints: constraint,
+			}
+		}
+
+		// Everything has been set, so there is nothing to do in this case.
+		if len(appConstraints) == 0 {
+			return nil
+		}
+
+		for name, appCons := range appConstraints {
+			var unitDocs []unitDoc
+			if err := col.Find(bson.M{"application": name}).All(&unitDocs); err != nil {
+				return errors.Trace(err)
+			}
+
+			arches := make(map[string]int)
+			for _, unit := range unitDocs {
+				if unit.Life != Alive {
+					continue
+				}
+
+				instData, err := getInstanceData(st, unit.MachineId)
+				if err != nil {
+					return errors.Trace(err)
+				}
+
+				// No instance data to be found, so count it towards the default
+				// architecture.
+				if instData.Arch == nil || *instData.Arch == "" {
+					arches[arch.DefaultArchitecture]++
+					continue
+				}
+
+				arches[*instData.Arch]++
+			}
+
+			// We don't have any arches so do nothing.
+			if num := len(arches); num < 0 {
+				continue
+			} else if num == 1 {
+				// We have an architecture, but we don't have it explicitly set
+				// so go out of our way to correctly set it.
+				arch := arch.DefaultArchitecture
+				for a := range arches {
+					arch = a
+				}
+
+				c := appCons.Constraints
+				c.Arch = &arch
+
+				appKey := applicationGlobalKey(name)
+
+				ops := []txn.Op{setConstraintsOp(appKey, c)}
+				if err := st.db().RunTransaction(ops); err != nil {
+					return errors.Trace(err)
+				}
+				continue
+			}
+
+			// We have a heterogeneous set of instances so we should attempt
+			// to resolve that.
+
+			modelCons, err := st.ModelConstraints()
+			if err != nil {
+				return errors.Trace(err)
+			}
+
+			var modelArch string
+			if modelCons.Arch == nil || *modelCons.Arch == "" {
+				// We should default to something.
+				modelArch = arch.DefaultArchitecture
+			} else {
+				modelArch = *modelCons.Arch
+			}
+
+			c := appCons.Constraints
+			c.Arch = &modelArch
+
+			appKey := applicationGlobalKey(name)
+
+			ops := []txn.Op{setConstraintsOp(appKey, c)}
+			if err := st.db().RunTransaction(ops); err != nil {
+				return errors.Trace(err)
+			}
+		}
+
+		return nil
+	}))
 }
