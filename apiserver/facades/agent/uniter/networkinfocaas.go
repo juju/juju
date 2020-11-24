@@ -4,16 +4,12 @@
 package uniter
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	k8score "k8s.io/api/core/v1"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -41,82 +37,51 @@ func newNetworkInfoCAAS(base *NetworkInfoBase) (*NetworkInfoCAAS, error) {
 
 // ProcessAPIRequest handles a request to the uniter API NetworkInfo method.
 func (n *NetworkInfoCAAS) ProcessAPIRequest(args params.NetworkInfoParams) (params.NetworkInfoResults, error) {
-	bindings := make(map[string]string)
-	endpointEgressSubnets := make(map[string][]string)
+	validEndpoints, result := n.validateEndpoints(args.Endpoints)
 
-	result := params.NetworkInfoResults{
-		Results: make(map[string]params.NetworkInfoResult),
-	}
-
-	// For each of the endpoints in the request, get the bound space and
-	// initialise the endpoint egress map with the model's configured
-	// egress subnets.
-	for _, endpoint := range args.Endpoints {
-		binding, ok := n.bindings[endpoint]
-		if ok {
-			// In practice this is always the alpha space in CAAS.
-			// This loop serves as validation of input until this changes.
-			bindings[endpoint] = binding
+	// We record the interface addresses as the machine local ones.
+	// These are used later as the binding addresses.
+	// For CAAS models, we need to default ingress addresses to all other
+	// address scopes so record those in the default ingress address slice.
+	var interfaceAddr []params.InterfaceAddress
+	var defaultIngressAddresses []string
+	for _, a := range n.addresses {
+		if a.Scope == corenetwork.ScopeMachineLocal {
+			interfaceAddr = append(interfaceAddr, params.InterfaceAddress{Address: a.Value})
 		} else {
-			err := errors.NewNotValid(nil, fmt.Sprintf("binding name %q not defined by the unit's charm", endpoint))
-			result.Results[endpoint] = params.NetworkInfoResult{Error: common.ServerError(err)}
+			defaultIngressAddresses = append(defaultIngressAddresses, a.Value)
 		}
-		endpointEgressSubnets[endpoint] = n.defaultEgress
 	}
 
-	endpointIngressAddresses := make(map[string]corenetwork.SpaceAddresses)
-
-	// If we are working in a relation context, get the network information for
-	// the relation and set it for the relation's binding.
+	// If we are working in a relation context,
+	// get the network information for the relation
+	// and set it for the relation's binding.
 	if args.RelationId != nil {
 		endpoint, _, ingress, egress, err := n.getRelationNetworkInfo(*args.RelationId)
 		if err != nil {
 			return params.NetworkInfoResults{}, err
 		}
 
-		if len(egress) > 0 {
-			endpointEgressSubnets[endpoint] = egress
-		}
-		endpointIngressAddresses[endpoint] = ingress
-	}
-
-	// We record the interface addresses as the machine local ones - these
-	// are used later as the binding addresses.
-	// For CAAS models, we need to default ingress addresses to all available
-	// addresses so record those in the default ingress address slice.
-	var interfaceAddr []network.InterfaceAddress
-	var defaultIngressAddresses []string
-	for _, a := range n.addresses {
-		if a.Scope == corenetwork.ScopeMachineLocal {
-			interfaceAddr = append(interfaceAddr, network.InterfaceAddress{Address: a.Value})
-		} else {
-			defaultIngressAddresses = append(defaultIngressAddresses, a.Value)
+		result.Results[endpoint] = params.NetworkInfoResult{
+			Info:             []params.NetworkInfo{{Addresses: interfaceAddr}},
+			EgressSubnets:    egress,
+			IngressAddresses: ingress.Values(),
 		}
 	}
 
-	networkInfos := make(map[string]machineNetworkInfoResult)
-	networkInfos[corenetwork.AlphaSpaceId] = machineNetworkInfoResult{
-		NetworkInfos: []network.NetworkInfo{{Addresses: interfaceAddr}},
-	}
+	// For each of the requested endpoints, set any empty results to the
+	// defaults determined above.
+	for _, endpoint := range validEndpoints.Values() {
+		info, ok := result.Results[endpoint]
+		if !ok {
+			info = params.NetworkInfoResult{
+				Info:          []params.NetworkInfo{{Addresses: interfaceAddr}},
+				EgressSubnets: n.defaultEgress,
+			}
+		}
 
-	for endpoint, space := range bindings {
-		// The binding address information based on link layer devices.
-		info := machineNetworkInfoResultToNetworkInfoResult(networkInfos[space])
-
-		info.EgressSubnets = endpointEgressSubnets[endpoint]
-		info.IngressAddresses = endpointIngressAddresses[endpoint].Values()
-
-		// If there is no ingress address explicitly defined for a given
-		// binding, set the ingress addresses to either any defaults set above,
-		// or the binding addresses.
 		if len(info.IngressAddresses) == 0 {
 			info.IngressAddresses = defaultIngressAddresses
-		}
-
-		if len(info.IngressAddresses) == 0 {
-			ingress := spaceAddressesFromNetworkInfo(networkInfos[space].NetworkInfos)
-			corenetwork.SortAddresses(ingress)
-			info.IngressAddresses = ingress.Values()
 		}
 
 		if len(info.EgressSubnets) == 0 {
