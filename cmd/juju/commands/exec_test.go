@@ -39,7 +39,7 @@ func (s *ExecSuite) SetUpTest(c *gc.C) {
 }
 
 func newTestExecCommand(clock clock.Clock, modelType model.ModelType) cmd.Command {
-	return newExecCommand(minimalStore(modelType), clock.After, false)
+	return newExecCommand(minimalStore(modelType), clock.After)
 }
 
 func minimalStore(modelType model.ModelType) *jujuclient.MemStore {
@@ -255,7 +255,7 @@ func (s *ExecSuite) TestConvertRunResults(c *gc.C) {
 				Message: "whoops",
 			},
 		}, ""),
-		query: makeActionQuery(validUUID, "MachineId", names.NewMachineTag("1")),
+		query: makeActionQuery(validUUID, "machine", names.NewMachineTag("1")),
 		expected: map[string]interface{}{
 			"Error":   "whoops",
 			"machine": "1",
@@ -264,7 +264,7 @@ func (s *ExecSuite) TestConvertRunResults(c *gc.C) {
 	}, {
 		message: "different action tag from query tag",
 		results: makeActionResult(mockResponse{machineTag: "not-a-tag"}, "invalid"),
-		query:   makeActionQuery(validUUID, "MachineId", names.NewMachineTag("1")),
+		query:   makeActionQuery(validUUID, "machine", names.NewMachineTag("1")),
 		expected: map[string]interface{}{
 			"Error":   `expected action tag "action-` + validUUID + `", got "invalid"`,
 			"machine": "1",
@@ -273,7 +273,7 @@ func (s *ExecSuite) TestConvertRunResults(c *gc.C) {
 	}, {
 		message: "different response tag from query tag",
 		results: makeActionResult(mockResponse{machineTag: "not-a-tag"}, "action-"+validUUID),
-		query:   makeActionQuery(validUUID, "MachineId", names.NewMachineTag("1")),
+		query:   makeActionQuery(validUUID, "machine", names.NewMachineTag("1")),
 		expected: map[string]interface{}{
 			"Error":   `expected action receiver "machine-1", got "not-a-tag"`,
 			"machine": "1",
@@ -282,7 +282,7 @@ func (s *ExecSuite) TestConvertRunResults(c *gc.C) {
 	}, {
 		message: "minimum is machine id",
 		results: makeActionResult(mockResponse{machineTag: "machine-1"}, "action-"+validUUID),
-		query:   makeActionQuery(validUUID, "MachineId", names.NewMachineTag("1")),
+		query:   makeActionQuery(validUUID, "machine", names.NewMachineTag("1")),
 		expected: map[string]interface{}{
 			"machine": "1",
 		},
@@ -295,7 +295,7 @@ func (s *ExecSuite) TestConvertRunResults(c *gc.C) {
 			message: "msg",
 			code:    "42",
 		}, "action-"+validUUID),
-		query: makeActionQuery(validUUID, "UnitId", names.NewUnitTag("unit/0")),
+		query: makeActionQuery(validUUID, "unit", names.NewUnitTag("unit/0")),
 		expected: map[string]interface{}{
 			"unit":        "unit/0",
 			"stdout":      "stdout",
@@ -305,7 +305,7 @@ func (s *ExecSuite) TestConvertRunResults(c *gc.C) {
 		},
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
-		result := ConvertActionResults(test.results, test.query, false)
+		result := ConvertActionResults(test.results, test.query)
 		c.Check(result, jc.DeepEquals, test.expected)
 	}
 }
@@ -330,11 +330,11 @@ func (s *ExecSuite) TestExecForMachineAndUnit(c *gc.C) {
 		mock.receiverIdMap["unit/0"]: unitResult,
 	}
 
-	machineQuery := makeActionQuery(mock.receiverIdMap["0"], "MachineId", names.NewMachineTag("0"))
-	unitQuery := makeActionQuery(mock.receiverIdMap["unit/0"], "UnitId", names.NewUnitTag("unit/0"))
+	machineQuery := makeActionQuery(mock.receiverIdMap["0"], "machine", names.NewMachineTag("0"))
+	unitQuery := makeActionQuery(mock.receiverIdMap["unit/0"], "unit", names.NewUnitTag("unit/0"))
 	unformatted := []interface{}{
-		ConvertActionResults(machineResult, machineQuery, false),
-		ConvertActionResults(unitResult, unitQuery, false),
+		ConvertActionResults(machineResult, machineQuery),
+		ConvertActionResults(unitResult, unitQuery),
 	}
 
 	buff := &bytes.Buffer{}
@@ -385,11 +385,11 @@ func (s *ExecSuite) TestAllMachines(c *gc.C) {
 		mock.receiverIdMap["1"]: machine1Result,
 	}
 
-	machine0Query := makeActionQuery(mock.receiverIdMap["0"], "MachineId", names.NewMachineTag("0"))
-	machine1Query := makeActionQuery(mock.receiverIdMap["1"], "MachineId", names.NewMachineTag("1"))
+	machine0Query := makeActionQuery(mock.receiverIdMap["0"], "machine", names.NewMachineTag("0"))
+	machine1Query := makeActionQuery(mock.receiverIdMap["1"], "machine", names.NewMachineTag("1"))
 	unformatted := []interface{}{
-		ConvertActionResults(machine0Result, machine0Query, false),
-		ConvertActionResults(machine1Result, machine1Query, false),
+		ConvertActionResults(machine0Result, machine0Query),
+		ConvertActionResults(machine1Result, machine1Query),
 		map[string]interface{}{
 			"Action":  mock.receiverIdMap["2"],
 			"machine": "2",
@@ -436,11 +436,11 @@ func (s *ExecSuite) TestTimeout(c *gc.C) {
 		mock.receiverIdMap["2"]: machine2Result,
 	}
 
-	machine0Query := makeActionQuery(mock.receiverIdMap["0"], "MachineId", names.NewMachineTag("0"))
+	machine0Query := makeActionQuery(mock.receiverIdMap["0"], "machine", names.NewMachineTag("0"))
 
 	var buf bytes.Buffer
 	err := cmd.FormatJson(&buf, []interface{}{
-		ConvertActionResults(machine0Result, machine0Query, false),
+		ConvertActionResults(machine0Result, machine0Query),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -458,41 +458,6 @@ func (s *ExecSuite) TestTimeout(c *gc.C) {
 		{"After", []interface{}{1 * time.Second}},
 		{"After", []interface{}{1 * time.Second}},
 	})
-}
-
-func (s *ExecSuite) TestUnitLeaderSyntaxWithUnsupportedAPIVersion(c *gc.C) {
-	var (
-		clock mockClock
-		mock  = s.setupMockAPI()
-	)
-
-	mock.bestAPIVersion = 2
-	_, err := cmdtesting.RunCommand(
-		c, newTestExecCommand(&clock, model.IAAS),
-		"--unit", "foo/leader", "hostname",
-	)
-
-	expErr := fmt.Sprintf("unable to determine leader for application %q"+
-		"\nleader determination is unsupported by this API"+
-		"\neither upgrade your controller, or explicitly specify a unit", "foo")
-	c.Assert(err, gc.ErrorMatches, expErr)
-}
-
-func (s *ExecSuite) TestCAASCantExecWithUnsupportedAPIVersion(c *gc.C) {
-	var (
-		clock mockClock
-		mock  = s.setupMockAPI()
-	)
-
-	mock.bestAPIVersion = 3
-	_, err := cmdtesting.RunCommand(
-		c, newTestExecCommand(&clock, model.CAAS),
-		"--unit", "unit/0", "echo hello",
-	)
-
-	expErr := "k8s controller does not support juju exec\n" +
-		"consider upgrading your controller"
-	c.Assert(err, gc.ErrorMatches, expErr)
 }
 
 func (s *ExecSuite) TestCAASCantTargetMachine(c *gc.C) {
@@ -534,9 +499,9 @@ func (s *ExecSuite) TestCAASExecOnOperator(c *gc.C) {
 		mock.receiverIdMap["unit/0"]: unitResult,
 	}
 
-	unitQuery := makeActionQuery(mock.receiverIdMap["unit/0"], "UnitId", names.NewUnitTag("unit/0"))
+	unitQuery := makeActionQuery(mock.receiverIdMap["unit/0"], "unit", names.NewUnitTag("unit/0"))
 	unformatted := []interface{}{
-		ConvertActionResults(unitResult, unitQuery, false),
+		ConvertActionResults(unitResult, unitQuery),
 	}
 
 	buff := &bytes.Buffer{}
@@ -571,9 +536,9 @@ func (s *ExecSuite) TestCAASExecOnWorkload(c *gc.C) {
 		mock.receiverIdMap["unit/0"]: unitResult,
 	}
 
-	unitQuery := makeActionQuery(mock.receiverIdMap["unit/0"], "UnitId", names.NewUnitTag("unit/0"))
+	unitQuery := makeActionQuery(mock.receiverIdMap["unit/0"], "unit", names.NewUnitTag("unit/0"))
 	unformatted := []interface{}{
-		ConvertActionResults(unitResult, unitQuery, false),
+		ConvertActionResults(unitResult, unitQuery),
 	}
 
 	buff := &bytes.Buffer{}
@@ -651,9 +616,9 @@ func (s *ExecSuite) TestSingleResponse(c *gc.C) {
 		mock.receiverIdMap["0"]: machineResult,
 	}
 
-	query := makeActionQuery(mock.receiverIdMap["0"], "MachineId", names.NewMachineTag("0"))
+	query := makeActionQuery(mock.receiverIdMap["0"], "machine", names.NewMachineTag("0"))
 	unformatted := []interface{}{
-		ConvertActionResults(machineResult, query, false),
+		ConvertActionResults(machineResult, query),
 	}
 
 	jsonFormatted := &bytes.Buffer{}
@@ -702,9 +667,7 @@ func (s *ExecSuite) TestSingleResponse(c *gc.C) {
 }
 
 func (s *ExecSuite) setupMockAPI() *mockExecAPI {
-	mock := &mockExecAPI{
-		bestAPIVersion: 4,
-	}
+	mock := &mockExecAPI{}
 	s.PatchValue(&getExecAPIClient, func(_ *execCommand) (ExecClient, error) {
 		return mock, nil
 	})
@@ -722,8 +685,6 @@ type mockExecAPI struct {
 	actionResponses map[string]params.ActionResult
 	receiverIdMap   map[string]string
 	block           bool
-	//
-	bestAPIVersion int
 	// recevied values
 	execParams *params.RunParams
 }
@@ -874,10 +835,6 @@ func (m *mockExecAPI) Actions(actionTags params.Entities) (params.ActionResults,
 	}
 
 	return results, nil
-}
-
-func (m *mockExecAPI) BestAPIVersion() int {
-	return m.bestAPIVersion
 }
 
 // validUUID is a UUID used in tests

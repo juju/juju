@@ -11,73 +11,12 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/params"
 	coreactions "github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/watcher"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.action")
-
-// getActionTagByPrefix uses the APIClient to get all ActionTags matching a prefix.
-func getActionTagsByPrefix(api APIClient, prefix string) ([]names.ActionTag, error) {
-	results := []names.ActionTag{}
-
-	tags, err := api.FindActionTagsByPrefix(params.FindTags{Prefixes: []string{prefix}})
-	if err != nil {
-		return results, err
-	}
-
-	matches, ok := tags.Matches[prefix]
-	if !ok || len(matches) < 1 {
-		return results, nil
-	}
-
-	results, rejects := getActionTags(matches)
-	if len(rejects) > 0 {
-		logger.Errorf("FindActionTagsByPrefix for prefix %q found invalid tags %v", prefix, rejects)
-	}
-	return results, nil
-}
-
-// getActionTagByPrefix uses the APIClient to get an ActionTag from a prefix.
-func getActionTagByPrefix(api APIClient, prefix string) (names.ActionTag, error) {
-	tag := names.ActionTag{}
-	actiontags, err := getActionTagsByPrefix(api, prefix)
-	if err != nil {
-		return tag, err
-	}
-
-	if len(actiontags) < 1 {
-		return tag, errors.Errorf("actions for identifier %q not found", prefix)
-	}
-
-	if len(actiontags) > 1 {
-		return tag, errors.Errorf("identifier %q matched multiple actions %v", prefix, actiontags)
-	}
-
-	return actiontags[0], nil
-}
-
-// getActionTags converts a slice of params.Entity to a slice of names.ActionTag, and
-// also populates a slice of strings for the params.Entity.Tag that are not a valid
-// names.ActionTag.
-func getActionTags(entities []params.Entity) (good []names.ActionTag, bad []string) {
-	for _, entity := range entities {
-		if tag, err := entityToActionTag(entity); err != nil {
-			bad = append(bad, entity.Tag)
-		} else {
-			good = append(good, tag)
-		}
-	}
-	return
-}
-
-// entityToActionTag converts the params.Entity type to a names.ActionTag
-func entityToActionTag(entity params.Entity) (names.ActionTag, error) {
-	return names.ParseActionTag(entity.Tag)
-}
 
 // addValueToMap adds the given value to the map on which the method is run.
 // This allows us to merge maps such as {foo: {bar: baz}} and {foo: {baz: faz}}

@@ -171,5 +171,6 @@ func (a *ActionAPI) createActionsParams(
 }
 
 var queueActions = func(a *ActionAPI, args params.Actions) (results params.ActionResults, err error) {
-	return a.Enqueue(args)
+	_, results, err = a.enqueue(args)
+	return results, err
 }

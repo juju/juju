@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 	"github.com/juju/naturalsort"
@@ -21,7 +20,6 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/feature"
 )
 
 func NewListCommand() cmd.Command {
@@ -46,7 +44,7 @@ Examples:
     juju list-actions postgresql --schema
 
 See also:
-    run-action
+    run
     show-action
 `
 
@@ -81,9 +79,6 @@ func (c *listCommand) Info() *cmd.Info {
 		Doc:     listDoc,
 		Aliases: []string{"list-actions"},
 	})
-	if featureflag.Enabled(feature.ActionsV2) {
-		info.Doc = strings.Replace(info.Doc, "run-action", "run", -1)
-	}
 	return info
 }
 

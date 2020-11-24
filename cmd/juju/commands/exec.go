@@ -32,18 +32,13 @@ const leaderSnippet = "(" + names.ApplicationSnippet + ")/leader"
 
 var validLeader = regexp.MustCompile("^" + leaderSnippet + "$")
 
-func newDefaultRunCommand(store jujuclient.ClientStore) cmd.Command {
-	return newExecCommand(store, time.After, true)
-}
-
 func newDefaultExecCommand(store jujuclient.ClientStore) cmd.Command {
-	return newExecCommand(store, time.After, false)
+	return newExecCommand(store, time.After)
 }
 
-func newExecCommand(store jujuclient.ClientStore, timeAfter func(time.Duration) <-chan time.Time, compat bool) cmd.Command {
+func newExecCommand(store jujuclient.ClientStore, timeAfter func(time.Duration) <-chan time.Time) cmd.Command {
 	cmd := modelcmd.Wrap(&execCommand{
 		timeAfter: timeAfter,
-		compat:    compat,
 	})
 	cmd.SetClientStore(store)
 	return cmd
@@ -53,7 +48,6 @@ func newExecCommand(store jujuclient.ClientStore, timeAfter func(time.Duration) 
 type execCommand struct {
 	modelcmd.ModelCommandBase
 	out          cmd.Output
-	compat       bool
 	all          bool
 	operator     bool
 	timeout      time.Duration
@@ -106,8 +100,8 @@ the unit.
 in the model.  If you specify --all you cannot provide additional
 targets.
 
-Since juju exec creates actions, you can query for the status of commands
-started with juju run by calling "juju show-action-status --name juju-run".
+Since juju exec creates tasks, you can query for the status of commands
+started with juju run by calling "juju operations --machines <id>,... --actions juju-run".
 
 If you need to pass options to the command being run, you must precede the
 command and its arguments with "--", to tell "juju exec" to stop processing
@@ -124,10 +118,6 @@ func (c *execCommand) Info() *cmd.Info {
 		Purpose: "Run the commands on the remote targets specified.",
 		Doc:     execDoc,
 	})
-	if c.compat {
-		info.Name = "run"
-		info.Doc = strings.Replace(info.Doc, "juju exec", "juju run", -1)
-	}
 	return info
 }
 
@@ -211,25 +201,9 @@ func (c *execCommand) Init(args []string) error {
 
 // ConvertActionResults takes the results from the api and creates a map
 // suitable for format conversion to YAML or JSON.
-func ConvertActionResults(result params.ActionResult, query actionQuery, compat bool) map[string]interface{} {
+func ConvertActionResults(result params.ActionResult, query actionQuery) map[string]interface{} {
 	values := make(map[string]interface{})
 	values[query.receiver.receiverType] = query.receiver.tag.Id()
-	if unit, ok := values["UnitId"]; ok && !compat {
-		delete(values, "UnitId")
-		values["unit"] = unit
-	}
-	if unit, ok := values["unit"]; ok && compat {
-		delete(values, "unit")
-		values["UnitId"] = unit
-	}
-	if machine, ok := values["MachineId"]; ok && !compat {
-		delete(values, "MachineId")
-		values["machine"] = machine
-	}
-	if machine, ok := values["machine"]; ok && compat {
-		delete(values, "machine")
-		values["MachineId"] = machine
-	}
 	if result.Error != nil {
 		values["Error"] = result.Error.Error()
 		values["Action"] = query.actionTag.Id()
@@ -246,13 +220,9 @@ func ConvertActionResults(result params.ActionResult, query actionQuery, compat 
 		return values
 	}
 	if result.Message != "" {
-		messageKey := "message"
-		if compat {
-			messageKey = "Message"
-		}
-		values[messageKey] = result.Message
+		values["message"] = result.Message
 	}
-	val := action.ConvertActionOutput(result.Output, compat, true)
+	val := action.ConvertActionOutput(result.Output)
 	for k, v := range val {
 		values[k] = v
 	}
@@ -272,10 +242,6 @@ func (c *execCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if modelType == model.CAAS {
-		if client.BestAPIVersion() < 4 {
-			return errors.Errorf("k8s controller does not support juju exec" +
-				"\nconsider upgrading your controller")
-		}
 		if len(c.machines) > 0 {
 			return errors.Errorf("unable to target machines with a k8s controller")
 		}
@@ -285,16 +251,6 @@ func (c *execCommand) Run(ctx *cmd.Context) error {
 	if c.all {
 		runResults, err = client.RunOnAllMachines(c.commands, c.timeout)
 	} else {
-		// Make sure the server supports <application>/leader syntax
-		for _, unit := range c.units {
-			if validLeader.MatchString(unit) && client.BestAPIVersion() < 3 {
-				app := strings.Split(unit, "/")[0]
-				return errors.Errorf("unable to determine leader for application %q"+
-					"\nleader determination is unsupported by this API"+
-					"\neither upgrade your controller, or explicitly specify a unit", app)
-			}
-		}
-
 		params := params.RunParams{
 			Commands:     c.commands,
 			Timeout:      c.timeout,
@@ -336,11 +292,11 @@ func (c *execCommand) Run(ctx *cmd.Context) error {
 		var receiverType string
 		switch receiverTag.(type) {
 		case names.UnitTag:
-			receiverType = "UnitId"
+			receiverType = "unit"
 		case names.MachineTag:
-			receiverType = "MachineId"
+			receiverType = "machine"
 		default:
-			receiverType = "ReceiverId"
+			receiverType = "receiver-id"
 		}
 		actionsToQuery = append(actionsToQuery, actionQuery{
 			actionTag: actionTag,
@@ -372,7 +328,7 @@ func (c *execCommand) Run(ctx *cmd.Context) error {
 				}
 			}
 
-			values = append(values, ConvertActionResults(result, actionsToQuery[i], c.compat))
+			values = append(values, ConvertActionResults(result, actionsToQuery[i]))
 		}
 		actionsToQuery = newActionsToQuery
 
@@ -403,29 +359,13 @@ func (c *execCommand) Run(ctx *cmd.Context) error {
 		if res, ok := result["Error"].(string); ok {
 			return errors.New(res)
 		}
-		stdoutKey := "stdout"
-		if c.compat {
-			stdoutKey = "Stdout"
-		}
-		stderrKey := "stderr"
-		if c.compat {
-			stderrKey = "Stderr"
-		}
-		codeKey := "return-code"
-		if c.compat {
-			codeKey = "ReturnCode"
-		}
-		ctx.Stdout.Write(formatOutput(result, stdoutKey, c.compat))
-		ctx.Stderr.Write(formatOutput(result, stderrKey, c.compat))
-		if code, ok := result[codeKey].(int); ok && code != 0 {
+		ctx.Stdout.Write(formatOutput(result, "stdout"))
+		ctx.Stderr.Write(formatOutput(result, "stderr"))
+		if code, ok := result["return-code"].(int); ok && code != 0 {
 			return cmd.NewRcPassthroughError(code)
 		}
 		// Message should always contain only errors.
-		messageKey := "message"
-		if c.compat {
-			messageKey = "Message"
-		}
-		if res, ok := result[messageKey].(string); ok && res != "" {
+		if res, ok := result["message"].(string); ok && res != "" {
 			ctx.Stderr.Write([]byte(res))
 		}
 
@@ -483,11 +423,6 @@ var getExecAPIClient = func(c *execCommand) (ExecClient, error) {
 	return actionapi.NewClient(root), errors.Trace(err)
 }
 
-// getActionResult abstracts over the action CLI function that we use here to fetch results
-var getActionResult = func(c ExecClient, actionId string, wait *time.Timer) (params.ActionResult, error) {
-	return action.GetActionResult(c, actionId, wait, false)
-}
-
 // entities is a convenience constructor for params.Entities.
 func entities(actions []actionQuery) params.Entities {
 	entities := params.Entities{
@@ -499,16 +434,12 @@ func entities(actions []actionQuery) params.Entities {
 	return entities
 }
 
-func formatOutput(results map[string]interface{}, key string, compat bool) []byte {
+func formatOutput(results map[string]interface{}, key string) []byte {
 	res, ok := results[key].(string)
 	if !ok {
 		return []byte("")
 	}
-	encodingKey := "-encoding"
-	if compat {
-		encodingKey = ".encoding"
-	}
-	if enc, ok := results[key+encodingKey].(string); ok && enc != "" {
+	if enc, ok := results[key+"-encoding"].(string); ok && enc != "" {
 		switch enc {
 		case "base64":
 			decoded, err := base64.StdEncoding.DecodeString(res)

@@ -333,9 +333,6 @@ func registerCommands(r commandRegistry) {
 	r.Register(status.NewStatusHistoryCommand())
 
 	// Error resolution and debugging commands.
-	if !featureflag.Enabled(feature.ActionsV2) {
-		r.Register(newDefaultRunCommand(nil))
-	}
 	r.Register(newDefaultExecCommand(nil))
 	r.Register(newSCPCommand(nil))
 	r.Register(newSSHCommand(nil, nil))
@@ -430,16 +427,10 @@ func registerCommands(r commandRegistry) {
 	r.Register(action.NewListCommand())
 	r.Register(action.NewShowCommand())
 	r.Register(action.NewCancelCommand())
-	if featureflag.Enabled(feature.ActionsV2) {
-		r.Register(action.NewRunCommand())
-		r.Register(action.NewListOperationsCommand())
-		r.Register(action.NewShowOperationCommand())
-		r.Register(action.NewShowTaskCommand())
-	} else {
-		r.Register(action.NewRunActionCommand())
-		r.Register(action.NewShowActionOutputCommand())
-		r.Register(action.NewStatusCommand())
-	}
+	r.Register(action.NewRunCommand())
+	r.Register(action.NewListOperationsCommand())
+	r.Register(action.NewShowOperationCommand())
+	r.Register(action.NewShowTaskCommand())
 
 	// Manage controller availability
 	r.Register(newEnableHACommand())

@@ -344,7 +344,7 @@ def assess_container_networking(client, types, space):
             log.info("Restarting hosted machine: {}".format(host))
             client.juju(
                 'run', ('--machine', host, 'sudo shutdown -r +1'))
-        client.juju('show-action-status', ('--name', 'juju-run'))
+            client.juju('operations', ('--machine', host, '--action', 'juju-run'))
 
         log.info("Restarting controller machine 0")
         controller_client = client.get_controller_client()

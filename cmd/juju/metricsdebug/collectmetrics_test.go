@@ -66,8 +66,8 @@ var (
 					Receiver: "unit-uptime-0",
 				},
 				Output: map[string]interface{}{
-					"Stdout": "ok",
-					"Stderr": "",
+					"stdout": "ok",
+					"stderr": "",
 				},
 			},
 			actionTag2.Id(): {
@@ -75,8 +75,8 @@ var (
 					Tag: actionTag2.String(),
 				},
 				Output: map[string]interface{}{
-					"Stdout": "ok",
-					"Stderr": "",
+					"stdout": "ok",
+					"stderr": "",
 				},
 			},
 		},
@@ -133,8 +133,8 @@ var (
 					Receiver: "unit-uptime-0",
 				},
 				Output: map[string]interface{}{
-					"Stdout": "ok",
-					"Stderr": "",
+					"stdout": "ok",
+					"stderr": "",
 				},
 			},
 		},
@@ -165,8 +165,8 @@ var (
 					Receiver: "unit-uptime-0",
 				},
 				Output: map[string]interface{}{
-					"Stdout": "ok",
-					"Stderr": "",
+					"stdout": "ok",
+					"stderr": "",
 				},
 			},
 		},
@@ -193,8 +193,8 @@ var (
 					Receiver: "unit-uptime-0",
 				},
 				Output: map[string]interface{}{
-					"Stdout": "ok",
-					"Stderr": "",
+					"stdout": "ok",
+					"stderr": "",
 				},
 			},
 		},
@@ -221,8 +221,8 @@ var (
 					Receiver: "unit-uptime-0",
 				},
 				Output: map[string]interface{}{
-					"Stdout": "ok",
-					"Stderr": "",
+					"stdout": "ok",
+					"stderr": "",
 				},
 			},
 		},
@@ -249,8 +249,8 @@ var (
 					Receiver: "unit-uptime-0",
 				},
 				Output: map[string]interface{}{
-					"Stdout": "ok",
-					"Stderr": "",
+					"stdout": "ok",
+					"stderr": "",
 				},
 			},
 			actionTag2.Id(): {},
@@ -278,8 +278,8 @@ var (
 					Receiver: "unit-uptime-0",
 				},
 				Output: map[string]interface{}{
-					"Stdout": "ok",
-					"Stderr": "",
+					"stdout": "ok",
+					"stderr": "",
 				},
 			},
 			actionTag2.Id(): {
@@ -288,8 +288,8 @@ var (
 					Receiver: "unit-uptime-0",
 				},
 				Output: map[string]interface{}{
-					"Stdout": "garbage",
-					"Stderr": "kek",
+					"stdout": "garbage",
+					"stderr": "kek",
 				},
 			},
 		},

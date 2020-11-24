@@ -6,7 +6,6 @@ package machineactions
 
 import (
 	"encoding/base64"
-	"fmt"
 	"os"
 	"time"
 	"unicode/utf8"
@@ -55,9 +54,9 @@ func handleJujuRunAction(params map[string]interface{}) (results map[string]inte
 	}
 
 	actionResults := map[string]interface{}{}
-	actionResults["Code"] = fmt.Sprintf("%d", res.Code)
-	storeOutput(actionResults, "Stdout", res.Stdout)
-	storeOutput(actionResults, "Stderr", res.Stderr)
+	actionResults["return-code"] = res.Code
+	storeOutput(actionResults, "stdout", res.Stdout)
+	storeOutput(actionResults, "stderr", res.Stderr)
 
 	return actionResults, nil
 }

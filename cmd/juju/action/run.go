@@ -140,7 +140,7 @@ func (c *runCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "run",
 		Args:    "<unit> [<unit> ...] <action-name> [<key>=<value> [<key>[.<key> ...]=<value>]]",
-		Purpose: "Run a action on a specified unit.",
+		Purpose: "Run an action on a specified unit.",
 		Doc:     runDoc,
 	})
 }
@@ -196,12 +196,6 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	defer c.api.Close()
-
-	// juju run action is behind a feature flag so we are
-	// free to not support running against an older controller
-	if c.api.BestAPIVersion() < 6 {
-		return errors.Errorf("juju run action not supported on this version of Juju")
-	}
 
 	operationId, results, err := c.enqueueActions(ctx)
 	if err != nil {
@@ -295,7 +289,7 @@ func (c *runCommand) waitForTasks(ctx *cmd.Context, tasks []enqueuedAction, info
 			return errors.Trace(err)
 		}
 		ctx.Infof("Waiting for task %v...\n", tag.Id())
-		actionResult, err := GetActionResult(c.api, tag.Id(), wait, false)
+		actionResult, err := GetActionResult(c.api, tag.Id(), wait)
 		if i == 0 {
 			waitForWatcher()
 			if haveLogs {
@@ -306,7 +300,7 @@ func (c *runCommand) waitForTasks(ctx *cmd.Context, tasks []enqueuedAction, info
 		if err != nil {
 			return errors.Trace(err)
 		}
-		d := FormatActionResult(tag.Id(), actionResult, c.utc, false)
+		d := FormatActionResult(tag.Id(), actionResult, c.utc)
 		d["id"] = tag.Id() // Action ID is required in case we timed out.
 		info[result.receiver] = d
 	}
@@ -372,12 +366,6 @@ func (c *runCommand) enqueueActions(ctx *cmd.Context) (string, []enqueuedAction,
 	actions := make([]params.Action, len(c.unitReceivers))
 	for i, unitReceiver := range c.unitReceivers {
 		if strings.HasSuffix(unitReceiver, "leader") {
-			if c.api.BestAPIVersion() < 3 {
-				app := strings.Split(unitReceiver, "/")[0]
-				return "", nil, errors.Errorf("unable to determine leader for application %q"+
-					"\nleader determination is unsupported by this API"+
-					"\neither upgrade your controller, or explicitly specify a unit", app)
-			}
 			actions[i].Receiver = unitReceiver
 		} else {
 			actions[i].Receiver = names.NewUnitTag(unitReceiver).String()
@@ -431,7 +419,7 @@ func printPlainOutput(writer io.Writer, value interface{}) error {
 		Parse action YAML data that looks like this:
 
 		mysql/0:
-		  id: f47ac10b-58cc-4372-a567-0e02b2c3d479
+		  id: "1"
 		  results:
 		    <action data here>
 		  status: completed

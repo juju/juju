@@ -22,18 +22,6 @@ import (
 	"github.com/juju/juju/tools"
 )
 
-// FindTags wraps a slice of strings that are prefixes to use when
-// searching for matching tags.
-type FindTags struct {
-	Prefixes []string `json:"prefixes"`
-}
-
-// FindTagsResults wraps the mapping between the requested prefix and the
-// matching tags for each requested prefix.
-type FindTagsResults struct {
-	Matches map[string][]Entity `json:"matches"`
-}
-
 // Entity identifies a single entity.
 type Entity struct {
 	Tag string `json:"tag"`

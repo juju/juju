@@ -5,7 +5,6 @@ package action
 
 import (
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -22,44 +21,29 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
-func NewShowActionOutputCommand() cmd.Command {
-	return modelcmd.Wrap(&showOutputCommand{
-		compat: true,
-		logMessageHandler: func(ctx *cmd.Context, msg string) {
-			fmt.Fprintln(ctx.Stderr, msg)
-		},
-	})
-}
-
 func NewShowTaskCommand() cmd.Command {
-	return modelcmd.Wrap(&showOutputCommand{
-		compat: false,
+	return modelcmd.Wrap(&showTaskCommand{
 		logMessageHandler: func(ctx *cmd.Context, msg string) {
 			fmt.Fprintln(ctx.Stderr, msg)
 		},
 	})
 }
 
-// showOutputCommand fetches the results of an action by ID.
-type showOutputCommand struct {
+// showTaskCommand fetches the results of a task by ID.
+type showTaskCommand struct {
 	ActionCommandBase
 	out         cmd.Output
 	requestedId string
 	fullSchema  bool
-	// TODO(juju3) - remove legacyWait
-	legacyWait string
-	wait       time.Duration
-	watch      bool
-	utc        bool
-
-	// compat is true when running as legacy show-action-output
-	compat bool
+	wait        time.Duration
+	watch       bool
+	utc         bool
 
 	logMessageHandler func(*cmd.Context, string)
 }
 
-const showOutputDoc = `
-Show the results returned by an action with the given ID.  
+const showTaskDoc = `
+Show the results returned by a task with the given ID.  
 To block until the result is known completed or failed, use
 the --wait option with a duration, as in --wait 5s or --wait 1h.
 Use --watch to wait indefinitely.  
@@ -74,75 +58,44 @@ to at least the first "-" to disambiguate from a newer numeric id.
 
 Examples:
 
-    juju show-action-output 1
-    juju show-action-output 1 --wait=2m
-    juju show-action-output 1 --watch
+    juju show-task 1
+    juju show-task 1 --wait=2m
+    juju show-task 1 --watch
 
 See also:
-    run-action
+    run
     list-operations
     show-operation
 `
 const defaultTaskWait = -1 * time.Second
 
 // Set up the output.
-func (c *showOutputCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *showTaskCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ActionCommandBase.SetFlags(f)
-	defaultFormatter := "yaml"
-	if !c.compat {
-		defaultFormatter = "plain"
-	}
+	defaultFormatter := "plain"
 	c.out.AddFlags(f, defaultFormatter, map[string]cmd.Formatter{
 		"yaml":  cmd.FormatYaml,
 		"json":  cmd.FormatJson,
 		"plain": printPlainOutput,
 	})
 
-	if c.compat {
-		f.StringVar(&c.legacyWait, "wait", "-1s", "Wait for results")
-	} else {
-		f.DurationVar(&c.wait, "wait", defaultTaskWait, "Wait for results")
-	}
+	f.DurationVar(&c.wait, "wait", defaultTaskWait, "Wait for results")
 	f.BoolVar(&c.watch, "watch", false, "Wait indefinitely for results")
 	f.BoolVar(&c.utc, "utc", false, "Show times in UTC")
 }
 
-func (c *showOutputCommand) Info() *cmd.Info {
+func (c *showTaskCommand) Info() *cmd.Info {
 	info := jujucmd.Info(&cmd.Info{
-		Name:    "show-action-output",
-		Args:    "<action>",
-		Purpose: "Show results of an action.",
-		Doc:     showOutputDoc,
+		Name:    "show-task",
+		Args:    "<task ID>",
+		Purpose: "Show results of a task by ID.",
+		Doc:     showTaskDoc,
 	})
-	if !c.compat {
-		info.Name = "show-task"
-		info.Args = "<task ID>"
-		info.Purpose = "Show results of a task by ID."
-		info.Doc = strings.Replace(info.Doc, "an action", "a task", -1)
-		info.Doc = strings.Replace(info.Doc, "show-action-output", "show-task", -1)
-		info.Doc = strings.Replace(info.Doc, "run-action", "run", -1)
-	}
 	return info
 }
 
 // Init validates the action ID and any other options.
-func (c *showOutputCommand) Init(args []string) error {
-	if c.compat {
-		// Check whether units were left off our time string.
-		r := regexp.MustCompile("[a-zA-Z]")
-		matches := r.FindStringSubmatch(c.legacyWait[len(c.legacyWait)-1:])
-		// If any match, we have units.  Otherwise, we don't; assume seconds.
-		if len(matches) == 0 {
-			c.legacyWait = c.legacyWait + "s"
-		}
-
-		waitDur, err := time.ParseDuration(c.legacyWait)
-		if err != nil {
-			return err
-		}
-		c.wait = waitDur
-	}
-
+func (c *showTaskCommand) Init(args []string) error {
 	if c.watch {
 		if c.wait != defaultTaskWait {
 			return errors.New("specify either --watch or --wait but not both")
@@ -152,9 +105,6 @@ func (c *showOutputCommand) Init(args []string) error {
 	}
 	switch len(args) {
 	case 0:
-		if c.compat {
-			return errors.New("no action ID specified")
-		}
 		return errors.New("no task ID specified")
 	case 1:
 		c.requestedId = args[0]
@@ -165,7 +115,7 @@ func (c *showOutputCommand) Init(args []string) error {
 }
 
 // Run issues the API call to get Actions by ID.
-func (c *showOutputCommand) Run(ctx *cmd.Context) error {
+func (c *showTaskCommand) Run(ctx *cmd.Context) error {
 	api, err := c.NewActionAPIClient()
 	if err != nil {
 		return err
@@ -184,7 +134,7 @@ func (c *showOutputCommand) Run(ctx *cmd.Context) error {
 
 	shouldWatch := c.wait.Nanoseconds() >= 0
 	if shouldWatch {
-		result, err := fetchResult(api, c.requestedId, c.compat)
+		result, err := fetchResult(api, c.requestedId)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -192,7 +142,7 @@ func (c *showOutputCommand) Run(ctx *cmd.Context) error {
 			result.Status == params.ActionRunning
 	}
 
-	if shouldWatch && api.BestAPIVersion() >= 5 {
+	if shouldWatch {
 		logsWatcher, err = api.WatchActionProgress(c.requestedId)
 		if err != nil {
 			return errors.Trace(err)
@@ -205,9 +155,9 @@ func (c *showOutputCommand) Run(ctx *cmd.Context) error {
 
 	var result params.ActionResult
 	if shouldWatch {
-		result, err = GetActionResult(api, c.requestedId, wait, c.compat)
+		result, err = GetActionResult(api, c.requestedId, wait)
 	} else {
-		result, err = fetchResult(api, c.requestedId, c.compat)
+		result, err = fetchResult(api, c.requestedId)
 	}
 	close(actionDone)
 	if logsWatcher != nil {
@@ -221,7 +171,7 @@ func (c *showOutputCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	formatted := FormatActionResult(c.requestedId, result, c.utc, c.compat)
+	formatted := FormatActionResult(c.requestedId, result, c.utc)
 	if c.out.Name() != "plain" {
 		return c.out.Write(ctx, formatted)
 	}
@@ -230,22 +180,22 @@ func (c *showOutputCommand) Run(ctx *cmd.Context) error {
 	return c.out.Write(ctx, info)
 }
 
-// GetActionResult tries to repeatedly fetch an action until it is
+// GetActionResult tries to repeatedly fetch a task until it is
 // in a completed state and then it returns it.
 // It waits for a maximum of "wait" before returning with the latest action status.
-func GetActionResult(api APIClient, requestedId string, wait *time.Timer, compat bool) (params.ActionResult, error) {
+func GetActionResult(api APIClient, requestedId string, wait *time.Timer) (params.ActionResult, error) {
 
 	// tick every two seconds, to delay the loop timer.
 	// TODO(fwereade): 2016-03-17 lp:1558657
 	tick := time.NewTimer(2 * time.Second)
 
-	return timerLoop(api, requestedId, wait, tick, compat)
+	return timerLoop(api, requestedId, wait, tick)
 }
 
 // timerLoop loops indefinitely to query the given API, until "wait" times
 // out, using the "tick" timer to delay the API queries.  It writes the
 // result to the given output.
-func timerLoop(api APIClient, requestedId string, wait, tick *time.Timer, compat bool) (params.ActionResult, error) {
+func timerLoop(api APIClient, requestedId string, wait, tick *time.Timer) (params.ActionResult, error) {
 	var (
 		result params.ActionResult
 		err    error
@@ -254,7 +204,7 @@ func timerLoop(api APIClient, requestedId string, wait, tick *time.Timer, compat
 	// Loop over results until we get "failed" or "completed".  Wait for
 	// timer, and reset it each time.
 	for {
-		result, err = fetchResult(api, requestedId, compat)
+		result, err = fetchResult(api, requestedId)
 		if err != nil {
 			return result, err
 		}
@@ -284,31 +234,22 @@ func timerLoop(api APIClient, requestedId string, wait, tick *time.Timer, compat
 
 // fetchResult queries the given API for the given Action ID prefix, and
 // makes sure the results are acceptable, returning an error if they are not.
-func fetchResult(api APIClient, requestedId string, compat bool) (params.ActionResult, error) {
+func fetchResult(api APIClient, requestedId string) (params.ActionResult, error) {
 	none := params.ActionResult{}
 
-	actionTag, err := getActionTagByPrefix(api, requestedId)
-	if err != nil {
-		return none, err
-	}
-
 	actions, err := api.Actions(params.Entities{
-		Entities: []params.Entity{{actionTag.String()}},
+		Entities: []params.Entity{{names.NewActionTag(requestedId).String()}},
 	})
 	if err != nil {
 		return none, err
 	}
 	actionResults := actions.Results
 	numActionResults := len(actionResults)
-	task := "task"
-	if compat {
-		task = "action"
-	}
 	if numActionResults == 0 {
-		return none, errors.Errorf("no results for %s %s", task, requestedId)
+		return none, errors.NotFoundf("task %v", requestedId)
 	}
 	if numActionResults != 1 {
-		return none, errors.Errorf("too many results for %s %s", task, requestedId)
+		return none, errors.Errorf("too many results for task %s", requestedId)
 	}
 
 	result := actionResults[0]
@@ -322,7 +263,7 @@ func fetchResult(api APIClient, requestedId string, compat bool) (params.ActionR
 // FormatActionResult removes empty values from the given ActionResult and
 // inserts the remaining ones in a map[string]interface{} for cmd.Output to
 // write in an easy-to-read format.
-func FormatActionResult(id string, result params.ActionResult, utc, compat bool) map[string]interface{} {
+func FormatActionResult(id string, result params.ActionResult, utc bool) map[string]interface{} {
 	response := map[string]interface{}{"id": id, "status": result.Status}
 	if result.Action != nil {
 		rt, err := names.ParseTag(result.Action.Receiver)
@@ -333,13 +274,9 @@ func FormatActionResult(id string, result params.ActionResult, utc, compat bool)
 	if result.Message != "" {
 		response["message"] = result.Message
 	}
+	output := ConvertActionOutput(result.Output)
 	if len(result.Output) != 0 {
-		if compat {
-			output := ConvertActionOutput(result.Output, compat, false)
-			response["results"] = output
-		} else {
-			response["results"] = result.Output
-		}
+		response["results"] = output
 	}
 	if len(result.Log) > 0 {
 		var logs []string
@@ -352,32 +289,15 @@ func FormatActionResult(id string, result params.ActionResult, utc, compat bool)
 		response["log"] = logs
 	}
 
-	if unit, ok := response["UnitId"]; ok && !compat {
-		delete(response, "UnitId")
-		response["unit"] = unit
-	}
-	if unit, ok := response["unit"]; ok && compat {
-		delete(response, "unit")
-		response["UnitId"] = unit
-	}
-	if machine, ok := response["MachineId"]; ok && !compat {
-		delete(response, "MachineId")
-		response["machine"] = machine
-	}
-	if machine, ok := response["machine"]; ok && compat {
-		delete(response, "machine")
-		response["MachineId"] = machine
-	}
-
 	if result.Enqueued.IsZero() && result.Started.IsZero() && result.Completed.IsZero() {
 		return response
 	}
 
 	responseTiming := make(map[string]string)
 	for k, v := range map[string]string{
-		"enqueued":  formatTimestamp(result.Enqueued, false, utc || compat, false),
-		"started":   formatTimestamp(result.Started, false, utc || compat, false),
-		"completed": formatTimestamp(result.Completed, false, utc || compat, false),
+		"enqueued":  formatTimestamp(result.Enqueued, false, utc, false),
+		"started":   formatTimestamp(result.Started, false, utc, false),
+		"completed": formatTimestamp(result.Completed, false, utc, false),
 	} {
 		if v != "" {
 			responseTiming[k] = v
@@ -389,74 +309,37 @@ func FormatActionResult(id string, result params.ActionResult, utc, compat bool)
 }
 
 // ConvertActionOutput returns result data with stdout, stderr etc correctly formatted.
-func ConvertActionOutput(output map[string]interface{}, compat, alwaysStdout bool) map[string]interface{} {
+func ConvertActionOutput(output map[string]interface{}) map[string]interface{} {
 	if output == nil {
 		return nil
 	}
 	values := output
 	// We always want to have a string for stdout, but only show stderr,
 	// code and error if they are there.
-	stdoutKey := "stdout"
-	if compat {
-		stdoutKey = "Stdout"
-	}
-	res, ok := output["Stdout"].(string)
-	if !ok {
-		res, ok = output["stdout"].(string)
-	}
+	res, ok := output["stdout"].(string)
 	if ok && len(res) > 0 {
-		values[stdoutKey] = strings.Replace(res, "\r\n", "\n", -1)
-		if res, ok := output["StdoutEncoding"].(string); ok && res != "" {
-			values["Stdout-encoding"] = res
-		}
-	} else if compat && alwaysStdout {
-		values[stdoutKey] = ""
+		values["stdout"] = strings.Replace(res, "\r\n", "\n", -1)
 	} else {
 		delete(values, "stdout")
 	}
-	stderrKey := "stderr"
-	if compat {
-		stderrKey = "Stderr"
-	}
-	res, ok = output["Stderr"].(string)
-	if !ok {
-		res, ok = output["stderr"].(string)
-	}
+	res, ok = output["stderr"].(string)
 	if ok && len(res) > 0 {
-		values[stderrKey] = strings.Replace(res, "\r\n", "\n", -1)
-		if res, ok := output["StderrEncoding"].(string); ok && res != "" {
-			values["Stderr-encoding"] = res
-		}
+		values["stderr"] = strings.Replace(res, "\r\n", "\n", -1)
 	} else {
 		delete(values, "stderr")
 	}
-	codeKey := "return-code"
-	if compat {
-		codeKey = "ReturnCode"
-	}
-	res, ok = output["Code"].(string)
-	delete(values, "Code")
-	if !ok {
-		var v interface{}
-		if v, ok = output["return-code"]; ok && v != nil {
-			res = fmt.Sprintf("%v", v)
-		}
+	// return-code may come in as a float64 due to serialisation.
+	var v interface{}
+	if v, ok = output["return-code"]; ok && v != nil {
+		res = fmt.Sprintf("%v", v)
 	}
 	if ok && len(res) > 0 {
 		code, err := strconv.Atoi(res)
-		if err == nil && (code != 0 || !compat) {
-			values[codeKey] = code
+		if err == nil {
+			values["return-code"] = code
 		}
 	} else {
 		delete(values, "return-code")
-	}
-
-	if compat {
-		delete(values, "stdout")
-		delete(values, "stderr")
-		delete(values, "return-code")
-		delete(values, "stdout-encoding")
-		delete(values, "stderr-encoding")
 	}
 	return values
 }

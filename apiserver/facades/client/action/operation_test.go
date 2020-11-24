@@ -31,9 +31,9 @@ func (s *operationSuite) setupOperations(c *gc.C) {
 			{Receiver: s.mysqlUnit.Tag().String(), Name: "anotherfakeaction", Parameters: map[string]interface{}{}},
 		}}
 
-	r, err := s.action.Enqueue(arg)
+	r, err := s.action.EnqueueOperation(arg)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Results, gc.HasLen, len(arg.Actions))
+	c.Assert(r.Actions, gc.HasLen, len(arg.Actions))
 
 	// There's only one operation created.
 	ops, err := s.Model.AllOperations()
@@ -59,7 +59,7 @@ func (s *operationSuite) TestListOperationsStatusFilter(c *gc.C) {
 		Actions: []params.Action{
 			{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
 		}}
-	_, err := s.action.Enqueue(arg)
+	_, err := s.action.EnqueueOperation(arg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	operations, err := s.action.ListOperations(params.OperationQueryArgs{
@@ -108,7 +108,7 @@ func (s *operationSuite) TestListOperationsNameFilter(c *gc.C) {
 		Actions: []params.Action{
 			{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
 		}}
-	_, err := s.action.Enqueue(arg)
+	_, err := s.action.EnqueueOperation(arg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	operations, err := s.action.ListOperations(params.OperationQueryArgs{
@@ -140,7 +140,7 @@ func (s *operationSuite) TestListOperationsAppFilter(c *gc.C) {
 		Actions: []params.Action{
 			{Receiver: s.mysqlUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
 		}}
-	_, err := s.action.Enqueue(arg)
+	_, err := s.action.EnqueueOperation(arg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	operations, err := s.action.ListOperations(params.OperationQueryArgs{
@@ -178,7 +178,7 @@ func (s *operationSuite) TestListOperationsUnitFilter(c *gc.C) {
 		Actions: []params.Action{
 			{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
 		}}
-	_, err := s.action.Enqueue(arg)
+	_, err := s.action.EnqueueOperation(arg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	operations, err := s.action.ListOperations(params.OperationQueryArgs{
@@ -212,7 +212,7 @@ func (s *operationSuite) TestListOperationsMachineFilter(c *gc.C) {
 				"timeout": 1,
 			}},
 		}}
-	_, err := s.action.Enqueue(arg)
+	_, err := s.action.EnqueueOperation(arg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	operations, err := s.action.ListOperations(params.OperationQueryArgs{
@@ -243,7 +243,7 @@ func (s *operationSuite) TestListOperationsAppAndUnitFilter(c *gc.C) {
 		Actions: []params.Action{
 			{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
 		}}
-	_, err := s.action.Enqueue(arg)
+	_, err := s.action.EnqueueOperation(arg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	operations, err := s.action.ListOperations(params.OperationQueryArgs{

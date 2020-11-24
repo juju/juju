@@ -248,7 +248,6 @@ func (s *CallSuite) TestRun(c *gc.C) {
 		withArgs               []string
 		withAPIErr             error
 		withActionResults      []params.ActionResult
-		withTags               params.FindTagsResults
 		expectedActionEnqueued []params.Action
 		expectedOutput         string
 		expectedErr            string
@@ -323,7 +322,6 @@ func (s *CallSuite) TestRun(c *gc.C) {
 	}, {
 		should:   "run a basic action with no params with output set to action-set data",
 		withArgs: []string{validUnitId, "some-action"},
-		withTags: tagsForIdPrefix(validActionId, validActionTagString),
 		withActionResults: []params.ActionResult{{
 			Action: &params.Action{
 				Tag:      validActionTagString,
@@ -353,7 +351,6 @@ result-map:
 	}, {
 		should:   "run a basic action with no params with plain output including stdout, stderr",
 		withArgs: []string{validUnitId, "some-action"},
-		withTags: tagsForIdPrefix(validActionId, validActionTagString),
 		withActionResults: []params.ActionResult{{
 			Action: &params.Action{
 				Tag:      validActionTagString,
@@ -362,7 +359,7 @@ result-map:
 			},
 			Status: "completed",
 			Output: map[string]interface{}{
-				"return-code":     "0",
+				"return-code":     0,
 				"stdout":          "hello",
 				"stderr":          "world",
 				"stdout-encoding": "utf-8",
@@ -391,7 +388,6 @@ world`[1:],
 	}, {
 		should:   "run a basic action with no params with yaml output including stdout, stderr",
 		withArgs: []string{validUnitId, "some-action", "--format", "yaml", "--utc"},
-		withTags: tagsForIdPrefix(validActionId, validActionTagString),
 		withActionResults: []params.ActionResult{{
 			Action: &params.Action{
 				Tag:      validActionTagString,
@@ -400,7 +396,7 @@ world`[1:],
 			},
 			Status: "completed",
 			Output: map[string]interface{}{
-				"return-code":     "0",
+				"return-code":     0,
 				"stdout":          "hello",
 				"stderr":          "world",
 				"stdout-encoding": "utf-8",
@@ -421,12 +417,12 @@ world`[1:],
 		}},
 		expectedOutput: `
 mysql/0:
-  id: f47ac10b-58cc-4372-a567-0e02b2c3d479
+  id: "1"
   results:
     outcome: success
     result-map:
       message: hello
-    return-code: "0"
+    return-code: 0
     stderr: world
     stderr-encoding: utf-8
     stdout: hello
@@ -440,7 +436,6 @@ mysql/0:
 	}, {
 		should:   "run a basic action with progress logs",
 		withArgs: []string{validUnitId, "some-action", "--utc"},
-		withTags: tagsForIdPrefix(validActionId, validActionTagString),
 
 		withActionResults: []params.ActionResult{{
 			Action: &params.Action{
@@ -450,7 +445,7 @@ mysql/0:
 			},
 			Status: "completed",
 			Output: map[string]interface{}{
-				"return-code":     "0",
+				"return-code":     0,
 				"stdout":          "hello",
 				"stderr":          "world",
 				"stdout-encoding": "utf-8",
@@ -480,7 +475,6 @@ world`[1:],
 	}, {
 		should:   "run a basic action with progress logs with yaml output",
 		withArgs: []string{validUnitId, "some-action", "--format", "yaml", "--utc"},
-		withTags: tagsForIdPrefix(validActionId, validActionTagString),
 
 		withActionResults: []params.ActionResult{{
 			Action: &params.Action{
@@ -497,7 +491,7 @@ world`[1:],
 			}},
 			Status: "completed",
 			Output: map[string]interface{}{
-				"return-code":     "0",
+				"return-code":     0,
 				"stdout":          "hello",
 				"stderr":          "world",
 				"stdout-encoding": "utf-8",
@@ -519,7 +513,7 @@ world`[1:],
 		expectedLogs: []string{"log line 1", "log line 2"},
 		expectedOutput: `
 mysql/0:
-  id: f47ac10b-58cc-4372-a567-0e02b2c3d479
+  id: "1"
   log:
   - 2015-02-14 06:06:06 +0000 UTC log line 1
   - 2015-02-14 06:06:06 +0000 UTC log line 2
@@ -527,7 +521,7 @@ mysql/0:
     outcome: success
     result-map:
       message: hello
-    return-code: "0"
+    return-code: 0
     stderr: world
     stderr-encoding: utf-8
     stdout: hello
@@ -541,10 +535,6 @@ mysql/0:
 	}, {
 		should:   "run action on multiple units with stdout for each action",
 		withArgs: []string{validUnitId, validUnitId2, "some-action", "--format", "yaml", "--utc"},
-		withTags: params.FindTagsResults{Matches: map[string][]params.Entity{
-			validActionId:  {{Tag: validActionTagString}},
-			validActionId2: {{Tag: validActionTagString2}},
-		}},
 		withActionResults: []params.ActionResult{{
 			Action: &params.Action{
 				Tag:      validActionTagString,
@@ -589,7 +579,7 @@ mysql/0:
 		}},
 		expectedOutput: `
 mysql/0:
-  id: f47ac10b-58cc-4372-a567-0e02b2c3d479
+  id: "1"
   results:
     outcome: success
     result-map:
@@ -601,7 +591,7 @@ mysql/0:
     started: 2015-02-14 08:15:00 +0000 UTC
   unit: mysql/0
 mysql/1:
-  id: f47ac10b-58cc-4372-a567-0e02b2c3d478
+  id: "2"
   results:
     outcome: success
     result-map:
@@ -615,10 +605,6 @@ mysql/1:
 	}, {
 		should:   "run action on multiple units with plain output selected",
 		withArgs: []string{validUnitId, validUnitId2, "some-action", "--format", "plain"},
-		withTags: params.FindTagsResults{Matches: map[string][]params.Entity{
-			validActionId:  {{Tag: validActionTagString}},
-			validActionId2: {{Tag: validActionTagString2}},
-		}},
 		withActionResults: []params.ActionResult{{
 			Action: &params.Action{
 				Tag:      validActionTagString,
@@ -657,13 +643,13 @@ mysql/1:
 		}},
 		expectedOutput: `
 mysql/0:
-  id: f47ac10b-58cc-4372-a567-0e02b2c3d479
+  id: "1"
   output: |
     outcome: success
     result-map:
       message: hello
 mysql/1:
-  id: f47ac10b-58cc-4372-a567-0e02b2c3d478
+  id: "2"
   output: |
     outcome: success
     result-map:
@@ -800,10 +786,8 @@ mysql/1:
 				c.Logf("test %d: should %s:\n$ juju actions do %s\n", i, t.should, strings.Join(t.withArgs, " "))
 
 				fakeClient := &fakeAPIClient{
-					actionResults:    t.withActionResults,
-					actionTagMatches: t.withTags,
-					apiVersion:       6,
-					logMessageCh:     make(chan []string, len(t.expectedLogs)),
+					actionResults: t.withActionResults,
+					logMessageCh:  make(chan []string, len(t.expectedLogs)),
 				}
 				if len(t.expectedLogs) > 0 {
 					fakeClient.waitForResults = make(chan bool)
