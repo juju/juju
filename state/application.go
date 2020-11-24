@@ -2848,9 +2848,9 @@ func (a *Application) SetConstraints(cons constraints.Value) (err error) {
 	// Note: we don't apply this check in validate constraints as we have no
 	// way to know if it's a model or an application (former we do allow
 	// changes).
-	if current, err := a.Constraints(); !errors.IsNotFound(err) && (cons.Arch != nil && *cons.Arch != "") {
-		if err != nil {
-			return errors.Annotate(err, "unable to read constraints")
+	if current, consErr := a.Constraints(); !errors.IsNotFound(consErr) && (cons.Arch != nil && *cons.Arch != "") {
+		if consErr != nil {
+			return errors.Annotate(consErr, "unable to read constraints")
 		}
 
 		if (current.Arch == nil || *current.Arch == "") && *cons.Arch != arch.DefaultArchitecture {
