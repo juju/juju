@@ -32,20 +32,15 @@ func (n *NetworkInfoIAAS) ProcessAPIRequest(args params.NetworkInfoParams) (para
 	bindings := make(map[string]string)
 	endpointEgressSubnets := make(map[string][]string)
 
-	result := params.NetworkInfoResults{
-		Results: make(map[string]params.NetworkInfoResult),
-	}
-	// For each of the endpoints in the request, get the bound space and
-	// initialise the endpoint egress map with the model's configured
-	// egress subnets. Keep track of the spaces that we observe.
-	for _, endpoint := range args.Endpoints {
-		if binding, ok := n.bindings[endpoint]; ok {
-			spaces.Add(binding)
-			bindings[endpoint] = binding
-		} else {
-			err := errors.NewNotValid(nil, fmt.Sprintf("binding name %q not defined by the unit's charm", endpoint))
-			result.Results[endpoint] = params.NetworkInfoResult{Error: common.ServerError(err)}
-		}
+	// For each of the valid endpoints in the request,
+	// get the bound space and initialise the endpoint egress
+	// map with the model's configured egress subnets.
+	// Keep track of the spaces that we observe.
+	validEndpoints, result := n.validateEndpoints(args.Endpoints)
+	for _, endpoint := range validEndpoints.Values() {
+		binding := n.bindings[endpoint]
+		spaces.Add(binding)
+		bindings[endpoint] = binding
 		endpointEgressSubnets[endpoint] = n.defaultEgress
 	}
 
@@ -170,8 +165,8 @@ func (n *NetworkInfoBase) spaceForBinding(endpoint string) (string, error) {
 	return boundSpace, nil
 }
 
-// machineNetworkInfos returns network info for the unit's machine based on
-// devices with addresses in the input spaces.
+// machineNetworkInfos returns network info for the unit's machine
+// based on devices with addresses in the input spaces.
 func (n *NetworkInfoBase) machineNetworkInfos(spaceIDs ...string) (map[string]machineNetworkInfoResult, error) {
 	machineID, err := n.unit.AssignedMachineId()
 	if err != nil {

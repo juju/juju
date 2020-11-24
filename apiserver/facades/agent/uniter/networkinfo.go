@@ -14,6 +14,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
@@ -109,6 +110,28 @@ func NewNetworkInfoForStrategy(
 		netInfo, err = newNetworkInfoCAAS(base)
 	}
 	return netInfo, errors.Trace(err)
+}
+
+// validateEndpoints returns the endpoints from the input slice that are
+// valid for the unit.
+// Any invalid endpoints are indicated as errors in the returned results.
+func (n *NetworkInfoBase) validateEndpoints(endpoints []string) (set.Strings, params.NetworkInfoResults) {
+	valid := set.NewStrings()
+	result := params.NetworkInfoResults{Results: make(map[string]params.NetworkInfoResult)}
+
+	// For each of the endpoints in the request, get the bound space and
+	// initialise the endpoint egress map with the model's configured
+	// egress subnets. Keep track of the spaces that we observe.
+	for _, endpoint := range endpoints {
+		if _, ok := n.bindings[endpoint]; ok {
+			valid.Add(endpoint)
+		} else {
+			err := errors.NotValidf("undefined for unit charm: endpoint %q", endpoint)
+			result.Results[endpoint] = params.NetworkInfoResult{Error: common.ServerError(err)}
+		}
+	}
+
+	return valid, result
 }
 
 // getRelationAndEndpointName returns the relation for the input ID

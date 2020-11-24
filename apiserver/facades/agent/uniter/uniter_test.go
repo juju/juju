@@ -4563,7 +4563,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoPermissions(c *gc.C) {
 				Results: map[string]params.NetworkInfoResult{
 					"unknown": {
 						Error: &params.Error{
-							Message: `binding name "unknown" not defined by the unit's charm`,
+							Message: `undefined for unit charm: endpoint "unknown" not valid`,
 						},
 					},
 				},
