@@ -142,3 +142,23 @@ func (c *Client) AddCharmWithAuthorization(curl *charm.URL, origin apicharm.Orig
 	}
 	return apicharm.APICharmOrigin(result.Origin), nil
 }
+
+// CheckCharmPlacement checks to see if a charm can be placed into the
+// application. If the application doesn't exist then it is considered fine to
+// be placed there.
+func (c *Client) CheckCharmPlacement(applicationName string, curl *charm.URL) error {
+	args := params.ApplicationCharmPlacements{
+		Placements: []params.ApplicationCharmPlacement{{
+			Application: applicationName,
+			CharmURL:    curl.String(),
+		}},
+	}
+	var result params.ErrorResults
+	if err := c.facade.FacadeCall("CheckCharmPlacement", args, &result); err != nil {
+		if errors.IsNotSupported(err) {
+			return nil
+		}
+		return errors.Trace(err)
+	}
+	return result.OneError()
+}
