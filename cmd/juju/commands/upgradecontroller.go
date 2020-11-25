@@ -60,8 +60,8 @@ See also:
     upgrade-model`
 
 func newUpgradeControllerCommand(options ...modelcmd.WrapControllerOption) cmd.Command {
-	cmd := &upgradeControllerCommand{}
-	return modelcmd.WrapController(cmd, options...)
+	command := &upgradeControllerCommand{}
+	return modelcmd.WrapController(command, options...)
 }
 
 // upgradeControllerCommand upgrades the controller agents in a juju installation.

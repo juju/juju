@@ -163,7 +163,6 @@ func (u *Upgrader) loop() error {
 			u.config.InitialUpgradeCheckComplete.Unlock()
 			continue
 		} else if !upgrader.AllowedTargetVersion(
-			u.config.OrigAgentVersion,
 			jujuversion.Current,
 			wantVersion,
 		) {
@@ -179,7 +178,7 @@ func (u *Upgrader) loop() error {
 		logger.Debugf("%s requested for %v from %v to %v", direction, u.tag, jujuversion.Current, wantVersion)
 		err = u.operatorUpgrader.Upgrade(u.tag.String(), wantVersion)
 		if err != nil {
-			return errors.Annotatef(err, "requesting upgrade for %f from %v to %v", u.tag, jujuversion.Current, wantVersion)
+			return errors.Annotatef(err, "requesting upgrade for %v from %v to %v", u.tag, jujuversion.Current, wantVersion)
 		}
 	}
 }

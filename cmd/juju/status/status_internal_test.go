@@ -4652,7 +4652,7 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 			"controller": "kontroll",
 			"cloud":      "dummy",
 			"region":     "dummy-region",
-			"version":    "1.2.3",
+			"version":    "2.0.0",
 			"model-status": M{
 				"current": "busy",
 				"since":   "01 Apr 15 01:23+10:00",
@@ -4692,7 +4692,7 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 func (s *StatusSuite) TestMigrationInProgressTabular(c *gc.C) {
 	expected := `
 Model   Controller  Cloud/Region        Version  SLA          Timestamp       Notes
-hosted  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00  migrating: foo bar
+hosted  kontroll    dummy/dummy-region  2.0.0    unsupported  15:04:05+07:00  migrating: foo bar
 
 `[1:]
 
@@ -4710,7 +4710,7 @@ hosted  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00  mi
 func (s *StatusSuite) TestMigrationInProgressAndUpgradeAvailable(c *gc.C) {
 	expected := `
 Model   Controller  Cloud/Region        Version  SLA          Timestamp       Notes
-hosted  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00  migrating: foo bar
+hosted  kontroll    dummy/dummy-region  2.0.0    unsupported  15:04:05+07:00  migrating: foo bar
 
 `[1:]
 
