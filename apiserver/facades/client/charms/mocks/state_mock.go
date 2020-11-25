@@ -331,6 +331,21 @@ func (m *MockMachine) EXPECT() *MockMachineMockRecorder {
 	return m.recorder
 }
 
+// Constraints mocks base method
+func (m *MockMachine) Constraints() (constraints.Value, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Constraints")
+	ret0, _ := ret[0].(constraints.Value)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Constraints indicates an expected call of Constraints
+func (mr *MockMachineMockRecorder) Constraints() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Constraints", reflect.TypeOf((*MockMachine)(nil).Constraints))
+}
+
 // HardwareCharacteristics mocks base method
 func (m *MockMachine) HardwareCharacteristics() (*instance.HardwareCharacteristics, error) {
 	m.ctrl.T.Helper()

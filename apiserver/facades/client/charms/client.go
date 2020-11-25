@@ -649,19 +649,17 @@ func (a *API) checkCharmPlacement(arg params.ApplicationCharmPlacement) (params.
 			}, nil
 		}
 
-		hardware, err := machine.HardwareCharacteristics()
-		if errors.IsNotFound(err) {
-			continue
-		} else if err != nil {
+		machineArch, err := a.getMachineArch(machine)
+		if err != nil {
 			return params.ErrorResult{
 				Error: apiservererrors.ServerError(err),
 			}, nil
 		}
 
-		if hardware.Arch == nil || *hardware.Arch == "" {
+		if machineArch == "" {
 			arches.Add(arch.DefaultArchitecture)
 		} else {
-			arches.Add(*hardware.Arch)
+			arches.Add(machineArch)
 		}
 	}
 
@@ -675,4 +673,24 @@ func (a *API) checkCharmPlacement(arg params.ApplicationCharmPlacement) (params.
 	}
 
 	return params.ErrorResult{}, nil
+}
+
+func (a *API) getMachineArch(machine interfaces.Machine) (string, error) {
+	cons, err := machine.Constraints()
+	if err == nil && cons.Arch != nil && *cons.Arch != "" {
+		return *cons.Arch, nil
+	}
+
+	hardware, err := machine.HardwareCharacteristics()
+	if errors.IsNotFound(err) {
+		return "", nil
+	} else if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	if hardware.Arch != nil {
+		return *hardware.Arch, nil
+	}
+
+	return "", nil
 }

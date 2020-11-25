@@ -54,6 +54,7 @@ type Application interface {
 // the same names.
 type Machine interface {
 	HardwareCharacteristics() (*instance.HardwareCharacteristics, error)
+	Constraints() (constraints.Value, error)
 }
 
 // Unit defines a subset of the functionality provided by the

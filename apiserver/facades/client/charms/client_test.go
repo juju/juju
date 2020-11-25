@@ -452,7 +452,37 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithNoConstraintArch(c *gc.C) {
 	s.expectAllUnits()
 	s.expectUnitMachineID()
 	s.expectMachine()
+	s.expectMachineConstraints(constraints.Value{})
 	s.expectHardwareCharacteristics()
+
+	api := s.api(c)
+
+	args := params.ApplicationCharmPlacements{
+		Placements: []params.ApplicationCharmPlacement{{
+			Application: appName,
+			CharmURL:    curl.String(),
+		}},
+	}
+
+	result, err := api.CheckCharmPlacement(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), jc.ErrorIsNil)
+}
+
+func (s *charmsMockSuite) TestCheckCharmPlacementWithNoConstraintArchMachine(c *gc.C) {
+	arch := "amd64"
+	appName := "winnie"
+
+	curl, err := charm.ParseURL("ch:poo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer s.setupMocks(c).Finish()
+	s.expectApplication(appName)
+	s.expectApplicationConstraints(constraints.Value{})
+	s.expectAllUnits()
+	s.expectUnitMachineID()
+	s.expectMachine()
+	s.expectMachineConstraints(constraints.Value{Arch: &arch})
 
 	api := s.api(c)
 
@@ -480,6 +510,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithNoConstraintArchAndHardware
 	s.expectAllUnits()
 	s.expectUnitMachineID()
 	s.expectMachine()
+	s.expectMachineConstraints(constraints.Value{})
 	s.expectEmptyHardwareCharacteristics()
 
 	api := s.api(c)
@@ -509,10 +540,12 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithHeterogeneous(c *gc.C) {
 
 	s.expectUnitMachineID()
 	s.expectMachine()
+	s.expectMachineConstraints(constraints.Value{})
 	s.expectHardwareCharacteristics()
 
 	s.expectUnit2MachineID()
 	s.expectMachine2()
+	s.expectMachineConstraints2(constraints.Value{})
 	s.expectHardwareCharacteristics2()
 
 	api := s.api(c)
@@ -704,6 +737,10 @@ func (s *charmsMockSuite) expectMachine2() {
 	s.state.EXPECT().Machine("piglet").Return(s.machine2, nil)
 }
 
+func (s *charmsMockSuite) expectMachineConstraints(cons constraints.Value) {
+	s.machine.EXPECT().Constraints().Return(cons, nil)
+}
+
 func (s *charmsMockSuite) expectHardwareCharacteristics() {
 	arch := "amd64"
 	s.machine.EXPECT().HardwareCharacteristics().Return(&instance.HardwareCharacteristics{
@@ -720,4 +757,8 @@ func (s *charmsMockSuite) expectHardwareCharacteristics2() {
 	s.machine2.EXPECT().HardwareCharacteristics().Return(&instance.HardwareCharacteristics{
 		Arch: &arch,
 	}, nil)
+}
+
+func (s *charmsMockSuite) expectMachineConstraints2(cons constraints.Value) {
+	s.machine2.EXPECT().Constraints().Return(cons, nil)
 }
