@@ -42,6 +42,7 @@ type RefresherConfig struct {
 	DeployedSeries  string
 	Force           bool
 	ForceSeries     bool
+	Switch          bool
 	Logger          CommandLogger
 }
 
@@ -385,6 +386,10 @@ func (r *charmHubRefresher) Allowed(cfg RefresherConfig) (bool, error) {
 
 		if !charm.CharmHub.Matches(curl.Schema) {
 			return false, nil
+		}
+
+		if !cfg.Switch {
+			return true, nil
 		}
 
 		if err := r.charmAdder.CheckCharmPlacement(cfg.ApplicationName, curl); err != nil {

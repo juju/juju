@@ -379,6 +379,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		DeployedSeries:  applicationInfo.Series,
 		Force:           c.Force,
 		ForceSeries:     c.ForceSeries,
+		Switch:          c.SwitchURL != "",
 		Logger:          ctx,
 	}
 	factory, err := c.getRefresherFactory(apiRoot)

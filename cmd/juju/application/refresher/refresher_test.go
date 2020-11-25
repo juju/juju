@@ -450,12 +450,38 @@ func (s *charmHubCharmRefresherSuite) TestAllowed(c *gc.C) {
 	curl := charm.MustParseURL(ref)
 
 	charmAdder := NewMockCharmAdder(ctrl)
+	charmResolver := NewMockCharmResolver(ctrl)
+
+	cfg := refresherConfigWithOrigin(curl, ref)
+	cfg.DeployedSeries = "bionic"
+
+	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
+	task, err := refresher(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	allowed, err := task.Allowed(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(allowed, jc.IsTrue)
+}
+
+func (s *charmHubCharmRefresherSuite) TestAllowedWithSwitch(c *gc.C) {
+	setFeatureFlags(feature.CharmHubIntegration)
+	defer setFeatureFlags("")
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ref := "ch:meshuggah"
+	curl := charm.MustParseURL(ref)
+
+	charmAdder := NewMockCharmAdder(ctrl)
 	charmAdder.EXPECT().CheckCharmPlacement("winnie", curl).Return(nil)
 
 	charmResolver := NewMockCharmResolver(ctrl)
 
 	cfg := refresherConfigWithOrigin(curl, ref)
 	cfg.DeployedSeries = "bionic"
+	cfg.Switch = true
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
 	task, err := refresher(cfg)
@@ -483,6 +509,7 @@ func (s *charmHubCharmRefresherSuite) TestAllowedError(c *gc.C) {
 
 	cfg := refresherConfigWithOrigin(curl, ref)
 	cfg.DeployedSeries = "bionic"
+	cfg.Switch = true
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
 	task, err := refresher(cfg)
