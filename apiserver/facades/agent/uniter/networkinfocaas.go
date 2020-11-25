@@ -125,10 +125,17 @@ func (n *NetworkInfoCAAS) getRelationNetworkInfo(
 // The ingress addresses depend on if the relation is cross-model
 // and whether the relation endpoint is bound to a space.
 func (n *NetworkInfoCAAS) NetworksForRelation(
-	_ string, rel *state.Relation, pollAddr bool,
+	endpoint string, rel *state.Relation, pollAddr bool,
 ) (string, corenetwork.SpaceAddresses, []string, error) {
 	var ingress corenetwork.SpaceAddresses
 	var err error
+
+	// If NetworksForRelation is called during ProcessAPIRequest,
+	// this is a second validation, but we need to do it for the cases
+	// where NetworksForRelation is called directly by EnterScope.
+	if err = n.validateEndpoint(endpoint); err != nil {
+		return "", nil, nil, errors.Trace(err)
+	}
 
 	if pollAddr {
 		if ingress, err = n.maybeGetUnitAddress(rel); err != nil {

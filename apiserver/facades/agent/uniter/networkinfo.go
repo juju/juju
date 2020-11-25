@@ -117,19 +117,22 @@ func (n *NetworkInfoBase) validateEndpoints(endpoints []string) (set.Strings, pa
 	valid := set.NewStrings()
 	result := params.NetworkInfoResults{Results: make(map[string]params.NetworkInfoResult)}
 
-	// For each of the endpoints in the request, get the bound space and
-	// initialise the endpoint egress map with the model's configured
-	// egress subnets. Keep track of the spaces that we observe.
 	for _, endpoint := range endpoints {
-		if _, ok := n.bindings[endpoint]; ok {
-			valid.Add(endpoint)
-		} else {
-			err := errors.NotValidf("undefined for unit charm: endpoint %q", endpoint)
+		if err := n.validateEndpoint(endpoint); err != nil {
 			result.Results[endpoint] = params.NetworkInfoResult{Error: common.ServerError(err)}
+			continue
 		}
+		valid.Add(endpoint)
 	}
 
 	return valid, result
+}
+
+func (n *NetworkInfoBase) validateEndpoint(endpoint string) error {
+	if _, ok := n.bindings[endpoint]; !ok {
+		return errors.NotValidf("undefined for unit charm: endpoint %q", endpoint)
+	}
+	return nil
 }
 
 // getRelationAndEndpointName returns the relation for the input ID

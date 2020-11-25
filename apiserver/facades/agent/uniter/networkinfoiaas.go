@@ -112,6 +112,12 @@ func (n *NetworkInfoIAAS) getRelationNetworkInfo(
 func (n *NetworkInfoIAAS) NetworksForRelation(
 	endpoint string, rel *state.Relation, _ bool,
 ) (string, network.SpaceAddresses, []string, error) {
+	// If NetworksForRelation is called during ProcessAPIRequest,
+	// this is a second validation, but we need to do it for the cases
+	// where NetworksForRelation is called directly by EnterScope.
+	if err := n.validateEndpoint(endpoint); err != nil {
+		return "", nil, nil, errors.Trace(err)
+	}
 	boundSpace := n.bindings[endpoint]
 
 	// If the endpoint for this relation is not bound to a space,
