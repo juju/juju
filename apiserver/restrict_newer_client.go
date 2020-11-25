@@ -135,6 +135,9 @@ var allowedMethodsForMigrate = map[string]set.Strings{
 	"UserManager": set.NewStrings(
 		"UserInfo",
 	),
+	"ModelManager": set.NewStrings(
+		"ListModels",
+		"ModelInfo"),
 	"Controller": set.NewStrings(
 		"InitiateMigration",
 		"IdentityProviderURL",

@@ -1223,6 +1223,7 @@ func (s *state) APICall(facade string, vers int, id, method string, args, respon
 				}
 			}
 		}
+		logger.Debugf("%v.%v API call not supported", facade, method)
 		return errors.NewNotSupported(nil, fmt.Sprintf(
 			"juju client with major version %d used with a controller having major version %d not supported\nupdate your juju client to match the version running on the controller",
 			jujuversion.Current.Major, serverMajorVersion))
