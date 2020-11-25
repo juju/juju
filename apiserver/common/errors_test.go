@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type errorsSuite struct {
@@ -215,6 +216,22 @@ var errorTransformTests = []struct {
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeQuotaLimitExceeded,
 }, {
+	err: &params.IncompatibleClientError{
+		ServerVersion: jujuversion.Current,
+	},
+	code:   params.CodeIncompatibleClient,
+	status: http.StatusInternalServerError,
+	helperFunc: func(err error) bool {
+		err1, ok := err.(*params.Error)
+		err2 := &params.IncompatibleClientError{
+			ServerVersion: jujuversion.Current,
+		}
+		if !ok || err1.Info == nil || !reflect.DeepEqual(err1.Info, err2.AsMap()) {
+			return false
+		}
+		return true
+	},
+}, {
 	err:    nil,
 	code:   "",
 	status: http.StatusOK,
@@ -280,7 +297,8 @@ func (s *errorsSuite) TestErrorTransform(c *gc.C) {
 			params.CodeDischargeRequired,
 			params.CodeModelNotFound,
 			params.CodeRetry,
-			params.CodeRedirect:
+			params.CodeRedirect,
+			params.CodeIncompatibleClient:
 			continue
 		case params.CodeOperationBlocked:
 			// ServerError doesn't actually have a case for this code.

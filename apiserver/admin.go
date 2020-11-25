@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/rpcreflect"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
@@ -128,11 +129,20 @@ func (a *admin) login(ctx context.Context, req params.LoginRequest, loginVersion
 	if err != nil {
 		return fail, errors.Trace(err)
 	}
+
+	// Default client version to 2 since older 2.x clients
+	// don't send this field.
+	loginClientVersion := version.Number{Major: 2}
+	if clientVersion, err := version.Parse(req.ClientVersion); err == nil {
+		loginClientVersion = clientVersion
+	}
+
 	apiRoot, err = restrictAPIRoot(
 		a.srv,
 		apiRoot,
 		a.root.model,
 		*authResult,
+		loginClientVersion,
 	)
 	if err != nil {
 		return fail, errors.Trace(err)

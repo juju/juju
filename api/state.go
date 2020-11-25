@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // Login authenticates as the entity with the given name and password
@@ -45,6 +46,7 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 		Macaroons:     macaroons,
 		BakeryVersion: bakery.LatestVersion,
 		CLIArgs:       utils.CommandString(os.Args...),
+		ClientVersion: jujuversion.Current.String(),
 	}
 	// If we are in developer mode, add the stack location as user data to the
 	// login request. This will allow the apiserver to connect connection ids

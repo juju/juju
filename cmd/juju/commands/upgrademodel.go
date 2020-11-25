@@ -280,17 +280,21 @@ var (
 // version of the upgrade-model command may not know how to upgrade
 // an environment running juju 4.0.0.
 //
-// The exception is that a N.0.* client must be able to upgrade
+// The exception is that a N.*.* client must be able to upgrade
 // an environment one major version prior (N-1.*.*) so that
 // it can be used to upgrade the environment to N.0.*.  For
-// example, the 2.0.1 upgrade-model command must be able to upgrade
-// environments running 1.* since it must be able to upgrade
-// environments from 1.25.4 -> 2.0.*.
+// example, the 3.*.* upgrade-model command must be able to upgrade
+// environments running 2.* since it must be able to upgrade
+// environments from 2.8.7 -> 3.*.*.
+// We used to require that the minor version of a newer client had
+// to be 0 but with snap auto update, the client can be any minor
+// version so need to ensure that all N.*.* clients can upgrade
+// N-1.*.* controllers.
 func canUpgradeRunningVersion(runningAgentVer version.Number) bool {
 	if runningAgentVer.Major == jujuversion.Current.Major {
 		return true
 	}
-	if jujuversion.Current.Minor == 0 && runningAgentVer.Major == (jujuversion.Current.Major-1) {
+	if runningAgentVer.Major == (jujuversion.Current.Major - 1) {
 		return true
 	}
 	return false

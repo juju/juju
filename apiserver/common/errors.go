@@ -338,6 +338,10 @@ func ServerError(err error) *params.Error {
 		}.AsMap()
 	case errors.IsQuotaLimitExceeded(err):
 		code = params.CodeQuotaLimitExceeded
+	case params.IsIncompatibleClientError(err):
+		code = params.CodeIncompatibleClient
+		rawErr := errors.Cause(err).(*params.IncompatibleClientError)
+		info = rawErr.AsMap()
 	default:
 		code = params.ErrCode(err)
 	}

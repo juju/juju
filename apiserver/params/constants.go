@@ -31,4 +31,7 @@ const (
 	ResolvedNoHooks    ResolvedMode = "no-hooks"
 )
 
-const MachineNonceHeader = "X-Juju-Nonce"
+const (
+	MachineNonceHeader = "X-Juju-Nonce"
+	JujuClientVersion  = "X-Juju-ClientVersion"
+)

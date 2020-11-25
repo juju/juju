@@ -206,6 +206,14 @@ var upgradeJujuTests = []upgradeTest{{
 	expectVersion:  "3.0.2",
 	upgradeMap:     map[int]version.Number{3: version.MustParse("2.8.2")},
 }, {
+	about:          "specified major version, later client",
+	available:      []string{"3.0.2-quantal-amd64"},
+	currentVersion: "3.9.2-quantal-amd64",
+	agentVersion:   "2.8.2",
+	args:           []string{"--agent-version", "3.0.2"},
+	expectVersion:  "3.0.2",
+	upgradeMap:     map[int]version.Number{3: version.MustParse("2.8.2")},
+}, {
 	about:          "specified version missing, but already set",
 	currentVersion: "3.0.0-quantal-amd64",
 	agentVersion:   "3.0.0",
@@ -245,13 +253,6 @@ var upgradeJujuTests = []upgradeTest{{
 	agentVersion:   "3.0.0",
 	args:           []string{"--agent-version", "3.2.0"},
 	expectErr:      "no matching agent versions available",
-}, {
-	about:          "incompatible version (minor != 0)",
-	available:      []string{"3.2.0-quantal-amd64"},
-	currentVersion: "4.2.0-quantal-amd64",
-	agentVersion:   "3.2.0",
-	args:           []string{"--agent-version", "3.2.0"},
-	expectErr:      "cannot upgrade a 3.2.0 model with a 4.2.0 client",
 }, {
 	about:          "incompatible version (model major > client major)",
 	available:      []string{"3.2.0-quantal-amd64"},

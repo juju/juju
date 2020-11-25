@@ -14,6 +14,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
+	"github.com/juju/version"
 	"gopkg.in/macaroon-bakery.v2/bakery"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
@@ -237,11 +238,19 @@ func LoginRequest(req *http.Request) (params.LoginRequest, error) {
 	}
 
 	bakeryVersion, _ := strconv.Atoi(req.Header.Get(httpbakery.BakeryProtocolHeader))
-	return params.LoginRequest{
+	loginRequest := params.LoginRequest{
 		AuthTag:       tagPass[0],
 		Credentials:   tagPass[1],
 		Nonce:         req.Header.Get(params.MachineNonceHeader),
 		Macaroons:     macaroons,
 		BakeryVersion: bakery.Version(bakeryVersion),
-	}, nil
+	}
+	// Default client version to 2 since older 2.x clients
+	// don't send this field.
+	requestClientVersion := version.Number{Major: 2}
+	if clientVersion, err := common.JujuClientVersionFromRequest(req); err == nil {
+		requestClientVersion = clientVersion
+	}
+	loginRequest.ClientVersion = requestClientVersion.String()
+	return loginRequest, nil
 }
