@@ -16,10 +16,9 @@ import (
 	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/crossmodel"
-	corenetwork "github.com/juju/juju/core/network"
+	network "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -348,7 +347,7 @@ type mockUnit struct {
 	mu            sync.Mutex
 	name          string
 	assigned      bool
-	publicAddress corenetwork.SpaceAddress
+	publicAddress network.SpaceAddress
 	machineId     string
 }
 
@@ -364,19 +363,19 @@ func (u *mockUnit) Name() string {
 	return u.name
 }
 
-func (u *mockUnit) PublicAddress() (corenetwork.SpaceAddress, error) {
+func (u *mockUnit) PublicAddress() (network.SpaceAddress, error) {
 	u.MethodCall(u, "PublicAddress")
 	u.mu.Lock()
 	defer u.mu.Unlock()
 
 	if err := u.NextErr(); err != nil {
-		return corenetwork.SpaceAddress{}, err
+		return network.SpaceAddress{}, err
 	}
 	if !u.assigned {
-		return corenetwork.SpaceAddress{}, errors.NotAssignedf(u.name)
+		return network.SpaceAddress{}, errors.NotAssignedf(u.name)
 	}
 	if u.publicAddress.Value == "" {
-		return corenetwork.SpaceAddress{}, network.NoAddressError("public")
+		return network.SpaceAddress{}, network.NoAddressError("public")
 	}
 	return u.publicAddress, nil
 }
@@ -396,7 +395,7 @@ func (u *mockUnit) updateAddress(value string) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 
-	u.publicAddress = corenetwork.NewSpaceAddress(value)
+	u.publicAddress = network.NewSpaceAddress(value)
 }
 
 type mockMachine struct {

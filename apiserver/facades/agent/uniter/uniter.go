@@ -27,10 +27,9 @@ import (
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/feature"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
@@ -468,11 +467,11 @@ func (u *UniterAPI) getOneMachinePorts(canAccess common.AuthFunc, machineTag str
 		// AllPortRanges gives a map, but apis require a stable order
 		// for results, so sort the port ranges.
 		portRangesToUnits := ports.AllPortRanges()
-		portRanges := make([]corenetwork.PortRange, 0, len(portRangesToUnits))
+		portRanges := make([]network.PortRange, 0, len(portRangesToUnits))
 		for portRange := range portRangesToUnits {
 			portRanges = append(portRanges, portRange)
 		}
-		corenetwork.SortPortRanges(portRanges)
+		network.SortPortRanges(portRanges)
 		for _, portRange := range portRanges {
 			unitName := portRangesToUnits[portRange]
 			resultPorts = append(resultPorts, params.MachinePortRange{
@@ -506,7 +505,7 @@ func (u *UniterAPI) PublicAddress(args params.Entities) (params.StringResults, e
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
 			if err == nil {
-				var address corenetwork.SpaceAddress
+				var address network.SpaceAddress
 				address, err = unit.PublicAddress()
 				if err == nil {
 					result.Results[i].Result = address.Value
@@ -540,7 +539,7 @@ func (u *UniterAPI) PrivateAddress(args params.Entities) (params.StringResults, 
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
 			if err == nil {
-				var address corenetwork.SpaceAddress
+				var address network.SpaceAddress
 				address, err = unit.PrivateAddress()
 				if err == nil {
 					result.Results[i].Result = address.Value
@@ -1019,7 +1018,7 @@ func (u *UniterAPI) OpenPorts(args params.EntitiesPortRanges) (params.ErrorResul
 			continue
 		}
 
-		openPortRange := []corenetwork.PortRange{{
+		openPortRange := []network.PortRange{{
 			FromPort: entity.FromPort,
 			ToPort:   entity.ToPort,
 			Protocol: entity.Protocol,
@@ -1058,7 +1057,7 @@ func (u *UniterAPI) ClosePorts(args params.EntitiesPortRanges) (params.ErrorResu
 			continue
 		}
 
-		closePortRange := []corenetwork.PortRange{{
+		closePortRange := []network.PortRange{{
 			FromPort: entity.FromPort,
 			ToPort:   entity.ToPort,
 			Protocol: entity.Protocol,
@@ -2645,7 +2644,7 @@ func (u *UniterAPIV4) getOneNetworkConfig(canAccess common.AuthFunc, unitTagArg,
 	}
 
 	var results []params.NetworkConfig
-	if boundSpace == corenetwork.AlphaSpaceId {
+	if boundSpace == network.AlphaSpaceId {
 		logger.Debugf(
 			"endpoint %q not explicitly bound to a space, using preferred private address for machine %q",
 			bindingName, machineID,
@@ -3548,13 +3547,13 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 	}
 
 	if len(changes.OpenPorts)+len(changes.ClosePorts) > 0 {
-		var openPortRanges, closePortRanges []corenetwork.PortRange
+		var openPortRanges, closePortRanges []network.PortRange
 		for _, r := range changes.OpenPorts {
 			// Ensure the tag in the port open request matches the root unit name
 			if r.Tag != changes.Tag {
 				return common.ErrPerm
 			}
-			openPortRanges = append(openPortRanges, corenetwork.PortRange{
+			openPortRanges = append(openPortRanges, network.PortRange{
 				FromPort: r.FromPort,
 				ToPort:   r.ToPort,
 				Protocol: r.Protocol,
@@ -3565,7 +3564,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 			if r.Tag != changes.Tag {
 				return common.ErrPerm
 			}
-			closePortRanges = append(closePortRanges, corenetwork.PortRange{
+			closePortRanges = append(closePortRanges, network.PortRange{
 				FromPort: r.FromPort,
 				ToPort:   r.ToPort,
 				Protocol: r.Protocol,
