@@ -98,7 +98,7 @@ var scenarioStatus = &params.FullStatus{
 		Type:        "iaas",
 		CloudTag:    "cloud-dummy",
 		CloudRegion: "dummy-region",
-		Version:     "1.2.3",
+		Version:     "2.0.0",
 		ModelStatus: params.DetailedStatus{
 			Status: "available",
 		},
@@ -383,7 +383,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	setDefaultPassword(c, u)
 	add(u)
 	err = s.Model.UpdateModelConfig(map[string]interface{}{
-		config.AgentVersionKey: "1.2.3"}, nil)
+		config.AgentVersionKey: "2.0.0"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	u = s.Factory.MakeUser(c, &factory.UserParams{Name: "other"})

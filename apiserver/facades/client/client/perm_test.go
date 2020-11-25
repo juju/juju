@@ -442,7 +442,7 @@ func opClientSetModelAgentVersion(c *gc.C, st api.Connection, mst *state.State) 
 	if err != nil {
 		return func() {}, err
 	}
-	ver := version.Number{Major: 1, Minor: 2, Patch: 3}
+	ver := version.Number{Major: 2, Minor: 0, Patch: 0}
 	err = st.Client().SetModelAgentVersion(ver, false)
 	if err != nil {
 		return func() {}, err

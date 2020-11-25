@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/juju/controller"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jujutesting "github.com/juju/testing"
@@ -17,6 +16,8 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
+
+	"github.com/juju/juju/controller"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/common"
@@ -43,7 +44,14 @@ func (s *dblogSuite) SetUpTest(c *gc.C) {
 
 func (s *dblogSuite) TestControllerAgentLogsGoToDBCAAS(c *gc.C) {
 	// Set up a CAAS model to replace the IAAS one.
-	st := s.Factory.MakeCAASModel(c, nil)
+	// Ensure an older major version is used to prevent an upgrade
+	// from being attempted.
+	modelVers := jujuversion.Current
+	modelVers.Major--
+	extraAttrs := coretesting.Attrs{
+		"agent-version": modelVers.String(),
+	}
+	st := s.Factory.MakeCAASModel(c, &factory.ModelParams{ConfigAttrs: extraAttrs})
 	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
 	s.State = st
 	s.Factory = factory.NewFactory(st, s.StatePool)
