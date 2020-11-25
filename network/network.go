@@ -31,25 +31,6 @@ const DefaultLXDBridge = "lxdbr0"
 // Note: we don't import this from 'container' to avoid import loops
 const DefaultKVMBridge = "virbr0"
 
-// InterfaceAddress represents a single address attached to the interface.
-type InterfaceAddress struct {
-	Address string
-	CIDR    string
-}
-
-// NetworkInfo describes one interface with assigned IP addresses, it's a mirror of params.NetworkInfo.
-type NetworkInfo struct {
-	// MACAddress is the network interface's hardware MAC address
-	// (e.g. "aa:bb:cc:dd:ee:ff").
-	MACAddress string
-
-	// InterfaceName is the OS-specific interface name, eg. "eth0" or "eno1.412"
-	InterfaceName string
-
-	// Addresses contains a list of addresses configured on the interface.
-	Addresses []InterfaceAddress
-}
-
 // ProviderInterfaceInfo holds enough information to identify an
 // interface or link layer device to a provider so that it can be
 // queried or manipulated. Its initial purpose is to pass to
