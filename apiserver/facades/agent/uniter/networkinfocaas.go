@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
 
@@ -17,7 +17,7 @@ import (
 type NetworkInfoCAAS struct {
 	*NetworkInfoBase
 
-	addresses corenetwork.SpaceAddresses
+	addresses network.SpaceAddresses
 }
 
 // newNetworkInfoCAAS returns a NetworkInfo implementation for a CAAS unit.
@@ -27,7 +27,7 @@ func newNetworkInfoCAAS(base *NetworkInfoBase) (*NetworkInfoCAAS, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	corenetwork.SortAddresses(addrs)
+	network.SortAddresses(addrs)
 
 	return &NetworkInfoCAAS{
 		NetworkInfoBase: base,
@@ -46,7 +46,7 @@ func (n *NetworkInfoCAAS) ProcessAPIRequest(args params.NetworkInfoParams) (para
 	var interfaceAddr []params.InterfaceAddress
 	var defaultIngressAddresses []string
 	for _, a := range n.addresses {
-		if a.Scope == corenetwork.ScopeMachineLocal {
+		if a.Scope == network.ScopeMachineLocal {
 			interfaceAddr = append(interfaceAddr, params.InterfaceAddress{Address: a.Value})
 		} else {
 			defaultIngressAddresses = append(defaultIngressAddresses, a.Value)
@@ -98,7 +98,7 @@ func (n *NetworkInfoCAAS) ProcessAPIRequest(args params.NetworkInfoParams) (para
 // and ingress/egress addresses for the input relation ID.
 func (n *NetworkInfoCAAS) getRelationNetworkInfo(
 	relationId int,
-) (string, string, corenetwork.SpaceAddresses, []string, error) {
+) (string, string, network.SpaceAddresses, []string, error) {
 	rel, endpoint, err := n.getRelationAndEndpointName(relationId)
 	if err != nil {
 		return "", "", nil, nil, errors.Trace(err)
@@ -125,10 +125,17 @@ func (n *NetworkInfoCAAS) getRelationNetworkInfo(
 // The ingress addresses depend on if the relation is cross-model
 // and whether the relation endpoint is bound to a space.
 func (n *NetworkInfoCAAS) NetworksForRelation(
-	_ string, rel *state.Relation, pollAddr bool,
-) (string, corenetwork.SpaceAddresses, []string, error) {
-	var ingress corenetwork.SpaceAddresses
+	endpoint string, rel *state.Relation, pollAddr bool,
+) (string, network.SpaceAddresses, []string, error) {
+	var ingress network.SpaceAddresses
 	var err error
+
+	// If NetworksForRelation is called during ProcessAPIRequest,
+	// this is a second validation, but we need to do it for the cases
+	// where NetworksForRelation is called directly by EnterScope.
+	if err = n.validateEndpoint(endpoint); err != nil {
+		return "", nil, nil, errors.Trace(err)
+	}
 
 	if pollAddr {
 		if ingress, err = n.maybeGetUnitAddress(rel); err != nil {
@@ -138,18 +145,18 @@ func (n *NetworkInfoCAAS) NetworksForRelation(
 
 	if len(ingress) == 0 {
 		for _, addr := range n.addresses {
-			if addr.Scope != corenetwork.ScopeMachineLocal {
+			if addr.Scope != network.ScopeMachineLocal {
 				ingress = append(ingress, addr)
 			}
 		}
 	}
 
-	corenetwork.SortAddresses(ingress)
+	network.SortAddresses(ingress)
 
 	egress, err := n.getEgressForRelation(rel, ingress)
 	if err != nil {
 		return "", nil, nil, errors.Trace(err)
 	}
 
-	return corenetwork.AlphaSpaceId, ingress, egress, nil
+	return network.AlphaSpaceId, ingress, egress, nil
 }

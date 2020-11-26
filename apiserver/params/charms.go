@@ -272,3 +272,12 @@ func fromParamsCharmOption(opt CharmOption) charm.Option {
 		Default:     opt.Default,
 	}
 }
+
+type ApplicationCharmPlacements struct {
+	Placements []ApplicationCharmPlacement `json:"placements"`
+}
+
+type ApplicationCharmPlacement struct {
+	Application string `json:"application"`
+	CharmURL    string `json:"charm-url"`
+}

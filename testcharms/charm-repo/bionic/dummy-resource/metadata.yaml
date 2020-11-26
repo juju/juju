@@ -7,7 +7,5 @@ minjujuversion: "1.0.0"
 resources:
     dummy:
         type: file
-        filename: dummy.zip
+        filename: dummy-resource.zip
         description: "One line description that is useful when operators need to push it."
-
-

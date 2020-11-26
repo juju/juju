@@ -253,7 +253,7 @@ type csRepo struct {
 }
 
 // ResolveWithPreferredChannel calls the CharmStore version of
-// ResolveWithPreferredChannel.  Convert CharmStore channel to
+// ResolveWithPreferredChannel. Convert CharmStore channel to
 // and from the charm Origin.
 func (c *csRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.CharmOrigin) (*charm.URL, params.CharmOrigin, []string, error) {
 	logger.Tracef("Resolving CharmStore charm %q with channel %q", curl, origin.Risk)

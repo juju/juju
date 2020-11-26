@@ -132,21 +132,18 @@ func contextsFromConfig(config *clientcmdapi.Config) (map[string]Context, error)
 }
 
 func cloudsFromConfig(config *clientcmdapi.Config, cloudName string) (map[string]CloudConfig, error) {
-
 	clusterToCloud := func(cluster *clientcmdapi.Cluster) (CloudConfig, error) {
 		attrs := map[string]interface{}{}
 
-		// TODO(axw) if the CA cert is specified by path, then we
-		// should just store the path in the cloud definition, and
-		// rely on cloud finalization to read it at time of use.
-		if cluster.CertificateAuthority != "" {
+		k8sCAData := cluster.CertificateAuthorityData
+		if len(cluster.CertificateAuthorityData) == 0 && cluster.CertificateAuthority != "" {
 			caData, err := ioutil.ReadFile(cluster.CertificateAuthority)
 			if err != nil {
 				return CloudConfig{}, errors.Trace(err)
 			}
-			cluster.CertificateAuthorityData = caData
+			k8sCAData = caData
 		}
-		attrs["CAData"] = string(cluster.CertificateAuthorityData)
+		attrs["CAData"] = string(k8sCAData)
 
 		return CloudConfig{
 			Endpoint:   cluster.Server,
@@ -295,7 +292,6 @@ func readKubeConfigFile() (reader io.Reader, err error) {
 }
 
 func parseKubeConfig(data []byte) (*clientcmdapi.Config, error) {
-
 	config, err := clientcmd.Load(data)
 	if err != nil {
 		return nil, err

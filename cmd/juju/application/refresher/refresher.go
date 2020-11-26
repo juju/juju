@@ -42,6 +42,7 @@ type RefresherConfig struct {
 	DeployedSeries  string
 	Force           bool
 	ForceSeries     bool
+	Switch          bool
 	Logger          CommandLogger
 }
 
@@ -383,9 +384,24 @@ func (r *charmHubRefresher) Allowed(cfg RefresherConfig) (bool, error) {
 			return false, errors.Trace(err)
 		}
 
-		if charm.CharmHub.Matches(curl.Schema) {
+		if !charm.CharmHub.Matches(curl.Schema) {
+			return false, nil
+		}
+
+		if !cfg.Switch {
 			return true, nil
 		}
+
+		if err := r.charmAdder.CheckCharmPlacement(cfg.ApplicationName, curl); err != nil && !errors.IsNotSupported(err) {
+			// If force is used then ignore the error, the user seems to know
+			// what they're doing.
+			if !cfg.Force {
+				return false, errors.Trace(err)
+			}
+			r.logger.Warningf("Charm placement check failed, using --force may break deployment")
+		}
+
+		return true, nil
 	}
 	return false, nil
 }

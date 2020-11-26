@@ -430,6 +430,27 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 	c.Assert(egress, gc.DeepEquals, []string{"1.2.3.4/32"})
 }
 
+func (s *networkInfoSuite) TestNetworksForRelationCAASModelInvalidBinding(c *gc.C) {
+	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
+	st := s.Factory.MakeCAASModel(c, nil)
+	defer func() { _ = st.Close() }()
+
+	f := factory.NewFactory(st, s.StatePool)
+	gitLabCh := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	mySqlCh := f.MakeCharm(c, &factory.CharmParams{Name: "mysql", Series: "kubernetes"})
+	gitLab := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: gitLabCh})
+	mySql := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: mySqlCh})
+
+	prr := newProReqRelationForApps(c, st, mySql, gitLab)
+
+	// We need to instantiate this with the new CAAS model state.
+	netInfo, err := uniter.NewNetworkInfoForStrategy(st, prr.pu0.UnitTag(), nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, _, _, err = netInfo.NetworksForRelation("unknown", prr.rel, true)
+	c.Assert(err, gc.ErrorMatches, `undefined for unit charm: endpoint "unknown" not valid`)
+}
+
 func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
 	spaceIDDefault := s.setupSpace(c, "default", "10.0.0.0/24")
 	spaceIDDMZ := s.setupSpace(c, "dmz", "10.10.0.0/24")
@@ -468,35 +489,35 @@ func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
 
 	resDefault, ok := res[spaceIDDefault]
 	c.Assert(ok, jc.IsTrue)
-	c.Check(resDefault.Error, jc.ErrorIsNil)
-	c.Assert(resDefault.NetworkInfos, gc.HasLen, 1)
-	c.Check(resDefault.NetworkInfos[0].InterfaceName, gc.Equals, "br-eth0")
-	c.Assert(resDefault.NetworkInfos[0].Addresses, gc.HasLen, 1)
-	c.Check(resDefault.NetworkInfos[0].Addresses[0].Address, gc.Equals, "10.0.0.20")
-	c.Check(resDefault.NetworkInfos[0].Addresses[0].CIDR, gc.Equals, "10.0.0.0/24")
+	c.Check(resDefault.Error, gc.IsNil)
+	c.Assert(resDefault.Info, gc.HasLen, 1)
+	c.Check(resDefault.Info[0].InterfaceName, gc.Equals, "br-eth0")
+	c.Assert(resDefault.Info[0].Addresses, gc.HasLen, 1)
+	c.Check(resDefault.Info[0].Addresses[0].Address, gc.Equals, "10.0.0.20")
+	c.Check(resDefault.Info[0].Addresses[0].CIDR, gc.Equals, "10.0.0.0/24")
 
 	resDMZ, ok := res[spaceIDDMZ]
 	c.Assert(ok, jc.IsTrue)
-	c.Check(resDMZ.Error, jc.ErrorIsNil)
-	c.Assert(resDMZ.NetworkInfos, gc.HasLen, 1)
-	c.Check(resDMZ.NetworkInfos[0].InterfaceName, gc.Equals, "eth1")
-	c.Assert(resDMZ.NetworkInfos[0].Addresses, gc.HasLen, 1)
-	c.Check(resDMZ.NetworkInfos[0].Addresses[0].Address, gc.Equals, "10.10.0.20")
-	c.Check(resDMZ.NetworkInfos[0].Addresses[0].CIDR, gc.Equals, "10.10.0.0/24")
+	c.Check(resDMZ.Error, gc.IsNil)
+	c.Assert(resDMZ.Info, gc.HasLen, 1)
+	c.Check(resDMZ.Info[0].InterfaceName, gc.Equals, "eth1")
+	c.Assert(resDMZ.Info[0].Addresses, gc.HasLen, 1)
+	c.Check(resDMZ.Info[0].Addresses[0].Address, gc.Equals, "10.10.0.20")
+	c.Check(resDMZ.Info[0].Addresses[0].CIDR, gc.Equals, "10.10.0.0/24")
 
 	resEmpty, ok := res[network.AlphaSpaceId]
 	c.Assert(ok, jc.IsTrue)
-	c.Check(resEmpty.Error, jc.ErrorIsNil)
-	c.Assert(resEmpty.NetworkInfos, gc.HasLen, 1)
-	c.Check(resEmpty.NetworkInfos[0].InterfaceName, gc.Equals, "eth2")
-	c.Assert(resEmpty.NetworkInfos[0].Addresses, gc.HasLen, 1)
-	c.Check(resEmpty.NetworkInfos[0].Addresses[0].Address, gc.Equals, "10.20.0.20")
-	c.Check(resEmpty.NetworkInfos[0].Addresses[0].CIDR, gc.Equals, "10.20.0.0/24")
+	c.Check(resEmpty.Error, gc.IsNil)
+	c.Assert(resEmpty.Info, gc.HasLen, 1)
+	c.Check(resEmpty.Info[0].InterfaceName, gc.Equals, "eth2")
+	c.Assert(resEmpty.Info[0].Addresses, gc.HasLen, 1)
+	c.Check(resEmpty.Info[0].Addresses[0].Address, gc.Equals, "10.20.0.20")
+	c.Check(resEmpty.Info[0].Addresses[0].CIDR, gc.Equals, "10.20.0.0/24")
 
 	resDoesNotExists, ok := res["666"]
 	c.Assert(ok, jc.IsTrue)
 	c.Check(resDoesNotExists.Error, gc.ErrorMatches, `.*machine "0" has no devices in space "666".*`)
-	c.Assert(resDoesNotExists.NetworkInfos, gc.HasLen, 0)
+	c.Assert(resDoesNotExists.Info, gc.HasLen, 0)
 }
 
 // TODO (manadart 2020-02-21): This test can be removed after universal subnet
@@ -535,12 +556,12 @@ func (s *networkInfoSuite) TestMachineNetworkInfosAlphaNoSubnets(c *gc.C) {
 
 	resEmpty, ok := res[network.AlphaSpaceId]
 	c.Assert(ok, jc.IsTrue)
-	c.Check(resEmpty.Error, jc.ErrorIsNil)
-	c.Assert(resEmpty.NetworkInfos, gc.HasLen, 1)
-	c.Check(resEmpty.NetworkInfos[0].InterfaceName, gc.Equals, "eth2")
-	c.Assert(resEmpty.NetworkInfos[0].Addresses, gc.HasLen, 1)
-	c.Check(resEmpty.NetworkInfos[0].Addresses[0].Address, gc.Equals, "10.20.0.20")
-	c.Check(resEmpty.NetworkInfos[0].Addresses[0].CIDR, gc.Equals, "10.20.0.0/24")
+	c.Check(resEmpty.Error, gc.IsNil)
+	c.Assert(resEmpty.Info, gc.HasLen, 1)
+	c.Check(resEmpty.Info[0].InterfaceName, gc.Equals, "eth2")
+	c.Assert(resEmpty.Info[0].Addresses, gc.HasLen, 1)
+	c.Check(resEmpty.Info[0].Addresses[0].Address, gc.Equals, "10.20.0.20")
+	c.Check(resEmpty.Info[0].Addresses[0].CIDR, gc.Equals, "10.20.0.0/24")
 }
 
 func (s *networkInfoSuite) setupSpace(c *gc.C, spaceName, cidr string) string {
