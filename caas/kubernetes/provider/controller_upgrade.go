@@ -4,7 +4,6 @@
 package provider
 
 import (
-	"github.com/juju/names/v4"
 	"github.com/juju/version"
 	"k8s.io/client-go/kubernetes"
 
@@ -52,10 +51,11 @@ func controllerUpgrade(appName string, vers version.Number, broker UpgradeCAASCo
 		broker.Client().AppsV1().StatefulSets(broker.Namespace()))
 }
 
-func (k *kubernetesClient) upgradeController(agentTag names.Tag, vers version.Number) error {
+func (k *kubernetesClient) upgradeController(vers version.Number) error {
 	broker := &upgradeCAASControllerBridge{
 		clientFn:    k.client,
 		namespaceFn: k.GetCurrentNamespace,
+		isLegacyFn:  k.IsLegacyLabels,
 	}
 	return controllerUpgrade(bootstrap.ControllerModelName, vers, broker)
 }
