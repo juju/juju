@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jtesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 var _ = gc.Suite(&fakeAPISuite{})
@@ -62,6 +63,6 @@ func (f facade) Login(req params.LoginRequest) (params.LoginResult, error) {
 			DisplayName: "foo",
 			Identity:    "user-bar",
 		},
-		ServerVersion: "1.0.0",
+		ServerVersion: version.Current.String(),
 	}, nil
 }

@@ -9,9 +9,8 @@ import (
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
 
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/network"
 )
 
 // EgressAddressWatcher reports changes to addresses
@@ -143,7 +142,7 @@ func (w *EgressAddressWatcher) loop() error {
 			}
 			changed = false
 			if !setEquals(addresses, lastAddresses) {
-				addressesCIDR = corenetwork.SubnetsForAddresses(addresses.Values())
+				addressesCIDR = network.SubnetsForAddresses(addresses.Values())
 				ready = ready || sentInitial
 			}
 		}

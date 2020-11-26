@@ -14,6 +14,7 @@ import (
 	"github.com/juju/os/v2"
 	"github.com/juju/os/v2/series"
 	"github.com/juju/replicaset"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -36,6 +37,7 @@ import (
 	"github.com/juju/juju/environs/manual/winrmprovisioner"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -694,6 +696,8 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 	}
 	// If this is the controller model, also check to make sure that there are
 	// no running migrations.  All models should have migration mode of None.
+	// For major version upgrades, also check that all models are at a version high
+	// enough to allow the upgrade.
 	if c.api.stateAccessor.IsController() {
 		// Check to ensure that the replicaset is happy.
 		if err := c.CheckMongoStatusForUpgrade(c.api.stateAccessor.MongoSession()); err != nil {
@@ -705,16 +709,34 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 			return errors.Trace(err)
 		}
 
+		var oldModels []string
+		var requiredVersion version.Number
 		for _, modelUUID := range modelUUIDs {
 			model, release, err := c.api.pool.GetModel(modelUUID)
 			if err != nil {
 				return errors.Trace(err)
+			}
+			vers, err := model.AgentVersion()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			allowed, minVer, err := upgrades.UpgradeAllowed(vers, args.Version)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if !allowed {
+				requiredVersion = minVer
+				oldModels = append(oldModels, fmt.Sprintf("%s/%s", model.Owner().Name(), model.Name()))
 			}
 			if mode := model.MigrationMode(); mode != state.MigrationModeNone {
 				release()
 				return errors.Errorf("model \"%s/%s\" is %s, upgrade blocked", model.Owner().Name(), model.Name(), mode)
 			}
 			release()
+		}
+		if len(oldModels) > 0 {
+			return errors.Errorf("these models must first be upgraded to at least %v before upgrading the controller:\n -%s",
+				requiredVersion, strings.Join(oldModels, "\n -"))
 		}
 	}
 

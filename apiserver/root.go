@@ -15,6 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/rpcreflect"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -26,6 +27,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var (
@@ -216,17 +218,23 @@ func restrictAPIRoot(
 	apiRoot rpc.Root,
 	model *state.Model,
 	auth authResult,
+	clientVersion version.Number,
 ) (rpc.Root, error) {
 	if !auth.controllerMachineLogin {
 		// Controller agents are allowed to
 		// connect even during maintenance.
 		restrictedRoot, err := restrictAPIRootDuringMaintenance(
-			srv, apiRoot, model, auth.tag, auth.controllerMachineLogin,
+			srv, apiRoot, model, auth.tag,
 		)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		apiRoot = restrictedRoot
+		// If the client version is different to the server version,
+		// add extra checks to ensure older clients cannot be used.
+		if clientVersion.Major != jujuversion.Current.Major {
+			apiRoot = restrictRoot(apiRoot, checkClientVersion(auth.userLogin, clientVersion))
+		}
 	}
 	if auth.controllerOnlyLogin {
 		apiRoot = restrictRoot(apiRoot, controllerFacadesOnly)
@@ -247,7 +255,6 @@ func restrictAPIRootDuringMaintenance(
 	apiRoot rpc.Root,
 	model *state.Model,
 	authTag names.Tag,
-	controllerMachineLogin bool,
 ) (rpc.Root, error) {
 	describeLogin := func() string {
 		if authTag == nil {

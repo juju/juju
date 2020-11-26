@@ -46,9 +46,16 @@ func (s *dblogSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *dblogSuite) TestControllerAgentLogsGoToDBCAAS(c *gc.C) {
-	// Set up a CAAS model to replace the IAAS one.
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
-	st := s.Factory.MakeCAASModel(c, nil)
+	// Set up a CAAS model to replace the IAAS one.
+	// Ensure an older major version is used to prevent an upgrade
+	// from being attempted.
+	modelVers := jujuversion.Current
+	modelVers.Major--
+	extraAttrs := coretesting.Attrs{
+		"agent-version": modelVers.String(),
+	}
+	st := s.Factory.MakeCAASModel(c, &factory.ModelParams{ConfigAttrs: extraAttrs})
 	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
 	s.State = st
 	s.Factory = factory.NewFactory(st, s.StatePool)

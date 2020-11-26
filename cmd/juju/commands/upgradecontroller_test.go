@@ -84,10 +84,8 @@ var upgradeIAASControllerPassthroughTests = []upgradeTest{{
 	expectUploaded: []string{"2.7.3.1-quantal-amd64", "2.7.3.1-%LTS%-amd64", "2.7.3.1-raring-amd64"},
 }}
 
-func (s *UpgradeIAASControllerSuite) upgradeControllerCommand(minUpgradeVers map[int]version.Number) cmd.Command {
-	cmd := &upgradeControllerCommand{
-		baseUpgradeCommand: baseUpgradeCommand{minMajorUpgradeVersion: minMajorUpgradeVersion},
-	}
+func (s *UpgradeIAASControllerSuite) upgradeControllerCommand() cmd.Command {
+	cmd := &upgradeControllerCommand{}
 	cmd.SetClientStore(s.ControllerStore)
 	return modelcmd.WrapController(cmd)
 }
@@ -105,7 +103,7 @@ func (s *UpgradeIAASControllerSuite) TestUpgrade(c *gc.C) {
 func (s *UpgradeIAASControllerSuite) TestUpgradeWithRealUpload(c *gc.C) {
 	s.Reset(c)
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.99.99"))
-	cmd := s.upgradeControllerCommand(map[int]version.Number{2: version.MustParse("1.99.99")})
+	cmd := s.upgradeControllerCommand()
 	_, err := cmdtesting.RunCommand(c, cmd, "--build-agent")
 	c.Assert(err, jc.ErrorIsNil)
 	vers := coretesting.CurrentVersion(c)
@@ -116,7 +114,7 @@ func (s *UpgradeIAASControllerSuite) TestUpgradeWithRealUpload(c *gc.C) {
 func (s *UpgradeIAASControllerSuite) TestUpgradeCorrectController(c *gc.C) {
 	badControllerName := "not-the-right-controller"
 	badControllerSelected := errors.New("bad controller selected")
-	upgradeCommand := func(minUpgradeVers map[int]version.Number) cmd.Command {
+	upgradeCommand := func() cmd.Command {
 		backingStore := s.ControllerStore
 		store := jujuclienttesting.WrapClientStore(backingStore)
 		store.ControllerByNameFunc = func(name string) (*jujuclient.ControllerDetails, error) {
@@ -129,11 +127,7 @@ func (s *UpgradeIAASControllerSuite) TestUpgradeCorrectController(c *gc.C) {
 			return badControllerName, nil
 		}
 		s.ControllerStore = store
-		cmd := &upgradeControllerCommand{
-			baseUpgradeCommand: baseUpgradeCommand{minMajorUpgradeVersion: minMajorUpgradeVersion},
-		}
-		cmd.SetClientStore(s.ControllerStore)
-		return modelcmd.WrapController(cmd)
+		return s.upgradeControllerCommand()
 	}
 
 	tests := []upgradeTest{
@@ -168,7 +162,7 @@ func (s *UpgradeIAASControllerSuite) TestUpgradeWrongPermissions(c *gc.C) {
 	details.LastKnownAccess = string(permission.ReadAccess)
 	err = s.ControllerStore.UpdateAccount("kontroll", *details)
 	c.Assert(err, jc.ErrorIsNil)
-	com := s.upgradeControllerCommand(nil)
+	com := s.upgradeControllerCommand()
 	err = cmdtesting.InitCommand(com, []string{})
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
@@ -198,7 +192,7 @@ func (s *UpgradeIAASControllerSuite) TestUpgradeDifferentUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cmd := &upgradeControllerCommand{
-		baseUpgradeCommand: baseUpgradeCommand{minMajorUpgradeVersion: minMajorUpgradeVersion},
+		baseUpgradeCommand: baseUpgradeCommand{},
 	}
 	cmd.SetClientStore(s.ControllerStore)
 	cmdrun := modelcmd.WrapController(cmd)
@@ -273,7 +267,7 @@ var upgradeCAASControllerTests = []upgradeTest{{
 	expectVersion:  "1.21.4",
 }}
 
-func (s *UpgradeCAASControllerSuite) upgradeControllerCommand(_ map[int]version.Number) cmd.Command {
+func (s *UpgradeCAASControllerSuite) upgradeControllerCommand() cmd.Command {
 	cmd := &upgradeControllerCommand{}
 	cmd.SetClientStore(s.ControllerStore)
 	return modelcmd.WrapController(cmd)
@@ -316,7 +310,7 @@ func (s *UpgradeCAASControllerSuite) assertUpgradeTests(c *gc.C, tests []upgrade
 		// Set up apparent CLI version and initialize the command.
 		current := version.MustParse(test.currentVersion)
 		s.PatchValue(&jujuversion.Current, current)
-		com := upgradeJujuCommand(nil)
+		com := upgradeJujuCommand()
 		if err := cmdtesting.InitCommand(com, test.args); err != nil {
 			if test.expectInitErr != "" {
 				c.Check(err, gc.ErrorMatches, test.expectInitErr)

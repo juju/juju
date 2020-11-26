@@ -101,7 +101,7 @@ func mustUUID() string {
 // additional specified keys added.
 func CustomModelConfig(c *gc.C, extra Attrs) *config.Config {
 	attrs := FakeConfig().Merge(Attrs{
-		"agent-version": "1.2.3",
+		"agent-version": "2.0.0",
 		"charm-hub-url": charmhub.CharmHubServerURL,
 	}).Merge(extra).Delete("admin-secret")
 	cfg, err := config.New(config.NoDefaults, attrs)

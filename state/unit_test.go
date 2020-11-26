@@ -21,9 +21,8 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/testing"
@@ -797,8 +796,8 @@ func (s *UnitSuite) setAssignedMachineAddresses(c *gc.C, u *state.Unit) {
 	err = machine.SetProvisioned("i-exist", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProviderAddresses(
-		corenetwork.NewScopedSpaceAddress("private.address.example.com", corenetwork.ScopeCloudLocal),
-		corenetwork.NewScopedSpaceAddress("public.address.example.com", corenetwork.ScopePublic),
+		network.NewScopedSpaceAddress("private.address.example.com", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("public.address.example.com", network.ScopePublic),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -829,8 +828,8 @@ func (s *UnitSuite) TestPublicAddress(c *gc.C) {
 	_, err = s.unit.PublicAddress()
 	c.Assert(err, jc.Satisfies, network.IsNoAddressError)
 
-	public := corenetwork.NewScopedSpaceAddress("8.8.8.8", corenetwork.ScopePublic)
-	private := corenetwork.NewScopedSpaceAddress("127.0.0.1", corenetwork.ScopeCloudLocal)
+	public := network.NewScopedSpaceAddress("8.8.8.8", network.ScopePublic)
+	private := network.NewScopedSpaceAddress("127.0.0.1", network.ScopeCloudLocal)
 
 	err = machine.SetProviderAddresses(public, private)
 	c.Assert(err, jc.ErrorIsNil)
@@ -846,12 +845,12 @@ func (s *UnitSuite) TestStablePrivateAddress(c *gc.C) {
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetMachineAddresses(corenetwork.NewSpaceAddress("10.0.0.2"))
+	err = machine.SetMachineAddresses(network.NewSpaceAddress("10.0.0.2"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now add an address that would previously have sorted before the
 	// default.
-	err = machine.SetMachineAddresses(corenetwork.NewSpaceAddress("10.0.0.1"), corenetwork.NewSpaceAddress("10.0.0.2"))
+	err = machine.SetMachineAddresses(network.NewSpaceAddress("10.0.0.1"), network.NewSpaceAddress("10.0.0.2"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assert the address is unchanged.
@@ -866,12 +865,12 @@ func (s *UnitSuite) TestStablePublicAddress(c *gc.C) {
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetProviderAddresses(corenetwork.NewSpaceAddress("8.8.8.8"))
+	err = machine.SetProviderAddresses(network.NewSpaceAddress("8.8.8.8"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now add an address that would previously have sorted before the
 	// default.
-	err = machine.SetProviderAddresses(corenetwork.NewSpaceAddress("8.8.4.4"), corenetwork.NewSpaceAddress("8.8.8.8"))
+	err = machine.SetProviderAddresses(network.NewSpaceAddress("8.8.4.4"), network.NewSpaceAddress("8.8.8.8"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assert the address is unchanged.
@@ -886,9 +885,9 @@ func (s *UnitSuite) TestPublicAddressMachineAddresses(c *gc.C) {
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 
-	publicProvider := corenetwork.NewScopedSpaceAddress("8.8.8.8", corenetwork.ScopePublic)
-	privateProvider := corenetwork.NewScopedSpaceAddress("127.0.0.1", corenetwork.ScopeCloudLocal)
-	privateMachine := corenetwork.NewSpaceAddress("127.0.0.2")
+	publicProvider := network.NewScopedSpaceAddress("8.8.8.8", network.ScopePublic)
+	privateProvider := network.NewScopedSpaceAddress("127.0.0.1", network.ScopeCloudLocal)
+	privateMachine := network.NewSpaceAddress("127.0.0.2")
 
 	err = machine.SetProviderAddresses(privateProvider)
 	c.Assert(err, jc.ErrorIsNil)
@@ -924,8 +923,8 @@ func (s *UnitSuite) TestPrivateAddress(c *gc.C) {
 	_, err = s.unit.PrivateAddress()
 	c.Assert(err, jc.Satisfies, network.IsNoAddressError)
 
-	public := corenetwork.NewScopedSpaceAddress("8.8.8.8", corenetwork.ScopePublic)
-	private := corenetwork.NewScopedSpaceAddress("127.0.0.1", corenetwork.ScopeCloudLocal)
+	public := network.NewScopedSpaceAddress("8.8.8.8", network.ScopePublic)
+	private := network.NewScopedSpaceAddress("127.0.0.1", network.ScopeCloudLocal)
 
 	err = machine.SetProviderAddresses(public, private)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1791,71 +1790,71 @@ func (s *UnitSuite) TesOpenedPorts(c *gc.C) {
 
 	// Now open and close ports and ranges and check that they are persisted correctly
 	s.assertPortRangesAfterOpenClose(c, s.unit,
-		[]corenetwork.PortRange{
-			corenetwork.MustParsePortRange("80/tcp"),
-			corenetwork.MustParsePortRange("100-200/udp"),
+		[]network.PortRange{
+			network.MustParsePortRange("80/tcp"),
+			network.MustParsePortRange("100-200/udp"),
 		},
 		nil, // close
-		[]corenetwork.PortRange{
-			corenetwork.MustParsePortRange("80/tcp"),
-			corenetwork.MustParsePortRange("100-200/udp"),
+		[]network.PortRange{
+			network.MustParsePortRange("80/tcp"),
+			network.MustParsePortRange("100-200/udp"),
 		},
 	)
 
 	// Open a new port (53/udp)
 	s.assertPortRangesAfterOpenClose(c, s.unit,
-		[]corenetwork.PortRange{
-			corenetwork.MustParsePortRange("53/udp"),
+		[]network.PortRange{
+			network.MustParsePortRange("53/udp"),
 		},
 		nil, // close
-		[]corenetwork.PortRange{
-			corenetwork.MustParsePortRange("53/udp"),
-			corenetwork.MustParsePortRange("80/tcp"),
-			corenetwork.MustParsePortRange("100-200/udp"),
+		[]network.PortRange{
+			network.MustParsePortRange("53/udp"),
+			network.MustParsePortRange("80/tcp"),
+			network.MustParsePortRange("100-200/udp"),
 		},
 	)
 
 	// Open same port but different protocol (53/tcp)
 	s.assertPortRangesAfterOpenClose(c, s.unit,
-		[]corenetwork.PortRange{
-			corenetwork.MustParsePortRange("53/tcp"),
+		[]network.PortRange{
+			network.MustParsePortRange("53/tcp"),
 		},
 		nil, // close
-		[]corenetwork.PortRange{
-			corenetwork.MustParsePortRange("53/tcp"),
-			corenetwork.MustParsePortRange("53/udp"),
-			corenetwork.MustParsePortRange("80/tcp"),
-			corenetwork.MustParsePortRange("100-200/udp"),
+		[]network.PortRange{
+			network.MustParsePortRange("53/tcp"),
+			network.MustParsePortRange("53/udp"),
+			network.MustParsePortRange("80/tcp"),
+			network.MustParsePortRange("100-200/udp"),
 		},
 	)
 
 	// Close an existing port (80/tcp)
 	s.assertPortRangesAfterOpenClose(c, s.unit,
 		nil, // open
-		[]corenetwork.PortRange{
-			corenetwork.MustParsePortRange("80/tcp"),
+		[]network.PortRange{
+			network.MustParsePortRange("80/tcp"),
 		},
-		[]corenetwork.PortRange{
-			corenetwork.MustParsePortRange("53/tcp"),
-			corenetwork.MustParsePortRange("53/udp"),
-			corenetwork.MustParsePortRange("100-200/udp"),
+		[]network.PortRange{
+			network.MustParsePortRange("53/tcp"),
+			network.MustParsePortRange("53/udp"),
+			network.MustParsePortRange("100-200/udp"),
 		},
 	)
 
 	// Close another existing port (100-200/udp)
 	s.assertPortRangesAfterOpenClose(c, s.unit,
 		nil, // open
-		[]corenetwork.PortRange{
-			corenetwork.MustParsePortRange("100-200/udp"),
+		[]network.PortRange{
+			network.MustParsePortRange("100-200/udp"),
 		},
-		[]corenetwork.PortRange{
-			corenetwork.MustParsePortRange("53/tcp"),
-			corenetwork.MustParsePortRange("53/udp"),
+		[]network.PortRange{
+			network.MustParsePortRange("53/tcp"),
+			network.MustParsePortRange("53/udp"),
 		},
 	)
 }
 
-func (s *UnitSuite) assertPortRangesAfterOpenClose(c *gc.C, u *state.Unit, openRanges, closeRanges, exp []corenetwork.PortRange) {
+func (s *UnitSuite) assertPortRangesAfterOpenClose(c *gc.C, u *state.Unit, openRanges, closeRanges, exp []network.PortRange) {
 	unitPortRanges, err := u.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 	for _, pr := range openRanges {
@@ -1893,7 +1892,7 @@ func (s *UnitSuite) TestOpenClosePortWhenDying(c *gc.C) {
 
 		toOpen := fmt.Sprintf("%d/tcp", nextPort)
 		nextPort++
-		unitPortRanges.Open(allEndpoints, corenetwork.MustParsePortRange(toOpen))
+		unitPortRanges.Open(allEndpoints, network.MustParsePortRange(toOpen))
 		if err = s.State.ApplyOperation(unitPortRanges.Changes()); err != nil {
 			return errors.Annotatef(err, "cannot open port ranges")
 		}
@@ -1910,7 +1909,7 @@ func (s *UnitSuite) TestOpenClosePortWhenDying(c *gc.C) {
 		if err != nil {
 			return errors.Annotatef(err, "cannot open port ranges")
 		}
-		unitPortRanges.Open(allEndpoints, corenetwork.MustParsePortRange(toOpen))
+		unitPortRanges.Open(allEndpoints, network.MustParsePortRange(toOpen))
 		if err = s.State.ApplyOperation(unitPortRanges.Changes()); err != nil {
 			return errors.Annotatef(err, "cannot open port ranges")
 		}
@@ -1928,7 +1927,7 @@ func (s *UnitSuite) TestRemoveLastUnitOnMachineRemovesAllPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machPortRanges.UniquePortRanges(), gc.HasLen, 0)
 
-	state.MustOpenUnitPortRange(c, s.State, machine, s.unit.Name(), allEndpoints, corenetwork.MustParsePortRange("100-200/tcp"))
+	state.MustOpenUnitPortRange(c, s.State, machine, s.unit.Name(), allEndpoints, network.MustParsePortRange("100-200/tcp"))
 
 	machPortRanges, err = machine.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1962,18 +1961,18 @@ func (s *UnitSuite) TestRemoveUnitRemovesItsPortsOnly(c *gc.C) {
 	err = otherUnit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 
-	state.MustOpenUnitPortRange(c, s.State, machine, s.unit.Name(), allEndpoints, corenetwork.MustParsePortRange("100-200/tcp"))
-	state.MustOpenUnitPortRange(c, s.State, machine, otherUnit.Name(), allEndpoints, corenetwork.MustParsePortRange("300-400/udp"))
+	state.MustOpenUnitPortRange(c, s.State, machine, s.unit.Name(), allEndpoints, network.MustParsePortRange("100-200/tcp"))
+	state.MustOpenUnitPortRange(c, s.State, machine, otherUnit.Name(), allEndpoints, network.MustParsePortRange("300-400/udp"))
 
 	machPortRanges, err := machine.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machPortRanges.UniquePortRanges(), gc.HasLen, 2)
 
-	c.Assert(machPortRanges.ForUnit(s.unit.Name()).UniquePortRanges(), jc.DeepEquals, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("100-200/tcp"),
+	c.Assert(machPortRanges.ForUnit(s.unit.Name()).UniquePortRanges(), jc.DeepEquals, []network.PortRange{
+		network.MustParsePortRange("100-200/tcp"),
 	})
-	c.Assert(machPortRanges.ForUnit(otherUnit.Name()).UniquePortRanges(), jc.DeepEquals, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("300-400/udp"),
+	c.Assert(machPortRanges.ForUnit(otherUnit.Name()).UniquePortRanges(), jc.DeepEquals, []network.PortRange{
+		network.MustParsePortRange("300-400/udp"),
 	})
 
 	// Now remove the first unit and check again.
@@ -1989,8 +1988,8 @@ func (s *UnitSuite) TestRemoveUnitRemovesItsPortsOnly(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machPortRanges.UniquePortRanges(), gc.HasLen, 1)
 	c.Assert(machPortRanges.ForUnit(s.unit.Name()).UniquePortRanges(), gc.HasLen, 0)
-	c.Assert(machPortRanges.ForUnit(otherUnit.Name()).UniquePortRanges(), jc.DeepEquals, []corenetwork.PortRange{
-		corenetwork.MustParsePortRange("300-400/udp"),
+	c.Assert(machPortRanges.ForUnit(otherUnit.Name()).UniquePortRanges(), jc.DeepEquals, []network.PortRange{
+		network.MustParsePortRange("300-400/udp"),
 	})
 }
 
@@ -2652,9 +2651,9 @@ func (s *UnitSuite) TestDestroyWithForceWorksOnDyingUnit(c *gc.C) {
 
 func (s *UnitSuite) TestWatchMachineAndEndpointAddressesHash(c *gc.C) {
 	// Create 2 spaces
-	sn1, err := s.State.AddSubnet(corenetwork.SubnetInfo{CIDR: "10.0.0.0/24"})
+	sn1, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.0.0.0/24"})
 	c.Assert(err, gc.IsNil)
-	sn2, err := s.State.AddSubnet(corenetwork.SubnetInfo{CIDR: "10.0.254.0/24"})
+	sn2, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.0.254.0/24"})
 	c.Assert(err, gc.IsNil)
 
 	_, err = s.State.AddSpace("public", "", []string{sn1.ID()}, false)
@@ -2670,13 +2669,13 @@ func (s *UnitSuite) TestWatchMachineAndEndpointAddressesHash(c *gc.C) {
 	})
 	c.Assert(err, gc.IsNil)
 	err = m1.SetLinkLayerDevices(
-		state.LinkLayerDeviceArgs{Name: "enp5s0", Type: corenetwork.EthernetDevice},
-		state.LinkLayerDeviceArgs{Name: "enp5s1", Type: corenetwork.EthernetDevice},
+		state.LinkLayerDeviceArgs{Name: "enp5s0", Type: network.EthernetDevice},
+		state.LinkLayerDeviceArgs{Name: "enp5s1", Type: network.EthernetDevice},
 	)
 	c.Assert(err, gc.IsNil)
 	err = m1.SetDevicesAddresses(
-		state.LinkLayerDeviceAddress{DeviceName: "enp5s0", CIDRAddress: "10.0.0.1/24", ConfigMethod: corenetwork.StaticAddress},
-		state.LinkLayerDeviceAddress{DeviceName: "enp5s1", CIDRAddress: "10.0.254.42/24", ConfigMethod: corenetwork.StaticAddress},
+		state.LinkLayerDeviceAddress{DeviceName: "enp5s0", CIDRAddress: "10.0.0.1/24", ConfigMethod: network.StaticAddress},
+		state.LinkLayerDeviceAddress{DeviceName: "enp5s1", CIDRAddress: "10.0.254.42/24", ConfigMethod: network.StaticAddress},
 	)
 	c.Assert(err, gc.IsNil)
 
@@ -2705,10 +2704,10 @@ func (s *UnitSuite) TestWatchMachineAndEndpointAddressesHash(c *gc.C) {
 	err = m1.SetDevicesAddresses(state.LinkLayerDeviceAddress{
 		DeviceName:   "enp5s0",
 		CIDRAddress:  "10.0.0.100/24",
-		ConfigMethod: corenetwork.StaticAddress,
+		ConfigMethod: network.StaticAddress,
 	})
 	c.Assert(err, gc.IsNil)
-	err = m1.SetProviderAddresses(corenetwork.NewSpaceAddress("10.0.0.100"))
+	err = m1.SetProviderAddresses(network.NewSpaceAddress("10.0.0.100"))
 	c.Assert(err, gc.IsNil)
 	wc.AssertChange("46ed851765a963e100161210a7b4fbb28d59b24edb580a60f86dbbaebea14d37")
 
@@ -2817,7 +2816,7 @@ func (s *CAASUnitSuite) TestUpdateCAASUnitProviderId(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.Unit(), gc.Equals, existingUnit.Name())
 	c.Assert(info.ProviderId(), gc.Equals, "another-uuid")
-	addr := corenetwork.NewScopedSpaceAddress("192.168.1.1", corenetwork.ScopeMachineLocal)
+	addr := network.NewScopedSpaceAddress("192.168.1.1", network.ScopeMachineLocal)
 	c.Assert(info.Address(), gc.DeepEquals, &addr)
 	c.Assert(info.Ports(), jc.DeepEquals, []string{"80"})
 }
@@ -2840,7 +2839,7 @@ func (s *CAASUnitSuite) TestAddCAASUnitProviderId(c *gc.C) {
 	c.Assert(info.Unit(), gc.Equals, existingUnit.Name())
 	c.Assert(info.ProviderId(), gc.Equals, "another-uuid")
 	c.Check(info.Address(), gc.NotNil)
-	c.Check(*info.Address(), jc.DeepEquals, corenetwork.NewScopedSpaceAddress("192.168.1.1", corenetwork.ScopeMachineLocal))
+	c.Check(*info.Address(), jc.DeepEquals, network.NewScopedSpaceAddress("192.168.1.1", network.ScopeMachineLocal))
 	c.Assert(info.Ports(), jc.DeepEquals, []string{"80"})
 }
 
@@ -2862,7 +2861,7 @@ func (s *CAASUnitSuite) TestUpdateCAASUnitAddress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.Unit(), gc.Equals, existingUnit.Name())
 	c.Assert(info.ProviderId(), gc.Equals, "unit-uuid")
-	addr := corenetwork.NewScopedSpaceAddress("192.168.1.2", corenetwork.ScopeMachineLocal)
+	addr := network.NewScopedSpaceAddress("192.168.1.2", network.ScopeMachineLocal)
 	c.Assert(info.Address(), jc.DeepEquals, &addr)
 	c.Assert(info.Ports(), jc.DeepEquals, []string{"80"})
 }
@@ -2885,7 +2884,7 @@ func (s *CAASUnitSuite) TestUpdateCAASUnitPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.Unit(), gc.Equals, existingUnit.Name())
 	c.Assert(info.ProviderId(), gc.Equals, "unit-uuid")
-	addr := corenetwork.NewScopedSpaceAddress("192.168.1.1", corenetwork.ScopeMachineLocal)
+	addr := network.NewScopedSpaceAddress("192.168.1.1", network.ScopeMachineLocal)
 	c.Assert(info.Address(), jc.DeepEquals, &addr)
 	c.Assert(info.Ports(), jc.DeepEquals, []string{"443"})
 }
@@ -2906,37 +2905,37 @@ func (s *CAASUnitSuite) TestRemoveUnitDeletesContainerInfo(c *gc.C) {
 func (s *CAASUnitSuite) TestPrivateAddress(c *gc.C) {
 	existingUnit, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.application.UpdateCloudService("", corenetwork.SpaceAddresses{
-		corenetwork.NewScopedSpaceAddress("192.168.1.2", corenetwork.ScopeCloudLocal),
-		corenetwork.NewScopedSpaceAddress("54.32.1.2", corenetwork.ScopePublic),
+	err = s.application.UpdateCloudService("", network.SpaceAddresses{
+		network.NewScopedSpaceAddress("192.168.1.2", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("54.32.1.2", network.ScopePublic),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err := existingUnit.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr, jc.DeepEquals, corenetwork.NewScopedSpaceAddress("192.168.1.2", corenetwork.ScopeCloudLocal))
+	c.Assert(addr, jc.DeepEquals, network.NewScopedSpaceAddress("192.168.1.2", network.ScopeCloudLocal))
 }
 
 func (s *CAASUnitSuite) TestPublicAddress(c *gc.C) {
 	existingUnit, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.application.UpdateCloudService("", []corenetwork.SpaceAddress{
-		corenetwork.NewScopedSpaceAddress("192.168.1.2", corenetwork.ScopeCloudLocal),
-		corenetwork.NewScopedSpaceAddress("54.32.1.2", corenetwork.ScopePublic),
+	err = s.application.UpdateCloudService("", []network.SpaceAddress{
+		network.NewScopedSpaceAddress("192.168.1.2", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("54.32.1.2", network.ScopePublic),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err := existingUnit.PublicAddress()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr, jc.DeepEquals, corenetwork.NewScopedSpaceAddress("54.32.1.2", corenetwork.ScopePublic))
+	c.Assert(addr, jc.DeepEquals, network.NewScopedSpaceAddress("54.32.1.2", network.ScopePublic))
 }
 
 func (s *CAASUnitSuite) TestAllAddresses(c *gc.C) {
 	existingUnit, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.application.UpdateCloudService("", []corenetwork.SpaceAddress{
-		corenetwork.NewScopedSpaceAddress("192.168.1.2", corenetwork.ScopeCloudLocal),
-		corenetwork.NewScopedSpaceAddress("54.32.1.2", corenetwork.ScopePublic),
+	err = s.application.UpdateCloudService("", []network.SpaceAddress{
+		network.NewScopedSpaceAddress("192.168.1.2", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("54.32.1.2", network.ScopePublic),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2951,10 +2950,10 @@ func (s *CAASUnitSuite) TestAllAddresses(c *gc.C) {
 
 	addrs, err := existingUnit.AllAddresses()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addrs, jc.DeepEquals, corenetwork.SpaceAddresses{
-		corenetwork.NewScopedSpaceAddress("192.168.1.2", corenetwork.ScopeCloudLocal),
-		corenetwork.NewScopedSpaceAddress("54.32.1.2", corenetwork.ScopePublic),
-		corenetwork.NewScopedSpaceAddress("10.0.0.1", corenetwork.ScopeMachineLocal),
+	c.Assert(addrs, jc.DeepEquals, network.SpaceAddresses{
+		network.NewScopedSpaceAddress("192.168.1.2", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("54.32.1.2", network.ScopePublic),
+		network.NewScopedSpaceAddress("10.0.0.1", network.ScopeMachineLocal),
 	})
 }
 
@@ -3049,12 +3048,12 @@ func (s *CAASUnitSuite) TestWatchServiceAddressesHash(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Set service addresses: reported.
-	err = s.application.UpdateCloudService("1", corenetwork.SpaceAddresses{corenetwork.NewSpaceAddress("10.0.0.2")})
+	err = s.application.UpdateCloudService("1", network.SpaceAddresses{network.NewSpaceAddress("10.0.0.2")})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("7fcdfefa54c49ed9dc8132b4a28491a02ec35b03c20b2d4cc95469fead847ff8")
 
 	// Set different container addresses: reported.
-	err = s.application.UpdateCloudService("1", corenetwork.SpaceAddresses{corenetwork.NewSpaceAddress("10.0.0.3")})
+	err = s.application.UpdateCloudService("1", network.SpaceAddresses{network.NewSpaceAddress("10.0.0.3")})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("800892c5473f38623ef4856303b3458cfa81d0da803f228db69910949a13f458")
 
