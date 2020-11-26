@@ -447,8 +447,8 @@ func (s *TargetPrecheckSuite) TestModelMinimumVersion(c *gc.C) {
 
 	s.modelInfo.AgentVersion = version.MustParse("2.8.0")
 	err := s.runPrecheck(backend)
-	c.Assert(err.Error(), gc.Equals,
-		`model must be upgraded to at least version 2.9.0 before being migrated to a controller with version 3.0.0`)
+	c.Assert(err, gc.ErrorMatches,
+		`model must be upgraded to at least version 2.9.* before being migrated to a controller with version 3.0.0`)
 
 	s.modelInfo.AgentVersion = version.MustParse("2.9.0")
 	err = s.runPrecheck(backend)

@@ -107,8 +107,8 @@ func AllowedTargetVersion(
 	curVersion version.Number,
 	targetVersion version.Number,
 ) bool {
-	// Don't allow downgrading from higher major versions.
-	if curVersion.Major > targetVersion.Major {
+	// Don't allow downgrading from higher versions to version 1.x
+	if curVersion.Major >= 2 && targetVersion.Major == 1 {
 		return false
 	}
 	return true

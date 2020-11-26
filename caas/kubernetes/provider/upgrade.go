@@ -30,7 +30,7 @@ func (k *kubernetesClient) Upgrade(agentTag string, vers version.Number) error {
 	switch tag.Kind() {
 	case names.MachineTagKind:
 	case names.ControllerAgentTagKind:
-		return k.upgradeController(tag, vers)
+		return k.upgradeController(vers)
 	case names.ApplicationTagKind:
 		return k.upgradeOperator(tag, vers)
 	case names.ModelTagKind:
