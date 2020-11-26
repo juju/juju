@@ -427,6 +427,26 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 	c.Assert(egress, gc.DeepEquals, []string{"1.2.3.4/32"})
 }
 
+func (s *networkInfoSuite) TestNetworksForRelationCAASModelInvalidBinding(c *gc.C) {
+	st := s.Factory.MakeCAASModel(c, nil)
+	defer func() { _ = st.Close() }()
+
+	f := factory.NewFactory(st, s.StatePool)
+	gitLabCh := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	mySqlCh := f.MakeCharm(c, &factory.CharmParams{Name: "mysql", Series: "kubernetes"})
+	gitLab := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: gitLabCh})
+	mySql := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: mySqlCh})
+
+	prr := newProReqRelationForApps(c, st, mySql, gitLab)
+
+	// We need to instantiate this with the new CAAS model state.
+	netInfo, err := uniter.NewNetworkInfoForStrategy(st, prr.pu0.UnitTag(), nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, _, _, err = netInfo.NetworksForRelation("unknown", prr.rel, true)
+	c.Assert(err, gc.ErrorMatches, `undefined for unit charm: endpoint "unknown" not valid`)
+}
+
 func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
 	spaceIDDefault := s.setupSpace(c, "default", "10.0.0.0/24")
 	spaceIDDMZ := s.setupSpace(c, "dmz", "10.10.0.0/24")
