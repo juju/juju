@@ -108,7 +108,7 @@ func NewProvider() caas.ContainerEnvironProvider {
 func NewProviderWithFakes(
 	runner CommandRunner,
 	getter func(CommandRunner) (cloud.Cloud, jujucloud.Credential, string, error),
-	brokerGetter func(environs.OpenParams) (caas.ClusterMetadataChecker, error)) caas.ContainerEnvironProvider {
+	brokerGetter func(environs.OpenParams) (ClusterMetadataChecker, error)) caas.ContainerEnvironProvider {
 	return kubernetesEnvironProvider{
 		cmdRunner:          runner,
 		builtinCloudGetter: getter,

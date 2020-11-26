@@ -2077,6 +2077,17 @@ func (k *kubernetesClient) WatchService(appName string, mode caas.DeploymentMode
 	return watcher.NewMultiNotifyWatcher(w1, w2), nil
 }
 
+// CheckCloudCredentials verifies the the cloud credentials provided to the
+// broker are functioning.
+func (k *kubernetesClient) CheckCloudCredentials() error {
+	if _, err := k.Namespaces(); err != nil {
+		// If this call could not be made with provided credential, we
+		// know that the credential is invalid.
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 // Units returns all units and any associated filesystems of the specified application.
 // Filesystems are mounted via volumes bound to the unit.
 func (k *kubernetesClient) Units(appName string, mode caas.DeploymentMode) ([]caas.Unit, error) {

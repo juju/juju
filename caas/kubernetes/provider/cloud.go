@@ -46,7 +46,7 @@ type KubeCloudParams struct {
 type KubeCloudStorageParams struct {
 	WorkloadStorage        string
 	HostCloudRegion        string
-	MetadataChecker        caas.ClusterMetadataChecker
+	MetadataChecker        ClusterMetadataChecker
 	GetClusterMetadataFunc GetClusterMetadataFunc
 }
 

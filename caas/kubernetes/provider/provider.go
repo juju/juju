@@ -28,11 +28,24 @@ import (
 	"github.com/juju/juju/environs/context"
 )
 
+// ClusterMetadataChecker provides an API to query cluster metadata.
+type ClusterMetadataChecker interface {
+	// GetClusterMetadata returns metadata about host cloud and storage for the cluster.
+	GetClusterMetadata(storageClass string) (result *caas.ClusterMetadata, err error)
+
+	// CheckDefaultWorkloadStorage returns an error if the opinionated storage defined for
+	// the cluster does not match the specified storage.
+	CheckDefaultWorkloadStorage(cluster string, storageProvisioner *caas.StorageProvisioner) error
+
+	// EnsureStorageProvisioner creates a storage provisioner with the specified config, or returns an existing one.
+	EnsureStorageProvisioner(cfg caas.StorageProvisioner) (*caas.StorageProvisioner, bool, error)
+}
+
 type kubernetesEnvironProvider struct {
 	environProviderCredentials
 	cmdRunner          CommandRunner
 	builtinCloudGetter func(CommandRunner) (cloud.Cloud, jujucloud.Credential, string, error)
-	brokerGetter       func(environs.OpenParams) (caas.ClusterMetadataChecker, error)
+	brokerGetter       func(environs.OpenParams) (ClusterMetadataChecker, error)
 }
 
 var _ environs.EnvironProvider = (*kubernetesEnvironProvider)(nil)
@@ -43,8 +56,17 @@ var providerInstance = kubernetesEnvironProvider{
 	},
 	cmdRunner:          defaultRunner{},
 	builtinCloudGetter: attemptMicroK8sCloud,
-	brokerGetter: func(args environs.OpenParams) (caas.ClusterMetadataChecker, error) {
-		return caas.New(args)
+	brokerGetter: func(args environs.OpenParams) (ClusterMetadataChecker, error) {
+		broker, err := caas.New(args)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		metaChecker, supported := broker.(ClusterMetadataChecker)
+		if !supported {
+			return nil, errors.NotSupportedf("cluster metadata ")
+		}
+		return metaChecker, nil
 	},
 }
 

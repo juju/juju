@@ -111,7 +111,7 @@ func (s *cloudSuite) TestFinalizeCloudNotMicrok8s(c *gc.C) {
 	p := provider.NewProviderWithFakes(
 		dummyRunner{},
 		getterFunc(builtinCloudRet{}),
-		func(environs.OpenParams) (caas.ClusterMetadataChecker, error) { return &s.fakeBroker, nil })
+		func(environs.OpenParams) (provider.ClusterMetadataChecker, error) { return &s.fakeBroker, nil })
 	cloudFinalizer := p.(environs.CloudFinalizer)
 
 	var ctx mockContext
@@ -193,7 +193,7 @@ func (s *cloudSuite) getProvider() caas.ContainerEnvironProvider {
 	return provider.NewProviderWithFakes(
 		s.runner,
 		getterFunc(builtinCloudRet{cloud: defaultK8sCloud, credential: getDefaultCredential(), err: nil}),
-		func(environs.OpenParams) (caas.ClusterMetadataChecker, error) { return &s.fakeBroker, nil },
+		func(environs.OpenParams) (provider.ClusterMetadataChecker, error) { return &s.fakeBroker, nil },
 	)
 }
 
@@ -254,7 +254,7 @@ func (c *mockContext) Verbosef(f string, args ...interface{}) {
 
 type fakeK8sClusterMetadataChecker struct {
 	*testing.CallMocker
-	caas.ClusterMetadataChecker
+	provider.ClusterMetadataChecker
 }
 
 func (api *fakeK8sClusterMetadataChecker) GetClusterMetadata(storageClass string) (result *caas.ClusterMetadata, err error) {

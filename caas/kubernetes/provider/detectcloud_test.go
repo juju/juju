@@ -49,7 +49,7 @@ func (s *detectCloudSuite) getProvider(builtin builtinCloudRet) caas.ContainerEn
 	return provider.NewProviderWithFakes(
 		dummyRunner{},
 		getterFunc(builtin),
-		func(environs.OpenParams) (caas.ClusterMetadataChecker, error) {
+		func(environs.OpenParams) (provider.ClusterMetadataChecker, error) {
 			return &fakeK8sClusterMetadataChecker{}, nil
 		},
 	)
