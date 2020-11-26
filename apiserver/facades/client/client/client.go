@@ -688,9 +688,9 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 			return err
 		}
 	}
-	// Check k8s clusters.
-	if env, ok := envOrBroker.(caas.ClusterMetadataChecker); ok {
-		if _, err := env.GetClusterMetadata(""); err != nil {
+	// Check credentials against the container broker
+	if env, ok := envOrBroker.(caas.CredentialChecker); ok {
+		if err := env.CheckCloudCredentials(); err != nil {
 			return errors.Annotate(err, "cannot make API call to provider")
 		}
 	}

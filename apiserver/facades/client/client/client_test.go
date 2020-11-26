@@ -480,6 +480,11 @@ func (m *mockBroker) GetClusterMetadata(storageClass string) (result *caas.Clust
 	return nil, m.err
 }
 
+func (m *mockBroker) CheckCloudCredentials() error {
+	m.getMetadataCalled = true
+	return m.err
+}
+
 func (s *serverSuite) assertCheckCAASProviderAPI(c *gc.C, envError error, expectErr string) {
 	env := &mockBroker{err: envError}
 	s.newEnviron = func() (environs.BootstrapEnviron, error) {

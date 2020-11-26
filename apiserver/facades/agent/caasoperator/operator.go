@@ -56,6 +56,10 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "getting caas client")
 	}
+	containerStartWatcher, implemented := caasBroker.(CAASBrokerInterface)
+	if !implemented {
+		return nil, errors.NotSupportedf("watching for container start events")
+	}
 	leadershipRevoker, err := ctx.LeadershipRevoker(ctx.State().ModelUUID())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting leadership client")
@@ -64,7 +68,7 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 		stateShim{ctx.StatePool().SystemState()},
 		stateShim{ctx.State()},
 		unitcommon.Backend(ctx.State()),
-		caasBroker, leadershipRevoker)
+		containerStartWatcher, leadershipRevoker)
 }
 
 // NewFacade returns a new CAASOperator facade.
