@@ -5,7 +5,6 @@ package uniter
 
 import (
 	"net"
-	"strings"
 	"time"
 
 	"github.com/juju/clock"
@@ -16,8 +15,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
 
@@ -25,7 +23,7 @@ type NetworkInfo interface {
 	ProcessAPIRequest(params.NetworkInfoParams) (params.NetworkInfoResults, error)
 	NetworksForRelation(
 		binding string, rel *state.Relation, pollPublic bool,
-	) (boundSpace string, ingress corenetwork.SpaceAddresses, egress []string, err error)
+	) (boundSpace string, ingress network.SpaceAddresses, egress []string, err error)
 }
 
 // TODO (manadart 2019-10-09):
@@ -119,19 +117,22 @@ func (n *NetworkInfoBase) validateEndpoints(endpoints []string) (set.Strings, pa
 	valid := set.NewStrings()
 	result := params.NetworkInfoResults{Results: make(map[string]params.NetworkInfoResult)}
 
-	// For each of the endpoints in the request, get the bound space and
-	// initialise the endpoint egress map with the model's configured
-	// egress subnets. Keep track of the spaces that we observe.
 	for _, endpoint := range endpoints {
-		if _, ok := n.bindings[endpoint]; ok {
-			valid.Add(endpoint)
-		} else {
-			err := errors.NotValidf("undefined for unit charm: endpoint %q", endpoint)
+		if err := n.validateEndpoint(endpoint); err != nil {
 			result.Results[endpoint] = params.NetworkInfoResult{Error: apiservererrors.ServerError(err)}
+			continue
 		}
+		valid.Add(endpoint)
 	}
 
 	return valid, result
+}
+
+func (n *NetworkInfoBase) validateEndpoint(endpoint string) error {
+	if _, ok := n.bindings[endpoint]; !ok {
+		return errors.NotValidf("undefined for unit charm: endpoint %q", endpoint)
+	}
+	return nil
 }
 
 // getRelationAndEndpointName returns the relation for the input ID
@@ -154,7 +155,7 @@ func (n *NetworkInfoBase) getRelationAndEndpointName(relationID int) (*state.Rel
 // input relation is cross-model and pollAddr is passed as true.
 // The unit public address is preferred, but we will fall back to the private
 // address if it does not become available in the polling window.
-func (n *NetworkInfoBase) maybeGetUnitAddress(rel *state.Relation) (corenetwork.SpaceAddresses, error) {
+func (n *NetworkInfoBase) maybeGetUnitAddress(rel *state.Relation) (network.SpaceAddresses, error) {
 	_, crossModel, err := rel.RemoteApplication()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -168,14 +169,14 @@ func (n *NetworkInfoBase) maybeGetUnitAddress(rel *state.Relation) (corenetwork.
 		logger.Warningf(
 			"no public address for unit %q in cross model relation %q, will use private address", n.unit.Name(), rel)
 	} else if address.Value != "" {
-		return corenetwork.SpaceAddresses{address}, nil
+		return network.SpaceAddresses{address}, nil
 	}
 
 	address, err = n.pollForAddress(n.unit.PrivateAddress)
 	if err != nil {
 		logger.Warningf("no private address for unit %q in relation %q", n.unit.Name(), rel)
 	} else if address.Value != "" {
-		return corenetwork.SpaceAddresses{address}, nil
+		return network.SpaceAddresses{address}, nil
 	}
 
 	return nil, nil
@@ -186,7 +187,7 @@ func (n *NetworkInfoBase) maybeGetUnitAddress(rel *state.Relation) (corenetwork.
 // If there are none, it attempts to resolve a subnet from the input
 // ingress addresses.
 func (n *NetworkInfoBase) getEgressForRelation(
-	rel *state.Relation, ingress corenetwork.SpaceAddresses,
+	rel *state.Relation, ingress network.SpaceAddresses,
 ) ([]string, error) {
 	egressSubnets, err := state.NewRelationEgressNetworks(n.st).Networks(rel.Tag().Id())
 	if err != nil {
@@ -290,16 +291,16 @@ func (n *NetworkInfoBase) resolveHostAddress(hostName string) string {
 // TODO (manadart 2020-11-19): This preserves prior behaviour,
 // but should we just return them all?
 func subnetsForAddresses(addrs []string) []string {
-	if egress := corenetwork.SubnetsForAddresses(addrs); len(egress) > 0 {
+	if egress := network.SubnetsForAddresses(addrs); len(egress) > 0 {
 		return egress[:1]
 	}
 	return nil
 }
 
 func (n *NetworkInfoBase) pollForAddress(
-	fetcher func() (corenetwork.SpaceAddress, error),
-) (corenetwork.SpaceAddress, error) {
-	var address corenetwork.SpaceAddress
+	fetcher func() (network.SpaceAddress, error),
+) (network.SpaceAddress, error) {
+	var address network.SpaceAddress
 	retryArg := n.retryFactory()
 	retryArg.Func = func() error {
 		var err error
@@ -307,7 +308,7 @@ func (n *NetworkInfoBase) pollForAddress(
 		return err
 	}
 	retryArg.IsFatalError = func(err error) bool {
-		return !corenetwork.IsNoAddressError(err)
+		return !network.IsNoAddressError(err)
 	}
 	return address, retry.Call(retryArg)
 }
@@ -361,28 +362,6 @@ func uniqueInterfaceAddresses(addrList []params.InterfaceAddress) []params.Inter
 	}
 
 	return uniqueAddrList
-}
-
-// spaceAddressesFromNetworkInfo returns a SpaceAddresses collection
-// from a slice of NetworkInfo.
-// We need to construct sortable addresses from link-layer devices,
-// which unlike addresses from the machines collection, do not have the scope
-// information that we need.
-// The best we can do here is identify fan addresses so that they are sorted
-// after other addresses.
-func spaceAddressesFromNetworkInfo(netInfos []network.NetworkInfo) corenetwork.SpaceAddresses {
-	var addrs corenetwork.SpaceAddresses
-	for _, nwInfo := range netInfos {
-		scope := corenetwork.ScopeUnknown
-		if strings.HasPrefix(nwInfo.InterfaceName, "fan-") {
-			scope = corenetwork.ScopeFanLocal
-		}
-
-		for _, addr := range nwInfo.Addresses {
-			addrs = append(addrs, corenetwork.NewScopedSpaceAddress(addr.Address, scope))
-		}
-	}
-	return addrs
 }
 
 var defaultRetryFactory = func() retry.CallArgs {
