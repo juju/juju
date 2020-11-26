@@ -1038,8 +1038,16 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		return nil, errors.Trace(err)
 	}
 
-	// CAAS charms don't support volume/block storage yet.
-	if model.Type() == ModelTypeCAAS {
+	switch model.Type() {
+	case ModelTypeIAAS:
+		// CAAS doesn't support architecture in every scenario.
+		args.Constraints, err = st.deriveApplicationConstraints(args.Constraints, args.Charm.Meta().Subordinate)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+	case ModelTypeCAAS:
+		// CAAS charms don't support volume/block storage yet.
 		for name, charmStorage := range args.Charm.Meta().Storage {
 			if storageKind(charmStorage.Type) != storage.StorageKindBlock {
 				continue
@@ -1052,11 +1060,6 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 				return nil, errors.NotSupportedf("block storage on a Kubernetes model")
 			}
 		}
-	}
-
-	args.Constraints, err = st.deriveApplicationConstraints(args.Constraints, args.Charm.Meta().Subordinate)
-	if err != nil {
-		return nil, errors.Trace(err)
 	}
 
 	if len(args.AttachStorage) > 0 && args.NumUnits != 1 {
