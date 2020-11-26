@@ -5,7 +5,6 @@ package uniter
 
 import (
 	"net"
-	"strings"
 	"time"
 
 	"github.com/juju/clock"
@@ -17,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -119,19 +117,22 @@ func (n *NetworkInfoBase) validateEndpoints(endpoints []string) (set.Strings, pa
 	valid := set.NewStrings()
 	result := params.NetworkInfoResults{Results: make(map[string]params.NetworkInfoResult)}
 
-	// For each of the endpoints in the request, get the bound space and
-	// initialise the endpoint egress map with the model's configured
-	// egress subnets. Keep track of the spaces that we observe.
 	for _, endpoint := range endpoints {
-		if _, ok := n.bindings[endpoint]; ok {
-			valid.Add(endpoint)
-		} else {
-			err := errors.NotValidf("undefined for unit charm: endpoint %q", endpoint)
+		if err := n.validateEndpoint(endpoint); err != nil {
 			result.Results[endpoint] = params.NetworkInfoResult{Error: common.ServerError(err)}
+			continue
 		}
+		valid.Add(endpoint)
 	}
 
 	return valid, result
+}
+
+func (n *NetworkInfoBase) validateEndpoint(endpoint string) error {
+	if _, ok := n.bindings[endpoint]; !ok {
+		return errors.NotValidf("undefined for unit charm: endpoint %q", endpoint)
+	}
+	return nil
 }
 
 // getRelationAndEndpointName returns the relation for the input ID
@@ -361,28 +362,6 @@ func uniqueInterfaceAddresses(addrList []params.InterfaceAddress) []params.Inter
 	}
 
 	return uniqueAddrList
-}
-
-// spaceAddressesFromNetworkInfo returns a SpaceAddresses collection
-// from a slice of NetworkInfo.
-// We need to construct sortable addresses from link-layer devices,
-// which unlike addresses from the machines collection, do not have the scope
-// information that we need.
-// The best we can do here is identify fan addresses so that they are sorted
-// after other addresses.
-func spaceAddressesFromNetworkInfo(netInfos []network.NetworkInfo) corenetwork.SpaceAddresses {
-	var addrs corenetwork.SpaceAddresses
-	for _, nwInfo := range netInfos {
-		scope := corenetwork.ScopeUnknown
-		if strings.HasPrefix(nwInfo.InterfaceName, "fan-") {
-			scope = corenetwork.ScopeFanLocal
-		}
-
-		for _, addr := range nwInfo.Addresses {
-			addrs = append(addrs, corenetwork.NewScopedSpaceAddress(addr.Address, scope))
-		}
-	}
-	return addrs
 }
 
 var defaultRetryFactory = func() retry.CallArgs {
