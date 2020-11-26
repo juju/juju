@@ -104,7 +104,6 @@ func (u *Upgrader) Wait() error {
 // AllowedTargetVersion checks if targetVersion is too different from
 // curVersion to allow a downgrade.
 func AllowedTargetVersion(
-	origAgentVersion version.Number,
 	curVersion version.Number,
 	targetVersion version.Number,
 ) bool {
@@ -200,7 +199,6 @@ func (u *Upgrader) loop() error {
 			u.config.InitialUpgradeCheckComplete.Unlock()
 			continue
 		} else if !AllowedTargetVersion(
-			u.config.OrigAgentVersion,
 			haveVersion,
 			wantVersion,
 		) {

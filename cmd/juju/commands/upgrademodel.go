@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/jujuclient"
 	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -77,28 +78,22 @@ See also:
     sync-agent-binaries`
 
 func newUpgradeJujuCommand() cmd.Command {
-	command := &upgradeJujuCommand{
-		baseUpgradeCommand: baseUpgradeCommand{minMajorUpgradeVersion: minMajorUpgradeVersion}}
+	command := &upgradeJujuCommand{}
 	return modelcmd.Wrap(command)
 }
 
 func newUpgradeJujuCommandForTest(
 	store jujuclient.ClientStore,
-	minUpgradeVers map[int]version.Number,
 	jujuClientAPI jujuClientAPI,
 	modelConfigAPI modelConfigAPI,
 	modelManagerAPI modelManagerAPI,
 	controllerAPI controllerAPI,
 	options ...modelcmd.WrapOption) cmd.Command {
-	if minUpgradeVers == nil {
-		minUpgradeVers = minMajorUpgradeVersion
-	}
 	command := &upgradeJujuCommand{
 		baseUpgradeCommand: baseUpgradeCommand{
-			minMajorUpgradeVersion: minUpgradeVers,
-			modelConfigAPI:         modelConfigAPI,
-			modelManagerAPI:        modelManagerAPI,
-			controllerAPI:          controllerAPI,
+			modelConfigAPI:  modelConfigAPI,
+			modelManagerAPI: modelManagerAPI,
+			controllerAPI:   controllerAPI,
 		},
 		jujuClientAPI: jujuClientAPI,
 	}
@@ -124,12 +119,6 @@ type baseUpgradeCommand struct {
 
 	rawArgs        []string
 	upgradeMessage string
-
-	// minMajorUpgradeVersion maps known major numbers to
-	// the minimum version that can be upgraded to that
-	// major version.  For example, users must be running
-	// 1.25.4 or later in order to upgrade to 2.0.
-	minMajorUpgradeVersion map[int]version.Number
 
 	modelConfigAPI  modelConfigAPI
 	modelManagerAPI modelManagerAPI
@@ -213,22 +202,13 @@ func (c *baseUpgradeCommand) precheckVersion(ctx *cmd.Context, agentVersion vers
 		// User is requesting an upgrade to a new major number
 		// Only upgrade to a different major number if:
 		// 1 - Explicitly requested with --agent-version or using --build-agent, and
-		// 2 - The environment is running a valid version to upgrade from, and
-		// 3 - The upgrade is to a minor version of 0.
-		if c.minMajorUpgradeVersion == nil {
-			break
-		}
-		minVer, ok := c.minMajorUpgradeVersion[c.Version.Major]
-		if !ok {
-			return false, errors.Errorf("unknown version %q", c.Version)
+		// 2 - The model is running a valid version to upgrade from.
+		allowed, minVer, err := upgrades.UpgradeAllowed(agentVersion, c.Version)
+		if err != nil {
+			return false, errors.Trace(err)
 		}
 		retErr := false
-		if c.Version.Minor != 0 {
-			ctx.Infof("upgrades to %s must first go through juju %d.0",
-				c.Version, c.Version.Major)
-			retErr = true
-		}
-		if comp := agentVersion.Compare(minVer); comp < 0 {
+		if !allowed {
 			ctx.Infof("upgrades to a new major version must first go through %s",
 				minVer)
 			retErr = true
@@ -263,11 +243,8 @@ func (c *upgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 var (
-	errUpToDate            = stderrors.New("no upgrades available")
-	downgradeErrMsg        = "cannot change version from %s to lower version %s"
-	minMajorUpgradeVersion = map[int]version.Number{
-		2: version.MustParse("1.25.4"),
-	}
+	errUpToDate     = stderrors.New("no upgrades available")
+	downgradeErrMsg = "cannot change version from %s to lower version %s"
 )
 
 // canUpgradeRunningVersion determines if the version of the running
@@ -281,17 +258,21 @@ var (
 // version of the upgrade-model command may not know how to upgrade
 // an environment running juju 4.0.0.
 //
-// The exception is that a N.0.* client must be able to upgrade
+// The exception is that a N.*.* client must be able to upgrade
 // an environment one major version prior (N-1.*.*) so that
 // it can be used to upgrade the environment to N.0.*.  For
-// example, the 2.0.1 upgrade-model command must be able to upgrade
-// environments running 1.* since it must be able to upgrade
-// environments from 1.25.4 -> 2.0.*.
+// example, the 3.*.* upgrade-model command must be able to upgrade
+// environments running 2.* since it must be able to upgrade
+// environments from 2.8.7 -> 3.*.*.
+// We used to require that the minor version of a newer client had
+// to be 0 but with snap auto update, the client can be any minor
+// version so need to ensure that all N.*.* clients can upgrade
+// N-1.*.* controllers.
 func canUpgradeRunningVersion(runningAgentVer version.Number) bool {
 	if runningAgentVer.Major == jujuversion.Current.Major {
 		return true
 	}
-	if jujuversion.Current.Minor == 0 && runningAgentVer.Major == (jujuversion.Current.Major-1) {
+	if runningAgentVer.Major == (jujuversion.Current.Major - 1) {
 		return true
 	}
 	return false

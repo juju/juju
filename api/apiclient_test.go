@@ -1234,6 +1234,24 @@ func (s *apiclientSuite) TestLoginCapturesCLIArgs(c *gc.C) {
 	c.Assert(request.CLIArgs, gc.Equals, `this is "the test" command`)
 }
 
+func (s *apiclientSuite) TestLoginIncompatibleClient(c *gc.C) {
+	clock := &fakeClock{}
+	conn := api.NewTestingState(api.TestingStateParams{
+		RPCConnection: newRPCConnection(&rpc.RequestError{
+			Code: "incompatible client",
+			Info: map[string]interface{}{"server-version": "99.0.0"},
+		}),
+		Clock: clock,
+	})
+
+	err := conn.APICall("facade", 1, "id", "method", nil, nil)
+	c.Check(clock.waits, gc.HasLen, 0)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
+		"juju client with major version %d used with a controller having major version %d not supported\\n.*",
+		jujuversion.Current.Major, 99,
+	))
+}
+
 type clientDNSNameSuite struct {
 	jjtesting.JujuConnSuite
 }

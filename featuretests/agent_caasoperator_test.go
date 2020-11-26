@@ -31,7 +31,9 @@ import (
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 	caasoperatorworker "github.com/juju/juju/worker/caasoperator"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/uniter"
@@ -56,9 +58,16 @@ func (s *CAASOperatorSuite) SetUpSuite(c *gc.C) {
 func (s *CAASOperatorSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
 
-	// Set up a CAAS model to replace the IAAS one.
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
-	st := s.Factory.MakeCAASModel(c, nil)
+	// Set up a CAAS model to replace the IAAS one.
+	// Ensure major version 1 is used to prevent an upgrade
+	// from being attempted.
+	modelVers := jujuversion.Current
+	modelVers.Major = 1
+	extraAttrs := coretesting.Attrs{
+		"agent-version": modelVers.String(),
+	}
+	st := s.Factory.MakeCAASModel(c, &factory.ModelParams{ConfigAttrs: extraAttrs})
 	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
 	s.State = st
 
