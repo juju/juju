@@ -1013,6 +1013,9 @@
                         "cli-args": {
                             "type": "string"
                         },
+                        "client-version": {
+                            "type": "string"
+                        },
                         "credentials": {
                             "type": "string"
                         },

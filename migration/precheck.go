@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/tools"
+	"github.com/juju/juju/upgrades"
 )
 
 // PrecheckBackend defines the interface to query Juju's state
@@ -217,6 +218,16 @@ func TargetPrecheck(backend PrecheckBackend, pool Pool, modelInfo coremigration.
 	if !controllerVersionCompatible(modelInfo.ControllerAgentVersion, controllerVersion) {
 		return errors.Errorf("source controller has higher version than target controller (%s > %s)",
 			modelInfo.ControllerAgentVersion, controllerVersion)
+	}
+
+	// The UpgradeAllowed check is the same as validating if a model can be migrated
+	// to a controller running a newer Juju version.
+	allowed, minVer, err := upgrades.UpgradeAllowed(modelInfo.AgentVersion, controllerVersion)
+	if err != nil {
+		return errors.Maskf(err, "unknown target controller version %v", controllerVersion)
+	}
+	if !allowed {
+		return errors.Errorf("model must be upgraded to at least version %s before being migrated to a controller with version %s", minVer, controllerVersion)
 	}
 
 	controllerCtx := precheckContext{backend, presence}

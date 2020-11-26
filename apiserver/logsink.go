@@ -15,6 +15,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/version"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/logsink"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -135,7 +136,7 @@ func (s *agentLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
 	// *Juju* version be provided as part of the request. Any
 	// attempt to open this endpoint to broader access must
 	// address this caveat appropriately.
-	ver, err := logsink.JujuClientVersionFromRequest(req)
+	ver, err := common.JujuClientVersionFromRequest(req)
 	if err != nil {
 		st.Release()
 		return errors.Trace(err)

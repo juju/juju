@@ -23,6 +23,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/version"
 )
 
 type httpSuite struct {
@@ -230,8 +231,9 @@ func (s *httpSuite) TestAuthHTTPRequest(c *gc.C) {
 	req := s.authHTTPRequest(c, apiInfo)
 	_, _, ok := req.BasicAuth()
 	c.Assert(ok, jc.IsFalse)
-	c.Assert(req.Header, gc.HasLen, 1)
+	c.Assert(req.Header, gc.HasLen, 2)
 	c.Assert(req.Header.Get(httpbakery.BakeryProtocolHeader), gc.Equals, "3")
+	c.Assert(req.Header.Get(params.JujuClientVersion), gc.Equals, version.Current.String())
 
 	apiInfo.Nonce = "foo"
 	req = s.authHTTPRequest(c, apiInfo)

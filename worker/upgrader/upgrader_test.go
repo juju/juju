@@ -474,26 +474,24 @@ func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *gc.C) {
 }
 
 type allowedTest struct {
-	original string
-	current  string
-	target   string
-	allowed  bool
+	current string
+	target  string
+	allowed bool
 }
 
 func (s *AllowedTargetVersionSuite) TestAllowedTargetVersionSuite(c *gc.C) {
 	cases := []allowedTest{
-		{original: "2.7.4", current: "2.7.4", target: "2.8.0", allowed: true},  // normal upgrade
-		{original: "2.8.0", current: "2.8.0", target: "2.7.4", allowed: true},  // downgrade caused by restore after upgrade
-		{original: "2.8.0", current: "2.8.0", target: "1.2.3", allowed: false}, // can't downgrade to v1.x
-		{original: "2.7.4", current: "2.7.4", target: "2.7.5", allowed: true},  // point release
-		{original: "2.7.4", current: "2.8.0", target: "2.7.4", allowed: true},  // downgrade after upgrade but before config file updated
+		{current: "2.7.4", target: "2.8.0", allowed: true},  // normal upgrade
+		{current: "2.8.0", target: "2.7.4", allowed: true},  // downgrade caused by restore after upgrade
+		{current: "3.8.0", target: "2.2.3", allowed: false}, // can't downgrade major versions
+		{current: "2.7.4", target: "2.7.5", allowed: true},  // point release
+		{current: "2.8.0", target: "2.7.4", allowed: true},  // downgrade after upgrade but before config file updated
 	}
 	for i, test := range cases {
 		c.Logf("test case %d, %#v", i, test)
-		original := version.MustParse(test.original)
 		current := version.MustParse(test.current)
 		target := version.MustParse(test.target)
-		result := upgrader.AllowedTargetVersion(original, current, target)
+		result := upgrader.AllowedTargetVersion(current, target)
 		c.Check(result, gc.Equals, test.allowed)
 	}
 }

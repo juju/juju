@@ -118,7 +118,7 @@ func (s *InterfaceSuite) TestUnitNetworkInfo(c *gc.C) {
 	c.Check(netInfo, gc.DeepEquals, map[string]params.NetworkInfoResult{
 		"unknown": {
 			Error: &params.Error{
-				Message: "binding name \"unknown\" not defined by the unit's charm",
+				Message: `undefined for unit charm: endpoint "unknown" not valid`,
 			},
 		},
 	},
