@@ -163,7 +163,7 @@ func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
 
 	client := charms.NewClientWithFacade(mockFacadeCaller)
 	got, err := client.AddCharm(curl, origin, false, "bionic")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, gc.DeepEquals, origin)
 }
 
@@ -196,6 +196,50 @@ func (s *charmsMockSuite) TestAddCharmWithAuthorization(c *gc.C) {
 
 	client := charms.NewClientWithFacade(mockFacadeCaller)
 	got, err := client.AddCharmWithAuthorization(curl, origin, &macaroon.Macaroon{}, false, "bionic")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, gc.DeepEquals, origin)
+}
+
+func (s charmsMockSuite) TestCheckCharmPlacement(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	facadeArgs := params.ApplicationCharmPlacements{
+		Placements: []params.ApplicationCharmPlacement{{
+			Application: "winnie",
+			CharmURL:    "ch:poo",
+		}},
+	}
+
+	var result params.ErrorResults
+	actualResult := params.ErrorResults{
+		Results: make([]params.ErrorResult, 1),
+	}
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("CheckCharmPlacement", facadeArgs, &result).SetArg(2, actualResult).Return(nil)
+
+	client := charms.NewClientWithFacade(mockFacadeCaller)
+	err := client.CheckCharmPlacement("winnie", charm.MustParseURL("poo"))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s charmsMockSuite) TestCheckCharmPlacementError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	facadeArgs := params.ApplicationCharmPlacements{
+		Placements: []params.ApplicationCharmPlacement{{
+			Application: "winnie",
+			CharmURL:    "ch:poo",
+		}},
+	}
+
+	var result params.ErrorResults
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("CheckCharmPlacement", facadeArgs, &result).Return(errors.Errorf("trap"))
+
+	client := charms.NewClientWithFacade(mockFacadeCaller)
+	err := client.CheckCharmPlacement("winnie", charm.MustParseURL("poo"))
+	c.Assert(err, gc.ErrorMatches, "trap")
 }

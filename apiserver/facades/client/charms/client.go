@@ -19,8 +19,10 @@ import (
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	charmsinterfaces "github.com/juju/juju/apiserver/facades/client/charms/interfaces"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub"
+	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/permission"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -33,8 +35,8 @@ import (
 type API struct {
 	*charmscommon.CharmsAPI
 	authorizer   facade.Authorizer
-	backendState BackendState
-	backendModel BackendModel
+	backendState charmsinterfaces.BackendState
+	backendModel charmsinterfaces.BackendModel
 
 	csResolverGetterFunc CSResolverGetterFunc
 	getStrategyFunc      func(source string) StrategyFunc
@@ -43,6 +45,10 @@ type API struct {
 }
 
 type APIv2 struct {
+	*APIv3
+}
+
+type APIv3 struct {
 	*API
 }
 
@@ -73,8 +79,31 @@ func (a *API) checkCanWrite() error {
 	return nil
 }
 
+// NewFacadeV2 provides the signature required for facade V2 registration.
+// It is unknown where V1 is.
+func NewFacadeV2(ctx facade.Context) (*APIv2, error) {
+	v4, err := NewFacadeV4(ctx)
+	if err != nil {
+		return nil, nil
+	}
+	return &APIv2{
+		APIv3: &APIv3{
+			API: v4,
+		},
+	}, nil
+}
+
 // NewFacadeV3 provides the signature required for facade V3 registration.
-func NewFacadeV3(ctx facade.Context) (*API, error) {
+func NewFacadeV3(ctx facade.Context) (*APIv3, error) {
+	api, err := NewFacadeV4(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv3{API: api}, nil
+}
+
+// NewFacadeV4 provides the signature required for facade V4 registration.
+func NewFacadeV4(ctx facade.Context) (*API, error) {
 	authorizer := ctx.Auth()
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -103,20 +132,10 @@ func NewFacadeV3(ctx facade.Context) (*API, error) {
 	}, nil
 }
 
-// NewFacade provides the signature required for facade V2 registration.
-// It is unknown where V1 is.
-func NewFacade(ctx facade.Context) (*APIv2, error) {
-	v3, err := NewFacadeV3(ctx)
-	if err != nil {
-		return nil, nil
-	}
-	return &APIv2{v3}, nil
-}
-
 func NewCharmsAPI(
 	authorizer facade.Authorizer,
-	st BackendState,
-	m BackendModel,
+	st charmsinterfaces.BackendState,
+	m charmsinterfaces.BackendModel,
 	csResolverFunc CSResolverGetterFunc,
 	getStrategyFunc func(source string) StrategyFunc,
 	newStorage func(modelUUID string, session *mgo.Session) storage.Storage,
@@ -530,4 +549,148 @@ func (a *API) IsMetered(args params.CharmURL) (params.IsMeteredResult, error) {
 		return params.IsMeteredResult{Metered: true}, nil
 	}
 	return params.IsMeteredResult{Metered: false}, nil
+}
+
+// CheckCharmPlacement isn't on the v13 API.
+func (a *APIv3) CheckCharmPlacement(_, _ struct{}) {}
+
+// CheckCharmPlacement checks if a charm is allowed to be placed with in a
+// given application.
+func (a *API) CheckCharmPlacement(args params.ApplicationCharmPlacements) (params.ErrorResults, error) {
+	if err := a.checkCanRead(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Placements)),
+	}
+	for i, placement := range args.Placements {
+		result, err := a.checkCharmPlacement(placement)
+		if err != nil {
+			return params.ErrorResults{}, errors.Trace(err)
+		}
+		results.Results[i] = result
+	}
+
+	return results, nil
+}
+
+func (a *API) checkCharmPlacement(arg params.ApplicationCharmPlacement) (params.ErrorResult, error) {
+	curl, err := charm.ParseURL(arg.CharmURL)
+	if err != nil {
+		return params.ErrorResult{
+			Error: apiservererrors.ServerError(err),
+		}, nil
+	}
+
+	// The placement logic below only cares about charmhub charms. Once we have
+	// multiple architecture support for charmhub, we can remove the placement
+	// check.
+	if !charm.CharmHub.Matches(curl.Schema) {
+		return params.ErrorResult{}, nil
+	}
+
+	// Get the application. If it's not found, just return without an error as
+	// the charm can be placed in the application once it's created.
+	app, err := a.backendState.Application(arg.Application)
+	if errors.IsNotFound(err) {
+		return params.ErrorResult{}, nil
+	} else if err != nil {
+		return params.ErrorResult{
+			Error: apiservererrors.ServerError(err),
+		}, nil
+	}
+
+	// We don't care for subordinates here.
+	if !app.IsPrincipal() {
+		return params.ErrorResult{}, nil
+	}
+
+	constraints, err := app.Constraints()
+	if err != nil && !errors.IsNotFound(err) {
+		return params.ErrorResult{
+			Error: apiservererrors.ServerError(err),
+		}, nil
+	}
+
+	// If the application has an existing architecture constraint then we're
+	// happy that the constraint logic will prevent heterogenous application
+	// units.
+	if constraints.HasArch() {
+		return params.ErrorResult{}, nil
+	}
+
+	// Unfortunately we now have to check instance data for all units to
+	// validate that we have a homogeneous setup.
+	units, err := app.AllUnits()
+	if err != nil {
+		return params.ErrorResult{
+			Error: apiservererrors.ServerError(err),
+		}, nil
+	}
+
+	arches := set.NewStrings()
+	for _, unit := range units {
+		machineID, err := unit.AssignedMachineId()
+		if errors.IsNotAssigned(err) {
+			continue
+		} else if err != nil {
+			return params.ErrorResult{
+				Error: apiservererrors.ServerError(err),
+			}, nil
+		}
+
+		machine, err := a.backendState.Machine(machineID)
+		if errors.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return params.ErrorResult{
+				Error: apiservererrors.ServerError(err),
+			}, nil
+		}
+
+		machineArch, err := a.getMachineArch(machine)
+		if err != nil {
+			return params.ErrorResult{
+				Error: apiservererrors.ServerError(err),
+			}, nil
+		}
+
+		if machineArch == "" {
+			arches.Add(arch.DefaultArchitecture)
+		} else {
+			arches.Add(machineArch)
+		}
+	}
+
+	if arches.Size() > 1 {
+		// It is expected that charmhub charms form a homogeneous workload,
+		// so that each unit is the same architecture.
+		err := errors.Errorf("charm can not be placed in a heterogeneous environment")
+		return params.ErrorResult{
+			Error: apiservererrors.ServerError(err),
+		}, nil
+	}
+
+	return params.ErrorResult{}, nil
+}
+
+func (a *API) getMachineArch(machine charmsinterfaces.Machine) (arch.Arch, error) {
+	cons, err := machine.Constraints()
+	if err == nil && cons.HasArch() {
+		return *cons.Arch, nil
+	}
+
+	hardware, err := machine.HardwareCharacteristics()
+	if errors.IsNotFound(err) {
+		return "", nil
+	} else if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	if hardware.Arch != nil {
+		return *hardware.Arch, nil
+	}
+
+	return "", nil
 }

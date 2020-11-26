@@ -17,12 +17,15 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	apiservermocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/client/charms"
+	"github.com/juju/juju/apiserver/facades/client/charms/interfaces"
 	"github.com/juju/juju/apiserver/facades/client/charms/mocks"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/cache"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
@@ -75,7 +78,7 @@ func (s *charmsSuite) SetUpTest(c *gc.C) {
 	}
 
 	var err error
-	s.api, err = charms.NewFacadeV3(&charmsSuiteContext{cs: s})
+	s.api, err = charms.NewFacadeV4(&charmsSuiteContext{cs: s})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -144,13 +147,18 @@ func (s *charmsSuite) TestIsMeteredTrue(c *gc.C) {
 }
 
 type charmsMockSuite struct {
-	model      *mocks.MockBackendModel
-	state      *mocks.MockBackendState
-	authorizer *apiservermocks.MockAuthorizer
-	repository *mocks.MockCSRepository
-	strategy   *mocks.MockStrategy
-	charm      *mocks.MockStoreCharm
-	storage    *mocks.MockStorage
+	model       *mocks.MockBackendModel
+	state       *mocks.MockBackendState
+	authorizer  *apiservermocks.MockAuthorizer
+	repository  *mocks.MockCSRepository
+	strategy    *mocks.MockStrategy
+	charm       *mocks.MockStoreCharm
+	storage     *mocks.MockStorage
+	application *mocks.MockApplication
+	unit        *mocks.MockUnit
+	unit2       *mocks.MockUnit
+	machine     *mocks.MockMachine
+	machine2    *mocks.MockMachine
 }
 
 var _ = gc.Suite(&charmsMockSuite{})
@@ -384,6 +392,176 @@ func (s *charmsMockSuite) TestAddCharmWithAuthorization(c *gc.C) {
 	})
 }
 
+func (s *charmsMockSuite) TestCheckCharmPlacementWithSubordinate(c *gc.C) {
+	appName := "winnie"
+
+	curl, err := charm.ParseURL("ch:poo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer s.setupMocks(c).Finish()
+	s.expectSubordinateApplication(appName)
+
+	api := s.api(c)
+
+	args := params.ApplicationCharmPlacements{
+		Placements: []params.ApplicationCharmPlacement{{
+			Application: appName,
+			CharmURL:    curl.String(),
+		}},
+	}
+
+	result, err := api.CheckCharmPlacement(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), jc.ErrorIsNil)
+}
+
+func (s *charmsMockSuite) TestCheckCharmPlacementWithConstraintArch(c *gc.C) {
+	arch := "amd64"
+	appName := "winnie"
+
+	curl, err := charm.ParseURL("ch:poo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer s.setupMocks(c).Finish()
+	s.expectApplication(appName)
+	s.expectApplicationConstraints(constraints.Value{Arch: &arch})
+
+	api := s.api(c)
+
+	args := params.ApplicationCharmPlacements{
+		Placements: []params.ApplicationCharmPlacement{{
+			Application: appName,
+			CharmURL:    curl.String(),
+		}},
+	}
+
+	result, err := api.CheckCharmPlacement(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), jc.ErrorIsNil)
+}
+
+func (s *charmsMockSuite) TestCheckCharmPlacementWithNoConstraintArch(c *gc.C) {
+	appName := "winnie"
+
+	curl, err := charm.ParseURL("ch:poo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer s.setupMocks(c).Finish()
+	s.expectApplication(appName)
+	s.expectApplicationConstraints(constraints.Value{})
+	s.expectAllUnits()
+	s.expectUnitMachineID()
+	s.expectMachine()
+	s.expectMachineConstraints(constraints.Value{})
+	s.expectHardwareCharacteristics()
+
+	api := s.api(c)
+
+	args := params.ApplicationCharmPlacements{
+		Placements: []params.ApplicationCharmPlacement{{
+			Application: appName,
+			CharmURL:    curl.String(),
+		}},
+	}
+
+	result, err := api.CheckCharmPlacement(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), jc.ErrorIsNil)
+}
+
+func (s *charmsMockSuite) TestCheckCharmPlacementWithNoConstraintArchMachine(c *gc.C) {
+	arch := "amd64"
+	appName := "winnie"
+
+	curl, err := charm.ParseURL("ch:poo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer s.setupMocks(c).Finish()
+	s.expectApplication(appName)
+	s.expectApplicationConstraints(constraints.Value{})
+	s.expectAllUnits()
+	s.expectUnitMachineID()
+	s.expectMachine()
+	s.expectMachineConstraints(constraints.Value{Arch: &arch})
+
+	api := s.api(c)
+
+	args := params.ApplicationCharmPlacements{
+		Placements: []params.ApplicationCharmPlacement{{
+			Application: appName,
+			CharmURL:    curl.String(),
+		}},
+	}
+
+	result, err := api.CheckCharmPlacement(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), jc.ErrorIsNil)
+}
+
+func (s *charmsMockSuite) TestCheckCharmPlacementWithNoConstraintArchAndHardwareArch(c *gc.C) {
+	appName := "winnie"
+
+	curl, err := charm.ParseURL("ch:poo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer s.setupMocks(c).Finish()
+	s.expectApplication(appName)
+	s.expectApplicationConstraints(constraints.Value{})
+	s.expectAllUnits()
+	s.expectUnitMachineID()
+	s.expectMachine()
+	s.expectMachineConstraints(constraints.Value{})
+	s.expectEmptyHardwareCharacteristics()
+
+	api := s.api(c)
+
+	args := params.ApplicationCharmPlacements{
+		Placements: []params.ApplicationCharmPlacement{{
+			Application: appName,
+			CharmURL:    curl.String(),
+		}},
+	}
+
+	result, err := api.CheckCharmPlacement(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), jc.ErrorIsNil)
+}
+
+func (s *charmsMockSuite) TestCheckCharmPlacementWithHeterogeneous(c *gc.C) {
+	appName := "winnie"
+
+	curl, err := charm.ParseURL("ch:poo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer s.setupMocks(c).Finish()
+	s.expectApplication(appName)
+	s.expectApplicationConstraints(constraints.Value{})
+	s.expectHeterogeneousUnits()
+
+	s.expectUnitMachineID()
+	s.expectMachine()
+	s.expectMachineConstraints(constraints.Value{})
+	s.expectHardwareCharacteristics()
+
+	s.expectUnit2MachineID()
+	s.expectMachine2()
+	s.expectMachineConstraints2(constraints.Value{})
+	s.expectHardwareCharacteristics2()
+
+	api := s.api(c)
+
+	args := params.ApplicationCharmPlacements{
+		Placements: []params.ApplicationCharmPlacement{{
+			Application: appName,
+			CharmURL:    curl.String(),
+		}},
+	}
+
+	result, err := api.CheckCharmPlacement(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), gc.ErrorMatches, "charm can not be placed in a heterogeneous environment")
+}
+
 func (s *charmsMockSuite) api(c *gc.C) *charms.API {
 	repoFunc := func(_ charms.ResolverGetterParams) (charms.CSRepository, error) {
 		return s.repository, nil
@@ -425,6 +603,13 @@ func (s *charmsMockSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.strategy = mocks.NewMockStrategy(ctrl)
 	s.charm = mocks.NewMockStoreCharm(ctrl)
 	s.storage = mocks.NewMockStorage(ctrl)
+
+	s.application = mocks.NewMockApplication(ctrl)
+	s.unit = mocks.NewMockUnit(ctrl)
+	s.unit2 = mocks.NewMockUnit(ctrl)
+	s.machine = mocks.NewMockMachine(ctrl)
+	s.machine2 = mocks.NewMockMachine(ctrl)
+
 	return ctrl
 }
 
@@ -509,4 +694,71 @@ func (s *charmsMockSuite) expectRemove() {
 
 func (s *charmsMockSuite) expectUpdateUploadedCharm(err error) {
 	s.state.EXPECT().UpdateUploadedCharm(gomock.Any()).Return(nil, err)
+}
+
+func (s *charmsMockSuite) expectApplication(name string) {
+	s.state.EXPECT().Application(name).Return(s.application, nil)
+	s.application.EXPECT().IsPrincipal().Return(true)
+}
+
+func (s *charmsMockSuite) expectSubordinateApplication(name string) {
+	s.state.EXPECT().Application(name).Return(s.application, nil)
+	s.application.EXPECT().IsPrincipal().Return(false)
+}
+
+func (s *charmsMockSuite) expectApplicationConstraints(cons constraints.Value) {
+	s.application.EXPECT().Constraints().Return(cons, nil)
+}
+
+func (s *charmsMockSuite) expectAllUnits() {
+	s.application.EXPECT().AllUnits().Return([]interfaces.Unit{s.unit}, nil)
+}
+
+func (s *charmsMockSuite) expectHeterogeneousUnits() {
+	s.application.EXPECT().AllUnits().Return([]interfaces.Unit{
+		s.unit,
+		s.unit2,
+	}, nil)
+}
+
+func (s *charmsMockSuite) expectUnitMachineID() {
+	s.unit.EXPECT().AssignedMachineId().Return("winnie-poo", nil)
+}
+
+func (s *charmsMockSuite) expectUnit2MachineID() {
+	s.unit2.EXPECT().AssignedMachineId().Return("piglet", nil)
+}
+
+func (s *charmsMockSuite) expectMachine() {
+	s.state.EXPECT().Machine("winnie-poo").Return(s.machine, nil)
+}
+
+func (s *charmsMockSuite) expectMachine2() {
+	s.state.EXPECT().Machine("piglet").Return(s.machine2, nil)
+}
+
+func (s *charmsMockSuite) expectMachineConstraints(cons constraints.Value) {
+	s.machine.EXPECT().Constraints().Return(cons, nil)
+}
+
+func (s *charmsMockSuite) expectHardwareCharacteristics() {
+	arch := "amd64"
+	s.machine.EXPECT().HardwareCharacteristics().Return(&instance.HardwareCharacteristics{
+		Arch: &arch,
+	}, nil)
+}
+
+func (s *charmsMockSuite) expectEmptyHardwareCharacteristics() {
+	s.machine.EXPECT().HardwareCharacteristics().Return(&instance.HardwareCharacteristics{}, nil)
+}
+
+func (s *charmsMockSuite) expectHardwareCharacteristics2() {
+	arch := "arm64"
+	s.machine2.EXPECT().HardwareCharacteristics().Return(&instance.HardwareCharacteristics{
+		Arch: &arch,
+	}, nil)
+}
+
+func (s *charmsMockSuite) expectMachineConstraints2(cons constraints.Value) {
+	s.machine2.EXPECT().Constraints().Return(cons, nil)
 }

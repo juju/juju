@@ -10,11 +10,15 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
 	"github.com/juju/charmrepo/v6"
+	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	commoncharm "github.com/juju/juju/api/common/charm"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/juju/osenv"
 )
 
 type refresherFactorySuite struct{}
@@ -435,11 +439,100 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithOriginChannel(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `already running specified charm "meshuggah", revision 1`)
 }
 
+func (s *charmHubCharmRefresherSuite) TestAllowed(c *gc.C) {
+	setFeatureFlags(feature.CharmHubIntegration)
+	defer setFeatureFlags("")
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ref := "ch:meshuggah"
+	curl := charm.MustParseURL(ref)
+
+	charmAdder := NewMockCharmAdder(ctrl)
+	charmResolver := NewMockCharmResolver(ctrl)
+
+	cfg := refresherConfigWithOrigin(curl, ref)
+	cfg.DeployedSeries = "bionic"
+
+	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
+	task, err := refresher(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	allowed, err := task.Allowed(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(allowed, jc.IsTrue)
+}
+
+func (s *charmHubCharmRefresherSuite) TestAllowedWithSwitch(c *gc.C) {
+	setFeatureFlags(feature.CharmHubIntegration)
+	defer setFeatureFlags("")
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ref := "ch:meshuggah"
+	curl := charm.MustParseURL(ref)
+
+	charmAdder := NewMockCharmAdder(ctrl)
+	charmAdder.EXPECT().CheckCharmPlacement("winnie", curl).Return(nil)
+
+	charmResolver := NewMockCharmResolver(ctrl)
+
+	cfg := refresherConfigWithOrigin(curl, ref)
+	cfg.DeployedSeries = "bionic"
+	cfg.Switch = true
+
+	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
+	task, err := refresher(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	allowed, err := task.Allowed(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(allowed, jc.IsTrue)
+}
+
+func (s *charmHubCharmRefresherSuite) TestAllowedError(c *gc.C) {
+	setFeatureFlags(feature.CharmHubIntegration)
+	defer setFeatureFlags("")
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ref := "ch:meshuggah"
+	curl := charm.MustParseURL(ref)
+
+	charmAdder := NewMockCharmAdder(ctrl)
+	charmAdder.EXPECT().CheckCharmPlacement("winnie", curl).Return(errors.Errorf("trap"))
+
+	charmResolver := NewMockCharmResolver(ctrl)
+
+	cfg := refresherConfigWithOrigin(curl, ref)
+	cfg.DeployedSeries = "bionic"
+	cfg.Switch = true
+
+	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
+	task, err := refresher(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	allowed, err := task.Allowed(cfg)
+	c.Assert(err, gc.ErrorMatches, "trap")
+	c.Assert(allowed, jc.IsFalse)
+}
+
+func setFeatureFlags(flags string) {
+	if err := os.Setenv(osenv.JujuFeatureFlagEnvKey, flags); err != nil {
+		panic(err)
+	}
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+}
+
 func basicRefresherConfig(curl *charm.URL, ref string) RefresherConfig {
 	return RefresherConfig{
-		CharmURL: curl,
-		CharmRef: ref,
-		Logger:   &fakeLogger{},
+		ApplicationName: "winnie",
+		CharmURL:        curl,
+		CharmRef:        ref,
+		Logger:          &fakeLogger{},
 	}
 }
 
