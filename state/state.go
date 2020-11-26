@@ -33,6 +33,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lease"
@@ -1053,6 +1054,11 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		}
 	}
 
+	args.Constraints, err = st.deriveApplicationConstraints(args.Constraints, args.Charm.Meta().Subordinate)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if len(args.AttachStorage) > 0 && args.NumUnits != 1 {
 		return nil, errors.Errorf("AttachStorage is non-empty but NumUnits is %d, must be 1", args.NumUnits)
 	}
@@ -1103,10 +1109,12 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	}
 
 	// Perform model specific arg processing.
-	scale := 0
-	placement := ""
-	hasResources := false
-	var operatorStatusDoc *statusDoc
+	var (
+		scale             int
+		placement         string
+		hasResources      bool
+		operatorStatusDoc *statusDoc
+	)
 	nowNano := st.clock().Now().UnixNano()
 	switch model.Type() {
 	case ModelTypeIAAS:
@@ -1281,6 +1289,28 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		return app, nil
 	}
 	return nil, errors.Trace(err)
+}
+
+func (st *State) deriveApplicationConstraints(cons constraints.Value, subordinate bool) (constraints.Value, error) {
+	if subordinate {
+		return cons, nil
+	}
+
+	result := cons
+	if !cons.HasArch() {
+		modelConstraints, err := st.ModelConstraints()
+		if err != nil {
+			return constraints.Value{}, errors.Trace(err)
+		}
+
+		if modelConstraints.HasArch() {
+			result.Arch = modelConstraints.Arch
+		} else {
+			a := arch.DefaultArchitecture
+			result.Arch = &a
+		}
+	}
+	return result, nil
 }
 
 func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) error {

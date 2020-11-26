@@ -154,6 +154,10 @@ func newMachine(st *State, doc *machineDoc) *Machine {
 	return machine
 }
 
+func (m *Machine) Doc() machineDoc {
+	return m.doc
+}
+
 // Id returns the machine id.
 func (m *Machine) Id() string {
 	return m.doc.Id

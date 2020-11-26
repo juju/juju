@@ -2455,7 +2455,6 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 	// be that when the machine is provisioned it will be found to
 	// be suitable, but we don't know that right now and it's best
 	// to err on the side of caution and exclude such machines.
-	var suitableInstanceData []instanceData
 	var suitableTerms bson.D
 	if cons.HasArch() {
 		suitableTerms = append(suitableTerms, bson.DocElem{"arch", *cons.Arch})
@@ -2484,6 +2483,8 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 	if len(suitableTerms) > 0 {
 		instanceDataCollection, closer := db.GetCollection(instanceDataC)
 		defer closer()
+
+		var suitableInstanceData []instanceData
 		err := instanceDataCollection.Find(suitableTerms).Select(bson.M{"_id": 1}).All(&suitableInstanceData)
 		if err != nil {
 			return nil, err
@@ -2624,7 +2625,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 	// TODO(axw) 2014-05-30 #1253704
 	// We should not select a machine that is in the process
 	// of being provisioned. There's no point asserting that
-	// the machine hasn't been provisioned, as there'll still
+	// the machine hasn't been provisioned, as there will still
 	// be a period of time during which the machine may be
 	// provisioned without the fact having yet been recorded
 	// in state.
