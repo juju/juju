@@ -392,12 +392,13 @@ func (r *charmHubRefresher) Allowed(cfg RefresherConfig) (bool, error) {
 			return true, nil
 		}
 
-		if err := r.charmAdder.CheckCharmPlacement(cfg.ApplicationName, curl); err != nil {
+		if err := r.charmAdder.CheckCharmPlacement(cfg.ApplicationName, curl); err != nil && !errors.IsNotSupported(err) {
 			// If force is used then ignore the error, the user seems to know
 			// what they're doing.
 			if !cfg.Force {
 				return false, errors.Trace(err)
 			}
+			r.logger.Warningf("Charm placement check failed, using --force may break deployment")
 		}
 
 		return true, nil

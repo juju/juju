@@ -155,9 +155,6 @@ func (c *Client) CheckCharmPlacement(applicationName string, curl *charm.URL) er
 	}
 	var result params.ErrorResults
 	if err := c.facade.FacadeCall("CheckCharmPlacement", args, &result); err != nil {
-		if errors.IsNotSupported(err) {
-			return nil
-		}
 		return errors.Trace(err)
 	}
 	return result.OneError()

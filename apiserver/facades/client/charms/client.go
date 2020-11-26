@@ -19,7 +19,7 @@ import (
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facades/client/charms/interfaces"
+	charmsinterfaces "github.com/juju/juju/apiserver/facades/client/charms/interfaces"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/core/arch"
@@ -35,8 +35,8 @@ import (
 type API struct {
 	*charmscommon.CharmsAPI
 	authorizer   facade.Authorizer
-	backendState interfaces.BackendState
-	backendModel interfaces.BackendModel
+	backendState charmsinterfaces.BackendState
+	backendModel charmsinterfaces.BackendModel
 
 	csResolverGetterFunc CSResolverGetterFunc
 	getStrategyFunc      func(source string) StrategyFunc
@@ -134,8 +134,8 @@ func NewFacadeV4(ctx facade.Context) (*API, error) {
 
 func NewCharmsAPI(
 	authorizer facade.Authorizer,
-	st interfaces.BackendState,
-	m interfaces.BackendModel,
+	st charmsinterfaces.BackendState,
+	m charmsinterfaces.BackendModel,
 	csResolverFunc CSResolverGetterFunc,
 	getStrategyFunc func(source string) StrategyFunc,
 	newStorage func(modelUUID string, session *mgo.Session) storage.Storage,
@@ -590,7 +590,7 @@ func (a *API) checkCharmPlacement(arg params.ApplicationCharmPlacement) (params.
 		return params.ErrorResult{}, nil
 	}
 
-	// Get the application if it's not found, just return without an error as
+	// Get the application. If it's not found, just return without an error as
 	// the charm can be placed in the application once it's created.
 	app, err := a.backendState.Application(arg.Application)
 	if errors.IsNotFound(err) {
@@ -616,12 +616,12 @@ func (a *API) checkCharmPlacement(arg params.ApplicationCharmPlacement) (params.
 	// If the application has an existing architecture constraint then we're
 	// happy that the constraint logic will prevent heterogenous application
 	// units.
-	if constraints.Arch != nil && *constraints.Arch != "" {
+	if constraints.HasArch() {
 		return params.ErrorResult{}, nil
 	}
 
 	// Unfortunately we now have to check instance data for all units to
-	// validate that we have homogeneous setup.
+	// validate that we have a homogeneous setup.
 	units, err := app.AllUnits()
 	if err != nil {
 		return params.ErrorResult{
@@ -664,7 +664,7 @@ func (a *API) checkCharmPlacement(arg params.ApplicationCharmPlacement) (params.
 	}
 
 	if arches.Size() > 1 {
-		// It is expected that charmhub charms are in a heterogeneous workload,
+		// It is expected that charmhub charms form a homogeneous workload,
 		// so that each unit is the same architecture.
 		err := errors.Errorf("charm can not be placed in a heterogeneous environment")
 		return params.ErrorResult{
@@ -675,9 +675,9 @@ func (a *API) checkCharmPlacement(arg params.ApplicationCharmPlacement) (params.
 	return params.ErrorResult{}, nil
 }
 
-func (a *API) getMachineArch(machine interfaces.Machine) (string, error) {
+func (a *API) getMachineArch(machine charmsinterfaces.Machine) (arch.Arch, error) {
 	cons, err := machine.Constraints()
-	if err == nil && cons.Arch != nil && *cons.Arch != "" {
+	if err == nil && cons.HasArch() {
 		return *cons.Arch, nil
 	}
 

@@ -224,26 +224,6 @@ func (s charmsMockSuite) TestCheckCharmPlacement(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s charmsMockSuite) TestCheckCharmPlacementNotSupported(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	facadeArgs := params.ApplicationCharmPlacements{
-		Placements: []params.ApplicationCharmPlacement{{
-			Application: "winnie",
-			CharmURL:    "ch:poo",
-		}},
-	}
-
-	var result params.ErrorResults
-	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("CheckCharmPlacement", facadeArgs, &result).Return(errors.NotSupportedf("honey"))
-
-	client := charms.NewClientWithFacade(mockFacadeCaller)
-	err := client.CheckCharmPlacement("winnie", charm.MustParseURL("poo"))
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s charmsMockSuite) TestCheckCharmPlacementError(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
