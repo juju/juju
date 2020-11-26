@@ -88,12 +88,12 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	api := caasoperatorprovisioner.NewClient(apiCaller)
 	agentConfig := agent.CurrentConfig()
 	w, err := config.NewWorker(Config{
-		Facade:      api,
-		Broker:      broker,
-		ModelTag:    modelTag,
-		AgentConfig: agentConfig,
-		Clock:       clock,
-		Logger:      config.Logger,
+		Facade:          api,
+		OperatorManager: broker,
+		ModelTag:        modelTag,
+		AgentConfig:     agentConfig,
+		Clock:           clock,
+		Logger:          config.Logger,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
