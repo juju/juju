@@ -11,7 +11,8 @@ import (
 // MinMajorUpgradeVersion defines the minimum version all models
 // must be running before a major version upgrade.
 var MinMajorUpgradeVersion = map[int]version.Number{
-	3: version.MustParse("2.9.0"),
+	// TODO(wallyworld) - change to 2.9.0 when 2.9.0 is released.
+	3: version.MustParse("2.9-rc2"),
 }
 
 // UpgradeAllowed returns true if a major version upgrade is allowed

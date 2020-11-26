@@ -47,7 +47,9 @@ jobs:
     if: github.event.pull_request.draft == false
     strategy:
       matrix:
-        snap_version: ["latest/stable", "latest/beta"]
+        # TODO(wallyworld) - we can only upgrade to 3.0 from 2.9
+        # Update when 2.9 is released.
+        snap_version: ["latest/candidate", "latest/beta"]
 
     steps:
 
