@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // httpRequestParams holds parameters for the sendHTTPRequest methods.
@@ -79,6 +80,7 @@ func SendHTTPRequest(c *gc.C, p HTTPRequestParams) *http.Response {
 		ExpectError:  p.ExpectError,
 		ExpectStatus: p.ExpectStatus,
 	}
+	hp.Header.Set(params.JujuClientVersion, jujuversion.Current.String())
 	if p.ContentType != "" {
 		hp.Header.Set("Content-Type", p.ContentType)
 	}
