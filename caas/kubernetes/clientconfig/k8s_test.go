@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
+	"text/template"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -117,6 +119,28 @@ users:
     client-key-data: Qg==
     username: "fifth-user"
     password: "userpasscertpass"
+`
+
+	externalCAYAMLTemplate = `
+apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    server: https://1.1.1.1:8888
+    certificate-authority: {{ . }}
+  name: the-cluster
+contexts:
+- context:
+    cluster: the-cluster
+    user: the-user
+  name: the-context
+current-context: the-context
+preferences: {}
+users:
+- name: the-user
+  user:
+    password: thepassword
+    username: theuser
 `
 )
 
@@ -372,6 +396,45 @@ func (s *k8sConfigSuite) TestGetMultiConfig(c *gc.C) {
 		v.configYamlContent = multiConfigYAML
 		s.assertNewK8sClientConfig(c, v)
 	}
+}
+
+func (s *k8sConfigSuite) TestConfigWithExternalCA(c *gc.C) {
+	caFile, err := ioutil.TempFile("", "*")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = caFile.WriteString("QQ==")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(caFile.Close(), jc.ErrorIsNil)
+
+	tpl, err := template.New("").Parse(externalCAYAMLTemplate)
+	c.Assert(err, jc.ErrorIsNil)
+
+	conf := strings.Builder{}
+	c.Assert(tpl.Execute(&conf, caFile.Name()), jc.ErrorIsNil)
+
+	cred := cloud.NewNamedCredential(
+		"the-user", cloud.UserPassAuthType,
+		map[string]string{"username": "theuser", "password": "thepassword"}, false)
+	s.assertNewK8sClientConfig(c, newK8sClientConfigTestCase{
+		title:              "assert config with external ca",
+		clusterName:        "the-cluster",
+		configYamlContent:  conf.String(),
+		configYamlFileName: "external-ca",
+		expected: &clientconfig.ClientConfig{
+			Type: "kubernetes",
+			Contexts: map[string]clientconfig.Context{
+				"the-context": {
+					CloudName:      "the-cluster",
+					CredentialName: "the-user"}},
+			CurrentContext: "the-context",
+			Clouds: map[string]clientconfig.CloudConfig{
+				"the-cluster": {
+					Endpoint:   "https://1.1.1.1:8888",
+					Attributes: map[string]interface{}{"CAData": "QQ=="}}},
+			Credentials: map[string]cloud.Credential{
+				"the-user": cred,
+			},
+		},
+	})
 }
 
 // TestGetSingleConfigReadsFilePaths checks that we handle config
