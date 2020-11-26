@@ -54,8 +54,21 @@ type AddCloudAPI interface {
 	Close() error
 }
 
+// ClusterMetadataChecker provides an API to query cluster metadata.
+type ClusterMetadataChecker interface {
+	// GetClusterMetadata returns metadata about host cloud and storage for the cluster.
+	GetClusterMetadata(storageClass string) (result *caas.ClusterMetadata, err error)
+
+	// CheckDefaultWorkloadStorage returns an error if the opinionated storage defined for
+	// the cluster does not match the specified storage.
+	CheckDefaultWorkloadStorage(cluster string, storageProvisioner *caas.StorageProvisioner) error
+
+	// EnsureStorageProvisioner creates a storage provisioner with the specified config, or returns an existing one.
+	EnsureStorageProvisioner(cfg caas.StorageProvisioner) (*caas.StorageProvisioner, bool, error)
+}
+
 // BrokerGetter returns caas broker instance.
-type BrokerGetter func(cloud jujucloud.Cloud, credential jujucloud.Credential) (caas.ClusterMetadataChecker, error)
+type BrokerGetter func(cloud jujucloud.Cloud, credential jujucloud.Credential) (ClusterMetadataChecker, error)
 
 var usageAddCAASSummary = `
 Adds a k8s endpoint and credential to Juju.`[1:]
@@ -634,7 +647,7 @@ func checkCloudRegion(given, detected string) error {
 	return nil
 }
 
-func (c *AddCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential jujucloud.Credential) (caas.ClusterMetadataChecker, error) {
+func (c *AddCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential jujucloud.Credential) (ClusterMetadataChecker, error) {
 	openParams, err := provider.BaseKubeCloudOpenParams(cloud, credential)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -646,7 +659,17 @@ func (c *AddCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential j
 		}
 		openParams.ControllerUUID = ctrlUUID
 	}
-	return caas.New(openParams)
+
+	broker, err := caas.New(openParams)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// This is k8-specific and not part of the Broker interface
+	if metaChecker, implemented := broker.(ClusterMetadataChecker); implemented {
+		return metaChecker, nil
+	}
+	return nil, errors.NotSupportedf("querying cluster metadata using the broker")
 }
 
 func getCloudAndRegionFromOptions(cloudOption, regionOption string) (string, string, error) {

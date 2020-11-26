@@ -135,7 +135,7 @@ func (s *updateCAASSuite) makeCommand() cmd.Command {
 		func() (caas.UpdateCloudAPI, error) {
 			return s.fakeCloudAPI, nil
 		},
-		func(cloud jujucloud.Cloud, credential jujucloud.Credential) (jujucaas.ClusterMetadataChecker, error) {
+		func(cloud jujucloud.Cloud, credential jujucloud.Credential) (caas.ClusterMetadataChecker, error) {
 			return s.fakeK8sClusterMetadataChecker, nil
 		},
 	)

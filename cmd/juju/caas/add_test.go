@@ -127,7 +127,7 @@ func (api *fakeAddCloudAPI) AddCredential(tag string, credential cloud.Credentia
 
 type fakeK8sClusterMetadataChecker struct {
 	*jujutesting.CallMocker
-	jujucaas.ClusterMetadataChecker
+	caas.ClusterMetadataChecker
 	existingSC bool
 }
 
@@ -300,7 +300,7 @@ func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists, emptyClientConfig, 
 		func() (caas.AddCloudAPI, error) {
 			return s.fakeCloudAPI, nil
 		},
-		func(cloud jujucloud.Cloud, credential jujucloud.Credential) (jujucaas.ClusterMetadataChecker, error) {
+		func(cloud jujucloud.Cloud, credential jujucloud.Credential) (caas.ClusterMetadataChecker, error) {
 			return s.fakeK8sClusterMetadataChecker, nil
 		},
 		caas.FakeCluster(kubeConfigStr),
