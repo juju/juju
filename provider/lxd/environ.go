@@ -153,7 +153,8 @@ func (env *environ) SetCloudSpec(spec environscloudspec.CloudSpec) error {
 	defer env.lock.Unlock()
 
 	serverFactory := env.provider.serverFactory
-	server, err := serverFactory.RemoteServer(spec)
+	project := env.ecfgUnlocked.project()
+	server, err := serverFactory.RemoteServer(spec, *project)
 	if err != nil {
 		return errors.Trace(err)
 	}

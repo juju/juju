@@ -444,7 +444,7 @@ func (p environProviderCredentials) finalizeRemoteCredential(
 	server, err = p.serverFactory.RemoteServer(environscloudspec.CloudSpec{
 		Endpoint:   endpoint,
 		Credential: &secureCreds,
-	})
+	}, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

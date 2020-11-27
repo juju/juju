@@ -11,16 +11,24 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
-var (
-	configSchema                 = environschema.Fields{}
-	configFields, configDefaults = func() (schema.Fields, schema.Defaults) {
-		fields, defaults, err := configSchema.ValidationSchema()
-		if err != nil {
-			panic(err)
-		}
-		return fields, defaults
-	}()
-)
+var configSchema = environschema.Fields{
+	"project": {
+		Description: "The LXD project name to use for Juju's resources.",
+		Type:        environschema.Tstring,
+	},
+}
+
+var configDefaults = schema.Defaults{
+	"project": "default",
+}
+
+var configFields = func() schema.Fields {
+	fs, _, err := configSchema.ValidationSchema()
+	if err != nil {
+		panic(err)
+	}
+	return fs
+}()
 
 type environConfig struct {
 	*config.Config
@@ -64,4 +72,16 @@ func (c *environConfig) validate() error {
 	}
 	// There are currently no known extra fields for LXD
 	return nil
+}
+
+func (c *environConfig) project() *string {
+	var projectStr string
+
+	project := c.attrs["project"]
+	if project == nil {
+		return &projectStr
+	}
+
+	projectStr = project.(string)
+	return &projectStr
 }
