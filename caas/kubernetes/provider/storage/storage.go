@@ -16,6 +16,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
 	constants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	resources "github.com/juju/juju/caas/kubernetes/provider/resources"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
@@ -94,7 +95,7 @@ func VolumeSourceForFilesystem(fs storage.KubernetesFilesystemParams) (*corev1.V
 }
 
 // StorageClassSpec converts storage provisioner config to k8s storage class.
-func StorageClassSpec(cfg caas.StorageProvisioner, legacyLabels bool) *storagev1.StorageClass {
+func StorageClassSpec(cfg k8s.StorageProvisioner, legacyLabels bool) *storagev1.StorageClass {
 	sc := storagev1.StorageClass{}
 	sc.Name = constants.QualifiedStorageClassName(cfg.Namespace, cfg.Name)
 	sc.Provisioner = cfg.Provisioner
@@ -241,8 +242,8 @@ func PersistentVolumeClaimSpec(params VolumeParams) *corev1.PersistentVolumeClai
 }
 
 // StorageProvisioner returns storage provisioner.
-func StorageProvisioner(namespace, model string, params VolumeParams) caas.StorageProvisioner {
-	return caas.StorageProvisioner{
+func StorageProvisioner(namespace, model string, params VolumeParams) k8s.StorageProvisioner {
+	return k8s.StorageProvisioner{
 		Name:          params.StorageConfig.StorageClass,
 		Namespace:     namespace,
 		Model:         model,

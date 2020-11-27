@@ -6,7 +6,7 @@ package provider
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/cloud"
 )
 
@@ -27,7 +27,7 @@ func (p kubernetesEnvironProvider) DetectClouds() ([]cloud.Cloud, error) {
 
 // DetectCloud implements environs.CloudDetector.
 func (p kubernetesEnvironProvider) DetectCloud(name string) (cloud.Cloud, error) {
-	if name != caas.K8sCloudMicrok8s {
+	if name != k8s.K8sCloudMicrok8s {
 		return cloud.Cloud{}, errors.NotFoundf("cloud %s", name)
 	}
 

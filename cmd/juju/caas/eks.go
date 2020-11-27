@@ -11,7 +11,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/cmd/juju/interact"
 )
@@ -31,7 +31,7 @@ func newEKSCluster() k8sCluster {
 }
 
 func (e *eks) cloud() string {
-	return caas.K8sCloudEC2
+	return k8s.K8sCloudEC2
 }
 
 func (e *eks) ensureExecutable() error {

@@ -1,7 +1,7 @@
 // Copyright 2019 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caas
+package kubernetes
 
 import (
 	"fmt"
@@ -44,6 +44,27 @@ const (
 	MicroK8sClusterName = "microk8s-cluster"
 )
 
+// ClusterMetadataChecker provides an API to query cluster metadata.
+type ClusterMetadataChecker interface {
+	// GetClusterMetadata returns metadata about host cloud and storage for the cluster.
+	GetClusterMetadata(storageClass string) (result *ClusterMetadata, err error)
+
+	// CheckDefaultWorkloadStorage returns an error if the opinionated storage defined for
+	// the cluster does not match the specified storage.
+	CheckDefaultWorkloadStorage(cluster string, storageProvisioner *StorageProvisioner) error
+
+	// EnsureStorageProvisioner creates a storage provisioner with the specified config, or returns an existing one.
+	EnsureStorageProvisioner(cfg StorageProvisioner) (*StorageProvisioner, bool, error)
+}
+
+// ClusterMetadata defines metadata about a cluster.
+type ClusterMetadata struct {
+	NominatedStorageClass *StorageProvisioner
+	OperatorStorageClass  *StorageProvisioner
+	Cloud                 string
+	Regions               set.Strings
+}
+
 // PreferredStorage defines preferred storage
 // attributes on a given cluster.
 type PreferredStorage struct {
@@ -62,14 +83,6 @@ type StorageProvisioner struct {
 	Model             string
 	ReclaimPolicy     string
 	VolumeBindingMode string
-}
-
-// ClusterMetadata defines metadata about a cluster.
-type ClusterMetadata struct {
-	NominatedStorageClass *StorageProvisioner
-	OperatorStorageClass  *StorageProvisioner
-	Cloud                 string
-	Regions               set.Strings
 }
 
 // NonPreferredStorageError is raised when a cluster does not have

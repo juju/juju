@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/controller"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
@@ -475,7 +476,7 @@ type mockBroker struct {
 	err               error
 }
 
-func (m *mockBroker) GetClusterMetadata(storageClass string) (result *caas.ClusterMetadata, err error) {
+func (m *mockBroker) GetClusterMetadata(storageClass string) (result *k8s.ClusterMetadata, err error) {
 	m.getMetadataCalled = true
 	return nil, m.err
 }

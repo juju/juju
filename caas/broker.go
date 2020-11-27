@@ -191,9 +191,6 @@ type Broker interface {
 	// ClusterVersionGetter provides methods to get cluster version information.
 	ClusterVersionGetter
 
-	// ClusterMetadataGetter provides an API for querying the cluster metadata.
-	ClusterMetadataGetter
-
 	// CredentialChecker provides an API for checking that the credentials
 	// used by the broker are functioning.
 	CredentialChecker
@@ -293,12 +290,6 @@ type StorageValidator interface {
 type ClusterVersionGetter interface {
 	// Version returns cluster version information.
 	Version() (*version.Number, error)
-}
-
-// ClusterMetadataGetter provides an API to query cluster metadata.
-type ClusterMetadataGetter interface {
-	// GetClusterMetadata returns metadata about host cloud and storage for the cluster.
-	GetClusterMetadata(storageClass string) (result *ClusterMetadata, err error)
 }
 
 // CredentialChecker provides an API for checking that the credentials

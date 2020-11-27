@@ -283,21 +283,6 @@ func (mr *MockBrokerMockRecorder) ExposeService(arg0, arg1, arg2 interface{}) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExposeService", reflect.TypeOf((*MockBroker)(nil).ExposeService), arg0, arg1, arg2)
 }
 
-// GetClusterMetadata mocks base method
-func (m *MockBroker) GetClusterMetadata(arg0 string) (*caas.ClusterMetadata, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetClusterMetadata", arg0)
-	ret0, _ := ret[0].(*caas.ClusterMetadata)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetClusterMetadata indicates an expected call of GetClusterMetadata
-func (mr *MockBrokerMockRecorder) GetClusterMetadata(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClusterMetadata", reflect.TypeOf((*MockBroker)(nil).GetClusterMetadata), arg0)
-}
-
 // GetService mocks base method
 func (m *MockBroker) GetService(arg0 string, arg1 caas.DeploymentMode, arg2 bool) (*caas.Service, error) {
 	m.ctrl.T.Helper()

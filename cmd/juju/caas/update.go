@@ -14,6 +14,7 @@ import (
 	cloudapi "github.com/juju/juju/api/cloud"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucloud "github.com/juju/juju/cloud"
@@ -147,7 +148,7 @@ func (c *UpdateCAASCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *UpdateCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential jujucloud.Credential) (ClusterMetadataChecker, error) {
+func (c *UpdateCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential jujucloud.Credential) (k8s.ClusterMetadataChecker, error) {
 	openParams, err := provider.BaseKubeCloudOpenParams(cloud, credential)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -166,7 +167,7 @@ func (c *UpdateCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credentia
 	}
 
 	// This is k8-specific and not part of the Broker interface
-	if metaChecker, implemented := broker.(ClusterMetadataChecker); implemented {
+	if metaChecker, implemented := broker.(k8s.ClusterMetadataChecker); implemented {
 		return metaChecker, nil
 	}
 	return nil, errors.NotSupportedf("querying cluster metadata using the broker")

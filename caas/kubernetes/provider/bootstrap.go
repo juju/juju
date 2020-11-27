@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	providerutils "github.com/juju/juju/caas/kubernetes/provider/utils"
@@ -76,37 +77,37 @@ type controllerServiceSpec struct {
 
 func getDefaultControllerServiceSpecs(cloudType string) *controllerServiceSpec {
 	specs := map[string]*controllerServiceSpec{
-		caas.K8sCloudAzure: {
+		k8s.K8sCloudAzure: {
 			ServiceType: core.ServiceTypeLoadBalancer,
 		},
-		caas.K8sCloudEC2: {
+		k8s.K8sCloudEC2: {
 			ServiceType: core.ServiceTypeLoadBalancer,
 			Annotations: k8sannotations.New(nil).
 				Add("service.beta.kubernetes.io/aws-load-balancer-backend-protocol", "tcp"),
 		},
-		caas.K8sCloudGCE: {
+		k8s.K8sCloudGCE: {
 			ServiceType: core.ServiceTypeLoadBalancer,
 		},
-		caas.K8sCloudMicrok8s: {
+		k8s.K8sCloudMicrok8s: {
 			ServiceType: core.ServiceTypeClusterIP,
 		},
-		caas.K8sCloudOpenStack: {
+		k8s.K8sCloudOpenStack: {
 			ServiceType: core.ServiceTypeLoadBalancer,
 		},
-		caas.K8sCloudMAAS: {
+		k8s.K8sCloudMAAS: {
 			ServiceType: core.ServiceTypeLoadBalancer, // TODO(caas): test and verify this.
 		},
-		caas.K8sCloudLXD: {
+		k8s.K8sCloudLXD: {
 			ServiceType: core.ServiceTypeClusterIP, // TODO(caas): test and verify this.
 		},
-		caas.K8sCloudOther: {
+		k8s.K8sCloudOther: {
 			ServiceType: core.ServiceTypeClusterIP, // Default svc spec for any other cloud is not listed above.
 		},
 	}
 	if out, ok := specs[cloudType]; ok {
 		return out
 	}
-	return specs[caas.K8sCloudOther]
+	return specs[k8s.K8sCloudOther]
 }
 
 type controllerStack struct {

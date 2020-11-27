@@ -11,7 +11,7 @@ import (
 	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -103,10 +103,10 @@ func (s *credentialsSuite) TestRegisterCredentialsMicrok8s(c *gc.C) {
 	credentials, err := p.RegisterCredentials(defaultK8sCloud)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials, gc.HasLen, 1)
-	c.Assert(credentials[caas.K8sCloudMicrok8s], gc.DeepEquals, &cloud.CloudCredential{
-		DefaultCredential: caas.K8sCloudMicrok8s,
+	c.Assert(credentials[k8s.K8sCloudMicrok8s], gc.DeepEquals, &cloud.CloudCredential{
+		DefaultCredential: k8s.K8sCloudMicrok8s,
 		AuthCredentials: map[string]cloud.Credential{
-			caas.K8sCloudMicrok8s: getDefaultCredential(),
+			k8s.K8sCloudMicrok8s: getDefaultCredential(),
 		},
 	})
 }

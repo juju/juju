@@ -27,9 +27,8 @@ type ManifoldConfig struct {
 	APICallerName string
 	BrokerName    string
 	ClockName     string
-
-	NewWorker func(Config) (worker.Worker, error)
-	Logger    Logger
+	NewWorker     func(Config) (worker.Worker, error)
+	Logger        Logger
 }
 
 // Validate is called by start to check for bad configuration.
