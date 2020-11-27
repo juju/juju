@@ -659,6 +659,20 @@ func (mr *MockServerMockRecorder) StorageSupported() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StorageSupported", reflect.TypeOf((*MockServer)(nil).StorageSupported))
 }
 
+// SupportedArches mocks base method
+func (m *MockServer) SupportedArches() []string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SupportedArches")
+	ret0, _ := ret[0].([]string)
+	return ret0
+}
+
+// SupportedArches indicates an expected call of SupportedArches
+func (mr *MockServerMockRecorder) SupportedArches() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SupportedArches", reflect.TypeOf((*MockServer)(nil).SupportedArches))
+}
+
 // UpdateContainerConfig mocks base method
 func (m *MockServer) UpdateContainerConfig(arg0 string, arg1 map[string]string) error {
 	m.ctrl.T.Helper()

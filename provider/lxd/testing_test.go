@@ -690,6 +690,11 @@ func (conn *StubClient) HostArch() string {
 	return conn.ServerHostArch
 }
 
+func (conn *StubClient) SupportedArches() []string {
+	conn.AddCall("SupportedArches")
+	return []string{conn.ServerHostArch}
+}
+
 func (conn *StubClient) EnableHTTPSListener() error {
 	conn.AddCall("EnableHTTPSListener")
 	return conn.NextErr()
