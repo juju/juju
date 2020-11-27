@@ -49,7 +49,7 @@ var minMiBVersion = &version.DottedVersion{Major: 3, Minor: 10}
 // Note that we pass these through as supplied. If an instance type constraint
 // has been specified along with specific cores/mem constraints,
 // LXD behaviour is to override with the specific ones even when lower.
-func (c *ContainerSpec) ApplyConstraints(serverVersion string, cons constraints.Value) {
+func (c *ContainerSpec) ApplyConstraints(serverVersion string, cons constraints.Value) error {
 	if cons.HasInstanceType() {
 		c.InstanceType = *cons.InstanceType
 	}
@@ -66,6 +66,8 @@ func (c *ContainerSpec) ApplyConstraints(serverVersion string, cons constraints.
 		}
 		c.Config["limits.memory"] = fmt.Sprintf(template, *cons.Mem)
 	}
+
+	return nil
 }
 
 // Container extends the upstream LXD container type.
