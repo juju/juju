@@ -565,6 +565,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 	if err := checkCloudRegion(c.givenHostCloudRegion, newCloud.HostCloudRegion); err != nil {
 		return errors.Trace(err)
 	}
+
 	if newCloud.HostCloudRegion == "" {
 		newCloud.HostCloudRegion = caas.K8sCloudOther
 	}

@@ -12540,7 +12540,7 @@
     {
         "Name": "Charms",
         "Description": "API implements the charms interface and is the concrete\nimplementation of the API end point.",
-        "Version": 3,
+        "Version": 4,
         "AvailableTo": [
             "model-user"
         ],
@@ -12582,6 +12582,18 @@
                         }
                     },
                     "description": "CharmInfo returns information about the requested charm.\nNOTE: thumper 2016-06-29, this is not a bulk call and probably should be."
+                },
+                "CheckCharmPlacement": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/ApplicationCharmPlacements"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "CheckCharmPlacement checks if a charm is allowed to be placed with in a\ngiven application."
                 },
                 "IsMetered": {
                     "type": "object",
@@ -12671,6 +12683,37 @@
                         "charm-origin",
                         "force",
                         "series"
+                    ]
+                },
+                "ApplicationCharmPlacement": {
+                    "type": "object",
+                    "properties": {
+                        "application": {
+                            "type": "string"
+                        },
+                        "charm-url": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "application",
+                        "charm-url"
+                    ]
+                },
+                "ApplicationCharmPlacements": {
+                    "type": "object",
+                    "properties": {
+                        "placements": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ApplicationCharmPlacement"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "placements"
                     ]
                 },
                 "Charm": {
@@ -13319,6 +13362,30 @@
                     "required": [
                         "message",
                         "code"
+                    ]
+                },
+                "ErrorResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "ErrorResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ErrorResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
                     ]
                 },
                 "IsMeteredResult": {

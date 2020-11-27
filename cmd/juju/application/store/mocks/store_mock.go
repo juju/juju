@@ -82,6 +82,20 @@ func (mr *MockCharmAdderMockRecorder) AddLocalCharm(arg0, arg1, arg2 interface{}
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddLocalCharm", reflect.TypeOf((*MockCharmAdder)(nil).AddLocalCharm), arg0, arg1, arg2)
 }
 
+// CheckCharmPlacement mocks base method
+func (m *MockCharmAdder) CheckCharmPlacement(arg0 string, arg1 *charm.URL) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckCharmPlacement", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CheckCharmPlacement indicates an expected call of CheckCharmPlacement
+func (mr *MockCharmAdderMockRecorder) CheckCharmPlacement(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckCharmPlacement", reflect.TypeOf((*MockCharmAdder)(nil).CheckCharmPlacement), arg0, arg1)
+}
+
 // MockMacaroonGetter is a mock of MacaroonGetter interface
 type MockMacaroonGetter struct {
 	ctrl     *gomock.Controller

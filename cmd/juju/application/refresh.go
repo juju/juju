@@ -216,9 +216,11 @@ information with which to determine compatibility; the operation will succeed,
 regardless of potential havoc, so long as the following conditions hold:
 
 - The new charm must declare all relations that the application is currently
-participating in.
+  participating in.
 - All config settings shared by the old and new charms must
-have the same types.
+  have the same types.
+- Charms changing from CharmStore (cs: prefix) to CharmHub require a 
+  homogeneous architecture for applications.
 
 The new charm may add new relations and configuration settings.
 
@@ -377,6 +379,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		DeployedSeries:  applicationInfo.Series,
 		Force:           c.Force,
 		ForceSeries:     c.ForceSeries,
+		Switch:          c.SwitchURL != "",
 		Logger:          ctx,
 	}
 	factory, err := c.getRefresherFactory(apiRoot)
@@ -603,7 +606,13 @@ func (c *charmAdderShim) AddCharmWithAuthorization(curl *charm.URL, origin commo
 		return c.charms.AddCharmWithAuthorization(curl, origin, mac, force, series)
 	}
 	return origin, c.api.AddCharmWithAuthorization(curl, csparams.Channel(origin.Risk), mac, force)
+}
 
+func (c *charmAdderShim) CheckCharmPlacement(appName string, curl *charm.URL) error {
+	if c.charms != nil {
+		return c.charms.CheckCharmPlacement(appName, curl)
+	}
+	return nil
 }
 
 func getCharmStore(

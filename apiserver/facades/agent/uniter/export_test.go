@@ -7,6 +7,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/state"
 )
@@ -46,6 +47,6 @@ func PatchGetStorageStateError(patcher patcher, err error) {
 	patcher.PatchValue(&getStorageState, func(st *state.State) (storageAccess, error) { return nil, err })
 }
 
-func (n *NetworkInfoBase) MachineNetworkInfos(spaceIDs ...string) (map[string]machineNetworkInfoResult, error) {
+func (n *NetworkInfoBase) MachineNetworkInfos(spaceIDs ...string) (map[string]params.NetworkInfoResult, error) {
 	return n.machineNetworkInfos(spaceIDs...)
 }

@@ -194,6 +194,20 @@ func (mr *MockDeployerAPIMockRecorder) CharmInfo(arg0 interface{}) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmInfo", reflect.TypeOf((*MockDeployerAPI)(nil).CharmInfo), arg0)
 }
 
+// CheckCharmPlacement mocks base method
+func (m *MockDeployerAPI) CheckCharmPlacement(arg0 string, arg1 *charm.URL) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckCharmPlacement", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CheckCharmPlacement indicates an expected call of CheckCharmPlacement
+func (mr *MockDeployerAPIMockRecorder) CheckCharmPlacement(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckCharmPlacement", reflect.TypeOf((*MockDeployerAPI)(nil).CheckCharmPlacement), arg0, arg1)
+}
+
 // Close mocks base method
 func (m *MockDeployerAPI) Close() error {
 	m.ctrl.T.Helper()
