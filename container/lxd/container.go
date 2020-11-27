@@ -70,6 +70,32 @@ func (c *ContainerSpec) ApplyConstraints(serverVersion string, cons constraints.
 	if cons.HasArch() {
 		c.Architecture = *cons.Arch
 	}
+	if cons.HasRootDisk() || cons.HasRootDiskSource() {
+		if !cons.HasRootDiskSource() {
+			return errors.New("root disk size contraints require a root disk source")
+		}
+
+		if c.Devices == nil {
+			c.Devices = map[string]map[string]string{}
+		}
+
+		c.Devices["root"] = map[string]string{
+			"type": "disk",
+			"pool": *cons.RootDiskSource,
+			"path": "/",
+		}
+
+		if cons.HasRootDisk() {
+			// Ensure that we use the correct "MB"/"MiB" suffix.
+			template := "%dMB"
+			if current, err := version.Parse(serverVersion); err == nil {
+				if current.Compare(minMiBVersion) >= 0 {
+					template = "%dMiB"
+				}
+			}
+			c.Devices["root"]["size"] = fmt.Sprintf(template, *cons.RootDisk)
+		}
+	}
 
 	return nil
 }
