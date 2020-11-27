@@ -98,7 +98,7 @@ type ServerFactory interface {
 	// RemoteServer creates a new server that connects to a remote lxd server.
 	// If the cloudSpec endpoint is nil or empty, it will assume that you want
 	// to connection to a local server and will instead use that one.
-	RemoteServer(environscloudspec.CloudSpec) (Server, error)
+	RemoteServer(environscloudspec.CloudSpec, string) (Server, error)
 
 	// InsecureRemoteServer creates a new server that connect to a remote lxd
 	// server in a insecure manner.
@@ -184,7 +184,7 @@ func (s *serverFactory) LocalServerAddress() (string, error) {
 	return s.localServerAddress, nil
 }
 
-func (s *serverFactory) RemoteServer(spec environscloudspec.CloudSpec) (Server, error) {
+func (s *serverFactory) RemoteServer(spec environscloudspec.CloudSpec, project string) (Server, error) {
 	if spec.Endpoint == "" {
 		return s.LocalServer()
 	}
@@ -199,7 +199,12 @@ func (s *serverFactory) RemoteServer(spec environscloudspec.CloudSpec) (Server, 
 		return nil, errors.NotValidf("credentials")
 	}
 
-	serverSpec := lxd.NewServerSpec(spec.Endpoint, serverCert, clientCert).WithProxy(proxy.DefaultConfig.GetProxy)
+	serverSpec := lxd.NewServerSpec(
+		spec.Endpoint,
+		project,
+		serverCert,
+		clientCert,
+	).WithProxy(proxy.DefaultConfig.GetProxy)
 
 	svr, err := s.newRemoteServerFunc(serverSpec)
 	if err == nil {
