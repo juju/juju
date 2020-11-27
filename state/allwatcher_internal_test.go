@@ -688,12 +688,11 @@ func (s *allWatcherStateSuite) TestChangeCAASApplications(c *gc.C) {
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ApplicationInfo{
-						ModelUUID:   caasSt.ModelUUID(),
-						Name:        "mysql",
-						CharmURL:    "local:kubernetes/kubernetes-mysql-0",
-						Life:        "alive",
-						Config:      map[string]interface{}{},
-						Constraints: constraints.MustParse("arch=amd64"),
+						ModelUUID: caasSt.ModelUUID(),
+						Name:      "mysql",
+						CharmURL:  "local:kubernetes/kubernetes-mysql-0",
+						Life:      "alive",
+						Config:    map[string]interface{}{},
 						Status: multiwatcher.StatusInfo{
 							Current: "unset",
 							Data:    map[string]interface{}{},
