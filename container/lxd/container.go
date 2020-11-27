@@ -32,6 +32,7 @@ const (
 
 // ContainerSpec represents the data required to create a new container.
 type ContainerSpec struct {
+	Architecture string
 	Name         string
 	Image        SourcedImage
 	Devices      map[string]device
@@ -65,6 +66,9 @@ func (c *ContainerSpec) ApplyConstraints(serverVersion string, cons constraints.
 			}
 		}
 		c.Config["limits.memory"] = fmt.Sprintf(template, *cons.Mem)
+	}
+	if cons.HasArch() {
+		c.Architecture = *cons.Arch
 	}
 
 	return nil
@@ -226,10 +230,11 @@ func (s *Server) CreateContainerFromSpec(spec ContainerSpec) (*Container, error)
 		Name:         spec.Name,
 		InstanceType: spec.InstanceType,
 		ContainerPut: api.ContainerPut{
-			Profiles:  spec.Profiles,
-			Devices:   spec.Devices,
-			Config:    spec.Config,
-			Ephemeral: false,
+			Architecture: spec.Architecture,
+			Profiles:     spec.Profiles,
+			Devices:      spec.Devices,
+			Config:       spec.Config,
+			Ephemeral:    false,
 		},
 	}
 	op, err := s.CreateContainerFromImage(spec.Image.LXDServer, *spec.Image.Image, req)
