@@ -262,7 +262,6 @@ func (s *networkSuite) TestVerifyNetworkDeviceNotPresentCreated(c *gc.C) {
 	netCreateReq := lxdapi.NetworksPost{
 		Name:       network.DefaultLXDBridge,
 		Type:       "bridge",
-		Managed:    true,
 		NetworkPut: lxdapi.NetworkPut{Config: netConf},
 	}
 	newNet := &lxdapi.Network{
