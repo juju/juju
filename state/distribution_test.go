@@ -64,10 +64,9 @@ func (s *InstanceDistributorSuite) SetUpTest(c *gc.C) {
 	s.machines = make([]*state.Machine, 3)
 	for i := range s.machines {
 		m, err := s.State.AddOneMachine(state.MachineTemplate{
-			Series:                  "quantal",
-			Jobs:                    []state.MachineJob{state.JobHostUnits},
-			Constraints:             constraints.MustParse("arch=amd64"),
-			HardwareCharacteristics: *s.hwChar,
+			Series:      "quantal",
+			Jobs:        []state.MachineJob{state.JobHostUnits},
+			Constraints: constraints.MustParse("arch=amd64"),
 		})
 		c.Assert(err, jc.ErrorIsNil)
 

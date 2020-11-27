@@ -22,6 +22,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/application"
+	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -283,7 +284,7 @@ func (factory *Factory) paramsFillDefaults(c *gc.C, params *MachineParams) *Mach
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	if params.Characteristics == nil {
-		arch := "amd64"
+		arch := corearch.DefaultArchitecture
 		mem := uint64(64 * 1024 * 1024 * 1024)
 		hardware := instance.HardwareCharacteristics{
 			Arch: &arch,

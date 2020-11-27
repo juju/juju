@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/upgrader"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -49,7 +50,7 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	arch := "amd64"
+	arch := arch.DefaultArchitecture
 	hwChar := &instance.HardwareCharacteristics{
 		Arch: &arch,
 	}

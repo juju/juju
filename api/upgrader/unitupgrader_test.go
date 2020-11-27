@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/watcher/watchertest"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -57,7 +58,7 @@ func (s *unitUpgraderSuite) addMachineApplicationCharmAndUnit(c *gc.C, appName s
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	arch := "amd64"
+	arch := arch.DefaultArchitecture
 	hwChar := &instance.HardwareCharacteristics{
 		Arch: &arch,
 	}

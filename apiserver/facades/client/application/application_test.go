@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
@@ -1503,7 +1504,7 @@ func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
 	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	arch := "amd64"
+	arch := arch.DefaultArchitecture
 	hwChar := &instance.HardwareCharacteristics{
 		Arch: &arch,
 	}
@@ -1555,7 +1556,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithLXDProfile(c *gc.C)
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	arch := "amd64"
+	arch := arch.DefaultArchitecture
 	hwChar := &instance.HardwareCharacteristics{
 		Arch: &arch,
 	}
@@ -1622,7 +1623,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAn
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	arch := "amd64"
+	arch := arch.DefaultArchitecture
 	hwChar := &instance.HardwareCharacteristics{
 		Arch: &arch,
 	}
