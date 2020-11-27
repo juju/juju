@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/controller"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
@@ -182,7 +183,7 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 	results, err := s.controller.ModelStatus(req)
 	c.Assert(err, jc.ErrorIsNil)
 
-	arch := "amd64"
+	arch := arch.DefaultArchitecture
 	mem := uint64(64 * 1024 * 1024 * 1024)
 	stdHw := &params.MachineHardware{
 		Arch: &arch,

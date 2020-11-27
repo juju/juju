@@ -13,6 +13,8 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/watcher/watchertest"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -55,6 +57,15 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 func (s *unitUpgraderSuite) addMachineApplicationCharmAndUnit(c *gc.C, appName string) (*state.Machine, *state.Application, *state.Charm, *state.Unit) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
+
+	arch := arch.DefaultArchitecture
+	hwChar := &instance.HardwareCharacteristics{
+		Arch: &arch,
+	}
+	instId := instance.Id("i-host-machine")
+	err = machine.SetProvisioned(instId, "", "fake-nonce", hwChar)
+	c.Assert(err, jc.ErrorIsNil)
+
 	charm := s.AddTestingCharm(c, appName)
 	app := s.AddTestingApplication(c, appName, charm)
 	unit, err := app.AddUnit(state.AddUnitParams{})

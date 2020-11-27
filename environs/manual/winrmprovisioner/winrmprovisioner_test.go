@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/environs/manual/winrmprovisioner"
 )
@@ -50,7 +51,7 @@ func (w *winrmprovisionerSuite) TestInitAdministratorError(c *gc.C) {
 }
 
 func (w *winrmprovisionerSuite) TestDetectSeriesAndHardwareCharacteristics(c *gc.C) {
-	arch := "amd64"
+	arch := arch.DefaultArchitecture
 	mem := uint64(16)
 	series := "win2012r2"
 	cores := uint64(4)

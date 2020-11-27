@@ -78,6 +78,7 @@ applications:
       logging-directory: alpha
   wordpress:
     charm: cs:quantal/wordpress-23
+    constraints: arch=amd64
     bindings:
       "": alpha
       admin-api: alpha
