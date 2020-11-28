@@ -91,6 +91,11 @@ func newCloudCredentialFromKubeConfig(reader io.Reader, cloudParams KubeCloudPar
 	newCloud.AuthTypes = []cloud.AuthType{credential.AuthType()}
 	currentCloud := caasConfig.Clouds[context.CloudName]
 	newCloud.Endpoint = currentCloud.Endpoint
+	insecureSkipTLSVerify, ok := currentCloud.Attributes["InsecureSkipTLSVerify"].(bool)
+	if !ok {
+		return fail(errors.Errorf("InsecureSkipTLSVerify attribute should be a bool"))
+	}
+	newCloud.InsecureSkipTLSVerify = insecureSkipTLSVerify
 
 	cloudCAData, ok := currentCloud.Attributes["CAData"].(string)
 	if !ok {

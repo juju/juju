@@ -134,6 +134,10 @@ type Cloud struct {
 	// overridden by a region.
 	Endpoint string
 
+	// InsecureTLSNoVerify determines whether TLS verification must be enforced
+	// for the above endpoint
+	InsecureSkipTLSVerify bool
+
 	// IdentityEndpoint is the default identity endpoint for the cloud
 	// regions, may be overridden by a region.
 	IdentityEndpoint string

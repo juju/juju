@@ -26,6 +26,10 @@ type CloudSpec struct {
 	// Endpoint is the endpoint for the cloud (region).
 	Endpoint string
 
+	// InsecureTLSNoVerify indicates whether TLS verification must be enforced
+	// for the above endpoint.
+	InsecureSkipTLSVerify bool
+
 	// IdentityEndpoint is the identity endpoint for the cloud (region).
 	IdentityEndpoint string
 
@@ -60,14 +64,15 @@ func (cs CloudSpec) Validate() error {
 // Cloud, cloud and region names, and credential.
 func MakeCloudSpec(cloud jujucloud.Cloud, cloudRegionName string, credential *jujucloud.Credential) (CloudSpec, error) {
 	cloudSpec := CloudSpec{
-		Type:             cloud.Type,
-		Name:             cloud.Name,
-		Region:           cloudRegionName,
-		Endpoint:         cloud.Endpoint,
-		IdentityEndpoint: cloud.IdentityEndpoint,
-		StorageEndpoint:  cloud.StorageEndpoint,
-		CACertificates:   cloud.CACertificates,
-		Credential:       credential,
+		Type:                  cloud.Type,
+		Name:                  cloud.Name,
+		Region:                cloudRegionName,
+		Endpoint:              cloud.Endpoint,
+		InsecureSkipTLSVerify: cloud.InsecureSkipTLSVerify,
+		IdentityEndpoint:      cloud.IdentityEndpoint,
+		StorageEndpoint:       cloud.StorageEndpoint,
+		CACertificates:        cloud.CACertificates,
+		Credential:            credential,
 	}
 	if cloudRegionName != "" {
 		cloudRegion, err := jujucloud.RegionByName(cloud.Regions, cloudRegionName)

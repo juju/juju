@@ -144,6 +144,7 @@ func cloudsFromConfig(config *clientcmdapi.Config, cloudName string) (map[string
 			k8sCAData = caData
 		}
 		attrs["CAData"] = string(k8sCAData)
+		attrs["InsecureSkipTLSVerify"] = cluster.InsecureSkipTLSVerify
 
 		return CloudConfig{
 			Endpoint:   cluster.Server,
