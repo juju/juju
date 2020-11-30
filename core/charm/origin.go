@@ -49,6 +49,18 @@ type Platform struct {
 	Series       string
 }
 
+// MakePlatform creates a core charm Platform from a set of component parts.
+func MakePlatform(arch, os, series string) (Platform, error) {
+	if arch == "" {
+		return Platform{}, errors.NotValidf("arch %q", arch)
+	}
+	return Platform{
+		Architecture: arch,
+		OS:           os,
+		Series:       series,
+	}, nil
+}
+
 // MustParsePlatform parses a given string or returns a panic.
 func MustParsePlatform(s string) Platform {
 	p, err := ParsePlatformNormalize(s)

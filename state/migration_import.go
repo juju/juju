@@ -1304,6 +1304,18 @@ func makeCharmOrigin(a description.Application, curl *charm.URL) (*CharmOrigin, 
 			Branch: c.Branch,
 		}
 	}
+	var platform *Platform
+	if serialized := co.Platform(); serialized != "" {
+		p, err := corecharm.ParsePlatformNormalize(serialized)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		platform = &Platform{
+			Architecture: p.Architecture,
+			OS:           p.OS,
+			Series:       p.Series,
+		}
+	}
 
 	return &CharmOrigin{
 		Source:   co.Source(),
@@ -1311,6 +1323,7 @@ func makeCharmOrigin(a description.Application, curl *charm.URL) (*CharmOrigin, 
 		Hash:     co.Hash(),
 		Revision: &rev,
 		Channel:  channel,
+		Platform: platform,
 	}, nil
 }
 
