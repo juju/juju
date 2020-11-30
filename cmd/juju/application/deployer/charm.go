@@ -213,6 +213,8 @@ func (d *deployCharm) deploy(
 			strings.Join(charmInfo.Meta.Terms, " "))
 	}
 
+	ctx.Infof("TODO: deployCharm.deploy() calling deployResources, d.resources=%v, charmInfo.Meta.Resources=%v",
+		d.resources, charmInfo.Meta.Resources)
 	ids, err := d.deployResources(
 		applicationName,
 		resourceadapters.CharmID{

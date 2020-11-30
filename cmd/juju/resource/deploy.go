@@ -95,6 +95,7 @@ type deployUploader struct {
 }
 
 func (d deployUploader) upload(resourceValues map[string]string, revisions map[string]int) (map[string]string, error) {
+	// TODO: add a log here? but how fmt.Fprintf(os.Stderr, "...")???
 	if err := d.validateResources(); err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -58,37 +58,67 @@ func (ro *resourceOpener) OpenResource(name string) (o resource.Opened, err erro
 		return resource.Opened{}, errors.Trace(err)
 	}
 	cURL, _ := ro.unit.CharmURL()
-	id := csclient.CharmID{
-		URL:     cURL,
-		Channel: app.Channel(),
-	}
 
-	csOpener := newCharmstoreOpener(ro.st)
-	client, err := csOpener.NewClient()
-	if err != nil {
-		return resource.Opened{}, errors.Trace(err)
-	}
+	switch cURL.Schema {
+	case "cs":
+		logger.Criticalf("TODO charmstore resourceOpener.OpenResource(%q)", name)
+		id := csclient.CharmID{
+			URL:     cURL,
+			Channel: app.Channel(),
+		}
 
-	cache := &charmstoreEntityCache{
-		st:            ro.res,
-		userID:        ro.userID,
-		unit:          ro.unit,
-		applicationID: ro.unit.ApplicationName(),
-	}
+		csOpener := newCharmstoreOpener(ro.st)
+		client, err := csOpener.NewClient()
+		if err != nil {
+			return resource.Opened{}, errors.Trace(err)
+		}
 
-	res, reader, err := charmstore.GetResource(charmstore.GetResourceArgs{
-		Client:  client,
-		Cache:   cache,
-		CharmID: id,
-		Name:    name,
-	})
-	if err != nil {
-		return resource.Opened{}, errors.Trace(err)
-	}
+		cache := &charmstoreEntityCache{
+			st:            ro.res,
+			userID:        ro.userID,
+			unit:          ro.unit,
+			applicationID: ro.unit.ApplicationName(),
+		}
 
-	opened := resource.Opened{
-		Resource:   res,
-		ReadCloser: reader,
+		res, reader, err := charmstore.GetResource(charmstore.GetResourceArgs{
+			Client:  client,
+			Cache:   cache,
+			CharmID: id,
+			Name:    name,
+		})
+		if err != nil {
+			return resource.Opened{}, errors.Trace(err)
+		}
+
+		opened := resource.Opened{
+			ReadCloser: reader,
+			Size: res.Size,
+			Fingerprint: res.Fingerprint,
+		}
+		return opened, nil
+
+	case "ch":
+		logger.Criticalf("TODO charmhub resourceOpener.OpenResource(%q)", name)
+		return resource.Opened{}, errors.NotValidf("TODO resourceOpener.OpenResource doesn't support charmhub yet")
+		/*
+		model, _ := ro.st.Model()
+		modelConfig, _ := model.Config()
+		charmHubURL, _ := modelConfig.CharmHubURL()
+		config, _ := charmhub.CharmHubConfigFromURL(charmHubURL, logger.Child("charmhub"))
+		client, _ := charmhub.NewClient(config)
+
+		res, reader, err := client.GetResource(cURL, app.Channel(), name)
+		if err != nil {
+			return resource.Opened{}, errors.Trace(err)
+		}
+
+		opened := resource.Opened{
+			Resource:   res,
+			ReadCloser: reader,
+		}
+		return opened, nil
+*/
+	default:
+		return resource.Opened{}, errors.NotValidf("invalid charm URL schema %q", cURL.Schema)
 	}
-	return opened, nil
 }

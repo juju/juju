@@ -54,7 +54,8 @@ func DeployResources(
 	conn base.APICallCloser,
 	filesystem modelcmd.Filesystem,
 ) (ids map[string]string, err error) {
-
+	logger.Criticalf("TODO resource/resourceadapters/deploy.go DeployResources, len(filesAndRevisions)=%d, len(resources)=%d",
+		len(filesAndRevisions), len(resources))
 	if len(filesAndRevisions)+len(resources) == 0 {
 		// Nothing to upload.
 		return nil, nil
@@ -76,6 +77,7 @@ func DeployResources(
 		}
 	}
 
+	logger.Criticalf("TODO DeployResources revisions=%v", revisions)
 	ids, err = resourcecmd.DeployResources(resourcecmd.DeployResourcesArgs{
 		ApplicationID: applicationID,
 		CharmID: charmstore.CharmID{

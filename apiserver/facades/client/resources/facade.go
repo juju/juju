@@ -177,6 +177,11 @@ func (f Facade) addPendingResources(applicationID, chRef string, channel csparam
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
+		case "ch":
+			resources, err = f.resolveCharmhubResources(cURL, string(channel), resources)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 		case "local":
 			resources, err = f.resolveLocalResources(resources)
 			if err != nil {
@@ -199,6 +204,11 @@ func (f Facade) addPendingResources(applicationID, chRef string, channel csparam
 		ids = append(ids, pendingID)
 	}
 	return ids, nil
+}
+
+func (f Facade) resolveCharmhubResources(cURL *charm.URL, channel string, resources []charmresource.Resource) ([]charmresource.Resource, error) {
+	logger.Criticalf("TODO Facade.resolveCharmhubResoures url=%v, channel=%s, len(resources)=%d", cURL, channel, len(resources))
+	return nil, errors.Errorf("TODO fake error from resolveCharmhubResoures")
 }
 
 func (f Facade) resolveCharmstoreResources(id charmstore.CharmID, csMac *macaroon.Macaroon, resources []charmresource.Resource) ([]charmresource.Resource, error) {
