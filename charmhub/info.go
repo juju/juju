@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/kr/pretty"
 
 	"github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
@@ -56,7 +57,7 @@ func (c *InfoClient) Info(ctx context.Context, name string) (transport.InfoRespo
 		}
 		return resp, resultErr
 	}
-
+	c.logger.Tracef("Info() unmarshalled: %s", pretty.Sprint(resp))
 	return resp, nil
 }
 
