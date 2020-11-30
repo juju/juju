@@ -3133,16 +3133,25 @@
                 "CharmOrigin": {
                     "type": "object",
                     "properties": {
+                        "architecture": {
+                            "type": "string"
+                        },
                         "hash": {
                             "type": "string"
                         },
                         "id": {
                             "type": "string"
                         },
+                        "os": {
+                            "type": "string"
+                        },
                         "revision": {
                             "type": "integer"
                         },
                         "risk": {
+                            "type": "string"
+                        },
+                        "series": {
                             "type": "string"
                         },
                         "source": {
@@ -13305,16 +13314,25 @@
                 "CharmOrigin": {
                     "type": "object",
                     "properties": {
+                        "architecture": {
+                            "type": "string"
+                        },
                         "hash": {
                             "type": "string"
                         },
                         "id": {
                             "type": "string"
                         },
+                        "os": {
+                            "type": "string"
+                        },
                         "revision": {
                             "type": "integer"
                         },
                         "risk": {
+                            "type": "string"
+                        },
+                        "series": {
                             "type": "string"
                         },
                         "source": {
