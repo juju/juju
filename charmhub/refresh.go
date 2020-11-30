@@ -7,8 +7,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v2"
 	"github.com/kr/pretty"
@@ -38,6 +38,17 @@ type RefreshPlatform struct {
 	Series       string
 }
 
+func (p RefreshPlatform) String() string {
+	path := p.Architecture
+	if p.Series != "" {
+		if p.OS != "" {
+			path = fmt.Sprintf("%s/%s", path, p.OS)
+		}
+		path = fmt.Sprintf("%s/%s", path, p.Series)
+	}
+	return path
+}
+
 // RefreshClient defines a client for refresh requests.
 type RefreshClient struct {
 	path   path.Path
@@ -61,6 +72,9 @@ type RefreshConfig interface {
 
 	// Ensure that the request back contains the information we requested.
 	Ensure([]transport.RefreshResponse) error
+
+	// String describes the underlying refresh config.
+	String() string
 }
 
 // Refresh is used to refresh installed charms to a more suitable revision.
@@ -72,11 +86,10 @@ func (c *RefreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]tr
 	}
 	var resp transport.RefreshResponses
 	restResp, err := c.client.Post(ctx, c.path, req, &resp)
+
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	spew.Dump(resp)
 
 	if resultErr := resp.ErrorList.Combine(); resultErr != nil {
 		if restResp.StatusCode == http.StatusNotFound {
@@ -98,6 +111,11 @@ type refreshOne struct {
 	// instanceKey is a private unique key that we construct for CharmHub API
 	// asynchronous calls.
 	instanceKey string
+}
+
+func (c refreshOne) String() string {
+	return fmt.Sprintf("Refresh one (instanceKey: %s): using ID %s revision %+v, with channel %s and platform %v",
+		c.instanceKey, c.ID, c.Revision, c.Channel, c.Platform.String())
 }
 
 // RefreshOne creates a request config for requesting only one charm.
@@ -273,14 +291,12 @@ func (c executeOne) Ensure(responses []transport.RefreshResponse) error {
 }
 
 func (c executeOne) String() string {
-	return fmt.Sprintf("Action: %s, Name: %s, Revision: %d, Platform (Arch: %s, OS: %s, Series: %s)",
-		c.action,
-		c.Name,
-		c.Revision,
-		c.Platform.Architecture,
-		c.Platform.OS,
-		c.Platform.Series,
-	)
+	var channel string
+	if c.Channel != nil {
+		channel = *c.Channel
+	}
+	return fmt.Sprintf("Execute One (action: %s, instanceKey: %s): using Name: %s with revision: %+v, channel %v and platform %s",
+		c.action, c.instanceKey, c.Name, c.Revision, channel, c.Platform)
 }
 
 type refreshMany struct {
@@ -316,4 +332,12 @@ func (c refreshMany) Ensure(responses []transport.RefreshResponse) error {
 		}
 	}
 	return nil
+}
+
+func (c refreshMany) String() string {
+	plans := make([]string, len(c.Configs))
+	for i, config := range c.Configs {
+		plans[i] = config.String()
+	}
+	return strings.Join(plans, "\n")
 }

@@ -362,8 +362,7 @@ func (d downloadLogger) Debugf(msg string, args ...interface{}) {
 	d.Context.Verbosef(msg, args...)
 }
 
-func (d downloadLogger) Tracef(msg string, args ...interface{}) {
-}
+func (d downloadLogger) Tracef(msg string, args ...interface{}) {}
 
 type stdoutFileSystem struct {
 }

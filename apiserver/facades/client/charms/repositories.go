@@ -87,6 +87,7 @@ func (c *chRepo) FindDownloadURL(curl *charm.URL, origin corecharm.Origin) (*url
 	if err != nil {
 		return nil, corecharm.Origin{}, errors.Trace(err)
 	}
+	logger.Tracef("Locate charm using: %v", cfg)
 	result, err := c.client.Refresh(context.TODO(), cfg)
 	if err != nil {
 		return nil, corecharm.Origin{}, errors.Trace(err)
@@ -126,8 +127,11 @@ func refreshConfig(curl *charm.URL, origin corecharm.Origin) (charmhub.RefreshCo
 		err error
 
 		platform = charmhub.RefreshPlatform{
+			// TODO (stickupkid): FIX ME, charmhub ignores architecture
+			// "sometimes"...
+			// Architecture: origin.Platform.Architecture,
+			Architecture: "all",
 			OS:           origin.Platform.OS,
-			Architecture: origin.Platform.Architecture,
 			Series:       origin.Platform.Series,
 		}
 	)

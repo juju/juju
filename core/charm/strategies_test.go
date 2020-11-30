@@ -108,7 +108,12 @@ func (s strategySuite) TestRunWithCharmAlreadyUploaded(c *gc.C) {
 	_, alreadyExists, obtainedOrigin, err := strategy.Run(mockState, mockVersionValidator, Origin{Source: CharmHub})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(alreadyExists, jc.IsTrue)
-	c.Assert(obtainedOrigin, jc.DeepEquals, Origin{Source: CharmHub, Platform: Platform{Architecture: "amd64"}})
+	c.Assert(obtainedOrigin, jc.DeepEquals, Origin{
+		Source: CharmHub,
+		Platform: Platform{
+			Architecture: "amd64",
+		},
+	})
 }
 
 func (s strategySuite) TestRunWithPrepareUploadError(c *gc.C) {

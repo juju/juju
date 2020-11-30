@@ -196,13 +196,20 @@ func (p *Strategy) Run(state State, version JujuVersionValidator, origin Origin)
 	// Charm is already in state, so we can exit out early.
 	if ch.IsUploaded() {
 		origin, err := p.store.DownloadOrigin(p.charmURL, seriesOrigin)
-		return DownloadResult{}, true, origin, errors.Trace(err)
+		if err != nil {
+			return DownloadResult{}, false, Origin{}, errors.Trace(err)
+		}
+
+		p.logger.Debugf("Reusing charm: already uploaded to controller with origin %v", origin)
+		return DownloadResult{}, true, origin, nil
 	}
+
+	p.logger.Debugf("Downloading charm %q: %v", p.charmURL, seriesOrigin)
 
 	// Get the charm and its information from the store.
 	file, err := ioutil.TempFile("", p.charmURL.Name)
 	if err != nil {
-		return DownloadResult{}, false, origin, errors.Trace(err)
+		return DownloadResult{}, false, Origin{}, errors.Trace(err)
 	}
 
 	p.deferFunc(func() error {
@@ -214,23 +221,23 @@ func (p *Strategy) Run(state State, version JujuVersionValidator, origin Origin)
 		return nil
 	})
 
-	archive, checksum, origin, err := p.store.Download(p.charmURL, file.Name(), seriesOrigin)
+	archive, checksum, downloadOrigin, err := p.store.Download(p.charmURL, file.Name(), seriesOrigin)
 	if err != nil {
-		return DownloadResult{}, false, origin, errors.Trace(err)
+		return DownloadResult{}, false, Origin{}, errors.Trace(err)
 	}
 
 	if err := version.Validate(archive.Meta()); err != nil {
-		return DownloadResult{}, false, origin, errors.Trace(err)
+		return DownloadResult{}, false, Origin{}, errors.Trace(err)
 	}
 
 	// Validate the charm lxd profile once we've downloaded it.
 	if err := lxdprofile.ValidateLXDProfile(makeStoreCharmLXDProfiler(archive)); err != nil && !p.force {
-		return DownloadResult{}, false, origin, errors.Annotate(err, "cannot add charm")
+		return DownloadResult{}, false, Origin{}, errors.Annotate(err, "cannot add charm")
 	}
 
 	result, err := p.downloadResult(file.Name(), checksum)
 	if err != nil {
-		return DownloadResult{}, false, origin, errors.Trace(err)
+		return DownloadResult{}, false, Origin{}, errors.Trace(err)
 	}
 
 	return DownloadResult{
@@ -238,7 +245,7 @@ func (p *Strategy) Run(state State, version JujuVersionValidator, origin Origin)
 		Data:   result.Data,
 		Size:   result.Size,
 		SHA256: result.SHA256,
-	}, false, origin, nil
+	}, false, downloadOrigin, nil
 }
 
 // Finish will attempt to close out the download procedure. Cleaning up any
