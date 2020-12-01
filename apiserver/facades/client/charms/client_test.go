@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/cache"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
@@ -416,7 +417,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithSubordinate(c *gc.C) {
 }
 
 func (s *charmsMockSuite) TestCheckCharmPlacementWithConstraintArch(c *gc.C) {
-	arch := "amd64"
+	arch := arch.DefaultArchitecture
 	appName := "winnie"
 
 	curl, err := charm.ParseURL("ch:poo")
@@ -470,7 +471,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithNoConstraintArch(c *gc.C) {
 }
 
 func (s *charmsMockSuite) TestCheckCharmPlacementWithNoConstraintArchMachine(c *gc.C) {
-	arch := "amd64"
+	arch := arch.DefaultArchitecture
 	appName := "winnie"
 
 	curl, err := charm.ParseURL("ch:poo")
@@ -742,7 +743,7 @@ func (s *charmsMockSuite) expectMachineConstraints(cons constraints.Value) {
 }
 
 func (s *charmsMockSuite) expectHardwareCharacteristics() {
-	arch := "amd64"
+	arch := arch.DefaultArchitecture
 	s.machine.EXPECT().HardwareCharacteristics().Return(&instance.HardwareCharacteristics{
 		Arch: &arch,
 	}, nil)

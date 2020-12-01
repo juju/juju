@@ -107,7 +107,7 @@ func (s *baseSuite) TestValidateServiceSpec(c *gc.C) {
 			Type: "Recreate",
 		},
 	}
-	c.Assert(spec.Validate(), gc.ErrorMatches, `rolling update strategy is required`)
+	c.Assert(spec.Validate(), jc.ErrorIsNil)
 
 	var partition int32 = 3
 	spec = specs.ServiceSpec{

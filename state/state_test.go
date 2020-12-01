@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/application"
+	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
@@ -1266,7 +1267,7 @@ func (s *StateSuite) TestInjectMachineErrors(c *gc.C) {
 
 func (s *StateSuite) TestInjectMachine(c *gc.C) {
 	cons := constraints.MustParse("mem=4G")
-	arch := "amd64"
+	arch := corearch.DefaultArchitecture
 	mem := uint64(1024)
 	disk := uint64(1024)
 	source := "loveshack"
