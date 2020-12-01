@@ -14,11 +14,13 @@ import (
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/os/series"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub"
+	"github.com/juju/juju/charmhub/selector"
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/charmstore"
 	corecharm "github.com/juju/juju/core/charm"
@@ -86,6 +88,10 @@ func (c *chRepo) DownloadCharm(resourceURL string, archivePath string) (*charm.C
 // to be downloaded.  If the provided charm origin has no ID, it is
 // assumed that the charm is being installed, not refreshed.
 func (c *chRepo) FindDownloadURL(curl *charm.URL, origin corecharm.Origin) (*url.URL, corecharm.Origin, error) {
+	if origin.Type == "bundle" {
+		return c.findBundleDownloadURL(curl, origin)
+	}
+
 	cfg, err := refreshConfig(curl, origin)
 	if err != nil {
 		return nil, corecharm.Origin{}, errors.Trace(err)
@@ -110,6 +116,18 @@ func (c *chRepo) FindDownloadURL(curl *charm.URL, origin corecharm.Origin) (*url
 
 	durl, err := url.Parse(findResult.Entity.Download.URL)
 	return durl, origin, errors.Trace(err)
+}
+
+func (c *chRepo) findBundleDownloadURL(curl *charm.URL, origin corecharm.Origin) (*url.URL, corecharm.Origin, error) {
+	info, err := c.client.Info(context.TODO(), curl.Name)
+	if err != nil {
+		return nil, corecharm.Origin{}, errors.Trace(err)
+	}
+
+	logger.Debugf("Locate bundle using: %v", origin)
+
+	selector := selector.NewSelectorForBundle(series.SupportedJujuControllerSeries())
+	return selector.Locate(info, origin)
 }
 
 // refreshConfig creates a RefreshConfig for the given input.

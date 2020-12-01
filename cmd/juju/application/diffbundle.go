@@ -139,7 +139,7 @@ func (c *diffBundleCommand) Info() *cmd.Info {
 func (c *diffBundleCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 
-	f.StringVar(&c.arch, "arch", ArchAll, fmt.Sprintf("specify an arch <%s>", c.archArgumentList()))
+	f.StringVar(&c.arch, "arch", "", fmt.Sprintf("specify an arch <%s>", c.archArgumentList()))
 	f.StringVar(&c.series, "series", "", "specify a series")
 	f.StringVar(&c.channelStr, "channel", "", "Channel to use when getting the bundle from the charm hub or charm store")
 	f.Var(cmd.NewAppendStringsValue(&c.bundleOverlays), "overlay", "Bundles to overlay on the primary bundle, applied in order")
@@ -165,13 +165,8 @@ func (c *diffBundleCommand) Init(args []string) error {
 			return errors.Annotate(err, "error in --channel")
 		}
 	}
-	// If the architecture is empty, ensure we normalize it to all to prevent
-	// complicated comparison checking.
-	if c.arch == "" {
-		c.arch = ArchAll
-	}
 
-	if c.arch != ArchAll && !c.arches.Contains(c.arch) {
+	if c.arch != "" && !c.arches.Contains(c.arch) {
 		return errors.Errorf("unexpected architecture flag value %q, expected <%s>", c.arch, c.archArgumentList())
 	}
 	return cmd.CheckEmpty(args[1:])
