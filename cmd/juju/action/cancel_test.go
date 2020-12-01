@@ -48,12 +48,10 @@ func (s *CancelSuite) TestRun(c *gc.C) {
 
 func (s *CancelSuite) runTestCase(c *gc.C, tc cancelTestCase) {
 	for _, modelFlag := range s.modelFlags {
-		fakeClient := makeFakeClient(
-			0*time.Second, // No API delay
-			5*time.Second, // 5 second test timeout
-			tc.results,
-			"", // No API error
-		)
+		fakeClient := &fakeAPIClient{
+			timeout:       s.clock.NewTimer(5 * time.Second), // 5 second test wait
+			actionResults: tc.results,
+		}
 
 		restore := s.patchAPIClient(fakeClient)
 		defer restore()

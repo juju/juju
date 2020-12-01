@@ -333,7 +333,7 @@ func registerCommands(r commandRegistry) {
 	r.Register(status.NewStatusHistoryCommand())
 
 	// Error resolution and debugging commands.
-	r.Register(newDefaultExecCommand(nil))
+	r.Register(action.NewExecCommand(nil))
 	r.Register(newSCPCommand(nil))
 	r.Register(newSSHCommand(nil, nil))
 	r.Register(application.NewResolvedCommand())
