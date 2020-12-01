@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/storage"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
@@ -143,7 +144,7 @@ func (k *kubernetesClient) ValidateStorageClass(config map[string]interface{}) e
 }
 
 // EnsureStorageProvisioner creates a storage class with the specified config, or returns an existing one.
-func (k *kubernetesClient) EnsureStorageProvisioner(cfg caas.StorageProvisioner) (*caas.StorageProvisioner, bool, error) {
+func (k *kubernetesClient) EnsureStorageProvisioner(cfg k8s.StorageProvisioner) (*k8s.StorageProvisioner, bool, error) {
 	// First see if the named storage class exists.
 	sc, err := k.getStorageClass(cfg.Name)
 	if err == nil {
@@ -205,7 +206,7 @@ func (k *kubernetesClient) maybeGetVolumeClaimSpec(params storage.VolumeParams) 
 	}
 	if !haveStorageClass {
 		params.StorageConfig.StorageClass = storageClassName
-		sc, _, err := k.EnsureStorageProvisioner(caas.StorageProvisioner{
+		sc, _, err := k.EnsureStorageProvisioner(k8s.StorageProvisioner{
 			Name:          params.StorageConfig.StorageClass,
 			Namespace:     k.namespace,
 			Provisioner:   params.StorageConfig.StorageProvisioner,

@@ -6,7 +6,7 @@ package provider
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
@@ -131,7 +131,7 @@ func (environProviderCredentials) FinalizeCredential(_ environs.FinalizeCredenti
 // RegisterCredentials is part of the environs.ProviderCredentialsRegister interface.
 func (p environProviderCredentials) RegisterCredentials(cld cloud.Cloud) (map[string]*cloud.CloudCredential, error) {
 	cloudName := cld.Name
-	if cloudName != caas.K8sCloudMicrok8s {
+	if cloudName != k8s.K8sCloudMicrok8s {
 		return make(map[string]*cloud.CloudCredential), nil
 	}
 	_, cred, _, err := p.builtinCloudGetter(p.cmdRunner)

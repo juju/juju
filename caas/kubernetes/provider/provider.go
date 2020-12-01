@@ -16,6 +16,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
@@ -32,7 +33,7 @@ type kubernetesEnvironProvider struct {
 	environProviderCredentials
 	cmdRunner          CommandRunner
 	builtinCloudGetter func(CommandRunner) (cloud.Cloud, jujucloud.Credential, string, error)
-	brokerGetter       func(environs.OpenParams) (caas.ClusterMetadataChecker, error)
+	brokerGetter       func(environs.OpenParams) (k8s.ClusterMetadataChecker, error)
 }
 
 var _ environs.EnvironProvider = (*kubernetesEnvironProvider)(nil)
@@ -43,8 +44,17 @@ var providerInstance = kubernetesEnvironProvider{
 	},
 	cmdRunner:          defaultRunner{},
 	builtinCloudGetter: attemptMicroK8sCloud,
-	brokerGetter: func(args environs.OpenParams) (caas.ClusterMetadataChecker, error) {
-		return caas.New(args)
+	brokerGetter: func(args environs.OpenParams) (k8s.ClusterMetadataChecker, error) {
+		broker, err := caas.New(args)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		metaChecker, supported := broker.(k8s.ClusterMetadataChecker)
+		if !supported {
+			return nil, errors.NotSupportedf("cluster metadata ")
+		}
+		return metaChecker, nil
 	},
 }
 

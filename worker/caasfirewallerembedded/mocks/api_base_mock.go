@@ -6,14 +6,13 @@ package mocks
 
 import (
 	context "context"
-	http "net/http"
-	url "net/url"
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	base "github.com/juju/juju/api/base"
 	names "github.com/juju/names/v4"
 	httprequest "gopkg.in/httprequest.v1"
+	http "net/http"
+	url "net/url"
+	reflect "reflect"
 )
 
 // MockAPICaller is a mock of APICaller interface

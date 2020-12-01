@@ -15,7 +15,7 @@ import (
 	"github.com/juju/utils/v2/exec"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -27,7 +27,7 @@ import (
 type ClientConfigFuncGetter func(string) (clientconfig.ClientConfigFunc, error)
 
 // GetClusterMetadataFunc returns the ClusterMetadata using the provided ClusterMetadataChecker
-type GetClusterMetadataFunc func(KubeCloudStorageParams) (*caas.ClusterMetadata, error)
+type GetClusterMetadataFunc func(KubeCloudStorageParams) (*k8s.ClusterMetadata, error)
 
 // KubeCloudParams defines the parameters used to extract a k8s cluster definition from kubeconfig data.
 type KubeCloudParams struct {
@@ -46,7 +46,7 @@ type KubeCloudParams struct {
 type KubeCloudStorageParams struct {
 	WorkloadStorage        string
 	HostCloudRegion        string
-	MetadataChecker        caas.ClusterMetadataChecker
+	MetadataChecker        k8s.ClusterMetadataChecker
 	GetClusterMetadataFunc GetClusterMetadataFunc
 }
 
@@ -100,7 +100,7 @@ func newCloudCredentialFromKubeConfig(reader io.Reader, cloudParams KubeCloudPar
 	return newCloud, credential, nil
 }
 
-func updateK8sCloud(k8sCloud *cloud.Cloud, clusterMetadata *caas.ClusterMetadata, storageMsg string) string {
+func updateK8sCloud(k8sCloud *cloud.Cloud, clusterMetadata *k8s.ClusterMetadata, storageMsg string) string {
 	var workloadSC, operatorSC string
 	// Record the operator storage to use.
 	if clusterMetadata.OperatorStorageClass != nil {
@@ -182,8 +182,8 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudSt
 		if err == nil {
 			return
 		}
-		if caas.IsNonPreferredStorageError(err) {
-			npse := err.(*caas.NonPreferredStorageError)
+		if k8s.IsNonPreferredStorageError(err) {
+			npse := err.(*k8s.NonPreferredStorageError)
 			return "", NoRecommendedStorageError{Message: err.Error(), ProviderName: npse.Name}
 		}
 		if errors.IsNotFound(err) {
@@ -209,7 +209,7 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudSt
 		params            map[string]string
 	)
 	scName := storageParams.WorkloadStorage
-	nonPreferredStorageErr, ok := errors.Cause(err).(*caas.NonPreferredStorageError)
+	nonPreferredStorageErr, ok := errors.Cause(err).(*k8s.NonPreferredStorageError)
 	if ok {
 		provisioner = nonPreferredStorageErr.Provisioner
 		volumeBindingMode = nonPreferredStorageErr.VolumeBindingMode
@@ -220,7 +220,7 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudSt
 			scName = clusterMetadata.NominatedStorageClass.Name
 		}
 	}
-	sp, existing, err := storageParams.MetadataChecker.EnsureStorageProvisioner(caas.StorageProvisioner{
+	sp, existing, err := storageParams.MetadataChecker.EnsureStorageProvisioner(k8s.StorageProvisioner{
 		Name:              scName,
 		Provisioner:       provisioner,
 		Parameters:        params,
@@ -279,7 +279,7 @@ func BaseKubeCloudOpenParams(cloud cloud.Cloud, credential cloud.Credential) (en
 func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudContext, cld cloud.Cloud) (cloud.Cloud, error) {
 	// We special case Microk8s here as we need to query the cluster for the
 	// storage details with no input from the user
-	if cld.Name != caas.K8sCloudMicrok8s {
+	if cld.Name != k8s.K8sCloudMicrok8s {
 		return cld, nil
 	}
 
@@ -308,7 +308,7 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 	}
 	storageUpdateParams := KubeCloudStorageParams{
 		MetadataChecker: broker,
-		GetClusterMetadataFunc: func(storageParams KubeCloudStorageParams) (*caas.ClusterMetadata, error) {
+		GetClusterMetadataFunc: func(storageParams KubeCloudStorageParams) (*k8s.ClusterMetadata, error) {
 			clusterMetadata, err := storageParams.MetadataChecker.GetClusterMetadata("")
 			if err != nil {
 				return nil, errors.Trace(err)

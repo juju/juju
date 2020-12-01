@@ -20,7 +20,8 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/caas"
-	k8s "github.com/juju/juju/caas/kubernetes/provider"
+	k8s "github.com/juju/juju/caas/kubernetes"
+	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
@@ -1798,6 +1799,11 @@ func cloudSpec(
 // Override for testing.
 var NewBroker caas.NewContainerBrokerFunc = caas.New
 
+type clusterMetadataGetter interface {
+	// GetClusterMetadata returns metadata about host cloud and storage for the cluster.
+	GetClusterMetadata(storageClass string) (result *k8s.ClusterMetadata, err error)
+}
+
 func updateKubernetesStorageConfig(st *State) error {
 	model, err := st.Model()
 	if err != nil || model.Type() == ModelTypeIAAS {
@@ -1821,7 +1827,7 @@ func updateKubernetesStorageConfig(st *State) error {
 	if err != nil {
 		return errors.Annotate(err, "getting cloud config")
 	}
-	operatorStorage, haveDefaultOperatorStorage := defaults[k8s.OperatorStorageKey]
+	operatorStorage, haveDefaultOperatorStorage := defaults[k8sprovider.OperatorStorageKey]
 	if !haveDefaultOperatorStorage {
 		cloudSpec, err := cloudSpec(st, model.CloudName(), model.CloudRegion(), cred)
 		if err != nil {
@@ -1831,7 +1837,13 @@ func updateKubernetesStorageConfig(st *State) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		metadata, err := broker.GetClusterMetadata("")
+		// This is implemented by the k8s provider but is not part of
+		// the caas.Broker interface. We need to do a cast check.
+		metadataGetter, supported := broker.(clusterMetadataGetter)
+		if !supported {
+			return errors.NotSupportedf("querying cluster metadata")
+		}
+		metadata, err := metadataGetter.GetClusterMetadata("")
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1840,8 +1852,8 @@ func updateKubernetesStorageConfig(st *State) error {
 		}
 		operatorStorage = metadata.NominatedStorageClass.Name
 		err = st.updateConfigDefaults(model.CloudName(), cloud.Attrs{
-			k8s.OperatorStorageKey: operatorStorage,
-			k8s.WorkloadStorageKey: operatorStorage, // use same storage for both
+			k8sprovider.OperatorStorageKey: operatorStorage,
+			k8sprovider.WorkloadStorageKey: operatorStorage, // use same storage for both
 		}, nil)
 		if err != nil {
 			return errors.Trace(err)
@@ -1849,11 +1861,11 @@ func updateKubernetesStorageConfig(st *State) error {
 	}
 
 	attrs := make(map[string]interface{})
-	if _, ok := cfg.AllAttrs()[k8s.OperatorStorageKey]; !ok {
-		attrs[k8s.OperatorStorageKey] = operatorStorage
+	if _, ok := cfg.AllAttrs()[k8sprovider.OperatorStorageKey]; !ok {
+		attrs[k8sprovider.OperatorStorageKey] = operatorStorage
 	}
-	if _, ok := cfg.AllAttrs()[k8s.WorkloadStorageKey]; !ok {
-		attrs[k8s.WorkloadStorageKey] = operatorStorage
+	if _, ok := cfg.AllAttrs()[k8sprovider.WorkloadStorageKey]; !ok {
+		attrs[k8sprovider.WorkloadStorageKey] = operatorStorage
 
 	}
 

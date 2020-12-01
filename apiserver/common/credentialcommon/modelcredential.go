@@ -67,9 +67,8 @@ func checkCAASModelCredential(brokerParams environs.OpenParams) (params.ErrorRes
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
-	_, err = broker.Namespaces()
-	if err != nil {
-		// If this call could not be made with provided credential, we know that the credential is invalid.
+
+	if err = broker.CheckCloudCredentials(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	return params.ErrorResults{}, nil

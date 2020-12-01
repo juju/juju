@@ -23,6 +23,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
@@ -2767,9 +2768,9 @@ type fakeBroker struct {
 	caas.Broker
 }
 
-func (f *fakeBroker) GetClusterMetadata(storageClass string) (result *caas.ClusterMetadata, err error) {
-	return &caas.ClusterMetadata{
-		NominatedStorageClass: &caas.StorageProvisioner{
+func (f *fakeBroker) GetClusterMetadata(storageClass string) (result *k8s.ClusterMetadata, err error) {
+	return &k8s.ClusterMetadata{
+		NominatedStorageClass: &k8s.StorageProvisioner{
 			Name: "storage-provisioner",
 		},
 	}, nil

@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cloud"
 	jujucloud "github.com/juju/juju/cloud"
@@ -81,17 +82,17 @@ type cloudSuite struct {
 }
 
 var defaultK8sCloud = jujucloud.Cloud{
-	Name:           caas.K8sCloudMicrok8s,
+	Name:           k8s.K8sCloudMicrok8s,
 	Endpoint:       "http://1.1.1.1:8080",
 	Type:           cloud.CloudTypeCAAS,
 	AuthTypes:      []cloud.AuthType{cloud.UserPassAuthType},
 	CACertificates: []string{""},
 }
 
-var defaultClusterMetadata = &caas.ClusterMetadata{
-	Cloud:                caas.K8sCloudMicrok8s,
-	Regions:              set.NewStrings(caas.Microk8sRegion),
-	OperatorStorageClass: &caas.StorageProvisioner{Name: "operator-sc"},
+var defaultClusterMetadata = &k8s.ClusterMetadata{
+	Cloud:                k8s.K8sCloudMicrok8s,
+	Regions:              set.NewStrings(k8s.Microk8sRegion),
+	OperatorStorageClass: &k8s.StorageProvisioner{Name: "operator-sc"},
 }
 
 func getDefaultCredential() cloud.Credential {
@@ -111,7 +112,7 @@ func (s *cloudSuite) TestFinalizeCloudNotMicrok8s(c *gc.C) {
 	p := provider.NewProviderWithFakes(
 		dummyRunner{},
 		getterFunc(builtinCloudRet{}),
-		func(environs.OpenParams) (caas.ClusterMetadataChecker, error) { return &s.fakeBroker, nil })
+		func(environs.OpenParams) (k8s.ClusterMetadataChecker, error) { return &s.fakeBroker, nil })
 	cloudFinalizer := p.(environs.CloudFinalizer)
 
 	var ctx mockContext
@@ -137,27 +138,27 @@ func (s *cloudSuite) TestFinalizeCloudMicrok8s(c *gc.C) {
 	cloud, err := cloudFinalizer.FinalizeCloud(&ctx, defaultK8sCloud)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloud, jc.DeepEquals, jujucloud.Cloud{
-		Name:            caas.K8sCloudMicrok8s,
+		Name:            k8s.K8sCloudMicrok8s,
 		Type:            jujucloud.CloudTypeCAAS,
 		AuthTypes:       []jujucloud.AuthType{jujucloud.UserPassAuthType},
 		CACertificates:  []string{""},
 		Endpoint:        "http://1.1.1.1:8080",
-		HostCloudRegion: fmt.Sprintf("%s/%s", caas.K8sCloudMicrok8s, caas.Microk8sRegion),
+		HostCloudRegion: fmt.Sprintf("%s/%s", k8s.K8sCloudMicrok8s, k8s.Microk8sRegion),
 		Config:          map[string]interface{}{"operator-storage": "operator-sc", "workload-storage": ""},
-		Regions:         []jujucloud.Region{{Name: caas.Microk8sRegion, Endpoint: "http://1.1.1.1:8080"}},
+		Regions:         []jujucloud.Region{{Name: k8s.Microk8sRegion, Endpoint: "http://1.1.1.1:8080"}},
 	})
 }
 
 func (s *cloudSuite) TestFinalizeCloudMicrok8sAlreadyStorage(c *gc.C) {
 	preparedCloud := jujucloud.Cloud{
-		Name:            caas.K8sCloudMicrok8s,
+		Name:            k8s.K8sCloudMicrok8s,
 		Type:            jujucloud.CloudTypeCAAS,
 		AuthTypes:       []jujucloud.AuthType{jujucloud.UserPassAuthType},
 		CACertificates:  []string{""},
 		Endpoint:        "http://1.1.1.1:8080",
-		HostCloudRegion: fmt.Sprintf("%s/%s", caas.K8sCloudMicrok8s, caas.Microk8sRegion),
+		HostCloudRegion: fmt.Sprintf("%s/%s", k8s.K8sCloudMicrok8s, k8s.Microk8sRegion),
 		Config:          map[string]interface{}{"operator-storage": "something-else", "workload-storage": ""},
-		Regions:         []jujucloud.Region{{Name: caas.Microk8sRegion, Endpoint: "http://1.1.1.1:8080"}},
+		Regions:         []jujucloud.Region{{Name: k8s.Microk8sRegion, Endpoint: "http://1.1.1.1:8080"}},
 	}
 
 	p := s.getProvider()
@@ -176,14 +177,14 @@ func (s *cloudSuite) TestFinalizeCloudMicrok8sAlreadyStorage(c *gc.C) {
 	cloud, err := cloudFinalizer.FinalizeCloud(&ctx, preparedCloud)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloud, jc.DeepEquals, jujucloud.Cloud{
-		Name:            caas.K8sCloudMicrok8s,
+		Name:            k8s.K8sCloudMicrok8s,
 		Type:            jujucloud.CloudTypeCAAS,
 		AuthTypes:       []jujucloud.AuthType{jujucloud.UserPassAuthType},
 		CACertificates:  []string{""},
 		Endpoint:        "http://1.1.1.1:8080",
-		HostCloudRegion: fmt.Sprintf("%s/%s", caas.K8sCloudMicrok8s, caas.Microk8sRegion),
+		HostCloudRegion: fmt.Sprintf("%s/%s", k8s.K8sCloudMicrok8s, k8s.Microk8sRegion),
 		Config:          map[string]interface{}{"operator-storage": "something-else", "workload-storage": ""},
-		Regions:         []jujucloud.Region{{Name: caas.Microk8sRegion, Endpoint: "http://1.1.1.1:8080"}},
+		Regions:         []jujucloud.Region{{Name: k8s.Microk8sRegion, Endpoint: "http://1.1.1.1:8080"}},
 	})
 }
 
@@ -193,7 +194,7 @@ func (s *cloudSuite) getProvider() caas.ContainerEnvironProvider {
 	return provider.NewProviderWithFakes(
 		s.runner,
 		getterFunc(builtinCloudRet{cloud: defaultK8sCloud, credential: getDefaultCredential(), err: nil}),
-		func(environs.OpenParams) (caas.ClusterMetadataChecker, error) { return &s.fakeBroker, nil },
+		func(environs.OpenParams) (k8s.ClusterMetadataChecker, error) { return &s.fakeBroker, nil },
 	)
 }
 
@@ -254,20 +255,20 @@ func (c *mockContext) Verbosef(f string, args ...interface{}) {
 
 type fakeK8sClusterMetadataChecker struct {
 	*testing.CallMocker
-	caas.ClusterMetadataChecker
+	k8s.ClusterMetadataChecker
 }
 
-func (api *fakeK8sClusterMetadataChecker) GetClusterMetadata(storageClass string) (result *caas.ClusterMetadata, err error) {
+func (api *fakeK8sClusterMetadataChecker) GetClusterMetadata(storageClass string) (result *k8s.ClusterMetadata, err error) {
 	results := api.MethodCall(api, "GetClusterMetadata")
-	return results[0].(*caas.ClusterMetadata), testing.TypeAssertError(results[1])
+	return results[0].(*k8s.ClusterMetadata), testing.TypeAssertError(results[1])
 }
 
-func (api *fakeK8sClusterMetadataChecker) CheckDefaultWorkloadStorage(cluster string, storageProvisioner *caas.StorageProvisioner) error {
+func (api *fakeK8sClusterMetadataChecker) CheckDefaultWorkloadStorage(cluster string, storageProvisioner *k8s.StorageProvisioner) error {
 	results := api.MethodCall(api, "CheckDefaultWorkloadStorage")
 	return testing.TypeAssertError(results[0])
 }
 
-func (api *fakeK8sClusterMetadataChecker) EnsureStorageProvisioner(cfg caas.StorageProvisioner) (*caas.StorageProvisioner, bool, error) {
+func (api *fakeK8sClusterMetadataChecker) EnsureStorageProvisioner(cfg k8s.StorageProvisioner) (*k8s.StorageProvisioner, bool, error) {
 	results := api.MethodCall(api, "EnsureStorageProvisioner")
-	return results[0].(*caas.StorageProvisioner), false, testing.TypeAssertError(results[1])
+	return results[0].(*k8s.StorageProvisioner), false, testing.TypeAssertError(results[1])
 }

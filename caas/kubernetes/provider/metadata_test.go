@@ -16,7 +16,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 
-	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/provider"
 )
 
@@ -223,7 +223,7 @@ func (s *K8sMetadataSuite) TestNoDefaultStorageClasses(c *gc.C) {
 	)
 	metadata, err := s.broker.GetClusterMetadata("")
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
+	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &k8s.StorageProvisioner{
 		Provisioner: "a-provisioner",
 		Parameters:  map[string]string{"foo": "bar"},
 	})
@@ -269,7 +269,7 @@ func (s *K8sMetadataSuite) TestPreferDefaultStorageClass(c *gc.C) {
 	)
 	metadata, err := s.broker.GetClusterMetadata("")
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
+	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &k8s.StorageProvisioner{
 		Provisioner: "a-provisioner",
 		Parameters:  map[string]string{"foo": "bar"},
 	})
@@ -294,7 +294,7 @@ func (s *K8sMetadataSuite) TestBetaDefaultStorageClass(c *gc.C) {
 	)
 	metadata, err := s.broker.GetClusterMetadata("")
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
+	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &k8s.StorageProvisioner{
 		Provisioner: "a-provisioner",
 		Parameters:  map[string]string{"foo": "bar"},
 	})
@@ -322,11 +322,11 @@ func (s *K8sMetadataSuite) TestUserSpecifiedStorageClasses(c *gc.C) {
 	)
 	metadata, err := s.broker.GetClusterMetadata("foo")
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
+	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &k8s.StorageProvisioner{
 		Provisioner: "a-provisioner",
 		Parameters:  map[string]string{"foo": "bar"},
 	})
-	c.Check(metadata.OperatorStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
+	c.Check(metadata.OperatorStorageClass, jc.DeepEquals, &k8s.StorageProvisioner{
 		Provisioner: "kubernetes.io/aws-ebs",
 	})
 }
@@ -353,7 +353,7 @@ func (s *K8sMetadataSuite) TestOperatorStorageClassNoDefault(c *gc.C) {
 	// More than one match so need to be explicit for workload storage.
 	c.Check(metadata.NominatedStorageClass, gc.IsNil)
 	// Take the first match for operator storage.
-	c.Check(metadata.OperatorStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
+	c.Check(metadata.OperatorStorageClass, jc.DeepEquals, &k8s.StorageProvisioner{
 		Provisioner: "kubernetes.io/aws-ebs",
 	})
 }
@@ -378,11 +378,11 @@ func (s *K8sMetadataSuite) TestOperatorStorageClassPrefersDefault(c *gc.C) {
 	)
 	metadata, err := s.broker.GetClusterMetadata("")
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
+	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &k8s.StorageProvisioner{
 		Provisioner: "kubernetes.io/aws-ebs",
 		Parameters:  map[string]string{"foo": "bar"},
 	})
-	c.Check(metadata.OperatorStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
+	c.Check(metadata.OperatorStorageClass, jc.DeepEquals, &k8s.StorageProvisioner{
 		Provisioner: "kubernetes.io/aws-ebs",
 		Parameters:  map[string]string{"foo": "bar"},
 	})
@@ -411,12 +411,12 @@ func (s *K8sMetadataSuite) TestAnnotatedWorkloadStorageClass(c *gc.C) {
 	)
 	metadata, err := s.broker.GetClusterMetadata("")
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
+	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &k8s.StorageProvisioner{
 		Name:        "juju-preferred-workload-storage",
 		Provisioner: "kubernetes.io/aws-ebs",
 		Parameters:  map[string]string{"foo": "bar"},
 	})
-	c.Check(metadata.OperatorStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
+	c.Check(metadata.OperatorStorageClass, jc.DeepEquals, &k8s.StorageProvisioner{
 		Name:        "juju-preferred-workload-storage",
 		Provisioner: "kubernetes.io/aws-ebs",
 		Parameters:  map[string]string{"foo": "bar"},
@@ -458,12 +458,12 @@ func (s *K8sMetadataSuite) TestAnnotatedWorkloadAndOperatorStorageClass(c *gc.C)
 	)
 	metadata, err := s.broker.GetClusterMetadata("")
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
+	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &k8s.StorageProvisioner{
 		Name:        "juju-preferred-workload-storage",
 		Provisioner: "kubernetes.io/aws-ebs",
 		Parameters:  map[string]string{"foo": "bar"},
 	})
-	c.Check(metadata.OperatorStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
+	c.Check(metadata.OperatorStorageClass, jc.DeepEquals, &k8s.StorageProvisioner{
 		Name:        "juju-preferred-operator-storage",
 		Provisioner: "kubernetes.io/aws-ebs",
 		Parameters:  map[string]string{"foo": "bar"},
@@ -482,9 +482,9 @@ func (s *K8sMetadataSuite) TestCheckDefaultWorkloadStorageNonpreferred(c *gc.C) 
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	err := s.broker.CheckDefaultWorkloadStorage("microk8s", &caas.StorageProvisioner{Provisioner: "foo"})
-	c.Assert(err, jc.Satisfies, caas.IsNonPreferredStorageError)
-	npse, ok := errors.Cause(err).(*caas.NonPreferredStorageError)
+	err := s.broker.CheckDefaultWorkloadStorage("microk8s", &k8s.StorageProvisioner{Provisioner: "foo"})
+	c.Assert(err, jc.Satisfies, k8s.IsNonPreferredStorageError)
+	npse, ok := errors.Cause(err).(*k8s.NonPreferredStorageError)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(npse.Provisioner, gc.Equals, "microk8s.io/hostpath")
 }

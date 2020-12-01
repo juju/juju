@@ -500,10 +500,10 @@ func initControllerCloudService(
 		return errors.Annotate(err, "getting environ")
 	}
 
-	broker, ok := env.(caas.ServiceGetterSetter)
+	broker, ok := env.(caas.ServiceManager)
 	if !ok {
 		// this should never happen.
-		return errors.Errorf("environ %T does not implement ServiceGetterSetter interface", env)
+		return errors.Errorf("environ %T does not implement ServiceManager interface", env)
 	}
 	svc, err := broker.GetService(k8sprovider.JujuControllerStackName, caas.ModeWorkload, true)
 	if err != nil {
