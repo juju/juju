@@ -14,12 +14,13 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 )
 
-type CharmHubInfo interface {
+type CharmHub interface {
 	Info(ctx context.Context, name string) (transport.InfoResponse, error)
+	ListResourceRevisions(ctx context.Context, charm, resource string) ([]transport.ResourceRevision, error)
 }
 
 type charmHubClient struct {
-	infoClient CharmHubInfo
+	infoClient CharmHub
 }
 
 // ListResources composes, for each of the identified charms, the
@@ -49,7 +50,7 @@ func (ch *charmHubClient) ListResources(charmIDs []charmstore.CharmID) ([][]char
 func parseResources(channel corecharm.Channel, info transport.InfoResponse) ([]charmresource.Resource, error) {
 	for _, v := range info.ChannelMap {
 		if matchChannel(channel, v.Channel) {
-			return resourceFromRevision(v.Resources)
+			return resourcesFromRevision(v.Resources)
 		}
 	}
 	return nil, nil
@@ -59,33 +60,51 @@ func matchChannel(one corecharm.Channel, two transport.Channel) bool {
 	return one.String() == two.Name
 }
 
-func resourceFromRevision(revs []transport.ResourceRevision) ([]charmresource.Resource, error) {
-	result := make([]charmresource.Resource, len(revs))
+func resourcesFromRevision(revs []transport.ResourceRevision) ([]charmresource.Resource, error) {
+	results := make([]charmresource.Resource, len(revs))
 	for i, v := range revs {
-		resType, err := charmresource.ParseType(v.Type)
+		var err error
+		results[i], err = resourceFromRevision(v)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		result[i] = charmresource.Resource{
-			Meta: charmresource.Meta{
-				Name: v.Name,
-				Type: resType,
-				Path: v.Download.URL,
-			},
-			Origin:   charmresource.OriginUpload,
-			Revision: v.Revision,
-			// TODO (hml)
-			// Convert hash 384 to fingerprint.
-			// Should we do this here?
-			//Fingerprint: charmresource.Fingerprint{hash.Fingerprint{}},
-			Size: int64(v.Download.Size),
-		}
 	}
-	return result, nil
+	return results, nil
+}
+
+func resourceFromRevision(rev transport.ResourceRevision) (charmresource.Resource, error) {
+	resType, err := charmresource.ParseType(rev.Type)
+	if err != nil {
+		return charmresource.Resource{}, errors.Trace(err)
+	}
+	return charmresource.Resource{
+		Meta: charmresource.Meta{
+			Name: rev.Name,
+			Type: resType,
+			Path: rev.Download.URL,
+		},
+		Origin:   charmresource.OriginUpload,
+		Revision: rev.Revision,
+		// TODO (hml)
+		// Convert hash 384 to fingerprint.
+		// Should we do this here?
+		//Fingerprint: charmresource.Fingerprint{hash.Fingerprint{}},
+		Size: int64(rev.Download.Size),
+	}, nil
 }
 
 // ResourceInfo returns the metadata for the given resource.
-func (ch *charmHubClient) ResourceInfo(_ charmstore.ResourceRequest) (charmresource.Resource, error) {
+func (ch *charmHubClient) ResourceInfo(req charmstore.ResourceRequest) (charmresource.Resource, error) {
+	revisions, err := ch.infoClient.ListResourceRevisions(context.TODO(), req.Charm.Name, req.Name)
+	if err != nil {
+		return charmresource.Resource{}, errors.Trace(err)
+	}
+	for _, rev := range revisions {
+		if req.Revision != rev.Revision {
+			continue
+		}
+		return resourceFromRevision(rev)
+	}
 	return charmresource.Resource{}, nil
 }
 
