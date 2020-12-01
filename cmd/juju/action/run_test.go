@@ -439,7 +439,7 @@ mysql/0:
 	}, {
 		should:    "run a basic action with progress logs",
 		withArgs:  []string{validUnitId, "some-action", "--utc"},
-		withTicks: 2,
+		withTicks: 1,
 
 		withActionResults: []params.ActionResult{{
 			Action: &params.Action{
@@ -479,7 +479,7 @@ world`[1:],
 	}, {
 		should:    "run a basic action with progress logs with yaml output",
 		withArgs:  []string{validUnitId, "some-action", "--format", "yaml", "--utc"},
-		withTicks: 2,
+		withTicks: 1,
 
 		withActionResults: []params.ActionResult{{
 			Action: &params.Action{
@@ -540,7 +540,7 @@ mysql/0:
 	}, {
 		should:    "run action on multiple units with stdout for each action",
 		withArgs:  []string{validUnitId, validUnitId2, "some-action", "--format", "yaml", "--utc"},
-		withTicks: 2,
+		withTicks: 1,
 		withActionResults: []params.ActionResult{{
 			Action: &params.Action{
 				Tag:      validActionTagString,
@@ -611,7 +611,7 @@ mysql/1:
 	}, {
 		should:    "run action on multiple units with plain output selected",
 		withArgs:  []string{validUnitId, validUnitId2, "some-action", "--format", "plain"},
-		withTicks: 2,
+		withTicks: 1,
 		withActionResults: []params.ActionResult{{
 			Action: &params.Action{
 				Tag:      validActionTagString,
@@ -880,7 +880,6 @@ func (s *RunSuite) testRunHelper(c *gc.C, client *fakeAPIClient,
 	for t := 0; t < numTicks; t++ {
 		err2 := s.clock.WaitAdvance(2*time.Second, testing.ShortWait, numExpectedTimers)
 		c.Assert(err2, jc.ErrorIsNil)
-		numExpectedTimers = 1
 	}
 	wg.Wait()
 

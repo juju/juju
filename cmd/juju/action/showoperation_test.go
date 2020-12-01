@@ -136,7 +136,7 @@ error: an apiserver error
 		withClientWait:    "10s",
 		withClientQueryID: operationId,
 		withAPITimeout:    3 * time.Second,
-		withTicks:         3,
+		withTicks:         2,
 		withAPIResponse: []params.OperationResult{{
 			OperationTag: names.NewOperationTag(operationId).String(),
 			Status:       "running",
@@ -252,7 +252,7 @@ tasks:
 		withAPITimeout:    5 * time.Second,
 		withClientWait:    "3s",
 		withAPIDelay:      1 * time.Second,
-		withTicks:         2,
+		withTicks:         1,
 		withAPIResponse: []params.OperationResult{{
 			OperationTag: names.NewOperationTag(operationId).String(),
 			Summary:      "an operation",

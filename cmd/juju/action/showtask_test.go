@@ -127,7 +127,7 @@ timing:
 		should:            "only return once status is no longer running or pending",
 		withAPIDelay:      1 * time.Second,
 		withClientWait:    "10s",
-		withTicks:         3,
+		withTicks:         2,
 		withClientQueryID: validActionId,
 		withAPITimeout:    3 * time.Second,
 		withAPIResponse: []params.ActionResult{{
@@ -281,7 +281,7 @@ hello
 		withAPITimeout:    5 * time.Second,
 		withClientWait:    "3s",
 		withAPIDelay:      1 * time.Second,
-		withTicks:         2,
+		withTicks:         1,
 		withAPIResponse: []params.ActionResult{{
 			Status: "completed",
 			Output: map[string]interface{}{
@@ -325,7 +325,7 @@ timing:
 		withAPIDelay:      1 * time.Second,
 		watch:             true,
 		expectedLogs:      []string{"log line 1", "log line 2"},
-		withTicks:         2,
+		withTicks:         1,
 		withAPIResponse: []params.ActionResult{{
 			Status:    "completed",
 			Enqueued:  time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
