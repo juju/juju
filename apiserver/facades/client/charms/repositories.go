@@ -72,7 +72,7 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 // provided archive path.
 // A charm archive is returned.
 func (c *chRepo) DownloadCharm(resourceURL string, archivePath string) (*charm.CharmArchive, error) {
-	logger.Tracef("DownloadCharm from CharmHub %q", resourceURL)
+	logger.Debugf("DownloadCharm from CharmHub %q", resourceURL)
 	curl, err := url.Parse(resourceURL)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -90,13 +90,13 @@ func (c *chRepo) FindDownloadURL(curl *charm.URL, origin corecharm.Origin) (*url
 	if err != nil {
 		return nil, corecharm.Origin{}, errors.Trace(err)
 	}
-	logger.Tracef("Locate charm using: %v", cfg)
+	logger.Debugf("Locate charm using: %v", cfg)
 	result, err := c.client.Refresh(context.TODO(), cfg)
 	if err != nil {
 		return nil, corecharm.Origin{}, errors.Trace(err)
 	}
 	if len(result) != 1 {
-		return nil, corecharm.Origin{}, errors.Errorf("More than 1 result found")
+		return nil, corecharm.Origin{}, errors.Errorf("more than 1 result found")
 	}
 	findResult := result[0]
 	if findResult.Error != nil {
@@ -104,8 +104,10 @@ func (c *chRepo) FindDownloadURL(curl *charm.URL, origin corecharm.Origin) (*url
 		// When list of error codes available, create real error for them.
 		return nil, corecharm.Origin{}, errors.Errorf("%s: %s", findResult.Error.Code, findResult.Error.Message)
 	}
+
 	origin.ID = findResult.Entity.ID
 	origin.Hash = findResult.Entity.Download.HashSHA256
+
 	durl, err := url.Parse(findResult.Entity.Download.URL)
 	return durl, origin, errors.Trace(err)
 }
@@ -123,6 +125,9 @@ func refreshConfig(curl *charm.URL, origin corecharm.Origin) (charmhub.RefreshCo
 	var channel string
 	if origin.Channel != nil {
 		channel = origin.Channel.String()
+	}
+	if origin.Revision == nil && origin.Channel == nil && origin.ID == "" {
+		channel = corecharm.DefaultChannelString
 	}
 
 	var (

@@ -208,3 +208,8 @@ func (c *Client) Download(ctx context.Context, resourceURL *url.URL, archivePath
 func (c *Client) DownloadAndRead(ctx context.Context, resourceURL *url.URL, archivePath string) (*charm.CharmArchive, error) {
 	return c.downloadClient.DownloadAndRead(ctx, resourceURL, archivePath)
 }
+
+// DownloadAndReadBundle defines a client for downloading bundles directly.
+func (c *Client) DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string) (*charm.BundleArchive, error) {
+	return c.downloadClient.DownloadAndReadBundle(ctx, resourceURL, archivePath)
+}

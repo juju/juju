@@ -409,7 +409,7 @@ func (d *factory) maybeReadCharmstoreBundle(resolver Resolver) (Deployer, error)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	bundle, err := resolver.GetBundle(bundleURL, filepath.Join(dir, bundleURL.Name))
+	bundle, err := resolver.GetBundle(bundleURL, origin, filepath.Join(dir, bundleURL.Name))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

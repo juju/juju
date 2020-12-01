@@ -152,7 +152,7 @@ type Bundle interface {
 // Resolver defines what we need  to resolve a charm or bundle and
 // read the bundle data.
 type Resolver interface {
-	GetBundle(*charm.URL, string) (charm.Bundle, error)
+	GetBundle(*charm.URL, commoncharm.Origin, string) (charm.Bundle, error)
 	ResolveBundleURL(*charm.URL, commoncharm.Origin) (*charm.URL, commoncharm.Origin, error)
 	ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin) (*charm.URL, commoncharm.Origin, []string, error)
 }

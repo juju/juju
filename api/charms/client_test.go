@@ -135,6 +135,61 @@ func (s *charmsMockSuite) TestResolveCharmsIsNotSupported(c *gc.C) {
 	c.Assert(errors.IsNotSupported(err), jc.IsTrue)
 }
 
+func (s *charmsMockSuite) TestGetDownloadInfo(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	curl := charm.MustParseURL("cs:a-charm")
+	noChannelParamsOrigin := params.CharmOrigin{Source: "charm-store"}
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+
+	facadeArgs := params.CharmURLAndOrigins{
+		Entities: []params.CharmURLAndOrigin{
+			{CharmURL: curl.String(), Origin: noChannelParamsOrigin},
+		},
+	}
+
+	var resolve params.DownloadInfoResults
+
+	p := params.DownloadInfoResults{
+		Results: []params.DownloadInfoResult{{
+			URL:    "http://someplace.com",
+			Origin: noChannelParamsOrigin,
+		}},
+	}
+
+	mockFacadeCaller.EXPECT().BestAPIVersion().Return(3)
+	mockFacadeCaller.EXPECT().FacadeCall("GetDownloadInfos", facadeArgs, &resolve).SetArg(2, p).Return(nil)
+
+	client := charms.NewClientWithFacade(mockFacadeCaller)
+	got, err := client.GetDownloadInfo(curl, apicharm.APICharmOrigin(noChannelParamsOrigin))
+	c.Assert(err, gc.IsNil)
+
+	want := charms.DownloadInfo{
+		URL:    "http://someplace.com",
+		Origin: apicharm.APICharmOrigin(noChannelParamsOrigin),
+	}
+
+	c.Assert(got, gc.DeepEquals, want)
+}
+
+func (s *charmsMockSuite) TestGetDownloadInfoIsNotSupported(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	curl := charm.MustParseURL("cs:a-charm")
+	noChannelParamsOrigin := params.CharmOrigin{Source: "charm-store"}
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().BestAPIVersion().Return(2)
+
+	client := charms.NewClientWithFacade(mockFacadeCaller)
+
+	_, err := client.GetDownloadInfo(curl, apicharm.APICharmOrigin(noChannelParamsOrigin))
+	c.Assert(errors.IsNotSupported(err), jc.IsTrue)
+}
+
 func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

@@ -96,6 +96,16 @@ func (c *DownloadClient) DownloadAndRead(ctx context.Context, resourceURL *url.U
 	return charm.ReadCharmArchive(archivePath)
 }
 
+// DownloadAndReadBundle returns a bundle archive retrieved from the given URL.
+func (c *DownloadClient) DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string) (*charm.BundleArchive, error) {
+	err := c.Download(ctx, resourceURL, archivePath)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return charm.ReadBundleArchive(archivePath)
+}
+
 func (c *DownloadClient) downloadFromURL(ctx context.Context, resourceURL *url.URL) (r io.ReadCloser, err error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", resourceURL.String(), nil)
 	if err != nil {

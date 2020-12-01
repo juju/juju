@@ -95,6 +95,40 @@ func (c *Client) ResolveCharms(charms []CharmToResolve) ([]ResolvedCharm, error)
 	return resolvedCharms, nil
 }
 
+// DownloadInfo holds the information for a given DownloadInfo.
+type DownloadInfo struct {
+	URL    string
+	Origin apicharm.Origin
+}
+
+// GetDownloadInfo will get a download information from the given charm URL
+// using the appropriate charm store.
+func (c *Client) GetDownloadInfo(curl *charm.URL, origin apicharm.Origin, mac *macaroon.Macaroon) (DownloadInfo, error) {
+	if c.facade.BestAPIVersion() < 3 {
+		return DownloadInfo{}, errors.NotSupportedf("get download info")
+	}
+
+	args := params.CharmURLAndOrigins{
+		Entities: []params.CharmURLAndOrigin{{
+			CharmURL: curl.String(),
+			Origin:   origin.ParamsCharmOrigin(),
+			Macaroon: mac,
+		}},
+	}
+	var results params.DownloadInfoResults
+	if err := c.facade.FacadeCall("GetDownloadInfos", args, &results); err != nil {
+		return DownloadInfo{}, errors.Trace(err)
+	}
+	if num := len(results.Results); num != 1 {
+		return DownloadInfo{}, errors.Errorf("expected one result, received %d", num)
+	}
+	result := results.Results[0]
+	return DownloadInfo{
+		URL:    result.URL,
+		Origin: apicharm.APICharmOrigin(result.Origin),
+	}, nil
+}
+
 // AddCharm adds the given charm URL (which must include revision) to
 // the model, if it does not exist yet. Local charms are not
 // supported, only charm store and charm hub URLs. See also AddLocalCharm()

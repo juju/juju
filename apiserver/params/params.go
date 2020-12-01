@@ -648,6 +648,29 @@ type ResolveCharmWithChannelResults struct {
 	Results []ResolveCharmWithChannelResult
 }
 
+// CharmURLAndOrigins contains a slice of charm urls with a given origin.
+type CharmURLAndOrigins struct {
+	Entities []CharmURLAndOrigin `json:"entities"`
+}
+
+// CharmURLAndOrigin holds the information for selecting one bundle
+type CharmURLAndOrigin struct {
+	CharmURL string             `json:"charm-url"`
+	Origin   CharmOrigin        `json:"charm-origin"`
+	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
+}
+
+// DownloadInfoResults returns the download url for a given request.
+type DownloadInfoResults struct {
+	Results []DownloadInfoResult `json:"results"`
+}
+
+// DownloadInfoResult returns a given bundle for a request.
+type DownloadInfoResult struct {
+	URL    string      `json:"url"`
+	Origin CharmOrigin `json:"charm-origin"`
+}
+
 // AllWatcherId holds the id of an AllWatcher.
 type AllWatcherId struct {
 	AllWatcherId string `json:"watcher-id"`

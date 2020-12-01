@@ -21,7 +21,7 @@ type CharmAdder interface {
 	CheckCharmPlacement(string, *charm.URL) error
 }
 
-// charmrepoForDeploy is a stripped-down version of the
+// CharmrepoForDeploy is a stripped-down version of the
 // gopkg.in/juju/charmrepo.v4 Interface interface. It is
 // used by tests that embed a DeploySuiteBase.
 type CharmrepoForDeploy interface {
@@ -38,4 +38,5 @@ type MacaroonGetter interface {
 // CharmsAPI is functionality needed by the CharmAdapter from the Charms API.
 type CharmsAPI interface {
 	ResolveCharms(charms []apicharm.CharmToResolve) ([]apicharm.ResolvedCharm, error)
+	GetDownloadInfo(curl *charm.URL, origin commoncharm.Origin, mac *macaroon.Macaroon) (apicharm.DownloadInfo, error)
 }

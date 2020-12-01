@@ -25,6 +25,7 @@ import (
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmhub"
 	jujucmd "github.com/juju/juju/cmd"
 	appbundle "github.com/juju/juju/cmd/juju/application/bundle"
 	"github.com/juju/juju/cmd/juju/application/store"
@@ -115,6 +116,7 @@ type diffBundleCommand struct {
 	newAPIRootFn           func() (base.APICallCloser, error)
 	newControllerAPIRootFn func() (base.APICallCloser, error)
 	modelConfigClientFunc  func(base.APICallCloser) ModelConfigClient
+	newCharmHubClient      func(string) (store.DownloadBundleClient, error)
 }
 
 // IsSuperCommand is part of cmd.Command.
@@ -138,7 +140,7 @@ func (c *diffBundleCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 
 	f.StringVar(&c.arch, "arch", ArchAll, fmt.Sprintf("specify an arch <%s>", c.archArgumentList()))
-	f.StringVar(&c.series, "series", SeriesAll, "specify a series")
+	f.StringVar(&c.series, "series", "", "specify a series")
 	f.StringVar(&c.channelStr, "channel", "", "Channel to use when getting the bundle from the charm hub or charm store")
 	f.Var(cmd.NewAppendStringsValue(&c.bundleOverlays), "overlay", "Bundles to overlay on the primary bundle, applied in order")
 	f.StringVar(&c.machineMap, "map-machines", "", "Indicates how existing machines correspond to bundle machines")
@@ -182,13 +184,6 @@ func (c *diffBundleCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	defer func() { _ = apiRoot.Close() }()
-
-	modelConfigClient := c.modelConfigClientFunc(apiRoot)
-	defer func() { _ = modelConfigClient.Close() }()
-
-	if err := c.verifySeries(modelConfigClient); err != nil {
-		return errors.Trace(err)
-	}
 
 	// Load up the bundle data, with includes and overlays.
 	baseSrc, err := c.bundleDataSource(ctx, apiRoot)
@@ -295,7 +290,8 @@ func (c *diffBundleCommand) bundleDataSource(ctx *cmd.Context, apiRoot base.APIC
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	bundleURL, _, err := charmAdaptor.ResolveBundleURL(bURL, origin)
+
+	bundleURL, bundleOrigin, err := charmAdaptor.ResolveBundleURL(bURL, origin)
 	if err != nil {
 		// Handle the charmhub failures during a resolving a bundle.
 		isCharmHub := charm.CharmHub.Matches(bURL.Schema)
@@ -322,7 +318,7 @@ Consider using a CharmStore bundle instead.`
 		return nil, errors.Trace(err)
 	}
 	bundlePath := filepath.Join(dir, bundleURL.Name)
-	bundle, err := charmAdaptor.GetBundle(bundleURL, bundlePath)
+	bundle, err := charmAdaptor.GetBundle(bundleURL, bundleOrigin, bundlePath)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -331,7 +327,7 @@ Consider using a CharmStore bundle instead.`
 }
 
 func (c *diffBundleCommand) charmAdaptor(apiRoot base.APICallCloser, curl *charm.URL) (BundleResolver, error) {
-	charmstoreFallback := func() (store.CharmrepoForDeploy, error) {
+	charmStoreRepo := func() (store.CharmrepoForDeploy, error) {
 		controllerAPIRoot, err := c.newControllerAPIRootFn()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -351,8 +347,25 @@ func (c *diffBundleCommand) charmAdaptor(apiRoot base.APICallCloser, curl *charm
 		cstoreClient := store.NewCharmStoreClient(bakeryClient, csURL).WithChannel(risk)
 		return charmrepo.NewCharmStoreFromClient(cstoreClient), nil
 	}
+	downloadClient := func() (store.DownloadBundleClient, error) {
+		apiRoot, err := c.newAPIRootFn()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 
-	return store.NewCharmAdaptor(apicharms.NewClient(apiRoot), charmstoreFallback), nil
+		url, err := c.getCharmHubURL(apiRoot)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		cfg, err := charmhub.CharmHubConfigFromURL(url, logger)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return charmhub.NewClient(cfg)
+	}
+
+	return store.NewCharmAdaptor(apicharms.NewClient(apiRoot), charmStoreRepo, downloadClient), nil
 }
 
 func (c *diffBundleCommand) readModel(apiRoot base.APICallCloser) (*bundlechanges.Model, error) {
@@ -384,28 +397,27 @@ func (c *diffBundleCommand) makeModelExtractor(apiRoot base.APICallCloser) appbu
 	}
 }
 
-func (c *diffBundleCommand) verifySeries(modelConfigClient ModelConfigGetter) error {
-	if c.series != "" {
-		return nil
-	}
-
-	attrs, err := modelConfigClient.ModelGet()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	cfg, err := config.New(config.NoDefaults, attrs)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if defaultSeries, explicit := cfg.DefaultSeries(); explicit {
-		c.series = defaultSeries
-	}
-	return nil
-}
-
 func (c *diffBundleCommand) archArgumentList() string {
 	archList := strings.Join(c.arches.StringList(), "|")
 	return fmt.Sprintf("%s|%s", ArchAll, archList)
+}
+
+func (c *diffBundleCommand) getCharmHubURL(apiRoot base.APICallCloser) (string, error) {
+	modelConfigClient := c.modelConfigClientFunc(apiRoot)
+	defer func() { _ = modelConfigClient.Close() }()
+
+	attrs, err := modelConfigClient.ModelGet()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	config, err := config.New(config.NoDefaults, attrs)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	charmHubURL, _ := config.CharmHubURL()
+	return charmHubURL, nil
 }
 
 type extractorImpl struct {
@@ -438,5 +450,5 @@ func (e *extractorImpl) Sequences() (map[string]int, error) {
 // bundle and read the bundle data.
 type BundleResolver interface {
 	ResolveBundleURL(*charm.URL, commoncharm.Origin) (*charm.URL, commoncharm.Origin, error)
-	GetBundle(*charm.URL, string) (charm.Bundle, error)
+	GetBundle(*charm.URL, commoncharm.Origin, string) (charm.Bundle, error)
 }

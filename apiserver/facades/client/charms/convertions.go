@@ -236,6 +236,7 @@ func convertOrigin(origin corecharm.Origin) params.CharmOrigin {
 	}
 	return params.CharmOrigin{
 		Source:       string(origin.Source),
+		Type:         origin.Type,
 		ID:           origin.ID,
 		Hash:         origin.Hash,
 		Risk:         risk,
@@ -254,6 +255,7 @@ func convertParamsOrigin(origin params.CharmOrigin) corecharm.Origin {
 	}
 	return corecharm.Origin{
 		Source:   corecharm.Source(origin.Source),
+		Type:     origin.Type,
 		ID:       origin.ID,
 		Hash:     origin.Hash,
 		Revision: origin.Revision,

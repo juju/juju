@@ -296,6 +296,8 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 	for _, name := range h.applications.SortedValues() {
 		spec := h.data.Applications[name]
 		app := h.model.GetApplication(name)
+
+		var cons constraints.Value
 		if app != nil {
 			deployedApps.Add(name)
 
@@ -308,6 +310,12 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 			// If the charm matches, don't bother resolving.
 			if spec.Charm == app.Charm {
 				continue
+			}
+
+			var err error
+			cons, err = constraints.Parse(app.Constraints)
+			if err != nil {
+				return errors.Trace(err)
 			}
 		}
 
@@ -340,11 +348,6 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-		}
-
-		cons, err := constraints.Parse(app.Constraints)
-		if err != nil {
-			return errors.Trace(err)
 		}
 
 		platform, err := utils.DeducePlatform(cons, spec.Series)
