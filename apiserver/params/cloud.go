@@ -13,6 +13,7 @@ type Cloud struct {
 	StorageEndpoint  string                            `json:"storage-endpoint,omitempty"`
 	Regions          []CloudRegion                     `json:"regions,omitempty"`
 	CACertificates   []string                          `json:"ca-certificates,omitempty"`
+	SkipTLSVerify    bool                              `json:"skip-tls-verify,omitempty"`
 	Config           map[string]interface{}            `json:"config,omitempty"`
 	RegionConfig     map[string]map[string]interface{} `json:"region-config,omitempty"`
 }
@@ -198,6 +199,7 @@ type CloudSpec struct {
 	StorageEndpoint  string           `json:"storage-endpoint,omitempty"`
 	Credential       *CloudCredential `json:"credential,omitempty"`
 	CACertificates   []string         `json:"cacertificates,omitempty"`
+	SkipTLSVerify    bool             `json:"skip-tls-verify,omitempty"`
 }
 
 // CloudSpecResult contains a CloudSpec or an error.

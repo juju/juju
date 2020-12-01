@@ -38,6 +38,7 @@ type cloudDoc struct {
 	StorageEndpoint  string                       `bson:"storage-endpoint,omitempty"`
 	Regions          map[string]cloudRegionSubdoc `bson:"regions,omitempty"`
 	CACertificates   []string                     `bson:"ca-certificates,omitempty"`
+	SkipTLSVerify    bool                         `bson:"skip-tls-verify,omitempty"`
 }
 
 // cloudRegionSubdoc records information about cloud regions.
@@ -75,6 +76,7 @@ func createCloudOp(cloud cloud.Cloud) txn.Op {
 			StorageEndpoint:  cloud.StorageEndpoint,
 			Regions:          regions,
 			CACertificates:   cloud.CACertificates,
+			SkipTLSVerify:    cloud.SkipTLSVerify,
 		},
 	}
 }
@@ -104,6 +106,7 @@ func updateCloudOps(cloud cloud.Cloud) txn.Op {
 		StorageEndpoint:  cloud.StorageEndpoint,
 		Regions:          regions,
 		CACertificates:   cloud.CACertificates,
+		SkipTLSVerify:    cloud.SkipTLSVerify,
 	}
 	return txn.Op{
 		C:      cloudsC,
@@ -180,6 +183,7 @@ func (d cloudDoc) toCloud() cloud.Cloud {
 		StorageEndpoint:  d.StorageEndpoint,
 		Regions:          regions,
 		CACertificates:   d.CACertificates,
+		SkipTLSVerify:    d.SkipTLSVerify,
 	}
 }
 

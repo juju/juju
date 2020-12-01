@@ -54,6 +54,7 @@ func (s *CloudSpecSuite) SetUpTest(c *gc.C) {
 		StorageEndpoint:  "storage-endpoint",
 		Credential:       &credential,
 		CACertificates:   []string{coretesting.CACert},
+		SkipTLSVerify:    true,
 	}
 }
 
@@ -104,6 +105,7 @@ func (s *CloudSpecSuite) TestCloudSpec(c *gc.C) {
 				Attributes: map[string]string{"k": "v"},
 			},
 			CACertificates: []string{coretesting.CACert},
+			SkipTLSVerify:  true,
 		},
 	}, {
 		Error: &params.Error{
@@ -188,6 +190,7 @@ func (s *CloudSpecSuite) TestCloudSpecNilCredential(c *gc.C) {
 			StorageEndpoint:  "storage-endpoint",
 			Credential:       nil,
 			CACertificates:   []string{coretesting.CACert},
+			SkipTLSVerify:    true,
 		},
 	}})
 }

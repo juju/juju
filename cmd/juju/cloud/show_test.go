@@ -105,6 +105,7 @@ func (s *showSuite) TestShowKubernetes(c *gc.C) {
 				Endpoint: "http://cluster/default",
 			},
 		},
+		SkipTLSVerify: true,
 	}
 	command := cloud.NewShowCloudCommandForTest(
 		s.store,
@@ -127,6 +128,7 @@ endpoint: http://cluster
 regions:
   default:
     endpoint: http://cluster/default
+skip-tls-verify: true
 `[1:])
 }
 

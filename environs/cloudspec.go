@@ -42,6 +42,11 @@ type CloudSpec struct {
 	// of cloud infrastructure components
 	// The contents are Base64 encoded x.509 certs.
 	CACertificates []string
+
+	// SkipTLSVerify is true if the server should be asked not to
+	// validate certificates. It is not recommended for production clouds.
+	// It is secure (false) by default.
+	SkipTLSVerify bool
 }
 
 // Validate validates that the CloudSpec is well-formed. It does
@@ -67,6 +72,7 @@ func MakeCloudSpec(cloud jujucloud.Cloud, cloudRegionName string, credential *ju
 		IdentityEndpoint: cloud.IdentityEndpoint,
 		StorageEndpoint:  cloud.StorageEndpoint,
 		CACertificates:   cloud.CACertificates,
+		SkipTLSVerify:    cloud.SkipTLSVerify,
 		Credential:       credential,
 	}
 	if cloudRegionName != "" {

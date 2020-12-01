@@ -90,6 +90,7 @@ func newCloudCredentialFromKubeConfig(reader io.Reader, cloudParams KubeCloudPar
 	newCloud.AuthTypes = []cloud.AuthType{credential.AuthType()}
 	currentCloud := caasConfig.Clouds[context.CloudName]
 	newCloud.Endpoint = currentCloud.Endpoint
+	newCloud.SkipTLSVerify = currentCloud.SkipTLSVerify
 
 	cloudCAData, ok := currentCloud.Attributes["CAData"].(string)
 	if !ok {

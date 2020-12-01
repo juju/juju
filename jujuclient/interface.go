@@ -140,6 +140,11 @@ type BootstrapConfig struct {
 	// CloudCACertificates contains the CACertificates necessary to
 	// communicate with the cloud infrastructure.
 	CloudCACertificates []string `yaml:"ca-certificates,omitempty"`
+
+	// SkipTLSVerify is true if the server should be asked not to
+	// validate certificates. It is not recommended for production clouds.
+	// It is secure (false) by default.
+	SkipTLSVerify bool `yaml:"skip-tls-verify,omitempty"`
 }
 
 // ControllerUpdater stores controller details.

@@ -59,6 +59,7 @@ func (*PrepareSuite) TestPrepare(c *gc.C) {
 	}
 	fakeCert := testing.CACert
 	cloudSpec := dummy.SampleCloudSpec()
+	cloudSpec.SkipTLSVerify = true
 	cloudSpec.CACertificates = []string{fakeCert}
 	_, err = bootstrap.PrepareController(false, ctx, controllerStore, bootstrap.PrepareParams{
 		ControllerConfig: controllerCfg,
@@ -107,6 +108,7 @@ func (*PrepareSuite) TestPrepare(c *gc.C) {
 		CloudIdentityEndpoint: "dummy-identity-endpoint",
 		CloudStorageEndpoint:  "dummy-storage-endpoint",
 		CloudCACertificates:   []string{fakeCert},
+		SkipTLSVerify:         true,
 	})
 
 	// Check we cannot call Prepare again.

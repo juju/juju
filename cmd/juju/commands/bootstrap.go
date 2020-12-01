@@ -714,6 +714,7 @@ to create a new model to deploy %sworkloads.
 			StorageEndpoint:  region.StorageEndpoint,
 			Credential:       credentials.credential,
 			CACertificates:   cloud.CACertificates,
+			SkipTLSVerify:    cloud.SkipTLSVerify,
 		},
 		CredentialName: credentials.name,
 		AdminSecret:    bootstrapCfg.bootstrap.AdminSecret,

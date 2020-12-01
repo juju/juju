@@ -42,6 +42,7 @@ var lowCloud = cloud.Cloud{
 		StorageEndpoint:  "region2-storage",
 	}},
 	CACertificates: []string{"cert1", "cert2"},
+	SkipTLSVerify:  true,
 }
 
 func (s *CloudSuite) TestCloudNotFound(c *gc.C) {
@@ -126,7 +127,9 @@ func (s *CloudSuite) TestAddCloudNoAuthTypes(c *gc.C) {
 }
 
 func (s *CloudSuite) TestUpdateCloud(c *gc.C) {
-	err := s.State.AddCloud(lowCloud, s.Owner.Name())
+	cloudToAdd := lowCloud
+	cloudToAdd.SkipTLSVerify = false
+	err := s.State.AddCloud(cloudToAdd, s.Owner.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
 	updatedCloud := lowCloud
