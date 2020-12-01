@@ -321,22 +321,22 @@ timing:
 				t.withAPIError,
 			)
 
-			numExpectedimers := 0
+			numExpectedTimers := 0
 			// Ensure the api timeout timer is registered.
 			if t.withAPITimeout > 0 {
-				numExpectedimers++
+				numExpectedTimers++
 			}
 			// And the api delay timer.
 			if t.withAPIDelay > 0 {
-				numExpectedimers++
+				numExpectedTimers++
 			}
-			err := s.clock.WaitAdvance(0*time.Second, testing.ShortWait, numExpectedimers)
+			err := s.clock.WaitAdvance(0*time.Second, testing.ShortWait, numExpectedTimers)
 			c.Assert(err, jc.ErrorIsNil)
 
 			// Ensure the cmd max wait timer is registered. But this only happens
 			// during Run() so check for it later.
 			if t.withClientWait != "" {
-				numExpectedimers++
+				numExpectedTimers++
 			}
 
 			s.testRunHelper(
@@ -350,7 +350,7 @@ timing:
 				modelFlag,
 				t.watch,
 				t.withTicks,
-				numExpectedimers,
+				numExpectedTimers,
 			)
 		}
 	}
