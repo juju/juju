@@ -5057,7 +5057,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithUpdateStrategy(c *gc
 
 	basicPodSpec.Service = &specs.ServiceSpec{
 		UpdateStrategy: &specs.UpdateStrategy{
-			Type: "OnDelete",
+			Type: "RollingUpdate",
 			RollingUpdate: &specs.RollingUpdateSpec{
 				Partition: int32Ptr(10),
 			},
@@ -5085,7 +5085,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithUpdateStrategy(c *gc
 	})
 	statefulSetArg := unitStatefulSetArg(2, "workload-storage", podSpec)
 	statefulSetArg.Spec.UpdateStrategy = apps.StatefulSetUpdateStrategy{
-		Type: apps.OnDeleteStatefulSetStrategyType,
+		Type: apps.RollingUpdateStatefulSetStrategyType,
 		RollingUpdate: &apps.RollingUpdateStatefulSetStrategy{
 			Partition: int32Ptr(10),
 		},
@@ -7265,10 +7265,13 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForDaemonSet(c *gc.C) {
 	_, err := provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{})
 	c.Assert(err, gc.ErrorMatches, `strategy type "" for daemonset not valid`)
 
-	_, err = provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
+	o, err := provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
 		Type: "RollingUpdate",
 	})
-	c.Assert(err, gc.ErrorMatches, `rolling update spec is required`)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(o, jc.DeepEquals, apps.DaemonSetUpdateStrategy{
+		Type: apps.RollingUpdateDaemonSetStrategyType,
+	})
 
 	_, err = provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
 		Type:          "RollingUpdate",
@@ -7292,7 +7295,7 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForDaemonSet(c *gc.C) {
 	})
 	c.Assert(err, gc.ErrorMatches, `rolling update spec for daemonset not valid`)
 
-	o, err := provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
+	o, err = provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
 		Type: "RollingUpdate",
 		RollingUpdate: &specs.RollingUpdateSpec{
 			MaxUnavailable: &specs.IntOrString{IntVal: 10},
@@ -7308,17 +7311,19 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForDaemonSet(c *gc.C) {
 
 	o, err = provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
 		Type: "OnDelete",
-		RollingUpdate: &specs.RollingUpdateSpec{
-			MaxUnavailable: &specs.IntOrString{IntVal: 10},
-		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(o, jc.DeepEquals, apps.DaemonSetUpdateStrategy{
 		Type: apps.OnDeleteDaemonSetStrategyType,
-		RollingUpdate: &apps.RollingUpdateDaemonSet{
-			MaxUnavailable: &intstr.IntOrString{IntVal: 10},
+	})
+
+	o, err = provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
+		Type: "OnDelete",
+		RollingUpdate: &specs.RollingUpdateSpec{
+			MaxUnavailable: &specs.IntOrString{IntVal: 10},
 		},
 	})
+	c.Assert(err, gc.ErrorMatches, `rolling update spec is not supported for "OnDelete"`)
 }
 
 func (s *K8sBrokerSuite) TestUpdateStrategyForDeployment(c *gc.C) {
@@ -7328,10 +7333,13 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForDeployment(c *gc.C) {
 	_, err := provider.UpdateStrategyForDeployment(specs.UpdateStrategy{})
 	c.Assert(err, gc.ErrorMatches, `strategy type "" for deployment not valid`)
 
-	_, err = provider.UpdateStrategyForDeployment(specs.UpdateStrategy{
+	o, err := provider.UpdateStrategyForDeployment(specs.UpdateStrategy{
 		Type: "RollingUpdate",
 	})
-	c.Assert(err, gc.ErrorMatches, `rolling update spec is required`)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(o, jc.DeepEquals, apps.DeploymentStrategy{
+		Type: apps.RollingUpdateDeploymentStrategyType,
+	})
 
 	_, err = provider.UpdateStrategyForDeployment(specs.UpdateStrategy{
 		Type:          "RollingUpdate",
@@ -7348,21 +7356,22 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForDeployment(c *gc.C) {
 	})
 	c.Assert(err, gc.ErrorMatches, `rolling update spec for deployment not valid`)
 
-	o, err := provider.UpdateStrategyForDeployment(specs.UpdateStrategy{
+	o, err = provider.UpdateStrategyForDeployment(specs.UpdateStrategy{
+		Type: "Recreate",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(o, jc.DeepEquals, apps.DeploymentStrategy{
+		Type: apps.RecreateDeploymentStrategyType,
+	})
+
+	_, err = provider.UpdateStrategyForDeployment(specs.UpdateStrategy{
 		Type: "Recreate",
 		RollingUpdate: &specs.RollingUpdateSpec{
 			MaxUnavailable: &specs.IntOrString{IntVal: 10},
 			MaxSurge:       &specs.IntOrString{IntVal: 20},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(o, jc.DeepEquals, apps.DeploymentStrategy{
-		Type: apps.RecreateDeploymentStrategyType,
-		RollingUpdate: &apps.RollingUpdateDeployment{
-			MaxUnavailable: &intstr.IntOrString{IntVal: 10},
-			MaxSurge:       &intstr.IntOrString{IntVal: 20},
-		},
-	})
+	c.Assert(err, gc.ErrorMatches, `rolling update spec is not supported for "Recreate"`)
 
 	o, err = provider.UpdateStrategyForDeployment(specs.UpdateStrategy{
 		Type: "RollingUpdate",
@@ -7388,10 +7397,13 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForStatefulSet(c *gc.C) {
 	_, err := provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{})
 	c.Assert(err, gc.ErrorMatches, `strategy type "" for statefulset not valid`)
 
-	_, err = provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
+	o, err := provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
 		Type: "RollingUpdate",
 	})
-	c.Assert(err, gc.ErrorMatches, `rolling update spec is required`)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(o, jc.DeepEquals, apps.StatefulSetUpdateStrategy{
+		Type: apps.RollingUpdateStatefulSetStrategyType,
+	})
 
 	_, err = provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
 		Type:          "RollingUpdate",
@@ -7417,19 +7429,21 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForStatefulSet(c *gc.C) {
 	})
 	c.Assert(err, gc.ErrorMatches, `rolling update spec for statefulset not valid`)
 
-	o, err := provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
+	o, err = provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
+		Type: "OnDelete",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(o, jc.DeepEquals, apps.StatefulSetUpdateStrategy{
+		Type: apps.OnDeleteStatefulSetStrategyType,
+	})
+
+	_, err = provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
 		Type: "OnDelete",
 		RollingUpdate: &specs.RollingUpdateSpec{
 			Partition: int32Ptr(10),
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(o, jc.DeepEquals, apps.StatefulSetUpdateStrategy{
-		Type: apps.OnDeleteStatefulSetStrategyType,
-		RollingUpdate: &apps.RollingUpdateStatefulSetStrategy{
-			Partition: int32Ptr(10),
-		},
-	})
+	c.Assert(err, gc.ErrorMatches, `rolling update spec is not supported for "OnDelete"`)
 
 	o, err = provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
 		Type: "RollingUpdate",

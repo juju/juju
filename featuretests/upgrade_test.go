@@ -72,7 +72,8 @@ func (s *upgradeSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
 
 	s.oldVersion = coretesting.CurrentVersion(c)
-	s.oldVersion.Major--
+	s.oldVersion.Major = 2
+	s.oldVersion.Minor = 1
 
 	// Don't wait so long in tests.
 	s.PatchValue(&upgradesteps.UpgradeStartTimeoutMaster, time.Millisecond*50)

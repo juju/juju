@@ -483,7 +483,7 @@ func (s *AllowedTargetVersionSuite) TestAllowedTargetVersionSuite(c *gc.C) {
 	cases := []allowedTest{
 		{current: "2.7.4", target: "2.8.0", allowed: true},  // normal upgrade
 		{current: "2.8.0", target: "2.7.4", allowed: true},  // downgrade caused by restore after upgrade
-		{current: "3.8.0", target: "1.2.3", allowed: false}, // can't downgrade to major version 1.x
+		{current: "3.8.0", target: "2.2.3", allowed: false}, // can't downgrade major versions
 		{current: "2.7.4", target: "2.7.5", allowed: true},  // point release
 		{current: "2.8.0", target: "2.7.4", allowed: true},  // downgrade after upgrade but before config file updated
 	}

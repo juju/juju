@@ -48,10 +48,10 @@ func (s *dblogSuite) SetUpTest(c *gc.C) {
 func (s *dblogSuite) TestControllerAgentLogsGoToDBCAAS(c *gc.C) {
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 	// Set up a CAAS model to replace the IAAS one.
-	// Ensure major version 1 is used to prevent an upgrade
+	// Ensure an older major version is used to prevent an upgrade
 	// from being attempted.
 	modelVers := jujuversion.Current
-	modelVers.Major = 1
+	modelVers.Major--
 	extraAttrs := coretesting.Attrs{
 		"agent-version": modelVers.String(),
 	}
