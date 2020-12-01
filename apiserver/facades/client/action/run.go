@@ -78,7 +78,7 @@ func getAllUnitNames(st *state.State, units, applications []string) (result []na
 
 // Run the commands specified on the machines identified through the
 // list of machines, units and services.
-func (a *ActionAPI) Run(run params.RunParams) (results params.ActionResults, err error) {
+func (a *ActionAPI) Run(run params.RunParams) (results params.EnqueuedActions, err error) {
 	if err := a.checkCanAdmin(); err != nil {
 		return results, err
 	}
@@ -104,11 +104,11 @@ func (a *ActionAPI) Run(run params.RunParams) (results params.ActionResults, err
 	if err != nil {
 		return results, errors.Trace(err)
 	}
-	return queueActions(a, actionParams)
+	return a.EnqueueOperation(actionParams)
 }
 
 // RunOnAllMachines attempts to run the specified command on all the machines.
-func (a *ActionAPI) RunOnAllMachines(run params.RunParams) (results params.ActionResults, err error) {
+func (a *ActionAPI) RunOnAllMachines(run params.RunParams) (results params.EnqueuedActions, err error) {
 	if err := a.checkCanAdmin(); err != nil {
 		return results, err
 	}
@@ -138,7 +138,7 @@ func (a *ActionAPI) RunOnAllMachines(run params.RunParams) (results params.Actio
 	if err != nil {
 		return results, errors.Trace(err)
 	}
-	return queueActions(a, actionParams)
+	return a.EnqueueOperation(actionParams)
 }
 
 func (a *ActionAPI) createActionsParams(
@@ -168,9 +168,4 @@ func (a *ActionAPI) createActionsParams(
 	}
 
 	return apiActionParams, nil
-}
-
-var queueActions = func(a *ActionAPI, args params.Actions) (results params.ActionResults, err error) {
-	_, results, err = a.enqueue(args)
-	return results, err
 }

@@ -5,6 +5,7 @@ package action
 
 import (
 	"io"
+	"time"
 
 	"github.com/juju/errors"
 
@@ -17,6 +18,14 @@ import (
 // type APIClient represents the action API functionality.
 type APIClient interface {
 	io.Closer
+
+	// RunOnAllMachines runs the command on all the machines with the specified
+	// timeout.
+	RunOnAllMachines(commands string, timeout time.Duration) (params.EnqueuedActions, error)
+
+	// Run the Commands specified on the machines identified through the ids
+	// provided in the machines, applications and units slices.
+	Run(params.RunParams) (params.EnqueuedActions, error)
 
 	// EnqueueOperation takes a list of Actions and queues them up to be executed as
 	// an operation, each action running as a task on the the designated ActionReceiver.

@@ -6,16 +6,13 @@ package state_test
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
-	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/actions"
@@ -284,8 +281,6 @@ act:
 }
 
 func (s *ActionSuite) TestActionBeginStartsOperation(c *gc.C) {
-	s.toSupportNewActionID(c)
-
 	clock := testclock.NewClock(coretesting.NonZeroTime().Round(time.Second))
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
@@ -316,8 +311,6 @@ func (s *ActionSuite) TestActionBeginStartsOperation(c *gc.C) {
 }
 
 func (s *ActionSuite) TestActionBeginStartsOperationRace(c *gc.C) {
-	s.toSupportNewActionID(c)
-
 	clock := testclock.NewClock(coretesting.NonZeroTime().Round(time.Second))
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
@@ -346,8 +339,6 @@ func (s *ActionSuite) TestActionBeginStartsOperationRace(c *gc.C) {
 }
 
 func (s *ActionSuite) TestLastActionFinishCompletesOperation(c *gc.C) {
-	s.toSupportNewActionID(c)
-
 	clock := testclock.NewClock(coretesting.NonZeroTime().Round(time.Second))
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
@@ -388,8 +379,6 @@ func (s *ActionSuite) TestLastActionFinishCompletesOperation(c *gc.C) {
 }
 
 func (s *ActionSuite) TestLastActionFinishCompletesOperationRace(c *gc.C) {
-	s.toSupportNewActionID(c)
-
 	clock := testclock.NewClock(coretesting.NonZeroTime().Round(time.Second))
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
@@ -433,8 +422,6 @@ func (s *ActionSuite) TestLastActionFinishCompletesOperationRace(c *gc.C) {
 }
 
 func (s *ActionSuite) TestActionMessages(c *gc.C) {
-	s.toSupportNewActionID(c)
-
 	clock := testclock.NewClock(coretesting.NonZeroTime().Round(time.Second))
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
@@ -473,29 +460,7 @@ func (s *ActionSuite) TestActionMessages(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot log message to task "2" with status completed`)
 }
 
-func (s *ActionSuite) toSupportNewActionID(c *gc.C) {
-	ver, err := s.Model.AgentVersion()
-	c.Assert(err, jc.ErrorIsNil)
-
-	if !state.IsNewActionIDSupported(ver) {
-		err := s.State.SetModelAgentVersion(state.MinVersionSupportNewActionID, true)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-}
-
-func (s *ActionSuite) toSupportOldActionID(c *gc.C) {
-	ver, err := s.Model.AgentVersion()
-	c.Assert(err, jc.ErrorIsNil)
-
-	if state.IsNewActionIDSupported(ver) {
-		err := s.State.SetModelAgentVersion(version.MustParse("2.6.0"), true)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-}
-
 func (s *ActionSuite) TestActionLogMessageRace(c *gc.C) {
-	s.toSupportNewActionID(c)
-
 	clock := testclock.NewClock(coretesting.NonZeroTime().Round(time.Second))
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
@@ -744,94 +709,6 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 	actions, err := unit.PendingActions()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(actions), gc.Equals, 0)
-}
-
-func (s *ActionSuite) TestFindUnitActionTagsById(c *gc.C) {
-	s.assertFindActionTagsById(c, s.unit.Tag())
-}
-
-func (s *ActionSuite) TestFindMachineActionTagsById(c *gc.C) {
-	machine := s.Factory.MakeMachine(c, &factory.MachineParams{})
-	s.assertFindActionTagsById(c, machine.Tag())
-}
-
-func (s *ActionSuite) assertFindActionTagsById(c *gc.C, receiver names.Tag) {
-	s.toSupportNewActionID(c)
-
-	actions := []struct {
-		Name       string
-		Parameters map[string]interface{}
-	}{
-		{Name: "action-1", Parameters: map[string]interface{}{}},
-		{Name: "fake", Parameters: map[string]interface{}{"yeah": true, "take": nil}},
-		{Name: "action-9", Parameters: map[string]interface{}{"district": 9}},
-		{Name: "blarney", Parameters: map[string]interface{}{"conversation": []string{"what", "now"}}},
-	}
-
-	operationID, err := s.Model.EnqueueOperation("a test")
-	c.Assert(err, jc.ErrorIsNil)
-	for _, action := range actions {
-		_, err := s.model.EnqueueAction(operationID, receiver, action.Name, action.Parameters)
-		c.Check(err, gc.Equals, nil)
-	}
-
-	tags, err := s.model.FindActionTagsById("2")
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(tags, gc.HasLen, 1)
-	c.Assert(tags[0].Id(), gc.Equals, "2")
-
-	// Test match all.
-	tags, err = s.model.FindActionTagsById("")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(tags, gc.HasLen, 4)
-}
-
-func (s *ActionSuite) TestFindActionTagsByLegacyId(c *gc.C) {
-	// Create an action with an old id (uuid).
-	s.toSupportOldActionID(c)
-	operationID, err := s.Model.EnqueueOperation("a test")
-	c.Assert(err, jc.ErrorIsNil)
-	var actionToUse state.Action
-	var uuid string
-	for {
-		a, err := s.model.EnqueueAction(operationID, s.unit.Tag(), "action-1", nil)
-		c.Assert(err, jc.ErrorIsNil)
-		if unicode.IsDigit(rune(a.Id()[0])) {
-			idNum, _ := strconv.Atoi(a.Id()[0:1])
-			if idNum >= 2 {
-				// The operation consumes id 1 and id 0 is not valid.
-				actionToUse = a
-				uuid = a.Id()
-				break
-			}
-		}
-	}
-	c.Logf(uuid)
-
-	// Ensure there's a new action with a numeric id which
-	// matches the starting digit of the uuid above.
-	s.toSupportNewActionID(c)
-	idNum, _ := strconv.Atoi(actionToUse.Id()[0:1])
-	for i := 1; i <= idNum; i++ {
-		_, err := s.model.EnqueueAction(operationID, s.unit.Tag(), "action-1", nil)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
-	// Searching for that numeric id only matches the id.
-	idStr := fmt.Sprintf("%d", idNum)
-	tags, err := s.model.FindActionTagsById(idStr)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(len(tags), gc.Equals, 1)
-	c.Assert(tags[0].Id(), gc.Equals, idStr)
-
-	// Searching for legacy prefix still works.
-	tags, err = s.model.FindActionTagsById(uuid[0:9])
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(len(tags), gc.Equals, 1)
-	c.Assert(tags[0].Id(), gc.Equals, uuid)
 }
 
 func (s *ActionSuite) TestFindActionsByName(c *gc.C) {

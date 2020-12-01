@@ -88,7 +88,7 @@
                             "$ref": "#/definitions/RunParams"
                         },
                         "Result": {
-                            "$ref": "#/definitions/ActionResults"
+                            "$ref": "#/definitions/EnqueuedActions"
                         }
                     },
                     "description": "Run the commands specified on the machines identified through the\nlist of machines, units and services."
@@ -100,7 +100,7 @@
                             "$ref": "#/definitions/RunParams"
                         },
                         "Result": {
-                            "$ref": "#/definitions/ActionResults"
+                            "$ref": "#/definitions/EnqueuedActions"
                         }
                     },
                     "description": "RunOnAllMachines attempts to run the specified command on all the machines."
@@ -294,7 +294,7 @@
                         "actions": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/StringResult"
+                                "$ref": "#/definitions/ActionResult"
                             }
                         },
                         "operation": {
@@ -490,21 +490,6 @@
                     "required": [
                         "commands",
                         "timeout"
-                    ]
-                },
-                "StringResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "result": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "result"
                     ]
                 },
                 "StringsWatchResult": {

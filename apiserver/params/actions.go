@@ -51,7 +51,7 @@ type Action struct {
 // EnqueuedActions represents the result of enqueuing actions to run.
 type EnqueuedActions struct {
 	OperationTag string         `json:"operation"`
-	Actions      []StringResult `json:"actions,omitempty"`
+	Actions      []ActionResult `json:"actions,omitempty"`
 }
 
 // ActionResults is a slice of ActionResult for bulk requests.
