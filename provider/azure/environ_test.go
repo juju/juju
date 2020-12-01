@@ -36,6 +36,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
@@ -709,7 +710,7 @@ func (s *environSuite) assertStartInstance(c *gc.C, wantedRootDisk *int, rootDis
 	c.Assert(result.Volumes, gc.HasLen, 0)
 	c.Assert(result.VolumeAttachments, gc.HasLen, 0)
 
-	arch := "amd64"
+	arch := corearch.DefaultArchitecture
 	mem := uint64(1792)
 	cpuCores := uint64(1)
 	c.Assert(result.Hardware, jc.DeepEquals, &instance.HardwareCharacteristics{

@@ -3114,10 +3114,12 @@ func uint64p(val uint64) *uint64 {
 }
 
 func (s *ApplicationSuite) TestConstraints(c *gc.C) {
-	// Constraints are initially empty (for now).
+	amdArch := "amd64"
 	cons, err := s.mysql.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
+	c.Assert(cons, jc.DeepEquals, constraints.Value{
+		Arch: &amdArch,
+	})
 
 	// Constraints can be set.
 	cons2 := constraints.Value{Mem: uint64p(4096)}
@@ -3148,24 +3150,28 @@ func (s *ApplicationSuite) TestConstraints(c *gc.C) {
 	mysql := s.AddTestingApplication(c, s.mysql.Name(), ch)
 	cons6, err := mysql.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(&cons6, jc.Satisfies, constraints.IsEmpty)
+	c.Assert(cons6, jc.DeepEquals, constraints.Value{
+		Arch: &amdArch,
+	})
 }
 
 func (s *ApplicationSuite) TestArchConstraints(c *gc.C) {
-	// Constraints are initially empty (for now).
+	amdArch := "amd64"
 	cons, err := s.mysql.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
+	c.Assert(cons, jc.DeepEquals, constraints.Value{
+		Arch: &amdArch,
+	})
 
 	// Constraints can not be set if it already exists and is different than
 	// the default architecture.
 	armArch := "arm64"
 	cons1 := constraints.Value{Arch: &armArch}
 	err = s.mysql.SetConstraints(cons1)
-	c.Assert(err, gc.ErrorMatches, "changing architecture not supported")
+	c.Assert(err, gc.ErrorMatches, "changing architecture \\(amd64\\) not supported")
 
 	// Constraints can be set.
-	amdArch := "amd64"
+
 	cons2 := constraints.Value{Arch: &amdArch}
 	err = s.mysql.SetConstraints(cons2)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3191,7 +3197,9 @@ func (s *ApplicationSuite) TestArchConstraints(c *gc.C) {
 	mysql := s.AddTestingApplication(c, s.mysql.Name(), ch)
 	cons6, err := mysql.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(&cons6, jc.Satisfies, constraints.IsEmpty)
+	c.Assert(cons6, jc.DeepEquals, constraints.Value{
+		Arch: &amdArch,
+	})
 }
 
 func (s *ApplicationSuite) TestSetInvalidConstraints(c *gc.C) {
@@ -3226,12 +3234,18 @@ func (s *ApplicationSuite) TestConstraintsLifecycle(c *gc.C) {
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.mysql, state.Dying)
+
 	cons1 := constraints.MustParse("mem=1G")
 	err = s.mysql.SetConstraints(cons1)
 	c.Assert(err, gc.ErrorMatches, `cannot set constraints: application is not found or not alive`)
+
 	scons, err := s.mysql.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(&scons, jc.Satisfies, constraints.IsEmpty)
+
+	amdArch := "amd64"
+	c.Assert(scons, jc.DeepEquals, constraints.Value{
+		Arch: &amdArch,
+	})
 
 	// Removed (== Dead, for a application).
 	c.Assert(unit.EnsureDead(), jc.ErrorIsNil)

@@ -20,6 +20,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	corecontainer "github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
@@ -560,7 +561,7 @@ func (s *MachineSuite) TestDestroyFailsWhenNewContainerAdded(c *gc.C) {
 }
 
 func (s *MachineSuite) TestRemove(c *gc.C) {
-	arch := "amd64"
+	arch := arch.DefaultArchitecture
 	char := &instance.HardwareCharacteristics{
 		Arch: &arch,
 	}
@@ -782,7 +783,7 @@ func (s *MachineSuite) TestMachineSetProvisionedUpdatesCharacteristics(c *gc.C) 
 	// Before provisioning, there is no hardware characteristics.
 	_, err := s.machine.HardwareCharacteristics()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	arch := "amd64"
+	arch := arch.DefaultArchitecture
 	mem := uint64(4096)
 	expected := &instance.HardwareCharacteristics{
 		Arch: &arch,

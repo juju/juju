@@ -607,7 +607,7 @@ func (s *DeploySuite) TestConstraints(c *gc.C) {
 	app, _ := s.AssertApplication(c, "multi-series", curl, 1, 0)
 	cons, err := app.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, jc.DeepEquals, constraints.MustParse("mem=2G cores=2"))
+	c.Assert(cons, jc.DeepEquals, constraints.MustParse("arch=amd64 mem=2G cores=2"))
 }
 
 func (s *DeploySuite) TestResources(c *gc.C) {

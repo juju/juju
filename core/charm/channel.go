@@ -137,7 +137,7 @@ func ParseChannel(s string) (Channel, error) {
 func ParseChannelNormalize(s string) (Channel, error) {
 	ch, err := ParseChannel(s)
 	if err != nil {
-		return Channel{}, err
+		return Channel{}, errors.Trace(err)
 	}
 	return ch.Normalize(), nil
 }

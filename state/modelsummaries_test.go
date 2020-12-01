@@ -15,6 +15,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
@@ -440,7 +441,7 @@ func (s *ModelSummariesSuite) TestContainsMachineInformation(c *gc.C) {
 	// Instance data, but no core count
 	m4, err := shared.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	arch := "amd64"
+	arch := arch.DefaultArchitecture
 	err = m4.SetInstanceInfo("i-78901", "", "nonce", &instance.HardwareCharacteristics{
 		Arch: &arch,
 	}, nil, nil, nil, nil, nil)

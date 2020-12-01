@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
@@ -402,7 +403,7 @@ func (s *applicationSuite) TestApplicationDeployWithStorage(c *gc.C) {
 		},
 	}
 
-	var cons constraints.Value
+	cons := constraints.MustParse("arch=amd64")
 	args := params.ApplicationDeploy{
 		ApplicationName: "application",
 		CharmURL:        curl.String(),
@@ -483,7 +484,7 @@ func (s *applicationSuite) TestApplicationDeployDefaultFilesystemStorage(c *gc.C
 		URL: curl.String(),
 	}, s.openRepo)
 	c.Assert(err, jc.ErrorIsNil)
-	var cons constraints.Value
+	cons := constraints.MustParse("arch=amd64")
 	args := params.ApplicationDeploy{
 		ApplicationName: "application",
 		CharmURL:        curl.String(),
@@ -516,7 +517,7 @@ func (s *applicationSuite) TestApplicationDeploy(c *gc.C) {
 		URL: curl.String(),
 	}, s.openRepo)
 	c.Assert(err, jc.ErrorIsNil)
-	var cons constraints.Value
+	cons := constraints.MustParse("arch=amd64")
 	args := params.ApplicationDeploy{
 		ApplicationName: "application",
 		CharmURL:        curl.String(),
@@ -682,7 +683,7 @@ func (s *applicationSuite) TestApplicationDeploymentWithTrust(c *gc.C) {
 		URL: curl.String(),
 	}, s.openRepo)
 	c.Assert(err, jc.ErrorIsNil)
-	var cons constraints.Value
+	cons := constraints.MustParse("arch=amd64")
 	config := map[string]string{"trust": "true"}
 	args := params.ApplicationDeploy{
 		ApplicationName: "application",
@@ -720,7 +721,7 @@ func (s *applicationSuite) TestApplicationDeploymentNoTrust(c *gc.C) {
 		URL: curl.String(),
 	}, s.openRepo)
 	c.Assert(err, jc.ErrorIsNil)
-	var cons constraints.Value
+	cons := constraints.MustParse("arch=amd64")
 	args := params.ApplicationDeploy{
 		ApplicationName: "application",
 		CharmURL:        curl.String(),
@@ -1388,13 +1389,13 @@ func (s *applicationSuite) assertApplicationDeployPrincipalBlocked(c *gc.C, msg 
 }
 
 func (s *applicationSuite) TestBlockDestroyApplicationDeployPrincipal(c *gc.C) {
-	curl, bundle, cons := s.setupApplicationDeploy(c, "mem=4G")
+	curl, bundle, cons := s.setupApplicationDeploy(c, "arch=amd64 mem=4G")
 	s.BlockDestroyModel(c, "TestBlockDestroyApplicationDeployPrincipal")
 	s.assertApplicationDeployPrincipal(c, curl, bundle, cons)
 }
 
 func (s *applicationSuite) TestBlockRemoveApplicationDeployPrincipal(c *gc.C) {
-	curl, bundle, cons := s.setupApplicationDeploy(c, "mem=4G")
+	curl, bundle, cons := s.setupApplicationDeploy(c, "arch=amd64 mem=4G")
 	s.BlockRemoveObject(c, "TestBlockRemoveApplicationDeployPrincipal")
 	s.assertApplicationDeployPrincipal(c, curl, bundle, cons)
 }
@@ -1502,6 +1503,15 @@ func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
 
 	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
+
+	arch := arch.DefaultArchitecture
+	hwChar := &instance.HardwareCharacteristics{
+		Arch: &arch,
+	}
+	instId := instance.Id("i-host-machine")
+	err = machine.SetProvisioned(instId, "", "fake-nonce", hwChar)
+	c.Assert(err, jc.ErrorIsNil)
+
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
@@ -1545,6 +1555,15 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithLXDProfile(c *gc.C)
 
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
+
+	arch := arch.DefaultArchitecture
+	hwChar := &instance.HardwareCharacteristics{
+		Arch: &arch,
+	}
+	instId := instance.Id("i-host-machine")
+	err = machine.SetProvisioned(instId, "", "fake-nonce", hwChar)
+	c.Assert(err, jc.ErrorIsNil)
+
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
@@ -1603,6 +1622,15 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAn
 
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
+
+	arch := arch.DefaultArchitecture
+	hwChar := &instance.HardwareCharacteristics{
+		Arch: &arch,
+	}
+	instId := instance.Id("i-host-machine")
+	err = machine.SetProvisioned(instId, "", "fake-nonce", hwChar)
+	c.Assert(err, jc.ErrorIsNil)
+
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
@@ -3165,12 +3193,12 @@ func (s *applicationSuite) TestBlockChangesSetApplicationConstraints(c *gc.C) {
 }
 
 func (s *applicationSuite) TestClientGetApplicationConstraints(c *gc.C) {
-	fooConstraints := constraints.MustParse("mem=4G")
+	fooConstraints := constraints.MustParse("arch=amd64", "mem=4G")
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:        "foo",
 		Constraints: fooConstraints,
 	})
-	barConstraints := constraints.MustParse("mem=128G", "cores=64")
+	barConstraints := constraints.MustParse("arch=amd64", "mem=128G", "cores=64")
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:        "bar",
 		Constraints: barConstraints,

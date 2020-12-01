@@ -14,6 +14,8 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/upgrader"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -45,9 +47,17 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	// Create a machine and unit to work with
-	var err error
-	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
+
+	arch := arch.DefaultArchitecture
+	hwChar := &instance.HardwareCharacteristics{
+		Arch: &arch,
+	}
+	instId := instance.Id("i-host-machine")
+	err = machine.SetProvisioned(instId, "", "fake-nonce", hwChar)
+	c.Assert(err, jc.ErrorIsNil)
+
 	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	s.rawUnit, err = app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
