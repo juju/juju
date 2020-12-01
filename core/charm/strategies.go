@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v2"
+	"github.com/kr/pretty"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	"github.com/juju/juju/core/lxdprofile"
@@ -351,7 +352,7 @@ func (s StoreCharmHub) Download(curl *charm.URL, file string, origin Origin) (St
 // DownloadOrigin returns an origin with the id and hash, without
 // downloading the charm.
 func (s StoreCharmHub) DownloadOrigin(curl *charm.URL, origin Origin) (Origin, error) {
-	s.logger.Tracef("DownloadOrigin(%s) %s", curl)
+	s.logger.Tracef("DownloadOrigin(%s) %s", curl, pretty.Sprint(origin))
 	_, downloadOrigin, err := s.repository.FindDownloadURL(curl, origin, s.series)
 	return downloadOrigin, errors.Trace(err)
 }
