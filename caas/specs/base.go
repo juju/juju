@@ -187,10 +187,10 @@ func (s UpdateStrategy) Validate() error {
 	if len(s.Type) == 0 {
 		return errors.New("type is required")
 	}
-	if s.RollingUpdate == nil {
-		return errors.New("rolling update strategy is required")
+	if s.RollingUpdate != nil {
+		return s.RollingUpdate.Validate()
 	}
-	return errors.Trace(s.RollingUpdate.Validate())
+	return nil
 }
 
 // ServiceSpec contains attributes to be set on v1.Service when
