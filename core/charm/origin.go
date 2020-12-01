@@ -32,6 +32,7 @@ const (
 // changing.
 type Origin struct {
 	Source Source
+	Type   string
 	ID     string
 	Hash   string
 

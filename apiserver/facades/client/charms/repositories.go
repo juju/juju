@@ -55,14 +55,17 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 
 	// If no revision nor channel specified, use the default release.
 	if curl.Revision == -1 && channel.String() == "" {
-		return c.resolveViaChannelMap(curl, origin, info.DefaultRelease)
+		logger.Debugf("Resolving charm with default release")
+		return c.resolveViaChannelMap(info.Type, curl, origin, info.DefaultRelease)
 	}
+
+	logger.Debugf("Resolving charm with revision %d and/or channel %s", curl.Revision, channel.String())
 
 	channelMap, err := findChannelMap(curl.Revision, channel, info.ChannelMap)
 	if err != nil {
 		return nil, params.CharmOrigin{}, nil, errors.Trace(err)
 	}
-	return c.resolveViaChannelMap(curl, origin, channelMap)
+	return c.resolveViaChannelMap(info.Type, curl, origin, channelMap)
 }
 
 // DownloadCharm downloads the provided download URL from CharmHub using the
@@ -212,39 +215,68 @@ func matchChannel(one corecharm.Channel, two transport.Channel) bool {
 	return one.String() == two.Name
 }
 
-func (c *chRepo) resolveViaChannelMap(curl *charm.URL, origin params.CharmOrigin, channelMap transport.InfoChannelMap) (*charm.URL, params.CharmOrigin, []string, error) {
+func (c *chRepo) resolveViaChannelMap(t transport.Type, curl *charm.URL, origin params.CharmOrigin, channelMap transport.InfoChannelMap) (*charm.URL, params.CharmOrigin, []string, error) {
 	mapChannel := channelMap.Channel
 	mapRevision := channelMap.Revision
 
 	curl.Revision = mapRevision.Revision
+
+	origin.Type = string(t)
 	origin.Revision = &mapRevision.Revision
 	origin.Risk = mapChannel.Risk
 	origin.Track = &mapChannel.Track
 
-	// `metadata.yaml` is a requirement to be a valid charm. The charm repo
-	// expects that one exists even if it contains minimal information. So if
-	// we returned out here, we would fail at a later stage.
+	// `metadata.yaml` is a requirement to be a valid charm or bundle. The charm
+	// repo expects that one exists even if it contains minimal information.
 	if mapRevision.MetadataYAML == "" {
 		return nil, params.CharmOrigin{}, nil, errors.Errorf("unexpected empty charm metadata")
 	}
 
-	meta, err := unmarshalCharmMetadata(mapRevision.MetadataYAML)
+	var (
+		err  error
+		meta Metadata
+	)
+	switch t {
+	case "charm":
+		meta, err = unmarshalCharmMetadata(mapRevision.MetadataYAML)
+	case "bundle":
+		meta, err = unmarshalBundleMetadata(mapRevision.MetadataYAML)
+	default:
+		err = errors.Errorf("unexpected charm/bundle type %q", t)
+	}
 	if err != nil {
 		return nil, params.CharmOrigin{}, nil, errors.Annotatef(err, "cannot unmarshal charm metadata")
 	}
 	return curl, origin, meta.ComputedSeries(), nil
 }
 
-func unmarshalCharmMetadata(metadataYAML string) (*charm.Meta, error) {
-	if metadataYAML == "" {
-		return nil, nil
-	}
-	m := metadataYAML
-	meta, err := charm.ReadMeta(bytes.NewBufferString(m))
+// Metadata represents the return type for both charm types (charm and bundles)
+type Metadata interface {
+	ComputedSeries() []string
+}
+
+func unmarshalCharmMetadata(metadataYAML string) (Metadata, error) {
+	meta, err := charm.ReadMeta(bytes.NewBufferString(metadataYAML))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return meta, nil
+}
+
+func unmarshalBundleMetadata(metadataYAML string) (Metadata, error) {
+	meta, err := charm.ReadBundleData(bytes.NewBufferString(metadataYAML))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return bundleMetadata{BundleData: meta}, nil
+}
+
+type bundleMetadata struct {
+	*charm.BundleData
+}
+
+func (b bundleMetadata) ComputedSeries() []string {
+	return []string{b.BundleData.Series}
 }
 
 type csRepo struct {
@@ -258,7 +290,20 @@ func (c *csRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 	logger.Tracef("Resolving CharmStore charm %q with channel %q", curl, origin.Risk)
 	// A charm origin risk is equivalent to a charm store channel
 	newCurl, newRisk, supportedSeries, err := c.repo.ResolveWithPreferredChannel(curl, csparams.Channel(origin.Risk))
+	if err != nil {
+		return nil, params.CharmOrigin{}, nil, errors.Trace(err)
+	}
+
+	var t string
+	switch newCurl.Series {
+	case "bundle":
+		t = "bundle"
+	default:
+		t = "charm"
+	}
+
 	newOrigin := origin
+	newOrigin.Type = t
 	newOrigin.Risk = string(newRisk)
 	return newCurl, newOrigin, supportedSeries, err
 }

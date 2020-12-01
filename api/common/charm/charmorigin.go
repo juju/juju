@@ -28,6 +28,8 @@ const (
 type Origin struct {
 	// Source is where the charm came from, Local, CharmStore or CharmHub.
 	Source OriginSource
+	// Type defines the charm type if it's a bundle or a charm
+	Type string
 	// ID is the CharmHub ID for this charm.
 	ID string
 	// Hash is the hash of the charm intended to be used.
@@ -63,6 +65,7 @@ func (o Origin) CoreChannel() corecharm.Channel {
 func (o Origin) ParamsCharmOrigin() params.CharmOrigin {
 	return params.CharmOrigin{
 		Source:       o.Source.String(),
+		Type:         o.Type,
 		ID:           o.ID,
 		Hash:         o.Hash,
 		Revision:     o.Revision,
@@ -82,6 +85,7 @@ func (o Origin) CoreCharmOrigin() corecharm.Origin {
 	}
 	return corecharm.Origin{
 		Source:   corecharm.Source(o.Source),
+		Type:     o.Type,
 		ID:       o.ID,
 		Hash:     o.Hash,
 		Revision: o.Revision,
@@ -102,6 +106,7 @@ func (o Origin) CoreCharmOrigin() corecharm.Origin {
 func APICharmOrigin(origin params.CharmOrigin) Origin {
 	return Origin{
 		Source:       OriginSource(origin.Source),
+		Type:         origin.Type,
 		ID:           origin.ID,
 		Hash:         origin.Hash,
 		Risk:         origin.Risk,
@@ -126,6 +131,7 @@ func CoreCharmOrigin(origin corecharm.Origin) Origin {
 	}
 	return Origin{
 		Source:       OriginSource(origin.Source),
+		Type:         origin.Type,
 		ID:           origin.ID,
 		Hash:         origin.Hash,
 		Revision:     origin.Revision,

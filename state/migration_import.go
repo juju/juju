@@ -1317,8 +1317,10 @@ func makeCharmOrigin(a description.Application, curl *charm.URL) (*CharmOrigin, 
 		}
 	}
 
+	// We can hardcode type to charm as we never store bundles in state.
 	return &CharmOrigin{
 		Source:   co.Source(),
+		Type:     "charm",
 		ID:       co.ID(),
 		Hash:     co.Hash(),
 		Revision: &rev,
@@ -1335,7 +1337,16 @@ func deduceCharmOrigin(url *charm.URL) (*CharmOrigin, error) {
 		return &CharmOrigin{}, errors.NotValidf("charm url")
 	}
 
+	var t string
+	switch url.Series {
+	case "bundle":
+		t = "bundle"
+	default:
+		t = "charm"
+	}
+
 	origin := &CharmOrigin{
+		Type:     t,
 		Revision: &url.Revision,
 	}
 

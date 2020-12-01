@@ -22,6 +22,7 @@ type ApplicationsDeploy struct {
 type CharmOrigin struct {
 	// Source is where the charm came from, Local, CharmStore or CharmHub.
 	Source string `json:"source"`
+	Type   string `json:"type"`
 
 	// ID is the CharmHub ID for this charm
 	ID   string `json:"id"`

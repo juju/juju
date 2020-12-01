@@ -174,10 +174,20 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	seriesCurl, err := charm.ParseURL("cs:focal/testme")
 	c.Assert(err, jc.ErrorIsNil)
+
 	edge := string(csparams.EdgeChannel)
 	stable := string(csparams.StableChannel)
-	edgeOrigin := params.CharmOrigin{Source: corecharm.CharmStore.String(), Risk: edge}
-	stableOrigin := params.CharmOrigin{Source: corecharm.CharmStore.String(), Risk: stable}
+	edgeOrigin := params.CharmOrigin{
+		Source: corecharm.CharmStore.String(),
+		Type:   "charm",
+		Risk:   edge,
+	}
+	stableOrigin := params.CharmOrigin{
+		Source: corecharm.CharmStore.String(),
+		Type:   "charm",
+		Risk:   stable,
+	}
+
 	args := params.ResolveCharmsWithChannel{
 		Resolve: []params.ResolveCharmWithChannel{
 			{Reference: curl.String(), Origin: params.CharmOrigin{Source: corecharm.CharmStore.String()}},
@@ -232,21 +242,25 @@ func (s *charmsMockSuite) TestResolveCharmNoDefinedSeries(c *gc.C) {
 
 	seriesCurl, err := charm.ParseURL("cs:focal/testme")
 	c.Assert(err, jc.ErrorIsNil)
+
 	edge := string(csparams.EdgeChannel)
-	edgeOrigin := params.CharmOrigin{Source: corecharm.CharmStore.String(), Risk: edge}
+	edgeOrigin := params.CharmOrigin{
+		Source: corecharm.CharmStore.String(),
+		Type:   "charm",
+		Risk:   edge,
+	}
+
 	args := params.ResolveCharmsWithChannel{
 		Resolve: []params.ResolveCharmWithChannel{
 			{Reference: seriesCurl.String(), Origin: edgeOrigin},
 		},
 	}
 
-	expected := []params.ResolveCharmWithChannelResult{
-		{
-			URL:             seriesCurl.String(),
-			Origin:          edgeOrigin,
-			SupportedSeries: []string{"focal"},
-		},
-	}
+	expected := []params.ResolveCharmWithChannelResult{{
+		URL:             seriesCurl.String(),
+		Origin:          edgeOrigin,
+		SupportedSeries: []string{"focal"},
+	}}
 	result, err := api.ResolveCharms(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)

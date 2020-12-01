@@ -364,8 +364,7 @@ func (d downloadLogger) Debugf(msg string, args ...interface{}) {
 
 func (d downloadLogger) Tracef(msg string, args ...interface{}) {}
 
-type stdoutFileSystem struct {
-}
+type stdoutFileSystem struct{}
 
 // Create creates or truncates the named file. If the file already exists,
 // it is truncated.
