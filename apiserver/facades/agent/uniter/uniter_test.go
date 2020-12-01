@@ -633,7 +633,7 @@ func (s *uniterSuite) TestNetworkInfoSpaceless(c *gc.C) {
 
 	args := params.NetworkInfoParams{
 		Unit:      s.wordpressUnit.Tag().String(),
-		Endpoints: []string{"db"},
+		Endpoints: []string{"db", "juju-info"},
 	}
 
 	privateAddress, err := s.machine0.PrivateAddress()
@@ -655,7 +655,8 @@ func (s *uniterSuite) TestNetworkInfoSpaceless(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, jc.DeepEquals, params.NetworkInfoResults{
 		Results: map[string]params.NetworkInfoResult{
-			"db": expectedInfo,
+			"db":        expectedInfo,
+			"juju-info": expectedInfo,
 		},
 	})
 }

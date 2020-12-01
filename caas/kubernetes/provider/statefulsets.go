@@ -5,6 +5,7 @@ package provider
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/errors"
 	apps "k8s.io/api/apps/v1"
@@ -20,27 +21,32 @@ import (
 	"github.com/juju/juju/storage"
 )
 
+// https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#update-strategies
 func updateStrategyForStatefulSet(strategy specs.UpdateStrategy) (o apps.StatefulSetUpdateStrategy, err error) {
-	switch strategyType := apps.StatefulSetUpdateStrategyType(strategy.Type); strategyType {
-	case apps.RollingUpdateStatefulSetStrategyType, apps.OnDeleteStatefulSetStrategyType:
-		if strategy.RollingUpdate == nil {
-			return o, errors.New("rolling update spec is required")
+	strategyType := apps.StatefulSetUpdateStrategyType(strategy.Type)
+
+	o = apps.StatefulSetUpdateStrategy{Type: strategyType}
+	switch strategyType {
+	case apps.OnDeleteStatefulSetStrategyType:
+		if strategy.RollingUpdate != nil {
+			return o, errors.NewNotValid(nil, fmt.Sprintf("rolling update spec is not supported for %q", strategyType))
 		}
-		if strategy.RollingUpdate.MaxSurge != nil || strategy.RollingUpdate.MaxUnavailable != nil {
-			return o, errors.NotValidf("rolling update spec for statefulset")
-		}
-		if strategy.RollingUpdate.Partition == nil {
-			return o, errors.New("rolling update spec partition is missing")
-		}
-		return apps.StatefulSetUpdateStrategy{
-			Type: strategyType,
-			RollingUpdate: &apps.RollingUpdateStatefulSetStrategy{
+	case apps.RollingUpdateStatefulSetStrategyType:
+		if strategy.RollingUpdate != nil {
+			if strategy.RollingUpdate.MaxSurge != nil || strategy.RollingUpdate.MaxUnavailable != nil {
+				return o, errors.NotValidf("rolling update spec for statefulset")
+			}
+			if strategy.RollingUpdate.Partition == nil {
+				return o, errors.New("rolling update spec partition is missing")
+			}
+			o.RollingUpdate = &apps.RollingUpdateStatefulSetStrategy{
 				Partition: strategy.RollingUpdate.Partition,
-			},
-		}, nil
+			}
+		}
 	default:
 		return o, errors.NotValidf("strategy type %q for statefulset", strategyType)
 	}
+	return o, nil
 }
 
 func (k *kubernetesClient) configureStatefulSet(

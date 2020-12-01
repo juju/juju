@@ -76,9 +76,25 @@ func NewNetworkInfoForStrategy(
 		return nil, errors.Trace(err)
 	}
 
+	// Initialise the bindings map with all application endpoints.
+	// This will include those for which there is no explicit binding,
+	// such as the juju-info endpoint.
+	endpoints, err := app.Endpoints()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	allBindings := make(map[string]string)
+	for _, ep := range endpoints {
+		allBindings[ep.Name] = network.AlphaSpaceId
+	}
+
+	// Now fill in those that are bound.
 	bindings, err := app.EndpointBindings()
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+	for ep, space := range bindings.Map() {
+		allBindings[ep] = space
 	}
 
 	model, err := st.Model()
@@ -95,7 +111,7 @@ func NewNetworkInfoForStrategy(
 		st:            st,
 		unit:          unit,
 		app:           app,
-		bindings:      bindings.Map(),
+		bindings:      allBindings,
 		defaultEgress: cfg.EgressSubnets(),
 		retryFactory:  retryFactory,
 		lookupHost:    lookupHost,
