@@ -18,6 +18,17 @@ type AddPendingResourcesArgs struct {
 	Resources []CharmResource `json:"resources"`
 }
 
+// AddPendingResourcesArgsV2 holds the arguments to the AddPendingResources
+// API endpoint.
+type AddPendingResourcesArgsV2 struct {
+	Entity
+	URL         string      `json:"url"`
+	CharmOrigin CharmOrigin `json:"charm-origin"`
+
+	// Resources is the list of resources to add as pending.
+	Resources []CharmResource `json:"resources"`
+}
+
 // AddPendingResourcesResult holds the result of the AddPendingResources
 // API endpoint.
 type AddPendingResourcesResult struct {

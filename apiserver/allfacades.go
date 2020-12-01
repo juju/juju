@@ -310,7 +310,8 @@ func AllFacades() *facade.Registry {
 	reg("RemoteRelations", 1, remoterelations.NewAPIv1)
 	reg("RemoteRelations", 2, remoterelations.NewAPI) // Adds UpdateControllersForModels and WatchLocalRelationChanges.
 
-	reg("Resources", 1, resources.NewPublicFacade)
+	reg("Resources", 1, resources.NewFacadeV1)
+	reg("Resources", 2, resources.NewFacadeV2)
 	reg("ResourcesHookContext", 1, resourceshookcontext.NewStateFacade)
 
 	reg("Resumer", 2, resumer.NewResumerAPI)

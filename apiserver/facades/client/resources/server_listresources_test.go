@@ -61,7 +61,7 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 		},
 	}
 
-	facade, err := resources.NewFacade(s.data, s.newCSClient)
+	facade, err := resources.NewResourcesAPI(s.data, s.newCSClient)
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := facade.ListResources(params.ListResourcesArgs{
@@ -106,7 +106,7 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 }
 
 func (s *ListResourcesSuite) TestEmpty(c *gc.C) {
-	facade, err := resources.NewFacade(s.data, s.newCSClient)
+	facade, err := resources.NewResourcesAPI(s.data, s.newCSClient)
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := facade.ListResources(params.ListResourcesArgs{
@@ -125,7 +125,7 @@ func (s *ListResourcesSuite) TestEmpty(c *gc.C) {
 func (s *ListResourcesSuite) TestError(c *gc.C) {
 	failure := errors.New("<failure>")
 	s.stub.SetErrors(failure)
-	facade, err := resources.NewFacade(s.data, s.newCSClient)
+	facade, err := resources.NewResourcesAPI(s.data, s.newCSClient)
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := facade.ListResources(params.ListResourcesArgs{

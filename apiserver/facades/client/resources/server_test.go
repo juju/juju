@@ -17,16 +17,16 @@ type FacadeSuite struct {
 }
 
 func (s *FacadeSuite) TestNewFacadeOkay(c *gc.C) {
-	_, err := resources.NewFacade(s.data, s.newCSClient)
+	_, err := resources.NewResourcesAPI(s.data, s.newCSClient)
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *FacadeSuite) TestNewFacadeMissingDataStore(c *gc.C) {
-	_, err := resources.NewFacade(nil, s.newCSClient)
+	_, err := resources.NewResourcesAPI(nil, s.newCSClient)
 	c.Check(err, gc.ErrorMatches, `missing data store`)
 }
 
 func (s *FacadeSuite) TestNewFacadeMissingCSClientFactory(c *gc.C) {
-	_, err := resources.NewFacade(s.data, nil)
+	_, err := resources.NewResourcesAPI(s.data, nil)
 	c.Check(err, gc.ErrorMatches, `missing factory for new charm store clients`)
 }

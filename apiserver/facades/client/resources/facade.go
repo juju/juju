@@ -8,16 +8,17 @@ import (
 	charmresource "github.com/juju/charm/v8/resource"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charmhub"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"gopkg.in/macaroon.v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/api"
+	resourceapi "github.com/juju/juju/resource/api"
 	"github.com/juju/juju/state"
 )
 
@@ -47,45 +48,92 @@ type CharmStore interface {
 	ResourceInfo(charmstore.ResourceRequest) (charmresource.Resource, error)
 }
 
-// Facade is the public API facade for resources.
-type Facade struct {
+// API is the public API facade for resources.
+type API struct {
 	// store is the data source for the facade.
 	store Backend
 
-	newCharmstoreClient func() (CharmStore, error)
+	newCharmStoreClient func() (CharmStore, error)
+	newCharmHubClient   func() (CharmStore, error)
 }
 
-// NewPublicFacade creates a public API facade for resources. It is
+type APIv1 struct {
+	*API
+}
+
+// NewFacadeV2 creates a public API facade for resources. It is
 // used for API registration.
-func NewPublicFacade(st *state.State, _ facade.Resources, authorizer facade.Authorizer) (*Facade, error) {
+func NewFacadeV2(ctx facade.Context) (*API, error) {
+	authorizer := ctx.Auth()
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
 
+	st := ctx.State()
 	rst, err := st.Resources()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	controllerCfg, err := st.ControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	newClient := func() (CharmStore, error) {
-		return charmstore.NewCachingClient(state.MacaroonCache{st}, controllerCfg.CharmStoreURL())
+	newCharmStoreClient := func() (CharmStore, error) {
+		cl, err := charmstore.NewCachingClient(state.MacaroonCache{st}, controllerCfg.CharmStoreURL())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return &charmStoreClient{cl}, nil
 	}
-	facade, err := NewFacade(rst, newClient)
+
+	m, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return facade, nil
+	modelCfg, err := m.Config()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	newCharmHubClient := func() (CharmStore, error) {
+		var chCfg charmhub.Config
+		chURL, ok := modelCfg.CharmHubURL()
+		if ok {
+			chCfg, err = charmhub.CharmHubConfigFromURL(chURL, logger.Child("client"))
+		} else {
+			chCfg, err = charmhub.CharmHubConfig(logger.Child("client"))
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		chClient, err := charmhub.NewClient(chCfg)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return &charmHubClient{chClient}, nil
+	}
+
+	f, err := NewResourcesAPI(rst, newCharmStoreClient, newCharmHubClient)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return f, nil
 }
 
-// NewFacade returns a new resoures API facade.
-func NewFacade(store Backend, newClient func() (CharmStore, error)) (*Facade, error) {
+func NewFacadeV1(ctx facade.Context) (*APIv1, error) {
+	api, err := NewFacadeV2(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv1{api}, nil
+}
+
+// NewResourcesAPI returns a new resources API facade.
+func NewResourcesAPI(store Backend, newCharmStoreClient, newCharmHubClient func() (CharmStore, error)) (*API, error) {
 	if store == nil {
 		return nil, errors.Errorf("missing data store")
 	}
-	if newClient == nil {
+	if newCharmStoreClient == nil {
 		// Technically this only matters for one code path through
 		// AddPendingResources(). However, that functionality should be
 		// provided. So we indicate the problem here instead of later
@@ -93,15 +141,16 @@ func NewFacade(store Backend, newClient func() (CharmStore, error)) (*Facade, er
 		return nil, errors.Errorf("missing factory for new charm store clients")
 	}
 
-	f := &Facade{
+	f := &API{
 		store:               store,
-		newCharmstoreClient: newClient,
+		newCharmStoreClient: newCharmStoreClient,
+		newCharmHubClient:   newCharmHubClient,
 	}
 	return f, nil
 }
 
 // ListResources returns the list of resources for the given application.
-func (f Facade) ListResources(args params.ListResourcesArgs) (params.ResourcesResults, error) {
+func (a *API) ListResources(args params.ListResourcesArgs) (params.ResourcesResults, error) {
 	var r params.ResourcesResults
 	r.Results = make([]params.ResourcesResult, len(args.Entities))
 
@@ -117,21 +166,21 @@ func (f Facade) ListResources(args params.ListResourcesArgs) (params.ResourcesRe
 			continue
 		}
 
-		svcRes, err := f.store.ListResources(tag.Id())
+		svcRes, err := a.store.ListResources(tag.Id())
 		if err != nil {
 			r.Results[i] = errorResult(err)
 			continue
 		}
 
-		r.Results[i] = api.ApplicationResources2APIResult(svcRes)
+		r.Results[i] = resourceapi.ApplicationResources2APIResult(svcRes)
 	}
 	return r, nil
 }
 
 // AddPendingResources adds the provided resources (info) to the Juju
 // model in a pending state, meaning they are not available until
-// resolved.
-func (f Facade) AddPendingResources(args params.AddPendingResourcesArgs) (params.AddPendingResourcesResult, error) {
+// resolved.  Only CharmStore and Local charms are handled.
+func (a *APIv1) AddPendingResources(args params.AddPendingResourcesArgs) (params.AddPendingResourcesResult, error) {
 	var result params.AddPendingResourcesResult
 
 	tag, apiErr := parseApplicationTag(args.Tag)
@@ -141,8 +190,9 @@ func (f Facade) AddPendingResources(args params.AddPendingResourcesArgs) (params
 	}
 	applicationID := tag.Id()
 
+	// TODO: fix channel for track/risk
 	channel := csparams.Channel(args.Channel)
-	ids, err := f.addPendingResources(applicationID, args.URL, channel, args.CharmStoreMacaroon, args.Resources)
+	ids, err := a.addPendingResources(applicationID, args.URL, channel, args.Resources)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil
@@ -151,10 +201,10 @@ func (f Facade) AddPendingResources(args params.AddPendingResourcesArgs) (params
 	return result, nil
 }
 
-func (f Facade) addPendingResources(applicationID, chRef string, channel csparams.Channel, csMac *macaroon.Macaroon, apiResources []params.CharmResource) ([]string, error) {
+func (a *APIv1) addPendingResources(applicationID, chRef string, channel csparams.Channel, apiResources []params.CharmResource) ([]string, error) {
 	var resources []charmresource.Resource
 	for _, apiRes := range apiResources {
-		res, err := api.API2CharmResource(apiRes)
+		res, err := resourceapi.API2CharmResource(apiRes)
 		if err != nil {
 			return nil, errors.Annotatef(err, "bad resource info for %q", apiRes.Name)
 		}
@@ -173,12 +223,16 @@ func (f Facade) addPendingResources(applicationID, chRef string, channel csparam
 				URL:     cURL,
 				Channel: channel,
 			}
-			resources, err = f.resolveCharmstoreResources(id, csMac, resources)
+			client, err := a.newCharmStoreClient()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			resources, err = a.resolveCharmstoreResources(client, id, resources)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 		case "local":
-			resources, err = f.resolveLocalResources(resources)
+			resources, err = a.resolveLocalResources(resources)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -189,7 +243,7 @@ func (f Facade) addPendingResources(applicationID, chRef string, channel csparam
 
 	var ids []string
 	for _, res := range resources {
-		pendingID, err := f.addPendingResource(applicationID, res)
+		pendingID, err := a.addPendingResource(applicationID, res)
 		if err != nil {
 			// We don't bother aggregating errors since a partial
 			// completion is disruptive and a retry of this endpoint
@@ -201,13 +255,97 @@ func (f Facade) addPendingResources(applicationID, chRef string, channel csparam
 	return ids, nil
 }
 
-func (f Facade) resolveCharmstoreResources(id charmstore.CharmID, csMac *macaroon.Macaroon, resources []charmresource.Resource) ([]charmresource.Resource, error) {
-	client, err := f.newCharmstoreClient()
-	if err != nil {
-		return nil, errors.Trace(err)
+// AddPendingResources adds the provided resources (info) to the Juju
+// model in a pending state, meaning they are not available until
+// resolved. Handles CharmHub, CharmStore and Local charms.
+func (a *API) AddPendingResources(args params.AddPendingResourcesArgsV2) (params.AddPendingResourcesResult, error) {
+	var result params.AddPendingResourcesResult
+
+	tag, apiErr := parseApplicationTag(args.Tag)
+	if apiErr != nil {
+		result.Error = apiErr
+		return result, nil
 	}
+	applicationID := tag.Id()
+
+	ids, err := a.addPendingResources(applicationID, args.URL, convertParamsOrigin(args.CharmOrigin), args.Resources)
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result, nil
+	}
+	result.PendingIDs = ids
+	return result, nil
+}
+
+func (a *API) addPendingResources(applicationID, chRef string, origin corecharm.Origin, apiResources []params.CharmResource) ([]string, error) {
+	var resources []charmresource.Resource
+	for _, apiRes := range apiResources {
+		res, err := resourceapi.API2CharmResource(apiRes)
+		if err != nil {
+			return nil, errors.Annotatef(err, "bad resource info for %q", apiRes.Name)
+		}
+		resources = append(resources, res)
+	}
+
+	if chRef != "" {
+		cURL, err := charm.ParseURL(chRef)
+		if err != nil {
+			return nil, err
+		}
+		switch cURL.Schema {
+		case "cs":
+			id := charmstore.CharmID{
+				URL:     cURL,
+				Channel: csparams.Channel(origin.Channel.String()),
+			}
+			client, err := a.newCharmStoreClient()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			resources, err = a.resolveCharmstoreResources(client, id, resources)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		case "local":
+			resources, err = a.resolveLocalResources(resources)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		case "ch":
+			id := charmstore.CharmID{
+				URL:     cURL,
+				Channel: csparams.Channel(origin.Channel.String()),
+			}
+			client, err := a.newCharmHubClient()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			resources, err = a.resolveCharmstoreResources(client, id, resources)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		default:
+			return nil, errors.Errorf("unrecognized charm schema %q", cURL.Schema)
+		}
+	}
+
+	var ids []string
+	for _, res := range resources {
+		pendingID, err := a.addPendingResource(applicationID, res)
+		if err != nil {
+			// We don't bother aggregating errors since a partial
+			// completion is disruptive and a retry of this endpoint
+			// is not expensive.
+			return nil, err
+		}
+		ids = append(ids, pendingID)
+	}
+	return ids, nil
+}
+
+func (a *API) resolveCharmstoreResources(client CharmStore, id charmstore.CharmID, resources []charmresource.Resource) ([]charmresource.Resource, error) {
 	ids := []charmstore.CharmID{id}
-	storeResources, err := f.resourcesFromCharmstore(ids, client)
+	storeResources, err := a.resourcesFromCharmstore(ids, client)
 	if err != nil {
 		return nil, err
 	}
@@ -220,7 +358,7 @@ func (f Facade) resolveCharmstoreResources(id charmstore.CharmID, csMac *macaroo
 	return resolved, nil
 }
 
-func (f Facade) resolveLocalResources(resources []charmresource.Resource) ([]charmresource.Resource, error) {
+func (a *API) resolveLocalResources(resources []charmresource.Resource) ([]charmresource.Resource, error) {
 	var resolved []charmresource.Resource
 	for _, res := range resources {
 		resolved = append(resolved, charmresource.Resource{
@@ -235,7 +373,7 @@ func (f Facade) resolveLocalResources(resources []charmresource.Resource) ([]cha
 // the charm store. If the charm URL has a revision then that revision's
 // resources are returned. Otherwise the latest info for each of the
 // resources is returned.
-func (f Facade) resourcesFromCharmstore(charms []charmstore.CharmID, client CharmStore) (map[string]charmresource.Resource, error) {
+func (a *API) resourcesFromCharmstore(charms []charmstore.CharmID, client CharmStore) (map[string]charmresource.Resource, error) {
 	results, err := client.ListResources(charms)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -318,9 +456,9 @@ func resolveStoreResource(res charmresource.Resource, storeResources map[string]
 	return res, nil
 }
 
-func (f Facade) addPendingResource(applicationID string, chRes charmresource.Resource) (pendingID string, err error) {
+func (a *API) addPendingResource(applicationID string, chRes charmresource.Resource) (pendingID string, err error) {
 	userID := ""
-	pendingID, err = f.store.AddPendingResource(applicationID, userID, chRes)
+	pendingID, err = a.store.AddPendingResource(applicationID, userID, chRes)
 	if err != nil {
 		return "", errors.Annotatef(err, "while adding pending resource info for %q", chRes.Name)
 	}
@@ -342,6 +480,23 @@ func errorResult(err error) params.ResourcesResult {
 	return params.ResourcesResult{
 		ErrorResult: params.ErrorResult{
 			Error: apiservererrors.ServerError(err),
+		},
+	}
+}
+
+func convertParamsOrigin(origin params.CharmOrigin) corecharm.Origin {
+	var track string
+	if origin.Track != nil {
+		track = *origin.Track
+	}
+	return corecharm.Origin{
+		Source:   corecharm.Source(origin.Source),
+		ID:       origin.ID,
+		Hash:     origin.Hash,
+		Revision: origin.Revision,
+		Channel: &corecharm.Channel{
+			Track: track,
+			Risk:  corecharm.Risk(origin.Risk),
 		},
 	}
 }

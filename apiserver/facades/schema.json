@@ -36337,8 +36337,8 @@
     },
     {
         "Name": "Resources",
-        "Description": "Facade is the public API facade for resources.",
-        "Version": 1,
+        "Description": "API is the public API facade for resources.",
+        "Version": 2,
         "AvailableTo": [
             "model-user"
         ],
@@ -36349,13 +36349,13 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/AddPendingResourcesArgs"
+                            "$ref": "#/definitions/AddPendingResourcesArgsV2"
                         },
                         "Result": {
                             "$ref": "#/definitions/AddPendingResourcesResult"
                         }
                     },
-                    "description": "AddPendingResources adds the provided resources (info) to the Juju\nmodel in a pending state, meaning they are not available until\nresolved."
+                    "description": "AddPendingResources adds the provided resources (info) to the Juju\nmodel in a pending state, meaning they are not available until\nresolved. Handles CharmHub, CharmStore and Local charms."
                 },
                 "ListResources": {
                     "type": "object",
@@ -36371,47 +36371,14 @@
                 }
             },
             "definitions": {
-                "AddCharmWithAuthorization": {
+                "AddPendingResourcesArgsV2": {
                     "type": "object",
                     "properties": {
-                        "channel": {
-                            "type": "string"
-                        },
-                        "force": {
-                            "type": "boolean"
-                        },
-                        "macaroon": {
-                            "$ref": "#/definitions/Macaroon"
-                        },
-                        "url": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "url",
-                        "channel",
-                        "macaroon",
-                        "force"
-                    ]
-                },
-                "AddPendingResourcesArgs": {
-                    "type": "object",
-                    "properties": {
-                        "AddCharmWithAuthorization": {
-                            "$ref": "#/definitions/AddCharmWithAuthorization"
-                        },
                         "Entity": {
                             "$ref": "#/definitions/Entity"
                         },
-                        "channel": {
-                            "type": "string"
-                        },
-                        "force": {
-                            "type": "boolean"
-                        },
-                        "macaroon": {
-                            "$ref": "#/definitions/Macaroon"
+                        "charm-origin": {
+                            "$ref": "#/definitions/CharmOrigin"
                         },
                         "resources": {
                             "type": "array",
@@ -36431,10 +36398,7 @@
                         "tag",
                         "Entity",
                         "url",
-                        "channel",
-                        "macaroon",
-                        "force",
-                        "AddCharmWithAuthorization",
+                        "charm-origin",
                         "resources"
                     ]
                 },
@@ -36458,6 +36422,34 @@
                     "required": [
                         "ErrorResult",
                         "pending-ids"
+                    ]
+                },
+                "CharmOrigin": {
+                    "type": "object",
+                    "properties": {
+                        "hash": {
+                            "type": "string"
+                        },
+                        "id": {
+                            "type": "string"
+                        },
+                        "revision": {
+                            "type": "integer"
+                        },
+                        "risk": {
+                            "type": "string"
+                        },
+                        "source": {
+                            "type": "string"
+                        },
+                        "track": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "source",
+                        "id"
                     ]
                 },
                 "CharmResource": {
@@ -36562,10 +36554,6 @@
                     "required": [
                         "entities"
                     ]
-                },
-                "Macaroon": {
-                    "type": "object",
-                    "additionalProperties": false
                 },
                 "Resource": {
                     "type": "object",
