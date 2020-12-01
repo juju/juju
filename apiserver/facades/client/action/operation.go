@@ -27,13 +27,7 @@ func (a *ActionAPI) EnqueueOperation(arg params.Actions) (params.EnqueuedActions
 	}
 	results := params.EnqueuedActions{
 		OperationTag: names.NewOperationTag(operationId).String(),
-		Actions:      make([]params.StringResult, len(actionResults.Results)),
-	}
-	for i, action := range actionResults.Results {
-		results.Actions[i].Error = action.Error
-		if action.Action != nil {
-			results.Actions[i].Result = action.Action.Tag
-		}
+		Actions:      actionResults.Results,
 	}
 	return results, nil
 }

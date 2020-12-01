@@ -21,8 +21,6 @@ type operationSuite struct {
 var _ = gc.Suite(&operationSuite{})
 
 func (s *operationSuite) setupOperations(c *gc.C) {
-	s.toSupportNewActionID(c)
-
 	arg := params.Actions{
 		Actions: []params.Action{
 			{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},

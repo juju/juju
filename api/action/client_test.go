@@ -332,7 +332,7 @@ func (s *actionSuite) TestEnqueueOperation(c *gc.C) {
 				c.Assert(result, gc.FitsTypeOf, &params.EnqueuedActions{})
 				*(result.(*params.EnqueuedActions)) = params.EnqueuedActions{
 					OperationTag: "operation-1",
-					Actions: []params.StringResult{{
+					Actions: []params.ActionResult{{
 						Error: &params.Error{Message: "FAIL"},
 					}},
 				}
@@ -345,7 +345,7 @@ func (s *actionSuite) TestEnqueueOperation(c *gc.C) {
 	result, err := client.EnqueueOperation(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.EnqueuedActions{
-		Actions: []params.StringResult{{
+		Actions: []params.ActionResult{{
 			Error: &params.Error{Message: "FAIL"},
 		}},
 		OperationTag: "operation-1",
