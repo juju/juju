@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -1300,6 +1301,7 @@ type upgradePrecheckSuite struct {
 
 	upgradeEnv *MockUpgradePrecheckEnviron
 	env        *MockEnviron
+	broker     caas.Broker
 }
 
 var _ = gc.Suite(&upgradePrecheckSuite{})
@@ -1309,11 +1311,19 @@ func (s *upgradePrecheckSuite) SetUpTest(c *gc.C) {
 	s.upgradeContext = &upgradeContext{chosen: version.MustParse("2.7.6")}
 }
 
+func (s *upgradePrecheckSuite) TestPrecheckCAAS(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.patchCAASBroker(s.broker)
+
+	err := doPrecheckEnviron(model.CAAS, environConfigGetter{}, s.upgradeContext, version.MustParse("2.7.4"))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *upgradePrecheckSuite) TestPrecheckEnvironNoUpgradePrecheckEnviron(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.patchEnviron(s.env)
 
-	err := doPrecheckEnviron(environConfigGetter{}, s.upgradeContext, version.MustParse("2.7.4"))
+	err := doPrecheckEnviron(model.IAAS, environConfigGetter{}, s.upgradeContext, version.MustParse("2.7.4"))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1322,7 +1332,7 @@ func (s *upgradePrecheckSuite) TestPrecheckEnvironPrepareFail(c *gc.C) {
 	s.expectPreparePrechecker(errors.NotSupportedf("testing"))
 	s.patchEnviron(s.upgradeEnv)
 
-	err := doPrecheckEnviron(environConfigGetter{}, s.upgradeContext, version.MustParse("2.7.4"))
+	err := doPrecheckEnviron(model.IAAS, environConfigGetter{}, s.upgradeContext, version.MustParse("2.7.4"))
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
 
@@ -1338,7 +1348,7 @@ func (s *upgradePrecheckSuite) TestPrecheckEnvironRunNoSteps(c *gc.C) {
 	s.expectPrecheckUpgradeOperations()
 	s.patchEnviron(s.upgradeEnv)
 
-	err := doPrecheckEnviron(environConfigGetter{}, s.upgradeContext, version.MustParse("2.7.4"))
+	err := doPrecheckEnviron(model.IAAS, environConfigGetter{}, s.upgradeContext, version.MustParse("2.7.4"))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1358,7 +1368,7 @@ func (s *upgradePrecheckSuite) TestPrecheckEnvironRunOneOfTwoSteps(c *gc.C) {
 	s.expectPrecheckUpgradeOperations()
 	s.patchEnviron(s.upgradeEnv)
 
-	err := doPrecheckEnviron(environConfigGetter{}, s.upgradeContext, version.MustParse("2.7.4"))
+	err := doPrecheckEnviron(model.IAAS, environConfigGetter{}, s.upgradeContext, version.MustParse("2.7.4"))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1377,7 +1387,7 @@ func (s *upgradePrecheckSuite) TestPrecheckEnvironRunStepRC(c *gc.C) {
 	s.expectPrecheckUpgradeOperations()
 	s.patchEnviron(s.upgradeEnv)
 
-	err := doPrecheckEnviron(environConfigGetter{}, s.upgradeContext, version.MustParse("2.7.4"))
+	err := doPrecheckEnviron(model.IAAS, environConfigGetter{}, s.upgradeContext, version.MustParse("2.7.4"))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1395,7 +1405,7 @@ func (s *upgradePrecheckSuite) TestPrecheckEnvironRunStepFail(c *gc.C) {
 	s.expectPrecheckUpgradeOperations()
 	s.patchEnviron(s.upgradeEnv)
 
-	err := doPrecheckEnviron(environConfigGetter{}, s.upgradeContext, version.MustParse("2.7.4"))
+	err := doPrecheckEnviron(model.IAAS, environConfigGetter{}, s.upgradeContext, version.MustParse("2.7.4"))
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
 
@@ -1403,6 +1413,14 @@ func (s *upgradePrecheckSuite) patchEnviron(env environs.Environ) {
 	s.PatchValue(&getEnviron,
 		func(_ environs.EnvironConfigGetter, _ environs.NewEnvironFunc) (environs.Environ, error) {
 			return env, nil
+		},
+	)
+}
+
+func (s *upgradePrecheckSuite) patchCAASBroker(b caas.Broker) {
+	s.PatchValue(&getCAASBroker,
+		func(_ environs.EnvironConfigGetter) (caas.Broker, error) {
+			return b, nil
 		},
 	)
 }

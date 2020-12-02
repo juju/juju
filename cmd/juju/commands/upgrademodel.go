@@ -24,6 +24,7 @@ import (
 	apicontroller "github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -605,6 +606,25 @@ func (e environConfigGetter) CloudSpec() (environs.CloudSpec, error) {
 
 var getEnviron = environs.GetEnviron
 
+var getCAASBroker = func(getter environs.EnvironConfigGetter) (caas.Broker, error) {
+	modelConfig, err := getter.ModelConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cloudSpec, err := getter.CloudSpec()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	env, err := caas.New(environs.OpenParams{
+		Cloud:  cloudSpec,
+		Config: modelConfig,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return env, nil
+}
+
 // UpgradePrecheckEnviron combines two interfaces required by
 // result of getEnviron. It is for testing purposes only.
 type UpgradePrecheckEnviron interface {
@@ -628,14 +648,22 @@ func (c *upgradeJujuCommand) precheckEnviron(upgradeCtx *upgradeContext, api con
 	cfgGetter := environConfigGetter{
 		controllerAPI: api,
 		modelTag:      names.NewModelTag(details.ModelUUID)}
-	return doPrecheckEnviron(cfgGetter, upgradeCtx, agentVersion)
+	return doPrecheckEnviron(details.ModelType, cfgGetter, upgradeCtx, agentVersion)
 }
 
 // doPrecheckEnviron does the work on running precheck upgrade environ steps.
 // This is split out from precheckEnviron to facilitate testing without the
 // jujuconnsuite and without mocking a juju store.
-func doPrecheckEnviron(cfgGetter environConfigGetter, upgradeCtx *upgradeContext, agentVersion version.Number) error {
-	env, err := getEnviron(cfgGetter, environs.New)
+func doPrecheckEnviron(modelType model.ModelType, cfgGetter environConfigGetter, upgradeCtx *upgradeContext, agentVersion version.Number) error {
+	var (
+		env interface{}
+		err error
+	)
+	if modelType == model.CAAS {
+		env, err = getCAASBroker(cfgGetter)
+	} else {
+		env, err = getEnviron(cfgGetter, environs.New)
+	}
 	if err != nil {
 		return err
 	}
