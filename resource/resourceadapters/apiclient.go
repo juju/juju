@@ -15,7 +15,7 @@ import (
 // component/all/resources.go.  It lives here because it simplifies this code
 // immensely.
 func NewAPIClient(apiCaller base.APICallCloser) (*client.Client, error) {
-	caller := base.NewFacadeCallerForVersion(apiCaller, resource.FacadeName, 1)
+	caller := base.NewFacadeCaller(apiCaller, resource.FacadeName)
 
 	httpClient, err := apiCaller.HTTPClient()
 	if err != nil {
