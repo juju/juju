@@ -10,13 +10,13 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/testing"
 )
 
 type k8sConfigSuite struct {
@@ -128,6 +128,28 @@ clusters:
 - cluster:
     server: https://1.1.1.1:8888
     certificate-authority: {{ . }}
+  name: the-cluster
+contexts:
+- context:
+    cluster: the-cluster
+    user: the-user
+  name: the-context
+current-context: the-context
+preferences: {}
+users:
+- name: the-user
+  user:
+    password: thepassword
+    username: theuser
+`
+
+	insecureTLSYAMLTemplate = `
+apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    server: https://1.1.1.1:8888
+    insecure-skip-tls-verify: true
   name: the-cluster
 contexts:
 - context:
@@ -430,6 +452,34 @@ func (s *k8sConfigSuite) TestConfigWithExternalCA(c *gc.C) {
 				"the-cluster": {
 					Endpoint:   "https://1.1.1.1:8888",
 					Attributes: map[string]interface{}{"CAData": "QQ=="}}},
+			Credentials: map[string]cloud.Credential{
+				"the-user": cred,
+			},
+		},
+	})
+}
+
+func (s *k8sConfigSuite) TestConfigWithInsecureSkilTLSVerify(c *gc.C) {
+	cred := cloud.NewNamedCredential(
+		"the-user", cloud.UserPassAuthType,
+		map[string]string{"username": "theuser", "password": "thepassword"}, false)
+	s.assertNewK8sClientConfig(c, newK8sClientConfigTestCase{
+		title:              "assert config with insecure TLS skip verify",
+		clusterName:        "the-cluster",
+		configYamlContent:  insecureTLSYAMLTemplate,
+		configYamlFileName: "insecure-tls",
+		expected: &clientconfig.ClientConfig{
+			Type: "kubernetes",
+			Contexts: map[string]clientconfig.Context{
+				"the-context": {
+					CloudName:      "the-cluster",
+					CredentialName: "the-user"}},
+			CurrentContext: "the-context",
+			Clouds: map[string]clientconfig.CloudConfig{
+				"the-cluster": {
+					Endpoint:      "https://1.1.1.1:8888",
+					SkipTLSVerify: true,
+					Attributes:    map[string]interface{}{"CAData": ""}}},
 			Credentials: map[string]cloud.Credential{
 				"the-user": cred,
 			},

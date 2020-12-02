@@ -69,6 +69,29 @@ users:
     username: theuser
 `
 
+var invalidTLSKubeConfigStr = `
+apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    server: https://1.1.1.1:8888
+    certificate-authority-data: QQ==
+    insecure-skip-tls-verify: true
+  name: the-cluster
+contexts:
+- context:
+    cluster: the-cluster
+    user: the-user
+  name: the-context
+current-context: the-context
+preferences: {}
+users:
+- name: the-user
+  user:
+    password: thepassword
+    username: theuser
+`
+
 type fakeCloudMetadataStore struct {
 	*jujutesting.CallMocker
 }
@@ -1122,6 +1145,19 @@ The command is piped and Juju cannot prompt to clarify whether the --client or a
 Please clarify by re-running the command with the desired option(s).`[1:]))
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "This operation can be applied to both a copy on this client and to the one on a controller.\n")
+}
+
+func (s *addCAASSuite) TestSkipTLSVerifyWithCertInvalid(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	command := s.makeCommand(c, true, true, false)
+	stdIn, err := mockStdinPipe(invalidTLSKubeConfigStr)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stdIn, gc.NotNil)
+	defer stdIn.Close()
+	_, err = s.runCommand(c, stdIn, command, "myk8s", "-c", "foo", "--client")
+	c.Assert(err, gc.ErrorMatches, "cloud with both skip-TLS-verify=true and CA certificates not valid")
 }
 
 func (s *addCAASSuite) TestAddGkeCluster(c *gc.C) {

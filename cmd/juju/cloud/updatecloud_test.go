@@ -108,11 +108,12 @@ func (s *updateCloudSuite) TestUpdateControllerFromFile(c *gc.C) {
 	s.api.CheckCallNames(c, "UpdateCloud", "Close")
 	c.Assert(command.ControllerName, gc.Equals, "mycontroller")
 	s.api.CheckCall(c, 0, "UpdateCloud", jujucloud.Cloud{
-		Name:        "garage-maas",
-		Type:        "maas",
-		Description: "Metal As A Service",
-		AuthTypes:   jujucloud.AuthTypes{"oauth1"},
-		Endpoint:    "http://garagemaas",
+		Name:          "garage-maas",
+		Type:          "maas",
+		Description:   "Metal As A Service",
+		AuthTypes:     jujucloud.AuthTypes{"oauth1"},
+		Endpoint:      "http://garagemaas",
+		SkipTLSVerify: true,
 	})
 	out := cmdtesting.Stderr(ctx)
 	out = strings.Replace(out, "\n", "", -1)
@@ -138,11 +139,12 @@ func (s *updateCloudSuite) TestUpdateControllerFromLocalCache(c *gc.C) {
 	s.api.CheckCallNames(c, "UpdateCloud", "Close")
 	c.Assert(command.ControllerName, gc.Equals, "mycontroller")
 	s.api.CheckCall(c, 0, "UpdateCloud", jujucloud.Cloud{
-		Name:        "garage-maas",
-		Type:        "maas",
-		Description: "Metal As A Service",
-		AuthTypes:   jujucloud.AuthTypes{"oauth1"},
-		Endpoint:    "http://garagemaas",
+		Name:          "garage-maas",
+		Type:          "maas",
+		Description:   "Metal As A Service",
+		AuthTypes:     jujucloud.AuthTypes{"oauth1"},
+		Endpoint:      "http://garagemaas",
+		SkipTLSVerify: true,
 	})
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `

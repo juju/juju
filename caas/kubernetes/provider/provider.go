@@ -108,6 +108,7 @@ func CloudSpecToK8sRestConfig(cloudSpec environscloudspec.CloudSpec) (*rest.Conf
 			CertData: []byte(credentialAttrs[CredAttrClientCertificateData]),
 			KeyData:  []byte(credentialAttrs[CredAttrClientKeyData]),
 			CAData:   CAData,
+			Insecure: cloudSpec.SkipTLSVerify,
 		},
 	}, nil
 }
