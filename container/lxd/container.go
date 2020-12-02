@@ -72,7 +72,7 @@ func (c *ContainerSpec) ApplyConstraints(serverVersion string, cons constraints.
 	}
 	if cons.HasRootDisk() || cons.HasRootDiskSource() {
 		if !cons.HasRootDiskSource() {
-			return errors.New("root disk size contraints require a root disk source")
+			return errors.New("root disk size constraints require a root disk source")
 		}
 
 		if c.Devices == nil {
