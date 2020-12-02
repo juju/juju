@@ -21,7 +21,7 @@ type CharmStoreRepoFunc = func() (CharmrepoForDeploy, error)
 // DownloadBundleClient represents a way to download a bundle from a given
 // resource URL.
 type DownloadBundleClient interface {
-	DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string) (*charm.BundleArchive, error)
+	DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string) (charm.Bundle, error)
 }
 
 // DownloadBundleClientFunc lazily construct a download bundle client.

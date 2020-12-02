@@ -607,7 +607,7 @@ func (s *mockCharmStore) ResolveBundleURL(url *charm.URL, preferredOrigin common
 	return s.url, s.origin, s.stub.NextErr()
 }
 
-func (s *mockCharmStore) GetBundle(url *charm.URL, path string) (charm.Bundle, error) {
+func (s *mockCharmStore) GetBundle(url *charm.URL, _ commoncharm.Origin, path string) (charm.Bundle, error) {
 	s.stub.AddCall("GetBundle", url, path)
 	return s.bundle, s.stub.NextErr()
 }

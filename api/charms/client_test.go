@@ -163,7 +163,7 @@ func (s *charmsMockSuite) TestGetDownloadInfo(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall("GetDownloadInfos", facadeArgs, &resolve).SetArg(2, p).Return(nil)
 
 	client := charms.NewClientWithFacade(mockFacadeCaller)
-	got, err := client.GetDownloadInfo(curl, apicharm.APICharmOrigin(noChannelParamsOrigin))
+	got, err := client.GetDownloadInfo(curl, apicharm.APICharmOrigin(noChannelParamsOrigin), nil)
 	c.Assert(err, gc.IsNil)
 
 	want := charms.DownloadInfo{
@@ -186,7 +186,7 @@ func (s *charmsMockSuite) TestGetDownloadInfoIsNotSupported(c *gc.C) {
 
 	client := charms.NewClientWithFacade(mockFacadeCaller)
 
-	_, err := client.GetDownloadInfo(curl, apicharm.APICharmOrigin(noChannelParamsOrigin))
+	_, err := client.GetDownloadInfo(curl, apicharm.APICharmOrigin(noChannelParamsOrigin), nil)
 	c.Assert(errors.IsNotSupported(err), jc.IsTrue)
 }
 

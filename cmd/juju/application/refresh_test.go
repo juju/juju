@@ -177,9 +177,11 @@ func (s *BaseRefreshSuite) refreshCommand() cmd.Command {
 			channel csclientparams.Channel,
 		) (store.MacaroonGetter, store.CharmrepoForDeploy) {
 			s.AddCall("NewCharmStore", csURL)
-			return s.fakeAPI, s.fakeAPI
+			return s.fakeAPI, &fakeCharmStoreAPI{
+				fakeDeployAPI: s.fakeAPI,
+			}
 		},
-		func(base.APICallCloser, store.CharmrepoForDeploy) CharmResolver {
+		func(base.APICallCloser, store.CharmrepoForDeploy, store.DownloadBundleClient) CharmResolver {
 			s.AddCall("NewCharmResolver")
 			return &s.resolveCharm
 		},
@@ -383,7 +385,9 @@ func (s *RefreshErrorsStateSuite) SetUpTest(c *gc.C) {
 			csURL string,
 			channel csclientparams.Channel,
 		) (store.MacaroonGetter, store.CharmrepoForDeploy) {
-			return s.fakeAPI, s.fakeAPI
+			return s.fakeAPI, &fakeCharmStoreAPI{
+				fakeDeployAPI: s.fakeAPI,
+			}
 		},
 		func(conn api.Connection) store.CharmAdder {
 			return s.fakeAPI
@@ -497,7 +501,9 @@ func (s *RefreshSuccessStateSuite) SetUpTest(c *gc.C) {
 			csURL string,
 			channel csclientparams.Channel,
 		) (store.MacaroonGetter, store.CharmrepoForDeploy) {
-			return s.fakeAPI, s.fakeAPI
+			return s.fakeAPI, &fakeCharmStoreAPI{
+				fakeDeployAPI: s.fakeAPI,
+			}
 		},
 		newCharmAdder,
 		func(conn base.APICallCloser) utils.CharmClient {
@@ -548,7 +554,7 @@ func (s *RefreshSuite) TestUpgradeWithChannel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.charmAdder.CheckCallNames(c, "AddCharm")
-	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, corecharm.Channel{Risk: corecharm.Beta})
+	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, corecharm.Channel{Risk: corecharm.Beta}, corecharm.Platform{})
 	s.charmAdder.CheckCall(c, 0, "AddCharm", s.resolvedCharmURL, origin, false, "")
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
@@ -569,7 +575,7 @@ func (s *RefreshSuite) TestRefreshShouldRespectDeployedChannelByDefault(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.charmAdder.CheckCallNames(c, "AddCharm")
-	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, corecharm.Channel{Risk: corecharm.Beta})
+	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, corecharm.Channel{Risk: corecharm.Beta}, corecharm.Platform{})
 	s.charmAdder.CheckCall(c, 0, "AddCharm", s.resolvedCharmURL, origin, false, "")
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
@@ -591,7 +597,7 @@ func (s *RefreshSuite) TestSwitch(c *gc.C) {
 	s.charmClient.CheckCallNames(c, "CharmInfo")
 	s.charmClient.CheckCall(c, 0, "CharmInfo", s.resolvedCharmURL.String())
 	s.charmAdder.CheckCallNames(c, "AddCharm")
-	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, corecharm.Channel{Risk: corecharm.Stable})
+	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, corecharm.Channel{Risk: corecharm.Stable}, corecharm.Platform{})
 	s.charmAdder.CheckCall(c, 0, "AddCharm", s.resolvedCharmURL, origin, false, "")
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
@@ -917,8 +923,8 @@ type mockCharmAdder struct {
 	testing.Stub
 }
 
-func (m *mockCharmAdder) AddCharm(curl *charm.URL, origin commoncharm.Origin, force bool, series string) (commoncharm.Origin, error) {
-	m.MethodCall(m, "AddCharm", curl, origin, force, series)
+func (m *mockCharmAdder) AddCharm(curl *charm.URL, origin commoncharm.Origin, force bool) (commoncharm.Origin, error) {
+	m.MethodCall(m, "AddCharm", curl, origin, force)
 	return origin, m.NextErr()
 }
 

@@ -28,6 +28,7 @@ func DeduceOrigin(url *charm.URL, channel corecharm.Channel, platform corecharm.
 		return commoncharm.Origin{
 			Source: commoncharm.OriginCharmStore,
 			Risk:   string(channel.Risk),
+			Series: platform.Series,
 		}, nil
 	case "local":
 		return commoncharm.Origin{

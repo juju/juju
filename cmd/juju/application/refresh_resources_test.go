@@ -250,7 +250,9 @@ Deploying charm "cs:bionic/starsay-1".`
 			csURL string,
 			channel csclientparams.Channel,
 		) (store.MacaroonGetter, store.CharmrepoForDeploy) {
-			return s.fakeAPI, s.fakeAPI
+			return s.fakeAPI, &fakeCharmStoreAPI{
+				fakeDeployAPI: s.fakeAPI,
+			}
 		},
 		func(conn api.Connection) store.CharmAdder {
 			return charmAdder

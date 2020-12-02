@@ -47,7 +47,7 @@ import (
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidFlags(c *gc.C) {
 	s.setupCharm(c, "cs:xenial/mysql-42", "mysql", "bionic")
 	s.setupCharm(c, "cs:xenial/wordpress-47", "wordpress", "bionic")
-	s.setupBundle(c, "cs:bundle/wordpress-simple-1", "wordpress-simple", "bionic")
+	s.setupBundle(c, "cs:bundle/wordpress-simple-1", "wordpress-simple", "bionic", "xenial")
 
 	err := s.runDeploy(c, "cs:bundle/wordpress-simple", "--config", "config.yaml")
 	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: --config")
@@ -375,7 +375,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleNoSeriesInCharmURL(c *gc.C
 	testcharms.RepoWithSeries("bionic").ClonedDir(dir, "dummy")
 	path := filepath.Join(dir, "mybundle")
 	data := `
-        series: trusty
+        series: bionic
         applications:
             dummy:
                 charm: cs:~who/multi-series
