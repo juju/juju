@@ -384,7 +384,10 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	if oldOrigin.Source != commoncharm.OriginLocal {
 		// If not upgrading from a local path, display the channel we
 		// are pulling the charm from.
-		channel := fmt.Sprintf(" from channel %s", oldOrigin.CoreChannel().String())
+		var channel string
+		if ch := oldOrigin.CoreChannel().String(); ch != "" {
+			channel = fmt.Sprintf(" from channel %s", ch)
+		}
 		ctx.Infof("Looking up metadata for %s charm %q%s", oldOrigin.Source, oldURL.Name, channel)
 	}
 
@@ -707,7 +710,6 @@ func (c *refreshCommand) getRefresherFactory(apiRoot api.Connection) (refresher.
 
 func (c *refreshCommand) getCharmHubURL(apiRoot base.APICallCloser) (string, error) {
 	modelConfigClient := c.ModelConfigClient(apiRoot)
-	defer func() { _ = modelConfigClient.Close() }()
 
 	attrs, err := modelConfigClient.ModelGet()
 	if err != nil {

@@ -4,8 +4,10 @@
 package application
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -53,18 +55,19 @@ type BaseRefreshSuite struct {
 	testing.IsolationSuite
 	testing.Stub
 
-	deployResources   resourceadapters.DeployResourcesFunc
-	fakeAPI           *fakeDeployAPI
-	resolveCharm      mockCharmResolver
-	resolvedCharmURL  *charm.URL
-	resolvedChannel   csclientparams.Channel
-	apiConnection     mockAPIConnection
-	charmAdder        mockCharmAdder
-	charmClient       mockCharmClient
-	charmAPIClient    mockCharmRefreshClient
-	modelConfigGetter mockModelConfigGetter
-	resourceLister    mockResourceLister
-	spacesClient      mockSpacesClient
+	deployResources      resourceadapters.DeployResourcesFunc
+	fakeAPI              *fakeDeployAPI
+	resolveCharm         mockCharmResolver
+	resolvedCharmURL     *charm.URL
+	resolvedChannel      csclientparams.Channel
+	apiConnection        mockAPIConnection
+	charmAdder           mockCharmAdder
+	charmClient          mockCharmClient
+	charmAPIClient       mockCharmRefreshClient
+	modelConfigGetter    mockModelConfigGetter
+	resourceLister       mockResourceLister
+	spacesClient         mockSpacesClient
+	downloadBundleClient mockDownloadBundleClient
 }
 
 func (s *BaseRefreshSuite) runRefresh(c *gc.C, args ...string) (*cmd.Context, error) {
@@ -145,6 +148,9 @@ func (s *BaseRefreshSuite) SetUpTest(c *gc.C) {
 			{Id: "1", Name: "sp1"},
 		},
 	}
+	s.downloadBundleClient = mockDownloadBundleClient{
+		bundle: nil,
+	}
 }
 
 func (s *BaseRefreshSuite) refreshCommand() cmd.Command {
@@ -211,6 +217,14 @@ func (s *BaseRefreshSuite) refreshCommand() cmd.Command {
 		func(conn base.APICallCloser) SpacesAPI {
 			s.AddCall("NewSpacesClient", conn)
 			return &s.spacesClient
+		},
+		func(conn base.APICallCloser) ModelConfigClient {
+			s.AddCall("ModelConfigClient", conn)
+			return &s.modelConfigGetter
+		},
+		func(curl string) (store.DownloadBundleClient, error) {
+			s.AddCall("NewCharmHubClient", curl)
+			return &s.downloadBundleClient, nil
 		},
 	)
 	return cmd
@@ -555,7 +569,7 @@ func (s *RefreshSuite) TestUpgradeWithChannel(c *gc.C) {
 
 	s.charmAdder.CheckCallNames(c, "AddCharm")
 	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, corecharm.Channel{Risk: corecharm.Beta}, corecharm.Platform{})
-	s.charmAdder.CheckCall(c, 0, "AddCharm", s.resolvedCharmURL, origin, false, "")
+	s.charmAdder.CheckCall(c, 0, "AddCharm", s.resolvedCharmURL, origin, false)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "foo",
@@ -576,7 +590,7 @@ func (s *RefreshSuite) TestRefreshShouldRespectDeployedChannelByDefault(c *gc.C)
 
 	s.charmAdder.CheckCallNames(c, "AddCharm")
 	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, corecharm.Channel{Risk: corecharm.Beta}, corecharm.Platform{})
-	s.charmAdder.CheckCall(c, 0, "AddCharm", s.resolvedCharmURL, origin, false, "")
+	s.charmAdder.CheckCall(c, 0, "AddCharm", s.resolvedCharmURL, origin, false)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "foo",
@@ -598,7 +612,7 @@ func (s *RefreshSuite) TestSwitch(c *gc.C) {
 	s.charmClient.CheckCall(c, 0, "CharmInfo", s.resolvedCharmURL.String())
 	s.charmAdder.CheckCallNames(c, "AddCharm")
 	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, corecharm.Channel{Risk: corecharm.Stable}, corecharm.Platform{})
-	s.charmAdder.CheckCall(c, 0, "AddCharm", s.resolvedCharmURL, origin, false, "")
+	s.charmAdder.CheckCall(c, 0, "AddCharm", s.resolvedCharmURL, origin, false)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "foo",
@@ -1002,6 +1016,10 @@ func (m *mockModelConfigGetter) SetDefaultSpace(name string) {
 	m.cfg["default-space"] = name
 }
 
+func (m *mockModelConfigGetter) Close() error {
+	return nil
+}
+
 type mockResourceLister struct {
 	utils.ResourceLister
 	testing.Stub
@@ -1017,4 +1035,14 @@ type mockSpacesClient struct {
 func (m *mockSpacesClient) ListSpaces() ([]params.Space, error) {
 	m.MethodCall(m, "ListSpaces")
 	return m.spaceList, m.NextErr()
+}
+
+type mockDownloadBundleClient struct {
+	testing.Stub
+	bundle charm.Bundle
+}
+
+func (m *mockDownloadBundleClient) DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string) (charm.Bundle, error) {
+	m.MethodCall(m, "DownloadAndReadBundle", resourceURL, archivePath)
+	return m.bundle, m.NextErr()
 }

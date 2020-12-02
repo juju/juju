@@ -259,13 +259,7 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 			return nil, errors.Trace(err)
 		}
 
-	case charm.CharmStore:
-		// Use the user argument if provided (users only make sense
-		// with cs: charms).
-		curl.User = query.Get("user")
-		fallthrough
-
-	case charm.CharmHub:
+	case charm.CharmStore, charm.CharmHub:
 		// charmstore and charmhub charms may only be uploaded into models
 		// which are being imported during model migrations. There's currently
 		// no other time where it makes sense to accept charm store
@@ -275,6 +269,10 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 		} else if !isImporting {
 			return nil, errors.New("charms may only be uploaded during model migration import")
 		}
+
+		// Use the user argument if provided (users only make sense
+		// with cs: charms).
+		curl.User = query.Get("user")
 
 		// If a revision argument is provided, it takes precedence
 		// over the revision in the charm archive. This is required to

@@ -294,7 +294,11 @@ func (d *predeployedLocalCharm) String() string {
 	if isEmptyOrigin(d.origin, commoncharm.OriginLocal) {
 		return str
 	}
-	return fmt.Sprintf("%s from channel %s", str, d.origin.CoreChannel().String())
+	var channel string
+	if ch := d.origin.CoreChannel().String(); ch != "" {
+		channel = fmt.Sprintf(" from channel %s", ch)
+	}
+	return fmt.Sprintf("%s%s", str, channel)
 }
 
 // PrepareAndDeploy finishes preparing to deploy a predeployed local charm,
@@ -397,7 +401,11 @@ func (c *charmStoreCharm) String() string {
 	if isEmptyOrigin(c.origin, commoncharm.OriginCharmStore) {
 		return str
 	}
-	return fmt.Sprintf("%s from channel %s", str, c.origin.CoreChannel().String())
+	var channel string
+	if ch := c.origin.CoreChannel().String(); ch != "" {
+		channel = fmt.Sprintf(" from channel %s", ch)
+	}
+	return fmt.Sprintf("%s%s", str, channel)
 }
 
 // PrepareAndDeploy finishes preparing to deploy a charm store charm,

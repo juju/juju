@@ -156,7 +156,7 @@ func NewCharmsAPI(
 // CharmInfo returns information about the requested charm.
 // NOTE: thumper 2016-06-29, this is not a bulk call and probably should be.
 func (a *API) CharmInfo(args params.CharmURL) (params.Charm, error) {
-	logger.Tracef("CharmInfo %+v", args)
+	logger.Tracef("CharmInfo 1 %+v", args)
 	if err := a.checkCanRead(); err != nil {
 		return params.Charm{}, errors.Trace(err)
 	}
