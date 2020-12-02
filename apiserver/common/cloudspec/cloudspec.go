@@ -103,6 +103,7 @@ func (s cloudSpecAPI) GetCloudSpec(tag names.ModelTag) params.CloudSpecResult {
 		StorageEndpoint:  spec.StorageEndpoint,
 		Credential:       paramsCloudCredential,
 		CACertificates:   spec.CACertificates,
+		SkipTLSVerify:    spec.SkipTLSVerify,
 	}
 	return result
 }

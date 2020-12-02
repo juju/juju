@@ -264,6 +264,7 @@ type CloudDetails struct {
 	Config        map[string]interface{}   `yaml:"config,omitempty" json:"config,omitempty"`
 	RegionConfig  jujucloud.RegionConfig   `yaml:"region-config,omitempty" json:"region-config,omitempty"`
 	CACredentials []string                 `yaml:"ca-credentials,omitempty" json:"ca-credentials,omitempty"`
+	SkipTLSVerify bool                     `yaml:"skip-tls-verify,omitempty" json:"skip-tls-verify,omitempty"`
 }
 
 func makeCloudDetails(store jujuclient.CredentialGetter, cloud jujucloud.Cloud) *CloudDetails {
@@ -277,6 +278,7 @@ func makeCloudDetails(store jujuclient.CredentialGetter, cloud jujucloud.Cloud) 
 		RegionConfig:     cloud.RegionConfig,
 		CloudDescription: cloud.Description,
 		CACredentials:    cloud.CACertificates,
+		SkipTLSVerify:    cloud.SkipTLSVerify,
 	}
 	result.AuthTypes = make([]string, len(cloud.AuthTypes))
 	for i, at := range cloud.AuthTypes {

@@ -497,6 +497,12 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if newCloud.SkipTLSVerify {
+		if len(newCloud.CACertificates) > 0 && newCloud.CACertificates[0] != "" {
+			return errors.NotValidf("cloud with both skip-TLS-verify=true and CA certificates")
+		}
+		logger.Warningf("k8s cloud %v is configured to skip server certificate validity checks", newCloud.Name)
+	}
 	newcredential, err = ensureCredentialUID(credentialName, credentialUID, newcredential)
 	if err != nil {
 		return errors.Trace(err)

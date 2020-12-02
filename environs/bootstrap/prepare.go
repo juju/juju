@@ -235,10 +235,18 @@ func prepare(
 	details.BootstrapConfig.Cloud = args.Cloud.Name
 	details.BootstrapConfig.CloudRegion = args.Cloud.Region
 	details.BootstrapConfig.CloudCACertificates = args.Cloud.CACertificates
+	details.BootstrapConfig.SkipTLSVerify = args.Cloud.SkipTLSVerify
 	details.CloudEndpoint = args.Cloud.Endpoint
 	details.CloudIdentityEndpoint = args.Cloud.IdentityEndpoint
 	details.CloudStorageEndpoint = args.Cloud.StorageEndpoint
 	details.Credential = args.CredentialName
+
+	if args.Cloud.SkipTLSVerify {
+		if len(args.Cloud.CACertificates) > 0 && args.Cloud.CACertificates[0] != "" {
+			return cfg, details, errors.NotValidf("cloud with both skip-TLS-verify=true and CA certificates")
+		}
+		logger.Warningf("controller %v is configured to skip validity checks on the server's certificate", args.ControllerName)
+	}
 
 	return cfg, details, nil
 }

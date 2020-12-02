@@ -38,6 +38,7 @@ func CloudToParams(cloud jujucloud.Cloud) params.Cloud {
 		StorageEndpoint:  cloud.StorageEndpoint,
 		Regions:          regions,
 		CACertificates:   cloud.CACertificates,
+		SkipTLSVerify:    cloud.SkipTLSVerify,
 		Config:           cloud.Config,
 		RegionConfig:     regionConfig,
 	}
@@ -73,6 +74,7 @@ func CloudFromParams(cloudName string, p params.Cloud) jujucloud.Cloud {
 		StorageEndpoint:  p.StorageEndpoint,
 		Regions:          regions,
 		CACertificates:   p.CACertificates,
+		SkipTLSVerify:    p.SkipTLSVerify,
 		Config:           p.Config,
 		RegionConfig:     regionConfig,
 	}
