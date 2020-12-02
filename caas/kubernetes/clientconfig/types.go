@@ -35,8 +35,9 @@ func (c Context) isEmpty() bool {
 
 // CloudConfig stores information about how to connect to a Cloud.
 type CloudConfig struct {
-	Endpoint   string
-	Attributes map[string]interface{}
+	Endpoint      string
+	SkipTLSVerify bool
+	Attributes    map[string]interface{}
 }
 
 // If existing CAAS cloud has Cluster_A and User_A, here's what happens when we try to define a new CAAS cloud:

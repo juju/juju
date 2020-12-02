@@ -1361,6 +1361,9 @@
                         "region": {
                             "type": "string"
                         },
+                        "skip-tls-verify": {
+                            "type": "boolean"
+                        },
                         "storage-endpoint": {
                             "type": "string"
                         },
@@ -6256,6 +6259,9 @@
                         },
                         "region": {
                             "type": "string"
+                        },
+                        "skip-tls-verify": {
+                            "type": "boolean"
                         },
                         "storage-endpoint": {
                             "type": "string"
@@ -16447,6 +16453,9 @@
                                 "$ref": "#/definitions/CloudRegion"
                             }
                         },
+                        "skip-tls-verify": {
+                            "type": "boolean"
+                        },
                         "storage-endpoint": {
                             "type": "string"
                         },
@@ -17628,6 +17637,9 @@
                         },
                         "region": {
                             "type": "string"
+                        },
+                        "skip-tls-verify": {
+                            "type": "boolean"
                         },
                         "storage-endpoint": {
                             "type": "string"
@@ -21293,6 +21305,9 @@
                         },
                         "region": {
                             "type": "string"
+                        },
+                        "skip-tls-verify": {
+                            "type": "boolean"
                         },
                         "storage-endpoint": {
                             "type": "string"
@@ -43112,6 +43127,9 @@
                         },
                         "region": {
                             "type": "string"
+                        },
+                        "skip-tls-verify": {
+                            "type": "boolean"
                         },
                         "storage-endpoint": {
                             "type": "string"
