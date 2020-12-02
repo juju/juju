@@ -163,13 +163,10 @@ type AddPendingResourcesArgs struct {
 // AddPendingResources sends the provided resource info up to Juju
 // without making it available yet.
 func (c Client) AddPendingResources(args AddPendingResourcesArgs) ([]string, error) {
-	tag, err := names.ParseApplicationTag(args.ApplicationID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
+	tag := names.NewApplicationTag(args.ApplicationID)
 	var apiArgs interface{}
-	if c.FacadeCaller.BestAPIVersion() < 2 {
+	var err error
+	if c.BestAPIVersion() < 2 {
 		apiArgs, err = newAddPendingResourcesArgs(tag, args.CharmID, args.CharmStoreMacaroon, args.Resources)
 	} else {
 		apiArgs, err = newAddPendingResourcesArgsV2(tag, args.CharmID, args.CharmStoreMacaroon, args.Resources)
