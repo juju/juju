@@ -297,6 +297,9 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 	if err != nil {
 		return cloud.Cloud{}, errors.Trace(err)
 	}
+	if mk8sCloud.SkipTLSVerify {
+		logger.Warningf("k8s cloud %v is configured to skip server certificate validity checks", mk8sCloud.Name)
+	}
 
 	openParams, err := BaseKubeCloudOpenParams(mk8sCloud, credential)
 	if err != nil {

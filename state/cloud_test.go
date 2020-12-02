@@ -42,7 +42,6 @@ var lowCloud = cloud.Cloud{
 		StorageEndpoint:  "region2-storage",
 	}},
 	CACertificates: []string{"cert1", "cert2"},
-	SkipTLSVerify:  true,
 }
 
 func (s *CloudSuite) TestCloudNotFound(c *gc.C) {
@@ -87,6 +86,17 @@ func (s *CloudSuite) TestAddCloud(c *gc.C) {
 	c.Assert(settings.Map(), jc.DeepEquals, map[string]interface{}{"foo": "baz"})
 }
 
+func (s *CloudSuite) TestAddCloudSkipTLSVerify(c *gc.C) {
+	cloudToAdd := lowCloud
+	cloudToAdd.SkipTLSVerify = true
+	cloudToAdd.CACertificates = []string{""}
+	err := s.State.AddCloud(cloudToAdd, s.Owner.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	cloud, err := s.State.Cloud("stratus")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cloud, jc.DeepEquals, cloudToAdd)
+}
+
 func (s *CloudSuite) TestAddCloudDuplicate(c *gc.C) {
 	err := s.State.AddCloud(cloud.Cloud{
 		Name:      "stratus",
@@ -126,9 +136,19 @@ func (s *CloudSuite) TestAddCloudNoAuthTypes(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `invalid cloud: empty auth-types not valid`)
 }
 
+func (s *CloudSuite) TestAddInvalidTLSNoVerify(c *gc.C) {
+	err := s.State.AddCloud(cloud.Cloud{
+		Name:           "stratus",
+		Type:           "low",
+		AuthTypes:      cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
+		SkipTLSVerify:  true,
+		CACertificates: []string{"cert"},
+	}, s.Owner.Name())
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+}
+
 func (s *CloudSuite) TestUpdateCloud(c *gc.C) {
 	cloudToAdd := lowCloud
-	cloudToAdd.SkipTLSVerify = false
 	err := s.State.AddCloud(cloudToAdd, s.Owner.Name())
 	c.Assert(err, jc.ErrorIsNil)
 

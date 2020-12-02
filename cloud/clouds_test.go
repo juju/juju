@@ -332,7 +332,7 @@ skip-tls-verify: true
 		AuthTypes:      []cloud.AuthType{"baz"},
 		Endpoint:       "qux",
 		CACertificates: []string{"fakecacert"},
-		SkipTLSVerify: true,
+		SkipTLSVerify:  true,
 	})
 }
 

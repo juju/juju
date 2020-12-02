@@ -241,6 +241,13 @@ func prepare(
 	details.CloudStorageEndpoint = args.Cloud.StorageEndpoint
 	details.Credential = args.CredentialName
 
+	if args.Cloud.SkipTLSVerify {
+		if len(args.Cloud.CACertificates) > 0 && args.Cloud.CACertificates[0] != "" {
+			return cfg, details, errors.NotValidf("cloud with both skip-TLS-verify=true and CA certificates")
+		}
+		logger.Warningf("controller %v is configured to skip validity checks on the server's certificate", args.ControllerName)
+	}
+
 	return cfg, details, nil
 }
 

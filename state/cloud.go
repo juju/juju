@@ -301,6 +301,10 @@ func validateCloud(cloud cloud.Cloud) error {
 	// TODO(axw) we should ensure that the cloud auth-types is a subset
 	// of the auth-types supported by the provider. To do that, we'll
 	// need a new "policy".
+
+	if cloud.SkipTLSVerify && len(cloud.CACertificates) > 0 && cloud.CACertificates[0] != "" {
+		return errors.NotValidf("cloud with both skip-TLS-verify=true and CA certificates")
+	}
 	return nil
 }
 

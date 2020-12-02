@@ -166,7 +166,7 @@ type Cloud struct {
 	// The contents are Base64 encoded x.509 certs.
 	CACertificates []string
 
-	// SkipTLSVerify is true if the server should be asked not to
+	// SkipTLSVerify is true if the client should be asked not to
 	// validate certificates. It is not recommended for production clouds.
 	// It is secure (false) by default.
 	SkipTLSVerify bool
