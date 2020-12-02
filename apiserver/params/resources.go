@@ -3,7 +3,11 @@
 
 package params
 
-import "time"
+import (
+	"time"
+
+	"gopkg.in/macaroon.v2"
+)
 
 // ListResourcesArgs are the arguments for the ListResources endpoint.
 type ListResourcesArgs Entities
@@ -22,8 +26,9 @@ type AddPendingResourcesArgs struct {
 // API endpoint.
 type AddPendingResourcesArgsV2 struct {
 	Entity
-	URL         string      `json:"url"`
-	CharmOrigin CharmOrigin `json:"charm-origin"`
+	URL                string             `json:"url"`
+	CharmOrigin        CharmOrigin        `json:"charm-origin"`
+	CharmStoreMacaroon *macaroon.Macaroon `json:"macaroon"`
 
 	// Resources is the list of resources to add as pending.
 	Resources []CharmResource `json:"resources"`

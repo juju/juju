@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/resource/api/client"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
@@ -721,9 +722,9 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 
 	resNames2IDs, err := h.deployResources(
 		p.Application,
-		resourceadapters.CharmID{
-			URL:     chID.URL,
-			Channel: chID.Origin.Risk,
+		client.CharmID{
+			URL:    chID.URL,
+			Origin: chID.Origin,
 		},
 		macaroon,
 		resources,
@@ -1056,9 +1057,9 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 	if len(filtered) != 0 {
 		resNames2IDs, err = h.deployResources(
 			p.Application,
-			resourceadapters.CharmID{
-				URL:     chID.URL,
-				Channel: chID.Origin.Risk,
+			client.CharmID{
+				URL:    chID.URL,
+				Origin: chID.Origin,
 			},
 			macaroon,
 			resources,

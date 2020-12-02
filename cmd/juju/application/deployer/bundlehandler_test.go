@@ -28,7 +28,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/resource/resourceadapters"
+	"github.com/juju/juju/resource/api/client"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
@@ -851,7 +851,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeployment(c *gc.C) {
 
 func (s *BundleDeployCharmStoreSuite) bundleDeploySpec() bundleDeploySpec {
 	deployResourcesFunc := func(_ string,
-		_ resourceadapters.CharmID,
+		_ client.CharmID,
 		_ *macaroon.Macaroon,
 		_ map[string]string,
 		_ map[string]charmresource.Meta,

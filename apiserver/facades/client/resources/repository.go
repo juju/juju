@@ -6,7 +6,9 @@ package resources
 import (
 	"context"
 
+	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
+	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/charmhub/transport"
@@ -14,11 +16,45 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 )
 
+// NOTE: There maybe a better way to do this.  Juju's charmhub package is equivalent
+// to charmstore.client.  Juju's charmstore package is what the charmHubClient is doing
+// here, making calls to the charmhub and returning data in a format that the facade
+// would like to see.
+// The question remains, where to put the charmhub piece?
+
+// CharmRepository exposes the functionality of a charm repository as
+// needed by the facade.
+type CharmRepository interface {
+	// ListResources composes, for each of the identified charms, the
+	// list of details for each of the charm's resources. Those details
+	// are those associated with the specific charm revision. They
+	// include the resource's metadata and revision.
+	ListResources([]CharmID) ([][]charmresource.Resource, error)
+
+	// ResourceInfo returns the metadata for the given resource.
+	ResourceInfo(charmstore.ResourceRequest) (charmresource.Resource, error)
+}
+
+// CharmID encapsulates data for identifying a unique charm in a charm repository.
+type CharmID struct {
+	// URL is the url of the charm.
+	URL *charm.URL
+
+	// Origin holds the original source of a charm, including it's channel.
+	Origin corecharm.Origin
+
+	// Metadata is optional extra information about a particular model's
+	// "in-theatre" use use of the charm.
+	Metadata map[string]string
+}
+
 type CharmHub interface {
 	Info(ctx context.Context, name string) (transport.InfoResponse, error)
 	ListResourceRevisions(ctx context.Context, charm, resource string) ([]transport.ResourceRevision, error)
 }
 
+// TODO hml 2020-12-2
+// charmHubClient needs to be "caching" like the charmstoreclient is.
 type charmHubClient struct {
 	infoClient CharmHub
 }
@@ -27,18 +63,14 @@ type charmHubClient struct {
 // list of details for each of the charm's resources. Those details
 // are those associated with the specific charm revision. They
 // include the resource's metadata and revision.
-func (ch *charmHubClient) ListResources(charmIDs []charmstore.CharmID) ([][]charmresource.Resource, error) {
+func (ch *charmHubClient) ListResources(charmIDs []CharmID) ([][]charmresource.Resource, error) {
 	results := make([][]charmresource.Resource, len(charmIDs))
 	for i, id := range charmIDs {
 		info, err := ch.infoClient.Info(context.TODO(), id.URL.Name)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		channel, err := corecharm.ParseChannel(string(id.Channel))
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		result, err := parseResources(channel, info)
+		result, err := parseResources(*id.Origin.Channel, info)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -108,6 +140,18 @@ func (ch *charmHubClient) ResourceInfo(req charmstore.ResourceRequest) (charmres
 	return charmresource.Resource{}, nil
 }
 
+// CharmStore exposes the functionality of the charm store as needed here.
+type CharmStore interface {
+	// ListResources composes, for each of the identified charms, the
+	// list of details for each of the charm's resources. Those details
+	// are those associated with the specific charm revision. They
+	// include the resource's metadata and revision.
+	ListResources([]charmstore.CharmID) ([][]charmresource.Resource, error)
+
+	// ResourceInfo returns the metadata for the given resource.
+	ResourceInfo(charmstore.ResourceRequest) (charmresource.Resource, error)
+}
+
 type charmStoreClient struct {
 	csClient CharmStore
 }
@@ -116,8 +160,15 @@ type charmStoreClient struct {
 // list of details for each of the charm's resources. Those details
 // are those associated with the specific charm revision. They
 // include the resource's metadata and revision.
-func (cs *charmStoreClient) ListResources(charmIDs []charmstore.CharmID) ([][]charmresource.Resource, error) {
-	return cs.csClient.ListResources(charmIDs)
+func (cs *charmStoreClient) ListResources(charmIDs []CharmID) ([][]charmresource.Resource, error) {
+	chIDs := make([]charmstore.CharmID, len(charmIDs))
+	for i, v := range charmIDs {
+		chIDs[i] = charmstore.CharmID{
+			URL:     v.URL,
+			Channel: csparams.Channel(v.Origin.Channel.String()),
+		}
+	}
+	return cs.csClient.ListResources(chIDs)
 }
 
 // ResourceInfo returns the metadata for the given resource.

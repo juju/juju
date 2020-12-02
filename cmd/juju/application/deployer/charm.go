@@ -5,6 +5,7 @@ package deployer
 
 import (
 	"fmt"
+
 	"io/ioutil"
 	"strconv"
 	"strings"
@@ -27,6 +28,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/resource/api/client"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
 )
@@ -214,9 +216,9 @@ func (d *deployCharm) deploy(
 
 	ids, err := d.deployResources(
 		applicationName,
-		resourceadapters.CharmID{
-			URL:     id.URL,
-			Channel: id.Origin.Risk,
+		client.CharmID{
+			URL:    id.URL,
+			Origin: id.Origin,
 		},
 		d.csMac,
 		d.resources,

@@ -36,25 +36,13 @@ type Backend interface {
 	AddPendingResource(applicationID, userID string, chRes charmresource.Resource) (string, error)
 }
 
-// CharmStore exposes the functionality of the charm store as needed here.
-type CharmStore interface {
-	// ListResources composes, for each of the identified charms, the
-	// list of details for each of the charm's resources. Those details
-	// are those associated with the specific charm revision. They
-	// include the resource's metadata and revision.
-	ListResources([]charmstore.CharmID) ([][]charmresource.Resource, error)
-
-	// ResourceInfo returns the metadata for the given resource.
-	ResourceInfo(charmstore.ResourceRequest) (charmresource.Resource, error)
-}
-
 // API is the public API facade for resources.
 type API struct {
 	// store is the data source for the facade.
 	store Backend
 
-	newCharmStoreClient func() (CharmStore, error)
-	newCharmHubClient   func() (CharmStore, error)
+	newCharmStoreClient func() (CharmRepository, error)
+	newCharmHubClient   func() (CharmRepository, error)
 }
 
 type APIv1 struct {
@@ -79,7 +67,7 @@ func NewFacadeV2(ctx facade.Context) (*API, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	newCharmStoreClient := func() (CharmStore, error) {
+	newCharmStoreClient := func() (CharmRepository, error) {
 		cl, err := charmstore.NewCachingClient(state.MacaroonCache{st}, controllerCfg.CharmStoreURL())
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -95,7 +83,7 @@ func NewFacadeV2(ctx facade.Context) (*API, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	newCharmHubClient := func() (CharmStore, error) {
+	newCharmHubClient := func() (CharmRepository, error) {
 		var chCfg charmhub.Config
 		chURL, ok := modelCfg.CharmHubURL()
 		if ok {
@@ -129,7 +117,7 @@ func NewFacadeV1(ctx facade.Context) (*APIv1, error) {
 }
 
 // NewResourcesAPI returns a new resources API facade.
-func NewResourcesAPI(store Backend, newCharmStoreClient, newCharmHubClient func() (CharmStore, error)) (*API, error) {
+func NewResourcesAPI(store Backend, newCharmStoreClient, newCharmHubClient func() (CharmRepository, error)) (*API, error) {
 	if store == nil {
 		return nil, errors.Errorf("missing data store")
 	}
@@ -219,9 +207,13 @@ func (a *APIv1) addPendingResources(applicationID, chRef string, channel csparam
 
 		switch cURL.Schema {
 		case "cs":
-			id := charmstore.CharmID{
-				URL:     cURL,
-				Channel: channel,
+			ch, err := corecharm.ParseChannel(string(channel))
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			id := CharmID{
+				URL:    cURL,
+				Origin: corecharm.Origin{Channel: &ch},
 			}
 			client, err := a.newCharmStoreClient()
 			if err != nil {
@@ -294,9 +286,9 @@ func (a *API) addPendingResources(applicationID, chRef string, origin corecharm.
 		}
 		switch cURL.Schema {
 		case "cs":
-			id := charmstore.CharmID{
-				URL:     cURL,
-				Channel: csparams.Channel(origin.Channel.String()),
+			id := CharmID{
+				URL:    cURL,
+				Origin: origin,
 			}
 			client, err := a.newCharmStoreClient()
 			if err != nil {
@@ -312,9 +304,9 @@ func (a *API) addPendingResources(applicationID, chRef string, origin corecharm.
 				return nil, errors.Trace(err)
 			}
 		case "ch":
-			id := charmstore.CharmID{
-				URL:     cURL,
-				Channel: csparams.Channel(origin.Channel.String()),
+			id := CharmID{
+				URL:    cURL,
+				Origin: origin,
 			}
 			client, err := a.newCharmHubClient()
 			if err != nil {
@@ -343,8 +335,8 @@ func (a *API) addPendingResources(applicationID, chRef string, origin corecharm.
 	return ids, nil
 }
 
-func (a *API) resolveCharmstoreResources(client CharmStore, id charmstore.CharmID, resources []charmresource.Resource) ([]charmresource.Resource, error) {
-	ids := []charmstore.CharmID{id}
+func (a *API) resolveCharmstoreResources(client CharmRepository, id CharmID, resources []charmresource.Resource) ([]charmresource.Resource, error) {
+	ids := []CharmID{id}
 	storeResources, err := a.resourcesFromCharmstore(ids, client)
 	if err != nil {
 		return nil, err
@@ -373,7 +365,7 @@ func (a *API) resolveLocalResources(resources []charmresource.Resource) ([]charm
 // the charm store. If the charm URL has a revision then that revision's
 // resources are returned. Otherwise the latest info for each of the
 // resources is returned.
-func (a *API) resourcesFromCharmstore(charms []charmstore.CharmID, client CharmStore) (map[string]charmresource.Resource, error) {
+func (a *API) resourcesFromCharmstore(charms []CharmID, client CharmRepository) (map[string]charmresource.Resource, error) {
 	results, err := client.ListResources(charms)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -390,7 +382,12 @@ func (a *API) resourcesFromCharmstore(charms []charmstore.CharmID, client CharmS
 // resolveResources determines the resource info that should actually
 // be stored on the controller. That decision is based on the provided
 // resources along with those in the charm store (if any).
-func resolveResources(resources []charmresource.Resource, storeResources map[string]charmresource.Resource, id charmstore.CharmID, client CharmStore) ([]charmresource.Resource, error) {
+func resolveResources(
+	resources []charmresource.Resource,
+	storeResources map[string]charmresource.Resource,
+	id CharmID,
+	client CharmRepository,
+) ([]charmresource.Resource, error) {
 	allResolved := make([]charmresource.Resource, len(resources))
 	copy(allResolved, resources)
 	for i, res := range resources {
@@ -412,7 +409,12 @@ func resolveResources(resources []charmresource.Resource, storeResources map[str
 
 // resolveStoreResource selects the resource info to use. It decides
 // between the provided and latest info based on the revision.
-func resolveStoreResource(res charmresource.Resource, storeResources map[string]charmresource.Resource, id charmstore.CharmID, client CharmStore) (charmresource.Resource, error) {
+func resolveStoreResource(
+	res charmresource.Resource,
+	storeResources map[string]charmresource.Resource,
+	id CharmID,
+	client CharmRepository,
+) (charmresource.Resource, error) {
 	storeRes, ok := storeResources[res.Name]
 	if !ok {
 		// This indicates that AddPendingResources() was called for
@@ -440,7 +442,7 @@ func resolveStoreResource(res charmresource.Resource, storeResources map[string]
 		// the charm in the store.
 		req := charmstore.ResourceRequest{
 			Charm:    id.URL,
-			Channel:  id.Channel,
+			Channel:  csparams.Channel(id.Origin.Channel.String()),
 			Name:     res.Name,
 			Revision: res.Revision,
 		}
@@ -497,6 +499,11 @@ func convertParamsOrigin(origin params.CharmOrigin) corecharm.Origin {
 		Channel: &corecharm.Channel{
 			Track: track,
 			Risk:  corecharm.Risk(origin.Risk),
+		},
+		Platform: corecharm.Platform{
+			Architecture: origin.Architecture,
+			OS:           origin.OS,
+			Series:       origin.Series,
 		},
 	}
 }

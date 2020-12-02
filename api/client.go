@@ -439,8 +439,6 @@ func (c *Client) validateCharmVersion(ch charm.Charm) error {
 	return nil
 }
 
-// TODO(ericsnow) Use charmstore.CharmID for AddCharm() & AddCharmWithAuth().
-
 // AddCharm adds the given charm URL (which must include revision) to
 // the model, if it does not exist yet. Local charms are not
 // supported, only charm store URLs. See also AddLocalCharm() in the

@@ -36380,6 +36380,9 @@
                         "charm-origin": {
                             "$ref": "#/definitions/CharmOrigin"
                         },
+                        "macaroon": {
+                            "$ref": "#/definitions/Macaroon"
+                        },
                         "resources": {
                             "type": "array",
                             "items": {
@@ -36399,6 +36402,7 @@
                         "Entity",
                         "url",
                         "charm-origin",
+                        "macaroon",
                         "resources"
                     ]
                 },
@@ -36427,10 +36431,16 @@
                 "CharmOrigin": {
                     "type": "object",
                     "properties": {
+                        "architecture": {
+                            "type": "string"
+                        },
                         "hash": {
                             "type": "string"
                         },
                         "id": {
+                            "type": "string"
+                        },
+                        "os": {
                             "type": "string"
                         },
                         "revision": {
@@ -36439,16 +36449,23 @@
                         "risk": {
                             "type": "string"
                         },
+                        "series": {
+                            "type": "string"
+                        },
                         "source": {
                             "type": "string"
                         },
                         "track": {
+                            "type": "string"
+                        },
+                        "type": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
                         "source",
+                        "type",
                         "id"
                     ]
                 },
@@ -36554,6 +36571,10 @@
                     "required": [
                         "entities"
                     ]
+                },
+                "Macaroon": {
+                    "type": "object",
+                    "additionalProperties": false
                 },
                 "Resource": {
                     "type": "object",

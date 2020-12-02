@@ -17,16 +17,16 @@ import (
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/resources"
+	apiresource "github.com/juju/juju/resource/api/client"
 )
 
 // DeployClient exposes the functionality of the resources API needed
 // for deploy.
 type DeployClient interface {
 	// AddPendingResources adds pending metadata for store-based resources.
-	AddPendingResources(applicationID string, chID charmstore.CharmID, csMac *macaroon.Macaroon, resources []charmresource.Resource) (ids []string, err error)
+	AddPendingResources(applicationID string, chID apiresource.CharmID, csMac *macaroon.Macaroon, resources []charmresource.Resource) (ids []string, err error)
 
 	// UploadPendingResource uploads data and metadata for a pending resource for the given application.
 	UploadPendingResource(applicationID string, resource charmresource.Resource, filename string, r io.ReadSeeker) (id string, err error)
@@ -38,7 +38,7 @@ type DeployResourcesArgs struct {
 	ApplicationID string
 
 	// CharmID identifies the application's charm.
-	CharmID charmstore.CharmID
+	CharmID apiresource.CharmID
 
 	// CharmStoreMacaroon is the macaroon to use for the charm when
 	// interacting with the charm store.
@@ -87,7 +87,7 @@ type osOpenFunc func(path string) (modelcmd.ReadSeekCloser, error)
 
 type deployUploader struct {
 	applicationID string
-	chID          charmstore.CharmID
+	chID          apiresource.CharmID
 	csMac         *macaroon.Macaroon
 	resources     map[string]charmresource.Meta
 	client        DeployClient
