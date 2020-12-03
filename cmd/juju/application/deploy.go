@@ -319,6 +319,8 @@ type DeployCommand struct {
 	// NewDownloadClient stores a function for getting a charm/bundle.
 	NewDownloadClient func() (store.DownloadBundleClient, error)
 
+	// NewModelConfigClient stores a function which returns a new model config
+	// client. This is used to get the model config.
 	NewModelConfigClient func(base.APICallCloser) ModelConfigClient
 
 	// NewResolver stores a function which returns a charm adaptor.
