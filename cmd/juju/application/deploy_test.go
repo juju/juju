@@ -310,7 +310,7 @@ func (s *DeploySuite) TestBlockDeploy(c *gc.C) {
 
 func (s *DeploySuite) TestInvalidPath(c *gc.C) {
 	err := s.runDeploy(c, "/home/nowhere")
-	c.Assert(err, gc.ErrorMatches, `charm or bundle URL "/home/nowhere" malformed, expected "<name>"`)
+	c.Assert(err, gc.ErrorMatches, `no charm was found at \"/home/nowhere\"`)
 }
 
 func (s *DeploySuite) TestInvalidFileFormat(c *gc.C) {

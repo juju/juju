@@ -838,6 +838,7 @@ func (c *DeployCommand) getMeteringAPIURL(controllerAPIRoot api.Connection) (str
 func (c *DeployCommand) getDeployerFactory() (deployer.DeployerFactory, deployer.DeployerConfig) {
 	dep := deployer.DeployerDependencies{
 		Model:                c,
+		FileSystem:           c.ModelCommandBase.Filesystem(),
 		NewConsumeDetailsAPI: c.NewConsumeDetailsAPI, // only used here
 		Steps:                c.Steps,
 	}

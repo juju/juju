@@ -94,6 +94,18 @@ func (s *deployerSuite) TestGetDeployerLocalCharm(c *gc.C) {
 	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy local charm: %s", ch.String()))
 }
 
+func (s *deployerSuite) TestGetDeployerLocalCharmError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	factory := s.newDeployerFactory().(*factory)
+	factory.charmOrBundle = "./bad.charm"
+
+	s.expectStat("./bad.charm", os.ErrNotExist)
+
+	_, err := factory.maybePredeployedLocalCharm()
+	c.Assert(err, gc.ErrorMatches, `no charm was found at "./bad.charm"`)
+}
+
 func (s *deployerSuite) TestGetDeployerCharmStoreCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectFilesystem()
@@ -311,6 +323,7 @@ func (s *deployerSuite) newDeployerFactory() DeployerFactory {
 		},
 		Model:                s.modelCommand,
 		NewConsumeDetailsAPI: func(url *charm.OfferURL) (ConsumeDetails, error) { return s.consumeDetails, nil },
+		FileSystem:           s.filesystem,
 		Steps:                []DeployStep{s.deployStep},
 	}
 	return NewDeployerFactory(dep)
