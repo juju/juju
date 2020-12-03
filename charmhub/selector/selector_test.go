@@ -6,6 +6,7 @@ package selector
 import (
 	"sort"
 
+	"github.com/juju/testing"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -15,6 +16,7 @@ import (
 )
 
 type selectorSuite struct {
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&selectorSuite{})
