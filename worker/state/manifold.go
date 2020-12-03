@@ -155,6 +155,9 @@ func (w *stateWorker) loop() error {
 	modelWatcher := systemState.WatchModelLives()
 	w.catacomb.Add(modelWatcher)
 
+	wrenchTimer := time.NewTimer(30 * time.Second)
+	defer wrenchTimer.Stop()
+
 	modelStateWorkers := make(map[string]worker.Worker)
 	for {
 		select {
@@ -173,10 +176,11 @@ func (w *stateWorker) loop() error {
 			}
 		// Useful for tracking down some bugs that occur when
 		// mongo is overloaded.
-		case <-time.After(30 * time.Second):
+		case <-wrenchTimer.C:
 			if wrench.IsActive("state-worker", "io-timeout") {
 				return errors.Errorf("wrench simulating i/o timeout!")
 			}
+			wrenchTimer.Reset(30 * time.Second)
 		}
 	}
 }
