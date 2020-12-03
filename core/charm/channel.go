@@ -16,6 +16,14 @@ const (
 	DefaultChannelString = "latest/stable"
 )
 
+var (
+	// DefaultChannel represents the default track and risk.
+	DefaultChannel = Channel{
+		Track: "latest",
+		Risk:  Risk("stable"),
+	}
+)
+
 // Risk describes the type of risk in a current channel.
 type Risk string
 
@@ -62,6 +70,15 @@ type Channel struct {
 	Track  string
 	Risk   Risk
 	Branch string
+}
+
+// MakeRiskOnlyChannel creates a charm channel that is backwards compatible with
+// old style charm store channels. This creates a risk aware channel only.
+// No validation is performed on the risk and is just accepted as is.
+func MakeRiskOnlyChannel(risk string) Channel {
+	return Channel{
+		Risk: Risk(risk),
+	}
 }
 
 // MakeChannel creates a core charm Channel from a set of component parts.

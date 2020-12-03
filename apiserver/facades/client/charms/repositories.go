@@ -88,6 +88,7 @@ func (c *chRepo) DownloadCharm(resourceURL string, archivePath string) (*charm.C
 // to be downloaded.  If the provided charm origin has no ID, it is
 // assumed that the charm is being installed, not refreshed.
 func (c *chRepo) FindDownloadURL(curl *charm.URL, origin corecharm.Origin) (*url.URL, corecharm.Origin, error) {
+	logger.Tracef("FindDownloadURL %v %v", curl, origin)
 	if origin.Type == "bundle" {
 		return c.findBundleDownloadURL(curl, origin)
 	}
@@ -235,7 +236,7 @@ func findByRevisionAndChannel(rev int, preferredChannel corecharm.Channel, chann
 }
 
 func matchChannel(one corecharm.Channel, two transport.Channel) bool {
-	return one.String() == two.Name
+	return one.Normalize().String() == two.Name
 }
 
 func (c *chRepo) resolveViaChannelMap(t transport.Type, curl *charm.URL, origin params.CharmOrigin, channelMap transport.InfoChannelMap) (*charm.URL, params.CharmOrigin, []string, error) {
@@ -248,6 +249,10 @@ func (c *chRepo) resolveViaChannelMap(t transport.Type, curl *charm.URL, origin 
 	origin.Revision = &mapRevision.Revision
 	origin.Risk = mapChannel.Risk
 	origin.Track = &mapChannel.Track
+
+	origin.Architecture = mapChannel.Platform.Architecture
+	origin.OS = mapChannel.Platform.OS
+	origin.Series = mapChannel.Platform.Series
 
 	// `metadata.yaml` is a requirement to be a valid charm or bundle. The charm
 	// repo expects that one exists even if it contains minimal information.

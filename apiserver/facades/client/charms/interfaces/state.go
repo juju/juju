@@ -36,6 +36,7 @@ type BackendState interface {
 	Machine(string) (Machine, error)
 	state.MongoSessioner
 	ModelUUID() string
+	ModelConstraints() (constraints.Value, error)
 }
 
 // Application defines a subset of the functionality provided by the

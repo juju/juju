@@ -521,7 +521,24 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel, mac *macaroon.
 		return result
 	}
 	result.URL = resultURL.String()
-	result.Origin = origin
+
+	// We have an issue where the charmhub API can return "all" for architecture
+	// and this can cause us issues. To try and solve that, we will use the
+	// model constraints to resolve it.
+	archOrigin := origin
+	if origin.Architecture == "all" {
+		cons, err := a.backendState.ModelConstraints()
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+			return result
+		}
+		if cons.HasArch() {
+			archOrigin.Architecture = *cons.Arch
+		}
+	}
+
+	result.Origin = archOrigin
+
 	switch {
 	case resultURL.Series != "" && len(supportedSeries) == 0:
 		result.SupportedSeries = []string{resultURL.Series}

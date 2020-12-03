@@ -557,24 +557,37 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	// A channel is needed whether the risk is valid or not.
-	channel, _ := corecharm.ParseChannelNormalize(chParams.Channel)
+	var channel corecharm.Channel
+	if charm.CharmHub.Matches(ch.Schema) {
+		channel = corecharm.DefaultChannel
+		if chParams.Channel != "" {
+			channel, err = corecharm.ParseChannelNormalize(chParams.Channel)
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
+	} else {
+		channel = corecharm.MakeRiskOnlyChannel(chParams.Channel)
+	}
+
 	origin, err := utils.DeduceOrigin(ch, channel, platform)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	url, origin, _, err := h.bundleResolver.ResolveCharm(ch, origin)
+	url, resolvedOrigin, _, err := h.bundleResolver.ResolveCharm(ch, origin)
 	if err != nil {
 		return errors.Annotatef(err, "cannot resolve URL %q", chParams.Charm)
 	}
-	if url.Series == "bundle" {
-		return errors.Errorf("expected charm URL, got bundle URL %q", chParams.Charm)
+	if url.Series == "bundle" || resolvedOrigin.Type == "bundle" {
+		return errors.Errorf("expected charm URL, got bundle %q %v", chParams.Charm, resolvedOrigin)
 	}
 
 	var macaroon *macaroon.Macaroon
 	var charmOrigin commoncharm.Origin
-	url, macaroon, charmOrigin, err = store.AddCharmWithAuthorizationFromURL(h.deployAPI, h.authorizer, url, origin, h.force)
+	url, macaroon, charmOrigin, err = store.AddCharmWithAuthorizationFromURL(h.deployAPI, h.authorizer, url, resolvedOrigin, h.force)
 	if err != nil {
 		return errors.Annotatef(err, "cannot add charm %q", chParams.Charm)
 	} else if url == nil {
