@@ -171,45 +171,45 @@ func (t *ToolsSuite) TestReadToolsErrors(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "invalid agent metadata in directory .*")
 }
 
-func (t *ToolsSuite) TestReadGUIArchiveErrorNotFound(c *gc.C) {
-	gui, err := agenttools.ReadGUIArchive(t.dataDir)
-	c.Assert(err, gc.ErrorMatches, "GUI metadata not found")
+func (t *ToolsSuite) TestReadDashboardArchiveErrorNotFound(c *gc.C) {
+	dashboard, err := agenttools.ReadDashboardArchive(t.dataDir)
+	c.Assert(err, gc.ErrorMatches, "Dashboard metadata not found")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(gui, gc.IsNil)
+	c.Assert(dashboard, gc.IsNil)
 }
 
-func (t *ToolsSuite) TestReadGUIArchiveErrorNotValid(c *gc.C) {
-	dir := agenttools.SharedGUIDir(t.dataDir)
+func (t *ToolsSuite) TestReadDashboardArchiveErrorNotValid(c *gc.C) {
+	dir := agenttools.SharedDashboardDir(t.dataDir)
 	err := os.MkdirAll(dir, agenttools.DirPerm)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = ioutil.WriteFile(filepath.Join(dir, agenttools.GUIArchiveFile), []byte(" \t\n"), 0644)
+	err = ioutil.WriteFile(filepath.Join(dir, agenttools.DashboardArchiveFile), []byte(" \t\n"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	gui, err := agenttools.ReadGUIArchive(t.dataDir)
-	c.Assert(err, gc.ErrorMatches, "invalid GUI metadata in directory .*")
-	c.Assert(gui, gc.IsNil)
+	dashboard, err := agenttools.ReadDashboardArchive(t.dataDir)
+	c.Assert(err, gc.ErrorMatches, "invalid Dashboard metadata in directory .*")
+	c.Assert(dashboard, gc.IsNil)
 }
 
-func (t *ToolsSuite) TestReadGUIArchiveSuccess(c *gc.C) {
-	dir := agenttools.SharedGUIDir(t.dataDir)
+func (t *ToolsSuite) TestReadDashboardArchiveSuccess(c *gc.C) {
+	dir := agenttools.SharedDashboardDir(t.dataDir)
 	err := os.MkdirAll(dir, agenttools.DirPerm)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectGUI := coretest.GUIArchive{
+	expectDashboard := coretest.DashboardArchive{
 		Version: version.MustParse("2.0.42"),
-		URL:     "file:///path/to/gui",
+		URL:     "file:///path/to/dashboard",
 		SHA256:  "hash",
 		Size:    47,
 	}
-	b, err := json.Marshal(expectGUI)
+	b, err := json.Marshal(expectDashboard)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(dir, agenttools.GUIArchiveFile), b, 0644)
+	err = ioutil.WriteFile(filepath.Join(dir, agenttools.DashboardArchiveFile), b, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	gui, err := agenttools.ReadGUIArchive(t.dataDir)
+	dshboard, err := agenttools.ReadDashboardArchive(t.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*gui, gc.Equals, expectGUI)
+	c.Assert(*dshboard, gc.Equals, expectDashboard)
 }
 
 func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
@@ -262,9 +262,9 @@ func (t *ToolsSuite) TestSharedToolsDir(c *gc.C) {
 	c.Assert(dir, gc.Equals, "/var/lib/juju/tools/1.2.3-precise-amd64")
 }
 
-func (t *ToolsSuite) TestSharedGUIDir(c *gc.C) {
-	dir := agenttools.SharedGUIDir("/var/lib/juju")
-	c.Assert(dir, gc.Equals, "/var/lib/juju/gui")
+func (t *ToolsSuite) TestSharedDashboardDir(c *gc.C) {
+	dir := agenttools.SharedDashboardDir("/var/lib/juju")
+	c.Assert(dir, gc.Equals, "/var/lib/juju/dashboard")
 }
 
 // assertToolsContents asserts that the directory for the tools

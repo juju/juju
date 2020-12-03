@@ -41,8 +41,8 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/dashboard"
 	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/gui"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
@@ -153,17 +153,17 @@ func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 }
 
 // bootstrapCommandWrapper wraps the bootstrap command. The wrapped command has
-// the ability to disable fetching GUI information from simplestreams, so that
+// the ability to disable fetching Dashboard information from simplestreams, so that
 // it is possible to test the bootstrap process without connecting to the
-// network. This ability can be turned on by setting disableGUI to true.
+// network. This ability can be turned on by setting disableDashboard to true.
 type bootstrapCommandWrapper struct {
 	bootstrapCommand
-	disableGUI bool
+	disableDashboard bool
 }
 
 func (c *bootstrapCommandWrapper) Run(ctx *cmd.Context) error {
-	if c.disableGUI {
-		c.bootstrapCommand.noGUI = true
+	if c.disableDashboard {
+		c.bootstrapCommand.noDashboard = true
 	}
 	return c.bootstrapCommand.Run(ctx)
 }
@@ -172,10 +172,10 @@ func (s *BootstrapSuite) newBootstrapCommand() cmd.Command {
 	return s.newBootstrapCommandWrapper(true)
 }
 
-func (s *BootstrapSuite) newBootstrapCommandWrapper(disableGUI bool) cmd.Command {
+func (s *BootstrapSuite) newBootstrapCommandWrapper(disableDashboard bool) cmd.Command {
 	c := &bootstrapCommandWrapper{
 		bootstrapCommand: s.bootstrapCmd,
-		disableGUI:       disableGUI,
+		disableDashboard: disableDashboard,
 	}
 	c.SetClientStore(s.store)
 	return modelcmd.Wrap(c)
@@ -979,7 +979,7 @@ func (s *BootstrapSuite) TestBootstrapWithInvalidStoragePool(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `invalid storage provider config: storage provider "invalid" not found`)
 }
 
-func (s *BootstrapSuite) TestBootstrapWithGUI(c *gc.C) {
+func (s *BootstrapSuite) TestBootstrapWithDashboard(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 	var bootstrapFuncs fakeBootstrapFuncs
 
@@ -987,12 +987,12 @@ func (s *BootstrapSuite) TestBootstrapWithGUI(c *gc.C) {
 		return &bootstrapFuncs
 	})
 	cmdtesting.RunCommand(c, s.newBootstrapCommandWrapper(false), "dummy", "devcontroller")
-	c.Assert(bootstrapFuncs.args.GUIDataSourceBaseURL, gc.Equals, gui.DefaultBaseURL)
+	c.Assert(bootstrapFuncs.args.DashboardDataSourceBaseURL, gc.Equals, dashboard.DefaultBaseURL)
 }
 
-func (s *BootstrapSuite) TestBootstrapWithCustomizedGUI(c *gc.C) {
+func (s *BootstrapSuite) TestBootstrapWithCustomizedDashboard(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
-	s.PatchEnvironment("JUJU_GUI_SIMPLESTREAMS_URL", "https://1.2.3.4/gui/streams")
+	s.PatchEnvironment("JUJU_DASHBOARD_SIMPLESTREAMS_URL", "https://1.2.3.4/dashboard/streams")
 
 	var bootstrapFuncs fakeBootstrapFuncs
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
@@ -1000,18 +1000,18 @@ func (s *BootstrapSuite) TestBootstrapWithCustomizedGUI(c *gc.C) {
 	})
 
 	cmdtesting.RunCommand(c, s.newBootstrapCommandWrapper(false), "dummy", "devcontroller")
-	c.Assert(bootstrapFuncs.args.GUIDataSourceBaseURL, gc.Equals, "https://1.2.3.4/gui/streams")
+	c.Assert(bootstrapFuncs.args.DashboardDataSourceBaseURL, gc.Equals, "https://1.2.3.4/dashboard/streams")
 }
 
-func (s *BootstrapSuite) TestBootstrapWithoutGUI(c *gc.C) {
+func (s *BootstrapSuite) TestBootstrapWithoutDashboard(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 	var bootstrapFuncs fakeBootstrapFuncs
 
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
 		return &bootstrapFuncs
 	})
-	cmdtesting.RunCommand(c, s.newBootstrapCommandWrapper(false), "dummy", "devcontroller", "--no-gui")
-	c.Assert(bootstrapFuncs.args.GUIDataSourceBaseURL, gc.Equals, "")
+	cmdtesting.RunCommand(c, s.newBootstrapCommandWrapper(false), "dummy", "devcontroller", "--no-dashboard")
+	c.Assert(bootstrapFuncs.args.DashboardDataSourceBaseURL, gc.Equals, "")
 }
 
 type mockBootstrapInstance struct {
@@ -2023,7 +2023,7 @@ func (s *BootstrapSuite) TestBootstrapPrintCloudsInvalidCredential(c *gc.C) {
 
 	command := &bootstrapCommandWrapper{
 		bootstrapCommand: s.bootstrapCmd,
-		disableGUI:       true,
+		disableDashboard: true,
 	}
 	command.SetClientStore(store)
 

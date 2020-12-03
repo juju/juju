@@ -16,7 +16,7 @@
 ### Purpose
 
 The *Juju API* is the central interface to control the functionality of Juju. It
-is used by the command line tools as well as by the Juju GUI. This document
+is used by the command line tools as well as by the Juju Dashboard. This document
 describes how functionality has to be added, modified, or removed.
 
 ### Scope

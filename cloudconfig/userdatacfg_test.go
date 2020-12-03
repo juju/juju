@@ -164,9 +164,9 @@ func (cfg *testInstanceConfig) setMachineID(id string) *testInstanceConfig {
 	return cfg
 }
 
-// setGUI populates the configuration with the Juju GUI tools.
-func (cfg *testInstanceConfig) setGUI(url string) *testInstanceConfig {
-	cfg.Bootstrap.GUI = &tools.GUIArchive{
+// setDashboard populates the configuration with the Juju Dashboard tools.
+func (cfg *testInstanceConfig) setDashboard(url string) *testInstanceConfig {
+	cfg.Bootstrap.Dashboard = &tools.DashboardArchive{
 		URL:     url,
 		Version: version.MustParse("1.2.3"),
 		Size:    42,
@@ -698,53 +698,53 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 	}
 }
 
-func (*cloudinitSuite) TestCloudInitWithLocalGUI(c *gc.C) {
-	guiPath := path.Join(c.MkDir(), "gui.tar.bz2")
+func (*cloudinitSuite) TestCloudInitWithLocalDashboard(c *gc.C) {
+	dashboardPath := path.Join(c.MkDir(), "dashboard.tar.bz2")
 	content := []byte("content")
-	err := ioutil.WriteFile(guiPath, content, 0644)
+	err := ioutil.WriteFile(dashboardPath, content, 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	cfg := makeBootstrapConfig("precise", 0).setGUI("file://" + filepath.ToSlash(guiPath))
-	guiJson, err := json.Marshal(cfg.Bootstrap.GUI)
+	cfg := makeBootstrapConfig("precise", 0).setDashboard("file://" + filepath.ToSlash(dashboardPath))
+	dashboardJson, err := json.Marshal(cfg.Bootstrap.Dashboard)
 	c.Assert(err, jc.ErrorIsNil)
 	base64Content := base64.StdEncoding.EncodeToString(content)
-	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`gui='/var/lib/juju/gui'
-mkdir -p $gui
-install -D -m 644 /dev/null '/var/lib/juju/gui/gui.tar.bz2'
-printf %%s %s | base64 -d > '/var/lib/juju/gui/gui.tar.bz2'
-[ -f $gui/gui.tar.bz2 ] && sha256sum $gui/gui.tar.bz2 > $gui/jujugui.sha256
-[ -f $gui/jujugui.sha256 ] && (grep '1234' $gui/jujugui.sha256 && printf %%s '%s' > $gui/downloaded-gui.txt || echo Juju GUI checksum mismatch)
-rm -f $gui/gui.tar.bz2 $gui/jujugui.sha256 $gui/downloaded-gui.txt
-`, base64Content, guiJson))
-	checkCloudInitWithGUI(c, cfg, expectedScripts, "")
+	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`dashboard='/var/lib/juju/dashboard'
+mkdir -p $dashboard
+install -D -m 644 /dev/null '/var/lib/juju/dashboard/dashboard.tar.bz2'
+printf %%s %s | base64 -d > '/var/lib/juju/dashboard/dashboard.tar.bz2'
+[ -f $dashboard/dashboard.tar.bz2 ] && sha256sum $dashboard/dashboard.tar.bz2 > $dashboard/jujudashboard.sha256
+[ -f $dashboard/jujudashboard.sha256 ] && (grep '1234' $dashboard/jujudashboard.sha256 && printf %%s '%s' > $dashboard/downloaded-dashboard.txt || echo Juju Dashboard checksum mismatch)
+rm -f $dashboard/dashboard.tar.bz2 $dashboard/jujudashboard.sha256 $dashboard/downloaded-dashboard.txt
+`, base64Content, dashboardJson))
+	checkCloudInitWithDashboard(c, cfg, expectedScripts, "")
 }
 
-func (*cloudinitSuite) TestCloudInitWithRemoteGUI(c *gc.C) {
-	cfg := makeBootstrapConfig("precise", 0).setGUI("https://1.2.3.4/gui.tar.bz2")
-	guiJson, err := json.Marshal(cfg.Bootstrap.GUI)
+func (*cloudinitSuite) TestCloudInitWithRemoteDashboard(c *gc.C) {
+	cfg := makeBootstrapConfig("precise", 0).setDashboard("https://1.2.3.4/dashboard.tar.bz2")
+	dashboardJson, err := json.Marshal(cfg.Bootstrap.Dashboard)
 	c.Assert(err, jc.ErrorIsNil)
-	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`gui='/var/lib/juju/gui'
-mkdir -p $gui
-curl -sSf -o $gui/gui.tar.bz2 --retry 10 'https://1.2.3.4/gui.tar.bz2' || echo Unable to retrieve Juju GUI
-[ -f $gui/gui.tar.bz2 ] && sha256sum $gui/gui.tar.bz2 > $gui/jujugui.sha256
-[ -f $gui/jujugui.sha256 ] && (grep '1234' $gui/jujugui.sha256 && printf %%s '%s' > $gui/downloaded-gui.txt || echo Juju GUI checksum mismatch)
-rm -f $gui/gui.tar.bz2 $gui/jujugui.sha256 $gui/downloaded-gui.txt
-`, guiJson))
-	checkCloudInitWithGUI(c, cfg, expectedScripts, "")
+	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`dashboard='/var/lib/juju/dashboard'
+mkdir -p $dashboard
+curl -sSf -o $dashboard/dashboard.tar.bz2 --retry 10 'https://1.2.3.4/dashboard.tar.bz2' || echo Unable to retrieve Juju Dashboard
+[ -f $dashboard/dashboard.tar.bz2 ] && sha256sum $dashboard/dashboard.tar.bz2 > $dashboard/jujudashboard.sha256
+[ -f $dashboard/jujudashboard.sha256 ] && (grep '1234' $dashboard/jujudashboard.sha256 && printf %%s '%s' > $dashboard/downloaded-dashboard.txt || echo Juju Dashboard checksum mismatch)
+rm -f $dashboard/dashboard.tar.bz2 $dashboard/jujudashboard.sha256 $dashboard/downloaded-dashboard.txt
+`, dashboardJson))
+	checkCloudInitWithDashboard(c, cfg, expectedScripts, "")
 }
 
-func (*cloudinitSuite) TestCloudInitWithGUIReadError(c *gc.C) {
-	cfg := makeBootstrapConfig("precise", 0).setGUI("file:///no/such/gui.tar.bz2")
-	expectedError := "cannot set up Juju GUI: cannot read Juju GUI archive: .*"
-	checkCloudInitWithGUI(c, cfg, "", expectedError)
+func (*cloudinitSuite) TestCloudInitWithDashboardReadError(c *gc.C) {
+	cfg := makeBootstrapConfig("precise", 0).setDashboard("file:///no/such/dashboard.tar.bz2")
+	expectedError := "cannot set up Juju Dashboard: cannot read Juju Dashboard archive: .*"
+	checkCloudInitWithDashboard(c, cfg, "", expectedError)
 }
 
-func (*cloudinitSuite) TestCloudInitWithGUIURLError(c *gc.C) {
-	cfg := makeBootstrapConfig("precise", 0).setGUI(":")
-	expectedError := "cannot set up Juju GUI: cannot parse Juju GUI URL: .*"
-	checkCloudInitWithGUI(c, cfg, "", expectedError)
+func (*cloudinitSuite) TestCloudInitWithDashboardURLError(c *gc.C) {
+	cfg := makeBootstrapConfig("precise", 0).setDashboard(":")
+	expectedError := "cannot set up Juju Dashboard: cannot parse Juju Dashboard URL: .*"
+	checkCloudInitWithDashboard(c, cfg, "", expectedError)
 }
 
-func checkCloudInitWithGUI(c *gc.C, cfg *testInstanceConfig, expectedScripts string, expectedError string) {
+func checkCloudInitWithDashboard(c *gc.C, cfg *testInstanceConfig, expectedScripts string, expectedError string) {
 	envConfig := minimalModelConfig(c)
 	testConfig := cfg.maybeSetModelConfig(envConfig).render()
 	ci, err := cloudinit.New(testConfig.Series)

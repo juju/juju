@@ -29,8 +29,8 @@ import (
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/juju/crossmodel"
+	"github.com/juju/juju/cmd/juju/dashboard"
 	"github.com/juju/juju/cmd/juju/firewall"
-	"github.com/juju/juju/cmd/juju/gui"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/metricsdebug"
 	"github.com/juju/juju/cmd/juju/model"
@@ -300,7 +300,7 @@ func registerCommands(r commandRegistry) {
 	// NOTE:
 	// When adding a new command here, consider if the command should also
 	// be whitelisted for being enabled as an embedded command accessible to
-	// the GUI Dashboard.
+	// the Dashboard Dashboard.
 	// Update allowedEmbeddedCommands in apiserver.go
 	r.Register(newVersionCommand())
 	// Creation commands.
@@ -523,9 +523,9 @@ func registerCommands(r commandRegistry) {
 	// Manage Application Credential Access
 	r.Register(application.NewTrustCommand())
 
-	// Juju GUI commands.
-	r.Register(gui.NewGUICommand())
-	r.Register(gui.NewUpgradeGUICommand())
+	// Juju Dashboard commands.
+	r.Register(dashboard.NewDashboardCommand())
+	r.Register(dashboard.NewUpgradeDashboardCommand())
 
 	// Resource commands
 	r.Register(resource.NewUploadCommand(resource.UploadDeps{

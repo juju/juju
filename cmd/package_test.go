@@ -65,8 +65,8 @@ var allowedCalls = map[string]set.Strings{
 	"juju/commands/upgrademodel.go": set.NewStrings("os.Open", "os.RemoveAll"),
 	// ssh is not a whitelisted embedded CLI command.
 	"juju/commands/ssh_machine.go": set.NewStrings("os.Remove"),
-	// upgrade-gui is not a whitelisted embedded CLI command.
-	"juju/gui/upgradegui.go": set.NewStrings("os.Remove"),
+	// upgrade-dashboard is not a whitelisted embedded CLI command.
+	"juju/dashboard/upgradedashboard.go": set.NewStrings("os.Remove"),
 	// agree is not a whitelisted embedded CLI command.
 	"juju/romulus/agree/agree.go": set.NewStrings("exec.Command", "exec.LookPath"),
 	// Ignore the actual os calls.

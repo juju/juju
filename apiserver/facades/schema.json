@@ -4171,7 +4171,7 @@
                             "$ref": "#/definitions/RemoteApplicationInfoResults"
                         }
                     },
-                    "description": "RemoteApplicationInfo returns information about the requested remote application.\nThis call currently has no client side API, only there for the GUI at this stage."
+                    "description": "RemoteApplicationInfo returns information about the requested remote application.\nThis call currently has no client side API, only there for the Dashboard at this stage."
                 }
             },
             "definitions": {

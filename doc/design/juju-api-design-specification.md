@@ -18,7 +18,7 @@
 ### Purpose
 
 The *Juju API* is the central interface to control the functionality of Juju. It 
-is used by the command line tools as well as by the Juju GUI. This document 
+is used by the command line tools as well as by the Juju Dashboard. This document 
 describes the API design for developers maintaining and extending the API.
 
 ### Scope
@@ -28,7 +28,7 @@ DBMS. Different workers observe the changes of this description and perform the
 needed actions so that the reality is matching. Goal of the API is to provide a 
 secure, scalable, and high-available way to perform the needed changes or queries 
 with different clients like the Juju CLI, which is written in Go, or the Juju 
-GUI, which is written in JavaScript. Additionally the API provides multiple versions 
+Dashboard, which is written in JavaScript. Additionally the API provides multiple versions 
 of its functionality for a predictable behavior in environments with a mixed set of
 clients.
 

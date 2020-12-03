@@ -699,8 +699,8 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	}
 	backupHandler := &backupHandler{ctxt: httpCtxt}
 	registerHandler := &registerUserHandler{ctxt: httpCtxt}
-	guiArchiveHandler := &guiArchiveHandler{ctxt: httpCtxt}
-	guiVersionHandler := &guiVersionHandler{ctxt: httpCtxt}
+	dashboardArchiveHandler := &dashboardArchiveHandler{ctxt: httpCtxt}
+	dashboardVersionHandler := &dashboardVersionHandler{ctxt: httpCtxt}
 
 	// HTTP handler for application offer macaroon authentication.
 	addOfferAuthHandlers(srv.offerAuthCtxt, srv.mux)
@@ -844,17 +844,17 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		handler:    modelCharmsHTTPHandler,
 		authorizer: modelCharmsUploadAuthorizer,
 	}, {
-		pattern: "/gui-archive",
+		pattern: "/dashboard-archive",
 		methods: []string{"POST"},
-		handler: guiArchiveHandler,
+		handler: dashboardArchiveHandler,
 	}, {
-		pattern:         "/gui-archive",
+		pattern:         "/dashboard-archive",
 		methods:         []string{"GET"},
-		handler:         guiArchiveHandler,
+		handler:         dashboardArchiveHandler,
 		unauthenticated: true,
 	}, {
-		pattern: "/gui-version",
-		handler: guiVersionHandler,
+		pattern: "/dashboard-version",
+		handler: dashboardVersionHandler,
 	}}
 	if srv.registerIntrospectionHandlers != nil {
 		add := func(subpath string, h http.Handler) {
@@ -871,12 +871,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		addHandler(handler)
 	}
 
-	// Finally, register GUI content endpoints.
-
-	// Add the legacy GUI handler.
-	guiEndpoints := guiEndpoints(guiURLPathPrefix, srv.dataDir, httpCtxt)
-	endpoints = append(endpoints, guiEndpoints...)
-	// And the new dashboard handler
+	// Finally, register dashboard content endpoints.
 	dashboardEndpoints := dashboardEndpoints(dashboardURLPathPrefix, srv.dataDir, httpCtxt)
 	endpoints = append(endpoints, dashboardEndpoints...)
 

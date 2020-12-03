@@ -40,9 +40,9 @@ func withHTTPClient(c *gc.C, address, expectMethod string, handle func(http.Resp
 	stub.CheckCalls(c, []testing.StubCall{{expectMethod, nil}})
 }
 
-func (s *Suite) TestGUIArchives(c *gc.C) {
-	response := params.GUIArchiveResponse{
-		Versions: []params.GUIArchiveVersion{{
+func (s *Suite) TestDashboardArchives(c *gc.C) {
+	response := params.DashboardArchiveResponse{
+		Versions: []params.DashboardArchiveVersion{{
 			Version: version.MustParse("1.0.0"),
 			SHA256:  "hash1",
 			Current: false,
@@ -52,33 +52,33 @@ func (s *Suite) TestGUIArchives(c *gc.C) {
 			Current: true,
 		}},
 	}
-	withHTTPClient(c, "/gui-archive", "GET", func(w http.ResponseWriter, req *http.Request) {
+	withHTTPClient(c, "/dashboard-archive", "GET", func(w http.ResponseWriter, req *http.Request) {
 		defer req.Body.Close()
 		sendJSONResponse(c, w, response)
 	}, func(client *controller.Client) {
-		// Retrieve the GUI archive versions.
-		versions, err := client.GUIArchives()
+		// Retrieve the Dashboard archive versions.
+		versions, err := client.DashboardArchives()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(versions, jc.DeepEquals, response.Versions)
 	})
 }
 
-func (s *Suite) TestGUIArchivesError(c *gc.C) {
-	withHTTPClient(c, "/gui-archive", "GET", func(w http.ResponseWriter, req *http.Request) {
+func (s *Suite) TestDashboardArchivesError(c *gc.C) {
+	withHTTPClient(c, "/dashboard-archive", "GET", func(w http.ResponseWriter, req *http.Request) {
 		defer req.Body.Close()
 		w.WriteHeader(http.StatusBadRequest)
 	}, func(client *controller.Client) {
-		// Call to get GUI archive versions.
-		versions, err := client.GUIArchives()
-		c.Assert(err, gc.ErrorMatches, "cannot retrieve GUI archives info: .*")
+		// Call to get Dashboard archive versions.
+		versions, err := client.DashboardArchives()
+		c.Assert(err, gc.ErrorMatches, "cannot retrieve Dashboard archives info: .*")
 		c.Assert(versions, gc.IsNil)
 	})
 }
 
-func (s *Suite) TestUploadGUIArchive(c *gc.C) {
+func (s *Suite) TestUploadDashboardArchive(c *gc.C) {
 	archive := []byte("archive content")
 	hash, size, vers := "archive-hash", int64(len(archive)), version.MustParse("2.1.0")
-	withHTTPClient(c, "/gui-archive", "POST", func(w http.ResponseWriter, req *http.Request) {
+	withHTTPClient(c, "/dashboard-archive", "POST", func(w http.ResponseWriter, req *http.Request) {
 		defer req.Body.Close()
 		err := req.ParseForm()
 		c.Assert(err, jc.ErrorIsNil)
@@ -93,56 +93,56 @@ func (s *Suite) TestUploadGUIArchive(c *gc.C) {
 		h := req.Form.Get("hash")
 		c.Assert(h, gc.Equals, hash)
 		// Send the response.
-		sendJSONResponse(c, w, params.GUIArchiveVersion{
+		sendJSONResponse(c, w, params.DashboardArchiveVersion{
 			Current: true,
 		})
 	}, func(client *controller.Client) {
-		// Upload a new Juju GUI archive.
-		current, err := client.UploadGUIArchive(bytes.NewReader(archive), hash, size, vers)
+		// Upload a new Juju Dashboard archive.
+		current, err := client.UploadDashboardArchive(bytes.NewReader(archive), hash, size, vers)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(current, jc.IsTrue)
 	})
 }
 
-func (s *Suite) TestUploadGUIArchiveError(c *gc.C) {
+func (s *Suite) TestUploadDashboardArchiveError(c *gc.C) {
 	archive := []byte("archive content")
 	hash, size, vers := "archive-hash", int64(len(archive)), version.MustParse("2.1.0")
-	withHTTPClient(c, "/gui-archive", "POST", func(w http.ResponseWriter, req *http.Request) {
+	withHTTPClient(c, "/dashboard-archive", "POST", func(w http.ResponseWriter, req *http.Request) {
 		defer req.Body.Close()
 		w.WriteHeader(http.StatusBadRequest)
 	}, func(client *controller.Client) {
-		// Call to upload a new Juju GUI archive.
-		current, err := client.UploadGUIArchive(bytes.NewReader(archive), hash, size, vers)
-		c.Assert(err, gc.ErrorMatches, "cannot upload the GUI archive: .*")
+		// Call to upload a new Juju Dashboard archive.
+		current, err := client.UploadDashboardArchive(bytes.NewReader(archive), hash, size, vers)
+		c.Assert(err, gc.ErrorMatches, "cannot upload the Dashboard archive: .*")
 		c.Assert(current, jc.IsFalse)
 	})
 }
 
-func (s *Suite) TestSelectGUIVersion(c *gc.C) {
+func (s *Suite) TestSelectDashboardVersion(c *gc.C) {
 	vers := version.MustParse("2.0.42")
-	withHTTPClient(c, "/gui-version", "PUT", func(w http.ResponseWriter, req *http.Request) {
+	withHTTPClient(c, "/dashboard-version", "PUT", func(w http.ResponseWriter, req *http.Request) {
 		defer req.Body.Close()
 		// Check request body.
-		var request params.GUIVersionRequest
+		var request params.DashboardVersionRequest
 		decoder := json.NewDecoder(req.Body)
 		err := decoder.Decode(&request)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(request.Version, gc.Equals, vers)
 	}, func(client *controller.Client) {
-		// Switch to a specific Juju GUI version.
-		err := client.SelectGUIVersion(vers)
+		// Switch to a specific Juju Dashboard version.
+		err := client.SelectDashboardVersion(vers)
 		c.Assert(err, jc.ErrorIsNil)
 	})
 }
 
-func (s *Suite) TestSelectGUIVersionError(c *gc.C) {
+func (s *Suite) TestSelectDashboardVersionError(c *gc.C) {
 	vers := version.MustParse("2.0.42")
-	withHTTPClient(c, "/gui-version", "PUT", func(w http.ResponseWriter, req *http.Request) {
+	withHTTPClient(c, "/dashboard-version", "PUT", func(w http.ResponseWriter, req *http.Request) {
 		defer req.Body.Close()
 		w.WriteHeader(http.StatusBadRequest)
 	}, func(client *controller.Client) {
-		// Call to select a Juju GUI version.
-		err := client.SelectGUIVersion(vers)
-		c.Assert(err, gc.ErrorMatches, "cannot select GUI version: .*")
+		// Call to select a Juju Dashboard version.
+		err := client.SelectDashboardVersion(vers)
+		c.Assert(err, gc.ErrorMatches, "cannot select Dashboard version: .*")
 	})
 }

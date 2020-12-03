@@ -128,7 +128,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"environs/config",
 		"environs/context",
 		"environs/filestorage",
-		"environs/gui",
+		"environs/dashboard",
 		"environs/imagemetadata",
 		"environs/instances",
 		"environs/simplestreams",

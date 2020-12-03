@@ -366,12 +366,12 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		}
 	}
 
-	// Populate the GUI archive catalogue.
-	if err := c.populateGUIArchive(st, env); err != nil {
-		// Do not stop the bootstrapping process for Juju GUI archive errors.
-		logger.Warningf("cannot set up Juju GUI: %s", err)
+	// Populate the Dashboard archive catalogue.
+	if err := c.populateDashboardArchive(st, env); err != nil {
+		// Do not stop the bootstrapping process for Juju Dashboard archive errors.
+		logger.Warningf("cannot set up Juju Dashboard: %s", err)
 	} else {
-		logger.Debugf("Juju GUI successfully set up")
+		logger.Debugf("Juju Dashboard successfully set up")
 	}
 
 	// bootstrap nodes always get the vote
@@ -570,38 +570,38 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Bootstrap
 	return nil
 }
 
-// populateGUIArchive stores the uploaded Juju GUI archive in provider storage,
-// updates the GUI metadata and set the current Juju GUI version.
-func (c *BootstrapCommand) populateGUIArchive(st *state.State, env environs.BootstrapEnviron) error {
+// populateDashboardArchive stores the uploaded Juju Dashboard archive in provider storage,
+// updates the Dashboard metadata and set the current Juju Dashboard version.
+func (c *BootstrapCommand) populateDashboardArchive(st *state.State, env environs.BootstrapEnviron) error {
 	agentConfig := c.CurrentConfig()
 	dataDir := agentConfig.DataDir()
 
-	guiStorage, err := st.GUIStorage()
+	dashboardStorage, err := st.DashboardStorage()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer func() { _ = guiStorage.Close() }()
+	defer func() { _ = dashboardStorage.Close() }()
 
-	gui, err := agenttools.ReadGUIArchive(dataDir)
+	dashboard, err := agenttools.ReadDashboardArchive(dataDir)
 	if err != nil {
-		return errors.Annotate(err, "cannot fetch GUI info")
+		return errors.Annotate(err, "cannot fetch Dashboard info")
 	}
 
-	f, err := os.Open(filepath.Join(agenttools.SharedGUIDir(dataDir), "gui.tar.bz2"))
+	f, err := os.Open(filepath.Join(agenttools.SharedDashboardDir(dataDir), "dashboard.tar.bz2"))
 	if err != nil {
-		return errors.Annotate(err, "cannot read GUI archive")
+		return errors.Annotate(err, "cannot read Dashboard archive")
 	}
 	defer func() { _ = f.Close() }()
 
-	if err := guiStorage.Add(f, binarystorage.Metadata{
-		Version: gui.Version.String(),
-		Size:    gui.Size,
-		SHA256:  gui.SHA256,
+	if err := dashboardStorage.Add(f, binarystorage.Metadata{
+		Version: dashboard.Version.String(),
+		Size:    dashboard.Size,
+		SHA256:  dashboard.SHA256,
 	}); err != nil {
-		return errors.Annotate(err, "cannot store GUI archive")
+		return errors.Annotate(err, "cannot store Dashboard archive")
 	}
 
-	return errors.Annotate(st.GUISetVersion(gui.Version), "cannot set current GUI version")
+	return errors.Annotate(st.DashboardSetVersion(dashboard.Version), "cannot set current Dashboard version")
 }
 
 // Override for testing.

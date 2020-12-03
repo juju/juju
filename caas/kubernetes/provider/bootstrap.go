@@ -1052,12 +1052,12 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 	)
 	var jujudCmd string
 	if c.pcfg.ControllerId == agent.BootstrapControllerId {
-		guiCmd, err := c.setUpGUICommand()
+		dashboardCmd, err := c.setUpDashboardCommand()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if guiCmd != "" {
-			jujudCmd += "\n" + guiCmd
+		if dashboardCmd != "" {
+			jujudCmd += "\n" + dashboardCmd
 		}
 		// only do bootstrap-state on the bootstrap controller - controller-0.
 		jujudCmd += "\n" + fmt.Sprintf(
@@ -1077,27 +1077,27 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 	return nil
 }
 
-func (c *controllerStack) setUpGUICommand() (string, error) {
-	if c.pcfg.Bootstrap.GUI == nil {
+func (c *controllerStack) setUpDashboardCommand() (string, error) {
+	if c.pcfg.Bootstrap.Dashboard == nil {
 		return "", nil
 	}
-	var guiCmds []string
-	u, err := url.Parse(c.pcfg.Bootstrap.GUI.URL)
+	var dashboardCmds []string
+	u, err := url.Parse(c.pcfg.Bootstrap.Dashboard.URL)
 	if err != nil {
-		return "", errors.Annotate(err, "cannot parse Juju GUI URL")
+		return "", errors.Annotate(err, "cannot parse Juju Dashboard URL")
 	}
-	guiJson, err := json.Marshal(c.pcfg.Bootstrap.GUI)
+	dashboardJson, err := json.Marshal(c.pcfg.Bootstrap.Dashboard)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	guiDir := agenttools.SharedGUIDir(c.pcfg.DataDir)
-	guiCmds = append(guiCmds,
+	dashboardDir := agenttools.SharedDashboardDir(c.pcfg.DataDir)
+	dashboardCmds = append(dashboardCmds,
 		"echo Installing Dashboard...",
-		"export gui="+utils.ShQuote(guiDir),
-		"mkdir -p $gui",
+		"export dashboard="+utils.ShQuote(dashboardDir),
+		"mkdir -p $dashboard",
 	)
-	// Download the GUI from simplestreams.
-	command := "curl -sSf -o $gui/gui.tar.bz2 --retry 10"
+	// Download the Dashboard from simplestreams.
+	command := "curl -sSf -o $dashboard/dashboard.tar.bz2 --retry 10"
 	if c.pcfg.DisableSSLHostnameVerification {
 		command += " --insecure"
 	}
@@ -1105,24 +1105,24 @@ func (c *controllerStack) setUpGUICommand() (string, error) {
 	curlProxyArgs := formatCurlProxyArguments(u.String(), c.pcfg.ProxySettings)
 	command += curlProxyArgs
 	command += " " + utils.ShQuote(u.String())
-	// A failure in fetching the Juju GUI archive should not prevent the
-	// model to be bootstrapped. Better no GUI than no Juju at all.
+	// A failure in fetching the Juju Dashboard archive should not prevent the
+	// model to be bootstrapped. Better no Dashboard than no Juju at all.
 	command += " || echo Unable to retrieve Juju Dashboard"
-	guiCmds = append(guiCmds, command)
-	guiCmds = append(guiCmds,
-		"[ -f $gui/gui.tar.bz2 ] && sha256sum $gui/gui.tar.bz2 > $gui/jujugui.sha256",
+	dashboardCmds = append(dashboardCmds, command)
+	dashboardCmds = append(dashboardCmds,
+		"[ -f $dashboard/dashboard.tar.bz2 ] && sha256sum $dashboard/dashboard.tar.bz2 > $dashboard/jujudashboard.sha256",
 		fmt.Sprintf(
-			`[ -f $gui/jujugui.sha256 ] && (grep '%s' $gui/jujugui.sha256 && printf %%s %s > $gui/downloaded-gui.txt || echo Juju GUI checksum mismatch)`,
-			c.pcfg.Bootstrap.GUI.SHA256, utils.ShQuote(string(guiJson))),
+			`[ -f $dashboard/jujudashboard.sha256 ] && (grep '%s' $dashboard/jujudashboard.sha256 && printf %%s %s > $dashboard/downloaded-dashboard.txt || echo Juju Dashboard checksum mismatch)`,
+			c.pcfg.Bootstrap.Dashboard.SHA256, utils.ShQuote(string(dashboardJson))),
 	)
-	return strings.Join(guiCmds, "\n"), nil
+	return strings.Join(dashboardCmds, "\n"), nil
 }
 
-func formatCurlProxyArguments(guiURL string, proxySettings proxy.Settings) (proxyArgs string) {
-	if strings.HasPrefix(guiURL, "http://") && proxySettings.Http != "" {
+func formatCurlProxyArguments(dashboardURL string, proxySettings proxy.Settings) (proxyArgs string) {
+	if strings.HasPrefix(dashboardURL, "http://") && proxySettings.Http != "" {
 		proxyUrl := proxySettings.Http
 		proxyArgs += fmt.Sprintf(" --proxy %s", proxyUrl)
-	} else if strings.HasPrefix(guiURL, "https://") && proxySettings.Https != "" {
+	} else if strings.HasPrefix(dashboardURL, "https://") && proxySettings.Https != "" {
 		proxyUrl := proxySettings.Https
 		// curl automatically uses HTTP CONNECT for URLs containing HTTPS
 		proxyArgs += fmt.Sprintf(" --proxy %s", proxyUrl)

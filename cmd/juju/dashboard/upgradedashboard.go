@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package gui
+package dashboard
 
 import (
 	"crypto/sha256"
@@ -20,31 +20,31 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/gui"
+	"github.com/juju/juju/environs/dashboard"
 )
 
-// NewUpgradeGUICommand creates and returns a new upgrade-dashboard command.
-func NewUpgradeGUICommand() cmd.Command {
-	return modelcmd.WrapController(&upgradeGUICommand{})
+// NewUpgradeDashboardCommand creates and returns a new upgrade-dashboard command.
+func NewUpgradeDashboardCommand() cmd.Command {
+	return modelcmd.WrapController(&upgradeDashboardCommand{})
 }
 
-// upgradeGUICommand upgrades to a new Juju Dashboard version in the controller.
-type upgradeGUICommand struct {
+// upgradeDashboardCommand upgrades to a new Juju Dashboard version in the controller.
+type upgradeDashboardCommand struct {
 	modelcmd.ControllerCommandBase
 
-	guiStream  string
-	versOrPath string
-	list       bool
+	dashboardStream string
+	versOrPath      string
+	list            bool
 }
 
-const upgradeGUIDoc = `
+const upgradeDashboardDoc = `
 Upgrade to the latest Juju Dashboard released version:
 
 	juju upgrade-dashboard
 
 Upgrade to the latest Juju Dashboard development version:
 
-	juju upgrade-dashboard --gui-stream=devel
+	juju upgrade-dashboard --dashboard-stream=devel
 
 Upgrade to a specific Juju Dashboard released version:
 
@@ -52,7 +52,7 @@ Upgrade to a specific Juju Dashboard released version:
 
 Upgrade to a Juju Dashboard version present in a local tar.bz2 Dashboard release file:
 
-	juju upgrade-dashboard /path/to/jujugui-2.2.0.tar.bz2
+	juju upgrade-dashboard /path/to/jujudashboard-2.2.0.tar.bz2
 
 List available Juju Dashboard releases without upgrading:
 
@@ -60,24 +60,23 @@ List available Juju Dashboard releases without upgrading:
 `
 
 // Info implements the cmd.Command interface.
-func (c *upgradeGUICommand) Info() *cmd.Info {
+func (c *upgradeDashboardCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "upgrade-dashboard",
 		Purpose: "Upgrade to a new Juju Dashboard version.",
-		Doc:     upgradeGUIDoc,
-		Aliases: []string{"upgrade-gui"},
+		Doc:     upgradeDashboardDoc,
 	})
 }
 
 // SetFlags implements the cmd.Command interface.
-func (c *upgradeGUICommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *upgradeDashboardCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
 	f.BoolVar(&c.list, "list", false, "List available Juju Dashboard release versions without upgrading")
-	f.StringVar(&c.guiStream, "gui-stream", gui.ReleasedStream, "Specify the stream used to fetch the dashboard")
+	f.StringVar(&c.dashboardStream, "dashboard-stream", dashboard.ReleasedStream, "Specify the stream used to fetch the dashboard")
 }
 
 // Init implements the cmd.Command interface.
-func (c *upgradeGUICommand) Init(args []string) error {
+func (c *upgradeDashboardCommand) Init(args []string) error {
 	if len(args) == 1 {
 		if c.list {
 			return errors.New("cannot provide arguments if --list is provided")
@@ -89,7 +88,7 @@ func (c *upgradeGUICommand) Init(args []string) error {
 }
 
 // Run implements the cmd.Command interface.
-func (c *upgradeGUICommand) Run(ctx *cmd.Context) error {
+func (c *upgradeDashboardCommand) Run(ctx *cmd.Context) error {
 	// Open the Juju API client.
 	client, err := c.NewControllerAPIClient()
 	if err != nil {
@@ -109,7 +108,7 @@ func (c *upgradeGUICommand) Run(ctx *cmd.Context) error {
 
 	if c.list {
 		// List available Juju Dashboard archive versions.
-		allMeta, err := remoteArchiveMetadata(c.guiStream, ctrlVersion.Major, ctrlVersion.Minor)
+		allMeta, err := remoteArchiveMetadata(c.dashboardStream, ctrlVersion.Major, ctrlVersion.Minor)
 		if err != nil {
 			return errors.Annotate(err, "cannot list Juju Dashboard release versions")
 		}
@@ -119,7 +118,7 @@ func (c *upgradeGUICommand) Run(ctx *cmd.Context) error {
 		return nil
 	}
 	// Retrieve the dashboard archive and its related info.
-	archive, err := c.openArchive(c.guiStream, c.versOrPath, ctrlVersion.Major, ctrlVersion.Minor)
+	archive, err := c.openArchive(c.dashboardStream, c.versOrPath, ctrlVersion.Major, ctrlVersion.Minor)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -144,7 +143,7 @@ func (c *upgradeGUICommand) Run(ctx *cmd.Context) error {
 		}
 		defer f.Close()
 		ctx.Infof("uploading Juju Dashboard %s", archive.vers)
-		isCurrent, err = clientUploadGUIArchive(client, f, archive.hash, archive.size, archive.vers)
+		isCurrent, err = clientUploadDashboardArchive(client, f, archive.hash, archive.size, archive.vers)
 		if err != nil {
 			return errors.Annotate(err, "cannot upload Juju Dashboard")
 		}
@@ -155,7 +154,7 @@ func (c *upgradeGUICommand) Run(ctx *cmd.Context) error {
 		ctx.Infof("Juju Dashboard at version %s", archive.vers)
 		return nil
 	}
-	if err = clientSelectGUIVersion(client, archive.vers); err != nil {
+	if err = clientSelectDashboardVersion(client, archive.vers); err != nil {
 		return errors.Annotate(err, "cannot switch to new Juju Dashboard version")
 	}
 	ctx.Infof("Juju Dashboard switched to version %s", archive.vers)
@@ -173,7 +172,7 @@ type openedArchive struct {
 
 // openArchive opens a Juju Dashboard archive from the given version or file path.
 // The readSeekCloser returned in openedArchive.r must be closed by callers.
-func (c *upgradeGUICommand) openArchive(stream, versOrPath string, major, minor int) (openedArchive, error) {
+func (c *upgradeDashboardCommand) openArchive(stream, versOrPath string, major, minor int) (openedArchive, error) {
 	if versOrPath == "" {
 		// Return the most recent Juju Dashboard from simplestreams.
 		allMeta, err := remoteArchiveMetadata(stream, major, minor)
@@ -228,7 +227,7 @@ func (c *upgradeGUICommand) openArchive(stream, versOrPath string, major, minor 
 			f.Close()
 		}
 	}()
-	vers, err := gui.DashboardArchiveVersion(f)
+	vers, err := dashboard.DashboardArchiveVersion(f)
 	if err != nil {
 		return openedArchive{}, errors.Annotatef(err, "cannot upgrade Juju Dashboard using %q", versOrPath)
 	}
@@ -253,9 +252,9 @@ func (c *upgradeGUICommand) openArchive(stream, versOrPath string, major, minor 
 
 // remoteArchiveMetadata returns Juju Dashboard archive metadata from simplestreams.
 // The dashboard metadata will be compatible with the juju major.minor version.
-func remoteArchiveMetadata(stream string, major, minor int) ([]*gui.Metadata, error) {
-	source := gui.NewDataSource(common.GUIDataSourceBaseURL())
-	allMeta, err := guiFetchMetadata(stream, major, minor, source)
+func remoteArchiveMetadata(stream string, major, minor int) ([]*dashboard.Metadata, error) {
+	source := dashboard.NewDataSource(common.DashboardDataSourceBaseURL())
+	allMeta, err := dashboardFetchMetadata(stream, major, minor, source)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot retrieve Juju Dashboard archive info")
 	}
@@ -266,7 +265,7 @@ func remoteArchiveMetadata(stream string, major, minor int) ([]*gui.Metadata, er
 }
 
 // findMetadataVersion returns the metadata in allMeta with the given version.
-func findMetadataVersion(allMeta []*gui.Metadata, vers version.Number) (*gui.Metadata, error) {
+func findMetadataVersion(allMeta []*dashboard.Metadata, vers version.Number) (*dashboard.Metadata, error) {
 	for _, metadata := range allMeta {
 		if metadata.Version == vers {
 			return metadata, nil
@@ -290,7 +289,7 @@ func hashAndSize(r io.Reader) (hash string, size int64, err error) {
 // controller. If the given version is not present in the server, an empty
 // hash is returned.
 func existingVersionInfo(client *controller.Client, vers version.Number) (hash string, current bool, err error) {
-	versions, err := clientGUIArchives(client)
+	versions, err := clientDashboardArchives(client)
 	if err != nil {
 		return "", false, errors.Annotate(err, "cannot retrieve Dashboard versions from the controller")
 	}
@@ -305,7 +304,7 @@ func existingVersionInfo(client *controller.Client, vers version.Number) (hash s
 // storeArchive saves the Juju Dashboard archive in the given reader in a temporary
 // file. The resulting returned readSeekCloser is deleted when closed.
 func storeArchive(r io.Reader) (readSeekCloser, error) {
-	f, err := ioutil.TempFile("", "gui-archive")
+	f, err := ioutil.TempFile("", "dashboard-archive")
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create a temporary file to save the Juju Dashboard archive")
 	}
@@ -336,20 +335,20 @@ func (f deleteOnCloseFile) Close() error {
 	return nil
 }
 
-// clientGUIArchives is defined for testing purposes.
-var clientGUIArchives = func(client *controller.Client) ([]params.GUIArchiveVersion, error) {
-	return client.GUIArchives()
+// clientDashboardArchives is defined for testing purposes.
+var clientDashboardArchives = func(client *controller.Client) ([]params.DashboardArchiveVersion, error) {
+	return client.DashboardArchives()
 }
 
-// clientSelectGUIVersion is defined for testing purposes.
-var clientSelectGUIVersion = func(client *controller.Client, vers version.Number) error {
-	return client.SelectGUIVersion(vers)
+// clientSelectDashboardVersion is defined for testing purposes.
+var clientSelectDashboardVersion = func(client *controller.Client, vers version.Number) error {
+	return client.SelectDashboardVersion(vers)
 }
 
-// clientUploadGUIArchive is defined for testing purposes.
-var clientUploadGUIArchive = func(client *controller.Client, r io.ReadSeeker, hash string, size int64, vers version.Number) (bool, error) {
-	return client.UploadGUIArchive(r, hash, size, vers)
+// clientUploadDashboardArchive is defined for testing purposes.
+var clientUploadDashboardArchive = func(client *controller.Client, r io.ReadSeeker, hash string, size int64, vers version.Number) (bool, error) {
+	return client.UploadDashboardArchive(r, hash, size, vers)
 }
 
-// guiFetchMetadata is defined for testing purposes.
-var guiFetchMetadata = gui.FetchMetadata
+// dashboardFetchMetadata is defined for testing purposes.
+var dashboardFetchMetadata = dashboard.FetchMetadata
