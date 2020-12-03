@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/modelcmd"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
@@ -44,6 +45,7 @@ func NewDeployerFactory(dep DeployerDependencies) DeployerFactory {
 	d := &factory{
 		clock:                jujuclock.WallClock,
 		model:                dep.Model,
+		fileSystem:           dep.FileSystem,
 		newConsumeDetailsAPI: dep.NewConsumeDetailsAPI,
 		steps:                dep.Steps,
 	}
@@ -104,6 +106,7 @@ func (d *factory) setConfig(cfg DeployerConfig) {
 type DeployerDependencies struct {
 	DeployResources      resourceadapters.DeployResourcesFunc
 	Model                ModelCommand
+	FileSystem           modelcmd.Filesystem
 	NewConsumeDetailsAPI func(url *charm.OfferURL) (ConsumeDetails, error)
 	Steps                []DeployStep
 }
@@ -148,6 +151,7 @@ type factory struct {
 	model                ModelCommand
 	deployResources      resourceadapters.DeployResourcesFunc
 	newConsumeDetailsAPI func(url *charm.OfferURL) (ConsumeDetails, error)
+	fileSystem           modelcmd.Filesystem
 
 	// DeployerConfig
 	placementSpec     string
@@ -185,6 +189,9 @@ func (d *factory) maybePredeployedLocalCharm() (Deployer, error) {
 	// environment.
 	userCharmURL, err := resolveCharmURL(d.charmOrBundle)
 	if err != nil {
+		if _, err := d.fileSystem.Stat(d.charmOrBundle); os.IsNotExist(errors.Cause(err)) {
+			return nil, errors.Errorf("no charm was found at %q", d.charmOrBundle)
+		}
 		return nil, errors.Trace(err)
 	} else if userCharmURL.Schema != "local" {
 		logger.Debugf("cannot interpret as a redeployment of a local charm from the controller")
