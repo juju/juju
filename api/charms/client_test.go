@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/api/charms"
 	apicharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/arch"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -202,7 +203,7 @@ func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
 		Risk:         "stable",
 		Revision:     &curl.Revision,
 		Track:        nil,
-		Architecture: "amd64",
+		Architecture: arch.DefaultArchitecture,
 		OS:           "ubuntu",
 		Series:       "bionic",
 	}
@@ -237,7 +238,7 @@ func (s *charmsMockSuite) TestAddCharmWithAuthorization(c *gc.C) {
 		Risk:         "stable",
 		Revision:     &curl.Revision,
 		Track:        nil,
-		Architecture: "amd64",
+		Architecture: arch.DefaultArchitecture,
 		OS:           "ubuntu",
 		Series:       "bionic",
 	}

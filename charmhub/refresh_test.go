@@ -15,6 +15,7 @@ import (
 
 	path "github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
+	"github.com/juju/juju/core/arch"
 )
 
 type RefreshSuite struct {
@@ -39,7 +40,7 @@ func (s *RefreshSuite) TestRefresh(c *gc.C) {
 			Platform: transport.RefreshRequestPlatform{
 				OS:           "ubuntu",
 				Series:       "focal",
-				Architecture: "amd64",
+				Architecture: arch.DefaultArchitecture,
 			},
 			TrackingChannel: "latest/stable",
 		}},
@@ -53,7 +54,7 @@ func (s *RefreshSuite) TestRefresh(c *gc.C) {
 	config, err := RefreshOne(name, 1, "latest/stable", RefreshPlatform{
 		OS:           "ubuntu",
 		Series:       "focal",
-		Architecture: "amd64",
+		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -81,7 +82,7 @@ func (s *RefreshSuite) TestRefreshFailure(c *gc.C) {
 	config, err := RefreshOne(name, 1, "latest/stable", RefreshPlatform{
 		OS:           "ubuntu",
 		Series:       "focal",
-		Architecture: "amd64",
+		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -133,7 +134,7 @@ func (s *RefreshConfigSuite) TestRefreshOneBuild(c *gc.C) {
 	config, err := RefreshOne(id, 1, "latest/stable", RefreshPlatform{
 		OS:           "ubuntu",
 		Series:       "focal",
-		Architecture: "amd64",
+		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -149,7 +150,7 @@ func (s *RefreshConfigSuite) TestRefreshOneBuild(c *gc.C) {
 			Platform: transport.RefreshRequestPlatform{
 				OS:           "ubuntu",
 				Series:       "focal",
-				Architecture: "amd64",
+				Architecture: arch.DefaultArchitecture,
 			},
 			TrackingChannel: "latest/stable",
 		}},
@@ -165,7 +166,7 @@ func (s *RefreshConfigSuite) TestRefreshOneEnsure(c *gc.C) {
 	config, err := RefreshOne("foo", 1, "latest/stable", RefreshPlatform{
 		OS:           "ubuntu",
 		Series:       "focal",
-		Architecture: "amd64",
+		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -184,7 +185,7 @@ func (s *RefreshConfigSuite) TestInstallOneBuildRevision(c *gc.C) {
 	config, err := InstallOneFromRevision(name, revision, RefreshPlatform{
 		OS:           "ubuntu",
 		Series:       "focal",
-		Architecture: "amd64",
+		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -202,7 +203,7 @@ func (s *RefreshConfigSuite) TestInstallOneBuildRevision(c *gc.C) {
 			Platform: &transport.RefreshRequestPlatform{
 				OS:           "ubuntu",
 				Series:       "focal",
-				Architecture: "amd64",
+				Architecture: arch.DefaultArchitecture,
 			},
 		}},
 	})
@@ -215,7 +216,7 @@ func (s *RefreshConfigSuite) TestInstallOneBuildChannel(c *gc.C) {
 	config, err := InstallOneFromChannel(name, channel, RefreshPlatform{
 		OS:           "ubuntu",
 		Series:       "focal",
-		Architecture: "amd64",
+		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -233,7 +234,7 @@ func (s *RefreshConfigSuite) TestInstallOneBuildChannel(c *gc.C) {
 			Platform: &transport.RefreshRequestPlatform{
 				OS:           "ubuntu",
 				Series:       "focal",
-				Architecture: "amd64",
+				Architecture: arch.DefaultArchitecture,
 			},
 		}},
 	})
@@ -243,7 +244,7 @@ func (s *RefreshConfigSuite) TestInstallOneEnsure(c *gc.C) {
 	config, err := InstallOneFromChannel("foo", "latest/stable", RefreshPlatform{
 		OS:           "ubuntu",
 		Series:       "focal",
-		Architecture: "amd64",
+		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -259,7 +260,7 @@ func (s *RefreshConfigSuite) TestInstallOneFromChannelEnsure(c *gc.C) {
 	config, err := InstallOneFromChannel("foo", "latest/stable", RefreshPlatform{
 		OS:           "ubuntu",
 		Series:       "focal",
-		Architecture: "amd64",
+		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -275,7 +276,7 @@ func (s *RefreshConfigSuite) TestDownloadOneEnsure(c *gc.C) {
 	config, err := DownloadOne("foo", 1, "latest/stable", RefreshPlatform{
 		OS:           "ubuntu",
 		Series:       "focal",
-		Architecture: "amd64",
+		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -293,7 +294,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuild(c *gc.C) {
 	config, err := DownloadOneFromChannel(name, channel, RefreshPlatform{
 		OS:           "ubuntu",
 		Series:       "focal",
-		Architecture: "amd64",
+		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -311,7 +312,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuild(c *gc.C) {
 			Platform: &transport.RefreshRequestPlatform{
 				OS:           "ubuntu",
 				Series:       "focal",
-				Architecture: "amd64",
+				Architecture: arch.DefaultArchitecture,
 			},
 		}},
 	})
@@ -321,7 +322,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelEnsure(c *gc.C) {
 	config, err := DownloadOneFromChannel("foo", "latest/stable", RefreshPlatform{
 		OS:           "ubuntu",
 		Series:       "focal",
-		Architecture: "amd64",
+		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -338,7 +339,7 @@ func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 	config1, err := RefreshOne(id1, 1, "latest/stable", RefreshPlatform{
 		OS:           "ubuntu",
 		Series:       "focal",
-		Architecture: "amd64",
+		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	config1 = DefineInstanceKey(c, config1, "foo-bar")
@@ -347,7 +348,7 @@ func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 	config2, err := RefreshOne(id2, 2, "latest/edge", RefreshPlatform{
 		OS:           "ubuntu",
 		Series:       "trusty",
-		Architecture: "amd64",
+		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	config2 = DefineInstanceKey(c, config2, "foo-baz")
@@ -358,7 +359,7 @@ func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 	config3, err := InstallOneFromChannel(name3, "1/stable", RefreshPlatform{
 		OS:           "ubuntu",
 		Series:       "disco",
-		Architecture: "amd64",
+		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -376,7 +377,7 @@ func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 			Platform: transport.RefreshRequestPlatform{
 				OS:           "ubuntu",
 				Series:       "focal",
-				Architecture: "amd64",
+				Architecture: arch.DefaultArchitecture,
 			},
 			TrackingChannel: "latest/stable",
 		}, {
@@ -386,7 +387,7 @@ func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 			Platform: transport.RefreshRequestPlatform{
 				OS:           "ubuntu",
 				Series:       "trusty",
-				Architecture: "amd64",
+				Architecture: arch.DefaultArchitecture,
 			},
 			TrackingChannel: "latest/edge",
 		}},
@@ -405,7 +406,7 @@ func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 			Platform: &transport.RefreshRequestPlatform{
 				OS:           "ubuntu",
 				Series:       "disco",
-				Architecture: "amd64",
+				Architecture: arch.DefaultArchitecture,
 			},
 			Channel: &channel,
 		}},
@@ -416,7 +417,7 @@ func (s *RefreshConfigSuite) TestRefreshManyEnsure(c *gc.C) {
 	config1, err := RefreshOne("foo", 1, "latest/stable", RefreshPlatform{
 		OS:           "ubuntu",
 		Series:       "focal",
-		Architecture: "amd64",
+		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	config1 = DefineInstanceKey(c, config1, "foo-bar")
@@ -424,7 +425,7 @@ func (s *RefreshConfigSuite) TestRefreshManyEnsure(c *gc.C) {
 	config2, err := RefreshOne("bar", 2, "latest/edge", RefreshPlatform{
 		OS:           "ubuntu",
 		Series:       "trusty",
-		Architecture: "amd64",
+		Architecture: arch.DefaultArchitecture,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	config2 = DefineInstanceKey(c, config2, "foo-baz")
