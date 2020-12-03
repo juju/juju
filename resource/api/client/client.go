@@ -201,14 +201,6 @@ func (c Client) AddPendingResources(args AddPendingResourcesArgs) ([]string, err
 // AddPendingResources API endpoint.
 func newAddPendingResourcesArgs(tag names.ApplicationTag, chID CharmID, csMac *macaroon.Macaroon, resources []charmresource.Resource) (params.AddPendingResourcesArgs, error) {
 	var args params.AddPendingResourcesArgs
-
-	if chID.Origin.Source != apicharm.OriginCharmStore && chID.Origin.Source != apicharm.OriginLocal {
-		// Version one of the Resources API AddPendingResources
-		// only supports the CharmStore and Local charms with the
-		// old channel style of risk only.
-		return args, errors.Errorf("attempting to use the wrong Resources facade version")
-	}
-
 	var apiResources []params.CharmResource
 	for _, res := range resources {
 		if err := res.Validate(); err != nil {
