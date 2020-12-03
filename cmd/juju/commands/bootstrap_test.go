@@ -41,8 +41,8 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/dashboard"
 	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/gui"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
@@ -979,7 +979,7 @@ func (s *BootstrapSuite) TestBootstrapWithInvalidStoragePool(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `invalid storage provider config: storage provider "invalid" not found`)
 }
 
-func (s *BootstrapSuite) TestBootstrapWithGUI(c *gc.C) {
+func (s *BootstrapSuite) TestBootstrapWithDashboard(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 	var bootstrapFuncs fakeBootstrapFuncs
 
@@ -987,10 +987,10 @@ func (s *BootstrapSuite) TestBootstrapWithGUI(c *gc.C) {
 		return &bootstrapFuncs
 	})
 	cmdtesting.RunCommand(c, s.newBootstrapCommandWrapper(false), "dummy", "devcontroller")
-	c.Assert(bootstrapFuncs.args.DashboardDataSourceBaseURL, gc.Equals, gui.DefaultBaseURL)
+	c.Assert(bootstrapFuncs.args.DashboardDataSourceBaseURL, gc.Equals, dashboard.DefaultBaseURL)
 }
 
-func (s *BootstrapSuite) TestBootstrapWithCustomizedGUI(c *gc.C) {
+func (s *BootstrapSuite) TestBootstrapWithCustomizedDashboard(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 	s.PatchEnvironment("JUJU_DASHBOARD_SIMPLESTREAMS_URL", "https://1.2.3.4/dashboard/streams")
 
@@ -1003,7 +1003,7 @@ func (s *BootstrapSuite) TestBootstrapWithCustomizedGUI(c *gc.C) {
 	c.Assert(bootstrapFuncs.args.DashboardDataSourceBaseURL, gc.Equals, "https://1.2.3.4/dashboard/streams")
 }
 
-func (s *BootstrapSuite) TestBootstrapWithoutGUI(c *gc.C) {
+func (s *BootstrapSuite) TestBootstrapWithoutDashboard(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 	var bootstrapFuncs fakeBootstrapFuncs
 

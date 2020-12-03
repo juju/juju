@@ -10,17 +10,17 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-// guiSettingsDoc represents the Juju Dashboard settings in MongoDB.
-type guiSettingsDoc struct {
+// dashboardSettingsDoc represents the Juju Dashboard settings in MongoDB.
+type dashboardSettingsDoc struct {
 	// CurrentVersion is the version of the Juju Dashboard currently served by
 	// the controller when requesting the Dashboard via HTTP.
 	CurrentVersion version.Number `bson:"current-version"`
 }
 
-// GUISetVersion sets the Juju Dashboard version that the controller must serve.
-func (st *State) GUISetVersion(vers version.Number) error {
+// DashboardSetVersion sets the Juju Dashboard version that the controller must serve.
+func (st *State) DashboardSetVersion(vers version.Number) error {
 	// Check that the provided version is actually present in the Dashboard storage.
-	storage, err := st.GUIStorage()
+	storage, err := st.DashboardStorage()
 	if err != nil {
 		return errors.Annotate(err, "cannot open Dashboard storage")
 	}
@@ -38,13 +38,13 @@ func (st *State) GUISetVersion(vers version.Number) error {
 	return nil
 }
 
-// GUIVersion returns the Juju Dashboard version currently served by the controller.
-func (st *State) GUIVersion() (vers version.Number, err error) {
+// DashboardVersion returns the Juju Dashboard version currently served by the controller.
+func (st *State) DashboardVersion() (vers version.Number, err error) {
 	settings, closer := st.db().GetCollection(guisettingsC)
 	defer closer()
 
 	// Retrieve the settings document.
-	var doc guiSettingsDoc
+	var doc dashboardSettingsDoc
 	err = settings.Find(nil).Select(bson.D{{"current-version", 1}}).One(&doc)
 	if err == nil {
 		return doc.CurrentVersion, nil

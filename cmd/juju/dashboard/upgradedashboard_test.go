@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package gui_test
+package dashboard_test
 
 import (
 	"archive/tar"
@@ -24,8 +24,8 @@ import (
 
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/gui"
-	envgui "github.com/juju/juju/environs/gui"
+	"github.com/juju/juju/cmd/juju/dashboard"
+	envdashboard "github.com/juju/juju/environs/dashboard"
 	"github.com/juju/juju/environs/simplestreams"
 	jujutesting "github.com/juju/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -39,7 +39,7 @@ var _ = gc.Suite(&upgradeDashboardSuite{})
 
 // run executes the upgrade-dashboard command passing the given args.
 func (s *upgradeDashboardSuite) run(c *gc.C, args ...string) (string, error) {
-	ctx, err := cmdtesting.RunCommand(c, gui.NewUpgradeDashboardCommand(), args...)
+	ctx, err := cmdtesting.RunCommand(c, dashboard.NewUpgradeDashboardCommand(), args...)
 	return strings.Trim(cmdtesting.Stderr(ctx), "\n"), err
 }
 
@@ -53,7 +53,7 @@ func (s *upgradeDashboardSuite) patchClientDashboardArchives(c *gc.C, returnedVe
 		called = true
 		return returnedVersions, returnedErr
 	}
-	s.PatchValue(gui.ClientDashboardArchives, f)
+	s.PatchValue(dashboard.ClientDashboardArchives, f)
 	return func() bool {
 		return called
 	}
@@ -66,7 +66,7 @@ func (s *upgradeDashboardSuite) patchClientSelectDashboardVersion(c *gc.C, expec
 		c.Assert(vers.String(), gc.Equals, expectedVers)
 		return returnedErr
 	}
-	s.PatchValue(gui.ClientSelectDashboardVersion, f)
+	s.PatchValue(dashboard.ClientSelectDashboardVersion, f)
 	return func() bool {
 		return called
 	}
@@ -81,23 +81,23 @@ func (s *upgradeDashboardSuite) patchClientUploadDashboardArchive(c *gc.C, expec
 		c.Assert(vers.String(), gc.Equals, expectedVers)
 		return returnedIsCurrent, returnedErr
 	}
-	s.PatchValue(gui.ClientUploadDashboardArchive, f)
+	s.PatchValue(dashboard.ClientUploadDashboardArchive, f)
 	return func() bool {
 		return called
 	}
 }
 
-func (s *upgradeDashboardSuite) patchDashboardFetchMetadata(c *gc.C, returnedMetadata []*envgui.Metadata, returnedErr error) calledFunc {
+func (s *upgradeDashboardSuite) patchDashboardFetchMetadata(c *gc.C, returnedMetadata []*envdashboard.Metadata, returnedErr error) calledFunc {
 	var called bool
-	f := func(stream string, major, minor int, sources ...simplestreams.DataSource) ([]*envgui.Metadata, error) {
+	f := func(stream string, major, minor int, sources ...simplestreams.DataSource) ([]*envdashboard.Metadata, error) {
 		called = true
 		c.Assert(major, gc.Equals, jujuversion.Current.Major)
 		c.Assert(minor, gc.Equals, jujuversion.Current.Minor)
-		c.Assert(stream, gc.Equals, envgui.DevelStream)
+		c.Assert(stream, gc.Equals, envdashboard.DevelStream)
 		c.Assert(sources[0].Description(), gc.Equals, "dashboard simplestreams")
 		return returnedMetadata, returnedErr
 	}
-	s.PatchValue(gui.DashboardFetchMetadata, f)
+	s.PatchValue(dashboard.DashboardFetchMetadata, f)
 	return func() bool {
 		return called
 	}
@@ -130,7 +130,7 @@ func (s *upgradeDashboardSuite) TestUpgradeDashboardInputErrors(c *gc.C) {
 }
 
 func (s *upgradeDashboardSuite) TestUpgradeDashboardListSuccess(c *gc.C) {
-	s.patchDashboardFetchMetadata(c, []*envgui.Metadata{{
+	s.patchDashboardFetchMetadata(c, []*envdashboard.Metadata{{
 		Version: version.MustParse("2.2.0"),
 	}, {
 		Version: version.MustParse("2.1.1"),
@@ -219,7 +219,7 @@ func (s *upgradeDashboardSuite) TestUpgradeDashboardFromSimplestreamsReleaseErro
 	tests := []struct {
 		about            string
 		arg              string
-		returnedMetadata []*envgui.Metadata
+		returnedMetadata []*envdashboard.Metadata
 		returnedErr      error
 		expectedErr      string
 	}{{
@@ -240,7 +240,7 @@ func (s *upgradeDashboardSuite) TestUpgradeDashboardFromSimplestreamsReleaseErro
 		expectedErr: "cannot upgrade to release 2.0.47: cannot retrieve Juju Dashboard archive info: bad wolf",
 	}, {
 		about: "last release: error while opening the remote release resource",
-		returnedMetadata: []*envgui.Metadata{
+		returnedMetadata: []*envdashboard.Metadata{
 			makeDashboardMetadata(c, "2.2.0", "exterminate"),
 			makeDashboardMetadata(c, "2.1.0", ""),
 		},
@@ -248,7 +248,7 @@ func (s *upgradeDashboardSuite) TestUpgradeDashboardFromSimplestreamsReleaseErro
 	}, {
 		about: "specific release: error while opening the remote release resource",
 		arg:   "2.1.0",
-		returnedMetadata: []*envgui.Metadata{
+		returnedMetadata: []*envdashboard.Metadata{
 			makeDashboardMetadata(c, "2.2.0", ""),
 			makeDashboardMetadata(c, "2.1.0", "boo"),
 			makeDashboardMetadata(c, "2.0.0", ""),
@@ -257,7 +257,7 @@ func (s *upgradeDashboardSuite) TestUpgradeDashboardFromSimplestreamsReleaseErro
 	}, {
 		about: "specific release: not found in available releases",
 		arg:   "2.1.0",
-		returnedMetadata: []*envgui.Metadata{
+		returnedMetadata: []*envdashboard.Metadata{
 			makeDashboardMetadata(c, "2.2.0", ""),
 			makeDashboardMetadata(c, "2.0.0", ""),
 		},
@@ -279,7 +279,7 @@ func (s *upgradeDashboardSuite) TestUpgradeDashboardSuccess(c *gc.C) {
 		// about describes the test.
 		about string
 		// returnedMetadata holds metadata information returned by simplestreams.
-		returnedMetadata *envgui.Metadata
+		returnedMetadata *envdashboard.Metadata
 		// archiveVersion is the version of the archive to be uploaded.
 		archiveVersion string
 		// existingVersions is a function returning a list of Dashboard archive versions
@@ -516,14 +516,14 @@ func (s *upgradeDashboardSuite) TestUpgradeDashboardSuccess(c *gc.C) {
 		}
 
 		// Patch the call to get simplestreams metadata information.
-		fetchMetadataCalled := s.patchDashboardFetchMetadata(c, []*envgui.Metadata{test.returnedMetadata}, nil)
+		fetchMetadataCalled := s.patchDashboardFetchMetadata(c, []*envdashboard.Metadata{test.returnedMetadata}, nil)
 
 		// Patch the call to get existing archive versions.
 		var existingVersions []params.DashboardArchiveVersion
 		if test.existingVersions != nil {
 			existingVersions = test.existingVersions(hash)
 		}
-		guiArchivesCalled := s.patchClientDashboardArchives(c, existingVersions, nil)
+		dashboardArchivesCalled := s.patchClientDashboardArchives(c, existingVersions, nil)
 
 		// Patch the other calls to the controller.
 		uploadDashboardArchiveCalled := s.patchClientUploadDashboardArchive(c, hash, size, test.archiveVersion, !test.selected, nil)
@@ -533,7 +533,7 @@ func (s *upgradeDashboardSuite) TestUpgradeDashboardSuccess(c *gc.C) {
 		out, err := s.run(c, arg, "--dashboard-stream", "devel")
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(out, gc.Equals, test.expectedOutput)
-		c.Assert(guiArchivesCalled(), jc.IsTrue)
+		c.Assert(dashboardArchivesCalled(), jc.IsTrue)
 		c.Assert(fetchMetadataCalled(), gc.Equals, test.opened)
 		c.Assert(uploadDashboardArchiveCalled(), gc.Equals, test.uploaded)
 		c.Assert(selectDashboardVersionCalled(), gc.Equals, test.selected)
@@ -550,7 +550,7 @@ func (s *upgradeDashboardSuite) TestUpgradeDashboardIntegration(c *gc.C) {
 	c.Assert(out, gc.Equals, "using local Juju Dashboard archive\nuploading Juju Dashboard 2.42.0\nupload completed\nJuju Dashboard switched to version 2.42.0")
 
 	// Check that the archive is present in the Dashboard storage server side.
-	storage, err := s.State.GUIStorage()
+	storage, err := s.State.DashboardStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
 	metadata, err := storage.Metadata("2.42.0")
@@ -559,7 +559,7 @@ func (s *upgradeDashboardSuite) TestUpgradeDashboardIntegration(c *gc.C) {
 	c.Assert(metadata.Size, gc.Equals, size)
 
 	// Check that the uploaded version has been set as the current one.
-	vers, err := s.State.GUIVersion()
+	vers, err := s.State.DashboardVersion()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vers.String(), gc.Equals, "2.42.0")
 }
@@ -624,17 +624,17 @@ func saveDashboardArchive(c *gc.C, vers string) (path, hash string, size int64) 
 // makeDashboardMetadata creates and return a Juju Dashboard archive metadata with the
 // given version. If fetchError is not empty, trying to fetch the corresponding
 // archive will return the given error.
-func makeDashboardMetadata(c *gc.C, vers, fetchError string) *envgui.Metadata {
+func makeDashboardMetadata(c *gc.C, vers, fetchError string) *envdashboard.Metadata {
 	path, hash, size := saveDashboardArchive(c, vers)
 	metaPath := "/path/to/dashboard/" + vers
-	return &envgui.Metadata{
+	return &envdashboard.Metadata{
 		Version:  version.MustParse(vers),
 		SHA256:   hash,
 		Size:     size,
 		Path:     metaPath,
 		FullPath: "https://1.2.3.4" + metaPath,
 		Source: &dataSource{
-			DataSource: envgui.NewDataSource("htpps://1.2.3.4"),
+			DataSource: envdashboard.NewDataSource("htpps://1.2.3.4"),
 			metaPath:   metaPath,
 			path:       path,
 			fetchError: fetchError,

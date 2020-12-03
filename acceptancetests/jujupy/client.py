@@ -895,7 +895,7 @@ class ModelClient:
         if self.env.bootstrap_to is not None:
             args.extend(['--to', self.env.bootstrap_to])
         if no_gui:
-            args.append('--no-gui')
+            args.append('--no-dashboard')
         if db_snap_path and db_snap_asserts_path:
             args.extend(['--db-snap', db_snap_path,
                          '--db-snap-asserts', db_snap_asserts_path])

@@ -459,7 +459,7 @@ class TestModelClient(ClientTest):
                 '--constraints', 'mem=2G',
                 'bar/baz', 'foo',
                 '--config', config_file.name, '--default-model', 'foo',
-                '--agent-version', '2.0', '--no-gui'), include_e=False)
+                '--agent-version', '2.0', '--no-dashboard'), include_e=False)
 
     def test_bootstrap_metadata(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})

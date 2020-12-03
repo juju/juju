@@ -576,11 +576,11 @@ func (c *BootstrapCommand) populateDashboardArchive(st *state.State, env environ
 	agentConfig := c.CurrentConfig()
 	dataDir := agentConfig.DataDir()
 
-	guiStorage, err := st.GUIStorage()
+	dashboardStorage, err := st.DashboardStorage()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer func() { _ = guiStorage.Close() }()
+	defer func() { _ = dashboardStorage.Close() }()
 
 	dashboard, err := agenttools.ReadDashboardArchive(dataDir)
 	if err != nil {
@@ -593,7 +593,7 @@ func (c *BootstrapCommand) populateDashboardArchive(st *state.State, env environ
 	}
 	defer func() { _ = f.Close() }()
 
-	if err := guiStorage.Add(f, binarystorage.Metadata{
+	if err := dashboardStorage.Add(f, binarystorage.Metadata{
 		Version: dashboard.Version.String(),
 		Size:    dashboard.Size,
 		SHA256:  dashboard.SHA256,
@@ -601,7 +601,7 @@ func (c *BootstrapCommand) populateDashboardArchive(st *state.State, env environ
 		return errors.Annotate(err, "cannot store Dashboard archive")
 	}
 
-	return errors.Annotate(st.GUISetVersion(dashboard.Version), "cannot set current Dashboard version")
+	return errors.Annotate(st.DashboardSetVersion(dashboard.Version), "cannot set current Dashboard version")
 }
 
 // Override for testing.

@@ -32,7 +32,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/gui"
+	"github.com/juju/juju/environs/dashboard"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
@@ -1098,7 +1098,7 @@ func dashboardArchive(dataSourceBaseURL, stream string, major, minor int, allowL
 		return nil
 	}
 	// Fetch Dashboard archives info from simplestreams.
-	source := gui.NewDataSource(dataSourceBaseURL)
+	source := dashboard.NewDataSource(dataSourceBaseURL)
 	allMeta, err := dashboardFetchMetadata(stream, major, minor, source)
 	if err != nil {
 		logProgress(fmt.Sprintf("Unable to fetch Juju Dashboard info: %s", err))
@@ -1119,7 +1119,7 @@ func dashboardArchive(dataSourceBaseURL, stream string, major, minor int, allowL
 }
 
 // dashboardFetchMetadata is defined for testing purposes.
-var dashboardFetchMetadata = gui.FetchMetadata
+var dashboardFetchMetadata = dashboard.FetchMetadata
 
 // dashboardVersion retrieves the Dashboard version from the juju-dashboard-* directory included
 // in the bz2 archive at the given path.
@@ -1130,7 +1130,7 @@ func dashboardVersion(path string) (version.Number, error) {
 		return number, errors.Annotate(err, "cannot open Juju Dashboard archive")
 	}
 	defer f.Close()
-	return gui.DashboardArchiveVersion(f)
+	return dashboard.DashboardArchiveVersion(f)
 }
 
 // hashAndSize calculates and returns the SHA256 hash and the size of the file

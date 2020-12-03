@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package gui
+package dashboard
 
 import (
 	"github.com/juju/cmd"
@@ -21,8 +21,8 @@ var (
 	DashboardFetchMetadata       = &dashboardFetchMetadata
 )
 
-func NewDashboardCommandForTest(getGUIVersions func(connection api.Connection) ([]params.DashboardArchiveVersion, error)) cmd.Command {
+func NewDashboardCommandForTest(getDashboardVersions func(connection api.Connection) ([]params.DashboardArchiveVersion, error)) cmd.Command {
 	return modelcmd.Wrap(&dashboardCommand{
-		getDashboardVersions: getGUIVersions,
+		getDashboardVersions: getDashboardVersions,
 	})
 }

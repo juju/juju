@@ -6,7 +6,7 @@ package common
 import (
 	"os"
 
-	"github.com/juju/juju/environs/gui"
+	"github.com/juju/juju/environs/dashboard"
 )
 
 const dashboartdBaseURLEnvVar = "JUJU_DASHBOARD_SIMPLESTREAMS_URL"
@@ -19,5 +19,5 @@ func DashboardDataSourceBaseURL() string {
 	if url != "" {
 		return url
 	}
-	return gui.DefaultBaseURL
+	return dashboard.DefaultBaseURL
 }

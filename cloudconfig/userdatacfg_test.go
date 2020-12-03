@@ -164,8 +164,8 @@ func (cfg *testInstanceConfig) setMachineID(id string) *testInstanceConfig {
 	return cfg
 }
 
-// setGUI populates the configuration with the Juju Dashboard tools.
-func (cfg *testInstanceConfig) setGUI(url string) *testInstanceConfig {
+// setDashboard populates the configuration with the Juju Dashboard tools.
+func (cfg *testInstanceConfig) setDashboard(url string) *testInstanceConfig {
 	cfg.Bootstrap.Dashboard = &tools.DashboardArchive{
 		URL:     url,
 		Version: version.MustParse("1.2.3"),
@@ -703,7 +703,7 @@ func (*cloudinitSuite) TestCloudInitWithLocalDashboard(c *gc.C) {
 	content := []byte("content")
 	err := ioutil.WriteFile(dashboardPath, content, 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	cfg := makeBootstrapConfig("precise", 0).setGUI("file://" + filepath.ToSlash(dashboardPath))
+	cfg := makeBootstrapConfig("precise", 0).setDashboard("file://" + filepath.ToSlash(dashboardPath))
 	dashboardJson, err := json.Marshal(cfg.Bootstrap.Dashboard)
 	c.Assert(err, jc.ErrorIsNil)
 	base64Content := base64.StdEncoding.EncodeToString(content)
@@ -719,7 +719,7 @@ rm -f $dashboard/dashboard.tar.bz2 $dashboard/jujudashboard.sha256 $dashboard/do
 }
 
 func (*cloudinitSuite) TestCloudInitWithRemoteDashboard(c *gc.C) {
-	cfg := makeBootstrapConfig("precise", 0).setGUI("https://1.2.3.4/dashboard.tar.bz2")
+	cfg := makeBootstrapConfig("precise", 0).setDashboard("https://1.2.3.4/dashboard.tar.bz2")
 	dashboardJson, err := json.Marshal(cfg.Bootstrap.Dashboard)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`dashboard='/var/lib/juju/dashboard'
@@ -733,13 +733,13 @@ rm -f $dashboard/dashboard.tar.bz2 $dashboard/jujudashboard.sha256 $dashboard/do
 }
 
 func (*cloudinitSuite) TestCloudInitWithDashboardReadError(c *gc.C) {
-	cfg := makeBootstrapConfig("precise", 0).setGUI("file:///no/such/dashboard.tar.bz2")
+	cfg := makeBootstrapConfig("precise", 0).setDashboard("file:///no/such/dashboard.tar.bz2")
 	expectedError := "cannot set up Juju Dashboard: cannot read Juju Dashboard archive: .*"
 	checkCloudInitWithDashboard(c, cfg, "", expectedError)
 }
 
 func (*cloudinitSuite) TestCloudInitWithDashboardURLError(c *gc.C) {
-	cfg := makeBootstrapConfig("precise", 0).setGUI(":")
+	cfg := makeBootstrapConfig("precise", 0).setDashboard(":")
 	expectedError := "cannot set up Juju Dashboard: cannot parse Juju Dashboard URL: .*"
 	checkCloudInitWithDashboard(c, cfg, "", expectedError)
 }

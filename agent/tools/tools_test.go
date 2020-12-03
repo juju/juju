@@ -171,14 +171,14 @@ func (t *ToolsSuite) TestReadToolsErrors(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "invalid agent metadata in directory .*")
 }
 
-func (t *ToolsSuite) TestReadGUIArchiveErrorNotFound(c *gc.C) {
+func (t *ToolsSuite) TestReadDashboardArchiveErrorNotFound(c *gc.C) {
 	dashboard, err := agenttools.ReadDashboardArchive(t.dataDir)
 	c.Assert(err, gc.ErrorMatches, "Dashboard metadata not found")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(dashboard, gc.IsNil)
 }
 
-func (t *ToolsSuite) TestReadGUIArchiveErrorNotValid(c *gc.C) {
+func (t *ToolsSuite) TestReadDashboardArchiveErrorNotValid(c *gc.C) {
 	dir := agenttools.SharedDashboardDir(t.dataDir)
 	err := os.MkdirAll(dir, agenttools.DirPerm)
 	c.Assert(err, jc.ErrorIsNil)
@@ -191,25 +191,25 @@ func (t *ToolsSuite) TestReadGUIArchiveErrorNotValid(c *gc.C) {
 	c.Assert(dashboard, gc.IsNil)
 }
 
-func (t *ToolsSuite) TestReadGUIArchiveSuccess(c *gc.C) {
+func (t *ToolsSuite) TestReadDashboardArchiveSuccess(c *gc.C) {
 	dir := agenttools.SharedDashboardDir(t.dataDir)
 	err := os.MkdirAll(dir, agenttools.DirPerm)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectGUI := coretest.DashboardArchive{
+	expectDashboard := coretest.DashboardArchive{
 		Version: version.MustParse("2.0.42"),
-		URL:     "file:///path/to/dshboard",
+		URL:     "file:///path/to/dashboard",
 		SHA256:  "hash",
 		Size:    47,
 	}
-	b, err := json.Marshal(expectGUI)
+	b, err := json.Marshal(expectDashboard)
 	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(filepath.Join(dir, agenttools.DashboardArchiveFile), b, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	dshboard, err := agenttools.ReadDashboardArchive(t.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*dshboard, gc.Equals, expectGUI)
+	c.Assert(*dshboard, gc.Equals, expectDashboard)
 }
 
 func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {

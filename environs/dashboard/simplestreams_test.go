@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package gui_test
+package dashboard_test
 
 import (
 	"net/http"
@@ -10,7 +10,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/gui"
+	"github.com/juju/juju/environs/dashboard"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/juju/keys"
 	coretesting "github.com/juju/juju/testing"
@@ -24,16 +24,16 @@ var _ = gc.Suite(&simplestreamsSuite{
 	LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
 		Source:          sstesting.VerifyDefaultCloudDataSource("test", "test:"),
 		RequireSigned:   false,
-		DataType:        gui.DownloadType,
-		StreamsVersion:  gui.StreamsVersion,
-		ValidConstraint: gui.NewConstraint(gui.ReleasedStream, 2),
+		DataType:        dashboard.DownloadType,
+		StreamsVersion:  dashboard.StreamsVersion,
+		ValidConstraint: dashboard.NewConstraint(dashboard.ReleasedStream, 2),
 	},
 })
 
 func (s *simplestreamsSuite) SetUpSuite(c *gc.C) {
 	s.LocalLiveSimplestreamsSuite.SetUpSuite(c)
 	sstesting.TestRoundTripper.Sub = coretesting.NewCannedRoundTripper(
-		guiData, map[string]int{"test://unauth": http.StatusUnauthorized})
+		dashboardData, map[string]int{"test://unauth": http.StatusUnauthorized})
 }
 
 func (s *simplestreamsSuite) TearDownSuite(c *gc.C) {
@@ -42,7 +42,7 @@ func (s *simplestreamsSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *simplestreamsSuite) TestNewDataSource(c *gc.C) {
-	source := gui.NewDataSource("https://1.2.3.4/streams")
+	source := dashboard.NewDataSource("https://1.2.3.4/streams")
 	c.Assert(source.Description(), gc.Equals, "dashboard simplestreams")
 
 	url, err := source.URL("/my/path")
@@ -63,15 +63,15 @@ var fetchMetadataTests = []struct {
 	// expectedMetadata holds the list of metadata information returned.
 	// The following fields are automatically pre-populated by the test:
 	// "FullPath", "Source", "DashboardVersion" and "MinJujuVersion"
-	expectedMetadata []*gui.Metadata
+	expectedMetadata []*dashboard.Metadata
 	// expectedError optionally holds the expected error returned while trying
 	// to retrieve Dashboard metadata information.
 	expectedError string
 }{{
 	about:       "released version 2.8.2",
-	stream:      gui.ReleasedStream,
+	stream:      dashboard.ReleasedStream,
 	jujuVersion: "2.8.2",
-	expectedMetadata: []*gui.Metadata{{
+	expectedMetadata: []*dashboard.Metadata{{
 		Size:           6140774,
 		SHA256:         "5236f1b694a9a66dc4f86b740371408bf4ddf2354ebc6e5410587843a1e55743",
 		Path:           "dashboard/2.1.1/jujudashboard-2.1.1.tar.bz2",
@@ -86,17 +86,17 @@ var fetchMetadataTests = []struct {
 	}},
 }, {
 	about:       "released version 2.0",
-	stream:      gui.ReleasedStream,
+	stream:      dashboard.ReleasedStream,
 	jujuVersion: "2.0.0",
 }, {
 	about:       "released version 47",
-	stream:      gui.ReleasedStream,
+	stream:      dashboard.ReleasedStream,
 	jujuVersion: "47.0.0",
 }, {
 	about:       "devel version 2.8.0",
-	stream:      gui.DevelStream,
+	stream:      dashboard.DevelStream,
 	jujuVersion: "2.8.0",
-	expectedMetadata: []*gui.Metadata{{
+	expectedMetadata: []*dashboard.Metadata{{
 		Version:        version.MustParse("2.4.0"),
 		MinJujuVersion: "2.8",
 		Path:           "dashboard/2.4.0/jujudashboard-2.4.0.tar.bz2",
@@ -111,9 +111,9 @@ var fetchMetadataTests = []struct {
 	}},
 }, {
 	about:       "devel version 2.9.0",
-	stream:      gui.DevelStream,
+	stream:      dashboard.DevelStream,
 	jujuVersion: "2.9.0",
-	expectedMetadata: []*gui.Metadata{{
+	expectedMetadata: []*dashboard.Metadata{{
 		Version:        version.MustParse("2.5.0"),
 		MinJujuVersion: "2.9",
 		Path:           "dashboard/2.5.0/jujudashboard-2.5.0.tar.bz2",
@@ -134,7 +134,7 @@ var fetchMetadataTests = []struct {
 	}},
 }, {
 	about:       "devel version 42",
-	stream:      gui.DevelStream,
+	stream:      dashboard.DevelStream,
 	jujuVersion: "42.0.0",
 }, {
 	about:         "error: invalid stream",
@@ -167,7 +167,7 @@ func (s *simplestreamsSuite) TestFetchMetadata(c *gc.C) {
 		invalidSource := sstesting.InvalidDataSource(s.RequireSigned)
 
 		// Fetch the Juju Dashboard archives.
-		allMeta, err := gui.FetchMetadata(test.stream, jujuVersion.Major, jujuVersion.Minor, invalidSource, s.Source)
+		allMeta, err := dashboard.FetchMetadata(test.stream, jujuVersion.Major, jujuVersion.Minor, invalidSource, s.Source)
 		for i, meta := range allMeta {
 			c.Logf("metadata %d:\n%#v", i, meta)
 		}
@@ -189,7 +189,7 @@ func (s *simplestreamsSuite) TestFetchMetadata(c *gc.C) {
 }
 
 func (s *simplestreamsSuite) TestConstraint(c *gc.C) {
-	constraint := gui.NewConstraint("test-stream", 42)
+	constraint := dashboard.NewConstraint("test-stream", 42)
 	c.Assert(constraint.IndexIds(), jc.DeepEquals, []string{"com.canonical.streams:test-stream:dashboard"})
 
 	ids, err := constraint.ProductIds()
@@ -204,7 +204,7 @@ func (s *simplestreamsSuite) TestConstraint(c *gc.C) {
 	c.Assert(constraint.Stream, gc.Equals, "test-stream")
 }
 
-var guiData = map[string]string{
+var dashboardData = map[string]string{
 	"/streams/v1/index.json": `{
         "format": "index:1.0",
         "index": {

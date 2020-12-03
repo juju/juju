@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package gui
+package dashboard
 
 import (
 	"crypto/sha256"
@@ -20,7 +20,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/gui"
+	"github.com/juju/juju/environs/dashboard"
 )
 
 // NewUpgradeDashboardCommand creates and returns a new upgrade-dashboard command.
@@ -37,7 +37,7 @@ type upgradeDashboardCommand struct {
 	list            bool
 }
 
-const upgradeGUIDoc = `
+const upgradeDashboardDoc = `
 Upgrade to the latest Juju Dashboard released version:
 
 	juju upgrade-dashboard
@@ -64,7 +64,7 @@ func (c *upgradeDashboardCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "upgrade-dashboard",
 		Purpose: "Upgrade to a new Juju Dashboard version.",
-		Doc:     upgradeGUIDoc,
+		Doc:     upgradeDashboardDoc,
 	})
 }
 
@@ -72,7 +72,7 @@ func (c *upgradeDashboardCommand) Info() *cmd.Info {
 func (c *upgradeDashboardCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
 	f.BoolVar(&c.list, "list", false, "List available Juju Dashboard release versions without upgrading")
-	f.StringVar(&c.dashboardStream, "dashboard-stream", gui.ReleasedStream, "Specify the stream used to fetch the dashboard")
+	f.StringVar(&c.dashboardStream, "dashboard-stream", dashboard.ReleasedStream, "Specify the stream used to fetch the dashboard")
 }
 
 // Init implements the cmd.Command interface.
@@ -227,7 +227,7 @@ func (c *upgradeDashboardCommand) openArchive(stream, versOrPath string, major, 
 			f.Close()
 		}
 	}()
-	vers, err := gui.DashboardArchiveVersion(f)
+	vers, err := dashboard.DashboardArchiveVersion(f)
 	if err != nil {
 		return openedArchive{}, errors.Annotatef(err, "cannot upgrade Juju Dashboard using %q", versOrPath)
 	}
@@ -252,8 +252,8 @@ func (c *upgradeDashboardCommand) openArchive(stream, versOrPath string, major, 
 
 // remoteArchiveMetadata returns Juju Dashboard archive metadata from simplestreams.
 // The dashboard metadata will be compatible with the juju major.minor version.
-func remoteArchiveMetadata(stream string, major, minor int) ([]*gui.Metadata, error) {
-	source := gui.NewDataSource(common.DashboardDataSourceBaseURL())
+func remoteArchiveMetadata(stream string, major, minor int) ([]*dashboard.Metadata, error) {
+	source := dashboard.NewDataSource(common.DashboardDataSourceBaseURL())
 	allMeta, err := dashboardFetchMetadata(stream, major, minor, source)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot retrieve Juju Dashboard archive info")
@@ -265,7 +265,7 @@ func remoteArchiveMetadata(stream string, major, minor int) ([]*gui.Metadata, er
 }
 
 // findMetadataVersion returns the metadata in allMeta with the given version.
-func findMetadataVersion(allMeta []*gui.Metadata, vers version.Number) (*gui.Metadata, error) {
+func findMetadataVersion(allMeta []*dashboard.Metadata, vers version.Number) (*dashboard.Metadata, error) {
 	for _, metadata := range allMeta {
 		if metadata.Version == vers {
 			return metadata, nil
@@ -351,4 +351,4 @@ var clientUploadDashboardArchive = func(client *controller.Client, r io.ReadSeek
 }
 
 // dashboardFetchMetadata is defined for testing purposes.
-var dashboardFetchMetadata = gui.FetchMetadata
+var dashboardFetchMetadata = dashboard.FetchMetadata

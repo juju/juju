@@ -15,42 +15,42 @@ import (
 	"github.com/juju/juju/state/binarystorage"
 )
 
-type guiVersionSuite struct {
+type dashboardVersionSuite struct {
 	ConnSuite
 }
 
-var _ = gc.Suite(&guiVersionSuite{})
+var _ = gc.Suite(&dashboardVersionSuite{})
 
-func (s *guiVersionSuite) TestGUISetVersionNotFoundError(c *gc.C) {
-	err := s.State.GUISetVersion(version.MustParse("2.0.1"))
+func (s *dashboardVersionSuite) TestDashboardSetVersionNotFoundError(c *gc.C) {
+	err := s.State.DashboardSetVersion(version.MustParse("2.0.1"))
 	c.Assert(err, gc.ErrorMatches, `cannot find "2.0.1" Dashboard version in the storage: 2.0.1 binary metadata not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *guiVersionSuite) TestGUIVersionNotFoundError(c *gc.C) {
-	_, err := s.State.GUIVersion()
+func (s *dashboardVersionSuite) TestDashboardVersionNotFoundError(c *gc.C) {
+	_, err := s.State.DashboardVersion()
 	c.Assert(err, gc.ErrorMatches, "Juju Dashboard version not found")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *guiVersionSuite) TestGUISetVersion(c *gc.C) {
+func (s *dashboardVersionSuite) TestDashboardSetVersion(c *gc.C) {
 	vers := s.addArchive(c, "2.1.0")
-	err := s.State.GUISetVersion(vers)
+	err := s.State.DashboardSetVersion(vers)
 	c.Assert(err, jc.ErrorIsNil)
-	obtainedVers, err := s.State.GUIVersion()
+	obtainedVers, err := s.State.DashboardVersion()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedVers, gc.Equals, vers)
 }
 
-func (s *guiVersionSuite) TestGUISwitchVersion(c *gc.C) {
-	err := s.State.GUISetVersion(s.addArchive(c, "2.47.0"))
+func (s *dashboardVersionSuite) TestDashboardSwitchVersion(c *gc.C) {
+	err := s.State.DashboardSetVersion(s.addArchive(c, "2.47.0"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	vers := s.addArchive(c, "2.42.0")
-	err = s.State.GUISetVersion(vers)
+	err = s.State.DashboardSetVersion(vers)
 	c.Assert(err, jc.ErrorIsNil)
 
-	obtainedVers, err := s.State.GUIVersion()
+	obtainedVers, err := s.State.DashboardVersion()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedVers, gc.Equals, vers)
 
@@ -59,8 +59,8 @@ func (s *guiVersionSuite) TestGUISwitchVersion(c *gc.C) {
 }
 
 // addArchive adds a fake Juju Dashboard archive to the binary storage.
-func (s *guiVersionSuite) addArchive(c *gc.C, vers string) version.Number {
-	storage, err := s.State.GUIStorage()
+func (s *dashboardVersionSuite) addArchive(c *gc.C, vers string) version.Number {
+	storage, err := s.State.DashboardStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
 	content := "content " + vers
@@ -75,7 +75,7 @@ func (s *guiVersionSuite) addArchive(c *gc.C, vers string) version.Number {
 
 // checkCount ensures that there is only one document in the Dashboard settings
 // mongo collection.
-func (s *guiVersionSuite) checkCount(c *gc.C) {
+func (s *dashboardVersionSuite) checkCount(c *gc.C) {
 	settings := s.State.MongoSession().DB("juju").C(state.GUISettingsC)
 	count, err := settings.Find(nil).Count()
 	c.Assert(err, jc.ErrorIsNil)

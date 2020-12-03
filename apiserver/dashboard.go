@@ -126,7 +126,7 @@ func (r *router) ensureFileHandler(c configureHandler, h func(w http.ResponseWri
 func (r *router) ensureFiles(req *http.Request) (rootDir string, hash string, err error) {
 	// Retrieve the Juju Dashboard info from storage.
 	st := r.ctxt.srv.shared.statePool.SystemState()
-	storage, err := st.GUIStorage()
+	storage, err := st.DashboardStorage()
 	if err != nil {
 		return "", "", errors.Annotatef(err, "cannot open %s storage", r.name)
 	}
@@ -172,7 +172,7 @@ func (r *router) ensureFiles(req *http.Request) (rootDir string, hash string, er
 // dashboardVersionAndHash returns the version and the SHA256 hash of the current
 // Juju Dashboard archive.
 func (r *router) dashboardVersionAndHash(st *state.State, storage binarystorage.Storage) (vers, hash string, err error) {
-	currentVers, err := st.GUIVersion()
+	currentVers, err := st.DashboardVersion()
 	if errors.IsNotFound(err) {
 		return "", "", errors.NotFoundf("Juju %s", r.name)
 	}
@@ -357,7 +357,7 @@ func (h *dashboardArchiveHandler) handleGet(w http.ResponseWriter, req *http.Req
 		return errors.Annotate(err, "cannot open state")
 	}
 	defer st.Release()
-	storage, err := st.GUIStorage()
+	storage, err := st.DashboardStorage()
 	if err != nil {
 		return errors.Annotate(err, "cannot open Dashboard storage")
 	}
@@ -371,7 +371,7 @@ func (h *dashboardArchiveHandler) handleGet(w http.ResponseWriter, req *http.Req
 
 	// Prepare and send the response.
 	var currentVersion string
-	vers, err := st.GUIVersion()
+	vers, err := st.DashboardVersion()
 	if err == nil {
 		currentVersion = vers.String()
 	} else if !errors.IsNotFound(err) {
@@ -425,7 +425,7 @@ func (h *dashboardArchiveHandler) handlePost(w http.ResponseWriter, req *http.Re
 		return errors.Annotate(err, "cannot open state")
 	}
 	defer st.Release()
-	storage, err := st.GUIStorage()
+	storage, err := st.DashboardStorage()
 	if err != nil {
 		return errors.Annotate(err, "cannot open Dashboard storage")
 	}
@@ -459,7 +459,7 @@ func (h *dashboardArchiveHandler) handlePost(w http.ResponseWriter, req *http.Re
 		Version: vers,
 		SHA256:  hash,
 	}
-	if currentVers, err := st.GUIVersion(); err == nil {
+	if currentVers, err := st.DashboardVersion(); err == nil {
 		if currentVers == vers {
 			resp.Current = true
 		}
@@ -512,7 +512,7 @@ func (h *dashboardVersionHandler) handlePut(w http.ResponseWriter, req *http.Req
 	}
 
 	// Switch to the provided Dashboard version.
-	if err = st.GUISetVersion(selected.Version); err != nil {
+	if err = st.DashboardSetVersion(selected.Version); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

@@ -32,9 +32,6 @@ import (
 )
 
 const (
-	guiConfigPath = "templates/config.js.go"
-	guiIndexPath  = "templates/index.html.go"
-
 	dashboardConfigPath = "config.js.go"
 	dashboardIndexPath  = "index.html"
 )
@@ -71,269 +68,6 @@ func (s *dashboardSuite) urlFromBase(base, hash, pathAndQuery string) string {
 }
 
 type dashboardSetupFunc func(c *gc.C, baseDir string, storage binarystorage.Storage) string
-
-var guiHandlerTests = []struct {
-	// about describes the test.
-	about string
-	// setup is optionally used to set up the test.
-	// It receives the Juju Dashboard base directory and an empty Dashboard storage.
-	// Optionally it can return a Dashboard archive hash which is used by the test
-	// to build the URL path for the HTTP request.
-	setup dashboardSetupFunc
-	// currentVersion optionally holds the Dashboard version that must be set as
-	// current right after setup is called and before the test is run.
-	currentVersion string
-	// pathAndQuery holds the optional path and query for the request, for
-	// instance "/combo?file". If not provided, the "/" path is used.
-	pathAndQuery string
-	// expectedStatus holds the expected response HTTP status.
-	// A 200 OK status is used by default.
-	expectedStatus int
-	// expectedContentType holds the expected response content type.
-	// If expectedError is provided this field is ignored.
-	expectedContentType string
-	// expectedBody holds the expected response body, only used if
-	// expectedError is not provided (see below).
-	expectedBody string
-	// expectedError holds the expected error message included in the response.
-	expectedError string
-}{{
-	about:          "metadata not found",
-	expectedStatus: http.StatusNotFound,
-	expectedError:  "Juju Dashboard not found",
-}, {
-	about: "Dashboard directory is a file",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
-		err := storage.Add(strings.NewReader(""), binarystorage.Metadata{
-			SHA256:  "fake-hash",
-			Version: "2.1.0",
-		})
-		c.Assert(err, jc.ErrorIsNil)
-		err = os.MkdirAll(baseDir, 0755)
-		c.Assert(err, jc.ErrorIsNil)
-		rootDir := filepath.Join(baseDir, "fake-hash")
-		err = ioutil.WriteFile(rootDir, nil, 0644)
-		c.Assert(err, jc.ErrorIsNil)
-		return ""
-	},
-	currentVersion: "2.1.0",
-	expectedStatus: http.StatusInternalServerError,
-	expectedError:  "cannot use Juju Dashboard root directory .*",
-}, {
-	about: "Dashboard directory is unaccessible",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
-		err := storage.Add(strings.NewReader(""), binarystorage.Metadata{
-			SHA256:  "fake-hash",
-			Version: "2.2.0",
-		})
-		c.Assert(err, jc.ErrorIsNil)
-		err = os.MkdirAll(baseDir, 0000)
-		c.Assert(err, jc.ErrorIsNil)
-		return ""
-	},
-	currentVersion: "2.2.0",
-	expectedStatus: http.StatusInternalServerError,
-	expectedError:  "cannot stat Juju Dashboard root directory: .*",
-}, {
-	about: "invalid Dashboard archive",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
-		err := storage.Add(strings.NewReader(""), binarystorage.Metadata{
-			SHA256:  "fake-hash",
-			Version: "2.3.0",
-		})
-		c.Assert(err, jc.ErrorIsNil)
-		return ""
-	},
-	currentVersion: "2.3.0",
-	expectedStatus: http.StatusInternalServerError,
-	expectedError:  "cannot uncompress Juju Dashboard archive: cannot parse archive: .*",
-}, {
-	about: "Dashboard current version not set",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
-		err := storage.Add(strings.NewReader(""), binarystorage.Metadata{
-			SHA256: "fake-hash",
-		})
-		c.Assert(err, jc.ErrorIsNil)
-		return ""
-	},
-	expectedStatus: http.StatusNotFound,
-	expectedError:  "Juju Dashboard not found",
-}, {
-	about: "index: sprite file not found",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
-		setupDashboardArchive(c, storage, "2.0.42", nil)
-		return ""
-	},
-	currentVersion: "2.0.42",
-	expectedStatus: http.StatusInternalServerError,
-	expectedError:  "cannot read sprite file: .*",
-}, {
-	about: "index: template not found",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
-		setupDashboardArchive(c, storage, "2.0.42", map[string]string{
-			apiserver.SpritePath: "",
-		})
-		return ""
-	},
-	currentVersion: "2.0.42",
-	expectedStatus: http.StatusInternalServerError,
-	expectedError:  "cannot parse template: .*: no such file or directory",
-}, {
-	about: "index: invalid template",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
-		setupDashboardArchive(c, storage, "2.0.47", map[string]string{
-			guiIndexPath:         "{{.BadWolf.47}}",
-			apiserver.SpritePath: "",
-		})
-		return ""
-	},
-	currentVersion: "2.0.47",
-	expectedStatus: http.StatusInternalServerError,
-	expectedError:  `cannot parse template: template: index.html.go:1: unexpected ".47" .*`,
-}, {
-	about: "index: invalid template and context",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
-		setupDashboardArchive(c, storage, "2.0.47", map[string]string{
-			guiIndexPath:         "{{range .debug}}{{end}}",
-			apiserver.SpritePath: "",
-		})
-		return ""
-	},
-	currentVersion: "2.0.47",
-	expectedStatus: http.StatusInternalServerError,
-	expectedError:  `cannot render template: template: .*: range can't iterate over .*`,
-}, {
-	about: "config: template not found",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
-		return setupDashboardArchive(c, storage, "2.0.42", nil)
-	},
-	currentVersion: "2.0.42",
-	pathAndQuery:   "config.js",
-	expectedStatus: http.StatusInternalServerError,
-	expectedError:  "cannot parse template: .*: no such file or directory",
-}, {
-	about: "config: invalid template",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
-		return setupDashboardArchive(c, storage, "2.0.47", map[string]string{
-			guiConfigPath: "{{.BadWolf.47}}",
-		})
-	},
-	currentVersion: "2.0.47",
-	pathAndQuery:   "config.js",
-	expectedStatus: http.StatusInternalServerError,
-	expectedError:  `cannot parse template: template: config.js.go:1: unexpected ".47" .*`,
-}, {
-	about: "config: invalid hash",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
-		setupDashboardArchive(c, storage, "2.0.47", nil)
-		return "invalid"
-	},
-	currentVersion: "2.0.47",
-	pathAndQuery:   "config.js",
-	expectedStatus: http.StatusNotFound,
-	expectedError:  `resource with "invalid" hash not found`,
-}, {
-	about: "combo: invalid file name",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
-		return setupDashboardArchive(c, storage, "1.0.0", nil)
-	},
-	currentVersion: "1.0.0",
-	pathAndQuery:   "combo?foo&%%",
-	expectedStatus: http.StatusBadRequest,
-	expectedError:  `cannot combine files: invalid file name "%": invalid URL escape "%%"`,
-}, {
-	about: "combo: invalid file path",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
-		return setupDashboardArchive(c, storage, "1.0.0", nil)
-	},
-	currentVersion: "1.0.0",
-	pathAndQuery:   "combo?../../../../../../etc/passwd",
-	expectedStatus: http.StatusBadRequest,
-	expectedError:  `cannot combine files: forbidden file path "../../../../../../etc/passwd"`,
-}, {
-	about: "combo: invalid hash",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
-		setupDashboardArchive(c, storage, "2.0.47", nil)
-		return "invalid"
-	},
-	currentVersion: "2.0.47",
-	pathAndQuery:   "combo?foo",
-	expectedStatus: http.StatusNotFound,
-	expectedError:  `resource with "invalid" hash not found`,
-}, {
-	about: "combo: success",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
-		return setupDashboardArchive(c, storage, "1.0.0", map[string]string{
-			"static/gui/build/tng/picard.js":  "enterprise",
-			"static/gui/build/ds9/sisko.js":   "deep space nine",
-			"static/gui/build/voy/janeway.js": "voyager",
-			"static/gui/build/borg.js":        "cube",
-		})
-	},
-	currentVersion:      "1.0.0",
-	pathAndQuery:        "combo?voy/janeway.js&tng/picard.js&borg.js&ds9/sisko.js",
-	expectedStatus:      http.StatusOK,
-	expectedContentType: apiserver.JSMimeType,
-	expectedBody: `voyager
-/* janeway.js */
-enterprise
-/* picard.js */
-cube
-/* borg.js */
-deep space nine
-/* sisko.js */
-`,
-}, {
-	about: "combo: non-existing files ignored + different content types",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
-		return setupDashboardArchive(c, storage, "1.0.0", map[string]string{
-			"static/gui/build/foo.css": "my-style",
-		})
-	},
-	currentVersion:      "1.0.0",
-	pathAndQuery:        "combo?no-such.css&foo.css&bad-wolf.css",
-	expectedStatus:      http.StatusOK,
-	expectedContentType: "text/css; charset=utf-8",
-	expectedBody: `my-style
-/* foo.css */
-`,
-}, {
-	about: "static files",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
-		return setupDashboardArchive(c, storage, "1.0.0", map[string]string{
-			"static/file.js": "static file content",
-		})
-	},
-	currentVersion:      "1.0.0",
-	pathAndQuery:        "static/file.js",
-	expectedStatus:      http.StatusOK,
-	expectedContentType: apiserver.JSMimeType,
-	expectedBody:        "static file content",
-}, {
-	about: "static files: invalid hash",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
-		setupDashboardArchive(c, storage, "2.0.47", nil)
-		return "bad-wolf"
-	},
-	currentVersion: "2.0.47",
-	pathAndQuery:   "static/file.js",
-	expectedStatus: http.StatusNotFound,
-	expectedError:  `resource with "bad-wolf" hash not found`,
-}, {
-	about: "static files: old version hash",
-	setup: func(c *gc.C, baseDir string, storage binarystorage.Storage) string {
-		setupDashboardArchive(c, storage, "2.1.1", map[string]string{
-			"static/file.js": "static file version 2.1.1",
-		})
-		return setupDashboardArchive(c, storage, "2.1.2", map[string]string{
-			"static/file.js": "static file version 2.1.2",
-		})
-	},
-	currentVersion: "2.1.1",
-	pathAndQuery:   "static/file.js",
-	expectedStatus: http.StatusNotFound,
-	expectedError:  `resource with ".*" hash not found`,
-}}
 
 var dashboardHandlerTests = []struct {
 	// about describes the test.
@@ -481,7 +215,7 @@ func (s *dashboardSuite) TestDashboardHandler(c *gc.C) {
 
 		// Run specific test set up.
 		if setup != nil {
-			storage, err := s.State.GUIStorage()
+			storage, err := s.State.DashboardStorage()
 			c.Assert(err, jc.ErrorIsNil)
 			defer storage.Close()
 
@@ -496,7 +230,7 @@ func (s *dashboardSuite) TestDashboardHandler(c *gc.C) {
 
 		// Set the current Dashboard version if required.
 		if currentVersion != "" {
-			err := s.State.GUISetVersion(version.MustParse(currentVersion))
+			err := s.State.DashboardSetVersion(version.MustParse(currentVersion))
 			c.Assert(err, jc.ErrorIsNil)
 		}
 
@@ -540,29 +274,29 @@ func (s *dashboardSuite) TestDashboardHandler(c *gc.C) {
 func (s *dashboardSuite) TestDashboardIndex(c *gc.C) {
 	tests := []struct {
 		about               string
-		guiVersion          string
+		dashboardVersion    string
 		path                string
 		expectedConfigQuery string
 	}{{
-		about:      "new Dashboard, new URL, root",
-		guiVersion: "2.3.0",
+		about:            "new Dashboard, new URL, root",
+		dashboardVersion: "2.3.0",
 	}, {
-		about:      "new Dashboard, new URL, model path",
-		guiVersion: "2.3.1",
-		path:       "u/admin/testmodel/",
+		about:            "new Dashboard, new URL, model path",
+		dashboardVersion: "2.3.1",
+		path:             "u/admin/testmodel/",
 	}, {
-		about:      "old Dashboard, new URL, root",
-		guiVersion: "2.2.0",
+		about:            "old Dashboard, new URL, root",
+		dashboardVersion: "2.2.0",
 	}, {
 		about:               "old Dashboard, new URL, model path",
-		guiVersion:          "2.0.0",
+		dashboardVersion:    "2.0.0",
 		path:                "u/admin/testmodel/",
 		expectedConfigQuery: "?model-uuid=" + s.State.ModelUUID() + "&base-postfix=u/admin/testmodel",
 	}}
 
 	// Ensure there's an admin user with access to the testmodel model.
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "admin"})
-	storage, err := s.State.GUIStorage()
+	storage, err := s.State.DashboardStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
 
@@ -577,11 +311,11 @@ func (s *dashboardSuite) TestDashboardIndex(c *gc.C) {
 
 	for i, test := range tests {
 		c.Logf("\n%d: %s", i, test.about)
-		vers := version.MustParse(test.guiVersion)
+		vers := version.MustParse(test.dashboardVersion)
 		_ = setupDashboardArchive(c, storage, vers.String(), map[string]string{
 			dashboardIndexPath: indexContent,
 		})
-		err = s.State.GUISetVersion(vers)
+		err = s.State.DashboardSetVersion(vers)
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Make a request for the Juju Dashboard index.
@@ -601,7 +335,7 @@ func (s *dashboardSuite) TestDashboardIndex(c *gc.C) {
 }
 
 func (s *dashboardSuite) TestDashboardIndexVersions(c *gc.C) {
-	storage, err := s.State.GUIStorage()
+	storage, err := s.State.DashboardStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
 
@@ -619,7 +353,7 @@ func (s *dashboardSuite) TestDashboardIndexVersions(c *gc.C) {
 	})
 
 	// Check that the correct index version is served.
-	err = s.State.GUISetVersion(vers2)
+	err = s.State.DashboardSetVersion(vers2)
 	c.Assert(err, jc.ErrorIsNil)
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
 		URL: s.dashboardURL(""),
@@ -627,7 +361,7 @@ func (s *dashboardSuite) TestDashboardIndexVersions(c *gc.C) {
 	body := apitesting.AssertResponse(c, resp, http.StatusOK, "text/plain; charset=utf-8")
 	c.Assert(string(body), gc.Equals, "index version 2.0.0")
 
-	err = s.State.GUISetVersion(vers3)
+	err = s.State.DashboardSetVersion(vers3)
 	c.Assert(err, jc.ErrorIsNil)
 	resp = apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
 		URL: s.dashboardURL(""),
@@ -647,7 +381,7 @@ func (s *dashboardSuite) TestDashboardConfig(c *gc.C) {
 		expectedBaseURL:    "/dashboard/",
 	}}
 
-	storage, err := s.State.GUIStorage()
+	storage, err := s.State.DashboardStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
 
@@ -665,7 +399,7 @@ var config = {
 	_ = setupDashboardArchive(c, storage, vers.String(), map[string]string{
 		dashboardConfigPath: configContent,
 	})
-	err = s.State.GUISetVersion(vers)
+	err = s.State.DashboardSetVersion(vers)
 	c.Assert(err, jc.ErrorIsNil)
 
 	for i, test := range tests {
@@ -687,7 +421,7 @@ var config = {
 }
 
 func (s *dashboardSuite) TestDashboardDirectory(c *gc.C) {
-	storage, err := s.State.GUIStorage()
+	storage, err := s.State.DashboardStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
 
@@ -697,7 +431,7 @@ func (s *dashboardSuite) TestDashboardDirectory(c *gc.C) {
 	hash := setupDashboardArchive(c, storage, vers.String(), map[string]string{
 		dashboardIndexPath: indexContent,
 	})
-	err = s.State.GUISetVersion(vers)
+	err = s.State.DashboardSetVersion(vers)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Initially the Dashboard directory on the server is empty.
@@ -720,21 +454,21 @@ func (s *dashboardSuite) TestDashboardDirectory(c *gc.C) {
 	c.Assert(string(b), gc.Equals, indexContent)
 }
 
-type guiCandidSuite struct {
+type dashboardCandidSuite struct {
 	apiserverBaseSuite
 }
 
-var _ = gc.Suite(&guiCandidSuite{})
+var _ = gc.Suite(&dashboardCandidSuite{})
 
-func (s *guiCandidSuite) SetUpTest(c *gc.C) {
+func (s *dashboardCandidSuite) SetUpTest(c *gc.C) {
 	s.ControllerConfig = map[string]interface{}{
 		"identity-url": "https://candid.example.com",
 	}
 	s.apiserverBaseSuite.SetUpTest(c)
 }
 
-func (s *guiCandidSuite) TestDashboardConfig(c *gc.C) {
-	storage, err := s.State.GUIStorage()
+func (s *dashboardCandidSuite) TestDashboardConfig(c *gc.C) {
+	storage, err := s.State.DashboardStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
 
@@ -748,7 +482,7 @@ var config = {
 	_ = setupDashboardArchive(c, storage, vers.String(), map[string]string{
 		dashboardConfigPath: configContent,
 	})
-	err = s.State.GUISetVersion(vers)
+	err = s.State.DashboardSetVersion(vers)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedConfigContent := `
@@ -764,29 +498,29 @@ var config = {
 	c.Assert(string(body), gc.Equals, expectedConfigContent)
 }
 
-type guiArchiveSuite struct {
+type dashboardArchiveSuite struct {
 	apiserverBaseSuite
-	// guiURL holds the URL used to retrieve info on or upload Juju Dashboard archives.
-	guiURL string
+	// dashboardURL holds the URL used to retrieve info on or upload Juju Dashboard archives.
+	dashboardURL string
 }
 
-var _ = gc.Suite(&guiArchiveSuite{})
+var _ = gc.Suite(&dashboardArchiveSuite{})
 
-func (s *guiArchiveSuite) SetUpTest(c *gc.C) {
+func (s *dashboardArchiveSuite) SetUpTest(c *gc.C) {
 	s.apiserverBaseSuite.SetUpTest(c)
-	s.guiURL = s.URL("/dashboard-archive", nil).String()
+	s.dashboardURL = s.URL("/dashboard-archive", nil).String()
 }
 
-func (s *guiArchiveSuite) TestDashboardArchiveMethodNotAllowed(c *gc.C) {
+func (s *dashboardArchiveSuite) TestDashboardArchiveMethodNotAllowed(c *gc.C) {
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Method: "PUT",
-		URL:    s.guiURL,
+		URL:    s.dashboardURL,
 	})
 	body := apitesting.AssertResponse(c, resp, http.StatusMethodNotAllowed, "text/plain; charset=utf-8")
 	c.Assert(string(body), gc.Equals, "Method Not Allowed\n")
 }
 
-var guiArchiveGetTests = []struct {
+var dashboardArchiveGetTests = []struct {
 	about    string
 	versions []string
 	current  string
@@ -808,13 +542,13 @@ var guiArchiveGetTests = []struct {
 	current:  "3.0.0",
 }}
 
-func (s *guiArchiveSuite) TestDashboardArchiveGet(c *gc.C) {
-	for i, test := range guiArchiveGetTests {
+func (s *dashboardArchiveSuite) TestDashboardArchiveGet(c *gc.C) {
+	for i, test := range dashboardArchiveGetTests {
 		c.Logf("\n%d: %s", i, test.about)
 
 		uploadVersions := func(versions []string, current string) params.DashboardArchiveResponse {
 			// Open the Dashboard storage.
-			storage, err := s.State.GUIStorage()
+			storage, err := s.State.DashboardStorage()
 			c.Assert(err, jc.ErrorIsNil)
 			defer storage.Close()
 
@@ -829,7 +563,7 @@ func (s *guiArchiveSuite) TestDashboardArchiveGet(c *gc.C) {
 					SHA256:  hash,
 				}
 				if vers == current {
-					err := s.State.GUISetVersion(v)
+					err := s.State.DashboardSetVersion(v)
 					c.Assert(err, jc.ErrorIsNil)
 					expectedVersions[i].Current = true
 				}
@@ -846,7 +580,7 @@ func (s *guiArchiveSuite) TestDashboardArchiveGet(c *gc.C) {
 		// Send the request to retrieve Dashboard version information.
 		expectedResponse := uploadVersions(test.versions, test.current)
 		resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
-			URL: s.guiURL,
+			URL: s.dashboardURL,
 		})
 
 		// Check that a successful response is returned.
@@ -858,7 +592,7 @@ func (s *guiArchiveSuite) TestDashboardArchiveGet(c *gc.C) {
 	}
 }
 
-var guiArchivePostErrorsTests = []struct {
+var dashboardArchivePostErrorsTests = []struct {
 	about           string
 	contentType     string
 	query           string
@@ -906,11 +640,11 @@ var guiArchivePostErrorsTests = []struct {
 	expectedError:  "archive does not match provided hash",
 }}
 
-func (s *guiArchiveSuite) TestDashboardArchivePostErrors(c *gc.C) {
+func (s *dashboardArchiveSuite) TestDashboardArchivePostErrors(c *gc.C) {
 	type exoticReader struct {
 		io.Reader
 	}
-	for i, test := range guiArchivePostErrorsTests {
+	for i, test := range dashboardArchivePostErrorsTests {
 		c.Logf("\n%d: %s", i, test.about)
 
 		// Prepare the request.
@@ -924,7 +658,7 @@ func (s *guiArchiveSuite) TestDashboardArchivePostErrors(c *gc.C) {
 		// Send the request and retrieve the error response.
 		resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{
 			Method:      "POST",
-			URL:         s.guiURL + test.query,
+			URL:         s.dashboardURL + test.query,
 			ContentType: test.contentType,
 			Body:        r,
 		})
@@ -936,10 +670,10 @@ func (s *guiArchiveSuite) TestDashboardArchivePostErrors(c *gc.C) {
 	}
 }
 
-func (s *guiArchiveSuite) TestDashboardArchivePostErrorUnauthorized(c *gc.C) {
+func (s *dashboardArchiveSuite) TestDashboardArchivePostErrorUnauthorized(c *gc.C) {
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Method:      "POST",
-		URL:         s.guiURL + "?version=2.0.0&hash=sha",
+		URL:         s.dashboardURL + "?version=2.0.0&hash=sha",
 		ContentType: apiserver.BZMimeType,
 		Body:        strings.NewReader("archive contents"),
 	})
@@ -947,7 +681,7 @@ func (s *guiArchiveSuite) TestDashboardArchivePostErrorUnauthorized(c *gc.C) {
 	c.Assert(string(body), gc.Equals, "authentication failed: no credentials provided\n")
 }
 
-func (s *guiArchiveSuite) TestDashboardArchivePostSuccess(c *gc.C) {
+func (s *dashboardArchiveSuite) TestDashboardArchivePostSuccess(c *gc.C) {
 	// Create a Dashboard archive to be uploaded.
 	vers := "2.0.42"
 	r, hash, size := makeDashboardOrDashboardArchive(c, ".", vers, nil)
@@ -958,7 +692,7 @@ func (s *guiArchiveSuite) TestDashboardArchivePostSuccess(c *gc.C) {
 	v.Set("hash", hash)
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Method:      "POST",
-		URL:         s.guiURL + "?" + v.Encode(),
+		URL:         s.dashboardURL + "?" + v.Encode(),
 		ContentType: apiserver.BZMimeType,
 		Body:        r,
 	})
@@ -975,7 +709,7 @@ func (s *guiArchiveSuite) TestDashboardArchivePostSuccess(c *gc.C) {
 	})
 
 	// Check that the new archive is actually present in the Dashboard storage.
-	storage, err := s.State.GUIStorage()
+	storage, err := s.State.DashboardStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
 	allMeta, err := storage.AllMetadata()
@@ -985,14 +719,14 @@ func (s *guiArchiveSuite) TestDashboardArchivePostSuccess(c *gc.C) {
 	c.Assert(allMeta[0].Size, gc.Equals, size)
 }
 
-func (s *guiArchiveSuite) TestDashboardArchivePostCurrent(c *gc.C) {
+func (s *dashboardArchiveSuite) TestDashboardArchivePostCurrent(c *gc.C) {
 	// Add an existing Dashboard archive and set it as the current one.
-	storage, err := s.State.GUIStorage()
+	storage, err := s.State.DashboardStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
 	vers := version.MustParse("2.0.47")
 	setupDashboardArchive(c, storage, vers.String(), nil)
-	err = s.State.GUISetVersion(vers)
+	err = s.State.DashboardSetVersion(vers)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a Dashboard archive to be uploaded.
@@ -1004,7 +738,7 @@ func (s *guiArchiveSuite) TestDashboardArchivePostCurrent(c *gc.C) {
 	v.Set("hash", hash)
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Method:      "POST",
-		URL:         s.guiURL + "?" + v.Encode(),
+		URL:         s.dashboardURL + "?" + v.Encode(),
 		ContentType: apiserver.BZMimeType,
 		Body:        r,
 	})
@@ -1021,23 +755,23 @@ func (s *guiArchiveSuite) TestDashboardArchivePostCurrent(c *gc.C) {
 	})
 }
 
-type guiVersionSuite struct {
+type dashboardVersionSuite struct {
 	apiserverBaseSuite
-	// guiURL holds the URL used to select the Juju Dashboard archive version.
-	guiURL string
+	// dashboardURL holds the URL used to select the Juju Dashboard archive version.
+	dashboardURL string
 }
 
-var _ = gc.Suite(&guiVersionSuite{})
+var _ = gc.Suite(&dashboardVersionSuite{})
 
-func (s *guiVersionSuite) SetUpTest(c *gc.C) {
+func (s *dashboardVersionSuite) SetUpTest(c *gc.C) {
 	s.apiserverBaseSuite.SetUpTest(c)
-	s.guiURL = s.URL("/dashboard-version", nil).String()
+	s.dashboardURL = s.URL("/dashboard-version", nil).String()
 }
 
-func (s *guiVersionSuite) TestDashboardVersionMethodNotAllowed(c *gc.C) {
+func (s *dashboardVersionSuite) TestDashboardVersionMethodNotAllowed(c *gc.C) {
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Method: "GET",
-		URL:    s.guiURL,
+		URL:    s.dashboardURL,
 	})
 	body := apitesting.AssertResponse(c, resp, http.StatusMethodNotAllowed, params.ContentTypeJSON)
 	var jsonResp params.ErrorResult
@@ -1046,7 +780,7 @@ func (s *guiVersionSuite) TestDashboardVersionMethodNotAllowed(c *gc.C) {
 	c.Assert(jsonResp.Error.Message, gc.Matches, `unsupported method: "GET"`)
 }
 
-var guiVersionPutTests = []struct {
+var dashboardVersionPutTests = []struct {
 	about           string
 	contentType     string
 	body            interface{}
@@ -1094,17 +828,17 @@ var guiVersionPutTests = []struct {
 	expectedVersion: "2.42.0",
 }}
 
-func (s *guiVersionSuite) TestDashboardVersionPut(c *gc.C) {
+func (s *dashboardVersionSuite) TestDashboardVersionPut(c *gc.C) {
 	// Prepare the initial Juju state.
-	storage, err := s.State.GUIStorage()
+	storage, err := s.State.DashboardStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
 	setupDashboardArchive(c, storage, "2.42.0", nil)
 	setupDashboardArchive(c, storage, "2.47.0", nil)
-	err = s.State.GUISetVersion(version.MustParse("2.42.0"))
+	err = s.State.DashboardSetVersion(version.MustParse("2.42.0"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	for i, test := range guiVersionPutTests {
+	for i, test := range dashboardVersionPutTests {
 		c.Logf("\n%d: %s", i, test.about)
 
 		// Prepare the request.
@@ -1114,7 +848,7 @@ func (s *guiVersionSuite) TestDashboardVersionPut(c *gc.C) {
 		// Send the request and retrieve the response.
 		resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{
 			Method:      "PUT",
-			URL:         s.guiURL,
+			URL:         s.dashboardURL,
 			ContentType: test.contentType,
 			Body:        bytes.NewReader(content),
 		})
@@ -1131,17 +865,17 @@ func (s *guiVersionSuite) TestDashboardVersionPut(c *gc.C) {
 			// in go-1.10 it does not set content-type
 			body = apitesting.AssertResponse(c, resp, test.expectedStatus, "")
 			c.Assert(body, gc.HasLen, 0)
-			vers, err := s.State.GUIVersion()
+			vers, err := s.State.DashboardVersion()
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(vers.String(), gc.Equals, test.expectedVersion)
 		}
 	}
 }
 
-func (s *guiVersionSuite) TestDashboardVersionPutErrorUnauthorized(c *gc.C) {
+func (s *dashboardVersionSuite) TestDashboardVersionPutErrorUnauthorized(c *gc.C) {
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Method:      "PUT",
-		URL:         s.guiURL,
+		URL:         s.dashboardURL,
 		ContentType: params.ContentTypeJSON,
 	})
 	body := apitesting.AssertResponse(c, resp, http.StatusUnauthorized, "text/plain; charset=utf-8")

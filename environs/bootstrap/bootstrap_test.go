@@ -35,8 +35,8 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/dashboard"
 	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/gui"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -87,7 +87,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	envtesting.UploadFakeTools(c, stor, "released", "released")
 
 	// Patch the function used to retrieve Dashboard archive info from simplestreams.
-	s.PatchValue(bootstrap.DashboardFetchMetadata, func(string, int, int, ...simplestreams.DataSource) ([]*gui.Metadata, error) {
+	s.PatchValue(bootstrap.DashboardFetchMetadata, func(string, int, int, ...simplestreams.DataSource) ([]*dashboard.Metadata, error) {
 		return nil, nil
 	})
 	s.callContext = context.NewCloudCallContext()
@@ -888,14 +888,14 @@ func (s *bootstrapSuite) TestBootstrapToolsVersion(c *gc.C) {
 	}
 }
 
-func (s *bootstrapSuite) TestBootstrapGUISuccessRemote(c *gc.C) {
-	s.PatchValue(bootstrap.DashboardFetchMetadata, func(stream string, major, minor int, sources ...simplestreams.DataSource) ([]*gui.Metadata, error) {
-		c.Assert(stream, gc.Equals, gui.DevelStream)
+func (s *bootstrapSuite) TestBootstrapDashboardSuccessRemote(c *gc.C) {
+	s.PatchValue(bootstrap.DashboardFetchMetadata, func(stream string, major, minor int, sources ...simplestreams.DataSource) ([]*dashboard.Metadata, error) {
+		c.Assert(stream, gc.Equals, dashboard.DevelStream)
 		c.Assert(major, gc.Equals, coretesting.FakeVersionNumber.Major)
 		c.Assert(minor, gc.Equals, coretesting.FakeVersionNumber.Minor)
 		c.Assert(sources[0].Description(), gc.Equals, "dashboard simplestreams")
 		c.Assert(sources[0].RequireSigned(), jc.IsTrue)
-		return []*gui.Metadata{{
+		return []*dashboard.Metadata{{
 			Version:  version.MustParse("2.0.42"),
 			FullPath: "https://1.2.3.4/juju-dashboard-2.0.42.tar.bz2",
 			SHA256:   "hash-2.0.42",
@@ -930,8 +930,8 @@ func (s *bootstrapSuite) TestBootstrapGUISuccessRemote(c *gc.C) {
 	c.Assert(env.instanceConfig.Bootstrap.Dashboard.SHA256, gc.Equals, "hash-2.0.42")
 }
 
-func (s *bootstrapSuite) TestBootstrapGUISuccessLocal(c *gc.C) {
-	path := makeGUIArchive(c, "2.2.0")
+func (s *bootstrapSuite) TestBootstrapDashboardSuccessLocal(c *gc.C) {
+	path := makeDashboardArchive(c, "2.2.0")
 	s.PatchEnvironment("JUJU_DASHBOARD", path)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
@@ -964,7 +964,7 @@ func (s *bootstrapSuite) TestBootstrapGUISuccessLocal(c *gc.C) {
 	c.Assert(env.instanceConfig.Bootstrap.Dashboard.SHA256, gc.Equals, fmt.Sprintf("%x", h.Sum(nil)))
 }
 
-func (s *bootstrapSuite) TestBootstrapGUISuccessNoGUI(c *gc.C) {
+func (s *bootstrapSuite) TestBootstrapDashboardSuccessNoGUI(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
 	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env,
@@ -979,8 +979,8 @@ func (s *bootstrapSuite) TestBootstrapGUISuccessNoGUI(c *gc.C) {
 	c.Assert(env.instanceConfig.Bootstrap.Dashboard, gc.IsNil)
 }
 
-func (s *bootstrapSuite) TestBootstrapGUINoStreams(c *gc.C) {
-	s.PatchValue(bootstrap.DashboardFetchMetadata, func(string, int, int, ...simplestreams.DataSource) ([]*gui.Metadata, error) {
+func (s *bootstrapSuite) TestBootstrapDashboardNoStreams(c *gc.C) {
+	s.PatchValue(bootstrap.DashboardFetchMetadata, func(string, int, int, ...simplestreams.DataSource) ([]*dashboard.Metadata, error) {
 		return nil, nil
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
@@ -998,8 +998,8 @@ func (s *bootstrapSuite) TestBootstrapGUINoStreams(c *gc.C) {
 	c.Assert(env.instanceConfig.Bootstrap.Dashboard, gc.IsNil)
 }
 
-func (s *bootstrapSuite) TestBootstrapGUIStreamsFailure(c *gc.C) {
-	s.PatchValue(bootstrap.DashboardFetchMetadata, func(string, int, int, ...simplestreams.DataSource) ([]*gui.Metadata, error) {
+func (s *bootstrapSuite) TestBootstrapDashboardStreamsFailure(c *gc.C) {
+	s.PatchValue(bootstrap.DashboardFetchMetadata, func(string, int, int, ...simplestreams.DataSource) ([]*dashboard.Metadata, error) {
 		return nil, errors.New("bad wolf")
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
@@ -1017,7 +1017,7 @@ func (s *bootstrapSuite) TestBootstrapGUIStreamsFailure(c *gc.C) {
 	c.Assert(env.instanceConfig.Bootstrap.Dashboard, gc.IsNil)
 }
 
-func (s *bootstrapSuite) TestBootstrapGUIErrorNotFound(c *gc.C) {
+func (s *bootstrapSuite) TestBootstrapDashboardErrorNotFound(c *gc.C) {
 	s.PatchEnvironment("JUJU_DASHBOARD", "/no/such/file")
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
@@ -1032,7 +1032,7 @@ func (s *bootstrapSuite) TestBootstrapGUIErrorNotFound(c *gc.C) {
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `Cannot use Juju Dashboard at "/no/such/file": cannot open Juju Dashboard archive:`)
 }
 
-func (s *bootstrapSuite) TestBootstrapGUIErrorInvalidArchive(c *gc.C) {
+func (s *bootstrapSuite) TestBootstrapDashboardErrorInvalidArchive(c *gc.C) {
 	path := filepath.Join(c.MkDir(), "dashboard.bz2")
 	err := ioutil.WriteFile(path, []byte("invalid"), 0666)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1050,8 +1050,8 @@ func (s *bootstrapSuite) TestBootstrapGUIErrorInvalidArchive(c *gc.C) {
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, fmt.Sprintf("Cannot use Juju Dashboard at %q: cannot read Juju Dashboard archive", path))
 }
 
-func (s *bootstrapSuite) TestBootstrapGUIErrorInvalidVersion(c *gc.C) {
-	path := makeGUIArchive(c, "invalid")
+func (s *bootstrapSuite) TestBootstrapDashboardErrorInvalidVersion(c *gc.C) {
+	path := makeDashboardArchive(c, "invalid")
 	s.PatchEnvironment("JUJU_DASHBOARD", path)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
@@ -1066,8 +1066,8 @@ func (s *bootstrapSuite) TestBootstrapGUIErrorInvalidVersion(c *gc.C) {
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, fmt.Sprintf(`Cannot use Juju Dashboard at %q: invalid version "invalid" in archive`, path))
 }
 
-func (s *bootstrapSuite) TestBootstrapGUIErrorUnexpectedArchive(c *gc.C) {
-	path := makeGUIArchive(c, "")
+func (s *bootstrapSuite) TestBootstrapDashboardErrorUnexpectedArchive(c *gc.C) {
+	path := makeDashboardArchive(c, "")
 	s.PatchEnvironment("JUJU_DASHBOARD", path)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
@@ -1082,7 +1082,7 @@ func (s *bootstrapSuite) TestBootstrapGUIErrorUnexpectedArchive(c *gc.C) {
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, fmt.Sprintf("Cannot use Juju Dashboard at %q: cannot find Juju Dashboard version", path))
 }
 
-func makeGUIArchive(c *gc.C, vers string) string {
+func makeDashboardArchive(c *gc.C, vers string) string {
 	if runtime.GOOS == "windows" {
 		c.Skip("tar command not available")
 	}

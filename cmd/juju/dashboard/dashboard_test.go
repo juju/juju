@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package gui_test
+package dashboard_test
 
 import (
 	"context"
@@ -19,7 +19,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/gui"
+	"github.com/juju/juju/cmd/juju/dashboard"
 	jujutesting "github.com/juju/juju/juju/testing"
 )
 
@@ -29,7 +29,7 @@ type baseDashboardSuite struct {
 
 // run executes the dashboard command passing the given args.
 func (s *baseDashboardSuite) run(c *gc.C, args ...string) (string, error) {
-	ctx, err := cmdtesting.RunCommand(c, gui.NewDashboardCommandForTest(
+	ctx, err := cmdtesting.RunCommand(c, dashboard.NewDashboardCommandForTest(
 		func(connection api.Connection) ([]params.DashboardArchiveVersion, error) {
 			return []params.DashboardArchiveVersion{
 				{
@@ -50,7 +50,7 @@ func (s *baseDashboardSuite) patchClient(f func(context.Context, *httprequest.Cl
 			return nil
 		}
 	}
-	s.PatchValue(gui.ClientGet, f)
+	s.PatchValue(dashboard.ClientGet, f)
 }
 
 func (s *baseDashboardSuite) patchBrowser(f func(*url.URL) error) {
@@ -59,7 +59,7 @@ func (s *baseDashboardSuite) patchBrowser(f func(*url.URL) error) {
 			return nil
 		}
 	}
-	s.PatchValue(gui.WebbrowserOpen, f)
+	s.PatchValue(dashboard.WebbrowserOpen, f)
 }
 
 type dashboardSuite struct {
