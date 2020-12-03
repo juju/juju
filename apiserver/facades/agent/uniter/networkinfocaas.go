@@ -139,7 +139,7 @@ func (n *NetworkInfoCAAS) NetworksForRelation(
 	}
 
 	if pollAddr {
-		if ingress, err = n.maybeGetUnitAddress(rel); err != nil {
+		if ingress, err = n.maybeGetUnitAddress(rel, false); err != nil {
 			return "", nil, nil, errors.Trace(err)
 		}
 	}
