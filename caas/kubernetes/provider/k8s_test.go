@@ -7371,7 +7371,7 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForDaemonSet(c *gc.C) {
 		Type: apps.OnDeleteDaemonSetStrategyType,
 	})
 
-	o, err = provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
+	_, err = provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
 		Type: "OnDelete",
 		RollingUpdate: &specs.RollingUpdateSpec{
 			MaxUnavailable: &specs.IntOrString{IntVal: 10},
