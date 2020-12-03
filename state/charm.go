@@ -69,7 +69,7 @@ type Platform struct {
 // changing.
 type CharmOrigin struct {
 	Source   string    `bson:"source"`
-	Type     string    `bson:"type"`
+	Type     string    `bson:"type,omitempty"`
 	ID       string    `bson:"id"`
 	Hash     string    `bson:"hash"`
 	Revision *int      `bson:"revision,omitempty"`
