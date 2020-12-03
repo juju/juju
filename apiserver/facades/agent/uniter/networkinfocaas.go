@@ -17,6 +17,7 @@ import (
 type NetworkInfoCAAS struct {
 	*NetworkInfoBase
 
+	// addresses contains all services and container addresses for the unit.
 	addresses network.SpaceAddresses
 }
 
