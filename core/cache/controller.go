@@ -136,19 +136,20 @@ func newController(config ControllerConfig, manager *residentManager) (*Controll
 }
 
 func (c *Controller) loop() error {
-	var idle <-chan time.Time
+	idle := &time.Timer{}
 	if c.idleFunc != nil {
 		logger.Tracef("controller %p set idle timeout to %s", c, IdleTime)
-		idle = time.After(IdleTime)
+		idle = time.NewTimer(IdleTime)
+		defer idle.Stop()
 	}
 	for {
 		select {
 		case <-c.tomb.Dying():
 			return nil
-		case <-idle:
+		case <-idle.C:
 			logger.Tracef("controller %p is idle", c)
 			c.idleFunc()
-			idle = time.After(IdleTime)
+			idle.Reset(IdleTime)
 		case change := <-c.changes:
 			var err error
 
@@ -195,7 +196,7 @@ func (c *Controller) loop() error {
 			}
 
 			if c.idleFunc != nil {
-				idle = time.After(IdleTime)
+				idle.Reset(IdleTime)
 			}
 		}
 	}

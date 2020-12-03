@@ -396,12 +396,13 @@ func (w *HubWatcher) Report() map[string]interface{} {
 func (w *HubWatcher) loop() error {
 	w.logger.Tracef("%p loop started", w)
 	defer w.logger.Tracef("loop finished")
-	// idle is initially nil, and is only ever set if idleFunc
+	// idle's channel is initially nil, and is only ever set if idleFunc
 	// has a value.
-	var idle <-chan time.Time
+	idle := &time.Timer{}
 	if w.idleFunc != nil {
 		w.logger.Tracef("%p set idle timeout to %s", w, HubWatcherIdleTime)
-		idle = time.After(HubWatcherIdleTime)
+		idle = time.NewTimer(HubWatcherIdleTime)
+		defer idle.Stop()
 	}
 	for {
 		select {
@@ -410,14 +411,14 @@ func (w *HubWatcher) loop() error {
 		case inChange := <-w.changes:
 			w.queueChange(inChange)
 			if w.idleFunc != nil {
-				idle = time.After(HubWatcherIdleTime)
+				idle.Reset(HubWatcherIdleTime)
 			}
 		case req := <-w.request:
 			w.handle(req)
-		case <-idle:
+		case <-idle.C:
 			w.logger.Tracef("%p notify %s idle", w, w.modelUUID)
 			w.idleFunc(w.modelUUID)
-			idle = time.After(HubWatcherIdleTime)
+			idle.Reset(HubWatcherIdleTime)
 		}
 		for len(w.syncEvents) > 0 {
 			select {
@@ -426,7 +427,7 @@ func (w *HubWatcher) loop() error {
 			default:
 				if w.flush() {
 					if w.idleFunc != nil {
-						idle = time.After(HubWatcherIdleTime)
+						idle.Reset(HubWatcherIdleTime)
 					}
 				}
 			}
