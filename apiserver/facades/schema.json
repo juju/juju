@@ -3159,11 +3159,15 @@
                         },
                         "track": {
                             "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
                         "source",
+                        "type",
                         "id"
                     ]
                 },
@@ -12800,6 +12804,18 @@
                     },
                     "description": "CheckCharmPlacement checks if a charm is allowed to be placed with in a\ngiven application."
                 },
+                "GetDownloadInfos": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/CharmURLAndOrigins"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/DownloadInfoResults"
+                        }
+                    },
+                    "description": "GetDownloadInfos attempts to get the bundle corresponding to the charm url\nand origin."
+                },
                 "IsMetered": {
                     "type": "object",
                     "properties": {
@@ -13340,11 +13356,15 @@
                         },
                         "track": {
                             "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
                         "source",
+                        "type",
                         "id"
                     ]
                 },
@@ -13523,6 +13543,40 @@
                         "url"
                     ]
                 },
+                "CharmURLAndOrigin": {
+                    "type": "object",
+                    "properties": {
+                        "charm-origin": {
+                            "$ref": "#/definitions/CharmOrigin"
+                        },
+                        "charm-url": {
+                            "type": "string"
+                        },
+                        "macaroon": {
+                            "$ref": "#/definitions/Macaroon"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "charm-url",
+                        "charm-origin"
+                    ]
+                },
+                "CharmURLAndOrigins": {
+                    "type": "object",
+                    "properties": {
+                        "entities": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CharmURLAndOrigin"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "entities"
+                    ]
+                },
                 "CharmsList": {
                     "type": "object",
                     "properties": {
@@ -13551,6 +13605,37 @@
                     "additionalProperties": false,
                     "required": [
                         "charm-urls"
+                    ]
+                },
+                "DownloadInfoResult": {
+                    "type": "object",
+                    "properties": {
+                        "charm-origin": {
+                            "$ref": "#/definitions/CharmOrigin"
+                        },
+                        "url": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "url",
+                        "charm-origin"
+                    ]
+                },
+                "DownloadInfoResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/DownloadInfoResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
                     ]
                 },
                 "Error": {
