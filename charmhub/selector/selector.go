@@ -99,7 +99,7 @@ func (c *Selector) Locate(info transport.InfoResponse, origin charm.Origin) (*ur
 		if series != "" {
 			return nil, charm.Origin{}, errors.Errorf("%s %q not found for %q channel matching %q series", info.Type, info.Name, channel, series)
 		}
-		return nil, charm.Origin{}, errors.Errorf("%s %q not found with in the channel %q", info.Type, info.Name, channel)
+		return nil, charm.Origin{}, errors.Errorf("%s %q not found within the channel %q", info.Type, info.Name, channel)
 	}
 
 	if selectAll {
@@ -110,7 +110,7 @@ func (c *Selector) Locate(info transport.InfoResponse, origin charm.Origin) (*ur
 		}
 	}
 	if len(revisions) == 0 {
-		return nil, charm.Origin{}, errors.Errorf("%s %q not found with in the channel %q", info.Type, info.Name, channel)
+		return nil, charm.Origin{}, errors.Errorf("%s %q not found within the channel %q", info.Type, info.Name, channel)
 	}
 
 	revision := revisions[0]
