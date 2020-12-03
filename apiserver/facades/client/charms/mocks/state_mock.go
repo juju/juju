@@ -131,6 +131,21 @@ func (mr *MockBackendStateMockRecorder) Machine(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Machine", reflect.TypeOf((*MockBackendState)(nil).Machine), arg0)
 }
 
+// ModelConstraints mocks base method
+func (m *MockBackendState) ModelConstraints() (constraints.Value, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModelConstraints")
+	ret0, _ := ret[0].(constraints.Value)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ModelConstraints indicates an expected call of ModelConstraints
+func (mr *MockBackendStateMockRecorder) ModelConstraints() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConstraints", reflect.TypeOf((*MockBackendState)(nil).ModelConstraints))
+}
+
 // ModelUUID mocks base method
 func (m *MockBackendState) ModelUUID() string {
 	m.ctrl.T.Helper()

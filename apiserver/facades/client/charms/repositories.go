@@ -58,7 +58,13 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 	// If no revision nor channel specified, use the default release.
 	if curl.Revision == -1 && channel.String() == "" {
 		logger.Debugf("Resolving charm with default release")
-		return c.resolveViaChannelMap(info.Type, curl, origin, info.DefaultRelease)
+		resURL, resOrigin, series, err := c.resolveViaChannelMap(info.Type, curl, origin, info.DefaultRelease)
+		if err != nil {
+			return nil, params.CharmOrigin{}, nil, errors.Trace(err)
+		}
+
+		resOrigin.ID = info.ID
+		return resURL, resOrigin, series, nil
 	}
 
 	logger.Debugf("Resolving charm with revision %d and/or channel %s", curl.Revision, channel.String())
@@ -67,7 +73,13 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 	if err != nil {
 		return nil, params.CharmOrigin{}, nil, errors.Trace(err)
 	}
-	return c.resolveViaChannelMap(info.Type, curl, origin, channelMap)
+	resURL, resOrigin, series, err := c.resolveViaChannelMap(info.Type, curl, origin, channelMap)
+	if err != nil {
+		return nil, params.CharmOrigin{}, nil, errors.Trace(err)
+	}
+
+	resOrigin.ID = info.ID
+	return resURL, resOrigin, series, nil
 }
 
 // DownloadCharm downloads the provided download URL from CharmHub using the
