@@ -1232,7 +1232,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 			storage:           args.Storage,
 			devices:           args.Devices,
 			applicationConfig: appConfigAttrs,
-			charmConfig:       map[string]interface{}(args.CharmConfig),
+			charmConfig:       args.CharmConfig,
 		})
 		if err != nil {
 			return nil, errors.Trace(err)

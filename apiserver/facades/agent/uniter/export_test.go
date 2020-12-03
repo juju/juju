@@ -47,6 +47,7 @@ func PatchGetStorageStateError(patcher patcher, err error) {
 	patcher.PatchValue(&getStorageState, func(st *state.State) (storageAccess, error) { return nil, err })
 }
 
-func (n *NetworkInfoBase) MachineNetworkInfos(spaceIDs ...string) (map[string]params.NetworkInfoResult, error) {
-	return n.machineNetworkInfos(spaceIDs...)
+func (n *NetworkInfoIAAS) MachineNetworkInfos() (map[string]params.NetworkInfoResult, error) {
+	err := n.populateMachineNetworkInfos()
+	return n.machineNetworkInfos, err
 }
