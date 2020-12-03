@@ -522,9 +522,10 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel, mac *macaroon.
 	}
 	result.URL = resultURL.String()
 
-	// We have an issue where the charmhub API can return "all" for architecture
-	// and this can cause us issues. To try and solve that, we will use the
-	// model constraints to resolve it.
+	// The charmhub API can return "all" for architecture as it's not a real
+	// arch we don't know how to correctly model it. "all " doesn't mean use the
+	// default arch, it means use any arch which isn't quite the same. So if we
+	// do get "all" we should see if there is a clean way to resolve it.
 	archOrigin := origin
 	if origin.Architecture == "all" {
 		cons, err := a.backendState.ModelConstraints()
