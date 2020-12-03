@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/juju/application/refresher"
+	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -35,6 +36,9 @@ func NewRefreshCommandForTest(
 	newResourceLister func(base.APICallCloser) (utils.ResourceLister, error),
 	charmStoreURLGetter func(base.APICallCloser) (string, error),
 	newSpacesClient func(base.APICallCloser) SpacesAPI,
+	newModelConfigClient func(base.APICallCloser) ModelConfigClient,
+	newCharmHubClient func(string) (store.DownloadBundleClient, error),
+
 ) cmd.Command {
 	cmd := &refreshCommand{
 		DeployResources:       deployResources,
@@ -47,6 +51,8 @@ func NewRefreshCommandForTest(
 		NewCharmStore:         newCharmStore,
 		NewCharmResolver:      newCharmResolver,
 		NewRefresherFactory:   refresher.NewRefresherFactory,
+		ModelConfigClient:     newModelConfigClient,
+		NewCharmHubClient:     newCharmHubClient,
 	}
 	cmd.SetClientStore(store)
 	cmd.SetAPIOpen(apiOpen)

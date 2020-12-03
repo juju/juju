@@ -33,6 +33,7 @@ func (s *charmHubRepositoriesSuite) TestResolveDefaultChannelMap(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 16
+	origin.Type = "charm"
 	origin.Revision = &curl.Revision
 	origin.Risk = "stable"
 	track := "latest"
@@ -54,6 +55,7 @@ func (s *charmHubRepositoriesSuite) TestResolveWithRevision(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 13
+	origin.Type = "charm"
 	origin.Revision = &curl.Revision
 	origin.Risk = "stable"
 	track := "second"
@@ -88,6 +90,7 @@ func (s *charmHubRepositoriesSuite) TestResolveWithChannel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 13
+	origin.Type = "charm"
 	origin.Revision = &curl.Revision
 	c.Assert(obtainedCurl, jc.DeepEquals, curl)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
@@ -100,7 +103,12 @@ func (s *charmHubRepositoriesSuite) TestResolveWithChannelNotFound(c *gc.C) {
 
 	curl := charm.MustParseURL("ch:wordpress")
 	track := "testme"
-	origin := params.CharmOrigin{Source: "charm-hub", Risk: "edge", Track: &track}
+	origin := params.CharmOrigin{
+		Source: "charm-hub",
+		Type:   "charm",
+		Risk:   "edge",
+		Track:  &track,
+	}
 
 	resolver := &chRepo{client: s.client}
 	_, _, _, err := resolver.ResolveWithPreferredChannel(curl, origin)
@@ -119,6 +127,7 @@ func (s *charmHubRepositoriesSuite) TestResolveWithChannelRiskOnly(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 19
+	origin.Type = "charm"
 	origin.Revision = &curl.Revision
 	track := "latest"
 	origin.Track = &track

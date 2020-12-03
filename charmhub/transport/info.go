@@ -3,8 +3,10 @@
 
 package transport
 
+type Type = string
+
 type InfoResponse struct {
-	Type           string           `json:"type"`
+	Type           Type             `json:"type"`
 	ID             string           `json:"id"`
 	Name           string           `json:"name"`
 	Entity         Entity           `json:"result"`

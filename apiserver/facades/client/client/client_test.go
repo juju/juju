@@ -874,8 +874,8 @@ func (m *mockRepo) DownloadCharm(downloadURL, archivePath string) (*charm.CharmA
 	return nil, nil
 }
 
-func (m *mockRepo) FindDownloadURL(curl *charm.URL, origin corecharm.Origin, series string) (*url.URL, corecharm.Origin, error) {
-	m.MethodCall(m, "FindDownloadURL", curl, origin, series)
+func (m *mockRepo) FindDownloadURL(curl *charm.URL, origin corecharm.Origin) (*url.URL, corecharm.Origin, error) {
+	m.MethodCall(m, "FindDownloadURL", curl, origin)
 	return nil, corecharm.Origin{}, nil
 }
 

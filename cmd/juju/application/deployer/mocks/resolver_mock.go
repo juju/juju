@@ -35,18 +35,18 @@ func (m *MockResolver) EXPECT() *MockResolverMockRecorder {
 }
 
 // GetBundle mocks base method
-func (m *MockResolver) GetBundle(arg0 *charm.URL, arg1 string) (charm.Bundle, error) {
+func (m *MockResolver) GetBundle(arg0 *charm.URL, arg1 charm0.Origin, arg2 string) (charm.Bundle, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetBundle", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetBundle", arg0, arg1, arg2)
 	ret0, _ := ret[0].(charm.Bundle)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetBundle indicates an expected call of GetBundle
-func (mr *MockResolverMockRecorder) GetBundle(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockResolverMockRecorder) GetBundle(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBundle", reflect.TypeOf((*MockResolver)(nil).GetBundle), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBundle", reflect.TypeOf((*MockResolver)(nil).GetBundle), arg0, arg1, arg2)
 }
 
 // ResolveBundleURL mocks base method

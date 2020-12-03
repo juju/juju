@@ -367,7 +367,11 @@ func (d *factory) maybeReadCharmstoreBundle(resolver Resolver) (Deployer, error)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	origin, err := utils.DeduceOrigin(curl, d.channel)
+	platform, err := utils.DeducePlatform(d.constraints, d.series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	origin, err := utils.DeduceOrigin(curl, d.channel, platform)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -379,7 +383,7 @@ func (d *factory) maybeReadCharmstoreBundle(resolver Resolver) (Deployer, error)
 	// has it's own channel supplied via a bundle, if no is supplied then the
 	// channel is worked out via the resolving what is available.
 	// See: LP:1677404 and LP:1832873
-	bundleURL, _, err := resolver.ResolveBundleURL(curl, origin)
+	bundleURL, bundleOrigin, err := resolver.ResolveBundleURL(curl, origin)
 	if charm.IsUnsupportedSeriesError(errors.Cause(err)) {
 		return nil, errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 	}
@@ -405,7 +409,7 @@ func (d *factory) maybeReadCharmstoreBundle(resolver Resolver) (Deployer, error)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	bundle, err := resolver.GetBundle(bundleURL, filepath.Join(dir, bundleURL.Name))
+	bundle, err := resolver.GetBundle(bundleURL, bundleOrigin, filepath.Join(dir, bundleURL.Name))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -422,7 +426,11 @@ func (d *factory) charmStoreCharm() (Deployer, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	origin, err := utils.DeduceOrigin(userRequestedURL, d.channel)
+	platform, err := utils.DeducePlatform(d.constraints, d.series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	origin, err := utils.DeduceOrigin(userRequestedURL, d.channel, platform)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

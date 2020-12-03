@@ -397,7 +397,7 @@ func (s *deployerSuite) expectModelType() {
 }
 
 func (s *deployerSuite) expectGetBundle(err error) {
-	s.resolver.EXPECT().GetBundle(gomock.AssignableToTypeOf(&charm.URL{}), gomock.Any()).Return(s.bundle, err)
+	s.resolver.EXPECT().GetBundle(gomock.AssignableToTypeOf(&charm.URL{}), gomock.Any(), gomock.Any()).Return(s.bundle, err)
 }
 
 func (s *deployerSuite) expectData() {

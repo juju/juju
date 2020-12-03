@@ -6,12 +6,14 @@ package charms
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/juju/state"
 	"github.com/juju/names/v4"
+	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v2"
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/mgo.v2"
@@ -154,7 +156,7 @@ func NewCharmsAPI(
 // CharmInfo returns information about the requested charm.
 // NOTE: thumper 2016-06-29, this is not a bulk call and probably should be.
 func (a *API) CharmInfo(args params.CharmURL) (params.Charm, error) {
-	logger.Tracef("CharmInfo %+v", args)
+	logger.Tracef("CharmInfo 1 %+v", args)
 	if err := a.checkCanRead(); err != nil {
 		return params.Charm{}, errors.Trace(err)
 	}
@@ -212,6 +214,77 @@ func (a *API) List(args params.CharmsList) (params.CharmsListResult, error) {
 		charmURLs = append(charmURLs, charmURL.String())
 	}
 	return params.CharmsListResult{CharmURLs: charmURLs}, nil
+}
+
+// GetDownloadInfos is not available via the V2 API.
+func (a *APIv2) GetDownloadInfos(_ struct{}) {}
+
+// GetDownloadInfos attempts to get the bundle corresponding to the charm url
+//and origin.
+func (a *API) GetDownloadInfos(args params.CharmURLAndOrigins) (params.DownloadInfoResults, error) {
+	logger.Tracef("GetDownloadInfos %+v", args)
+
+	results := params.DownloadInfoResults{
+		Results: make([]params.DownloadInfoResult, len(args.Entities)),
+	}
+	for i, arg := range args.Entities {
+		result, err := a.getDownloadInfo(arg)
+		if err != nil {
+			return params.DownloadInfoResults{}, errors.Trace(err)
+		}
+		results.Results[i] = result
+	}
+	return results, nil
+}
+
+func (a *API) getDownloadInfo(arg params.CharmURLAndOrigin) (params.DownloadInfoResult, error) {
+	if err := a.checkCanRead(); err != nil {
+		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
+	}
+
+	curl, err := charm.ParseURL(arg.CharmURL)
+	if err != nil {
+		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
+	}
+
+	charmOrigin, err := normalizeCharmOrigin(arg.Origin)
+
+	repo, err := a.repository(charmOrigin, arg.Macaroon)
+	if err != nil {
+		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
+	}
+
+	url, origin, err := repo.FindDownloadURL(curl, convertParamsOrigin(charmOrigin))
+	if err != nil {
+		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
+	}
+
+	return params.DownloadInfoResult{
+		URL:    url.String(),
+		Origin: convertOrigin(origin),
+	}, nil
+}
+
+func normalizeCharmOrigin(origin params.CharmOrigin) (params.CharmOrigin, error) {
+	os := origin.OS
+	if origin.Series != "" {
+		sys, err := series.GetOSFromSeries(origin.Series)
+		if err != nil {
+			return params.CharmOrigin{}, errors.Trace(err)
+		}
+		// Values passed to the api are case sensitive: ubuntu succeeds and
+		// Ubuntu returns `"code": "revision-not-found"`
+		os = strings.ToLower(sys.String())
+	}
+	arc := origin.Architecture
+	if origin.Architecture == "" {
+		arc = arch.DefaultArchitecture
+	}
+
+	o := origin
+	o.OS = os
+	o.Architecture = arc
+	return o, nil
 }
 
 // AddCharm is not available via the V2 API.
@@ -465,19 +538,21 @@ func (a *API) charmStrategy(args params.AddCharmWithAuth) (Strategy, error) {
 		return nil, err
 	}
 	fn := a.getStrategyFunc(args.Origin.Source)
-	return fn(repo, args.URL, args.Force, args.Series)
+	return fn(repo, args.URL, args.Force)
 }
 
-type StrategyFunc func(charmRepo corecharm.Repository, url string, force bool, series string) (Strategy, error)
+// StrategyFunc defines a function for executing a strategy for downloading a
+// charm.
+type StrategyFunc func(charmRepo corecharm.Repository, url string, force bool) (Strategy, error)
 
 func getStrategyFunc(source string) StrategyFunc {
 	if source == "charm-store" {
-		return func(charmRepo corecharm.Repository, url string, force bool, _ string) (Strategy, error) {
+		return func(charmRepo corecharm.Repository, url string, force bool) (Strategy, error) {
 			return corecharm.DownloadFromCharmStore(logger.Child("strategy"), charmRepo, url, force)
 		}
 	}
-	return func(charmRepo corecharm.Repository, url string, force bool, series string) (Strategy, error) {
-		return corecharm.DownloadFromCharmHub(logger.Child("strategy"), charmRepo, url, force, series)
+	return func(charmRepo corecharm.Repository, url string, force bool) (Strategy, error) {
+		return corecharm.DownloadFromCharmHub(logger.Child("strategy"), charmRepo, url, force)
 	}
 }
 

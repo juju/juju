@@ -57,6 +57,13 @@ func (c *InfoClient) Info(ctx context.Context, name string) (transport.InfoRespo
 		}
 		return resp, resultErr
 	}
+
+	switch resp.Type {
+	case "charm", "bundle":
+	default:
+		return resp, errors.Errorf("unexpected response type %q, expected charm or bundle", resp.Type)
+	}
+
 	c.logger.Tracef("Info() unmarshalled: %s", pretty.Sprint(resp))
 	return resp, nil
 }

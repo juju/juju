@@ -10,6 +10,12 @@ import (
 	"github.com/juju/errors"
 )
 
+const (
+	// DefaultChannelString represents the default track and risk if nothing
+	// is found.
+	DefaultChannelString = "latest/stable"
+)
+
 // Risk describes the type of risk in a current channel.
 type Risk string
 

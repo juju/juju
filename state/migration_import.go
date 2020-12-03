@@ -1304,13 +1304,28 @@ func makeCharmOrigin(a description.Application, curl *charm.URL) (*CharmOrigin, 
 			Branch: c.Branch,
 		}
 	}
+	var platform *Platform
+	if serialized := co.Platform(); serialized != "" {
+		p, err := corecharm.ParsePlatformNormalize(serialized)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		platform = &Platform{
+			Architecture: p.Architecture,
+			OS:           p.OS,
+			Series:       p.Series,
+		}
+	}
 
+	// We can hardcode type to charm as we never store bundles in state.
 	return &CharmOrigin{
 		Source:   co.Source(),
+		Type:     "charm",
 		ID:       co.ID(),
 		Hash:     co.Hash(),
 		Revision: &rev,
 		Channel:  channel,
+		Platform: platform,
 	}, nil
 }
 
@@ -1322,7 +1337,16 @@ func deduceCharmOrigin(url *charm.URL) (*CharmOrigin, error) {
 		return &CharmOrigin{}, errors.NotValidf("charm url")
 	}
 
+	var t string
+	switch url.Series {
+	case "bundle":
+		t = "bundle"
+	default:
+		t = "charm"
+	}
+
 	origin := &CharmOrigin{
+		Type:     t,
 		Revision: &url.Revision,
 	}
 

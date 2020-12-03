@@ -296,6 +296,8 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 	for _, name := range h.applications.SortedValues() {
 		spec := h.data.Applications[name]
 		app := h.model.GetApplication(name)
+
+		var cons constraints.Value
 		if app != nil {
 			deployedApps.Add(name)
 
@@ -308,6 +310,12 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 			// If the charm matches, don't bother resolving.
 			if spec.Charm == app.Charm {
 				continue
+			}
+
+			var err error
+			cons, err = constraints.Parse(app.Constraints)
+			if err != nil {
+				return errors.Trace(err)
 			}
 		}
 
@@ -341,8 +349,14 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 				return errors.Trace(err)
 			}
 		}
+
+		platform, err := utils.DeducePlatform(cons, spec.Series)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
 		h.ctx.Infof("Resolving charm %s%s%s", via, ch.FullPath(), fromChannel)
-		origin, err := utils.DeduceOrigin(ch, channel)
+		origin, err := utils.DeduceOrigin(ch, channel, platform)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -537,9 +551,15 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// TODO (stickupkid): How do we know what the charm architecture in this
+	// case.
+	platform, err := utils.DeducePlatform(constraints.Value{}, series)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	// A channel is needed whether the risk is valid or not.
 	channel, _ := corecharm.ParseChannelNormalize(chParams.Channel)
-	origin, err := utils.DeduceOrigin(ch, channel)
+	origin, err := utils.DeduceOrigin(ch, channel, platform)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -554,7 +574,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 
 	var macaroon *macaroon.Macaroon
 	var charmOrigin commoncharm.Origin
-	url, macaroon, charmOrigin, err = store.AddCharmWithAuthorizationFromURL(h.deployAPI, h.authorizer, url, origin, h.force, series)
+	url, macaroon, charmOrigin, err = store.AddCharmWithAuthorizationFromURL(h.deployAPI, h.authorizer, url, origin, h.force)
 	if err != nil {
 		return errors.Annotatef(err, "cannot add charm %q", chParams.Charm)
 	} else if url == nil {
@@ -757,9 +777,13 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		if h.origin.Track != nil {
 			track = *h.origin.Track
 		}
+		platform, err := utils.DeducePlatform(cons, series)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		// A channel is needed whether the risk is valid or not.
 		channel, _ := corecharm.MakeChannel(track, h.origin.Risk, "")
-		origin, err = utils.DeduceOrigin(chID.URL, channel)
+		origin, err = utils.DeduceOrigin(chID.URL, channel, platform)
 		if err != nil {
 			return errors.Trace(err)
 		}

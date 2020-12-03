@@ -454,6 +454,15 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 		CharmConfig: map[string]interface{}{
 			"foo": "bar",
 		},
+		CharmOrigin: &state.CharmOrigin{
+			Channel: &state.Channel{
+				Risk: "beta",
+			},
+			Platform: &state.Platform{
+				Architecture: "amd64",
+				Series:       "focal",
+			},
+		},
 		ApplicationConfig: map[string]interface{}{
 			"app foo": "app bar",
 		},
@@ -497,6 +506,10 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 	c.Assert(exported.Type(), gc.Equals, string(dbModel.Type()))
 	c.Assert(exported.Series(), gc.Equals, application.Series())
 	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
+
+	origin := exported.CharmOrigin()
+	c.Assert(origin.Channel(), gc.Equals, "beta")
+	c.Assert(origin.Platform(), gc.Equals, "amd64/focal")
 
 	c.Assert(exported.CharmConfig(), jc.DeepEquals, map[string]interface{}{
 		"foo": "bar",

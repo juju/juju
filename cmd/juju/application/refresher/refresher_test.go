@@ -247,7 +247,7 @@ func (s *charmStoreCharmRefresherSuite) TestRefresh(c *gc.C) {
 	authorizer := NewMockMacaroonGetter(ctrl)
 
 	charmAdder := NewMockCharmAdder(ctrl)
-	charmAdder.EXPECT().AddCharm(newCurl, origin, false, "").Return(origin, nil)
+	charmAdder.EXPECT().AddCharm(newCurl, origin, false).Return(origin, nil)
 
 	charmResolver := NewMockCharmResolver(ctrl)
 	charmResolver.EXPECT().ResolveCharm(curl, origin).Return(newCurl, origin, []string{}, nil)
@@ -331,15 +331,16 @@ func (s *charmHubCharmRefresherSuite) TestRefresh(c *gc.C) {
 	newCurl := charm.MustParseURL(fmt.Sprintf("%s-1", ref))
 	origin := commoncharm.Origin{
 		Source: commoncharm.OriginCharmHub,
+		Series: "bionic",
 	}
 
 	charmAdder := NewMockCharmAdder(ctrl)
-	charmAdder.EXPECT().AddCharm(newCurl, origin, false, "bionic").Return(origin, nil)
+	charmAdder.EXPECT().AddCharm(newCurl, origin, false).Return(origin, nil)
 
 	charmResolver := NewMockCharmResolver(ctrl)
 	charmResolver.EXPECT().ResolveCharm(curl, origin).Return(newCurl, origin, []string{}, nil)
 
-	cfg := refresherConfigWithOrigin(curl, ref)
+	cfg := refresherConfigWithOrigin(curl, ref, "bionic")
 	cfg.DeployedSeries = "bionic"
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
@@ -369,7 +370,7 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithNoUpdates(c *gc.C) {
 	charmResolver := NewMockCharmResolver(ctrl)
 	charmResolver.EXPECT().ResolveCharm(curl, origin).Return(curl, origin, []string{}, nil)
 
-	cfg := refresherConfigWithOrigin(curl, ref)
+	cfg := refresherConfigWithOrigin(curl, ref, "")
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
 	task, err := refresher(cfg)
@@ -394,7 +395,7 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithARevision(c *gc.C) {
 	charmResolver := NewMockCharmResolver(ctrl)
 	charmResolver.EXPECT().ResolveCharm(curl, origin).Return(curl, origin, []string{}, nil)
 
-	cfg := refresherConfigWithOrigin(curl, ref)
+	cfg := refresherConfigWithOrigin(curl, ref, "")
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
 	task, err := refresher(cfg)
@@ -452,7 +453,7 @@ func (s *charmHubCharmRefresherSuite) TestAllowed(c *gc.C) {
 	charmAdder := NewMockCharmAdder(ctrl)
 	charmResolver := NewMockCharmResolver(ctrl)
 
-	cfg := refresherConfigWithOrigin(curl, ref)
+	cfg := refresherConfigWithOrigin(curl, ref, "")
 	cfg.DeployedSeries = "bionic"
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
@@ -479,7 +480,7 @@ func (s *charmHubCharmRefresherSuite) TestAllowedWithSwitch(c *gc.C) {
 
 	charmResolver := NewMockCharmResolver(ctrl)
 
-	cfg := refresherConfigWithOrigin(curl, ref)
+	cfg := refresherConfigWithOrigin(curl, ref, "")
 	cfg.DeployedSeries = "bionic"
 	cfg.Switch = true
 
@@ -507,7 +508,7 @@ func (s *charmHubCharmRefresherSuite) TestAllowedError(c *gc.C) {
 
 	charmResolver := NewMockCharmResolver(ctrl)
 
-	cfg := refresherConfigWithOrigin(curl, ref)
+	cfg := refresherConfigWithOrigin(curl, ref, "")
 	cfg.DeployedSeries = "bionic"
 	cfg.Switch = true
 
@@ -536,11 +537,14 @@ func basicRefresherConfig(curl *charm.URL, ref string) RefresherConfig {
 	}
 }
 
-func refresherConfigWithOrigin(curl *charm.URL, ref string) RefresherConfig {
+func refresherConfigWithOrigin(curl *charm.URL, ref, series string) RefresherConfig {
 	rc := basicRefresherConfig(curl, ref)
 	rc.CharmOrigin = corecharm.Origin{
 		Source:  corecharm.CharmHub,
 		Channel: &corecharm.Channel{},
+		Platform: corecharm.Platform{
+			Series: series,
+		},
 	}
 	return rc
 }

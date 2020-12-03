@@ -27,8 +27,10 @@ import (
 	commoncharm "github.com/juju/juju/api/common/charm"
 	apicommoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/api/controller"
+	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/api/spaces"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmhub"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/application/refresher"
 	"github.com/juju/juju/cmd/juju/application/store"
@@ -37,6 +39,7 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
 )
@@ -61,6 +64,16 @@ func newRefreshCommand() *refreshCommand {
 		NewSpacesClient: func(conn base.APICallCloser) SpacesAPI {
 			return spaces.NewAPI(conn)
 		},
+		ModelConfigClient: func(api base.APICallCloser) ModelConfigClient {
+			return modelconfig.NewClient(api)
+		},
+		NewCharmHubClient: func(url string) (store.DownloadBundleClient, error) {
+			cfg, err := charmhub.CharmHubConfigFromURL(url, logger)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return charmhub.NewClient(cfg)
+		},
 		CharmStoreURLGetter: getCharmStoreAPIURL,
 		NewCharmStore: func(
 			bakeryClient *httpbakery.Client,
@@ -69,10 +82,13 @@ func newRefreshCommand() *refreshCommand {
 		) (store.MacaroonGetter, store.CharmrepoForDeploy) {
 			return getCharmStore(bakeryClient, csURL, channel)
 		},
-		NewCharmResolver: func(apiRoot base.APICallCloser, charmrepo store.CharmrepoForDeploy) CharmResolver {
+		NewCharmResolver: func(apiRoot base.APICallCloser, charmrepo store.CharmrepoForDeploy, downloadClient store.DownloadBundleClient) CharmResolver {
 			return store.NewCharmAdaptor(apicharms.NewClient(apiRoot),
 				func() (store.CharmrepoForDeploy, error) {
 					return charmrepo, nil
+				},
+				func() (store.DownloadBundleClient, error) {
+					return downloadClient, nil
 				},
 			)
 		},
@@ -113,7 +129,7 @@ type NewCharmStoreFunc func(
 ) (store.MacaroonGetter, store.CharmrepoForDeploy)
 
 // NewCharmResolverFunc returns a client implementing CharmResolver.
-type NewCharmResolverFunc func(base.APICallCloser, store.CharmrepoForDeploy) CharmResolver
+type NewCharmResolverFunc func(base.APICallCloser, store.CharmrepoForDeploy, store.DownloadBundleClient) CharmResolver
 
 // RefreshCharm is responsible for upgrading an application's charm.
 type refreshCommand struct {
@@ -128,6 +144,8 @@ type refreshCommand struct {
 	NewResourceLister     func(base.APICallCloser) (utils.ResourceLister, error)
 	NewSpacesClient       func(base.APICallCloser) SpacesAPI
 	CharmStoreURLGetter   func(base.APICallCloser) (string, error)
+	ModelConfigClient     func(base.APICallCloser) ModelConfigClient
+	NewCharmHubClient     func(string) (store.DownloadBundleClient, error)
 	NewRefresherFactory   func(refresher.RefresherDependencies) refresher.RefresherFactory
 
 	ApplicationName string
@@ -366,7 +384,10 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	if oldOrigin.Source != commoncharm.OriginLocal {
 		// If not upgrading from a local path, display the channel we
 		// are pulling the charm from.
-		channel := fmt.Sprintf(" from channel %s", oldOrigin.CoreChannel().String())
+		var channel string
+		if ch := oldOrigin.CoreChannel().String(); ch != "" {
+			channel = fmt.Sprintf(" from channel %s", ch)
+		}
 		ctx.Infof("Looking up metadata for %s charm %q%s", oldOrigin.Source, oldURL.Name, channel)
 	}
 
@@ -594,16 +615,16 @@ func (c *charmAdderShim) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bo
 	return c.api.AddLocalCharm(curl, ch, force)
 }
 
-func (c *charmAdderShim) AddCharm(curl *charm.URL, origin commoncharm.Origin, force bool, series string) (commoncharm.Origin, error) {
+func (c *charmAdderShim) AddCharm(curl *charm.URL, origin commoncharm.Origin, force bool) (commoncharm.Origin, error) {
 	if c.charms != nil {
-		return c.charms.AddCharm(curl, origin, force, series)
+		return c.charms.AddCharm(curl, origin, force)
 	}
 	return origin, c.api.AddCharm(curl, csparams.Channel(origin.Risk), force)
 }
 
-func (c *charmAdderShim) AddCharmWithAuthorization(curl *charm.URL, origin commoncharm.Origin, mac *macaroon.Macaroon, force bool, series string) (commoncharm.Origin, error) {
+func (c *charmAdderShim) AddCharmWithAuthorization(curl *charm.URL, origin commoncharm.Origin, mac *macaroon.Macaroon, force bool) (commoncharm.Origin, error) {
 	if c.charms != nil {
-		return c.charms.AddCharmWithAuthorization(curl, origin, mac, force, series)
+		return c.charms.AddCharmWithAuthorization(curl, origin, mac, force)
 	}
 	return origin, c.api.AddCharmWithAuthorization(curl, csparams.Channel(origin.Risk), mac, force)
 }
@@ -624,7 +645,8 @@ func getCharmStore(
 	return csClient, charmrepo.NewCharmStoreFromClient(csClient)
 }
 
-// getCharmStoreAPIURL consults the controller config for the charmstore api url to use.
+// getCharmStoreAPIURL consults the controller config for the charmstore api url
+// to use.
 var getCharmStoreAPIURL = func(conAPIRoot base.APICallCloser) (string, error) {
 	controllerAPI := controller.NewClient(conAPIRoot)
 	controllerCfg, err := controllerAPI.ControllerConfig()
@@ -668,10 +690,37 @@ func (c *refreshCommand) getRefresherFactory(apiRoot api.Connection) (refresher.
 	}
 	csClient, charmStore := c.NewCharmStore(bakeryClient, csURL, csparams.Channel(c.Channel.Risk))
 
+	charmHubURL, err := c.getCharmHubURL(apiRoot)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	downloadClient, err := c.NewCharmHubClient(charmHubURL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	deps := refresher.RefresherDependencies{
 		Authorizer:    csClient,
 		CharmAdder:    c.NewCharmAdder(apiRoot),
-		CharmResolver: c.NewCharmResolver(apiRoot, charmStore),
+		CharmResolver: c.NewCharmResolver(apiRoot, charmStore, downloadClient),
 	}
 	return c.NewRefresherFactory(deps), nil
+}
+
+func (c *refreshCommand) getCharmHubURL(apiRoot base.APICallCloser) (string, error) {
+	modelConfigClient := c.ModelConfigClient(apiRoot)
+
+	attrs, err := modelConfigClient.ModelGet()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	config, err := config.New(config.NoDefaults, attrs)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	charmHubURL, _ := config.CharmHubURL()
+	return charmHubURL, nil
 }

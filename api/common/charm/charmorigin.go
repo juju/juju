@@ -28,8 +28,11 @@ const (
 type Origin struct {
 	// Source is where the charm came from, Local, CharmStore or CharmHub.
 	Source OriginSource
+	// Type defines the charm type if it's a bundle or a charm
+	Type string
 	// ID is the CharmHub ID for this charm.
-	ID   string
+	ID string
+	// Hash is the hash of the charm intended to be used.
 	Hash string
 	// Risk is the CharmHub channel risk, or the CharmStore channel value.
 	Risk string
@@ -37,6 +40,12 @@ type Origin struct {
 	Revision *int
 	// Track is a CharmHub channel track.
 	Track *string
+	// Architecture describes the architecture intended to be used by the charm.
+	Architecture string
+	// OS describes the OS intended to be used by the charm.
+	OS string
+	// Series describes the series of the OS intended to be used by the charm.
+	Series string
 }
 
 // CoreChannel returns the core charm channel.
@@ -55,12 +64,16 @@ func (o Origin) CoreChannel() corecharm.Channel {
 // of this structure.
 func (o Origin) ParamsCharmOrigin() params.CharmOrigin {
 	return params.CharmOrigin{
-		Source:   o.Source.String(),
-		ID:       o.ID,
-		Hash:     o.Hash,
-		Revision: o.Revision,
-		Risk:     o.Risk,
-		Track:    o.Track,
+		Source:       o.Source.String(),
+		Type:         o.Type,
+		ID:           o.ID,
+		Hash:         o.Hash,
+		Revision:     o.Revision,
+		Risk:         o.Risk,
+		Track:        o.Track,
+		Architecture: o.Architecture,
+		OS:           o.OS,
+		Series:       o.Series,
 	}
 }
 
@@ -72,12 +85,18 @@ func (o Origin) CoreCharmOrigin() corecharm.Origin {
 	}
 	return corecharm.Origin{
 		Source:   corecharm.Source(o.Source),
+		Type:     o.Type,
 		ID:       o.ID,
 		Hash:     o.Hash,
 		Revision: o.Revision,
 		Channel: &corecharm.Channel{
 			Risk:  corecharm.Risk(o.Risk),
 			Track: track,
+		},
+		Platform: corecharm.Platform{
+			Architecture: o.Architecture,
+			OS:           o.OS,
+			Series:       o.Series,
 		},
 	}
 }
@@ -86,12 +105,16 @@ func (o Origin) CoreCharmOrigin() corecharm.Origin {
 // to an Origin.
 func APICharmOrigin(origin params.CharmOrigin) Origin {
 	return Origin{
-		Source:   OriginSource(origin.Source),
-		ID:       origin.ID,
-		Hash:     origin.Hash,
-		Risk:     origin.Risk,
-		Revision: origin.Revision,
-		Track:    origin.Track,
+		Source:       OriginSource(origin.Source),
+		Type:         origin.Type,
+		ID:           origin.ID,
+		Hash:         origin.Hash,
+		Risk:         origin.Risk,
+		Revision:     origin.Revision,
+		Track:        origin.Track,
+		Architecture: origin.Architecture,
+		OS:           origin.OS,
+		Series:       origin.Series,
 	}
 }
 
@@ -107,11 +130,15 @@ func CoreCharmOrigin(origin corecharm.Origin) Origin {
 		track = &ch.Track
 	}
 	return Origin{
-		Source:   OriginSource(origin.Source),
-		ID:       origin.ID,
-		Hash:     origin.Hash,
-		Revision: origin.Revision,
-		Risk:     string(ch.Risk),
-		Track:    track,
+		Source:       OriginSource(origin.Source),
+		Type:         origin.Type,
+		ID:           origin.ID,
+		Hash:         origin.Hash,
+		Revision:     origin.Revision,
+		Risk:         string(ch.Risk),
+		Track:        track,
+		Architecture: origin.Platform.Architecture,
+		OS:           origin.Platform.OS,
+		Series:       origin.Platform.Series,
 	}
 }
