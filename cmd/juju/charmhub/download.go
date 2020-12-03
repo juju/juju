@@ -221,6 +221,9 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 			Series:       c.series,
 		},
 	})
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	path := c.archivePath
 	if c.archivePath == "" {
