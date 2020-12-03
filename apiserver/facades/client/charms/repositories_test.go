@@ -7,13 +7,13 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/arch"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/charms/mocks"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub/transport"
+	"github.com/juju/juju/core/arch"
 )
 
 type charmHubRepositoriesSuite struct {
