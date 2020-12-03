@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resources_test
+package resources
 
 import (
 	"io"
@@ -12,7 +12,6 @@ import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facades/client/resources"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource"
@@ -35,12 +34,27 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.csClient = &stubCSClient{Stub: s.stub}
 }
 
-func (s *BaseSuite) newCSClient() (resources.CharmStore, error) {
+func (s *BaseSuite) newCSClient() (CharmStore, error) {
 	s.stub.AddCall("newCSClient")
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}
 	return s.csClient, nil
+}
+
+func (s *BaseSuite) newCSFactory() func(CharmID) (NewCharmRepository, error) {
+	return func(chID CharmID) (NewCharmRepository, error) {
+		return &charmStoreClient{
+			client: s.csClient,
+			id:     chID,
+		}, nil
+	}
+}
+
+func (s *BaseSuite) newLocalFactory() func(CharmID) (NewCharmRepository, error) {
+	return func(chID CharmID) (NewCharmRepository, error) {
+		return &localClient{}, nil
+	}
 }
 
 func newResource(c *gc.C, name, username, data string) (resource.Resource, params.Resource) {
@@ -170,4 +184,18 @@ func (s *stubCSClient) ResourceInfo(req charmstore.ResourceRequest) (charmresour
 		return charmresource.Resource{}, errors.NotFoundf("resource %q", req.Name)
 	}
 	return *s.ReturnResourceInfo, nil
+}
+
+type stubFactory struct {
+	*testing.Stub
+	ReturnResources []charmresource.Resource
+}
+
+func (s *stubFactory) ResolveResources(resources []charmresource.Resource) ([]charmresource.Resource, error) {
+	s.AddCall("ResolveResources", resources)
+
+	if err := s.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return s.ReturnResources, nil
 }

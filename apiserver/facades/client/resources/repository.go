@@ -11,29 +11,21 @@ import (
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/charmstore"
 	corecharm "github.com/juju/juju/core/charm"
 )
+
+type NewCharmRepository interface {
+	ResolveResources(resources []charmresource.Resource) ([]charmresource.Resource, error)
+}
 
 // NOTE: There maybe a better way to do this.  Juju's charmhub package is equivalent
 // to charmstore.client.  Juju's charmstore package is what the charmHubClient is doing
 // here, making calls to the charmhub and returning data in a format that the facade
 // would like to see.
 // The question remains, where to put the charmhub piece?
-
-// CharmRepository exposes the functionality of a charm repository as
-// needed by the facade.
-type CharmRepository interface {
-	// ListResources composes, for each of the identified charms, the
-	// list of details for each of the charm's resources. Those details
-	// are those associated with the specific charm revision. They
-	// include the resource's metadata and revision.
-	ListResources([]CharmID) ([][]charmresource.Resource, error)
-
-	// ResourceInfo returns the metadata for the given resource.
-	ResourceInfo(charmstore.ResourceRequest) (charmresource.Resource, error)
-}
 
 // CharmID encapsulates data for identifying a unique charm in a charm repository.
 type CharmID struct {
@@ -49,54 +41,66 @@ type CharmID struct {
 }
 
 type CharmHub interface {
-	Info(ctx context.Context, name string) (transport.InfoResponse, error)
-	ListResourceRevisions(ctx context.Context, charm, resource string) ([]transport.ResourceRevision, error)
+	Refresh(ctx context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error)
 }
 
 // TODO hml 2020-12-2
-// charmHubClient needs to be "caching" like the charmstoreclient is.
+// charmHubClient needs to be "caching" like the charmstoreclient is??
 type charmHubClient struct {
-	infoClient CharmHub
+	client CharmHub
+	id     CharmID
 }
 
-// ListResources composes, for each of the identified charms, the
-// list of details for each of the charm's resources. Those details
-// are those associated with the specific charm revision. They
-// include the resource's metadata and revision.
-func (ch *charmHubClient) ListResources(charmIDs []CharmID) ([][]charmresource.Resource, error) {
-	results := make([][]charmresource.Resource, len(charmIDs))
-	for i, id := range charmIDs {
-		info, err := ch.infoClient.Info(context.TODO(), id.URL.Name)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		result, err := parseResources(*id.Origin.Channel, info)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		results[i] = result
+// ResolveResources, looks at the provided, charmhub and backend (already downloaded)
+// resources to determine which to use.  Provided (uploaded) take precedence.  If
+// charmhub has a newer resource than the back end, use that.
+// TODO: (hml) 2020-12-03
+// this logic will need refinement as work to incorporate charmhub resources continues.
+// Right now, just take the uploaded resources and add charmhub resources where resource
+// is missing
+func (ch *charmHubClient) ResolveResources(uploadedResources []charmresource.Resource) ([]charmresource.Resource, error) {
+	chResources, err := ch.listResources()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, res := range uploadedResources {
+		chResources[res.Name] = res
+	}
+	results := make([]charmresource.Resource, len(chResources))
+	i := 0
+	for _, res := range chResources {
+		results[i] = res
+		i += 1
 	}
 	return results, nil
 }
 
-func parseResources(channel corecharm.Channel, info transport.InfoResponse) ([]charmresource.Resource, error) {
-	for _, v := range info.ChannelMap {
-		if matchChannel(channel, v.Channel) {
-			return resourcesFromRevision(v.Resources)
-		}
+// listResources composes, a map of details for each of the charm's
+// resources. Those details are those associated with the specific
+// charm revision. They include the resource's metadata and revision.
+// Found via the CharmHub api.
+func (ch *charmHubClient) listResources() (map[string]charmresource.Resource, error) {
+	cfg, err := charmhub.DownloadOneFromChannel(ch.id.URL.Name, ch.id.Origin.Channel.String(), charmhub.RefreshPlatform(ch.id.Origin.Platform))
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return nil, nil
-}
 
-func matchChannel(one corecharm.Channel, two transport.Channel) bool {
-	return one.String() == two.Name
-}
+	refreshResp, err := ch.client.Refresh(context.TODO(), cfg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(refreshResp) == 0 {
+		return nil, errors.Errorf("no download refresh responses received")
+	}
+	resp := refreshResp[0]
 
-func resourcesFromRevision(revs []transport.ResourceRevision) ([]charmresource.Resource, error) {
-	results := make([]charmresource.Resource, len(revs))
-	for i, v := range revs {
+	if resp.Error != nil {
+		return nil, errors.Trace(errors.New(resp.Error.Message))
+	}
+	results := make(map[string]charmresource.Resource, len(resp.Entity.Resources))
+	for _, v := range resp.Entity.Resources {
 		var err error
-		results[i], err = resourceFromRevision(v)
+		results[v.Name], err = resourceFromRevision(v)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -109,35 +113,16 @@ func resourceFromRevision(rev transport.ResourceRevision) (charmresource.Resourc
 	if err != nil {
 		return charmresource.Resource{}, errors.Trace(err)
 	}
-	return charmresource.Resource{
+	r := charmresource.Resource{
 		Meta: charmresource.Meta{
 			Name: rev.Name,
 			Type: resType,
-			Path: rev.Download.URL,
 		},
-		Origin:   charmresource.OriginUpload,
+		Origin:   charmresource.OriginStore,
 		Revision: rev.Revision,
-		// TODO (hml)
-		// Convert hash 384 to fingerprint.
-		// Should we do this here?
-		//Fingerprint: charmresource.Fingerprint{hash.Fingerprint{}},
-		Size: int64(rev.Download.Size),
-	}, nil
-}
-
-// ResourceInfo returns the metadata for the given resource.
-func (ch *charmHubClient) ResourceInfo(req charmstore.ResourceRequest) (charmresource.Resource, error) {
-	revisions, err := ch.infoClient.ListResourceRevisions(context.TODO(), req.Charm.Name, req.Name)
-	if err != nil {
-		return charmresource.Resource{}, errors.Trace(err)
+		Size:     int64(rev.Download.Size),
 	}
-	for _, rev := range revisions {
-		if req.Revision != rev.Revision {
-			continue
-		}
-		return resourceFromRevision(rev)
-	}
-	return charmresource.Resource{}, nil
+	return r, nil
 }
 
 // CharmStore exposes the functionality of the charm store as needed here.
@@ -153,14 +138,122 @@ type CharmStore interface {
 }
 
 type charmStoreClient struct {
-	csClient CharmStore
+	client CharmStore
+	id     CharmID
+}
+
+func (cs *charmStoreClient) ResolveResources(resources []charmresource.Resource) ([]charmresource.Resource, error) {
+	storeResources, err := cs.resourcesFromCharmstore()
+	if err != nil {
+		return nil, err
+	}
+	resolved, err := cs.resolveResources(resources, storeResources)
+	if err != nil {
+		return nil, err
+	}
+	// TODO(ericsnow) Ensure that the non-upload resource revisions
+	// match a previously published revision set?
+	return resolved, nil
+}
+
+// resourcesFromCharmstore gets the info for the charm's resources in
+// the charm backend. If the charm URL has a revision then that revision's
+// resources are returned. Otherwise the latest info for each of the
+// resources is returned.
+func (cs *charmStoreClient) resourcesFromCharmstore() (map[string]charmresource.Resource, error) {
+	results, err := cs.listResources([]CharmID{cs.id})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	storeResources := make(map[string]charmresource.Resource)
+	if len(results) != 0 {
+		for _, res := range results[0] {
+			storeResources[res.Name] = res
+		}
+	}
+	return storeResources, nil
+}
+
+// resolveResources determines the resource info that should actually
+// be stored on the controller. That decision is based on the provided
+// resources along with those in the charm backend (if any).
+func (cs *charmStoreClient) resolveResources(
+	resources []charmresource.Resource,
+	storeResources map[string]charmresource.Resource,
+) ([]charmresource.Resource, error) {
+	allResolved := make([]charmresource.Resource, len(resources))
+	copy(allResolved, resources)
+	for i, res := range resources {
+		// Note that incoming "upload" resources take precedence over
+		// ones already known to the controller, regardless of their
+		// origin.
+		if res.Origin != charmresource.OriginStore {
+			continue
+		}
+
+		resolved, err := cs.resolveStoreResource(res, storeResources)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		allResolved[i] = resolved
+	}
+	return allResolved, nil
+}
+
+// resolveStoreResource selects the resource info to use. It decides
+// between the provided and latest info based on the revision.
+func (cs *charmStoreClient) resolveStoreResource(
+	res charmresource.Resource,
+	storeResources map[string]charmresource.Resource,
+) (charmresource.Resource, error) {
+	storeRes, ok := storeResources[res.Name]
+	if !ok {
+		// This indicates that AddPendingResources() was called for
+		// a resource the charm backend doesn't know about (for the
+		// relevant charm revision).
+		// TODO(ericsnow) Do the following once the charm backend supports
+		// the necessary endpoints:
+		// return res, errors.NotFoundf("charm backend resource %q", res.Name)
+		return res, nil
+	}
+
+	if res.Revision < 0 {
+		// The caller wants to use the charm backend info.
+		return storeRes, nil
+	}
+	if res.Revision == storeRes.Revision {
+		// We don't worry about if they otherwise match. Only the
+		// revision is significant here. So we use the info from the
+		// charm backend since it is authoritative.
+		return storeRes, nil
+	}
+	if res.Fingerprint.IsZero() {
+		// The caller wants resource info from the charm backend, but with
+		// a different resource revision than the one associated with
+		// the charm in the backend.
+		req := charmstore.ResourceRequest{
+			Charm:    cs.id.URL,
+			Channel:  csparams.Channel(cs.id.Origin.Channel.String()),
+			Name:     res.Name,
+			Revision: res.Revision,
+		}
+		storeRes, err := cs.client.ResourceInfo(req)
+		if err != nil {
+			return storeRes, errors.Trace(err)
+		}
+		return storeRes, nil
+	}
+	// The caller fully-specified a resource with a different resource
+	// revision than the one associated with the charm in the backend. So
+	// we use the provided info as-is.
+	return res, nil
 }
 
 // ListResources composes, for each of the identified charms, the
 // list of details for each of the charm's resources. Those details
 // are those associated with the specific charm revision. They
 // include the resource's metadata and revision.
-func (cs *charmStoreClient) ListResources(charmIDs []CharmID) ([][]charmresource.Resource, error) {
+func (cs *charmStoreClient) listResources(charmIDs []CharmID) ([][]charmresource.Resource, error) {
 	chIDs := make([]charmstore.CharmID, len(charmIDs))
 	for i, v := range charmIDs {
 		chIDs[i] = charmstore.CharmID{
@@ -168,10 +261,19 @@ func (cs *charmStoreClient) ListResources(charmIDs []CharmID) ([][]charmresource
 			Channel: csparams.Channel(v.Origin.Channel.String()),
 		}
 	}
-	return cs.csClient.ListResources(chIDs)
+	return cs.client.ListResources(chIDs)
 }
 
-// ResourceInfo returns the metadata for the given resource.
-func (cs *charmStoreClient) ResourceInfo(req charmstore.ResourceRequest) (charmresource.Resource, error) {
-	return cs.csClient.ResourceInfo(req)
+type localClient struct {
+}
+
+func (lc *localClient) ResolveResources(resources []charmresource.Resource) ([]charmresource.Resource, error) {
+	var resolved []charmresource.Resource
+	for _, res := range resources {
+		resolved = append(resolved, charmresource.Resource{
+			Meta:   res.Meta,
+			Origin: charmresource.OriginUpload,
+		})
+	}
+	return resolved, nil
 }

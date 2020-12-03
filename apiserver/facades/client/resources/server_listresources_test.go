@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resources_test
+package resources
 
 import (
 	charmresource "github.com/juju/charm/v8/resource"
@@ -10,7 +10,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facades/client/resources"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
 )
@@ -61,7 +60,7 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 		},
 	}
 
-	facade, err := resources.NewResourcesAPI(s.data, s.newCSClient)
+	facade, err := NewResourcesAPI(s.data, s.newCSFactory())
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := facade.ListResources(params.ListResourcesArgs{
@@ -89,7 +88,7 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 				},
 				{
 					// we should have a listing for every unit, even if they
-					// have no resources.
+					// have no
 					Entity: params.Entity{
 						Tag: "unit-a-application-1",
 					},
@@ -106,7 +105,7 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 }
 
 func (s *ListResourcesSuite) TestEmpty(c *gc.C) {
-	facade, err := resources.NewResourcesAPI(s.data, s.newCSClient)
+	facade, err := NewResourcesAPI(s.data, s.newCSFactory())
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := facade.ListResources(params.ListResourcesArgs{
@@ -125,7 +124,7 @@ func (s *ListResourcesSuite) TestEmpty(c *gc.C) {
 func (s *ListResourcesSuite) TestError(c *gc.C) {
 	failure := errors.New("<failure>")
 	s.stub.SetErrors(failure)
-	facade, err := resources.NewResourcesAPI(s.data, s.newCSClient)
+	facade, err := NewResourcesAPI(s.data, s.newCSFactory())
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := facade.ListResources(params.ListResourcesArgs{
