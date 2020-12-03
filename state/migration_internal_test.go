@@ -109,7 +109,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// target controller already.
 		cloudCredentialsC,
 		// This is controller global, and related to the system state of the
-		// embedded GUI.
+		// embedded Dashboard.
 		guimetadataC,
 		// This is controller global, not migrated.
 		guisettingsC,

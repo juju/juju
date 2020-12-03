@@ -101,7 +101,7 @@ type PrepareConfigParams struct {
 // supported by the provider.
 //
 // TODO(axw) replace CredentialSchemas with an updated environschema.
-// The GUI also needs to be able to handle multiple credential types,
+// The Dashboard also needs to be able to handle multiple credential types,
 // and dependencies in config attributes.
 type ProviderCredentials interface {
 	// CredentialSchemas returns credential schemas, keyed on

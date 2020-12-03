@@ -23,13 +23,13 @@ var _ = gc.Suite(&guiVersionSuite{})
 
 func (s *guiVersionSuite) TestGUISetVersionNotFoundError(c *gc.C) {
 	err := s.State.GUISetVersion(version.MustParse("2.0.1"))
-	c.Assert(err, gc.ErrorMatches, `cannot find "2.0.1" GUI version in the storage: 2.0.1 binary metadata not found`)
+	c.Assert(err, gc.ErrorMatches, `cannot find "2.0.1" Dashboard version in the storage: 2.0.1 binary metadata not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *guiVersionSuite) TestGUIVersionNotFoundError(c *gc.C) {
 	_, err := s.State.GUIVersion()
-	c.Assert(err, gc.ErrorMatches, "Juju GUI version not found")
+	c.Assert(err, gc.ErrorMatches, "Juju Dashboard version not found")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -58,7 +58,7 @@ func (s *guiVersionSuite) TestGUISwitchVersion(c *gc.C) {
 	s.checkCount(c)
 }
 
-// addArchive adds a fake Juju GUI archive to the binary storage.
+// addArchive adds a fake Juju Dashboard archive to the binary storage.
 func (s *guiVersionSuite) addArchive(c *gc.C, vers string) version.Number {
 	storage, err := s.State.GUIStorage()
 	c.Assert(err, jc.ErrorIsNil)
@@ -73,7 +73,7 @@ func (s *guiVersionSuite) addArchive(c *gc.C, vers string) version.Number {
 	return version.MustParse(vers)
 }
 
-// checkCount ensures that there is only one document in the GUI settings
+// checkCount ensures that there is only one document in the Dashboard settings
 // mongo collection.
 func (s *guiVersionSuite) checkCount(c *gc.C) {
 	settings := s.State.MongoSession().DB("juju").C(state.GUISettingsC)

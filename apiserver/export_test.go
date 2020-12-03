@@ -28,7 +28,6 @@ var (
 	JSMimeType            = jsMimeType
 	SpritePath            = spritePath
 
-	GUIURLPathPrefix       = guiURLPathPrefix
 	DashboardURLPathPrefix = dashboardURLPathPrefix
 )
 

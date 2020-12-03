@@ -529,7 +529,7 @@ func (api *OffersAPI) getConsumeDetails(user names.UserTag, urls params.OfferURL
 }
 
 // RemoteApplicationInfo returns information about the requested remote application.
-// This call currently has no client side API, only there for the GUI at this stage.
+// This call currently has no client side API, only there for the Dashboard at this stage.
 func (api *OffersAPI) RemoteApplicationInfo(args params.OfferURLs) (params.RemoteApplicationInfoResults, error) {
 	results := make([]params.RemoteApplicationInfoResult, len(args.OfferURLs))
 	user := api.Authorizer.GetAuthTag().(names.UserTag)

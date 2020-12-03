@@ -21,7 +21,7 @@ A Juju model is a distributed system comprising:
   state encoded in the data store.
 * Some number of *clients* which talk over an API, implemented by the agents, to
   update the desired world-state (and thereby cause the agents to update the world
-  to match). The `juju` binary is one of many possible clients; the `juju-gui` web
+  to match). The `juju` binary is one of many possible clients; the `juju-dashboard` web
   application, and the `juju-deployer` python tool, are other examples.
 
 The whole system depends upon a substrate, or *provider*, which supplies the compute,
@@ -106,7 +106,7 @@ responsible for installing, running and maintaining charm code. It runs a
 different set of workers to a machine agent.
 
 There are a number of *clients* which interact with Juju using the Juju
-API. These include the `juju` command line tool and Juju GUI.
+API. These include the `juju` command line tool and Juju Dashboard.
 
 
 ## The Data Store (aka "state")

@@ -71,7 +71,7 @@ func (api *API) state() *state.State {
 // Client serves client-specific API methods.
 type Client struct {
 	// TODO(wallyworld) - we'll retain model config facade methods
-	// on the client facade until GUI and Python client library are updated.
+	// on the client facade until Dashboard and Python client library are updated.
 	*modelconfig.ModelConfigAPIV1
 
 	api         *API

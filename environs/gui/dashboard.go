@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"io"
 	"io/ioutil"
-	"path/filepath"
 	"strings"
 
 	"github.com/juju/errors"
@@ -33,31 +32,22 @@ func DashboardArchiveVersion(r io.Reader) (version.Number, error) {
 		if strings.HasPrefix(hName, "./") {
 			hName = hName[2:]
 		}
-		var versionStr string
-		// The new dashboard uses a version.json file.
-		if hName == "version.json" {
-			data, err := ioutil.ReadAll(tr)
-			if err != nil {
-				return vers, errors.Annotate(err, "cannot read Juju Dashboard archive version file")
-			}
-			type versionData struct {
-				Version string `json:"version"`
-			}
-			var versInfo versionData
-			err = json.Unmarshal(data, &versInfo)
-			if err != nil {
-				return vers, errors.Annotate(err, "cannot read Juju Dashboard archive version info")
-			}
-			versionStr = versInfo.Version
-		} else {
-			// Legacy archives have the version in the folder name.
-			prefix := "jujugui-"
-			info := hdr.FileInfo()
-			if !info.IsDir() || !strings.HasPrefix(hName, prefix) {
-				continue
-			}
-			versionStr = filepath.Dir(hName)[len(prefix):]
+		if hName != "version.json" {
+			continue
 		}
+		data, err := ioutil.ReadAll(tr)
+		if err != nil {
+			return vers, errors.Annotate(err, "cannot read Juju Dashboard archive version file")
+		}
+		type versionData struct {
+			Version string `json:"version"`
+		}
+		var versInfo versionData
+		err = json.Unmarshal(data, &versInfo)
+		if err != nil {
+			return vers, errors.Annotate(err, "cannot read Juju Dashboard archive version info")
+		}
+		versionStr := versInfo.Version
 		vers, err = version.Parse(versionStr)
 		if err != nil {
 			return vers, errors.Errorf("invalid version %q in archive", versionStr)

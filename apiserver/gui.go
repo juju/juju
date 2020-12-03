@@ -8,21 +8,17 @@ import (
 	"bytes"
 	"compress/bzip2"
 	"encoding/json"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"mime"
 	"net/http"
-	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"text/template"
 
 	"github.com/gorilla/handlers"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
 	"github.com/juju/version"
 
 	agenttools "github.com/juju/juju/agent/tools"
@@ -30,13 +26,10 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
-	jujuversion "github.com/juju/juju/version"
 )
 
 const (
-	bzMimeType       = "application/x-tar-bzip2"
-	guiURLPathPrefix = "/gui/"
-
+	bzMimeType             = "application/x-tar-bzip2"
 	dashboardURLPathPrefix = "/dashboard/"
 )
 
@@ -53,77 +46,14 @@ type router struct {
 	sourceDir func(vers string) string
 }
 
-// guiEndpoints serves the Juju GUI routes.
-// Serving the Juju GUI is done with the following assumptions:
-// - the archive is compressed in tar.bz2 format;
-// - the archive includes a top directory named "jujugui-{version}" where
-//   version is semver (like "2.0.1"). This directory includes another
-//   "jujugui" directory where the actual Juju GUI files live;
-// - the "jujugui" directory includes a "static" subdirectory with the Juju
-//   GUI assets to be served statically;
-// - the "jujugui" directory specifically includes a
-//   "static/gui/build/app/assets/stack/svg/sprite.css.svg" file, which is
-//   required to render the Juju GUI index file;
-// - the "jujugui" directory includes a "templates/index.html.go" file which is
-//   used to render the Juju GUI index. The template receives at least the
-//   following variables in its context: "staticURL", comboURL", "configURL",
-//   "debug" and "spriteContent". It might receive more variables but cannot
-//   assume them to be always provided;
-// - the "jujugui" directory includes a "templates/config.js.go" file which is
-//   used to render the Juju GUI configuration file. The template receives at
-//   least the following variables in its context: "base", "host", "socket",
-//   "controllerSocket", "staticURL" and "version". It might receive more
-//   variables but cannot assume them to be always provided.
-func guiEndpoints(pattern, dataDir string, ctxt httpContext) []apihttp.Endpoint {
-	r := &router{
-		name:    "GUI",
-		dataDir: dataDir,
-		ctxt:    ctxt,
-		pattern: pattern,
-	}
-
-	gh := &legacyGUIHandler{
-		guiHandler{
-			name:     "GUI",
-			ctxt:     r.ctxt,
-			basePath: guiURLPathPrefix,
-		},
-	}
-	r.sourceDir = gh.sourceDir
-
-	var endpoints []apihttp.Endpoint
-	add := func(pattern string, h func(http.ResponseWriter, *http.Request)) {
-		handler := handlers.CompressHandler(r.ensureFileHandler(gh, h))
-		// TODO: We can switch from all methods to specific ones for entries
-		// where we only want to support specific request methods. However, our
-		// tests currently assert that errors come back as application/json and
-		// pat only does "text/plain" responses.
-		for _, method := range defaultHTTPMethods {
-			endpoints = append(endpoints, apihttp.Endpoint{
-				Pattern: pattern,
-				Method:  method,
-				Handler: handler,
-			})
-		}
-	}
-	hashedPattern := pattern + ":hash"
-	add(hashedPattern+"/config.js", gh.serveConfig)
-	add(hashedPattern+"/combo", gh.serveCombo)
-	add(hashedPattern+"/static/", gh.serveStatic)
-	// The index is served when all remaining URLs are requested, so that
-	// the single page JavaScript application can properly handles its routes.
-	add(pattern, gh.serveIndex)
-	return endpoints
-}
-
 // dashboardRouter serves the Juju Dashboard routes.
 // Serving the Juju Dashboard is done with the following assumptions:
 // - the archive is compressed in tar.bz2 format;
 // - the archive includes a file version.json where
 //   version is semver (like "2.0.1").
-// - there's a "static" subdirectory with the Juju GUI assets to be served statically;
-// - there's a "index.html" file which is used to render the Juju GUI index.
-// - there's a "config.js.go" file which is used to render the Juju GUI configuration file. The template receives at
+// - there's a "static" subdirectory with the Juju Dashboard assets to be served statically;
+// - there's a "index.html" file which is used to render the Juju Dashboard index.
+// - there's a "config.js.go" file which is used to render the Juju Dashboard configuration file. The template receives at
 //   least the following variables in its context: "baseAppURL", "identityProviderAvailable",. It might receive more
 //   variables but cannot assume them to be always provided.
 func dashboardEndpoints(pattern, dataDir string, ctxt httpContext) []apihttp.Endpoint {
@@ -135,11 +65,9 @@ func dashboardEndpoints(pattern, dataDir string, ctxt httpContext) []apihttp.End
 	}
 
 	dh := &dashboardHandler{
-		guiHandler{
-			name:     "Dashboard",
-			ctxt:     r.ctxt,
-			basePath: dashboardURLPathPrefix,
-		},
+		name:     "Dashboard",
+		ctxt:     r.ctxt,
+		basePath: dashboardURLPathPrefix,
 	}
 	r.sourceDir = dh.sourceDir
 
@@ -166,7 +94,7 @@ func dashboardEndpoints(pattern, dataDir string, ctxt httpContext) []apihttp.End
 	return endpoints
 }
 
-// ensureFileHandler decorates the given function to ensure the Juju GUI files
+// ensureFileHandler decorates the given function to ensure the Juju Dashboard files
 // are available on disk.
 func (r *router) ensureFileHandler(c configureHandler, h func(w http.ResponseWriter, req *http.Request)) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -190,28 +118,28 @@ func (r *router) ensureFileHandler(c configureHandler, h func(w http.ResponseWri
 	})
 }
 
-// ensureFiles checks that the GUI/Dashboard files are available on disk.
+// ensureFiles checks that the Dashboard files are available on disk.
 // If they are not, it means this is the first time this version is
 // accessed. In this case, retrieve the archive from the storage and
 // uncompress it to disk. This function returns the current root directory
 // and archive hash.
 func (r *router) ensureFiles(req *http.Request) (rootDir string, hash string, err error) {
-	// Retrieve the Juju GUI info from the GUI storage.
+	// Retrieve the Juju Dashboard info from storage.
 	st := r.ctxt.srv.shared.statePool.SystemState()
 	storage, err := st.GUIStorage()
 	if err != nil {
 		return "", "", errors.Annotatef(err, "cannot open %s storage", r.name)
 	}
 	defer storage.Close()
-	vers, hash, err := r.guiVersionAndHash(st, storage)
+	vers, hash, err := r.dashboardVersionAndHash(st, storage)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
 	logger.Tracef("serving Juju %s version %s", r.name, vers)
 
-	// Check if the current Juju GUI/Dashboard archive has been already expanded on disk.
-	baseDir := agenttools.SharedGUIDir(r.dataDir)
-	// Note that we include the hash in the root directory so that when the GUI
+	// Check if the current Juju Dashboard archive has been already expanded on disk.
+	baseDir := agenttools.SharedDashboardDir(r.dataDir)
+	// Note that we include the hash in the root directory so that when the Dashboard
 	// archive changes we can be sure that clients will not use files from
 	// mixed versions.
 	rootDir = filepath.Join(baseDir, hash)
@@ -226,7 +154,7 @@ func (r *router) ensureFiles(req *http.Request) (rootDir string, hash string, er
 		return "", "", errors.Annotatef(err, "cannot stat Juju %s root directory", r.name)
 	}
 
-	// Fetch the Juju Dashboard archive from the GUI storage and expand it.
+	// Fetch the Juju Dashboard archive from the Dashboard storage and expand it.
 	_, rc, err := storage.Open(vers)
 	if err != nil {
 		return "", "", errors.Annotatef(err, "cannot find %s archive version %q", r.name, vers)
@@ -235,15 +163,15 @@ func (r *router) ensureFiles(req *http.Request) (rootDir string, hash string, er
 	if err := os.MkdirAll(baseDir, 0755); err != nil {
 		return "", "", errors.Annotatef(err, "cannot create Juju %s base directory", r.name)
 	}
-	if err := r.uncompressGUI(rc, vers, rootDir); err != nil {
+	if err := r.uncompressDashboard(rc, vers, rootDir); err != nil {
 		return "", "", errors.Annotatef(err, "cannot uncompress Juju %s archive", r.name)
 	}
 	return rootDir, hash, nil
 }
 
-// guiVersionAndHash returns the version and the SHA256 hash of the current
-// Juju GUI archive.
-func (r *router) guiVersionAndHash(st *state.State, storage binarystorage.Storage) (vers, hash string, err error) {
+// dashboardVersionAndHash returns the version and the SHA256 hash of the current
+// Juju Dashboard archive.
+func (r *router) dashboardVersionAndHash(st *state.State, storage binarystorage.Storage) (vers, hash string, err error) {
 	currentVers, err := st.GUIVersion()
 	if errors.IsNotFound(err) {
 		return "", "", errors.NotFoundf("Juju %s", r.name)
@@ -258,11 +186,11 @@ func (r *router) guiVersionAndHash(st *state.State, storage binarystorage.Storag
 	return metadata.Version, metadata.SHA256, nil
 }
 
-// uncompressGUI uncompresses the tar.bz2 Juju GUI archive provided in r.
+// uncompressDashboard uncompresses the tar.bz2 Juju Dashboard archive provided in r.
 // The source directory for the specified version included in the tar archive is copied to targetDir.
-func (r *router) uncompressGUI(reader io.Reader, vers, targetDir string) error {
+func (r *router) uncompressDashboard(reader io.Reader, vers, targetDir string) error {
 	sourceDir := r.sourceDir(vers)
-	tempDir, err := ioutil.TempDir(filepath.Join(targetDir, ".."), "gui")
+	tempDir, err := ioutil.TempDir(filepath.Join(targetDir, ".."), "dashboard")
 	if err != nil {
 		return errors.Annotatef(err, "cannot create Juju %s temporary directory", r.name)
 	}
@@ -309,8 +237,7 @@ func (r *router) uncompressGUI(reader io.Reader, vers, targetDir string) error {
 	return nil
 }
 
-// guiHandler serves the Juju GUI.
-type guiHandler struct {
+type dashboardHandler struct {
 	name     string
 	ctxt     httpContext
 	basePath string
@@ -318,33 +245,13 @@ type guiHandler struct {
 	hash     string
 }
 
-type legacyGUIHandler struct {
-	guiHandler
-}
-
-type dashboardHandler struct {
-	guiHandler
-}
-
 type configureHandler interface {
 	setRootDirAndHash(rootDir, hash string)
 }
 
-func (h *guiHandler) setRootDirAndHash(rootDir, hash string) {
+func (h *dashboardHandler) setRootDirAndHash(rootDir, hash string) {
 	h.rootDir = rootDir
 	h.hash = hash
-}
-
-func (h *legacyGUIHandler) sourceDir(vers string) string {
-	return "jujugui-" + vers + "/jujugui"
-}
-
-// serveStatic serves the GUI static files.
-func (h *legacyGUIHandler) serveStatic(w http.ResponseWriter, req *http.Request) {
-	staticDir := filepath.Join(h.rootDir, "static")
-	logger.Tracef("serving Juju Dashboard static files from %q", staticDir)
-	fs := http.FileServer(http.Dir(staticDir))
-	http.StripPrefix(h.hashedPath("static/"), fs).ServeHTTP(w, req)
 }
 
 func (h *dashboardHandler) sourceDir(vers string) string {
@@ -360,92 +267,6 @@ func (h *dashboardHandler) serveStatic(w http.ResponseWriter, req *http.Request)
 	http.StripPrefix("/static/", fs).ServeHTTP(w, req)
 }
 
-// serveCombo serves the GUI JavaScript and CSS files, dynamically combined.
-func (h *legacyGUIHandler) serveCombo(w http.ResponseWriter, req *http.Request) {
-	logger.Tracef("serving Juju GUI combined files")
-	ctype := ""
-	// The combo query is like /combo/?path/to/file1&path/to/file2 ...
-	parts := strings.Split(req.URL.RawQuery, "&")
-	paths := make([]string, 0, len(parts))
-	for _, p := range parts {
-		fpath, err := h.getGUIComboPath(p)
-		if err != nil {
-			writeError(w, errors.Annotate(err, "cannot combine files"))
-			return
-		}
-		if fpath == "" {
-			continue
-		}
-		paths = append(paths, fpath)
-		// Assume the Juju GUI does not mix different content types when
-		// combining contents.
-		if ctype == "" {
-			ctype = mime.TypeByExtension(filepath.Ext(fpath))
-		}
-	}
-	w.Header().Set("Content-Type", ctype)
-	for _, fpath := range paths {
-		h.sendGUIComboFile(w, fpath)
-	}
-}
-
-func (h *legacyGUIHandler) getGUIComboPath(query string) (string, error) {
-	k := strings.SplitN(query, "=", 2)[0]
-	fname, err := url.QueryUnescape(k)
-	if err != nil {
-		return "", errors.NewBadRequest(err, fmt.Sprintf("invalid file name %q", k))
-	}
-	// Ignore pat injected queries.
-	if strings.HasPrefix(fname, ":") {
-		return "", nil
-	}
-	// The Juju GUI references its combined files starting from the
-	// "static/gui/build" directory.
-	fname = filepath.Clean(fname)
-	if fname == ".." || strings.HasPrefix(fname, "../") {
-		return "", errors.BadRequestf("forbidden file path %q", k)
-	}
-	return filepath.Join(h.rootDir, "static", "gui", "build", fname), nil
-}
-
-func (h *legacyGUIHandler) sendGUIComboFile(w io.Writer, fpath string) {
-	f, err := os.Open(fpath)
-	if err != nil {
-		logger.Infof("cannot send combo file %q: %s", fpath, err)
-		return
-	}
-	defer f.Close()
-	if _, err := io.Copy(w, f); err != nil {
-		logger.Infof("cannot copy combo file %q: %s", fpath, err)
-		return
-	}
-	fmt.Fprintf(w, "\n/* %s */\n", filepath.Base(fpath))
-}
-
-// serveIndex serves the GUI index file.
-func (h *legacyGUIHandler) serveIndex(w http.ResponseWriter, req *http.Request) {
-	logger.Tracef("serving Juju GUI index")
-	spriteFile := filepath.Join(h.rootDir, spritePath)
-	spriteContent, err := ioutil.ReadFile(spriteFile)
-	if err != nil {
-		writeError(w, errors.Annotate(err, "cannot read sprite file"))
-		return
-	}
-	tmpl := filepath.Join(h.rootDir, "templates", "index.html.go")
-	if err := renderGUITemplate(w, tmpl, map[string]interface{}{
-		// staticURL holds the root of the static hierarchy, hence why the
-		// empty string is used here.
-		"staticURL": h.hashedPath(""),
-		"comboURL":  h.hashedPath("combo"),
-		"configURL": h.hashedPath(getConfigPath(req.URL.Path, h.ctxt)),
-		// TODO frankban: make it possible to enable debug.
-		"debug":         false,
-		"spriteContent": string(spriteContent),
-	}); err != nil {
-		writeError(w, err)
-	}
-}
-
 // serveIndex serves the Dashboard index file.
 func (h *dashboardHandler) serveIndex(w http.ResponseWriter, req *http.Request) {
 	logger.Tracef("serving Juju Dashboard index")
@@ -458,120 +279,6 @@ func (h *dashboardHandler) serveIndex(w http.ResponseWriter, req *http.Request) 
 	}
 	if _, err := w.Write(b); err != nil {
 		writeError(w, errors.Annotate(err, "cannot write index file"))
-	}
-}
-
-// getConfigPath returns the appropriate GUI config path for the given request
-// path.
-func getConfigPath(path string, ctxt httpContext) string {
-	configPath := "config.js"
-	// Handle requests from old clients, in which the model UUID is a fragment
-	// in the request path. If this is the case, we also need to include the
-	// UUID in the GUI base URL.
-	uuid := uuidFromPath(path)
-	if uuid != "" {
-		return fmt.Sprintf("%[1]s?model-uuid=%[2]s&base-postfix=%[2]s/", configPath, uuid)
-	}
-	st := ctxt.srv.shared.statePool.SystemState()
-	if isNewGUI(st) {
-		// This is the proper case in which a new GUI is being served from a
-		// new URL. No query must be included in the config path.
-		return configPath
-	}
-	// Possibly handle requests to the new "/u/{user}/{model}" path, but
-	// made from an old version of the GUI, which didn't connect to the
-	// model based on the path.
-	uuid, user, model := modelInfoFromPath(path, st, ctxt.srv.shared.statePool)
-	if uuid != "" {
-		return fmt.Sprintf("%s?model-uuid=%s&base-postfix=u/%s/%s/", configPath, uuid, user, model)
-	}
-	return configPath
-}
-
-// uuidFromPath checks whether the given path includes a fragment with a
-// valid model UUID. An empty string is returned if the model is not found.
-func uuidFromPath(path string) string {
-	path = strings.TrimPrefix(path, guiURLPathPrefix)
-	uuid := strings.SplitN(path, "/", 2)[0]
-	if names.IsValidModel(uuid) {
-		return uuid
-	}
-	return ""
-}
-
-// modelInfoFromPath checks whether the given path includes "/u/{user}/{model}""
-// fragments identifying a model, in which case its UUID, user and model name
-// are returned. Empty strings are returned if the model is not found.
-func modelInfoFromPath(path string, st *state.State, pool *state.StatePool) (uuid, user, modelName string) {
-	path = strings.TrimPrefix(path, guiURLPathPrefix)
-	parts := strings.SplitN(path, "/", 4)
-	if len(parts) < 3 || parts[0] != "u" || !names.IsValidUserName(parts[1]) || !names.IsValidModelName(parts[2]) {
-		return "", "", ""
-	}
-	user, modelName = parts[1], parts[2]
-	modelUUIDs, err := st.ModelUUIDsForUser(names.NewUserTag(user))
-	if err != nil {
-		return "", "", ""
-	}
-	for _, modelUUID := range modelUUIDs {
-		model, ph, err := pool.GetModel(modelUUID)
-		if err != nil {
-			return "", "", ""
-		}
-		defer ph.Release()
-		if model.Name() == modelName {
-			return modelUUID, user, modelName
-		}
-	}
-	return "", "", ""
-}
-
-// isNewGUI reports whether the version of the current GUI is >= 2.3.0.
-func isNewGUI(st *state.State) bool {
-	vers, err := st.GUIVersion()
-	if err != nil {
-		logger.Warningf("cannot retrieve GUI version: %v", err)
-		// Assume a recent version of the GUI is being served.
-		return true
-	}
-	return vers.Major > 2 || (vers.Major == 2 && vers.Minor >= 3)
-}
-
-// serveConfig serves the Juju GUI JavaScript configuration file.
-func (h *legacyGUIHandler) serveConfig(w http.ResponseWriter, req *http.Request) {
-	logger.Tracef("serving Juju GUI configuration")
-	st, err := h.ctxt.stateForRequestUnauthenticated(req)
-	if err != nil {
-		writeError(w, errors.Annotate(err, "cannot open state"))
-		return
-	}
-	ctrl, err := st.ControllerConfig()
-	if err != nil {
-		writeError(w, errors.Annotate(err, "cannot open controller config"))
-		return
-	}
-	w.Header().Set("Content-Type", jsMimeType)
-	base := h.basePath
-	// These query parameters may be set by the index handler.
-	uuid := req.URL.Query().Get("model-uuid")
-	if uuid != "" {
-		base += req.URL.Query().Get("base-postfix")
-	}
-	tmpl := filepath.Join(h.rootDir, "templates", "config.js.go")
-	if err := renderGUITemplate(w, tmpl, map[string]interface{}{
-		"base":             base,
-		"bakeryEnabled":    ctrl.IdentityURL() != "",
-		"controllerSocket": "/api",
-		"charmstoreURL":    ctrl.CharmStoreURL(),
-		"host":             req.Host,
-		"socket":           "/model/$uuid/api",
-		// staticURL holds the root of the static hierarchy, hence why the
-		// empty string is used here.
-		"staticURL": h.hashedPath(""),
-		"uuid":      uuid,
-		"version":   jujuversion.Current.String(),
-	}); err != nil {
-		writeError(w, err)
 	}
 }
 
@@ -591,7 +298,7 @@ func (h *dashboardHandler) serveConfig(w http.ResponseWriter, req *http.Request)
 	w.Header().Set("Content-Type", jsMimeType)
 	// These query parameters may be set by the index handler.
 	tmpl := filepath.Join(h.rootDir, "config.js.go")
-	if err := renderGUITemplate(w, tmpl, map[string]interface{}{
+	if err := renderDashboardTemplate(w, tmpl, map[string]interface{}{
 		"baseAppURL":                dashboardURLPathPrefix,
 		"identityProviderAvailable": ctrl.IdentityURL() != "",
 		"isJuju":                    true,
@@ -602,17 +309,11 @@ func (h *dashboardHandler) serveConfig(w http.ResponseWriter, req *http.Request)
 
 func writeError(w http.ResponseWriter, err error) {
 	if err2 := sendError(w, err); err2 != nil {
-		logger.Errorf("%v", errors.Annotatef(err2, "gui handler: cannot send %q error to client", err))
+		logger.Errorf("%v", errors.Annotatef(err2, "dashboard handler: cannot send %q error to client", err))
 	}
 }
 
-// hashedPath returns the full path (including the GUI archive hash) to the
-// given path, that must not start with a slash.
-func (h *legacyGUIHandler) hashedPath(p string) string {
-	return path.Join(h.basePath, h.hash, p)
-}
-
-func renderGUITemplate(w http.ResponseWriter, tmpl string, ctx map[string]interface{}) error {
+func renderDashboardTemplate(w http.ResponseWriter, tmpl string, ctx map[string]interface{}) error {
 	// TODO frankban: cache parsed template.
 	t, err := template.ParseFiles(tmpl)
 	if err != nil {
@@ -621,14 +322,14 @@ func renderGUITemplate(w http.ResponseWriter, tmpl string, ctx map[string]interf
 	return errors.Annotate(t.Execute(w, ctx), "cannot render template")
 }
 
-// guiArchiveHandler serves the Juju GUI archive endpoints, used for uploading
-// and retrieving information about GUI archives.
-type guiArchiveHandler struct {
+// dashboardArchiveHandler serves the Juju Dashboard archive endpoints, used for uploading
+// and retrieving information about Dashboard archives.
+type dashboardArchiveHandler struct {
 	ctxt httpContext
 }
 
 // ServeHTTP implements http.Handler.
-func (h *guiArchiveHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (h *dashboardArchiveHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	var handler func(http.ResponseWriter, *http.Request) error
 	switch req.Method {
 	case "GET":
@@ -648,9 +349,9 @@ func (h *guiArchiveHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) 
 	}
 }
 
-// handleGet returns information on Juju GUI archives in the controller.
-func (h *guiArchiveHandler) handleGet(w http.ResponseWriter, req *http.Request) error {
-	// Open the GUI archive storage.
+// handleGet returns information on Juju Dashboard archives in the controller.
+func (h *dashboardArchiveHandler) handleGet(w http.ResponseWriter, req *http.Request) error {
+	// Open the Dashboard archive storage.
 	st, err := h.ctxt.stateForRequestUnauthenticated(req)
 	if err != nil {
 		return errors.Annotate(err, "cannot open state")
@@ -658,14 +359,14 @@ func (h *guiArchiveHandler) handleGet(w http.ResponseWriter, req *http.Request) 
 	defer st.Release()
 	storage, err := st.GUIStorage()
 	if err != nil {
-		return errors.Annotate(err, "cannot open GUI storage")
+		return errors.Annotate(err, "cannot open Dashboard storage")
 	}
 	defer storage.Close()
 
 	// Retrieve metadata information.
 	allMeta, err := storage.AllMetadata()
 	if err != nil {
-		return errors.Annotate(err, "cannot retrieve GUI metadata")
+		return errors.Annotate(err, "cannot retrieve Dashboard metadata")
 	}
 
 	// Prepare and send the response.
@@ -674,27 +375,27 @@ func (h *guiArchiveHandler) handleGet(w http.ResponseWriter, req *http.Request) 
 	if err == nil {
 		currentVersion = vers.String()
 	} else if !errors.IsNotFound(err) {
-		return errors.Annotate(err, "cannot retrieve current GUI version")
+		return errors.Annotate(err, "cannot retrieve current Dashboard version")
 	}
-	versions := make([]params.GUIArchiveVersion, len(allMeta))
+	versions := make([]params.DashboardArchiveVersion, len(allMeta))
 	for i, m := range allMeta {
 		vers, err := version.Parse(m.Version)
 		if err != nil {
-			return errors.Annotate(err, "cannot parse GUI version")
+			return errors.Annotate(err, "cannot parse Dashboard version")
 		}
-		versions[i] = params.GUIArchiveVersion{
+		versions[i] = params.DashboardArchiveVersion{
 			Version: vers,
 			SHA256:  m.SHA256,
 			Current: m.Version == currentVersion,
 		}
 	}
-	return errors.Trace(sendStatusAndJSON(w, http.StatusOK, params.GUIArchiveResponse{
+	return errors.Trace(sendStatusAndJSON(w, http.StatusOK, params.DashboardArchiveResponse{
 		Versions: versions,
 	}))
 }
 
-// handlePost is used to upload new Juju GUI archives to the controller.
-func (h *guiArchiveHandler) handlePost(w http.ResponseWriter, req *http.Request) error {
+// handlePost is used to upload new Juju Dashboard archives to the controller.
+func (h *dashboardArchiveHandler) handlePost(w http.ResponseWriter, req *http.Request) error {
 	// Validate the request.
 	if ctype := req.Header.Get("Content-Type"); ctype != bzMimeType {
 		return errors.BadRequestf("invalid content type %q: expected %q", ctype, bzMimeType)
@@ -718,7 +419,7 @@ func (h *guiArchiveHandler) handlePost(w http.ResponseWriter, req *http.Request)
 		return errors.BadRequestf("content length not provided")
 	}
 
-	// Open the GUI archive storage.
+	// Open the Dashboard archive storage.
 	st, err := h.ctxt.stateForRequestAuthenticatedUser(req)
 	if err != nil {
 		return errors.Annotate(err, "cannot open state")
@@ -726,7 +427,7 @@ func (h *guiArchiveHandler) handlePost(w http.ResponseWriter, req *http.Request)
 	defer st.Release()
 	storage, err := st.GUIStorage()
 	if err != nil {
-		return errors.Annotate(err, "cannot open GUI storage")
+		return errors.Annotate(err, "cannot open Dashboard storage")
 	}
 	defer storage.Close()
 
@@ -743,18 +444,18 @@ func (h *guiArchiveHandler) handlePost(w http.ResponseWriter, req *http.Request)
 		return errors.BadRequestf("archive does not match provided hash")
 	}
 
-	// Add the archive to the GUI storage.
+	// Add the archive to the Dashboard storage.
 	metadata := binarystorage.Metadata{
 		Version: vers.String(),
 		Size:    size,
 		SHA256:  hash,
 	}
 	if err := storage.Add(bytes.NewReader(data), metadata); err != nil {
-		return errors.Annotate(err, "cannot add GUI archive to storage")
+		return errors.Annotate(err, "cannot add Dashboard archive to storage")
 	}
 
 	// Prepare and return the response.
-	resp := params.GUIArchiveVersion{
+	resp := params.DashboardArchiveVersion{
 		Version: vers,
 		SHA256:  hash,
 	}
@@ -763,20 +464,20 @@ func (h *guiArchiveHandler) handlePost(w http.ResponseWriter, req *http.Request)
 			resp.Current = true
 		}
 	} else if !errors.IsNotFound(err) {
-		return errors.Annotate(err, "cannot retrieve current GUI version")
+		return errors.Annotate(err, "cannot retrieve current Dashboard version")
 
 	}
 	return errors.Trace(sendStatusAndJSON(w, http.StatusOK, resp))
 }
 
-// guiVersionHandler is used to select the Juju GUI version served by the
+// dashboardVersionHandler is used to select the Juju Dashboard version served by the
 // controller. The specified version must be available in the controller.
-type guiVersionHandler struct {
+type dashboardVersionHandler struct {
 	ctxt httpContext
 }
 
 // ServeHTTP implements http.Handler.
-func (h *guiVersionHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (h *dashboardVersionHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if req.Method != "PUT" {
 		if err := sendError(w, errors.MethodNotAllowedf("unsupported method: %q", req.Method)); err != nil {
 			logger.Errorf("%v", err)
@@ -790,8 +491,8 @@ func (h *guiVersionHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) 
 	}
 }
 
-// handlePut is used to switch to a specific Juju GUI version.
-func (h *guiVersionHandler) handlePut(w http.ResponseWriter, req *http.Request) error {
+// handlePut is used to switch to a specific Juju Dashboard version.
+func (h *dashboardVersionHandler) handlePut(w http.ResponseWriter, req *http.Request) error {
 	// Validate the request.
 	if ctype := req.Header.Get("Content-Type"); ctype != params.ContentTypeJSON {
 		return errors.BadRequestf("invalid content type %q: expected %q", ctype, params.ContentTypeJSON)
@@ -804,13 +505,13 @@ func (h *guiVersionHandler) handlePut(w http.ResponseWriter, req *http.Request) 
 	}
 	defer st.Release()
 
-	var selected params.GUIVersionRequest
+	var selected params.DashboardVersionRequest
 	decoder := json.NewDecoder(req.Body)
 	if err := decoder.Decode(&selected); err != nil {
 		return errors.NewBadRequest(err, "invalid request body")
 	}
 
-	// Switch to the provided GUI version.
+	// Switch to the provided Dashboard version.
 	if err = st.GUISetVersion(selected.Version); err != nil {
 		return errors.Trace(err)
 	}

@@ -10,35 +10,35 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-// guiSettingsDoc represents the Juju GUI settings in MongoDB.
+// guiSettingsDoc represents the Juju Dashboard settings in MongoDB.
 type guiSettingsDoc struct {
-	// CurrentVersion is the version of the Juju GUI currently served by
-	// the controller when requesting the GUI via HTTP.
+	// CurrentVersion is the version of the Juju Dashboard currently served by
+	// the controller when requesting the Dashboard via HTTP.
 	CurrentVersion version.Number `bson:"current-version"`
 }
 
-// GUISetVersion sets the Juju GUI version that the controller must serve.
+// GUISetVersion sets the Juju Dashboard version that the controller must serve.
 func (st *State) GUISetVersion(vers version.Number) error {
-	// Check that the provided version is actually present in the GUI storage.
+	// Check that the provided version is actually present in the Dashboard storage.
 	storage, err := st.GUIStorage()
 	if err != nil {
-		return errors.Annotate(err, "cannot open GUI storage")
+		return errors.Annotate(err, "cannot open Dashboard storage")
 	}
 	defer storage.Close()
 	if _, err = storage.Metadata(vers.String()); err != nil {
-		return errors.Annotatef(err, "cannot find %q GUI version in the storage", vers)
+		return errors.Annotatef(err, "cannot find %q Dashboard version in the storage", vers)
 	}
 
 	// Set the current version.
 	settings, closer := st.db().GetCollection(guisettingsC)
 	defer closer()
 	if _, err = settings.Writeable().Upsert(nil, bson.D{{"current-version", vers}}); err != nil {
-		return errors.Annotate(err, "cannot set current GUI version")
+		return errors.Annotate(err, "cannot set current Dashboard version")
 	}
 	return nil
 }
 
-// GUIVersion returns the Juju GUI version currently served by the controller.
+// GUIVersion returns the Juju Dashboard version currently served by the controller.
 func (st *State) GUIVersion() (vers version.Number, err error) {
 	settings, closer := st.db().GetCollection(guisettingsC)
 	defer closer()
@@ -50,7 +50,7 @@ func (st *State) GUIVersion() (vers version.Number, err error) {
 		return doc.CurrentVersion, nil
 	}
 	if err == mgo.ErrNotFound {
-		return vers, errors.NotFoundf("Juju GUI version")
+		return vers, errors.NotFoundf("Juju Dashboard version")
 	}
 	return vers, errors.Trace(err)
 }

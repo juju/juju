@@ -89,9 +89,9 @@ const (
 	// of OS image metadata for containers.
 	ContainerImageMetadataURLKey = "container-image-metadata-url"
 
-	// GUIStreamKey stores the key used to specify the stream
-	// to used when fetching a gui tarball.
-	GUIStreamKey = "gui-stream"
+	// DashboardStreamKey stores the key used to specify the stream
+	// to used when fetching a dashboard tarball.
+	DashboardStreamKey = "dashboard-stream"
 
 	// Proxy behaviour has become something of an annoying thing to define
 	// well. These following four proxy variables are being kept to continue
@@ -1319,11 +1319,11 @@ func (c *Config) ContainerImageStream() string {
 	return "released"
 }
 
-// GUIStream returns the simplestreams stream
-// used to identify which gui to use when
-// when fetching a gui tarball.
-func (c *Config) GUIStream() string {
-	v, _ := c.defined[GUIStreamKey].(string)
+// DashboardStream returns the simplestreams stream
+// used to identify which dashboard to use when
+// when fetching a dashboard tarball.
+func (c *Config) DashboardStream() string {
+	v, _ := c.defined[DashboardStreamKey].(string)
 	if v != "" {
 		return v
 	}
@@ -1626,7 +1626,7 @@ var alwaysOptional = schema.Defaults{
 	SnapStoreProxyURLKey:          schema.Omit,
 	"apt-mirror":                  schema.Omit,
 	AgentStreamKey:                schema.Omit,
-	GUIStreamKey:                  schema.Omit,
+	DashboardStreamKey:            schema.Omit,
 	ResourceTagsKey:               schema.Omit,
 	"cloudimg-base-url":           schema.Omit,
 	"enable-os-refresh-update":    schema.Omit,
@@ -1994,8 +1994,8 @@ global or per instance security groups.`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	GUIStreamKey: {
-		Description: `The simplestreams stream used to identify which gui ids to search when downloading a gui tarball.`,
+	DashboardStreamKey: {
+		Description: `The simplestreams stream used to identify which dashboard ids to search when downloading a dashboard tarball.`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

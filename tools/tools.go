@@ -20,8 +20,8 @@ func (t *Tools) AgentVersion() version.Number {
 	return t.Version.Number
 }
 
-// GUI represents the location and version of a GUI release archive.
-type GUIArchive struct {
+// DashboardArchive represents the location and version of a dashboard release archive.
+type DashboardArchive struct {
 	Version version.Number `json:"version"`
 	URL     string         `json:"url"`
 	SHA256  string         `json:"sha256,omitempty"`

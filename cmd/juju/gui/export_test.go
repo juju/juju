@@ -15,14 +15,14 @@ var (
 	ClientGet      = &clientGet
 	WebbrowserOpen = &webbrowserOpen
 
-	ClientGUIArchives      = &clientGUIArchives
-	ClientSelectGUIVersion = &clientSelectGUIVersion
-	ClientUploadGUIArchive = &clientUploadGUIArchive
-	GUIFetchMetadata       = &guiFetchMetadata
+	ClientDashboardArchives      = &clientDashboardArchives
+	ClientSelectDashboardVersion = &clientSelectDashboardVersion
+	ClientUploadDashboardArchive = &clientUploadDashboardArchive
+	DashboardFetchMetadata       = &dashboardFetchMetadata
 )
 
-func NewGUICommandForTest(getGUIVersions func(connection api.Connection) ([]params.GUIArchiveVersion, error)) cmd.Command {
-	return modelcmd.Wrap(&guiCommand{
-		getGUIVersions: getGUIVersions,
+func NewDashboardCommandForTest(getGUIVersions func(connection api.Connection) ([]params.DashboardArchiveVersion, error)) cmd.Command {
+	return modelcmd.Wrap(&dashboardCommand{
+		getDashboardVersions: getGUIVersions,
 	})
 }

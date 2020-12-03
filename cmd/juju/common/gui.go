@@ -9,13 +9,13 @@ import (
 	"github.com/juju/juju/environs/gui"
 )
 
-const guiBaseURLEnvVar = "JUJU_GUI_SIMPLESTREAMS_URL"
+const dashboartdBaseURLEnvVar = "JUJU_DASHBOARD_SIMPLESTREAMS_URL"
 
-// GUIDataSourceBaseURL returns the default base URL to use for the Juju GUI
+// DashboardDataSourceBaseURL returns the default base URL to use for the Juju Dashboard
 // simplestreams data source. The default value can be overridden by setting
-// the JUJU_GUI_SIMPLESTREAMS_URL environment variable.
-func GUIDataSourceBaseURL() string {
-	url := os.Getenv(guiBaseURLEnvVar)
+// the JUJU_DASHBOARD_SIMPLESTREAMS_URL environment variable.
+func DashboardDataSourceBaseURL() string {
+	url := os.Getenv(dashboartdBaseURLEnvVar)
 	if url != "" {
 		return url
 	}

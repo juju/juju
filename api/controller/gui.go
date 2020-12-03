@@ -17,32 +17,32 @@ import (
 )
 
 const (
-	guiArchivePath = "/gui-archive"
-	guiVersionPath = "/gui-version"
+	dashboardArchivePath = "/dashboard-archive"
+	dashboardVersionPath = "/dashboard-version"
 )
 
-// GUIArchives retrieves information about Juju GUI archives currently present
+// DashboardArchives retrieves information about Juju Dashboard archives currently present
 // in the Juju controller.
-func (c *Client) GUIArchives() ([]params.GUIArchiveVersion, error) {
+func (c *Client) DashboardArchives() ([]params.DashboardArchiveVersion, error) {
 	httpClient, err := c.facade.RawAPICaller().HTTPClient()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot retrieve HTTP client")
 	}
-	var resp params.GUIArchiveResponse
-	if err = httpClient.Get(c.facade.RawAPICaller().Context(), guiArchivePath, &resp); err != nil {
-		return nil, errors.Annotate(err, "cannot retrieve GUI archives info")
+	var resp params.DashboardArchiveResponse
+	if err = httpClient.Get(c.facade.RawAPICaller().Context(), dashboardArchivePath, &resp); err != nil {
+		return nil, errors.Annotate(err, "cannot retrieve Dashboard archives info")
 	}
 	return resp.Versions, nil
 }
 
-// UploadGUIArchive uploads a GUI archive to the controller over HTTPS, and
-// reports about whether the upload updated the current GUI served by Juju.
-func (c *Client) UploadGUIArchive(r io.ReadSeeker, hash string, size int64, vers version.Number) (current bool, err error) {
+// UploadDashboardArchive uploads a Dashboard archive to the controller over HTTPS, and
+// reports about whether the upload updated the current Dashboard served by Juju.
+func (c *Client) UploadDashboardArchive(r io.ReadSeeker, hash string, size int64, vers version.Number) (current bool, err error) {
 	// Prepare the request.
 	v := url.Values{}
 	v.Set("version", vers.String())
 	v.Set("hash", hash)
-	req, err := http.NewRequest("POST", guiArchivePath+"?"+v.Encode(), r)
+	req, err := http.NewRequest("POST", dashboardArchivePath+"?"+v.Encode(), r)
 	if err != nil {
 		return false, errors.Annotate(err, "cannot create upload request")
 	}
@@ -54,24 +54,24 @@ func (c *Client) UploadGUIArchive(r io.ReadSeeker, hash string, size int64, vers
 	if err != nil {
 		return false, errors.Annotate(err, "cannot retrieve HTTP client")
 	}
-	var resp params.GUIArchiveVersion
+	var resp params.DashboardArchiveVersion
 	if err = httpClient.Do(c.facade.RawAPICaller().Context(), req, &resp); err != nil {
-		return false, errors.Annotate(err, "cannot upload the GUI archive")
+		return false, errors.Annotate(err, "cannot upload the Dashboard archive")
 	}
 	return resp.Current, nil
 }
 
-// SelectGUIVersion selects which version of the Juju GUI is served by the
+// SelectDashboardVersion selects which version of the Juju Dashboard is served by the
 // controller.
-func (c *Client) SelectGUIVersion(vers version.Number) error {
+func (c *Client) SelectDashboardVersion(vers version.Number) error {
 	// Prepare the request.
-	content, err := json.Marshal(params.GUIVersionRequest{
+	content, err := json.Marshal(params.DashboardVersionRequest{
 		Version: vers,
 	})
 	if err != nil {
 		errors.Annotate(err, "cannot marshal request body")
 	}
-	req, err := http.NewRequest("PUT", guiVersionPath, bytes.NewReader(content))
+	req, err := http.NewRequest("PUT", dashboardVersionPath, bytes.NewReader(content))
 	if err != nil {
 		return errors.Annotate(err, "cannot create PUT request")
 	}
@@ -83,7 +83,7 @@ func (c *Client) SelectGUIVersion(vers version.Number) error {
 		return errors.Annotate(err, "cannot retrieve HTTP client")
 	}
 	if err = httpClient.Do(c.facade.RawAPICaller().Context(), req, nil); err != nil {
-		return errors.Annotate(err, "cannot select GUI version")
+		return errors.Annotate(err, "cannot select Dashboard version")
 	}
 	return nil
 }

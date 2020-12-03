@@ -135,10 +135,10 @@ type BootstrapParams struct {
 	// will be used to start the Juju agents.
 	AgentVersion *version.Number
 
-	// GUIDataSourceBaseURL holds the simplestreams data source base URL
-	// used to retrieve the Juju GUI archive installed in the controller.
-	// If not set, the Juju GUI is not installed from simplestreams.
-	GUIDataSourceBaseURL string
+	// DashboardDataSourceBaseURL holds the simplestreams data source base URL
+	// used to retrieve the Juju Dashboard archive installed in the controller.
+	// If not set, the Juju Dashboard is not installed from simplestreams.
+	DashboardDataSourceBaseURL string
 
 	// AdminSecret contains the administrator password.
 	AdminSecret string
@@ -714,7 +714,7 @@ func finalizeInstanceBootstrapConfig(
 	icfg.Bootstrap.HostedModelConfig = args.HostedModelConfig
 	icfg.Bootstrap.StoragePools = args.StoragePools
 	icfg.Bootstrap.Timeout = args.DialOpts.Timeout
-	icfg.Bootstrap.GUI = guiArchive(args.GUIDataSourceBaseURL, cfg.GUIStream(), vers.Major, vers.Minor, true, func(msg string) {
+	icfg.Bootstrap.Dashboard = dashboardArchive(args.DashboardDataSourceBaseURL, cfg.DashboardStream(), vers.Major, vers.Minor, true, func(msg string) {
 		ctx.Infof(msg)
 	})
 	icfg.Bootstrap.JujuDbSnapPath = args.JujuDbSnapPath
@@ -799,7 +799,7 @@ func finalizePodBootstrapConfig(
 	pcfg.Bootstrap.ControllerServiceType = args.ControllerServiceType
 	pcfg.Bootstrap.ControllerExternalName = args.ControllerExternalName
 	pcfg.Bootstrap.ControllerExternalIPs = append([]string(nil), args.ControllerExternalIPs...)
-	pcfg.Bootstrap.GUI = guiArchive(args.GUIDataSourceBaseURL, cfg.GUIStream(), vers.Major, vers.Minor, false, func(msg string) {
+	pcfg.Bootstrap.Dashboard = dashboardArchive(args.DashboardDataSourceBaseURL, cfg.DashboardStream(), vers.Major, vers.Minor, false, func(msg string) {
 		ctx.Infof(msg)
 	})
 	return nil
@@ -1060,21 +1060,21 @@ func setPrivateMetadataSources(metadataDir string) ([]*imagemetadata.ImageMetada
 	return existingMetadata, nil
 }
 
-// guiArchive returns information on the GUI archive that will be uploaded
-// to the controller. Possible errors in retrieving the GUI archive information
+// dashboardArchive returns information on the Dashboard archive that will be uploaded
+// to the controller. Possible errors in retrieving the Dashboard archive information
 // do not prevent the model to be bootstrapped. If dataSourceBaseURL is
-// non-empty, remote GUI archive info is retrieved from simplestreams using it
+// non-empty, remote Dashboard archive info is retrieved from simplestreams using it
 // as the base URL. The given logProgress function is used to inform users
-// about errors or progress in setting up the Juju GUI.
-func guiArchive(dataSourceBaseURL, stream string, major, minor int, allowLocal bool, logProgress func(string)) *coretools.GUIArchive {
+// about errors or progress in setting up the Juju Dashboard.
+func dashboardArchive(dataSourceBaseURL, stream string, major, minor int, allowLocal bool, logProgress func(string)) *coretools.DashboardArchive {
 	// The environment variable is only used for development purposes.
-	path := os.Getenv("JUJU_GUI")
+	path := os.Getenv("JUJU_DASHBOARD")
 	if path != "" && !allowLocal {
 		// TODO(wallyworld) - support local archive on k8s controllers at bootstrap
 		// It can't be passed the same way as on IAAS as it's too large.
 		logProgress("Dashboard from local archive on bootstrap not supported")
 	} else if path != "" {
-		vers, err := guiVersion(path)
+		vers, err := dashboardVersion(path)
 		if err != nil {
 			logProgress(fmt.Sprintf("Cannot use Juju Dashboard at %q: %s", path, err))
 			return nil
@@ -1085,21 +1085,21 @@ func guiArchive(dataSourceBaseURL, stream string, major, minor int, allowLocal b
 			return nil
 		}
 		logProgress(fmt.Sprintf("Fetching Juju Dashboard %s from local archive", vers))
-		return &coretools.GUIArchive{
+		return &coretools.DashboardArchive{
 			Version: vers,
 			URL:     "file://" + filepath.ToSlash(path),
 			SHA256:  hash,
 			Size:    size,
 		}
 	}
-	// Check if the user requested to bootstrap with no GUI.
+	// Check if the user requested to bootstrap with no Dashboard.
 	if dataSourceBaseURL == "" {
 		logProgress("Juju Dashboard installation has been disabled")
 		return nil
 	}
-	// Fetch GUI archives info from simplestreams.
+	// Fetch Dashboard archives info from simplestreams.
 	source := gui.NewDataSource(dataSourceBaseURL)
-	allMeta, err := guiFetchMetadata(stream, major, minor, source)
+	allMeta, err := dashboardFetchMetadata(stream, major, minor, source)
 	if err != nil {
 		logProgress(fmt.Sprintf("Unable to fetch Juju Dashboard info: %s", err))
 		return nil
@@ -1110,7 +1110,7 @@ func guiArchive(dataSourceBaseURL, stream string, major, minor int, allowLocal b
 	}
 	// Metadata info are returned in descending version order.
 	logProgress(fmt.Sprintf("Fetching Juju Dashboard %s", allMeta[0].Version))
-	return &coretools.GUIArchive{
+	return &coretools.DashboardArchive{
 		Version: allMeta[0].Version,
 		URL:     allMeta[0].FullPath,
 		SHA256:  allMeta[0].SHA256,
@@ -1118,12 +1118,12 @@ func guiArchive(dataSourceBaseURL, stream string, major, minor int, allowLocal b
 	}
 }
 
-// guiFetchMetadata is defined for testing purposes.
-var guiFetchMetadata = gui.FetchMetadata
+// dashboardFetchMetadata is defined for testing purposes.
+var dashboardFetchMetadata = gui.FetchMetadata
 
-// guiVersion retrieves the GUI version from the juju-gui-* directory included
+// dashboardVersion retrieves the Dashboard version from the juju-dashboard-* directory included
 // in the bz2 archive at the given path.
-func guiVersion(path string) (version.Number, error) {
+func dashboardVersion(path string) (version.Number, error) {
 	var number version.Number
 	f, err := os.Open(path)
 	if err != nil {

@@ -132,7 +132,7 @@ func (s *agentLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
 	// callers will necessarily provide their Juju version.
 	//
 	// This would be a problem if non-Juju clients (e.g. the
-	// GUI) could use this endpoint since we require that the
+	// Dashboard) could use this endpoint since we require that the
 	// *Juju* version be provided as part of the request. Any
 	// attempt to open this endpoint to broader access must
 	// address this caveat appropriately.

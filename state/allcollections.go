@@ -105,10 +105,10 @@ func allCollections() CollectionSchema {
 		toolsmetadataC: {},
 
 		// This collection holds a convenient representation of the content of
-		// the simplestreams data source pointing to Juju GUI archives.
+		// the simplestreams data source pointing to Juju Dashboard archives.
 		guimetadataC: {global: true},
 
-		// This collection holds Juju GUI current version and other settings.
+		// This collection holds Juju Dashboard current version and other settings.
 		guisettingsC: {global: true},
 
 		// This collection holds model information; in particular its

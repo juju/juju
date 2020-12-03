@@ -208,8 +208,8 @@ type ControllerConfig struct {
 type BootstrapConfig struct {
 	StateInitializationParams
 
-	// GUI is the Juju GUI archive to be installed in the new instance.
-	GUI *coretools.GUIArchive
+	// Dashboard is the Juju Dashboard archive to be installed in the new instance.
+	Dashboard *coretools.DashboardArchive
 
 	// Timeout is the amount of time to wait for bootstrap to complete.
 	Timeout time.Duration
@@ -490,9 +490,9 @@ func (cfg *InstanceConfig) SnapDir() string {
 	return path.Join(cfg.DataDir, "snap")
 }
 
-// GUITools returns the directory where the Juju GUI release is stored.
-func (cfg *InstanceConfig) GUITools() string {
-	return agenttools.SharedGUIDir(cfg.DataDir)
+// DashboardDir returns the directory where the Juju Dashboard release is stored.
+func (cfg *InstanceConfig) DashboardDir() string {
+	return agenttools.SharedDashboardDir(cfg.DataDir)
 }
 
 func (cfg *InstanceConfig) APIHostAddrs() []string {

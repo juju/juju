@@ -11,15 +11,15 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type guiSuite struct {
+type dashboardSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&guiSuite{})
+var _ = gc.Suite(&dashboardSuite{})
 
-func (s *guiSuite) TestGUIDataSourceBaseURL(c *gc.C) {
-	c.Assert(common.GUIDataSourceBaseURL(), gc.Equals, gui.DefaultBaseURL)
+func (s *dashboardSuite) TestGUIDataSourceBaseURL(c *gc.C) {
+	c.Assert(common.DashboardDataSourceBaseURL(), gc.Equals, gui.DefaultBaseURL)
 	url := "https://1.2.3.4/streams/gui"
-	s.PatchEnvironment("JUJU_GUI_SIMPLESTREAMS_URL", url)
-	c.Assert(common.GUIDataSourceBaseURL(), gc.Equals, url)
+	s.PatchEnvironment("JUJU_DASHBOARD_SIMPLESTREAMS_URL", url)
+	c.Assert(common.DashboardDataSourceBaseURL(), gc.Equals, url)
 }

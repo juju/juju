@@ -18,15 +18,15 @@ import (
 
 const (
 	// DefaultBaseURL holds the default simplestreams data source URL from
-	// where to retrieve Juju GUI archives.
+	// where to retrieve Juju Dashboard archives.
 	DefaultBaseURL = "https://streams.canonical.com/juju/gui"
 	// ReleasedStream and DevelStreams hold stream names to use when fetching
-	// Juju GUI archives.
+	// Juju Dashboard archives.
 	ReleasedStream = "released"
 	DevelStream    = "devel"
 
 	downloadType      = "content-download"
-	sourceDescription = "gui simplestreams"
+	sourceDescription = "dashboard simplestreams"
 	streamsVersion    = "v1"
 )
 
@@ -35,7 +35,7 @@ func init() {
 }
 
 // DataSource creates and returns a new simplestreams signed data source for
-// fetching Juju GUI archives, at the given URL.
+// fetching Juju Dashboard archives, at the given URL.
 func NewDataSource(baseURL string) simplestreams.DataSource {
 	return simplestreams.NewDataSource(
 		simplestreams.Config{
@@ -49,7 +49,7 @@ func NewDataSource(baseURL string) simplestreams.DataSource {
 	)
 }
 
-// FetchMetadata fetches and returns Juju GUI metadata from simplestreams,
+// FetchMetadata fetches and returns Juju Dashboard metadata from simplestreams,
 // sorted by version descending.
 func FetchMetadata(stream string, major, minor int, sources ...simplestreams.DataSource) ([]*Metadata, error) {
 	params := simplestreams.GetMetadataParams{
@@ -78,7 +78,7 @@ func FetchMetadata(stream string, major, minor int, sources ...simplestreams.Dat
 	return allMeta, nil
 }
 
-// Metadata is the type used to retrieve GUI archive metadata information from
+// Metadata is the type used to retrieve Dashboard archive metadata information from
 // simplestream. Tags for this structure are registered in init().
 type Metadata struct {
 	Size   int64  `json:"size"`
@@ -87,15 +87,13 @@ type Metadata struct {
 
 	MinJujuVersion   string `json:"min-juju-version"`
 	DashboardVersion string `json:"version"`
-	// Legacy GUI metadata has juju-version.
-	JujuMajorVersion int `json:"juju-version"`
 
 	Version  version.Number           `json:"-"`
 	FullPath string                   `json:"-"`
 	Source   simplestreams.DataSource `json:"-"`
 }
 
-// byVersion is used to sort GUI metadata by version, most recent first.
+// byVersion is used to sort Dashboard metadata by version, most recent first.
 type byVersion []*Metadata
 
 // Len implements sort.Interface.
@@ -108,7 +106,7 @@ func (b byVersion) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
 func (b byVersion) Less(i, j int) bool { return b[i].Version.Compare(b[j].Version) > 0 }
 
 // constraint is used as simplestreams.LookupConstraint when retrieving Juju
-// GUI metadata information.
+// Dashboard metadata information.
 type constraint struct {
 	simplestreams.LookupParams
 	majorVersion int
@@ -135,7 +133,7 @@ func contentId(stream string) string {
 // majorMinorRegEx is used to validate a major.minor version string.
 var majorMinorRegEx = regexp.MustCompile("^\\d\\.\\d$")
 
-// appendArchives collects all matching Juju GUI archive metadata information.
+// appendArchives collects all matching Juju Dashboard archive metadata information.
 func appendArchives(
 	source simplestreams.DataSource,
 	matchingItems []interface{},
@@ -144,18 +142,14 @@ func appendArchives(
 ) ([]interface{}, error) {
 	var majorVersion int
 	var minorVersion int
-	if guiConstraint, ok := cons.(*constraint); ok {
-		majorVersion = guiConstraint.majorVersion
-		minorVersion = guiConstraint.minorVersion
+	if dashboardConstraint, ok := cons.(*constraint); ok {
+		majorVersion = dashboardConstraint.majorVersion
+		minorVersion = dashboardConstraint.minorVersion
 	}
 	for _, item := range items {
 		meta := item.(*Metadata)
 		if meta.MinJujuVersion != "" && !majorMinorRegEx.MatchString(meta.MinJujuVersion) {
 			return nil, errors.NotValidf("min-juju-version value %q", meta.MinJujuVersion)
-		}
-		if majorVersion != 0 && meta.JujuMajorVersion != 0 &&
-			majorVersion != meta.JujuMajorVersion {
-			continue
 		}
 		if meta.MinJujuVersion != "" {
 			// Add a ".0" to major.minor to make a valid Juju version number.

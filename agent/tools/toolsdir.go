@@ -23,10 +23,10 @@ import (
 )
 
 const (
-	dirPerm        = 0755
-	filePerm       = 0644
-	guiArchiveFile = "downloaded-gui.txt"
-	toolsFile      = "downloaded-tools.txt"
+	dirPerm              = 0755
+	filePerm             = 0644
+	dashboardArchiveFile = "downloaded-dashboard.txt"
+	toolsFile            = "downloaded-tools.txt"
 )
 
 // SharedToolsDir returns the directory that is used to
@@ -36,10 +36,10 @@ func SharedToolsDir(dataDir string, vers version.Binary) string {
 	return path.Join(dataDir, "tools", vers.String())
 }
 
-// SharedGUIDir returns the directory that is used to store release archives
-// of the Juju GUI within the dataDir directory.
-func SharedGUIDir(dataDir string) string {
-	return path.Join(dataDir, "gui")
+// SharedDashboardDir returns the directory that is used to store release archives
+// of the Juju Dashboard within the dataDir directory.
+func SharedDashboardDir(dataDir string) string {
+	return path.Join(dataDir, "dashboard")
 }
 
 // ToolsDir returns the directory that is used/ to store binaries for
@@ -174,22 +174,22 @@ func ReadTools(dataDir string, vers version.Binary) (*coretools.Tools, error) {
 	return &tools, nil
 }
 
-// ReadGUIArchive reads the GUI information from the dataDir directory.
-// The GUI information is JSON encoded in a text file, "downloaded-gui.txt".
-func ReadGUIArchive(dataDir string) (*coretools.GUIArchive, error) {
-	dir := SharedGUIDir(dataDir)
-	toolsData, err := ioutil.ReadFile(path.Join(dir, guiArchiveFile))
+// ReadDashboardArchive reads the Dashboard information from the dataDir directory.
+// The Dashboard information is JSON encoded in a text file, "downloaded-dashboard.txt".
+func ReadDashboardArchive(dataDir string) (*coretools.DashboardArchive, error) {
+	dir := SharedDashboardDir(dataDir)
+	toolsData, err := ioutil.ReadFile(path.Join(dir, dashboardArchiveFile))
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, errors.NotFoundf("GUI metadata")
+			return nil, errors.NotFoundf("Dashboard metadata")
 		}
-		return nil, fmt.Errorf("cannot read GUI metadata in directory %q: %v", dir, err)
+		return nil, fmt.Errorf("cannot read Dashboard metadata in directory %q: %v", dir, err)
 	}
-	var gui coretools.GUIArchive
-	if err := json.Unmarshal(toolsData, &gui); err != nil {
-		return nil, fmt.Errorf("invalid GUI metadata in directory %q: %v", dir, err)
+	var dashboard coretools.DashboardArchive
+	if err := json.Unmarshal(toolsData, &dashboard); err != nil {
+		return nil, fmt.Errorf("invalid Dashboard metadata in directory %q: %v", dir, err)
 	}
-	return &gui, nil
+	return &dashboard, nil
 }
 
 // ChangeAgentTools atomically replaces the agent-specific symlink

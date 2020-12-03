@@ -152,7 +152,7 @@ func (suite *PluginSuite) TestHelpPluginNameNotAPlugin(c *gc.C) {
 	expectedHelp := `ERROR juju: "foo" is not a juju command. See "juju --help".
 
 Did you mean:
-	gui
+	run
 `
 	c.Assert(output, gc.Matches, expectedHelp)
 }

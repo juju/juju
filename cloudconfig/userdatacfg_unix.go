@@ -456,10 +456,10 @@ func (w *unixConfigure) ConfigureCustomOverrides() error {
 }
 
 func (w *unixConfigure) configureBootstrap() error {
-	// Add the Juju GUI to the bootstrap node.
-	cleanup, err := w.setUpGUI()
+	// Add the Juju Dashboard to the bootstrap node.
+	cleanup, err := w.setUpDashboard()
 	if err != nil {
-		return errors.Annotate(err, "cannot set up Juju GUI")
+		return errors.Annotate(err, "cannot set up Juju Dashboard")
 	}
 	if cleanup != nil {
 		defer cleanup()
@@ -592,59 +592,59 @@ func (w *unixConfigure) addDownloadToolsCmds() error {
 	return nil
 }
 
-// setUpGUI fetches the Juju GUI archive and save it to the controller.
+// setUpDashboard fetches the Juju Dashboard archive and save it to the controller.
 // The returned clean up function must be called when the bootstrapping
 // process is completed.
-func (w *unixConfigure) setUpGUI() (func(), error) {
-	if w.icfg.Bootstrap.GUI == nil {
-		// No GUI archives were found on simplestreams, and no development
-		// GUI path has been passed with the JUJU_GUI environment variable.
+func (w *unixConfigure) setUpDashboard() (func(), error) {
+	if w.icfg.Bootstrap.Dashboard == nil {
+		// No Dashboard archives were found on simplestreams, and no development
+		// Dashboard path has been passed with the JUJU_DASHBOARD environment variable.
 		return nil, nil
 	}
-	u, err := url.Parse(w.icfg.Bootstrap.GUI.URL)
+	u, err := url.Parse(w.icfg.Bootstrap.Dashboard.URL)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot parse Juju GUI URL")
+		return nil, errors.Annotate(err, "cannot parse Juju Dashboard URL")
 	}
-	guiJson, err := json.Marshal(w.icfg.Bootstrap.GUI)
+	dashboardJson, err := json.Marshal(w.icfg.Bootstrap.Dashboard)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	guiDir := w.icfg.GUITools()
+	dashboardDir := w.icfg.DashboardDir()
 	w.conf.AddScripts(
-		"gui="+shquote(guiDir),
-		"mkdir -p $gui",
+		"dashboard="+shquote(dashboardDir),
+		"mkdir -p $dashboard",
 	)
 	if u.Scheme == "file" {
-		// Upload the GUI from a local archive file.
-		guiData, err := ioutil.ReadFile(filepath.FromSlash(u.Path))
+		// Upload the Dashboard from a local archive file.
+		dashboardData, err := ioutil.ReadFile(filepath.FromSlash(u.Path))
 		if err != nil {
-			return nil, errors.Annotate(err, "cannot read Juju GUI archive")
+			return nil, errors.Annotate(err, "cannot read Juju Dashboard archive")
 		}
-		w.conf.AddRunBinaryFile(path.Join(guiDir, "gui.tar.bz2"), guiData, 0644)
+		w.conf.AddRunBinaryFile(path.Join(dashboardDir, "dashboard.tar.bz2"), dashboardData, 0644)
 	} else {
-		// Download the GUI from simplestreams.
-		command := "curl -sSf -o $gui/gui.tar.bz2 --retry 10"
+		// Download the Dashboard from simplestreams.
+		command := "curl -sSf -o $dashboard/dashboard.tar.bz2 --retry 10"
 		if w.icfg.DisableSSLHostnameVerification {
 			command += " --insecure"
 		}
 		curlProxyArgs := w.formatCurlProxyArguments()
 		command += curlProxyArgs
 		command += " " + shquote(u.String())
-		// A failure in fetching the Juju GUI archive should not prevent the
-		// model to be bootstrapped. Better no GUI than no Juju at all.
-		command += " || echo Unable to retrieve Juju GUI"
+		// A failure in fetching the Juju Dashboard archive should not prevent the
+		// model to be bootstrapped. Better no Dashboard than no Juju at all.
+		command += " || echo Unable to retrieve Juju Dashboard"
 		w.conf.AddRunCmd(command)
 	}
 	w.conf.AddScripts(
-		"[ -f $gui/gui.tar.bz2 ] && sha256sum $gui/gui.tar.bz2 > $gui/jujugui.sha256",
+		"[ -f $dashboard/dashboard.tar.bz2 ] && sha256sum $dashboard/dashboard.tar.bz2 > $dashboard/jujudashboard.sha256",
 		fmt.Sprintf(
-			`[ -f $gui/jujugui.sha256 ] && (grep '%s' $gui/jujugui.sha256 && printf %%s %s > $gui/downloaded-gui.txt || echo Juju GUI checksum mismatch)`,
-			w.icfg.Bootstrap.GUI.SHA256, shquote(string(guiJson))),
+			`[ -f $dashboard/jujudashboard.sha256 ] && (grep '%s' $dashboard/jujudashboard.sha256 && printf %%s %s > $dashboard/downloaded-dashboard.txt || echo Juju Dashboard checksum mismatch)`,
+			w.icfg.Bootstrap.Dashboard.SHA256, shquote(string(dashboardJson))),
 	)
 	return func() {
-		// Don't remove the GUI archive until after bootstrap agent runs,
+		// Don't remove the Dashboard archive until after bootstrap agent runs,
 		// so it has a chance to add it to its catalogue.
-		w.conf.AddRunCmd("rm -f $gui/gui.tar.bz2 $gui/jujugui.sha256 $gui/downloaded-gui.txt")
+		w.conf.AddRunCmd("rm -f $dashboard/dashboard.tar.bz2 $dashboard/jujudashboard.sha256 $dashboard/downloaded-dashboard.txt")
 	}, nil
 }
 
