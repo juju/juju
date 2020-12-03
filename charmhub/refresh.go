@@ -31,7 +31,7 @@ const (
 	RefreshAction Action = "refresh"
 )
 
-// RefreshPlatform defines a platform refreshing charms.
+// RefreshPlatform defines a platform for selecting a specific charm.
 type RefreshPlatform struct {
 	Architecture string
 	OS           string

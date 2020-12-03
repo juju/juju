@@ -95,7 +95,9 @@ func (c *Client) ResolveCharms(charms []CharmToResolve) ([]ResolvedCharm, error)
 	return resolvedCharms, nil
 }
 
-// DownloadInfo holds the information for a given DownloadInfo.
+// DownloadInfo holds the URL and Origin for a charm that requires downloading
+// on the client side. This is mainly for bundles as we don't resolve bundles
+// on the server.
 type DownloadInfo struct {
 	URL    string
 	Origin apicharm.Origin
