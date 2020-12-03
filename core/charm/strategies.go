@@ -13,7 +13,7 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v2"
 	"github.com/kr/pretty"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"

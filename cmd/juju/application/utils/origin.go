@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
-	osseries "github.com/juju/os/series"
+	osseries "github.com/juju/os/v2/series"
 
 	commoncharm "github.com/juju/juju/api/common/charm"
 	corecharm "github.com/juju/juju/core/charm"
