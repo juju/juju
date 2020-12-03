@@ -244,7 +244,7 @@ func (c *chRepo) resolveViaChannelMap(t transport.Type, curl *charm.URL, origin 
 
 	curl.Revision = mapRevision.Revision
 
-	origin.Type = string(t)
+	origin.Type = t
 	origin.Revision = &mapRevision.Revision
 	origin.Risk = mapChannel.Risk
 	origin.Track = &mapChannel.Track
