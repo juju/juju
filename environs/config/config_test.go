@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
-	"github.com/juju/os/series"
 	"github.com/juju/proxy"
 	"github.com/juju/schema"
 	gitjujutesting "github.com/juju/testing"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 func Test(t *stdtesting.T) {
@@ -54,7 +54,7 @@ var sampleConfig = testing.Attrs{
 	"unknown":                    "my-unknown",
 	"ssl-hostname-verification":  true,
 	"development":                false,
-	"default-series":             series.DefaultSupportedLTS(),
+	"default-series":             jujuversion.DefaultSupportedLTS(),
 	"disable-network-management": false,
 	"ignore-machine-addresses":   false,
 	"automatically-retry-hooks":  true,
@@ -94,7 +94,7 @@ var configTests = []configTest{
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"image-stream":           "released",
 			"agent-stream":           "released",
-			"gui-stream":             "released",
+			"dashboard-stream":       "released",
 			"container-image-stream": "daily",
 		}),
 	}, {
@@ -365,10 +365,10 @@ var configTests = []configTest{
 			"agent-stream": "proposed",
 		}),
 	}, {
-		about:       "explicit gui stream",
+		about:       "explicit dashboard stream",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"gui-stream": "devl",
+			"dashboard-stream": "devel",
 		}),
 	}, {
 		about:       "Invalid logging configuration",
@@ -412,6 +412,12 @@ var configTests = []configTest{
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"test-mode": true,
+		}),
+	}, {
+		about:       "Mode flag specified",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"mode": []interface{}{"strict"},
 		}),
 	}, {
 		about:       "valid uuid",
@@ -612,11 +618,11 @@ type testFile struct {
 
 func (s *ConfigSuite) TestConfig(c *gc.C) {
 	files := []gitjujutesting.TestFile{
-		{".ssh/id_dsa.pub", "dsa"},
-		{".ssh/id_rsa.pub", "rsa\n"},
-		{".ssh/identity.pub", "identity"},
-		{".ssh/authorized_keys", "auth0\n# first\nauth1\n\n"},
-		{".ssh/authorized_keys2", "auth2\nauth3\n"},
+		{Name: ".ssh/id_dsa.pub", Data: "dsa"},
+		{Name: ".ssh/id_rsa.pub", Data: "rsa\n"},
+		{Name: ".ssh/identity.pub", Data: "identity"},
+		{Name: ".ssh/authorized_keys", Data: "auth0\n# first\nauth1\n\n"},
+		{Name: ".ssh/authorized_keys2", Data: "auth2\nauth3\n"},
 	}
 	s.FakeHomeSuite.Home.AddFiles(c, files...)
 	for i, test := range configTests {
@@ -665,7 +671,7 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	if seriesAttr != "" {
 		c.Assert(defaultSeries, gc.Equals, seriesAttr)
 	} else {
-		c.Assert(defaultSeries, gc.Equals, series.DefaultSupportedLTS())
+		c.Assert(defaultSeries, gc.Equals, jujuversion.DefaultSupportedLTS())
 	}
 
 	if m, _ := test.attrs["firewall-mode"].(string); m != "" {
@@ -711,9 +717,9 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	}
 
 	if v, ok := test.attrs["provisioner-harvest-mode"]; ok {
-		hvstMeth, err := config.ParseHarvestMode(v.(string))
+		harvestMeth, err := config.ParseHarvestMode(v.(string))
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(cfg.ProvisionerHarvestMode(), gc.Equals, hvstMeth)
+		c.Assert(cfg.ProvisionerHarvestMode(), gc.Equals, harvestMeth)
 	} else {
 		c.Assert(cfg.ProvisionerHarvestMode(), gc.Equals, config.HarvestDestroyed)
 	}
@@ -815,7 +821,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"firewall-mode":              config.FwInstance,
 		"unknown":                    "my-unknown",
 		"ssl-hostname-verification":  true,
-		"default-series":             series.DefaultSupportedLTS(),
+		"default-series":             jujuversion.DefaultSupportedLTS(),
 		"disable-network-management": false,
 		"ignore-machine-addresses":   false,
 		"automatically-retry-hooks":  true,
@@ -826,8 +832,8 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// These attributes are added if not set.
-	attrs["logging-config"] = "<root>=WARNING"
+	// Set from default
+	attrs["logging-config"] = "<root>=INFO"
 
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
@@ -900,7 +906,7 @@ var validationTests = []validationTest{{
 
 func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 	files := []gitjujutesting.TestFile{
-		{".ssh/identity.pub", "identity"},
+		{Name: ".ssh/identity.pub", Data: "identity"},
 	}
 	s.FakeHomeSuite.Home.AddFiles(c, files...)
 
@@ -952,11 +958,11 @@ var configValidateCloudInitUserDataTests = []configValidateCloudInitUserDataTest
 
 func (s *ConfigSuite) TestValidateCloudInitUserData(c *gc.C) {
 	files := []gitjujutesting.TestFile{
-		{".ssh/id_dsa.pub", "dsa"},
-		{".ssh/id_rsa.pub", "rsa\n"},
-		{".ssh/identity.pub", "identity"},
-		{".ssh/authorized_keys", "auth0\n# first\nauth1\n\n"},
-		{".ssh/authorized_keys2", "auth2\nauth3\n"},
+		{Name: ".ssh/id_dsa.pub", Data: "dsa"},
+		{Name: ".ssh/id_rsa.pub", Data: "rsa\n"},
+		{Name: ".ssh/identity.pub", Data: "identity"},
+		{Name: ".ssh/authorized_keys", Data: "auth0\n# first\nauth1\n\n"},
+		{Name: ".ssh/authorized_keys2", Data: "auth2\nauth3\n"},
 	}
 	s.FakeHomeSuite.Home.AddFiles(c, files...)
 	for i, test := range configValidateCloudInitUserDataTests {
@@ -982,19 +988,20 @@ func (test configValidateCloudInitUserDataTest) checkNew(c *gc.C) {
 
 func (s *ConfigSuite) addJujuFiles(c *gc.C) {
 	s.FakeHomeSuite.Home.AddFiles(c, []gitjujutesting.TestFile{
-		{".ssh/id_rsa.pub", "rsa\n"},
+		{Name: ".ssh/id_rsa.pub", Data: "rsa\n"},
 	}...)
 }
 
 func (s *ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
 	s.addJujuFiles(c)
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"name":       "myenv",
-		"type":       "other",
-		"uuid":       testing.ModelTag.Id(),
-		"extra-info": "official extra user data",
-		"known":      "this",
-		"unknown":    "that",
+		"name":              "myenv",
+		"type":              "other",
+		"uuid":              testing.ModelTag.Id(),
+		"extra-info":        "official extra user data",
+		"known":             "this",
+		"unknown":           "that",
+		"unknown-part-deux": []interface{}{"meshuggah"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1002,8 +1009,9 @@ func (s *ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
 	attrs, err := cfg.ValidateUnknownAttrs(nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attrs, gc.DeepEquals, map[string]interface{}{
-		"known":   "this",
-		"unknown": "that",
+		"known":             "this",
+		"unknown":           "that",
+		"unknown-part-deux": []interface{}{"meshuggah"},
 	})
 
 	// Valid field: that and other attrs passed through.
@@ -1011,8 +1019,9 @@ func (s *ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
 	attrs, err = cfg.ValidateUnknownAttrs(fields, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attrs, gc.DeepEquals, map[string]interface{}{
-		"known":   "this",
-		"unknown": "that",
+		"known":             "this",
+		"unknown":           "that",
+		"unknown-part-deux": []interface{}{"meshuggah"},
 	})
 
 	// Default field: inserted.
@@ -1021,9 +1030,10 @@ func (s *ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
 	attrs, err = cfg.ValidateUnknownAttrs(fields, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attrs, gc.DeepEquals, map[string]interface{}{
-		"known":   "this",
-		"unknown": "that",
-		"default": "the other",
+		"known":             "this",
+		"unknown":           "that",
+		"unknown-part-deux": []interface{}{"meshuggah"},
+		"default":           "the other",
 	})
 
 	// Invalid field: failure.
@@ -1044,6 +1054,20 @@ func (s *ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = cfg.ValidateUnknownAttrs(nil, nil)
 	c.Assert(err.Error(), gc.Equals, `mapAttr: unknown type (map["foo":"bar"])`)
+
+	// Completely unknown attr, not-simple field type: failure.
+	cfg, err = config.New(config.UseDefaults, map[string]interface{}{
+		"name":       "myenv",
+		"type":       "other",
+		"uuid":       testing.ModelTag.Id(),
+		"extra-info": "official extra user data",
+		"known":      "this",
+		"unknown":    "that",
+		"bad":        []interface{}{1},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = cfg.ValidateUnknownAttrs(nil, nil)
+	c.Assert(err.Error(), gc.Equals, `bad: unknown type ([1])`)
 }
 
 type testAttr struct {
@@ -1112,6 +1136,13 @@ func (s *ConfigSuite) TestLoggingConfig(c *gc.C) {
 	c.Assert(config.LoggingConfig(), gc.Equals, "<root>=WARNING;juju=DEBUG")
 }
 
+func (s *ConfigSuite) TestLoggingConfigDefaults(c *gc.C) {
+	s.addJujuFiles(c)
+	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, "")
+	config := newTestConfig(c, testing.Attrs{})
+	c.Assert(config.LoggingConfig(), gc.Equals, "<root>=INFO")
+}
+
 func (s *ConfigSuite) TestLoggingConfigWithUnit(c *gc.C) {
 	s.addJujuFiles(c)
 	config := newTestConfig(c, testing.Attrs{
@@ -1121,10 +1152,15 @@ func (s *ConfigSuite) TestLoggingConfigWithUnit(c *gc.C) {
 
 func (s *ConfigSuite) TestLoggingConfigFromEnvironment(c *gc.C) {
 	s.addJujuFiles(c)
-	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, "<root>=INFO")
+	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, "<root>=INFO;other=TRACE")
 
 	config := newTestConfig(c, nil)
-	c.Assert(config.LoggingConfig(), gc.Equals, "<root>=INFO")
+	c.Assert(config.LoggingConfig(), gc.Equals, "<root>=INFO;other=TRACE")
+
+	// But an explicit value overrides the environ
+	config = newTestConfig(c, testing.Attrs{
+		"logging-config": "<root>=WARNING"})
+	c.Assert(config.LoggingConfig(), gc.Equals, "<root>=WARNING")
 }
 
 func (s *ConfigSuite) TestBackupDir(c *gc.C) {
@@ -1157,6 +1193,20 @@ func (s *ConfigSuite) TestCharmHubURL(c *gc.C) {
 	chURL, ok := config.CharmHubURL()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(chURL, gc.Equals, charmhub.CharmHubServerURL)
+}
+
+func (s *ConfigSuite) TestMode(c *gc.C) {
+	config := newTestConfig(c, testing.Attrs{})
+	mode, ok := config.Mode()
+	c.Assert(ok, jc.IsFalse)
+	c.Assert(mode, gc.DeepEquals, []string{})
+
+	config = newTestConfig(c, testing.Attrs{
+		"mode": []interface{}{"strict"},
+	})
+	mode, ok = config.Mode()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(mode, gc.DeepEquals, []string{"strict"})
 }
 
 func (s *ConfigSuite) TestCharmHubURLSettingValue(c *gc.C) {

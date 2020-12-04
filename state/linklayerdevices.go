@@ -185,14 +185,6 @@ func (dev *LinkLayerDevice) SetProviderIDOps(id network.Id) ([]txn.Op, error) {
 		return nil, nil
 	}
 
-	// If the incoming provider ID is not empty, we will only set it on the
-	// device if it is currently empty.
-	// TODO (manadart 2020-06-30): This is a preservation of prior behaviour
-	// and probably bares re-evaluation.
-	if id != "" && currentID != "" {
-		return nil, nil
-	}
-
 	// If removing the provider ID from the device,
 	// also remove the ID from the global collection.
 	if id == "" {
@@ -207,8 +199,7 @@ func (dev *LinkLayerDevice) SetProviderIDOps(id network.Id) ([]txn.Op, error) {
 		}, nil
 	}
 
-	// Since we assume that we are now setting the ID for the first time,
-	// ensure that it has not already been used to identify another device.
+	// Ensure that it is not currently used to identify another device.
 	exists, err := dev.st.networkEntityGlobalKeyExists("linklayerdevice", id)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -375,7 +366,7 @@ func (st *State) AllLinkLayerDevices() (devices []*LinkLayerDevice, err error) {
 	var sDocs []linkLayerDeviceDoc
 	err = devicesCollection.Find(nil).All(&sDocs)
 	if err != nil {
-		return nil, errors.Errorf("cannot get all link layer devices")
+		return nil, errors.Annotate(err, "retrieving link-layer devices")
 	}
 	for _, d := range sDocs {
 		devices = append(devices, newLinkLayerDevice(st, d))

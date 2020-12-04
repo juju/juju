@@ -4,14 +4,12 @@
 package config
 
 import (
-	"github.com/juju/os/series"
-
 	"github.com/juju/juju/core/paths"
 )
 
 var (
-	JujuRun        = paths.MustSucceed(paths.JujuRun(series.MustHostSeries()))
-	JujuDumpLogs   = paths.MustSucceed(paths.JujuDumpLogs(series.MustHostSeries()))
-	JujuIntrospect = paths.MustSucceed(paths.JujuIntrospect(series.MustHostSeries()))
-	LogDir         = paths.MustSucceed(paths.LogDir(series.MustHostSeries()))
+	JujuRun        = paths.JujuRun(paths.CurrentOS())
+	JujuDumpLogs   = paths.JujuDumpLogs(paths.CurrentOS())
+	JujuIntrospect = paths.JujuIntrospect(paths.CurrentOS())
+	LogDir         = paths.LogDir(paths.CurrentOS())
 )

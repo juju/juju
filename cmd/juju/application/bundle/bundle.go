@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/bundlechanges/v2"
+	"github.com/juju/bundlechanges/v3"
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -65,6 +65,15 @@ func BuildModelRepresentation(
 			Exposed:       appStatus.Exposed,
 			Series:        appStatus.Series,
 			SubordinateTo: appStatus.SubordinateTo,
+		}
+		if len(appStatus.ExposedEndpoints) != 0 {
+			app.ExposedEndpoints = make(map[string]bundlechanges.ExposedEndpoint)
+			for endpoint, exposeDetails := range appStatus.ExposedEndpoints {
+				app.ExposedEndpoints[endpoint] = bundlechanges.ExposedEndpoint{
+					ExposeToSpaces: exposeDetails.ExposeToSpaces,
+					ExposeToCIDRs:  exposeDetails.ExposeToCIDRs,
+				}
+			}
 		}
 		for unitName, unit := range appStatus.Units {
 			app.Units = append(app.Units, bundlechanges.Unit{

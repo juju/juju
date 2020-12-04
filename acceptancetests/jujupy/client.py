@@ -20,37 +20,28 @@ import errno
 import json
 import logging
 import os
-import pexpect
 import re
 import shutil
-import six
 import subprocess
 import sys
 import time
-import yaml
-from collections import (
-    defaultdict,
-    namedtuple,
-)
-from contextlib import (
-    contextmanager,
-)
+from collections import defaultdict, namedtuple
+from contextlib import contextmanager
 from copy import deepcopy
 from itertools import chain
 from locale import getpreferredencoding
 
-from jujupy.backend import (
-    JujuBackend,
-)
+import pexpect
+import six
+import yaml
+
+from jujupy.backend import JujuBackend
 from jujupy.configuration import (
     get_bootstrap_config_path,
     get_juju_home,
     get_selected_environment,
 )
-from jujupy.controller import (
-    Controllers,
-    ControllerConfig,
-)
+from jujupy.controller import ControllerConfig, Controllers
 from jujupy.exceptions import (
     AgentsNotStarted,
     ApplicationsNotStarted,
@@ -65,14 +56,10 @@ from jujupy.exceptions import (
     VotingNotEnabled,
     WorkloadsNotReady,
 )
-from jujupy.status import (
-    AGENTS_READY,
-    coalesce_agent_status,
-    Status,
-)
+from jujupy.status import AGENTS_READY, Status, coalesce_agent_status
 from jujupy.utility import (
-    _dns_name_for_machine,
     JujuResourceTimeout,
+    _dns_name_for_machine,
     pause,
     qualified_model_name,
     skip_on_missing_file,
@@ -167,14 +154,12 @@ class JujuData:
             self.lxd = (self._config.get('container') == 'lxd' or provider == 'lxd')
             self.kvm = (bool(self._config.get('container') == 'kvm'))
             self.maas = bool(provider == 'maas')
-            self.joyent = bool(provider == 'joyent')
             self.logging_config = self._config.get('logging-config')
             self.provider_type = provider
         else:
             self.lxd = False
             self.kvm = False
             self.maas = False
-            self.joyent = False
             self.logging_config = None
             self.provider_type = None
         self.credentials = {}
@@ -205,7 +190,6 @@ class JujuData:
         result.lxd = self.lxd
         result.kvm = self.kvm
         result.maas = self.maas
-        result.joyent = self.joyent
         result.user_name = self.user_name
         result.credentials = deepcopy(self.credentials)
         result.clouds = deepcopy(self.clouds)
@@ -390,8 +374,7 @@ class JujuData:
     def set_region(self, region):
         """Assign the region to a 1.x-style config.
 
-        This requires translating Azure's and Joyent's conventions for
-        specifying region.
+        This requires translating Azure's conventions for specifying region.
 
         It means that endpoint, rather than region, should be updated if the
         cloud (not the provider) is named "lxd" or "manual".
@@ -406,9 +389,6 @@ class JujuData:
             cloud_is_provider = False
         if provider == 'azure':
             self._config['location'] = region
-        elif provider == 'joyent':
-            self._config['sdc-url'] = (
-                'https://{}.api.joyentcloud.com'.format(region))
         elif cloud_is_provider:
             self._set_config_endpoint(region)
         elif provider == 'maas':
@@ -487,8 +467,7 @@ class JujuData:
     def get_region(self):
         """Determine the region from a 1.x-style config.
 
-        This requires translating Azure's and Joyent's conventions for
-        specifying region.
+        This requires translating Azure's conventions for specifying region.
 
         It means that endpoint, rather than region, should be supplied if the
         cloud (not the provider) is named "lxd" or "manual".
@@ -501,9 +480,6 @@ class JujuData:
             if 'tenant-id' not in self._config:
                 return self._config['location'].replace(' ', '').lower()
             return self._config['location']
-        elif provider == 'joyent':
-            matcher = re.compile('https://(.*).api.joyentcloud.com')
-            return matcher.match(self._config['sdc-url']).group(1)
         elif provider == 'maas':
             return None
         # In 2.x, certain providers can be specified on the commandline in
@@ -577,7 +553,6 @@ def describe_substrate(env):
         return {
             'ec2': 'AWS',
             'rackspace': 'Rackspace',
-            'joyent': 'Joyent',
             'azure': 'Azure',
             'maas': 'MAAS',
         }[env.provider]
@@ -861,6 +836,7 @@ class ModelClient:
         :param machine_ids: The ids of the machine to remove.
         :return: A WaitMachineNotPresent instance for client.wait_for.
         """
+        machine_ids = machine_ids.split(',') if isinstance(machine_ids, str) else machine_ids
         options = ()
         if force:
             options = options + ('--force',)
@@ -919,7 +895,7 @@ class ModelClient:
         if self.env.bootstrap_to is not None:
             args.extend(['--to', self.env.bootstrap_to])
         if no_gui:
-            args.append('--no-gui')
+            args.append('--no-dashboard')
         if db_snap_path and db_snap_asserts_path:
             args.extend(['--db-snap', db_snap_path,
                          '--db-snap-asserts', db_snap_asserts_path])
@@ -1001,10 +977,12 @@ class ModelClient:
         })
 
     @contextmanager
-    def _bootstrap_config(self, mongo_memory_profile=None, caas_image_repo=None):
+    def _bootstrap_config(self, mongo_memory_profile=None, db_snap_channel=None, caas_image_repo=None):
         cfg = self.make_model_config()
         if mongo_memory_profile:
             cfg['mongo-memory-profile'] = mongo_memory_profile
+        if db_snap_channel:
+            cfg['juju-db-snap-channel'] = db_snap_channel
         if caas_image_repo:
             cfg['caas-image-repo'] = caas_image_repo
         with temp_yaml_file(cfg) as config_filename:
@@ -1022,11 +1000,11 @@ class ModelClient:
                   credential=None, auto_upgrade=False, metadata_source=None,
                   no_gui=False, agent_version=None, db_snap_path=None,
                   db_snap_asserts_path=None, mongo_memory_profile=None, caas_image_repo=None, force=False,
-                  config_options=None):
+                  db_snap_channel=None, config_options=None):
         """Bootstrap a controller."""
         self._check_bootstrap()
         with self._bootstrap_config(
-                mongo_memory_profile, caas_image_repo,
+                mongo_memory_profile, db_snap_channel, caas_image_repo,
         ) as config_filename:
             args = self.get_bootstrap_args(
                 upload_tools=upload_tools,
@@ -1425,6 +1403,23 @@ class ModelClient:
         # we're deploying a complex set of machines/containers.
         return retvar, CommandComplete(WaitAgentsStarted(wait_timeout), ct)
 
+    def migrate(self, full_model_name, model_name, src_model_client, dest_client, include_e=True):
+        self.juju(
+            'migrate',
+            (full_model_name, dest_client.env.controller.name),
+            include_e=include_e,
+        )
+        # the specified source model has been migrated to the dest client,
+        # so remove it from self._backend._added_models,
+        self._backend.untrack_model(src_model_client)
+
+        migration_target_client = dest_client.clone(
+            dest_client.env.clone(model_name),
+        )
+        # add the migrated model client to dest_client._backend._added_models.
+        dest_client._backend.track_model(migration_target_client)
+        return migration_target_client
+
     def attach(self, service, resource):
         args = (service, resource)
         retvar, ct = self.juju('attach', args)
@@ -1500,10 +1495,7 @@ class ModelClient:
         return not os.environ.get("JUJU_CI_SPACELESSNESS")
 
     def _get_substrate_constraints(self):
-        if self.env.joyent:
-            # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
-            return 'cores=1'
-        elif self.env.maas and self._maas_spaces_enabled():
+        if self.env.maas and self._maas_spaces_enabled():
             # For now only maas support spaces in a meaningful way.
             return 'spaces={}'.format(','.join(
                 '^' + space for space in sorted(self.excluded_spaces)))
@@ -1896,7 +1888,7 @@ class ModelClient:
         cases where it's available.
         Returns the yaml output of the fetched action.
         """
-        out = self.get_juju_output("show-action-output", id, "--wait", timeout)
+        out = self.get_juju_output("show-task", id, "--wait", timeout)
         status = yaml.safe_load(out)["status"]
         if status != "completed":
             action_name = '' if not action else ' "{}"'.format(action)
@@ -2035,11 +2027,22 @@ class ModelClient:
         self.controller_juju('logout', ())
         self.env.user_name = ''
 
-    def _end_pexpect_session(self, session):
+    def _end_pexpect_session(self, session, prefinish_steps=None):
         """Pexpect doesn't return buffers, or handle exceptions well.
         This method attempts to ensure any relevant data is returned to the
         test output in the event of a failure, or the unexpected"""
-        session.expect(pexpect.EOF)
+        if prefinish_steps is None:
+            session.expect(pexpect.EOF)
+        else:
+            try:
+                for f in prefinish_steps:
+                    f(session)
+            except pexpect.EOF:
+                # all good, session has been finished.
+                pass
+            else:
+                # finishes session now.
+                session.expect(pexpect.EOF)
         session.close()
         if session.exitstatus != 0:
             log.error('Buffer: {}'.format(session.buffer))
@@ -2386,21 +2389,37 @@ def register_user_interactively(client, token, controller_name):
     :param token: Token string to use when registering.
     :param controller_name: String to use when naming the controller.
     """
+
+    child = client.expect('register', (token), include_e=False)
+    child.logfile = sys.stdout
+    user_name = client.env.user_name
+    password = user_name + '_password'
     try:
-        child = client.expect('register', (token), include_e=False)
-        child.logfile = sys.stdout
         child.expect(u'Enter a new password:')
-        child.sendline(client.env.user_name + '_password')
+        child.sendline(password)
         child.expect(u'Confirm password:')
-        child.sendline(client.env.user_name + '_password')
-        child.expect(u'Enter a name for this controller \[.*\]:')
+        child.sendline(password)
+        child.expect(u'Enter a name for this controller( \[.*\])?:')
         child.sendline(controller_name)
-        client._end_pexpect_session(child)
-    except pexpect.TIMEOUT:
+
+        def login_if_need(session):
+            try:
+                # jenkins clock out of sync, so login needed.
+                session.expect(
+                    u'please enter password for {0} on {1}:'.format(
+                        user_name, controller_name,
+                    ),
+                )
+                session.sendline(password)
+            except pexpect.EOF:
+                # no login needed, raise to top level.
+                raise
+        client._end_pexpect_session(child, [login_if_need])
+    except pexpect.TIMEOUT as e:
         log.error('Buffer: {}'.format(child.buffer))
         log.error('Before: {}'.format(child.before))
         raise Exception(
-            'Registering user failed: pexpect session timed out')
+            'Registering user failed: pexpect session timed out: {}'.format(e))
 
 
 def juju_home_path(juju_home, dir_name):

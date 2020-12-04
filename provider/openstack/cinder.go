@@ -13,7 +13,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"gopkg.in/goose.v2/cinder"
 	gooseerrors "gopkg.in/goose.v2/errors"
 	"gopkg.in/goose.v2/identity"

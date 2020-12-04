@@ -13,16 +13,16 @@ import (
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/application"
+	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -284,7 +284,7 @@ func (factory *Factory) paramsFillDefaults(c *gc.C, params *MachineParams) *Mach
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	if params.Characteristics == nil {
-		arch := "amd64"
+		arch := corearch.DefaultArchitecture
 		mem := uint64(64 * 1024 * 1024 * 1024)
 		hardware := instance.HardwareCharacteristics{
 			Arch: &arch,
@@ -315,11 +315,7 @@ func (factory *Factory) MakeMachineNested(c *gc.C, parentId string, params *Mach
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetProvisioned(params.InstanceId, params.DisplayName, params.Nonce, params.Characteristics)
 	c.Assert(err, jc.ErrorIsNil)
-	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	current := testing.CurrentVersion(c)
 	err = m.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 	return m
@@ -385,11 +381,7 @@ func (factory *Factory) makeMachineReturningPassword(c *gc.C, params *MachinePar
 		err := machine.SetProviderAddresses(params.Addresses...)
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	current := testing.CurrentVersion(c)
 	err = machine.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 	return machine, params.Password

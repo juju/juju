@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/ssh"
+	"github.com/juju/utils/v2/ssh"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	gooseerrors "gopkg.in/goose.v2/errors"
@@ -226,11 +226,6 @@ func (e *fakeEnviron) AllInstances(callCtx context.ProviderCallContext) ([]insta
 func (e *fakeEnviron) AllRunningInstances(callCtx context.ProviderCallContext) ([]instances.Instance, error) {
 	e.Push("AllRunningInstances", callCtx)
 	return nil, nil
-}
-
-func (e *fakeEnviron) MaintainInstance(callCtx context.ProviderCallContext, args environs.StartInstanceParams) error {
-	e.Push("MaintainInstance", callCtx, args)
-	return nil
 }
 
 func (e *fakeEnviron) Config() *config.Config {

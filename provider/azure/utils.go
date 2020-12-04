@@ -7,30 +7,16 @@ import (
 	stdcontext "context"
 	"math/rand"
 	"net/http"
-	"time"
 
 	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/azure/internal/errorutils"
 )
-
-const (
-	retryDelay       = 5 * time.Second
-	maxRetryDelay    = 1 * time.Minute
-	maxRetryDuration = 5 * time.Minute
-)
-
-func toTags(tags *map[string]*string) map[string]string {
-	if tags == nil {
-		return nil
-	}
-	return to.StringMap(*tags)
-}
 
 // randomAdminPassword returns a random administrator password for
 // Windows machines.
@@ -59,6 +45,20 @@ func isNotFoundResponse(resp *http.Response) bool {
 
 func isNotFoundResult(resp autorest.Response) bool {
 	if resp.Response != nil && resp.StatusCode == http.StatusNotFound {
+		return true
+	}
+	return false
+}
+
+func isConflictResult(resp autorest.Response) bool {
+	if resp.Response != nil && resp.StatusCode == http.StatusConflict {
+		return true
+	}
+	return false
+}
+
+func isForbiddenResult(resp autorest.Response) bool {
+	if resp.Response != nil && resp.StatusCode == http.StatusForbidden {
 		return true
 	}
 	return false

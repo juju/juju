@@ -20,6 +20,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // HTTPClient implements Connection.APICaller.HTTPClient and returns an HTTP
@@ -106,6 +107,7 @@ func authHTTPRequest(req *http.Request, tag, password, nonce string, macaroons [
 	if nonce != "" {
 		req.Header.Set(params.MachineNonceHeader, nonce)
 	}
+	req.Header.Set(params.JujuClientVersion, jujuversion.Current.String())
 	req.Header.Set(httpbakery.BakeryProtocolHeader, fmt.Sprint(bakery.LatestVersion))
 	for _, ms := range macaroons {
 		encoded, err := encodeMacaroonSlice(ms)

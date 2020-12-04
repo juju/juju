@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	utilsos "github.com/juju/os"
-	utilsseries "github.com/juju/os/series"
-	"github.com/juju/utils"
+	utilsos "github.com/juju/os/v2"
+	utilsseries "github.com/juju/os/v2/series"
+	"github.com/juju/utils/v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/paths"
@@ -61,24 +61,12 @@ type MachineInitReader struct {
 // NewMachineInitReader creates and returns a new MachineInitReader for the
 // input series.
 func NewMachineInitReader(series string) (InitReader, error) {
-	cloudInitConfigDir, err := paths.CloudInitCfgDir(series)
-	if err != nil {
-		return nil, errors.Annotate(err, "determining CloudInitCfgDir for the machine")
-	}
-	cloudInitInstanceConfigDir, err := paths.MachineCloudInitDir(series)
-	if err != nil {
-		return nil, errors.Annotate(err, "determining MachineCloudInitDir for the machine")
-	}
-	curtinInstallConfigFile, err := paths.CurtinInstallConfig(series)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
+	osType := paths.SeriesToOS(series)
 	cfg := MachineInitReaderConfig{
 		Series:                     series,
-		CloudInitConfigDir:         cloudInitConfigDir,
-		CloudInitInstanceConfigDir: cloudInitInstanceConfigDir,
-		CurtinInstallConfigFile:    curtinInstallConfigFile,
+		CloudInitConfigDir:         paths.CloudInitCfgDir(osType),
+		CloudInitInstanceConfigDir: paths.MachineCloudInitDir(osType),
+		CurtinInstallConfigFile:    paths.CurtinInstallConfig(osType),
 	}
 	return NewMachineInitReaderFromConfig(cfg), nil
 }
@@ -100,7 +88,8 @@ func (r *MachineInitReader) GetInitConfig() (map[string]interface{}, error) {
 	}
 	switch containerOS {
 	case utilsos.Ubuntu, utilsos.CentOS, utilsos.OpenSUSE:
-		if series != utilsseries.MustHostSeries() {
+		hostSeries, err := utilsseries.HostSeries()
+		if err != nil || series != hostSeries {
 			logger.Debugf("not attempting to get init config for %s, series of machine and container differ", series)
 			return nil, nil
 		}

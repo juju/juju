@@ -44,6 +44,12 @@ func IsExtendDiskError(err error) bool {
 	return ok
 }
 
+// ComputeResource stores an mo.ComputeResource along with its full path
+type ComputeResource struct {
+	Resource *mo.ComputeResource
+	Path     string
+}
+
 // Client encapsulates a vSphere client, exposing the subset of
 // functionality that we require in the Juju provider.
 type Client struct {
@@ -96,6 +102,7 @@ func (c *Client) lister(ref types.ManagedObjectReference) *list.Lister {
 // return the pointer for the same folder, and should also deal with
 // the case where folderPath is nil or empty.
 func (c *Client) FindFolder(ctx context.Context, folderPath string) (vmFolder *object.Folder, err error) {
+	c.logger.Tracef("FindFolder() path=%q", folderPath)
 	if strings.Contains(folderPath, "..") {
 		// ".." not supported as per:
 		// https://github.com/vmware/govmomi/blob/master/find/finder.go#L114
@@ -149,6 +156,7 @@ func (c *Client) finder(ctx context.Context) (*find.Finder, *object.Datacenter, 
 // RemoveVirtualMachines removes VMs matching the given path from the
 // system. The path may include wildcards, to match multiple VMs.
 func (c *Client) RemoveVirtualMachines(ctx context.Context, path string) error {
+	c.logger.Tracef("RemoveVirtualMachines() path=%q", path)
 	finder, _, err := c.finder(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -209,6 +217,7 @@ func (c *Client) RemoveVirtualMachines(ctx context.Context, path string) error {
 
 // VirtualMachines return list of all VMs in the system matching the given path.
 func (c *Client) VirtualMachines(ctx context.Context, path string) ([]*mo.VirtualMachine, error) {
+	c.logger.Tracef("VirtualMachines() path=%q", path)
 	finder, _, err := c.finder(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -233,8 +242,10 @@ func (c *Client) VirtualMachines(ctx context.Context, path string) ([]*mo.Virtua
 	return vms, nil
 }
 
-// ComputeResources returns list of all root compute resources in the system.
-func (c *Client) ComputeResources(ctx context.Context) ([]*mo.ComputeResource, error) {
+// ComputeResources returns a slice of all compute resources in the datacenter,
+// along with a slice of each compute resource's full path.
+func (c *Client) ComputeResources(ctx context.Context) ([]ComputeResource, error) {
+	c.logger.Tracef("ComputeResources()")
 	_, datacenter, err := c.finder(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -244,25 +255,64 @@ func (c *Client) ComputeResources(ctx context.Context) ([]*mo.ComputeResource, e
 		return nil, errors.Trace(err)
 	}
 
-	es, err := c.lister(folders.HostFolder.Reference()).List(ctx)
+	return c.computeResourcesFromRef(ctx, folders.HostFolder.Reference(), folders.HostFolder.InventoryPath)
+}
+
+// computeResourcesFromRef returns a slice of compute resources under the given
+// reference (folder), recursively including folders.
+func (c *Client) computeResourcesFromRef(ctx context.Context, ref types.ManagedObjectReference, path string) ([]ComputeResource, error) {
+	es, err := c.lister(ref).List(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var cprs []*mo.ComputeResource
+	var crs []ComputeResource
 	for _, e := range es {
 		switch o := e.Object.(type) {
 		case mo.ClusterComputeResource:
-			cprs = append(cprs, &o.ComputeResource)
+			cr := ComputeResource{
+				Resource: &o.ComputeResource,
+				Path:     path + "/" + o.ComputeResource.Name,
+			}
+			crs = append(crs, cr)
+			c.logger.Tracef("added cluster crPath %q", cr.Path)
 		case mo.ComputeResource:
-			cprs = append(cprs, &o)
+			cr := ComputeResource{
+				Resource: &o,
+				Path:     path + "/" + o.Name,
+			}
+			crs = append(crs, cr)
+			c.logger.Tracef("added host crPath %q", cr.Path)
+		case mo.Folder:
+			subCrs, err := c.computeResourcesFromRef(ctx, o.Reference(), path+"/"+o.Name)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			crs = append(crs, subCrs...)
+			c.logger.Tracef("added %d compute resources from %q",
+				len(subCrs), path+"/"+o.Name)
 		}
 	}
-	return cprs, nil
+	return crs, nil
+}
+
+// Folders returns the datacenter's folders object.
+func (c *Client) Folders(ctx context.Context) (*object.DatacenterFolders, error) {
+	c.logger.Tracef("Folders()")
+	_, datacenter, err := c.finder(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	folders, err := datacenter.Folders(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return folders, nil
 }
 
 // Datastores returns list of all datastores in the system.
 func (c *Client) Datastores(ctx context.Context) ([]mo.Datastore, error) {
+	c.logger.Tracef("Datastores()")
 	finder, datacenter, err := c.finder(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -300,6 +350,7 @@ func (c *Client) Datastores(ctx context.Context) ([]mo.Datastore, error) {
 // ResourcePools returns a list of all of the resource pools (possibly
 // nested) under the given path.
 func (c *Client) ResourcePools(ctx context.Context, path string) ([]*object.ResourcePool, error) {
+	c.logger.Tracef("ResourcePools() path=%q", path)
 	finder, _, err := c.finder(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -321,7 +372,7 @@ func (c *Client) ResourcePools(ctx context.Context, path string) ([]*object.Reso
 // whereas parentFolderName is the subfolder in DC's root-folder.
 // The parentFolderName will fallback to DC's root-folder if it's an empty string.
 func (c *Client) EnsureVMFolder(ctx context.Context, parentFolderName string, relativeFolderPath string) (*object.Folder, error) {
-
+	c.logger.Tracef("EnsureVMFolder() parent=%q, rel=%q", parentFolderName, relativeFolderPath)
 	finder, _, err := c.finder(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -365,6 +416,7 @@ func (c *Client) EnsureVMFolder(ctx context.Context, parentFolderName string, re
 
 // DestroyVMFolder destroys a folder(folderPath could be either relative path of vmfolder of datacenter or full path).
 func (c *Client) DestroyVMFolder(ctx context.Context, folderPath string) error {
+	c.logger.Tracef("DestroyVMFolder() path=%q", folderPath)
 	folder, err := c.FindFolder(ctx, folderPath)
 	if errors.IsNotFound(err) {
 		return nil
@@ -386,6 +438,7 @@ func (c *Client) DestroyVMFolder(ctx context.Context, folderPath string) error {
 
 // MoveVMFolderInto moves one VM folder into another.
 func (c *Client) MoveVMFolderInto(ctx context.Context, parentPath, childPath string) error {
+	c.logger.Tracef("MoveVMFolderInto() parent=%q, child=%q", parentPath, childPath)
 	parent, err := c.FindFolder(ctx, parentPath)
 	if err != nil {
 		return errors.Trace(err)
@@ -411,6 +464,7 @@ func (c *Client) MoveVMsInto(
 	folderPath string,
 	vms ...types.ManagedObjectReference,
 ) error {
+	c.logger.Tracef("MoveVMsInto() path=%q, vms=%v", folderPath, vms)
 	folder, err := c.FindFolder(ctx, folderPath)
 	if err != nil {
 		return errors.Trace(err)
@@ -435,6 +489,8 @@ func (c *Client) UpdateVirtualMachineExtraConfig(
 	vmInfo *mo.VirtualMachine,
 	metadata map[string]string,
 ) error {
+	c.logger.Tracef("UpdateVirtualMachineExtraConfig() vmInfo.Name=%q, metadata=%v",
+		vmInfo.Name, metadata)
 	var spec types.VirtualMachineConfigSpec
 	for k, v := range metadata {
 		opt := &types.OptionValue{Key: k, Value: v}
@@ -453,6 +509,7 @@ func (c *Client) UpdateVirtualMachineExtraConfig(
 
 // DeleteDatastoreFile deletes a file or directory in the datastore.
 func (c *Client) DeleteDatastoreFile(ctx context.Context, datastorePath string) error {
+	c.logger.Tracef("DeleteDatastoreFile() path=%q", datastorePath)
 	_, datacenter, err := c.finder(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -680,6 +737,7 @@ func isManagedObjectNotFound(err error) bool {
 // UserHasRootLevelPrivilege returns whether the connected user has the
 // specified privilege on the root-level object.
 func (c *Client) UserHasRootLevelPrivilege(ctx context.Context, privilege string) (bool, error) {
+	c.logger.Tracef("UserHasRootLevelPrivilege() privilege=%q", privilege)
 	session, err := c.client.SessionManager.UserSession(ctx)
 	if err != nil {
 		return false, errors.Annotate(err, "getting user session")

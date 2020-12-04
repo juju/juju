@@ -20,7 +20,7 @@ import (
 
 	"github.com/juju/charm/v8"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -365,7 +365,7 @@ func (s *charmsSuite) TestNonLocalCharmUploadFailsIfNotMigrating(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	resp := s.uploadRequest(c, s.charmsURI("?schema=cs&series=quantal"), "application/zip", &fileReader{path: ch.Path})
-	s.assertErrorResponse(c, resp, 400, ".*cs charms may only be uploaded during model migration import$")
+	s.assertErrorResponse(c, resp, 400, ".*charms may only be uploaded during model migration import$")
 }
 
 func (s *charmsSuite) TestNonLocalCharmUpload(c *gc.C) {

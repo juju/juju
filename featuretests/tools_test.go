@@ -15,9 +15,7 @@ import (
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v2/bakery"
@@ -113,11 +111,7 @@ func (s *toolsDownloadSuite) TestDownloadFetchesAndVerifiesSize(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
 	stor := s.DefaultToolsStorage
 	envtesting.RemoveTools(c, stor, "released")
-	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	current := testing.CurrentVersion(c)
 	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", current)[0]
 	err := stor.Put(envtools.StorageName(tools.Version, "released"), strings.NewReader("!"), 1)
 	c.Assert(err, jc.ErrorIsNil)
@@ -132,11 +126,7 @@ func (s *toolsDownloadSuite) TestDownloadFetchesAndVerifiesHash(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
 	stor := s.DefaultToolsStorage
 	envtesting.RemoveTools(c, stor, "released")
-	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	current := testing.CurrentVersion(c)
 	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", current)[0]
 	sameSize := strings.Repeat("!", int(tools.Size))
 	err := stor.Put(envtools.StorageName(tools.Version, "released"), strings.NewReader(sameSize), tools.Size)

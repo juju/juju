@@ -21,10 +21,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 	proxyutils "github.com/juju/proxy"
-	"github.com/juju/utils/arch"
-	"github.com/juju/utils/exec"
+	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v2/exec"
 	"github.com/juju/version"
 
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
@@ -232,10 +232,14 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		return 1, errors.Trace(err)
 	}
 
+	ser, err := series.HostSeries()
+	if err != nil {
+		ser = "unknown"
+	}
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
+		Series: ser,
 	}
 	detail := versionDetail{
 		Version:       current.String(),

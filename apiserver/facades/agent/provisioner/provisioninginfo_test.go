@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -127,6 +128,35 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, expected)
 }
 
+func (s *withoutControllerSuite) TestProvisioningInfoRootDiskVolume(c *gc.C) {
+	pm := poolmanager.New(state.NewStateSettings(s.State), storage.ChainedProviderRegistry{
+		dummy.StorageProviders(),
+		provider.CommonStorageProviders(),
+	})
+	_, err := pm.Create("static-pool", "static", map[string]interface{}{"foo": "bar"})
+	c.Assert(err, jc.ErrorIsNil)
+	template := state.MachineTemplate{
+		Series:      "quantal",
+		Constraints: constraints.MustParse("root-disk-source=static-pool"),
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+	}
+	machine, err := s.State.AddOneMachine(template)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: machine.Tag().String()},
+	}}
+	result, err := s.provisioner.ProvisioningInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(result.Results[0].Result, gc.NotNil)
+
+	c.Assert(result.Results[0].Result.RootDisk, jc.DeepEquals, &params.VolumeParams{
+		Provider:   "static",
+		Attributes: map[string]interface{}{"foo": "bar"},
+	})
+}
+
 func (s *withoutControllerSuite) TestProvisioningInfoWithSingleNegativeAndPositiveSpaceInConstraintsV9(c *gc.C) {
 	s.addSpacesAndSubnets(c)
 
@@ -144,7 +174,12 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithSingleNegativeAndPositi
 		{Tag: placementMachine.Tag().String()},
 	}}
 
-	api, err := provisioner.NewProvisionerAPIV9(s.State, s.resources, s.authorizer)
+	api, err := provisioner.NewProvisionerAPIV9(facadetest.Context{
+		Auth_:      s.authorizer,
+		State_:     s.State,
+		StatePool_: s.StatePool,
+		Resources_: s.resources,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api, gc.NotNil)
 
@@ -667,7 +702,12 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = s.machines[0].Tag()
-	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
+	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+		Auth_:      anAuthorizer,
+		State_:     s.State,
+		StatePool_: s.StatePool,
+		Resources_: s.resources,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)
 

@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/hash"
-	"github.com/juju/utils/tar"
+	"github.com/juju/utils/v2/hash"
+	"github.com/juju/utils/v2/tar"
 )
 
 // TODO(ericsnow) One concern is files that get out of date by the time
@@ -134,7 +134,7 @@ func newBuilder(backupDir string, filesToBackUp []string, db DBDumper) (b *build
 		}
 	}()
 
-	// Create all the direcories we need.  We go with user-only
+	// Create all the directories we need.  We go with user-only
 	// permissions on principle; the directories are short-lived so in
 	// practice it shouldn't matter much.
 	err = os.MkdirAll(b.archivePaths.DBDumpDir, 0700)

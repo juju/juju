@@ -17,13 +17,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils"
-	"github.com/juju/utils/ssh"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/ssh"
 
 	"github.com/juju/juju/api/sshclient"
 	"github.com/juju/juju/apiserver/params"
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 	jujussh "github.com/juju/juju/network/ssh"
 )
 
@@ -490,7 +489,7 @@ func (c *sshMachine) reachableAddressGetter(entity string) (string, error) {
 		}
 	}
 
-	usable := corenetwork.NewMachineHostPorts(SSHPort, addresses...).HostPorts().FilterUnusable()
+	usable := network.NewMachineHostPorts(SSHPort, addresses...).HostPorts().FilterUnusable()
 	best, err := c.hostChecker.FindHost(usable, publicKeys)
 	if err != nil {
 		return "", errors.Trace(err)

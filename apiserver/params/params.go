@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/proxy"
-	"github.com/juju/utils/ssh"
+	"github.com/juju/utils/v2/ssh"
 	"github.com/juju/version"
 	"gopkg.in/macaroon-bakery.v2/bakery"
 	"gopkg.in/macaroon.v2"
@@ -21,18 +21,6 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 )
-
-// FindTags wraps a slice of strings that are prefixes to use when
-// searching for matching tags.
-type FindTags struct {
-	Prefixes []string `json:"prefixes"`
-}
-
-// FindTagsResults wraps the mapping between the requested prefix and the
-// matching tags for each requested prefix.
-type FindTagsResults struct {
-	Matches map[string][]Entity `json:"matches"`
-}
 
 // Entity identifies a single entity.
 type Entity struct {
@@ -186,6 +174,10 @@ type AddCharmWithOrigin struct {
 	URL    string      `json:"url"`
 	Origin CharmOrigin `json:"charm-origin"`
 	Force  bool        `json:"force"`
+
+	// Deprecated, series has moved into Origin and this should only be used
+	// to talk to older controllers.
+	Series string `json:"series"`
 }
 
 // AddCharmWithAuthorization holds the arguments for making an
@@ -204,11 +196,22 @@ type AddCharmWithAuth struct {
 	Origin             CharmOrigin        `json:"charm-origin"`
 	CharmStoreMacaroon *macaroon.Macaroon `json:"macaroon"`
 	Force              bool               `json:"force"`
+
+	// Deprecated, series has moved into Origin and this should only be used
+	// to talk to older controllers.
+	Series string `json:"series"`
 }
 
 // CharmOriginResult holds the results of AddCharms calls where
 // a CharmOrigin was used.
 type CharmOriginResult struct {
+	Origin CharmOrigin `json:"charm-origin"`
+	Error  *Error      `json:"error,omitempty"`
+}
+
+// CharmURLOriginResult holds the results of the charm's url and origin.
+type CharmURLOriginResult struct {
+	URL    string      `json:"url"`
 	Origin CharmOrigin `json:"charm-origin"`
 	Error  *Error      `json:"error,omitempty"`
 }
@@ -552,6 +555,7 @@ type LoginRequest struct {
 	BakeryVersion bakery.Version   `json:"bakery-version,omitempty"`
 	CLIArgs       string           `json:"cli-args,omitempty"`
 	UserData      string           `json:"user-data"`
+	ClientVersion string           `json:"client-version,omitempty"`
 }
 
 // LoginRequestCompat holds credentials for identifying an entity to the Login v1
@@ -630,6 +634,29 @@ type ResolveCharmWithChannelResult struct {
 // ResolveCharmWithChannelResults holds the results of ResolveCharmsWithChannel.
 type ResolveCharmWithChannelResults struct {
 	Results []ResolveCharmWithChannelResult
+}
+
+// CharmURLAndOrigins contains a slice of charm urls with a given origin.
+type CharmURLAndOrigins struct {
+	Entities []CharmURLAndOrigin `json:"entities"`
+}
+
+// CharmURLAndOrigin holds the information for selecting one bundle
+type CharmURLAndOrigin struct {
+	CharmURL string             `json:"charm-url"`
+	Origin   CharmOrigin        `json:"charm-origin"`
+	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
+}
+
+// DownloadInfoResults returns the download url for a given request.
+type DownloadInfoResults struct {
+	Results []DownloadInfoResult `json:"results"`
+}
+
+// DownloadInfoResult returns a given bundle for a request.
+type DownloadInfoResult struct {
+	URL    string      `json:"url"`
+	Origin CharmOrigin `json:"charm-origin"`
 }
 
 // AllWatcherId holds the id of an AllWatcher.

@@ -9,7 +9,7 @@
 package renderers
 
 import (
-	"github.com/juju/os"
+	"github.com/juju/os/v2"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 )

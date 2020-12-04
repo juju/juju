@@ -18,6 +18,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/feature"
@@ -385,7 +386,7 @@ func (e *exporter) machines() error {
 		e.logger.Debugf("export machine %s", machine.Id())
 
 		var exParent description.Machine
-		if parentId := ParentId(machine.Id()); parentId != "" {
+		if parentId := container.ParentId(machine.Id()); parentId != "" {
 			var found bool
 			exParent, found = machineMap[parentId]
 			if !found {
@@ -1934,12 +1935,22 @@ func (e *exporter) getCharmOrigin(doc applicationDoc) (description.CharmOriginAr
 			return description.CharmOriginArgs{}, errors.Trace(err)
 		}
 	}
+	var platform charm.Platform
+	if origin.Platform != nil {
+		var err error
+		platform, err = charm.MakePlatform(origin.Platform.Architecture, origin.Platform.OS, origin.Platform.Series)
+		if err != nil {
+			return description.CharmOriginArgs{}, errors.Trace(err)
+		}
+	}
+
 	return description.CharmOriginArgs{
 		Source:   origin.Source,
 		ID:       origin.ID,
 		Hash:     origin.Hash,
 		Revision: revision,
 		Channel:  channel.String(),
+		Platform: platform.String(),
 	}, nil
 }
 

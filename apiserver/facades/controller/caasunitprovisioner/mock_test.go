@@ -13,7 +13,7 @@ import (
 	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
-	"github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
@@ -408,20 +408,6 @@ func (m *mockStorage) SetFilesystemAttachmentInfo(host names.Tag, fsTag names.Fi
 	return nil
 }
 
-type mockDeviceBackend struct {
-	testing.Stub
-	devices            map[names.StorageTag]names.FilesystemTag
-	storageAttachments map[names.UnitTag]names.StorageTag
-}
-
-func (d *mockDeviceBackend) DeviceConstraints(id string) (map[string]state.DeviceConstraints, error) {
-	d.MethodCall(d, "DeviceConstraints", id)
-	return map[string]state.DeviceConstraints{
-		"bitcoinminer": {Type: "nvidia.com/gpu",
-			Count:      3,
-			Attributes: map[string]string{"gpu": "nvidia-tesla-p100"},
-		}}, nil
-}
 func (m *mockStorage) Volume(volTag names.VolumeTag) (state.Volume, error) {
 	m.MethodCall(m, "Volume", volTag)
 	return &mockVolume{Stub: &m.Stub, tag: volTag}, nil
@@ -439,6 +425,21 @@ func (m *mockStorage) SetVolumeInfo(volTag names.VolumeTag, volInfo state.Volume
 func (m *mockStorage) SetVolumeAttachmentInfo(host names.Tag, volTag names.VolumeTag, info state.VolumeAttachmentInfo) error {
 	m.MethodCall(m, "SetVolumeAttachmentInfo", host, volTag, info)
 	return nil
+}
+
+type mockDeviceBackend struct {
+	testing.Stub
+	devices            map[names.StorageTag]names.FilesystemTag
+	storageAttachments map[names.UnitTag]names.StorageTag
+}
+
+func (d *mockDeviceBackend) DeviceConstraints(id string) (map[string]state.DeviceConstraints, error) {
+	d.MethodCall(d, "DeviceConstraints", id)
+	return map[string]state.DeviceConstraints{
+		"bitcoinminer": {Type: "nvidia.com/gpu",
+			Count:      3,
+			Attributes: map[string]string{"gpu": "nvidia-tesla-p100"},
+		}}, nil
 }
 
 type mockStorageInstance struct {
@@ -535,7 +536,7 @@ func (m *mockStoragePoolManager) Get(name string) (*storage.Config, error) {
 	if name == "rootfs" {
 		return nil, errors.NotFoundf("pool %q", name)
 	}
-	return storage.NewConfig(name, provider.K8s_ProviderType, map[string]interface{}{"foo": "bar"})
+	return storage.NewConfig(name, k8sconstants.StorageProviderType, map[string]interface{}{"foo": "bar"})
 }
 
 type mockStorageRegistry struct {

@@ -169,13 +169,13 @@ func (s *UniterSuite) TestUniterBootstrap(c *gc.C) {
 			serveCharm{},
 			writeFile{"charm", 0644},
 			createUniter{},
-			waitUniterDead{err: `executing operation "install cs:quantal/wordpress-0": .*` + errNotDir},
+			waitUniterDead{err: `executing operation "install cs:quantal/wordpress-0" for u/0: .*` + errNotDir},
 		), ut(
 			"charm cannot be downloaded",
 			createCharm{},
 			// don't serve charm
 			createUniter{},
-			waitUniterDead{err: `preparing operation "install cs:quantal/wordpress-0": failed to download charm .* not found`},
+			waitUniterDead{err: `preparing operation "install cs:quantal/wordpress-0" for u/0: failed to download charm .* not found`},
 		),
 	})
 }
@@ -390,11 +390,7 @@ func (s *UniterSuite) TestUniterStartHook(c *gc.C) {
 			"start hook after reboot",
 			quickStart{},
 			stopUniter{},
-			startUniter{
-				rebootQuerier: fakeRebootQuerier{
-					rebootDetected: true,
-				},
-			},
+			startUniter{},
 			// Since the unit has already been started before and
 			// a reboot was detected, we expect the uniter to
 			// queue a start hook to notify the charms about the
@@ -986,7 +982,7 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 			"unknown local relation dir is removed",
 			quickStartRelation{},
 			stopUniter{},
-			startUniter{},
+			startUniter{rebootQuerier: &fakeRebootQuerier{rebootNotDetected}},
 			// We need some synchronisation point here to ensure that the uniter
 			// has entered the correct place in the resolving loop. Now that we are
 			// no longer always executing config-changed, we poke the config just so
@@ -1443,8 +1439,8 @@ func (s *UniterSuite) TestTranslateResolverError(c *gc.C) {
 }
 
 func executorFunc(c *gc.C) uniter.NewOperationExecutorFunc {
-	return func(cfg operation.ExecutorConfig) (operation.Executor, error) {
-		e, err := operation.NewExecutor(cfg)
+	return func(unitName string, cfg operation.ExecutorConfig) (operation.Executor, error) {
+		e, err := operation.NewExecutor(unitName, cfg)
 		c.Assert(err, jc.ErrorIsNil)
 		return &mockExecutor{e}, nil
 	}

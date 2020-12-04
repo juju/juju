@@ -66,7 +66,7 @@ func (watcher *AllWatcher) Next() ([]params.Delta, error) {
 		nil, &info,
 	)
 	// We'll order the deltas so relation changes come last.
-	// This allows the callers like the GUI to process changes
+	// This allows the callers like the Dashboard to process changes
 	// in the right order.
 	sort.Sort(orderedDeltas(info.Deltas))
 	return info.Deltas, err

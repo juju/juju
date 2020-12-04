@@ -10,11 +10,9 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
-	"github.com/juju/version"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/arch"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -80,7 +78,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	waitForModelWatchersIdle := func(c *gc.C) {
 		s.JujuConnSuite.WaitForModelWatchersIdle(c, s.BackingState.ModelUUID())
 	}
-	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.provisioner, s.BackingState, waitForModelWatchersIdle)
+	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.provisioner, s.StatePool.SystemState(), s.BackingState, waitForModelWatchersIdle)
 }
 
 func (s *provisionerSuite) assertGetOneMachine(c *gc.C, tag names.MachineTag) provisioner.MachineProvisioner {
@@ -672,18 +670,6 @@ func (s *provisionerSuite) TestWatchModelMachines(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
-	err := s.machine.SetProviderAddresses(corenetwork.NewSpaceAddress("0.1.2.3"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	stateAddresses, err := s.State.Addresses()
-	c.Assert(err, jc.ErrorIsNil)
-
-	addresses, err := s.provisioner.StateAddresses()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addresses, gc.DeepEquals, stateAddresses)
-}
-
 func (s *provisionerSuite) getManagerConfig(c *gc.C, typ instance.ContainerType) map[string]string {
 	args := params.ContainerManagerConfigParams{Type: typ}
 	result, err := s.provisioner.ContainerManagerConfig(args)
@@ -786,11 +772,7 @@ func (s *provisionerSuite) TestFindToolsLogicError(c *gc.C) {
 }
 
 func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logicError error) {
-	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	current := coretesting.CurrentVersion(c)
 	var toolsList = coretools.List{&coretools.Tools{Version: current}}
 	var called bool
 	var a string
@@ -805,7 +787,7 @@ func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logi
 		c.Assert(request, gc.Equals, "FindTools")
 		expected := params.FindToolsParams{
 			Number:       jujuversion.Current,
-			Series:       series.MustHostSeries(),
+			Series:       current.Series,
 			Arch:         a,
 			MinorVersion: -1,
 			MajorVersion: -1,
@@ -818,7 +800,7 @@ func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logi
 		}
 		return apiError
 	})
-	apiList, err := s.provisioner.FindTools(jujuversion.Current, series.MustHostSeries(), a)
+	apiList, err := s.provisioner.FindTools(jujuversion.Current, current.Series, a)
 	c.Assert(called, jc.IsTrue)
 	if apiError != nil {
 		c.Assert(err, gc.Equals, apiError)

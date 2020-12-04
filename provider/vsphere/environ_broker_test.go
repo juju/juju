@@ -16,16 +16,16 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 	"github.com/vmware/govmomi/object"
-	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
@@ -52,13 +52,14 @@ func (s *legacyEnvironBrokerSuite) SetUpTest(c *gc.C) {
 	s.EnvironFixture.SetUpTest(c)
 	s.statusCallbackStub.ResetCalls()
 
-	s.client.computeResources = []*mo.ComputeResource{
-		newComputeResource("z1"),
-		newComputeResource("z2"),
+	s.client.folders = makeFolders("/DC/host")
+	s.client.computeResources = []vsphereclient.ComputeResource{
+		{Resource: newComputeResource("z1"), Path: "/DC/host/z1"},
+		{Resource: newComputeResource("z2"), Path: "/DC/host/z2"},
 	}
 	s.client.resourcePools = map[string][]*object.ResourcePool{
-		"z1/...": {makeResourcePool("pool-1", "/z1/Resources")},
-		"z2/...": {makeResourcePool("pool-2", "/z2/Resources")},
+		"/DC/host/z1/...": {makeResourcePool("pool-1", "/DC/host/z1/Resources")},
+		"/DC/host/z2/...": {makeResourcePool("pool-2", "/DC/host/z2/Resources")},
 	}
 
 	s.client.createdVirtualMachine = buildVM("new-vm").vm()
@@ -119,8 +120,8 @@ func (s *legacyEnvironBrokerSuite) TestStartInstance(c *gc.C) {
 	c.Assert(result.Instance, gc.NotNil)
 	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("new-vm"))
 
-	s.client.CheckCallNames(c, "ComputeResources", "ResourcePools", "ResourcePools", "CreateVirtualMachine", "Close")
-	call := s.client.Calls()[3]
+	s.client.CheckCallNames(c, "Folders", "ComputeResources", "ResourcePools", "ResourcePools", "CreateVirtualMachine", "Close")
+	call := s.client.Calls()[4]
 	c.Assert(call.Args, gc.HasLen, 2)
 	c.Assert(call.Args[0], gc.Implements, new(context.Context))
 	c.Assert(call.Args[1], gc.FitsTypeOf, vsphereclient.CreateVirtualMachineParams{})
@@ -142,7 +143,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstance(c *gc.C) {
 		Series:          startInstArgs.Tools.OneSeries(),
 		OVASHA256:       ovatest.FakeOVASHA256(),
 		Metadata:        startInstArgs.InstanceConfig.Tags,
-		ComputeResource: s.client.computeResources[0],
+		ComputeResource: s.client.computeResources[0].Resource,
 		ResourcePool: types.ManagedObjectReference{
 			Type:  "ResourcePool",
 			Value: "pool-1",
@@ -179,7 +180,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceNetwork(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 
-	call := s.client.Calls()[3]
+	call := s.client.Calls()[4]
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	c.Assert(createVMArgs.NetworkDevices, gc.HasLen, 2)
 	c.Assert(createVMArgs.NetworkDevices[0].Network, gc.Equals, "foo")
@@ -198,7 +199,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceLongModelName(c *gc.C) {
 	startInstArgs := s.createStartInstanceArgs(c)
 	_, err = env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
-	call := s.client.Calls()[3]
+	call := s.client.Calls()[4]
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	// The model name in the folder name should be truncated
 	// so that the final part of the model name is 80 characters.
@@ -222,7 +223,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskUUIDDisabled(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 
-	call := s.client.Calls()[3]
+	call := s.client.Calls()[4]
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	c.Assert(createVMArgs.EnableDiskUUID, gc.Equals, false)
 }
@@ -303,7 +304,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceCustomConstraintsApplied(c *
 	res, err := s.env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	arch := "amd64"
+	arch := corearch.DefaultArchitecture
 	c.Assert(res.Hardware, jc.DeepEquals, &instance.HardwareCharacteristics{
 		Arch:           &arch,
 		CpuCores:       &cpuCores,
@@ -338,26 +339,26 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceSelectZone(c *gc.C) {
 	_, err := s.env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.client.CheckCallNames(c, "ComputeResources", "ResourcePools", "ResourcePools", "CreateVirtualMachine", "Close")
-	call := s.client.Calls()[3]
+	s.client.CheckCallNames(c, "Folders", "ComputeResources", "ResourcePools", "ResourcePools", "CreateVirtualMachine", "Close")
+	call := s.client.Calls()[4]
 	c.Assert(call.Args, gc.HasLen, 2)
 	c.Assert(call.Args[0], gc.Implements, new(context.Context))
 	c.Assert(call.Args[1], gc.FitsTypeOf, vsphereclient.CreateVirtualMachineParams{})
 
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
-	c.Assert(createVMArgs.ComputeResource, jc.DeepEquals, s.client.computeResources[1])
+	c.Assert(createVMArgs.ComputeResource, jc.DeepEquals, s.client.computeResources[1].Resource)
 }
 
 func (s *legacyEnvironBrokerSuite) TestStartInstanceFailsWithAvailabilityZone(c *gc.C) {
-	s.client.SetErrors(nil, nil, nil, errors.New("nope"))
+	s.client.SetErrors(nil, nil, nil, nil, errors.New("nope"))
 	startInstArgs := s.createStartInstanceArgs(c)
 	_, err := s.env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
 
-	s.client.CheckCallNames(c, "ComputeResources", "ResourcePools", "ResourcePools", "CreateVirtualMachine", "FindFolder", "Close")
-	createVMCall1 := s.client.Calls()[3]
+	s.client.CheckCallNames(c, "Folders", "ComputeResources", "ResourcePools", "ResourcePools", "CreateVirtualMachine", "FindFolder", "Close")
+	createVMCall1 := s.client.Calls()[4]
 	createVMArgs1 := createVMCall1.Args[1].(vsphereclient.CreateVirtualMachineParams)
-	c.Assert(createVMArgs1.ComputeResource, jc.DeepEquals, s.client.computeResources[0])
+	c.Assert(createVMArgs1.ComputeResource, jc.DeepEquals, s.client.computeResources[0].Resource)
 }
 
 func (s *legacyEnvironBrokerSuite) TestStartInstanceDatastoreDefault(c *gc.C) {
@@ -372,7 +373,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDatastoreDefault(c *gc.C) {
 	_, err = s.env.StartInstance(s.callCtx, s.createStartInstanceArgs(c))
 	c.Assert(err, jc.ErrorIsNil)
 
-	call := s.client.Calls()[3]
+	call := s.client.Calls()[4]
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	c.Assert(*createVMArgs.Constraints.RootDiskSource, gc.Equals, "datastore0")
 }
@@ -393,7 +394,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceRootDiskSource(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*result.Hardware.RootDiskSource, gc.Equals, "zebras")
 
-	call := s.client.Calls()[3]
+	call := s.client.Calls()[4]
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	c.Assert(*createVMArgs.Constraints.RootDiskSource, gc.Equals, "zebras")
 }
@@ -530,8 +531,8 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceNoDatastoreSetting(c *gc.C) 
 	res, err := s.env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.client.CheckCallNames(c, "ComputeResources", "ResourcePools", "ResourcePools", "CreateVirtualMachine", "Close")
-	call := s.client.Calls()[3]
+	s.client.CheckCallNames(c, "Folders", "ComputeResources", "ResourcePools", "ResourcePools", "CreateVirtualMachine", "Close")
+	call := s.client.Calls()[4]
 	c.Assert(call.Args, gc.HasLen, 2)
 	c.Assert(call.Args[0], gc.Implements, new(context.Context))
 	c.Assert(call.Args[1], gc.FitsTypeOf, vsphereclient.CreateVirtualMachineParams{})
@@ -578,8 +579,8 @@ func (s *legacyEnvironBrokerSuite) TestNotBootstrapping(c *gc.C) {
 	c.Assert(result.Instance, gc.NotNil)
 	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("new-vm"))
 
-	s.client.CheckCallNames(c, "ComputeResources", "ResourcePools", "ResourcePools", "CreateVirtualMachine", "Close")
-	call := s.client.Calls()[3]
+	s.client.CheckCallNames(c, "Folders", "ComputeResources", "ResourcePools", "ResourcePools", "CreateVirtualMachine", "Close")
+	call := s.client.Calls()[4]
 	c.Assert(call.Args, gc.HasLen, 2)
 	c.Assert(call.Args[0], gc.Implements, new(context.Context))
 	c.Assert(call.Args[1], gc.FitsTypeOf, vsphereclient.CreateVirtualMachineParams{})

@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -63,7 +64,7 @@ type InstanceSpec struct {
 func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanceTypes []InstanceType) (*InstanceSpec, error) {
 	logger.Debugf("instance constraints %+v", ic)
 	if len(possibleImages) == 0 {
-		return nil, fmt.Errorf("no %q images in %s with arches %s",
+		return nil, errors.Errorf("no metadata for %q images in %s with arches %s",
 			ic.Series, ic.Region, ic.Arches)
 	}
 
@@ -73,7 +74,7 @@ func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanc
 		return nil, err
 	}
 	if len(matchingTypes) == 0 {
-		return nil, fmt.Errorf("no instance types found matching constraint: %s", ic)
+		return nil, errors.Errorf("no instance types found matching constraint: %s", ic)
 	}
 
 	// We check for exact matches (all attributes matching), and also for
@@ -111,7 +112,7 @@ func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanc
 	for i, itype := range matchingTypes {
 		names[i] = itype.Name
 	}
-	return nil, fmt.Errorf("no %q images in %s matching instance types %v", ic.Series, ic.Region, names)
+	return nil, errors.Errorf("no %q images in %s matching instance types %v", ic.Series, ic.Region, names)
 }
 
 // byArch sorts InstanceSpecs first by descending word-size, then

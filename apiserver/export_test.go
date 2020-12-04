@@ -9,6 +9,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -27,7 +28,6 @@ var (
 	JSMimeType            = jsMimeType
 	SpritePath            = spritePath
 
-	GUIURLPathPrefix       = guiURLPathPrefix
 	DashboardURLPathPrefix = dashboardURLPathPrefix
 )
 
@@ -134,18 +134,28 @@ func TestingAboutToRestoreRoot() rpc.Root {
 	return restrictRoot(r, aboutToRestoreMethodsOnly)
 }
 
+// TestingUpgradeOrMigrationOnlyRoot returns a restricted srvRoot
+// as if called from a newer client.
+func TestingUpgradeOrMigrationOnlyRoot(userLogin bool, clientVersion version.Number) rpc.Root {
+	r := TestingAPIRoot(AllFacades())
+	return restrictRoot(r, checkClientVersion(userLogin, clientVersion))
+}
+
 // PatchGetMigrationBackend overrides the getMigrationBackend function
 // to support testing.
-func PatchGetMigrationBackend(p Patcher, st migrationBackend) {
+func PatchGetMigrationBackend(p Patcher, ctrlSt controllerBackend, st migrationBackend) {
 	p.PatchValue(&getMigrationBackend, func(*state.State) migrationBackend {
 		return st
+	})
+	p.PatchValue(&getControllerBackend, func(pool *state.StatePool) controllerBackend {
+		return ctrlSt
 	})
 }
 
 // PatchGetControllerCACert overrides the getControllerCACert function
 // to support testing.
 func PatchGetControllerCACert(p Patcher, caCert string) {
-	p.PatchValue(&getControllerCACert, func(migrationBackend) (string, error) {
+	p.PatchValue(&getControllerCACert, func(backend controllerBackend) (string, error) {
 		return caCert, nil
 	})
 }

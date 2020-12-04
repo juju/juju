@@ -11,10 +11,12 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/api/application"
 	commoncharm "github.com/juju/juju/api/common/charm"
-	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/application/bundle"
 	"github.com/juju/juju/cmd/juju/application/store"
+	"github.com/juju/juju/cmd/juju/application/utils"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
@@ -102,18 +104,36 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 		}
 	}
 
-	for application, applicationSpec := range bundleData.Applications {
+	for app, applicationSpec := range bundleData.Applications {
 		if applicationSpec.Plan != "" {
 			for _, step := range d.steps {
 				s := step
-				charmURL, err := charm.ParseURL(applicationSpec.Charm)
+
+				charmURL, err := resolveCharmURL(applicationSpec.Charm)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				cons, err := constraints.Parse(applicationSpec.Constraints)
+				if err != nil {
+					return errors.Trace(err)
+				}
+
+				platform, err := utils.DeducePlatform(cons, applicationSpec.Series)
+				if err != nil {
+					return errors.Trace(err)
+				}
+
+				origin, err := utils.DeduceOrigin(charmURL, d.origin.CoreChannel(), platform)
 				if err != nil {
 					return errors.Trace(err)
 				}
 
 				deployInfo := DeploymentInfo{
-					CharmID:         charmstore.CharmID{URL: charmURL},
-					ApplicationName: application,
+					CharmID: application.CharmID{
+						URL:    charmURL,
+						Origin: origin,
+					},
+					ApplicationName: app,
 					ApplicationPlan: applicationSpec.Plan,
 					ModelUUID:       d.targetModelUUID,
 					Force:           d.force,
@@ -191,7 +211,15 @@ type localBundle struct {
 
 // String returns a string description of the deployer.
 func (d *localBundle) String() string {
-	return fmt.Sprintf("deploy local bundle from: %s", d.bundleDir)
+	str := fmt.Sprintf("deploy local bundle from: %s", d.bundleDir)
+	if isEmptyOrigin(d.origin, commoncharm.OriginLocal) {
+		return str
+	}
+	var channel string
+	if ch := d.origin.CoreChannel().String(); ch != "" {
+		channel = fmt.Sprintf(" from channel %s", ch)
+	}
+	return fmt.Sprintf("%s%s", str, channel)
 }
 
 // PrepareAndDeploy deploys a local bundle, no further preparation is needed.
@@ -205,7 +233,15 @@ type charmstoreBundle struct {
 
 // String returns a string description of the deployer.
 func (d *charmstoreBundle) String() string {
-	return fmt.Sprintf("deploy charm store bundle: %s", d.bundleURL.String())
+	str := fmt.Sprintf("deploy charm store bundle: %s", d.bundleURL.String())
+	if isEmptyOrigin(d.origin, commoncharm.OriginCharmStore) {
+		return str
+	}
+	var channel string
+	if ch := d.origin.CoreChannel().String(); ch != "" {
+		channel = fmt.Sprintf(" from channel %s", ch)
+	}
+	return fmt.Sprintf("%s%s", str, channel)
 }
 
 // PrepareAndDeploy deploys a local bundle, no further preparation is needed.

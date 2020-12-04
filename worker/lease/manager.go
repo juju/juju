@@ -192,8 +192,8 @@ func (manager *Manager) loop() error {
 }
 
 func (manager *Manager) lookupLease(leaseKey lease.Key) (lease.Info, bool) {
-	lease, exists := manager.config.Store.Leases(leaseKey)[leaseKey]
-	return lease, exists
+	l, exists := manager.config.Store.Leases(leaseKey)[leaseKey]
+	return l, exists
 }
 
 // choose breaks the select out of loop to make the blocking logic clearer.
@@ -303,8 +303,9 @@ func (manager *Manager) retryingClaim(claim claim) {
 		// Doing it this way, we'll wake up, and then see we can sleep
 		// for a bit longer. But we'll always wake up in time.
 		manager.ensureNextTimeout(claim.duration)
-		// respond after ensuring the timeout, at least for the test suite to be sure
-		// the timer has been updated by the time it gets Claim() to return.
+		// respond after ensuring the timeout, at least for the test suite to
+		// be sure the timer has been updated by the time it gets Claim()
+		// to return.
 		claim.respond(nil)
 	} else {
 		switch {
@@ -313,9 +314,18 @@ func (manager *Manager) retryingClaim(claim claim) {
 			manager.config.Logger.Warningf("[%s] retrying timed out while handling claim %q for %q",
 				manager.logContext, claim.leaseKey, claim.holderName)
 		case lease.IsInvalid(err):
-			// we want to see this, but it doesn't indicate something a user can do something about
+			// We want to see this, but it doesn't indicate something a user
+			// can do something about.
 			manager.config.Logger.Infof("[%s] got %v after %d retries, denying claim %q for %q",
 				manager.logContext, err, maxRetries, claim.leaseKey, claim.holderName)
+			claim.respond(lease.ErrClaimDenied)
+		case lease.IsHeld(err):
+			// This can happen in HA if the original check for an extant lease
+			// (against the local node) returned nothing, but the leader FSM
+			// has this lease being held by another entity.
+			manager.config.Logger.Tracef(
+				"[%s] %s asked for lease %s, held by by another entity; local Raft node may be syncing",
+				manager.logContext, claim.holderName, claim.leaseKey.Lease)
 			claim.respond(lease.ErrClaimDenied)
 		default:
 			// Stop the main loop because we got an abnormal error
@@ -368,7 +378,7 @@ func (manager *Manager) handleClaim(claim claim) (bool, error) {
 	return true, nil
 }
 
-// retryingRevoke handles timeouts when unclaiming, and responds to the
+// retryingRevoke handles timeouts when revoking, and responds to the
 // revoking party when it eventually succeeds or fails, or if it times
 // out after a number of retries.
 func (manager *Manager) retryingRevoke(revoke revoke) {
@@ -462,39 +472,28 @@ func (manager *Manager) handleRevoke(revoke revoke) error {
 // request, and is communicated back to the check's originator.
 func (manager *Manager) handleCheck(check check) error {
 	key := check.leaseKey
-	store := manager.config.Store
+
 	manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s",
 		manager.logContext, key.Lease, check.holderName)
 
 	info, found := manager.lookupLease(key)
+
+	var response error
 	if !found || info.Holder != check.holderName {
-		// TODO(jam): 2019-02-05 Currently raftlease.Store.Refresh does nothing.
-		//  We probably shouldn't have this refresh-and-try-again if it is going to be a no-op.
-		//  Instead we should probably just report failure.
 		if found {
-			manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, found held by %s, refreshing",
+			manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, found held by %s",
 				manager.logContext, key.Lease, check.holderName, info.Holder)
 		} else {
-			manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not found, refreshing",
-				manager.logContext, key.Lease, check.holderName)
-		}
-		if err := store.Refresh(); err != nil {
-			return errors.Trace(err)
-		}
-		info, found = manager.lookupLease(key)
-		if !found {
 			// Someone thought they were the leader and held a Claim or they wouldn't
 			// have tried to do a mutating operation. However, when they actually
 			// got to this point, we detected that they were, actually, out of
 			// date. Schedule a sync
 			manager.ensureNextTimeout(time.Millisecond)
-		}
-	}
 
-	var response error
-	if !found || info.Holder != check.holderName {
-		manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not held",
-			manager.logContext, key.Lease, check.holderName)
+			manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not found",
+				manager.logContext, key.Lease, check.holderName)
+		}
+
 		response = lease.ErrNotHeld
 	} else if check.trapdoorKey != nil {
 		response = info.Trapdoor(check.attempt, check.trapdoorKey)

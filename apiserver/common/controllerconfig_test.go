@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -123,7 +123,7 @@ func (s *controllerInfoSuite) TestControllerInfoLocalModel(c *gc.C) {
 		Entities: []params.Entity{{Tag: s.localModel.ModelTag().String()}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
-	apiAddr, err := s.State.APIHostPortsForClients()
+	apiAddr, err := s.StatePool.SystemState().APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results[0].Addresses, gc.HasLen, 1)
 	c.Assert(results.Results[0].Addresses[0], gc.Equals, apiAddr[0][0].String())

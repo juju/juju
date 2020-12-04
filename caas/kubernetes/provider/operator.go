@@ -13,7 +13,7 @@ import (
 	"github.com/juju/version"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
+	rbac "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	caasconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/caas/kubernetes/provider/storage"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/paths"
@@ -32,14 +33,27 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
-func operatorLabels(appName string) map[string]string {
-	return map[string]string{constants.LabelOperator: appName}
-}
+const (
+	// OperatorAppTarget is the constant used to describe the operator's target
+	// in kubernetes. This allows us to differentiate between different
+	// operators that would possible have the same labels otherwise
+	OperatorAppTarget = "application"
+)
 
 // GetOperatorPodName returns operator pod name for an application.
-func GetOperatorPodName(api typedcorev1.PodInterface, appName string) (string, error) {
-	podsList, err := api.List(context.TODO(), v1.ListOptions{
-		LabelSelector: operatorSelector(appName),
+func GetOperatorPodName(
+	podAPI typedcorev1.PodInterface,
+	nsAPI typedcorev1.NamespaceInterface,
+	appName string,
+	namespace string,
+) (string, error) {
+	legacyLabels, err := utils.IsLegacyModelLabels(namespace, nsAPI)
+	if err != nil {
+		return "", errors.Annotatef(err, "determining legacy label status for namespace %s", namespace)
+	}
+
+	podsList, err := podAPI.List(context.TODO(), v1.ListOptions{
+		LabelSelector: operatorSelector(appName, legacyLabels),
 	})
 	if err != nil {
 		return "", errors.Trace(err)
@@ -50,8 +64,11 @@ func GetOperatorPodName(api typedcorev1.PodInterface, appName string) (string, e
 	return podsList.Items[0].GetName(), nil
 }
 
-func (k *kubernetesClient) deleteOperatorRBACResources(appName string) error {
-	selector := utils.LabelSetToSelector(operatorLabels(appName))
+func (k *kubernetesClient) deleteOperatorRBACResources(operatorName string) error {
+	selector := utils.LabelsToSelector(
+		utils.LabelsForOperator(operatorName, OperatorAppTarget, k.IsLegacyLabels()),
+	)
+
 	if err := k.deleteRoleBindings(selector); err != nil {
 		return errors.Trace(err)
 	}
@@ -64,7 +81,11 @@ func (k *kubernetesClient) deleteOperatorRBACResources(appName string) error {
 	return nil
 }
 
-func (k *kubernetesClient) ensureOperatorRBACResources(operatorName string, labels, annotations map[string]string) (sa *core.ServiceAccount, cleanUps []func(), err error) {
+func (k *kubernetesClient) ensureOperatorRBACResources(
+	operatorName string,
+	labels,
+	annotations map[string]string,
+) (sa *core.ServiceAccount, cleanUps []func(), err error) {
 	defer func() {
 		// ensure cleanup in reversed order.
 		i := 0
@@ -93,14 +114,14 @@ func (k *kubernetesClient) ensureOperatorRBACResources(operatorName string, labe
 		return nil, cleanUps, errors.Trace(err)
 	}
 	// ensure role.
-	r, rCleanups, err := k.ensureRole(&rbacv1.Role{
+	r, rCleanups, err := k.ensureRole(&rbac.Role{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        operatorName,
 			Namespace:   k.namespace,
 			Labels:      labels,
 			Annotations: annotations,
 		},
-		Rules: []rbacv1.PolicyRule{
+		Rules: []rbac.PolicyRule{
 			{
 				APIGroups: []string{""},
 				Resources: []string{"pods"},
@@ -123,20 +144,20 @@ func (k *kubernetesClient) ensureOperatorRBACResources(operatorName string, labe
 		return nil, cleanUps, errors.Trace(err)
 	}
 	// ensure rolebinding.
-	_, rBCleanups, err := k.ensureRoleBinding(&rbacv1.RoleBinding{
+	_, rBCleanups, err := k.ensureRoleBinding(&rbac.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        operatorName,
 			Namespace:   k.namespace,
 			Labels:      labels,
 			Annotations: annotations,
 		},
-		RoleRef: rbacv1.RoleRef{
+		RoleRef: rbac.RoleRef{
 			Name: r.GetName(),
 			Kind: "Role",
 		},
-		Subjects: []rbacv1.Subject{
+		Subjects: []rbac.Subject{
 			{
-				Kind:      rbacv1.ServiceAccountKind,
+				Kind:      rbac.ServiceAccountKind,
 				Name:      sa.GetName(),
 				Namespace: sa.GetNamespace(),
 			},
@@ -155,9 +176,16 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	logger.Debugf("creating/updating %s operator", appName)
 
 	operatorName := k.operatorName(appName)
-	labels := operatorLabels(appName)
-	annotations := utils.ResourceTagsToAnnotations(config.ResourceTags).
-		Add(constants.LabelVersion, config.Version.String())
+
+	selectorLabels := utils.LabelsForOperator(appName, OperatorAppTarget, k.IsLegacyLabels())
+	labels := selectorLabels
+
+	if !k.IsLegacyLabels() {
+		labels = utils.LabelsMerge(selectorLabels, utils.LabelsJuju)
+	}
+
+	annotations := utils.ResourceTagsToAnnotations(config.ResourceTags, k.IsLegacyLabels()).
+		Merge(utils.AnnotationsForVersion(config.Version.String(), k.IsLegacyLabels()))
 
 	var cleanups []func()
 	defer func() {
@@ -176,7 +204,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 			Annotations: annotations,
 		},
 		Spec: core.ServiceSpec{
-			Selector: map[string]string{constants.LabelOperator: appName},
+			Selector: selectorLabels,
 			Type:     core.ServiceTypeClusterIP,
 			Ports: []core.ServicePort{
 				{
@@ -212,8 +240,12 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 			return errors.Annotatef(err, "config map for %q should already exist", appName)
 		}
 	} else {
+		configMapLabels := labels
+		if k.IsLegacyLabels() {
+			configMapLabels = k.getConfigMapLabels(appName)
+		}
 		cmCleanUp, err := k.ensureConfigMapLegacy(
-			operatorConfigMap(appName, cmName, k.getConfigMapLabels(appName), annotations, config))
+			operatorConfigMap(appName, cmName, configMapLabels, annotations, config))
 		cleanups = append(cleanups, cmCleanUp)
 		if err != nil {
 			return errors.Annotate(err, "creating or updating ConfigMap")
@@ -228,6 +260,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 		agentPath,
 		config.OperatorImagePath,
 		config.Version.String(),
+		selectorLabels,
 		annotations.Copy(),
 		sa.GetName(),
 	)
@@ -250,11 +283,11 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 		Spec: apps.StatefulSetSpec{
 			Replicas: &numPods,
 			Selector: &v1.LabelSelector{
-				MatchLabels: labels,
+				MatchLabels: selectorLabels,
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels:      labels,
+					Labels:      selectorLabels,
 					Annotations: pod.Annotations,
 				},
 			},
@@ -274,7 +307,17 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	return errors.Annotatef(err, "creating or updating %v operator StatefulSet", appName)
 }
 
-func (k *kubernetesClient) operatorVolumeClaim(appName, operatorName string, storageParams *caas.CharmStorageParams) (*core.PersistentVolumeClaim, error) {
+func operatorSelector(appName string, legacyLabels bool) string {
+	return utils.LabelsToSelector(
+		utils.LabelsForOperator(appName, OperatorAppTarget, legacyLabels)).
+		String()
+}
+
+func (k *kubernetesClient) operatorVolumeClaim(
+	appName,
+	operatorName string,
+	storageParams *caas.CharmStorageParams,
+) (*core.PersistentVolumeClaim, error) {
 	// We may no longer need storage for charms, but if the charm has previously been deployed
 	// with storage, we need to retain that.
 	operatorVolumeClaim := "charm"
@@ -291,8 +334,8 @@ func (k *kubernetesClient) operatorVolumeClaim(appName, operatorName string, sto
 		}
 		return existingClaim, nil
 	}
-	if storageParams.Provider != K8s_ProviderType {
-		return nil, errors.Errorf("expected charm storage provider %q, got %q", K8s_ProviderType, storageParams.Provider)
+	if storageParams.Provider != constants.StorageProviderType {
+		return nil, errors.Errorf("expected charm storage provider %q, got %q", constants.StorageProviderType, storageParams.Provider)
 	}
 
 	// Charm needs storage so set it up.
@@ -301,24 +344,24 @@ func (k *kubernetesClient) operatorVolumeClaim(appName, operatorName string, sto
 		return nil, errors.Annotatef(err, "invalid volume size %v", storageParams.Size)
 	}
 
-	params, err := newVolumeParams(operatorVolumeClaim, fsSize, storageParams.Attributes)
+	params, err := storage.ParseVolumeParams(operatorVolumeClaim, fsSize, storageParams.Attributes)
 	if err != nil {
 		return nil, errors.Annotatef(err, "invalid storage configuration for %q operator", appName)
 	}
 	// We want operator storage to be deleted when the operator goes away.
-	params.storageConfig.reclaimPolicy = core.PersistentVolumeReclaimDelete
-	logger.Debugf("operator storage config %#v", *params.storageConfig)
+	params.StorageConfig.ReclaimPolicy = core.PersistentVolumeReclaimDelete
+	logger.Debugf("operator storage config %#v", *params.StorageConfig)
 
 	// Attempt to get a persistent volume to store charm state etc.
-	pvcSpec, err := k.maybeGetVolumeClaimSpec(params)
+	pvcSpec, err := k.maybeGetVolumeClaimSpec(*params)
 	if err != nil {
 		return nil, errors.Annotate(err, "finding operator volume claim")
 	}
 
 	return &core.PersistentVolumeClaim{
 		ObjectMeta: v1.ObjectMeta{
-			Name:        params.pvcName,
-			Annotations: utils.ResourceTagsToAnnotations(storageParams.ResourceTags).ToMap()},
+			Name:        params.Name,
+			Annotations: utils.ResourceTagsToAnnotations(storageParams.ResourceTags, k.IsLegacyLabels()).ToMap()},
 		Spec: *pvcSpec,
 	}, nil
 }
@@ -334,11 +377,11 @@ func (k *kubernetesClient) validateOperatorStorage() (string, error) {
 
 // OperatorExists indicates if the operator for the specified
 // application exists, and whether the operator is terminating.
-func (k *kubernetesClient) OperatorExists(appName string) (caas.OperatorState, error) {
+func (k *kubernetesClient) OperatorExists(appName string) (caas.DeploymentState, error) {
 	operatorName := k.operatorName(appName)
-	exists, terminating, err := k.operatorStatefulSetExists(appName, operatorName)
+	exists, terminating, err := k.operatorStatefulSetExists(operatorName)
 	if err != nil {
-		return caas.OperatorState{}, errors.Trace(err)
+		return caas.DeploymentState{}, errors.Trace(err)
 	}
 	if exists || terminating {
 		if terminating {
@@ -346,36 +389,36 @@ func (k *kubernetesClient) OperatorExists(appName string) (caas.OperatorState, e
 		} else {
 			logger.Tracef("operator %q exists")
 		}
-		return caas.OperatorState{Exists: exists, Terminating: terminating}, nil
+		return caas.DeploymentState{Exists: exists, Terminating: terminating}, nil
 	}
 	checks := []struct {
 		label string
-		check func(appName string, operatorName string) (bool, bool, error)
+		check func(operatorName string) (bool, bool, error)
 	}{
 		{"rbac", k.operatorRBACResourcesRemaining},
 		{"config map", k.operatorConfigMapExists},
-		{"configurations config map", k.operatorConfigurationsConfigMapExists},
+		{"configurations config map", func(on string) (bool, bool, error) { return k.operatorConfigurationsConfigMapExists(appName, on) }},
 		{"service", k.operatorServiceExists},
-		{"secret", k.operatorSecretExists},
+		{"secret", func(on string) (bool, bool, error) { return k.operatorSecretExists(appName, on) }},
 		{"deployment", k.operatorDeploymentExists},
-		{"pods", k.operatorPodExists},
+		{"pods", func(on string) (bool, bool, error) { return k.operatorPodExists(appName) }},
 	}
 	for _, c := range checks {
-		exists, _, err := c.check(appName, operatorName)
+		exists, _, err := c.check(operatorName)
 		if err != nil {
-			return caas.OperatorState{}, errors.Annotatef(err, "%s resource check", c.label)
+			return caas.DeploymentState{}, errors.Annotatef(err, "%s resource check", c.label)
 		}
 		if exists {
 			// Terminating is always set to true regardless of whether the resource is failed as terminating
 			// since it's the overall state that is reported back.
 			logger.Debugf("operator %q exists and is terminating due to dangling %s resource(s)", operatorName, c.label)
-			return caas.OperatorState{Exists: true, Terminating: true}, nil
+			return caas.DeploymentState{Exists: true, Terminating: true}, nil
 		}
 	}
-	return caas.OperatorState{}, nil
+	return caas.DeploymentState{}, nil
 }
 
-func (k *kubernetesClient) operatorStatefulSetExists(appName string, operatorName string) (exists bool, terminating bool, err error) {
+func (k *kubernetesClient) operatorStatefulSetExists(operatorName string) (exists bool, terminating bool, err error) {
 	statefulSets := k.client().AppsV1().StatefulSets(k.namespace)
 	operator, err := statefulSets.Get(context.TODO(), operatorName, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
@@ -387,7 +430,7 @@ func (k *kubernetesClient) operatorStatefulSetExists(appName string, operatorNam
 	return true, operator.DeletionTimestamp != nil, nil
 }
 
-func (k *kubernetesClient) operatorRBACResourcesRemaining(appName string, operatorName string) (exists bool, terminating bool, err error) {
+func (k *kubernetesClient) operatorRBACResourcesRemaining(operatorName string) (exists bool, terminating bool, err error) {
 	sa, err := k.getServiceAccount(operatorName)
 	if errors.IsNotFound(err) {
 		// continue
@@ -415,7 +458,7 @@ func (k *kubernetesClient) operatorRBACResourcesRemaining(appName string, operat
 	return false, false, nil
 }
 
-func (k *kubernetesClient) operatorConfigMapExists(appName string, operatorName string) (exists bool, terminating bool, err error) {
+func (k *kubernetesClient) operatorConfigMapExists(operatorName string) (exists bool, terminating bool, err error) {
 	configMaps := k.client().CoreV1().ConfigMaps(k.namespace)
 	configMapName := operatorConfigMapName(operatorName)
 	cm, err := configMaps.Get(context.TODO(), configMapName, v1.GetOptions{})
@@ -443,7 +486,7 @@ func (k *kubernetesClient) operatorConfigurationsConfigMapExists(appName string,
 	return true, cm.DeletionTimestamp != nil, nil
 }
 
-func (k *kubernetesClient) operatorServiceExists(appName string, operatorName string) (exists bool, terminating bool, err error) {
+func (k *kubernetesClient) operatorServiceExists(operatorName string) (exists bool, terminating bool, err error) {
 	services := k.client().CoreV1().Services(k.namespace)
 	s, err := services.Get(context.TODO(), operatorName, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
@@ -470,7 +513,7 @@ func (k *kubernetesClient) operatorSecretExists(appName string, operatorName str
 	return true, s.DeletionTimestamp != nil, nil
 }
 
-func (k *kubernetesClient) operatorDeploymentExists(appName string, operatorName string) (exists bool, terminating bool, err error) {
+func (k *kubernetesClient) operatorDeploymentExists(operatorName string) (exists bool, terminating bool, err error) {
 	deployments := k.client().AppsV1().Deployments(k.namespace)
 	operator, err := deployments.Get(context.TODO(), operatorName, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
@@ -481,10 +524,10 @@ func (k *kubernetesClient) operatorDeploymentExists(appName string, operatorName
 	return true, operator.DeletionTimestamp != nil, nil
 }
 
-func (k *kubernetesClient) operatorPodExists(appName string, operatorName string) (exists bool, terminating bool, err error) {
+func (k *kubernetesClient) operatorPodExists(appName string) (exists bool, terminating bool, err error) {
 	pods := k.client().CoreV1().Pods(k.namespace)
 	podList, err := pods.List(context.TODO(), v1.ListOptions{
-		LabelSelector: operatorSelector(appName),
+		LabelSelector: operatorSelector(appName, k.IsLegacyLabels()),
 	})
 	if err != nil {
 		return false, false, errors.Trace(err)
@@ -508,7 +551,7 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 	configMaps := k.client().CoreV1().ConfigMaps(k.namespace)
 	configMapName := operatorConfigMapName(operatorName)
 	err = configMaps.Delete(context.TODO(), configMapName, v1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Trace(err)
@@ -520,7 +563,7 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 		configMapName = "juju-" + configMapName
 	}
 	err = configMaps.Delete(context.TODO(), configMapName, v1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Trace(err)
@@ -535,7 +578,7 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 	}
 	pods := k.client().CoreV1().Pods(k.namespace)
 	podsList, err := pods.List(context.TODO(), v1.ListOptions{
-		LabelSelector: operatorSelector(appName),
+		LabelSelector: operatorSelector(appName, k.IsLegacyLabels()),
 	})
 	if err != nil {
 		return errors.Trace(err)
@@ -563,7 +606,7 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 		// for operators as the volume is an inseparable part of the operator.
 		for _, volName := range volumeNames {
 			err = pvs.Delete(context.TODO(), volName, v1.DeleteOptions{
-				PropagationPolicy: &constants.DefaultPropagationPolicy,
+				PropagationPolicy: constants.DefaultPropagationPolicy(),
 			})
 			if err != nil && !k8serrors.IsNotFound(err) {
 				return errors.Annotatef(err, "deleting operator persistent volume %v for %v",
@@ -580,7 +623,7 @@ func (k *kubernetesClient) WatchOperator(appName string) (watcher.NotifyWatcher,
 	factory := informers.NewSharedInformerFactoryWithOptions(k.client(), 0,
 		informers.WithNamespace(k.namespace),
 		informers.WithTweakListOptions(func(o *v1.ListOptions) {
-			o.LabelSelector = operatorSelector(appName)
+			o.LabelSelector = operatorSelector(appName, k.IsLegacyLabels())
 		}),
 	)
 	return k.newWatcher(factory.Core().V1().Pods().Informer(), appName, k.clock)
@@ -600,7 +643,7 @@ func (k *kubernetesClient) Operator(appName string) (*caas.Operator, error) {
 
 	pods := k.client().CoreV1().Pods(k.namespace)
 	podsList, err := pods.List(context.TODO(), v1.ListOptions{
-		LabelSelector: operatorSelector(appName),
+		LabelSelector: operatorSelector(appName, k.IsLegacyLabels()),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -617,7 +660,7 @@ func (k *kubernetesClient) Operator(appName string) (*caas.Operator, error) {
 	}
 
 	cfg := caas.OperatorConfig{}
-	if ver, ok := opPod.Annotations[constants.LabelVersion]; ok {
+	if ver, ok := opPod.Annotations[utils.AnnotationVersionKey(k.IsLegacyLabels())]; ok {
 		cfg.Version, err = version.Parse(ver)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -665,6 +708,7 @@ func operatorPod(
 	agentPath,
 	operatorImagePath,
 	version string,
+	selectorLabels map[string]string,
 	annotations k8sannotations.Annotation,
 	serviceAccountName string,
 ) (*core.Pod, error) {
@@ -677,17 +721,13 @@ func operatorPod(
 
 	appTag := names.NewApplicationTag(appName)
 	jujudCmd := fmt.Sprintf("$JUJU_TOOLS_DIR/jujud caasoperator --application-name=%s --debug", appName)
-	jujuDataDir, err := paths.DataDir("kubernetes")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	jujuDataDir := paths.DataDir(paths.OSUnixLike)
 	mountToken := true
 	return &core.Pod{
 		ObjectMeta: v1.ObjectMeta{
-			Name: podName,
-			Annotations: podAnnotations(annotations.Copy()).
-				Add(constants.LabelVersion, version).ToMap(),
-			Labels: operatorLabels(appName),
+			Name:        podName,
+			Annotations: podAnnotations(annotations.Copy()).ToMap(),
+			Labels:      selectorLabels,
 		},
 		Spec: core.PodSpec{
 			ServiceAccountName:           serviceAccountName,

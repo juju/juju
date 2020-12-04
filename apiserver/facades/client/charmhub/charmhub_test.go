@@ -84,12 +84,10 @@ func (s *charmHubAPISuite) expectClient() {
 }
 
 func (s *charmHubAPISuite) expectInfo() {
-	s.client.EXPECT().URL().Return("https://someurl.com")
 	s.client.EXPECT().Info(gomock.Any(), "wordpress").Return(getCharmHubInfoResponse(), nil)
 }
 
 func (s *charmHubAPISuite) expectFind() {
-	s.client.EXPECT().URL().Return("https://someurl.com")
 	s.client.EXPECT().Find(gomock.Any(), "wordpress").Return(getCharmHubFindResponses(), nil)
 }
 
@@ -126,59 +124,11 @@ func assertCharmSameContents(c *gc.C, obtained, expected *params.CharmHubCharm) 
 }
 
 func getCharmHubFindResponses() []transport.FindResponse {
-	_, entity, defaultRelease := getCharmHubResponse()
 	return []transport.FindResponse{{
-		Name:           "wordpress",
-		Type:           "object",
-		ID:             "charmCHARMcharmCHARMcharmCHARM01",
-		Entity:         entity,
-		DefaultRelease: defaultRelease,
-	}}
-}
-
-func getCharmHubInfoResponse() transport.InfoResponse {
-	channelMap, entity, defaultRelease := getCharmHubResponse()
-	return transport.InfoResponse{
-		Name:           "wordpress",
-		Type:           "charm",
-		ID:             "charmCHARMcharmCHARMcharmCHARM01",
-		ChannelMap:     channelMap,
-		Entity:         entity,
-		DefaultRelease: defaultRelease,
-	}
-}
-
-func getCharmHubResponse() ([]transport.ChannelMap, transport.Entity, transport.ChannelMap) {
-	return []transport.ChannelMap{{
-			Channel: transport.Channel{
-				Name: "latest/stable",
-				Platform: transport.Platform{
-					Architecture: "all",
-					OS:           "ubuntu",
-					Series:       "bionic",
-				},
-				ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
-				Risk:       "stable",
-				Track:      "latest",
-			},
-			Revision: transport.Revision{
-				ConfigYAML: "one: 1\ntwo: 2\nitems: [1,2,3,4]\n\"",
-				CreatedAt:  "2019-12-16T19:20:26.673192+00:00",
-				Download: transport.Download{
-					HashSHA265: "92a8b825ed1108ab64864a7df05eb84ed3925a8d5e4741169185f77cef9b52517ad4b79396bab43b19e544a908ec83c4",
-					Size:       12042240,
-					URL:        "https://api.snapcraft.io/api/v1/snaps/download/QLLfVfIKfcnTZiPFnmGcigB2vB605ZY7_16.snap",
-				},
-				MetadataYAML: "name: myname\nversion: 1.0.3\nsummary: A charm or bundle.\ndescription: |\n  This will install and setup services optimized to run in the cloud.\n  By default it will place Ngnix configured to scale horizontally\n  with Nginx's reverse proxy.\n",
-				Platforms: []transport.Platform{{
-					Architecture: "all",
-					OS:           "ubuntu",
-					Series:       "bionic",
-				}},
-				Revision: 16,
-				Version:  "1.0.3",
-			},
-		}}, transport.Entity{
+		Name: "wordpress",
+		Type: "object",
+		ID:   "charmCHARMcharmCHARMcharmCHARM01",
+		Entity: transport.Entity{
 			Categories: []transport.Category{{
 				Featured: true,
 				Name:     "blog",
@@ -195,13 +145,15 @@ func getCharmHubResponse() ([]transport.ChannelMap, transport.Entity, transport.
 			Publisher: map[string]string{
 				"display-name": "Wordress Charmers",
 			},
-			Summary: "WordPress is a full featured web blogging tool, this charm deploys it.",
+			Summary:  "WordPress is a full featured web blogging tool, this charm deploys it.",
+			StoreURL: "https://someurl.com/wordpress",
 			UsedBy: []string{
 				"wordpress-everlast",
 				"wordpress-jorge",
 				"wordpress-site",
 			},
-		}, transport.ChannelMap{
+		},
+		DefaultRelease: transport.FindChannelMap{
 			Channel: transport.Channel{
 				Name: "latest/stable",
 				Platform: transport.Platform{
@@ -213,11 +165,106 @@ func getCharmHubResponse() ([]transport.ChannelMap, transport.Entity, transport.
 				Risk:       "stable",
 				Track:      "latest",
 			},
-			Revision: transport.Revision{
+			Revision: transport.FindRevision{
+				CreatedAt: "2019-12-16T19:20:26.673192+00:00",
+				Download: transport.Download{
+					HashSHA256: "92a8b825ed1108ab64864a7df05eb84ed3925a8d5e4741169185f77cef9b52517ad4b79396bab43b19e544a908ec83c4",
+					Size:       12042240,
+					URL:        "https://api.snapcraft.io/api/v1/snaps/download/QLLfVfIKfcnTZiPFnmGcigB2vB605ZY7_16.snap",
+				},
+				Platforms: []transport.Platform{{
+					Architecture: "all",
+					OS:           "ubuntu",
+					Series:       "bionic",
+				}, {
+					Architecture: "all",
+					OS:           "ubuntu",
+					Series:       "xenial",
+				}},
+				Revision: 16,
+				Version:  "1.0.3",
+			},
+		},
+	}}
+}
+
+func getCharmHubInfoResponse() transport.InfoResponse {
+	return transport.InfoResponse{
+		Name: "wordpress",
+		Type: "charm",
+		ID:   "charmCHARMcharmCHARMcharmCHARM01",
+		ChannelMap: []transport.InfoChannelMap{{
+			Channel: transport.Channel{
+				Name: "latest/stable",
+				Platform: transport.Platform{
+					Architecture: "all",
+					OS:           "ubuntu",
+					Series:       "bionic",
+				},
+				ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
+				Risk:       "stable",
+				Track:      "latest",
+			},
+			Revision: transport.InfoRevision{
+				ConfigYAML: "one: 1\ntwo: 2\nitems: [1,2,3,4]\n\"",
+				CreatedAt:  "2019-12-16T19:20:26.673192+00:00",
+				Download: transport.Download{
+					HashSHA256: "92a8b825ed1108ab64864a7df05eb84ed3925a8d5e4741169185f77cef9b52517ad4b79396bab43b19e544a908ec83c4",
+					Size:       12042240,
+					URL:        "https://api.snapcraft.io/api/v1/snaps/download/QLLfVfIKfcnTZiPFnmGcigB2vB605ZY7_16.snap",
+				},
+				MetadataYAML: "name: myname\nversion: 1.0.3\nsummary: A charm or bundle.\ndescription: |\n  This will install and setup services optimized to run in the cloud.\n  By default it will place Ngnix configured to scale horizontally\n  with Nginx's reverse proxy.\n",
+				Platforms: []transport.Platform{{
+					Architecture: "all",
+					OS:           "ubuntu",
+					Series:       "bionic",
+				}},
+				Revision: 16,
+				Version:  "1.0.3",
+			},
+		}},
+		Entity: transport.Entity{
+			Categories: []transport.Category{{
+				Featured: true,
+				Name:     "blog",
+			}},
+			License:     "Apache-2.0",
+			Description: "This will install and setup Wordpress optimized to run in the cloud.\nBy default it will place Ngnix configured to scale horizontally\nwith Nginx's reverse proxy.",
+
+			Media: []transport.Media{{
+				Height: 256,
+				Type:   "icon",
+				URL:    "https://dashboard.snapcraft.io/site_media/appmedia/2017/04/wpcom.png",
+				Width:  256,
+			}},
+			Publisher: map[string]string{
+				"display-name": "Wordress Charmers",
+			},
+			Summary:  "WordPress is a full featured web blogging tool, this charm deploys it.",
+			StoreURL: "https://someurl.com/wordpress",
+			UsedBy: []string{
+				"wordpress-everlast",
+				"wordpress-jorge",
+				"wordpress-site",
+			},
+		},
+		DefaultRelease: transport.InfoChannelMap{
+			Channel: transport.Channel{
+				Name: "latest/stable",
+				Platform: transport.Platform{
+					Architecture: "all",
+					OS:           "ubuntu",
+					Series:       "bionic",
+				},
+				ReleasedAt: "2019-12-16T19:44:44.076943+00:00",
+				Risk:       "stable",
+				Track:      "latest",
+			},
+			Revision: transport.InfoRevision{
 				ConfigYAML: entityConfig,
 				CreatedAt:  "2019-12-16T19:20:26.673192+00:00",
 				Download: transport.Download{
-					HashSHA265: "92a8b825ed1108ab64864a7df05eb84ed3925a8d5e4741169185f77cef9b52517ad4b79396bab43b19e544a908ec83c4",
+					HashSHA256: "92a8b825ed1108ab64864a7df05eb84ed3925a8d5e4741169185f77cef9b52517ad4b79396bab43b19e544a908ec83c4",
 					Size:       12042240,
 					URL:        "https://api.snapcraft.io/api/v1/snaps/download/QLLfVfIKfcnTZiPFnmGcigB2vB605ZY7_16.snap",
 				},
@@ -230,7 +277,8 @@ func getCharmHubResponse() ([]transport.ChannelMap, transport.Entity, transport.
 				Revision: 16,
 				Version:  "1.0.3",
 			},
-		}
+		},
+	}
 }
 
 func getParamsInfoResponse() params.InfoResponse {
@@ -253,6 +301,7 @@ func getParamsInfoResponse() params.InfoResponse {
 				Size:       12042240,
 				Revision:   16,
 				Version:    "1.0.3",
+				Platforms:  []params.Platform{{Architecture: "all", OS: "ubuntu", Series: "bionic"}},
 			}},
 		Charm: &params.CharmHubCharm{
 			Subordinate: false,

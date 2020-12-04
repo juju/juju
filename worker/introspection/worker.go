@@ -44,13 +44,21 @@ type Reporter interface {
 
 // Clock represents the ability to wait for a bit.
 type Clock interface {
+	Now() time.Time
 	After(time.Duration) <-chan time.Time
 }
 
-// Hub is a pubsub hub used for internal messaging.
-type Hub interface {
+// SimpleHub is a pubsub hub used for internal messaging.
+type SimpleHub interface {
 	Publish(topic string, data interface{}) <-chan struct{}
 	Subscribe(topic string, handler func(string, interface{})) func()
+}
+
+// StructuredHub is a pubsub hub used for messaging within the HA
+// controller applications.
+type StructuredHub interface {
+	Publish(topic string, data interface{}) (<-chan struct{}, error)
+	Subscribe(topic string, handler interface{}) (func(), error)
 }
 
 // Leases provides the methods needed to expose the lease internals.
@@ -68,7 +76,8 @@ type Config struct {
 	PrometheusGatherer prometheus.Gatherer
 	Presence           presence.Recorder
 	Clock              Clock
-	Hub                Hub
+	LocalHub           SimpleHub
+	CentralHub         StructuredHub
 	Leases             Leases
 }
 
@@ -95,7 +104,8 @@ type socketListener struct {
 	presence           presence.Recorder
 	leases             Leases
 	clock              Clock
-	hub                Hub
+	localHub           SimpleHub
+	centralHub         StructuredHub
 	done               chan struct{}
 }
 
@@ -131,7 +141,8 @@ func NewWorker(config Config) (worker.Worker, error) {
 		presence:           config.Presence,
 		leases:             config.Leases,
 		clock:              config.Clock,
-		hub:                config.Hub,
+		localHub:           config.LocalHub,
+		centralHub:         config.CentralHub,
 		done:               make(chan struct{}),
 	}
 	go w.serve()
@@ -202,10 +213,18 @@ func (w *socketListener) RegisterHTTPHandlers(
 		handle("/presence", presenceHandler{w.presence})
 	}
 	handle("/machinelock", machineLockHandler{w.machineLock})
-	if w.hub != nil {
-		handle("/units", unitsHandler{w.clock, w.hub, w.done})
+	if w.localHub != nil {
+		handle("/units", unitsHandler{w.clock, w.localHub, w.done})
 	}
-	handle("/leases", leaseHandler{w.leases})
+	leases := leaseHandler{
+		leases: w.leases,
+		hub:    w.centralHub,
+		clock:  w.clock,
+	}
+	handle("/leases", http.HandlerFunc(leases.list))
+	if w.centralHub != nil {
+		handle("/leases/revoke", http.HandlerFunc(leases.revoke))
+	}
 }
 
 type depengineHandler struct {
@@ -215,14 +234,12 @@ type depengineHandler struct {
 // ServeHTTP is part of the http.Handler interface.
 func (h depengineHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if h.reporter == nil {
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintln(w, "missing dependency engine reporter")
+		http.Error(w, "missing dependency engine reporter", http.StatusNotFound)
 		return
 	}
 	bytes, err := yaml.Marshal(h.reporter.Report())
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, "error: %v\n", err)
+		http.Error(w, fmt.Sprintf("error: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -239,8 +256,7 @@ type machineLockHandler struct {
 // ServeHTTP is part of the http.Handler interface.
 func (h machineLockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if h.lock == nil {
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintln(w, "missing machine lock reporter")
+		http.Error(w, "missing machine lock reporter", http.StatusNotFound)
 		return
 	}
 	var args []machinelock.ReportOption
@@ -257,8 +273,7 @@ func (h machineLockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	content, err := h.lock.Report(args...)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, "error: %v\n", err)
+		http.Error(w, fmt.Sprintf("error: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -274,8 +289,7 @@ type introspectionReporterHandler struct {
 // ServeHTTP is part of the http.Handler interface.
 func (h introspectionReporterHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if h.reporter == nil {
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, "%s: missing reporter\n", h.name)
+		http.Error(w, fmt.Sprintf("%s: missing reporter", h.name), http.StatusNotFound)
 		return
 	}
 
@@ -292,8 +306,7 @@ type presenceHandler struct {
 // ServeHTTP is part of the http.Handler interface.
 func (h presenceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if h.presence == nil || !h.presence.IsEnabled() {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("agent is not an apiserver\n"))
+		http.Error(w, "agent is not an apiserver", http.StatusNotFound)
 		return
 	}
 
@@ -342,22 +355,20 @@ func (a ValueSort) Less(i, j int) bool {
 
 type unitsHandler struct {
 	clock Clock
-	hub   Hub
+	hub   SimpleHub
 	done  <-chan struct{}
 }
 
 // ServeHTTP is part of the http.Handler interface.
 func (h unitsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "%s\n", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	switch action := r.Form.Get("action"); action {
 	case "":
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, "missing action")
+		http.Error(w, "missing action", http.StatusBadRequest)
 	case "start":
 		h.publishUnitsAction(w, r, "start", agent.StartUnitTopic, agent.StartUnitResponseTopic)
 	case "stop":
@@ -365,23 +376,20 @@ func (h unitsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "status":
 		h.status(w, r)
 	default:
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "unknown action: %q\n", action)
+		http.Error(w, fmt.Sprintf("unknown action: %q", action), http.StatusBadRequest)
 	}
 }
 
 func (h unitsHandler) publishUnitsAction(w http.ResponseWriter, r *http.Request,
 	action, topic, responseTopic string) {
 	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		fmt.Fprintf(w, "%s requires a POST request\n", action)
+		http.Error(w, fmt.Sprintf("%s requires a POST request, got %q", action, r.Method), http.StatusMethodNotAllowed)
 		return
 	}
 
 	units := r.Form["unit"]
 	if len(units) == 0 {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, "missing unit")
+		http.Error(w, "missing unit", http.StatusBadRequest)
 		return
 	}
 
@@ -408,16 +416,14 @@ func (h unitsHandler) publishAndAwaitResponse(w http.ResponseWriter, topic, resp
 	case message := <-response:
 		bytes, err := yaml.Marshal(message)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(w, "error: %v\n", err)
+			http.Error(w, fmt.Sprintf("error: %v", err), http.StatusInternalServerError)
 			return
 		}
 		w.Write(bytes)
 	case <-h.done:
-		w.WriteHeader(http.StatusServiceUnavailable)
-		fmt.Fprintln(w, "introspection worker stopping")
+		http.Error(w, "introspection worker stopping", http.StatusServiceUnavailable)
 	case <-h.clock.After(10 * time.Second):
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintln(w, "response timed out")
+		http.Error(w, "response timed out", http.StatusInternalServerError)
+
 	}
 }

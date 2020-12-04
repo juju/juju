@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 	lxdclient "github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared/api"
@@ -688,6 +688,11 @@ func (conn *StubClient) ServerCertificate() string {
 func (conn *StubClient) HostArch() string {
 	conn.AddCall("HostArch")
 	return conn.ServerHostArch
+}
+
+func (conn *StubClient) SupportedArches() []string {
+	conn.AddCall("SupportedArches")
+	return []string{conn.ServerHostArch}
 }
 
 func (conn *StubClient) EnableHTTPSListener() error {

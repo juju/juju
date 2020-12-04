@@ -22,7 +22,7 @@ metadata:
   name: $name
   namespace: $namespace
   labels:
-    juju-app: test-app
+    app.kubernetes.io/name: test-app
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -68,7 +68,7 @@ data:
   test: test
 EOF
 
-juju_app=$(kubectl --kubeconfig "${TEST_DIR}"/kube-sa.json get cm -n "${namespace}" "${name}" -o=jsonpath='{.metadata.labels.juju-app}')
+juju_app=$(kubectl --kubeconfig "${TEST_DIR}"/kube-sa.json get cm -n "${namespace}" "${name}" -o=jsonpath='{.metadata.labels.app\.juju\.is\/created-by}')
   check_contains "${juju_app}" "test-app"
 
   echo "$juju_app" | check test-app
@@ -89,7 +89,7 @@ metadata:
   name: $name
   namespace: $namespace
   labels:
-    juju-app: test-app
+    app.kubernetes.io/name: test-app
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -134,8 +134,25 @@ data:
   test: test
 EOF
 
-juju_app=$(kubectl --kubeconfig "${TEST_DIR}"/kube-sa.json get cm -n "${namespace}" "${name}" -o=jsonpath='{.metadata.labels.juju-app}')
+juju_app=$(kubectl --kubeconfig "${TEST_DIR}"/kube-sa.json get cm -n "${namespace}" "${name}" -o=jsonpath='{.metadata.labels.app\.juju\.is\/created-by}')
   check_contains "${juju_app}" "test-app"
 
   echo "$juju_app" | check test-app
+}
+
+# Tests that after the model operator pod restarts it can come back up without
+# having to be validated by itself.
+test_model_chicken_and_egg() {
+  name=test-$(petname)
+
+  namespace=controller-"${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+
+  sleep 15
+  kubectl --kubeconfig "${KUBE_CONFIG}" delete svc modeloperator -n "${namespace}"
+
+  kubectl --kubeconfig "${KUBE_CONFIG}" patch deployment modeloperator -n "${namespace}" -p '{"metadata": {"labels": {"test": "foo"}}}'
+
+  test_value=$(kubectl --kubeconfig "${KUBE_CONFIG}" get deployment -n "${namespace}" modeloperator -o=jsonpath='{.metadata.labels.test}')
+
+  check_contains "${test_value}" "foo"
 }

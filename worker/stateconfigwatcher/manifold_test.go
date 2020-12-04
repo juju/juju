@@ -10,7 +10,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/voyeur"
+	"github.com/juju/utils/v2/voyeur"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
 	dt "github.com/juju/worker/v2/dependency/testing"

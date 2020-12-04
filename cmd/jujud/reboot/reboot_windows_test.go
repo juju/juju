@@ -2,7 +2,7 @@
 // Copyright 2014 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package reboot_test
+package reboot
 
 import (
 	"github.com/juju/testing"
@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/jujud/reboot"
+	jujutesting "github.com/juju/juju/testing"
 )
 
 const (
@@ -18,7 +18,7 @@ const (
 	rebootTime = "15"
 )
 
-func (s *RebootSuite) rebootCommandParams(c *gc.C) []string {
+func (s *WinRebootSuite) rebootCommandParams(c *gc.C) []string {
 	return []string{
 		"-f",
 		"-r",
@@ -27,7 +27,7 @@ func (s *RebootSuite) rebootCommandParams(c *gc.C) []string {
 	}
 }
 
-func (s *RebootSuite) shutdownCommandParams(c *gc.C) []string {
+func (s *WinRebootSuite) shutdownCommandParams(c *gc.C) []string {
 	return []string{
 		"-f",
 		"-s",
@@ -36,22 +36,27 @@ func (s *RebootSuite) shutdownCommandParams(c *gc.C) []string {
 	}
 }
 
-func (s *RebootSuite) TestRebootNoContainers(c *gc.C) {
-	w, err := reboot.NewRebootWaiter(s.acfg)
-	c.Assert(err, jc.ErrorIsNil)
-	expectedRebootParams := s.rebootCommandParams(c)
+type WinRebootSuite struct {
+	jujutesting.BaseSuite
+}
 
-	err = w.ExecuteReboot(params.ShouldReboot)
+func (s *WinRebootSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	testing.PatchExecutableAsEchoArgs(c, s, rebootBin)
+}
+
+var _ = gc.Suite(&WinRebootSuite{})
+
+func (s *WinRebootSuite) TestRebootNoContainers(c *gc.C) {
+	expectedRebootParams := s.rebootCommandParams(c)
+	err := scheduleAction(params.ShouldReboot, 15)
 	c.Assert(err, jc.ErrorIsNil)
 	testing.AssertEchoArgs(c, rebootBin, expectedRebootParams...)
 }
 
-func (s *RebootSuite) TestShutdownNoContainers(c *gc.C) {
-	w, err := reboot.NewRebootWaiter(s.acfg)
-	c.Assert(err, jc.ErrorIsNil)
+func (s *WinRebootSuite) TestShutdownNoContainers(c *gc.C) {
 	expectedShutdownParams := s.shutdownCommandParams(c)
-
-	err = w.ExecuteReboot(params.ShouldShutdown)
+	err := scheduleAction(params.ShouldShutdown, 15)
 	c.Assert(err, jc.ErrorIsNil)
 	testing.AssertEchoArgs(c, rebootBin, expectedShutdownParams...)
 }

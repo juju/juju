@@ -6,7 +6,7 @@
 package lxd
 
 import (
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 	"github.com/juju/proxy"
 
 	"github.com/juju/juju/container"

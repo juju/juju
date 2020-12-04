@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc"
@@ -104,10 +103,6 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 	}, {
 		about: "Application.Unexpose",
 		op:    opClientServiceUnexpose,
-		allow: []names.Tag{userAdmin, userOther},
-	}, {
-		about: "Application.Update",
-		op:    opClientServiceUpdate,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
 		about: "Application.SetCharm",
@@ -255,7 +250,7 @@ func opClientServiceGet(c *gc.C, st api.Connection, mst *state.State) (func(), e
 }
 
 func opClientServiceExpose(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	err := application.NewClient(st).Expose("wordpress")
+	err := application.NewClient(st).Expose("wordpress", nil)
 	if err != nil {
 		return func() {}, err
 	}
@@ -268,7 +263,7 @@ func opClientServiceExpose(c *gc.C, st api.Connection, mst *state.State) (func()
 }
 
 func opClientServiceUnexpose(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	err := application.NewClient(st).Unexpose("wordpress")
+	err := application.NewClient(st).Unexpose("wordpress", nil)
 	if err != nil {
 		return func() {}, err
 	}
@@ -324,25 +319,10 @@ func opClientSetAnnotations(c *gc.C, st api.Connection, mst *state.State) (func(
 	}, nil
 }
 
-func opClientServiceUpdate(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	args := params.ApplicationUpdate{
-		ApplicationName: "no-such-charm",
-		CharmURL:        "cs:quantal/wordpress-42",
-		ForceCharmURL:   true,
-		SettingsStrings: map[string]string{"blog-title": "foo"},
-		SettingsYAML:    `"wordpress": {"blog-title": "foo"}`,
-	}
-	err := application.NewClient(st).Update(args)
-	if params.IsCodeNotFound(err) {
-		err = nil
-	}
-	return func() {}, err
-}
-
 func opClientServiceSetCharm(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	cfg := application.SetCharmConfig{
 		ApplicationName: "nosuch",
-		CharmID: charmstore.CharmID{
+		CharmID: application.CharmID{
 			URL: charm.MustParseURL("local:quantal/wordpress"),
 		},
 	}
@@ -442,7 +422,7 @@ func opClientSetModelAgentVersion(c *gc.C, st api.Connection, mst *state.State) 
 	if err != nil {
 		return func() {}, err
 	}
-	ver := version.Number{Major: 1, Minor: 2, Patch: 3}
+	ver := version.Number{Major: 2, Minor: 0, Patch: 0}
 	err = st.Client().SetModelAgentVersion(ver, false)
 	if err != nil {
 		return func() {}, err

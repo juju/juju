@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
@@ -329,7 +329,7 @@ var findInstanceSpecTests = []instanceSpecTestParams{
 	{
 		desc:   "no image exists in metadata",
 		region: "invalid-region",
-		err:    `no "precise" images in invalid-region with arches \[amd64 armhf\]`,
+		err:    `no metadata for "precise" images in invalid-region with arches \[amd64 armhf\]`,
 	},
 	{
 		desc:          "no valid instance types",

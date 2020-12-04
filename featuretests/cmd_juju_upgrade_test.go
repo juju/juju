@@ -10,7 +10,7 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -39,7 +39,7 @@ func (s *cmdUpgradeSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	supported := series.SupportedLts()
-	supported = append(supported, series.MustHostSeries())
+	supported = append(supported, testing.HostSeries(c))
 	for _, aSeries := range supported {
 		s.AddToolsToState(c, version.MustParseBinary(fmt.Sprintf("%v-%v-amd64", newVersion, aSeries)))
 	}

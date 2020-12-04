@@ -1,0 +1,10 @@
+# Copyright 2020 juju-qa@canonical.com
+# See LICENSE file for licensing details.
+name: ubuntu-qa
+description: |
+  juju-qa version of the ubuntu charm.
+summary: |
+  juju-qa version of the ubuntu charm.
+series: [focal, bionic, xenial]
+
+

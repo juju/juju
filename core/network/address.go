@@ -539,6 +539,20 @@ func NewSpaceAddresses(inAddresses ...string) (outAddresses SpaceAddresses) {
 	return outAddresses
 }
 
+// Values returns a slice of strings containing the IP/host-name of each of
+// the receiver addresses.
+func (sas SpaceAddresses) Values() []string {
+	if sas == nil {
+		return nil
+	}
+
+	values := make([]string, len(sas))
+	for i, a := range sas {
+		values[i] = a.Value
+	}
+	return values
+}
+
 // ToProviderAddresses transforms the SpaceAddresses to ProviderAddresses by using
 // the input lookup for conversion of space ID to space info.
 func (sas SpaceAddresses) ToProviderAddresses(lookup SpaceLookup) (ProviderAddresses, error) {
@@ -806,4 +820,47 @@ func MergedAddresses(machineAddresses, providerAddresses []SpaceAddress) []Space
 		}
 	}
 	return merged
+}
+
+// CIDRAddressType returns back an AddressType to indicate whether the supplied
+// CIDR corresponds to an IPV4 or IPV6 range. An error will be returned if a
+// non-valid CIDR is provided.
+//
+// Caveat: if the provided CIDR corresponds to an IPV6 range with a 4in6
+// prefix, the function will classify it as an IPV4 address. This is a known
+// limitation of the go stdlib IP parsing code but it's not something that we
+// are likely to encounter in the wild so there is no need to add extra logic
+// to work around it.
+func CIDRAddressType(cidr string) (AddressType, error) {
+	_, netIP, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return "", err
+	}
+
+	if netIP.IP.To4() != nil {
+		return IPv4Address, nil
+	}
+
+	return IPv6Address, nil
+}
+
+// noAddress represents an error when an address is requested but not available.
+type noAddress struct {
+	errors.Err
+}
+
+// NoAddressError returns an error which satisfies IsNoAddressError(). The given
+// addressKind specifies what kind of address(es) is(are) missing, usually
+// "private" or "public".
+func NoAddressError(addressKind string) error {
+	newErr := errors.NewErr("no %s address(es)", addressKind)
+	newErr.SetLocation(1)
+	return &noAddress{newErr}
+}
+
+// IsNoAddressError reports whether err was created with NoAddressError().
+func IsNoAddressError(err error) bool {
+	err = errors.Cause(err)
+	_, ok := err.(*noAddress)
+	return ok
 }

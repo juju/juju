@@ -22,6 +22,7 @@ type ApplicationsDeploy struct {
 type CharmOrigin struct {
 	// Source is where the charm came from, Local, CharmStore or CharmHub.
 	Source string `json:"source"`
+	Type   string `json:"type"`
 
 	// ID is the CharmHub ID for this charm
 	ID   string `json:"id"`
@@ -33,6 +34,10 @@ type CharmOrigin struct {
 	// Revision is the charm revision number.
 	Revision *int    `json:"revision,omitempty"`
 	Track    *string `json:"track,omitempty"`
+
+	Architecture string `json:"architecture,omitempty"`
+	OS           string `json:"os,omitempty"`
+	Series       string `json:"series,omitempty"`
 }
 
 // ApplicationDeploy holds the parameters for making the application Deploy
@@ -135,7 +140,6 @@ type ApplicationDeployV6 struct {
 type ApplicationUpdate struct {
 	ApplicationName string             `json:"application"`
 	CharmURL        string             `json:"charm-url"`
-	CharmOrigin     *CharmOrigin       `json:"charm-origin,omitempty"`
 	ForceCharmURL   bool               `json:"force-charm-url"`
 	ForceSeries     bool               `json:"force-series"`
 	Force           bool               `json:"force"`
@@ -149,8 +153,9 @@ type ApplicationUpdate struct {
 	Generation string `json:"generation"`
 }
 
-// ApplicationSetCharm sets the charm for a given application.
-type ApplicationSetCharm struct {
+// ApplicationSetCharmV12 sets the charm for a given application
+// for application facades older than v12. Missing the newer CharmOrigin.
+type ApplicationSetCharmV12 struct {
 	// ApplicationName is the name of the application to set the charm on.
 	ApplicationName string `json:"application"`
 
@@ -200,9 +205,76 @@ type ApplicationSetCharm struct {
 	EndpointBindings map[string]string `json:"endpoint-bindings,omitempty"`
 }
 
+// ApplicationSetCharm sets the charm for a given application.
+type ApplicationSetCharm struct {
+	// ApplicationName is the name of the application to set the charm on.
+	ApplicationName string `json:"application"`
+
+	// Generation is the generation version that this
+	// request will set the application charm for.
+	Generation string `json:"generation"`
+
+	// CharmURL is the new url for the charm.
+	CharmURL string `json:"charm-url"`
+
+	// CharmOrigin is the charm origin
+	CharmOrigin *CharmOrigin `json:"charm-origin,omitempty"`
+
+	// Channel is the charm store channel from which the charm came.
+	Channel string `json:"channel"`
+
+	// ConfigSettings is the charm settings to set during the upgrade.
+	// This field is only understood by Application facade version 2
+	// and greater.
+	ConfigSettings map[string]string `json:"config-settings,omitempty"`
+
+	// ConfigSettingsYAML is the charm settings in YAML format to set
+	// during the upgrade. If this is non-empty, it will take precedence
+	// over ConfigSettings. This field is only understood by Application
+	// facade version 2
+	ConfigSettingsYAML string `json:"config-settings-yaml,omitempty"`
+
+	// Force forces the lxd profile validation overriding even if it's fails.
+	Force bool `json:"force"`
+
+	// ForceUnits forces the upgrade on units in an error state.
+	ForceUnits bool `json:"force-units"`
+
+	// ForceSeries forces the use of the charm even if it doesn't match the
+	// series of the unit.
+	ForceSeries bool `json:"force-series"`
+
+	// ResourceIDs is a map of resource names to resource IDs to activate during
+	// the upgrade.
+	ResourceIDs map[string]string `json:"resource-ids,omitempty"`
+
+	// StorageConstraints is a map of storage names to storage constraints to
+	// update during the upgrade. This field is only understood by Application
+	// facade version 2 and greater.
+	StorageConstraints map[string]StorageConstraints `json:"storage-constraints,omitempty"`
+
+	// EndpointBindings is a map of operator-defined endpoint names to
+	// space names to be merged with any existing endpoint bindings. This
+	// field is only understood by Application facade version 10 and greater.
+	EndpointBindings map[string]string `json:"endpoint-bindings,omitempty"`
+}
+
 // ApplicationExpose holds the parameters for making the application Expose call.
 type ApplicationExpose struct {
 	ApplicationName string `json:"application"`
+
+	// Expose parameters grouped by endpoint name. An empty ("") endpoint
+	// name key represents all application endpoints. For compatibility
+	// with pre 2.9 clients, if this field is empty, all opened ports
+	// for the application will be exposed to 0.0.0.0/0.
+	ExposedEndpoints map[string]ExposedEndpoint `json:"exposed-endpoints,omitempty"`
+}
+
+// ExposedEndpoint describes the spaces and/or CIDRs that should be able to
+// reach the ports opened by an application for a particular endpoint.
+type ExposedEndpoint struct {
+	ExposeToSpaces []string `json:"expose-to-spaces,omitempty"`
+	ExposeToCIDRs  []string `json:"expose-to-cidrs,omitempty"`
 }
 
 // ApplicationSet holds the parameters for an application Set
@@ -258,7 +330,7 @@ type ApplicationGetResults struct {
 	EndpointBindings  map[string]string      `json:"endpoint-bindings,omitempty"`
 }
 
-// ApplicationConfigSetArgs holds the parameters for
+// ApplicationConfigSetArgsV12 holds the parameters for
 // setting application config values for specified applications.
 type ApplicationConfigSetArgs struct {
 	Args []ApplicationConfigSet
@@ -274,6 +346,25 @@ type ApplicationConfigSet struct {
 	Generation string `json:"generation"`
 
 	Config map[string]string `json:"config"`
+}
+
+// ConfigSetArgs holds the parameters for setting application and
+// charm config values for specified applications.
+type ConfigSetArgs struct {
+	Args []ConfigSet
+}
+
+// ConfigSet holds the parameters for an application and charm
+// config set command.
+type ConfigSet struct {
+	ApplicationName string `json:"application"`
+
+	// Generation is the generation version that this request
+	// will set application configuration for.
+	Generation string `json:"generation"`
+
+	Config     map[string]string `json:"config"`
+	ConfigYAML string            `json:"config-yaml"`
 }
 
 // ApplicationConfigUnsetArgs holds the parameters for
@@ -295,6 +386,10 @@ type ApplicationCharmRelationsResults struct {
 // ApplicationUnexpose holds parameters for the application Unexpose call.
 type ApplicationUnexpose struct {
 	ApplicationName string `json:"application"`
+
+	// A list of endpoints to unexpose. If empty, the entire application
+	// will be unexposed.
+	ExposedEndpoints []string `json:"exposed-endpoints"`
 }
 
 // ApplicationMetricCredential holds parameters for the SetApplicationCredentials call.
@@ -474,15 +569,16 @@ type ScaleApplicationInfo struct {
 // ApplicationResult holds an application info.
 // NOTE: we should look to combine ApplicationResult and ApplicationInfo.
 type ApplicationResult struct {
-	Tag              string            `json:"tag"`
-	Charm            string            `json:"charm,omitempty"`
-	Series           string            `json:"series,omitempty"`
-	Channel          string            `json:"channel,omitempty"`
-	Constraints      constraints.Value `json:"constraints,omitempty"`
-	Principal        bool              `json:"principal"`
-	Exposed          bool              `json:"exposed"`
-	Remote           bool              `json:"remote"`
-	EndpointBindings map[string]string `json:"endpoint-bindings,omitempty"`
+	Tag              string                     `json:"tag"`
+	Charm            string                     `json:"charm,omitempty"`
+	Series           string                     `json:"series,omitempty"`
+	Channel          string                     `json:"channel,omitempty"`
+	Constraints      constraints.Value          `json:"constraints,omitempty"`
+	Principal        bool                       `json:"principal"`
+	Exposed          bool                       `json:"exposed"`
+	Remote           bool                       `json:"remote"`
+	EndpointBindings map[string]string          `json:"endpoint-bindings,omitempty"`
+	ExposedEndpoints map[string]ExposedEndpoint `json:"exposed-endpoints,omitempty"`
 }
 
 // ApplicationInfoResults holds an application info result or a retrieval error.
@@ -536,4 +632,22 @@ type UnitInfoResult struct {
 // UnitInfoResults holds units associated with entities.
 type UnitInfoResults struct {
 	Results []UnitInfoResult `json:"results"`
+}
+
+// ExposeInfoResults the expose info for a list of applications.
+type ExposeInfoResults struct {
+	Results []ExposeInfoResult `json:"results"`
+}
+
+// ExposeInfoResult holds the result of a GetExposeInfo call.
+type ExposeInfoResult struct {
+	Error *Error `json:"error,omitempty"`
+
+	Exposed bool `json:"exposed,omitempty"`
+
+	// Expose parameters grouped by endpoint name. An empty ("") endpoint
+	// name key represents all application endpoints. For compatibility
+	// with pre 2.9 clients, if this field is empty, all opened ports
+	// for the application will be exposed to 0.0.0.0/0.
+	ExposedEndpoints map[string]ExposedEndpoint `json:"exposed-endpoints,omitempty"`
 }

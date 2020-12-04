@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -19,7 +19,6 @@ import (
 	_ "github.com/juju/juju/provider/azure"
 	_ "github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/ec2"
-	_ "github.com/juju/juju/provider/joyent"
 	_ "github.com/juju/juju/provider/maas"
 	_ "github.com/juju/juju/provider/openstack"
 	coretesting "github.com/juju/juju/testing"

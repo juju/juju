@@ -7,25 +7,27 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
 
-// CAASOperatorProvisionerState provides the subset of global state
+// CAASOperatorProvisionerState provides the subset of model state
 // required by the CAAS operator provisioner facade.
 type CAASOperatorProvisionerState interface {
-	ControllerConfig() (controller.Config, error)
-	StateServingInfo() (controller.StateServingInfo, error)
 	WatchApplications() state.StringsWatcher
 	FindEntity(tag names.Tag) (state.Entity, error)
-	Addresses() ([]string, error)
-	ModelUUID() string
 	Model() (Model, error)
-	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
-	WatchAPIHostPortsForAgents() state.NotifyWatcher
 	Application(string) (Application, error)
+}
+
+// CAASControllerState provides the subset of controller state
+// required by the CAAS operator provisioner facade.
+type CAASControllerState interface {
+	common.APIAddressAccessor
+	ControllerConfig() (controller.Config, error)
+	StateServingInfo() (controller.StateServingInfo, error)
 }
 
 type Model interface {

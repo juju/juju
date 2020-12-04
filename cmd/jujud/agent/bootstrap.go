@@ -18,18 +18,18 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
-	jujuos "github.com/juju/os"
-	"github.com/juju/os/series"
-	"github.com/juju/utils/arch"
-	"github.com/juju/utils/ssh"
+	jujuos "github.com/juju/os/v2"
+	"github.com/juju/os/v2/series"
+	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v2/ssh"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/caas"
-	caasprovider "github.com/juju/juju/caas/kubernetes/provider"
-	caasconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
@@ -126,13 +126,13 @@ func (c *BootstrapCommand) ensureConfigFilesForCaas() error {
 			to: agent.ConfigPath(c.AgentConf.DataDir(), tag),
 			from: filepath.Join(
 				agent.Dir(c.AgentConf.DataDir(), tag),
-				caasconstants.TemplateFileNameAgentConf,
+				k8sconstants.TemplateFileNameAgentConf,
 			),
 		},
 		{
 			// ensure server.pem
 			to:   filepath.Join(c.AgentConf.DataDir(), mongo.FileNameDBSSLKey),
-			from: filepath.Join(c.AgentConf.DataDir(), caasprovider.TemplateFileNameServerPEM),
+			from: filepath.Join(c.AgentConf.DataDir(), k8sprovider.TemplateFileNameServerPEM),
 		},
 	} {
 		if err := copyFileFromTemplate(v.to, v.from); err != nil {
@@ -158,7 +158,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	isCAAS := args.ControllerCloud.Type == caasprovider.CAASProviderType
+	isCAAS := args.ControllerCloud.Type == k8sconstants.CAASProviderType
 
 	if isCAAS {
 		if err := c.ensureConfigFilesForCaas(); err != nil {
@@ -366,12 +366,12 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		}
 	}
 
-	// Populate the GUI archive catalogue.
-	if err := c.populateGUIArchive(st, env); err != nil {
-		// Do not stop the bootstrapping process for Juju GUI archive errors.
-		logger.Warningf("cannot set up Juju GUI: %s", err)
+	// Populate the Dashboard archive catalogue.
+	if err := c.populateDashboardArchive(st, env); err != nil {
+		// Do not stop the bootstrapping process for Juju Dashboard archive errors.
+		logger.Warningf("cannot set up Juju Dashboard: %s", err)
 	} else {
-		logger.Debugf("Juju GUI successfully set up")
+		logger.Debugf("Juju Dashboard successfully set up")
 	}
 
 	// bootstrap nodes always get the vote
@@ -570,38 +570,38 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Bootstrap
 	return nil
 }
 
-// populateGUIArchive stores the uploaded Juju GUI archive in provider storage,
-// updates the GUI metadata and set the current Juju GUI version.
-func (c *BootstrapCommand) populateGUIArchive(st *state.State, env environs.BootstrapEnviron) error {
+// populateDashboardArchive stores the uploaded Juju Dashboard archive in provider storage,
+// updates the Dashboard metadata and set the current Juju Dashboard version.
+func (c *BootstrapCommand) populateDashboardArchive(st *state.State, env environs.BootstrapEnviron) error {
 	agentConfig := c.CurrentConfig()
 	dataDir := agentConfig.DataDir()
 
-	guiStorage, err := st.GUIStorage()
+	dashboardStorage, err := st.DashboardStorage()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer func() { _ = guiStorage.Close() }()
+	defer func() { _ = dashboardStorage.Close() }()
 
-	gui, err := agenttools.ReadGUIArchive(dataDir)
+	dashboard, err := agenttools.ReadDashboardArchive(dataDir)
 	if err != nil {
-		return errors.Annotate(err, "cannot fetch GUI info")
+		return errors.Annotate(err, "cannot fetch Dashboard info")
 	}
 
-	f, err := os.Open(filepath.Join(agenttools.SharedGUIDir(dataDir), "gui.tar.bz2"))
+	f, err := os.Open(filepath.Join(agenttools.SharedDashboardDir(dataDir), "dashboard.tar.bz2"))
 	if err != nil {
-		return errors.Annotate(err, "cannot read GUI archive")
+		return errors.Annotate(err, "cannot read Dashboard archive")
 	}
 	defer func() { _ = f.Close() }()
 
-	if err := guiStorage.Add(f, binarystorage.Metadata{
-		Version: gui.Version.String(),
-		Size:    gui.Size,
-		SHA256:  gui.SHA256,
+	if err := dashboardStorage.Add(f, binarystorage.Metadata{
+		Version: dashboard.Version.String(),
+		Size:    dashboard.Size,
+		SHA256:  dashboard.SHA256,
 	}); err != nil {
-		return errors.Annotate(err, "cannot store GUI archive")
+		return errors.Annotate(err, "cannot store Dashboard archive")
 	}
 
-	return errors.Annotate(st.GUISetVersion(gui.Version), "cannot set current GUI version")
+	return errors.Annotate(st.DashboardSetVersion(dashboard.Version), "cannot set current Dashboard version")
 }
 
 // Override for testing.

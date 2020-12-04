@@ -17,7 +17,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/network"
@@ -72,6 +72,7 @@ type Server interface {
 	DeleteStoragePoolVolume(pool string, volType string, name string) (err error)
 	ServerCertificate() string
 	HostArch() string
+	SupportedArches() []string
 	EnableHTTPSListener() error
 	GetNICsFromProfile(profName string) (map[string]map[string]string, error)
 	IsClustered() bool

@@ -15,7 +15,7 @@ import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
@@ -106,6 +107,52 @@ func (s *ApplicationSuite) TestSetCharm(c *gc.C) {
 	url, force = s.mysql.CharmURL()
 	c.Assert(url, gc.DeepEquals, sch.URL())
 	c.Assert(force, jc.IsTrue)
+}
+
+func (s *ApplicationSuite) TestSetCharmCharmOrigin(c *gc.C) {
+	// Add a compatible charm.
+	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
+	rev := sch.Revision()
+	origin := &state.CharmOrigin{
+		Source:   "charm-store",
+		Revision: &rev,
+	}
+	cfg := state.SetCharmConfig{
+		Charm:       sch,
+		CharmOrigin: origin,
+	}
+	err := s.mysql.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.mysql.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	obtainedOrigin := s.mysql.CharmOrigin()
+	c.Assert(obtainedOrigin, gc.DeepEquals, origin)
+}
+
+func (s *ApplicationSuite) TestSetCharmCharmOriginNoChange(c *gc.C) {
+	// Add a compatible charm.
+	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
+	rev := sch.Revision()
+	origin := &state.CharmOrigin{
+		Source:   "charm-store",
+		Revision: &rev,
+	}
+	cfg := state.SetCharmConfig{
+		Charm:       sch,
+		CharmOrigin: origin,
+	}
+	err := s.mysql.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	cfg = state.SetCharmConfig{
+		Charm:      sch,
+		ForceUnits: true,
+	}
+	err = s.mysql.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.mysql.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	obtainedOrigin := s.mysql.CharmOrigin()
+	c.Assert(obtainedOrigin, gc.DeepEquals, origin)
 }
 
 func (s *ApplicationSuite) TestLXDProfileSetCharm(c *gc.C) {
@@ -995,6 +1042,21 @@ func (s *ApplicationSuite) TestSequenceUnitIds(c *gc.C) {
 	unit, err = s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Name(), gc.Equals, "mysql/1")
+}
+
+func (s *ApplicationSuite) TestExplicitUnitName(c *gc.C) {
+	name1 := "mysql/100"
+	unit, err := s.mysql.AddUnit(state.AddUnitParams{
+		UnitName: &name1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.Name(), gc.Equals, name1)
+	name0 := "mysql/0"
+	unit, err = s.mysql.AddUnit(state.AddUnitParams{
+		UnitName: &name0,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.Name(), gc.Equals, name0)
 }
 
 func (s *ApplicationSuite) TestSetCharmWhenDead(c *gc.C) {
@@ -2297,7 +2359,7 @@ func (s *ApplicationSuite) TestApplicationExposed(c *gc.C) {
 	c.Assert(s.mysql.IsExposed(), jc.IsFalse)
 
 	// Check that setting and clearing the exposed flag works correctly.
-	err := s.mysql.SetExposed(nil)
+	err := s.mysql.MergeExposeSettings(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.IsExposed(), jc.IsTrue)
 	err = s.mysql.ClearExposed()
@@ -2305,19 +2367,19 @@ func (s *ApplicationSuite) TestApplicationExposed(c *gc.C) {
 	c.Assert(s.mysql.IsExposed(), jc.IsFalse)
 
 	// Check that setting and clearing the exposed flag repeatedly does not fail.
-	err = s.mysql.SetExposed(nil)
+	err = s.mysql.MergeExposeSettings(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.SetExposed(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.ClearExposed()
+	err = s.mysql.MergeExposeSettings(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.ClearExposed()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.SetExposed(nil)
+	err = s.mysql.ClearExposed()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.mysql.MergeExposeSettings(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.IsExposed(), jc.IsTrue)
 
-	// Make the application Dying and check that ClearExposed and SetExposed fail.
+	// Make the application Dying and check that ClearExposed and MergeExposeSettings fail.
 	// TODO(fwereade): maybe application destruction should always unexpose?
 	u, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2326,7 +2388,7 @@ func (s *ApplicationSuite) TestApplicationExposed(c *gc.C) {
 	assertLife(c, s.mysql, state.Dying)
 	err = s.mysql.ClearExposed()
 	c.Assert(err, gc.ErrorMatches, notAliveErr)
-	err = s.mysql.SetExposed(nil)
+	err = s.mysql.MergeExposeSettings(nil)
 	c.Assert(err, gc.ErrorMatches, notAliveErr)
 
 	// Remove the application and check that both fail.
@@ -2334,7 +2396,7 @@ func (s *ApplicationSuite) TestApplicationExposed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.Remove()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.SetExposed(nil)
+	err = s.mysql.MergeExposeSettings(nil)
 	c.Assert(err, gc.ErrorMatches, notAliveErr)
 	err = s.mysql.ClearExposed()
 	c.Assert(err, gc.ErrorMatches, notAliveErr)
@@ -2345,16 +2407,16 @@ func (s *ApplicationSuite) TestApplicationExposeEndpoints(c *gc.C) {
 	c.Assert(s.mysql.IsExposed(), jc.IsFalse)
 
 	// Check argument validation
-	err := s.mysql.SetExposed(map[string]state.ExposedEndpoint{
+	err := s.mysql.MergeExposeSettings(map[string]state.ExposedEndpoint{
 		"":               {},
 		"bogus-endpoint": {},
 	})
 	c.Assert(err, gc.ErrorMatches, `.*endpoint "bogus-endpoint" not found`)
-	err = s.mysql.SetExposed(map[string]state.ExposedEndpoint{
+	err = s.mysql.MergeExposeSettings(map[string]state.ExposedEndpoint{
 		"server": {ExposeToSpaceIDs: []string{"bogus-space-id"}},
 	})
 	c.Assert(err, gc.ErrorMatches, `.*space with ID "bogus-space-id" not found`)
-	err = s.mysql.SetExposed(map[string]state.ExposedEndpoint{
+	err = s.mysql.MergeExposeSettings(map[string]state.ExposedEndpoint{
 		"server": {ExposeToCIDRs: []string{"not-a-cidr"}},
 	})
 	c.Assert(err, gc.ErrorMatches, `.*unable to parse "not-a-cidr" as a CIDR.*`)
@@ -2366,7 +2428,7 @@ func (s *ApplicationSuite) TestApplicationExposeEndpoints(c *gc.C) {
 			ExposeToCIDRs:    []string{"13.37.0.0/16"},
 		},
 	}
-	err = s.mysql.SetExposed(exp)
+	err = s.mysql.MergeExposeSettings(exp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.mysql.ExposedEndpoints(), gc.DeepEquals, exp)
@@ -2375,6 +2437,97 @@ func (s *ApplicationSuite) TestApplicationExposeEndpoints(c *gc.C) {
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.ExposedEndpoints(), gc.DeepEquals, exp)
+}
+
+func (s *ApplicationSuite) TestApplicationExposeEndpointMergeLogic(c *gc.C) {
+	// Check that querying for the exposed flag works correctly.
+	c.Assert(s.mysql.IsExposed(), jc.IsFalse)
+
+	// Set initial value
+	initial := map[string]state.ExposedEndpoint{
+		"server": {
+			ExposeToSpaceIDs: []string{network.AlphaSpaceId},
+			ExposeToCIDRs:    []string{"13.37.0.0/16"},
+		},
+	}
+	err := s.mysql.MergeExposeSettings(initial)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mysql.ExposedEndpoints(), gc.DeepEquals, initial)
+
+	// The merge call should overwrite the "server" value and append the
+	// entry for "server-admin"
+	updated := map[string]state.ExposedEndpoint{
+		"server": {
+			ExposeToCIDRs: []string{"0.0.0.0/0"},
+		},
+		"server-admin": {
+			ExposeToSpaceIDs: []string{network.AlphaSpaceId},
+			ExposeToCIDRs:    []string{"13.37.0.0/16"},
+		},
+	}
+	err = s.mysql.MergeExposeSettings(updated)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mysql.ExposedEndpoints(), gc.DeepEquals, updated)
+}
+
+func (s *ApplicationSuite) TestApplicationExposeWithoutSpaceAndCIDR(c *gc.C) {
+	// Check that querying for the exposed flag works correctly.
+	c.Assert(s.mysql.IsExposed(), jc.IsFalse)
+
+	err := s.mysql.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		// If the expose params are empty, an implicit 0.0.0.0/0 will
+		// be assumed (equivalent to: juju expose --endpoints server)
+		"server": {},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	exp := map[string]state.ExposedEndpoint{
+		"server": {
+			ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR},
+		},
+	}
+	c.Assert(s.mysql.ExposedEndpoints(), gc.DeepEquals, exp, gc.Commentf("expected the implicit 0.0.0.0/0 and ::/0 CIDRs to be added when an empty ExposedEndpoint value is provided to MergeExposeSettings"))
+}
+
+func (s *ApplicationSuite) TestApplicationUnsetExposeEndpoints(c *gc.C) {
+	// Check that querying for the exposed flag works correctly.
+	c.Assert(s.mysql.IsExposed(), jc.IsFalse)
+
+	// Set initial value
+	initial := map[string]state.ExposedEndpoint{
+		"": {
+			ExposeToCIDRs: []string{"13.37.0.0/16"},
+		},
+		"server": {
+			ExposeToSpaceIDs: []string{network.AlphaSpaceId},
+			ExposeToCIDRs:    []string{"13.37.0.0/16"},
+		},
+	}
+	err := s.mysql.MergeExposeSettings(initial)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mysql.ExposedEndpoints(), gc.DeepEquals, initial)
+
+	// Check argument validation
+	err = s.mysql.UnsetExposeSettings([]string{"bogus-endpoint"})
+	c.Assert(err, gc.ErrorMatches, `.*endpoint "bogus-endpoint" not found`)
+	err = s.mysql.UnsetExposeSettings([]string{"server-admin"})
+	c.Assert(err, gc.ErrorMatches, `.*endpoint "server-admin" is not exposed`)
+
+	// Check unexpose logic
+	err = s.mysql.UnsetExposeSettings([]string{""})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mysql.ExposedEndpoints(), gc.DeepEquals, map[string]state.ExposedEndpoint{
+		"server": {
+			ExposeToSpaceIDs: []string{network.AlphaSpaceId},
+			ExposeToCIDRs:    []string{"13.37.0.0/16"},
+		},
+	}, gc.Commentf("expected the entry of the wildcard endpoint to be removed"))
+	c.Assert(s.mysql.IsExposed(), jc.IsTrue, gc.Commentf("expected application to remain exposed"))
+
+	err = s.mysql.UnsetExposeSettings([]string{"server"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mysql.ExposedEndpoints(), gc.HasLen, 0)
+	c.Assert(s.mysql.IsExposed(), jc.IsFalse, gc.Commentf("expected exposed flag to be cleared when last expose setting gets removed"))
 }
 
 func (s *ApplicationSuite) TestAddUnit(c *gc.C) {
@@ -2484,7 +2637,7 @@ func (s *ApplicationSuite) TestAddCAASUnit(c *gc.C) {
 	us.Since = nil
 	c.Assert(us, jc.DeepEquals, status.StatusInfo{
 		Status:  status.Waiting,
-		Message: status.MessageInitializingAgent,
+		Message: status.MessageInstallingAgent,
 		Data:    map[string]interface{}{},
 	})
 	as, err := unitZero.AgentStatus()
@@ -2961,10 +3114,12 @@ func uint64p(val uint64) *uint64 {
 }
 
 func (s *ApplicationSuite) TestConstraints(c *gc.C) {
-	// Constraints are initially empty (for now).
+	amdArch := "amd64"
 	cons, err := s.mysql.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
+	c.Assert(cons, jc.DeepEquals, constraints.Value{
+		Arch: &amdArch,
+	})
 
 	// Constraints can be set.
 	cons2 := constraints.Value{Mem: uint64p(4096)}
@@ -2995,7 +3150,56 @@ func (s *ApplicationSuite) TestConstraints(c *gc.C) {
 	mysql := s.AddTestingApplication(c, s.mysql.Name(), ch)
 	cons6, err := mysql.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(&cons6, jc.Satisfies, constraints.IsEmpty)
+	c.Assert(cons6, jc.DeepEquals, constraints.Value{
+		Arch: &amdArch,
+	})
+}
+
+func (s *ApplicationSuite) TestArchConstraints(c *gc.C) {
+	amdArch := "amd64"
+	cons, err := s.mysql.Constraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, jc.DeepEquals, constraints.Value{
+		Arch: &amdArch,
+	})
+
+	// Constraints can not be set if it already exists and is different than
+	// the default architecture.
+	armArch := "arm64"
+	cons1 := constraints.Value{Arch: &armArch}
+	err = s.mysql.SetConstraints(cons1)
+	c.Assert(err, gc.ErrorMatches, "changing architecture \\(amd64\\) not supported")
+
+	// Constraints can be set.
+
+	cons2 := constraints.Value{Arch: &amdArch}
+	err = s.mysql.SetConstraints(cons2)
+	c.Assert(err, jc.ErrorIsNil)
+	cons3, err := s.mysql.Constraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons3, gc.DeepEquals, cons2)
+
+	// Constraints error out if it's already set.
+	cons4 := constraints.Value{Arch: &armArch}
+	err = s.mysql.SetConstraints(cons4)
+	c.Assert(err, gc.ErrorMatches, "changing architecture \\(amd64\\) not supported")
+
+	// Destroy the existing application; there's no way to directly assert
+	// that the constraints are deleted...
+	err = s.mysql.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	assertRemoved(c, s.mysql)
+
+	// ...but we can check that old constraints do not affect new applications
+	// with matching names.
+	ch, _, err := s.mysql.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	mysql := s.AddTestingApplication(c, s.mysql.Name(), ch)
+	cons6, err := mysql.Constraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons6, jc.DeepEquals, constraints.Value{
+		Arch: &amdArch,
+	})
 }
 
 func (s *ApplicationSuite) TestSetInvalidConstraints(c *gc.C) {
@@ -3030,12 +3234,18 @@ func (s *ApplicationSuite) TestConstraintsLifecycle(c *gc.C) {
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.mysql, state.Dying)
+
 	cons1 := constraints.MustParse("mem=1G")
 	err = s.mysql.SetConstraints(cons1)
 	c.Assert(err, gc.ErrorMatches, `cannot set constraints: application is not found or not alive`)
+
 	scons, err := s.mysql.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(&scons, jc.Satisfies, constraints.IsEmpty)
+
+	amdArch := "amd64"
+	c.Assert(scons, jc.DeepEquals, constraints.Value{
+		Arch: &amdArch,
+	})
 
 	// Removed (== Dead, for a application).
 	c.Assert(unit.EnsureDead(), jc.ErrorIsNil)
@@ -3270,7 +3480,7 @@ func (s *ApplicationSuite) TestWatchApplication(c *gc.C) {
 	// Make one change (to a separate instance), check one event.
 	application, err := s.State.Application(s.mysql.Name())
 	c.Assert(err, jc.ErrorIsNil)
-	err = application.SetExposed(nil)
+	err = application.MergeExposeSettings(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
@@ -4137,7 +4347,7 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	statusInfo, err = u.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, status.Waiting)
-	c.Assert(statusInfo.Message, gc.Equals, "agent initializing")
+	c.Assert(statusInfo.Message, gc.Equals, "installing agent")
 	statusInfo, err = state.GetCloudContainerStatus(s.caasSt, u.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, status.Running)
@@ -4165,7 +4375,7 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	unitHistory, err = u.StatusHistory(status.StatusHistoryFilter{Size: 10})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitHistory[0].Status, gc.Equals, status.Waiting)
-	c.Assert(unitHistory[0].Message, gc.Equals, status.MessageInitializingAgent)
+	c.Assert(unitHistory[0].Message, gc.Equals, status.MessageInstallingAgent)
 
 	u, ok = unitsById["add-never-cloud-container"]
 	c.Assert(ok, jc.IsTrue)
@@ -4174,7 +4384,7 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	unitHistory, err = u.StatusHistory(status.StatusHistoryFilter{Size: 10})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitHistory[0].Status, gc.Equals, status.Waiting)
-	c.Assert(unitHistory[0].Message, gc.Equals, status.MessageInitializingAgent)
+	c.Assert(unitHistory[0].Message, gc.Equals, status.MessageInstallingAgent)
 
 	u, ok = unitsById["new-unit-uuid"]
 	c.Assert(ok, jc.IsTrue)
@@ -4192,7 +4402,7 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	statusInfo, err = u.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, status.Waiting)
-	c.Assert(statusInfo.Message, gc.Equals, status.MessageInitializingAgent)
+	c.Assert(statusInfo.Message, gc.Equals, status.MessageInstallingAgent)
 	statusInfo, err = state.GetCloudContainerStatus(s.caasSt, u.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, status.Running)
@@ -4767,4 +4977,61 @@ func (s *ApplicationSuite) TestDeployedMachinesNotAssignedUnit(c *gc.C) {
 	machines, err := app.DeployedMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 0)
+}
+
+func (s *ApplicationSuite) TestCAASEmbeddedCharm(c *gc.C) {
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS,
+	})
+	defer st.Close()
+	f := factory.NewFactory(st, s.StatePool)
+
+	charmDef := `
+name: cockroachdb
+description: foo
+summary: foo
+platforms:
+  - kubernetes
+architectures:
+  - amd64
+systems:
+  - os: ubuntu
+    channel: 20.04/stable
+`
+	ch := state.AddCustomCharmForSeries(c, st, "cockroach", "metadata.yaml", charmDef, "focal", 1)
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "cockroachdb", Charm: ch})
+
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	embedded, err := unit.IsEmbedded()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(embedded, jc.IsTrue)
+}
+
+func (s *ApplicationSuite) TestCAASNonEmbeddedCharm(c *gc.C) {
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS,
+	})
+	defer st.Close()
+	f := factory.NewFactory(st, s.StatePool)
+
+	charmDef := `
+name: mysql
+description: foo
+summary: foo
+series:
+  - kubernetes
+deployment:
+  mode: workload
+`
+	ch := state.AddCustomCharmForSeries(c, st, "mysql", "metadata.yaml", charmDef, "kubernetes", 1)
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: ch})
+
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	embedded, err := unit.IsEmbedded()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(embedded, jc.IsFalse)
 }

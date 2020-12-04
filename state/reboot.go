@@ -11,6 +11,8 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/core/container"
 )
 
 var _ RebootFlagSetter = (*Machine)(nil)
@@ -127,7 +129,7 @@ func (m *Machine) machinesToCareAboutRebootsFor() []string {
 	var possibleIds []string
 	for currentId := m.Id(); currentId != ""; {
 		possibleIds = append(possibleIds, currentId)
-		currentId = ParentId(currentId)
+		currentId = container.ParentId(currentId)
 	}
 	return possibleIds
 }

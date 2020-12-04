@@ -11,9 +11,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2"
+	"github.com/juju/os/v2/series"
 	"github.com/juju/replicaset"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -36,6 +37,7 @@ import (
 	"github.com/juju/juju/environs/manual/winrmprovisioner"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -69,7 +71,7 @@ func (api *API) state() *state.State {
 // Client serves client-specific API methods.
 type Client struct {
 	// TODO(wallyworld) - we'll retain model config facade methods
-	// on the client facade until GUI and Python client library are updated.
+	// on the client facade until Dashboard and Python client library are updated.
 	*modelconfig.ModelConfigAPIV1
 
 	api         *API
@@ -520,7 +522,7 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 	}
 
 	var result params.ProvisioningScriptResult
-	icfg, err := InstanceConfig(c.api.state(), args.MachineId, args.Nonce, args.DataDir)
+	icfg, err := InstanceConfig(c.api.pool.SystemState(), c.api.state(), args.MachineId, args.Nonce, args.DataDir)
 	if err != nil {
 		return result, apiservererrors.ServerError(errors.Annotate(
 			err, "getting instance config",
@@ -686,14 +688,16 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 			return err
 		}
 	}
-	// Check k8s clusters.
-	if env, ok := envOrBroker.(caas.ClusterMetadataChecker); ok {
-		if _, err := env.GetClusterMetadata(""); err != nil {
+	// Check credentials against the container broker
+	if env, ok := envOrBroker.(caas.CredentialChecker); ok {
+		if err := env.CheckCloudCredentials(); err != nil {
 			return errors.Annotate(err, "cannot make API call to provider")
 		}
 	}
 	// If this is the controller model, also check to make sure that there are
 	// no running migrations.  All models should have migration mode of None.
+	// For major version upgrades, also check that all models are at a version high
+	// enough to allow the upgrade.
 	if c.api.stateAccessor.IsController() {
 		// Check to ensure that the replicaset is happy.
 		if err := c.CheckMongoStatusForUpgrade(c.api.stateAccessor.MongoSession()); err != nil {
@@ -705,16 +709,34 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 			return errors.Trace(err)
 		}
 
+		var oldModels []string
+		var requiredVersion version.Number
 		for _, modelUUID := range modelUUIDs {
 			model, release, err := c.api.pool.GetModel(modelUUID)
 			if err != nil {
 				return errors.Trace(err)
+			}
+			vers, err := model.AgentVersion()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			allowed, minVer, err := upgrades.UpgradeAllowed(vers, args.Version)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if !allowed {
+				requiredVersion = minVer
+				oldModels = append(oldModels, fmt.Sprintf("%s/%s", model.Owner().Name(), model.Name()))
 			}
 			if mode := model.MigrationMode(); mode != state.MigrationModeNone {
 				release()
 				return errors.Errorf("model \"%s/%s\" is %s, upgrade blocked", model.Owner().Name(), model.Name(), mode)
 			}
 			release()
+		}
+		if len(oldModels) > 0 {
+			return errors.Errorf("these models must first be upgraded to at least %v before upgrading the controller:\n -%s",
+				requiredVersion, strings.Join(oldModels, "\n -"))
 		}
 	}
 
@@ -855,7 +877,8 @@ func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
 		return result, err
 	}
 
-	servers, err := c.api.stateAccessor.APIHostPortsForClients()
+	ctrlSt := c.api.pool.SystemState()
+	servers, err := ctrlSt.APIHostPortsForClients()
 	if err != nil {
 		return result, err
 	}

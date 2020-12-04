@@ -71,12 +71,12 @@ func waitForStubCalls(c *gc.C, stub *jujutesting.Stub, expected []jujutesting.St
 
 func (s *CAASProvisionerSuite) assertWorker(c *gc.C) worker.Worker {
 	w, err := caasoperatorprovisioner.NewProvisionerWorker(caasoperatorprovisioner.Config{
-		Facade:      s.provisionerFacade,
-		Broker:      s.caasClient,
-		ModelTag:    s.modelTag,
-		AgentConfig: s.agentConfig,
-		Clock:       s.clock,
-		Logger:      loggo.GetLogger("test"),
+		Facade:          s.provisionerFacade,
+		OperatorManager: s.caasClient,
+		ModelTag:        s.modelTag,
+		AgentConfig:     s.agentConfig,
+		Clock:           s.clock,
+		Logger:          loggo.GetLogger("test"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{

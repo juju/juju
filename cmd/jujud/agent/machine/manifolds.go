@@ -13,7 +13,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/proxy"
 	"github.com/juju/pubsub"
-	"github.com/juju/utils/voyeur"
+	"github.com/juju/utils/v2/voyeur"
 	"github.com/juju/version"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/raftlease"
+	"github.com/juju/juju/pubsub/lease"
 	"github.com/juju/juju/state"
 	proxyconfig "github.com/juju/juju/utils/proxy"
 	jworker "github.com/juju/juju/worker"
@@ -101,14 +102,6 @@ const (
 	// globalClockUpdaterUpdateInterval is the interval between
 	// global clock updates.
 	globalClockUpdaterUpdateInterval = 1 * time.Second
-
-	// globalClockUpdaterBackoffDelay is the amount of time to
-	// delay when a concurrent global clock update is detected.
-	globalClockUpdaterBackoffDelay = 10 * time.Second
-
-	// leaseRequestTopic is the pubsub topic that lease FSM updates
-	// will be published on.
-	leaseRequestTopic = "lease.request"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
@@ -390,19 +383,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:              prworker.NewWorker,
 		}),
 
-		/* TODO(menn0) - this is currently unused, pending further
-		 * refactoring in the state package.
-
-			// The controller manifold creates a *state.Controller and
-			// makes it available to other manifolds. It pings the MongoDB
-			// session regularly and will die if pings fail.
-			controllerName: workercontroller.Manifold(workercontroller.ManifoldConfig{
-				AgentName:              agentName,
-				StateConfigWatcherName: stateConfigWatcherName,
-				OpenController:         config.OpenController,
-			}),
-		*/
-
 		// The state manifold creates a *state.State and makes it
 		// available to other manifolds. It pings the mongodb session
 		// regularly and will die if pings fail.
@@ -566,16 +546,17 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:            loggo.GetLogger("juju.worker.migrationminion"),
 		}),
 
-		// We run clock updaters for every controller machine to
-		// ensure the lease clock is updated monotonically and at a
-		// rate no faster than real time.
+		// We start clock updaters for every controller machine to ensure the
+		// lease clock is updated monotonically and at a rate no faster than
+		// real time.
+		// In practice, dependency on the Raft forwarder means that this worker
+		// will only ever be running on the Raft leader node.
 		leaseClockUpdaterName: globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
 			Clock:            config.Clock,
 			LeaseManagerName: leaseManagerName,
 			RaftName:         raftForwarderName,
 			NewWorker:        globalclockupdater.NewWorker,
 			UpdateInterval:   globalClockUpdaterUpdateInterval,
-			BackoffDelay:     globalClockUpdaterBackoffDelay,
 			Logger:           loggo.GetLogger("juju.worker.globalclockupdater.raft"),
 		}),
 
@@ -811,7 +792,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			RaftName:             raftName,
 			StateName:            stateName,
 			CentralHubName:       centralHubName,
-			RequestTopic:         leaseRequestTopic,
+			RequestTopic:         lease.LeaseRequestTopic,
 			Logger:               loggo.GetLogger("juju.worker.raft.raftforwarder"),
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWorker:            raftforwarder.NewWorker,
@@ -826,7 +807,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			CentralHubName:       centralHubName,
 			StateName:            stateName,
 			FSM:                  config.LeaseFSM,
-			RequestTopic:         leaseRequestTopic,
+			RequestTopic:         lease.LeaseRequestTopic,
 			Logger:               loggo.GetLogger("juju.worker.lease.raft"),
 			LogDir:               agentConfig.LogDir(),
 			PrometheusRegisterer: config.PrometheusRegisterer,

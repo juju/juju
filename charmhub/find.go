@@ -5,6 +5,7 @@ package charmhub
 
 import (
 	"context"
+	"net/http"
 	"strings"
 
 	"github.com/juju/errors"
@@ -18,37 +19,63 @@ import (
 type FindClient struct {
 	path   path.Path
 	client RESTClient
+	logger Logger
 }
 
 // NewFindClient creates a FindClient for querying charm or bundle information.
-func NewFindClient(path path.Path, client RESTClient) *FindClient {
+func NewFindClient(path path.Path, client RESTClient, logger Logger) *FindClient {
 	return &FindClient{
 		path:   path,
 		client: client,
+		logger: logger,
 	}
 }
 
 // Find searches Charm Hub and provides results matching a string.
 func (c *FindClient) Find(ctx context.Context, query string) ([]transport.FindResponse, error) {
+	c.logger.Tracef("Find(%s)", query)
 	path, err := c.path.Query("q", query)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var resp transport.FindResponses
-	if err := c.client.Get(ctx, path, &resp); err != nil {
+	path, err = path.Query("fields", defaultFindFilter())
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	if len(resp.ErrorList) > 0 {
-		var combined []string
-		for _, err := range resp.ErrorList {
-			if err.Message != "" {
-				combined = append(combined, err.Message)
-			}
+	var resp transport.FindResponses
+	restResp, err := c.client.Get(ctx, path, &resp)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if resultErr := resp.ErrorList.Combine(); resultErr != nil {
+		if restResp.StatusCode == http.StatusNotFound {
+			return nil, errors.NewNotFound(resultErr, "")
 		}
-		return nil, errors.Errorf(strings.Join(combined, "\n"))
+		return nil, resultErr
 	}
 
 	return resp.Results, nil
+}
+
+// defaultFindFilter returns a filter string to retrieve all data
+// necessary to fill the transport.FindResponse.  Without it, we'd
+// receive the Name, ID and Type.
+func defaultFindFilter() string {
+	filter := defaultResultFilter
+	filter = append(filter, appendFilterList("default-release.revision", defaultDownloadFilter)...)
+	filter = append(filter, appendFilterList("default-release", findRevisionFilter)...)
+	filter = append(filter, appendFilterList("default-release", defaultChannelFilter)...)
+	return strings.Join(filter, ",")
+}
+
+var findRevisionFilter = []string{
+	"revision.created-at",
+	"revision.platforms.architecture",
+	"revision.platforms.os",
+	"revision.platforms.series",
+	"revision.revision",
+	"revision.version",
 }

@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
-	"github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
@@ -24,7 +24,7 @@ import (
 
 type mockState struct {
 	testing.Stub
-	common.AddressAndCertGetter
+	common.APIAddressAccessor
 	model              *mockModel
 	applicationWatcher *mockStringsWatcher
 	app                *mockApplication
@@ -104,7 +104,7 @@ func (m *mockStoragePoolManager) Get(name string) (*storage.Config, error) {
 	if err := m.NextErr(); err != nil {
 		return nil, err
 	}
-	return storage.NewConfig(name, provider.K8s_ProviderType, map[string]interface{}{"foo": "bar"})
+	return storage.NewConfig(name, k8sconstants.CAASProviderType, map[string]interface{}{"foo": "bar"})
 }
 
 type mockModel struct {

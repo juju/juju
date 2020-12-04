@@ -32,6 +32,10 @@ clouds:
         endpoint: https://ec2.eu-central-1.amazonaws.com
       eu-north-1:
         endpoint: https://ec2.eu-north-1.amazonaws.com
+      eu-south-1:
+        endpoint: https://ec2.eu-south-1.amazonaws.com
+      af-south-1:
+        endpoint: https://ec2.af-south-1.amazonaws.com
       ap-east-1:
         endpoint: https://ec2.ap-east-1.amazonaws.com
       ap-south-1:
@@ -83,6 +87,10 @@ clouds:
         endpoint: https://www.googleapis.com
       us-west2:
         endpoint: https://www.googleapis.com
+      us-west3:
+        endpoint: https://www.googleapis.com
+      us-west4:
+        endpoint: https://www.googleapis.com
       asia-east1:
         endpoint: https://www.googleapis.com
       asia-east2:
@@ -96,6 +104,8 @@ clouds:
       asia-south1:
         endpoint: https://www.googleapis.com
       asia-southeast1:
+        endpoint: https://www.googleapis.com
+      asia-southeast2:
         endpoint: https://www.googleapis.com
       australia-southeast1:
         endpoint: https://www.googleapis.com
@@ -272,7 +282,7 @@ clouds:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
         identity-endpoint: https://graph.windows.net
-      switzerlandeast:
+      switzerlandnorth:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
         identity-endpoint: https://graph.windows.net
@@ -319,23 +329,6 @@ clouds:
         endpoint: https://identity.api.rackspacecloud.com/v2.0
       hkg:
         endpoint: https://identity.api.rackspacecloud.com/v2.0
-  joyent:
-    type: joyent
-    description: Joyent Cloud
-    auth-types: [ userpass ]
-    regions:
-      us-east-1:
-        endpoint: https://us-east-1.api.joyentcloud.com
-      us-east-2:
-        endpoint: https://us-east-2.api.joyentcloud.com
-      us-east-3:
-        endpoint: https://us-east-3.api.joyentcloud.com
-      us-west-1:
-        endpoint: https://us-west-1.api.joyentcloud.com
-      us-sw-1:
-        endpoint: https://us-sw-1.api.joyentcloud.com
-      eu-ams-1:
-        endpoint: https://eu-ams-1.api.joyentcloud.com
   cloudsigma:
     type: cloudsigma
     description: CloudSigma Cloud

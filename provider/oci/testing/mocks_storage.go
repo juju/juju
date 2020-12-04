@@ -6,10 +6,9 @@ package testing
 
 import (
 	context "context"
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	core "github.com/oracle/oci-go-sdk/core"
+	reflect "reflect"
 )
 
 // MockOCIStorageClient is a mock of OCIStorageClient interface
@@ -37,6 +36,7 @@ func (m *MockOCIStorageClient) EXPECT() *MockOCIStorageClientMockRecorder {
 
 // CreateVolume mocks base method
 func (m *MockOCIStorageClient) CreateVolume(arg0 context.Context, arg1 core.CreateVolumeRequest) (core.CreateVolumeResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateVolume", arg0, arg1)
 	ret0, _ := ret[0].(core.CreateVolumeResponse)
 	ret1, _ := ret[1].(error)
@@ -45,11 +45,13 @@ func (m *MockOCIStorageClient) CreateVolume(arg0 context.Context, arg1 core.Crea
 
 // CreateVolume indicates an expected call of CreateVolume
 func (mr *MockOCIStorageClientMockRecorder) CreateVolume(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateVolume", reflect.TypeOf((*MockOCIStorageClient)(nil).CreateVolume), arg0, arg1)
 }
 
 // DeleteVolume mocks base method
 func (m *MockOCIStorageClient) DeleteVolume(arg0 context.Context, arg1 core.DeleteVolumeRequest) (core.DeleteVolumeResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteVolume", arg0, arg1)
 	ret0, _ := ret[0].(core.DeleteVolumeResponse)
 	ret1, _ := ret[1].(error)
@@ -58,11 +60,13 @@ func (m *MockOCIStorageClient) DeleteVolume(arg0 context.Context, arg1 core.Dele
 
 // DeleteVolume indicates an expected call of DeleteVolume
 func (mr *MockOCIStorageClientMockRecorder) DeleteVolume(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteVolume", reflect.TypeOf((*MockOCIStorageClient)(nil).DeleteVolume), arg0, arg1)
 }
 
 // GetVolume mocks base method
 func (m *MockOCIStorageClient) GetVolume(arg0 context.Context, arg1 core.GetVolumeRequest) (core.GetVolumeResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetVolume", arg0, arg1)
 	ret0, _ := ret[0].(core.GetVolumeResponse)
 	ret1, _ := ret[1].(error)
@@ -71,11 +75,13 @@ func (m *MockOCIStorageClient) GetVolume(arg0 context.Context, arg1 core.GetVolu
 
 // GetVolume indicates an expected call of GetVolume
 func (mr *MockOCIStorageClientMockRecorder) GetVolume(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVolume", reflect.TypeOf((*MockOCIStorageClient)(nil).GetVolume), arg0, arg1)
 }
 
 // ListVolumes mocks base method
 func (m *MockOCIStorageClient) ListVolumes(arg0 context.Context, arg1 core.ListVolumesRequest) (core.ListVolumesResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListVolumes", arg0, arg1)
 	ret0, _ := ret[0].(core.ListVolumesResponse)
 	ret1, _ := ret[1].(error)
@@ -84,11 +90,13 @@ func (m *MockOCIStorageClient) ListVolumes(arg0 context.Context, arg1 core.ListV
 
 // ListVolumes indicates an expected call of ListVolumes
 func (mr *MockOCIStorageClientMockRecorder) ListVolumes(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListVolumes", reflect.TypeOf((*MockOCIStorageClient)(nil).ListVolumes), arg0, arg1)
 }
 
 // UpdateVolume mocks base method
 func (m *MockOCIStorageClient) UpdateVolume(arg0 context.Context, arg1 core.UpdateVolumeRequest) (core.UpdateVolumeResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateVolume", arg0, arg1)
 	ret0, _ := ret[0].(core.UpdateVolumeResponse)
 	ret1, _ := ret[1].(error)
@@ -97,5 +105,6 @@ func (m *MockOCIStorageClient) UpdateVolume(arg0 context.Context, arg1 core.Upda
 
 // UpdateVolume indicates an expected call of UpdateVolume
 func (mr *MockOCIStorageClientMockRecorder) UpdateVolume(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateVolume", reflect.TypeOf((*MockOCIStorageClient)(nil).UpdateVolume), arg0, arg1)
 }

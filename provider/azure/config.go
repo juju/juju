@@ -18,10 +18,6 @@ import (
 )
 
 const (
-	// ConfigAttrUsePublicIP is true if a public IP should be used for each provisioned node.
-	// Exported as it is used in an upgrade step.
-	ConfigAttrUsePublicIP = "use-public-ip"
-
 	// configAttrStorageAccountType mirrors the storage SKU name in the Azure SDK
 	//
 	// The term "storage account" has been replaced with "SKU name" in recent
@@ -48,11 +44,6 @@ const (
 )
 
 var configSchema = environschema.Fields{
-	ConfigAttrUsePublicIP: {
-		Description: "Whether provisioned nodes get a public IP address.",
-		Type:        environschema.Tbool,
-		Immutable:   true,
-	},
 	configAttrStorageAccountType: {
 		Type:      environschema.Tstring,
 		Immutable: true,
@@ -76,19 +67,10 @@ var configSchema = environschema.Fields{
 }
 
 var configDefaults = schema.Defaults{
-	ConfigAttrUsePublicIP:         true,
 	configAttrStorageAccountType:  string(storage.StandardLRS),
 	configAttrLoadBalancerSkuName: string(network.LoadBalancerSkuNameStandard),
 	configAttrResourceGroupName:   schema.Omit,
 	configAttrNetwork:             schema.Omit,
-}
-
-// DefaultNetworkConfigForUpgrade is used to set the config for an Azure
-// model created before this config existed.
-func DefaultNetworkConfigForUpgrade() map[string]interface{} {
-	return map[string]interface{}{
-		ConfigAttrUsePublicIP: true,
-	}
 }
 
 // Schema returns the configuration schema for an environment.
@@ -124,7 +106,6 @@ type azureModelConfig struct {
 	*config.Config
 
 	// Azure specific config.
-	usePublicIP         bool
 	storageAccountType  string
 	loadBalancerSkuName string
 	resourceGroupName   string
@@ -259,12 +240,10 @@ Please choose a model name of no more than %d characters.`,
 		loadBalancerSkuName = string(network.LoadBalancerSkuNameStandard)
 	}
 
-	usePublicIP, _ := validated[ConfigAttrUsePublicIP].(bool)
 	networkName, _ := validated[configAttrNetwork].(string)
 
 	azureConfig := &azureModelConfig{
 		Config:              newCfg,
-		usePublicIP:         usePublicIP,
 		storageAccountType:  storageAccountType,
 		loadBalancerSkuName: loadBalancerSkuName,
 		resourceGroupName:   userSpecifiedResourceGroup,

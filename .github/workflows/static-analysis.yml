@@ -9,15 +9,15 @@ jobs:
     steps:
 
     - name: Set up Go 1.14
-      uses: actions/setup-go@v2.1.2
+      uses: actions/setup-go@v2.1.3
       with:
         go-version: 1.14
       id: go
 
     - name: Install Dependencies
       run: |
-        echo "::set-env name=GOPATH::$(go env GOPATH)"
-        echo "::add-path::$(go env GOPATH)/bin"
+        echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
+        echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
         GO111MODULE=off go get -u github.com/client9/misspell/cmd/misspell
         GO111MODULE=off go get -u github.com/tsenart/deadcode
@@ -59,7 +59,7 @@ jobs:
     steps:
 
     - name: Set up Go 1.14
-      uses: actions/setup-go@v2.1.2
+      uses: actions/setup-go@v2.1.3
       with:
         go-version: 1.14
       id: go

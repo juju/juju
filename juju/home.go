@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/ssh"
+	"github.com/juju/utils/v2/ssh"
 
 	"github.com/juju/juju/juju/osenv"
 )

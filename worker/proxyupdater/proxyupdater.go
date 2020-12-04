@@ -10,12 +10,12 @@ import (
 	stdexec "os/exec"
 
 	"github.com/juju/errors"
-	"github.com/juju/os"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2"
+	"github.com/juju/os/v2/series"
 	"github.com/juju/packaging/commands"
 	"github.com/juju/packaging/config"
 	"github.com/juju/proxy"
-	"github.com/juju/utils/exec"
+	"github.com/juju/utils/v2/exec"
 	"github.com/juju/worker/v2"
 
 	"github.com/juju/juju/api/proxyupdater"

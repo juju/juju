@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"gopkg.in/amz.v3/ec2"
 
 	"github.com/juju/juju/core/constraints"
@@ -1008,9 +1008,9 @@ func blockDeviceNamer(numbers bool) func() (requestName, actualName string, err 
 		if letter > deviceLetterMax {
 			return "", "", errTooManyVolumes
 		}
-		deviceName := devicePrefix + string(letter)
+		deviceName := devicePrefix + string(rune(letter))
 		if numbers {
-			deviceName += string('1' + (n % deviceNumMax))
+			deviceName += string(rune('1' + (n % deviceNumMax)))
 		}
 		n++
 		realDeviceName := renamedDevicePrefix + deviceName[len(devicePrefix):]

@@ -14,9 +14,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
-	"github.com/juju/utils/arch"
-	jujusymlink "github.com/juju/utils/symlink"
+	"github.com/juju/os/v2/series"
+	"github.com/juju/utils/v2/arch"
+	jujusymlink "github.com/juju/utils/v2/symlink"
 	"github.com/juju/version"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
@@ -48,9 +48,9 @@ import (
 var logger interface{}
 
 var (
-	jujuRun        = paths.MustSucceed(paths.JujuRun(series.MustHostSeries()))
-	jujuDumpLogs   = paths.MustSucceed(paths.JujuDumpLogs(series.MustHostSeries()))
-	jujuIntrospect = paths.MustSucceed(paths.JujuIntrospect(series.MustHostSeries()))
+	jujuRun        = paths.JujuRun(paths.CurrentOS())
+	jujuDumpLogs   = paths.JujuDumpLogs(paths.CurrentOS())
+	jujuIntrospect = paths.JujuIntrospect(paths.CurrentOS())
 
 	jujudSymlinks = []string{
 		jujuRun,
@@ -213,7 +213,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 	paths := config.getPaths()
-	logger := loggo.GetLogger("juju.worker.uniter.charm")
+	logger := config.Logger.Child("charm")
 	deployer, err := jujucharm.NewDeployer(
 		paths.State.CharmDir,
 		paths.State.DeployerDir,
@@ -240,7 +240,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 
 			// For any failures, try again in 3 seconds.
 			RestartDelay: 3 * time.Second,
-			Logger:       config.Logger,
+			Logger:       config.Logger.Child("runner"),
 		}),
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -315,11 +315,11 @@ func (op *caasOperator) removeUnitDir(unitTag names.UnitTag) error {
 	return os.RemoveAll(unitAgentDir)
 }
 
-func toBinaryVersion(vers version.Number) version.Binary {
+func toBinaryVersion(vers version.Number, hostSeries string) version.Binary {
 	outVers := version.Binary{
 		Number: vers,
 		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
+		Series: hostSeries,
 	}
 	return outVers
 }
@@ -389,6 +389,11 @@ func (op *caasOperator) loop() (err error) {
 	logger := op.config.Logger
 
 	defer func() {
+		if err == nil {
+			logger.Debugf("operator %q is peacefully shutting down", op.config.Application)
+		} else {
+			logger.Warningf("operator %q is shutting down, err: %s", op.config.Application, err.Error())
+		}
 		if errors.IsNotFound(err) {
 			err = jworker.ErrTerminateAgent
 		}
@@ -401,8 +406,12 @@ func (op *caasOperator) loop() (err error) {
 	logger.Infof("operator %q started", op.config.Application)
 
 	// Start by reporting current tools (which includes arch/series).
+	hostSeries, err := series.HostSeries()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if err := op.config.VersionSetter.SetVersion(
-		op.config.Application, toBinaryVersion(jujuversion.Current)); err != nil {
+		op.config.Application, toBinaryVersion(jujuversion.Current, hostSeries)); err != nil {
 		return errors.Annotate(err, "cannot set agent version")
 	}
 
@@ -533,21 +542,27 @@ func (op *caasOperator) loop() (err error) {
 				if err != nil && !errors.IsNotFound(err) {
 					return errors.Trace(err)
 				}
+				logger.Debugf("got unit change %q (%s)", unitID, unitLife)
 				unitTag := names.NewUnitTag(unitID)
 				if errors.IsNotFound(err) || unitLife == life.Dead {
 					delete(aliveUnits, unitID)
 					delete(unitRunningChannels, unitID)
+					logger.Debugf("stopping uniter for dead unit %q", unitID)
 					if err := op.runner.StopWorker(unitID); err != nil {
 						return err
 					}
+					logger.Debugf("removing unit dir for dead unit %q", unitID)
 					// Remove the unit's directory
 					if err := op.removeUnitDir(unitTag); err != nil {
 						return err
 					}
+					logger.Debugf("removing dead unit %q", unitID)
 					// Remove the unit from state.
 					if err := op.config.UnitRemover.RemoveUnit(unitID); err != nil {
 						return err
 					}
+					// Nothing to do for a dead unit further.
+					continue
 				} else {
 					if _, ok := aliveUnits[unitID]; !ok {
 						aliveUnits[unitID] = make(chan struct{})
@@ -569,7 +584,7 @@ func (op *caasOperator) loop() (err error) {
 				if err := op.makeAgentSymlinks(unitTag); err != nil {
 					return errors.Trace(err)
 				}
-				params := op.config.UniterParams
+				params := *op.config.UniterParams
 				params.ModelType = model.CAAS
 				params.UnitTag = unitTag
 				params.Downloader = op.config.Downloader // TODO(caas): write a cache downloader
@@ -596,7 +611,7 @@ func (op *caasOperator) loop() (err error) {
 					}
 					params.NewRemoteRunnerExecutor = getNewRunnerExecutor(logger, execClient)
 				}
-				if err := op.config.StartUniterFunc(op.runner, params); err != nil {
+				if err := op.config.StartUniterFunc(op.runner, &params); err != nil {
 					return errors.Trace(err)
 				}
 			}

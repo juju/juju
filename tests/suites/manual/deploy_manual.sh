@@ -9,23 +9,17 @@ test_deploy_manual() {
 
         cd .. || exit
 
-        # TODO (stickupkid): We currently only support LXD in this test
-        # currently, future tests should run on aws.
         case "${BOOTSTRAP_PROVIDER:-}" in
-            "lxd")
+            "lxd" | "localhost")
                 export BOOTSTRAP_PROVIDER="manual"
                 run "run_deploy_manual_lxd"
                 ;;
-            "localhost")
-                export BOOTSTRAP_PROVIDER="manual"
-                run "run_deploy_manual_lxd"
-                ;;
-            "aws")
+            "aws" | "ec2")
                 export BOOTSTRAP_PROVIDER="manual"
                 run "run_deploy_manual_aws"
                 ;;
             *)
-                echo "==> TEST SKIPPED: deploy manual - tests for LXD only"
+                echo "==> TEST SKIPPED: deploy manual - tests for LXD and AWS only"
                 ;;
         esac
     )
@@ -50,7 +44,7 @@ manual_deploy() {
 
     juju enable-ha >"${TEST_DIR}/enable-ha.log" 2>&1
 
-    juju deploy percona-cluster
+    juju deploy cs:percona-cluster
 
     wait_for "percona-cluster" "$(idle_condition "percona-cluster" 0 0)"
 

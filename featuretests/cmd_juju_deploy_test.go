@@ -22,7 +22,7 @@ func (s *cmdDeploySuite) TestLocalDeploySuccess(c *gc.C) {
 	ch := testcharms.Repo.CharmDir("storage-filesystem-subordinate") // has hooks
 	ctx, err := runCommand(c, "deploy", ch.Path, "--series", "bionic")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `Deploying charm "local:bionic/storage-filesystem-subordinate-1"`)
+	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `Deploying "storage-filesystem-subordinate" from local charm "storage-filesystem-subordinate", revision 1`)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 	savedCh, err := s.State.Charm(charm.MustParseURL("local:bionic/storage-filesystem-subordinate-1"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -48,7 +48,7 @@ func (s *cmdDeploySuite) TestLocalDeployLXDProfileSuccess(c *gc.C) {
 	ch := testcharms.Repo.CharmDir("lxd-profile-subordinate") // has hooks
 	ctx, err := runCommand(c, "deploy", ch.Path, "--series", "bionic")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `Deploying charm "local:bionic/lxd-profile-subordinate-0"`)
+	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `Deploying "lxd-profile-subordinate" from local charm "lxd-profile-subordinate", revision 0`)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 	savedCh, err := s.State.Charm(charm.MustParseURL("local:bionic/lxd-profile-subordinate-0"))
 	c.Assert(err, jc.ErrorIsNil)

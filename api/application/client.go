@@ -20,11 +20,11 @@ import (
 	"github.com/juju/juju/api/base"
 	apicharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/storage"
 )
 
@@ -69,7 +69,7 @@ func (c *Client) ModelUUID() string {
 // DeployArgs holds the arguments to be sent to Client.ApplicationDeploy.
 type DeployArgs struct {
 	// CharmID identifies the charm to deploy.
-	CharmID charmstore.CharmID
+	CharmID CharmID
 
 	// CharmOrigin holds information about where the charm originally came from,
 	// this includes the store.
@@ -147,7 +147,7 @@ func (c *Client) Deploy(args DeployArgs) error {
 			Series:           args.Series,
 			CharmURL:         args.CharmID.URL.String(),
 			CharmOrigin:      &origin,
-			Channel:          string(args.CharmID.Channel),
+			Channel:          origin.Risk,
 			NumUnits:         args.NumUnits,
 			ConfigYAML:       args.ConfigYAML,
 			Config:           args.Config,
@@ -185,6 +185,61 @@ func (c *Client) GetCharmURL(branchName, applicationName string) (*charm.URL, er
 		return nil, errors.Trace(result.Error)
 	}
 	return charm.ParseURL(result.Result)
+}
+
+// GetCharmURLOrigin returns the charm URL along with the charm Origin for the
+// given application is running at present.
+// The charm origin gives more information about the location of the charm and
+// what revision/channel it came from.
+func (c *Client) GetCharmURLOrigin(branchName, applicationName string) (*charm.URL, apicharm.Origin, error) {
+	// Handle the issue where the client can't talk to older API versions of the
+	// API. Luckily we can polyfill the missing return type.
+	if c.BestAPIVersion() < 13 {
+		charmURL, err := c.GetCharmURL(branchName, applicationName)
+		if err != nil {
+			return nil, apicharm.Origin{}, errors.Trace(err)
+		}
+
+		// We need to ensure that we don't handle charmhub charms, as the rest
+		// of the API won't correctly handle that either.
+		var origin apicharm.Origin
+		switch charmURL.Schema {
+		case "cs":
+			origin = apicharm.Origin{
+				Source: apicharm.OriginCharmStore,
+			}
+		case "local":
+			origin = apicharm.Origin{
+				Source: apicharm.OriginLocal,
+			}
+		default:
+			return nil, apicharm.Origin{}, errors.Errorf("unexpected charm store %q", charmURL.Schema)
+		}
+
+		if err != nil {
+			return nil, apicharm.Origin{}, errors.Trace(err)
+		}
+		return charmURL, origin, nil
+	}
+
+	args := params.ApplicationGet{
+		ApplicationName: applicationName,
+		BranchName:      branchName,
+	}
+
+	var result params.CharmURLOriginResult
+	err := c.facade.FacadeCall("GetCharmURLOrigin", args, &result)
+	if err != nil {
+		return nil, apicharm.Origin{}, errors.Trace(err)
+	}
+	if result.Error != nil {
+		return nil, apicharm.Origin{}, errors.Trace(result.Error)
+	}
+	curl, err := charm.ParseURL(result.URL)
+	if err != nil {
+		return nil, apicharm.Origin{}, errors.Trace(err)
+	}
+	return curl, apicharm.APICharmOrigin(result.Origin), nil
 }
 
 // GetConfig returns the charm configuration settings for each of the
@@ -280,6 +335,20 @@ func describeV5(config map[string]interface{}) (map[string]interface{}, error) {
 	return config, nil
 }
 
+// CharmID represents the underlying charm for a given application. This
+// includes both the URL and the origin.
+type CharmID struct {
+
+	// URL of the given charm, includes the reference name and a revision.
+	// Old style charm URLs are also supported i.e. charmstore.
+	URL *charm.URL
+
+	// Origin holds the origin of a charm. This includes the source of the
+	// charm, along with the revision and channel to identify where the charm
+	// originated from.
+	Origin apicharm.Origin
+}
+
 // SetCharmConfig holds the configuration for setting a new revision of a charm
 // on a application.
 type SetCharmConfig struct {
@@ -287,7 +356,7 @@ type SetCharmConfig struct {
 	ApplicationName string
 
 	// CharmID identifies the charm.
-	CharmID charmstore.CharmID
+	CharmID CharmID
 
 	// ConfigSettings is the charm settings to set during the upgrade.
 	// This field is only understood by Application facade version 2
@@ -350,10 +419,15 @@ func (c *Client) SetCharm(branchName string, cfg SetCharmConfig) error {
 			}
 		}
 	}
+
+	origin := cfg.CharmID.Origin
+	paramsCharmOrigin := origin.ParamsCharmOrigin()
+
 	args := params.ApplicationSetCharm{
 		ApplicationName:    cfg.ApplicationName,
 		CharmURL:           cfg.CharmID.URL.String(),
-		Channel:            string(cfg.CharmID.Channel),
+		CharmOrigin:        &paramsCharmOrigin,
+		Channel:            origin.Risk,
 		ConfigSettings:     cfg.ConfigSettings,
 		ConfigSettingsYAML: cfg.ConfigSettingsYAML,
 		Force:              cfg.Force,
@@ -779,16 +853,59 @@ func (c *Client) SetConstraints(application string, constraints constraints.Valu
 }
 
 // Expose changes the juju-managed firewall to expose any ports that
-// were also explicitly marked by units as open.
-func (c *Client) Expose(application string) error {
-	args := params.ApplicationExpose{ApplicationName: application}
+// were also explicitly marked by units as open. The exposedEndpoints argument
+// can be used to restrict the set of ports that get exposed and at the same
+// time specify which spaces and/or CIDRs should be able to access these ports
+// on a per endpoint basis.
+//
+// If the exposedEndpoints parameter is empty, the controller will expose *all*
+// open ports of the application to 0.0.0.0/0. This matches the behavior of
+// pre-2.9 juju controllers.
+func (c *Client) Expose(application string, exposedEndpoints map[string]params.ExposedEndpoint) error {
+	if c.BestAPIVersion() < 13 && hasGranularExposeParameters(exposedEndpoints) {
+		return errors.NewNotSupported(nil, "controller does not support granular expose parameters; applying this change would make all open application ports accessible from 0.0.0.0/0")
+	}
+
+	args := params.ApplicationExpose{
+		ApplicationName:  application,
+		ExposedEndpoints: exposedEndpoints,
+	}
 	return c.facade.FacadeCall("Expose", args, nil)
+}
+
+func hasGranularExposeParameters(exposedEndpoints map[string]params.ExposedEndpoint) bool {
+	if len(exposedEndpoints) == 0 { // empty list; using non-granular expose like pre 2.9 juju
+		return false
+	} else if allEndpointParams, found := exposedEndpoints[""]; found && len(exposedEndpoints) == 1 {
+		// We have a single entry for the wildcard endpoint; check if
+		// it only includes an expose to all networks CIDR.
+		var allNetworkCIDRCount int
+		for _, cidr := range allEndpointParams.ExposeToCIDRs {
+			if cidr == firewall.AllNetworksIPV4CIDR || cidr == firewall.AllNetworksIPV6CIDR {
+				allNetworkCIDRCount++
+			}
+		}
+
+		if len(allEndpointParams.ExposeToSpaces) == 0 &&
+			len(allEndpointParams.ExposeToCIDRs) == allNetworkCIDRCount {
+			return false // equivalent to using non-granular expose like pre 2.9 juju
+		}
+	}
+
+	return true
 }
 
 // Unexpose changes the juju-managed firewall to unexpose any ports that
 // were also explicitly marked by units as open.
-func (c *Client) Unexpose(application string) error {
-	args := params.ApplicationUnexpose{ApplicationName: application}
+func (c *Client) Unexpose(application string, endpoints []string) error {
+	if c.BestAPIVersion() < 13 && len(endpoints) > 0 {
+		return errors.NewNotSupported(nil, "controller does not support granular expose parameters; applying this change would unexpose the application")
+	}
+
+	args := params.ApplicationUnexpose{
+		ApplicationName:  application,
+		ExposedEndpoints: endpoints,
+	}
 	return c.facade.FacadeCall("Unexpose", args, nil)
 }
 
@@ -912,9 +1029,12 @@ func (c *Client) Consume(arg crossmodel.ConsumeApplicationArgs) (string, error) 
 	return localName, nil
 }
 
-// SetApplicationConfig sets configuration options on an application.
+// SetApplicationConfig sets configuration options on an application and the charm,
+// from the provided map.
+// Note: The name is misleading as charm config is also set.
 func (c *Client) SetApplicationConfig(branchName, application string, config map[string]string) error {
-	if c.BestAPIVersion() < 6 {
+	apiVersion := c.BestAPIVersion()
+	if apiVersion < 6 || apiVersion > 12 {
 		return errors.NotSupportedf("SetApplicationsConfig not supported by this version of Juju")
 	}
 	args := params.ApplicationConfigSetArgs{
@@ -926,6 +1046,27 @@ func (c *Client) SetApplicationConfig(branchName, application string, config map
 	}
 	var results params.ErrorResults
 	err := c.facade.FacadeCall("SetApplicationsConfig", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
+}
+
+// SetConfig sets configuration options on an application and the charm.
+func (c *Client) SetConfig(branchName, application, configYAML string, config map[string]string) error {
+	if c.BestAPIVersion() < 13 {
+		return errors.NotSupportedf("SetConfig not supported by this version of Juju")
+	}
+	args := params.ConfigSetArgs{
+		Args: []params.ConfigSet{{
+			ApplicationName: application,
+			Generation:      branchName,
+			Config:          config,
+			ConfigYAML:      configYAML,
+		}},
+	}
+	var results params.ErrorResults
+	err := c.facade.FacadeCall("SetConfigs", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}

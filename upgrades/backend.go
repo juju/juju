@@ -88,7 +88,9 @@ type StateBackend interface {
 	RollUpAndConvertOpenedPortDocuments() error
 	AddCharmHubToModelConfig() error
 	AddCharmOriginToApplications() error
-	AddAzureProviderNetworkConfig() error
+	ExposeWildcardEndpointForExposedApplications() error
+	RemoveLinkLayerDevicesRefsCollection() error
+	RemoveUnusedLinkLayerDeviceProviderIDs() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -370,6 +372,14 @@ func (s stateBackend) AddCharmOriginToApplications() error {
 	return state.AddCharmOriginToApplications(s.pool)
 }
 
-func (s stateBackend) AddAzureProviderNetworkConfig() error {
-	return state.AddAzureProviderNetworkConfig(s.pool)
+func (s stateBackend) ExposeWildcardEndpointForExposedApplications() error {
+	return state.ExposeWildcardEndpointForExposedApplications(s.pool)
+}
+
+func (s stateBackend) RemoveLinkLayerDevicesRefsCollection() error {
+	return state.RemoveLinkLayerDevicesRefsCollection(s.pool)
+}
+
+func (s stateBackend) RemoveUnusedLinkLayerDeviceProviderIDs() error {
+	return state.RemoveUnusedLinkLayerDeviceProviderIDs(s.pool)
 }

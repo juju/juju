@@ -19,10 +19,14 @@ type ManifoldConfig struct {
 }
 
 func Manifold(config ManifoldConfig) dependency.Manifold {
+	inputs := []string{}
+
+	if config.AuthorityName != "" {
+		inputs = append(inputs, config.AuthorityName)
+	}
+
 	return dependency.Manifold{
-		Inputs: []string{
-			config.AuthorityName,
-		},
+		Inputs: inputs,
 		Output: manifoldOutput,
 		Start:  config.Start,
 	}
@@ -50,23 +54,24 @@ func (c ManifoldConfig) Start(context dependency.Context) (worker.Worker, error)
 		return nil, errors.Trace(err)
 	}
 
-	var authority pki.Authority
-	if err := context.Get(c.AuthorityName, &authority); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	serverConfig := DefaultConfig()
 	if c.Port != "" {
 		serverConfig.Port = c.Port
+	}
+
+	if c.AuthorityName == "" {
+		return NewServerWithOutTLS(c.Logger, serverConfig)
+	}
+
+	var authority pki.Authority
+	if err := context.Get(c.AuthorityName, &authority); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	return NewServer(authority, c.Logger, serverConfig)
 }
 
 func (c ManifoldConfig) Validate() error {
-	if c.AuthorityName == "" {
-		return errors.NotValidf("empty AuthorityName")
-	}
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}

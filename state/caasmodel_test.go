@@ -12,6 +12,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
+	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
+	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
@@ -29,6 +31,7 @@ type CAASFixture struct {
 
 func (s *CAASFixture) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
+	s.PatchValue(&k8sprovider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 }
 
 // createTestModelConfig returns a new model config and its UUID for testing.
@@ -410,7 +413,7 @@ func (s *CAASModelSuite) TestCloudContainerHistoryOverwrite(c *gc.C) {
 	statusHistory, err := unit.StatusHistory(status.StatusHistoryFilter{Size: 10})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusHistory, gc.HasLen, 1)
-	c.Assert(statusHistory[0].Message, gc.Equals, status.MessageInitializingAgent)
+	c.Assert(statusHistory[0].Message, gc.Equals, status.MessageInstallingAgent)
 	c.Assert(statusHistory[0].Status, gc.Equals, status.Waiting)
 
 	err = unit.SetStatus(status.StatusInfo{
@@ -435,7 +438,7 @@ func (s *CAASModelSuite) TestCloudContainerHistoryOverwrite(c *gc.C) {
 	c.Assert(statusHistory, gc.HasLen, 2)
 	c.Assert(statusHistory[0].Message, gc.Equals, "Unit Active")
 	c.Assert(statusHistory[0].Status, gc.Equals, status.Active)
-	c.Assert(statusHistory[1].Message, gc.Equals, status.MessageInitializingAgent)
+	c.Assert(statusHistory[1].Message, gc.Equals, status.MessageInstallingAgent)
 	c.Assert(statusHistory[1].Status, gc.Equals, status.Waiting)
 
 	err = unit.SetStatus(status.StatusInfo{
@@ -453,7 +456,7 @@ func (s *CAASModelSuite) TestCloudContainerHistoryOverwrite(c *gc.C) {
 	c.Assert(statusHistory[0].Status, gc.Equals, status.Waiting)
 	c.Assert(statusHistory[1].Message, gc.Equals, "Unit Active")
 	c.Assert(statusHistory[1].Status, gc.Equals, status.Active)
-	c.Assert(statusHistory[2].Message, gc.Equals, status.MessageInitializingAgent)
+	c.Assert(statusHistory[2].Message, gc.Equals, status.MessageInstallingAgent)
 	c.Assert(statusHistory[2].Status, gc.Equals, status.Waiting)
 }
 

@@ -20,7 +20,7 @@ import (
 
 // getAllUnitNames returns a sequence of valid Unit objects from state. If any
 // of the application names or unit names are not found, an error is returned.
-func getAllUnitNames(st *state.State, units, services []string) (result []names.Tag, err error) {
+func getAllUnitNames(st *state.State, units, applications []string) (result []names.Tag, err error) {
 	var leaders map[string]string
 	getLeader := func(appName string) (string, error) {
 		if leaders == nil {
@@ -54,7 +54,7 @@ func getAllUnitNames(st *state.State, units, services []string) (result []names.
 		unitsSet.Add(leaderUnit)
 	}
 
-	for _, name := range services {
+	for _, name := range applications {
 		service, err := st.Application(name)
 		if err != nil {
 			return nil, err
@@ -78,7 +78,7 @@ func getAllUnitNames(st *state.State, units, services []string) (result []names.
 
 // Run the commands specified on the machines identified through the
 // list of machines, units and services.
-func (a *ActionAPI) Run(run params.RunParams) (results params.ActionResults, err error) {
+func (a *ActionAPI) Run(run params.RunParams) (results params.EnqueuedActions, err error) {
 	if err := a.checkCanAdmin(); err != nil {
 		return results, err
 	}
@@ -104,11 +104,11 @@ func (a *ActionAPI) Run(run params.RunParams) (results params.ActionResults, err
 	if err != nil {
 		return results, errors.Trace(err)
 	}
-	return queueActions(a, actionParams)
+	return a.EnqueueOperation(actionParams)
 }
 
 // RunOnAllMachines attempts to run the specified command on all the machines.
-func (a *ActionAPI) RunOnAllMachines(run params.RunParams) (results params.ActionResults, err error) {
+func (a *ActionAPI) RunOnAllMachines(run params.RunParams) (results params.EnqueuedActions, err error) {
 	if err := a.checkCanAdmin(); err != nil {
 		return results, err
 	}
@@ -138,7 +138,7 @@ func (a *ActionAPI) RunOnAllMachines(run params.RunParams) (results params.Actio
 	if err != nil {
 		return results, errors.Trace(err)
 	}
-	return queueActions(a, actionParams)
+	return a.EnqueueOperation(actionParams)
 }
 
 func (a *ActionAPI) createActionsParams(
@@ -168,8 +168,4 @@ func (a *ActionAPI) createActionsParams(
 	}
 
 	return apiActionParams, nil
-}
-
-var queueActions = func(a *ActionAPI, args params.Actions) (results params.ActionResults, err error) {
-	return a.Enqueue(args)
 }

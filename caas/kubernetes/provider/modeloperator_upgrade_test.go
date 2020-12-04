@@ -17,7 +17,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/cloudconfig/podcfg"
 )
 
@@ -33,6 +33,10 @@ var _ = gc.Suite(&modelUpgraderSuite{})
 
 func (d *dummyUpgradeCAASModel) Client() kubernetes.Interface {
 	return d.client
+}
+
+func (d *dummyUpgradeCAASModel) IsLegacyLabels() bool {
+	return false
 }
 
 func (d *dummyUpgradeCAASModel) Namespace() string {
@@ -83,6 +87,6 @@ func (s *modelUpgraderSuite) TestModelOperatorUpgrade(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(de.Spec.Template.Spec.Containers[0].Image, gc.Equals, newImagePath)
 
-	c.Assert(de.Annotations[constants.LabelVersion], gc.Equals, version.MustParse("9.9.9").String())
-	c.Assert(de.Spec.Template.Annotations[constants.LabelVersion], gc.Equals, version.MustParse("9.9.9").String())
+	c.Assert(de.Annotations[utils.AnnotationVersionKey(false)], gc.Equals, version.MustParse("9.9.9").String())
+	c.Assert(de.Spec.Template.Annotations[utils.AnnotationVersionKey(false)], gc.Equals, version.MustParse("9.9.9").String())
 }

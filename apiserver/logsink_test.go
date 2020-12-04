@@ -6,7 +6,6 @@ package apiserver_test
 import (
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -17,7 +16,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
 
@@ -51,10 +50,7 @@ func (s *logsinkSuite) SetUpTest(c *gc.C) {
 	s.machineTag = m.Tag()
 	s.password = password
 
-	url := s.URL(
-		"/model/"+s.State.ModelUUID()+"/logsink",
-		url.Values{"jujuclientversion": {version.Current.String()}},
-	)
+	url := s.URL("/model/"+s.State.ModelUUID()+"/logsink", nil)
 	url.Scheme = "wss"
 	s.url = url.String()
 
@@ -235,5 +231,6 @@ func (s *logsinkSuite) dialWebsocket(c *gc.C) *websocket.Conn {
 func (s *logsinkSuite) makeAuthHeader() http.Header {
 	header := jujuhttp.BasicAuthHeader(s.machineTag.String(), s.password)
 	header.Add(params.MachineNonceHeader, s.nonce)
+	header.Add(params.JujuClientVersion, version.Current.String())
 	return header
 }

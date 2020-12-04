@@ -6,78 +6,66 @@ package charms
 import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/controller"
+	"github.com/juju/juju/apiserver/facades/client/charms/interfaces"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/state"
 )
 
-type BackendState interface {
-	AllCharms() ([]*state.Charm, error)
-	Charm(curl *charm.URL) (*state.Charm, error)
-	ControllerConfig() (controller.Config, error)
-	ControllerTag() names.ControllerTag
-	CharmState
-	state.MongoSessioner
-	ModelUUID() string
-}
-
-type csStateShim struct {
+type stateShim struct {
 	*state.State
 }
 
-func newStateShim(st *state.State) BackendState {
-	return csStateShim{
+func newStateShim(st *state.State) interfaces.BackendState {
+	return stateShim{
 		State: st,
 	}
 }
 
-func (s csStateShim) PrepareCharmUpload(curl *charm.URL) (corecharm.StateCharm, error) {
+func (s stateShim) PrepareCharmUpload(curl *charm.URL) (corecharm.StateCharm, error) {
 	ch, err := s.State.PrepareCharmUpload(curl)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return csStateCharmShim{Charm: ch}, nil
+	return stateCharmShim{Charm: ch}, nil
 }
 
-type BackendModel interface {
-	Config() (*config.Config, error)
-	ModelTag() names.ModelTag
+func (s stateShim) Application(name string) (interfaces.Application, error) {
+	app, err := s.State.Application(name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return stateApplicationShim{Application: app}, nil
 }
 
-// CharmState represents directives for accessing charm methods
-type CharmState interface {
-	UpdateUploadedCharm(info state.CharmInfo) (*state.Charm, error)
-	PrepareCharmUpload(curl *charm.URL) (corecharm.StateCharm, error)
+func (s stateShim) Machine(machineID string) (interfaces.Machine, error) {
+	machine, err := s.State.Machine(machineID)
+	return machine, errors.Trace(err)
 }
 
-type csStateCharmShim struct {
+type stateApplicationShim struct {
+	*state.Application
+}
+
+func (s stateApplicationShim) AllUnits() ([]interfaces.Unit, error) {
+	units, err := s.Application.AllUnits()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	results := make([]interfaces.Unit, len(units))
+	for i, unit := range units {
+		results[i] = unit
+	}
+	return results, nil
+}
+
+type stateCharmShim struct {
 	*state.Charm
 }
 
-func (s csStateCharmShim) IsUploaded() bool {
+func (s stateCharmShim) IsUploaded() bool {
 	return s.Charm.IsUploaded()
-}
-
-// Repository is the part of charmrepo.Charmstore that we need to
-// resolve a charm url and get a charm archive.
-type Repository interface {
-	// Get reads the charm referenced by curl into a file
-	// with the given path, which will be created if needed. Note that
-	// the path's parent directory must already exist.
-	Get(curl *charm.URL, archivePath string) (*charm.CharmArchive, error)
-	ResolveWithPreferredChannel(*charm.URL, params.CharmOrigin) (*charm.URL, params.CharmOrigin, []string, error)
-}
-
-// StoreCharm represents a store charm.
-type StoreCharm interface {
-	charm.Charm
-	charm.LXDProfiler
-	Version() string
 }
 
 // storeCharmShim massages a *charm.CharmArchive into a LXDProfiler
@@ -103,6 +91,13 @@ func (p *storeCharmShim) LXDProfile() *charm.LXDProfile {
 		return nil
 	}
 	return profile
+}
+
+// StoreCharm represents a store charm.
+type StoreCharm interface {
+	charm.Charm
+	charm.LXDProfiler
+	Version() string
 }
 
 // storeCharmLXDProfiler massages a *charm.CharmArchive into a LXDProfiler
@@ -133,6 +128,6 @@ func (p storeCharmLXDProfiler) LXDProfile() lxdprofile.LXDProfile {
 type Strategy interface {
 	CharmURL() *charm.URL
 	Finish() error
-	Run(corecharm.State, corecharm.JujuVersionValidator) (corecharm.DownloadResult, bool, error)
+	Run(corecharm.State, corecharm.JujuVersionValidator, corecharm.Origin) (corecharm.DownloadResult, bool, corecharm.Origin, error)
 	Validate() error
 }

@@ -9,26 +9,26 @@ import (
 	"strings"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8"
+	charm "github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon.v2"
+	macaroon "gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
-	apicharms "github.com/juju/juju/api/charms"
 	commoncharm "github.com/juju/juju/api/common/charm"
+	apicharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
@@ -118,8 +118,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleSuccess(c *gc.C) {
 	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "xenial")
 
 	c.Check(s.output.String(), gc.Equals, ""+
-		"Resolving charm: cs:mysql-42\n"+
-		"Resolving charm: cs:wordpress-47\n"+
+		"Resolving charm via charmstore: cs:mysql-42\n"+
+		"Resolving charm via charmstore: cs:wordpress-47\n"+
 		"Executing changes:\n"+
 		"- upload charm cs:mysql-42 for series xenial\n"+
 		"- deploy application mysql on xenial using cs:mysql-42\n"+
@@ -226,8 +226,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithInvalidSeriesWithForce
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "bionic")
 	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "precise")
 	c.Check(s.output.String(), gc.Equals, ""+
-		"Resolving charm: cs:mysql-42\n"+
-		"Resolving charm: cs:wordpress-47\n"+
+		"Resolving charm via charmstore: cs:mysql-42\n"+
+		"Resolving charm via charmstore: cs:wordpress-47\n"+
 		"Executing changes:\n"+
 		"- upload charm cs:mysql-42 for series precise\n"+
 		"- deploy application mysql on precise using cs:mysql-42\n"+
@@ -299,8 +299,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployKubernetesBundleSuccess(c *gc.C)
 	s.assertDeployArgsStorage(c, "mariadb", map[string]storage.Constraints{"database": {Pool: "mariadb-pv", Size: 0x14, Count: 0x1}})
 
 	c.Check(s.output.String(), gc.Equals, ""+
-		"Resolving charm: cs:~juju/gitlab-k8s\n"+
-		"Resolving charm: cs:~juju/mariadb-k8s\n"+
+		"Resolving charm via charmstore: cs:~juju/gitlab-k8s\n"+
+		"Resolving charm via charmstore: cs:~juju/mariadb-k8s\n"+
 		"Executing changes:\n"+
 		"- upload charm cs:~juju/gitlab-k8s for series kubernetes\n"+
 		"- deploy application gitlab with 1 unit on kubernetes using cs:~juju/gitlab-k8s\n"+
@@ -367,8 +367,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleStorage(c *gc.C) {
 	s.assertDeployArgsStorage(c, "mysql", map[string]storage.Constraints{"database": {Pool: "mysql-pv", Size: 0x14, Count: 0x1}})
 
 	c.Check(s.output.String(), gc.Equals, ""+
-		"Resolving charm: cs:mysql-42\n"+
-		"Resolving charm: cs:wordpress-47\n"+
+		"Resolving charm via charmstore: cs:mysql-42\n"+
+		"Resolving charm via charmstore: cs:wordpress-47\n"+
 		"Executing changes:\n"+
 		"- upload charm cs:mysql-42 for series bionic\n"+
 		"- deploy application mysql on bionic using cs:mysql-42\n"+
@@ -434,7 +434,11 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleDevices(c *gc.C) {
 
 	spec := s.bundleDeploySpec()
 	spec.bundleDevices = map[string]map[string]devices.Constraints{
-		"bitcoin-miner": {"bitcoinminer": {Count: 10, Type: "nvidia.com/gpu"}},
+		"bitcoin-miner": {
+			"bitcoinminer": {
+				Count: 10, Type: "nvidia.com/gpu",
+			},
+		},
 	}
 	_, err = bundleDeploy(bundleData, spec)
 	c.Assert(err, jc.ErrorIsNil)
@@ -447,8 +451,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleDevices(c *gc.C) {
 	)
 
 	c.Check(s.output.String(), gc.Equals, ""+
-		"Resolving charm: bitcoin-miner\n"+
-		"Resolving charm: dashboard4miner\n"+
+		"Resolving charm via charmstore: cs:bitcoin-miner\n"+
+		"Resolving charm via charmstore: cs:dashboard4miner\n"+
 		"Executing changes:\n"+
 		"- upload charm cs:bitcoin-miner for series kubernetes\n"+
 		"- deploy application bitcoin-miner with 1 unit on kubernetes using cs:bitcoin-miner\n"+
@@ -462,10 +466,10 @@ const kubernetesBitcoinBundle = `
 bundle: kubernetes
 applications:
     dashboard4miner:
-        charm: dashboard4miner
+        charm: cs:dashboard4miner
         num_units: 1
     bitcoin-miner:
-        charm: bitcoin-miner
+        charm: cs:bitcoin-miner
         num_units: 1
         devices:
             bitcoinminer: 1,nvidia.com/gpu
@@ -510,8 +514,8 @@ func (s *BundleDeployCharmStoreSuite) TestDryRunExistingModel(c *gc.C) {
 	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "bionic")
 
 	expectedOutput := "" +
-		"Resolving charm: cs:mysql-42\n" +
-		"Resolving charm: cs:wordpress-47\n" +
+		"Resolving charm via charmstore: cs:mysql-42\n" +
+		"Resolving charm via charmstore: cs:wordpress-47\n" +
 		"Executing changes:\n" +
 		"- upload charm cs:mysql-42 for series bionic\n" +
 		"- deploy application mysql on bionic using cs:mysql-42\n" +
@@ -633,7 +637,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleUnitPlacedToMachines(c *gc
 	_, err = bundleDeploy(bundleData, s.bundleDeploySpec())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(s.output.String(), gc.Equals, ""+
-		"Resolving charm: cs:wordpress-47\n"+
+		"Resolving charm via charmstore: cs:wordpress-47\n"+
 		"Executing changes:\n"+
 		"- upload charm cs:wordpress-47 for series bionic\n"+
 		"- deploy application wp on bionic using cs:wordpress-47\n"+
@@ -685,11 +689,11 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleExpose(c *gc.C) {
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "bionic")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(s.output.String(), gc.Equals, ""+
-		"Resolving charm: cs:wordpress-47\n"+
+		"Resolving charm via charmstore: cs:wordpress-47\n"+
 		"Executing changes:\n"+
 		"- upload charm cs:wordpress-47\n"+
 		"- deploy application wordpress using cs:wordpress-47\n"+
-		"- expose wordpress\n"+
+		"- expose all endpoints of wordpress and allow access from CIDRs 0.0.0.0/0 and ::/0\n"+
 		"- add unit wordpress/0 to new machine 0\n"+
 		"Deploy of bundle completed.\n")
 }
@@ -736,16 +740,16 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMultipleRelations(c *gc.C)
        series: bionic
        applications:
            wordpress:
-               charm: wordpress-47
+               charm: cs:wordpress-47
                num_units: 1
            mysql:
-               charm: mysql-32
+               charm: cs:mysql-32
                num_units: 1
            postgres:
-               charm: xenial/postgres-2
+               charm: cs:xenial/postgres-2
                num_units: 1
            varnish:
-               charm: xenial/varnish
+               charm: cs:xenial/varnish
                num_units: 1
        relations:
            - ["wordpress:db", "mysql:server"]
@@ -760,10 +764,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMultipleRelations(c *gc.C)
 	s.assertDeployArgs(c, varnishCurl.String(), "varnish", "xenial")
 	s.assertDeployArgs(c, pgresCurl.String(), "postgres", "xenial")
 	c.Check(s.output.String(), gc.Equals, ""+
-		"Resolving charm: mysql-32\n"+
-		"Resolving charm: xenial/postgres-2\n"+
-		"Resolving charm: xenial/varnish\n"+
-		"Resolving charm: wordpress-47\n"+
+		"Resolving charm via charmstore: cs:mysql-32\n"+
+		"Resolving charm via charmstore: cs:xenial/postgres-2\n"+
+		"Resolving charm via charmstore: cs:xenial/varnish\n"+
+		"Resolving charm via charmstore: cs:wordpress-47\n"+
 		"Executing changes:\n"+
 		"- upload charm cs:mysql-32 for series bionic\n"+
 		"- deploy application mysql on bionic using cs:mysql-32\n"+
@@ -847,7 +851,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeployment(c *gc.C) {
 
 func (s *BundleDeployCharmStoreSuite) bundleDeploySpec() bundleDeploySpec {
 	deployResourcesFunc := func(_ string,
-		_ charmstore.CharmID,
+		_ resourceadapters.CharmID,
 		_ *macaroon.Macaroon,
 		_ map[string]string,
 		_ map[string]charmresource.Meta,
@@ -1080,7 +1084,7 @@ func (s *BundleDeployCharmStoreSuite) expectDeploy() {
 }
 
 func (s *BundleDeployCharmStoreSuite) expectExpose(app string) {
-	s.deployerAPI.EXPECT().Expose(app).Return(nil)
+	s.deployerAPI.EXPECT().Expose(app, gomock.Any()).Return(nil)
 }
 
 func (s *BundleDeployCharmStoreSuite) expectAddMachine(machine, series string) {

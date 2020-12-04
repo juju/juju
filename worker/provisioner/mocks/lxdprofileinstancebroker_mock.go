@@ -97,20 +97,6 @@ func (mr *MockLXDProfileInstanceBrokerMockRecorder) LXDProfileNames(arg0 interfa
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LXDProfileNames", reflect.TypeOf((*MockLXDProfileInstanceBroker)(nil).LXDProfileNames), arg0)
 }
 
-// MaintainInstance mocks base method
-func (m *MockLXDProfileInstanceBroker) MaintainInstance(arg0 context.ProviderCallContext, arg1 environs.StartInstanceParams) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MaintainInstance", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// MaintainInstance indicates an expected call of MaintainInstance
-func (mr *MockLXDProfileInstanceBrokerMockRecorder) MaintainInstance(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MaintainInstance", reflect.TypeOf((*MockLXDProfileInstanceBroker)(nil).MaintainInstance), arg0, arg1)
-}
-
 // MaybeWriteLXDProfile mocks base method
 func (m *MockLXDProfileInstanceBroker) MaybeWriteLXDProfile(arg0 string, arg1 lxdprofile.Profile) error {
 	m.ctrl.T.Helper()

@@ -19,7 +19,7 @@ import (
 	"github.com/juju/replicaset"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/ssh"
+	"github.com/juju/utils/v2/ssh"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
 
@@ -211,11 +211,6 @@ func (r *RestoreSuite) TestUpdateMongoEntries(c *gc.C) {
 }
 
 func (r *RestoreSuite) TestNewConnection(c *gc.C) {
-	server := &gitjujutesting.MgoInstance{}
-	err := server.Start(coretesting.Certs)
-	c.Assert(err, jc.ErrorIsNil)
-	defer server.DestroyWithLog()
-
 	ctlr := statetesting.InitializeWithArgs(c,
 		statetesting.InitializeArgs{
 			Owner: names.NewLocalUserTag("test-admin"),

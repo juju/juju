@@ -22,23 +22,26 @@ type ClientSuite struct {
 var _ = gc.Suite(&ClientSuite{})
 
 func (s *ClientSuite) TestLiveInfoRequest(c *gc.C) {
-	config := charmhub.CharmHubConfig()
+	config, err := charmhub.CharmHubConfig(&charmhub.FakeLogger{})
+	c.Assert(err, jc.ErrorIsNil)
 
 	client, err := charmhub.NewClient(config)
 	c.Assert(err, jc.ErrorIsNil)
 
-	response, err := client.Info(context.TODO(), "wordpress")
+	response, err := client.Info(context.TODO(), "ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(response.Name, gc.Equals, "wordpress")
+	c.Assert(response.Name, gc.Equals, "ubuntu")
 }
 
 func (s *ClientSuite) TestLiveFindRequest(c *gc.C) {
-	config := charmhub.CharmHubConfig()
+	config, err := charmhub.CharmHubConfig(&charmhub.FakeLogger{})
+	c.Assert(err, jc.ErrorIsNil)
 
 	client, err := charmhub.NewClient(config)
 	c.Assert(err, jc.ErrorIsNil)
 
-	responses, err := client.Find(context.TODO(), "wordpress")
+	responses, err := client.Find(context.TODO(), "ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(responses[0].Name, gc.Equals, "wordpress")
+	c.Assert(len(responses), jc.GreaterThan, 1)
+	c.Assert(responses[0].Name, gc.Equals, "ubuntu")
 }

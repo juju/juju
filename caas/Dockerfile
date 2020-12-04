@@ -16,6 +16,8 @@ RUN apt-get update \
     # below apt dependencies are required by controller pod.
     iproute2 \
     curl \
+    # TODO(new-charms): remove when pebble/initer is complete.
+    openssh-client \
     && pip3 install --upgrade pip setuptools \
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf /root/.cache
@@ -29,10 +31,9 @@ COPY requirements.txt /tmp/wheelhouse/requirements.txt
 RUN pip3 install -r /tmp/wheelhouse/requirements.txt
 
 WORKDIR /var/lib/juju
-# copy Juju executables.
-# in-pod agent binary will be "k8sagent".
-ARG AGENT_BINARY_NAME=jujud
-COPY $AGENT_BINARY_NAME /opt/
+COPY jujud /opt/
 COPY jujuc /opt/
+COPY k8sagent /opt/
+COPY pebble /opt/
 
 ENTRYPOINT ["sh", "-c"]

@@ -85,8 +85,10 @@ func (s *ManifoldsSuite) TestCAASNames(c *gc.C) {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
+		"caas-application-provisioner",
 		"caas-broker-tracker",
-		"caas-firewaller",
+		"caas-firewaller-embedded",
+		"caas-firewaller-legacy",
 		"caas-model-operator",
 		"caas-operator-provisioner",
 		"caas-storage-provisioner",
@@ -218,7 +220,18 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 
 	"caas-broker-tracker": {"agent", "api-caller", "is-responsible-flag"},
 
-	"caas-firewaller": {
+	"caas-firewaller-legacy": {
+		"agent",
+		"api-caller",
+		"caas-broker-tracker",
+		"is-responsible-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag"},
+
+	"caas-firewaller-embedded": {
 		"agent",
 		"api-caller",
 		"caas-broker-tracker",
@@ -237,6 +250,18 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"caas-operator-provisioner": {
+		"agent",
+		"api-caller",
+		"caas-broker-tracker",
+		"clock",
+		"is-responsible-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag"},
+
+	"caas-application-provisioner": {
 		"agent",
 		"api-caller",
 		"caas-broker-tracker",

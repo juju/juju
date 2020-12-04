@@ -5,19 +5,16 @@ package charmhub
 
 import (
 	"context"
+	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
+	"github.com/kr/pretty"
 
 	"github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
-)
-
-const (
-	// DefaultArchitecture defines the architecture for a charm. We currently
-	// only support all. This will change in the future.
-	DefaultArchitecture = "all"
 )
 
 // Action represents the type of refresh is performed.
@@ -34,17 +31,37 @@ const (
 	RefreshAction Action = "refresh"
 )
 
+// RefreshPlatform defines a platform for selecting a specific charm.
+type RefreshPlatform struct {
+	Architecture string
+	OS           string
+	Series       string
+}
+
+func (p RefreshPlatform) String() string {
+	path := p.Architecture
+	if p.Series != "" {
+		if p.OS != "" {
+			path = fmt.Sprintf("%s/%s", path, p.OS)
+		}
+		path = fmt.Sprintf("%s/%s", path, p.Series)
+	}
+	return path
+}
+
 // RefreshClient defines a client for refresh requests.
 type RefreshClient struct {
 	path   path.Path
 	client RESTClient
+	logger Logger
 }
 
 // NewRefreshClient creates a RefreshClient for requesting
-func NewRefreshClient(path path.Path, client RESTClient) *RefreshClient {
+func NewRefreshClient(path path.Path, client RESTClient, logger Logger) *RefreshClient {
 	return &RefreshClient{
 		path:   path,
 		client: client,
+		logger: logger,
 	}
 }
 
@@ -55,29 +72,33 @@ type RefreshConfig interface {
 
 	// Ensure that the request back contains the information we requested.
 	Ensure([]transport.RefreshResponse) error
+
+	// String describes the underlying refresh config.
+	String() string
 }
 
 // Refresh is used to refresh installed charms to a more suitable revision.
 func (c *RefreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]transport.RefreshResponse, error) {
+	c.logger.Tracef("Refresh(%s)", pretty.Sprint(config))
 	req, err := config.Build()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	var resp transport.RefreshResponses
-	if err := c.client.Post(ctx, c.path, req, &resp); err != nil {
+	restResp, err := c.client.Post(ctx, c.path, req, &resp)
+
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	if len(resp.ErrorList) > 0 {
-		var combined []string
-		for _, err := range resp.ErrorList {
-			if err.Message != "" {
-				combined = append(combined, err.Message)
-			}
+	if resultErr := resp.ErrorList.Combine(); resultErr != nil {
+		if restResp.StatusCode == http.StatusNotFound {
+			return nil, errors.NewNotFound(resultErr, "")
 		}
-		return nil, errors.Errorf(strings.Join(combined, "\n"))
+		return nil, errors.Trace(resultErr)
 	}
 
+	c.logger.Tracef("Refresh() unmarshalled: %s", pretty.Sprint(resp.Results))
 	return resp.Results, config.Ensure(resp.Results)
 }
 
@@ -86,15 +107,19 @@ type refreshOne struct {
 	ID       string
 	Revision int
 	Channel  string
-	OS       string
-	Series   string
+	Platform RefreshPlatform
 	// instanceKey is a private unique key that we construct for CharmHub API
 	// asynchronous calls.
 	instanceKey string
 }
 
+func (c refreshOne) String() string {
+	return fmt.Sprintf("Refresh one (instanceKey: %s): using ID %s revision %+v, with channel %s and platform %v",
+		c.instanceKey, c.ID, c.Revision, c.Channel, c.Platform.String())
+}
+
 // RefreshOne creates a request config for requesting only one charm.
-func RefreshOne(id string, revision int, channel, os, series string) (RefreshConfig, error) {
+func RefreshOne(id string, revision int, channel string, platform RefreshPlatform) (RefreshConfig, error) {
 	uuid, err := utils.NewUUID()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -104,8 +129,7 @@ func RefreshOne(id string, revision int, channel, os, series string) (RefreshCon
 		ID:          id,
 		Revision:    revision,
 		Channel:     channel,
-		OS:          os,
-		Series:      series,
+		Platform:    platform,
 	}, nil
 }
 
@@ -117,9 +141,9 @@ func (c refreshOne) Build() (transport.RefreshRequest, error) {
 			ID:          c.ID,
 			Revision:    c.Revision,
 			Platform: transport.RefreshRequestPlatform{
-				OS:           c.OS,
-				Series:       c.Series,
-				Architecture: DefaultArchitecture,
+				OS:           c.Platform.OS,
+				Series:       c.Platform.Series,
+				Architecture: c.Platform.Architecture,
 			},
 			TrackingChannel: c.Channel,
 			// TODO (stickupkid): We need to model the refreshed date. It's
@@ -129,7 +153,7 @@ func (c refreshOne) Build() (transport.RefreshRequest, error) {
 		Actions: []transport.RefreshRequestAction{{
 			Action:      string(RefreshAction),
 			InstanceKey: c.instanceKey,
-			ID:          c.ID,
+			ID:          &c.ID,
 		}},
 	}, nil
 }
@@ -146,36 +170,19 @@ func (c refreshOne) Ensure(responses []transport.RefreshResponse) error {
 
 type executeOne struct {
 	ID       string
+	Name     string
 	Revision *int
 	Channel  *string
-	OS       string
-	Series   string
+	Platform RefreshPlatform
 	// instanceKey is a private unique key that we construct for CharmHub API
 	// asynchronous calls.
 	action      Action
 	instanceKey string
 }
 
-// InstallOne creates a request config for requesting only one charm.
-func InstallOne(id string, revision int, channel, os, series string) (RefreshConfig, error) {
-	uuid, err := utils.NewUUID()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return executeOne{
-		action:      InstallAction,
-		instanceKey: uuid.String(),
-		ID:          id,
-		Revision:    &revision,
-		Channel:     &channel,
-		OS:          os,
-		Series:      series,
-	}, nil
-}
-
 // InstallOneFromRevision creates a request config using the revision and not
 // the channel for requesting only one charm.
-func InstallOneFromRevision(id string, revision int, os, series string) (RefreshConfig, error) {
+func InstallOneFromRevision(name string, revision int, platform RefreshPlatform) (RefreshConfig, error) {
 	uuid, err := utils.NewUUID()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -183,16 +190,15 @@ func InstallOneFromRevision(id string, revision int, os, series string) (Refresh
 	return executeOne{
 		action:      InstallAction,
 		instanceKey: uuid.String(),
-		ID:          id,
+		Name:        name,
 		Revision:    &revision,
-		OS:          os,
-		Series:      series,
+		Platform:    platform,
 	}, nil
 }
 
 // InstallOneFromChannel creates a request config using the channel and not the
 // revision for requesting only one charm.
-func InstallOneFromChannel(id string, channel, os, series string) (RefreshConfig, error) {
+func InstallOneFromChannel(name string, channel string, platform RefreshPlatform) (RefreshConfig, error) {
 	uuid, err := utils.NewUUID()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -200,15 +206,14 @@ func InstallOneFromChannel(id string, channel, os, series string) (RefreshConfig
 	return executeOne{
 		action:      InstallAction,
 		instanceKey: uuid.String(),
-		ID:          id,
+		Name:        name,
 		Channel:     &channel,
-		OS:          os,
-		Series:      series,
+		Platform:    platform,
 	}, nil
 }
 
 // DownloadOne creates a request config for requesting only one charm.
-func DownloadOne(id string, revision int, channel, os, series string) (RefreshConfig, error) {
+func DownloadOne(id string, revision int, channel string, platform RefreshPlatform) (RefreshConfig, error) {
 	uuid, err := utils.NewUUID()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -219,14 +224,13 @@ func DownloadOne(id string, revision int, channel, os, series string) (RefreshCo
 		ID:          id,
 		Revision:    &revision,
 		Channel:     &channel,
-		OS:          os,
-		Series:      series,
+		Platform:    platform,
 	}, nil
 }
 
 // DownloadOneFromRevision creates a request config using the revision and not
 // the channel for requesting only one charm.
-func DownloadOneFromRevision(id string, revision int, os, series string) (RefreshConfig, error) {
+func DownloadOneFromRevision(id string, revision int, platform RefreshPlatform) (RefreshConfig, error) {
 	uuid, err := utils.NewUUID()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -236,14 +240,13 @@ func DownloadOneFromRevision(id string, revision int, os, series string) (Refres
 		instanceKey: uuid.String(),
 		ID:          id,
 		Revision:    &revision,
-		OS:          os,
-		Series:      series,
+		Platform:    platform,
 	}, nil
 }
 
 // DownloadOneFromChannel creates a request config using the channel and not the
 // revision for requesting only one charm.
-func DownloadOneFromChannel(id string, channel, os, series string) (RefreshConfig, error) {
+func DownloadOneFromChannel(name string, channel string, platform RefreshPlatform) (RefreshConfig, error) {
 	uuid, err := utils.NewUUID()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -251,10 +254,9 @@ func DownloadOneFromChannel(id string, channel, os, series string) (RefreshConfi
 	return executeOne{
 		action:      DownloadAction,
 		instanceKey: uuid.String(),
-		ID:          id,
+		Name:        name,
 		Channel:     &channel,
-		OS:          os,
-		Series:      series,
+		Platform:    platform,
 	}, nil
 }
 
@@ -266,13 +268,13 @@ func (c executeOne) Build() (transport.RefreshRequest, error) {
 		Actions: []transport.RefreshRequestAction{{
 			Action:      string(c.action),
 			InstanceKey: c.instanceKey,
-			ID:          c.ID,
+			Name:        &c.Name,
 			Revision:    c.Revision,
 			Channel:     c.Channel,
 			Platform: &transport.RefreshRequestPlatform{
-				OS:           c.OS,
-				Series:       c.Series,
-				Architecture: DefaultArchitecture,
+				OS:           c.Platform.OS,
+				Series:       c.Platform.Series,
+				Architecture: c.Platform.Architecture,
 			},
 		}},
 	}, nil
@@ -286,6 +288,15 @@ func (c executeOne) Ensure(responses []transport.RefreshResponse) error {
 		}
 	}
 	return errors.NotValidf("%v action key", string(c.action))
+}
+
+func (c executeOne) String() string {
+	var channel string
+	if c.Channel != nil {
+		channel = *c.Channel
+	}
+	return fmt.Sprintf("Execute One (action: %s, instanceKey: %s): using Name: %s with revision: %+v, channel %v and platform %s",
+		c.action, c.instanceKey, c.Name, c.Revision, channel, c.Platform)
 }
 
 type refreshMany struct {
@@ -321,4 +332,12 @@ func (c refreshMany) Ensure(responses []transport.RefreshResponse) error {
 		}
 	}
 	return nil
+}
+
+func (c refreshMany) String() string {
+	plans := make([]string, len(c.Configs))
+	for i, config := range c.Configs {
+		plans[i] = config.String()
+	}
+	return strings.Join(plans, "\n")
 }

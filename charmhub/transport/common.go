@@ -6,11 +6,6 @@ package transport
 // The following contains all the common DTOs for a gathering information from
 // a given store.
 
-type ChannelMap struct {
-	Channel  Channel  `json:"channel,omitempty"`
-	Revision Revision `json:"revision,omitempty"`
-}
-
 type Channel struct {
 	Name       string   `json:"name"`
 	Platform   Platform `json:"platform"`
@@ -25,30 +20,22 @@ type Platform struct {
 	Series       string `json:"series"`
 }
 
-type Revision struct {
-	ConfigYAML   string     `json:"config-yaml"`
-	CreatedAt    string     `json:"created-at"`
-	Download     Download   `json:"download"`
-	MetadataYAML string     `json:"metadata-yaml"`
-	Platforms    []Platform `json:"platforms"`
-	Revision     int        `json:"revision"`
-	Version      string     `json:"version"`
-}
-
 type Download struct {
-	HashSHA265 string `json:"hash-sha-265"`
+	HashSHA256 string `json:"hash-sha-256"`
 	Size       int    `json:"size"`
 	URL        string `json:"url"`
 }
 
 type Entity struct {
 	Categories  []Category        `json:"categories"`
+	Charms      []Charm           `json:"contains-charms"`
 	Description string            `json:"description"`
 	License     string            `json:"license"`
 	Media       []Media           `json:"media"`
 	Publisher   map[string]string `json:"publisher"`
 	Summary     string            `json:"summary"`
 	UsedBy      []string          `json:"used-by"`
+	StoreURL    string            `json:"store-url"`
 }
 
 type Category struct {
@@ -61,4 +48,10 @@ type Media struct {
 	URL    string `json:"url"`
 	Width  int    `json:"width,omitempty"`
 	Height int    `json:"height,omitempty"`
+}
+
+type Charm struct {
+	Name      string `json:"name"`
+	PackageID string `json:"package-id"`
+	StoreURL  string `json:"store-url"`
 }

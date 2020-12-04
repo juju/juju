@@ -22,17 +22,18 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2"
+	"github.com/juju/os/v2/series"
 	"github.com/juju/pubsub"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"github.com/juju/version"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lease"
@@ -489,15 +490,6 @@ func (st *State) EnsureModelRemoved() error {
 		return errors.New(errMessage)
 	}
 	return nil
-}
-
-// getTxnLogCollection returns the raw mongodb txns collection, which is
-// needed to interact with the state/watcher package.
-func (st *State) getTxnLogCollection() *mgo.Collection {
-	if st.Ping() != nil {
-		st.session.Refresh()
-	}
-	return st.session.DB(jujuDB).C(txnLogC)
 }
 
 // newDB returns a database connection using a new session, along with
@@ -1041,12 +1033,21 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// TODO(embedded): handle systems
 	if err := validateCharmSeries(model.Type(), args.Series, args.Charm); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	// CAAS charms don't support volume/block storage yet.
-	if model.Type() == ModelTypeCAAS {
+	switch model.Type() {
+	case ModelTypeIAAS:
+		// CAAS doesn't support architecture in every scenario.
+		args.Constraints, err = st.deriveApplicationConstraints(args.Constraints, args.Charm.Meta().Subordinate)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+	case ModelTypeCAAS:
+		// CAAS charms don't support volume/block storage yet.
 		for name, charmStorage := range args.Charm.Meta().Storage {
 			if storageKind(charmStorage.Type) != storage.StorageKindBlock {
 				continue
@@ -1111,10 +1112,12 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	}
 
 	// Perform model specific arg processing.
-	scale := 0
-	placement := ""
-	hasResources := false
-	var operatorStatusDoc *statusDoc
+	var (
+		scale             int
+		placement         string
+		hasResources      bool
+		operatorStatusDoc *statusDoc
+	)
 	nowNano := st.clock().Now().UnixNano()
 	switch model.Type() {
 	case ModelTypeIAAS:
@@ -1229,7 +1232,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 			storage:           args.Storage,
 			devices:           args.Devices,
 			applicationConfig: appConfigAttrs,
-			charmConfig:       map[string]interface{}(args.CharmConfig),
+			charmConfig:       args.CharmConfig,
 		})
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -1291,6 +1294,28 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	return nil, errors.Trace(err)
 }
 
+func (st *State) deriveApplicationConstraints(cons constraints.Value, subordinate bool) (constraints.Value, error) {
+	if subordinate {
+		return cons, nil
+	}
+
+	result := cons
+	if !cons.HasArch() {
+		modelConstraints, err := st.ModelConstraints()
+		if err != nil {
+			return constraints.Value{}, errors.Trace(err)
+		}
+
+		if modelConstraints.HasArch() {
+			result.Arch = modelConstraints.Arch
+		} else {
+			a := arch.DefaultArchitecture
+			result.Arch = &a
+		}
+	}
+	return result, nil
+}
+
 func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) error {
 	if args.Series == "" {
 		// args.Series is not set, so use the series in the URL.
@@ -1311,9 +1336,10 @@ func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) err
 		if series := args.Charm.URL().Series; series != "" {
 			supportedSeries = []string{series}
 		} else {
-			supportedSeries = args.Charm.Meta().Series
+			supportedSeries = args.Charm.Meta().ComputedSeries()
 		}
 		if len(supportedSeries) > 0 {
+			// TODO(embedded): handle computed series
 			seriesOS, err := series.GetOSFromSeries(args.Series)
 			if err != nil {
 				return errors.Trace(err)
@@ -2022,7 +2048,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				if !ep.ImplementedBy(ch) {
 					return nil, errors.Errorf("%q does not implement %q", ep.ApplicationName, ep)
 				}
-				charmSeries := ch.Meta().Series
+				charmSeries := ch.Meta().ComputedSeries()
 				if len(charmSeries) == 0 {
 					charmSeries = []string{localApp.doc.Series}
 				}
@@ -2307,9 +2333,6 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 	return errors.Errorf("unknown unit assignment policy: %q", policy)
 }
 
-type hasStartSync interface {
-	StartSync()
-}
 type hasAdvance interface {
 	Advance(time.Duration)
 }
@@ -2325,9 +2348,6 @@ func (st *State) StartSync() {
 		// The state testing StateSuite type changes the polling interval
 		// of the pool's txnwatcher to be one second.
 		advanceable.Advance(time.Second)
-	}
-	if syncable, ok := st.workers.txnLogWatcher().(hasStartSync); ok {
-		syncable.StartSync()
 	}
 }
 

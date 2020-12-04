@@ -5,7 +5,6 @@ package agent
 
 import (
 	"fmt"
-
 	"io/ioutil"
 	"path/filepath"
 	"reflect"
@@ -15,9 +14,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	"github.com/juju/worker/v2"
 	gc "gopkg.in/check.v1"
@@ -119,11 +116,7 @@ func (s *commonMachineSuite) TearDownTest(c *gc.C) {
 // machine agent's directory.  It returns the new machine, the
 // agent's configuration and the tools currently running.
 func (s *commonMachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
-	vers := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	vers := coretesting.CurrentVersion(c)
 	return s.primeAgentVersion(c, vers, jobs...)
 }
 

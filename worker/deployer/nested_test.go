@@ -176,8 +176,10 @@ func (s *NestedContextSuite) TestDeployUnit(c *gc.C) {
 }
 
 func (s *NestedContextSuite) TestRecallUnit(c *gc.C) {
-	ctx := s.newContext(c)
 	unitName := "something/0"
+	tag := names.NewUnitTag(unitName)
+	s.config.RebootMonitorStatePurger = &fakeRebootMonitor{c: c, tag: tag}
+	ctx := s.newContext(c)
 	err := ctx.DeployUnit(unitName, "password")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -188,7 +190,7 @@ func (s *NestedContextSuite) TestRecallUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Unit agent dir no longer exists.
-	unitAgentDir := agent.Dir(s.agent.DataDir(), names.NewUnitTag(unitName))
+	unitAgentDir := agent.Dir(s.agent.DataDir(), tag)
 	c.Assert(unitAgentDir, jc.DoesNotExist)
 
 	// Unit written into the config value as deployed units.
@@ -439,4 +441,14 @@ func (s *NestedContextSuite) TestReport(c *gc.C) {
 
 type fakeClock struct {
 	clock.Clock
+}
+
+type fakeRebootMonitor struct {
+	c   *gc.C
+	tag names.UnitTag
+}
+
+func (m *fakeRebootMonitor) PurgeState(tag names.Tag) error {
+	m.c.Assert(tag.String(), gc.Equals, m.tag.String())
+	return nil
 }

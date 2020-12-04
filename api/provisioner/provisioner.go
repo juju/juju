@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/tools"
 )
 
-// State provides access to the Machiner API facade.
+// State provides access to the Provisioner API facade.
 type State struct {
 	*common.ModelWatcher
 	*common.APIAddresser
@@ -135,16 +135,6 @@ func (st *State) WatchMachineErrorRetry() (watcher.NotifyWatcher, error) {
 	}
 	w := apiwatcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
 	return w, nil
-}
-
-// StateAddresses returns the list of addresses used to connect to the state.
-func (st *State) StateAddresses() ([]string, error) {
-	var result params.StringsResult
-	err := st.facade.FacadeCall("StateAddresses", nil, &result)
-	if err != nil {
-		return nil, err
-	}
-	return result.Result, nil
 }
 
 // ContainerManagerConfig returns information from the model config that is
@@ -399,4 +389,15 @@ func (st *State) GetContainerProfileInfo(containerTag names.MachineTag) ([]*LXDP
 		})
 	}
 	return res, nil
+}
+
+// ModelUUID returns the model UUID to connect to the model
+// that the current connection is for.
+func (a *State) ModelUUID() (string, error) {
+	var result params.StringResult
+	err := a.facade.FacadeCall("ModelUUID", nil, &result)
+	if err != nil {
+		return "", err
+	}
+	return result.Result, nil
 }

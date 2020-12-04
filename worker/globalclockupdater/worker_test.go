@@ -43,7 +43,6 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		},
 		LocalClock:     s.localClock,
 		UpdateInterval: time.Second,
-		BackoffDelay:   time.Minute,
 		Logger:         loggo.GetLogger("globalclockupdater_test"),
 	}
 }
@@ -61,11 +60,6 @@ func (s *WorkerSuite) TestNewWorkerValidateLocalClock(c *gc.C) {
 func (s *WorkerSuite) TestNewWorkerValidateUpdateInterval(c *gc.C) {
 	s.config.UpdateInterval = 0
 	s.testNewWorkerValidateConfig(c, "validating config: non-positive UpdateInterval not valid")
-}
-
-func (s *WorkerSuite) TestNewWorkerValidateBackoffDelay(c *gc.C) {
-	s.config.BackoffDelay = -1
-	s.testNewWorkerValidateConfig(c, "validating config: non-positive BackoffDelay not valid")
 }
 
 func (s *WorkerSuite) testNewWorkerValidateConfig(c *gc.C, expect string) {
@@ -113,40 +107,6 @@ func (s *WorkerSuite) TestWorkerUpdatesOnInterval(c *gc.C) {
 	}
 }
 
-func (s *WorkerSuite) TestWorkerBackoffOnConcurrentUpdate(c *gc.C) {
-	worker, err := globalclockupdater.NewWorker(s.config)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(worker, gc.NotNil)
-	defer workertest.CleanKill(c, worker)
-
-	s.updater.SetErrors(errors.Annotate(globalclock.ErrConcurrentUpdate, "context info"))
-
-	waitAdvance(c, s.localClock, time.Second)
-	select {
-	case d := <-s.updater.added:
-		c.Assert(d, gc.Equals, time.Second)
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for update")
-	}
-
-	// The worker should be waiting for the backoff delay
-	// before attempting another update.
-	waitAdvance(c, s.localClock, time.Second)
-	select {
-	case <-s.updater.added:
-		c.Fatal("unexpected update")
-	case <-time.After(coretesting.ShortWait):
-	}
-
-	waitAdvance(c, s.localClock, 59*time.Second)
-	select {
-	case d := <-s.updater.added:
-		c.Assert(d, gc.Equals, time.Minute)
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for update")
-	}
-}
-
 func (s *WorkerSuite) TestWorkerHandlesTimeout(c *gc.C) {
 	// At startup there's a time where the updater might return
 	// timeouts - we should handle this cleanly.
@@ -164,8 +124,34 @@ func (s *WorkerSuite) TestWorkerHandlesTimeout(c *gc.C) {
 		c.Fatal("timed out waiting for update")
 	}
 
-	// The worker should try again next time, adding the total missed
-	// time.
+	// The worker should try again next time,
+	// adding the total missed time.
+	waitAdvance(c, s.localClock, time.Second)
+	select {
+	case d := <-s.updater.added:
+		c.Assert(d, gc.Equals, 2*time.Second)
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for update")
+	}
+}
+
+func (s *WorkerSuite) TestWorkerHandlesOutOfSync(c *gc.C) {
+	worker, err := globalclockupdater.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, worker)
+
+	s.updater.SetErrors(errors.Annotate(globalclock.ErrOutOfSyncUpdate, "some context"))
+
+	waitAdvance(c, s.localClock, time.Second)
+	select {
+	case d := <-s.updater.added:
+		c.Assert(d, gc.Equals, time.Second)
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for update")
+	}
+
+	// The worker should try again next time,
+	// adding the total missed time.
 	waitAdvance(c, s.localClock, time.Second)
 	select {
 	case d := <-s.updater.added:
@@ -184,7 +170,7 @@ func (s *WorkerSuite) TestWorkerUpdateErrorStopsWorker(c *gc.C) {
 	s.updater.SetErrors(errors.New("burp"))
 	waitAdvance(c, s.localClock, time.Second)
 	err = workertest.CheckKilled(c, worker)
-	c.Assert(err, gc.ErrorMatches, "updating global clock: burp")
+	c.Assert(err, gc.ErrorMatches, "updating lease clock: burp")
 }
 
 type stubUpdater struct {

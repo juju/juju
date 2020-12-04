@@ -22,12 +22,12 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	jujuos "github.com/juju/os"
-	"github.com/juju/os/series"
+	jujuos "github.com/juju/os/v2"
+	"github.com/juju/os/v2/series"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -41,8 +41,8 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/dashboard"
 	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/gui"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
@@ -59,6 +59,7 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/provider/openstack"
+	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -106,7 +107,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	// override this.
 	s.PatchValue(&jujuversion.Current, v100p64.Number)
 	s.PatchValue(&arch.HostArch, func() string { return v100p64.Arch })
-	s.PatchValue(&series.MustHostSeries, func() string { return v100p64.Series })
+	s.PatchValue(&series.HostSeries, func() (string, error) { return v100p64.Series, nil })
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 
 	// Set up a local source with tools.
@@ -152,17 +153,17 @@ func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 }
 
 // bootstrapCommandWrapper wraps the bootstrap command. The wrapped command has
-// the ability to disable fetching GUI information from simplestreams, so that
+// the ability to disable fetching Dashboard information from simplestreams, so that
 // it is possible to test the bootstrap process without connecting to the
-// network. This ability can be turned on by setting disableGUI to true.
+// network. This ability can be turned on by setting disableDashboard to true.
 type bootstrapCommandWrapper struct {
 	bootstrapCommand
-	disableGUI bool
+	disableDashboard bool
 }
 
 func (c *bootstrapCommandWrapper) Run(ctx *cmd.Context) error {
-	if c.disableGUI {
-		c.bootstrapCommand.noGUI = true
+	if c.disableDashboard {
+		c.bootstrapCommand.noDashboard = true
 	}
 	return c.bootstrapCommand.Run(ctx)
 }
@@ -171,10 +172,10 @@ func (s *BootstrapSuite) newBootstrapCommand() cmd.Command {
 	return s.newBootstrapCommandWrapper(true)
 }
 
-func (s *BootstrapSuite) newBootstrapCommandWrapper(disableGUI bool) cmd.Command {
+func (s *BootstrapSuite) newBootstrapCommandWrapper(disableDashboard bool) cmd.Command {
 	c := &bootstrapCommandWrapper{
 		bootstrapCommand: s.bootstrapCmd,
-		disableGUI:       disableGUI,
+		disableDashboard: disableDashboard,
 	}
 	c.SetClientStore(s.store)
 	return modelcmd.Wrap(c)
@@ -191,7 +192,7 @@ func (s *BootstrapSuite) TestRunTests(c *gc.C) {
 // defaultSupportedJujuSeries is used to return canned information about what
 // juju supports in terms of the release cycle
 // see juju/os and documentation https://www.ubuntu.com/about/release-cycle
-var defaultSupportedJujuSeries = set.NewStrings("bionic", "xenial", "trusty", jujutesting.KubernetesSeriesName)
+var defaultSupportedJujuSeries = set.NewStrings("focal", "bionic", "xenial", "trusty", jujutesting.KubernetesSeriesName)
 
 type bootstrapTest struct {
 	info string
@@ -214,7 +215,7 @@ type bootstrapTest struct {
 
 func (s *BootstrapSuite) patchVersionAndSeries(c *gc.C, hostSeries string) {
 	resetJujuXDGDataHome(c)
-	s.PatchValue(&series.MustHostSeries, func() string { return hostSeries })
+	s.PatchValue(&series.HostSeries, func() (string, error) { return hostSeries, nil })
 	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
 		return set.NewStrings(hostSeries).Union(defaultSupportedJujuSeries), nil
 	})
@@ -246,7 +247,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 		bootstrapVersion = version.MustParseBinary(useVersion)
 		restore = restore.Add(testing.PatchValue(&jujuversion.Current, bootstrapVersion.Number))
 		restore = restore.Add(testing.PatchValue(&arch.HostArch, func() string { return bootstrapVersion.Arch }))
-		restore = restore.Add(testing.PatchValue(&series.MustHostSeries, func() string { return bootstrapVersion.Series }))
+		restore = restore.Add(testing.PatchValue(&series.HostSeries, func() (string, error) { return bootstrapVersion.Series, nil }))
 		bootstrapVersion.Build = 1
 		if test.upload != "" {
 			uploadVers := version.MustParseBinary(test.upload)
@@ -469,6 +470,14 @@ var bootstrapTests = []bootstrapTest{{
 	info: "resource-group-name needs --no-default-model",
 	args: []string{"--config", "resource-group-name=foo"},
 	err:  `if using resource-group-name "foo" then --no-default-model is required as well`,
+}, {
+	info: "missing storage pool name",
+	args: []string{"--storage-pool", "type=ebs"},
+	err:  `storage pool requires a name`,
+}, {
+	info: "missing storage pool type",
+	args: []string{"--storage-pool", "name=test"},
+	err:  `storage pool requires a type`,
 }}
 
 func (s *BootstrapSuite) TestRunCloudNameUnknown(c *gc.C) {
@@ -780,23 +789,23 @@ func (s *BootstrapSuite) TestBootstrapAttributesInheritedOverDefaults(c *gc.C) {
 	bootstrapCmd := bootstrapCommand{}
 	ctx := cmdtesting.Context(c)
 
-	// The OpenStack provider has a default of "use-floating-ip": false, so we
+	// The OpenStack provider has a default of "use-default-secgroup": false, so we
 	// use that to test against.
 	env := &openstack.Environ{}
 	provider := env.Provider()
 
-	// First test that use-floating-ip defaults to false
+	// First test that use-default-secgroup defaults to false
 	testCloud, err := cloud.CloudByName("dummy-cloud")
 	c.Assert(err, jc.ErrorIsNil)
 
-	key := "use-floating-ip"
+	key := "use-default-secgroup"
 	checkConfigs(c, bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
 		"bootstrapModelConfig":     {key: false},
 		"inheritedControllerAttrs": {},
 		"userConfigAttrs":          {},
 	})
 
-	// Second test that use-floating-ip in the cloud config overwrites the
+	// Second test that use-default-secgroup in the cloud config overwrites the
 	// provider default of false with true
 	testCloud, err = cloud.CloudByName("dummy-cloud-with-config")
 	c.Assert(err, jc.ErrorIsNil)
@@ -865,25 +874,25 @@ func (s *BootstrapSuite) TestBootstrapAttributesCLIOverDefaults(c *gc.C) {
 
 	ctx := cmdtesting.Context(c)
 
-	// The OpenStack provider has a default of "use-floating-ip": false, so we
+	// The OpenStack provider has a default of "use-default-secgroup": false, so we
 	// use that to test against.
 	env := &openstack.Environ{}
 	provider := env.Provider()
 
-	// First test that use-floating-ip defaults to false
+	// First test that use-default-secgroup defaults to false
 	testCloud, err := cloud.CloudByName("dummy-cloud")
 	c.Assert(err, jc.ErrorIsNil)
 
-	key := "use-floating-ip"
+	key := "use-default-secgroup"
 	checkConfigs(c, s.bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
 		"bootstrapModelConfig":     {key: false},
 		"inheritedControllerAttrs": {},
 		"userConfigAttrs":          {},
 	})
 
-	// Second test that use-floating-ip passed on the command line overwrites the
+	// Second test that use-default-secgroup passed on the command line overwrites the
 	// provider default of false with true
-	s.bootstrapCmd.config.Set("use-floating-ip=true")
+	s.bootstrapCmd.config.Set("use-default-secgroup=true")
 	checkConfigs(c, s.bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
 		"bootstrapModelConfig":     {key: true},
 		"inheritedControllerAttrs": {},
@@ -899,27 +908,27 @@ func (s *BootstrapSuite) TestBootstrapAttributesCLIOverInherited(c *gc.C) {
 
 	ctx := cmdtesting.Context(c)
 
-	// The OpenStack provider has a default of "use-floating-ip": false, so we
+	// The OpenStack provider has a default of "use-default-secgroup": false, so we
 	// use that to test against.
 	env := &openstack.Environ{}
 	provider := env.Provider()
 
-	// First test that use-floating-ip defaults to false
+	// First test that use-default-secgroup defaults to false
 	testCloud, err := cloud.CloudByName("dummy-cloud")
 	c.Assert(err, jc.ErrorIsNil)
 
-	key := "use-floating-ip"
+	key := "use-default-secgroup"
 	checkConfigs(c, s.bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
 		"bootstrapModelConfig":     {key: false},
 		"inheritedControllerAttrs": {},
 		"userConfigAttrs":          {},
 	})
 
-	// Second test that use-floating-ip passed on the command line overwrites the
+	// Second test that use-default-secgroup passed on the command line overwrites the
 	// inherited attribute
 	testCloud, err = cloud.CloudByName("dummy-cloud-with-config")
 	c.Assert(err, jc.ErrorIsNil)
-	s.bootstrapCmd.config.Set("use-floating-ip=false")
+	s.bootstrapCmd.config.Set("use-default-secgroup=false")
 	checkConfigs(c, s.bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
 		"bootstrapModelConfig":     {key: false},
 		"inheritedControllerAttrs": {key: true},
@@ -927,7 +936,50 @@ func (s *BootstrapSuite) TestBootstrapAttributesCLIOverInherited(c *gc.C) {
 	})
 }
 
-func (s *BootstrapSuite) TestBootstrapWithGUI(c *gc.C) {
+func (s *BootstrapSuite) TestBootstrapWithStoragePool(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+
+	var bootstrapFuncs fakeBootstrapFuncs
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrapFuncs
+	})
+
+	cmdtesting.RunCommand(
+		c, s.newBootstrapCommand(),
+		"dummy", "devcontroller",
+		"--storage-pool", "name=test",
+		"--storage-pool", "type=loop",
+		"--storage-pool", "foo=bar",
+	)
+
+	c.Assert(bootstrapFuncs.args.StoragePools, jc.DeepEquals, map[string]storage.Attrs{
+		"test": {
+			"name": "test",
+			"type": "loop",
+			"foo":  "bar",
+		},
+	})
+}
+
+func (s *BootstrapSuite) TestBootstrapWithInvalidStoragePool(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+
+	var bootstrapFuncs fakeBootstrapFuncs
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrapFuncs
+	})
+
+	_, err := cmdtesting.RunCommand(
+		c, s.newBootstrapCommand(),
+		"dummy", "devcontroller",
+		"--storage-pool", "name=test",
+		"--storage-pool", "type=invalid",
+		"--storage-pool", "foo=bar",
+	)
+	c.Assert(err, gc.ErrorMatches, `invalid storage provider config: storage provider "invalid" not found`)
+}
+
+func (s *BootstrapSuite) TestBootstrapWithDashboard(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 	var bootstrapFuncs fakeBootstrapFuncs
 
@@ -935,12 +987,12 @@ func (s *BootstrapSuite) TestBootstrapWithGUI(c *gc.C) {
 		return &bootstrapFuncs
 	})
 	cmdtesting.RunCommand(c, s.newBootstrapCommandWrapper(false), "dummy", "devcontroller")
-	c.Assert(bootstrapFuncs.args.GUIDataSourceBaseURL, gc.Equals, gui.DefaultBaseURL)
+	c.Assert(bootstrapFuncs.args.DashboardDataSourceBaseURL, gc.Equals, dashboard.DefaultBaseURL)
 }
 
-func (s *BootstrapSuite) TestBootstrapWithCustomizedGUI(c *gc.C) {
+func (s *BootstrapSuite) TestBootstrapWithCustomizedDashboard(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
-	s.PatchEnvironment("JUJU_GUI_SIMPLESTREAMS_URL", "https://1.2.3.4/gui/streams")
+	s.PatchEnvironment("JUJU_DASHBOARD_SIMPLESTREAMS_URL", "https://1.2.3.4/dashboard/streams")
 
 	var bootstrapFuncs fakeBootstrapFuncs
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
@@ -948,18 +1000,18 @@ func (s *BootstrapSuite) TestBootstrapWithCustomizedGUI(c *gc.C) {
 	})
 
 	cmdtesting.RunCommand(c, s.newBootstrapCommandWrapper(false), "dummy", "devcontroller")
-	c.Assert(bootstrapFuncs.args.GUIDataSourceBaseURL, gc.Equals, "https://1.2.3.4/gui/streams")
+	c.Assert(bootstrapFuncs.args.DashboardDataSourceBaseURL, gc.Equals, "https://1.2.3.4/dashboard/streams")
 }
 
-func (s *BootstrapSuite) TestBootstrapWithoutGUI(c *gc.C) {
+func (s *BootstrapSuite) TestBootstrapWithoutDashboard(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 	var bootstrapFuncs fakeBootstrapFuncs
 
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
 		return &bootstrapFuncs
 	})
-	cmdtesting.RunCommand(c, s.newBootstrapCommandWrapper(false), "dummy", "devcontroller", "--no-gui")
-	c.Assert(bootstrapFuncs.args.GUIDataSourceBaseURL, gc.Equals, "")
+	cmdtesting.RunCommand(c, s.newBootstrapCommandWrapper(false), "dummy", "devcontroller", "--no-dashboard")
+	c.Assert(bootstrapFuncs.args.DashboardDataSourceBaseURL, gc.Equals, "")
 }
 
 type mockBootstrapInstance struct {
@@ -992,7 +1044,10 @@ func (s *BootstrapSuite) TestBootstrapPropagatesStoreErrors(c *gc.C) {
 	store.SetErrors(errors.New("oh noes"))
 	command := &bootstrapCommand{}
 	command.SetClientStore(store)
-	wrapped := modelcmd.Wrap(command, modelcmd.WrapSkipModelFlags, modelcmd.WrapSkipDefaultModel)
+	wrapped := modelcmd.Wrap(command,
+		modelcmd.WrapSkipModelFlags,
+		modelcmd.WrapSkipDefaultModel,
+	)
 	_, err := cmdtesting.RunCommand(c, wrapped, "dummy", controllerName, "--auto-upgrade")
 	store.CheckCallNames(c, "CredentialForCloud")
 	c.Assert(err, gc.ErrorMatches, `loading credentials: oh noes`)
@@ -1167,9 +1222,10 @@ func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
 			"Looking for packaged Juju agent version 1.2.0 for amd64\n"+
 			"No packaged binary found, preparing local Juju agent binary\n",
 	)
-	c.Check(s.tw.Log(), jc.LogMatches, []jc.SimpleMessage{
-		{loggo.ERROR, "failed to bootstrap model: cannot package bootstrap agent binary: no agent binaries for you"},
-	})
+	c.Check(s.tw.Log(), jc.LogMatches, []jc.SimpleMessage{{
+		Level:   loggo.ERROR,
+		Message: "failed to bootstrap model: cannot package bootstrap agent binary: no agent binaries for you",
+	}})
 }
 
 // createImageMetadata creates some image metadata in a local directory.
@@ -1334,7 +1390,7 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, ser string) {
 	// Set the current version to be something for which there are no tools
 	// so we can test that an upload is forced.
 	s.PatchValue(&jujuversion.Current, version.MustParse(vers))
-	s.PatchValue(&series.MustHostSeries, func() string { return ser })
+	s.PatchValue(&series.HostSeries, func() (string, error) { return ser, nil })
 	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
 		return set.NewStrings(ser).Union(defaultSupportedJujuSeries), nil
 	})
@@ -1930,9 +1986,7 @@ azure
 azure-china                                   
 cloudsigma                                    
 google                                        
-joyent                                        
 oracle                                        
-oracle-classic                                
 rackspace                                     \n?(localhost\s+)?(microk8s\s+)?
 dummy-cloud                      joe          home
 dummy-cloud-dummy-region-config               
@@ -1969,7 +2023,7 @@ func (s *BootstrapSuite) TestBootstrapPrintCloudsInvalidCredential(c *gc.C) {
 
 	command := &bootstrapCommandWrapper{
 		bootstrapCommand: s.bootstrapCmd,
-		disableGUI:       true,
+		disableDashboard: true,
 	}
 	command.SetClientStore(store)
 
@@ -1994,9 +2048,7 @@ azure
 azure-china                                   
 cloudsigma                                    
 google                                        
-joyent                                        
 oracle                                        
-oracle-classic                                
 rackspace                                     \n?(localhost\s+)?(microk8s\s+)?
 dummy-cloud-dummy-region-config               
 dummy-cloud-with-config                       
@@ -2033,6 +2085,8 @@ eu-west-2
 eu-west-3
 eu-central-1
 eu-north-1
+eu-south-1
+af-south-1
 ap-east-1
 ap-south-1
 ap-southeast-1
@@ -2049,7 +2103,7 @@ func (s *BootstrapSuite) TestBootstrapInvalidRegion(c *gc.C) {
 	resetJujuXDGDataHome(c)
 	ctx, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "aws/eu-west")
 	c.Assert(err, gc.ErrorMatches, `region "eu-west" for cloud "aws" not valid`)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Available cloud regions are ap-east-1, ap-northeast-1, ap-northeast-2, ap-northeast-3, ap-south-1, ap-southeast-1, ap-southeast-2, ca-central-1, eu-central-1, eu-north-1, eu-west-1, eu-west-2, eu-west-3, me-south-1, sa-east-1, us-east-1, us-east-2, us-west-1, us-west-2\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Available cloud regions are af-south-1, ap-east-1, ap-northeast-1, ap-northeast-2, ap-northeast-3, ap-south-1, ap-southeast-1, ap-southeast-2, ca-central-1, eu-central-1, eu-north-1, eu-south-1, eu-west-1, eu-west-2, eu-west-3, me-south-1, sa-east-1, us-east-1, us-east-2, us-west-1, us-west-2\n")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, ``)
 }
 
@@ -2209,7 +2263,7 @@ clouds:
         config:
             broken: Bootstrap
             controller: not-a-bool
-            use-floating-ip: true
+            use-default-secgroup: true
     many-credentials-no-auth-types:
         type: many-credentials
 `[1:]), 0644)

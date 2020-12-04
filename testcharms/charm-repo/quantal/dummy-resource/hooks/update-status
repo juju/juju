@@ -1,6 +1,6 @@
 #!/bin/bash
 
-RES_NAME="upload-resource"
+RES_NAME="dummy"
 RES_PATH=$(2>&1 resource-get $RES_NAME)
 if [ $? -ne 0 ]; then
     RES_GET_STDERR=$RES_PATH

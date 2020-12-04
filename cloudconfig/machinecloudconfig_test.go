@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/loggo"
-	utilsseries "github.com/juju/os/series"
+	utilsseries "github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -28,7 +28,7 @@ type fromHostSuite struct {
 var _ = gc.Suite(&fromHostSuite{})
 
 func (s *fromHostSuite) SetUpTest(c *gc.C) {
-	s.PatchValue(&utilsseries.MustHostSeries, func() string { return "xenial" })
+	s.PatchValue(&utilsseries.HostSeries, func() (string, error) { return "xenial", nil })
 
 	// Pre-seed /etc/cloud/cloud.cfg.d replacement for testing
 	s.tempCloudCfgDir = c.MkDir() // will clean up
@@ -112,7 +112,7 @@ var cloudinitDataVerifyTests = []cloudinitDataVerifyTest{
 func (s *fromHostSuite) TestGetMachineCloudInitDataVerifySeries(c *gc.C) {
 	for i, test := range cloudinitDataVerifyTests {
 		c.Logf("Test %d of %d: %s", i, len(cloudinitDataVerifyTests), test.description)
-		s.PatchValue(&utilsseries.MustHostSeries, func() string { return test.machineSeries })
+		s.PatchValue(&utilsseries.HostSeries, func() (string, error) { return test.machineSeries, nil })
 		obtained, err := s.newMachineInitReader(test.containerSeries).GetInitConfig()
 		c.Assert(err, gc.IsNil)
 		if test.result != nil {
@@ -189,7 +189,7 @@ func (s *fromHostSuite) TestCloudConfigVersionNoContainerInheritProperties(c *gc
 }
 
 func (s *fromHostSuite) TestCloudConfigVersionV077(c *gc.C) {
-	s.PatchValue(&utilsseries.MustHostSeries, func() string { return "trusty" })
+	s.PatchValue(&utilsseries.HostSeries, func() (string, error) { return "trusty", nil })
 	seedData(c, s.tempCloudCfgDir, "90_dpkg_local_cloud_config.cfg", dpkgLocalCloudConfigLegacy)
 
 	reader := s.newMachineInitReader("trusty")
@@ -215,7 +215,7 @@ func (s *fromHostSuite) TestCloudConfigVersionNoContainerInheritPropertiesLegacy
 }
 
 func (s *fromHostSuite) TestCurtinConfigAptProperties(c *gc.C) {
-	s.PatchValue(&utilsseries.MustHostSeries, func() string { return "bionic" })
+	s.PatchValue(&utilsseries.HostSeries, func() (string, error) { return "bionic", nil })
 
 	// Seed the curtin install config as for MAAS 2.5+
 	curtinDir := c.MkDir()

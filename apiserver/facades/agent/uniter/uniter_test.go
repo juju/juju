@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
@@ -30,6 +30,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/kubernetes/provider"
+	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/leadership"
@@ -106,6 +108,7 @@ func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
 
 	s.leadershipChecker = &fakeLeadershipChecker{false}
 	s.uniter = s.newUniterAPI(c, s.State, s.authorizer)
+	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 }
 
 // setupState creates 2 machines, 2 services and adds a unit to each service.
@@ -630,7 +633,7 @@ func (s *uniterSuite) TestNetworkInfoSpaceless(c *gc.C) {
 
 	args := params.NetworkInfoParams{
 		Unit:      s.wordpressUnit.Tag().String(),
-		Endpoints: []string{"db"},
+		Endpoints: []string{"db", "juju-info"},
 	}
 
 	privateAddress, err := s.machine0.PrivateAddress()
@@ -652,7 +655,8 @@ func (s *uniterSuite) TestNetworkInfoSpaceless(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, jc.DeepEquals, params.NetworkInfoResults{
 		Results: map[string]params.NetworkInfoResult{
-			"db": expectedInfo,
+			"db":        expectedInfo,
+			"juju-info": expectedInfo,
 		},
 	})
 }
@@ -3624,6 +3628,7 @@ func (s *uniterSuite) TestRelationEgressSubnets(c *gc.C) {
 	// Check model attributes are overridden by setting up a value.
 	err := s.Model.UpdateModelConfig(map[string]interface{}{"egress-subnets": "192.168.0.0/16"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
+
 	egress := state.NewRelationEgressNetworks(s.State)
 	_, err = egress.Save(relTag.Id(), false, []string{"10.0.0.0/16", "10.1.2.0/8"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3632,6 +3637,7 @@ func (s *uniterSuite) TestRelationEgressSubnets(c *gc.C) {
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: relTag.String(), Unit: "unit-mysql-0"},
 	}}
+
 	result, err := thisUniter.EnterScope(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
@@ -4239,9 +4245,13 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 func (s *uniterNetworkConfigSuite) addProvisionedMachineWithDevicesAndAddresses(c *gc.C, addrSuffix int) *state.Machine {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	devicesArgs, devicesAddrs := s.makeMachineDevicesAndAddressesArgs(addrSuffix)
-	err = machine.SetInstanceInfo("i-am", "", "fake_nonce", nil, devicesArgs, devicesAddrs, nil, nil, nil)
+
+	err = machine.SetInstanceInfo("i-am", "", "fake_nonce", nil, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
+
+	devicesArgs, devicesAddrs := s.makeMachineDevicesAndAddressesArgs(addrSuffix)
+	c.Assert(machine.SetLinkLayerDevices(devicesArgs...), jc.ErrorIsNil)
+	c.Assert(machine.SetDevicesAddresses(devicesAddrs...), jc.ErrorIsNil)
 
 	machineAddrs, err := machine.AllAddresses()
 	c.Assert(err, jc.ErrorIsNil)
@@ -4413,6 +4423,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.uniterSuiteBase.JujuConnSuite.SetUpTest(c)
+	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 
 	net := map[string][]string{
 		"public":     {"8.8.0.0/16", "1.0.0.0/12"},
@@ -4491,9 +4502,12 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 func (s *uniterNetworkInfoSuite) addProvisionedMachineWithDevicesAndAddresses(c *gc.C, addrSuffix int) *state.Machine {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	devicesArgs, devicesAddrs := s.makeMachineDevicesAndAddressesArgs(addrSuffix)
-	err = machine.SetInstanceInfo("i-am", "", "fake_nonce", nil, devicesArgs, devicesAddrs, nil, nil, nil)
+	err = machine.SetInstanceInfo("i-am", "", "fake_nonce", nil, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
+
+	devicesArgs, devicesAddrs := s.makeMachineDevicesAndAddressesArgs(addrSuffix)
+	c.Assert(machine.SetLinkLayerDevices(devicesArgs...), jc.ErrorIsNil)
+	c.Assert(machine.SetDevicesAddresses(devicesAddrs...), jc.ErrorIsNil)
 
 	machineAddrs, err := machine.AllAddresses()
 	c.Assert(err, jc.ErrorIsNil)
@@ -4632,7 +4646,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoPermissions(c *gc.C) {
 				Results: map[string]params.NetworkInfoResult{
 					"unknown": {
 						Error: &params.Error{
-							Message: `binding name "unknown" not defined by the unit's charm`,
+							Message: `undefined for unit charm: endpoint "unknown" not valid`,
 						},
 					},
 				},

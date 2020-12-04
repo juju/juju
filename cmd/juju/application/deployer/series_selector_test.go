@@ -5,7 +5,7 @@ package deployer
 
 import (
 	"github.com/juju/collections/set"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
@@ -101,12 +101,12 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 			expectedSeries: "bionic",
 		},
 		{
-			title: "juju deploy simple --force   # no default series, no supported series, use LTS (bionic)",
+			title: "juju deploy simple --force   # no default series, no supported series, use LTS (focal)",
 			seriesSelector: seriesSelector{
 				force: true,
 				conf:  defaultSeries{},
 			},
-			expectedSeries: "bionic",
+			expectedSeries: "focal",
 		},
 
 		// Now charms with supported series.

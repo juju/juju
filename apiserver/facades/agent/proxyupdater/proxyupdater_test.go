@@ -51,7 +51,7 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 	s.state.SetUp(c)
 	s.AddCleanup(func(_ *gc.C) { s.state.Kill() })
 
-	api, err := proxyupdater.NewAPIBase(s.state, s.resources, s.authorizer)
+	api, err := proxyupdater.NewAPIBase(s.state, s.state, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api, gc.NotNil)
 	s.facade = &proxyupdater.APIv2{api}

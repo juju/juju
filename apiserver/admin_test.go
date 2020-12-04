@@ -19,7 +19,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v2/bakery"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
@@ -47,6 +47,7 @@ import (
 	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type baseLoginSuite struct {
@@ -95,8 +96,9 @@ func (s *loginSuite) TestLoginWithInvalidTag(c *gc.C) {
 	st := s.openAPIWithoutLogin(c, info)
 
 	request := &params.LoginRequest{
-		AuthTag:     "bar",
-		Credentials: "password",
+		AuthTag:       "bar",
+		Credentials:   "password",
+		ClientVersion: jujuversion.Current.String(),
 	}
 
 	var response params.LoginResult
@@ -656,7 +658,8 @@ func (s *loginSuite) TestAnonymousControllerLogin(c *gc.C) {
 
 	var result params.LoginResult
 	request := &params.LoginRequest{
-		AuthTag: names.NewUserTag(api.AnonymousUsername).String(),
+		AuthTag:       names.NewUserTag(api.AnonymousUsername).String(),
+		ClientVersion: jujuversion.Current.String(),
 	}
 	err := conn.APICall("Admin", 3, "", "Login", request, &result)
 	c.Assert(err, jc.ErrorIsNil)
@@ -912,8 +915,9 @@ func (s *loginSuite) loginLocalUser(c *gc.C, info *api.Info) (*state.User, param
 
 	var result params.LoginResult
 	request := &params.LoginRequest{
-		AuthTag:     user.Tag().String(),
-		Credentials: password,
+		AuthTag:       user.Tag().String(),
+		Credentials:   password,
+		ClientVersion: jujuversion.Current.String(),
 	}
 	err := conn.APICall("Admin", 3, "", "Login", request, &result)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1020,9 +1024,10 @@ func (s *loginSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
 
 	var result params.LoginResult
 	request := &params.LoginRequest{
-		AuthTag:     user.Tag().String(),
-		Credentials: password,
-		CLIArgs:     "hey you guys",
+		AuthTag:       user.Tag().String(),
+		Credentials:   password,
+		CLIArgs:       "hey you guys",
+		ClientVersion: jujuversion.Current.String(),
 	}
 	err := conn.APICall("Admin", 3, "", "Login", request, &result)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1088,9 +1093,10 @@ func (s *loginSuite) TestAuditLoggingFailureOnInterestingRequest(c *gc.C) {
 
 	var result params.LoginResult
 	request := &params.LoginRequest{
-		AuthTag:     user.Tag().String(),
-		Credentials: password,
-		CLIArgs:     "hey you guys",
+		AuthTag:       user.Tag().String(),
+		Credentials:   password,
+		CLIArgs:       "hey you guys",
+		ClientVersion: jujuversion.Current.String(),
 	}
 	err := conn.APICall("Admin", 3, "", "Login", request, &result)
 	// No error yet since logging the conversation is deferred until
@@ -1126,9 +1132,10 @@ func (s *loginSuite) TestAuditLoggingUsesExcludeMethods(c *gc.C) {
 
 	var result params.LoginResult
 	request := &params.LoginRequest{
-		AuthTag:     user.Tag().String(),
-		Credentials: password,
-		CLIArgs:     "hey you guys",
+		AuthTag:       user.Tag().String(),
+		Credentials:   password,
+		CLIArgs:       "hey you guys",
+		ClientVersion: jujuversion.Current.String(),
 	}
 	err := conn.APICall("Admin", 3, "", "Login", request, &result)
 	c.Assert(err, jc.ErrorIsNil)

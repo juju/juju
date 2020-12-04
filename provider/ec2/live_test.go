@@ -10,9 +10,9 @@ import (
 	"os"
 
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 	amzec2 "gopkg.in/amz.v3/ec2"
 	gc "gopkg.in/check.v1"
 
@@ -27,7 +27,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/ec2"
 	coretesting "github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/version"
 )
 
 // uniqueName is generated afresh for every test run, so that
@@ -83,9 +83,9 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.UploadArches = []string{arch.AMD64, arch.I386}
 	t.BaseSuite.SetUpSuite(c)
 	t.LiveTests.SetUpSuite(c)
-	t.BaseSuite.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+	t.BaseSuite.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	t.BaseSuite.PatchValue(&series.MustHostSeries, func() string { return series.DefaultSupportedLTS() })
+	t.BaseSuite.PatchValue(&series.HostSeries, func() (string, error) { return version.DefaultSupportedLTS(), nil })
 	// Use the real ec2 session if we are running with real creds.
 	accessKey := os.Getenv("AWS_ACCESS_KEY_ID")
 	if accessKey == "" {

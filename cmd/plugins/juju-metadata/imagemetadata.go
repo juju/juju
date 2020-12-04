@@ -11,8 +11,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/os/series"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 
 	"github.com/juju/juju/caas"
 	jujucmd "github.com/juju/juju/cmd"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/version"
 )
 
 func prepare(context *cmd.Context, controllerName string, store jujuclient.ClientStore) (environs.Environ, error) {
@@ -157,7 +157,7 @@ func (c *imageMetadataCommand) setParams(context *cmd.Context) error {
 		logger.Infof("no model found, creating image metadata using user supplied data")
 	}
 	if c.Series == "" {
-		c.Series = series.DefaultSupportedLTS()
+		c.Series = version.DefaultSupportedLTS()
 	}
 	if c.ImageId == "" {
 		return errors.Errorf("image id must be specified")

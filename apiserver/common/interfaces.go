@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/core/container"
 )
 
 // AuthFunc returns whether the given entity is available to some operation.
@@ -112,7 +112,7 @@ func AuthFuncForMachineAgent(authorizer Authorizer) GetAuthFunc {
 
 			switch tag := tag.(type) {
 			case names.MachineTag:
-				parentId := state.ParentId(tag.Id())
+				parentId := container.ParentId(tag.Id())
 				if parentId == "" {
 					// All top-level machines are accessible by the controller.
 					return isModelManager

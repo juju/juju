@@ -16,6 +16,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/mongo"
 )
@@ -278,21 +279,17 @@ func (st *State) apiHostPortsForCAAS(public bool) (addresses []network.SpaceHost
 		logger.Debugf("getting api hostports for CAAS: public %t, addresses %v", public, addresses)
 	}()
 
-	// We are fetching info about the controller cloud service,
-	// so need the controller state.
-	ctrlSt, err := st.newStateNoWorkers(st.ControllerModelUUID())
-	if err != nil {
-		return nil, errors.Trace(err)
+	if st.modelUUID() != st.controllerModelTag.Id() {
+		return nil, errors.Errorf("CAAS API host ports only available on the controller model, not %q", st.modelUUID())
 	}
-	defer func() { _ = ctrlSt.Close() }()
 
-	controllerConfig, err := ctrlSt.ControllerConfig()
+	controllerConfig, err := st.ControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	apiPort := controllerConfig.APIPort()
-	svc, err := ctrlSt.CloudService(controllerConfig.ControllerUUID())
+	svc, err := st.CloudService(controllerConfig.ControllerUUID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -310,23 +307,36 @@ func (st *State) apiHostPortsForCAAS(public bool) (addresses []network.SpaceHost
 		return addrsToHostPorts(publicAddrs...), nil
 	}
 
+	var hostAddresses network.SpaceAddresses
+	// Add in the FQDN of the controller service for agents to use as an option.
+	controllerName := controllerConfig.ControllerName()
+	if controllerName != "" {
+		hostAddresses = append(
+			hostAddresses, network.NewScopedSpaceAddress(
+				fmt.Sprintf(k8sprovider.ControllerServiceFQDNTemplate, controllerName),
+				network.ScopeCloudLocal,
+			))
+	}
+
 	// TODO(wallyworld) - for now, return all addresses for agents to try, public last.
 
 	// If we are after local-cloud addresses and those were all that public
 	// matching turned up, just return those.
 	if len(publicAddrs) > 0 && publicAddrs[0].Scope == network.ScopeCloudLocal {
-		return addrsToHostPorts(publicAddrs...), nil
+		return addrsToHostPorts(append(hostAddresses, publicAddrs...)...), nil
 	}
 
 	localAddrs := addrs.AllMatchingScope(network.ScopeMatchCloudLocal)
 
 	// If there were no local-cloud addresses, return the public ones.
 	if len(localAddrs) == 0 || localAddrs[0].Scope == network.ScopePublic {
-		return addrsToHostPorts(publicAddrs...), nil
+		return addrsToHostPorts(append(hostAddresses, publicAddrs...)...), nil
 	}
 
 	// Otherwise return everything, local-cloud first.
-	return addrsToHostPorts(append(localAddrs, publicAddrs...)...), nil
+	hostAddresses = append(hostAddresses, localAddrs...)
+	hostAddresses = append(hostAddresses, publicAddrs...)
+	return addrsToHostPorts(hostAddresses...), nil
 }
 
 // apiHostPortsForKey returns API addresses extracted from the document

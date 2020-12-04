@@ -12,8 +12,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
-	"github.com/juju/utils"
+	"github.com/juju/os/v2/series"
+	"github.com/juju/utils/v2"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/agent"
@@ -141,6 +141,7 @@ func InitializeState(
 			StorageProviderRegistry: args.StorageProviderRegistry,
 			EnvironVersion:          args.ControllerModelEnvironVersion,
 		},
+		StoragePools:              args.StoragePools,
 		Cloud:                     args.ControllerCloud,
 		CloudCredentials:          cloudCreds,
 		ControllerConfig:          args.ControllerConfig,
@@ -499,10 +500,10 @@ func initControllerCloudService(
 		return errors.Annotate(err, "getting environ")
 	}
 
-	broker, ok := env.(caas.ServiceGetterSetter)
+	broker, ok := env.(caas.ServiceManager)
 	if !ok {
 		// this should never happen.
-		return errors.Errorf("environ %T does not implement ServiceGetterSetter interface", env)
+		return errors.Errorf("environ %T does not implement ServiceManager interface", env)
 	}
 	svc, err := broker.GetService(k8sprovider.JujuControllerStackName, caas.ModeWorkload, true)
 	if err != nil {

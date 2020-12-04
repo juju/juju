@@ -11,8 +11,8 @@ import (
 	api "github.com/juju/juju/api"
 	application "github.com/juju/juju/api/application"
 	base "github.com/juju/juju/api/base"
-	charms "github.com/juju/juju/api/charms"
 	charm0 "github.com/juju/juju/api/common/charm"
+	charms "github.com/juju/juju/api/common/charms"
 	params "github.com/juju/juju/apiserver/params"
 	constraints "github.com/juju/juju/core/constraints"
 	crossmodel "github.com/juju/juju/core/crossmodel"
@@ -194,6 +194,20 @@ func (mr *MockDeployerAPIMockRecorder) CharmInfo(arg0 interface{}) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmInfo", reflect.TypeOf((*MockDeployerAPI)(nil).CharmInfo), arg0)
 }
 
+// CheckCharmPlacement mocks base method
+func (m *MockDeployerAPI) CheckCharmPlacement(arg0 string, arg1 *charm.URL) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckCharmPlacement", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CheckCharmPlacement indicates an expected call of CheckCharmPlacement
+func (mr *MockDeployerAPIMockRecorder) CheckCharmPlacement(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckCharmPlacement", reflect.TypeOf((*MockDeployerAPI)(nil).CheckCharmPlacement), arg0, arg1)
+}
+
 // Close mocks base method
 func (m *MockDeployerAPI) Close() error {
 	m.ctrl.T.Helper()
@@ -282,17 +296,17 @@ func (mr *MockDeployerAPIMockRecorder) Deploy(arg0 interface{}) *gomock.Call {
 }
 
 // Expose mocks base method
-func (m *MockDeployerAPI) Expose(arg0 string) error {
+func (m *MockDeployerAPI) Expose(arg0 string, arg1 map[string]params.ExposedEndpoint) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Expose", arg0)
+	ret := m.ctrl.Call(m, "Expose", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Expose indicates an expected call of Expose
-func (mr *MockDeployerAPIMockRecorder) Expose(arg0 interface{}) *gomock.Call {
+func (mr *MockDeployerAPIMockRecorder) Expose(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Expose", reflect.TypeOf((*MockDeployerAPI)(nil).Expose), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Expose", reflect.TypeOf((*MockDeployerAPI)(nil).Expose), arg0, arg1)
 }
 
 // GetAnnotations mocks base method
@@ -308,6 +322,22 @@ func (m *MockDeployerAPI) GetAnnotations(arg0 []string) ([]params.AnnotationsGet
 func (mr *MockDeployerAPIMockRecorder) GetAnnotations(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAnnotations", reflect.TypeOf((*MockDeployerAPI)(nil).GetAnnotations), arg0)
+}
+
+// GetCharmURLOrigin mocks base method
+func (m *MockDeployerAPI) GetCharmURLOrigin(arg0, arg1 string) (*charm.URL, charm0.Origin, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCharmURLOrigin", arg0, arg1)
+	ret0, _ := ret[0].(*charm.URL)
+	ret1, _ := ret[1].(charm0.Origin)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetCharmURLOrigin indicates an expected call of GetCharmURLOrigin
+func (mr *MockDeployerAPIMockRecorder) GetCharmURLOrigin(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmURLOrigin", reflect.TypeOf((*MockDeployerAPI)(nil).GetCharmURLOrigin), arg0, arg1)
 }
 
 // GetConfig mocks base method
@@ -515,6 +545,20 @@ func (m *MockDeployerAPI) SetCharm(arg0 string, arg1 application.SetCharmConfig)
 func (mr *MockDeployerAPIMockRecorder) SetCharm(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharm", reflect.TypeOf((*MockDeployerAPI)(nil).SetCharm), arg0, arg1)
+}
+
+// SetConfig mocks base method
+func (m *MockDeployerAPI) SetConfig(arg0, arg1, arg2 string, arg3 map[string]string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetConfig", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetConfig indicates an expected call of SetConfig
+func (mr *MockDeployerAPIMockRecorder) SetConfig(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetConfig", reflect.TypeOf((*MockDeployerAPI)(nil).SetConfig), arg0, arg1, arg2, arg3)
 }
 
 // SetConstraints mocks base method

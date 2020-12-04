@@ -14,8 +14,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
@@ -506,7 +506,14 @@ func (s *MigrationImportSuite) setupSourceApplications(
 		Charm: testCharm,
 		CharmOrigin: &state.CharmOrigin{
 			Source:   testCharm.URL().Schema,
+			Type:     "charm",
 			Revision: &testCharm.URL().Revision,
+			Channel: &state.Channel{
+				Risk: "edge",
+			},
+			Platform: &state.Platform{
+				Architecture: "amd64",
+			},
 		},
 		CharmConfig: map[string]interface{}{
 			"foo": "bar",
@@ -526,7 +533,7 @@ func (s *MigrationImportSuite) setupSourceApplications(
 	err = application.SetMetricCredentials([]byte("sekrit"))
 	c.Assert(err, jc.ErrorIsNil)
 	// Expose the application.
-	err = application.SetExposed(map[string]state.ExposedEndpoint{
+	err = application.MergeExposeSettings(map[string]state.ExposedEndpoint{
 		"admin": {
 			ExposeToSpaceIDs: exposedSpaceIDs,
 			ExposeToCIDRs:    []string{"13.37.0.0/16"},
@@ -2216,7 +2223,7 @@ func (s *MigrationImportSuite) TestStoragePools(c *gc.C) {
 	pool := pools[0]
 	c.Assert(pool.Name(), gc.Equals, "test-pool")
 	c.Assert(pool.Provider(), gc.Equals, provider.LoopProviderType)
-	c.Assert(pool.Attrs(), jc.DeepEquals, map[string]interface{}{
+	c.Assert(pool.Attrs(), jc.DeepEquals, storage.Attrs{
 		"value": 42,
 	})
 }

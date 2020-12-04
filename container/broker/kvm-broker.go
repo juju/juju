@@ -152,11 +152,6 @@ func (broker *kvmBroker) StartInstance(ctx context.ProviderCallContext, args env
 	}, nil
 }
 
-// MaintainInstance is a no-op.
-func (broker *kvmBroker) MaintainInstance(_ context.ProviderCallContext, _ environs.StartInstanceParams) error {
-	return nil
-}
-
 // StopInstances shuts down the given instances.
 func (broker *kvmBroker) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
 	// TODO: potentially parallelise.

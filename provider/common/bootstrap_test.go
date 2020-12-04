@@ -15,11 +15,11 @@ import (
 
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
-	"github.com/juju/utils/ssh"
+	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v2/ssh"
 	"github.com/juju/version"
 	cryptossh "golang.org/x/crypto/ssh"
 	gc "gopkg.in/check.v1"
@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/common"
+	corestorage "github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -79,7 +80,7 @@ func newStorage(suite cleaner, c *gc.C) storage.Storage {
 }
 
 func minimalConfig(c *gc.C) *config.Config {
-	return minimalConfigWithSeries(c, series.DefaultSupportedLTS())
+	return minimalConfigWithSeries(c, jujuversion.DefaultSupportedLTS())
 }
 
 func minimalConfigWithSeries(c *gc.C, series string) *config.Config {
@@ -169,7 +170,7 @@ func (s *BootstrapSuite) TestBootstrapSeries(c *gc.C) {
 		config:        fakeMinimalConfig(c),
 	}
 	ctx := envtesting.BootstrapContext(c)
-	bootstrapSeries := series.DefaultSupportedLTS()
+	bootstrapSeries := jujuversion.DefaultSupportedLTS()
 	availableTools := fakeAvailableTools()
 	availableTools[0].Version.Series = bootstrapSeries
 	result, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
@@ -221,7 +222,7 @@ func (s *BootstrapSuite) TestBootstrapFallbackSeries(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
-	c.Check(result.Series, gc.Equals, series.DefaultSupportedLTS())
+	c.Check(result.Series, gc.Equals, jujuversion.DefaultSupportedLTS())
 }
 
 func (s *BootstrapSuite) TestBootstrapSeriesWithForce(c *gc.C) {
@@ -502,6 +503,45 @@ func (s *BootstrapSuite) TestStartInstanceNoUsableZones(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot start bootstrap instance: no usable availability zones`)
 }
 
+func (s *BootstrapSuite) TestStartInstanceRootDisk(c *gc.C) {
+	startInstance := func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
+		instances.Instance,
+		*instance.HardwareCharacteristics,
+		network.InterfaceInfos,
+		error,
+	) {
+		c.Assert(args.RootDisk, jc.DeepEquals, &corestorage.VolumeParams{
+			Provider: "dummy",
+			Attributes: map[string]interface{}{
+				"type": "dummy",
+				"foo":  "bar",
+			},
+		})
+		hw := instance.MustParseHardware("arch=ppc64el")
+		return &mockInstance{}, &hw, nil, nil
+	}
+	env := &mockEnviron{
+		startInstance: startInstance,
+		config:        fakeMinimalConfig(c),
+	}
+	ctx := envtesting.BootstrapContext(c)
+	availableTools := fakeAvailableTools()
+	result, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
+		ControllerConfig:         coretesting.FakeControllerConfig(),
+		AvailableTools:           availableTools,
+		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+		BootstrapConstraints:     constraints.MustParse("root-disk-source=spool"),
+		StoragePools: map[string]corestorage.Attrs{
+			"spool": {
+				"type": "dummy",
+				"foo":  "bar",
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Arch, gc.Equals, "ppc64el")
+}
+
 func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	stor := newStorage(s, c)
@@ -612,7 +652,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 
 func (s *BootstrapSuite) TestBootstrapFinalizeCloudInitUserData(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
-	s.PatchValue(&series.MustHostSeries, func() string { return "xenial" })
+	s.PatchValue(&series.HostSeries, func() (string, error) { return "xenial", nil })
 	checkHardware := instance.MustParseHardware("arch=ppc64el mem=2T")
 
 	var innerInstanceConfig *instancecfg.InstanceConfig
@@ -642,7 +682,7 @@ func (s *BootstrapSuite) TestBootstrapFinalizeCloudInitUserData(c *gc.C) {
 		},
 	}
 	ctx := envtesting.BootstrapContext(c)
-	bootstrapSeries := series.DefaultSupportedLTS()
+	bootstrapSeries := jujuversion.DefaultSupportedLTS()
 	availableTools := fakeAvailableTools()
 	availableTools[0].Version.Series = bootstrapSeries
 	result, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
@@ -928,7 +968,7 @@ func fakeAvailableTools() tools.List {
 			Version: version.Binary{
 				Number: jujuversion.Current,
 				Arch:   arch.HostArch(),
-				Series: series.DefaultSupportedLTS(),
+				Series: jujuversion.DefaultSupportedLTS(),
 			},
 		},
 	}

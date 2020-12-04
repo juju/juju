@@ -218,6 +218,8 @@ def parse_args():
                               help="Path/URL to a .snap file that will be used as the MongoDB instance under test (Only relevant for webscale_deploy test)")
     pass_through.add_argument("--db-asserts-path",
                               help="Path/URL to a .assert file that will be used as the MongoDB instance under test (Only relevant for webscale_deploy test)")
+    pass_through.add_argument("--db-snap-channel",
+                              help="snap track/channel to use for installing MongoDB instance under test (Only relevant for webscale_deploy test)")
     pass_through.add_argument("--mongo-memory-profile",
                               help="Name of a the memory profile to set MongoDB to (Only relevant for webscale_deploy test)",
                               choices=["low", "default"], default="default")
@@ -459,14 +461,7 @@ def main():
             args.juju,
         ]
     elif assess == "container_networking":
-        machine_types = {
-            'kvm': 'KVM_MACHINE',
-            'lxc': 'LXC_MACHINE',
-            'lxd': 'LXD_MACHINE',
-        }
-        machine_type = machine_types[args.machine_type]
-        testrun_argv.extend(["--machine-type", machine_type])
-
+        testrun_argv.extend(["--machine-type", args.machine_type])
         if args.space_constraint:
             testrun_argv.extend(["--space-constraint", args.space_constraint])
     elif assess == "constraints":
@@ -487,7 +482,7 @@ def main():
         if args.logging_module:
             testrun_argv.extend(["--logging-module", args.logging_module])
         if args.reporting_uri:
-            testrun_argv.extend(["--reporting-uri"])
+            testrun_argv.extend(["--reporting-uri", args.reporting_uri])
         if args.report_git_sha:
             testrun_argv.extend(["--git-sha", args.report_git_sha])
         if args.report_juju_version:
@@ -497,6 +492,8 @@ def main():
         if args.db_asserts_path:
             testrun_argv.extend(["--db-asserts-path", args.db_asserts_path])
         testrun_argv.extend(["--mongo-memory-profile", args.mongo_memory_profile])
+        if args.db_snap_channel:
+            testrun_argv.extend(["--db-snap-channel", args.db_snap_channel])
         if args.mongo_server_side_txns:
             testrun_argv.extend(["--with-mongo-server-side-txns", "true"])
     elif assess == "log_rotation":

@@ -5,6 +5,7 @@ package provider
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/errors"
 	apps "k8s.io/api/apps/v1"
@@ -13,39 +14,39 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	k8sstorage "github.com/juju/juju/caas/kubernetes/provider/storage"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/caas/specs"
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/storage"
 )
 
-func (k *kubernetesClient) getStatefulSetLabels(appName string) map[string]string {
-	return map[string]string{
-		constants.LabelApplication: appName,
-	}
-}
-
+// https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#update-strategies
 func updateStrategyForStatefulSet(strategy specs.UpdateStrategy) (o apps.StatefulSetUpdateStrategy, err error) {
-	switch strategyType := apps.StatefulSetUpdateStrategyType(strategy.Type); strategyType {
-	case apps.RollingUpdateStatefulSetStrategyType, apps.OnDeleteStatefulSetStrategyType:
-		if strategy.RollingUpdate == nil {
-			return o, errors.New("rolling update spec is required")
+	strategyType := apps.StatefulSetUpdateStrategyType(strategy.Type)
+
+	o = apps.StatefulSetUpdateStrategy{Type: strategyType}
+	switch strategyType {
+	case apps.OnDeleteStatefulSetStrategyType:
+		if strategy.RollingUpdate != nil {
+			return o, errors.NewNotValid(nil, fmt.Sprintf("rolling update spec is not supported for %q", strategyType))
 		}
-		if strategy.RollingUpdate.MaxSurge != nil || strategy.RollingUpdate.MaxUnavailable != nil {
-			return o, errors.NotValidf("rolling update spec for statefulset")
-		}
-		if strategy.RollingUpdate.Partition == nil {
-			return o, errors.New("rolling update spec partition is missing")
-		}
-		return apps.StatefulSetUpdateStrategy{
-			Type: strategyType,
-			RollingUpdate: &apps.RollingUpdateStatefulSetStrategy{
+	case apps.RollingUpdateStatefulSetStrategyType:
+		if strategy.RollingUpdate != nil {
+			if strategy.RollingUpdate.MaxSurge != nil || strategy.RollingUpdate.MaxUnavailable != nil {
+				return o, errors.NotValidf("rolling update spec for statefulset")
+			}
+			if strategy.RollingUpdate.Partition == nil {
+				return o, errors.New("rolling update spec partition is missing")
+			}
+			o.RollingUpdate = &apps.RollingUpdateStatefulSetStrategy{
 				Partition: strategy.RollingUpdate.Partition,
-			},
-		}, nil
+			}
+		}
 	default:
 		return o, errors.NotValidf("strategy type %q for statefulset", strategyType)
 	}
+	return o, nil
 }
 
 func (k *kubernetesClient) configureStatefulSet(
@@ -66,23 +67,24 @@ func (k *kubernetesClient) configureStatefulSet(
 		return errors.Trace(err)
 	}
 
+	selectorLabels := utils.SelectorLabelsForApp(appName, k.IsLegacyLabels())
 	statefulSet := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   deploymentName,
-			Labels: k.getStatefulSetLabels(appName),
+			Labels: utils.LabelsForApp(appName, k.IsLegacyLabels()),
 			Annotations: k8sannotations.New(nil).
 				Merge(annotations).
-				Add(annotationKeyApplicationUUID, storageUniqueID).ToMap(),
+				Add(utils.AnnotationKeyApplicationUUID(k.IsLegacyLabels()), storageUniqueID).ToMap(),
 		},
 		Spec: apps.StatefulSetSpec{
 			Replicas: replicas,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{constants.LabelApplication: appName},
+				MatchLabels: selectorLabels,
 			},
 			RevisionHistoryLimit: int32Ptr(statefulSetRevisionHistoryLimit),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels:      k.getStatefulSetLabels(appName),
+					Labels:      utils.LabelsMerge(workloadSpec.Pod.Labels, selectorLabels),
 					Annotations: podAnnotations(k8sannotations.New(workloadSpec.Pod.Annotations).Merge(annotations).Copy()).ToMap(),
 				},
 			},
@@ -106,7 +108,7 @@ func (k *kubernetesClient) configureStatefulSet(
 		if readOnly {
 			logger.Warningf("set storage mode to ReadOnlyMany if read only storage is needed")
 		}
-		if err := pushUniqueVolumeClaimTemplate(&statefulSet.Spec, pvc); err != nil {
+		if err := k8sstorage.PushUniqueVolumeClaimTemplate(&statefulSet.Spec, pvc); err != nil {
 			return errors.Trace(err)
 		}
 		podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{
@@ -186,7 +188,7 @@ func (k *kubernetesClient) getStatefulSet(name string) (*apps.StatefulSet, error
 // deleteStatefulSet deletes a statefulset resource.
 func (k *kubernetesClient) deleteStatefulSet(name string) error {
 	err := k.client().AppsV1().StatefulSets(k.namespace).Delete(context.TODO(), name, v1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil
@@ -196,10 +198,11 @@ func (k *kubernetesClient) deleteStatefulSet(name string) error {
 
 // deleteStatefulSet deletes all statefulset resources for an application.
 func (k *kubernetesClient) deleteStatefulSets(appName string) error {
+	labels := utils.LabelsForApp(appName, k.IsLegacyLabels())
 	err := k.client().AppsV1().StatefulSets(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, v1.ListOptions{
-		LabelSelector: utils.LabelSetToSelector(k.getStatefulSetLabels(appName)).String(),
+		LabelSelector: utils.LabelsToSelector(labels).String(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

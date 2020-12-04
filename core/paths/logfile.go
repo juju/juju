@@ -10,7 +10,7 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
-	jujuos "github.com/juju/os"
+	jujuos "github.com/juju/os/v2"
 )
 
 // LogfilePermission is the file mode to use for log files.

@@ -6,6 +6,7 @@ package openstack
 import (
 	"gopkg.in/goose.v2/nova"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 )
@@ -57,7 +58,7 @@ func findInstanceSpec(
 	// for e.g. architectures or virtualisation types.
 	// For these properties, we assume that all instance types support
 	// all values.
-	allInstanceTypes := []instances.InstanceType{}
+	var allInstanceTypes []instances.InstanceType
 	for _, flavor := range flavors {
 		if !e.flavorFilter.AcceptFlavor(flavor) {
 			continue
@@ -82,7 +83,7 @@ func findInstanceSpec(
 	images := instances.ImageMetadataToImages(imageMetadata)
 	spec, err := instances.FindInstanceSpec(images, &ic, allInstanceTypes)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	// If instance constraints did not have a virtualisation type,

@@ -40,16 +40,18 @@ type Logger interface {
 // ManifoldConfig defines the names of the manifolds on which a
 // Manifold will depend.
 type ManifoldConfig struct {
-	AgentName             string
-	ModelType             model.ModelType
-	APICallerName         string
-	MachineLock           machinelock.Lock
-	Clock                 clock.Clock
-	LeadershipTrackerName string
-	CharmDirName          string
-	HookRetryStrategyName string
-	TranslateResolverErr  func(error) error
-	Logger                Logger
+	AgentName                    string
+	ModelType                    model.ModelType
+	APICallerName                string
+	MachineLock                  machinelock.Lock
+	Clock                        clock.Clock
+	LeadershipTrackerName        string
+	CharmDirName                 string
+	HookRetryStrategyName        string
+	TranslateResolverErr         func(error) error
+	Logger                       Logger
+	Embedded                     bool
+	EnforcedCharmModifiedVersion int
 }
 
 // Validate ensures all the required values for the config are set.
@@ -125,23 +127,25 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			uniterFacade := uniter.NewState(apiConn, unitTag)
 			uniter, err := NewUniter(&UniterParams{
-				UniterFacade:          uniterFacade,
-				UnitTag:               unitTag,
-				ModelType:             config.ModelType,
-				LeadershipTrackerFunc: leadershipTrackerFunc,
-				DataDir:               agentConfig.DataDir(),
-				Downloader:            downloader,
-				MachineLock:           manifoldConfig.MachineLock,
-				CharmDirGuard:         charmDirGuard,
-				UpdateStatusSignal:    NewUpdateStatusTimer(),
-				HookRetryStrategy:     hookRetryStrategy,
-				NewOperationExecutor:  operation.NewExecutor,
-				NewDeployer:           charm.NewDeployer,
-				NewProcessRunner:      runner.NewRunner,
-				TranslateResolverErr:  config.TranslateResolverErr,
-				Clock:                 manifoldConfig.Clock,
-				RebootQuerier:         reboot.NewMonitor(agentConfig.TransientDataDir()),
-				Logger:                config.Logger,
+				UniterFacade:                 uniterFacade,
+				UnitTag:                      unitTag,
+				ModelType:                    config.ModelType,
+				LeadershipTrackerFunc:        leadershipTrackerFunc,
+				DataDir:                      agentConfig.DataDir(),
+				Downloader:                   downloader,
+				MachineLock:                  manifoldConfig.MachineLock,
+				CharmDirGuard:                charmDirGuard,
+				UpdateStatusSignal:           NewUpdateStatusTimer(),
+				HookRetryStrategy:            hookRetryStrategy,
+				NewOperationExecutor:         operation.NewExecutor,
+				NewDeployer:                  charm.NewDeployer,
+				NewProcessRunner:             runner.NewRunner,
+				TranslateResolverErr:         config.TranslateResolverErr,
+				Clock:                        manifoldConfig.Clock,
+				RebootQuerier:                reboot.NewMonitor(agentConfig.TransientDataDir()),
+				Logger:                       config.Logger,
+				Embedded:                     config.Embedded,
+				EnforcedCharmModifiedVersion: config.EnforcedCharmModifiedVersion,
 			})
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -149,6 +153,21 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			return uniter, nil
 		},
 	}
+}
+
+func manifoldOutput(in worker.Worker, out interface{}) error {
+	inUniter, ok := in.(*Uniter)
+	if !ok {
+		return errors.Errorf("expected Uniter, got %T", in)
+	}
+
+	switch result := out.(type) {
+	case **Probe:
+		*result = &inUniter.Probe
+	default:
+		return errors.Errorf("unexpected type, got %T", out)
+	}
+	return nil
 }
 
 // TranslateFortressErrors turns errors returned by dependent

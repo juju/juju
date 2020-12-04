@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -1871,4 +1872,120 @@ relations:
 
 	c.Assert(result, gc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
+}
+
+func (s *bundleSuite) TestExportBundleWithExposedEndpointSettings(c *gc.C) {
+	specs := []struct {
+		descr            string
+		exposed          bool
+		exposedEndpoints map[string]description.ExposedEndpointArgs
+		expBundle        string
+	}{
+		{
+			descr:   "exposed application without exposed endpoint settings (upgraded 2.8 controller)",
+			exposed: true,
+			expBundle: `
+series: focal
+applications:
+  magic:
+    charm: cs:focal/magic
+    expose: true
+    bindings:
+      hat: some-space
+      rabbit: alpha
+`[1:],
+		},
+		{
+			descr:   "exposed application where all endpoints are exposed to 0.0.0.0/0",
+			exposed: true,
+			// This is equivalent to having "expose:true" and skipping the exposed settings section from the overlay
+			exposedEndpoints: map[string]description.ExposedEndpointArgs{
+				"": {
+					ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR},
+				},
+			},
+			expBundle: `
+series: focal
+applications:
+  magic:
+    charm: cs:focal/magic
+    expose: true
+    bindings:
+      hat: some-space
+      rabbit: alpha
+`[1:],
+		},
+		{
+			descr:   "exposed application with per-endpoint expose settings",
+			exposed: true,
+			exposedEndpoints: map[string]description.ExposedEndpointArgs{
+				"rabbit": {
+					ExposeToSpaceIDs: []string{"2"},
+					ExposeToCIDRs:    []string{"10.0.0.0/24", "192.168.0.0/24"},
+				},
+				"hat": {
+					ExposeToCIDRs: []string{"192.168.0.0/24"},
+				},
+			},
+			// The exposed:true will be omitted and only the exposed-endpoints section (in the overlay) will be present
+			expBundle: `
+series: focal
+applications:
+  magic:
+    charm: cs:focal/magic
+    bindings:
+      hat: some-space
+      rabbit: alpha
+--- # overlay.yaml
+applications:
+  magic:
+    exposed-endpoints:
+      hat:
+        expose-to-cidrs:
+        - 192.168.0.0/24
+      rabbit:
+        expose-to-spaces:
+        - some-space
+        expose-to-cidrs:
+        - 10.0.0.0/24
+        - 192.168.0.0/24
+`[1:],
+		},
+	}
+
+	for i, spec := range specs {
+		c.Logf("%d. %s", i, spec.descr)
+
+		s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
+			Config: map[string]interface{}{
+				"name": "awesome",
+				"uuid": "some-uuid",
+			},
+			CloudRegion: "some-region"},
+		)
+		s.st.Spaces[network.AlphaSpaceId] = network.AlphaSpaceName
+		s.st.Spaces["2"] = "some-space"
+
+		application := s.st.model.AddApplication(description.ApplicationArgs{
+			Tag:                  names.NewApplicationTag("magic"),
+			Series:               "focal",
+			CharmURL:             "cs:focal/magic",
+			Channel:              "stable",
+			CharmModifiedVersion: 1,
+			ForceCharm:           true,
+			Exposed:              spec.exposed,
+			ExposedEndpoints:     spec.exposedEndpoints,
+			EndpointBindings: map[string]string{
+				"hat":    "2",
+				"rabbit": "0",
+			},
+		})
+		application.SetStatus(minimalStatusArgs())
+
+		result, err := s.facade.ExportBundle()
+		c.Assert(err, jc.ErrorIsNil)
+
+		exp := params.StringResult{Result: spec.expBundle}
+		c.Assert(result, gc.Equals, exp)
+	}
 }

@@ -1065,7 +1065,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkProviderIDGoesToEthernetDev(
 		addresses:        []networkingcommon.LinkLayerAddress{},
 	})
 
-	_, err := s.api.SetProviderNetworkConfig(params.SetProviderNetworkConfig{
+	result, err := s.api.SetProviderNetworkConfig(params.SetProviderNetworkConfig{
 		Args: []params.ProviderNetworkConfig{
 			{
 				Tag: "machine-1",
@@ -1081,6 +1081,78 @@ func (s *InstancePollerSuite) TestSetProviderNetworkProviderIDGoesToEthernetDev(
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+
+	var buildCalled bool
+	for _, call := range s.st.Calls() {
+		if call.FuncName == "ApplyOperation.Build" {
+			buildCalled = true
+		}
+	}
+	c.Assert(buildCalled, jc.IsTrue)
+}
+
+func (s *InstancePollerSuite) TestSetProviderNetworkProviderIDMultipleRefsError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.setDefaultSpaceInfo()
+
+	ethDev := mocks.NewMockLinkLayerDevice(ctrl)
+	ethExp := ethDev.EXPECT()
+	ethExp.Name().Return("eth0").MinTimes(1)
+	ethExp.ProviderID().Return(network.Id("")).MinTimes(1)
+	ethExp.SetProviderIDOps(network.Id("p-dev")).Return([]txn.Op{{C: "dev-provider-id"}}, nil)
+
+	brDev := mocks.NewMockLinkLayerDevice(ctrl)
+	brExp := brDev.EXPECT()
+	brExp.Name().Return("br-eth0").AnyTimes()
+	brExp.ProviderID().Return(network.Id("")).MinTimes(1)
+	// Note no calls to SetProviderIDOps.
+
+	s.st.SetMachineInfo(c, machineInfo{
+		id:               "1",
+		instanceStatus:   statusInfo("foo"),
+		linkLayerDevices: []networkingcommon.LinkLayerDevice{ethDev, brDev},
+		addresses:        []networkingcommon.LinkLayerAddress{},
+	})
+
+	// Same provider ID for both.
+	result, err := s.api.SetProviderNetworkConfig(params.SetProviderNetworkConfig{
+		Args: []params.ProviderNetworkConfig{
+			{
+				Tag: "machine-1",
+				Configs: []params.NetworkConfig{
+					{
+						InterfaceName: "eth0",
+						MACAddress:    "aa:00:00:00:00:00",
+						ProviderId:    "p-dev",
+					},
+					{
+						InterfaceName: "br-eth0",
+						MACAddress:    "bb:00:00:00:00:00",
+						ProviderId:    "p-dev",
+					},
+				},
+			},
+		},
+	})
+
+	// The error is logged but not returned.
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+
+	// But we should not have registered a successful call to Build.
+	// This returns an error.
+	var buildCalled bool
+	for _, call := range s.st.Calls() {
+		if call.FuncName == "ApplyOperation.Build" {
+			buildCalled = true
+		}
+	}
+	c.Assert(buildCalled, jc.IsFalse)
 }
 
 func (s *InstancePollerSuite) setDefaultSpaceInfo() {

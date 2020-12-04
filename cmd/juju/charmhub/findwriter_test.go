@@ -6,11 +6,14 @@ package charmhub
 import (
 	"bytes"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
 
-type printFindSuite struct{}
+type printFindSuite struct {
+	testing.IsolationSuite
+}
 
 var _ = gc.Suite(&printFindSuite{})
 
@@ -23,9 +26,9 @@ func (s *printFindSuite) TestCharmPrintFind(c *gc.C) {
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `
-Name       Bundle  Version  Supports              Publisher          Summary
-wordpress  -       1.0.3    bionic                Wordress Charmers  WordPress is a full featured web blogging tool, this charm deploys it.
-osm        Y       3.2.3    bionic,xenial,trusty  charmed-osm        Single instance OSM bundle.
+Name       Bundle  Version  Architectures  Supports              Publisher          Summary
+wordpress  -       1.0.3    all            bionic                Wordress Charmers  WordPress is a full featured web blogging tool, this charm deploys it.
+osm        Y       3.2.3    all            bionic,xenial,trusty  charmed-osm        Single instance OSM bundle.
 
 `[1:]
 	c.Assert(obtained, gc.Equals, expected)
@@ -34,6 +37,7 @@ osm        Y       3.2.3    bionic,xenial,trusty  charmed-osm        Single inst
 func (s *printFindSuite) TestCharmPrintFindWithMissingData(c *gc.C) {
 	fr := getCharmFindResponse()
 	fr[0].Version = ""
+	fr[0].Arches = make([]string, 0)
 	fr[0].Series = make([]string, 0)
 	fr[0].Summary = ""
 
@@ -44,9 +48,9 @@ func (s *printFindSuite) TestCharmPrintFindWithMissingData(c *gc.C) {
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `
-Name       Bundle  Version  Supports              Publisher          Summary
-wordpress  -                                      Wordress Charmers  
-osm        Y       3.2.3    bionic,xenial,trusty  charmed-osm        Single instance OSM bundle.
+Name       Bundle  Version  Architectures  Supports              Publisher          Summary
+wordpress  -                                                     Wordress Charmers  
+osm        Y       3.2.3    all            bionic,xenial,trusty  charmed-osm        Single instance OSM bundle.
 
 `[1:]
 	c.Assert(obtained, gc.Equals, expected)
@@ -78,6 +82,7 @@ func getCharmFindResponse() []FindResponse {
 		Publisher: "Wordress Charmers",
 		Summary:   "WordPress is a full featured web blogging tool, this charm deploys it.",
 		Version:   "1.0.3",
+		Arches:    []string{"all"},
 		Series:    []string{"bionic"},
 		StoreURL:  "https://someurl.com/wordpress",
 	}, {
@@ -87,6 +92,7 @@ func getCharmFindResponse() []FindResponse {
 		Publisher: "charmed-osm",
 		Summary:   "Single instance OSM bundle.",
 		Version:   "3.2.3",
+		Arches:    []string{"all"},
 		Series:    []string{"bionic", "xenial", "trusty"},
 		StoreURL:  "https://someurl.com/osm",
 	}}

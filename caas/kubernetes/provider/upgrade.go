@@ -14,7 +14,7 @@ import (
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	appstyped "k8s.io/client-go/kubernetes/typed/apps/v1"
 
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	k8sannotations "github.com/juju/juju/core/annotations"
 )
@@ -30,7 +30,7 @@ func (k *kubernetesClient) Upgrade(agentTag string, vers version.Number) error {
 	switch tag.Kind() {
 	case names.MachineTagKind:
 	case names.ControllerAgentTagKind:
-		return k.upgradeController(tag, vers)
+		return k.upgradeController(vers)
 	case names.ApplicationTagKind:
 		return k.upgradeOperator(tag, vers)
 	case names.ModelTagKind:
@@ -39,7 +39,13 @@ func (k *kubernetesClient) Upgrade(agentTag string, vers version.Number) error {
 	return errors.NotImplementedf("k8s upgrade for agent tag %q", agentTag)
 }
 
-func upgradeDeployment(name, imagePath string, vers version.Number, broker appstyped.DeploymentInterface) error {
+func upgradeDeployment(
+	name,
+	imagePath string,
+	vers version.Number,
+	legacyLabels bool,
+	broker appstyped.DeploymentInterface,
+) error {
 	de, err := broker.Get(context.TODO(), name, meta.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NotFoundf(
@@ -60,11 +66,11 @@ func upgradeDeployment(name, imagePath string, vers version.Number, broker appst
 	// just ensure juju-version to current version for now.
 	de.SetAnnotations(
 		k8sannotations.New(de.GetAnnotations()).
-			Add(constants.LabelVersion, vers.String()).ToMap(),
+			Merge(utils.AnnotationsForVersion(vers.String(), legacyLabels)).ToMap(),
 	)
 	de.Spec.Template.SetAnnotations(
 		k8sannotations.New(de.Spec.Template.GetAnnotations()).
-			Add(constants.LabelVersion, vers.String()).ToMap(),
+			Merge(utils.AnnotationsForVersion(vers.String(), legacyLabels)).ToMap(),
 	)
 
 	if _, err := broker.Update(context.TODO(), de, meta.UpdateOptions{}); err != nil {
@@ -74,7 +80,13 @@ func upgradeDeployment(name, imagePath string, vers version.Number, broker appst
 	return nil
 }
 
-func upgradeStatefulSet(name, imagePath string, vers version.Number, broker appstyped.StatefulSetInterface) error {
+func upgradeStatefulSet(
+	name,
+	imagePath string,
+	vers version.Number,
+	legacyLabels bool,
+	broker appstyped.StatefulSetInterface,
+) error {
 	ss, err := broker.Get(context.TODO(), name, meta.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NotFoundf(
@@ -95,11 +107,11 @@ func upgradeStatefulSet(name, imagePath string, vers version.Number, broker apps
 	// just ensure juju-version to current version for now.
 	ss.SetAnnotations(
 		k8sannotations.New(ss.GetAnnotations()).
-			Add(constants.LabelVersion, vers.String()).ToMap(),
+			Merge(utils.AnnotationsForVersion(vers.String(), legacyLabels)).ToMap(),
 	)
 	ss.Spec.Template.SetAnnotations(
 		k8sannotations.New(ss.Spec.Template.GetAnnotations()).
-			Add(constants.LabelVersion, vers.String()).ToMap(),
+			Merge(utils.AnnotationsForVersion(vers.String(), legacyLabels)).ToMap(),
 	)
 
 	if _, err := broker.Update(context.TODO(), ss, meta.UpdateOptions{}); err != nil {

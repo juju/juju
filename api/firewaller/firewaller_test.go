@@ -6,13 +6,14 @@ package firewaller_test
 import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/relation"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -247,4 +248,55 @@ func (s *firewallerSuite) TestFirewallRules(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
 	c.Check(callCount, gc.Equals, 1)
+}
+
+func (s *firewallerSuite) TestAllSpaceInfos(c *gc.C) {
+	expSpaceInfos := network.SpaceInfos{
+		{
+			ID:         "42",
+			Name:       "questions-about-the-universe",
+			ProviderId: "provider-id-2",
+			Subnets: []network.SubnetInfo{
+				{
+					ID:                "13",
+					CIDR:              "1.168.1.0/24",
+					ProviderId:        "provider-subnet-id-1",
+					ProviderSpaceId:   "provider-space-id-1",
+					ProviderNetworkId: "provider-network-id-1",
+					VLANTag:           42,
+					AvailabilityZones: []string{"az1", "az2"},
+					SpaceID:           "42",
+					SpaceName:         "questions-about-the-universe",
+					FanInfo: &network.FanCIDRs{
+						FanLocalUnderlay: "192.168.0.0/16",
+						FanOverlay:       "1.0.0.0/8",
+					},
+					IsPublic: true,
+				},
+			},
+		},
+	}
+
+	var callCount int
+	apiCaller := testing.BestVersionCaller{
+		APICallerFunc: testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+			c.Check(objType, gc.Equals, "Firewaller")
+			c.Check(version, gc.Equals, 6)
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "SpaceInfos")
+			c.Assert(arg, gc.DeepEquals, params.SpaceInfosParams{})
+			c.Assert(result, gc.FitsTypeOf, &params.SpaceInfos{})
+			*(result.(*params.SpaceInfos)) = params.FromNetworkSpaceInfos(expSpaceInfos)
+			callCount++
+			return nil
+		}),
+		BestVersion: 6,
+	}
+
+	client, err := firewaller.NewClient(apiCaller)
+	c.Assert(err, jc.ErrorIsNil)
+	got, err := client.AllSpaceInfos()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(callCount, gc.Equals, 1)
+	c.Assert(got, gc.DeepEquals, expSpaceInfos)
 }

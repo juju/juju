@@ -10,8 +10,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/core/network"
 )
@@ -191,6 +191,7 @@ func (rules IngressRules) cidrsByPortRange() map[network.PortRange]set.Strings {
 		}
 		if rule.SourceCIDRs.IsEmpty() {
 			cidrs.Add(AllNetworksIPV4CIDR)
+			cidrs.Add(AllNetworksIPV6CIDR)
 			continue
 		}
 		for cidr := range rule.SourceCIDRs {
@@ -200,4 +201,53 @@ func (rules IngressRules) cidrsByPortRange() map[network.PortRange]set.Strings {
 		result[rule.PortRange] = cidrs
 	}
 	return result
+}
+
+// UniqueRules returns a copy of the ingress rule list after removing any
+// duplicate entries.
+func (rules IngressRules) UniqueRules() IngressRules {
+	var uniqueRules IngressRules
+
+nextRule:
+	for _, rule := range rules {
+		for _, seenRule := range uniqueRules {
+			if rule.EqualTo(seenRule) {
+				continue nextRule
+			}
+		}
+
+		uniqueRules = append(uniqueRules, rule)
+	}
+
+	return uniqueRules
+}
+
+// RemoveCIDRsMatchingAddressType returns a new list of rules where any CIDR
+// whose address type corresponds to the specified AddressType argument has
+// been removed.
+func (rules IngressRules) RemoveCIDRsMatchingAddressType(removeAddrType network.AddressType) IngressRules {
+	var out IngressRules
+
+	for _, rule := range rules {
+		filteredCIDRS := set.NewStrings(rule.SourceCIDRs.Values()...)
+		for srcCIDR := range rule.SourceCIDRs {
+			if addrType, _ := network.CIDRAddressType(srcCIDR); addrType == removeAddrType {
+				filteredCIDRS.Remove(srcCIDR)
+			}
+		}
+
+		if filteredCIDRS.IsEmpty() {
+			continue
+		}
+
+		out = append(out, IngressRule{
+			PortRange:   rule.PortRange,
+			SourceCIDRs: filteredCIDRS,
+		})
+
+	}
+
+	uniqueRules := out.UniqueRules()
+	uniqueRules.Sort()
+	return uniqueRules
 }

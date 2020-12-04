@@ -10,14 +10,14 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-10-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-07-01/compute"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/os"
-	jujuseries "github.com/juju/os/series"
-	"github.com/juju/utils/arch"
+	"github.com/juju/os/v2"
+	jujuseries "github.com/juju/os/v2/series"
+	"github.com/juju/utils/v2/arch"
 
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"

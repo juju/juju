@@ -8,7 +8,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -19,6 +18,8 @@ import (
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/store/mocks"
 	"github.com/juju/juju/cmd/juju/application/utils"
+	"github.com/juju/juju/core/arch"
+	corecharm "github.com/juju/juju/core/charm"
 )
 
 type storeSuite struct {
@@ -34,18 +35,16 @@ func (s *storeSuite) TestAddCharmFromURLAddCharmSuccess(c *gc.C) {
 
 	curl, err := charm.ParseURL("cs:testme")
 	c.Assert(err, jc.ErrorIsNil)
-	origin, err := utils.DeduceOrigin(curl, csparams.BetaChannel)
+	origin, err := utils.DeduceOrigin(curl, corecharm.Channel{Risk: corecharm.Beta}, corecharm.Platform{Architecture: arch.DefaultArchitecture})
 	c.Assert(err, jc.ErrorIsNil)
 
-	obtainedCurl, obtainedMac, _, err := store.AddCharmFromURL(
+	obtainedCurl, _, err := store.AddCharmFromURL(
 		s.charmAdder,
-		s.macaroonGetter,
 		curl,
 		origin,
 		true,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedMac, gc.IsNil)
 	c.Assert(obtainedCurl.String(), gc.Equals, curl.String())
 }
 
@@ -54,18 +53,16 @@ func (s *storeSuite) TestAddCharmFromURLFailAddCharmFail(c *gc.C) {
 	s.expectAddCharm(errors.NotFoundf("testing"))
 	curl, err := charm.ParseURL("cs:testme")
 	c.Assert(err, jc.ErrorIsNil)
-	origin, err := utils.DeduceOrigin(curl, csparams.BetaChannel)
+	origin, err := utils.DeduceOrigin(curl, corecharm.Channel{Risk: corecharm.Beta}, corecharm.Platform{Architecture: arch.DefaultArchitecture})
 	c.Assert(err, jc.ErrorIsNil)
 
-	obtainedCurl, obtainedMac, _, err := store.AddCharmFromURL(
+	obtainedCurl, _, err := store.AddCharmFromURL(
 		s.charmAdder,
-		s.macaroonGetter,
 		curl,
 		origin,
 		true,
 	)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(obtainedMac, gc.IsNil)
 	c.Assert(obtainedCurl, gc.IsNil)
 }
 
@@ -77,12 +74,74 @@ func (s *storeSuite) TestAddCharmFromURLFailAddCharmFailUnauthorized(c *gc.C) {
 	})
 	curl, err := charm.ParseURL("cs:testme")
 	c.Assert(err, jc.ErrorIsNil)
-	origin, err := utils.DeduceOrigin(curl, csparams.BetaChannel)
+	origin, err := utils.DeduceOrigin(curl, corecharm.Channel{Risk: corecharm.Beta}, corecharm.Platform{Architecture: arch.DefaultArchitecture})
+	c.Assert(err, jc.ErrorIsNil)
+
+	obtainedCurl, _, err := store.AddCharmFromURL(
+		s.charmAdder,
+		curl,
+		origin,
+		true,
+	)
+	c.Assert(err, jc.Satisfies, errors.IsForbidden)
+	c.Assert(obtainedCurl, gc.IsNil)
+}
+
+func (s *storeSuite) TestAddCharmWithAuthorizationFromURLAddCharmSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectAddCharm(nil)
+
+	curl, err := charm.ParseURL("cs:testme")
+	c.Assert(err, jc.ErrorIsNil)
+	origin, err := utils.DeduceOrigin(curl, corecharm.Channel{Risk: corecharm.Beta}, corecharm.Platform{Architecture: arch.DefaultArchitecture})
+	c.Assert(err, jc.ErrorIsNil)
+
+	obtainedCurl, obtainedMac, _, err := store.AddCharmWithAuthorizationFromURL(
+		s.charmAdder,
+		s.macaroonGetter,
+		curl,
+		origin,
+		true,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedMac, gc.IsNil)
+	c.Assert(obtainedCurl.String(), gc.Equals, curl.String())
+}
+
+func (s *storeSuite) TestAddCharmWithAuthorizationFromURLFailAddCharmFail(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectAddCharm(errors.NotFoundf("testing"))
+	curl, err := charm.ParseURL("cs:testme")
+	c.Assert(err, jc.ErrorIsNil)
+	origin, err := utils.DeduceOrigin(curl, corecharm.Channel{Risk: corecharm.Beta}, corecharm.Platform{Architecture: arch.DefaultArchitecture})
+	c.Assert(err, jc.ErrorIsNil)
+
+	obtainedCurl, obtainedMac, _, err := store.AddCharmWithAuthorizationFromURL(
+		s.charmAdder,
+		s.macaroonGetter,
+		curl,
+		origin,
+		true,
+	)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(obtainedMac, gc.IsNil)
+	c.Assert(obtainedCurl, gc.IsNil)
+}
+
+func (s *storeSuite) TestAddCharmWithAuthorizationFromURLFailAddCharmFailUnauthorized(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectAddCharm(&params.Error{
+		Code:    params.CodeUnauthorized,
+		Message: "permission denied",
+	})
+	curl, err := charm.ParseURL("cs:testme")
+	c.Assert(err, jc.ErrorIsNil)
+	origin, err := utils.DeduceOrigin(curl, corecharm.Channel{Risk: corecharm.Beta}, corecharm.Platform{Architecture: arch.DefaultArchitecture})
 	c.Assert(err, jc.ErrorIsNil)
 	s.expectGet("/delegatable-macaroon?id=" + url.QueryEscape(curl.String()))
 	s.expectAddCharmWithAuthorization()
 
-	obtainedCurl, obtainedMac, _, err := store.AddCharmFromURL(
+	obtainedCurl, obtainedMac, _, err := store.AddCharmWithAuthorizationFromURL(
 		s.charmAdder,
 		s.macaroonGetter,
 		curl,

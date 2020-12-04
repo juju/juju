@@ -12,8 +12,8 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils"
-	"github.com/juju/utils/exec"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/exec"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
 
@@ -76,13 +76,15 @@ type RemoteInitFunc func(remotestate.ContainerRunningStatus, <-chan struct{}) er
 // delegated to Mode values, which are expected to react to events and direct
 // the uniter's responses to them.
 type Uniter struct {
-	catacomb  catacomb.Catacomb
-	st        *uniter.State
-	paths     Paths
-	unit      *uniter.Unit
-	modelType model.ModelType
-	storage   *storage.Attachments
-	clock     clock.Clock
+	catacomb                     catacomb.Catacomb
+	st                           *uniter.State
+	paths                        Paths
+	unit                         *uniter.Unit
+	modelType                    model.ModelType
+	embedded                     bool
+	enforcedCharmModifiedVersion int
+	storage                      *storage.Attachments
+	clock                        clock.Clock
 
 	relationStateTracker relation.RelationStateTracker
 
@@ -104,6 +106,8 @@ type Uniter struct {
 	charmDirGuard     fortress.Guard
 
 	hookLock machinelock.Lock
+
+	Probe Probe
 
 	// TODO(axw) move the runListener and run-command code outside of the
 	// uniter, and introduce a separate worker. Each worker would feed
@@ -179,13 +183,15 @@ type UniterParams struct {
 	// TODO (mattyw, wallyworld, fwereade) Having the observer here make this approach a bit more legitimate, but it isn't.
 	// the observer is only a stop gap to be used in tests. A better approach would be to have the uniter tests start hooks
 	// that write to files, and have the tests watch the output to know that hooks have finished.
-	Observer      UniterExecutionObserver
-	RebootQuerier RebootQuerier
-	Logger        Logger
+	Observer                     UniterExecutionObserver
+	RebootQuerier                RebootQuerier
+	Logger                       Logger
+	Embedded                     bool
+	EnforcedCharmModifiedVersion int
 }
 
 // NewOperationExecutorFunc is a func which returns an operations.Executor.
-type NewOperationExecutorFunc func(operation.ExecutorConfig) (operation.Executor, error)
+type NewOperationExecutorFunc func(string, operation.ExecutorConfig) (operation.Executor, error)
 
 // ProviderIDGetter defines the API to get provider ID.
 type ProviderIDGetter interface {
@@ -209,7 +215,7 @@ func NewUniter(uniterParams *UniterParams) (*Uniter, error) {
 // StartUniter creates a new Uniter and starts it using the specified runner.
 func StartUniter(runner *worker.Runner, params *UniterParams) error {
 	startFunc := newUniter(params)
-	params.Logger.Debugf("starting uniter for  %q", params.UnitTag.Id())
+	params.Logger.Debugf("starting uniter for %q", params.UnitTag.Id())
 	err := runner.StartWorker(params.UnitTag.Id(), startFunc)
 	return errors.Annotate(err, "error starting uniter worker")
 }
@@ -245,6 +251,8 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 			runListener:                   uniterParams.RunListener,
 			rebootQuerier:                 uniterParams.RebootQuerier,
 			logger:                        uniterParams.Logger,
+			embedded:                      uniterParams.Embedded,
+			enforcedCharmModifiedVersion:  uniterParams.EnforcedCharmModifiedVersion,
 		}
 		plan := catacomb.Plan{
 			Site: &u.catacomb,
@@ -266,20 +274,24 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 }
 
 func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
-
 	defer func() {
 		// If this is a CAAS unit, then dead errors are fairly normal ways to exit
 		// the uniter main loop, but the parent operator agent needs to keep running.
+		errorString := "<unknown>"
+		if err != nil {
+			errorString = err.Error()
+		}
 		if errors.Cause(err) == ErrCAASUnitDead {
 			err = nil
+			errorString = "caas unit dead"
 		}
 		if u.runListener != nil {
-			u.runListener.UnregisterRunner(u.unit.Name())
+			u.runListener.UnregisterRunner(unitTag.Id())
 		}
 		if u.localRunListener != nil {
-			u.localRunListener.UnregisterRunner(u.unit.Name())
+			u.localRunListener.UnregisterRunner(unitTag.Id())
 		}
-		u.logger.Infof("unit %q shutting down: %s", u.unit, err)
+		u.logger.Infof("unit %q shutting down: %s", unitTag.Id(), errorString)
 	}()
 
 	if err := u.init(unitTag); err != nil {
@@ -297,47 +309,17 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	}
 	u.logger.Infof("unit %q started", u.unit)
 
-	// Install is a special case, as it must run before there
-	// is any remote state, and before the remote state watcher
-	// is started.
-	var charmURL *corecharm.URL
-	var charmModifiedVersion int
-	var canApplyCharmProfile bool
-	opState := u.operationExecutor.State()
-	if opState.Kind == operation.Install {
-		u.logger.Infof("resuming charm install")
-		canApplyCharmProfile, err = u.unit.CanApplyLXDProfile()
-		if err != nil {
-			return err
-		}
-		if canApplyCharmProfile {
-			// Note: canApplyCharmProfile will be false for a CAAS model.
-			// Verify the charm profile before proceeding.
-			if err := u.verifyCharmProfile(opState.CharmURL); err != nil {
-				return err
-			}
-		}
-		op, err := u.operationFactory.NewInstall(opState.CharmURL)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if err := u.operationExecutor.Run(op, nil); err != nil {
-			return errors.Trace(err)
-		}
-		charmURL = opState.CharmURL
-	} else {
-		curl, err := u.unit.CharmURL()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		charmURL = curl
-		app, err := u.unit.Application()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		charmModifiedVersion, err = app.CharmModifiedVersion()
-		if err != nil {
-			return errors.Trace(err)
+	canApplyCharmProfile, charmURL, charmModifiedVersion, err := u.charmState()
+	if err != nil {
+		return err
+	}
+
+	// Check we are running the correct charm version.
+	if u.embedded && u.enforcedCharmModifiedVersion != -1 {
+		if charmModifiedVersion != u.enforcedCharmModifiedVersion {
+			u.logger.Infof("remote charm modified version (%d) does not match agent's (%d)",
+				charmModifiedVersion, u.enforcedCharmModifiedVersion)
+			return u.stopUnitError()
 		}
 	}
 
@@ -371,7 +353,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	restartWatcher := func() error {
 		if watcher != nil {
 			// watcher added to catacomb, will kill uniter if there's an error.
-			worker.Stop(watcher)
+			_ = worker.Stop(watcher)
 		}
 		var err error
 		watcher, err = remotestate.NewWatcher(
@@ -388,6 +370,8 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				ModelType:                     u.modelType,
 				Logger:                        u.logger.Child("remotestate"),
 				CanApplyCharmProfile:          canApplyCharmProfile,
+				Embedded:                      u.embedded,
+				EnforcedCharmModifiedVersion:  u.enforcedCharmModifiedVersion,
 			})
 		if err != nil {
 			return errors.Trace(err)
@@ -418,12 +402,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		return nil
 	}
 
-	var rebootDetected bool
-	if u.modelType == model.IAAS {
-		if rebootDetected, err = u.rebootQuerier.Query(unitTag); err != nil {
-			return errors.Annotatef(err, "could not check reboot status for %q", unitTag)
-		}
-	} else if u.modelType == model.CAAS && u.isRemoteUnit {
+	if u.modelType == model.CAAS && u.isRemoteUnit {
 		if u.containerRunningStatusChannel == nil {
 			return errors.NotValidf("ContainerRunningStatusChannel missing for CAAS remote unit")
 		}
@@ -432,10 +411,18 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		}
 	}
 
+	var rebootDetected bool
+
 	for {
 		if err = restartWatcher(); err != nil {
 			err = errors.Annotate(err, "(re)starting watcher")
 			break
+		}
+
+		if u.modelType == model.IAAS {
+			if rebootDetected, err = u.rebootQuerier.Query(unitTag); err != nil {
+				return errors.Annotatef(err, "could not check reboot status for %q", unitTag)
+			}
 		}
 
 		cfg := ResolverConfig{
@@ -490,6 +477,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			// CAAS remote units should trigger remote update of the charm every start.
 			OutdatedRemoteCharm: u.isRemoteUnit,
 		}
+
 		for err == nil {
 			err = resolver.Loop(resolver.LoopConfig{
 				Resolver:      uniterResolver,
@@ -522,6 +510,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				// creating LocalState.
 				charmURL = localState.CharmURL
 				charmModifiedVersion = localState.CharmModifiedVersion
+
 				// leave err assigned, causing loop to break
 			default:
 				// We need to set conflicted from here, because error
@@ -588,6 +577,65 @@ func (u *Uniter) verifyCharmProfile(curl *corecharm.URL) error {
 	return nil
 }
 
+// charmState returns data for the local state setup.
+// While gathering the data, look for interrupted Install or pending
+// charm upgrade, execute if found.
+func (u *Uniter) charmState() (bool, *corecharm.URL, int, error) {
+	// Install is a special case, as it must run before there
+	// is any remote state, and before the remote state watcher
+	// is started.
+	var charmURL *corecharm.URL
+	var charmModifiedVersion int
+
+	canApplyCharmProfile, err := u.unit.CanApplyLXDProfile()
+	if err != nil {
+		return canApplyCharmProfile, charmURL, charmModifiedVersion, err
+	}
+
+	opState := u.operationExecutor.State()
+	if opState.Kind == operation.Install {
+		u.logger.Infof("resuming charm install")
+		if canApplyCharmProfile {
+			// Note: canApplyCharmProfile will be false for a CAAS model.
+			// Verify the charm profile before proceeding.
+			if err := u.verifyCharmProfile(opState.CharmURL); err != nil {
+				return canApplyCharmProfile, charmURL, charmModifiedVersion, err
+			}
+		}
+		op, err := u.operationFactory.NewInstall(opState.CharmURL)
+		if err != nil {
+			return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
+		}
+		if err := u.operationExecutor.Run(op, nil); err != nil {
+			return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
+		}
+		charmURL = opState.CharmURL
+		return canApplyCharmProfile, charmURL, charmModifiedVersion, nil
+	}
+
+	// No install needed, find the curl and start.
+	curl, err := u.unit.CharmURL()
+	if err != nil {
+		return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
+	}
+	charmURL = curl
+	app, err := u.unit.Application()
+	if err != nil {
+		return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
+	}
+
+	// TODO (hml) 25-09-2020 - investigate
+	// This assumes that the uniter is not restarting after an application
+	// changed notification, with changes to CharmModifiedVersion, but before
+	// it could be acted on.
+	charmModifiedVersion, err = app.CharmModifiedVersion()
+	if err != nil {
+		return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
+	}
+
+	return canApplyCharmProfile, charmURL, charmModifiedVersion, nil
+}
+
 func (u *Uniter) terminate() error {
 	unitWatcher, err := u.unit.Watch()
 	if err != nil {
@@ -627,7 +675,7 @@ func (u *Uniter) terminate() error {
 // an individual agent for that unit.
 func (u *Uniter) stopUnitError() error {
 	u.logger.Debugf("u.modelType: %s", u.modelType)
-	if u.modelType == model.CAAS {
+	if u.modelType == model.CAAS && !u.embedded {
 		return ErrCAASUnitDead
 	}
 	return jworker.ErrTerminateAgent
@@ -753,7 +801,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		CharmURL: charmURL,
 	}
 
-	operationExecutor, err := u.newOperationExecutor(operation.ExecutorConfig{
+	operationExecutor, err := u.newOperationExecutor(u.unit.Name(), operation.ExecutorConfig{
 		StateReadWriter: u.unit,
 		InitialState:    initialState,
 		AcquireLock:     u.acquireExecutionLock,
@@ -827,7 +875,7 @@ func (u *Uniter) acquireExecutionLock(action string) (func(), error) {
 	// Uniter's catacomb into account.
 	spec := machinelock.Spec{
 		Cancel:  u.catacomb.Dying(),
-		Worker:  "uniter",
+		Worker:  fmt.Sprintf("%s uniter", u.unit.Name()),
 		Comment: action,
 	}
 	releaser, err := u.hookLock.Acquire(spec)

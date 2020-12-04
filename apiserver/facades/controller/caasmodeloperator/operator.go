@@ -17,27 +17,34 @@ import (
 	"github.com/juju/juju/version"
 )
 
-// API represents the controller model operator facade
+// TODO (manadart 2020-10-21): Remove the ModelUUID method
+// from the next version of this facade.
+
+// API represents the controller model operator facade.
 type API struct {
 	*common.APIAddresser
 	*common.PasswordChanger
 
-	auth  facade.Authorizer
-	state CAASModelOperatorState
+	auth      facade.Authorizer
+	ctrlState CAASControllerState
+	state     CAASModelOperatorState
 }
 
 // NewAPIFromContent creates a new controller model facade from the supplied
-// context
+// context.
 func NewAPIFromContext(ctx facade.Context) (*API, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
-	return NewAPI(authorizer, resources, stateShim{ctx.State()})
+	return NewAPI(authorizer, resources,
+		stateShim{ctx.StatePool().SystemState()},
+		stateShim{ctx.State()})
 }
 
-// NewAPI is alternative means of constructing a controller model facade
+// NewAPI is alternative means of constructing a controller model facade.
 func NewAPI(
 	authorizer facade.Authorizer,
 	resources facade.Resources,
+	ctrlSt CAASControllerState,
 	st CAASModelOperatorState) (*API, error) {
 
 	if !authorizer.AuthController() {
@@ -46,8 +53,9 @@ func NewAPI(
 
 	return &API{
 		auth:            authorizer,
-		APIAddresser:    common.NewAPIAddresser(st, resources),
+		APIAddresser:    common.NewAPIAddresser(ctrlSt, resources),
 		PasswordChanger: common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ModelTagKind)),
+		ctrlState:       ctrlSt,
 		state:           st,
 	}, nil
 }
@@ -56,7 +64,7 @@ func NewAPI(
 // a new model operator into a caas cluster.
 func (a *API) ModelOperatorProvisioningInfo() (params.ModelOperatorInfo, error) {
 	var result params.ModelOperatorInfo
-	controllerConf, err := a.state.ControllerConfig()
+	controllerConf, err := a.ctrlState.ControllerConfig()
 	if err != nil {
 		return result, err
 	}
@@ -92,4 +100,12 @@ func (a *API) ModelOperatorProvisioningInfo() (params.ModelOperatorInfo, error) 
 		Version: vers,
 	}
 	return result, nil
+}
+
+// ModelUUID returns the model UUID that this facade is used to operate.
+// It is implemented here directly as a result of removing it from
+// embedded APIAddresser *without* bumping the facade version.
+// It should be blanked when this facade version is next incremented.
+func (a *API) ModelUUID() params.StringResult {
+	return params.StringResult{Result: a.state.ModelUUID()}
 }

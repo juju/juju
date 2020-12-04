@@ -105,14 +105,6 @@ type ControllerConfig struct {
 
 // AgentConfig returns an agent config.
 func (cfg *ControllerPodConfig) AgentConfig(tag names.Tag) (agent.ConfigSetterWriter, error) {
-	var password, cacert string
-	if cfg.Controller == nil {
-		password = cfg.APIInfo.Password
-		cacert = cfg.APIInfo.CACert
-	} else {
-		password = cfg.Controller.MongoInfo.Password
-		cacert = cfg.Controller.MongoInfo.CACert
-	}
 	configParams := agent.AgentConfigParams{
 		Paths: agent.Paths{
 			DataDir:         cfg.DataDir,
@@ -121,9 +113,9 @@ func (cfg *ControllerPodConfig) AgentConfig(tag names.Tag) (agent.ConfigSetterWr
 		},
 		Tag:                tag,
 		UpgradedToVersion:  cfg.JujuVersion,
-		Password:           password,
+		Password:           cfg.APIInfo.Password,
 		APIAddresses:       cfg.APIHostAddrs(),
-		CACert:             cacert,
+		CACert:             cfg.APIInfo.CACert,
 		Values:             cfg.AgentEnvironment,
 		Controller:         cfg.ControllerTag,
 		Model:              cfg.APIInfo.ModelTag,
@@ -178,11 +170,6 @@ func (cfg *ControllerPodConfig) VerifyConfig() (err error) {
 		return errors.New("missing controller name")
 	}
 
-	if cfg.Controller != nil {
-		if err := cfg.verifyControllerConfig(); err != nil {
-			return errors.Trace(err)
-		}
-	}
 	if cfg.Bootstrap != nil {
 		if err := cfg.verifyBootstrapConfig(); err != nil {
 			return errors.Trace(err)
@@ -207,7 +194,7 @@ func (cfg *ControllerPodConfig) verifyBootstrapConfig() (err error) {
 	if err := cfg.Bootstrap.VerifyConfig(); err != nil {
 		return errors.Trace(err)
 	}
-	if cfg.APIInfo.Tag != nil || cfg.Controller.MongoInfo.Tag != nil {
+	if cfg.APIInfo.Tag != nil {
 		return errors.New("entity tag must be nil when bootstrapping")
 	}
 	if cfg.Bootstrap.ControllerCloud.HostCloudRegion == "" {
@@ -218,22 +205,6 @@ The k8s cloud definition might be stale, please try to re-import the k8s cloud u
 
 See juju help add-k8s for more information.
 `[1:])
-	}
-	return nil
-}
-
-func (cfg *ControllerPodConfig) verifyControllerConfig() (err error) {
-	defer errors.DeferredAnnotatef(&err, "invalid controller configuration")
-	if err := cfg.Controller.VerifyConfig(); err != nil {
-		return errors.Trace(err)
-	}
-	if cfg.Bootstrap == nil {
-		if len(cfg.Controller.MongoInfo.Addrs) == 0 {
-			return errors.New("missing state hosts")
-		}
-		if cfg.Controller.MongoInfo.Tag != names.NewControllerAgentTag(cfg.ControllerId) {
-			return errors.New("entity tag must match started controller")
-		}
 	}
 	return nil
 }
@@ -277,17 +248,6 @@ func (cfg *BootstrapConfig) VerifyConfig() (err error) {
 	return nil
 }
 
-// VerifyConfig verifies that the ControllerConfig is valid.
-func (cfg *ControllerConfig) VerifyConfig() error {
-	if cfg.MongoInfo == nil {
-		return errors.New("missing state info")
-	}
-	if len(cfg.MongoInfo.CACert) == 0 {
-		return errors.New("missing CA certificate")
-	}
-	return nil
-}
-
 // NewControllerPodConfig sets up a basic pod configuration. You'll still need to supply more information,
 // but this takes care of the fixed entries and the ones that are
 // always needed.
@@ -298,23 +258,12 @@ func NewControllerPodConfig(
 	series string,
 	apiInfo *api.Info,
 ) (*ControllerPodConfig, error) {
-	dataDir, err := paths.DataDir(series)
-	if err != nil {
-		return nil, err
-	}
-	logDir, err := paths.LogDir(series)
-	if err != nil {
-		return nil, err
-	}
-	metricsSpoolDir, err := paths.MetricsSpoolDir(series)
-	if err != nil {
-		return nil, err
-	}
+	osType := paths.SeriesToOS(series)
 	pcfg := &ControllerPodConfig{
 		// Fixed entries.
-		DataDir:         dataDir,
-		LogDir:          path.Join(logDir, "juju"),
-		MetricsSpoolDir: metricsSpoolDir,
+		DataDir:         paths.DataDir(osType),
+		LogDir:          path.Join(paths.LogDir(osType), "juju"),
+		MetricsSpoolDir: paths.MetricsSpoolDir(osType),
 		Tags:            map[string]string{},
 		// Parameter entries.
 		ControllerTag:  controllerTag,

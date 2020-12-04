@@ -19,7 +19,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/proxy"
-	"github.com/juju/utils/shell"
+	"github.com/juju/utils/v2/shell"
 	"github.com/juju/version"
 	"gopkg.in/yaml.v2"
 
@@ -35,9 +35,9 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/storage"
 	coretools "github.com/juju/juju/tools"
 )
 
@@ -196,13 +196,6 @@ type InstanceConfig struct {
 // ControllerConfig represents controller-specific initialization information
 // for a new juju instance. This is only relevant for controller machines.
 type ControllerConfig struct {
-	// MongoInfo holds the means for the new instance to communicate with the
-	// juju state database. Unless the new instance is running a controller
-	// (Controller is set), there must be at least one controller address supplied.
-	// The entity name must match that of the instance being started,
-	// or be empty when starting a controller.
-	MongoInfo *mongo.MongoInfo
-
 	// Config contains controller config attributes.
 	Config controller.Config
 
@@ -215,8 +208,8 @@ type ControllerConfig struct {
 type BootstrapConfig struct {
 	StateInitializationParams
 
-	// GUI is the Juju GUI archive to be installed in the new instance.
-	GUI *coretools.GUIArchive
+	// Dashboard is the Juju Dashboard archive to be installed in the new instance.
+	Dashboard *coretools.DashboardArchive
 
 	// Timeout is the amount of time to wait for bootstrap to complete.
 	Timeout time.Duration
@@ -339,6 +332,10 @@ type StateInitializationParams struct {
 	// to store in environment storage at bootstrap time. This is ignored
 	// in non-bootstrap instances.
 	CustomImageMetadata []*imagemetadata.ImageMetadata
+
+	// StoragePools is one or more named storage pools to create
+	// in the controller model.
+	StoragePools map[string]storage.Attrs
 }
 
 type stateInitializationParamsInternal struct {
@@ -348,6 +345,7 @@ type stateInitializationParamsInternal struct {
 	ControllerInheritedConfig               map[string]interface{}            `yaml:"controller-config-defaults,omitempty"`
 	RegionInheritedConfig                   cloud.RegionConfig                `yaml:"region-inherited-config,omitempty"`
 	HostedModelConfig                       map[string]interface{}            `yaml:"hosted-model-config,omitempty"`
+	StoragePools                            map[string]storage.Attrs          `yaml:"storage-pools,omitempty"`
 	BootstrapMachineInstanceId              instance.Id                       `yaml:"bootstrap-machine-instance-id,omitempty"`
 	BootstrapMachineConstraints             constraints.Value                 `yaml:"bootstrap-machine-constraints"`
 	BootstrapMachineHardwareCharacteristics *instance.HardwareCharacteristics `yaml:"bootstrap-machine-hardware,omitempty"`
@@ -376,6 +374,7 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 		p.ControllerInheritedConfig,
 		p.RegionInheritedConfig,
 		p.HostedModelConfig,
+		p.StoragePools,
 		p.BootstrapMachineInstanceId,
 		p.BootstrapMachineConstraints,
 		p.BootstrapMachineHardwareCharacteristics,
@@ -415,6 +414,7 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 		ControllerInheritedConfig:               internal.ControllerInheritedConfig,
 		RegionInheritedConfig:                   internal.RegionInheritedConfig,
 		HostedModelConfig:                       internal.HostedModelConfig,
+		StoragePools:                            internal.StoragePools,
 		BootstrapMachineInstanceId:              internal.BootstrapMachineInstanceId,
 		BootstrapMachineConstraints:             internal.BootstrapMachineConstraints,
 		BootstrapMachineHardwareCharacteristics: internal.BootstrapMachineHardwareCharacteristics,
@@ -456,14 +456,6 @@ func (cfg *InstanceConfig) AgentConfig(
 	tag names.Tag,
 	toolsVersion version.Number,
 ) (agent.ConfigSetter, error) {
-	var password, cacert string
-	if cfg.Controller == nil {
-		password = cfg.APIInfo.Password
-		cacert = cfg.APIInfo.CACert
-	} else {
-		password = cfg.Controller.MongoInfo.Password
-		cacert = cfg.Controller.MongoInfo.CACert
-	}
 	configParams := agent.AgentConfigParams{
 		Paths: agent.Paths{
 			DataDir:          cfg.DataDir,
@@ -474,10 +466,10 @@ func (cfg *InstanceConfig) AgentConfig(
 		Jobs:              cfg.Jobs,
 		Tag:               tag,
 		UpgradedToVersion: toolsVersion,
-		Password:          password,
+		Password:          cfg.APIInfo.Password,
 		Nonce:             cfg.MachineNonce,
 		APIAddresses:      cfg.APIHostAddrs(),
-		CACert:            cacert,
+		CACert:            cfg.APIInfo.CACert,
 		Values:            cfg.AgentEnvironment,
 		Controller:        cfg.ControllerTag,
 		Model:             cfg.APIInfo.ModelTag,
@@ -498,22 +490,9 @@ func (cfg *InstanceConfig) SnapDir() string {
 	return path.Join(cfg.DataDir, "snap")
 }
 
-// GUITools returns the directory where the Juju GUI release is stored.
-func (cfg *InstanceConfig) GUITools() string {
-	return agenttools.SharedGUIDir(cfg.DataDir)
-}
-
-func (cfg *InstanceConfig) stateHostAddrs() []string {
-	var hosts []string
-	if cfg.Bootstrap != nil {
-		hosts = append(hosts, net.JoinHostPort(
-			"localhost", strconv.Itoa(cfg.Bootstrap.StateServingInfo.StatePort)),
-		)
-	}
-	if cfg.Controller != nil {
-		hosts = append(hosts, cfg.Controller.MongoInfo.Addrs...)
-	}
-	return hosts
+// DashboardDir returns the directory where the Juju Dashboard release is stored.
+func (cfg *InstanceConfig) DashboardDir() string {
+	return agenttools.SharedDashboardDir(cfg.DataDir)
 }
 
 func (cfg *InstanceConfig) APIHostAddrs() []string {
@@ -676,11 +655,6 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 	if cfg.MachineNonce == "" {
 		return errors.New("missing machine nonce")
 	}
-	if cfg.Controller != nil {
-		if err := cfg.verifyControllerConfig(); err != nil {
-			return errors.Trace(err)
-		}
-	}
 	if cfg.Bootstrap != nil {
 		if err := cfg.verifyBootstrapConfig(); err != nil {
 			return errors.Trace(err)
@@ -704,24 +678,8 @@ func (cfg *InstanceConfig) verifyBootstrapConfig() (err error) {
 	if err := cfg.Bootstrap.VerifyConfig(); err != nil {
 		return errors.Trace(err)
 	}
-	if cfg.APIInfo.Tag != nil || cfg.Controller.MongoInfo.Tag != nil {
+	if cfg.APIInfo.Tag != nil {
 		return errors.New("entity tag must be nil when bootstrapping")
-	}
-	return nil
-}
-
-func (cfg *InstanceConfig) verifyControllerConfig() (err error) {
-	defer errors.DeferredAnnotatef(&err, "invalid controller configuration")
-	if err := cfg.Controller.VerifyConfig(); err != nil {
-		return errors.Trace(err)
-	}
-	if cfg.Bootstrap == nil {
-		if len(cfg.Controller.MongoInfo.Addrs) == 0 {
-			return errors.New("missing state hosts")
-		}
-		if cfg.Controller.MongoInfo.Tag != names.NewMachineTag(cfg.MachineId) {
-			return errors.New("entity tag must match started machine")
-		}
 	}
 	return nil
 }
@@ -752,17 +710,6 @@ func (cfg *BootstrapConfig) VerifyConfig() (err error) {
 	return nil
 }
 
-// VerifyConfig verifies that the ControllerConfig is valid.
-func (cfg *ControllerConfig) VerifyConfig() error {
-	if cfg.MongoInfo == nil {
-		return errors.New("missing state info")
-	}
-	if len(cfg.MongoInfo.CACert) == 0 {
-		return errors.New("missing CA certificate")
-	}
-	return nil
-}
-
 // DefaultBridgeName is the network bridge device name used for LXC and KVM
 // containers
 const DefaultBridgeName = "br-eth0"
@@ -779,31 +726,16 @@ func NewInstanceConfig(
 	series string,
 	apiInfo *api.Info,
 ) (*InstanceConfig, error) {
-	dataDir, err := paths.DataDir(series)
-	if err != nil {
-		return nil, err
-	}
-	logDir, err := paths.LogDir(series)
-	if err != nil {
-		return nil, err
-	}
-	metricsSpoolDir, err := paths.MetricsSpoolDir(series)
-	if err != nil {
-		return nil, err
-	}
-	transientDataDir, err := paths.TransientDataDir(series)
-	if err != nil {
-		return nil, err
-	}
-	cloudInitOutputLog := path.Join(logDir, "cloud-init-output.log")
+	osType := paths.SeriesToOS(series)
+	logDir := paths.LogDir(osType)
 	icfg := &InstanceConfig{
 		// Fixed entries.
-		DataDir:                 dataDir,
+		DataDir:                 paths.DataDir(osType),
 		LogDir:                  path.Join(logDir, "juju"),
-		MetricsSpoolDir:         metricsSpoolDir,
+		MetricsSpoolDir:         paths.MetricsSpoolDir(osType),
 		Jobs:                    []model.MachineJob{model.JobHostUnits},
-		CloudInitOutputLog:      cloudInitOutputLog,
-		TransientDataDir:        transientDataDir,
+		CloudInitOutputLog:      path.Join(logDir, "cloud-init-output.log"),
+		TransientDataDir:        paths.TransientDataDir(osType),
 		MachineAgentServiceName: "jujud-" + names.NewMachineTag(machineID).String(),
 		Series:                  series,
 		Tags:                    map[string]string{},
@@ -829,7 +761,7 @@ func NewBootstrapInstanceConfig(
 ) (*InstanceConfig, error) {
 	// For a bootstrap instance, the caller must provide the state.Info
 	// and the api.Info. The machine id must *always* be "0".
-	icfg, err := NewInstanceConfig(names.NewControllerTag(config.ControllerUUID()), "0", agent.BootstrapNonce, "", series, nil)
+	icfg, err := NewInstanceConfig(names.NewControllerTag(config.ControllerUUID()), agent.BootstrapControllerId, agent.BootstrapNonce, "", series, nil)
 	if err != nil {
 		return nil, err
 	}

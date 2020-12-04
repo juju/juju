@@ -4,11 +4,13 @@
 package series
 
 import (
+	"sort"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 )
 
 // DistroSource is the source of the underlying distro source for supported
@@ -86,20 +88,55 @@ func (s *SupportedInfo) Compile(now time.Time) error {
 	return nil
 }
 
-// ControllerSeries returns a slice of series that are supported to run on a
-// controller.
-func (s *SupportedInfo) ControllerSeries() []string {
+type namedSeriesVersion struct {
+	Name          SeriesName
+	SeriesVersion SeriesVersion
+	Version       float64
+}
+
+func (s *SupportedInfo) namedSeries() []namedSeriesVersion {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
+	res := make([]namedSeriesVersion, 0, len(s.values))
+	for name, series := range s.values {
+		ver, err := strconv.ParseFloat(series.Version, 10)
+		if err != nil {
+			ver = -1
+		}
+
+		res = append(res, namedSeriesVersion{
+			Name:          name,
+			SeriesVersion: series,
+			Version:       ver,
+		})
+	}
+
+	sort.Slice(res, func(i, j int) bool {
+		if res[i].Version > res[j].Version {
+			return true
+		}
+		if res[i].Version < res[j].Version {
+			return false
+		}
+		return res[i].Name < res[j].Name
+	})
+
+	return res
+}
+
+// ControllerSeries returns a slice of series that are supported to run on a
+// controller.
+func (s *SupportedInfo) ControllerSeries() []string {
 	var result []string
-	for name, version := range s.values {
+	for _, namedSeries := range s.namedSeries() {
+		version := namedSeries.SeriesVersion
 		if version.WorkloadType != ControllerWorkloadType {
 			continue
 		}
 
 		if version.ESMSupported || version.Supported {
-			result = append(result, name.String())
+			result = append(result, namedSeries.Name.String())
 		}
 	}
 	return result
@@ -110,13 +147,11 @@ func (s *SupportedInfo) ControllerSeries() []string {
 // Note: workload series will also include controller workload types, as they
 // can also be used for workloads.
 func (s *SupportedInfo) WorkloadSeries() []string {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
 	var result []string
-	for name, version := range s.values {
+	for _, namedSeries := range s.namedSeries() {
+		version := namedSeries.SeriesVersion
 		if version.ESMSupported || version.Supported {
-			result = append(result, name.String())
+			result = append(result, namedSeries.Name.String())
 		}
 	}
 	return result
@@ -218,6 +253,8 @@ const (
 	Disco   SeriesName = "disco"
 	Eoan    SeriesName = "eoan"
 	Focal   SeriesName = "focal"
+	Groovy  SeriesName = "groovy"
+	Hirsute SeriesName = "hirsute"
 )
 
 var ubuntuSeries = map[SeriesName]SeriesVersion{
@@ -292,13 +329,22 @@ var ubuntuSeries = map[SeriesName]SeriesVersion{
 	Eoan: {
 		WorkloadType: ControllerWorkloadType,
 		Version:      "19.10",
-		Supported:    true,
 	},
 	Focal: {
 		WorkloadType: ControllerWorkloadType,
 		Version:      "20.04",
 		LTS:          true,
-		Supported:    false,
+		Supported:    true,
+		ESMSupported: true,
+	},
+	Groovy: {
+		WorkloadType: ControllerWorkloadType,
+		Version:      "20.10",
+		Supported:    true,
+	},
+	Hirsute: {
+		WorkloadType: ControllerWorkloadType,
+		Version:      "21.04",
 	},
 }
 

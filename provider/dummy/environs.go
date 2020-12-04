@@ -36,13 +36,12 @@ import (
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
 	"github.com/juju/pubsub"
 	"github.com/juju/retry"
 	"github.com/juju/schema"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 	"github.com/juju/worker/v2"
 	"github.com/prometheus/client_golang/prometheus"
@@ -57,9 +56,11 @@ import (
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/lxdprofile"
@@ -81,6 +82,7 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/lease"
 	"github.com/juju/juju/worker/modelcache"
@@ -121,7 +123,7 @@ func SampleConfig() testing.Attrs {
 		"firewall-mode":             config.FwInstance,
 		"ssl-hostname-verification": true,
 		"development":               false,
-		"default-series":            series.DefaultSupportedLTS(),
+		"default-series":            jujuversion.DefaultSupportedLTS(),
 		"default-space":             "",
 		"secret":                    "pork",
 		"controller":                true,
@@ -199,9 +201,9 @@ type OpStartInstance struct {
 	Constraints       constraints.Value
 	SubnetsToZones    map[corenetwork.Id][]string
 	NetworkInfo       corenetwork.InterfaceInfos
+	RootDisk          *storage.VolumeParams
 	Volumes           []storage.Volume
 	VolumeAttachments []storage.VolumeAttachment
-	Info              *mongo.MongoInfo
 	Jobs              []model.MachineJob
 	APIInfo           *api.Info
 	Secret            string
@@ -235,14 +237,15 @@ type OpPutFile struct {
 // environProvider represents the dummy provider.  There is only ever one
 // instance of this type (dummy)
 type environProvider struct {
-	mu                     sync.Mutex
-	ops                    chan<- Operation
-	newStatePolicy         state.NewPolicyFunc
-	supportsSpaces         bool
-	supportsSpaceDiscovery bool
-	apiPort                int
-	controllerState        *environState
-	state                  map[string]*environState
+	mu                         sync.Mutex
+	ops                        chan<- Operation
+	newStatePolicy             state.NewPolicyFunc
+	supportsRulesWithIPV6CIDRs bool
+	supportsSpaces             bool
+	supportsSpaceDiscovery     bool
+	apiPort                    int
+	controllerState            *environState
+	state                      map[string]*environState
 }
 
 // APIPort returns the random api port used by the given provider instance.
@@ -310,11 +313,12 @@ func init() {
 
 // dummy is the dummy environmentProvider singleton.
 var dummy = environProvider{
-	ops:                    discardOperations,
-	state:                  make(map[string]*environState),
-	newStatePolicy:         stateenvirons.GetNewPolicyFunc(),
-	supportsSpaces:         true,
-	supportsSpaceDiscovery: false,
+	ops:                        discardOperations,
+	state:                      make(map[string]*environState),
+	newStatePolicy:             stateenvirons.GetNewPolicyFunc(),
+	supportsSpaces:             true,
+	supportsSpaceDiscovery:     false,
+	supportsRulesWithIPV6CIDRs: true,
 }
 
 // Reset resets the entire dummy environment and forgets any registered
@@ -330,6 +334,7 @@ func Reset(c *gc.C) {
 	dummy.newStatePolicy = stateenvirons.GetNewPolicyFunc()
 	dummy.supportsSpaces = true
 	dummy.supportsSpaceDiscovery = false
+	dummy.supportsRulesWithIPV6CIDRs = true
 	dummy.mu.Unlock()
 
 	// NOTE(axw) we must destroy the old states without holding
@@ -355,6 +360,9 @@ func Reset(c *gc.C) {
 			Delay:    time.Millisecond,
 			Clock:    clock.WallClock,
 			Attempts: 5,
+			NotifyFunc: func(lastError error, attempt int) {
+				logger.Infof("retrying MgoServer.Reset() after attempt %d: %v", attempt, lastError)
+			},
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}
@@ -526,6 +534,15 @@ func SetSupportsSpaces(supports bool) bool {
 	defer dummy.mu.Unlock()
 	current := dummy.supportsSpaces
 	dummy.supportsSpaces = supports
+	return current
+}
+
+// SetSupportsRulesWithIPV6CIDRs allows to toggle support for IPV6 CIDRs in firewall rules.
+func SetSupportsRulesWithIPV6CIDRs(supports bool) bool {
+	dummy.mu.Lock()
+	defer dummy.mu.Unlock()
+	current := dummy.supportsRulesWithIPV6CIDRs
+	dummy.supportsRulesWithIPV6CIDRs = supports
 	return current
 }
 
@@ -885,7 +902,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 				CloudCredentials: cloudCredentials,
 				MongoSession:     session,
 				NewPolicy:        estate.newStatePolicy,
-				AdminPassword:    icfg.Controller.MongoInfo.Password,
+				AdminPassword:    icfg.APIInfo.Password,
 			})
 			if err != nil {
 				return err
@@ -899,10 +916,10 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			if err := st.SetModelConstraints(args.ModelConstraints); err != nil {
 				return errors.Trace(err)
 			}
-			if err := st.SetAdminMongoPassword(icfg.Controller.MongoInfo.Password); err != nil {
+			if err := st.SetAdminMongoPassword(icfg.APIInfo.Password); err != nil {
 				return errors.Trace(err)
 			}
-			if err := st.MongoSession().DB("admin").Login("admin", icfg.Controller.MongoInfo.Password); err != nil {
+			if err := st.MongoSession().DB("admin").Login("admin", icfg.APIInfo.Password); err != nil {
 				return err
 			}
 			env, err := st.Model()
@@ -916,8 +933,8 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			// We log this out for test purposes only. No one in real life can use
 			// a dummy provider for anything other than testing, so logging the password
 			// here is fine.
-			logger.Debugf("setting password for %q to %q", owner.Name(), icfg.Controller.MongoInfo.Password)
-			owner.SetPassword(icfg.Controller.MongoInfo.Password)
+			logger.Debugf("setting password for %q to %q", owner.Name(), icfg.APIInfo.Password)
+			owner.SetPassword(icfg.APIInfo.Password)
 			statePool := controller.StatePool()
 			stateAuthenticator, err := stateauthenticator.NewAuthenticator(statePool, clock.WallClock)
 			if err != nil {
@@ -1151,11 +1168,6 @@ func (e *environ) ConstraintsValidator(ctx context.ProviderCallContext) (constra
 	return validator, nil
 }
 
-// MaintainInstance is specified in the InstanceBroker interface.
-func (*environ) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
-	return nil
-}
-
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	defer delay()
@@ -1182,7 +1194,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		return nil, errors.New("cannot start instance: missing machine nonce")
 	}
 	if args.InstanceConfig.Controller != nil {
-		if args.InstanceConfig.Controller.MongoInfo.Tag != names.NewMachineTag(machineId) {
+		if args.InstanceConfig.APIInfo.Tag != names.NewMachineTag(machineId) {
 			return nil, errors.New("entity tag must match started machine")
 		}
 	}
@@ -1209,7 +1221,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	var hc *instance.HardwareCharacteristics
 	// To match current system capability, only provide hardware characteristics for
 	// environ machines, not containers.
-	if state.ParentId(machineId) == "" {
+	if container.ParentId(machineId) == "" {
 		// Assume that the provided Availability Zone won't fail,
 		// though one is required.
 		var zone string
@@ -1236,7 +1248,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		}
 		// Fill in some expected instance hardware characteristics if constraints not specified.
 		if hc.Arch == nil {
-			arch := "amd64"
+			arch := corearch.DefaultArchitecture
 			hc.Arch = &arch
 		}
 		if hc.Mem == nil {
@@ -1290,10 +1302,6 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 			},
 		}
 	}
-	var mongoInfo *mongo.MongoInfo
-	if args.InstanceConfig.Controller != nil {
-		mongoInfo = args.InstanceConfig.Controller.MongoInfo
-	}
 	estate.insts[i.id] = i
 	estate.maxId++
 	estate.ops <- OpStartInstance{
@@ -1303,11 +1311,11 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		PossibleTools:     args.Tools,
 		Constraints:       args.Constraints,
 		SubnetsToZones:    subnetsToZones,
+		RootDisk:          args.RootDisk,
 		Volumes:           volumes,
 		VolumeAttachments: volumeAttachments,
 		Instance:          i,
 		Jobs:              args.InstanceConfig.Jobs,
-		Info:              mongoInfo,
 		APIInfo:           args.InstanceConfig.APIInfo,
 		AgentEnvironment:  args.InstanceConfig.AgentEnvironment,
 		Secret:            e.ecfg().secret(),
@@ -1730,6 +1738,19 @@ func (e *environ) IngressRules(ctx context.ProviderCallContext) (rules firewall.
 	return
 }
 
+// SupportsRulesWithIPV6CIDRs returns true if the environment supports ingress
+// rules containing IPV6 CIDRs. It is part of the FirewallFeatureQuerier
+// interface.
+func (e *environ) SupportsRulesWithIPV6CIDRs(context.ProviderCallContext) (bool, error) {
+	if err := e.checkBroken("SupportsRulesWithIPV6CIDRs"); err != nil {
+		return false, err
+	}
+
+	dummy.mu.Lock()
+	defer dummy.mu.Unlock()
+	return dummy.supportsRulesWithIPV6CIDRs, nil
+}
+
 func (*environ) Provider() environs.EnvironProvider {
 	return &dummy
 }
@@ -1839,25 +1860,25 @@ func (inst *dummyInstance) OpenPorts(ctx context.ProviderCallContext, machineId 
 		InstanceId: inst.Id(),
 		Rules:      rules,
 	}
-	for _, r := range rules {
-		if len(r.SourceCIDRs) == 0 {
-			r.SourceCIDRs.Add(firewall.AllNetworksIPV4CIDR)
+	for _, newRule := range rules {
+		if len(newRule.SourceCIDRs) == 0 {
+			newRule.SourceCIDRs.Add(firewall.AllNetworksIPV4CIDR)
 		}
 		found := false
-		for i, rule := range inst.rules {
-			if r.PortRange == rule.PortRange {
-				ruleCopy := r
-				inst.rules[i] = ruleCopy
-				found = true
-				break
+
+		for i, existingRule := range inst.rules {
+			if newRule.PortRange != existingRule.PortRange {
+				continue
 			}
-			if r.String() == rule.String() {
-				found = true
-				break
-			}
+
+			// Append CIDRs from incoming rule
+			inst.rules[i].SourceCIDRs = existingRule.SourceCIDRs.Union(newRule.SourceCIDRs)
+			found = true
+			break
 		}
+
 		if !found {
-			inst.rules = append(inst.rules, r)
+			inst.rules = append(inst.rules, newRule)
 		}
 	}
 	return nil
@@ -1883,13 +1904,28 @@ func (inst *dummyInstance) ClosePorts(ctx context.ProviderCallContext, machineId
 		InstanceId: inst.Id(),
 		Rules:      rules,
 	}
-	for _, r := range rules {
-		for i, rule := range inst.rules {
-			if r.String() == rule.String() {
-				inst.rules = inst.rules[:i+copy(inst.rules[i:], inst.rules[i+1:])]
+
+	var updatedRules firewall.IngressRules
+
+nextRule:
+	for _, existingRule := range inst.rules {
+		for _, removeRule := range rules {
+			if removeRule.PortRange != existingRule.PortRange {
+				continue // port not matched
+			}
+
+			existingRule.SourceCIDRs = existingRule.SourceCIDRs.Difference(removeRule.SourceCIDRs)
+
+			// If the rule is empty, OR the entry to be removed
+			// has no CIDRs, drop the rule.
+			if len(existingRule.SourceCIDRs) == 0 || len(removeRule.SourceCIDRs) == 0 {
+				continue nextRule // drop existing rule
 			}
 		}
+
+		updatedRules = append(updatedRules, existingRule)
 	}
+	inst.rules = updatedRules
 	return nil
 }
 

@@ -12,6 +12,7 @@ import (
 	charmhub "github.com/juju/juju/charmhub"
 	transport "github.com/juju/juju/charmhub/transport"
 	charm0 "github.com/juju/juju/core/charm"
+	url "net/url"
 	reflect "reflect"
 )
 
@@ -91,6 +92,21 @@ func NewMockCharmHubClient(ctrl *gomock.Controller) *MockCharmHubClient {
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockCharmHubClient) EXPECT() *MockCharmHubClientMockRecorder {
 	return m.recorder
+}
+
+// DownloadAndRead mocks base method
+func (m *MockCharmHubClient) DownloadAndRead(arg0 context.Context, arg1 *url.URL, arg2 string) (*charm.CharmArchive, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DownloadAndRead", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*charm.CharmArchive)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DownloadAndRead indicates an expected call of DownloadAndRead
+func (mr *MockCharmHubClientMockRecorder) DownloadAndRead(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadAndRead", reflect.TypeOf((*MockCharmHubClient)(nil).DownloadAndRead), arg0, arg1, arg2)
 }
 
 // Info mocks base method
@@ -175,19 +191,20 @@ func (mr *MockStrategyMockRecorder) Finish() *gomock.Call {
 }
 
 // Run mocks base method
-func (m *MockStrategy) Run(arg0 charm0.State, arg1 charm0.JujuVersionValidator) (charm0.DownloadResult, bool, error) {
+func (m *MockStrategy) Run(arg0 charm0.State, arg1 charm0.JujuVersionValidator, arg2 charm0.Origin) (charm0.DownloadResult, bool, charm0.Origin, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Run", arg0, arg1)
+	ret := m.ctrl.Call(m, "Run", arg0, arg1, arg2)
 	ret0, _ := ret[0].(charm0.DownloadResult)
 	ret1, _ := ret[1].(bool)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret2, _ := ret[2].(charm0.Origin)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
 }
 
 // Run indicates an expected call of Run
-func (mr *MockStrategyMockRecorder) Run(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockStrategyMockRecorder) Run(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockStrategy)(nil).Run), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockStrategy)(nil).Run), arg0, arg1, arg2)
 }
 
 // Validate mocks base method

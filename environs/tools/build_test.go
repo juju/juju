@@ -16,10 +16,9 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/juju/os/series"
 	exttest "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -302,7 +301,7 @@ func listDir(c *gc.C, dir string) []string {
 
 func (b *buildSuite) TestBundleToolsMatchesBinaryUsingSeriesArch(c *gc.C) {
 	thisArch := arch.HostArch()
-	thisSeries := series.MustHostSeries()
+	thisSeries := testing.HostSeries(c)
 	dir := b.setUpFakeBinaries(c, fmt.Sprintf(seriesArchMatchVersionFile, thisSeries, thisArch))
 
 	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))

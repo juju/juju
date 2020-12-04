@@ -21,9 +21,7 @@ import (
 )
 
 func (k *kubernetesClient) getIngressLabels(appName string) map[string]string {
-	return map[string]string{
-		constants.LabelApplication: appName,
-	}
+	return utils.LabelsForApp(appName, k.IsLegacyLabels())
 }
 
 // TODO(caas): should we overwrite the existing `juju expose` created ingress if user runs upgrade-charm with new ingress podspec v2.
@@ -110,7 +108,7 @@ func (k *kubernetesClient) deleteIngress(name string, uid k8stypes.UID) error {
 
 func (k *kubernetesClient) listIngressResources(labels map[string]string) ([]v1beta1.Ingress, error) {
 	listOps := v1.ListOptions{
-		LabelSelector: utils.LabelSetToSelector(labels).String(),
+		LabelSelector: utils.LabelsToSelector(labels).String(),
 	}
 	ingList, err := k.client().ExtensionsV1beta1().Ingresses(k.namespace).List(context.TODO(), listOps)
 	if err != nil {
@@ -124,9 +122,9 @@ func (k *kubernetesClient) listIngressResources(labels map[string]string) ([]v1b
 
 func (k *kubernetesClient) deleteIngressResources(appName string) error {
 	err := k.client().ExtensionsV1beta1().Ingresses(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, v1.ListOptions{
-		LabelSelector: utils.LabelSetToSelector(k.getIngressLabels(appName)).String(),
+		LabelSelector: utils.LabelsToSelector(k.getIngressLabels(appName)).String(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

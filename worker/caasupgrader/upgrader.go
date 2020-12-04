@@ -9,8 +9,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
-	"github.com/juju/utils/arch"
+	"github.com/juju/os/v2/series"
+	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 	"github.com/juju/worker/v2/catacomb"
 
@@ -88,8 +88,12 @@ func (u *Upgrader) Wait() error {
 
 func (u *Upgrader) loop() error {
 	// Only controllers set their version here - agents do it in the main agent worker loop.
+	hostSeries, err := series.HostSeries()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if agent.IsAllowedControllerTag(u.tag.Kind()) {
-		if err := u.upgraderClient.SetVersion(u.tag.String(), toBinaryVersion(jujuversion.Current)); err != nil {
+		if err := u.upgraderClient.SetVersion(u.tag.String(), toBinaryVersion(jujuversion.Current, hostSeries)); err != nil {
 			return errors.Annotate(err, "cannot set agent version")
 		}
 	}
@@ -159,7 +163,6 @@ func (u *Upgrader) loop() error {
 			u.config.InitialUpgradeCheckComplete.Unlock()
 			continue
 		} else if !upgrader.AllowedTargetVersion(
-			u.config.OrigAgentVersion,
 			jujuversion.Current,
 			wantVersion,
 		) {
@@ -175,16 +178,16 @@ func (u *Upgrader) loop() error {
 		logger.Debugf("%s requested for %v from %v to %v", direction, u.tag, jujuversion.Current, wantVersion)
 		err = u.operatorUpgrader.Upgrade(u.tag.String(), wantVersion)
 		if err != nil {
-			return errors.Annotatef(err, "requesting upgrade for %f from %v to %v", u.tag, jujuversion.Current, wantVersion)
+			return errors.Annotatef(err, "requesting upgrade for %v from %v to %v", u.tag, jujuversion.Current, wantVersion)
 		}
 	}
 }
 
-func toBinaryVersion(vers version.Number) version.Binary {
+func toBinaryVersion(vers version.Number, hostSeries string) version.Binary {
 	outVers := version.Binary{
 		Number: vers,
 		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
+		Series: hostSeries,
 	}
 	return outVers
 }

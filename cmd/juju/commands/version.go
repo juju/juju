@@ -6,8 +6,8 @@ package commands
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
-	"github.com/juju/os/series"
-	"github.com/juju/utils/arch"
+	"github.com/juju/os/v2/series"
+	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 
 	jujuversion "github.com/juju/juju/version"
@@ -74,10 +74,14 @@ func (v *versionCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (v *versionCommand) Init(args []string) error {
+	ser, err := series.HostSeries()
+	if err != nil {
+		ser = "unknown"
+	}
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
+		Series: ser,
 	}
 	detail := versionDetail{
 		Version:       current,

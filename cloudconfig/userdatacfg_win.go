@@ -14,8 +14,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
-	"github.com/juju/utils/cert"
+	"github.com/juju/os/v2/series"
+	"github.com/juju/utils/v2/cert"
 
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/juju/osenv"
@@ -50,12 +50,7 @@ func (w *windowsConfigure) Configure() error {
 
 // ConfigureBasic implements UserdataConfig.ConfigureBasic
 func (w *windowsConfigure) ConfigureBasic() error {
-
-	tmpDir, err := paths.TempDir(w.icfg.Series)
-	if err != nil {
-		return err
-	}
-
+	tmpDir := paths.TempDir(paths.SeriesToOS(w.icfg.Series))
 	renderer := w.conf.ShellRenderer()
 	dataDir := renderer.FromSlash(w.icfg.DataDir)
 	transientDataDir := renderer.FromSlash(w.icfg.TransientDataDir)
@@ -81,6 +76,7 @@ func (w *windowsConfigure) ConfigureBasic() error {
 		// This is necessary for setACLs to work
 		`$adminsGroup = (New-Object System.Security.Principal.SecurityIdentifier("S-1-5-32-544")).Translate([System.Security.Principal.NTAccount])`,
 		fmt.Sprintf(`icacls "%s" /inheritance:r /grant "${adminsGroup}:(OI)(CI)(F)" /t`, renderer.FromSlash(baseDir)),
+		fmt.Sprintf(`icacls "%s" /inheritance:e /grant "SYSTEM:(OI)(CI)(F)" /t`, renderer.FromSlash(baseDir)),
 	)
 
 	// TODO(bogdanteleaga): This, together with the call above, should be using setACLs, once it starts working across all windows versions properly.

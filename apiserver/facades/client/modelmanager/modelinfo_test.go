@@ -11,7 +11,6 @@ import (
 	"github.com/juju/description/v2"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -34,6 +33,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type modelInfoSuite struct {
@@ -171,19 +171,23 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 	s.callContext = context.NewCloudCallContext()
 
 	var err error
-	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, nil, &s.authorizer, s.st.model, s.callContext)
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, nil, nil, &s.authorizer, s.st.model, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
 	var err error
-	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, nil, s.authorizer, s.st.model, s.callContext)
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, nil, nil, s.authorizer, s.st.model, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *modelInfoSuite) TestModelInfoV7(c *gc.C) {
-	api := &modelmanager.ModelManagerAPIV7{s.modelmanager}
+	api := &modelmanager.ModelManagerAPIV7{
+		&modelmanager.ModelManagerAPIV8{
+			s.modelmanager,
+		},
+	}
 
 	results, err := api.ModelInfo(params.Entities{
 		Entities: []params.Entity{{
@@ -223,7 +227,7 @@ func (s *modelInfoSuite) expectedModelInfo(c *gc.C, credentialValidity *bool) pa
 		CloudTag:           "cloud-some-cloud",
 		CloudRegion:        "some-region",
 		CloudCredentialTag: "cloudcred-some-cloud_bob_some-credential",
-		DefaultSeries:      series.DefaultSupportedLTS(),
+		DefaultSeries:      version.DefaultSupportedLTS(),
 		Life:               life.Dying,
 		Status: params.EntityStatus{
 			Status: status.Destroying,

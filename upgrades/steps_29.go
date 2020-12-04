@@ -41,10 +41,17 @@ func stateStepsFor29() []Step {
 			},
 		},
 		&upgradeStep{
-			description: "add Azure provider network config",
+			description: `add explicit "expose all endpoints to 0.0.0.0/0" entry for already exposed applications`,
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
-				return context.State().AddAzureProviderNetworkConfig()
+				return context.State().ExposeWildcardEndpointForExposedApplications()
+			},
+		},
+		&upgradeStep{
+			description: "remove unused linklayerdevicesrefs collection",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().RemoveLinkLayerDevicesRefsCollection()
 			},
 		},
 	}

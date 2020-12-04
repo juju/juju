@@ -15,9 +15,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
-	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
-	"github.com/juju/utils/ssh"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v2/ssh"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/agent"
@@ -61,11 +61,6 @@ type manualEnviron struct {
 
 var errNoStartInstance = errors.New("manual provider cannot start instances")
 var errNoStopInstance = errors.New("manual provider cannot stop instances")
-
-// MaintainInstance is specified in the InstanceBroker interface.
-func (*manualEnviron) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
-	return nil
-}
 
 func (*manualEnviron) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	return nil, errNoStartInstance
@@ -332,6 +327,7 @@ var unsupportedConstraints = []string{
 	constraints.InstanceType,
 	constraints.Tags,
 	constraints.VirtType,
+	constraints.AllocatePublicIP,
 }
 
 // ConstraintsValidator is defined on the Environs interface.

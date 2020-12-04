@@ -8,9 +8,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/shell"
+	"github.com/juju/utils/v2/shell"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -25,6 +24,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type provisionerSuite struct {
@@ -46,7 +46,7 @@ func (s *provisionerSuite) getArgs(c *gc.C) manual.ProvisionMachineArgs {
 }
 
 func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
-	var series = series.DefaultSupportedLTS()
+	var series = jujuversion.DefaultSupportedLTS()
 	const arch = "amd64"
 
 	args := s.getArgs(c)
@@ -128,7 +128,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestFinishInstancConfig(c *gc.C) {
-	var series = series.DefaultSupportedLTS()
+	var series = jujuversion.DefaultSupportedLTS()
 	const arch = "amd64"
 	defer fakeSSH{
 		Series:         series,
@@ -140,7 +140,7 @@ func (s *provisionerSuite) TestFinishInstancConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now check what we would've configured it with.
-	icfg, err := client.InstanceConfig(s.State, machineId, agent.BootstrapNonce, "/var/lib/juju")
+	icfg, err := client.InstanceConfig(s.StatePool.SystemState(), s.State, machineId, agent.BootstrapNonce, "/var/lib/juju")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(icfg, gc.NotNil)
 	c.Check(icfg.APIInfo, gc.NotNil)
@@ -150,7 +150,7 @@ func (s *provisionerSuite) TestFinishInstancConfig(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
-	var series = series.DefaultSupportedLTS()
+	var series = jujuversion.DefaultSupportedLTS()
 	const arch = "amd64"
 	defer fakeSSH{
 		Series:         series,
@@ -167,7 +167,7 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 		}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	icfg, err := client.InstanceConfig(s.State, machineId, agent.BootstrapNonce, "/var/lib/juju")
+	icfg, err := client.InstanceConfig(s.StatePool.SystemState(), s.State, machineId, agent.BootstrapNonce, "/var/lib/juju")
 	c.Assert(err, jc.ErrorIsNil)
 
 	script, err := sshprovisioner.ProvisioningScript(icfg)

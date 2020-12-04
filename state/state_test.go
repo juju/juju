@@ -17,12 +17,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
-	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/application"
+	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
@@ -1266,7 +1267,7 @@ func (s *StateSuite) TestInjectMachineErrors(c *gc.C) {
 
 func (s *StateSuite) TestInjectMachine(c *gc.C) {
 	cons := constraints.MustParse("mem=4G")
-	arch := "amd64"
+	arch := corearch.DefaultArchitecture
 	mem := uint64(1024)
 	disk := uint64(1024)
 	source := "loveshack"
@@ -1881,7 +1882,7 @@ func (s *StateSuite) TestAddApplicationCompatibleOSWithSeriesInURL(c *gc.C) {
 
 func (s *StateSuite) TestAddApplicationCompatibleOSWithNoExplicitSupportedSeries(c *gc.C) {
 	// If a charm doesn't declare any series, we can add it with any series we choose.
-	charm := s.AddSeriesCharm(c, "dummy", "")
+	charm := s.AddSeriesCharm(c, "dummy", "bionic")
 	_, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name: "wordpress", Charm: charm,
 		Series: "quantal",
@@ -3703,30 +3704,6 @@ func (s *StateSuite) TestWatchRemoteRelationsDiesOnStateClose(c *gc.C) {
 	})
 }
 
-func (s *StateSuite) TestNestingLevel(c *gc.C) {
-	c.Assert(state.NestingLevel("0"), gc.Equals, 0)
-	c.Assert(state.NestingLevel("0/lxd/1"), gc.Equals, 1)
-	c.Assert(state.NestingLevel("0/lxd/1/kvm/0"), gc.Equals, 2)
-}
-
-func (s *StateSuite) TestTopParentId(c *gc.C) {
-	c.Assert(state.TopParentId("0"), gc.Equals, "0")
-	c.Assert(state.TopParentId("0/lxd/1"), gc.Equals, "0")
-	c.Assert(state.TopParentId("0/lxd/1/kvm/2"), gc.Equals, "0")
-}
-
-func (s *StateSuite) TestParentId(c *gc.C) {
-	c.Assert(state.ParentId("0"), gc.Equals, "")
-	c.Assert(state.ParentId("0/lxd/1"), gc.Equals, "0")
-	c.Assert(state.ParentId("0/lxd/1/kvm/0"), gc.Equals, "0/lxd/1")
-}
-
-func (s *StateSuite) TestContainerTypeFromId(c *gc.C) {
-	c.Assert(state.ContainerTypeFromId("0"), gc.Equals, instance.ContainerType(""))
-	c.Assert(state.ContainerTypeFromId("0/lxd/1"), gc.Equals, instance.LXD)
-	c.Assert(state.ContainerTypeFromId("0/lxd/1/kvm/0"), gc.Equals, instance.KVM)
-}
-
 func (s *StateSuite) TestIsUpgradeInProgressError(c *gc.C) {
 	c.Assert(stateerrors.IsUpgradeInProgressError(errors.New("foo")), jc.IsFalse)
 	c.Assert(stateerrors.IsUpgradeInProgressError(stateerrors.ErrUpgradeInProgress), jc.IsTrue)
@@ -3885,7 +3862,7 @@ func (s *StateSuite) TestSetModelAgentVersionOnOtherModel(c *gc.C) {
 	current := version.MustParseBinary("1.24.7-trusty-amd64")
 	s.PatchValue(&jujuversion.Current, current.Number)
 	s.PatchValue(&arch.HostArch, func() string { return current.Arch })
-	s.PatchValue(&series.MustHostSeries, func() string { return current.Series })
+	s.PatchValue(&series.HostSeries, func() (string, error) { return current.Series, nil })
 
 	otherSt := s.Factory.MakeModel(c, nil)
 	defer otherSt.Close()
@@ -4107,11 +4084,12 @@ func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpace(c *gc.C) {
 	err = s.State.SetAPIHostPorts(newHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
-	gotHostPorts, err := s.State.APIHostPortsForClients()
+	ctrlSt := s.StatePool.SystemState()
+	gotHostPorts, err := ctrlSt.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 
-	gotHostPorts, err = s.State.APIHostPortsForAgents()
+	gotHostPorts, err = ctrlSt.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 
@@ -4122,11 +4100,11 @@ func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpace(c *gc.C) {
 	err = s.State.SetAPIHostPorts(newHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
-	gotHostPorts, err = s.State.APIHostPortsForClients()
+	gotHostPorts, err = ctrlSt.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 
-	gotHostPorts, err = s.State.APIHostPortsForAgents()
+	gotHostPorts, err = ctrlSt.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 }
@@ -4211,11 +4189,12 @@ func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentDifferent(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(revno, gc.Not(gc.Equals), prevAgentsRevno)
 
-	hostPorts, err := s.State.APIHostPortsForClients()
+	ctrlSt := s.StatePool.SystemState()
+	hostPorts, err := ctrlSt.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostPorts, gc.DeepEquals, []network.SpaceHostPorts{hostPorts1})
 
-	hostPorts, err = s.State.APIHostPortsForAgents()
+	hostPorts, err = ctrlSt.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostPorts, gc.DeepEquals, []network.SpaceHostPorts{hostPorts1})
 }
@@ -4254,11 +4233,12 @@ func (s *StateSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
 	err = s.State.SetAPIHostPorts(newHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
-	gotHostPorts, err := s.State.APIHostPortsForClients()
+	ctrlSt := s.StatePool.SystemState()
+	gotHostPorts, err := ctrlSt.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 
-	gotHostPorts, err = s.State.APIHostPortsForAgents()
+	gotHostPorts, err = ctrlSt.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 	// First slice filtered down to the address in the management space.
 	// Second filtered to zero elements, so retains the supplied slice.
@@ -4285,7 +4265,8 @@ func (s *StateSuite) TestSetAPIHostPortsForAgentsNoDocument(c *gc.C) {
 	err = s.State.SetAPIHostPorts(newHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
-	gotHostPorts, err := s.State.APIHostPortsForAgents()
+	ctrlSt := s.StatePool.SystemState()
+	gotHostPorts, err := ctrlSt.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 }
@@ -4310,7 +4291,8 @@ func (s *StateSuite) TestAPIHostPortsForAgentsNoDocument(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(col.FindId(key).One(&bson.D{}), gc.Equals, mgo.ErrNotFound)
 
-	gotHostPorts, err := s.State.APIHostPortsForAgents()
+	ctrlSt := s.StatePool.SystemState()
+	gotHostPorts, err := ctrlSt.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 }

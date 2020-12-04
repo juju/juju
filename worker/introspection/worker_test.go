@@ -63,14 +63,15 @@ func (s *suite) TestStartStop(c *gc.C) {
 type introspectionSuite struct {
 	testing.IsolationSuite
 
-	name     string
-	worker   worker.Worker
-	reporter introspection.DepEngineReporter
-	gatherer prometheus.Gatherer
-	recorder presence.Recorder
-	hub      *pubsub.SimpleHub
-	clock    *testclock.Clock
-	leases   *fakeLeases
+	name       string
+	worker     worker.Worker
+	reporter   introspection.DepEngineReporter
+	gatherer   prometheus.Gatherer
+	recorder   presence.Recorder
+	localHub   *pubsub.SimpleHub
+	centralHub introspection.StructuredHub
+	clock      *testclock.Clock
+	leases     *fakeLeases
 }
 
 var _ = gc.Suite(&introspectionSuite{})
@@ -84,7 +85,8 @@ func (s *introspectionSuite) SetUpTest(c *gc.C) {
 	s.worker = nil
 	s.recorder = nil
 	s.gatherer = newPrometheusGatherer()
-	s.hub = pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{Logger: loggo.GetLogger("test.hub")})
+	s.localHub = pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{Logger: loggo.GetLogger("test.localhub")})
+	s.centralHub = pubsub.NewStructuredHub(&pubsub.StructuredHubConfig{Logger: loggo.GetLogger("test.centralhub")})
 	s.clock = testclock.NewClock(time.Now())
 	s.leases = &fakeLeases{}
 	s.startWorker(c)
@@ -98,7 +100,8 @@ func (s *introspectionSuite) startWorker(c *gc.C) {
 		PrometheusGatherer: s.gatherer,
 		Presence:           s.recorder,
 		Clock:              s.clock,
-		Hub:                s.hub,
+		LocalHub:           s.localHub,
+		CentralHub:         s.centralHub,
 		Leases:             s.leases,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -278,7 +281,7 @@ func (s *introspectionSuite) TestUnitUnknownAction(c *gc.C) {
 func (s *introspectionSuite) TestUnitStartWithGet(c *gc.C) {
 	response := s.call(c, "/units?action=start")
 	c.Assert(response.StatusCode, gc.Equals, http.StatusMethodNotAllowed)
-	s.assertBody(c, response, "start requires a POST request")
+	s.assertBody(c, response, `start requires a POST request, got "GET"`)
 }
 
 func (s *introspectionSuite) TestUnitStartMissingUnits(c *gc.C) {
@@ -288,13 +291,13 @@ func (s *introspectionSuite) TestUnitStartMissingUnits(c *gc.C) {
 }
 
 func (s *introspectionSuite) TestUnitStartUnits(c *gc.C) {
-	unsub := s.hub.Subscribe(agent.StartUnitTopic, func(topic string, data interface{}) {
+	unsub := s.localHub.Subscribe(agent.StartUnitTopic, func(topic string, data interface{}) {
 		_, ok := data.(agent.Units)
 		if !ok {
 			c.Fatalf("bad data type: %T", data)
 			return
 		}
-		s.hub.Publish(agent.StartUnitResponseTopic, agent.StartStopResponse{
+		s.localHub.Publish(agent.StartUnitResponseTopic, agent.StartStopResponse{
 			"one": "started",
 			"two": "not found",
 		})
@@ -309,7 +312,7 @@ func (s *introspectionSuite) TestUnitStartUnits(c *gc.C) {
 func (s *introspectionSuite) TestUnitStopWithGet(c *gc.C) {
 	response := s.call(c, "/units?action=stop")
 	c.Assert(response.StatusCode, gc.Equals, http.StatusMethodNotAllowed)
-	s.assertBody(c, response, "stop requires a POST request")
+	s.assertBody(c, response, `stop requires a POST request, got "GET"`)
 }
 
 func (s *introspectionSuite) TestUnitStopMissingUnits(c *gc.C) {
@@ -319,13 +322,13 @@ func (s *introspectionSuite) TestUnitStopMissingUnits(c *gc.C) {
 }
 
 func (s *introspectionSuite) TestUnitStopUnits(c *gc.C) {
-	unsub := s.hub.Subscribe(agent.StopUnitTopic, func(topic string, data interface{}) {
+	unsub := s.localHub.Subscribe(agent.StopUnitTopic, func(topic string, data interface{}) {
 		_, ok := data.(agent.Units)
 		if !ok {
 			c.Fatalf("bad data type: %T", data)
 			return
 		}
-		s.hub.Publish(agent.StopUnitResponseTopic, agent.StartStopResponse{
+		s.localHub.Publish(agent.StopUnitResponseTopic, agent.StartStopResponse{
 			"one": "stopped",
 			"two": "not found",
 		})
@@ -338,8 +341,8 @@ func (s *introspectionSuite) TestUnitStopUnits(c *gc.C) {
 }
 
 func (s *introspectionSuite) TestUnitStatus(c *gc.C) {
-	unsub := s.hub.Subscribe(agent.UnitStatusTopic, func(string, interface{}) {
-		s.hub.Publish(agent.UnitStatusResponseTopic, agent.Status{
+	unsub := s.localHub.Subscribe(agent.UnitStatusTopic, func(string, interface{}) {
+		s.localHub.Publish(agent.UnitStatusResponseTopic, agent.Status{
 			"one": "running",
 			"two": "stopped",
 		})
@@ -354,8 +357,8 @@ two: stopped`[1:])
 }
 
 func (s *introspectionSuite) TestUnitStatusTimeout(c *gc.C) {
-	unsub := s.hub.Subscribe(agent.UnitStatusTopic, func(string, interface{}) {
-		s.clock.Advance(10 * time.Second)
+	unsub := s.localHub.Subscribe(agent.UnitStatusTopic, func(string, interface{}) {
+		s.clock.WaitAdvance(10*time.Second, time.Second, 1)
 	})
 	defer unsub()
 
@@ -368,7 +371,7 @@ func (s *introspectionSuite) TestLeasesErr(c *gc.C) {
 	s.leases.err = errors.New("boom")
 	response := s.call(c, "/leases")
 	c.Assert(response.StatusCode, gc.Equals, http.StatusInternalServerError)
-	s.assertBody(c, response, "error: boom")
+	s.assertBody(c, response, "snapshot: boom")
 }
 
 func (s *introspectionSuite) TestLeasesNewerVersion(c *gc.C) {
@@ -472,6 +475,95 @@ model-leases:
       lease-expires: 50s`[1:])
 }
 
+func (s *introspectionSuite) TestRevokeApplicationLease(c *gc.C) {
+	s.assertRevokeLease(c, "")
+	s.assertRevokeLease(c, "application-leadership")
+}
+
+func (s *introspectionSuite) assertRevokeLease(c *gc.C, ns string) {
+	s.setLeaseData()
+	unsub, err := s.centralHub.Subscribe("lease.request", func(topic string, data map[string]interface{}) {
+		responseTopic, _ := data["ResponseTopic"].(string)
+		c.Assert(strings.HasPrefix(responseTopic, "lease.request"), jc.IsTrue)
+		delete(data, "ResponseTopic")
+		c.Assert(data, gc.DeepEquals, map[string]interface{}{
+			"Command": `
+version: 1
+operation: revoke
+namespace: application-leadership
+model-uuid: some-uuid
+lease: mysql
+holder: mysql/0
+`[1:],
+		})
+		_, err := s.centralHub.Publish(responseTopic, raftlease.ForwardResponse{
+			Error: nil,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer unsub()
+
+	response := s.post(c, "/leases/revoke", url.Values{"model": {"some-uuid"}, "lease": {"mysql"}, "ns": {ns}})
+	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
+	s.assertBody(c, response, `application lease for model "some-uuid" and app "mysql" revoked`)
+}
+
+func (s *introspectionSuite) TestRevokeControllerLease(c *gc.C) {
+	s.setLeaseData()
+	unsub, err := s.centralHub.Subscribe("lease.request", func(topic string, data map[string]interface{}) {
+		responseTopic, _ := data["ResponseTopic"].(string)
+		c.Assert(strings.HasPrefix(responseTopic, "lease.request"), jc.IsTrue)
+		delete(data, "ResponseTopic")
+		c.Assert(data, gc.DeepEquals, map[string]interface{}{
+			"Command": `
+version: 1
+operation: revoke
+namespace: singular-controller
+model-uuid: some-uuid
+lease: some-uuid
+holder: controller-0
+`[1:],
+		})
+		_, err := s.centralHub.Publish(responseTopic, raftlease.ForwardResponse{
+			Error: nil,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer unsub()
+
+	response := s.post(c, "/leases/revoke", url.Values{"model": {"some-uuid"}, "lease": {"some-uuid"}, "ns": {"singular-controller"}})
+	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
+	s.assertBody(c, response, `singular lease for model "some-uuid" revoked`)
+}
+
+func (s *introspectionSuite) TestRevokeLeaseBadApp(c *gc.C) {
+	s.setLeaseData()
+	unsub, err := s.centralHub.Subscribe("lease.request", func(topic string, data map[string]interface{}) {
+		c.Fail()
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer unsub()
+
+	response := s.post(c, "/leases/revoke", url.Values{"model": {"some-uuid"}, "lease": {"mariadb"}})
+	c.Assert(response.StatusCode, gc.Equals, http.StatusBadRequest)
+	s.assertBody(c, response, `application lease for model "some-uuid" and app "mariadb" not found`)
+}
+
+func (s *introspectionSuite) TestRevokeLeaseMissingModel(c *gc.C) {
+	s.setLeaseData()
+	unsub, err := s.centralHub.Subscribe("lease.request", func(topic string, data map[string]interface{}) {
+		c.Fail()
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer unsub()
+
+	response := s.post(c, "/leases/revoke", url.Values{"lease": {"mysql"}})
+	c.Assert(response.StatusCode, gc.Equals, http.StatusBadRequest)
+	s.assertBody(c, response, `missing model uuid`)
+}
+
 func (s *introspectionSuite) setLeaseData() {
 	now := time.Date(2020, 8, 11, 15, 34, 23, 0, time.UTC)
 	start := now.Add(-10 * time.Second)
@@ -556,6 +648,7 @@ func newPrometheusGatherer() prometheus.Gatherer {
 func unixSocketHTTPClient(socketPath string) *http.Client {
 	return &http.Client{
 		Transport: unixSocketHTTPTransport(socketPath),
+		Timeout:   15 * time.Second,
 	}
 }
 

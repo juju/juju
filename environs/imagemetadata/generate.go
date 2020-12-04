@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"

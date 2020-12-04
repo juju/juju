@@ -235,7 +235,7 @@ var newConfigTests = []struct {
 	config: controller.Config{
 		controller.PruneTxnSleepTime: "15",
 	},
-	expectError: `prune-txn-sleep-time must be a valid duration \(eg "10ms"\): time: missing unit in duration 15`,
+	expectError: `prune-txn-sleep-time must be a valid duration \(eg "10ms"\): time: missing unit in duration "?15"?`,
 }, {
 	about: "mongo-memory-profile not valid",
 	config: controller.Config{
@@ -277,7 +277,7 @@ var newConfigTests = []struct {
 	config: controller.Config{
 		controller.AgentRateLimitRate: "150",
 	},
-	expectError: `agent-ratelimit-rate: conversion to duration: time: missing unit in duration 150`,
+	expectError: `agent-ratelimit-rate: conversion to duration: time: missing unit in duration "?150"?`,
 }, {
 	about: "agent-ratelimit-rate bad type, int",
 	config: controller.Config{
@@ -339,6 +339,12 @@ var newConfigTests = []struct {
 		controller.NonSyncedWritesToRaftLog: "I live dangerously",
 	},
 	expectError: `non-synced-writes-to-raft-log: expected bool, got string\("I live dangerously"\)`,
+}, {
+	about: "public-dns-address: expect string, got number",
+	config: controller.Config{
+		controller.PublicDNSAddress: 42,
+	},
+	expectError: `public-dns-address: expected string, got int\(42\)`,
 }, {}}
 
 func (s *ConfigSuite) TestNewConfig(c *gc.C) {
@@ -432,6 +438,18 @@ func (s *ConfigSuite) TestPruneTxnQueryCount(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cfg.PruneTxnQueryCount(), gc.Equals, 500)
 	c.Check(cfg.PruneTxnSleepTime(), gc.Equals, 5*time.Millisecond)
+}
+
+func (s *ConfigSuite) TestPublicDNSAddressConfigValue(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			"public-dns-address": "controller.test.com:12345",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cfg.PublicDNSAddress(), gc.Equals, "controller.test.com:12345")
 }
 
 func (s *ConfigSuite) TestNetworkSpaceConfigValues(c *gc.C) {
@@ -669,7 +687,7 @@ func (s *ConfigSuite) TestMaxDebugLogDurationSchemaCoerce(c *gc.C) {
 			"max-debug-log-duration": "12",
 		},
 	)
-	c.Assert(err.Error(), gc.Equals, "max-debug-log-duration: conversion to duration: time: missing unit in duration 12")
+	c.Assert(err, gc.ErrorMatches, `max-debug-log-duration: conversion to duration: time: missing unit in duration "?12"?`)
 }
 
 func (s *ConfigSuite) TestDefaults(c *gc.C) {

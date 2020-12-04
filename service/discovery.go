@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
-	"github.com/juju/os"
-	"github.com/juju/os/series"
-	"github.com/juju/utils/shell"
+	"github.com/juju/os/v2"
+	"github.com/juju/os/v2/series"
+	"github.com/juju/utils/v2/shell"
 
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/service/common"
@@ -23,7 +23,11 @@ import (
 // DiscoverService returns an interface to a service appropriate
 // for the current system
 func DiscoverService(name string, conf common.Conf) (Service, error) {
-	initName, err := discoverInitSystem(series.MustHostSeries())
+	hostSeries, err := series.HostSeries()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	initName, err := discoverInitSystem(hostSeries)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

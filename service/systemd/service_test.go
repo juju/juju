@@ -14,8 +14,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/exec"
-	"github.com/juju/utils/shell"
+	"github.com/juju/utils/v2/exec"
+	"github.com/juju/utils/v2/shell"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/paths"
@@ -72,9 +72,7 @@ var _ = gc.Suite(&initSystemSuite{})
 func (s *initSystemSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	dataDir, err := paths.DataDir("vivid")
-	c.Assert(err, jc.ErrorIsNil)
-	s.dataDir = dataDir
+	s.dataDir = paths.DataDir(paths.OSUnixLike)
 
 	// Set up the service config.
 	tagStr := "machine-0"

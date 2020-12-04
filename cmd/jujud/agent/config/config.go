@@ -4,12 +4,10 @@
 package config
 
 import (
-	"github.com/juju/os/series"
-
 	"github.com/juju/juju/core/paths"
 )
 
 var (
-	DataDir = paths.MustSucceed(paths.DataDir(series.MustHostSeries()))
-	LogDir  = paths.MustSucceed(paths.LogDir(series.MustHostSeries()))
+	DataDir = paths.DataDir(paths.CurrentOS())
+	LogDir  = paths.LogDir(paths.CurrentOS())
 )

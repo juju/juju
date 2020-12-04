@@ -22,18 +22,21 @@ type InfoClientSuite struct {
 var _ = gc.Suite(&InfoClientSuite{})
 
 func (s *InfoClientSuite) TestLiveInfoRequest(c *gc.C) {
-	config := charmhub.CharmHubConfig()
+	logger := &charmhub.FakeLogger{}
+
+	config, err := charmhub.CharmHubConfig(logger)
+	c.Assert(err, jc.ErrorIsNil)
 	basePath, err := config.BasePath()
 	c.Assert(err, jc.ErrorIsNil)
 
 	infoPath, err := basePath.Join("info")
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiRequester := charmhub.NewAPIRequester(charmhub.DefaultHTTPTransport())
+	apiRequester := charmhub.NewAPIRequester(charmhub.DefaultHTTPTransport(), logger)
 	restClient := charmhub.NewHTTPRESTClient(apiRequester, nil)
 
-	client := charmhub.NewInfoClient(infoPath, restClient)
-	response, err := client.Info(context.TODO(), "wordpress")
+	client := charmhub.NewInfoClient(infoPath, restClient, logger)
+	response, err := client.Info(context.TODO(), "ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(response.Name, gc.Equals, "wordpress")
+	c.Assert(response.Name, gc.Equals, "ubuntu")
 }

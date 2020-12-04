@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -23,11 +23,6 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/tools"
 )
-
-// MaintainInstance is specified in the InstanceBroker interface.
-func (*environ) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
-	return nil
-}
 
 // StartInstance implements environs.InstanceBroker.
 func (env *environ) StartInstance(
@@ -185,7 +180,10 @@ func (env *environ) getContainerSpec(
 		Image:    image,
 		Config:   make(map[string]string),
 	}
-	cSpec.ApplyConstraints(serverVersion, args.Constraints)
+	err = cSpec.ApplyConstraints(serverVersion, args.Constraints)
+	if err != nil {
+		return cSpec, errors.Trace(err)
+	}
 
 	cloudCfg, err := cloudinit.New(args.InstanceConfig.Series)
 	if err != nil {

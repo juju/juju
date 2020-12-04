@@ -7,7 +7,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
@@ -30,6 +30,10 @@ type InitializeParams struct {
 	// ControllerModelArgs contains the arguments for creating
 	// the controller model.
 	ControllerModelArgs ModelArgs
+
+	// StoragePools is one or more named storage pools to create
+	// in the controller model.
+	StoragePools map[string]storage.Attrs
 
 	// Cloud contains the properties of the cloud that the
 	// controller runs in.
@@ -193,6 +197,10 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	storagePoolOps, err := st.createCustomStoragePoolsOps(args.ControllerModelArgs.StorageProviderRegistry, args.StoragePools)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	salt, err := utils.RandomSalt()
 	if err != nil {
 		return nil, err
@@ -276,6 +284,7 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 		ops = append(ops, createCloudCredentialOp(tag, cred))
 	}
 	ops = append(ops, modelOps...)
+	ops = append(ops, storagePoolOps...)
 
 	if err := st.db().RunTransaction(ops); err != nil {
 		return nil, errors.Trace(err)
@@ -420,6 +429,29 @@ func (st *State) createDefaultStoragePoolsOps(registry storage.ProviderRegistry)
 		if err := poolmanager.AddDefaultStoragePools(p, pm); err != nil {
 			return nil, errors.Annotatef(
 				err, "adding default storage pools for %q", providerType,
+			)
+		}
+	}
+
+	var ops []txn.Op
+	for key, settings := range m.Settings {
+		ops = append(ops, createSettingsOp(settingsC, key, settings))
+	}
+	return ops, nil
+}
+
+func (st *State) createCustomStoragePoolsOps(registry storage.ProviderRegistry, storagePools map[string]storage.Attrs) ([]txn.Op, error) {
+	m := poolmanager.MemSettings{make(map[string]map[string]interface{})}
+	pm := poolmanager.New(m, registry)
+	for name, attrs := range storagePools {
+		pType, _ := attrs[poolmanager.Type].(string)
+		if pType == "" {
+			return nil, errors.Errorf("missing provider type for storage pool %q", name)
+		}
+		providerType := storage.ProviderType(pType)
+		if _, err := pm.Create(name, providerType, attrs); err != nil {
+			return nil, errors.Annotatef(
+				err, "adding custom storage pool %q", name,
 			)
 		}
 	}

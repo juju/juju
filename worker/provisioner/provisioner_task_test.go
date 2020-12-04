@@ -16,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
@@ -38,9 +37,9 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/common/mocks"
 	coretesting "github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/provisioner"
 )
 
@@ -747,12 +746,6 @@ func (t *testInstanceBroker) AllRunningInstances(ctx context.ProviderCallContext
 	return t.allInstancesFunc(ctx)
 }
 
-func (t *testInstanceBroker) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
-	t.AddCall("MaintainInstance", ctx, args)
-	t.callsChan <- "MaintainInstance"
-	return nil
-}
-
 type testInstance struct {
 	instances.Instance
 	id string
@@ -865,7 +858,7 @@ func (m *testMachine) ProvisioningInfo() (*params.ProvisioningInfoV10, error) {
 	return &params.ProvisioningInfoV10{
 		ProvisioningInfoBase: params.ProvisioningInfoBase{
 			ControllerConfig: coretesting.FakeControllerConfig(),
-			Series:           series.DefaultSupportedLTS(),
+			Series:           jujuversion.DefaultSupportedLTS(),
 			Constraints:      constraints.MustParse(m.constraints),
 		},
 		ProvisioningNetworkTopology: m.topology,
@@ -878,9 +871,9 @@ type testAuthenticationProvider struct {
 
 func (m *testAuthenticationProvider) SetupAuthentication(
 	machine authentication.TaggedPasswordChanger,
-) (*mongo.MongoInfo, *api.Info, error) {
+) (*api.Info, error) {
 	m.AddCall("SetupAuthentication", machine)
-	return nil, nil, nil
+	return nil, nil
 }
 
 // startInstanceParamsMatcher is a GoMock matcher that applies a collection of

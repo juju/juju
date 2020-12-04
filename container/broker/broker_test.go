@@ -12,7 +12,7 @@ import (
 	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -336,16 +336,6 @@ func callStartInstance(c *gc.C, s patcher, broker environs.InstanceBroker, machi
 		InstanceConfig: makeInstanceConfig(c, s, machineId),
 		StatusCallback: makeNoOpStatusCallback(),
 	})
-}
-
-func callMaintainInstance(c *gc.C, s patcher, broker environs.InstanceBroker, machineId string) {
-	err := broker.MaintainInstance(context.NewCloudCallContext(), environs.StartInstanceParams{
-		Constraints:    constraints.Value{},
-		Tools:          makePossibleTools(),
-		InstanceConfig: makeInstanceConfig(c, s, machineId),
-		StatusCallback: makeNoOpStatusCallback(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func assertCloudInitUserData(obtained, expected map[string]interface{}, c *gc.C) {

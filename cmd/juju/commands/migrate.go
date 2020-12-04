@@ -26,7 +26,9 @@ import (
 func newMigrateCommand() modelcmd.ModelCommand {
 	var cmd migrateCommand
 	cmd.newAPIRoot = cmd.CommandBase.NewAPIRoot
-	return modelcmd.Wrap(&cmd, modelcmd.WrapSkipModelFlags)
+	return modelcmd.Wrap(&cmd,
+		modelcmd.WrapSkipModelFlags,
+	)
 }
 
 // migrateCommand initiates a model migration.

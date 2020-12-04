@@ -26,12 +26,12 @@ type actionSettingContext struct {
 	commands [][]string
 }
 
-func (a *actionSettingContext) UpdateActionResults(keys []string, value string) error {
+func (a *actionSettingContext) UpdateActionResults(keys []string, value interface{}) error {
 	if a.commands == nil {
 		a.commands = make([][]string, 0)
 	}
 
-	a.commands = append(a.commands, append(keys, value))
+	a.commands = append(a.commands, append(keys, fmt.Sprintf("%v", value)))
 	return nil
 }
 
@@ -39,7 +39,7 @@ type nonActionSettingContext struct {
 	jujuc.Context
 }
 
-func (a *nonActionSettingContext) UpdateActionResults(keys []string, value string) error {
+func (a *nonActionSettingContext) UpdateActionResults(keys []string, value interface{}) error {
 	return fmt.Errorf("not running an action")
 }
 

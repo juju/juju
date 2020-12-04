@@ -850,6 +850,12 @@ func (s *AddressSuite) TestSpaceAddressesToProviderAddresses(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *AddressSuite) TestSpaceAddressesValues(c *gc.C) {
+	values := []string{"1.2.3.4", "2.3.4.5", "3.4.5.6"}
+	addrs := network.NewSpaceAddresses(values...)
+	c.Check(addrs.Values(), gc.DeepEquals, values)
+}
+
 func (s *AddressSuite) TestAddressValueForCIDR(c *gc.C) {
 	type test struct {
 		IP   string
@@ -873,4 +879,54 @@ func (s *AddressSuite) TestAddressValueForCIDR(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(got, gc.Equals, t.exp)
 	}
+}
+
+func (s *AddressSuite) TestCIDRAddressType(c *gc.C) {
+	tests := []struct {
+		descr  string
+		CIDR   string
+		exp    network.AddressType
+		expErr string
+	}{
+		{
+			descr: "IPV4 CIDR",
+			CIDR:  "10.0.0.0/24",
+			exp:   network.IPv4Address,
+		},
+		{
+			descr: "IPV6 CIDR",
+			CIDR:  "2002::1234:abcd:ffff:c0a8:101/64",
+			exp:   network.IPv6Address,
+		},
+		{
+			descr: "IPV6 with 4in6 prefix",
+			CIDR:  "0:0:0:0:0:ffff:c0a8:2a00/120",
+			// The Go stdlib interprets this as an IPV4
+			exp: network.IPv4Address,
+		},
+		{
+			descr:  "bogus CIDR",
+			CIDR:   "catastrophe",
+			expErr: ".*invalid CIDR address.*",
+		},
+	}
+
+	for i, t := range tests {
+		c.Logf("test %d: %s", i, t.descr)
+		got, err := network.CIDRAddressType(t.CIDR)
+		if t.expErr != "" {
+			c.Check(got, gc.Equals, network.AddressType(""))
+			c.Check(err, gc.ErrorMatches, t.expErr)
+		} else {
+			c.Check(err, jc.ErrorIsNil)
+			c.Check(got, gc.Equals, t.exp)
+		}
+	}
+}
+
+func (s *AddressSuite) TestNoAddressError(c *gc.C) {
+	err := network.NoAddressError("fake")
+	c.Assert(err, gc.ErrorMatches, `no fake address\(es\)`)
+	c.Assert(network.IsNoAddressError(err), jc.IsTrue)
+	c.Assert(network.IsNoAddressError(errors.New("address found")), jc.IsFalse)
 }

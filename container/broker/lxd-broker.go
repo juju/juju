@@ -171,11 +171,6 @@ func (broker *lxdBroker) AllRunningInstances(ctx context.ProviderCallContext) (r
 	return broker.manager.ListContainers()
 }
 
-// MaintainInstance is a no-op.
-func (broker *lxdBroker) MaintainInstance(_ context.ProviderCallContext, _ environs.StartInstanceParams) error {
-	return nil
-}
-
 // LXDProfileNames returns all the profiles for a container that the broker
 // currently is aware of.
 // LXDProfileNames implements environs.LXDProfiler.

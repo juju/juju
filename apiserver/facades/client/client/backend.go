@@ -62,7 +62,6 @@ type Backend interface {
 	Machine(string) (*state.Machine, error)
 	Model() (*state.Model, error)
 	ModelConfig() (*config.Config, error)
-	ModelConfigValues() (config.ConfigValues, error)
 	ModelConstraints() (constraints.Value, error)
 	ModelTag() names.ModelTag
 	ModelUUID() string
@@ -90,6 +89,7 @@ type Model interface {
 // Pool contains the StatePool functionality used in this package.
 type Pool interface {
 	GetModel(string) (*state.Model, func(), error)
+	SystemState() *state.State
 }
 
 // Unit represents a state.Unit.
@@ -116,10 +116,6 @@ func (s stateShim) UpdateModelConfig(u map[string]interface{}, r []string, a ...
 	return s.model.UpdateModelConfig(u, r, a...)
 }
 
-func (s stateShim) ModelConfigValues() (config.ConfigValues, error) {
-	return s.model.ModelConfigValues()
-}
-
 func (s *stateShim) Annotations(entity state.GlobalEntity) (map[string]string, error) {
 	return s.model.Annotations(entity)
 }
@@ -143,6 +139,10 @@ func (s *stateShim) AllApplicationOffers() ([]*crossmodel.ApplicationOffer, erro
 
 type poolShim struct {
 	pool *state.StatePool
+}
+
+func (p *poolShim) SystemState() *state.State {
+	return p.pool.SystemState()
 }
 
 func (p *poolShim) GetModel(uuid string) (*state.Model, func(), error) {

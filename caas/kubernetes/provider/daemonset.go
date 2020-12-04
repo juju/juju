@@ -16,12 +16,6 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 )
 
-func (k *kubernetesClient) getDaemonSetLabels(appName string) map[string]string {
-	return map[string]string{
-		constants.LabelApplication: appName,
-	}
-}
-
 func (k *kubernetesClient) ensureDaemonSet(spec *apps.DaemonSet) (func(), error) {
 	cleanUp := func() {}
 	out, err := k.createDaemonSet(spec)
@@ -81,7 +75,7 @@ func (k *kubernetesClient) deleteDaemonSet(name string, uid types.UID) error {
 
 func (k *kubernetesClient) listDaemonSets(labels map[string]string) ([]apps.DaemonSet, error) {
 	listOps := v1.ListOptions{
-		LabelSelector: utils.LabelSetToSelector(labels).String(),
+		LabelSelector: utils.LabelsToSelector(labels).String(),
 	}
 	out, err := k.client().AppsV1().DaemonSets(k.namespace).List(context.TODO(), listOps)
 	if err != nil {
@@ -94,10 +88,11 @@ func (k *kubernetesClient) listDaemonSets(labels map[string]string) ([]apps.Daem
 }
 
 func (k *kubernetesClient) deleteDaemonSets(appName string) error {
+	labels := utils.LabelsForApp(appName, k.IsLegacyLabels())
 	err := k.client().AppsV1().DaemonSets(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, v1.ListOptions{
-		LabelSelector: utils.LabelSetToSelector(k.getDaemonSetLabels(appName)).String(),
+		LabelSelector: utils.LabelsToSelector(labels).String(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

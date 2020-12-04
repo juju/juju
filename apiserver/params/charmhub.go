@@ -42,17 +42,25 @@ type FindResponse struct {
 	Publisher string   `json:"publisher"`
 	Summary   string   `json:"summary"`
 	Version   string   `json:"version"`
-	Series    []string `json:"series"`
+	Arches    []string `json:"architectures,omitempty"`
+	Series    []string `json:"series,omitempty"`
 	StoreURL  string   `json:"store-url"`
 }
 
 type Channel struct {
-	ReleasedAt string `json:"released-at"`
-	Track      string `json:"track"`
-	Risk       string `json:"risk"`
-	Revision   int    `json:"revision"`
-	Size       int    `json:"size"`
-	Version    string `json:"version"`
+	ReleasedAt string     `json:"released-at"`
+	Track      string     `json:"track"`
+	Risk       string     `json:"risk"`
+	Revision   int        `json:"revision"`
+	Size       int        `json:"size"`
+	Version    string     `json:"version"`
+	Platforms  []Platform `json:"platforms"`
+}
+
+type Platform struct {
+	Architecture string `json:"architecture"`
+	OS           string `json:"os"`
+	Series       string `json:"series"`
 }
 
 type CharmHubCharm struct {
@@ -67,8 +75,8 @@ type CharmHubBundle struct {
 }
 
 type BundleCharm struct {
-	Name     string `json:"name"`
-	Revision int    `json:"revision"`
+	Name      string `json:"name"`
+	PackageID string `json:"package-id"`
 }
 
 type ErrorResponse struct {

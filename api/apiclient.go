@@ -26,8 +26,8 @@ import (
 	jujuhttp "github.com/juju/http"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils"
-	"github.com/juju/utils/parallel"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/parallel"
 	"github.com/juju/version"
 	"gopkg.in/macaroon-bakery.v2/bakery"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/utils/proxy"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // PingPeriod defines how often the internal connection health check
@@ -184,7 +185,7 @@ type RedirectError struct {
 }
 
 func (e *RedirectError) Error() string {
-	return fmt.Sprintf("redirection to alternative server required")
+	return "redirection to alternative server required"
 }
 
 // Open establishes a connection to the API server using the Info
@@ -419,6 +420,7 @@ func (st *state) connectStream(path string, attrs url.Values, extraHeaders http.
 	} else {
 		requestHeader = make(http.Header)
 	}
+	requestHeader.Set(params.JujuClientVersion, jujuversion.Current.String())
 	requestHeader.Set("Origin", "http://localhost/")
 	if st.nonce != "" {
 		requestHeader.Set(params.MachineNonceHeader, st.nonce)
@@ -1190,20 +1192,43 @@ var apiCallRetryStrategy = retry.LimitTime(10*time.Second,
 // This fills out the rpc.Request on the given facade, version for a given
 // object id, and the specific RPC method. It marshalls the Arguments, and will
 // unmarshall the result into the response object that is supplied.
-func (s *state) APICall(facade string, version int, id, method string, args, response interface{}) error {
+func (s *state) APICall(facade string, vers int, id, method string, args, response interface{}) error {
 	for a := retry.Start(apiCallRetryStrategy, s.clock); a.Next(); {
 		err := s.client.Call(rpc.Request{
 			Type:    facade,
-			Version: version,
+			Version: vers,
 			Id:      id,
 			Action:  method,
 		}, args, response)
-		if params.ErrCode(err) != params.CodeRetry {
+		if err == nil {
+			return nil
+		}
+		code := params.ErrCode(err)
+		if code == params.CodeRetry {
+			if !a.More() {
+				return errors.Annotatef(err, "too many retries")
+			}
+			continue
+		}
+		if code != params.CodeIncompatibleClient {
 			return errors.Trace(err)
 		}
-		if !a.More() {
-			return errors.Annotatef(err, "too many retries")
+		// Default to major version 2 for older servers.
+		serverMajorVersion := 2
+		err = errors.Cause(err)
+		apiErr, ok := err.(*rpc.RequestError)
+		if ok {
+			if serverVersion, ok := apiErr.Info["server-version"]; ok {
+				serverVers, err := version.Parse(fmt.Sprintf("%v", serverVersion))
+				if err == nil {
+					serverMajorVersion = serverVers.Major
+				}
+			}
 		}
+		logger.Debugf("%v.%v API call not supported", facade, method)
+		return errors.NewNotSupported(nil, fmt.Sprintf(
+			"juju client with major version %d used with a controller having major version %d not supported\nupdate your juju client to match the version running on the controller",
+			jujuversion.Current.Major, serverMajorVersion))
 	}
 	panic("unreachable")
 }

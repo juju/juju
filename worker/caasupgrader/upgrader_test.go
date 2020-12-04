@@ -5,9 +5,9 @@ package caasupgrader_test
 
 import (
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
@@ -45,7 +45,7 @@ func (s *UpgraderSuite) SetUpTest(c *gc.C) {
 
 func (s *UpgraderSuite) patchVersion(v version.Binary) {
 	s.PatchValue(&arch.HostArch, func() string { return v.Arch })
-	s.PatchValue(&series.MustHostSeries, func() string { return v.Series })
+	s.PatchValue(&series.HostSeries, func() (string, error) { return v.Series, nil })
 	s.PatchValue(&jujuversion.Current, v.Number)
 }
 

@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"gopkg.in/yaml.v2"
 )
 

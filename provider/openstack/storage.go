@@ -10,7 +10,7 @@ import (
 	"time"
 
 	jujuerrors "github.com/juju/errors"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"gopkg.in/goose.v2/swift"
 
 	"github.com/juju/juju/environs/storage"

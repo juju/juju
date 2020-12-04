@@ -6,6 +6,7 @@ package action
 import (
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/names/v4"
 
@@ -19,20 +20,40 @@ var (
 	AddValueToMap      = addValueToMap
 )
 
-type ShowOutputCommand struct {
-	*showOutputCommand
-}
-
 type ShowOperationCommand struct {
 	*showOperationCommand
 }
 
-type StatusCommand struct {
-	*statusCommand
-}
-
 type CancelCommand struct {
 	*cancelCommand
+}
+
+type ExecCommand struct {
+	*execCommand
+}
+
+func (c *ExecCommand) Wait() time.Duration {
+	return c.wait
+}
+
+func (c *ExecCommand) All() bool {
+	return c.all
+}
+
+func (c *ExecCommand) Machines() []string {
+	return c.machines
+}
+
+func (c *ExecCommand) Applications() []string {
+	return c.applications
+}
+
+func (c *ExecCommand) Units() []string {
+	return c.units
+}
+
+func (c *ExecCommand) Commands() string {
+	return c.commands
 }
 
 type RunCommand struct {
@@ -55,35 +76,11 @@ func (c *RunCommand) ParamsYAML() cmd.FileVar {
 	return c.paramsYAML
 }
 
-func (c *RunCommand) MaxWait() time.Duration {
-	return c.maxWait
+func (c *RunCommand) Wait() time.Duration {
+	return c.wait
 }
 
 func (c *RunCommand) Args() [][]string {
-	return c.args
-}
-
-type RunActionCommand struct {
-	*runActionCommand
-}
-
-func (c *RunActionCommand) UnitNames() []string {
-	return c.unitReceivers
-}
-
-func (c *RunActionCommand) ActionName() string {
-	return c.actionName
-}
-
-func (c *RunActionCommand) ParseStrings() bool {
-	return c.parseStrings
-}
-
-func (c *RunActionCommand) ParamsYAML() cmd.FileVar {
-	return c.paramsYAML
-}
-
-func (c *RunActionCommand) Args() [][]string {
 	return c.args
 }
 
@@ -115,25 +112,21 @@ type ListOperationsCommand struct {
 	*listOperationsCommand
 }
 
-func NewShowOutputCommandForTest(store jujuclient.ClientStore, logMessage func(*cmd.Context, string)) (cmd.Command, *ShowOutputCommand) {
-	c := &showOutputCommand{
-		compat:            true,
+func NewShowTaskCommandForTest(store jujuclient.ClientStore, clock clock.Clock, logMessage func(*cmd.Context, string)) (cmd.Command, *showTaskCommand) {
+	c := &showTaskCommand{
 		logMessageHandler: logMessage,
+		clock:             clock,
 	}
 	c.SetClientStore(store)
-	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &ShowOutputCommand{c}
+	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), c
 }
 
-func NewShowOperationCommandForTest(store jujuclient.ClientStore) (cmd.Command, *ShowOperationCommand) {
-	c := &showOperationCommand{}
+func NewShowOperationCommandForTest(store jujuclient.ClientStore, clock clock.Clock) (cmd.Command, *ShowOperationCommand) {
+	c := &showOperationCommand{
+		clock: clock,
+	}
 	c.SetClientStore(store)
 	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &ShowOperationCommand{c}
-}
-
-func NewStatusCommandForTest(store jujuclient.ClientStore) (cmd.Command, *StatusCommand) {
-	c := &statusCommand{}
-	c.SetClientStore(store)
-	return modelcmd.Wrap(c), &StatusCommand{c}
 }
 
 func NewCancelCommandForTest(store jujuclient.ClientStore) (cmd.Command, *CancelCommand) {
@@ -154,18 +147,27 @@ func NewShowCommandForTest(store jujuclient.ClientStore) (cmd.Command, *ShowComm
 	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &ShowCommand{c}
 }
 
-func NewRunCommandForTest(store jujuclient.ClientStore, logMessage func(*cmd.Context, string)) (cmd.Command, *RunCommand) {
+func NewRunCommandForTest(store jujuclient.ClientStore, clock clock.Clock, logMessage func(*cmd.Context, string)) (cmd.Command, *RunCommand) {
 	c := &runCommand{
-		logMessageHandler: logMessage,
+		runCommandBase: runCommandBase{
+			logMessageHandler: logMessage,
+			clock:             clock,
+		},
 	}
 	c.SetClientStore(store)
 	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &RunCommand{c}
 }
 
-func NewRunActionCommandForTest(store jujuclient.ClientStore) (cmd.Command, *RunActionCommand) {
-	c := &runActionCommand{}
+func NewExecCommandForTest(store jujuclient.ClientStore, clock clock.Clock, logMessageHandler func(*cmd.Context, string)) (cmd.Command, *ExecCommand) {
+	c := &execCommand{
+		runCommandBase: runCommandBase{
+			defaultWait:       5 * time.Minute,
+			logMessageHandler: logMessageHandler,
+			clock:             clock,
+		},
+	}
 	c.SetClientStore(store)
-	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &RunActionCommand{c}
+	return modelcmd.Wrap(c), &ExecCommand{c}
 }
 
 func ActionResultsToMap(results []params.ActionResult) map[string]interface{} {

@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/utils/keyvalues"
+	"github.com/juju/utils/v2/keyvalues"
 
-	"github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
@@ -84,10 +84,10 @@ func (c *poolCreateCommand) Init(args []string) (err error) {
 	}
 	if modelType == model.CAAS && len(args) > 0 {
 		if len(args) == 1 {
-			args = []string{args[0], string(provider.K8s_ProviderType)}
+			args = []string{args[0], string(k8sconstants.StorageProviderType)}
 		}
 		if strings.Contains(args[1], "=") {
-			newArgs := []string{args[0], string(provider.K8s_ProviderType)}
+			newArgs := []string{args[0], string(k8sconstants.StorageProviderType)}
 			args = append(newArgs, args[1:]...)
 		}
 	}

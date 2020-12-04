@@ -90,7 +90,7 @@ func (api *CharmHubAPI) Info(arg params.Entity) (params.CharmHubEntityInfoResult
 	if err != nil {
 		return params.CharmHubEntityInfoResult{}, errors.Trace(err)
 	}
-	return params.CharmHubEntityInfoResult{Result: convertCharmInfoResult(info, api.client.URL())}, nil
+	return params.CharmHubEntityInfoResult{Result: convertCharmInfoResult(info)}, nil
 }
 
 // Find queries the CharmHub API with a given entity ID.
@@ -102,16 +102,19 @@ func (api *CharmHubAPI) Find(arg params.Query) (params.CharmHubEntityFindResult,
 	if err != nil {
 		return params.CharmHubEntityFindResult{}, errors.Trace(err)
 	}
-	return params.CharmHubEntityFindResult{Results: convertCharmFindResults(results, api.client.URL())}, nil
+	return params.CharmHubEntityFindResult{Results: convertCharmFindResults(results)}, nil
 }
 
 type charmHubClientFactory struct{}
 
 func (charmHubClientFactory) Client(url string) (Client, error) {
-	client, err := charmhub.NewClient(charmhub.CharmHubConfigFromURL(url))
+	cfg, err := charmhub.CharmHubConfigFromURL(url, logger.Child("client"))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
+	client, err := charmhub.NewClient(cfg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return client, nil
 }

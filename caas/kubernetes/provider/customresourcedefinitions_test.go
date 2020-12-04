@@ -43,27 +43,27 @@ func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds []k8ssp
 	statefulSetArg := &appsv1.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju-app-uuid":                  "appuuid",
-				"juju.io/controller":             testing.ControllerTag.Id(),
-				"juju.io/charm-modified-version": "0",
+				"app.juju.is/uuid":               "appuuid",
+				"controller.juju.is/id":          testing.ControllerTag.Id(),
+				"charm.juju.is/modified-version": "0",
 			},
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "app-name"},
+				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
 			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels: map[string]string{"juju-app": "app-name"},
+					Labels: map[string]string{"app.kubernetes.io/name": "app-name"},
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"juju.io/controller":                       testing.ControllerTag.Id(),
-						"juju.io/charm-modified-version":           "0",
+						"controller.juju.is/id":                    testing.ControllerTag.Id(),
+						"charm.juju.is/modified-version":           "0",
 					},
 				},
 				Spec: podSpec,
@@ -182,8 +182,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreate(c *gc.
 	crd := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        "tfjobs.kubeflow.org",
-			Labels:      map[string]string{"juju-app": "app-name", "juju-model": "test"},
-			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   "kubeflow.org",
@@ -294,8 +294,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsUpdate(c *gc.
 	crd := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        "tfjobs.kubeflow.org",
-			Labels:      map[string]string{"juju-app": "app-name", "juju-model": "test"},
-			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   "kubeflow.org",
@@ -367,27 +367,27 @@ func (s *K8sBrokerSuite) assertCustomerResources(c *gc.C, crs map[string][]unstr
 	statefulSetArg := &appsv1.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju-app-uuid":                  "appuuid",
-				"juju.io/controller":             testing.ControllerTag.Id(),
-				"juju.io/charm-modified-version": "0",
+				"app.juju.is/uuid":               "appuuid",
+				"controller.juju.is/id":          testing.ControllerTag.Id(),
+				"charm.juju.is/modified-version": "0",
 			},
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "app-name"},
+				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
 			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels: map[string]string{"juju-app": "app-name"},
+					Labels: map[string]string{"app.kubernetes.io/name": "app-name"},
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"juju.io/controller":                       testing.ControllerTag.Id(),
-						"juju.io/charm-modified-version":           "0",
+						"controller.juju.is/id":                    testing.ControllerTag.Id(),
+						"charm.juju.is/modified-version":           "0",
 					},
 				},
 				Spec: podSpec,
@@ -560,10 +560,11 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesCreate(c *gc.C) {
 
 	cr1 := getCR1()
 	cr1.SetLabels(map[string]string{"juju-app": "app-name"})
-	cr1.SetAnnotations(map[string]string{"juju.io/controller": testing.ControllerTag.Id()})
+	cr1.SetLabels(map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"})
+	cr1.SetAnnotations(map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()})
 	cr2 := getCR2()
-	cr2.SetLabels(map[string]string{"juju-app": "app-name"})
-	cr2.SetAnnotations(map[string]string{"juju.io/controller": testing.ControllerTag.Id()})
+	cr2.SetLabels(map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"})
+	cr2.SetAnnotations(map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()})
 
 	crs := map[string][]unstructured.Unstructured{
 		"tfjobs.kubeflow.org": {
@@ -574,8 +575,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesCreate(c *gc.C) {
 	crd := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        "tfjobs.kubeflow.org",
-			Labels:      map[string]string{"juju-app": "app-name", "juju-model": "test"},
-			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   "kubeflow.org",
@@ -677,20 +678,20 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesUpdate(c *gc.C) {
 	crRaw2 := getCR2()
 
 	cr1 := getCR1()
-	cr1.SetLabels(map[string]string{"juju-app": "app-name"})
-	cr1.SetAnnotations(map[string]string{"juju.io/controller": testing.ControllerTag.Id()})
+	cr1.SetLabels(map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"})
+	cr1.SetAnnotations(map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()})
 	cr2 := getCR2()
-	cr2.SetLabels(map[string]string{"juju-app": "app-name"})
-	cr2.SetAnnotations(map[string]string{"juju.io/controller": testing.ControllerTag.Id()})
+	cr2.SetLabels(map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"})
+	cr2.SetAnnotations(map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()})
 
 	crUpdatedResourceVersion1 := getCR1()
-	crUpdatedResourceVersion1.SetLabels(map[string]string{"juju-app": "app-name"})
-	crUpdatedResourceVersion1.SetAnnotations(map[string]string{"juju.io/controller": testing.ControllerTag.Id()})
+	crUpdatedResourceVersion1.SetLabels(map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"})
+	crUpdatedResourceVersion1.SetAnnotations(map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()})
 	crUpdatedResourceVersion1.SetResourceVersion("11111")
 
 	crUpdatedResourceVersion2 := getCR2()
-	crUpdatedResourceVersion2.SetLabels(map[string]string{"juju-app": "app-name"})
-	crUpdatedResourceVersion2.SetAnnotations(map[string]string{"juju.io/controller": testing.ControllerTag.Id()})
+	crUpdatedResourceVersion2.SetLabels(map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"})
+	crUpdatedResourceVersion2.SetAnnotations(map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()})
 	crUpdatedResourceVersion2.SetResourceVersion("11111")
 
 	crs := map[string][]unstructured.Unstructured{
@@ -702,8 +703,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesUpdate(c *gc.C) {
 	crd := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        "tfjobs.kubeflow.org",
-			Labels:      map[string]string{"juju-app": "app-name", "juju-model": "test"},
-			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   "kubeflow.org",
@@ -828,7 +829,7 @@ func (s *K8sBrokerSuite) TestCRDGetter(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:        "tfjobs.kubeflow.org",
 			Labels:      map[string]string{"juju-app": "app-name", "juju-model": "test"},
-			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
+			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group: "kubeflow.org",
@@ -887,7 +888,7 @@ func (s *K8sBrokerSuite) TestCRDGetter(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:        "tfjobs.kubeflow.org",
 			Labels:      map[string]string{"juju-app": "app-name", "juju-model": "test"},
-			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
+			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   "kubeflow.org",
@@ -984,7 +985,7 @@ func (s *K8sBrokerSuite) TestGetCRDsForCRsAllGood(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:        "tfjobs.kubeflow.org",
 			Labels:      map[string]string{"juju-app": "app-name", "juju-model": "test"},
-			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
+			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   "kubeflow.org",
@@ -1035,7 +1036,7 @@ func (s *K8sBrokerSuite) TestGetCRDsForCRsAllGood(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:        "scheduledworkflows.kubeflow.org",
 			Labels:      map[string]string{"juju-app": "app-name", "juju-model": "test"},
-			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
+			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   "kubeflow.org",

@@ -13,7 +13,7 @@ import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/blobstore.v2"
@@ -110,12 +110,12 @@ func (s *binaryStorageSuite) TestToolsStorageParamsHostedModel(c *gc.C) {
 	s.testStorageParams(c, "toolsmetadata", []string{s.modelUUID, s.State.ModelUUID()}, s.st.ToolsStorage)
 }
 
-func (s *binaryStorageSuite) TestGUIArchiveStorage(c *gc.C) {
-	s.testStorage(c, "guimetadata", s.State.GUIStorage)
+func (s *binaryStorageSuite) TestDashboardArchiveStorage(c *gc.C) {
+	s.testStorage(c, "guimetadata", s.State.DashboardStorage)
 }
 
-func (s *binaryStorageSuite) TestGUIArchiveStorageParams(c *gc.C) {
-	s.testStorageParams(c, "guimetadata", []string{s.controllerModelUUID}, s.st.GUIStorage)
+func (s *binaryStorageSuite) TestDashboardArchiveStorageParams(c *gc.C) {
+	s.testStorageParams(c, "guimetadata", []string{s.controllerModelUUID}, s.st.DashboardStorage)
 }
 
 func (s *binaryStorageSuite) testStorage(c *gc.C, collName string, openStorage storageOpener) {

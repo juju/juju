@@ -163,11 +163,6 @@ func (s *Store) addTrapdoors(leaseMap map[lease.Key]lease.Info) {
 	}
 }
 
-// Refresh is part of lease.Store.
-func (s *Store) Refresh() error {
-	return nil
-}
-
 // PinLease is part of lease.Store.
 func (s *Store) PinLease(key lease.Key, entity string, stop <-chan struct{}) error {
 	return errors.Trace(s.pinOp(OperationPin, key, entity, stop))
@@ -198,6 +193,7 @@ func (s *Store) pinOp(operation string, key lease.Key, entity string, stop <-cha
 func (s *Store) Advance(duration time.Duration, stop <-chan struct{}) error {
 	s.prevTimeMu.Lock()
 	defer s.prevTimeMu.Unlock()
+
 	newTime := s.prevTime.Add(duration)
 	err := s.runOnLeader(&Command{
 		Version:   CommandVersion,
@@ -205,17 +201,23 @@ func (s *Store) Advance(duration time.Duration, stop <-chan struct{}) error {
 		OldTime:   s.prevTime,
 		NewTime:   newTime,
 	}, stop)
-	if globalclock.IsConcurrentUpdate(err) {
-		// Someone else updated before us - get the new time.
-		s.prevTime = s.fsm.GlobalTime()
-	} else if lease.IsTimeout(err) {
-		// Convert this to a globalclock timeout to match the Updater
-		// interface.
-		err = globalclock.ErrTimeout
-	} else if err == nil {
-		s.prevTime = newTime
+
+	if err != nil {
+		// If we timed out, convert the error to match the Updater interface.
+		if lease.IsTimeout(err) {
+			return globalclock.ErrTimeout
+		}
+
+		// If we had an incorrect notion of global time, resync with the FSM.
+		if globalclock.IsOutOfSyncUpdate(err) {
+			s.prevTime = s.fsm.GlobalTime()
+		}
+
+		return errors.Trace(err)
 	}
-	return errors.Trace(err)
+
+	s.prevTime = newTime
+	return nil
 }
 
 func (s *Store) runOnLeader(command *Command, stop <-chan struct{}) error {
@@ -226,16 +228,16 @@ func (s *Store) runOnLeader(command *Command, stop <-chan struct{}) error {
 	requestID := atomic.AddUint64(&s.requestID, 1)
 	responseTopic := s.config.ResponseTopic(requestID)
 
-	responseChan := make(chan ForwardResponse, 1)
+	responseChan := make(chan ForwardResponse)
 	errChan := make(chan error)
 	unsubscribe, err := s.hub.Subscribe(
 		responseTopic,
 		func(_ string, resp ForwardResponse, err error) {
 			if err != nil {
 				errChan <- err
-				return
+			} else {
+				responseChan <- resp
 			}
-			responseChan <- resp
 		},
 	)
 	if err != nil {
@@ -246,9 +248,10 @@ func (s *Store) runOnLeader(command *Command, stop <-chan struct{}) error {
 	start := time.Now()
 	defer func() {
 		elapsed := time.Now().Sub(start)
-		logger.Tracef("runOnLeader elapsed from publish: %v", elapsed.Round(time.Millisecond))
+		logger.Tracef("runOnLeader %v, elapsed from publish: %v", command.Operation, elapsed.Round(time.Millisecond))
 	}()
-	_, err = s.hub.Publish(s.config.RequestTopic, ForwardRequest{
+
+	delivered, err := s.hub.Publish(s.config.RequestTopic, ForwardRequest{
 		Command:       string(bytes),
 		ResponseTopic: responseTopic,
 	})
@@ -257,30 +260,46 @@ func (s *Store) runOnLeader(command *Command, stop <-chan struct{}) error {
 		return errors.Annotatef(err, "publishing %s", command)
 	}
 
+	// First block until subscribers are notified.
+	// In practice, this will be the Raft forwarder running on the leader node.
+	// This is an explicit step so that we can more accurately diagnose issues
+	// in-theatre.
 	select {
+	case <-delivered:
 	case <-s.config.Clock.After(s.config.ForwardTimeout):
-		// TODO (thumper) 2019-12-20, bug 1857072
-		// Scale testing hit this a *lot*,
-		// perhaps we need to consider batching messages to run on the leader?
-		logger.Errorf("timeout waiting for %s to be processed", command)
-		s.record(command.Operation, "timeout", start)
+		logger.Warningf("delivery timeout waiting for %s to be processed", command)
+		s.record(command.Operation, "delivery timeout", start)
 		return lease.ErrTimeout
-	case err := <-errChan:
-		logger.Errorf("processing %s: %v", command, err)
-		s.record(command.Operation, "error", start)
-		return errors.Trace(err)
+	}
+
+	// Now wait for the response.
+	// The timeout starts again here, which is deliberate.
+	// It is the same timeout that is used by the Raft forwarder
+	// when `Apply` is called on the FSM.
+	select {
 	case response := <-responseChan:
 		err := RecoverError(response.Error)
 		logger.Tracef("got response, err %v", err)
 		result := "success"
 		if err != nil {
-			logger.Errorf("command %s: %v", command, err)
+			logger.Warningf("command %s: %v", command, err)
 			result = "failure"
 		}
 		s.record(command.Operation, result, start)
 		return err
+	case err := <-errChan:
+		logger.Warningf("processing %s: %v", command, err)
+		s.record(command.Operation, "error", start)
+		return errors.Trace(err)
 	case <-stop:
 		return aborted(command)
+	case <-s.config.Clock.After(s.config.ForwardTimeout):
+		// TODO (thumper) 2019-12-20, bug 1857072
+		// Scale testing hit this a *lot*,
+		// perhaps we need to consider batching messages to run on the leader?
+		logger.Warningf("response timeout waiting for %s to be processed", command)
+		s.record(command.Operation, "response timeout", start)
+		return lease.ErrTimeout
 	}
 }
 
@@ -322,8 +341,10 @@ func AsResponseError(err error) *ResponseError {
 	switch errors.Cause(err) {
 	case lease.ErrInvalid:
 		code = "invalid"
-	case globalclock.ErrConcurrentUpdate:
-		code = "concurrent-update"
+	case globalclock.ErrOutOfSyncUpdate:
+		code = "out-of-sync"
+	case lease.ErrHeld:
+		code = "already-held"
 	default:
 		code = "error"
 	}
@@ -343,8 +364,10 @@ func RecoverError(resp *ResponseError) error {
 	switch resp.Code {
 	case "invalid":
 		return lease.ErrInvalid
-	case "concurrent-update":
-		return globalclock.ErrConcurrentUpdate
+	case "out-of-sync":
+		return globalclock.ErrOutOfSyncUpdate
+	case "already-held":
+		return lease.ErrHeld
 	default:
 		return errors.New(resp.Message)
 	}

@@ -17,10 +17,10 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	jujuos "github.com/juju/os"
-	"github.com/juju/os/series"
+	jujuos "github.com/juju/os/v2"
+	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -35,8 +35,8 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/dashboard"
 	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/gui"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -45,8 +45,8 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/keys"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
+	corestorage "github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -61,7 +61,7 @@ var (
 	// Ensure that we add the default supported series so that tests that
 	// use the default supported lts internally will always work in the
 	// future.
-	supportedJujuSeries = set.NewStrings("precise", "trusty", "quantal", "bionic", series.DefaultSupportedLTS())
+	supportedJujuSeries = set.NewStrings("precise", "trusty", "quantal", "bionic", jujuversion.DefaultSupportedLTS())
 )
 
 type bootstrapSuite struct {
@@ -77,7 +77,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 
-	s.PatchEnvironment("JUJU_GUI", "")
+	s.PatchEnvironment("JUJU_DASHBOARD", "")
 	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	storageDir := c.MkDir()
 	s.PatchValue(&envtools.DefaultBaseURL, storageDir)
@@ -86,8 +86,8 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	envtesting.UploadFakeTools(c, stor, "released", "released")
 
-	// Patch the function used to retrieve GUI archive info from simplestreams.
-	s.PatchValue(bootstrap.GUIFetchMetadata, func(string, int, int, ...simplestreams.DataSource) ([]*gui.Metadata, error) {
+	// Patch the function used to retrieve Dashboard archive info from simplestreams.
+	s.PatchValue(bootstrap.DashboardFetchMetadata, func(string, int, int, ...simplestreams.DataSource) ([]*dashboard.Metadata, error) {
 		return nil, nil
 	})
 	s.callContext = context.NewCloudCallContext()
@@ -194,6 +194,32 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *gc.C) {
 	c.Assert(env.args.ModelConstraints, gc.DeepEquals, modelCons)
 }
 
+func (s *bootstrapSuite) TestBootstrapWithStoragePools(c *gc.C) {
+	env := newEnviron("foo", useDefaultKeys, nil)
+	s.setDummyStorage(c, env)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+		s.callContext, bootstrap.BootstrapParams{
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			SupportedBootstrapSeries: supportedJujuSeries,
+			StoragePools: map[string]corestorage.Attrs{
+				"spool": {
+					"type": "loop",
+					"foo":  "bar",
+				},
+			},
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.bootstrapCount, gc.Equals, 1)
+	c.Assert(env.args.StoragePools, gc.DeepEquals, map[string]corestorage.Attrs{
+		"spool": {
+			"type": "loop",
+			"foo":  "bar",
+		},
+	})
+}
+
 func (s *bootstrapSuite) TestBootstrapSpecifiedBootstrapSeries(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
@@ -221,7 +247,7 @@ func (s *bootstrapSuite) TestBootstrapFallbackBootstrapSeries(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	cfg, err := env.Config().Apply(map[string]interface{}{
-		"default-series": series.DefaultSupportedLTS(),
+		"default-series": jujuversion.DefaultSupportedLTS(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	env.cfg = cfg
@@ -235,7 +261,7 @@ func (s *bootstrapSuite) TestBootstrapFallbackBootstrapSeries(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(env.bootstrapCount, gc.Equals, 1)
-	c.Check(env.args.AvailableTools.AllSeries(), jc.SameContents, []string{series.DefaultSupportedLTS()})
+	c.Check(env.args.AvailableTools.AllSeries(), jc.SameContents, []string{jujuversion.DefaultSupportedLTS()})
 }
 
 func (s *bootstrapSuite) TestBootstrapForcedBootstrapSeries(c *gc.C) {
@@ -341,7 +367,7 @@ func intPtr(i uint64) *uint64 {
 }
 
 func (s *bootstrapSuite) TestBootstrapImage(c *gc.C) {
-	s.PatchValue(&series.MustHostSeries, func() string { return "precise" })
+	s.PatchValue(&series.HostSeries, func() (string, error) { return "precise", nil })
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
 	metadataDir, metadata := createImageMetadata(c)
@@ -424,7 +450,7 @@ type testImageMetadata struct {
 // setupImageMetadata returns architecture for which metadata was setup
 func (s *bootstrapSuite) setupImageMetadata(c *gc.C) testImageMetadata {
 	testArch := arch.S390X
-	s.PatchValue(&series.MustHostSeries, func() string { return "precise" })
+	s.PatchValue(&series.HostSeries, func() (string, error) { return "precise", nil })
 	s.PatchValue(&arch.HostArch, func() string { return testArch })
 
 	metadataDir, metadata := createImageMetadataForArch(c, testArch)
@@ -528,7 +554,7 @@ func (s *bootstrapSuite) setupProviderWithNoSupportedArches(c *gc.C) bootstrapEn
 // despite image metadata in other data sources compatible with the same configuration as well.
 // Related to bug#1560625.
 func (s *bootstrapSuite) TestBootstrapImageMetadataFromAllSources(c *gc.C) {
-	s.PatchValue(&series.MustHostSeries, func() string { return "raring" })
+	s.PatchValue(&series.HostSeries, func() (string, error) { return "raring", nil })
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
 	// Ensure that we can find at least one image metadata
@@ -862,51 +888,51 @@ func (s *bootstrapSuite) TestBootstrapToolsVersion(c *gc.C) {
 	}
 }
 
-func (s *bootstrapSuite) TestBootstrapGUISuccessRemote(c *gc.C) {
-	s.PatchValue(bootstrap.GUIFetchMetadata, func(stream string, major, minor int, sources ...simplestreams.DataSource) ([]*gui.Metadata, error) {
-		c.Assert(stream, gc.Equals, gui.DevelStream)
+func (s *bootstrapSuite) TestBootstrapDashboardSuccessRemote(c *gc.C) {
+	s.PatchValue(bootstrap.DashboardFetchMetadata, func(stream string, major, minor int, sources ...simplestreams.DataSource) ([]*dashboard.Metadata, error) {
+		c.Assert(stream, gc.Equals, dashboard.DevelStream)
 		c.Assert(major, gc.Equals, coretesting.FakeVersionNumber.Major)
 		c.Assert(minor, gc.Equals, coretesting.FakeVersionNumber.Minor)
-		c.Assert(sources[0].Description(), gc.Equals, "gui simplestreams")
+		c.Assert(sources[0].Description(), gc.Equals, "dashboard simplestreams")
 		c.Assert(sources[0].RequireSigned(), jc.IsTrue)
-		return []*gui.Metadata{{
+		return []*dashboard.Metadata{{
 			Version:  version.MustParse("2.0.42"),
-			FullPath: "https://1.2.3.4/juju-gui-2.0.42.tar.bz2",
+			FullPath: "https://1.2.3.4/juju-dashboard-2.0.42.tar.bz2",
 			SHA256:   "hash-2.0.42",
 			Size:     42,
 		}, {
 			Version:  version.MustParse("2.0.47"),
-			FullPath: "https://1.2.3.4/juju-gui-2.0.47.tar.bz2",
+			FullPath: "https://1.2.3.4/juju-dashboard-2.0.47.tar.bz2",
 			SHA256:   "hash-2.0.47",
 			Size:     47,
 		}}, nil
 	})
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
-		"gui-stream": "devel",
+		"dashboard-stream": "devel",
 	})
 	ctx := cmdtesting.Context(c)
 	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env,
 		s.callContext, bootstrap.BootstrapParams{
-			ControllerConfig:         coretesting.FakeControllerConfig(),
-			AdminSecret:              "admin-secret",
-			CAPrivateKey:             coretesting.CAKey,
-			GUIDataSourceBaseURL:     "https://1.2.3.4/gui/sources",
-			SupportedBootstrapSeries: supportedJujuSeries,
-			AgentVersion:             &coretesting.FakeVersionNumber,
+			ControllerConfig:           coretesting.FakeControllerConfig(),
+			AdminSecret:                "admin-secret",
+			CAPrivateKey:               coretesting.CAKey,
+			DashboardDataSourceBaseURL: "https://1.2.3.4/dashboard/sources",
+			SupportedBootstrapSeries:   supportedJujuSeries,
+			AgentVersion:               &coretesting.FakeVersionNumber,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, "Fetching Juju Dashboard 2.0.42\n")
 
-	// The most recent GUI release info has been stored.
-	c.Assert(env.instanceConfig.Bootstrap.GUI.URL, gc.Equals, "https://1.2.3.4/juju-gui-2.0.42.tar.bz2")
-	c.Assert(env.instanceConfig.Bootstrap.GUI.Version.String(), gc.Equals, "2.0.42")
-	c.Assert(env.instanceConfig.Bootstrap.GUI.Size, gc.Equals, int64(42))
-	c.Assert(env.instanceConfig.Bootstrap.GUI.SHA256, gc.Equals, "hash-2.0.42")
+	// The most recent Dashboard release info has been stored.
+	c.Assert(env.instanceConfig.Bootstrap.Dashboard.URL, gc.Equals, "https://1.2.3.4/juju-dashboard-2.0.42.tar.bz2")
+	c.Assert(env.instanceConfig.Bootstrap.Dashboard.Version.String(), gc.Equals, "2.0.42")
+	c.Assert(env.instanceConfig.Bootstrap.Dashboard.Size, gc.Equals, int64(42))
+	c.Assert(env.instanceConfig.Bootstrap.Dashboard.SHA256, gc.Equals, "hash-2.0.42")
 }
 
-func (s *bootstrapSuite) TestBootstrapGUISuccessLocal(c *gc.C) {
-	path := makeGUIArchive(c, "2.2.0")
-	s.PatchEnvironment("JUJU_GUI", path)
+func (s *bootstrapSuite) TestBootstrapDashboardSuccessLocal(c *gc.C) {
+	path := makeDashboardArchive(c, "2.2.0")
+	s.PatchEnvironment("JUJU_DASHBOARD", path)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
 	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env,
@@ -919,26 +945,26 @@ func (s *bootstrapSuite) TestBootstrapGUISuccessLocal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, "Fetching Juju Dashboard 2.2.0 from local archive\n")
 
-	// Check GUI URL and version.
-	c.Assert(env.instanceConfig.Bootstrap.GUI.URL, gc.Equals, "file://"+path)
-	c.Assert(env.instanceConfig.Bootstrap.GUI.Version.String(), gc.Equals, "2.2.0")
+	// Check Dashboard URL and version.
+	c.Assert(env.instanceConfig.Bootstrap.Dashboard.URL, gc.Equals, "file://"+path)
+	c.Assert(env.instanceConfig.Bootstrap.Dashboard.Version.String(), gc.Equals, "2.2.0")
 
-	// Check GUI size.
+	// Check Dashboard size.
 	f, err := os.Open(path)
 	c.Assert(err, jc.ErrorIsNil)
 	defer f.Close()
 	info, err := f.Stat()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.instanceConfig.Bootstrap.GUI.Size, gc.Equals, info.Size())
+	c.Assert(env.instanceConfig.Bootstrap.Dashboard.Size, gc.Equals, info.Size())
 
-	// Check GUI hash.
+	// Check Dashboard hash.
 	h := sha256.New()
 	_, err = io.Copy(h, f)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.instanceConfig.Bootstrap.GUI.SHA256, gc.Equals, fmt.Sprintf("%x", h.Sum(nil)))
+	c.Assert(env.instanceConfig.Bootstrap.Dashboard.SHA256, gc.Equals, fmt.Sprintf("%x", h.Sum(nil)))
 }
 
-func (s *bootstrapSuite) TestBootstrapGUISuccessNoGUI(c *gc.C) {
+func (s *bootstrapSuite) TestBootstrapDashboardSuccessNoGUI(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
 	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env,
@@ -950,49 +976,49 @@ func (s *bootstrapSuite) TestBootstrapGUISuccessNoGUI(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, "Juju Dashboard installation has been disabled\n")
-	c.Assert(env.instanceConfig.Bootstrap.GUI, gc.IsNil)
+	c.Assert(env.instanceConfig.Bootstrap.Dashboard, gc.IsNil)
 }
 
-func (s *bootstrapSuite) TestBootstrapGUINoStreams(c *gc.C) {
-	s.PatchValue(bootstrap.GUIFetchMetadata, func(string, int, int, ...simplestreams.DataSource) ([]*gui.Metadata, error) {
+func (s *bootstrapSuite) TestBootstrapDashboardNoStreams(c *gc.C) {
+	s.PatchValue(bootstrap.DashboardFetchMetadata, func(string, int, int, ...simplestreams.DataSource) ([]*dashboard.Metadata, error) {
 		return nil, nil
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
 	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env,
 		s.callContext, bootstrap.BootstrapParams{
-			ControllerConfig:         coretesting.FakeControllerConfig(),
-			AdminSecret:              "admin-secret",
-			CAPrivateKey:             coretesting.CAKey,
-			GUIDataSourceBaseURL:     "https://1.2.3.4/gui/sources",
-			SupportedBootstrapSeries: supportedJujuSeries,
+			ControllerConfig:           coretesting.FakeControllerConfig(),
+			AdminSecret:                "admin-secret",
+			CAPrivateKey:               coretesting.CAKey,
+			DashboardDataSourceBaseURL: "https://1.2.3.4/dashboard/sources",
+			SupportedBootstrapSeries:   supportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, "No available Juju Dashboard archives found\n")
-	c.Assert(env.instanceConfig.Bootstrap.GUI, gc.IsNil)
+	c.Assert(env.instanceConfig.Bootstrap.Dashboard, gc.IsNil)
 }
 
-func (s *bootstrapSuite) TestBootstrapGUIStreamsFailure(c *gc.C) {
-	s.PatchValue(bootstrap.GUIFetchMetadata, func(string, int, int, ...simplestreams.DataSource) ([]*gui.Metadata, error) {
+func (s *bootstrapSuite) TestBootstrapDashboardStreamsFailure(c *gc.C) {
+	s.PatchValue(bootstrap.DashboardFetchMetadata, func(string, int, int, ...simplestreams.DataSource) ([]*dashboard.Metadata, error) {
 		return nil, errors.New("bad wolf")
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
 	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env,
 		s.callContext, bootstrap.BootstrapParams{
-			ControllerConfig:         coretesting.FakeControllerConfig(),
-			AdminSecret:              "admin-secret",
-			CAPrivateKey:             coretesting.CAKey,
-			GUIDataSourceBaseURL:     "https://1.2.3.4/gui/sources",
-			SupportedBootstrapSeries: supportedJujuSeries,
+			ControllerConfig:           coretesting.FakeControllerConfig(),
+			AdminSecret:                "admin-secret",
+			CAPrivateKey:               coretesting.CAKey,
+			DashboardDataSourceBaseURL: "https://1.2.3.4/dashboard/sources",
+			SupportedBootstrapSeries:   supportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, "Unable to fetch Juju Dashboard info: bad wolf\n")
-	c.Assert(env.instanceConfig.Bootstrap.GUI, gc.IsNil)
+	c.Assert(env.instanceConfig.Bootstrap.Dashboard, gc.IsNil)
 }
 
-func (s *bootstrapSuite) TestBootstrapGUIErrorNotFound(c *gc.C) {
-	s.PatchEnvironment("JUJU_GUI", "/no/such/file")
+func (s *bootstrapSuite) TestBootstrapDashboardErrorNotFound(c *gc.C) {
+	s.PatchEnvironment("JUJU_DASHBOARD", "/no/such/file")
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
 	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env,
@@ -1006,11 +1032,11 @@ func (s *bootstrapSuite) TestBootstrapGUIErrorNotFound(c *gc.C) {
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `Cannot use Juju Dashboard at "/no/such/file": cannot open Juju Dashboard archive:`)
 }
 
-func (s *bootstrapSuite) TestBootstrapGUIErrorInvalidArchive(c *gc.C) {
-	path := filepath.Join(c.MkDir(), "gui.bz2")
+func (s *bootstrapSuite) TestBootstrapDashboardErrorInvalidArchive(c *gc.C) {
+	path := filepath.Join(c.MkDir(), "dashboard.bz2")
 	err := ioutil.WriteFile(path, []byte("invalid"), 0666)
 	c.Assert(err, jc.ErrorIsNil)
-	s.PatchEnvironment("JUJU_GUI", path)
+	s.PatchEnvironment("JUJU_DASHBOARD", path)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
 	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env,
@@ -1024,9 +1050,9 @@ func (s *bootstrapSuite) TestBootstrapGUIErrorInvalidArchive(c *gc.C) {
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, fmt.Sprintf("Cannot use Juju Dashboard at %q: cannot read Juju Dashboard archive", path))
 }
 
-func (s *bootstrapSuite) TestBootstrapGUIErrorInvalidVersion(c *gc.C) {
-	path := makeGUIArchive(c, "invalid")
-	s.PatchEnvironment("JUJU_GUI", path)
+func (s *bootstrapSuite) TestBootstrapDashboardErrorInvalidVersion(c *gc.C) {
+	path := makeDashboardArchive(c, "invalid")
+	s.PatchEnvironment("JUJU_DASHBOARD", path)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
 	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env,
@@ -1040,9 +1066,9 @@ func (s *bootstrapSuite) TestBootstrapGUIErrorInvalidVersion(c *gc.C) {
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, fmt.Sprintf(`Cannot use Juju Dashboard at %q: invalid version "invalid" in archive`, path))
 }
 
-func (s *bootstrapSuite) TestBootstrapGUIErrorUnexpectedArchive(c *gc.C) {
-	path := makeGUIArchive(c, "")
-	s.PatchEnvironment("JUJU_GUI", path)
+func (s *bootstrapSuite) TestBootstrapDashboardErrorUnexpectedArchive(c *gc.C) {
+	path := makeDashboardArchive(c, "")
+	s.PatchEnvironment("JUJU_DASHBOARD", path)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
 	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env,
@@ -1056,11 +1082,11 @@ func (s *bootstrapSuite) TestBootstrapGUIErrorUnexpectedArchive(c *gc.C) {
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, fmt.Sprintf("Cannot use Juju Dashboard at %q: cannot find Juju Dashboard version", path))
 }
 
-func makeGUIArchive(c *gc.C, vers string) string {
+func makeDashboardArchive(c *gc.C, vers string) string {
 	if runtime.GOOS == "windows" {
 		c.Skip("tar command not available")
 	}
-	target := filepath.Join(c.MkDir(), "gui.tar.bz2")
+	target := filepath.Join(c.MkDir(), "dashboard.tar.bz2")
 	source := c.MkDir()
 	if vers != "" {
 		err := ioutil.WriteFile(filepath.Join(source, "version.json"), []byte(fmt.Sprintf(`{"version": %q}`, vers)), 0777)
@@ -1304,9 +1330,6 @@ func (s *bootstrapSuite) TestFinishBootstrapConfig(c *gc.C) {
 		CACert:   coretesting.CACert,
 		ModelTag: coretesting.ModelTag,
 	})
-	c.Check(icfg.Controller.MongoInfo, jc.DeepEquals, &mongo.MongoInfo{
-		Password: password, Info: mongo.Info{CACert: coretesting.CACert},
-	})
 	c.Check(icfg.Bootstrap.ControllerInheritedConfig, gc.DeepEquals, map[string]interface{}{"ftp-proxy": "http://proxy"})
 	c.Check(icfg.Bootstrap.RegionInheritedConfig, jc.DeepEquals, cloud.RegionConfig{
 		"a-region": cloud.Attrs{
@@ -1365,7 +1388,7 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(c *gc.C, clientMajor, cli
 	})
 	defer envtools.UnregisterToolsDataSourceFunc("local storage")
 
-	supportedSeries := series.DefaultSupportedLTS()
+	supportedSeries := jujuversion.DefaultSupportedLTS()
 	toolsBinaries := []version.Binary{
 		version.MustParseBinary(fmt.Sprintf("10.11.12-%s-amd64", supportedSeries)),
 		version.MustParseBinary(fmt.Sprintf("10.11.13-%s-amd64", supportedSeries)),
@@ -1517,8 +1540,17 @@ func (s *bootstrapSuite) TestTargetArchOverride(c *gc.C) {
 }
 
 func (s *bootstrapSuite) TestTargetSeriesAndArchOverridePriority(c *gc.C) {
+	s.PatchValue(&arch.HostArch, func() string {
+		return arch.AMD64
+	})
+	metadataDir := c.MkDir()
+	s.PatchValue(&envtools.DefaultBaseURL, metadataDir)
+	stor, err := filestorage.NewFileStorageWriter(metadataDir)
+	c.Assert(err, jc.ErrorIsNil)
+	envtesting.UploadFakeTools(c, stor, "released", "released")
+
 	env := newBootstrapEnvironWithHardwareDetection("foo", "haiku", "riscv", useDefaultKeys, nil)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		s.callContext, bootstrap.BootstrapParams{
 			AdminSecret:              "fake-moon-landing",
 			CAPrivateKey:             coretesting.CAKey,
@@ -1529,10 +1561,11 @@ func (s *bootstrapSuite) TestTargetSeriesAndArchOverridePriority(c *gc.C) {
 				c.Assert(build, jc.IsTrue)
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
-			// Operator provided constraints must always supesede
+			// Operator provided constraints must always supersede
 			// any values reported by the environment.
 			BootstrapSeries:      "bionic",
 			BootstrapConstraints: constraints.MustParse("arch=amd64"),
+			MetadataDir:          metadataDir,
 		})
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -1598,7 +1631,7 @@ func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx cont
 		e.instanceConfig = icfg
 		return nil
 	}
-	series := series.DefaultSupportedLTS()
+	series := jujuversion.DefaultSupportedLTS()
 	if args.BootstrapSeries != "" {
 		series = args.BootstrapSeries
 	}

@@ -66,36 +66,20 @@ class ARMClient:
     def init_services(self):
         """Delay imports and activation of Azure RM services until needed."""
         from azure.common.credentials import ServicePrincipalCredentials
-        from azure.mgmt.resource.resources import (
-            ResourceManagementClient,
-            ResourceManagementClientConfiguration,
-        )
-        from azure.mgmt.storage import (
-            StorageManagementClient,
-            StorageManagementClientConfiguration,
-        )
-        from azure.mgmt.compute import (
-            ComputeManagementClient,
-            ComputeManagementClientConfiguration,
-        )
-        from azure.mgmt.network import (
-            NetworkManagementClient,
-            NetworkManagementClientConfiguration,
-        )
+        from azure.mgmt.resource.resources import ResourceManagementClient
+        from azure.mgmt.storage import StorageManagementClient
+        from azure.mgmt.compute import ComputeManagementClient
+        from azure.mgmt.network import NetworkManagementClient
         self.credentials = ServicePrincipalCredentials(
             client_id=self.client_id, secret=self.secret, tenant=self.tenant)
         self.storage = StorageManagementClient(
-            StorageManagementClientConfiguration(
-                self.credentials, self.subscription_id))
+            credential=self.credentials, subscription_id=self.subscription_id)
         self.resource = ResourceManagementClient(
-            ResourceManagementClientConfiguration(
-                self.credentials, self.subscription_id))
+            credential=self.credentials, subscription_id=self.subscription_id)
         self.compute = ComputeManagementClient(
-            ComputeManagementClientConfiguration(
-                self.credentials, self.subscription_id))
+            credential=self.credentials, subscription_id=self.subscription_id)
         self.network = NetworkManagementClient(
-            NetworkManagementClientConfiguration(
-                self.credentials, self.subscription_id))
+            credential=self.credentials, subscription_id=self.subscription_id)
 
 
 class ResourceGroupDetails:

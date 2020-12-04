@@ -24,15 +24,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
-	"github.com/juju/utils/cert"
-	"github.com/juju/utils/ssh"
-	sshtesting "github.com/juju/utils/ssh/testing"
-	"github.com/juju/utils/symlink"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v2/cert"
+	"github.com/juju/utils/v2/ssh"
+	sshtesting "github.com/juju/utils/v2/ssh/testing"
+	"github.com/juju/utils/v2/symlink"
 	"github.com/juju/version"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
@@ -375,11 +374,7 @@ func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machin
 }
 
 func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, currentTools *tools.Tools) {
-	newVers := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	newVers := coretesting.CurrentVersion(c)
 	newVers.Patch++
 	newTools := envtesting.AssertUploadFakeToolsVersions(
 		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), newVers)[0]
@@ -598,11 +593,7 @@ func readAuditLog(c *gc.C, logPath string) []auditlog.Record {
 }
 
 func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob) {
-	vers := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	vers := coretesting.CurrentVersion(c)
 	vers.Minor--
 	m, _, _ := s.primeAgentVersion(c, vers, job)
 	a := s.newAgent(c, m)
@@ -1001,11 +992,7 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	vers := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	vers := coretesting.CurrentVersion(c)
 	s.primeAgentWithMachine(c, m, vers)
 	a := s.newAgent(c, m)
 	defer a.Stop()

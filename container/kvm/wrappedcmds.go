@@ -25,9 +25,9 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/os/series"
-	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
+	"github.com/juju/os/v2/series"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/arch"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/container/kvm/libvirt"
@@ -75,7 +75,7 @@ type CreateMachineParams struct {
 	Interfaces        []libvirt.InterfaceInfo
 
 	disks    []libvirt.DiskInfo
-	findPath func(string) (string, error)
+	findPath pathfinderFunc
 
 	runCmd       runFunc
 	runCmdAsRoot runFunc
@@ -311,11 +311,8 @@ func ListMachines(runCmd runFunc) (map[string]string, error) {
 
 // guestPath returns the path to the guest directory from the given
 // pathfinder.
-func guestPath(pathfinder func(string) (string, error)) (string, error) {
-	baseDir, err := pathfinder(series.MustHostSeries())
-	if err != nil {
-		return "", errors.Trace(err)
-	}
+func guestPath(pathfinder pathfinderFunc) (string, error) {
+	baseDir := pathfinder(paths.CurrentOS())
 	return filepath.Join(baseDir, kvm, guestDir), nil
 }
 

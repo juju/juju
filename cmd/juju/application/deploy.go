@@ -19,22 +19,26 @@ import (
 	"github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/applicationoffers"
+	"github.com/juju/juju/api/base"
 	apicharms "github.com/juju/juju/api/charms"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/api/spaces"
 	apiparams "github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmhub"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/application/deployer"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/series"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
 )
@@ -168,7 +172,7 @@ func newDeployCommand() *DeployCommand {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		csURL, err := getCharmStoreAPIURL(controllerAPIRoot)
+		url, err := getCharmStoreAPIURL(controllerAPIRoot)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -176,7 +180,28 @@ func newDeployCommand() *DeployCommand {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return store.NewCharmStoreAdaptor(bakeryClient, csURL), nil
+		return store.NewCharmStoreAdaptor(bakeryClient, url), nil
+	}
+	deployCmd.NewModelConfigClient = func(api base.APICallCloser) ModelConfigClient {
+		return modelconfig.NewClient(api)
+	}
+	deployCmd.NewDownloadClient = func() (store.DownloadBundleClient, error) {
+		apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		charmHubURL, err := deployCmd.getCharmHubURL(apiRoot)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		cfg, err := charmhub.CharmHubConfigFromURL(charmHubURL, logger)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		return charmhub.NewClient(cfg)
 	}
 	deployCmd.NewAPIRoot = func() (DeployAPI, error) {
 		apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
@@ -212,8 +237,8 @@ func newDeployCommand() *DeployCommand {
 		return applicationoffers.NewClient(root), nil
 	}
 	deployCmd.NewDeployerFactory = deployer.NewDeployerFactory
-	deployCmd.NewResolver = func(charmrepo store.CharmrepoForDeploy, charmsAPIVersion int, charmsAPI store.CharmsAPI) deployer.Resolver {
-		return store.NewCharmAdaptor(charmrepo, charmsAPIVersion, charmsAPI)
+	deployCmd.NewResolver = func(charmsAPI store.CharmsAPI, charmRepoFn store.CharmStoreRepoFunc, downloadClientFn store.DownloadBundleClientFunc) deployer.Resolver {
+		return store.NewCharmAdaptor(charmsAPI, charmRepoFn, downloadClientFn)
 	}
 	return deployCmd
 }
@@ -230,11 +255,11 @@ type DeployCommand struct {
 	// configuration to be merged with the main bundle.
 	BundleOverlayFile []string
 
-	// Channel holds the charmstore channel to use when obtaining
+	// Channel holds the channel to use when obtaining
 	// the charm to be deployed.
-	// TODO: (hml) 2020-08-25
-	// Change to a string which can be interpreted for cs or ch.
-	Channel csparams.Channel
+	Channel corecharm.Channel
+
+	channelStr string
 
 	// Series is the series of the charm to deploy.
 	Series string
@@ -291,8 +316,15 @@ type DeployCommand struct {
 	// NewCharmRepo stores a function which returns a charm store client.
 	NewCharmRepo func() (*store.CharmStoreAdaptor, error)
 
+	// NewDownloadClient stores a function for getting a charm/bundle.
+	NewDownloadClient func() (store.DownloadBundleClient, error)
+
+	// NewModelConfigClient stores a function which returns a new model config
+	// client. This is used to get the model config.
+	NewModelConfigClient func(base.APICallCloser) ModelConfigClient
+
 	// NewResolver stores a function which returns a charm adaptor.
-	NewResolver func(charmrepo store.CharmrepoForDeploy, charmsAPIVersion int, charmsAPI store.CharmsAPI) deployer.Resolver
+	NewResolver func(store.CharmsAPI, store.CharmStoreRepoFunc, store.DownloadBundleClientFunc) deployer.Resolver
 
 	// NewDeployerFactory stores a function which returns a deployer factory.
 	NewDeployerFactory func(dep deployer.DeployerDependencies) deployer.DeployerFactory
@@ -317,18 +349,25 @@ type DeployCommand struct {
 	unknownModel bool
 }
 
+// TODO (stickupkid): Update/re-write the following doc for charmhub related
+// charm urls.
 const deployDoc = `
-A charm can be referred to by its simple name and a series can optionally be
-specified:
+A charm or bundle can be referred to by its simple name and a series or channel
+can optionally be specified:
 
-  juju deploy postgresql
-  juju deploy bionic/postgresql
   juju deploy cs:postgresql
   juju deploy cs:bionic/postgresql
-  juju deploy postgresql --series bionic
+  juju deploy cs:postgresql --series bionic
+  juju deploy cs:postgresql --channel edge
 
 All the above deployments use remote charms found in the Charm Store (denoted
-by 'cs') and therefore also make use of "charm URLs".
+by 'cs' prefix) and therefore also make use of "charm URLs".
+
+If a channel is specified, it will be used as the source for looking up the
+charm or bundle from the Charm Store. When used in a bundle deployment context,
+the specified channel is only used for retrieving the bundle and is ignored when
+looking up the charms referenced by the bundle. However, each charm within a
+bundle is allowed to explicitly specify the channel used to look it up.
 
 A versioned charm URL will be expanded as expected. For example, 'mysql-56'
 becomes 'cs:bionic/mysql-56'.
@@ -571,7 +610,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.UnitCommandBase.SetFlags(f)
 	c.ModelCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "Number of application units to deploy for principal charms")
-	f.StringVar((*string)(&c.Channel), "channel", "", "Channel to use when getting the charm or bundle from the charm store")
+	f.StringVar(&c.channelStr, "channel", "", "Channel to use when deploying a charm or bundle from the charm store, or charm hub")
 	f.Var(&c.ConfigOptions, "config", "Either a path to yaml-formatted application config file or a key=value pair ")
 
 	f.BoolVar(&c.Trust, "trust", false, "Allows charm to run hooks that require access credentials")
@@ -608,8 +647,8 @@ func (c *DeployCommand) Init(args []string) error {
 	}
 	switch len(args) {
 	case 2:
-		if !names.IsValidApplication(args[1]) {
-			return errors.Errorf("invalid application name %q", args[1])
+		if err := names.ValidateApplicationName(args[1]); err != nil {
+			return errors.Trace(err)
 		}
 		c.ApplicationName = args[1]
 		fallthrough
@@ -642,6 +681,12 @@ func (c *DeployCommand) Init(args []string) error {
 		// So we do not want to fail here if we encountered NotFoundErr, we want to
 		// do a late validation at Run().
 		c.unknownModel = true
+	}
+	if c.channelStr != "" {
+		c.Channel, err = corecharm.ParseChannelNormalize(c.channelStr)
+		if err != nil {
+			return errors.Annotate(err, "error in --channel")
+		}
 	}
 	return nil
 }
@@ -704,6 +749,7 @@ func parseMachineMap(value string) (bool, map[string]string, error) {
 	return useExisting, mapping, nil
 }
 
+// Run executes a deploy command with a given context.
 func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if c.unknownModel {
 		if err := c.validateStorageByModelType(); err != nil {
@@ -736,7 +782,14 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		step.SetPlanURL(apiRoot.PlanURL())
 	}
 
-	charmAdapter := c.NewResolver(cstoreAPI, apiRoot.BestFacadeVersion("Charms"), apicharms.NewClient(apiRoot))
+	csRepoFn := func() (store.CharmrepoForDeploy, error) {
+		return cstoreAPI, nil
+	}
+	downloadClientFn := func() (store.DownloadBundleClient, error) {
+		return c.NewDownloadClient()
+	}
+
+	charmAdapter := c.NewResolver(apicharms.NewClient(apiRoot), csRepoFn, downloadClientFn)
 
 	factory, cfg := c.getDeployerFactory()
 	deploy, err := factory.GetDeployer(cfg, apiRoot, charmAdapter)
@@ -785,6 +838,7 @@ func (c *DeployCommand) getMeteringAPIURL(controllerAPIRoot api.Connection) (str
 func (c *DeployCommand) getDeployerFactory() (deployer.DeployerFactory, deployer.DeployerConfig) {
 	dep := deployer.DeployerDependencies{
 		Model:                c,
+		FileSystem:           c.ModelCommandBase.Filesystem(),
 		NewConsumeDetailsAPI: c.NewConsumeDetailsAPI, // only used here
 		Steps:                c.Steps,
 	}
@@ -814,4 +868,22 @@ func (c *DeployCommand) getDeployerFactory() (deployer.DeployerFactory, deployer
 		UseExisting:       c.UseExisting,
 	}
 	return c.NewDeployerFactory(dep), cfg
+}
+
+func (c *DeployCommand) getCharmHubURL(apiRoot base.APICallCloser) (string, error) {
+	modelConfigClient := c.NewModelConfigClient(apiRoot)
+	defer func() { _ = modelConfigClient.Close() }()
+
+	attrs, err := modelConfigClient.ModelGet()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	config, err := config.New(config.NoDefaults, attrs)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	charmHubURL, _ := config.CharmHubURL()
+	return charmHubURL, nil
 }

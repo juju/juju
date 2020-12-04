@@ -7,23 +7,25 @@ import (
 	"time"
 
 	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/juju/controller"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/caas/kubernetes/provider"
+	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/agent/addons"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -44,8 +46,16 @@ func (s *dblogSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *dblogSuite) TestControllerAgentLogsGoToDBCAAS(c *gc.C) {
+	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 	// Set up a CAAS model to replace the IAAS one.
-	st := s.Factory.MakeCAASModel(c, nil)
+	// Ensure major version 1 is used to prevent an upgrade
+	// from being attempted.
+	modelVers := jujuversion.Current
+	modelVers.Major = 1
+	extraAttrs := coretesting.Attrs{
+		"agent-version": modelVers.String(),
+	}
+	st := s.Factory.MakeCAASModel(c, &factory.ModelParams{ConfigAttrs: extraAttrs})
 	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
 	s.State = st
 	s.Factory = factory.NewFactory(st, s.StatePool)

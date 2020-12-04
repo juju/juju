@@ -17,9 +17,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
-	"github.com/juju/utils"
-	"github.com/juju/utils/shell"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/shell"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/api"
@@ -43,11 +42,11 @@ const (
 
 // These are base values used for the corresponding defaults.
 var (
-	logDir           = paths.MustSucceed(paths.LogDir(series.MustHostSeries()))
-	dataDir          = paths.MustSucceed(paths.DataDir(series.MustHostSeries()))
-	transientDataDir = paths.MustSucceed(paths.TransientDataDir(series.MustHostSeries()))
-	confDir          = paths.MustSucceed(paths.ConfDir(series.MustHostSeries()))
-	metricsSpoolDir  = paths.MustSucceed(paths.MetricsSpoolDir(series.MustHostSeries()))
+	logDir           = paths.LogDir(paths.CurrentOS())
+	dataDir          = paths.DataDir(paths.CurrentOS())
+	transientDataDir = paths.TransientDataDir(paths.CurrentOS())
+	confDir          = paths.ConfDir(paths.CurrentOS())
+	metricsSpoolDir  = paths.MetricsSpoolDir(paths.CurrentOS())
 )
 
 // Agent exposes the agent's configuration to other components. This
@@ -898,6 +897,23 @@ func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
 	if !ok {
 		return nil, false
 	}
+	addrs := c.apiDetails.addresses
+	var netAddrs network.SpaceAddresses
+	for _, addr := range addrs {
+		host, _, err := net.SplitHostPort(addr)
+		if err != nil {
+			return nil, false
+		}
+		if host == "localhost" {
+			continue
+		}
+		netAddrs = append(netAddrs, network.NewSpaceAddress(host))
+	}
+	// We should only be connecting to mongo on cloud local addresses,
+	// not fan or public etc.
+	hostPorts := network.SpaceAddressesWithPort(netAddrs, ssi.StatePort)
+	mongoAddrs := hostPorts.AllMatchingScope(network.ScopeMatchCloudLocal)
+
 	// We return localhost first and then all addresses of known API
 	// endpoints - this lets us connect to other Mongo instances and start
 	// state even if our own Mongo has not started yet (see lp:1749383 #1).
@@ -905,20 +921,11 @@ func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
 	// and when/if this changes localhost should resolve to IPv6 loopback
 	// in any case (lp:1644009). Review.
 	local := net.JoinHostPort("localhost", strconv.Itoa(ssi.StatePort))
-	addrs := []string{local}
-
-	for _, addr := range c.apiDetails.addresses {
-		host, _, err := net.SplitHostPort(addr)
-		if err != nil {
-			return nil, false
-		}
-		if host := net.JoinHostPort(host, strconv.Itoa(ssi.StatePort)); host != local {
-			addrs = append(addrs, host)
-		}
-	}
+	mongoAddrs = append([]string{local}, mongoAddrs...)
+	logger.Debugf("potential mongo addresses: %v", mongoAddrs)
 	return &mongo.MongoInfo{
 		Info: mongo.Info{
-			Addrs:  addrs,
+			Addrs:  mongoAddrs,
 			CACert: c.caCert,
 		},
 		Password: c.statePassword,

@@ -13,10 +13,11 @@ import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage/poolmanager"
@@ -337,8 +338,8 @@ func (s *AssignSuite) assertAssignUnitToNewMachineContainerConstraint(c *gc.C) {
 	err = unit.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	machineId := s.assertAssignedUnit(c, unit)
-	c.Assert(state.ParentId(machineId), gc.Not(gc.Equals), "")
-	c.Assert(state.ContainerTypeFromId(machineId), gc.Equals, instance.LXD)
+	c.Assert(container.ParentId(machineId), gc.Not(gc.Equals), "")
+	c.Assert(container.ContainerTypeFromId(machineId), gc.Equals, instance.LXD)
 }
 
 func (s *AssignSuite) TestAssignUnitToNewMachineContainerConstraint(c *gc.C) {
@@ -572,7 +573,7 @@ func (s *AssignSuite) assertAssignUnitNewPolicyNoContainer(c *gc.C) {
 	assertMachineCount(c, s.State, 2)
 	id, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(state.ParentId(id), gc.Equals, "")
+	c.Assert(container.ParentId(id), gc.Equals, "")
 }
 
 func (s *AssignSuite) TestAssignUnitNewPolicy(c *gc.C) {
@@ -688,6 +689,11 @@ func (s *assignCleanSuite) assertMachineNotEmpty(c *gc.C, machine *state.Machine
 
 // setupMachines creates a combination of machines with which to test.
 func (s *assignCleanSuite) setupMachines(c *gc.C) (hostMachine *state.Machine, container *state.Machine, cleanEmptyMachine *state.Machine) {
+	amdArch := "amd64"
+	hwChar := &instance.HardwareCharacteristics{
+		Arch: &amdArch,
+	}
+
 	_, err := s.State.AddMachine("quantal", state.JobManageModel) // bootstrap machine
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -707,6 +713,11 @@ func (s *assignCleanSuite) setupMachines(c *gc.C) (hostMachine *state.Machine, c
 	// Create a new, clean machine but add containers so it is not empty.
 	hostMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
+
+	instId := instance.Id("i-host-machine")
+	err = hostMachine.SetProvisioned(instId, "", "fake-nonce", hwChar)
+	c.Assert(err, jc.ErrorIsNil)
+
 	container, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
@@ -715,11 +726,20 @@ func (s *assignCleanSuite) setupMachines(c *gc.C) (hostMachine *state.Machine, c
 	c.Assert(hostMachine.Clean(), jc.IsTrue)
 	s.assertMachineNotEmpty(c, hostMachine)
 
+	instId = instance.Id("i-container")
+	err = container.SetProvisioned(instId, "", "fake-nonce", hwChar)
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Create a new, clean, empty machine.
 	cleanEmptyMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cleanEmptyMachine.Clean(), jc.IsTrue)
 	s.assertMachineEmpty(c, cleanEmptyMachine)
+
+	instId = instance.Id("i-clean-empty-machine")
+	err = cleanEmptyMachine.SetProvisioned(instId, "", "fake-nonce", hwChar)
+	c.Assert(err, jc.ErrorIsNil)
+
 	return hostMachine, container, cleanEmptyMachine
 }
 
@@ -820,90 +840,162 @@ var assignUsingConstraintsTests = []struct {
 	assignOk                bool
 }{
 	{
-		unitConstraints:         "",
-		hardwareCharacteristics: "",
-		assignOk:                true,
-	}, {
-		unitConstraints:         "arch=amd64",
-		hardwareCharacteristics: "none",
-		assignOk:                false,
-	}, {
-		unitConstraints:         "arch=amd64",
-		hardwareCharacteristics: "cores=1",
-		assignOk:                false,
-	}, {
+		// 0
 		unitConstraints:         "arch=amd64",
 		hardwareCharacteristics: "arch=amd64",
 		assignOk:                true,
 	}, {
+		// 1
+		unitConstraints:         "arch=amd64",
+		hardwareCharacteristics: "none",
+		assignOk:                false,
+	}, {
+		// 2
+		unitConstraints:         "arch=amd64",
+		hardwareCharacteristics: "cores=1",
+		assignOk:                false,
+	}, {
+		// 3
 		unitConstraints:         "arch=amd64",
 		hardwareCharacteristics: "arch=i386",
 		assignOk:                false,
 	}, {
+		// 4
 		unitConstraints:         "mem=4G",
 		hardwareCharacteristics: "none",
 		assignOk:                false,
 	}, {
+		// 5
 		unitConstraints:         "mem=4G",
 		hardwareCharacteristics: "cores=1",
 		assignOk:                false,
 	}, {
-		unitConstraints:         "mem=4G",
-		hardwareCharacteristics: "mem=4G",
+		// 6
+		unitConstraints:         "arch=amd64 mem=4G",
+		hardwareCharacteristics: "arch=amd64 mem=4G",
 		assignOk:                true,
 	}, {
+		// 7
+		unitConstraints:         "mem=4G",
+		hardwareCharacteristics: "mem=4G",
+		assignOk:                false,
+	}, {
+		// 8
+		unitConstraints:         "arch=amd64 mem=4G",
+		hardwareCharacteristics: "arch=amd64 mem=2G",
+		assignOk:                false,
+	}, {
+		// 9
 		unitConstraints:         "mem=4G",
 		hardwareCharacteristics: "mem=2G",
 		assignOk:                false,
 	}, {
-		unitConstraints:         "cores=2",
-		hardwareCharacteristics: "cores=2",
+		// 10
+		unitConstraints:         "arch=amd64 cores=2",
+		hardwareCharacteristics: "arch=amd64 cores=2",
 		assignOk:                true,
 	}, {
+		// 11
+		unitConstraints:         "cores=2",
+		hardwareCharacteristics: "cores=2",
+		assignOk:                false,
+	}, {
+		// 12
+		unitConstraints:         "arch=amd64 cores=2",
+		hardwareCharacteristics: "arch=amd64 cores=1",
+		assignOk:                false,
+	}, {
+		// 13
 		unitConstraints:         "cores=2",
 		hardwareCharacteristics: "cores=1",
 		assignOk:                false,
 	}, {
+		// 14
+		unitConstraints:         "arch=amd64 cores=2",
+		hardwareCharacteristics: "arch=amd64 mem=4G",
+		assignOk:                false,
+	}, {
+		// 15
 		unitConstraints:         "cores=2",
 		hardwareCharacteristics: "mem=4G",
 		assignOk:                false,
 	}, {
-		unitConstraints:         "cpu-power=50",
-		hardwareCharacteristics: "cpu-power=50",
+		// 16
+		unitConstraints:         "arch=amd64 cpu-power=50",
+		hardwareCharacteristics: "arch=amd64 cpu-power=50",
 		assignOk:                true,
 	}, {
+		// 17
+		unitConstraints:         "cpu-power=50",
+		hardwareCharacteristics: "cpu-power=50",
+		assignOk:                false,
+	}, {
+		// 18
+		unitConstraints:         "arch=amd64 cpu-power=100",
+		hardwareCharacteristics: "arch=amd64 cpu-power=50",
+		assignOk:                false,
+	}, {
+		// 19
 		unitConstraints:         "cpu-power=100",
 		hardwareCharacteristics: "cpu-power=50",
 		assignOk:                false,
 	}, {
+		// 20
+		unitConstraints:         "arch=amd64 cpu-power=50",
+		hardwareCharacteristics: "arch=amd64 mem=4G",
+		assignOk:                false,
+	}, {
+		// 21
 		unitConstraints:         "cpu-power=50",
 		hardwareCharacteristics: "mem=4G",
 		assignOk:                false,
 	}, {
+		// 22
+		unitConstraints:         "arch=amd64 root-disk=8192",
+		hardwareCharacteristics: "arch=amd64 cpu-power=50",
+		assignOk:                false,
+	}, {
+		// 23
 		unitConstraints:         "root-disk=8192",
 		hardwareCharacteristics: "cpu-power=50",
 		assignOk:                false,
 	}, {
+		// 24
+		unitConstraints:         "arch=amd64 root-disk=8192",
+		hardwareCharacteristics: "arch=amd64 root-disk=4096",
+		assignOk:                false,
+	}, {
+		// 25
 		unitConstraints:         "root-disk=8192",
 		hardwareCharacteristics: "root-disk=4096",
 		assignOk:                false,
 	}, {
-		unitConstraints:         "root-disk=8192",
-		hardwareCharacteristics: "root-disk=8192",
+		// 26
+		unitConstraints:         "arch=amd64 root-disk=8192",
+		hardwareCharacteristics: "arch=amd64 root-disk=8192",
 		assignOk:                true,
 	}, {
+		// 27
+		unitConstraints:         "root-disk=8192",
+		hardwareCharacteristics: "root-disk=8192",
+		assignOk:                false,
+	}, {
+		// 28
 		unitConstraints:         "root-disk-source=place1",
 		hardwareCharacteristics: "root-disk-source=place2",
 		assignOk:                false,
 	}, {
-		unitConstraints:         "root-disk-source=place1",
-		hardwareCharacteristics: "root-disk-source=place1",
+		// 29
+		unitConstraints:         "arch=amd64 root-disk-source=place1",
+		hardwareCharacteristics: "arch=amd64 root-disk-source=place1",
 		assignOk:                true,
 	}, {
+		// 30
 		unitConstraints:         "arch=amd64 mem=4G cores=2 root-disk=8192",
 		hardwareCharacteristics: "arch=amd64 mem=8G cores=2 root-disk=8192 root-disk-source=donk cpu-power=50",
 		assignOk:                true,
 	}, {
+		// 31
 		unitConstraints:         "arch=amd64 mem=4G cores=2 root-disk=8192 root-disk-source=donk",
 		hardwareCharacteristics: "arch=amd64 mem=8G cores=1 root-disk=4096 root-disk-source=donk cpu-power=50",
 		assignOk:                false,
@@ -976,9 +1068,19 @@ func (s *assignCleanSuite) TestAssignUnitToMachineWithRemovedUnit(c *gc.C) {
 }
 
 func (s *assignCleanSuite) TestAssignUnitToMachineWorksWithMachine0(c *gc.C) {
+	amdArch := "amd64"
+	hwChar := &instance.HardwareCharacteristics{
+		Arch: &amdArch,
+	}
+
 	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Id(), gc.Equals, "0")
+
+	instId := instance.Id("i-host-machine")
+	err = m.SetProvisioned(instId, "", "fake-nonce", hwChar)
+	c.Assert(err, jc.ErrorIsNil)
+
 	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	assignedTo, err := s.assignUnit(unit)
@@ -1112,6 +1214,11 @@ func (s *assignCleanSuite) TestAssignUnitWithNonDynamicStorageAndZonePlacementDi
 }
 
 func (s *assignCleanSuite) TestAssignUnitWithDynamicStorageCleanAvailable(c *gc.C) {
+	amdArch := "amd64"
+	hwChar := &instance.HardwareCharacteristics{
+		Arch: &amdArch,
+	}
+
 	_, unit, _ := s.setupSingleStorage(c, "filesystem", "loop-pool")
 	sb, err := state.NewStorageBackend(s.State)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1121,6 +1228,10 @@ func (s *assignCleanSuite) TestAssignUnitWithDynamicStorageCleanAvailable(c *gc.
 
 	// Add a clean machine.
 	clean, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	instId := instance.Id("i-host-machine")
+	err = clean.SetProvisioned(instId, "", "fake-nonce", hwChar)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// assign the unit to a machine, requesting clean/empty
@@ -1148,6 +1259,11 @@ func (s *assignCleanSuite) TestAssignUnitWithDynamicStorageCleanAvailable(c *gc.
 }
 
 func (s *assignCleanSuite) TestAssignUnitPolicy(c *gc.C) {
+	amdArch := "amd64"
+	hwChar := &instance.HardwareCharacteristics{
+		Arch: &amdArch,
+	}
+
 	_, err := s.State.AddMachine("quantal", state.JobManageModel) // bootstrap machine
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1193,6 +1309,11 @@ func (s *assignCleanSuite) TestAssignUnitPolicy(c *gc.C) {
 	// Create a new, clean machine but add containers so it is not empty.
 	hostMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
+
+	instId := instance.Id("i-host-machine")
+	err = hostMachine.SetProvisioned(instId, "", "fake-nonce", hwChar)
+	c.Assert(err, jc.ErrorIsNil)
+
 	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
@@ -1200,6 +1321,11 @@ func (s *assignCleanSuite) TestAssignUnitPolicy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostMachine.Clean(), jc.IsTrue)
 	s.assertMachineNotEmpty(c, hostMachine)
+
+	instId = instance.Id("i-container")
+	err = container.SetProvisioned(instId, "", "fake-nonce", hwChar)
+	c.Assert(err, jc.ErrorIsNil)
+
 	if s.policy == state.AssignClean {
 		expectedMachines = append(expectedMachines, hostMachine.Id())
 	}
@@ -1209,6 +1335,11 @@ func (s *assignCleanSuite) TestAssignUnitPolicy(c *gc.C) {
 	for i := 0; i < 4; i++ {
 		m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
+
+		instId = instance.Id(fmt.Sprintf("i-machine-%d", i))
+		err = m.SetProvisioned(instId, "", "fake-nonce", hwChar)
+		c.Assert(err, jc.ErrorIsNil)
+
 		expectedMachines = append(expectedMachines, m.Id())
 	}
 
@@ -1229,12 +1360,22 @@ func (s *assignCleanSuite) TestAssignUnitPolicy(c *gc.C) {
 }
 
 func (s *assignCleanSuite) TestAssignUnitPolicyWithContainers(c *gc.C) {
+	amdArch := "amd64"
+	hwChar := &instance.HardwareCharacteristics{
+		Arch: &amdArch,
+	}
+
 	_, err := s.State.AddMachine("quantal", state.JobManageModel) // bootstrap machine
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a machine and add a new container.
 	hostMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
+
+	instId := instance.Id("i-host-machine")
+	err = hostMachine.SetProvisioned(instId, "", "fake-nonce", hwChar)
+	c.Assert(err, jc.ErrorIsNil)
+
 	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
@@ -1244,6 +1385,10 @@ func (s *assignCleanSuite) TestAssignUnitPolicyWithContainers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostMachine.Clean(), jc.IsTrue)
 	s.assertMachineNotEmpty(c, hostMachine)
+
+	instId = instance.Id("i-container")
+	err = container.SetProvisioned(instId, "", "fake-nonce", hwChar)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Set up constraints to specify we want to install into a container.
 	econs := constraints.MustParse("container=lxd")
@@ -1287,6 +1432,10 @@ func (s *assignCleanSuite) TestAssignUnitPolicyWithContainers(c *gc.C) {
 	// Create a new, clean instance and check that the next container creation uses it.
 	hostMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
+	instId = instance.Id("i-host-machine")
+	err = hostMachine.SetProvisioned(instId, "", "fake-nonce", hwChar)
+	c.Assert(err, jc.ErrorIsNil)
+
 	unit, err = s.wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(unit, s.policy)

@@ -306,7 +306,7 @@ func (s *applicationConstraintsSuite) TestAddApplicationValidConstraints(c *gc.C
 }
 
 func (s *applicationConstraintsSuite) TestConstraintsRetrieval(c *gc.C) {
-	posCons := constraints.MustParse("spaces=db")
+	posCons := constraints.MustParse("arch=amd64 spaces=db")
 	application, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:        s.applicationName,
 		Series:      "",
@@ -316,7 +316,7 @@ func (s *applicationConstraintsSuite) TestConstraintsRetrieval(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(application, gc.NotNil)
 
-	negCons := constraints.MustParse("spaces=^db2")
+	negCons := constraints.MustParse("arch=amd64 spaces=^db2")
 	negApplication, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:        "unimportant",
 		Series:      "",

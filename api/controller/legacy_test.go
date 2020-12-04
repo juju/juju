@@ -240,13 +240,15 @@ func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
 	go func() {
 		// Resetting the dummy environment will call Stop on the
 		// embedded API server.
+		start := time.Now()
 		dummy.Reset(c)
+		c.Logf("dummy.Reset() took %v", time.Since(start))
 		close(srvStopped)
 	}()
 
 	select {
 	case <-srvStopped:
-	case <-time.After(testing.LongWait):
+	case <-time.After(time.Minute): // LongWait (10s) didn't seem quite long enough, see LP 1900931
 		c.Fatal("timed out waiting for server to stop")
 	}
 

@@ -6,9 +6,18 @@ package paths
 
 import (
 	"os"
+	"runtime"
+	"strings"
 
-	jujuos "github.com/juju/os"
-	"github.com/juju/os/series"
+	jujuos "github.com/juju/os/v2"
+	"github.com/juju/os/v2/series"
+)
+
+type OS int // strongly typed runtime.GOOS value to help with refactoring
+
+const (
+	OSWindows  OS = 1
+	OSUnixLike OS = 2
 )
 
 type osVarType int
@@ -25,7 +34,6 @@ const (
 	uniterStateDir
 	jujuDumpLogs
 	jujuIntrospect
-	jujuUpdateSeries
 	instanceCloudInitDir
 	cloudInitCfgDir
 	curtinInstallConfig
@@ -54,7 +62,6 @@ var nixVals = map[osVarType]string{
 	jujuRun:              "/usr/bin/juju-run",
 	jujuDumpLogs:         "/usr/bin/juju-dumplogs",
 	jujuIntrospect:       "/usr/bin/juju-introspect",
-	jujuUpdateSeries:     "/usr/bin/juju-updateseries",
 	certDir:              "/etc/juju/certs.d",
 	metricsSpoolDir:      "/var/lib/juju/metricspool",
 	uniterStateDir:       "/var/lib/juju/uniter/state",
@@ -73,7 +80,6 @@ var winVals = map[osVarType]string{
 	jujuRun:          "C:/Juju/bin/juju-run.exe",
 	jujuDumpLogs:     "C:/Juju/bin/juju-dumplogs.exe",
 	jujuIntrospect:   "C:/Juju/bin/juju-introspect.exe",
-	jujuUpdateSeries: "C:/Juju/bin/juju-updateseries.exe",
 	certDir:          "C:/Juju/certs",
 	metricsSpoolDir:  "C:/Juju/lib/juju/metricspool",
 	uniterStateDir:   "C:/Juju/lib/juju/uniter/state",
@@ -83,117 +89,128 @@ var winVals = map[osVarType]string{
 // Agents run as root, but users don't.
 var Chown = os.Chown
 
-// osVal will lookup the value of the key valname
-// in the appropriate map, based on the series. This will
-// help reduce boilerplate code
-func osVal(ser string, valname osVarType) (string, error) {
-	os, err := series.GetOSFromSeries(ser)
-	if err != nil {
-		return "", err
-	}
-	switch os {
-	case jujuos.Windows:
-		return winVals[valname], nil
+// CurrentOS returns the OS value for the currently-running system.
+func CurrentOS() OS {
+	switch runtime.GOOS {
+	case "windows":
+		return OSWindows
 	default:
-		return nixVals[valname], nil
+		return OSUnixLike
+	}
+}
+
+// SeriesToOS converts the given series to an OS value.
+func SeriesToOS(ser string) OS {
+	osType, err := series.GetOSFromSeries(ser)
+	if err != nil {
+		// We shouldn't get here in normal operation, as the series should be
+		// valid at this point, but handle in a reasonable way in any case.
+		if strings.HasPrefix(ser, "win") {
+			return OSWindows
+		}
+		return OSUnixLike
+	}
+	switch osType {
+	case jujuos.Windows:
+		return OSWindows
+	default:
+		return OSUnixLike
+	}
+}
+
+// osVal will lookup the value of the key valname
+// in the appropriate map, based on the OS value.
+func osVal(os OS, valname osVarType) string {
+	switch os {
+	case OSWindows:
+		return winVals[valname]
+	default:
+		return nixVals[valname]
 	}
 }
 
 // TempDir returns the path on disk to the correct tmp directory
 // for the series. This value will be the same on virtually
 // all linux systems, but will differ on windows
-func TempDir(series string) (string, error) {
-	return osVal(series, tmpDir)
+func TempDir(os OS) string {
+	return osVal(os, tmpDir)
 }
 
 // LogDir returns filesystem path the directory where juju may
 // save log files.
-func LogDir(series string) (string, error) {
-	return osVal(series, logDir)
+func LogDir(os OS) string {
+	return osVal(os, logDir)
 }
 
 // DataDir returns a filesystem path to the folder used by juju to
 // store tools, charms, locks, etc
-func DataDir(series string) (string, error) {
-	return osVal(series, dataDir)
+func DataDir(os OS) string {
+	return osVal(os, dataDir)
 }
 
 // TransientDataDir returns a filesystem path to the folder used by juju to
 // store transient data that will not survive a reboot.
-func TransientDataDir(series string) (string, error) {
-	return osVal(series, transientDataDir)
+func TransientDataDir(os OS) string {
+	return osVal(os, transientDataDir)
 }
 
 // MetricsSpoolDir returns a filesystem path to the folder used by juju
 // to store metrics.
-func MetricsSpoolDir(series string) (string, error) {
-	return osVal(series, metricsSpoolDir)
+func MetricsSpoolDir(os OS) string {
+	return osVal(os, metricsSpoolDir)
 }
 
 // CertDir returns a filesystem path to the folder used by juju to
 // store certificates that are added by default to the Juju client
 // api certificate pool.
-func CertDir(series string) (string, error) {
-	return osVal(series, certDir)
+func CertDir(os OS) string {
+	return osVal(os, certDir)
 }
 
 // StorageDir returns a filesystem path to the folder used by juju to
 // mount machine-level storage.
-func StorageDir(series string) (string, error) {
-	return osVal(series, storageDir)
+func StorageDir(os OS) string {
+	return osVal(os, storageDir)
 }
 
 // ConfDir returns the path to the directory where Juju may store
 // configuration files.
-func ConfDir(series string) (string, error) {
-	return osVal(series, confDir)
+func ConfDir(os OS) string {
+	return osVal(os, confDir)
 }
 
 // JujuRun returns the absolute path to the juju-run binary for
 // a particular series.
-func JujuRun(series string) (string, error) {
-	return osVal(series, jujuRun)
+func JujuRun(os OS) string {
+	return osVal(os, jujuRun)
 }
 
 // JujuDumpLogs returns the absolute path to the juju-dumplogs binary
 // for a particular series.
-func JujuDumpLogs(series string) (string, error) {
-	return osVal(series, jujuDumpLogs)
+func JujuDumpLogs(os OS) string {
+	return osVal(os, jujuDumpLogs)
 }
 
 // JujuIntrospect returns the absolute path to the juju-introspect
 // binary for a particular series.
-func JujuIntrospect(series string) (string, error) {
-	return osVal(series, jujuIntrospect)
+func JujuIntrospect(os OS) string {
+	return osVal(os, jujuIntrospect)
 }
 
 // MachineCloudInitDir returns the absolute path to the instance
 // cloudinit directory for a particular series.
-func MachineCloudInitDir(series string) (string, error) {
-	return osVal(series, instanceCloudInitDir)
+func MachineCloudInitDir(os OS) string {
+	return osVal(os, instanceCloudInitDir)
 }
 
 // CurtinInstallConfig returns the absolute path the configuration file
 // written by Curtin during machine provisioning.
-func CurtinInstallConfig(series string) (string, error) {
-	return osVal(series, curtinInstallConfig)
+func CurtinInstallConfig(os OS) string {
+	return osVal(os, curtinInstallConfig)
 }
 
 // CloudInitCfgDir returns the absolute path to the instance
 // cloud config directory for a particular series.
-func CloudInitCfgDir(series string) (string, error) {
-	return osVal(series, cloudInitCfgDir)
-}
-
-// JujuUpdateSeries returns the absolute path to the juju-updateseries
-// binary for a particular series.
-func JujuUpdateSeries(series string) (string, error) {
-	return osVal(series, jujuUpdateSeries)
-}
-
-func MustSucceed(s string, e error) string {
-	if e != nil {
-		panic(e)
-	}
-	return s
+func CloudInitCfgDir(os OS) string {
+	return osVal(os, cloudInitCfgDir)
 }

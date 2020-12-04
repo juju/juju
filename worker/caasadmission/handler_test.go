@@ -23,7 +23,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
-	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
+	providerconst "github.com/juju/juju/caas/kubernetes/provider/constants"
+	providerutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	rbacmappertest "github.com/juju/juju/worker/caasrbacmapper/test"
 )
 
@@ -89,7 +90,7 @@ func (h *HandlerSuite) TestEmptyBodyFails(c *gc.C) {
 	req := httptest.NewRequest(http.MethodPost, "/", nil)
 	recorder := httptest.NewRecorder()
 
-	admissionHandler(h.logger, &rbacmappertest.Mapper{}).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacmappertest.Mapper{}, false).ServeHTTP(recorder, req)
 
 	c.Assert(recorder.Code, gc.Equals, http.StatusBadRequest)
 }
@@ -99,7 +100,7 @@ func (h *HandlerSuite) TestUnknownContentType(c *gc.C) {
 	req.Header.Set("junk", "junk")
 	recorder := httptest.NewRecorder()
 
-	admissionHandler(h.logger, &rbacmappertest.Mapper{}).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacmappertest.Mapper{}, false).ServeHTTP(recorder, req)
 
 	c.Assert(recorder.Code, gc.Equals, http.StatusUnsupportedMediaType)
 }
@@ -121,7 +122,7 @@ func (h *HandlerSuite) TestUnknownServiceAccount(c *gc.C) {
 	req.Header.Set(HeaderContentType, ExpectedContentType)
 	recorder := httptest.NewRecorder()
 
-	admissionHandler(h.logger, &rbacmappertest.Mapper{}).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacmappertest.Mapper{}, false).ServeHTTP(recorder, req)
 	c.Assert(recorder.Code, gc.Equals, http.StatusOK)
 	c.Assert(recorder.Body, gc.NotNil)
 
@@ -156,7 +157,7 @@ func (h *HandlerSuite) TestRBACMapperFailure(c *gc.C) {
 		},
 	}
 
-	admissionHandler(h.logger, &rbacMapper).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacMapper, false).ServeHTTP(recorder, req)
 	c.Assert(recorder.Code, gc.Equals, http.StatusInternalServerError)
 }
 
@@ -195,7 +196,7 @@ func (h *HandlerSuite) TestPatchLabelsAdd(c *gc.C) {
 		},
 	}
 
-	admissionHandler(h.logger, &rbacMapper).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacMapper, false).ServeHTTP(recorder, req)
 	c.Assert(recorder.Code, gc.Equals, http.StatusOK)
 	c.Assert(recorder.Body, gc.NotNil)
 
@@ -214,18 +215,20 @@ func (h *HandlerSuite) TestPatchLabelsAdd(c *gc.C) {
 	c.Assert(patchOperations[0].Op, gc.Equals, "add")
 	c.Assert(patchOperations[0].Path, gc.Equals, "/metadata/labels")
 
-	expectedLabels := k8sutils.LabelsForApp(appName)
+	expectedLabels := providerutils.LabelForKeyValue(
+		providerconst.LabelJujuAppCreatedBy, appName)
+
 	for k, v := range expectedLabels {
 		found := false
 		for _, patchOp := range patchOperations[1:] {
-			if patchOp.Path == fmt.Sprintf("/metadata/labels/%s", k) {
+			if patchOp.Path == fmt.Sprintf("/metadata/labels/%s", patchEscape(k)) {
 				c.Assert(patchOp.Op, gc.Equals, "add")
 				c.Assert(patchOp.Value, jc.DeepEquals, v)
 				found = true
 				break
 			}
 		}
-		c.Assert(found, gc.Equals, true)
+		c.Assert(found, jc.IsTrue)
 	}
 
 	for k, v := range expectedLabels {
@@ -246,8 +249,10 @@ func (h *HandlerSuite) TestPatchLabelsAdd(c *gc.C) {
 func (h *HandlerSuite) TestPatchLabelsReplace(c *gc.C) {
 	pod := core.Pod{
 		ObjectMeta: meta.ObjectMeta{
-			Name:   "pod",
-			Labels: k8sutils.LabelsForApp("replace-app"),
+			Name: "pod",
+			Labels: providerutils.LabelForKeyValue(
+				providerconst.LabelJujuAppCreatedBy, "replace-app",
+			),
 		},
 	}
 	podBytes, err := json.Marshal(&pod)
@@ -279,7 +284,7 @@ func (h *HandlerSuite) TestPatchLabelsReplace(c *gc.C) {
 		},
 	}
 
-	admissionHandler(h.logger, &rbacMapper).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacMapper, false).ServeHTTP(recorder, req)
 	c.Assert(recorder.Code, gc.Equals, http.StatusOK)
 	c.Assert(recorder.Body, gc.NotNil)
 
@@ -295,18 +300,19 @@ func (h *HandlerSuite) TestPatchLabelsReplace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(patchOperations), gc.Equals, 1)
 
-	expectedLabels := k8sutils.LabelsForApp(appName)
+	expectedLabels := providerutils.LabelForKeyValue(
+		providerconst.LabelJujuAppCreatedBy, appName)
 	for k, v := range expectedLabels {
 		found := false
 		for _, patchOp := range patchOperations {
-			if patchOp.Path == fmt.Sprintf("/metadata/labels/%s", k) {
+			if patchOp.Path == fmt.Sprintf("/metadata/labels/%s", patchEscape(k)) {
 				c.Assert(patchOp.Op, gc.Equals, "replace")
 				c.Assert(patchOp.Value, jc.DeepEquals, v)
 				found = true
 				break
 			}
 		}
-		c.Assert(found, gc.Equals, true)
+		c.Assert(found, jc.IsTrue)
 	}
 
 	for k, v := range expectedLabels {

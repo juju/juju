@@ -36,7 +36,7 @@ func (s *FindSuite) TestFind(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectGet(c, restClient, path, name)
 
-	client := NewFindClient(path, restClient)
+	client := NewFindClient(path, restClient, &FakeLogger{})
 	responses, err := client.Find(context.TODO(), name)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(responses), gc.Equals, 1)
@@ -53,9 +53,9 @@ func (s *FindSuite) TestFindFailure(c *gc.C) {
 	name := "meshuggah"
 
 	restClient := NewMockRESTClient(ctrl)
-	s.expectGetFailure(c, restClient)
+	s.expectGetFailure(restClient)
 
-	client := NewFindClient(path, restClient)
+	client := NewFindClient(path, restClient, &FakeLogger{})
 	_, err := client.Find(context.TODO(), name)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
@@ -63,16 +63,18 @@ func (s *FindSuite) TestFindFailure(c *gc.C) {
 func (s *FindSuite) expectGet(c *gc.C, client *MockRESTClient, p path.Path, name string) {
 	namedPath, err := p.Query("q", name)
 	c.Assert(err, jc.ErrorIsNil)
+	namedPath, err = namedPath.Query("fields", defaultFindFilter())
+	c.Assert(err, jc.ErrorIsNil)
 
 	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).Do(func(_ context.Context, _ path.Path, responses *transport.FindResponses) {
 		responses.Results = []transport.FindResponse{{
 			Name: name,
 		}}
-	}).Return(nil)
+	}).Return(RESTResponse{StatusCode: http.StatusOK}, nil)
 }
 
-func (s *FindSuite) expectGetFailure(c *gc.C, client *MockRESTClient) {
-	client.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.Errorf("boom"))
+func (s *FindSuite) expectGetFailure(client *MockRESTClient) {
+	client.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(RESTResponse{StatusCode: http.StatusInternalServerError}, errors.Errorf("boom"))
 }
 
 func (s *FindSuite) TestFindRequestPayload(c *gc.C) {
@@ -104,7 +106,7 @@ func (s *FindSuite) TestFindRequestPayload(c *gc.C) {
 					"wordpress-site",
 				},
 			},
-			DefaultRelease: transport.ChannelMap{
+			DefaultRelease: transport.FindChannelMap{
 				Channel: transport.Channel{
 					Name: "latest/stable",
 					Platform: transport.Platform{
@@ -116,15 +118,13 @@ func (s *FindSuite) TestFindRequestPayload(c *gc.C) {
 					Risk:       "stable",
 					Track:      "latest",
 				},
-				Revision: transport.Revision{
-					ConfigYAML: "one: 1\ntwo: 2\nitems: [1,2,3,4]\n\"",
-					CreatedAt:  "2019-12-16T19:20:26.673192+00:00",
+				Revision: transport.FindRevision{
+					CreatedAt: "2019-12-16T19:20:26.673192+00:00",
 					Download: transport.Download{
-						HashSHA265: "92a8b825ed1108ab64864a7df05eb84ed3925a8d5e4741169185f77cef9b52517ad4b79396bab43b19e544a908ec83c4",
+						HashSHA256: "92a8b825ed1108ab64864a7df05eb84ed3925a8d5e4741169185f77cef9b52517ad4b79396bab43b19e544a908ec83c4",
 						Size:       12042240,
 						URL:        "https://api.snapcraft.io/api/v1/snaps/download/QLLfVfIKfcnTZiPFnmGcigB2vB605ZY7_16.snap",
 					},
-					MetadataYAML: "name: myname\nversion: 1.0.3\nsummary: A charm or bundle.\ndescription: |\n  This will install and setup services optimized to run in the cloud.\n  By default it will place Ngnix configured to scale horizontally\n  with Nginx's reverse proxy.\n",
 					Platforms: []transport.Platform{{
 						Architecture: "all",
 						OS:           "ubuntu",
@@ -157,10 +157,10 @@ func (s *FindSuite) TestFindRequestPayload(c *gc.C) {
 	findPath, err := basePath.Join("find")
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiRequester := NewAPIRequester(DefaultHTTPTransport())
+	apiRequester := NewAPIRequester(DefaultHTTPTransport(), &FakeLogger{})
 	restClient := NewHTTPRESTClient(apiRequester, nil)
 
-	client := NewFindClient(findPath, restClient)
+	client := NewFindClient(findPath, restClient, &FakeLogger{})
 	responses, err := client.Find(context.TODO(), "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(responses, gc.DeepEquals, findResponses.Results)
@@ -194,10 +194,10 @@ func (s *FindSuite) TestFindErrorPayload(c *gc.C) {
 	findPath, err := basePath.Join("find")
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiRequester := NewAPIRequester(DefaultHTTPTransport())
+	apiRequester := NewAPIRequester(DefaultHTTPTransport(), &FakeLogger{})
 	restClient := NewHTTPRESTClient(apiRequester, nil)
 
-	client := NewFindClient(findPath, restClient)
+	client := NewFindClient(findPath, restClient, &FakeLogger{})
 	_, err = client.Find(context.TODO(), "wordpress")
 	c.Assert(err, gc.ErrorMatches, "not found error code")
 }

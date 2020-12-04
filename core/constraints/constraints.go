@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 
 	"github.com/juju/juju/core/instance"
 )
@@ -23,17 +23,18 @@ const (
 	Arch      = "arch"
 	Container = "container"
 	// cpuCores is an alias for Cores.
-	cpuCores       = "cpu-cores"
-	Cores          = "cores"
-	CpuPower       = "cpu-power"
-	Mem            = "mem"
-	RootDisk       = "root-disk"
-	RootDiskSource = "root-disk-source"
-	Tags           = "tags"
-	InstanceType   = "instance-type"
-	Spaces         = "spaces"
-	VirtType       = "virt-type"
-	Zones          = "zones"
+	cpuCores         = "cpu-cores"
+	Cores            = "cores"
+	CpuPower         = "cpu-power"
+	Mem              = "mem"
+	RootDisk         = "root-disk"
+	RootDiskSource   = "root-disk-source"
+	Tags             = "tags"
+	InstanceType     = "instance-type"
+	Spaces           = "spaces"
+	VirtType         = "virt-type"
+	Zones            = "zones"
+	AllocatePublicIP = "allocate-public-ip"
 )
 
 // Value describes a user's requirements of the hardware on which units
@@ -97,6 +98,12 @@ type Value struct {
 	// Zones, if not nil, holds a list of availability zones limiting where
 	// the machine can be located.
 	Zones *[]string `json:"zones,omitempty" yaml:"zones,omitempty"`
+
+	// AllocatePublicIP, if nil or true, signals that machines should be
+	// created with a public IP address instead of a cloud local one.
+	// The default behaviour if the value is not specified is to allocate
+	// a public IP so that public cloud behaviour works out of the box.
+	AllocatePublicIP *bool `json:"allocate-public-ip,omitempty" yaml:"allocate-public-ip,omitempty"`
 }
 
 var rawAliases = map[string]string{
@@ -140,7 +147,7 @@ func (v *Value) HasCpuCores() bool {
 	return v.CpuCores != nil && *v.CpuCores > 0
 }
 
-// HasRootDisk returns true if the contraints.Value specifies a RootDisk size.
+// HasRootDisk returns true if the constraints.Value specifies a RootDisk size.
 func (v *Value) HasRootDisk() bool {
 	return v.RootDisk != nil && *v.RootDisk > 0
 }
@@ -208,6 +215,11 @@ func (v *Value) HasZones() bool {
 	return v.Zones != nil && len(*v.Zones) > 0
 }
 
+// HasAllocatePublicIP returns whether the allocate-public-ip constraint was specified.
+func (v *Value) HasAllocatePublicIP() bool {
+	return v.AllocatePublicIP != nil
+}
+
 // String expresses a constraints.Value in the language in which it was specified.
 func (v Value) String() string {
 	var strs []string
@@ -258,6 +270,9 @@ func (v Value) String() string {
 	if v.Zones != nil {
 		s := strings.Join(*v.Zones, ",")
 		strs = append(strs, "zones="+s)
+	}
+	if v.AllocatePublicIP != nil {
+		strs = append(strs, "allocate-public-ip="+boolStr(*v.AllocatePublicIP))
 	}
 
 	// Ensure constraint values with spaces are properly escaped
@@ -311,6 +326,9 @@ func (v Value) GoString() string {
 	} else if v.Zones != nil {
 		values = append(values, "Zones: (*[]string)(nil)")
 	}
+	if v.AllocatePublicIP != nil {
+		values = append(values, fmt.Sprintf("AllocatePublicIP: %v", *v.AllocatePublicIP))
+	}
 	return fmt.Sprintf("{%s}", strings.Join(values, ", "))
 }
 
@@ -319,6 +337,10 @@ func uintStr(i uint64) string {
 		return ""
 	}
 	return fmt.Sprintf("%d", i)
+}
+
+func boolStr(b bool) string {
+	return fmt.Sprintf("%v", b)
 }
 
 // Parse constructs a constraints.Value from the supplied arguments,
@@ -476,6 +498,8 @@ func (v *Value) setRaw(name, str string) error {
 		err = v.setVirtType(str)
 	case Zones:
 		err = v.setZones(str)
+	case AllocatePublicIP:
+		err = v.setAllocatePublicIP(str)
 	default:
 		return errors.Errorf("unknown constraint %q", name)
 	}
@@ -543,6 +567,8 @@ func (v *Value) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			v.VirtType = &vstr
 		case Zones:
 			v.Zones, err = parseYamlStrings("zones", val)
+		case AllocatePublicIP:
+			v.AllocatePublicIP, err = parseBool(vstr)
 		default:
 			return errors.Errorf("unknown constraint value: %v", k)
 		}
@@ -681,6 +707,29 @@ func (v *Value) setZones(str string) error {
 	}
 	v.Zones = parseCommaDelimited(str)
 	return nil
+}
+
+func (v *Value) setAllocatePublicIP(str string) (err error) {
+	if str == "" {
+		return nil
+	}
+	if v.AllocatePublicIP != nil {
+		return errors.Errorf("already set")
+	}
+	v.AllocatePublicIP, err = parseBool(str)
+	return
+}
+
+func parseBool(str string) (*bool, error) {
+	var value bool
+	if str != "" {
+		val, err := strconv.ParseBool(str)
+		if err != nil {
+			return nil, errors.Errorf("must be 'true' or 'false'")
+		}
+		value = val
+	}
+	return &value, nil
 }
 
 func parseUint64(str string) (*uint64, error) {

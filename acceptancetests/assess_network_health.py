@@ -140,7 +140,9 @@ class AssessNetworkHealth:
             self.existing_series.add(info['series'])
         for series in self.existing_series:
             try:
-                client.deploy('~juju-qa/network-health', series=series,
+                # TODO: The latest network-health charm (11 onwards) is broken;
+                # it doesn't properly install charmhelpers.
+                client.deploy('cs:~juju-qa/network-health-10', series=series,
                               alias='network-health-{}'.format(series))
 
             except subprocess.CalledProcessError:
@@ -314,7 +316,7 @@ class AssessNetworkHealth:
         apps = client.get_status().get_applications()
         exposed = [app for app, e in apps.items() if e.get('exposed')
                    is True and 'network-health' not in app]
-        if len(exposed) is 0:
+        if len(exposed) == 0:
             nh_only = True
             log.info('No exposed units, testing with network-health '
                      'charms only.')
@@ -384,7 +386,9 @@ class AssessNetworkHealth:
         for app, info in apps.items():
             if 'network-health' not in app:
                 alias = 'network-health-{}'.format(app)
-                client.deploy('~juju-qa/network-health', alias=alias,
+                # The latest network-health charm (11 onwards) is broken;
+                # it doesn't properly install charmhelpers.
+                client.deploy('cs:~juju-qa/network-health-10', alias=alias,
                               series=info['series'])
                 try:
                     client.juju('add-relation', (app, alias))
@@ -438,7 +442,7 @@ class AssessNetworkHealth:
             if not res:
                 error = 'Machine {} failed internet connection.'.format(unit)
                 error_string.append(error)
-        if exposed and exposed['fail'] is not ():
+        if exposed and exposed['fail'] != ():
             error = ('Application(s) {0} failed expose '
                      'test'.format(exposed['fail']))
             error_string.append(error)

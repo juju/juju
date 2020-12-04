@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
@@ -514,7 +514,7 @@ func (s *factorySuite) TestMakeModelNil(c *gc.C) {
 
 	cfg, err := m.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AllAttrs()["default-series"], gc.Equals, "bionic")
+	c.Assert(cfg.AllAttrs()["default-series"], gc.Equals, "focal")
 }
 
 func (s *factorySuite) TestMakeModel(c *gc.C) {

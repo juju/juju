@@ -12,12 +12,13 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/exec"
+	"github.com/juju/utils/v2/exec"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 )
 
@@ -56,10 +57,10 @@ func (s *builtinSuite) SetUpTest(c *gc.C) {
 	var logger loggo.Logger
 	s.runner = dummyRunner{CallMocker: testing.NewCallMocker(logger)}
 	s.kubeCloudParams = provider.KubeCloudParams{
-		ClusterName:   caas.MicroK8sClusterName,
-		CloudName:     caas.K8sCloudMicrok8s,
-		CredentialUID: caas.K8sCloudMicrok8s,
-		CaasType:      provider.CAASProviderType,
+		ClusterName:   k8s.MicroK8sClusterName,
+		CloudName:     k8s.K8sCloudMicrok8s,
+		CredentialUID: k8s.K8sCloudMicrok8s,
+		CaasType:      constants.CAASProviderType,
 		ClientConfigGetter: func(caasType string) (clientconfig.ClientConfigFunc, error) {
 			return func(string, io.Reader, string, string, clientconfig.K8sCredentialResolver) (*clientconfig.ClientConfig, error) {
 				return &clientconfig.ClientConfig{
@@ -141,7 +142,7 @@ func (s *builtinSuite) TestAttemptMicroK8sCloud(c *gc.C) {
 	k8sCloud, credential, credentialName, err := provider.AttemptMicroK8sCloud(s.runner, s.kubeCloudParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(k8sCloud, gc.DeepEquals, cloud.Cloud{
-		Name:           caas.K8sCloudMicrok8s,
+		Name:           k8s.K8sCloudMicrok8s,
 		Endpoint:       "http://1.1.1.1:8080",
 		Type:           cloud.CloudTypeCAAS,
 		AuthTypes:      []cloud.AuthType{cloud.CertificateAuthType},

@@ -52,7 +52,7 @@ run_deploy_exported_bundle() {
     juju export-bundle --filename "${TEST_DIR}/exported-bundle.yaml"
     diff ${bundle} "${TEST_DIR}/exported-bundle.yaml"
 
-    destroy_model test-export-bundles-deploy
+    destroy_model "test-export-bundles-deploy"
 }
 
 run_deploy_trusted_bundle() {
@@ -70,7 +70,7 @@ run_deploy_trusted_bundle() {
 
     wait_for "trust-checker" "$(idle_condition "trust-checker")"
 
-    destroy_model test-trusted-bundles-deploy
+    destroy_model "test-trusted-bundles-deploy"
 }
 
 # run_deploy_lxd_profile_bundle_openstack is to test a more
@@ -160,11 +160,7 @@ test_deploy_bundles() {
         run "run_deploy_trusted_bundle"
 
         case "${BOOTSTRAP_PROVIDER:-}" in
-            "lxd")
-                run "run_deploy_lxd_profile_bundle_openstack"
-                run "run_deploy_lxd_profile_bundle"
-                ;;
-            "localhost")
+            "lxd" | "localhost")
                 run "run_deploy_lxd_profile_bundle_openstack"
                 run "run_deploy_lxd_profile_bundle"
                 ;;

@@ -9,10 +9,9 @@ import (
 	"path/filepath"
 
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -34,6 +33,8 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -163,6 +164,7 @@ LXC_BRIDGE="ignored"`[1:])
 			"no-proxy": "a-value",
 		},
 	}
+	registry := provider.CommonStorageProviders()
 	var envProvider fakeProvider
 	args := agentbootstrap.InitializeStateParams{
 		StateInitializationParams: instancecfg.StateInitializationParams{
@@ -183,6 +185,12 @@ LXC_BRIDGE="ignored"`[1:])
 			ModelConstraints:              expectModelConstraints,
 			ControllerInheritedConfig:     controllerInheritedConfig,
 			HostedModelConfig:             hostedModelConfigAttrs,
+			StoragePools: map[string]storage.Attrs{
+				"spool": {
+					"type": "loop",
+					"foo":  "bar",
+				},
+			},
 		},
 		BootstrapMachineAddresses: initialAddrs,
 		BootstrapMachineJobs:      []model.MachineJob{model.JobManageModel},
@@ -191,7 +199,7 @@ LXC_BRIDGE="ignored"`[1:])
 			c.Assert(t, gc.Equals, "dummy")
 			return &envProvider, nil
 		},
-		StorageProviderRegistry: provider.CommonStorageProviders(),
+		StorageProviderRegistry: registry,
 	}
 
 	adminUser := names.NewLocalUserTag("agent-admin")
@@ -283,7 +291,7 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Id(), gc.Equals, "0")
 	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageModel})
-	c.Assert(m.Series(), gc.Equals, series.MustHostSeries())
+	c.Assert(m.Series(), gc.Equals, testing.HostSeries(c))
 	c.Assert(m.CheckProvisioned(agent.BootstrapNonce), jc.IsTrue)
 	c.Assert(m.Addresses(), jc.DeepEquals, filteredAddrs)
 	gotBootstrapConstraints, err := m.Constraints()
@@ -313,6 +321,14 @@ LXC_BRIDGE="ignored"`[1:])
 		SharedSecret:   "abc123",
 		SystemIdentity: "def456",
 	})
+
+	// Check the initial storage pool.
+	pm := poolmanager.New(state.NewStateSettings(st), registry)
+	storageCfg, err := pm.Get("spool")
+	c.Assert(err, jc.ErrorIsNil)
+	expectedStorageCfg, err := storage.NewConfig("spool", "loop", map[string]interface{}{"foo": "bar"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storageCfg, jc.DeepEquals, expectedStorageCfg)
 
 	// Check that the machine agent's config has been written
 	// and that we can use it to connect to mongo.

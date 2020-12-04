@@ -5,7 +5,7 @@ package vsphere
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
@@ -36,6 +36,8 @@ func (env *sessionEnviron) PrecheckInstance(ctx context.ProviderCallContext, arg
 	return nil
 }
 
+// checkZones ensures all the zones (in the constraints) are valid
+// availability zones.
 func (env *sessionEnviron) checkZones(ctx context.ProviderCallContext, zones *[]string) error {
 	if zones == nil || len(*zones) == 0 {
 		return nil
@@ -76,6 +78,7 @@ func (env *sessionEnviron) checkDatastore(ctx context.ProviderCallContext, datas
 var unsupportedConstraints = []string{
 	constraints.Tags,
 	constraints.VirtType,
+	constraints.AllocatePublicIP,
 }
 
 // ConstraintsValidator returns a Validator value which is used to

@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/keyvalues"
+	"github.com/juju/utils/v2/keyvalues"
 
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/params"
@@ -135,9 +135,8 @@ type applicationAPI interface {
 	Set(application string, options map[string]string) error
 	Unset(application string, options []string) error
 	BestAPIVersion() int
-
-	// These methods are on API V6.
 	SetApplicationConfig(branchName string, application string, config map[string]string) error
+	SetConfig(branchName string, application, configYAML string, config map[string]string) error
 	UnsetApplicationConfig(branchName string, application string, options []string) error
 }
 
@@ -359,18 +358,57 @@ func (c *configCommand) resetConfig(client applicationAPI, ctx *cmd.Context) err
 // setConfig is the run action when we are setting new attribute values as args
 // or as a file passed in.
 func (c *configCommand) setConfig(client applicationAPI, ctx *cmd.Context) error {
-	if c.useFile {
-		return c.setConfigFromFile(client, ctx)
-	}
-
-	settings, err := c.validateValues(ctx)
+	settingsYAML, err := c.configYAMLFromFile(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
+	settings, err := c.configMapFromKV(client, ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Note: this is a bit of a mess based on facade versions.  Trying
+	// to consolidate to 1 method for setting application and charm config.
+	// Investigating simplifying with future versions of juju.
+	switch ver := client.BestAPIVersion(); {
+	case ver < 6:
+		if settingsYAML != "" {
+			err = c.callUpdate(client, settingsYAML)
+			break
+		}
+		err = client.Set(c.applicationName, settings)
+	case ver < 13:
+		if settingsYAML != "" {
+			err = c.callUpdate(client, settingsYAML)
+			break
+		}
+		err = client.SetApplicationConfig(c.branchName, c.applicationName, settings)
+	default:
+		err = client.SetConfig(c.branchName, c.applicationName, settingsYAML, settings)
+	}
+	return errors.Trace(block.ProcessBlockedError(err, block.BlockChange))
+}
+
+func (c *configCommand) callUpdate(client applicationAPI, settingsYAML string) error {
+	return client.Update(
+		params.ApplicationUpdate{
+			ApplicationName: c.applicationName,
+			SettingsYAML:    settingsYAML,
+			Generation:      c.branchName,
+		},
+	)
+}
+
+func (c *configCommand) configMapFromKV(client applicationAPI, ctx *cmd.Context) (map[string]string, error) {
+	settings, err := c.validateValues(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	result, err := client.Get(c.branchName, c.applicationName)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	for k, v := range settings {
@@ -384,18 +422,15 @@ func (c *configCommand) setConfig(client applicationAPI, ctx *cmd.Context) error
 			}
 		}
 	}
-
-	if client.BestAPIVersion() < 6 {
-		err = client.Set(c.applicationName, settings)
-	} else {
-		err = client.SetApplicationConfig(c.branchName, c.applicationName, settings)
-	}
-	return block.ProcessBlockedError(err, block.BlockChange)
+	return settings, nil
 }
 
-// setConfigFromFile sets the application configuration from settings passed
+// configYAMLFromFile sets the application and charm configuration from settings passed
 // in a YAML file.
-func (c *configCommand) setConfigFromFile(client applicationAPI, ctx *cmd.Context) error {
+func (c *configCommand) configYAMLFromFile(ctx *cmd.Context) (string, error) {
+	if !c.useFile {
+		return "", nil
+	}
 	var (
 		b   []byte
 		err error
@@ -403,23 +438,17 @@ func (c *configCommand) setConfigFromFile(client applicationAPI, ctx *cmd.Contex
 	if c.configFile.Path == "-" {
 		buf := bytes.Buffer{}
 		if _, err := buf.ReadFrom(ctx.Stdin); err != nil {
-			return errors.Trace(err)
+			return "", errors.Trace(err)
 		}
 		b = buf.Bytes()
 	} else {
 		b, err = c.configFile.Read(ctx)
 		if err != nil {
-			return errors.Trace(err)
+			return "", errors.Trace(err)
 		}
 	}
-	return errors.Trace(block.ProcessBlockedError(
-		client.Update(
-			params.ApplicationUpdate{
-				ApplicationName: c.applicationName,
-				SettingsYAML:    string(b),
-				Generation:      c.branchName,
-			},
-		), block.BlockChange))
+
+	return string(b), nil
 }
 
 // getConfig is the run action to return one or all configuration values.

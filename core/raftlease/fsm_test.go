@@ -76,7 +76,7 @@ func (s *fsmSuite) TestClaim(c *gc.C) {
 	// Someone else trying to claim the lease.
 	command.Holder = "you"
 	resp = s.apply(c, command)
-	c.Assert(resp.Error(), jc.Satisfies, lease.IsInvalid)
+	c.Assert(resp.Error(), jc.Satisfies, lease.IsHeld)
 	assertNoNotifications(c, resp)
 }
 
@@ -223,7 +223,7 @@ func (s *fsmSuite) TestSetTime(c *gc.C) {
 		Operation: raftlease.OperationSetTime,
 		OldTime:   zero,
 		NewTime:   zero.Add(time.Second),
-	}).Error(), jc.Satisfies, globalclock.IsConcurrentUpdate)
+	}).Error(), jc.Satisfies, globalclock.IsOutOfSyncUpdate)
 }
 
 func (s *fsmSuite) TestSetTimeExpiresLeases(c *gc.C) {

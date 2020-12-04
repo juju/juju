@@ -43,9 +43,6 @@ type Store interface {
 	// are many models.
 	LeaseGroup(namespace, modelUUID string) map[Key]Info
 
-	// Refresh reads all lease state from the database.
-	Refresh() error
-
 	// Pin ensures that the current holder of the lease for the input key will
 	// not lose the lease to expiry.
 	// If there is no current holder of the lease, the next claimant will be
@@ -137,47 +134,4 @@ func ValidateString(s string) error {
 		return errors.New("string contains forbidden characters")
 	}
 	return nil
-}
-
-var (
-	// ErrInvalid indicates that a Store operation failed because latest state
-	// indicates that it's a logical impossibility. It's a short-range signal to
-	// calling code only; that code should never pass it on, but should inspect
-	// the Store's updated Leases() and either attempt a new operation or return
-	// a new error at a suitable level of abstraction.
-	ErrInvalid = errors.New("invalid lease operation")
-
-	// ErrTimeout indicates that a Store operation failed because it
-	// couldn't update the underlying lease information. This is probably
-	// a transient error due to changes in the cluster, and indicates that
-	// the operation should be retried.
-	ErrTimeout = errors.New("lease operation timed out")
-
-	// ErrAborted indicates that the stop channel returned before the operation
-	// succeeded or failed.
-	ErrAborted = errors.New("lease operation aborted")
-)
-
-// IsInvalid returns whether the specified error represents ErrInvalid
-// (even if it's wrapped).
-func IsInvalid(err error) bool {
-	return errors.Cause(err) == ErrInvalid
-}
-
-// IsTimeout returns whether the specified error represents ErrTimeout
-// (even if it's wrapped).
-func IsTimeout(err error) bool {
-	return errors.Cause(err) == ErrTimeout
-}
-
-// IsAborted returns whether the specified error represents ErrAborted
-// (even if it's wrapped).
-func IsAborted(err error) bool {
-	return errors.Cause(err) == ErrAborted
-}
-
-// IsNotHeld returns whether the specified error represents ErrNotHeld
-// (even if it's wrapped).
-func IsNotHeld(err error) bool {
-	return errors.Cause(err) == ErrNotHeld
 }

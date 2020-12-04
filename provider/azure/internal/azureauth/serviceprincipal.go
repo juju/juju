@@ -22,7 +22,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/retry"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 
 	"github.com/juju/juju/provider/azure/internal/errorutils"
 	"github.com/juju/juju/provider/azure/internal/tracing"
@@ -37,6 +37,9 @@ const (
 	// principal will be created in their Active Directory tenant for
 	// the application.
 	jujuApplicationId = "60a04dc9-1857-425f-8076-5ba81ca53d66"
+
+	// JujuApplicationObjectId is the ObjectId of the Azure application.
+	JujuApplicationObjectId = "8b744cea-179d-4a73-9dff-20d52126030a"
 
 	// passwordExpiryDuration is how long the application password we
 	// set will remain valid.
@@ -144,7 +147,6 @@ func (c *ServicePrincipalCreator) InteractiveCreate(sdkCtx context.Context, stde
 	oauthConfig, tenantId, err := OAuthConfig(
 		sdkCtx,
 		subscriptionsClient,
-		params.ResourceManagerEndpoint,
 		params.SubscriptionId,
 	)
 	if err != nil {

@@ -16,10 +16,11 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"github.com/juju/worker/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/api"
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -80,7 +81,7 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C, firewallMode string) {
 	s.DummyConfig = dummy.SampleConfig().Merge(add).Delete("admin-secret")
 
 	s.JujuConnSuite.SetUpTest(c)
-	s.charm = s.AddTestingCharm(c, "dummy")
+	s.charm = s.AddTestingCharm(c, "wordpress")
 
 	// Create a manager machine and login to the API.
 	var err error
@@ -105,19 +106,24 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C, firewallMode string) {
 	s.credentialsFacade = credentialvalidator.NewFacade(s.st)
 }
 
-// assertPorts retrieves the open ports of the instance and compares them
-// to the expected.
-func (s *firewallerBaseSuite) assertPorts(c *gc.C, inst instances.Instance, machineId string, expected firewall.IngressRules) {
+// assertIngressRules retrieves the ingress rules from the provided instance
+// and compares them to the expected value.
+func (s *firewallerBaseSuite) assertIngressRules(c *gc.C, inst instances.Instance, machineId string, expected firewall.IngressRules) {
 	fwInst, ok := inst.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 
 	start := time.Now()
 	for {
 		s.BackingState.StartSync()
+
+		// Make it more likely for the dust to have settled (there still may
+		// be rare cases where a test passes when it shouldn't if expected
+		// is nil, which is the initial value).
+		time.Sleep(coretesting.ShortWait)
+
 		got, err := fwInst.IngressRules(s.callCtx, machineId)
 		if err != nil {
 			c.Fatal(err)
-			return
 		}
 		got.Sort()
 		expected.Sort()
@@ -127,7 +133,6 @@ func (s *firewallerBaseSuite) assertPorts(c *gc.C, inst instances.Instance, mach
 		}
 		if time.Since(start) > coretesting.LongWait {
 			c.Fatalf("timed out: expected %q; got %q", expected, got)
-			return
 		}
 		time.Sleep(coretesting.ShortWait)
 	}
@@ -145,7 +150,6 @@ func (s *firewallerBaseSuite) assertEnvironPorts(c *gc.C, expected firewall.Ingr
 		got, err := fwEnv.IngressRules(s.callCtx)
 		if err != nil {
 			c.Fatal(err)
-			return
 		}
 		got.Sort()
 		expected.Sort()
@@ -155,7 +159,6 @@ func (s *firewallerBaseSuite) assertEnvironPorts(c *gc.C, expected firewall.Ingr
 		}
 		if time.Since(start) > coretesting.LongWait {
 			c.Fatalf("timed out: expected %q; got %q", expected, got)
-			return
 		}
 		time.Sleep(coretesting.ShortWait)
 	}
@@ -183,6 +186,7 @@ func (s *firewallerBaseSuite) startInstance(c *gc.C, m *state.Machine) instances
 
 type InstanceModeSuite struct {
 	firewallerBaseSuite
+	watchMachineNotify func(tag names.MachineTag)
 }
 
 var _ = gc.Suite(&InstanceModeSuite{})
@@ -208,27 +212,33 @@ func (m *mockClock) After(duration time.Duration) <-chan time.Time {
 }
 
 func (s *InstanceModeSuite) newFirewaller(c *gc.C) worker.Worker {
-	return s.newFirewallerWithClock(c, &mockClock{c: c})
+	return s.newFirewallerWithClockAndIPV6CIDRSupport(c, &mockClock{c: c}, true)
 }
 
 func (s *InstanceModeSuite) newFirewallerWithClock(c *gc.C, clock clock.Clock) worker.Worker {
+	return s.newFirewallerWithClockAndIPV6CIDRSupport(c, clock, true)
+}
+
+func (s *InstanceModeSuite) newFirewallerWithClockAndIPV6CIDRSupport(c *gc.C, clock clock.Clock, ipv6CIDRSupport bool) worker.Worker {
 	s.clock = clock
 	fwEnv, ok := s.Environ.(environs.Firewaller)
 	c.Assert(ok, gc.Equals, true)
 
 	cfg := firewaller.Config{
-		ModelUUID:          s.State.ModelUUID(),
-		Mode:               config.FwInstance,
-		EnvironFirewaller:  fwEnv,
-		EnvironInstances:   s.Environ,
-		FirewallerAPI:      s.firewaller,
-		RemoteRelationsApi: s.remoteRelations,
+		ModelUUID:              s.State.ModelUUID(),
+		Mode:                   config.FwInstance,
+		EnvironFirewaller:      fwEnv,
+		EnvironInstances:       s.Environ,
+		EnvironIPV6CIDRSupport: ipv6CIDRSupport,
+		FirewallerAPI:          s.firewaller,
+		RemoteRelationsApi:     s.remoteRelations,
 		NewCrossModelFacadeFunc: func(*api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
 		},
-		Clock:         s.clock,
-		Logger:        loggo.GetLogger("test"),
-		CredentialAPI: s.credentialsFacade,
+		Clock:              s.clock,
+		Logger:             loggo.GetLogger("test"),
+		CredentialAPI:      s.credentialsFacade,
+		WatchMachineNotify: s.watchMachineNotify,
 	}
 	fw, err := firewaller.NewFirewaller(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -253,13 +263,13 @@ func (s *InstanceModeSuite) TestNotExposedApplication(c *gc.C) {
 		network.MustParsePortRange("8080/tcp"),
 	})
 
-	s.assertPorts(c, inst, m.Id(), nil)
+	s.assertIngressRules(c, inst, m.Id(), nil)
 
 	mustClosePortRanges(c, s.State, u, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("80/tcp"),
 	})
 
-	s.assertPorts(c, inst, m.Id(), nil)
+	s.assertIngressRules(c, inst, m.Id(), nil)
 }
 
 func (s *InstanceModeSuite) TestExposedApplication(c *gc.C) {
@@ -268,7 +278,9 @@ func (s *InstanceModeSuite) TestExposedApplication(c *gc.C) {
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
 
-	err := app.SetExposed(nil)
+	err := app.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	u, m := s.addUnit(c, app)
 	inst := s.startInstance(c, m)
@@ -278,7 +290,7 @@ func (s *InstanceModeSuite) TestExposedApplication(c *gc.C) {
 		network.MustParsePortRange("8080/tcp"),
 	})
 
-	s.assertPorts(c, inst, m.Id(), firewall.IngressRules{
+	s.assertIngressRules(c, inst, m.Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("80-90/tcp"), firewall.AllNetworksIPV4CIDR),
 		firewall.NewIngressRule(network.MustParsePortRange("8080/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
@@ -287,7 +299,7 @@ func (s *InstanceModeSuite) TestExposedApplication(c *gc.C) {
 		network.MustParsePortRange("80-90/tcp"),
 	})
 
-	s.assertPorts(c, inst, m.Id(), firewall.IngressRules{
+	s.assertIngressRules(c, inst, m.Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("8080/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 }
@@ -297,7 +309,9 @@ func (s *InstanceModeSuite) TestMultipleExposedApplications(c *gc.C) {
 	defer statetesting.AssertKillAndWait(c, fw)
 
 	app1 := s.AddTestingApplication(c, "wordpress", s.charm)
-	err := app1.SetExposed(nil)
+	err := app1.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	u1, m1 := s.addUnit(c, app1)
@@ -309,7 +323,9 @@ func (s *InstanceModeSuite) TestMultipleExposedApplications(c *gc.C) {
 
 	app2 := s.AddTestingApplication(c, "mysql", s.charm)
 	c.Assert(err, jc.ErrorIsNil)
-	err = app2.SetExposed(nil)
+	err = app2.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	u2, m2 := s.addUnit(c, app2)
@@ -318,11 +334,11 @@ func (s *InstanceModeSuite) TestMultipleExposedApplications(c *gc.C) {
 		network.MustParsePortRange("3306/tcp"),
 	})
 
-	s.assertPorts(c, inst1, m1.Id(), firewall.IngressRules{
+	s.assertIngressRules(c, inst1, m1.Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 		firewall.NewIngressRule(network.MustParsePortRange("8080/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
-	s.assertPorts(c, inst2, m2.Id(), firewall.IngressRules{
+	s.assertIngressRules(c, inst2, m2.Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("3306/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 
@@ -333,10 +349,10 @@ func (s *InstanceModeSuite) TestMultipleExposedApplications(c *gc.C) {
 		network.MustParsePortRange("3306/tcp"),
 	})
 
-	s.assertPorts(c, inst1, m1.Id(), firewall.IngressRules{
+	s.assertIngressRules(c, inst1, m1.Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("8080/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
-	s.assertPorts(c, inst2, m2.Id(), nil)
+	s.assertIngressRules(c, inst2, m2.Id(), nil)
 }
 
 func (s *InstanceModeSuite) TestMachineWithoutInstanceId(c *gc.C) {
@@ -344,7 +360,9 @@ func (s *InstanceModeSuite) TestMachineWithoutInstanceId(c *gc.C) {
 	defer statetesting.AssertKillAndWait(c, fw)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
-	err := app.SetExposed(nil)
+	err := app.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	// add a unit but don't start its instance yet.
 	u1, m1 := s.addUnit(c, app)
@@ -356,7 +374,7 @@ func (s *InstanceModeSuite) TestMachineWithoutInstanceId(c *gc.C) {
 	mustOpenPortRanges(c, s.State, u2, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("80/tcp"),
 	})
-	s.assertPorts(c, inst2, m2.Id(), firewall.IngressRules{
+	s.assertIngressRules(c, inst2, m2.Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 
@@ -364,7 +382,7 @@ func (s *InstanceModeSuite) TestMachineWithoutInstanceId(c *gc.C) {
 	mustOpenPortRanges(c, s.State, u1, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("8080/tcp"),
 	})
-	s.assertPorts(c, inst1, m1.Id(), firewall.IngressRules{
+	s.assertIngressRules(c, inst1, m1.Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("8080/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 }
@@ -374,7 +392,9 @@ func (s *InstanceModeSuite) TestMultipleUnits(c *gc.C) {
 	defer statetesting.AssertKillAndWait(c, fw)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
-	err := app.SetExposed(nil)
+	err := app.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	u1, m1 := s.addUnit(c, app)
@@ -389,10 +409,10 @@ func (s *InstanceModeSuite) TestMultipleUnits(c *gc.C) {
 		network.MustParsePortRange("80/tcp"),
 	})
 
-	s.assertPorts(c, inst1, m1.Id(), firewall.IngressRules{
+	s.assertIngressRules(c, inst1, m1.Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
-	s.assertPorts(c, inst2, m2.Id(), firewall.IngressRules{
+	s.assertIngressRules(c, inst2, m2.Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 
@@ -403,13 +423,15 @@ func (s *InstanceModeSuite) TestMultipleUnits(c *gc.C) {
 		network.MustParsePortRange("80/tcp"),
 	})
 
-	s.assertPorts(c, inst1, m1.Id(), nil)
-	s.assertPorts(c, inst2, m2.Id(), nil)
+	s.assertIngressRules(c, inst1, m1.Id(), nil)
+	s.assertIngressRules(c, inst2, m2.Id(), nil)
 }
 
 func (s *InstanceModeSuite) TestStartWithState(c *gc.C) {
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
-	err := app.SetExposed(nil)
+	err := app.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	u, m := s.addUnit(c, app)
 	inst := s.startInstance(c, m)
@@ -420,18 +442,18 @@ func (s *InstanceModeSuite) TestStartWithState(c *gc.C) {
 	})
 
 	// Nothing open without firewaller.
-	s.assertPorts(c, inst, m.Id(), nil)
+	s.assertIngressRules(c, inst, m.Id(), nil)
 
 	// Starting the firewaller opens the ports.
 	fw := s.newFirewaller(c)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	s.assertPorts(c, inst, m.Id(), firewall.IngressRules{
+	s.assertIngressRules(c, inst, m.Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 		firewall.NewIngressRule(network.MustParsePortRange("8080/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 
-	err = app.SetExposed(nil)
+	err = app.MergeExposeSettings(nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -441,14 +463,16 @@ func (s *InstanceModeSuite) TestStartWithPartialState(c *gc.C) {
 	inst := s.startInstance(c, m)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
-	err = app.SetExposed(nil)
+	err = app.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Starting the firewaller, no open ports.
 	fw := s.newFirewaller(c)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	s.assertPorts(c, inst, m.Id(), nil)
+	s.assertIngressRules(c, inst, m.Id(), nil)
 
 	// Complete steps to open port.
 	u, err := app.AddUnit(state.AddUnitParams{})
@@ -459,7 +483,7 @@ func (s *InstanceModeSuite) TestStartWithPartialState(c *gc.C) {
 		network.MustParsePortRange("80/tcp"),
 	})
 
-	s.assertPorts(c, inst, m.Id(), firewall.IngressRules{
+	s.assertIngressRules(c, inst, m.Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 }
@@ -482,45 +506,57 @@ func (s *InstanceModeSuite) TestStartWithUnexposedApplication(c *gc.C) {
 	fw := s.newFirewaller(c)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	s.assertPorts(c, inst, m.Id(), nil)
+	s.assertIngressRules(c, inst, m.Id(), nil)
 
 	// Expose service.
-	err = app.SetExposed(nil)
+	err = app.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertPorts(c, inst, m.Id(), firewall.IngressRules{
+	s.assertIngressRules(c, inst, m.Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 }
 
-func assertMachineInMachineds(c *gc.C, fw *firewaller.Firewaller, tag names.MachineTag, find bool) {
-	machineds := firewaller.GetMachineds(fw)
-	_, found := machineds[tag]
-	c.Assert(found, gc.Equals, find)
-}
-
 func (s *InstanceModeSuite) TestStartMachineWithManualMachine(c *gc.C) {
+	watching := make(chan names.MachineTag, 10) // buffer to ensure test never blocks
+	s.watchMachineNotify = func(tag names.MachineTag) {
+		watching <- tag
+	}
+	assertWatching := func(expected names.MachineTag) {
+		select {
+		case got := <-watching:
+			c.Assert(got, gc.Equals, expected)
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("timed out waiting to watch machine %v", expected.Id())
+		}
+	}
+
 	fw := s.newFirewaller(c)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	m, err := s.State.AddOneMachine(state.MachineTemplate{
+	// Wait for manager machine (started by setUpTest)
+	assertWatching(names.NewMachineTag("0"))
+
+	_, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series:     "quantal",
 		Jobs:       []state.MachineJob{state.JobHostUnits},
 		InstanceId: "2",
 		Nonce:      "manual:",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = firewaller.StartMachine(fw.(*firewaller.Firewaller), m.MachineTag())
-	c.Assert(err, jc.ErrorIsNil)
-	assertMachineInMachineds(c, fw.(*firewaller.Firewaller), m.MachineTag(), false)
+	select {
+	case tag := <-watching:
+		c.Fatalf("shouldn't be watching manual machine %v", tag)
+	case <-time.After(coretesting.ShortWait):
+	}
 
-	m2, err := s.State.AddOneMachine(state.MachineTemplate{
+	m, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = firewaller.StartMachine(fw.(*firewaller.Firewaller), m2.MachineTag())
-	c.Assert(err, jc.ErrorIsNil)
-	assertMachineInMachineds(c, fw.(*firewaller.Firewaller), m2.MachineTag(), true)
+	assertWatching(m.MachineTag())
 }
 
 func (s *InstanceModeSuite) TestSetClearExposedApplication(c *gc.C) {
@@ -537,13 +573,15 @@ func (s *InstanceModeSuite) TestSetClearExposedApplication(c *gc.C) {
 	})
 
 	// Not exposed service, so no open port.
-	s.assertPorts(c, inst, m.Id(), nil)
+	s.assertIngressRules(c, inst, m.Id(), nil)
 
 	// SeExposed opens the ports.
-	err := app.SetExposed(nil)
+	err := app.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertPorts(c, inst, m.Id(), firewall.IngressRules{
+	s.assertIngressRules(c, inst, m.Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 		firewall.NewIngressRule(network.MustParsePortRange("8080/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
@@ -552,7 +590,7 @@ func (s *InstanceModeSuite) TestSetClearExposedApplication(c *gc.C) {
 	err = app.ClearExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertPorts(c, inst, m.Id(), nil)
+	s.assertIngressRules(c, inst, m.Id(), nil)
 }
 
 func (s *InstanceModeSuite) TestRemoveUnit(c *gc.C) {
@@ -560,7 +598,9 @@ func (s *InstanceModeSuite) TestRemoveUnit(c *gc.C) {
 	defer statetesting.AssertKillAndWait(c, fw)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
-	err := app.SetExposed(nil)
+	err := app.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	u1, m1 := s.addUnit(c, app)
@@ -575,10 +615,10 @@ func (s *InstanceModeSuite) TestRemoveUnit(c *gc.C) {
 		network.MustParsePortRange("80/tcp"),
 	})
 
-	s.assertPorts(c, inst1, m1.Id(), firewall.IngressRules{
+	s.assertIngressRules(c, inst1, m1.Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
-	s.assertPorts(c, inst2, m2.Id(), firewall.IngressRules{
+	s.assertIngressRules(c, inst2, m2.Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 
@@ -588,8 +628,8 @@ func (s *InstanceModeSuite) TestRemoveUnit(c *gc.C) {
 	err = u1.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertPorts(c, inst1, m1.Id(), nil)
-	s.assertPorts(c, inst2, m2.Id(), firewall.IngressRules{
+	s.assertIngressRules(c, inst1, m1.Id(), nil)
+	s.assertIngressRules(c, inst2, m2.Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 }
@@ -599,7 +639,9 @@ func (s *InstanceModeSuite) TestRemoveApplication(c *gc.C) {
 	defer statetesting.AssertKillAndWait(c, fw)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
-	err := app.SetExposed(nil)
+	err := app.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	u, m := s.addUnit(c, app)
@@ -608,7 +650,7 @@ func (s *InstanceModeSuite) TestRemoveApplication(c *gc.C) {
 		network.MustParsePortRange("80/tcp"),
 	})
 
-	s.assertPorts(c, inst, m.Id(), firewall.IngressRules{
+	s.assertIngressRules(c, inst, m.Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 
@@ -619,7 +661,7 @@ func (s *InstanceModeSuite) TestRemoveApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertPorts(c, inst, m.Id(), nil)
+	s.assertIngressRules(c, inst, m.Id(), nil)
 }
 
 func (s *InstanceModeSuite) TestRemoveMultipleApplications(c *gc.C) {
@@ -627,7 +669,9 @@ func (s *InstanceModeSuite) TestRemoveMultipleApplications(c *gc.C) {
 	defer statetesting.AssertKillAndWait(c, fw)
 
 	app1 := s.AddTestingApplication(c, "wordpress", s.charm)
-	err := app1.SetExposed(nil)
+	err := app1.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	u1, m1 := s.addUnit(c, app1)
@@ -637,7 +681,9 @@ func (s *InstanceModeSuite) TestRemoveMultipleApplications(c *gc.C) {
 	})
 
 	app2 := s.AddTestingApplication(c, "mysql", s.charm)
-	err = app2.SetExposed(nil)
+	err = app2.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	u2, m2 := s.addUnit(c, app2)
@@ -646,10 +692,10 @@ func (s *InstanceModeSuite) TestRemoveMultipleApplications(c *gc.C) {
 		network.MustParsePortRange("3306/tcp"),
 	})
 
-	s.assertPorts(c, inst1, m1.Id(), firewall.IngressRules{
+	s.assertIngressRules(c, inst1, m1.Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
-	s.assertPorts(c, inst2, m2.Id(), firewall.IngressRules{
+	s.assertIngressRules(c, inst2, m2.Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("3306/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 
@@ -668,8 +714,8 @@ func (s *InstanceModeSuite) TestRemoveMultipleApplications(c *gc.C) {
 	err = app1.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertPorts(c, inst1, m1.Id(), nil)
-	s.assertPorts(c, inst2, m2.Id(), nil)
+	s.assertIngressRules(c, inst1, m1.Id(), nil)
+	s.assertIngressRules(c, inst2, m2.Id(), nil)
 }
 
 func (s *InstanceModeSuite) TestDeadMachine(c *gc.C) {
@@ -677,7 +723,9 @@ func (s *InstanceModeSuite) TestDeadMachine(c *gc.C) {
 	defer statetesting.AssertKillAndWait(c, fw)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
-	err := app.SetExposed(nil)
+	err := app.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	u, m := s.addUnit(c, app)
@@ -686,7 +734,7 @@ func (s *InstanceModeSuite) TestDeadMachine(c *gc.C) {
 		network.MustParsePortRange("80/tcp"),
 	})
 
-	s.assertPorts(c, inst, m.Id(), firewall.IngressRules{
+	s.assertIngressRules(c, inst, m.Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 
@@ -704,14 +752,16 @@ func (s *InstanceModeSuite) TestDeadMachine(c *gc.C) {
 	err = m.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertPorts(c, inst, m.Id(), nil)
+	s.assertIngressRules(c, inst, m.Id(), nil)
 }
 
 func (s *InstanceModeSuite) TestRemoveMachine(c *gc.C) {
 	fw := s.newFirewaller(c)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
-	err := app.SetExposed(nil)
+	err := app.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	u, m := s.addUnit(c, app)
@@ -720,7 +770,7 @@ func (s *InstanceModeSuite) TestRemoveMachine(c *gc.C) {
 		network.MustParsePortRange("80/tcp"),
 	})
 
-	s.assertPorts(c, inst, m.Id(), firewall.IngressRules{
+	s.assertIngressRules(c, inst, m.Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 
@@ -752,7 +802,9 @@ func (s *InstanceModeSuite) TestRemoveMachine(c *gc.C) {
 
 func (s *InstanceModeSuite) TestStartWithStateOpenPortsBroken(c *gc.C) {
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
-	err := app.SetExposed(nil)
+	err := app.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	u, m := s.addUnit(c, app)
 	inst := s.startInstance(c, m)
@@ -762,7 +814,7 @@ func (s *InstanceModeSuite) TestStartWithStateOpenPortsBroken(c *gc.C) {
 	})
 
 	// Nothing open without firewaller.
-	s.assertPorts(c, inst, m.Id(), nil)
+	s.assertIngressRules(c, inst, m.Id(), nil)
 	dummy.SetInstanceBroken(inst, "OpenPorts")
 
 	// Starting the firewaller should attempt to open the ports,
@@ -1183,7 +1235,7 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *gc.C, ingress []string, expect
 	c.Assert(err, jc.ErrorIsNil)
 
 	// No port changes yet.
-	s.assertPorts(c, inst, m.Id(), nil)
+	s.assertIngressRules(c, inst, m.Id(), nil)
 
 	// Save a new ingress network against the relation.
 	rin := state.NewRelationIngressNetworks(s.State)
@@ -1191,7 +1243,7 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *gc.C, ingress []string, expect
 	c.Assert(err, jc.ErrorIsNil)
 
 	//Ports opened.
-	s.assertPorts(c, inst, m.Id(), firewall.IngressRules{
+	s.assertIngressRules(c, inst, m.Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("3306/tcp"), expected...),
 	})
 
@@ -1201,30 +1253,30 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *gc.C, ingress []string, expect
 	// Change should be sent when ingress networks disappear.
 	_, err = rin.Save(rel.Tag().Id(), false, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertPorts(c, inst, m.Id(), nil)
+	s.assertIngressRules(c, inst, m.Id(), nil)
 
 	_, err = rin.Save(rel.Tag().Id(), false, ingress)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertPorts(c, inst, m.Id(), firewall.IngressRules{
+	s.assertIngressRules(c, inst, m.Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("3306/tcp"), expected...),
 	})
 
 	// And again when relation is suspended.
 	err = rel.SetSuspended(true, "")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertPorts(c, inst, m.Id(), nil)
+	s.assertIngressRules(c, inst, m.Id(), nil)
 
 	// And again when relation is resumed.
 	err = rel.SetSuspended(false, "")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertPorts(c, inst, m.Id(), firewall.IngressRules{
+	s.assertIngressRules(c, inst, m.Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("3306/tcp"), expected...),
 	})
 
 	// And again when relation is destroyed.
 	err = rel.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertPorts(c, inst, m.Id(), nil)
+	s.assertIngressRules(c, inst, m.Id(), nil)
 }
 
 func (s *InstanceModeSuite) TestRemoteRelationProviderRoleOffering(c *gc.C) {
@@ -1236,7 +1288,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressFallbackToPublic(c *gc.C) {
 	for i := 1; i < 30; i++ {
 		ingress = append(ingress, fmt.Sprintf("10.%d.0.1/32", i))
 	}
-	s.assertIngressCidrs(c, ingress, []string{"0.0.0.0/0"})
+	s.assertIngressCidrs(c, ingress, []string{"0.0.0.0/0", "::/0"})
 }
 
 func (s *InstanceModeSuite) TestRemoteRelationIngressFallbackToWhitelist(c *gc.C) {
@@ -1285,6 +1337,291 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressMergesCIDRS(c *gc.C) {
 	s.assertIngressCidrs(c, ingress, expected)
 }
 
+func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpoints(c *gc.C) {
+	// Create a spaces and add a subnet to it
+	sp1, err := s.State.AddSpace("space1", network.Id("sp-1"), nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSubnet(network.SubnetInfo{
+		ID:        "subnet-1",
+		CIDR:      "42.42.0.0/16",
+		SpaceID:   sp1.Id(),
+		SpaceName: sp1.Name(),
+		IsPublic:  false,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	fw := s.newFirewaller(c)
+	defer statetesting.AssertKillAndWait(c, fw)
+
+	app := s.AddTestingApplication(c, "wordpress", s.charm)
+
+	u, m := s.addUnit(c, app)
+	inst := s.startInstance(c, m)
+
+	mustOpenPortRanges(c, s.State, u, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
+	})
+	mustOpenPortRanges(c, s.State, u, "url", []network.PortRange{
+		network.MustParsePortRange("1337/tcp"),
+		network.MustParsePortRange("1337/udp"),
+	})
+
+	err = app.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		allEndpoints: {
+			ExposeToCIDRs: []string{"10.0.0.0/24"},
+		},
+		"url": {
+			ExposeToCIDRs:    []string{"192.168.0.0/24", "192.168.1.0/24"},
+			ExposeToSpaceIDs: []string{sp1.Id()},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertIngressRules(c, inst, m.Id(), firewall.IngressRules{
+		// We have opened port 80 for ALL endpoints (including "url"),
+		// then exposed ALL endpoints to 10.0.0.0/24 and the "url"
+		// endpoint to 192.168.{0,1}.0/24 and 42.42.0.0/16 (subnet
+		// of space-1).
+		//
+		// We expect to see port 80 use all three CIDRs as valid input sources
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), "10.0.0.0/24", "192.168.0.0/24", "192.168.1.0/24", "42.42.0.0/16"),
+		//
+		// The 1337/{tcp,udp} ports have only been opened for the "url"
+		// endpoint and the "url" endpoint has been exposed to 192.168.{0,1}.0/24
+		// and 42.42.0.0/16 (the subnet for space-1).
+		//
+		// The ports should only be reachable from these CIDRs. Note
+		// that the expose for the wildcard ("") endpoint is ignored
+		// here as the expose settings for the "url" endpoint must
+		// supersede it.
+		firewall.NewIngressRule(network.MustParsePortRange("1337/tcp"), "192.168.0.0/24", "192.168.1.0/24", "42.42.0.0/16"),
+		firewall.NewIngressRule(network.MustParsePortRange("1337/udp"), "192.168.0.0/24", "192.168.1.0/24", "42.42.0.0/16"),
+	})
+
+	// Change the expose settings and remove the entry for the wildcard endpoint
+	err = app.UnsetExposeSettings([]string{allEndpoints})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertIngressRules(c, inst, m.Id(), firewall.IngressRules{
+		// We unexposed the wildcard endpoint so only the "url" endpoint
+		// remains exposed. This endpoint has ports 1337/{tcp,udp}
+		// explicitly open as well as port 80 which is opened for ALL
+		// endpoints. These three ports should be exposed to the
+		// CIDRs used when the "url" endpoint was exposed
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), "192.168.0.0/24", "192.168.1.0/24", "42.42.0.0/16"),
+		firewall.NewIngressRule(network.MustParsePortRange("1337/tcp"), "192.168.0.0/24", "192.168.1.0/24", "42.42.0.0/16"),
+		firewall.NewIngressRule(network.MustParsePortRange("1337/udp"), "192.168.0.0/24", "192.168.1.0/24", "42.42.0.0/16"),
+	})
+}
+
+func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceTopologyChanges(c *gc.C) {
+	// Create two spaces and add a subnet to each one
+	sp1, err := s.State.AddSpace("space1", network.Id("sp-1"), nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSubnet(network.SubnetInfo{
+		ID:        "subnet-1",
+		CIDR:      "192.168.0.0/24",
+		SpaceID:   sp1.Id(),
+		SpaceName: sp1.Name(),
+		IsPublic:  false,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	sp2, err := s.State.AddSpace("space2", network.Id("sp-2"), nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	sub2, err := s.State.AddSubnet(network.SubnetInfo{
+		ID:        "subnet-2",
+		CIDR:      "192.168.1.0/24",
+		SpaceID:   sp2.Id(),
+		SpaceName: sp2.Name(),
+		IsPublic:  false,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	fw := s.newFirewaller(c)
+	defer statetesting.AssertKillAndWait(c, fw)
+
+	app := s.AddTestingApplication(c, "wordpress", s.charm)
+
+	u, m := s.addUnit(c, app)
+	inst := s.startInstance(c, m)
+	// Open port 80 for all endpoints
+	mustOpenPortRanges(c, s.State, u, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
+	})
+
+	// Expose app to space-1
+	err = app.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		allEndpoints: {
+			ExposeToSpaceIDs: []string{sp1.Id()},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertIngressRules(c, inst, m.Id(), firewall.IngressRules{
+		// We expect to see port 80 use the subnet-1 CIDR
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), "192.168.0.0/24"),
+	})
+
+	// Trigger a space topology change by moving subnet-2 into space 1
+	moveOps := sub2.UpdateSpaceOps(sp1.Id())
+	c.Assert(s.State.ApplyOperation(modelOp{moveOps}), jc.ErrorIsNil)
+
+	// Check that worker picked up the change and updated the rules
+	s.assertIngressRules(c, inst, m.Id(), firewall.IngressRules{
+		// We expect to see port 80 use subnet-{1,2} CIDRs
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), "192.168.0.0/24", "192.168.1.0/24"),
+	})
+}
+
+func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceDeleted(c *gc.C) {
+	// Create two spaces and add a subnet to each one
+	sp1, err := s.State.AddSpace("space1", "sp-1", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	sub1, err := s.State.AddSubnet(network.SubnetInfo{
+		ID:        "subnet-1",
+		CIDR:      "192.168.0.0/24",
+		SpaceID:   sp1.Id(),
+		SpaceName: sp1.Name(),
+		IsPublic:  false,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	sp2, err := s.State.AddSpace("space2", "sp-2", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSubnet(network.SubnetInfo{
+		ID:        "subnet-2",
+		CIDR:      "192.168.1.0/24",
+		SpaceID:   sp2.Id(),
+		SpaceName: sp2.Name(),
+		IsPublic:  false,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	fw := s.newFirewaller(c)
+	defer statetesting.AssertKillAndWait(c, fw)
+
+	app := s.AddTestingApplication(c, "wordpress", s.charm)
+
+	u, m := s.addUnit(c, app)
+	inst := s.startInstance(c, m)
+	// Open port 80 for all endpoints
+	mustOpenPortRanges(c, s.State, u, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
+	})
+
+	// Expose app to space-1
+	err = app.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		allEndpoints: {
+			ExposeToSpaceIDs: []string{sp1.Id()},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertIngressRules(c, inst, m.Id(), firewall.IngressRules{
+		// We expect to see port 80 use the subnet-1 CIDR
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), "192.168.0.0/24"),
+	})
+
+	// Simulate the deletion of a space, with subnets moving back to alpha.
+	moveOps := sub1.UpdateSpaceOps(network.AlphaSpaceId)
+	deleteOps := sp1.RemoveSpaceOps()
+	c.Assert(s.State.ApplyOperation(modelOp{append(moveOps, deleteOps...)}), jc.ErrorIsNil)
+
+	// We expect to see NO ingress rules as the referenced space does not exist.
+	s.assertIngressRules(c, inst, m.Id(), nil)
+}
+
+func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceHasNoSubnets(c *gc.C) {
+	// Create a space with a single subnet
+	sp1, err := s.State.AddSpace("space1", "sp-1", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	sub1, err := s.State.AddSubnet(network.SubnetInfo{
+		ID:        "subnet-1",
+		CIDR:      "192.168.0.0/24",
+		SpaceID:   sp1.Id(),
+		SpaceName: sp1.Name(),
+		IsPublic:  false,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	fw := s.newFirewaller(c)
+	defer statetesting.AssertKillAndWait(c, fw)
+
+	app := s.AddTestingApplication(c, "wordpress", s.charm)
+
+	u, m := s.addUnit(c, app)
+	inst := s.startInstance(c, m)
+	// Open port 80 for all endpoints and 1337 for the "url" endpoint
+	mustOpenPortRanges(c, s.State, u, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
+	})
+	mustOpenPortRanges(c, s.State, u, "url", []network.PortRange{
+		network.MustParsePortRange("1337/tcp"),
+	})
+
+	// Expose app to space-1
+	err = app.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		allEndpoints: {
+			ExposeToSpaceIDs: []string{sp1.Id()},
+		},
+		"url": {
+			ExposeToSpaceIDs: []string{sp1.Id()},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertIngressRules(c, inst, m.Id(), firewall.IngressRules{
+		// We expect to see port 80 and 1337 use the subnet-1 CIDR
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), "192.168.0.0/24"),
+		firewall.NewIngressRule(network.MustParsePortRange("1337/tcp"), "192.168.0.0/24"),
+	})
+
+	// Move endpoint back to alpha space. This will leave space-1 with no
+	// endpoints.
+	moveOps := sub1.UpdateSpaceOps(network.AlphaSpaceId)
+	c.Assert(s.State.ApplyOperation(modelOp{moveOps}), jc.ErrorIsNil)
+
+	// We expect to see NO ingress rules (and warnings in the logs) as
+	// there are no CIDRs to access the exposed application.
+	s.assertIngressRules(c, inst, m.Id(), nil)
+}
+
+func (s *InstanceModeSuite) TestExposeToIPV6CIDRsOnIPV4OnlyProvider(c *gc.C) {
+	supportsIPV6CIDRs := false
+	fw := s.newFirewallerWithClockAndIPV6CIDRSupport(c, &mockClock{c: c}, supportsIPV6CIDRs)
+	defer statetesting.AssertKillAndWait(c, fw)
+
+	app := s.AddTestingApplication(c, "wordpress", s.charm)
+
+	u, m := s.addUnit(c, app)
+	inst := s.startInstance(c, m)
+
+	mustOpenPortRanges(c, s.State, u, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
+	})
+
+	err := app.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		allEndpoints: {
+			ExposeToCIDRs: []string{"10.0.0.0/24", "2002::1234:abcd:ffff:c0a8:101/64"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Since the provider only supports IPV4 CIDRs, the firewall worker
+	// will filter the IPV6 CIDRs when opening ports.
+	s.assertIngressRules(c, inst, m.Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), "10.0.0.0/24"),
+	})
+}
+
+type modelOp struct {
+	ops []txn.Op
+}
+
+func (m modelOp) Build(_ int) ([]txn.Op, error) { return m.ops, nil }
+func (m modelOp) Done(err error) error          { return err }
+
 type GlobalModeSuite struct {
 	firewallerBaseSuite
 }
@@ -1300,16 +1637,21 @@ func (s *GlobalModeSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *GlobalModeSuite) newFirewaller(c *gc.C) worker.Worker {
+	return s.newFirewallerWithIPV6CIDRSupport(c, true)
+}
+
+func (s *GlobalModeSuite) newFirewallerWithIPV6CIDRSupport(c *gc.C, supportIPV6CIDRs bool) worker.Worker {
 	fwEnv, ok := s.Environ.(environs.Firewaller)
 	c.Assert(ok, gc.Equals, true)
 
 	cfg := firewaller.Config{
-		ModelUUID:          s.State.ModelUUID(),
-		Mode:               config.FwGlobal,
-		EnvironFirewaller:  fwEnv,
-		EnvironInstances:   s.Environ,
-		FirewallerAPI:      s.firewaller,
-		RemoteRelationsApi: s.remoteRelations,
+		ModelUUID:              s.State.ModelUUID(),
+		Mode:                   config.FwGlobal,
+		EnvironFirewaller:      fwEnv,
+		EnvironInstances:       s.Environ,
+		EnvironIPV6CIDRSupport: supportIPV6CIDRs,
+		FirewallerAPI:          s.firewaller,
+		RemoteRelationsApi:     s.remoteRelations,
 		NewCrossModelFacadeFunc: func(*api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
 		},
@@ -1332,7 +1674,9 @@ func (s *GlobalModeSuite) TestGlobalMode(c *gc.C) {
 	defer statetesting.AssertKillAndWait(c, fw)
 
 	app1 := s.AddTestingApplication(c, "wordpress", s.charm)
-	err := app1.SetExposed(nil)
+	err := app1.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	u1, m1 := s.addUnit(c, app1)
@@ -1344,7 +1688,9 @@ func (s *GlobalModeSuite) TestGlobalMode(c *gc.C) {
 
 	app2 := s.AddTestingApplication(c, "moinmoin", s.charm)
 	c.Assert(err, jc.ErrorIsNil)
-	err = app2.SetExposed(nil)
+	err = app2.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	u2, m2 := s.addUnit(c, app2)
@@ -1403,7 +1749,9 @@ func (s *GlobalModeSuite) TestStartWithUnexposedApplication(c *gc.C) {
 	s.assertEnvironPorts(c, nil)
 
 	// Expose application.
-	err = app.SetExposed(nil)
+	err = app.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEnvironPorts(c, firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
@@ -1415,7 +1763,9 @@ func (s *GlobalModeSuite) TestRestart(c *gc.C) {
 	fw := s.newFirewaller(c)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
-	err := app.SetExposed(nil)
+	err := app.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	u, m := s.addUnit(c, app)
@@ -1457,7 +1807,9 @@ func (s *GlobalModeSuite) TestRestartUnexposedApplication(c *gc.C) {
 	fw := s.newFirewaller(c)
 
 	app := s.AddTestingApplication(c, "wordpress", s.charm)
-	err := app.SetExposed(nil)
+	err := app.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	u, m := s.addUnit(c, app)
@@ -1491,7 +1843,9 @@ func (s *GlobalModeSuite) TestRestartPortCount(c *gc.C) {
 	fw := s.newFirewaller(c)
 
 	app1 := s.AddTestingApplication(c, "wordpress", s.charm)
-	err := app1.SetExposed(nil)
+	err := app1.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	u1, m1 := s.addUnit(c, app1)
@@ -1511,7 +1865,9 @@ func (s *GlobalModeSuite) TestRestartPortCount(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	app2 := s.AddTestingApplication(c, "moinmoin", s.charm)
-	err = app2.SetExposed(nil)
+	err = app2.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	u2, m2 := s.addUnit(c, app2)
@@ -1551,6 +1907,32 @@ func (s *GlobalModeSuite) TestRestartPortCount(c *gc.C) {
 		network.MustParsePortRange("80/tcp"),
 	})
 	s.assertEnvironPorts(c, nil)
+}
+
+func (s *GlobalModeSuite) TestExposeToIPV6CIDRsOnIPV4OnlyProvider(c *gc.C) {
+	supportsIPV6CIDRs := false
+	fw := s.newFirewallerWithIPV6CIDRSupport(c, supportsIPV6CIDRs)
+	defer statetesting.AssertKillAndWait(c, fw)
+
+	app := s.AddTestingApplication(c, "wordpress", s.charm)
+	u, _ := s.addUnit(c, app)
+
+	mustOpenPortRanges(c, s.State, u, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
+	})
+
+	err := app.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		allEndpoints: {
+			ExposeToCIDRs: []string{"10.0.0.0/24", "2002::1234:abcd:ffff:c0a8:101/64"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Since the provider only supports IPV4 CIDRs, the firewall worker
+	// will filter the IPV6 CIDRs when opening ports.
+	s.assertEnvironPorts(c, firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), "10.0.0.0/24"),
+	})
 }
 
 type NoneModeSuite struct {

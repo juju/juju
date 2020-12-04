@@ -683,7 +683,7 @@ func (mr *MockContextMockRecorder) UnitWorkloadVersion() *gomock.Call {
 }
 
 // UpdateActionResults mocks base method
-func (m *MockContext) UpdateActionResults(arg0 []string, arg1 string) error {
+func (m *MockContext) UpdateActionResults(arg0 []string, arg1 interface{}) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateActionResults", arg0, arg1)
 	ret0, _ := ret[0].(error)

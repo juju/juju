@@ -21,7 +21,7 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
-	ziputil "github.com/juju/utils/zip"
+	ziputil "github.com/juju/utils/v2/zip"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -89,6 +89,7 @@ func (h *charmsHandler) ServeUnsupported(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *charmsHandler) ServePost(w http.ResponseWriter, r *http.Request) error {
+	logger.Child("charmsHandler").Tracef("ServePost(%s)", r.URL)
 	if r.Method != "POST" {
 		return errors.Trace(emitUnsupportedMethodErr(r.Method))
 	}
@@ -108,6 +109,7 @@ func (h *charmsHandler) ServePost(w http.ResponseWriter, r *http.Request) error 
 }
 
 func (h *charmsHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
+	logger.Child("charmsHandler").Tracef("ServeGet(%s)", r.URL)
 	if r.Method != "GET" {
 		return errors.Trace(emitUnsupportedMethodErr(r.Method))
 	}
@@ -257,21 +259,19 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 			return nil, errors.Trace(err)
 		}
 
-	// TODO (stickupkid): Handle charmhub charms here, we essentially have the
-	// same workflow, except we won't have a user.
-	case charm.CharmStore:
-		// "cs:" charms may only be uploaded into models which are
-		// being imported during model migrations. There's currently
+	case charm.CharmStore, charm.CharmHub:
+		// charmstore and charmhub charms may only be uploaded into models
+		// which are being imported during model migrations. There's currently
 		// no other time where it makes sense to accept charm store
 		// charms through this endpoint.
 		if isImporting, err := modelIsImporting(st); err != nil {
 			return nil, errors.Trace(err)
 		} else if !isImporting {
-			return nil, errors.New("cs charms may only be uploaded during model migration import")
+			return nil, errors.New("charms may only be uploaded during model migration import")
 		}
 
 		// Use the user argument if provided (users only make sense
-		// with cs: charms.
+		// with cs: charms).
 		curl.User = query.Get("user")
 
 		// If a revision argument is provided, it takes precedence
@@ -288,6 +288,7 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 		if _, err := st.PrepareCharmUpload(curl); err != nil {
 			return nil, errors.Trace(err)
 		}
+
 	default:
 		return nil, errors.Errorf("unsupported schema %q", schema)
 	}
@@ -515,6 +516,7 @@ func sendBundleContent(
 	archivePath string,
 	sender bundleContentSenderFunc,
 ) error {
+	logger.Child("charmhttp").Tracef("sendBundleContent %q", archivePath)
 	bundle, err := charm.ReadCharmArchive(archivePath)
 	if err != nil {
 		return errors.Annotatef(err, "unable to read archive in %q", archivePath)

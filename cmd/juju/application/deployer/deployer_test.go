@@ -15,6 +15,7 @@ import (
 	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -23,11 +24,14 @@ import (
 
 	"github.com/juju/juju/api/base"
 	commoncharm "github.com/juju/juju/api/common/charm"
-	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -90,6 +94,18 @@ func (s *deployerSuite) TestGetDeployerLocalCharm(c *gc.C) {
 	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy local charm: %s", ch.String()))
 }
 
+func (s *deployerSuite) TestGetDeployerLocalCharmError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	factory := s.newDeployerFactory().(*factory)
+	factory.charmOrBundle = "./bad.charm"
+
+	s.expectStat("./bad.charm", os.ErrNotExist)
+
+	_, err := factory.maybePredeployedLocalCharm()
+	c.Assert(err, gc.ErrorMatches, `no charm was found at "./bad.charm"`)
+}
+
 func (s *deployerSuite) TestGetDeployerCharmStoreCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectFilesystem()
@@ -106,6 +122,26 @@ func (s *deployerSuite) TestGetDeployerCharmStoreCharm(c *gc.C) {
 	deployer, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm store charm: %s", ch.String()))
+}
+
+func (s *deployerSuite) TestCharmStoreSeriesOverride(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectFilesystem()
+	s.expectResolveBundleURL(errors.NotValidf("not a bundle"), 1)
+
+	cfg := s.basicDeployerConfig()
+	cfg.Series = "bionic" // Override the default series (as if --series was specified)
+	ch := charm.MustParseURL("cs:test-charm")
+	s.expectStat(ch.String(), errors.NotFoundf("file"))
+	cfg.CharmOrBundle = ch.String()
+
+	factory := s.newDeployerFactory()
+	deployer, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm store charm: %s", ch.String()))
+
+	charmStoreDeployer := deployer.(*charmStoreCharm)
+	c.Assert(charmStoreDeployer.series, gc.Equals, "bionic")
 }
 
 func (s *deployerSuite) TestGetDeployerLocalBundle(c *gc.C) {
@@ -161,6 +197,107 @@ func (s *deployerSuite) TestGetDeployerCharmStoreBundle(c *gc.C) {
 	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm store bundle: %s", bundle.String()))
 }
 
+func (s *deployerSuite) TestGetDeployerCharmStoreBundleWithChannel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectFilesystem()
+
+	s.expectResolveBundleURL(nil, 1)
+
+	bundle := charm.MustParseURL("cs:test-bundle")
+	cfg := s.channelDeployerConfig()
+	cfg.Series = "bionic"
+	cfg.FlagSet = &gnuflag.FlagSet{}
+	cfg.CharmOrBundle = bundle.String()
+	s.expectStat(bundle.String(), errors.NotFoundf("file"))
+	s.expectModelType()
+	s.expectGetBundle(nil)
+	s.expectData()
+
+	factory := s.newDeployerFactory()
+	deployer, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm store bundle: %s", bundle.String()))
+}
+
+func (s *deployerSuite) TestResolveCharmURL(c *gc.C) {
+	tests := []struct {
+		path string
+		url  *charm.URL
+		err  error
+	}{{
+		path: "wordpress",
+		url:  &charm.URL{Schema: "cs", Name: "wordpress", Revision: -1},
+	}, {
+		path: "cs:wordpress",
+		url:  &charm.URL{Schema: "cs", Name: "wordpress", Revision: -1},
+	}, {
+		path: "local:wordpress",
+		url:  &charm.URL{Schema: "local", Name: "wordpress", Revision: -1},
+	}, {
+		path: "cs:~user/series/name",
+		url:  &charm.URL{Schema: "cs", User: "user", Name: "name", Series: "series", Revision: -1},
+	}, {
+		path: "~user/series/name",
+		url:  &charm.URL{Schema: "cs", User: "user", Name: "name", Series: "series", Revision: -1},
+	}, {
+		path: "ch:~user/series/name",
+		err:  errors.Errorf(`unexpected charm schema: cannot parse URL "ch:~user/series/name": schema "ch" not valid`),
+	}}
+	for i, test := range tests {
+		c.Logf("%d %s", i, test.path)
+		url, err := resolveCharmURL(test.path)
+		if test.err != nil {
+			c.Assert(err, gc.ErrorMatches, test.err.Error())
+		} else {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(url, gc.DeepEquals, test.url)
+		}
+	}
+}
+
+func (s *deployerSuite) TestResolveCharmURLCharmHubIntegration(c *gc.C) {
+	setFeatureFlags(feature.CharmHubIntegration)
+	defer setFeatureFlags("")
+
+	tests := []struct {
+		path string
+		url  *charm.URL
+		err  error
+	}{{
+		path: "wordpress",
+		url:  &charm.URL{Schema: "ch", Name: "wordpress", Revision: -1},
+	}, {
+		path: "ch:wordpress-42",
+		url:  &charm.URL{Schema: "ch", Name: "wordpress", Revision: 42},
+	}, {
+		path: "cs:wordpress",
+		url:  &charm.URL{Schema: "cs", Name: "wordpress", Revision: -1},
+	}, {
+		path: "local:wordpress",
+		url:  &charm.URL{Schema: "local", Name: "wordpress", Revision: -1},
+	}, {
+		path: "cs:~user/series/name",
+		url:  &charm.URL{Schema: "cs", User: "user", Name: "name", Series: "series", Revision: -1},
+	}}
+	for i, test := range tests {
+		c.Logf("%d %s", i, test.path)
+		url, err := resolveCharmURL(test.path)
+		if test.err != nil {
+			c.Assert(err, gc.ErrorMatches, test.err.Error())
+		} else {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(url, gc.DeepEquals, test.url)
+		}
+	}
+}
+
+func setFeatureFlags(flags string) {
+	if err := os.Setenv(osenv.JujuFeatureFlagEnvKey, flags); err != nil {
+		panic(err)
+	}
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+}
+
 func (s *deployerSuite) makeBundleDir(c *gc.C, content string) string {
 	bundlePath := filepath.Join(c.MkDir(), "example")
 	c.Assert(os.Mkdir(bundlePath, 0777), jc.ErrorIsNil)
@@ -175,7 +312,7 @@ func (s *deployerSuite) newDeployerFactory() DeployerFactory {
 	dep := DeployerDependencies{
 		DeployResources: func(
 			string,
-			charmstore.CharmID,
+			resourceadapters.CharmID,
 			*macaroon.Macaroon,
 			map[string]string,
 			map[string]charmresource.Meta,
@@ -186,6 +323,7 @@ func (s *deployerSuite) newDeployerFactory() DeployerFactory {
 		},
 		Model:                s.modelCommand,
 		NewConsumeDetailsAPI: func(url *charm.OfferURL) (ConsumeDetails, error) { return s.consumeDetails, nil },
+		FileSystem:           s.filesystem,
 		Steps:                []DeployStep{s.deployStep},
 	}
 	return NewDeployerFactory(dep)
@@ -194,6 +332,15 @@ func (s *deployerSuite) newDeployerFactory() DeployerFactory {
 func (s *deployerSuite) basicDeployerConfig() DeployerConfig {
 	return DeployerConfig{
 		Series: "focal",
+	}
+}
+
+func (s *deployerSuite) channelDeployerConfig() DeployerConfig {
+	return DeployerConfig{
+		Series: "focal",
+		Channel: corecharm.Channel{
+			Risk: "edge",
+		},
 	}
 }
 
@@ -263,7 +410,7 @@ func (s *deployerSuite) expectModelType() {
 }
 
 func (s *deployerSuite) expectGetBundle(err error) {
-	s.resolver.EXPECT().GetBundle(gomock.AssignableToTypeOf(&charm.URL{}), gomock.Any()).Return(s.bundle, err)
+	s.resolver.EXPECT().GetBundle(gomock.AssignableToTypeOf(&charm.URL{}), gomock.Any(), gomock.Any()).Return(s.bundle, err)
 }
 
 func (s *deployerSuite) expectData() {

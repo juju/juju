@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 )
 
 // Details of the domain XML format are at: https://libvirt.org/formatdomain.html
@@ -196,7 +196,7 @@ func deviceID(i int) (string, error) {
 	if i < 0 || i > 25 {
 		return "", errors.Errorf("got %d but only support devices 0-25", i)
 	}
-	return fmt.Sprintf("vd%s", string('a'+i)), nil
+	return fmt.Sprintf("vd%s", string(rune('a'+i))), nil
 }
 
 // Domain describes a libvirt domain. A domain is an instance of an operating

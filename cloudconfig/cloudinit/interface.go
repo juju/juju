@@ -11,13 +11,13 @@ import (
 	"github.com/juju/errors"
 	corenetwork "github.com/juju/juju/core/network"
 	jujupackaging "github.com/juju/juju/packaging"
-	"github.com/juju/os"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2"
+	"github.com/juju/os/v2/series"
 	"github.com/juju/packaging"
 	"github.com/juju/packaging/commands"
 	"github.com/juju/packaging/config"
 	"github.com/juju/proxy"
-	"github.com/juju/utils/shell"
+	"github.com/juju/utils/v2/shell"
 )
 
 // CloudConfig is the interface of all cloud-init cloudconfig options.

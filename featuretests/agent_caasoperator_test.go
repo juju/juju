@@ -20,7 +20,9 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
+	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	jujudagent "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
@@ -29,7 +31,9 @@ import (
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 	caasoperatorworker "github.com/juju/juju/worker/caasoperator"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/uniter"
@@ -54,8 +58,16 @@ func (s *CAASOperatorSuite) SetUpSuite(c *gc.C) {
 func (s *CAASOperatorSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
 
+	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 	// Set up a CAAS model to replace the IAAS one.
-	st := s.Factory.MakeCAASModel(c, nil)
+	// Ensure major version 1 is used to prevent an upgrade
+	// from being attempted.
+	modelVers := jujuversion.Current
+	modelVers.Major = 1
+	extraAttrs := coretesting.Attrs{
+		"agent-version": modelVers.String(),
+	}
+	st := s.Factory.MakeCAASModel(c, &factory.ModelParams{ConfigAttrs: extraAttrs})
 	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
 	s.State = st
 

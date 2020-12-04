@@ -11,12 +11,12 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
+	dummystorage "github.com/juju/juju/storage/provider/dummy"
 )
 
 type VolumeStateSuite struct {
@@ -115,7 +115,7 @@ func (s *VolumeStateSuite) TestAddApplicationNoUserDefaultPool(c *gc.C) {
 func (s *VolumeStateSuite) TestAddApplicationDefaultPool(c *gc.C) {
 	// Register a default pool.
 	pm := poolmanager.New(state.NewStateSettings(s.State), storage.ChainedProviderRegistry{
-		dummy.StorageProviders(),
+		dummystorage.StorageProviders(),
 		provider.CommonStorageProviders(),
 	})
 	_, err := pm.Create("default-block", provider.LoopProviderType, map[string]interface{}{})

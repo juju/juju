@@ -6,6 +6,7 @@ package application
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/api/application"
 	jujucmd "github.com/juju/juju/cmd"
@@ -19,10 +20,27 @@ Removes public availability over the network for an application.`[1:]
 var usageUnexposeDetails = `
 Adjusts the firewall rules and any relevant security mechanisms of the
 cloud to deny public access to the application.
-An application is unexposed by default when it gets created.
 
-Examples:
-    juju unexpose wordpress
+Applications are unexposed by default when they get created. If exposed via
+the "juju expose" command, they can be unexposed by running the "juju unexpose"
+command.  
+
+If no additional options are specified, the command will unexpose the
+application (if exposed). For example, to unexpose the apache2 application,
+you can run:
+
+juju unexpose apache2
+
+The --endpoints option may be used to restrict the effect of this command to 
+the list of ports opened for a comma-delimited list of endpoints. For instance,
+to only unexpose the ports opened by apache2 for the "www" endpoint, you can 
+run:
+
+juju unexpose apache2 --endpoints www
+
+Note that when the --endpoints option is provided, the application will still
+remain exposed if any other of its endpoints are still exposed. However, if
+none of its endpoints remain exposed, the application will be instead unexposed. 
 
 See also: 
     expose`[1:]
@@ -35,7 +53,8 @@ func NewUnexposeCommand() modelcmd.ModelCommand {
 // unexposeCommand is responsible exposing applications.
 type unexposeCommand struct {
 	modelcmd.ModelCommandBase
-	ApplicationName string
+	ApplicationName      string
+	ExposedEndpointsList string
 }
 
 func (c *unexposeCommand) Info() *cmd.Info {
@@ -45,6 +64,11 @@ func (c *unexposeCommand) Info() *cmd.Info {
 		Purpose: usageUnexposeSummary,
 		Doc:     usageUnexposeDetails,
 	})
+}
+
+func (c *unexposeCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
+	f.StringVar(&c.ExposedEndpointsList, "endpoints", "", "Unexpose only the ports that charms have opened for this comma-delimited list of endpoints")
 }
 
 func (c *unexposeCommand) Init(args []string) error {
@@ -71,5 +95,7 @@ func (c *unexposeCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	return block.ProcessBlockedError(client.Unexpose(c.ApplicationName), block.BlockChange)
+
+	endpoints := splitCommaDelimitedList(c.ExposedEndpointsList)
+	return block.ProcessBlockedError(client.Unexpose(c.ApplicationName, endpoints), block.BlockChange)
 }

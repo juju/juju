@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -115,7 +115,7 @@ func (s *ModelConfigSuite) TestAgentVersion(c *gc.C) {
 	}
 	ver, err := s.Model.AgentVersion()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ver, gc.DeepEquals, version.Number{Major: 1, Minor: 2, Patch: 3})
+	c.Assert(ver, gc.DeepEquals, version.Number{Major: 2, Minor: 0, Patch: 0})
 
 	err = s.Model.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)

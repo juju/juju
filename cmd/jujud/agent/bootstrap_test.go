@@ -20,11 +20,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
@@ -122,11 +121,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.makeTestModel(c)
 
 	// Create fake tools.tar.gz and downloaded-tools.txt.
-	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	current := testing.CurrentVersion(c)
 	toolsDir := filepath.FromSlash(agenttools.SharedToolsDir(s.dataDir, current))
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
@@ -134,13 +129,13 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.writeDownloadedTools(c, &tools.Tools{Version: current})
 
-	// Create fake gui.tar.bz2 and downloaded-gui.txt.
-	guiDir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataDir))
-	err = os.MkdirAll(guiDir, 0755)
+	// Create fake dashboard.tar.bz2 and downloaded-dashboard.txt.
+	dashboardDir := filepath.FromSlash(agenttools.SharedDashboardDir(s.dataDir))
+	err = os.MkdirAll(dashboardDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(guiDir, "gui.tar.bz2"), nil, 0644)
+	err = ioutil.WriteFile(filepath.Join(dashboardDir, "dashboard.tar.bz2"), nil, 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	s.writeDownloadedGUI(c, &tools.GUIArchive{
+	s.writeDownloadedDashboard(c, &tools.DashboardArchive{
 		Version: version.MustParse("2.0.42"),
 	})
 }
@@ -160,19 +155,19 @@ func (s *BootstrapSuite) writeDownloadedTools(c *gc.C, tools *tools.Tools) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *BootstrapSuite) writeDownloadedGUI(c *gc.C, gui *tools.GUIArchive) {
-	guiDir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataDir))
-	err := os.MkdirAll(guiDir, 0755)
+func (s *BootstrapSuite) writeDownloadedDashboard(c *gc.C, dashboard *tools.DashboardArchive) {
+	dashboardDir := filepath.FromSlash(agenttools.SharedDashboardDir(s.dataDir))
+	err := os.MkdirAll(dashboardDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
-	data, err := json.Marshal(gui)
+	data, err := json.Marshal(dashboard)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(guiDir, "downloaded-gui.txt"), data, 0644)
+	err = ioutil.WriteFile(filepath.Join(dashboardDir, "downloaded-dashboard.txt"), data, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *BootstrapSuite) TestGUIArchiveInfoNotFound(c *gc.C) {
-	dir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataDir))
-	info := filepath.Join(dir, "downloaded-gui.txt")
+func (s *BootstrapSuite) TestDashboardArchiveInfoNotFound(c *gc.C) {
+	dir := filepath.FromSlash(agenttools.SharedDashboardDir(s.dataDir))
+	info := filepath.Join(dir, "downloaded-dashboard.txt")
 	err := os.Remove(info)
 	c.Assert(err, jc.ErrorIsNil)
 	_, cmd, err := s.initBootstrapCommand(c, nil)
@@ -187,19 +182,19 @@ func (s *BootstrapSuite) TestGUIArchiveInfoNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
 		loggo.WARNING,
-		`cannot set up Juju GUI: cannot fetch GUI info: GUI metadata not found`,
+		`cannot set up Juju Dashboard: cannot fetch Dashboard info: Dashboard metadata not found`,
 	}})
 }
 
-func (s *BootstrapSuite) TestGUIArchiveInfoError(c *gc.C) {
+func (s *BootstrapSuite) TestDashboardArchiveInfoError(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		// TODO frankban: skipping for now due to chmod problems with mode 0000
 		// on Windows. We will re-enable this test after further investigation:
 		// "jujud bootstrap" is never run on Windows anyway.
 		c.Skip("needs chmod investigation")
 	}
-	dir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataDir))
-	info := filepath.Join(dir, "downloaded-gui.txt")
+	dir := filepath.FromSlash(agenttools.SharedDashboardDir(s.dataDir))
+	info := filepath.Join(dir, "downloaded-dashboard.txt")
 	err := os.Chmod(info, 0000)
 	c.Assert(err, jc.ErrorIsNil)
 	defer os.Chmod(info, 0600)
@@ -215,13 +210,13 @@ func (s *BootstrapSuite) TestGUIArchiveInfoError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
 		loggo.WARNING,
-		`cannot set up Juju GUI: cannot fetch GUI info: cannot read GUI metadata in directory .*`,
+		`cannot set up Juju Dashboard: cannot fetch Dashboard info: cannot read Dashboard metadata in directory .*`,
 	}})
 }
 
-func (s *BootstrapSuite) TestGUIArchiveError(c *gc.C) {
-	dir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataDir))
-	archive := filepath.Join(dir, "gui.tar.bz2")
+func (s *BootstrapSuite) TestDashboardArchiveError(c *gc.C) {
+	dir := filepath.FromSlash(agenttools.SharedDashboardDir(s.dataDir))
+	archive := filepath.Join(dir, "dashboard.tar.bz2")
 	err := os.Remove(archive)
 	c.Assert(err, jc.ErrorIsNil)
 	_, cmd, err := s.initBootstrapCommand(c, nil)
@@ -236,7 +231,7 @@ func (s *BootstrapSuite) TestGUIArchiveError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
 		loggo.WARNING,
-		`cannot set up Juju GUI: cannot read GUI archive: .*`,
+		`cannot set up Juju Dashboard: cannot read Dashboard archive: .*`,
 	}})
 }
 
@@ -250,7 +245,7 @@ func (s *BootstrapSuite) getSystemState(c *gc.C) (*state.State, func()) {
 	c.Assert(err, jc.ErrorIsNil)
 	return pool.SystemState(), func() { pool.Close() }
 }
-func (s *BootstrapSuite) TestGUIArchiveSuccess(c *gc.C) {
+func (s *BootstrapSuite) TestDashboardArchiveSuccess(c *gc.C) {
 	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -263,15 +258,15 @@ func (s *BootstrapSuite) TestGUIArchiveSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
 		loggo.DEBUG,
-		`Juju GUI successfully set up`,
+		`Juju Dashboard successfully set up`,
 	}})
 
-	// Retrieve the state so that it is possible to access the GUI storage.
+	// Retrieve the state so that it is possible to access the Dashboard storage.
 	st, closer := s.getSystemState(c)
 	defer closer()
 
-	// The GUI archive has been uploaded to the GUI storage.
-	storage, err := st.GUIStorage()
+	// The Dashboard archive has been uploaded to the Dashboard storage.
+	storage, err := st.DashboardStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
 	allMeta, err := storage.AllMetadata()
@@ -279,8 +274,8 @@ func (s *BootstrapSuite) TestGUIArchiveSuccess(c *gc.C) {
 	c.Assert(allMeta, gc.HasLen, 1)
 	c.Assert(allMeta[0].Version, gc.Equals, "2.0.42")
 
-	// The current GUI version has been set.
-	vers, err := st.GUIVersion()
+	// The current Dashboard version has been set.
+	vers, err := st.DashboardVersion()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vers.String(), gc.Equals, "2.0.42")
 }
@@ -677,12 +672,8 @@ func (s *BootstrapSuite) TestDownloadedToolsMetadata(c *gc.C) {
 func (s *BootstrapSuite) TestUploadedToolsMetadata(c *gc.C) {
 	// Tools uploaded over ssh.
 	s.writeDownloadedTools(c, &tools.Tools{
-		Version: version.Binary{
-			Number: jujuversion.Current,
-			Arch:   arch.HostArch(),
-			Series: series.MustHostSeries(),
-		},
-		URL: "file:///does/not/matter",
+		Version: testing.CurrentVersion(c),
+		URL:     "file:///does/not/matter",
 	})
 	s.testToolsMetadata(c, true)
 }
@@ -711,14 +702,14 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 		for _, ser := range series.SupportedSeries() {
 			os, err := series.GetOSFromSeries(ser)
 			c.Assert(err, jc.ErrorIsNil)
-			hostos, err := series.GetOSFromSeries(series.MustHostSeries())
+			hostos, err := series.GetOSFromSeries(testing.HostSeries(c))
 			c.Assert(err, jc.ErrorIsNil)
 			if os == hostos || os.IsLinux() && hostos.IsLinux() {
 				expectedSeries.Add(ser)
 			}
 		}
 	} else {
-		expectedSeries.Add(series.MustHostSeries())
+		expectedSeries.Add(testing.HostSeries(c))
 	}
 
 	storage, err := st.ToolsStorage()

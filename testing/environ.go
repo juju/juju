@@ -6,17 +6,17 @@ package testing
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
-	"github.com/juju/utils/ssh"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/ssh"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // FakeAuthKeys holds the authorized key used for testing
@@ -34,7 +34,7 @@ func init() {
 var (
 	// FakeSupportedJujuSeries is used to provide a series of canned results
 	// of series to test bootstrap code against.
-	FakeSupportedJujuSeries = set.NewStrings("precise", "trusty", "quantal", "bionic", series.DefaultSupportedLTS())
+	FakeSupportedJujuSeries = set.NewStrings("precise", "trusty", "quantal", "bionic", "focal", jujuversion.DefaultSupportedLTS())
 )
 
 // FakeVersionNumber is a valid version number that can be used in testing.
@@ -46,7 +46,7 @@ var ModelTag = names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f00d")
 // ControllerTag is a defined known valid UUID that can be used in testing.
 var ControllerTag = names.NewControllerTag("deadbeef-1bad-500d-9000-4b1d0d06f00d")
 
-// FakeControllerConfig() returns an environment configuration
+// FakeControllerConfig returns an environment configuration
 // that is expected to be found in state for a fake controller.
 func FakeControllerConfig() controller.Config {
 	return controller.Config{
@@ -66,7 +66,7 @@ func FakeControllerConfig() controller.Config {
 	}
 }
 
-// FakeConfig() returns an environment configuration for a
+// FakeConfig returns an environment configuration for a
 // fake provider with all required attributes set.
 func FakeConfig() Attrs {
 	return Attrs{
@@ -77,7 +77,7 @@ func FakeConfig() Attrs {
 		"firewall-mode":             config.FwInstance,
 		"ssl-hostname-verification": true,
 		"development":               false,
-		"default-series":            series.DefaultSupportedLTS(),
+		"default-series":            jujuversion.DefaultSupportedLTS(),
 	}
 }
 
@@ -101,7 +101,7 @@ func mustUUID() string {
 // additional specified keys added.
 func CustomModelConfig(c *gc.C, extra Attrs) *config.Config {
 	attrs := FakeConfig().Merge(Attrs{
-		"agent-version": "1.2.3",
+		"agent-version": "2.0.0",
 		"charm-hub-url": charmhub.CharmHubServerURL,
 	}).Merge(extra).Delete("admin-secret")
 	cfg, err := config.New(config.NoDefaults, attrs)

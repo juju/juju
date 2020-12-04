@@ -8,7 +8,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"

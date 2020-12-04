@@ -66,8 +66,8 @@ var (
 					Receiver: "unit-uptime-0",
 				},
 				Output: map[string]interface{}{
-					"Stdout": "ok",
-					"Stderr": "",
+					"stdout": "ok",
+					"stderr": "",
 				},
 			},
 			actionTag2.Id(): {
@@ -75,8 +75,8 @@ var (
 					Tag: actionTag2.String(),
 				},
 				Output: map[string]interface{}{
-					"Stdout": "ok",
-					"Stderr": "",
+					"stdout": "ok",
+					"stderr": "",
 				},
 			},
 		},
@@ -133,8 +133,8 @@ var (
 					Receiver: "unit-uptime-0",
 				},
 				Output: map[string]interface{}{
-					"Stdout": "ok",
-					"Stderr": "",
+					"stdout": "ok",
+					"stderr": "",
 				},
 			},
 		},
@@ -165,8 +165,8 @@ var (
 					Receiver: "unit-uptime-0",
 				},
 				Output: map[string]interface{}{
-					"Stdout": "ok",
-					"Stderr": "",
+					"stdout": "ok",
+					"stderr": "",
 				},
 			},
 		},
@@ -193,8 +193,8 @@ var (
 					Receiver: "unit-uptime-0",
 				},
 				Output: map[string]interface{}{
-					"Stdout": "ok",
-					"Stderr": "",
+					"stdout": "ok",
+					"stderr": "",
 				},
 			},
 		},
@@ -221,8 +221,8 @@ var (
 					Receiver: "unit-uptime-0",
 				},
 				Output: map[string]interface{}{
-					"Stdout": "ok",
-					"Stderr": "",
+					"stdout": "ok",
+					"stderr": "",
 				},
 			},
 		},
@@ -249,8 +249,8 @@ var (
 					Receiver: "unit-uptime-0",
 				},
 				Output: map[string]interface{}{
-					"Stdout": "ok",
-					"Stderr": "",
+					"stdout": "ok",
+					"stderr": "",
 				},
 			},
 			actionTag2.Id(): {},
@@ -278,8 +278,8 @@ var (
 					Receiver: "unit-uptime-0",
 				},
 				Output: map[string]interface{}{
-					"Stdout": "ok",
-					"Stderr": "",
+					"stdout": "ok",
+					"stderr": "",
 				},
 			},
 			actionTag2.Id(): {
@@ -288,8 +288,8 @@ var (
 					Receiver: "unit-uptime-0",
 				},
 				Output: map[string]interface{}{
-					"Stdout": "garbage",
-					"Stderr": "kek",
+					"stdout": "garbage",
+					"stderr": "kek",
 				},
 			},
 		},
@@ -354,17 +354,20 @@ type testRunClient struct {
 }
 
 // Run implements the runClient interface.
-func (t *testRunClient) Run(run params.RunParams) ([]params.ActionResult, error) {
+func (t *testRunClient) Run(run params.RunParams) (params.EnqueuedActions, error) {
 	t.AddCall("Run", run)
 	if t.err != "" {
-		return nil, errors.New(t.err)
+		return params.EnqueuedActions{}, errors.New(t.err)
 	}
 	if len(t.results) == 0 {
-		return nil, errors.New("no results")
+		return params.EnqueuedActions{}, errors.New("no results")
 	}
 	r := t.results[0]
 	t.results = t.results[1:]
-	return r, nil
+	return params.EnqueuedActions{
+		OperationTag: "operation-1",
+		Actions:      r,
+	}, nil
 }
 
 // Close implements the runClient interface.

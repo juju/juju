@@ -123,6 +123,21 @@ func (IngressRuleSuite) TestRulesEquality(c *gc.C) {
 	c.Assert(setB.EqualTo(setC), jc.IsFalse)
 }
 
+func (IngressRuleSuite) TestUniqueRules(c *gc.C) {
+	in := IngressRules{
+		NewIngressRule(network.MustParsePortRange("80/tcp"), "10.0.0.0/24", "192.168.0.0/24"),
+		NewIngressRule(network.MustParsePortRange("123/tcp"), "192.168.0.0/24", "10.0.0.0/24"),
+		NewIngressRule(network.MustParsePortRange("80/tcp"), "10.0.0.0/24", "192.168.0.0/24"),
+	}
+
+	exp := IngressRules{
+		NewIngressRule(network.MustParsePortRange("80/tcp"), "10.0.0.0/24", "192.168.0.0/24"),
+		NewIngressRule(network.MustParsePortRange("123/tcp"), "192.168.0.0/24", "10.0.0.0/24"),
+	}
+
+	c.Assert(in.UniqueRules(), gc.DeepEquals, exp)
+}
+
 func (IngressRuleSuite) TestDiffOpenAll(c *gc.C) {
 	wanted := IngressRules{
 		NewIngressRule(network.MustParsePortRange("80-90/tcp"), "0.0.0.0/0"),
@@ -242,4 +257,19 @@ func (IngressRuleSuite) TestDiffRangesClosesPortsIfRulesAreDisjoint(c *gc.C) {
 	toOpen, toClose := current.Diff(wanted)
 	c.Assert(toOpen, gc.DeepEquals, wanted)
 	c.Assert(toClose, gc.DeepEquals, current)
+}
+
+func (IngressRuleSuite) TestRemoveCIDRsMatchingAddressType(c *gc.C) {
+	in := IngressRules{
+		NewIngressRule(network.MustParsePortRange("80/tcp"), "35.187.158.35/32"),
+		// We expect these rules to be de-dupped once the IPV6 CIDRs get removed
+		NewIngressRule(network.MustParsePortRange("81/tcp"), "35.187.1.35/32", "::/0"),
+		NewIngressRule(network.MustParsePortRange("81/tcp"), "35.187.1.35/32", "2002::1234:abcd:ffff:c0a8:101/64"),
+	}
+
+	out := in.RemoveCIDRsMatchingAddressType(network.IPv6Address)
+	c.Assert(out, gc.DeepEquals, IngressRules{
+		NewIngressRule(network.MustParsePortRange("80/tcp"), "35.187.158.35/32"),
+		NewIngressRule(network.MustParsePortRange("81/tcp"), "35.187.1.35/32"),
+	})
 }

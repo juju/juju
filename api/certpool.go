@@ -10,13 +10,12 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
-	"github.com/juju/os/series"
-	"github.com/juju/utils/cert"
+	"github.com/juju/utils/v2/cert"
 
 	"github.com/juju/juju/core/paths"
 )
 
-var certDir = filepath.FromSlash(paths.MustSucceed(paths.CertDir(series.MustHostSeries())))
+var certDir = filepath.FromSlash(paths.CertDir(paths.CurrentOS()))
 
 // CreateCertPool creates a new x509.CertPool and adds in the caCert passed
 // in.  All certs from the cert directory (/etc/juju/cert.d on ubuntu) are

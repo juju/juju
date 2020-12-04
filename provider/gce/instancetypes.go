@@ -4,7 +4,7 @@
 package gce
 
 import (
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 
 	"github.com/juju/juju/environs/instances"
 )

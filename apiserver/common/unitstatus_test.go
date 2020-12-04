@@ -163,3 +163,7 @@ func (u *fakeStatusUnit) Life() state.Life {
 func (u *fakeStatusUnit) ShouldBeAssigned() bool {
 	return u.shouldBeAssigned
 }
+
+func (u *fakeStatusUnit) IsEmbedded() (bool, error) {
+	return false, nil
+}

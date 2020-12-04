@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/shell"
+	"github.com/juju/utils/v2/shell"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/network"
@@ -96,10 +96,7 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) 
 
 	// The path for the config file might change if the tag changed
 	// and also the rest of the path, so we assume as little as possible.
-	oldDatadir, err := paths.DataDir(args.NewInstSeries)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot determine DataDir for the restored machine")
-	}
+	oldDatadir := paths.DataDir(paths.SeriesToOS(args.NewInstSeries))
 
 	var oldAgentConfig agent.ConfigSetterWriter
 	oldAgentConfigFile := agent.ConfigPath(oldDatadir, args.NewInstTag)
@@ -126,10 +123,7 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) 
 	var agentConfig agent.ConfigSetterWriter
 	// The path for the config file might change if the tag changed
 	// and also the rest of the path, so we assume as little as possible.
-	datadir, err := paths.DataDir(args.NewInstSeries)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot determine DataDir for the restored machine")
-	}
+	datadir := paths.DataDir(paths.SeriesToOS(args.NewInstSeries))
 	agentConfigFile := agent.ConfigPath(datadir, backupMachine)
 	if agentConfig, err = agent.ReadConfig(agentConfigFile); err != nil {
 		return nil, errors.Annotate(err, "cannot load agent config from disk")
@@ -157,7 +151,7 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) 
 		aInfo := service.NewMachineAgentInfo(
 			agentConfig.Tag().Id(),
 			dataDir,
-			paths.MustSucceed(paths.LogDir(args.NewInstSeries)),
+			paths.LogDir(paths.SeriesToOS(args.NewInstSeries)),
 		)
 
 		// TODO(perrito666) renderer should have a RendererForSeries, for the moment

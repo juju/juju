@@ -17,11 +17,9 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
-	"github.com/juju/os/series"
+	jujuos "github.com/juju/os/v2"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
-	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	jujucloud "github.com/juju/juju/cloud"
@@ -33,7 +31,6 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type MainSuite struct {
@@ -99,7 +96,7 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		summary: "juju help foo doesn't exist",
 		args:    []string{"help", "foo"},
 		code:    1,
-		out:     missingCommandMessage("foo", "gui"),
+		out:     missingCommandMessage("foo", "run"),
 	}, {
 		summary: "juju help deploy shows the default help without global options",
 		args:    []string{"help", "deploy"},
@@ -159,20 +156,12 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		summary: "check version command returns a fully qualified version string",
 		args:    []string{"version"},
 		code:    0,
-		out: version.Binary{
-			Number: jujuversion.Current,
-			Arch:   arch.HostArch(),
-			Series: series.MustHostSeries(),
-		}.String() + "\n",
+		out:     testing.CurrentVersion(c).String() + "\n",
 	}, {
 		summary: "check --version command returns a fully qualified version string",
 		args:    []string{"--version"},
 		code:    0,
-		out: version.Binary{
-			Number: jujuversion.Current,
-			Arch:   arch.HostArch(),
-			Series: series.MustHostSeries(),
-		}.String() + "\n",
+		out:     testing.CurrentVersion(c).String() + "\n",
 	}} {
 		c.Logf("test %d: %s", i, t.summary)
 		out := badrun(c, t.code, t.args...)
@@ -209,7 +198,7 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 func (s *MainSuite) TestNoWarn2xFirstRun(c *gc.C) {
 	// Code should only rnu on ubuntu series, so patch out the series for
 	// when non-ubuntu OSes run this test.
-	s.PatchValue(&series.MustHostSeries, func() string { return "trusty" })
+	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 
 	argChan := make(chan []string, 1)
 	// we shouldn't actually be running anything, but if we do, this will
@@ -242,7 +231,7 @@ func (s *MainSuite) TestNoWarn2xFirstRun(c *gc.C) {
 
 	assertNoArgs(c, argChan)
 	c.Check(string(stderr), gc.Equals, `
-Since Juju 2 is being run for the first time, downloaded the latest public cloud information.`[1:]+"\n")
+Since Juju 3 is being run for the first time, downloaded the latest public cloud information.`[1:]+"\n")
 	checkVersionOutput(c, string(stdout))
 }
 
@@ -281,12 +270,7 @@ func (s *MainSuite) TestRunNoUpdateCloud(c *gc.C) {
 }
 
 func checkVersionOutput(c *gc.C, output string) {
-	ver := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
-
+	ver := testing.CurrentVersion(c)
 	c.Check(output, gc.Equals, ver.String()+"\n")
 }
 
@@ -368,7 +352,6 @@ var commandNames = []string{
 	"get-model-constraints",
 	"grant",
 	"grant-cloud",
-	"gui",
 	"help",
 	"help-tool",
 	"hook-tool",
@@ -389,6 +372,7 @@ var commandNames = []string{
 	"list-machines",
 	"list-models",
 	"list-offers",
+	"list-operations",
 	"list-payloads",
 	"list-plans",
 	"list-regions",
@@ -412,8 +396,10 @@ var commandNames = []string{
 	"move-to-space",
 	"offer",
 	"offers",
+	"operations",
 	"payloads",
 	"plans",
+	"refresh",
 	"regions",
 	"register",
 	"relate", //alias for add-relation
@@ -467,10 +453,12 @@ var commandNames = []string{
 	"show-machine",
 	"show-model",
 	"show-offer",
+	"show-operation",
 	"show-status",
 	"show-status-log",
 	"show-storage",
 	"show-space",
+	"show-task",
 	"show-unit",
 	"show-user",
 	"show-wallet",
@@ -498,7 +486,6 @@ var commandNames = []string{
 	"upgrade-charm",
 	"upgrade-controller",
 	"upgrade-dashboard",
-	"upgrade-gui",
 	"upgrade-juju",
 	"upgrade-model",
 	"upgrade-series",
@@ -511,14 +498,13 @@ var commandNames = []string{
 
 // optionalFeatures are feature flags that impact registration of commands.
 var optionalFeatures = []string{
-	feature.ActionsV2,
 	feature.CharmHubIntegration,
 }
 
 // These are the commands that are behind the `devFeatures`.
 var commandNamesBehindFlags = set.NewStrings(
 	"run", "show-task", "operations", "list-operations", "show-operation",
-	"info", "find",
+	"info", "find", "download",
 )
 
 func (s *MainSuite) TestHelpCommands(c *gc.C) {
@@ -529,17 +515,9 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 
 	// remove features behind dev_flag for the first test
 	// since they are not enabled.
+	// NB there are no such commands as of now, but leave this step
+	// for when we add some again.
 	cmdSet := set.NewStrings(commandNames...)
-	if !featureflag.Enabled(feature.ActionsV2) {
-		cmdSet.Add("actions")
-		cmdSet.Add("list-actions")
-		cmdSet.Add("run-action")
-		cmdSet.Add("run")
-		cmdSet.Add("show-action")
-		cmdSet.Add("show-action-status")
-		cmdSet.Add("show-action-output")
-		cmdSet.Add("cancel-action")
-	}
 
 	// 1. Default Commands. Disable all features.
 	setFeatureFlags("")
@@ -557,8 +535,7 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	unknown = registered.Difference(cmdSet)
 	c.Assert(unknown, jc.DeepEquals, set.NewStrings())
 	missing = cmdSet.Difference(registered)
-	c.Assert(missing, jc.DeepEquals, set.NewStrings(
-		"cancel-action", "run-action", "show-action-status", "show-action-output"))
+	c.Assert(missing.IsEmpty(), jc.IsTrue)
 }
 
 func getHelpCommandNames(c *gc.C) set.Strings {
@@ -639,9 +616,6 @@ func (s *MainSuite) TestRegisterCommands(c *gc.C) {
 	expected := make([]string, len(commandNames))
 	copy(expected, commandNames)
 	expected = append(expected, extraNames...)
-	if !featureflag.Enabled(feature.ActionsV2) {
-		expected = append(expected, "cancel-action", "run-action", "show-action-status", "show-action-output")
-	}
 	sort.Strings(expected)
 	c.Check(registry.names, jc.DeepEquals, expected)
 }

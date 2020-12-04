@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	jujuarch "github.com/juju/utils/arch"
+	jujuarch "github.com/juju/utils/v2/arch"
 	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -237,7 +237,10 @@ func (m *containerManager) getContainerSpec(
 		Profiles: instanceConfig.Profiles,
 		Devices:  nics,
 	}
-	spec.ApplyConstraints(m.server.serverVersion, cons)
+	err = spec.ApplyConstraints(m.server.serverVersion, cons)
+	if err != nil {
+		return ContainerSpec{}, errors.Trace(err)
+	}
 
 	return spec, nil
 }

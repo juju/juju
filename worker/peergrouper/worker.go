@@ -258,10 +258,11 @@ func (w *pgWorker) loop() error {
 	var updateChan <-chan time.Time
 	retryInterval := initialRetryInterval
 
-	var idle <-chan time.Time
+	idle := &time.Timer{}
 	if w.idleFunc != nil {
 		logger.Tracef("pgWorker %p set idle timeout to %s", w, IdleTime)
-		idle = time.After(IdleTime)
+		idle = time.NewTimer(IdleTime)
+		defer idle.Stop()
 	}
 
 	for {
@@ -269,10 +270,10 @@ func (w *pgWorker) loop() error {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case <-idle:
+		case <-idle.C:
 			logger.Tracef("pgWorker %p is idle", w)
 			w.idleFunc()
-			idle = time.After(IdleTime)
+			idle.Reset(IdleTime)
 			continue
 		case <-controllerChanges:
 			// A controller controller was added or removed.
@@ -363,7 +364,7 @@ func (w *pgWorker) loop() error {
 			retryInterval = initialRetryInterval
 		}
 		if w.idleFunc != nil {
-			idle = time.After(IdleTime)
+			idle.Reset(IdleTime)
 		}
 	}
 }

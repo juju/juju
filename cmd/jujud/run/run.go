@@ -19,10 +19,9 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	jujuos "github.com/juju/os"
-	"github.com/juju/os/series"
-	"github.com/juju/utils"
-	"github.com/juju/utils/exec"
+	jujuos "github.com/juju/os/v2"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/exec"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"
@@ -197,10 +196,7 @@ func (c *RunCommand) Init(args []string) error {
 func (c *RunCommand) maybeGetUnitTag() (names.UnitTag, error) {
 	dataDir := c.dataDir
 	if dataDir == "" {
-		// We don't care about errors here. This is a fallback and
-		// if there's an issue, we'll exit back to the use anyway.
-		hostSeries, _ := series.HostSeries()
-		dataDir, _ = paths.DataDir(hostSeries)
+		dataDir = paths.DataDir(paths.CurrentOS())
 	}
 	agentDir := filepath.Join(dataDir, "agents")
 	files, _ := ioutil.ReadDir(agentDir)

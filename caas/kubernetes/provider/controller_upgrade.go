@@ -4,7 +4,6 @@
 package provider
 
 import (
-	"github.com/juju/names/v4"
 	"github.com/juju/version"
 	"k8s.io/client-go/kubernetes"
 
@@ -13,6 +12,7 @@ import (
 
 type upgradeCAASControllerBridge struct {
 	clientFn    func() kubernetes.Interface
+	isLegacyFn  func() bool
 	namespaceFn func() string
 }
 
@@ -23,6 +23,9 @@ type UpgradeCAASControllerBroker interface {
 	// cluster
 	Client() kubernetes.Interface
 
+	// IsLegacyLabels indicates if this provider is operating on a legacy label schema
+	IsLegacyLabels() bool
+
 	// Namespace returns the targeted Kubernetes namespace for this broker
 	Namespace() string
 }
@@ -31,18 +34,28 @@ func (u *upgradeCAASControllerBridge) Client() kubernetes.Interface {
 	return u.clientFn()
 }
 
+func (u *upgradeCAASControllerBridge) IsLegacyLabels() bool {
+	return u.isLegacyFn()
+}
+
 func (u *upgradeCAASControllerBridge) Namespace() string {
 	return u.namespaceFn()
 }
 
 func controllerUpgrade(appName string, vers version.Number, broker UpgradeCAASControllerBroker) error {
-	return upgradeStatefulSet(appName, "", vers, broker.Client().AppsV1().StatefulSets(broker.Namespace()))
+	return upgradeStatefulSet(
+		appName,
+		"",
+		vers,
+		broker.IsLegacyLabels(),
+		broker.Client().AppsV1().StatefulSets(broker.Namespace()))
 }
 
-func (k *kubernetesClient) upgradeController(agentTag names.Tag, vers version.Number) error {
+func (k *kubernetesClient) upgradeController(vers version.Number) error {
 	broker := &upgradeCAASControllerBridge{
 		clientFn:    k.client,
 		namespaceFn: k.GetCurrentNamespace,
+		isLegacyFn:  k.IsLegacyLabels,
 	}
 	return controllerUpgrade(bootstrap.ControllerModelName, vers, broker)
 }

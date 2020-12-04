@@ -14,7 +14,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/juju/osenv"
@@ -165,6 +165,11 @@ type Cloud struct {
 	// of cloud infrastructure components
 	// The contents are Base64 encoded x.509 certs.
 	CACertificates []string
+
+	// SkipTLSVerify is true if the client should be asked not to
+	// validate certificates. It is not recommended for production clouds.
+	// It is secure (false) by default.
+	SkipTLSVerify bool
 }
 
 // SplitHostCloudRegion splits host cloud region to cloudType and region.
@@ -233,6 +238,7 @@ type cloud struct {
 	Config           map[string]interface{} `yaml:"config,omitempty"`
 	RegionConfig     RegionConfig           `yaml:"region-config,omitempty"`
 	CACertificates   []string               `yaml:"ca-certificates,omitempty"`
+	SkipTLSVerify    bool                   `yaml:"skip-tls-verify,omitempty"`
 }
 
 // regions is a collection of regions, either as a map and/or
@@ -404,7 +410,6 @@ var defaultCloudDescription = map[string]string{
 	"azure":       "Microsoft Azure",
 	"azure-china": "Microsoft Azure China",
 	"rackspace":   "Rackspace Cloud",
-	"joyent":      "Joyent Cloud",
 	"cloudsigma":  "CloudSigma Cloud",
 	"lxd":         "LXD Container Hypervisor",
 	"maas":        "Metal As A Service",
@@ -493,6 +498,7 @@ func cloudToInternal(in Cloud, withName bool) *cloud {
 		Config:           in.Config,
 		RegionConfig:     in.RegionConfig,
 		CACertificates:   in.CACertificates,
+		SkipTLSVerify:    in.SkipTLSVerify,
 	}
 }
 
@@ -529,6 +535,7 @@ func cloudFromInternal(in *cloud) Cloud {
 		RegionConfig:     in.RegionConfig,
 		Description:      in.Description,
 		CACertificates:   in.CACertificates,
+		SkipTLSVerify:    in.SkipTLSVerify,
 	}
 	meta.denormaliseMetadata()
 	return meta

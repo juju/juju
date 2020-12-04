@@ -12,7 +12,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -93,7 +92,7 @@ func (s *remoteApplicationSuite) SetUpTest(c *gc.C) {
 		"db-admin": "private",
 		"logging":  "public",
 	}
-	mac, err := apitesting.NewMacaroon("test")
+	mac, err := newMacaroon("test")
 	c.Assert(err, jc.ErrorIsNil)
 	s.application, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "mysql",
@@ -328,11 +327,11 @@ func (s *remoteApplicationSuite) TestMysqlEndpoints(c *gc.C) {
 }
 
 func (s *remoteApplicationSuite) TestMacaroon(c *gc.C) {
-	mac, err := apitesting.NewMacaroon("test")
+	mac, err := newMacaroon("test")
 	c.Assert(err, jc.ErrorIsNil)
 	appMac, err := s.application.Macaroon()
 	c.Assert(err, jc.ErrorIsNil)
-	apitesting.MacaroonEquals(c, appMac, mac)
+	assertMacaroonEquals(c, appMac, mac)
 }
 
 func (s *remoteApplicationSuite) TestApplicationRefresh(c *gc.C) {

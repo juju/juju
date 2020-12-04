@@ -1,0 +1,196 @@
+name: "Smoke"
+on: [push, pull_request]
+jobs:
+
+  smoke:
+    name: Smoke
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+
+    - name: Install Dependencies
+      shell: bash
+      run: |
+        set -euxo pipefail
+        sudo apt-get remove lxd lxd-client
+        sudo snap install snapcraft --classic
+        sudo snap install lxd
+        sudo lxd waitready
+        sudo lxd init --auto
+        sudo chmod a+wr /var/snap/lxd/common/lxd/unix.socket
+        echo "/snap/bin" >> $GITHUB_PATH
+        lxc network set lxdbr0 ipv6.address none
+
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Build snap
+      shell: bash
+      run: |
+        set -euxo pipefail
+        snapcraft --use-lxd
+
+    - name: Install snap
+      shell: bash
+      run: |
+        set -euxo pipefail
+        sudo snap install *.snap --dangerous --classic
+
+    - name: Smoke Test
+      shell: bash
+      run: |
+        cd tests && ./main.sh smoke
+
+  Upgrade:
+    name: Upgrade
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    strategy:
+      matrix:
+        # TODO(wallyworld) - we can only upgrade to 3.0 from 2.9
+        # Update when 2.9 is released.
+        snap_version: ["latest/candidate", "latest/beta"]
+
+    steps:
+
+    - name: PreCheck
+      shell: bash
+      run: |
+        set -ux
+        set +e
+        OUT=$(snap info juju | grep -E "${{ matrix.snap_version }}:[[:space:]]+\^" || echo "NOT FOUND")
+        set -e
+        if [ "$OUT" = "NOT FOUND" ]; then
+          echo "RUN_TEST=RUN" >> $GITHUB_ENV
+        fi
+
+    - name: Install Dependencies
+      if: env.RUN_TEST == 'RUN'
+      shell: bash
+      run: |
+        set -euxo pipefail
+        sudo apt-get remove lxd lxd-client
+        sudo snap install snapcraft --classic
+        sudo snap install lxd
+        sudo lxd waitready
+        sudo lxd init --auto
+        sudo chmod a+wr /var/snap/lxd/common/lxd/unix.socket
+        echo "/snap/bin" >> $GITHUB_PATH
+
+    - name: Bootstrap Juju latest/stable
+      if: env.RUN_TEST == 'RUN'
+      shell: bash
+      run: |
+        set -euxo pipefail
+        lxc network set lxdbr0 ipv6.address none
+        sudo snap install juju --classic --channel=${{ matrix.snap_version }}
+        juju bootstrap localhost test
+        juju status
+        juju version
+
+    - name: Checkout
+      if: env.RUN_TEST == 'RUN'
+      uses: actions/checkout@v2
+
+    - name: Build snap
+      if: env.RUN_TEST == 'RUN'
+      shell: bash
+      run: |
+        set -euxo pipefail
+        snapcraft --use-lxd
+
+    - name: Install snap
+      if: env.RUN_TEST == 'RUN'
+      shell: bash
+      run: |
+        set -euxo pipefail
+        sudo snap install *.snap --dangerous --classic
+
+    - name: Preflight
+      if: env.RUN_TEST == 'RUN'
+      shell: bash
+      run: |
+        set -euxo pipefail
+        juju status
+        juju version
+
+    - name: Test upgrade controller
+      if: env.RUN_TEST == 'RUN'
+      shell: bash
+      run: |
+        set -euxo pipefail
+        CURRENT=$(juju machines -m controller --format=json | jq -r '.machines | .["0"] | .["juju-status"] | .version')
+
+        juju upgrade-controller --build-agent
+
+        attempt=0
+        while true; do
+          UPDATED=$(juju machines -m controller --format=json | jq -r '.machines | .["0"] | .["juju-status"] | .version')
+          if [ "$CURRENT" != "$UPDATED" ]; then
+              break
+          fi
+          sleep 10
+          attempt=$((attempt+1))
+          if [ "$attempt" -eq 48 ]; then
+              echo "Upgrade controller timed out"
+              exit 1
+          fi
+        done
+
+        PANIC=$(juju debug-log --replay --no-tail -m controller | grep "panic" || true)
+        if [ "$PANIC" != "" ]; then
+            echo "Panic found:"
+            juju debug-log --replay --no-tail -m controller
+            exit 1
+        fi
+
+    - name: Test upgrade model
+      if: env.RUN_TEST == 'RUN'
+      shell: bash
+      run: |
+        set -euxo pipefail
+        CURRENT="()"
+
+        attempt=0
+        while true; do
+          CURRENT=$(juju show-model default --format=json | jq -r '.default | .["agent-version"]' || echo "()")
+          if [ "$CURRENT" != "()" ]; then
+            break
+          fi
+          sleep 10
+          attempt=$((attempt+1))
+          if [ "$attempt" -eq 48 ]; then
+              echo "Show model timed out"
+              exit 1
+          fi
+        done
+
+        VERSION=$(juju version | cut -d "-" -f 1,2 | xargs -I% echo "%.1")
+        while true; do
+            juju upgrade-model --agent-version="$VERSION" 2>&1 | tee output.log || true
+            RES=$(cat output.log | grep "upgrade in progress" || echo "NOT-UPGRADING")
+            if [ "$RES" = "NOT-UPGRADING" ]; then
+                break
+            fi
+        done
+
+        attempt=0
+        while true; do
+          UPDATED=$(juju show-model default --format=json | jq -r '.default | .["agent-version"]')
+          if [ "$CURRENT" != "$UPDATED" ]; then
+              break
+          fi
+          sleep 10
+          attempt=$((attempt+1))
+          if [ "$attempt" -eq 48 ]; then
+              echo "Upgrade model timed out"
+              exit 1
+          fi
+        done
+
+        PANIC=$(juju debug-log --replay --no-tail | grep "panic" || true)
+        if [ "$PANIC" != "" ]; then
+            echo "Panic found:"
+            juju debug-log --replay --no-tail
+            exit 1
+        fi

@@ -50,7 +50,7 @@ func NewSuperCommand() cmd.Command {
 
 	metadatacmd.Register(newValidateImageMetadataCommand())
 	metadatacmd.Register(newImageMetadataCommand())
-	metadatacmd.Register(newToolsMetadataCommand())
+	metadatacmd.Register(newGenerateAgentsCommand())
 	metadatacmd.Register(newValidateToolsMetadataCommand())
 	metadatacmd.Register(newSignMetadataCommand())
 	metadatacmd.Register(newListImagesCommand())

@@ -78,62 +78,6 @@ func boolPtr(b bool) *bool {
 	return &b
 }
 
-func (s *K8sSuite) TestPushUniqueVolume(c *gc.C) {
-	podSpec := &core.PodSpec{}
-
-	vol1 := core.Volume{
-		Name: "vol1",
-		VolumeSource: core.VolumeSource{
-			EmptyDir: &core.EmptyDirVolumeSource{},
-		},
-	}
-	vol2 := core.Volume{
-		Name: "vol2",
-		VolumeSource: core.VolumeSource{
-			HostPath: &core.HostPathVolumeSource{
-				Path: "/var/log/gitlab",
-			},
-		},
-	}
-	aDifferentVol2 := core.Volume{
-		Name: "vol2",
-		VolumeSource: core.VolumeSource{
-			HostPath: &core.HostPathVolumeSource{
-				Path: "/var/log/foo",
-			},
-		},
-	}
-	err := provider.PushUniqueVolume(podSpec, vol1, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(podSpec.Volumes, jc.DeepEquals, []core.Volume{
-		vol1,
-	})
-
-	err = provider.PushUniqueVolume(podSpec, vol1, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(podSpec.Volumes, jc.DeepEquals, []core.Volume{
-		vol1,
-	})
-
-	err = provider.PushUniqueVolume(podSpec, vol2, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(podSpec.Volumes, jc.DeepEquals, []core.Volume{
-		vol1, vol2,
-	})
-
-	err = provider.PushUniqueVolume(podSpec, aDifferentVol2, false)
-	c.Assert(err, gc.ErrorMatches, `duplicated volume "vol2" not valid`)
-	c.Assert(podSpec.Volumes, jc.DeepEquals, []core.Volume{
-		vol1, vol2,
-	})
-
-	err = provider.PushUniqueVolume(podSpec, aDifferentVol2, true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(podSpec.Volumes, jc.DeepEquals, []core.Volume{
-		vol1, aDifferentVol2,
-	})
-}
-
 func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 
 	podSpec := specs.PodSpec{
@@ -153,9 +97,11 @@ func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 				ReadinessGates: []core.PodReadinessGate{
 					{ConditionType: core.PodInitialized},
 				},
-				DNSPolicy:   core.DNSClusterFirst,
-				HostNetwork: true,
-				HostPID:     true,
+				DNSPolicy:         core.DNSClusterFirst,
+				HostNetwork:       true,
+				HostPID:           true,
+				PriorityClassName: "system-cluster-critical",
+				Priority:          int32Ptr(2000000000),
 			},
 		},
 	}
@@ -189,6 +135,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 	spec, err := provider.PrepareWorkloadSpec("app-name", "app-name", &podSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider.Pod(spec), jc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
+		Labels:      map[string]string{},
 		Annotations: annotations.Annotation{},
 		PodSpec: core.PodSpec{
 			RestartPolicy:                 core.RestartPolicyOnFailure,
@@ -204,6 +151,8 @@ func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 			DNSPolicy:                    core.DNSClusterFirst,
 			HostNetwork:                  true,
 			HostPID:                      true,
+			PriorityClassName:            "system-cluster-critical",
+			Priority:                     int32Ptr(2000000000),
 			ServiceAccountName:           "app-name",
 			AutomountServiceAccountToken: boolPtr(true),
 			InitContainers:               initContainers(),
@@ -390,6 +339,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithEnvAndEnvFrom(c *gc.C) {
 	spec, err := provider.PrepareWorkloadSpec("app-name", "app-name", &podSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider.Pod(spec), jc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
+		Labels:      map[string]string{},
 		Annotations: annotations.Annotation{},
 		PodSpec: core.PodSpec{
 			RestartPolicy:                 core.RestartPolicyOnFailure,
@@ -576,6 +526,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpec(c *gc.C) {
 	podSpec.ProviderPod = &k8sspecs.K8sPodSpec{
 		KubernetesResources: &k8sspecs.KubernetesResources{
 			Pod: &k8sspecs.PodSpec{
+				Labels:                        map[string]string{"foo": "bax"},
 				Annotations:                   map[string]string{"foo": "baz"},
 				RestartPolicy:                 core.RestartPolicyOnFailure,
 				ActiveDeadlineSeconds:         int64Ptr(10),
@@ -605,6 +556,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpec(c *gc.C) {
 	spec, err := provider.PrepareWorkloadSpec("app-name", "app-name", &podSpec, "operator/image-path")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider.Pod(spec), jc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
+		Labels:      map[string]string{"foo": "bax"},
 		Annotations: map[string]string{"foo": "baz"},
 		PodSpec: core.PodSpec{
 			RestartPolicy:                 core.RestartPolicyOnFailure,
@@ -623,6 +575,43 @@ func (s *K8sSuite) TestPrepareWorkloadSpec(c *gc.C) {
 				RunAsNonRoot:       boolPtr(true),
 				SupplementalGroups: []int64{1, 2},
 			},
+			Containers: []core.Container{
+				{
+					Name:            "test",
+					Image:           "juju/image",
+					Ports:           []core.ContainerPort{{ContainerPort: int32(80), Protocol: core.ProtocolTCP}},
+					ImagePullPolicy: core.PullAlways,
+					SecurityContext: &core.SecurityContext{
+						RunAsNonRoot:             boolPtr(false),
+						ReadOnlyRootFilesystem:   boolPtr(false),
+						AllowPrivilegeEscalation: boolPtr(true),
+					},
+					VolumeMounts: dataVolumeMounts(),
+				},
+			},
+			Volumes: dataVolumes(),
+		},
+	})
+}
+
+func (s *K8sSuite) TestPrepareWorkloadSpecPrimarySA(c *gc.C) {
+	podSpec := specs.PodSpec{ServiceAccount: primeServiceAccount}
+	podSpec.Containers = []specs.ContainerSpec{
+		{
+			Name:            "test",
+			Ports:           []specs.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
+			Image:           "juju/image",
+			ImagePullPolicy: "Always",
+		},
+	}
+
+	spec, err := provider.PrepareWorkloadSpec("app-name", "app-name", &podSpec, "operator/image-path")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(provider.Pod(spec), jc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
+		PodSpec: core.PodSpec{
+			ServiceAccountName:           "app-name",
+			AutomountServiceAccountToken: boolPtr(true),
+			InitContainers:               initContainers(),
 			Containers: []core.Container{
 				{
 					Name:            "test",
@@ -669,10 +658,10 @@ func getBasicPodspec() *specs.PodSpec {
 var basicServiceArg = &core.Service{
 	ObjectMeta: v1.ObjectMeta{
 		Name:        "app-name",
-		Labels:      map[string]string{"juju-app": "app-name"},
-		Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()}},
+		Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
+		Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()}},
 	Spec: core.ServiceSpec{
-		Selector: map[string]string{"juju-app": "app-name"},
+		Selector: map[string]string{"app.kubernetes.io/name": "app-name"},
 		Type:     "nodeIP",
 		Ports: []core.ServicePort{
 			{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
@@ -686,14 +675,14 @@ var basicServiceArg = &core.Service{
 var basicHeadlessServiceArg = &core.Service{
 	ObjectMeta: v1.ObjectMeta{
 		Name:   "app-name-endpoints",
-		Labels: map[string]string{"juju-app": "app-name"},
+		Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 		Annotations: map[string]string{
-			"juju.io/controller": testing.ControllerTag.Id(),
+			"controller.juju.is/id":                                  testing.ControllerTag.Id(),
 			"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
 		},
 	},
 	Spec: core.ServiceSpec{
-		Selector:                 map[string]string{"juju-app": "app-name"},
+		Selector:                 map[string]string{"app.kubernetes.io/name": "app-name"},
 		Type:                     "ClusterIP",
 		ClusterIP:                "None",
 		PublishNotReadyAddresses: true,
@@ -723,13 +712,13 @@ func (s *K8sBrokerSuite) getOCIImageSecret(c *gc.C, annotations map[string]strin
 	if annotations == nil {
 		annotations = map[string]string{}
 	}
-	annotations["juju.io/controller"] = testing.ControllerTag.Id()
+	annotations["controller.juju.is/id"] = testing.ControllerTag.Id()
 
 	return &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        "app-name-test-secret",
 			Namespace:   "test",
-			Labels:      map[string]string{"juju-app": "app-name"},
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: annotations,
 		},
 		Type: "kubernetes.io/dockerconfigjson",
@@ -808,8 +797,8 @@ func (s *K8sBrokerSuite) assertFileSetToVolume(c *gc.C, fs specs.FileSet, result
 	}
 
 	annotations := map[string]string{
-		"fred":               "mary",
-		"juju.io/controller": testing.ControllerTag.Id(),
+		"fred":                  "mary",
+		"controller.juju.is/id": testing.ControllerTag.Id(),
 	}
 
 	gomock.InOrder(
@@ -838,10 +827,10 @@ func (s *K8sBrokerSuite) TestFileSetToVolumeFiles(c *gc.C) {
 	cm := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "configuration",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		Data: map[string]string{
@@ -1178,8 +1167,8 @@ func (s *K8sBrokerSuite) TestConfigurePodFiles(c *gc.C) {
 	}
 
 	annotations := map[string]string{
-		"fred":               "mary",
-		"juju.io/controller": testing.ControllerTag.Id(),
+		"fred":                  "mary",
+		"controller.juju.is/id": testing.ControllerTag.Id(),
 	}
 
 	err = s.broker.ConfigurePodFiles(
@@ -1459,7 +1448,7 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "tfjobs.kubeflow.org",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   "kubeflow.org",
@@ -1515,7 +1504,7 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "tfjobs.kubeflow.org",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   "kubeflow.org",
@@ -1574,29 +1563,29 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 	s.k8sWatcherFn = k8swatchertest.NewKubernetesTestWatcherFunc(namespaceWatcher)
 
 	// timer +1.
-	s.mockClusterRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-model=test"}).
+	s.mockClusterRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "model.juju.is/name=test"}).
 		Return(&rbacv1.ClusterRoleBindingList{}, nil).
 		After(
 			s.mockClusterRoleBindings.EXPECT().DeleteCollection(gomock.Any(),
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
-				v1.ListOptions{LabelSelector: "juju-model=test"},
+				v1.ListOptions{LabelSelector: "model.juju.is/name=test"},
 			).Return(s.k8sNotFoundError()),
 		)
 
 	// timer +1.
-	s.mockClusterRoles.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-model=test"}).
+	s.mockClusterRoles.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "model.juju.is/name=test"}).
 		Return(&rbacv1.ClusterRoleList{}, nil).
 		After(
 			s.mockClusterRoles.EXPECT().DeleteCollection(gomock.Any(),
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
-				v1.ListOptions{LabelSelector: "juju-model=test"},
+				v1.ListOptions{LabelSelector: "model.juju.is/name=test"},
 			).Return(s.k8sNotFoundError()),
 		)
 
 	// timer +1.
 	s.mockNamespaceableResourceClient.EXPECT().List(gomock.Any(),
 		// list all custom resources for crd "v1alpha2".
-		v1.ListOptions{LabelSelector: "juju-model=test,juju-resource-lifecycle notin (persistent)"},
+		v1.ListOptions{LabelSelector: "juju-resource-lifecycle notin (persistent),model.juju.is/name=test"},
 	).Return(&unstructured.UnstructuredList{}, nil).After(
 		s.mockDynamicClient.EXPECT().Resource(
 			schema.GroupVersionResource{
@@ -1608,7 +1597,7 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 	).After(
 		// list all custom resources for crd "v1".
 		s.mockNamespaceableResourceClient.EXPECT().List(gomock.Any(),
-			v1.ListOptions{LabelSelector: "juju-model=test,juju-resource-lifecycle notin (persistent)"},
+			v1.ListOptions{LabelSelector: "juju-resource-lifecycle notin (persistent),model.juju.is/name=test"},
 		).Return(&unstructured.UnstructuredList{}, nil),
 	).After(
 		s.mockDynamicClient.EXPECT().Resource(
@@ -1626,7 +1615,7 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 		// delete all custom resources for crd "v1alpha2".
 		s.mockNamespaceableResourceClient.EXPECT().DeleteCollection(gomock.Any(),
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-model=test,juju-resource-lifecycle notin (persistent)"},
+			v1.ListOptions{LabelSelector: "juju-resource-lifecycle notin (persistent),model.juju.is/name=test"},
 		).Return(nil),
 	).After(
 		s.mockDynamicClient.EXPECT().Resource(
@@ -1640,7 +1629,7 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 		// delete all custom resources for crd "v1".
 		s.mockNamespaceableResourceClient.EXPECT().DeleteCollection(gomock.Any(),
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-model=test,juju-resource-lifecycle notin (persistent)"},
+			v1.ListOptions{LabelSelector: "juju-resource-lifecycle notin (persistent),model.juju.is/name=test"},
 		).Return(nil),
 	).After(
 		s.mockDynamicClient.EXPECT().Resource(
@@ -1658,43 +1647,43 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 
 	// timer +1.
 	s.mockCustomResourceDefinition.EXPECT().List(gomock.Any(), v1.ListOptions{
-		LabelSelector: "juju-model=test,juju-resource-lifecycle notin (persistent)",
+		LabelSelector: "juju-resource-lifecycle notin (persistent),model.juju.is/name=test",
 	}).AnyTimes().
 		Return(&apiextensionsv1beta1.CustomResourceDefinitionList{}, nil).
 		After(
 			s.mockCustomResourceDefinition.EXPECT().DeleteCollection(gomock.Any(),
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
-				v1.ListOptions{LabelSelector: "juju-model=test,juju-resource-lifecycle notin (persistent)"},
+				v1.ListOptions{LabelSelector: "juju-resource-lifecycle notin (persistent),model.juju.is/name=test"},
 			).Return(s.k8sNotFoundError()),
 		)
 
 	// timer +1.
-	s.mockMutatingWebhookConfiguration.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-model=test"}).
+	s.mockMutatingWebhookConfiguration.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "model.juju.is/name=test"}).
 		Return(&admissionregistrationv1beta1.MutatingWebhookConfigurationList{}, nil).
 		After(
 			s.mockMutatingWebhookConfiguration.EXPECT().DeleteCollection(gomock.Any(),
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
-				v1.ListOptions{LabelSelector: "juju-model=test"},
+				v1.ListOptions{LabelSelector: "model.juju.is/name=test"},
 			).Return(s.k8sNotFoundError()),
 		)
 
 	// timer +1.
-	s.mockValidatingWebhookConfiguration.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-model=test"}).
+	s.mockValidatingWebhookConfiguration.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "model.juju.is/name=test"}).
 		Return(&admissionregistrationv1beta1.ValidatingWebhookConfigurationList{}, nil).
 		After(
 			s.mockValidatingWebhookConfiguration.EXPECT().DeleteCollection(gomock.Any(),
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
-				v1.ListOptions{LabelSelector: "juju-model=test"},
+				v1.ListOptions{LabelSelector: "model.juju.is/name=test"},
 			).Return(s.k8sNotFoundError()),
 		)
 
 	// timer +1.
-	s.mockStorageClass.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-model=test"}).
+	s.mockStorageClass.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "model.juju.is/name=test"}).
 		Return(&storagev1.StorageClassList{}, nil).
 		After(
 			s.mockStorageClass.EXPECT().DeleteCollection(gomock.Any(),
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
-				v1.ListOptions{LabelSelector: "juju-model=test"},
+				v1.ListOptions{LabelSelector: "model.juju.is/name=test"},
 			).Return(nil),
 		)
 
@@ -1755,7 +1744,7 @@ func (s *K8sBrokerSuite) TestCreate(c *gc.C) {
 
 	ns := s.ensureJujuNamespaceAnnotations(false, &core.Namespace{
 		ObjectMeta: v1.ObjectMeta{
-			Labels: utils.LabelsForModel("test"),
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "model.juju.is/name": "test"},
 			Name:   "test",
 		},
 	})
@@ -1777,7 +1766,7 @@ func (s *K8sBrokerSuite) TestCreateAlreadyExists(c *gc.C) {
 
 	ns := s.ensureJujuNamespaceAnnotations(false, &core.Namespace{
 		ObjectMeta: v1.ObjectMeta{
-			Labels: utils.LabelsForModel("test"),
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "model.juju.is/name": "test"},
 			Name:   "test",
 		},
 	})
@@ -1797,37 +1786,38 @@ func unitStatefulSetArg(numUnits int32, scName string, podSpec core.PodSpec) *ap
 	return &appsv1.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju-app-uuid":                  "appuuid",
-				"juju.io/controller":             testing.ControllerTag.Id(),
-				"juju.io/charm-modified-version": "0",
+				"app.juju.is/uuid":               "appuuid",
+				"controller.juju.is/id":          testing.ControllerTag.Id(),
+				"charm.juju.is/modified-version": "0",
 			},
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "app-name"},
+				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
 			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels: map[string]string{"juju-app": "app-name"},
+					Labels: map[string]string{"app.kubernetes.io/name": "app-name"},
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"juju.io/controller":                       testing.ControllerTag.Id(),
-						"juju.io/charm-modified-version":           "0",
+						"controller.juju.is/id":                    testing.ControllerTag.Id(),
+						"charm.juju.is/modified-version":           "0",
 					},
 				},
 				Spec: podSpec,
 			},
 			VolumeClaimTemplates: []core.PersistentVolumeClaim{{
 				ObjectMeta: v1.ObjectMeta{
-					Name: "database-appuuid",
+					Name:   "database-appuuid",
+					Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "storage.juju.is/name": "database"},
 					Annotations: map[string]string{
-						"foo":          "bar",
-						"juju-storage": "database",
+						"foo":                  "bar",
+						"storage.juju.is/name": "database",
 					}},
 				Spec: core.PersistentVolumeClaimSpec{
 					StorageClassName: &scName,
@@ -1853,7 +1843,7 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "tfjobs.kubeflow.org",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.kubernetes.io/name": "test"},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   "kubeflow.org",
@@ -1921,48 +1911,48 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 
 		s.mockStatefulSets.EXPECT().DeleteCollection(gomock.Any(),
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app=test"},
+			v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=test"},
 		).Return(nil),
 		s.mockDeployments.EXPECT().DeleteCollection(gomock.Any(),
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app=test"},
+			v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=test"},
 		).Return(nil),
 
-		s.mockServices.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-app=test"}).
+		s.mockServices.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=test"}).
 			Return(&core.ServiceList{}, nil),
 
 		// delete secrets.
 		s.mockSecrets.EXPECT().DeleteCollection(gomock.Any(),
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app=test"},
+			v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=test"},
 		).Return(nil),
 
 		// delete configmaps.
 		s.mockConfigMaps.EXPECT().DeleteCollection(gomock.Any(),
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app=test"},
+			v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=test"},
 		).Return(nil),
 
 		// delete RBAC resources.
 		s.mockRoleBindings.EXPECT().DeleteCollection(gomock.Any(),
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app=test"},
+			v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=test"},
 		).Return(nil),
 		s.mockClusterRoleBindings.EXPECT().DeleteCollection(gomock.Any(),
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app=test,juju-model=test"},
+			v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=test,model.juju.is/name=test"},
 		).Return(nil),
 		s.mockRoles.EXPECT().DeleteCollection(gomock.Any(),
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app=test"},
+			v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=test"},
 		).Return(nil),
 		s.mockClusterRoles.EXPECT().DeleteCollection(gomock.Any(),
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app=test,juju-model=test"},
+			v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=test,model.juju.is/name=test"},
 		).Return(nil),
 		s.mockServiceAccounts.EXPECT().DeleteCollection(gomock.Any(),
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app=test"},
+			v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=test"},
 		).Return(nil),
 
 		// list cluster wide all custom resource definitions for deleting custom resources.
@@ -1978,7 +1968,7 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 		).Return(s.mockNamespaceableResourceClient),
 		s.mockResourceClient.EXPECT().DeleteCollection(gomock.Any(),
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app=test,juju-resource-lifecycle notin (model,persistent)"},
+			v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=test,juju-resource-lifecycle notin (model,persistent)"},
 		).Return(nil),
 		// delete all custom resources for crd "v1alpha2".
 		s.mockDynamicClient.EXPECT().Resource(
@@ -1990,37 +1980,37 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 		).Return(s.mockNamespaceableResourceClient),
 		s.mockResourceClient.EXPECT().DeleteCollection(gomock.Any(),
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app=test,juju-resource-lifecycle notin (model,persistent)"},
+			v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=test,juju-resource-lifecycle notin (model,persistent)"},
 		).Return(nil),
 
 		// delete all custom resource definitions.
 		s.mockCustomResourceDefinition.EXPECT().DeleteCollection(gomock.Any(),
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app=test,juju-model=test,juju-resource-lifecycle notin (model,persistent)"},
+			v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=test,juju-resource-lifecycle notin (model,persistent),model.juju.is/name=test"},
 		).Return(nil),
 
 		// delete all mutating webhook configurations.
 		s.mockMutatingWebhookConfiguration.EXPECT().DeleteCollection(gomock.Any(),
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app=test,juju-model=test"},
+			v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=test,model.juju.is/name=test"},
 		).Return(nil),
 
 		// delete all validating webhook configurations.
 		s.mockValidatingWebhookConfiguration.EXPECT().DeleteCollection(gomock.Any(),
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app=test,juju-model=test"},
+			v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=test,model.juju.is/name=test"},
 		).Return(nil),
 
 		// delete all ingress resources.
 		s.mockIngressInterface.EXPECT().DeleteCollection(gomock.Any(),
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app=test"},
+			v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=test"},
 		).Return(nil),
 
 		// delete all daemon set resources.
 		s.mockDaemonSets.EXPECT().DeleteCollection(gomock.Any(),
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app=test"},
+			v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=test"},
 		).Return(nil),
 	)
 
@@ -2073,32 +2063,30 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
 				"fred":                           "mary",
-				"juju.io/controller":             testing.ControllerTag.Id(),
-				"juju-app-uuid":                  "appuuid",
-				"juju.io/charm-modified-version": "0",
+				"controller.juju.is/id":          testing.ControllerTag.Id(),
+				"app.juju.is/uuid":               "appuuid",
+				"charm.juju.is/modified-version": "0",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "app-name"},
+				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
 			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: "app-name-",
-					Labels: map[string]string{
-						"juju-app": "app-name",
-					},
+					Labels:       map[string]string{"app.kubernetes.io/name": "app-name"},
 					Annotations: map[string]string{
 						"foo": "baz",
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 						"fred":                           "mary",
-						"juju.io/controller":             testing.ControllerTag.Id(),
-						"juju.io/charm-modified-version": "0",
+						"controller.juju.is/id":          testing.ControllerTag.Id(),
+						"charm.juju.is/modified-version": "0",
 					},
 				},
 				Spec: podSpec,
@@ -2108,14 +2096,14 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 	serviceArg := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"fred":               "mary",
-				"a":                  "b",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"a":                     "b",
 			}},
 		Spec: core.ServiceSpec{
-			Selector: map[string]string{"juju-app": "app-name"},
+			Selector: map[string]string{"app.kubernetes.io/name": "app-name"},
 			Type:     "nodeIP",
 			Ports: []core.ServicePort{
 				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
@@ -2189,31 +2177,29 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithUpdateStrategy(c *gc.
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
 				"fred":                           "mary",
-				"juju.io/controller":             testing.ControllerTag.Id(),
-				"juju-app-uuid":                  "appuuid",
-				"juju.io/charm-modified-version": "0",
+				"controller.juju.is/id":          testing.ControllerTag.Id(),
+				"app.juju.is/uuid":               "appuuid",
+				"charm.juju.is/modified-version": "0",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "app-name"},
+				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
 			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: "app-name-",
-					Labels: map[string]string{
-						"juju-app": "app-name",
-					},
+					Labels:       map[string]string{"app.kubernetes.io/name": "app-name"},
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 						"fred":                           "mary",
-						"juju.io/controller":             testing.ControllerTag.Id(),
-						"juju.io/charm-modified-version": "0",
+						"controller.juju.is/id":          testing.ControllerTag.Id(),
+						"charm.juju.is/modified-version": "0",
 					},
 				},
 				Spec: podSpec,
@@ -2230,14 +2216,14 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithUpdateStrategy(c *gc.
 	serviceArg := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"fred":               "mary",
-				"a":                  "b",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"a":                     "b",
 			}},
 		Spec: core.ServiceSpec{
-			Selector: map[string]string{"juju-app": "app-name"},
+			Selector: map[string]string{"app.kubernetes.io/name": "app-name"},
 			Type:     "nodeIP",
 			Ports: []core.ServicePort{
 				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
@@ -2390,31 +2376,29 @@ password: shhhh`[1:],
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller":             testing.ControllerTag.Id(),
+				"controller.juju.is/id":          testing.ControllerTag.Id(),
 				"fred":                           "mary",
-				"juju-app-uuid":                  "appuuid",
-				"juju.io/charm-modified-version": "0",
+				"app.juju.is/uuid":               "appuuid",
+				"charm.juju.is/modified-version": "0",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "app-name"},
+				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
 			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: "app-name-",
-					Labels: map[string]string{
-						"juju-app": "app-name",
-					},
+					Labels:       map[string]string{"app.kubernetes.io/name": "app-name"},
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 						"fred":                           "mary",
-						"juju.io/controller":             testing.ControllerTag.Id(),
-						"juju.io/charm-modified-version": "0",
+						"controller.juju.is/id":          testing.ControllerTag.Id(),
+						"charm.juju.is/modified-version": "0",
 					},
 				},
 				Spec: podSpec,
@@ -2424,14 +2408,14 @@ password: shhhh`[1:],
 	serviceArg := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"fred":               "mary",
-				"a":                  "b",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"a":                     "b",
 			}},
 		Spec: core.ServiceSpec{
-			Selector: map[string]string{"juju-app": "app-name"},
+			Selector: map[string]string{"app.kubernetes.io/name": "app-name"},
 			Type:     "nodeIP",
 			Ports: []core.ServicePort{
 				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
@@ -2445,14 +2429,14 @@ password: shhhh`[1:],
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "my-service1",
 			Namespace: "test",
-			Labels:    map[string]string{"foo": "bar", "juju-app": "app-name"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "foo": "bar"},
 			Annotations: map[string]string{
-				"juju.io/controller":                  testing.ControllerTag.Id(),
+				"controller.juju.is/id":               testing.ControllerTag.Id(),
 				"fred":                                "mary",
 				"cloud.google.com/load-balancer-type": "Internal",
 			}},
 		Spec: core.ServiceSpec{
-			Selector: map[string]string{"app": "MyApp"},
+			Selector: utils.LabelForKeyValue("app", "MyApp"),
 			Type:     core.ServiceTypeLoadBalancer,
 			Ports: []core.ServicePort{
 				{
@@ -2468,10 +2452,10 @@ password: shhhh`[1:],
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "myData",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"fred":               "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
+				"fred":                  "mary",
 			},
 		},
 		Data: map[string]string{
@@ -2483,10 +2467,10 @@ password: shhhh`[1:],
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "build-robot-secret",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"fred":               "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
+				"fred":                  "mary",
 			},
 		},
 		Type: core.SecretTypeOpaque,
@@ -2509,10 +2493,10 @@ password: shhhh`[1:],
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "another-build-robot-secret",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"fred":               "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
+				"fred":                  "mary",
 			},
 		},
 		Type: core.SecretTypeOpaque,
@@ -2641,31 +2625,29 @@ password: shhhh`[1:],
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller":             testing.ControllerTag.Id(),
+				"controller.juju.is/id":          testing.ControllerTag.Id(),
 				"fred":                           "mary",
-				"juju-app-uuid":                  "appuuid",
-				"juju.io/charm-modified-version": "0",
+				"app.juju.is/uuid":               "appuuid",
+				"charm.juju.is/modified-version": "0",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "app-name"},
+				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
 			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: "app-name-",
-					Labels: map[string]string{
-						"juju-app": "app-name",
-					},
+					Labels:       map[string]string{"app.kubernetes.io/name": "app-name"},
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 						"fred":                           "mary",
-						"juju.io/controller":             testing.ControllerTag.Id(),
-						"juju.io/charm-modified-version": "0",
+						"controller.juju.is/id":          testing.ControllerTag.Id(),
+						"charm.juju.is/modified-version": "0",
 					},
 				},
 				Spec: podSpec,
@@ -2675,14 +2657,14 @@ password: shhhh`[1:],
 	serviceArg := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"fred":               "mary",
-				"a":                  "b",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"a":                     "b",
 			}},
 		Spec: core.ServiceSpec{
-			Selector: map[string]string{"juju-app": "app-name"},
+			Selector: map[string]string{"app.kubernetes.io/name": "app-name"},
 			Type:     "nodeIP",
 			Ports: []core.ServicePort{
 				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
@@ -2697,14 +2679,14 @@ password: shhhh`[1:],
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "my-service1",
 			Namespace: "test",
-			Labels:    map[string]string{"foo": "bar", "juju-app": "app-name"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "foo": "bar"},
 			Annotations: map[string]string{
-				"juju.io/controller":                  testing.ControllerTag.Id(),
+				"controller.juju.is/id":               testing.ControllerTag.Id(),
 				"fred":                                "mary",
 				"cloud.google.com/load-balancer-type": "Internal",
 			}},
 		Spec: core.ServiceSpec{
-			Selector: map[string]string{"app": "MyApp"},
+			Selector: utils.LabelForKeyValue("app", "MyApp"),
 			Type:     core.ServiceTypeLoadBalancer,
 			Ports: []core.ServicePort{
 				{
@@ -2720,10 +2702,10 @@ password: shhhh`[1:],
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "myData",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"fred":               "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
+				"fred":                  "mary",
 			},
 		},
 		Data: map[string]string{
@@ -2735,10 +2717,10 @@ password: shhhh`[1:],
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "build-robot-secret",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"fred":               "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
+				"fred":                  "mary",
 			},
 		},
 		Type: core.SecretTypeOpaque,
@@ -2761,10 +2743,10 @@ password: shhhh`[1:],
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "another-build-robot-secret",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"fred":               "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
+				"fred":                  "mary",
 			},
 		},
 		Type: core.SecretTypeOpaque,
@@ -2785,7 +2767,7 @@ password: shhhh`[1:],
 		// ensure configmaps.
 		s.mockConfigMaps.EXPECT().Create(gomock.Any(), cm, v1.CreateOptions{}).
 			Return(nil, s.k8sAlreadyExistsError()),
-		s.mockConfigMaps.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-app=app-name"}).
+		s.mockConfigMaps.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name"}).
 			Return(&core.ConfigMapList{Items: []core.ConfigMap{*cm}}, nil),
 		s.mockConfigMaps.EXPECT().Update(gomock.Any(), cm, v1.UpdateOptions{}).
 			Return(cm, nil),
@@ -2793,13 +2775,13 @@ password: shhhh`[1:],
 		// ensure secrets.
 		s.mockSecrets.EXPECT().Create(gomock.Any(), secrets1, v1.CreateOptions{}).
 			Return(nil, s.k8sAlreadyExistsError()),
-		s.mockSecrets.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-app=app-name"}).
+		s.mockSecrets.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name"}).
 			Return(&core.SecretList{Items: []core.Secret{*secrets1}}, nil),
 		s.mockSecrets.EXPECT().Update(gomock.Any(), secrets1, v1.UpdateOptions{}).
 			Return(secrets1, nil),
 		s.mockSecrets.EXPECT().Create(gomock.Any(), secrets2, v1.CreateOptions{}).
 			Return(nil, s.k8sAlreadyExistsError()),
-		s.mockSecrets.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-app=app-name"}).
+		s.mockSecrets.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name"}).
 			Return(&core.SecretList{Items: []core.Secret{*secrets2}}, nil),
 		s.mockSecrets.EXPECT().Update(gomock.Any(), secrets2, v1.UpdateOptions{}).
 			Return(secrets2, nil),
@@ -2859,7 +2841,7 @@ func (s *K8sBrokerSuite) TestGetServiceSvcNotFound(c *gc.C) {
 	defer ctrl.Finish()
 
 	gomock.InOrder(
-		s.mockServices.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-app=app-name"}).
+		s.mockServices.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name"}).
 			Return(&core.ServiceList{Items: []core.Service{}}, nil),
 
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", v1.GetOptions{}).
@@ -2879,23 +2861,25 @@ func (s *K8sBrokerSuite) TestGetServiceSvcNotFound(c *gc.C) {
 }
 
 func (s *K8sBrokerSuite) assertGetService(c *gc.C, mode caas.DeploymentMode, expectedSvcResult *caas.Service, assertCalls ...*gomock.Call) {
-	labels := map[string]string{"juju-app": "app-name"}
-	selector := "juju-app=app-name"
+	selectorLabels := map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"}
 	if mode == caas.ModeOperator {
-		labels = map[string]string{"juju-operator": "app-name"}
-		selector = "juju-operator=app-name"
+		selectorLabels = map[string]string{
+			"app.kubernetes.io/managed-by": "juju", "operator.juju.is/name": "app-name", "operator.juju.is/target": "application"}
 	}
+	labels := utils.LabelsMerge(selectorLabels, utils.LabelsJuju)
+
+	selector := utils.LabelsToSelector(labels).String()
 	svc := core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
 			Labels: labels,
 			Annotations: map[string]string{
-				"juju.io/controller": testing.ControllerTag.Id(),
-				"fred":               "mary",
-				"a":                  "b",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"a":                     "b",
 			}},
 		Spec: core.ServiceSpec{
-			Selector: labels,
+			Selector: selectorLabels,
 			Type:     core.ServiceTypeLoadBalancer,
 			Ports: []core.ServicePort{
 				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
@@ -2970,26 +2954,26 @@ func (s *K8sBrokerSuite) assertGetServiceSvcFoundWithStatefulSet(c *gc.C, mode c
 	workload := &appsv1.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   appName,
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju-app-uuid":                  "appuuid",
-				"juju.io/controller":             testing.ControllerTag.Id(),
-				"juju.io/charm-modified-version": "0",
+				"app.juju.is/uuid":               "appuuid",
+				"controller.juju.is/id":          testing.ControllerTag.Id(),
+				"charm.juju.is/modified-version": "0",
 			},
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "app-name"},
+				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels: map[string]string{"juju-app": "app-name"},
+					Labels: map[string]string{"app.kubernetes.io/name": "app-name"},
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"juju.io/controller":                       testing.ControllerTag.Id(),
-						"juju.io/charm-modified-version":           "0",
+						"controller.juju.is/id":                    testing.ControllerTag.Id(),
+						"charm.juju.is/modified-version":           "0",
 					},
 				},
 				Spec: podSpec,
@@ -3060,29 +3044,27 @@ func (s *K8sBrokerSuite) assertGetServiceSvcFoundWithDeployment(c *gc.C, mode ca
 	workload := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   appName,
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller":             testing.ControllerTag.Id(),
+				"controller.juju.is/id":          testing.ControllerTag.Id(),
 				"fred":                           "mary",
-				"juju.io/charm-modified-version": "0",
+				"charm.juju.is/modified-version": "0",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "app-name"},
+				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: "app-name-",
-					Labels: map[string]string{
-						"juju-app": "app-name",
-					},
+					Labels:       map[string]string{"app.kubernetes.io/name": "app-name"},
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 						"fred":                           "mary",
-						"juju.io/controller":             testing.ControllerTag.Id(),
-						"juju.io/charm-modified-version": "0",
+						"controller.juju.is/id":          testing.ControllerTag.Id(),
+						"charm.juju.is/modified-version": "0",
 					},
 				},
 				Spec: podSpec,
@@ -3140,25 +3122,25 @@ func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithDaemonSet(c *gc.C) {
 	workload := &appsv1.DaemonSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller":             testing.ControllerTag.Id(),
-				"juju.io/charm-modified-version": "0",
+				"controller.juju.is/id":          testing.ControllerTag.Id(),
+				"charm.juju.is/modified-version": "0",
 			},
 		},
 		Spec: appsv1.DaemonSetSpec{
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "app-name"},
+				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: "app-name-",
-					Labels:       map[string]string{"juju-app": "app-name"},
+					Labels:       map[string]string{"app.kubernetes.io/name": "app-name"},
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"juju.io/controller":                       testing.ControllerTag.Id(),
-						"juju.io/charm-modified-version":           "0",
+						"controller.juju.is/id":                    testing.ControllerTag.Id(),
+						"charm.juju.is/modified-version":           "0",
 					},
 				},
 				Spec: podSpec,
@@ -3212,27 +3194,27 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorageStateful(c *gc.C) {
 	statefulSetArg := &appsv1.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju-app-uuid":                  "appuuid",
-				"juju.io/controller":             testing.ControllerTag.Id(),
-				"juju.io/charm-modified-version": "0",
+				"app.juju.is/uuid":               "appuuid",
+				"controller.juju.is/id":          testing.ControllerTag.Id(),
+				"charm.juju.is/modified-version": "0",
 			},
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "app-name"},
+				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
 			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels: map[string]string{"juju-app": "app-name"},
+					Labels: map[string]string{"app.kubernetes.io/name": "app-name"},
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"juju.io/controller":                       testing.ControllerTag.Id(),
-						"juju.io/charm-modified-version":           "0",
+						"controller.juju.is/id":                    testing.ControllerTag.Id(),
+						"charm.juju.is/modified-version":           "0",
 					},
 				},
 				Spec: podSpec,
@@ -3296,27 +3278,27 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomType(c *gc.C) {
 	statefulSetArg := &appsv1.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju-app-uuid":                  "appuuid",
-				"juju.io/controller":             testing.ControllerTag.Id(),
-				"juju.io/charm-modified-version": "0",
+				"app.juju.is/uuid":               "appuuid",
+				"controller.juju.is/id":          testing.ControllerTag.Id(),
+				"charm.juju.is/modified-version": "0",
 			},
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "app-name"},
+				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
 			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels: map[string]string{"juju-app": "app-name"},
+					Labels: map[string]string{"app.kubernetes.io/name": "app-name"},
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"juju.io/controller":                       testing.ControllerTag.Id(),
-						"juju.io/charm-modified-version":           "0",
+						"controller.juju.is/id":                    testing.ControllerTag.Id(),
+						"charm.juju.is/modified-version":           "0",
 					},
 				},
 				Spec: podSpec,
@@ -3335,7 +3317,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomType(c *gc.C) {
 		s.mockSecrets.EXPECT().Create(gomock.Any(), ociImageSecret, v1.CreateOptions{}).
 			Return(ociImageSecret, nil),
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-app-uuid": "appuuid"}}}, nil),
+			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"app.juju.is/uuid": "appuuid"}}}, nil),
 		s.mockServices.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Update(gomock.Any(), &serviceArg, v1.UpdateOptions{}).
@@ -3428,31 +3410,29 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
 				"fred":                           "mary",
-				"juju.io/controller":             testing.ControllerTag.Id(),
-				"juju-app-uuid":                  "appuuid",
-				"juju.io/charm-modified-version": "0",
+				"controller.juju.is/id":          testing.ControllerTag.Id(),
+				"app.juju.is/uuid":               "appuuid",
+				"charm.juju.is/modified-version": "0",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "app-name"},
+				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
 			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: "app-name-",
-					Labels: map[string]string{
-						"juju-app": "app-name",
-					},
+					Labels:       map[string]string{"app.kubernetes.io/name": "app-name"},
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 						"fred":                           "mary",
-						"juju.io/controller":             testing.ControllerTag.Id(),
-						"juju.io/charm-modified-version": "0",
+						"controller.juju.is/id":          testing.ControllerTag.Id(),
+						"charm.juju.is/modified-version": "0",
 					},
 				},
 				Spec: provider.Pod(workloadSpec).PodSpec,
@@ -3462,14 +3442,14 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 	serviceArg := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"a":                  "b",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"a":                     "b",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			}},
 		Spec: core.ServiceSpec{
-			Selector: map[string]string{"juju-app": "app-name"},
+			Selector: map[string]string{"app.kubernetes.io/name": "app-name"},
 			Type:     "nodeIP",
 			Ports: []core.ServicePort{
 				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
@@ -3484,10 +3464,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		AutomountServiceAccountToken: boolPtr(true),
@@ -3496,10 +3476,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -3514,10 +3494,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -3539,7 +3519,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), svcAccount, v1.CreateOptions{}).Return(svcAccount, nil),
 		s.mockRoles.EXPECT().Create(gomock.Any(), role, v1.CreateOptions{}).Return(role, nil),
-		s.mockRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-app=app-name"}).
+		s.mockRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name"}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
 		s.mockRoleBindings.EXPECT().Create(gomock.Any(), rb, v1.CreateOptions{}).Return(rb, nil),
 		s.mockSecrets.EXPECT().Create(gomock.Any(), secretArg, v1.CreateOptions{}).Return(secretArg, nil),
@@ -3590,31 +3570,29 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
 				"fred":                           "mary",
-				"juju.io/controller":             testing.ControllerTag.Id(),
-				"juju-app-uuid":                  "appuuid",
-				"juju.io/charm-modified-version": "0",
+				"controller.juju.is/id":          testing.ControllerTag.Id(),
+				"app.juju.is/uuid":               "appuuid",
+				"charm.juju.is/modified-version": "0",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "app-name"},
+				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
 			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: "app-name-",
-					Labels: map[string]string{
-						"juju-app": "app-name",
-					},
+					Labels:       map[string]string{"app.kubernetes.io/name": "app-name"},
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 						"fred":                           "mary",
-						"juju.io/controller":             testing.ControllerTag.Id(),
-						"juju.io/charm-modified-version": "0",
+						"controller.juju.is/id":          testing.ControllerTag.Id(),
+						"charm.juju.is/modified-version": "0",
 					},
 				},
 				Spec: provider.Pod(workloadSpec).PodSpec,
@@ -3624,14 +3602,14 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 	serviceArg := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"a":                  "b",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"a":                     "b",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			}},
 		Spec: core.ServiceSpec{
-			Selector: map[string]string{"juju-app": "app-name"},
+			Selector: map[string]string{"app.kubernetes.io/name": "app-name"},
 			Type:     "nodeIP",
 			Ports: []core.ServicePort{
 				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
@@ -3646,10 +3624,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		AutomountServiceAccountToken: boolPtr(true),
@@ -3658,10 +3636,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -3676,10 +3654,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -3701,14 +3679,14 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), svcAccount, v1.CreateOptions{}).Return(nil, s.k8sAlreadyExistsError()),
-		s.mockServiceAccounts.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-app=app-name"}).
+		s.mockServiceAccounts.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name"}).
 			Return(&core.ServiceAccountList{Items: []core.ServiceAccount{*svcAccount}}, nil),
 		s.mockServiceAccounts.EXPECT().Update(gomock.Any(), svcAccount, v1.UpdateOptions{}).Return(svcAccount, nil),
 		s.mockRoles.EXPECT().Create(gomock.Any(), role, v1.CreateOptions{}).Return(nil, s.k8sAlreadyExistsError()),
-		s.mockRoles.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-app=app-name"}).
+		s.mockRoles.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name"}).
 			Return(&rbacv1.RoleList{Items: []rbacv1.Role{*role}}, nil),
 		s.mockRoles.EXPECT().Update(gomock.Any(), role, v1.UpdateOptions{}).Return(role, nil),
-		s.mockRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-app=app-name"}).
+		s.mockRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name"}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{*rb}}, nil),
 		s.mockRoleBindings.EXPECT().Delete(gomock.Any(), "app-name", s.deleteOptions(v1.DeletePropagationForeground, rbUID)).Return(nil),
 		s.mockRoleBindings.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).Return(rb, nil),
@@ -3790,31 +3768,29 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
 				"fred":                           "mary",
-				"juju.io/controller":             testing.ControllerTag.Id(),
-				"juju-app-uuid":                  "appuuid",
-				"juju.io/charm-modified-version": "0",
+				"controller.juju.is/id":          testing.ControllerTag.Id(),
+				"app.juju.is/uuid":               "appuuid",
+				"charm.juju.is/modified-version": "0",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "app-name"},
+				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
 			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: "app-name-",
-					Labels: map[string]string{
-						"juju-app": "app-name",
-					},
+					Labels:       map[string]string{"app.kubernetes.io/name": "app-name"},
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 						"fred":                           "mary",
-						"juju.io/controller":             testing.ControllerTag.Id(),
-						"juju.io/charm-modified-version": "0",
+						"controller.juju.is/id":          testing.ControllerTag.Id(),
+						"charm.juju.is/modified-version": "0",
 					},
 				},
 				Spec: provider.Pod(workloadSpec).PodSpec,
@@ -3824,14 +3800,14 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 	serviceArg := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"a":                  "b",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"a":                     "b",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			}},
 		Spec: core.ServiceSpec{
-			Selector: map[string]string{"juju-app": "app-name"},
+			Selector: map[string]string{"app.kubernetes.io/name": "app-name"},
 			Type:     "nodeIP",
 			Ports: []core.ServicePort{
 				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
@@ -3846,10 +3822,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		AutomountServiceAccountToken: boolPtr(true),
@@ -3858,10 +3834,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "test-app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -3876,10 +3852,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name-test-app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -3901,7 +3877,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), svcAccount, v1.CreateOptions{}).Return(svcAccount, nil),
 		s.mockClusterRoles.EXPECT().Create(gomock.Any(), cr, v1.CreateOptions{}).Return(cr, nil),
-		s.mockClusterRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-app=app-name,juju-model=test"}).
+		s.mockClusterRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name,model.juju.is/name=test"}).
 			Return(&rbacv1.ClusterRoleBindingList{Items: []rbacv1.ClusterRoleBinding{}}, nil),
 		s.mockClusterRoleBindings.EXPECT().Create(gomock.Any(), crb, v1.CreateOptions{}).Return(crb, nil),
 		s.mockSecrets.EXPECT().Create(gomock.Any(), secretArg, v1.CreateOptions{}).Return(secretArg, nil),
@@ -3968,31 +3944,29 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
 				"fred":                           "mary",
-				"juju.io/controller":             testing.ControllerTag.Id(),
-				"juju-app-uuid":                  "appuuid",
-				"juju.io/charm-modified-version": "0",
+				"controller.juju.is/id":          testing.ControllerTag.Id(),
+				"app.juju.is/uuid":               "appuuid",
+				"charm.juju.is/modified-version": "0",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "app-name"},
+				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
 			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: "app-name-",
-					Labels: map[string]string{
-						"juju-app": "app-name",
-					},
+					Labels:       map[string]string{"app.kubernetes.io/name": "app-name"},
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 						"fred":                           "mary",
-						"juju.io/controller":             testing.ControllerTag.Id(),
-						"juju.io/charm-modified-version": "0",
+						"controller.juju.is/id":          testing.ControllerTag.Id(),
+						"charm.juju.is/modified-version": "0",
 					},
 				},
 				Spec: provider.Pod(workloadSpec).PodSpec,
@@ -4002,14 +3976,14 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 	serviceArg := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"a":                  "b",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"a":                     "b",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			}},
 		Spec: core.ServiceSpec{
-			Selector: map[string]string{"juju-app": "app-name"},
+			Selector: map[string]string{"app.kubernetes.io/name": "app-name"},
 			Type:     "nodeIP",
 			Ports: []core.ServicePort{
 				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
@@ -4024,10 +3998,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		AutomountServiceAccountToken: boolPtr(true),
@@ -4036,10 +4010,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "test-app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -4054,10 +4028,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name-test-app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -4079,14 +4053,14 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), svcAccount, v1.CreateOptions{}).Return(nil, s.k8sAlreadyExistsError()),
-		s.mockServiceAccounts.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-app=app-name"}).
+		s.mockServiceAccounts.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name"}).
 			Return(&core.ServiceAccountList{Items: []core.ServiceAccount{*svcAccount}}, nil),
 		s.mockServiceAccounts.EXPECT().Update(gomock.Any(), svcAccount, v1.UpdateOptions{}).Return(svcAccount, nil),
 		s.mockClusterRoles.EXPECT().Create(gomock.Any(), cr, v1.CreateOptions{}).Return(nil, s.k8sAlreadyExistsError()),
-		s.mockClusterRoles.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-app=app-name,juju-model=test"}).
+		s.mockClusterRoles.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name,model.juju.is/name=test"}).
 			Return(&rbacv1.ClusterRoleList{Items: []rbacv1.ClusterRole{*cr}}, nil),
 		s.mockClusterRoles.EXPECT().Update(gomock.Any(), cr, v1.UpdateOptions{}).Return(cr, nil),
-		s.mockClusterRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-app=app-name,juju-model=test"}).
+		s.mockClusterRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name,model.juju.is/name=test"}).
 			Return(&rbacv1.ClusterRoleBindingList{Items: []rbacv1.ClusterRoleBinding{*crb}}, nil),
 		s.mockClusterRoleBindings.EXPECT().Delete(gomock.Any(), "app-name-test-app-name", s.deleteOptions(v1.DeletePropagationForeground, crbUID)).Return(nil),
 		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), "app-name-test-app-name", v1.GetOptions{}).Return(crb, nil),
@@ -4180,31 +4154,29 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
 				"fred":                           "mary",
-				"juju.io/controller":             testing.ControllerTag.Id(),
-				"juju-app-uuid":                  "appuuid",
-				"juju.io/charm-modified-version": "0",
+				"controller.juju.is/id":          testing.ControllerTag.Id(),
+				"app.juju.is/uuid":               "appuuid",
+				"charm.juju.is/modified-version": "0",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "app-name"},
+				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
 			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: "app-name-",
-					Labels: map[string]string{
-						"juju-app": "app-name",
-					},
+					Labels:       map[string]string{"app.kubernetes.io/name": "app-name"},
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 						"fred":                           "mary",
-						"juju.io/controller":             testing.ControllerTag.Id(),
-						"juju.io/charm-modified-version": "0",
+						"controller.juju.is/id":          testing.ControllerTag.Id(),
+						"charm.juju.is/modified-version": "0",
 					},
 				},
 				Spec: provider.Pod(workloadSpec).PodSpec,
@@ -4214,14 +4186,14 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	serviceArg := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"a":                  "b",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"a":                     "b",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			}},
 		Spec: core.ServiceSpec{
-			Selector: map[string]string{"juju-app": "app-name"},
+			Selector: map[string]string{"app.kubernetes.io/name": "app-name"},
 			Type:     "nodeIP",
 			Ports: []core.ServicePort{
 				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
@@ -4236,10 +4208,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		AutomountServiceAccountToken: boolPtr(true),
@@ -4248,10 +4220,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -4266,10 +4238,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -4289,10 +4261,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "sa2",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		AutomountServiceAccountToken: boolPtr(true),
@@ -4301,10 +4273,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "role2",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -4319,10 +4291,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "sa2-role2",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -4345,13 +4317,13 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 
 		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), svcAccount1, v1.CreateOptions{}).Return(svcAccount1, nil),
 		s.mockRoles.EXPECT().Create(gomock.Any(), role1, v1.CreateOptions{}).Return(role1, nil),
-		s.mockRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-app=app-name"}).
+		s.mockRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name"}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
 		s.mockRoleBindings.EXPECT().Create(gomock.Any(), rb1, v1.CreateOptions{}).Return(rb1, nil),
 
 		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), svcAccount2, v1.CreateOptions{}).Return(svcAccount2, nil),
 		s.mockRoles.EXPECT().Create(gomock.Any(), role2, v1.CreateOptions{}).Return(role2, nil),
-		s.mockRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-app=app-name"}).
+		s.mockRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name"}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
 		s.mockRoleBindings.EXPECT().Create(gomock.Any(), rb2, v1.CreateOptions{}).Return(rb2, nil),
 
@@ -4441,32 +4413,30 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller":             testing.ControllerTag.Id(),
+				"controller.juju.is/id":          testing.ControllerTag.Id(),
 				"fred":                           "mary",
-				"juju-app-uuid":                  "appuuid",
-				"juju.io/charm-modified-version": "0",
+				"app.juju.is/uuid":               "appuuid",
+				"charm.juju.is/modified-version": "0",
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "app-name"},
+				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
 			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: "app-name-",
-					Labels: map[string]string{
-						"juju-app": "app-name",
-					},
+					Labels:       map[string]string{"app.kubernetes.io/name": "app-name"},
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"juju.io/controller":                       testing.ControllerTag.Id(),
+						"controller.juju.is/id":                    testing.ControllerTag.Id(),
 						"fred":                                     "mary",
-						"juju.io/charm-modified-version":           "0",
+						"charm.juju.is/modified-version":           "0",
 					},
 				},
 				Spec: provider.Pod(workloadSpec).PodSpec,
@@ -4476,14 +4446,14 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	serviceArg := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"a":                  "b",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"a":                     "b",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			}},
 		Spec: core.ServiceSpec{
-			Selector: map[string]string{"juju-app": "app-name"},
+			Selector: map[string]string{"app.kubernetes.io/name": "app-name"},
 			Type:     "nodeIP",
 			Ports: []core.ServicePort{
 				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
@@ -4498,10 +4468,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		AutomountServiceAccountToken: boolPtr(true),
@@ -4510,10 +4480,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -4528,10 +4498,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -4551,10 +4521,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "sa2",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		AutomountServiceAccountToken: boolPtr(true),
@@ -4563,10 +4533,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "test-cluster-role2",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -4591,10 +4561,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "sa2-test-cluster-role2",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -4617,13 +4587,13 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 
 		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), svcAccount1, v1.CreateOptions{}).Return(svcAccount1, nil),
 		s.mockRoles.EXPECT().Create(gomock.Any(), role1, v1.CreateOptions{}).Return(role1, nil),
-		s.mockRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-app=app-name"}).
+		s.mockRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name"}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
 		s.mockRoleBindings.EXPECT().Create(gomock.Any(), rb1, v1.CreateOptions{}).Return(rb1, nil),
 
 		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), svcAccount2, v1.CreateOptions{}).Return(svcAccount2, nil),
 		s.mockClusterRoles.EXPECT().Create(gomock.Any(), clusterrole2, v1.CreateOptions{}).Return(clusterrole2, nil),
-		s.mockClusterRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-app=app-name,juju-model=test"}).
+		s.mockClusterRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name,model.juju.is/name=test"}).
 			Return(&rbacv1.ClusterRoleBindingList{Items: []rbacv1.ClusterRoleBinding{}}, nil),
 		s.mockClusterRoleBindings.EXPECT().Create(gomock.Any(), crb2, v1.CreateOptions{}).Return(crb2, nil),
 
@@ -4721,32 +4691,30 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller":             testing.ControllerTag.Id(),
+				"controller.juju.is/id":          testing.ControllerTag.Id(),
 				"fred":                           "mary",
-				"juju-app-uuid":                  "appuuid",
-				"juju.io/charm-modified-version": "0",
+				"app.juju.is/uuid":               "appuuid",
+				"charm.juju.is/modified-version": "0",
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "app-name"},
+				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
 			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: "app-name-",
-					Labels: map[string]string{
-						"juju-app": "app-name",
-					},
+					Labels:       map[string]string{"app.kubernetes.io/name": "app-name"},
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"juju.io/controller":                       testing.ControllerTag.Id(),
+						"controller.juju.is/id":                    testing.ControllerTag.Id(),
 						"fred":                                     "mary",
-						"juju.io/charm-modified-version":           "0",
+						"charm.juju.is/modified-version":           "0",
 					},
 				},
 				Spec: provider.Pod(workloadSpec).PodSpec,
@@ -4756,14 +4724,14 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	serviceArg := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"a":                  "b",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"a":                     "b",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			}},
 		Spec: core.ServiceSpec{
-			Selector: map[string]string{"juju-app": "app-name"},
+			Selector: map[string]string{"app.kubernetes.io/name": "app-name"},
 			Type:     "nodeIP",
 			Ports: []core.ServicePort{
 				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
@@ -4778,10 +4746,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		AutomountServiceAccountToken: boolPtr(true),
@@ -4790,10 +4758,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -4808,10 +4776,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -4831,10 +4799,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "sa-foo",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		AutomountServiceAccountToken: boolPtr(true),
@@ -4843,10 +4811,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "test-sa-foo",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -4871,10 +4839,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "sa-foo1",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -4889,10 +4857,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "sa-foo-test-sa-foo",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -4911,10 +4879,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "sa-foo-sa-foo1",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"fred":               "mary",
-				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":                  "mary",
+				"controller.juju.is/id": testing.ControllerTag.Id(),
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -4937,17 +4905,17 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 
 		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), svcAccount1, v1.CreateOptions{}).Return(svcAccount1, nil),
 		s.mockRoles.EXPECT().Create(gomock.Any(), role1, v1.CreateOptions{}).Return(role1, nil),
-		s.mockRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-app=app-name"}).
+		s.mockRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name"}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
 		s.mockRoleBindings.EXPECT().Create(gomock.Any(), rb1, v1.CreateOptions{}).Return(rb1, nil),
 
 		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), svcAccount2, v1.CreateOptions{}).Return(svcAccount2, nil),
 		s.mockRoles.EXPECT().Create(gomock.Any(), role2, v1.CreateOptions{}).Return(role2, nil),
-		s.mockRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-app=app-name"}).
+		s.mockRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name"}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
 		s.mockRoleBindings.EXPECT().Create(gomock.Any(), rb2, v1.CreateOptions{}).Return(rb2, nil),
 		s.mockClusterRoles.EXPECT().Create(gomock.Any(), clusterrole2, v1.CreateOptions{}).Return(clusterrole2, nil),
-		s.mockClusterRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-app=app-name,juju-model=test"}).
+		s.mockClusterRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name,model.juju.is/name=test"}).
 			Return(&rbacv1.ClusterRoleBindingList{Items: []rbacv1.ClusterRoleBinding{}}, nil),
 		s.mockClusterRoleBindings.EXPECT().Create(gomock.Any(), crb2, v1.CreateOptions{}).Return(crb2, nil),
 
@@ -4992,7 +4960,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 	basicPodSpec := getBasicPodspec()
 	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
 		KubernetesResources: &k8sspecs.KubernetesResources{
-			Pod: &k8sspecs.PodSpec{Annotations: map[string]string{"foo": "baz"}},
+			Pod: &k8sspecs.PodSpec{
+				Labels:      map[string]string{"foo": "bax"},
+				Annotations: map[string]string{"foo": "baz"},
+			},
 		},
 	}
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
@@ -5016,6 +4987,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 	})
 	statefulSetArg := unitStatefulSetArg(2, "workload-storage", podSpec)
 	statefulSetArg.Spec.Template.Annotations["foo"] = "baz"
+	statefulSetArg.Spec.Template.Labels["foo"] = "bax"
 	ociImageSecret := s.getOCIImageSecret(c, nil)
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", v1.GetOptions{}).
@@ -5035,7 +5007,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 		s.mockServices.EXPECT().Create(gomock.Any(), basicHeadlessServiceArg, v1.CreateOptions{}).
 			Return(nil, nil),
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-app-uuid": "appuuid"}}}, nil),
+			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"app.juju.is/uuid": "appuuid"}}}, nil),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "test-workload-storage", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "workload-storage", v1.GetOptions{}).
@@ -5085,7 +5057,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithUpdateStrategy(c *gc
 
 	basicPodSpec.Service = &specs.ServiceSpec{
 		UpdateStrategy: &specs.UpdateStrategy{
-			Type: "OnDelete",
+			Type: "RollingUpdate",
 			RollingUpdate: &specs.RollingUpdateSpec{
 				Partition: int32Ptr(10),
 			},
@@ -5113,7 +5085,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithUpdateStrategy(c *gc
 	})
 	statefulSetArg := unitStatefulSetArg(2, "workload-storage", podSpec)
 	statefulSetArg.Spec.UpdateStrategy = apps.StatefulSetUpdateStrategy{
-		Type: apps.OnDeleteStatefulSetStrategyType,
+		Type: apps.RollingUpdateStatefulSetStrategyType,
 		RollingUpdate: &apps.RollingUpdateStatefulSetStrategy{
 			Partition: int32Ptr(10),
 		},
@@ -5138,7 +5110,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithUpdateStrategy(c *gc
 		s.mockServices.EXPECT().Create(gomock.Any(), basicHeadlessServiceArg, v1.CreateOptions{}).
 			Return(nil, nil),
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-app-uuid": "appuuid"}}}, nil),
+			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"app.juju.is/uuid": "appuuid"}}}, nil),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "test-workload-storage", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "workload-storage", v1.GetOptions{}).
@@ -5204,27 +5176,27 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller":             testing.ControllerTag.Id(),
-				"juju-app-uuid":                  "appuuid",
-				"juju.io/charm-modified-version": "0",
+				"controller.juju.is/id":          testing.ControllerTag.Id(),
+				"app.juju.is/uuid":               "appuuid",
+				"charm.juju.is/modified-version": "0",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "app-name"},
+				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
 			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: "app-name-",
-					Labels:       map[string]string{"juju-app": "app-name"},
+					Labels:       map[string]string{"app.kubernetes.io/name": "app-name"},
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"juju.io/controller":                       testing.ControllerTag.Id(),
-						"juju.io/charm-modified-version":           "0",
+						"controller.juju.is/id":                    testing.ControllerTag.Id(),
+						"charm.juju.is/modified-version":           "0",
 					},
 				},
 				Spec: podSpec,
@@ -5294,10 +5266,11 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageCreate(c *gc.C
 
 	pvc := &core.PersistentVolumeClaim{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "database-appuuid",
+			Name:   "database-appuuid",
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "storage.juju.is/name": "database"},
 			Annotations: map[string]string{
-				"foo":          "bar",
-				"juju-storage": "database",
+				"foo":                  "bar",
+				"storage.juju.is/name": "database",
 			},
 		},
 		Spec: core.PersistentVolumeClaimSpec{
@@ -5331,27 +5304,27 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageCreate(c *gc.C
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller":             testing.ControllerTag.Id(),
-				"juju-app-uuid":                  "appuuid",
-				"juju.io/charm-modified-version": "0",
+				"controller.juju.is/id":          testing.ControllerTag.Id(),
+				"app.juju.is/uuid":               "appuuid",
+				"charm.juju.is/modified-version": "0",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "app-name"},
+				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
 			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: "app-name-",
-					Labels:       map[string]string{"juju-app": "app-name"},
+					Labels:       map[string]string{"app.kubernetes.io/name": "app-name"},
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"juju.io/controller":                       testing.ControllerTag.Id(),
-						"juju.io/charm-modified-version":           "0",
+						"controller.juju.is/id":                    testing.ControllerTag.Id(),
+						"charm.juju.is/modified-version":           "0",
 					},
 				},
 				Spec: podSpec,
@@ -5441,10 +5414,11 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageUpdate(c *gc.C
 
 	pvc := &core.PersistentVolumeClaim{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "database-appuuid",
+			Name:   "database-appuuid",
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "storage.juju.is/name": "database"},
 			Annotations: map[string]string{
-				"foo":          "bar",
-				"juju-storage": "database",
+				"foo":                  "bar",
+				"storage.juju.is/name": "database",
 			},
 		},
 		Spec: core.PersistentVolumeClaimSpec{
@@ -5478,27 +5452,27 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageUpdate(c *gc.C
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller":             testing.ControllerTag.Id(),
-				"juju-app-uuid":                  "appuuid",
-				"juju.io/charm-modified-version": "0",
+				"controller.juju.is/id":          testing.ControllerTag.Id(),
+				"app.juju.is/uuid":               "appuuid",
+				"charm.juju.is/modified-version": "0",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "app-name"},
+				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
 			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: "app-name-",
-					Labels:       map[string]string{"juju-app": "app-name"},
+					Labels:       map[string]string{"app.kubernetes.io/name": "app-name"},
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"juju.io/controller":                       testing.ControllerTag.Id(),
-						"juju.io/charm-modified-version":           "0",
+						"controller.juju.is/id":                    testing.ControllerTag.Id(),
+						"charm.juju.is/modified-version":           "0",
 					},
 				},
 				Spec: podSpec,
@@ -5578,7 +5552,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageCreate(c *gc.C)
 	basicPodSpec := getBasicPodspec()
 	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
 		KubernetesResources: &k8sspecs.KubernetesResources{
-			Pod: &k8sspecs.PodSpec{Annotations: map[string]string{"foo": "baz"}},
+			Pod: &k8sspecs.PodSpec{
+				Labels:      map[string]string{"foo": "bax"},
+				Annotations: map[string]string{"foo": "baz"},
+			},
 		},
 	}
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
@@ -5615,10 +5592,11 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageCreate(c *gc.C)
 
 	pvc := &core.PersistentVolumeClaim{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "database-appuuid",
+			Name:   "database-appuuid",
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "storage.juju.is/name": "database"},
 			Annotations: map[string]string{
-				"foo":          "bar",
-				"juju-storage": "database",
+				"foo":                  "bar",
+				"storage.juju.is/name": "database",
 			},
 		},
 		Spec: core.PersistentVolumeClaimSpec{
@@ -5652,27 +5630,27 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageCreate(c *gc.C)
 	daemonSetArg := &appsv1.DaemonSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller":             testing.ControllerTag.Id(),
-				"juju-app-uuid":                  "appuuid",
-				"juju.io/charm-modified-version": "0",
+				"controller.juju.is/id":          testing.ControllerTag.Id(),
+				"app.juju.is/uuid":               "appuuid",
+				"charm.juju.is/modified-version": "0",
 			}},
 		Spec: appsv1.DaemonSetSpec{
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "app-name"},
+				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
 			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: "app-name-",
-					Labels:       map[string]string{"juju-app": "app-name"},
+					Labels:       map[string]string{"app.kubernetes.io/name": "app-name", "foo": "bax"},
 					Annotations: map[string]string{
 						"foo": "baz",
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"juju.io/controller":                       testing.ControllerTag.Id(),
-						"juju.io/charm-modified-version":           "0",
+						"controller.juju.is/id":                    testing.ControllerTag.Id(),
+						"charm.juju.is/modified-version":           "0",
 					},
 				},
 				Spec: podSpec,
@@ -5792,10 +5770,11 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithUpdateStrategy(c *gc.C
 
 	pvc := &core.PersistentVolumeClaim{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "database-appuuid",
+			Name:   "database-appuuid",
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "storage.juju.is/name": "database"},
 			Annotations: map[string]string{
-				"foo":          "bar",
-				"juju-storage": "database",
+				"foo":                  "bar",
+				"storage.juju.is/name": "database",
 			},
 		},
 		Spec: core.PersistentVolumeClaimSpec{
@@ -5829,26 +5808,26 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithUpdateStrategy(c *gc.C
 	daemonSetArg := &appsv1.DaemonSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller":             testing.ControllerTag.Id(),
-				"juju-app-uuid":                  "appuuid",
-				"juju.io/charm-modified-version": "0",
+				"controller.juju.is/id":          testing.ControllerTag.Id(),
+				"app.juju.is/uuid":               "appuuid",
+				"charm.juju.is/modified-version": "0",
 			}},
 		Spec: appsv1.DaemonSetSpec{
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "app-name"},
+				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
 			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: "app-name-",
-					Labels:       map[string]string{"juju-app": "app-name"},
+					Labels:       map[string]string{"app.kubernetes.io/name": "app-name"},
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"juju.io/controller":                       testing.ControllerTag.Id(),
-						"juju.io/charm-modified-version":           "0",
+						"controller.juju.is/id":                    testing.ControllerTag.Id(),
+						"charm.juju.is/modified-version":           "0",
 					},
 				},
 				Spec: podSpec,
@@ -5964,10 +5943,11 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageUpdate(c *gc.C)
 
 	pvc := &core.PersistentVolumeClaim{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "database-appuuid",
+			Name:   "database-appuuid",
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "storage.juju.is/name": "database"},
 			Annotations: map[string]string{
-				"foo":          "bar",
-				"juju-storage": "database",
+				"foo":                  "bar",
+				"storage.juju.is/name": "database",
 			},
 		},
 		Spec: core.PersistentVolumeClaimSpec{
@@ -6001,26 +5981,26 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageUpdate(c *gc.C)
 	daemonSetArg := &appsv1.DaemonSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller":             testing.ControllerTag.Id(),
-				"juju-app-uuid":                  "appuuid",
-				"juju.io/charm-modified-version": "0",
+				"controller.juju.is/id":          testing.ControllerTag.Id(),
+				"app.juju.is/uuid":               "appuuid",
+				"charm.juju.is/modified-version": "0",
 			}},
 		Spec: appsv1.DaemonSetSpec{
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "app-name"},
+				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
 			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: "app-name-",
-					Labels:       map[string]string{"juju-app": "app-name"},
+					Labels:       map[string]string{"app.kubernetes.io/name": "app-name"},
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"juju.io/controller":                       testing.ControllerTag.Id(),
-						"juju.io/charm-modified-version":           "0",
+						"controller.juju.is/id":                    testing.ControllerTag.Id(),
+						"charm.juju.is/modified-version":           "0",
 					},
 				},
 				Spec: podSpec,
@@ -6057,7 +6037,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageUpdate(c *gc.C)
 		s.mockDaemonSets.EXPECT().Create(gomock.Any(), daemonSetArg, v1.CreateOptions{}).
 			Return(nil, s.k8sAlreadyExistsError()),
 		s.mockDaemonSets.EXPECT().List(gomock.Any(), v1.ListOptions{
-			LabelSelector: "juju-app=app-name",
+			LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name",
 		}).Return(&appsv1.DaemonSetList{Items: []appsv1.DaemonSet{*daemonSetArg}}, nil),
 		s.mockDaemonSets.EXPECT().Update(gomock.Any(), daemonSetArg, v1.UpdateOptions{}).
 			Return(daemonSetArg, nil),
@@ -6144,26 +6124,26 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsC
 	daemonSetArg := &appsv1.DaemonSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller":             testing.ControllerTag.Id(),
-				"juju-app-uuid":                  "appuuid",
-				"juju.io/charm-modified-version": "0",
+				"controller.juju.is/id":          testing.ControllerTag.Id(),
+				"app.juju.is/uuid":               "appuuid",
+				"charm.juju.is/modified-version": "0",
 			}},
 		Spec: appsv1.DaemonSetSpec{
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "app-name"},
+				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
 			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: "app-name-",
-					Labels:       map[string]string{"juju-app": "app-name"},
+					Labels:       map[string]string{"app.kubernetes.io/name": "app-name"},
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"juju.io/controller":                       testing.ControllerTag.Id(),
-						"juju.io/charm-modified-version":           "0",
+						"controller.juju.is/id":                    testing.ControllerTag.Id(),
+						"charm.juju.is/modified-version":           "0",
 					},
 				},
 				Spec: podSpec,
@@ -6261,26 +6241,26 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsU
 	daemonSetArg := &appsv1.DaemonSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "app-name",
-			Labels: map[string]string{"juju-app": "app-name"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"},
 			Annotations: map[string]string{
-				"juju.io/controller":             testing.ControllerTag.Id(),
-				"juju-app-uuid":                  "appuuid",
-				"juju.io/charm-modified-version": "0",
+				"controller.juju.is/id":          testing.ControllerTag.Id(),
+				"app.juju.is/uuid":               "appuuid",
+				"charm.juju.is/modified-version": "0",
 			}},
 		Spec: appsv1.DaemonSetSpec{
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "app-name"},
+				MatchLabels: map[string]string{"app.kubernetes.io/name": "app-name"},
 			},
 			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: "app-name-",
-					Labels:       map[string]string{"juju-app": "app-name"},
+					Labels:       map[string]string{"app.kubernetes.io/name": "app-name"},
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"juju.io/controller":                       testing.ControllerTag.Id(),
-						"juju.io/charm-modified-version":           "0",
+						"controller.juju.is/id":                    testing.ControllerTag.Id(),
+						"charm.juju.is/modified-version":           "0",
 					},
 				},
 				Spec: podSpec,
@@ -6307,7 +6287,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsU
 		s.mockDaemonSets.EXPECT().Create(gomock.Any(), daemonSetArg, v1.CreateOptions{}).
 			Return(nil, s.k8sAlreadyExistsError()),
 		s.mockDaemonSets.EXPECT().List(gomock.Any(), v1.ListOptions{
-			LabelSelector: "juju-app=app-name",
+			LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name",
 		}).Return(&appsv1.DaemonSetList{Items: []appsv1.DaemonSet{*daemonSetArg}}, nil),
 		s.mockDaemonSets.EXPECT().Update(gomock.Any(), daemonSetArg, v1.UpdateOptions{}).
 			Return(daemonSetArg, nil),
@@ -6382,7 +6362,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 		s.mockServices.EXPECT().Create(gomock.Any(), basicHeadlessServiceArg, v1.CreateOptions{}).
 			Return(nil, nil),
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-app-uuid": "appuuid"}}}, nil),
+			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"app.juju.is/uuid": "appuuid"}}}, nil),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "test-workload-storage", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "workload-storage", v1.GetOptions{}).
@@ -6463,7 +6443,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 		s.mockServices.EXPECT().Create(gomock.Any(), basicHeadlessServiceArg, v1.CreateOptions{}).
 			Return(nil, nil),
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-app-uuid": "appuuid"}}}, nil),
+			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"app.juju.is/uuid": "appuuid"}}}, nil),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "test-workload-storage", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "workload-storage", v1.GetOptions{}).
@@ -6551,7 +6531,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithNodeAffinity(c *gc.C) {
 		s.mockServices.EXPECT().Create(gomock.Any(), basicHeadlessServiceArg, v1.CreateOptions{}).
 			Return(nil, nil),
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-app-uuid": "appuuid"}}}, nil),
+			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"app.juju.is/uuid": "appuuid"}}}, nil),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "test-workload-storage", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "workload-storage", v1.GetOptions{}).
@@ -6631,7 +6611,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithZones(c *gc.C) {
 		s.mockServices.EXPECT().Create(gomock.Any(), basicHeadlessServiceArg, v1.CreateOptions{}).
 			Return(nil, nil),
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
-			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-app-uuid": "appuuid"}}}, nil),
+			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"app.juju.is/uuid": "appuuid"}}}, nil),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "test-workload-storage", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "workload-storage", v1.GetOptions{}).
@@ -6743,7 +6723,7 @@ func (s *K8sBrokerSuite) TestUnits(c *gc.C) {
 		},
 	}
 	gomock.InOrder(
-		s.mockPods.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "juju-app=app-name"}).Return(podList, nil),
+		s.mockPods.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "app.kubernetes.io/name=app-name"}).Return(podList, nil),
 		s.mockPersistentVolumeClaims.EXPECT().Get(gomock.Any(), "v1-claim", v1.GetOptions{}).
 			Return(pvc, nil),
 		s.mockPersistentVolumes.EXPECT().Get(gomock.Any(), "v1", v1.GetOptions{}).
@@ -6832,7 +6812,7 @@ func (s *K8sBrokerSuite) TestAnnotateUnit(c *gc.C) {
 	updatePod := &core.Pod{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        "pod-name",
-			Annotations: map[string]string{"juju.io/unit": "appname/0"},
+			Annotations: map[string]string{"unit.juju.is/id": "appname/0"},
 		},
 	}
 
@@ -6866,13 +6846,13 @@ func (s *K8sBrokerSuite) assertAnnotateUnitByUID(c *gc.C, mode caas.DeploymentMo
 		ObjectMeta: v1.ObjectMeta{
 			Name:        "pod-name",
 			UID:         types.UID("uuid"),
-			Annotations: map[string]string{"juju.io/unit": "appname/0"},
+			Annotations: map[string]string{"unit.juju.is/id": "appname/0"},
 		},
 	}
 
-	labelSelector := "juju-app=appname"
+	labelSelector := "app.kubernetes.io/name=appname"
 	if mode == caas.ModeOperator {
-		labelSelector = "juju-operator=appname"
+		labelSelector = "operator.juju.is/name=appname,operator.juju.is/target=application"
 	}
 	gomock.InOrder(
 		s.mockPods.EXPECT().Get(gomock.Any(), "uuid", v1.GetOptions{}).Return(nil, s.k8sNotFoundError()),
@@ -6884,22 +6864,43 @@ func (s *K8sBrokerSuite) assertAnnotateUnitByUID(c *gc.C, mode caas.DeploymentMo
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *K8sBrokerSuite) TestWatchUnits(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	podWatcher, podFirer := k8swatchertest.NewKubernetesTestWatcher()
+	s.k8sWatcherFn = func(si cache.SharedIndexInformer, n string, _ jujuclock.Clock) (k8swatcher.KubernetesNotifyWatcher, error) {
+		c.Assert(n, gc.Equals, "test")
+		return podWatcher, nil
+	}
+
+	w, err := s.broker.WatchUnits("test", caas.ModeWorkload)
+	c.Assert(err, jc.ErrorIsNil)
+
+	podFirer()
+
+	select {
+	case _, ok := <-w.Changes():
+		c.Assert(ok, jc.IsTrue)
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for event")
+	}
+}
+
 func (s *K8sBrokerSuite) TestWatchContainerStart(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	podWatcher, podFirer := k8swatchertest.NewKubernetesTestStringsWatcher()
 	var filter k8swatcher.K8sStringsWatcherFilterFunc
-	s.k8sStringsWatcherFn = k8swatcher.NewK8sStringsWatcherFunc(
-		func(_ cache.SharedIndexInformer,
-			_ string,
-			_ jujuclock.Clock,
-			_ []string,
-			ff k8swatcher.K8sStringsWatcherFilterFunc) (k8swatcher.KubernetesStringsWatcher, error) {
-			filter = ff
-			return podWatcher, nil
-		},
-	)
+	s.k8sStringsWatcherFn = func(_ cache.SharedIndexInformer,
+		_ string,
+		_ jujuclock.Clock,
+		_ []string,
+		ff k8swatcher.K8sStringsWatcherFilterFunc) (k8swatcher.KubernetesStringsWatcher, error) {
+		filter = ff
+		return podWatcher, nil
+	}
 
 	podList := &core.PodList{
 		Items: []core.Pod{{
@@ -6909,7 +6910,7 @@ func (s *K8sBrokerSuite) TestWatchContainerStart(c *gc.C) {
 					{Kind: "StatefulSet"},
 				},
 				Annotations: map[string]string{
-					"juju.io/unit": "test-0",
+					"unit.juju.is/id": "test-0",
 				},
 			},
 			Status: core.PodStatus{
@@ -6923,7 +6924,7 @@ func (s *K8sBrokerSuite) TestWatchContainerStart(c *gc.C) {
 
 	gomock.InOrder(
 		s.mockPods.EXPECT().List(gomock.Any(),
-			listOptionsLabelSelectorMatcher("juju-app=test"),
+			listOptionsLabelSelectorMatcher("app.kubernetes.io/name=test"),
 		).DoAndReturn(func(...interface{}) (*core.PodList, error) {
 			return podList, nil
 		}),
@@ -6947,7 +6948,7 @@ func (s *K8sBrokerSuite) TestWatchContainerStart(c *gc.C) {
 				{Kind: "StatefulSet"},
 			},
 			Annotations: map[string]string{
-				"juju.io/unit": "test-0",
+				"unit.juju.is/id": "test-0",
 			},
 		},
 		Status: core.PodStatus{
@@ -6977,16 +6978,14 @@ func (s *K8sBrokerSuite) TestWatchContainerStartRegex(c *gc.C) {
 
 	podWatcher, podFirer := k8swatchertest.NewKubernetesTestStringsWatcher()
 	var filter k8swatcher.K8sStringsWatcherFilterFunc
-	s.k8sStringsWatcherFn = k8swatcher.NewK8sStringsWatcherFunc(
-		func(_ cache.SharedIndexInformer,
-			_ string,
-			_ jujuclock.Clock,
-			_ []string,
-			ff k8swatcher.K8sStringsWatcherFilterFunc) (k8swatcher.KubernetesStringsWatcher, error) {
-			filter = ff
-			return podWatcher, nil
-		},
-	)
+	s.k8sStringsWatcherFn = func(_ cache.SharedIndexInformer,
+		_ string,
+		_ jujuclock.Clock,
+		_ []string,
+		ff k8swatcher.K8sStringsWatcherFilterFunc) (k8swatcher.KubernetesStringsWatcher, error) {
+		filter = ff
+		return podWatcher, nil
+	}
 
 	pod := core.Pod{
 		ObjectMeta: v1.ObjectMeta{
@@ -6995,7 +6994,7 @@ func (s *K8sBrokerSuite) TestWatchContainerStartRegex(c *gc.C) {
 				{Kind: "StatefulSet"},
 			},
 			Annotations: map[string]string{
-				"juju.io/unit": "test-0",
+				"unit.juju.is/id": "test-0",
 			},
 		},
 		Status: core.PodStatus{
@@ -7017,7 +7016,7 @@ func (s *K8sBrokerSuite) TestWatchContainerStartRegex(c *gc.C) {
 
 	gomock.InOrder(
 		s.mockPods.EXPECT().List(gomock.Any(),
-			listOptionsLabelSelectorMatcher("juju-app=test"),
+			listOptionsLabelSelectorMatcher("app.kubernetes.io/name=test"),
 		).Return(podList, nil),
 	)
 
@@ -7100,16 +7099,14 @@ func (s *K8sBrokerSuite) TestWatchContainerStartDefault(c *gc.C) {
 
 	podWatcher, podFirer := k8swatchertest.NewKubernetesTestStringsWatcher()
 	var filter k8swatcher.K8sStringsWatcherFilterFunc
-	s.k8sStringsWatcherFn = k8swatcher.NewK8sStringsWatcherFunc(
-		func(_ cache.SharedIndexInformer,
-			_ string,
-			_ jujuclock.Clock,
-			_ []string,
-			ff k8swatcher.K8sStringsWatcherFilterFunc) (k8swatcher.KubernetesStringsWatcher, error) {
-			filter = ff
-			return podWatcher, nil
-		},
-	)
+	s.k8sStringsWatcherFn = func(_ cache.SharedIndexInformer,
+		_ string,
+		_ jujuclock.Clock,
+		_ []string,
+		ff k8swatcher.K8sStringsWatcherFilterFunc) (k8swatcher.KubernetesStringsWatcher, error) {
+		filter = ff
+		return podWatcher, nil
+	}
 
 	podList := &core.PodList{
 		Items: []core.Pod{{
@@ -7119,7 +7116,7 @@ func (s *K8sBrokerSuite) TestWatchContainerStartDefault(c *gc.C) {
 					{Kind: "StatefulSet"},
 				},
 				Annotations: map[string]string{
-					"juju.io/unit": "test-0",
+					"unit.juju.is/id": "test-0",
 				},
 			},
 			Status: core.PodStatus{
@@ -7134,7 +7131,7 @@ func (s *K8sBrokerSuite) TestWatchContainerStartDefault(c *gc.C) {
 
 	gomock.InOrder(
 		s.mockPods.EXPECT().List(gomock.Any(),
-			listOptionsLabelSelectorMatcher("juju-app=test"),
+			listOptionsLabelSelectorMatcher("app.kubernetes.io/name=test"),
 		).Return(podList, nil),
 	)
 
@@ -7149,7 +7146,7 @@ func (s *K8sBrokerSuite) TestWatchContainerStartDefault(c *gc.C) {
 				{Kind: "StatefulSet"},
 			},
 			Annotations: map[string]string{
-				"juju.io/unit": "test-0",
+				"unit.juju.is/id": "test-0",
 			},
 		},
 		Status: core.PodStatus{
@@ -7188,16 +7185,14 @@ func (s *K8sBrokerSuite) TestWatchContainerStartDefaultWaitForUnit(c *gc.C) {
 
 	podWatcher, podFirer := k8swatchertest.NewKubernetesTestStringsWatcher()
 	var filter k8swatcher.K8sStringsWatcherFilterFunc
-	s.k8sStringsWatcherFn = k8swatcher.NewK8sStringsWatcherFunc(
-		func(_ cache.SharedIndexInformer,
-			_ string,
-			_ jujuclock.Clock,
-			_ []string,
-			ff k8swatcher.K8sStringsWatcherFilterFunc) (k8swatcher.KubernetesStringsWatcher, error) {
-			filter = ff
-			return podWatcher, nil
-		},
-	)
+	s.k8sStringsWatcherFn = func(_ cache.SharedIndexInformer,
+		_ string,
+		_ jujuclock.Clock,
+		_ []string,
+		ff k8swatcher.K8sStringsWatcherFilterFunc) (k8swatcher.KubernetesStringsWatcher, error) {
+		filter = ff
+		return podWatcher, nil
+	}
 
 	podList := &core.PodList{
 		Items: []core.Pod{{
@@ -7218,7 +7213,7 @@ func (s *K8sBrokerSuite) TestWatchContainerStartDefaultWaitForUnit(c *gc.C) {
 
 	gomock.InOrder(
 		s.mockPods.EXPECT().List(gomock.Any(),
-			listOptionsLabelSelectorMatcher("juju-app=test"),
+			listOptionsLabelSelectorMatcher("app.kubernetes.io/name=test"),
 		).Return(podList, nil),
 	)
 
@@ -7240,7 +7235,7 @@ func (s *K8sBrokerSuite) TestWatchContainerStartDefaultWaitForUnit(c *gc.C) {
 				{Kind: "StatefulSet"},
 			},
 			Annotations: map[string]string{
-				"juju.io/unit": "test-0",
+				"unit.juju.is/id": "test-0",
 			},
 		},
 		Status: core.PodStatus{
@@ -7270,10 +7265,13 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForDaemonSet(c *gc.C) {
 	_, err := provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{})
 	c.Assert(err, gc.ErrorMatches, `strategy type "" for daemonset not valid`)
 
-	_, err = provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
+	o, err := provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
 		Type: "RollingUpdate",
 	})
-	c.Assert(err, gc.ErrorMatches, `rolling update spec is required`)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(o, jc.DeepEquals, apps.DaemonSetUpdateStrategy{
+		Type: apps.RollingUpdateDaemonSetStrategyType,
+	})
 
 	_, err = provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
 		Type:          "RollingUpdate",
@@ -7297,7 +7295,7 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForDaemonSet(c *gc.C) {
 	})
 	c.Assert(err, gc.ErrorMatches, `rolling update spec for daemonset not valid`)
 
-	o, err := provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
+	o, err = provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
 		Type: "RollingUpdate",
 		RollingUpdate: &specs.RollingUpdateSpec{
 			MaxUnavailable: &specs.IntOrString{IntVal: 10},
@@ -7313,17 +7311,19 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForDaemonSet(c *gc.C) {
 
 	o, err = provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
 		Type: "OnDelete",
-		RollingUpdate: &specs.RollingUpdateSpec{
-			MaxUnavailable: &specs.IntOrString{IntVal: 10},
-		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(o, jc.DeepEquals, apps.DaemonSetUpdateStrategy{
 		Type: apps.OnDeleteDaemonSetStrategyType,
-		RollingUpdate: &apps.RollingUpdateDaemonSet{
-			MaxUnavailable: &intstr.IntOrString{IntVal: 10},
+	})
+
+	_, err = provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
+		Type: "OnDelete",
+		RollingUpdate: &specs.RollingUpdateSpec{
+			MaxUnavailable: &specs.IntOrString{IntVal: 10},
 		},
 	})
+	c.Assert(err, gc.ErrorMatches, `rolling update spec is not supported for "OnDelete"`)
 }
 
 func (s *K8sBrokerSuite) TestUpdateStrategyForDeployment(c *gc.C) {
@@ -7333,10 +7333,13 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForDeployment(c *gc.C) {
 	_, err := provider.UpdateStrategyForDeployment(specs.UpdateStrategy{})
 	c.Assert(err, gc.ErrorMatches, `strategy type "" for deployment not valid`)
 
-	_, err = provider.UpdateStrategyForDeployment(specs.UpdateStrategy{
+	o, err := provider.UpdateStrategyForDeployment(specs.UpdateStrategy{
 		Type: "RollingUpdate",
 	})
-	c.Assert(err, gc.ErrorMatches, `rolling update spec is required`)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(o, jc.DeepEquals, apps.DeploymentStrategy{
+		Type: apps.RollingUpdateDeploymentStrategyType,
+	})
 
 	_, err = provider.UpdateStrategyForDeployment(specs.UpdateStrategy{
 		Type:          "RollingUpdate",
@@ -7353,21 +7356,22 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForDeployment(c *gc.C) {
 	})
 	c.Assert(err, gc.ErrorMatches, `rolling update spec for deployment not valid`)
 
-	o, err := provider.UpdateStrategyForDeployment(specs.UpdateStrategy{
+	o, err = provider.UpdateStrategyForDeployment(specs.UpdateStrategy{
+		Type: "Recreate",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(o, jc.DeepEquals, apps.DeploymentStrategy{
+		Type: apps.RecreateDeploymentStrategyType,
+	})
+
+	_, err = provider.UpdateStrategyForDeployment(specs.UpdateStrategy{
 		Type: "Recreate",
 		RollingUpdate: &specs.RollingUpdateSpec{
 			MaxUnavailable: &specs.IntOrString{IntVal: 10},
 			MaxSurge:       &specs.IntOrString{IntVal: 20},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(o, jc.DeepEquals, apps.DeploymentStrategy{
-		Type: apps.RecreateDeploymentStrategyType,
-		RollingUpdate: &apps.RollingUpdateDeployment{
-			MaxUnavailable: &intstr.IntOrString{IntVal: 10},
-			MaxSurge:       &intstr.IntOrString{IntVal: 20},
-		},
-	})
+	c.Assert(err, gc.ErrorMatches, `rolling update spec is not supported for "Recreate"`)
 
 	o, err = provider.UpdateStrategyForDeployment(specs.UpdateStrategy{
 		Type: "RollingUpdate",
@@ -7393,10 +7397,13 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForStatefulSet(c *gc.C) {
 	_, err := provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{})
 	c.Assert(err, gc.ErrorMatches, `strategy type "" for statefulset not valid`)
 
-	_, err = provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
+	o, err := provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
 		Type: "RollingUpdate",
 	})
-	c.Assert(err, gc.ErrorMatches, `rolling update spec is required`)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(o, jc.DeepEquals, apps.StatefulSetUpdateStrategy{
+		Type: apps.RollingUpdateStatefulSetStrategyType,
+	})
 
 	_, err = provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
 		Type:          "RollingUpdate",
@@ -7422,19 +7429,21 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForStatefulSet(c *gc.C) {
 	})
 	c.Assert(err, gc.ErrorMatches, `rolling update spec for statefulset not valid`)
 
-	o, err := provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
+	o, err = provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
+		Type: "OnDelete",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(o, jc.DeepEquals, apps.StatefulSetUpdateStrategy{
+		Type: apps.OnDeleteStatefulSetStrategyType,
+	})
+
+	_, err = provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
 		Type: "OnDelete",
 		RollingUpdate: &specs.RollingUpdateSpec{
 			Partition: int32Ptr(10),
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(o, jc.DeepEquals, apps.StatefulSetUpdateStrategy{
-		Type: apps.OnDeleteStatefulSetStrategyType,
-		RollingUpdate: &apps.RollingUpdateStatefulSetStrategy{
-			Partition: int32Ptr(10),
-		},
-	})
+	c.Assert(err, gc.ErrorMatches, `rolling update spec is not supported for "OnDelete"`)
 
 	o, err = provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
 		Type: "RollingUpdate",

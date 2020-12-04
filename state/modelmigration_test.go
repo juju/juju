@@ -10,11 +10,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/state"
@@ -82,7 +81,7 @@ func (s *MigrationSuite) TestCreate(c *gc.C) {
 	// (as they can't be compared using DeepEquals due to 'UnmarshaledAs')
 	infoMacs := info.Macaroons
 	info.Macaroons = nil
-	apitesting.MacaroonsEqual(c, infoMacs, s.stdSpec.TargetInfo.Macaroons)
+	assertMacaroonsEqual(c, infoMacs, s.stdSpec.TargetInfo.Macaroons)
 	s.stdSpec.TargetInfo.Macaroons = nil
 	c.Check(*info, jc.DeepEquals, s.stdSpec.TargetInfo)
 	c.Check(info.ControllerAlias, gc.Equals, s.stdSpec.TargetInfo.ControllerAlias)

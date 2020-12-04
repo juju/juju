@@ -14,7 +14,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/params"
@@ -35,6 +37,7 @@ type sshContainerSuite struct {
 	applicationAPI     *mocks.MockApplicationAPI
 	execClient         *mocks.MockExecutor
 	mockPods           *k8smocks.MockPodInterface
+	mockNamespaces     *k8smocks.MockNamespaceInterface
 
 	sshC commands.SSHContainerInterfaceForTest
 }
@@ -53,6 +56,7 @@ func (s *sshContainerSuite) TearDownTest(c *gc.C) {
 	s.applicationAPI = nil
 	s.execClient = nil
 	s.mockPods = nil
+	s.mockNamespaces = nil
 }
 
 func (s *sshContainerSuite) setUpController(c *gc.C, remote bool, containerName string) *gomock.Controller {
@@ -64,12 +68,14 @@ func (s *sshContainerSuite) setUpController(c *gc.C, remote bool, containerName 
 	s.execClient = mocks.NewMockExecutor(ctrl)
 
 	s.mockPods = k8smocks.NewMockPodInterface(ctrl)
+	s.mockNamespaces = k8smocks.NewMockNamespaceInterface(ctrl)
 	mockCoreV1 := k8smocks.NewMockCoreV1Interface(ctrl)
 
 	k8sClient := k8smocks.NewMockInterface(ctrl)
 	s.execClient.EXPECT().RawClient().AnyTimes().Return(k8sClient)
 	k8sClient.EXPECT().CoreV1().AnyTimes().Return(mockCoreV1)
 	mockCoreV1.EXPECT().Pods(gomock.Any()).AnyTimes().Return(s.mockPods)
+	mockCoreV1.EXPECT().Namespaces().AnyTimes().Return(s.mockNamespaces)
 
 	s.sshC = commands.NewSSHContainer(
 		s.modelUUID,
@@ -116,7 +122,11 @@ func (s *sshContainerSuite) TestResolveTargetForOperatorPod(c *gc.C) {
 
 	gomock.InOrder(
 		s.execClient.EXPECT().NameSpace().AnyTimes().Return("test-ns"),
-		s.mockPods.EXPECT().List(gomock.Any(), metav1.ListOptions{LabelSelector: "juju-operator=mariadb-k8s"}).AnyTimes().
+
+		s.mockNamespaces.EXPECT().Get(gomock.Any(), gomock.Any(), metav1.GetOptions{}).
+			Return(nil, k8serrors.NewNotFound(schema.GroupResource{}, "test")),
+
+		s.mockPods.EXPECT().List(gomock.Any(), metav1.ListOptions{LabelSelector: "operator.juju.is/name=mariadb-k8s,operator.juju.is/target=application"}).AnyTimes().
 			Return(&core.PodList{Items: []core.Pod{
 				{ObjectMeta: metav1.ObjectMeta{Name: "mariadb-k8s-operator-0"}},
 			}}, nil),
@@ -132,7 +142,11 @@ func (s *sshContainerSuite) TestResolveTargetForOperatorPodNoProviderID(c *gc.C)
 
 	gomock.InOrder(
 		s.execClient.EXPECT().NameSpace().AnyTimes().Return("test-ns"),
-		s.mockPods.EXPECT().List(gomock.Any(), metav1.ListOptions{LabelSelector: "juju-operator=mariadb-k8s"}).AnyTimes().
+
+		s.mockNamespaces.EXPECT().Get(gomock.Any(), gomock.Any(), metav1.GetOptions{}).
+			Return(nil, k8serrors.NewNotFound(schema.GroupResource{}, "test")),
+
+		s.mockPods.EXPECT().List(gomock.Any(), metav1.ListOptions{LabelSelector: "operator.juju.is/name=mariadb-k8s,operator.juju.is/target=application"}).AnyTimes().
 			Return(&core.PodList{Items: []core.Pod{
 				{ObjectMeta: metav1.ObjectMeta{Name: ""}},
 			}}, nil),
@@ -429,7 +443,11 @@ func (s *sshContainerSuite) TestCopyToOperator(c *gc.C) {
 
 	gomock.InOrder(
 		s.execClient.EXPECT().NameSpace().AnyTimes().Return("test-ns"),
-		s.mockPods.EXPECT().List(gomock.Any(), metav1.ListOptions{LabelSelector: "juju-operator=mariadb-k8s"}).AnyTimes().
+
+		s.mockNamespaces.EXPECT().Get(gomock.Any(), gomock.Any(), metav1.GetOptions{}).
+			Return(nil, k8serrors.NewNotFound(schema.GroupResource{}, "test")),
+
+		s.mockPods.EXPECT().List(gomock.Any(), metav1.ListOptions{LabelSelector: "operator.juju.is/name=mariadb-k8s,operator.juju.is/target=application"}).AnyTimes().
 			Return(&core.PodList{Items: []core.Pod{
 				{ObjectMeta: metav1.ObjectMeta{Name: "mariadb-k8s-operator-0"}},
 			}}, nil),
@@ -456,7 +474,11 @@ func (s *sshContainerSuite) TestCopyFromOperator(c *gc.C) {
 
 	gomock.InOrder(
 		s.execClient.EXPECT().NameSpace().AnyTimes().Return("test-ns"),
-		s.mockPods.EXPECT().List(gomock.Any(), metav1.ListOptions{LabelSelector: "juju-operator=mariadb-k8s"}).AnyTimes().
+
+		s.mockNamespaces.EXPECT().Get(gomock.Any(), gomock.Any(), metav1.GetOptions{}).
+			Return(nil, k8serrors.NewNotFound(schema.GroupResource{}, "test")),
+
+		s.mockPods.EXPECT().List(gomock.Any(), metav1.ListOptions{LabelSelector: "operator.juju.is/name=mariadb-k8s,operator.juju.is/target=application"}).AnyTimes().
 			Return(&core.PodList{Items: []core.Pod{
 				{ObjectMeta: metav1.ObjectMeta{Name: "mariadb-k8s-operator-0"}},
 			}}, nil),

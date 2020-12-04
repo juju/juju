@@ -10,6 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/caas/kubernetes/provider"
+	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
@@ -33,6 +35,7 @@ var _ = gc.Suite(&FilesystemCAASModelSuite{})
 func (s *FilesystemCAASModelSuite) SetUpTest(c *gc.C) {
 	s.series = "kubernetes"
 	s.FilesystemStateSuite.SetUpTest(c)
+	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 }
 
 func (s *FilesystemStateSuite) TestAddApplicationInvalidPool(c *gc.C) {

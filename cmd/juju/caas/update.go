@@ -14,7 +14,9 @@ import (
 	cloudapi "github.com/juju/juju/api/cloud"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/cloud"
@@ -146,7 +148,7 @@ func (c *UpdateCAASCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *UpdateCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential jujucloud.Credential) (caas.ClusterMetadataChecker, error) {
+func (c *UpdateCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential jujucloud.Credential) (k8s.ClusterMetadataChecker, error) {
 	openParams, err := provider.BaseKubeCloudOpenParams(cloud, credential)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -158,7 +160,17 @@ func (c *UpdateCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credentia
 		}
 		openParams.ControllerUUID = ctrlUUID
 	}
-	return caas.New(openParams)
+
+	broker, err := caas.New(openParams)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// This is k8-specific and not part of the Broker interface
+	if metaChecker, implemented := broker.(k8s.ClusterMetadataChecker); implemented {
+		return metaChecker, nil
+	}
+	return nil, errors.NotSupportedf("querying cluster metadata using the broker")
 }
 
 // maybeBuiltInCloud returns a built in cloud (eg microk8s) and the relevant credential
@@ -238,8 +250,8 @@ func (c *UpdateCAASCommand) Run(ctx *cmd.Context) (err error) {
 		}
 	}
 
-	if newCloud.Type != provider.CAASProviderType {
-		ctx.Infof("The %q cloud is a %q cloud and not a %q cloud.", c.caasName, newCloud.Type, provider.CAASProviderType)
+	if newCloud.Type != k8sconstants.CAASProviderType {
+		ctx.Infof("The %q cloud is a %q cloud and not a %q cloud.", c.caasName, newCloud.Type, k8sconstants.CAASProviderType)
 		return cmd.ErrSilent
 	}
 
@@ -293,8 +305,8 @@ func (c *UpdateCAASCommand) Run(ctx *cmd.Context) (err error) {
 		if err != nil && !errors.IsNotFound(err) {
 			return errors.Trace(err)
 		}
-		if existing.Type != provider.CAASProviderType {
-			ctx.Infof("The %q cloud on the controller is a %q cloud and not a %q cloud.", c.caasName, existing.Type, provider.CAASProviderType)
+		if existing.Type != k8sconstants.CAASProviderType {
+			ctx.Infof("The %q cloud on the controller is a %q cloud and not a %q cloud.", c.caasName, existing.Type, k8sconstants.CAASProviderType)
 			return cmd.ErrSilent
 		}
 

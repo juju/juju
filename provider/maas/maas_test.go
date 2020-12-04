@@ -13,10 +13,10 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/arch"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -30,7 +30,7 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/keys"
 	coretesting "github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
+	version "github.com/juju/juju/version"
 )
 
 const maas2VersionResponse = `{"version": "unknown", "subversion": "", "capabilities": ["networks-management", "static-ipaddresses", "ipv6-deployment-ubuntu", "devices-management", "storage-deployment-ubuntu", "network-deployment-ubuntu"]}`
@@ -78,9 +78,9 @@ func (s *baseProviderSuite) SetUpSuite(c *gc.C) {
 func (s *baseProviderSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
-	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	s.PatchValue(&series.MustHostSeries, func() string { return series.DefaultSupportedLTS() })
+	s.PatchValue(&series.HostSeries, func() (string, error) { return version.DefaultSupportedLTS(), nil })
 	s.callCtx = &context.CloudCallContext{
 		InvalidateCredentialFunc: func(string) error {
 			s.invalidCredential = true

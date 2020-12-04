@@ -11,7 +11,7 @@ package api
 // New facades should start at 1.
 // Facades that existed before versioning start at 0.
 var facadeVersions = map[string]int{
-	"Action":                       6,
+	"Action":                       7,
 	"ActionPruner":                 1,
 	"Agent":                        2,
 	"AgentTools":                   1,
@@ -26,7 +26,10 @@ var facadeVersions = map[string]int{
 	"Bundle":                       4,
 	"CAASAgent":                    1,
 	"CAASAdmission":                1,
+	"CAASApplication":              1,
+	"CAASApplicationProvisioner":   1,
 	"CAASFirewaller":               1,
+	"CAASFirewallerEmbedded":       1,
 	"CAASModelOperator":            1,
 	"CAASOperator":                 1,
 	"CAASOperatorProvisioner":      1,
@@ -34,7 +37,7 @@ var facadeVersions = map[string]int{
 	"CAASUnitProvisioner":          1,
 	"CharmHub":                     1,
 	"CharmRevisionUpdater":         2,
-	"Charms":                       3,
+	"Charms":                       4,
 	"Cleaner":                      2,
 	"Client":                       2,
 	"Cloud":                        7,
@@ -79,7 +82,7 @@ var facadeVersions = map[string]int{
 	"MigrationTarget":              1,
 	"ModelConfig":                  2,
 	"ModelGeneration":              4,
-	"ModelManager":                 8,
+	"ModelManager":                 9,
 	"ModelSummaryWatcher":          1,
 	"ModelUpgrader":                1,
 	"NotifyWatcher":                1,

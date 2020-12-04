@@ -29,8 +29,8 @@ import (
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/juju/crossmodel"
+	"github.com/juju/juju/cmd/juju/dashboard"
 	"github.com/juju/juju/cmd/juju/firewall"
-	"github.com/juju/juju/cmd/juju/gui"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/metricsdebug"
 	"github.com/juju/juju/cmd/juju/model"
@@ -192,24 +192,28 @@ func NewJujuCommandWithStore(
 ) cmd.Command {
 	var jcmd *cmd.SuperCommand
 	var jujuRegistry *jujuCommandRegistry
+	var missingCallback cmd.MissingCallback = func(ctx *cmd.Context, subcommand string, args []string) error {
+		excluded := jujuRegistry.excluded.Contains(subcommand)
+		if excluded {
+			return errors.Errorf("juju %q is not supported when run via a controller API call", subcommand)
+		}
+		if cmdName, _, ok := jcmd.FindClosestSubCommand(subcommand); ok {
+			return &NotFoundCommand{
+				ArgName:  subcommand,
+				CmdName:  cmdName,
+				HelpHint: helpHint,
+			}
+		}
+		return cmd.DefaultUnrecognizedCommand(subcommand)
+	}
+	if !embedded {
+		missingCallback = RunPlugin(missingCallback)
+	}
 	jcmd = jujucmd.NewSuperCommand(cmd.SuperCommandParams{
-		Name: "juju",
-		Doc:  jujuDoc,
-		Log:  log,
-		MissingCallback: RunPlugin(func(ctx *cmd.Context, subcommand string, args []string) error {
-			excluded := jujuRegistry.excluded.Contains(subcommand)
-			if excluded {
-				return errors.Errorf("juju %q is not supported when run via a controller API call", subcommand)
-			}
-			if cmdName, _, ok := jcmd.FindClosestSubCommand(subcommand); ok {
-				return &NotFoundCommand{
-					ArgName:  subcommand,
-					CmdName:  cmdName,
-					HelpHint: helpHint,
-				}
-			}
-			return cmd.DefaultUnrecognizedCommand(subcommand)
-		}),
+		Name:                "juju",
+		Doc:                 jujuDoc,
+		Log:                 log,
+		MissingCallback:     missingCallback,
 		UserAliasesFilename: osenv.JujuXDGDataHomePath("aliases"),
 		FlagKnownAs:         "option",
 		NotifyRun: func(string) {
@@ -296,7 +300,7 @@ func registerCommands(r commandRegistry) {
 	// NOTE:
 	// When adding a new command here, consider if the command should also
 	// be whitelisted for being enabled as an embedded command accessible to
-	// the GUI Dashboard.
+	// the Dashboard Dashboard.
 	// Update allowedEmbeddedCommands in apiserver.go
 	r.Register(newVersionCommand())
 	// Creation commands.
@@ -329,10 +333,7 @@ func registerCommands(r commandRegistry) {
 	r.Register(status.NewStatusHistoryCommand())
 
 	// Error resolution and debugging commands.
-	if !featureflag.Enabled(feature.ActionsV2) {
-		r.Register(newDefaultRunCommand(nil))
-	}
-	r.Register(newDefaultExecCommand(nil))
+	r.Register(action.NewExecCommand(nil))
 	r.Register(newSCPCommand(nil))
 	r.Register(newSSHCommand(nil, nil))
 	r.Register(application.NewResolvedCommand())
@@ -346,7 +347,7 @@ func registerCommands(r commandRegistry) {
 	r.Register(newSyncToolsCommand())
 	r.Register(newUpgradeJujuCommand())
 	r.Register(newUpgradeControllerCommand())
-	r.Register(application.NewUpgradeCharmCommand())
+	r.Register(application.NewRefreshCommand())
 	r.Register(application.NewSetSeriesCommand())
 	r.Register(application.NewBindCommand())
 
@@ -426,16 +427,10 @@ func registerCommands(r commandRegistry) {
 	r.Register(action.NewListCommand())
 	r.Register(action.NewShowCommand())
 	r.Register(action.NewCancelCommand())
-	if featureflag.Enabled(feature.ActionsV2) {
-		r.Register(action.NewRunCommand())
-		r.Register(action.NewListOperationsCommand())
-		r.Register(action.NewShowOperationCommand())
-		r.Register(action.NewShowTaskCommand())
-	} else {
-		r.Register(action.NewRunActionCommand())
-		r.Register(action.NewShowActionOutputCommand())
-		r.Register(action.NewStatusCommand())
-	}
+	r.Register(action.NewRunCommand())
+	r.Register(action.NewListOperationsCommand())
+	r.Register(action.NewShowOperationCommand())
+	r.Register(action.NewShowTaskCommand())
 
 	// Manage controller availability
 	r.Register(newEnableHACommand())
@@ -448,7 +443,7 @@ func registerCommands(r commandRegistry) {
 	r.Register(application.NewUnexposeCommand())
 	r.Register(application.NewApplicationGetConstraintsCommand())
 	r.Register(application.NewApplicationSetConstraintsCommand())
-	r.Register(application.NewBundleDiffCommand())
+	r.Register(application.NewDiffBundleCommand())
 	r.Register(application.NewShowApplicationCommand())
 	r.Register(application.NewShowUnitCommand())
 
@@ -528,9 +523,9 @@ func registerCommands(r commandRegistry) {
 	// Manage Application Credential Access
 	r.Register(application.NewTrustCommand())
 
-	// Juju GUI commands.
-	r.Register(gui.NewGUICommand())
-	r.Register(gui.NewUpgradeGUICommand())
+	// Juju Dashboard commands.
+	r.Register(dashboard.NewDashboardCommand())
+	r.Register(dashboard.NewUpgradeDashboardCommand())
 
 	// Resource commands
 	r.Register(resource.NewUploadCommand(resource.UploadDeps{
@@ -557,6 +552,7 @@ func registerCommands(r commandRegistry) {
 	if featureflag.Enabled(feature.CharmHubIntegration) {
 		r.Register(charmhub.NewInfoCommand())
 		r.Register(charmhub.NewFindCommand())
+		r.Register(charmhub.NewDownloadCommand())
 	}
 
 	// Commands registered elsewhere.

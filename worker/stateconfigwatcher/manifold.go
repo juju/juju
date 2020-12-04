@@ -6,7 +6,7 @@ package stateconfigwatcher
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/voyeur"
+	"github.com/juju/utils/v2/voyeur"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
 	"gopkg.in/tomb.v2"

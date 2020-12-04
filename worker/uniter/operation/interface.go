@@ -7,7 +7,7 @@ import (
 	corecharm "github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	utilexec "github.com/juju/utils/exec"
+	utilexec "github.com/juju/utils/v2/exec"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter/charm"
@@ -216,6 +216,9 @@ type Callbacks interface {
 	// upgrade series hook code completes and, for display purposes, to
 	// supply a reason as to why it is making the change.
 	SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, reason string) error
+
+	// PostStartHook indiciates that the charms start hook has successfully run
+	PostStartHook()
 
 	// RemoteInit copies the charm to the remote instance. CAAS only.
 	RemoteInit(runningStatus remotestate.ContainerRunningStatus, abort <-chan struct{}) error

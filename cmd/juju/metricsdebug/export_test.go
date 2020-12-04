@@ -5,8 +5,8 @@ package metricsdebug
 
 import (
 	"errors"
-	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/cmd"
 
 	"github.com/juju/juju/api"
@@ -31,7 +31,7 @@ func NewRunClientFnc(client runClient) func(api.Connection) runClient {
 }
 
 func PatchGetActionResult(patchValue func(interface{}, interface{}), actions map[string]params.ActionResult) {
-	patchValue(&getActionResult, func(_ runClient, id string, _ *time.Timer) (params.ActionResult, error) {
+	patchValue(&getActionResult, func(_ runClient, id string, _ clock.Clock, _ clock.Timer) (params.ActionResult, error) {
 		if res, ok := actions[id]; ok {
 			return res, nil
 		}

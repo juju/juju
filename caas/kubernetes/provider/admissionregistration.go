@@ -21,19 +21,18 @@ import (
 )
 
 func (k *kubernetesClient) getAdmissionControllerLabels(appName string) map[string]string {
-	return map[string]string{
-		constants.LabelApplication: appName,
-		constants.LabelModel:       k.namespace,
-	}
+	return utils.LabelsMerge(
+		utils.LabelsForApp(appName, k.IsLegacyLabels()),
+		utils.LabelsForModel(k.CurrentModel(), k.IsLegacyLabels()),
+	)
 }
-
-var annotationDisableNamePrefixKey = constants.AnnotationKey("disable-name-prefix")
 
 const annotationDisableNamePrefixValue = "true"
 
-func decideNameForGlobalResource(meta k8sspecs.Meta, namespace string) string {
+func decideNameForGlobalResource(meta k8sspecs.Meta, namespace string, isLegacy bool) string {
 	name := meta.Name
-	if k8sannotations.New(meta.Annotations).Has(annotationDisableNamePrefixKey, annotationDisableNamePrefixValue) {
+	key := utils.AnnotationDisableNameKey(isLegacy)
+	if k8sannotations.New(meta.Annotations).Has(key, annotationDisableNamePrefixValue) {
 		return name
 	}
 	return fmt.Sprintf("%s-%s", namespace, name)
@@ -45,9 +44,9 @@ func (k *kubernetesClient) ensureMutatingWebhookConfigurations(
 	for _, v := range cfgs {
 		spec := &admissionregistration.MutatingWebhookConfiguration{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        decideNameForGlobalResource(v.Meta, k.namespace),
+				Name:        decideNameForGlobalResource(v.Meta, k.namespace, k.IsLegacyLabels()),
 				Namespace:   k.namespace,
-				Labels:      k8slabels.Merge(v.Labels, k.getAdmissionControllerLabels(appName)),
+				Labels:      utils.LabelsMerge(v.Labels, k.getAdmissionControllerLabels(appName)),
 				Annotations: k8sannotations.New(v.Annotations).Merge(annotations),
 			},
 			Webhooks: v.Webhooks,
@@ -76,7 +75,7 @@ func (k *kubernetesClient) EnsureMutatingWebhookConfiguration(cfg *admissionregi
 	if !errors.IsAlreadyExists(err) {
 		return cleanUp, errors.Trace(err)
 	}
-	_, err = k.listMutatingWebhookConfigurations(utils.LabelSetToSelector(cfg.GetLabels()))
+	_, err = k.listMutatingWebhookConfigurations(utils.LabelsToSelector(cfg.GetLabels()))
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// cfg.Name is already used for an existing MutatingWebhookConfiguration.
@@ -146,7 +145,7 @@ func (k *kubernetesClient) listMutatingWebhookConfigurations(selector k8slabels.
 
 func (k *kubernetesClient) deleteMutatingWebhookConfigurations(selector k8slabels.Selector) error {
 	err := k.client().AdmissionregistrationV1beta1().MutatingWebhookConfigurations().DeleteCollection(context.TODO(), metav1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, metav1.ListOptions{
 		LabelSelector: selector.String(),
 	})
@@ -157,7 +156,7 @@ func (k *kubernetesClient) deleteMutatingWebhookConfigurations(selector k8slabel
 }
 
 func (k *kubernetesClient) deleteMutatingWebhookConfigurationsForApp(appName string) error {
-	selector := utils.LabelSetToSelector(k.getAdmissionControllerLabels(appName))
+	selector := utils.LabelsToSelector(k.getAdmissionControllerLabels(appName))
 	return errors.Trace(k.deleteMutatingWebhookConfigurations(selector))
 }
 
@@ -167,9 +166,9 @@ func (k *kubernetesClient) ensureValidatingWebhookConfigurations(
 	for _, v := range cfgs {
 		spec := &admissionregistration.ValidatingWebhookConfiguration{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        decideNameForGlobalResource(v.Meta, k.namespace),
+				Name:        decideNameForGlobalResource(v.Meta, k.namespace, k.IsLegacyLabels()),
 				Namespace:   k.namespace,
-				Labels:      k8slabels.Merge(v.Labels, k.getAdmissionControllerLabels(appName)),
+				Labels:      utils.LabelsMerge(v.Labels, k.getAdmissionControllerLabels(appName)),
 				Annotations: k8sannotations.New(v.Annotations).Merge(annotations),
 			},
 			Webhooks: v.Webhooks,
@@ -194,7 +193,7 @@ func (k *kubernetesClient) ensureValidatingWebhookConfiguration(cfg *admissionre
 	if !errors.IsAlreadyExists(err) {
 		return cleanUp, errors.Trace(err)
 	}
-	_, err = k.listValidatingWebhookConfigurations(utils.LabelSetToSelector(cfg.GetLabels()))
+	_, err = k.listValidatingWebhookConfigurations(utils.LabelsToSelector(cfg.GetLabels()))
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// cfg.Name is already used for an existing ValidatingWebhookConfiguration.
@@ -264,7 +263,7 @@ func (k *kubernetesClient) listValidatingWebhookConfigurations(selector k8slabel
 
 func (k *kubernetesClient) deleteValidatingWebhookConfigurations(selector k8slabels.Selector) error {
 	err := k.client().AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().DeleteCollection(context.TODO(), metav1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, metav1.ListOptions{
 		LabelSelector: selector.String(),
 	})
@@ -275,6 +274,6 @@ func (k *kubernetesClient) deleteValidatingWebhookConfigurations(selector k8slab
 }
 
 func (k *kubernetesClient) deleteValidatingWebhookConfigurationsForApp(appName string) error {
-	selector := utils.LabelSetToSelector(k.getAdmissionControllerLabels(appName))
+	selector := utils.LabelsToSelector(k.getAdmissionControllerLabels(appName))
 	return errors.Trace(k.deleteValidatingWebhookConfigurations(selector))
 }

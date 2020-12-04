@@ -32,13 +32,16 @@ const (
 )
 
 var (
+	// Idle* vars below are used for testing. Last changed by tlm on 05/11/20
+	// Changed IdleTime to a larger value to allow high churn tests to catch up
+
 	// IdleFunc allows tests to be able to get callbacks when the controller
 	// hasn't been given any changes for a specified time.
 	IdleFunc func()
 
 	// IdleTime relates to how long the controller needs to wait with no changes
 	// to be considered idle.
-	IdleTime = 50 * time.Millisecond
+	IdleTime = 200 * time.Millisecond
 )
 
 // Clock defines the clockish methods used by the controller.
@@ -133,19 +136,20 @@ func newController(config ControllerConfig, manager *residentManager) (*Controll
 }
 
 func (c *Controller) loop() error {
-	var idle <-chan time.Time
+	idle := &time.Timer{}
 	if c.idleFunc != nil {
 		logger.Tracef("controller %p set idle timeout to %s", c, IdleTime)
-		idle = time.After(IdleTime)
+		idle = time.NewTimer(IdleTime)
+		defer idle.Stop()
 	}
 	for {
 		select {
 		case <-c.tomb.Dying():
 			return nil
-		case <-idle:
+		case <-idle.C:
 			logger.Tracef("controller %p is idle", c)
 			c.idleFunc()
-			idle = time.After(IdleTime)
+			idle.Reset(IdleTime)
 		case change := <-c.changes:
 			var err error
 
@@ -192,7 +196,7 @@ func (c *Controller) loop() error {
 			}
 
 			if c.idleFunc != nil {
-				idle = time.After(IdleTime)
+				idle.Reset(IdleTime)
 			}
 		}
 	}

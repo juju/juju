@@ -13,7 +13,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"github.com/juju/version"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
@@ -39,7 +39,6 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	providercommon "github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/wrench"
@@ -263,17 +262,12 @@ func (task *provisionerTask) processMachines(ids []string) error {
 	}
 
 	// Find machines without an instance ID or that are dead.
-	pending, dead, maintain, err := task.pendingOrDeadOrMaintain(ids)
+	pending, dead, err := task.pendingOrDead(ids)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	if err := task.removeMachines(dead); err != nil {
-		return errors.Trace(err)
-	}
-
-	// Any machines that require maintenance get pinged.
-	if err := task.maintainMachines(maintain); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -330,9 +324,9 @@ func (task *provisionerTask) populateMachineMaps(ids []string) error {
 
 // pendingOrDead looks up machines with ids and returns those that do not
 // have an instance id assigned yet, and also those that are dead.
-func (task *provisionerTask) pendingOrDeadOrMaintain(
+func (task *provisionerTask) pendingOrDead(
 	ids []string,
-) (pending, dead, maintain []apiprovisioner.MachineProvisioner, err error) {
+) (pending, dead []apiprovisioner.MachineProvisioner, err error) {
 	task.machinesMutex.RLock()
 	defer task.machinesMutex.RUnlock()
 	for _, id := range ids {
@@ -351,8 +345,6 @@ func (task *provisionerTask) pendingOrDeadOrMaintain(
 			pending = append(pending, machine)
 		case Dead:
 			dead = append(dead, machine)
-		case Maintain:
-			maintain = append(maintain, machine)
 		}
 	}
 	task.logger.Tracef("pending machines: %v", pending)
@@ -372,10 +364,9 @@ type ClassifiableMachine interface {
 type MachineClassification string
 
 const (
-	None     MachineClassification = "none"
-	Pending  MachineClassification = "Pending"
-	Dead     MachineClassification = "Dead"
-	Maintain MachineClassification = "Maintain"
+	None    MachineClassification = "none"
+	Pending MachineClassification = "Pending"
+	Dead    MachineClassification = "Dead"
 )
 
 func classifyMachine(logger Logger, machine ClassifiableMachine) (
@@ -422,9 +413,6 @@ func classifyMachine(logger Logger, machine ClassifiableMachine) (
 	}
 	logger.Infof("machine %s already started as instance %q", machine.Id(), instId)
 
-	if state.ContainerTypeFromId(machine.Id()) != "" {
-		return Maintain, nil
-	}
 	return None, nil
 }
 
@@ -571,7 +559,7 @@ func (task *provisionerTask) constructInstanceConfig(
 	pInfo *params.ProvisioningInfoV10,
 ) (*instancecfg.InstanceConfig, error) {
 
-	stateInfo, apiInfo, err := auth.SetupAuthentication(machine)
+	apiInfo, err := auth.SetupAuthentication(machine)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to setup authentication")
 	}
@@ -607,13 +595,8 @@ func (task *provisionerTask) constructInstanceConfig(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if stateInfo == nil {
-			return nil, errors.Errorf("Job needs state, but stateInfo is nil: jobs %v for %v",
-				instanceConfig.Jobs, machine.Tag().String())
-		}
 		instanceConfig.Controller = &instancecfg.ControllerConfig{
 			PublicImageSigningKey: publicKey,
-			MongoInfo:             stateInfo,
 		}
 		instanceConfig.Controller.Config = make(map[string]interface{})
 		for k, v := range pInfo.ControllerConfig {
@@ -735,21 +718,14 @@ func (task *provisionerTask) constructStartInstanceParams(
 		Abort:             task.catacomb.Dying(),
 		CharmLXDProfiles:  provisioningInfo.CharmLXDProfiles,
 	}
-
-	return startInstanceParams, nil
-}
-
-func (task *provisionerTask) maintainMachines(machines []apiprovisioner.MachineProvisioner) error {
-	for _, m := range machines {
-		task.logger.Infof("maintainMachines: %v", m)
-		startInstanceParams := environs.StartInstanceParams{}
-		startInstanceParams.InstanceConfig = &instancecfg.InstanceConfig{}
-		startInstanceParams.InstanceConfig.MachineId = m.Id()
-		if err := task.broker.MaintainInstance(task.cloudCallCtx, startInstanceParams); err != nil {
-			return errors.Annotatef(err, "cannot maintain machine %v", m)
+	if provisioningInfo.RootDisk != nil {
+		startInstanceParams.RootDisk = &storage.VolumeParams{
+			Provider:   storage.ProviderType(provisioningInfo.RootDisk.Provider),
+			Attributes: provisioningInfo.RootDisk.Attributes,
 		}
 	}
-	return nil
+
+	return startInstanceParams, nil
 }
 
 // AvailabilityZoneMachine keeps track a single zone and which machines
@@ -874,9 +850,9 @@ func (task *provisionerTask) machineAvailabilityZoneDistribution(
 	// If the machine has a distribution group, assign based on lowest zone
 	// population of the distribution group machine.
 	var machineZone string
-	zoneMap := azMachineFilterSort(task.availabilityZoneMachines)
+	zoneMap := azMachineSort(task.availabilityZoneMachines)
 	if len(distGroupMachineIds) > 0 {
-		zoneMap = azMachineFilterSort(task.populateDistributionGroupZoneMap(distGroupMachineIds))
+		zoneMap = azMachineSort(task.populateDistributionGroupZoneMap(distGroupMachineIds))
 	}
 
 	sort.Sort(zoneMap)
@@ -913,16 +889,15 @@ func (task *provisionerTask) machineAvailabilityZoneDistribution(
 	return machineZone, nil
 }
 
-// azMachineFilterSort extends a slice of AvailabilityZoneMachine references
-// with a sort implementation by zone population and name,
-// and filtration based on zones expressed in constraints.
-type azMachineFilterSort []*AvailabilityZoneMachine
+// azMachineSort extends a slice of AvailabilityZoneMachine references
+// with a sort implementation by zone population and name.
+type azMachineSort []*AvailabilityZoneMachine
 
-func (a azMachineFilterSort) Len() int {
+func (a azMachineSort) Len() int {
 	return len(a)
 }
 
-func (a azMachineFilterSort) Less(i, j int) bool {
+func (a azMachineSort) Less(i, j int) bool {
 	switch {
 	case a[i].MachineIds.Size() < a[j].MachineIds.Size():
 		return true
@@ -932,7 +907,7 @@ func (a azMachineFilterSort) Less(i, j int) bool {
 	return false
 }
 
-func (a azMachineFilterSort) Swap(i, j int) {
+func (a azMachineSort) Swap(i, j int) {
 	a[i], a[j] = a[j], a[i]
 }
 
@@ -1275,8 +1250,7 @@ func (task *provisionerTask) markMachineFailedInAZ(machine apiprovisioner.Machin
 	}
 
 	// Check if there are any zones left to try (that also match constraints).
-	zoneMap := azMachineFilterSort(task.availabilityZoneMachines)
-	for _, zoneMachines := range zoneMap {
+	for _, zoneMachines := range task.availabilityZoneMachines {
 		if zoneMachines.MatchesConstraints(cons) &&
 			!zoneMachines.FailedMachineIds.Contains(machine.Id()) &&
 			!zoneMachines.ExcludedMachineIds.Contains(machine.Id()) {
@@ -1292,18 +1266,6 @@ func (task *provisionerTask) clearMachineAZFailures(machine apiprovisioner.Machi
 	for _, zoneMachines := range task.availabilityZoneMachines {
 		zoneMachines.FailedMachineIds.Remove(machine.Id())
 	}
-}
-
-func (task *provisionerTask) addMachineToAZMap(machine *apiprovisioner.Machine, zoneName string) {
-	task.machinesMutex.Lock()
-	defer task.machinesMutex.Unlock()
-	for _, zoneMachines := range task.availabilityZoneMachines {
-		if zoneName == zoneMachines.ZoneName {
-			zoneMachines.MachineIds.Add(machine.Id())
-			break
-		}
-	}
-	return
 }
 
 // removeMachineFromAZMap removes the specified machine from availabilityZoneMachines.

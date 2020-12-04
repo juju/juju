@@ -6,6 +6,17 @@ juju_version() {
     echo "${version}"
 }
 
+jujud_version() {
+    version=$(jujud version)
+
+    # shellcheck disable=SC2116
+    version=$(echo "${version%-*}")
+    # shellcheck disable=SC2116
+    version=$(echo "${version%-*}")
+
+    echo "${version}"
+}
+
 # ensure will check if there is a bootstrapped controller that it can take
 # advantage of, failing that it will bootstrap a new controller for you.
 #
@@ -43,14 +54,14 @@ ensure() {
 bootstrap() {
     local provider name output model bootstrapped_name
     case "${BOOTSTRAP_PROVIDER:-}" in
-        "aws")
+        "aws" | "ec2")
             provider="aws"
             ;;
-        "lxd")
+        "localhost" | "lxd")
             provider="lxd"
             ;;
-        "localhost")
-            provider="lxd"
+        "lxd-remote")
+            provider="lxd-remote"
             ;;
         "manual")
             manual_name=${1}

@@ -18,7 +18,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/types"
 
-	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
+	providerconst "github.com/juju/juju/caas/kubernetes/provider/constants"
+	providerutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 )
 
 type patchOperation struct {
@@ -50,7 +51,7 @@ var (
 	}
 )
 
-func admissionHandler(logger Logger, rbacMapper RBACMapper) http.Handler {
+func admissionHandler(logger Logger, rbacMapper RBACMapper, legacyLabels bool) http.Handler {
 	codecFactory := serializer.NewCodecFactory(runtime.NewScheme())
 
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -139,7 +140,7 @@ func admissionHandler(logger Logger, rbacMapper RBACMapper) http.Handler {
 		}
 
 		patchJSON, err := json.Marshal(
-			patchForLabels(metaObj.Labels, appName))
+			patchForLabels(metaObj.Labels, appName, legacyLabels))
 		if err != nil {
 			http.Error(res,
 				fmt.Sprintf("marshalling patch object to json: %v", err),
@@ -171,15 +172,19 @@ func errToAdmissionResponse(err error) *admission.AdmissionResponse {
 }
 
 func patchEscape(s string) string {
-	r := strings.Replace(s, "/", "~1", -1)
-	r = strings.Replace(r, "~", "~0", -1)
+	r := strings.Replace(s, "~", "~0", -1)
+	r = strings.Replace(r, "/", "~1", -1)
 	return r
 }
 
-func patchForLabels(labels map[string]string, appName string) []patchOperation {
+func patchForLabels(
+	labels map[string]string,
+	appName string,
+	legacyLabels bool) []patchOperation {
 	patches := []patchOperation{}
 
-	neededLabels := k8sutils.LabelsForApp(appName)
+	neededLabels := providerutils.LabelForKeyValue(
+		providerconst.LabelJujuAppCreatedBy, appName)
 
 	if len(labels) == 0 {
 		patches = append(patches, patchOperation{

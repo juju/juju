@@ -27,9 +27,8 @@ type ManifoldConfig struct {
 	APICallerName string
 	BrokerName    string
 	ClockName     string
-
-	NewWorker func(Config) (worker.Worker, error)
-	Logger    Logger
+	NewWorker     func(Config) (worker.Worker, error)
+	Logger        Logger
 }
 
 // Validate is called by start to check for bad configuration.
@@ -88,12 +87,12 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	api := caasoperatorprovisioner.NewClient(apiCaller)
 	agentConfig := agent.CurrentConfig()
 	w, err := config.NewWorker(Config{
-		Facade:      api,
-		Broker:      broker,
-		ModelTag:    modelTag,
-		AgentConfig: agentConfig,
-		Clock:       clock,
-		Logger:      config.Logger,
+		Facade:          api,
+		OperatorManager: broker,
+		ModelTag:        modelTag,
+		AgentConfig:     agentConfig,
+		Clock:           clock,
+		Logger:          config.Logger,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

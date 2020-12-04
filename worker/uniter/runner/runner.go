@@ -14,7 +14,6 @@ import (
 	"regexp"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 	"unicode/utf8"
 
@@ -22,9 +21,9 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	jujuos "github.com/juju/os"
-	"github.com/juju/utils"
-	utilexec "github.com/juju/utils/exec"
+	jujuos "github.com/juju/os/v2"
+	"github.com/juju/utils/v2"
+	utilexec "github.com/juju/utils/v2/exec"
 	"github.com/kballard/go-shellquote"
 
 	"github.com/juju/juju/core/actions"
@@ -334,31 +333,30 @@ func encodeBytes(input []byte) (value string, encoding string) {
 }
 
 func (runner *runner) updateActionResults(results *utilexec.ExecResponse) error {
-	// TODO(juju3) - use lower case here
-	if err := runner.context.UpdateActionResults([]string{"Code"}, fmt.Sprintf("%d", results.Code)); err != nil {
+	if err := runner.context.UpdateActionResults([]string{"return-code"}, results.Code); err != nil {
 		return errors.Trace(err)
 	}
 
 	stdout, encoding := encodeBytes(results.Stdout)
 	if stdout != "" {
-		if err := runner.context.UpdateActionResults([]string{"Stdout"}, stdout); err != nil {
+		if err := runner.context.UpdateActionResults([]string{"stdout"}, stdout); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	if encoding != "utf8" {
-		if err := runner.context.UpdateActionResults([]string{"StdoutEncoding"}, encoding); err != nil {
+		if err := runner.context.UpdateActionResults([]string{"stdout-encoding"}, encoding); err != nil {
 			return errors.Trace(err)
 		}
 	}
 
 	stderr, encoding := encodeBytes(results.Stderr)
 	if stderr != "" {
-		if err := runner.context.UpdateActionResults([]string{"Stderr"}, stderr); err != nil {
+		if err := runner.context.UpdateActionResults([]string{"stderr"}, stderr); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	if encoding != "utf8" {
-		if err := runner.context.UpdateActionResults([]string{"StderrEncoding"}, encoding); err != nil {
+		if err := runner.context.UpdateActionResults([]string{"stderr-encoding"}, encoding); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -474,10 +472,12 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string, r
 // sends messages to a logger.
 type loggerAdaptor struct {
 	loggo.Logger
+	level loggo.Level
 }
 
+// Messagef implements the charmrunner MessageReceiver interface
 func (l *loggerAdaptor) Messagef(isPrefix bool, message string, args ...interface{}) {
-	l.Debugf(message, args...)
+	l.Logf(l.level, message, args...)
 }
 
 // bufferAdaptor implements MessageReceiver and
@@ -491,12 +491,14 @@ type bufferAdaptor struct {
 	outCopy bytes.Buffer
 }
 
+// Read implements the io.Reader interface
 func (b *bufferAdaptor) Read(p []byte) (n int, err error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.outCopy.Read(p)
 }
 
+// Messagef implements the charmrunner MessageReceiver interface
 func (b *bufferAdaptor) Messagef(isPrefix bool, message string, args ...interface{}) {
 	formattedMessage := message
 	if len(args) > 0 {
@@ -511,6 +513,13 @@ func (b *bufferAdaptor) Messagef(isPrefix bool, message string, args ...interfac
 	b.outCopy.WriteString(formattedMessage)
 }
 
+// Bytes exposes the underlying buffered bytes.
+func (b *bufferAdaptor) Bytes() []byte {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.outCopy.Bytes()
+}
+
 func (runner *runner) runCharmProcessOnRemote(hook, hookName, charmDir string, env []string) error {
 	var cancel <-chan struct{}
 	outReader, outWriter, err := os.Pipe()
@@ -521,7 +530,7 @@ func (runner *runner) runCharmProcessOnRemote(hook, hookName, charmDir string, e
 
 	actionOut := &bufferAdaptor{ReadWriter: outWriter}
 	hookOutLogger := charmrunner.NewHookLogger(outReader,
-		&loggerAdaptor{runner.getLogger(hookName)},
+		&loggerAdaptor{Logger: runner.getLogger(hookName), level: loggo.DEBUG},
 		actionOut,
 	)
 	defer hookOutLogger.Stop()
@@ -544,7 +553,7 @@ func (runner *runner) runCharmProcessOnRemote(hook, hookName, charmDir string, e
 
 		actionErr = &bufferAdaptor{ReadWriter: errWriter}
 		hookErrLogger = charmrunner.NewHookLogger(errReader,
-			&loggerAdaptor{runner.getLogger(hookName)},
+			&loggerAdaptor{Logger: runner.getLogger(hookName), level: loggo.WARNING},
 			actionErr,
 		)
 		defer hookErrLogger.Stop()
@@ -591,40 +600,36 @@ func (runner *runner) runCharmProcessOnLocal(hook, hookName, charmDir string, en
 	defer func() { _ = outWriter.Close() }()
 
 	ps.Stdout = outWriter
-	ps.Stderr = outWriter
-	actionOut := &bufferAdaptor{ReadWriter: outWriter}
 	hookOutLogger := charmrunner.NewHookLogger(outReader,
-		&loggerAdaptor{runner.getLogger(hookName)},
-		actionOut,
+		&loggerAdaptor{Logger: runner.getLogger(hookName), level: loggo.DEBUG},
 	)
 	go hookOutLogger.Run()
 	defer hookOutLogger.Stop()
 
-	// When running an action, We capture stdout and stderr
-	// separately to pass back.
-	var actionErr io.Reader
-	var hookErrLogger *charmrunner.HookLogger
+	errReader, errWriter, err := os.Pipe()
+	if err != nil {
+		return errors.Errorf("cannot make stderr logging pipe: %v", err)
+	}
+	defer func() { _ = errWriter.Close() }()
+
+	ps.Stderr = errWriter
+	hookErrLogger := charmrunner.NewHookLogger(errReader,
+		&loggerAdaptor{Logger: runner.getLogger(hookName), level: loggo.WARNING},
+	)
+	defer hookErrLogger.Stop()
+	go hookErrLogger.Run()
+
 	var cancel <-chan struct{}
+	var actionOut *bufferAdaptor
+	var actionErr *bufferAdaptor
 	actionData, err := runner.context.ActionData()
 	runningAction := err == nil && actionData != nil
 	if runningAction {
+		actionOut = &bufferAdaptor{ReadWriter: outWriter}
+		hookOutLogger.AddReceiver(actionOut)
+		actionErr = &bufferAdaptor{ReadWriter: errWriter}
+		hookErrLogger.AddReceiver(actionErr)
 		cancel = actionData.Cancel
-
-		errReader, errWriter, err := os.Pipe()
-		if err != nil {
-			return errors.Errorf("cannot make stderr logging pipe: %v", err)
-		}
-		defer func() { _ = errWriter.Close() }()
-
-		ps.Stderr = errWriter
-		errBuf := &bufferAdaptor{ReadWriter: errWriter}
-		actionErr = errBuf
-		hookErrLogger = charmrunner.NewHookLogger(errReader,
-			&loggerAdaptor{runner.getLogger(hookName)},
-			errBuf,
-		)
-		defer hookErrLogger.Stop()
-		go hookErrLogger.Run()
 	}
 
 	err = ps.Start()
@@ -656,28 +661,10 @@ func (runner *runner) runCharmProcessOnLocal(hook, hookName, charmDir string, en
 
 	// If we are running an action, record stdout and stderr.
 	if runningAction {
-		readBytes := func(r io.Reader) []byte {
-			var o bytes.Buffer
-			_, _ = o.ReadFrom(r)
-			return o.Bytes()
-		}
-		exitCode := func(exitErr error) int {
-			if exitErr != nil {
-				if exitErr, ok := exitErr.(*exec.ExitError); ok {
-					if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
-						return status.ExitStatus()
-					}
-				}
-				return -1
-			}
-			return 0
-		}
 		resp := &utilexec.ExecResponse{
-			// TODO(wallyworld) - use ExitCode() when we support Go 1.12
-			// Code:   ps.ProcessState.ExitCode(),
-			Code:   exitCode(exitErr),
-			Stdout: readBytes(actionOut),
-			Stderr: readBytes(actionErr),
+			Code:   ps.ProcessState.ExitCode(),
+			Stdout: actionOut.Bytes(),
+			Stderr: actionErr.Bytes(),
 		}
 		if err := runner.updateActionResults(resp); err != nil {
 			return errors.Trace(err)

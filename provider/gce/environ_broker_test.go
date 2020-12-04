@@ -6,10 +6,10 @@ package gce_test
 import (
 	"errors"
 
-	jujuos "github.com/juju/os"
-	"github.com/juju/os/series"
+	jujuos "github.com/juju/os/v2"
+	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -156,6 +156,24 @@ func (s *environBrokerSuite) TestNewRawInstance(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(inst, jc.DeepEquals, s.BaseInstance)
+}
+
+func (s *environBrokerSuite) TestNewRawInstanceNoPublicIP(c *gc.C) {
+	s.FakeConn.Inst = s.BaseInstance
+	s.FakeCommon.AZInstances = []common.AvailabilityZoneInstances{{
+		ZoneName:  "home-zone",
+		Instances: []instance.Id{s.Instance.Id()},
+	}}
+
+	public := false
+	s.StartInstArgs.Constraints.AllocatePublicIP = &public
+
+	inst, err := gce.NewRawInstance(s.Env, s.CallCtx, s.StartInstArgs, s.spec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	nics := inst.NetworkInterfaces()
+	c.Assert(nics, gc.HasLen, 1)
+	c.Assert(nics[0].AccessConfigs, gc.HasLen, 0)
 }
 
 func (s *environBrokerSuite) TestNewRawInstanceZoneInvalidCredentialError(c *gc.C) {

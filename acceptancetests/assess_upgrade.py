@@ -258,7 +258,11 @@ def main(argv=None):
     )
 
     assess_upgrade_from_stable_to_develop(args, stable_bsm, devel_client)
-    assess_upgrade_passing_agent_stream(args, devel_client)
+
+    # LP:1742342 Moving from released stream to devel stream doesn't work, 
+    # because upgrade-juju doesn't honour --agent-stream over the model-config.
+    #
+    # assess_upgrade_passing_agent_stream(args, devel_client)
     return 0
 
 

@@ -61,11 +61,6 @@ func templateDirectoryName(controllerFolderName string) string {
 	return path.Join(controllerFolderName, "templates")
 }
 
-// MaintainInstance is specified in the InstanceBroker interface.
-func (*environ) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
-	return nil
-}
-
 // StartInstance implements environs.InstanceBroker.
 func (env *environ) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (result *environs.StartInstanceResult, err error) {
 	err = env.withSession(ctx, func(env *sessionEnviron) error {

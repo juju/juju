@@ -40,6 +40,30 @@ func (grp GroupedPortRanges) Clone() GroupedPortRanges {
 	return grpCopy
 }
 
+// EqualTo returns true if this set of grouped port ranges are equal to other.
+func (grp GroupedPortRanges) EqualTo(other GroupedPortRanges) bool {
+	if len(grp) != len(other) {
+		return false
+	}
+
+	for groupKey, portRanges := range grp {
+		otherPortRanges, found := other[groupKey]
+		if !found || len(portRanges) != len(otherPortRanges) {
+			return false
+		}
+
+		SortPortRanges(portRanges)
+		SortPortRanges(otherPortRanges)
+		for i, pr := range portRanges {
+			if pr != otherPortRanges[i] {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
 // PortRange represents a single range of ports on a particular subnet.
 type PortRange struct {
 	FromPort int

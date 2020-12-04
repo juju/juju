@@ -6,7 +6,7 @@ package instancemutater
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	worker "github.com/juju/worker/v2"
+	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
 
 	"github.com/juju/juju/agent"
@@ -14,8 +14,8 @@ import (
 	"github.com/juju/juju/environs"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/worker_mock.go gopkg.in/juju/worker.v1 Worker
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/dependency_mock.go gopkg.in/juju/worker.v1/dependency Context
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/worker_mock.go github.com/juju/worker/v2 Worker
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/dependency_mock.go github.com/juju/worker/v2/dependency Context
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/environs_mock.go github.com/juju/juju/environs Environ,LXDProfiler,InstanceBroker
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/base_mock.go github.com/juju/juju/api/base APICaller
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/agent_mock.go github.com/juju/juju/agent Agent,Config

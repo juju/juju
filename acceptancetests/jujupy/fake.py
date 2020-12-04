@@ -24,7 +24,6 @@ import json
 import logging
 import re
 import subprocess
-import uuid
 
 import pexpect
 import yaml
@@ -870,18 +869,18 @@ class FakeBackend:
         return {model_name: data}
 
     def run_action(self, unit_id, action):
-        action_uuid = '{}'.format(uuid.uuid1())
+        action_id = '1'
         try:
             result = self.action_results[unit_id][action]
-            self.action_queue[action_uuid] = result
+            self.action_queue[action_id] = result
         except KeyError:
             raise ValueError('No such action "{0}"'
                              ' specified for unit {1}.'.format(action,
                                                                unit_id))
-        return ('Action queued with id: {}'.format(action_uuid))
+        return ('Action queued with id: {}'.format(action_id))
 
-    def show_action_output(self, action_uuid):
-        return self.action_queue.get(action_uuid, None)
+    def show_task(self, id):
+        return self.action_queue.get(id, None)
 
     def _log_command(self, command, args, model, level=logging.INFO):
         full_args = ['juju', command]
@@ -1092,8 +1091,8 @@ class FakeBackend:
                 unit_id = args[0]
                 action = args[1]
                 return self.run_action(unit_id, action)
-            if command == 'show-action-output':
-                return self.show_action_output(args[0])
+            if command == 'show-task':
+                return self.show_task(args[0])
             return ''
 
     def expect(self, command, args, used_feature_flags, juju_home, model=None,

@@ -20,8 +20,8 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/naturalsort"
 	"github.com/juju/schema"
-	"github.com/juju/utils"
-	"github.com/juju/utils/keyvalues"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/keyvalues"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/caas"
@@ -49,6 +49,9 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/provider/lxd/lxdnames"
+	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -127,7 +130,10 @@ agent stream is 'released' (default), then a 2.3.1 client can bootstrap:
     * 2.3.1 controller by running '... bootstrap ...';
     * 2.3.2 controller by running 'bootstrap --auto-upgrade'.
 However, if this client has a copy of codebase, then a local copy of Juju
-will be built and bootstrapped - 2.3.1.1.`
+will be built and bootstrapped - 2.3.1.1.
+
+If a storage pool is specified using --storage-pool, this will be created
+in the controller model.`
 
 var usageBootstrapConfigTxt = `
 
@@ -145,6 +151,7 @@ Examples:
     juju bootstrap --config=~/config-rs.yaml rackspace joe-syd
     juju bootstrap --agent-version=2.2.4 aws joe-us-east-1
     juju bootstrap --config bootstrap-timeout=1200 azure joe-eastus
+    juju bootstrap aws --storage-pool name=secret --storage-pool type=ebs --storage-pool encrypted=true
 
 See also:
     add-credentials
@@ -192,6 +199,7 @@ type bootstrapCommand struct {
 	AgentVersion             *version.Number
 	config                   common.ConfigFlag
 	modelDefaults            common.ConfigFlag
+	storagePool              common.ConfigFlag
 
 	showClouds          bool
 	showRegionsForCloud string
@@ -199,7 +207,7 @@ type bootstrapCommand struct {
 	CredentialName      string
 	Cloud               string
 	Region              string
-	noGUI               bool
+	noDashboard         bool
 	noSwitch            bool
 	interactive         bool
 
@@ -272,11 +280,12 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.CredentialName, "credential", "", "Credentials to use when bootstrapping")
 	f.Var(&c.config, "config", "Specify a controller configuration file, or one or more configuration\n    options\n    (--config config.yaml [--config key=value ...])")
 	f.Var(&c.modelDefaults, "model-default", "Specify a configuration file, or one or more configuration\n    options to be set for all models, unless otherwise specified\n    (--model-default config.yaml [--model-default key=value ...])")
+	f.Var(&c.storagePool, "storage-pool", "Specify options for an initial storage pool\n    'name' and 'type' are required, plus any additional attributes\n    (--storage-pool pool-config.yaml [--storage-pool key=value ...])")
 	f.StringVar(&c.hostedModelName, "d", defaultHostedModelName, "Name of the default hosted model for the controller")
 	f.StringVar(&c.hostedModelName, "default-model", defaultHostedModelName, "Name of the default hosted model for the controller")
 	f.BoolVar(&c.showClouds, "clouds", false, "Print the available clouds which can be used to bootstrap a Juju environment")
 	f.StringVar(&c.showRegionsForCloud, "regions", "", "Print the available regions for the specified cloud")
-	f.BoolVar(&c.noGUI, "no-gui", false, "Do not install the Juju GUI in the controller when bootstrapping")
+	f.BoolVar(&c.noDashboard, "no-dashboard", false, "Do not install the Juju Dashboard in the controller when bootstrapping")
 	f.BoolVar(&c.noSwitch, "no-switch", false, "Do not switch to the newly created controller")
 	f.BoolVar(&c.Force, "force", false, "Allow the bypassing of checks such as supported series")
 	f.BoolVar(&c.noHostedModel, "no-default-model", false, "Do not create a default model")
@@ -715,6 +724,7 @@ to create a new model to deploy %sworkloads.
 			StorageEndpoint:  region.StorageEndpoint,
 			Credential:       credentials.credential,
 			CACertificates:   cloud.CACertificates,
+			SkipTLSVerify:    cloud.SkipTLSVerify,
 		},
 		CredentialName: credentials.name,
 		AdminSecret:    bootstrapCfg.bootstrap.AdminSecret,
@@ -724,6 +734,18 @@ to create a new model to deploy %sworkloads.
 	)
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	// Validate the storage provider config.
+	registry := stateenvirons.NewStorageProviderRegistry(environ)
+	m := poolmanager.MemSettings{make(map[string]map[string]interface{})}
+	pm := poolmanager.New(m, registry)
+	for poolName, cfg := range bootstrapCfg.storagePools {
+		poolType, _ := cfg[poolmanager.Type].(string)
+		_, err = pm.Create(poolName, storage.ProviderType(poolType), cfg)
+		if err != nil {
+			return errors.NewNotValid(err, "invalid storage provider config")
+		}
 	}
 
 	bootstrapParams := bootstrap.BootstrapParams{
@@ -747,6 +769,7 @@ to create a new model to deploy %sworkloads.
 		ControllerExternalIPs:     append([]string(nil), bootstrapCfg.bootstrap.ControllerExternalIPs...),
 		JujuDbSnapPath:            c.JujuDbSnapPath,
 		JujuDbSnapAssertionsPath:  c.JujuDbSnapAssertionsPath,
+		StoragePools:              bootstrapCfg.storagePools,
 		DialOpts: environs.BootstrapDialOpts{
 			Timeout:        bootstrapCfg.bootstrap.BootstrapTimeout,
 			RetryDelay:     bootstrapCfg.bootstrap.BootstrapRetryDelay,
@@ -843,13 +866,21 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		return errors.Trace(err)
 	}
 	logger.Infof("combined bootstrap constraints: %v", bootstrapParams.BootstrapConstraints)
+	unsupported, err := constraintsValidator.Validate(bootstrapParams.BootstrapConstraints)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(unsupported) > 0 {
+		logger.Warningf(
+			"unsupported constraints: %v", strings.Join(unsupported, ","))
+	}
 
 	bootstrapParams.ModelConstraints = c.Constraints
 
-	// Check whether the Juju GUI must be installed in the controller.
-	// Leaving this value empty means no GUI will be installed.
-	if !c.noGUI {
-		bootstrapParams.GUIDataSourceBaseURL = common.GUIDataSourceBaseURL()
+	// Check whether the Juju Dashboard must be installed in the controller.
+	// Leaving this value empty means no Dashboard will be installed.
+	if !c.noDashboard {
+		bootstrapParams.DashboardDataSourceBaseURL = common.DashboardDataSourceBaseURL()
 	}
 
 	if credentials.name == "" {
@@ -934,7 +965,7 @@ func (c *bootstrapCommand) controllerDataRefresher(
 		if err != nil {
 			return errors.Trace(err)
 		}
-	} else if env, ok := environ.(caas.ServiceGetterSetter); ok {
+	} else if env, ok := environ.(caas.ServiceManager); ok {
 		// CAAS.
 		var svc *caas.Service
 		svc, err = env.GetService(k8sprovider.JujuControllerStackName, caas.ModeWorkload, false)
@@ -1220,6 +1251,7 @@ type bootstrapConfigs struct {
 	bootstrap                bootstrap.Config
 	inheritedControllerAttrs map[string]interface{}
 	userConfigAttrs          map[string]interface{}
+	storagePools             map[string]storage.Attrs
 }
 
 func (c *bootstrapCommand) bootstrapConfigs(
@@ -1258,8 +1290,9 @@ func (c *bootstrapCommand) bootstrapConfigs(
 	}
 	// The provider may define some custom attributes specific
 	// to the provider. These will be added to the model config.
-	providerAttrs := make(map[string]interface{})
+	var providerAttrs map[string]interface{}
 	if ps, ok := provider.(config.ConfigSchemaSource); ok {
+		providerAttrs = make(map[string]interface{})
 		for attr := range ps.ConfigSchema() {
 			// Start with the model defaults, and if also specified
 			// in the user config attrs, they override the model default.
@@ -1271,12 +1304,30 @@ func (c *bootstrapCommand) bootstrapConfigs(
 			}
 		}
 		fields := schema.FieldMap(ps.ConfigSchema(), ps.ConfigDefaults())
-		if coercedAttrs, err := fields.Coerce(providerAttrs, nil); err != nil {
+		coercedAttrs, err := fields.Coerce(providerAttrs, nil)
+		if err != nil {
 			return bootstrapConfigs{},
 				errors.Annotatef(err, "invalid attribute value(s) for %v cloud", cloud.Type)
-		} else {
-			providerAttrs = coercedAttrs.(map[string]interface{})
 		}
+		providerAttrs = coercedAttrs.(map[string]interface{})
+	}
+
+	storagePoolAttrs, err := c.storagePool.ReadAttrs(ctx)
+	if err != nil {
+		return bootstrapConfigs{}, errors.Trace(err)
+	}
+	var storagePools map[string]storage.Attrs
+	if len(storagePoolAttrs) > 0 {
+		poolName, _ := storagePoolAttrs[poolmanager.Name].(string)
+		if poolName == "" {
+			return bootstrapConfigs{}, errors.NewNotValid(nil, "storage pool requires a name")
+		}
+		poolType, _ := storagePoolAttrs[poolmanager.Type].(string)
+		if poolType == "" {
+			return bootstrapConfigs{}, errors.NewNotValid(nil, "storage pool requires a type")
+		}
+		storagePools = make(map[string]storage.Attrs)
+		storagePools[poolName] = storagePoolAttrs
 	}
 
 	bootstrapConfigAttrs := make(map[string]interface{})
@@ -1408,6 +1459,7 @@ func (c *bootstrapCommand) bootstrapConfigs(
 		bootstrap:                bootstrapConfig,
 		inheritedControllerAttrs: inheritedControllerAttrs,
 		userConfigAttrs:          userConfigAttrs,
+		storagePools:             storagePools,
 	}
 	return configs, nil
 }

@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/version"
-	core "k8s.io/api/core/v1"
 
 	"github.com/juju/juju/caas/specs"
 	"github.com/juju/juju/core/application"
@@ -21,6 +20,8 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/storage"
 )
+
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/broker_mock.go github.com/juju/juju/caas Broker
 
 // ContainerEnvironProvider represents a computing and storage provider
 // for a container runtime.
@@ -99,6 +100,7 @@ type DeploymentMode string
 const (
 	ModeOperator DeploymentMode = "operator"
 	ModeWorkload DeploymentMode = "workload"
+	ModeEmbedded DeploymentMode = "embedded"
 )
 
 // ServiceType defines a service type.
@@ -153,12 +155,12 @@ type ServiceParams struct {
 	CharmModifiedVersion int
 }
 
-// OperatorState is returned by the OperatorExists call.
-type OperatorState struct {
-	// Exists is true if the operator exists in the cluster.
+// DeploymentState is returned by the OperatorExists call.
+type DeploymentState struct {
+	// Exists is true if the operator/application exists in the cluster.
 	Exists bool
 
-	// Terminating is true if the operator is in Terminating state.
+	// Terminating is true if the operator/application is in Terminating state.
 	Terminating bool
 }
 
@@ -167,31 +169,53 @@ type Broker interface {
 	// Provider returns the ContainerEnvironProvider that created this Broker.
 	Provider() ContainerEnvironProvider
 
-	// APIVersion returns the master kubelet API version.
+	// InstancePrechecker provides a means of "prechecking" placement
+	// arguments before recording them in state.
+	environs.InstancePrechecker
+
+	// BootstrapEnviron defines methods for bootstrapping a controller.
+	environs.BootstrapEnviron
+
+	// ResourceAdopter defines methods for adopting resources.
+	environs.ResourceAdopter
+
+	// StorageValidator provides methods to validate storage.
+	StorageValidator
+
+	// Upgrader provides the API to perform upgrades.
+	Upgrader
+
+	// APIVersion returns the version of the container orchestration layer.
 	APIVersion() (string, error)
 
-	// EnsureModelOperator creates or updates a model operator pod for running
-	// model operations in a CAAS namespace/model
-	EnsureModelOperator(modelUUID, agentPath string, config *ModelOperatorConfig) error
+	// ClusterVersionGetter provides methods to get cluster version information.
+	ClusterVersionGetter
 
-	// ModelOperator return the model operator config used to create the current
-	// model operator for this broker
-	ModelOperator() (*ModelOperatorConfig, error)
+	// CredentialChecker provides an API for checking that the credentials
+	// used by the broker are functioning.
+	CredentialChecker
 
-	// ModelOperatorExists indicates if the model operator for the given broker
-	// exists
-	ModelOperatorExists() (bool, error)
+	// ApplicationBroker provides an API for accessing the broker interface
+	// for individual applications and watching their units.
+	ApplicationBroker
 
-	// EnsureOperator creates or updates an operator pod for running
-	// a charm for the specified application.
-	EnsureOperator(appName, agentPath string, config *OperatorConfig) error
+	// ServiceManager provides an API for creating and watching services.
+	ServiceManager
 
-	// OperatorExists indicates if the operator for the specified
-	// application exists, and whether the operator is terminating.
-	OperatorExists(appName string) (OperatorState, error)
+	// ModelOperatorManager provides an API for deploying operators for
+	// individual models.
+	ModelOperatorManager
 
-	// DeleteOperator deletes the specified operator.
-	DeleteOperator(appName string) error
+	// ApplicationOperatorManager provides an API for deploying operators
+	// for individual applications.
+	ApplicationOperatorManager
+}
+
+// ApplicationBroker provides an API for accessing the broker interface for
+// individual applications and watching their units.
+type ApplicationBroker interface {
+	// Application returns the broker interface for an Application
+	Application(string, DeploymentType) Application
 
 	// WatchUnits returns a watcher which notifies when there
 	// are changes to units of the specified application.
@@ -210,48 +234,44 @@ type Broker interface {
 	// the provider id for the unit. If containerName is empty, then the first workload container
 	// is used.
 	WatchContainerStart(appName string, containerName string) (watcher.StringsWatcher, error)
+}
 
-	// WatchOperator returns a watcher which notifies when there
-	// are changes to the operator of the specified application.
-	WatchOperator(string) (watcher.NotifyWatcher, error)
+// ModelOperatorManager provides an API for deploying operators for individual
+// models.
+type ModelOperatorManager interface {
+	// ModelOperatorExists indicates if the model operator for the given broker
+	// exists
+	ModelOperatorExists() (bool, error)
 
-	// WatchService returns a watcher which notifies when there
-	// are changes to the deployment of the specified application.
-	WatchService(appName string, mode DeploymentMode) (watcher.NotifyWatcher, error)
+	// EnsureModelOperator creates or updates a model operator pod for running
+	// model operations in a CAAS namespace/model
+	EnsureModelOperator(modelUUID, agentPath string, config *ModelOperatorConfig) error
+
+	// ModelOperator return the model operator config used to create the current
+	// model operator for this broker
+	ModelOperator() (*ModelOperatorConfig, error)
+}
+
+// ApplicationOperatorManager provides an API for deploying operators for
+// individual applications.
+type ApplicationOperatorManager interface {
+	// OperatorExists indicates if the operator for the specified
+	// application exists, and whether the operator is terminating.
+	OperatorExists(appName string) (DeploymentState, error)
+
+	// EnsureOperator creates or updates an operator pod for running
+	// a charm for the specified application.
+	EnsureOperator(appName, agentPath string, config *OperatorConfig) error
+
+	// DeleteOperator deletes the specified operator.
+	DeleteOperator(appName string) error
 
 	// Operator returns an Operator with current status and life details.
 	Operator(string) (*Operator, error)
 
-	// ClusterMetadataChecker provides an API to query cluster metadata.
-	ClusterMetadataChecker
-
-	// NamespaceWatcher provides the API to watch caas namespace.
-	NamespaceWatcher
-
-	// InstancePrechecker provides a means of "prechecking" placement
-	// arguments before recording them in state.
-	environs.InstancePrechecker
-
-	// BootstrapEnviron defines methods for bootstrapping a controller.
-	environs.BootstrapEnviron
-
-	// ResourceAdopter defines methods for adopting resources.
-	environs.ResourceAdopter
-
-	// NamespaceGetterSetter provides the API to get/set namespace.
-	NamespaceGetterSetter
-
-	// StorageValidator provides methods to validate storage.
-	StorageValidator
-
-	// ServiceGetterSetter provides the API to get/set service.
-	ServiceGetterSetter
-
-	// Upgrader provides the API to perform upgrades.
-	Upgrader
-
-	// ClusterVersionGetter provides methods to get cluster version information.
-	ClusterVersionGetter
+	// WatchOperator returns a watcher which notifies when there
+	// are changes to the operator of the specified application.
+	WatchOperator(string) (watcher.NotifyWatcher, error)
 }
 
 // Upgrader provides the API to perform upgrades.
@@ -272,8 +292,16 @@ type ClusterVersionGetter interface {
 	Version() (*version.Number, error)
 }
 
-// ServiceGetterSetter provides the API to get/set service.
-type ServiceGetterSetter interface {
+// CredentialChecker provides an API for checking that the credentials
+// used by the broker are functioning.
+type CredentialChecker interface {
+	// CheckCloudCredentials verifies that the provided cloud credentials
+	// are still valid for the cloud.
+	CheckCloudCredentials() error
+}
+
+// ServiceManager provides the API to manipulate services.
+type ServiceManager interface {
 	// EnsureService creates or updates a service for pods with the given params.
 	EnsureService(appName string, statusCallback StatusCallbackFunc, params *ServiceParams, numUnits int, config application.ConfigAttributes) error
 
@@ -288,38 +316,10 @@ type ServiceGetterSetter interface {
 
 	// GetService returns the service for the specified application.
 	GetService(appName string, mode DeploymentMode, includeClusterIP bool) (*Service, error)
-}
 
-// NamespaceGetterSetter provides the API to get/set namespace.
-type NamespaceGetterSetter interface {
-	// Namespaces returns name names of the namespaces on the cluster.
-	Namespaces() ([]string, error)
-
-	// GetNamespace returns the namespace for the specified name or current namespace.
-	GetNamespace(name string) (*core.Namespace, error)
-
-	// GetCurrentNamespace returns current namespace name.
-	GetCurrentNamespace() string
-}
-
-// ClusterMetadataChecker provides an API to query cluster metadata.
-type ClusterMetadataChecker interface {
-	// GetClusterMetadata returns metadata about host cloud and storage for the cluster.
-	GetClusterMetadata(storageClass string) (result *ClusterMetadata, err error)
-
-	// CheckDefaultWorkloadStorage returns an error if the opinionated storage defined for
-	// the cluster does not match the specified storage.
-	CheckDefaultWorkloadStorage(cluster string, storageProvisioner *StorageProvisioner) error
-
-	// EnsureStorageProvisioner creates a storage provisioner with the specified config, or returns an existing one.
-	EnsureStorageProvisioner(cfg StorageProvisioner) (*StorageProvisioner, bool, error)
-}
-
-// NamespaceWatcher provides the API to watch caas namespace.
-type NamespaceWatcher interface {
-	// WatchNamespace returns a watcher which notifies when there
-	// are changes to current namespace.
-	WatchNamespace() (watcher.NotifyWatcher, error)
+	// WatchService returns a watcher which notifies when there
+	// are changes to the deployment of the specified application.
+	WatchService(appName string, mode DeploymentMode) (watcher.NotifyWatcher, error)
 }
 
 // Service represents information about the status of a caas service entity.

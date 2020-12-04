@@ -11,11 +11,10 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-// AddressAndCertGetter can be used to find out controller addresses
-// and the CA public certificate.
-type AddressAndCertGetter interface {
+// APIAddressAccessor describes methods that allow agents to maintain
+// up-to-date information on how to connect to the Juju API server.
+type APIAddressAccessor interface {
 	Addresses() ([]string, error)
-	ModelUUID() string
 	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
 	WatchAPIHostPortsForAgents() state.NotifyWatcher
 }
@@ -26,12 +25,12 @@ type AddressAndCertGetter interface {
 // It is not suitable for callers requiring *all* available API addresses.
 type APIAddresser struct {
 	resources facade.Resources
-	getter    AddressAndCertGetter
+	getter    APIAddressAccessor
 }
 
 // NewAPIAddresser returns a new APIAddresser that uses the given getter to
 // fetch its addresses.
-func NewAPIAddresser(getter AddressAndCertGetter, resources facade.Resources) *APIAddresser {
+func NewAPIAddresser(getter APIAddressAccessor, resources facade.Resources) *APIAddresser {
 	return &APIAddresser{
 		getter:    getter,
 		resources: resources,
@@ -93,33 +92,4 @@ func apiAddresses(getter APIHostPortsForAgentsGetter) ([]string, error) {
 		}
 	}
 	return addrs, nil
-}
-
-// ModelUUID returns the model UUID to connect to the model
-// that the current connection is for.
-func (a *APIAddresser) ModelUUID() params.StringResult {
-	return params.StringResult{Result: a.getter.ModelUUID()}
-}
-
-// StateAddresser implements a common set of methods for getting state
-// server addresses, and the CA certificate used to authenticate them.
-type StateAddresser struct {
-	getter AddressAndCertGetter
-}
-
-// NewStateAddresser returns a new StateAddresser that uses the given
-// st value to fetch its addresses.
-func NewStateAddresser(getter AddressAndCertGetter) *StateAddresser {
-	return &StateAddresser{getter}
-}
-
-// StateAddresses returns the list of addresses used to connect to the state.
-func (a *StateAddresser) StateAddresses() (params.StringsResult, error) {
-	addrs, err := a.getter.Addresses()
-	if err != nil {
-		return params.StringsResult{}, err
-	}
-	return params.StringsResult{
-		Result: addrs,
-	}, nil
 }

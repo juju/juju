@@ -92,11 +92,11 @@ func (s *UpdaterSuite) TestUpdaterConcurrentAdvance(c *gc.C) {
 	c.Assert(s.readTime(c), gc.Equals, globalEpoch.Add(time.Second))
 
 	err = u1.Advance(time.Second, nil)
-	c.Assert(err, gc.Equals, coreglobalclock.ErrConcurrentUpdate)
+	c.Assert(err, gc.Equals, coreglobalclock.ErrOutOfSyncUpdate)
 	c.Assert(s.readTime(c), gc.Equals, globalEpoch.Add(time.Second)) // no change
 
 	// u1's view of the clock should have been updated when
-	// ErrConcurrentUpdate was returned, so Advance should
+	// ErrOutOfSyncUpdate was returned, so Advance should
 	// now succeed.
 	err = u1.Advance(time.Second, nil)
 	c.Assert(err, jc.ErrorIsNil)

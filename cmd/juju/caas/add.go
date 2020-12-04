@@ -22,6 +22,7 @@ import (
 
 	cloudapi "github.com/juju/juju/api/cloud"
 	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	jujucloud "github.com/juju/juju/cloud"
@@ -55,7 +56,7 @@ type AddCloudAPI interface {
 }
 
 // BrokerGetter returns caas broker instance.
-type BrokerGetter func(cloud jujucloud.Cloud, credential jujucloud.Credential) (caas.ClusterMetadataChecker, error)
+type BrokerGetter func(cloud jujucloud.Cloud, credential jujucloud.Credential) (k8s.ClusterMetadataChecker, error)
 
 var usageAddCAASSummary = `
 Adds a k8s endpoint and credential to Juju.`[1:]
@@ -500,6 +501,12 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if newCloud.SkipTLSVerify {
+		if len(newCloud.CACertificates) > 0 && newCloud.CACertificates[0] != "" {
+			return errors.NotValidf("cloud with both skip-TLS-verify=true and CA certificates")
+		}
+		logger.Warningf("k8s cloud %v is configured to skip server certificate validity checks", newCloud.Name)
+	}
 	newcredential, err = ensureCredentialUID(credentialName, credentialUID, newcredential)
 	if err != nil {
 		return errors.Trace(err)
@@ -565,8 +572,9 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 	if err := checkCloudRegion(c.givenHostCloudRegion, newCloud.HostCloudRegion); err != nil {
 		return errors.Trace(err)
 	}
+
 	if newCloud.HostCloudRegion == "" {
-		newCloud.HostCloudRegion = caas.K8sCloudOther
+		newCloud.HostCloudRegion = k8s.K8sCloudOther
 	}
 	if c.Client {
 		if err := addCloudToLocal(c.cloudMetadataStore, newCloud); err != nil {
@@ -577,7 +585,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 		}
 	}
 
-	if clusterName == "" && newCloud.HostCloudRegion != caas.K8sCloudOther {
+	if clusterName == "" && newCloud.HostCloudRegion != k8s.K8sCloudOther {
 		clusterName = newCloud.HostCloudRegion
 	}
 	if clusterName != "" {
@@ -633,7 +641,7 @@ func checkCloudRegion(given, detected string) error {
 	return nil
 }
 
-func (c *AddCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential jujucloud.Credential) (caas.ClusterMetadataChecker, error) {
+func (c *AddCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential jujucloud.Credential) (k8s.ClusterMetadataChecker, error) {
 	openParams, err := provider.BaseKubeCloudOpenParams(cloud, credential)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -645,7 +653,17 @@ func (c *AddCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential j
 		}
 		openParams.ControllerUUID = ctrlUUID
 	}
-	return caas.New(openParams)
+
+	broker, err := caas.New(openParams)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// This is k8-specific and not part of the Broker interface
+	if metaChecker, implemented := broker.(k8s.ClusterMetadataChecker); implemented {
+		return metaChecker, nil
+	}
+	return nil, errors.NotSupportedf("querying cluster metadata using the broker")
 }
 
 func getCloudAndRegionFromOptions(cloudOption, regionOption string) (string, string, error) {
@@ -705,10 +723,10 @@ func (c *AddCAASCommand) tryEnsureCloudTypeForHostRegion(cloudOption, regionOpti
 func isRegionOptional(cloudType string) bool {
 	for _, v := range []string{
 		// Region is optional for CDK on microk8s, openstack, lxd, maas;
-		caas.K8sCloudMicrok8s,
-		caas.K8sCloudOpenStack,
-		caas.K8sCloudLXD,
-		caas.K8sCloudMAAS,
+		k8s.K8sCloudMicrok8s,
+		k8s.K8sCloudOpenStack,
+		k8s.K8sCloudLXD,
+		k8s.K8sCloudMAAS,
 	} {
 		if cloudType == v {
 			return true
@@ -725,7 +743,7 @@ func (c *AddCAASCommand) validateCloudRegion(ctx *cmd.Context, cloudRegion strin
 		return "", errors.Annotate(err, "parsing cloud region")
 	}
 	// microk8s is special.
-	if cloudType == caas.K8sCloudMicrok8s && region == caas.Microk8sRegion {
+	if cloudType == k8s.K8sCloudMicrok8s && region == k8s.Microk8sRegion {
 		return cloudRegion, nil
 	}
 
@@ -766,13 +784,13 @@ func (c *AddCAASCommand) validateCloudRegion(ctx *cmd.Context, cloudRegion strin
 }
 
 func (c *AddCAASCommand) getClusterMetadataFunc(ctx *cmd.Context) provider.GetClusterMetadataFunc {
-	return func(storageParams provider.KubeCloudStorageParams) (*caas.ClusterMetadata, error) {
+	return func(storageParams provider.KubeCloudStorageParams) (*k8s.ClusterMetadata, error) {
 		interrupted := make(chan os.Signal, 1)
 		defer close(interrupted)
 		ctx.InterruptNotify(interrupted)
 		defer ctx.StopInterruptNotify(interrupted)
 
-		result := make(chan *caas.ClusterMetadata, 1)
+		result := make(chan *k8s.ClusterMetadata, 1)
 		errChan := make(chan error, 1)
 		go func() {
 			clusterMetadata, err := storageParams.MetadataChecker.GetClusterMetadata(storageParams.WorkloadStorage)

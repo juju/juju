@@ -15,10 +15,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
 	"github.com/juju/proxy"
 	"github.com/juju/schema"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"github.com/juju/version"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
@@ -29,6 +28,7 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/logfwd/syslog"
 	"github.com/juju/juju/network"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.environs.config")
@@ -89,9 +89,9 @@ const (
 	// of OS image metadata for containers.
 	ContainerImageMetadataURLKey = "container-image-metadata-url"
 
-	// GUIStreamKey stores the key used to specify the stream
-	// to used when fetching a gui tarball.
-	GUIStreamKey = "gui-stream"
+	// DashboardStreamKey stores the key used to specify the stream
+	// to used when fetching a dashboard tarball.
+	DashboardStreamKey = "dashboard-stream"
 
 	// Proxy behaviour has become something of an annoying thing to define
 	// well. These following four proxy variables are being kept to continue
@@ -256,6 +256,15 @@ const (
 	// CharmHubURLKey is the key for the url to use for CharmHub API calls
 	CharmHubURLKey = "charm-hub-url"
 
+	// ModeKey is the key for defining the mode that a given model should be
+	// using.
+	// It is expected that when in a different mode, Juju will perform in a
+	// different state.
+	// The lack of a mode means it will default into compatibility mode.
+	//
+	//  - strict mode ensures that we handle any fallbacks as errors.
+	ModeKey = "mode"
+
 	//
 	// Deprecated Settings Attributes
 	//
@@ -264,6 +273,10 @@ const (
 	// machine worker not to discover any machine addresses
 	// on start up.
 	IgnoreMachineAddresses = "ignore-machine-addresses"
+
+	// TestModeKey is the key for identifying the model should be run in test
+	// mode.
+	TestModeKey = "test-mode"
 )
 
 // ParseHarvestMode parses description of harvesting method and
@@ -315,21 +328,22 @@ func (method HarvestMode) String() string {
 	panic("Unknown harvesting method.")
 }
 
-// None returns whether or not the None harvesting flag is set.
+// HarvestNone returns whether or not the None harvesting flag is set.
 func (method HarvestMode) HarvestNone() bool {
 	return method&HarvestNone != 0
 }
 
-// Destroyed returns whether or not the Destroyed harvesting flag is set.
+// HarvestDestroyed returns whether or not the Destroyed harvesting flag is set.
 func (method HarvestMode) HarvestDestroyed() bool {
 	return method&HarvestDestroyed != 0
 }
 
-// Unknown returns whether or not the Unknown harvesting flag is set.
+// HarvestUnknown returns whether or not the Unknown harvesting flag is set.
 func (method HarvestMode) HarvestUnknown() bool {
 	return method&HarvestUnknown != 0
 }
 
+// HasDefaultSeries defines a interface if a type has a default series or not.
 type HasDefaultSeries interface {
 	DefaultSeries() (string, bool)
 }
@@ -339,7 +353,7 @@ type HasDefaultSeries interface {
 // The fact that PreferredSeries doesn't take an argument for a default series
 // as a fallback. We then have to expose this so we can exercise the branching
 // code for other scenarios makes me sad.
-var GetDefaultSupportedLTS = series.DefaultSupportedLTS
+var GetDefaultSupportedLTS = jujuversion.DefaultSupportedLTS
 
 // PreferredSeries returns the preferred series to use when a charm does not
 // explicitly specify a series.
@@ -363,8 +377,12 @@ type Config struct {
 type Defaulting bool
 
 const (
+	// UseDefaults defines a constant for indicating of the default should be
+	// used for the configuration.
 	UseDefaults Defaulting = true
-	NoDefaults  Defaulting = false
+	// NoDefaults defines a constant for indicating that no defaults should be
+	// used for the configuration.
+	NoDefaults Defaulting = false
 )
 
 // TODO(rog) update the doc comment below - it's getting messy
@@ -396,7 +414,7 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 		defined: defined.(map[string]interface{}),
 		unknown: make(map[string]interface{}),
 	}
-	if err := c.ensureUnitLogging(); err != nil {
+	if err := c.setLoggingFromEnviron(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -420,11 +438,15 @@ const (
 	// DefaultStatusHistorySize is the default value for MaxStatusHistorySize.
 	DefaultStatusHistorySize = "5G"
 
-	// DefaultUpdateStatusHookInterval is the default value for UpdateStatusHookInterval
+	// DefaultUpdateStatusHookInterval is the default value for
+	// UpdateStatusHookInterval
 	DefaultUpdateStatusHookInterval = "5m"
 
+	// DefaultActionResultsAge is the default for the age of the results for an
+	// action.
 	DefaultActionResultsAge = "336h" // 2 weeks
 
+	// DefaultActionResultsSize is the default size of the action results.
 	DefaultActionResultsSize = "5G"
 )
 
@@ -456,7 +478,7 @@ var defaultConfigValues = map[string]interface{}{
 	NetBondReconfigureDelayKey: 17,
 	ContainerNetworkingMethod:  "",
 
-	"default-series":              series.DefaultSupportedLTS(),
+	"default-series":              jujuversion.DefaultSupportedLTS(),
 	ProvisionerHarvestModeKey:     HarvestDestroyed.String(),
 	ResourceTagsKey:               "",
 	"logging-config":              "",
@@ -464,7 +486,7 @@ var defaultConfigValues = map[string]interface{}{
 	"enable-os-refresh-update":    true,
 	"enable-os-upgrade":           true,
 	"development":                 false,
-	"test-mode":                   false,
+	TestModeKey:                   false,
 	TransmitVendorMetricsKey:      true,
 	UpdateStatusHookInterval:      DefaultUpdateStatusHookInterval,
 	EgressSubnets:                 "",
@@ -516,6 +538,12 @@ var defaultConfigValues = map[string]interface{}{
 	MaxActionResultsSize: DefaultActionResultsSize,
 }
 
+// defaultLoggingConfig is the default value for logging-config if it is otherwise not set.
+// We don't use the defaultConfigValues mechanism because one way to set the logging config is
+// via the JUJU_LOGGING_CONFIG environment variable, which needs to be taken into account before
+// we set the default.
+const defaultLoggingConfig = "<root>=INFO"
+
 // ConfigDefaults returns the config default values
 // to be used for any new model where there is no
 // value yet defined.
@@ -523,18 +551,17 @@ func ConfigDefaults() map[string]interface{} {
 	return defaultConfigValues
 }
 
-func (c *Config) ensureUnitLogging() error {
+func (c *Config) setLoggingFromEnviron() error {
 	loggingConfig := c.asString("logging-config")
 	// If the logging config hasn't been set, then look for the os environment
 	// variable, and failing that, get the config from loggo itself.
 	if loggingConfig == "" {
 		if environmentValue := os.Getenv(osenv.JujuLoggingConfigEnvKey); environmentValue != "" {
-			loggingConfig = environmentValue
+			c.defined["logging-config"] = environmentValue
 		} else {
-			loggingConfig = loggo.LoggerInfo()
+			c.defined["logging-config"] = defaultLoggingConfig
 		}
 	}
-	c.defined["logging-config"] = loggingConfig
 	return nil
 }
 
@@ -649,15 +676,15 @@ func Validate(cfg, old *Config) error {
 	}
 
 	if v, ok := cfg.defined[UpdateStatusHookInterval].(string); ok {
-		if f, err := time.ParseDuration(v); err != nil {
+		duration, err := time.ParseDuration(v)
+		if err != nil {
 			return errors.Annotate(err, "invalid update status hook interval in model configuration")
-		} else {
-			if f < 1*time.Minute {
-				return errors.Annotatef(err, "update status hook frequency %v cannot be less than 1m", f)
-			}
-			if f > 60*time.Minute {
-				return errors.Annotatef(err, "update status hook frequency %v cannot be greater than 60m", f)
-			}
+		}
+		if duration < 1*time.Minute {
+			return errors.Annotatef(err, "update status hook frequency %v cannot be less than 1m", duration)
+		}
+		if duration > 60*time.Minute {
+			return errors.Annotatef(err, "update status hook frequency %v cannot be greater than 60m", duration)
 		}
 	}
 
@@ -736,16 +763,20 @@ func Validate(cfg, old *Config) error {
 		diffSet := propertySet.Difference(whiteListSet)
 
 		if !diffSet.IsEmpty() {
-			return fmt.Errorf("container-inherit-properties: %s not allowed", strings.Join(diffSet.SortedValues(), ", "))
+			return errors.Errorf("container-inherit-properties: %s not allowed", strings.Join(diffSet.SortedValues(), ", "))
 		}
 	}
 
 	if err := cfg.validateCharmHubURL(); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	if err := cfg.validateDefaultSpace(); err != nil {
-		return err
+		return errors.Trace(err)
+	}
+
+	if err := cfg.validateMode(); err != nil {
+		return errors.Trace(err)
 	}
 
 	// Check the immutable config values.  These can't change
@@ -808,6 +839,8 @@ func isEmpty(val interface{}) bool {
 	case string:
 		return val == ""
 	case []interface{}:
+		return len(val) == 0
+	case []string:
 		return len(val) == 0
 	case map[string]string:
 		return len(val) == 0
@@ -1184,21 +1217,21 @@ func (c *Config) Development() bool {
 // EnableOSRefreshUpdate returns whether or not newly provisioned
 // instances should run their respective OS's update capability.
 func (c *Config) EnableOSRefreshUpdate() bool {
-	if val, ok := c.defined["enable-os-refresh-update"].(bool); !ok {
+	val, ok := c.defined["enable-os-refresh-update"].(bool)
+	if !ok {
 		return true
-	} else {
-		return val
 	}
+	return val
 }
 
 // EnableOSUpgrade returns whether or not newly provisioned instances
 // should run their respective OS's upgrade capability.
 func (c *Config) EnableOSUpgrade() bool {
-	if val, ok := c.defined["enable-os-upgrade"].(bool); !ok {
+	val, ok := c.defined["enable-os-upgrade"].(bool)
+	if !ok {
 		return true
-	} else {
-		return val
 	}
+	return val
 }
 
 // SSLHostnameVerification returns weather the environment has requested
@@ -1221,21 +1254,21 @@ func (c *Config) BackupDir() string {
 // AutomaticallyRetryHooks returns whether we should automatically retry hooks.
 // By default this should be true.
 func (c *Config) AutomaticallyRetryHooks() bool {
-	if val, ok := c.defined["automatically-retry-hooks"].(bool); !ok {
+	val, ok := c.defined["automatically-retry-hooks"].(bool)
+	if !ok {
 		return true
-	} else {
-		return val
 	}
+	return val
 }
 
 // TransmitVendorMetrics returns whether the controller sends charm-collected metrics
 // in this model for anonymized aggregate analytics. By default this should be true.
 func (c *Config) TransmitVendorMetrics() bool {
-	if val, ok := c.defined[TransmitVendorMetricsKey].(bool); !ok {
+	val, ok := c.defined[TransmitVendorMetricsKey].(bool)
+	if !ok {
 		return true
-	} else {
-		return val
 	}
+	return val
 }
 
 // ProvisionerHarvestMode reports the harvesting methodology the
@@ -1286,11 +1319,11 @@ func (c *Config) ContainerImageStream() string {
 	return "released"
 }
 
-// GUIStream returns the simplestreams stream
-// used to identify which gui to use when
-// when fetching a gui tarball.
-func (c *Config) GUIStream() string {
-	v, _ := c.defined[GUIStreamKey].(string)
+// DashboardStream returns the simplestreams stream
+// used to identify which dashboard to use when
+// when fetching a dashboard tarball.
+func (c *Config) DashboardStream() string {
+	v, _ := c.defined[DashboardStreamKey].(string)
 	if v != "" {
 		return v
 	}
@@ -1312,6 +1345,42 @@ func (c *Config) validateCharmHubURL() error {
 		}
 		if _, err := url.ParseRequestURI(v); err != nil {
 			return errors.NotValidf("charm-hub url %q", v)
+		}
+	}
+	return nil
+}
+
+// Mode returns the mode type for the configuration.
+// Only two modes exist at the moment (strict or ""). Empty string
+// implies compatible mode.
+func (c *Config) Mode() ([]string, bool) {
+	modes, ok := c.defined[ModeKey]
+	if !ok {
+		return []string{}, false
+	}
+	if m, ok := modes.([]interface{}); ok {
+		s := set.NewStrings()
+		for _, v := range m {
+			// Let's be safe here, even though we have validated the type in
+			// a prior step, via the schema.List(schema.String()) type, I would
+			// rather see defensive code than a panic at runtime.
+			if str, ok := v.(string); ok {
+				s.Add(str)
+			}
+		}
+		return s.SortedValues(), ok
+	}
+
+	return []string{}, false
+}
+
+func (c *Config) validateMode() error {
+	modes, _ := c.Mode()
+	for _, mode := range modes {
+		switch strings.TrimSpace(mode) {
+		case "strict":
+		default:
+			return errors.NotValidf("mode %q", mode)
 		}
 	}
 	return nil
@@ -1557,7 +1626,7 @@ var alwaysOptional = schema.Defaults{
 	SnapStoreProxyURLKey:          schema.Omit,
 	"apt-mirror":                  schema.Omit,
 	AgentStreamKey:                schema.Omit,
-	GUIStreamKey:                  schema.Omit,
+	DashboardStreamKey:            schema.Omit,
 	ResourceTagsKey:               schema.Omit,
 	"cloudimg-base-url":           schema.Omit,
 	"enable-os-refresh-update":    schema.Omit,
@@ -1574,7 +1643,8 @@ var alwaysOptional = schema.Defaults{
 	"disable-network-management":  schema.Omit,
 	IgnoreMachineAddresses:        schema.Omit,
 	AutomaticallyRetryHooks:       schema.Omit,
-	"test-mode":                   schema.Omit,
+	TestModeKey:                   schema.Omit,
+	ModeKey:                       schema.Omit,
 	TransmitVendorMetricsKey:      schema.Omit,
 	NetBondReconfigureDelayKey:    schema.Omit,
 	ContainerNetworkingMethod:     schema.Omit,
@@ -1639,8 +1709,8 @@ var (
 // of juju that does recognise the fields, but that their presence is still
 // anomalous to some degree and should be flagged (and that there is thereby
 // a mechanism for observing fields that really are typos etc).
-func (cfg *Config) ValidateUnknownAttrs(extrafields schema.Fields, defaults schema.Defaults) (map[string]interface{}, error) {
-	attrs := cfg.UnknownAttrs()
+func (c *Config) ValidateUnknownAttrs(extrafields schema.Fields, defaults schema.Defaults) (map[string]interface{}, error) {
+	attrs := c.UnknownAttrs()
 	checker := schema.FieldMap(extrafields, defaults)
 	coerced, err := checker.Coerce(attrs, nil)
 	if err != nil {
@@ -1664,8 +1734,9 @@ func (cfg *Config) ValidateUnknownAttrs(extrafields schema.Fields, defaults sche
 				}
 			}
 			result[name] = value
-			// The only allowed types for unknown attributes are string, int, float and bool
-			switch value.(type) {
+			// The only allowed types for unknown attributes are string, int,
+			// float, bool and []interface{} (which is really []string)
+			switch t := value.(type) {
 			case string:
 				continue
 			case int:
@@ -1676,8 +1747,15 @@ func (cfg *Config) ValidateUnknownAttrs(extrafields schema.Fields, defaults sche
 				continue
 			case float64:
 				continue
+			case []interface{}:
+				for _, val := range t {
+					if _, ok := val.(string); !ok {
+						return nil, errors.Errorf("%s: unknown type (%v)", name, value)
+					}
+				}
+				continue
 			default:
-				return nil, fmt.Errorf("%s: unknown type (%q)", name, value)
+				return nil, errors.Errorf("%s: unknown type (%q)", name, value)
 			}
 		}
 	}
@@ -1916,8 +1994,8 @@ global or per instance security groups.`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	GUIStreamKey: {
-		Description: `The simplestreams stream used to identify which gui ids to search when downloading a gui tarball.`,
+	DashboardStreamKey: {
+		Description: `The simplestreams stream used to identify which dashboard ids to search when downloading a dashboard tarball.`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
@@ -2001,11 +2079,19 @@ global or per instance security groups.`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	"test-mode": {
+	TestModeKey: {
 		Description: `Whether the model is intended for testing.
 If true, accessing the charm store does not affect statistical
 data of the store. (default false)`,
 		Type:  environschema.Tbool,
+		Group: environschema.EnvironGroup,
+	},
+	ModeKey: {
+		Description: `Mode sets the type of mode the model should run in.
+If the mode is set to "strict" then errors will be used instead of
+using fallbacks. By default mode is set to be lenient and use fallbacks
+where possible. (default "")`,
+		Type:  environschema.Tlist,
 		Group: environschema.EnvironGroup,
 	},
 	TypeKey: {

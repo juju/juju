@@ -101,7 +101,7 @@ type PrepareConfigParams struct {
 // supported by the provider.
 //
 // TODO(axw) replace CredentialSchemas with an updated environschema.
-// The GUI also needs to be able to handle multiple credential types,
+// The Dashboard also needs to be able to handle multiple credential types,
 // and dependencies in config attributes.
 type ProviderCredentials interface {
 	// CredentialSchemas returns credential schemas, keyed on
@@ -488,6 +488,14 @@ type Firewaller interface {
 	// port range - the rule's SourceCIDRs will contain all applicable source
 	// address rules for that port range.
 	IngressRules(ctx context.ProviderCallContext) (firewall.IngressRules, error)
+}
+
+// FirewallFeatureQuerier exposes methods for detecting what features the
+// environment firewall supports.
+type FirewallFeatureQuerier interface {
+	// SupportsRulesWithIPV6CIDRs returns true if the environment supports
+	// ingress rules containing IPV6 CIDRs.
+	SupportsRulesWithIPV6CIDRs(ctx context.ProviderCallContext) (bool, error)
 }
 
 // InstanceTagger is an interface that can be used for tagging instances.

@@ -22,7 +22,7 @@ type mockModel struct {
 }
 
 type mockState struct {
-	common.AddressAndCertGetter
+	common.APIAddressAccessor
 	operatorRepo string
 	model        *mockModel
 }
@@ -37,6 +37,10 @@ func (st *mockState) APIHostPortsForAgents() ([]network.SpaceHostPorts, error) {
 	return []network.SpaceHostPorts{
 		network.NewSpaceHostPorts(1, "10.0.0.1"),
 	}, nil
+}
+
+func (st *mockState) ModelUUID() string {
+	return st.model.UUID()
 }
 
 func (st *mockState) ControllerConfig() (controller.Config, error) {
@@ -54,10 +58,6 @@ func (st *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
 
 func (st *mockState) Model() (caasmodeloperator.Model, error) {
 	return st.model, nil
-}
-
-func (st *mockState) ModelUUID() string {
-	return st.model.UUID()
 }
 
 func (m *mockModel) Tag() names.Tag {

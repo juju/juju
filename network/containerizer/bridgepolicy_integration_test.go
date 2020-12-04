@@ -8,7 +8,7 @@ import (
 	"strconv"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
@@ -289,7 +289,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesCorrectlyP
 		"br-eth10-100",
 	}
 
-	err = s.machine.SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs[:])
+	err = s.machine.SetLinkLayerDevices(devicesArgs[:]...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.SetDevicesAddresses(devAddresses...)
 	c.Assert(err, jc.ErrorIsNil)

@@ -126,6 +126,9 @@ func destroyModel(st ModelManagerBackend, args state.DestroyModelParams) error {
 			return errors.Trace(err)
 		}
 		logger.Warningf("failed destroying model %v: %v", model.UUID(), err)
+		if err := filterNonCriticalErrorForForce(err); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	err = sendMetrics(st)
@@ -138,5 +141,18 @@ func destroyModel(st ModelManagerBackend, args state.DestroyModelParams) error {
 	// straggler instances, and other provider-specific resources. Once all
 	// resources are torn down, the Undertaker worker handles the removal of
 	// the model.
+	return nil
+}
+
+func filterNonCriticalErrorForForce(err error) error {
+	checks := []func(error) bool{
+		// We don't want to ignore below errors even with `--force`.
+		state.IsHasPersistentStorageError,
+	}
+	for _, f := range checks {
+		if f(err) {
+			return err
+		}
+	}
 	return nil
 }

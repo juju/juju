@@ -17,14 +17,13 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/macaroon.v2"
 
-	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
@@ -37,7 +36,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/payload"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
@@ -45,6 +43,7 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
+	dummystorage "github.com/juju/juju/storage/provider/dummy"
 	"github.com/juju/juju/testing/factory"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -121,7 +120,7 @@ func (s *MigrationBaseSuite) makeUnitWithStorage(c *gc.C) (*state.Application, *
 	kind := "block"
 	// Create a default pool for block devices.
 	pm := poolmanager.New(state.NewStateSettings(s.State), storage.ChainedProviderRegistry{
-		dummy.StorageProviders(),
+		dummystorage.StorageProviders(),
 		provider.CommonStorageProviders(),
 	})
 	_, err := pm.Create(pool, provider.LoopProviderType, map[string]interface{}{})
@@ -455,6 +454,15 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 		CharmConfig: map[string]interface{}{
 			"foo": "bar",
 		},
+		CharmOrigin: &state.CharmOrigin{
+			Channel: &state.Channel{
+				Risk: "beta",
+			},
+			Platform: &state.Platform{
+				Architecture: "amd64",
+				Series:       "focal",
+			},
+		},
 		ApplicationConfig: map[string]interface{}{
 			"app foo": "app bar",
 		},
@@ -498,6 +506,10 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 	c.Assert(exported.Type(), gc.Equals, string(dbModel.Type()))
 	c.Assert(exported.Series(), gc.Equals, application.Series())
 	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
+
+	origin := exported.CharmOrigin()
+	c.Assert(origin.Channel(), gc.Equals, "beta")
+	c.Assert(origin.Platform(), gc.Equals, "amd64/focal")
 
 	c.Assert(exported.CharmConfig(), jc.DeepEquals, map[string]interface{}{
 		"foo": "bar",
@@ -575,7 +587,7 @@ func (s *MigrationExportSuite) TestApplicationExposeParameters(c *gc.C) {
 		},
 	)
 
-	err = app.SetExposed(map[string]state.ExposedEndpoint{
+	err = app.MergeExposeSettings(map[string]state.ExposedEndpoint{
 		"server": {
 			ExposeToSpaceIDs: []string{serverSpace.Id()},
 			ExposeToCIDRs:    []string{"13.37.0.0/16"},
@@ -857,7 +869,7 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State) {
 	if dbModel.Type() == state.ModelTypeCAAS {
 		// Account for the extra cloud container status history addition.
 		c.Assert(workloadHistory, gc.HasLen, expectedHistoryCount+1)
-		c.Assert(workloadHistory[expectedHistoryCount].Message(), gc.Equals, "agent initializing")
+		c.Assert(workloadHistory[expectedHistoryCount].Message(), gc.Equals, "installing agent")
 		c.Assert(workloadHistory[expectedHistoryCount].Value(), gc.Equals, "waiting")
 		c.Assert(workloadHistory[expectedHistoryCount-1].Message(), gc.Equals, "cloud container running")
 		c.Assert(workloadHistory[expectedHistoryCount-1].Value(), gc.Equals, "running")
@@ -2259,7 +2271,7 @@ func (s *MigrationExportSuite) newResource(c *gc.C, appName, name string, revisi
 }
 
 func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
-	mac, err := apitesting.NewMacaroon("apimac")
+	mac, err := newMacaroon("apimac")
 	c.Assert(err, gc.IsNil)
 	dbApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "gravy-rainbow",
@@ -2472,7 +2484,7 @@ func (s *MigrationExportSuite) TestRelationWithNoStatus(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestRemoteRelationSettingsForLocalUnitInCMR(c *gc.C) {
-	mac, err := apitesting.NewMacaroon("apimac")
+	mac, err := newMacaroon("apimac")
 	c.Assert(err, gc.IsNil)
 
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{

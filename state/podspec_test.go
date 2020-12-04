@@ -10,7 +10,7 @@ import (
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/state"
@@ -86,9 +86,24 @@ func (s *PodSpecSuite) TestSetRawK8sSpecOperationApplicationDying(c *gc.C) {
 	s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.application})
 	err := s.application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
+	assertLife(c, s.application, state.Dying)
 
 	err = s.applySetRawK8sSpecOperation(nil, s.application.ApplicationTag(), strPtr("foo"))
-	c.Assert(err, gc.ErrorMatches, ".*application gitlab not alive")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertRawK8sSpec(c, s.application.ApplicationTag(), "foo")
+}
+
+func (s *PodSpecSuite) TestSetRawK8sSpecOperationApplicationDead(c *gc.C) {
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.application})
+	err := s.application.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.EnsureDead(), jc.ErrorIsNil)
+	c.Assert(unit.Remove(), jc.ErrorIsNil)
+	assertCleanupCount(c, s.State, 1)
+	assertLife(c, s.application, state.Dead)
+
+	err = s.applySetRawK8sSpecOperation(nil, s.application.ApplicationTag(), strPtr("foo"))
+	c.Assert(err, gc.ErrorMatches, "setting pod-spec on dead application gitlab not valid")
 	s.assertRawK8sSpecNotFound(c, s.application.ApplicationTag())
 }
 
@@ -136,9 +151,24 @@ func (s *PodSpecSuite) TestSetPodSpecApplicationDying(c *gc.C) {
 	s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.application})
 	err := s.application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
+	assertLife(c, s.application, state.Dying)
 
 	err = s.Model.SetPodSpec(nil, s.application.ApplicationTag(), strPtr("foo"))
-	c.Assert(err, gc.ErrorMatches, ".*application gitlab not alive")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertPodSpec(c, s.application.ApplicationTag(), "foo")
+}
+
+func (s *PodSpecSuite) TestSetPodSpecApplicationDead(c *gc.C) {
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.application})
+	err := s.application.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.EnsureDead(), jc.ErrorIsNil)
+	c.Assert(unit.Remove(), jc.ErrorIsNil)
+	assertCleanupCount(c, s.State, 1)
+	assertLife(c, s.application, state.Dead)
+
+	err = s.Model.SetPodSpec(nil, s.application.ApplicationTag(), strPtr("foo"))
+	c.Assert(err, gc.ErrorMatches, "setting pod-spec on dead application gitlab not valid")
 	s.assertPodSpecNotFound(c, s.application.ApplicationTag())
 }
 

@@ -20,9 +20,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 	"github.com/juju/replicaset"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/core/network"
@@ -461,7 +461,10 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 	var zeroVersion Version
 	tweakSysctlForMongo(mongoKernelTweaks)
 
-	hostSeries := series.MustHostSeries()
+	hostSeries, err := series.HostSeries()
+	if err != nil {
+		return zeroVersion, errors.Trace(err)
+	}
 	mongoDep := dependency.Mongo(args.SetNUMAControlPolicy, args.JujuDBSnapChannel)
 	usingMongoFromSnap := providesMongoAsSnap(mongoDep, hostSeries) || featureflag.Enabled(feature.MongoDbSnap)
 

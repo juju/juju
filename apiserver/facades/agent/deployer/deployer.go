@@ -16,6 +16,9 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// TODO (manadart 2020-10-21): Remove the ModelUUID method
+// from the next version of this facade.
+
 // DeployerAPI provides access to the Deployer API facade.
 type DeployerAPI struct {
 	*common.Remover
@@ -69,7 +72,7 @@ func NewDeployerAPI(ctx facade.Context) (*DeployerAPI, error) {
 		Remover:         common.NewRemover(st, common.RevokeLeadershipFunc(leadershipRevoker), true, getAuthFunc),
 		PasswordChanger: common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:      common.NewLifeGetter(st, getAuthFunc),
-		APIAddresser:    common.NewAPIAddresser(st, resources),
+		APIAddresser:    common.NewAPIAddresser(ctx.StatePool().SystemState(), resources),
 		UnitsWatcher:    common.NewUnitsWatcher(st, resources, getCanWatch),
 		StatusSetter:    common.NewStatusSetter(st, getAuthFunc),
 		st:              st,
@@ -94,6 +97,14 @@ func (d *DeployerAPI) ConnectionInfo() (result params.DeployerConnectionValues, 
 // SetStatus sets the status of the specified entities.
 func (d *DeployerAPI) SetStatus(args params.SetStatus) (params.ErrorResults, error) {
 	return d.StatusSetter.SetStatus(args)
+}
+
+// ModelUUID returns the model UUID that this facade is deploying into.
+// It is implemented here directly as a result of removing it from
+// embedded APIAddresser *without* bumping the facade version.
+// It should be blanked when this facade version is next incremented.
+func (d *DeployerAPI) ModelUUID() params.StringResult {
+	return params.StringResult{Result: d.st.ModelUUID()}
 }
 
 // getAllUnits returns a list of all principal and subordinate units

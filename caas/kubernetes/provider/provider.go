@@ -9,13 +9,16 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
-	"github.com/juju/utils/exec"
+	"github.com/juju/utils/v2/exec"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
 	"github.com/juju/juju/cloud"
 	jujucloud "github.com/juju/juju/cloud"
@@ -30,7 +33,7 @@ type kubernetesEnvironProvider struct {
 	environProviderCredentials
 	cmdRunner          CommandRunner
 	builtinCloudGetter func(CommandRunner) (cloud.Cloud, jujucloud.Credential, string, error)
-	brokerGetter       func(environs.OpenParams) (caas.ClusterMetadataChecker, error)
+	brokerGetter       func(environs.OpenParams) (k8s.ClusterMetadataChecker, error)
 }
 
 var _ environs.EnvironProvider = (*kubernetesEnvironProvider)(nil)
@@ -41,8 +44,17 @@ var providerInstance = kubernetesEnvironProvider{
 	},
 	cmdRunner:          defaultRunner{},
 	builtinCloudGetter: attemptMicroK8sCloud,
-	brokerGetter: func(args environs.OpenParams) (caas.ClusterMetadataChecker, error) {
-		return caas.New(args)
+	brokerGetter: func(args environs.OpenParams) (k8s.ClusterMetadataChecker, error) {
+		broker, err := caas.New(args)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		metaChecker, supported := broker.(k8s.ClusterMetadataChecker)
+		if !supported {
+			return nil, errors.NotSupportedf("cluster metadata ")
+		}
+		return metaChecker, nil
 	},
 }
 
@@ -62,7 +74,9 @@ func (defaultRunner) RunCommands(run exec.RunParams) (*exec.ExecResponse, error)
 	return exec.RunCommands(run)
 }
 
-func newK8sClient(c *rest.Config) (
+// NewK8sClients returns the k8s clients to access a cluster.
+// Override for testing.
+var NewK8sClients = func(c *rest.Config) (
 	k8sClient kubernetes.Interface,
 	apiextensionsclient apiextensionsclientset.Interface,
 	dynamicClient dynamic.Interface,
@@ -104,6 +118,7 @@ func CloudSpecToK8sRestConfig(cloudSpec environscloudspec.CloudSpec) (*rest.Conf
 			CertData: []byte(credentialAttrs[CredAttrClientCertificateData]),
 			KeyData:  []byte(credentialAttrs[CredAttrClientKeyData]),
 			CAData:   CAData,
+			Insecure: cloudSpec.SkipTLSVerify,
 		},
 	}, nil
 }
@@ -127,8 +142,8 @@ func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, 
 	// disregard this one in favour of a new one pinned to the correct
 	// controller namespace when we find it.
 	broker, err := newK8sBroker(
-		args.ControllerUUID, k8sRestConfig, args.Config, args.Config.Name(), newK8sClient, newRestClient,
-		k8swatcher.NewKubernetesNotifyWatcher, k8swatcher.NewKubernetesStringsWatcher, randomPrefix,
+		args.ControllerUUID, k8sRestConfig, args.Config, args.Config.Name(), NewK8sClients, newRestClient,
+		k8swatcher.NewKubernetesNotifyWatcher, k8swatcher.NewKubernetesStringsWatcher, utils.RandomPrefix,
 		jujuclock.WallClock)
 	if err != nil {
 		return nil, err
@@ -147,8 +162,8 @@ func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, 
 
 	return newK8sBroker(
 		args.ControllerUUID, k8sRestConfig, args.Config, ns,
-		newK8sClient, newRestClient, k8swatcher.NewKubernetesNotifyWatcher, k8swatcher.NewKubernetesStringsWatcher,
-		randomPrefix, jujuclock.WallClock)
+		NewK8sClients, newRestClient, k8swatcher.NewKubernetesNotifyWatcher, k8swatcher.NewKubernetesStringsWatcher,
+		utils.RandomPrefix, jujuclock.WallClock)
 }
 
 // CloudSchema returns the schema for adding new clouds of this type.
@@ -169,10 +184,10 @@ func (p kubernetesEnvironProvider) PrepareConfig(args environs.PrepareConfigPara
 	// Set the default storage sources.
 	attrs := make(map[string]interface{})
 	if _, ok := args.Config.StorageDefaultBlockSource(); !ok {
-		attrs[config.StorageDefaultBlockSourceKey] = K8s_ProviderType
+		attrs[config.StorageDefaultBlockSourceKey] = constants.StorageProviderType
 	}
 	if _, ok := args.Config.StorageDefaultFilesystemSource(); !ok {
-		attrs[config.StorageDefaultFilesystemSourceKey] = K8s_ProviderType
+		attrs[config.StorageDefaultFilesystemSourceKey] = constants.StorageProviderType
 	}
 	return args.Config.Apply(attrs)
 }

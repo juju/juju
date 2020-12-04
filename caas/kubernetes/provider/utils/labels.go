@@ -4,45 +4,147 @@
 package utils
 
 import (
-	k8slabels "k8s.io/apimachinery/pkg/labels"
+	"context"
+
+	"github.com/juju/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	core "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 )
 
-func LabelSetToSelector(labels k8slabels.Set) k8slabels.Selector {
-	return k8slabels.SelectorFromValidatedSet(labels)
-}
+var (
+	// LabelsJuju is a common set
+	LabelsJuju = map[string]string{
+		constants.LabelKubernetesAppManaged: "juju",
+	}
 
-// AppendLabels adds the labels defined in src to dest returning the result.
-// Overlapping keys in sources maps are overwritten by the very last defined
-// value for a duplicate key.
-func AppendLabels(dest map[string]string, sources ...map[string]string) map[string]string {
-	if dest == nil {
-		dest = map[string]string{}
+	// LabelsJujuModelOperatorDisableWebhook is a set of labels needed on a
+	// given object to disable admission webhook validation.
+	LabelsJujuModelOperatorDisableWebhook = map[string]string{
+		constants.LabelJujuModelOperatorDisableWebhook: "true",
 	}
-	if sources == nil {
-		return dest
-	}
-	for _, s := range sources {
-		for k, v := range s {
-			dest[k] = v
+)
+
+// HasLabels returns true if the src contains the labels in has
+func HasLabels(src, has labels.Set) bool {
+	for k, v := range has {
+		if src[k] != v {
+			return false
 		}
 	}
-	return dest
+	return true
+}
+
+// IsLegacyModelLabels checks to see if the provided model is running on an older
+// labeling scheme or a newer one.
+func IsLegacyModelLabels(model string, namespaceI core.NamespaceInterface) (bool, error) {
+	ns, err := namespaceI.Get(context.TODO(), model, meta.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return false, nil
+	}
+	if err != nil {
+		return true, errors.Annotatef(err, "unable to determine legacy status for namespace %s", model)
+	}
+
+	return !HasLabels(ns.Labels, LabelsForModel(model, false)), nil
 }
 
 // LabelsForApp returns the labels that should be on a k8s object for a given
 // application name
-func LabelsForApp(name string) map[string]string {
-	return map[string]string{
-		constants.LabelApplication: name,
+func LabelsForApp(name string, legacy bool) labels.Set {
+	result := SelectorLabelsForApp(name, legacy)
+	if legacy {
+		return result
 	}
+	return LabelsMerge(result, LabelsJuju)
+}
+
+// SelectorLabelsForApp returns the pod selector labels that should be on
+// a k8s object for a given application name
+func SelectorLabelsForApp(name string, legacy bool) labels.Set {
+	if legacy {
+		return labels.Set{
+			constants.LegacyLabelKubernetesAppName: name,
+		}
+	}
+	return labels.Set{
+		constants.LabelKubernetesAppName: name,
+	}
+}
+
+// LabelForKeyValue returns a Kubernetes label set for the supplied key value.
+func LabelForKeyValue(key, value string) labels.Set {
+	return labels.Set{
+		key: value,
+	}
+}
+
+// LabelsMerge merges one or more sets of labels together into a new set. For
+// duplicate keys the last key found is used.
+func LabelsMerge(a labels.Set, merges ...labels.Set) labels.Set {
+	for _, merge := range merges {
+		a = labels.Merge(a, merge)
+	}
+	return a
 }
 
 // LabelsForModel returns the labels that should be on a k8s object for a given
 // model name
-func LabelsForModel(name string) map[string]string {
-	return map[string]string{
-		constants.LabelModel: name,
+func LabelsForModel(name string, legacy bool) labels.Set {
+	if legacy {
+		return map[string]string{
+			constants.LegacyLabelModelName: name,
+		}
 	}
+	return map[string]string{
+		constants.LabelJujuModelName: name,
+	}
+}
+
+// LabelsForOperator returns the labels that should be placed on a juju operator
+// Takes the operator name, type and a legacy flag to indicate these labels are
+// being used on a model that is operating in "legacy" label mode
+func LabelsForOperator(name, target string, legacy bool) labels.Set {
+	if legacy {
+		return map[string]string{
+			constants.LegacyLabelKubernetesOperatorName: name,
+		}
+	}
+	return map[string]string{
+		constants.LabelJujuOperatorName:   name,
+		constants.LabelJujuOperatorTarget: target,
+	}
+}
+
+// LabelsForStorage return the labels that should be placed on a k8s storage
+// object. Takes the storage name and a legacy flat.
+func LabelsForStorage(name string, legacy bool) labels.Set {
+	if legacy {
+		return map[string]string{
+			constants.LegacyLabelStorageName: name,
+		}
+	}
+	return map[string]string{
+		constants.LabelJujuStorageName: name,
+	}
+}
+
+// LabelsToSelector transforms the supplied label set to a valid Kubernetes
+// label selector
+func LabelsToSelector(ls labels.Set) labels.Selector {
+	return labels.SelectorFromValidatedSet(ls)
+}
+
+// StorageNameFromLabels returns the juju storage name used in the provided
+// label set. First checks for the key LabelJujuStorageName and then defaults
+// over to the key LegacyLabelStorageName. If neither key exists an empty string
+// is returned.
+func StorageNameFromLabels(labels labels.Set) string {
+	if labels[constants.LabelJujuStorageName] != "" {
+		return labels[constants.LabelJujuStorageName]
+	}
+	return labels[constants.LegacyLabelStorageName]
 }

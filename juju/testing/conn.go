@@ -20,12 +20,13 @@ import (
 	"github.com/juju/http"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
+	jujuos "github.com/juju/os/v2"
+	"github.com/juju/os/v2/series"
 	"github.com/juju/pubsub"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -74,13 +75,13 @@ const (
 var (
 	// KubernetesSeriesName is the kubernetes series name that is validated at
 	// runtime, otherwise it panics.
-	KubernetesSeriesName = strings.ToLower(series.MustOSFromSeries("kubernetes").String())
+	KubernetesSeriesName = strings.ToLower(jujuos.Kubernetes.String())
 )
 
 // defaultSupportedJujuSeries is used to return canned information about what
 // juju supports in terms of the release cycle
 // see juju/os and documentation https://www.ubuntu.com/about/release-cycle
-var defaultSupportedJujuSeries = set.NewStrings("bionic", "xenial", "trusty", KubernetesSeriesName)
+var defaultSupportedJujuSeries = set.NewStrings("focal", "bionic", "xenial", "trusty", KubernetesSeriesName)
 
 // JujuConnSuite provides a freshly bootstrapped juju.Conn
 // for each test. It also includes testing.BaseSuite.
@@ -436,7 +437,12 @@ func DefaultVersions(conf *config.Config) []version.Binary {
 	supported := series.SupportedLts()
 	defaultSeries := set.NewStrings(supported...)
 	defaultSeries.Add(config.PreferredSeries(conf))
-	defaultSeries.Add(series.MustHostSeries())
+
+	hostSeries, err := series.HostSeries()
+	if err != nil {
+		defaultSeries.Add(hostSeries)
+	}
+
 	agentVersion, set := conf.AgentVersion()
 	if !set {
 		agentVersion = jujuversion.Current
@@ -901,7 +907,17 @@ func (s *JujuConnSuite) AddTestingApplication(c *gc.C, name string, ch *state.Ch
 	app, err := s.State.AddApplication(state.AddApplicationArgs{Name: name, Charm: ch, Series: ch.URL().Series})
 	c.Assert(err, jc.ErrorIsNil)
 	return app
+}
 
+func (s *JujuConnSuite) AddTestingApplicationWithOrigin(c *gc.C, name string, ch *state.Charm, origin *state.CharmOrigin) *state.Application {
+	app, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name:        name,
+		Charm:       ch,
+		Series:      ch.URL().Series,
+		CharmOrigin: origin,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return app
 }
 
 func (s *JujuConnSuite) AddTestingApplicationWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {

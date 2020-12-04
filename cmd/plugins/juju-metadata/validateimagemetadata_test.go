@@ -9,11 +9,10 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"gopkg.in/amz.v3/aws"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
@@ -75,7 +74,7 @@ func (s *ValidateImageMetadataSuite) TestUnsupportedProviderError(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `maas provider does not support image metadata validation`)
 }
 
-func (s *ValidateImageMetadataSuite) makeLocalMetadata(c *gc.C, id, region, series, endpoint, stream string) error {
+func (s *ValidateImageMetadataSuite) makeLocalMetadata(id, region, series, endpoint, stream string) error {
 	im := &imagemetadata.ImageMetadata{
 		Id:     id,
 		Arch:   "amd64",
@@ -141,55 +140,6 @@ func cacheTestEnvConfig(c *gc.C, store *jujuclient.MemStore) {
 		CloudRegion:         "us-east-1",
 		CloudEndpoint:       "https://ec2.us-east-1.amazonaws.com",
 	}
-
-	azureUUID := utils.MustNewUUID().String()
-	azureConfig, err := config.New(config.UseDefaults, map[string]interface{}{
-		"name":                "azure",
-		"type":                "azure",
-		"controller-uuid":     coretesting.ControllerTag.Id(),
-		"uuid":                azureUUID,
-		"default-series":      "raring",
-		"resource-group-name": "rg",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	store.Controllers["azure-controller"] = jujuclient.ControllerDetails{
-		ControllerUUID: coretesting.ControllerTag.Id(),
-		CACert:         coretesting.CACert,
-	}
-	store.Models["azure-controller"] = &jujuclient.ControllerModels{
-		Models: map[string]jujuclient.ModelDetails{
-			"admin/azure": {
-				ModelType: model.IAAS,
-			},
-		},
-		CurrentModel: "admin/controller",
-	}
-	store.Accounts["azure-controller"] = jujuclient.AccountDetails{
-		User: "admin",
-	}
-	store.BootstrapConfig["azure-controller"] = jujuclient.BootstrapConfig{
-		ControllerConfig:     coretesting.FakeControllerConfig(),
-		ControllerModelUUID:  azureUUID,
-		Config:               azureConfig.AllAttrs(),
-		Cloud:                "azure",
-		CloudType:            "azure",
-		CloudRegion:          "West US",
-		CloudEndpoint:        "https://management.azure.com",
-		CloudStorageEndpoint: "https://core.windows.net",
-		Credential:           "default",
-	}
-	store.Credentials["azure"] = cloud.CloudCredential{
-		AuthCredentials: map[string]cloud.Credential{
-			"default": cloud.NewCredential(
-				"service-principal-secret",
-				map[string]string{
-					"application-id":       "application-id",
-					"subscription-id":      "subscription-id",
-					"application-password": "application-password",
-				},
-			),
-		},
-	}
 }
 
 func (s *ValidateImageMetadataSuite) SetUpTest(c *gc.C) {
@@ -214,7 +164,8 @@ func (s *ValidateImageMetadataSuite) setupEc2LocalMetadata(c *gc.C, region, stre
 		c.Fatalf("unknown ec2 region %q", region)
 	}
 	endpoint := ec2Region.EC2Endpoint
-	s.makeLocalMetadata(c, "1234", region, "precise", endpoint, stream)
+	err := s.makeLocalMetadata("1234", region, "precise", endpoint, stream)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ValidateImageMetadataSuite) assertEc2LocalMetadataUsingEnvironment(c *gc.C, stream string) {
@@ -275,7 +226,8 @@ func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataNoMatch(c *gc.C) {
 }
 
 func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataWithManualParams(c *gc.C) {
-	s.makeLocalMetadata(c, "1234", "region-2", "raring", "some-auth-url", "")
+	err := s.makeLocalMetadata("1234", "region-2", "raring", "some-auth-url", "")
+	c.Assert(err, jc.ErrorIsNil)
 	ctx, err := runValidateImageMetadata(c, s.store,
 		"-p", "openstack", "-s", "raring", "-r", "region-2",
 		"-u", "some-auth-url", "-d", s.metadataDir,
@@ -289,8 +241,9 @@ func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataWithManualParams(
 }
 
 func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *gc.C) {
-	s.makeLocalMetadata(c, "1234", "region-2", "raring", "some-auth-url", "")
-	_, err := runValidateImageMetadata(c, s.store,
+	err := s.makeLocalMetadata("1234", "region-2", "raring", "some-auth-url", "")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = runValidateImageMetadata(c, s.store,
 		"-p", "openstack", "-s", "precise", "-r", "region-2",
 		"-u", "some-auth-url", "-d", s.metadataDir,
 	)

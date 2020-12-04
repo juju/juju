@@ -17,9 +17,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// EnqueueOperation isn't on the V5 API.
-func (*APIv5) EnqueueOperation(_, _ struct{}) {}
-
 // EnqueueOperation takes a list of Actions and queues them up to be executed as
 // an operation, each action running as a task on the the designated ActionReceiver.
 // We return the ID of the overall operation and each individual task.
@@ -30,13 +27,7 @@ func (a *ActionAPI) EnqueueOperation(arg params.Actions) (params.EnqueuedActions
 	}
 	results := params.EnqueuedActions{
 		OperationTag: names.NewOperationTag(operationId).String(),
-		Actions:      make([]params.StringResult, len(actionResults.Results)),
-	}
-	for i, action := range actionResults.Results {
-		results.Actions[i].Error = action.Error
-		if action.Action != nil {
-			results.Actions[i].Result = action.Action.Tag
-		}
+		Actions:      actionResults.Results,
 	}
 	return results, nil
 }
@@ -106,7 +97,7 @@ func (a *ActionAPI) enqueue(arg params.Actions) (string, params.ActionResults, e
 			continue
 		}
 
-		response.Results[i] = common.MakeActionResult(receiver.Tag(), enqueued, false)
+		response.Results[i] = common.MakeActionResult(receiver.Tag(), enqueued)
 	}
 	return operationID, response, nil
 }
@@ -117,12 +108,15 @@ func (a *ActionAPI) ListOperations(arg params.OperationQueryArgs) (params.Operat
 		return params.OperationResults{}, errors.Trace(err)
 	}
 
-	var unitTags []names.Tag
+	var receiverTags []names.Tag
 	for _, name := range arg.Units {
-		unitTags = append(unitTags, names.NewUnitTag(name))
+		receiverTags = append(receiverTags, names.NewUnitTag(name))
+	}
+	for _, id := range arg.Machines {
+		receiverTags = append(receiverTags, names.NewMachineTag(id))
 	}
 	appNames := arg.Applications
-	if len(appNames) == 0 && len(unitTags) == 0 {
+	if len(appNames) == 0 && len(receiverTags) == 0 {
 		apps, err := a.state.AllApplications()
 		if err != nil {
 			return params.OperationResults{}, errors.Trace(err)
@@ -141,7 +135,7 @@ func (a *ActionAPI) ListOperations(arg params.OperationQueryArgs) (params.Operat
 			return params.OperationResults{}, errors.Trace(err)
 		}
 		for _, u := range units {
-			unitTags = append(unitTags, u.Tag())
+			receiverTags = append(receiverTags, u.Tag())
 		}
 	}
 
@@ -159,7 +153,7 @@ func (a *ActionAPI) ListOperations(arg params.OperationQueryArgs) (params.Operat
 	if arg.Offset != nil {
 		offset = *arg.Offset
 	}
-	summaryResults, truncated, err := a.model.ListOperations(arg.ActionNames, unitTags, actionStatus, offset, limit)
+	summaryResults, truncated, err := a.model.ListOperations(arg.ActionNames, receiverTags, actionStatus, offset, limit)
 	if err != nil {
 		return params.OperationResults{}, errors.Trace(err)
 	}
@@ -179,8 +173,14 @@ func (a *ActionAPI) ListOperations(arg params.OperationQueryArgs) (params.Operat
 			Actions:      make([]params.ActionResult, len(r.Actions)),
 		}
 		for j, a := range r.Actions {
-			receiver := names.NewUnitTag(a.Receiver())
-			result.Results[i].Actions[j] = common.MakeActionResult(receiver, a, false)
+			receiver, err := names.ActionReceiverTag(a.Receiver())
+			if err == nil {
+				result.Results[i].Actions[j] = common.MakeActionResult(receiver, a)
+				continue
+			}
+			result.Results[i].Actions[j] = params.ActionResult{
+				Error: apiservererrors.ServerError(errors.Errorf("unknown action receiver %q", a.Receiver())),
+			}
 		}
 	}
 	return result, nil
@@ -215,8 +215,14 @@ func (a *ActionAPI) Operations(arg params.Entities) (params.OperationResults, er
 			Actions:      make([]params.ActionResult, len(op.Actions)),
 		}
 		for j, a := range op.Actions {
-			receiver := names.NewUnitTag(a.Receiver())
-			results.Results[i].Actions[j] = common.MakeActionResult(receiver, a, false)
+			receiver, err := names.ActionReceiverTag(a.Receiver())
+			if err == nil {
+				results.Results[i].Actions[j] = common.MakeActionResult(receiver, a)
+				continue
+			}
+			results.Results[i].Actions[j] = params.ActionResult{
+				Error: apiservererrors.ServerError(errors.Errorf("unknown action receiver %q", a.Receiver())),
+			}
 		}
 	}
 	return results, nil

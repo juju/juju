@@ -174,6 +174,41 @@ juju_leases () {
   fi
 }
 
+juju_revoke_lease () {
+  # This requires some arguments.
+  local model
+  local lease
+  local ns
+
+  while [[ $# -gt 0 ]]
+  do
+    key="$1"
+
+    case $key in
+      -m|--model)
+        model="$2"; shift; shift
+      ;;
+      -n|--ns)
+        ns="$2"; shift; shift
+      ;;
+      -l|--lease)
+        lease="$2"; shift; shift
+      ;;
+      *)
+        echo "usage: juju_revoke_lease -m <model-uuid> -l <lease> [-n <namespace>]"
+        return 1
+      ;;
+    esac
+  done
+
+  if [ -z "$model" ] | [ -z "$lease" ]; then
+    echo "usage: juju_revoke_lease -m <model-uuid> -l <lease> [-n <namespace>]"
+    return 1
+  fi  
+
+  juju_agent --post leases/revoke model="$model" lease="$lease" ns="$ns"
+}
+
 
 # This asks for the command of the current pid.
 # Can't use $0 nor $SHELL due to this being wrong in various situations.
@@ -197,5 +232,7 @@ if [ "$shell" = "bash" ]; then
   export -f juju_unit_status
   export -f juju_start_unit
   export -f juju_stop_unit
+  export -f juju_leases
+  export -f juju_revoke_lease
 fi
 `

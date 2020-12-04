@@ -133,7 +133,7 @@ def calc_stats(prefix, values, include_count=False, test_duration=0):
     if include_count:
         stats[prefix+'count'] = len(values)
 
-    if test_duration is not 0:
+    if test_duration != 0:
         stats[prefix+'rate'] = float(len(values)) / float(test_duration)
 
     return stats
@@ -181,7 +181,7 @@ def extract_mongo_details(client):
 
     ctrl_config = client.get_controller_config(client.env.controller.name)
 
-    return ctrl_details.mongo_version, ctrl_config.mongo_memory_profile
+    return ctrl_details.mongo_version, ctrl_config.db_snap_channel, ctrl_config.mongo_memory_profile
 
 
 def get_stack_client(stack_type, path, client, timeout=3600, charm=False):
@@ -245,6 +245,11 @@ def parse_args(argv):
     parser.add_argument(
         '--mongo-memory-profile',
         help="the name of a mongo profile to use when bootstrapping",
+        default="",
+    )
+    parser.add_argument(
+        '--db-snap-channel',
+        help="the track/channel to use for the mongo4 snap",
         default="",
     )
     parser.add_argument(
@@ -319,11 +324,12 @@ def main(argv=None):
         db_snap_path=db_snap_path,
         db_snap_asserts_path=db_snap_asserts_path,
         mongo_memory_profile=args.mongo_memory_profile,
+        db_snap_channel=args.db_snap_channel,
     ):
         client = bs_manager.client
-        mongo_version, mongo_profile = extract_mongo_details(client)
-        log.info("MongoVersion used for deployment: {} (profile: {})".format(
-            mongo_version, mongo_profile))
+        mongo_version, db_snap_channel, mongo_profile = extract_mongo_details(client)
+        log.info("MongoVersion used for deployment: {} from {} (profile: {})".format(
+            mongo_version, db_snap_channel, mongo_profile))
 
         deploy_bundle(
                 client,

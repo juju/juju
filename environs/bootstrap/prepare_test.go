@@ -38,7 +38,15 @@ func (s *PrepareSuite) TearDownTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
-func (*PrepareSuite) TestPrepare(c *gc.C) {
+func (s *PrepareSuite) TestPrepare(c *gc.C) {
+	s.assertPrepare(c, false)
+}
+
+func (s *PrepareSuite) TestPrepareSkipVerify(c *gc.C) {
+	s.assertPrepare(c, true)
+}
+
+func (s *PrepareSuite) assertPrepare(c *gc.C, skipVerify bool) {
 	baselineAttrs := dummy.SampleConfig().Merge(testing.Attrs{
 		"controller": false,
 		"name":       "erewhemos",
@@ -57,9 +65,13 @@ func (*PrepareSuite) TestPrepare(c *gc.C) {
 		controller.StatePort:               1234,
 		controller.SetNUMAControlPolicyKey: true,
 	}
-	fakeCert := testing.CACert
 	cloudSpec := dummy.SampleCloudSpec()
-	cloudSpec.CACertificates = []string{fakeCert}
+	cloudSpec.SkipTLSVerify = skipVerify
+	var caCerts []string
+	if !skipVerify {
+		caCerts = []string{testing.CACert}
+		cloudSpec.CACertificates = caCerts
+	}
 	_, err = bootstrap.PrepareController(false, ctx, controllerStore, bootstrap.PrepareParams{
 		ControllerConfig: controllerCfg,
 		ControllerName:   cfg.Name(),
@@ -86,10 +98,10 @@ func (*PrepareSuite) TestPrepare(c *gc.C) {
 			controller.SetNUMAControlPolicyKey: true,
 		},
 		Config: map[string]interface{}{
-			"default-series":            "bionic",
+			"default-series":            "focal",
 			"firewall-mode":             "instance",
 			"ssl-hostname-verification": true,
-			"logging-config":            "<root>=DEBUG",
+			"logging-config":            "<root>=INFO",
 			"secret":                    "pork",
 			"authorized-keys":           testing.FakeAuthKeys,
 			"type":                      "dummy",
@@ -106,7 +118,8 @@ func (*PrepareSuite) TestPrepare(c *gc.C) {
 		CloudEndpoint:         "dummy-endpoint",
 		CloudIdentityEndpoint: "dummy-identity-endpoint",
 		CloudStorageEndpoint:  "dummy-storage-endpoint",
-		CloudCACertificates:   []string{fakeCert},
+		CloudCACertificates:   caCerts,
+		SkipTLSVerify:         skipVerify,
 	})
 
 	// Check we cannot call Prepare again.

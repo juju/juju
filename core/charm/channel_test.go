@@ -33,7 +33,7 @@ func (s channelSuite) TestParseChannel(c *gc.C) {
 	}, {
 		Name:        "too many components",
 		Value:       "////",
-		ExpectedErr: `channel is malformed and has to many components "////"`,
+		ExpectedErr: `channel is malformed and has too many components "////"`,
 	}, {
 		Name:        "invalid risk",
 		Value:       "track/meshuggah",
@@ -76,7 +76,7 @@ func (s channelSuite) TestParseChannel(c *gc.C) {
 	}}
 	for k, test := range tests {
 		c.Logf("test %q at %d", test.Name, k)
-		ch, err := charm.ParseChannel(test.Value)
+		ch, err := charm.ParseChannelNormalize(test.Value)
 		if test.ExpectedErr != "" {
 			c.Assert(err, gc.ErrorMatches, test.ExpectedErr)
 		} else {
@@ -114,7 +114,7 @@ func (s channelSuite) TestString(c *gc.C) {
 	}}
 	for k, test := range tests {
 		c.Logf("test %q at %d", test.Name, k)
-		ch, err := charm.ParseChannel(test.Value)
+		ch, err := charm.ParseChannelNormalize(test.Value)
 		c.Assert(err, gc.IsNil)
 		c.Assert(ch.String(), gc.DeepEquals, test.Expected)
 	}

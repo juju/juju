@@ -105,9 +105,9 @@ func (*instancecfgSuite) TestJujuTools(c *gc.C) {
 	c.Assert(icfg.JujuTools(), gc.Equals, "/path/to/datadir/tools/2.3.4-trusty-amd64")
 }
 
-func (*instancecfgSuite) TestGUITools(c *gc.C) {
+func (*instancecfgSuite) TestDashboardDir(c *gc.C) {
 	icfg := &instancecfg.InstanceConfig{
 		DataDir: "/path/to/datadir/",
 	}
-	c.Assert(icfg.GUITools(), gc.Equals, "/path/to/datadir/gui")
+	c.Assert(icfg.DashboardDir(), gc.Equals, "/path/to/datadir/dashboard")
 }

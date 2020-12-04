@@ -41,7 +41,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		RaftName:         "raft",
 		NewWorker:        s.newWorker,
 		UpdateInterval:   time.Second,
-		BackoffDelay:     time.Second,
 		Logger:           s.logger,
 	}
 	s.worker = worker.NewRunner(worker.RunnerParams{})
@@ -80,11 +79,6 @@ func (s *ManifoldSuite) TestStartValidateRaftName(c *gc.C) {
 func (s *ManifoldSuite) TestStartValidateUpdateInterval(c *gc.C) {
 	s.config.UpdateInterval = 0
 	s.testStartValidateConfig(c, "non-positive UpdateInterval not valid")
-}
-
-func (s *ManifoldSuite) TestStartValidateBackoffDelay(c *gc.C) {
-	s.config.BackoffDelay = -1
-	s.testStartValidateConfig(c, "non-positive BackoffDelay not valid")
 }
 
 func (s *ManifoldSuite) testStartValidateConfig(c *gc.C, expect string) {
@@ -145,7 +139,6 @@ func (s *ManifoldSuite) TestStartNewWorkerSuccessWithLeaseManager(c *gc.C) {
 	c.Assert(config, jc.DeepEquals, globalclockupdater.Config{
 		LocalClock:     fakeClock{},
 		UpdateInterval: s.config.UpdateInterval,
-		BackoffDelay:   s.config.BackoffDelay,
 		Logger:         s.logger,
 	})
 }

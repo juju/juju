@@ -12,11 +12,9 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
 	"github.com/juju/replicaset"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
@@ -36,7 +34,6 @@ import (
 	"github.com/juju/juju/state/stateenvirons"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/peergrouper"
 )
 
@@ -120,11 +117,7 @@ type AgentSuite struct {
 // with the given entity name. It returns the agent's configuration and the
 // current tools.
 func (s *AgentSuite) PrimeAgent(c *gc.C, tag names.Tag, password string) (agent.ConfigSetterWriter, *coretools.Tools) {
-	vers := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	vers := coretesting.CurrentVersion(c)
 	return s.PrimeAgentVersion(c, tag, password, vers)
 }
 
@@ -172,11 +165,7 @@ func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, 
 // a state agent with the given entity name. It returns the agent's
 // configuration and the current tools.
 func (s *AgentSuite) PrimeStateAgent(c *gc.C, tag names.Tag, password string) (agent.ConfigSetterWriter, *coretools.Tools) {
-	vers := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	vers := coretesting.CurrentVersion(c)
 	return s.PrimeStateAgentVersion(c, tag, password, vers)
 }
 

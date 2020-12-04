@@ -11,34 +11,12 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	corenetwork "github.com/juju/juju/core/network"
 )
 
 var logger = loggo.GetLogger("juju.network")
-
-// noAddress represents an error when an address is requested but not available.
-type noAddress struct {
-	errors.Err
-}
-
-// NoAddressError returns an error which satisfies IsNoAddressError(). The given
-// addressKind specifies what kind of address(es) is(are) missing, usually
-// "private" or "public".
-func NoAddressError(addressKind string) error {
-	newErr := errors.NewErr("no %s address(es)", addressKind)
-	newErr.SetLocation(1)
-	return &noAddress{newErr}
-}
-
-// IsNoAddressError reports whether err was created with NoAddressError().
-func IsNoAddressError(err error) bool {
-	err = errors.Cause(err)
-	_, ok := err.(*noAddress)
-	return ok
-}
 
 // UnknownId can be used whenever an Id is needed but not known.
 const UnknownId = ""
@@ -52,25 +30,6 @@ const DefaultLXDBridge = "lxdbr0"
 // DefaultKVMBridge is the bridge that is set up by installing libvirt-bin
 // Note: we don't import this from 'container' to avoid import loops
 const DefaultKVMBridge = "virbr0"
-
-// InterfaceAddress represents a single address attached to the interface.
-type InterfaceAddress struct {
-	Address string
-	CIDR    string
-}
-
-// NetworkInfo describes one interface with assigned IP addresses, it's a mirror of params.NetworkInfo.
-type NetworkInfo struct {
-	// MACAddress is the network interface's hardware MAC address
-	// (e.g. "aa:bb:cc:dd:ee:ff").
-	MACAddress string
-
-	// InterfaceName is the OS-specific interface name, eg. "eth0" or "eno1.412"
-	InterfaceName string
-
-	// Addresses contains a list of addresses configured on the interface.
-	Addresses []InterfaceAddress
-}
 
 // DeviceToBridge gives the information about a particular device that
 // should be bridged.
@@ -283,30 +242,4 @@ func SubnetInAnyRange(cidrs []*net.IPNet, subnet *net.IPNet) bool {
 		}
 	}
 	return false
-}
-
-// Export for testing
-var ResolverFunc = net.ResolveIPAddr
-
-// FormatAsCIDR converts the specified IP addresses to a slice of CIDRs. It
-// attempts to resolve any address represented as hostnames before formatting.
-func FormatAsCIDR(addresses []string) ([]string, error) {
-	result := make([]string, len(addresses))
-	for i, a := range addresses {
-		cidr := a
-		// If address is not already a cidr, add a /32 (ipv4) or /128 (ipv6).
-		if _, _, err := net.ParseCIDR(a); err != nil {
-			address, err := ResolverFunc("ip", a)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			if address.IP.To4() != nil {
-				cidr = address.String() + "/32"
-			} else {
-				cidr = address.String() + "/128"
-			}
-		}
-		result[i] = cidr
-	}
-	return result, nil
 }

@@ -17,7 +17,7 @@ import (
 	"github.com/juju/pubsub"
 	"github.com/juju/replicaset"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/voyeur"
+	"github.com/juju/utils/v2/voyeur"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/workertest"
 	"github.com/kr/pretty"

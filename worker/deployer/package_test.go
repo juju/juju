@@ -11,17 +11,13 @@ import (
 	"runtime"
 	stdtesting "testing"
 
-	"github.com/juju/os/series"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
-	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent/tools"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	jv "github.com/juju/juju/version"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -39,11 +35,7 @@ type BaseSuite struct {
 func (s *BaseSuite) InitializeCurrentToolsDir(c *gc.C, dataDir string) {
 	// Initialize the tools directory for the agent.
 	// This should be <DataDir>/tools/<version>-<series>-<arch>.
-	current := version.Binary{
-		Number: jv.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	current := coretesting.CurrentVersion(c)
 	toolsDir := tools.SharedToolsDir(dataDir, current)
 	// Make that directory.
 	err := os.MkdirAll(toolsDir, 0755)

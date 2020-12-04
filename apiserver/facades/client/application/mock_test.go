@@ -10,14 +10,13 @@ import (
 	"time"
 
 	"github.com/juju/charm/v8"
-	"github.com/juju/charmrepo/v6"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
 	jtesting "github.com/juju/testing"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"github.com/juju/version"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/macaroon.v2"
@@ -88,22 +87,23 @@ type mockApplication struct {
 	jtesting.Stub
 	application.Application
 
-	bindings    map[string]string
-	charm       *mockCharm
-	curl        *charm.URL
-	endpoints   []state.Endpoint
-	name        string
-	scale       int
-	subordinate bool
-	series      string
-	units       []*mockUnit
-	addedUnit   mockUnit
-	config      coreapplication.ConfigAttributes
-	constraints constraints.Value
-	channel     csparams.Channel
-	exposed     bool
-	remote      bool
-	agentTools  *tools.Tools
+	bindings         map[string]string
+	charm            *mockCharm
+	curl             *charm.URL
+	endpoints        []state.Endpoint
+	exposedEndpoints map[string]state.ExposedEndpoint
+	name             string
+	scale            int
+	subordinate      bool
+	series           string
+	units            []*mockUnit
+	addedUnit        mockUnit
+	config           coreapplication.ConfigAttributes
+	constraints      constraints.Value
+	channel          csparams.Channel
+	exposed          bool
+	remote           bool
+	agentTools       *tools.Tools
 }
 
 func (m *mockApplication) Name() string {
@@ -139,6 +139,11 @@ func (m *mockApplication) Constraints() (constraints.Value, error) {
 func (m *mockApplication) Endpoints() ([]state.Endpoint, error) {
 	m.MethodCall(m, "Endpoints")
 	return m.endpoints, nil
+}
+
+func (m *mockApplication) ExposedEndpoints() map[string]state.ExposedEndpoint {
+	m.MethodCall(m, "ExposedEndpoints")
+	return m.exposedEndpoints
 }
 
 func (m *mockApplication) EndpointBindings() (application.Bindings, error) {
@@ -234,8 +239,13 @@ func (a *mockApplication) UpdateCharmConfig(branchName string, settings charm.Se
 	return a.NextErr()
 }
 
-func (a *mockApplication) SetExposed() error {
-	a.MethodCall(a, "SetExposed")
+func (a *mockApplication) MergeExposeSettings(exposedEndpoints map[string]state.ExposedEndpoint) error {
+	a.MethodCall(a, "MergeExposeSettings", exposedEndpoints)
+	return a.NextErr()
+}
+
+func (a *mockApplication) UnsetExposeSettings(exposedEndpoints []string) error {
+	a.MethodCall(a, "UnsetExposeSettings", exposedEndpoints)
 	return a.NextErr()
 }
 
@@ -372,6 +382,7 @@ type mockBackend struct {
 	controllers                map[string]crossmodel.ControllerInfo
 	machines                   map[string]*mockMachine
 	generation                 *mockGeneration
+	spaceInfos                 network.SpaceInfos
 }
 
 type mockFilesystemAccess struct {
@@ -449,7 +460,11 @@ func (m *mockBackend) Machine(id string) (application.Machine, error) {
 }
 
 func (m *mockBackend) AllSpaceInfos() (network.SpaceInfos, error) {
-	return nil, nil
+	m.MethodCall(m, "AllSpaceInfos")
+	if err := m.NextErr(); err != nil {
+		return nil, err
+	}
+	return m.spaceInfos, nil
 }
 
 func (m *mockBackend) Space(_ string) (*state.Space, error) {
@@ -1167,15 +1182,15 @@ func (g *mockGeneration) AssignApplication(appName string) error {
 }
 
 type mockRepo struct {
-	charmrepo.Interface
+	application.Repository
 	*jtesting.CallMocker
 	revisions map[string]int
 }
 
-func (m *mockRepo) Get(curl *charm.URL, path string) (*charm.CharmArchive, error) {
-	results := m.MethodCall(m, "Get", curl)
+func (m *mockRepo) DownloadCharm(resourceURL, _ string) (*charm.CharmArchive, error) {
+	results := m.MethodCall(m, "DownloadCharm", resourceURL)
 	if results == nil {
-		return nil, errors.NotFoundf(`cannot retrieve %q: charm`, curl)
+		return nil, errors.NotFoundf(`cannot retrieve %q: charm`, resourceURL)
 	}
 	return results[0].(*charm.CharmArchive), jtesting.TypeAssertError(results[1])
 }

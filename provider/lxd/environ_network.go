@@ -9,9 +9,9 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils/set"
 	lxdapi "github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/core/instance"
@@ -41,6 +41,9 @@ func (e *environ) Subnets(ctx context.ProviderCallContext, inst instance.Id, sub
 
 	networkNames, err := srv.GetNetworkNames()
 	if err != nil {
+		if isErrMissingAPIExtension(err, "network") {
+			return nil, errors.NewNotSupported(nil, `subnet discovery requires the "network" extension to be enabled on the lxd server`)
+		}
 		return nil, errors.Trace(err)
 	}
 
@@ -368,7 +371,7 @@ func getContainerDetails(srv Server, containerID string) (*lxdapi.Container, *lx
 func isErrNotFound(err error) bool {
 	// Unfortunately the lxd client does not expose error
 	// codes so we need to match against a string here.
-	return strings.Contains(err.Error(), "not found")
+	return err != nil && strings.Contains(err.Error(), "not found")
 }
 
 // isErrMissingAPIExtension returns true if the LXD server returned back an
@@ -376,7 +379,7 @@ func isErrNotFound(err error) bool {
 func isErrMissingAPIExtension(err error, ext string) bool {
 	// Unfortunately the lxd client does not expose error
 	// codes so we need to match against a string here.
-	return strings.Contains(err.Error(), fmt.Sprintf("server is missing the required %q API extension", ext))
+	return err != nil && strings.Contains(err.Error(), fmt.Sprintf("server is missing the required %q API extension", ext))
 }
 
 // SuperSubnets returns information about aggregated subnet.
@@ -387,8 +390,11 @@ func (*environ) SuperSubnets(context.ProviderCallContext) ([]string, error) {
 // SupportsSpaces returns whether the current environment supports
 // spaces. The returned error satisfies errors.IsNotSupported(),
 // unless a general API failure occurs.
-func (*environ) SupportsSpaces(context.ProviderCallContext) (bool, error) {
-	return true, nil
+func (e *environ) SupportsSpaces(context.ProviderCallContext) (bool, error) {
+	// Really old lxd versions (e.g. xenial/ppc64) do not even support the
+	// network API extension so the subnet discovery codepath will not
+	// work there.
+	return e.hasLXDNetworkAPISupport()
 }
 
 // SupportsSpaceDiscovery returns whether the current environment
@@ -439,4 +445,18 @@ func (*environ) ReleaseContainerAddresses(context.ProviderCallContext, []network
 // SSHAddresses filters the input addaddresses to those suitable for SSH use.
 func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses network.SpaceAddresses) (network.SpaceAddresses, error) {
 	return addresses, nil
+}
+
+// hasLXDNetworkAPISupport makes a request to the networks API endpoint and
+// checks whether the lxd server supports the network API extension or not. Any
+// other error except "missing API extension" will be returned to the caller.
+func (e *environ) hasLXDNetworkAPISupport() (bool, error) {
+	srv := e.server()
+	_, err := srv.GetNetworkNames()
+	if isErrMissingAPIExtension(err, "network") {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Trace(err)
+	}
+	return true, nil
 }

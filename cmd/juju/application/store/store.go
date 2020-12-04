@@ -1,9 +1,6 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// TODO(natefinch): change the code in this file to use the
-// github.com/juju/juju/charmstore package to interact with the charmstore.
-
 package store
 
 import (
@@ -22,10 +19,23 @@ import (
 )
 
 // AddCharmFromURL calls the appropriate client API calls to add the
-// given charm URL to state. For non-public charm URLs, this function also
-// handles the macaroon authorization process using the given csClient.
+// given charm URL to state.
+func AddCharmFromURL(client CharmAdder, curl *charm.URL, origin commoncharm.Origin, force bool) (*charm.URL, commoncharm.Origin, error) {
+	resultOrigin, err := client.AddCharm(curl, origin, force)
+	if err != nil {
+		if params.IsCodeUnauthorized(err) {
+			return nil, commoncharm.Origin{}, errors.Forbiddenf(err.Error())
+		}
+		return nil, commoncharm.Origin{}, errors.Trace(err)
+	}
+	return curl, resultOrigin, nil
+}
+
+// AddCharmWithAuthorizationFromURL calls the appropriate client API calls to
+// add the given charm URL to state. For non-public charm URLs, this function
+// also handles the macaroon authorization process using the given csClient.
 // The resulting charm URL of the added charm is displayed on stdout.
-func AddCharmFromURL(client CharmAdder, cs MacaroonGetter, curl *charm.URL, origin commoncharm.Origin, force bool) (*charm.URL, *macaroon.Macaroon, commoncharm.Origin, error) {
+func AddCharmWithAuthorizationFromURL(client CharmAdder, cs MacaroonGetter, curl *charm.URL, origin commoncharm.Origin, force bool) (*charm.URL, *macaroon.Macaroon, commoncharm.Origin, error) {
 	var csMac *macaroon.Macaroon
 	resultOrigin, err := client.AddCharm(curl, origin, force)
 	if err != nil {

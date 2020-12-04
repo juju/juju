@@ -14,13 +14,15 @@ import (
 )
 
 type APIAddresserTests struct {
+	ctrlSt                   *state.State
 	state                    *state.State
 	facade                   APIAddresserFacade
 	waitForModelWatchersIdle func(c *gc.C)
 }
 
-func NewAPIAddresserTests(facade APIAddresserFacade, st *state.State, waitForModelWatchersIdle func(c *gc.C)) *APIAddresserTests {
+func NewAPIAddresserTests(facade APIAddresserFacade, ctrlSt, st *state.State, waitForModelWatchersIdle func(c *gc.C)) *APIAddresserTests {
 	return &APIAddresserTests{
+		ctrlSt:                   ctrlSt,
 		state:                    st,
 		facade:                   facade,
 		waitForModelWatchersIdle: waitForModelWatchersIdle,
@@ -70,7 +72,7 @@ func (s *APIAddresserTests) TestAPIHostPorts(c *gc.C) {
 }
 
 func (s *APIAddresserTests) TestWatchAPIHostPorts(c *gc.C) {
-	hostports, err := s.state.APIHostPortsForAgents()
+	hostports, err := s.ctrlSt.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 	expectServerAddrs := []network.SpaceHostPorts{
 		network.NewSpaceHostPorts(5678, "0.1.2.3"),

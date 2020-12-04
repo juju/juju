@@ -10,6 +10,20 @@ import (
 	"github.com/juju/errors"
 )
 
+const (
+	// DefaultChannelString represents the default track and risk if nothing
+	// is found.
+	DefaultChannelString = "latest/stable"
+)
+
+var (
+	// DefaultChannel represents the default track and risk.
+	DefaultChannel = Channel{
+		Track: "latest",
+		Risk:  Risk("stable"),
+	}
+)
+
 // Risk describes the type of risk in a current channel.
 type Risk string
 
@@ -58,6 +72,15 @@ type Channel struct {
 	Branch string
 }
 
+// MakeRiskOnlyChannel creates a charm channel that is backwards compatible with
+// old style charm store channels. This creates a risk aware channel only.
+// No validation is performed on the risk and is just accepted as is.
+func MakeRiskOnlyChannel(risk string) Channel {
+	return Channel{
+		Risk: Risk(risk),
+	}
+}
+
 // MakeChannel creates a core charm Channel from a set of component parts.
 func MakeChannel(track, risk, branch string) (Channel, error) {
 	if !isRisk(risk) {
@@ -70,8 +93,16 @@ func MakeChannel(track, risk, branch string) (Channel, error) {
 	}, nil
 }
 
+// MustParseChannel parses a given string or returns a panic.
+func MustParseChannel(s string) Channel {
+	c, err := ParseChannelNormalize(s)
+	if err != nil {
+		panic(err)
+	}
+	return c
+}
+
 // ParseChannel parses a string representing a store channel.
-// The returned channel's track, risk and name are normalized.
 func ParseChannel(s string) (Channel, error) {
 	if s == "" {
 		return Channel{}, errors.Errorf("channel cannot be empty")
@@ -96,7 +127,7 @@ func ParseChannel(s string) (Channel, error) {
 	case 3:
 		track, risk, branch = &p[0], &p[1], &p[2]
 	default:
-		return Channel{}, errors.Errorf("channel is malformed and has to many components %q", s)
+		return Channel{}, errors.Errorf("channel is malformed and has too many components %q", s)
 	}
 
 	ch := Channel{}
@@ -121,7 +152,16 @@ func ParseChannel(s string) (Channel, error) {
 		}
 		ch.Branch = *branch
 	}
+	return ch, nil
+}
 
+// ParseChannelNormalize parses a string representing a store channel.
+// The returned channel's track, risk and name are normalized.
+func ParseChannelNormalize(s string) (Channel, error) {
+	ch, err := ParseChannel(s)
+	if err != nil {
+		return Channel{}, errors.Trace(err)
+	}
 	return ch.Normalize(), nil
 }
 

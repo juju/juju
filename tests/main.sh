@@ -1,4 +1,4 @@
-#!/bin/sh -e
+#!/bin/bash -e
 [ -n "${GOPATH:-}" ] && export "PATH=${GOPATH}/bin:${PATH}"
 
 # Always ignore SC2230 ('which' is non-standard. Use builtin 'command -v' instead.)
@@ -11,6 +11,9 @@ export BUILD_AGENT="${BUILD_AGENT:-false}"
 export RUN_SUBTEST="${RUN_SUBTEST:-}"
 
 export CURRENT_LTS="focal"
+
+current_pwd=$(pwd)
+export CURRENT_DIR="${current_pwd}"
 
 OPTIND=1
 VERBOSE=1
@@ -30,21 +33,29 @@ import_subdir_files() {
 
 import_subdir_files includes
 
-# If adding a test suite, then ensure to add it here to be picked up!
-TEST_NAMES="static_analysis \
+# If adding a test suite, then ensure to add it here to be picked up! (Please
+# keep these in alphabetic order.)
+TEST_NAMES="agents \
             appdata \
+            backup \
+            bootstrap \
             branches \
             caasadmission \
+            charmhub \
             cli \
             controller \
             deploy \
+            expose_ec2 \
             hooks \
-            hook_tools \
+            hooktools \
             machine \
             manual \
+            model \
+            network \
             relations \
             smoke \
-            model"
+            spaces_ec2 \
+            static_analysis"
 
 # Show test suites, can be used to test if a test suite is available or not.
 show_test_suites() {
@@ -54,7 +65,7 @@ show_test_suites() {
         # shellcheck disable=SC2086
         output="${output}\n${test}"
     done
-    echo "${output}" | column -t -s "|"
+    echo -e "${output}" | column -t -s "|"
     exit 0
 }
 
@@ -77,16 +88,16 @@ show_help() {
     echo ""
     echo "cmd [-h] [-v] [-A] [-s test] [-a file] [-x file] [-r] [-l controller] [-p provider type <lxd|aws|manual|microk8s>]"
     echo ""
-    echo "    $(green 'cmd -h')        Display this help message"
-    echo "    $(green 'cmd -v')        Verbose and debug messages"
-    echo "    $(green 'cmd -A')        Run all the test suites"
-    echo "    $(green 'cmd -s')        Skip tests using a comma seperated list"
-    echo "    $(green 'cmd -a')        Create an artifact file"
-    echo "    $(green 'cmd -x')        Output file from streaming the output"
-    echo "    $(green 'cmd -r')        Reuse bootstrapped controller between testing suites"
-    echo "    $(green 'cmd -l')        Local bootstrapped controller name to reuse"
-    echo "    $(green 'cmd -p')        Bootstrap provider to use when bootstrapping <lxd|aws|manual|microk8s>"
-    echo "    $(green 'cmd -S')        Bootstrap series to use <default is host>, priority over -l"
+    echo "    $(green './main.sh -h')        Display this help message"
+    echo "    $(green './main.sh -v')        Verbose and debug messages"
+    echo "    $(green './main.sh -A')        Run all the test suites"
+    echo "    $(green './main.sh -s')        Skip tests using a comma seperated list"
+    echo "    $(green './main.sh -a')        Create an artifact file"
+    echo "    $(green './main.sh -x')        Output file from streaming the output"
+    echo "    $(green './main.sh -r')        Reuse bootstrapped controller between testing suites"
+    echo "    $(green './main.sh -l')        Local bootstrapped controller name to reuse"
+    echo "    $(green './main.sh -p')        Bootstrap provider to use when bootstrapping <lxd|aws|manual|microk8s>"
+    echo "    $(green './main.sh -S')        Bootstrap series to use <default is host>, priority over -l"
     echo ""
     echo "Tests:"
     echo "¯¯¯¯¯¯"
@@ -107,17 +118,17 @@ show_help() {
     echo "¯¯¯¯¯¯¯¯¯"
     echo "Run a singular test:"
     echo ""
-    echo "    $(green 'cmd static_analysis test_static_analysis_go')"
+    echo "    $(green './main.sh static_analysis test_static_analysis_go')"
     echo ""
     echo "Run static analysis tests, but skip the go static analysis tests:"
     echo ""
-    echo "    $(green 'cmd -s test_static_analysis_go static_analysis')"
+    echo "    $(green './main.sh -s test_static_analysis_go static_analysis')"
     echo ""
     echo "Run a more verbose output and save that to an artifact tar (it"
     echo "requires piping the output from stdout and stderr into a output.log,"
     echo "which is then copied into the artifact tar file on test cleanup):"
     echo ""
-    echo "    $(green 'cmd -V -a artifact.tar.gz -x output.log 2>&1|tee output.log')"
+    echo "    $(green './main.sh -v -a artifact.tar.gz -x output.log 2>&1|tee output.log')"
     exit 1
 }
 
@@ -297,14 +308,14 @@ if [ "$#" -gt 0 ]; then
         exit
     fi
 
-    run_test "test_${1}" "" "$@"
+    run_test "test_${1}" "" "$@" ""
     TEST_RESULT=success
     exit
 fi
 
 for test in ${TEST_NAMES}; do
     name=$(echo "${test}" | sed -E "s/^run_//g" | sed -E "s/_/ /g")
-    run_test "test_${test}" "${name}"
+    run_test "test_${test}" "${name}" "" ""
 done
 
 TEST_RESULT=success

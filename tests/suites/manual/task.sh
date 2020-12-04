@@ -10,4 +10,5 @@ test_manual() {
     check_dependencies juju petname
 
     test_deploy_manual
+    test_spaces_manual
 }

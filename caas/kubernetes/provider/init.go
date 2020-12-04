@@ -8,15 +8,16 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/paths"
+	k8s "github.com/juju/juju/caas/kubernetes"
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 )
 
 const volBindModeWaitFirstConsumer = "WaitForFirstConsumer"
 
 var (
 	k8sCloudCheckers             map[string][]k8slabels.Selector
-	jujuPreferredWorkloadStorage map[string]caas.PreferredStorage
-	jujuPreferredOperatorStorage map[string]caas.PreferredStorage
+	jujuPreferredWorkloadStorage map[string]k8s.PreferredStorage
+	jujuPreferredOperatorStorage map[string]k8s.PreferredStorage
 
 	// lifecycleApplicationRemovalSelector is the label selector for removing global resources for application removal.
 	lifecycleApplicationRemovalSelector k8slabels.Selector
@@ -28,7 +29,7 @@ var (
 )
 
 func init() {
-	caas.RegisterContainerProvider(CAASProviderType, providerInstance)
+	caas.RegisterContainerProvider(constants.CAASProviderType, providerInstance)
 
 	// k8sCloudCheckers is a collection of k8s node selector requirement definitions
 	// used for detecting cloud provider from node labels.
@@ -36,31 +37,31 @@ func init() {
 
 	// jujuPreferredWorkloadStorage defines the opinionated storage
 	// that Juju requires to be available on supported clusters.
-	jujuPreferredWorkloadStorage = map[string]caas.PreferredStorage{
+	jujuPreferredWorkloadStorage = map[string]k8s.PreferredStorage{
 		// WaitForFirstConsumer mode which will delay the binding and provisioning of a PersistentVolume until a
 		// Pod using the PersistentVolumeClaim is created.
 		// https://kubernetes.io/docs/concepts/storage/storage-classes/#volume-binding-mode
-		caas.K8sCloudMicrok8s: {
+		k8s.K8sCloudMicrok8s: {
 			Name:              "hostpath",
 			Provisioner:       "microk8s.io/hostpath",
 			VolumeBindingMode: volBindModeWaitFirstConsumer,
 		},
-		caas.K8sCloudGCE: {
+		k8s.K8sCloudGCE: {
 			Name:              "GCE Persistent Disk",
 			Provisioner:       "kubernetes.io/gce-pd",
 			VolumeBindingMode: volBindModeWaitFirstConsumer,
 		},
-		caas.K8sCloudAzure: {
+		k8s.K8sCloudAzure: {
 			Name:              "Azure Disk",
 			Provisioner:       "kubernetes.io/azure-disk",
 			VolumeBindingMode: volBindModeWaitFirstConsumer,
 		},
-		caas.K8sCloudEC2: {
+		k8s.K8sCloudEC2: {
 			Name:              "EBS Volume",
 			Provisioner:       "kubernetes.io/aws-ebs",
 			VolumeBindingMode: volBindModeWaitFirstConsumer,
 		},
-		caas.K8sCloudOpenStack: {
+		k8s.K8sCloudOpenStack: {
 			Name:              "Cinder Disk",
 			Provisioner:       "csi-cinderplugin",
 			VolumeBindingMode: volBindModeWaitFirstConsumer,
@@ -76,7 +77,6 @@ func init() {
 	lifecycleApplicationRemovalSelector = compileLifecycleApplicationRemovalSelector()
 	lifecycleModelTeardownSelector = compileLifecycleModelTeardownSelector()
 
-	k8sStorageBaseDir = getK8sStorageBaseDir()
 }
 
 // compileK8sCloudCheckers compiles/validates the collection of
@@ -84,12 +84,12 @@ func init() {
 // cloud provider from node labels.
 func compileK8sCloudCheckers() map[string][]k8slabels.Selector {
 	return map[string][]k8slabels.Selector{
-		caas.K8sCloudMicrok8s: {
+		k8s.K8sCloudMicrok8s: {
 			newLabelRequirements(
 				requirementParams{"microk8s.io/cluster", selection.Exists, nil},
 			),
 		},
-		caas.K8sCloudGCE: {
+		k8s.K8sCloudGCE: {
 			// GKE.
 			newLabelRequirements(
 				requirementParams{"cloud.google.com/gke-nodepool", selection.Exists, nil},
@@ -97,10 +97,10 @@ func compileK8sCloudCheckers() map[string][]k8slabels.Selector {
 			),
 			// CDK on GCE.
 			newLabelRequirements(
-				requirementParams{"juju.io/cloud", selection.Equals, []string{"gce"}},
+				requirementParams{"juju.is/cloud", selection.Equals, []string{"gce"}},
 			),
 		},
-		caas.K8sCloudEC2: {
+		k8s.K8sCloudEC2: {
 			// EKS.
 			newLabelRequirements(
 				requirementParams{"manufacturer", selection.Equals, []string{"amazon_ec2"}},
@@ -110,17 +110,17 @@ func compileK8sCloudCheckers() map[string][]k8slabels.Selector {
 			),
 			// CDK on AWS.
 			newLabelRequirements(
-				requirementParams{"juju.io/cloud", selection.Equals, []string{"ec2"}},
+				requirementParams{"juju.is/cloud", selection.Equals, []string{"ec2"}},
 			),
 		},
-		caas.K8sCloudAzure: {
+		k8s.K8sCloudAzure: {
 			// AKS.
 			newLabelRequirements(
 				requirementParams{"kubernetes.azure.com/cluster", selection.Exists, nil},
 			),
 			// CDK on Azure.
 			newLabelRequirements(
-				requirementParams{"juju.io/cloud", selection.Equals, []string{"azure"}},
+				requirementParams{"juju.is/cloud", selection.Equals, []string{"azure"}},
 			),
 		},
 		// format - cloudType: requirements.
@@ -144,12 +144,4 @@ func compileLifecycleModelTeardownSelector() k8slabels.Selector {
 				labelResourceLifeCycleValuePersistent,
 			}},
 	)
-}
-
-func getK8sStorageBaseDir() string {
-	s, err := paths.StorageDir(CAASProviderType)
-	if err != nil {
-		panic(err)
-	}
-	return s
 }

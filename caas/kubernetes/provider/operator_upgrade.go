@@ -29,6 +29,7 @@ type upgradeCAASOperatorBridge struct {
 	clientFn         func() kubernetes.Interface
 	clockFn          func() clock.Clock
 	deploymentNameFn func(string, bool) string
+	isLegacyFn       func() bool
 	namespaceFn      func() string
 	operatorFn       func(string) (*caas.Operator, error)
 	operatorNameFn   func(string) string
@@ -45,6 +46,9 @@ type UpgradeCAASOperatorBroker interface {
 	// Returns the deployment name use for the given application name, supports
 	// finding legacy deployment names if set to True.
 	DeploymentName(string, bool) string
+
+	// IsLegacyLabels indicates if this provider is operating on a legacy label schema
+	IsLegacyLabels() bool
 
 	Namespace() string
 
@@ -70,6 +74,10 @@ func (u *upgradeCAASOperatorBridge) DeploymentName(n string, l bool) string {
 	return u.deploymentNameFn(n, l)
 }
 
+func (u *upgradeCAASOperatorBridge) IsLegacyLabels() bool {
+	return u.isLegacyFn()
+}
+
 func (u *upgradeCAASOperatorBridge) Operator(n string) (*caas.Operator, error) {
 	return u.operatorFn(n)
 }
@@ -92,12 +100,12 @@ func operatorInitUpgrade(appName, imagePath string, broker UpgradeCAASOperatorBr
 		broker UpgradeCAASOperatorBroker) func() (bool, error) {
 
 		return func() (done bool, err error) {
-			labelSelector := utils.LabelSetToSelector(labelSet).String()
+			labelSelector := utils.LabelsToSelector(labelSet).String()
 			podList, err := broker.Client().CoreV1().Pods(broker.Namespace()).
 				List(context.TODO(), meta.ListOptions{
 					LabelSelector: labelSelector,
 				})
-			if k8serrors.IsNotFound(err) {
+			if k8serrors.IsNotFound(err) || (err == nil && len(podList.Items) == 0) {
 				// Not found means not ready.
 				logger.Tracef("listing pod %q, not found yet", selector.String())
 				return false, nil
@@ -173,7 +181,11 @@ func operatorInitUpgrade(appName, imagePath string, broker UpgradeCAASOperatorBr
 	return nil, errors.NotFoundf("deployment %q init containers", deploymentName)
 }
 
-func operatorUpgrade(appName string, vers version.Number, broker UpgradeCAASOperatorBroker) error {
+func operatorUpgrade(
+	appName string,
+	vers version.Number,
+	broker UpgradeCAASOperatorBroker,
+) error {
 	operator, err := broker.Operator(appName)
 	if err != nil {
 		return errors.Trace(err)
@@ -207,6 +219,7 @@ func operatorUpgrade(appName string, vers version.Number, broker UpgradeCAASOper
 					broker.OperatorName(appName),
 					operatorImagePath,
 					vers,
+					broker.IsLegacyLabels(),
 					broker.Client().AppsV1().StatefulSets(broker.Namespace())))
 			}
 		}
@@ -218,6 +231,7 @@ func (k *kubernetesClient) upgradeOperator(agentTag names.Tag, vers version.Numb
 		clientFn:         k.client,
 		clockFn:          func() clock.Clock { return k.clock },
 		deploymentNameFn: k.deploymentName,
+		isLegacyFn:       k.IsLegacyLabels,
 		namespaceFn:      k.GetCurrentNamespace,
 		operatorFn:       k.Operator,
 		operatorNameFn:   k.operatorName,

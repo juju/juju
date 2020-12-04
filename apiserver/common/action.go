@@ -5,9 +5,6 @@
 package common
 
 import (
-	"strconv"
-	"strings"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -247,7 +244,7 @@ type GetActionsFn func() ([]state.Action, error)
 // ConvertActions takes a generic getActionsFn to obtain a slice
 // of state.Action and then converts them to the API slice of
 // params.ActionResult.
-func ConvertActions(ar state.ActionReceiver, fn GetActionsFn, compat bool) ([]params.ActionResult, error) {
+func ConvertActions(ar state.ActionReceiver, fn GetActionsFn) ([]params.ActionResult, error) {
 	items := []params.ActionResult{}
 	actions, err := fn()
 	if err != nil {
@@ -257,18 +254,15 @@ func ConvertActions(ar state.ActionReceiver, fn GetActionsFn, compat bool) ([]pa
 		if action == nil {
 			continue
 		}
-		items = append(items, MakeActionResult(ar.Tag(), action, compat))
+		items = append(items, MakeActionResult(ar.Tag(), action))
 	}
 	return items, nil
 }
 
 // MakeActionResult does the actual type conversion from state.Action
 // to params.ActionResult.
-func MakeActionResult(actionReceiverTag names.Tag, action state.Action, compat bool) params.ActionResult {
+func MakeActionResult(actionReceiverTag names.Tag, action state.Action) params.ActionResult {
 	output, message := action.Results()
-	if !compat {
-		convertActionOutput(output)
-	}
 	result := params.ActionResult{
 		Action: &params.Action{
 			Receiver:   actionReceiverTag.String(),
@@ -291,30 +285,4 @@ func MakeActionResult(actionReceiverTag names.Tag, action state.Action, compat b
 	}
 
 	return result
-}
-
-func convertActionOutput(values map[string]interface{}) {
-	if res, ok := values["Stdout"].(string); ok {
-		values["stdout"] = strings.Replace(res, "\r\n", "\n", -1)
-		if res, ok := values["StdoutEncoding"].(string); ok && res != "" {
-			values["stdout-encoding"] = res
-		}
-	}
-	delete(values, "Stdout")
-	delete(values, "StdoutEncoding")
-	if res, ok := values["Stderr"].(string); ok && res != "" {
-		values["stderr"] = strings.Replace(res, "\r\n", "\n", -1)
-		if res, ok := values["StderrEncoding"].(string); ok && res != "" {
-			values["stderr-encoding"] = res
-		}
-	}
-	delete(values, "Stderr")
-	delete(values, "StderrEncoding")
-	if res, ok := values["Code"].(string); ok {
-		delete(values, "Code")
-		code, err := strconv.Atoi(res)
-		if err == nil {
-			values["return-code"] = code
-		}
-	}
 }

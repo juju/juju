@@ -14,12 +14,14 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
-	"github.com/juju/utils/fs"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/fs"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas/kubernetes/provider"
+	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/model"
@@ -67,6 +69,7 @@ func (s *ContextFactorySuite) SetUpTest(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.factory = contextFactory
+	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 }
 
 func (s *ContextFactorySuite) setUpCacheMethods(c *gc.C) {

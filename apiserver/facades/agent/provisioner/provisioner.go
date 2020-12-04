@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/core/constraints"
+	corecontainer "github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
@@ -46,7 +47,6 @@ type ProvisionerAPI struct {
 	*common.DeadEnsurer
 	*common.PasswordChanger
 	*common.LifeGetter
-	*common.StateAddresser
 	*common.APIAddresser
 	*common.ModelWatcher
 	*common.ModelMachinesWatcher
@@ -71,7 +71,8 @@ type ProvisionerAPI struct {
 }
 
 // NewProvisionerAPI creates a new server-side ProvisionerAPI facade.
-func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPI, error) {
+func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
+	authorizer := ctx.Auth()
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -87,7 +88,7 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 			}
 			switch tag := tag.(type) {
 			case names.MachineTag:
-				parentId := state.ParentId(tag.Id())
+				parentId := corecontainer.ParentId(tag.Id())
 				if parentId == "" {
 					// All top-level machines are accessible by the controller.
 					return isModelManager
@@ -109,6 +110,7 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 	getAuthOwner := func() (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
+	st := ctx.State()
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -134,6 +136,7 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 
 	urlGetter := common.NewToolsURLGetter(model.UUID(), st)
 	callCtx := context.CallContext(st)
+	resources := ctx.Resources()
 	api := &ProvisionerAPI{
 		Remover:                 common.NewRemover(st, nil, false, getAuthFunc),
 		StatusSetter:            common.NewStatusSetter(st, getAuthFunc),
@@ -141,8 +144,7 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		DeadEnsurer:             common.NewDeadEnsurer(st, nil, getAuthFunc),
 		PasswordChanger:         common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:              common.NewLifeGetter(st, getAuthFunc),
-		StateAddresser:          common.NewStateAddresser(st),
-		APIAddresser:            common.NewAPIAddresser(st, resources),
+		APIAddresser:            common.NewAPIAddresser(ctx.StatePool().SystemState(), resources),
 		ModelWatcher:            common.NewModelWatcher(model, resources, authorizer),
 		ModelMachinesWatcher:    common.NewModelMachinesWatcher(st, resources, authorizer),
 		ControllerConfigAPI:     common.NewStateControllerConfig(st),
@@ -217,8 +219,8 @@ type ProvisionerAPIV11 struct {
 }
 
 // NewProvisionerAPIV4 creates a new server-side version 4 Provisioner API facade.
-func NewProvisionerAPIV4(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPIV4, error) {
-	provisionerAPI, err := NewProvisionerAPIV5(st, resources, authorizer)
+func NewProvisionerAPIV4(ctx facade.Context) (*ProvisionerAPIV4, error) {
+	provisionerAPI, err := NewProvisionerAPIV5(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -226,8 +228,8 @@ func NewProvisionerAPIV4(st *state.State, resources facade.Resources, authorizer
 }
 
 // NewProvisionerAPIV5 creates a new server-side Provisioner API facade.
-func NewProvisionerAPIV5(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPIV5, error) {
-	provisionerAPI, err := NewProvisionerAPIV6(st, resources, authorizer)
+func NewProvisionerAPIV5(ctx facade.Context) (*ProvisionerAPIV5, error) {
+	provisionerAPI, err := NewProvisionerAPIV6(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -235,8 +237,8 @@ func NewProvisionerAPIV5(st *state.State, resources facade.Resources, authorizer
 }
 
 // NewProvisionerAPIV6 creates a new server-side Provisioner API facade.
-func NewProvisionerAPIV6(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPIV6, error) {
-	provisionerAPI, err := NewProvisionerAPIV7(st, resources, authorizer)
+func NewProvisionerAPIV6(ctx facade.Context) (*ProvisionerAPIV6, error) {
+	provisionerAPI, err := NewProvisionerAPIV7(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -244,8 +246,8 @@ func NewProvisionerAPIV6(st *state.State, resources facade.Resources, authorizer
 }
 
 // NewProvisionerAPIV7 creates a new server-side Provisioner API facade.
-func NewProvisionerAPIV7(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPIV7, error) {
-	provisionerAPI, err := NewProvisionerAPIV8(st, resources, authorizer)
+func NewProvisionerAPIV7(ctx facade.Context) (*ProvisionerAPIV7, error) {
+	provisionerAPI, err := NewProvisionerAPIV8(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -253,8 +255,8 @@ func NewProvisionerAPIV7(st *state.State, resources facade.Resources, authorizer
 }
 
 // NewProvisionerAPIV8 creates a new server-side Provisioner API facade.
-func NewProvisionerAPIV8(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPIV8, error) {
-	provisionerAPI, err := NewProvisionerAPIV9(st, resources, authorizer)
+func NewProvisionerAPIV8(ctx facade.Context) (*ProvisionerAPIV8, error) {
+	provisionerAPI, err := NewProvisionerAPIV9(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -262,8 +264,8 @@ func NewProvisionerAPIV8(st *state.State, resources facade.Resources, authorizer
 }
 
 // NewProvisionerAPIV9 creates a new server-side Provisioner API facade.
-func NewProvisionerAPIV9(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPIV9, error) {
-	provisionerAPI, err := NewProvisionerAPIV10(st, resources, authorizer)
+func NewProvisionerAPIV9(ctx facade.Context) (*ProvisionerAPIV9, error) {
+	provisionerAPI, err := NewProvisionerAPIV10(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -271,8 +273,8 @@ func NewProvisionerAPIV9(st *state.State, resources facade.Resources, authorizer
 }
 
 // NewProvisionerAPIV10 creates a new server-side Provisioner API facade.
-func NewProvisionerAPIV10(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPIV10, error) {
-	provisionerAPI, err := NewProvisionerAPIV11(st, resources, authorizer)
+func NewProvisionerAPIV10(ctx facade.Context) (*ProvisionerAPIV10, error) {
+	provisionerAPI, err := NewProvisionerAPIV11(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -280,8 +282,8 @@ func NewProvisionerAPIV10(st *state.State, resources facade.Resources, authorize
 }
 
 // NewProvisionerAPIV11 creates a new server-side Provisioner API facade.
-func NewProvisionerAPIV11(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPIV11, error) {
-	provisionerAPI, err := NewProvisionerAPI(st, resources, authorizer)
+func NewProvisionerAPIV11(ctx facade.Context) (*ProvisionerAPIV11, error) {
+	provisionerAPI, err := NewProvisionerAPI(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1517,6 +1519,11 @@ func (api *ProvisionerAPI) setOneMachineCharmProfiles(machineTag string, profile
 		return errors.Trace(err)
 	}
 	return machine.SetCharmProfiles(profiles)
+}
+
+// ModelUUID returns the model UUID that the current connection is for.
+func (api *ProvisionerAPI) ModelUUID() params.StringResult {
+	return params.StringResult{Result: api.st.ModelUUID()}
 }
 
 // SetUpgradeCharmProfileComplete recorded that the result of updating

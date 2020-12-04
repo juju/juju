@@ -119,8 +119,6 @@ func (s *MachinerSuite) testMachinerMachineRefreshNotFoundOrUnauthorized(c *gc.C
 func (s *MachinerSuite) TestMachinerSetStatusStopped(c *gc.C) {
 	s.accessor.machine.life = life.Dying
 	s.accessor.machine.SetErrors(
-		nil,                             // SetMachineAddresses
-		nil,                             // SetStatus (started)
 		nil,                             // Watch
 		nil,                             // Refresh
 		errors.New("cannot set status"), // SetStatus (stopped)
@@ -137,15 +135,14 @@ func (s *MachinerSuite) TestMachinerSetStatusStopped(c *gc.C) {
 		"machine-123 failed to set status stopped: cannot set status",
 	)
 	s.accessor.machine.CheckCallNames(c,
-		"SetMachineAddresses",
-		"SetStatus",
+		"Life",
 		"Watch",
 		"Refresh",
 		"Life",
 		"SetStatus",
 	)
 	s.accessor.machine.CheckCall(
-		c, 5, "SetStatus",
+		c, 4, "SetStatus",
 		status.Stopped,
 		"",
 		map[string]interface{}(nil),
@@ -155,8 +152,6 @@ func (s *MachinerSuite) TestMachinerSetStatusStopped(c *gc.C) {
 func (s *MachinerSuite) TestMachinerMachineEnsureDeadError(c *gc.C) {
 	s.accessor.machine.life = life.Dying
 	s.accessor.machine.SetErrors(
-		nil, // SetMachineAddresses
-		nil, // SetStatus
 		nil, // Watch
 		nil, // Refresh
 		nil, // SetStatus
@@ -174,7 +169,7 @@ func (s *MachinerSuite) TestMachinerMachineEnsureDeadError(c *gc.C) {
 		"machine-123 failed to set machine to dead: cannot ensure machine is dead",
 	)
 	s.accessor.machine.CheckCall(
-		c, 7, "SetStatus",
+		c, 6, "SetStatus",
 		status.Error,
 		"destroying machine: machine-123 failed to set machine to dead: cannot ensure machine is dead",
 		map[string]interface{}(nil),
@@ -184,8 +179,6 @@ func (s *MachinerSuite) TestMachinerMachineEnsureDeadError(c *gc.C) {
 func (s *MachinerSuite) TestMachinerMachineAssignedUnits(c *gc.C) {
 	s.accessor.machine.life = life.Dying
 	s.accessor.machine.SetErrors(
-		nil, // SetMachineAddresses
-		nil, // SetStatus
 		nil, // Watch
 		nil, // Refresh
 		nil, // SetStatus
@@ -204,8 +197,37 @@ func (s *MachinerSuite) TestMachinerMachineAssignedUnits(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 
 	s.accessor.machine.CheckCallNames(c,
-		"SetMachineAddresses",
+		"Life",
+		"Watch",
+		"Refresh",
+		"Life",
 		"SetStatus",
+		"EnsureDead",
+	)
+}
+
+func (s *MachinerSuite) TestMachinerMachineHasContainers(c *gc.C) {
+	s.accessor.machine.life = life.Dying
+	s.accessor.machine.SetErrors(
+		nil, // Watch
+		nil, // Refresh
+		nil, // SetStatus
+		&params.Error{Code: params.CodeMachineHasContainers}, // EnsureDead
+	)
+	w, err := machiner.NewMachiner(machiner.Config{
+		MachineAccessor: s.accessor,
+		Tag:             s.machineTag,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.accessor.machine.watcher.changes <- struct{}{}
+	err = stopWorker(w)
+
+	// If EnsureDead fails with "machine has containers", then
+	// the worker will fail and restart.
+	c.Check(err, jc.Satisfies, params.IsCodeMachineHasContainers)
+
+	s.accessor.machine.CheckCallNames(c,
+		"Life",
 		"Watch",
 		"Refresh",
 		"Life",
@@ -220,8 +242,6 @@ func (s *MachinerSuite) TestMachinerStorageAttached(c *gc.C) {
 	// this should not cause an error.
 	s.accessor.machine.life = life.Dying
 	s.accessor.machine.SetErrors(
-		nil, // SetMachineAddresses
-		nil, // SetStatus
 		nil, // Watch
 		nil, // Refresh
 		nil, // SetStatus
@@ -242,20 +262,7 @@ func (s *MachinerSuite) TestMachinerStorageAttached(c *gc.C) {
 	}})
 
 	s.accessor.machine.CheckCalls(c, []gitjujutesting.StubCall{{
-		FuncName: "SetMachineAddresses",
-		Args: []interface{}{
-			[]corenetwork.MachineAddress{
-				corenetwork.NewMachineAddress("255.255.255.255"),
-				corenetwork.NewMachineAddress("0.0.0.0"),
-			},
-		},
-	}, {
-		FuncName: "SetStatus",
-		Args: []interface{}{
-			status.Started,
-			"",
-			map[string]interface{}(nil),
-		},
+		FuncName: "Life",
 	}, {
 		FuncName: "Watch",
 	}, {
@@ -278,6 +285,7 @@ func (s *MachinerSuite) TestRunStop(c *gc.C) {
 	mr := s.makeMachiner(c, false)
 	c.Assert(worker.Stop(mr), jc.ErrorIsNil)
 	s.accessor.machine.CheckCallNames(c,
+		"Life",
 		"SetMachineAddresses",
 		"SetStatus",
 		"Watch",
@@ -289,12 +297,13 @@ func (s *MachinerSuite) TestStartSetsStatus(c *gc.C) {
 	err := stopWorker(mr)
 	c.Assert(err, jc.ErrorIsNil)
 	s.accessor.machine.CheckCallNames(c,
+		"Life",
 		"SetMachineAddresses",
 		"SetStatus",
 		"Watch",
 	)
 	s.accessor.machine.CheckCall(
-		c, 1, "SetStatus",
+		c, 2, "SetStatus",
 		status.Started, "", map[string]interface{}(nil),
 	)
 }
@@ -357,7 +366,7 @@ LXC_BRIDGE="ignored"`[1:])
 
 	mr := s.makeMachiner(c, false)
 	c.Assert(stopWorker(mr), jc.ErrorIsNil)
-	s.accessor.machine.CheckCall(c, 0, "SetMachineAddresses", []corenetwork.MachineAddress{
+	s.accessor.machine.CheckCall(c, 1, "SetMachineAddresses", []corenetwork.MachineAddress{
 		corenetwork.NewScopedMachineAddress("10.0.0.1", corenetwork.ScopeCloudLocal),
 		corenetwork.NewScopedMachineAddress("127.0.0.1", corenetwork.ScopeMachineLocal),
 		corenetwork.NewScopedMachineAddress("::1", corenetwork.ScopeMachineLocal),
@@ -370,13 +379,13 @@ func (s *MachinerSuite) TestSetMachineAddressesEmpty(c *gc.C) {
 	mr := s.makeMachiner(c, false)
 	c.Assert(stopWorker(mr), jc.ErrorIsNil)
 	// No call to SetMachineAddresses
-	s.accessor.machine.CheckCallNames(c, "SetStatus", "Watch")
+	s.accessor.machine.CheckCallNames(c, "Life", "SetStatus", "Watch")
 }
 
 func (s *MachinerSuite) TestMachineAddressesWithClearFlag(c *gc.C) {
 	mr := s.makeMachiner(c, true)
 	c.Assert(stopWorker(mr), jc.ErrorIsNil)
-	s.accessor.machine.CheckCall(c, 0, "SetMachineAddresses", []corenetwork.MachineAddress(nil))
+	s.accessor.machine.CheckCall(c, 1, "SetMachineAddresses", []corenetwork.MachineAddress(nil))
 }
 
 func (s *MachinerSuite) TestGetObservedNetworkConfigEmpty(c *gc.C) {
@@ -389,6 +398,7 @@ func (s *MachinerSuite) TestGetObservedNetworkConfigEmpty(c *gc.C) {
 	c.Assert(stopWorker(mr), jc.ErrorIsNil)
 
 	s.accessor.machine.CheckCallNames(c,
+		"Life",
 		"SetMachineAddresses",
 		"SetStatus",
 		"Watch",
@@ -407,6 +417,7 @@ func (s *MachinerSuite) TestSetObservedNetworkConfig(c *gc.C) {
 	c.Assert(stopWorker(mr), jc.ErrorIsNil)
 
 	s.accessor.machine.CheckCallNames(c,
+		"Life",
 		"SetMachineAddresses",
 		"SetStatus",
 		"Watch",
@@ -426,6 +437,7 @@ func (s *MachinerSuite) TestAliveErrorGetObservedNetworkConfig(c *gc.C) {
 	c.Assert(stopWorker(mr), gc.ErrorMatches, "cannot discover observed network config: no config!")
 
 	s.accessor.machine.CheckCallNames(c,
+		"Life",
 		"SetMachineAddresses",
 		"SetStatus",
 		"Watch",

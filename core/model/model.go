@@ -4,10 +4,12 @@
 package model
 
 import (
+	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/os"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2"
+	"github.com/juju/os/v2/series"
+	"github.com/juju/systems"
 )
 
 // ModelType indicates a model type.
@@ -41,19 +43,35 @@ type Model struct {
 var caasOS = set.NewStrings(os.Kubernetes.String())
 
 // ValidateSeries ensures the charm series is valid for the model type.
-func ValidateSeries(modelType ModelType, charmSeries string) error {
-	os, err := series.GetOSFromSeries(charmSeries)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	switch modelType {
-	case CAAS:
-		if !caasOS.Contains(os.String()) {
-			return errors.NotValidf("series %q in a kubernetes model", charmSeries)
+func ValidateSeries(modelType ModelType, charmSeries string, charmFormat charm.Format) error {
+	if charmFormat >= charm.FormatV2 {
+		system, err := systems.ParseSystemFromSeries(charmSeries)
+		if err != nil {
+			return errors.Trace(err)
 		}
-	case IAAS:
-		if caasOS.Contains(os.String()) {
-			return errors.NotValidf("series %q in a non container model", charmSeries)
+		if system.Resource != "" {
+			switch modelType {
+			case CAAS:
+				// CAAS models support using a resource as the system.
+				return nil
+			case IAAS:
+				return errors.NotValidf("IAAS models don't support systems referencing a resource")
+			}
+		}
+	} else {
+		os, err := series.GetOSFromSeries(charmSeries)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		switch modelType {
+		case CAAS:
+			if !caasOS.Contains(os.String()) {
+				return errors.NotValidf("series %q in a kubernetes model", charmSeries)
+			}
+		case IAAS:
+			if caasOS.Contains(os.String()) {
+				return errors.NotValidf("series %q in a non container model", charmSeries)
+			}
 		}
 	}
 	return nil

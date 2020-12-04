@@ -13,10 +13,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/workertest"
@@ -173,11 +173,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Id(), gc.Equals, "0")
 
-	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	current := coretesting.CurrentVersion(c)
 	err = machine.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -211,7 +207,7 @@ func (s *CommonProvisionerSuite) startUnknownInstance(c *gc.C, id string) instan
 
 func (s *CommonProvisionerSuite) checkStartInstance(c *gc.C, m *state.Machine) instances.Instance {
 	retVal := s.checkStartInstancesCustom(c, []*state.Machine{m}, "pork", s.defaultConstraints,
-		nil, nil, nil, nil, nil, true)
+		nil, nil, nil, nil, nil, nil, true)
 	return retVal[m.Id()]
 }
 
@@ -220,20 +216,21 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(
 	secret string, cons constraints.Value,
 	networkInfo corenetwork.InterfaceInfos,
 	subnetsToZones map[corenetwork.Id][]string,
+	rootDisk *storage.VolumeParams,
 	volumes []storage.Volume,
 	volumeAttachments []storage.VolumeAttachment,
 	checkPossibleTools coretools.List,
 	waitInstanceId bool,
 ) instances.Instance {
 	retVal := s.checkStartInstancesCustom(c, []*state.Machine{m},
-		secret, cons, networkInfo, subnetsToZones, volumes,
+		secret, cons, networkInfo, subnetsToZones, rootDisk, volumes,
 		volumeAttachments, checkPossibleTools, waitInstanceId)
 	return retVal[m.Id()]
 }
 
 func (s *CommonProvisionerSuite) checkStartInstances(c *gc.C, machines []*state.Machine) map[string]instances.Instance {
 	return s.checkStartInstancesCustom(c, machines, "pork", s.defaultConstraints, nil, nil,
-		nil, nil, nil, true)
+		nil, nil, nil, nil, true)
 }
 
 // checkStartInstanceCustom takes a slice of Machines.  A
@@ -243,6 +240,7 @@ func (s *CommonProvisionerSuite) checkStartInstancesCustom(
 	secret string, cons constraints.Value,
 	networkInfo corenetwork.InterfaceInfos,
 	subnetsToZones map[corenetwork.Id][]string,
+	rootDisk *storage.VolumeParams,
 	volumes []storage.Volume,
 	volumeAttachments []storage.VolumeAttachment,
 	checkPossibleTools coretools.List,
@@ -282,6 +280,7 @@ func (s *CommonProvisionerSuite) checkStartInstancesCustom(
 				c.Assert(o.Secret, gc.Equals, secret)
 				c.Assert(o.SubnetsToZones, jc.DeepEquals, subnetsToZones)
 				c.Assert(o.NetworkInfo, jc.DeepEquals, networkInfo)
+				c.Assert(o.RootDisk, jc.DeepEquals, rootDisk)
 				c.Assert(o.Volumes, jc.DeepEquals, volumes)
 				c.Assert(o.VolumeAttachments, jc.DeepEquals, volumeAttachments)
 
@@ -486,7 +485,7 @@ func (s *CommonProvisionerSuite) addMachine() (*state.Machine, error) {
 
 func (s *CommonProvisionerSuite) addMachineWithConstraints(cons constraints.Value) (*state.Machine, error) {
 	return s.BackingState.AddOneMachine(state.MachineTemplate{
-		Series:      series.DefaultSupportedLTS(),
+		Series:      jujuversion.DefaultSupportedLTS(),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,
 	})
@@ -496,7 +495,7 @@ func (s *CommonProvisionerSuite) addMachines(number int) ([]*state.Machine, erro
 	templates := make([]state.MachineTemplate, number)
 	for i := range templates {
 		templates[i] = state.MachineTemplate{
-			Series:      series.DefaultSupportedLTS(),
+			Series:      jujuversion.DefaultSupportedLTS(),
 			Jobs:        []state.MachineJob{state.JobHostUnits},
 			Constraints: s.defaultConstraints,
 		}
@@ -505,7 +504,7 @@ func (s *CommonProvisionerSuite) addMachines(number int) ([]*state.Machine, erro
 }
 
 func (s *CommonProvisionerSuite) enableHA(c *gc.C, n int) []*state.Machine {
-	changes, err := s.BackingState.EnableHA(n, s.defaultConstraints, series.DefaultSupportedLTS(), nil)
+	changes, err := s.BackingState.EnableHA(n, s.defaultConstraints, jujuversion.DefaultSupportedLTS(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	added := make([]*state.Machine, len(changes.Added))
 	for i, mid := range changes.Added {
@@ -548,7 +547,7 @@ func (s *ProvisionerSuite) TestConstraints(c *gc.C) {
 	p := s.newEnvironProvisioner(c)
 	defer workertest.CleanKill(c, p)
 
-	s.checkStartInstanceCustom(c, m, "pork", cons, nil, nil, nil, nil, nil, true)
+	s.checkStartInstanceCustom(c, m, "pork", cons, nil, nil, nil, nil, nil, nil, true)
 }
 
 func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
@@ -568,7 +567,7 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.PatchValue(&arch.HostArch, func() string { return currentVersion.Arch })
-	s.PatchValue(&series.MustHostSeries, func() string { return currentVersion.Series })
+	s.PatchValue(&series.HostSeries, func() (string, error) { return currentVersion.Series, nil })
 
 	// Upload some plausible matches, and some that should be filtered out.
 	compatibleVersion := version.MustParseBinary("1.2.3-quantal-arm64")
@@ -597,7 +596,7 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	defer workertest.CleanKill(c, provisioner)
 	s.checkStartInstanceCustom(
 		c, machine, "pork", constraints.Value{},
-		nil, nil, nil, nil, expectedList, true,
+		nil, nil, nil, nil, nil, expectedList, true,
 	)
 }
 
@@ -814,7 +813,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForLXD(c *gc.C) {
 
 	// make a container on the machine we just created
 	template := state.MachineTemplate{
-		Series: series.DefaultSupportedLTS(),
+		Series: jujuversion.DefaultSupportedLTS(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(template, m.Id(), instance.LXD)
@@ -842,7 +841,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForKVM(c *gc.C) {
 
 	// make a container on the machine we just created
 	template := state.MachineTemplate{
-		Series: series.DefaultSupportedLTS(),
+		Series: jujuversion.DefaultSupportedLTS(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(template, m.Id(), instance.KVM)
@@ -970,13 +969,6 @@ var machineClassificationTests = []machineClassificationTest{{
 	expectErrFmt:   "failed to ensure machine dead id:%s.*",
 }}
 
-var machineClassificationTestsRequireMaintenance = machineClassificationTest{
-	description:    "Machine needs maintaining",
-	life:           life.Alive,
-	status:         status.Started,
-	classification: provisioner.Maintain,
-}
-
 var machineClassificationTestsNoMaintenance = machineClassificationTest{
 	description:    "Machine doesn't need maintaining",
 	life:           life.Alive,
@@ -988,7 +980,7 @@ func (s *MachineClassifySuite) TestMachineClassification(c *gc.C) {
 	test := func(t machineClassificationTest, id string) {
 		// Run a sub-test from the test table
 		s2e := func(s string) error {
-			// Little helper to turn a non-empty string into a useful error for "ErrorMaches"
+			// Little helper to turn a non-empty string into a useful error for "ErrorMatches"
 			if s != "" {
 				return &params.Error{Code: s}
 			}
@@ -1006,18 +998,7 @@ func (s *MachineClassifySuite) TestMachineClassification(c *gc.C) {
 		c.Assert(classification, gc.Equals, t.classification)
 	}
 
-	machineIds := []string{"0/kvm/0", "0"}
-	for _, id := range machineIds {
-		tests := machineClassificationTests
-		if id == "0" {
-			tests = append(tests, machineClassificationTestsNoMaintenance)
-		} else {
-			tests = append(tests, machineClassificationTestsRequireMaintenance)
-		}
-		for _, t := range tests {
-			test(t, id)
-		}
-	}
+	test(machineClassificationTestsNoMaintenance, "0")
 }
 
 func (s *ProvisionerSuite) TestProvisioningMachinesWithSpacesSuccess(c *gc.C) {
@@ -1055,7 +1036,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithSpacesSuccess(c *gc.C) {
 		c, m, "pork", cons,
 		nil,
 		expectedSubnetsToZones,
-		nil, nil, nil, true,
+		nil, nil, nil, nil, true,
 	)
 
 	// Cleanup.
@@ -1126,11 +1107,46 @@ func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithEmptySpaces(c *gc.C)
 
 func (s *CommonProvisionerSuite) addMachineWithRequestedVolumes(volumes []state.HostVolumeParams, cons constraints.Value) (*state.Machine, error) {
 	return s.BackingState.AddOneMachine(state.MachineTemplate{
-		Series:      series.DefaultSupportedLTS(),
+		Series:      jujuversion.DefaultSupportedLTS(),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,
 		Volumes:     volumes,
 	})
+}
+
+func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedRootDisk(c *gc.C) {
+	// Set up a persistent pool.
+	poolManager := poolmanager.New(state.NewStateSettings(s.State), s.Environ)
+	_, err := poolManager.Create("persistent-pool", "static", map[string]interface{}{"persistent": true})
+	c.Assert(err, jc.ErrorIsNil)
+
+	p := s.newEnvironProvisioner(c)
+	defer workertest.CleanKill(c, p)
+
+	cons := constraints.MustParse("root-disk-source=persistent-pool " + s.defaultConstraints.String())
+	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
+		Series:      jujuversion.DefaultSupportedLTS(),
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Constraints: cons,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	inst := s.checkStartInstanceCustom(
+		c, m, "pork", cons,
+		nil, nil,
+		&storage.VolumeParams{
+			Provider:   "static",
+			Attributes: map[string]interface{}{"persistent": true},
+		},
+		nil,
+		nil,
+		nil, true,
+	)
+
+	// Cleanup.
+	c.Assert(m.EnsureDead(), gc.IsNil)
+	s.checkStopInstances(c, inst)
+	s.waitForRemovalMark(c, m)
 }
 
 func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedVolumes(c *gc.C) {
@@ -1188,7 +1204,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedVolumes(c *gc.C)
 	}}
 	inst := s.checkStartInstanceCustom(
 		c, m, "pork", s.defaultConstraints,
-		nil, nil,
+		nil, nil, nil,
 		expectedVolumes,
 		expectedVolumeAttachments,
 		nil, true,
@@ -1534,12 +1550,13 @@ func assertAvailabilityZoneMachines(c *gc.C,
 }
 
 // assertAvailabilityZoneMachinesDistribution checks to see if the
-// machines have been distributed over the zones.  This check method
-// works where there are no machine errors in the test case.
+// machines have been distributed over the zones (with a maximum delta
+// between the max and min number of machines of maxDelta). This check
+// method works where there are no machine errors in the test case.
 //
 // Which machine will be in which zone is dependent on the order in
 // which they are provisioned, therefore almost impossible to predict.
-func assertAvailabilityZoneMachinesDistribution(c *gc.C, obtained []provisioner.AvailabilityZoneMachine) {
+func assertAvailabilityZoneMachinesDistribution(c *gc.C, obtained []provisioner.AvailabilityZoneMachine, maxDelta int) {
 	// Are the machines evenly distributed?  No zone should have
 	// 2 machines more than any other zone.
 	min, max := 1, 0
@@ -1554,10 +1571,10 @@ func assertAvailabilityZoneMachinesDistribution(c *gc.C, obtained []provisioner.
 			max = count
 		}
 	}
-	c.Assert(max-min, jc.LessThan, 2, gc.Commentf("min = %d, max = %d, counts = %v", min, max, counts))
+	c.Assert(max-min, jc.LessThan, maxDelta+1, gc.Commentf("min = %d, max = %d, counts = %v", min, max, counts))
 }
 
-// assertAvailabilityZoneMachinesDistribution checks to see if
+// checkAvailabilityZoneMachinesDistributionGroups checks to see if
 // the distribution groups have been honored.
 func checkAvailabilityZoneMachinesDistributionGroups(c *gc.C, groups map[names.MachineTag][]string, obtained []provisioner.AvailabilityZoneMachine) error {
 	// The set containing the machines in a distribution group and the
@@ -1603,7 +1620,7 @@ func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStartMachines(c *gc.C) {
 
 	availabilityZoneMachines := provisioner.GetCopyAvailabilityZoneMachines(task)
 	assertAvailabilityZoneMachines(c, machines, nil, availabilityZoneMachines)
-	assertAvailabilityZoneMachinesDistribution(c, availabilityZoneMachines)
+	assertAvailabilityZoneMachinesDistribution(c, availabilityZoneMachines, 1)
 }
 
 func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStartMachinesAZFailures(c *gc.C) {
@@ -1627,7 +1644,13 @@ func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStartMachinesAZFailures(c
 
 	availabilityZoneMachines := provisioner.GetCopyAvailabilityZoneMachines(task)
 	assertAvailabilityZoneMachines(c, machines, nil, availabilityZoneMachines)
-	assertAvailabilityZoneMachinesDistribution(c, availabilityZoneMachines)
+
+	// The reason maxDelta is 2 here is because in certain failure cases this
+	// may start two machines on each of two zones, and none on the other (if
+	// the failing machine is started second or third, and the subsequent
+	// machines are started before markMachineFailedInAZ() is called). See
+	// https://github.com/juju/juju/pull/12267 for more detail.
+	assertAvailabilityZoneMachinesDistribution(c, availabilityZoneMachines, 2)
 }
 
 func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStartMachinesWithDG(c *gc.C) {
@@ -1722,7 +1745,7 @@ func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStopMachines(c *gc.C) {
 
 	availabilityZoneMachines := provisioner.GetCopyAvailabilityZoneMachines(task)
 	assertAvailabilityZoneMachines(c, machines, nil, availabilityZoneMachines)
-	assertAvailabilityZoneMachinesDistribution(c, availabilityZoneMachines)
+	assertAvailabilityZoneMachinesDistribution(c, availabilityZoneMachines, 1)
 
 	c.Assert(machines[0].EnsureDead(), gc.IsNil)
 	s.waitForRemovalMark(c, machines[0])
@@ -1752,7 +1775,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesFailMachine(c *gc.C) {
 
 	availabilityZoneMachines := provisioner.GetCopyAvailabilityZoneMachines(task)
 	assertAvailabilityZoneMachines(c, machines, nil, availabilityZoneMachines)
-	assertAvailabilityZoneMachinesDistribution(c, availabilityZoneMachines)
+	assertAvailabilityZoneMachinesDistribution(c, availabilityZoneMachines, 1)
 }
 
 func (s *ProvisionerSuite) TestAvailabilityZoneMachinesRestartTask(c *gc.C) {
@@ -1766,7 +1789,7 @@ func (s *ProvisionerSuite) TestAvailabilityZoneMachinesRestartTask(c *gc.C) {
 
 	availabilityZoneMachinesBefore := provisioner.GetCopyAvailabilityZoneMachines(task)
 	assertAvailabilityZoneMachines(c, machines, nil, availabilityZoneMachinesBefore)
-	assertAvailabilityZoneMachinesDistribution(c, availabilityZoneMachinesBefore)
+	assertAvailabilityZoneMachinesDistribution(c, availabilityZoneMachinesBefore, 1)
 
 	workertest.CleanKill(c, task)
 	newTask := s.newProvisionerTask(c, config.HarvestDestroyed, s.Environ, s.provisioner, &mockDistributionGroupFinder{}, mockToolsFinder{})

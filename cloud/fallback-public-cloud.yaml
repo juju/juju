@@ -25,6 +25,10 @@ clouds:
         endpoint: https://ec2.eu-central-1.amazonaws.com
       eu-north-1:
         endpoint: https://ec2.eu-north-1.amazonaws.com
+      eu-south-1:
+        endpoint: https://ec2.eu-south-1.amazonaws.com
+      af-south-1:
+        endpoint: https://ec2.af-south-1.amazonaws.com
       ap-east-1:
         endpoint: https://ec2.ap-east-1.amazonaws.com
       ap-south-1:
@@ -76,6 +80,10 @@ clouds:
         endpoint: https://www.googleapis.com
       us-west2:
         endpoint: https://www.googleapis.com
+      us-west3:
+        endpoint: https://www.googleapis.com
+      us-west4:
+        endpoint: https://www.googleapis.com
       asia-east1:
         endpoint: https://www.googleapis.com
       asia-east2:
@@ -89,6 +97,8 @@ clouds:
       asia-south1:
         endpoint: https://www.googleapis.com
       asia-southeast1:
+        endpoint: https://www.googleapis.com
+      asia-southeast2:
         endpoint: https://www.googleapis.com
       australia-southeast1:
         endpoint: https://www.googleapis.com
@@ -265,7 +275,7 @@ clouds:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
         identity-endpoint: https://graph.windows.net
-      switzerlandeast:
+      switzerlandnorth:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
         identity-endpoint: https://graph.windows.net

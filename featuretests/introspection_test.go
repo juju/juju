@@ -12,10 +12,9 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -69,11 +68,7 @@ func (s *introspectionSuite) startMachineAgent(c *gc.C) (*agentcmd.MachineAgent,
 	err := m.SetMongoPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 
-	vers := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	vers := testing.CurrentVersion(c)
 	return s.startAgent(c, m.Tag(), password, vers, false)
 }
 

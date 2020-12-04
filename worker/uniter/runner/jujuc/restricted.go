@@ -188,7 +188,7 @@ func (*RestrictedContext) ActionParams() (map[string]interface{}, error) {
 }
 
 // UpdateActionResults implements hooks.Context.
-func (*RestrictedContext) UpdateActionResults(keys []string, value string) error {
+func (*RestrictedContext) UpdateActionResults(keys []string, value interface{}) error {
 	return ErrRestrictedContext
 }
 

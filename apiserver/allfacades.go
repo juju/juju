@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/agent"
 	"github.com/juju/juju/apiserver/facades/agent/caasadmission"
 	"github.com/juju/juju/apiserver/facades/agent/caasagent"
+	"github.com/juju/juju/apiserver/facades/agent/caasapplication"
 	"github.com/juju/juju/apiserver/facades/agent/caasoperator"
 	"github.com/juju/juju/apiserver/facades/agent/credentialvalidator"
 	"github.com/juju/juju/apiserver/facades/agent/deployer"
@@ -75,6 +76,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/actionpruner"
 	"github.com/juju/juju/apiserver/facades/controller/agenttools"
 	"github.com/juju/juju/apiserver/facades/controller/applicationscaler"
+	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
 	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
 	"github.com/juju/juju/apiserver/facades/controller/caasmodeloperator"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
@@ -131,11 +133,7 @@ func AllFacades() *facade.Registry {
 		}
 	}
 
-	reg("Action", 2, action.NewActionAPIV2)
-	reg("Action", 3, action.NewActionAPIV3)
-	reg("Action", 4, action.NewActionAPIV4)
-	reg("Action", 5, action.NewActionAPIV5)
-	reg("Action", 6, action.NewActionAPIV6)
+	reg("Action", 7, action.NewActionAPIV7)
 	reg("ActionPruner", 1, actionpruner.NewAPI)
 	reg("Agent", 2, agent.NewAgentAPIV2)
 	reg("AgentTools", 1, agenttools.NewFacade)
@@ -171,8 +169,9 @@ func AllFacades() *facade.Registry {
 	reg("Bundle", 4, bundle.NewFacadeV4)
 	reg("CharmHub", 1, charmhub.NewFacade)
 	reg("CharmRevisionUpdater", 2, charmrevisionupdater.NewCharmRevisionUpdaterAPI)
-	reg("Charms", 2, charms.NewFacade)
+	reg("Charms", 2, charms.NewFacadeV2)
 	reg("Charms", 3, charms.NewFacadeV3)
+	reg("Charms", 4, charms.NewFacadeV4)
 	reg("Cleaner", 2, cleaner.NewCleanerAPI)
 	reg("Client", 1, client.NewFacadeV1)
 	reg("Client", 2, client.NewFacade)
@@ -186,7 +185,8 @@ func AllFacades() *facade.Registry {
 
 	// CAAS related facades.
 	// Move these to the correct place above once the feature flag disappears.
-	reg("CAASFirewaller", 1, caasfirewaller.NewStateFacade)
+	reg("CAASFirewaller", 1, caasfirewaller.NewStateFacadeLegacy)
+	reg("CAASFirewallerEmbedded", 1, caasfirewaller.NewStateFacadeEmbedded)
 	reg("CAASOperator", 1, caasoperator.NewStateFacade)
 	reg("CAASAdmission", 1, caasadmission.NewStateFacade)
 	reg("CAASAgent", 1, caasagent.NewStateFacade)
@@ -194,6 +194,8 @@ func AllFacades() *facade.Registry {
 	reg("CAASOperatorProvisioner", 1, caasoperatorprovisioner.NewStateCAASOperatorProvisionerAPI)
 	reg("CAASOperatorUpgrader", 1, caasoperatorupgrader.NewStateCAASOperatorUpgraderAPI)
 	reg("CAASUnitProvisioner", 1, caasunitprovisioner.NewStateFacade)
+	reg("CAASApplication", 1, caasapplication.NewStateFacade)
+	reg("CAASApplicationProvisioner", 1, caasapplicationprovisioner.NewStateCAASApplicationProvisionerAPI)
 
 	reg("Controller", 3, controller.NewControllerAPIv3)
 	reg("Controller", 4, controller.NewControllerAPIv4)
@@ -277,6 +279,7 @@ func AllFacades() *facade.Registry {
 	reg("ModelManager", 6, modelmanager.NewFacadeV6) // Adds cloud specific default config
 	reg("ModelManager", 7, modelmanager.NewFacadeV7) // DestroyModels gains 'force' and max-wait' parameters.
 	reg("ModelManager", 8, modelmanager.NewFacadeV8) // ModelInfo gains credential validity in return.
+	reg("ModelManager", 9, modelmanager.NewFacadeV9) // Adds ValidateModelUpgrade
 	reg("ModelUpgrader", 1, modelupgrader.NewStateFacade)
 
 	reg("Payloads", 1, payloads.NewFacade)

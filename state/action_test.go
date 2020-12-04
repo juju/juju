@@ -6,16 +6,13 @@ package state_test
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
-	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/actions"
@@ -284,8 +281,6 @@ act:
 }
 
 func (s *ActionSuite) TestActionBeginStartsOperation(c *gc.C) {
-	s.toSupportNewActionID(c)
-
 	clock := testclock.NewClock(coretesting.NonZeroTime().Round(time.Second))
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
@@ -316,8 +311,6 @@ func (s *ActionSuite) TestActionBeginStartsOperation(c *gc.C) {
 }
 
 func (s *ActionSuite) TestActionBeginStartsOperationRace(c *gc.C) {
-	s.toSupportNewActionID(c)
-
 	clock := testclock.NewClock(coretesting.NonZeroTime().Round(time.Second))
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
@@ -346,8 +339,6 @@ func (s *ActionSuite) TestActionBeginStartsOperationRace(c *gc.C) {
 }
 
 func (s *ActionSuite) TestLastActionFinishCompletesOperation(c *gc.C) {
-	s.toSupportNewActionID(c)
-
 	clock := testclock.NewClock(coretesting.NonZeroTime().Round(time.Second))
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
@@ -388,8 +379,6 @@ func (s *ActionSuite) TestLastActionFinishCompletesOperation(c *gc.C) {
 }
 
 func (s *ActionSuite) TestLastActionFinishCompletesOperationRace(c *gc.C) {
-	s.toSupportNewActionID(c)
-
 	clock := testclock.NewClock(coretesting.NonZeroTime().Round(time.Second))
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
@@ -433,8 +422,6 @@ func (s *ActionSuite) TestLastActionFinishCompletesOperationRace(c *gc.C) {
 }
 
 func (s *ActionSuite) TestActionMessages(c *gc.C) {
-	s.toSupportNewActionID(c)
-
 	clock := testclock.NewClock(coretesting.NonZeroTime().Round(time.Second))
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
@@ -473,29 +460,7 @@ func (s *ActionSuite) TestActionMessages(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot log message to task "2" with status completed`)
 }
 
-func (s *ActionSuite) toSupportNewActionID(c *gc.C) {
-	ver, err := s.Model.AgentVersion()
-	c.Assert(err, jc.ErrorIsNil)
-
-	if !state.IsNewActionIDSupported(ver) {
-		err := s.State.SetModelAgentVersion(state.MinVersionSupportNewActionID, true)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-}
-
-func (s *ActionSuite) toSupportOldActionID(c *gc.C) {
-	ver, err := s.Model.AgentVersion()
-	c.Assert(err, jc.ErrorIsNil)
-
-	if state.IsNewActionIDSupported(ver) {
-		err := s.State.SetModelAgentVersion(version.MustParse("2.6.0"), true)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-}
-
 func (s *ActionSuite) TestActionLogMessageRace(c *gc.C) {
-	s.toSupportNewActionID(c)
-
 	clock := testclock.NewClock(coretesting.NonZeroTime().Round(time.Second))
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
@@ -744,85 +709,6 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 	actions, err := unit.PendingActions()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(actions), gc.Equals, 0)
-}
-
-func (s *ActionSuite) TestFindActionTagsById(c *gc.C) {
-	s.toSupportNewActionID(c)
-
-	actions := []struct {
-		Name       string
-		Parameters map[string]interface{}
-	}{
-		{Name: "action-1", Parameters: map[string]interface{}{}},
-		{Name: "fake", Parameters: map[string]interface{}{"yeah": true, "take": nil}},
-		{Name: "action-9", Parameters: map[string]interface{}{"district": 9}},
-		{Name: "blarney", Parameters: map[string]interface{}{"conversation": []string{"what", "now"}}},
-	}
-
-	operationID, err := s.Model.EnqueueOperation("a test")
-	c.Assert(err, jc.ErrorIsNil)
-	for _, action := range actions {
-		_, err := s.model.EnqueueAction(operationID, s.unit.Tag(), action.Name, action.Parameters)
-		c.Check(err, gc.Equals, nil)
-	}
-
-	tags, err := s.model.FindActionTagsById("2")
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(tags, gc.HasLen, 1)
-	c.Assert(tags[0].Id(), gc.Equals, "2")
-
-	// Test match all.
-	tags, err = s.model.FindActionTagsById("")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(tags, gc.HasLen, 4)
-}
-
-func (s *ActionSuite) TestFindActionTagsByLegacyId(c *gc.C) {
-	// Create an action with an old id (uuid).
-	s.toSupportOldActionID(c)
-	operationID, err := s.Model.EnqueueOperation("a test")
-	c.Assert(err, jc.ErrorIsNil)
-	var actionToUse state.Action
-	var uuid string
-	for {
-		a, err := s.model.EnqueueAction(operationID, s.unit.Tag(), "action-1", nil)
-		c.Assert(err, jc.ErrorIsNil)
-		if unicode.IsDigit(rune(a.Id()[0])) {
-			idNum, _ := strconv.Atoi(a.Id()[0:1])
-			if idNum >= 2 {
-				// The operation consumes id 1 and id 0 is not valid.
-				actionToUse = a
-				uuid = a.Id()
-				break
-			}
-		}
-	}
-	c.Logf(uuid)
-
-	// Ensure there's a new action with a numeric id which
-	// matches the starting digit of the uuid above.
-	s.toSupportNewActionID(c)
-	idNum, _ := strconv.Atoi(actionToUse.Id()[0:1])
-	for i := 1; i <= idNum; i++ {
-		_, err := s.model.EnqueueAction(operationID, s.unit.Tag(), "action-1", nil)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
-	// Searching for that numeric id only matches the id.
-	idStr := fmt.Sprintf("%d", idNum)
-	tags, err := s.model.FindActionTagsById(idStr)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(len(tags), gc.Equals, 1)
-	c.Assert(tags[0].Id(), gc.Equals, idStr)
-
-	// Searching for legacy prefix still works.
-	tags, err = s.model.FindActionTagsById(uuid[0:9])
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(len(tags), gc.Equals, 1)
-	c.Assert(tags[0].Id(), gc.Equals, uuid)
 }
 
 func (s *ActionSuite) TestFindActionsByName(c *gc.C) {
@@ -1498,6 +1384,69 @@ func (s *ActionPruningSuite) TestPruneOperationsBySizeOldestFirst(c *gc.C) {
 		}
 	}
 	c.Assert(len(youngerEntries), jc.GreaterThan, len(olderEntries))
+}
+
+func (s *ActionPruningSuite) TestPruneOperationsBySizeKeepsIncomplete(c *gc.C) {
+	clock := testclock.NewClock(coretesting.NonZeroTime())
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
+	application := s.Factory.MakeApplication(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
+
+	const numOperationEntriesOlder = 5
+	const numOperationEntriesYounger = 5
+	const numOperationEntriesIncomplete = 5
+	const tasksPerOperation = 3
+	const numOperationEntries = numOperationEntriesOlder + numOperationEntriesYounger + numOperationEntriesIncomplete
+	const maxLogSize = 5 //MB
+
+	olderTime := clock.Now().Add(-1 * time.Hour)
+	youngerTime := clock.Now()
+
+	state.PrimeOperations(c, time.Time{}, unit, numOperationEntriesIncomplete, tasksPerOperation)
+	state.PrimeOperations(c, olderTime, unit, numOperationEntriesOlder, tasksPerOperation)
+	state.PrimeOperations(c, youngerTime, unit, numOperationEntriesYounger, tasksPerOperation)
+
+	actions, err := unit.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actions, gc.HasLen, tasksPerOperation*numOperationEntries)
+	ops, err := s.Model.AllOperations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ops, gc.HasLen, numOperationEntries)
+
+	err = state.PruneOperations(s.State, 0, maxLogSize)
+	c.Assert(err, jc.ErrorIsNil)
+
+	actions, err = unit.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+
+	var olderEntries []time.Time
+	var youngerEntries []time.Time
+	var incompleteEntries []time.Time
+	zero := time.Time{}
+	for _, entry := range actions {
+		if entry.Completed() == zero {
+			incompleteEntries = append(incompleteEntries, entry.Completed())
+		} else if entry.Completed().Before(youngerTime.Round(time.Second)) {
+			olderEntries = append(olderEntries, entry.Completed())
+		} else {
+			youngerEntries = append(youngerEntries, entry.Completed())
+		}
+	}
+	c.Assert(youngerEntries, gc.HasLen, 0)
+	c.Assert(olderEntries, gc.HasLen, 0)
+	c.Assert(len(incompleteEntries), gc.Not(gc.Equals), 0)
+
+	ops, err = s.Model.AllOperations()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The test here is to see if the remaining count is relatively close to
+	// the max log size x 2. I would expect the number of remaining entries to
+	// be no greater than 2 x 1.5 x the max log size in MB since each entry is
+	// about 500kB (in memory) in size. 1.5x is probably good enough to ensure
+	// this test doesn't flake.
+	c.Assert(float64(len(actions)), jc.LessThan, 2.0*maxLogSize*1.5)
+	c.Assert(float64(len(ops)), gc.Equals, float64(len(actions))/3.0)
 }
 
 func (s *ActionPruningSuite) TestPruneOperationsByAge(c *gc.C) {

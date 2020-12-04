@@ -9,7 +9,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 	"github.com/lxc/lxd/shared/api"
 	"github.com/lxc/lxd/shared/osarch"
 	gc "gopkg.in/check.v1"
@@ -64,6 +64,7 @@ func (s *containerSuite) TestContainerAddDiskNoDevices(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := map[string]string{
+		"type":     "disk",
 		"path":     "/",
 		"source":   "source",
 		"pool":     "default",

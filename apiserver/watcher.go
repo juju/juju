@@ -181,16 +181,13 @@ func (aw *SrvAllWatcher) translateApplication(info multiwatcher.EntityInfo) para
 		return nil
 	}
 
-	// Get the application status from the cache if it is unset.
-	applicationStatus := multiwatcher.StatusInfo{Current: status.Unknown}
-	if orig.Status.Current == status.Unset {
-		if model, err := aw.controller.Model(orig.ModelUUID); err == nil {
-			cachedApp, err := model.Application(orig.Name)
-			if err == nil {
-				applicationStatus = multiwatcher.NewStatusInfo(cachedApp.Status(), nil)
-			}
-		}
-	} else {
+	// If the application status is unset, then set it to unknown. It is
+	// expected that downstream clients (model cache, pylibjuju, jslibjuju)
+	// correctly interpret the unknown status from the unit status. If the unit
+	// status is not found, then fall back to unknown.
+	// If a charm author has set the application status, then show that instead.
+	applicationStatus := multiwatcher.StatusInfo{Current: status.Unset}
+	if orig.Status.Current != status.Unset {
 		applicationStatus = orig.Status
 	}
 
@@ -969,10 +966,19 @@ var getMigrationBackend = func(st *state.State) migrationBackend {
 	return st
 }
 
-// migrationBackend defines State functionality required by the
+var getControllerBackend = func(pool *state.StatePool) controllerBackend {
+	return pool.SystemState()
+}
+
+// migrationBackend defines model State functionality required by the
 // migration watchers.
 type migrationBackend interface {
 	LatestMigration() (state.ModelMigration, error)
+}
+
+// migrationBackend defines controller State functionality required by the
+// migration watchers.
+type controllerBackend interface {
 	APIHostPortsForClients() ([]network.SpaceHostPorts, error)
 	ControllerConfig() (controller.Config, error)
 }
@@ -982,6 +988,7 @@ func newMigrationStatusWatcher(context facade.Context) (facade.Facade, error) {
 	auth := context.Auth()
 	resources := context.Resources()
 	st := context.State()
+	pool := context.StatePool()
 
 	if !isAgent(auth) {
 		return nil, apiservererrors.ErrPerm
@@ -994,6 +1001,7 @@ func newMigrationStatusWatcher(context facade.Context) (facade.Facade, error) {
 		watcherCommon: newWatcherCommon(context),
 		watcher:       w,
 		st:            getMigrationBackend(st),
+		ctrlSt:        getControllerBackend(pool),
 	}, nil
 }
 
@@ -1001,6 +1009,7 @@ type srvMigrationStatusWatcher struct {
 	watcherCommon
 	watcher state.NotifyWatcher
 	st      migrationBackend
+	ctrlSt  controllerBackend
 }
 
 // Next returns when the status for a model migration for the
@@ -1036,7 +1045,7 @@ func (w *srvMigrationStatusWatcher) Next() (params.MigrationStatus, error) {
 		return empty, errors.Annotate(err, "retrieving source addresses")
 	}
 
-	sourceCACert, err := getControllerCACert(w.st)
+	sourceCACert, err := getControllerCACert(w.ctrlSt)
 	if err != nil {
 		return empty, errors.Annotate(err, "retrieving source CA cert")
 	}
@@ -1058,7 +1067,7 @@ func (w *srvMigrationStatusWatcher) Next() (params.MigrationStatus, error) {
 }
 
 func (w *srvMigrationStatusWatcher) getLocalHostPorts() ([]string, error) {
-	hostports, err := w.st.APIHostPortsForClients()
+	hostports, err := w.ctrlSt.APIHostPortsForClients()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1073,7 +1082,7 @@ func (w *srvMigrationStatusWatcher) getLocalHostPorts() ([]string, error) {
 
 // This is a shim to avoid the need to use a working State into the
 // unit tests. It is tested as part of the client side API tests.
-var getControllerCACert = func(st migrationBackend) (string, error) {
+var getControllerCACert = func(st controllerBackend) (string, error) {
 	cfg, err := st.ControllerConfig()
 	if err != nil {
 		return "", errors.Trace(err)

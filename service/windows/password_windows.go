@@ -7,11 +7,12 @@
 package windows
 
 import (
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 )
 
 // netUserSetInfo is used to change the password on a user.
@@ -120,6 +121,16 @@ func (c *PasswordChanger) ChangeJujudServicesPassword(newPassword string, mgr Se
 		return errors.Trace(err)
 	}
 	for _, svc := range svcs {
+		// We only care about juju units. The machine agent runs under LocalSystem,
+		// because it does not need to run any hooks. Only the unit agents need to run
+		// under normal Windows accounts (jujud user created via userdata), as some applications
+		// and installers require an actual account, with a valid profile, to run properly.
+		// It also allows charms to run hooks that impersonate other users (similar to how sudo
+		// works on Linux), which is impossible under system accounts.
+		if strings.HasPrefix(svc, "jujud-unit-") == false {
+			continue
+		}
+		logger.Warningf("resetting password on %s", svc)
 		modifiedService := false
 		var err error
 		for attempt := changeServicePasswordAttempts.Start(); attempt.Next(); {

@@ -5,8 +5,6 @@ package charmhub
 
 import (
 	"bytes"
-	"fmt"
-	"strings"
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/collections/set"
@@ -16,7 +14,7 @@ import (
 	"github.com/juju/juju/charmhub/transport"
 )
 
-func convertCharmInfoResult(info transport.InfoResponse, clientURL string) params.InfoResponse {
+func convertCharmInfoResult(info transport.InfoResponse) params.InfoResponse {
 	ir := params.InfoResponse{
 		Type:        info.Type,
 		ID:          info.ID,
@@ -25,18 +23,18 @@ func convertCharmInfoResult(info transport.InfoResponse, clientURL string) param
 		Publisher:   publisher(info.Entity),
 		Summary:     info.Entity.Summary,
 		Tags:        categories(info.Entity.Categories),
-		StoreURL:    transformStoreURL(clientURL, info.Name),
+		StoreURL:    info.Entity.StoreURL,
 	}
 	switch ir.Type {
 	case "bundle":
-		ir.Bundle = convertBundle()
+		ir.Bundle = convertBundle(info.Entity.Charms)
 		// TODO (stickupkid): Get the Bundle.Series and set it to the
 		// InfoResponse at a high level.
 	case "charm":
 		ir.Charm, ir.Series = convertCharm(info)
 	}
 
-	ir.Tracks, ir.Channels = transformChannelMap(info.ChannelMap)
+	ir.Tracks, ir.Channels = transformInfoChannelMap(info.ChannelMap)
 	return ir
 }
 
@@ -51,25 +49,27 @@ func categories(cats []transport.Category) []string {
 	return result
 }
 
-func convertCharmFindResults(responses []transport.FindResponse, clientURL string) []params.FindResponse {
+func convertCharmFindResults(responses []transport.FindResponse) []params.FindResponse {
 	results := make([]params.FindResponse, len(responses))
 	for k, response := range responses {
-		results[k] = convertCharmFindResult(response, clientURL)
+		results[k] = convertCharmFindResult(response)
 	}
 	return results
 }
 
-func convertCharmFindResult(resp transport.FindResponse, clientURL string) params.FindResponse {
-	return params.FindResponse{
+func convertCharmFindResult(resp transport.FindResponse) params.FindResponse {
+	result := params.FindResponse{
 		Type:      resp.Type,
 		ID:        resp.ID,
 		Name:      resp.Name,
 		Publisher: publisher(resp.Entity),
 		Summary:   resp.Entity.Summary,
 		Version:   resp.DefaultRelease.Revision.Version,
-		Series:    transformSeries(resp.DefaultRelease),
-		StoreURL:  transformStoreURL(clientURL, resp.Name),
+		StoreURL:  resp.Entity.StoreURL,
 	}
+	supported := transformFindArchitectureSeries(resp.DefaultRelease)
+	result.Arches, result.Series = supported.Architectures, supported.Series
+	return result
 }
 
 func publisher(ch transport.Entity) string {
@@ -77,32 +77,48 @@ func publisher(ch transport.Entity) string {
 	return publisher
 }
 
-// transformStoreURL converts the store url into something we can use in the
-// output.
-// TODO (stickupkid): The API should provide this URL or at least guidance on
-// how to construct it.
-func transformStoreURL(clientURL, name string) string {
-	url := strings.TrimSuffix(clientURL, "/")
-	return fmt.Sprintf("%s/%s", url, name)
+// supported defines a tuple of extracted items from a platform.
+type supported struct {
+	Architectures []string
+	Series        []string
 }
 
-// transformSeries returns a slice of supported series for that revision.
-func transformSeries(channel transport.ChannelMap) []string {
-	if meta := unmarshalCharmMetadata(channel.Revision.MetadataYAML); meta != nil {
-		return meta.Series
+// transformFindArchitectureSeries returns a supported type which contains
+// architectures and series for a given channel map.
+func transformFindArchitectureSeries(channel transport.FindChannelMap) supported {
+	if len(channel.Revision.Platforms) < 1 {
+		return supported{}
 	}
-	return nil
+
+	var (
+		arches = set.NewStrings()
+		series = set.NewStrings()
+	)
+	for _, p := range channel.Revision.Platforms {
+		arches.Add(p.Architecture)
+		series.Add(p.Series)
+	}
+	return supported{
+		Architectures: arches.SortedValues(),
+		Series:        series.SortedValues(),
+	}
 }
 
-// transformChannelMap returns channel map data in a format that facilitates
+// transformInfoChannelMap returns channel map data in a format that facilitates
 // determining track order and open vs closed channels for displaying channel
 // data.
-func transformChannelMap(channelMap []transport.ChannelMap) ([]string, map[string]params.Channel) {
-	trackList := []string{}
+func transformInfoChannelMap(channelMap []transport.InfoChannelMap) ([]string, map[string]params.Channel) {
+	var trackList []string
+
 	seen := set.NewStrings("")
 	channels := make(map[string]params.Channel, len(channelMap))
+
 	for _, cm := range channelMap {
 		ch := cm.Channel
+		// Per the charmhub/snap channel spec.
+		if ch.Track == "" {
+			ch.Track = "latest"
+		}
 		chName := ch.Track + "/" + ch.Risk
 		channels[chName] = params.Channel{
 			Revision:   cm.Revision.Revision,
@@ -111,6 +127,7 @@ func transformChannelMap(channelMap []transport.ChannelMap) ([]string, map[strin
 			Track:      ch.Track,
 			Size:       cm.Revision.Download.Size,
 			Version:    cm.Revision.Version,
+			Platforms:  convertPlatforms(cm.Revision.Platforms),
 		}
 		if !seen.Contains(ch.Track) {
 			seen.Add(ch.Track)
@@ -118,6 +135,18 @@ func transformChannelMap(channelMap []transport.ChannelMap) ([]string, map[strin
 		}
 	}
 	return trackList, channels
+}
+
+func convertPlatforms(in []transport.Platform) []params.Platform {
+	out := make([]params.Platform, len(in))
+	for i, v := range in {
+		out[i] = params.Platform{
+			Architecture: v.Architecture,
+			OS:           v.OS,
+			Series:       v.Series,
+		}
+	}
+	return out
 }
 
 func convertCharm(info transport.InfoResponse) (*params.CharmHubCharm, []string) {
@@ -128,7 +157,7 @@ func convertCharm(info transport.InfoResponse) (*params.CharmHubCharm, []string)
 	if meta := unmarshalCharmMetadata(info.DefaultRelease.Revision.MetadataYAML); meta != nil {
 		charmHubCharm.Subordinate = meta.Subordinate
 		charmHubCharm.Relations = transformRelations(meta.Requires, meta.Provides)
-		series = meta.Series
+		series = meta.ComputedSeries()
 	}
 	if cfg := unmarshalCharmConfig(info.DefaultRelease.Revision.ConfigYAML); cfg != nil {
 		charmHubCharm.Config = params.ToCharmOptionMap(cfg)
@@ -187,19 +216,26 @@ func transformRelations(requires, provides map[string]charm.Relation) map[string
 	return relations
 }
 
-func formatRelationPart(rels map[string]charm.Relation) (map[string]string, bool) {
-	if len(rels) <= 0 {
+func formatRelationPart(r map[string]charm.Relation) (map[string]string, bool) {
+	if len(r) <= 0 {
 		return nil, false
 	}
-	relations := make(map[string]string, len(rels))
-	for k, v := range rels {
+	relations := make(map[string]string, len(r))
+	for k, v := range r {
 		relations[k] = v.Interface
 	}
 	return relations, true
 }
 
-func convertBundle() *params.CharmHubBundle {
-	// TODO (hml) 2020-07-06
-	// Implemented once how to get charms in a bundle is defined by the api.
-	return nil
+func convertBundle(charms []transport.Charm) *params.CharmHubBundle {
+	bundle := &params.CharmHubBundle{
+		Charms: make([]params.BundleCharm, len(charms)),
+	}
+	for i, v := range charms {
+		bundle.Charms[i] = params.BundleCharm{
+			Name:      v.Name,
+			PackageID: v.PackageID,
+		}
+	}
+	return bundle
 }

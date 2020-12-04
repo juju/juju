@@ -16,6 +16,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/caas/specs"
 	"github.com/juju/juju/cloud"
@@ -31,7 +32,6 @@ var (
 	OperatorPod            = operatorPod
 	ExtractRegistryURL     = extractRegistryURL
 	CreateDockerConfigJSON = createDockerConfigJSON
-	NewStorageConfig       = newStorageConfig
 	ControllerCorelation   = controllerCorelation
 	GetLocalMicroK8sConfig = getLocalMicroK8sConfig
 	AttemptMicroK8sCloud   = attemptMicroK8sCloudInternal
@@ -40,7 +40,6 @@ var (
 	ToYaml                 = toYaml
 	Indent                 = indent
 	ProcessSecretData      = processSecretData
-	PushUniqueVolume       = pushUniqueVolume
 
 	CompileK8sCloudCheckers                    = compileK8sCloudCheckers
 	CompileLifecycleApplicationRemovalSelector = compileLifecycleApplicationRemovalSelector
@@ -48,7 +47,6 @@ var (
 
 	LabelSetToRequirements = labelSetToRequirements
 	MergeSelectors         = mergeSelectors
-	GetStorageMode         = getStorageMode
 
 	UpdateStrategyForDeployment  = updateStrategyForDeployment
 	UpdateStrategyForStatefulSet = updateStrategyForStatefulSet
@@ -111,7 +109,7 @@ func NewProvider() caas.ContainerEnvironProvider {
 func NewProviderWithFakes(
 	runner CommandRunner,
 	getter func(CommandRunner) (cloud.Cloud, jujucloud.Credential, string, error),
-	brokerGetter func(environs.OpenParams) (caas.ClusterMetadataChecker, error)) caas.ContainerEnvironProvider {
+	brokerGetter func(environs.OpenParams) (k8s.ClusterMetadataChecker, error)) caas.ContainerEnvironProvider {
 	return kubernetesEnvironProvider{
 		cmdRunner:          runner,
 		builtinCloudGetter: getter,
@@ -159,18 +157,6 @@ func (k *kubernetesClient) DeleteNamespaceModelTeardown(ctx context.Context, wg 
 
 func StorageProvider(k8sClient kubernetes.Interface, namespace string) storage.Provider {
 	return &storageProvider{&kubernetesClient{clientUnlocked: k8sClient, namespace: namespace}}
-}
-
-func GetStorageClass(cfg *storageConfig) string {
-	return cfg.storageClass
-}
-
-func GetStorageProvisioner(cfg *storageConfig) string {
-	return cfg.storageProvisioner
-}
-
-func GetStorageParameters(cfg *storageConfig) map[string]string {
-	return cfg.parameters
 }
 
 func GetCloudProviderFromNodeMeta(node core.Node) (string, string) {

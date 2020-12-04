@@ -5,9 +5,9 @@ package service
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 	"github.com/juju/testing"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -77,7 +77,7 @@ func (s *BaseSuite) PatchAttempts(retries int) {
 }
 
 func (s *BaseSuite) PatchSeries(ser string) {
-	s.PatchValue(&series.MustHostSeries, func() string { return ser })
+	s.PatchValue(&series.HostSeries, func() (string, error) { return ser, nil })
 }
 
 func NewDiscoveryCheck(name string, running bool, failure error) discoveryCheck {

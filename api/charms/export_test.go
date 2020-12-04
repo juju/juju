@@ -3,8 +3,12 @@
 
 package charms
 
-import "github.com/juju/juju/api/base"
+import (
+	"github.com/juju/juju/api/base"
+	commoncharms "github.com/juju/juju/api/common/charms"
+)
 
 func NewClientWithFacade(facade base.FacadeCaller) *Client {
-	return &Client{facade: facade}
+	commonClient := commoncharms.NewCharmsClient(facade)
+	return &Client{facade: facade, CharmsClient: commonClient}
 }

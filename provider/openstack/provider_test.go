@@ -11,7 +11,7 @@ import (
 	"github.com/golang/mock/gomock"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/goose.v2/identity"
 	"gopkg.in/goose.v2/neutron"
@@ -215,6 +215,7 @@ func (*localTests) TestPortsToRuleInfo(c *gc.C) {
 			PortRangeMax:   80,
 			RemoteIPPrefix: "0.0.0.0/0",
 			ParentGroupId:  groupId,
+			EthernetType:   "IPv4",
 		}},
 	}, {
 		about: "multiple ports",
@@ -226,6 +227,7 @@ func (*localTests) TestPortsToRuleInfo(c *gc.C) {
 			PortRangeMax:   82,
 			RemoteIPPrefix: "0.0.0.0/0",
 			ParentGroupId:  groupId,
+			EthernetType:   "IPv4",
 		}},
 	}, {
 		about: "multiple port ranges",
@@ -240,6 +242,7 @@ func (*localTests) TestPortsToRuleInfo(c *gc.C) {
 			PortRangeMax:   82,
 			RemoteIPPrefix: "0.0.0.0/0",
 			ParentGroupId:  groupId,
+			EthernetType:   "IPv4",
 		}, {
 			Direction:      "ingress",
 			IPProtocol:     "tcp",
@@ -247,6 +250,7 @@ func (*localTests) TestPortsToRuleInfo(c *gc.C) {
 			PortRangeMax:   120,
 			RemoteIPPrefix: "0.0.0.0/0",
 			ParentGroupId:  groupId,
+			EthernetType:   "IPv4",
 		}},
 	}, {
 		about: "source range",
@@ -258,6 +262,7 @@ func (*localTests) TestPortsToRuleInfo(c *gc.C) {
 			PortRangeMax:   100,
 			RemoteIPPrefix: "192.168.1.0/24",
 			ParentGroupId:  groupId,
+			EthernetType:   "IPv4",
 		}, {
 			Direction:      "ingress",
 			IPProtocol:     "tcp",
@@ -265,6 +270,27 @@ func (*localTests) TestPortsToRuleInfo(c *gc.C) {
 			PortRangeMax:   100,
 			RemoteIPPrefix: "0.0.0.0/0",
 			ParentGroupId:  groupId,
+			EthernetType:   "IPv4",
+		}},
+	}, {
+		about: "IPV4 and IPV6 CIDRs",
+		rules: firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80-100/tcp"), "192.168.1.0/24", "2002::1234:abcd:ffff:c0a8:101/64")},
+		expected: []neutron.RuleInfoV2{{
+			Direction:      "ingress",
+			IPProtocol:     "tcp",
+			PortRangeMin:   80,
+			PortRangeMax:   100,
+			RemoteIPPrefix: "192.168.1.0/24",
+			ParentGroupId:  groupId,
+			EthernetType:   "IPv4",
+		}, {
+			Direction:      "ingress",
+			IPProtocol:     "tcp",
+			PortRangeMin:   80,
+			PortRangeMax:   100,
+			RemoteIPPrefix: "2002::1234:abcd:ffff:c0a8:101/64",
+			ParentGroupId:  groupId,
+			EthernetType:   "IPv6",
 		}},
 	}}
 
@@ -294,6 +320,7 @@ func (*localTests) TestSecGroupMatchesIngressRule(c *gc.C) {
 			IPProtocol:   &proto_tcp,
 			PortRangeMin: &port_80,
 			PortRangeMax: &port_80,
+			EthernetType: "IPv4",
 		},
 		expected: true,
 	}, {
@@ -303,6 +330,7 @@ func (*localTests) TestSecGroupMatchesIngressRule(c *gc.C) {
 			IPProtocol:   &proto_tcp,
 			PortRangeMin: &port_80,
 			PortRangeMax: &port_85,
+			EthernetType: "IPv4",
 		},
 		expected: true,
 	}, {
@@ -312,6 +340,7 @@ func (*localTests) TestSecGroupMatchesIngressRule(c *gc.C) {
 			IPProtocol:   nil,
 			PortRangeMin: nil,
 			PortRangeMax: nil,
+			EthernetType: "IPv4",
 		},
 		expected: false,
 	}, {
@@ -322,6 +351,7 @@ func (*localTests) TestSecGroupMatchesIngressRule(c *gc.C) {
 			PortRangeMin:   nil,
 			PortRangeMax:   &port_85,
 			RemoteIPPrefix: "192.168.100.0/24",
+			EthernetType:   "IPv4",
 		},
 		expected: false,
 	}, {
@@ -332,6 +362,7 @@ func (*localTests) TestSecGroupMatchesIngressRule(c *gc.C) {
 			PortRangeMin:   &port_85,
 			PortRangeMax:   nil,
 			RemoteIPPrefix: "192.168.100.0/24",
+			EthernetType:   "IPv4",
 		},
 		expected: false,
 	}, {
@@ -341,6 +372,7 @@ func (*localTests) TestSecGroupMatchesIngressRule(c *gc.C) {
 			IPProtocol:   &proto_udp,
 			PortRangeMin: &port_80,
 			PortRangeMax: &port_80,
+			EthernetType: "IPv4",
 		},
 		expected: false,
 	}, {
@@ -351,6 +383,7 @@ func (*localTests) TestSecGroupMatchesIngressRule(c *gc.C) {
 			PortRangeMin:   &port_80,
 			PortRangeMax:   &port_85,
 			RemoteIPPrefix: "0.0.0.0/0",
+			EthernetType:   "IPv4",
 		},
 		expected: true,
 	}, {
@@ -361,6 +394,7 @@ func (*localTests) TestSecGroupMatchesIngressRule(c *gc.C) {
 			PortRangeMin:   &port_80,
 			PortRangeMax:   &port_85,
 			RemoteIPPrefix: "192.168.1.0/24",
+			EthernetType:   "IPv4",
 		},
 		expected: true,
 	}, {
@@ -371,6 +405,7 @@ func (*localTests) TestSecGroupMatchesIngressRule(c *gc.C) {
 			PortRangeMin:   &port_80,
 			PortRangeMax:   &port_85,
 			RemoteIPPrefix: "192.168.100.0/24",
+			EthernetType:   "IPv4",
 		},
 		expected: false,
 	}}

@@ -13,8 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils"
-	"github.com/juju/utils/cert"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/cert"
 	"gopkg.in/yaml.v2"
 
 	cloudapi "github.com/juju/juju/api/cloud"
@@ -102,7 +102,6 @@ clouds:                           # mandatory
  - cloudsigma
  - ec2
  - gce
- - joyent
  - oci
 
 When a running controller is updated, the credential for the cloud
@@ -424,6 +423,7 @@ func cloudFromLocal(store jujuclient.CredentialGetter, cloudName string) (*jujuc
 		IdentityEndpoint: cloudDetails.IdentityEndpoint,
 		StorageEndpoint:  cloudDetails.StorageEndpoint,
 		CACertificates:   cloudDetails.CACredentials,
+		SkipTLSVerify:    cloudDetails.SkipTLSVerify,
 		Config:           cloudDetails.Config,
 		RegionConfig:     cloudDetails.RegionConfig,
 	}
@@ -722,7 +722,7 @@ func (p *CloudFileReader) ReadCloudFromFile(cloudFile string, ctxt *cmd.Context)
 		return nil, errors.Trace(err)
 	}
 	if len(specifiedClouds) == 0 {
-		return nil, errors.New("no personal clouds are defined")
+		return nil, errors.New("no clouds found in parsed yaml, please validate yaml keys")
 	}
 
 	var newCloud jujucloud.Cloud

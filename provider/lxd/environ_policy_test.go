@@ -7,9 +7,8 @@ import (
 	"strings"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
@@ -17,11 +16,14 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/lxd"
+	"github.com/juju/juju/version"
 )
 
 type environPolicySuite struct {
 	lxd.EnvironSuite
 
+	svr     *lxd.MockServer
+	env     environs.Environ
 	callCtx context.ProviderCallContext
 }
 
@@ -33,60 +35,43 @@ func (s *environPolicySuite) SetUpTest(c *gc.C) {
 }
 
 func (s *environPolicySuite) TestPrecheckInstanceDefaults(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	svr := lxd.NewMockServer(ctrl)
-
-	env := s.NewEnviron(c, svr, nil)
-	err := env.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{Series: series.DefaultSupportedLTS()})
+	defer s.setupMocks(c).Finish()
+	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: version.DefaultSupportedLTS()})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *environPolicySuite) TestPrecheckInstanceHasInstanceType(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	svr := lxd.NewMockServer(ctrl)
-
-	env := s.NewEnviron(c, svr, nil)
+	defer s.setupMocks(c).Finish()
 
 	cons := constraints.MustParse("instance-type=some-instance-type")
-	err := env.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{Series: series.DefaultSupportedLTS(), Constraints: cons})
+	err := s.env.PrecheckInstance(
+		s.callCtx, environs.PrecheckInstanceParams{Series: version.DefaultSupportedLTS(), Constraints: cons})
 
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *environPolicySuite) TestPrecheckInstanceDiskSize(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	svr := lxd.NewMockServer(ctrl)
-
-	env := s.NewEnviron(c, svr, nil)
+	defer s.setupMocks(c).Finish()
 
 	cons := constraints.MustParse("root-disk=1G")
-	err := env.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{Series: series.DefaultSupportedLTS(), Constraints: cons})
+	err := s.env.PrecheckInstance(
+		s.callCtx, environs.PrecheckInstanceParams{Series: version.DefaultSupportedLTS(), Constraints: cons})
 
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *environPolicySuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	svr := lxd.NewMockServer(ctrl)
+	defer s.setupMocks(c).Finish()
 
 	cons := constraints.MustParse("arch=i386")
-
-	env := s.NewEnviron(c, svr, nil)
-	err := env.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{Series: series.DefaultSupportedLTS(), Constraints: cons})
+	err := s.env.PrecheckInstance(
+		s.callCtx, environs.PrecheckInstanceParams{Series: version.DefaultSupportedLTS(), Constraints: cons})
 
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *environPolicySuite) TestPrecheckInstanceAvailZone(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	svr := lxd.NewMockServer(ctrl)
-
-	env := s.NewEnviron(c, svr, nil)
+	defer s.setupMocks(c).Finish()
 
 	members := []api.ClusterMember{
 		{
@@ -99,29 +84,23 @@ func (s *environPolicySuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 		},
 	}
 
-	exp := svr.EXPECT()
+	exp := s.svr.EXPECT()
 	gomock.InOrder(
 		exp.IsClustered().Return(true),
 		exp.GetClusterMembers().Return(members, nil),
 	)
 
 	placement := "zone=a-zone"
-	err := env.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{Series: series.DefaultSupportedLTS(), Placement: placement})
+	err := s.env.PrecheckInstance(
+		s.callCtx, environs.PrecheckInstanceParams{Series: version.DefaultSupportedLTS(), Placement: placement})
 
 	c.Check(err, gc.ErrorMatches, `availability zone "a-zone" not valid`)
 }
 
 func (s *environPolicySuite) TestConstraintsValidatorOkay(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	svr := lxd.NewMockServer(ctrl)
+	defer s.setupMocks(c).Finish()
 
-	env := s.NewEnviron(c, svr, nil)
-
-	exp := svr.EXPECT()
-	exp.HostArch().Return(arch.AMD64)
-
-	validator, err := env.ConstraintsValidator(context.NewCloudCallContext())
+	validator, err := s.env.ConstraintsValidator(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64")
@@ -132,16 +111,9 @@ func (s *environPolicySuite) TestConstraintsValidatorOkay(c *gc.C) {
 }
 
 func (s *environPolicySuite) TestConstraintsValidatorEmpty(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	svr := lxd.NewMockServer(ctrl)
+	defer s.setupMocks(c).Finish()
 
-	env := s.NewEnviron(c, svr, nil)
-
-	exp := svr.EXPECT()
-	exp.HostArch().Return(arch.AMD64)
-
-	validator, err := env.ConstraintsValidator(context.NewCloudCallContext())
+	validator, err := s.env.ConstraintsValidator(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	unsupported, err := validator.Validate(constraints.Value{})
@@ -151,16 +123,9 @@ func (s *environPolicySuite) TestConstraintsValidatorEmpty(c *gc.C) {
 }
 
 func (s *environPolicySuite) TestConstraintsValidatorUnsupported(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	svr := lxd.NewMockServer(ctrl)
+	defer s.setupMocks(c).Finish()
 
-	env := s.NewEnviron(c, svr, nil)
-
-	exp := svr.EXPECT()
-	exp.HostArch().Return(arch.AMD64)
-
-	validator, err := env.ConstraintsValidator(context.NewCloudCallContext())
+	validator, err := s.env.ConstraintsValidator(context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse(strings.Join([]string{
@@ -184,16 +149,9 @@ func (s *environPolicySuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 }
 
 func (s *environPolicySuite) TestConstraintsValidatorVocabArchKnown(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	svr := lxd.NewMockServer(ctrl)
+	defer s.setupMocks(c).Finish()
 
-	env := s.NewEnviron(c, svr, nil)
-
-	exp := svr.EXPECT()
-	exp.HostArch().Return(arch.AMD64)
-
-	validator, err := env.ConstraintsValidator(context.NewCloudCallContext())
+	validator, err := s.env.ConstraintsValidator(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64")
@@ -203,16 +161,9 @@ func (s *environPolicySuite) TestConstraintsValidatorVocabArchKnown(c *gc.C) {
 }
 
 func (s *environPolicySuite) TestConstraintsValidatorVocabArchUnknown(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	svr := lxd.NewMockServer(ctrl)
+	defer s.setupMocks(c).Finish()
 
-	env := s.NewEnviron(c, svr, nil)
-
-	exp := svr.EXPECT()
-	exp.HostArch().Return(arch.AMD64)
-
-	validator, err := env.ConstraintsValidator(context.NewCloudCallContext())
+	validator, err := s.env.ConstraintsValidator(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=ppc64el")
@@ -223,13 +174,10 @@ func (s *environPolicySuite) TestConstraintsValidatorVocabArchUnknown(c *gc.C) {
 
 func (s *environPolicySuite) TestConstraintsValidatorVocabContainerUnknown(c *gc.C) {
 	c.Skip("this will fail until we add a container vocabulary")
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	svr := lxd.NewMockServer(ctrl)
 
-	env := s.NewEnviron(c, svr, nil)
+	defer s.setupMocks(c).Finish()
 
-	validator, err := env.ConstraintsValidator(context.NewCloudCallContext())
+	validator, err := s.env.ConstraintsValidator(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("container=lxd")
@@ -239,16 +187,9 @@ func (s *environPolicySuite) TestConstraintsValidatorVocabContainerUnknown(c *gc
 }
 
 func (s *environPolicySuite) TestConstraintsValidatorConflicts(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	svr := lxd.NewMockServer(ctrl)
+	defer s.setupMocks(c).Finish()
 
-	env := s.NewEnviron(c, svr, nil)
-
-	exp := svr.EXPECT()
-	exp.HostArch().Return(arch.AMD64)
-
-	validator, err := env.ConstraintsValidator(context.NewCloudCallContext())
+	validator, err := s.env.ConstraintsValidator(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("instance-type=n1-standard-1")
@@ -262,15 +203,22 @@ func (s *environPolicySuite) TestConstraintsValidatorConflicts(c *gc.C) {
 }
 
 func (s *environPolicySuite) TestSupportNetworks(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	svr := lxd.NewMockServer(ctrl)
+	defer s.setupMocks(c).Finish()
 
-	env := s.NewEnviron(c, svr, nil)
-
-	isSupported := env.(interface {
+	isSupported := s.env.(interface {
 		SupportNetworks(context.ProviderCallContext) bool
 	}).SupportNetworks(context.NewCloudCallContext())
 
 	c.Check(isSupported, jc.IsFalse)
+}
+
+func (s *environPolicySuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.svr = lxd.NewMockServer(ctrl)
+	s.svr.EXPECT().SupportedArches().Return([]string{arch.AMD64}).MaxTimes(1)
+
+	s.env = s.NewEnviron(c, s.svr, nil)
+
+	return ctrl
 }

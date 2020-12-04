@@ -221,7 +221,11 @@ func (c *Client) RemoveUnit(unitName string) error {
 	if err != nil {
 		return err
 	}
-	return result.OneError()
+	resultErr := result.OneError()
+	if params.IsCodeNotFound(resultErr) {
+		return nil
+	}
+	return resultErr
 }
 
 // Life returns the lifecycle state for the specified CAAS application

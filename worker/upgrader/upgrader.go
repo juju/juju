@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
-	"github.com/juju/utils/arch"
+	"github.com/juju/os/v2/series"
+	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 	"github.com/juju/worker/v2/catacomb"
 
@@ -104,7 +104,6 @@ func (u *Upgrader) Wait() error {
 // AllowedTargetVersion checks if targetVersion is too different from
 // curVersion to allow a downgrade.
 func AllowedTargetVersion(
-	origAgentVersion version.Number,
 	curVersion version.Number,
 	targetVersion version.Number,
 ) bool {
@@ -119,7 +118,11 @@ func (u *Upgrader) loop() error {
 	logger := u.config.Logger
 	// Start by reporting current tools (which includes arch/series, and is
 	// used by the controller in communicating the desired version below).
-	if err := u.st.SetVersion(u.tag.String(), toBinaryVersion(jujuversion.Current)); err != nil {
+	hostSeries, err := series.HostSeries()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := u.st.SetVersion(u.tag.String(), toBinaryVersion(jujuversion.Current, hostSeries)); err != nil {
 		return errors.Annotate(err, "cannot set agent version")
 	}
 
@@ -196,7 +199,6 @@ func (u *Upgrader) loop() error {
 			u.config.InitialUpgradeCheckComplete.Unlock()
 			continue
 		} else if !AllowedTargetVersion(
-			u.config.OrigAgentVersion,
 			haveVersion,
 			wantVersion,
 		) {
@@ -214,9 +216,9 @@ func (u *Upgrader) loop() error {
 		logger.Infof("%s requested from %v to %v", direction, haveVersion, wantVersion)
 
 		// Check if tools have already been downloaded.
-		wantVersionBinary := toBinaryVersion(wantVersion)
+		wantVersionBinary := toBinaryVersion(wantVersion, hostSeries)
 		if u.toolsAlreadyDownloaded(wantVersionBinary) {
-			return u.newUpgradeReadyError(haveVersion, wantVersionBinary)
+			return u.newUpgradeReadyError(haveVersion, wantVersionBinary, hostSeries)
 		}
 
 		// Check if tools are available for download.
@@ -239,7 +241,7 @@ func (u *Upgrader) loop() error {
 			}
 			err = u.ensureTools(wantTools)
 			if err == nil {
-				return u.newUpgradeReadyError(haveVersion, wantTools.Version)
+				return u.newUpgradeReadyError(haveVersion, wantTools.Version, hostSeries)
 			}
 			logger.Errorf("failed to fetch agent binaries from %q: %v", wantTools.URL, err)
 		}
@@ -247,11 +249,11 @@ func (u *Upgrader) loop() error {
 	}
 }
 
-func toBinaryVersion(vers version.Number) version.Binary {
+func toBinaryVersion(vers version.Number, hostSeries string) version.Binary {
 	outVers := version.Binary{
 		Number: vers,
 		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
+		Series: hostSeries,
 	}
 	return outVers
 }
@@ -261,9 +263,9 @@ func (u *Upgrader) toolsAlreadyDownloaded(wantVersion version.Binary) bool {
 	return err == nil
 }
 
-func (u *Upgrader) newUpgradeReadyError(haveVersion version.Number, newVersion version.Binary) *agenterrors.UpgradeReadyError {
+func (u *Upgrader) newUpgradeReadyError(haveVersion version.Number, newVersion version.Binary, hostSeries string) *agenterrors.UpgradeReadyError {
 	return &agenterrors.UpgradeReadyError{
-		OldTools:  toBinaryVersion(haveVersion),
+		OldTools:  toBinaryVersion(haveVersion, hostSeries),
 		NewTools:  newVersion,
 		AgentName: u.tag.String(),
 		DataDir:   u.dataDir,

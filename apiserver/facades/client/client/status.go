@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/core/cache"
+	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
@@ -186,6 +187,9 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	}
 	context.providerType = cfg.Type()
 
+	if context.spaceInfos, err = c.api.stateAccessor.AllSpaceInfos(); err != nil {
+		return noStatus, errors.Annotate(err, "cannot obtain space information")
+	}
 	if context.model, err = c.api.stateAccessor.Model(); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch model")
 	}
@@ -193,7 +197,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		return noStatus, errors.Annotate(err, "could not load model status values")
 	}
 	if context.allAppsUnitsCharmBindings, err =
-		fetchAllApplicationsAndUnits(c.api.stateAccessor, context.model); err != nil {
+		fetchAllApplicationsAndUnits(c.api.stateAccessor, context.model, context.spaceInfos); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch applications and units")
 	}
 	if context.consumerRemoteApplications, err =
@@ -230,7 +234,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	}
 	// These may be empty when machines have not finished deployment.
 	if context.ipAddresses, context.spaces, context.linkLayerDevices, err =
-		fetchNetworkInterfaces(c.api.stateAccessor); err != nil {
+		fetchNetworkInterfaces(c.api.stateAccessor, context.spaceInfos); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch IP addresses and link layer devices")
 	}
 	if context.relations, context.relationsById, err = fetchRelations(c.api.stateAccessor); err != nil {
@@ -550,6 +554,9 @@ type statusContext struct {
 	leaders                   map[string]string
 	branches                  map[string]cache.Branch
 
+	// Information about all spaces.
+	spaceInfos network.SpaceInfos
+
 	primaryHAMachine *names.MachineTag
 }
 
@@ -576,7 +583,7 @@ func (context *statusContext) fetchMachines(st Backend) error {
 			// Only top level host machines go directly into the machine map.
 			context.machines[m.Id()] = []*state.Machine{m}
 		} else {
-			topParentId := state.TopParentId(m.Id())
+			topParentId := container.TopParentId(m.Id())
 			machines := context.machines[topParentId]
 			context.machines[topParentId] = append(machines, m)
 		}
@@ -629,7 +636,7 @@ func fetchControllerNodes(st Backend) (map[string]state.ControllerNode, error) {
 //
 // All are required to determine a machine's network interfaces configuration,
 // so we want all or none.
-func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string]map[string]set.Strings, map[string][]*state.LinkLayerDevice, error) {
+func fetchNetworkInterfaces(st Backend, spaceInfos network.SpaceInfos) (map[string][]*state.Address, map[string]map[string]set.Strings, map[string][]*state.LinkLayerDevice, error) {
 	ipAddresses := make(map[string][]*state.Address)
 	spacesPerMachine := make(map[string]map[string]set.Strings)
 	subnets, err := st.AllSubnets()
@@ -641,10 +648,6 @@ func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string
 		subnetsByCIDR[subnet.CIDR()] = subnet
 	}
 
-	spaceInfos, err := st.AllSpaceInfos()
-	if err != nil {
-		return nil, nil, nil, err
-	}
 	// For every machine, track what devices have addresses so we can filter linklayerdevices later
 	devicesWithAddresses := make(map[string]set.Strings)
 	ipAddrs, err := st.AllIPAddresses()
@@ -714,10 +717,7 @@ func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string
 
 // fetchAllApplicationsAndUnits returns a map from application name to application,
 // a map from application name to unit name to unit, and a map from base charm URL to latest URL.
-func fetchAllApplicationsAndUnits(
-	st Backend,
-	model *state.Model,
-) (applicationStatusInfo, error) {
+func fetchAllApplicationsAndUnits(st Backend, model *state.Model, spaceInfos network.SpaceInfos) (applicationStatusInfo, error) {
 	appMap := make(map[string]*state.Application)
 	unitMap := make(map[string]map[string]*state.Unit)
 	latestCharms := make(map[charm.URL]*state.Charm)
@@ -742,11 +742,6 @@ func fetchAllApplicationsAndUnits(
 		}
 	}
 
-	allSpaceInfos, err := st.AllSpaceInfos()
-	if err != nil {
-		return applicationStatusInfo{}, errors.Trace(err)
-	}
-
 	endpointBindings, err := model.AllEndpointBindings()
 	if err != nil {
 		return applicationStatusInfo{}, err
@@ -755,7 +750,7 @@ func fetchAllApplicationsAndUnits(
 	for app, bindings := range endpointBindings {
 		// If the only binding is the default, and it's set to the
 		// default space, no need to print.
-		bindingMap, err := bindings.MapWithSpaceNames(allSpaceInfos)
+		bindingMap, err := bindings.MapWithSpaceNames(spaceInfos)
 		if err != nil {
 			return applicationStatusInfo{}, err
 		}
@@ -938,7 +933,7 @@ func (c *statusContext) processMachines() map[string]params.MachineStatus {
 		aCache[id] = hostStatus
 
 		for _, machine := range machines[1:] {
-			parent, ok := aCache[state.ParentId(machine.Id())]
+			parent, ok := aCache[container.ParentId(machine.Id())]
 			if !ok {
 				logger.Errorf("programmer error, please file a bug, reference this whole log line: %q, %q", id, machine.Id())
 				continue
@@ -1174,13 +1169,19 @@ func (context *statusContext) processApplication(application *state.Application)
 		charmProfileName = lxdprofile.Name(context.model.Name(), application.Name(), applicationCharm.Revision())
 	}
 
+	mappedExposedEndpoints, err := context.mapExposedEndpointsFromState(application.ExposedEndpoints())
+	if err != nil {
+		return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
+	}
+
 	var processedStatus = params.ApplicationStatus{
-		Charm:        applicationCharm.URL().String(),
-		Series:       application.Series(),
-		Exposed:      application.IsExposed(),
-		Life:         processLife(application),
-		CharmVersion: applicationCharm.Version(),
-		CharmProfile: charmProfileName,
+		Charm:            applicationCharm.URL().String(),
+		Series:           application.Series(),
+		Exposed:          application.IsExposed(),
+		ExposedEndpoints: mappedExposedEndpoints,
+		Life:             processLife(application),
+		CharmVersion:     applicationCharm.Version(),
+		CharmProfile:     charmProfileName,
 	}
 
 	if latestCharm, ok := context.allAppsUnitsCharmBindings.latestCharms[*applicationCharm.URL().WithRevision(-1)]; ok && latestCharm != nil {
@@ -1271,6 +1272,36 @@ func (context *statusContext) processApplication(application *state.Application)
 	}
 	processedStatus.EndpointBindings = context.allAppsUnitsCharmBindings.endpointBindings[application.Name()]
 	return processedStatus
+}
+
+func (context *statusContext) mapExposedEndpointsFromState(exposedEndpoints map[string]state.ExposedEndpoint) (map[string]params.ExposedEndpoint, error) {
+	if len(exposedEndpoints) == 0 {
+		return nil, nil
+	}
+
+	res := make(map[string]params.ExposedEndpoint, len(exposedEndpoints))
+	for endpointName, exposeDetails := range exposedEndpoints {
+		mappedParam := params.ExposedEndpoint{
+			ExposeToCIDRs: exposeDetails.ExposeToCIDRs,
+		}
+
+		if len(exposeDetails.ExposeToSpaceIDs) != 0 {
+			spaceNames := make([]string, len(exposeDetails.ExposeToSpaceIDs))
+			for i, spaceID := range exposeDetails.ExposeToSpaceIDs {
+				sp := context.spaceInfos.GetByID(spaceID)
+				if sp == nil {
+					return nil, errors.NotFoundf("space with ID %q", spaceID)
+				}
+
+				spaceNames[i] = string(sp.Name)
+			}
+			mappedParam.ExposeToSpaces = spaceNames
+		}
+
+		res[endpointName] = mappedParam
+	}
+
+	return res, nil
 }
 
 func (context *statusContext) processRemoteApplications() map[string]params.RemoteApplicationStatus {

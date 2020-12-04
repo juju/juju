@@ -18,7 +18,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/retry"
-	"github.com/juju/utils/exec"
+	"github.com/juju/utils/v2/exec"
 
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/plans/common"

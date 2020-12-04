@@ -9,6 +9,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/unitcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
@@ -21,6 +22,10 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
+// TODO (manadart 2020-10-21): Remove the ModelUUID method
+// from the next version of this facade.
+
+// Facade is the CAAS operator API facade.
 type Facade struct {
 	auth      facade.Authorizer
 	resources facade.Resources
@@ -51,19 +56,28 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "getting caas client")
 	}
+	containerStartWatcher, implemented := caasBroker.(CAASBrokerInterface)
+	if !implemented {
+		return nil, errors.NotSupportedf("watching for container start events")
+	}
 	leadershipRevoker, err := ctx.LeadershipRevoker(ctx.State().ModelUUID())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting leadership client")
 	}
-	return NewFacade(resources, authorizer, stateShim{ctx.State()},
-		caasBroker, leadershipRevoker)
+	return NewFacade(resources, authorizer,
+		stateShim{ctx.StatePool().SystemState()},
+		stateShim{ctx.State()},
+		unitcommon.Backend(ctx.State()),
+		containerStartWatcher, leadershipRevoker)
 }
 
 // NewFacade returns a new CAASOperator facade.
 func NewFacade(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
+	ctrlSt CAASControllerState,
 	st CAASOperatorState,
+	appGetter unitcommon.ApplicationGetter,
 	broker CAASBrokerInterface,
 	leadershipRevoker leadership.Revoker,
 ) (*Facade, error) {
@@ -78,34 +92,10 @@ func NewFacade(
 		common.AuthFuncForTagKind(names.ApplicationTagKind),
 		common.AuthFuncForTagKind(names.UnitTagKind),
 	)
-	accessUnit := func() (common.AuthFunc, error) {
-		switch tag := authorizer.GetAuthTag().(type) {
-		case names.ApplicationTag:
-			// Any of the units belonging to
-			// the application can be accessed.
-			app, err := st.Application(tag.Name)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			allUnits, err := app.AllUnits()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return func(tag names.Tag) bool {
-				for _, u := range allUnits {
-					if u.Tag() == tag {
-						return true
-					}
-				}
-				return false
-			}, nil
-		default:
-			return nil, errors.Errorf("expected names.ApplicationTag, got %T", tag)
-		}
-	}
+	accessUnit := unitcommon.UnitAccessor(authorizer, appGetter)
 	return &Facade{
 		LifeGetter:         common.NewLifeGetter(st, canRead),
-		APIAddresser:       common.NewAPIAddresser(st, resources),
+		APIAddresser:       common.NewAPIAddresser(ctrlSt, resources),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, canRead),
 		Remover:            common.NewRemover(st, common.RevokeLeadershipFunc(leadershipRevoker), true, accessUnit),
 		ToolsSetter:        common.NewToolsSetter(st, common.AuthFuncForTag(authorizer.GetAuthTag())),
@@ -301,4 +291,12 @@ func (f *Facade) watchContainerStart(tagString string, containerName string) (st
 		return f.resources.Register(uw), changes, nil
 	}
 	return "", nil, watcher.EnsureErr(uw)
+}
+
+// ModelUUID returns the model UUID that this facade is used to operate.
+// It is implemented here directly as a result of removing it from
+// embedded APIAddresser *without* bumping the facade version.
+// It should be blanked when this facade version is next incremented.
+func (f *Facade) ModelUUID() params.StringResult {
+	return params.StringResult{Result: f.model.UUID()}
 }

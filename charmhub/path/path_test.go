@@ -49,6 +49,17 @@ func (s *PathSuite) TestQuery(c *gc.C) {
 	c.Assert(newPath.String(), gc.Equals, "http://foobar/v1/path?q=foo")
 }
 
+func (s *PathSuite) TestQueryEmptyValue(c *gc.C) {
+	rawURL := MustParseURL(c, "http://foobar/v1/path")
+
+	path := MakePath(rawURL)
+
+	newPath, err := path.Query("q", "")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(path.String(), gc.Equals, newPath.String())
+	//c.Assert(newPath.String(), gc.Equals, "http://foobar/v1/path?q=foo")
+}
+
 func (s *PathSuite) TestJoinQuery(c *gc.C) {
 	rawURL := MustParseURL(c, "http://foobar/v1/path")
 

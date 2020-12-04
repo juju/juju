@@ -13,10 +13,11 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/errors"
 	"github.com/juju/http"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -274,7 +275,11 @@ func MustUploadFakeToolsVersions(stor storage.Storage, stream string, versions .
 
 func uploadFakeTools(stor storage.Storage, toolsDir, stream string) error {
 	toolsSeries := set.NewStrings(toolsLtsSeries...)
-	toolsSeries.Add(series.MustHostSeries())
+	hostSeries, err := series.HostSeries()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	toolsSeries.Add(hostSeries)
 	var versions []version.Binary
 	for _, series := range toolsSeries.Values() {
 		vers := version.Binary{
@@ -309,16 +314,12 @@ func MustUploadFakeTools(stor storage.Storage, toolsDir, stream string) {
 // RemoveFakeTools deletes the fake tools from the supplied storage.
 func RemoveFakeTools(c *gc.C, stor storage.Storage, toolsDir string) {
 	c.Logf("removing fake tools")
-	toolsVersion := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	toolsVersion := coretesting.CurrentVersion(c)
 	name := envtools.StorageName(toolsVersion, toolsDir)
 	err := stor.Remove(name)
 	c.Check(err, jc.ErrorIsNil)
-	defaultSeries := series.DefaultSupportedLTS()
-	if series.MustHostSeries() != defaultSeries {
+	defaultSeries := jujuversion.DefaultSupportedLTS()
+	if coretesting.HostSeries(c) != defaultSeries {
 		toolsVersion.Series = defaultSeries
 		name := envtools.StorageName(toolsVersion, toolsDir)
 		err := stor.Remove(name)

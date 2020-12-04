@@ -5,7 +5,6 @@ package state
 
 import (
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -13,7 +12,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils"
 	"github.com/juju/version"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -26,13 +24,7 @@ const (
 	actionMarker = "_a_"
 )
 
-var (
-	actionLogger = loggo.GetLogger("juju.state.action")
-
-	// NewUUID wraps the utils.NewUUID() call, and exposes it as a var to
-	// facilitate patching.
-	NewUUID = func() (utils.UUID, error) { return utils.NewUUID() }
-)
+var actionLogger = loggo.GetLogger("juju.state.action")
 
 // ActionStatus represents the possible end states for an action.
 type ActionStatus string
@@ -532,37 +524,14 @@ func newAction(st *State, adoc actionDoc) Action {
 	}
 }
 
-// MinVersionSupportNewActionID should be un-exposed after 2.7 released.
-// TODO(action): un-expose MinVersionSupportNewActionID and IsNewActionIDSupported and remove those helper functions using these two vars in tests from 2.7.0.
-var MinVersionSupportNewActionID = version.MustParse("2.6.999")
-
-// IsNewActionIDSupported checks if new action ID is supported for the specified version.
-func IsNewActionIDSupported(ver version.Number) bool {
-	return ver.Compare(MinVersionSupportNewActionID) >= 0
-}
-
 // newActionDoc builds the actionDoc with the given name and parameters.
 func newActionDoc(mb modelBackend, operationID string, receiverTag names.Tag, actionName string, parameters map[string]interface{}, modelAgentVersion version.Number) (actionDoc, actionNotificationDoc, error) {
 	prefix := ensureActionMarker(receiverTag.Id())
-	// For actions run on units, we want to use a user friendly action id.
-	// Theoretically, an action receiver could also be a machine, but for
-	// now we'll continue to use a UUID for that case, since I don't think
-
-	// we support machine actions anymore.
-	var actionId string
-	if receiverTag.Kind() == names.UnitTagKind && IsNewActionIDSupported(modelAgentVersion) {
-		id, err := sequenceWithMin(mb, "task", 1)
-		if err != nil {
-			return actionDoc{}, actionNotificationDoc{}, err
-		}
-		actionId = strconv.Itoa(id)
-	} else {
-		actionUUID, err := NewUUID()
-		if err != nil {
-			return actionDoc{}, actionNotificationDoc{}, err
-		}
-		actionId = actionUUID.String()
+	id, err := sequenceWithMin(mb, "task", 1)
+	if err != nil {
+		return actionDoc{}, actionNotificationDoc{}, err
 	}
+	actionId := strconv.Itoa(id)
 	actionLogger.Debugf("newActionDoc name: '%s', receiver: '%s', actionId: '%s'", actionName, receiverTag, actionId)
 	modelUUID := mb.modelUUID()
 	return actionDoc{
@@ -624,55 +593,6 @@ func (m *Model) AllActions() ([]Action, error) {
 // ActionByTag returns an Action given an ActionTag.
 func (m *Model) ActionByTag(tag names.ActionTag) (Action, error) {
 	return m.Action(tag.Id())
-}
-
-// FindActionTagsById finds Actions with ids that either
-// share the supplied prefix (for deprecated UUIDs), or match
-// the supplied id (for newer id integers). If passed an empty string
-// match all Actions.
-// It returns a list of corresponding ActionTags.
-func (m *Model) FindActionTagsById(idValue string) ([]names.ActionTag, error) {
-	actionLogger.Tracef("FindActionTagsById() %q", idValue)
-	var results []names.ActionTag
-	var doc struct {
-		Id string `bson:"_id"`
-	}
-
-	actions, closer := m.st.db().GetCollection(actionsC)
-	defer closer()
-
-	matchValue := m.st.docID(idValue)
-	agentVersion, err := m.AgentVersion()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	newIdsSupported := IsNewActionIDSupported(agentVersion)
-	maybeOldId := strings.ContainsAny(idValue, "-abcdef")
-	var filter bson.D
-	if idValue == "" {
-		// Match all when passed an empty id prefix for
-		// legacy behaviour.
-		filter = nil
-	} else if !newIdsSupported || maybeOldId {
-		filter = bson.D{{
-			"_id", bson.D{{"$regex", "^" + matchValue}},
-		}}
-	} else {
-		filter = bson.D{{
-			"_id", matchValue,
-		}}
-	}
-	iter := actions.Find(filter).Iter()
-	defer iter.Close()
-	for iter.Next(&doc) {
-		actionLogger.Tracef("FindActionTagsById() iter doc %+v", doc)
-		localID := m.st.localID(doc.Id)
-		if names.IsValidAction(localID) {
-			results = append(results, names.NewActionTag(localID))
-		}
-	}
-	actionLogger.Tracef("FindActionTagsById() %q found %+v", idValue, results)
-	return results, nil
 }
 
 // FindActionsByName finds Actions with the given name.

@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 
 	"github.com/juju/juju/api/block"
 	"github.com/juju/juju/apiserver/params"
@@ -115,6 +115,7 @@ func WaitForAgentInitialisation(
 		case errors.Cause(err) == io.EOF,
 			strings.HasSuffix(errorMessage, "no such host"), // wait for dns getting resolvable, aws elb for example.
 			strings.HasSuffix(errorMessage, "connection is shut down"),
+			strings.HasSuffix(errorMessage, "i/o timeout"),
 			strings.HasSuffix(errorMessage, "no api connection available"),
 			strings.Contains(errorMessage, "spaces are still being discovered"):
 			ctx.Verbosef("Still waiting for API to become available")

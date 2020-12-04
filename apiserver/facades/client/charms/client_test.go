@@ -17,12 +17,16 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	apiservermocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/client/charms"
+	"github.com/juju/juju/apiserver/facades/client/charms/interfaces"
 	"github.com/juju/juju/apiserver/facades/client/charms/mocks"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/cache"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
@@ -75,240 +79,8 @@ func (s *charmsSuite) SetUpTest(c *gc.C) {
 	}
 
 	var err error
-	s.api, err = charms.NewFacadeV3(&charmsSuiteContext{cs: s})
+	s.api, err = charms.NewFacadeV4(&charmsSuiteContext{cs: s})
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
-	var clientCharmInfoTests = []struct {
-		about    string
-		charm    string
-		url      string
-		expected params.Charm
-		err      string
-	}{
-		{
-			about: "dummy charm which contains an expectedActions spec",
-			charm: "dummy",
-			url:   "local:quantal/dummy-1",
-			expected: params.Charm{
-				Revision: 1,
-				URL:      "local:quantal/dummy-1",
-				Config: map[string]params.CharmOption{
-					"skill-level": {
-						Type:        "int",
-						Description: "A number indicating skill."},
-					"title": {
-						Type:        "string",
-						Description: "A descriptive title used for the application.",
-						Default:     "My Title"},
-					"outlook": {
-						Type:        "string",
-						Description: "No default outlook."},
-					"username": {
-						Type:        "string",
-						Description: "The name of the initial account (given admin permissions).",
-						Default:     "admin001"},
-				},
-				Meta: &params.CharmMeta{
-					Name:           "dummy",
-					Summary:        "That's a dummy charm.",
-					Description:    "This is a longer description which\npotentially contains multiple lines.\n",
-					Subordinate:    false,
-					MinJujuVersion: "0.0.0",
-				},
-				Actions: &params.CharmActions{
-					ActionSpecs: map[string]params.CharmActionSpec{
-						"snapshot": {
-							Description: "Take a snapshot of the database.",
-							Params: map[string]interface{}{
-								"title":       "snapshot",
-								"description": "Take a snapshot of the database.",
-								"type":        "object",
-								"properties": map[string]interface{}{
-									"outfile": map[string]interface{}{
-										"type":        "string",
-										"description": "The file to write out to.",
-										"default":     "foo.bz2",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			about: "dummy charm which contains lxd profile spec",
-			charm: "lxd-profile",
-			url:   "local:quantal/lxd-profile-0",
-			expected: params.Charm{
-				Revision: 0,
-				URL:      "local:quantal/lxd-profile-0",
-				Config:   map[string]params.CharmOption{},
-				Meta: &params.CharmMeta{
-					Name:           "lxd-profile",
-					Summary:        "start a juju machine with a lxd profile",
-					Description:    "Run an Ubuntu system, with the given lxd-profile\n",
-					Subordinate:    false,
-					MinJujuVersion: "0.0.0",
-					Provides: map[string]params.CharmRelation{
-						"ubuntu": {
-							Name:      "ubuntu",
-							Interface: "ubuntu",
-							Role:      "provider",
-							Scope:     "global",
-						},
-					},
-					ExtraBindings: map[string]string{
-						"another": "another",
-					},
-					Tags: []string{
-						"misc",
-						"application_development",
-					},
-					Series: []string{
-						"bionic",
-						"xenial",
-						"quantal",
-					},
-				},
-				Actions: &params.CharmActions{},
-				LXDProfile: &params.CharmLXDProfile{
-					Description: "lxd profile for testing, will pass validation",
-					Config: map[string]string{
-						"security.nesting":       "true",
-						"security.privileged":    "true",
-						"linux.kernel_modules":   "openvswitch,nbd,ip_tables,ip6_tables",
-						"environment.http_proxy": "",
-					},
-					Devices: map[string]map[string]string{
-						"tun": {
-							"path": "/dev/net/tun",
-							"type": "unix-char",
-						},
-						"sony": {
-							"type":      "usb",
-							"vendorid":  "0fce",
-							"productid": "51da",
-						},
-						"bdisk": {
-							"source": "/dev/loop0",
-							"type":   "unix-block",
-						},
-						"gpu": {
-							"type": "gpu",
-						},
-					},
-				},
-			},
-		},
-		{
-			about: "retrieves charm info",
-			// Use wordpress for tests so that we can compare Provides and Requires.
-			charm: "wordpress",
-			url:   "local:quantal/wordpress-3",
-			expected: params.Charm{
-				Revision: 3,
-				URL:      "local:quantal/wordpress-3",
-				Config: map[string]params.CharmOption{
-					"blog-title": {Type: "string", Description: "A descriptive title used for the blog.", Default: "My Title"}},
-				Meta: &params.CharmMeta{
-					Name:        "wordpress",
-					Summary:     "Blog engine",
-					Description: "A pretty popular blog engine",
-					Subordinate: false,
-					Provides: map[string]params.CharmRelation{
-						"logging-dir": {
-							Name:      "logging-dir",
-							Role:      "provider",
-							Interface: "logging",
-							Scope:     "container",
-						},
-						"monitoring-port": {
-							Name:      "monitoring-port",
-							Role:      "provider",
-							Interface: "monitoring",
-							Scope:     "container",
-						},
-						"url": {
-							Name:      "url",
-							Role:      "provider",
-							Interface: "http",
-							Scope:     "global",
-						},
-					},
-					Requires: map[string]params.CharmRelation{
-						"cache": {
-							Name:      "cache",
-							Role:      "requirer",
-							Interface: "varnish",
-							Optional:  true,
-							Limit:     2,
-							Scope:     "global",
-						},
-						"db": {
-							Name:      "db",
-							Role:      "requirer",
-							Interface: "mysql",
-							Limit:     1,
-							Scope:     "global",
-						},
-					},
-					ExtraBindings: map[string]string{
-						"admin-api": "admin-api",
-						"foo-bar":   "foo-bar",
-						"db-client": "db-client",
-					},
-					MinJujuVersion: "0.0.0",
-				},
-				Actions: &params.CharmActions{
-					ActionSpecs: map[string]params.CharmActionSpec{
-						"fakeaction": {
-							Description: "No description",
-							Params: map[string]interface{}{
-								"properties":  map[string]interface{}{},
-								"description": "No description",
-								"type":        "object",
-								"title":       "fakeaction"},
-						},
-					},
-				},
-			},
-		},
-		{
-			about: "invalid URL",
-			charm: "wordpress",
-			url:   "not-valid!",
-			err:   `cannot parse URL "not-valid!": name "not-valid!" not valid`,
-		},
-		{
-			about: "invalid schema",
-			charm: "wordpress",
-			url:   "not-valid:your-arguments",
-			err:   `cannot parse URL "not-valid:your-arguments": schema "not-valid" not valid`,
-		},
-		{
-			about: "unknown charm",
-			charm: "wordpress",
-			url:   "cs:missing/one-1",
-			err:   `charm "cs:missing/one-1" not found`,
-		},
-	}
-
-	for i, t := range clientCharmInfoTests {
-		c.Logf("test %d. %s", i, t.about)
-		s.AddTestingCharm(c, t.charm)
-		info, err := s.api.CharmInfo(params.CharmURL{URL: t.url})
-		if t.err != "" {
-			c.Check(err, gc.ErrorMatches, t.err)
-			continue
-		}
-		if c.Check(err, jc.ErrorIsNil) == false {
-			continue
-		}
-		c.Check(info, jc.DeepEquals, t.expected)
-	}
 }
 
 func (s *charmsSuite) TestMeteredCharmInfo(c *gc.C) {
@@ -376,13 +148,18 @@ func (s *charmsSuite) TestIsMeteredTrue(c *gc.C) {
 }
 
 type charmsMockSuite struct {
-	model      *mocks.MockBackendModel
-	state      *mocks.MockBackendState
-	authorizer *apiservermocks.MockAuthorizer
-	repository *mocks.MockCSRepository
-	strategy   *mocks.MockStrategy
-	charm      *mocks.MockStoreCharm
-	storage    *mocks.MockStorage
+	model       *mocks.MockBackendModel
+	state       *mocks.MockBackendState
+	authorizer  *apiservermocks.MockAuthorizer
+	repository  *mocks.MockCSRepository
+	strategy    *mocks.MockStrategy
+	charm       *mocks.MockStoreCharm
+	storage     *mocks.MockStorage
+	application *mocks.MockApplication
+	unit        *mocks.MockUnit
+	unit2       *mocks.MockUnit
+	machine     *mocks.MockMachine
+	machine2    *mocks.MockMachine
 }
 
 var _ = gc.Suite(&charmsMockSuite{})
@@ -397,10 +174,20 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	seriesCurl, err := charm.ParseURL("cs:focal/testme")
 	c.Assert(err, jc.ErrorIsNil)
+
 	edge := string(csparams.EdgeChannel)
 	stable := string(csparams.StableChannel)
-	edgeOrigin := params.CharmOrigin{Source: corecharm.CharmStore.String(), Risk: edge}
-	stableOrigin := params.CharmOrigin{Source: corecharm.CharmStore.String(), Risk: stable}
+	edgeOrigin := params.CharmOrigin{
+		Source: corecharm.CharmStore.String(),
+		Type:   "charm",
+		Risk:   edge,
+	}
+	stableOrigin := params.CharmOrigin{
+		Source: corecharm.CharmStore.String(),
+		Type:   "charm",
+		Risk:   stable,
+	}
+
 	args := params.ResolveCharmsWithChannel{
 		Resolve: []params.ResolveCharmWithChannel{
 			{Reference: curl.String(), Origin: params.CharmOrigin{Source: corecharm.CharmStore.String()}},
@@ -455,21 +242,25 @@ func (s *charmsMockSuite) TestResolveCharmNoDefinedSeries(c *gc.C) {
 
 	seriesCurl, err := charm.ParseURL("cs:focal/testme")
 	c.Assert(err, jc.ErrorIsNil)
+
 	edge := string(csparams.EdgeChannel)
-	edgeOrigin := params.CharmOrigin{Source: corecharm.CharmStore.String(), Risk: edge}
+	edgeOrigin := params.CharmOrigin{
+		Source: corecharm.CharmStore.String(),
+		Type:   "charm",
+		Risk:   edge,
+	}
+
 	args := params.ResolveCharmsWithChannel{
 		Resolve: []params.ResolveCharmWithChannel{
 			{Reference: seriesCurl.String(), Origin: edgeOrigin},
 		},
 	}
 
-	expected := []params.ResolveCharmWithChannelResult{
-		{
-			URL:             seriesCurl.String(),
-			Origin:          edgeOrigin,
-			SupportedSeries: []string{"focal"},
-		},
-	}
+	expected := []params.ResolveCharmWithChannelResult{{
+		URL:             seriesCurl.String(),
+		Origin:          edgeOrigin,
+		SupportedSeries: []string{"focal"},
+	}}
 	result, err := api.ResolveCharms(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -580,7 +371,7 @@ func (s *charmsMockSuite) TestAddCharmAlreadyExists(c *gc.C) {
 	}
 	obtained, err := api.AddCharm(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.DeepEquals, params.CharmOriginResult{})
+	c.Assert(obtained, gc.DeepEquals, params.CharmOriginResult{Origin: params.CharmOrigin{Source: "charm-store"}})
 }
 
 func (s *charmsMockSuite) TestAddCharmWithAuthorization(c *gc.C) {
@@ -616,12 +407,182 @@ func (s *charmsMockSuite) TestAddCharmWithAuthorization(c *gc.C) {
 	})
 }
 
+func (s *charmsMockSuite) TestCheckCharmPlacementWithSubordinate(c *gc.C) {
+	appName := "winnie"
+
+	curl, err := charm.ParseURL("ch:poo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer s.setupMocks(c).Finish()
+	s.expectSubordinateApplication(appName)
+
+	api := s.api(c)
+
+	args := params.ApplicationCharmPlacements{
+		Placements: []params.ApplicationCharmPlacement{{
+			Application: appName,
+			CharmURL:    curl.String(),
+		}},
+	}
+
+	result, err := api.CheckCharmPlacement(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), jc.ErrorIsNil)
+}
+
+func (s *charmsMockSuite) TestCheckCharmPlacementWithConstraintArch(c *gc.C) {
+	arch := arch.DefaultArchitecture
+	appName := "winnie"
+
+	curl, err := charm.ParseURL("ch:poo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer s.setupMocks(c).Finish()
+	s.expectApplication(appName)
+	s.expectApplicationConstraints(constraints.Value{Arch: &arch})
+
+	api := s.api(c)
+
+	args := params.ApplicationCharmPlacements{
+		Placements: []params.ApplicationCharmPlacement{{
+			Application: appName,
+			CharmURL:    curl.String(),
+		}},
+	}
+
+	result, err := api.CheckCharmPlacement(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), jc.ErrorIsNil)
+}
+
+func (s *charmsMockSuite) TestCheckCharmPlacementWithNoConstraintArch(c *gc.C) {
+	appName := "winnie"
+
+	curl, err := charm.ParseURL("ch:poo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer s.setupMocks(c).Finish()
+	s.expectApplication(appName)
+	s.expectApplicationConstraints(constraints.Value{})
+	s.expectAllUnits()
+	s.expectUnitMachineID()
+	s.expectMachine()
+	s.expectMachineConstraints(constraints.Value{})
+	s.expectHardwareCharacteristics()
+
+	api := s.api(c)
+
+	args := params.ApplicationCharmPlacements{
+		Placements: []params.ApplicationCharmPlacement{{
+			Application: appName,
+			CharmURL:    curl.String(),
+		}},
+	}
+
+	result, err := api.CheckCharmPlacement(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), jc.ErrorIsNil)
+}
+
+func (s *charmsMockSuite) TestCheckCharmPlacementWithNoConstraintArchMachine(c *gc.C) {
+	arch := arch.DefaultArchitecture
+	appName := "winnie"
+
+	curl, err := charm.ParseURL("ch:poo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer s.setupMocks(c).Finish()
+	s.expectApplication(appName)
+	s.expectApplicationConstraints(constraints.Value{})
+	s.expectAllUnits()
+	s.expectUnitMachineID()
+	s.expectMachine()
+	s.expectMachineConstraints(constraints.Value{Arch: &arch})
+
+	api := s.api(c)
+
+	args := params.ApplicationCharmPlacements{
+		Placements: []params.ApplicationCharmPlacement{{
+			Application: appName,
+			CharmURL:    curl.String(),
+		}},
+	}
+
+	result, err := api.CheckCharmPlacement(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), jc.ErrorIsNil)
+}
+
+func (s *charmsMockSuite) TestCheckCharmPlacementWithNoConstraintArchAndHardwareArch(c *gc.C) {
+	appName := "winnie"
+
+	curl, err := charm.ParseURL("ch:poo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer s.setupMocks(c).Finish()
+	s.expectApplication(appName)
+	s.expectApplicationConstraints(constraints.Value{})
+	s.expectAllUnits()
+	s.expectUnitMachineID()
+	s.expectMachine()
+	s.expectMachineConstraints(constraints.Value{})
+	s.expectEmptyHardwareCharacteristics()
+
+	api := s.api(c)
+
+	args := params.ApplicationCharmPlacements{
+		Placements: []params.ApplicationCharmPlacement{{
+			Application: appName,
+			CharmURL:    curl.String(),
+		}},
+	}
+
+	result, err := api.CheckCharmPlacement(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), jc.ErrorIsNil)
+}
+
+func (s *charmsMockSuite) TestCheckCharmPlacementWithHeterogeneous(c *gc.C) {
+	appName := "winnie"
+
+	curl, err := charm.ParseURL("ch:poo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer s.setupMocks(c).Finish()
+	s.expectApplication(appName)
+	s.expectApplicationConstraints(constraints.Value{})
+	s.expectHeterogeneousUnits()
+
+	s.expectUnitMachineID()
+	s.expectMachine()
+	s.expectMachineConstraints(constraints.Value{})
+	s.expectHardwareCharacteristics()
+
+	s.expectUnit2MachineID()
+	s.expectMachine2()
+	s.expectMachineConstraints2(constraints.Value{})
+	s.expectHardwareCharacteristics2()
+
+	api := s.api(c)
+
+	args := params.ApplicationCharmPlacements{
+		Placements: []params.ApplicationCharmPlacement{{
+			Application: appName,
+			CharmURL:    curl.String(),
+		}},
+	}
+
+	result, err := api.CheckCharmPlacement(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), gc.ErrorMatches, "charm can not be placed in a heterogeneous environment")
+}
+
 func (s *charmsMockSuite) api(c *gc.C) *charms.API {
 	repoFunc := func(_ charms.ResolverGetterParams) (charms.CSRepository, error) {
 		return s.repository, nil
 	}
 	stratFuc := func(source string) charms.StrategyFunc {
-		return func(charmRepo charms.Repository, url string, force bool) (charms.Strategy, error) {
+		return func(charmRepo corecharm.Repository, url string, force bool) (charms.Strategy, error) {
 			return s.strategy, nil
 		}
 	}
@@ -657,6 +618,13 @@ func (s *charmsMockSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.strategy = mocks.NewMockStrategy(ctrl)
 	s.charm = mocks.NewMockStoreCharm(ctrl)
 	s.storage = mocks.NewMockStorage(ctrl)
+
+	s.application = mocks.NewMockApplication(ctrl)
+	s.unit = mocks.NewMockUnit(ctrl)
+	s.unit2 = mocks.NewMockUnit(ctrl)
+	s.machine = mocks.NewMockMachine(ctrl)
+	s.machine2 = mocks.NewMockMachine(ctrl)
+
 	return ctrl
 }
 
@@ -704,7 +672,11 @@ func (s *charmsMockSuite) expectFinish() {
 }
 
 func (s *charmsMockSuite) expectRun(download corecharm.DownloadResult, already bool, err error) {
-	s.strategy.EXPECT().Run(gomock.Any(), gomock.Any()).Return(download, already, err)
+	s.strategy.EXPECT().Run(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(corecharm.Origin{})).DoAndReturn(
+		func(_ corecharm.State, _ corecharm.JujuVersionValidator, origin corecharm.Origin) (corecharm.DownloadResult, bool, corecharm.Origin, error) {
+			return download, already, origin, err
+		},
+	)
 }
 
 func (s *charmsMockSuite) expectValidate() {
@@ -737,4 +709,71 @@ func (s *charmsMockSuite) expectRemove() {
 
 func (s *charmsMockSuite) expectUpdateUploadedCharm(err error) {
 	s.state.EXPECT().UpdateUploadedCharm(gomock.Any()).Return(nil, err)
+}
+
+func (s *charmsMockSuite) expectApplication(name string) {
+	s.state.EXPECT().Application(name).Return(s.application, nil)
+	s.application.EXPECT().IsPrincipal().Return(true)
+}
+
+func (s *charmsMockSuite) expectSubordinateApplication(name string) {
+	s.state.EXPECT().Application(name).Return(s.application, nil)
+	s.application.EXPECT().IsPrincipal().Return(false)
+}
+
+func (s *charmsMockSuite) expectApplicationConstraints(cons constraints.Value) {
+	s.application.EXPECT().Constraints().Return(cons, nil)
+}
+
+func (s *charmsMockSuite) expectAllUnits() {
+	s.application.EXPECT().AllUnits().Return([]interfaces.Unit{s.unit}, nil)
+}
+
+func (s *charmsMockSuite) expectHeterogeneousUnits() {
+	s.application.EXPECT().AllUnits().Return([]interfaces.Unit{
+		s.unit,
+		s.unit2,
+	}, nil)
+}
+
+func (s *charmsMockSuite) expectUnitMachineID() {
+	s.unit.EXPECT().AssignedMachineId().Return("winnie-poo", nil)
+}
+
+func (s *charmsMockSuite) expectUnit2MachineID() {
+	s.unit2.EXPECT().AssignedMachineId().Return("piglet", nil)
+}
+
+func (s *charmsMockSuite) expectMachine() {
+	s.state.EXPECT().Machine("winnie-poo").Return(s.machine, nil)
+}
+
+func (s *charmsMockSuite) expectMachine2() {
+	s.state.EXPECT().Machine("piglet").Return(s.machine2, nil)
+}
+
+func (s *charmsMockSuite) expectMachineConstraints(cons constraints.Value) {
+	s.machine.EXPECT().Constraints().Return(cons, nil)
+}
+
+func (s *charmsMockSuite) expectHardwareCharacteristics() {
+	arch := arch.DefaultArchitecture
+	s.machine.EXPECT().HardwareCharacteristics().Return(&instance.HardwareCharacteristics{
+		Arch: &arch,
+	}, nil)
+}
+
+func (s *charmsMockSuite) expectEmptyHardwareCharacteristics() {
+	s.machine.EXPECT().HardwareCharacteristics().Return(&instance.HardwareCharacteristics{}, nil)
+}
+
+func (s *charmsMockSuite) expectHardwareCharacteristics2() {
+	arch := "arm64"
+	s.machine2.EXPECT().HardwareCharacteristics().Return(&instance.HardwareCharacteristics{
+		Arch: &arch,
+	}, nil)
+}
+
+func (s *charmsMockSuite) expectMachineConstraints2(cons constraints.Value) {
+	s.machine2.EXPECT().Constraints().Return(cons, nil)
 }

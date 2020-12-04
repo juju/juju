@@ -9,7 +9,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/firewaller"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/state"
 )
 
 type applicationSuite struct {
@@ -53,7 +56,7 @@ func (s *applicationSuite) TestWatch(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Change something and check it's detected.
-	err = s.application.SetExposed(nil)
+	err = s.application.MergeExposeSettings(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
@@ -63,18 +66,30 @@ func (s *applicationSuite) TestWatch(c *gc.C) {
 	wc.AssertOneChange()
 }
 
-func (s *applicationSuite) TestIsExposed(c *gc.C) {
-	err := s.application.SetExposed(nil)
+func (s *applicationSuite) TestExposeInfo(c *gc.C) {
+	err := s.application.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		"": {
+			ExposeToSpaceIDs: []string{network.AlphaSpaceId},
+			ExposeToCIDRs:    []string{"10.0.0.0/16", "192.168.0.0/24"},
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	isExposed, err := s.apiApplication.IsExposed()
+	isExposed, exposedEndpoints, err := s.apiApplication.ExposeInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isExposed, jc.IsTrue)
+	c.Assert(exposedEndpoints, gc.DeepEquals, map[string]params.ExposedEndpoint{
+		"": {
+			ExposeToSpaces: []string{network.AlphaSpaceId},
+			ExposeToCIDRs:  []string{"10.0.0.0/16", "192.168.0.0/24"},
+		},
+	})
 
 	err = s.application.ClearExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
-	isExposed, err = s.apiApplication.IsExposed()
+	isExposed, exposedEndpoints, err = s.apiApplication.ExposeInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isExposed, jc.IsFalse)
+	c.Assert(exposedEndpoints, gc.HasLen, 0)
 }

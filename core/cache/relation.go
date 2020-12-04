@@ -35,15 +35,10 @@ func (r *Relation) Endpoints() []Endpoint {
 }
 
 func (r *Relation) setDetails(details RelationChange) {
-	// If this is the first receipt of details, set the removal message.
-	if r.removalMessage == nil {
-		r.removalMessage = RemoveRelation{
-			ModelUUID: details.ModelUUID,
-			Key:       details.Key,
-		}
-	}
-
-	r.setStale(false)
+	r.setRemovalMessage(RemoveRelation{
+		ModelUUID: details.ModelUUID,
+		Key:       details.Key,
+	})
 }
 
 // copy returns a copy of the unit, ensuring appropriate deep copying.

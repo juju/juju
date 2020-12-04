@@ -11,19 +11,22 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apicharm "github.com/juju/juju/api/common/charm"
+	commoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/apiserver/params"
 )
 
 // Client allows access to the charms API end point.
 type Client struct {
 	base.ClientFacade
+	*commoncharms.CharmsClient
 	facade base.FacadeCaller
 }
 
 // NewClient creates a new client for accessing the charms API.
 func NewClient(st base.APICallCloser) *Client {
 	frontend, backend := base.NewClientFacade(st, "Charms")
-	return &Client{ClientFacade: frontend, facade: backend}
+	commonClient := commoncharms.NewCharmsClient(backend)
+	return &Client{ClientFacade: frontend, CharmsClient: commonClient, facade: backend}
 }
 
 // IsMetered returns whether or not the charm is metered.
@@ -52,7 +55,13 @@ type ResolvedCharm struct {
 
 // ResolveCharms resolves the given charm URLs with an optionally specified
 // preferred channel.
+// ResolveCharms is only supported in version 3 and above, it is expected that
+// the consumer of the client is intended to handle the fallback.
 func (c *Client) ResolveCharms(charms []CharmToResolve) ([]ResolvedCharm, error) {
+	if c.facade.BestAPIVersion() < 3 {
+		return nil, errors.NotSupportedf("resolve charms")
+	}
+
 	args := params.ResolveCharmsWithChannel{
 		Resolve: make([]params.ResolveCharmWithChannel, len(charms)),
 	}
@@ -86,38 +95,40 @@ func (c *Client) ResolveCharms(charms []CharmToResolve) ([]ResolvedCharm, error)
 	return resolvedCharms, nil
 }
 
-// CharmInfo holds information about a charm.
-type CharmInfo struct {
-	Revision   int
-	URL        string
-	Config     *charm.Config
-	Meta       *charm.Meta
-	Actions    *charm.Actions
-	Metrics    *charm.Metrics
-	LXDProfile *charm.LXDProfile
+// DownloadInfo holds the URL and Origin for a charm that requires downloading
+// on the client side. This is mainly for bundles as we don't resolve bundles
+// on the server.
+type DownloadInfo struct {
+	URL    string
+	Origin apicharm.Origin
 }
 
-// CharmInfo returns information about the requested charm.
-func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
-	args := params.CharmURL{URL: charmURL}
-	var info params.Charm
-	if err := c.facade.FacadeCall("CharmInfo", args, &info); err != nil {
-		return nil, errors.Trace(err)
+// GetDownloadInfo will get a download information from the given charm URL
+// using the appropriate charm store.
+func (c *Client) GetDownloadInfo(curl *charm.URL, origin apicharm.Origin, mac *macaroon.Macaroon) (DownloadInfo, error) {
+	if c.facade.BestAPIVersion() < 3 {
+		return DownloadInfo{}, errors.NotSupportedf("get download info")
 	}
-	meta, err := convertCharmMeta(info.Meta)
-	if err != nil {
-		return nil, errors.Trace(err)
+
+	args := params.CharmURLAndOrigins{
+		Entities: []params.CharmURLAndOrigin{{
+			CharmURL: curl.String(),
+			Origin:   origin.ParamsCharmOrigin(),
+			Macaroon: mac,
+		}},
 	}
-	result := &CharmInfo{
-		Revision:   info.Revision,
-		URL:        info.URL,
-		Config:     params.FromCharmOptionMap(info.Config),
-		Meta:       meta,
-		Actions:    convertCharmActions(info.Actions),
-		Metrics:    convertCharmMetrics(info.Metrics),
-		LXDProfile: convertCharmLXDProfile(info.LXDProfile),
+	var results params.DownloadInfoResults
+	if err := c.facade.FacadeCall("GetDownloadInfos", args, &results); err != nil {
+		return DownloadInfo{}, errors.Trace(err)
 	}
-	return result, nil
+	if num := len(results.Results); num != 1 {
+		return DownloadInfo{}, errors.Errorf("expected one result, received %d", num)
+	}
+	result := results.Results[0]
+	return DownloadInfo{
+		URL:    result.URL,
+		Origin: apicharm.APICharmOrigin(result.Origin),
+	}, nil
 }
 
 // AddCharm adds the given charm URL (which must include revision) to
@@ -133,6 +144,9 @@ func (c *Client) AddCharm(curl *charm.URL, origin apicharm.Origin, force bool) (
 		URL:    curl.String(),
 		Origin: origin.ParamsCharmOrigin(),
 		Force:  force,
+		// Deprecated: Series is used here to communicate with older
+		// controllers and instead we use Origin to describe the platform.
+		Series: origin.Series,
 	}
 	var result params.CharmOriginResult
 	if err := c.facade.FacadeCall("AddCharm", args, &result); err != nil {
@@ -158,10 +172,30 @@ func (c *Client) AddCharmWithAuthorization(curl *charm.URL, origin apicharm.Orig
 		Origin:             origin.ParamsCharmOrigin(),
 		CharmStoreMacaroon: csMac,
 		Force:              force,
+		// Deprecated: Series is used here to communicate with older
+		// controllers and instead we use Origin to describe the platform.
+		Series: origin.Series,
 	}
 	var result params.CharmOriginResult
 	if err := c.facade.FacadeCall("AddCharmWithAuthorization", args, &result); err != nil {
 		return apicharm.Origin{}, errors.Trace(err)
 	}
 	return apicharm.APICharmOrigin(result.Origin), nil
+}
+
+// CheckCharmPlacement checks to see if a charm can be placed into the
+// application. If the application doesn't exist then it is considered fine to
+// be placed there.
+func (c *Client) CheckCharmPlacement(applicationName string, curl *charm.URL) error {
+	args := params.ApplicationCharmPlacements{
+		Placements: []params.ApplicationCharmPlacement{{
+			Application: applicationName,
+			CharmURL:    curl.String(),
+		}},
+	}
+	var result params.ErrorResults
+	if err := c.facade.FacadeCall("CheckCharmPlacement", args, &result); err != nil {
+		return errors.Trace(err)
+	}
+	return result.OneError()
 }

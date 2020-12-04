@@ -14,15 +14,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/container/factory"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 )
 
@@ -43,18 +40,18 @@ var tmpFile = func() (*os.File, error) {
 // Reboot implements the ExecuteReboot command which will reboot a machine
 // once all containers have shut down, or a timeout is reached
 type Reboot struct {
-	acfg agent.Config
-	tag  names.MachineTag
+	acfg   AgentConfig
+	reboot RebootWaiter
 }
 
 func NewRebootWaiter(acfg agent.Config) (*Reboot, error) {
-	tag, ok := acfg.Tag().(names.MachineTag)
-	if !ok {
+	// ensure we're only running on a machine agent.
+	if _, ok := acfg.Tag().(names.MachineTag); !ok {
 		return nil, errors.Errorf("Expected names.MachineTag, got: %T --> %v", acfg.Tag(), acfg.Tag())
 	}
 	return &Reboot{
-		acfg: acfg,
-		tag:  tag,
+		acfg:   &agentConfigShim{aCfg: acfg},
+		reboot: rebootWaiterShim{},
 	}, nil
 }
 
@@ -76,7 +73,7 @@ func (r *Reboot) ExecuteReboot(action params.RebootAction) error {
 		return errors.Trace(err)
 	}
 
-	if err := scheduleAction(action, rebootAfter); err != nil {
+	if err := r.reboot.ScheduleAction(action, rebootAfter); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -84,17 +81,17 @@ func (r *Reboot) ExecuteReboot(action params.RebootAction) error {
 }
 
 func (r *Reboot) stopDeployedUnits() error {
-	osVersion, err := series.HostSeries()
+	osVersion, err := r.reboot.HostSeries()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	services, err := service.ListServices()
+	services, err := r.reboot.ListServices()
 	if err != nil {
 		return err
 	}
 	for _, svcName := range services {
 		if strings.HasPrefix(svcName, `jujud-unit-`) {
-			svc, err := service.NewService(svcName, common.Conf{}, osVersion)
+			svc, err := r.reboot.NewService(svcName, common.Conf{}, osVersion)
 			if err != nil {
 				return err
 			}
@@ -115,7 +112,7 @@ func (r *Reboot) runningContainers() ([]instances.Instance, error) {
 			container.ConfigModelUUID: modelUUID,
 		}
 		cfg := managerConfig
-		manager, err := factory.NewContainerManager(val, cfg)
+		manager, err := r.reboot.NewContainerManager(val, cfg)
 		if err != nil {
 			return nil, errors.Annotatef(err, "failed to get manager for container type %v", val)
 		}
@@ -123,11 +120,11 @@ func (r *Reboot) runningContainers() ([]instances.Instance, error) {
 			logger.Infof("container type %q not supported", val)
 			continue
 		}
-		instances, err := manager.ListContainers()
+		containers, err := manager.ListContainers()
 		if err != nil {
 			return nil, errors.Annotate(err, "failed to list containers")
 		}
-		runningInstances = append(runningInstances, instances...)
+		runningInstances = append(runningInstances, containers...)
 	}
 	return runningInstances, nil
 }

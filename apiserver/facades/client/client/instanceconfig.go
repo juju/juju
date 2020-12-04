@@ -24,7 +24,7 @@ import (
 // is needed for machine cloud-init (for non-controllers only). It
 // is exposed for testing purposes.
 // TODO(rog) fix environs/manual tests so they do not need to call this, or move this elsewhere.
-func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instancecfg.InstanceConfig, error) {
+func InstanceConfig(ctrlSt *state.State, st *state.State, machineId, nonce, dataDir string) (*instancecfg.InstanceConfig, error) {
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting state model")
@@ -75,14 +75,14 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 	}
 	toolsList := findToolsResult.List
 
-	controllerConfig, err := st.ControllerConfig()
+	controllerConfig, err := ctrlSt.ControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	caCert, _ := controllerConfig.CACert()
 
 	// Get the API connection info; attempt all API addresses.
-	apiHostPorts, err := st.APIHostPortsForAgents()
+	apiHostPorts, err := ctrlSt.APIHostPortsForAgents()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting API addresses")
 	}
@@ -98,7 +98,7 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 		ModelTag: model.ModelTag(),
 	}
 
-	_, apiInfo, err = authentication.SetupAuthentication(machine, nil, apiInfo)
+	apiInfo, err = authentication.SetupAuthentication(machine, apiInfo)
 	if err != nil {
 		return nil, errors.Annotate(err, "setting up machine authentication")
 	}

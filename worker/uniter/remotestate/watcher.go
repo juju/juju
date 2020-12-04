@@ -4,6 +4,7 @@
 package remotestate
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -34,11 +35,13 @@ type Logger interface {
 // from separate state watchers, and updates a Snapshot which is sent on a
 // channel upon change.
 type RemoteStateWatcher struct {
-	st          State
-	unit        Unit
-	application Application
-	modelType   model.ModelType
-	logger      Logger
+	st                           State
+	unit                         Unit
+	application                  Application
+	modelType                    model.ModelType
+	embedded                     bool
+	enforcedCharmModifiedVersion int
+	logger                       Logger
 
 	relations                     map[names.RelationTag]*wrappedRelationUnitsWatcher
 	relationUnitsChanges          chan relationUnitsChange
@@ -85,12 +88,18 @@ type WatcherConfig struct {
 	ContainerRunningStatusFunc    ContainerRunningStatusFunc
 	UnitTag                       names.UnitTag
 	ModelType                     model.ModelType
+	Embedded                      bool
+	EnforcedCharmModifiedVersion  int
 	Logger                        Logger
 	CanApplyCharmProfile          bool
 }
 
 func (w WatcherConfig) validate() error {
-	if w.ModelType == model.CAAS {
+	if w.ModelType == model.IAAS && w.Embedded {
+		return errors.NewNotValid(nil, fmt.Sprintf("embedded mode is only for %q model", model.CAAS))
+	}
+
+	if w.ModelType == model.CAAS && !w.Embedded {
 		if w.ApplicationChannel == nil {
 			return errors.NotValidf("watcher config for CAAS model with nil application channel")
 		}
@@ -138,6 +147,8 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 			ActionsBlocked: config.ContainerRunningStatusChannel != nil,
 			ActionChanged:  make(map[string]int),
 		},
+		embedded:                     config.Embedded,
+		enforcedCharmModifiedVersion: config.EnforcedCharmModifiedVersion,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -321,13 +332,13 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 
 	// CAAS models don't use an application watcher
 	// which fires an initial event.
-	if w.modelType == model.CAAS {
+	if w.modelType == model.CAAS && !w.embedded {
 		seenApplicationChange = true
 	}
 
-	if w.modelType == model.IAAS {
-		// This is in IAAS model so we need to watch state for application
-		// charm changes instead of being informed by the operator.
+	if w.modelType == model.IAAS || w.embedded {
+		// For IAAS model and embedded CAAS model, we need to watch state for
+		// application charm changes instead of being informed by the operator.
 		applicationw, err := w.application.Watch()
 		if err != nil {
 			return errors.Trace(err)
@@ -337,7 +348,9 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		}
 		w.applicationChannel = applicationw.Changes()
 		requiredEvents++
+	}
 
+	if w.modelType == model.IAAS {
 		// Only IAAS models support upgrading the machine series.
 		// TODO(externalreality) This pattern should probably be extracted
 		upgradeSeriesw, err := w.unit.WatchUpgradeSeriesNotifications()
@@ -459,7 +472,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			return w.catacomb.ErrDying()
 
 		case _, ok := <-unitw.Changes():
-			w.logger.Debugf("got unit change")
+			w.logger.Debugf("got unit change for %s", w.unit.Tag().Id())
 			if !ok {
 				return errors.New("unit watcher closed")
 			}
@@ -469,7 +482,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenUnitChange)
 
 		case _, ok := <-w.applicationChannel:
-			w.logger.Debugf("got application change")
+			w.logger.Debugf("got application change for %s", w.unit.Tag().Id())
 			if !ok {
 				return errors.New("application watcher closed")
 			}
@@ -479,7 +492,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenApplicationChange)
 
 		case _, ok := <-instanceDataChannel:
-			w.logger.Debugf("got instance data change")
+			w.logger.Debugf("got instance data change for %s", w.unit.Tag().Id())
 			if !ok {
 				return errors.New("instance data watcher closed")
 			}
@@ -489,7 +502,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenInstanceDataChange)
 
 		case _, ok := <-w.containerRunningStatusChannel:
-			w.logger.Debugf("got running status change")
+			w.logger.Debugf("got running status change for %s", w.unit.Tag().Id())
 			if !ok {
 				return errors.New("running status watcher closed")
 			}
@@ -499,7 +512,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 				}
 				if w.current.ProviderID == "" {
 					// This shouldn't happen.
-					w.logger.Warningf("we should already be assigned a provider id but got an empty id")
+					w.logger.Warningf("we should already be assigned a provider id for %s but got an empty id", w.unit.Tag().Id())
 					return nil
 				}
 			}
@@ -510,7 +523,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			w.containerRunningStatus(*runningStatus)
 
 		case hashes, ok := <-charmConfigw.Changes():
-			w.logger.Debugf("got config change: ok=%t, hashes=%v", ok, hashes)
+			w.logger.Debugf("got config change for %s: ok=%t, hashes=%v", w.unit.Tag().Id(), ok, hashes)
 			if !ok {
 				return errors.New("config watcher closed")
 			}
@@ -521,7 +534,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenConfigChange)
 
 		case hashes, ok := <-trustConfigw.Changes():
-			w.logger.Debugf("got trust config change: ok=%t, hashes=%v", ok, hashes)
+			w.logger.Debugf("got trust config change for %s: ok=%t, hashes=%v", w.unit.Tag().Id(), ok, hashes)
 			if !ok {
 				return errors.New("trust config watcher closed")
 			}
@@ -542,7 +555,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenUpgradeSeriesChange)
 
 		case hashes, ok := <-addressesChanges:
-			w.logger.Debugf("got address change: ok=%t, hashes=%v", ok, hashes)
+			w.logger.Debugf("got address change for %s: ok=%t, hashes=%v", w.unit.Tag().Id(), ok, hashes)
 			if !ok {
 				return errors.New("addresses watcher closed")
 			}
@@ -553,7 +566,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenAddressesChange)
 
 		case _, ok := <-leaderSettingsw.Changes():
-			w.logger.Debugf("got leader settings change: ok=%t", ok)
+			w.logger.Debugf("got leader settings change for %s: ok=%t", w.unit.Tag().Id(), ok)
 			if !ok {
 				return errors.New("leader settings watcher closed")
 			}
@@ -563,7 +576,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenLeaderSettingsChange)
 
 		case actions, ok := <-actionsw.Changes():
-			w.logger.Debugf("got action change: %v ok=%t", actions, ok)
+			w.logger.Debugf("got action change for %s: %v ok=%t", w.unit.Tag().Id(), actions, ok)
 			if !ok {
 				return errors.New("actions watcher closed")
 			}
@@ -571,7 +584,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenActionsChange)
 
 		case keys, ok := <-relationsw.Changes():
-			w.logger.Debugf("got relations change: ok=%t", ok)
+			w.logger.Debugf("got relations change for %s: ok=%t", w.unit.Tag().Id(), ok)
 			if !ok {
 				return errors.New("relations watcher closed")
 			}
@@ -581,7 +594,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenRelationsChange)
 
 		case keys, ok := <-storagew.Changes():
-			w.logger.Debugf("got storage change: %v ok=%t", keys, ok)
+			w.logger.Debugf("got storage change for %s: %v ok=%t", w.unit.Tag().Id(), keys, ok)
 			if !ok {
 				return errors.New("storage watcher closed")
 			}
@@ -591,7 +604,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenStorageChange)
 
 		case _, ok := <-updateStatusIntervalw.Changes():
-			w.logger.Debugf("got update status interval change: ok=%t", ok)
+			w.logger.Debugf("got update status interval change for %s: ok=%t", w.unit.Tag().Id(), ok)
 			if !ok {
 				return errors.New("update status interval watcher closed")
 			}
@@ -624,17 +637,17 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			waitMinion = w.leadershipTracker.WaitMinion().Ready()
 
 		case change := <-w.storageAttachmentChanges:
-			w.logger.Debugf("storage attachment change %v", change)
+			w.logger.Debugf("storage attachment change for %s: %v", w.unit.Tag().Id(), change)
 			w.storageAttachmentChanged(change)
 
 		case change := <-w.relationUnitsChanges:
-			w.logger.Debugf("got a relation units change: %v", change)
+			w.logger.Debugf("got a relation units change for %s : %v", w.unit.Tag().Id(), change)
 			if err := w.relationUnitsChanged(change); err != nil {
 				return errors.Trace(err)
 			}
 
 		case <-updateStatusTimer:
-			w.logger.Debugf("update status timer triggered")
+			w.logger.Debugf("update status timer triggered for %s", w.unit.Tag().Id())
 			w.updateStatusChanged()
 			resetUpdateStatusTimer()
 
@@ -642,14 +655,14 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if !ok {
 				return errors.New("commandChannel closed")
 			}
-			w.logger.Debugf("command enqueued: %v", id)
+			w.logger.Debugf("command enqueued for %s: %v", w.unit.Tag().Id(), id)
 			w.commandsChanged(id)
 
 		case _, ok := <-w.retryHookChannel:
 			if !ok {
 				return errors.New("retryHookChannel closed")
 			}
-			w.logger.Debugf("retry hook timer triggered")
+			w.logger.Debugf("retry hook timer triggered for %s", w.unit.Tag().Id())
 			w.retryHookTimerTriggered()
 		}
 
@@ -750,6 +763,11 @@ func (w *RemoteStateWatcher) applicationChanged() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// CAAS embedded charms will wait for the provider to restart/recreate
+	// the unit before performing an upgrade.
+	if w.embedded && ver != w.enforcedCharmModifiedVersion {
+		return nil
+	}
 	w.mu.Lock()
 	w.current.CharmURL = url
 	w.current.ForceCharmUpgrade = force
@@ -843,7 +861,7 @@ func (w *RemoteStateWatcher) ensureRelationUnits(rel Relation) error {
 				if err != nil {
 					// This was always silently ignored, so it can't be
 					// particularly useful, but avoid suppressing errors entirely.
-					w.logger.Debugf("error stopping relation watcher: %v", err)
+					w.logger.Debugf("error stopping relation watcher for %s: %v", w.unit.Tag().Id(), err)
 				}
 				delete(w.relations, relationTag)
 			}
@@ -1014,8 +1032,8 @@ func (w *RemoteStateWatcher) storageChanged(keys []string) error {
 			delete(w.current.Storage, tag)
 		} else {
 			return errors.Annotatef(
-				result.Error, "getting life of %s attachment",
-				names.ReadableString(tag),
+				result.Error, "getting life of %s attachment for %s",
+				names.ReadableString(tag), w.unit.Tag().Id(),
 			)
 		}
 	}
@@ -1036,7 +1054,7 @@ func (w *RemoteStateWatcher) watchStorageAttachment(
 		return w.catacomb.ErrDying()
 	case _, ok := <-saw.Changes():
 		if !ok {
-			return errors.New("storage attachment watcher closed")
+			return errors.Errorf("storage attachment watcher closed for %s", w.unit.Tag().Id())
 		}
 		var err error
 		storageSnapshot, err = getStorageSnapshot(w.st, tag, w.unit.Tag())
@@ -1047,7 +1065,7 @@ func (w *RemoteStateWatcher) watchStorageAttachment(
 			// pending storage attachments to be provisioned.
 			storageSnapshot = StorageSnapshot{Life: life}
 		} else if err != nil {
-			return errors.Annotatef(err, "processing initial storage attachment change")
+			return errors.Annotatef(err, "processing initial storage attachment change for %s", w.unit.Tag().Id())
 		}
 	}
 	innerSAW, err := newStorageAttachmentWatcher(

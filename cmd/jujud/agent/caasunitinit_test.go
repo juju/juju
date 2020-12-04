@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
 	"sync"
 	"time"
 
@@ -132,7 +133,7 @@ func (s *CAASUnitInitSuite) TestInitUnit(c *gc.C) {
 }
 
 func (s *CAASUnitInitSuite) TestInitUnitWaitSend(c *gc.C) {
-	socketName := "@" + string(rand.Int63())
+	socketName := "@" + strconv.FormatInt(rand.Int63(), 10)
 	listening := make(chan struct{})
 	wg := sync.WaitGroup{}
 	wg.Add(1)

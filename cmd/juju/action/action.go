@@ -5,6 +5,7 @@ package action
 
 import (
 	"io"
+	"time"
 
 	"github.com/juju/errors"
 
@@ -18,16 +19,13 @@ import (
 type APIClient interface {
 	io.Closer
 
-	// BestAPIVersion returns the API version that we were able to
-	// determine is supported by both the client and the API Server
-	BestAPIVersion() int
+	// RunOnAllMachines runs the command on all the machines with the specified
+	// timeout.
+	RunOnAllMachines(commands string, timeout time.Duration) (params.EnqueuedActions, error)
 
-	// Enqueue takes a list of Actions and queues them up to be executed by
-	// the designated ActionReceiver, returning the params.Action for each
-	// queued Action, or an error if there was a problem queueing up the
-	// Action.
-	// TODO(juju3) - remove.
-	Enqueue(params.Actions) (params.ActionResults, error)
+	// Run the Commands specified on the machines identified through the ids
+	// provided in the machines, applications and units slices.
+	Run(params.RunParams) (params.EnqueuedActions, error)
 
 	// EnqueueOperation takes a list of Actions and queues them up to be executed as
 	// an operation, each action running as a task on the the designated ActionReceiver.
@@ -50,14 +48,6 @@ type APIClient interface {
 
 	// Operation fetches the operation with the specified id.
 	Operation(id string) (params.OperationResult, error)
-
-	// FindActionTagsByPrefix takes a list of string prefixes and finds
-	// corresponding ActionTags that match that prefix.
-	FindActionTagsByPrefix(params.FindTags) (params.FindTagsResults, error)
-
-	// FindActionsByNames takes a list of names and finds a corresponding list of
-	// Actions for every name.
-	FindActionsByNames(params.FindActionsByNames) (params.ActionsByNames, error)
 
 	// WatchActionProgress reports on logged action progress messages.
 	WatchActionProgress(actionId string) (watcher.StringsWatcher, error)

@@ -16,10 +16,10 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 	"github.com/juju/schema"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"github.com/juju/version"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/mgo.v2"
@@ -27,6 +27,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/model"
@@ -56,7 +57,7 @@ type ExposedEndpoint struct {
 // include the 0.0.0.0/0 CIDR.
 func (exp ExposedEndpoint) AllowTrafficFromAnyNetwork() bool {
 	for _, cidr := range exp.ExposeToCIDRs {
-		if cidr == firewall.AllNetworksIPV4CIDR {
+		if cidr == firewall.AllNetworksIPV4CIDR || cidr == firewall.AllNetworksIPV6CIDR {
 			return true
 		}
 	}
@@ -670,7 +671,7 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 
 // IsExposed returns whether this application is exposed. The explicitly open
 // ports (with open-port) for exposed applications may be accessed from machines
-// outside of the local deployment network. See SetExposed and ClearExposed.
+// outside of the local deployment network. See MergeExposeSettings and ClearExposed.
 func (a *Application) IsExposed() bool {
 	return a.doc.Exposed
 }
@@ -686,12 +687,60 @@ func (a *Application) ExposedEndpoints() map[string]ExposedEndpoint {
 	return a.doc.ExposedEndpoints
 }
 
-// SetExposed marks the application as exposed.
+// UnsetExposeSettings removes the expose settings for the provided list of
+// endpoint names. If the resulting exposed endpoints map for the application
+// becomes empty after the settings are removed, the application will be
+// automatically unexposed.
+//
+// An error will be returned if an unknown endpoint name is specified or there
+// is no existing expose settings entry for any of the provided endpoint names.
+//
 // See ClearExposed and IsExposed.
-func (a *Application) SetExposed(exposedEndpoints map[string]ExposedEndpoint) error {
+func (a *Application) UnsetExposeSettings(exposedEndpoints []string) error {
 	bindings, _, err := readEndpointBindings(a.st, a.globalKey())
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	mergedExposedEndpoints := make(map[string]ExposedEndpoint)
+	for endpoint, exposeParams := range a.doc.ExposedEndpoints {
+		mergedExposedEndpoints[endpoint] = exposeParams
+	}
+
+	for _, endpoint := range exposedEndpoints {
+		// The empty endpoint ("") value represents all endpoints.
+		if _, found := bindings[endpoint]; !found && endpoint != "" {
+			return errors.NotFoundf("endpoint %q", endpoint)
+		}
+
+		if _, found := mergedExposedEndpoints[endpoint]; !found {
+			return errors.BadRequestf("endpoint %q is not exposed", endpoint)
+		}
+
+		delete(mergedExposedEndpoints, endpoint)
+	}
+
+	return a.setExposed(
+		// retain expose flag if we still have any expose settings left
+		len(mergedExposedEndpoints) != 0,
+		mergedExposedEndpoints,
+	)
+}
+
+// MergeExposeSettings marks the application as exposed and merges the provided
+// ExposedEndpoint details into the current set of expose settings. The merge
+// operation will overwrites expose settings for each existing endpoint name.
+//
+// See ClearExposed and IsExposed.
+func (a *Application) MergeExposeSettings(exposedEndpoints map[string]ExposedEndpoint) error {
+	bindings, _, err := readEndpointBindings(a.st, a.globalKey())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	mergedExposedEndpoints := make(map[string]ExposedEndpoint)
+	for endpoint, exposeParams := range a.doc.ExposedEndpoints {
+		mergedExposedEndpoints[endpoint] = exposeParams
 	}
 
 	var allSpaceInfos network.SpaceInfos
@@ -721,9 +770,18 @@ func (a *Application) SetExposed(exposedEndpoints map[string]ExposedEndpoint) er
 				return errors.Annotatef(err, "unable to parse %q as a CIDR", cidr)
 			}
 		}
+
+		// If no spaces and CIDRs are provided, assume an implicit
+		// 0.0.0.0/0 CIDR. This matches the "expose to the entire
+		// world" behavior in juju controllers prior to 2.9.
+		if len(exposeParams.ExposeToSpaceIDs)+len(exposeParams.ExposeToCIDRs) == 0 {
+			exposeParams.ExposeToCIDRs = []string{firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR}
+		}
+
+		mergedExposedEndpoints[endpoint] = exposeParams
 	}
 
-	return a.setExposed(true, exposedEndpoints)
+	return a.setExposed(true, mergedExposedEndpoints)
 }
 
 func uniqueSortedStrings(in []string) []string {
@@ -735,7 +793,7 @@ func uniqueSortedStrings(in []string) []string {
 }
 
 // ClearExposed removes the exposed flag from the application.
-// See SetExposed and IsExposed.
+// See MergeExposeSettings and IsExposed.
 func (a *Application) ClearExposed() error {
 	return a.setExposed(false, nil)
 }
@@ -1345,6 +1403,10 @@ type SetCharmConfig struct {
 	// upgraded to use it.
 	Charm *Charm
 
+	// CharmOrigin is the data for where the charm comes from.  Eventually
+	// Channel should be move there.
+	CharmOrigin *CharmOrigin
+
 	// Channel is the charm store channel from which charm was pulled.
 	Channel csparams.Channel
 
@@ -1412,7 +1474,8 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		}
 	} else if !cfg.ForceSeries {
 		supported := false
-		for _, oneSeries := range cfg.Charm.Meta().Series {
+		charmSeries := cfg.Charm.Meta().ComputedSeries()
+		for _, oneSeries := range charmSeries {
 			if oneSeries == a.doc.Series {
 				supported = true
 				break
@@ -1420,8 +1483,8 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		}
 		if !supported {
 			supportedSeries := "no series"
-			if len(cfg.Charm.Meta().Series) > 0 {
-				supportedSeries = strings.Join(cfg.Charm.Meta().Series, ", ")
+			if len(charmSeries) > 0 {
+				supportedSeries = strings.Join(charmSeries, ", ")
 			}
 			return errors.Errorf("only these series are supported: %v", supportedSeries)
 		}
@@ -1436,7 +1499,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 			return err
 		}
 		supportedOS := false
-		supportedSeries := cfg.Charm.Meta().Series
+		supportedSeries := cfg.Charm.Meta().ComputedSeries()
 		for _, chSeries := range supportedSeries {
 			charmSeriesOS, err := series.GetOSFromSeries(chSeries)
 			if err != nil {
@@ -1541,6 +1604,19 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 			}
 			ops = append(ops, chng...)
 			newCharmModifiedVersion++
+		}
+		if cfg.CharmOrigin != nil {
+			// Update in the application facade also calls
+			// SetCharm, though it has no current user in the
+			// application api client. Just in case: do not
+			// update the CharmOrigin if nil.
+			ops = append(ops, txn.Op{
+				C:  applicationsC,
+				Id: a.doc.DocID,
+				Update: bson.D{{"$set", bson.D{
+					{"charm-origin", cfg.CharmOrigin},
+				}}},
+			})
 		}
 
 		// Always update bindings regardless of whether we upgrade to a
@@ -1750,7 +1826,7 @@ func (a *Application) VerifySupportedSeries(series string, force bool) error {
 	if err != nil {
 		return err
 	}
-	supportedSeries := ch.Meta().Series
+	supportedSeries := ch.Meta().ComputedSeries()
 	if len(supportedSeries) == 0 {
 		supportedSeries = append(supportedSeries, ch.URL().Series)
 	}
@@ -2012,6 +2088,7 @@ func (a *Application) addUnitOps(
 		providerId:         args.ProviderId,
 		address:            args.Address,
 		ports:              args.Ports,
+		unitName:           args.UnitName,
 	})
 	if err != nil {
 		return uNames, ops, errors.Trace(err)
@@ -2034,6 +2111,7 @@ type applicationAddUnitOpsArgs struct {
 	providerId *string
 	address    *string
 	ports      *[]string
+	unitName   *string
 }
 
 // addApplicationUnitOps is just like addUnitOps but explicitly takes a
@@ -2053,9 +2131,15 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	} else if !a.doc.Subordinate && args.principalName != "" {
 		return "", nil, errors.New("application is not a subordinate")
 	}
-	name, err := a.newUnitName()
-	if err != nil {
-		return "", nil, errors.Trace(err)
+	var name string
+	if args.unitName != nil {
+		name = *args.unitName
+	} else {
+		newName, err := a.newUnitName()
+		if err != nil {
+			return "", nil, errors.Trace(err)
+		}
+		name = newName
 	}
 	unitTag := names.NewUnitTag(name)
 
@@ -2095,7 +2179,7 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	}
 	unitStatusDoc := &statusDoc{
 		Status:     status.Waiting,
-		StatusInfo: status.MessageInitializingAgent,
+		StatusInfo: status.MessageInstallingAgent,
 		Updated:    now.UnixNano(),
 	}
 	meterStatus := &meterStatusDoc{Code: MeterNotSet.String()}
@@ -2328,6 +2412,9 @@ type AddUnitParams struct {
 	// Ports are the open ports on the container.
 	Ports *[]string
 
+	// UnitName is for CAAS models when creating stateful units.
+	UnitName *string
+
 	// machineID is only passed in if the unit being created is
 	// a subordinate and refers to the machine that is hosting the principal.
 	machineID string
@@ -2387,6 +2474,7 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 		removeMeterStatusOp(a.st, u.globalMeterStatusKey()),
 		removeStatusOp(a.st, u.globalAgentKey()),
 		removeStatusOp(a.st, u.globalKey()),
+		removeStatusOp(a.st, u.globalWorkloadVersionKey()),
 		removeUnitStateOp(a.st, u.globalKey()),
 		removeStatusOp(a.st, u.globalCloudContainerKey()),
 		removeConstraintsOp(u.globalAgentKey()),
@@ -2750,13 +2838,38 @@ func (a *Application) SetConstraints(cons constraints.Value) (err error) {
 	} else if err != nil {
 		return err
 	}
+
 	if a.doc.Subordinate {
 		return ErrSubordinateConstraints
 	}
+
+	// If the architecture has already been set, do not allow the application
+	// architecture to change.
+	//
+	// If the constraints returns a not found error, we don't actually care,
+	// this implies that it's never been set and we want to just take all the
+	// valid constraints.
+	if current, consErr := a.Constraints(); !errors.IsNotFound(consErr) {
+		if consErr != nil {
+			return errors.Annotate(consErr, "unable to read constraints")
+		}
+		// If the incoming arch has a value we only care about that. If the
+		// value is empty we can assume that we want the existing current value
+		// that is set or not.
+		if cons.Arch != nil && *cons.Arch != "" {
+			if (current.Arch == nil || *current.Arch == "") && *cons.Arch != arch.DefaultArchitecture {
+				return errors.NotSupportedf("changing architecture")
+			} else if current.Arch != nil && *current.Arch != "" && *current.Arch != *cons.Arch {
+				return errors.NotSupportedf("changing architecture (%s)", *current.Arch)
+			}
+		}
+	}
+
 	defer errors.DeferredAnnotatef(&err, "cannot set constraints")
 	if a.doc.Life != Alive {
 		return applicationNotAliveErr
 	}
+
 	ops := []txn.Op{{
 		C:      applicationsC,
 		Id:     a.doc.DocID,
@@ -2874,6 +2987,20 @@ func CheckApplicationExpectsWorkload(m *Model, appName string) (bool, error) {
 		// IAAS models alway have a unit workload.
 		return true, nil
 	}
+
+	// Check charm v2
+	app, err := m.State().Application(appName)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	ch, _, err := app.Charm()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	if ch.Meta().Format() >= charm.FormatV2 {
+		return false, nil
+	}
+
 	_, err = cm.PodSpec(names.NewApplicationTag(appName))
 	if err != nil && !errors.IsNotFound(err) {
 		return false, errors.Trace(err)
@@ -3131,6 +3258,7 @@ type UnitUpdateProperties struct {
 	ProviderId           *string
 	Address              *string
 	Ports                *[]string
+	UnitName             *string
 	AgentStatus          *status.StatusInfo
 	UnitStatus           *status.StatusInfo
 	CloudContainerStatus *status.StatusInfo
@@ -3225,6 +3353,7 @@ func (op *AddUnitOperation) Build(attempt int) ([]txn.Op, error) {
 		ProviderId: op.props.ProviderId,
 		Address:    op.props.Address,
 		Ports:      op.props.Ports,
+		UnitName:   op.props.UnitName,
 	}
 	name, addOps, err := op.application.addUnitOps("", addUnitArgs, nil)
 	if err != nil {

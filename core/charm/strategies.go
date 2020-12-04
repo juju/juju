@@ -6,13 +6,19 @@ package charm
 import (
 	"io"
 	"io/ioutil"
+	"net/url"
 	"os"
+	"strings"
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
-	"github.com/juju/utils"
+	"github.com/juju/loggo"
+	"github.com/juju/os/v2/series"
+	"github.com/juju/utils/v2"
+	"github.com/kr/pretty"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/lxdprofile"
 )
 
@@ -33,20 +39,47 @@ type StoreCharm interface {
 	Version() string
 }
 
+// Logger defines the logging methods that the package uses.
+type Logger interface {
+	Tracef(string, ...interface{})
+	Debugf(string, ...interface{})
+	Errorf(string, ...interface{})
+
+	Child(name string) Logger
+}
+
+type loggerShim struct {
+	loggo.Logger
+}
+
+func (l *loggerShim) Child(name string) Logger {
+	return &loggerShim{l.Logger.Child(name)}
+}
+
 // Store defines the store for which the charm is being downloaded from.
 type Store interface {
 	// Validate checks to ensure that the charm URL is valid for the store.
 	Validate(*charm.URL) error
 	// Download a charm from the store using the charm URL.
-	Download(*charm.URL, string) (StoreCharm, Checksum, error)
+	Download(*charm.URL, string, Origin) (StoreCharm, ChecksumCheckFn, Origin, error)
+	// DownloadOrigin returns an origin with the id and hash, without
+	// downloading the charm.
+	DownloadOrigin(curl *charm.URL, origin Origin) (Origin, error)
 }
 
-// Checksum defines a function for running checksums against.
-type Checksum func(string) bool
+// ChecksumCheckFn defines a function for running checksums against.
+type ChecksumCheckFn func(string) bool
 
-// AlwaysChecksum will always return true and is an effective no-op.
-func AlwaysChecksum(string) bool {
+// AlwaysMatchChecksum will always return true and is an effective no-op.
+func AlwaysMatchChecksum(string) bool {
 	return true
+}
+
+// MatchChecksum validates a checksum against another checksum.
+func MatchChecksum(hash string) ChecksumCheckFn {
+	return func(other string) bool {
+		return hash == other
+	}
 }
 
 // JujuVersionValidator validates the version of Juju against the charm meta
@@ -64,42 +97,50 @@ type Strategy struct {
 	store      Store
 	force      bool
 	deferFuncs []func() error
+	logger     Logger
 }
 
 // DownloadRepo defines methods required for the repo to download a charm.
 type DownloadRepo interface {
-	Get(curl *charm.URL, archivePath string) (*charm.CharmArchive, error)
+	DownloadCharm(resourceURL, archivePath string) (*charm.CharmArchive, error)
+	FindDownloadURL(*charm.URL, Origin) (*url.URL, Origin, error)
 }
 
 // DownloadFromCharmStore will creates a procedure to install a charm from the
 // charm store.
-func DownloadFromCharmStore(charmRepo DownloadRepo, url string, force bool) (*Strategy, error) {
+func DownloadFromCharmStore(logger loggo.Logger, repository DownloadRepo, url string, force bool) (*Strategy, error) {
 	curl, err := charm.ParseURL(url)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	log := &loggerShim{logger}
 	return &Strategy{
 		charmURL: curl,
 		store: StoreCharmStore{
-			charmRepo: charmRepo,
+			repository: repository,
+			logger:     log.Child("charmstore"),
 		},
-		force: force,
+		force:  force,
+		logger: log,
 	}, nil
 }
 
 // DownloadFromCharmHub will creates a procedure to install a charm from the
 // charm hub.
-func DownloadFromCharmHub(charmRepo DownloadRepo, url string, force bool) (*Strategy, error) {
-	curl, err := charm.ParseURL(url)
+func DownloadFromCharmHub(logger loggo.Logger, repository DownloadRepo, curl string, force bool) (*Strategy, error) {
+	churl, err := charm.ParseURL(curl)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	log := &loggerShim{logger}
 	return &Strategy{
-		charmURL: curl,
+		charmURL: churl,
 		store: StoreCharmHub{
-			charmRepo: charmRepo,
+			repository: repository,
+			logger:     log.Child("charmhub"),
 		},
-		force: force,
+		force:  force,
+		logger: log,
 	}, nil
 }
 
@@ -139,21 +180,36 @@ type DownloadResult struct {
 // Run the download procedure against the supplied store adapter.
 // Includes downloading the blob to a temp file and validating the contents
 // of the charm.Meta and LXD profile data.
-func (p *Strategy) Run(state State, version JujuVersionValidator) (DownloadResult, bool, error) {
-	charm, err := state.PrepareCharmUpload(p.charmURL)
+func (p *Strategy) Run(state State, version JujuVersionValidator, origin Origin) (DownloadResult, bool, Origin, error) {
+	p.logger.Tracef("Run %+v", origin)
+	ch, err := state.PrepareCharmUpload(p.charmURL)
 	if err != nil {
-		return DownloadResult{}, false, errors.Trace(err)
+		return DownloadResult{}, false, origin, errors.Trace(err)
+	}
+
+	seriesOrigin := origin
+	seriesOrigin.Platform, err = p.normalizePlatform(origin.Platform)
+	if err != nil {
+		return DownloadResult{}, false, origin, errors.Trace(err)
 	}
 
 	// Charm is already in state, so we can exit out early.
-	if charm.IsUploaded() {
-		return DownloadResult{}, true, nil
+	if ch.IsUploaded() {
+		origin, err := p.store.DownloadOrigin(p.charmURL, seriesOrigin)
+		if err != nil {
+			return DownloadResult{}, false, Origin{}, errors.Trace(err)
+		}
+
+		p.logger.Debugf("Reusing charm: already uploaded to controller with origin %v", origin)
+		return DownloadResult{}, true, origin, nil
 	}
+
+	p.logger.Debugf("Downloading charm %q: %v", p.charmURL, seriesOrigin)
 
 	// Get the charm and its information from the store.
 	file, err := ioutil.TempFile("", p.charmURL.Name)
 	if err != nil {
-		return DownloadResult{}, false, errors.Trace(err)
+		return DownloadResult{}, false, Origin{}, errors.Trace(err)
 	}
 
 	p.deferFunc(func() error {
@@ -165,23 +221,23 @@ func (p *Strategy) Run(state State, version JujuVersionValidator) (DownloadResul
 		return nil
 	})
 
-	archive, checksum, err := p.store.Download(p.charmURL, file.Name())
+	archive, checksum, downloadOrigin, err := p.store.Download(p.charmURL, file.Name(), seriesOrigin)
 	if err != nil {
-		return DownloadResult{}, false, errors.Trace(err)
+		return DownloadResult{}, false, Origin{}, errors.Trace(err)
 	}
 
 	if err := version.Validate(archive.Meta()); err != nil {
-		return DownloadResult{}, false, errors.Trace(err)
+		return DownloadResult{}, false, Origin{}, errors.Trace(err)
 	}
 
 	// Validate the charm lxd profile once we've downloaded it.
 	if err := lxdprofile.ValidateLXDProfile(makeStoreCharmLXDProfiler(archive)); err != nil && !p.force {
-		return DownloadResult{}, false, errors.Annotate(err, "cannot add charm")
+		return DownloadResult{}, false, Origin{}, errors.Annotate(err, "cannot add charm")
 	}
 
 	result, err := p.downloadResult(file.Name(), checksum)
 	if err != nil {
-		return DownloadResult{}, false, errors.Trace(err)
+		return DownloadResult{}, false, Origin{}, errors.Trace(err)
 	}
 
 	return DownloadResult{
@@ -189,7 +245,7 @@ func (p *Strategy) Run(state State, version JujuVersionValidator) (DownloadResul
 		Data:   result.Data,
 		Size:   result.Size,
 		SHA256: result.SHA256,
-	}, false, nil
+	}, false, downloadOrigin, nil
 }
 
 // Finish will attempt to close out the download procedure. Cleaning up any
@@ -211,7 +267,30 @@ func (p *Strategy) deferFunc(fn func() error) {
 	p.deferFuncs = append(p.deferFuncs, fn)
 }
 
-func (p *Strategy) downloadResult(file string, checksum Checksum) (DownloadResult, error) {
+func (p *Strategy) normalizePlatform(platform Platform) (Platform, error) {
+	os := platform.OS
+	if platform.Series != "" {
+		sys, err := series.GetOSFromSeries(platform.Series)
+		if err != nil {
+			return Platform{}, errors.Trace(err)
+		}
+		// Values passed to the api are case sensitive: ubuntu succeeds and
+		// Ubuntu returns `"code": "revision-not-found"`
+		os = strings.ToLower(sys.String())
+	}
+	arc := platform.Architecture
+	if platform.Architecture == "" {
+		arc = arch.DefaultArchitecture
+	}
+
+	return Platform{
+		Architecture: arc,
+		OS:           os,
+		Series:       platform.Series,
+	}, nil
+}
+
+func (p *Strategy) downloadResult(file string, checksum ChecksumCheckFn) (DownloadResult, error) {
 	// Open it and calculate the SHA256 hash.
 	tar, err := os.Open(file)
 	if err != nil {
@@ -228,8 +307,10 @@ func (p *Strategy) downloadResult(file string, checksum Checksum) (DownloadResul
 		return DownloadResult{}, errors.Annotate(err, "cannot calculate SHA256 hash of charm")
 	}
 
+	p.logger.Tracef("downloadResult(%q) sha: %q, size: %d", tar.Name(), sha, size)
+
 	if !checksum(sha) {
-		return DownloadResult{}, errors.Annotate(err, "invalid download checksum")
+		return DownloadResult{}, errors.NotValidf("download checksum")
 	}
 
 	if _, err := tar.Seek(0, 0); err != nil {
@@ -245,7 +326,8 @@ func (p *Strategy) downloadResult(file string, checksum Checksum) (DownloadResul
 
 // StoreCharmStore defines a type for interacting with the charm store.
 type StoreCharmStore struct {
-	charmRepo DownloadRepo
+	repository DownloadRepo
+	logger     Logger
 }
 
 // Validate checks to ensure that the schema is valid for the store.
@@ -257,22 +339,30 @@ func (StoreCharmStore) Validate(curl *charm.URL) error {
 }
 
 // Download the charm from the charm store.
-func (s StoreCharmStore) Download(curl *charm.URL, file string) (StoreCharm, Checksum, error) {
-	archive, err := s.charmRepo.Get(curl, file)
+func (s StoreCharmStore) Download(curl *charm.URL, file string, origin Origin) (StoreCharm, ChecksumCheckFn, Origin, error) {
+	s.logger.Tracef("Download(%s) %s", curl)
+	archive, err := s.repository.DownloadCharm(curl.String(), file)
 	if err != nil {
 		if cause := errors.Cause(err); httpbakery.IsDischargeError(cause) || httpbakery.IsInteractionError(cause) {
-			return nil, nil, errors.NewUnauthorized(err, "")
+			return nil, nil, origin, errors.NewUnauthorized(err, "")
 		}
-		return nil, nil, errors.Trace(err)
+		return nil, nil, origin, errors.Trace(err)
 	}
 	// Ignore the checksum for charm store, as there isn't any information
 	// available to us to perform the downloaded checksum.
-	return newStoreCharmShim(archive), AlwaysChecksum, nil
+	return newStoreCharmShim(archive), AlwaysMatchChecksum, origin, nil
+}
+
+// DownloadOrigin returns the same origin provided.  This operation is required for CharmHub.
+func (s StoreCharmStore) DownloadOrigin(_ *charm.URL, origin Origin) (Origin, error) {
+	return origin, nil
 }
 
 // StoreCharmHub defines a type for interacting with the charm hub.
 type StoreCharmHub struct {
-	charmRepo DownloadRepo
+	repository DownloadRepo
+	platform   Platform
+	logger     Logger
 }
 
 // Validate checks to ensure that the schema is valid for the store.
@@ -284,8 +374,25 @@ func (StoreCharmHub) Validate(curl *charm.URL) error {
 }
 
 // Download the charm from the charm hub.
-func (StoreCharmHub) Download(curl *charm.URL, file string) (StoreCharm, Checksum, error) {
-	return nil, nil, nil
+func (s StoreCharmHub) Download(curl *charm.URL, file string, origin Origin) (StoreCharm, ChecksumCheckFn, Origin, error) {
+	s.logger.Tracef("Download(%s) %s", curl)
+	repositoryURL, downloadOrigin, err := s.repository.FindDownloadURL(curl, origin)
+	if err != nil {
+		return nil, nil, downloadOrigin, errors.Trace(err)
+	}
+	archive, err := s.repository.DownloadCharm(repositoryURL.String(), file)
+	if err != nil {
+		return nil, nil, downloadOrigin, errors.Trace(err)
+	}
+	return newStoreCharmShim(archive), MatchChecksum(downloadOrigin.Hash), downloadOrigin, nil
+}
+
+// DownloadOrigin returns an origin with the id and hash, without
+// downloading the charm.
+func (s StoreCharmHub) DownloadOrigin(curl *charm.URL, origin Origin) (Origin, error) {
+	s.logger.Tracef("DownloadOrigin(%s) %s", curl, pretty.Sprint(origin))
+	_, downloadOrigin, err := s.repository.FindDownloadURL(curl, origin)
+	return downloadOrigin, errors.Trace(err)
 }
 
 // storeCharmShim massages a *charm.CharmArchive into a LXDProfiler

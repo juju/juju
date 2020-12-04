@@ -37,6 +37,26 @@ func (s *environNetSuite) TestSubnetsForUnknownContainer(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *environNetSuite) TestSubnetsForServersThatLackRequiredAPIExtensions(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	srv := NewMockServer(ctrl)
+	srv.EXPECT().GetNetworkNames().Return(nil, errors.New(`server is missing the required "network" API extension`)).AnyTimes()
+
+	env := s.NewEnviron(c, srv, nil).(*environ)
+	ctx := context.NewCloudCallContext()
+
+	// Space support and by extension, subnet detection is not available.
+	supportsSpaces, err := env.SupportsSpaces(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(supportsSpaces, jc.IsFalse, gc.Commentf("expected SupportsSpaces to return false when the lxd server lacks the 'network' extension"))
+
+	// Try to grab subnet details anyway!
+	_, err = env.Subnets(ctx, instance.UnknownId, nil)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+}
+
 func (s *environNetSuite) TestSubnetsForKnownContainer(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -160,7 +180,7 @@ func (s *environNetSuite) TestSubnetDiscoveryFallbackForOlderLXDs(c *gc.C) {
 	// Even though ovs-br0 is returned by the LXD API, it is *not* bridged
 	// into the container we will be introspecting and so this subnet will
 	// not be reported back. This is a caveat of the fallback code.
-	srv.EXPECT().GetNetworkNames().Return([]string{"lo", "ovsbr0", "lxdbr0"}, nil)
+	srv.EXPECT().GetNetworkNames().Return([]string{"lo", "ovsbr0", "lxdbr0"}, nil).AnyTimes()
 
 	// This error will trigger the fallback codepath
 	srv.EXPECT().GetNetworkState("lo").Return(nil, errors.New(`server is missing the required "network_state" API extension`))
@@ -221,6 +241,13 @@ func (s *environNetSuite) TestSubnetDiscoveryFallbackForOlderLXDs(c *gc.C) {
 	env := s.NewEnviron(c, srv, nil).(*environ)
 
 	ctx := context.NewCloudCallContext()
+
+	// Spaces should be supported
+	supportsSpaces, err := env.SupportsSpaces(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(supportsSpaces, jc.IsTrue)
+
+	// List subnets
 	subnets, err := env.Subnets(ctx, instance.UnknownId, nil)
 	c.Assert(err, jc.ErrorIsNil)
 

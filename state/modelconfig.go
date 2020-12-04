@@ -4,6 +4,8 @@
 package state
 
 import (
+	"reflect"
+
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"github.com/juju/version"
@@ -138,7 +140,18 @@ func (model *Model) modelConfigValues(modelCfg attrValues) (config.ConfigValues,
 		source := config.JujuModelConfigSource
 		n := len(sourceAttrs)
 		for i := range sourceAttrs {
-			if sourceAttrs[n-i-1][attr] == val {
+			// With the introduction of a slice for mode it makes it not
+			// possible to use equality check for slice types. We should fall
+			// back to the reflect.Deep equality to ensure we don't panic at
+			// runtime.
+			var equal bool
+			switch val.(type) {
+			case []interface{}:
+				equal = reflect.DeepEqual(sourceAttrs[n-i-1][attr], val)
+			default:
+				equal = sourceAttrs[n-i-1][attr] == val
+			}
+			if equal {
 				source = sourceNames[n-i-1]
 				break
 			}

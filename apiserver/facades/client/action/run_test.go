@@ -197,20 +197,13 @@ func (s *runSuite) TestRunMachineAndApplication(c *gc.C) {
 		"timeout":          int64(0),
 		"workload-context": false,
 	}
-	expectedArgs := params.Actions{
+	arg := params.Actions{
 		Actions: []params.Action{
 			{Receiver: "unit-magic-0", Name: "juju-run", Parameters: expectedPayload},
 			{Receiver: "unit-magic-1", Name: "juju-run", Parameters: expectedPayload},
 			{Receiver: "machine-0", Name: "juju-run", Parameters: expectedPayload},
 		},
 	}
-	called := false
-	s.PatchValue(action.QueueActions, func(client *action.ActionAPI, args params.Actions) (params.ActionResults, error) {
-		called = true
-		c.Assert(args, jc.DeepEquals, expectedArgs)
-		return params.ActionResults{}, nil
-	})
-
 	s.addMachine(c)
 
 	charm := s.AddTestingCharm(c, "dummy")
@@ -225,7 +218,18 @@ func (s *runSuite) TestRunMachineAndApplication(c *gc.C) {
 			Machines:     []string{"0"},
 			Applications: []string{"magic"},
 		})
-	c.Assert(called, jc.IsTrue)
+	op, err := s.client.EnqueueOperation(arg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.Actions, gc.HasLen, 3)
+
+	emptyActionTag := names.ActionTag{}
+	for i, r := range op.Actions {
+		c.Assert(r.Action, gc.NotNil)
+		c.Assert(r.Action.Tag, gc.Not(gc.Equals), emptyActionTag)
+		c.Assert(r.Action.Name, gc.Equals, "juju-run")
+		c.Assert(r.Action.Receiver, gc.Equals, arg.Actions[i].Receiver)
+		c.Assert(r.Action.Parameters, jc.DeepEquals, expectedPayload)
+	}
 }
 
 func (s *runSuite) TestRunApplicationWorkload(c *gc.C) {
@@ -236,19 +240,12 @@ func (s *runSuite) TestRunApplicationWorkload(c *gc.C) {
 		"timeout":          int64(0),
 		"workload-context": true,
 	}
-	expectedArgs := params.Actions{
+	arg := params.Actions{
 		Actions: []params.Action{
 			{Receiver: "unit-magic-0", Name: "juju-run", Parameters: expectedPayload},
 			{Receiver: "unit-magic-1", Name: "juju-run", Parameters: expectedPayload},
 		},
 	}
-	called := false
-	s.PatchValue(action.QueueActions, func(client *action.ActionAPI, args params.Actions) (params.ActionResults, error) {
-		called = true
-		c.Assert(args, jc.DeepEquals, expectedArgs)
-		return params.ActionResults{}, nil
-	})
-
 	s.addMachine(c)
 
 	charm := s.AddTestingCharm(c, "dummy")
@@ -263,7 +260,18 @@ func (s *runSuite) TestRunApplicationWorkload(c *gc.C) {
 			Applications:    []string{"magic"},
 			WorkloadContext: true,
 		})
-	c.Assert(called, jc.IsTrue)
+	op, err := s.client.EnqueueOperation(arg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.Actions, gc.HasLen, 2)
+
+	emptyActionTag := names.ActionTag{}
+	for i, r := range op.Actions {
+		c.Assert(r.Action, gc.NotNil)
+		c.Assert(r.Action.Tag, gc.Not(gc.Equals), emptyActionTag)
+		c.Assert(r.Action.Name, gc.Equals, "juju-run")
+		c.Assert(r.Action.Receiver, gc.Equals, arg.Actions[i].Receiver)
+		c.Assert(r.Action.Parameters, jc.DeepEquals, expectedPayload)
+	}
 }
 
 func (s *runSuite) TestRunOnAllMachines(c *gc.C) {
@@ -274,19 +282,13 @@ func (s *runSuite) TestRunOnAllMachines(c *gc.C) {
 		"timeout":          testing.LongWait.Nanoseconds(),
 		"workload-context": false,
 	}
-	expectedArgs := params.Actions{
+	arg := params.Actions{
 		Actions: []params.Action{
 			{Receiver: "machine-0", Name: "juju-run", Parameters: expectedPayload},
 			{Receiver: "machine-1", Name: "juju-run", Parameters: expectedPayload},
 			{Receiver: "machine-2", Name: "juju-run", Parameters: expectedPayload},
 		},
 	}
-	called := false
-	s.PatchValue(action.QueueActions, func(client *action.ActionAPI, args params.Actions) (params.ActionResults, error) {
-		called = true
-		c.Assert(args, jc.DeepEquals, expectedArgs)
-		return params.ActionResults{}, nil
-	})
 	// Make three machines.
 	s.addMachine(c)
 	s.addMachine(c)
@@ -297,7 +299,19 @@ func (s *runSuite) TestRunOnAllMachines(c *gc.C) {
 			Commands: "hostname",
 			Timeout:  testing.LongWait,
 		})
-	c.Assert(called, jc.IsTrue)
+	op, err := s.client.EnqueueOperation(arg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.Actions, gc.HasLen, 3)
+
+	emptyActionTag := names.ActionTag{}
+	for i, r := range op.Actions {
+		c.Assert(r.Action, gc.NotNil)
+		c.Assert(r.Action.Tag, gc.Not(gc.Equals), emptyActionTag)
+		c.Assert(r.Action.Name, gc.Equals, "juju-run")
+		c.Assert(r.Action.Receiver, gc.Equals, arg.Actions[i].Receiver)
+		c.Assert(r.Action.Parameters, jc.DeepEquals, expectedPayload)
+	}
+
 }
 
 func (s *runSuite) TestRunRequiresAdmin(c *gc.C) {

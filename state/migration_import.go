@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/controller"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
@@ -452,7 +453,7 @@ func (i *importer) machine(m description.Machine) error {
 	// 3. create op for adding in instance data
 	prereqOps = append(prereqOps, i.machineInstanceOp(mdoc, instance))
 
-	if parentId := ParentId(mdoc.Id); parentId != "" {
+	if parentId := container.ParentId(mdoc.Id); parentId != "" {
 		prereqOps = append(prereqOps,
 			// Update containers record for host machine.
 			addChildToContainerRefOp(i.st, parentId, mdoc.Id),
@@ -1293,7 +1294,7 @@ func makeCharmOrigin(a description.Application, curl *charm.URL) (*CharmOrigin, 
 
 	var channel *Channel
 	if serialized := co.Channel(); serialized != "" {
-		c, err := corecharm.ParseChannel(serialized)
+		c, err := corecharm.ParseChannelNormalize(serialized)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1303,13 +1304,28 @@ func makeCharmOrigin(a description.Application, curl *charm.URL) (*CharmOrigin, 
 			Branch: c.Branch,
 		}
 	}
+	var platform *Platform
+	if serialized := co.Platform(); serialized != "" {
+		p, err := corecharm.ParsePlatformNormalize(serialized)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		platform = &Platform{
+			Architecture: p.Architecture,
+			OS:           p.OS,
+			Series:       p.Series,
+		}
+	}
 
+	// We can hardcode type to charm as we never store bundles in state.
 	return &CharmOrigin{
 		Source:   co.Source(),
+		Type:     "charm",
 		ID:       co.ID(),
 		Hash:     co.Hash(),
 		Revision: &rev,
 		Channel:  channel,
+		Platform: platform,
 	}, nil
 }
 
@@ -1321,7 +1337,16 @@ func deduceCharmOrigin(url *charm.URL) (*CharmOrigin, error) {
 		return &CharmOrigin{}, errors.NotValidf("charm url")
 	}
 
+	var t string
+	switch url.Series {
+	case "bundle":
+		t = "bundle"
+	default:
+		t = "charm"
+	}
+
 	origin := &CharmOrigin{
+		Type:     t,
 		Revision: &url.Revision,
 	}
 
@@ -1876,6 +1901,7 @@ func (i *importer) addIPAddress(addr description.IPAddress) error {
 		ProviderNetworkID: addr.ProviderNetworkID(),
 		ProviderSubnetID:  addr.ProviderSubnetID(),
 		Origin:            network.Origin(addr.Origin()),
+		IsShadow:          addr.IsShadow(),
 	}
 
 	ops := []txn.Op{{

@@ -22,19 +22,22 @@ type FindClientSuite struct {
 var _ = gc.Suite(&FindClientSuite{})
 
 func (s *FindClientSuite) TestLiveFindRequest(c *gc.C) {
-	config := charmhub.CharmHubConfig()
+	logger := &charmhub.FakeLogger{}
+
+	config, err := charmhub.CharmHubConfig(logger)
+	c.Assert(err, jc.ErrorIsNil)
 	basePath, err := config.BasePath()
 	c.Assert(err, jc.ErrorIsNil)
 
 	findPath, err := basePath.Join("find")
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiRequester := charmhub.NewAPIRequester(charmhub.DefaultHTTPTransport())
+	apiRequester := charmhub.NewAPIRequester(charmhub.DefaultHTTPTransport(), logger)
 	restClient := charmhub.NewHTTPRESTClient(apiRequester, nil)
 
-	client := charmhub.NewFindClient(findPath, restClient)
-	responses, err := client.Find(context.TODO(), "wordpress")
+	client := charmhub.NewFindClient(findPath, restClient, logger)
+	responses, err := client.Find(context.TODO(), "ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(responses), jc.GreaterThan, 1)
-	c.Assert(responses[0].Name, gc.Equals, "wordpress")
+	c.Assert(responses[0].Name, gc.Equals, "ubuntu")
 }

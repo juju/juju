@@ -7,12 +7,13 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
-	"github.com/juju/juju/apiserver/params"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/charms/mocks"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub/transport"
+	"github.com/juju/juju/core/arch"
 )
 
 type charmHubRepositoriesSuite struct {
@@ -32,11 +33,18 @@ func (s *charmHubRepositoriesSuite) TestResolveDefaultChannelMap(c *gc.C) {
 	obtainedCurl, obtainedOrigin, obtainedSeries, err := resolver.ResolveWithPreferredChannel(curl, origin)
 	c.Assert(err, jc.ErrorIsNil)
 
+	track := "latest"
 	curl.Revision = 16
+
+	origin.ID = "charmCHARMcharmCHARMcharmCHARM01"
+	origin.Type = "charm"
 	origin.Revision = &curl.Revision
 	origin.Risk = "stable"
-	track := "latest"
 	origin.Track = &track
+	origin.Architecture = arch.DefaultArchitecture
+	origin.OS = "ubuntu"
+	origin.Series = "bionic"
+
 	c.Assert(obtainedCurl, jc.DeepEquals, curl)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
 	c.Assert(obtainedSeries, jc.SameContents, []string{"bionic", "xenial"})
@@ -53,11 +61,18 @@ func (s *charmHubRepositoriesSuite) TestResolveWithRevision(c *gc.C) {
 	obtainedCurl, obtainedOrigin, obtainedSeries, err := resolver.ResolveWithPreferredChannel(curl, origin)
 	c.Assert(err, jc.ErrorIsNil)
 
+	track := "second"
 	curl.Revision = 13
+
+	origin.ID = "charmCHARMcharmCHARMcharmCHARM01"
+	origin.Type = "charm"
 	origin.Revision = &curl.Revision
 	origin.Risk = "stable"
-	track := "second"
 	origin.Track = &track
+	origin.Architecture = arch.DefaultArchitecture
+	origin.OS = "ubuntu"
+	origin.Series = "bionic"
+
 	c.Assert(obtainedCurl, jc.DeepEquals, curl)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
 	c.Assert(obtainedSeries, jc.SameContents, []string{"bionic", "xenial"})
@@ -80,15 +95,22 @@ func (s *charmHubRepositoriesSuite) TestResolveWithChannel(c *gc.C) {
 	s.expectInfo(nil)
 
 	curl := charm.MustParseURL("ch:wordpress")
-	track := "latest"
-	origin := params.CharmOrigin{Source: "charm-hub", Risk: "edge", Track: &track}
+	track := "second"
+	origin := params.CharmOrigin{Source: "charm-hub", Risk: "stable", Track: &track}
 
 	resolver := &chRepo{client: s.client}
 	obtainedCurl, obtainedOrigin, obtainedSeries, err := resolver.ResolveWithPreferredChannel(curl, origin)
 	c.Assert(err, jc.ErrorIsNil)
 
-	curl.Revision = 19
+	curl.Revision = 13
+
+	origin.ID = "charmCHARMcharmCHARMcharmCHARM01"
+	origin.Type = "charm"
 	origin.Revision = &curl.Revision
+	origin.Architecture = arch.DefaultArchitecture
+	origin.OS = "ubuntu"
+	origin.Series = "bionic"
+
 	c.Assert(obtainedCurl, jc.DeepEquals, curl)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
 	c.Assert(obtainedSeries, jc.SameContents, []string{"bionic", "xenial"})
@@ -100,7 +122,12 @@ func (s *charmHubRepositoriesSuite) TestResolveWithChannelNotFound(c *gc.C) {
 
 	curl := charm.MustParseURL("ch:wordpress")
 	track := "testme"
-	origin := params.CharmOrigin{Source: "charm-hub", Risk: "edge", Track: &track}
+	origin := params.CharmOrigin{
+		Source: "charm-hub",
+		Type:   "charm",
+		Risk:   "edge",
+		Track:  &track,
+	}
 
 	resolver := &chRepo{client: s.client}
 	_, _, _, err := resolver.ResolveWithPreferredChannel(curl, origin)
@@ -118,10 +145,17 @@ func (s *charmHubRepositoriesSuite) TestResolveWithChannelRiskOnly(c *gc.C) {
 	obtainedCurl, obtainedOrigin, obtainedSeries, err := resolver.ResolveWithPreferredChannel(curl, origin)
 	c.Assert(err, jc.ErrorIsNil)
 
-	curl.Revision = 19
-	origin.Revision = &curl.Revision
 	track := "latest"
+	curl.Revision = 19
+
+	origin.ID = "charmCHARMcharmCHARMcharmCHARM01"
+	origin.Type = "charm"
+	origin.Revision = &curl.Revision
 	origin.Track = &track
+	origin.Architecture = arch.DefaultArchitecture
+	origin.OS = "ubuntu"
+	origin.Series = "bionic"
+
 	c.Assert(obtainedCurl, jc.DeepEquals, curl)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
 	c.Assert(obtainedSeries, jc.SameContents, []string{"bionic", "xenial"})
@@ -176,22 +210,22 @@ func getCharmHubInfoResponse() transport.InfoResponse {
 	}
 }
 
-func getCharmHubResponse() ([]transport.ChannelMap, transport.ChannelMap) {
-	return []transport.ChannelMap{{
+func getCharmHubResponse() ([]transport.InfoChannelMap, transport.InfoChannelMap) {
+	return []transport.InfoChannelMap{{
 			Channel: transport.Channel{
-				Name: "latest/stable",
+				Name: "stable",
 				Platform: transport.Platform{
-					Architecture: "all",
+					Architecture: arch.DefaultArchitecture,
 					OS:           "ubuntu",
 					Series:       "bionic",
 				},
 				Risk:  "stable",
 				Track: "latest",
 			},
-			Revision: transport.Revision{
+			Revision: transport.InfoRevision{
 				MetadataYAML: entityMeta,
 				Platforms: []transport.Platform{{
-					Architecture: "all",
+					Architecture: arch.DefaultArchitecture,
 					OS:           "ubuntu",
 					Series:       "bionic",
 				}},
@@ -200,19 +234,19 @@ func getCharmHubResponse() ([]transport.ChannelMap, transport.ChannelMap) {
 			},
 		}, {
 			Channel: transport.Channel{
-				Name: "latest/candidate",
+				Name: "candidate",
 				Platform: transport.Platform{
-					Architecture: "all",
+					Architecture: arch.DefaultArchitecture,
 					OS:           "ubuntu",
 					Series:       "bionic",
 				},
 				Risk:  "candidate",
 				Track: "latest",
 			},
-			Revision: transport.Revision{
+			Revision: transport.InfoRevision{
 				MetadataYAML: entityMeta,
 				Platforms: []transport.Platform{{
-					Architecture: "all",
+					Architecture: arch.DefaultArchitecture,
 					OS:           "ubuntu",
 					Series:       "bionic",
 				}},
@@ -221,19 +255,19 @@ func getCharmHubResponse() ([]transport.ChannelMap, transport.ChannelMap) {
 			},
 		}, {
 			Channel: transport.Channel{
-				Name: "latest/edge",
+				Name: "edge",
 				Platform: transport.Platform{
-					Architecture: "all",
+					Architecture: arch.DefaultArchitecture,
 					OS:           "ubuntu",
 					Series:       "bionic",
 				},
 				Risk:  "edge",
 				Track: "latest",
 			},
-			Revision: transport.Revision{
+			Revision: transport.InfoRevision{
 				MetadataYAML: entityMeta,
 				Platforms: []transport.Platform{{
-					Architecture: "all",
+					Architecture: arch.DefaultArchitecture,
 					OS:           "ubuntu",
 					Series:       "bionic",
 				}},
@@ -244,38 +278,38 @@ func getCharmHubResponse() ([]transport.ChannelMap, transport.ChannelMap) {
 			Channel: transport.Channel{
 				Name: "second/stable",
 				Platform: transport.Platform{
-					Architecture: "all",
+					Architecture: arch.DefaultArchitecture,
 					OS:           "ubuntu",
 					Series:       "bionic",
 				},
 				Risk:  "stable",
 				Track: "second",
 			},
-			Revision: transport.Revision{
+			Revision: transport.InfoRevision{
 				MetadataYAML: entityMeta,
 				Platforms: []transport.Platform{{
-					Architecture: "all",
+					Architecture: arch.DefaultArchitecture,
 					OS:           "ubuntu",
 					Series:       "bionic",
 				}},
 				Revision: 13,
 				Version:  "1.0.3",
 			},
-		}}, transport.ChannelMap{
+		}}, transport.InfoChannelMap{
 			Channel: transport.Channel{
-				Name: "latest/stable",
+				Name: "stable",
 				Platform: transport.Platform{
-					Architecture: "all",
+					Architecture: arch.DefaultArchitecture,
 					OS:           "ubuntu",
 					Series:       "bionic",
 				},
 				Risk:  "stable",
 				Track: "latest",
 			},
-			Revision: transport.Revision{
+			Revision: transport.InfoRevision{
 				MetadataYAML: entityMeta,
 				Platforms: []transport.Platform{{
-					Architecture: "all",
+					Architecture: arch.DefaultArchitecture,
 					OS:           "ubuntu",
 					Series:       "bionic",
 				}},

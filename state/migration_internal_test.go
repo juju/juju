@@ -109,7 +109,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// target controller already.
 		cloudCredentialsC,
 		// This is controller global, and related to the system state of the
-		// embedded GUI.
+		// embedded Dashboard.
 		guimetadataC,
 		// This is controller global, not migrated.
 		guisettingsC,
@@ -172,7 +172,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 		// These are recreated whilst migrating other network entities.
 		providerIDsC,
-		linkLayerDevicesRefsC,
 
 		// Recreated whilst migrating actions.
 		actionNotificationsC,
@@ -583,6 +582,7 @@ func (s *MigrationSuite) TestConstraintsDocFields(c *gc.C) {
 		"Spaces",
 		"VirtType",
 		"Zones",
+		"AllocatePublicIP",
 	)
 	s.AssertExportedFields(c, constraintsDoc{}, fields)
 }
@@ -691,6 +691,7 @@ func (s *MigrationSuite) TestIPAddressDocFields(c *gc.C) {
 		"ConfigMethod",
 		"Value",
 		"Origin",
+		"IsShadow",
 	)
 	s.AssertExportedFields(c, ipAddressDoc{}, migrated.Union(ignored))
 }

@@ -433,6 +433,28 @@ func (s *TargetPrecheckSuite) TestModelVersionAheadOfTarget(c *gc.C) {
 		`model has higher version than target controller (1.2.4 > 1.2.3)`)
 }
 
+func (s *TargetPrecheckSuite) TestModelMinimumVersion(c *gc.C) {
+	backend := newFakeBackend()
+
+	origBackendBinary := backendVersionBinary
+	origBackend := backendVersion
+	backendVersionBinary = version.MustParseBinary("3.0.0-trusty-amd64")
+	backendVersion = backendVersionBinary.Number
+	defer func() {
+		backendVersionBinary = origBackendBinary
+		backendVersion = origBackend
+	}()
+
+	s.modelInfo.AgentVersion = version.MustParse("2.8.0")
+	err := s.runPrecheck(backend)
+	c.Assert(err, gc.ErrorMatches,
+		`model must be upgraded to at least version 2.9.* before being migrated to a controller with version 3.0.0`)
+
+	s.modelInfo.AgentVersion = version.MustParse("2.9.0")
+	err = s.runPrecheck(backend)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *TargetPrecheckSuite) TestSourceControllerMajorAhead(c *gc.C) {
 	backend := newFakeBackend()
 
@@ -1006,6 +1028,10 @@ func (u *fakeUnit) AgentStatus() (status.StatusInfo, error) {
 
 func (u *fakeUnit) Status() (status.StatusInfo, error) {
 	return status.StatusInfo{Status: status.Idle}, nil
+}
+
+func (u *fakeUnit) IsEmbedded() (bool, error) {
+	return false, nil
 }
 
 type fakeRelation struct {

@@ -174,19 +174,19 @@ print ("\n".join(j.get("branches", {}).keys()))
 '   < ${cache_fname}
 }
 
-# Print (return) all actions IDS from (cached) "juju show-action-status" output
-_JUJU_2_action_ids_from_action_status() {
+# Print (return) all operations IDS from (cached) "juju operations" output
+_JUJU_2_operation_ids_from_operations() {
     local model=$(_get_current_model)
     local juju_status_file=${cache_dir}/juju-status-"${model}"
     local cache_fname=$(
       _JUJU_2_cache_cmd ${_JUJU_2_cache_TTL} \
-        echo ${_juju_cmd_JUJU_2?} show-action-status --model "${model}" --format json
+        echo ${_juju_cmd_JUJU_2?} operations --model "${model}" --format json
     ) || return $?
     [ -n "${cache_fname}" ] || return 0
     ${_juju_cmd_PYTHON?} -c '
 import json, sys
 sys.stderr.close()
-print ("\n".join([x["id"] for x in json.load(sys.stdin).get("actions", {})]))
+print ("\n".join([x for x in json.load(sys.stdin).keys()]))
 '   < ${cache_fname}
 }
 
@@ -330,8 +330,8 @@ _JUJU_2_completion_func_for_cmd() {
             echo _JUJU_2_applications_from_status;;
         *\<machine*)
             echo _JUJU_2_machines_from_status;;
-        *\<action*)
-            echo _JUJU_2_action_ids_from_action_status;;
+        *\<operation*)
+            echo _JUJU_2_operation_ids_from_operations;;
         *show-storage*)
             echo _JUJU_2_storage_ids_from_list_storage;;
         *pattern*|*application-or-unit*)
@@ -485,7 +485,7 @@ fi
 
 # Select python3, else python2
 export _juju_cmd_PYTHON
-for _juju_cmd_PYTHON in /usr/bin/python{3,2};do
+for _juju_cmd_PYTHON in python{3,2};do
   [ -x ${_juju_cmd_PYTHON?} ] && break
 done
 

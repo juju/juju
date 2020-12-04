@@ -140,21 +140,22 @@ type LXDProfile struct {
 
 // ApplicationStatus holds status info about an application.
 type ApplicationStatus struct {
-	Err              *Error                 `json:"err,omitempty"`
-	Charm            string                 `json:"charm"`
-	Series           string                 `json:"series"`
-	Exposed          bool                   `json:"exposed"`
-	Life             life.Value             `json:"life"`
-	Relations        map[string][]string    `json:"relations"`
-	CanUpgradeTo     string                 `json:"can-upgrade-to"`
-	SubordinateTo    []string               `json:"subordinate-to"`
-	Units            map[string]UnitStatus  `json:"units"`
-	MeterStatuses    map[string]MeterStatus `json:"meter-statuses"`
-	Status           DetailedStatus         `json:"status"`
-	WorkloadVersion  string                 `json:"workload-version"`
-	CharmVersion     string                 `json:"charm-version"`
-	CharmProfile     string                 `json:"charm-profile"`
-	EndpointBindings map[string]string      `json:"endpoint-bindings"`
+	Err              *Error                     `json:"err,omitempty"`
+	Charm            string                     `json:"charm"`
+	Series           string                     `json:"series"`
+	Exposed          bool                       `json:"exposed"`
+	ExposedEndpoints map[string]ExposedEndpoint `json:"exposed-endpoints,omitempty"`
+	Life             life.Value                 `json:"life"`
+	Relations        map[string][]string        `json:"relations"`
+	CanUpgradeTo     string                     `json:"can-upgrade-to"`
+	SubordinateTo    []string                   `json:"subordinate-to"`
+	Units            map[string]UnitStatus      `json:"units"`
+	MeterStatuses    map[string]MeterStatus     `json:"meter-statuses"`
+	Status           DetailedStatus             `json:"status"`
+	WorkloadVersion  string                     `json:"workload-version"`
+	CharmVersion     string                     `json:"charm-version"`
+	CharmProfile     string                     `json:"charm-profile"`
+	EndpointBindings map[string]string          `json:"endpoint-bindings"`
 
 	// The following are for CAAS models.
 	Scale         int    `json:"int,omitempty"`

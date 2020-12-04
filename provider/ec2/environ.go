@@ -13,11 +13,11 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
-	"github.com/juju/utils"
-	"github.com/juju/utils/set"
+	"github.com/juju/utils/v2"
 	"github.com/juju/version"
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
@@ -60,6 +61,9 @@ var (
 	// aliveInstanceStates are the states which we filter by when listing
 	// instances in an environment.
 	aliveInstanceStates = []string{"pending", "running"}
+
+	// Ensure that environ imlements FirewallFeatureQuerier.
+	_ environs.FirewallFeatureQuerier = (*environ)(nil)
 )
 
 type environ struct {
@@ -171,6 +175,7 @@ var unsupportedConstraints = []string{
 	// TODO(anastasiamac 2016-03-16) LP#1557874
 	// use virt-type in StartInstances
 	constraints.VirtType,
+	constraints.AllocatePublicIP,
 }
 
 // ConstraintsValidator is defined on the Environs interface.
@@ -404,11 +409,6 @@ func (e *environ) DistributeInstances(
 	ctx context.ProviderCallContext, candidates, distributionGroup []instance.Id, limitZones []string,
 ) ([]instance.Id, error) {
 	return common.DistributeInstances(e, ctx, candidates, distributionGroup, limitZones)
-}
-
-// MaintainInstance is specified in the InstanceBroker interface.
-func (*environ) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
-	return nil
 }
 
 // resourceName returns the string to use for a resource's Name tag,
@@ -1697,7 +1697,16 @@ func rulesToIPPerms(rules firewall.IngressRules) []ec2.IPPerm {
 		if len(r.SourceCIDRs) == 0 {
 			ipPerms[i].SourceIPs = []string{defaultRouteCIDRBlock}
 		} else {
-			ipPerms[i].SourceIPs = r.SourceCIDRs.SortedValues()
+			for _, cidr := range r.SourceCIDRs.SortedValues() {
+				// CIDRs are pre-validated; if an invalid CIDR
+				// reaches this loop, it will be skipped.
+				addrType, _ := network.CIDRAddressType(cidr)
+				if addrType == network.IPv4Address {
+					ipPerms[i].SourceIPs = append(ipPerms[i].SourceIPs, cidr)
+				} else if addrType == network.IPv6Address {
+					ipPerms[i].SourceIPV6IPs = append(ipPerms[i].SourceIPV6IPs, cidr)
+				}
+			}
 		}
 	}
 	return ipPerms
@@ -1760,9 +1769,9 @@ func (e *environ) ingressRulesInGroup(ctx context.ProviderCallContext, name stri
 		return nil, err
 	}
 	for _, p := range group.IPPerms {
-		ips := p.SourceIPs
+		ips := append(p.SourceIPs, p.SourceIPV6IPs...)
 		if len(ips) == 0 {
-			ips = []string{defaultRouteCIDRBlock}
+			ips = append(ips, defaultRouteCIDRBlock)
 		}
 		portRange := corenetwork.PortRange{Protocol: p.Protocol, FromPort: p.FromPort, ToPort: p.ToPort}
 		rules = append(rules, firewall.NewIngressRule(portRange, ips...))
@@ -2404,4 +2413,12 @@ func (e *environ) SetCloudSpec(spec environscloudspec.CloudSpec) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// SupportsRulesWithIPV6CIDRs returns true if the environment supports
+// ingress rules containing IPV6 CIDRs.
+//
+// This is part of the environs.FirewallFeatureQuerier interface.
+func (e *environ) SupportsRulesWithIPV6CIDRs(context.ProviderCallContext) (bool, error) {
+	return true, nil
 }

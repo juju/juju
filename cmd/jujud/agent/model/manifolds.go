@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/voyeur"
+	"github.com/juju/utils/v2/voyeur"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
 
@@ -29,14 +29,15 @@ import (
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/applicationscaler"
+	"github.com/juju/juju/worker/caasapplicationprovisioner"
 	"github.com/juju/juju/worker/caasbroker"
 	"github.com/juju/juju/worker/caasenvironupgrader"
 	"github.com/juju/juju/worker/caasfirewaller"
+	"github.com/juju/juju/worker/caasfirewallerembedded"
 	"github.com/juju/juju/worker/caasmodeloperator"
 	"github.com/juju/juju/worker/caasoperatorprovisioner"
 	"github.com/juju/juju/worker/caasunitprovisioner"
 	"github.com/juju/juju/worker/charmrevision"
-	"github.com/juju/juju/worker/charmrevision/charmrevisionmanifold"
 	"github.com/juju/juju/worker/cleaner"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/credentialvalidator"
@@ -260,14 +261,14 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// that it happens sometimes, even when we try to avoid
 		// it.
 
-		charmRevisionUpdaterName: ifNotMigrating(charmrevisionmanifold.Manifold(charmrevisionmanifold.ManifoldConfig{
+		charmRevisionUpdaterName: ifNotMigrating(charmrevision.Manifold(charmrevision.ManifoldConfig{
 			APICallerName: apiCallerName,
 			Clock:         config.Clock,
 			Period:        config.CharmRevisionUpdateInterval,
 
-			NewFacade: charmrevisionmanifold.NewAPIFacade,
+			NewFacade: charmrevision.NewAPIFacade,
 			NewWorker: charmrevision.NewWorker,
-			// No Logger defined in charmrevision or charmrevisionmanifold package.
+			// No Logger defined in the charmrevision package.
 		})),
 		remoteRelationsName: ifNotMigrating(remoterelations.Manifold(remoterelations.ManifoldConfig{
 			AgentName:                agentName,
@@ -478,17 +479,31 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:                 config.LoggingContext.GetLogger("juju.worker.caas"),
 		})),
 
-		caasFirewallerName: ifNotMigrating(caasfirewaller.Manifold(
+		caasFirewallerNameLegacy: ifNotMigrating(caasfirewaller.Manifold(
 			caasfirewaller.ManifoldConfig{
 				APICallerName:  apiCallerName,
 				BrokerName:     caasBrokerTrackerName,
 				ControllerUUID: agentConfig.Controller().Id(),
 				ModelUUID:      agentConfig.Model().Id(),
 				NewClient: func(caller base.APICaller) caasfirewaller.Client {
-					return caasfirewallerapi.NewClient(caller)
+					return caasfirewallerapi.NewClientLegacy(caller)
 				},
 				NewWorker: caasfirewaller.NewWorker,
-				Logger:    config.LoggingContext.GetLogger("juju.worker.caasfirewaller"),
+				Logger:    config.LoggingContext.GetLogger("juju.worker.caasfirewallerlegacy"),
+			},
+		)),
+
+		caasFirewallerNameEmbedded: ifNotMigrating(caasfirewallerembedded.Manifold(
+			caasfirewallerembedded.ManifoldConfig{
+				APICallerName:  apiCallerName,
+				BrokerName:     caasBrokerTrackerName,
+				ControllerUUID: agentConfig.Controller().Id(),
+				ModelUUID:      agentConfig.Model().Id(),
+				NewClient: func(caller base.APICaller) caasfirewallerembedded.Client {
+					return caasfirewallerapi.NewClientEmbedded(caller)
+				},
+				NewWorker: caasfirewallerembedded.NewWorker,
+				Logger:    config.LoggingContext.GetLogger("juju.worker.caasfirewallerembedded"),
 			},
 		)),
 
@@ -508,6 +523,16 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 				ClockName:     clockName,
 				NewWorker:     caasoperatorprovisioner.NewProvisionerWorker,
 				Logger:        config.LoggingContext.GetLogger("juju.worker.caasprovisioner"),
+			},
+		)),
+
+		caasApplicationProvisionerName: ifNotMigrating(caasapplicationprovisioner.Manifold(
+			caasapplicationprovisioner.ManifoldConfig{
+				APICallerName: apiCallerName,
+				BrokerName:    caasBrokerTrackerName,
+				ClockName:     clockName,
+				NewWorker:     caasapplicationprovisioner.NewProvisionerWorker,
+				Logger:        config.LoggingContext.GetLogger("juju.worker.caasapplicationprovisioner"),
 			},
 		)),
 
@@ -661,13 +686,15 @@ const (
 	loggingConfigUpdaterName = "logging-config-updater"
 	instanceMutaterName      = "instance-mutater"
 
-	caasAdmissionName           = "caas-admission"
-	caasFirewallerName          = "caas-firewaller"
-	caasModelOperatorName       = "caas-model-operator"
-	caasOperatorProvisionerName = "caas-operator-provisioner"
-	caasUnitProvisionerName     = "caas-unit-provisioner"
-	caasStorageProvisionerName  = "caas-storage-provisioner"
-	caasBrokerTrackerName       = "caas-broker-tracker"
+	caasAdmissionName              = "caas-admission"
+	caasFirewallerNameLegacy       = "caas-firewaller-legacy"
+	caasFirewallerNameEmbedded     = "caas-firewaller-embedded"
+	caasModelOperatorName          = "caas-model-operator"
+	caasOperatorProvisionerName    = "caas-operator-provisioner"
+	caasApplicationProvisionerName = "caas-application-provisioner"
+	caasUnitProvisionerName        = "caas-unit-provisioner"
+	caasStorageProvisionerName     = "caas-storage-provisioner"
+	caasBrokerTrackerName          = "caas-broker-tracker"
 
 	validCredentialFlagName = "valid-credential-flag"
 )

@@ -225,7 +225,7 @@ func (w *Worker) dumpDebug() (string, error) {
 		return "", errors.Trace(err)
 	}
 	defer dumpFile.Close()
-	if _, err = io.WriteString(dumpFile, fmt.Sprintf("goroutime dump %v\n", time.Now().Format(time.RFC3339))); err != nil {
+	if _, err = io.WriteString(dumpFile, fmt.Sprintf("goroutine dump %v\n", time.Now().Format(time.RFC3339))); err != nil {
 		return "", errors.Annotate(err, "writing header to apiserver log file")
 	}
 	return dumpFile.Name(), pprof.Lookup("goroutine").WriteTo(dumpFile, 1)

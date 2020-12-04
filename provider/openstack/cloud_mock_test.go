@@ -5,10 +5,9 @@
 package openstack
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	network "github.com/juju/juju/core/network"
+	reflect "reflect"
 )
 
 // MockNetworkingConfig is a mock of NetworkingConfig interface

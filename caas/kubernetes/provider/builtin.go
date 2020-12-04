@@ -8,20 +8,21 @@ import (
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/exec"
+	"github.com/juju/utils/v2/exec"
 
-	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	jujucloud "github.com/juju/juju/cloud"
 )
 
 func attemptMicroK8sCloud(cmdRunner CommandRunner) (cloud.Cloud, jujucloud.Credential, string, error) {
 	return attemptMicroK8sCloudInternal(cmdRunner, KubeCloudParams{
-		ClusterName:   caas.MicroK8sClusterName,
-		CloudName:     caas.K8sCloudMicrok8s,
-		CredentialUID: caas.K8sCloudMicrok8s,
-		CaasType:      CAASProviderType,
+		ClusterName:   k8s.MicroK8sClusterName,
+		CloudName:     k8s.K8sCloudMicrok8s,
+		CredentialUID: k8s.K8sCloudMicrok8s,
+		CaasType:      constants.CAASProviderType,
 		ClientConfigGetter: func(caasType string) (clientconfig.ClientConfigFunc, error) {
 			return clientconfig.NewClientConfigReader(caasType)
 		},
@@ -45,7 +46,7 @@ func attemptMicroK8sCloudInternal(
 		return newCloud, jujucloud.Credential{}, "", err
 	}
 	newCloud.Regions = []jujucloud.Region{{
-		Name: caas.Microk8sRegion,
+		Name: k8s.Microk8sRegion,
 	}}
 	newCloud.Description = cloud.DefaultCloudDescription(cloud.CloudTypeCAAS)
 	return newCloud, credential, credential.Label, nil

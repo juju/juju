@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
+	"github.com/juju/juju/apiserver/common/unitcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	leadershipapiserver "github.com/juju/juju/apiserver/facades/agent/leadership"
@@ -28,16 +29,18 @@ import (
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/feature"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.uniter")
+
+// TODO (manadart 2020-10-21): Remove the ModelUUID method
+// from the next version of this facade.
 
 // UniterAPI implements the latest version (v17) of the Uniter API, which
 // augments the payload of the CommitHookChanges API call and introduces
@@ -81,7 +84,7 @@ type UniterAPI struct {
 }
 
 // UniterAPIV16 implements version (v16) of the Uniter API, which adds
-// LXDPorfileAPIV2.
+// LXDProfileAPIV2.
 type UniterAPIV16 struct {
 	UniterAPI
 }
@@ -187,7 +190,7 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
-	accessUnit := unitAccessor(authorizer, st)
+	accessUnit := unitcommon.UnitAccessor(authorizer, unitcommon.Backend(st))
 	accessApplication := applicationAccessor(authorizer, st)
 	accessMachine := machineAccessor(authorizer, st)
 	accessCloudSpec := cloudSpecAccessor(authorizer, st)
@@ -230,7 +233,7 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 		LifeGetter:                 common.NewLifeGetter(st, accessUnitOrApplication),
 		DeadEnsurer:                common.NewDeadEnsurer(st, common.RevokeLeadershipFunc(leadershipRevoker), accessUnit),
 		AgentEntityWatcher:         common.NewAgentEntityWatcher(st, resources, accessUnitOrApplication),
-		APIAddresser:               common.NewAPIAddresser(st, resources),
+		APIAddresser:               common.NewAPIAddresser(context.StatePool().SystemState(), resources),
 		ModelWatcher:               common.NewModelWatcher(m, resources, authorizer),
 		RebootRequester:            common.NewRebootRequester(st, accessMachine),
 		UpgradeSeriesAPI:           common.NewExternalUpgradeSeriesAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
@@ -323,7 +326,7 @@ func NewUniterAPIV11(context facade.Context) (*UniterAPIV11, error) {
 	authorizer := context.Auth()
 	st := context.State()
 	resources := context.Resources()
-	accessUnit := unitAccessor(authorizer, st)
+	accessUnit := unitcommon.UnitAccessor(authorizer, unitcommon.Backend(st))
 	return &UniterAPIV11{
 		LXDProfileAPI: NewExternalLXDProfileAPI(st, resources, authorizer, accessUnit, logger),
 		UniterAPIV12:  *uniterAPI,
@@ -584,7 +587,7 @@ func (u *UniterAPI) PublicAddress(args params.Entities) (params.StringResults, e
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
 			if err == nil {
-				var address corenetwork.SpaceAddress
+				var address network.SpaceAddress
 				address, err = unit.PublicAddress()
 				if err == nil {
 					result.Results[i].Result = address.Value
@@ -618,7 +621,7 @@ func (u *UniterAPI) PrivateAddress(args params.Entities) (params.StringResults, 
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
 			if err == nil {
-				var address corenetwork.SpaceAddress
+				var address network.SpaceAddress
 				address, err = unit.PrivateAddress()
 				if err == nil {
 					result.Results[i].Result = address.Value
@@ -1105,7 +1108,7 @@ func (u *UniterAPI) OpenPorts(args params.EntitiesPortRanges) (params.ErrorResul
 		// subnets. Instead, it was assumed that the port range was
 		// always opened in all subnets. To emulate this behavior, we
 		// simply open the requested port range for all endpoints.
-		unitPortRanges.Open("", corenetwork.PortRange{
+		unitPortRanges.Open("", network.PortRange{
 			FromPort: entity.FromPort,
 			ToPort:   entity.ToPort,
 			Protocol: entity.Protocol,
@@ -1154,7 +1157,7 @@ func (u *UniterAPI) ClosePorts(args params.EntitiesPortRanges) (params.ErrorResu
 		// subnets. Instead, it was assumed that the port range was
 		// always opened in all subnets. To emulate this behavior, we
 		// simply close the requested port range for all endpoints.
-		unitPortRanges.Close("", corenetwork.PortRange{
+		unitPortRanges.Close("", network.PortRange{
 			FromPort: entity.FromPort,
 			ToPort:   entity.ToPort,
 			Protocol: entity.Protocol,
@@ -1164,6 +1167,14 @@ func (u *UniterAPI) ClosePorts(args params.EntitiesPortRanges) (params.ErrorResu
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
+}
+
+// ModelUUID returns the model UUID that this unit resides in.
+// It is implemented here directly as a result of removing it from
+// embedded APIAddresser *without* bumping the facade version.
+// It should be blanked when this facade version is next incremented.
+func (u *UniterAPI) ModelUUID() params.StringResult {
+	return params.StringResult{Result: u.m.UUID()}
 }
 
 // WatchConfigSettings returns a NotifyWatcher for observing changes
@@ -1654,7 +1665,7 @@ func (u *UniterAPI) EnterScope(args params.RelationUnits) (params.ErrorResults, 
 			return nil
 		}
 
-		netInfo, err := NewNetworkInfo(u.st, unitTag, defaultRetryFactory)
+		netInfo, err := NewNetworkInfo(u.st, unitTag)
 		if err != nil {
 			return err
 		}
@@ -2594,12 +2605,16 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 		return params.NetworkInfoResults{}, apiservererrors.ErrPerm
 	}
 
-	netInfo, err := NewNetworkInfo(u.st, unitTag, defaultRetryFactory)
+	netInfo, err := NewNetworkInfo(u.st, unitTag)
 	if err != nil {
 		return params.NetworkInfoResults{}, err
 	}
 
-	return netInfo.ProcessAPIRequest(args)
+	res, err := netInfo.ProcessAPIRequest(args)
+	if err != nil {
+		return params.NetworkInfoResults{}, err
+	}
+	return uniqueNetworkInfoResults(res), nil
 }
 
 // WatchUnitRelations returns a StringsWatcher, for each given
@@ -2737,7 +2752,7 @@ func (u *UniterAPIV4) getOneNetworkConfig(canAccess common.AuthFunc, unitTagArg,
 	}
 
 	var results []params.NetworkConfig
-	if boundSpace == corenetwork.AlphaSpaceId {
+	if boundSpace == network.AlphaSpaceId {
 		logger.Debugf(
 			"endpoint %q not explicitly bound to a space, using preferred private address for machine %q",
 			bindingName, machineID,
@@ -3524,7 +3539,7 @@ func (u *UniterAPI) updateUnitNetworkInfoOperation(unitTag names.UnitTag, unit *
 			return nil, errors.Trace(err)
 		}
 
-		netInfo, err := NewNetworkInfo(u.st, unitTag, defaultRetryFactory)
+		netInfo, err := NewNetworkInfo(u.st, unitTag)
 		if err != nil {
 			return nil, err
 		}
@@ -3655,7 +3670,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 			// not populate the new Endpoint field; this
 			// effectively opens the port for all endpoints and
 			// emulates pre-2.9 behavior.
-			unitPortRanges.Open(r.Endpoint, corenetwork.PortRange{
+			unitPortRanges.Open(r.Endpoint, network.PortRange{
 				FromPort: r.FromPort,
 				ToPort:   r.ToPort,
 				Protocol: r.Protocol,
@@ -3671,7 +3686,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 			// not populate the new Endpoint field; this
 			// effectively closes the port for all endpoints and
 			// emulates pre-2.9 behavior.
-			unitPortRanges.Close(r.Endpoint, corenetwork.PortRange{
+			unitPortRanges.Close(r.Endpoint, network.PortRange{
 				FromPort: r.FromPort,
 				ToPort:   r.ToPort,
 				Protocol: r.Protocol,

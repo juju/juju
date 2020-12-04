@@ -5,18 +5,15 @@ package action
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/names/v4"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/feature"
 )
 
 type showCommand struct {
@@ -36,7 +33,7 @@ Examples:
 
 See also:
     list-actions
-    run-action
+    run
 `
 
 // NewShowCommand returns a command to print action information.
@@ -70,9 +67,6 @@ func (c *showCommand) Info() *cmd.Info {
 		Purpose: "Shows detailed information about an action.",
 		Doc:     showActionDoc,
 	})
-	if featureflag.Enabled(feature.ActionsV2) {
-		info.Doc = strings.Replace(info.Doc, "run-action", "run", -1)
-	}
 	return info
 }
 

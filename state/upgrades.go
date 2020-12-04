@@ -14,24 +14,26 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/replicaset"
+	"github.com/kr/pretty"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/caas"
-	k8s "github.com/juju/juju/caas/kubernetes/provider"
+	k8s "github.com/juju/juju/caas/kubernetes"
+	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo/utils"
-	"github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/state/upgrade"
 	"github.com/juju/juju/storage/provider"
 )
@@ -1797,6 +1799,11 @@ func cloudSpec(
 // Override for testing.
 var NewBroker caas.NewContainerBrokerFunc = caas.New
 
+type clusterMetadataGetter interface {
+	// GetClusterMetadata returns metadata about host cloud and storage for the cluster.
+	GetClusterMetadata(storageClass string) (result *k8s.ClusterMetadata, err error)
+}
+
 func updateKubernetesStorageConfig(st *State) error {
 	model, err := st.Model()
 	if err != nil || model.Type() == ModelTypeIAAS {
@@ -1820,7 +1827,7 @@ func updateKubernetesStorageConfig(st *State) error {
 	if err != nil {
 		return errors.Annotate(err, "getting cloud config")
 	}
-	operatorStorage, haveDefaultOperatorStorage := defaults[k8s.OperatorStorageKey]
+	operatorStorage, haveDefaultOperatorStorage := defaults[k8sprovider.OperatorStorageKey]
 	if !haveDefaultOperatorStorage {
 		cloudSpec, err := cloudSpec(st, model.CloudName(), model.CloudRegion(), cred)
 		if err != nil {
@@ -1830,7 +1837,13 @@ func updateKubernetesStorageConfig(st *State) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		metadata, err := broker.GetClusterMetadata("")
+		// This is implemented by the k8s provider but is not part of
+		// the caas.Broker interface. We need to do a cast check.
+		metadataGetter, supported := broker.(clusterMetadataGetter)
+		if !supported {
+			return errors.NotSupportedf("querying cluster metadata")
+		}
+		metadata, err := metadataGetter.GetClusterMetadata("")
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1839,8 +1852,8 @@ func updateKubernetesStorageConfig(st *State) error {
 		}
 		operatorStorage = metadata.NominatedStorageClass.Name
 		err = st.updateConfigDefaults(model.CloudName(), cloud.Attrs{
-			k8s.OperatorStorageKey: operatorStorage,
-			k8s.WorkloadStorageKey: operatorStorage, // use same storage for both
+			k8sprovider.OperatorStorageKey: operatorStorage,
+			k8sprovider.WorkloadStorageKey: operatorStorage, // use same storage for both
 		}, nil)
 		if err != nil {
 			return errors.Trace(err)
@@ -1848,11 +1861,11 @@ func updateKubernetesStorageConfig(st *State) error {
 	}
 
 	attrs := make(map[string]interface{})
-	if _, ok := cfg.AllAttrs()[k8s.OperatorStorageKey]; !ok {
-		attrs[k8s.OperatorStorageKey] = operatorStorage
+	if _, ok := cfg.AllAttrs()[k8sprovider.OperatorStorageKey]; !ok {
+		attrs[k8sprovider.OperatorStorageKey] = operatorStorage
 	}
-	if _, ok := cfg.AllAttrs()[k8s.WorkloadStorageKey]; !ok {
-		attrs[k8s.WorkloadStorageKey] = operatorStorage
+	if _, ok := cfg.AllAttrs()[k8sprovider.WorkloadStorageKey]; !ok {
+		attrs[k8sprovider.WorkloadStorageKey] = operatorStorage
 
 	}
 
@@ -2974,6 +2987,14 @@ func ResetDefaultRelationLimitInCharmMetadata(pool *StatePool) (err error) {
 
 		var ops []txn.Op
 		for _, charmDoc := range docs {
+			if charmDoc.Meta == nil {
+				if !(charmDoc.Placeholder || charmDoc.PendingUpload) {
+					logger.Warningf(
+						"charmDoc has nil Meta and is not a placeholder/pending upload: %# v",
+						pretty.Formatter(charmDoc))
+				}
+				continue
+			}
 			for epName, rel := range charmDoc.Meta.Requires {
 				rel.Limit = 0
 				charmDoc.Meta.Requires[epName] = rel
@@ -2995,6 +3016,10 @@ func ResetDefaultRelationLimitInCharmMetadata(pool *StatePool) (err error) {
 			})
 		}
 
+		if len(ops) == 0 {
+			// No need to run an empty transaction
+			return nil
+		}
 		return errors.Trace(st.db().RunTransaction(ops))
 	}))
 }
@@ -3168,43 +3193,110 @@ func AddCharmOriginToApplications(pool *StatePool) error {
 	}))
 }
 
-// AddAzureProviderNetworkConfig adds new network config attributes to any Azure models.
-func AddAzureProviderNetworkConfig(pool *StatePool) error {
-	st := pool.SystemState()
-	var ops []txn.Op
-	coll, closer := st.db().GetRawCollection(settingsC)
-	defer closer()
-	iter := coll.Find(bson.D{}).Iter()
-	defer iter.Close()
-	var doc settingsDoc
-	for iter.Next(&doc) {
-		// Is this an Azure cloud...
-		cloudType, _ := doc.Settings[config.TypeKey].(string)
-		if cloudType != azure.ProviderType {
-			continue
-		}
-		// Has this model already been upgraded, or is it new.
-		_, hasPublicIPSetting := doc.Settings[azure.ConfigAttrUsePublicIP]
-		if hasPublicIPSetting {
-			continue
+// ExposeWildcardEndpointForExposedApplications adds an ExposedEndpoint entry
+// for the wildcard endpoint (to 0.0.0.0/0) for already exposed applications.
+// This ensures that all exposed applications are accessible at least one CIDR
+// and allows us to drop the fallback to 0.0.0.0/0 if no CIDRs present logic
+// from the firewaller worker.
+func ExposeWildcardEndpointForExposedApplications(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(applicationsC)
+		defer closer()
+
+		var docs []applicationDoc
+		if err := col.Find(nil).All(&docs); err != nil {
+			return errors.Trace(err)
 		}
 
-		defaults := azure.DefaultNetworkConfigForUpgrade()
-		for k, v := range defaults {
-			doc.Settings[k] = v
+		var implicitExposedEndpoints = map[string]ExposedEndpoint{
+			"": {
+				ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR},
+			},
 		}
-		ops = append(ops, txn.Op{
-			C:      settingsC,
-			Id:     doc.DocID,
-			Assert: txn.DocExists,
-			Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
-		})
+
+		var ops []txn.Op
+		for _, application := range docs {
+			if !application.Exposed {
+				continue
+			}
+
+			ops = append(ops, txn.Op{
+				C:      applicationsC,
+				Id:     application.DocID,
+				Assert: txn.DocExists,
+				Update: bson.D{{
+					"$set", bson.D{{
+						"exposed-endpoints", implicitExposedEndpoints,
+					}},
+				}},
+			})
+		}
+		if len(ops) > 0 {
+			return errors.Trace(st.db().RunTransaction(ops))
+		}
+		return nil
+	}))
+}
+
+func RemoveLinkLayerDevicesRefsCollection(pool *StatePool) error {
+	st := pool.SystemState()
+	col, closer := st.db().GetRawCollection("linklayerdevicesrefs")
+	defer closer()
+
+	// We can't test with errors.IsNotFound here.
+	err := col.DropCollection()
+	if err != nil && strings.Contains(err.Error(), "not found") {
+		return nil
 	}
-	if err := iter.Close(); err != nil {
+
+	return errors.Trace(err)
+}
+
+func RemoveUnusedLinkLayerDeviceProviderIDs(pool *StatePool) error {
+	st := pool.SystemState()
+
+	const idType = "linklayerdevice"
+	idTypeExp := fmt.Sprintf("^.*:%s:.*$", idType)
+
+	lldCol, lldCloser := st.db().GetRawCollection(linkLayerDevicesC)
+	defer lldCloser()
+
+	// Gather the full qualified IDs for used link-layer device provider IDs.
+	used := set.NewStrings()
+	var doc struct {
+		ModelUUID  string `bson:"model-uuid"`
+		ProviderID string `bson:"providerid"`
+	}
+	iter := lldCol.Find(bson.M{"providerid": bson.M{"$exists": true}}).Iter()
+	for iter.Next(&doc) {
+		used.Add(strings.Join([]string{doc.ModelUUID, idType, doc.ProviderID}, ":"))
+	}
+
+	pidCol, pidCloser := st.db().GetRawCollection(providerIDsC)
+	defer pidCloser()
+
+	// Delete all link-layer device provider IDs we didn't find.
+	// Get a count before and after for logging the delta.
+	before, err := pidCol.Find(nil).Count()
+	if err != nil {
 		return errors.Trace(err)
 	}
-	if len(ops) > 0 {
-		return errors.Trace(st.runRawTransaction(ops))
+
+	_, err = pidCol.RemoveAll(bson.D{{
+		"$and", []bson.D{
+			{{"_id", bson.D{{"$regex", idTypeExp}}}},
+			{{"_id", bson.D{{"$nin", used.Values()}}}},
+		},
+	}})
+	if err != nil {
+		return errors.Trace(err)
 	}
+
+	after, err := pidCol.Find(nil).Count()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	logger.Infof("deleted %d unused link-layer device provider IDs", before-after)
 	return nil
 }

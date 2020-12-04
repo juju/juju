@@ -21,9 +21,10 @@ type DialFunc func(_ context.Context, _ *url.URL, datacenter string) (Client, er
 // Client is an interface for interacting with the vSphere API.
 type Client interface {
 	Close(context.Context) error
-	ComputeResources(context.Context) ([]*mo.ComputeResource, error)
+	ComputeResources(context.Context) ([]vsphereclient.ComputeResource, error)
 	ResourcePools(context.Context, string) ([]*object.ResourcePool, error)
 	CreateVirtualMachine(context.Context, vsphereclient.CreateVirtualMachineParams) (*mo.VirtualMachine, error)
+	Folders(ctx context.Context) (*object.DatacenterFolders, error)
 	Datastores(context.Context) ([]mo.Datastore, error)
 	DeleteDatastoreFile(context.Context, string) error
 	DestroyVMFolder(context.Context, string) error

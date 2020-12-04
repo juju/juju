@@ -7,11 +7,13 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
+
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
-	apicharms "github.com/juju/juju/api/charms"
 	commoncharm "github.com/juju/juju/api/common/charm"
+	apicharms "github.com/juju/juju/api/common/charms"
 	apiparams "github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -20,7 +22,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/jujuclient"
-	"gopkg.in/macaroon-bakery.v2/httpbakery"
 )
 
 // DeployerFactory contains a method to get a deployer.
@@ -116,14 +117,23 @@ type ApplicationAPI interface {
 	AddMachines(machineParams []apiparams.AddMachineParams) ([]apiparams.AddMachinesResult, error)
 	AddRelation(endpoints, viaCIDRs []string) (*apiparams.AddRelationResults, error)
 	AddUnits(application.AddUnitsParams) ([]string, error)
-	Expose(application string) error
+	Expose(application string, exposedEndpoints map[string]apiparams.ExposedEndpoint) error
+
 	GetAnnotations(tags []string) ([]apiparams.AnnotationsGetResult, error)
-	GetConfig(branchName string, appNames ...string) ([]map[string]interface{}, error)
-	GetConstraints(appNames ...string) ([]constraints.Value, error)
 	SetAnnotation(annotations map[string]map[string]string) ([]apiparams.ErrorResult, error)
+
+	GetCharmURLOrigin(string, string) (*charm.URL, commoncharm.Origin, error)
 	SetCharm(string, application.SetCharmConfig) error
+
+	GetConfig(branchName string, appNames ...string) ([]map[string]interface{}, error)
+	SetConfig(branchName string, application, configYAML string, config map[string]string) error
+
+	GetConstraints(appNames ...string) ([]constraints.Value, error)
 	SetConstraints(application string, constraints constraints.Value) error
+
+	// Deprecate use of Update, use SetConfig instead.
 	Update(apiparams.ApplicationUpdate) error
+
 	ScaleApplication(application.ScaleApplicationParams) (apiparams.ScaleApplicationResult, error)
 	Consume(arg crossmodel.ConsumeApplicationArgs) (string, error)
 }
@@ -142,7 +152,7 @@ type Bundle interface {
 // Resolver defines what we need  to resolve a charm or bundle and
 // read the bundle data.
 type Resolver interface {
-	GetBundle(*charm.URL, string) (charm.Bundle, error)
+	GetBundle(*charm.URL, commoncharm.Origin, string) (charm.Bundle, error)
 	ResolveBundleURL(*charm.URL, commoncharm.Origin) (*charm.URL, commoncharm.Origin, error)
 	ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin) (*charm.URL, commoncharm.Origin, []string, error)
 }

@@ -13,7 +13,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -183,11 +183,11 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	})
 
 	wordpress := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
-	err = wordpress.SetExposed(nil)
+	err = wordpress.MergeExposeSettings(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = wordpress.SetMinUnits(units)
 	c.Assert(err, jc.ErrorIsNil)
-	err = wordpress.SetConstraints(constraints.MustParse("mem=100M"))
+	err = wordpress.SetConstraints(constraints.MustParse("arch=amd64 mem=100M"))
 	c.Assert(err, jc.ErrorIsNil)
 	setApplicationConfigAttr(c, wordpress, "blog-title", "boring")
 	pairs := map[string]string{"x": "12", "y": "99"}
@@ -198,7 +198,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		CharmURL:    applicationCharmURL(wordpress).String(),
 		Life:        life.Alive,
 		MinUnits:    units,
-		Constraints: constraints.MustParse("mem=100M"),
+		Constraints: constraints.MustParse("arch=amd64 mem=100M"),
 		Annotations: pairs,
 		Config:      charm.Settings{"blog-title": "boring"},
 		Subordinate: false,
@@ -382,11 +382,12 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	mysql := AddTestingApplication(c, st, "mysql", AddTestingCharm(c, st, "mysql"))
 	curl := applicationCharmURL(mysql)
 	add(&multiwatcher.ApplicationInfo{
-		ModelUUID: modelUUID,
-		Name:      "mysql",
-		CharmURL:  curl.String(),
-		Life:      life.Alive,
-		Config:    charm.Settings{},
+		ModelUUID:   modelUUID,
+		Name:        "mysql",
+		CharmURL:    curl.String(),
+		Life:        life.Alive,
+		Config:      charm.Settings{},
+		Constraints: constraints.MustParse("arch=amd64"),
 		Status: multiwatcher.StatusInfo{
 			Current: "unset",
 			Message: "",
@@ -820,7 +821,7 @@ func (s *allWatcherStateSuite) TestChangeCAASUnits(c *gc.C) {
 						Life:        "alive",
 						WorkloadStatus: multiwatcher.StatusInfo{
 							Current: "waiting",
-							Message: "agent initializing",
+							Message: "installing agent",
 							Data:    map[string]interface{}{},
 							Since:   &now,
 						},
@@ -2102,7 +2103,7 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 		},
 		func(c *gc.C, st *State) changeTestCase {
 			wordpress := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
-			err := wordpress.SetExposed(nil)
+			err := wordpress.MergeExposeSettings(nil)
 			c.Assert(err, jc.ErrorIsNil)
 			err = wordpress.SetMinUnits(42)
 			c.Assert(err, jc.ErrorIsNil)
@@ -2115,13 +2116,14 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ApplicationInfo{
-						ModelUUID: st.ModelUUID(),
-						Name:      "wordpress",
-						Exposed:   true,
-						CharmURL:  "local:quantal/quantal-wordpress-3",
-						Life:      life.Alive,
-						MinUnits:  42,
-						Config:    charm.Settings{},
+						ModelUUID:   st.ModelUUID(),
+						Name:        "wordpress",
+						Exposed:     true,
+						CharmURL:    "local:quantal/quantal-wordpress-3",
+						Life:        life.Alive,
+						MinUnits:    42,
+						Config:      charm.Settings{},
+						Constraints: constraints.MustParse("arch=amd64"),
 						Status: multiwatcher.StatusInfo{
 							Current: "unset",
 							Message: "",
@@ -2230,6 +2232,34 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 						CharmURL:        "local:quantal/quantal-wordpress-3",
 						WorkloadVersion: "ultimate",
 					},
+					&multiwatcher.UnitInfo{
+						ModelUUID:   st.ModelUUID(),
+						Name:        "wordpress/0",
+						Application: "wordpress",
+					},
+				},
+			}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			app := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+			unit, err := app.AddUnit(AddUnitParams{})
+			c.Assert(err, jc.ErrorIsNil)
+			err = unit.SetWorkloadVersion("42.47")
+			c.Assert(err, jc.ErrorIsNil)
+			return changeTestCase{
+				about: "workload version is ignored if there is no application info",
+				initialContents: []multiwatcher.EntityInfo{
+					&multiwatcher.UnitInfo{
+						ModelUUID:   st.ModelUUID(),
+						Name:        "wordpress/0",
+						Application: "wordpress",
+					},
+				},
+				change: watcher.Change{
+					C:  "statuses",
+					Id: st.docID("u#" + unit.Name() + "#charm#sat#workload-version"),
+				},
+				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
 						ModelUUID:   st.ModelUUID(),
 						Name:        "wordpress/0",

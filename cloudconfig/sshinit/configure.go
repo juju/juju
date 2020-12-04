@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	"github.com/juju/loggo"
-	"github.com/juju/utils"
-	"github.com/juju/utils/ssh"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/ssh"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 )

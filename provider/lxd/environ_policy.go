@@ -23,6 +23,7 @@ var unsupportedConstraints = []string{
 	constraints.Tags,
 	constraints.VirtType,
 	constraints.Container,
+	constraints.AllocatePublicIP,
 }
 
 // ConstraintsValidator returns a Validator value which is used to
@@ -31,7 +32,7 @@ func (env *environ) ConstraintsValidator(ctx context.ProviderCallContext) (const
 	validator := constraints.NewValidator()
 
 	validator.RegisterUnsupported(unsupportedConstraints)
-	validator.RegisterVocabulary(constraints.Arch, []string{env.server().HostArch()})
+	validator.RegisterVocabulary(constraints.Arch, env.server().SupportedArches())
 
 	return validator, nil
 }

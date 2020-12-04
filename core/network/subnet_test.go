@@ -59,6 +59,15 @@ func (*subnetSuite) TestFindSubnetIDsForAZ(c *gc.C) {
 			},
 			expected: []network.Id{"bar", "other"},
 		},
+		{
+			name:     "empty zone match",
+			zoneName: "",
+			subnetsToZones: map[network.Id][]string{
+				"bar":   {},
+				"other": {},
+			},
+			expected: []network.Id{"bar", "other"},
+		},
 	}
 
 	for i, t := range testCases {

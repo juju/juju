@@ -363,66 +363,6 @@ class OpenStackAccount:
         return uncleaned_resource
 
 
-class JoyentAccount:
-    """Represent a Joyent account."""
-
-    def __init__(self, client):
-        self.client = client
-
-    @classmethod
-    @contextmanager
-    def from_boot_config(cls, boot_config):
-        """Create a ContextManager for a JoyentAccount.
-
-         Using a JujuData object, the private key is written to
-         a tmp file. Then, the Joyent client is inited with the path to the
-         tmp key. The key is removed when done.
-         """
-        from joyent import Client
-        config = get_config(boot_config)
-        with temp_dir() as key_dir:
-            key_path = os.path.join(key_dir, 'joyent.key')
-            open(key_path, 'w').write(config['private-key'])
-            client = Client(
-                config['sdc-url'], config['manta-user'],
-                config['manta-key-id'], key_path, '')
-            yield cls(client)
-
-    def terminate_instances(self, instance_ids):
-        """Terminate the specified instances."""
-        provisioning = []
-        for instance_id in instance_ids:
-            machine_info = self.client._list_machines(instance_id)
-            if machine_info['state'] == 'provisioning':
-                provisioning.append(instance_id)
-                continue
-            self._terminate_instance(instance_id)
-        if len(provisioning) > 0:
-            raise StillProvisioning(provisioning)
-
-    def _terminate_instance(self, machine_id):
-        log.info('Stopping instance {}'.format(machine_id))
-        self.client.stop_machine(machine_id)
-        for ignored in until_timeout(30):
-            stopping_machine = self.client._list_machines(machine_id)
-            if stopping_machine['state'] == 'stopped':
-                break
-            sleep(3)
-        else:
-            raise Exception('Instance did not stop: {}'.format(machine_id))
-        log.info('Terminating instance {}'.format(machine_id))
-        self.client.delete_machine(machine_id)
-
-    def ensure_cleanup(self, resource_details):
-        """
-        Do Joyent specific clean-up activity.
-        :param resource_details: The list of resource to be cleaned up
-        :return: list of resources that were not cleaned up
-        """
-        uncleaned_resource = []
-        return uncleaned_resource
-
-
 def convert_to_azure_ids(client, instance_ids):
     """Return a list of ARM ids from a list juju machine instance-ids.
 
@@ -914,8 +854,8 @@ def maas_account_from_boot_config(env):
     manager = MAASAccount(*args)
     try:
         manager.login()
-    except subprocess.CalledProcessError:
-        log.info("Could not login with MAAS 2.0 API, trying 1.0")
+    except subprocess.CalledProcessError as e:
+        log.info("Could not login with MAAS 2.0 API, trying 1.0! err -> %s", e)
         manager = MAAS1Account(*args)
         manager.login()
     yield manager
@@ -976,7 +916,6 @@ def make_substrate_manager(boot_config):
         'ec2': AWSAccount.from_boot_config,
         'openstack': OpenStackAccount.from_boot_config,
         'rackspace': OpenStackAccount.from_boot_config,
-        'joyent': JoyentAccount.from_boot_config,
         'azure': AzureAccount.from_boot_config,
         'azure-arm': AzureARMAccount.from_boot_config,
         'lxd': LXDAccount.from_boot_config,

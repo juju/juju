@@ -54,7 +54,7 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 	waitForModelWatchersIdle := func(c *gc.C) {
 		s.JujuConnSuite.WaitForModelWatchersIdle(c, s.BackingState.ModelUUID())
 	}
-	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.machiner, s.BackingState, waitForModelWatchersIdle)
+	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.machiner, s.StatePool.SystemState(), s.BackingState, waitForModelWatchersIdle)
 }
 
 func (s *machinerSuite) TestMachineAndMachineTag(c *gc.C) {

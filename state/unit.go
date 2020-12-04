@@ -15,7 +15,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"github.com/juju/version"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -25,10 +25,9 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	mgoutils "github.com/juju/juju/mongo/utils"
-	"github.com/juju/juju/network"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/tools"
 )
@@ -129,7 +128,25 @@ func (u *Unit) ContainerInfo() (CloudContainer, error) {
 // ShouldBeAssigned returns whether the unit should be assigned to a machine.
 // IAAS models require units to be assigned.
 func (u *Unit) ShouldBeAssigned() bool {
-	return u.modelType == ModelTypeIAAS
+	return u.modelType != ModelTypeCAAS
+}
+
+// IsEmbedded returns true when using new CAAS charms in embedded mode.
+func (u *Unit) IsEmbedded() (bool, error) {
+	app, err := u.Application()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	ch, _, err := app.Charm()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	meta := ch.Meta()
+	if meta == nil {
+		return false, nil
+	}
+	// TODO(embedded): Determine a better way represent this.
+	return u.modelType == ModelTypeCAAS && meta.Format() >= charm.FormatV2, nil
 }
 
 // Application returns the application.
@@ -366,8 +383,8 @@ func (op *UpdateUnitOperation) Build(attempt int) ([]txn.Op, error) {
 		containerInfo.ProviderId = newProviderId
 	}
 	if op.props.Address != nil {
-		networkAddr := corenetwork.NewScopedSpaceAddress(*op.props.Address, corenetwork.ScopeMachineLocal)
-		addr := fromNetworkAddress(networkAddr, corenetwork.OriginProvider)
+		networkAddr := network.NewScopedSpaceAddress(*op.props.Address, network.ScopeMachineLocal)
+		addr := fromNetworkAddress(networkAddr, network.OriginProvider)
 		containerInfo.Address = &addr
 	}
 	if op.props.Ports != nil {
@@ -669,11 +686,32 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 			return nil, errors.Trace(agentErr)
 		}
 	}
+	unitStatusDocId := op.unit.globalKey()
+	unitStatusInfo, unitErr := getStatus(op.unit.st.db(), unitStatusDocId, "unit")
+	if errors.IsNotFound(unitErr) {
+		return nil, errAlreadyDying
+	} else if unitErr != nil {
+		if !op.Force {
+			return nil, errors.Trace(unitErr)
+		}
+	}
 
 	// This has to be a function since we want to delay the evaluation of the value,
 	// in case agent erred out.
 	notAllocating := func() bool {
-		return (isAssigned || !shouldBeAssigned) && agentStatusInfo.Status != status.Allocating
+		// IAAS models need the unit to be assigned.
+		if shouldBeAssigned {
+			return isAssigned && agentStatusInfo.Status != status.Allocating
+		}
+		// For CAAS models, check to see if the unit agent has started.
+		if agentStatusInfo.Status != status.Allocating {
+			return true
+		}
+		// If the agent is still allocating, it may still be queued to run the install hook
+		// so check that the unit agent has started.
+		return (unitStatusInfo.Status != "" && unitStatusInfo.Status != status.Waiting) ||
+			(unitStatusInfo.Message != status.MessageWaitForContainer &&
+				unitStatusInfo.Message != status.MessageInstallingAgent)
 	}
 	if agentErr == nil && notAllocating() {
 		return setDyingOps(agentErr)
@@ -1124,20 +1162,20 @@ func (u *Unit) noAssignedMachineOp() txn.Op {
 }
 
 // PublicAddress returns the public address of the unit.
-func (u *Unit) PublicAddress() (corenetwork.SpaceAddress, error) {
+func (u *Unit) PublicAddress() (network.SpaceAddress, error) {
 	if !u.ShouldBeAssigned() {
 		return u.scopedAddress("public")
 	}
 	m, err := u.machine()
 	if err != nil {
 		unitLogger.Tracef("%v", err)
-		return corenetwork.SpaceAddress{}, errors.Trace(err)
+		return network.SpaceAddress{}, errors.Trace(err)
 	}
 	return m.PublicAddress()
 }
 
 // PrivateAddress returns the private address of the unit.
-func (u *Unit) PrivateAddress() (corenetwork.SpaceAddress, error) {
+func (u *Unit) PrivateAddress() (network.SpaceAddress, error) {
 	if !u.ShouldBeAssigned() {
 		addr, err := u.scopedAddress("private")
 		if network.IsNoAddressError(err) {
@@ -1148,7 +1186,7 @@ func (u *Unit) PrivateAddress() (corenetwork.SpaceAddress, error) {
 	m, err := u.machine()
 	if err != nil {
 		unitLogger.Tracef("%v", err)
-		return corenetwork.SpaceAddress{}, errors.Trace(err)
+		return network.SpaceAddress{}, errors.Trace(err)
 	}
 	return m.PrivateAddress()
 }
@@ -1157,7 +1195,7 @@ func (u *Unit) PrivateAddress() (corenetwork.SpaceAddress, error) {
 // plus the container address of the unit (if known).
 // Only relevant for CAAS models - will return an empty
 // slice for IAAS models.
-func (u *Unit) AllAddresses() (addrs corenetwork.SpaceAddresses, _ error) {
+func (u *Unit) AllAddresses() (addrs network.SpaceAddresses, _ error) {
 	if u.ShouldBeAssigned() {
 		return addrs, nil
 	}
@@ -1185,7 +1223,7 @@ func (u *Unit) AllAddresses() (addrs corenetwork.SpaceAddresses, _ error) {
 
 // serviceAddresses returns the addresses of the service
 // managing the pods in which the unit workload is running.
-func (u *Unit) serviceAddresses() (corenetwork.SpaceAddresses, error) {
+func (u *Unit) serviceAddresses() (network.SpaceAddresses, error) {
 	app, err := u.Application()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1198,51 +1236,51 @@ func (u *Unit) serviceAddresses() (corenetwork.SpaceAddresses, error) {
 }
 
 // containerAddress returns the address of the pod's container.
-func (u *Unit) containerAddress() (corenetwork.SpaceAddress, error) {
+func (u *Unit) containerAddress() (network.SpaceAddress, error) {
 	containerInfo, err := u.cloudContainer()
 	if errors.IsNotFound(err) {
-		return corenetwork.SpaceAddress{}, network.NoAddressError("container")
+		return network.SpaceAddress{}, network.NoAddressError("container")
 	}
 	if err != nil {
-		return corenetwork.SpaceAddress{}, errors.Trace(err)
+		return network.SpaceAddress{}, errors.Trace(err)
 	}
 	addr := containerInfo.Address
 	if addr == nil {
-		return corenetwork.SpaceAddress{}, network.NoAddressError("container")
+		return network.SpaceAddress{}, network.NoAddressError("container")
 	}
 	return addr.networkAddress(), nil
 }
 
-func (u *Unit) scopedAddress(scope string) (corenetwork.SpaceAddress, error) {
+func (u *Unit) scopedAddress(scope string) (network.SpaceAddress, error) {
 	addresses, err := u.AllAddresses()
 	if err != nil {
-		return corenetwork.SpaceAddress{}, errors.Trace(err)
+		return network.SpaceAddress{}, errors.Trace(err)
 	}
 	if len(addresses) == 0 {
-		return corenetwork.SpaceAddress{}, network.NoAddressError(scope)
+		return network.SpaceAddress{}, network.NoAddressError(scope)
 	}
-	getStrictPublicAddr := func(addresses corenetwork.SpaceAddresses) (corenetwork.SpaceAddress, bool) {
-		addr, ok := addresses.OneMatchingScope(corenetwork.ScopeMatchPublic)
-		return addr, ok && addr.Scope == corenetwork.ScopePublic
-	}
-
-	getInternalAddr := func(addresses corenetwork.SpaceAddresses) (corenetwork.SpaceAddress, bool) {
-		return addresses.OneMatchingScope(corenetwork.ScopeMatchCloudLocal)
+	getStrictPublicAddr := func(addresses network.SpaceAddresses) (network.SpaceAddress, bool) {
+		addr, ok := addresses.OneMatchingScope(network.ScopeMatchPublic)
+		return addr, ok && addr.Scope == network.ScopePublic
 	}
 
-	var addrMatch func(corenetwork.SpaceAddresses) (corenetwork.SpaceAddress, bool)
+	getInternalAddr := func(addresses network.SpaceAddresses) (network.SpaceAddress, bool) {
+		return addresses.OneMatchingScope(network.ScopeMatchCloudLocal)
+	}
+
+	var addrMatch func(network.SpaceAddresses) (network.SpaceAddress, bool)
 	switch scope {
 	case "public":
 		addrMatch = getStrictPublicAddr
 	case "private":
 		addrMatch = getInternalAddr
 	default:
-		return corenetwork.SpaceAddress{}, errors.NotValidf("address scope %q", scope)
+		return network.SpaceAddress{}, errors.NotValidf("address scope %q", scope)
 	}
 
 	addr, found := addrMatch(addresses)
 	if !found {
-		return corenetwork.SpaceAddress{}, network.NoAddressError(scope)
+		return network.SpaceAddress{}, network.NoAddressError(scope)
 	}
 	return addr, nil
 }
@@ -2417,7 +2455,6 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 	// be that when the machine is provisioned it will be found to
 	// be suitable, but we don't know that right now and it's best
 	// to err on the side of caution and exclude such machines.
-	var suitableInstanceData []instanceData
 	var suitableTerms bson.D
 	if cons.HasArch() {
 		suitableTerms = append(suitableTerms, bson.DocElem{"arch", *cons.Arch})
@@ -2446,6 +2483,8 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 	if len(suitableTerms) > 0 {
 		instanceDataCollection, closer := db.GetCollection(instanceDataC)
 		defer closer()
+
+		var suitableInstanceData []instanceData
 		err := instanceDataCollection.Find(suitableTerms).Select(bson.M{"_id": 1}).All(&suitableInstanceData)
 		if err != nil {
 			return nil, err
@@ -2586,7 +2625,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 	// TODO(axw) 2014-05-30 #1253704
 	// We should not select a machine that is in the process
 	// of being provisioned. There's no point asserting that
-	// the machine hasn't been provisioned, as there'll still
+	// the machine hasn't been provisioned, as there will still
 	// be a period of time during which the machine may be
 	// provisioned without the fact having yet been recorded
 	// in state.

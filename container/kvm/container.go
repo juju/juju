@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm/libvirt"
@@ -26,7 +26,7 @@ type kvmContainer struct {
 	// value if we already know it (like in the list situation).
 	started *bool
 
-	pathfinder func(string) (string, error)
+	pathfinder pathfinderFunc
 	runCmd     runFunc
 }
 

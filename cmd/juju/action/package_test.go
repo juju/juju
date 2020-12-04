@@ -8,14 +8,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/v2/exec"
 	gc "gopkg.in/check.v1"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/core/watcher"
@@ -25,14 +30,15 @@ import (
 )
 
 const (
-	validActionTagString   = "action-f47ac10b-58cc-4372-a567-0e02b2c3d479"
-	validActionTagString2  = "action-f47ac10b-58cc-4372-a567-0e02b2c3d478"
-	invalidActionTagString = "action-f47ac10b-58cc-4372-a567-0e02b2c3d47"
-	validActionId          = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-	validActionId2         = "f47ac10b-58cc-4372-a567-0e02b2c3d478"
+	validActionTagString   = "action-1"
+	validActionTagString2  = "action-2"
+	validActionTagString3  = "action-3"
+	invalidActionTagString = "action-invalid"
+	validActionId          = "1"
 	validUnitId            = "mysql/0"
 	validUnitId2           = "mysql/1"
 	invalidUnitId          = "something-strange-"
+	invalidMachineId       = "fred"
 	validApplicationId     = "mysql"
 	invalidApplicationId   = "something-strange-"
 )
@@ -47,6 +53,7 @@ type BaseActionSuite struct {
 
 	modelFlags []string
 	store      *jujuclient.MemStore
+	clock      *testclock.Clock
 }
 
 func (s *BaseActionSuite) SetUpTest(c *gc.C) {
@@ -62,6 +69,8 @@ func (s *BaseActionSuite) SetUpTest(c *gc.C) {
 	s.store.Accounts["ctrl"] = jujuclient.AccountDetails{
 		User: "admin",
 	}
+
+	s.clock = testClock()
 }
 
 func (s *BaseActionSuite) patchAPIClient(client *fakeAPIClient) func() {
@@ -115,17 +124,6 @@ var someCharmActions = map[string]params.ActionSpec{
 	},
 }
 
-// tagsForIdPrefix builds a params.FindTagResults for a given id prefix
-// and 0..n given tags. This is useful for stubbing out the API and
-// ensuring that the API returns expected tags for a given id prefix.
-func tagsForIdPrefix(prefix string, tags ...string) params.FindTagsResults {
-	entities := make([]params.Entity, len(tags))
-	for i, t := range tags {
-		entities[i] = params.Entity{Tag: t}
-	}
-	return params.FindTagsResults{Matches: map[string][]params.Entity{prefix: entities}}
-}
-
 // setupValueFile creates a file containing one value for testing.
 // cf. cmd/juju/set_test.go
 func setupValueFile(c *gc.C, dir, filename, value string) string {
@@ -138,17 +136,17 @@ func setupValueFile(c *gc.C, dir, filename, value string) string {
 }
 
 type fakeAPIClient struct {
-	delay              *time.Timer
-	timeout            *time.Timer
+	block              bool
+	delay              clock.Timer
+	timeout            clock.Timer
 	actionResults      []params.ActionResult
 	operationResults   []params.OperationResult
 	operationQueryArgs params.OperationQueryArgs
 	enqueuedActions    params.Actions
 	actionsByReceivers []params.ActionsByReceiver
-	actionTagMatches   params.FindTagsResults
-	actionsByNames     params.ActionsByNames
 	charmActions       map[string]params.ActionSpec
-	apiVersion         int
+	machines           set.Strings
+	execParams         *params.RunParams
 	apiErr             error
 	logMessageCh       chan []string
 	waitForResults     chan bool
@@ -166,35 +164,15 @@ func (c *fakeAPIClient) Close() error {
 	return nil
 }
 
-func (c *fakeAPIClient) BestAPIVersion() int {
-	return c.apiVersion
-}
-
-func (c *fakeAPIClient) Enqueue(args params.Actions) (params.ActionResults, error) {
-	c.enqueuedActions = args
-	return params.ActionResults{Results: c.actionResults}, c.apiErr
-}
-
 func (c *fakeAPIClient) EnqueueOperation(args params.Actions) (params.EnqueuedActions, error) {
 	c.enqueuedActions = args
-	actions := make([]params.StringResult, len(c.actionResults))
-	for i, a := range c.actionResults {
-		actions[i] = params.StringResult{
-			Error: a.Error,
-		}
-		if a.Action != nil {
-			actions[i].Result = a.Action.Tag
-		}
-	}
 	return params.EnqueuedActions{
 		OperationTag: "operation-1",
-		Actions:      actions}, c.apiErr
+		Actions:      c.actionResults}, c.apiErr
 }
 
 func (c *fakeAPIClient) Cancel(args params.Entities) (params.ActionResults, error) {
-	return params.ActionResults{
-		Results: c.actionResults,
-	}, c.apiErr
+	return c.getActionResults(args.Entities), c.apiErr
 }
 
 func (c *fakeAPIClient) ApplicationCharmActions(params.Entity) (map[string]params.ActionSpec, error) {
@@ -229,10 +207,10 @@ func (c *fakeAPIClient) Actions(args params.Entities) (params.ActionResults, err
 	}
 	var delayChan, timeoutChan <-chan time.Time
 	if c.delay != nil {
-		delayChan = c.delay.C
+		delayChan = c.delay.Chan()
 	}
 	if c.timeout != nil {
-		timeoutChan = c.timeout.C
+		timeoutChan = c.timeout.Chan()
 	}
 	select {
 	case <-c.waitForResults:
@@ -253,14 +231,6 @@ func (c *fakeAPIClient) Actions(args params.Entities) (params.ActionResults, err
 			Enqueued: time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
 		}}}, nil
 	}
-}
-
-func (c *fakeAPIClient) FindActionTagsByPrefix(arg params.FindTags) (params.FindTagsResults, error) {
-	return c.actionTagMatches, c.apiErr
-}
-
-func (c *fakeAPIClient) FindActionsByNames(args params.FindActionsByNames) (params.ActionsByNames, error) {
-	return c.actionsByNames, c.apiErr
 }
 
 func (c *fakeAPIClient) WatchActionProgress(actionId string) (watcher.StringsWatcher, error) {
@@ -285,10 +255,10 @@ func (c *fakeAPIClient) Operation(id string) (params.OperationResult, error) {
 	}
 	var delayChan, timeoutChan <-chan time.Time
 	if c.delay != nil {
-		delayChan = c.delay.C
+		delayChan = c.delay.Chan()
 	}
 	if c.timeout != nil {
-		timeoutChan = c.timeout.C
+		timeoutChan = c.timeout.Chan()
 	}
 	select {
 	case <-c.waitForResults:
@@ -319,4 +289,76 @@ func (c *fakeAPIClient) getOperation(id string) (params.OperationResult, error) 
 		return params.OperationResult{}, errors.NotFoundf("operation %q", id)
 	}
 	return c.operationResults[0], nil
+}
+
+func (c *fakeAPIClient) resultForMachine(machineId string) (params.ActionResult, bool) {
+	for _, r := range c.actionResults {
+		if r.Action != nil && r.Action.Receiver == "machine-"+machineId {
+			return r, true
+		}
+	}
+	return params.ActionResult{}, false
+}
+
+func (c *fakeAPIClient) resultForUnit(unitName string) (params.ActionResult, bool) {
+	for _, r := range c.actionResults {
+		if r.Action != nil && r.Action.Receiver == names.NewUnitTag(unitName).String() {
+			return r, true
+		}
+	}
+	return params.ActionResult{}, false
+}
+
+func (c *fakeAPIClient) RunOnAllMachines(commands string, wait time.Duration) (params.EnqueuedActions, error) {
+	var result params.EnqueuedActions
+
+	if c.block {
+		return result, apiservererrors.OperationBlockedError("the operation has been blocked")
+	}
+	result.OperationTag = "operation-1"
+	sortedMachineIds := c.machines.SortedValues()
+
+	for _, machineId := range sortedMachineIds {
+		response, found := c.resultForMachine(machineId)
+		if !found {
+			// Consider this a wait timeout.
+			response = params.ActionResult{
+				Action: &params.Action{
+					Receiver: names.NewMachineTag(machineId).String(),
+				},
+				Message: exec.ErrCancelled.Error(),
+			}
+		}
+		result.Actions = append(result.Actions, response)
+	}
+	result.OperationTag = "operation-1"
+
+	return result, nil
+}
+
+func (c *fakeAPIClient) Run(runParams params.RunParams) (params.EnqueuedActions, error) {
+	var result params.EnqueuedActions
+
+	c.execParams = &runParams
+
+	if c.block {
+		return result, apiservererrors.OperationBlockedError("the operation has been blocked")
+	}
+	result.OperationTag = "operation-1"
+	// Just add in ids that match in order.
+	for _, id := range runParams.Machines {
+		response, found := c.resultForMachine(id)
+		if found {
+			result.Actions = append(result.Actions, response)
+		}
+	}
+	// mock ignores applications
+	for _, id := range runParams.Units {
+		response, found := c.resultForUnit(id)
+		if found {
+			result.Actions = append(result.Actions, response)
+		}
+	}
+
+	return result, nil
 }

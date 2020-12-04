@@ -122,10 +122,16 @@ type CharmMeta struct {
 	Series         []string                     `json:"series,omitempty"`
 	Storage        map[string]CharmStorage      `json:"storage,omitempty"`
 	Devices        map[string]CharmDevice       `json:"devices,omitempty"`
+	Deployment     *CharmDeployment             `json:"deployment,omitempty"`
 	PayloadClasses map[string]CharmPayloadClass `json:"payload-classes,omitempty"`
 	Resources      map[string]CharmResourceMeta `json:"resources,omitempty"`
 	Terms          []string                     `json:"terms,omitempty"`
 	MinJujuVersion string                       `json:"min-juju-version,omitempty"`
+
+	Systems       []CharmSystem             `json:"systems,omitempty"`
+	Platforms     []string                  `json:"platforms,omitempty"`
+	Architectures []string                  `json:"architectures,omitempty"`
+	Containers    map[string]CharmContainer `json:"containers,omitempty"`
 }
 
 // Charm holds all the charm data that the client needs.
@@ -166,6 +172,33 @@ type CharmPlan struct {
 type CharmMetrics struct {
 	Metrics map[string]CharmMetric `json:"metrics"`
 	Plan    CharmPlan              `json:"plan"`
+}
+
+// CharmDeployment mirrors charm.Deployment.
+type CharmDeployment struct {
+	DeploymentType string `json:"type"`
+	DeploymentMode string `json:"mode"`
+	ServiceType    string `json:"service"`
+	MinVersion     string `json:"min-version"`
+}
+
+// CharmSystem mirrors charm.System
+type CharmSystem struct {
+	OS       string `json:"os,omitempty"`
+	Channel  string `json:"channel,omitempty"`
+	Resource string `json:"resource,omitempty"`
+}
+
+// CharmContainer mirrors charm.Container
+type CharmContainer struct {
+	Systems []CharmSystem `json:"systems,omitempty"`
+	Mounts  []CharmMount  `json:"mounts,omitempty"`
+}
+
+// CharmMount mirrors charm.Mount
+type CharmMount struct {
+	Storage  string `json:"storage,omitempty"`
+	Location string `json:"location,omitempty"`
 }
 
 // CharmLXDProfile mirrors charm.LXDProfile
@@ -238,4 +271,13 @@ func fromParamsCharmOption(opt CharmOption) charm.Option {
 		Description: opt.Description,
 		Default:     opt.Default,
 	}
+}
+
+type ApplicationCharmPlacements struct {
+	Placements []ApplicationCharmPlacement `json:"placements"`
+}
+
+type ApplicationCharmPlacement struct {
+	Application string `json:"application"`
+	CharmURL    string `json:"charm-url"`
 }

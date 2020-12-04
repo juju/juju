@@ -21,8 +21,6 @@ type operationSuite struct {
 var _ = gc.Suite(&operationSuite{})
 
 func (s *operationSuite) setupOperations(c *gc.C) {
-	s.toSupportNewActionID(c)
-
 	arg := params.Actions{
 		Actions: []params.Action{
 			{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
@@ -31,9 +29,9 @@ func (s *operationSuite) setupOperations(c *gc.C) {
 			{Receiver: s.mysqlUnit.Tag().String(), Name: "anotherfakeaction", Parameters: map[string]interface{}{}},
 		}}
 
-	r, err := s.action.Enqueue(arg)
+	r, err := s.action.EnqueueOperation(arg)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Results, gc.HasLen, len(arg.Actions))
+	c.Assert(r.Actions, gc.HasLen, len(arg.Actions))
 
 	// There's only one operation created.
 	ops, err := s.Model.AllOperations()
@@ -59,7 +57,7 @@ func (s *operationSuite) TestListOperationsStatusFilter(c *gc.C) {
 		Actions: []params.Action{
 			{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
 		}}
-	_, err := s.action.Enqueue(arg)
+	_, err := s.action.EnqueueOperation(arg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	operations, err := s.action.ListOperations(params.OperationQueryArgs{
@@ -108,7 +106,7 @@ func (s *operationSuite) TestListOperationsNameFilter(c *gc.C) {
 		Actions: []params.Action{
 			{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
 		}}
-	_, err := s.action.Enqueue(arg)
+	_, err := s.action.EnqueueOperation(arg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	operations, err := s.action.ListOperations(params.OperationQueryArgs{
@@ -140,7 +138,7 @@ func (s *operationSuite) TestListOperationsAppFilter(c *gc.C) {
 		Actions: []params.Action{
 			{Receiver: s.mysqlUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
 		}}
-	_, err := s.action.Enqueue(arg)
+	_, err := s.action.EnqueueOperation(arg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	operations, err := s.action.ListOperations(params.OperationQueryArgs{
@@ -178,7 +176,7 @@ func (s *operationSuite) TestListOperationsUnitFilter(c *gc.C) {
 		Actions: []params.Action{
 			{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
 		}}
-	_, err := s.action.Enqueue(arg)
+	_, err := s.action.EnqueueOperation(arg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	operations, err := s.action.ListOperations(params.OperationQueryArgs{
@@ -202,6 +200,40 @@ func (s *operationSuite) TestListOperationsUnitFilter(c *gc.C) {
 	c.Assert(result.Actions[0].Status, gc.Equals, "pending")
 }
 
+func (s *operationSuite) TestListOperationsMachineFilter(c *gc.C) {
+	s.setupOperations(c)
+	// Set up an operation with a pending action.
+	arg := params.Actions{
+		Actions: []params.Action{
+			{Receiver: s.machine0.Tag().String(), Name: "juju-run", Parameters: map[string]interface{}{
+				"command": "ls",
+				"timeout": 1,
+			}},
+		}}
+	_, err := s.action.EnqueueOperation(arg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	operations, err := s.action.ListOperations(params.OperationQueryArgs{
+		Machines: []string{"0"},
+		Status:   []string{"pending"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(operations.Results, gc.HasLen, 1)
+	result := operations.Results[0]
+
+	c.Assert(result.Actions, gc.HasLen, 1)
+	c.Assert(result.Actions[0].Action, gc.NotNil)
+	if result.Enqueued.IsZero() {
+		c.Fatal("enqueued time not set")
+	}
+	c.Assert(result.Status, gc.Equals, "pending")
+	action := result.Actions[0].Action
+	c.Assert(action.Name, gc.Equals, "juju-run")
+	c.Assert(action.Receiver, gc.Equals, "machine-0")
+	c.Assert(action.Tag, gc.Equals, "action-7")
+	c.Assert(result.Actions[0].Status, gc.Equals, "pending")
+}
+
 func (s *operationSuite) TestListOperationsAppAndUnitFilter(c *gc.C) {
 	s.setupOperations(c)
 	// Set up an operation with a pending action.
@@ -209,7 +241,7 @@ func (s *operationSuite) TestListOperationsAppAndUnitFilter(c *gc.C) {
 		Actions: []params.Action{
 			{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
 		}}
-	_, err := s.action.Enqueue(arg)
+	_, err := s.action.EnqueueOperation(arg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	operations, err := s.action.ListOperations(params.OperationQueryArgs{

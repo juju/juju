@@ -1,4 +1,4 @@
-create_priveleged_profile() {
+create_privileged_profile() {
     PROFILE=$(cat <<'EOF'
 config:
   security.nesting: "true"
@@ -72,7 +72,7 @@ run_deploy_manual_lxd() {
         -C "ubuntu@${name}.com" \
         -N ""
 
-    create_priveleged_profile
+    create_privileged_profile
     create_user_profile "${name}"
 
     series="bionic"

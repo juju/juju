@@ -18,12 +18,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 	"github.com/juju/version"
 
 	apicontroller "github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -37,6 +38,7 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/jujuclient"
 	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -77,26 +79,22 @@ See also:
     sync-agent-binaries`
 
 func newUpgradeJujuCommand() cmd.Command {
-	command := &upgradeJujuCommand{
-		baseUpgradeCommand: baseUpgradeCommand{minMajorUpgradeVersion: minMajorUpgradeVersion}}
+	command := &upgradeJujuCommand{}
 	return modelcmd.Wrap(command)
 }
 
 func newUpgradeJujuCommandForTest(
 	store jujuclient.ClientStore,
-	minUpgradeVers map[int]version.Number,
 	jujuClientAPI jujuClientAPI,
 	modelConfigAPI modelConfigAPI,
+	modelManagerAPI modelManagerAPI,
 	controllerAPI controllerAPI,
 	options ...modelcmd.WrapOption) cmd.Command {
-	if minUpgradeVers == nil {
-		minUpgradeVers = minMajorUpgradeVersion
-	}
 	command := &upgradeJujuCommand{
 		baseUpgradeCommand: baseUpgradeCommand{
-			minMajorUpgradeVersion: minUpgradeVers,
-			modelConfigAPI:         modelConfigAPI,
-			controllerAPI:          controllerAPI,
+			modelConfigAPI:  modelConfigAPI,
+			modelManagerAPI: modelManagerAPI,
+			controllerAPI:   controllerAPI,
 		},
 		jujuClientAPI: jujuClientAPI,
 	}
@@ -123,25 +121,20 @@ type baseUpgradeCommand struct {
 	rawArgs        []string
 	upgradeMessage string
 
-	// minMajorUpgradeVersion maps known major numbers to
-	// the minimum version that can be upgraded to that
-	// major version.  For example, users must be running
-	// 1.25.4 or later in order to upgrade to 2.0.
-	minMajorUpgradeVersion map[int]version.Number
-
-	modelConfigAPI modelConfigAPI
-	controllerAPI  controllerAPI
+	modelConfigAPI  modelConfigAPI
+	modelManagerAPI modelManagerAPI
+	controllerAPI   controllerAPI
 }
 
-func (u *baseUpgradeCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&u.vers, "agent-version", "", "Upgrade to specific version")
-	f.StringVar(&u.AgentStream, "agent-stream", "", "Check this agent stream for upgrades")
-	f.BoolVar(&u.BuildAgent, "build-agent", false, "Build a local version of the agent binary; for development use only")
-	f.BoolVar(&u.DryRun, "dry-run", false, "Don't change anything, just report what would be changed")
-	f.BoolVar(&u.ResetPrevious, "reset-previous-upgrade", false, "Clear the previous (incomplete) upgrade status (use with care)")
-	f.BoolVar(&u.AssumeYes, "y", false, "Answer 'yes' to confirmation prompts")
-	f.BoolVar(&u.AssumeYes, "yes", false, "")
-	f.BoolVar(&u.IgnoreAgentVersions, "ignore-agent-versions", false,
+func (c *baseUpgradeCommand) SetFlags(f *gnuflag.FlagSet) {
+	f.StringVar(&c.vers, "agent-version", "", "Upgrade to specific version")
+	f.StringVar(&c.AgentStream, "agent-stream", "", "Check this agent stream for upgrades")
+	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build a local version of the agent binary; for development use only")
+	f.BoolVar(&c.DryRun, "dry-run", false, "Don't change anything, just report what would be changed")
+	f.BoolVar(&c.ResetPrevious, "reset-previous-upgrade", false, "Clear the previous (incomplete) upgrade status (use with care)")
+	f.BoolVar(&c.AssumeYes, "y", false, "Answer 'yes' to confirmation prompts")
+	f.BoolVar(&c.AssumeYes, "yes", false, "")
+	f.BoolVar(&c.IgnoreAgentVersions, "ignore-agent-versions", false,
 		"Don't check if all agents have already reached the current version")
 }
 
@@ -210,22 +203,13 @@ func (c *baseUpgradeCommand) precheckVersion(ctx *cmd.Context, agentVersion vers
 		// User is requesting an upgrade to a new major number
 		// Only upgrade to a different major number if:
 		// 1 - Explicitly requested with --agent-version or using --build-agent, and
-		// 2 - The environment is running a valid version to upgrade from, and
-		// 3 - The upgrade is to a minor version of 0.
-		if c.minMajorUpgradeVersion == nil {
-			break
-		}
-		minVer, ok := c.minMajorUpgradeVersion[c.Version.Major]
-		if !ok {
-			return false, errors.Errorf("unknown version %q", c.Version)
+		// 2 - The model is running a valid version to upgrade from.
+		allowed, minVer, err := upgrades.UpgradeAllowed(agentVersion, c.Version)
+		if err != nil {
+			return false, errors.Trace(err)
 		}
 		retErr := false
-		if c.Version.Minor != 0 {
-			ctx.Infof("upgrades to %s must first go through juju %d.0",
-				c.Version, c.Version.Major)
-			retErr = true
-		}
-		if comp := agentVersion.Compare(minVer); comp < 0 {
+		if !allowed {
 			ctx.Infof("upgrades to a new major version must first go through %s",
 				minVer)
 			retErr = true
@@ -260,11 +244,8 @@ func (c *upgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 var (
-	errUpToDate            = stderrors.New("no upgrades available")
-	downgradeErrMsg        = "cannot change version from %s to lower version %s"
-	minMajorUpgradeVersion = map[int]version.Number{
-		2: version.MustParse("1.25.4"),
-	}
+	errUpToDate     = stderrors.New("no upgrades available")
+	downgradeErrMsg = "cannot change version from %s to lower version %s"
 )
 
 // canUpgradeRunningVersion determines if the version of the running
@@ -278,17 +259,21 @@ var (
 // version of the upgrade-model command may not know how to upgrade
 // an environment running juju 4.0.0.
 //
-// The exception is that a N.0.* client must be able to upgrade
+// The exception is that a N.*.* client must be able to upgrade
 // an environment one major version prior (N-1.*.*) so that
 // it can be used to upgrade the environment to N.0.*.  For
-// example, the 2.0.1 upgrade-model command must be able to upgrade
-// environments running 1.* since it must be able to upgrade
-// environments from 1.25.4 -> 2.0.*.
+// example, the 3.*.* upgrade-model command must be able to upgrade
+// environments running 2.* since it must be able to upgrade
+// environments from 2.8.7 -> 3.*.*.
+// We used to require that the minor version of a newer client had
+// to be 0 but with snap auto update, the client can be any minor
+// version so need to ensure that all N.*.* clients can upgrade
+// N-1.*.* controllers.
 func canUpgradeRunningVersion(runningAgentVer version.Number) bool {
 	if runningAgentVer.Major == jujuversion.Current.Major {
 		return true
 	}
-	if jujuversion.Current.Minor == 0 && runningAgentVer.Major == (jujuversion.Current.Major-1) {
+	if runningAgentVer.Major == (jujuversion.Current.Major - 1) {
 		return true
 	}
 	return false
@@ -323,6 +308,11 @@ type modelConfigAPI interface {
 	Close() error
 }
 
+type modelManagerAPI interface {
+	ValidateModelUpgrade(modelTag names.ModelTag, force bool) error
+	Close() error
+}
+
 type controllerAPI interface {
 	CloudSpec(modelTag names.ModelTag) (environscloudspec.CloudSpec, error)
 	ControllerConfig() (controller.Config, error)
@@ -336,6 +326,14 @@ func (c *upgradeJujuCommand) getJujuClientAPI() (jujuClientAPI, error) {
 	}
 
 	return c.NewAPIClient()
+}
+
+func (c *upgradeJujuCommand) getModelManagerAPI() (modelManagerAPI, error) {
+	if c.modelManagerAPI != nil {
+		return c.modelManagerAPI, nil
+	}
+
+	return c.NewModelManagerAPIClient()
 }
 
 func (c *upgradeJujuCommand) getModelConfigAPI() (modelConfigAPI, error) {
@@ -390,12 +388,17 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 }
 
 func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowed bool, fetchTimeout time.Duration, availableAgents availableAgentsFunc) (err error) {
+	// Validate a model can be upgraded, by running some pre-flight checks.
+	if err := c.validateModelUpgrade(); err != nil {
+		return block.ProcessBlockedError(err, block.BlockChange)
+	}
 
 	client, err := c.getJujuClientAPI()
 	if err != nil {
 		return err
 	}
 	defer client.Close()
+
 	modelConfigClient, err := c.getModelConfigAPI()
 	if err != nil {
 		return err
@@ -424,14 +427,20 @@ func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowe
 	}
 
 	controllerModelConfig, err := controllerClient.ModelConfig()
-	if err != nil {
+	if err != nil && !params.IsCodeUnauthorized(err) {
 		return err
 	}
-	isControllerModel := cfg.UUID() == controllerModelConfig[config.UUIDKey]
-	if c.BuildAgent && !isControllerModel {
+	haveControllerModelPermission := err == nil
+	isControllerModel := haveControllerModelPermission && cfg.UUID() == controllerModelConfig[config.UUIDKey]
+	if c.BuildAgent {
 		// For UploadTools, model must be the "controller" model,
 		// that is, modelUUID == controllerUUID
-		return errors.Errorf("--build-agent can only be used with the controller model")
+		if !haveControllerModelPermission {
+			return errors.New("--build-agent can only be used with the controller model but you don't have permission to access that model")
+		}
+		if !isControllerModel {
+			return errors.Errorf("--build-agent can only be used with the controller model")
+		}
 	}
 	controllerCfg, err := controllerClient.ControllerConfig()
 	if err != nil {
@@ -544,12 +553,32 @@ func (c *baseUpgradeCommand) notifyControllerUpgrade(ctx *cmd.Context, client up
 				"the last upgrade that has been resolved, consider running the\n"+
 				"upgrade-model command with the --reset-previous-upgrade option.", err,
 			)
-		} else {
-			return block.ProcessBlockedError(err, block.BlockChange)
 		}
+		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 	fmt.Fprintf(ctx.Stdout, "started upgrade to %s\n", upgradeCtx.chosen)
 	return nil
+}
+
+// validateModelUpgrade checks to see if a model can be upgraded.
+func (c *upgradeJujuCommand) validateModelUpgrade() error {
+	_, details, err := c.ModelCommandBase.ModelDetails()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	client, err := c.getModelManagerAPI()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// TODO (stickupkid): Define force for validation of model upgrade.
+	// If the model to upgrade does not implement the minimum facade version
+	// for validating, we return nil.
+	if err = client.ValidateModelUpgrade(names.NewModelTag(details.ModelUUID), false); errors.IsNotImplemented(err) {
+		return nil
+	}
+	return errors.Trace(err)
 }
 
 // environConfigGetter implements environs.EnvironConfigGetter for use
@@ -581,6 +610,25 @@ func (e environConfigGetter) CloudSpec() (environscloudspec.CloudSpec, error) {
 
 var getEnviron = environs.GetEnviron
 
+var getCAASBroker = func(getter environs.EnvironConfigGetter) (caas.Broker, error) {
+	modelConfig, err := getter.ModelConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cloudSpec, err := getter.CloudSpec()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	env, err := caas.New(environs.OpenParams{
+		Cloud:  cloudSpec,
+		Config: modelConfig,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return env, nil
+}
+
 // UpgradePrecheckEnviron combines two interfaces required by
 // result of getEnviron. It is for testing purposes only.
 type UpgradePrecheckEnviron interface {
@@ -604,14 +652,22 @@ func (c *upgradeJujuCommand) precheckEnviron(upgradeCtx *upgradeContext, api con
 	cfgGetter := environConfigGetter{
 		controllerAPI: api,
 		modelTag:      names.NewModelTag(details.ModelUUID)}
-	return doPrecheckEnviron(cfgGetter, upgradeCtx, agentVersion)
+	return doPrecheckEnviron(details.ModelType, cfgGetter, upgradeCtx, agentVersion)
 }
 
 // doPrecheckEnviron does the work on running precheck upgrade environ steps.
 // This is split out from precheckEnviron to facilitate testing without the
 // jujuconnsuite and without mocking a juju store.
-func doPrecheckEnviron(cfgGetter environConfigGetter, upgradeCtx *upgradeContext, agentVersion version.Number) error {
-	env, err := getEnviron(cfgGetter, environs.New)
+func doPrecheckEnviron(modelType model.ModelType, cfgGetter environConfigGetter, upgradeCtx *upgradeContext, agentVersion version.Number) error {
+	var (
+		env interface{}
+		err error
+	)
+	if modelType == model.CAAS {
+		env, err = getCAASBroker(cfgGetter)
+	} else {
+		env, err = getEnviron(cfgGetter, environs.New)
+	}
 	if err != nil {
 		return err
 	}

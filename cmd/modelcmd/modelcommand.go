@@ -205,7 +205,7 @@ func (c *ModelCommandBase) SetModelIdentifier(modelIdentifier string, allowDefau
 	return nil
 }
 
-// ModelName implements the ModelCommand interface.
+// ModelIdentifier implements the ModelCommand interface.
 func (c *ModelCommandBase) ModelIdentifier() (string, error) {
 	c.assertRunStarted()
 	if err := c.maybeInitModel(); err != nil {
@@ -240,7 +240,7 @@ func (c *ModelCommandBase) ModelType() (model.ModelType, error) {
 	return c._modelType, nil
 }
 
-// SetModelGeneration implements the ModelCommand interface.
+// SetActiveBranch implements the ModelCommand interface.
 func (c *ModelCommandBase) SetActiveBranch(branchName string) error {
 	name, modelDetails, err := c.ModelDetails()
 	if err != nil {
@@ -462,6 +462,10 @@ var (
 	// should not be defined.
 	WrapSkipModelFlags WrapOption = wrapSkipModelFlags
 
+	// WrapSkipModelInit specifies that then initial model won't be initialised,
+	// but later requests to the model should work.
+	WrapSkipModelInit WrapOption = wrapSkipModelInit
+
 	// WrapSkipDefaultModel specifies that no default model should
 	// be used.
 	WrapSkipDefaultModel WrapOption = wrapSkipDefaultModel
@@ -469,6 +473,10 @@ var (
 
 func wrapSkipModelFlags(w *modelCommandWrapper) {
 	w.skipModelFlags = true
+}
+
+func wrapSkipModelInit(w *modelCommandWrapper) {
+	w.skipModelInit = true
 }
 
 func wrapSkipDefaultModel(w *modelCommandWrapper) {
@@ -483,6 +491,7 @@ func Wrap(c ModelCommand, options ...WrapOption) ModelCommand {
 	wrapper := &modelCommandWrapper{
 		ModelCommand:    c,
 		skipModelFlags:  false,
+		skipModelInit:   false,
 		useDefaultModel: true,
 	}
 	for _, option := range options {
@@ -509,6 +518,7 @@ type modelCommandWrapper struct {
 	ModelCommand
 
 	skipModelFlags  bool
+	skipModelInit   bool
 	useDefaultModel bool
 
 	// modelIdentifier may be a model name, a full model UUID,
@@ -572,18 +582,34 @@ func (w *modelCommandWrapper) validateCommandForModelType(runStarted bool) error
 }
 
 func (w *modelCommandWrapper) Init(args []string) error {
-	if !w.skipModelFlags {
+	// The following is a bit convoluted, but requires that we either set the
+	// model and/or validate the model depending the options passed in.
+	var (
+		shouldSetModel      = true
+		shouldValidateModel = true
+	)
+
+	if w.skipModelFlags {
+		shouldSetModel = false
+	}
+	if w.skipModelInit {
+		shouldSetModel = false
+		shouldValidateModel = false
+	}
+
+	if shouldSetModel {
 		if err := w.ModelCommand.SetModelIdentifier(w.modelIdentifier, w.useDefaultModel); err != nil {
 			return errors.Trace(err)
 		}
 	}
-
-	// If we are able to get access to the model type before running the actual
-	// command's Init(), we can bail early if the command is not supported for the
-	// specific model type. Otherwise, if the command is one which doesn't allow a
-	// default model, we need to wait till Run() is invoked.
-	if err := w.validateCommandForModelType(false); err != nil {
-		return errors.Trace(err)
+	if shouldValidateModel {
+		// If we are able to get access to the model type before running the actual
+		// command's Init(), we can bail early if the command is not supported for the
+		// specific model type. Otherwise, if the command is one which doesn't allow a
+		// default model, we need to wait till Run() is invoked.
+		if err := w.validateCommandForModelType(false); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	if err := w.ModelCommand.Init(args); err != nil {
@@ -602,8 +628,10 @@ func (w *modelCommandWrapper) Run(ctx *cmd.Context) error {
 	w.SetClientStore(store)
 
 	// Some commands are only supported on IAAS models.
-	if err := w.validateCommandForModelType(true); err != nil {
-		return errors.Trace(err)
+	if !w.skipModelInit {
+		if err := w.validateCommandForModelType(true); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	err := w.ModelCommand.Run(ctx)
 	if redirErr, ok := errors.Cause(err).(*api.RedirectError); ok {

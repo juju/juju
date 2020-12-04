@@ -5,7 +5,9 @@ package deployer
 
 import (
 	"archive/zip"
+	"fmt"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -14,20 +16,23 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/resource"
 	"github.com/juju/charmrepo/v6"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/modelcmd"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
 )
@@ -40,6 +45,7 @@ func NewDeployerFactory(dep DeployerDependencies) DeployerFactory {
 	d := &factory{
 		clock:                jujuclock.WallClock,
 		model:                dep.Model,
+		fileSystem:           dep.FileSystem,
 		newConsumeDetailsAPI: dep.NewConsumeDetailsAPI,
 		steps:                dep.Steps,
 	}
@@ -100,6 +106,7 @@ func (d *factory) setConfig(cfg DeployerConfig) {
 type DeployerDependencies struct {
 	DeployResources      resourceadapters.DeployResourcesFunc
 	Model                ModelCommand
+	FileSystem           modelcmd.Filesystem
 	NewConsumeDetailsAPI func(url *charm.OfferURL) (ConsumeDetails, error)
 	Steps                []DeployStep
 }
@@ -118,7 +125,7 @@ type DeployerConfig struct {
 	BundleMachines       map[string]string
 	BundleOverlayFile    []string
 	BundleStorage        map[string]map[string]storage.Constraints
-	Channel              csparams.Channel
+	Channel              corecharm.Channel
 	CharmOrBundle        string
 	ConfigOptions        common.ConfigFlag
 	ConstraintsStr       string
@@ -144,6 +151,7 @@ type factory struct {
 	model                ModelCommand
 	deployResources      resourceadapters.DeployResourcesFunc
 	newConsumeDetailsAPI func(url *charm.OfferURL) (ConsumeDetails, error)
+	fileSystem           modelcmd.Filesystem
 
 	// DeployerConfig
 	placementSpec     string
@@ -152,7 +160,7 @@ type factory struct {
 	attachStorage     []string
 	charmOrBundle     string
 	bundleOverlayFile []string
-	channel           csparams.Channel
+	channel           corecharm.Channel
 	series            string
 	force             bool
 	dryRun            bool
@@ -179,8 +187,11 @@ func (d *factory) maybePredeployedLocalCharm() (Deployer, error) {
 	// If the charm's schema is local, we should definitively attempt
 	// to deploy a charm that's already deployed in the
 	// environment.
-	userCharmURL, err := charm.ParseURL(d.charmOrBundle)
+	userCharmURL, err := resolveCharmURL(d.charmOrBundle)
 	if err != nil {
+		if _, err := d.fileSystem.Stat(d.charmOrBundle); os.IsNotExist(errors.Cause(err)) {
+			return nil, errors.Errorf("no charm was found at %q", d.charmOrBundle)
+		}
 		return nil, errors.Trace(err)
 	} else if userCharmURL.Schema != "local" {
 		logger.Debugf("cannot interpret as a redeployment of a local charm from the controller")
@@ -212,6 +223,7 @@ func (d *factory) newDeployCharm() deployCharm {
 		placement:       d.placement,
 		placementSpec:   d.placementSpec,
 		resources:       d.resources,
+		series:          d.series,
 		steps:           d.steps,
 		storage:         d.storage,
 		trust:           d.trust,
@@ -272,7 +284,7 @@ func (d *factory) newDeployBundle(ds charm.BundleDataSource) deployBundle {
 
 func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error) {
 	// NOTE: Here we select the series using the algorithm defined by
-	// `seriesSelector.CharmSeries`. This serves to override the algorithm found in
+	// `seriesSelector.charmSeries`. This serves to override the algorithm found in
 	// `charmrepo.NewCharmAtPath` which is outdated (but must still be
 	// called since the code is coupled with path interpretation logic which
 	// cannot easily be factored out).
@@ -299,16 +311,17 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 			return nil, errors.Trace(err)
 		}
 
+		supportedSeries := ch.Meta().ComputedSeries()
 		seriesSelector := seriesSelector{
 			seriesFlag:          seriesName,
-			supportedSeries:     ch.Meta().Series,
+			supportedSeries:     supportedSeries,
 			supportedJujuSeries: workloadSeries,
 			force:               d.force,
 			conf:                modelCfg,
 			fromBundle:          false,
 		}
 
-		if len(ch.Meta().Series) == 0 {
+		if len(supportedSeries) == 0 {
 			logger.Warningf("%s does not declare supported series in metadata.yml", ch.Meta().Name)
 		}
 
@@ -357,17 +370,27 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 }
 
 func (d *factory) maybeReadCharmstoreBundle(resolver Resolver) (Deployer, error) {
-	curl, err := charm.ParseURL(d.charmOrBundle)
+	curl, err := resolveCharmURL(d.charmOrBundle)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	origin, err := utils.DeduceOrigin(curl, d.channel)
+	platform, err := utils.DeducePlatform(d.constraints, d.series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	origin, err := utils.DeduceOrigin(curl, d.channel, platform)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	// validate this is a charmstore bundle
-	bundleURL, origin, err := resolver.ResolveBundleURL(curl, origin)
+	// Resolve the bundle URL using the channel supplied via the channel
+	// supplied. All charms with in this bundle unless pinned via a channel are
+	// NOT expected to be in the same channel as the bundle channel.
+	// The pinning of a bundle does not flow down to charms as well. Each charm
+	// has it's own channel supplied via a bundle, if no is supplied then the
+	// channel is worked out via the resolving what is available.
+	// See: LP:1677404 and LP:1832873
+	bundleURL, bundleOrigin, err := resolver.ResolveBundleURL(curl, origin)
 	if charm.IsUnsupportedSeriesError(errors.Cause(err)) {
 		return nil, errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 	}
@@ -393,25 +416,28 @@ func (d *factory) maybeReadCharmstoreBundle(resolver Resolver) (Deployer, error)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	bundle, err := resolver.GetBundle(bundleURL, filepath.Join(dir, bundleURL.Name))
+	bundle, err := resolver.GetBundle(bundleURL, bundleOrigin, filepath.Join(dir, bundleURL.Name))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	db := d.newDeployBundle(store.NewResolvedBundle(bundle))
 	db.bundleURL = bundleURL
-	db.origin = origin
 	db.bundleOverlayFile = d.bundleOverlayFile
 	return &charmstoreBundle{deployBundle: db}, nil
 }
 
 func (d *factory) charmStoreCharm() (Deployer, error) {
 	// Validate we have a charm store change
-	userRequestedURL, err := charm.ParseURL(d.charmOrBundle)
+	userRequestedURL, err := resolveCharmURL(d.charmOrBundle)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	origin, err := utils.DeduceOrigin(userRequestedURL, d.channel)
+	platform, err := utils.DeducePlatform(d.constraints, d.series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	origin, err := utils.DeduceOrigin(userRequestedURL, d.channel, platform)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -423,6 +449,47 @@ func (d *factory) charmStoreCharm() (Deployer, error) {
 		userRequestedURL: userRequestedURL,
 		clock:            d.clock,
 	}, nil
+}
+
+func resolveCharmURL(path string) (*charm.URL, error) {
+	// If the charmhub integration is in effect, then we ensure that schema is
+	// defined and we can parse the URL correctly.
+	if featureflag.Enabled(feature.CharmHubIntegration) {
+		var err error
+		path, err = charm.EnsureSchema(path)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		return charm.ParseURL(path)
+	}
+
+	// If the prefix is just a `~` then we know that this is a user charm and
+	// we should prefix the url with a `cs:`.
+	if strings.HasPrefix(path, "~") {
+		path = fmt.Sprintf("cs:%s", path)
+	}
+
+	u, err := url.Parse(path)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// We don't expect the charmhub url scheme to show up here, as the feature
+	// flag isn't enabled.
+	if charm.CharmHub.Matches(u.Scheme) {
+		// Replicate the charm url parsing error here to keep things consistent.
+		return nil, errors.Errorf(`unexpected charm schema: cannot parse URL %q: schema "ch" not valid`, path)
+	}
+
+	// If we find a scheme that is empty, force it to become a charmstore scheme
+	// so every other subsequent parse url call knows the correct type.
+	// Ensure we don't prefix a absolute path with a cs: prefix.
+	if u.Scheme == "" && !strings.HasPrefix(u.Path, "/") {
+		return charm.ParseURL(fmt.Sprintf("cs:%s", u.Path))
+	}
+
+	return charm.ParseURL(path)
 }
 
 // Returns the first string that isn't empty.
@@ -461,6 +528,8 @@ var getModelConfig = func(api ModelConfigGetter) (*config.Config, error) {
 }
 
 func (d *factory) validateCharmSeries(seriesName string, imageStream string) error {
+	// TODO(embedded): handle systems
+
 	// attempt to locate the charm series from the list of known juju series
 	// that we currently support.
 	workloadSeries, err := supportedJujuSeries(d.clock.Now(), seriesName, imageStream)
@@ -478,12 +547,7 @@ func (d *factory) validateCharmSeries(seriesName string, imageStream string) err
 	if !found && !d.force {
 		return errors.NotSupportedf("series: %s", seriesName)
 	}
-
-	modelType, err := d.model.ModelType()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return model.ValidateSeries(modelType, seriesName)
+	return nil
 }
 
 // validateCharmSeriesWithName calls the validateCharmSeries, but handles the

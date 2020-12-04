@@ -37,7 +37,7 @@ func (s *InfoSuite) TestInfo(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectGet(c, restClient, path, name)
 
-	client := NewInfoClient(path, restClient)
+	client := NewInfoClient(path, restClient, &FakeLogger{})
 	response, err := client.Info(context.TODO(), name)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response.Name, gc.Equals, name)
@@ -53,9 +53,26 @@ func (s *InfoSuite) TestInfoFailure(c *gc.C) {
 	name := "meshuggah"
 
 	restClient := NewMockRESTClient(ctrl)
-	s.expectGetFailure(c, restClient)
+	s.expectGetFailure(restClient)
 
-	client := NewInfoClient(path, restClient)
+	client := NewInfoClient(path, restClient, &FakeLogger{})
+	_, err := client.Info(context.TODO(), name)
+	c.Assert(err, gc.Not(jc.ErrorIsNil))
+}
+
+func (s *InfoSuite) TestInfoError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	baseURL := MustParseURL(c, "http://api.foo.bar")
+
+	path := path.MakePath(baseURL)
+	name := "meshuggah"
+
+	restClient := NewMockRESTClient(ctrl)
+	s.expectGetError(c, restClient, path, name)
+
+	client := NewInfoClient(path, restClient, &FakeLogger{})
 	_, err := client.Info(context.TODO(), name)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
@@ -63,22 +80,38 @@ func (s *InfoSuite) TestInfoFailure(c *gc.C) {
 func (s *InfoSuite) expectGet(c *gc.C, client *MockRESTClient, p path.Path, name string) {
 	namedPath, err := p.Join(name)
 	c.Assert(err, jc.ErrorIsNil)
+	namedPath, err = namedPath.Query("fields", defaultInfoFilter())
+	c.Assert(err, jc.ErrorIsNil)
 
 	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).Do(func(_ context.Context, _ path.Path, response *transport.InfoResponse) {
+		response.Type = "charm"
 		response.Name = name
-	}).Return(nil)
+	}).Return(RESTResponse{}, nil)
 }
 
-func (s *InfoSuite) expectGetFailure(c *gc.C, client *MockRESTClient) {
-	client.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.Errorf("boom"))
+func (s *InfoSuite) expectGetFailure(client *MockRESTClient) {
+	client.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(RESTResponse{StatusCode: http.StatusInternalServerError}, errors.Errorf("boom"))
+}
+
+func (s *InfoSuite) expectGetError(c *gc.C, client *MockRESTClient, p path.Path, name string) {
+	namedPath, err := p.Join(name)
+	c.Assert(err, jc.ErrorIsNil)
+	namedPath, err = namedPath.Query("fields", defaultInfoFilter())
+	c.Assert(err, jc.ErrorIsNil)
+
+	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).Do(func(_ context.Context, _ path.Path, response *transport.InfoResponse) {
+		response.ErrorList = []transport.APIError{{
+			Message: "not found",
+		}}
+	}).Return(RESTResponse{StatusCode: http.StatusNotFound}, nil)
 }
 
 func (s *InfoSuite) TestInfoRequestPayload(c *gc.C) {
 	infoResponse := transport.InfoResponse{
 		Name: "wordpress",
-		Type: "object",
+		Type: "charm",
 		ID:   "charmCHARMcharmCHARMcharmCHARM01",
-		ChannelMap: []transport.ChannelMap{{
+		ChannelMap: []transport.InfoChannelMap{{
 			Channel: transport.Channel{
 				Name: "latest/stable",
 				Platform: transport.Platform{
@@ -90,11 +123,11 @@ func (s *InfoSuite) TestInfoRequestPayload(c *gc.C) {
 				Risk:       "stable",
 				Track:      "latest",
 			},
-			Revision: transport.Revision{
+			Revision: transport.InfoRevision{
 				ConfigYAML: "one: 1\ntwo: 2\nitems: [1,2,3,4]\n\"",
 				CreatedAt:  "2019-12-16T19:20:26.673192+00:00",
 				Download: transport.Download{
-					HashSHA265: "92a8b825ed1108ab64864a7df05eb84ed3925a8d5e4741169185f77cef9b52517ad4b79396bab43b19e544a908ec83c4",
+					HashSHA256: "92a8b825ed1108ab64864a7df05eb84ed3925a8d5e4741169185f77cef9b52517ad4b79396bab43b19e544a908ec83c4",
 					Size:       12042240,
 					URL:        "https://api.snapcraft.io/api/v1/snaps/download/QLLfVfIKfcnTZiPFnmGcigB2vB605ZY7_16.snap",
 				},
@@ -131,7 +164,7 @@ func (s *InfoSuite) TestInfoRequestPayload(c *gc.C) {
 				"wordpress-site",
 			},
 		},
-		DefaultRelease: transport.ChannelMap{
+		DefaultRelease: transport.InfoChannelMap{
 			Channel: transport.Channel{
 				Name: "latest/stable",
 				Platform: transport.Platform{
@@ -143,11 +176,11 @@ func (s *InfoSuite) TestInfoRequestPayload(c *gc.C) {
 				Risk:       "stable",
 				Track:      "latest",
 			},
-			Revision: transport.Revision{
+			Revision: transport.InfoRevision{
 				ConfigYAML: "one: 1\ntwo: 2\nitems: [1,2,3,4]\n\"",
 				CreatedAt:  "2019-12-16T19:20:26.673192+00:00",
 				Download: transport.Download{
-					HashSHA265: "92a8b825ed1108ab64864a7df05eb84ed3925a8d5e4741169185f77cef9b52517ad4b79396bab43b19e544a908ec83c4",
+					HashSHA256: "92a8b825ed1108ab64864a7df05eb84ed3925a8d5e4741169185f77cef9b52517ad4b79396bab43b19e544a908ec83c4",
 					Size:       12042240,
 					URL:        "https://api.snapcraft.io/api/v1/snaps/download/QLLfVfIKfcnTZiPFnmGcigB2vB605ZY7_16.snap",
 				},
@@ -183,10 +216,10 @@ func (s *InfoSuite) TestInfoRequestPayload(c *gc.C) {
 	infoPath, err := basePath.Join("info")
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiRequester := NewAPIRequester(DefaultHTTPTransport())
+	apiRequester := NewAPIRequester(DefaultHTTPTransport(), &FakeLogger{})
 	restClient := NewHTTPRESTClient(apiRequester, nil)
 
-	client := NewInfoClient(infoPath, restClient)
+	client := NewInfoClient(infoPath, restClient, &FakeLogger{})
 	response, err := client.Info(context.TODO(), "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response, gc.DeepEquals, infoResponse)

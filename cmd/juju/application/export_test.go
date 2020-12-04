@@ -6,12 +6,15 @@ package application
 import (
 	"time"
 
+	"github.com/juju/charm/v8"
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/cmd/juju/application/refresher"
+	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -21,7 +24,7 @@ import (
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/deployer_mock.go github.com/juju/juju/cmd/juju/application/deployer Deployer,DeployerFactory
 
-func NewUpgradeCharmCommandForTest(
+func NewRefreshCommandForTest(
 	store jujuclient.ClientStore,
 	apiOpen api.OpenFunc,
 	deployResources resourceadapters.DeployResourcesFunc,
@@ -29,40 +32,46 @@ func NewUpgradeCharmCommandForTest(
 	newCharmResolver NewCharmResolverFunc,
 	newCharmAdder NewCharmAdderFunc,
 	newCharmClient func(base.APICallCloser) utils.CharmClient,
-	newCharmUpgradeClient func(base.APICallCloser) CharmUpgradeClient,
+	newCharmRefreshClient func(base.APICallCloser) CharmRefreshClient,
 	newResourceLister func(base.APICallCloser) (utils.ResourceLister, error),
 	charmStoreURLGetter func(base.APICallCloser) (string, error),
 	newSpacesClient func(base.APICallCloser) SpacesAPI,
+	newModelConfigClient func(base.APICallCloser) ModelConfigClient,
+	newCharmHubClient func(string) (store.DownloadBundleClient, error),
+
 ) cmd.Command {
-	cmd := &upgradeCharmCommand{
+	cmd := &refreshCommand{
 		DeployResources:       deployResources,
 		NewCharmAdder:         newCharmAdder,
 		NewCharmClient:        newCharmClient,
-		NewCharmUpgradeClient: newCharmUpgradeClient,
+		NewCharmRefreshClient: newCharmRefreshClient,
 		NewResourceLister:     newResourceLister,
 		CharmStoreURLGetter:   charmStoreURLGetter,
 		NewSpacesClient:       newSpacesClient,
 		NewCharmStore:         newCharmStore,
 		NewCharmResolver:      newCharmResolver,
+		NewRefresherFactory:   refresher.NewRefresherFactory,
+		ModelConfigClient:     newModelConfigClient,
+		NewCharmHubClient:     newCharmHubClient,
 	}
 	cmd.SetClientStore(store)
 	cmd.SetAPIOpen(apiOpen)
 	return modelcmd.Wrap(cmd)
 }
 
-func NewUpgradeCharmCommandForStateTest(
+func NewRefreshCommandForStateTest(
 	newCharmStore NewCharmStoreFunc,
 	newCharmAdder NewCharmAdderFunc,
 	newCharmClient func(base.APICallCloser) utils.CharmClient,
 	deployResources resourceadapters.DeployResourcesFunc,
-	newCharmAPIClient func(conn base.APICallCloser) CharmUpgradeClient,
+	newCharmAPIClient func(conn base.APICallCloser) CharmRefreshClient,
 ) cmd.Command {
-	cmd := newUpgradeCharmCommand()
+	cmd := newRefreshCommand()
 	cmd.NewCharmStore = newCharmStore
 	cmd.NewCharmAdder = newCharmAdder
 	cmd.NewCharmClient = newCharmClient
 	if newCharmAPIClient != nil {
-		cmd.NewCharmUpgradeClient = newCharmAPIClient
+		cmd.NewCharmRefreshClient = newCharmAPIClient
 	}
 	cmd.DeployResources = deployResources
 	return modelcmd.Wrap(cmd)
@@ -196,10 +205,19 @@ func NewScaleCommandForTest(api scaleApplicationAPI, store jujuclient.ClientStor
 	return modelcmd.Wrap(cmd)
 }
 
-func NewBundleDiffCommandForTest(api base.APICallCloser, charmStore BundleResolver, store jujuclient.ClientStore) modelcmd.ModelCommand {
-	cmd := &bundleDiffCommand{
-		_apiRoot:    api,
-		_charmStore: charmStore,
+func NewDiffBundleCommandForTest(api base.APICallCloser, charmStoreFn func(base.APICallCloser, *charm.URL) (BundleResolver, error), store jujuclient.ClientStore) modelcmd.ModelCommand {
+	cmd := &diffBundleCommand{
+		newAPIRootFn: func() (base.APICallCloser, error) {
+			return api, nil
+		},
+		newControllerAPIRootFn: func() (base.APICallCloser, error) {
+			return api, nil
+		},
+	}
+	if charmStoreFn != nil {
+		cmd.charmAdaptorFn = charmStoreFn
+	} else {
+		cmd.charmAdaptorFn = cmd.charmAdaptor
 	}
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)

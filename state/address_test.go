@@ -9,6 +9,7 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -97,11 +98,12 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsNoMgmtSpace(c *gc.C) {
 	err = s.State.SetAPIHostPorts(newHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
-	gotHostPorts, err := s.State.APIHostPortsForClients()
+	ctrlSt := s.StatePool.SystemState()
+	gotHostPorts, err := ctrlSt.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 
-	gotHostPorts, err = s.State.APIHostPortsForAgents()
+	gotHostPorts, err = ctrlSt.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 
@@ -116,7 +118,7 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsNoMgmtSpace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 
-	gotHostPorts, err = s.State.APIHostPortsForAgents()
+	gotHostPorts, err = ctrlSt.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 }
@@ -201,11 +203,12 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentDiffe
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(revno, gc.Not(gc.Equals), prevAgentsRevno)
 
-	hostPorts, err := s.State.APIHostPortsForClients()
+	ctrlSt := s.StatePool.SystemState()
+	hostPorts, err := ctrlSt.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostPorts, gc.DeepEquals, []network.SpaceHostPorts{hostPorts1})
 
-	hostPorts, err = s.State.APIHostPortsForAgents()
+	hostPorts, err = ctrlSt.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostPorts, gc.DeepEquals, []network.SpaceHostPorts{hostPorts1})
 }
@@ -244,11 +247,12 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
 	err = s.State.SetAPIHostPorts(newHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
-	gotHostPorts, err := s.State.APIHostPortsForClients()
+	ctrlSt := s.StatePool.SystemState()
+	gotHostPorts, err := ctrlSt.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 
-	gotHostPorts, err = s.State.APIHostPortsForAgents()
+	gotHostPorts, err = ctrlSt.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 	// First slice filtered down to the address in the management space.
 	// Second filtered to zero elements, so retains the supplied slice.
@@ -275,7 +279,8 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsForAgentsNoDocument(c *gc.
 	err = s.State.SetAPIHostPorts(newHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
-	gotHostPorts, err := s.State.APIHostPortsForAgents()
+	ctrlSt := s.StatePool.SystemState()
+	gotHostPorts, err := ctrlSt.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 }
@@ -300,7 +305,8 @@ func (s *ControllerAddressesSuite) TestAPIHostPortsForAgentsNoDocument(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(col.FindId(key).One(&bson.D{}), gc.Equals, mgo.ErrNotFound)
 
-	gotHostPorts, err := s.State.APIHostPortsForAgents()
+	ctrlSt := s.StatePool.SystemState()
+	gotHostPorts, err := ctrlSt.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 }
@@ -376,6 +382,9 @@ type CAASAddressesSuite struct {
 var _ = gc.Suite(&CAASAddressesSuite{})
 
 func (s *CAASAddressesSuite) SetUpTest(c *gc.C) {
+	s.ControllerConfig = map[string]interface{}{
+		controller.ControllerName: "trump",
+	}
 	s.StateSuite.SetUpTest(c)
 	state.SetModelTypeToCAAS(c, s.State, s.Model)
 }
@@ -386,8 +395,14 @@ func (s *CAASAddressesSuite) TestAPIHostPortsCloudLocalOnly(c *gc.C) {
 		Type:  network.IPv4Address,
 		Scope: network.ScopeCloudLocal,
 	}
+	localDNSAddr := network.MachineAddress{
+		Value: "controller-service.controller-trump.svc.cluster.local",
+		Type:  network.HostName,
+		Scope: network.ScopeCloudLocal,
+	}
 
-	_, err := s.State.SaveCloudService(state.SaveCloudServiceArgs{
+	ctrlSt := s.StatePool.SystemState()
+	_, err := ctrlSt.SaveCloudService(state.SaveCloudServiceArgs{
 		Id:         s.Model.ControllerUUID(),
 		ProviderId: "whatever",
 		Addresses:  network.SpaceAddresses{{MachineAddress: machineAddr}},
@@ -395,20 +410,22 @@ func (s *CAASAddressesSuite) TestAPIHostPortsCloudLocalOnly(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	exp := []network.SpaceHostPorts{{{
+		SpaceAddress: network.SpaceAddress{MachineAddress: localDNSAddr},
+		NetPort:      17777,
+	}, {
 		SpaceAddress: network.SpaceAddress{MachineAddress: machineAddr},
 		NetPort:      17777,
 	}}}
 
-	// Make a new non-system state to ensure everything
-	//works from any model.
-	st := s.Factory.MakeCAASModel(c, nil)
-	defer func() { st.Close() }()
-
-	addrs, err := st.APIHostPortsForAgents()
+	addrs, err := ctrlSt.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.DeepEquals, exp)
 
-	addrs, err = st.APIHostPortsForClients()
+	exp = []network.SpaceHostPorts{{{
+		SpaceAddress: network.SpaceAddress{MachineAddress: machineAddr},
+		NetPort:      17777,
+	}}}
+	addrs, err = ctrlSt.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.DeepEquals, exp)
 }
@@ -419,8 +436,14 @@ func (s *CAASAddressesSuite) TestAPIHostPortsPublicOnly(c *gc.C) {
 		Type:  network.IPv4Address,
 		Scope: network.ScopePublic,
 	}
+	localDNSAddr := network.MachineAddress{
+		Value: "controller-service.controller-trump.svc.cluster.local",
+		Type:  network.HostName,
+		Scope: network.ScopeCloudLocal,
+	}
 
-	_, err := s.State.SaveCloudService(state.SaveCloudServiceArgs{
+	ctrlSt := s.StatePool.SystemState()
+	_, err := ctrlSt.SaveCloudService(state.SaveCloudServiceArgs{
 		Id:         s.Model.ControllerUUID(),
 		ProviderId: "whatever",
 		Addresses:  network.SpaceAddresses{{MachineAddress: machineAddr}},
@@ -428,20 +451,22 @@ func (s *CAASAddressesSuite) TestAPIHostPortsPublicOnly(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	exp := []network.SpaceHostPorts{{{
+		SpaceAddress: network.SpaceAddress{MachineAddress: localDNSAddr},
+		NetPort:      17777,
+	}, {
 		SpaceAddress: network.SpaceAddress{MachineAddress: machineAddr},
 		NetPort:      17777,
 	}}}
 
-	// Make a new non-system state to ensure everything
-	//works from any model.
-	st := s.Factory.MakeCAASModel(c, nil)
-	defer func() { st.Close() }()
-
-	addrs, err := st.APIHostPortsForAgents()
+	addrs, err := ctrlSt.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.DeepEquals, exp)
 
-	addrs, err = st.APIHostPortsForClients()
+	exp = []network.SpaceHostPorts{{{
+		SpaceAddress: network.SpaceAddress{MachineAddress: machineAddr},
+		NetPort:      17777,
+	}}}
+	addrs, err = ctrlSt.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.DeepEquals, exp)
 }
@@ -467,8 +492,14 @@ func (s *CAASAddressesSuite) TestAPIHostPortsMultiple(c *gc.C) {
 		Type:  network.IPv4Address,
 		Scope: network.ScopeCloudLocal,
 	}
+	localDNSAddr := network.MachineAddress{
+		Value: "controller-service.controller-trump.svc.cluster.local",
+		Type:  network.HostName,
+		Scope: network.ScopeCloudLocal,
+	}
 
-	_, err := s.State.SaveCloudService(state.SaveCloudServiceArgs{
+	ctrlSt := s.StatePool.SystemState()
+	_, err := ctrlSt.SaveCloudService(state.SaveCloudServiceArgs{
 		Id:         s.Model.ControllerUUID(),
 		ProviderId: "whatever",
 		Addresses: network.SpaceAddresses{
@@ -480,16 +511,15 @@ func (s *CAASAddressesSuite) TestAPIHostPortsMultiple(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Make a new non-system state to ensure everything
-	//works from any model.
-	st := s.Factory.MakeCAASModel(c, nil)
-	defer func() { st.Close() }()
-
-	addrs, err := st.APIHostPortsForAgents()
+	addrs, err := ctrlSt.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Local-cloud addresses must come first.
-	c.Assert(addrs[0][:2], jc.SameContents, network.SpaceHostPorts{
+	c.Assert(addrs[0][:3], jc.SameContents, network.SpaceHostPorts{
+		{
+			SpaceAddress: network.SpaceAddress{MachineAddress: localDNSAddr},
+			NetPort:      17777,
+		},
 		{
 			SpaceAddress: network.SpaceAddress{MachineAddress: machineAddr3},
 			NetPort:      17777,
@@ -512,10 +542,10 @@ func (s *CAASAddressesSuite) TestAPIHostPortsMultiple(c *gc.C) {
 	}
 
 	// Public ones should also follow.
-	c.Assert(addrs[0][2:], jc.SameContents, exp)
+	c.Assert(addrs[0][3:], jc.SameContents, exp)
 
 	// Only the public ones should be returned.
-	addrs, err = st.APIHostPortsForClients()
+	addrs, err = ctrlSt.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.DeepEquals, []network.SpaceHostPorts{exp})
 }

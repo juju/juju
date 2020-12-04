@@ -32,11 +32,6 @@ var Repo = testing.NewRepo(localCharmRepo, defaultSeries)
 // Note: this is a bit weird, as it ignores the series if it's NOT kubernetes
 // and falls back to the default series, which makes this pretty pointless.
 func RepoForSeries(series string) *testing.Repo {
-	// TODO(ycliuhw): workaround - currently `quantal` is not exact series
-	// (for example, here makes deploy charm at charm-repo/quantal/mysql --series precise possible )!
-	if series != "kubernetes" {
-		series = defaultSeries
-	}
 	return testing.NewRepo(localCharmRepo, series)
 }
 

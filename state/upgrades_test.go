@@ -15,7 +15,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
@@ -23,6 +23,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
@@ -2767,9 +2768,9 @@ type fakeBroker struct {
 	caas.Broker
 }
 
-func (f *fakeBroker) GetClusterMetadata(storageClass string) (result *caas.ClusterMetadata, err error) {
-	return &caas.ClusterMetadata{
-		NominatedStorageClass: &caas.StorageProvisioner{
+func (f *fakeBroker) GetClusterMetadata(storageClass string) (result *k8s.ClusterMetadata, err error) {
+	return &k8s.ClusterMetadata{
+		NominatedStorageClass: &k8s.StorageProvisioner{
 			Name: "storage-provisioner",
 		},
 	}, nil
@@ -2947,7 +2948,7 @@ func (s *upgradesSuite) makeApplication(c *gc.C, uuid, name string, life Life) {
 	coll, closer := s.state.db().GetRawCollection(applicationsC)
 	defer closer()
 
-	curl := charm.MustParseURL("test-charm")
+	curl := charm.MustParseURL("cs:test-charm")
 	err := coll.Insert(applicationDoc{
 		DocID:     ensureModelUUID(uuid, name),
 		Name:      name,
@@ -4468,7 +4469,38 @@ func genCharmDocWithMetaAndRelationLimit(modelUUID string, relLimit int) bson.M 
 			},
 		},
 	}
+}
 
+func (s *upgradesSuite) TestLimitHandlesPlaceholderCharms(c *gc.C) {
+	// Placeholder charms exist with only the URL that it uses to contact the charm store and
+	// download the actual content.
+	col, closer := s.state.db().GetRawCollection(charmsC)
+	defer closer()
+
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	defer model1.Close()
+
+	uuid := model1.ModelUUID()
+	doc := bson.M{
+		"_id":           uuid + ":cs:ntp-41",
+		"model-uuid":    uuid,
+		"url":           "cs:ntp-41",
+		"charm-version": "",
+		"life":          0,
+		"pendingupload": false,
+		"placeholder":   true,
+		"bundlesha256":  "",
+		"storagepath":   "",
+		"macaroon":      []uint8{},
+		"meta":          nil,
+		"config":        nil,
+		"actions":       nil,
+		"metrics":       nil,
+		"lxd-profile":   nil,
+	}
+	col.Insert(doc)
+	s.assertUpgradedData(c, ResetDefaultRelationLimitInCharmMetadata,
+		upgradedData(col, []bson.M{doc}))
 }
 
 func (s *upgradesSuite) TestAddCharmHubToModelConfig(c *gc.C) {
@@ -4765,51 +4797,91 @@ func (s *upgradesSuite) TestAddCharmOriginToApplication(c *gc.C) {
 	)
 }
 
-func (s *upgradesSuite) TestAddAzureProviderNetworkConfig(c *gc.C) {
-	settingsColl, settingsCloser := s.state.db().GetRawCollection(settingsC)
-	defer settingsCloser()
-	_, err := settingsColl.RemoveAll(nil)
+func (s *upgradesSuite) TestExposeWildcardEndpointForExposedApplication(c *gc.C) {
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
+	defer func() {
+		_ = model1.Close()
+		_ = model2.Close()
+	}()
+
+	uuid1 := model1.ModelUUID()
+	uuid2 := model2.ModelUUID()
+
+	coll, closer := s.state.db().GetRawCollection(applicationsC)
+	defer closer()
+
+	err := coll.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid1, "app1"),
+		"model-uuid": uuid1,
+		"charmurl":   charm.MustParseURL("cs:test").String(),
+		"exposed":    true, // exposed application
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = settingsColl.Insert(bson.M{
-		// already upgraded
-		"_id": "foo",
-		"settings": bson.M{
-			"type":          "azure",
-			"use-public-ip": false},
-	}, bson.M{
-		// non azure model
-		"_id": "bar",
-		"settings": bson.M{
-			"type": "ec2"},
-	}, bson.M{
-		"_id": "baz",
-		"settings": bson.M{
-			"type": "azure"},
+	err = coll.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid2, "app2"),
+		"model-uuid": uuid2,
+		"charmurl":   charm.MustParseURL("local:test").String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedSettings := bsonMById{
+	expected := bsonMById{
 		{
-			"_id": "bar",
-			"settings": bson.M{
-				"type": "ec2"},
-		}, {
-			"_id": "baz",
-			"settings": bson.M{
-				"type":          "azure",
-				"use-public-ip": true,
+			"_id":        ensureModelUUID(uuid1, "app1"),
+			"model-uuid": uuid1,
+			"charmurl":   "cs:test",
+			"exposed":    true,
+			"exposed-endpoints": bson.M{
+				"": bson.M{
+					"to-cidrs": []interface{}{"0.0.0.0/0", "::/0"},
+				},
 			},
-		}, {
-			"_id": "foo",
-			"settings": bson.M{
-				"type":          "azure",
-				"use-public-ip": false},
-		}}
+		},
+		{
+			"_id":        ensureModelUUID(uuid2, "app2"),
+			"model-uuid": uuid2,
+			"charmurl":   "local:test",
+		},
+	}
 
-	//sort.Sort(expectedSettings)
-	s.assertUpgradedData(c, AddAzureProviderNetworkConfig,
-		upgradedData(settingsColl, expectedSettings),
+	sort.Sort(expected)
+	s.assertUpgradedData(c, ExposeWildcardEndpointForExposedApplications,
+		upgradedData(coll, expected),
 	)
+}
+
+func (s *upgradesSuite) TestRemoveUnusedLinkLayerDeviceProviderIDs(c *gc.C) {
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	defer func() { _ = model1.Close() }()
+
+	// Insert 3 provider IDs.
+	pidCol, pidCloser := s.state.db().GetRawCollection(providerIDsC)
+	defer pidCloser()
+
+	keepLLD := bson.M{"_id": model1.modelUUID() + ":linklayerdevice:keep"}
+	keepSubnet := bson.M{"_id": model1.modelUUID() + ":subnet:keep"}
+	docs := []interface{}{
+		keepLLD,
+		keepSubnet,
+		bson.M{"_id": model1.modelUUID() + ":linklayerdevice:delete"},
+	}
+	err := pidCol.Insert(docs...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Insert a device using one of the IDs.
+	lldCol, lldCloser := model1.db().GetCollection(linkLayerDevicesC)
+	defer lldCloser()
+
+	err = lldCol.Writeable().Insert(linkLayerDeviceDoc{
+		ProviderID: "keep",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that only the unreferenced link-layer device ID was removed.
+	s.assertUpgradedData(c, RemoveUnusedLinkLayerDeviceProviderIDs, upgradedData(pidCol, []bson.M{
+		keepLLD,
+		keepSubnet,
+	}))
 }
 
 type docById []bson.M

@@ -4,10 +4,10 @@
 package azure
 
 import (
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-10-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-07-01/compute"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
-	jujuos "github.com/juju/os"
+	jujuos "github.com/juju/os/v2"
 )
 
 const extensionName = "JujuCustomScriptExtension"

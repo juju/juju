@@ -17,16 +17,15 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/utils"
-	"github.com/juju/utils/ssh"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/ssh"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/worker/peergrouper"
@@ -123,16 +122,16 @@ func updateMongoEntries(newInstId instance.Id, newMachineId, oldMachineId string
 
 // updateMachineAddresses will update the machine doc to the current addresses
 func updateMachineAddresses(machine *state.Machine, privateAddress, publicAddress string) error {
-	privateAddressAddress := corenetwork.SpaceAddress{
-		MachineAddress: corenetwork.MachineAddress{
+	privateAddressAddress := network.SpaceAddress{
+		MachineAddress: network.MachineAddress{
 			Value: privateAddress,
-			Type:  corenetwork.DeriveAddressType(privateAddress),
+			Type:  network.DeriveAddressType(privateAddress),
 		},
 	}
-	publicAddressAddress := corenetwork.SpaceAddress{
-		MachineAddress: corenetwork.MachineAddress{
+	publicAddressAddress := network.SpaceAddress{
+		MachineAddress: network.MachineAddress{
 			Value: publicAddress,
-			Type:  corenetwork.DeriveAddressType(publicAddress),
+			Type:  network.DeriveAddressType(publicAddress),
 		},
 	}
 	if err := machine.SetProviderAddresses(publicAddressAddress, privateAddressAddress); err != nil {

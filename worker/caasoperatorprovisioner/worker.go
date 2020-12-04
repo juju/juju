@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/catacomb"
 
@@ -20,7 +20,7 @@ import (
 	apicaasprovisioner "github.com/juju/juju/api/caasoperatorprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/storage"
@@ -41,19 +41,19 @@ type CAASProvisionerFacade interface {
 
 // Config defines the operation of a Worker.
 type Config struct {
-	Facade      CAASProvisionerFacade
-	Broker      caas.Broker
-	ModelTag    names.ModelTag
-	AgentConfig agent.Config
-	Clock       clock.Clock
-	Logger      Logger
+	Facade          CAASProvisionerFacade
+	OperatorManager caas.ApplicationOperatorManager
+	ModelTag        names.ModelTag
+	AgentConfig     agent.Config
+	Clock           clock.Clock
+	Logger          Logger
 }
 
 // NewProvisionerWorker starts and returns a new CAAS provisioner worker.
 func NewProvisionerWorker(config Config) (worker.Worker, error) {
 	p := &provisioner{
 		provisionerFacade: config.Facade,
-		broker:            config.Broker,
+		operatorManager:   config.OperatorManager,
 		modelTag:          config.ModelTag,
 		agentConfig:       config.AgentConfig,
 		clock:             config.Clock,
@@ -69,7 +69,7 @@ func NewProvisionerWorker(config Config) (worker.Worker, error) {
 type provisioner struct {
 	catacomb          catacomb.Catacomb
 	provisionerFacade CAASProvisionerFacade
-	broker            caas.Broker
+	operatorManager   caas.ApplicationOperatorManager
 	clock             clock.Clock
 	logger            Logger
 
@@ -119,7 +119,7 @@ func (p *provisioner) loop() error {
 				}
 				if err != nil || appLife == life.Dead {
 					p.logger.Debugf("deleting operator for %q", app)
-					if err := p.broker.DeleteOperator(app); err != nil {
+					if err := p.operatorManager.DeleteOperator(app); err != nil {
 						return errors.Annotatef(err, "failed to stop operator for %q", app)
 					}
 					continue
@@ -142,7 +142,7 @@ func (p *provisioner) loop() error {
 func (p *provisioner) waitForOperatorTerminated(app string) error {
 	tryAgain := errors.New("try again")
 	existsFunc := func() error {
-		opState, err := p.broker.OperatorExists(app)
+		opState, err := p.operatorManager.OperatorExists(app)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -172,7 +172,7 @@ func (p *provisioner) ensureOperators(apps []string) error {
 	var appPasswords []apicaasprovisioner.ApplicationPassword
 	operatorConfig := make([]*caas.OperatorConfig, len(apps))
 	for i, app := range apps {
-		opState, err := p.broker.OperatorExists(app)
+		opState, err := p.operatorManager.OperatorExists(app)
 		if err != nil {
 			return errors.Annotatef(err, "failed to find operator for %q", app)
 		}
@@ -186,7 +186,7 @@ func (p *provisioner) ensureOperators(apps []string) error {
 			opState.Exists = false
 		}
 
-		op, err := p.broker.Operator(app)
+		op, err := p.operatorManager.Operator(app)
 		if err != nil && !errors.IsNotFound(err) {
 			return errors.Trace(err)
 		}
@@ -240,7 +240,7 @@ func (p *provisioner) ensureOperators(apps []string) error {
 }
 
 func (p *provisioner) ensureOperator(app string, config *caas.OperatorConfig) error {
-	if err := p.broker.EnsureOperator(app, p.agentConfig.DataDir(), config); err != nil {
+	if err := p.operatorManager.EnsureOperator(app, p.agentConfig.DataDir(), config); err != nil {
 		return errors.Annotatef(err, "failed to start operator for %q", app)
 	}
 	p.logger.Infof("started operator for application %q", app)
@@ -255,7 +255,7 @@ func (p *provisioner) updateOperatorConfig(appName, password string, prevCfg caa
 	// Operators may have storage configured because charms
 	// have persistent state which must be preserved between any
 	// operator restarts. Newer charms though store state in the controller.
-	if info.CharmStorage != nil && info.CharmStorage.Provider != provider.K8s_ProviderType {
+	if info.CharmStorage != nil && info.CharmStorage.Provider != k8sconstants.StorageProviderType {
 		if spType := info.CharmStorage.Provider; spType == "" {
 			return nil, errors.NotValidf("missing operator storage provider")
 		} else {

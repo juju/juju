@@ -20,12 +20,12 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
-	"github.com/juju/utils/ssh"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/arch"
+	"github.com/juju/utils/v2/ssh"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/goose.v2/cinder"
@@ -399,6 +399,14 @@ func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *gc.C) {
 }
 
 func (s *localServerSuite) TestAddressesWithPublicIP(c *gc.C) {
+	s.assertAddressesWithPublicIP(c, constraints.Value{}, true)
+}
+
+func (s *localServerSuite) TestAddressesWithPublicIPConstraintsOverride(c *gc.C) {
+	s.assertAddressesWithPublicIP(c, constraints.MustParse("allocate-public-ip=true"), false)
+}
+
+func (s *localServerSuite) assertAddressesWithPublicIP(c *gc.C, cons constraints.Value, useFloatingIP bool) {
 	// Floating IP address is 10.0.0.1
 	bootstrapFinished := false
 	s.PatchValue(&common.FinishBootstrap, func(
@@ -425,14 +433,22 @@ func (s *localServerSuite) TestAddressesWithPublicIP(c *gc.C) {
 
 	env := s.openEnviron(c, coretesting.Attrs{
 		"network":         "private_999",
-		"use-floating-ip": true,
+		"use-floating-ip": useFloatingIP,
 	})
-	err := bootstrapEnv(c, env)
+	err := bootstrapEnvWithConstraints(c, env, cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bootstrapFinished, jc.IsTrue)
 }
 
 func (s *localServerSuite) TestAddressesWithoutPublicIP(c *gc.C) {
+	s.assertAddressesWithoutPublicIP(c, constraints.Value{}, false)
+}
+
+func (s *localServerSuite) TestAddressesWithoutPublicIPConstraintsOverride(c *gc.C) {
+	s.assertAddressesWithoutPublicIP(c, constraints.MustParse("allocate-public-ip=false"), true)
+}
+
+func (s *localServerSuite) assertAddressesWithoutPublicIP(c *gc.C, cons constraints.Value, useFloatingIP bool) {
 	bootstrapFinished := false
 	s.PatchValue(&common.FinishBootstrap, func(
 		ctx environs.BootstrapContext,
@@ -455,8 +471,8 @@ func (s *localServerSuite) TestAddressesWithoutPublicIP(c *gc.C) {
 		return nil
 	})
 
-	env := s.openEnviron(c, coretesting.Attrs{"use-floating-ip": false})
-	err := bootstrapEnv(c, env)
+	env := s.openEnviron(c, coretesting.Attrs{"use-floating-ip": useFloatingIP})
+	err := bootstrapEnvWithConstraints(c, env, cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bootstrapFinished, jc.IsTrue)
 }
@@ -664,6 +680,49 @@ func (s *localServerSuite) TestStartInstanceNetworksDifferentAZ(c *gc.C) {
 		"network":          "net",     // az = nova
 		"external-network": "ext-net", // az = test-available
 		"use-floating-ip":  true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.StopInstances(s.callCtx, inst.Id())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *localServerSuite) TestStartInstanceNetworksEmptyAZ(c *gc.C) {
+	// Modify the Openstack service that is created by default,
+	// to clear the networks.
+	model := neutronmodel.New()
+	for _, net := range model.AllNetworks() {
+		_ = model.RemoveNetwork(net.Id)
+	}
+
+	// Add 2 networks to the Openstack service, one private,
+	// one external without availability zones.  LP: 1891227.
+	err := model.AddNetwork(neutron.NetworkV2{
+		Id:        "1",
+		Name:      "no-az-net",
+		SubnetIds: []string{"sub-net"},
+		External:  false,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.AddNetwork(neutron.NetworkV2{
+		Id:        "2",
+		Name:      "ext-no-az-net",
+		SubnetIds: []string{"ext-sub-net"},
+		External:  true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.srv.OpenstackSvc.Neutron.AddNeutronModel(model)
+	s.srv.OpenstackSvc.Nova.AddNeutronModel(model)
+
+	// Set floating ip to ensure we try to find the external
+	// network.
+	cfg, err := s.env.Config().Apply(coretesting.Attrs{
+		"network":         "no-az-net", // az = nova
+		"use-floating-ip": true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.env.SetConfig(cfg)
@@ -1450,7 +1509,7 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 
 	// An error occurs if no suitable image is found.
 	_, err := openstack.FindInstanceSpec(env, "saucy", "amd64", "mem=1G", nil)
-	c.Assert(err, gc.ErrorMatches, `no "saucy" images in some-region with arches \[amd64\]`)
+	c.Assert(err, gc.ErrorMatches, `no metadata for "saucy" images in some-region with arches \[amd64\]`)
 }
 
 func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
@@ -1497,7 +1556,7 @@ func (s *localServerSuite) TestFindImageInstanceConstraint(c *gc.C) {
 	}}
 
 	spec, err := openstack.FindInstanceSpec(
-		env, series.DefaultSupportedLTS(), "amd64", "instance-type=m1.tiny",
+		env, jujuversion.DefaultSupportedLTS(), "amd64", "instance-type=m1.tiny",
 		imageMetadata,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1514,7 +1573,7 @@ func (s *localServerSuite) TestFindInstanceImageConstraintHypervisor(c *gc.C) {
 	}}
 
 	spec, err := openstack.FindInstanceSpec(
-		env, series.DefaultSupportedLTS(), "amd64", "virt-type="+testVirtType,
+		env, jujuversion.DefaultSupportedLTS(), "amd64", "virt-type="+testVirtType,
 		imageMetadata,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1533,7 +1592,7 @@ func (s *localServerSuite) TestFindInstanceImageWithHypervisorNoConstraint(c *gc
 	}}
 
 	spec, err := openstack.FindInstanceSpec(
-		env, series.DefaultSupportedLTS(), "amd64", "",
+		env, jujuversion.DefaultSupportedLTS(), "amd64", "",
 		imageMetadata,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1550,7 +1609,7 @@ func (s *localServerSuite) TestFindInstanceNoConstraint(c *gc.C) {
 	}}
 
 	spec, err := openstack.FindInstanceSpec(
-		env, series.DefaultSupportedLTS(), "amd64", "",
+		env, jujuversion.DefaultSupportedLTS(), "amd64", "",
 		imageMetadata,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1565,7 +1624,7 @@ func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
 		Arch: "amd64",
 	}}
 	_, err := openstack.FindInstanceSpec(
-		env, series.DefaultSupportedLTS(), "amd64", "instance-type=m1.large",
+		env, jujuversion.DefaultSupportedLTS(), "amd64", "instance-type=m1.large",
 		imageMetadata,
 	)
 	c.Assert(err, gc.ErrorMatches, `no instance types in some-region matching constraints "instance-type=m1.large"`)
@@ -1574,46 +1633,46 @@ func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
 func (s *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 	env := s.Open(c, s.env.Config())
 	cons := constraints.MustParse("instance-type=m1.small")
-	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: series.DefaultSupportedLTS(), Constraints: cons})
+	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Constraints: cons})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 	env := s.Open(c, s.env.Config())
 	cons := constraints.MustParse("instance-type=m1.large")
-	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: series.DefaultSupportedLTS(), Constraints: cons})
+	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Constraints: cons})
 	c.Assert(err, gc.ErrorMatches, `invalid Openstack flavour "m1.large" specified`)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceInvalidRootDiskConstraint(c *gc.C) {
 	env := s.Open(c, s.env.Config())
 	cons := constraints.MustParse("instance-type=m1.small root-disk=10G")
-	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: series.DefaultSupportedLTS(), Constraints: cons})
+	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Constraints: cons})
 	c.Assert(err, gc.ErrorMatches, `constraint root-disk cannot be specified with instance-type unless constraint root-disk-source=volume`)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	placement := "zone=test-available"
-	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: series.DefaultSupportedLTS(), Placement: placement})
+	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Placement: placement})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
 	placement := "zone=test-unavailable"
-	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: series.DefaultSupportedLTS(), Placement: placement})
+	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Placement: placement})
 	c.Assert(err, gc.ErrorMatches, `zone "test-unavailable" is unavailable`)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 	placement := "zone=test-unknown"
-	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: series.DefaultSupportedLTS(), Placement: placement})
+	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Placement: placement})
 	c.Assert(err, gc.ErrorMatches, `availability zone "test-unknown" not valid`)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceAvailZonesUnsupported(c *gc.C) {
 	s.srv.Nova.SetAvailabilityZones() // no availability zone support
 	placement := "zone=test-unknown"
-	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: series.DefaultSupportedLTS(), Placement: placement})
+	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: jujuversion.DefaultSupportedLTS(), Placement: placement})
 	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
 }
 
@@ -1647,7 +1706,7 @@ func (s *localServerSuite) testPrecheckInstanceVolumeAvailZones(c *gc.C, placeme
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{
-		Series:            series.DefaultSupportedLTS(),
+		Series:            jujuversion.DefaultSupportedLTS(),
 		Placement:         placement,
 		VolumeAttachments: []storage.VolumeAttachmentParams{{VolumeId: "foo"}},
 	})
@@ -1682,7 +1741,7 @@ func (s *localServerSuite) TestPrecheckInstanceAvailZonesConflictsVolume(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{
-		Series:            series.DefaultSupportedLTS(),
+		Series:            jujuversion.DefaultSupportedLTS(),
 		Placement:         "zone=az2",
 		VolumeAttachments: []storage.VolumeAttachmentParams{{VolumeId: "foo"}},
 	})
@@ -3144,8 +3203,11 @@ func newNovaNetworkingOpenstackService(cred *identity.Credentials, auth identity
 	service.SetupHTTP(nil)
 	return service, logMsg
 }
-
 func bootstrapEnv(c *gc.C, env environs.Environ) error {
+	return bootstrapEnvWithConstraints(c, env, constraints.Value{})
+}
+
+func bootstrapEnvWithConstraints(c *gc.C, env environs.Environ, cons constraints.Value) error {
 	return bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		context.NewCloudCallContext(),
 		bootstrap.BootstrapParams{
@@ -3153,5 +3215,6 @@ func bootstrapEnv(c *gc.C, env environs.Environ) error {
 			AdminSecret:              testing.AdminSecret,
 			CAPrivateKey:             coretesting.CAKey,
 			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			BootstrapConstraints:     cons,
 		})
 }

@@ -16,8 +16,8 @@ type executorStep struct {
 	run  func(op Operation, state State) (*State, error)
 }
 
-func (step executorStep) message(op Operation) string {
-	return fmt.Sprintf("%s operation %q", step.verb, op)
+func (step executorStep) message(op Operation, unitName string) string {
+	return fmt.Sprintf("%s operation %q for %s", step.verb, op, unitName)
 }
 
 var (
@@ -27,6 +27,7 @@ var (
 )
 
 type executor struct {
+	unitName           string
 	stateOps           *StateOps
 	state              *State
 	acquireMachineLock func(string) (func(), error)
@@ -54,7 +55,7 @@ func (e ExecutorConfig) validate() error {
 // NewExecutor returns an Executor which takes its starting state from
 // the controller, and records state changes there. If no saved state
 // exists, the executor's starting state will be the supplied InitialState.
-func NewExecutor(cfg ExecutorConfig) (Executor, error) {
+func NewExecutor(unitName string, cfg ExecutorConfig) (Executor, error) {
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
@@ -66,6 +67,7 @@ func NewExecutor(cfg ExecutorConfig) (Executor, error) {
 		return nil, err
 	}
 	return &executor{
+		unitName:           unitName,
 		stateOps:           stateOps,
 		state:              state,
 		acquireMachineLock: cfg.AcquireLock,
@@ -80,14 +82,14 @@ func (x *executor) State() State {
 
 // Run is part of the Executor interface.
 func (x *executor) Run(op Operation, remoteStateChange <-chan remotestate.Snapshot) error {
-	x.logger.Debugf("running operation %v", op)
+	x.logger.Debugf("running operation %v for %s", op, x.unitName)
 
 	if op.NeedsGlobalMachineLock() {
 		releaser, err := x.acquireMachineLock(op.String())
 		if err != nil {
-			return errors.Annotate(err, "could not acquire lock")
+			return errors.Annotatef(err, "could not acquire %q lock for %s", op, x.unitName)
 		}
-		defer x.logger.Debugf("lock released")
+		defer x.logger.Debugf("lock released for %s", x.unitName)
 		defer releaser()
 	}
 
@@ -121,12 +123,12 @@ func (x *executor) Run(op Operation, remoteStateChange <-chan remotestate.Snapsh
 
 // Skip is part of the Executor interface.
 func (x *executor) Skip(op Operation) error {
-	x.logger.Debugf("skipping operation %v", op)
+	x.logger.Debugf("skipping operation %v for %s", op, x.unitName)
 	return x.do(op, stepCommit)
 }
 
 func (x *executor) do(op Operation, step executorStep) (err error) {
-	message := step.message(op)
+	message := step.message(op, x.unitName)
 	x.logger.Debugf(message)
 	newState, firstErr := step.run(op, *x.state)
 	if newState != nil {
@@ -134,7 +136,7 @@ func (x *executor) do(op Operation, step executorStep) (err error) {
 		if firstErr == nil {
 			firstErr = writeErr
 		} else if writeErr != nil {
-			x.logger.Errorf("after %s: %v", message, writeErr)
+			x.logger.Errorf("after %s for %s: %v", message, x.unitName, writeErr)
 		}
 	}
 	return errors.Annotatef(firstErr, message)

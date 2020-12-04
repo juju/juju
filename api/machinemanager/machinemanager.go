@@ -41,11 +41,17 @@ func (client *Client) AddMachines(machineParams []params.AddMachineParams) ([]pa
 		MachineParams: machineParams,
 	}
 	results := new(params.AddMachinesResults)
+
 	err := client.facade.FacadeCall("AddMachines", args, results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if len(results.Machines) != len(machineParams) {
 		return nil, errors.Errorf("expected %d result, got %d", len(machineParams), len(results.Machines))
 	}
-	return results.Machines, err
+
+	return results.Machines, nil
 }
 
 // DestroyMachines removes a given set of machines.
@@ -142,17 +148,17 @@ func (client *Client) UpgradeSeriesPrepare(machineName, series string, force boo
 	}
 	args := params.UpdateSeriesArg{
 		Entity: params.Entity{
-			Tag: names.NewMachineTag(machineName).String()},
+			Tag: names.NewMachineTag(machineName).String(),
+		},
 		Series: series,
 		Force:  force,
 	}
-	result := params.ErrorResult{}
+	var result params.ErrorResult
 	if err := client.facade.FacadeCall("UpgradeSeriesPrepare", args, &result); err != nil {
 		return errors.Trace(err)
 	}
 
-	err := result.Error
-	if err != nil {
+	if err := result.Error; err != nil {
 		return apiservererrors.RestoreError(err)
 	}
 	return nil

@@ -55,6 +55,38 @@ var (
 	defaultPort = "17071"
 )
 
+func catacombInvoke(server *Server) (*Server, error) {
+	if err := catacomb.Invoke(catacomb.Plan{
+		Site: &server.catacomb,
+		Work: server.loop,
+	}); err != nil {
+		return server, errors.Trace(err)
+	}
+	return server, nil
+}
+
+func NewServerWithOutTLS(logger Logger, conf Config) (*Server, error) {
+	mux := apiserverhttp.NewMux()
+
+	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%s", conf.Address, conf.Port))
+	if err != nil {
+		return nil, errors.Annotate(err, "creating mux http server listener")
+	}
+
+	httpServ := &http.Server{
+		Handler: mux,
+	}
+
+	server := &Server{
+		info:     &serverInfo{conf.Port},
+		listener: listener,
+		logger:   logger,
+		Mux:      mux,
+		server:   httpServ,
+	}
+	return catacombInvoke(server)
+}
+
 func NewServer(authority pki.Authority, logger Logger, conf Config) (*Server, error) {
 	mux := apiserverhttp.NewMux()
 
@@ -79,14 +111,7 @@ func NewServer(authority pki.Authority, logger Logger, conf Config) (*Server, er
 		Mux:      mux,
 		server:   httpServ,
 	}
-
-	if err := catacomb.Invoke(catacomb.Plan{
-		Site: &server.catacomb,
-		Work: server.loop,
-	}); err != nil {
-		return server, errors.Trace(err)
-	}
-	return server, nil
+	return catacombInvoke(server)
 }
 
 func DefaultConfig() Config {
@@ -130,7 +155,11 @@ func (s *Server) loop() error {
 
 	go func() {
 		s.logger.Infof("starting http server on %s", s.listener.Addr())
-		httpCh <- s.server.ServeTLS(s.listener, "", "")
+		if s.server.TLSConfig == nil {
+			httpCh <- s.server.Serve(s.listener)
+		} else {
+			httpCh <- s.server.ServeTLS(s.listener, "", "")
+		}
 		close(httpCh)
 	}()
 

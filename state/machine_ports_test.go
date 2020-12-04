@@ -4,6 +4,8 @@
 package state_test
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
@@ -13,6 +15,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -419,6 +422,12 @@ func (s *MachinePortsDocSuite) TestWatchMachinePorts(c *gc.C) {
 	// No port ranges open initially, no changes.
 	w := s.State.WatchOpenedPorts()
 	c.Assert(w, gc.NotNil)
+	select {
+	case <-s.StatePool.TxnWatcherStarted():
+		// Started successfully
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for ports watcher to start")
+	}
 
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)

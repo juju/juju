@@ -14,13 +14,13 @@ jobs:
         # on macOS, but we should investigate that to improve our coverage on
         # other clients.
         # To turn on macOS, just update the os to include it.
-        # os: [ubuntu-latest, macOS-latest]
+        # os: [ubuntu-latest, macOS-latest, windows-latest]
         os: [ubuntu-latest]
 
     steps:
 
     - name: Set up Go 1.14
-      uses: actions/setup-go@v2.1.2
+      uses: actions/setup-go@v2.1.3
       with:
         go-version: 1.14
       id: go
@@ -51,6 +51,18 @@ jobs:
         sudo mkdir -p /user/local/bin
         sudo ln -s /usr/local/mongodb/mongod /usr/local/bin/mongod
       shell: bash
+
+    - name: "Remove Mongo Dependencies: windows-latest"
+      if: (matrix.os == 'windows-latest')
+      uses: crazy-max/ghaction-chocolatey@v1
+      with:
+        args: uninstall mongodb mongodb.install -y --all-versions
+
+    - name: "Install Mongo Dependencies: windows-latest"
+      if: (matrix.os == 'windows-latest')
+      uses: crazy-max/ghaction-chocolatey@v1
+      with:
+        args: install mongodb.install --version=3.6.0 --allow-downgrade
 
     - name: Test client
       run: |

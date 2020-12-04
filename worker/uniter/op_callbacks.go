@@ -126,6 +126,10 @@ func (opc *operationCallbacks) GetArchiveInfo(charmURL *corecharm.URL) (charm.Bu
 	return ch, nil
 }
 
+func (opc *operationCallbacks) PostStartHook() {
+	opc.u.Probe.SetHasStarted()
+}
+
 // SetCurrentCharm is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) SetCurrentCharm(charmURL *corecharm.URL) error {
 	return opc.u.unit.SetCharmURL(charmURL)
@@ -143,7 +147,8 @@ func (opc *operationCallbacks) SetUpgradeSeriesStatus(upgradeSeriesStatus model.
 
 // RemoteInit is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) RemoteInit(runningStatus remotestate.ContainerRunningStatus, abort <-chan struct{}) error {
-	if opc.u.modelType != model.CAAS {
+	if opc.u.modelType != model.CAAS || opc.u.embedded {
+		// Non CAAS model or embedded CAAS model do not have remote init process.
 		return nil
 	}
 	if opc.u.remoteInitFunc == nil {

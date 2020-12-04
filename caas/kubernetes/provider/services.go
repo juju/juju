@@ -10,7 +10,6 @@ import (
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8slabels "k8s.io/apimachinery/pkg/labels"
 
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
@@ -18,8 +17,8 @@ import (
 	k8sannotations "github.com/juju/juju/core/annotations"
 )
 
-func getServiceLabels(appName string) map[string]string {
-	return utils.LabelsForApp(appName)
+func getServiceLabels(appName string, legacy bool) map[string]string {
+	return utils.LabelsForApp(appName, legacy)
 }
 
 func (k *kubernetesClient) ensureServicesForApp(appName string, annotations k8sannotations.Annotation, services []k8sspecs.K8sService) (cleanUps []func(), err error) {
@@ -28,7 +27,7 @@ func (k *kubernetesClient) ensureServicesForApp(appName string, annotations k8sa
 			ObjectMeta: v1.ObjectMeta{
 				Name:        v.Name,
 				Namespace:   k.namespace,
-				Labels:      k8slabels.Merge(v.Labels, getServiceLabels(appName)),
+				Labels:      utils.LabelsMerge(v.Labels, getServiceLabels(appName, k.IsLegacyLabels())),
 				Annotations: annotations.Copy().Merge(v.Annotations),
 			},
 			Spec: v.Spec,
@@ -68,7 +67,7 @@ func (k *kubernetesClient) ensureK8sService(spec *core.Service) (func(), error) 
 func (k *kubernetesClient) deleteService(serviceName string) error {
 	services := k.client().CoreV1().Services(k.namespace)
 	err := services.Delete(context.TODO(), serviceName, v1.DeleteOptions{
-		PropagationPolicy: &constants.DefaultPropagationPolicy,
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil
@@ -81,7 +80,8 @@ func (k *kubernetesClient) deleteServices(appName string) error {
 	api := k.client().CoreV1().Services(k.namespace)
 	services, err := api.List(context.TODO(),
 		v1.ListOptions{
-			LabelSelector: utils.LabelSetToSelector(getServiceLabels(appName)).String(),
+			LabelSelector: utils.LabelsToSelector(
+				getServiceLabels(appName, k.IsLegacyLabels())).String(),
 		},
 	)
 	if err != nil {

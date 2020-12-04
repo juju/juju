@@ -19,12 +19,11 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
 	"github.com/juju/pubsub"
 	"github.com/juju/replicaset"
-	"github.com/juju/utils"
-	"github.com/juju/utils/symlink"
-	"github.com/juju/utils/voyeur"
+	"github.com/juju/utils/v2"
+	"github.com/juju/utils/v2/symlink"
+	"github.com/juju/utils/v2/voyeur"
 	"github.com/juju/version"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
@@ -42,7 +41,7 @@ import (
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent/addons"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
@@ -94,11 +93,10 @@ import (
 
 var (
 	logger            = loggo.GetLogger("juju.cmd.jujud")
-	jujuRun           = paths.MustSucceed(paths.JujuRun(series.MustHostSeries()))
-	jujuDumpLogs      = paths.MustSucceed(paths.JujuDumpLogs(series.MustHostSeries()))
-	jujuIntrospect    = paths.MustSucceed(paths.JujuIntrospect(series.MustHostSeries()))
-	jujuUpdateSeries  = paths.MustSucceed(paths.JujuUpdateSeries(series.MustHostSeries()))
-	jujudSymlinks     = []string{jujuRun, jujuDumpLogs, jujuIntrospect, jujuUpdateSeries}
+	jujuRun           = paths.JujuRun(paths.CurrentOS())
+	jujuDumpLogs      = paths.JujuDumpLogs(paths.CurrentOS())
+	jujuIntrospect    = paths.JujuIntrospect(paths.CurrentOS())
+	jujudSymlinks     = []string{jujuRun, jujuDumpLogs, jujuIntrospect}
 	caasJujudSymlinks = []string{jujuRun, jujuDumpLogs, jujuIntrospect}
 
 	// The following are defined as variables to allow the tests to
@@ -220,7 +218,7 @@ func (a *machineAgentCmd) Init(args []string) error {
 	if err := os.MkdirAll(config.LogDir(), 0644); err != nil {
 		logger.Warningf("cannot create log dir: %v", err)
 	}
-	a.isCaas = config.Value(agent.ProviderType) == k8sprovider.CAASProviderType
+	a.isCaas = config.Value(agent.ProviderType) == k8sconstants.CAASProviderType
 
 	if !a.logToStdErr {
 		// the context's stderr is set as the loggo writer in github.com/juju/cmd/logging.go
@@ -624,6 +622,7 @@ func (a *MachineAgent) makeEngineCreator(
 			WorkerFunc:         introspection.NewWorker,
 			Clock:              clock.WallClock,
 			LocalHub:           localHub,
+			CentralHub:         a.centralHub,
 			LeaseFSM:           manifoldsCfg.LeaseFSM,
 		}); err != nil {
 			// If the introspection worker failed to start, we just log error

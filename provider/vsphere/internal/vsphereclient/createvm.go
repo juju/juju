@@ -20,7 +20,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/mutex"
-	"github.com/kr/pretty"
 	"github.com/vmware/govmomi/find"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/ovf"
@@ -169,7 +168,6 @@ func (c *Client) ensureTemplateVM(
 	datastore *object.Datastore,
 	args CreateVirtualMachineParams,
 ) (vm *object.VirtualMachine, err error) {
-
 	templateFolder, err := c.FindFolder(ctx, path.Join(args.RootVMFolder, vmTemplatePath(args)))
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
@@ -203,7 +201,6 @@ func (c *Client) ensureTemplateVM(
 	importSpec := spec.ImportSpec
 	args.UpdateProgress(fmt.Sprintf("creating template VM %q", vmTemplateName(args)))
 	c.logger.Debugf("creating template VM in folder %s", vmFolder)
-	c.logger.Tracef("import spec: %s", pretty.Sprint(importSpec))
 
 	if !args.IsBootstrap {
 		// Each controller maintains its own image cache. All compute
@@ -311,6 +308,7 @@ func (c *Client) CreateVirtualMachine(
 	ctx context.Context,
 	args CreateVirtualMachineParams,
 ) (_ *mo.VirtualMachine, err error) {
+	c.logger.Tracef("CreateVirtualMachine() args.Name=%q", args.Name)
 	_, datacenter, err := c.finder(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -424,20 +422,28 @@ func (c *Client) createImportSpec(
 	args CreateVirtualMachineParams,
 	datastore *object.Datastore,
 ) (*types.OvfCreateImportSpecResult, error) {
-	c.logger.Debugf("Creating import spec")
 	cisp := types.OvfCreateImportSpecParams{
 		EntityName: vmTemplateName(args),
 	}
+	c.logger.Debugf("Creating import spec: pool=%q, datastore=%q, entity=%q",
+		args.ResourcePool, datastore, cisp.EntityName)
 
 	c.logger.Debugf("Fetching OVF manager")
 	ovfManager := ovf.NewManager(c.client.Client)
 	spec, err := ovfManager.CreateImportSpec(ctx, UbuntuOVF, args.ResourcePool, datastore, cisp)
-	c.logger.Debugf("ImportSpec built")
 	if err != nil {
+		c.logger.Debugf("CreateImportSpec error: err=%v", err)
 		return nil, errors.Trace(err)
-	} else if spec.Error != nil {
-		return nil, errors.New(spec.Error[0].LocalizedMessage)
+	} else if len(spec.Error) > 0 {
+		messages := make([]string, len(spec.Error))
+		for i, e := range spec.Error {
+			messages[i] = e.LocalizedMessage
+		}
+		message := strings.Join(messages, "\n")
+		c.logger.Debugf("CreateImportSpec fault: messages=%s", message)
+		return nil, errors.New(message)
 	}
+	c.logger.Debugf("CreateImportSpec succeeded")
 	return spec, nil
 }
 

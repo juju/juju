@@ -12,7 +12,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 	"github.com/lxc/lxd/shared/api"
 	"github.com/lxc/lxd/shared/units"
 	"github.com/lxc/lxd/shared/version"
@@ -32,6 +32,7 @@ const (
 
 // ContainerSpec represents the data required to create a new container.
 type ContainerSpec struct {
+	Architecture string
 	Name         string
 	Image        SourcedImage
 	Devices      map[string]device
@@ -49,7 +50,7 @@ var minMiBVersion = &version.DottedVersion{Major: 3, Minor: 10}
 // Note that we pass these through as supplied. If an instance type constraint
 // has been specified along with specific cores/mem constraints,
 // LXD behaviour is to override with the specific ones even when lower.
-func (c *ContainerSpec) ApplyConstraints(serverVersion string, cons constraints.Value) {
+func (c *ContainerSpec) ApplyConstraints(serverVersion string, cons constraints.Value) error {
 	if cons.HasInstanceType() {
 		c.InstanceType = *cons.InstanceType
 	}
@@ -66,6 +67,37 @@ func (c *ContainerSpec) ApplyConstraints(serverVersion string, cons constraints.
 		}
 		c.Config["limits.memory"] = fmt.Sprintf(template, *cons.Mem)
 	}
+	if cons.HasArch() {
+		c.Architecture = *cons.Arch
+	}
+	if cons.HasRootDisk() || cons.HasRootDiskSource() {
+		if !cons.HasRootDiskSource() {
+			return errors.New("root disk size constraints require a root disk source")
+		}
+
+		if c.Devices == nil {
+			c.Devices = map[string]map[string]string{}
+		}
+
+		c.Devices["root"] = map[string]string{
+			"type": "disk",
+			"pool": *cons.RootDiskSource,
+			"path": "/",
+		}
+
+		if cons.HasRootDisk() {
+			// Ensure that we use the correct "MB"/"MiB" suffix.
+			template := "%dMB"
+			if current, err := version.Parse(serverVersion); err == nil {
+				if current.Compare(minMiBVersion) >= 0 {
+					template = "%dMiB"
+				}
+			}
+			c.Devices["root"]["size"] = fmt.Sprintf(template, *cons.RootDisk)
+		}
+	}
+
+	return nil
 }
 
 // Container extends the upstream LXD container type.
@@ -134,6 +166,7 @@ func (c *Container) AddDisk(name, path, source, pool string, readOnly bool) erro
 	c.Devices[name] = map[string]string{
 		"path":   path,
 		"source": source,
+		"type":   "disk",
 	}
 	if pool != "" {
 		c.Devices[name]["pool"] = pool
@@ -223,10 +256,11 @@ func (s *Server) CreateContainerFromSpec(spec ContainerSpec) (*Container, error)
 		Name:         spec.Name,
 		InstanceType: spec.InstanceType,
 		ContainerPut: api.ContainerPut{
-			Profiles:  spec.Profiles,
-			Devices:   spec.Devices,
-			Config:    spec.Config,
-			Ephemeral: false,
+			Architecture: spec.Architecture,
+			Profiles:     spec.Profiles,
+			Devices:      spec.Devices,
+			Config:       spec.Config,
+			Ephemeral:    false,
 		},
 	}
 	op, err := s.CreateContainerFromImage(spec.Image.LXDServer, *spec.Image.Image, req)

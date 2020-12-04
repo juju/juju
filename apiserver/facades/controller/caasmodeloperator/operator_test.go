@@ -34,7 +34,7 @@ func (m *ModelOperatorSuite) SetUpTest(c *gc.C) {
 
 	m.state = newMockState()
 
-	api, err := caasmodeloperator.NewAPI(m.authorizer, m.resources, m.state)
+	api, err := caasmodeloperator.NewAPI(m.authorizer, m.resources, m.state, m.state)
 	c.Assert(err, jc.ErrorIsNil)
 
 	m.api = api

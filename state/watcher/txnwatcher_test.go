@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -29,7 +30,7 @@ type TxnWatcherSuite struct {
 	runner       *txn.Runner
 	w            *watcher.TxnWatcher
 	ch           chan watcher.Change
-	iteratorFunc func() mongo.Iterator
+	iteratorFunc func(collection *mgo.Collection) mongo.Iterator
 	clock        *testclock.Clock
 }
 
@@ -59,6 +60,7 @@ func (s *TxnWatcherSuite) SetUpTest(c *gc.C) {
 	s.runner = txn.NewRunner(db.C("txn"))
 	s.runner.ChangeLog(s.log)
 	s.clock = testclock.NewClock(time.Now())
+	s.iteratorFunc = nil
 }
 
 func (s *TxnWatcherSuite) TearDownTest(c *gc.C) {
@@ -74,14 +76,21 @@ func (s *TxnWatcherSuite) advanceTime(c *gc.C, d time.Duration, waiters int) {
 }
 
 func (s *TxnWatcherSuite) newWatcher(c *gc.C, expect int) (*watcher.TxnWatcher, *fakeHub) {
+	return s.newWatcherWithError(c, expect, nil)
+}
+
+func (s *TxnWatcherSuite) newWatcherWithError(c *gc.C, expect int, watcherError error) (*watcher.TxnWatcher, *fakeHub) {
 	hub := newFakeHub(c, expect)
 	logger := loggo.GetLogger("test")
 	logger.SetLogLevel(loggo.TRACE)
 	w, err := watcher.NewTxnWatcher(watcher.TxnWatcherConfig{
-		ChangeLog: s.log,
-		Hub:       hub,
-		Clock:     s.clock,
-		Logger:    logger,
+		Session:        s.MgoSuite.Session,
+		JujuDBName:     "juju",
+		CollectionName: s.log.Name,
+		Hub:            hub,
+		Clock:          s.clock,
+		Logger:         logger,
+		IteratorFunc:   s.iteratorFunc,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	// Wait for the main loop to have started.
@@ -91,7 +100,11 @@ func (s *TxnWatcherSuite) newWatcher(c *gc.C, expect int) (*watcher.TxnWatcher, 
 		c.Error("txn worker failed to start")
 	}
 	s.AddCleanup(func(c *gc.C) {
-		c.Assert(w.Stop(), jc.ErrorIsNil)
+		if watcherError == nil {
+			c.Assert(w.Stop(), jc.ErrorIsNil)
+		} else {
+			c.Assert(w.Stop(), gc.Equals, watcherError)
+		}
 	})
 	return w, hub
 }
@@ -298,12 +311,76 @@ func (s *TxnWatcherSuite) TestDoubleUpdate(c *gc.C) {
 	})
 }
 
+func (s *TxnWatcherSuite) TestErrorRetry(c *gc.C) {
+	syncCh := make(chan struct{}, 1)
+	s.PatchValue(&watcher.TxnPollNotifyFunc, func() {
+		syncCh <- struct{}{}
+	})
+
+	fakeIter := &fakeIterator{err: errors.New("boom")}
+	s.iteratorFunc = func(collection *mgo.Collection) mongo.Iterator {
+		fakeIter.iter = s.log.Find(nil).Batch(10).Sort("-$natural").Iter()
+		return fakeIter
+	}
+	_, hub := s.newWatcher(c, 1)
+	revno := s.insert(c, "test", "a")
+
+	s.advanceTime(c, watcher.TxnWatcherShortWait, 1)
+	select {
+	case <-syncCh:
+	case <-time.After(testing.LongWait):
+		c.Error("txn watcher didn't sync")
+	}
+
+	fakeIter.err = nil
+	s.advanceTime(c, watcher.TxnWatcherErrorShortWait, 2)
+	hub.waitForExpected(c)
+	c.Assert(hub.values, jc.DeepEquals, []watcher.Change{
+		{"test", "a", revno},
+	})
+}
+
+func (s *TxnWatcherSuite) TestOutOfSyncError(c *gc.C) {
+	fakeIter := &fakeIterator{err: watcher.OutOfSyncError}
+	s.iteratorFunc = func(collection *mgo.Collection) mongo.Iterator {
+		fakeIter.iter = s.log.Find(nil).Batch(10).Sort("-$natural").Iter()
+		return fakeIter
+	}
+	_, hub := s.newWatcherWithError(c, 1, watcher.OutOfSyncError)
+	s.insert(c, "test", "a")
+
+	s.advanceTime(c, watcher.TxnWatcherShortWait, 1)
+	hub.waitForError(c)
+}
+
+type fakeIterator struct {
+	iter mongo.Iterator
+	err  error
+}
+
+func (i *fakeIterator) Next(result interface{}) bool {
+	return i.iter.Next(result)
+}
+
+func (i *fakeIterator) Timeout() bool {
+	return i.iter.Timeout()
+}
+
+func (i *fakeIterator) Close() error {
+	err := i.iter.Close()
+	if i.err != nil {
+		err = i.err
+	}
+	return err
+}
+
 type fakeHub struct {
 	c       *gc.C
 	expect  int
 	values  []watcher.Change
 	started chan struct{}
 	done    chan struct{}
+	error   chan struct{}
 }
 
 func newFakeHub(c *gc.C, expected int) *fakeHub {
@@ -312,6 +389,7 @@ func newFakeHub(c *gc.C, expected int) *fakeHub {
 		expect:  expected,
 		started: make(chan struct{}),
 		done:    make(chan struct{}),
+		error:   make(chan struct{}),
 	}
 }
 
@@ -325,6 +403,8 @@ func (hub *fakeHub) Publish(topic string, data interface{}) <-chan struct{} {
 		if len(hub.values) == hub.expect {
 			close(hub.done)
 		}
+	case watcher.TxnWatcherSyncErr:
+		close(hub.error)
 	default:
 		hub.c.Errorf("unknown topic %q", topic)
 	}
@@ -336,5 +416,13 @@ func (hub *fakeHub) waitForExpected(c *gc.C) {
 	case <-hub.done:
 	case <-time.After(testing.LongWait):
 		c.Error("hub didn't get the expected number of changes")
+	}
+}
+
+func (hub *fakeHub) waitForError(c *gc.C) {
+	select {
+	case <-hub.error:
+	case <-time.After(testing.LongWait):
+		c.Error("hub didn't get an error")
 	}
 }

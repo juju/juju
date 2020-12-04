@@ -9,7 +9,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
+	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -20,6 +20,8 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/testing"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/caas/kubernetes/provider"
+	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
@@ -425,6 +427,32 @@ func (s *statusUnitTestSuite) TestMeterStatusWithCredentials(c *gc.C) {
 	}
 }
 
+func (s *statusUnitTestSuite) TestApplicationWithExposedEndpoints(c *gc.C) {
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
+	err := service.MergeExposeSettings(map[string]state.ExposedEndpoint{
+		"": {
+			ExposeToSpaceIDs: []string{network.AlphaSpaceId},
+			ExposeToCIDRs:    []string{"10.0.0.0/24", "192.168.0.0/24"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	client := s.APIState.Client()
+	status, err := client.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.NotNil)
+	serviceStatus, ok := status.Applications[service.Name()]
+	c.Assert(ok, gc.Equals, true)
+
+	c.Assert(serviceStatus.ExposedEndpoints, gc.DeepEquals, map[string]params.ExposedEndpoint{
+		"": {
+			ExposeToSpaces: []string{network.AlphaSpaceName},
+			ExposeToCIDRs:  []string{"10.0.0.0/24", "192.168.0.0/24"},
+		},
+	})
+}
+
 func addUnitWithVersion(c *gc.C, application *state.Application, version string) *state.Unit {
 	unit, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -828,6 +856,7 @@ var _ = gc.Suite(&CAASStatusSuite{})
 
 func (s *CAASStatusSuite) SetUpTest(c *gc.C) {
 	s.baseSuite.SetUpTest(c)
+	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 
 	// Set up a CAAS model to replace the IAAS one.
 	st := s.Factory.MakeCAASModel(c, nil)
@@ -838,7 +867,7 @@ func (s *CAASStatusSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.Model = m
 
-	hp, err := st.APIHostPortsForClients()
+	hp, err := s.StatePool.SystemState().APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	var addrs []network.SpaceAddress
 	for _, server := range hp {
@@ -872,7 +901,7 @@ func (s *CAASStatusSuite) TestStatusOperatorNotReady(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Applications, gc.HasLen, 1)
 	clearSinceTimes(status)
-	s.assertUnitStatus(c, status.Applications[s.app.Name()], "waiting", "agent initializing")
+	s.assertUnitStatus(c, status.Applications[s.app.Name()], "waiting", "installing agent")
 }
 
 func (s *CAASStatusSuite) TestStatusPodSpecNotSet(c *gc.C) {
@@ -885,7 +914,7 @@ func (s *CAASStatusSuite) TestStatusPodSpecNotSet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Applications, gc.HasLen, 1)
 	clearSinceTimes(status)
-	s.assertUnitStatus(c, status.Applications[s.app.Name()], "waiting", "agent initializing")
+	s.assertUnitStatus(c, status.Applications[s.app.Name()], "waiting", "installing agent")
 }
 
 func (s *CAASStatusSuite) TestStatusPodSpecSet(c *gc.C) {
@@ -938,7 +967,7 @@ func (s *CAASStatusSuite) TestStatusCloudContainerSet(c *gc.C) {
 func (s *CAASStatusSuite) assertUnitStatus(c *gc.C, appStatus params.ApplicationStatus, status, info string) {
 	curl, _ := s.app.CharmURL()
 	workloadVersion := ""
-	if info != "agent initializing" && info != "blocked" {
+	if info != "installing agent" && info != "blocked" {
 		workloadVersion = "gitlab/latest"
 	}
 	c.Assert(appStatus, jc.DeepEquals, params.ApplicationStatus{

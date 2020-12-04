@@ -73,6 +73,99 @@ func (s *cloudSuite) TestCloud(c *gc.C) {
 	c.Assert(s.called, jc.IsTrue)
 }
 
+func (s *cloudSuite) TestCloudInfo(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "Cloud")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "CloudInfo")
+			c.Check(a, jc.DeepEquals, params.Entities{
+				Entities: []params.Entity{
+					{Tag: "cloud-foo"}, {Tag: "cloud-bar"},
+				},
+			})
+			c.Assert(result, gc.FitsTypeOf, &params.CloudInfoResults{})
+			results := result.(*params.CloudInfoResults)
+			results.Results = []params.CloudInfoResult{{
+				Result: &params.CloudInfo{
+					CloudDetails: params.CloudDetails{
+						Type:      "dummy",
+						AuthTypes: []string{"empty", "userpass"},
+						Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "endpoint"}},
+					},
+					Users: []params.CloudUserInfo{{
+						UserName:    "fred",
+						DisplayName: "Fred",
+						Access:      "admin",
+					}, {
+						UserName:    "bob",
+						DisplayName: "Bob",
+						Access:      "add-model",
+					}},
+				},
+			}, {
+				Result: &params.CloudInfo{
+					CloudDetails: params.CloudDetails{
+						Type:      "dummy",
+						AuthTypes: []string{"empty", "userpass"},
+						Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "endpoint"}},
+					},
+					Users: []params.CloudUserInfo{{
+						UserName:    "mary",
+						DisplayName: "Mary",
+						Access:      "admin",
+					}},
+				},
+			}}
+			s.called = true
+			return nil
+		},
+	)
+
+	client := cloudapi.NewClient(apiCaller)
+	result, err := client.CloudInfo([]names.CloudTag{
+		names.NewCloudTag("foo"),
+		names.NewCloudTag("bar"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, []cloudapi.CloudInfo{{
+		Cloud: cloud.Cloud{
+			Name:      "foo",
+			Type:      "dummy",
+			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
+			Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
+		},
+		Users: map[string]cloudapi.CloudUserInfo{
+			"bob": {
+				DisplayName: "Bob",
+				Access:      "add-model",
+			},
+			"fred": {
+				DisplayName: "Fred",
+				Access:      "admin",
+			},
+		},
+	}, {
+		Cloud: cloud.Cloud{
+			Name:      "bar",
+			Type:      "dummy",
+			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
+			Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
+		},
+		Users: map[string]cloudapi.CloudUserInfo{
+			"mary": {
+				DisplayName: "Mary",
+				Access:      "admin",
+			},
+		},
+	}})
+	c.Assert(s.called, jc.IsTrue)
+}
+
 func (s *cloudSuite) TestClouds(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string,

@@ -5,10 +5,10 @@ package bootstrap_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/os"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2"
+	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -187,11 +187,7 @@ func (s *toolsSuite) TestFindAvailableToolsNoUpload(c *gc.C) {
 }
 
 func (s *toolsSuite) TestFindAvailableToolsSpecificVersion(c *gc.C) {
-	currentVersion := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
+	currentVersion := coretesting.CurrentVersion(c)
 	currentVersion.Major = 2
 	currentVersion.Minor = 3
 	s.PatchValue(&jujuversion.Current, currentVersion.Number)

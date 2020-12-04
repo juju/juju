@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/os/series"
+	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type ImageMetadataSuite struct {
@@ -56,14 +57,6 @@ func runImageMetadata(c *gc.C, store jujuclient.ClientStore, args ...string) (*c
 	return cmdtesting.RunCommand(c, modelcmd.WrapController(cmd), args...)
 }
 
-var seriesVersions map[string]string = map[string]string{
-	"precise": "12.04",
-	"raring":  "13.04",
-	"trusty":  "14.04",
-	"xenial":  "16.04",
-	"bionic":  "18.04",
-}
-
 type expectedMetadata struct {
 	series   string
 	arch     string
@@ -90,7 +83,9 @@ func (s *ImageMetadataSuite) assertCommandOutput(c *gc.C, expected expectedMetad
 	err = json.Unmarshal(data, &indices)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(indices.(map[string]interface{})["format"], gc.Equals, "index:1.0")
-	prodId := fmt.Sprintf("com.ubuntu.cloud:server:%s:%s", seriesVersions[expected.series], expected.arch)
+	version, err := series.SeriesVersion(expected.series)
+	c.Assert(err, jc.ErrorIsNil)
+	prodId := fmt.Sprintf("com.ubuntu.cloud:server:%s:%s", version, expected.arch)
 	c.Assert(content, jc.Contains, prodId)
 	c.Assert(content, jc.Contains, fmt.Sprintf(`"region": %q`, expected.region))
 	c.Assert(content, jc.Contains, fmt.Sprintf(`"endpoint": %q`, expected.endpoint))
@@ -171,7 +166,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesLatestLTS(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	expected := expectedMetadata{
-		series: series.DefaultSupportedLTS(),
+		series: version.DefaultSupportedLTS(),
 		arch:   "arch",
 	}
 	s.assertCommandOutput(c, expected, out, defaultIndexFileName, defaultImageFileName)
@@ -209,21 +204,6 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithRegionOverride(c 
 	s.assertCommandOutput(c, expected, out, defaultIndexFileName, defaultImageFileName)
 }
 
-func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithNoHasRegion(c *gc.C) {
-	ctx, err := runImageMetadata(c, s.store,
-		"-d", s.dir, "-c", "azure-controller", "-r", "region", "-u", "endpoint", "-i", "1234",
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	out := cmdtesting.Stdout(ctx)
-	expected := expectedMetadata{
-		series:   "raring",
-		arch:     "amd64",
-		region:   "region",
-		endpoint: "endpoint",
-	}
-	s.assertCommandOutput(c, expected, out, defaultIndexFileName, defaultImageFileName)
-}
-
 type errTestParams struct {
 	args []string
 }
@@ -240,10 +220,6 @@ var errTests = []errTestParams{
 	{
 		// Missing endpoint
 		args: []string{"-i", "1234", "-u", "endpoint", "-a", "arch", "-s", "precise"},
-	},
-	{
-		// Missing endpoint/region for model with no HasRegion interface
-		args: []string{"-i", "1234", "-c", "azure-controller"},
 	},
 }
 

@@ -5,6 +5,7 @@ package client_test
 
 import (
 	"fmt"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -15,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/os/series"
 	"github.com/juju/replicaset"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -31,7 +31,9 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/controller"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
@@ -53,6 +55,8 @@ import (
 	"github.com/juju/juju/testing/factory"
 	jujuversion "github.com/juju/juju/version"
 )
+
+var validVersion = version.MustParse(fmt.Sprintf("%d.66.666", jujuversion.Current.Major))
 
 type serverSuite struct {
 	baseSuite
@@ -277,11 +281,23 @@ func (s *serverSuite) assertModelVersion(c *gc.C, st *state.State, expected stri
 
 func (s *serverSuite) TestSetModelAgentVersion(c *gc.C) {
 	args := params.SetModelAgentVersion{
-		Version: version.MustParse("9.8.7"),
+		Version: version.MustParse(validVersion.String()),
 	}
 	err := s.client.SetModelAgentVersion(args)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertModelVersion(c, s.State, "9.8.7")
+	s.assertModelVersion(c, s.State, validVersion.String())
+}
+
+func (s *serverSuite) TestSetModelAgentVersionOldModels(c *gc.C) {
+	err := s.State.SetModelAgentVersion(version.MustParse("2.8.0"), false)
+	c.Assert(err, jc.ErrorIsNil)
+	args := params.SetModelAgentVersion{
+		Version: version.MustParse(fmt.Sprintf("%d.0.0", jujuversion.Current.Major)),
+	}
+	err = s.client.SetModelAgentVersion(args)
+	c.Assert(err, gc.ErrorMatches, `
+these models must first be upgraded to at least 2.9.* before upgrading the controller:
+ -admin/controller`[1:])
 }
 
 func (s *serverSuite) TestSetModelAgentVersionForced(c *gc.C) {
@@ -307,20 +323,22 @@ func (s *serverSuite) TestSetModelAgentVersionForced(c *gc.C) {
 
 	// This should be refused because an agent doesn't match "currentVersion"
 	args := params.SetModelAgentVersion{
-		Version: version.MustParse("9.8.7"),
+		Version: version.MustParse(validVersion.String()),
 	}
 	err = s.client.SetModelAgentVersion(args)
 	c.Check(err, gc.ErrorMatches, "some agents have not upgraded to the current model version .*: unit-wordpress-0")
 	// Version hasn't changed
 	s.assertModelVersion(c, s.State, currentVersion)
 	// But we can force it
+	to := validVersion
+	to.Minor++
 	args = params.SetModelAgentVersion{
-		Version:             version.MustParse("7.8.6"),
+		Version:             to,
 		IgnoreAgentVersions: true,
 	}
 	err = s.client.SetModelAgentVersion(args)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertModelVersion(c, s.State, "7.8.6")
+	s.assertModelVersion(c, s.State, to.String())
 }
 
 func (s *serverSuite) makeMigratingModel(c *gc.C, name string, mode state.MigrationMode) {
@@ -339,7 +357,7 @@ func (s *serverSuite) TestControllerModelSetModelAgentVersionBlockedByImportingM
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "some-user"})
 	s.makeMigratingModel(c, "to-migrate", state.MigrationModeImporting)
 	args := params.SetModelAgentVersion{
-		Version: version.MustParse("9.8.7"),
+		Version: version.MustParse(validVersion.String()),
 	}
 	err := s.client.SetModelAgentVersion(args)
 	c.Assert(err, gc.ErrorMatches, `model "some-user/to-migrate" is importing, upgrade blocked`)
@@ -349,7 +367,7 @@ func (s *serverSuite) TestControllerModelSetModelAgentVersionBlockedByExportingM
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "some-user"})
 	s.makeMigratingModel(c, "to-migrate", state.MigrationModeExporting)
 	args := params.SetModelAgentVersion{
-		Version: version.MustParse("9.8.7"),
+		Version: version.MustParse(validVersion.String()),
 	}
 	err := s.client.SetModelAgentVersion(args)
 	c.Assert(err, gc.ErrorMatches, `model "some-user/to-migrate" is exporting, upgrade blocked`)
@@ -384,7 +402,7 @@ func (s *serverSuite) TestControllerModelSetModelAgentVersionChecksReplicaset(c 
 	}
 	client.OverrideClientBackendMongoSession(s.client, session)
 	args := params.SetModelAgentVersion{
-		Version: version.MustParse("9.8.7"),
+		Version: version.MustParse(validVersion.String()),
 	}
 	err := s.client.SetModelAgentVersion(args)
 	c.Assert(err.Error(), gc.Equals, "checking replicaset status: boom")
@@ -431,7 +449,7 @@ func (s *serverSuite) assertCheckProviderAPI(c *gc.C, envError error, expectErr 
 		return env, nil
 	}
 	args := params.SetModelAgentVersion{
-		Version: version.MustParse("9.8.7"),
+		Version: version.MustParse(validVersion.String()),
 	}
 	err := s.client.SetModelAgentVersion(args)
 	c.Assert(env.allInstancesCalled, jc.IsTrue)
@@ -458,9 +476,14 @@ type mockBroker struct {
 	err               error
 }
 
-func (m *mockBroker) GetClusterMetadata(storageClass string) (result *caas.ClusterMetadata, err error) {
+func (m *mockBroker) GetClusterMetadata(storageClass string) (result *k8s.ClusterMetadata, err error) {
 	m.getMetadataCalled = true
 	return nil, m.err
+}
+
+func (m *mockBroker) CheckCloudCredentials() error {
+	m.getMetadataCalled = true
+	return m.err
 }
 
 func (s *serverSuite) assertCheckCAASProviderAPI(c *gc.C, envError error, expectErr string) {
@@ -469,7 +492,7 @@ func (s *serverSuite) assertCheckCAASProviderAPI(c *gc.C, envError error, expect
 		return env, nil
 	}
 	args := params.SetModelAgentVersion{
-		Version: version.MustParse("9.8.7"),
+		Version: version.MustParse(validVersion.String()),
 	}
 	err := s.client.SetModelAgentVersion(args)
 	c.Assert(env.getMetadataCalled, jc.IsTrue)
@@ -490,7 +513,7 @@ func (s *serverSuite) TestCheckCAASProviderAPIFail(c *gc.C) {
 
 func (s *serverSuite) assertSetModelAgentVersion(c *gc.C) {
 	args := params.SetModelAgentVersion{
-		Version: version.MustParse("9.8.7"),
+		Version: version.MustParse(validVersion.String()),
 	}
 	err := s.client.SetModelAgentVersion(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -498,12 +521,12 @@ func (s *serverSuite) assertSetModelAgentVersion(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, found := modelConfig.AllAttrs()["agent-version"]
 	c.Assert(found, jc.IsTrue)
-	c.Assert(agentVersion, gc.Equals, "9.8.7")
+	c.Assert(agentVersion, gc.Equals, validVersion.String())
 }
 
 func (s *serverSuite) assertSetModelAgentVersionBlocked(c *gc.C, msg string) {
 	args := params.SetModelAgentVersion{
-		Version: version.MustParse("9.8.7"),
+		Version: version.MustParse(validVersion.String()),
 	}
 	err := s.client.SetModelAgentVersion(args)
 	s.AssertBlocked(c, err, msg)
@@ -534,8 +557,8 @@ func (s *serverSuite) TestAbortCurrentUpgrade(c *gc.C) {
 	// Start an upgrade.
 	_, err = s.State.EnsureUpgradeInfo(
 		machine.Id(),
-		version.MustParse("1.2.3"),
-		version.MustParse("9.8.7"),
+		version.MustParse("2.0.0"),
+		version.MustParse(validVersion.String()),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	isUpgrading, err := s.State.IsUpgrading()
@@ -574,8 +597,8 @@ func (s *serverSuite) setupAbortCurrentUpgradeBlocked(c *gc.C) {
 	// Start an upgrade.
 	_, err = s.State.EnsureUpgradeInfo(
 		machine.Id(),
-		version.MustParse("1.2.3"),
-		version.MustParse("9.8.7"),
+		version.MustParse("2.0.0"),
+		version.MustParse(validVersion.String()),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	isUpgrading, err := s.State.IsUpgrading()
@@ -852,6 +875,16 @@ func (m *mockRepo) Resolve(ref *charm.URL) (canonRef *charm.URL, supportedSeries
 	return results[0].(*charm.URL), []string{"bionic"}, nil
 }
 
+func (m *mockRepo) DownloadCharm(downloadURL, archivePath string) (*charm.CharmArchive, error) {
+	m.MethodCall(m, "DownloadCharm", downloadURL, archivePath)
+	return nil, nil
+}
+
+func (m *mockRepo) FindDownloadURL(curl *charm.URL, origin corecharm.Origin) (*url.URL, corecharm.Origin, error) {
+	m.MethodCall(m, "FindDownloadURL", curl, origin)
+	return nil, corecharm.Origin{}, nil
+}
+
 type clientRepoSuite struct {
 	baseSuite
 	repo *mockRepo
@@ -868,7 +901,7 @@ func (s *clientRepoSuite) SetUpTest(c *gc.C) {
 		CallMocker: jtesting.NewCallMocker(logger),
 	}
 
-	s.PatchValue(&application.OpenCSRepo, func(args application.OpenCSRepoParams) (charmrepo.Interface, error) {
+	s.PatchValue(&application.OpenCSRepo, func(args application.OpenCSRepoParams) (application.Repository, error) {
 		return s.repo, nil
 	})
 }
@@ -910,42 +943,65 @@ func (s *clientSuite) TestClientWatchAllReadPermission(c *gc.C) {
 		err := watcher.Stop()
 		c.Assert(err, jc.ErrorIsNil)
 	}()
-	deltas, err := watcher.Next()
-	c.Assert(err, jc.ErrorIsNil)
-	// Model and machine deltas returned.
-	c.Assert(len(deltas), gc.Equals, 2)
-	var d0 *params.MachineInfo
-	for _, delta := range deltas {
-		d, ok := delta.Entity.(*params.MachineInfo)
-		if ok {
-			d0 = d
-			break
+
+	deltasCh := make(chan []params.Delta)
+	go func() {
+		for {
+			deltas, err := watcher.Next()
+			if err != nil {
+				return // watcher stopped
+			}
+			deltasCh <- deltas
 		}
+	}()
+
+	machineReady := func(got *params.MachineInfo) bool {
+		equal, _ := jc.DeepEqual(got, &params.MachineInfo{
+			ModelUUID:  s.State.ModelUUID(),
+			Id:         m.Id(),
+			InstanceId: "i-0",
+			AgentStatus: params.StatusInfo{
+				Current: status.Pending,
+			},
+			InstanceStatus: params.StatusInfo{
+				Current: status.Pending,
+			},
+			Life:                    life.Alive,
+			Series:                  "quantal",
+			Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
+			Addresses:               []params.Address{},
+			HardwareCharacteristics: &instance.HardwareCharacteristics{},
+			HasVote:                 false,
+			WantsVote:               true,
+		})
+		return equal
 	}
-	c.Assert(d0, gc.NotNil)
-	d0.AgentStatus.Since = nil
-	d0.InstanceStatus.Since = nil
-	if !c.Check(d0, jc.DeepEquals, &params.MachineInfo{
-		ModelUUID:  s.State.ModelUUID(),
-		Id:         m.Id(),
-		InstanceId: "i-0",
-		AgentStatus: params.StatusInfo{
-			Current: status.Pending,
-		},
-		InstanceStatus: params.StatusInfo{
-			Current: status.Pending,
-		},
-		Life:                    life.Alive,
-		Series:                  "quantal",
-		Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
-		Addresses:               []params.Address{},
-		HardwareCharacteristics: &instance.HardwareCharacteristics{},
-		HasVote:                 false,
-		WantsVote:               true,
-	}) {
-		c.Logf("got:")
-		for _, d := range deltas {
-			c.Logf("%#v\n", d.Entity)
+
+	machineMatched := false
+	timeout := time.After(coretesting.LongWait)
+	i := 0
+	for !machineMatched {
+		select {
+		case deltas := <-deltasCh:
+			for _, delta := range deltas {
+				entity := delta.Entity
+				c.Logf("delta.Entity %d kind %s: %#v", i, entity.EntityId().Kind, entity)
+				i++
+
+				switch entity.EntityId().Kind {
+				case multiwatcher.MachineKind:
+					machine := entity.(*params.MachineInfo)
+					machine.AgentStatus.Since = nil
+					machine.InstanceStatus.Since = nil
+					if machineReady(machine) {
+						machineMatched = true
+					} else {
+						c.Log("machine delta not yet matched")
+					}
+				}
+			}
+		case <-timeout:
+			c.Fatal("timed out waiting for watcher deltas to be ready")
 		}
 	}
 }
@@ -976,7 +1032,6 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	watcher, err := s.APIState.Client().WatchAll()
 	c.Assert(err, jc.ErrorIsNil)
@@ -984,66 +1039,88 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 		err := watcher.Stop()
 		c.Assert(err, jc.ErrorIsNil)
 	}()
-	deltas, err := watcher.Next()
-	c.Assert(err, jc.ErrorIsNil)
-	// model, machine, and remote application
-	c.Assert(len(deltas), gc.Equals, 3)
-	var dMachine *params.MachineInfo
-	var dApp *params.RemoteApplicationUpdate
-	for i := 0; (dMachine == nil || dApp == nil) && i < len(deltas); i++ {
-		entity := deltas[i].Entity
-		switch entity.EntityId().Kind {
-		case multiwatcher.MachineKind:
-			dMachine = entity.(*params.MachineInfo)
-		case multiwatcher.RemoteApplicationKind:
-			dApp = entity.(*params.RemoteApplicationUpdate)
-		default:
-			// don't worry about the model
-		}
-	}
-	c.Assert(dMachine, gc.NotNil)
-	c.Assert(dApp, gc.NotNil)
 
-	dMachine.AgentStatus.Since = nil
-	dMachine.InstanceStatus.Since = nil
-	dApp.Status.Since = nil
-
-	if !c.Check(dMachine, jc.DeepEquals, &params.MachineInfo{
-		ModelUUID:  s.State.ModelUUID(),
-		Id:         m.Id(),
-		InstanceId: "i-0",
-		AgentStatus: params.StatusInfo{
-			Current: status.Pending,
-		},
-		InstanceStatus: params.StatusInfo{
-			Current: status.Pending,
-		},
-		Life:                    life.Alive,
-		Series:                  "quantal",
-		Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
-		Addresses:               []params.Address{},
-		HardwareCharacteristics: &instance.HardwareCharacteristics{},
-		HasVote:                 false,
-		WantsVote:               true,
-	}) {
-		c.Logf("got:")
-		for _, d := range deltas {
-			c.Logf("%#v\n", d.Entity)
+	deltasCh := make(chan []params.Delta)
+	go func() {
+		for {
+			deltas, err := watcher.Next()
+			if err != nil {
+				return // watcher stopped
+			}
+			deltasCh <- deltas
 		}
+	}()
+
+	machineReady := func(got *params.MachineInfo) bool {
+		equal, _ := jc.DeepEqual(got, &params.MachineInfo{
+			ModelUUID:  s.State.ModelUUID(),
+			Id:         m.Id(),
+			InstanceId: "i-0",
+			AgentStatus: params.StatusInfo{
+				Current: status.Pending,
+			},
+			InstanceStatus: params.StatusInfo{
+				Current: status.Pending,
+			},
+			Life:                    life.Alive,
+			Series:                  "quantal",
+			Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
+			Addresses:               []params.Address{},
+			HardwareCharacteristics: &instance.HardwareCharacteristics{},
+			HasVote:                 false,
+			WantsVote:               true,
+		})
+		return equal
 	}
-	if !c.Check(dApp, jc.DeepEquals, &params.RemoteApplicationUpdate{
-		Name:      "remote-db2",
-		ModelUUID: s.State.ModelUUID(),
-		OfferUUID: "offer-uuid",
-		OfferURL:  "admin/prod.db2",
-		Life:      "alive",
-		Status: params.StatusInfo{
-			Current: status.Unknown,
-		},
-	}) {
-		c.Logf("got:")
-		for _, d := range deltas {
-			c.Logf("%#v\n", d.Entity)
+
+	appReady := func(got *params.RemoteApplicationUpdate) bool {
+		equal, _ := jc.DeepEqual(got, &params.RemoteApplicationUpdate{
+			Name:      "remote-db2",
+			ModelUUID: s.State.ModelUUID(),
+			OfferUUID: "offer-uuid",
+			OfferURL:  "admin/prod.db2",
+			Life:      "alive",
+			Status: params.StatusInfo{
+				Current: status.Unknown,
+			},
+		})
+		return equal
+	}
+
+	machineMatched := false
+	appMatched := false
+	timeout := time.After(coretesting.LongWait)
+	i := 0
+	for !machineMatched || !appMatched {
+		select {
+		case deltas := <-deltasCh:
+			for _, delta := range deltas {
+				entity := delta.Entity
+				c.Logf("delta.Entity %d kind %s: %#v", i, entity.EntityId().Kind, entity)
+				i++
+
+				switch entity.EntityId().Kind {
+				case multiwatcher.MachineKind:
+					machine := entity.(*params.MachineInfo)
+					machine.AgentStatus.Since = nil
+					machine.InstanceStatus.Since = nil
+					if machineReady(machine) {
+						machineMatched = true
+					} else {
+						c.Log("machine delta not yet matched")
+					}
+				case multiwatcher.RemoteApplicationKind:
+					app := entity.(*params.RemoteApplicationUpdate)
+					app.Status.Since = nil
+					if appReady(app) {
+						appMatched = true
+					} else {
+						c.Log("remote application delta not yet matched")
+					}
+				}
+			}
+		case <-timeout:
+			c.Fatal("timed out waiting for watcher deltas to be ready")
 		}
 	}
 }
@@ -1245,7 +1322,7 @@ func (s *clientSuite) TestClientAddMachinesDefaultSeries(c *gc.C) {
 	c.Assert(len(machines), gc.Equals, 3)
 	for i, machineResult := range machines {
 		c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
-		s.checkMachine(c, machineResult.Machine, series.DefaultSupportedLTS(), apiParams[i].Constraints.String())
+		s.checkMachine(c, machineResult.Machine, jujuversion.DefaultSupportedLTS(), apiParams[i].Constraints.String())
 	}
 }
 
@@ -1261,7 +1338,7 @@ func (s *clientSuite) assertAddMachines(c *gc.C) {
 	c.Assert(len(machines), gc.Equals, 3)
 	for i, machineResult := range machines {
 		c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
-		s.checkMachine(c, machineResult.Machine, series.DefaultSupportedLTS(), apiParams[i].Constraints.String())
+		s.checkMachine(c, machineResult.Machine, jujuversion.DefaultSupportedLTS(), apiParams[i].Constraints.String())
 	}
 }
 
@@ -1337,7 +1414,7 @@ func (s *clientSuite) TestClientAddMachinesWithConstraints(c *gc.C) {
 	c.Assert(len(machines), gc.Equals, 3)
 	for i, machineResult := range machines {
 		c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
-		s.checkMachine(c, machineResult.Machine, series.DefaultSupportedLTS(), apiParams[i].Constraints.String())
+		s.checkMachine(c, machineResult.Machine, jujuversion.DefaultSupportedLTS(), apiParams[i].Constraints.String())
 	}
 }
 
@@ -1427,7 +1504,7 @@ func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
 			c.Assert(machineResult.Error, gc.ErrorMatches, "cannot add a new machine: cannot add a machine with an instance id and no nonce")
 		} else {
 			c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
-			s.checkMachine(c, machineResult.Machine, series.DefaultSupportedLTS(), apiParams[i].Constraints.String())
+			s.checkMachine(c, machineResult.Machine, jujuversion.DefaultSupportedLTS(), apiParams[i].Constraints.String())
 			instanceId := fmt.Sprintf("1234-%d", i)
 			s.checkInstance(c, machineResult.Machine, instanceId, "foo", hc, network.NewSpaceAddresses("1.2.3.4"))
 		}
@@ -1488,7 +1565,7 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 		Nonce:     apiParams.Nonce,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	icfg, err := client.InstanceConfig(s.State, machineId, apiParams.Nonce, "")
+	icfg, err := client.InstanceConfig(s.StatePool.SystemState(), s.State, machineId, apiParams.Nonce, "")
 	c.Assert(err, jc.ErrorIsNil)
 	provisioningScript, err := sshprovisioner.ProvisioningScript(icfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1559,7 +1636,7 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	c.Check(script, gc.Not(jc.Contains), "apt-get update")
 	c.Check(script, gc.Not(jc.Contains), "apt-get upgrade")
 
-	// Test that in the abasence of a client-specified
+	// Test that in the absence of a client-specified
 	// DisablePackageCommands we use what's set in environment config.
 	provParams.DisablePackageCommands = false
 	setUpdateBehavior(false, false)
@@ -1614,11 +1691,11 @@ func (s *clientRepoSuite) TestResolveCharm(c *gc.C) {
 
 	// Add some charms to be resolved later.
 	for _, url := range []string{
-		"precise/wordpress-1",
-		"trusty/wordpress-2",
-		"precise/mysql-3",
-		"trusty/riak-4",
-		"utopic/riak-5",
+		"cs:precise/wordpress-1",
+		"cs:trusty/wordpress-2",
+		"cs:precise/mysql-3",
+		"cs:trusty/riak-4",
+		"cs:utopic/riak-5",
 	} {
 		s.UploadCharm(url)
 	}
@@ -1741,7 +1818,7 @@ func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure that address filtering by management space occurred.
-	agentHostPorts, err := s.State.APIHostPortsForAgents()
+	agentHostPorts, err := s.StatePool.SystemState().APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(agentHostPorts, gc.Not(gc.DeepEquals), stateAPIHostPorts)
 
@@ -1762,7 +1839,7 @@ func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientAgentVersion(c *gc.C) {
-	current := version.MustParse("1.2.0")
+	current := version.MustParse("2.0.0")
 	s.PatchValue(&jujuversion.Current, current)
 	result, err := s.APIState.Client().AgentVersion()
 	c.Assert(err, jc.ErrorIsNil)

@@ -291,6 +291,8 @@ func ServerError(err error) *params.Error {
 		code = params.CodeUpgradeInProgress
 	case stateerrors.IsHasAttachmentsError(err):
 		code = params.CodeMachineHasAttachedStorage
+	case stateerrors.IsHasContainersError(err):
+		code = params.CodeMachineHasContainers
 	case stateerrors.IsStorageAttachedError(err):
 		code = params.CodeStorageAttached
 	case isUnknownModelError(err):
@@ -339,6 +341,10 @@ func ServerError(err error) *params.Error {
 		}.AsMap()
 	case errors.IsQuotaLimitExceeded(err):
 		code = params.CodeQuotaLimitExceeded
+	case params.IsIncompatibleClientError(err):
+		code = params.CodeIncompatibleClient
+		rawErr := errors.Cause(err).(*params.IncompatibleClientError)
+		info = rawErr.AsMap()
 	default:
 		code = params.ErrCode(err)
 	}

@@ -29,6 +29,9 @@ func ServiceError(err error) (*azure.ServiceError, bool) {
 	if d, ok := err.(autorest.DetailedError); ok {
 		err = d.Original
 	}
+	if se, ok := err.(*azure.ServiceError); ok {
+		return se, true
+	}
 	if r, ok := err.(*azure.RequestError); ok {
 		return r.ServiceError, true
 	}
@@ -79,10 +82,10 @@ func hasDenialStatusCode(err error) bool {
 	return false
 }
 
-// CheckForGraphError attempts to unmarshal the body into a GraphError.
-// If this succeeds then the GraphError is returned as an error,
+// CheckForDetailedError attempts to unmarshal the body into a DetailedError.
+// If this succeeds then the DetailedError is returned as an error,
 // otherwise the response is passed on to the next Responder.
-func CheckForGraphError(r autorest.Responder) autorest.Responder {
+func CheckForDetailedError(r autorest.Responder) autorest.Responder {
 	return autorest.ResponderFunc(func(resp *http.Response) error {
 		if resp.Body != nil {
 			defer resp.Body.Close()
@@ -90,19 +93,52 @@ func CheckForGraphError(r autorest.Responder) autorest.Responder {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			resp.Body = ioutil.NopCloser(bytes.NewReader(b))
-
-			// Remove any UTF-8 BOM, if present.
-			b = bytes.TrimPrefix(b, []byte("\ufeff"))
-			var ge graphrbac.GraphError
-			if err := json.Unmarshal(b, &ge); err == nil {
-				if ge.OdataError != nil && ge.Code != nil {
-					return &GraphError{ge}
+			if len(b) > 0 {
+				resp.Body = ioutil.NopCloser(bytes.NewReader(b))
+				// Remove any UTF-8 BOM, if present.
+				b = bytes.TrimPrefix(b, []byte("\ufeff"))
+				var de autorest.DetailedError
+				if err := json.Unmarshal(b, &de); err == nil {
+					return de
 				}
 			}
 		}
 		return r.Respond(resp)
 	})
+}
+
+// CheckForGraphError attempts to unmarshal the body into a GraphError.
+// If this succeeds then the GraphError is returned as an error,
+// otherwise the response is passed on to the next Responder.
+func CheckForGraphError(r autorest.Responder) autorest.Responder {
+	return autorest.ResponderFunc(func(resp *http.Response) error {
+		err, _ := maybeGraphError(resp)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return r.Respond(resp)
+	})
+}
+
+func maybeGraphError(resp *http.Response) (error, bool) {
+	if resp.Body != nil {
+		defer resp.Body.Close()
+		b, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return errors.Trace(err), false
+		}
+		resp.Body = ioutil.NopCloser(bytes.NewReader(b))
+
+		// Remove any UTF-8 BOM, if present.
+		b = bytes.TrimPrefix(b, []byte("\ufeff"))
+		var ge graphrbac.GraphError
+		if err := json.Unmarshal(b, &ge); err == nil {
+			if ge.OdataError != nil && ge.Code != nil {
+				return &GraphError{ge}, true
+			}
+		}
+	}
+	return nil, false
 }
 
 // GraphError is a go error that wraps the graphrbac.GraphError response
@@ -142,6 +178,12 @@ func AsGraphError(err error) *GraphError {
 	}
 	if ge, _ := err.(*GraphError); ge != nil {
 		return ge
+	}
+	if de, ok := err.(*azure.RequestError); ok {
+		ge, ok := maybeGraphError(de.Response)
+		if ok {
+			return ge.(*GraphError)
+		}
 	}
 	return nil
 }

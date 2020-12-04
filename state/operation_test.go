@@ -105,16 +105,8 @@ func (s *OperationSuite) TestRefresh(c *gc.C) {
 }
 
 func (s *OperationSuite) setupOperations(c *gc.C) names.Tag {
-	ver, err := s.Model.AgentVersion()
-	c.Assert(err, jc.ErrorIsNil)
-
-	if !state.IsNewActionIDSupported(ver) {
-		err := s.State.SetModelAgentVersion(state.MinVersionSupportNewActionID, true)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
 	clock := testclock.NewClock(coretesting.NonZeroTime().Round(time.Second))
-	err = s.State.SetClockForTesting(clock)
+	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	charm := s.AddTestingCharm(c, "dummy")

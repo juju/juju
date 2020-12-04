@@ -16,13 +16,13 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/pki"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
-	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/version"
@@ -30,6 +30,15 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.caasoperatorprovisioner")
 
+type APIGroup struct {
+	*common.ApplicationWatcherFacade
+	*API
+}
+
+// TODO (manadart 2020-10-21): Remove the ModelUUID method
+// from the next version of this facade.
+
+// API is CAAS operator provisioner API facade.
 type API struct {
 	*common.PasswordChanger
 	*common.LifeGetter
@@ -38,13 +47,14 @@ type API struct {
 	auth      facade.Authorizer
 	resources facade.Resources
 
+	ctrlState          CAASControllerState
 	state              CAASOperatorProvisionerState
 	storagePoolManager poolmanager.PoolManager
 	registry           storage.ProviderRegistry
 }
 
 // NewStateCAASOperatorProvisionerAPI provides the signature required for facade registration.
-func NewStateCAASOperatorProvisionerAPI(ctx facade.Context) (*API, error) {
+func NewStateCAASOperatorProvisionerAPI(ctx facade.Context) (*APIGroup, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
 
@@ -59,13 +69,25 @@ func NewStateCAASOperatorProvisionerAPI(ctx facade.Context) (*API, error) {
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
 	pm := poolmanager.New(state.NewStateSettings(ctx.State()), registry)
 
-	return NewCAASOperatorProvisionerAPI(resources, authorizer, stateShim{ctx.State()}, pm, registry)
+	api, err := NewCAASOperatorProvisionerAPI(resources, authorizer,
+		stateShim{ctx.StatePool().SystemState()},
+		stateShim{ctx.State()},
+		pm, registry)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return &APIGroup{
+		ApplicationWatcherFacade: common.NewApplicationWatcherFacadeFromState(ctx.State(), resources, common.ApplicationFilterCAASLegacy),
+		API:                      api,
+	}, nil
 }
 
 // NewCAASOperatorProvisionerAPI returns a new CAAS operator provisioner API facade.
 func NewCAASOperatorProvisionerAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
+	ctrlSt CAASControllerState,
 	st CAASOperatorProvisionerState,
 	storagePoolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
@@ -76,33 +98,20 @@ func NewCAASOperatorProvisionerAPI(
 	return &API{
 		PasswordChanger:    common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
 		LifeGetter:         common.NewLifeGetter(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
-		APIAddresser:       common.NewAPIAddresser(st, resources),
+		APIAddresser:       common.NewAPIAddresser(ctrlSt, resources),
 		auth:               authorizer,
 		resources:          resources,
+		ctrlState:          ctrlSt,
 		state:              st,
 		storagePoolManager: storagePoolManager,
 		registry:           registry,
 	}, nil
 }
 
-// WatchApplications starts a StringsWatcher to watch CAAS applications
-// deployed to this model.
-func (a *API) WatchApplications() (params.StringsWatchResult, error) {
-	watch := a.state.WatchApplications()
-	// Consume the initial event and forward it to the result.
-	if changes, ok := <-watch.Changes(); ok {
-		return params.StringsWatchResult{
-			StringsWatcherId: a.resources.Register(watch),
-			Changes:          changes,
-		}, nil
-	}
-	return params.StringsWatchResult{}, watcher.EnsureErr(watch)
-}
-
 // OperatorProvisioningInfo returns the info needed to provision an operator.
 func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorProvisioningInfoResults, error) {
 	var result params.OperatorProvisioningInfoResults
-	cfg, err := a.state.ControllerConfig()
+	cfg, err := a.ctrlState.ControllerConfig()
 	if err != nil {
 		return result, err
 	}
@@ -191,13 +200,13 @@ func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorPro
 
 // IssueOperatorCertificate issues an x509 certificate for use by the specified application operator.
 func (a *API) IssueOperatorCertificate(args params.Entities) (params.IssueOperatorCertificateResults, error) {
-	cfg, err := a.state.ControllerConfig()
+	cfg, err := a.ctrlState.ControllerConfig()
 	if err != nil {
 		return params.IssueOperatorCertificateResults{}, errors.Trace(err)
 	}
 	caCert, _ := cfg.CACert()
 
-	si, err := a.state.StateServingInfo()
+	si, err := a.ctrlState.StateServingInfo()
 	if err != nil {
 		return params.IssueOperatorCertificateResults{}, errors.Trace(err)
 	}
@@ -249,6 +258,18 @@ func (a *API) IssueOperatorCertificate(args params.Entities) (params.IssueOperat
 	return res, nil
 }
 
+// ModelUUID returns the model UUID that this facade is used to operate.
+// It is implemented here directly as a result of removing it from
+// embedded APIAddresser *without* bumping the facade version.
+// It should be blanked when this facade version is next incremented.
+func (a *API) ModelUUID() params.StringResult {
+	m, err := a.state.Model()
+	if err != nil {
+		return params.StringResult{Error: apiservererrors.ServerError(err)}
+	}
+	return params.StringResult{Result: m.UUID()}
+}
+
 // CharmStorageParams returns filesystem parameters needed
 // to provision storage used for a charm operator or workload.
 func CharmStorageParams(
@@ -271,7 +292,7 @@ func CharmStorageParams(
 	result := &params.KubernetesFilesystemParams{
 		StorageName: "charm",
 		Size:        size,
-		Provider:    string(provider.K8s_ProviderType),
+		Provider:    string(k8sconstants.StorageProviderType),
 		Tags:        tags,
 		Attributes:  make(map[string]interface{}),
 	}
@@ -281,7 +302,7 @@ func CharmStorageParams(
 	// requested.
 	// First, blank out the fallback pool name used in previous
 	// versions of Juju.
-	if poolName == string(provider.K8s_ProviderType) {
+	if poolName == string(k8sconstants.StorageProviderType) {
 		poolName = ""
 	}
 	maybePoolName := poolName
@@ -299,8 +320,8 @@ func CharmStorageParams(
 			result.Attributes = attrs
 		}
 	}
-	if _, ok := result.Attributes[provider.StorageClass]; !ok && result.Provider == string(provider.K8s_ProviderType) {
-		result.Attributes[provider.StorageClass] = storageClassName
+	if _, ok := result.Attributes[k8sconstants.StorageClass]; !ok && result.Provider == string(k8sconstants.StorageProviderType) {
+		result.Attributes[k8sconstants.StorageClass] = storageClassName
 	}
 	return result, nil
 }

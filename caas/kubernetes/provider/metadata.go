@@ -15,7 +15,7 @@ import (
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 
-	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes"
 	k8sannotations "github.com/juju/juju/core/annotations"
 )
 
@@ -70,8 +70,8 @@ func getCloudRegionFromNodeMeta(node core.Node) (string, string) {
 		for _, checker := range checkers {
 			if checker.Matches(k8slabels.Set(node.GetLabels())) {
 				region := node.Labels[regionLabelName]
-				if region == "" && cloudType == caas.K8sCloudMicrok8s {
-					region = caas.Microk8sRegion
+				if region == "" && cloudType == k8s.K8sCloudMicrok8s {
+					region = k8s.Microk8sRegion
 				}
 				return cloudType, region
 			}
@@ -91,12 +91,12 @@ func isDefaultStorageClass(sc storage.StorageClass) bool {
 }
 
 const (
-	operatorStorageClassAnnotationKey = "juju.io/operator-storage"
-	workloadStorageClassAnnotationKey = "juju.io/workload-storage"
+	operatorStorageClassAnnotationKey = "juju.is/operator-storage"
+	workloadStorageClassAnnotationKey = "juju.is/workload-storage"
 )
 
-func toCaaSStorageProvisioner(sc storage.StorageClass) *caas.StorageProvisioner {
-	caasSc := &caas.StorageProvisioner{
+func toCaaSStorageProvisioner(sc storage.StorageClass) *k8s.StorageProvisioner {
+	caasSc := &k8s.StorageProvisioner{
 		Name:        sc.Name,
 		Provisioner: sc.Provisioner,
 		Parameters:  sc.Parameters,
@@ -111,8 +111,8 @@ func toCaaSStorageProvisioner(sc storage.StorageClass) *caas.StorageProvisioner 
 }
 
 // GetClusterMetadata implements ClusterMetadataChecker.
-func (k *kubernetesClient) GetClusterMetadata(storageClass string) (*caas.ClusterMetadata, error) {
-	var result caas.ClusterMetadata
+func (k *kubernetesClient) GetClusterMetadata(storageClass string) (*k8s.ClusterMetadata, error) {
+	var result k8s.ClusterMetadata
 	var err error
 	result.Cloud, result.Regions, err = k.listHostCloudRegions()
 	if err != nil {
@@ -136,10 +136,10 @@ func (k *kubernetesClient) GetClusterMetadata(storageClass string) (*caas.Cluste
 		return nil, errors.Annotate(err, "listing storage classes")
 	}
 
-	var possibleWorkloadStorage, possibleOperatorStorage []*caas.StorageProvisioner
+	var possibleWorkloadStorage, possibleOperatorStorage []*k8s.StorageProvisioner
 	preferredOperatorStorage, hasPreferredOperatorStorage := jujuPreferredOperatorStorage[result.Cloud]
 
-	pickOperatorSC := func(sc storage.StorageClass, maybeStorage *caas.StorageProvisioner) {
+	pickOperatorSC := func(sc storage.StorageClass, maybeStorage *k8s.StorageProvisioner) {
 		if result.OperatorStorageClass != nil {
 			return
 		}
@@ -166,7 +166,7 @@ func (k *kubernetesClient) GetClusterMetadata(storageClass string) (*caas.Cluste
 		}
 	}
 
-	pickWorkloadSC := func(sc storage.StorageClass, maybeStorage *caas.StorageProvisioner) {
+	pickWorkloadSC := func(sc storage.StorageClass, maybeStorage *k8s.StorageProvisioner) {
 		if result.NominatedStorageClass != nil {
 			return
 		}
@@ -232,7 +232,7 @@ func (k *kubernetesClient) listHostCloudRegions() (string, set.Strings, error) {
 }
 
 // CheckDefaultWorkloadStorage implements ClusterMetadataChecker.
-func (k *kubernetesClient) CheckDefaultWorkloadStorage(cloudType string, storageProvisioner *caas.StorageProvisioner) error {
+func (k *kubernetesClient) CheckDefaultWorkloadStorage(cloudType string, storageProvisioner *k8s.StorageProvisioner) error {
 	preferredStorage, ok := jujuPreferredWorkloadStorage[cloudType]
 	if !ok {
 		return errors.NotFoundf("preferred workload storage for cloudType %q", cloudType)
@@ -240,15 +240,15 @@ func (k *kubernetesClient) CheckDefaultWorkloadStorage(cloudType string, storage
 	return storageClassMatches(preferredStorage, storageProvisioner)
 }
 
-func storageClassMatches(preferredStorage caas.PreferredStorage, storageProvisioner *caas.StorageProvisioner) error {
+func storageClassMatches(preferredStorage k8s.PreferredStorage, storageProvisioner *k8s.StorageProvisioner) error {
 	if storageProvisioner == nil || preferredStorage.Provisioner != storageProvisioner.Provisioner {
-		return &caas.NonPreferredStorageError{PreferredStorage: preferredStorage}
+		return &k8s.NonPreferredStorageError{PreferredStorage: preferredStorage}
 	}
 	for k, v := range preferredStorage.Parameters {
 		param, ok := storageProvisioner.Parameters[k]
 		if !ok || param != v {
 			return errors.Annotatef(
-				&caas.NonPreferredStorageError{PreferredStorage: preferredStorage},
+				&k8s.NonPreferredStorageError{PreferredStorage: preferredStorage},
 				"storage class %q requires parameter %s=%s", preferredStorage.Name, k, v)
 		}
 	}
