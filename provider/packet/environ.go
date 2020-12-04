@@ -125,7 +125,7 @@ func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) 
 		//TODO handle case when some of the instanes are missing
 		d, _, err := e.packetClient.Devices.Get(string(id), nil)
 		if err != nil {
-			return nil, err
+			return nil, errors.Annotatef(err, "looking up device with ID %q", id)
 		}
 		toReturn = append(toReturn, &packetDevice{e, d})
 
