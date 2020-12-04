@@ -4692,41 +4692,64 @@ func (s *upgradesSuite) TestAddCharmOriginToApplication(c *gc.C) {
 	uuid1 := model1.ModelUUID()
 	uuid2 := model2.ModelUUID()
 
-	coll, closer := s.state.db().GetRawCollection(applicationsC)
-	defer closer()
+	appColl, appCloser := s.state.db().GetRawCollection(applicationsC)
+	defer appCloser()
 
-	err := coll.Insert(bson.M{
+	var err error
+	err = appColl.Insert(bson.M{
 		"_id":        ensureModelUUID(uuid1, "app1"),
 		"model-uuid": uuid1,
 		"charmurl":   charm.MustParseURL("cs:test").String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = coll.Insert(bson.M{
+	err = appColl.Insert(bson.M{
 		"_id":        ensureModelUUID(uuid1, "app2"),
 		"model-uuid": uuid1,
 		"charmurl":   charm.MustParseURL("local:test").String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = coll.Insert(bson.M{
+	err = appColl.Insert(bson.M{
 		"_id":        ensureModelUUID(uuid2, "app3"),
 		"model-uuid": uuid2,
 		"charmurl":   charm.MustParseURL("local:test").String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = coll.Insert(bson.M{
+	err = appColl.Insert(bson.M{
 		"_id":        ensureModelUUID(uuid2, "app4"),
 		"model-uuid": uuid2,
 		"charmurl":   charm.MustParseURL("local:test").String(),
 		"charm-origin": bson.M{
+			"source":   "charm-hub",
+			"type":     "charm",
+			"id":       "yyyy",
+			"hash":     "xxxx",
+			"revision": 12,
 			"channel": bson.M{
 				"track": "latest",
 				"risk":  "edge",
 			},
-			"hash":     "xxxx",
-			"id":       "yyyy",
-			"revision": 12,
-			"source":   "charm-hub",
+			"platform": bson.M{
+				"architecture": "amd64",
+				"series":       "focal",
+			},
 		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = appColl.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid2, "app5"),
+		"name":       "app5",
+		"model-uuid": uuid2,
+		"charmurl":   charm.MustParseURL("cs:focal/test-13").String(),
+		"cs-channel": "edge",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	consColl, consCloser := s.state.db().GetRawCollection(constraintsC)
+	defer consCloser()
+
+	err = consColl.Insert(bson.M{
+		"_id":  uuid2 + ":a#app5",
+		"arch": "amd64",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -4736,13 +4759,19 @@ func (s *upgradesSuite) TestAddCharmOriginToApplication(c *gc.C) {
 			"model-uuid": uuid1,
 			"charmurl":   "cs:test",
 			"charm-origin": bson.M{
+				"source":   "charm-store",
+				"type":     "charm",
+				"id":       "cs:test",
+				"hash":     "",
+				"revision": -1,
 				"channel": bson.M{
 					"risk": "",
 				},
-				"hash":     "",
-				"id":       "cs:test",
-				"revision": -1,
-				"source":   "charm-store",
+				"platform": bson.M{
+					"architecture": "",
+					"os":           "",
+					"series":       "",
+				},
 			},
 		},
 		{
@@ -4750,13 +4779,19 @@ func (s *upgradesSuite) TestAddCharmOriginToApplication(c *gc.C) {
 			"model-uuid": uuid1,
 			"charmurl":   "local:test",
 			"charm-origin": bson.M{
+				"source":   "local",
+				"type":     "charm",
+				"id":       "local:test",
+				"hash":     "",
+				"revision": -1,
 				"channel": bson.M{
 					"risk": "",
 				},
-				"hash":     "",
-				"id":       "local:test",
-				"revision": -1,
-				"source":   "local",
+				"platform": bson.M{
+					"architecture": "",
+					"os":           "",
+					"series":       "",
+				},
 			},
 		},
 		{
@@ -4764,13 +4799,19 @@ func (s *upgradesSuite) TestAddCharmOriginToApplication(c *gc.C) {
 			"model-uuid": uuid2,
 			"charmurl":   "local:test",
 			"charm-origin": bson.M{
+				"source":   "local",
+				"type":     "charm",
+				"id":       "local:test",
+				"hash":     "",
+				"revision": -1,
 				"channel": bson.M{
 					"risk": "",
 				},
-				"hash":     "",
-				"id":       "local:test",
-				"revision": -1,
-				"source":   "local",
+				"platform": bson.M{
+					"architecture": "",
+					"os":           "",
+					"series":       "",
+				},
 			},
 		},
 		{
@@ -4778,21 +4819,48 @@ func (s *upgradesSuite) TestAddCharmOriginToApplication(c *gc.C) {
 			"model-uuid": uuid2,
 			"charmurl":   "local:test",
 			"charm-origin": bson.M{
+				"source":   "charm-hub",
+				"type":     "charm",
+				"revision": 12,
+				"hash":     "xxxx",
+				"id":       "yyyy",
 				"channel": bson.M{
 					"track": "latest",
 					"risk":  "edge",
 				},
-				"hash":     "xxxx",
-				"id":       "yyyy",
-				"revision": 12,
-				"source":   "charm-hub",
+				"platform": bson.M{
+					"architecture": "amd64",
+					"series":       "focal",
+				},
+			},
+		},
+		{
+			"_id":        ensureModelUUID(uuid2, "app5"),
+			"model-uuid": uuid2,
+			"name":       "app5",
+			"charmurl":   "cs:focal/test-13",
+			"cs-channel": "edge",
+			"charm-origin": bson.M{
+				"source":   "charm-store",
+				"type":     "charm",
+				"revision": 13,
+				"hash":     "",
+				"id":       "cs:focal/test-13",
+				"channel": bson.M{
+					"risk": "edge",
+				},
+				"platform": bson.M{
+					"architecture": "amd64",
+					"os":           "ubuntu",
+					"series":       "focal",
+				},
 			},
 		},
 	}
 
 	sort.Sort(expected)
 	s.assertUpgradedData(c, AddCharmOriginToApplications,
-		upgradedData(coll, expected),
+		upgradedData(appColl, expected),
 	)
 }
 
