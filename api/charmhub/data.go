@@ -105,6 +105,7 @@ func convertChannels(in map[string]params.Channel) map[string]Channel {
 			Size:       v.Size,
 			Version:    v.Version,
 			Platforms:  convertPlatforms(v.Platforms),
+			Resources:  convertResources(v.Resources),
 		}
 	}
 	return out
@@ -114,6 +115,14 @@ func convertPlatforms(in []params.Platform) []Platform {
 	out := make([]Platform, len(in))
 	for i, v := range in {
 		out[i] = Platform(v)
+	}
+	return out
+}
+
+func convertResources(in []params.CharmHubInfoResource) []Resource {
+	out := make([]Resource, len(in))
+	for i, v := range in {
+		out[i] = Resource(v)
 	}
 	return out
 }
@@ -157,12 +166,21 @@ type Channel struct {
 	Size       int        `json:"size"`
 	Version    string     `json:"version"`
 	Platforms  []Platform `json:"platforms"`
+	Resources  []Resource `json:"resources"`
 }
 
 type Platform struct {
 	Architecture string `json:"architecture"`
 	OS           string `json:"os"`
 	Series       string `json:"series"`
+}
+
+type Resource struct {
+	Name     string `json:"name"`
+	Revision int    `json:"revision"`
+	Type     string `json:"type"`
+	Size     int    `json:"size"`
+	URL      string `json:"url"`
 }
 
 // Charm matches a params.CharmHubCharm

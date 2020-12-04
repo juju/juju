@@ -37,7 +37,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.response = &params.UploadResult{}
 }
 
-func (s *BaseSuite) Do(ctx context.Context, req *http.Request, resp interface{}) error {
+func (s *BaseSuite) Do(_ context.Context, req *http.Request, resp interface{}) error {
 	s.stub.AddCall("Do", req, resp)
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)
@@ -150,4 +150,8 @@ func (s *stubFacade) Close() error {
 	}
 
 	return nil
+}
+
+func (s *stubFacade) BestAPIVersion() int {
+	return 1
 }

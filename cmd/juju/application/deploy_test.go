@@ -63,6 +63,7 @@ import (
 	jjtesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/resource/api/client"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -151,7 +152,7 @@ func (s *DeploySuiteBase) SetUpTest(c *gc.C) {
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 	s.DeployResources = func(applicationID string,
-		chID resourceadapters.CharmID,
+		chID client.CharmID,
 		csMac *macaroon.Macaroon,
 		filesAndRevisions map[string]string,
 		resources map[string]charmresource.Meta,
@@ -1151,7 +1152,7 @@ func (s *CAASDeploySuite) TestDevices(c *gc.C) {
 	)
 	s.DeployResources = func(
 		applicationID string,
-		chID resourceadapters.CharmID,
+		chID client.CharmID,
 		csMac *macaroon.Macaroon,
 		filesAndRevisions map[string]string,
 		resources map[string]charmresource.Meta,
@@ -2469,7 +2470,7 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 		},
 		DeployResources: func(
 			applicationID string,
-			chID resourceadapters.CharmID,
+			chID client.CharmID,
 			csMac *macaroon.Macaroon,
 			filesAndRevisions map[string]string,
 			resources map[string]charmresource.Meta,

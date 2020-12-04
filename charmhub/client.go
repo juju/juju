@@ -213,3 +213,8 @@ func (c *Client) DownloadAndRead(ctx context.Context, resourceURL *url.URL, arch
 func (c *Client) DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string) (charm.Bundle, error) {
 	return c.downloadClient.DownloadAndReadBundle(ctx, resourceURL, archivePath)
 }
+
+// ListResourceRevisions returns resource revisions for the provided charm and resource.
+func (c *Client) ListResourceRevisions(ctx context.Context, charm, resource string) ([]transport.ResourceRevision, error) {
+	return c.resourcesClient.ListResourceRevisions(ctx, charm, resource)
+}

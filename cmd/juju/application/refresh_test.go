@@ -44,6 +44,7 @@ import (
 	"github.com/juju/juju/core/network"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/resource/api/client"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -90,7 +91,7 @@ func (s *BaseRefreshSuite) SetUpTest(c *gc.C) {
 
 	s.deployResources = func(
 		applicationID string,
-		chID resourceadapters.CharmID,
+		chID client.CharmID,
 		csMac *macaroon.Macaroon,
 		filesAndRevisions map[string]string,
 		resources map[string]charmresource.Meta,
