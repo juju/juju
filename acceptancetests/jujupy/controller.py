@@ -86,3 +86,9 @@ class ControllerConfig:
         if 'mongo-memory-profile' in self.cfg:
             return self.cfg["mongo-memory-profile"]
         return "low"
+
+    @property
+    def db_snap_channel(self):
+        if 'juju-db-snap-channel' in self.cfg:
+            return self.cfg["juju-db-snap-channel"]
+        return "4.0/stable"
