@@ -180,7 +180,10 @@ func (env *environ) getContainerSpec(
 		Image:    image,
 		Config:   make(map[string]string),
 	}
-	cSpec.ApplyConstraints(serverVersion, args.Constraints)
+	err = cSpec.ApplyConstraints(serverVersion, args.Constraints)
+	if err != nil {
+		return cSpec, errors.Trace(err)
+	}
 
 	cloudCfg, err := cloudinit.New(args.InstanceConfig.Series)
 	if err != nil {

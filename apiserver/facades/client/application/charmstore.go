@@ -78,7 +78,7 @@ type Repository interface {
 	// FindDownloadURL returns a url from which a charm can be downloaded
 	// based on the given charm url and charm origin.  A charm origin
 	// updated with the ID and hash for the download is also returned.
-	FindDownloadURL(curl *charm.URL, origin corecharm.Origin, series string) (*url.URL, corecharm.Origin, error)
+	FindDownloadURL(curl *charm.URL, origin corecharm.Origin) (*url.URL, corecharm.Origin, error)
 
 	// DownloadCharm reads the charm referenced by curl or downloadURL into
 	// a file with the given path, which will be created if needed. Note
@@ -260,7 +260,7 @@ func (c *charmRepoShim) DownloadCharm(resourceURL string, archivePath string) (*
 
 // FindDownloadURL is a placeholder required to implement the
 // Repository interface.
-func (c *charmRepoShim) FindDownloadURL(_ *charm.URL, origin corecharm.Origin, _ string) (*url.URL, corecharm.Origin, error) {
+func (c *charmRepoShim) FindDownloadURL(_ *charm.URL, origin corecharm.Origin) (*url.URL, corecharm.Origin, error) {
 	return nil, origin, nil
 }
 
@@ -376,7 +376,7 @@ func charmArchiveStoragePath(curl *charm.URL) (string, error) {
 	return fmt.Sprintf("charms/%s-%s", curl.String(), uuid), nil
 }
 
-// ResolveCharm resolves the best available charm URLs with series, for charm
+// ResolveCharms resolves the best available charm URLs with series, for charm
 // locations without a series specified.
 //
 // NOTE: ResolveCharms is deprecated as of juju 2.9 and charms facade

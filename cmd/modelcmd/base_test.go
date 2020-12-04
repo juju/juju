@@ -225,6 +225,7 @@ func (NewGetBootstrapConfigParamsFuncSuite) TestCloudCACert(c *gc.C) {
 			"type": "cloud-type",
 		},
 		CloudCACertificates: []string{fakeCert},
+		SkipTLSVerify:       true,
 	}
 	var registry mockProviderRegistry
 
@@ -236,6 +237,7 @@ func (NewGetBootstrapConfigParamsFuncSuite) TestCloudCACert(c *gc.C) {
 	_, params, err := f("foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(params.Cloud.CACertificates, jc.SameContents, []string{fakeCert})
+	c.Assert(params.Cloud.SkipTLSVerify, jc.IsTrue)
 }
 
 type mockProviderRegistry struct {

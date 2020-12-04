@@ -682,6 +682,7 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 			StorageEndpoint:  bootstrapConfig.CloudStorageEndpoint,
 			Credential:       credential,
 			CACertificates:   bootstrapConfig.CloudCACertificates,
+			SkipTLSVerify:    bootstrapConfig.SkipTLSVerify,
 		},
 		Config: cfg,
 	}, nil

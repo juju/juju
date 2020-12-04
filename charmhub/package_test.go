@@ -15,7 +15,7 @@ import (
 	path "github.com/juju/juju/charmhub/path"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package charmhub -destination client_mock_test.go github.com/juju/juju/charmhub Transport,RESTClient,FileSystem
+//go:generate go run github.com/golang/mock/mockgen -package charmhub -destination client_mock_test.go github.com/juju/juju/charmhub Transport,RESTClient,FileSystem,Logger
 
 func Test(t *testing.T) {
 	gc.TestingT(t)

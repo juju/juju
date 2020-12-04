@@ -39,6 +39,7 @@ type Server struct {
 	clustered         bool
 	serverCertificate string
 	hostArch          string
+	supportedArches   []string
 	serverVersion     string
 
 	networkAPISupport bool
@@ -110,6 +111,13 @@ func NewServer(svr lxd.ContainerServer) (*Server, error) {
 	}
 	serverCertificate := info.Environment.Certificate
 	hostArch := arch.NormaliseArch(info.Environment.KernelArchitecture)
+	supportedArches := []string{}
+	for _, entry := range info.Environment.Architectures {
+		supportedArches = append(supportedArches, arch.NormaliseArch(entry))
+	}
+	if len(supportedArches) == 0 {
+		supportedArches = []string{hostArch}
+	}
 
 	return &Server{
 		ContainerServer:   svr,
@@ -117,6 +125,7 @@ func NewServer(svr lxd.ContainerServer) (*Server, error) {
 		clustered:         clustered,
 		serverCertificate: serverCertificate,
 		hostArch:          hostArch,
+		supportedArches:   supportedArches,
 		networkAPISupport: shared.StringInSlice("network", apiExt),
 		clusterAPISupport: shared.StringInSlice("clustering", apiExt),
 		storageAPISupport: shared.StringInSlice("storage", apiExt),
@@ -293,6 +302,11 @@ func (s *Server) ServerCertificate() string {
 // HostArch returns the current host architecture
 func (s *Server) HostArch() string {
 	return s.hostArch
+}
+
+// SupportedArches returns all supported arches
+func (s *Server) SupportedArches() []string {
+	return s.supportedArches
 }
 
 // IsLXDNotFound checks if an error from the LXD API indicates that a requested

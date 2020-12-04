@@ -50,6 +50,7 @@ func (s *CloudSpecSuite) TestCloudSpec(c *gc.C) {
 						Attributes: map[string]string{"k": "v"},
 					},
 					CACertificates: []string{coretesting.CACert},
+					SkipTLSVerify:  true,
 				},
 			}},
 		}
@@ -72,6 +73,7 @@ func (s *CloudSpecSuite) TestCloudSpec(c *gc.C) {
 		StorageEndpoint:  "storage-endpoint",
 		Credential:       &credential,
 		CACertificates:   []string{coretesting.CACert},
+		SkipTLSVerify:    true,
 	})
 }
 

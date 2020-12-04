@@ -1935,12 +1935,22 @@ func (e *exporter) getCharmOrigin(doc applicationDoc) (description.CharmOriginAr
 			return description.CharmOriginArgs{}, errors.Trace(err)
 		}
 	}
+	var platform charm.Platform
+	if origin.Platform != nil {
+		var err error
+		platform, err = charm.MakePlatform(origin.Platform.Architecture, origin.Platform.OS, origin.Platform.Series)
+		if err != nil {
+			return description.CharmOriginArgs{}, errors.Trace(err)
+		}
+	}
+
 	return description.CharmOriginArgs{
 		Source:   origin.Source,
 		ID:       origin.ID,
 		Hash:     origin.Hash,
 		Revision: revision,
 		Channel:  channel.String(),
+		Platform: platform.String(),
 	}, nil
 }
 

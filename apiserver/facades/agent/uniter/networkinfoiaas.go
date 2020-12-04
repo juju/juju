@@ -19,10 +19,23 @@ import (
 // NetworkInfoIAAS is used to provide network info for IAAS units.
 type NetworkInfoIAAS struct {
 	*NetworkInfoBase
+
+	// machineNetworkInfos container network info for the unit's machine,
+	// keyed by space ID.
+	machineNetworkInfos map[string]params.NetworkInfoResult
 }
 
 func newNetworkInfoIAAS(base *NetworkInfoBase) (*NetworkInfoIAAS, error) {
-	return &NetworkInfoIAAS{base}, nil
+	spaces := set.NewStrings()
+	for _, binding := range base.bindings {
+		spaces.Add(binding)
+	}
+
+	netInfo := &NetworkInfoIAAS{NetworkInfoBase: base}
+	if err := netInfo.populateMachineNetworkInfos(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return netInfo, nil
 }
 
 // ProcessAPIRequest handles a request to the uniter API NetworkInfo method.
@@ -60,23 +73,15 @@ func (n *NetworkInfoIAAS) ProcessAPIRequest(args params.NetworkInfoParams) (para
 		endpointIngressAddresses[endpoint] = ingress
 	}
 
-	// TODO (manadart 2019-09-10): This looks like it might be called
-	// twice in some cases - getRelationNetworkInfo (called above)
-	// calls NetworksForRelation, which also calls this method.
-	networkInfos, err := n.machineNetworkInfos(spaces.Values()...)
-	if err != nil {
-		return params.NetworkInfoResults{}, err
-	}
-
 	for endpoint, space := range bindings {
 		// The binding address information based on link layer devices.
-		info := networkInfos[space]
+		info := n.machineNetworkInfos[space]
 
 		info.EgressSubnets = endpointEgressSubnets[endpoint]
 		info.IngressAddresses = endpointIngressAddresses[endpoint].Values()
 
 		if len(info.IngressAddresses) == 0 {
-			ingress := spaceAddressesFromNetworkInfo(networkInfos[space].Info)
+			ingress := spaceAddressesFromNetworkInfo(n.machineNetworkInfos[space].Info)
 			network.SortAddresses(ingress)
 			info.IngressAddresses = ingress.Values()
 		}
@@ -135,11 +140,7 @@ func (n *NetworkInfoIAAS) NetworksForRelation(
 	// We don't yet have any ingress addresses,
 	// so pick one from the space to which the endpoint is bound.
 	if len(ingress) == 0 {
-		networkInfos, err := n.machineNetworkInfos(boundSpace)
-		if err != nil {
-			return "", nil, nil, errors.Trace(err)
-		}
-		ingress = spaceAddressesFromNetworkInfo(networkInfos[boundSpace].Info)
+		ingress = spaceAddressesFromNetworkInfo(n.machineNetworkInfos[boundSpace].Info)
 	}
 
 	network.SortAddresses(ingress)
@@ -152,19 +153,22 @@ func (n *NetworkInfoIAAS) NetworksForRelation(
 	return boundSpace, ingress, egress, nil
 }
 
-// machineNetworkInfos returns network info for the unit's machine
-// based on devices with addresses in the input spaces.
-func (n *NetworkInfoBase) machineNetworkInfos(spaceIDs ...string) (map[string]params.NetworkInfoResult, error) {
+// machineNetworkInfos sets network info for the unit's machine
+// based on devices with addresses in the unit's bound spaces.
+func (n *NetworkInfoIAAS) populateMachineNetworkInfos() error {
 	machineID, err := n.unit.AssignedMachineId()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 	machine, err := n.st.Machine(machineID)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 
-	spaceSet := set.NewStrings(spaceIDs...)
+	spaceSet := set.NewStrings()
+	for _, binding := range n.bindings {
+		spaceSet.Add(binding)
+	}
 
 	results := make(map[string]params.NetworkInfoResult)
 
@@ -204,10 +208,11 @@ func (n *NetworkInfoBase) machineNetworkInfos(spaceIDs ...string) (map[string]pa
 				results[id] = result
 			}
 		}
-		return results, nil
+		n.machineNetworkInfos = results
+		return nil
 	}
 
-	logger.Debugf("Looking for address from %v in spaces %v", addresses, spaceIDs)
+	logger.Debugf("Looking for address from %v in spaces %v", addresses, spaceSet.Values())
 
 	var privateLinkLayerAddress *state.Address
 	for _, addr := range addresses {
@@ -291,7 +296,9 @@ func (n *NetworkInfoBase) machineNetworkInfos(spaceIDs ...string) (map[string]pa
 			}
 		}
 	}
-	return results, nil
+
+	n.machineNetworkInfos = results
+	return nil
 }
 
 // Add address to a device in list or create a new device with this address.

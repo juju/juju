@@ -19,12 +19,14 @@ import (
 	"github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/applicationoffers"
+	"github.com/juju/juju/api/base"
 	apicharms "github.com/juju/juju/api/charms"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/api/spaces"
 	apiparams "github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmhub"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/application/deployer"
 	"github.com/juju/juju/cmd/juju/application/store"
@@ -36,6 +38,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/series"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
 )
@@ -141,16 +144,16 @@ func (a *deployAPIAdapter) GetAnnotations(tags []string) ([]apiparams.Annotation
 	return a.annotationsClient.Get(tags)
 }
 
-func (a *deployAPIAdapter) AddCharm(curl *charm.URL, origin commoncharm.Origin, force bool, series string) (commoncharm.Origin, error) {
+func (a *deployAPIAdapter) AddCharm(curl *charm.URL, origin commoncharm.Origin, force bool) (commoncharm.Origin, error) {
 	if a.charmsAPIVersion > 2 {
-		return a.charmsClient.AddCharm(curl, origin, force, series)
+		return a.charmsClient.AddCharm(curl, origin, force)
 	}
 	return origin, a.apiClient.AddCharm(curl, csparams.Channel(origin.Risk), force)
 }
 
-func (a *deployAPIAdapter) AddCharmWithAuthorization(curl *charm.URL, origin commoncharm.Origin, mac *macaroon.Macaroon, force bool, series string) (commoncharm.Origin, error) {
+func (a *deployAPIAdapter) AddCharmWithAuthorization(curl *charm.URL, origin commoncharm.Origin, mac *macaroon.Macaroon, force bool) (commoncharm.Origin, error) {
 	if a.charmsAPIVersion > 2 {
-		return a.charmsClient.AddCharmWithAuthorization(curl, origin, mac, force, series)
+		return a.charmsClient.AddCharmWithAuthorization(curl, origin, mac, force)
 	}
 	return origin, a.apiClient.AddCharmWithAuthorization(curl, csparams.Channel(origin.Risk), mac, force)
 }
@@ -169,7 +172,7 @@ func newDeployCommand() *DeployCommand {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		csURL, err := getCharmStoreAPIURL(controllerAPIRoot)
+		url, err := getCharmStoreAPIURL(controllerAPIRoot)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -177,7 +180,28 @@ func newDeployCommand() *DeployCommand {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return store.NewCharmStoreAdaptor(bakeryClient, csURL), nil
+		return store.NewCharmStoreAdaptor(bakeryClient, url), nil
+	}
+	deployCmd.NewModelConfigClient = func(api base.APICallCloser) ModelConfigClient {
+		return modelconfig.NewClient(api)
+	}
+	deployCmd.NewDownloadClient = func() (store.DownloadBundleClient, error) {
+		apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		charmHubURL, err := deployCmd.getCharmHubURL(apiRoot)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		cfg, err := charmhub.CharmHubConfigFromURL(charmHubURL, logger)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		return charmhub.NewClient(cfg)
 	}
 	deployCmd.NewAPIRoot = func() (DeployAPI, error) {
 		apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
@@ -213,8 +237,8 @@ func newDeployCommand() *DeployCommand {
 		return applicationoffers.NewClient(root), nil
 	}
 	deployCmd.NewDeployerFactory = deployer.NewDeployerFactory
-	deployCmd.NewResolver = func(charmsAPI store.CharmsAPI, charmRepoFn store.CharmRepoFunc) deployer.Resolver {
-		return store.NewCharmAdaptor(charmsAPI, charmRepoFn)
+	deployCmd.NewResolver = func(charmsAPI store.CharmsAPI, charmRepoFn store.CharmStoreRepoFunc, downloadClientFn store.DownloadBundleClientFunc) deployer.Resolver {
+		return store.NewCharmAdaptor(charmsAPI, charmRepoFn, downloadClientFn)
 	}
 	return deployCmd
 }
@@ -292,8 +316,15 @@ type DeployCommand struct {
 	// NewCharmRepo stores a function which returns a charm store client.
 	NewCharmRepo func() (*store.CharmStoreAdaptor, error)
 
+	// NewDownloadClient stores a function for getting a charm/bundle.
+	NewDownloadClient func() (store.DownloadBundleClient, error)
+
+	// NewModelConfigClient stores a function which returns a new model config
+	// client. This is used to get the model config.
+	NewModelConfigClient func(base.APICallCloser) ModelConfigClient
+
 	// NewResolver stores a function which returns a charm adaptor.
-	NewResolver func(store.CharmsAPI, store.CharmRepoFunc) deployer.Resolver
+	NewResolver func(store.CharmsAPI, store.CharmStoreRepoFunc, store.DownloadBundleClientFunc) deployer.Resolver
 
 	// NewDeployerFactory stores a function which returns a deployer factory.
 	NewDeployerFactory func(dep deployer.DeployerDependencies) deployer.DeployerFactory
@@ -751,9 +782,14 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		step.SetPlanURL(apiRoot.PlanURL())
 	}
 
-	charmAdapter := c.NewResolver(apicharms.NewClient(apiRoot), func() (store.CharmrepoForDeploy, error) {
+	csRepoFn := func() (store.CharmrepoForDeploy, error) {
 		return cstoreAPI, nil
-	})
+	}
+	downloadClientFn := func() (store.DownloadBundleClient, error) {
+		return c.NewDownloadClient()
+	}
+
+	charmAdapter := c.NewResolver(apicharms.NewClient(apiRoot), csRepoFn, downloadClientFn)
 
 	factory, cfg := c.getDeployerFactory()
 	deploy, err := factory.GetDeployer(cfg, apiRoot, charmAdapter)
@@ -802,6 +838,7 @@ func (c *DeployCommand) getMeteringAPIURL(controllerAPIRoot api.Connection) (str
 func (c *DeployCommand) getDeployerFactory() (deployer.DeployerFactory, deployer.DeployerConfig) {
 	dep := deployer.DeployerDependencies{
 		Model:                c,
+		FileSystem:           c.ModelCommandBase.Filesystem(),
 		NewConsumeDetailsAPI: c.NewConsumeDetailsAPI, // only used here
 		Steps:                c.Steps,
 	}
@@ -831,4 +868,22 @@ func (c *DeployCommand) getDeployerFactory() (deployer.DeployerFactory, deployer
 		UseExisting:       c.UseExisting,
 	}
 	return c.NewDeployerFactory(dep), cfg
+}
+
+func (c *DeployCommand) getCharmHubURL(apiRoot base.APICallCloser) (string, error) {
+	modelConfigClient := c.NewModelConfigClient(apiRoot)
+	defer func() { _ = modelConfigClient.Close() }()
+
+	attrs, err := modelConfigClient.ModelGet()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	config, err := config.New(config.NoDefaults, attrs)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	charmHubURL, _ := config.CharmHubURL()
+	return charmHubURL, nil
 }

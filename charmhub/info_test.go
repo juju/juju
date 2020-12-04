@@ -84,6 +84,7 @@ func (s *InfoSuite) expectGet(c *gc.C, client *MockRESTClient, p path.Path, name
 	c.Assert(err, jc.ErrorIsNil)
 
 	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).Do(func(_ context.Context, _ path.Path, response *transport.InfoResponse) {
+		response.Type = "charm"
 		response.Name = name
 	}).Return(RESTResponse{}, nil)
 }
@@ -108,7 +109,7 @@ func (s *InfoSuite) expectGetError(c *gc.C, client *MockRESTClient, p path.Path,
 func (s *InfoSuite) TestInfoRequestPayload(c *gc.C) {
 	infoResponse := transport.InfoResponse{
 		Name: "wordpress",
-		Type: "object",
+		Type: "charm",
 		ID:   "charmCHARMcharmCHARMcharmCHARM01",
 		ChannelMap: []transport.InfoChannelMap{{
 			Channel: transport.Channel{

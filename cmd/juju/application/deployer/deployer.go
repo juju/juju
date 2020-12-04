@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/modelcmd"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
@@ -44,6 +45,7 @@ func NewDeployerFactory(dep DeployerDependencies) DeployerFactory {
 	d := &factory{
 		clock:                jujuclock.WallClock,
 		model:                dep.Model,
+		fileSystem:           dep.FileSystem,
 		newConsumeDetailsAPI: dep.NewConsumeDetailsAPI,
 		steps:                dep.Steps,
 	}
@@ -104,6 +106,7 @@ func (d *factory) setConfig(cfg DeployerConfig) {
 type DeployerDependencies struct {
 	DeployResources      resourceadapters.DeployResourcesFunc
 	Model                ModelCommand
+	FileSystem           modelcmd.Filesystem
 	NewConsumeDetailsAPI func(url *charm.OfferURL) (ConsumeDetails, error)
 	Steps                []DeployStep
 }
@@ -148,6 +151,7 @@ type factory struct {
 	model                ModelCommand
 	deployResources      resourceadapters.DeployResourcesFunc
 	newConsumeDetailsAPI func(url *charm.OfferURL) (ConsumeDetails, error)
+	fileSystem           modelcmd.Filesystem
 
 	// DeployerConfig
 	placementSpec     string
@@ -185,6 +189,9 @@ func (d *factory) maybePredeployedLocalCharm() (Deployer, error) {
 	// environment.
 	userCharmURL, err := resolveCharmURL(d.charmOrBundle)
 	if err != nil {
+		if _, err := d.fileSystem.Stat(d.charmOrBundle); os.IsNotExist(errors.Cause(err)) {
+			return nil, errors.Errorf("no charm was found at %q", d.charmOrBundle)
+		}
 		return nil, errors.Trace(err)
 	} else if userCharmURL.Schema != "local" {
 		logger.Debugf("cannot interpret as a redeployment of a local charm from the controller")
@@ -367,7 +374,11 @@ func (d *factory) maybeReadCharmstoreBundle(resolver Resolver) (Deployer, error)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	origin, err := utils.DeduceOrigin(curl, d.channel)
+	platform, err := utils.DeducePlatform(d.constraints, d.series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	origin, err := utils.DeduceOrigin(curl, d.channel, platform)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -379,7 +390,7 @@ func (d *factory) maybeReadCharmstoreBundle(resolver Resolver) (Deployer, error)
 	// has it's own channel supplied via a bundle, if no is supplied then the
 	// channel is worked out via the resolving what is available.
 	// See: LP:1677404 and LP:1832873
-	bundleURL, _, err := resolver.ResolveBundleURL(curl, origin)
+	bundleURL, bundleOrigin, err := resolver.ResolveBundleURL(curl, origin)
 	if charm.IsUnsupportedSeriesError(errors.Cause(err)) {
 		return nil, errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 	}
@@ -405,7 +416,7 @@ func (d *factory) maybeReadCharmstoreBundle(resolver Resolver) (Deployer, error)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	bundle, err := resolver.GetBundle(bundleURL, filepath.Join(dir, bundleURL.Name))
+	bundle, err := resolver.GetBundle(bundleURL, bundleOrigin, filepath.Join(dir, bundleURL.Name))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -422,7 +433,11 @@ func (d *factory) charmStoreCharm() (Deployer, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	origin, err := utils.DeduceOrigin(userRequestedURL, d.channel)
+	platform, err := utils.DeducePlatform(d.constraints, d.series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	origin, err := utils.DeduceOrigin(userRequestedURL, d.channel, platform)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

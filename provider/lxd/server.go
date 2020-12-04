@@ -72,6 +72,7 @@ type Server interface {
 	DeleteStoragePoolVolume(pool string, volType string, name string) (err error)
 	ServerCertificate() string
 	HostArch() string
+	SupportedArches() []string
 	EnableHTTPSListener() error
 	GetNICsFromProfile(profName string) (map[string]map[string]string, error)
 	IsClustered() bool

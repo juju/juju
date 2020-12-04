@@ -506,7 +506,14 @@ func (s *MigrationImportSuite) setupSourceApplications(
 		Charm: testCharm,
 		CharmOrigin: &state.CharmOrigin{
 			Source:   testCharm.URL().Schema,
+			Type:     "charm",
 			Revision: &testCharm.URL().Revision,
+			Channel: &state.Channel{
+				Risk: "edge",
+			},
+			Platform: &state.Platform{
+				Architecture: "amd64",
+			},
 		},
 		CharmConfig: map[string]interface{}{
 			"foo": "bar",

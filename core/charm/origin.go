@@ -32,6 +32,7 @@ const (
 // changing.
 type Origin struct {
 	Source Source
+	Type   string
 	ID     string
 	Hash   string
 
@@ -39,6 +40,11 @@ type Origin struct {
 	// we should model that correctly here.
 	Revision *int
 	Channel  *Channel
+	Platform Platform
+}
+
+func (o Origin) String() string {
+	return fmt.Sprintf("origin using source %q for channel %s and platform %s", o.Source, o.Channel.String(), o.Platform.String())
 }
 
 // Platform describes the platform used to install the charm with.
@@ -46,6 +52,18 @@ type Platform struct {
 	Architecture string
 	OS           string
 	Series       string
+}
+
+// MakePlatform creates a core charm Platform from a set of component parts.
+func MakePlatform(arch, os, series string) (Platform, error) {
+	if arch == "" {
+		return Platform{}, errors.NotValidf("arch %q", arch)
+	}
+	return Platform{
+		Architecture: arch,
+		OS:           os,
+		Series:       series,
+	}, nil
 }
 
 // MustParsePlatform parses a given string or returns a panic.
