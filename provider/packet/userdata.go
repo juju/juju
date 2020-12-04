@@ -1,5 +1,4 @@
-// Copyright 2015 Canonical Ltd.
-// Copyright 2015 Cloudbase Solutions SRL
+// Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package packet
@@ -16,7 +15,7 @@ type PacketRenderer struct{}
 
 func (PacketRenderer) Render(cfg cloudinit.CloudConfig, os jujuos.OSType) ([]byte, error) {
 	switch os {
-	case jujuos.Ubuntu, jujuos.CentOS:
+	case jujuos.Ubuntu:
 		return renderers.RenderScript(cfg)
 	// case jujuos.Windows:
 	// 	return renderers.RenderYAML(cfg, renderers.WinEmbedInScript)
