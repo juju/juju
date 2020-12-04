@@ -210,9 +210,6 @@ func (cs *charmStoreClient) resolveStoreResource(
 		// This indicates that AddPendingResources() was called for
 		// a resource the charm backend doesn't know about (for the
 		// relevant charm revision).
-		// TODO(ericsnow) Do the following once the charm backend supports
-		// the necessary endpoints:
-		// return res, errors.NotFoundf("charm backend resource %q", res.Name)
 		return res, nil
 	}
 
