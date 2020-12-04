@@ -12,6 +12,5 @@ const (
 )
 
 func init() {
-	trace()
 	environs.RegisterProvider(providerType, environProvider{})
 }

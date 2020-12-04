@@ -1,3 +1,5 @@
+// Copyright 2020 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
 package packet
 
 import (
@@ -20,19 +22,16 @@ type environProvider struct {
 }
 
 func (p environProvider) CloudSchema() *jsonschema.Schema {
-	trace()
 	return nil
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
 func (p environProvider) Ping(ctx context.ProviderCallContext, endpoint string) error {
-	trace()
 	return errors.NotImplementedf("Ping")
 }
 
 // PrepareConfig is part of the EnvironProvider interface.
 func (p environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
-	trace()
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
@@ -50,22 +49,11 @@ func (p environProvider) PrepareConfig(args environs.PrepareConfigParams) (*conf
 }
 
 func validateCloudSpec(spec environscloudspec.CloudSpec) error {
-	trace()
-	// if err := spec.Validate(); err != nil {
-	// 	return errors.Trace(err)
-	// }
-	// if spec.Credential == nil {
-	// 	return errors.NotValidf("missing credential")
-	// }
-	// if authType := spec.Credential.AuthType(); authType != clientCredentialsAuthType {
-	// 	return errors.NotSupportedf("%q auth-type", authType)
-	// }
 	return nil
 }
 
 // Open is specified in the EnvironProvider interface.
 func (p environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
-	trace()
 	logger.Debugf("opening model %q", args.Config.Name())
 
 	e := new(environ)
@@ -82,7 +70,6 @@ func (p environProvider) Open(args environs.OpenParams) (environs.Environ, error
 }
 
 func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
-	trace()
 	newEcfg, err := validateConfig(cfg, old)
 	if err != nil {
 		return nil, fmt.Errorf("invalid Packet provider config: %v", err)
@@ -91,7 +78,6 @@ func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, 
 }
 
 func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
-	trace()
 	valid, err := p.Validate(cfg, nil)
 	if err != nil {
 		return nil, err
@@ -100,7 +86,6 @@ func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 }
 
 func (e *environ) SetCloudSpec(spec environscloudspec.CloudSpec) error {
-	trace()
 	e.ecfgMutex.Lock()
 	defer e.ecfgMutex.Unlock()
 
@@ -113,7 +98,6 @@ func (e *environ) SetCloudSpec(spec environscloudspec.CloudSpec) error {
 }
 
 func packetClient(spec environscloudspec.CloudSpec) *packngo.Client {
-	trace()
 	credentialAttrs := spec.Credential.Attributes()
 
 	apiToken := credentialAttrs["api-token"]
@@ -121,10 +105,6 @@ func packetClient(spec environscloudspec.CloudSpec) *packngo.Client {
 	httpClient.RetryWaitMin = time.Second
 	httpClient.RetryWaitMax = 30 * time.Second
 	httpClient.RetryMax = 10
-	// httpClient.CheckRetry = PacketRetryPolicy
-	// httpClient.HTTPClient.Transport = logging.NewTransport(
-	// 	"Equinix Metal",
-	// 	httpClient.HTTPClient.Transport)
 
 	c := packngo.NewClientWithAuth("juju", apiToken, httpClient)
 
@@ -132,6 +112,5 @@ func packetClient(spec environscloudspec.CloudSpec) *packngo.Client {
 }
 
 func (environProvider) Version() int {
-	trace()
 	return 0
 }

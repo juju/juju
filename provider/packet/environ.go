@@ -42,12 +42,10 @@ type environ struct {
 var providerInstance environProvider
 
 func (e *environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
-	trace()
 	return nil
 }
 
 func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	trace()
 	return common.Bootstrap(ctx, e, callCtx, args)
 }
 
@@ -95,12 +93,10 @@ func (e *environ) ConstraintsValidator(ctx context.ProviderCallContext) (constra
 }
 
 func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
-	trace()
 	return nil, nil
 }
 
 func (e *environ) Create(ctx context.ProviderCallContext, args environs.CreateParams) error {
-	trace()
 	return nil
 }
 
@@ -118,13 +114,11 @@ func (e *environ) DestroyController(ctx context.ProviderCallContext, controllerU
 }
 
 func (e *environ) InstanceTypes(context.ProviderCallContext, constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
-	trace()
 	var i envinstance.InstanceTypesWithCostMetadata
 	return i, nil
 }
 
 func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
-	trace()
 	toReturn := []instances.Instance{}
 	for _, id := range ids {
 		//TODO handle case when some of the instanes are missing
@@ -142,28 +136,23 @@ func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) 
 }
 
 func (e *environ) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
-	trace()
 	return nil
 }
 
 func (e *environ) PrecheckInstance(ctx context.ProviderCallContext, args environs.PrecheckInstanceParams) error {
-	trace()
 	return nil
 }
 
 func (e *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
-	trace()
 	e.name = controllerName
 	return nil
 }
 
 func (*environ) Provider() environs.EnvironProvider {
-	trace()
 	return &environProvider{}
 }
 
 func (e *environ) SetConfig(cfg *config.Config) error {
-	trace()
 	e.ecfgMutex.Lock()
 	defer e.ecfgMutex.Unlock()
 	ecfg, err := providerInstance.newConfig(cfg)
@@ -222,7 +211,6 @@ func newConfig(cfg, old *config.Config) (*environConfig, error) {
 }
 
 func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (result *environs.StartInstanceResult, resultErr error) {
-	trace()
 	plan := "t1.small.x86"
 	OS := "ubuntu_18_04"
 	k, _, keyErr := e.packetClient.SSHKeys.Create(&packngo.SSHKeyCreateRequest{
@@ -280,26 +268,15 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 }
 
 func (e *environ) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
-	trace()
 	return nil
 }
 
 func (e *environ) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
-	trace()
 	return nil, errors.NotFoundf("storage provider %q", t)
 }
 
 func (e *environ) StorageProviderTypes() ([]storage.ProviderType, error) {
-	trace()
 	return nil, nil
-}
-
-func trace() {
-	// pc := make([]uintptr, 10) // at least 1 entry needed
-	// runtime.Callers(2, pc)
-	// f := runtime.FuncForPC(pc[0])
-	// file, line := f.FileLine(pc[0])
-	// fmt.Printf("*** %s:%d %s\n", file, line, f.Name())
 }
 
 func waitDeviceActive(c *packngo.Client, id string) (*packngo.Device, error) {

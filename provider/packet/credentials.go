@@ -53,12 +53,6 @@ func (e environProviderCredentials) DetectCredentials() (*cloud.CloudCredential,
 		return nil, errors.Errorf("packet project ID not present")
 	}
 
-	// if val, present := os.LookupEnv("PACKET_FACILITY"); present {
-	// 	result.DefaultRegion = val
-	// } else {
-	// 	return nil, errors.Errorf("packet default facility not present")
-	// }
-
 	result.AuthCredentials["default"] = cloud.NewCredential(
 		cloud.AccessKeyAuthType,
 		map[string]string{
