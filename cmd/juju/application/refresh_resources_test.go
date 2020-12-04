@@ -24,11 +24,11 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	apicommoncharms "github.com/juju/juju/api/common/charms"
+	"github.com/juju/juju/api/resources/client"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/api/client"
 	"github.com/juju/juju/testcharms"
 )
 

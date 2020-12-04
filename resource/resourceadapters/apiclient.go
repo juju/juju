@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/resources/client"
 	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/api/client"
 )
 
 // NewAPIClient is mostly a copy of the newClient code in
