@@ -28,6 +28,7 @@ import (
 	apicommoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/modelconfig"
+	"github.com/juju/juju/api/resources/client"
 	"github.com/juju/juju/api/spaces"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub"
@@ -40,7 +41,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/resource/api/client"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
 )

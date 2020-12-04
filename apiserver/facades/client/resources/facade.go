@@ -10,6 +10,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
+	apiresources "github.com/juju/juju/api/resources"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/juju/charmstore"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/resource"
-	resourceapi "github.com/juju/juju/resource/api"
 	"github.com/juju/juju/state"
 )
 
@@ -165,7 +165,7 @@ func (a *API) ListResources(args params.ListResourcesArgs) (params.ResourcesResu
 			continue
 		}
 
-		r.Results[i] = resourceapi.ApplicationResources2APIResult(svcRes)
+		r.Results[i] = apiresources.ApplicationResources2APIResult(svcRes)
 	}
 	return r, nil
 }
@@ -212,7 +212,7 @@ func (a *API) AddPendingResources(args params.AddPendingResourcesArgsV2) (params
 func (a *API) addPendingResources(appName, chRef string, origin corecharm.Origin, apiResources []params.CharmResource) ([]string, error) {
 	var resources []charmresource.Resource
 	for _, apiRes := range apiResources {
-		res, err := resourceapi.API2CharmResource(apiRes)
+		res, err := apiresources.API2CharmResource(apiRes)
 		if err != nil {
 			return nil, errors.Annotatef(err, "bad resource info for %q", apiRes.Name)
 		}

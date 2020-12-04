@@ -19,7 +19,7 @@ import (
 	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/resource/api/client"
+	"github.com/juju/juju/api/resources/client"
 )
 
 var _ = gc.Suite(&UploadSuite{})

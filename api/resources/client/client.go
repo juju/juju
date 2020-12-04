@@ -16,10 +16,10 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	apicharm "github.com/juju/juju/api/common/charm"
+	api "github.com/juju/juju/api/resources"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/api"
 )
 
 // TODO(ericsnow) Move FacadeCaller to a component-central package.

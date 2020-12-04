@@ -9,9 +9,9 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/base"
+	internalclient "github.com/juju/juju/api/resources/private/client"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/resource"
-	internalclient "github.com/juju/juju/resource/api/private/client"
 	"github.com/juju/juju/resource/context"
 	contextcmd "github.com/juju/juju/resource/context/cmd"
 	"github.com/juju/juju/resource/resourceadapters"
