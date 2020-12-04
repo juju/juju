@@ -1,7 +1,7 @@
 // Copyright 2019 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build !minimal provider_vsphere
+// +build !minimal provider_packet
 
 package all
 
