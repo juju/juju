@@ -13,6 +13,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/os/v2/series"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -137,17 +138,29 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 
 		case "ch":
 			origin := application.CharmOrigin()
-			if origin == nil || origin.Revision == nil || origin.Platform == nil {
-				logger.Errorf("charmhub charm %s has no revision or platform, skipping", curl)
+			if origin == nil || origin.Revision == nil {
+				logger.Errorf("charm %s has no revision, skipping", curl)
+				continue
+			}
+			os, err := series.GetOSFromSeries(application.Series())
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			archs, err := deployedArchs(application)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if len(archs) == 0 {
+				logger.Debugf("charm %s not deployed to any architectures, skipping", curl)
 				continue
 			}
 			cid := charmhubID{
 				id:       origin.ID,
 				revision: *origin.Revision,
 				channel:  string(application.Channel()),
-				os:       origin.Platform.OS,
-				series:   origin.Platform.Series,
-				arch:     origin.Platform.Architecture,
+				os:       strings.ToLower(os.String()), // charmhub API requires lowercase OS name
+				series:   application.Series(),
+				arch:     archs[0],
 			}
 			charmhubIDs = append(charmhubIDs, cid)
 			charmhubApps = append(charmhubApps, application)
