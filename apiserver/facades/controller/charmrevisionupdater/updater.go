@@ -6,7 +6,10 @@ package charmrevisionupdater
 import (
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v8/resource"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -75,14 +78,14 @@ func (api *CharmRevisionUpdaterAPI) updateLatestRevisions() error {
 	// Process the resulting info for each charm.
 	for _, info := range latest {
 		// First, add a charm placeholder to the model for each.
-		if err := api.state.AddCharmPlaceholder(info.LatestURL()); err != nil {
+		if err := api.state.AddCharmPlaceholder(info.url); err != nil {
 			return err
 		}
 
 		// Then run through the handlers.
 		tag := info.application.ApplicationTag()
 		for _, handler := range handlers {
-			if err := handler.HandleLatest(tag, info.CharmInfo); err != nil {
+			if err := handler.HandleLatest(tag, info.resources, info.timestamp); err != nil {
 				return err
 			}
 		}
@@ -102,53 +105,158 @@ var NewCharmStoreClient = func(st *state.State) (charmstore.Client, error) {
 }
 
 type latestCharmInfo struct {
-	charmstore.CharmInfo
+	url         *charm.URL
+	timestamp   time.Time
+	revision    int
+	resources   []resource.Resource
 	application *state.Application
 }
 
 // retrieveLatestCharmInfo looks up the charm store to return the charm URLs for the
 // latest revision of the deployed charms.
 func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
-	model, err := st.Model()
-	if err != nil {
-		return nil, err
-	}
-
+	logger.Infof("TODO retrieveLatestCharmInfo")
 	applications, err := st.AllApplications()
-	if err != nil {
-		return nil, err
-	}
-
-	client, err := NewCharmStoreClient(st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var charms []charmstore.CharmID
-	var resultsIndexedApps []*state.Application
+	// Partition the charms into charmhub vs charmstore so we can query each
+	// batch separately.
+	var (
+		charmstoreIDs  []charmstore.CharmID
+		charmstoreApps []*state.Application
+		charmhubIDs    []charmhubID
+		charmhubApps   []*state.Application
+	)
 	for _, application := range applications {
 		curl, _ := application.CharmURL()
-		if curl.Schema == "local" {
+		switch curl.Schema {
+		case "local":
 			continue
-		}
 
-		archs, err := deployedArchs(application)
+		case "ch":
+			origin := application.CharmOrigin()
+			if origin == nil || origin.Revision == nil || origin.Platform == nil {
+				logger.Errorf("charmhub charm %s has no revision or platform, skipping", curl)
+				continue
+			}
+			cid := charmhubID{
+				id:       origin.ID,
+				revision: *origin.Revision,
+				channel:  string(application.Channel()),
+				os:       origin.Platform.OS,
+				series:   origin.Platform.Series,
+				arch:     origin.Platform.Architecture,
+			}
+			charmhubIDs = append(charmhubIDs, cid)
+			charmhubApps = append(charmhubApps, application)
+
+		case "cs":
+			archs, err := deployedArchs(application)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			cid := charmstore.CharmID{
+				URL:     curl,
+				Channel: application.Channel(),
+				Metadata: map[string]string{
+					"series": application.Series(),
+					"arch":   strings.Join(archs, ","),
+				},
+			}
+			charmstoreIDs = append(charmstoreIDs, cid)
+			charmstoreApps = append(charmstoreApps, application)
+
+		default:
+			return nil, errors.NotValidf("charm schema %q", curl.Schema)
+		}
+	}
+
+	// Fetch info for any charmstore charms.
+	var latest []latestCharmInfo
+	if len(charmstoreIDs) > 0 {
+		client, err := NewCharmStoreClient(st)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		metadata, err := charmstoreAPIMetadata(st)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		results, err := charmstore.LatestCharmInfo(client, charmstoreIDs, metadata)
+		logger.Infof("TODO LatestCharmInfo results=%#v, error=%v", results, err)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
-		cid := charmstore.CharmID{
-			URL:     curl,
-			Channel: application.Channel(),
-			Metadata: map[string]string{
-				"series": application.Series(),
-				"arch":   strings.Join(archs, ","),
-			},
+		for i, result := range results {
+			if i >= len(charmstoreApps) {
+				logger.Errorf("retrieved more results (%d) than charmstore applications (%d)",
+					i, len(charmstoreApps))
+				break
+			}
+			if result.Error != nil {
+				logger.Errorf("retrieving charm info for %s: %v", charmstoreIDs[i].URL, result.Error)
+				continue
+			}
+			application := charmstoreApps[i]
+			latest = append(latest, latestCharmInfo{
+				url:         result.CharmInfo.OriginalURL.WithRevision(result.CharmInfo.LatestRevision),
+				timestamp:   result.CharmInfo.Timestamp,
+				revision:    result.CharmInfo.LatestRevision,
+				resources:   result.CharmInfo.LatestResources,
+				application: application,
+			})
 		}
-		charms = append(charms, cid)
-		resultsIndexedApps = append(resultsIndexedApps, application)
 	}
 
+	// Fetch info for any charmhub charms.
+	if len(charmhubIDs) > 0 {
+		client, err := createCharmhubClient(st)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		results, err := charmhubLatestCharmInfo(client, charmhubIDs)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		for i, result := range results {
+			if i >= len(charmhubApps) {
+				logger.Errorf("retrieved more results (%d) than charmhub applications (%d)",
+					i, len(charmhubApps))
+				break
+			}
+			if result.error != nil {
+				logger.Errorf("retrieving charm info for ID %s: %v", charmhubIDs[i].id, result.error)
+				continue
+			}
+			application := charmhubApps[i]
+			latest = append(latest, latestCharmInfo{
+				url: &charm.URL{ // TODO(benhoyt) - not entirely sure about this?
+					Schema:   "ch",
+					Name:     result.name,
+					Revision: result.revision,
+				},
+				timestamp:   result.timestamp,
+				revision:    result.revision,
+				resources:   result.resources,
+				application: application,
+			})
+		}
+	}
+
+	return latest, nil
+}
+
+// charmstoreAPIMetadata returns a map containing metadata key/value pairs to
+// send to the charmstore API for tracking metrics.
+func charmstoreAPIMetadata(st *state.State) (map[string]string, error) {
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	metadata := map[string]string{
 		"environment_uuid":   model.UUID(),
 		"model_uuid":         model.UUID(),
@@ -164,26 +272,11 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 	} else {
 		metadata["provider"] = cloud.Type
 	}
-	results, err := charmstore.LatestCharmInfo(client, charms, metadata)
-	if err != nil {
-		return nil, err
-	}
-
-	var latest []latestCharmInfo
-	for i, result := range results {
-		if result.Error != nil {
-			logger.Errorf("retrieving charm info for %s: %v", charms[i].URL, result.Error)
-			continue
-		}
-		application := resultsIndexedApps[i]
-		latest = append(latest, latestCharmInfo{
-			CharmInfo:   result.CharmInfo,
-			application: application,
-		})
-	}
-	return latest, nil
+	return metadata, nil
 }
 
+// deployedArchs returns the list of unique architectures this application is
+// deployed to, across all the machines it's deployed to.
 func deployedArchs(app *state.Application) ([]string, error) {
 	machines, err := app.DeployedMachines()
 	if err != nil {

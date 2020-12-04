@@ -30,6 +30,7 @@ type ManifoldConfig struct {
 	Period    time.Duration
 	NewFacade func(base.APICaller) (Facade, error)
 	NewWorker func(Config) (worker.Worker, error)
+	Logger    Logger
 }
 
 // Manifold returns a dependency.Manifold that runs a charm revision worker
@@ -56,6 +57,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				RevisionUpdater: facade,
 				Clock:           config.Clock,
 				Period:          config.Period,
+				Logger:          config.Logger,
 			})
 			if err != nil {
 				return nil, errors.Annotatef(err, "cannot create worker")

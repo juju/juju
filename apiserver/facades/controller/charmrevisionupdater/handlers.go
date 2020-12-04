@@ -5,11 +5,12 @@ package charmrevisionupdater
 
 import (
 	"fmt"
+	"time"
 
+	"github.com/juju/charm/v8/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/state"
 )
 
@@ -18,7 +19,7 @@ import (
 type LatestCharmHandler interface {
 	// HandleLatest deals with the given charm info, treating it as the
 	// most up-to-date information for the charms most recent revision.
-	HandleLatest(names.ApplicationTag, charmstore.CharmInfo) error
+	HandleLatest(names.ApplicationTag, []resource.Resource, time.Time) error
 }
 
 type newHandlerFunc func(*state.State) (LatestCharmHandler, error)

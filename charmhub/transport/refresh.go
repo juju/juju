@@ -58,7 +58,7 @@ type RefreshResponse struct {
 }
 
 type RefreshEntity struct {
-	CreatedAt string             `json:"created-at"`
+	CreatedAt time.Time          `json:"created-at"`
 	Download  Download           `json:"download"`
 	ID        string             `json:"id"`
 	License   string             `json:"license"`

@@ -43,6 +43,14 @@ type Config struct {
 
 	// Period is the time between charm revision updates.
 	Period time.Duration
+
+	// Logger is the logger used for debug logging in this worker.
+	Logger Logger
+}
+
+// Logger is a debug-only logger interface.
+type Logger interface {
+	Debugf(message string, args ...interface{})
 }
 
 // Validate returns an error if the configuration cannot be expected
@@ -57,6 +65,9 @@ func (config Config) Validate() error {
 	if config.Period <= 0 {
 		return errors.NotValidf("non-positive Period")
 	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
+	}
 	return nil
 }
 
@@ -70,6 +81,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 	w := &revisionUpdateWorker{
 		config: config,
 	}
+	w.config.Logger.Debugf("worker created with period %v", w.config.Period)
 	w.tomb.Go(w.loop)
 	return w, nil
 }
@@ -86,6 +98,7 @@ func (ruw *revisionUpdateWorker) loop() error {
 		case <-ruw.tomb.Dying():
 			return tomb.ErrDying
 		case <-ruw.config.Clock.After(delay):
+			ruw.config.Logger.Debugf("%v elapsed, performing work", delay)
 			err := ruw.config.RevisionUpdater.UpdateLatestRevisions()
 			if err != nil {
 				return errors.Trace(err)
