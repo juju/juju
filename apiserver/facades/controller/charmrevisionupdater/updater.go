@@ -106,6 +106,11 @@ var NewCharmStoreClient = func(st *state.State) (charmstore.Client, error) {
 	return charmstore.NewCachingClient(state.MacaroonCache{State: st}, controllerCfg.CharmStoreURL())
 }
 
+// NewCharmhubClient instantiates a new charmhub client (exported for testing).
+var NewCharmhubClient = func(st *state.State) (CharmhubRefreshClient, error) {
+	return common.CharmhubClient(st)
+}
+
 type latestCharmInfo struct {
 	url         *charm.URL
 	timestamp   time.Time
@@ -227,7 +232,7 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 
 	// Fetch info for any charmhub charms.
 	if len(charmhubIDs) > 0 {
-		client, err := common.CharmhubClient(st)
+		client, err := NewCharmhubClient(st)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

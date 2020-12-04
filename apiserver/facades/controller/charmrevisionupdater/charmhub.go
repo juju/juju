@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/charm/v8/resource"
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 )
@@ -37,9 +38,15 @@ type charmhubResult struct {
 	error     error
 }
 
+// CharmhubRefreshClient is an interface for the methods of the charmhub
+// client that we need.
+type CharmhubRefreshClient interface {
+	Refresh(ctx context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error)
+}
+
 // charmhubLatestCharmInfo fetches the latest information about the given
 // charms from charmhub's "charm_refresh" API.
-func charmhubLatestCharmInfo(client *charmhub.Client, ids []charmhubID) ([]charmhubResult, error) {
+func charmhubLatestCharmInfo(client CharmhubRefreshClient, ids []charmhubID) ([]charmhubResult, error) {
 	cfgs := make([]charmhub.RefreshConfig, len(ids))
 	for i, id := range ids {
 		platform := charmhub.RefreshPlatform{
