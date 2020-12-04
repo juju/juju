@@ -81,6 +81,7 @@ func (s *unitScopeSuite) TestGetIdentValue(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("%d: GetIdentValue %q", i, test.Field)
 		scope := UnitScope{
+			ctx:      MakeScopeContext(),
 			UnitInfo: test.UnitInfo,
 		}
 		result, err := scope.GetIdentValue(test.Field)
@@ -91,6 +92,7 @@ func (s *unitScopeSuite) TestGetIdentValue(c *gc.C) {
 
 func (s *unitScopeSuite) TestGetIdentValueError(c *gc.C) {
 	scope := UnitScope{
+		ctx:      MakeScopeContext(),
 		UnitInfo: &params.UnitInfo{},
 	}
 	result, err := scope.GetIdentValue("bad")

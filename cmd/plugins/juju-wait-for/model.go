@@ -104,7 +104,7 @@ func (c *modelCommand) Run(ctx *cmd.Context) error {
 	scopedContext := MakeScopeContext()
 
 	defer func() {
-		if !c.summary {
+		if c.model == nil || !c.summary {
 			return
 		}
 
@@ -263,7 +263,7 @@ func (m ModelScope) GetIdentValue(name string) (query.Box, error) {
 	case "units":
 		scopes := make(map[string]query.Scope)
 		for k, unit := range m.Model.units {
-			scopes[k] = MakeUnitScope(unit)
+			scopes[k] = MakeUnitScope(m.ctx.SubScope(name, unit.Name), unit)
 		}
 		return NewScopedBox(scopes), nil
 	}
@@ -317,10 +317,12 @@ func outputModelSummary(writer io.Writer, scopedContext ScopeContext, c *modelCo
 		Elements     map[string]interface{}            `yaml:"properties"`
 		Applications map[string]map[string]interface{} `yaml:"applications,omitempty"`
 		Machines     map[string]map[string]interface{} `yaml:"machines,omitempty"`
+		Units        map[string]map[string]interface{} `yaml:"units,omitempty"`
 	}{
 		Elements:     make(map[string]interface{}),
 		Applications: make(map[string]map[string]interface{}),
 		Machines:     make(map[string]map[string]interface{}),
+		Units:        make(map[string]map[string]interface{}),
 	}
 
 	idents := scopedContext.RecordedIdents()
@@ -371,6 +373,22 @@ func outputModelSummary(writer io.Writer, scopedContext ScopeContext, c *modelCo
 						continue
 					}
 					result.Machines[name][ident] = box.Value()
+				}
+			case "units":
+				unitInfo := c.units[name]
+				scope = MakeUnitScope(scopedContext, unitInfo)
+
+				if scope == nil {
+					continue
+				}
+
+				result.Units[name] = make(map[string]interface{})
+				for _, ident := range idents {
+					box, err := scope.GetIdentValue(ident)
+					if err != nil {
+						continue
+					}
+					result.Units[name][ident] = box.Value()
 				}
 			}
 		}
