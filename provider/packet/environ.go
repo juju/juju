@@ -221,12 +221,10 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	})
 
 	userdata := fmt.Sprintf("#!/bin/bash\nrm /etc/ssh/ssh_host_*dsa* \nrm /etc/ssh/ssh_host_ed*\nrm /sbin/initctl\nsudo apt update\nsudo apt install -y dmidecode\nset -e\n(grep ubuntu /etc/group) || groupadd ubuntu\n(id ubuntu &> /dev/null) || useradd -m ubuntu -s /bin/bash -g ubuntu\numask 0077\ntemp=$(mktemp)\necho 'ubuntu ALL=(ALL) NOPASSWD:ALL' > $temp\ninstall -m 0440 $temp /etc/sudoers.d/90-juju-ubuntu\nrm $temp\nsu ubuntu -c 'install -D -m 0600 /dev/null ~/.ssh/authorized_keys'\nexport authorized_keys=\"%s\"\nif [ ! -z \"$authorized_keys\" ]; then\nsu ubuntu -c 'printf \"%%s\n\" \"$authorized_keys\" >> ~/.ssh/authorized_keys'\nfi", e.ecfg.config.AuthorizedKeys())
-	// logger.Errorf("*****environ %s", spew.Sdump(e))
 
 	juserdata, err := providerinit.ComposeUserData(args.InstanceConfig, nil, PacketRenderer{})
 
 	userdata = userdata + "\n" + strings.Replace(string(juserdata), "#!/bin/bash", "", 0)
-	// fmt.Println("******", string(userdata))
 
 	device := &packngo.DeviceCreateRequest{
 		Hostname:     e.name,
