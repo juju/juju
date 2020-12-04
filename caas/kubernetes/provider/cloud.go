@@ -91,6 +91,7 @@ func newCloudCredentialFromKubeConfig(reader io.Reader, cloudParams KubeCloudPar
 	newCloud.AuthTypes = []cloud.AuthType{credential.AuthType()}
 	currentCloud := caasConfig.Clouds[context.CloudName]
 	newCloud.Endpoint = currentCloud.Endpoint
+	newCloud.SkipTLSVerify = currentCloud.SkipTLSVerify
 
 	cloudCAData, ok := currentCloud.Attributes["CAData"].(string)
 	if !ok {
@@ -296,6 +297,9 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 	mk8sCloud, credential, _, err := p.builtinCloudGetter(p.cmdRunner)
 	if err != nil {
 		return cloud.Cloud{}, errors.Trace(err)
+	}
+	if mk8sCloud.SkipTLSVerify {
+		logger.Warningf("k8s cloud %v is configured to skip server certificate validity checks", mk8sCloud.Name)
 	}
 
 	openParams, err := BaseKubeCloudOpenParams(mk8sCloud, credential)

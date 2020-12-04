@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
@@ -295,7 +294,11 @@ func (d *predeployedLocalCharm) String() string {
 	if isEmptyOrigin(d.origin, commoncharm.OriginLocal) {
 		return str
 	}
-	return fmt.Sprintf("%s from channel %s", str, d.origin.CoreChannel().String())
+	var channel string
+	if ch := d.origin.CoreChannel().String(); ch != "" {
+		channel = fmt.Sprintf(" from channel %s", ch)
+	}
+	return fmt.Sprintf("%s%s", str, channel)
 }
 
 // PrepareAndDeploy finishes preparing to deploy a predeployed local charm,
@@ -328,9 +331,11 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 		return errors.Trace(err)
 	}
 
-	origin, err := utils.DeduceOrigin(userCharmURL, corecharm.Channel{})
-	if err != nil {
-		return errors.Trace(err)
+	// We know 100% that this will be a local charm, so don't attempt to
+	// deduce the origin and just use the correct one to prevent any case that
+	// the origin could be wrong.
+	origin := commoncharm.Origin{
+		Source: commoncharm.OriginLocal,
 	}
 
 	d.id = application.CharmID{
@@ -366,9 +371,11 @@ func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _
 		return errors.Trace(err)
 	}
 
-	origin, err := utils.DeduceOrigin(curl, corecharm.Channel{})
-	if err != nil {
-		return err
+	// We know 100% that this will be a local charm, so don't attempt to
+	// deduce the origin and just use the correct one to prevent any case that
+	// the origin could be wrong.
+	origin := commoncharm.Origin{
+		Source: commoncharm.OriginLocal,
 	}
 
 	ctx.Infof(formatLocatedText(curl, origin))
@@ -394,7 +401,11 @@ func (c *charmStoreCharm) String() string {
 	if isEmptyOrigin(c.origin, commoncharm.OriginCharmStore) {
 		return str
 	}
-	return fmt.Sprintf("%s from channel %s", str, c.origin.CoreChannel().String())
+	var channel string
+	if ch := c.origin.CoreChannel().String(); ch != "" {
+		channel = fmt.Sprintf(" from channel %s", ch)
+	}
+	return fmt.Sprintf("%s%s", str, channel)
 }
 
 // PrepareAndDeploy finishes preparing to deploy a charm store charm,
@@ -470,8 +481,11 @@ func (c *charmStoreCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		return errors.Trace(validationErr)
 	}
 
+	origin.Series = seriesName
+	c.origin = origin
+
 	// Store the charm in the controller
-	curl, csMac, csOrigin, err := store.AddCharmWithAuthorizationFromURL(deployAPI, macaroonGetter, storeCharmOrBundleURL, c.origin, c.force, series)
+	curl, csMac, csOrigin, err := store.AddCharmWithAuthorizationFromURL(deployAPI, macaroonGetter, storeCharmOrBundleURL, c.origin, c.force)
 	if err != nil {
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 			return errors.Trace(termErr.UserErr())

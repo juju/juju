@@ -87,6 +87,7 @@ var defaultK8sCloud = jujucloud.Cloud{
 	Type:           cloud.CloudTypeCAAS,
 	AuthTypes:      []cloud.AuthType{cloud.UserPassAuthType},
 	CACertificates: []string{""},
+	SkipTLSVerify:  true,
 }
 
 var defaultClusterMetadata = &k8s.ClusterMetadata{
@@ -142,6 +143,7 @@ func (s *cloudSuite) TestFinalizeCloudMicrok8s(c *gc.C) {
 		Type:            jujucloud.CloudTypeCAAS,
 		AuthTypes:       []jujucloud.AuthType{jujucloud.UserPassAuthType},
 		CACertificates:  []string{""},
+		SkipTLSVerify:   true,
 		Endpoint:        "http://1.1.1.1:8080",
 		HostCloudRegion: fmt.Sprintf("%s/%s", k8s.K8sCloudMicrok8s, k8s.Microk8sRegion),
 		Config:          map[string]interface{}{"operator-storage": "operator-sc", "workload-storage": ""},

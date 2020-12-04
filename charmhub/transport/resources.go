@@ -3,6 +3,10 @@
 
 package transport
 
+type ResourcesResponse struct {
+	Revisions []ResourceRevision `json:"revisions"`
+}
+
 type ResourceRevision struct {
 	Download ResourceDownload `json:"download"`
 	Name     string           `json:"name"`

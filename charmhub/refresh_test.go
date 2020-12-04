@@ -15,6 +15,7 @@ import (
 
 	path "github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
+	"github.com/juju/juju/core/arch"
 )
 
 type RefreshSuite struct {
@@ -39,7 +40,7 @@ func (s *RefreshSuite) TestRefresh(c *gc.C) {
 			Platform: transport.RefreshRequestPlatform{
 				OS:           "ubuntu",
 				Series:       "focal",
-				Architecture: "all",
+				Architecture: arch.DefaultArchitecture,
 			},
 			TrackingChannel: "latest/stable",
 		}},
@@ -50,7 +51,11 @@ func (s *RefreshSuite) TestRefresh(c *gc.C) {
 		}},
 	}
 
-	config, err := RefreshOne(name, 1, "latest/stable", "ubuntu", "focal")
+	config, err := RefreshOne(name, 1, "latest/stable", RefreshPlatform{
+		OS:           "ubuntu",
+		Series:       "focal",
+		Architecture: arch.DefaultArchitecture,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	config = DefineInstanceKey(c, config, "foo-bar")
@@ -74,7 +79,11 @@ func (s *RefreshSuite) TestRefreshFailure(c *gc.C) {
 	path := path.MakePath(baseURL)
 	name := "meshuggah"
 
-	config, err := RefreshOne(name, 1, "latest/stable", "ubuntu", "focal")
+	config, err := RefreshOne(name, 1, "latest/stable", RefreshPlatform{
+		OS:           "ubuntu",
+		Series:       "focal",
+		Architecture: arch.DefaultArchitecture,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	config = DefineInstanceKey(c, config, "foo-bar")
@@ -122,7 +131,11 @@ var _ = gc.Suite(&RefreshConfigSuite{})
 
 func (s *RefreshConfigSuite) TestRefreshOneBuild(c *gc.C) {
 	id := "foo"
-	config, err := RefreshOne(id, 1, "latest/stable", "ubuntu", "focal")
+	config, err := RefreshOne(id, 1, "latest/stable", RefreshPlatform{
+		OS:           "ubuntu",
+		Series:       "focal",
+		Architecture: arch.DefaultArchitecture,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	config = DefineInstanceKey(c, config, "foo-bar")
@@ -137,7 +150,7 @@ func (s *RefreshConfigSuite) TestRefreshOneBuild(c *gc.C) {
 			Platform: transport.RefreshRequestPlatform{
 				OS:           "ubuntu",
 				Series:       "focal",
-				Architecture: "all",
+				Architecture: arch.DefaultArchitecture,
 			},
 			TrackingChannel: "latest/stable",
 		}},
@@ -150,7 +163,11 @@ func (s *RefreshConfigSuite) TestRefreshOneBuild(c *gc.C) {
 }
 
 func (s *RefreshConfigSuite) TestRefreshOneEnsure(c *gc.C) {
-	config, err := RefreshOne("foo", 1, "latest/stable", "ubuntu", "focal")
+	config, err := RefreshOne("foo", 1, "latest/stable", RefreshPlatform{
+		OS:           "ubuntu",
+		Series:       "focal",
+		Architecture: arch.DefaultArchitecture,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	config = DefineInstanceKey(c, config, "foo-bar")
@@ -165,7 +182,11 @@ func (s *RefreshConfigSuite) TestInstallOneBuildRevision(c *gc.C) {
 	revision := 1
 
 	name := "foo"
-	config, err := InstallOneFromRevision(name, revision, "ubuntu", "focal")
+	config, err := InstallOneFromRevision(name, revision, RefreshPlatform{
+		OS:           "ubuntu",
+		Series:       "focal",
+		Architecture: arch.DefaultArchitecture,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	config = DefineInstanceKey(c, config, "foo-bar")
@@ -182,7 +203,7 @@ func (s *RefreshConfigSuite) TestInstallOneBuildRevision(c *gc.C) {
 			Platform: &transport.RefreshRequestPlatform{
 				OS:           "ubuntu",
 				Series:       "focal",
-				Architecture: "all",
+				Architecture: arch.DefaultArchitecture,
 			},
 		}},
 	})
@@ -192,7 +213,11 @@ func (s *RefreshConfigSuite) TestInstallOneBuildChannel(c *gc.C) {
 	channel := "latest/stable"
 
 	name := "foo"
-	config, err := InstallOneFromChannel(name, channel, "ubuntu", "focal")
+	config, err := InstallOneFromChannel(name, channel, RefreshPlatform{
+		OS:           "ubuntu",
+		Series:       "focal",
+		Architecture: arch.DefaultArchitecture,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	config = DefineInstanceKey(c, config, "foo-bar")
@@ -209,14 +234,18 @@ func (s *RefreshConfigSuite) TestInstallOneBuildChannel(c *gc.C) {
 			Platform: &transport.RefreshRequestPlatform{
 				OS:           "ubuntu",
 				Series:       "focal",
-				Architecture: "all",
+				Architecture: arch.DefaultArchitecture,
 			},
 		}},
 	})
 }
 
 func (s *RefreshConfigSuite) TestInstallOneEnsure(c *gc.C) {
-	config, err := InstallOneFromChannel("foo", "latest/stable", "ubuntu", "focal")
+	config, err := InstallOneFromChannel("foo", "latest/stable", RefreshPlatform{
+		OS:           "ubuntu",
+		Series:       "focal",
+		Architecture: arch.DefaultArchitecture,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	config = DefineInstanceKey(c, config, "foo-bar")
@@ -228,7 +257,11 @@ func (s *RefreshConfigSuite) TestInstallOneEnsure(c *gc.C) {
 }
 
 func (s *RefreshConfigSuite) TestInstallOneFromChannelEnsure(c *gc.C) {
-	config, err := InstallOneFromChannel("foo", "latest/stable", "ubuntu", "focal")
+	config, err := InstallOneFromChannel("foo", "latest/stable", RefreshPlatform{
+		OS:           "ubuntu",
+		Series:       "focal",
+		Architecture: arch.DefaultArchitecture,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	config = DefineInstanceKey(c, config, "foo-bar")
@@ -240,7 +273,11 @@ func (s *RefreshConfigSuite) TestInstallOneFromChannelEnsure(c *gc.C) {
 }
 
 func (s *RefreshConfigSuite) TestDownloadOneEnsure(c *gc.C) {
-	config, err := DownloadOne("foo", 1, "latest/stable", "ubuntu", "focal")
+	config, err := DownloadOne("foo", 1, "latest/stable", RefreshPlatform{
+		OS:           "ubuntu",
+		Series:       "focal",
+		Architecture: arch.DefaultArchitecture,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	config = DefineInstanceKey(c, config, "foo-bar")
@@ -254,7 +291,11 @@ func (s *RefreshConfigSuite) TestDownloadOneEnsure(c *gc.C) {
 func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuild(c *gc.C) {
 	channel := "latest/stable"
 	name := "foo"
-	config, err := DownloadOneFromChannel(name, channel, "ubuntu", "focal")
+	config, err := DownloadOneFromChannel(name, channel, RefreshPlatform{
+		OS:           "ubuntu",
+		Series:       "focal",
+		Architecture: arch.DefaultArchitecture,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	config = DefineInstanceKey(c, config, "foo-bar")
@@ -271,14 +312,18 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuild(c *gc.C) {
 			Platform: &transport.RefreshRequestPlatform{
 				OS:           "ubuntu",
 				Series:       "focal",
-				Architecture: "all",
+				Architecture: arch.DefaultArchitecture,
 			},
 		}},
 	})
 }
 
 func (s *RefreshConfigSuite) TestDownloadOneFromChannelEnsure(c *gc.C) {
-	config, err := DownloadOneFromChannel("foo", "latest/stable", "ubuntu", "focal")
+	config, err := DownloadOneFromChannel("foo", "latest/stable", RefreshPlatform{
+		OS:           "ubuntu",
+		Series:       "focal",
+		Architecture: arch.DefaultArchitecture,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	config = DefineInstanceKey(c, config, "foo-bar")
@@ -291,19 +336,31 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelEnsure(c *gc.C) {
 
 func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 	id1 := "foo"
-	config1, err := RefreshOne(id1, 1, "latest/stable", "ubuntu", "focal")
+	config1, err := RefreshOne(id1, 1, "latest/stable", RefreshPlatform{
+		OS:           "ubuntu",
+		Series:       "focal",
+		Architecture: arch.DefaultArchitecture,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	config1 = DefineInstanceKey(c, config1, "foo-bar")
 
 	id2 := "bar"
-	config2, err := RefreshOne(id2, 2, "latest/edge", "ubuntu", "trusty")
+	config2, err := RefreshOne(id2, 2, "latest/edge", RefreshPlatform{
+		OS:           "ubuntu",
+		Series:       "trusty",
+		Architecture: arch.DefaultArchitecture,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	config2 = DefineInstanceKey(c, config2, "foo-baz")
 
 	channel := "1/stable"
 
 	name3 := "baz"
-	config3, err := InstallOneFromChannel(name3, "1/stable", "ubuntu", "disco")
+	config3, err := InstallOneFromChannel(name3, "1/stable", RefreshPlatform{
+		OS:           "ubuntu",
+		Series:       "disco",
+		Architecture: arch.DefaultArchitecture,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	config3 = DefineInstanceKey(c, config3, "foo-taz")
@@ -320,7 +377,7 @@ func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 			Platform: transport.RefreshRequestPlatform{
 				OS:           "ubuntu",
 				Series:       "focal",
-				Architecture: "all",
+				Architecture: arch.DefaultArchitecture,
 			},
 			TrackingChannel: "latest/stable",
 		}, {
@@ -330,7 +387,7 @@ func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 			Platform: transport.RefreshRequestPlatform{
 				OS:           "ubuntu",
 				Series:       "trusty",
-				Architecture: "all",
+				Architecture: arch.DefaultArchitecture,
 			},
 			TrackingChannel: "latest/edge",
 		}},
@@ -349,7 +406,7 @@ func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 			Platform: &transport.RefreshRequestPlatform{
 				OS:           "ubuntu",
 				Series:       "disco",
-				Architecture: "all",
+				Architecture: arch.DefaultArchitecture,
 			},
 			Channel: &channel,
 		}},
@@ -357,11 +414,19 @@ func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 }
 
 func (s *RefreshConfigSuite) TestRefreshManyEnsure(c *gc.C) {
-	config1, err := RefreshOne("foo", 1, "latest/stable", "ubuntu", "focal")
+	config1, err := RefreshOne("foo", 1, "latest/stable", RefreshPlatform{
+		OS:           "ubuntu",
+		Series:       "focal",
+		Architecture: arch.DefaultArchitecture,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	config1 = DefineInstanceKey(c, config1, "foo-bar")
 
-	config2, err := RefreshOne("bar", 2, "latest/edge", "ubuntu", "trusty")
+	config2, err := RefreshOne("bar", 2, "latest/edge", RefreshPlatform{
+		OS:           "ubuntu",
+		Series:       "trusty",
+		Architecture: arch.DefaultArchitecture,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	config2 = DefineInstanceKey(c, config2, "foo-baz")
 

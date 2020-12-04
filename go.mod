@@ -90,7 +90,7 @@ require (
 	github.com/lestrrat/go-jsval v0.0.0-20161012045717-b1258a10419f // indirect
 	github.com/lestrrat/go-pdebug v0.0.0-20160817063333-2e6eaaa5717f // indirect
 	github.com/lestrrat/go-structinfo v0.0.0-20160308131105-f74c056fe41f // indirect
-	github.com/lxc/lxd v0.0.0-20200306132355-582edb00c72c
+	github.com/lxc/lxd v0.0.0-20201127143816-0245f4a840c6
 	github.com/mattn/go-isatty v0.0.12
 	github.com/mitchellh/go-linereader v0.0.0-20190213213312-1b945b3263eb
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect

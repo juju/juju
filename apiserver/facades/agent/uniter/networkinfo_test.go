@@ -453,10 +453,14 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelInvalidBinding(c *gc.
 
 func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
 	spaceIDDefault := s.setupSpace(c, "default", "10.0.0.0/24")
-	spaceIDDMZ := s.setupSpace(c, "dmz", "10.10.0.0/24")
+	spaceIDPublic := s.setupSpace(c, "public", "10.10.0.0/24")
 	_ = s.setupSpace(c, "private", "10.20.0.0/24")
 
-	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	bindings := map[string]string{
+		"":             "default",
+		"server-admin": "public",
+	}
+	app := s.AddTestingApplicationWithBindings(c, "wordpress", s.AddTestingCharm(c, "mysql"), bindings)
 
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -483,9 +487,9 @@ func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
 	ni := s.newNetworkInfo(c, unit.UnitTag(), nil, nil)
 	netInfo := ni.(*uniter.NetworkInfoIAAS)
 
-	res, err := netInfo.MachineNetworkInfos(spaceIDDefault, spaceIDDMZ, "666", network.AlphaSpaceId)
+	res, err := netInfo.MachineNetworkInfos()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res, gc.HasLen, 4)
+	c.Check(res, gc.HasLen, 3)
 
 	resDefault, ok := res[spaceIDDefault]
 	c.Assert(ok, jc.IsTrue)
@@ -496,15 +500,18 @@ func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
 	c.Check(resDefault.Info[0].Addresses[0].Address, gc.Equals, "10.0.0.20")
 	c.Check(resDefault.Info[0].Addresses[0].CIDR, gc.Equals, "10.0.0.0/24")
 
-	resDMZ, ok := res[spaceIDDMZ]
+	resPublic, ok := res[spaceIDPublic]
 	c.Assert(ok, jc.IsTrue)
-	c.Check(resDMZ.Error, gc.IsNil)
-	c.Assert(resDMZ.Info, gc.HasLen, 1)
-	c.Check(resDMZ.Info[0].InterfaceName, gc.Equals, "eth1")
-	c.Assert(resDMZ.Info[0].Addresses, gc.HasLen, 1)
-	c.Check(resDMZ.Info[0].Addresses[0].Address, gc.Equals, "10.10.0.20")
-	c.Check(resDMZ.Info[0].Addresses[0].CIDR, gc.Equals, "10.10.0.0/24")
+	c.Check(resPublic.Error, gc.IsNil)
+	c.Assert(resPublic.Info, gc.HasLen, 1)
+	c.Check(resPublic.Info[0].InterfaceName, gc.Equals, "eth1")
+	c.Assert(resPublic.Info[0].Addresses, gc.HasLen, 1)
+	c.Check(resPublic.Info[0].Addresses[0].Address, gc.Equals, "10.10.0.20")
+	c.Check(resPublic.Info[0].Addresses[0].CIDR, gc.Equals, "10.10.0.0/24")
 
+	// The implicit juju-info endpoint is bound to alpha.
+	// With no NICs in this space, we pick the NIC that matches the machine's
+	// local-cloud address, even though it is actually in the private space.
 	resEmpty, ok := res[network.AlphaSpaceId]
 	c.Assert(ok, jc.IsTrue)
 	c.Check(resEmpty.Error, gc.IsNil)
@@ -513,11 +520,6 @@ func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
 	c.Assert(resEmpty.Info[0].Addresses, gc.HasLen, 1)
 	c.Check(resEmpty.Info[0].Addresses[0].Address, gc.Equals, "10.20.0.20")
 	c.Check(resEmpty.Info[0].Addresses[0].CIDR, gc.Equals, "10.20.0.0/24")
-
-	resDoesNotExists, ok := res["666"]
-	c.Assert(ok, jc.IsTrue)
-	c.Check(resDoesNotExists.Error, gc.ErrorMatches, `.*machine "0" has no devices in space "666".*`)
-	c.Assert(resDoesNotExists.Info, gc.HasLen, 0)
 }
 
 // TODO (manadart 2020-02-21): This test can be removed after universal subnet
@@ -550,7 +552,7 @@ func (s *networkInfoSuite) TestMachineNetworkInfosAlphaNoSubnets(c *gc.C) {
 	ni := s.newNetworkInfo(c, unit.UnitTag(), nil, nil)
 	netInfo := ni.(*uniter.NetworkInfoIAAS)
 
-	res, err := netInfo.MachineNetworkInfos(network.AlphaSpaceId)
+	res, err := netInfo.MachineNetworkInfos()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, gc.HasLen, 1)
 

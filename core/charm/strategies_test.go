@@ -108,7 +108,12 @@ func (s strategySuite) TestRunWithCharmAlreadyUploaded(c *gc.C) {
 	_, alreadyExists, obtainedOrigin, err := strategy.Run(mockState, mockVersionValidator, Origin{Source: CharmHub})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(alreadyExists, jc.IsTrue)
-	c.Assert(obtainedOrigin, jc.DeepEquals, Origin{Source: CharmHub})
+	c.Assert(obtainedOrigin, jc.DeepEquals, Origin{
+		Source: CharmHub,
+		Platform: Platform{
+			Architecture: "amd64",
+		},
+	})
 }
 
 func (s strategySuite) TestRunWithPrepareUploadError(c *gc.C) {
@@ -169,6 +174,56 @@ func (s strategySuite) TestRun(c *gc.C) {
 	_, alreadyExists, _, err := strategy.Run(mockState, mockVersionValidator, Origin{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(alreadyExists, jc.IsFalse)
+}
+
+func (s strategySuite) TestRunWithPlatform(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	curl := charm.MustParseURL("cs:redis-0")
+	meta := &charm.Meta{
+		MinJujuVersion: version.Number{Major: 2},
+	}
+
+	mockVersionValidator := NewMockJujuVersionValidator(ctrl)
+	mockVersionValidator.EXPECT().Validate(meta).Return(nil)
+
+	mockStateCharm := NewMockStateCharm(ctrl)
+	mockStateCharm.EXPECT().IsUploaded().Return(false)
+
+	mockStoreCharm := NewMockStoreCharm(ctrl)
+	mockStoreCharm.EXPECT().Meta().Return(meta)
+
+	// We're replicating a charm without a LXD profile here and ensuring it
+	// correctly handles nil.
+	mockStoreCharm.EXPECT().LXDProfile().Return(nil)
+
+	mockState := NewMockState(ctrl)
+	mockState.EXPECT().PrepareCharmUpload(curl).Return(mockStateCharm, nil)
+
+	mockStore := NewMockStore(ctrl)
+	mockStore.EXPECT().Download(curl, gomock.Any(), gomock.AssignableToTypeOf(Origin{})).DoAndReturn(mustWriteToTempFile(c, mockStoreCharm))
+
+	strategy := &Strategy{
+		charmURL: curl,
+		store:    mockStore,
+		logger:   &fakeLogger{},
+	}
+	_, alreadyExists, origin, err := strategy.Run(mockState, mockVersionValidator, Origin{
+		Platform: Platform{
+			Series: "focal",
+			OS:     "Ubuntu",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(alreadyExists, jc.IsFalse)
+	c.Assert(origin, gc.DeepEquals, Origin{
+		Platform: Platform{
+			Architecture: "amd64",
+			Series:       "focal",
+			OS:           "ubuntu", // notice lower case
+		},
+	})
 }
 
 func (s strategySuite) TestRunWithInvalidLXDProfile(c *gc.C) {

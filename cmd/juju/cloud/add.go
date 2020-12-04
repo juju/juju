@@ -423,6 +423,7 @@ func cloudFromLocal(store jujuclient.CredentialGetter, cloudName string) (*jujuc
 		IdentityEndpoint: cloudDetails.IdentityEndpoint,
 		StorageEndpoint:  cloudDetails.StorageEndpoint,
 		CACertificates:   cloudDetails.CACredentials,
+		SkipTLSVerify:    cloudDetails.SkipTLSVerify,
 		Config:           cloudDetails.Config,
 		RegionConfig:     cloudDetails.RegionConfig,
 	}

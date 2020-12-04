@@ -146,8 +146,9 @@ func cloudsFromConfig(config *clientcmdapi.Config, cloudName string) (map[string
 		attrs["CAData"] = string(k8sCAData)
 
 		return CloudConfig{
-			Endpoint:   cluster.Server,
-			Attributes: attrs,
+			Endpoint:      cluster.Server,
+			SkipTLSVerify: cluster.InsecureSkipTLSVerify,
+			Attributes:    attrs,
 		}, nil
 	}
 

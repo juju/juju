@@ -300,6 +300,7 @@ func (s *cloudSuite) TestMarshalCloud(c *gc.C) {
 		AuthTypes:      []cloud.AuthType{"baz"},
 		Endpoint:       "qux",
 		CACertificates: []string{"fakecacert"},
+		SkipTLSVerify:  true,
 	}
 	marshalled, err := cloud.MarshalCloud(in)
 	c.Assert(err, jc.ErrorIsNil)
@@ -310,6 +311,7 @@ auth-types: [baz]
 endpoint: qux
 ca-certificates:
 - fakecacert
+skip-tls-verify: true
 `[1:])
 }
 
@@ -320,6 +322,7 @@ type: bar
 auth-types: [baz]
 endpoint: qux
 ca-certificates: [fakecacert]
+skip-tls-verify: true
 `)
 	out, err := cloud.UnmarshalCloud(in)
 	c.Assert(err, jc.ErrorIsNil)
@@ -329,6 +332,7 @@ ca-certificates: [fakecacert]
 		AuthTypes:      []cloud.AuthType{"baz"},
 		Endpoint:       "qux",
 		CACertificates: []string{"fakecacert"},
+		SkipTLSVerify:  true,
 	})
 }
 

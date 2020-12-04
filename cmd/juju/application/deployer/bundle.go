@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/bundle"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
@@ -112,8 +113,17 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 				if err != nil {
 					return errors.Trace(err)
 				}
+				cons, err := constraints.Parse(applicationSpec.Constraints)
+				if err != nil {
+					return errors.Trace(err)
+				}
 
-				origin, err := utils.DeduceOrigin(charmURL, d.origin.CoreChannel())
+				platform, err := utils.DeducePlatform(cons, applicationSpec.Series)
+				if err != nil {
+					return errors.Trace(err)
+				}
+
+				origin, err := utils.DeduceOrigin(charmURL, d.origin.CoreChannel(), platform)
 				if err != nil {
 					return errors.Trace(err)
 				}
@@ -205,7 +215,11 @@ func (d *localBundle) String() string {
 	if isEmptyOrigin(d.origin, commoncharm.OriginLocal) {
 		return str
 	}
-	return fmt.Sprintf("%s from channel %s", str, d.origin.CoreChannel().String())
+	var channel string
+	if ch := d.origin.CoreChannel().String(); ch != "" {
+		channel = fmt.Sprintf(" from channel %s", ch)
+	}
+	return fmt.Sprintf("%s%s", str, channel)
 }
 
 // PrepareAndDeploy deploys a local bundle, no further preparation is needed.
@@ -223,7 +237,11 @@ func (d *charmstoreBundle) String() string {
 	if isEmptyOrigin(d.origin, commoncharm.OriginCharmStore) {
 		return str
 	}
-	return fmt.Sprintf("%s from channel %s", str, d.origin.CoreChannel().String())
+	var channel string
+	if ch := d.origin.CoreChannel().String(); ch != "" {
+		channel = fmt.Sprintf(" from channel %s", ch)
+	}
+	return fmt.Sprintf("%s%s", str, channel)
 }
 
 // PrepareAndDeploy deploys a local bundle, no further preparation is needed.

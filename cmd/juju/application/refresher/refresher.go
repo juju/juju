@@ -287,8 +287,8 @@ func (r baseRefresher) ResolveCharm() (*charm.URL, commoncharm.Origin, error) {
 // charmStoreResolveOrigin attempts to resolve the origin required to resolve
 // a charm. It does this by deducing the origin from the charm URL and the
 // incoming channel.
-func charmStoreResolveOrigin(curl *charm.URL, _ corecharm.Origin, channel corecharm.Channel) (commoncharm.Origin, error) {
-	result, err := utils.DeduceOrigin(curl, channel)
+func charmStoreResolveOrigin(curl *charm.URL, origin corecharm.Origin, channel corecharm.Channel) (commoncharm.Origin, error) {
+	result, err := utils.DeduceOrigin(curl, channel, origin.Platform)
 	if err != nil {
 		return commoncharm.Origin{}, errors.Trace(err)
 	}
@@ -331,7 +331,11 @@ func (r *charmStoreRefresher) Refresh() (*CharmID, error) {
 		return nil, errors.Trace(err)
 	}
 
-	curl, csMac, _, err := store.AddCharmWithAuthorizationFromURL(r.charmAdder, r.authorizer, newURL, origin, r.force, r.deployedSeries)
+	if r.deployedSeries != "" {
+		origin.Series = r.deployedSeries
+	}
+
+	curl, csMac, _, err := store.AddCharmWithAuthorizationFromURL(r.charmAdder, r.authorizer, newURL, origin, r.force)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -414,7 +418,11 @@ func (r *charmHubRefresher) Refresh() (*CharmID, error) {
 		return nil, errors.Trace(err)
 	}
 
-	curl, _, err := store.AddCharmFromURL(r.charmAdder, newURL, origin, r.force, r.deployedSeries)
+	if r.deployedSeries != "" {
+		origin.Series = r.deployedSeries
+	}
+
+	curl, _, err := store.AddCharmFromURL(r.charmAdder, newURL, origin, r.force)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -28,3 +28,4 @@ scripts/mgo-run-txn/mgo-run-txn
 tests/tmp.*
 *.out
 *.charm
+*.bundle

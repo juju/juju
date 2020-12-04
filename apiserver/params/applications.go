@@ -22,6 +22,7 @@ type ApplicationsDeploy struct {
 type CharmOrigin struct {
 	// Source is where the charm came from, Local, CharmStore or CharmHub.
 	Source string `json:"source"`
+	Type   string `json:"type"`
 
 	// ID is the CharmHub ID for this charm
 	ID   string `json:"id"`
@@ -33,6 +34,10 @@ type CharmOrigin struct {
 	// Revision is the charm revision number.
 	Revision *int    `json:"revision,omitempty"`
 	Track    *string `json:"track,omitempty"`
+
+	Architecture string `json:"architecture,omitempty"`
+	OS           string `json:"os,omitempty"`
+	Series       string `json:"series,omitempty"`
 }
 
 // ApplicationDeploy holds the parameters for making the application Deploy

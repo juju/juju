@@ -147,7 +147,8 @@ var (
           garage-maas:
             type: maas
             auth-types: [oauth1]
-            endpoint: "http://garagemaas"`
+            endpoint: "http://garagemaas"
+            skip-tls-verify: true`
 
 	manyCloudsYamlFile = `
         clouds:
@@ -161,10 +162,11 @@ var (
             endpoint: "http://garagemaas"`
 
 	garageMAASCloud = jujucloud.Cloud{
-		Name:      "garage-maas",
-		Type:      "maas",
-		AuthTypes: []jujucloud.AuthType{"oauth1"},
-		Endpoint:  "http://garagemaas",
+		Name:          "garage-maas",
+		Type:          "maas",
+		AuthTypes:     []jujucloud.AuthType{"oauth1"},
+		Endpoint:      "http://garagemaas",
+		SkipTLSVerify: true,
 	}
 
 	manualCloud = jujucloud.Cloud{
@@ -417,12 +419,13 @@ func (s *addSuite) asssertAddToController(c *gc.C, force bool) {
 	api.CheckCallNames(c, "AddCloud", "AddCredential", "Close")
 	api.CheckCall(c, 0, "AddCloud",
 		jujucloud.Cloud{
-			Name:        "garage-maas",
-			Type:        "maas",
-			Description: "Metal As A Service",
-			AuthTypes:   jujucloud.AuthTypes{"oauth1"},
-			Endpoint:    "http://garagemaas",
-			Regions:     []jujucloud.Region{{Name: "default"}},
+			Name:          "garage-maas",
+			Type:          "maas",
+			Description:   "Metal As A Service",
+			AuthTypes:     jujucloud.AuthTypes{"oauth1"},
+			Endpoint:      "http://garagemaas",
+			Regions:       []jujucloud.Region{{Name: "default"}},
+			SkipTLSVerify: true,
 		},
 		force)
 	api.CheckCall(c, 1, "AddCredential", "cloudcred-garage-maas_fred_default", cred)
@@ -445,12 +448,13 @@ func (s *addSuite) TestAddToControllerIncompatibleCloud(c *gc.C) {
 	api.CheckCallNames(c, "AddCloud", "Close")
 	api.CheckCall(c, 0, "AddCloud",
 		jujucloud.Cloud{
-			Name:        "garage-maas",
-			Type:        "maas",
-			Description: "Metal As A Service",
-			AuthTypes:   jujucloud.AuthTypes{"oauth1"},
-			Endpoint:    "http://garagemaas",
-			Regions:     []jujucloud.Region{{Name: "default"}},
+			Name:          "garage-maas",
+			Type:          "maas",
+			Description:   "Metal As A Service",
+			AuthTypes:     jujucloud.AuthTypes{"oauth1"},
+			Endpoint:      "http://garagemaas",
+			Regions:       []jujucloud.Region{{Name: "default"}},
+			SkipTLSVerify: true,
 		},
 		false)
 	out := cmdtesting.Stderr(ctx)
