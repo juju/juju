@@ -25,7 +25,6 @@ type NewCharmRepository interface {
 // to charmstore.client.  Juju's charmstore package is what the charmHubClient is doing
 // here, making calls to the charmhub and returning data in a format that the facade
 // would like to see.
-// The question remains, where to put the charmhub piece?
 
 // CharmID encapsulates data for identifying a unique charm in a charm repository.
 type CharmID struct {
@@ -67,7 +66,7 @@ func (ch *charmHubClient) ResolveResources(uploadedResources []charmresource.Res
 		chResources[res.Name] = res
 	}
 	results := make([]charmresource.Resource, len(chResources))
-	i := 0
+	var i int
 	for _, res := range chResources {
 		results[i] = res
 		i += 1

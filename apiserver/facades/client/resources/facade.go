@@ -76,8 +76,9 @@ func NewFacadeV2(ctx facade.Context) (*API, error) {
 	}
 
 	factory := func(chID CharmID) (NewCharmRepository, error) {
-		switch chID.URL.Schema {
-		case "ch":
+		schema := chID.URL.Schema
+		switch {
+		case charm.CharmHub.Matches(schema):
 			var chCfg charmhub.Config
 			chURL, ok := modelCfg.CharmHubURL()
 			if ok {
@@ -93,13 +94,13 @@ func NewFacadeV2(ctx facade.Context) (*API, error) {
 				return nil, errors.Trace(err)
 			}
 			return &charmHubClient{client: chClient, id: chID}, nil
-		case "cs":
+		case charm.CharmStore.Matches(schema):
 			cl, err := charmstore.NewCachingClient(state.MacaroonCache{st}, controllerCfg.CharmStoreURL())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 			return &charmStoreClient{client: cl, id: chID}, nil
-		case "local":
+		case charm.Local.Matches(schema):
 			return &localClient{}, nil
 		default:
 			return nil, errors.Errorf("unrecognized charm schema %q", chID.URL.Schema)
@@ -286,6 +287,7 @@ func convertParamsOrigin(origin params.CharmOrigin) corecharm.Origin {
 	}
 	return corecharm.Origin{
 		Source:   corecharm.Source(origin.Source),
+		Type:     origin.Type,
 		ID:       origin.ID,
 		Hash:     origin.Hash,
 		Revision: origin.Revision,

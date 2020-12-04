@@ -66,7 +66,7 @@ func (s *CharmHubClientSuite) TestResolveResourcesUpload(c *gc.C) {
 }
 
 func (s *CharmHubClientSuite) newClient() NewCharmRepository {
-	curl, _ := charm.ParseURL("ubuntu")
+	curl := charm.MustParseURL("ubuntu")
 	channel, _ := corecharm.ParseChannel("stable")
 	return &charmHubClient{
 		client: s.client,
