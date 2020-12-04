@@ -15,6 +15,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/os/v2/series"
 
+	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
@@ -139,7 +140,7 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 		case "ch":
 			origin := application.CharmOrigin()
 			if origin == nil || origin.Revision == nil {
-				logger.Errorf("charm %s has no revision, skipping", curl)
+				logger.Debugf("charm %s has no revision, skipping", curl)
 				continue
 			}
 			os, err := series.GetOSFromSeries(application.Series())
@@ -226,7 +227,7 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 
 	// Fetch info for any charmhub charms.
 	if len(charmhubIDs) > 0 {
-		client, err := createCharmhubClient(st)
+		client, err := common.CharmhubClient(st)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

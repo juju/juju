@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2"
@@ -111,16 +112,12 @@ func (fix workerFixture) dirtyTest(c *gc.C, test testFunc) {
 	fix.runTest(c, test, false)
 }
 
-type blackholeLogger struct{}
-
-func (l *blackholeLogger) Debugf(string, ...interface{}) {}
-
 func (fix workerFixture) runTest(c *gc.C, test testFunc, checkWaitErr bool) {
 	w, err := charmrevision.NewWorker(charmrevision.Config{
 		RevisionUpdater: fix.revisionUpdater,
 		Clock:           fix.clock,
 		Period:          fix.period,
-		Logger:          &blackholeLogger{},
+		Logger:          loggo.GetLogger("test"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {

@@ -1,6 +1,8 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// TODO(benhoyt) - also add caching and retries, like we do with charmstore
+
 package charmrevisionupdater
 
 import (
@@ -12,12 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
-	"github.com/juju/juju/state"
-)
-
-const (
-	// TODO(benhoyt) - also add caching and retries
-	charmhubAPITimeout = 10 * time.Second
 )
 
 // charmhubID holds identifying information for several charms for a
@@ -41,29 +37,6 @@ type charmhubResult struct {
 	error     error
 }
 
-// createCharmhubClient creates a new charmhub Client based on this model's
-// config.
-func createCharmhubClient(st *state.State) (*charmhub.Client, error) {
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	modelConfig, err := model.Config()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	url, _ := modelConfig.CharmHubURL()
-	config, err := charmhub.CharmHubConfigFromURL(url, logger.Child("charmhub"))
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	client, err := charmhub.NewClient(config)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return client, nil
-}
-
 // charmhubLatestCharmInfo fetches the latest information about the given
 // charms from charmhub's "charm_refresh" API.
 func charmhubLatestCharmInfo(client *charmhub.Client, ids []charmhubID) ([]charmhubResult, error) {
@@ -83,7 +56,7 @@ func charmhubLatestCharmInfo(client *charmhub.Client, ids []charmhubID) ([]charm
 	}
 	config := charmhub.RefreshMany(cfgs...)
 
-	ctx, cancel := context.WithTimeout(context.Background(), charmhubAPITimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), charmhub.RefreshTimeout)
 	defer cancel()
 	responses, err := client.Refresh(ctx, config)
 	if err != nil {
@@ -116,12 +89,12 @@ func refreshResponseToCharmhubResult(response transport.RefreshResponse) charmhu
 	for _, r := range response.Entity.Resources {
 		fingerprint, err := resource.ParseFingerprint(r.Download.HashSHA384)
 		if err != nil {
-			logger.Errorf("invalid resource fingerprint %q", r.Download.HashSHA384)
+			logger.Warningf("invalid resource fingerprint %q", r.Download.HashSHA384)
 			continue
 		}
 		typ, err := resource.ParseType(r.Type)
 		if err != nil {
-			logger.Errorf("invalid resource type %q", r.Type)
+			logger.Warningf("invalid resource type %q", r.Type)
 			continue
 		}
 		resource := resource.Resource{
