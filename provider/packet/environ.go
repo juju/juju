@@ -240,13 +240,11 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	if keyErr == nil {
 		device.ProjectSSHKeys = []string{k.ID}
 	}
-	// logger.Errorf("*****device %s", spew.Sdump(device))
 
 	d, _, err := e.packetClient.Devices.Create(device)
 	if err != nil {
 		return nil, err
 	}
-
 	d, err = waitDeviceActive(e.packetClient, d.ID)
 
 	inst := &packetDevice{e, d}
