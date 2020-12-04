@@ -1,5 +1,6 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
+
 package packet
 
 import (
@@ -16,6 +17,7 @@ import (
 	"github.com/lxc/lxd/shared/logger"
 	"github.com/packethost/packngo"
 )
+
 
 type environProvider struct {
 	environProviderCredentials
