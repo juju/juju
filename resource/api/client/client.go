@@ -253,9 +253,13 @@ func newAddPendingResourcesArgsV2(tag names.ApplicationTag, chID CharmID, csMac 
 
 // UploadPendingResource sends the provided resource blob up to Juju
 // and makes it available.
-func (c Client) UploadPendingResource(applicationID string, res charmresource.Resource, filename string, reader io.ReadSeeker) (pendingID string, err error) {
+func (c Client) UploadPendingResource(application string, res charmresource.Resource, filename string, reader io.ReadSeeker) (pendingID string, err error) {
+	if !names.IsValidApplication(application) {
+		return "", errors.Errorf("invalid application %q", application)
+	}
+
 	ids, err := c.AddPendingResources(AddPendingResourcesArgs{
-		ApplicationID: applicationID,
+		ApplicationID: application,
 		Resources:     []charmresource.Resource{res},
 	})
 	if err != nil {
@@ -264,7 +268,7 @@ func (c Client) UploadPendingResource(applicationID string, res charmresource.Re
 	pendingID = ids[0]
 
 	if reader != nil {
-		uReq, err := api.NewUploadRequest(applicationID, res.Name, filename, reader)
+		uReq, err := api.NewUploadRequest(application, res.Name, filename, reader)
 		if err != nil {
 			return "", errors.Trace(err)
 		}
