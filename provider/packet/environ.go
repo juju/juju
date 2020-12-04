@@ -67,11 +67,9 @@ func (e *environ) getPacketInstancesByTag(tag, state string) ([]instances.Instan
 	}
 
 	for _, d := range devices {
-		if state != "" && d.State == state {
+		if state == "" || d.State == state {
 			toReturn = append(toReturn, &packetDevice{e, &d})
-		} else if state == "" {
-			toReturn = append(toReturn, &packetDevice{e, &d})
-		}
+		} 
 	}
 
 	return toReturn, nil
