@@ -977,10 +977,12 @@ class ModelClient:
         })
 
     @contextmanager
-    def _bootstrap_config(self, mongo_memory_profile=None, caas_image_repo=None):
+    def _bootstrap_config(self, mongo_memory_profile=None, db_snap_channel=None, caas_image_repo=None):
         cfg = self.make_model_config()
         if mongo_memory_profile:
             cfg['mongo-memory-profile'] = mongo_memory_profile
+        if db_snap_channel:
+            cfg['juju-db-snap-channel'] = db_snap_channel
         if caas_image_repo:
             cfg['caas-image-repo'] = caas_image_repo
         with temp_yaml_file(cfg) as config_filename:
@@ -998,11 +1000,11 @@ class ModelClient:
                   credential=None, auto_upgrade=False, metadata_source=None,
                   no_gui=False, agent_version=None, db_snap_path=None,
                   db_snap_asserts_path=None, mongo_memory_profile=None, caas_image_repo=None, force=False,
-                  config_options=None):
+                  db_snap_channel=None, config_options=None):
         """Bootstrap a controller."""
         self._check_bootstrap()
         with self._bootstrap_config(
-                mongo_memory_profile, caas_image_repo,
+                mongo_memory_profile, db_snap_channel, caas_image_repo,
         ) as config_filename:
             args = self.get_bootstrap_args(
                 upload_tools=upload_tools,
