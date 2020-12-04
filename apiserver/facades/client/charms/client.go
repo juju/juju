@@ -521,7 +521,25 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel, mac *macaroon.
 		return result
 	}
 	result.URL = resultURL.String()
-	result.Origin = origin
+
+	// The charmhub API can return "all" for architecture as it's not a real
+	// arch we don't know how to correctly model it. "all " doesn't mean use the
+	// default arch, it means use any arch which isn't quite the same. So if we
+	// do get "all" we should see if there is a clean way to resolve it.
+	archOrigin := origin
+	if origin.Architecture == "all" {
+		cons, err := a.backendState.ModelConstraints()
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+			return result
+		}
+		if cons.HasArch() {
+			archOrigin.Architecture = *cons.Arch
+		}
+	}
+
+	result.Origin = archOrigin
+
 	switch {
 	case resultURL.Series != "" && len(supportedSeries) == 0:
 		result.SupportedSeries = []string{resultURL.Series}
