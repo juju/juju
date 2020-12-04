@@ -108,7 +108,7 @@ func (e *environ) Destroy(ctx context.ProviderCallContext) error {
 func (e *environ) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
 	_, err := e.packetClient.Devices.Delete(controllerUUID, true)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	return nil
