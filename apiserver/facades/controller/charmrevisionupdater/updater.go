@@ -13,13 +13,13 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/os/v2/series"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 )
@@ -108,7 +108,7 @@ var NewCharmStoreClient = func(st *state.State) (charmstore.Client, error) {
 
 // NewCharmhubClient instantiates a new charmhub client (exported for testing).
 var NewCharmhubClient = func(st *state.State) (CharmhubRefreshClient, error) {
-	return common.CharmhubClient(st)
+	return common.CharmhubClient(st, logger)
 }
 
 type latestCharmInfo struct {
@@ -138,40 +138,37 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 	)
 	for _, application := range applications {
 		curl, _ := application.CharmURL()
-		switch curl.Schema {
-		case "local":
+		switch {
+		case charm.Local.Matches(curl.Schema):
 			continue
 
-		case "ch":
+		case charm.CharmHub.Matches(curl.Schema):
 			origin := application.CharmOrigin()
-			if origin == nil || origin.Revision == nil {
-				logger.Debugf("charm %s has no revision, skipping", curl)
+			if origin == nil {
+				logger.Debugf("charm %s has no origin, skipping", curl)
 				continue
 			}
-			os, err := series.GetOSFromSeries(application.Series())
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			archs, err := deployedArchs(application)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			if len(archs) == 0 {
-				logger.Debugf("charm %s not deployed to any architectures, skipping", curl)
+			if origin.Revision == nil || origin.Channel == nil || origin.Platform == nil {
+				logger.Debugf("charm %s has no revision (%p), channel (%p), or platform (%p), skipping",
+					curl, origin.Revision, origin.Channel, origin.Platform)
 				continue
+			}
+			channel, err := corecharm.MakeChannel(origin.Channel.Track, origin.Channel.Risk, origin.Channel.Branch)
+			if err != nil {
+				return nil, errors.Trace(err)
 			}
 			cid := charmhubID{
 				id:       origin.ID,
 				revision: *origin.Revision,
-				channel:  string(application.Channel()),
-				os:       strings.ToLower(os.String()), // charmhub API requires lowercase OS name
-				series:   application.Series(),
-				arch:     archs[0],
+				channel:  channel.String(),
+				os:       strings.ToLower(origin.Platform.OS), // charmhub API requires lowercase OS name
+				series:   origin.Platform.Series,
+				arch:     origin.Platform.Architecture,
 			}
 			charmhubIDs = append(charmhubIDs, cid)
 			charmhubApps = append(charmhubApps, application)
 
-		case "cs":
+		case charm.CharmStore.Matches(curl.Schema):
 			archs, err := deployedArchs(application)
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -192,80 +189,94 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 		}
 	}
 
-	// Fetch info for any charmstore charms.
 	var latest []latestCharmInfo
 	if len(charmstoreIDs) > 0 {
-		client, err := NewCharmStoreClient(st)
+		storeLatest, err := fetchCharmstoreInfos(st, charmstoreIDs, charmstoreApps)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		metadata, err := charmstoreAPIMetadata(st)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		results, err := charmstore.LatestCharmInfo(client, charmstoreIDs, metadata)
-		logger.Infof("TODO LatestCharmInfo results=%#v, error=%v", results, err)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		for i, result := range results {
-			if i >= len(charmstoreApps) {
-				logger.Errorf("retrieved more results (%d) than charmstore applications (%d)",
-					i, len(charmstoreApps))
-				break
-			}
-			if result.Error != nil {
-				logger.Errorf("retrieving charm info for %s: %v", charmstoreIDs[i].URL, result.Error)
-				continue
-			}
-			application := charmstoreApps[i]
-			latest = append(latest, latestCharmInfo{
-				url:         result.CharmInfo.OriginalURL.WithRevision(result.CharmInfo.LatestRevision),
-				timestamp:   result.CharmInfo.Timestamp,
-				revision:    result.CharmInfo.LatestRevision,
-				resources:   result.CharmInfo.LatestResources,
-				application: application,
-			})
-		}
+		latest = append(latest, storeLatest...)
 	}
-
-	// Fetch info for any charmhub charms.
 	if len(charmhubIDs) > 0 {
-		client, err := NewCharmhubClient(st)
+		hubLatest, err := fetchCharmhubInfos(st, charmhubIDs, charmhubApps)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		results, err := charmhubLatestCharmInfo(client, charmhubIDs)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		for i, result := range results {
-			if i >= len(charmhubApps) {
-				logger.Errorf("retrieved more results (%d) than charmhub applications (%d)",
-					i, len(charmhubApps))
-				break
-			}
-			if result.error != nil {
-				logger.Errorf("retrieving charm info for ID %s: %v", charmhubIDs[i].id, result.error)
-				continue
-			}
-			application := charmhubApps[i]
-			latest = append(latest, latestCharmInfo{
-				url: &charm.URL{ // TODO(benhoyt) - not entirely sure about this?
-					Schema:   "ch",
-					Name:     result.name,
-					Revision: result.revision,
-				},
-				timestamp:   result.timestamp,
-				revision:    result.revision,
-				resources:   result.resources,
-				application: application,
-			})
-		}
+		latest = append(latest, hubLatest...)
 	}
 
+	return latest, nil
+}
+
+func fetchCharmstoreInfos(st *state.State, ids []charmstore.CharmID, apps []*state.Application) ([]latestCharmInfo, error) {
+	client, err := NewCharmStoreClient(st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	metadata, err := charmstoreAPIMetadata(st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	results, err := charmstore.LatestCharmInfo(client, ids, metadata)
+	logger.Infof("TODO LatestCharmInfo results=%#v, error=%v", results, err)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var latest []latestCharmInfo
+	for i, result := range results {
+		if i >= len(apps) {
+			logger.Errorf("retrieved more results (%d) than charmstore applications (%d)",
+				i, len(apps))
+			break
+		}
+		if result.Error != nil {
+			logger.Errorf("retrieving charm info for %s: %v", ids[i].URL, result.Error)
+			continue
+		}
+		application := apps[i]
+		latest = append(latest, latestCharmInfo{
+			url:         result.CharmInfo.OriginalURL.WithRevision(result.CharmInfo.LatestRevision),
+			timestamp:   result.CharmInfo.Timestamp,
+			revision:    result.CharmInfo.LatestRevision,
+			resources:   result.CharmInfo.LatestResources,
+			application: application,
+		})
+	}
+	return latest, nil
+}
+
+func fetchCharmhubInfos(st *state.State, ids []charmhubID, apps []*state.Application) ([]latestCharmInfo, error) {
+	client, err := NewCharmhubClient(st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	results, err := charmhubLatestCharmInfo(client, ids)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var latest []latestCharmInfo
+	for i, result := range results {
+		if i >= len(apps) {
+			logger.Errorf("retrieved more results (%d) than charmhub applications (%d)",
+				i, len(apps))
+			break
+		}
+		if result.error != nil {
+			logger.Errorf("retrieving charm info for ID %s: %v", ids[i].id, result.error)
+			continue
+		}
+		application := apps[i]
+		url, _ := application.CharmURL()
+		latest = append(latest, latestCharmInfo{
+			url:         url.WithRevision(result.revision),
+			timestamp:   result.timestamp,
+			revision:    result.revision,
+			resources:   result.resources,
+			application: application,
+		})
+	}
 	return latest, nil
 }
 

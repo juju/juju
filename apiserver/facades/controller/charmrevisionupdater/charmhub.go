@@ -7,7 +7,6 @@ package charmrevisionupdater
 
 import (
 	"context"
-	"strconv"
 	"time"
 
 	"github.com/juju/charm/v8/resource"
@@ -63,7 +62,7 @@ func charmhubLatestCharmInfo(client CharmhubRefreshClient, ids []charmhubID) ([]
 	}
 	config := charmhub.RefreshMany(cfgs...)
 
-	ctx, cancel := context.WithTimeout(context.Background(), charmhub.RefreshTimeout)
+	ctx, cancel := context.WithTimeout(context.TODO(), charmhub.RefreshTimeout)
 	defer cancel()
 	responses, err := client.Refresh(ctx, config)
 	if err != nil {
@@ -86,22 +85,16 @@ func refreshResponseToCharmhubResult(response transport.RefreshResponse) charmhu
 			error: errors.Errorf("charmhub API error %s: %s", response.Error.Code, response.Error.Message),
 		}
 	}
-	revision, err := strconv.Atoi(response.Entity.Version)
-	if err != nil || revision <= 0 {
-		return charmhubResult{
-			error: errors.NotValidf("entity version %q", response.Entity.Version),
-		}
-	}
 	var resources []resource.Resource
 	for _, r := range response.Entity.Resources {
 		fingerprint, err := resource.ParseFingerprint(r.Download.HashSHA384)
 		if err != nil {
-			logger.Warningf("invalid resource fingerprint %q", r.Download.HashSHA384)
+			logger.Warningf("invalid resource fingerprint %q: %v", r.Download.HashSHA384, err)
 			continue
 		}
 		typ, err := resource.ParseType(r.Type)
 		if err != nil {
-			logger.Warningf("invalid resource type %q", r.Type)
+			logger.Warningf("invalid resource type %q: %v", r.Type, err)
 			continue
 		}
 		resource := resource.Resource{
@@ -119,7 +112,7 @@ func refreshResponseToCharmhubResult(response transport.RefreshResponse) charmhu
 	return charmhubResult{
 		name:      response.Name,
 		timestamp: response.Entity.CreatedAt,
-		revision:  revision,
+		revision:  response.Entity.Revision,
 		resources: resources,
 	}
 }

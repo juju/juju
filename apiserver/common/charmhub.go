@@ -5,6 +5,7 @@ package common
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/state"
@@ -12,7 +13,7 @@ import (
 
 // createCharmhubClient creates a new charmhub Client based on this model's
 // config.
-func CharmhubClient(st *state.State) (*charmhub.Client, error) {
+func CharmhubClient(st *state.State, logger loggo.Logger) (*charmhub.Client, error) {
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -65,6 +65,7 @@ type RefreshEntity struct {
 	Name      string             `json:"name"`
 	Publisher map[string]string  `json:"publisher,omitempty"`
 	Resources []ResourceRevision `json:"resources"`
+	Revision  int                `json:"revision"`
 	Summary   string             `json:"summary"`
 	Version   string             `json:"version"`
 }
