@@ -6848,6 +6848,41 @@ func (s *K8sBrokerSuite) TestUnits(c *gc.C) {
 	}})
 }
 
+func (s *K8sBrokerSuite) TestWatchServiceAggregate(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	ticklers := []func(){}
+
+	s.k8sWatcherFn = func(_ cache.SharedIndexInformer, _ string, _ jujuclock.Clock) (provider.KubernetesNotifyWatcher, error) {
+		w, f := newKubernetesTestWatcher()
+		ticklers = append(ticklers, f)
+		return w, nil
+	}
+
+	w, err := s.broker.WatchService("test", caas.ModeWorkload)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Consume first dummy watcher event
+	select {
+	case _, ok := <-w.Changes():
+		c.Assert(ok, jc.IsTrue)
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for event")
+	}
+
+	// Poke each of the watcher channels to make sure they come through
+	for _, tickler := range ticklers {
+		tickler()
+		select {
+		case _, ok := <-w.Changes():
+			c.Assert(ok, jc.IsTrue)
+		case <-time.After(testing.LongWait):
+			c.Fatal("timed out waiting for event")
+		}
+	}
+}
+
 func (s *K8sBrokerSuite) TestWatchService(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
