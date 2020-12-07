@@ -51,7 +51,8 @@ type findCommand struct {
 	out        cmd.Output
 	warningLog Log
 
-	query string
+	query   string
+	columns string
 }
 
 // Find returns help related info about the command, it implements
@@ -76,6 +77,17 @@ func (c *findCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json":    cmd.FormatJson,
 		"tabular": c.formatter,
 	})
+	f.StringVar(&c.columns, "columns", "nbvps", `display the columns associated with a find search.
+
+    The following columns are supported:
+        - n: Name
+        - b: Bundle
+        - v: Version
+        - p: Publisher
+        - s: Summary
+        - a: Architecture
+        - S: Supports
+`)
 	// TODO (stickupkid): add the following:
 	// --narrow
 }
@@ -91,6 +103,17 @@ func (c *findCommand) Init(args []string) error {
 	// "interesting charms".
 	if len(args) > 0 {
 		c.query = args[0]
+	}
+
+	if c.columns == "" {
+		return errors.Errorf("expected at least one column")
+	}
+
+	columns := DefaultColumns()
+	for _, alias := range c.columns {
+		if _, ok := columns[alias]; !ok {
+			return errors.Errorf("unexpected column type %q", alias)
+		}
 	}
 
 	return nil
@@ -164,7 +187,12 @@ func (c *findCommand) formatter(writer io.Writer, value interface{}) error {
 		return errors.Errorf("unexpected results")
 	}
 
-	if err := makeFindWriter(writer, c.warningLog, results).Print(); err != nil {
+	columns, err := MakeColumns(DefaultColumns(), c.columns)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := makeFindWriter(writer, c.warningLog, columns, results).Print(); err != nil {
 		return errors.Trace(err)
 	}
 

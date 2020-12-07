@@ -756,27 +756,44 @@ func deployApplication(
 }
 
 func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreChannel string) (corecharm.Origin, error) {
+	var (
+		originType string
+		platform   corecharm.Platform
+	)
+	if origin != nil {
+		originType = origin.Type
+		platform = corecharm.Platform{
+			Architecture: origin.Architecture,
+			OS:           origin.OS,
+			Series:       origin.Series,
+		}
+	}
+
 	switch {
 	case origin == nil || origin.Source == "" || origin.Source == "charm-store":
 		var rev *int
 		if curl.Revision != -1 {
 			rev = &curl.Revision
 		}
-		var origin *corecharm.Channel
+		var ch *corecharm.Channel
 		if charmStoreChannel != "" {
-			origin = &corecharm.Channel{
+			ch = &corecharm.Channel{
 				Risk: corecharm.Risk(charmStoreChannel),
 			}
 		}
 		return corecharm.Origin{
+			Type:     originType,
 			Source:   corecharm.CharmStore,
 			Revision: rev,
-			Channel:  origin,
+			Channel:  ch,
+			Platform: platform,
 		}, nil
 	case origin.Source == "local":
 		return corecharm.Origin{
+			Type:     originType,
 			Source:   corecharm.Local,
 			Revision: &curl.Revision,
+			Platform: platform,
 		}, nil
 	}
 
@@ -793,11 +810,13 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL, charmStoreC
 	}
 
 	return corecharm.Origin{
+		Type:     originType,
 		Source:   corecharm.Source(origin.Source),
 		ID:       origin.ID,
 		Hash:     origin.Hash,
 		Revision: origin.Revision,
 		Channel:  channel,
+		Platform: platform,
 	}, nil
 }
 
