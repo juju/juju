@@ -19,7 +19,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -35,11 +34,13 @@ import (
 	apicommoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/api/resources/client"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/cmd/juju/application/deployer"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -1043,7 +1044,7 @@ type mockDownloadBundleClient struct {
 	bundle charm.Bundle
 }
 
-func (m *mockDownloadBundleClient) DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string) (charm.Bundle, error) {
+func (m *mockDownloadBundleClient) DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string, pb charmhub.ProgressBar) (charm.Bundle, error) {
 	m.MethodCall(m, "DownloadAndReadBundle", resourceURL, archivePath)
 	return m.bundle, m.NextErr()
 }
