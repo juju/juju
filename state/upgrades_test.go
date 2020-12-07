@@ -4767,11 +4767,7 @@ func (s *upgradesSuite) TestAddCharmOriginToApplication(c *gc.C) {
 				"channel": bson.M{
 					"risk": "",
 				},
-				"platform": bson.M{
-					"architecture": "",
-					"os":           "",
-					"series":       "",
-				},
+				"platform": bson.M{},
 			},
 		},
 		{
@@ -4787,11 +4783,7 @@ func (s *upgradesSuite) TestAddCharmOriginToApplication(c *gc.C) {
 				"channel": bson.M{
 					"risk": "",
 				},
-				"platform": bson.M{
-					"architecture": "",
-					"os":           "",
-					"series":       "",
-				},
+				"platform": bson.M{},
 			},
 		},
 		{
@@ -4807,11 +4799,7 @@ func (s *upgradesSuite) TestAddCharmOriginToApplication(c *gc.C) {
 				"channel": bson.M{
 					"risk": "",
 				},
-				"platform": bson.M{
-					"architecture": "",
-					"os":           "",
-					"series":       "",
-				},
+				"platform": bson.M{},
 			},
 		},
 		{
