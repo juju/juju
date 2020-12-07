@@ -6,18 +6,16 @@ package workers
 import (
 	"time"
 
-	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v8/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-
-	"github.com/juju/juju/charmstore"
 )
 
 // DataStore exposes the functionality of Juju state needed here.
 type DataStore interface {
 	// SetCharmStoreResources sets the "polled from the charm store"
 	// resources for the application to the provided values.
-	SetCharmStoreResources(applicationID string, info []charmresource.Resource, lastPolled time.Time) error
+	SetCharmStoreResources(applicationID string, info []resource.Resource, lastPolled time.Time) error
 }
 
 // LatestCharmHandler implements apiserver/facades/controller/charmrevisionupdater.LatestCharmHandler.
@@ -33,10 +31,13 @@ func NewLatestCharmHandler(store DataStore) *LatestCharmHandler {
 	}
 }
 
+// TODO(benhoyt) - get rid of this whole mess, and just call SetCharmStoreResources
+// directly from updateLatestRevisions()
+
 // HandleLatest implements apiserver/facades/controller/charmrevisionupdater.LatestCharmHandler
 // by storing the charm's resources in state.
-func (handler LatestCharmHandler) HandleLatest(applicationID names.ApplicationTag, info charmstore.CharmInfo) error {
-	if err := handler.store.SetCharmStoreResources(applicationID.Id(), info.LatestResources, info.Timestamp); err != nil {
+func (handler LatestCharmHandler) HandleLatest(applicationID names.ApplicationTag, resources []resource.Resource, timestamp time.Time) error {
+	if err := handler.store.SetCharmStoreResources(applicationID.Id(), resources, timestamp); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

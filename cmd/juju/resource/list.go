@@ -118,7 +118,7 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 	v := vals[0]
 
 	// It's a lot easier to read and to digest a list of resources
-	// when  they are ordered.
+	// when they are ordered.
 	sort.Sort(charmResourceList(v.CharmStoreResources))
 	sort.Sort(resourceList(v.Resources))
 	for _, u := range v.UnitResources {

@@ -4,6 +4,8 @@
 package resources
 
 import (
+	"time"
+
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
@@ -89,7 +91,7 @@ func (s *CharmHubClientSuite) expectRefresh() {
 	resp := []transport.RefreshResponse{
 		{
 			Entity: transport.RefreshEntity{
-				CreatedAt: "2020-07-07T09:39:44.132000+00:00",
+				CreatedAt: time.Date(2020, 7, 7, 9, 39, 44, 132000000, time.UTC),
 				Download:  transport.Download{HashSHA256: "c97e1efc5367d2fdcfdf29f4a2243b13765cc9cbdfad19627a29ac903c01ae63", Size: 5487460, URL: "https://api.staging.charmhub.io/api/v1/charms/download/jmeJLrjWpJX9OglKSeUHCwgyaCNuoQjD_208.charm"},
 				ID:        "jmeJLrjWpJX9OglKSeUHCwgyaCNuoQjD",
 				Name:      "ubuntu",

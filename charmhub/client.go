@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
@@ -37,6 +38,8 @@ const (
 	CharmHubServerURL     = "https://api.snapcraft.io"
 	CharmHubServerVersion = "v2"
 	CharmHubServerEntity  = "charms"
+
+	RefreshTimeout = 10 * time.Second
 )
 
 var (

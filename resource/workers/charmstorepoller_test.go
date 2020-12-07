@@ -6,7 +6,6 @@ package workers_test
 import (
 	"time"
 
-	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -14,7 +13,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/resource/workers"
 )
@@ -37,21 +35,17 @@ func (s *LatestCharmHandlerSuite) SetUpTest(c *gc.C) {
 
 func (s *LatestCharmHandlerSuite) TestSuccess(c *gc.C) {
 	applicationID := names.NewApplicationTag("a-application")
-	info := charmstore.CharmInfo{
-		OriginalURL:    &charm.URL{},
-		Timestamp:      time.Now().UTC(),
-		LatestRevision: 2,
-		LatestResources: []charmresource.Resource{
-			resourcetesting.NewCharmResource(c, "spam", "<some data>"),
-		},
+	timestamp := time.Now().UTC()
+	resources := []charmresource.Resource{
+		resourcetesting.NewCharmResource(c, "spam", "<some data>"),
 	}
 	handler := workers.NewLatestCharmHandler(s.store)
 
-	err := handler.HandleLatest(applicationID, info)
+	err := handler.HandleLatest(applicationID, resources, timestamp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "SetCharmStoreResources")
-	s.stub.CheckCall(c, 0, "SetCharmStoreResources", "a-application", info.LatestResources, info.Timestamp)
+	s.stub.CheckCall(c, 0, "SetCharmStoreResources", "a-application", resources, timestamp)
 }
 
 type stubDataStore struct {

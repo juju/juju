@@ -116,6 +116,7 @@ func (fix workerFixture) runTest(c *gc.C, test testFunc, checkWaitErr bool) {
 		RevisionUpdater: fix.revisionUpdater,
 		Clock:           fix.clock,
 		Period:          fix.period,
+		Logger:          coretesting.NoopLogger{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {

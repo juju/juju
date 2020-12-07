@@ -119,7 +119,7 @@ func (st resourceState) ListResources(applicationID string) (resource.Applicatio
 	return resources, nil
 }
 
-// ListPendinglResources returns the resource data for the given
+// ListPendingResources returns the resource data for the given
 // application ID for pending resources only.
 func (st resourceState) ListPendingResources(applicationID string) ([]resource.Resource, error) {
 	resources, err := st.persist.ListPendingResources(applicationID)
@@ -131,7 +131,7 @@ func (st resourceState) ListPendingResources(applicationID string) ([]resource.R
 
 // RemovePendingResources removes the pending application-level
 // resources for a specific application, normally in the case that the
-// application couln't be deployed.
+// application couldn't be deployed.
 func (st resourceState) RemovePendingAppResources(applicationID string, pendingIDs map[string]string) error {
 	return errors.Trace(st.persist.RemovePendingAppResources(applicationID, pendingIDs))
 }
