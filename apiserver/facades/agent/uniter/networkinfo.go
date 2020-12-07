@@ -66,6 +66,15 @@ func NewNetworkInfo(st *state.State, tag names.UnitTag) (NetworkInfo, error) {
 func NewNetworkInfoForStrategy(
 	st *state.State, tag names.UnitTag, retryFactory func() retry.CallArgs, lookupHost func(string) ([]string, error),
 ) (NetworkInfo, error) {
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cfg, err := model.ModelConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	unit, err := st.Unit(tag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -74,6 +83,21 @@ func NewNetworkInfoForStrategy(
 	app, err := unit.Application()
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	// Get the ID for the model's configured default space name.
+	// We don't need to hit the DB if it is unset or is the alpha space.
+	// TODO (manadart 2020-12-07): For Juju 3.0 this config item should be
+	// defaulted to the alpha space.
+	// Handling for its unset value ("") should be removed at that time.
+	defaultSpaceID := network.AlphaSpaceId
+	defaultSpaceName := cfg.DefaultSpace()
+	if defaultSpaceName != "" && defaultSpaceName != network.AlphaSpaceName {
+		defaultSpace, err := st.SpaceByName(defaultSpaceName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		defaultSpaceID = defaultSpace.Id()
 	}
 
 	// Initialise the bindings map with all application endpoints.
@@ -85,7 +109,7 @@ func NewNetworkInfoForStrategy(
 	}
 	allBindings := make(map[string]string)
 	for _, ep := range endpoints {
-		allBindings[ep.Name] = network.AlphaSpaceId
+		allBindings[ep.Name] = defaultSpaceID
 	}
 
 	// Now fill in those that are bound.
@@ -95,16 +119,6 @@ func NewNetworkInfoForStrategy(
 	}
 	for ep, space := range bindings.Map() {
 		allBindings[ep] = space
-	}
-
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	cfg, err := model.ModelConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
 	}
 
 	base := &NetworkInfoBase{

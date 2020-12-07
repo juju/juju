@@ -183,6 +183,10 @@ func (s *uniterSuiteBase) assertInScope(c *gc.C, relUnit *state.RelationUnit, in
 	c.Assert(ok, gc.Equals, inScope)
 }
 
+// TODO (manadart 2020-12-07): This should form the basis of a SetUpTest method
+// in a new suite.
+// If we are testing a CAAS model, it is a waste of resources to do preamble
+// for an IAAS model.
 func (s *uniterSuiteBase) setupCAASModel(c *gc.C) (*apiuniter.State, *state.CAASModel, *state.Application, *state.Unit) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	m, err := st.Model()
@@ -4820,6 +4824,42 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForImplicitlyBoundEndpoint(c *gc
 	c.Check(result, jc.DeepEquals, params.NetworkInfoResults{
 		Results: map[string]params.NetworkInfoResult{
 			"server": expectedInfo,
+		},
+	})
+}
+
+func (s *uniterNetworkInfoSuite) TestNetworkInfoForJujuInfoDefaultSpace(c *gc.C) {
+	s.setupUniterAPIForUnit(c, s.mysqlUnit)
+
+	m, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.UpdateModelConfig(map[string]interface{}{"default-space": "database"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.NetworkInfoParams{
+		Unit:      s.mysqlUnit.Tag().String(),
+		Endpoints: []string{"juju-info"},
+	}
+
+	expectedInfo := params.NetworkInfoResult{
+		Info: []params.NetworkInfo{
+			{
+				MACAddress:    "00:11:22:33:20:54",
+				InterfaceName: "eth4",
+				Addresses: []params.InterfaceAddress{
+					{Address: "192.168.1.20", CIDR: "192.168.1.0/24"},
+				},
+			},
+		},
+		EgressSubnets:    []string{"192.168.1.20/32"},
+		IngressAddresses: []string{"192.168.1.20"},
+	}
+
+	result, err := s.uniter.NetworkInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, jc.DeepEquals, params.NetworkInfoResults{
+		Results: map[string]params.NetworkInfoResult{
+			"juju-info": expectedInfo,
 		},
 	})
 }
