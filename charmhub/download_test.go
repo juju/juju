@@ -13,6 +13,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	charmrepotesting "github.com/juju/charmrepo/v6/testing"
+	"github.com/juju/juju/charmhub/progress"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -55,7 +56,7 @@ func (s *DownloadSuite) TestDownloadAndRead(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	client := NewDownloadClient(transport, fileSystem, &FakeLogger{})
-	_, err = client.DownloadAndRead(context.TODO(), serverURL, tmpFile.Name())
+	_, err = client.DownloadAndRead(context.TODO(), serverURL, tmpFile.Name(), progress.Null)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -85,7 +86,7 @@ func (s *DownloadSuite) TestDownloadAndReadWithNotFoundStatusCode(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	client := NewDownloadClient(transport, fileSystem, &FakeLogger{})
-	_, err = client.DownloadAndRead(context.TODO(), serverURL, tmpFile.Name())
+	_, err = client.DownloadAndRead(context.TODO(), serverURL, tmpFile.Name(), progress.Null)
 	c.Assert(err, gc.ErrorMatches, `cannot retrieve "http://meshuggah.rocks": archive not found`)
 }
 
@@ -115,7 +116,7 @@ func (s *DownloadSuite) TestDownloadAndReadWithFailedStatusCode(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	client := NewDownloadClient(transport, fileSystem, &FakeLogger{})
-	_, err = client.DownloadAndRead(context.TODO(), serverURL, tmpFile.Name())
+	_, err = client.DownloadAndRead(context.TODO(), serverURL, tmpFile.Name(), progress.Null)
 	c.Assert(err, gc.ErrorMatches, `cannot retrieve "http://meshuggah.rocks": unable to locate archive`)
 }
 

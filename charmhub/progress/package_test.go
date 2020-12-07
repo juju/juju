@@ -9,6 +9,6 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination ./mocks/term_mock.go github.com/juju/juju/cmd/juju/charmhub/progress Terminal
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination ./mocks/term_mock.go github.com/juju/juju/charmhub/progress Terminal
 
 func Test(t *testing.T) { gc.TestingT(t) }

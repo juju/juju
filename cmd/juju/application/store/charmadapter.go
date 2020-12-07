@@ -13,6 +13,8 @@ import (
 
 	apicharm "github.com/juju/juju/api/charms"
 	commoncharm "github.com/juju/juju/api/common/charm"
+	"github.com/juju/juju/charmhub"
+	"github.com/juju/juju/charmhub/progress"
 )
 
 // CharmStoreRepoFunc lazily creates a charm store repo.
@@ -21,7 +23,7 @@ type CharmStoreRepoFunc = func() (CharmrepoForDeploy, error)
 // DownloadBundleClient represents a way to download a bundle from a given
 // resource URL.
 type DownloadBundleClient interface {
-	DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string) (charm.Bundle, error)
+	DownloadAndReadBundle(context.Context, *url.URL, string, charmhub.ProgressBar) (charm.Bundle, error)
 }
 
 // DownloadBundleClientFunc lazily construct a download bundle client.
@@ -164,5 +166,5 @@ func (ch chBundleFactory) GetBundle(curl *charm.URL, origin commoncharm.Origin, 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return client.DownloadAndReadBundle(context.TODO(), url, path)
+	return client.DownloadAndReadBundle(context.TODO(), url, path, progress.Null)
 }

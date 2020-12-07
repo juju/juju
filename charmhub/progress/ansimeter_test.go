@@ -26,8 +26,8 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/charmhub/progress"
-	"github.com/juju/juju/cmd/juju/charmhub/progress/mocks"
+	"github.com/juju/juju/charmhub/progress"
+	"github.com/juju/juju/charmhub/progress/mocks"
 )
 
 type ansiSuite struct{}

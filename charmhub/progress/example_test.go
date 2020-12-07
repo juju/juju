@@ -5,7 +5,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/juju/juju/cmd/juju/charmhub/progress"
+	"github.com/juju/juju/charmhub/progress"
 )
 
 func ExampleFormatAmount_short() {

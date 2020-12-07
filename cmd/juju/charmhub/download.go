@@ -18,6 +18,7 @@ import (
 	"github.com/juju/os/v2/series"
 
 	"github.com/juju/juju/charmhub"
+	"github.com/juju/juju/charmhub/progress"
 	"github.com/juju/juju/charmhub/selector"
 	"github.com/juju/juju/charmhub/transport"
 	jujucmd "github.com/juju/juju/cmd"
@@ -232,7 +233,9 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 
 	cmdContext.Infof("Fetching %s %q using %q channel at revision %d", info.Type, info.Name, charmChannel, origin.Revision)
 
-	if err := client.Download(ctx, resourceURL, path); err != nil {
+	pb := progress.MakeProgressBar(cmdContext.Stdout)
+	ctx = context.WithValue(ctx, charmhub.DownloadNameKey, info.Name)
+	if err := client.Download(ctx, resourceURL, path, pb); err != nil {
 		return errors.Trace(err)
 	}
 
