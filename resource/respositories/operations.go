@@ -1,42 +1,68 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package charmstore
+package respositories
 
 import (
 	"io"
 
+	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource"
+	"github.com/juju/juju/state"
 )
 
-// StoreResourceGetter provides the functionality for getting a resource
-// file from the charm store.
-type StoreResourceGetter interface {
+type ResourceRequest struct {
+	// Channel is the channel from which to request the resource info.
+	CharmID CharmID
+
+	// Name is the name of the resource we're asking about.
+	Name string
+
+	// Revision is the specific revision of the resource we're asking about.
+	Revision int
+}
+
+// ResourceGetter provides the functionality for getting a resource file.
+type ResourceGetter interface {
 	// GetResource returns a reader for the resource's data. That data
 	// is streamed from the charm store. The charm's revision, if any,
 	// is ignored. If the identified resource is not in the charm store
 	// then errors.NotFound is returned.
 	//
 	// But if you write any code that assumes a NotFound error returned
-	// from this methid means that the resource was not found, you fail
+	// from this method means that the resource was not found, you fail
 	// basic logic.
-	GetResource(charmstore.ResourceRequest) (charmstore.ResourceData, error)
+	GetResource(ResourceRequest) (charmstore.ResourceData, error)
+}
+
+// CharmID represents the underlying charm for a given application. This
+// includes both the URL and the origin.
+type CharmID struct {
+
+	// URL of the given charm, includes the reference name and a revision.
+	// Old style charm URLs are also supported i.e. charmstore.
+	URL *charm.URL
+
+	// Origin holds the origin of a charm. This includes the source of the
+	// charm, along with the revision and channel to identify where the charm
+	// originated from.
+	Origin state.CharmOrigin
 }
 
 // GetResourceArgs holds the arguments to GetResource().
 type GetResourceArgs struct {
 	// Client is the charm store client to use.
-	Client StoreResourceGetter
+	Client ResourceGetter
 
 	// EntityCache is the charm store cache to use. It is optional.
 	Cache EntityCache
 
 	// CharmID indicates the charm for which to get the resource.
-	CharmID charmstore.CharmID
+	CharmID CharmID
 
 	// Name is the name of the resource.
 	Name string
@@ -90,9 +116,8 @@ func GetResource(args GetResourceArgs) (resource.Resource, io.ReadCloser, error)
 		return resource.Resource{}, nil, errors.NotFoundf("resource %q", res.Name)
 	}
 
-	req := charmstore.ResourceRequest{
-		Charm:    args.CharmID.URL,
-		Channel:  args.CharmID.Channel,
+	req := ResourceRequest{
+		CharmID:  args.CharmID,
 		Name:     res.Name,
 		Revision: res.Revision,
 	}
