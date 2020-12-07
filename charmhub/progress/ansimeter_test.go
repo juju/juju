@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/golang/mock/gomock"
 
@@ -63,7 +64,7 @@ func (ansiSuite) TestPercent(c *gc.C) {
 
 	buf := new(bytes.Buffer)
 
-	p := progress.NewANSIMeter(buf, term)
+	p := progress.NewANSIMeter(buf, term, progress.DefaultEscapeChars())
 	for i := -1000.; i < 1000.; i += 5 {
 		p.SetTotal(i)
 		for j := -1000.; j < 1000.; j += 3 {
@@ -83,10 +84,11 @@ func (ansiSuite) TestStart(c *gc.C) {
 
 	buf := new(bytes.Buffer)
 
-	p := progress.NewANSIMeter(buf, term)
+	ec := progress.DefaultEscapeChars()
+	p := progress.NewANSIMeter(buf, term, ec)
 	p.Start("0123456789", 100)
 	c.Check(p.GetWritten(), gc.Equals, 0.)
-	c.Check(buf.String(), gc.Equals, progress.CursorInvisible)
+	c.Check(buf.String(), gc.Equals, ec.CursorInvisible)
 }
 
 func (ansiSuite) TestFinish(c *gc.C) {
@@ -97,31 +99,35 @@ func (ansiSuite) TestFinish(c *gc.C) {
 
 	buf := new(bytes.Buffer)
 
-	p := progress.NewANSIMeter(buf, term)
+	ec := progress.DefaultEscapeChars()
+	p := progress.NewANSIMeter(buf, term, ec)
 	p.Finished()
 	c.Check(buf.String(), gc.Equals, fmt.Sprint(
-		"\r",                       // move cursor to start of line
-		progress.ExitAttributeMode, // turn off color, reverse, bold, anything
-		progress.CursorVisible,     // turn the cursor back on
-		progress.ClrEOL,            // and clear the rest of the line
+		"\r",                 // move cursor to start of line
+		ec.ExitAttributeMode, // turn off color, reverse, bold, anything
+		ec.CursorVisible,     // turn the cursor back on
+		ec.ClrEOL,            // and clear the rest of the line
 	))
 }
 
-/*
 func (ansiSuite) TestSetLayout(c *gc.C) {
-	buf := new(bytes.Buffer)
-	var width int
-	defer progress.MockEmptyEscapes()()
-	defer progress.MockTermWidth(func() int { return width })()
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	p := progress.NewANSIMeter(buf, term)
+	term := mocks.NewMockTerminal(ctrl)
+
+	buf := new(bytes.Buffer)
+
+	p := progress.NewANSIMeter(buf, term, EmptyEscapeChars())
 	msg := "0123456789"
 	ticker := time.NewTicker(time.Millisecond)
 	defer ticker.Stop()
 	p.Start(msg, 1e300)
 	for i := 1; i <= 80; i++ {
 		desc := gc.Commentf("width %d", i)
-		width = i
+
+		term.EXPECT().Width().Return(i)
+
 		buf.Reset()
 		<-ticker.C
 		p.Set(float64(i))
@@ -142,14 +148,16 @@ func (ansiSuite) TestSetLayout(c *gc.C) {
 	}
 }
 
-
 func (ansiSuite) TestSetEscapes(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	term := mocks.NewMockTerminal(ctrl)
+	term.EXPECT().Width().Return(10).MinTimes(1)
+
 	buf := new(bytes.Buffer)
 
-	defer progress.MockSimpleEscapes()()
-	defer progress.MockTermWidth(func() int { return 10 })()
-
-	p := progress.NewANSIMeter(buf, term)
+	p := progress.NewANSIMeter(buf, term, SimpleEscapeChars())
 	msg := "0123456789"
 	p.Start(msg, 10)
 	for i := 0.; i <= 10; i++ {
@@ -163,16 +171,19 @@ func (ansiSuite) TestSetEscapes(c *gc.C) {
 }
 
 func (ansiSuite) TestSpin(c *gc.C) {
-	termWidth := 9
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	term := mocks.NewMockTerminal(ctrl)
+
 	buf := new(bytes.Buffer)
 
-	defer progress.MockSimpleEscapes()()
-	defer progress.MockTermWidth(func() int { return termWidth })()
-
-	p := progress.NewANSIMeter(buf, term)
+	p := progress.NewANSIMeter(buf, term, SimpleEscapeChars())
 	msg := "0123456789"
 	c.Assert(len(msg), gc.Equals, 10)
 	p.Start(msg, 10)
+
+	term.EXPECT().Width().Return(9).Times(len(progress.Spinner))
 
 	// term too narrow to fit msg
 	for i, s := range progress.Spinner {
@@ -183,7 +194,7 @@ func (ansiSuite) TestSpin(c *gc.C) {
 	}
 
 	// term fits msg but not spinner
-	termWidth = 11
+	term.EXPECT().Width().Return(11).Times(len(progress.Spinner))
 	for i, s := range progress.Spinner {
 		buf.Reset()
 		p.Spin(msg)
@@ -192,7 +203,7 @@ func (ansiSuite) TestSpin(c *gc.C) {
 	}
 
 	// term fits msg and spinner
-	termWidth = 12
+	term.EXPECT().Width().Return(12).Times(len(progress.Spinner))
 	for i, s := range progress.Spinner {
 		buf.Reset()
 		p.Spin(msg)
@@ -202,16 +213,17 @@ func (ansiSuite) TestSpin(c *gc.C) {
 }
 
 func (ansiSuite) TestNotify(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	term := mocks.NewMockTerminal(ctrl)
+	term.EXPECT().Width().Return(10).Times(6)
+
 	buf := new(bytes.Buffer)
-	var width int
 
-	defer progress.MockSimpleEscapes()()
-	defer progress.MockTermWidth(func() int { return width })()
-
-	p := progress.NewANSIMeter(buf, term)
+	p := progress.NewANSIMeter(buf, term, SimpleEscapeChars())
 	p.Start("working", 1e300)
 
-	width = 10
 	p.Set(0)
 	p.Notify("hello there")
 	p.Set(1)
@@ -234,7 +246,7 @@ func (ansiSuite) TestNotify(c *gc.C) {
 		"\r<MR><ME>working   ") // the Set(1)
 
 	buf.Reset()
-	width = 16
+	term.EXPECT().Width().Return(16).AnyTimes()
 	p.Set(0)
 	p.Notify("hello there")
 	p.Set(1)
@@ -246,12 +258,15 @@ func (ansiSuite) TestNotify(c *gc.C) {
 }
 
 func (ansiSuite) TestWrite(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	term := mocks.NewMockTerminal(ctrl)
+	term.EXPECT().Width().Return(10).MinTimes(1)
+
 	buf := new(bytes.Buffer)
 
-	defer progress.MockSimpleEscapes()()
-	defer progress.MockTermWidth(func() int { return 10 })()
-
-	p := progress.NewANSIMeter(buf, term)
+	p := progress.NewANSIMeter(buf, term, SimpleEscapeChars())
 	p.Start("123456789x", 10)
 	for i := 0; i < 10; i++ {
 		n, err := fmt.Fprintf(p, "%d", i)
@@ -273,4 +288,25 @@ func (ansiSuite) TestWrite(c *gc.C) {
 		"\r<MR>123456789x<ME>",
 	}, ""))
 }
-*/
+
+// EmptyEscapeChars for ansimeter.
+func EmptyEscapeChars() progress.EscapeChars {
+	return progress.EscapeChars{
+		ClrEOL:            "",
+		CursorInvisible:   "",
+		CursorVisible:     "",
+		EnterReverseMode:  "",
+		ExitAttributeMode: "",
+	}
+}
+
+// SimpleEscapeChars for ansimeter.
+func SimpleEscapeChars() progress.EscapeChars {
+	return progress.EscapeChars{
+		ClrEOL:            "<CE>",
+		CursorInvisible:   "<VI>",
+		CursorVisible:     "<VS>",
+		EnterReverseMode:  "<MR>",
+		ExitAttributeMode: "<ME>",
+	}
+}

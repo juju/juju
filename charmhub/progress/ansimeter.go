@@ -26,26 +26,39 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
-// ANSI escape constants. These are the bits of the ANSI escapes (beyond \r)
-// that we use (names of the terminfo capabilities, see terminfo(5))
-const (
-	// clear to end of line
-	ClrEOL = "\033[K"
-	// make cursor invisible
-	CursorInvisible = "\033[?25l"
-	// make cursor visible
-	CursorVisible = "\033[?25h"
-	// turn on reverse video
-	EnterReverseMode = "\033[7m"
-	// go back to normal video
-	ExitAttributeMode = "\033[0m"
-)
+// EscapeChars defines ANSI escape constants. These are the bits of the ANSI
+// escapes (beyond \r) that we use (names of the terminfo capabilities,
+// see terminfo(5))
+type EscapeChars struct {
+	ClrEOL            string
+	CursorInvisible   string
+	CursorVisible     string
+	EnterReverseMode  string
+	ExitAttributeMode string
+}
 
+// DefaultEscapeChars for ansimeter.
+func DefaultEscapeChars() EscapeChars {
+	return EscapeChars{
+		// clear to end of line
+		ClrEOL: "\033[K",
+		// make cursor invisible
+		CursorInvisible: "\033[?25l",
+		// make cursor visible
+		CursorVisible: "\033[?25h",
+		// turn on reverse video
+		EnterReverseMode: "\033[7m",
+		// go back to normal video
+		ExitAttributeMode: "\033[0m",
+	}
+}
+
+// Terminal defines a interface for interacting with a terminal.
 type Terminal interface {
 	Width() int
 }
 
-var spinner = []string{"/", "-", "\\", "|"}
+var Spinner = []string{"/", "-", "\\", "|"}
 
 // ANSIMeter is a progress.Meter that uses ANSI escape codes to make
 // better use of the available horizontal space.
@@ -56,15 +69,17 @@ type ANSIMeter struct {
 	spin    int
 	t0      time.Time
 
-	terminal Terminal
-	stdout   io.Writer
+	terminal    Terminal
+	stdout      io.Writer
+	escapeChars EscapeChars
 }
 
 // NewANSIMeter creates a new ANSIMeter using the supplied stdout.
-func NewANSIMeter(stdout io.Writer, term Terminal) *ANSIMeter {
+func NewANSIMeter(stdout io.Writer, term Terminal, escapeChars EscapeChars) *ANSIMeter {
 	return &ANSIMeter{
-		terminal: term,
-		stdout:   stdout,
+		terminal:    term,
+		stdout:      stdout,
+		escapeChars: escapeChars,
 	}
 }
 
@@ -73,7 +88,7 @@ func (p *ANSIMeter) Start(label string, total float64) {
 	p.label = []rune(label)
 	p.total = total
 	p.t0 = time.Now().UTC()
-	fmt.Fprint(p.stdout, CursorInvisible)
+	fmt.Fprint(p.stdout, p.escapeChars.CursorInvisible)
 }
 
 // SetTotal sets "total" steps needed.
@@ -131,7 +146,7 @@ func (p *ANSIMeter) Set(current float64) {
 	msg = append(msg, rspeed...)
 	msg = append(msg, rtimeleft...)
 	i := int(current * float64(col) / p.total)
-	fmt.Fprint(p.stdout, "\r", EnterReverseMode, string(msg[:i]), ExitAttributeMode, string(msg[i:]))
+	fmt.Fprint(p.stdout, "\r", p.escapeChars.EnterReverseMode, string(msg[:i]), p.escapeChars.ExitAttributeMode, string(msg[i:]))
 }
 
 // Spin indicates indefinite activity by showing a spinner.
@@ -139,9 +154,9 @@ func (p *ANSIMeter) Spin(msgstr string) {
 	msg := []rune(msgstr)
 	col := p.terminal.Width()
 	if col-2 >= len(msg) {
-		fmt.Fprint(p.stdout, "\r", string(Norm(col-2, msg)), " ", spinner[p.spin])
+		fmt.Fprint(p.stdout, "\r", string(Norm(col-2, msg)), " ", Spinner[p.spin])
 		p.spin++
-		if p.spin >= len(spinner) {
+		if p.spin >= len(Spinner) {
 			p.spin = 0
 		}
 	} else {
@@ -151,13 +166,13 @@ func (p *ANSIMeter) Spin(msgstr string) {
 
 // Finished the progress display
 func (p *ANSIMeter) Finished() {
-	fmt.Fprint(p.stdout, "\r", ExitAttributeMode, CursorVisible, ClrEOL)
+	fmt.Fprint(p.stdout, "\r", p.escapeChars.ExitAttributeMode, p.escapeChars.CursorVisible, p.escapeChars.ClrEOL)
 }
 
 // Notify the user of miscellaneous events
 func (p *ANSIMeter) Notify(msgstr string) {
 	col := p.terminal.Width()
-	fmt.Fprint(p.stdout, "\r", ExitAttributeMode, ClrEOL)
+	fmt.Fprint(p.stdout, "\r", p.escapeChars.ExitAttributeMode, p.escapeChars.ClrEOL)
 
 	msg := []rune(msgstr)
 	var i int

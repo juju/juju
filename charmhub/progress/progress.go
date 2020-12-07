@@ -58,8 +58,9 @@ type Meter interface {
 func MakeProgressBar(stdout io.Writer) Meter {
 	if terminal.IsTerminal(int(os.Stdin.Fd())) {
 		return &ANSIMeter{
-			terminal: term{},
-			stdout:   stdout,
+			terminal:    term{},
+			stdout:      stdout,
+			escapeChars: DefaultEscapeChars(),
 		}
 	}
 

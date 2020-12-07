@@ -51,7 +51,8 @@ func (ts *ProgressTestSuite) TestANSINotify(c *gc.C) {
 	term := mocks.NewMockTerminal(ctrl)
 	term.EXPECT().Width().Return(33)
 
+	ec := progress.DefaultEscapeChars()
 	buf := new(bytes.Buffer)
-	expected := fmt.Sprint("\r", progress.ExitAttributeMode, progress.ClrEOL, "blah blah\n")
-	ts.testNotify(c, buf, progress.NewANSIMeter(buf, term), "ansi", expected)
+	expected := fmt.Sprint("\r", ec.ExitAttributeMode, ec.ClrEOL, "blah blah\n")
+	ts.testNotify(c, buf, progress.NewANSIMeter(buf, term, ec), "ansi", expected)
 }
