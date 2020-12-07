@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 	"unicode"
 
@@ -16,18 +17,87 @@ import (
 	"github.com/juju/juju/cmd/output"
 )
 
-func makeFindWriter(w io.Writer, warning Log, in []FindResponse) Printer {
-	writer := findWriter{
+// ColumnName describes the column name when outputting the find query.
+type ColumnName = string
+
+const (
+	ColumnNameName          ColumnName = "Name"
+	ColumnNameBundle        ColumnName = "Bundle"
+	ColumnNameVersion       ColumnName = "Version"
+	ColumnNameArchitectures ColumnName = "Architectures"
+	ColumnNameSupports      ColumnName = "Supports"
+	ColumnNamePublisher     ColumnName = "Publisher"
+	ColumnNameSummary       ColumnName = "Summary"
+)
+
+// Column holds the column name and the index location.
+type Column struct {
+	Index int
+	Name  ColumnName
+}
+
+// Columns represents the find columns for the find writer.
+type Columns map[rune]Column
+
+// DefaultColumns represents the default columns for the output of the find.
+func DefaultColumns() Columns {
+	return map[rune]Column{
+		'n': Column{Index: 0, Name: ColumnNameName},
+		'b': Column{Index: 1, Name: ColumnNameBundle},
+		'v': Column{Index: 2, Name: ColumnNameVersion},
+		'a': Column{Index: 3, Name: ColumnNameArchitectures},
+		'S': Column{Index: 4, Name: ColumnNameSupports},
+		'p': Column{Index: 5, Name: ColumnNamePublisher},
+		's': Column{Index: 6, Name: ColumnNameSummary},
+	}
+}
+
+// MakeColumns creates a new set of columns using the string for selecting each
+// column from a base set of columns.
+func MakeColumns(d Columns, s string) (Columns, error) {
+	cols := make(Columns)
+	for i, alias := range s {
+		col, ok := d[alias]
+		if !ok {
+			return cols, errors.Errorf("unexpected column alias %q", alias)
+		}
+		cols[alias] = Column{
+			Index: i,
+			Name:  col.Name,
+		}
+	}
+	return cols, nil
+}
+
+// Names returns the names of all the columns.
+func (c Columns) Names() []string {
+	cols := make([]Column, 0, len(c))
+	for _, n := range c {
+		cols = append(cols, n)
+	}
+	sort.Slice(cols, func(i, j int) bool {
+		return cols[i].Index < cols[j].Index
+	})
+	names := make([]string, len(cols))
+	for i, c := range cols {
+		names[i] = c.Name
+	}
+	return names
+}
+
+func makeFindWriter(w io.Writer, warning Log, columns Columns, in []FindResponse) Printer {
+	return findWriter{
 		w:        w,
 		warningf: warning,
+		columns:  columns,
 		in:       in,
 	}
-	return writer
 }
 
 type findWriter struct {
 	warningf Log
 	w        io.Writer
+	columns  Columns
 	in       []FindResponse
 }
 
@@ -36,22 +106,36 @@ func (f findWriter) Print() error {
 
 	tw := output.TabWriter(buffer)
 
-	fmt.Fprintf(tw, "Name\tBundle\tVersion\tArchitectures\tSupports\tPublisher\tSummary\n")
+	colNames := f.columns.Names()
+	fmt.Fprintln(tw, strings.Join(colNames, "\t"))
 	for _, result := range f.in {
 		summary, err := oneLine(result.Summary, 6)
 		if err != nil {
 			f.warningf("%v", err)
 		}
 
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-			result.Name,
-			f.bundle(result),
-			result.Version,
-			strings.Join(result.Arches, ","),
-			strings.Join(result.Series, ","),
-			result.Publisher,
-			summary,
-		)
+		colValues := make([]interface{}, 0, len(colNames))
+		for _, name := range f.columns.Names() {
+			switch name {
+			case ColumnNameName:
+				colValues = append(colValues, result.Name)
+			case ColumnNameBundle:
+				colValues = append(colValues, f.bundle(result))
+			case ColumnNameVersion:
+				colValues = append(colValues, result.Version)
+			case ColumnNameArchitectures:
+				colValues = append(colValues, strings.Join(result.Arches, ","))
+			case ColumnNameSupports:
+				colValues = append(colValues, strings.Join(result.Series, ","))
+			case ColumnNamePublisher:
+				colValues = append(colValues, result.Publisher)
+			case ColumnNameSummary:
+				colValues = append(colValues, summary)
+			}
+		}
+
+		colFmt := strings.Repeat("%s\t", len(colNames))
+		fmt.Fprintf(tw, colFmt[:len(colFmt)-1]+"\n", colValues...)
 	}
 
 	if err := tw.Flush(); err != nil {

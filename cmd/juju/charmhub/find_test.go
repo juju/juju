@@ -34,6 +34,7 @@ func (s *findSuite) TestInitNoArgs(c *gc.C) {
 		charmHubCommand: &charmHubCommand{
 			arches: arch.AllArches(),
 		},
+		columns: "nbvps",
 	}
 	err := command.Init([]string{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -44,6 +45,7 @@ func (s *findSuite) TestInitSuccess(c *gc.C) {
 		charmHubCommand: &charmHubCommand{
 			arches: arch.AllArches(),
 		},
+		columns: "nbvps",
 	}
 	err := command.Init([]string{"test"})
 	c.Assert(err, jc.ErrorIsNil)
