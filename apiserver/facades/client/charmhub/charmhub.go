@@ -34,7 +34,7 @@ type ClientFactory interface {
 // Client represents a CharmHub Client for making queries to the CharmHub API.
 type Client interface {
 	URL() string
-	Info(ctx context.Context, name string) (transport.InfoResponse, error)
+	Info(ctx context.Context, name string, options ...charmhub.InfoOption) (transport.InfoResponse, error)
 	Find(ctx context.Context, query string) ([]transport.FindResponse, error)
 }
 

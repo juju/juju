@@ -180,7 +180,7 @@ func (s *charmHubRepositoriesSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *charmHubRepositoriesSuite) expectInfo(err error) {
-	s.client.EXPECT().Info(gomock.Any(), "wordpress").Return(getCharmHubInfoResponse(), err)
+	s.client.EXPECT().Info(gomock.Any(), "wordpress", gomock.Any()).Return(getCharmHubInfoResponse(), err)
 }
 
 type charmStoreResolversSuite struct {

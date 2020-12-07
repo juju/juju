@@ -32,7 +32,7 @@ var logger = loggo.GetLogger("juju.apiserver.charms")
 // client to install or upgrade a CharmHub charm.
 type CharmHubClient interface {
 	DownloadAndRead(ctx context.Context, resourceURL *url.URL, archivePath string, options ...charmhub.DownloadOption) (*charm.CharmArchive, error)
-	Info(ctx context.Context, name string) (transport.InfoResponse, error)
+	Info(ctx context.Context, name string, options ...charmhub.InfoOption) (transport.InfoResponse, error)
 	Refresh(ctx context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error)
 }
 
@@ -44,14 +44,22 @@ type chRepo struct {
 // ResolveWithPreferredChannel.
 func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.CharmOrigin) (*charm.URL, params.CharmOrigin, []string, error) {
 	logger.Tracef("Resolving CharmHub charm %q", curl)
-	info, err := c.client.Info(context.TODO(), curl.Name)
-	if err != nil {
-		// Improve error message here
-		return nil, params.CharmOrigin{}, nil, errors.Trace(err)
-	}
 
 	channel, err := makeChannel(origin)
 	if err != nil {
+		return nil, params.CharmOrigin{}, nil, errors.Trace(err)
+	}
+
+	// In order to get the metadata for a given charm we need to ensure that
+	// we ask for the channel otherwise the metadata won't show up.
+	var options []charmhub.InfoOption
+	if s := channel.String(); s != "" {
+		options = append(options, charmhub.WithChannel(s))
+	}
+
+	info, err := c.client.Info(context.TODO(), curl.Name, options...)
+	if err != nil {
+		// Improve error message here
 		return nil, params.CharmOrigin{}, nil, errors.Trace(err)
 	}
 
@@ -266,6 +274,11 @@ func (c *chRepo) resolveViaChannelMap(t transport.Type, curl *charm.URL, origin 
 	origin.OS = mapChannel.Platform.OS
 	origin.Series = mapChannel.Platform.Series
 
+	// TODO (stickupkid): We should drop support for throwing an error here.
+	// Instead we should make it optional and if we can't get the computed
+	// series back, sum up the series for the same revision/channel and use that
+	// as the fallback.
+	//
 	// `metadata.yaml` is a requirement to be a valid charm or bundle. The charm
 	// repo expects that one exists even if it contains minimal information.
 	if mapRevision.MetadataYAML == "" {
