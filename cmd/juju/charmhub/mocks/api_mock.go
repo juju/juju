@@ -114,18 +114,18 @@ func (mr *MockInfoCommandAPIMockRecorder) Close() *gomock.Call {
 }
 
 // Info mocks base method
-func (m *MockInfoCommandAPI) Info(arg0 string) (charmhub.InfoResponse, error) {
+func (m *MockInfoCommandAPI) Info(arg0, arg1 string) (charmhub.InfoResponse, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Info", arg0)
+	ret := m.ctrl.Call(m, "Info", arg0, arg1)
 	ret0, _ := ret[0].(charmhub.InfoResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Info indicates an expected call of Info
-func (mr *MockInfoCommandAPIMockRecorder) Info(arg0 interface{}) *gomock.Call {
+func (mr *MockInfoCommandAPIMockRecorder) Info(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Info", reflect.TypeOf((*MockInfoCommandAPI)(nil).Info), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Info", reflect.TypeOf((*MockInfoCommandAPI)(nil).Info), arg0, arg1)
 }
 
 // MockFindCommandAPI is a mock of FindCommandAPI interface

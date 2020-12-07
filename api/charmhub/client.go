@@ -35,8 +35,11 @@ func newClientFromFacade(frontend base.ClientFacade, backend base.FacadeCaller) 
 }
 
 // Info queries the CharmHub API for information for a given name.
-func (c *Client) Info(name string) (InfoResponse, error) {
-	args := params.Entity{Tag: names.NewApplicationTag(name).String()}
+func (c *Client) Info(name, channel string) (InfoResponse, error) {
+	args := params.Info{
+		Tag:     names.NewApplicationTag(name).String(),
+		Channel: channel,
+	}
 	var result params.CharmHubEntityInfoResult
 	if err := c.facade.FacadeCall("Info", args, &result); err != nil {
 		return InfoResponse{}, errors.Trace(err)

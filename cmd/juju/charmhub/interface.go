@@ -22,7 +22,7 @@ type Log = func(format string, params ...interface{})
 
 // InfoCommandAPI describes API methods required to execute the info command.
 type InfoCommandAPI interface {
-	Info(string) (apicharmhub.InfoResponse, error)
+	Info(string, string) (apicharmhub.InfoResponse, error)
 	Close() error
 }
 
