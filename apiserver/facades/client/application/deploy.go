@@ -176,11 +176,17 @@ func stateCharmOrigin(origin corecharm.Origin) *state.CharmOrigin {
 		}
 	}
 	stateOrigin := &state.CharmOrigin{
+		Type:     origin.Type,
 		Source:   string(origin.Source),
 		ID:       origin.ID,
 		Hash:     origin.Hash,
 		Revision: origin.Revision,
 		Channel:  ch,
+		Platform: &state.Platform{
+			Architecture: origin.Platform.Architecture,
+			OS:           origin.Platform.OS,
+			Series:       origin.Platform.Series,
+		},
 	}
 	return stateOrigin
 }

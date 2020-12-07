@@ -58,9 +58,9 @@ type Channel struct {
 
 // Platform identifies the platform the charm was installed on.
 type Platform struct {
-	Architecture string `bson:"architecture"`
-	OS           string `bson:"os"`
-	Series       string `bson:"series"`
+	Architecture string `bson:"architecture,omitempty"`
+	OS           string `bson:"os,omitempty"`
+	Series       string `bson:"series,omitempty"`
 }
 
 // CharmOrigin holds the original source of a charm. Information about where the
