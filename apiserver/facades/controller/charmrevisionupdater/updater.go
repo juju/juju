@@ -144,11 +144,12 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 		case charm.CharmHub.Matches(curl.Schema):
 			origin := application.CharmOrigin()
 			if origin == nil {
-				logger.Debugf("charm %s has no origin, skipping", curl)
+				// If this fails, we have big problems, so make this Errorf
+				logger.Errorf("charm %s has no origin, skipping", curl)
 				continue
 			}
 			if origin.Revision == nil || origin.Channel == nil || origin.Platform == nil {
-				logger.Debugf("charm %s has no revision (%p), channel (%p), or platform (%p), skipping",
+				logger.Errorf("charm %s has missing revision (%p), channel (%p), or platform (%p), skipping",
 					curl, origin.Revision, origin.Channel, origin.Platform)
 				continue
 			}
