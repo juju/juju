@@ -493,7 +493,7 @@ func validateCloudRegion(cloud jujucloud.Cloud, regionName string) (txn.Op, erro
 		}
 	} else {
 		if len(cloud.Regions) > 0 {
-			return txn.Op{}, errors.NotValidf("missing CloudRegion")
+			return txn.Op{}, errors.NotValidf("missing cloud region")
 		}
 		assertCloudRegionOp.Assert = bson.D{
 			{"regions", bson.D{{"$exists", false}}},

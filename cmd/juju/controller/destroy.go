@@ -579,7 +579,7 @@ func (c *destroyCommandBase) getControllerEnvironFromStore(
 		Cloud:          params.Cloud,
 		Config:         cfg,
 	}
-	if bootstrapConfig.CloudType == cloud.CloudTypeCAAS {
+	if cloud.CloudTypeIsCAAS(bootstrapConfig.CloudType) {
 		return caas.New(openParams)
 	}
 	return environs.New(openParams)
