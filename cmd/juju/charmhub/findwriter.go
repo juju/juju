@@ -42,13 +42,13 @@ type Columns map[rune]Column
 // DefaultColumns represents the default columns for the output of the find.
 func DefaultColumns() Columns {
 	return map[rune]Column{
-		'n': Column{Index: 0, Name: ColumnNameName},
-		'b': Column{Index: 1, Name: ColumnNameBundle},
-		'v': Column{Index: 2, Name: ColumnNameVersion},
-		'a': Column{Index: 3, Name: ColumnNameArchitectures},
-		'S': Column{Index: 4, Name: ColumnNameSupports},
-		'p': Column{Index: 5, Name: ColumnNamePublisher},
-		's': Column{Index: 6, Name: ColumnNameSummary},
+		'n': {Index: 0, Name: ColumnNameName},
+		'b': {Index: 1, Name: ColumnNameBundle},
+		'v': {Index: 2, Name: ColumnNameVersion},
+		'a': {Index: 3, Name: ColumnNameArchitectures},
+		'S': {Index: 4, Name: ColumnNameSupports},
+		'p': {Index: 5, Name: ColumnNamePublisher},
+		's': {Index: 6, Name: ColumnNameSummary},
 	}
 }
 
