@@ -388,7 +388,7 @@ func getEnviron(
 		Cloud:          cloudSpec,
 		Config:         modelConfig,
 	}
-	if cloudSpec.Type == cloud.CloudTypeCAAS {
+	if cloud.CloudTypeIsCAAS(cloudSpec.Type) {
 		return caas.Open(provider, openParams)
 	}
 	return environs.Open(provider, openParams)
