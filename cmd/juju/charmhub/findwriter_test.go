@@ -27,7 +27,8 @@ func (s *printFindSuite) TestCharmPrintFind(c *gc.C) {
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `
 Name       Bundle  Version  Architectures  Supports              Publisher          Summary
-wordpress  -       1.0.3    all            bionic                Wordress Charmers  WordPress is a full featured web blogging tool, this charm deploys it.
+wordpress  -       1.0.3    all            bionic                Wordress Charmers  WordPress is a full featured web blogging
+                                                                                    tool, this charm deploys it.
 osm        Y       3.2.3    all            bionic,xenial,trusty  charmed-osm        Single instance OSM bundle.
 
 `[1:]
@@ -57,16 +58,18 @@ osm        Y       3.2.3    all            bionic,xenial,trusty  charmed-osm    
 }
 
 func (s *printFindSuite) TestSummary(c *gc.C) {
-	summary, err := oneLine("WordPress is a full featured web blogging tool, this charm deploys it.\nSome addition data\nMore Lines")
+	summary, err := oneLine("WordPress is a full featured web blogging tool, this charm deploys it.\nSome addition data\nMore Lines", 0)
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtained := summary
-	expected := "WordPress is a full featured web blogging tool, this charm deploys it."
-	c.Assert(obtained, gc.Equals, expected)
+	expected := `
+WordPress is a full featured web blogging
+tool, this charm deploys it.`
+	c.Assert(obtained, gc.Equals, expected[1:])
 }
 
 func (s *printFindSuite) TestSummaryEmpty(c *gc.C) {
-	summary, err := oneLine("")
+	summary, err := oneLine("", 0)
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtained := summary
