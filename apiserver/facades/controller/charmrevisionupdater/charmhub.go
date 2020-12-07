@@ -57,7 +57,6 @@ func charmhubLatestCharmInfo(client CharmhubRefreshClient, ids []charmhubID) ([]
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		logger.Infof("TODO charmhubLatestCharmInfo cfg %d = %#v", i, cfg)
 		cfgs[i] = cfg
 	}
 	config := charmhub.RefreshMany(cfgs...)
@@ -71,7 +70,6 @@ func charmhubLatestCharmInfo(client CharmhubRefreshClient, ids []charmhubID) ([]
 
 	results := make([]charmhubResult, len(responses))
 	for i, response := range responses {
-		logger.Infof("TODO charmhubLatestCharmInfo response %d = %#v", i, response)
 		results[i] = refreshResponseToCharmhubResult(response)
 	}
 	return results, nil

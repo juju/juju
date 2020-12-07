@@ -122,7 +122,6 @@ type latestCharmInfo struct {
 // retrieveLatestCharmInfo looks up the charm store to return the charm URLs for the
 // latest revision of the deployed charms.
 func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
-	logger.Infof("TODO retrieveLatestCharmInfo")
 	applications, err := st.AllApplications()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -218,7 +217,6 @@ func fetchCharmstoreInfos(st *state.State, ids []charmstore.CharmID, apps []*sta
 		return nil, errors.Trace(err)
 	}
 	results, err := charmstore.LatestCharmInfo(client, ids, metadata)
-	logger.Infof("TODO LatestCharmInfo results=%#v, error=%v", results, err)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

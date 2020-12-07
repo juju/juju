@@ -406,7 +406,6 @@ func (st resourceState) OpenResourceForUniter(unit resource.Unit, name string) (
 // SetCharmStoreResources sets the "polled" resources for the
 // application to the provided values.
 func (st resourceState) SetCharmStoreResources(applicationID string, info []charmresource.Resource, lastPolled time.Time) error {
-	logger.Infof("TODO SetCharmStoreResources app=%q, info=%#v lastPolled=%v", applicationID, info, lastPolled)
 	for _, chRes := range info {
 		id := newResourceID(applicationID, chRes.Name)
 		if err := st.persist.SetCharmStoreResource(id, applicationID, chRes, lastPolled); err != nil {
