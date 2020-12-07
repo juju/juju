@@ -53,18 +53,17 @@ func (s *charmhubSuite) SetUpTest(c *gc.C) {
 	// Patch the charmhub initializer function
 	s.PatchValue(&charmrevisionupdater.NewCharmhubClient, func(st *state.State) (charmrevisionupdater.CharmhubRefreshClient, error) {
 		charms := map[string]hubCharm{
-			//"000": {
-			//	id: "000",
-			//	name: "postgresql",
-			//	version: "10",
-			//	resources: []transport.ResourceRevision{
-			//		{Name: "wal-e", Revision: 2, Type: "file"},
-			//	},
-			//},
 			"001": {
-				id:      "001",
-				name:    "mysql",
-				version: "23",
+				id:       "001",
+				name:     "mysql",
+				revision: 23,
+				version:  "23",
+			},
+			"002": {
+				id:       "002",
+				name:     "postgresql",
+				revision: 42,
+				version:  "42",
 			},
 		}
 		return &mockHub{charms: charms}, nil
@@ -76,8 +75,9 @@ func (s *charmhubSuite) SetUpTest(c *gc.C) {
 type hubCharm struct {
 	id        string
 	name      string
-	version   string
+	revision  int
 	resources []transport.ResourceRevision
+	version   string
 }
 
 type mockHub struct {
@@ -108,6 +108,7 @@ func (h *mockHub) Refresh(_ context.Context, config charmhub.RefreshConfig) ([]t
 				ID:        context.ID,
 				Name:      charm.name,
 				Resources: charm.resources,
+				Revision:  charm.revision,
 				Version:   charm.version,
 			},
 			EffectiveChannel: context.TrackingChannel,
@@ -123,7 +124,7 @@ func (h *mockHub) Refresh(_ context.Context, config charmhub.RefreshConfig) ([]t
 
 func (s *charmhubSuite) addMachine(c *gc.C, machineId string, job state.MachineJob) {
 	m, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series: "quantal",
+		Series: "focal",
 		Jobs:   []state.MachineJob{job},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -138,13 +139,12 @@ func (s *charmhubSuite) addMachine(c *gc.C, machineId string, job state.MachineJ
 }
 
 func (s *charmhubSuite) addCharmWithRevision(c *gc.C, charmName string, rev int) {
-	ch := testcharms.Repo.CharmDir(charmName)
+	ch := testcharms.Hub.CharmDir(charmName)
 	name := ch.Meta().Name
 	curl := &charm.URL{
 		Schema:   "ch",
 		Name:     charmName,
 		Revision: rev,
-		Series:   "quantal",
 	}
 	info := state.CharmInfo{
 		Charm:       ch,
@@ -157,15 +157,34 @@ func (s *charmhubSuite) addCharmWithRevision(c *gc.C, charmName string, rev int)
 	s.charms[name] = dummy
 }
 
-func (s *charmhubSuite) addApplication(c *gc.C, charmName, serviceName string) {
+func (s *charmhubSuite) addApplication(c *gc.C, charmName, id, name string, revision int) {
 	ch, ok := s.charms[charmName]
 	c.Assert(ok, jc.IsTrue)
-	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: serviceName, Charm: ch})
+	_, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name:  name,
+		Charm: ch,
+		CharmOrigin: &state.CharmOrigin{
+			Source:   "charm-hub",
+			Type:     "charm",
+			ID:       id,
+			Revision: &revision,
+			Channel: &state.Channel{
+				Track: "latest",
+				Risk:  "stable",
+			},
+			Platform: &state.Platform{
+				Architecture: "amd64",
+				OS:           "ubuntu",
+				Series:       "focal",
+			},
+		},
+		Series: "focal",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *charmhubSuite) addUnit(c *gc.C, serviceName, machineId string) {
-	svc, err := s.State.Application(serviceName)
+func (s *charmhubSuite) addUnit(c *gc.C, applicationName, machineId string) {
+	svc, err := s.State.Application(applicationName)
 	c.Assert(err, jc.ErrorIsNil)
 	u, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -175,19 +194,14 @@ func (s *charmhubSuite) addUnit(c *gc.C, serviceName, machineId string) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *charmhubSuite) TestUpdateRevisions(c *gc.C) {
+func (s *charmhubSuite) TestUpdateRevisionsOutOfDate(c *gc.C) {
 	s.addMachine(c, "0", state.JobManageModel)
-
 	s.addMachine(c, "1", state.JobHostUnits)
-	s.addMachine(c, "2", state.JobHostUnits)
-	s.addMachine(c, "3", state.JobHostUnits)
-
-	// mysql is out of date
 	s.addCharmWithRevision(c, "mysql", 22)
-	s.addApplication(c, "mysql", "mysql")
+	s.addApplication(c, "mysql", "001", "mysql", 22)
 	s.addUnit(c, "mysql", "1")
 
-	curl := charm.MustParseURL("ch:mysql")
+	curl := charm.MustParseURL("mysql")
 	_, err := s.State.LatestPlaceholderCharm(curl)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
@@ -195,8 +209,26 @@ func (s *charmhubSuite) TestUpdateRevisions(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 
-	curl = charm.MustParseURL("ch:mysql")
 	pending, err := s.State.LatestPlaceholderCharm(curl)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pending.String(), gc.Equals, "ch:mysql-23")
+}
+
+func (s *charmhubSuite) TestUpdateRevisionsUpToDate(c *gc.C) {
+	s.addMachine(c, "0", state.JobManageModel)
+	s.addMachine(c, "1", state.JobHostUnits)
+	s.addCharmWithRevision(c, "postgresql", 42)
+	s.addApplication(c, "postgresql", "002", "postgresql", 42)
+	s.addUnit(c, "postgresql", "1")
+
+	curl := charm.MustParseURL("postgresql")
+	_, err := s.State.LatestPlaceholderCharm(curl)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	result, err := s.updater.UpdateLatestRevisions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+
+	_, err = s.State.LatestPlaceholderCharm(curl)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

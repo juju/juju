@@ -1,0 +1,8 @@
+name: postgresql
+summary: "PGSQL"
+description: "The PostgreSQL database engine"
+provides:
+  server:
+    interface: postgresql
+series:
+  - focal
