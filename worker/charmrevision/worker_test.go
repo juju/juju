@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v2"
@@ -117,7 +116,7 @@ func (fix workerFixture) runTest(c *gc.C, test testFunc, checkWaitErr bool) {
 		RevisionUpdater: fix.revisionUpdater,
 		Clock:           fix.clock,
 		Period:          fix.period,
-		Logger:          loggo.GetLogger("test"),
+		Logger:          coretesting.NoopLogger{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
