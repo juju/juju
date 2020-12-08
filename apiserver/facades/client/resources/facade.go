@@ -93,13 +93,13 @@ func NewFacadeV2(ctx facade.Context) (*API, error) {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			return &charmHubClient{client: chClient, id: chID}, nil
+			return newCharmHubClient(chClient, chID), nil
 		case charm.CharmStore.Matches(schema):
 			cl, err := charmstore.NewCachingClient(state.MacaroonCache{st}, controllerCfg.CharmStoreURL())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			return &charmStoreClient{client: cl, id: chID}, nil
+			return newCharmStoreClient(cl, chID), nil
 		case charm.Local.Matches(schema):
 			return &localClient{}, nil
 		default:

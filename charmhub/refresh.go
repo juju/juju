@@ -270,7 +270,7 @@ func DownloadOneFromRevision(id string, revision int, platform RefreshPlatform) 
 
 // DownloadOneFromChannel creates a request config using the channel and not the
 // revision for requesting only one charm.
-func DownloadOneFromChannel(name string, channel string, platform RefreshPlatform) (RefreshConfig, error) {
+func DownloadOneFromChannel(id string, channel string, platform RefreshPlatform) (RefreshConfig, error) {
 	uuid, err := utils.NewUUID()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -278,7 +278,7 @@ func DownloadOneFromChannel(name string, channel string, platform RefreshPlatfor
 	return executeOne{
 		action:      DownloadAction,
 		instanceKey: uuid.String(),
-		Name:        name,
+		ID:          id,
 		Channel:     &channel,
 		Platform:    platform,
 	}, nil
@@ -292,7 +292,7 @@ func (c executeOne) Build() (transport.RefreshRequest, error) {
 		Actions: []transport.RefreshRequestAction{{
 			Action:      string(c.action),
 			InstanceKey: c.instanceKey,
-			Name:        &c.Name,
+			ID:          &c.ID,
 			Revision:    c.Revision,
 			Channel:     c.Channel,
 			Platform: &transport.RefreshRequestPlatform{
