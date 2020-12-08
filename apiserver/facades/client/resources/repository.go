@@ -5,6 +5,7 @@ package resources
 
 import (
 	"context"
+
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"

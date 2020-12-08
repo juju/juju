@@ -5,7 +5,6 @@ package resourceadapters_test
 
 import (
 	"fmt"
-	"github.com/juju/juju/state"
 	"sync/atomic"
 
 	"github.com/juju/errors"
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/resource/respositories"
+	"github.com/juju/juju/state"
 )
 
 type CharmStoreSuite struct {

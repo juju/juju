@@ -5,7 +5,6 @@ package resourceadapters_test
 
 import (
 	"bytes"
-	"github.com/juju/juju/resource/resourceadapters"
 	"io/ioutil"
 
 	"github.com/golang/mock/gomock"
@@ -15,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/charmhub/transport"
+	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/resource/resourceadapters/mocks"
 	"github.com/juju/juju/resource/respositories"
 	"github.com/juju/juju/state"
