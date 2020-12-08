@@ -50,7 +50,7 @@ func WithProgressBar(pb ProgressBar) DownloadOption {
 }
 
 // Create a downloadOptions instance with default values.
-func newOptions() *downloadOptions {
+func newDownloadOptions() *downloadOptions {
 	return &downloadOptions{}
 }
 
@@ -99,7 +99,7 @@ type ProgressBar interface {
 // let the callee remove. The fact that the operations are asymmetrical can lead
 // to unexpected expectations; namely leaking of files.
 func (c *DownloadClient) Download(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) error {
-	opts := newOptions()
+	opts := newDownloadOptions()
 	for _, option := range options {
 		option(opts)
 	}
