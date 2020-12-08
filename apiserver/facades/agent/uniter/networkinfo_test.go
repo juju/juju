@@ -316,7 +316,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPublicAdd
 		return retry.CallArgs{
 			Clock:       clock.WallClock,
 			Delay:       1 * time.Millisecond,
-			MaxDuration: coretesting.LongWait,
+			MaxDuration: coretesting.ShortWait,
 			NotifyFunc: func(lastError error, attempt int) {
 				// Set the address after one failed retrieval attempt.
 				if attempt == 1 {
@@ -364,7 +364,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPrivateAd
 		return retry.CallArgs{
 			Clock:       clock.WallClock,
 			Delay:       1 * time.Millisecond,
-			MaxDuration: coretesting.LongWait,
+			MaxDuration: coretesting.ShortWait,
 			NotifyFunc: func(lastError error, attempt int) {
 				// Set the private address after one failed retrieval attempt.
 				if attempt == 1 {
@@ -409,7 +409,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 	c.Assert(ingress, gc.HasLen, 0)
 	c.Assert(egress, gc.HasLen, 0)
 
-	// Add a application address.
+	// Add an application address.
 	err = mysql.UpdateCloudService("", network.SpaceAddresses{
 		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
 	})
@@ -449,6 +449,96 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelInvalidBinding(c *gc.
 
 	_, _, _, err = netInfo.NetworksForRelation("unknown", prr.rel, true)
 	c.Assert(err, gc.ErrorMatches, `undefined for unit charm: endpoint "unknown" not valid`)
+}
+
+func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c *gc.C) {
+	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
+	st := s.Factory.MakeCAASModel(c, nil)
+	defer func() { _ = st.Close() }()
+
+	f := factory.NewFactory(st, s.StatePool)
+	gitLabCh := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	gitLab := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: gitLabCh})
+
+	// Add a local-machine address.
+	// Adding it the the service instead of the container is OK here, a
+	// s we are interested in the return from unit.AllAddresses().
+	// It simulates the same thing.
+	// This should never be returned as an ingress address.
+	err := gitLab.UpdateCloudService("", network.SpaceAddresses{
+		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeMachineLocal),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	papp, err := st.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "mysql",
+		SourceModel: coretesting.ModelTag,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Name:      "server",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	eps, err := st.InferEndpoints("mysql", "gitlab")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := st.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	prr := &RemoteProReqRelation{rel: rel, papp: papp, rapp: gitLab}
+	prr.pru0 = addRemoteRU(c, rel, "mysql/0")
+	prr.pru1 = addRemoteRU(c, rel, "mysql/1")
+	prr.ru0, prr.rru0 = addRU(c, gitLab, rel, nil)
+	prr.ru1, prr.rru1 = addRU(c, gitLab, rel, nil)
+
+	// Add a container address.
+	// These are scoped as local-machine and are fallen back to for CAAS by
+	// unit.PrivateAddress when scope matching returns nothing.
+	addr := "1.2.3.4"
+	err = st.ApplyOperation(prr.ru0.UpdateOperation(state.UnitUpdateProperties{Address: &addr}))
+	c.Assert(err, jc.ErrorIsNil)
+	err = prr.ru0.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	retryFactory := func() retry.CallArgs {
+		return retry.CallArgs{
+			Clock:       clock.WallClock,
+			Delay:       1 * time.Millisecond,
+			MaxDuration: 1 * time.Millisecond,
+		}
+	}
+
+	netInfo, err := uniter.NewNetworkInfoForStrategy(st, prr.ru0.UnitTag(), retryFactory, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// At this point we only have a container (local-machine) address.
+	// We expect no return when asking to poll for the public address.
+	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
+	c.Assert(ingress, gc.HasLen, 0)
+	c.Assert(egress, gc.HasLen, 0)
+
+	// Now set a public address. This is a suitable ingress address.
+	err = gitLab.UpdateCloudService("", network.SpaceAddresses{
+		network.NewScopedSpaceAddress("2.3.4.5", network.ScopePublic),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = prr.ru0.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// We need a new instance here, because unit addresses
+	// are populated in the constructor.
+	netInfo, err = uniter.NewNetworkInfoForStrategy(st, prr.ru0.UnitTag(), retryFactory, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	boundSpace, ingress, egress, err = netInfo.NetworksForRelation("", prr.rel, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
+	c.Assert(ingress, gc.DeepEquals,
+		network.SpaceAddresses{network.NewScopedSpaceAddress("2.3.4.5", network.ScopePublic)})
+	c.Assert(egress, gc.DeepEquals, []string{"2.3.4.5/32"})
 }
 
 func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
