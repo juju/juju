@@ -141,21 +141,18 @@ func newCharmHubClient(client CharmHub, id CharmID) *charmHubClient {
 // this logic will need refinement as work to incorporate charmhub resources continues.
 // Right now, just take the uploaded resources and add charmhub resources where resource
 // is missing
-func (ch *charmHubClient) ResolveResources(uploadedResources []charmresource.Resource) ([]charmresource.Resource, error) {
-	chResources, err := ch.listResources()
+func (ch *charmHubClient) ResolveResources(resources []charmresource.Resource) ([]charmresource.Resource, error) {
+	storeResources, err := ch.listResources()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	for _, res := range uploadedResources {
-		chResources[res.Name] = res
+	resolved, err := ch.resolveResources(ch.id, resources, storeResources)
+	if err != nil {
+		return nil, err
 	}
-	results := make([]charmresource.Resource, len(chResources))
-	var i int
-	for _, res := range chResources {
-		results[i] = res
-		i += 1
-	}
-	return results, nil
+	// TODO(ericsnow) Ensure that the non-upload resource revisions
+	// match a previously published revision set?
+	return resolved, nil
 }
 
 func (ch *charmHubClient) ResourceInfo(_ *charm.URL, origin corecharm.Origin, name string, revision int) (charmresource.Resource, error) {
