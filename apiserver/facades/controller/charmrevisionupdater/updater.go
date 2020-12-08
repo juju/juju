@@ -217,6 +217,7 @@ func fetchCharmstoreInfos(st *state.State, ids []charmstore.CharmID, apps []*sta
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	metadata["environment_uuid"] = st.ModelUUID() // duplicates model_uuid, but send to charmstore for legacy reasons
 	results, err := charmstore.LatestCharmInfo(client, ids, metadata)
 	if err != nil {
 		return nil, errors.Trace(err)
