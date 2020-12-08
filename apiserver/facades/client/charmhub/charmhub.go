@@ -90,7 +90,7 @@ func (api *CharmHubAPI) Info(arg params.Info) (params.CharmHubEntityInfoResult, 
 	if arg.Channel != "" {
 		ch, err := charm.ParseChannelNormalize(arg.Channel)
 		if err != nil {
-			return params.CharmHubEntityInfoResult{}, errors.BadRequestf("channel value is invalid")
+			return params.CharmHubEntityInfoResult{}, errors.BadRequestf("channel %q is invalid", arg.Channel)
 		}
 		options = append(options, charmhub.WithChannel(ch.String()))
 	}
