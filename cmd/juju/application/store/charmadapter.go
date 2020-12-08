@@ -14,7 +14,6 @@ import (
 	apicharm "github.com/juju/juju/api/charms"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/charmhub"
-	"github.com/juju/juju/charmhub/progress"
 )
 
 // CharmStoreRepoFunc lazily creates a charm store repo.
@@ -166,5 +165,5 @@ func (ch chBundleFactory) GetBundle(curl *charm.URL, origin commoncharm.Origin, 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return client.DownloadAndReadBundle(context.TODO(), url, path, progress.Null)
+	return client.DownloadAndReadBundle(context.TODO(), url, path, nil)
 }

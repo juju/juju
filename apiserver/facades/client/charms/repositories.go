@@ -20,7 +20,6 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub"
-	"github.com/juju/juju/charmhub/progress"
 	"github.com/juju/juju/charmhub/selector"
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/charmstore"
@@ -92,8 +91,7 @@ func (c *chRepo) DownloadCharm(resourceURL string, archivePath string) (*charm.C
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	pb := progress.Null
-	return c.client.DownloadAndRead(context.TODO(), curl, archivePath, pb)
+	return c.client.DownloadAndRead(context.TODO(), curl, archivePath, nil)
 }
 
 // FindDownloadURL returns the url from which to download the CharmHub

@@ -91,23 +91,28 @@ func (c *DownloadClient) Download(ctx context.Context, resourceURL *url.URL, arc
 		_ = r.Body.Close()
 	}()
 
-	name := "download"
-	if n := ctx.Value(DownloadNameKey); n != nil {
-		if s, ok := n.(string); ok && s != "" {
-			name = s
+	var writer io.Writer = f
+	if pb != nil {
+		// Progress bar has this nifty feature where you can supply a name. In
+		// this case we can supply one to help with UI feedback.
+		var name string
+		if n := ctx.Value(DownloadNameKey); n != nil {
+			if s, ok := n.(string); ok && s != "" {
+				name = s
+			}
 		}
+
+		// TODO (stickupkid): Would be good to verify the size, but
+		// unfortunately we don't have the information to hand. That information
+		// is further up the stack.
+		downloadSize := float64(r.ContentLength)
+		pb.Start(name, downloadSize)
+		defer pb.Finished()
+
+		writer = io.MultiWriter(f, pb)
 	}
 
-	// TODO (stickupkid): Would be good to verify the size, but unfortunately
-	// we don't have the information to hand. That information is further up the
-	// stack.
-	downloadSize := float64(r.ContentLength)
-	pb.Start(name, downloadSize)
-	defer pb.Finished()
-
-	multiWriter := io.MultiWriter(f, pb)
-
-	if _, err := io.Copy(multiWriter, r.Body); err != nil {
+	if _, err := io.Copy(writer, r.Body); err != nil {
 		return errors.Trace(err)
 	}
 

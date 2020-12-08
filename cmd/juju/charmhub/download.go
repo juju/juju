@@ -18,7 +18,7 @@ import (
 	"github.com/juju/os/v2/series"
 
 	"github.com/juju/juju/charmhub"
-	"github.com/juju/juju/charmhub/progress"
+	"github.com/juju/juju/cmd/output/progress"
 	"github.com/juju/juju/charmhub/selector"
 	"github.com/juju/juju/charmhub/transport"
 	jujucmd "github.com/juju/juju/cmd"

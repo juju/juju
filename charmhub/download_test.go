@@ -13,7 +13,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	charmrepotesting "github.com/juju/charmrepo/v6/testing"
-	"github.com/juju/juju/charmhub/progress"
+	"github.com/juju/juju/cmd/output/progress"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
