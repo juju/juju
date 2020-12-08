@@ -108,7 +108,15 @@ var NewCharmStoreClient = func(st *state.State) (charmstore.Client, error) {
 
 // NewCharmhubClient instantiates a new charmhub client (exported for testing).
 var NewCharmhubClient = func(st *state.State, metadata map[string]string) (CharmhubRefreshClient, error) {
-	return common.CharmhubClient(st, logger, metadata)
+	return common.CharmhubClient(stateShim{State: st}, logger, metadata)
+}
+
+type stateShim struct {
+	*state.State
+}
+
+func (s stateShim) Model() (common.ConfigModel, error) {
+	return s.State.Model()
 }
 
 type latestCharmInfo struct {
