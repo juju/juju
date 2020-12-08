@@ -130,7 +130,7 @@ func (n *NetworkInfoIAAS) NetworksForRelation(
 	// addresses the input relation and pollPublic flag.
 	var ingress network.SpaceAddresses
 	if boundSpace == network.AlphaSpaceId {
-		addrs, err := n.maybeGetUnitAddress(rel)
+		addrs, err := n.maybeGetUnitAddress(rel, true)
 		if err != nil {
 			return "", nil, nil, errors.Trace(err)
 		}
