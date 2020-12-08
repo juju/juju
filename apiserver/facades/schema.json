@@ -12317,7 +12317,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/Entity"
+                            "$ref": "#/definitions/Info"
                         },
                         "Result": {
                             "$ref": "#/definitions/CharmHubEntityInfoResult"
@@ -12544,18 +12544,6 @@
                         "type"
                     ]
                 },
-                "Entity": {
-                    "type": "object",
-                    "properties": {
-                        "tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "tag"
-                    ]
-                },
                 "ErrorResponse": {
                     "type": "object",
                     "properties": {
@@ -12614,6 +12602,21 @@
                         "summary",
                         "version",
                         "store-url"
+                    ]
+                },
+                "Info": {
+                    "type": "object",
+                    "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag"
                     ]
                 },
                 "InfoResponse": {
