@@ -10,11 +10,9 @@ import (
 
 	"github.com/juju/juju/api/base"
 	internalclient "github.com/juju/juju/api/resources/private/client"
-	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/context"
 	contextcmd "github.com/juju/juju/resource/context/cmd"
-	"github.com/juju/juju/resource/resourceadapters"
 	unitercontext "github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -45,8 +43,6 @@ func (r resources) registerAgentWorkers() {
 	if !markRegistered(resource.ComponentName, "agent-workers") {
 		return
 	}
-
-	charmrevisionupdater.RegisterLatestCharmHandler("resources", resourceadapters.NewLatestCharmHandler)
 }
 
 // registerState registers the state functionality for resources.
