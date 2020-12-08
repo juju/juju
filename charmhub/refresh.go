@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v2"
 	"github.com/kr/pretty"
@@ -85,25 +86,25 @@ func (c *RefreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]tr
 		return nil, errors.Trace(err)
 	}
 
-	// Add Juju-Metadata headers for the charms' unique series and
+	// Add X-Juju-Metadata headers for the charms' unique series and
 	// architecture values, for example:
 	//
-	// Juju-Metadata: series=bionic
-	// Juju-Metadata: arch=amd64
-	// Juju-Metadata: series=focal
+	// X-Juju-Metadata: series=bionic
+	// X-Juju-Metadata: arch=amd64
+	// X-Juju-Metadata: series=focal
 	headers := make(http.Header)
-	seriesAdded := make(map[string]bool)
-	archsAdded := make(map[string]bool)
+	seriesAdded := set.NewStrings()
+	archsAdded := set.NewStrings()
 	for _, context := range req.Context {
 		series := context.Platform.Series
-		if series != "" && !seriesAdded[series] {
+		if series != "" && !seriesAdded.Contains(series) {
 			headers.Add(MetadataHeader, "series="+series)
-			seriesAdded[series] = true
+			seriesAdded.Add(series)
 		}
 		arch := context.Platform.Architecture
-		if arch != "" && !archsAdded[arch] {
+		if arch != "" && !archsAdded.Contains(arch) {
 			headers.Add(MetadataHeader, "arch="+arch)
-			archsAdded[arch] = true
+			archsAdded.Add(arch)
 		}
 	}
 

@@ -143,7 +143,7 @@ func (s *RefreshSuite) TestRefreshMetadata(c *gc.C) {
 	c.Assert(httpTransport.requestHeaders, gc.DeepEquals, http.Header{
 		"Accept":       []string{"application/json"},
 		"Content-Type": []string{"application/json"},
-		"Juju-Metadata": []string{
+		"X-Juju-Metadata": []string{
 			"series=focal",
 			"arch=amd64",
 			"series=trusty",
