@@ -16,7 +16,9 @@ import (
 	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/aws/aws-sdk-go/service/ecs/ecsiface"
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/caas"
@@ -24,6 +26,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/environs/tags"
 	jujustorage "github.com/juju/juju/storage"
 )
 
@@ -34,6 +37,7 @@ var (
 type app struct {
 	name           string
 	clusterName    string
+	controllerUUID string
 	modelUUID      string
 	modelName      string
 	deploymentType caas.DeploymentType
@@ -44,18 +48,17 @@ type app struct {
 func newApplication(
 	name string,
 	clusterName string,
+	controllerUUID string,
 	modelUUID string,
 	modelName string,
 	deploymentType caas.DeploymentType,
 	client ecsiface.ECSAPI,
 	clock clock.Clock,
 ) caas.Application {
-	// TODO: prefix modelName to all resource names?
-	// Because ecs doesnot have namespace!!!
-	// name = modelName + "-" + name
 	return &app{
 		name:           name,
 		clusterName:    clusterName,
+		controllerUUID: controllerUUID,
 		modelUUID:      modelUUID,
 		modelName:      modelName,
 		deploymentType: deploymentType,
@@ -64,17 +67,25 @@ func newApplication(
 	}
 }
 
-func (a *app) labels() map[string]*string {
-	// TODO
-	return map[string]*string{
-		"App":       aws.String(a.name),
-		"ModelName": aws.String(a.modelName),
-		"ModelUUID": aws.String(a.modelUUID),
+func (a *app) labels(extra map[string]string) map[string]*string {
+	tags := tags.ResourceTags(
+		names.NewModelTag(a.modelUUID),
+		names.NewControllerTag(a.controllerUUID),
+		// TODO(ecs): support model config ResourceTags().
+	)
+	for k, v := range extra {
+		tags[k] = v
 	}
+	return aws.StringMap(tags)
+}
+
+func (a *app) resourceName() string {
+	return fmt.Sprintf("%s-%s", a.modelName, a.name)
 }
 
 // Delete deletes the specified application.
 func (a *app) Delete() error {
+	// TODO(ecs)
 	return nil
 }
 
@@ -86,6 +97,7 @@ func strPtrSlice(in ...string) (out []*string) {
 }
 
 func (a *app) volumeName(storageName string) string {
+	// ecs.Volume is not really a resource needs to be created, so we don't need use model name (resourceName()) to prefix it.
 	return fmt.Sprintf("%s-%s", a.name, storageName)
 }
 
@@ -102,7 +114,16 @@ func getMountPathForFilesystem(idx int, appName string, fs jujustorage.Kubernete
 }
 
 func (a *app) handleFileSystems(filesystems []jujustorage.KubernetesFilesystemParams) (vols []*ecs.Volume, mounts []*ecs.MountPoint, err error) {
+	vols = make([]*ecs.Volume, len(filesystems))
+	mounts = make([]*ecs.MountPoint, len(filesystems))
+
+	volNames := set.NewStrings()
 	for idx, fs := range filesystems {
+		if volNames.Contains(fs.StorageName) {
+			return nil, nil, errors.NotValidf("duplicated volume %q", fs.StorageName)
+		}
+		volNames.Add(fs.StorageName)
+
 		ebsCfg, err := newEbsConfig(fs.Attributes)
 		if err != nil {
 			// This should never happen because it's been validated `storageProvider.ValidateConfig`.
@@ -113,27 +134,27 @@ func (a *app) handleFileSystems(filesystems []jujustorage.KubernetesFilesystemPa
 			DockerVolumeConfiguration: &ecs.DockerVolumeConfiguration{
 				Scope:         aws.String("shared"),
 				Autoprovision: aws.Bool(true),
-				Driver:        aws.String(ebsCfg.driver), // TODO: fs.Attributes["Driver"] ?????
-				Labels:        a.labels(),                // TODO: merge with fs.ResourceTags !!!
+				Driver:        aws.String(ebsCfg.driver),
+				Labels:        a.labels(fs.ResourceTags),
 				DriverOpts: map[string]*string{
-					"volumetype": aws.String(ebsCfg.volumeType),                    // TODO!!!
+					"volumetype": aws.String(ebsCfg.volumeType),
 					"size":       aws.String(strconv.FormatUint(fs.Size/1024, 10)), // unit of size here should be `Gi`
 				},
 			},
 		}
-		vols = append(vols, vol)
+		vols[idx] = vol
 
 		readOnly := false
 		if fs.Attachment != nil {
 			readOnly = fs.Attachment.ReadOnly
 		}
-		mounts = append(mounts, &ecs.MountPoint{
+		mounts[idx] = &ecs.MountPoint{
 			ContainerPath: aws.String(getMountPathForFilesystem(
 				idx, a.name, fs,
 			)),
 			SourceVolume: vol.Name,
 			ReadOnly:     aws.Bool(readOnly),
-		})
+		}
 	}
 	return vols, mounts, nil
 }
@@ -156,7 +177,7 @@ func (a *app) applicationTaskDefinition(config caas.ApplicationConfig) (*ecs.Reg
 		return nil, errors.Trace(err)
 	}
 	input := &ecs.RegisterTaskDefinitionInput{
-		Family:      aws.String(a.name),
+		Family:      aws.String(a.resourceName()),
 		TaskRoleArn: aws.String(""),
 		ContainerDefinitions: []*ecs.ContainerDefinition{
 			// init container
@@ -168,6 +189,7 @@ func (a *app) applicationTaskDefinition(config caas.ApplicationConfig) (*ecs.Reg
 				Memory:           aws.Int64(512),
 				Essential:        aws.Bool(false),
 				EntryPoint:       strPtrSlice("/opt/k8sagent"),
+				DockerLabels:     a.labels(nil),
 				Command: strPtrSlice(
 					"init",
 					"--data-dir",
@@ -181,10 +203,12 @@ func (a *app) applicationTaskDefinition(config caas.ApplicationConfig) (*ecs.Reg
 						Value: aws.String(strings.Join(containerNames, ",")),
 					},
 					{
+						// TODO(ecs): remove me when we solve the ECS unit's identity issue.
 						Name:  aws.String("JUJU_K8S_POD_NAME"),
 						Value: aws.String("cockroachdb-0"),
 					},
 					{
+						// TODO(ecs): remove me when we solve the ECS unit's identity issue.
 						Name:  aws.String("JUJU_K8S_POD_UUID"),
 						Value: aws.String("c83b286e-8f45-4dbf-b2a6-0c393d93bd6a"),
 					},
@@ -228,13 +252,13 @@ func (a *app) applicationTaskDefinition(config caas.ApplicationConfig) (*ecs.Reg
 			},
 		},
 		Volumes: append(volumes, []*ecs.Volume{
-			// TODO: ensure no vol.Name conflict.
+			// TODO(ecs): ensure no vol.Name conflict.
 			{
 				Name: aws.String("var-lib-juju"),
 				DockerVolumeConfiguration: &ecs.DockerVolumeConfiguration{
 					Scope:  aws.String("task"),
 					Driver: aws.String("local"),
-					Labels: a.labels(),
+					Labels: a.labels(nil),
 				},
 			},
 			{
@@ -242,7 +266,7 @@ func (a *app) applicationTaskDefinition(config caas.ApplicationConfig) (*ecs.Reg
 				DockerVolumeConfiguration: &ecs.DockerVolumeConfiguration{
 					Scope:  aws.String("task"),
 					Driver: aws.String("local"),
-					Labels: a.labels(),
+					Labels: a.labels(nil),
 				},
 			},
 		}...),
@@ -260,8 +284,9 @@ func (a *app) applicationTaskDefinition(config caas.ApplicationConfig) (*ecs.Reg
 				Condition:     aws.String("SUCCESS"),
 			},
 		},
-		Essential:  aws.Bool(true),
-		EntryPoint: strPtrSlice("/charm/bin/k8sagent"),
+		Essential:    aws.Bool(true),
+		EntryPoint:   strPtrSlice("/charm/bin/k8sagent"),
+		DockerLabels: a.labels(nil),
 		Command: strPtrSlice(
 			"unit",
 			"--data-dir", jujuDataDir,
@@ -269,7 +294,7 @@ func (a *app) applicationTaskDefinition(config caas.ApplicationConfig) (*ecs.Reg
 			"--append-env",
 			"PATH=$PATH:/charm/bin",
 		),
-		// TODO: Health check/prob
+		// TODO(ecs): Health check/prob
 		Environment: []*ecs.KeyValuePair{
 			{
 				Name:  aws.String("JUJU_CONTAINER_NAMES"),
@@ -297,27 +322,24 @@ func (a *app) applicationTaskDefinition(config caas.ApplicationConfig) (*ecs.Reg
 	}
 
 	for _, v := range containers {
-		// TODO: https://aws.amazon.com/blogs/compute/amazon-ecs-and-docker-volume-drivers-amazon-ebs/
+		// TODO(ecs): https://aws.amazon.com/blogs/compute/amazon-ecs-and-docker-volume-drivers-amazon-ebs/
 		// to use EBS volumes, it requires some docker storage plugin installed in the
-		// container instance!!!
-		// disable persistence storage or Juju have to manage those plugins????
+		// container instance!
+		// Add precheck for storage support!
 		container := &ecs.ContainerDefinition{
 			Name:  aws.String(v.Name),
 			Image: aws.String(v.Image.RegistryPath),
 			DependsOn: []*ecs.ContainerDependency{
-				// {
-				// 	ContainerName: aws.String("charm"),
-				// 	Condition:     aws.String("START"),
-				// },
 				{
 					ContainerName: aws.String("charm-init"),
 					Condition:     aws.String("SUCCESS"),
 				},
 			},
-			Cpu:        aws.Int64(10),
-			Memory:     aws.Int64(512),
-			Essential:  aws.Bool(true),
-			EntryPoint: strPtrSlice("/charm/bin/pebble"),
+			Cpu:          aws.Int64(10),
+			Memory:       aws.Int64(512),
+			Essential:    aws.Bool(true),
+			EntryPoint:   strPtrSlice("/charm/bin/pebble"),
+			DockerLabels: a.labels(nil),
 			Command: strPtrSlice(
 				"listen",
 				"--socket", "/charm/container/pebble.sock",
@@ -348,7 +370,7 @@ func (a *app) applicationTaskDefinition(config caas.ApplicationConfig) (*ecs.Reg
 			DockerVolumeConfiguration: &ecs.DockerVolumeConfiguration{
 				Scope:  aws.String("task"),
 				Driver: aws.String("local"),
-				Labels: a.labels(),
+				Labels: a.labels(nil),
 			},
 		}
 		input.Volumes = append(input.Volumes, volume)
@@ -369,8 +391,6 @@ func (a *app) applicationTaskDefinition(config caas.ApplicationConfig) (*ecs.Reg
 // Ensure creates or updates an application pod with the given application
 // name, agent path, and application config.
 func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
-	logger.Criticalf("app.Ensure config -> %s", pretty.Sprint(config))
-	logger.Criticalf("app.Ensure a.labels() -> %s", pretty.Sprint(a.labels()))
 	result, err := a.registerTaskDefinition(config)
 	if err != nil {
 		return errors.Trace(err)
@@ -386,15 +406,17 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 // Exists indicates if the application for the specified
 // application exists, and whether the application is terminating.
 func (a *app) Exists() (caas.DeploymentState, error) {
+	// TODO(ecs)
 	return caas.DeploymentState{}, nil
 }
 
 func (a *app) State() (caas.ApplicationState, error) {
+	// TODO(ecs)
 	return caas.ApplicationState{}, nil
 }
 
-// !!!
 func computeStatus(ctx context.Context, t *ecs.Task) (statusMessage string, jujuStatus status.Status, since time.Time) {
+	// TODO(ecs)
 	if t.StoppedAt != nil || t.StoppingAt != nil {
 		since = aws.TimeValue(t.StoppedAt)
 		if t.StoppedAt == nil {
@@ -423,9 +445,8 @@ func (a *app) Units() (units []caas.Unit, err error) {
 	ctx := context.Background()
 
 	result, err := a.client.ListTasks(&ecs.ListTasksInput{
-		// Family:      aws.String(a.name), // TODO: model prefixing????
 		Cluster:     aws.String(a.clusterName),
-		ServiceName: aws.String(a.name), // TODO: model prefixing????
+		ServiceName: aws.String(a.resourceName()),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -488,11 +509,13 @@ func (a *app) Units() (units []caas.Unit, err error) {
 
 // UpdatePorts updates port mappings on the specified service.
 func (a *app) UpdatePorts(ports []caas.ServicePort, updateContainerPorts bool) error {
+	// TODO(ecs)
 	return nil
 }
 
 // UpdateService updates the default service with specific service type and port mappings.
 func (a *app) UpdateService(param caas.ServiceParam) error {
+	// TODO(ecs)
 	return nil
 }
 
@@ -517,7 +540,7 @@ func (a *app) Watch() (watcher.NotifyWatcher, error) {
 	hasNewEvents := func() (bool, error) {
 		result, err := a.client.DescribeServices(&ecs.DescribeServicesInput{
 			Cluster:  aws.String(a.clusterName),
-			Services: []*string{aws.String(a.name)}, // TODO: model prefixing????
+			Services: []*string{aws.String(a.resourceName())},
 		})
 		err = errorOrFailures(err, result.Failures)
 		if err != nil {
@@ -531,7 +554,7 @@ func (a *app) Watch() (watcher.NotifyWatcher, error) {
 			return false, nil
 		}
 		lastestEventID := aws.StringValue(svc.Events[0].Id)
-		logger.Warningf("lastestEvent -> %s", svc.Events[0])
+		logger.Tracef("lastestEvent -> %s", svc.Events[0])
 		if lastEventID != lastestEventID {
 			lastEventID = lastestEventID
 			return true, nil
@@ -541,7 +564,9 @@ func (a *app) Watch() (watcher.NotifyWatcher, error) {
 	return newNotifyWatcher(a.name, a.clock, hasNewEvents)
 }
 
+// WatchReplicas returns a watcher for watching the number of units changes.
 func (a *app) WatchReplicas() (watcher.NotifyWatcher, error) {
+	// TODO(ecs)
 	ch := make(chan struct{}, 1)
 	ch <- struct{}{}
 	return watchertest.NewMockNotifyWatcher(ch), nil
@@ -554,84 +579,62 @@ func (a *app) registerTaskDefinition(config caas.ApplicationConfig) (*ecs.Regist
 	}
 
 	result, err := a.client.RegisterTaskDefinition(input)
-	logger.Criticalf("app.Ensure err -> %#v result -> %s", err, pretty.Sprint(result))
+	err = a.handleErr(err)
 	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			case ecs.ErrCodeServerException:
-				logger.Errorf(ecs.ErrCodeServerException + " -> " + aerr.Error())
-			case ecs.ErrCodeClientException:
-				logger.Errorf(ecs.ErrCodeClientException + " -> " + aerr.Error())
-			case ecs.ErrCodeInvalidParameterException:
-				logger.Errorf(ecs.ErrCodeInvalidParameterException + " -> " + aerr.Error())
-			default:
-				logger.Errorf(aerr.Error())
-			}
-		} else {
-			// Print the error, cast err to awserr.Error to get the Code and
-			// Message from an error.
-			logger.Errorf(err.Error())
-		}
 		return nil, errors.Trace(err)
 	}
 	return result, nil
 }
 
 func (a *app) ensureECSService(taskDefinitionID string) (err error) {
-	handleErr := func(err error) error {
-		if err != nil {
-			if aerr, ok := err.(awserr.Error); ok {
-				switch aerr.Code() {
-				case ecs.ErrCodeServerException:
-					logger.Errorf(ecs.ErrCodeServerException + " -> " + aerr.Error())
-				case ecs.ErrCodeClientException:
-					logger.Errorf(ecs.ErrCodeClientException + " -> " + aerr.Error())
-				case ecs.ErrCodeInvalidParameterException:
-					logger.Errorf(ecs.ErrCodeInvalidParameterException + " -> " + aerr.Error())
-				case ecs.ErrCodeClusterNotFoundException:
-					logger.Errorf(ecs.ErrCodeClusterNotFoundException + " -> " + aerr.Error())
-				case ecs.ErrCodeUnsupportedFeatureException:
-					logger.Errorf(ecs.ErrCodeUnsupportedFeatureException + " -> " + aerr.Error())
-				case ecs.ErrCodePlatformUnknownException:
-					logger.Errorf(ecs.ErrCodePlatformUnknownException + " -> " + aerr.Error())
-				case ecs.ErrCodePlatformTaskDefinitionIncompatibilityException:
-					logger.Errorf(ecs.ErrCodePlatformTaskDefinitionIncompatibilityException + " -> " + aerr.Error())
-				case ecs.ErrCodeAccessDeniedException:
-					logger.Errorf(ecs.ErrCodeAccessDeniedException + " -> " + aerr.Error())
-				case ecs.ErrCodeServiceNotFoundException, ecs.ErrCodeServiceNotActiveException:
-					logger.Errorf(aerr.Code() + " -> " + aerr.Error())
-					return errors.NewNotFound(aerr, aerr.Error())
-				default:
-					logger.Errorf(aerr.Error())
-				}
-			} else {
-				// Print the error, cast err to awserr.Error to get the Code and
-				// Message from an error.
-				logger.Errorf(err.Error())
-			}
-		}
-		return err
-	}
-
 	updateInput := &ecs.UpdateServiceInput{
 		Cluster:        aws.String(a.clusterName),
 		DesiredCount:   aws.Int64(1),
-		Service:        aws.String(a.name), // TODO: model prefixing????
+		Service:        aws.String(a.resourceName()),
 		TaskDefinition: aws.String(taskDefinitionID),
 	}
 	result, err := a.client.UpdateService(updateInput)
-	logger.Criticalf("app.ensureECSService UpdateService %q err -> %#v result -> %s", taskDefinitionID, err, pretty.Sprint(result))
-	err = handleErr(err)
+	logger.Tracef("ensuring service updating %q err -> %v result -> %s", taskDefinitionID, err, pretty.Sprint(result))
+	err = a.handleErr(err)
 	if errors.IsNotFound(err) {
 		createInput := &ecs.CreateServiceInput{
 			Cluster:        aws.String(a.clusterName),
 			DesiredCount:   aws.Int64(1),
-			ServiceName:    aws.String(a.name), // TODO: model prefixing????
+			ServiceName:    aws.String(a.resourceName()),
 			TaskDefinition: aws.String(taskDefinitionID),
 		}
 		result, err := a.client.CreateService(createInput)
-		logger.Criticalf("app.ensureECSService CreateService %q err -> %#v result -> %s", taskDefinitionID, err, pretty.Sprint(result))
-		err = handleErr(err)
+		logger.Tracef("ensuring service creating %q err -> %v result -> %s", taskDefinitionID, err, pretty.Sprint(result))
+		err = a.handleErr(err)
 	}
 	return errors.Trace(err)
+}
+
+func (a *app) handleErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	aerr, ok := err.(awserr.Error)
+	if !ok {
+		return err
+	}
+
+	switch aerr.Code() {
+	case ecs.ErrCodeServerException:
+	case ecs.ErrCodeClientException:
+	case ecs.ErrCodeInvalidParameterException:
+		return errors.NewNotValid(err, aerr.Message())
+	case ecs.ErrCodeClusterNotFoundException:
+		return errors.NewNotFound(err, fmt.Sprintf("cluster %q", a.clusterName))
+	case ecs.ErrCodeUnsupportedFeatureException:
+		return errors.NewNotSupported(err, aerr.Message())
+	case ecs.ErrCodePlatformUnknownException:
+	case ecs.ErrCodePlatformTaskDefinitionIncompatibilityException:
+	case ecs.ErrCodeAccessDeniedException:
+	case ecs.ErrCodeServiceNotFoundException, ecs.ErrCodeServiceNotActiveException:
+		return errors.NewNotFound(err, aerr.Message())
+	default:
+		logger.Errorf("unknown error: %v", aerr.Error())
+	}
+	return err
 }

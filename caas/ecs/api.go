@@ -12,9 +12,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ecs"
+	"github.com/aws/aws-sdk-go/service/ecs/ecsiface"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/cloudspec"
 )
 
@@ -40,46 +40,21 @@ func cloudSpecToAWSConfig(c cloudspec.CloudSpec) (*aws.Config, error) {
 	if err := c.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if c.Credential == nil {
-		return nil, errors.NotValidf("missing credential")
+	if err := validateCloudCredential(c.Credential); err != nil {
+		return nil, errors.Trace(err)
 	}
-	if authType := c.Credential.AuthType(); authType != cloud.AccessKeyAuthType {
-		return nil, errors.NotSupportedf("%q auth-type", authType)
-	}
-
-	credentialAttrs := c.Credential.Attributes()
-	if len(credentialAttrs) == 0 {
-		return nil, errors.NotValidf("empty credential")
-	}
-	accessKey := credentialAttrs[credAttrAccessKey]
-	if len(accessKey) == 0 {
-		return nil, errors.NotValidf("empty %q", credAttrAccessKey)
-	}
-	secretKey := credentialAttrs[credAttrSecretKey]
-	if len(secretKey) == 0 {
-		return nil, errors.NotValidf("empty %q", credAttrSecretKey)
-	}
-	region := credentialAttrs[credAttrRegionKey]
-	if len(region) == 0 {
-		return nil, errors.NotValidf("empty %q", credAttrRegionKey)
-	}
-
+	credentialAttr := c.Credential.Attributes()
 	return &aws.Config{
 		Retryer: getDefaultRetryer(),
-		Region:  aws.String(region),
+		Region:  aws.String(credentialAttr[credAttrRegionKey]),
 		Credentials: credentials.NewStaticCredentialsFromCreds(credentials.Value{
-			AccessKeyID:     accessKey,
-			SecretAccessKey: secretKey,
+			AccessKeyID:     credentialAttr[credAttrAccessKey],
+			SecretAccessKey: credentialAttr[credAttrSecretKey],
 		}),
 	}, nil
 }
 
-func newECSClient(cloud cloudspec.CloudSpec) (*ecs.ECS, error) {
-	config, err := cloudSpecToAWSConfig(cloud)
-	if err != nil {
-		return nil, errors.Annotate(err, "validating cloud spec")
-	}
-
+func newECSClient(config *aws.Config) (ecsiface.ECSAPI, error) {
 	s := session.Must(session.NewSession())
 	// Enable request and response logging, but only if TRACE is enabled (as
 	// they're probably fairly expensive to produce).

@@ -38,21 +38,26 @@ func (environProvider) Version() int {
 
 // Open is specified in the EnvironProvider interface.
 func (p environProvider) Open(args environs.OpenParams) (caas.Broker, error) {
-	attr := args.Cloud.Credential.Attributes()
-	if attr == nil {
-		return nil, errors.NotValidf("empty credential %q", args.Cloud.Name)
+	if err := args.Cloud.Validate(); err != nil {
+		return nil, errors.Trace(err)
 	}
-	clusterName := attr[credAttrClusterName]
-	if clusterName == "" {
-		return nil, errors.NotValidf("empty cluster name %q", args.Cloud.Name)
+	awsCfg, err := cloudSpecToAWSConfig(args.Cloud)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return newEnviron(clusterName, jujuclock.WallClock, args.Cloud, args.Config)
+	clusterName := args.Cloud.Credential.Attributes()[credAttrClusterName]
+	return newEnviron(
+		args.ControllerUUID,
+		clusterName,
+		jujuclock.WallClock,
+		args.Config, awsCfg,
+		newECSClient,
+	)
 }
 
 // CloudSchema returns the schema used to validate input for add-cloud.  Since
 // this provider does not support custom clouds, this always returns nil.
 func (p environProvider) CloudSchema() *jsonschema.Schema {
-	// TODO: https://github.com/juju/juju/blob/54ccdf8394dbe608f68449e1f280cdaa272bd0d2/provider/vsphere/provider.go#L91
 	return nil
 }
 
@@ -83,8 +88,10 @@ func (p environProvider) DetectRegions() ([]cloud.Region, error) {
 }
 
 func (p environProvider) validateCloudSpec(spec cloudspec.CloudSpec) error {
-
 	if err := spec.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	if err := validateCloudCredential(spec.Credential); err != nil {
 		return errors.Trace(err)
 	}
 	if _, err := url.Parse(spec.Endpoint); err != nil {

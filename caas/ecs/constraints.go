@@ -9,7 +9,6 @@ import (
 )
 
 var unsupportedConstraints = []string{
-	// TODO: review!!!!!!!
 	constraints.Cores,
 	constraints.VirtType,
 	constraints.Container,

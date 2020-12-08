@@ -13,19 +13,7 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
-const (
-// // ClusterNameKey is the cloud config attribute used to specify
-// // the cluster name for ecs cloud.
-// ClusterNameKey = "cluster-name"
-)
-
-var configSchema = environschema.Fields{
-	// ClusterNameKey: {
-	// 	Description: "The name of the ECS cluster used to provision workload.",
-	// 	Type:        environschema.Tstring,
-	// 	Group:       environschema.AccountGroup,
-	// },
-}
+var configSchema = environschema.Fields{}
 
 var providerConfigFields = func() schema.Fields {
 	fs, _, err := configSchema.ValidationSchema()
@@ -35,18 +23,12 @@ var providerConfigFields = func() schema.Fields {
 	return fs
 }()
 
-var providerConfigDefaults = schema.Defaults{
-	// ClusterNameKey: "",
-}
+var providerConfigDefaults = schema.Defaults{}
 
 type brokerConfig struct {
 	*config.Config
 	attrs map[string]interface{}
 }
-
-// func (c *brokerConfig) clusterName() string {
-// 	return c.attrs[ClusterNameKey].(string)
-// }
 
 func (p environProvider) Validate(cfg, old *config.Config) (*config.Config, error) {
 	newCfg, err := validateConfig(cfg, old)
@@ -86,6 +68,7 @@ func (p environProvider) ConfigDefaults() schema.Defaults {
 }
 
 func validateConfig(cfg, old *config.Config) (*brokerConfig, error) {
+	logger.Criticalf("validateConfig %#v, %#v", cfg, old)
 	// Check for valid changes for the base config values.
 	if err := config.Validate(cfg, old); err != nil {
 		return nil, errors.Trace(err)

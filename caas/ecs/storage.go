@@ -14,25 +14,24 @@ import (
 
 const (
 
-	// EBSVolumeType (default gp2):
-	//   "gp2" for General Purpose (SSD) volumes
-	//   "standard" for Magnetic volumes.
-	EBSVolumeType = "volume-type"
+	// EBSVolumeTypeKey is the config key for volume type.
+	EBSVolumeTypeKey = "volume-type"
 	// EBSDriverKey is the config key for volume provision driver.
 	EBSDriverKey = "driver"
 
-	// Volume Aliases
-	volumeAliasMagnetic = "magnetic" // standard
-	volumeAliasSSD      = "gp2"      // gp2
+	// EBSVolumeTypeValueMagnetic is the volume type of "standard" for Magnetic volumes.
+	EBSVolumeTypeValueMagnetic = "magnetic"
+	// EBSVolumeTypeValueSSD is the volume type of "gp2" for General Purpose (SSD) volumes.
+	EBSVolumeTypeValueSSD = "gp2"
 
 	// EBSDriverValueRexray is the Juju opinionated storage plugin driver for ECS.
 	EBSDriverValueRexray = "rexray/ebs" // Fix: should we opinion on this or NOT??
 )
 
 var ebsConfigFields = schema.Fields{
-	EBSVolumeType: schema.OneOf(
-		schema.Const(volumeAliasMagnetic),
-		schema.Const(volumeAliasSSD),
+	EBSVolumeTypeKey: schema.OneOf(
+		schema.Const(EBSVolumeTypeValueMagnetic),
+		schema.Const(EBSVolumeTypeValueSSD),
 	),
 	EBSDriverKey: schema.String(),
 }
@@ -40,8 +39,8 @@ var ebsConfigFields = schema.Fields{
 var ebsConfigChecker = schema.FieldMap(
 	ebsConfigFields,
 	schema.Defaults{
-		EBSVolumeType: volumeAliasSSD,
-		EBSDriverKey:  EBSDriverValueRexray,
+		EBSVolumeTypeKey: EBSVolumeTypeValueSSD,
+		EBSDriverKey:     EBSDriverValueRexray,
 	},
 )
 
@@ -56,7 +55,7 @@ func newEbsConfig(attrs map[string]interface{}) (*ebsConfig, error) {
 		return nil, errors.Annotate(err, "validating EBS storage config for ecs")
 	}
 	coerced := out.(map[string]interface{})
-	volumeType := coerced[EBSVolumeType].(string)
+	volumeType := coerced[EBSVolumeTypeKey].(string)
 	driver := coerced[EBSDriverKey].(string)
 	ebsConfig := &ebsConfig{
 		volumeType: volumeType,
@@ -80,7 +79,7 @@ func (*environ) StorageProviderTypes() ([]jujustorage.ProviderType, error) {
 
 // ValidateStorageClass returns an error if the storage config is not valid.
 func (*environ) ValidateStorageClass(config map[string]interface{}) error {
-	// REMOVE!!!
+	// TODO(ecs): REMOVE ME!
 	return nil
 }
 
@@ -122,8 +121,8 @@ func (g *storageProvider) DefaultPools() []*jujustorage.Config {
 		string(constants.StorageProviderType), // name: "ecs"
 		constants.StorageProviderType,
 		map[string]interface{}{
-			EBSVolumeType: volumeAliasSSD,
-			EBSDriverKey:  EBSDriverValueRexray,
+			EBSVolumeTypeKey: EBSVolumeTypeValueSSD,
+			EBSDriverKey:     EBSDriverValueRexray,
 		},
 	)
 	return []*jujustorage.Config{ssdPool}
@@ -150,19 +149,19 @@ var _ jujustorage.VolumeSource = (*volumeSource)(nil)
 // CreateVolumes is specified on the jujustorage.VolumeSource interface.
 func (v *volumeSource) CreateVolumes(ctx jujucontext.ProviderCallContext, params []jujustorage.VolumeParams) (_ []jujustorage.CreateVolumesResult, err error) {
 	// noop
-	logger.Warningf("CreateVolumes params -> %#v", params)
+	logger.Tracef("CreateVolumes params -> %v", params)
 	return nil, nil
 }
 
 // ListVolumes is specified on the jujustorage.VolumeSource interface.
 func (v *volumeSource) ListVolumes(ctx jujucontext.ProviderCallContext) ([]string, error) {
-	logger.Warningf("ListVolumes called")
+	logger.Tracef("ListVolumes called")
 	return nil, nil
 }
 
 // DescribeVolumes is specified on the jujustorage.VolumeSource interface.
 func (v *volumeSource) DescribeVolumes(ctx jujucontext.ProviderCallContext, volIds []string) ([]jujustorage.DescribeVolumesResult, error) {
-	logger.Warningf("DescribeVolumes volIds -> %#v", volIds)
+	logger.Tracef("DescribeVolumes volIds -> %v", volIds)
 	results := make([]jujustorage.DescribeVolumesResult, len(volIds))
 	for i, volID := range volIds {
 		results[i].VolumeInfo = &jujustorage.VolumeInfo{

@@ -61,3 +61,34 @@ func (e providerCredentials) DetectCredentials() (*cloud.CloudCredential, error)
 func (providerCredentials) FinalizeCredential(_ environs.FinalizeCredentialContext, args environs.FinalizeCredentialParams) (*cloud.Credential, error) {
 	return &args.Credential, nil
 }
+
+func validateCloudCredential(cred *cloud.Credential) error {
+	if cred == nil {
+		return errors.NotValidf("missing credential")
+	}
+	if authType := cred.AuthType(); authType != cloud.AccessKeyAuthType {
+		return errors.NotSupportedf("%q auth-type", authType)
+	}
+
+	credentialAttrs := cred.Attributes()
+	if len(credentialAttrs) == 0 {
+		return errors.NotValidf("empty credential attributes")
+	}
+	accessKey := credentialAttrs[credAttrAccessKey]
+	if len(accessKey) == 0 {
+		return errors.NotValidf("empty %q", credAttrAccessKey)
+	}
+	secretKey := credentialAttrs[credAttrSecretKey]
+	if len(secretKey) == 0 {
+		return errors.NotValidf("empty %q", credAttrSecretKey)
+	}
+	region := credentialAttrs[credAttrRegionKey]
+	if len(region) == 0 {
+		return errors.NotValidf("empty %q", credAttrRegionKey)
+	}
+	clusterName := credentialAttrs[credAttrClusterName]
+	if clusterName == "" {
+		return errors.NotValidf("empty %q", credAttrClusterName)
+	}
+	return nil
+}
