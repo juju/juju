@@ -84,8 +84,31 @@ func (c *RefreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]tr
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	// Add Juju-Metadata headers for the charms' unique series and
+	// architecture values, for example:
+	//
+	// Juju-Metadata: series=bionic
+	// Juju-Metadata: arch=amd64
+	// Juju-Metadata: series=focal
+	headers := make(http.Header)
+	seriesAdded := make(map[string]bool)
+	archsAdded := make(map[string]bool)
+	for _, context := range req.Context {
+		series := context.Platform.Series
+		if series != "" && !seriesAdded[series] {
+			headers.Add(MetadataHeader, "series="+series)
+			seriesAdded[series] = true
+		}
+		arch := context.Platform.Architecture
+		if arch != "" && !archsAdded[arch] {
+			headers.Add(MetadataHeader, "arch="+arch)
+			archsAdded[arch] = true
+		}
+	}
+
 	var resp transport.RefreshResponses
-	restResp, err := c.client.Post(ctx, c.path, req, &resp)
+	restResp, err := c.client.Post(ctx, c.path, headers, req, &resp)
 
 	if err != nil {
 		return nil, errors.Trace(err)

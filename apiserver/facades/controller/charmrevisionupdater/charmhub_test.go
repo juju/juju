@@ -51,7 +51,7 @@ func (s *charmhubSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Patch the charmhub initializer function
-	s.PatchValue(&charmrevisionupdater.NewCharmhubClient, func(st *state.State) (charmrevisionupdater.CharmhubRefreshClient, error) {
+	s.PatchValue(&charmrevisionupdater.NewCharmhubClient, func(st *state.State, metadata map[string]string) (charmrevisionupdater.CharmhubRefreshClient, error) {
 		charms := map[string]hubCharm{
 			"001": {
 				id:       "001",
@@ -66,7 +66,7 @@ func (s *charmhubSuite) SetUpTest(c *gc.C) {
 				version:  "42",
 			},
 		}
-		return &mockHub{charms: charms}, nil
+		return &mockHub{charms: charms, metadata: metadata}, nil
 	})
 
 	s.charms = make(map[string]*state.Charm)
@@ -81,10 +81,16 @@ type hubCharm struct {
 }
 
 type mockHub struct {
-	charms map[string]hubCharm
+	charms   map[string]hubCharm
+	metadata map[string]string
 }
 
 func (h *mockHub) Refresh(_ context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error) {
+	// Sanity check that metadata headers are present
+	if h.metadata["model_uuid"] == "" {
+		return nil, errors.Errorf("model metadata not present")
+	}
+
 	request, err := config.Build()
 	if err != nil {
 		return nil, err

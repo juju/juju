@@ -39,6 +39,8 @@ const (
 	CharmHubServerVersion = "v2"
 	CharmHubServerEntity  = "charms"
 
+	MetadataHeader = "Juju-Metadata"
+
 	RefreshTimeout = 10 * time.Second
 )
 

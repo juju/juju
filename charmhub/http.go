@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
+	"sort"
 
 	"github.com/juju/errors"
 	"gopkg.in/httprequest.v1"
@@ -103,7 +104,7 @@ type RESTClient interface {
 	// Get performs GET requests to a given Path.
 	Get(context.Context, path.Path, interface{}) (RESTResponse, error)
 	// Post performs POST requests to a given Path.
-	Post(context.Context, path.Path, interface{}, interface{}) (RESTResponse, error)
+	Post(context.Context, path.Path, http.Header, interface{}, interface{}) (RESTResponse, error)
 }
 
 // HTTPRESTClient represents a RESTClient that expects to interact with a
@@ -160,7 +161,7 @@ func (c *HTTPRESTClient) Get(ctx context.Context, path path.Path, result interfa
 // parsing the result as JSON into the given result value, which should
 // be a pointer to the expected data, but may be nil if no result is
 // desired.
-func (c *HTTPRESTClient) Post(ctx context.Context, path path.Path, body, result interface{}) (RESTResponse, error) {
+func (c *HTTPRESTClient) Post(ctx context.Context, path path.Path, headers http.Header, body, result interface{}) (RESTResponse, error) {
 	buffer := new(bytes.Buffer)
 	if err := json.NewEncoder(buffer).Encode(body); err != nil {
 		return RESTResponse{}, errors.Trace(err)
@@ -172,11 +173,22 @@ func (c *HTTPRESTClient) Post(ctx context.Context, path path.Path, body, result 
 	}
 
 	// Compose the request headers.
-	headers := make(http.Header)
-	headers.Set("Accept", "application/json")
-	headers.Set("Content-Type", "application/json")
+	req.Header = make(http.Header)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/json")
+	req.Header = c.composeHeaders(req.Header)
 
-	req.Header = c.composeHeaders(headers)
+	// Add any headers specific to this request (in sorted order).
+	keys := make([]string, 0, len(headers))
+	for k := range headers {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		for _, v := range headers[k] {
+			req.Header.Add(k, v)
+		}
+	}
 
 	resp, err := c.transport.Do(req)
 	if err != nil {

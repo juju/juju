@@ -90,18 +90,18 @@ func (mr *MockRESTClientMockRecorder) Get(arg0, arg1, arg2 interface{}) *gomock.
 }
 
 // Post mocks base method
-func (m *MockRESTClient) Post(arg0 context.Context, arg1 path.Path, arg2, arg3 interface{}) (RESTResponse, error) {
+func (m *MockRESTClient) Post(arg0 context.Context, arg1 path.Path, arg2 http.Header, arg3, arg4 interface{}) (RESTResponse, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Post", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "Post", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(RESTResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Post indicates an expected call of Post
-func (mr *MockRESTClientMockRecorder) Post(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockRESTClientMockRecorder) Post(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Post", reflect.TypeOf((*MockRESTClient)(nil).Post), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Post", reflect.TypeOf((*MockRESTClient)(nil).Post), arg0, arg1, arg2, arg3, arg4)
 }
 
 // MockFileSystem is a mock of FileSystem interface

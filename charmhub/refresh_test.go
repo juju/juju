@@ -4,7 +4,9 @@
 package charmhub
 
 import (
+	"bytes"
 	"context"
+	"io/ioutil"
 	"net/http"
 
 	gomock "github.com/golang/mock/gomock"
@@ -70,6 +72,91 @@ func (s *RefreshSuite) TestRefresh(c *gc.C) {
 	c.Assert(responses[0].Name, gc.Equals, name)
 }
 
+type metadataTransport struct {
+	requestHeaders http.Header
+	responseBody   string
+}
+
+func (t *metadataTransport) Do(req *http.Request) (*http.Response, error) {
+	t.requestHeaders = req.Header
+	resp := &http.Response{
+		Status:        "200 OK",
+		StatusCode:    200,
+		Proto:         "HTTP/1.1",
+		ProtoMajor:    1,
+		ProtoMinor:    1,
+		Body:          ioutil.NopCloser(bytes.NewBufferString(t.responseBody)),
+		ContentLength: int64(len(t.responseBody)),
+		Request:       req,
+		Header:        http.Header{"Content-Type": []string{"application/json"}},
+	}
+	return resp, nil
+}
+
+func (s *RefreshSuite) TestRefreshMetadata(c *gc.C) {
+	baseURL := MustParseURL(c, "http://api.foo.bar")
+	path := path.MakePath(baseURL)
+
+	httpTransport := &metadataTransport{
+		responseBody: `
+{
+  "error-list": [],
+  "results": [
+    {
+      "id": "foo",
+      "instance-key": "key-foo"
+    },
+    {
+      "id": "bar",
+      "instance-key": "key-bar"
+    }
+  ]
+}
+`,
+	}
+
+	headers := http.Header{"User-Agent": []string{"Test Agent 1.0"}}
+	restClient := NewHTTPRESTClient(httpTransport, headers)
+	client := NewRefreshClient(path, restClient, &FakeLogger{})
+
+	config1, err := RefreshOne("foo", 1, "latest/stable", RefreshPlatform{
+		OS:           "ubuntu",
+		Series:       "focal",
+		Architecture: "amd64",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	config1 = DefineInstanceKey(c, config1, "key-foo")
+
+	config2, err := RefreshOne("bar", 2, "latest/edge", RefreshPlatform{
+		OS:           "ubuntu",
+		Series:       "trusty",
+		Architecture: "amd64",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	config2 = DefineInstanceKey(c, config2, "key-bar")
+
+	config := RefreshMany(config1, config2)
+
+	response, err := client.Refresh(context.Background(), config)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(httpTransport.requestHeaders, gc.DeepEquals, http.Header{
+		"Accept":       []string{"application/json"},
+		"Content-Type": []string{"application/json"},
+		"Juju-Metadata": []string{
+			"series=focal",
+			"arch=amd64",
+			"series=trusty",
+		},
+		"User-Agent": []string{"Test Agent 1.0"},
+	})
+
+	c.Assert(response, gc.DeepEquals, []transport.RefreshResponse{
+		{ID: "foo", InstanceKey: "key-foo"},
+		{ID: "bar", InstanceKey: "key-bar"},
+	})
+}
+
 func (s *RefreshSuite) TestRefreshFailure(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -97,7 +184,7 @@ func (s *RefreshSuite) TestRefreshFailure(c *gc.C) {
 }
 
 func (s *RefreshSuite) expectPost(c *gc.C, client *MockRESTClient, p path.Path, name string, body interface{}) {
-	client.EXPECT().Post(gomock.Any(), p, body, gomock.Any()).Do(func(_ context.Context, _ path.Path, _ transport.RefreshRequest, responses *transport.RefreshResponses) {
+	client.EXPECT().Post(gomock.Any(), p, gomock.Any(), body, gomock.Any()).Do(func(_ context.Context, _ path.Path, _ map[string][]string, _ transport.RefreshRequest, responses *transport.RefreshResponses) {
 		responses.Results = []transport.RefreshResponse{{
 			InstanceKey: "foo-bar",
 			Name:        name,
@@ -106,7 +193,7 @@ func (s *RefreshSuite) expectPost(c *gc.C, client *MockRESTClient, p path.Path, 
 }
 
 func (s *RefreshSuite) expectPostFailure(c *gc.C, client *MockRESTClient) {
-	client.EXPECT().Post(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(RESTResponse{StatusCode: http.StatusInternalServerError}, errors.Errorf("boom"))
+	client.EXPECT().Post(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(RESTResponse{StatusCode: http.StatusInternalServerError}, errors.Errorf("boom"))
 }
 
 func DefineInstanceKey(c *gc.C, config RefreshConfig, key string) RefreshConfig {
