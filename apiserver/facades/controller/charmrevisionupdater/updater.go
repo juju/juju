@@ -107,8 +107,8 @@ var NewCharmStoreClient = func(st *state.State) (charmstore.Client, error) {
 }
 
 // NewCharmhubClient instantiates a new charmhub client (exported for testing).
-var NewCharmhubClient = func(st *state.State) (CharmhubRefreshClient, error) {
-	return common.CharmhubClient(st, logger)
+var NewCharmhubClient = func(st *state.State, metadata map[string]string) (CharmhubRefreshClient, error) {
+	return common.CharmhubClient(st, logger, metadata)
 }
 
 type latestCharmInfo struct {
@@ -213,10 +213,11 @@ func fetchCharmstoreInfos(st *state.State, ids []charmstore.CharmID, apps []*sta
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	metadata, err := charmstoreAPIMetadata(st)
+	metadata, err := apiMetadata(st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	metadata["environment_uuid"] = st.ModelUUID() // duplicates model_uuid, but send to charmstore for legacy reasons
 	results, err := charmstore.LatestCharmInfo(client, ids, metadata)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -246,7 +247,11 @@ func fetchCharmstoreInfos(st *state.State, ids []charmstore.CharmID, apps []*sta
 }
 
 func fetchCharmhubInfos(st *state.State, ids []charmhubID, apps []*state.Application) ([]latestCharmInfo, error) {
-	client, err := NewCharmhubClient(st)
+	metadata, err := apiMetadata(st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	client, err := NewCharmhubClient(st, metadata)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -279,15 +284,14 @@ func fetchCharmhubInfos(st *state.State, ids []charmhubID, apps []*state.Applica
 	return latest, nil
 }
 
-// charmstoreAPIMetadata returns a map containing metadata key/value pairs to
-// send to the charmstore API for tracking metrics.
-func charmstoreAPIMetadata(st *state.State) (map[string]string, error) {
+// apiMetadata returns a map containing metadata key/value pairs to
+// send to the charmhub or charmstore API for tracking metrics.
+func apiMetadata(st *state.State) (map[string]string, error) {
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	metadata := map[string]string{
-		"environment_uuid":   model.UUID(),
 		"model_uuid":         model.UUID(),
 		"controller_uuid":    st.ControllerUUID(),
 		"controller_version": version.Current.String(),
