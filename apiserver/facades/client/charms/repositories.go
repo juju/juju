@@ -274,15 +274,16 @@ func (c *chRepo) resolveViaChannelMap(t transport.Type, curl *charm.URL, origin 
 	origin.OS = mapChannel.Platform.OS
 	origin.Series = mapChannel.Platform.Series
 
-	// TODO (stickupkid): We should drop support for throwing an error here.
-	// Instead we should make it optional and if we can't get the computed
-	// series back, sum up the series for the same revision/channel and use that
-	// as the fallback.
-	//
-	// `metadata.yaml` is a requirement to be a valid charm or bundle. The charm
-	// repo expects that one exists even if it contains minimal information.
+	// The metadata is empty, this can happen if we've requested something from
+	// the charmhub API that we didn't provide the right hint for (channel or
+	// revision).
+	// Eventually we should drop the computed series for charmhub requests and
+	// only use the API to tell us which series we target. Until that happens
+	// we should fallback to one we do know and won't cause the deployment to
+	// fail.
 	if mapRevision.MetadataYAML == "" {
-		return nil, params.CharmOrigin{}, nil, errors.Errorf("unexpected empty charm metadata")
+		logger.Warningf("No metadata yaml found, using fallback computed series for %q.", curl)
+		return curl, origin, []string{origin.Series}, nil
 	}
 
 	var (

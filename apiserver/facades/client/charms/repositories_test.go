@@ -78,6 +78,34 @@ func (s *charmHubRepositoriesSuite) TestResolveWithRevision(c *gc.C) {
 	c.Assert(obtainedSeries, jc.SameContents, []string{"bionic", "xenial"})
 }
 
+func (s *charmHubRepositoriesSuite) TestResolveDefaultChannelMapWithFallbackSeries(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectAlternativeInfo(nil)
+
+	curl := charm.MustParseURL("ch:wordpress")
+	origin := params.CharmOrigin{Source: "charm-hub"}
+
+	resolver := &chRepo{client: s.client}
+	obtainedCurl, obtainedOrigin, obtainedSeries, err := resolver.ResolveWithPreferredChannel(curl, origin)
+	c.Assert(err, jc.ErrorIsNil)
+
+	track := "1.0"
+	curl.Revision = 17
+
+	origin.ID = "charmCHARMcharmCHARMcharmCHARM01"
+	origin.Type = "charm"
+	origin.Revision = &curl.Revision
+	origin.Risk = "edge"
+	origin.Track = &track
+	origin.Architecture = arch.DefaultArchitecture
+	origin.OS = "ubuntu"
+	origin.Series = "bionic"
+
+	c.Assert(obtainedCurl, jc.DeepEquals, curl)
+	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
+	c.Assert(obtainedSeries, jc.SameContents, []string{"bionic"})
+}
+
 func (s *charmHubRepositoriesSuite) TestResolveWithRevisionNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectInfo(nil)
@@ -183,6 +211,10 @@ func (s *charmHubRepositoriesSuite) expectInfo(err error) {
 	s.client.EXPECT().Info(gomock.Any(), "wordpress", gomock.Any()).Return(getCharmHubInfoResponse(), err)
 }
 
+func (s *charmHubRepositoriesSuite) expectAlternativeInfo(err error) {
+	s.client.EXPECT().Info(gomock.Any(), "wordpress", gomock.Any()).Return(getAlternativeCharmHubInfoResponse(), err)
+}
+
 type charmStoreResolversSuite struct {
 	repo CSRepository
 }
@@ -195,12 +227,20 @@ func (s *charmStoreResolversSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *charmStoreResolversSuite) expectResolveWithPreferredChannel(c *gc.C) {
-
-}
-
 func getCharmHubInfoResponse() transport.InfoResponse {
 	channelMap, defaultRelease := getCharmHubResponse()
+	return transport.InfoResponse{
+		Name:           "wordpress",
+		Type:           "charm",
+		ID:             "charmCHARMcharmCHARMcharmCHARM01",
+		ChannelMap:     channelMap,
+		DefaultRelease: defaultRelease,
+	}
+}
+
+func getAlternativeCharmHubInfoResponse() transport.InfoResponse {
+	channelMap, _ := getCharmHubResponse()
+	defaultRelease := alternativeDefaultChannelMap()
 	return transport.InfoResponse{
 		Name:           "wordpress",
 		Type:           "charm",
@@ -317,6 +357,30 @@ func getCharmHubResponse() ([]transport.InfoChannelMap, transport.InfoChannelMap
 				Version:  "1.0.3",
 			},
 		}
+}
+
+func alternativeDefaultChannelMap() transport.InfoChannelMap {
+	return transport.InfoChannelMap{
+		Channel: transport.Channel{
+			Name: "other",
+			Platform: transport.Platform{
+				Architecture: arch.DefaultArchitecture,
+				OS:           "ubuntu",
+				Series:       "bionic",
+			},
+			Risk:  "edge",
+			Track: "1.0",
+		},
+		Revision: transport.InfoRevision{
+			Platforms: []transport.Platform{{
+				Architecture: arch.DefaultArchitecture,
+				OS:           "ubuntu",
+				Series:       "bionic",
+			}},
+			Revision: 17,
+			Version:  "1.0.3",
+		},
+	}
 }
 
 var entityMeta = `

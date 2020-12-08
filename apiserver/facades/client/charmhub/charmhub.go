@@ -86,7 +86,7 @@ func (api *CharmHubAPI) Info(arg params.Info) (params.CharmHubEntityInfoResult, 
 		return params.CharmHubEntityInfoResult{}, errors.BadRequestf("tag value is empty")
 	}
 
-	var options []charmhub.Option
+	var options []charmhub.InfoOption
 	if arg.Channel != "" {
 		ch, err := charm.ParseChannelNormalize(arg.Channel)
 		if err != nil {
