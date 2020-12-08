@@ -8,6 +8,7 @@ import logging
 import os
 import subprocess
 import sys
+import time
 
 from deploy_stack import (
     BootstrapManager,
@@ -38,6 +39,8 @@ def assess_juju_upgrade_series(client, args):
     do_release_upgrade(client, target_machine)
     reboot_machine(client, target_machine)
     upgrade_series_complete(client, target_machine)
+    log.info("waiting for the machine agent to report the new series")
+    time.sleep(5)
     assert_correct_series(client, target_machine, args.to_series)
 
 
@@ -58,25 +61,25 @@ def do_release_upgrade(client, machine):
         output = client.get_juju_output(
             'ssh', machine, 'sudo do-release-upgrade -f '
             'DistUpgradeViewNonInteractive', timeout=3600)
-        log.info("do-release-upgrade response: ".format(output))
+        log.info("do-release-upgrade response: {}".format(output))
     except subprocess.CalledProcessError as e:
         raise AssertionError(
             "do-release-upgrade failed on {}: {}".format(machine, e))
 
 
 def reboot_machine(client, machine):
-    """Issue a reboot command to the machine via `juju run`.
-    The issued command may exit with SIGTERM as the machine goes down.
-    We ignore this.
+    """Issue a reboot command to the machine via `juju ssh`.
+    The issued command may exit with a 255 status to indicate that the remote
+    is not available. We ignore this.
     """
     log.info("Restarting: {}".format(machine))
 
     try:
-        client.juju('run', ('--machine', machine, 'sudo shutdown -r now'))
+        client.juju('ssh', (machine, 'sudo shutdown -r now'))
     except subprocess.CalledProcessError as e:
-        if e.returncode != 143:
+        if e.returncode != 255:
             raise e
-        log.info("Ignoring SIGTERM raised during `juju run`")
+        log.info("Ignoring `juju ssh` exit status after triggering reboot")
 
     log.info("wait_for_started()")
     client.wait_for_started()
