@@ -30,15 +30,16 @@ func (s *CharmHubClientSuite) TestResolveResources(c *gc.C) {
 	s.client = mocks.NewMockCharmHub(ctrl)
 	s.expectRefresh()
 
+	fp, err := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
+	c.Assert(err, jc.ErrorIsNil)
 	result, err := s.newClient().ResolveResources(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []charmresource.Resource{{
-		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "", Description: ""},
-		Origin:   2,
-		Revision: 0,
-		Fingerprint: charmresource.Fingerprint{
-			Fingerprint: hash.Fingerprint{}},
-		Size: 0,
+		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "", Description: ""},
+		Origin:      2,
+		Revision:    0,
+		Fingerprint: fp,
+		Size:        0,
 	}})
 }
 

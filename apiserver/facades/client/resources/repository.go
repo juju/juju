@@ -112,14 +112,21 @@ func resourceFromRevision(rev transport.ResourceRevision) (charmresource.Resourc
 	if err != nil {
 		return charmresource.Resource{}, errors.Trace(err)
 	}
+	fp, err := charmresource.ParseFingerprint(rev.Download.HashSHA384)
+	if err != nil {
+		return charmresource.Resource{}, errors.Trace(err)
+	}
 	r := charmresource.Resource{
 		Meta: charmresource.Meta{
-			Name: rev.Name,
-			Type: resType,
+			Name:        rev.Name,
+			Type:        resType,
+			Path:        rev.Path,
+			Description: rev.Description,
 		},
-		Origin:   charmresource.OriginStore,
-		Revision: rev.Revision,
-		Size:     int64(rev.Download.Size),
+		Origin:      charmresource.OriginStore,
+		Revision:    rev.Revision,
+		Fingerprint: fp,
+		Size:        int64(rev.Download.Size),
 	}
 	return r, nil
 }
