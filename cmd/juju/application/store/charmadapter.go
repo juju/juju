@@ -22,7 +22,7 @@ type CharmStoreRepoFunc = func() (CharmrepoForDeploy, error)
 // DownloadBundleClient represents a way to download a bundle from a given
 // resource URL.
 type DownloadBundleClient interface {
-	DownloadAndReadBundle(context.Context, *url.URL, string, charmhub.ProgressBar) (charm.Bundle, error)
+	DownloadAndReadBundle(context.Context, *url.URL, string, ...charmhub.DownloadOption) (charm.Bundle, error)
 }
 
 // DownloadBundleClientFunc lazily construct a download bundle client.
@@ -165,5 +165,5 @@ func (ch chBundleFactory) GetBundle(curl *charm.URL, origin commoncharm.Origin, 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return client.DownloadAndReadBundle(context.TODO(), url, path, nil)
+	return client.DownloadAndReadBundle(context.TODO(), url, path)
 }

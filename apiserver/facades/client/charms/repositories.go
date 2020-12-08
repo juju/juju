@@ -31,7 +31,7 @@ var logger = loggo.GetLogger("juju.apiserver.charms")
 // CharmHubClient represents the methods required of a
 // client to install or upgrade a CharmHub charm.
 type CharmHubClient interface {
-	DownloadAndRead(ctx context.Context, resourceURL *url.URL, archivePath string, pb charmhub.ProgressBar) (*charm.CharmArchive, error)
+	DownloadAndRead(ctx context.Context, resourceURL *url.URL, archivePath string, options ...charmhub.DownloadOption) (*charm.CharmArchive, error)
 	Info(ctx context.Context, name string) (transport.InfoResponse, error)
 	Refresh(ctx context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error)
 }
@@ -91,7 +91,7 @@ func (c *chRepo) DownloadCharm(resourceURL string, archivePath string) (*charm.C
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return c.client.DownloadAndRead(context.TODO(), curl, archivePath, nil)
+	return c.client.DownloadAndRead(context.TODO(), curl, archivePath)
 }
 
 // FindDownloadURL returns the url from which to download the CharmHub

@@ -18,11 +18,11 @@ import (
 	"github.com/juju/os/v2/series"
 
 	"github.com/juju/juju/charmhub"
-	"github.com/juju/juju/cmd/output/progress"
 	"github.com/juju/juju/charmhub/selector"
 	"github.com/juju/juju/charmhub/transport"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output/progress"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/environs/config"
 )
@@ -235,7 +235,7 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 
 	pb := progress.MakeProgressBar(cmdContext.Stdout)
 	ctx = context.WithValue(ctx, charmhub.DownloadNameKey, info.Name)
-	if err := client.Download(ctx, resourceURL, path, pb); err != nil {
+	if err := client.Download(ctx, resourceURL, path, charmhub.WithProgressBar(pb)); err != nil {
 		return errors.Trace(err)
 	}
 

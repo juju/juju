@@ -36,7 +36,7 @@ type FindCommandAPI interface {
 // command.
 type DownloadCommandAPI interface {
 	Info(context.Context, string) (transport.InfoResponse, error)
-	Download(context.Context, *url.URL, string, charmhub.ProgressBar) error
+	Download(context.Context, *url.URL, string, ...charmhub.DownloadOption) error
 }
 
 type ModelConfigGetter interface {

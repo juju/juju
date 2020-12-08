@@ -1044,7 +1044,7 @@ type mockDownloadBundleClient struct {
 	bundle charm.Bundle
 }
 
-func (m *mockDownloadBundleClient) DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string, pb charmhub.ProgressBar) (charm.Bundle, error) {
+func (m *mockDownloadBundleClient) DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string, options ...charmhub.DownloadOption) (charm.Bundle, error) {
 	m.MethodCall(m, "DownloadAndReadBundle", resourceURL, archivePath)
 	return m.bundle, m.NextErr()
 }

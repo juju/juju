@@ -35,6 +35,25 @@ func (fileSystem) Create(name string) (*os.File, error) {
 	return os.Create(name)
 }
 
+// DownloadOption to be passed to Info to customize the resulting request.
+type DownloadOption func(*downloadOptions)
+
+type downloadOptions struct {
+	progressBar ProgressBar
+}
+
+// WithProgressBar sets the channel on the option.
+func WithProgressBar(pb ProgressBar) DownloadOption {
+	return func(options *downloadOptions) {
+		options.progressBar = pb
+	}
+}
+
+// Create a downloadOptions instance with default values.
+func newOptions() *downloadOptions {
+	return &downloadOptions{}
+}
+
 // DownloadClient represents a client for downloading charm resources directly.
 type DownloadClient struct {
 	transport  Transport
@@ -51,12 +70,17 @@ func NewDownloadClient(transport Transport, fileSystem FileSystem, logger Logger
 	}
 }
 
+// DownloadKey represents a key for accessing the context value.
 type DownloadKey string
 
 const (
+	// DownloadNameKey defines a name of a download, so the progress bar can
+	// show it.
 	DownloadNameKey DownloadKey = "download-name-key"
 )
 
+// ProgressBar defines a progress bar type for giving feedback to the user about
+// the state of the download.
 type ProgressBar interface {
 	io.Writer
 
@@ -74,7 +98,12 @@ type ProgressBar interface {
 // TODO (stickupkid): We should either create and remove, or take a file and
 // let the callee remove. The fact that the operations are asymmetrical can lead
 // to unexpected expectations; namely leaking of files.
-func (c *DownloadClient) Download(ctx context.Context, resourceURL *url.URL, archivePath string, pb ProgressBar) error {
+func (c *DownloadClient) Download(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) error {
+	opts := newOptions()
+	for _, option := range options {
+		option(opts)
+	}
+
 	f, err := c.fileSystem.Create(archivePath)
 	if err != nil {
 		return errors.Trace(err)
@@ -92,7 +121,7 @@ func (c *DownloadClient) Download(ctx context.Context, resourceURL *url.URL, arc
 	}()
 
 	var writer io.Writer = f
-	if pb != nil {
+	if opts.progressBar != nil {
 		// Progress bar has this nifty feature where you can supply a name. In
 		// this case we can supply one to help with UI feedback.
 		var name string
@@ -106,10 +135,10 @@ func (c *DownloadClient) Download(ctx context.Context, resourceURL *url.URL, arc
 		// unfortunately we don't have the information to hand. That information
 		// is further up the stack.
 		downloadSize := float64(r.ContentLength)
-		pb.Start(name, downloadSize)
-		defer pb.Finished()
+		opts.progressBar.Start(name, downloadSize)
+		defer opts.progressBar.Finished()
 
-		writer = io.MultiWriter(f, pb)
+		writer = io.MultiWriter(f, opts.progressBar)
 	}
 
 	if _, err := io.Copy(writer, r.Body); err != nil {
@@ -120,8 +149,8 @@ func (c *DownloadClient) Download(ctx context.Context, resourceURL *url.URL, arc
 }
 
 // DownloadAndRead returns a charm archive retrieved from the given URL.
-func (c *DownloadClient) DownloadAndRead(ctx context.Context, resourceURL *url.URL, archivePath string, pb ProgressBar) (*charm.CharmArchive, error) {
-	err := c.Download(ctx, resourceURL, archivePath, pb)
+func (c *DownloadClient) DownloadAndRead(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*charm.CharmArchive, error) {
+	err := c.Download(ctx, resourceURL, archivePath, options...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -130,8 +159,8 @@ func (c *DownloadClient) DownloadAndRead(ctx context.Context, resourceURL *url.U
 }
 
 // DownloadAndReadBundle returns a bundle archive retrieved from the given URL.
-func (c *DownloadClient) DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string, pb ProgressBar) (*charm.BundleArchive, error) {
-	err := c.Download(ctx, resourceURL, archivePath, pb)
+func (c *DownloadClient) DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*charm.BundleArchive, error) {
+	err := c.Download(ctx, resourceURL, archivePath, options...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

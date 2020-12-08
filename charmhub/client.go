@@ -200,18 +200,18 @@ func (c *Client) Refresh(ctx context.Context, config RefreshConfig) ([]transport
 }
 
 // Download defines a client for downloading charms directly.
-func (c *Client) Download(ctx context.Context, resourceURL *url.URL, archivePath string, pb ProgressBar) error {
-	return c.downloadClient.Download(ctx, resourceURL, archivePath, pb)
+func (c *Client) Download(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) error {
+	return c.downloadClient.Download(ctx, resourceURL, archivePath, options...)
 }
 
 // DownloadAndRead defines a client for downloading charms directly.
-func (c *Client) DownloadAndRead(ctx context.Context, resourceURL *url.URL, archivePath string, pb ProgressBar) (*charm.CharmArchive, error) {
-	return c.downloadClient.DownloadAndRead(ctx, resourceURL, archivePath, pb)
+func (c *Client) DownloadAndRead(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*charm.CharmArchive, error) {
+	return c.downloadClient.DownloadAndRead(ctx, resourceURL, archivePath, options...)
 }
 
 // DownloadAndReadBundle defines a client for downloading bundles directly.
-func (c *Client) DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string, pb ProgressBar) (charm.Bundle, error) {
-	return c.downloadClient.DownloadAndReadBundle(ctx, resourceURL, archivePath, pb)
+func (c *Client) DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (charm.Bundle, error) {
+	return c.downloadClient.DownloadAndReadBundle(ctx, resourceURL, archivePath, options...)
 }
 
 // ListResourceRevisions returns resource revisions for the provided charm and resource.
