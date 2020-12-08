@@ -4,12 +4,12 @@
 package resourceadapters
 
 import (
+	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	csclient "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/charmstore"
+	"github.com/juju/juju/resource/respositories"
 	corestate "github.com/juju/juju/state"
 )
 
@@ -17,10 +17,12 @@ import (
 //
 // The caller owns the State provided. It is the caller's
 // responsibility to close it.
-//
-// TODO(mjs): This is the entry point for a whole lot of untested shim
-// code in this package. At some point this should be sorted out.
+
 func NewResourceOpener(st *corestate.State, unitName string) (opener resource.Opener, err error) {
+	return newInternalResourceOpener(&stateShim{st}, unitName)
+}
+
+func newInternalResourceOpener(st ResourceOpenerState, unitName string) (opener resource.Opener, err error) {
 	unit, err := st.Unit(unitName)
 	if err != nil {
 		return nil, errors.Annotate(err, "loading unit")
@@ -31,25 +33,39 @@ func NewResourceOpener(st *corestate.State, unitName string) (opener resource.Op
 		return nil, errors.Trace(err)
 	}
 
-	opener = &resourceOpener{
-		st:     st,
-		res:    resources,
-		userID: unit.Tag(),
-		unit:   unit,
+	curl, _ := unit.CharmURL()
+	switch {
+	case charm.CharmStore.Matches(curl.Schema):
+		opener = &ResourceOpener{
+			st:                st,
+			res:               resources,
+			userID:            unit.Tag(),
+			unit:              unit,
+			newResourceOpener: func(st ResourceOpenerState) ResourceRetryClientGetter { return newCharmStoreOpener(st) },
+		}
+	case charm.CharmHub.Matches(curl.Schema):
+		opener = &ResourceOpener{
+			st:                st,
+			res:               resources,
+			userID:            unit.Tag(),
+			unit:              unit,
+			newResourceOpener: func(st ResourceOpenerState) ResourceRetryClientGetter { return newCharmHubOpener(st) },
+		}
 	}
 	return opener, nil
 }
 
-// resourceOpener is an implementation of server.ResourceOpener.
-type resourceOpener struct {
-	st     *corestate.State
-	res    corestate.Resources
-	userID names.Tag
-	unit   *corestate.Unit
+// ResourceOpener is a ResourceOpener for the charm store.
+type ResourceOpener struct {
+	st                ResourceOpenerState
+	res               Resources
+	userID            names.Tag
+	unit              Unit
+	newResourceOpener func(st ResourceOpenerState) ResourceRetryClientGetter
 }
 
 // OpenResource implements server.ResourceOpener.
-func (ro *resourceOpener) OpenResource(name string) (o resource.Opened, err error) {
+func (ro *ResourceOpener) OpenResource(name string) (o resource.Opened, err error) {
 	if ro.unit == nil {
 		return resource.Opened{}, errors.Errorf("missing unit")
 	}
@@ -58,25 +74,24 @@ func (ro *resourceOpener) OpenResource(name string) (o resource.Opened, err erro
 		return resource.Opened{}, errors.Trace(err)
 	}
 	cURL, _ := ro.unit.CharmURL()
-	id := csclient.CharmID{
-		URL:     cURL,
-		Channel: app.Channel(),
+	id := respositories.CharmID{
+		URL:    cURL,
+		Origin: *app.CharmOrigin(),
 	}
 
-	csOpener := newCharmstoreOpener(ro.st)
-	client, err := csOpener.NewClient()
+	client, err := ro.newResourceOpener(ro.st).NewClient()
 	if err != nil {
 		return resource.Opened{}, errors.Trace(err)
 	}
 
-	cache := &charmstoreEntityCache{
-		st:            ro.res,
-		userID:        ro.userID,
-		unit:          ro.unit,
-		applicationID: ro.unit.ApplicationName(),
+	cache := &resourceCache{
+		st:      ro.res,
+		userID:  ro.userID,
+		unit:    ro.unit,
+		appName: ro.unit.ApplicationName(),
 	}
 
-	res, reader, err := charmstore.GetResource(charmstore.GetResourceArgs{
+	res, reader, err := respositories.GetResource(respositories.GetResourceArgs{
 		Client:  client,
 		Cache:   cache,
 		CharmID: id,
@@ -91,4 +106,32 @@ func (ro *resourceOpener) OpenResource(name string) (o resource.Opened, err erro
 		ReadCloser: reader,
 	}
 	return opened, nil
+}
+
+type stateShim struct {
+	*corestate.State
+}
+
+func (s *stateShim) Model() (Model, error) {
+	return s.State.Model()
+}
+
+func (s *stateShim) Unit(name string) (Unit, error) {
+	u, err := s.State.Unit(name)
+	if err != nil {
+		return nil, err
+	}
+	return &unitShim{Unit: u}, nil
+}
+
+func (s *stateShim) Resources() (Resources, error) {
+	return s.State.Resources()
+}
+
+type unitShim struct {
+	*corestate.Unit
+}
+
+func (u *unitShim) Application() (Application, error) {
+	return u.Unit.Application()
 }

@@ -96,7 +96,7 @@ func GetResource(args GetResourceArgs) (resource.Resource, io.ReadCloser, error)
 	}
 
 	cache := cacheForOperations{
-		EntityCache: args.Cache,
+		entityCache: args.Cache,
 	}
 
 	res, reader, err := cache.get(args.Name)

@@ -5,6 +5,7 @@ package resourceadapters_test
 
 import (
 	"fmt"
+	"github.com/juju/juju/state"
 	"sync/atomic"
 
 	"github.com/juju/errors"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource/resourceadapters"
+	"github.com/juju/juju/resource/respositories"
 )
 
 type CharmStoreSuite struct {
@@ -34,13 +36,20 @@ func (s *CharmStoreSuite) SetUpTest(c *gc.C) {
 func (s *CharmStoreSuite) TestGetResourceTerminates(c *gc.C) {
 	msg := "trust"
 	attempts := int32(0)
-	s.resourceClient.getResourceF = func(req charmstore.ResourceRequest) (data charmstore.ResourceData, err error) {
+	s.resourceClient.getResourceF = func(req respositories.ResourceRequest) (data charmstore.ResourceData, err error) {
 		atomic.AddInt32(&attempts, 1)
 		return charmstore.ResourceData{}, errors.New(msg)
 	}
 	csRes := resourceadapters.NewCSRetryClientForTest(s.resourceClient)
 
-	_, err := csRes.GetResource(charmstore.ResourceRequest{})
+	_, err := csRes.GetResource(respositories.ResourceRequest{
+		CharmID: respositories.CharmID{
+			URL: nil,
+			Origin: state.CharmOrigin{
+				Channel: &state.Channel{Risk: "stable"},
+			},
+		},
+	})
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("failed after retrying: %v", msg))
 	// Ensure we logged attempts @ WARNING.
 	c.Assert(c.GetTestLog(), jc.Contains, fmt.Sprintf("WARNING juju.resource.resourceadapters attempt %d/%d to download resource ", attempts, attempts))
@@ -71,11 +80,18 @@ func (s *CharmStoreSuite) TestGetResourceAbortedOnNotValid(c *gc.C) {
 	)
 }
 
-func (s *CharmStoreSuite) assertAbortedGetResourceOnError(c *gc.C, csRes *resourceadapters.CSRetryClient, expectedError error, expectedMessage string) {
-	s.resourceClient.getResourceF = func(req charmstore.ResourceRequest) (data charmstore.ResourceData, err error) {
+func (s *CharmStoreSuite) assertAbortedGetResourceOnError(c *gc.C, csRes *resourceadapters.ResourceRetryClient, expectedError error, expectedMessage string) {
+	s.resourceClient.getResourceF = func(req respositories.ResourceRequest) (data charmstore.ResourceData, err error) {
 		return charmstore.ResourceData{}, expectedError
 	}
-	_, err := csRes.GetResource(charmstore.ResourceRequest{})
+	_, err := csRes.GetResource(respositories.ResourceRequest{
+		CharmID: respositories.CharmID{
+			URL: nil,
+			Origin: state.CharmOrigin{
+				Channel: &state.Channel{Risk: "stable"},
+			},
+		},
+	})
 	c.Assert(err, gc.ErrorMatches, expectedMessage)
 	c.Assert(c.GetTestLog(), gc.Not(jc.Contains), "WARNING juju.resource.resourceadapters")
 	// Since we have aborted re-tries, we should only call GetResources once.
@@ -85,10 +101,10 @@ func (s *CharmStoreSuite) assertAbortedGetResourceOnError(c *gc.C, csRes *resour
 type testResourceClient struct {
 	stub *testing.Stub
 
-	getResourceF func(req charmstore.ResourceRequest) (data charmstore.ResourceData, err error)
+	getResourceF func(req respositories.ResourceRequest) (data charmstore.ResourceData, err error)
 }
 
-func (f *testResourceClient) GetResource(req charmstore.ResourceRequest) (data charmstore.ResourceData, err error) {
+func (f *testResourceClient) GetResource(req respositories.ResourceRequest) (data charmstore.ResourceData, err error) {
 	f.stub.AddCall("GetResource", req)
 	return f.getResourceF(req)
 }
