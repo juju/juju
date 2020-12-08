@@ -8,6 +8,7 @@ import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
 	charmhub "github.com/juju/juju/api/charmhub"
+	charmhub0 "github.com/juju/juju/charmhub"
 	transport "github.com/juju/juju/charmhub/transport"
 	url "net/url"
 	reflect "reflect"
@@ -37,17 +38,22 @@ func (m *MockDownloadCommandAPI) EXPECT() *MockDownloadCommandAPIMockRecorder {
 }
 
 // Download mocks base method
-func (m *MockDownloadCommandAPI) Download(arg0 context.Context, arg1 *url.URL, arg2 string) error {
+func (m *MockDownloadCommandAPI) Download(arg0 context.Context, arg1 *url.URL, arg2 string, arg3 ...charmhub0.DownloadOption) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Download", arg0, arg1, arg2)
+	varargs := []interface{}{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Download", varargs...)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Download indicates an expected call of Download
-func (mr *MockDownloadCommandAPIMockRecorder) Download(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockDownloadCommandAPIMockRecorder) Download(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Download", reflect.TypeOf((*MockDownloadCommandAPI)(nil).Download), arg0, arg1, arg2)
+	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Download", reflect.TypeOf((*MockDownloadCommandAPI)(nil).Download), varargs...)
 }
 
 // Info mocks base method

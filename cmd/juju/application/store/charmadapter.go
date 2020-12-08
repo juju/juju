@@ -13,6 +13,7 @@ import (
 
 	apicharm "github.com/juju/juju/api/charms"
 	commoncharm "github.com/juju/juju/api/common/charm"
+	"github.com/juju/juju/charmhub"
 )
 
 // CharmStoreRepoFunc lazily creates a charm store repo.
@@ -21,7 +22,7 @@ type CharmStoreRepoFunc = func() (CharmrepoForDeploy, error)
 // DownloadBundleClient represents a way to download a bundle from a given
 // resource URL.
 type DownloadBundleClient interface {
-	DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string) (charm.Bundle, error)
+	DownloadAndReadBundle(context.Context, *url.URL, string, ...charmhub.DownloadOption) (charm.Bundle, error)
 }
 
 // DownloadBundleClientFunc lazily construct a download bundle client.

@@ -216,5 +216,5 @@ func (s *downloadSuite) expectInfo(charmHubURL string) {
 func (s *downloadSuite) expectDownload(c *gc.C, charmHubURL string) {
 	resourceURL, err := url.Parse(charmHubURL)
 	c.Assert(err, jc.ErrorIsNil)
-	s.downloadCommandAPI.EXPECT().Download(gomock.Any(), resourceURL, "test.charm").Return(nil)
+	s.downloadCommandAPI.EXPECT().Download(gomock.Any(), resourceURL, "test.charm", gomock.Any()).Return(nil)
 }
