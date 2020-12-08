@@ -22,7 +22,7 @@ type Log = func(format string, params ...interface{})
 
 // InfoCommandAPI describes API methods required to execute the info command.
 type InfoCommandAPI interface {
-	Info(string) (apicharmhub.InfoResponse, error)
+	Info(string, string) (apicharmhub.InfoResponse, error)
 	Close() error
 }
 
@@ -35,7 +35,7 @@ type FindCommandAPI interface {
 // DownloadCommandAPI describes API methods required to execute the download
 // command.
 type DownloadCommandAPI interface {
-	Info(context.Context, string) (transport.InfoResponse, error)
+	Info(context.Context, string, ...charmhub.InfoOption) (transport.InfoResponse, error)
 	Download(context.Context, *url.URL, string, ...charmhub.DownloadOption) error
 }
 

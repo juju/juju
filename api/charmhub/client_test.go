@@ -24,13 +24,13 @@ var _ = gc.Suite(&charmHubSuite{})
 func (s charmHubSuite) TestInfo(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	arg := params.Entity{Tag: names.NewApplicationTag("wordpress").String()}
+	arg := params.Info{Tag: names.NewApplicationTag("wordpress").String()}
 	resultSource := params.CharmHubEntityInfoResult{
 		Result: getParamsInfoResponse(),
 	}
 	s.facade.EXPECT().FacadeCall("Info", arg, gomock.Any()).SetArg(2, resultSource)
 
-	obtained, err := s.newClientFromFacadeForTest().Info("wordpress")
+	obtained, err := s.newClientFromFacadeForTest().Info("wordpress", "")
 	c.Assert(err, jc.ErrorIsNil)
 	assertInfoResponseSameContents(c, obtained, getInfoResponse())
 }

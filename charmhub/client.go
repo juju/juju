@@ -189,8 +189,8 @@ func (c *Client) URL() string {
 }
 
 // Info returns charm info on the provided charm name from CharmHub API.
-func (c *Client) Info(ctx context.Context, name string) (transport.InfoResponse, error) {
-	return c.infoClient.Info(ctx, name)
+func (c *Client) Info(ctx context.Context, name string, options ...InfoOption) (transport.InfoResponse, error) {
+	return c.infoClient.Info(ctx, name, options...)
 }
 
 // Find searches for a given charm for a given name from CharmHub API.

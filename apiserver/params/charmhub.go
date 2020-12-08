@@ -9,6 +9,12 @@ type Query struct {
 	Query string `json:"query"`
 }
 
+// Info tag represents a info query for a given tag and channel.
+type Info struct {
+	Tag     string `json:"tag"`
+	Channel string `json:"channel,omitempty"`
+}
+
 type CharmHubEntityInfoResult struct {
 	Result InfoResponse  `json:"result"`
 	Errors ErrorResponse `json:"errors"`

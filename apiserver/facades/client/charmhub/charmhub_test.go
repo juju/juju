@@ -28,7 +28,17 @@ type charmHubAPISuite struct {
 func (s *charmHubAPISuite) TestInfo(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectInfo()
-	arg := params.Entity{Tag: names.NewApplicationTag("wordpress").String()}
+	arg := params.Info{Tag: names.NewApplicationTag("wordpress").String()}
+	obtained, err := s.newCharmHubAPIForTest(c).Info(arg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertInfoResponseSameContents(c, obtained.Result, getParamsInfoResponse())
+}
+
+func (s *charmHubAPISuite) TestInfoWithChannel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectInfo()
+	arg := params.Info{Tag: names.NewApplicationTag("wordpress").String(), Channel: "stable"}
 	obtained, err := s.newCharmHubAPIForTest(c).Info(arg)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -84,7 +94,7 @@ func (s *charmHubAPISuite) expectClient() {
 }
 
 func (s *charmHubAPISuite) expectInfo() {
-	s.client.EXPECT().Info(gomock.Any(), "wordpress").Return(getCharmHubInfoResponse(), nil)
+	s.client.EXPECT().Info(gomock.Any(), "wordpress", gomock.Any()).Return(getCharmHubInfoResponse(), nil)
 }
 
 func (s *charmHubAPISuite) expectFind() {
