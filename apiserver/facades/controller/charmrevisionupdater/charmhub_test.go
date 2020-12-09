@@ -9,22 +9,30 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/collections/set"
+	"github.com/golang/mock/gomock"
+	"github.com/juju/charm/v8"
+	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/state"
+	statemocks "github.com/juju/juju/state/mocks"
+	"github.com/juju/juju/testing"
 )
 
 type charmhubSuite struct{}
 
 var _ = gc.Suite(&charmhubSuite{})
 
-func newMockCharmhubClient(st charmrevisionupdater.State, metadata map[string]string) (charmrevisionupdater.CharmhubRefreshClient, error) {
-	charms := map[string]hubCharm{
+func newFakeCharmhubClient(st charmrevisionupdater.State, metadata map[string]string) (charmrevisionupdater.CharmhubRefreshClient, error) {
+	charms := map[string]charmhubCharm{
 		"charm-1": {
 			id:       "charm-1",
 			name:     "mysql",
@@ -38,10 +46,10 @@ func newMockCharmhubClient(st charmrevisionupdater.State, metadata map[string]st
 			version:  "42",
 		},
 	}
-	return &mockCharmhubAPI{charms: charms, metadata: metadata}, nil
+	return &fakeCharmhubAPI{charms: charms, metadata: metadata}, nil
 }
 
-type hubCharm struct {
+type charmhubCharm struct {
 	id        string
 	name      string
 	revision  int
@@ -49,12 +57,12 @@ type hubCharm struct {
 	version   string
 }
 
-type mockCharmhubAPI struct {
-	charms   map[string]hubCharm
+type fakeCharmhubAPI struct {
+	charms   map[string]charmhubCharm
 	metadata map[string]string
 }
 
-func (h *mockCharmhubAPI) Refresh(_ context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error) {
+func (h *fakeCharmhubAPI) Refresh(_ context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error) {
 	// Sanity check that metadata headers are present
 	if h.metadata["model_uuid"] == "" {
 		return nil, errors.Errorf("model metadata not present")
@@ -97,38 +105,110 @@ func (h *mockCharmhubAPI) Refresh(_ context.Context, config charmhub.RefreshConf
 	return responses, nil
 }
 
-func (s *charmhubSuite) TestUpdateRevisionsOutOfDate(c *gc.C) {
-	state := newMockState(newMockResources())
-	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, nil, newMockCharmhubClient)
+func makeApplication(ctrl *gomock.Controller, schema, charmName, charmID, appID string, revision int) charmrevisionupdater.Application {
+	source := "charm-hub"
+	if schema == "cs" {
+		source = "charm-store"
+	}
+
+	app := NewMockApplication(ctrl)
+	app.EXPECT().CharmURL().Return(&charm.URL{
+		Schema:   schema,
+		Name:     charmName,
+		Revision: revision,
+	}, false).AnyTimes()
+	app.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
+		Source:   source,
+		Type:     "charm",
+		ID:       charmID,
+		Revision: &revision,
+		Channel: &state.Channel{
+			Track: "latest",
+			Risk:  "stable",
+		},
+		Platform: &state.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Series:       "focal",
+		},
+	}).AnyTimes()
+	app.EXPECT().Channel().Return(csparams.Channel("latest/stable")).AnyTimes()
+	app.EXPECT().ApplicationTag().Return(names.ApplicationTag{Name: appID}).AnyTimes()
+
+	return app
+}
+
+func makeModel(c *gc.C, ctrl *gomock.Controller) charmrevisionupdater.Model {
+	model := NewMockModel(ctrl)
+	model.EXPECT().CloudName().Return("testcloud").AnyTimes()
+	model.EXPECT().CloudRegion().Return("juju-land").AnyTimes()
+	uuid := testing.ModelTag.Id()
+	cfg, err := config.New(true, map[string]interface{}{
+		"charm-hub-url": "https://api.staging.snapcraft.io", // not actually used in tests
+		"name":          "model",
+		"type":          "type",
+		"uuid":          uuid,
+	})
 	c.Assert(err, jc.ErrorIsNil)
+	model.EXPECT().Config().Return(cfg, nil).AnyTimes()
+	model.EXPECT().IsControllerModel().Return(false).AnyTimes()
+	model.EXPECT().UUID().Return(uuid).AnyTimes()
+	return model
+}
 
-	state.addApplication("ch", "mysql", "charm-1", "app-1", 22)
-	state.addApplication("ch", "postgresql", "charm-2", "app-2", 41)
+func makeState(c *gc.C, ctrl *gomock.Controller, resources state.Resources) *MockState {
+	state := NewMockState(ctrl)
+	state.EXPECT().Cloud(gomock.Any()).Return(cloud.Cloud{Type: "cloud"}, nil).AnyTimes()
+	state.EXPECT().ControllerUUID().Return("controller-1").AnyTimes()
+	state.EXPECT().Model().Return(makeModel(c, ctrl), nil).AnyTimes()
+	state.EXPECT().Resources().Return(resources, nil).AnyTimes()
+	return state
+}
 
-	c.Assert(state.charmPlaceholders, jc.DeepEquals, set.NewStrings())
+func (s *charmhubSuite) TestUpdateRevisionsOutOfDate(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	resources := statemocks.NewMockResources(ctrl)
+	resources.EXPECT().SetCharmStoreResources(gomock.Any(), gomock.Len(0), gomock.Any()).Return(nil).AnyTimes()
+
+	state := makeState(c, ctrl, resources)
+
+	state.EXPECT().AllApplications().Return([]charmrevisionupdater.Application{
+		makeApplication(ctrl, "ch", "mysql", "charm-1", "app-1", 22),
+		makeApplication(ctrl, "ch", "postgresql", "charm-2", "app-2", 41),
+	}, nil).AnyTimes()
+
+	state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("ch:mysql-23")).Return(nil)
+	state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("ch:postgresql-42")).Return(nil)
+
+	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, nil, newFakeCharmhubClient)
+	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := updater.UpdateLatestRevisions()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
-
-	expected := set.NewStrings("ch:mysql-23", "ch:postgresql-42")
-	c.Assert(state.charmPlaceholders, jc.DeepEquals, expected)
 }
 
 func (s *charmhubSuite) TestUpdateRevisionsUpToDate(c *gc.C) {
-	state := newMockState(newMockResources())
-	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, nil, newMockCharmhubClient)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	resources := statemocks.NewMockResources(ctrl)
+	resources.EXPECT().SetCharmStoreResources(gomock.Any(), gomock.Len(0), gomock.Any()).Return(nil).AnyTimes()
+
+	state := makeState(c, ctrl, resources)
+
+	state.EXPECT().AllApplications().Return([]charmrevisionupdater.Application{
+		makeApplication(ctrl, "ch", "postgresql", "charm-2", "app-2", 42),
+	}, nil).AnyTimes()
+
+	state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("ch:postgresql-42")).Return(nil)
+
+	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, nil, newFakeCharmhubClient)
 	c.Assert(err, jc.ErrorIsNil)
-
-	state.addApplication("ch", "postgresql", "charm-2", "app-1", 42)
-
-	c.Assert(state.charmPlaceholders, jc.DeepEquals, set.NewStrings())
 
 	result, err := updater.UpdateLatestRevisions()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
-
-	// AddCharmPlaceholder will be called even when the revision isn't updating.
-	expected := set.NewStrings("ch:postgresql-42")
-	c.Assert(state.charmPlaceholders, jc.DeepEquals, expected)
 }
