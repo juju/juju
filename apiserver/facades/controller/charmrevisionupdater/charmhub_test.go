@@ -1,73 +1,56 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// TODO(benhoyt) - add test with some charm resources
+
 package charmrevisionupdater_test
 
 import (
 	"context"
-	"fmt"
 	"time"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/juju/testcharms"
-	"github.com/juju/names/v4"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
-	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
 )
 
 type charmhubSuite struct {
-	jujutesting.JujuConnSuite
-
-	updater *charmrevisionupdater.CharmRevisionUpdaterAPI
-	charms  map[string]*state.Charm
+	jujutesting.CleanupSuite
 }
 
 var _ = gc.Suite(&charmhubSuite{})
 
 func (s *charmhubSuite) SetUpSuite(c *gc.C) {
-	s.JujuConnSuite.SetUpSuite(c)
+	s.CleanupSuite.SetUpSuite(c)
 }
 
 func (s *charmhubSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-
-	authorizer := testing.FakeAuthorizer{
-		Controller: true,
-		Tag:        names.NewMachineTag("99"),
-	}
-	var err error
-	facadeCtx := facadeContextShim{state: s.State, authorizer: authorizer}
-	s.updater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPI(facadeCtx)
-	c.Assert(err, jc.ErrorIsNil)
+	s.CleanupSuite.SetUpTest(c)
 
 	// Patch the charmhub initializer function
 	s.PatchValue(&charmrevisionupdater.NewCharmhubClient, func(st charmrevisionupdater.State, metadata map[string]string) (charmrevisionupdater.CharmhubRefreshClient, error) {
 		charms := map[string]hubCharm{
-			"001": {
-				id:       "001",
+			"charm-1": {
+				id:       "charm-1",
 				name:     "mysql",
 				revision: 23,
 				version:  "23",
 			},
-			"002": {
-				id:       "002",
+			"charm-2": {
+				id:       "charm-2",
 				name:     "postgresql",
 				revision: 42,
 				version:  "42",
 			},
 		}
-		return &mockHub{charms: charms, metadata: metadata}, nil
+		return &mockCharmhubAPI{charms: charms, metadata: metadata}, nil
 	})
-
-	s.charms = make(map[string]*state.Charm)
 }
 
 type hubCharm struct {
@@ -78,12 +61,12 @@ type hubCharm struct {
 	version   string
 }
 
-type mockHub struct {
+type mockCharmhubAPI struct {
 	charms   map[string]hubCharm
 	metadata map[string]string
 }
 
-func (h *mockHub) Refresh(_ context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error) {
+func (h *mockCharmhubAPI) Refresh(_ context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error) {
 	// Sanity check that metadata headers are present
 	if h.metadata["model_uuid"] == "" {
 		return nil, errors.Errorf("model metadata not present")
@@ -126,113 +109,38 @@ func (h *mockHub) Refresh(_ context.Context, config charmhub.RefreshConfig) ([]t
 	return responses, nil
 }
 
-func (s *charmhubSuite) addMachine(c *gc.C, machineId string, job state.MachineJob) {
-	m, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series: "focal",
-		Jobs:   []state.MachineJob{job},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.Id(), gc.Equals, machineId)
-	cons, err := m.Constraints()
-	c.Assert(err, jc.ErrorIsNil)
-	controllerCfg, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	inst, hc := jujutesting.AssertStartInstanceWithConstraints(c, s.Environ, s.ProviderCallContext, controllerCfg.ControllerUUID(), m.Id(), cons)
-	err = m.SetProvisioned(inst.Id(), "", "fake_nonce", hc)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *charmhubSuite) addCharmWithRevision(c *gc.C, charmName string, rev int) {
-	ch := testcharms.Hub.CharmDir(charmName)
-	name := ch.Meta().Name
-	curl := &charm.URL{
-		Schema:   "ch",
-		Name:     charmName,
-		Revision: rev,
-	}
-	info := state.CharmInfo{
-		Charm:       ch,
-		ID:          curl,
-		StoragePath: "dummy-path",
-		SHA256:      fmt.Sprintf("%s-%d-sha256", name, rev),
-	}
-	dummy, err := s.State.AddCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
-	s.charms[name] = dummy
-}
-
-func (s *charmhubSuite) addApplication(c *gc.C, charmName, id, name string, revision int) {
-	ch, ok := s.charms[charmName]
-	c.Assert(ok, jc.IsTrue)
-	_, err := s.State.AddApplication(state.AddApplicationArgs{
-		Name:  name,
-		Charm: ch,
-		CharmOrigin: &state.CharmOrigin{
-			Source:   "charm-hub",
-			Type:     "charm",
-			ID:       id,
-			Revision: &revision,
-			Channel: &state.Channel{
-				Track: "latest",
-				Risk:  "stable",
-			},
-			Platform: &state.Platform{
-				Architecture: "amd64",
-				OS:           "ubuntu",
-				Series:       "focal",
-			},
-		},
-		Series: "focal",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *charmhubSuite) addUnit(c *gc.C, applicationName, machineId string) {
-	svc, err := s.State.Application(applicationName)
-	c.Assert(err, jc.ErrorIsNil)
-	u, err := svc.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	m, err := s.State.Machine(machineId)
-	c.Assert(err, jc.ErrorIsNil)
-	err = u.AssignToMachine(m)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *charmhubSuite) TestUpdateRevisionsOutOfDate(c *gc.C) {
-	s.addMachine(c, "0", state.JobManageModel)
-	s.addMachine(c, "1", state.JobHostUnits)
-	s.addCharmWithRevision(c, "mysql", 22)
-	s.addApplication(c, "mysql", "001", "mysql", 22)
-	s.addUnit(c, "mysql", "1")
+	state := newMockState(newMockResources())
+	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPITest(state)
+	c.Assert(err, jc.ErrorIsNil)
 
-	curl := charm.MustParseURL("mysql")
-	_, err := s.State.LatestPlaceholderCharm(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	state.addApplication("ch", "mysql", "charm-1", "app-1", 22)
+	state.addApplication("ch", "postgresql", "charm-2", "app-2", 41)
 
-	result, err := s.updater.UpdateLatestRevisions()
+	c.Assert(state.charmPlaceholders, jc.DeepEquals, set.NewStrings())
+
+	result, err := updater.UpdateLatestRevisions()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 
-	pending, err := s.State.LatestPlaceholderCharm(curl)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pending.String(), gc.Equals, "ch:mysql-23")
+	expected := set.NewStrings("ch:mysql-23", "ch:postgresql-42")
+	c.Assert(state.charmPlaceholders, jc.DeepEquals, expected)
 }
 
 func (s *charmhubSuite) TestUpdateRevisionsUpToDate(c *gc.C) {
-	s.addMachine(c, "0", state.JobManageModel)
-	s.addMachine(c, "1", state.JobHostUnits)
-	s.addCharmWithRevision(c, "postgresql", 42)
-	s.addApplication(c, "postgresql", "002", "postgresql", 42)
-	s.addUnit(c, "postgresql", "1")
+	state := newMockState(newMockResources())
+	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPITest(state)
+	c.Assert(err, jc.ErrorIsNil)
 
-	curl := charm.MustParseURL("postgresql")
-	_, err := s.State.LatestPlaceholderCharm(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	state.addApplication("ch", "postgresql", "charm-2", "app-1", 42)
 
-	result, err := s.updater.UpdateLatestRevisions()
+	c.Assert(state.charmPlaceholders, jc.DeepEquals, set.NewStrings())
+
+	result, err := updater.UpdateLatestRevisions()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 
-	_, err = s.State.LatestPlaceholderCharm(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	// AddCharmPlaceholder will be called even when the revision isn't updating.
+	expected := set.NewStrings("ch:postgresql-42")
+	c.Assert(state.charmPlaceholders, jc.DeepEquals, expected)
 }
