@@ -281,20 +281,25 @@ func (c *chRepo) resolveViaChannelMap(t transport.Type, curl *charm.URL, origin 
 	// only use the API to tell us which series we target. Until that happens
 	// we should fallback to one we do know and won't cause the deployment to
 	// fail.
-	if mapRevision.MetadataYAML == "" {
-		logger.Warningf("No metadata yaml found, using fallback computed series for %q.", curl)
-		return curl, origin, []string{origin.Series}, nil
-	}
-
 	var (
 		err  error
 		meta Metadata
 	)
 	switch t {
 	case "charm":
+		if mapRevision.MetadataYAML == "" {
+			logger.Warningf("No metadata yaml found, using fallback computed series for %q.", curl)
+			return curl, origin, []string{origin.Series}, nil
+		}
+
 		meta, err = unmarshalCharmMetadata(mapRevision.MetadataYAML)
 	case "bundle":
-		meta, err = unmarshalBundleMetadata(mapRevision.MetadataYAML)
+		if mapRevision.BundleYAML == "" {
+			logger.Warningf("No bundle yaml found, using fallback computed series for %q.", curl)
+			return curl, origin, []string{origin.Series}, nil
+		}
+
+		meta, err = unmarshalBundleMetadata(mapRevision.BundleYAML)
 	default:
 		err = errors.Errorf("unexpected charm/bundle type %q", t)
 	}
@@ -317,8 +322,8 @@ func unmarshalCharmMetadata(metadataYAML string) (Metadata, error) {
 	return meta, nil
 }
 
-func unmarshalBundleMetadata(metadataYAML string) (Metadata, error) {
-	meta, err := charm.ReadBundleData(bytes.NewBufferString(metadataYAML))
+func unmarshalBundleMetadata(bundleYAML string) (Metadata, error) {
+	meta, err := charm.ReadBundleData(bytes.NewBufferString(bundleYAML))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
