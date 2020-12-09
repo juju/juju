@@ -152,19 +152,25 @@ func (ch *charmHubClient) ResolveResources(resources []charmresource.Resource) (
 func (ch *charmHubClient) ResourceInfo(curl *charm.URL, origin corecharm.Origin, name string, revision int) (charmresource.Resource, error) {
 	charmOrigin := ch.id.Origin
 
+	if charmOrigin.ID == "" {
+		return charmresource.Resource{}, errors.Errorf("empty charm ID")
+	}
+
 	// We prefer the revision over the channel, so we attempt to locate the
 	// resource meta data for the identical one we've located. If we don't have
 	// a revision, then fall back to locating via the channel.
 	var (
 		cfg charmhub.RefreshConfig
 		err error
+
+		refPlatform = charmhub.RefreshPlatform(charmOrigin.Platform)
 	)
 	if charmOrigin.Revision != nil {
-		cfg, err = charmhub.DownloadOneFromRevision(charmOrigin.ID, *charmOrigin.Revision, charmhub.RefreshPlatform(charmOrigin.Platform))
+		cfg, err = charmhub.DownloadOneFromRevision(charmOrigin.ID, *charmOrigin.Revision, refPlatform)
 	} else if curl.Revision >= 0 {
-		cfg, err = charmhub.DownloadOneFromRevision(charmOrigin.ID, curl.Revision, charmhub.RefreshPlatform(charmOrigin.Platform))
+		cfg, err = charmhub.DownloadOneFromRevision(charmOrigin.ID, curl.Revision, refPlatform)
 	} else {
-		cfg, err = charmhub.DownloadOneFromChannel(charmOrigin.ID, charmOrigin.Channel.String(), charmhub.RefreshPlatform(charmOrigin.Platform))
+		cfg, err = charmhub.DownloadOneFromChannel(charmOrigin.ID, charmOrigin.Channel.String(), refPlatform)
 	}
 	if err != nil {
 		return charmresource.Resource{}, errors.Trace(err)
@@ -200,12 +206,12 @@ func (ch *charmHubClient) listResources() (map[string]charmresource.Resource, er
 	charmOrigin := ch.id.Origin
 	cfg, err := charmhub.DownloadOneFromChannel(charmOrigin.ID, charmOrigin.Channel.String(), charmhub.RefreshPlatform(charmOrigin.Platform))
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "creating resources config for charm %q", ch.id.URL.String())
 	}
 
 	refreshResp, err := ch.client.Refresh(context.TODO(), cfg)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "refreshing charm %q", ch.id.URL.String())
 	}
 	if len(refreshResp) == 0 {
 		return nil, errors.Errorf("no download refresh responses received")
@@ -213,7 +219,7 @@ func (ch *charmHubClient) listResources() (map[string]charmresource.Resource, er
 	resp := refreshResp[0]
 
 	if resp.Error != nil {
-		return nil, errors.Trace(errors.New(resp.Error.Message))
+		return nil, errors.Annotatef(errors.New(resp.Error.Message), "listing resources for charm %q", ch.id.URL.String())
 	}
 	results := make(map[string]charmresource.Resource, len(resp.Entity.Resources))
 	for _, v := range resp.Entity.Resources {

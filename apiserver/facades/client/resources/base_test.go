@@ -44,10 +44,7 @@ func (s *BaseSuite) newCSClient() (CharmStore, error) {
 
 func (s *BaseSuite) newCSFactory() func(CharmID) (NewCharmRepository, error) {
 	return func(chID CharmID) (NewCharmRepository, error) {
-		return &charmStoreClient{
-			client: s.csClient,
-			id:     chID,
-		}, nil
+		return newCharmStoreClient(s.csClient, chID), nil
 	}
 }
 

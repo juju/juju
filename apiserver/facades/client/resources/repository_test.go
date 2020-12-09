@@ -27,20 +27,82 @@ type CharmHubClientSuite struct {
 func (s *CharmHubClientSuite) TestResolveResources(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+
 	s.client = mocks.NewMockCharmHub(ctrl)
 	s.expectRefresh()
 
 	fp, err := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
 	c.Assert(err, jc.ErrorIsNil)
-	result, err := s.newClient().ResolveResources(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, []charmresource.Resource{{
+	result, err := s.newClient().ResolveResources([]charmresource.Resource{{
 		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "", Description: ""},
-		Origin:      2,
-		Revision:    0,
+		Origin:      charmresource.OriginUpload,
+		Revision:    1,
+		Fingerprint: fp,
+		Size:        0,
+	}, {
+		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "", Description: ""},
+		Origin:      charmresource.OriginStore,
+		Revision:    2,
 		Fingerprint: fp,
 		Size:        0,
 	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, []charmresource.Resource{{
+		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "", Description: ""},
+		Origin:      charmresource.OriginUpload,
+		Revision:    1,
+		Fingerprint: fp,
+		Size:        0,
+	}, {
+		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "", Description: ""},
+		Origin:      charmresource.OriginStore,
+		Revision:    2,
+		Fingerprint: fp,
+		Size:        0,
+	}})
+}
+
+func (s *CharmHubClientSuite) TestResolveResourcesFromStore(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.client = mocks.NewMockCharmHub(ctrl)
+	s.expectRefresh()
+	s.expectRefreshWithRevision(1)
+
+	fp, err := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := s.newClient().ResolveResources([]charmresource.Resource{{
+		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "", Description: ""},
+		Origin:   charmresource.OriginStore,
+		Revision: 1,
+		Size:     0,
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, []charmresource.Resource{{
+		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "", Description: ""},
+		Origin:      charmresource.OriginStore,
+		Revision:    1,
+		Fingerprint: fp,
+		Size:        0,
+	}})
+}
+
+func (s *CharmHubClientSuite) TestResolveResourcesNoMatchingRevision(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.client = mocks.NewMockCharmHub(ctrl)
+	s.expectRefresh()
+	s.expectRefreshWithRevision(99)
+
+	_, err := s.newClient().ResolveResources([]charmresource.Resource{{
+		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "", Description: ""},
+		Origin:   charmresource.OriginStore,
+		Revision: 1,
+		Size:     0,
+	}})
+	c.Assert(err, gc.ErrorMatches, `charm resource "wal-e" at revision 1 not found`)
 }
 
 func (s *CharmHubClientSuite) TestResolveResourcesUpload(c *gc.C) {
@@ -71,11 +133,12 @@ func (s *CharmHubClientSuite) TestResolveResourcesUpload(c *gc.C) {
 func (s *CharmHubClientSuite) newClient() NewCharmRepository {
 	curl := charm.MustParseURL("ubuntu")
 	channel, _ := corecharm.ParseChannel("stable")
-	return &charmHubClient{
+	c := &charmHubClient{
 		client: s.client,
 		id: CharmID{
 			URL: curl,
 			Origin: corecharm.Origin{
+				ID:      "meshuggah",
 				Source:  corecharm.CharmHub,
 				Channel: &channel,
 				Platform: corecharm.Platform{
@@ -86,9 +149,17 @@ func (s *CharmHubClientSuite) newClient() NewCharmRepository {
 			},
 		},
 	}
+	c.resourceClient = resourceClient{
+		client: c,
+	}
+	return c
 }
 
 func (s *CharmHubClientSuite) expectRefresh() {
+	s.expectRefreshWithRevision(0)
+}
+
+func (s *CharmHubClientSuite) expectRefreshWithRevision(rev int) {
 	resp := []transport.RefreshResponse{
 		{
 			Entity: transport.RefreshEntity{
@@ -98,10 +169,12 @@ func (s *CharmHubClientSuite) expectRefresh() {
 				Name:      "ubuntu",
 				Resources: []transport.ResourceRevision{
 					{
-						Download: transport.ResourceDownload{HashSHA256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", HashSHA3384: "0c63a75b845e4f7d01107d852e4c2485c51a50aaaa94fc61995e71bbee983a2ac3713831264adb47fb6bd1e058d5f004", HashSHA384: "38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b", HashSHA512: "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e", Size: 0, URL: "https://api.staging.charmhub.io/api/v1/resources/download/charm_jmeJLrjWpJX9OglKSeUHCwgyaCNuoQjD.wal-e_0"},
-						Name:     "wal-e",
-						Revision: 0,
-						Type:     "file",
+						Download:    transport.ResourceDownload{HashSHA256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", HashSHA3384: "0c63a75b845e4f7d01107d852e4c2485c51a50aaaa94fc61995e71bbee983a2ac3713831264adb47fb6bd1e058d5f004", HashSHA384: "38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b", HashSHA512: "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e", Size: 0, URL: "https://api.staging.charmhub.io/api/v1/resources/download/charm_jmeJLrjWpJX9OglKSeUHCwgyaCNuoQjD.wal-e_0"},
+						Name:        "wal-e",
+						Revision:    rev,
+						Type:        "file",
+						Path:        "",
+						Description: "",
 					},
 				},
 				Summary: "PostgreSQL object-relational SQL database (supported version)",

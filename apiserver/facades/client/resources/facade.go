@@ -94,14 +94,17 @@ func NewFacadeV2(ctx facade.Context) (*API, error) {
 				return nil, errors.Trace(err)
 			}
 			return newCharmHubClient(chClient, chID), nil
+
 		case charm.CharmStore.Matches(schema):
 			cl, err := charmstore.NewCachingClient(state.MacaroonCache{st}, controllerCfg.CharmStoreURL())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 			return newCharmStoreClient(cl, chID), nil
+
 		case charm.Local.Matches(schema):
 			return &localClient{}, nil
+
 		default:
 			return nil, errors.Errorf("unrecognized charm schema %q", chID.URL.Schema)
 		}
