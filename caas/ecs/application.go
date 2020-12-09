@@ -603,8 +603,9 @@ func (a *app) ensureECSService(taskDefinitionID string) (err error) {
 			ServiceName:    aws.String(a.resourceName()),
 			TaskDefinition: aws.String(taskDefinitionID),
 		}
-		result, err := a.client.CreateService(createInput)
-		logger.Tracef("ensuring service creating %q err -> %v result -> %s", taskDefinitionID, err, pretty.Sprint(result))
+		var createResult *ecs.CreateServiceOutput
+		createResult, err = a.client.CreateService(createInput)
+		logger.Tracef("ensuring service creating %q err -> %v result -> %s", taskDefinitionID, err, pretty.Sprint(createResult))
 		err = a.handleErr(err)
 	}
 	return errors.Trace(err)
