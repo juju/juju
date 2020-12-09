@@ -10,5 +10,6 @@ import (
 )
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination ./mocks/term_mock.go github.com/juju/juju/cmd/output/progress Terminal
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination ./mocks/clock_mock.go github.com/juju/clock Clock
 
 func Test(t *testing.T) { gc.TestingT(t) }
