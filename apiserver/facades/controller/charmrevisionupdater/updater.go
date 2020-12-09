@@ -10,16 +10,20 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/resource"
-	"github.com/juju/collections/set"
+	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 )
@@ -31,27 +35,69 @@ type CharmRevisionUpdater interface {
 	UpdateLatestRevisions() (params.ErrorResult, error)
 }
 
+// State is the subset of *state.State that we need.
+type State interface {
+	AddCharmPlaceholder(curl *charm.URL) error
+	AllApplications() ([]Application, error)
+	Charm(curl *charm.URL) (*state.Charm, error)
+	Cloud(name string) (cloud.Cloud, error)
+	ControllerConfig() (controller.Config, error)
+	ControllerUUID() string
+	Model() (Model, error)
+	Resources() (state.Resources, error)
+}
+
+// Application is the subset of *state.Application that we need.
+type Application interface {
+	CharmURL() (curl *charm.URL, force bool)
+	CharmOrigin() *state.CharmOrigin
+	Channel() csparams.Channel
+	ApplicationTag() names.ApplicationTag
+}
+
+// Model is the subset of *state.Model that we need.
+type Model interface {
+	CloudName() string
+	CloudRegion() string
+	Config() (*config.Config, error)
+	IsControllerModel() bool
+	UUID() string
+}
+
 // CharmRevisionUpdaterAPI implements the CharmRevisionUpdater interface and is the concrete
 // implementation of the api end point.
 type CharmRevisionUpdaterAPI struct {
-	state      *state.State
-	resources  facade.Resources
-	authorizer facade.Authorizer
+	state State
 }
 
 var _ CharmRevisionUpdater = (*CharmRevisionUpdaterAPI)(nil)
 
 // NewCharmRevisionUpdaterAPI creates a new server-side charmrevisionupdater API end point.
-func NewCharmRevisionUpdaterAPI(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*CharmRevisionUpdaterAPI, error) {
-	if !authorizer.AuthController() {
+func NewCharmRevisionUpdaterAPI(ctx facade.Context) (*CharmRevisionUpdaterAPI, error) {
+	if !ctx.Auth().AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
-	return &CharmRevisionUpdaterAPI{
-		state: st, resources: resources, authorizer: authorizer}, nil
+	return &CharmRevisionUpdaterAPI{state: stateShim{ctx.State()}}, nil
+}
+
+type stateShim struct {
+	*state.State
+}
+
+func (s stateShim) AllApplications() ([]Application, error) {
+	stateApps, err := s.State.AllApplications()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	apps := make([]Application, len(stateApps))
+	for i, a := range stateApps {
+		apps[i] = a
+	}
+	return apps, nil
+}
+
+func (s stateShim) Model() (Model, error) {
+	return s.State.Model()
 }
 
 // UpdateLatestRevisions retrieves the latest revision information from the charm store for all deployed charms
@@ -83,8 +129,7 @@ func (api *CharmRevisionUpdaterAPI) updateLatestRevisions() error {
 		}
 
 		// Then save the resources
-		tag := info.application.ApplicationTag()
-		err := resources.SetCharmStoreResources(tag.Id(), info.resources, info.timestamp)
+		err := resources.SetCharmStoreResources(info.appID, info.resources, info.timestamp)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -95,38 +140,43 @@ func (api *CharmRevisionUpdaterAPI) updateLatestRevisions() error {
 
 // NewCharmStoreClient instantiates a new charm store repository.  Exported so
 // we can change it during testing.
-var NewCharmStoreClient = func(st *state.State) (charmstore.Client, error) {
+var NewCharmStoreClient = func(st State) (charmstore.Client, error) {
 	controllerCfg, err := st.ControllerConfig()
 	if err != nil {
 		return charmstore.Client{}, errors.Trace(err)
 	}
-	return charmstore.NewCachingClient(state.MacaroonCache{State: st}, controllerCfg.CharmStoreURL())
+	return charmstore.NewCachingClient(state.MacaroonCache{st}, controllerCfg.CharmStoreURL())
 }
 
 // NewCharmhubClient instantiates a new charmhub client (exported for testing).
-var NewCharmhubClient = func(st *state.State, metadata map[string]string) (CharmhubRefreshClient, error) {
-	return common.CharmhubClient(stateShim{State: st}, logger, metadata)
+var NewCharmhubClient = func(st State, metadata map[string]string) (CharmhubRefreshClient, error) {
+	return common.CharmhubClient(charmhubClientModelShim{state: st}, logger, metadata)
 }
 
-type stateShim struct {
-	*state.State
+type charmhubClientModelShim struct {
+	state State
 }
 
-func (s stateShim) Model() (common.ConfigModel, error) {
-	return s.State.Model()
+func (s charmhubClientModelShim) Model() (common.ConfigModel, error) {
+	return s.state.Model()
 }
 
 type latestCharmInfo struct {
-	url         *charm.URL
-	timestamp   time.Time
-	revision    int
-	resources   []resource.Resource
-	application *state.Application
+	url       *charm.URL
+	timestamp time.Time
+	revision  int
+	resources []resource.Resource
+	appID     string
+}
+
+type appInfo struct {
+	id       string
+	charmURL *charm.URL
 }
 
 // retrieveLatestCharmInfo looks up the charm store to return the charm URLs for the
 // latest revision of the deployed charms.
-func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
+func retrieveLatestCharmInfo(st State) ([]latestCharmInfo, error) {
 	applications, err := st.AllApplications()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -136,9 +186,9 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 	// batch separately.
 	var (
 		charmstoreIDs  []charmstore.CharmID
-		charmstoreApps []*state.Application
+		charmstoreApps []appInfo
 		charmhubIDs    []charmhubID
-		charmhubApps   []*state.Application
+		charmhubApps   []appInfo
 	)
 	for _, application := range applications {
 		curl, _ := application.CharmURL()
@@ -171,23 +221,31 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 				arch:     origin.Platform.Architecture,
 			}
 			charmhubIDs = append(charmhubIDs, cid)
-			charmhubApps = append(charmhubApps, application)
+			charmhubApps = append(charmhubApps, appInfo{
+				id:       application.ApplicationTag().Id(),
+				charmURL: curl,
+			})
 
 		case charm.CharmStore.Matches(curl.Schema):
-			archs, err := deployedArchs(application)
-			if err != nil {
-				return nil, errors.Trace(err)
+			origin := application.CharmOrigin()
+			if origin == nil {
+				// If this fails, we have big problems, so make this Errorf
+				logger.Errorf("charm %s has no origin, skipping", curl)
+				continue
 			}
 			cid := charmstore.CharmID{
 				URL:     curl,
 				Channel: application.Channel(),
 				Metadata: map[string]string{
-					"series": application.Series(),
-					"arch":   strings.Join(archs, ","),
+					"series": origin.Platform.Series,
+					"arch":   origin.Platform.Architecture,
 				},
 			}
 			charmstoreIDs = append(charmstoreIDs, cid)
-			charmstoreApps = append(charmstoreApps, application)
+			charmstoreApps = append(charmstoreApps, appInfo{
+				id:       application.ApplicationTag().Id(),
+				charmURL: curl,
+			})
 
 		default:
 			return nil, errors.NotValidf("charm schema %q", curl.Schema)
@@ -213,7 +271,7 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 	return latest, nil
 }
 
-func fetchCharmstoreInfos(st *state.State, ids []charmstore.CharmID, apps []*state.Application) ([]latestCharmInfo, error) {
+func fetchCharmstoreInfos(st State, ids []charmstore.CharmID, appInfos []appInfo) ([]latestCharmInfo, error) {
 	client, err := NewCharmStoreClient(st)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -222,7 +280,11 @@ func fetchCharmstoreInfos(st *state.State, ids []charmstore.CharmID, apps []*sta
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	metadata["environment_uuid"] = st.ModelUUID() // duplicates model_uuid, but send to charmstore for legacy reasons
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	metadata["environment_uuid"] = model.UUID() // duplicates model_uuid, but send to charmstore for legacy reasons
 	results, err := charmstore.LatestCharmInfo(client, ids, metadata)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -230,28 +292,28 @@ func fetchCharmstoreInfos(st *state.State, ids []charmstore.CharmID, apps []*sta
 
 	var latest []latestCharmInfo
 	for i, result := range results {
-		if i >= len(apps) {
+		if i >= len(appInfos) {
 			logger.Errorf("retrieved more results (%d) than charmstore applications (%d)",
-				i, len(apps))
+				i, len(appInfos))
 			break
 		}
 		if result.Error != nil {
 			logger.Errorf("retrieving charm info for %s: %v", ids[i].URL, result.Error)
 			continue
 		}
-		application := apps[i]
+		appInfo := appInfos[i]
 		latest = append(latest, latestCharmInfo{
-			url:         result.CharmInfo.OriginalURL.WithRevision(result.CharmInfo.LatestRevision),
-			timestamp:   result.CharmInfo.Timestamp,
-			revision:    result.CharmInfo.LatestRevision,
-			resources:   result.CharmInfo.LatestResources,
-			application: application,
+			url:       result.CharmInfo.OriginalURL.WithRevision(result.CharmInfo.LatestRevision),
+			timestamp: result.CharmInfo.Timestamp,
+			revision:  result.CharmInfo.LatestRevision,
+			resources: result.CharmInfo.LatestResources,
+			appID:     appInfo.id,
 		})
 	}
 	return latest, nil
 }
 
-func fetchCharmhubInfos(st *state.State, ids []charmhubID, apps []*state.Application) ([]latestCharmInfo, error) {
+func fetchCharmhubInfos(st State, ids []charmhubID, appInfos []appInfo) ([]latestCharmInfo, error) {
 	metadata, err := apiMetadata(st)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -267,23 +329,22 @@ func fetchCharmhubInfos(st *state.State, ids []charmhubID, apps []*state.Applica
 
 	var latest []latestCharmInfo
 	for i, result := range results {
-		if i >= len(apps) {
+		if i >= len(appInfos) {
 			logger.Errorf("retrieved more results (%d) than charmhub applications (%d)",
-				i, len(apps))
+				i, len(appInfos))
 			break
 		}
 		if result.error != nil {
 			logger.Errorf("retrieving charm info for ID %s: %v", ids[i].id, result.error)
 			continue
 		}
-		application := apps[i]
-		url, _ := application.CharmURL()
+		appInfo := appInfos[i]
 		latest = append(latest, latestCharmInfo{
-			url:         url.WithRevision(result.revision),
-			timestamp:   result.timestamp,
-			revision:    result.revision,
-			resources:   result.resources,
-			application: application,
+			url:       appInfo.charmURL.WithRevision(result.revision),
+			timestamp: result.timestamp,
+			revision:  result.revision,
+			resources: result.resources,
+			appID:     appInfo.id,
 		})
 	}
 	return latest, nil
@@ -291,7 +352,7 @@ func fetchCharmhubInfos(st *state.State, ids []charmhubID, apps []*state.Applica
 
 // apiMetadata returns a map containing metadata key/value pairs to
 // send to the charmhub or charmstore API for tracking metrics.
-func apiMetadata(st *state.State) (map[string]string, error) {
+func apiMetadata(st State) (map[string]string, error) {
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -311,29 +372,4 @@ func apiMetadata(st *state.State) (map[string]string, error) {
 		metadata["provider"] = cloud.Type
 	}
 	return metadata, nil
-}
-
-// deployedArchs returns the list of unique architectures this application is
-// deployed to, across all the machines it's deployed to.
-func deployedArchs(app *state.Application) ([]string, error) {
-	machines, err := app.DeployedMachines()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	archs := set.NewStrings()
-	for _, m := range machines {
-		hw, err := m.HardwareCharacteristics()
-		if err != nil {
-			if errors.IsNotFound(err) {
-				continue
-			}
-			return nil, errors.Trace(err)
-		}
-		arch := hw.Arch
-		if arch != nil && *arch != "" {
-			archs.Add(*arch)
-		}
-	}
-	return archs.SortedValues(), nil
 }

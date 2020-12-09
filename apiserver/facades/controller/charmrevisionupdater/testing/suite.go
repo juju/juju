@@ -119,7 +119,7 @@ func (s *CharmSuite) SetUpTest(c *gc.C) {
 	}
 	// Patch the charmstore initializer function: it is replaced with a charm
 	// store repo pointing to the testing server.
-	s.jcSuite.PatchValue(&charmrevisionupdater.NewCharmStoreClient, func(st *state.State) (jujucharmstore.Client, error) {
+	s.jcSuite.PatchValue(&charmrevisionupdater.NewCharmStoreClient, func(st charmrevisionupdater.State) (jujucharmstore.Client, error) {
 		return jujucharmstore.NewCustomClient(s.store), nil
 	})
 	s.charms = make(map[string]*state.Charm)
@@ -164,10 +164,20 @@ func (s *CharmSuite) AddCharmWithRevision(c *gc.C, charmName string, rev int) *s
 }
 
 // AddService adds a service for the specified charm to state.
-func (s *CharmSuite) AddService(c *gc.C, charmName, serviceName string) {
+func (s *CharmSuite) AddApplication(c *gc.C, charmName, applicationName string) {
 	ch, ok := s.charms[charmName]
 	c.Assert(ok, jc.IsTrue)
-	_, err := s.jcSuite.State.AddApplication(state.AddApplicationArgs{Name: serviceName, Charm: ch})
+	_, err := s.jcSuite.State.AddApplication(state.AddApplicationArgs{
+		Name:  applicationName,
+		Charm: ch,
+		CharmOrigin: &state.CharmOrigin{
+			Platform: &state.Platform{
+				Architecture: "amd64",
+				OS:           "ubuntu",
+				Series:       "quantal",
+			},
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -203,12 +213,12 @@ func (s *CharmSuite) SetupScenario(c *gc.C) {
 
 	// mysql is out of date
 	s.AddCharmWithRevision(c, "mysql", 22)
-	s.AddService(c, "mysql", "mysql")
+	s.AddApplication(c, "mysql", "mysql")
 	s.AddUnit(c, "mysql", "1")
 
 	// wordpress is up to date
 	s.AddCharmWithRevision(c, "wordpress", 26)
-	s.AddService(c, "wordpress", "wordpress")
+	s.AddApplication(c, "wordpress", "wordpress")
 	s.AddUnit(c, "wordpress", "2")
 	s.AddUnit(c, "wordpress", "2")
 	// wordpress/0 has a version, wordpress/1 is unknown
@@ -216,6 +226,6 @@ func (s *CharmSuite) SetupScenario(c *gc.C) {
 
 	// varnish is a charm that does not have a version in the mock store.
 	s.AddCharmWithRevision(c, "varnish", 5)
-	s.AddService(c, "varnish", "varnish")
+	s.AddApplication(c, "varnish", "varnish")
 	s.AddUnit(c, "varnish", "3")
 }

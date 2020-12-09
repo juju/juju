@@ -15,7 +15,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/charmhub"
@@ -40,18 +39,17 @@ func (s *charmhubSuite) SetUpSuite(c *gc.C) {
 func (s *charmhubSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
-	resources := common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
 	authorizer := testing.FakeAuthorizer{
 		Controller: true,
 		Tag:        names.NewMachineTag("99"),
 	}
 	var err error
-	s.updater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPI(s.State, resources, authorizer)
+	facadeCtx := facadeContextShim{state: s.State, authorizer: authorizer}
+	s.updater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPI(facadeCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Patch the charmhub initializer function
-	s.PatchValue(&charmrevisionupdater.NewCharmhubClient, func(st *state.State, metadata map[string]string) (charmrevisionupdater.CharmhubRefreshClient, error) {
+	s.PatchValue(&charmrevisionupdater.NewCharmhubClient, func(st charmrevisionupdater.State, metadata map[string]string) (charmrevisionupdater.CharmhubRefreshClient, error) {
 		charms := map[string]hubCharm{
 			"001": {
 				id:       "001",

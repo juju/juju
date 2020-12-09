@@ -28,7 +28,13 @@ import (
 
 // MacaroonCache is a type that wraps State and implements charmstore.MacaroonCache.
 type MacaroonCache struct {
-	*State
+	Charmer
+}
+
+// Charmer is a state subset that only has the Charm() method, for use with
+// MacaroonCache.
+type Charmer interface {
+	Charm(curl *charm.URL) (*Charm, error)
 }
 
 // Set stores the macaroon on the charm.

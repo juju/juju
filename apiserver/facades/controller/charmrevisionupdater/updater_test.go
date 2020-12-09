@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/testing"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -23,7 +23,6 @@ type charmVersionSuite struct {
 	jujutesting.JujuConnSuite
 
 	charmrevisionupdater *charmrevisionupdater.CharmRevisionUpdaterAPI
-	resources            *common.Resources
 	authoriser           apiservertesting.FakeAuthorizer
 }
 
@@ -37,27 +36,41 @@ func (s *charmVersionSuite) SetUpSuite(c *gc.C) {
 func (s *charmVersionSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.CharmSuite.SetUpTest(c)
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Controller: true,
 		Tag:        names.NewMachineTag("99"),
 	}
 	var err error
-	s.charmrevisionupdater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPI(s.State, s.resources, s.authoriser)
+	facadeCtx := facadeContextShim{state: s.State, authorizer: s.authoriser}
+	s.charmrevisionupdater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPI(facadeCtx)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+type facadeContextShim struct {
+	facade.Context // Make it fulfil the interface, but we only define a couple of methods
+	state          *state.State
+	authorizer     facade.Authorizer
+}
+
+func (s facadeContextShim) Auth() facade.Authorizer {
+	return s.authorizer
+}
+
+func (s facadeContextShim) State() *state.State {
+	return s.state
+}
+
 func (s *charmVersionSuite) TestNewCharmRevisionUpdaterAPIAcceptsStateManager(c *gc.C) {
-	endPoint, err := charmrevisionupdater.NewCharmRevisionUpdaterAPI(s.State, s.resources, s.authoriser)
+	facadeCtx := facadeContextShim{state: s.State, authorizer: s.authoriser}
+	endPoint, err := charmrevisionupdater.NewCharmRevisionUpdaterAPI(facadeCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(endPoint, gc.NotNil)
 }
 
 func (s *charmVersionSuite) TestNewCharmRevisionUpdaterAPIRefusesNonStateManager(c *gc.C) {
-	anAuthoriser := s.authoriser
-	anAuthoriser.Controller = false
-	endPoint, err := charmrevisionupdater.NewCharmRevisionUpdaterAPI(s.State, s.resources, anAuthoriser)
+	s.authoriser.Controller = false
+	facadeCtx := facadeContextShim{state: s.State, authorizer: s.authoriser}
+	endPoint, err := charmrevisionupdater.NewCharmRevisionUpdaterAPI(facadeCtx)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
