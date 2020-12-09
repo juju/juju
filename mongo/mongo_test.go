@@ -70,6 +70,7 @@ func makeEnsureServerParams(dataDir string) mongo.EnsureServerParams {
 		SharedSecret: testInfo.SharedSecret,
 
 		DataDir: dataDir,
+		LogDir:  dataDir,
 	}
 }
 

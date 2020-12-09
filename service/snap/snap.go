@@ -6,7 +6,10 @@ package snap
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
@@ -17,6 +20,7 @@ import (
 	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/systemd"
 )
 
 const (
@@ -186,6 +190,7 @@ type Service struct {
 	executable     string
 	app            App
 	conf           common.Conf
+	configDir      string
 }
 
 // NewService returns a new Service defined by `conf`, with the name `serviceName`.
@@ -222,6 +227,7 @@ func NewService(mainSnap string, serviceName string, conf common.Conf, snapPath 
 		executable:     snapPath,
 		app:            app,
 		conf:           conf,
+		configDir:      systemd.EtcSystemdDir,
 	}
 
 	return svc, nil
@@ -376,6 +382,29 @@ func (s Service) InstallCommands() ([]string, error) {
 	logger.Infof("preparing command: %v", command)
 	commands = append(commands, command)
 	return commands, nil
+}
+
+// ConfigOverride writes a systemd override to enable the
+// specified limits to be used by the snap.
+func (s Service) ConfigOverride() error {
+	if len(s.conf.Limit) == 0 {
+		return nil
+	}
+	for _, backgroundService := range s.app.BackgroundServices {
+		unitOptions := systemd.ServiceLimits(s.conf)
+		data, err := ioutil.ReadAll(systemd.UnitSerialize(unitOptions))
+		if err != nil {
+			return errors.Trace(err)
+		}
+		overridesDir := fmt.Sprintf("%s/snap.%s.%s.service.d", s.configDir, s.name, backgroundService.Name)
+		if err := os.MkdirAll(overridesDir, 0755); err != nil {
+			return errors.Trace(err)
+		}
+		if err := ioutil.WriteFile(filepath.Join(overridesDir, "overrides.conf"), data, 0644); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 func confimentParameterAsString(confinementPolicy string) string {

@@ -168,9 +168,12 @@ func sharedSecretPath(dataDir string) string {
 	return filepath.Join(dataDir, SharedSecretFile)
 }
 
-func logPath(dataDir string, usingMongoFromSnap bool) string {
+func logPath(logDir, dataDir string, usingMongoFromSnap bool) string {
 	if usingMongoFromSnap {
 		return filepath.Join(dataDir, "logs", "mongodb.log")
+	}
+	if logDir != "" {
+		return logDir
 	}
 	return mongoLogPath
 }
@@ -493,7 +496,7 @@ func generateConfig(mongoPath string, oplogSizeMB int, version Version, usingMon
 		// have the same permissions.
 		mongoArgs.Syslog = false
 		mongoArgs.LogAppend = true
-		mongoArgs.LogPath = logPath(args.DataDir, true)
+		mongoArgs.LogPath = logPath(args.LogDir, args.DataDir, true)
 		mongoArgs.BindToAllIP = true // TODO(tsm): disable when not needed
 	}
 
