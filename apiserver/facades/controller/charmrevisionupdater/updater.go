@@ -64,32 +64,29 @@ func (api *CharmRevisionUpdaterAPI) UpdateLatestRevisions() (params.ErrorResult,
 }
 
 func (api *CharmRevisionUpdaterAPI) updateLatestRevisions() error {
-	// Get the handlers to use.
-	handlers, err := createHandlers(api.state)
-	if err != nil {
-		return err
-	}
-
 	// Look up the information for all the deployed charms. This is the
 	// "expensive" part.
 	latest, err := retrieveLatestCharmInfo(api.state)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	// Process the resulting info for each charm.
+	resources, err := api.state.Resources()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	for _, info := range latest {
 		// First, add a charm placeholder to the model for each.
 		if err := api.state.AddCharmPlaceholder(info.url); err != nil {
-			return err
+			return errors.Trace(err)
 		}
 
-		// Then run through the handlers.
+		// Then save the resources
 		tag := info.application.ApplicationTag()
-		for _, handler := range handlers {
-			if err := handler.HandleLatest(tag, info.resources, info.timestamp); err != nil {
-				return err
-			}
+		err := resources.SetCharmStoreResources(tag.Id(), info.resources, info.timestamp)
+		if err != nil {
+			return errors.Trace(err)
 		}
 	}
 
