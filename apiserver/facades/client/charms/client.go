@@ -270,22 +270,27 @@ func (a *API) getDownloadInfo(arg params.CharmURLAndOrigin) (params.DownloadInfo
 
 func normalizeCharmOrigin(origin params.CharmOrigin) (params.CharmOrigin, error) {
 	os := origin.OS
-	if origin.Series != "" {
-		sys, err := series.GetOSFromSeries(origin.Series)
+	oSeries := origin.Series
+	if origin.Series != "" && origin.Series != "all" {
+		sys, err := series.GetOSFromSeries(oSeries)
 		if err != nil {
 			return params.CharmOrigin{}, errors.Trace(err)
 		}
 		// Values passed to the api are case sensitive: ubuntu succeeds and
 		// Ubuntu returns `"code": "revision-not-found"`
 		os = strings.ToLower(sys.String())
+	} else {
+		oSeries = ""
+		os = ""
 	}
 	arc := origin.Architecture
-	if origin.Architecture == "" {
+	if origin.Architecture == "" || origin.Architecture == "all" {
 		arc = arch.DefaultArchitecture
 	}
 
 	o := origin
 	o.OS = os
+	o.Series = oSeries
 	o.Architecture = arc
 	return o, nil
 }
