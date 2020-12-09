@@ -45,12 +45,12 @@ type Model interface {
 	UUID() string
 }
 
-// stateShim takes a *state.State and implements this package's State interface.
-type stateShim struct {
+// StateShim takes a *state.State and implements this package's State interface.
+type StateShim struct {
 	*state.State
 }
 
-func (s stateShim) AllApplications() ([]Application, error) {
+func (s StateShim) AllApplications() ([]Application, error) {
 	stateApps, err := s.State.AllApplications()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -62,7 +62,7 @@ func (s stateShim) AllApplications() ([]Application, error) {
 	return apps, nil
 }
 
-func (s stateShim) Model() (Model, error) {
+func (s StateShim) Model() (Model, error) {
 	return s.State.Model()
 }
 

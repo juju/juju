@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
@@ -23,6 +22,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
@@ -814,27 +814,15 @@ func (s *statusUpgradeUnitSuite) SetUpSuite(c *gc.C) {
 func (s *statusUpgradeUnitSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.CharmSuite.SetUpTest(c)
-	s.authoriser = apiservertesting.FakeAuthorizer{
-		Controller: true,
+
+	state := charmrevisionupdater.StateShim{State: s.State}
+	newClient := func(st charmrevisionupdater.State) (charmstore.Client, error) {
+		return charmstore.NewCustomClient(s.Store), nil
 	}
+
 	var err error
-	facadeCtx := facadeContextShim{state: s.State, authorizer: s.authoriser}
-	s.charmrevisionupdater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPI(facadeCtx)
+	s.charmrevisionupdater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, newClient, nil)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-type facadeContextShim struct {
-	facade.Context // Make it fulfil the interface, but we only define a couple of methods
-	state          *state.State
-	authorizer     facade.Authorizer
-}
-
-func (s facadeContextShim) Auth() facade.Authorizer {
-	return s.authorizer
-}
-
-func (s facadeContextShim) State() *state.State {
-	return s.state
 }
 
 func (s *statusUpgradeUnitSuite) TestUpdateRevisions(c *gc.C) {

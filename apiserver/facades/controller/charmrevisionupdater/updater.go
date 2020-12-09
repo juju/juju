@@ -34,7 +34,13 @@ type CharmRevisionUpdater interface {
 // implementation of the api end point.
 type CharmRevisionUpdaterAPI struct {
 	state State
+
+	newCharmstoreClient NewCharmstoreClientFunc
+	newCharmhubClient   NewCharmhubClientFunc
 }
+
+type NewCharmstoreClientFunc func(st State) (charmstore.Client, error)
+type NewCharmhubClientFunc func(st State, metadata map[string]string) (CharmhubRefreshClient, error)
 
 var _ CharmRevisionUpdater = (*CharmRevisionUpdaterAPI)(nil)
 
@@ -43,7 +49,34 @@ func NewCharmRevisionUpdaterAPI(ctx facade.Context) (*CharmRevisionUpdaterAPI, e
 	if !ctx.Auth().AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
-	return &CharmRevisionUpdaterAPI{state: stateShim{State: ctx.State()}}, nil
+	api := &CharmRevisionUpdaterAPI{
+		state: StateShim{State: ctx.State()},
+		newCharmstoreClient: func(st State) (charmstore.Client, error) {
+			controllerCfg, err := st.ControllerConfig()
+			if err != nil {
+				return charmstore.Client{}, errors.Trace(err)
+			}
+			return charmstore.NewCachingClient(state.MacaroonCache{MacaroonCacheState: st}, controllerCfg.CharmStoreURL())
+		},
+		newCharmhubClient: func(st State, metadata map[string]string) (CharmhubRefreshClient, error) {
+			return common.CharmhubClient(charmhubClientStateShim{state: st}, logger, metadata)
+		},
+	}
+	return api, nil
+}
+
+// NewCharmRevisionUpdaterAPIState creates a new charmrevisionupdater API
+// with a State interface directly (mainly for use in tests).
+func NewCharmRevisionUpdaterAPIState(
+	state State,
+	newCharmstoreClient NewCharmstoreClientFunc,
+	newCharmhubClient NewCharmhubClientFunc,
+) (*CharmRevisionUpdaterAPI, error) {
+	return &CharmRevisionUpdaterAPI{
+		state:               state,
+		newCharmstoreClient: newCharmstoreClient,
+		newCharmhubClient:   newCharmhubClient,
+	}, nil
 }
 
 // UpdateLatestRevisions retrieves the latest revision information from the charm store for all deployed charms
@@ -58,7 +91,7 @@ func (api *CharmRevisionUpdaterAPI) UpdateLatestRevisions() (params.ErrorResult,
 func (api *CharmRevisionUpdaterAPI) updateLatestRevisions() error {
 	// Look up the information for all the deployed charms. This is the
 	// "expensive" part.
-	latest, err := retrieveLatestCharmInfo(api.state)
+	latest, err := api.retrieveLatestCharmInfo()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -84,21 +117,6 @@ func (api *CharmRevisionUpdaterAPI) updateLatestRevisions() error {
 	return nil
 }
 
-// NewCharmStoreClient instantiates a new charm store repository.  Exported so
-// we can change it during testing.
-var NewCharmStoreClient = func(st State) (charmstore.Client, error) {
-	controllerCfg, err := st.ControllerConfig()
-	if err != nil {
-		return charmstore.Client{}, errors.Trace(err)
-	}
-	return charmstore.NewCachingClient(state.MacaroonCache{st}, controllerCfg.CharmStoreURL())
-}
-
-// NewCharmhubClient instantiates a new charmhub client (exported for testing).
-var NewCharmhubClient = func(st State, metadata map[string]string) (CharmhubRefreshClient, error) {
-	return common.CharmhubClient(charmhubClientStateShim{state: st}, logger, metadata)
-}
-
 type latestCharmInfo struct {
 	url       *charm.URL
 	timestamp time.Time
@@ -114,8 +132,8 @@ type appInfo struct {
 
 // retrieveLatestCharmInfo looks up the charm store to return the charm URLs for the
 // latest revision of the deployed charms.
-func retrieveLatestCharmInfo(st State) ([]latestCharmInfo, error) {
-	applications, err := st.AllApplications()
+func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo, error) {
+	applications, err := api.state.AllApplications()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -192,14 +210,14 @@ func retrieveLatestCharmInfo(st State) ([]latestCharmInfo, error) {
 
 	var latest []latestCharmInfo
 	if len(charmstoreIDs) > 0 {
-		storeLatest, err := fetchCharmstoreInfos(st, charmstoreIDs, charmstoreApps)
+		storeLatest, err := api.fetchCharmstoreInfos(charmstoreIDs, charmstoreApps)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		latest = append(latest, storeLatest...)
 	}
 	if len(charmhubIDs) > 0 {
-		hubLatest, err := fetchCharmhubInfos(st, charmhubIDs, charmhubApps)
+		hubLatest, err := api.fetchCharmhubInfos(charmhubIDs, charmhubApps)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -209,16 +227,16 @@ func retrieveLatestCharmInfo(st State) ([]latestCharmInfo, error) {
 	return latest, nil
 }
 
-func fetchCharmstoreInfos(st State, ids []charmstore.CharmID, appInfos []appInfo) ([]latestCharmInfo, error) {
-	client, err := NewCharmStoreClient(st)
+func (api *CharmRevisionUpdaterAPI) fetchCharmstoreInfos(ids []charmstore.CharmID, appInfos []appInfo) ([]latestCharmInfo, error) {
+	client, err := api.newCharmstoreClient(api.state)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	metadata, err := apiMetadata(st)
+	metadata, err := apiMetadata(api.state)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	model, err := st.Model()
+	model, err := api.state.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -251,12 +269,12 @@ func fetchCharmstoreInfos(st State, ids []charmstore.CharmID, appInfos []appInfo
 	return latest, nil
 }
 
-func fetchCharmhubInfos(st State, ids []charmhubID, appInfos []appInfo) ([]latestCharmInfo, error) {
-	metadata, err := apiMetadata(st)
+func (api *CharmRevisionUpdaterAPI) fetchCharmhubInfos(ids []charmhubID, appInfos []appInfo) ([]latestCharmInfo, error) {
+	metadata, err := apiMetadata(api.state)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	client, err := NewCharmhubClient(st, metadata)
+	client, err := api.newCharmhubClient(api.state, metadata)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

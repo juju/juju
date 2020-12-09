@@ -15,8 +15,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
-	jujucharmstore "github.com/juju/juju/charmstore"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -76,7 +74,7 @@ type CharmSuite struct {
 	jcSuite *jujutesting.JujuConnSuite
 
 	charms map[string]*state.Charm
-	store  *mockStore
+	Store  *mockStore
 }
 
 func (s *CharmSuite) SetUpSuite(c *gc.C, jcSuite *jujutesting.JujuConnSuite) {
@@ -92,7 +90,7 @@ func (s *CharmSuite) SetUpTest(c *gc.C) {
 		"logging":   "cs:quantal/logging-27",
 	}
 	var logger loggo.Logger
-	s.store = &mockStore{
+	s.Store = &mockStore{
 		CallMocker: jtesting.NewCallMocker(logger),
 		errors:     make(map[string]error),
 	}
@@ -113,20 +111,15 @@ func (s *CharmSuite) SetUpTest(c *gc.C) {
 		"series=quantal",
 	}
 	for _, url := range urls {
-		s.store.UploadCharm(url, map[string][]string{
+		s.Store.UploadCharm(url, map[string][]string{
 			"Juju-Metadata": headers,
 		})
 	}
-	// Patch the charmstore initializer function: it is replaced with a charm
-	// store repo pointing to the testing server.
-	s.jcSuite.PatchValue(&charmrevisionupdater.NewCharmStoreClient, func(st charmrevisionupdater.State) (jujucharmstore.Client, error) {
-		return jujucharmstore.NewCustomClient(s.store), nil
-	})
 	s.charms = make(map[string]*state.Charm)
 }
 
 func (s *CharmSuite) SetStoreError(name string, err error) {
-	s.store.errors[name] = err
+	s.Store.errors[name] = err
 }
 
 // AddMachine adds a new machine to state.

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/testing"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/charmstore"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 )
@@ -36,13 +37,19 @@ func (s *charmVersionSuite) SetUpSuite(c *gc.C) {
 func (s *charmVersionSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.CharmSuite.SetUpTest(c)
+
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Controller: true,
 		Tag:        names.NewMachineTag("99"),
 	}
+
+	state := charmrevisionupdater.StateShim{State: s.State}
+	newClient := func(st charmrevisionupdater.State) (charmstore.Client, error) {
+		return charmstore.NewCustomClient(s.Store), nil
+	}
+
 	var err error
-	facadeCtx := facadeContextShim{state: s.State, authorizer: s.authoriser}
-	s.charmrevisionupdater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPI(facadeCtx)
+	s.charmrevisionupdater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, newClient, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

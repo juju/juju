@@ -26,15 +26,13 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-// MacaroonCache is a type that wraps State and implements charmstore.MacaroonCache.
-type MacaroonCache struct {
-	Charmer
+type MacaroonCacheState interface {
+	Charm(*charm.URL) (*Charm, error)
 }
 
-// Charmer is a state subset that only has the Charm() method, for use with
-// MacaroonCache.
-type Charmer interface {
-	Charm(curl *charm.URL) (*Charm, error)
+// MacaroonCache is a type that wraps State and implements charmstore.MacaroonCache.
+type MacaroonCache struct {
+	MacaroonCacheState
 }
 
 // Set stores the macaroon on the charm.

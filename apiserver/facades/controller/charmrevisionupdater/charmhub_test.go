@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -20,37 +19,26 @@ import (
 	"github.com/juju/juju/charmhub/transport"
 )
 
-type charmhubSuite struct {
-	jujutesting.CleanupSuite
-}
+type charmhubSuite struct{}
 
 var _ = gc.Suite(&charmhubSuite{})
 
-func (s *charmhubSuite) SetUpSuite(c *gc.C) {
-	s.CleanupSuite.SetUpSuite(c)
-}
-
-func (s *charmhubSuite) SetUpTest(c *gc.C) {
-	s.CleanupSuite.SetUpTest(c)
-
-	// Patch the charmhub initializer function
-	s.PatchValue(&charmrevisionupdater.NewCharmhubClient, func(st charmrevisionupdater.State, metadata map[string]string) (charmrevisionupdater.CharmhubRefreshClient, error) {
-		charms := map[string]hubCharm{
-			"charm-1": {
-				id:       "charm-1",
-				name:     "mysql",
-				revision: 23,
-				version:  "23",
-			},
-			"charm-2": {
-				id:       "charm-2",
-				name:     "postgresql",
-				revision: 42,
-				version:  "42",
-			},
-		}
-		return &mockCharmhubAPI{charms: charms, metadata: metadata}, nil
-	})
+func newMockCharmhubClient(st charmrevisionupdater.State, metadata map[string]string) (charmrevisionupdater.CharmhubRefreshClient, error) {
+	charms := map[string]hubCharm{
+		"charm-1": {
+			id:       "charm-1",
+			name:     "mysql",
+			revision: 23,
+			version:  "23",
+		},
+		"charm-2": {
+			id:       "charm-2",
+			name:     "postgresql",
+			revision: 42,
+			version:  "42",
+		},
+	}
+	return &mockCharmhubAPI{charms: charms, metadata: metadata}, nil
 }
 
 type hubCharm struct {
@@ -111,7 +99,7 @@ func (h *mockCharmhubAPI) Refresh(_ context.Context, config charmhub.RefreshConf
 
 func (s *charmhubSuite) TestUpdateRevisionsOutOfDate(c *gc.C) {
 	state := newMockState(newMockResources())
-	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPITest(state)
+	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, nil, newMockCharmhubClient)
 	c.Assert(err, jc.ErrorIsNil)
 
 	state.addApplication("ch", "mysql", "charm-1", "app-1", 22)
@@ -129,7 +117,7 @@ func (s *charmhubSuite) TestUpdateRevisionsOutOfDate(c *gc.C) {
 
 func (s *charmhubSuite) TestUpdateRevisionsUpToDate(c *gc.C) {
 	state := newMockState(newMockResources())
-	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPITest(state)
+	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, nil, newMockCharmhubClient)
 	c.Assert(err, jc.ErrorIsNil)
 
 	state.addApplication("ch", "postgresql", "charm-2", "app-1", 42)
