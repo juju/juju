@@ -70,7 +70,7 @@ func (c *resourceClient) resolveResources(resources []charmresource.Resource,
 			continue
 		}
 
-		resolved, err := c.resolveStoreResource(c.id, res, storeResources)
+		resolved, err := c.resolveStoreResource(res, storeResources)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -81,8 +81,7 @@ func (c *resourceClient) resolveResources(resources []charmresource.Resource,
 
 // resolveStoreResource selects the resource info to use. It decides
 // between the provided and latest info based on the revision.
-func (c *resourceClient) resolveStoreResource(id CharmID,
-	res charmresource.Resource,
+func (c *resourceClient) resolveStoreResource(res charmresource.Resource,
 	storeResources map[string]charmresource.Resource,
 ) (charmresource.Resource, error) {
 	storeRes, ok := storeResources[res.Name]
@@ -107,7 +106,7 @@ func (c *resourceClient) resolveStoreResource(id CharmID,
 		// The caller wants resource info from the charm backend, but with
 		// a different resource revision than the one associated with
 		// the charm in the backend.
-		return c.client.ResourceInfo(id.URL, id.Origin, res.Name, res.Revision)
+		return c.client.ResourceInfo(c.id.URL, c.id.Origin, res.Name, res.Revision)
 	}
 	// The caller fully-specified a resource with a different resource
 	// revision than the one associated with the charm in the backend. So
