@@ -13,8 +13,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/charmstore"
+	"github.com/juju/juju/resource/repositories"
 	"github.com/juju/juju/resource/resourceadapters"
-	"github.com/juju/juju/resource/respositories"
 	"github.com/juju/juju/state"
 )
 
@@ -36,14 +36,14 @@ func (s *CharmStoreSuite) SetUpTest(c *gc.C) {
 func (s *CharmStoreSuite) TestGetResourceTerminates(c *gc.C) {
 	msg := "trust"
 	attempts := int32(0)
-	s.resourceClient.getResourceF = func(req respositories.ResourceRequest) (data charmstore.ResourceData, err error) {
+	s.resourceClient.getResourceF = func(req repositories.ResourceRequest) (data charmstore.ResourceData, err error) {
 		atomic.AddInt32(&attempts, 1)
 		return charmstore.ResourceData{}, errors.New(msg)
 	}
 	csRes := resourceadapters.NewCSRetryClientForTest(s.resourceClient)
 
-	_, err := csRes.GetResource(respositories.ResourceRequest{
-		CharmID: respositories.CharmID{
+	_, err := csRes.GetResource(repositories.ResourceRequest{
+		CharmID: repositories.CharmID{
 			URL: nil,
 			Origin: state.CharmOrigin{
 				Channel: &state.Channel{Risk: "stable"},
@@ -81,11 +81,11 @@ func (s *CharmStoreSuite) TestGetResourceAbortedOnNotValid(c *gc.C) {
 }
 
 func (s *CharmStoreSuite) assertAbortedGetResourceOnError(c *gc.C, csRes *resourceadapters.ResourceRetryClient, expectedError error, expectedMessage string) {
-	s.resourceClient.getResourceF = func(req respositories.ResourceRequest) (data charmstore.ResourceData, err error) {
+	s.resourceClient.getResourceF = func(req repositories.ResourceRequest) (data charmstore.ResourceData, err error) {
 		return charmstore.ResourceData{}, expectedError
 	}
-	_, err := csRes.GetResource(respositories.ResourceRequest{
-		CharmID: respositories.CharmID{
+	_, err := csRes.GetResource(repositories.ResourceRequest{
+		CharmID: repositories.CharmID{
 			URL: nil,
 			Origin: state.CharmOrigin{
 				Channel: &state.Channel{Risk: "stable"},
@@ -101,10 +101,10 @@ func (s *CharmStoreSuite) assertAbortedGetResourceOnError(c *gc.C, csRes *resour
 type testResourceClient struct {
 	stub *testing.Stub
 
-	getResourceF func(req respositories.ResourceRequest) (data charmstore.ResourceData, err error)
+	getResourceF func(req repositories.ResourceRequest) (data charmstore.ResourceData, err error)
 }
 
-func (f *testResourceClient) GetResource(req respositories.ResourceRequest) (data charmstore.ResourceData, err error) {
+func (f *testResourceClient) GetResource(req repositories.ResourceRequest) (data charmstore.ResourceData, err error) {
 	f.stub.AddCall("GetResource", req)
 	return f.getResourceF(req)
 }

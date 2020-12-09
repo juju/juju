@@ -9,7 +9,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/respositories"
+	"github.com/juju/juju/resource/repositories"
 	corestate "github.com/juju/juju/state"
 )
 
@@ -74,7 +74,7 @@ func (ro *ResourceOpener) OpenResource(name string) (o resource.Opened, err erro
 		return resource.Opened{}, errors.Trace(err)
 	}
 	cURL, _ := ro.unit.CharmURL()
-	id := respositories.CharmID{
+	id := repositories.CharmID{
 		URL:    cURL,
 		Origin: *app.CharmOrigin(),
 	}
@@ -91,7 +91,7 @@ func (ro *ResourceOpener) OpenResource(name string) (o resource.Opened, err erro
 		appName: ro.unit.ApplicationName(),
 	}
 
-	res, reader, err := respositories.GetResource(respositories.GetResourceArgs{
+	res, reader, err := repositories.GetResource(repositories.GetResourceArgs{
 		Client:  client,
 		Cache:   cache,
 		CharmID: id,

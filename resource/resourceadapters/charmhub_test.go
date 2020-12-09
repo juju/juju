@@ -14,9 +14,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/charmhub/transport"
+	"github.com/juju/juju/resource/repositories"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/resource/resourceadapters/mocks"
-	"github.com/juju/juju/resource/respositories"
 	"github.com/juju/juju/state"
 )
 
@@ -35,8 +35,8 @@ func (s *CharmHubSuite) TestGetResource(c *gc.C) {
 
 	cl := s.newCharmHubClient()
 	curl, _ := charm.ParseURL("ch:postgresql")
-	result, err := cl.GetResource(respositories.ResourceRequest{
-		CharmID: respositories.CharmID{
+	result, err := cl.GetResource(repositories.ResourceRequest{
+		CharmID: repositories.CharmID{
 			URL: curl,
 			Origin: state.CharmOrigin{
 				Channel: &state.Channel{Risk: "stable"},

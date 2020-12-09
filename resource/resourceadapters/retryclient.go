@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/core/charm"
-	"github.com/juju/juju/resource/respositories"
+	"github.com/juju/juju/resource/repositories"
 )
 
 // ResourceRetryClient is a wrapper around a Juju repository client that
@@ -46,7 +46,7 @@ func newRetryClient(client ResourceClient) *ResourceRetryClient {
 }
 
 // GetResource returns a reader for the resource's data.
-func (client ResourceRetryClient) GetResource(req respositories.ResourceRequest) (charmstore.ResourceData, error) {
+func (client ResourceRetryClient) GetResource(req repositories.ResourceRequest) (charmstore.ResourceData, error) {
 	args := client.retryArgs // a copy
 
 	var data charmstore.ResourceData
@@ -64,6 +64,9 @@ func (client ResourceRetryClient) GetResource(req respositories.ResourceRequest)
 		return data, errors.Errorf("Missing channel for %q", req.CharmID.URL.Name)
 	}
 	channel, err := charm.MakeChannel(stChannel.Track, stChannel.Risk, stChannel.Branch)
+	if err != nil {
+		return data, errors.Trace(err)
+	}
 
 	var lastErr error
 	args.NotifyFunc = func(err error, i int) {

@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/core/charm"
-	"github.com/juju/juju/resource/respositories"
+	"github.com/juju/juju/resource/repositories"
 )
 
 type charmHubOpener struct {
@@ -75,7 +75,7 @@ type CharmHubClient struct {
 
 // GetResource returns data about the resource including an io.ReadCloser
 // to download the resource.  The caller is responsible for closing it.
-func (ch *CharmHubClient) GetResource(req respositories.ResourceRequest) (charmstore.ResourceData, error) {
+func (ch *CharmHubClient) GetResource(req repositories.ResourceRequest) (charmstore.ResourceData, error) {
 	ch.logger.Tracef("GetResource(%s)", pretty.Sprint(req))
 	var data charmstore.ResourceData
 

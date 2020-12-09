@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/resource/respositories"
+	"github.com/juju/juju/resource/repositories"
 )
 
 func NewCSRetryClientForTest(client ResourceClient) *ResourceRetryClient {
@@ -25,7 +25,7 @@ func NewCharmHubClientForTest(cl CharmHub, logger Logger) *CharmHubClient {
 	}
 }
 
-func NewResourceRetryClientForTest(cl respositories.ResourceGetter) *ResourceRetryClient {
+func NewResourceRetryClientForTest(cl repositories.ResourceGetter) *ResourceRetryClient {
 	return newRetryClient(cl)
 }
 

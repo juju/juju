@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/controller"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/resource/respositories"
+	"github.com/juju/juju/resource/repositories"
 	"github.com/juju/juju/state"
 )
 
@@ -40,7 +40,7 @@ type csClient struct {
 	client charmstore.Client
 }
 
-func (cs *csClient) GetResource(req respositories.ResourceRequest) (charmstore.ResourceData, error) {
+func (cs *csClient) GetResource(req repositories.ResourceRequest) (charmstore.ResourceData, error) {
 	stChannel := req.CharmID.Origin.Channel
 	if stChannel == nil {
 		return charmstore.ResourceData{}, errors.Errorf("Missing channel for %q", req.CharmID.URL.Name)

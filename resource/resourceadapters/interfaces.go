@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/respositories"
+	"github.com/juju/juju/resource/repositories"
 	corestate "github.com/juju/juju/state"
 )
 
@@ -72,7 +72,7 @@ type ResourceRetryClientGetter interface {
 // ResourceClient defines a set of functionality that a client
 // needs to define to support resources.
 type ResourceClient interface {
-	GetResource(req respositories.ResourceRequest) (data charmstore.ResourceData, err error)
+	GetResource(req repositories.ResourceRequest) (data charmstore.ResourceData, err error)
 }
 
 // CharmHub represents methods required from a charmhub client talking to the
