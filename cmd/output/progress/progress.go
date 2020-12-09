@@ -22,6 +22,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/juju/clock"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
@@ -57,11 +58,7 @@ type Meter interface {
 //
 func MakeProgressBar(stdout io.Writer) Meter {
 	if terminal.IsTerminal(int(os.Stdin.Fd())) {
-		return &ANSIMeter{
-			terminal:    term{},
-			stdout:      stdout,
-			escapeChars: DefaultEscapeChars(),
-		}
+		return NewANSIMeter(stdout, term{}, DefaultEscapeChars(), clock.WallClock)
 	}
 
 	return QuietMeter{
