@@ -35,7 +35,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/cache"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/network"
@@ -76,11 +75,6 @@ var (
 	// runtime, otherwise it panics.
 	KubernetesSeriesName = strings.ToLower(jujuos.Kubernetes.String())
 )
-
-// defaultSupportedJujuSeries is used to return canned information about what
-// juju supports in terms of the release cycle
-// see juju/os and documentation https://www.ubuntu.com/about/release-cycle
-var defaultSupportedJujuSeries = set.NewStrings("bionic", "xenial", "trusty", KubernetesSeriesName)
 
 // JujuConnSuite provides a freshly bootstrapped juju.Conn
 // for each test. It also includes testing.BaseSuite.
@@ -422,7 +416,7 @@ func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C, jobs ...state.MachineJob) (
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned(instance.Id("foo"), "", "fake_nonce", nil)
+	err = machine.SetProvisioned("foo", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return s.openAPIAs(c, machine.Tag(), password, "fake_nonce", false), machine
 }
