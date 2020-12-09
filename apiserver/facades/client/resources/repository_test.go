@@ -135,6 +135,9 @@ func (s *CharmHubClientSuite) newClient() NewCharmRepository {
 	channel, _ := corecharm.ParseChannel("stable")
 	c := &charmHubClient{
 		client: s.client,
+	}
+	c.resourceClient = resourceClient{
+		client: c,
 		id: CharmID{
 			URL: curl,
 			Origin: corecharm.Origin{
@@ -148,9 +151,6 @@ func (s *CharmHubClientSuite) newClient() NewCharmRepository {
 				},
 			},
 		},
-	}
-	c.resourceClient = resourceClient{
-		client: c,
 	}
 	return c
 }

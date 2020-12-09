@@ -51,13 +51,13 @@ type ResourceClient interface {
 
 type resourceClient struct {
 	client ResourceClient
+	id     CharmID
 }
 
 // resolveResources determines the resource info that should actually
 // be stored on the controller. That decision is based on the provided
 // resources along with those in the charm backend (if any).
-func (c *resourceClient) resolveResources(id CharmID,
-	resources []charmresource.Resource,
+func (c *resourceClient) resolveResources(resources []charmresource.Resource,
 	storeResources map[string]charmresource.Resource,
 ) ([]charmresource.Resource, error) {
 	allResolved := make([]charmresource.Resource, len(resources))
@@ -70,7 +70,7 @@ func (c *resourceClient) resolveResources(id CharmID,
 			continue
 		}
 
-		resolved, err := c.resolveStoreResource(id, res, storeResources)
+		resolved, err := c.resolveStoreResource(c.id, res, storeResources)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -115,21 +115,18 @@ func (c *resourceClient) resolveStoreResource(id CharmID,
 	return res, nil
 }
 
-// TODO hml 2020-12-2
-// charmHubClient needs to be "caching" like the charmstoreclient is??
 type charmHubClient struct {
 	resourceClient
 	client CharmHub
-	id     CharmID
 }
 
 func newCharmHubClient(client CharmHub, id CharmID) *charmHubClient {
 	c := &charmHubClient{
 		client: client,
-		id:     id,
 	}
 	c.resourceClient = resourceClient{
 		client: c,
+		id:     id,
 	}
 	return c
 }
@@ -142,7 +139,7 @@ func (ch *charmHubClient) ResolveResources(resources []charmresource.Resource) (
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	resolved, err := ch.resolveResources(ch.id, resources, storeResources)
+	resolved, err := ch.resolveResources(resources, storeResources)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -271,16 +268,15 @@ type CharmStore interface {
 type charmStoreClient struct {
 	resourceClient
 	client CharmStore
-	id     CharmID
 }
 
 func newCharmStoreClient(client CharmStore, id CharmID) *charmStoreClient {
 	c := &charmStoreClient{
 		client: client,
-		id:     id,
 	}
 	c.resourceClient = resourceClient{
 		client: c,
+		id:     id,
 	}
 	return c
 }
@@ -290,7 +286,7 @@ func (cs *charmStoreClient) ResolveResources(resources []charmresource.Resource)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	resolved, err := cs.resolveResources(cs.id, resources, storeResources)
+	resolved, err := cs.resolveResources(resources, storeResources)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
