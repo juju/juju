@@ -314,7 +314,8 @@ func (s *ApplicationSuite) TestSetCharmStorageConstraints(c *gc.C) {
 	app.CheckCall(c, 2, "SetCharm", state.SetCharmConfig{
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
-			Source: "charm-store",
+			Source:   "charm-store",
+			Platform: &state.Platform{},
 		},
 		StorageConstraints: map[string]state.StorageConstraints{
 			"a": {},
@@ -506,7 +507,8 @@ func (s *ApplicationSuite) TestSetCharmConfigSettings(c *gc.C) {
 	app.CheckCall(c, 2, "SetCharm", state.SetCharmConfig{
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
-			Source: "charm-store",
+			Source:   "charm-store",
+			Platform: &state.Platform{},
 		},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	})
@@ -528,7 +530,8 @@ postgresql:
 	app.CheckCall(c, 2, "SetCharm", state.SetCharmConfig{
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
-			Source: "charm-store",
+			Source:   "charm-store",
+			Platform: &state.Platform{},
 		},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	})
@@ -548,7 +551,8 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithNewerAgentVersion(c *gc.C) 
 	app.CheckCall(c, 2, "SetCharm", state.SetCharmConfig{
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
-			Source: "charm-store",
+			Source:   "charm-store",
+			Platform: &state.Platform{},
 		},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	})
@@ -589,7 +593,8 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithEmptyProfile(c *gc.C) {
 	app.CheckCall(c, 2, "SetCharm", state.SetCharmConfig{
 		Charm: &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{
-			Source: "charm-store",
+			Source:   "charm-store",
+			Platform: &state.Platform{},
 		},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	})

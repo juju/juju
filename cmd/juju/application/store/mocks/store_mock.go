@@ -11,6 +11,7 @@ import (
 	params "github.com/juju/charmrepo/v6/csclient/params"
 	charms "github.com/juju/juju/api/charms"
 	charm0 "github.com/juju/juju/api/common/charm"
+	charmhub "github.com/juju/juju/charmhub"
 	macaroon "gopkg.in/macaroon.v2"
 	url "net/url"
 	reflect "reflect"
@@ -267,16 +268,21 @@ func (m *MockDownloadBundleClient) EXPECT() *MockDownloadBundleClientMockRecorde
 }
 
 // DownloadAndReadBundle mocks base method
-func (m *MockDownloadBundleClient) DownloadAndReadBundle(arg0 context.Context, arg1 *url.URL, arg2 string) (charm.Bundle, error) {
+func (m *MockDownloadBundleClient) DownloadAndReadBundle(arg0 context.Context, arg1 *url.URL, arg2 string, arg3 ...charmhub.DownloadOption) (charm.Bundle, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DownloadAndReadBundle", arg0, arg1, arg2)
+	varargs := []interface{}{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DownloadAndReadBundle", varargs...)
 	ret0, _ := ret[0].(charm.Bundle)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // DownloadAndReadBundle indicates an expected call of DownloadAndReadBundle
-func (mr *MockDownloadBundleClientMockRecorder) DownloadAndReadBundle(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockDownloadBundleClientMockRecorder) DownloadAndReadBundle(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadAndReadBundle", reflect.TypeOf((*MockDownloadBundleClient)(nil).DownloadAndReadBundle), arg0, arg1, arg2)
+	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadAndReadBundle", reflect.TypeOf((*MockDownloadBundleClient)(nil).DownloadAndReadBundle), varargs...)
 }

@@ -308,5 +308,5 @@ func (s *resolveSuite) expectedCharmHubGetBundle(c *gc.C, curl *charm.URL, origi
 	}, nil)
 	url, err := url.Parse(surl)
 	c.Assert(err, jc.ErrorIsNil)
-	s.downloadClient.EXPECT().DownloadAndReadBundle(gomock.Any(), url, "/tmp/").Return(s.bundle, nil)
+	s.downloadClient.EXPECT().DownloadAndReadBundle(gomock.Any(), url, "/tmp/", gomock.Any()).Return(s.bundle, nil)
 }

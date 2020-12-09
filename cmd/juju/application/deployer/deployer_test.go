@@ -24,6 +24,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	commoncharm "github.com/juju/juju/api/common/charm"
+	"github.com/juju/juju/api/resources/client"
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
 	corecharm "github.com/juju/juju/core/charm"
@@ -31,7 +32,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -312,7 +312,7 @@ func (s *deployerSuite) newDeployerFactory() DeployerFactory {
 	dep := DeployerDependencies{
 		DeployResources: func(
 			string,
-			resourceadapters.CharmID,
+			client.CharmID,
 			*macaroon.Macaroon,
 			map[string]string,
 			map[string]charmresource.Meta,

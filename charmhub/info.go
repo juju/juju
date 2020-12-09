@@ -15,6 +15,25 @@ import (
 	"github.com/juju/juju/charmhub/transport"
 )
 
+// InfoOption to be passed to Info to customize the resulting request.
+type InfoOption func(*infoOptions)
+
+type infoOptions struct {
+	channel *string
+}
+
+// WithChannel sets the channel on the option.
+func WithChannel(ch string) InfoOption {
+	return func(infoOptions *infoOptions) {
+		infoOptions.channel = &ch
+	}
+}
+
+// Create a infoOptions instance with default values.
+func newInfoOptions() *infoOptions {
+	return &infoOptions{}
+}
+
 // InfoClient defines a client for info requests.
 type InfoClient struct {
 	path   path.Path
@@ -33,7 +52,12 @@ func NewInfoClient(path path.Path, client RESTClient, logger Logger) *InfoClient
 
 // Info requests the information of a given charm. If that charm doesn't exist
 // an error stating that fact will be returned.
-func (c *InfoClient) Info(ctx context.Context, name string) (transport.InfoResponse, error) {
+func (c *InfoClient) Info(ctx context.Context, name string, options ...InfoOption) (transport.InfoResponse, error) {
+	opts := newInfoOptions()
+	for _, option := range options {
+		option(opts)
+	}
+
 	c.logger.Tracef("Info(%s)", name)
 	var resp transport.InfoResponse
 	path, err := c.path.Join(name)
@@ -44,6 +68,13 @@ func (c *InfoClient) Info(ctx context.Context, name string) (transport.InfoRespo
 	path, err = path.Query("fields", defaultInfoFilter())
 	if err != nil {
 		return resp, errors.Trace(err)
+	}
+
+	if opts.channel != nil {
+		path, err = path.Query("channel", *opts.channel)
+		if err != nil {
+			return resp, errors.Trace(err)
+		}
 	}
 
 	restResp, err := c.client.Get(ctx, path, &resp)

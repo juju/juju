@@ -10,9 +10,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/resources/client"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/api/client"
 )
 
 var _ = gc.Suite(&ListResourcesSuite{})

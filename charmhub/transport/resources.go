@@ -8,10 +8,12 @@ type ResourcesResponse struct {
 }
 
 type ResourceRevision struct {
-	Download ResourceDownload `json:"download"`
-	Name     string           `json:"name"`
-	Revision int              `json:"revision"`
-	Type     string           `json:"type"`
+	Download    ResourceDownload `json:"download"`
+	Description string           `json:"description"`
+	Name        string           `json:"name"`
+	Path        string           `json:"path"`
+	Revision    int              `json:"revision"`
+	Type        string           `json:"type"`
 }
 
 type ResourceDownload struct {

@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resources_test
+package resources
 
 import (
 	"testing"
@@ -12,3 +12,5 @@ import (
 func Test(t *testing.T) {
 	gc.TestingT(t)
 }
+
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/charmhub.go github.com/juju/juju/apiserver/facades/client/resources CharmHub

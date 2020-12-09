@@ -897,7 +897,8 @@ func (c *Config) validateDefaultSpace() error {
 	return nil
 }
 
-// DefaultSpace returns the default-space for unspecified default endpoint bindings.
+// DefaultSpace returns the name of the space for to be used
+// for endpoint bindings that are not explicitly set.
 func (c *Config) DefaultSpace() string {
 	return c.asString(DefaultSpace)
 }

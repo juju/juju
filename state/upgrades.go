@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/os/v2/series"
 	"github.com/juju/replicaset"
 	"github.com/kr/pretty"
 	"gopkg.in/mgo.v2"
@@ -3153,6 +3154,22 @@ func AddCharmOriginToApplications(pool *StatePool) error {
 				return errors.Errorf("charmurl is empty")
 			}
 
+			var arch string
+			cons, err := readConstraints(st, applicationGlobalKey(application.Name))
+			if err == nil && cons.HasArch() {
+				arch = *cons.Arch
+			}
+			var serie string
+			if charmURL.Series != "bundle" {
+				serie = charmURL.Series
+			}
+			var os string
+			if serie != "" {
+				if osType, err := series.GetOSFromSeries(serie); err == nil {
+					os = strings.ToLower(osType.String())
+				}
+			}
+
 			var source string
 			switch charmURL.Schema {
 			case "local":
@@ -3165,6 +3182,7 @@ func AddCharmOriginToApplications(pool *StatePool) error {
 			// Set the CharmOrigin on the application.
 			origin := CharmOrigin{
 				Source: source,
+				Type:   "charm",
 				ID:     charmURL.String(),
 				Channel: &Channel{
 					// This is only ever set via the charm-store data, but as
@@ -3173,6 +3191,11 @@ func AddCharmOriginToApplications(pool *StatePool) error {
 					Risk: application.Channel,
 				},
 				Revision: &charmURL.Revision,
+				Platform: &Platform{
+					Architecture: arch,
+					OS:           os,
+					Series:       serie,
+				},
 			}
 
 			ops = append(ops, txn.Op{

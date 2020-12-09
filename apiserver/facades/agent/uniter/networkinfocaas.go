@@ -54,6 +54,11 @@ func (n *NetworkInfoCAAS) ProcessAPIRequest(args params.NetworkInfoParams) (para
 		}
 	}
 
+	defaultEgress := n.defaultEgress
+	if len(defaultEgress) == 0 {
+		defaultEgress = subnetsForAddresses(defaultIngressAddresses)
+	}
+
 	// If we are working in a relation context,
 	// get the network information for the relation
 	// and set it for the relation's binding.
@@ -76,17 +81,10 @@ func (n *NetworkInfoCAAS) ProcessAPIRequest(args params.NetworkInfoParams) (para
 		info, ok := result.Results[endpoint]
 		if !ok {
 			info = params.NetworkInfoResult{
-				Info:          []params.NetworkInfo{{Addresses: interfaceAddr}},
-				EgressSubnets: n.defaultEgress,
+				Info:             []params.NetworkInfo{{Addresses: interfaceAddr}},
+				IngressAddresses: defaultIngressAddresses,
+				EgressSubnets:    defaultEgress,
 			}
-		}
-
-		if len(info.IngressAddresses) == 0 {
-			info.IngressAddresses = defaultIngressAddresses
-		}
-
-		if len(info.EgressSubnets) == 0 {
-			info.EgressSubnets = subnetsForAddresses(info.IngressAddresses)
 		}
 
 		result.Results[endpoint] = n.resolveResultHostNames(info)
@@ -139,7 +137,7 @@ func (n *NetworkInfoCAAS) NetworksForRelation(
 	}
 
 	if pollAddr {
-		if ingress, err = n.maybeGetUnitAddress(rel); err != nil {
+		if ingress, err = n.maybeGetUnitAddress(rel, false); err != nil {
 			return "", nil, nil, errors.Trace(err)
 		}
 	}

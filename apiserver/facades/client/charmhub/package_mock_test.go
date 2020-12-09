@@ -7,6 +7,7 @@ package charmhub
 import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
+	charmhub0 "github.com/juju/juju/charmhub"
 	transport "github.com/juju/juju/charmhub/transport"
 	config "github.com/juju/juju/environs/config"
 	reflect "reflect"
@@ -127,18 +128,23 @@ func (mr *MockClientMockRecorder) Find(arg0, arg1 interface{}) *gomock.Call {
 }
 
 // Info mocks base method
-func (m *MockClient) Info(arg0 context.Context, arg1 string) (transport.InfoResponse, error) {
+func (m *MockClient) Info(arg0 context.Context, arg1 string, arg2 ...charmhub0.InfoOption) (transport.InfoResponse, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Info", arg0, arg1)
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Info", varargs...)
 	ret0, _ := ret[0].(transport.InfoResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Info indicates an expected call of Info
-func (mr *MockClientMockRecorder) Info(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) Info(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Info", reflect.TypeOf((*MockClient)(nil).Info), arg0, arg1)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Info", reflect.TypeOf((*MockClient)(nil).Info), varargs...)
 }
 
 // URL mocks base method
