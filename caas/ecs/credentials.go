@@ -66,7 +66,11 @@ func validateCloudCredential(cred *cloud.Credential) error {
 	if cred == nil {
 		return errors.NotValidf("missing credential")
 	}
-	if authType := cred.AuthType(); authType != cloud.AccessKeyAuthType {
+	authType := cred.AuthType()
+	if authType == "" {
+		return errors.NotValidf("missing auth-type")
+	}
+	if authType != cloud.AccessKeyAuthType {
 		return errors.NotSupportedf("%q auth-type", authType)
 	}
 

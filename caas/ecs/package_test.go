@@ -7,6 +7,9 @@ import (
 	"testing"
 
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/caas"
+	"github.com/juju/juju/storage"
 )
 
 func TestAll(t *testing.T) {
@@ -18,6 +21,16 @@ type (
 )
 
 var (
-	CloudSpecToAWSConfig = cloudSpecToAWSConfig
-	NewEnviron           = newEnviron
+	CloudSpecToAWSConfig    = cloudSpecToAWSConfig
+	NewEnviron              = newEnviron
+	ValidateCloudCredential = validateCloudCredential
+	NewNotifyWatcher        = newNotifyWatcher
 )
+
+func NewProvider() caas.ContainerEnvironProvider {
+	return environProvider{}
+}
+
+func StorageProvider(e *environ) storage.Provider {
+	return &storageProvider{e}
+}

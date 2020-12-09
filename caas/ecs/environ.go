@@ -52,6 +52,13 @@ func newEnviron(
 	awsCfg *aws.Config,
 	newECSClient func(*aws.Config) (ecsiface.ECSAPI, error),
 ) (_ *environ, err error) {
+	if controllerUUID == "" {
+		return nil, errors.NotValidf("controllerUUID is required")
+	}
+	if clusterName == "" {
+		return nil, errors.NotValidf("clusterName is required")
+	}
+
 	newCfg, err := providerInstance.newConfig(envCfg)
 	if err != nil {
 		return nil, errors.Trace(err)
