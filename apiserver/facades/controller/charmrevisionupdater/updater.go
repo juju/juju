@@ -10,20 +10,15 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/resource"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/controller"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 )
@@ -33,35 +28,6 @@ var logger = loggo.GetLogger("juju.apiserver.charmrevisionupdater")
 // CharmRevisionUpdater defines the methods on the charmrevisionupdater API end point.
 type CharmRevisionUpdater interface {
 	UpdateLatestRevisions() (params.ErrorResult, error)
-}
-
-// State is the subset of *state.State that we need.
-type State interface {
-	AddCharmPlaceholder(curl *charm.URL) error
-	AllApplications() ([]Application, error)
-	Charm(curl *charm.URL) (*state.Charm, error)
-	Cloud(name string) (cloud.Cloud, error)
-	ControllerConfig() (controller.Config, error)
-	ControllerUUID() string
-	Model() (Model, error)
-	Resources() (state.Resources, error)
-}
-
-// Application is the subset of *state.Application that we need.
-type Application interface {
-	CharmURL() (curl *charm.URL, force bool)
-	CharmOrigin() *state.CharmOrigin
-	Channel() csparams.Channel
-	ApplicationTag() names.ApplicationTag
-}
-
-// Model is the subset of *state.Model that we need.
-type Model interface {
-	CloudName() string
-	CloudRegion() string
-	Config() (*config.Config, error)
-	IsControllerModel() bool
-	UUID() string
 }
 
 // CharmRevisionUpdaterAPI implements the CharmRevisionUpdater interface and is the concrete
@@ -77,27 +43,7 @@ func NewCharmRevisionUpdaterAPI(ctx facade.Context) (*CharmRevisionUpdaterAPI, e
 	if !ctx.Auth().AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
-	return &CharmRevisionUpdaterAPI{state: stateShim{ctx.State()}}, nil
-}
-
-type stateShim struct {
-	*state.State
-}
-
-func (s stateShim) AllApplications() ([]Application, error) {
-	stateApps, err := s.State.AllApplications()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	apps := make([]Application, len(stateApps))
-	for i, a := range stateApps {
-		apps[i] = a
-	}
-	return apps, nil
-}
-
-func (s stateShim) Model() (Model, error) {
-	return s.State.Model()
+	return &CharmRevisionUpdaterAPI{state: stateShim{State: ctx.State()}}, nil
 }
 
 // UpdateLatestRevisions retrieves the latest revision information from the charm store for all deployed charms
@@ -150,15 +96,7 @@ var NewCharmStoreClient = func(st State) (charmstore.Client, error) {
 
 // NewCharmhubClient instantiates a new charmhub client (exported for testing).
 var NewCharmhubClient = func(st State, metadata map[string]string) (CharmhubRefreshClient, error) {
-	return common.CharmhubClient(charmhubClientModelShim{state: st}, logger, metadata)
-}
-
-type charmhubClientModelShim struct {
-	state State
-}
-
-func (s charmhubClientModelShim) Model() (common.ConfigModel, error) {
-	return s.state.Model()
+	return common.CharmhubClient(charmhubClientStateShim{state: st}, logger, metadata)
 }
 
 type latestCharmInfo struct {
