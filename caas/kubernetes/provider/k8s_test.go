@@ -6785,8 +6785,8 @@ func (s *K8sBrokerSuite) TestWatchServiceAggregate(c *gc.C) {
 
 	ticklers := []func(){}
 
-	s.k8sWatcherFn = func(_ cache.SharedIndexInformer, _ string, _ jujuclock.Clock) (provider.KubernetesNotifyWatcher, error) {
-		w, f := newKubernetesTestWatcher()
+	s.k8sWatcherFn = func(_ cache.SharedIndexInformer, _ string, _ jujuclock.Clock) (k8swatcher.KubernetesNotifyWatcher, error) {
+		w, f := k8swatchertest.NewKubernetesTestWatcher()
 		ticklers = append(ticklers, f)
 		return w, nil
 	}
