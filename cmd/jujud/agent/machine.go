@@ -89,6 +89,7 @@ import (
 	psworker "github.com/juju/juju/worker/pubsub"
 	"github.com/juju/juju/worker/upgradedatabase"
 	"github.com/juju/juju/worker/upgradesteps"
+	"github.com/juju/juju/wrench"
 )
 
 var (
@@ -1100,6 +1101,12 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 		NewContainerBrokerFunc:      newCAASBroker,
 		NewMigrationMaster:          migrationmaster.NewWorker,
 	}
+	if wrench.IsActive("charmrevision", "shortinterval") {
+		interval := 10 * time.Second
+		logger.Infof("setting short charmrevision worker interval: %v", interval)
+		manifoldsCfg.CharmRevisionUpdateInterval = interval
+	}
+
 	applyTestingOverrides(currentConfig, &manifoldsCfg)
 
 	var manifolds dependency.Manifolds

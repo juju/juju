@@ -58,13 +58,14 @@ type RefreshResponse struct {
 }
 
 type RefreshEntity struct {
-	CreatedAt string             `json:"created-at"`
+	CreatedAt time.Time          `json:"created-at"`
 	Download  Download           `json:"download"`
 	ID        string             `json:"id"`
 	License   string             `json:"license"`
 	Name      string             `json:"name"`
 	Publisher map[string]string  `json:"publisher,omitempty"`
 	Resources []ResourceRevision `json:"resources"`
+	Revision  int                `json:"revision"`
 	Summary   string             `json:"summary"`
 	Version   string             `json:"version"`
 }

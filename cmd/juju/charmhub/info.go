@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	corecharm "github.com/juju/juju/core/charm"
 )
 
 const (
@@ -57,6 +58,7 @@ type infoCommand struct {
 	CharmHubClientFunc func(base.APICallCloser) InfoCommandAPI
 
 	config        bool
+	channel       string
 	charmOrBundle string
 
 	unicode string
@@ -79,6 +81,7 @@ func (c *infoCommand) Info() *cmd.Info {
 func (c *infoCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.charmHubCommand.SetFlags(f)
 
+	f.StringVar(&c.channel, "channel", "", "specify a channel to use instead of the default release")
 	f.BoolVar(&c.config, "config", false, "display config for this charm")
 	f.StringVar(&c.unicode, "unicode", "auto", "display output using unicode <auto|never|always>")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
@@ -140,7 +143,16 @@ func (c *infoCommand) Run(ctx *cmd.Context) error {
 
 	charmHubClient := c.CharmHubClientFunc(apiRoot)
 
-	info, err := charmHubClient.Info(c.charmOrBundle)
+	channel := c.channel
+	if channel != "" {
+		charmChannel, err := corecharm.ParseChannelNormalize(c.channel)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		channel = charmChannel.String()
+	}
+
+	info, err := charmHubClient.Info(c.charmOrBundle, channel)
 	if params.IsCodeNotFound(err) {
 		return errors.Wrap(err, errors.Errorf("No information found for charm or bundle with the name %q", c.charmOrBundle))
 	} else if err != nil {

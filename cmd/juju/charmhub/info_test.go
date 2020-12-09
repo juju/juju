@@ -317,7 +317,7 @@ func (s *infoSuite) setUpMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *infoSuite) expectInfo() {
-	s.infoCommandAPI.EXPECT().Info("test").Return(charmhub.InfoResponse{
+	s.infoCommandAPI.EXPECT().Info("test", gomock.Any()).Return(charmhub.InfoResponse{
 		Name:        "wordpress",
 		Type:        "charm",
 		ID:          "charmCHARMcharmCHARMcharmCHARM01",

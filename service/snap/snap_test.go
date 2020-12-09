@@ -4,7 +4,9 @@
 package snap_test
 
 import (
+	"io/ioutil"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/juju/testing"
@@ -73,18 +75,18 @@ func (*validationSuite) TestNewApp(c *gc.C) {
 	})
 }
 
-type externalCommandsSuite struct {
+type snapSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&externalCommandsSuite{})
+var _ = gc.Suite(&snapSuite{})
 
-func (*externalCommandsSuite) TestSnapCommandIsAValidCommand(c *gc.C) {
+func (*snapSuite) TestSnapCommandIsAValidCommand(c *gc.C) {
 	_, err := exec.LookPath(snap.Command)
 	c.Check(err, gc.NotNil)
 }
 
-func (*externalCommandsSuite) TestSnapListCommandreValidShellCommand(c *gc.C) {
+func (*snapSuite) TestSnapListCommandreValidShellCommand(c *gc.C) {
 	listCommand := snap.ListCommand()
 	listCommandParts := strings.Fields(listCommand)
 
@@ -99,4 +101,24 @@ func (*externalCommandsSuite) TestSnapListCommandreValidShellCommand(c *gc.C) {
 		}
 	}
 	c.Check(err, gc.NotNil)
+}
+
+func (*snapSuite) TestConfigOverride(c *gc.C) {
+	conf := common.Conf{Limit: map[string]string{"nofile": "64000"}}
+	svc, err := snap.NewService("juju-db", "", conf, snap.Command, "latest", "strict", []snap.BackgroundService{{
+		Name: "daemon",
+	}}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	dir := c.MkDir()
+	snap.SetServiceConfigDir(&svc, dir)
+	err = svc.ConfigOverride()
+	c.Assert(err, jc.ErrorIsNil)
+	data, err := ioutil.ReadFile(filepath.Join(dir, "snap.juju-db.daemon.service.d/overrides.conf"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(data), gc.Equals, `
+[Service]
+LimitNOFILE=64000
+
+`[1:])
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
+	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -34,7 +35,7 @@ type ClientFactory interface {
 // Client represents a CharmHub Client for making queries to the CharmHub API.
 type Client interface {
 	URL() string
-	Info(ctx context.Context, name string) (transport.InfoResponse, error)
+	Info(ctx context.Context, name string, options ...charmhub.InfoOption) (transport.InfoResponse, error)
 	Find(ctx context.Context, query string) ([]transport.FindResponse, error)
 }
 
@@ -77,16 +78,25 @@ func newCharmHubAPI(backend Backend, authorizer facade.Authorizer, clientFactory
 }
 
 // Info queries the CharmHub API with a given entity ID.
-func (api *CharmHubAPI) Info(arg params.Entity) (params.CharmHubEntityInfoResult, error) {
+func (api *CharmHubAPI) Info(arg params.Info) (params.CharmHubEntityInfoResult, error) {
 	logger.Tracef("Info(%v)", arg.Tag)
 
 	tag, err := names.ParseApplicationTag(arg.Tag)
 	if err != nil {
-		return params.CharmHubEntityInfoResult{}, errors.BadRequestf("arg value is empty")
+		return params.CharmHubEntityInfoResult{}, errors.BadRequestf("tag value is empty")
+	}
+
+	var options []charmhub.InfoOption
+	if arg.Channel != "" {
+		ch, err := charm.ParseChannelNormalize(arg.Channel)
+		if err != nil {
+			return params.CharmHubEntityInfoResult{}, errors.BadRequestf("channel %q is invalid", arg.Channel)
+		}
+		options = append(options, charmhub.WithChannel(ch.String()))
 	}
 
 	// TODO (stickupkid): Create a proper context to be used here.
-	info, err := api.client.Info(context.TODO(), tag.Id())
+	info, err := api.client.Info(context.TODO(), tag.Id(), options...)
 	if err != nil {
 		return params.CharmHubEntityInfoResult{}, errors.Trace(err)
 	}

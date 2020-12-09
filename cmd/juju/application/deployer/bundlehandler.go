@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
 	commoncharm "github.com/juju/juju/api/common/charm"
+	"github.com/juju/juju/api/resources/client"
 	app "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	appbundle "github.com/juju/juju/cmd/juju/application/bundle"
@@ -734,9 +735,9 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 
 	resNames2IDs, err := h.deployResources(
 		p.Application,
-		resourceadapters.CharmID{
-			URL:     chID.URL,
-			Channel: chID.Origin.Risk,
+		client.CharmID{
+			URL:    chID.URL,
+			Origin: chID.Origin,
 		},
 		macaroon,
 		resources,
@@ -1069,9 +1070,9 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 	if len(filtered) != 0 {
 		resNames2IDs, err = h.deployResources(
 			p.Application,
-			resourceadapters.CharmID{
-				URL:     chID.URL,
-				Channel: chID.Origin.Risk,
+			client.CharmID{
+				URL:    chID.URL,
+				Origin: chID.Origin,
 			},
 			macaroon,
 			resources,

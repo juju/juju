@@ -13,13 +13,13 @@ import (
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/errors"
+	apicharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/charmstore"
-	"github.com/juju/juju/resource/api/client"
+	"github.com/juju/juju/api/resources/client"
 )
 
 var _ = gc.Suite(&UploadSuite{})
@@ -100,15 +100,17 @@ func (s *UploadSuite) TestPendingResources(c *gc.C) {
 
 	pendingIDs, err := cl.AddPendingResources(client.AddPendingResourcesArgs{
 		ApplicationID: "a-application",
-		CharmID: charmstore.CharmID{
+		CharmID: client.CharmID{
 			URL: cURL,
+			Origin: apicharm.Origin{
+				Source: apicharm.OriginCharmStore,
+			},
 		},
 		Resources: resources,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "FacadeCall")
-	//s.stub.CheckCall(c, 0, "FacadeCall", "AddPendingResources", args, result)
 	c.Check(pendingIDs, jc.DeepEquals, expected)
 }
 
@@ -168,7 +170,7 @@ func (s *UploadSuite) TestPendingResourceNoFile(c *gc.C) {
 	c.Check(uploadID, gc.Equals, expected)
 }
 
-func (s *UploadSuite) TestPendingResourceBadService(c *gc.C) {
+func (s *UploadSuite) TestPendingResourceBadApplication(c *gc.C) {
 	res, _ := newResourceResult(c, "a-application", "spam")
 	s.facade.FacadeCallFn = nil
 	cl := client.NewClient(context.Background(), s.facade, s, s.facade)

@@ -117,7 +117,7 @@ func (s *CharmSuite) SetUpTest(c *gc.C) {
 			"Juju-Metadata": headers,
 		})
 	}
-	// Patch the charm repo initializer function: it is replaced with a charm
+	// Patch the charmstore initializer function: it is replaced with a charm
 	// store repo pointing to the testing server.
 	s.jcSuite.PatchValue(&charmrevisionupdater.NewCharmStoreClient, func(st *state.State) (jujucharmstore.Client, error) {
 		return jujucharmstore.NewCustomClient(s.store), nil

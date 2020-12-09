@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/charmrevision"
 )
 
@@ -28,6 +29,7 @@ func (s *ValidateSuite) SetUpTest(c *gc.C) {
 		RevisionUpdater: struct{ charmrevision.RevisionUpdater }{},
 		Clock:           struct{ clock.Clock }{},
 		Period:          time.Hour,
+		Logger:          coretesting.NoopLogger{},
 	}
 }
 
@@ -44,6 +46,11 @@ func (s *ValidateSuite) TestNilRevisionUpdater(c *gc.C) {
 func (s *ValidateSuite) TestNilClock(c *gc.C) {
 	s.config.Clock = nil
 	s.checkNotValid(c, "nil Clock not valid")
+}
+
+func (s *ValidateSuite) TestNilLogger(c *gc.C) {
+	s.config.Logger = nil
+	s.checkNotValid(c, "nil Logger not valid")
 }
 
 func (s *ValidateSuite) TestBadPeriods(c *gc.C) {

@@ -1,7 +1,7 @@
-// Copyright 2016 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package workers_test
+package resources_test
 
 import (
 	"testing"

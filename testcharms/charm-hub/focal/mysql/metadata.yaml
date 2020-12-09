@@ -1,0 +1,8 @@
+name: mysql
+summary: "Database engine"
+description: "A pretty popular database"
+provides:
+  server:
+    interface: mysql
+series:
+  - focal

@@ -248,6 +248,9 @@ func (a *API) getDownloadInfo(arg params.CharmURLAndOrigin) (params.DownloadInfo
 	}
 
 	charmOrigin, err := normalizeCharmOrigin(arg.Origin)
+	if err != nil {
+		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
+	}
 
 	repo, err := a.repository(charmOrigin, arg.Macaroon)
 	if err != nil {

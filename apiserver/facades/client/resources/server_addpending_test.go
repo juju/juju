@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resources_test
+package resources
 
 import (
 	charmresource "github.com/juju/charm/v8/resource"
@@ -9,7 +9,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facades/client/resources"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -19,12 +18,17 @@ type AddPendingResourcesSuite struct {
 	BaseSuite
 }
 
+func (s *AddPendingResourcesSuite) newFacadeV1(c *gc.C) *APIv1 {
+	facade, err := NewResourcesAPI(s.data, s.newCSFactory())
+	c.Assert(err, jc.ErrorIsNil)
+	return &APIv1{facade}
+}
+
 func (s *AddPendingResourcesSuite) TestNoURL(c *gc.C) {
 	res1, apiRes1 := newResource(c, "spam", "a-user", "spamspamspam")
 	id1 := "some-unique-ID"
 	s.data.ReturnAddPendingResource = id1
-	facade, err := resources.NewFacade(s.data, s.newCSClient)
-	c.Assert(err, jc.ErrorIsNil)
+	facade := s.newFacadeV1(c)
 
 	result, err := facade.AddPendingResources(params.AddPendingResourcesArgs{
 		Entity: params.Entity{
@@ -56,8 +60,7 @@ func (s *AddPendingResourcesSuite) TestWithURLUpToDate(c *gc.C) {
 	s.csClient.ReturnListResources = [][]charmresource.Resource{{
 		res1.Resource,
 	}}
-	facade, err := resources.NewFacade(s.data, s.newCSClient)
-	c.Assert(err, jc.ErrorIsNil)
+	facade := s.newFacadeV1(c)
 
 	result, err := facade.AddPendingResources(params.AddPendingResourcesArgs{
 		Entity: params.Entity{
@@ -73,8 +76,8 @@ func (s *AddPendingResourcesSuite) TestWithURLUpToDate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 
-	s.stub.CheckCallNames(c, "newCSClient", "ListResources", "AddPendingResource")
-	s.stub.CheckCall(c, 2, "AddPendingResource", "a-application", "", res1.Resource)
+	s.stub.CheckCallNames(c, "ListResources", "AddPendingResource")
+	s.stub.CheckCall(c, 1, "AddPendingResource", "a-application", "", res1.Resource)
 	c.Check(result, jc.DeepEquals, params.AddPendingResourcesResult{
 		PendingIDs: []string{
 			id1,
@@ -95,8 +98,7 @@ func (s *AddPendingResourcesSuite) TestWithURLMismatchComplete(c *gc.C) {
 	s.csClient.ReturnListResources = [][]charmresource.Resource{{
 		csRes.Resource,
 	}}
-	facade, err := resources.NewFacade(s.data, s.newCSClient)
-	c.Assert(err, jc.ErrorIsNil)
+	facade := s.newFacadeV1(c)
 
 	result, err := facade.AddPendingResources(params.AddPendingResourcesArgs{
 		Entity: params.Entity{
@@ -112,8 +114,8 @@ func (s *AddPendingResourcesSuite) TestWithURLMismatchComplete(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 
-	s.stub.CheckCallNames(c, "newCSClient", "ListResources", "AddPendingResource")
-	s.stub.CheckCall(c, 2, "AddPendingResource", "a-application", "", res1.Resource)
+	s.stub.CheckCallNames(c, "ListResources", "AddPendingResource")
+	s.stub.CheckCall(c, 1, "AddPendingResource", "a-application", "", res1.Resource)
 	c.Check(result, jc.DeepEquals, params.AddPendingResourcesResult{
 		PendingIDs: []string{
 			id1,
@@ -144,8 +146,7 @@ func (s *AddPendingResourcesSuite) TestWithURLMismatchIncomplete(c *gc.C) {
 		Size:        res1.Size,
 	}
 	s.csClient.ReturnResourceInfo = &expected
-	facade, err := resources.NewFacade(s.data, s.newCSClient)
-	c.Assert(err, jc.ErrorIsNil)
+	facade := s.newFacadeV1(c)
 
 	result, err := facade.AddPendingResources(params.AddPendingResourcesArgs{
 		Entity: params.Entity{
@@ -160,8 +161,8 @@ func (s *AddPendingResourcesSuite) TestWithURLMismatchIncomplete(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "newCSClient", "ListResources", "ResourceInfo", "AddPendingResource")
-	s.stub.CheckCall(c, 3, "AddPendingResource", "a-application", "", expected)
+	s.stub.CheckCallNames(c, "ListResources", "ResourceInfo", "AddPendingResource")
+	s.stub.CheckCall(c, 2, "AddPendingResource", "a-application", "", expected)
 	c.Check(result, jc.DeepEquals, params.AddPendingResourcesResult{
 		PendingIDs: []string{
 			id1,
@@ -186,8 +187,7 @@ func (s *AddPendingResourcesSuite) TestWithURLNoRevision(c *gc.C) {
 	s.csClient.ReturnListResources = [][]charmresource.Resource{{
 		csRes.Resource,
 	}}
-	facade, err := resources.NewFacade(s.data, s.newCSClient)
-	c.Assert(err, jc.ErrorIsNil)
+	facade := s.newFacadeV1(c)
 
 	result, err := facade.AddPendingResources(params.AddPendingResourcesArgs{
 		Entity: params.Entity{
@@ -203,8 +203,8 @@ func (s *AddPendingResourcesSuite) TestWithURLNoRevision(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 
-	s.stub.CheckCallNames(c, "newCSClient", "ListResources", "AddPendingResource")
-	s.stub.CheckCall(c, 2, "AddPendingResource", "a-application", "", res1.Resource)
+	s.stub.CheckCallNames(c, "ListResources", "AddPendingResource")
+	s.stub.CheckCall(c, 1, "AddPendingResource", "a-application", "", res1.Resource)
 	c.Check(result, jc.DeepEquals, params.AddPendingResourcesResult{
 		PendingIDs: []string{
 			id1,
@@ -222,10 +222,11 @@ func (s *AddPendingResourcesSuite) TestLocalCharm(c *gc.C) {
 	apiRes1.Revision = 3
 	id1 := "some-unique-ID"
 	s.data.ReturnAddPendingResource = id1
-	facade, err := resources.NewFacade(s.data, s.newCSClient)
+	facade, err := NewResourcesAPI(s.data, s.newLocalFactory())
 	c.Assert(err, jc.ErrorIsNil)
+	facadeV2 := &APIv1{facade}
 
-	result, err := facade.AddPendingResources(params.AddPendingResourcesArgs{
+	result, err := facadeV2.AddPendingResources(params.AddPendingResourcesArgs{
 		Entity: params.Entity{
 			Tag: "application-a-application",
 		},
@@ -262,8 +263,7 @@ func (s *AddPendingResourcesSuite) TestWithURLUpload(c *gc.C) {
 	s.csClient.ReturnListResources = [][]charmresource.Resource{{
 		csRes.Resource,
 	}}
-	facade, err := resources.NewFacade(s.data, s.newCSClient)
-	c.Assert(err, jc.ErrorIsNil)
+	facade := s.newFacadeV1(c)
 
 	result, err := facade.AddPendingResources(params.AddPendingResourcesArgs{
 		Entity: params.Entity{
@@ -279,8 +279,8 @@ func (s *AddPendingResourcesSuite) TestWithURLUpload(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 
-	s.stub.CheckCallNames(c, "newCSClient", "ListResources", "AddPendingResource")
-	s.stub.CheckCall(c, 2, "AddPendingResource", "a-application", "", res1.Resource)
+	s.stub.CheckCallNames(c, "ListResources", "AddPendingResource")
+	s.stub.CheckCall(c, 1, "AddPendingResource", "a-application", "", res1.Resource)
 	c.Check(result, jc.DeepEquals, params.AddPendingResourcesResult{
 		PendingIDs: []string{
 			id1,
@@ -299,8 +299,7 @@ func (s *AddPendingResourcesSuite) TestUnknownResource(c *gc.C) {
 	s.csClient.ReturnListResources = [][]charmresource.Resource{{
 		res1.Resource,
 	}}
-	facade, err := resources.NewFacade(s.data, s.newCSClient)
-	c.Assert(err, jc.ErrorIsNil)
+	facade := s.newFacadeV1(c)
 
 	result, err := facade.AddPendingResources(params.AddPendingResourcesArgs{
 		Entity: params.Entity{
@@ -315,8 +314,8 @@ func (s *AddPendingResourcesSuite) TestUnknownResource(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "newCSClient", "ListResources", "AddPendingResource")
-	s.stub.CheckCall(c, 2, "AddPendingResource", "a-application", "", res1.Resource)
+	s.stub.CheckCallNames(c, "ListResources", "AddPendingResource")
+	s.stub.CheckCall(c, 1, "AddPendingResource", "a-application", "", res1.Resource)
 	c.Check(result, jc.DeepEquals, params.AddPendingResourcesResult{
 		PendingIDs: []string{
 			id1,
@@ -328,8 +327,7 @@ func (s *AddPendingResourcesSuite) TestDataStoreError(c *gc.C) {
 	_, apiRes1 := newResource(c, "spam", "a-user", "spamspamspam")
 	failure := errors.New("<failure>")
 	s.stub.SetErrors(failure)
-	facade, err := resources.NewFacade(s.data, s.newCSClient)
-	c.Assert(err, jc.ErrorIsNil)
+	facade := s.newFacadeV1(c)
 
 	result, err := facade.AddPendingResources(params.AddPendingResourcesArgs{
 		Entity: params.Entity{

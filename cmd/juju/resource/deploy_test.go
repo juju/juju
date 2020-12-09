@@ -14,14 +14,14 @@ import (
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/errors"
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/resources"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/charmstore"
+	"github.com/juju/juju/api/resources/client"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/resources"
 )
 
 type DeploySuite struct {
@@ -41,7 +41,7 @@ func (s *DeploySuite) SetUpTest(c *gc.C) {
 func (s DeploySuite) TestDeployResourcesWithoutFiles(c *gc.C) {
 	deps := uploadDeps{stub: s.stub}
 	cURL := charm.MustParseURL("cs:~a-user/trusty/spam-5")
-	chID := charmstore.CharmID{
+	chID := client.CharmID{
 		URL: cURL,
 	}
 	csMac := &macaroon.Macaroon{}
@@ -88,7 +88,7 @@ func (s DeploySuite) TestDeployResourcesWithoutFiles(c *gc.C) {
 func (s DeploySuite) TestUploadFilesOnly(c *gc.C) {
 	deps := uploadDeps{stub: s.stub, data: []byte("file contents")}
 	cURL := charm.MustParseURL("cs:~a-user/trusty/spam-5")
-	chID := charmstore.CharmID{
+	chID := client.CharmID{
 		URL: cURL,
 	}
 	csMac := &macaroon.Macaroon{}
@@ -144,7 +144,7 @@ func (s DeploySuite) TestUploadFilesOnly(c *gc.C) {
 func (s DeploySuite) TestUploadRevisionsOnly(c *gc.C) {
 	deps := uploadDeps{stub: s.stub}
 	cURL := charm.MustParseURL("cs:~a-user/trusty/spam-5")
-	chID := charmstore.CharmID{
+	chID := client.CharmID{
 		URL: cURL,
 	}
 	csMac := &macaroon.Macaroon{}
@@ -195,7 +195,7 @@ func (s DeploySuite) TestUploadRevisionsOnly(c *gc.C) {
 func (s DeploySuite) TestUploadFilesAndRevisions(c *gc.C) {
 	deps := uploadDeps{stub: s.stub, data: []byte("file contents")}
 	cURL := charm.MustParseURL("cs:~a-user/trusty/spam-5")
-	chID := charmstore.CharmID{
+	chID := client.CharmID{
 		URL: cURL,
 	}
 	csMac := &macaroon.Macaroon{}
@@ -324,7 +324,7 @@ func (s DeploySuite) TestMissingResource(c *gc.C) {
 func (s DeploySuite) TestDeployDockerResourceRegistryPathString(c *gc.C) {
 	deps := uploadDeps{stub: s.stub}
 	cURL := charm.MustParseURL("cs:~a-user/mysql-k8s-5")
-	chID := charmstore.CharmID{
+	chID := client.CharmID{
 		URL: cURL,
 	}
 	csMac := &macaroon.Macaroon{}
@@ -381,7 +381,7 @@ func (s DeploySuite) TestDeployDockerResourceJSONFile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	deps := uploadDeps{stub: s.stub, data: []byte(fileContents)}
 	cURL := charm.MustParseURL("cs:~a-user/mysql-k8s-5")
-	chID := charmstore.CharmID{
+	chID := client.CharmID{
 		URL: cURL,
 	}
 	csMac := &macaroon.Macaroon{}
@@ -435,7 +435,7 @@ password: hunter2
 	c.Assert(err, jc.ErrorIsNil)
 	deps := uploadDeps{stub: s.stub, data: []byte(fileContents)}
 	cURL := charm.MustParseURL("cs:~a-user/mysql-k8s-5")
-	chID := charmstore.CharmID{
+	chID := client.CharmID{
 		URL: cURL,
 	}
 	csMac := &macaroon.Macaroon{}
@@ -561,7 +561,7 @@ type uploadDeps struct {
 	data []byte
 }
 
-func (s uploadDeps) AddPendingResources(applicationID string, charmID charmstore.CharmID, csMac *macaroon.Macaroon, resources []charmresource.Resource) (ids []string, err error) {
+func (s uploadDeps) AddPendingResources(applicationID string, charmID client.CharmID, csMac *macaroon.Macaroon, resources []charmresource.Resource) (ids []string, err error) {
 	charmresource.Sort(resources)
 	s.stub.AddCall("AddPendingResources", applicationID, charmID, csMac, resources)
 	if err := s.stub.NextErr(); err != nil {

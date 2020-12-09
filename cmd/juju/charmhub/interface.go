@@ -7,7 +7,8 @@ import (
 	"context"
 	"net/url"
 
-	"github.com/juju/juju/api/charmhub"
+	apicharmhub "github.com/juju/juju/api/charmhub"
+	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 )
 
@@ -21,21 +22,21 @@ type Log = func(format string, params ...interface{})
 
 // InfoCommandAPI describes API methods required to execute the info command.
 type InfoCommandAPI interface {
-	Info(string) (charmhub.InfoResponse, error)
+	Info(string, string) (apicharmhub.InfoResponse, error)
 	Close() error
 }
 
 // FindCommandAPI describes API methods required to execute the find command.
 type FindCommandAPI interface {
-	Find(string) ([]charmhub.FindResponse, error)
+	Find(string) ([]apicharmhub.FindResponse, error)
 	Close() error
 }
 
 // DownloadCommandAPI describes API methods required to execute the download
 // command.
 type DownloadCommandAPI interface {
-	Info(context.Context, string) (transport.InfoResponse, error)
-	Download(context.Context, *url.URL, string) error
+	Info(context.Context, string, ...charmhub.InfoOption) (transport.InfoResponse, error)
+	Download(context.Context, *url.URL, string, ...charmhub.DownloadOption) error
 }
 
 type ModelConfigGetter interface {
