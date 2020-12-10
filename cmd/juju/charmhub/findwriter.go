@@ -109,7 +109,7 @@ func (f findWriter) Print() error {
 	colNames := f.columns.Names()
 	fmt.Fprintln(tw, strings.Join(colNames, "\t"))
 	for _, result := range f.in {
-		summary, err := oneLine(result.Summary, 6)
+		summary, err := oneLine(result.Summary, summaryColumnIndex(f.columns))
 		if err != nil {
 			f.warningf("%v", err)
 		}
@@ -151,6 +151,15 @@ func (f findWriter) bundle(result FindResponse) string {
 		return "Y"
 	}
 	return "-"
+}
+
+func summaryColumnIndex(columns Columns) int {
+	for _, v := range columns {
+		if v.Name == ColumnNameSummary {
+			return v.Index
+		}
+	}
+	return -1
 }
 
 func oneLine(line string, inset int) (string, error) {

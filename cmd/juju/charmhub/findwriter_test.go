@@ -79,7 +79,7 @@ func (s *printFindSuite) TestCharmPrintFindWithColumns(c *gc.C) {
 	expected := `
 Name       Bundle  Version  Publisher          Summary
 wordpress  -       1.0.3    Wordress Charmers  WordPress is a full featured web blogging
-                                                   tool, this charm deploys it.
+                                               tool, this charm deploys it.
 osm        Y       3.2.3    charmed-osm        Single instance OSM bundle.
 
 `[1:]
