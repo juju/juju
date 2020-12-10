@@ -11,7 +11,7 @@ type ResourceRevision struct {
 	Download    ResourceDownload `json:"download"`
 	Description string           `json:"description"`
 	Name        string           `json:"name"`
-	Path        string           `json:"path"`
+	Filename    string           `json:"filename"`
 	Revision    int              `json:"revision"`
 	Type        string           `json:"type"`
 }
