@@ -1,6 +1,11 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// This used to live at
+// apiserver/facades/controller/charmrevisionupdater/testing/suite.go
+// but we moved it here as it's a JujuConnSuite test only used by this
+// package's tests.
+
 package testing
 
 import (
