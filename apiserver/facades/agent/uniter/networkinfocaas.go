@@ -87,7 +87,10 @@ func (n *NetworkInfoCAAS) ProcessAPIRequest(args params.NetworkInfoParams) (para
 			}
 		}
 
-		result.Results[endpoint] = n.resolveResultHostNames(info)
+		// We only resolve the `Info` member addresses for CAAS.
+		// Host names in `IngressAddresses` are preserved,
+		// which diverges from the IAAS implementation.
+		result.Results[endpoint] = n.resolveResultInfoHostNames(info)
 	}
 
 	return result, nil

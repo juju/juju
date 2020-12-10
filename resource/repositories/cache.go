@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package charmstore
+package repositories
 
 import (
 	"io"
@@ -29,21 +29,21 @@ type EntityCache interface {
 // cacheForOperations is a wrapper around EntityCache. It supports
 // the operations type.
 type cacheForOperations struct {
-	EntityCache
+	entityCache EntityCache
 }
 
 // get retrieves the resource info and data from the cache. If only
 // the info is found then the returned reader will be nil. If no cache
 // is in use then errors.NotFound is returned.
 func (cfo cacheForOperations) get(name string) (resource.Resource, io.ReadCloser, error) {
-	if cfo.EntityCache == nil {
+	if cfo.entityCache == nil {
 		return resource.Resource{}, nil, errors.NotFoundf("resource %q", name)
 	}
 
-	res, reader, err := cfo.OpenResource(name)
+	res, reader, err := cfo.entityCache.OpenResource(name)
 	if errors.IsNotFound(err) {
 		reader = nil
-		res, err = cfo.GetResource(name)
+		res, err = cfo.entityCache.GetResource(name)
 	}
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
@@ -57,21 +57,21 @@ func (cfo cacheForOperations) get(name string) (resource.Resource, io.ReadCloser
 // that the returned reader may or may not be the same one that was
 // passed in.
 func (cfo cacheForOperations) set(chRes charmresource.Resource, reader io.ReadCloser) (resource.Resource, io.ReadCloser, error) {
-	if cfo.EntityCache == nil {
+	if cfo.entityCache == nil {
 		res := resource.Resource{
 			Resource: chRes,
 		}
 		return res, reader, nil // a no-op
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
-	res, err := cfo.SetResource(chRes, reader)
+	res, err := cfo.entityCache.SetResource(chRes, reader)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
 
 	// Make sure to use the potentially updated resource details.
-	res, reader, err = cfo.OpenResource(res.Name)
+	res, reader, err = cfo.entityCache.OpenResource(res.Name)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}

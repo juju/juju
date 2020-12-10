@@ -23,6 +23,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/juju/clock"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
@@ -58,6 +59,7 @@ type Terminal interface {
 	Width() int
 }
 
+// Spinner defines the ANSI spinner whilst waiting for information.
 var Spinner = []string{"/", "-", "\\", "|"}
 
 // ANSIMeter is a progress.Meter that uses ANSI escape codes to make
@@ -72,14 +74,16 @@ type ANSIMeter struct {
 	terminal    Terminal
 	stdout      io.Writer
 	escapeChars EscapeChars
+	clock       clock.Clock
 }
 
 // NewANSIMeter creates a new ANSIMeter using the supplied stdout.
-func NewANSIMeter(stdout io.Writer, term Terminal, escapeChars EscapeChars) *ANSIMeter {
+func NewANSIMeter(stdout io.Writer, term Terminal, escapeChars EscapeChars, clock clock.Clock) *ANSIMeter {
 	return &ANSIMeter{
 		terminal:    term,
 		stdout:      stdout,
 		escapeChars: escapeChars,
+		clock:       clock,
 	}
 }
 
@@ -87,7 +91,7 @@ func NewANSIMeter(stdout io.Writer, term Terminal, escapeChars EscapeChars) *ANS
 func (p *ANSIMeter) Start(label string, total float64) {
 	p.label = []rune(label)
 	p.total = total
-	p.t0 = time.Now().UTC()
+	p.t0 = p.clock.Now().UTC()
 	fmt.Fprint(p.stdout, p.escapeChars.CursorInvisible)
 }
 
@@ -122,7 +126,7 @@ func (p *ANSIMeter) Set(current float64) {
 	//  * if 29 < width      , also show speed (speed+gutter = 9)
 	var percent, speed, timeleft string
 	if col > 15 {
-		since := time.Now().UTC().Sub(p.t0).Seconds()
+		since := p.clock.Now().UTC().Sub(p.t0).Seconds()
 		per := since / p.written
 		left := (p.total - p.written) * per
 		// XXX: duration unit string is controlled by translations, and

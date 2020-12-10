@@ -4,6 +4,8 @@
 package charms
 
 import (
+	"context"
+
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
@@ -12,6 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/client/charms/mocks"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/core/arch"
 )
@@ -22,9 +25,9 @@ type charmHubRepositoriesSuite struct {
 
 var _ = gc.Suite(&charmHubRepositoriesSuite{})
 
-func (s *charmHubRepositoriesSuite) TestResolveDefaultChannelMap(c *gc.C) {
+func (s *charmHubRepositoriesSuite) TestCharmResolveDefaultChannelMap(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectInfo(nil)
+	s.expectCharmInfo(nil)
 
 	curl := charm.MustParseURL("ch:wordpress")
 	origin := params.CharmOrigin{Source: "charm-hub"}
@@ -50,9 +53,38 @@ func (s *charmHubRepositoriesSuite) TestResolveDefaultChannelMap(c *gc.C) {
 	c.Assert(obtainedSeries, jc.SameContents, []string{"bionic", "xenial"})
 }
 
+func (s *charmHubRepositoriesSuite) TestCharmResolveDefaultChannelMapWithChannel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectCharmInfoWithChannel(c)
+
+	track := "latest"
+
+	curl := charm.MustParseURL("ch:wordpress")
+	origin := params.CharmOrigin{Source: "charm-hub", Risk: "stable", Track: &track}
+
+	resolver := &chRepo{client: s.client}
+	obtainedCurl, obtainedOrigin, obtainedSeries, err := resolver.ResolveWithPreferredChannel(curl, origin)
+	c.Assert(err, jc.ErrorIsNil)
+
+	curl.Revision = 18
+
+	origin.ID = "charmCHARMcharmCHARMcharmCHARM01"
+	origin.Type = "charm"
+	origin.Revision = &curl.Revision
+	origin.Risk = "stable"
+	origin.Track = &track
+	origin.Architecture = arch.DefaultArchitecture
+	origin.OS = "ubuntu"
+	origin.Series = "bionic"
+
+	c.Assert(obtainedCurl, jc.DeepEquals, curl)
+	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
+	c.Assert(obtainedSeries, jc.SameContents, []string{"bionic", "xenial"})
+}
+
 func (s *charmHubRepositoriesSuite) TestResolveWithRevision(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectInfo(nil)
+	s.expectCharmInfo(nil)
 
 	curl := charm.MustParseURL("ch:wordpress-13")
 	origin := params.CharmOrigin{Source: "charm-hub"}
@@ -78,9 +110,9 @@ func (s *charmHubRepositoriesSuite) TestResolveWithRevision(c *gc.C) {
 	c.Assert(obtainedSeries, jc.SameContents, []string{"bionic", "xenial"})
 }
 
-func (s *charmHubRepositoriesSuite) TestResolveDefaultChannelMapWithFallbackSeries(c *gc.C) {
+func (s *charmHubRepositoriesSuite) TestCharmResolveDefaultChannelMapWithFallbackSeries(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectAlternativeInfo(nil)
+	s.expectAlternativeCharmInfo(nil)
 
 	curl := charm.MustParseURL("ch:wordpress")
 	origin := params.CharmOrigin{Source: "charm-hub"}
@@ -106,9 +138,65 @@ func (s *charmHubRepositoriesSuite) TestResolveDefaultChannelMapWithFallbackSeri
 	c.Assert(obtainedSeries, jc.SameContents, []string{"bionic"})
 }
 
+func (s *charmHubRepositoriesSuite) TestBundleResolveDefaultChannelMap(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectBundleInfo(nil)
+
+	curl := charm.MustParseURL("ch:wordpress")
+	origin := params.CharmOrigin{Type: "bundle", Source: "charm-hub"}
+
+	resolver := &chRepo{client: s.client}
+	obtainedCurl, obtainedOrigin, obtainedSeries, err := resolver.ResolveWithPreferredChannel(curl, origin)
+	c.Assert(err, jc.ErrorIsNil)
+
+	track := "latest"
+	curl.Revision = 16
+
+	origin.ID = "charmCHARMcharmCHARMcharmCHARM01"
+	origin.Type = "bundle"
+	origin.Revision = &curl.Revision
+	origin.Risk = "stable"
+	origin.Track = &track
+	origin.Architecture = arch.DefaultArchitecture
+	origin.OS = "ubuntu"
+	origin.Series = "bionic"
+
+	c.Assert(obtainedCurl, jc.DeepEquals, curl)
+	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
+	c.Assert(obtainedSeries, jc.SameContents, []string{"bionic"})
+}
+
+func (s *charmHubRepositoriesSuite) TestBundleResolveDefaultChannelMapWithFallbackSeries(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectAlternativeBundleInfo(nil)
+
+	curl := charm.MustParseURL("ch:wordpress")
+	origin := params.CharmOrigin{Type: "bundle", Source: "charm-hub"}
+
+	resolver := &chRepo{client: s.client}
+	obtainedCurl, obtainedOrigin, obtainedSeries, err := resolver.ResolveWithPreferredChannel(curl, origin)
+	c.Assert(err, jc.ErrorIsNil)
+
+	track := "1.0"
+	curl.Revision = 17
+
+	origin.ID = "charmCHARMcharmCHARMcharmCHARM01"
+	origin.Type = "bundle"
+	origin.Revision = &curl.Revision
+	origin.Risk = "edge"
+	origin.Track = &track
+	origin.Architecture = arch.DefaultArchitecture
+	origin.OS = "ubuntu"
+	origin.Series = "bionic"
+
+	c.Assert(obtainedCurl, jc.DeepEquals, curl)
+	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
+	c.Assert(obtainedSeries, jc.SameContents, []string{"bionic"})
+}
+
 func (s *charmHubRepositoriesSuite) TestResolveWithRevisionNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectInfo(nil)
+	s.expectCharmInfo(nil)
 
 	curl := charm.MustParseURL("ch:wordpress-42")
 	origin := params.CharmOrigin{Source: "charm-hub"}
@@ -120,7 +208,7 @@ func (s *charmHubRepositoriesSuite) TestResolveWithRevisionNotFound(c *gc.C) {
 
 func (s *charmHubRepositoriesSuite) TestResolveWithChannel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectInfo(nil)
+	s.expectCharmInfo(nil)
 
 	curl := charm.MustParseURL("ch:wordpress")
 	track := "second"
@@ -146,7 +234,7 @@ func (s *charmHubRepositoriesSuite) TestResolveWithChannel(c *gc.C) {
 
 func (s *charmHubRepositoriesSuite) TestResolveWithChannelNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectInfo(nil)
+	s.expectCharmInfo(nil)
 
 	curl := charm.MustParseURL("ch:wordpress")
 	track := "testme"
@@ -164,7 +252,7 @@ func (s *charmHubRepositoriesSuite) TestResolveWithChannelNotFound(c *gc.C) {
 
 func (s *charmHubRepositoriesSuite) TestResolveWithChannelRiskOnly(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectInfo(nil)
+	s.expectCharmInfo(nil)
 
 	curl := charm.MustParseURL("ch:wordpress")
 	origin := params.CharmOrigin{Source: "charm-hub", Risk: "candidate"}
@@ -191,7 +279,7 @@ func (s *charmHubRepositoriesSuite) TestResolveWithChannelRiskOnly(c *gc.C) {
 
 func (s *charmHubRepositoriesSuite) TestResolveInfoError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectInfo(errors.NotSupportedf("error for test"))
+	s.expectCharmInfo(errors.NotSupportedf("error for test"))
 
 	curl := charm.MustParseURL("ch:wordpress")
 	origin := params.CharmOrigin{Source: "charm-hub"}
@@ -207,12 +295,26 @@ func (s *charmHubRepositoriesSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *charmHubRepositoriesSuite) expectInfo(err error) {
-	s.client.EXPECT().Info(gomock.Any(), "wordpress", gomock.Any()).Return(getCharmHubInfoResponse(), err)
+func (s *charmHubRepositoriesSuite) expectCharmInfo(err error) {
+	s.client.EXPECT().Info(gomock.Any(), "wordpress", gomock.Any()).Return(getCharmHubCharmInfoResponse(), err)
 }
 
-func (s *charmHubRepositoriesSuite) expectAlternativeInfo(err error) {
-	s.client.EXPECT().Info(gomock.Any(), "wordpress", gomock.Any()).Return(getAlternativeCharmHubInfoResponse(), err)
+func (s *charmHubRepositoriesSuite) expectCharmInfoWithChannel(c *gc.C) {
+	s.client.EXPECT().Info(gomock.Any(), "wordpress", gomock.Any()).Do(func(_ context.Context, _ string, options ...charmhub.InfoOption) {
+		c.Assert(options, gc.HasLen, 1)
+	}).Return(getCharmHubCharmInfoResponse(), nil)
+}
+
+func (s *charmHubRepositoriesSuite) expectAlternativeCharmInfo(err error) {
+	s.client.EXPECT().Info(gomock.Any(), "wordpress", gomock.Any()).Return(getAlternativeCharmHubCharmInfoResponse(), err)
+}
+
+func (s *charmHubRepositoriesSuite) expectBundleInfo(err error) {
+	s.client.EXPECT().Info(gomock.Any(), "wordpress", gomock.Any()).Return(getCharmHubBundleInfoResponse(), err)
+}
+
+func (s *charmHubRepositoriesSuite) expectAlternativeBundleInfo(err error) {
+	s.client.EXPECT().Info(gomock.Any(), "wordpress", gomock.Any()).Return(getAlternativeCharmHubBundleInfoResponse(), err)
 }
 
 type charmStoreResolversSuite struct {
@@ -227,8 +329,8 @@ func (s *charmStoreResolversSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func getCharmHubInfoResponse() transport.InfoResponse {
-	channelMap, defaultRelease := getCharmHubResponse()
+func getCharmHubCharmInfoResponse() transport.InfoResponse {
+	channelMap, defaultRelease := getCharmHubCharmResponse()
 	return transport.InfoResponse{
 		Name:           "wordpress",
 		Type:           "charm",
@@ -238,8 +340,8 @@ func getCharmHubInfoResponse() transport.InfoResponse {
 	}
 }
 
-func getAlternativeCharmHubInfoResponse() transport.InfoResponse {
-	channelMap, _ := getCharmHubResponse()
+func getAlternativeCharmHubCharmInfoResponse() transport.InfoResponse {
+	channelMap, _ := getCharmHubCharmResponse()
 	defaultRelease := alternativeDefaultChannelMap()
 	return transport.InfoResponse{
 		Name:           "wordpress",
@@ -250,7 +352,30 @@ func getAlternativeCharmHubInfoResponse() transport.InfoResponse {
 	}
 }
 
-func getCharmHubResponse() ([]transport.InfoChannelMap, transport.InfoChannelMap) {
+func getCharmHubBundleInfoResponse() transport.InfoResponse {
+	channelMap, defaultRelease := getCharmHubBundleResponse()
+	return transport.InfoResponse{
+		Name:           "wordpress",
+		Type:           "bundle",
+		ID:             "charmCHARMcharmCHARMcharmCHARM01",
+		ChannelMap:     channelMap,
+		DefaultRelease: defaultRelease,
+	}
+}
+
+func getAlternativeCharmHubBundleInfoResponse() transport.InfoResponse {
+	channelMap, _ := getCharmHubBundleResponse()
+	defaultRelease := alternativeDefaultChannelMap()
+	return transport.InfoResponse{
+		Name:           "wordpress",
+		Type:           "bundle",
+		ID:             "charmCHARMcharmCHARMcharmCHARM01",
+		ChannelMap:     channelMap,
+		DefaultRelease: defaultRelease,
+	}
+}
+
+func getCharmHubCharmResponse() ([]transport.InfoChannelMap, transport.InfoChannelMap) {
 	return []transport.InfoChannelMap{{
 			Channel: transport.Channel{
 				Name: "stable",
@@ -399,4 +524,121 @@ provides:
 requires:
   sink:
     interface: dummy-token
+`
+
+func getCharmHubBundleResponse() ([]transport.InfoChannelMap, transport.InfoChannelMap) {
+	return []transport.InfoChannelMap{{
+			Channel: transport.Channel{
+				Name: "stable",
+				Platform: transport.Platform{
+					Architecture: arch.DefaultArchitecture,
+					OS:           "ubuntu",
+					Series:       "bionic",
+				},
+				Risk:  "stable",
+				Track: "latest",
+			},
+			Revision: transport.InfoRevision{
+				MetadataYAML: entityMeta,
+				Platforms: []transport.Platform{{
+					Architecture: arch.DefaultArchitecture,
+					OS:           "ubuntu",
+					Series:       "bionic",
+				}},
+				Revision: 18,
+				Version:  "1.0.3",
+			},
+		}, {
+			Channel: transport.Channel{
+				Name: "candidate",
+				Platform: transport.Platform{
+					Architecture: arch.DefaultArchitecture,
+					OS:           "ubuntu",
+					Series:       "bionic",
+				},
+				Risk:  "candidate",
+				Track: "latest",
+			},
+			Revision: transport.InfoRevision{
+				MetadataYAML: entityMeta,
+				Platforms: []transport.Platform{{
+					Architecture: arch.DefaultArchitecture,
+					OS:           "ubuntu",
+					Series:       "bionic",
+				}},
+				Revision: 19,
+				Version:  "1.0.3",
+			},
+		}, {
+			Channel: transport.Channel{
+				Name: "edge",
+				Platform: transport.Platform{
+					Architecture: arch.DefaultArchitecture,
+					OS:           "ubuntu",
+					Series:       "bionic",
+				},
+				Risk:  "edge",
+				Track: "latest",
+			},
+			Revision: transport.InfoRevision{
+				BundleYAML: entityBundle,
+				Platforms: []transport.Platform{{
+					Architecture: arch.DefaultArchitecture,
+					OS:           "ubuntu",
+					Series:       "bionic",
+				}},
+				Revision: 19,
+				Version:  "1.0.3",
+			},
+		}, {
+			Channel: transport.Channel{
+				Name: "second/stable",
+				Platform: transport.Platform{
+					Architecture: arch.DefaultArchitecture,
+					OS:           "ubuntu",
+					Series:       "bionic",
+				},
+				Risk:  "stable",
+				Track: "second",
+			},
+			Revision: transport.InfoRevision{
+				BundleYAML: entityBundle,
+				Platforms: []transport.Platform{{
+					Architecture: arch.DefaultArchitecture,
+					OS:           "ubuntu",
+					Series:       "bionic",
+				}},
+				Revision: 13,
+				Version:  "1.0.3",
+			},
+		}}, transport.InfoChannelMap{
+			Channel: transport.Channel{
+				Name: "stable",
+				Platform: transport.Platform{
+					Architecture: arch.DefaultArchitecture,
+					OS:           "ubuntu",
+					Series:       "bionic",
+				},
+				Risk:  "stable",
+				Track: "latest",
+			},
+			Revision: transport.InfoRevision{
+				BundleYAML: entityBundle,
+				Platforms: []transport.Platform{{
+					Architecture: arch.DefaultArchitecture,
+					OS:           "ubuntu",
+					Series:       "bionic",
+				}},
+				Revision: 16,
+				Version:  "1.0.3",
+			},
+		}
+}
+
+const entityBundle = `
+series: bionic
+services:
+    wordpress:
+        charm: wordpress
+        num_units: 1
 `

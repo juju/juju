@@ -158,7 +158,7 @@ func (c *fakeCharmhubClient) Refresh(_ context.Context, config charmhub.RefreshC
 		return nil, errors.Errorf("model metadata not present")
 	}
 
-	request, err := config.Build()
+	request, _, err := config.Build()
 	if err != nil {
 		return nil, err
 	}

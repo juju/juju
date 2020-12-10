@@ -168,6 +168,15 @@ func (c *DownloadClient) DownloadAndReadBundle(ctx context.Context, resourceURL 
 	return charm.ReadBundleArchive(archivePath)
 }
 
+// DownloadResource returns an io.ReadCloser to read the Resource from.
+func (c *DownloadClient) DownloadResource(ctx context.Context, resourceURL *url.URL) (r io.ReadCloser, err error) {
+	resp, err := c.downloadFromURL(ctx, resourceURL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return resp.Body, nil
+}
+
 func (c *DownloadClient) downloadFromURL(ctx context.Context, resourceURL *url.URL) (resp *http.Response, err error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", resourceURL.String(), nil)
 	if err != nil {

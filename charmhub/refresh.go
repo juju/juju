@@ -32,6 +32,10 @@ const (
 	RefreshAction Action = "refresh"
 )
 
+// Headers represents a series of headers that we would like to pass to the REST
+// API.
+type Headers = map[string][]string
+
 // RefreshPlatform defines a platform for selecting a specific charm.
 type RefreshPlatform struct {
 	Architecture string
@@ -69,7 +73,7 @@ func NewRefreshClient(path path.Path, client RESTClient, logger Logger) *Refresh
 // RefreshConfig defines a type for building refresh requests.
 type RefreshConfig interface {
 	// Build a refresh request for sending to the API.
-	Build() (transport.RefreshRequest, error)
+	Build() (transport.RefreshRequest, Headers, error)
 
 	// Ensure that the request back contains the information we requested.
 	Ensure([]transport.RefreshResponse) error
@@ -81,35 +85,20 @@ type RefreshConfig interface {
 // Refresh is used to refresh installed charms to a more suitable revision.
 func (c *RefreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]transport.RefreshResponse, error) {
 	c.logger.Tracef("Refresh(%s)", pretty.Sprint(config))
-	req, err := config.Build()
+	req, headers, err := config.Build()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	// Add X-Juju-Metadata headers for the charms' unique series and
-	// architecture values, for example:
-	//
-	// X-Juju-Metadata: series=bionic
-	// X-Juju-Metadata: arch=amd64
-	// X-Juju-Metadata: series=focal
-	headers := make(http.Header)
-	seriesAdded := set.NewStrings()
-	archsAdded := set.NewStrings()
-	for _, context := range req.Context {
-		series := context.Platform.Series
-		if series != "" && !seriesAdded.Contains(series) {
-			headers.Add(MetadataHeader, "series="+series)
-			seriesAdded.Add(series)
-		}
-		arch := context.Platform.Architecture
-		if arch != "" && !archsAdded.Contains(arch) {
-			headers.Add(MetadataHeader, "arch="+arch)
-			archsAdded.Add(arch)
+	httpHeaders := make(http.Header)
+	for k, values := range headers {
+		for _, value := range values {
+			httpHeaders.Add(MetadataHeader, fmt.Sprintf("%s=%s", k, value))
 		}
 	}
 
 	var resp transport.RefreshResponses
-	restResp, err := c.client.Post(ctx, c.path, headers, req, &resp)
+	restResp, err := c.client.Post(ctx, c.path, httpHeaders, req, &resp)
 
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -158,7 +147,7 @@ func RefreshOne(id string, revision int, channel string, platform RefreshPlatfor
 }
 
 // Build a refresh request that can be past to the API.
-func (c refreshOne) Build() (transport.RefreshRequest, error) {
+func (c refreshOne) Build() (transport.RefreshRequest, Headers, error) {
 	return transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{{
 			InstanceKey: c.instanceKey,
@@ -179,7 +168,7 @@ func (c refreshOne) Build() (transport.RefreshRequest, error) {
 			InstanceKey: c.instanceKey,
 			ID:          &c.ID,
 		}},
-	}, nil
+	}, constructMetadataHeaders(c.Platform), nil
 }
 
 // Ensure that the request back contains the information we requested.
@@ -270,7 +259,7 @@ func DownloadOneFromRevision(id string, revision int, platform RefreshPlatform) 
 
 // DownloadOneFromChannel creates a request config using the channel and not the
 // revision for requesting only one charm.
-func DownloadOneFromChannel(name string, channel string, platform RefreshPlatform) (RefreshConfig, error) {
+func DownloadOneFromChannel(id string, channel string, platform RefreshPlatform) (RefreshConfig, error) {
 	uuid, err := utils.NewUUID()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -278,21 +267,30 @@ func DownloadOneFromChannel(name string, channel string, platform RefreshPlatfor
 	return executeOne{
 		action:      DownloadAction,
 		instanceKey: uuid.String(),
-		Name:        name,
+		ID:          id,
 		Channel:     &channel,
 		Platform:    platform,
 	}, nil
 }
 
 // Build a refresh request that can be past to the API.
-func (c executeOne) Build() (transport.RefreshRequest, error) {
+func (c executeOne) Build() (transport.RefreshRequest, Headers, error) {
+	var id *string
+	if c.ID != "" {
+		id = &c.ID
+	}
+	var name *string
+	if c.Name != "" {
+		name = &c.Name
+	}
 	return transport.RefreshRequest{
 		// Context is required here, even if it looks optional.
 		Context: []transport.RefreshRequestContext{},
 		Actions: []transport.RefreshRequestAction{{
 			Action:      string(c.action),
 			InstanceKey: c.instanceKey,
-			Name:        &c.Name,
+			ID:          id,
+			Name:        name,
 			Revision:    c.Revision,
 			Channel:     c.Channel,
 			Platform: &transport.RefreshRequestPlatform{
@@ -301,7 +299,7 @@ func (c executeOne) Build() (transport.RefreshRequest, error) {
 				Architecture: c.Platform.Architecture,
 			},
 		}},
-	}, nil
+	}, constructMetadataHeaders(c.Platform), nil
 }
 
 // Ensure that the request back contains the information we requested.
@@ -319,8 +317,14 @@ func (c executeOne) String() string {
 	if c.Channel != nil {
 		channel = *c.Channel
 	}
-	return fmt.Sprintf("Execute One (action: %s, instanceKey: %s): using Name: %s with revision: %+v, channel %v and platform %s",
-		c.action, c.instanceKey, c.Name, c.Revision, channel, c.Platform)
+	var using string
+	if c.ID != "" {
+		using = fmt.Sprintf("ID %s", c.ID)
+	} else {
+		using = fmt.Sprintf("Name %s", c.Name)
+	}
+	return fmt.Sprintf("Execute One (action: %s, instanceKey: %s): using %s with revision: %+v, channel %v and platform %s",
+		c.action, c.instanceKey, using, c.Revision, channel, c.Platform)
 }
 
 type refreshMany struct {
@@ -335,17 +339,21 @@ func RefreshMany(configs ...RefreshConfig) RefreshConfig {
 }
 
 // Build a refresh request that can be past to the API.
-func (c refreshMany) Build() (transport.RefreshRequest, error) {
-	var result transport.RefreshRequest
+func (c refreshMany) Build() (transport.RefreshRequest, Headers, error) {
+	var (
+		result          transport.RefreshRequest
+		composedHeaders Headers
+	)
 	for _, config := range c.Configs {
-		req, err := config.Build()
+		req, headers, err := config.Build()
 		if err != nil {
-			return transport.RefreshRequest{}, errors.Trace(err)
+			return transport.RefreshRequest{}, nil, errors.Trace(err)
 		}
 		result.Context = append(result.Context, req.Context...)
 		result.Actions = append(result.Actions, req.Actions...)
+		composedHeaders = composeMetadataHeaders(composedHeaders, headers)
 	}
-	return result, nil
+	return result, composedHeaders, nil
 }
 
 // Ensure that the request back contains the information we requested.
@@ -364,4 +372,38 @@ func (c refreshMany) String() string {
 		plans[i] = config.String()
 	}
 	return strings.Join(plans, "\n")
+}
+
+// constructHeaders adds X-Juju-Metadata headers for the charms' unique series
+// and architecture values, for example:
+//
+// X-Juju-Metadata: series=bionic
+// X-Juju-Metadata: arch=amd64
+// X-Juju-Metadata: series=focal
+func constructMetadataHeaders(platform RefreshPlatform) map[string][]string {
+	headers := make(map[string][]string)
+	if platform.Architecture != "" {
+		headers["arch"] = []string{platform.Architecture}
+	}
+	if platform.OS != "" {
+		headers["os"] = []string{platform.OS}
+	}
+	if platform.Series != "" {
+		headers["series"] = []string{platform.Series}
+	}
+	return headers
+}
+
+func composeMetadataHeaders(a, b Headers) Headers {
+	result := make(map[string][]string)
+	for k, v := range a {
+		result[k] = append(result[k], v...)
+	}
+	for k, v := range b {
+		result[k] = append(result[k], v...)
+	}
+	for k, v := range result {
+		result[k] = set.NewStrings(v...).SortedValues()
+	}
+	return result
 }

@@ -7,3 +7,7 @@ var (
 	DefaultChannel           = defaultChannel
 	DefaultConfinementPolicy = defaultConfinementPolicy
 )
+
+func SetServiceConfigDir(s *Service, dir string) {
+	s.configDir = dir
+}

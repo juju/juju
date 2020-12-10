@@ -2082,8 +2082,12 @@ func (k *kubernetesClient) WatchService(appName string, mode caas.DeploymentMode
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	w3, err := k.newWatcher(factory.Core().V1().Services().Informer(), appName, k.clock)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
-	return watcher.NewMultiNotifyWatcher(w1, w2), nil
+	return watcher.NewMultiNotifyWatcher(w1, w2, w3), nil
 }
 
 // Units returns all units and any associated filesystems of the specified application.

@@ -281,7 +281,7 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 
 	// Add one unit to an application;
 	charm := s.AddTestingCharm(c, "dummy")
-	app := s.AddTestingApplication(c, "test-application", charm)
+	app := s.AddTestingApplicationWithArch(c, "test-application", charm, arch.HostArch())
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)

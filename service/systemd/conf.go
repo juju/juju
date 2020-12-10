@@ -185,6 +185,24 @@ func iterSortedKeys(in map[string]string) []string {
 	return out
 }
 
+// ServiceLimits converts the limits in conf to systemd unit options.
+func ServiceLimits(conf common.Conf) []*unit.UnitOption {
+	var unitOptions []*unit.UnitOption
+	for _, k := range iterSortedKeys(conf.Limit) {
+		v := conf.Limit[k]
+		if v == "unlimited" {
+			// In ulimit you pass 'unlimited', but this maps to "infinity" in systemd
+			v = "infinity"
+		}
+		unitOptions = append(unitOptions, &unit.UnitOption{
+			Section: "Service",
+			Name:    limitMap[k],
+			Value:   v,
+		})
+	}
+	return unitOptions
+}
+
 func serializeService(conf common.Conf) []*unit.UnitOption {
 	var unitOptions []*unit.UnitOption
 
@@ -198,19 +216,7 @@ func serializeService(conf common.Conf) []*unit.UnitOption {
 			Value:   fmt.Sprintf(`"%s=%s"`, k, v),
 		})
 	}
-
-	for _, k := range iterSortedKeys(conf.Limit) {
-		v := conf.Limit[k]
-		if v == "unlimited" {
-			// In ulimit you pass 'unlimited', but this maps to "infinity" in systemd
-			v = "infinity"
-		}
-		unitOptions = append(unitOptions, &unit.UnitOption{
-			Section: "Service",
-			Name:    limitMap[k],
-			Value:   v,
-		})
-	}
+	unitOptions = append(unitOptions, ServiceLimits(conf)...)
 
 	if conf.ExecStart != "" {
 		unitOptions = append(unitOptions, &unit.UnitOption{
