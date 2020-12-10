@@ -97,7 +97,7 @@ var facadeVersions = map[string]int{
 	"RelationUnitsWatcher":         1,
 	"RemoteRelations":              2,
 	"RemoteRelationWatcher":        1,
-	"Resources":                    1,
+	"Resources":                    2,
 	"ResourcesHookContext":         1,
 	"Resumer":                      2,
 	"RetryStrategy":                1,

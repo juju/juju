@@ -19,7 +19,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -33,12 +32,15 @@ import (
 	"github.com/juju/juju/api/base"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	apicommoncharms "github.com/juju/juju/api/common/charms"
+	"github.com/juju/juju/api/resources/client"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/cmd/juju/application/deployer"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -90,7 +92,7 @@ func (s *BaseRefreshSuite) SetUpTest(c *gc.C) {
 
 	s.deployResources = func(
 		applicationID string,
-		chID resourceadapters.CharmID,
+		chID client.CharmID,
 		csMac *macaroon.Macaroon,
 		filesAndRevisions map[string]string,
 		resources map[string]charmresource.Meta,
@@ -1042,7 +1044,7 @@ type mockDownloadBundleClient struct {
 	bundle charm.Bundle
 }
 
-func (m *mockDownloadBundleClient) DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string) (charm.Bundle, error) {
+func (m *mockDownloadBundleClient) DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string, options ...charmhub.DownloadOption) (charm.Bundle, error) {
 	m.MethodCall(m, "DownloadAndReadBundle", resourceURL, archivePath)
 	return m.bundle, m.NextErr()
 }

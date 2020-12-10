@@ -5,6 +5,7 @@ package deployer
 
 import (
 	"fmt"
+
 	"io/ioutil"
 	"strconv"
 	"strings"
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/juju/api/application"
 	applicationapi "github.com/juju/juju/api/application"
 	commoncharm "github.com/juju/juju/api/common/charm"
+	"github.com/juju/juju/api/resources/client"
 	app "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
@@ -214,9 +216,9 @@ func (d *deployCharm) deploy(
 
 	ids, err := d.deployResources(
 		applicationName,
-		resourceadapters.CharmID{
-			URL:     id.URL,
-			Channel: id.Origin.Risk,
+		client.CharmID{
+			URL:    id.URL,
+			Origin: id.Origin,
 		},
 		d.csMac,
 		d.resources,

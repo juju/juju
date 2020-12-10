@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/charmhub/transport"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output/progress"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/environs/config"
 )
@@ -221,6 +222,9 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 			Series:       c.series,
 		},
 	})
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	path := c.archivePath
 	if c.archivePath == "" {
@@ -229,7 +233,9 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 
 	cmdContext.Infof("Fetching %s %q using %q channel at revision %d", info.Type, info.Name, charmChannel, origin.Revision)
 
-	if err := client.Download(ctx, resourceURL, path); err != nil {
+	pb := progress.MakeProgressBar(cmdContext.Stdout)
+	ctx = context.WithValue(ctx, charmhub.DownloadNameKey, info.Name)
+	if err := client.Download(ctx, resourceURL, path, charmhub.WithProgressBar(pb)); err != nil {
 		return errors.Trace(err)
 	}
 

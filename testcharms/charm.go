@@ -22,11 +22,17 @@ import (
 	jtesting "github.com/juju/juju/testing"
 )
 
-const defaultSeries = "quantal"
-const localCharmRepo = "charm-repo"
+const (
+	defaultSeries  = "quantal"
+	localCharmRepo = "charm-repo"
+	localCharmHub  = "charm-hub"
+)
 
 // Repo provides access to the test charm repository.
 var Repo = testing.NewRepo(localCharmRepo, defaultSeries)
+
+// Hub provides access to the test charmhub repository.
+var Hub = testing.NewRepo(localCharmHub, "focal")
 
 // RepoForSeries returns a new charm repository for the specified series.
 // Note: this is a bit weird, as it ignores the series if it's NOT kubernetes

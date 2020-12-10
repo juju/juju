@@ -9,6 +9,12 @@ type Query struct {
 	Query string `json:"query"`
 }
 
+// Info tag represents a info query for a given tag and channel.
+type Info struct {
+	Tag     string `json:"tag"`
+	Channel string `json:"channel,omitempty"`
+}
+
 type CharmHubEntityInfoResult struct {
 	Result InfoResponse  `json:"result"`
 	Errors ErrorResponse `json:"errors"`
@@ -48,19 +54,28 @@ type FindResponse struct {
 }
 
 type Channel struct {
-	ReleasedAt string     `json:"released-at"`
-	Track      string     `json:"track"`
-	Risk       string     `json:"risk"`
-	Revision   int        `json:"revision"`
-	Size       int        `json:"size"`
-	Version    string     `json:"version"`
-	Platforms  []Platform `json:"platforms"`
+	ReleasedAt string                 `json:"released-at"`
+	Track      string                 `json:"track"`
+	Risk       string                 `json:"risk"`
+	Revision   int                    `json:"revision"`
+	Size       int                    `json:"size"`
+	Version    string                 `json:"version"`
+	Platforms  []Platform             `json:"platforms"`
+	Resources  []CharmHubInfoResource `json:"resources"`
 }
 
 type Platform struct {
 	Architecture string `json:"architecture"`
 	OS           string `json:"os"`
 	Series       string `json:"series"`
+}
+
+type CharmHubInfoResource struct {
+	Name     string `json:"name"`
+	Revision int    `json:"revision"`
+	Type     string `json:"type"`
+	Size     int    `json:"size"`
+	URL      string `json:"url"`
 }
 
 type CharmHubCharm struct {

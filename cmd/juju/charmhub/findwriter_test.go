@@ -11,6 +11,34 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
+type columnFindSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&columnFindSuite{})
+
+func (s *columnFindSuite) TestColumnNames(c *gc.C) {
+	names := DefaultColumns().Names()
+	c.Assert(names, jc.DeepEquals, []string{"Name", "Bundle", "Version", "Architectures", "Supports", "Publisher", "Summary"})
+}
+
+func (s *columnFindSuite) TestMakeColumns(c *gc.C) {
+	columns, err := MakeColumns(DefaultColumns(), "nb")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(columns.Names(), jc.DeepEquals, []string{"Name", "Bundle"})
+}
+
+func (s *columnFindSuite) TestMakeColumnsOutOfOrder(c *gc.C) {
+	columns, err := MakeColumns(DefaultColumns(), "vbn")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(columns.Names(), jc.DeepEquals, []string{"Version", "Bundle", "Name"})
+}
+
+func (s *columnFindSuite) TestMakeColumnsInvalidAlias(c *gc.C) {
+	_, err := MakeColumns(DefaultColumns(), "X")
+	c.Assert(err, gc.ErrorMatches, `unexpected column alias 'X'`)
+}
+
 type printFindSuite struct {
 	testing.IsolationSuite
 }
@@ -20,15 +48,39 @@ var _ = gc.Suite(&printFindSuite{})
 func (s *printFindSuite) TestCharmPrintFind(c *gc.C) {
 	fr := getCharmFindResponse()
 	ctx := commandContextForTest(c)
-	fw := makeFindWriter(ctx.Stdout, ctx.Warningf, fr)
+	cols := DefaultColumns()
+
+	fw := makeFindWriter(ctx.Stdout, ctx.Warningf, cols, fr)
 	err := fw.Print()
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `
 Name       Bundle  Version  Architectures  Supports              Publisher          Summary
-wordpress  -       1.0.3    all            bionic                Wordress Charmers  WordPress is a full featured web blogging tool, this charm deploys it.
+wordpress  -       1.0.3    all            bionic                Wordress Charmers  WordPress is a full featured web blogging
+                                                                                    tool, this charm deploys it.
 osm        Y       3.2.3    all            bionic,xenial,trusty  charmed-osm        Single instance OSM bundle.
+
+`[1:]
+	c.Assert(obtained, gc.Equals, expected)
+}
+
+func (s *printFindSuite) TestCharmPrintFindWithColumns(c *gc.C) {
+	fr := getCharmFindResponse()
+	ctx := commandContextForTest(c)
+	cols, err := MakeColumns(DefaultColumns(), "nbvps")
+	c.Assert(err, jc.ErrorIsNil)
+
+	fw := makeFindWriter(ctx.Stdout, ctx.Warningf, cols, fr)
+	err = fw.Print()
+	c.Assert(err, jc.ErrorIsNil)
+
+	obtained := ctx.Stdout.(*bytes.Buffer).String()
+	expected := `
+Name       Bundle  Version  Publisher          Summary
+wordpress  -       1.0.3    Wordress Charmers  WordPress is a full featured web blogging
+                                                   tool, this charm deploys it.
+osm        Y       3.2.3    charmed-osm        Single instance OSM bundle.
 
 `[1:]
 	c.Assert(obtained, gc.Equals, expected)
@@ -42,7 +94,9 @@ func (s *printFindSuite) TestCharmPrintFindWithMissingData(c *gc.C) {
 	fr[0].Summary = ""
 
 	ctx := commandContextForTest(c)
-	fw := makeFindWriter(ctx.Stdout, ctx.Warningf, fr)
+	cols := DefaultColumns()
+
+	fw := makeFindWriter(ctx.Stdout, ctx.Warningf, cols, fr)
 	err := fw.Print()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -57,16 +111,18 @@ osm        Y       3.2.3    all            bionic,xenial,trusty  charmed-osm    
 }
 
 func (s *printFindSuite) TestSummary(c *gc.C) {
-	summary, err := oneLine("WordPress is a full featured web blogging tool, this charm deploys it.\nSome addition data\nMore Lines")
+	summary, err := oneLine("WordPress is a full featured web blogging tool, this charm deploys it.\nSome addition data\nMore Lines", 0)
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtained := summary
-	expected := "WordPress is a full featured web blogging tool, this charm deploys it."
-	c.Assert(obtained, gc.Equals, expected)
+	expected := `
+WordPress is a full featured web blogging
+tool, this charm deploys it.`
+	c.Assert(obtained, gc.Equals, expected[1:])
 }
 
 func (s *printFindSuite) TestSummaryEmpty(c *gc.C) {
-	summary, err := oneLine("")
+	summary, err := oneLine("", 0)
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtained := summary

@@ -175,7 +175,7 @@ func readConstraints(mb modelBackend, id string) (constraints.Value, error) {
 	constraintsCollection, closer := mb.db().GetCollection(constraintsC)
 	defer closer()
 
-	doc := constraintsDoc{}
+	var doc constraintsDoc
 	if err := constraintsCollection.FindId(id).One(&doc); err == mgo.ErrNotFound {
 		return constraints.Value{}, errors.NotFoundf("constraints")
 	} else if err != nil {

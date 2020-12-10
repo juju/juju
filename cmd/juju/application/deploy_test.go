@@ -45,6 +45,7 @@ import (
 	commoncharm "github.com/juju/juju/api/common/charm"
 	apicommoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/api/modelconfig"
+	"github.com/juju/juju/api/resources/client"
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application/deployer"
@@ -151,7 +152,7 @@ func (s *DeploySuiteBase) SetUpTest(c *gc.C) {
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 	s.DeployResources = func(applicationID string,
-		chID resourceadapters.CharmID,
+		chID client.CharmID,
 		csMac *macaroon.Macaroon,
 		filesAndRevisions map[string]string,
 		resources map[string]charmresource.Meta,
@@ -1151,7 +1152,7 @@ func (s *CAASDeploySuite) TestDevices(c *gc.C) {
 	)
 	s.DeployResources = func(
 		applicationID string,
-		chID resourceadapters.CharmID,
+		chID client.CharmID,
 		csMac *macaroon.Macaroon,
 		filesAndRevisions map[string]string,
 		resources map[string]charmresource.Meta,
@@ -2469,7 +2470,7 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 		},
 		DeployResources: func(
 			applicationID string,
-			chID resourceadapters.CharmID,
+			chID client.CharmID,
 			csMac *macaroon.Macaroon,
 			filesAndRevisions map[string]string,
 			resources map[string]charmresource.Meta,

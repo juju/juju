@@ -21,6 +21,8 @@ import (
 	"github.com/juju/juju/resource"
 )
 
+var rLogger = logger.Child("resource")
+
 type resourcePersistence interface {
 	// ListResources returns the resource data for the given application ID.
 	// None of the resources will be pending.
@@ -117,7 +119,7 @@ func (st resourceState) ListResources(applicationID string) (resource.Applicatio
 	return resources, nil
 }
 
-// ListPendinglResources returns the resource data for the given
+// ListPendingResources returns the resource data for the given
 // application ID for pending resources only.
 func (st resourceState) ListPendingResources(applicationID string) ([]resource.Resource, error) {
 	resources, err := st.persist.ListPendingResources(applicationID)
@@ -129,7 +131,7 @@ func (st resourceState) ListPendingResources(applicationID string) ([]resource.R
 
 // RemovePendingResources removes the pending application-level
 // resources for a specific application, normally in the case that the
-// application couln't be deployed.
+// application couldn't be deployed.
 func (st resourceState) RemovePendingAppResources(applicationID string, pendingIDs map[string]string) error {
 	return errors.Trace(st.persist.RemovePendingAppResources(applicationID, pendingIDs))
 }
@@ -170,7 +172,7 @@ func (st resourceState) GetPendingResource(applicationID, name, pendingID string
 
 // SetResource stores the resource in the Juju model.
 func (st resourceState) SetResource(applicationID, userID string, chRes charmresource.Resource, r io.Reader) (resource.Resource, error) {
-	logger.Tracef("adding resource %q for application %q", chRes.Name, applicationID)
+	rLogger.Tracef("adding resource %q for application %q", chRes.Name, applicationID)
 	pendingID := ""
 	res, err := st.setResource(pendingID, applicationID, userID, chRes, r)
 	if err != nil {
@@ -181,7 +183,7 @@ func (st resourceState) SetResource(applicationID, userID string, chRes charmres
 
 // SetUnitResource sets the resource metadata for a specific unit.
 func (st resourceState) SetUnitResource(unitName, userID string, chRes charmresource.Resource) (_ resource.Resource, outErr error) {
-	logger.Tracef("adding resource %q for unit %q", chRes.Name, unitName)
+	rLogger.Tracef("adding resource %q for unit %q", chRes.Name, unitName)
 	var empty resource.Resource
 
 	applicationID, err := names.UnitApplication(unitName)
@@ -213,7 +215,7 @@ func (st resourceState) AddPendingResource(applicationID, userID string, chRes c
 	if err != nil {
 		return "", errors.Annotate(err, "could not generate resource ID")
 	}
-	logger.Debugf("adding pending resource %q for application %q (ID: %s)", chRes.Name, applicationID, pendingID)
+	rLogger.Debugf("adding pending resource %q for application %q (ID: %s)", chRes.Name, applicationID, pendingID)
 
 	if _, err := st.setResource(pendingID, applicationID, userID, chRes, nil); err != nil {
 		return "", errors.Trace(err)
@@ -224,7 +226,7 @@ func (st resourceState) AddPendingResource(applicationID, userID string, chRes c
 
 // UpdatePendingResource stores the resource in the Juju model.
 func (st resourceState) UpdatePendingResource(applicationID, pendingID, userID string, chRes charmresource.Resource, r io.Reader) (resource.Resource, error) {
-	logger.Tracef("updating pending resource %q (%s) for application %q", chRes.Name, pendingID, applicationID)
+	rLogger.Tracef("updating pending resource %q (%s) for application %q", chRes.Name, pendingID, applicationID)
 	res, err := st.setResource(pendingID, applicationID, userID, chRes, r)
 	if err != nil {
 		return res, errors.Trace(err)
@@ -300,17 +302,17 @@ func (st resourceState) storeResource(res resource.Resource, r io.Reader) error 
 
 	if err != nil {
 		if err := staged.Unstage(); err != nil {
-			logger.Errorf("could not unstage resource %q (application %q): %v", res.Name, res.ApplicationID, err)
+			rLogger.Errorf("could not unstage resource %q (application %q): %v", res.Name, res.ApplicationID, err)
 		}
 		return errors.Trace(err)
 	}
 
 	if err := staged.Activate(); err != nil {
 		if err := st.storage.Remove(storagePath); err != nil {
-			logger.Errorf("could not remove resource %q (application %q) from storage: %v", res.Name, res.ApplicationID, err)
+			rLogger.Errorf("could not remove resource %q (application %q) from storage: %v", res.Name, res.ApplicationID, err)
 		}
 		if err := staged.Unstage(); err != nil {
-			logger.Errorf("could not unstage resource %q (application %q): %v", res.Name, res.ApplicationID, err)
+			rLogger.Errorf("could not unstage resource %q (application %q): %v", res.Name, res.ApplicationID, err)
 		}
 		return errors.Trace(err)
 	}
@@ -330,7 +332,7 @@ func (st resourceState) OpenResource(applicationID, name string) (resource.Resou
 		return resource.Resource{}, nil, errors.Annotate(err, "while getting resource info")
 	}
 	if resourceInfo.IsPlaceholder() {
-		logger.Tracef("placeholder resource %q treated as not found", name)
+		rLogger.Tracef("placeholder resource %q treated as not found", name)
 		return resource.Resource{}, nil, errors.NotFoundf("resource %q", name)
 	}
 
@@ -500,14 +502,14 @@ func (u *unitSetter) Read(p []byte) (n int, err error) {
 		// record that the unit is now using this version of the resource
 		if err := u.persist.SetUnitResource(u.unit.Name(), u.resource); err != nil {
 			msg := "Failed to record that unit %q is using resource %q revision %v"
-			logger.Errorf(msg, u.unit.Name(), u.resource.Name, u.resource.RevisionString())
+			rLogger.Errorf(msg, u.unit.Name(), u.resource.Name, u.resource.RevisionString())
 		}
 	} else {
 		u.progress += int64(n)
 		if time.Since(u.lastProgressUpdate) > time.Second {
 			u.lastProgressUpdate = u.clock.Now()
 			if err := u.persist.SetUnitResourceProgress(u.unit.Name(), u.pending, u.progress); err != nil {
-				logger.Errorf("failed to track progress: %v", err)
+				rLogger.Errorf("failed to track progress: %v", err)
 			}
 		}
 	}

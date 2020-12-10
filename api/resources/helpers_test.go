@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package api_test
+package resources_test
 
 import (
 	"strings"
@@ -14,9 +14,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	api "github.com/juju/juju/api/resources"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/resource/resourcetesting"
 )
 

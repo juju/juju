@@ -268,7 +268,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 			NewFacade: charmrevision.NewAPIFacade,
 			NewWorker: charmrevision.NewWorker,
-			// No Logger defined in the charmrevision package.
+			Logger:    config.LoggingContext.GetLogger("juju.worker.charmrevision"),
 		})),
 		remoteRelationsName: ifNotMigrating(remoterelations.Manifold(remoterelations.ManifoldConfig{
 			AgentName:                agentName,

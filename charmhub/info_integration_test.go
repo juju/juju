@@ -40,3 +40,25 @@ func (s *InfoClientSuite) TestLiveInfoRequest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response.Name, gc.Equals, "ubuntu")
 }
+
+func (s *InfoClientSuite) TestLiveInfoRequestWithChannelOption(c *gc.C) {
+	c.Skip("This test only works on staging currently.")
+
+	logger := &charmhub.FakeLogger{}
+
+	config, err := charmhub.CharmHubConfigFromURL("https://api.staging.snapcraft.io", logger)
+	c.Assert(err, jc.ErrorIsNil)
+	basePath, err := config.BasePath()
+	c.Assert(err, jc.ErrorIsNil)
+
+	infoPath, err := basePath.Join("info")
+	c.Assert(err, jc.ErrorIsNil)
+
+	apiRequester := charmhub.NewAPIRequester(charmhub.DefaultHTTPTransport(), logger)
+	restClient := charmhub.NewHTTPRESTClient(apiRequester, nil)
+
+	client := charmhub.NewInfoClient(infoPath, restClient, logger)
+	response, err := client.Info(context.TODO(), "ubuntu", charmhub.WithChannel("stable"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(response.Name, gc.Equals, "ubuntu")
+}

@@ -21,7 +21,9 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"sort"
 	"strings"
+	"time"
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
@@ -37,6 +39,10 @@ const (
 	CharmHubServerURL     = "https://api.snapcraft.io"
 	CharmHubServerVersion = "v2"
 	CharmHubServerEntity  = "charms"
+
+	MetadataHeader = "X-Juju-Metadata"
+
+	RefreshTimeout = 10 * time.Second
 )
 
 var (
@@ -75,15 +81,44 @@ type Config struct {
 	Logger Logger
 }
 
-// CharmHubConfig defines a charmHub client configuration for targeting the
-// snapcraft API.
-func CharmHubConfig(logger Logger) (Config, error) {
-	return CharmHubConfigFromURL(CharmHubServerURL, logger)
+// Option to be passed into charmhub construction to customize the client.
+type Option func(*options)
+
+type options struct {
+	url             *string
+	metadataHeaders map[string]string
 }
 
-// CharmHubConfigFromURL defines a charmHub client configuration with a given
-// URL for targeting the API.
-func CharmHubConfigFromURL(url string, logger Logger) (Config, error) {
+// WithURL sets the url on the option.
+func WithURL(u string) Option {
+	return func(options *options) {
+		options.url = &u
+	}
+}
+
+// WithMetadataHeaders sets the headers on the option.
+func WithMetadataHeaders(h map[string]string) Option {
+	return func(options *options) {
+		options.metadataHeaders = h
+	}
+}
+
+// Create a options instance with default values.
+func newOptions() *options {
+	u := CharmHubServerURL
+	return &options{
+		url: &u,
+	}
+}
+
+// CharmHubConfig defines a charmHub client configuration for targeting the
+// snapcraft API.
+func CharmHubConfig(logger Logger, options ...Option) (Config, error) {
+	opts := newOptions()
+	for _, option := range options {
+		option(opts)
+	}
+
 	if logger == nil {
 		return Config{}, errors.NotValidf("nil logger")
 	}
@@ -93,13 +128,31 @@ func CharmHubConfigFromURL(url string, logger Logger) (Config, error) {
 	headers := make(http.Header)
 	headers.Set(userAgentKey, userAgentValue)
 
+	// Additionally apply any metadata headers to the headers so we can send
+	// every time we make a request.
+	m := opts.metadataHeaders
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		headers.Add(MetadataHeader, k+"="+m[k])
+	}
+
 	return Config{
-		URL:     url,
+		URL:     *opts.url,
 		Version: CharmHubServerVersion,
 		Entity:  CharmHubServerEntity,
 		Headers: headers,
 		Logger:  logger,
 	}, nil
+}
+
+// CharmHubConfigFromURL defines a charmHub client configuration with a given
+// URL for targeting the API.
+func CharmHubConfigFromURL(url string, logger Logger, options ...Option) (Config, error) {
+	return CharmHubConfig(logger, append(options, WithURL(url))...)
 }
 
 // BasePath returns the base configuration path for speaking to the server API.
@@ -184,8 +237,8 @@ func (c *Client) URL() string {
 }
 
 // Info returns charm info on the provided charm name from CharmHub API.
-func (c *Client) Info(ctx context.Context, name string) (transport.InfoResponse, error) {
-	return c.infoClient.Info(ctx, name)
+func (c *Client) Info(ctx context.Context, name string, options ...InfoOption) (transport.InfoResponse, error) {
+	return c.infoClient.Info(ctx, name, options...)
 }
 
 // Find searches for a given charm for a given name from CharmHub API.
@@ -200,16 +253,21 @@ func (c *Client) Refresh(ctx context.Context, config RefreshConfig) ([]transport
 }
 
 // Download defines a client for downloading charms directly.
-func (c *Client) Download(ctx context.Context, resourceURL *url.URL, archivePath string) error {
-	return c.downloadClient.Download(ctx, resourceURL, archivePath)
+func (c *Client) Download(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) error {
+	return c.downloadClient.Download(ctx, resourceURL, archivePath, options...)
 }
 
 // DownloadAndRead defines a client for downloading charms directly.
-func (c *Client) DownloadAndRead(ctx context.Context, resourceURL *url.URL, archivePath string) (*charm.CharmArchive, error) {
-	return c.downloadClient.DownloadAndRead(ctx, resourceURL, archivePath)
+func (c *Client) DownloadAndRead(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*charm.CharmArchive, error) {
+	return c.downloadClient.DownloadAndRead(ctx, resourceURL, archivePath, options...)
 }
 
 // DownloadAndReadBundle defines a client for downloading bundles directly.
-func (c *Client) DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string) (charm.Bundle, error) {
-	return c.downloadClient.DownloadAndReadBundle(ctx, resourceURL, archivePath)
+func (c *Client) DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (charm.Bundle, error) {
+	return c.downloadClient.DownloadAndReadBundle(ctx, resourceURL, archivePath, options...)
+}
+
+// ListResourceRevisions returns resource revisions for the provided charm and resource.
+func (c *Client) ListResourceRevisions(ctx context.Context, charm, resource string) ([]transport.ResourceRevision, error) {
+	return c.resourcesClient.ListResourceRevisions(ctx, charm, resource)
 }

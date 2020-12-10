@@ -9,16 +9,17 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"gopkg.in/macaroon.v2"
 
+	apicharm "github.com/juju/juju/api/common/charm"
+	api "github.com/juju/juju/api/resources"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/api"
 )
 
 // TODO(ericsnow) Move FacadeCaller to a component-central package.
@@ -26,6 +27,7 @@ import (
 // FacadeCaller has the api/base.FacadeCaller methods needed for the component.
 type FacadeCaller interface {
 	FacadeCall(request string, params, response interface{}) error
+	BestAPIVersion() int
 }
 
 // Doer
@@ -127,13 +129,27 @@ func (c Client) Upload(application, name, filename string, reader io.ReadSeeker)
 	return nil
 }
 
+// CharmID represents the underlying charm for a given application. This
+// includes both the URL and the origin.
+type CharmID struct {
+
+	// URL of the given charm, includes the reference name and a revision.
+	// Old style charm URLs are also supported i.e. charmstore.
+	URL *charm.URL
+
+	// Origin holds the origin of a charm. This includes the source of the
+	// charm, along with the revision and channel to identify where the charm
+	// originated from.
+	Origin apicharm.Origin
+}
+
 // AddPendingResourcesArgs holds the arguments to AddPendingResources().
 type AddPendingResourcesArgs struct {
 	// ApplicationID identifies the application being deployed.
 	ApplicationID string
 
 	// CharmID identifies the application's charm.
-	CharmID charmstore.CharmID
+	CharmID CharmID
 
 	// CharmStoreMacaroon is the macaroon to use for the charm when
 	// interacting with the charm store.
@@ -146,8 +162,15 @@ type AddPendingResourcesArgs struct {
 
 // AddPendingResources sends the provided resource info up to Juju
 // without making it available yet.
-func (c Client) AddPendingResources(args AddPendingResourcesArgs) (pendingIDs []string, err error) {
-	apiArgs, err := newAddPendingResourcesArgs(args.ApplicationID, args.CharmID, args.CharmStoreMacaroon, args.Resources)
+func (c Client) AddPendingResources(args AddPendingResourcesArgs) ([]string, error) {
+	tag := names.NewApplicationTag(args.ApplicationID)
+	var apiArgs interface{}
+	var err error
+	if c.BestAPIVersion() < 2 {
+		apiArgs, err = newAddPendingResourcesArgs(tag, args.CharmID, args.CharmStoreMacaroon, args.Resources)
+	} else {
+		apiArgs, err = newAddPendingResourcesArgsV2(tag, args.CharmID, args.CharmStoreMacaroon, args.Resources)
+	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -176,13 +199,31 @@ func (c Client) AddPendingResources(args AddPendingResourcesArgs) (pendingIDs []
 
 // newAddPendingResourcesArgs returns the arguments for the
 // AddPendingResources API endpoint.
-func newAddPendingResourcesArgs(applicationID string, chID charmstore.CharmID, csMac *macaroon.Macaroon, resources []charmresource.Resource) (params.AddPendingResourcesArgs, error) {
+func newAddPendingResourcesArgs(tag names.ApplicationTag, chID CharmID, csMac *macaroon.Macaroon, resources []charmresource.Resource) (params.AddPendingResourcesArgs, error) {
 	var args params.AddPendingResourcesArgs
-
-	if !names.IsValidApplication(applicationID) {
-		return args, errors.Errorf("invalid application %q", applicationID)
+	var apiResources []params.CharmResource
+	for _, res := range resources {
+		if err := res.Validate(); err != nil {
+			return args, errors.Trace(err)
+		}
+		apiRes := api.CharmResource2API(res)
+		apiResources = append(apiResources, apiRes)
 	}
-	tag := names.NewApplicationTag(applicationID).String()
+	args.Tag = tag.String()
+	args.Resources = apiResources
+	if chID.URL != nil {
+		args.URL = chID.URL.String()
+	}
+	args.Channel = chID.Origin.CoreChannel().String()
+	args.CharmStoreMacaroon = csMac
+
+	return args, nil
+}
+
+// newAddPendingResourcesArgsV2 returns the arguments for the
+// AddPendingResources APIv2 endpoint.
+func newAddPendingResourcesArgsV2(tag names.ApplicationTag, chID CharmID, csMac *macaroon.Macaroon, resources []charmresource.Resource) (params.AddPendingResourcesArgsV2, error) {
+	var args params.AddPendingResourcesArgsV2
 
 	var apiResources []params.CharmResource
 	for _, res := range resources {
@@ -192,21 +233,33 @@ func newAddPendingResourcesArgs(applicationID string, chID charmstore.CharmID, c
 		apiRes := api.CharmResource2API(res)
 		apiResources = append(apiResources, apiRes)
 	}
-	args.Tag = tag
+	args.Tag = tag.String()
 	args.Resources = apiResources
 	if chID.URL != nil {
 		args.URL = chID.URL.String()
-		args.Channel = string(chID.Channel)
-		args.CharmStoreMacaroon = csMac
 	}
+	args.CharmOrigin = params.CharmOrigin{
+		Source:       chID.Origin.Source.String(),
+		Risk:         chID.Origin.Risk,
+		Revision:     chID.Origin.Revision,
+		Track:        chID.Origin.Track,
+		Architecture: chID.Origin.Architecture,
+		OS:           chID.Origin.OS,
+		Series:       chID.Origin.Series,
+	}
+	args.CharmStoreMacaroon = csMac
 	return args, nil
 }
 
 // UploadPendingResource sends the provided resource blob up to Juju
 // and makes it available.
-func (c Client) UploadPendingResource(applicationID string, res charmresource.Resource, filename string, reader io.ReadSeeker) (pendingID string, err error) {
+func (c Client) UploadPendingResource(application string, res charmresource.Resource, filename string, reader io.ReadSeeker) (pendingID string, err error) {
+	if !names.IsValidApplication(application) {
+		return "", errors.Errorf("invalid application %q", application)
+	}
+
 	ids, err := c.AddPendingResources(AddPendingResourcesArgs{
-		ApplicationID: applicationID,
+		ApplicationID: application,
 		Resources:     []charmresource.Resource{res},
 	})
 	if err != nil {
@@ -215,7 +268,7 @@ func (c Client) UploadPendingResource(applicationID string, res charmresource.Re
 	pendingID = ids[0]
 
 	if reader != nil {
-		uReq, err := api.NewUploadRequest(applicationID, res.Name, filename, reader)
+		uReq, err := api.NewUploadRequest(application, res.Name, filename, reader)
 		if err != nil {
 			return "", errors.Trace(err)
 		}

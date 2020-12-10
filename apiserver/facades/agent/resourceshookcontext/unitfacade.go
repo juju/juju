@@ -7,11 +7,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/api/resources"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/state"
 )
 
@@ -107,20 +107,20 @@ func (uf UnitFacade) GetResourceInfo(args params.ListUnitResourcesArgs) (params.
 	var r params.UnitResourcesResult
 	r.Resources = make([]params.UnitResourceResult, len(args.ResourceNames))
 
-	resources, err := uf.DataStore.ListResources()
+	foundResources, err := uf.DataStore.ListResources()
 	if err != nil {
 		r.Error = apiservererrors.ServerError(err)
 		return r, nil
 	}
 
 	for i, name := range args.ResourceNames {
-		res, ok := lookUpResource(name, resources.Resources)
+		res, ok := lookUpResource(name, foundResources.Resources)
 		if !ok {
 			r.Resources[i].Error = apiservererrors.ServerError(errors.NotFoundf("resource %q", name))
 			continue
 		}
 
-		r.Resources[i].Resource = api.Resource2API(res)
+		r.Resources[i].Resource = resources.Resource2API(res)
 	}
 	return r, nil
 }

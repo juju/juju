@@ -31,8 +31,8 @@ var logger = loggo.GetLogger("juju.apiserver.charms")
 // CharmHubClient represents the methods required of a
 // client to install or upgrade a CharmHub charm.
 type CharmHubClient interface {
-	DownloadAndRead(ctx context.Context, resourceURL *url.URL, archivePath string) (*charm.CharmArchive, error)
-	Info(ctx context.Context, name string) (transport.InfoResponse, error)
+	DownloadAndRead(ctx context.Context, resourceURL *url.URL, archivePath string, options ...charmhub.DownloadOption) (*charm.CharmArchive, error)
+	Info(ctx context.Context, name string, options ...charmhub.InfoOption) (transport.InfoResponse, error)
 	Refresh(ctx context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error)
 }
 
@@ -44,14 +44,22 @@ type chRepo struct {
 // ResolveWithPreferredChannel.
 func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.CharmOrigin) (*charm.URL, params.CharmOrigin, []string, error) {
 	logger.Tracef("Resolving CharmHub charm %q", curl)
-	info, err := c.client.Info(context.TODO(), curl.Name)
-	if err != nil {
-		// Improve error message here
-		return nil, params.CharmOrigin{}, nil, errors.Trace(err)
-	}
 
 	channel, err := makeChannel(origin)
 	if err != nil {
+		return nil, params.CharmOrigin{}, nil, errors.Trace(err)
+	}
+
+	// In order to get the metadata for a given charm we need to ensure that
+	// we ask for the channel otherwise the metadata won't show up.
+	var options []charmhub.InfoOption
+	if s := channel.String(); s != "" {
+		options = append(options, charmhub.WithChannel(s))
+	}
+
+	info, err := c.client.Info(context.TODO(), curl.Name, options...)
+	if err != nil {
+		// Improve error message here
 		return nil, params.CharmOrigin{}, nil, errors.Trace(err)
 	}
 
@@ -266,10 +274,16 @@ func (c *chRepo) resolveViaChannelMap(t transport.Type, curl *charm.URL, origin 
 	origin.OS = mapChannel.Platform.OS
 	origin.Series = mapChannel.Platform.Series
 
-	// `metadata.yaml` is a requirement to be a valid charm or bundle. The charm
-	// repo expects that one exists even if it contains minimal information.
+	// The metadata is empty, this can happen if we've requested something from
+	// the charmhub API that we didn't provide the right hint for (channel or
+	// revision).
+	// Eventually we should drop the computed series for charmhub requests and
+	// only use the API to tell us which series we target. Until that happens
+	// we should fallback to one we do know and won't cause the deployment to
+	// fail.
 	if mapRevision.MetadataYAML == "" {
-		return nil, params.CharmOrigin{}, nil, errors.Errorf("unexpected empty charm metadata")
+		logger.Warningf("No metadata yaml found, using fallback computed series for %q.", curl)
+		return curl, origin, []string{origin.Series}, nil
 	}
 
 	var (

@@ -28,6 +28,7 @@ import (
 	apicommoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/modelconfig"
+	"github.com/juju/juju/api/resources/client"
 	"github.com/juju/juju/api/spaces"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub"
@@ -583,9 +584,9 @@ func (c *refreshCommand) upgradeResources(
 	// checked further down the stack.
 	ids, err := c.DeployResources(
 		c.ApplicationName,
-		resourceadapters.CharmID{
-			URL:     chID.URL,
-			Channel: chID.Origin.Risk,
+		client.CharmID{
+			URL:    chID.URL,
+			Origin: chID.Origin,
 		},
 		csMac,
 		c.Resources,
