@@ -96,7 +96,7 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		summary: "juju help foo doesn't exist",
 		args:    []string{"help", "foo"},
 		code:    1,
-		out:     missingCommandMessage("foo", "gui"),
+		out:     missingCommandMessage("foo", "find"),
 	}, {
 		summary: "juju help deploy shows the default help without global options",
 		args:    []string{"help", "deploy"},
@@ -338,6 +338,7 @@ var commandNames = []string{
 	"disable-command",
 	"disable-user",
 	"disabled-commands",
+	"download",
 	"download-backup",
 	"enable-command",
 	"enable-destroy-controller",
@@ -346,6 +347,7 @@ var commandNames = []string{
 	"exec",
 	"export-bundle",
 	"expose",
+	"find",
 	"find-offers",
 	"firewall-rules",
 	"get-constraints",
@@ -359,6 +361,7 @@ var commandNames = []string{
 	"hook-tools",
 	"import-filesystem",
 	"import-ssh-key",
+	"info",
 	"kill-controller",
 	"list-actions",
 	"list-agreements",
@@ -502,7 +505,6 @@ var optionalFeatures = []string{
 // These are the commands that are behind the `devFeatures`.
 var commandNamesBehindFlags = set.NewStrings(
 	"run", "show-task", "operations", "list-operations", "show-operation",
-	"info", "find", "download",
 )
 
 func (s *MainSuite) TestHelpCommands(c *gc.C) {
