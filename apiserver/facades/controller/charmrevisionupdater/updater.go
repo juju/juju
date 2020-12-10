@@ -35,12 +35,12 @@ type CharmRevisionUpdater interface {
 type CharmRevisionUpdaterAPI struct {
 	state State
 
-	newCharmstoreClient NewCharmstoreClientFunc
-	newCharmhubClient   NewCharmhubClientFunc
+	newCharmstoreClient newCharmstoreClientFunc
+	newCharmhubClient   newCharmhubClientFunc
 }
 
-type NewCharmstoreClientFunc func(st State) (charmstore.Client, error)
-type NewCharmhubClientFunc func(st State, metadata map[string]string) (CharmhubRefreshClient, error)
+type newCharmstoreClientFunc func(st State) (charmstore.Client, error)
+type newCharmhubClientFunc func(st State, metadata map[string]string) (CharmhubRefreshClient, error)
 
 var _ CharmRevisionUpdater = (*CharmRevisionUpdaterAPI)(nil)
 
@@ -69,8 +69,8 @@ func NewCharmRevisionUpdaterAPI(ctx facade.Context) (*CharmRevisionUpdaterAPI, e
 // with a State interface directly (mainly for use in tests).
 func NewCharmRevisionUpdaterAPIState(
 	state State,
-	newCharmstoreClient NewCharmstoreClientFunc,
-	newCharmhubClient NewCharmhubClientFunc,
+	newCharmstoreClient newCharmstoreClientFunc,
+	newCharmhubClient newCharmhubClientFunc,
 ) (*CharmRevisionUpdaterAPI, error) {
 	return &CharmRevisionUpdaterAPI{
 		state:               state,
