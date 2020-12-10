@@ -4,10 +4,6 @@
 package charmrevisionupdater_test
 
 import (
-	"context"
-	"fmt"
-	"time"
-
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/resource"
@@ -21,7 +17,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/charmhub"
-	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
@@ -110,94 +105,46 @@ func makeResource(c *gc.C, name string, revision, size int, hexFingerprint strin
 	}
 }
 
-func newFakeCharmhubClient(st charmrevisionupdater.State, metadata map[string]string) (charmrevisionupdater.CharmhubRefreshClient, error) {
-	resources := []transport.ResourceRevision{
-		{
-			Download: transport.ResourceDownload{
-				HashSHA384: "59e1748777448c69de6b800d7a33bbfb9ff1b463e44354c3553bcdb9c666fa90125a3c79f90397bdf5f6a13de828684f",
-				Size:       5,
-			},
-			Name:     "reza",
-			Revision: 7,
-			Type:     "file",
-		},
-		{
-			Download: transport.ResourceDownload{
-				HashSHA384: "03130092073c5ac523ecb21f548b9ad6e1387d1cb05f3cb892fcc26029d01428afbe74025b6c567b6564a3168a47179a",
-				Size:       6,
-			},
-			Name:     "rezb",
-			Revision: 1,
-			Type:     "file",
-		},
-	}
-	charms := map[string]charmhubCharm{
-		"charm-1": {id: "charm-1", name: "mysql", revision: 23},
-		"charm-2": {id: "charm-2", name: "postgresql", revision: 42},
-		"charm-3": {id: "charm-3", name: "resourcey", revision: 1, resources: resources},
-	}
-	return &fakeCharmhubClient{charms: charms, metadata: metadata}, nil
+// charmhubConfigMatcher matches only the charm IDs and revisions of a
+// charmhub.RefreshMany config.
+type charmhubConfigMatcher struct {
+	expected []charmhubConfigExpected
 }
 
-type charmhubCharm struct {
-	id        string
-	name      string
-	revision  int
-	resources []transport.ResourceRevision
-	version   string
+type charmhubConfigExpected struct {
+	id       string
+	revision int
 }
 
-type fakeCharmhubClient struct {
-	charms   map[string]charmhubCharm
-	metadata map[string]string
-}
-
-func (c *fakeCharmhubClient) Refresh(_ context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error) {
-	// Sanity check that metadata headers are present
-	if c.metadata["model_uuid"] == "" {
-		return nil, errors.Errorf("model metadata not present")
+func (m charmhubConfigMatcher) Matches(x interface{}) bool {
+	config, ok := x.(charmhub.RefreshConfig)
+	if !ok {
+		return false
 	}
-
 	request, _, err := config.Build()
 	if err != nil {
-		return nil, err
+		return false
 	}
-	responses := make([]transport.RefreshResponse, len(request.Context))
+	if len(request.Context) != len(m.expected) || len(request.Actions) != len(m.expected) {
+		return false
+	}
 	for i, context := range request.Context {
+		if context.ID != m.expected[i].id {
+			return false
+		}
+		if context.Revision != m.expected[i].revision {
+			return false
+		}
 		action := request.Actions[i]
-		if action.Action != "refresh" {
-			return nil, errors.Errorf("unexpected action %q", action.Action)
+		if *action.ID != m.expected[i].id {
+			return false
 		}
-		if *action.ID != context.ID {
-			return nil, errors.Errorf("action ID %q doesn't match context ID %q", *action.ID, context.ID)
-		}
-		charm, ok := c.charms[context.ID]
-		if !ok {
-			responses[i] = transport.RefreshResponse{
-				Error: &transport.APIError{
-					Code:    "not-found",
-					Message: fmt.Sprintf("charm ID %q not found", context.ID),
-				},
-			}
-			continue
-		}
-		response := transport.RefreshResponse{
-			Entity: transport.RefreshEntity{
-				CreatedAt: time.Now(),
-				ID:        context.ID,
-				Name:      charm.name,
-				Resources: charm.resources,
-				Revision:  charm.revision,
-			},
-			EffectiveChannel: context.TrackingChannel,
-			ID:               context.ID,
-			InstanceKey:      context.InstanceKey,
-			Name:             charm.name,
-			Result:           "refresh",
-		}
-		responses[i] = response
 	}
-	return responses, nil
+	return true
+}
+
+func (charmhubConfigMatcher) String() string {
+	return "matches config"
 }
 
 func newFakeCharmstoreClient(st charmrevisionupdater.State) (charmstore.Client, error) {
