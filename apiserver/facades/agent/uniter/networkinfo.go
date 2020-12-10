@@ -247,24 +247,13 @@ func (n *NetworkInfoBase) getEgressForRelation(
 }
 
 func (n *NetworkInfoBase) resolveResultHostNames(netInfoResult params.NetworkInfoResult) params.NetworkInfoResult {
-	// Maintain a cache of host-name -> address resolutions.
-	resolved := make(map[string]string)
-	addressForHost := func(hostName string) string {
-		resolvedAddr, ok := resolved[hostName]
-		if !ok {
-			resolvedAddr = n.resolveHostAddress(hostName)
-			resolved[hostName] = resolvedAddr
-		}
-		return resolvedAddr
-	}
-
 	// Resolve addresses in Info.
 	for i, info := range netInfoResult.Info {
 		for j, addr := range info.Addresses {
 			if ip := net.ParseIP(addr.Address); ip == nil {
 				// If the address is not an IP, we assume it is a host name.
 				addr.Hostname = addr.Address
-				addr.Address = addressForHost(addr.Hostname)
+				addr.Address = n.resolveHostAddress(addr.Hostname)
 				netInfoResult.Info[i].Addresses[j] = addr
 			}
 		}
@@ -279,7 +268,7 @@ func (n *NetworkInfoBase) resolveResultHostNames(netInfoResult params.NetworkInf
 			newIngress = append(newIngress, addr)
 			continue
 		}
-		if ipAddr := addressForHost(addr); ipAddr != "" {
+		if ipAddr := n.resolveHostAddress(addr); ipAddr != "" {
 			newIngress = append(newIngress, ipAddr)
 		}
 	}
