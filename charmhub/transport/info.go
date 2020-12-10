@@ -28,6 +28,7 @@ type InfoRevision struct {
 	CreatedAt    string     `json:"created-at"`
 	Download     Download   `json:"download"`
 	MetadataYAML string     `json:"metadata-yaml"`
+	BundleYAML   string     `json:"bundle-yaml"`
 	Platforms    []Platform `json:"platforms"`
 	Revision     int        `json:"revision"`
 	Version      string     `json:"version"`

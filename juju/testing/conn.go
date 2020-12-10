@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/cache"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/lxdprofile"
@@ -915,6 +916,17 @@ func (s *JujuConnSuite) AddTestingApplicationWithOrigin(c *gc.C, name string, ch
 		Charm:       ch,
 		Series:      ch.URL().Series,
 		CharmOrigin: origin,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return app
+}
+
+func (s *JujuConnSuite) AddTestingApplicationWithArch(c *gc.C, name string, ch *state.Charm, arch string) *state.Application {
+	app, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name:        name,
+		Charm:       ch,
+		Series:      ch.URL().Series,
+		Constraints: constraints.MustParse("arch=" + arch),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return app

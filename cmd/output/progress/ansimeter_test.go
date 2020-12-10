@@ -62,9 +62,12 @@ func (ansiSuite) TestPercent(c *gc.C) {
 
 	term := mocks.NewMockTerminal(ctrl)
 
+	clock := mocks.NewMockClock(ctrl)
+	clock.EXPECT().Now().Return(time.Unix(0, 0)).AnyTimes()
+
 	buf := new(bytes.Buffer)
 
-	p := progress.NewANSIMeter(buf, term, progress.DefaultEscapeChars())
+	p := progress.NewANSIMeter(buf, term, progress.DefaultEscapeChars(), clock)
 	for i := -1000.; i < 1000.; i += 5 {
 		p.SetTotal(i)
 		for j := -1000.; j < 1000.; j += 3 {
@@ -82,10 +85,13 @@ func (ansiSuite) TestStart(c *gc.C) {
 
 	term := mocks.NewMockTerminal(ctrl)
 
+	clock := mocks.NewMockClock(ctrl)
+	clock.EXPECT().Now().Return(time.Unix(0, 0))
+
 	buf := new(bytes.Buffer)
 
 	ec := progress.DefaultEscapeChars()
-	p := progress.NewANSIMeter(buf, term, ec)
+	p := progress.NewANSIMeter(buf, term, ec, clock)
 	p.Start("0123456789", 100)
 	c.Check(p.GetWritten(), gc.Equals, 0.)
 	c.Check(buf.String(), gc.Equals, ec.CursorInvisible)
@@ -97,10 +103,13 @@ func (ansiSuite) TestFinish(c *gc.C) {
 
 	term := mocks.NewMockTerminal(ctrl)
 
+	clock := mocks.NewMockClock(ctrl)
+	clock.EXPECT().Now().Return(time.Unix(0, 0)).AnyTimes()
+
 	buf := new(bytes.Buffer)
 
 	ec := progress.DefaultEscapeChars()
-	p := progress.NewANSIMeter(buf, term, ec)
+	p := progress.NewANSIMeter(buf, term, ec, clock)
 	p.Finished()
 	c.Check(buf.String(), gc.Equals, fmt.Sprint(
 		"\r",                 // move cursor to start of line
@@ -116,9 +125,13 @@ func (ansiSuite) TestSetLayout(c *gc.C) {
 
 	term := mocks.NewMockTerminal(ctrl)
 
+	clock := mocks.NewMockClock(ctrl)
+	clock.EXPECT().Now().Return(time.Unix(0, 0))
+	clock.EXPECT().Now().Return(time.Unix(0, 1)).AnyTimes()
+
 	buf := new(bytes.Buffer)
 
-	p := progress.NewANSIMeter(buf, term, EmptyEscapeChars())
+	p := progress.NewANSIMeter(buf, term, EmptyEscapeChars(), clock)
 	msg := "0123456789"
 	ticker := time.NewTicker(time.Millisecond)
 	defer ticker.Stop()
@@ -143,7 +156,7 @@ func (ansiSuite) TestSetLayout(c *gc.C) {
 		case i <= 29:
 			c.Check(out, gc.Equals, fmt.Sprintf("\r%*s   0%% ages!", -(i-11), msg), desc)
 		default:
-			c.Check(out, gc.Matches, fmt.Sprintf("\r%*s   0%%  [ 0-9]{4}B/s ages!", -(i-20), msg), desc)
+			c.Check(out, gc.Matches, fmt.Sprintf("\r%*s   0%% [0-9\\.]{4}GB/s ages!", -(i-20), msg), desc)
 		}
 	}
 }
@@ -155,9 +168,12 @@ func (ansiSuite) TestSetEscapes(c *gc.C) {
 	term := mocks.NewMockTerminal(ctrl)
 	term.EXPECT().Width().Return(10).MinTimes(1)
 
+	clock := mocks.NewMockClock(ctrl)
+	clock.EXPECT().Now().Return(time.Unix(0, 0)).AnyTimes()
+
 	buf := new(bytes.Buffer)
 
-	p := progress.NewANSIMeter(buf, term, SimpleEscapeChars())
+	p := progress.NewANSIMeter(buf, term, SimpleEscapeChars(), clock)
 	msg := "0123456789"
 	p.Start(msg, 10)
 	for i := 0.; i <= 10; i++ {
@@ -176,9 +192,12 @@ func (ansiSuite) TestSpin(c *gc.C) {
 
 	term := mocks.NewMockTerminal(ctrl)
 
+	clock := mocks.NewMockClock(ctrl)
+	clock.EXPECT().Now().Return(time.Unix(0, 0)).AnyTimes()
+
 	buf := new(bytes.Buffer)
 
-	p := progress.NewANSIMeter(buf, term, SimpleEscapeChars())
+	p := progress.NewANSIMeter(buf, term, SimpleEscapeChars(), clock)
 	msg := "0123456789"
 	c.Assert(len(msg), gc.Equals, 10)
 	p.Start(msg, 10)
@@ -219,9 +238,13 @@ func (ansiSuite) TestNotify(c *gc.C) {
 	term := mocks.NewMockTerminal(ctrl)
 	term.EXPECT().Width().Return(10).Times(6)
 
+	clock := mocks.NewMockClock(ctrl)
+	clock.EXPECT().Now().Return(time.Unix(0, 0))
+	clock.EXPECT().Now().Return(time.Unix(0, 1)).AnyTimes()
+
 	buf := new(bytes.Buffer)
 
-	p := progress.NewANSIMeter(buf, term, SimpleEscapeChars())
+	p := progress.NewANSIMeter(buf, term, SimpleEscapeChars(), clock)
 	p.Start("working", 1e300)
 
 	p.Set(0)
@@ -264,9 +287,12 @@ func (ansiSuite) TestWrite(c *gc.C) {
 	term := mocks.NewMockTerminal(ctrl)
 	term.EXPECT().Width().Return(10).MinTimes(1)
 
+	clock := mocks.NewMockClock(ctrl)
+	clock.EXPECT().Now().Return(time.Unix(0, 0))
+
 	buf := new(bytes.Buffer)
 
-	p := progress.NewANSIMeter(buf, term, SimpleEscapeChars())
+	p := progress.NewANSIMeter(buf, term, SimpleEscapeChars(), clock)
 	p.Start("123456789x", 10)
 	for i := 0; i < 10; i++ {
 		n, err := fmt.Fprintf(p, "%d", i)

@@ -18,6 +18,7 @@ package charmhub
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"path"
@@ -27,6 +28,7 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
+
 	charmhubpath "github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/version"
@@ -265,6 +267,11 @@ func (c *Client) DownloadAndRead(ctx context.Context, resourceURL *url.URL, arch
 // DownloadAndReadBundle defines a client for downloading bundles directly.
 func (c *Client) DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (charm.Bundle, error) {
 	return c.downloadClient.DownloadAndReadBundle(ctx, resourceURL, archivePath, options...)
+}
+
+// DownloadResource returns an io.ReadCloser to read the Resource from.
+func (c *Client) DownloadResource(ctx context.Context, resourceURL *url.URL) (r io.ReadCloser, err error) {
+	return c.downloadClient.DownloadResource(ctx, resourceURL)
 }
 
 // ListResourceRevisions returns resource revisions for the provided charm and resource.
