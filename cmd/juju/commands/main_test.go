@@ -497,7 +497,6 @@ var commandNames = []string{
 // optionalFeatures are feature flags that impact registration of commands.
 var optionalFeatures = []string{
 	feature.ActionsV2,
-	feature.CharmHubIntegration,
 }
 
 // These are the commands that are behind the `devFeatures`.

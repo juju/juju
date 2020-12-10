@@ -30,7 +30,6 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
@@ -220,45 +219,6 @@ func (s *deployerSuite) TestGetDeployerCharmStoreBundleWithChannel(c *gc.C) {
 }
 
 func (s *deployerSuite) TestResolveCharmURL(c *gc.C) {
-	tests := []struct {
-		path string
-		url  *charm.URL
-		err  error
-	}{{
-		path: "wordpress",
-		url:  &charm.URL{Schema: "cs", Name: "wordpress", Revision: -1},
-	}, {
-		path: "cs:wordpress",
-		url:  &charm.URL{Schema: "cs", Name: "wordpress", Revision: -1},
-	}, {
-		path: "local:wordpress",
-		url:  &charm.URL{Schema: "local", Name: "wordpress", Revision: -1},
-	}, {
-		path: "cs:~user/series/name",
-		url:  &charm.URL{Schema: "cs", User: "user", Name: "name", Series: "series", Revision: -1},
-	}, {
-		path: "~user/series/name",
-		url:  &charm.URL{Schema: "cs", User: "user", Name: "name", Series: "series", Revision: -1},
-	}, {
-		path: "ch:~user/series/name",
-		err:  errors.Errorf(`unexpected charm schema: cannot parse URL "ch:~user/series/name": schema "ch" not valid`),
-	}}
-	for i, test := range tests {
-		c.Logf("%d %s", i, test.path)
-		url, err := resolveCharmURL(test.path)
-		if test.err != nil {
-			c.Assert(err, gc.ErrorMatches, test.err.Error())
-		} else {
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(url, gc.DeepEquals, test.url)
-		}
-	}
-}
-
-func (s *deployerSuite) TestResolveCharmURLCharmHubIntegration(c *gc.C) {
-	setFeatureFlags(feature.CharmHubIntegration)
-	defer setFeatureFlags("")
-
 	tests := []struct {
 		path string
 		url  *charm.URL
