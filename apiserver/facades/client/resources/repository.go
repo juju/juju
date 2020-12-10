@@ -146,9 +146,7 @@ func (ch *charmHubClient) ResolveResources(resources []charmresource.Resource) (
 }
 
 func (ch *charmHubClient) ResourceInfo(curl *charm.URL, origin corecharm.Origin, name string, revision int) (charmresource.Resource, error) {
-	charmOrigin := ch.id.Origin
-
-	if charmOrigin.ID == "" {
+	if origin.ID == "" {
 		return charmresource.Resource{}, errors.Errorf("empty charm ID")
 	}
 
@@ -159,14 +157,14 @@ func (ch *charmHubClient) ResourceInfo(curl *charm.URL, origin corecharm.Origin,
 		cfg charmhub.RefreshConfig
 		err error
 
-		refPlatform = charmhub.RefreshPlatform(charmOrigin.Platform)
+		refPlatform = charmhub.RefreshPlatform(origin.Platform)
 	)
-	if charmOrigin.Revision != nil {
-		cfg, err = charmhub.DownloadOneFromRevision(charmOrigin.ID, *charmOrigin.Revision, refPlatform)
+	if origin.Revision != nil {
+		cfg, err = charmhub.DownloadOneFromRevision(origin.ID, *origin.Revision, refPlatform)
 	} else if curl.Revision >= 0 {
-		cfg, err = charmhub.DownloadOneFromRevision(charmOrigin.ID, curl.Revision, refPlatform)
+		cfg, err = charmhub.DownloadOneFromRevision(origin.ID, curl.Revision, refPlatform)
 	} else {
-		cfg, err = charmhub.DownloadOneFromChannel(charmOrigin.ID, charmOrigin.Channel.String(), refPlatform)
+		cfg, err = charmhub.DownloadOneFromChannel(origin.ID, origin.Channel.String(), refPlatform)
 	}
 	if err != nil {
 		return charmresource.Resource{}, errors.Trace(err)
