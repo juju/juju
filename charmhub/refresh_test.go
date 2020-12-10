@@ -33,11 +33,11 @@ func (s *RefreshSuite) TestRefresh(c *gc.C) {
 	baseURL := MustParseURL(c, "http://api.foo.bar")
 
 	path := path.MakePath(baseURL)
-	name := "meshuggah"
+	id := "meshuggah"
 	body := transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{{
 			InstanceKey: "foo-bar",
-			ID:          name,
+			ID:          id,
 			Revision:    1,
 			Platform: transport.RefreshRequestPlatform{
 				OS:           "ubuntu",
@@ -49,11 +49,11 @@ func (s *RefreshSuite) TestRefresh(c *gc.C) {
 		Actions: []transport.RefreshRequestAction{{
 			Action:      "refresh",
 			InstanceKey: "foo-bar",
-			ID:          &name,
+			ID:          &id,
 		}},
 	}
 
-	config, err := RefreshOne(name, 1, "latest/stable", RefreshPlatform{
+	config, err := RefreshOne(id, 1, "latest/stable", RefreshPlatform{
 		OS:           "ubuntu",
 		Series:       "focal",
 		Architecture: arch.DefaultArchitecture,
@@ -63,13 +63,13 @@ func (s *RefreshSuite) TestRefresh(c *gc.C) {
 	config = DefineInstanceKey(c, config, "foo-bar")
 
 	restClient := NewMockRESTClient(ctrl)
-	s.expectPost(c, restClient, path, name, body)
+	s.expectPost(c, restClient, path, id, body)
 
 	client := NewRefreshClient(path, restClient, &FakeLogger{})
 	responses, err := client.Refresh(context.TODO(), config)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(responses), gc.Equals, 1)
-	c.Assert(responses[0].Name, gc.Equals, name)
+	c.Assert(responses[0].Name, gc.Equals, id)
 }
 
 type metadataTransport struct {
@@ -264,7 +264,6 @@ func (s *RefreshConfigSuite) TestRefreshOneEnsure(c *gc.C) {
 
 func (s *RefreshConfigSuite) TestInstallOneBuildRevision(c *gc.C) {
 	revision := 1
-	emptyStr := ""
 
 	name := "foo"
 	config, err := InstallOneFromRevision(name, revision, RefreshPlatform{
@@ -283,7 +282,6 @@ func (s *RefreshConfigSuite) TestInstallOneBuildRevision(c *gc.C) {
 		Actions: []transport.RefreshRequestAction{{
 			Action:      "install",
 			InstanceKey: "foo-bar",
-			ID:          &emptyStr,
 			Name:        &name,
 			Revision:    &revision,
 			Platform: &transport.RefreshRequestPlatform{
@@ -297,7 +295,6 @@ func (s *RefreshConfigSuite) TestInstallOneBuildRevision(c *gc.C) {
 
 func (s *RefreshConfigSuite) TestInstallOneBuildChannel(c *gc.C) {
 	channel := "latest/stable"
-	emptyStr := ""
 
 	name := "foo"
 	config, err := InstallOneFromChannel(name, channel, RefreshPlatform{
@@ -316,7 +313,6 @@ func (s *RefreshConfigSuite) TestInstallOneBuildChannel(c *gc.C) {
 		Actions: []transport.RefreshRequestAction{{
 			Action:      "install",
 			InstanceKey: "foo-bar",
-			ID:          &emptyStr,
 			Name:        &name,
 			Channel:     &channel,
 			Platform: &transport.RefreshRequestPlatform{
@@ -377,7 +373,6 @@ func (s *RefreshConfigSuite) TestDownloadOneEnsure(c *gc.C) {
 }
 
 func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuild(c *gc.C) {
-	emptyStr := ""
 	channel := "latest/stable"
 	id := "foo"
 	config, err := DownloadOneFromChannel(id, channel, RefreshPlatform{
@@ -397,7 +392,6 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuild(c *gc.C) {
 			Action:      "download",
 			InstanceKey: "foo-bar",
 			ID:          &id,
-			Name:        &emptyStr,
 			Channel:     &channel,
 			Platform: &transport.RefreshRequestPlatform{
 				OS:           "ubuntu",
@@ -425,8 +419,6 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelEnsure(c *gc.C) {
 }
 
 func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
-	emptyStr := ""
-
 	id1 := "foo"
 	config1, err := RefreshOne(id1, 1, "latest/stable", RefreshPlatform{
 		OS:           "ubuntu",
@@ -494,7 +486,6 @@ func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 		}, {
 			Action:      "install",
 			InstanceKey: "foo-taz",
-			ID:          &emptyStr,
 			Name:        &name3,
 			Platform: &transport.RefreshRequestPlatform{
 				OS:           "ubuntu",

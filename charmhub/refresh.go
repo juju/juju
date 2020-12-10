@@ -275,14 +275,22 @@ func DownloadOneFromChannel(id string, channel string, platform RefreshPlatform)
 
 // Build a refresh request that can be past to the API.
 func (c executeOne) Build() (transport.RefreshRequest, Headers, error) {
+	var id *string
+	if c.ID != "" {
+		id = &c.ID
+	}
+	var name *string
+	if c.Name != "" {
+		name = &c.Name
+	}
 	return transport.RefreshRequest{
 		// Context is required here, even if it looks optional.
 		Context: []transport.RefreshRequestContext{},
 		Actions: []transport.RefreshRequestAction{{
 			Action:      string(c.action),
 			InstanceKey: c.instanceKey,
-			ID:          &c.ID,
-			Name:        &c.Name,
+			ID:          id,
+			Name:        name,
 			Revision:    c.Revision,
 			Channel:     c.Channel,
 			Platform: &transport.RefreshRequestPlatform{
@@ -309,8 +317,14 @@ func (c executeOne) String() string {
 	if c.Channel != nil {
 		channel = *c.Channel
 	}
-	return fmt.Sprintf("Execute One (action: %s, instanceKey: %s): using ID: %s with revision: %+v, channel %v and platform %s",
-		c.action, c.instanceKey, c.ID, c.Revision, channel, c.Platform)
+	var using string
+	if c.ID != "" {
+		using = fmt.Sprintf("ID %s", c.ID)
+	} else {
+		using = fmt.Sprintf("Name %s", c.Name)
+	}
+	return fmt.Sprintf("Execute One (action: %s, instanceKey: %s): using %s with revision: %+v, channel %v and platform %s",
+		c.action, c.instanceKey, using, c.Revision, channel, c.Platform)
 }
 
 type refreshMany struct {
