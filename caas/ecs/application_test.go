@@ -141,17 +141,17 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, assertCal
 					},
 				},
 				MountPoints: []*ecs.MountPoint{
-					&ecs.MountPoint{
+					{
 						ContainerPath: aws.String("path/to/here"),
 						SourceVolume:  aws.String("gitlab-database"),
 						ReadOnly:      aws.Bool(false),
 					},
-					&ecs.MountPoint{
+					{
 						ContainerPath: aws.String("/charm/bin"),
 						SourceVolume:  aws.String("charm-data-bin"),
 						ReadOnly:      aws.Bool(true),
 					},
-					&ecs.MountPoint{
+					{
 						ContainerPath: aws.String("/charm/container"),
 						SourceVolume:  aws.String("charm-data-container-gitlab"),
 					},

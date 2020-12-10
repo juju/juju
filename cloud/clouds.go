@@ -264,8 +264,8 @@ type region struct {
 }
 
 const (
-	// CloudTypeCAAS is the kubernetes cloud type.
-	CloudTypeCAAS = "kubernetes"
+	// CloudTypeKubernetes is the kubernetes cloud type.
+	CloudTypeKubernetes = "kubernetes"
 	// CloudTypeECS is the ECS cloud type.
 	CloudTypeECS = "ecs"
 )
@@ -274,8 +274,8 @@ const (
 const DefaultCloudRegion = "default"
 
 var caasCloudTypes = map[string]bool{
-	CloudTypeCAAS: true,
-	CloudTypeECS:  true,
+	CloudTypeKubernetes: true,
+	CloudTypeECS:        true,
 }
 
 // CloudIsCAAS checks if cloud is a CAAS cloud.
