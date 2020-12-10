@@ -129,7 +129,8 @@ var BootstrapConfigSchema = environschema.Fields{
 	ControllerServiceType: {
 		Description: "Controls the kubernetes service type for Juju " +
 			"controllers, see " +
-			"https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#servicespec-v1-core",
+			"https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#servicespec-v1-core " +
+			"valid values are one of cluster, loadbalancer, external",
 		Type: environschema.Tstring,
 	},
 	ControllerExternalName: {
