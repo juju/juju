@@ -2904,14 +2904,11 @@ func ReplaceNeverSetWithUnset(pool *StatePool) (err error) {
 		col, closer := st.db().GetCollection(statusesC)
 		defer closer()
 
-		var docs []bson.M
-		err := col.Find(nil).All(&docs)
-		if err != nil {
-			return errors.Trace(err)
-		}
+		iter := col.Find(bson.M{"neverset": bson.M{"$exists": 1}}).Iter()
 
 		var ops []txn.Op
-		for _, oldDoc := range docs {
+		var oldDoc bson.M
+		for iter.Next(&oldDoc) {
 			// For docs where "neverset" is true, we update the
 			// Status and StatusInfo. For all others, we just remove
 			// the "neverset attribute".
@@ -2941,6 +2938,9 @@ func ReplaceNeverSetWithUnset(pool *StatePool) (err error) {
 				Assert: txn.DocExists,
 				Update: update,
 			})
+		}
+		if err := iter.Close(); err != nil {
+			return errors.Trace(err)
 		}
 
 		return errors.Trace(st.db().RunTransaction(ops))
