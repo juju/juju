@@ -161,7 +161,7 @@ func (s *CharmSuite) AddCharmWithRevision(c *gc.C, charmName string, rev int) *s
 	return dummy
 }
 
-// AddService adds a service for the specified charm to state.
+// AddApplication adds an application for the specified charm to state.
 func (s *CharmSuite) AddApplication(c *gc.C, charmName, applicationName string) {
 	ch, ok := s.charms[charmName]
 	c.Assert(ok, jc.IsTrue)
@@ -180,8 +180,8 @@ func (s *CharmSuite) AddApplication(c *gc.C, charmName, applicationName string) 
 }
 
 // AddUnit adds a new unit for application to the specified machine.
-func (s *CharmSuite) AddUnit(c *gc.C, serviceName, machineId string) {
-	svc, err := s.jcSuite.State.Application(serviceName)
+func (s *CharmSuite) AddUnit(c *gc.C, appName, machineId string) {
+	svc, err := s.jcSuite.State.Application(appName)
 	c.Assert(err, jc.ErrorIsNil)
 	u, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -202,7 +202,7 @@ func (s *CharmSuite) SetUnitRevision(c *gc.C, unitName string, rev int) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-// SetupScenario adds some machines and services to state.
+// SetupScenario adds some machines and applications to state.
 // It assumes a controller machine has already been created.
 func (s *CharmSuite) SetupScenario(c *gc.C) {
 	s.AddMachine(c, "1", state.JobHostUnits)
