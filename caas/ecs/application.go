@@ -699,7 +699,8 @@ func (a *app) handleErr(err error) error {
 	case ecs.ErrCodePlatformUnknownException:
 	case ecs.ErrCodePlatformTaskDefinitionIncompatibilityException:
 	case ecs.ErrCodeAccessDeniedException:
-	case ecs.ErrCodeServiceNotFoundException, ecs.ErrCodeServiceNotActiveException:
+	case ecs.ErrCodeServiceNotFoundException, ecs.ErrCodeServiceNotActiveException,
+		ecs.ErrCodeResourceNotFoundException, ecs.ErrCodeTaskSetNotFoundException, ecs.ErrCodeTargetNotFoundException:
 		return errors.NewNotFound(err, aerr.Message())
 	default:
 		logger.Errorf("unknown error: %v", aerr.Error())

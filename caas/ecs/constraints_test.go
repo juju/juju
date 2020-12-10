@@ -13,20 +13,20 @@ import (
 	"github.com/juju/juju/environs/context"
 )
 
-type ConstraintsSuite struct {
+type constraintsSuite struct {
 	baseSuite
 
 	callCtx context.ProviderCallContext
 }
 
-var _ = gc.Suite(&ConstraintsSuite{})
+var _ = gc.Suite(&constraintsSuite{})
 
-func (s *ConstraintsSuite) SetUpTest(c *gc.C) {
+func (s *constraintsSuite) SetUpTest(c *gc.C) {
 	s.baseSuite.SetUpTest(c)
 	s.callCtx = context.NewCloudCallContext()
 }
 
-func (s *ConstraintsSuite) TestConstraintsValidatorOkay(c *gc.C) {
+func (s *constraintsSuite) TestConstraintsValidatorOkay(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -40,7 +40,7 @@ func (s *ConstraintsSuite) TestConstraintsValidatorOkay(c *gc.C) {
 	c.Check(unsupported, gc.HasLen, 0)
 }
 
-func (s *ConstraintsSuite) TestConstraintsValidatorEmpty(c *gc.C) {
+func (s *constraintsSuite) TestConstraintsValidatorEmpty(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -53,7 +53,7 @@ func (s *ConstraintsSuite) TestConstraintsValidatorEmpty(c *gc.C) {
 	c.Check(unsupported, gc.HasLen, 0)
 }
 
-func (s *ConstraintsSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
+func (s *constraintsSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
