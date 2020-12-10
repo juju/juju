@@ -94,10 +94,11 @@ func (s *OpenerSuite) expectCharmOrigin() {
 func (s *OpenerSuite) expectCacheMethods(res resource.Resource) {
 	s.resources.EXPECT().OpenResourceForUniter(gomock.Any(), gomock.Any()).Return(resource.Resource{}, ioutil.NopCloser(bytes.NewBuffer([]byte{})), errors.NotFoundf("wal-e"))
 	s.resources.EXPECT().GetResource("postgresql", "wal-e").Return(res, nil)
-	//s.resources.EXPECT().SetResource("postgresql", "postgresql/0", gomock.Any(), gomock.Any()).Return(res, nil)
-	s.resources.EXPECT().SetResource(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(res, nil)
-	res.ApplicationID = "postgreql"
-	s.resources.EXPECT().OpenResourceForUniter(gomock.Any(), gomock.Any()).Return(res, ioutil.NopCloser(bytes.NewBuffer([]byte{})), nil)
+	s.resources.EXPECT().SetResource("postgresql", "", res.Resource, gomock.Any()).Return(res, nil)
+
+	other := res
+	other.ApplicationID = "postgreql"
+	s.resources.EXPECT().OpenResourceForUniter(gomock.Any(), gomock.Any()).Return(other, ioutil.NopCloser(bytes.NewBuffer([]byte{})), nil)
 }
 
 func (s *OpenerSuite) newOpener() *resourceadapters.ResourceOpener {
