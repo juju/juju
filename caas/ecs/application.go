@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs/tags"
 	jujustorage "github.com/juju/juju/storage"
 )
@@ -634,9 +633,7 @@ func (a *app) Watch() (watcher.NotifyWatcher, error) {
 // WatchReplicas returns a watcher for watching the number of units changes.
 func (a *app) WatchReplicas() (watcher.NotifyWatcher, error) {
 	// TODO(ecs)
-	ch := make(chan struct{}, 1)
-	ch <- struct{}{}
-	return watchertest.NewMockNotifyWatcher(ch), nil
+	return newNotifyWatcher(a.name, a.clock, func() (bool, error) { return false, nil })
 }
 
 func (a *app) registerTaskDefinition(config caas.ApplicationConfig) (*ecs.RegisterTaskDefinitionOutput, error) {
