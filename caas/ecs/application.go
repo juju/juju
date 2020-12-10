@@ -124,12 +124,16 @@ func (a *app) deleteTaskDefinitions() error {
 		return nil
 	}
 	if err != nil {
-		errors.Trace(err)
+		return errors.Trace(err)
 	}
 	for _, arn := range result.TaskDefinitionArns {
+		arnString := aws.StringValue(arn)
+		if arnString == "" {
+			continue
+		}
 		// Unfortunately, no bulk deregistering API available.
 		// And we can't do it concurrently to avoid hitting the API rate limit.
-		if err = a.deregisterTaskDefinition(arn); err != nil {
+		if err = a.deregisterTaskDefinition(arnString); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -139,16 +143,13 @@ func (a *app) deleteTaskDefinitions() error {
 // deregisterTaskDefinition deregisters the task definition.
 // taskDefinitionID can be "family:revision" or full Amazon Resource Name (ARN)
 // of the task definition.
-func (a *app) deregisterTaskDefinition(taskDefinitionID *string) error {
-	if taskDefinitionID == nil {
-		return nil
-	}
+func (a *app) deregisterTaskDefinition(taskDefinitionID string) error {
 	_, err := a.client.DeregisterTaskDefinition(&ecs.DeregisterTaskDefinitionInput{
-		TaskDefinition: taskDefinitionID,
+		TaskDefinition: aws.String(taskDefinitionID),
 	})
 	err = a.handleErr(err)
 	if errors.IsNotFound(err) {
-		logger.Tracef("deregistering task definition %q in cluster %q, err: %v", aws.StringValue(taskDefinitionID), a.clusterName, err)
+		logger.Tracef("deregistering task definition %q in cluster %q, err: %v", taskDefinitionID, a.clusterName, err)
 		return nil
 	}
 	return errors.Trace(err)
@@ -225,7 +226,6 @@ func (a *app) handleFileSystems(filesystems []jujustorage.KubernetesFilesystemPa
 }
 
 func (a *app) applicationTaskDefinition(config caas.ApplicationConfig) (*ecs.RegisterTaskDefinitionInput, error) {
-
 	var containerNames []string
 	var containers []caas.ContainerConfig
 	for _, v := range config.Containers {
@@ -495,13 +495,15 @@ func computeStatus(ctx context.Context, t *ecs.Task) (statusMessage string, juju
 	case "UNKNOWN":
 	case "RUNNING":
 		jujuStatus = status.Running
+		since = aws.TimeValue(t.StartedAt)
 	case "UNHEALTHY":
 		jujuStatus = status.Error
+		since = aws.TimeValue(t.ExecutionStoppedAt)
 	case "PENDING":
 		jujuStatus = status.Allocating
+		since = aws.TimeValue(t.CreatedAt)
 	}
 	statusMessage = aws.StringValue(t.StoppedReason)
-	// since = now ??
 	return statusMessage, jujuStatus, since
 }
 
@@ -535,11 +537,11 @@ func (a *app) Units() (units []caas.Unit, err error) {
 		statusMessage, unitStatus, since := computeStatus(ctx, t)
 		unitInfo := caas.Unit{
 			// Id:       aws.StringValue(t.TaskArn),
-			Id:       "cockroachdb-0", // !!!
+			Id:       "cockroachdb-0", // TODO(ecs): Get the real ID(probably the TaskID or ARN) once we solve the identity of ECS unit issue.
 			Address:  "",
 			Ports:    nil,
 			Dying:    t.StoppedAt != nil || t.StoppingAt != nil,
-			Stateful: a.deploymentType == caas.DeploymentStateful, // ??????????
+			Stateful: a.deploymentType == caas.DeploymentStateful,
 			Status: status.StatusInfo{
 				Status:  unitStatus,
 				Message: statusMessage,

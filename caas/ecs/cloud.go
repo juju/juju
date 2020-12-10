@@ -15,13 +15,13 @@ import (
 
 var configSchema = environschema.Fields{}
 
-var providerConfigFields = func() schema.Fields {
+func providerConfigFields() (schema.Fields, error) {
 	fs, _, err := configSchema.ValidationSchema()
 	if err != nil {
-		panic(err)
+		return nil, errors.Trace(err)
 	}
-	return fs
-}()
+	return fs, nil
+}
 
 var providerConfigDefaults = schema.Defaults{}
 
@@ -58,7 +58,11 @@ func (environProvider) Schema() environschema.Fields {
 // ConfigSchema returns extra config attributes specific
 // to this provider only.
 func (p environProvider) ConfigSchema() schema.Fields {
-	return providerConfigFields
+	fs, err := providerConfigFields()
+	if err != nil {
+		panic(err)
+	}
+	return fs
 }
 
 // ConfigDefaults returns the default values for the
@@ -72,7 +76,12 @@ func validateConfig(cfg, old *config.Config) (*brokerConfig, error) {
 	if err := config.Validate(cfg, old); err != nil {
 		return nil, errors.Trace(err)
 	}
-	validated, err := cfg.ValidateUnknownAttrs(providerConfigFields, providerConfigDefaults)
+	fs, err := providerConfigFields()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	validated, err := cfg.ValidateUnknownAttrs(fs, providerConfigDefaults)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
