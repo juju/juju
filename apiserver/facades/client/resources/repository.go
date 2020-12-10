@@ -134,7 +134,7 @@ func newCharmHubClient(client CharmHub, id CharmID) *charmHubClient {
 // downloaded) resources to determine which to use. Provided (uploaded) take
 // precedence. If charmhub has a newer resource than the back end, use that.
 func (ch *charmHubClient) ResolveResources(resources []charmresource.Resource) ([]charmresource.Resource, error) {
-	storeResources, err := ch.listResources()
+	storeResources, err := ch.listResources(ch.id.URL, ch.id.Origin)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -196,16 +196,15 @@ func (ch *charmHubClient) ResourceInfo(curl *charm.URL, origin corecharm.Origin,
 // resources. Those details are those associated with the specific
 // charm revision. They include the resource's metadata and revision.
 // Found via the CharmHub api.
-func (ch *charmHubClient) listResources() (map[string]charmresource.Resource, error) {
-	charmOrigin := ch.id.Origin
-	cfg, err := charmhub.DownloadOneFromChannel(charmOrigin.ID, charmOrigin.Channel.String(), charmhub.RefreshPlatform(charmOrigin.Platform))
+func (ch *charmHubClient) listResources(url *charm.URL, origin corecharm.Origin) (map[string]charmresource.Resource, error) {
+	cfg, err := charmhub.DownloadOneFromChannel(origin.ID, origin.Channel.String(), charmhub.RefreshPlatform(origin.Platform))
 	if err != nil {
-		return nil, errors.Annotatef(err, "creating resources config for charm %q", ch.id.URL.String())
+		return nil, errors.Annotatef(err, "creating resources config for charm %q", url.String())
 	}
 
 	refreshResp, err := ch.client.Refresh(context.TODO(), cfg)
 	if err != nil {
-		return nil, errors.Annotatef(err, "refreshing charm %q", ch.id.URL.String())
+		return nil, errors.Annotatef(err, "refreshing charm %q", url.String())
 	}
 	if len(refreshResp) == 0 {
 		return nil, errors.Errorf("no download refresh responses received")
@@ -213,7 +212,7 @@ func (ch *charmHubClient) listResources() (map[string]charmresource.Resource, er
 	resp := refreshResp[0]
 
 	if resp.Error != nil {
-		return nil, errors.Annotatef(errors.New(resp.Error.Message), "listing resources for charm %q", ch.id.URL.String())
+		return nil, errors.Annotatef(errors.New(resp.Error.Message), "listing resources for charm %q", url.String())
 	}
 	results := make(map[string]charmresource.Resource, len(resp.Entity.Resources))
 	for _, v := range resp.Entity.Resources {
@@ -279,7 +278,7 @@ func newCharmStoreClient(client CharmStore, id CharmID) *charmStoreClient {
 }
 
 func (cs *charmStoreClient) ResolveResources(resources []charmresource.Resource) ([]charmresource.Resource, error) {
-	storeResources, err := cs.resourcesFromCharmstore()
+	storeResources, err := cs.resourcesFromCharmstore(cs.id)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -296,8 +295,8 @@ func (cs *charmStoreClient) ResolveResources(resources []charmresource.Resource)
 // the charm backend. If the charm URL has a revision then that revision's
 // resources are returned. Otherwise the latest info for each of the
 // resources is returned.
-func (cs *charmStoreClient) resourcesFromCharmstore() (map[string]charmresource.Resource, error) {
-	results, err := cs.listResources([]CharmID{cs.id})
+func (cs *charmStoreClient) resourcesFromCharmstore(id CharmID) (map[string]charmresource.Resource, error) {
+	results, err := cs.listResources([]CharmID{id})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
