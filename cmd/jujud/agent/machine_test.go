@@ -1334,8 +1334,6 @@ func (s *MachineSuite) TestReplicasetInitForNewController(c *gc.C) {
 		c.Skip("controllers on windows aren't supported")
 	}
 
-	s.fakeEnsureMongo.ServiceInstalled = false
-
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
 	a := s.newAgent(c, m)
 	agentConfig := a.CurrentConfig()

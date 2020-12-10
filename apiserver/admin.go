@@ -497,14 +497,7 @@ func filterFacades(registry *facade.Registry, allowFacadeAllMustMatch ...facadeF
 }
 
 func (a *admin) maintenanceInProgress() bool {
-	if !a.srv.upgradeComplete() {
-		return true
-	}
-	switch a.srv.restoreStatus() {
-	case state.RestorePending, state.RestoreInProgress:
-		return true
-	}
-	return false
+	return !a.srv.upgradeComplete()
 }
 
 func setupPingTimeoutDisconnect(clock clock.Clock, root *apiHandler, entity state.Entity) error {

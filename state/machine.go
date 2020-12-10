@@ -138,10 +138,6 @@ type machineDoc struct {
 	// an instance for the machine.
 	Placement string `bson:",omitempty"`
 
-	// StopMongoUntilVersion holds the version that must be checked to
-	// know if mongo must be stopped.
-	StopMongoUntilVersion string `bson:",omitempty"`
-
 	// AgentStartedAt records the time when the machine agent started.
 	AgentStartedAt time.Time `bson:"agent-started-at,omitempty"`
 }
@@ -457,28 +453,6 @@ func (m *Machine) SetCharmProfiles(profiles []string) error {
 	}
 	err := m.st.db().Run(buildTxn)
 	return errors.Annotatef(err, "cannot update profiles for %q to %s", m, strings.Join(profiles, ", "))
-}
-
-// SetStopMongoUntilVersion sets a version that is to be checked against
-// the agent config before deciding if mongo must be started on a
-// state server.
-func (m *Machine) SetStopMongoUntilVersion(v mongo.Version) error {
-	ops := []txn.Op{{
-		C:      machinesC,
-		Id:     m.doc.DocID,
-		Update: bson.D{{"$set", bson.D{{"stopmongountilversion", v.String()}}}},
-	}}
-	if err := m.st.db().RunTransaction(ops); err != nil {
-		return fmt.Errorf("cannot set StopMongoUntilVersion %v: %v", m, onAbort(err, stateerrors.ErrDead))
-	}
-	m.doc.StopMongoUntilVersion = v.String()
-	return nil
-}
-
-// StopMongoUntilVersion returns the current minimum version that
-// is required for this machine to have mongo running.
-func (m *Machine) StopMongoUntilVersion() (mongo.Version, error) {
-	return mongo.NewVersion(m.doc.StopMongoUntilVersion)
 }
 
 // IsManager returns true if the machine has JobManageModel.

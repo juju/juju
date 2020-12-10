@@ -473,7 +473,7 @@ func (c *BootstrapCommand) startMongo(isCAAS bool, addrs network.ProviderAddress
 		if err != nil {
 			return err
 		}
-		_, err = cmdutil.EnsureMongoServer(ensureServerParams)
+		err = cmdutil.EnsureMongoServer(ensureServerParams)
 		if err != nil {
 			return err
 		}

@@ -8,7 +8,6 @@ import (
 	"github.com/juju/replicaset"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/backups"
 )
 
@@ -48,15 +47,7 @@ func (a *APIv2) Create(args params.BackupsCreateArgs) (params.BackupsMetadataRes
 	if err != nil {
 		return result, errors.Annotatef(err, "getting mongo info")
 	}
-	v, err := a.backend.MongoVersion()
-	if err != nil {
-		return result, errors.Annotatef(err, "discovering mongo version")
-	}
-	mongoVersion, err := mongo.NewVersion(v)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	dbInfo, err := backups.NewDBInfo(mgoInfo, session, mongoVersion)
+	dbInfo, err := backups.NewDBInfo(mgoInfo, session)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

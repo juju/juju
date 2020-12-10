@@ -290,20 +290,6 @@ func (mr *MockConfigMockRecorder) MongoMemoryProfile() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MongoMemoryProfile", reflect.TypeOf((*MockConfig)(nil).MongoMemoryProfile))
 }
 
-// MongoVersion mocks base method
-func (m *MockConfig) MongoVersion() mongo.Version {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MongoVersion")
-	ret0, _ := ret[0].(mongo.Version)
-	return ret0
-}
-
-// MongoVersion indicates an expected call of MongoVersion
-func (mr *MockConfigMockRecorder) MongoVersion() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MongoVersion", reflect.TypeOf((*MockConfig)(nil).MongoVersion))
-}
-
 // NonSyncedWritesToRaftLog mocks base method
 func (m *MockConfig) NonSyncedWritesToRaftLog() bool {
 	m.ctrl.T.Helper()

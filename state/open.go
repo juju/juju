@@ -8,14 +8,12 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/names/v4"
 	"github.com/juju/txn"
 	"github.com/juju/worker/v2"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/feature"
 )
 
 // Register the state tracker as a new profile.
@@ -130,18 +128,13 @@ func newState(
 	}()
 
 	mongodb := session.DB(jujuDB)
-	sstxn := featureflag.Enabled(feature.MongoDbSSTXN)
-	if sstxn {
-		if !txn.SupportsServerSideTransactions(mongodb) {
-			logger.Warningf("User requested server-side transactions, but they are not supported.\n"+
-				" Falling back to client-side transactions.\n"+
-				" Consider using the '%s' feature flag", feature.MongoDbSnap)
-			sstxn = false
-		} else {
-			logger.Infof("using server-side transactions")
-		}
+	sstxn := true
+	if !txn.SupportsServerSideTransactions(mongodb) {
+		logger.Warningf("User requested server-side transactions, but they are not supported.\n" +
+			" Falling back to client-side transactions.")
+		sstxn = false
 	} else {
-		logger.Infof("using client-side transactions")
+		logger.Infof("using server-side transactions")
 	}
 	db := &database{
 		raw:                    mongodb,

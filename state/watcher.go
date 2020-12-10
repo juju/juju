@@ -1947,12 +1947,6 @@ func (st *State) WatchUpgradeInfo() NotifyWatcher {
 	return newEntityWatcher(st, upgradeInfoC, currentUpgradeId)
 }
 
-// WatchRestoreInfoChanges returns a NotifyWatcher that will inform
-// when the restore status changes.
-func (st *State) WatchRestoreInfoChanges() NotifyWatcher {
-	return newEntityWatcher(st, restoreInfoC, currentRestoreId)
-}
-
 // WatchForModelConfigChanges returns a NotifyWatcher waiting for the Model
 // Config to change.
 func (model *Model) WatchForModelConfigChanges() NotifyWatcher {

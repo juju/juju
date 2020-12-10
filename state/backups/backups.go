@@ -44,7 +44,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
 	"github.com/juju/utils/v2/filestorage"
 )
 
@@ -101,11 +100,6 @@ type Backups interface {
 
 	// Remove deletes the backup from storage.
 	Remove(id string) error
-
-	// Restore updates juju's state to the contents of the backup archive,
-	// it returns the tag string for the machine where the backup originated
-	// or error if the process fails.
-	Restore(backupId string, args RestoreArgs) (names.Tag, error)
 }
 
 type backups struct {

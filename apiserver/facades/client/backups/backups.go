@@ -30,14 +30,12 @@ type Backend interface {
 	Machine(id string) (Machine, error)
 	MachineSeries(id string) (string, error)
 	MongoSession() *mgo.Session
-	MongoVersion() (string, error)
 	ModelTag() names.ModelTag
 	ModelType() state.ModelType
 	ControllerTag() names.ControllerTag
 	ModelConfig() (*config.Config, error)
 	ControllerConfig() (controller.Config, error)
 	StateServingInfo() (controller.StateServingInfo, error)
-	RestoreInfo() *state.RestoreInfo
 	ControllerNodes() ([]state.ControllerNode, error)
 }
 

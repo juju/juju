@@ -5124,10 +5124,6 @@
                         }
                     }
                 },
-                "FinishRestore": {
-                    "type": "object",
-                    "description": "FinishRestore implements the server side of Backups.FinishRestore."
-                },
                 "Info": {
                     "type": "object",
                     "properties": {
@@ -5152,10 +5148,6 @@
                     },
                     "description": "List provides the implementation of the API method."
                 },
-                "PrepareRestore": {
-                    "type": "object",
-                    "description": "PrepareRestore implements the server side of Backups.PrepareRestore."
-                },
                 "Remove": {
                     "type": "object",
                     "properties": {
@@ -5167,15 +5159,6 @@
                         }
                     },
                     "description": "Remove deletes the backups defined by ID from the database."
-                },
-                "Restore": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/RestoreArgs"
-                        }
-                    },
-                    "description": "Restore implements the server side of Backups.Restore."
                 }
             },
             "definitions": {
@@ -5415,18 +5398,6 @@
                         "Tag",
                         "Patch",
                         "Build"
-                    ]
-                },
-                "RestoreArgs": {
-                    "type": "object",
-                    "properties": {
-                        "backup-id": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "backup-id"
                     ]
                 }
             }

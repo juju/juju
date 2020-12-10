@@ -263,21 +263,6 @@ func restrictAPIRootDuringMaintenance(
 		return fmt.Sprintf("login for %s", names.ReadableString(authTag))
 	}
 
-	switch status := srv.restoreStatus(); status {
-	case state.RestorePending, state.RestoreInProgress:
-		if _, ok := authTag.(names.UserTag); ok {
-			// Users get access to a limited set of functionality
-			// while a restore is pending or in progress.
-			if status == state.RestorePending {
-				return restrictRoot(apiRoot, aboutToRestoreMethodsOnly), nil
-			} else {
-				return restrictAll(apiRoot, restoreInProgressError), nil
-			}
-		}
-		// Agent and anonymous logins are blocked during restore.
-		return nil, errors.Errorf("%s blocked because restore is in progress", describeLogin())
-	}
-
 	if !srv.upgradeComplete() {
 		if _, ok := authTag.(names.UserTag); ok {
 			// Users get access to a limited set of functionality

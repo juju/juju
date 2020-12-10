@@ -1187,20 +1187,10 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	if err != nil {
 		return err
 	}
-	var mongodVersion mongo.Version
-	if mongodVersion, err = cmdutil.EnsureMongoServer(ensureServerParams); err != nil {
+	if err := cmdutil.EnsureMongoServer(ensureServerParams); err != nil {
 		return err
 	}
 	logger.Debugf("mongodb service is installed")
-	// update Mongo version.
-	if err = a.ChangeConfig(
-		func(config agent.ConfigSetter) error {
-			config.SetMongoVersion(mongodVersion)
-			return nil
-		},
-	); err != nil {
-		return errors.Annotate(err, "cannot set mongo version")
-	}
 	return nil
 }
 

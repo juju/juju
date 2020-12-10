@@ -82,7 +82,6 @@ type Server struct {
 	dbloggers              dbloggers
 	getAuditConfig         func() auditlog.Config
 	upgradeComplete        func() bool
-	restoreStatus          func() state.RestoreStatus
 	mux                    *apiserverhttp.Mux
 	metricsCollector       *Collector
 	execEmbeddedCommand    ExecEmbeddedCommandFunc
@@ -148,12 +147,6 @@ type ServerConfig struct {
 	// running upgrade steps. This is used by the API server to
 	// limit logins during upgrades.
 	UpgradeComplete func() bool
-
-	// RestoreStatus is a function that reports the restore
-	// status most recently observed by the agent running the
-	// API server. This is used by the API server to limit logins
-	// during a restore.
-	RestoreStatus func() state.RestoreStatus
 
 	// PublicDNSName is reported to the API clients who connect.
 	PublicDNSName string
@@ -228,9 +221,6 @@ func (c ServerConfig) Validate() error {
 	if c.UpgradeComplete == nil {
 		return errors.NotValidf("nil UpgradeComplete")
 	}
-	if c.RestoreStatus == nil {
-		return errors.NotValidf("nil RestoreStatus")
-	}
 	if c.GetAuditConfig == nil {
 		return errors.NotValidf("missing GetAuditConfig")
 	}
@@ -299,7 +289,6 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		dataDir:                       cfg.DataDir,
 		logDir:                        cfg.LogDir,
 		upgradeComplete:               cfg.UpgradeComplete,
-		restoreStatus:                 cfg.RestoreStatus,
 		facades:                       AllFacades(),
 		mux:                           cfg.Mux,
 		authenticator:                 cfg.Authenticator,

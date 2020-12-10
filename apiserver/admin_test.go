@@ -474,34 +474,6 @@ func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
 	})
 }
 
-func (s *loginSuite) TestLoginWhileRestorePending(c *gc.C) {
-	s.cfg.RestoreStatus = func() state.RestoreStatus {
-		return state.RestorePending
-	}
-	s.testLoginDuringMaintenance(c, func(st api.Connection) {
-		var statusResult params.FullStatus
-		err := st.APICall("Client", 1, "", "FullStatus", params.StatusParams{}, &statusResult)
-		c.Assert(err, jc.ErrorIsNil)
-
-		err = st.APICall("Client", 1, "", "ModelSet", params.ModelSet{}, nil)
-		c.Assert(err, gc.ErrorMatches, `juju restore is in progress - functionality is limited to avoid data loss`)
-	})
-}
-
-func (s *loginSuite) TestLoginWhileRestoreInProgress(c *gc.C) {
-	s.cfg.RestoreStatus = func() state.RestoreStatus {
-		return state.RestoreInProgress
-	}
-	s.testLoginDuringMaintenance(c, func(st api.Connection) {
-		var statusResult params.FullStatus
-		err := st.APICall("Client", 1, "", "FullStatus", params.StatusParams{}, &statusResult)
-		c.Assert(err, gc.ErrorMatches, `juju restore is in progress - API is disabled to prevent data loss`)
-
-		err = st.APICall("Client", 1, "", "ModelSet", params.ModelSet{}, nil)
-		c.Assert(err, gc.ErrorMatches, `juju restore is in progress - API is disabled to prevent data loss`)
-	})
-}
-
 func (s *loginSuite) testLoginDuringMaintenance(c *gc.C, check func(api.Connection)) {
 	info := s.newServer(c)
 

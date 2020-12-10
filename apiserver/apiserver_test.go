@@ -142,9 +142,6 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 		Mux:                 s.mux,
 		NewObserver:         func() observer.Observer { return &fakeobserver.Instance{} },
 		UpgradeComplete:     func() bool { return true },
-		RestoreStatus: func() state.RestoreStatus {
-			return state.RestoreNotActive
-		},
 		RegisterIntrospectionHandlers: func(f func(path string, h http.Handler)) {
 			f("navel", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				io.WriteString(w, "gazing")
