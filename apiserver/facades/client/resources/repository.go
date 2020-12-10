@@ -150,27 +150,37 @@ func (ch *charmHubClient) ResourceInfo(curl *charm.URL, origin corecharm.Origin,
 		return charmresource.Resource{}, errors.Errorf("empty charm ID")
 	}
 
-	// We prefer the revision over the channel, so we attempt to locate the
-	// resource meta data for the identical one we've located. If we don't have
-	// a revision, then fall back to locating via the channel.
+	// Get all the resource for everything and just find out which one matches.
+	// The order is expected to be kept so when the response is looped through
+	// we get channel, then revision.
 	var (
-		cfg charmhub.RefreshConfig
-		err error
-
+		configs     []charmhub.RefreshConfig
 		refPlatform = charmhub.RefreshPlatform(origin.Platform)
 	)
-	if origin.Revision != nil {
-		cfg, err = charmhub.DownloadOneFromRevision(origin.ID, *origin.Revision, refPlatform)
-	} else if curl.Revision >= 0 {
-		cfg, err = charmhub.DownloadOneFromRevision(origin.ID, curl.Revision, refPlatform)
-	} else {
-		cfg, err = charmhub.DownloadOneFromChannel(origin.ID, origin.Channel.String(), refPlatform)
+
+	if sChan := origin.Channel.String(); sChan != "" {
+		cfg, err := charmhub.DownloadOneFromChannel(origin.ID, sChan, refPlatform)
+		if err != nil {
+			return charmresource.Resource{}, errors.Trace(err)
+		}
+		configs = append(configs, cfg)
 	}
-	if err != nil {
-		return charmresource.Resource{}, errors.Trace(err)
+	if rev := origin.Revision; rev != nil {
+		cfg, err := charmhub.DownloadOneFromRevision(origin.ID, *rev, refPlatform)
+		if err != nil {
+			return charmresource.Resource{}, errors.Trace(err)
+		}
+		configs = append(configs, cfg)
+	}
+	if rev := curl.Revision; rev >= 0 {
+		cfg, err := charmhub.DownloadOneFromRevision(origin.ID, rev, refPlatform)
+		if err != nil {
+			return charmresource.Resource{}, errors.Trace(err)
+		}
+		configs = append(configs, cfg)
 	}
 
-	refreshResp, err := ch.client.Refresh(context.TODO(), cfg)
+	refreshResp, err := ch.client.Refresh(context.TODO(), charmhub.RefreshMany(configs...))
 	if err != nil {
 		return charmresource.Resource{}, errors.Trace(err)
 	}
