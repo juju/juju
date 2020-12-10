@@ -91,7 +91,7 @@ func (h *mockHub) Refresh(_ context.Context, config charmhub.RefreshConfig) ([]t
 		return nil, errors.Errorf("model metadata not present")
 	}
 
-	request, err := config.Build()
+	request, _, err := config.Build()
 	if err != nil {
 		return nil, err
 	}
