@@ -1295,6 +1295,29 @@ func (s *relationCreatedResolverSuite) TestCreatedRelationResolverFordRelationNo
 	})
 }
 
+// This is a regression test for LP1906706
+func (s *relationCreatedResolverSuite) TestCreatedRelationsResolverWithPendingHook(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	r := mocks.NewMockRelationStateTracker(ctrl)
+
+	localState := resolver.LocalState{
+		State: operation.State{
+			Installed: true,
+			Kind:      operation.RunHook,
+			Step:      operation.Pending,
+		},
+	}
+	remoteState := remotestate.Snapshot{
+		Life: life.Alive,
+	}
+
+	createdRelationsResolver := relation.NewCreatedRelationResolver(r)
+	_, err := createdRelationsResolver.NextOp(localState, remoteState, &mockOperations{})
+	c.Assert(errors.Cause(err), gc.Equals, resolver.ErrNoOperation, gc.Commentf("expected to get ErrNoOperation when a RunHook operation is pending"))
+}
+
 type mockRelationResolverSuite struct {
 	mockRelStTracker *mocks.MockRelationStateTracker
 	mockSupDestroyer *mocks.MockSubordinateDestroyer
