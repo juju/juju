@@ -25,6 +25,7 @@ import (
 
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/clock"
 	"github.com/juju/juju/cmd/output/progress"
 	"github.com/juju/juju/cmd/output/progress/mocks"
 )
@@ -54,5 +55,5 @@ func (ts *ProgressTestSuite) TestANSINotify(c *gc.C) {
 	ec := progress.DefaultEscapeChars()
 	buf := new(bytes.Buffer)
 	expected := fmt.Sprint("\r", ec.ExitAttributeMode, ec.ClrEOL, "blah blah\n")
-	ts.testNotify(c, buf, progress.NewANSIMeter(buf, term, ec), "ansi", expected)
+	ts.testNotify(c, buf, progress.NewANSIMeter(buf, term, ec, clock.WallClock), "ansi", expected)
 }

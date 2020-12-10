@@ -325,6 +325,11 @@ func (r *createdRelationsResolver) NextOp(
 		return nil, resolver.ErrNoOperation
 	}
 
+	// We should only evaluate the resolver logic if there is no other pending operation
+	if localState.Kind != operation.Continue {
+		return nil, resolver.ErrNoOperation
+	}
+
 	if err := r.stateTracker.SynchronizeScopes(remoteState); err != nil {
 		return nil, errors.Trace(err)
 	}

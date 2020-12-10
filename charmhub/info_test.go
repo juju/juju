@@ -25,7 +25,7 @@ type InfoSuite struct {
 
 var _ = gc.Suite(&InfoSuite{})
 
-func (s *InfoSuite) TestInfo(c *gc.C) {
+func (s *InfoSuite) TestInfoCharm(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -35,12 +35,32 @@ func (s *InfoSuite) TestInfo(c *gc.C) {
 	name := "meshuggah"
 
 	restClient := NewMockRESTClient(ctrl)
-	s.expectGet(c, restClient, path, name)
+	s.expectCharmGet(c, restClient, path, name)
 
 	client := NewInfoClient(path, restClient, &FakeLogger{})
 	response, err := client.Info(context.TODO(), name)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response.Name, gc.Equals, name)
+	c.Assert(response.DefaultRelease.Revision.MetadataYAML, gc.Equals, "YAML")
+}
+
+func (s *InfoSuite) TestInfoBundle(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	baseURL := MustParseURL(c, "http://api.foo.bar")
+
+	path := path.MakePath(baseURL)
+	name := "meshuggah"
+
+	restClient := NewMockRESTClient(ctrl)
+	s.expectBundleGet(c, restClient, path, name)
+
+	client := NewInfoClient(path, restClient, &FakeLogger{})
+	response, err := client.Info(context.TODO(), name)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(response.Name, gc.Equals, name)
+	c.Assert(response.DefaultRelease.Revision.BundleYAML, gc.Equals, "YAML")
 }
 
 func (s *InfoSuite) TestInfoFailure(c *gc.C) {
@@ -77,7 +97,7 @@ func (s *InfoSuite) TestInfoError(c *gc.C) {
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
 
-func (s *InfoSuite) expectGet(c *gc.C, client *MockRESTClient, p path.Path, name string) {
+func (s *InfoSuite) expectCharmGet(c *gc.C, client *MockRESTClient, p path.Path, name string) {
 	namedPath, err := p.Join(name)
 	c.Assert(err, jc.ErrorIsNil)
 	namedPath, err = namedPath.Query("fields", defaultInfoFilter())
@@ -86,6 +106,28 @@ func (s *InfoSuite) expectGet(c *gc.C, client *MockRESTClient, p path.Path, name
 	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).Do(func(_ context.Context, _ path.Path, response *transport.InfoResponse) {
 		response.Type = "charm"
 		response.Name = name
+		response.DefaultRelease = transport.InfoChannelMap{
+			Revision: transport.InfoRevision{
+				MetadataYAML: "YAML",
+			},
+		}
+	}).Return(RESTResponse{}, nil)
+}
+
+func (s *InfoSuite) expectBundleGet(c *gc.C, client *MockRESTClient, p path.Path, name string) {
+	namedPath, err := p.Join(name)
+	c.Assert(err, jc.ErrorIsNil)
+	namedPath, err = namedPath.Query("fields", defaultInfoFilter())
+	c.Assert(err, jc.ErrorIsNil)
+
+	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).Do(func(_ context.Context, _ path.Path, response *transport.InfoResponse) {
+		response.Type = "bundle"
+		response.Name = name
+		response.DefaultRelease = transport.InfoChannelMap{
+			Revision: transport.InfoRevision{
+				BundleYAML: "YAML",
+			},
+		}
 	}).Return(RESTResponse{}, nil)
 }
 

@@ -635,7 +635,7 @@ const (
 	volumeAttachmentPlanC      = "volumeattachmentplan"
 	volumesC                   = "volumes"
 
-	// "resources" (see resource/persistence/mongo.go)
+	// "resources" (see state/resources_mongo.go)
 
 	// Cross model relations
 	applicationOffersC   = "applicationOffers"

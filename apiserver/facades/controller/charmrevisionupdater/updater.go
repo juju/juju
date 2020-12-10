@@ -100,7 +100,7 @@ var NewCharmStoreClient = func(st *state.State) (charmstore.Client, error) {
 	if err != nil {
 		return charmstore.Client{}, errors.Trace(err)
 	}
-	return charmstore.NewCachingClient(state.MacaroonCache{State: st}, controllerCfg.CharmStoreURL())
+	return charmstore.NewCachingClient(state.MacaroonCache{MacaroonCacheState: st}, controllerCfg.CharmStoreURL())
 }
 
 // NewCharmhubClient instantiates a new charmhub client (exported for testing).

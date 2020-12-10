@@ -63,7 +63,20 @@ func (ch *charmHubClient) ResolveResources(uploadedResources []charmresource.Res
 		return nil, errors.Trace(err)
 	}
 	for _, res := range uploadedResources {
-		chResources[res.Name] = res
+		if res.Origin == charmresource.OriginUpload {
+			chResources[res.Name] = res
+			continue
+		}
+		// TODO (hml) 07-dec-2020
+		// Where to find the metadata from the charmhub api? For now,
+		// take what's in the "uploadedResources" metadata.
+		foundRes, ok := chResources[res.Name]
+		if !ok {
+			logger.Debugf("Uploaded resource %q, not found in charm", res.Name)
+			continue
+		}
+		foundRes.Meta = res.Meta
+		chResources[res.Name] = foundRes
 	}
 	results := make([]charmresource.Resource, len(chResources))
 	var i int
