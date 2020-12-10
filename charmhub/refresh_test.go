@@ -72,6 +72,49 @@ func (s *RefreshSuite) TestRefresh(c *gc.C) {
 	c.Assert(responses[0].Name, gc.Equals, id)
 }
 
+//	c.Assert(results.Results[0].Error, gc.ErrorMatches, `.* pool "foo" not found`)
+func (s *RefreshSuite) TestRefeshConfigValidateArch(c *gc.C) {
+	err := s.testRefeshConfigValidate(c, RefreshPlatform{
+		OS:           "ubuntu",
+		Series:       "focal",
+		Architecture: "all",
+	})
+	c.Assert(err, gc.ErrorMatches, "Architecture.*")
+}
+
+func (s *RefreshSuite) TestRefeshConfigValidateSeries(c *gc.C) {
+	err := s.testRefeshConfigValidate(c, RefreshPlatform{
+		OS:           "ubuntu",
+		Series:       "all",
+		Architecture: arch.DefaultArchitecture,
+	})
+	c.Assert(err, gc.ErrorMatches, "Series.*")
+}
+
+func (s *RefreshSuite) TestRefeshConfigValidateOS(c *gc.C) {
+	err := s.testRefeshConfigValidate(c, RefreshPlatform{
+		OS:           "all",
+		Series:       "focal",
+		Architecture: arch.DefaultArchitecture,
+	})
+	c.Assert(err, gc.ErrorMatches, "OS.*")
+}
+
+func (s *RefreshSuite) TestRefeshConfigValidate(c *gc.C) {
+	err := s.testRefeshConfigValidate(c, RefreshPlatform{
+		OS:           "all",
+		Series:       "all",
+		Architecture: "all",
+	})
+	c.Assert(err, gc.ErrorMatches, "Architecture.*, OS.*, Series.*")
+}
+
+func (s *RefreshSuite) testRefeshConfigValidate(c *gc.C, rp RefreshPlatform) error {
+	_, err := DownloadOneFromChannel("meshuggah", "latest/stable", rp)
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	return err
+}
+
 type metadataTransport struct {
 	requestHeaders http.Header
 	responseBody   string
