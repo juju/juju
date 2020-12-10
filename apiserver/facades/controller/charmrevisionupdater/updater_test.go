@@ -6,11 +6,13 @@ package charmrevisionupdater_test
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v8/resource"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	statemocks "github.com/juju/juju/state/mocks"
 )
 
 type updaterSuite struct{}
@@ -46,6 +48,33 @@ func (s *updaterSuite) TestCharmhubUpdate(c *gc.C) {
 
 	state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("ch:mysql-23")).Return(nil)
 	state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("ch:postgresql-42")).Return(nil)
+
+	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, nil, newFakeCharmhubClient)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := updater.UpdateLatestRevisions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+}
+
+func (s *updaterSuite) TestCharmhubUpdateWithResources(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	expectedResources := []resource.Resource{
+		makeResource(c, "reza", 7, 5, "59e1748777448c69de6b800d7a33bbfb9ff1b463e44354c3553bcdb9c666fa90125a3c79f90397bdf5f6a13de828684f"),
+		makeResource(c, "rezb", 1, 6, "03130092073c5ac523ecb21f548b9ad6e1387d1cb05f3cb892fcc26029d01428afbe74025b6c567b6564a3168a47179a"),
+	}
+	resources := statemocks.NewMockResources(ctrl)
+	resources.EXPECT().SetCharmStoreResources("app-1", expectedResources, gomock.Any()).Return(nil).AnyTimes()
+
+	state := makeState(c, ctrl, resources)
+
+	state.EXPECT().AllApplications().Return([]charmrevisionupdater.Application{
+		makeApplication(ctrl, "ch", "resourcey", "charm-3", "app-1", 1),
+	}, nil).AnyTimes()
+
+	state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("ch:resourcey-1")).Return(nil)
 
 	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, nil, newFakeCharmhubClient)
 	c.Assert(err, jc.ErrorIsNil)

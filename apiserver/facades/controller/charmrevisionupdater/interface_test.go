@@ -1,8 +1,6 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// TODO(benhoyt) - add test with some charm resources
-
 package charmrevisionupdater_test
 
 import (
@@ -12,6 +10,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v8/resource"
 	"github.com/juju/charmrepo/v6/csclient"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/errors"
@@ -96,10 +95,46 @@ func makeState(c *gc.C, ctrl *gomock.Controller, resources state.Resources) *Moc
 	return state
 }
 
+func makeResource(c *gc.C, name string, revision, size int, hexFingerprint string) resource.Resource {
+	fingerprint, err := resource.ParseFingerprint(hexFingerprint)
+	c.Assert(err, jc.ErrorIsNil)
+	return resource.Resource{
+		Meta: resource.Meta{
+			Name: name,
+			Type: resource.TypeFile,
+		},
+		Origin:      resource.OriginStore,
+		Revision:    revision,
+		Fingerprint: fingerprint,
+		Size:        int64(size),
+	}
+}
+
 func newFakeCharmhubClient(st charmrevisionupdater.State, metadata map[string]string) (charmrevisionupdater.CharmhubRefreshClient, error) {
+	resources := []transport.ResourceRevision{
+		{
+			Download: transport.ResourceDownload{
+				HashSHA384: "59e1748777448c69de6b800d7a33bbfb9ff1b463e44354c3553bcdb9c666fa90125a3c79f90397bdf5f6a13de828684f",
+				Size:       5,
+			},
+			Name:     "reza",
+			Revision: 7,
+			Type:     "file",
+		},
+		{
+			Download: transport.ResourceDownload{
+				HashSHA384: "03130092073c5ac523ecb21f548b9ad6e1387d1cb05f3cb892fcc26029d01428afbe74025b6c567b6564a3168a47179a",
+				Size:       6,
+			},
+			Name:     "rezb",
+			Revision: 1,
+			Type:     "file",
+		},
+	}
 	charms := map[string]charmhubCharm{
 		"charm-1": {id: "charm-1", name: "mysql", revision: 23},
 		"charm-2": {id: "charm-2", name: "postgresql", revision: 42},
+		"charm-3": {id: "charm-3", name: "resourcey", revision: 1, resources: resources},
 	}
 	return &fakeCharmhubClient{charms: charms, metadata: metadata}, nil
 }
