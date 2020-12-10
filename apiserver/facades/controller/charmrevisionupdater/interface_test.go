@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
+	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/mocks"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cloud"
@@ -31,7 +32,7 @@ func makeApplication(ctrl *gomock.Controller, schema, charmName, charmID, appID 
 		source = "charm-store"
 	}
 
-	app := NewMockApplication(ctrl)
+	app := mocks.NewMockApplication(ctrl)
 	app.EXPECT().CharmURL().Return(&charm.URL{
 		Schema:   schema,
 		Name:     charmName,
@@ -59,7 +60,7 @@ func makeApplication(ctrl *gomock.Controller, schema, charmName, charmID, appID 
 }
 
 func makeModel(c *gc.C, ctrl *gomock.Controller) charmrevisionupdater.Model {
-	model := NewMockModel(ctrl)
+	model := mocks.NewMockModel(ctrl)
 	model.EXPECT().CloudName().Return("testcloud").AnyTimes()
 	model.EXPECT().CloudRegion().Return("juju-land").AnyTimes()
 	uuid := testing.ModelTag.Id()
@@ -76,13 +77,13 @@ func makeModel(c *gc.C, ctrl *gomock.Controller) charmrevisionupdater.Model {
 	return model
 }
 
-func makeState(c *gc.C, ctrl *gomock.Controller, resources state.Resources) *MockState {
+func makeState(c *gc.C, ctrl *gomock.Controller, resources state.Resources) *mocks.MockState {
 	if resources == nil {
 		r := statemocks.NewMockResources(ctrl)
 		r.EXPECT().SetCharmStoreResources(gomock.Any(), gomock.Len(0), gomock.Any()).Return(nil).AnyTimes()
 		resources = r
 	}
-	state := NewMockState(ctrl)
+	state := mocks.NewMockState(ctrl)
 	state.EXPECT().Cloud(gomock.Any()).Return(cloud.Cloud{Type: "cloud"}, nil).AnyTimes()
 	state.EXPECT().ControllerUUID().Return("controller-1").AnyTimes()
 	state.EXPECT().Model().Return(makeModel(c, ctrl), nil).AnyTimes()

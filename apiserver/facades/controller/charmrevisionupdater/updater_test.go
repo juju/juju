@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
+	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/charmhub/transport"
 	statemocks "github.com/juju/juju/state/mocks"
@@ -40,7 +41,7 @@ func (s *updaterSuite) TestCharmhubUpdate(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	client := NewMockCharmhubRefreshClient(ctrl)
+	client := mocks.NewMockCharmhubRefreshClient(ctrl)
 	matcher := charmhubConfigMatcher{expected: []charmhubConfigExpected{
 		{"charm-1", 22},
 		{"charm-2", 41},
@@ -88,7 +89,7 @@ func (s *updaterSuite) TestCharmhubUpdateWithResources(c *gc.C) {
 	resources := statemocks.NewMockResources(ctrl)
 	resources.EXPECT().SetCharmStoreResources("app-1", expectedResources, gomock.Any()).Return(nil).AnyTimes()
 
-	client := NewMockCharmhubRefreshClient(ctrl)
+	client := mocks.NewMockCharmhubRefreshClient(ctrl)
 	matcher := charmhubConfigMatcher{expected: []charmhubConfigExpected{
 		{"charm-3", 1},
 	}}
@@ -144,7 +145,7 @@ func (s *updaterSuite) TestCharmhubNoUpdate(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	client := NewMockCharmhubRefreshClient(ctrl)
+	client := mocks.NewMockCharmhubRefreshClient(ctrl)
 	matcher := charmhubConfigMatcher{expected: []charmhubConfigExpected{
 		{"charm-2", 42},
 	}}
@@ -177,7 +178,7 @@ func (s *updaterSuite) TestCharmNotInStore(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	charmhubClient := NewMockCharmhubRefreshClient(ctrl)
+	charmhubClient := mocks.NewMockCharmhubRefreshClient(ctrl)
 	charmhubClient.EXPECT().Refresh(gomock.Any(), gomock.Any()).Return([]transport.RefreshResponse{}, nil)
 
 	state := makeState(c, ctrl, nil)
