@@ -209,7 +209,11 @@ func makeChannel(origin params.CharmOrigin) (corecharm.Channel, error) {
 	if track == "" && origin.Risk == "" {
 		return corecharm.Channel{}, nil
 	}
-	return corecharm.MakeChannel(track, origin.Risk, "")
+	ch, err := corecharm.MakeChannel(track, origin.Risk, "")
+	if err != nil {
+		return corecharm.Channel{}, errors.Trace(err)
+	}
+	return ch.Normalize(), nil
 }
 
 func findChannelMap(rev int, preferredChannel corecharm.Channel, channelMaps []transport.InfoChannelMap) (transport.InfoChannelMap, error) {
