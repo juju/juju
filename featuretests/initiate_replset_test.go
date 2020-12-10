@@ -18,7 +18,7 @@ type InitiateSuite struct {
 
 func (s *InitiateSuite) TestInitiateReplicaSet(c *gc.C) {
 	var err error
-	inst := &gitjujutesting.MgoInstance{Params: []string{"--replSet", "juju"}}
+	inst := &gitjujutesting.MgoInstance{EnableReplicaSet: true}
 	err = inst.Start(coretesting.Certs)
 	c.Assert(err, jc.ErrorIsNil)
 	defer inst.Destroy()

@@ -17,7 +17,6 @@ import (
 )
 
 var (
-	logger            = loggo.GetLogger("juju.cmd.jujud.util")
 	EnsureMongoServer = mongo.EnsureServer
 )
 
@@ -84,7 +83,6 @@ func NewEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, 
 		SharedSecret:   si.SharedSecret,
 		SystemIdentity: si.SystemIdentity,
 
-		DataDir:              agentConfig.DataDir(),
 		OplogSize:            oplogSize,
 		SetNUMAControlPolicy: numaCtlPolicy,
 

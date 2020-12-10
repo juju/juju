@@ -202,7 +202,7 @@ type Service struct {
 //
 // If no BackgroundServices are provided, Service will wrap all of the snap's
 // background services.
-func NewService(mainSnap string, serviceName string, conf common.Conf, snapPath string, Channel string, ConfinementPolicy string, backgroundServices []BackgroundService, prerequisites []App) (Service, error) {
+func NewService(mainSnap string, serviceName string, conf common.Conf, snapPath, configDir string, Channel string, ConfinementPolicy string, backgroundServices []BackgroundService, prerequisites []App) (Service, error) {
 	if serviceName == "" {
 		serviceName = mainSnap
 	}
@@ -227,7 +227,7 @@ func NewService(mainSnap string, serviceName string, conf common.Conf, snapPath 
 		executable:     snapPath,
 		app:            app,
 		conf:           conf,
-		configDir:      systemd.EtcSystemdDir,
+		configDir:      configDir,
 	}
 
 	return svc, nil
@@ -252,7 +252,7 @@ func NewServiceFromName(name string, conf common.Conf) (Service, error) {
 	Channel := defaultChannel
 	ConfinementPolicy := defaultConfinementPolicy
 
-	return NewService(name, name, conf, Command, Channel, ConfinementPolicy, BackgroundServices, Prerequisites)
+	return NewService(name, name, conf, Command, systemd.EtcSystemdDir, Channel, ConfinementPolicy, BackgroundServices, Prerequisites)
 
 }
 

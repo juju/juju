@@ -9,7 +9,6 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/arch"
@@ -166,28 +165,6 @@ func (s *dblogSuite) waitForLogs(c *gc.C, entityTag names.Tag) bool {
 // mongo on bionic to have issues, see note below.
 type debugLogDbSuite struct {
 	agenttest.AgentSuite
-	origReplicaSet bool
-}
-
-func (s *debugLogDbSuite) SetUpSuite(c *gc.C) {
-	// Ensure mongod has replicaset enabled.
-	s.origReplicaSet = jujutesting.MgoServer.EnableReplicaSet
-	if !s.origReplicaSet {
-		jujutesting.MgoServer.EnableReplicaSet = true
-		jujutesting.MgoServer.Restart()
-	}
-	s.AgentSuite.SetUpSuite(c)
-}
-
-func (s *debugLogDbSuite) TearDownSuite(c *gc.C) {
-	// Restart mongod without the replicaset enabled so as not to
-	// affect other tests that rely on this mongod instance in this
-	// package.
-	if !s.origReplicaSet {
-		jujutesting.MgoServer.EnableReplicaSet = false
-		jujutesting.MgoServer.Restart()
-	}
-	s.AgentSuite.TearDownSuite(c)
 }
 
 // NOTE: this is terrible, however due to a bug in mongod on bionic

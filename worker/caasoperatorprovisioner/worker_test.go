@@ -217,7 +217,6 @@ apiaddresses:
 - 192.18.1.1:17070
 oldpassword: dxKwhgZPrNzXVTrZSxY1VLHA
 values: {}
-mongoversion: "0.0"
 `[1:], strconv.Quote(coretesting.CACert))),
 		OperatorInfo: []byte(
 			fmt.Sprintf(
@@ -253,7 +252,6 @@ apiaddresses:
 - 192.18.1.1:17070
 oldpassword: dxKwhgZPrNzXVTrZSxY1VLHA
 values: {}
-mongoversion: "0.0"
 `[1:], strconv.Quote(coretesting.CACert))),
 		ConfigMapGeneration: 1,
 	}

@@ -58,7 +58,8 @@ func (*validationSuite) TestValidateJujuDbSnap(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 
 	// via NewService
-	jujudbService, err := snap.NewService("juju-db", "", common.Conf{Desc: "juju-db snap"}, snap.Command, "edge", "jailmode", []snap.BackgroundService{}, []snap.App{})
+	jujudbService, err := snap.NewService("juju-db", "", common.Conf{Desc: "juju-db snap"}, snap.Command, "/ath/to/config", "edge", "jailmode",
+		[]snap.BackgroundService{}, []snap.App{})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(jujudbService.Validate(), jc.ErrorIsNil)
 
@@ -105,9 +106,11 @@ func (*snapSuite) TestSnapListCommandreValidShellCommand(c *gc.C) {
 
 func (*snapSuite) TestConfigOverride(c *gc.C) {
 	conf := common.Conf{Limit: map[string]string{"nofile": "64000"}}
-	svc, err := snap.NewService("juju-db", "", conf, snap.Command, "latest", "strict", []snap.BackgroundService{{
-		Name: "daemon",
-	}}, nil)
+	svc, err := snap.NewService(
+		"juju-db", "", conf, snap.Command, "/path/to/config", "latest", "strict",
+		[]snap.BackgroundService{{
+			Name: "daemon",
+		}}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	dir := c.MkDir()

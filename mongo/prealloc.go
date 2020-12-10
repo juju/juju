@@ -6,19 +6,12 @@ package mongo
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
 
 	"github.com/juju/utils/v2/arch"
-)
-
-const (
-	// preallocAlign must divide all preallocated files' sizes.
-	preallocAlign = 4096
 )
 
 var (
@@ -33,18 +26,8 @@ var (
 	regularOplogSizeMB = 1024
 	smallOplogBoundary = 15360.0
 
-	availSpace   = fsAvailSpace
-	preallocFile = doPreallocFile
+	availSpace = fsAvailSpace
 )
-
-// preallocOplog preallocates the Mongo oplog in the
-// specified Mongo datadabase directory.
-func preallocOplog(dir string, oplogSizeMB int) error {
-	// preallocFiles expects sizes in bytes.
-	sizes := preallocFileSizes(oplogSizeMB * 1024 * 1024)
-	prefix := filepath.Join(dir, "local.")
-	return preallocFiles(prefix, sizes...)
-}
 
 // defaultOplogSize returns the default size in MB for the
 // mongo oplog based on the directory of the mongo database.
@@ -111,87 +94,4 @@ func fsAvailSpace(dir string) (avail float64, err error) {
 		return -1, err
 	}
 	return float64(kilobytes) / 1024, err
-}
-
-// preallocFiles preallocates n data files, zeroed to make
-// up the specified sizes in bytes. The file sizes must be
-// multiples of 4096 bytes.
-//
-// The filenames are constructed by appending the file index
-// to the specified prefix.
-func preallocFiles(prefix string, sizes ...int) error {
-	var err error
-	var createdFiles []string
-	for i, size := range sizes {
-		var created bool
-		filename := fmt.Sprintf("%s%d", prefix, i)
-		created, err = preallocFile(filename, size)
-		if created {
-			createdFiles = append(createdFiles, filename)
-		}
-		if err != nil {
-			break
-		}
-	}
-	if err != nil {
-		logger.Debugf("cleaning up after preallocation failure: %v", err)
-		for _, filename := range createdFiles {
-			if err := os.Remove(filename); err != nil {
-				logger.Errorf("failed to remove %q: %v", filename, err)
-			}
-		}
-	}
-	return err
-}
-
-// preallocFileSizes returns a slice of file sizes
-// that make up the specified total size, exceeding
-// the specified total as necessary to pad the
-// remainder to a multiple of 4096 bytes.
-func preallocFileSizes(totalSize int) []int {
-	// Divide the total size into 512MB chunks, and
-	// then round up the remaining chunk to a multiple
-	// of 4096 bytes.
-	const maxChunkSize = 512 * 1024 * 1024
-	var sizes []int
-	remainder := totalSize % maxChunkSize
-	if remainder > 0 {
-		aligned := remainder + preallocAlign - 1
-		aligned = aligned - (aligned % preallocAlign)
-		sizes = []int{aligned}
-	}
-	for i := 0; i < totalSize/maxChunkSize; i++ {
-		sizes = append(sizes, maxChunkSize)
-	}
-	return sizes
-}
-
-// doPreallocFile creates a file and writes zeroes up to the specified
-// extent. If the file exists already, nothing is done and no error
-// is returned.
-func doPreallocFile(filename string, size int) (created bool, err error) {
-	if size%preallocAlign != 0 {
-		return false, fmt.Errorf("specified size %v for file %q is not a multiple of %d", size, filename, preallocAlign)
-	}
-	f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0700)
-	if os.IsExist(err) {
-		// already exists, don't overwrite
-		return false, nil
-	}
-	if err != nil {
-		return false, fmt.Errorf("failed to open mongo prealloc file %q: %v", filename, err)
-	}
-	defer f.Close()
-	for written := 0; written < size; {
-		n := len(zeroes)
-		if n > (size - written) {
-			n = size - written
-		}
-		n, err := f.Write(zeroes[:n])
-		if err != nil {
-			return true, fmt.Errorf("failed to write to mongo prealloc file %q: %v", filename, err)
-		}
-		written += n
-	}
-	return true, nil
 }

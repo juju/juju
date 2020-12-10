@@ -5,8 +5,9 @@
 package mocks
 
 import (
-	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockLock is a mock of Lock interface
@@ -34,6 +35,7 @@ func (m *MockLock) EXPECT() *MockLockMockRecorder {
 
 // IsUnlocked mocks base method
 func (m *MockLock) IsUnlocked() bool {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsUnlocked")
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -41,21 +43,25 @@ func (m *MockLock) IsUnlocked() bool {
 
 // IsUnlocked indicates an expected call of IsUnlocked
 func (mr *MockLockMockRecorder) IsUnlocked() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsUnlocked", reflect.TypeOf((*MockLock)(nil).IsUnlocked))
 }
 
 // Unlock mocks base method
 func (m *MockLock) Unlock() {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Unlock")
 }
 
 // Unlock indicates an expected call of Unlock
 func (mr *MockLockMockRecorder) Unlock() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unlock", reflect.TypeOf((*MockLock)(nil).Unlock))
 }
 
 // Unlocked mocks base method
 func (m *MockLock) Unlocked() <-chan struct{} {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Unlocked")
 	ret0, _ := ret[0].(<-chan struct{})
 	return ret0
@@ -63,5 +69,6 @@ func (m *MockLock) Unlocked() <-chan struct{} {
 
 // Unlocked indicates an expected call of Unlocked
 func (mr *MockLockMockRecorder) Unlocked() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unlocked", reflect.TypeOf((*MockLock)(nil).Unlocked))
 }

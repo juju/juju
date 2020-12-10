@@ -286,34 +286,6 @@ func DumpTestLogsAfter(timeout time.Duration, c *gc.C, cleaner TestCleanup) {
 	})
 }
 
-type PackageManagerStruct struct {
-	PackageManager    string
-	RepositoryManager string
-	PackageQuery      string
-}
-
-func GetPackageManager() (s PackageManagerStruct, err error) {
-	switch jujuos.HostOS() {
-	case jujuos.CentOS:
-		s.PackageManager = "yum"
-		s.PackageQuery = "yum"
-		s.RepositoryManager = "yum-config-manager --add-repo"
-	case jujuos.OpenSUSE:
-		s.PackageManager = "zypper"
-		s.PackageQuery = "zypper"
-		s.RepositoryManager = "zypper addrepo"
-	case jujuos.Ubuntu:
-		s.PackageManager = "apt-get"
-		s.PackageQuery = "dpkg-query"
-		s.RepositoryManager = "add-apt-repository"
-	default:
-		s.PackageManager = "apt-get"
-		s.PackageQuery = "dpkg-query"
-		s.RepositoryManager = "add-apt-repository"
-	}
-	return s, nil
-}
-
 // GetExportedFields return the exported fields of a struct.
 func GetExportedFields(arg interface{}) set.Strings {
 	t := reflect.TypeOf(arg)

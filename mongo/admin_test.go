@@ -4,34 +4,34 @@
 package mongo_test
 
 import (
-	gitjujutesting "github.com/juju/testing"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/mongo"
-	svctesting "github.com/juju/juju/service/common/testing"
+	"github.com/juju/juju/packaging"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type adminSuite struct {
 	coretesting.BaseSuite
-
-	data *svctesting.FakeServiceData
 }
 
 var _ = gc.Suite(&adminSuite{})
 
 func (s *adminSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-
-	s.data = svctesting.NewFakeServiceData()
-	mongo.PatchService(s.PatchValue, s.data)
+	s.PatchValue(mongo.InstallMongo, func(dep packaging.Dependency, series string) error {
+		return nil
+	})
 }
 
 func (s *adminSuite) setUpMongo(c *gc.C) *mgo.DialInfo {
-	inst := &gitjujutesting.MgoInstance{}
+	inst := &jujutesting.MgoInstance{
+		EnableReplicaSet: true,
+	}
 	err := inst.Start(coretesting.Certs)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { inst.Destroy() })
@@ -51,13 +51,10 @@ func checkRoles(c *gc.C, session *mgo.Session, db, user string, expected []inter
 	for _, role := range info["roles"].([]interface{}) {
 		switch role := role.(type) {
 		case map[string]interface{}:
-			// Mongo 2.6
 			if role["db"] == db {
 				roles = append(roles, role["role"])
 			}
 		default:
-			// Mongo 2.4
-			roles = append(roles, role)
 		}
 	}
 	c.Assert(roles, jc.SameContents, expected)

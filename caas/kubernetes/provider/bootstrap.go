@@ -883,7 +883,7 @@ func (c *controllerStack) buildStorageSpecForController(statefulset *apps.Statef
 func (c *controllerStack) buildContainerSpecForController(statefulset *apps.StatefulSet) error {
 	var wiredTigerCacheSize float32
 	if c.pcfg.Controller.Config.MongoMemoryProfile() == string(mongo.MemoryProfileLow) {
-		wiredTigerCacheSize = mongo.Mongo34LowCacheSize
+		wiredTigerCacheSize = mongo.LowCacheSize
 	}
 	generateContainerSpecs := func(jujudCmd string) []core.Container {
 		var containerSpec []core.Container
