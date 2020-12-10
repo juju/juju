@@ -77,8 +77,9 @@ func (s *providerSuite) TestRegistered(c *gc.C) {
 func (s *providerSuite) TestOpen(c *gc.C) {
 	config := fakeConfig(c)
 	broker, err := s.provider.Open(environs.OpenParams{
-		Cloud:  fakeCloudSpec(),
-		Config: config,
+		ControllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+		Cloud:          fakeCloudSpec(),
+		Config:         config,
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(broker, gc.NotNil)
@@ -94,6 +95,11 @@ func (s *providerSuite) TestOpenMissingCredential(c *gc.C) {
 	spec := fakeCloudSpec()
 	spec.Credential = nil
 	s.testOpenError(c, spec, `missing credential not valid`)
+}
+
+func (s *providerSuite) TestOpenMissingControllerUUID(c *gc.C) {
+	spec := fakeCloudSpec()
+	s.testOpenError(c, spec, `controllerUUID is required not valid`)
 }
 
 func (s *providerSuite) TestOpenUnsupportedCredential(c *gc.C) {

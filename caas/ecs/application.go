@@ -71,7 +71,7 @@ func (a *app) labels(extra map[string]string) map[string]*string {
 	tags := tags.ResourceTags(
 		names.NewModelTag(a.modelUUID),
 		names.NewControllerTag(a.controllerUUID),
-		// TODO(ecs): support model config ResourceTags().
+		// TODO(ecs): support model config.ResourceTags().
 	)
 	for k, v := range extra {
 		tags[k] = v
@@ -85,8 +85,74 @@ func (a *app) resourceName() string {
 
 // Delete deletes the specified application.
 func (a *app) Delete() error {
-	// TODO(ecs)
+	if err := a.deleteService(); err != nil {
+		return errors.Trace(err)
+	}
+	if err := a.deleteTaskDefinitions(); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
+}
+
+func (a *app) deleteService() error {
+	_, err := a.client.DeleteService(&ecs.DeleteServiceInput{
+		Cluster: aws.String(a.clusterName),
+		Service: aws.String(a.resourceName()),
+		Force:   aws.Bool(true),
+	})
+	err = a.handleErr(err)
+	if errors.IsNotFound(err) {
+		logger.Tracef("deleting service %q in cluster %q, err -> %v", a.resourceName(), a.clusterName, err)
+		return nil
+	}
+	return errors.Trace(err)
+}
+
+const deleteTaskDefinitionTimeout = 30 * time.Second
+
+func (a *app) deleteTaskDefinitions() error {
+	ctx, cancel := context.WithTimeout(context.Background(), deleteTaskDefinitionTimeout)
+	defer cancel()
+
+	result, err := a.client.ListTaskDefinitionsWithContext(ctx,
+		&ecs.ListTaskDefinitionsInput{
+			FamilyPrefix: aws.String(a.resourceName()),
+		},
+	)
+	err = a.handleErr(err)
+	if errors.IsNotFound(err) {
+		logger.Tracef("listing task definitions for family %q in cluster %q, err: %v", a.resourceName(), a.clusterName, err)
+		return nil
+	}
+	if err != nil {
+		errors.Trace(err)
+	}
+	for _, arn := range result.TaskDefinitionArns {
+		// Unfortunately, no bulk deregistering API available.
+		// And we can't do it concurrently to avoid hitting the API rate limit.
+		if err = a.deregisterTaskDefinition(arn); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+// deregisterTaskDefinition deregisters the task definition.
+// taskDefinitionID can be "family:revision" or full Amazon Resource Name (ARN)
+// of the task definition.
+func (a *app) deregisterTaskDefinition(taskDefinitionID *string) error {
+	if taskDefinitionID == nil {
+		return nil
+	}
+	_, err := a.client.DeregisterTaskDefinition(&ecs.DeregisterTaskDefinitionInput{
+		TaskDefinition: taskDefinitionID,
+	})
+	err = a.handleErr(err)
+	if errors.IsNotFound(err) {
+		logger.Tracef("deregistering task definition %q in cluster %q, err: %v", aws.StringValue(taskDefinitionID), a.clusterName, err)
+		return nil
+	}
+	return errors.Trace(err)
 }
 
 func strPtrSlice(in ...string) (out []*string) {
@@ -463,7 +529,7 @@ func (a *app) Units() (units []caas.Unit, err error) {
 		for _, failure := range tasks.Failures {
 			failures = " | " + failure.String()
 		}
-		logger.Warningf("a.client.DescribeTasks(%#v), tasks.Failures -> %q", result.TaskArns, failures)
+		logger.Warningf("a.client.DescribeTasks(%#v), tasks.Failures: %q", result.TaskArns, failures)
 	}
 	for _, t := range tasks.Tasks {
 		logger.Warningf("Units() task -> %s", pretty.Sprint(t))
@@ -561,6 +627,7 @@ func (a *app) Watch() (watcher.NotifyWatcher, error) {
 		}
 		return false, nil
 	}
+	// Implement API result cache for better performance.
 	return newNotifyWatcher(a.name, a.clock, hasNewEvents)
 }
 
@@ -594,7 +661,7 @@ func (a *app) ensureECSService(taskDefinitionID string) (err error) {
 		TaskDefinition: aws.String(taskDefinitionID),
 	}
 	result, err := a.client.UpdateService(updateInput)
-	logger.Tracef("ensuring service updating %q err -> %v result -> %s", taskDefinitionID, err, pretty.Sprint(result))
+	logger.Tracef("ensuring service updating %q err: %v result: %s", taskDefinitionID, err, pretty.Sprint(result))
 	err = a.handleErr(err)
 	if errors.IsNotFound(err) {
 		createInput := &ecs.CreateServiceInput{
@@ -605,7 +672,7 @@ func (a *app) ensureECSService(taskDefinitionID string) (err error) {
 		}
 		var createResult *ecs.CreateServiceOutput
 		createResult, err = a.client.CreateService(createInput)
-		logger.Tracef("ensuring service creating %q err -> %v result -> %s", taskDefinitionID, err, pretty.Sprint(createResult))
+		logger.Tracef("ensuring service creating %q err: %v result: %s", taskDefinitionID, err, pretty.Sprint(createResult))
 		err = a.handleErr(err)
 	}
 	return errors.Trace(err)

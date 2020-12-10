@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
-	// "github.com/juju/juju/caas/ecs/constants"
 	coreresources "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/storage"
 )
@@ -42,10 +41,7 @@ func strPtrSlice(in ...string) (out []*string) {
 	return out
 }
 
-func (s *applicationSuite) TestEnsureDeploymentStatelessCreate(c *gc.C) {
-	app, ctrl := s.getApp(c, caas.DeploymentStateless)
-	defer ctrl.Finish()
-
+func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, assertCalls ...*gomock.Call) {
 	registerTaskDefinitionInput := &ecs.RegisterTaskDefinitionInput{
 		Family:      aws.String("test-gitlab"),
 		TaskRoleArn: aws.String(""),
@@ -76,12 +72,10 @@ func (s *applicationSuite) TestEnsureDeploymentStatelessCreate(c *gc.C) {
 						Value: aws.String("gitlab"),
 					},
 					{
-						// TODO(ecs): remove me when we solve the ECS unit's identity issue.
 						Name:  aws.String("JUJU_K8S_POD_NAME"),
 						Value: aws.String("cockroachdb-0"),
 					},
 					{
-						// TODO(ecs): remove me when we solve the ECS unit's identity issue.
 						Name:  aws.String("JUJU_K8S_POD_UUID"),
 						Value: aws.String("c83b286e-8f45-4dbf-b2a6-0c393d93bd6a"),
 					},
@@ -140,7 +134,6 @@ func (s *applicationSuite) TestEnsureDeploymentStatelessCreate(c *gc.C) {
 					"--socket", "/charm/container/pebble.sock",
 					"--append-env", "PATH=$PATH:/charm/bin",
 				),
-				// TODO: Health check/prob
 				Environment: []*ecs.KeyValuePair{
 					{
 						Name:  aws.String("JUJU_CONTAINER_NAME"),
@@ -161,7 +154,6 @@ func (s *applicationSuite) TestEnsureDeploymentStatelessCreate(c *gc.C) {
 					&ecs.MountPoint{
 						ContainerPath: aws.String("/charm/container"),
 						SourceVolume:  aws.String("charm-data-container-gitlab"),
-						// ReadOnly:      aws.Bool(false),
 					},
 				},
 			},
@@ -278,24 +270,16 @@ func (s *applicationSuite) TestEnsureDeploymentStatelessCreate(c *gc.C) {
 		},
 	}
 	gomock.InOrder(
-		s.ecsClient.EXPECT().RegisterTaskDefinition(registerTaskDefinitionInput).Return(&ecs.RegisterTaskDefinitionOutput{
-			TaskDefinition: &ecs.TaskDefinition{
-				Family:   aws.String(s.appName),
-				Revision: aws.Int64(1),
-			},
-		}, nil),
-		s.ecsClient.EXPECT().UpdateService(&ecs.UpdateServiceInput{
-			Cluster:        aws.String("test-cluster"),
-			DesiredCount:   aws.Int64(1),
-			Service:        aws.String("test-gitlab"),
-			TaskDefinition: aws.String("gitlab:1"),
-		}).Return(nil, &ecs.ServiceNotFoundException{}),
-		s.ecsClient.EXPECT().CreateService(&ecs.CreateServiceInput{
-			Cluster:        aws.String("test-cluster"),
-			DesiredCount:   aws.Int64(1),
-			ServiceName:    aws.String("test-gitlab"),
-			TaskDefinition: aws.String("gitlab:1"),
-		}).Return(nil, nil),
+		append(
+			[]*gomock.Call{
+				s.ecsClient.EXPECT().RegisterTaskDefinition(registerTaskDefinitionInput).Return(&ecs.RegisterTaskDefinitionOutput{
+					TaskDefinition: &ecs.TaskDefinition{
+						Family:   aws.String(s.appName),
+						Revision: aws.Int64(1),
+					},
+				}, nil),
+			}, assertCalls...,
+		)...,
 	)
 
 	c.Assert(app.Ensure(
@@ -333,5 +317,71 @@ func (s *applicationSuite) TestEnsureDeploymentStatelessCreate(c *gc.C) {
 			},
 		},
 	), jc.ErrorIsNil)
+}
 
+func (s *applicationSuite) TestEnsureDeploymentStatelessCreate(c *gc.C) {
+	app, ctrl := s.getApp(c, caas.DeploymentStateless)
+	defer ctrl.Finish()
+	s.assertEnsure(c, app,
+		s.ecsClient.EXPECT().UpdateService(&ecs.UpdateServiceInput{
+			Cluster:        aws.String("test-cluster"),
+			DesiredCount:   aws.Int64(1),
+			Service:        aws.String("test-gitlab"),
+			TaskDefinition: aws.String("gitlab:1"),
+		}).Return(nil, &ecs.ServiceNotFoundException{}),
+		s.ecsClient.EXPECT().CreateService(&ecs.CreateServiceInput{
+			Cluster:        aws.String("test-cluster"),
+			DesiredCount:   aws.Int64(1),
+			ServiceName:    aws.String("test-gitlab"),
+			TaskDefinition: aws.String("gitlab:1"),
+		}).Return(nil, nil),
+	)
+}
+
+func (s *applicationSuite) TestEnsureDeploymentStatelessUpdate(c *gc.C) {
+	app, ctrl := s.getApp(c, caas.DeploymentStateless)
+	defer ctrl.Finish()
+	s.assertEnsure(c, app,
+		s.ecsClient.EXPECT().UpdateService(&ecs.UpdateServiceInput{
+			Cluster:        aws.String("test-cluster"),
+			DesiredCount:   aws.Int64(1),
+			Service:        aws.String("test-gitlab"),
+			TaskDefinition: aws.String("gitlab:1"),
+		}).Return(nil, nil),
+	)
+}
+
+func (s *applicationSuite) TestDelete(c *gc.C) {
+	app, ctrl := s.getApp(c, caas.DeploymentStateless)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.ecsClient.EXPECT().DeleteService(&ecs.DeleteServiceInput{
+			Cluster: aws.String("test-cluster"),
+			Service: aws.String("test-gitlab"),
+			Force:   aws.Bool(true),
+		}).Return(nil, nil),
+
+		s.ecsClient.EXPECT().ListTaskDefinitionsWithContext(gomock.Any(), &ecs.ListTaskDefinitionsInput{
+			FamilyPrefix: aws.String("test-gitlab"),
+		}).Return(&ecs.ListTaskDefinitionsOutput{
+			TaskDefinitionArns: []*string{
+				aws.String("arn:aws:ecs:us-east-1:012345678910:task-definition/test-gitlab:1"),
+				aws.String("arn:aws:ecs:us-east-1:012345678910:task-definition/test-gitlab:2"),
+				aws.String("arn:aws:ecs:us-east-1:012345678910:task-definition/test-gitlab:3"),
+			},
+		}, nil),
+
+		s.ecsClient.EXPECT().DeregisterTaskDefinition(&ecs.DeregisterTaskDefinitionInput{
+			TaskDefinition: aws.String("arn:aws:ecs:us-east-1:012345678910:task-definition/test-gitlab:1"),
+		}).Return(nil, nil),
+		s.ecsClient.EXPECT().DeregisterTaskDefinition(&ecs.DeregisterTaskDefinitionInput{
+			TaskDefinition: aws.String("arn:aws:ecs:us-east-1:012345678910:task-definition/test-gitlab:2"),
+		}).Return(nil, nil),
+		s.ecsClient.EXPECT().DeregisterTaskDefinition(&ecs.DeregisterTaskDefinitionInput{
+			TaskDefinition: aws.String("arn:aws:ecs:us-east-1:012345678910:task-definition/test-gitlab:3"),
+		}).Return(nil, nil),
+	)
+
+	c.Assert(app.Delete(), jc.ErrorIsNil)
 }
