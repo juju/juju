@@ -159,7 +159,7 @@ func (s *networkInfoSuite) TestProcessAPIRequestForBinding(c *gc.C) {
 	c.Check(ingress[0], gc.Equals, "100.2.3.4")
 }
 
-func (s *networkInfoSuite) TestAPIRequestForRelationHostNameNoEgress(c *gc.C) {
+func (s *networkInfoSuite) TestAPIRequestForRelationIAASHostNameIngressNoEgress(c *gc.C) {
 	prr := s.newProReqRelation(c, charm.ScopeGlobal)
 	err := prr.pu0.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
@@ -209,6 +209,54 @@ func (s *networkInfoSuite) TestAPIRequestForRelationHostNameNoEgress(c *gc.C) {
 	c.Check(addrs, gc.HasLen, 1)
 	c.Check(addrs[0].Hostname, gc.Equals, host)
 	c.Check(addrs[0].Address, gc.Equals, ip)
+}
+
+func (s *networkInfoSuite) TestAPIRequestForRelationCAASHostNameNoIngress(c *gc.C) {
+	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
+	st := s.Factory.MakeCAASModel(c, nil)
+	defer func() { _ = st.Close() }()
+
+	f := factory.NewFactory(st, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mysql", Series: "kubernetes"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: ch})
+	u := f.MakeUnit(c, &factory.UnitParams{Application: app})
+
+	// The only address is a host-name, resolvable to the IP below.
+	host := "host.at.somewhere"
+	ip := "100.2.3.4"
+
+	lookup := func(addr string) ([]string, error) {
+		if addr == host {
+			return []string{ip}, nil
+		}
+		return nil, errors.New("bad horsey")
+	}
+
+	err := app.UpdateCloudService("", network.SpaceAddresses{
+		network.NewScopedSpaceAddress(host, network.ScopePublic),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// We need to instantiate this with the new CAAS model state.
+	netInfo, err := uniter.NewNetworkInfoForStrategy(st, u.UnitTag(), nil, lookup)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := netInfo.ProcessAPIRequest(params.NetworkInfoParams{
+		Unit:      u.UnitTag().String(),
+		Endpoints: []string{"server"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	res := result.Results
+	c.Assert(res, gc.HasLen, 1)
+
+	binding, ok := res["server"]
+	c.Assert(ok, jc.IsTrue)
+
+	ingress := binding.IngressAddresses
+	c.Assert(ingress, gc.HasLen, 1)
+	// The ingress address host name is not resolved.
+	c.Check(ingress[0], gc.Equals, host)
 }
 
 func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {

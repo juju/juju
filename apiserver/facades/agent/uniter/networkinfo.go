@@ -246,24 +246,29 @@ func (n *NetworkInfoBase) getEgressForRelation(
 	return subnetsForAddresses(ingress.Values()), nil
 }
 
-func (n *NetworkInfoBase) resolveResultHostNames(netInfoResult params.NetworkInfoResult) params.NetworkInfoResult {
-	// Resolve addresses in Info.
-	for i, info := range netInfoResult.Info {
+// resolveResultInfoHostNames returns a new NetworkInfoResult with host names
+// in the `Info` member resolved to IP addresses where possible.
+func (n *NetworkInfoBase) resolveResultInfoHostNames(netInfo params.NetworkInfoResult) params.NetworkInfoResult {
+	for i, info := range netInfo.Info {
 		for j, addr := range info.Addresses {
 			if ip := net.ParseIP(addr.Address); ip == nil {
 				// If the address is not an IP, we assume it is a host name.
 				addr.Hostname = addr.Address
 				addr.Address = n.resolveHostAddress(addr.Hostname)
-				netInfoResult.Info[i].Addresses[j] = addr
+				netInfo.Info[i].Addresses[j] = addr
 			}
 		}
 	}
+	return netInfo
+}
 
-	// Resolve addresses in IngressAddresses.
-	// This is slightly different to the addresses above in that we do not
-	// include anything that does not resolve to a usable address.
+// resolveResultIngressHostNames returns a new NetworkInfoResult with host names
+// in the `IngressAddresses` member resolved to IP addresses where possible.
+// This is slightly different to the `Info` addresses above in that we do not
+// include anything that does not resolve to a usable address.
+func (n *NetworkInfoBase) resolveResultIngressHostNames(netInfo params.NetworkInfoResult) params.NetworkInfoResult {
 	var newIngress []string
-	for _, addr := range netInfoResult.IngressAddresses {
+	for _, addr := range netInfo.IngressAddresses {
 		if ip := net.ParseIP(addr); ip != nil {
 			newIngress = append(newIngress, addr)
 			continue
@@ -272,9 +277,9 @@ func (n *NetworkInfoBase) resolveResultHostNames(netInfoResult params.NetworkInf
 			newIngress = append(newIngress, ipAddr)
 		}
 	}
-	netInfoResult.IngressAddresses = newIngress
+	netInfo.IngressAddresses = newIngress
 
-	return netInfoResult
+	return netInfo
 }
 
 func (n *NetworkInfoBase) resolveHostAddress(hostName string) string {
