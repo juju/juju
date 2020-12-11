@@ -64,12 +64,12 @@ func (s *upgradeSuite) SetUpSuite(c *gc.C) {
 	// Speed up the watcher frequency to make the test much faster.
 	s.PatchValue(&watcher.Period, 200*time.Millisecond)
 
-	agenttest.InstallFakeEnsureMongo(s)
 	s.PatchValue(&agentcmd.ProductionMongoWriteConcern, false)
 }
 
 func (s *upgradeSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
+	agenttest.InstallFakeEnsureMongo(s, s.DataDir())
 
 	s.oldVersion = coretesting.CurrentVersion(c)
 	s.oldVersion.Major--

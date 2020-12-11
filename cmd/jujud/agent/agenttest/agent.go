@@ -42,10 +42,18 @@ type patchingSuite interface {
 
 // InstallFakeEnsureMongo creates a new FakeEnsureMongo, patching
 // out replicaset.CurrentConfig and cmdutil.EnsureMongoServer.
-func InstallFakeEnsureMongo(suite patchingSuite) *FakeEnsureMongo {
+func InstallFakeEnsureMongo(suite patchingSuite, dataDir string) *FakeEnsureMongo {
 	f := &FakeEnsureMongo{}
 	suite.PatchValue(&replicaset.CurrentConfig, f.CurrentConfig)
 	suite.PatchValue(&cmdutil.EnsureMongoServer, f.EnsureMongo)
+	ensureParams := cmdutil.NewEnsureServerParams
+	suite.PatchValue(&cmdutil.NewEnsureServerParams, func(agentConfig agent.Config) (mongo.EnsureServerParams, error) {
+		params, err := ensureParams(agentConfig)
+		if err == nil {
+			params.DataDir = dataDir
+		}
+		return params, err
+	})
 	return f
 }
 

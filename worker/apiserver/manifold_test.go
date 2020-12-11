@@ -137,7 +137,7 @@ func (s *ManifoldSuite) newMetricsCollector() *coreapiserver.Collector {
 
 var expectedInputs = []string{
 	"agent", "authenticator", "clock", "modelcache", "multiwatcher", "mux",
-	"restore-status", "state", "upgrade", "auditconfig-updater", "lease-manager",
+	"state", "upgrade", "auditconfig-updater", "lease-manager",
 	"raft-transport",
 }
 

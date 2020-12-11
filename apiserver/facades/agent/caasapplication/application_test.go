@@ -183,9 +183,8 @@ func (s *CAASApplicationSuite) TestAgentConf(c *gc.C) {
 			"10.0.2.1:17070",
 			"52.7.1.1:17070",
 		},
-		"oldpassword":  "ignore",
-		"values":       nil,
-		"mongoversion": "0.0",
+		"oldpassword": "ignore",
+		"values":      nil,
 	})
 }
 

@@ -208,7 +208,6 @@ func (md *mongoDumper) Dump(baseDumpDir string) error {
 
 	// Strip the ignored database from the dump dir.
 	ignored := found.Difference(md.Targets)
-	ignored.Remove("admin")
 	err = stripIgnored(ignored, baseDumpDir)
 	return errors.Trace(err)
 }

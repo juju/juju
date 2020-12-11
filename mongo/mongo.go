@@ -61,7 +61,9 @@ type WithAddresses interface {
 
 // IsMaster returns a boolean that represents whether the given
 // machine's peer address is the primary mongo host for the replicaset
-func IsMaster(session *mgo.Session, obj WithAddresses) (bool, error) {
+var IsMaster = isMaster
+
+func isMaster(session *mgo.Session, obj WithAddresses) (bool, error) {
 	addrs := obj.Addresses()
 
 	masterHostPort, err := replicaset.MasterHostPort(session)

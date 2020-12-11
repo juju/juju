@@ -127,13 +127,6 @@ func TestingRestrictedRoot(check func(string, string) error) rpc.Root {
 	return restrictRoot(r, check)
 }
 
-// TestingAboutToRestoreRoot returns a limited root which allows
-// methods as per when a restore is about to happen.
-func TestingAboutToRestoreRoot() rpc.Root {
-	r := TestingAPIRoot(AllFacades())
-	return restrictRoot(r, aboutToRestoreMethodsOnly)
-}
-
 // TestingUpgradeOrMigrationOnlyRoot returns a restricted srvRoot
 // as if called from a newer client.
 func TestingUpgradeOrMigrationOnlyRoot(userLogin bool, clientVersion version.Number) rpc.Root {

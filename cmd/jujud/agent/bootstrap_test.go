@@ -116,7 +116,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.logDir = c.MkDir()
 	s.bootstrapParamsFile = filepath.Join(s.dataDir, "bootstrap-params")
 	s.mongoOplogSize = "1234"
-	s.fakeEnsureMongo = agenttest.InstallFakeEnsureMongo(s)
+	s.fakeEnsureMongo = agenttest.InstallFakeEnsureMongo(s, s.dataDir)
 	s.PatchValue(&initiateMongoServer, s.fakeEnsureMongo.InitiateMongo)
 	s.makeTestModel(c)
 
@@ -341,7 +341,6 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	c.Assert(s.fakeEnsureMongo.DataDir, gc.Equals, s.dataDir)
 	c.Assert(s.fakeEnsureMongo.InitiateCount, gc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.EnsureCount, gc.Equals, 1)
-	c.Assert(s.fakeEnsureMongo.DataDir, gc.Equals, s.dataDir)
 	c.Assert(s.fakeEnsureMongo.OplogSize, gc.Equals, 1234)
 
 	expectInfo, exists := machConf.StateServingInfo()

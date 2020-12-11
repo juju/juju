@@ -46,7 +46,9 @@ func AgentDone(logger loggo.Logger, err error) error {
 
 // NewEnsureServerParams creates an EnsureServerParams from an agent
 // configuration.
-func NewEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, error) {
+var NewEnsureServerParams = newEnsureServerParams
+
+func newEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, error) {
 	// If oplog size is specified in the agent configuration, use that.
 	// Otherwise leave the default zero value to indicate to EnsureServer
 	// that it should calculate the size.
