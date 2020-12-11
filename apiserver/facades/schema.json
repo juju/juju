@@ -5216,12 +5216,6 @@
                 "BackupsMetadataResult": {
                     "type": "object",
                     "properties": {
-                        "ca-cert": {
-                            "type": "string"
-                        },
-                        "ca-private-key": {
-                            "type": "string"
-                        },
                         "checksum": {
                             "type": "string"
                         },
@@ -5298,8 +5292,6 @@
                         "hostname",
                         "version",
                         "series",
-                        "ca-cert",
-                        "ca-private-key",
                         "filename",
                         "format-version",
                         "controller-uuid",

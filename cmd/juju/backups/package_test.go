@@ -17,7 +17,6 @@ import (
 	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 
-	apibackups "github.com/juju/juju/api/backups"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/backups"
@@ -254,13 +253,5 @@ func (c *fakeAPIClient) Remove(id ...string) ([]params.ErrorResult, error) {
 }
 
 func (c *fakeAPIClient) Close() error {
-	return nil
-}
-
-func (c *fakeAPIClient) RestoreReader(io.ReadSeeker, *params.BackupsMetadataResult, apibackups.ClientConnection) error {
-	return nil
-}
-
-func (c *fakeAPIClient) Restore(string, apibackups.ClientConnection) error {
 	return nil
 }

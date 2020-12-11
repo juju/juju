@@ -11,7 +11,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
 
 	"github.com/juju/errors"
@@ -128,27 +127,6 @@ func (a *App) StartCommands(executable string) []string {
 		commands = append(commands, command)
 	}
 	return commands
-}
-
-// IsRunning indicates whether Snap is currently running on the system.
-// When the snap command (normally installed to /usr/bin/snap) cannot be
-// detected, IsRunning returns (false, nil). Other errors result in (false, err).
-func IsRunning() (bool, error) {
-	if runtime.GOOS == "windows" {
-		return false, nil
-	}
-
-	cmd := exec.Command(Command, "version")
-	out, err := cmd.CombinedOutput()
-	logger.Debugf("snap version output: %#v", string(out[:]))
-	if err == nil {
-		return true, nil
-	}
-	if common.IsCmdNotFoundErr(err) {
-		return false, nil
-	}
-
-	return false, errors.Annotatef(err, "exec %q failed", Command)
 }
 
 // SetSnapConfig sets a snap's key to value.

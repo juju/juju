@@ -165,14 +165,6 @@ func CreateResult(meta *backups.Metadata, filename string) params.BackupsMetadat
 	result.HANodes = meta.Controller.HANodes
 	result.ControllerMachineID = meta.Controller.MachineID
 	result.ControllerMachineInstanceID = meta.Controller.MachineInstanceID
-	// TODO(wallyworld) - remove these ASAP
-	// These are only used by the restore CLI when re-bootstrapping.
-	// We will use a better solution but the way restore currently
-	// works, we need them and they are no longer available via
-	// bootstrap config. We will need to fix how re-bootstrap deals
-	// with these keys to address the issue.
-	result.CACert = meta.CACert
-	result.CAPrivateKey = meta.CAPrivateKey
 	result.Filename = filename
 
 	return result

@@ -7,7 +7,6 @@ import (
 	"io"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/filestorage"
 	gc "gopkg.in/check.v1"
@@ -110,14 +109,6 @@ func (b *FakeBackups) Remove(id string) error {
 	b.Calls = append(b.Calls, "Remove")
 	b.IDArg = id
 	return errors.Trace(b.Error)
-}
-
-// Restore restores a machine to a backed up status.
-func (b *FakeBackups) Restore(bkpId string, args backups.RestoreArgs) (names.Tag, error) {
-	b.Calls = append(b.Calls, "Restore")
-	b.PrivateAddr = args.PrivateAddress
-	b.InstanceId = args.NewInstId
-	return nil, errors.Trace(b.Error)
 }
 
 // TODO(ericsnow) FakeStorage should probably move over to the utils repo.

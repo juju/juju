@@ -248,7 +248,7 @@ func restrictAPIRoot(
 }
 
 // restrictAPIRootDuringMaintenance restricts the API root during
-// maintenance events (upgrade, restore, or migration), depending
+// maintenance events (upgrade or migration), depending
 // on the authenticated client.
 func restrictAPIRootDuringMaintenance(
 	srv *Server,

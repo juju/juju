@@ -428,7 +428,6 @@ var commandNames = []string{
 	"resolved",
 	"resolve",
 	"resources",
-	"restore-backup",
 	"resume-relation",
 	"retry-provisioning",
 	"revoke",

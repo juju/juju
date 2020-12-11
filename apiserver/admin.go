@@ -371,7 +371,7 @@ func (a *admin) handleAuthError(err error) error {
 		return err
 	}
 	if a.maintenanceInProgress() {
-		// An upgrade, restore or similar operation is in
+		// An upgrade, migration or similar operation is in
 		// progress. It is possible for logins to fail until this
 		// is complete due to incomplete or updating data. Mask
 		// transitory and potentially confusing errors from failed

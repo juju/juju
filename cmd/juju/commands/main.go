@@ -363,7 +363,6 @@ func registerCommands(r commandRegistry) {
 	r.Register(backups.NewShowCommand())
 	r.Register(backups.NewListCommand())
 	r.Register(backups.NewRemoveCommand())
-	r.Register(backups.NewRestoreCommand())
 	r.Register(backups.NewUploadCommand())
 
 	// Manage authorized ssh keys.
