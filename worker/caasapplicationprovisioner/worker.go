@@ -83,7 +83,7 @@ func NewProvisionerWorker(config Config) (worker.Worker, error) {
 			Clock:        config.Clock,
 			IsFatal:      func(error) bool { return false },
 			RestartDelay: 3 * time.Second,
-			Logger:       config.Logger,
+			Logger:       config.Logger.Child("runner"),
 		}),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
@@ -143,7 +143,7 @@ func (p *provisioner) loop() error {
 					Broker:   p.broker,
 					ModelTag: p.modelTag,
 					Clock:    p.clock,
-					Logger:   p.logger,
+					Logger:   p.logger.Child("applicationworker"),
 				}
 				startFunc := p.newAppWorker(config)
 				err = p.runner.StartWorker(app, startFunc)
