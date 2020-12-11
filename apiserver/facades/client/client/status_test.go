@@ -16,12 +16,13 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/client"
+	"github.com/juju/juju/apiserver/facades/client/client/testing"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
-	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/testing"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
@@ -800,7 +801,6 @@ type statusUpgradeUnitSuite struct {
 	jujutesting.JujuConnSuite
 
 	charmrevisionupdater *charmrevisionupdater.CharmRevisionUpdaterAPI
-	resources            *common.Resources
 	authoriser           apiservertesting.FakeAuthorizer
 }
 
@@ -814,13 +814,14 @@ func (s *statusUpgradeUnitSuite) SetUpSuite(c *gc.C) {
 func (s *statusUpgradeUnitSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.CharmSuite.SetUpTest(c)
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
-	s.authoriser = apiservertesting.FakeAuthorizer{
-		Controller: true,
+
+	state := charmrevisionupdater.StateShim{State: s.State}
+	newClient := func(st charmrevisionupdater.State) (charmstore.Client, error) {
+		return charmstore.NewCustomClient(s.Store), nil
 	}
+
 	var err error
-	s.charmrevisionupdater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPI(s.State, s.resources, s.authoriser)
+	s.charmrevisionupdater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, newClient, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
