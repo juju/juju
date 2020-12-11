@@ -39,14 +39,7 @@ func (c *FindClient) Find(ctx context.Context, query string) ([]transport.FindRe
 		return nil, errors.Trace(err)
 	}
 
-	var fields string
-	if query != "" {
-		fields = defaultFindFilter()
-	} else {
-		fields = subsetFindFilter()
-	}
-
-	path, err = path.Query("fields", fields)
+	path, err = path.Query("fields", defaultFindFilter())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -71,36 +64,20 @@ func (c *FindClient) Find(ctx context.Context, query string) ([]transport.FindRe
 // necessary to fill the transport.FindResponse.  Without it, we'd
 // receive the Name, ID and Type.
 func defaultFindFilter() string {
-	filter := defaultResultFilter
-	filter = append(filter, appendFilterList("default-release.revision", defaultDownloadFilter)...)
-	filter = append(filter, appendFilterList("default-release", findRevisionFilter)...)
-	filter = append(filter, appendFilterList("default-release", defaultChannelFilter)...)
+	filter := defaultFindResultFilter
+	filter = append(filter, appendFilterList("default-release", defaultRevisionFilter)...)
 	return strings.Join(filter, ",")
 }
 
-// subsetFindFilter returns a filter subset for all the data we need for a large
-// search.
-func subsetFindFilter() string {
-	filter := subsetResultFilter
-	filter = append(filter, appendFilterList("default-release", subsetRevisionFilter)...)
-	return strings.Join(filter, ",")
-}
-
-var findRevisionFilter = []string{
-	"revision.created-at",
-	"revision.platforms.architecture",
-	"revision.platforms.os",
-	"revision.platforms.series",
-	"revision.revision",
-	"revision.version",
-}
-
-var subsetResultFilter = []string{
+var defaultFindResultFilter = []string{
 	"result.publisher.display-name",
 	"result.summary",
+	"result.store-url",
 }
 
-var subsetRevisionFilter = []string{
+var defaultRevisionFilter = []string{
+	"revision.platforms.architecture",
+	"revision.platforms.os",
 	"revision.platforms.series",
 	"revision.version",
 }
