@@ -41,13 +41,6 @@ var defaultResultFilter = []string{
 	"result.website",
 }
 
-var defaultMediaFilter = []string{
-	"result.media.height",
-	"result.media.type",
-	"result.media.url",
-	"result.media.width",
-}
-
 var defaultDownloadFilter = []string{
 	"download.hash-sha-256",
 	"download.size",

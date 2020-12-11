@@ -31,7 +31,6 @@ type Entity struct {
 	Charms      []Charm           `json:"contains-charms"`
 	Description string            `json:"description"`
 	License     string            `json:"license"`
-	Media       []Media           `json:"media"`
 	Publisher   map[string]string `json:"publisher"`
 	Summary     string            `json:"summary"`
 	UsedBy      []string          `json:"used-by"`
@@ -41,13 +40,6 @@ type Entity struct {
 type Category struct {
 	Featured bool   `json:"featured"`
 	Name     string `json:"name"`
-}
-
-type Media struct {
-	Type   string `json:"type"`
-	URL    string `json:"url"`
-	Width  int    `json:"width,omitempty"`
-	Height int    `json:"height,omitempty"`
 }
 
 type Charm struct {

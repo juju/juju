@@ -104,7 +104,6 @@ func (c *InfoClient) Info(ctx context.Context, name string, options ...InfoOptio
 // receive the Name, ID and Type.
 func defaultInfoFilter() string {
 	filter := defaultResultFilter
-	filter = append(filter, defaultMediaFilter...)
 	filter = append(filter, appendFilterList("default-release.revision", defaultDownloadFilter)...)
 	filter = append(filter, appendFilterList("default-release", infoDefaultRevisionFilter)...)
 	filter = append(filter, appendFilterList("default-release", defaultChannelFilter)...)

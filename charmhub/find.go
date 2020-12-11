@@ -72,7 +72,6 @@ func (c *FindClient) Find(ctx context.Context, query string) ([]transport.FindRe
 // receive the Name, ID and Type.
 func defaultFindFilter() string {
 	filter := defaultResultFilter
-	filter = append(filter, defaultMediaFilter...)
 	filter = append(filter, appendFilterList("default-release.revision", defaultDownloadFilter)...)
 	filter = append(filter, appendFilterList("default-release", findRevisionFilter)...)
 	filter = append(filter, appendFilterList("default-release", defaultChannelFilter)...)
