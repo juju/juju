@@ -81,13 +81,13 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 	if err != nil {
 		return nil, params.CharmOrigin{}, nil, errors.Trace(err)
 	}
-	resURL, resOrigin, serie, err := c.resolveViaChannelMap(info.Type, curl, origin, channelMap)
+	resURL, resOrigin, series, err := c.resolveViaChannelMap(info.Type, curl, origin, channelMap)
 	if err != nil {
 		return nil, params.CharmOrigin{}, nil, errors.Trace(err)
 	}
 
 	resOrigin.ID = info.ID
-	return resURL, resOrigin, serie, nil
+	return resURL, resOrigin, series, nil
 }
 
 // DownloadCharm downloads the provided download URL from CharmHub using the
@@ -174,10 +174,7 @@ func refreshConfig(curl *charm.URL, origin corecharm.Origin) (charmhub.RefreshCo
 		err error
 
 		platform = charmhub.RefreshPlatform{
-			// TODO (stickupkid): FIX ME, charmhub ignores architecture
-			// "sometimes"...
-			// Architecture: origin.Platform.Architecture,
-			Architecture: "all",
+			Architecture: origin.Platform.Architecture,
 			OS:           origin.Platform.OS,
 			Series:       origin.Platform.Series,
 		}
