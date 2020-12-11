@@ -772,8 +772,11 @@ func fetchAllApplicationsAndUnits(st Backend, model *state.Model, spaceInfos net
 			unitMap[app.Name()] = appUnits
 			// Record the base URL for the application's charm so that
 			// the latest store revision can be looked up.
-			if charmURL.Schema == "cs" {
+			switch {
+			case charm.CharmHub.Matches(charmURL.Schema), charm.CharmStore.Matches(charmURL.Schema):
 				latestCharms[*charmURL.WithRevision(-1)] = nil
+			default:
+				// Don't look up revision for local charms
 			}
 		}
 
