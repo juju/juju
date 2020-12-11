@@ -6,7 +6,7 @@ run_charmhub_download() {
 
     ensure "test-${name}" "${file}"
 
-    output=$(juju download mysql - 2>&1 > "${TEST_DIR}/mysql.charm" || true)
+    output=$(juju download mysql --filepath="${TEST_DIR}/mysql.charm" 2>&1 || true)
     check_contains "${output}" "Fetching charm \"mysql\""
 
     juju deploy "${TEST_DIR}/mysql.charm" mysql
