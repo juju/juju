@@ -4,6 +4,8 @@
 package featuretests
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/juju/cmd/cmdtesting"
@@ -211,12 +213,22 @@ func (s *debugLogDbSuite1) TestLogsAPI(c *gc.C) {
 		}
 	}(3)
 
+	var unexpectedLogs []string
 	assertMessage := func(expected common.LogMessage) {
-		select {
-		case actual := <-messages:
-			c.Assert(actual, jc.DeepEquals, expected)
-		case <-time.After(coretesting.LongWait):
-			c.Fatal("timed out waiting for log line")
+		for {
+			select {
+			case actual := <-messages:
+				if ok, _ := jc.DeepEqual(actual, expected); ok {
+					return
+				}
+				unexpectedLogs = append(unexpectedLogs, fmt.Sprintf("%#v", actual))
+			case <-time.After(coretesting.LongWait):
+				if len(unexpectedLogs) > 0 {
+					c.Fatalf("timed out waiting for log line, unexpected logs received:\n%v", strings.Join(unexpectedLogs, "\n"))
+				} else {
+					c.Fatal("timed out waiting for log line")
+				}
+			}
 		}
 	}
 
@@ -248,6 +260,7 @@ func (s *debugLogDbSuite1) TestLogsAPI(c *gc.C) {
 		Level:    loggo.WARNING,
 		Message:  "beep beep",
 	}})
+	c.Assert(err, jc.ErrorIsNil)
 	assertMessage(common.LogMessage{
 		Entity:    "not-a-tag",
 		Timestamp: t.Add(2 * time.Second),
@@ -256,7 +269,9 @@ func (s *debugLogDbSuite1) TestLogsAPI(c *gc.C) {
 		Location:  "no.go:3",
 		Message:   "beep beep",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	if len(unexpectedLogs) > 0 {
+		c.Fatalf("unexpected logs received:\n%v", strings.Join(unexpectedLogs, "\n"))
+	}
 }
 
 // NOTE: do not merge with debugLogDbSuite1
