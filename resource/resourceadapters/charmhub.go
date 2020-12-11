@@ -145,7 +145,7 @@ func resourceFromRevision(name string, revs []transport.ResourceRevision) (charm
 		Meta: charmresource.Meta{
 			Name:        rev.Name,
 			Type:        resType,
-			Path:        rev.Path,
+			Path:        rev.Filename,
 			Description: rev.Description,
 		},
 		Origin:   charmresource.OriginStore,

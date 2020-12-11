@@ -34,13 +34,13 @@ func (s *CharmHubClientSuite) TestResolveResources(c *gc.C) {
 	fp, err := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := s.newClient().ResolveResources([]charmresource.Resource{{
-		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "", Description: ""},
+		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:      charmresource.OriginUpload,
 		Revision:    1,
 		Fingerprint: fp,
 		Size:        0,
 	}, {
-		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "", Description: ""},
+		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:      charmresource.OriginStore,
 		Revision:    2,
 		Fingerprint: fp,
@@ -48,13 +48,13 @@ func (s *CharmHubClientSuite) TestResolveResources(c *gc.C) {
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []charmresource.Resource{{
-		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "", Description: ""},
+		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:      charmresource.OriginUpload,
 		Revision:    1,
 		Fingerprint: fp,
 		Size:        0,
 	}, {
-		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "", Description: ""},
+		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:      charmresource.OriginStore,
 		Revision:    2,
 		Fingerprint: fp,
@@ -73,14 +73,14 @@ func (s *CharmHubClientSuite) TestResolveResourcesFromStore(c *gc.C) {
 	fp, err := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := s.newClient().ResolveResources([]charmresource.Resource{{
-		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "", Description: ""},
+		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:   charmresource.OriginStore,
 		Revision: 1,
 		Size:     0,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []charmresource.Resource{{
-		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "", Description: ""},
+		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:      charmresource.OriginStore,
 		Revision:    1,
 		Fingerprint: fp,
@@ -97,7 +97,7 @@ func (s *CharmHubClientSuite) TestResolveResourcesNoMatchingRevision(c *gc.C) {
 	s.expectRefreshWithRevision(99)
 
 	_, err := s.newClient().ResolveResources([]charmresource.Resource{{
-		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "", Description: ""},
+		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:   charmresource.OriginStore,
 		Revision: 1,
 		Size:     0,
@@ -112,7 +112,7 @@ func (s *CharmHubClientSuite) TestResolveResourcesUpload(c *gc.C) {
 	s.expectRefresh()
 
 	result, err := s.newClient().ResolveResources([]charmresource.Resource{{
-		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "", Description: ""},
+		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:   1,
 		Revision: 3,
 		Fingerprint: charmresource.Fingerprint{
@@ -121,7 +121,7 @@ func (s *CharmHubClientSuite) TestResolveResourcesUpload(c *gc.C) {
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []charmresource.Resource{{
-		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "", Description: ""},
+		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:   1,
 		Revision: 3,
 		Fingerprint: charmresource.Fingerprint{
@@ -173,8 +173,8 @@ func (s *CharmHubClientSuite) expectRefreshWithRevision(rev int) {
 						Name:        "wal-e",
 						Revision:    rev,
 						Type:        "file",
-						Path:        "",
-						Description: "",
+						Filename:    "wal-e.snap",
+						Description: "WAL-E Snap Package",
 					},
 				},
 				Summary: "PostgreSQL object-relational SQL database (supported version)",
