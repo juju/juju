@@ -853,9 +853,10 @@ class ModelClient:
 
     def get_bootstrap_args(
             self, upload_tools, config_filename, bootstrap_series=None,
-            credential=None, auto_upgrade=False, metadata_source=None,
-            no_gui=False, agent_version=None, db_snap_path=None,
-            db_snap_asserts_path=None, force=False, config_options=None):
+            arch=None, credential=None, auto_upgrade=False,
+            metadata_source=None, no_gui=False, agent_version=None,
+            db_snap_path=None, db_snap_asserts_path=None, force=False,
+            config_options=None):
         """Return the bootstrap arguments for the substrate."""
         cloud_region = self.get_cloud_region(self.env.get_cloud(),
                                              self.env.get_region())
@@ -868,7 +869,7 @@ class ModelClient:
             return tuple(args)
 
         args += [
-            '--constraints', self._get_substrate_constraints(),
+            '--constraints', self._get_substrate_constraints(arch),
             '--default-model', self.env.environment
         ]
         if force:
@@ -994,11 +995,11 @@ class ModelClient:
     def update_user_name(self):
         self.env.user_name = 'admin'
 
-    def bootstrap(self, upload_tools=False, bootstrap_series=None,
+    def bootstrap(self, upload_tools=False, bootstrap_series=None, arch=None,
                   credential=None, auto_upgrade=False, metadata_source=None,
                   no_gui=False, agent_version=None, db_snap_path=None,
-                  db_snap_asserts_path=None, mongo_memory_profile=None, caas_image_repo=None, force=False,
-                  config_options=None):
+                  db_snap_asserts_path=None, mongo_memory_profile=None,
+                  caas_image_repo=None, force=False, config_options=None):
         """Bootstrap a controller."""
         self._check_bootstrap()
         with self._bootstrap_config(
@@ -1008,6 +1009,7 @@ class ModelClient:
                 upload_tools=upload_tools,
                 config_filename=config_filename,
                 bootstrap_series=bootstrap_series,
+                arch=arch,
                 credential=credential,
                 auto_upgrade=auto_upgrade,
                 metadata_source=metadata_source,
@@ -1492,17 +1494,19 @@ class ModelClient:
     def _maas_spaces_enabled():
         return not os.environ.get("JUJU_CI_SPACELESSNESS")
 
-    def _get_substrate_constraints(self):
+    def _get_substrate_constraints(self, arch):
+        cons = []
+        if arch is not None:
+            cons.append("arch={}".format(arch))
         if self.env.maas and self._maas_spaces_enabled():
             # For now only maas support spaces in a meaningful way.
-            return 'spaces={}'.format(','.join(
-                '^' + space for space in sorted(self.excluded_spaces)))
+            cons.append('spaces={}'.format(','.join(
+                '^' + space for space in sorted(self.excluded_spaces))))
         elif self.env.lxd:
             # LXD should be constrained by memory when running in HA, otherwise
             # mongo just eats everything.
-            return 'mem=6G'
-        else:
-            return ''
+            cons.append('mem=6G')
+        return ' '.join(cons)
 
     def quickstart(self, bundle_template, upload_tools=False):
         bundle = self.format_bundle(bundle_template)
