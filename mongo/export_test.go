@@ -33,3 +33,7 @@ func NewMongodFinderWithMockSearch(ctrl *gomock.Controller) (*MongodFinder, *Moc
 		search: tools,
 	}, tools
 }
+
+func WriteConfig(args ConfigArgs, path string) error {
+	return args.writeConfig(path)
+}

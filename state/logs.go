@@ -679,7 +679,7 @@ func (t *logTailer) tailOplog() error {
 	oplogTailer := mongo.NewOplogTailer(mongo.NewOplogSession(oplog, oplogSel), minOplogTs)
 	defer oplogTailer.Stop()
 
-	logger.Tracef("LogTailer starting oplog tailing: recent id count=%d, lastTime=%s, minOplogTs=%s",
+	logger.Infof("LogTailer starting oplog tailing: recent id count=%d, lastTime=%s, minOplogTs=%s",
 		recentIds.Length(), t.lastTime, minOplogTs)
 
 	// If we get a deserialisation error, write out the first failure,

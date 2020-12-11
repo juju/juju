@@ -4,13 +4,12 @@
 package featuretests
 
 import (
-	"fmt"
-	"strings"
 	"time"
 
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	"github.com/juju/utils/v2/arch"
@@ -169,6 +168,16 @@ type debugLogDbSuite struct {
 	agenttest.AgentSuite
 }
 
+func (s *debugLogDbSuite) SetUpSuite(c *gc.C) {
+	jujutesting.MgoServer.Restart()
+	s.AgentSuite.SetUpSuite(c)
+}
+
+func (s *debugLogDbSuite) TearDownSuite(c *gc.C) {
+	jujutesting.MgoServer.Restart()
+	s.AgentSuite.TearDownSuite(c)
+}
+
 // NOTE: this is terrible, however due to a bug in mongod on bionic
 // when resetting a mongo service with repl set on, we hit an inveriant bug
 // which causes the second test to fail always.
@@ -213,22 +222,12 @@ func (s *debugLogDbSuite1) TestLogsAPI(c *gc.C) {
 		}
 	}(3)
 
-	var unexpectedLogs []string
 	assertMessage := func(expected common.LogMessage) {
-		for {
-			select {
-			case actual := <-messages:
-				if ok, _ := jc.DeepEqual(actual, expected); ok {
-					return
-				}
-				unexpectedLogs = append(unexpectedLogs, fmt.Sprintf("%#v", actual))
-			case <-time.After(coretesting.LongWait):
-				if len(unexpectedLogs) > 0 {
-					c.Fatalf("timed out waiting for log line, unexpected logs received:\n%v", strings.Join(unexpectedLogs, "\n"))
-				} else {
-					c.Fatal("timed out waiting for log line")
-				}
-			}
+		select {
+		case actual := <-messages:
+			c.Check(actual, jc.DeepEquals, expected)
+		case <-time.After(coretesting.LongWait):
+			c.Fatal("timed out waiting for log line")
 		}
 	}
 
@@ -269,9 +268,6 @@ func (s *debugLogDbSuite1) TestLogsAPI(c *gc.C) {
 		Location:  "no.go:3",
 		Message:   "beep beep",
 	})
-	if len(unexpectedLogs) > 0 {
-		c.Fatalf("unexpected logs received:\n%v", strings.Join(unexpectedLogs, "\n"))
-	}
 }
 
 // NOTE: do not merge with debugLogDbSuite1

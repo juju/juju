@@ -4,7 +4,7 @@
 package featuretests
 
 import (
-	gitjujutesting "github.com/juju/testing"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -18,7 +18,7 @@ type InitiateSuite struct {
 
 func (s *InitiateSuite) TestInitiateReplicaSet(c *gc.C) {
 	var err error
-	inst := &gitjujutesting.MgoInstance{EnableReplicaSet: true}
+	inst := &jujutesting.MgoInstance{EnableReplicaSet: true}
 	err = inst.Start(coretesting.Certs)
 	c.Assert(err, jc.ErrorIsNil)
 	defer inst.Destroy()
