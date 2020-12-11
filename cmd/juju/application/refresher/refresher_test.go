@@ -17,7 +17,6 @@ import (
 
 	commoncharm "github.com/juju/juju/api/common/charm"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 )
 
@@ -441,9 +440,6 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithOriginChannel(c *gc.C) {
 }
 
 func (s *charmHubCharmRefresherSuite) TestAllowed(c *gc.C) {
-	setFeatureFlags(feature.CharmHubIntegration)
-	defer setFeatureFlags("")
-
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -466,9 +462,6 @@ func (s *charmHubCharmRefresherSuite) TestAllowed(c *gc.C) {
 }
 
 func (s *charmHubCharmRefresherSuite) TestAllowedWithSwitch(c *gc.C) {
-	setFeatureFlags(feature.CharmHubIntegration)
-	defer setFeatureFlags("")
-
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -494,9 +487,6 @@ func (s *charmHubCharmRefresherSuite) TestAllowedWithSwitch(c *gc.C) {
 }
 
 func (s *charmHubCharmRefresherSuite) TestAllowedError(c *gc.C) {
-	setFeatureFlags(feature.CharmHubIntegration)
-	defer setFeatureFlags("")
-
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
