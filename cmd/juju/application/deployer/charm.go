@@ -5,7 +5,6 @@ package deployer
 
 import (
 	"fmt"
-
 	"io/ioutil"
 	"strconv"
 	"strings"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
@@ -333,11 +333,13 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 		return errors.Trace(err)
 	}
 
-	// We know 100% that this will be a local charm, so don't attempt to
-	// deduce the origin and just use the correct one to prevent any case that
-	// the origin could be wrong.
-	origin := commoncharm.Origin{
-		Source: commoncharm.OriginLocal,
+	platform, err := utils.DeducePlatform(d.constraints, d.userCharmURL.Series)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	origin, err := utils.DeduceOrigin(userCharmURL, corecharm.Channel{}, platform)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	d.id = application.CharmID{
@@ -373,11 +375,13 @@ func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _
 		return errors.Trace(err)
 	}
 
-	// We know 100% that this will be a local charm, so don't attempt to
-	// deduce the origin and just use the correct one to prevent any case that
-	// the origin could be wrong.
-	origin := commoncharm.Origin{
-		Source: commoncharm.OriginLocal,
+	platform, err := utils.DeducePlatform(l.constraints, l.curl.Series)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	origin, err := utils.DeduceOrigin(curl, corecharm.Channel{}, platform)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	ctx.Infof(formatLocatedText(curl, origin))
