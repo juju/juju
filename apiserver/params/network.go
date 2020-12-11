@@ -1153,24 +1153,28 @@ type ProxyConfigResultsV1 struct {
 }
 
 // InterfaceAddress represents a single address attached to the interface.
+// The serialization is different between json and yaml because of accidental
+// differences in the past, but should be preserved for compatibility
 type InterfaceAddress struct {
-	Hostname string `json:"hostname"`
-	Address  string `json:"value"`
-	CIDR     string `json:"cidr"`
+	Hostname string `json:"hostname" yaml:"hostname"`
+	Address  string `json:"value" yaml:"address"`
+	CIDR     string `json:"cidr" yaml:"cidr"`
 }
 
 // NetworkInfo describes one interface with IP addresses.
+// The serialization is different between json and yaml because of accidental
+// differences in the past, but should be preserved for compatibility
 type NetworkInfo struct {
 	// MACAddress is the network interface's hardware MAC address
 	// (e.g. "aa:bb:cc:dd:ee:ff").
-	MACAddress string `json:"mac-address"`
+	MACAddress string `json:"mac-address" yaml:"macaddress"`
 
 	// InterfaceName is the raw OS-specific network device name (e.g.
 	// "eth1", even for a VLAN eth1.42 virtual interface).
-	InterfaceName string `json:"interface-name"`
+	InterfaceName string `json:"interface-name" yaml:"interfacename"`
 
 	// Addresses contains a list of addresses configured on the interface.
-	Addresses []InterfaceAddress `json:"addresses"`
+	Addresses []InterfaceAddress `json:"addresses" yaml:"addresses"`
 }
 
 // NetworkInfoResult Adds egress and ingress subnets and changes the serialized
