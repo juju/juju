@@ -2182,8 +2182,10 @@ func AddSpaceIdToSpaceDocs(pool *StatePool) (err error) {
 			return errors.Trace(err)
 		}
 
+		haveDefaultSpaceDoc := false
 		var ops []txn.Op
 		for _, oldDoc := range docs {
+			haveDefaultSpaceDoc = haveDefaultSpaceDoc || oldDoc.SpaceId == network.AlphaSpaceId
 			// A doc with a space ID has already been upgraded.
 			if oldDoc.SpaceId != "" {
 				continue
@@ -2219,8 +2221,12 @@ func AddSpaceIdToSpaceDocs(pool *StatePool) (err error) {
 			})
 		}
 
-		ops = append(ops, st.createDefaultSpaceOp())
-
+		if haveDefaultSpaceDoc && len(ops) == 0 {
+			return nil
+		}
+		if !haveDefaultSpaceDoc {
+			ops = append(ops, st.createDefaultSpaceOp())
+		}
 		return errors.Trace(st.db().RunTransaction(ops))
 	}))
 }

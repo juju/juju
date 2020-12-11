@@ -18,6 +18,7 @@ import (
 	"github.com/juju/utils/v2"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -31,6 +32,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 
 	"github.com/juju/juju/state/watcher"
@@ -125,6 +127,9 @@ func (s *upgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 		return nil
 	}
 	s.PatchValue(&upgradesteps.PerformUpgrade, fakePerformUpgrade)
+	s.PatchValue(&mongo.IsMaster, func(session *mgo.Session, obj mongo.WithAddresses) (bool, error) {
+		return true, nil
+	})
 
 	a := s.newAgent(c, machine)
 	ctx := cmdtesting.Context(c)
@@ -166,6 +171,10 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherControllerDoesntStartUpgrad
 	// This test is functional, ensuring that the upgrader worker
 	// terminates the machine agent with the UpgradeReadyError which
 	// makes the downgrade happen.
+
+	s.PatchValue(&mongo.IsMaster, func(session *mgo.Session, obj mongo.WithAddresses) (bool, error) {
+		return true, nil
+	})
 
 	// Provide (fake) tools so that the upgrader has something to downgrade to.
 	envtesting.AssertUploadFakeToolsVersions(

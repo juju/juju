@@ -39,10 +39,6 @@ const (
 	// JujuDbSnap is the snap of MongoDB that Juju uses.
 	JujuDbSnap = "juju-db"
 
-	// JujuDbSnapMongodPath is the path that the juju-db snap
-	// makes mongod available at
-	JujuDbSnapMongodPath = "/snap/bin/juju-db.mongod"
-
 	// WiredTiger is a storage type introduced in 3
 	WiredTiger StorageEngine = "wiredTiger"
 
@@ -52,6 +48,10 @@ const (
 	// SnapRisk is which juju-db snap to use i.e. stable or edge.
 	SnapRisk = "stable"
 )
+
+// JujuDbSnapMongodPath is the path that the juju-db snap
+// makes mongod available at
+var JujuDbSnapMongodPath = "/snap/bin/juju-db.mongod"
 
 // WithAddresses represents an entity that has a set of
 // addresses. e.g. a state Machine object

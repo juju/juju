@@ -11,13 +11,13 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	jujuhttp "github.com/juju/http"
 	"github.com/juju/names/v4"
 	"github.com/juju/os/v2/series"
 	"github.com/juju/utils/v2/arch"
 	"github.com/juju/version"
 	"github.com/juju/worker/v2/catacomb"
 
-	jujuhttp "github.com/juju/http"
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api/upgrader"

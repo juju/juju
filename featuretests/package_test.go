@@ -56,8 +56,6 @@ func init() {
 	gc.Suite(&ResourcesCmdSuite{})
 	gc.Suite(&FirewallRulesSuite{})
 	gc.Suite(&introspectionSuite{})
-	gc.Suite(&debugLogDbSuite1{})
-	gc.Suite(&debugLogDbSuite2{})
 	gc.Suite(&InitiateSuite{})
 	gc.Suite(&UserSuite{})
 	gc.Suite(&cmdMetricsCommandSuite{})

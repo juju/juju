@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"time"
 
@@ -62,6 +63,11 @@ func makeEnsureServerParams(dataDir, configDir string) mongo.EnsureServerParams 
 
 func (s *MongoSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+
+	testing.PatchExecutable(c, s, "juju-db.mongod", "#!/bin/bash\n\nprintf %s 'db version v4.4.2'\n")
+	jujuMongodPath, err := exec.LookPath("juju-db.mongod")
+	c.Assert(err, jc.ErrorIsNil)
+	s.PatchValue(&mongo.JujuDbSnapMongodPath, jujuMongodPath)
 
 	// Patch "df" such that it always reports there's 1MB free.
 	s.PatchValue(mongo.AvailSpace, func(dir string) (float64, error) {

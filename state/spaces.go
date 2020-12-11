@@ -411,8 +411,9 @@ func (s *Space) Refresh() error {
 // that creates the default space (id=0).
 func (st *State) createDefaultSpaceOp() txn.Op {
 	return txn.Op{
-		C:  spacesC,
-		Id: st.docID(network.AlphaSpaceId),
+		C:      spacesC,
+		Id:     st.docID(network.AlphaSpaceId),
+		Assert: txn.DocMissing,
 		Insert: spaceDoc{
 			Id:       network.AlphaSpaceId,
 			Life:     Alive,
