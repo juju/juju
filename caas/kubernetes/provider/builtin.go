@@ -48,7 +48,7 @@ func attemptMicroK8sCloudInternal(
 	newCloud.Regions = []jujucloud.Region{{
 		Name: k8s.Microk8sRegion,
 	}}
-	newCloud.Description = cloud.DefaultCloudDescription(cloud.CloudTypeCAAS)
+	newCloud.Description = cloud.DefaultCloudDescription(cloud.CloudTypeKubernetes)
 	return newCloud, credential, credential.Label, nil
 }
 

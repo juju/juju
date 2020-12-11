@@ -6,6 +6,7 @@ package caasapplicationprovisioner
 import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
 
@@ -20,6 +21,8 @@ type Logger interface {
 	Infof(string, ...interface{})
 	Errorf(string, ...interface{})
 	Warningf(string, ...interface{})
+
+	Child(string) loggo.Logger
 }
 
 // ManifoldConfig defines a CAAS operator provisioner's dependencies.

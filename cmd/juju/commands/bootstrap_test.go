@@ -1985,6 +1985,7 @@ aws-gov
 azure                                         
 azure-china                                   
 cloudsigma                                    
+ecs                                           
 google                                        
 oracle                                        
 rackspace                                     \n?(localhost\s+)?(microk8s\s+)?
@@ -2047,6 +2048,7 @@ aws-gov
 azure                                         
 azure-china                                   
 cloudsigma                                    
+ecs                                           
 google                                        
 oracle                                        
 rackspace                                     \n?(localhost\s+)?(microk8s\s+)?

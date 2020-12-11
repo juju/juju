@@ -84,7 +84,7 @@ type cloudSuite struct {
 var defaultK8sCloud = jujucloud.Cloud{
 	Name:           k8s.K8sCloudMicrok8s,
 	Endpoint:       "http://1.1.1.1:8080",
-	Type:           cloud.CloudTypeCAAS,
+	Type:           cloud.CloudTypeKubernetes,
 	AuthTypes:      []cloud.AuthType{cloud.UserPassAuthType},
 	CACertificates: []string{""},
 	SkipTLSVerify:  true,
@@ -140,7 +140,7 @@ func (s *cloudSuite) TestFinalizeCloudMicrok8s(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloud, jc.DeepEquals, jujucloud.Cloud{
 		Name:            k8s.K8sCloudMicrok8s,
-		Type:            jujucloud.CloudTypeCAAS,
+		Type:            jujucloud.CloudTypeKubernetes,
 		AuthTypes:       []jujucloud.AuthType{jujucloud.UserPassAuthType},
 		CACertificates:  []string{""},
 		SkipTLSVerify:   true,
@@ -154,7 +154,7 @@ func (s *cloudSuite) TestFinalizeCloudMicrok8s(c *gc.C) {
 func (s *cloudSuite) TestFinalizeCloudMicrok8sAlreadyStorage(c *gc.C) {
 	preparedCloud := jujucloud.Cloud{
 		Name:            k8s.K8sCloudMicrok8s,
-		Type:            jujucloud.CloudTypeCAAS,
+		Type:            jujucloud.CloudTypeKubernetes,
 		AuthTypes:       []jujucloud.AuthType{jujucloud.UserPassAuthType},
 		CACertificates:  []string{""},
 		Endpoint:        "http://1.1.1.1:8080",
@@ -180,7 +180,7 @@ func (s *cloudSuite) TestFinalizeCloudMicrok8sAlreadyStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloud, jc.DeepEquals, jujucloud.Cloud{
 		Name:            k8s.K8sCloudMicrok8s,
-		Type:            jujucloud.CloudTypeCAAS,
+		Type:            jujucloud.CloudTypeKubernetes,
 		AuthTypes:       []jujucloud.AuthType{jujucloud.UserPassAuthType},
 		CACertificates:  []string{""},
 		Endpoint:        "http://1.1.1.1:8080",

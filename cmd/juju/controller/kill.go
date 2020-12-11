@@ -225,7 +225,7 @@ func (c *killCommand) DirectDestroyRemaining(ctx *cmd.Context, api destroyContro
 				Config:         cfg,
 			}
 			var env environs.CloudDestroyer
-			if model.CloudSpec.Type == cloud.CloudTypeCAAS {
+			if cloud.CloudTypeIsCAAS(model.CloudSpec.Type) {
 				env, err = caas.Open(cloudProvider, openParams)
 			} else {
 				env, err = environs.Open(cloudProvider, openParams)

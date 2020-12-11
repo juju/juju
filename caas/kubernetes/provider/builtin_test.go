@@ -144,10 +144,10 @@ func (s *builtinSuite) TestAttemptMicroK8sCloud(c *gc.C) {
 	c.Assert(k8sCloud, gc.DeepEquals, cloud.Cloud{
 		Name:           k8s.K8sCloudMicrok8s,
 		Endpoint:       "http://1.1.1.1:8080",
-		Type:           cloud.CloudTypeCAAS,
+		Type:           cloud.CloudTypeKubernetes,
 		AuthTypes:      []cloud.AuthType{cloud.CertificateAuthType},
 		CACertificates: []string{"fakecadata1"},
-		Description:    cloud.DefaultCloudDescription(cloud.CloudTypeCAAS),
+		Description:    cloud.DefaultCloudDescription(cloud.CloudTypeKubernetes),
 		Regions: []cloud.Region{{
 			Name: "localhost",
 		}},
