@@ -21,6 +21,14 @@ type updaterSuite struct{}
 
 var _ = gc.Suite(&updaterSuite{})
 
+type newCharmhubClientFunc = func(st charmrevisionupdater.State, metadata map[string]string) (charmrevisionupdater.CharmhubRefreshClient, error)
+
+func (s *updaterSuite) newCharmhubClient(client charmrevisionupdater.CharmhubRefreshClient) newCharmhubClientFunc {
+	return func(st charmrevisionupdater.State, metadata map[string]string) (charmrevisionupdater.CharmhubRefreshClient, error) {
+		return client, nil
+	}
+}
+
 func (s *updaterSuite) TestNewAuthSuccess(c *gc.C) {
 	authoriser := apiservertesting.FakeAuthorizer{Controller: true}
 	facadeCtx := facadeContextShim{state: nil, authorizer: authoriser}
@@ -67,10 +75,7 @@ func (s *updaterSuite) TestCharmhubUpdate(c *gc.C) {
 	state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("ch:mysql-23")).Return(nil)
 	state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("ch:postgresql-42")).Return(nil)
 
-	newClient := func(st charmrevisionupdater.State, metadata map[string]string) (charmrevisionupdater.CharmhubRefreshClient, error) {
-		return client, nil
-	}
-	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, nil, newClient)
+	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, nil, s.newCharmhubClient(client))
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := updater.UpdateLatestRevisions()
@@ -130,10 +135,7 @@ func (s *updaterSuite) TestCharmhubUpdateWithResources(c *gc.C) {
 
 	state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("ch:resourcey-1")).Return(nil)
 
-	newClient := func(st charmrevisionupdater.State, metadata map[string]string) (charmrevisionupdater.CharmhubRefreshClient, error) {
-		return client, nil
-	}
-	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, nil, newClient)
+	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, nil, s.newCharmhubClient(client))
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := updater.UpdateLatestRevisions()
@@ -163,10 +165,7 @@ func (s *updaterSuite) TestCharmhubNoUpdate(c *gc.C) {
 	}, nil).AnyTimes()
 	state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("ch:postgresql-42")).Return(nil)
 
-	newClient := func(st charmrevisionupdater.State, metadata map[string]string) (charmrevisionupdater.CharmhubRefreshClient, error) {
-		return client, nil
-	}
-	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, nil, newClient)
+	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, nil, s.newCharmhubClient(client))
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := updater.UpdateLatestRevisions()
@@ -187,10 +186,7 @@ func (s *updaterSuite) TestCharmNotInStore(c *gc.C) {
 		makeApplication(ctrl, "cs", "varnish", "charm-6", "app-2", 2),
 	}, nil).AnyTimes()
 
-	newCharmhubClient := func(st charmrevisionupdater.State, metadata map[string]string) (charmrevisionupdater.CharmhubRefreshClient, error) {
-		return charmhubClient, nil
-	}
-	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, newFakeCharmstoreClient, newCharmhubClient)
+	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, newFakeCharmstoreClient, s.newCharmhubClient(charmhubClient))
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := updater.UpdateLatestRevisions()

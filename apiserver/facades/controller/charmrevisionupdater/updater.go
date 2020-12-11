@@ -49,20 +49,21 @@ func NewCharmRevisionUpdaterAPI(ctx facade.Context) (*CharmRevisionUpdaterAPI, e
 	if !ctx.Auth().AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
-	api := &CharmRevisionUpdaterAPI{
-		state: StateShim{State: ctx.State()},
-		newCharmstoreClient: func(st State) (charmstore.Client, error) {
-			controllerCfg, err := st.ControllerConfig()
-			if err != nil {
-				return charmstore.Client{}, errors.Trace(err)
-			}
-			return charmstore.NewCachingClient(state.MacaroonCache{MacaroonCacheState: st}, controllerCfg.CharmStoreURL())
-		},
-		newCharmhubClient: func(st State, metadata map[string]string) (CharmhubRefreshClient, error) {
-			return common.CharmhubClient(charmhubClientStateShim{state: st}, logger, metadata)
-		},
+	newCharmstoreClient := func(st State) (charmstore.Client, error) {
+		controllerCfg, err := st.ControllerConfig()
+		if err != nil {
+			return charmstore.Client{}, errors.Trace(err)
+		}
+		return charmstore.NewCachingClient(state.MacaroonCache{MacaroonCacheState: st}, controllerCfg.CharmStoreURL())
 	}
-	return api, nil
+	newCharmhubClient := func(st State, metadata map[string]string) (CharmhubRefreshClient, error) {
+		return common.CharmhubClient(charmhubClientStateShim{state: st}, logger, metadata)
+	}
+	return NewCharmRevisionUpdaterAPIState(
+		StateShim{State: ctx.State()},
+		newCharmstoreClient,
+		newCharmhubClient,
+	)
 }
 
 // NewCharmRevisionUpdaterAPIState creates a new charmrevisionupdater API
