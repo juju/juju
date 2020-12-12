@@ -5,9 +5,8 @@ package packet
 
 import (
 	"fmt"
-	"time"
+	"net/http"
 
-	"github.com/hashicorp/go-retryablehttp"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/juju/environs"
@@ -104,10 +103,7 @@ func packetClient(spec environscloudspec.CloudSpec) *packngo.Client {
 	credentialAttrs := spec.Credential.Attributes()
 
 	apiToken := credentialAttrs["api-token"]
-	httpClient := retryablehttp.NewClient()
-	httpClient.RetryWaitMin = time.Second
-	httpClient.RetryWaitMax = 30 * time.Second
-	httpClient.RetryMax = 10
+	httpClient := http.DefaultClient
 
 	c := packngo.NewClientWithAuth("juju", apiToken, httpClient)
 

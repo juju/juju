@@ -98,7 +98,7 @@ require (
 	github.com/mitchellh/go-linereader v0.0.0-20190213213312-1b945b3263eb
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/oracle/oci-go-sdk v5.7.0+incompatible
-	github.com/packethost/packngo v0.5.0
+	github.com/packethost/packngo v0.5.2-0.20201209182652-a46b9f4f0cf6
 	github.com/pascaldekloe/goe v0.1.0 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.7.1
@@ -126,6 +126,7 @@ require (
 	gopkg.in/juju/blobstore.v2 v2.0.0-20160125023703-51fa6e26128d
 	gopkg.in/juju/environschema.v1 v1.0.1-0.20201027142642-c89a4490670a
 	gopkg.in/juju/idmclient.v1 v1.0.0-20180320161856-203d20774ce8
+	gopkg.in/juju/names.v2 v2.0.0-20190813004204-e057c73bd1be
 	gopkg.in/juju/names.v3 v3.0.0-20200331100531-2c9a102df211 // indirect
 	gopkg.in/juju/worker.v1 v1.0.0-20191018043616-19a698a7150f // indirect
 	gopkg.in/macaroon-bakery.v2 v2.2.0

@@ -53,30 +53,50 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 }
 
 func (e *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
-	return e.getPacketInstancesByTag("juju-instance", "")
+	return e.getPacketInstancesByTag(map[string]string{"juju-model-uuid": e.Config().UUID()}, "")
 }
 
 // if values tag and state are left empty it will return all instances
-func (e *environ) getPacketInstancesByTag(tag, state string) ([]instances.Instance, error) {
+func (e *environ) getPacketInstancesByTag(tags map[string]string, state string) ([]instances.Instance, error) {
 	toReturn := []instances.Instance{}
-	opt := &packngo.ListOptions{Search: tag}
+	// opt := &packngo.ListOptions{Search: tag}
+	packetTags := []string{}
+	for k, v := range tags {
+		packetTags = append(packetTags, fmt.Sprintf("%s=%s", k, v))
+	}
 
-	devices, _, err := e.packetClient.Devices.List(e.cloud.Credential.Attributes()["project-id"], opt)
+	devices, _, err := e.packetClient.Devices.List(e.cloud.Credential.Attributes()["project-id"], nil)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, d := range devices {
-		if state == "" || d.State == state {
+		if (state == "" || d.State == state) && isListContained(packetTags, d) {
 			toReturn = append(toReturn, &packetDevice{e, &d})
-		} 
+		}
 	}
 
 	return toReturn, nil
 }
 
+func isListContained(tags []string, d packngo.Device) bool {
+	for _, t := range tags {
+		tagFound := false
+		for _, tt := range d.Tags {
+			if t == tt {
+				// fmt.Println(t)
+				tagFound = true
+				break
+			}
+		}
+		if tagFound == false {
+			return false
+		}
+	}
+	return true
+}
 func (e *environ) AllRunningInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
-	return e.getPacketInstancesByTag("juju-instance", "active")
+	return e.getPacketInstancesByTag(map[string]string{"juju-model-uuid": e.Config().UUID()}, "active")
 }
 
 func (e *environ) Config() *config.Config {
@@ -94,6 +114,14 @@ func (e *environ) ConstraintsValidator(ctx context.ProviderCallContext) (constra
 }
 
 func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
+	insts, err := e.getPacketInstancesByTag(map[string]string{"juju-is-controller": "true", "juju-controller-uuid": controllerUUID}, "active")
+	if err != nil {
+		return nil, err
+	}
+	instanceIDs := []instance.Id{}
+	for _, i := range insts {
+		instanceIDs = append(instanceIDs, i.Id())
+	}
 	return nil, nil
 }
 
@@ -106,9 +134,16 @@ func (e *environ) Destroy(ctx context.ProviderCallContext) error {
 }
 
 func (e *environ) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
-	_, err := e.packetClient.Devices.Delete(controllerUUID, true)
+	insts, err := e.getPacketInstancesByTag(map[string]string{"juju-is-controller": "true", "juju-controller-uuid": controllerUUID}, "")
 	if err != nil {
-		return errors.Trace(err)
+		return err
+	}
+
+	for _, inst := range insts {
+		_, err = e.packetClient.Devices.Delete(string(inst.Id()), true)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	return nil
@@ -134,10 +169,6 @@ func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) 
 		return nil, environs.ErrNoInstances
 	}
 	return toReturn, nil
-}
-
-func (e *environ) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
-	return nil
 }
 
 func (e *environ) PrecheckInstance(ctx context.ProviderCallContext, args environs.PrecheckInstanceParams) error {
@@ -226,6 +257,15 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 
 	userdata = userdata + "\n" + strings.Replace(string(juserdata), "#!/bin/bash", "", 0)
 
+	packetTags := []string{} //[]string{fmt.Sprintf("juju-controller-%s", e.cloud.Name), "juju-instance"}
+	// packetTags = append(packetTags, fmt.Sprintf("%s=%s", names.NewModelTag(e.Config().UUID()), names.NewControllerTag(args.ControllerUUID)))
+
+	for k, v := range args.InstanceConfig.Tags {
+		packetTags = append(packetTags, fmt.Sprintf("%s=%s", k, v))
+	}
+
+	// packetTags = append(packetTags, fmt.Sprintf("juju-controller-%s", e.cloud.Name), "juju-instance")
+
 	device := &packngo.DeviceCreateRequest{
 		Hostname:     e.name,
 		Facility:     []string{e.cloud.Region},
@@ -234,7 +274,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		ProjectID:    e.cloud.Credential.Attributes()["project-id"],
 		BillingCycle: "hourly",
 		UserData:     userdata,
-		Tags:         []string{fmt.Sprintf("juju-controller-%s", e.cloud.Name), "juju-instance"},
+		Tags:         packetTags,
 	}
 
 	if keyErr == nil {

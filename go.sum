@@ -684,6 +684,8 @@ github.com/packethost/packngo v0.4.1 h1:HWeO3y3xvGIhdaW15VLz7uswKE27YRvXtONDjcMq
 github.com/packethost/packngo v0.4.1/go.mod h1:aRxUEV1TprXVcWr35v8tNYgZMjv7FHaInXx224vF2fc=
 github.com/packethost/packngo v0.5.0 h1:WGpfeRMstPqgyXGUXl6b9xFsbUudXU3p0+JlYri290U=
 github.com/packethost/packngo v0.5.0/go.mod h1:aRxUEV1TprXVcWr35v8tNYgZMjv7FHaInXx224vF2fc=
+github.com/packethost/packngo v0.5.2-0.20201209182652-a46b9f4f0cf6 h1:a7z0BjIbaTsx6I/BAL3g6vVStv35143aRr6TDYpejQc=
+github.com/packethost/packngo v0.5.2-0.20201209182652-a46b9f4f0cf6/go.mod h1:kpeKhA26FKoOhLoUjRlU0flAgFF5xh6IFVOrocA+mtA=
 github.com/pascaldekloe/goe v0.1.0 h1:cBOtyMzM9HTpWjXfbbunk26uA6nG3a8n06Wieeh0MwY=
 github.com/pascaldekloe/goe v0.1.0/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=
 github.com/pborman/uuid v1.2.0 h1:J7Q5mO4ysT1dv8hyrUGHb9+ooztCXu1D8MY8DZYsu3g=
