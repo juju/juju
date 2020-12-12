@@ -2909,7 +2909,7 @@ func ReplaceNeverSetWithUnset(pool *StatePool) (err error) {
 	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
 		col, closer := st.db().GetCollection(statusesC)
 		defer closer()
-                totalOps := 0
+		totalOps := 0
 
 		iter := col.Find(bson.M{"neverset": bson.M{"$exists": 1}}).Iter()
 
@@ -2945,26 +2945,26 @@ func ReplaceNeverSetWithUnset(pool *StatePool) (err error) {
 				Assert: txn.DocExists,
 				Update: update,
 			})
-                        if len(ops) > MaxDocOps {
-                            totalOps += len(ops)
-                            upgradesLogger.Infof("updating %d statuses (%d total)", len(ops), totalOps)
-                            err = st.db().RunTransaction(ops)
-                            if err != nil {
-                                return errors.Trace(err)
-                            }
-                            ops = ops[:0]
-                        }
+			if len(ops) > MaxDocOps {
+				totalOps += len(ops)
+				upgradesLogger.Infof("updating %d statuses (%d total)", len(ops), totalOps)
+				err = st.db().RunTransaction(ops)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				ops = ops[:0]
+			}
 		}
 		if err := iter.Close(); err != nil {
 			return errors.Trace(err)
 		}
 
-                if len(ops) > 0 {
-                    totalOps += len(ops)
-                    upgradesLogger.Infof("updating %d statuses (%d total)", len(ops), totalOps)
-                    return errors.Trace(st.db().RunTransaction(ops))
-                }
-                return nil
+		if len(ops) > 0 {
+			totalOps += len(ops)
+			upgradesLogger.Infof("updating %d statuses (%d total)", len(ops), totalOps)
+			return errors.Trace(st.db().RunTransaction(ops))
+		}
+		return nil
 	}))
 }
 
