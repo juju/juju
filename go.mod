@@ -17,8 +17,6 @@ require (
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/coreos/go-systemd/v22 v22.0.0-20200316104309-cb8b64719ae3
-	github.com/davecgh/go-spew v1.1.1
-	github.com/dnaeon/go-vcr v1.0.1 // indirect
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect
 	github.com/dustin/go-humanize v1.0.0
@@ -34,7 +32,6 @@ require (
 	github.com/gosuri/uitable v0.0.1
 	github.com/hashicorp/go-immutable-radix v1.0.0 // indirect
 	github.com/hashicorp/go-msgpack v0.5.5
-	github.com/hashicorp/go-retryablehttp v0.6.8
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/hashicorp/raft v2.0.0-20200420012049-88ad3b3f0a54+incompatible
 	github.com/hashicorp/raft-boltdb v0.0.0-20171010151810-6e5ba93211ea
@@ -62,7 +59,6 @@ require (
 	github.com/juju/mutex v0.0.0-20180619145857-d21b13acf4bf
 	github.com/juju/names/v4 v4.0.0-20200929085019-be23e191fee0
 	github.com/juju/naturalsort v0.0.0-20180423034842-5b81707e882b
-	github.com/juju/os v0.0.0-20191022170002-da411304426c
 	github.com/juju/os/v2 v2.1.0
 	github.com/juju/packaging v0.0.0-20200421095529-970596d2622a
 	github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93
@@ -126,7 +122,6 @@ require (
 	gopkg.in/juju/blobstore.v2 v2.0.0-20160125023703-51fa6e26128d
 	gopkg.in/juju/environschema.v1 v1.0.1-0.20201027142642-c89a4490670a
 	gopkg.in/juju/idmclient.v1 v1.0.0-20180320161856-203d20774ce8
-	gopkg.in/juju/names.v2 v2.0.0-20190813004204-e057c73bd1be
 	gopkg.in/juju/names.v3 v3.0.0-20200331100531-2c9a102df211 // indirect
 	gopkg.in/juju/worker.v1 v1.0.0-20191018043616-19a698a7150f // indirect
 	gopkg.in/macaroon-bakery.v2 v2.2.0
