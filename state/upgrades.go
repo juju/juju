@@ -35,6 +35,12 @@ import (
 
 var upgradesLogger = loggo.GetLogger("juju.state.upgrade")
 
+// MaxDocOps defines the number of documents to put into a single transaction,
+// if we make this number too large, mongo and client side transactions
+// struggle to complete. It is unclear what the optimum is, but without some
+// sort of cap, we've seen txns try to touch 100k docs which makes things fail.
+const MaxDocOps = 2000
+
 // runForAllModelStates will run runner function for every model passing a state
 // for that model.
 func runForAllModelStates(pool *StatePool, runner func(st *State) error) error {
@@ -2903,6 +2909,7 @@ func ReplaceNeverSetWithUnset(pool *StatePool) (err error) {
 	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
 		col, closer := st.db().GetCollection(statusesC)
 		defer closer()
+                totalOps := 0
 
 		iter := col.Find(bson.M{"neverset": bson.M{"$exists": 1}}).Iter()
 
@@ -2938,12 +2945,26 @@ func ReplaceNeverSetWithUnset(pool *StatePool) (err error) {
 				Assert: txn.DocExists,
 				Update: update,
 			})
+                        if len(ops) > MaxDocOps {
+                            totalOps += len(ops)
+                            upgradesLogger.Infof("updating %d statuses (%d total)", len(ops), totalOps)
+                            err = st.db().RunTransaction(ops)
+                            if err != nil {
+                                return errors.Trace(err)
+                            }
+                            ops = ops[:0]
+                        }
 		}
 		if err := iter.Close(); err != nil {
 			return errors.Trace(err)
 		}
 
-		return errors.Trace(st.db().RunTransaction(ops))
+                if len(ops) > 0 {
+                    totalOps += len(ops)
+                    upgradesLogger.Infof("updating %d statuses (%d total)", len(ops), totalOps)
+                    return errors.Trace(st.db().RunTransaction(ops))
+                }
+                return nil
 	}))
 }
 
