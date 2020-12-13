@@ -32,7 +32,7 @@ const (
 var Repo = testing.NewRepo(localCharmRepo, defaultSeries)
 
 // Hub provides access to the test charmhub repository.
-var Hub = testing.NewRepo(localCharmHub, "focal")
+var Hub = testing.NewRepo(localCharmHub, defaultSeries)
 
 // RepoForSeries returns a new charm repository for the specified series.
 // Note: this is a bit weird, as it ignores the series if it's NOT kubernetes
