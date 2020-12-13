@@ -839,6 +839,7 @@ func (s *statusUpgradeUnitSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *statusUpgradeUnitSuite) TearDownTest(c *gc.C) {
+	s.JujuConnSuite.TearDownTest(c)
 	s.ctrl.Finish()
 }
 
