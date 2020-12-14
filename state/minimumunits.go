@@ -123,6 +123,7 @@ func minUnitsTriggerOp(st *State, applicationname string) txn.Op {
 	return txn.Op{
 		C:      minUnitsC,
 		Id:     st.docID(applicationname),
+		Assert: txn.DocExists,
 		Update: bson.D{{"$inc", bson.D{{"revno", 1}}}},
 	}
 }
