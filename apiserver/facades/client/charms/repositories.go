@@ -18,6 +18,7 @@ import (
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 
+	apicharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/selector"
@@ -72,7 +73,11 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 		}
 
 		resOrigin.ID = info.ID
-		return resURL, resOrigin, serie, nil
+		outputOrigin, err := sanitizeCharmOrigin(resOrigin, origin)
+		if err != nil {
+			return nil, params.CharmOrigin{}, nil, errors.Trace(err)
+		}
+		return resURL, outputOrigin, serie, nil
 	}
 
 	logger.Debugf("Resolving charm with revision %d and/or channel %s", curl.Revision, channel.String())
@@ -87,7 +92,11 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 	}
 
 	resOrigin.ID = info.ID
-	return resURL, resOrigin, series, nil
+	outputOrigin, err := sanitizeCharmOrigin(resOrigin, origin)
+	if err != nil {
+		return nil, params.CharmOrigin{}, nil, errors.Trace(err)
+	}
+	return resURL, outputOrigin, series, nil
 }
 
 // DownloadCharm downloads the provided download URL from CharmHub using the
@@ -110,7 +119,12 @@ func (c *chRepo) DownloadCharm(resourceURL string, archivePath string) (*charm.C
 func (c *chRepo) FindDownloadURL(curl *charm.URL, origin corecharm.Origin) (*url.URL, corecharm.Origin, error) {
 	logger.Tracef("FindDownloadURL %v %v", curl, origin)
 	if origin.Type == "bundle" {
-		return c.findBundleDownloadURL(curl, origin)
+		durl, resOrigin, err := c.findBundleDownloadURL(curl, origin)
+		if err != nil {
+			return nil, corecharm.Origin{}, errors.Trace(err)
+		}
+		outputOrigin, err := sanitizeCoreCharmOrigin(resOrigin, origin)
+		return durl, outputOrigin, errors.Trace(err)
 	}
 
 	cfg, err := refreshConfig(curl, origin)
@@ -132,11 +146,16 @@ func (c *chRepo) FindDownloadURL(curl *charm.URL, origin corecharm.Origin) (*url
 		return nil, corecharm.Origin{}, errors.Errorf("%s: %s", findResult.Error.Code, findResult.Error.Message)
 	}
 
-	origin.ID = findResult.Entity.ID
-	origin.Hash = findResult.Entity.Download.HashSHA256
+	resOrigin := origin
+	resOrigin.ID = findResult.Entity.ID
+	resOrigin.Hash = findResult.Entity.Download.HashSHA256
 
 	durl, err := url.Parse(findResult.Entity.Download.URL)
-	return durl, origin, errors.Trace(err)
+	if err != nil {
+		return nil, corecharm.Origin{}, errors.Trace(err)
+	}
+	outputOrigin, err := sanitizeCoreCharmOrigin(resOrigin, origin)
+	return durl, outputOrigin, errors.Trace(err)
 }
 
 func (c *chRepo) findBundleDownloadURL(curl *charm.URL, origin corecharm.Origin) (*url.URL, corecharm.Origin, error) {
@@ -149,6 +168,42 @@ func (c *chRepo) findBundleDownloadURL(curl *charm.URL, origin corecharm.Origin)
 
 	selector := selector.NewSelectorForBundle(series.SupportedJujuControllerSeries())
 	return selector.Locate(info, origin)
+}
+
+// sanitizeCharmOrigin attempts to ensure that any fields we receive from
+// the API are valid and juju knows about them.
+func sanitizeCharmOrigin(received, requested params.CharmOrigin) (params.CharmOrigin, error) {
+	// Platform is generally the problem at hand. We want to ensure if they
+	// send "all" back for Architecture, OS or Series that we either use the
+	// requested origin using that as the hint or we unset it from the requested
+	// origin.
+	result := received
+	if received.Architecture == "all" {
+		result.Architecture = requested.Architecture
+	}
+	if received.OS == "all" {
+		result.OS = requested.OS
+	}
+	if received.Series == "all" {
+		result.Series = requested.Series
+
+		os, err := series.GetOSFromSeries(requested.Series)
+		if err != nil {
+			return received, errors.Trace(err)
+		}
+		result.OS = os.String()
+	}
+	return result, nil
+}
+
+func sanitizeCoreCharmOrigin(received, requested corecharm.Origin) (corecharm.Origin, error) {
+	a := apicharm.CoreCharmOrigin(received)
+	b := apicharm.CoreCharmOrigin(received)
+	res, err := sanitizeCharmOrigin(a.ParamsCharmOrigin(), b.ParamsCharmOrigin())
+	if err != nil {
+		return corecharm.Origin{}, errors.Trace(err)
+	}
+	return apicharm.APICharmOrigin(res).CoreCharmOrigin(), nil
 }
 
 // refreshConfig creates a RefreshConfig for the given input.
