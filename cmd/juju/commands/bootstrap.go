@@ -26,6 +26,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
@@ -132,8 +133,30 @@ agent stream is 'released' (default), then a 2.3.1 client can bootstrap:
 However, if this client has a copy of codebase, then a local copy of Juju
 will be built and bootstrapped - 2.3.1.1.
 
+Bootstrapping to a k8s cluster requires that the service set up to handle
+requests to the controller be accessible outside the cluster. Typically this
+means a service type of LoadBalancer is needed, and Juju does create such a
+service if it knows it is supported by the cluster. This is performed by
+interrogating the cluster for a well known managed deployment such as microk8s,
+GKE or EKS.
+
+When bootstrapping to a k8s cluster Juju does not recognise, there's no
+guarantee a load balancer is available, so Juju defaults to a controller
+service type of ClusterIP. This may not be suitable, so there's 3 bootstrap
+options available to tell Juju how to set up the controller service. Part of
+the solution may require a load balancer for the cluster to be set up manually
+first, or perhaps an external k8s service via a FQDN will be used
+(this is a cluster specific implementation decision which Juju needs to be
+informed about so it can set things up correctly). The 3 relevant bootstrap
+options are (see list of bootstrap config items below for a full explanation):
+
+- controller-service-type
+- controller-external-name
+- controller-external-ips
+
 If a storage pool is specified using --storage-pool, this will be created
-in the controller model.`
+in the controller model.
+`
 
 var usageBootstrapConfigTxt = `
 
@@ -153,6 +176,12 @@ Examples:
     juju bootstrap --config bootstrap-timeout=1200 azure joe-eastus
     juju bootstrap aws --storage-pool name=secret --storage-pool type=ebs --storage-pool encrypted=true
 
+    # For a bootstrap on k8s, setting the service type of the Juju controller service to LoadBalancer
+    juju bootstrap --config controller-service-type=loadbalancer
+
+	# For a bootstrap on k8s, setting the service type of the Juju controller service to External
+    juju bootstrap --config controller-service-type=external --config controller-service-name=controller.juju.is
+
 See also:
     add-credentials
     add-model
@@ -161,9 +190,11 @@ See also:
     set-constraints
     show-cloud`
 
-// defaultHostedModelName is the name of the hosted model created in each
-// controller for deploying workloads to, in addition to the "controller" model.
-const defaultHostedModelName = "default"
+const (
+	// defaultHostedModelName is the name of the hosted model created in each
+	// controller for deploying workloads to, in addition to the "controller" model.
+	defaultHostedModelName = "default"
+)
 
 func newBootstrapCommand() cmd.Command {
 	command := &bootstrapCommand{}
@@ -253,6 +284,12 @@ func (c *bootstrapCommand) configDetails() map[string]interface{} {
 	}
 	if controllerCgf, err := cmdcontroller.ConfigDetails(); err == nil {
 		addAll(controllerCgf)
+	}
+	for key, attr := range bootstrap.BootstrapConfigSchema {
+		result[key] = common.PrintConfigSchema{
+			Description: attr.Description,
+			Type:        fmt.Sprintf("%s", attr.Type),
+		}
 	}
 	return result
 }
@@ -909,6 +946,12 @@ See `[1:] + "`juju kill-controller`" + `.`)
 			}
 			bootstrapParams.ExtraAgentValuesForTesting[k] = v
 		}
+	}
+
+	if cloud.Type == k8sconstants.CAASProviderType &&
+		cloud.HostCloudRegion == caas.K8sCloudOther &&
+		bootstrapParams.ControllerServiceType == "" {
+		logger.Warningf("bootstrapping to an unknown kubernetes cluster should be used with option --config controller-service-type. See juju help bootstrap")
 	}
 
 	bootstrapFuncs := getBootstrapFuncs()

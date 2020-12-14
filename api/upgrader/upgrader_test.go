@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
 )
 
 type machineUpgraderSuite struct {
@@ -92,18 +91,16 @@ func (s *machineUpgraderSuite) TestToolsNotMachine(c *gc.C) {
 
 func (s *machineUpgraderSuite) TestTools(c *gc.C) {
 	current := coretesting.CurrentVersion(c)
-	curTools := &tools.Tools{Version: current, URL: ""}
-	curTools.Version.Minor++
-	s.rawMachine.SetAgentVersion(current)
-	// Upgrader.Tools returns the *desired* set of tools, not the currently
-	// running set. We want to be upgraded to cur.Version
+	err := s.rawMachine.SetAgentVersion(current)
+	c.Assert(err, jc.ErrorIsNil)
+
 	stateToolsList, err := s.st.Tools(s.rawMachine.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
+
 	c.Assert(stateToolsList, gc.HasLen, 1)
 	stateTools := stateToolsList[0]
 	c.Assert(stateTools.Version, gc.Equals, current)
-	url := fmt.Sprintf("https://%s/model/%s/tools/%s",
-		s.stateAPI.Addr(), coretesting.ModelTag.Id(), current)
+	url := fmt.Sprintf("https://%s/model/%s/tools/%s", s.stateAPI.Addr(), coretesting.ModelTag.Id(), current)
 	c.Assert(stateTools.URL, gc.Equals, url)
 }
 
@@ -136,11 +133,9 @@ func (s *machineUpgraderSuite) TestWatchAPIVersion(c *gc.C) {
 
 func (s *machineUpgraderSuite) TestDesiredVersion(c *gc.C) {
 	current := coretesting.CurrentVersion(c)
-	curTools := &tools.Tools{Version: current, URL: ""}
-	curTools.Version.Minor++
-	s.rawMachine.SetAgentVersion(current)
-	// Upgrader.DesiredVersion returns the *desired* set of tools, not the
-	// currently running set. We want to be upgraded to cur.Version
+	err := s.rawMachine.SetAgentVersion(current)
+	c.Assert(err, jc.ErrorIsNil)
+
 	stateVersion, err := s.st.DesiredVersion(s.rawMachine.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stateVersion, gc.Equals, current.Number)
