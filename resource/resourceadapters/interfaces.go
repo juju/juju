@@ -50,7 +50,7 @@ type Unit interface {
 	Tag() names.Tag
 }
 
-/// Application represents application methods required to open a resource.
+// Application represents application methods required to open a resource.
 type Application interface {
 	CharmOrigin() *corestate.CharmOrigin
 }
@@ -64,6 +64,8 @@ type Resources interface {
 	// SetResource adds the resource to blob storage and updates the metadata.
 	SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error)
 }
+
+type ResourceRetryClientGetterFn func(st ResourceOpenerState) ResourceRetryClientGetter
 
 type ResourceRetryClientGetter interface {
 	NewClient() (*ResourceRetryClient, error)
