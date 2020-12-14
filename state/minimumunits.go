@@ -87,7 +87,7 @@ func setMinUnitsOps(app *Application, minUnits int) []txn.Op {
 			},
 		})
 	}
-	if minUnits == 0 {
+	if app.doc.MinUnits > 0 && minUnits == 0 {
 		return append(ops, minUnitsRemoveOp(state, applicationname))
 	}
 	if minUnits > app.doc.MinUnits {
@@ -99,11 +99,11 @@ func setMinUnitsOps(app *Application, minUnits int) []txn.Op {
 }
 
 // doesMinUnitsExits checks if the minUnits doc exists in the database.
-func doesMinUnitsExist(unit *Unit) (bool, error) {
-	minUnits, closer := unit.st.db().GetCollection(minUnitsC)
+func doesMinUnitsExist(st *State, appName string) (bool, error) {
+	minUnits, closer := st.db().GetCollection(minUnitsC)
 	defer closer()
 	var result bson.D
-	err := minUnits.FindId(unit.ApplicationName()).Select(bson.M{"_id": 1}).One(&result)
+	err := minUnits.FindId(appName).Select(bson.M{"_id": 1}).One(&result)
 	if err == nil {
 		return true, nil
 	} else if err == mgo.ErrNotFound {
@@ -134,6 +134,7 @@ func minUnitsRemoveOp(st *State, applicationname string) txn.Op {
 	return txn.Op{
 		C:      minUnitsC,
 		Id:     st.docID(applicationname),
+		Assert: txn.DocExists,
 		Remove: true,
 	}
 }

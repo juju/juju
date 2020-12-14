@@ -385,7 +385,14 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 			op.app.doc.Name, len(rels), op.app.doc.RelationCount)
 		return nil, errRefresh
 	}
-	ops := []txn.Op{minUnitsRemoveOp(op.app.st, op.app.doc.Name)}
+	var ops []txn.Op
+	minUnitsExists, err := doesMinUnitsExist(op.app.st, op.app.Name())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if minUnitsExists {
+		ops = []txn.Op{minUnitsRemoveOp(op.app.st, op.app.doc.Name)}
+	}
 	removeCount := 0
 	failedRels := false
 	for _, rel := range rels {

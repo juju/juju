@@ -631,7 +631,7 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 	// if the minUnits document exists, we need to increment the revno so that
 	// it is obvious the min units count is changing.
 	minUnitsOp := minUnitsTriggerOp(op.unit.st, op.unit.ApplicationName())
-	minUnitsExists, err := doesMinUnitsExist(op.unit)
+	minUnitsExists, err := doesMinUnitsExist(op.unit.st, op.unit.ApplicationName())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
