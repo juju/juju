@@ -53,11 +53,11 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 }
 
 func (e *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
-	return e.getPacketInstancesByTag(map[string]string{"juju-model-uuid": e.Config().UUID()}, "")
+	return e.getPacketInstancesByTag(map[string]string{"juju-model-uuid": e.Config().UUID()})
 }
 
 // if values tag and state are left empty it will return all instances
-func (e *environ) getPacketInstancesByTag(tags map[string]string, state string) ([]instances.Instance, error) {
+func (e *environ) getPacketInstancesByTag(tags map[string]string) ([]instances.Instance, error) {
 	toReturn := []instances.Instance{}
 	// opt := &packngo.ListOptions{Search: tag}
 	packetTags := []string{}
@@ -70,11 +70,18 @@ func (e *environ) getPacketInstancesByTag(tags map[string]string, state string) 
 		return nil, err
 	}
 
+	fmt.Println("************empty list************", toReturn)
+
+	fmt.Println("************TAGS**************", packetTags)
 	for _, d := range devices {
-		if (state == "" || d.State == state) && isListContained(packetTags, d) {
-			toReturn = append(toReturn, &packetDevice{e, &d})
+		fmt.Println("************device.id**************", d.ID)
+		cp := d
+		if isListContained(packetTags, cp) {
+			fmt.Println("************FOUND************", d.ID)
+			toReturn = append(toReturn, &packetDevice{e, &cp})
 		}
 	}
+	fmt.Println("************FOUND LIST************", toReturn)
 
 	return toReturn, nil
 }
@@ -84,7 +91,6 @@ func isListContained(tags []string, d packngo.Device) bool {
 		tagFound := false
 		for _, tt := range d.Tags {
 			if t == tt {
-				// fmt.Println(t)
 				tagFound = true
 				break
 			}
@@ -95,8 +101,9 @@ func isListContained(tags []string, d packngo.Device) bool {
 	}
 	return true
 }
+
 func (e *environ) AllRunningInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
-	return e.getPacketInstancesByTag(map[string]string{"juju-model-uuid": e.Config().UUID()}, "active")
+	return e.getPacketInstancesByTag(map[string]string{"juju-model-uuid": e.Config().UUID()})
 }
 
 func (e *environ) Config() *config.Config {
@@ -114,7 +121,7 @@ func (e *environ) ConstraintsValidator(ctx context.ProviderCallContext) (constra
 }
 
 func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
-	insts, err := e.getPacketInstancesByTag(map[string]string{"juju-is-controller": "true", "juju-controller-uuid": controllerUUID}, "active")
+	insts, err := e.getPacketInstancesByTag(map[string]string{"juju-is-controller": "true", "juju-controller-uuid": controllerUUID})
 	if err != nil {
 		return nil, err
 	}
@@ -134,11 +141,12 @@ func (e *environ) Destroy(ctx context.ProviderCallContext) error {
 }
 
 func (e *environ) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
-	insts, err := e.getPacketInstancesByTag(map[string]string{"juju-is-controller": "true", "juju-controller-uuid": controllerUUID}, "")
+	insts, err := e.getPacketInstancesByTag(map[string]string{"juju-is-controller": "true", "juju-controller-uuid": controllerUUID})
 	if err != nil {
 		return err
 	}
 
+	fmt.Println("***********INSTs***********", insts)
 	for _, inst := range insts {
 		_, err = e.packetClient.Devices.Delete(string(inst.Id()), true)
 		if err != nil {
@@ -156,14 +164,18 @@ func (e *environ) InstanceTypes(context.ProviderCallContext, constraints.Value) 
 
 func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	toReturn := []instances.Instance{}
+
+	tags := []string{"juju-model-uuid=" + e.Config().UUID()}
+
 	for _, id := range ids {
 		//TODO handle case when some of the instanes are missing
 		d, _, err := e.packetClient.Devices.Get(string(id), nil)
 		if err != nil {
 			return nil, errors.Annotatef(err, "looking up device with ID %q", id)
 		}
-		toReturn = append(toReturn, &packetDevice{e, d})
-
+		if isListContained(tags, *d) {
+			toReturn = append(toReturn, &packetDevice{e, d})
+		}
 	}
 	if len(toReturn) == 0 {
 		return nil, environs.ErrNoInstances
@@ -251,7 +263,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		Label:     "juju",
 	})
 
-	userdata := fmt.Sprintf("#!/bin/bash\nrm /etc/ssh/ssh_host_*dsa* \nrm /etc/ssh/ssh_host_ed*\nrm /sbin/initctl\nsudo apt update\nsudo apt install -y dmidecode\nset -e\n(grep ubuntu /etc/group) || groupadd ubuntu\n(id ubuntu &> /dev/null) || useradd -m ubuntu -s /bin/bash -g ubuntu\numask 0077\ntemp=$(mktemp)\necho 'ubuntu ALL=(ALL) NOPASSWD:ALL' > $temp\ninstall -m 0440 $temp /etc/sudoers.d/90-juju-ubuntu\nrm $temp\nsu ubuntu -c 'install -D -m 0600 /dev/null ~/.ssh/authorized_keys'\nexport authorized_keys=\"%s\"\nif [ ! -z \"$authorized_keys\" ]; then\nsu ubuntu -c 'printf \"%%s\n\" \"$authorized_keys\" >> ~/.ssh/authorized_keys'\nfi", e.ecfg.config.AuthorizedKeys())
+	userdata := fmt.Sprintf("#!/bin/bash\nrm /etc/ssh/ssh_host_*dsa* \nrm /etc/ssh/ssh_host_ed*\nrm /sbin/initctl\nsudo apt update\nsudo apt install -y dmidecode snapd\nset -e\n(grep ubuntu /etc/group) || groupadd ubuntu\n(id ubuntu &> /dev/null) || useradd -m ubuntu -s /bin/bash -g ubuntu\numask 0077\ntemp=$(mktemp)\necho 'ubuntu ALL=(ALL) NOPASSWD:ALL' > $temp\ninstall -m 0440 $temp /etc/sudoers.d/90-juju-ubuntu\nrm $temp\nsu ubuntu -c 'install -D -m 0600 /dev/null ~/.ssh/authorized_keys'\nexport authorized_keys=\"%s\"\nif [ ! -z \"$authorized_keys\" ]; then\nsu ubuntu -c 'printf \"%%s\n\" \"$authorized_keys\" >> ~/.ssh/authorized_keys'\nfi\n", e.ecfg.config.AuthorizedKeys())
 
 	juserdata, err := providerinit.ComposeUserData(args.InstanceConfig, nil, PacketRenderer{})
 
@@ -263,8 +275,6 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	for k, v := range args.InstanceConfig.Tags {
 		packetTags = append(packetTags, fmt.Sprintf("%s=%s", k, v))
 	}
-
-	// packetTags = append(packetTags, fmt.Sprintf("juju-controller-%s", e.cloud.Name), "juju-instance")
 
 	device := &packngo.DeviceCreateRequest{
 		Hostname:     e.name,
@@ -286,10 +296,12 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		return nil, err
 	}
 	d, err = waitDeviceActive(e.packetClient, d.ID)
-
+	if err != nil {
+		return nil, err
+	}
 	inst := &packetDevice{e, d}
 	amd64 := arch.AMD64
-	mem, _ := strconv.ParseUint(inst.Plan.Specs.Memory.Total, 10, 64)
+	mem, _ := strconv.ParseUint(d.Plan.Specs.Memory.Total, 10, 64)
 	cpus := uint64(inst.Plan.Specs.Cpus[0].Count)
 	hc := &instance.HardwareCharacteristics{
 		Arch: &amd64,
