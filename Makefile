@@ -179,13 +179,9 @@ endif
 
 install-mongo-dependencies:
 ## install-mongo-dependencies: Install Mongo and its dependencies
-	@echo Adding juju PPA for mongodb
-	@sudo apt-add-repository --yes ppa:juju/stable
-	@sudo apt-get update
-	@echo Installing dependencies
-	@sudo apt-get --yes install  \
+	@echo Installing juju-db snap for mongodb
+	@sudo snap install juju-db  \
 	$(strip $(DEPENDENCIES)) \
-	$(shell apt-cache madison mongodb-server-core juju-mongodb3.2 juju-mongodb mongodb-server | head -1 | cut -d '|' -f1)
 
 install-dependencies: install-snap-dependencies install-mongo-dependencies
 ## install-dependencies: Install all the dependencies
