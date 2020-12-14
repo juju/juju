@@ -432,7 +432,7 @@ func DefaultVersions(conf *config.Config) []version.Binary {
 	defaultSeries.Add(config.PreferredSeries(conf))
 
 	hostSeries, err := series.HostSeries()
-	if err != nil {
+	if err == nil {
 		defaultSeries.Add(hostSeries)
 	}
 
