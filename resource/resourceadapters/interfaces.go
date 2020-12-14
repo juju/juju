@@ -50,7 +50,7 @@ type Unit interface {
 	Tag() names.Tag
 }
 
-/// Application represents application methods required to open a resource.
+// Application represents application methods required to open a resource.
 type Application interface {
 	CharmOrigin() *corestate.CharmOrigin
 }
@@ -65,6 +65,12 @@ type Resources interface {
 	SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error)
 }
 
+// ResourceRetryClientGetterFn allows the creation of ResourceRetryClientGetter
+// from a given state.
+type ResourceRetryClientGetterFn func(st ResourceOpenerState) ResourceRetryClientGetter
+
+// ResourceRetryClientGetter defines an interface for creating a new resource
+// retry clients.
 type ResourceRetryClientGetter interface {
 	NewClient() (*ResourceRetryClient, error)
 }
