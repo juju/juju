@@ -586,8 +586,14 @@ func (k *kubernetesClient) Operator(appName string) (*caas.Operator, error) {
 	}
 
 	opPod := podsList.Items[0]
+
+	eventGetter := func() ([]core.Event, error) {
+		return k.getEvents(opPod.Name, "Pod")
+	}
+
 	terminated := opPod.DeletionTimestamp != nil
-	statusMessage, opStatus, since, err := k.getPODStatus(opPod, k.clock.Now())
+	statusMessage, opStatus, since, err := podToJujuStatus(
+		opPod, k.clock.Now(), eventGetter)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
