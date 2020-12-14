@@ -25,6 +25,7 @@ const (
 	ColumnNameBundle        ColumnName = "Bundle"
 	ColumnNameVersion       ColumnName = "Version"
 	ColumnNameArchitectures ColumnName = "Architectures"
+	ColumnNameOS            ColumnName = "OS"
 	ColumnNameSupports      ColumnName = "Supports"
 	ColumnNamePublisher     ColumnName = "Publisher"
 	ColumnNameSummary       ColumnName = "Summary"
@@ -46,9 +47,10 @@ func DefaultColumns() Columns {
 		'b': {Index: 1, Name: ColumnNameBundle},
 		'v': {Index: 2, Name: ColumnNameVersion},
 		'a': {Index: 3, Name: ColumnNameArchitectures},
-		'S': {Index: 4, Name: ColumnNameSupports},
-		'p': {Index: 5, Name: ColumnNamePublisher},
-		's': {Index: 6, Name: ColumnNameSummary},
+		'o': {Index: 4, Name: ColumnNameOS},
+		'S': {Index: 5, Name: ColumnNameSupports},
+		'p': {Index: 6, Name: ColumnNamePublisher},
+		's': {Index: 7, Name: ColumnNameSummary},
 	}
 }
 
@@ -109,7 +111,7 @@ func (f findWriter) Print() error {
 	colNames := f.columns.Names()
 	fmt.Fprintln(tw, strings.Join(colNames, "\t"))
 	for _, result := range f.in {
-		summary, err := oneLine(result.Summary, 6)
+		summary, err := oneLine(result.Summary, summaryColumnIndex(f.columns))
 		if err != nil {
 			f.warningf("%v", err)
 		}
@@ -125,6 +127,8 @@ func (f findWriter) Print() error {
 				colValues = append(colValues, result.Version)
 			case ColumnNameArchitectures:
 				colValues = append(colValues, strings.Join(result.Arches, ","))
+			case ColumnNameOS:
+				colValues = append(colValues, strings.Join(result.OS, ","))
 			case ColumnNameSupports:
 				colValues = append(colValues, strings.Join(result.Series, ","))
 			case ColumnNamePublisher:
@@ -151,6 +155,15 @@ func (f findWriter) bundle(result FindResponse) string {
 		return "Y"
 	}
 	return "-"
+}
+
+func summaryColumnIndex(columns Columns) int {
+	for _, v := range columns {
+		if v.Name == ColumnNameSummary {
+			return v.Index
+		}
+	}
+	return -1
 }
 
 func oneLine(line string, inset int) (string, error) {

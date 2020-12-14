@@ -12571,6 +12571,12 @@
                         "name": {
                             "type": "string"
                         },
+                        "os": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
                         "publisher": {
                             "type": "string"
                         },

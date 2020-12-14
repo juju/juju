@@ -63,6 +63,7 @@ func convertCharmFindResult(resp charmhub.FindResponse) FindResponse {
 		Summary:   resp.Summary,
 		Version:   resp.Version,
 		Arches:    resp.Arches,
+		OS:        resp.OS,
 		Series:    resp.Series,
 		StoreURL:  resp.StoreURL,
 	}
@@ -219,6 +220,7 @@ type FindResponse struct {
 	Summary   string   `json:"summary" yaml:"summary"`
 	Version   string   `json:"version" yaml:"version"`
 	Arches    []string `json:"architectures,omitempty" yaml:"architectures,omitempty"`
+	OS        []string `json:"os,omitempty" yaml:"os,omitempty"`
 	Series    []string `json:"series,omitempty" yaml:"series,omitempty"`
 	StoreURL  string   `json:"store-url" yaml:"store-url"`
 }

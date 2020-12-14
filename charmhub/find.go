@@ -64,18 +64,20 @@ func (c *FindClient) Find(ctx context.Context, query string) ([]transport.FindRe
 // necessary to fill the transport.FindResponse.  Without it, we'd
 // receive the Name, ID and Type.
 func defaultFindFilter() string {
-	filter := defaultResultFilter
-	filter = append(filter, appendFilterList("default-release.revision", defaultDownloadFilter)...)
-	filter = append(filter, appendFilterList("default-release", findRevisionFilter)...)
-	filter = append(filter, appendFilterList("default-release", defaultChannelFilter)...)
+	filter := defaultFindResultFilter
+	filter = append(filter, appendFilterList("default-release", defaultRevisionFilter)...)
 	return strings.Join(filter, ",")
 }
 
-var findRevisionFilter = []string{
-	"revision.created-at",
+var defaultFindResultFilter = []string{
+	"result.publisher.display-name",
+	"result.summary",
+	"result.store-url",
+}
+
+var defaultRevisionFilter = []string{
 	"revision.platforms.architecture",
 	"revision.platforms.os",
 	"revision.platforms.series",
-	"revision.revision",
 	"revision.version",
 }

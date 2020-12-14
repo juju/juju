@@ -299,6 +299,10 @@ func (d downloadLogger) IsTraceEnabled() bool {
 	return !d.Context.Quiet()
 }
 
+func (d downloadLogger) Errorf(msg string, args ...interface{}) {
+	d.Context.Verbosef(msg, args...)
+}
+
 func (d downloadLogger) Debugf(msg string, args ...interface{}) {
 	d.Context.Verbosef(msg, args...)
 }
