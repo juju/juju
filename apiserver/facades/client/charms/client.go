@@ -269,23 +269,30 @@ func (a *API) getDownloadInfo(arg params.CharmURLAndOrigin) (params.DownloadInfo
 }
 
 func normalizeCharmOrigin(origin params.CharmOrigin) (params.CharmOrigin, error) {
-	os := origin.OS
-	oSeries := origin.Series
-	if origin.Series != "" && origin.Series != "all" {
-		sys, err := series.GetOSFromSeries(oSeries)
+	// If the series is set to all, we need to ensure that we remove that, so
+	// that we can attempt to derive it at a later stage. Juju itself doesn't
+	// know nor understands what all means, so we need to ensure it doesn't leak
+	// out.
+	var os string
+	var oSeries string
+	if origin.Series == "all" {
+		logger.Tracef("Series all detected, removing all from the origin. %s", origin.ID)
+	} else if origin.Series != "" {
+		// Always set the os from the series, so we know it's correctly
+		// normalized for the rest of Juju.
+		sys, err := series.GetOSFromSeries(origin.Series)
 		if err != nil {
 			return params.CharmOrigin{}, errors.Trace(err)
 		}
 		// Values passed to the api are case sensitive: ubuntu succeeds and
 		// Ubuntu returns `"code": "revision-not-found"`
 		os = strings.ToLower(sys.String())
-	} else {
-		oSeries = ""
-		os = ""
+		oSeries = origin.Series
 	}
-	arc := origin.Architecture
-	if origin.Architecture == "" || origin.Architecture == "all" {
-		arc = arch.DefaultArchitecture
+
+	var arc string
+	if origin.Architecture != "all" {
+		arc = origin.Architecture
 	}
 
 	o := origin
@@ -543,6 +550,8 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel, mac *macaroon.
 		}
 		if cons.HasArch() {
 			archOrigin.Architecture = *cons.Arch
+		} else {
+			archOrigin.Architecture = arch.DefaultArchitecture
 		}
 	}
 

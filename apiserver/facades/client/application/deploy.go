@@ -5,8 +5,6 @@ package application
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
 
 	"github.com/juju/charm/v8"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
@@ -91,14 +89,6 @@ func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (Ap
 		asa.Constraints = args.Constraints
 	}
 	return st.AddApplication(asa)
-}
-
-func quoteStrings(vals []string) string {
-	out := make([]string, len(vals))
-	for i, val := range vals {
-		out[i] = strconv.Quote(val)
-	}
-	return strings.Join(out, ", ")
 }
 
 // addUnits starts n units of the given application using the specified placement

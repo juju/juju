@@ -12,9 +12,9 @@ import (
 	"github.com/juju/juju/resource"
 )
 
-// EntityCache exposes the functionality needed to cache data from
+// EntityRepository exposes the functionality needed to cache data from
 // the charm store. The operations apply to a single application (or unit).
-type EntityCache interface {
+type EntityRepository interface {
 	// GetResource returns the resource data for the identified resource.
 	GetResource(name string) (resource.Resource, error)
 
@@ -26,24 +26,24 @@ type EntityCache interface {
 	OpenResource(name string) (resource.Resource, io.ReadCloser, error)
 }
 
-// cacheForOperations is a wrapper around EntityCache. It supports
+// operationsRepository is a wrapper around EntityRepository. It supports
 // the operations type.
-type cacheForOperations struct {
-	entityCache EntityCache
+type operationsRepository struct {
+	repo EntityRepository
 }
 
 // get retrieves the resource info and data from the cache. If only
 // the info is found then the returned reader will be nil. If no cache
 // is in use then errors.NotFound is returned.
-func (cfo cacheForOperations) get(name string) (resource.Resource, io.ReadCloser, error) {
-	if cfo.entityCache == nil {
+func (cfo operationsRepository) get(name string) (resource.Resource, io.ReadCloser, error) {
+	if cfo.repo == nil {
 		return resource.Resource{}, nil, errors.NotFoundf("resource %q", name)
 	}
 
-	res, reader, err := cfo.entityCache.OpenResource(name)
+	res, reader, err := cfo.repo.OpenResource(name)
 	if errors.IsNotFound(err) {
 		reader = nil
-		res, err = cfo.entityCache.GetResource(name)
+		res, err = cfo.repo.GetResource(name)
 	}
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
@@ -56,8 +56,8 @@ func (cfo cacheForOperations) get(name string) (resource.Resource, io.ReadCloser
 // if there is one. If no cache is in use then this is a no-op. Note
 // that the returned reader may or may not be the same one that was
 // passed in.
-func (cfo cacheForOperations) set(chRes charmresource.Resource, reader io.ReadCloser) (resource.Resource, io.ReadCloser, error) {
-	if cfo.entityCache == nil {
+func (cfo operationsRepository) set(chRes charmresource.Resource, reader io.ReadCloser) (resource.Resource, io.ReadCloser, error) {
+	if cfo.repo == nil {
 		res := resource.Resource{
 			Resource: chRes,
 		}
@@ -65,13 +65,13 @@ func (cfo cacheForOperations) set(chRes charmresource.Resource, reader io.ReadCl
 	}
 	defer func() { _ = reader.Close() }()
 
-	res, err := cfo.entityCache.SetResource(chRes, reader)
+	res, err := cfo.repo.SetResource(chRes, reader)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
 
 	// Make sure to use the potentially updated resource details.
-	res, reader, err = cfo.entityCache.OpenResource(res.Name)
+	res, reader, err = cfo.repo.OpenResource(res.Name)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}

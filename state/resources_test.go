@@ -17,6 +17,8 @@ import (
 	"github.com/juju/juju/testing"
 )
 
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/resources_mock.go github.com/juju/juju/state Resources
+
 func init() {
 	if err := all.RegisterForServer(); err != nil {
 		panic(err)

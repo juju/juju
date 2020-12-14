@@ -145,13 +145,6 @@ func getCharmHubFindResponses() []transport.FindResponse {
 			}},
 			License:     "Apache-2.0",
 			Description: "This will install and setup Wordpress optimized to run in the cloud.\nBy default it will place Ngnix configured to scale horizontally\nwith Nginx's reverse proxy.",
-
-			Media: []transport.Media{{
-				Height: 256,
-				Type:   "icon",
-				URL:    "https://dashboard.snapcraft.io/site_media/appmedia/2017/04/wpcom.png",
-				Width:  256,
-			}},
 			Publisher: map[string]string{
 				"display-name": "Wordress Charmers",
 			},
@@ -240,13 +233,6 @@ func getCharmHubInfoResponse() transport.InfoResponse {
 			}},
 			License:     "Apache-2.0",
 			Description: "This will install and setup Wordpress optimized to run in the cloud.\nBy default it will place Ngnix configured to scale horizontally\nwith Nginx's reverse proxy.",
-
-			Media: []transport.Media{{
-				Height: 256,
-				Type:   "icon",
-				URL:    "https://dashboard.snapcraft.io/site_media/appmedia/2017/04/wpcom.png",
-				Width:  256,
-			}},
 			Publisher: map[string]string{
 				"display-name": "Wordress Charmers",
 			},

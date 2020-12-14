@@ -240,6 +240,8 @@ func newAddPendingResourcesArgsV2(tag names.ApplicationTag, chID CharmID, csMac 
 	}
 	args.CharmOrigin = params.CharmOrigin{
 		Source:       chID.Origin.Source.String(),
+		ID:           chID.Origin.ID,
+		Hash:         chID.Origin.Hash,
 		Risk:         chID.Origin.Risk,
 		Revision:     chID.Origin.Revision,
 		Track:        chID.Origin.Track,

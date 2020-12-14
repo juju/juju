@@ -6,6 +6,7 @@ package client_test
 import (
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -16,12 +17,15 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/client"
+	"github.com/juju/juju/apiserver/facades/client/client/testing"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
-	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/testing"
+	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/mocks"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
+	"github.com/juju/juju/charmhub/transport"
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
@@ -800,8 +804,8 @@ type statusUpgradeUnitSuite struct {
 	jujutesting.JujuConnSuite
 
 	charmrevisionupdater *charmrevisionupdater.CharmRevisionUpdaterAPI
-	resources            *common.Resources
 	authoriser           apiservertesting.FakeAuthorizer
+	ctrl                 *gomock.Controller
 }
 
 var _ = gc.Suite(&statusUpgradeUnitSuite{})
@@ -814,17 +818,32 @@ func (s *statusUpgradeUnitSuite) SetUpSuite(c *gc.C) {
 func (s *statusUpgradeUnitSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.CharmSuite.SetUpTest(c)
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
-	s.authoriser = apiservertesting.FakeAuthorizer{
-		Controller: true,
+
+	state := charmrevisionupdater.StateShim{State: s.State}
+	newCharmstoreClient := func(st charmrevisionupdater.State) (charmstore.Client, error) {
+		return charmstore.NewCustomClient(s.Store), nil
 	}
+
+	s.ctrl = gomock.NewController(c)
+	charmhubClient := mocks.NewMockCharmhubRefreshClient(s.ctrl)
+	charmhubClient.EXPECT().Refresh(gomock.Any(), gomock.Any()).Return([]transport.RefreshResponse{
+		{Entity: transport.RefreshEntity{Revision: 42}},
+	}, nil)
+	newCharmhubClient := func(st charmrevisionupdater.State, metadata map[string]string) (charmrevisionupdater.CharmhubRefreshClient, error) {
+		return charmhubClient, nil
+	}
+
 	var err error
-	s.charmrevisionupdater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPI(s.State, s.resources, s.authoriser)
+	s.charmrevisionupdater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, newCharmstoreClient, newCharmhubClient)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *statusUpgradeUnitSuite) TestUpdateRevisions(c *gc.C) {
+func (s *statusUpgradeUnitSuite) TearDownTest(c *gc.C) {
+	s.JujuConnSuite.TearDownTest(c)
+	s.ctrl.Finish()
+}
+
+func (s *statusUpgradeUnitSuite) TestUpdateRevisionsCharmstore(c *gc.C) {
 	s.AddMachine(c, "0", state.JobManageModel)
 	s.SetupScenario(c)
 	client := s.APIState.Client()
@@ -839,11 +858,37 @@ func (s *statusUpgradeUnitSuite) TestUpdateRevisions(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 
-	// Check if CanUpgradeTo suggest the latest revision.
+	// Check if CanUpgradeTo suggests the latest revision.
 	status, _ = client.Status(nil)
 	serviceStatus, ok = status.Applications["mysql"]
 	c.Assert(ok, gc.Equals, true)
 	c.Assert(serviceStatus.CanUpgradeTo, gc.Equals, "cs:quantal/mysql-23")
+}
+
+func (s *statusUpgradeUnitSuite) TestUpdateRevisionsCharmhub(c *gc.C) {
+	s.AddMachine(c, "0", state.JobManageModel)
+	s.AddMachine(c, "1", state.JobHostUnits)
+	s.AddCharmhubCharmWithRevision(c, "charmhubby", 41)
+	s.AddApplication(c, "charmhubby", "charmhubby")
+	s.AddUnit(c, "charmhubby", "1")
+
+	client := s.APIState.Client()
+	status, _ := client.Status(nil)
+
+	serviceStatus, ok := status.Applications["charmhubby"]
+	c.Assert(ok, gc.Equals, true)
+	c.Assert(serviceStatus.CanUpgradeTo, gc.Equals, "")
+
+	// Update to the latest available charm revision.
+	result, err := s.charmrevisionupdater.UpdateLatestRevisions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+
+	// Check if CanUpgradeTo suggests the latest revision.
+	status, _ = client.Status(nil)
+	serviceStatus, ok = status.Applications["charmhubby"]
+	c.Assert(ok, gc.Equals, true)
+	c.Assert(serviceStatus.CanUpgradeTo, gc.Equals, "ch:charmhubby-42")
 }
 
 type CAASStatusSuite struct {

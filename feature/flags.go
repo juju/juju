@@ -51,6 +51,5 @@ const K8sOperators = "k8s-operators"
 // RawK8sSpec indicates that it's allowed to set k8s spec using raw yaml format.
 const RawK8sSpec = "raw-k8s-spec"
 
-// CharmHubIntegration enables the new commands and functionality related to
-// charm's in CharmHub.
-const CharmHubIntegration = "charm-hub"
+// ActionsV2 enables the next generation actions UX.
+const ActionsV2 = "actions-v2"

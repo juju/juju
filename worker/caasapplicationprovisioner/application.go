@@ -193,25 +193,25 @@ func (a *appWorker) loop() error {
 		case <-a.catacomb.Dying():
 			return a.catacomb.ErrDying()
 		case <-appStateChanges:
-			// Respond to state changes
+			// Respond to state changes.
 			err = handleChange()
 			if err != nil {
 				return errors.Trace(err)
 			}
 		case <-a.changes:
-			// Respond to life changes
+			// Respond to life changes.
 			err = handleChange()
 			if err != nil {
 				return errors.Trace(err)
 			}
 		case <-appChanges:
-			// Respond to changes in provider application
+			// Respond to changes in provider application.
 			lastReportedStatus, err = a.updateState(app, false, lastReportedStatus)
 			if err != nil {
 				return errors.Trace(err)
 			}
 		case <-replicaChanges:
-			// Respond to changes in replicas of the application
+			// Respond to changes in replicas of the application.
 			lastReportedStatus, err = a.updateState(app, false, lastReportedStatus)
 			if err != nil {
 				return errors.Trace(err)

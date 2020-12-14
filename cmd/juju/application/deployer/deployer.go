@@ -5,9 +5,7 @@ package deployer
 
 import (
 	"archive/zip"
-	"fmt"
 	"io/ioutil"
-	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -18,7 +16,6 @@ import (
 	"github.com/juju/charmrepo/v6"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 
@@ -32,7 +29,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
 )
@@ -452,41 +448,10 @@ func (d *factory) charmStoreCharm() (Deployer, error) {
 }
 
 func resolveCharmURL(path string) (*charm.URL, error) {
-	// If the charmhub integration is in effect, then we ensure that schema is
-	// defined and we can parse the URL correctly.
-	if featureflag.Enabled(feature.CharmHubIntegration) {
-		var err error
-		path, err = charm.EnsureSchema(path)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		return charm.ParseURL(path)
-	}
-
-	// If the prefix is just a `~` then we know that this is a user charm and
-	// we should prefix the url with a `cs:`.
-	if strings.HasPrefix(path, "~") {
-		path = fmt.Sprintf("cs:%s", path)
-	}
-
-	u, err := url.Parse(path)
+	var err error
+	path, err = charm.EnsureSchema(path)
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-
-	// We don't expect the charmhub url scheme to show up here, as the feature
-	// flag isn't enabled.
-	if charm.CharmHub.Matches(u.Scheme) {
-		// Replicate the charm url parsing error here to keep things consistent.
-		return nil, errors.Errorf(`unexpected charm schema: cannot parse URL %q: schema "ch" not valid`, path)
-	}
-
-	// If we find a scheme that is empty, force it to become a charmstore scheme
-	// so every other subsequent parse url call knows the correct type.
-	// Ensure we don't prefix a absolute path with a cs: prefix.
-	if u.Scheme == "" && !strings.HasPrefix(u.Path, "/") {
-		return charm.ParseURL(fmt.Sprintf("cs:%s", u.Path))
 	}
 
 	return charm.ParseURL(path)

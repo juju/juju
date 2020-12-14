@@ -207,7 +207,7 @@ func (s *ReplSuite) TestMissingCommandHelp(c *gc.C) {
 ERROR juju: "foo" is not a juju command. Type "help" to see a list of commands.
 
 Did you mean:
-	run
+	find
 `[1:])
 }
 

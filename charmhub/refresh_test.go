@@ -33,11 +33,11 @@ func (s *RefreshSuite) TestRefresh(c *gc.C) {
 	baseURL := MustParseURL(c, "http://api.foo.bar")
 
 	path := path.MakePath(baseURL)
-	name := "meshuggah"
+	id := "meshuggah"
 	body := transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{{
 			InstanceKey: "foo-bar",
-			ID:          name,
+			ID:          id,
 			Revision:    1,
 			Platform: transport.RefreshRequestPlatform{
 				OS:           "ubuntu",
@@ -49,11 +49,11 @@ func (s *RefreshSuite) TestRefresh(c *gc.C) {
 		Actions: []transport.RefreshRequestAction{{
 			Action:      "refresh",
 			InstanceKey: "foo-bar",
-			ID:          &name,
+			ID:          &id,
 		}},
 	}
 
-	config, err := RefreshOne(name, 1, "latest/stable", RefreshPlatform{
+	config, err := RefreshOne(id, 1, "latest/stable", RefreshPlatform{
 		OS:           "ubuntu",
 		Series:       "focal",
 		Architecture: arch.DefaultArchitecture,
@@ -63,13 +63,13 @@ func (s *RefreshSuite) TestRefresh(c *gc.C) {
 	config = DefineInstanceKey(c, config, "foo-bar")
 
 	restClient := NewMockRESTClient(ctrl)
-	s.expectPost(c, restClient, path, name, body)
+	s.expectPost(c, restClient, path, id, body)
 
 	client := NewRefreshClient(path, restClient, &FakeLogger{})
 	responses, err := client.Refresh(context.TODO(), config)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(responses), gc.Equals, 1)
-	c.Assert(responses[0].Name, gc.Equals, name)
+	c.Assert(responses[0].Name, gc.Equals, id)
 }
 
 type metadataTransport struct {
@@ -140,16 +140,13 @@ func (s *RefreshSuite) TestRefreshMetadata(c *gc.C) {
 	response, err := client.Refresh(context.Background(), config)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(httpTransport.requestHeaders, gc.DeepEquals, http.Header{
-		"Accept":       []string{"application/json"},
-		"Content-Type": []string{"application/json"},
-		"X-Juju-Metadata": []string{
-			"series=focal",
-			"arch=amd64",
-			"series=trusty",
-		},
-		"User-Agent": []string{"Test Agent 1.0"},
+	c.Assert(httpTransport.requestHeaders[MetadataHeader], jc.SameContents, []string{
+		"arch=amd64",
+		"os=ubuntu",
+		"series=focal",
+		"series=trusty",
 	})
+	c.Assert(httpTransport.requestHeaders["User-Agent"], jc.SameContents, []string{"Test Agent 1.0"})
 
 	c.Assert(response, gc.DeepEquals, []transport.RefreshResponse{
 		{ID: "foo", InstanceKey: "key-foo"},
@@ -227,7 +224,7 @@ func (s *RefreshConfigSuite) TestRefreshOneBuild(c *gc.C) {
 
 	config = DefineInstanceKey(c, config, "foo-bar")
 
-	req, err := config.Build()
+	req, _, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{{
@@ -278,7 +275,7 @@ func (s *RefreshConfigSuite) TestInstallOneBuildRevision(c *gc.C) {
 
 	config = DefineInstanceKey(c, config, "foo-bar")
 
-	req, err := config.Build()
+	req, _, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{},
@@ -309,7 +306,7 @@ func (s *RefreshConfigSuite) TestInstallOneBuildChannel(c *gc.C) {
 
 	config = DefineInstanceKey(c, config, "foo-bar")
 
-	req, err := config.Build()
+	req, _, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{},
@@ -377,8 +374,8 @@ func (s *RefreshConfigSuite) TestDownloadOneEnsure(c *gc.C) {
 
 func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuild(c *gc.C) {
 	channel := "latest/stable"
-	name := "foo"
-	config, err := DownloadOneFromChannel(name, channel, RefreshPlatform{
+	id := "foo"
+	config, err := DownloadOneFromChannel(id, channel, RefreshPlatform{
 		OS:           "ubuntu",
 		Series:       "focal",
 		Architecture: arch.DefaultArchitecture,
@@ -387,14 +384,14 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuild(c *gc.C) {
 
 	config = DefineInstanceKey(c, config, "foo-bar")
 
-	req, err := config.Build()
+	req, _, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{},
 		Actions: []transport.RefreshRequestAction{{
 			Action:      "download",
 			InstanceKey: "foo-bar",
-			Name:        &name,
+			ID:          &id,
 			Channel:     &channel,
 			Platform: &transport.RefreshRequestPlatform{
 				OS:           "ubuntu",
@@ -454,7 +451,7 @@ func (s *RefreshConfigSuite) TestRefreshManyBuild(c *gc.C) {
 
 	config := RefreshMany(config1, config2, config3)
 
-	req, err := config.Build()
+	req, _, err := config.Build()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{{

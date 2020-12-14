@@ -59,9 +59,7 @@ var resourceFilter = []string{
 	"download.url",
 	"name",
 	"revision",
-	// TODO (hml) 8-dec-2020
-	// Use once the api knows about them.
-	//"path",
-	//"description",
+	"filename",
+	"description",
 	"type",
 }

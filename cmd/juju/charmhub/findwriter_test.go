@@ -19,7 +19,7 @@ var _ = gc.Suite(&columnFindSuite{})
 
 func (s *columnFindSuite) TestColumnNames(c *gc.C) {
 	names := DefaultColumns().Names()
-	c.Assert(names, jc.DeepEquals, []string{"Name", "Bundle", "Version", "Architectures", "Supports", "Publisher", "Summary"})
+	c.Assert(names, jc.DeepEquals, []string{"Name", "Bundle", "Version", "Architectures", "OS", "Supports", "Publisher", "Summary"})
 }
 
 func (s *columnFindSuite) TestMakeColumns(c *gc.C) {
@@ -48,7 +48,7 @@ var _ = gc.Suite(&printFindSuite{})
 func (s *printFindSuite) TestCharmPrintFind(c *gc.C) {
 	fr := getCharmFindResponse()
 	ctx := commandContextForTest(c)
-	cols := DefaultColumns()
+	cols := testDefaultColumns()
 
 	fw := makeFindWriter(ctx.Stdout, ctx.Warningf, cols, fr)
 	err := fw.Print()
@@ -79,7 +79,7 @@ func (s *printFindSuite) TestCharmPrintFindWithColumns(c *gc.C) {
 	expected := `
 Name       Bundle  Version  Publisher          Summary
 wordpress  -       1.0.3    Wordress Charmers  WordPress is a full featured web blogging
-                                                   tool, this charm deploys it.
+                                               tool, this charm deploys it.
 osm        Y       3.2.3    charmed-osm        Single instance OSM bundle.
 
 `[1:]
@@ -94,7 +94,7 @@ func (s *printFindSuite) TestCharmPrintFindWithMissingData(c *gc.C) {
 	fr[0].Summary = ""
 
 	ctx := commandContextForTest(c)
-	cols := DefaultColumns()
+	cols := testDefaultColumns()
 
 	fw := makeFindWriter(ctx.Stdout, ctx.Warningf, cols, fr)
 	err := fw.Print()
@@ -152,4 +152,16 @@ func getCharmFindResponse() []FindResponse {
 		Series:    []string{"bionic", "xenial", "trusty"},
 		StoreURL:  "https://someurl.com/osm",
 	}}
+}
+
+func testDefaultColumns() Columns {
+	return map[rune]Column{
+		'n': {Index: 0, Name: ColumnNameName},
+		'b': {Index: 1, Name: ColumnNameBundle},
+		'v': {Index: 2, Name: ColumnNameVersion},
+		'a': {Index: 3, Name: ColumnNameArchitectures},
+		'S': {Index: 4, Name: ColumnNameSupports},
+		'p': {Index: 5, Name: ColumnNamePublisher},
+		's': {Index: 6, Name: ColumnNameSummary},
+	}
 }

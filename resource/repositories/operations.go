@@ -58,8 +58,8 @@ type GetResourceArgs struct {
 	// Client is the charm store client to use.
 	Client ResourceGetter
 
-	// EntityCache is the charm store cache to use. It is optional.
-	Cache EntityCache
+	// EntityRepository is the charm store cache to use. It is optional.
+	Repository EntityRepository
 
 	// CharmID indicates the charm for which to get the resource.
 	CharmID CharmID
@@ -95,11 +95,11 @@ func GetResource(args GetResourceArgs) (resource.Resource, io.ReadCloser, error)
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
 
-	cache := cacheForOperations{
-		entityCache: args.Cache,
+	opRepo := operationsRepository{
+		repo: args.Repository,
 	}
 
-	res, reader, err := cache.get(args.Name)
+	res, reader, err := opRepo.get(args.Name)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
@@ -133,7 +133,7 @@ func GetResource(args GetResourceArgs) (resource.Resource, io.ReadCloser, error)
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
 
-	res, reader, err = cache.set(data.Resource, data)
+	res, reader, err = opRepo.set(data.Resource, data)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
