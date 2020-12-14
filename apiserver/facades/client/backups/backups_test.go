@@ -27,7 +27,7 @@ type backupsSuite struct {
 	testing.JujuConnSuite
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
-	api        *backupsAPI.APIv2
+	api        *backupsAPI.API
 	meta       *backups.Metadata
 	machineTag names.MachineTag
 }
@@ -64,7 +64,7 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 		controllerNodesF: func() ([]state.ControllerNode, error) { return nil, nil },
 		machineF:         func(id string) (backupsAPI.Machine, error) { return &testMachine{}, nil },
 	}
-	s.api, err = backupsAPI.NewAPIv2(shim, s.resources, s.authorizer)
+	s.api, err = backupsAPI.NewAPI(shim, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	s.meta = backupstesting.NewMetadataStarted()
 }
@@ -89,13 +89,13 @@ func (s *backupsSuite) setBackups(c *gc.C, meta *backups.Metadata, err string) *
 }
 
 func (s *backupsSuite) TestNewAPIOkay(c *gc.C) {
-	_, err := backupsAPI.NewAPIv2(&stateShim{State: s.State, Model: s.Model}, s.resources, s.authorizer)
+	_, err := backupsAPI.NewAPI(&stateShim{State: s.State, Model: s.Model}, s.resources, s.authorizer)
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *backupsSuite) TestNewAPINotAuthorized(c *gc.C) {
 	s.authorizer.Tag = names.NewApplicationTag("eggs")
-	_, err := backupsAPI.NewAPIv2(&stateShim{State: s.State, Model: s.Model}, s.resources, s.authorizer)
+	_, err := backupsAPI.NewAPI(&stateShim{State: s.State, Model: s.Model}, s.resources, s.authorizer)
 	c.Check(errors.Cause(err), gc.Equals, apiservererrors.ErrPerm)
 }
 
@@ -104,7 +104,7 @@ func (s *backupsSuite) TestNewAPIHostedEnvironmentFails(c *gc.C) {
 	defer otherState.Close()
 	otherModel, err := otherState.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = backupsAPI.NewAPIv2(&stateShim{State: otherState, Model: otherModel}, s.resources, s.authorizer)
+	_, err = backupsAPI.NewAPI(&stateShim{State: otherState, Model: otherModel}, s.resources, s.authorizer)
 	c.Check(err, gc.ErrorMatches, "backups are only supported from the controller model\nUse juju switch to select the controller model")
 }
 
@@ -115,6 +115,6 @@ func (s *backupsSuite) TestBackupsCAASFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	isController := true
-	_, err = backupsAPI.NewAPIv2(&stateShim{State: otherState, Model: otherModel, isController: &isController}, s.resources, s.authorizer)
+	_, err = backupsAPI.NewAPI(&stateShim{State: otherState, Model: otherModel, isController: &isController}, s.resources, s.authorizer)
 	c.Assert(err, gc.ErrorMatches, "backups on kubernetes controllers not supported")
 }

@@ -180,8 +180,8 @@ endif
 install-mongo-dependencies:
 ## install-mongo-dependencies: Install Mongo and its dependencies
 	@echo Installing juju-db snap for mongodb
-	@sudo snap install juju-db  \
-	$(strip $(DEPENDENCIES)) \
+	@sudo snap install juju-db
+	@sudo apt-get --yes install  $(strip $(DEPENDENCIES))
 
 install-dependencies: install-snap-dependencies install-mongo-dependencies
 ## install-dependencies: Install all the dependencies

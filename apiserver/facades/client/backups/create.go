@@ -13,23 +13,7 @@ import (
 
 var waitUntilReady = replicaset.WaitUntilReady
 
-// Create is the API method that requests juju to create a new backup
-// of its state.  It returns the metadata for that backup.
-//
-// NOTE(hml) this provides backwards compatibility for facade version 1.
 func (a *API) Create(args params.BackupsCreateArgs) (params.BackupsMetadataResult, error) {
-	args.KeepCopy = true
-	args.NoDownload = true
-
-	apiv2 := APIv2{a}
-	result, err := apiv2.Create(args)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	return result, nil
-}
-
-func (a *APIv2) Create(args params.BackupsCreateArgs) (params.BackupsMetadataResult, error) {
 	backupsMethods, closer := newBackups(a.backend)
 	defer closer.Close()
 

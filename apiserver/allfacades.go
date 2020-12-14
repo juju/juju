@@ -160,8 +160,7 @@ func AllFacades() *facade.Registry {
 	reg("ApplicationOffers", 2, applicationoffers.NewOffersAPIV2)
 	reg("ApplicationOffers", 3, applicationoffers.NewOffersAPIV3) // Add user to consume offers details  args.
 	reg("ApplicationScaler", 1, applicationscaler.NewAPI)
-	reg("Backups", 1, backups.NewFacade)
-	reg("Backups", 2, backups.NewFacadeV2)
+	reg("Backups", 3, backups.NewFacadeV3)
 	reg("Block", 2, block.NewAPI)
 	reg("Bundle", 1, bundle.NewFacadeV1)
 	reg("Bundle", 2, bundle.NewFacadeV2)

@@ -7,7 +7,6 @@ import (
 	"io"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"gopkg.in/mgo.v2"
 
@@ -21,8 +20,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 )
-
-var logger = loggo.GetLogger("juju.apiserver.backups")
 
 // Backend exposes state.State functionality needed by the backups Facade.
 type Backend interface {
@@ -46,19 +43,6 @@ type API struct {
 
 	// machineID is the ID of the machine where the API server is running.
 	machineID string
-}
-
-// APIv2 serves backup-specific API methods for version 2.
-type APIv2 struct {
-	*API
-}
-
-func NewAPIv2(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*APIv2, error) {
-	api, err := NewAPI(backend, resources, authorizer)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv2{api}, nil
 }
 
 // NewAPI creates a new instance of the Backups API facade.

@@ -9,7 +9,7 @@ import (
 )
 
 // Remove deletes the backups defined by ID from the database.
-func (a *APIv2) Remove(args params.BackupsRemoveArgs) (params.ErrorResults, error) {
+func (a *API) Remove(args params.BackupsRemoveArgs) (params.ErrorResults, error) {
 	backups, closer := newBackups(a.backend)
 	defer closer.Close()
 	results := make([]params.ErrorResult, len(args.IDs))

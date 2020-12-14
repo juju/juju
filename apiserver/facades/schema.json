@@ -5102,8 +5102,8 @@
     },
     {
         "Name": "Backups",
-        "Description": "APIv2 serves backup-specific API methods for version 2.",
-        "Version": 2,
+        "Description": "API provides backup-specific API methods.",
+        "Version": 3,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
