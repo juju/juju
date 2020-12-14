@@ -49,6 +49,9 @@ func newInternalResourceOpener(st ResourceOpenerState, unitName string) (opener 
 			return newCharmStoreOpener(st)
 		}
 	default:
+		// Use the nop opener that performs no store side requests. Instead it
+		// will resort to using the state package only. Any thing else will call
+		// a not-found error.
 		resourceClient = func(st ResourceOpenerState) ResourceRetryClientGetter {
 			return newNopOpener()
 		}
@@ -141,8 +144,12 @@ func (s *resourceState) OpenResource(name string) (resource.Resource, io.ReadClo
 	return s.st.OpenResourceForUniter(s.unit, name)
 }
 
+// nopOpener is a type for creating no resource requests for accessing local
+// charm resources.
 type nopOpener struct{}
 
+// newNopOpener creates a new nopOpener that creates a new client. The new
+// nopClient performs no operations for getting resources.
 func newNopOpener() *nopOpener {
 	return &nopOpener{}
 }
@@ -152,8 +159,15 @@ func (o *nopOpener) NewClient() (*ResourceRetryClient, error) {
 	return newRetryClient(nopClient{}), nil
 }
 
+// nopClient implements a client for accessing resources from a given store,
+// except this implementation performs no operations and instead returns a
+// not-found error. This ensures that no outbound requests are used for
+// scenarios covering local charms.
 type nopClient struct{}
 
+// GetResource is a no-op client implementation of a ResourceClient. The
+// implementation expects to never call the underlying client and instead
+// returns a not-found error straight away.
 func (nopClient) GetResource(req repositories.ResourceRequest) (charmstore.ResourceData, error) {
 	return charmstore.ResourceData{}, errors.NotFoundf("resource %q", req.Name)
 }
