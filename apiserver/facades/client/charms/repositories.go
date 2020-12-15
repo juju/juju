@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"net/url"
+	"strings"
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/charmrepo/v6"
@@ -178,27 +179,40 @@ func sanitizeCharmOrigin(received, requested params.CharmOrigin) (params.CharmOr
 	// requested origin using that as the hint or we unset it from the requested
 	// origin.
 	result := received
-	if received.Architecture == "all" {
-		result.Architecture = requested.Architecture
-	}
-	if received.OS == "all" {
-		result.OS = requested.OS
-	}
-	if received.Series == "all" {
-		result.Series = requested.Series
 
-		os, err := series.GetOSFromSeries(requested.Series)
-		if err != nil {
-			return received, errors.Trace(err)
+	if result.Architecture == "all" {
+		result.Architecture = ""
+		if requested.Architecture != "all" {
+			result.Architecture = requested.Architecture
 		}
-		result.OS = os.String()
 	}
+
+	if result.OS == "all" {
+		result.OS = ""
+	}
+
+	if result.Series == "all" {
+		result.Series = ""
+
+		if requested.Series != "all" {
+			result.Series = requested.Series
+		}
+	}
+
+	if result.Series != "" {
+		os, err := series.GetOSFromSeries(result.Series)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		result.OS = strings.ToLower(os.String())
+	}
+
 	return result, nil
 }
 
 func sanitizeCoreCharmOrigin(received, requested corecharm.Origin) (corecharm.Origin, error) {
 	a := apicharm.CoreCharmOrigin(received)
-	b := apicharm.CoreCharmOrigin(received)
+	b := apicharm.CoreCharmOrigin(requested)
 	res, err := sanitizeCharmOrigin(a.ParamsCharmOrigin(), b.ParamsCharmOrigin())
 	if err != nil {
 		return corecharm.Origin{}, errors.Trace(err)
