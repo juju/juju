@@ -292,7 +292,7 @@ func normalizeCharmOrigin(origin params.CharmOrigin) (params.CharmOrigin, error)
 	}
 
 	var arc string
-	if arc != "all" {
+	if origin.Architecture != "all" {
 		arc = origin.Architecture
 	} else {
 		logger.Warningf("Architecture all detected, removing all from the origin. %s", origin.ID)
