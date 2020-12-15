@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/utils/v2"
 	"github.com/kr/pretty"
 
@@ -133,6 +134,9 @@ func (c refreshOne) String() string {
 
 // RefreshOne creates a request config for requesting only one charm.
 func RefreshOne(id string, revision int, channel string, platform RefreshPlatform) (RefreshConfig, error) {
+	if err := validatePlatform(platform); err != nil {
+		return nil, errors.Trace(err)
+	}
 	uuid, err := utils.NewUUID()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -196,6 +200,9 @@ type executeOne struct {
 // InstallOneFromRevision creates a request config using the revision and not
 // the channel for requesting only one charm.
 func InstallOneFromRevision(name string, revision int, platform RefreshPlatform) (RefreshConfig, error) {
+	if err := validatePlatform(platform); err != nil {
+		return nil, errors.Trace(err)
+	}
 	uuid, err := utils.NewUUID()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -212,6 +219,9 @@ func InstallOneFromRevision(name string, revision int, platform RefreshPlatform)
 // InstallOneFromChannel creates a request config using the channel and not the
 // revision for requesting only one charm.
 func InstallOneFromChannel(name string, channel string, platform RefreshPlatform) (RefreshConfig, error) {
+	if err := validatePlatform(platform); err != nil {
+		return nil, errors.Trace(err)
+	}
 	uuid, err := utils.NewUUID()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -227,6 +237,9 @@ func InstallOneFromChannel(name string, channel string, platform RefreshPlatform
 
 // DownloadOne creates a request config for requesting only one charm.
 func DownloadOne(id string, revision int, channel string, platform RefreshPlatform) (RefreshConfig, error) {
+	if err := validatePlatform(platform); err != nil {
+		return nil, errors.Trace(err)
+	}
 	uuid, err := utils.NewUUID()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -244,6 +257,9 @@ func DownloadOne(id string, revision int, channel string, platform RefreshPlatfo
 // DownloadOneFromRevision creates a request config using the revision and not
 // the channel for requesting only one charm.
 func DownloadOneFromRevision(id string, revision int, platform RefreshPlatform) (RefreshConfig, error) {
+	if err := validatePlatform(platform); err != nil {
+		return nil, errors.Trace(err)
+	}
 	uuid, err := utils.NewUUID()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -260,6 +276,9 @@ func DownloadOneFromRevision(id string, revision int, platform RefreshPlatform) 
 // DownloadOneFromChannel creates a request config using the channel and not the
 // revision for requesting only one charm.
 func DownloadOneFromChannel(id string, channel string, platform RefreshPlatform) (RefreshConfig, error) {
+	if err := validatePlatform(platform); err != nil {
+		return nil, errors.Trace(err)
+	}
 	uuid, err := utils.NewUUID()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -406,4 +425,28 @@ func composeMetadataHeaders(a, b Headers) Headers {
 		result[k] = set.NewStrings(v...).SortedValues()
 	}
 	return result
+}
+
+// validatePlatform ensures that we do not pass "all" as part of platform.
+// This function is to help find programming related failures.
+func validatePlatform(rp RefreshPlatform) error {
+	var msg []string
+	if rp.Architecture == "all" {
+		msg = append(msg, fmt.Sprintf("Architecture %q", rp.Architecture))
+	}
+	if rp.OS == "all" {
+		msg = append(msg, fmt.Sprintf("OS %q", rp.OS))
+	}
+	if rp.Series == "all" {
+		msg = append(msg, fmt.Sprintf("Series %q", rp.Series))
+	}
+	if len(msg) > 0 {
+		err := errors.Trace(errors.NotValidf(strings.Join(msg, ", ")))
+		// Log the error here, trace on this side gets lost when the error
+		// goes thru to the client.
+		logger := loggo.GetLogger("juju.charmhub.validateplatform")
+		logger.Errorf(fmt.Sprintf("%s", err))
+		return err
+	}
+	return nil
 }
