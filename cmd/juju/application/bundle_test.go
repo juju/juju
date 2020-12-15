@@ -118,9 +118,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSpaceMissi
 		"cannot deploy bundle: cannot deploy application \"mysql\": "+
 		"space not found")
 	c.Assert(stdErr, gc.Equals, ""+
-		`Located bundle "cs:bundle/wordpress-with-endpoint-bindings-1"`+"\n"+
-		"Resolving charm via charmstore: cs:mysql\n"+
-		"Resolving charm via charmstore: cs:wordpress-extra-bindings")
+		`Located bundle "wordpress-with-endpoint-bindings" in charm-store, revision 1`+"\n"+
+		"Located charm \"mysql\" in charm-store\n"+
+		"Located charm \"wordpress-extra-bindings\" in charm-store")
 	c.Assert(stdOut, gc.Equals, ""+
 		"Executing changes:\n"+
 		"- upload charm cs:xenial/mysql-42 for series xenial\n"+
@@ -208,9 +208,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleTwice(c *gc.C) {
 		"- add unit wordpress/0 to new machine 1",
 	)
 	c.Check(stdErr, gc.Equals, ""+
-		"Located bundle \"cs:bundle/wordpress-simple-1\"\n"+
-		"Resolving charm via charmstore: cs:mysql\n"+
-		"Resolving charm via charmstore: cs:wordpress\n"+
+		"Located bundle \"wordpress-simple\" in charm-store, revision 1\n"+
+		"Located charm \"mysql\" in charm-store\n"+
+		"Located charm \"wordpress\" in charm-store\n"+
 		"Deploy of bundle completed.",
 	)
 	stdOut, stdErr, err = s.runDeployWithOutput(c, "cs:bundle/wordpress-simple")
@@ -222,7 +222,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleTwice(c *gc.C) {
 		"- set constraints for wordpress to \"\"",
 	)
 	c.Check(stdErr, gc.Equals, ""+
-		"Located bundle \"cs:bundle/wordpress-simple-1\"\n"+
+		"Located bundle \"wordpress-simple\" in charm-store, revision 1\n"+
 		"Deploy of bundle completed.",
 	)
 
@@ -420,7 +420,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleResources(c *gc.C) {
 	)
 	// Info messages go to stdErr.
 	c.Check(stdErr, gc.Equals, ""+
-		"Resolving charm via charmstore: cs:starsay\n"+
+		"Located charm \"startsay\" in charm-store\n"+
 		"  added resource install-resource\n"+
 		"  added resource store-resource\n"+
 		"  added resource upload-resource\n"+
@@ -1599,8 +1599,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithAnnotations_OutputIsCo
 		"- add unit memcached/0 to new machine 1",
 	)
 	c.Check(stdErr, gc.Equals, ""+
-		"Resolving charm via charmstore: cs:django\n"+
-		"Resolving charm via charmstore: cs:bionic/mem-47\n"+
+		"Located charm \"django\" in charm-store\n"+
+		"Located charm \"mem\" in charm-store, revision 47\n"+
 		"Deploy of bundle completed.",
 	)
 }

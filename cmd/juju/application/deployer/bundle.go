@@ -246,6 +246,10 @@ func (d *charmstoreBundle) String() string {
 
 // PrepareAndDeploy deploys a local bundle, no further preparation is needed.
 func (d *charmstoreBundle) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver, macaroonGetter store.MacaroonGetter) error {
-	ctx.Infof("Located bundle %q", d.bundleURL)
+	var revision string
+	if d.bundleURL.Revision != -1 {
+		revision = fmt.Sprintf(", revision %d", d.bundleURL.Revision)
+	}
+	ctx.Infof("Located bundle %q in %s%s", d.bundleURL.Name, d.origin.Source, revision)
 	return d.deploy(ctx, deployAPI, resolver, macaroonGetter)
 }

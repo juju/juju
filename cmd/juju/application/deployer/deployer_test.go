@@ -215,7 +215,7 @@ func (s *deployerSuite) TestGetDeployerCharmStoreBundleWithChannel(c *gc.C) {
 	factory := s.newDeployerFactory()
 	deployer, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm store bundle: %s", bundle.String()))
+	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm store bundle: %s from channel edge", bundle.String()))
 }
 
 func (s *deployerSuite) TestResolveCharmURL(c *gc.C) {
