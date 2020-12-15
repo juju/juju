@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/bundlechanges/v3"
+	"github.com/juju/bundlechanges/v4"
 	"github.com/juju/charm/v8"
 	"github.com/juju/charmrepo/v6"
 	csparams "github.com/juju/charmrepo/v6/csclient/params"
