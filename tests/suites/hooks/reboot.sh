@@ -82,12 +82,12 @@ run_reboot_monitor_state_cleanup() {
 
     ensure "${model_name}" "${file}"
 
-    # Deploy mysql/rsyslog-forwarder. The latter is a subordinate
+    # Deploy mysql/rsyslog-forwarder-ha. The latter is a subordinate
     juju deploy mysql
-    juju deploy rsyslog-forwarder
-    juju add-relation rsyslog-forwarder mysql
+    juju deploy rsyslog-forwarder-ha
+    juju add-relation rsyslog-forwarder-ha mysql
     wait_for "mysql" "$(idle_condition "mysql")"
-    wait_for "rsyslog-forwarder" "$(idle_subordinate_condition "rsyslog-forwarder" "mysql")"
+    wait_for "rsyslog-forwarder-ha" "$(idle_subordinate_condition "rsyslog-forwarder-ha" "mysql")"
 
     # Check that the reboot flag files have been created for both the charm and
     # the subordinate. Note: juju ssh adds whitespace which we need to trim
@@ -103,7 +103,7 @@ run_reboot_monitor_state_cleanup() {
 
     # Remove subordinate and ensure that the state file for its monitor got purged
     echo "[+] Verifying that reboot monitor state files are removed once a subordinate gets removed"
-    juju remove-relation rsyslog-forwarder mysql
+    juju remove-relation rsyslog-forwarder-ha mysql
     wait_for "mysql" "$(idle_condition "mysql")"
 
     wait_for_subordinate_count "mysql"
