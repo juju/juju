@@ -420,6 +420,7 @@ func (d *factory) maybeReadCharmstoreBundle(resolver Resolver) (Deployer, error)
 	db := d.newDeployBundle(store.NewResolvedBundle(bundle))
 	db.bundleURL = bundleURL
 	db.bundleOverlayFile = d.bundleOverlayFile
+	db.origin = bundleOrigin
 	return &charmstoreBundle{deployBundle: db}, nil
 }
 
