@@ -257,11 +257,11 @@ func newConfig(cfg, old *config.Config) (*environConfig, error) {
 func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (result *environs.StartInstanceResult, resultErr error) {
 	plan := "t1.small.x86"
 	OS := "ubuntu_18_04"
-	k, _, keyErr := e.packetClient.SSHKeys.Create(&packngo.SSHKeyCreateRequest{
-		ProjectID: e.cloud.Credential.Attributes()["project-id"],
-		Key:       e.ecfg.config.AuthorizedKeys(),
-		Label:     "juju",
-	})
+	// k, _, keyErr := e.packetClient.SSHKeys.Create(&packngo.SSHKeyCreateRequest{
+	// 	ProjectID: e.cloud.Credential.Attributes()["project-id"],
+	// 	Key:       e.ecfg.config.AuthorizedKeys(),
+	// 	Label:     "juju",
+	// })
 
 	userdata := fmt.Sprintf("#!/bin/bash\nrm /etc/ssh/ssh_host_*dsa* \nrm /etc/ssh/ssh_host_ed*\nrm /sbin/initctl\nsudo apt update\nsudo apt install -y dmidecode snapd\nset -e\n(grep ubuntu /etc/group) || groupadd ubuntu\n(id ubuntu &> /dev/null) || useradd -m ubuntu -s /bin/bash -g ubuntu\numask 0077\ntemp=$(mktemp)\necho 'ubuntu ALL=(ALL) NOPASSWD:ALL' > $temp\ninstall -m 0440 $temp /etc/sudoers.d/90-juju-ubuntu\nrm $temp\nsu ubuntu -c 'install -D -m 0600 /dev/null ~/.ssh/authorized_keys'\nexport authorized_keys=\"%s\"\nif [ ! -z \"$authorized_keys\" ]; then\nsu ubuntu -c 'printf \"%%s\n\" \"$authorized_keys\" >> ~/.ssh/authorized_keys'\nfi\n", e.ecfg.config.AuthorizedKeys())
 
@@ -287,9 +287,9 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		Tags:         packetTags,
 	}
 
-	if keyErr == nil {
-		device.ProjectSSHKeys = []string{k.ID}
-	}
+	// if keyErr == nil {
+	// 	device.ProjectSSHKeys = []string{k.ID}
+	// }
 
 	d, _, err := e.packetClient.Devices.Create(device)
 	if err != nil {
