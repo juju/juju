@@ -128,13 +128,19 @@ func newState(
 	}()
 
 	mongodb := session.DB(jujuDB)
-	sstxn := true
-	if !txn.SupportsServerSideTransactions(mongodb) {
-		logger.Warningf("User requested server-side transactions, but they are not supported.\n" +
-			" Falling back to client-side transactions.")
-		sstxn = false
-	} else {
+	sstxn := txn.SupportsServerSideTransactions(mongodb)
+
+	// TODO(wallyworld) - server side txns have issues on mongo 4.0
+	// (due to juju making bad txn.Ops, and potentially mongo 4 issues)
+	// Symptoms include intermittent success in applying a txn and reading results back,
+	// plus txn.Op slices that are wrong, eg insert dup or missing asserts.
+	sstxn = false
+
+	if sstxn {
 		logger.Infof("using server-side transactions")
+	} else {
+		logger.Warningf("server-side transactions are not supported.\n" +
+			" Falling back to client-side transactions.")
 	}
 	db := &database{
 		raw:                    mongodb,
