@@ -57,7 +57,7 @@ func (s *PathSuite) TestQueryEmptyValue(c *gc.C) {
 	newPath, err := path.Query("q", "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(path.String(), gc.Equals, newPath.String())
-	//c.Assert(newPath.String(), gc.Equals, "http://foobar/v1/path?q=foo")
+	c.Assert(newPath.String(), gc.Equals, "http://foobar/v1/path")
 }
 
 func (s *PathSuite) TestJoinQuery(c *gc.C) {

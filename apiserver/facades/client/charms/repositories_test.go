@@ -4,6 +4,8 @@
 package charms
 
 import (
+	"context"
+
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
@@ -12,6 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/client/charms/mocks"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/core/arch"
 )
@@ -35,6 +38,35 @@ func (s *charmHubRepositoriesSuite) TestCharmResolveDefaultChannelMap(c *gc.C) {
 
 	track := "latest"
 	curl.Revision = 16
+
+	origin.ID = "charmCHARMcharmCHARMcharmCHARM01"
+	origin.Type = "charm"
+	origin.Revision = &curl.Revision
+	origin.Risk = "stable"
+	origin.Track = &track
+	origin.Architecture = arch.DefaultArchitecture
+	origin.OS = "ubuntu"
+	origin.Series = "bionic"
+
+	c.Assert(obtainedCurl, jc.DeepEquals, curl)
+	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
+	c.Assert(obtainedSeries, jc.SameContents, []string{"bionic", "xenial"})
+}
+
+func (s *charmHubRepositoriesSuite) TestCharmResolveDefaultChannelMapWithChannel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectCharmInfoWithChannel(c)
+
+	track := "latest"
+
+	curl := charm.MustParseURL("ch:wordpress")
+	origin := params.CharmOrigin{Source: "charm-hub", Risk: "stable", Track: &track}
+
+	resolver := &chRepo{client: s.client}
+	obtainedCurl, obtainedOrigin, obtainedSeries, err := resolver.ResolveWithPreferredChannel(curl, origin)
+	c.Assert(err, jc.ErrorIsNil)
+
+	curl.Revision = 18
 
 	origin.ID = "charmCHARMcharmCHARMcharmCHARM01"
 	origin.Type = "charm"
@@ -265,6 +297,12 @@ func (s *charmHubRepositoriesSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func (s *charmHubRepositoriesSuite) expectCharmInfo(err error) {
 	s.client.EXPECT().Info(gomock.Any(), "wordpress", gomock.Any()).Return(getCharmHubCharmInfoResponse(), err)
+}
+
+func (s *charmHubRepositoriesSuite) expectCharmInfoWithChannel(c *gc.C) {
+	s.client.EXPECT().Info(gomock.Any(), "wordpress", gomock.Any()).Do(func(_ context.Context, _ string, options ...charmhub.InfoOption) {
+		c.Assert(options, gc.HasLen, 1)
+	}).Return(getCharmHubCharmInfoResponse(), nil)
 }
 
 func (s *charmHubRepositoriesSuite) expectAlternativeCharmInfo(err error) {

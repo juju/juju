@@ -1,6 +1,11 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// This used to live at
+// apiserver/facades/controller/charmrevisionupdater/testing/suite.go
+// but we moved it here as it's a JujuConnSuite test only used by this
+// package's tests.
+
 package testing
 
 import (
@@ -15,8 +20,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
-	jujucharmstore "github.com/juju/juju/charmstore"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -76,7 +79,7 @@ type CharmSuite struct {
 	jcSuite *jujutesting.JujuConnSuite
 
 	charms map[string]*state.Charm
-	store  *mockStore
+	Store  *mockStore
 }
 
 func (s *CharmSuite) SetUpSuite(c *gc.C, jcSuite *jujutesting.JujuConnSuite) {
@@ -92,7 +95,7 @@ func (s *CharmSuite) SetUpTest(c *gc.C) {
 		"logging":   "cs:quantal/logging-27",
 	}
 	var logger loggo.Logger
-	s.store = &mockStore{
+	s.Store = &mockStore{
 		CallMocker: jtesting.NewCallMocker(logger),
 		errors:     make(map[string]error),
 	}
@@ -113,20 +116,15 @@ func (s *CharmSuite) SetUpTest(c *gc.C) {
 		"series=quantal",
 	}
 	for _, url := range urls {
-		s.store.UploadCharm(url, map[string][]string{
+		s.Store.UploadCharm(url, map[string][]string{
 			"Juju-Metadata": headers,
 		})
 	}
-	// Patch the charmstore initializer function: it is replaced with a charm
-	// store repo pointing to the testing server.
-	s.jcSuite.PatchValue(&charmrevisionupdater.NewCharmStoreClient, func(st *state.State) (jujucharmstore.Client, error) {
-		return jujucharmstore.NewCustomClient(s.store), nil
-	})
 	s.charms = make(map[string]*state.Charm)
 }
 
 func (s *CharmSuite) SetStoreError(name string, err error) {
-	s.store.errors[name] = err
+	s.Store.errors[name] = err
 }
 
 // AddMachine adds a new machine to state.
@@ -146,8 +144,8 @@ func (s *CharmSuite) AddMachine(c *gc.C, machineId string, job state.MachineJob)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-// AddCharmWithRevision adds a charm with the specified revision to state.
-func (s *CharmSuite) AddCharmWithRevision(c *gc.C, charmName string, rev int) *state.Charm {
+// AddCharmWithRevision adds a charmstore charm with the specified revision to state.
+func (s *CharmSuite) AddCharmstoreCharmWithRevision(c *gc.C, charmName string, rev int) *state.Charm {
 	ch := testcharms.Repo.CharmDir(charmName)
 	name := ch.Meta().Name
 	curl := charm.MustParseURL(fmt.Sprintf("cs:quantal/%s-%d", name, rev))
@@ -163,17 +161,51 @@ func (s *CharmSuite) AddCharmWithRevision(c *gc.C, charmName string, rev int) *s
 	return dummy
 }
 
-// AddService adds a service for the specified charm to state.
-func (s *CharmSuite) AddService(c *gc.C, charmName, serviceName string) {
+// AddCharmhubCharmWithRevision adds a charmhub charm with the specified revision to state.
+func (s *CharmSuite) AddCharmhubCharmWithRevision(c *gc.C, charmName string, rev int) *state.Charm {
+	ch := testcharms.Hub.CharmDir(charmName)
+	name := ch.Meta().Name
+	curl := charm.MustParseURL(fmt.Sprintf("ch:%s-%d", name, rev))
+	info := state.CharmInfo{
+		Charm:       ch,
+		ID:          curl,
+		StoragePath: "dummy-path",
+		SHA256:      fmt.Sprintf("%s-%d-sha256", name, rev),
+	}
+	dummy, err := s.jcSuite.State.AddCharm(info)
+	c.Assert(err, jc.ErrorIsNil)
+	s.charms[name] = dummy
+	return dummy
+}
+
+// AddApplication adds an application for the specified charm to state.
+func (s *CharmSuite) AddApplication(c *gc.C, charmName, applicationName string) {
 	ch, ok := s.charms[charmName]
 	c.Assert(ok, jc.IsTrue)
-	_, err := s.jcSuite.State.AddApplication(state.AddApplicationArgs{Name: serviceName, Charm: ch})
+	revision := ch.Revision()
+	_, err := s.jcSuite.State.AddApplication(state.AddApplicationArgs{
+		Name:   applicationName,
+		Charm:  ch,
+		Series: "quantal",
+		CharmOrigin: &state.CharmOrigin{
+			Platform: &state.Platform{
+				Architecture: "amd64",
+				OS:           "ubuntu",
+				Series:       "quantal",
+			},
+			Revision: &revision,
+			Channel: &state.Channel{
+				Track: "latest",
+				Risk:  "stable",
+			},
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 // AddUnit adds a new unit for application to the specified machine.
-func (s *CharmSuite) AddUnit(c *gc.C, serviceName, machineId string) {
-	svc, err := s.jcSuite.State.Application(serviceName)
+func (s *CharmSuite) AddUnit(c *gc.C, appName, machineId string) {
+	svc, err := s.jcSuite.State.Application(appName)
 	c.Assert(err, jc.ErrorIsNil)
 	u, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -194,7 +226,7 @@ func (s *CharmSuite) SetUnitRevision(c *gc.C, unitName string, rev int) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-// SetupScenario adds some machines and services to state.
+// SetupScenario adds some machines and applications to state.
 // It assumes a controller machine has already been created.
 func (s *CharmSuite) SetupScenario(c *gc.C) {
 	s.AddMachine(c, "1", state.JobHostUnits)
@@ -202,20 +234,20 @@ func (s *CharmSuite) SetupScenario(c *gc.C) {
 	s.AddMachine(c, "3", state.JobHostUnits)
 
 	// mysql is out of date
-	s.AddCharmWithRevision(c, "mysql", 22)
-	s.AddService(c, "mysql", "mysql")
+	s.AddCharmstoreCharmWithRevision(c, "mysql", 22)
+	s.AddApplication(c, "mysql", "mysql")
 	s.AddUnit(c, "mysql", "1")
 
 	// wordpress is up to date
-	s.AddCharmWithRevision(c, "wordpress", 26)
-	s.AddService(c, "wordpress", "wordpress")
+	s.AddCharmstoreCharmWithRevision(c, "wordpress", 26)
+	s.AddApplication(c, "wordpress", "wordpress")
 	s.AddUnit(c, "wordpress", "2")
 	s.AddUnit(c, "wordpress", "2")
 	// wordpress/0 has a version, wordpress/1 is unknown
 	s.SetUnitRevision(c, "wordpress/0", 26)
 
 	// varnish is a charm that does not have a version in the mock store.
-	s.AddCharmWithRevision(c, "varnish", 5)
-	s.AddService(c, "varnish", "varnish")
+	s.AddCharmstoreCharmWithRevision(c, "varnish", 5)
+	s.AddApplication(c, "varnish", "varnish")
 	s.AddUnit(c, "varnish", "3")
 }

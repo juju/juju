@@ -11,13 +11,10 @@ import (
 	"github.com/juju/charmrepo/v6"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
-
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/feature"
 )
 
 // ErrExhausted reveals if a refresher was exhausted in it's task. If so, then
@@ -303,22 +300,18 @@ type charmStoreRefresher struct {
 // Allowed will attempt to check if the charm store is allowed to refresh.
 // Depending on the charm url, will then determine if that's true or not.
 func (r *charmStoreRefresher) Allowed(cfg RefresherConfig) (bool, error) {
-	// If we're a charm hub charm reference, then skip the charm store and
-	// move onto the next
-	if featureflag.Enabled(feature.CharmHubIntegration) {
-		path, err := charm.EnsureSchema(cfg.CharmRef)
-		if err != nil {
-			return false, errors.Trace(err)
-		}
+	path, err := charm.EnsureSchema(cfg.CharmRef)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
 
-		curl, err := charm.ParseURL(path)
-		if err != nil {
-			return false, errors.Trace(err)
-		}
+	curl, err := charm.ParseURL(path)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
 
-		if charm.CharmHub.Matches(curl.Schema) {
-			return false, nil
-		}
+	if charm.CharmHub.Matches(curl.Schema) {
+		return false, nil
 	}
 	return true, nil
 }
@@ -377,37 +370,34 @@ type charmHubRefresher struct {
 // Allowed will attempt to check if the charm store is allowed to refresh.
 // Depending on the charm url, will then determine if that's true or not.
 func (r *charmHubRefresher) Allowed(cfg RefresherConfig) (bool, error) {
-	if featureflag.Enabled(feature.CharmHubIntegration) {
-		path, err := charm.EnsureSchema(cfg.CharmRef)
-		if err != nil {
-			return false, errors.Trace(err)
-		}
+	path, err := charm.EnsureSchema(cfg.CharmRef)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
 
-		curl, err := charm.ParseURL(path)
-		if err != nil {
-			return false, errors.Trace(err)
-		}
+	curl, err := charm.ParseURL(path)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
 
-		if !charm.CharmHub.Matches(curl.Schema) {
-			return false, nil
-		}
+	if !charm.CharmHub.Matches(curl.Schema) {
+		return false, nil
+	}
 
-		if !cfg.Switch {
-			return true, nil
-		}
-
-		if err := r.charmAdder.CheckCharmPlacement(cfg.ApplicationName, curl); err != nil && !errors.IsNotSupported(err) {
-			// If force is used then ignore the error, the user seems to know
-			// what they're doing.
-			if !cfg.Force {
-				return false, errors.Trace(err)
-			}
-			r.logger.Warningf("Charm placement check failed, using --force may break deployment")
-		}
-
+	if !cfg.Switch {
 		return true, nil
 	}
-	return false, nil
+
+	if err := r.charmAdder.CheckCharmPlacement(cfg.ApplicationName, curl); err != nil && !errors.IsNotSupported(err) {
+		// If force is used then ignore the error, the user seems to know
+		// what they're doing.
+		if !cfg.Force {
+			return false, errors.Trace(err)
+		}
+		r.logger.Warningf("Charm placement check failed, using --force may break deployment")
+	}
+
+	return true, nil
 }
 
 // Refresh a given charm hub charm.

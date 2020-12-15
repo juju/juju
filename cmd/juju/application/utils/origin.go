@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/arch"
 	osseries "github.com/juju/os/v2/series"
 
 	commoncharm "github.com/juju/juju/api/common/charm"
@@ -31,8 +32,20 @@ func DeduceOrigin(url *charm.URL, channel corecharm.Channel, platform corecharm.
 			Series: platform.Series,
 		}, nil
 	case "local":
+		// Arch is ultimately determined for non-local cases in the API call
+		// to `ResolveCharm`. This is not called for local charms, which are
+		// simply uploaded and deployed. We satisfy the requirement for
+		// non-empty platform architecture by making our best guess here.
+		architecture := platform.Architecture
+		if architecture == "" {
+			architecture = arch.DefaultArchitecture
+		}
+
 		return commoncharm.Origin{
-			Source: commoncharm.OriginLocal,
+			Source:       commoncharm.OriginLocal,
+			Architecture: architecture,
+			OS:           platform.OS,
+			Series:       platform.Series,
 		}, nil
 	default:
 		var track *string

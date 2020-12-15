@@ -24,14 +24,7 @@ run_charmhub_find_all() {
 
     output=$(juju find 2>&1 || true)
 
-    # This list is subject to change and could cause failures
-    # in the future as we do not have controller over the data.
-    # Series appear to be in alphabetical order, using example
-    # with LTS only.
     check_contains "${output}" "No search term specified. Here are some interesting charms"
-    check_contains "${output}" "bionic,focal,trusty,xenial"
-    check_contains "${output}" "kubernetes"
-    check_contains "${output}" "openstack-charmers"
 
     destroy_model "test-${name}"
 }

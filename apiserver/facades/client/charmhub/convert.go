@@ -68,7 +68,7 @@ func convertCharmFindResult(resp transport.FindResponse) params.FindResponse {
 		StoreURL:  resp.Entity.StoreURL,
 	}
 	supported := transformFindArchitectureSeries(resp.DefaultRelease)
-	result.Arches, result.Series = supported.Architectures, supported.Series
+	result.Arches, result.OS, result.Series = supported.Architectures, supported.OS, supported.Series
 	return result
 }
 
@@ -80,6 +80,7 @@ func publisher(ch transport.Entity) string {
 // supported defines a tuple of extracted items from a platform.
 type supported struct {
 	Architectures []string
+	OS            []string
 	Series        []string
 }
 
@@ -92,14 +93,17 @@ func transformFindArchitectureSeries(channel transport.FindChannelMap) supported
 
 	var (
 		arches = set.NewStrings()
+		os     = set.NewStrings()
 		series = set.NewStrings()
 	)
 	for _, p := range channel.Revision.Platforms {
 		arches.Add(p.Architecture)
+		os.Add(p.OS)
 		series.Add(p.Series)
 	}
 	return supported{
 		Architectures: arches.SortedValues(),
+		OS:            os.SortedValues(),
 		Series:        series.SortedValues(),
 	}
 }

@@ -85,7 +85,8 @@ func (c *findCommand) SetFlags(f *gnuflag.FlagSet) {
         - v: Version
         - p: Publisher
         - s: Summary
-        - a: Architecture
+		- a: Architecture
+		- o: OS
         - S: Supports
 `)
 	// TODO (stickupkid): add the following:

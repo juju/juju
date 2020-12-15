@@ -97,8 +97,10 @@ func refreshResponseToCharmhubResult(response transport.RefreshResponse) charmhu
 		}
 		resource := resource.Resource{
 			Meta: resource.Meta{
-				Name: r.Name,
-				Type: typ,
+				Name:        r.Name,
+				Type:        typ,
+				Path:        r.Filename,
+				Description: r.Description,
 			},
 			Origin:      resource.OriginStore,
 			Revision:    r.Revision,

@@ -47,15 +47,18 @@ func (u Path) Join(names ...string) (Path, error) {
 //  - http://baseurl/name0/name1?q=value
 //
 func (u Path) Query(key string, value string) (Path, error) {
+	// If value is empty, nothing to change and return back the original
+	// path.
+	if strings.TrimSpace(value) == "" {
+		return u, nil
+	}
+
 	baseQuery, err := url.ParseQuery(u.base.RawQuery)
 	if err != nil {
 		return Path{}, errors.Trace(err)
 	}
 
-	if value != "" {
-		baseQuery.Add(key, value)
-	}
-
+	baseQuery.Add(key, value)
 	newURL, err := url.Parse(u.base.String())
 	if err != nil {
 		return Path{}, errors.Trace(err)

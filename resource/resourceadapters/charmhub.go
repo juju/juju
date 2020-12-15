@@ -79,7 +79,9 @@ func (ch *CharmHubClient) GetResource(req repositories.ResourceRequest) (charmst
 	ch.logger.Tracef("GetResource(%s)", pretty.Sprint(req))
 	var data charmstore.ResourceData
 
-	stChannel := req.CharmID.Origin.Channel
+	origin := req.CharmID.Origin
+
+	stChannel := origin.Channel
 	if stChannel == nil {
 		return data, errors.Errorf("Missing channel for %q", req.CharmID.URL.Name)
 	}
@@ -91,7 +93,7 @@ func (ch *CharmHubClient) GetResource(req repositories.ResourceRequest) (charmst
 	if req.CharmID.URL == nil {
 		return data, errors.Errorf("Missing charm url for resource %q", req.Name)
 	}
-	cfg, err := charmhub.DownloadOneFromChannel(req.CharmID.URL.Name, channel.String(), charmhub.RefreshPlatform(*req.CharmID.Origin.Platform))
+	cfg, err := charmhub.DownloadOneFromChannel(origin.ID, channel.String(), charmhub.RefreshPlatform(*req.CharmID.Origin.Platform))
 	if err != nil {
 		return data, errors.Trace(err)
 	}
@@ -143,7 +145,7 @@ func resourceFromRevision(name string, revs []transport.ResourceRevision) (charm
 		Meta: charmresource.Meta{
 			Name:        rev.Name,
 			Type:        resType,
-			Path:        rev.Path,
+			Path:        rev.Filename,
 			Description: rev.Description,
 		},
 		Origin:   charmresource.OriginStore,

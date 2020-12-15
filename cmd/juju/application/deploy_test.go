@@ -54,6 +54,7 @@ import (
 	apputils "github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -76,6 +77,13 @@ import (
 // juju supports in terms of the release cycle
 // see juju/os and documentation https://www.ubuntu.com/about/release-cycle
 var defaultSupportedJujuSeries = set.NewStrings("bionic", "xenial", "trusty", testing.KubernetesSeriesName)
+
+var defaultLocalOrigin = commoncharm.Origin{
+	Source:       commoncharm.OriginLocal,
+	Architecture: arch.DefaultArchitecture,
+	OS:           "ubuntu",
+	Series:       "bionic",
+}
 
 type DeploySuiteBase struct {
 	testing.RepoSuite
@@ -1466,6 +1474,7 @@ func (s *DeploySuite) setupNonESMSeries(c *gc.C) (string, string) {
 func (s *DeploySuite) TestDeployLocalWithSupportedNonESMSeries(c *gc.C) {
 	nonEMSSeries, loggingPath := s.setupNonESMSeries(c)
 	err := s.runDeploy(c, loggingPath, "--series", nonEMSSeries)
+	c.Logf("%+v", s.fakeAPI.Calls())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1739,14 +1748,10 @@ pings:
 
 	s.fakeAPI.Call("Deploy", application.DeployArgs{
 		CharmID: application.CharmID{
-			URL: curl,
-			Origin: commoncharm.Origin{
-				Source: commoncharm.OriginLocal,
-			},
+			URL:    curl,
+			Origin: defaultLocalOrigin,
 		},
-		CharmOrigin: commoncharm.Origin{
-			Source: commoncharm.OriginLocal,
-		},
+		CharmOrigin:     defaultLocalOrigin,
 		ApplicationName: curl.Name,
 		Series:          "bionic",
 		NumUnits:        1,
@@ -1795,11 +1800,9 @@ pings:
 	s.fakeAPI.Call("Deploy", application.DeployArgs{
 		CharmID: application.CharmID{
 			URL:    curl,
-			Origin: commoncharm.Origin{},
+			Origin: defaultLocalOrigin,
 		},
-		CharmOrigin: commoncharm.Origin{
-			Source: commoncharm.OriginLocal,
-		},
+		CharmOrigin:     defaultLocalOrigin,
 		ApplicationName: curl.Name,
 		Series:          curl.Series,
 		NumUnits:        1,
@@ -2965,7 +2968,8 @@ func withCharmDeployableWithDevicesAndStorage(
 			deployURL.Revision = 1
 		}
 	}
-	origin, _ := apputils.DeduceOrigin(url, corecharm.Channel{}, corecharm.Platform{Series: "bionic"})
+	platform, _ := apputils.DeducePlatform(constraints.Value{}, series)
+	origin, _ := apputils.DeduceOrigin(url, corecharm.Channel{}, platform)
 	fakeAPI.Call("AddCharm", &deployURL, origin, force).Returns(origin, error(nil))
 	fakeAPI.Call("CharmInfo", deployURL.String()).Returns(
 		&apicommoncharms.CharmInfo{

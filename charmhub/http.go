@@ -74,6 +74,12 @@ func (t *APIRequester) Do(req *http.Request) (*http.Response, error) {
 		return resp, nil
 	}
 
+	if data, err := httputil.DumpResponse(resp, true); err == nil {
+		t.logger.Errorf("Response %s", data)
+	} else {
+		t.logger.Errorf("Response DumpResponse error %s", err.Error())
+	}
+
 	var potentialInvalidURL bool
 	if resp.StatusCode == http.StatusNotFound {
 		potentialInvalidURL = true
@@ -209,12 +215,16 @@ func (c *HTTPRESTClient) Post(ctx context.Context, path path.Path, headers http.
 func (c *HTTPRESTClient) composeHeaders(headers http.Header) http.Header {
 	result := make(http.Header)
 	// Consume the new headers.
-	for k := range headers {
-		result.Set(k, headers.Get(k))
+	for k, vs := range headers {
+		for _, v := range vs {
+			result.Add(k, v)
+		}
 	}
-	// Ensure the client headers overwrite the existing headers.
-	for k := range c.headers {
-		result.Set(k, c.headers.Get(k))
+	// Add the client's headers as well.
+	for k, vs := range c.headers {
+		for _, v := range vs {
+			result.Add(k, v)
+		}
 	}
 	return result
 }

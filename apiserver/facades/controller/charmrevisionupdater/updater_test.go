@@ -4,136 +4,226 @@
 package charmrevisionupdater_test
 
 import (
+	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v8"
-	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/charm/v8/resource"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
-	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/testing"
+	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/charmhub/transport"
+	statemocks "github.com/juju/juju/state/mocks"
 )
 
-type charmVersionSuite struct {
-	testing.CharmSuite
-	jujutesting.JujuConnSuite
+type updaterSuite struct{}
 
-	charmrevisionupdater *charmrevisionupdater.CharmRevisionUpdaterAPI
-	resources            *common.Resources
-	authoriser           apiservertesting.FakeAuthorizer
-}
+var _ = gc.Suite(&updaterSuite{})
 
-var _ = gc.Suite(&charmVersionSuite{})
+type newCharmhubClientFunc = func(st charmrevisionupdater.State, metadata map[string]string) (charmrevisionupdater.CharmhubRefreshClient, error)
 
-func (s *charmVersionSuite) SetUpSuite(c *gc.C) {
-	s.JujuConnSuite.SetUpSuite(c)
-	s.CharmSuite.SetUpSuite(c, &s.JujuConnSuite)
-}
-
-func (s *charmVersionSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.CharmSuite.SetUpTest(c)
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
-	s.authoriser = apiservertesting.FakeAuthorizer{
-		Controller: true,
-		Tag:        names.NewMachineTag("99"),
+func (s *updaterSuite) newCharmhubClient(client charmrevisionupdater.CharmhubRefreshClient) newCharmhubClientFunc {
+	return func(st charmrevisionupdater.State, metadata map[string]string) (charmrevisionupdater.CharmhubRefreshClient, error) {
+		return client, nil
 	}
-	var err error
-	s.charmrevisionupdater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPI(s.State, s.resources, s.authoriser)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *charmVersionSuite) TestNewCharmRevisionUpdaterAPIAcceptsStateManager(c *gc.C) {
-	endPoint, err := charmrevisionupdater.NewCharmRevisionUpdaterAPI(s.State, s.resources, s.authoriser)
+func (s *updaterSuite) TestNewAuthSuccess(c *gc.C) {
+	authoriser := apiservertesting.FakeAuthorizer{Controller: true}
+	facadeCtx := facadeContextShim{state: nil, authorizer: authoriser}
+	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPI(facadeCtx)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(endPoint, gc.NotNil)
+	c.Assert(updater, gc.NotNil)
 }
 
-func (s *charmVersionSuite) TestNewCharmRevisionUpdaterAPIRefusesNonStateManager(c *gc.C) {
-	anAuthoriser := s.authoriser
-	anAuthoriser.Controller = false
-	endPoint, err := charmrevisionupdater.NewCharmRevisionUpdaterAPI(s.State, s.resources, anAuthoriser)
-	c.Assert(endPoint, gc.IsNil)
+func (s *updaterSuite) TestNewAuthFailure(c *gc.C) {
+	authoriser := apiservertesting.FakeAuthorizer{Controller: false}
+	facadeCtx := facadeContextShim{state: nil, authorizer: authoriser}
+	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPI(facadeCtx)
+	c.Assert(updater, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *charmVersionSuite) TestUpdateRevisions(c *gc.C) {
-	s.AddMachine(c, "0", state.JobManageModel)
-	s.SetupScenario(c)
+func (s *updaterSuite) TestCharmhubUpdate(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	curl := charm.MustParseURL("cs:quantal/mysql")
-	_, err := s.State.LatestPlaceholderCharm(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	client := mocks.NewMockCharmhubRefreshClient(ctrl)
+	matcher := charmhubConfigMatcher{expected: []charmhubConfigExpected{
+		{"charm-1", 22},
+		{"charm-2", 41},
+	}}
+	client.EXPECT().Refresh(gomock.Any(), matcher).Return([]transport.RefreshResponse{
+		{
+			Entity: transport.RefreshEntity{Revision: 23},
+			ID:     "charm-1",
+			Name:   "mysql",
+		},
+		{
+			Entity: transport.RefreshEntity{Revision: 42},
+			ID:     "charm-2",
+			Name:   "postgresql",
+		},
+	}, nil)
 
-	curl = charm.MustParseURL("cs:quantal/wordpress")
-	_, err = s.State.LatestPlaceholderCharm(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	state := makeState(c, ctrl, nil)
+	state.EXPECT().AllApplications().Return([]charmrevisionupdater.Application{
+		makeApplication(ctrl, "ch", "mysql", "charm-1", "app-1", 22),
+		makeApplication(ctrl, "ch", "postgresql", "charm-2", "app-2", 41),
+	}, nil).AnyTimes()
+	state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("ch:mysql-23")).Return(nil)
+	state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("ch:postgresql-42")).Return(nil)
 
-	result, err := s.charmrevisionupdater.UpdateLatestRevisions()
+	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, nil, s.newCharmhubClient(client))
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := updater.UpdateLatestRevisions()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
-
-	curl = charm.MustParseURL("cs:quantal/mysql")
-	pending, err := s.State.LatestPlaceholderCharm(curl)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pending.String(), gc.Equals, "cs:quantal/mysql-23")
-
-	// Latest wordpress is already deployed, so no pending charm.
-	curl = charm.MustParseURL("cs:quantal/wordpress")
-	_, err = s.State.LatestPlaceholderCharm(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-
-	// Varnish has an error when updating, so no pending charm.
-	curl = charm.MustParseURL("cs:quantal/varnish")
-	_, err = s.State.LatestPlaceholderCharm(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-
-	// Update mysql version and run update again.
-	app, err := s.State.Application("mysql")
-	c.Assert(err, jc.ErrorIsNil)
-	ch := s.AddCharmWithRevision(c, "mysql", 23)
-	cfg := state.SetCharmConfig{
-		Charm:      ch,
-		ForceUnits: true,
-	}
-	err = app.SetCharm(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-
-	result, err = s.charmrevisionupdater.UpdateLatestRevisions()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-
-	// Latest mysql is now deployed, so no pending charm.
-	curl = charm.MustParseURL("cs:quantal/mysql")
-	_, err = s.State.LatestPlaceholderCharm(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *charmVersionSuite) TestWordpressCharmNoReadAccessIsNotVisible(c *gc.C) {
-	s.AddMachine(c, "0", state.JobManageModel)
-	s.SetupScenario(c)
+func (s *updaterSuite) TestCharmhubUpdateWithResources(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	// Disallow read access to the wordpress charm in the charm store.
-	s.CharmSuite.SetStoreError("wordpress", errors.New("boom"))
+	expectedResources := []resource.Resource{
+		makeResource(c, "reza", 7, 5, "59e1748777448c69de6b800d7a33bbfb9ff1b463e44354c3553bcdb9c666fa90125a3c79f90397bdf5f6a13de828684f"),
+		makeResource(c, "rezb", 1, 6, "03130092073c5ac523ecb21f548b9ad6e1387d1cb05f3cb892fcc26029d01428afbe74025b6c567b6564a3168a47179a"),
+	}
+	resources := statemocks.NewMockResources(ctrl)
+	resources.EXPECT().SetCharmStoreResources("app-1", expectedResources, gomock.Any()).Return(nil).AnyTimes()
 
-	// Run the revision updater and check that the public charm updates are
-	// still properly notified.
-	result, err := s.charmrevisionupdater.UpdateLatestRevisions()
+	client := mocks.NewMockCharmhubRefreshClient(ctrl)
+	matcher := charmhubConfigMatcher{expected: []charmhubConfigExpected{
+		{"charm-3", 1},
+	}}
+	client.EXPECT().Refresh(gomock.Any(), matcher).Return([]transport.RefreshResponse{
+		{
+			Entity: transport.RefreshEntity{
+				Resources: []transport.ResourceRevision{
+					{
+						Download: transport.ResourceDownload{
+							HashSHA384: "59e1748777448c69de6b800d7a33bbfb9ff1b463e44354c3553bcdb9c666fa90125a3c79f90397bdf5f6a13de828684f",
+							Size:       5,
+						},
+						Name:     "reza",
+						Revision: 7,
+						Type:     "file",
+					},
+					{
+						Download: transport.ResourceDownload{
+							HashSHA384: "03130092073c5ac523ecb21f548b9ad6e1387d1cb05f3cb892fcc26029d01428afbe74025b6c567b6564a3168a47179a",
+							Size:       6,
+						},
+						Name:     "rezb",
+						Revision: 1,
+						Type:     "file",
+					},
+				},
+				Revision: 1,
+			},
+			ID:   "charm-3",
+			Name: "resourcey",
+		},
+	}, nil)
+
+	state := makeState(c, ctrl, resources)
+	state.EXPECT().AllApplications().Return([]charmrevisionupdater.Application{
+		makeApplication(ctrl, "ch", "resourcey", "charm-3", "app-1", 1),
+	}, nil).AnyTimes()
+
+	state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("ch:resourcey-1")).Return(nil)
+
+	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, nil, s.newCharmhubClient(client))
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := updater.UpdateLatestRevisions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+}
+
+func (s *updaterSuite) TestCharmhubNoUpdate(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	client := mocks.NewMockCharmhubRefreshClient(ctrl)
+	matcher := charmhubConfigMatcher{expected: []charmhubConfigExpected{
+		{"charm-2", 42},
+	}}
+	client.EXPECT().Refresh(gomock.Any(), matcher).Return([]transport.RefreshResponse{
+		{
+			Entity: transport.RefreshEntity{Revision: 42},
+			ID:     "charm-2",
+			Name:   "postgresql",
+		},
+	}, nil)
+
+	state := makeState(c, ctrl, nil)
+	state.EXPECT().AllApplications().Return([]charmrevisionupdater.Application{
+		makeApplication(ctrl, "ch", "postgresql", "charm-2", "app-2", 42),
+	}, nil).AnyTimes()
+	state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("ch:postgresql-42")).Return(nil)
+
+	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, nil, s.newCharmhubClient(client))
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := updater.UpdateLatestRevisions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+}
+
+func (s *updaterSuite) TestCharmNotInStore(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	charmhubClient := mocks.NewMockCharmhubRefreshClient(ctrl)
+	charmhubClient.EXPECT().Refresh(gomock.Any(), gomock.Any()).Return([]transport.RefreshResponse{}, nil)
+
+	state := makeState(c, ctrl, nil)
+	state.EXPECT().AllApplications().Return([]charmrevisionupdater.Application{
+		makeApplication(ctrl, "ch", "varnish", "charm-5", "app-1", 1),
+		makeApplication(ctrl, "cs", "varnish", "charm-6", "app-2", 2),
+	}, nil).AnyTimes()
+
+	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, newFakeCharmstoreClient, s.newCharmhubClient(charmhubClient))
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := updater.UpdateLatestRevisions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+}
+
+func (s *updaterSuite) TestCharmstoreUpdate(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	state := makeState(c, ctrl, nil)
+
+	state.EXPECT().AllApplications().Return([]charmrevisionupdater.Application{
+		makeApplication(ctrl, "cs", "mysql", "charm-1", "app-1", 22),
+		makeApplication(ctrl, "cs", "wordpress", "charm-2", "app-2", 26),
+		makeApplication(ctrl, "cs", "varnish", "charm-3", "app-3", 5), // doesn't exist in store
+	}, nil)
+
+	state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("cs:mysql-23")).Return(nil)
+	state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("cs:wordpress-26")).Return(nil)
+
+	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, newFakeCharmstoreClient, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := updater.UpdateLatestRevisions()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 
-	curl := charm.MustParseURL("cs:quantal/mysql")
-	pending, err := s.State.LatestPlaceholderCharm(curl)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pending.String(), gc.Equals, "cs:quantal/mysql-23")
+	// Update mysql version and run update again.
+	state.EXPECT().AllApplications().Return([]charmrevisionupdater.Application{
+		makeApplication(ctrl, "cs", "mysql", "charm-1", "app-1", 23),
+	}, nil)
 
-	// No pending charm for wordpress.
-	curl = charm.MustParseURL("cs:quantal/wordpress")
-	_, err = s.State.LatestPlaceholderCharm(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("cs:mysql-23")).Return(nil)
+
+	result, err = updater.UpdateLatestRevisions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
 }

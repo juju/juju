@@ -190,12 +190,6 @@ func (s *InfoSuite) TestInfoRequestPayload(c *gc.C) {
 			}},
 			Description: "This will install and setup WordPress optimized to run in the cloud. By default it will place Ngnix and php-fpm configured to scale horizontally with Nginx's reverse proxy.",
 			License:     "Apache-2.0",
-			Media: []transport.Media{{
-				Height: 256,
-				Type:   "icon",
-				URL:    "https://dashboard.snapcraft.io/site_media/appmedia/2017/04/wpcom.png",
-				Width:  256,
-			}},
 			Publisher: map[string]string{
 				"display-name": "Wordress Charmers",
 			},

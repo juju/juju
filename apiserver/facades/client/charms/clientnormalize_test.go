@@ -8,7 +8,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/arch"
 )
 
 type clientNormalizeOriginSuite struct {
@@ -29,7 +28,7 @@ func (s *clientNormalizeOriginSuite) TestNormalizeCharmOriginNoAll(c *gc.C) {
 	}
 	obtained, err := normalizeCharmOrigin(origin)
 	c.Assert(err, jc.ErrorIsNil)
-	origin.Architecture = arch.DefaultArchitecture
+	origin.Architecture = ""
 	origin.OS = ""
 	origin.Series = ""
 	c.Assert(obtained, gc.DeepEquals, origin)
