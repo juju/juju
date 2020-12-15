@@ -5122,7 +5122,8 @@
                         "Result": {
                             "$ref": "#/definitions/BackupsMetadataResult"
                         }
-                    }
+                    },
+                    "description": "Create is the API method that requests juju to create a new backup\nof its state."
                 },
                 "Info": {
                     "type": "object",

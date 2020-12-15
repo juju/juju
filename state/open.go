@@ -134,6 +134,8 @@ func newState(
 	// (due to juju making bad txn.Ops, and potentially mongo 4 issues)
 	// Symptoms include intermittent success in applying a txn and reading results back,
 	// plus txn.Op slices that are wrong, eg insert dup or missing asserts.
+	// Related test failures here:
+	// https://jenkins.juju.canonical.com/job/github-make-check-juju/9317/testReport/
 	sstxn = false
 
 	if sstxn {

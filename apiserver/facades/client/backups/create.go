@@ -13,6 +13,8 @@ import (
 
 var waitUntilReady = replicaset.WaitUntilReady
 
+// Create is the API method that requests juju to create a new backup
+// of its state.
 func (a *API) Create(args params.BackupsCreateArgs) (params.BackupsMetadataResult, error) {
 	backupsMethods, closer := newBackups(a.backend)
 	defer closer.Close()
