@@ -224,16 +224,12 @@ func (c ScopeContext) RecordedIdents() []string {
 	return c.idents.SortedValues()
 }
 
-// SubScope creates a subscope of all idents for a given context.
-func (c ScopeContext) SubScope(entityName, name string) ScopeContext {
+// Child creates a child context of all idents for a given context.
+func (c ScopeContext) Child(entityName, name string) ScopeContext {
 	if child, ok := c.children[entityName][name]; ok {
 		return child
 	}
 	ctx := MakeScopeContext()
 	c.children[entityName][name] = ctx
 	return ctx
-}
-
-type LogContext interface {
-	Infof(string, ...interface{})
 }

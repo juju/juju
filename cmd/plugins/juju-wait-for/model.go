@@ -167,13 +167,15 @@ func (c *modelCommand) waitFor(ctx ScopeContext) func(string, []params.Delta, qu
 				c.units[entityInfo.Name] = entityInfo
 
 			case *params.ModelUpdate:
-				if entityInfo.Name == name {
-					if delta.Removed {
-						return false, errors.Errorf("model %v removed", name)
-					}
-					c.model = entityInfo
-					c.found = entityInfo.Life != life.Dead
+				if entityInfo.Name != name {
+					break
 				}
+
+				if delta.Removed {
+					return false, errors.Errorf("model %v removed", name)
+				}
+				c.model = entityInfo
+				c.found = entityInfo.Life != life.Dead
 			}
 		}
 
@@ -203,7 +205,7 @@ type ModelScope struct {
 	Model     *modelCommand
 }
 
-// MakeModelScope creates an ModelScope from an ModelUpdate
+// MakeModelScope creates a ModelScope from a ModelUpdate
 func MakeModelScope(ctx ScopeContext, model *modelCommand) ModelScope {
 	return ModelScope{
 		ctx:       ctx,
@@ -251,19 +253,19 @@ func (m ModelScope) GetIdentValue(name string) (query.Box, error) {
 			appInfo := app
 			appInfo.Status.Current = newStatus
 
-			scopes[k] = MakeApplicationScope(m.ctx.SubScope(name, app.Name), appInfo)
+			scopes[k] = MakeApplicationScope(m.ctx.Child(name, app.Name), appInfo)
 		}
 		return NewScopedBox(scopes), nil
 	case "machines":
 		scopes := make(map[string]query.Scope)
 		for k, machine := range m.Model.machines {
-			scopes[k] = MakeMachineScope(m.ctx.SubScope(name, machine.Id), machine)
+			scopes[k] = MakeMachineScope(m.ctx.Child(name, machine.Id), machine)
 		}
 		return NewScopedBox(scopes), nil
 	case "units":
 		scopes := make(map[string]query.Scope)
 		for k, unit := range m.Model.units {
-			scopes[k] = MakeUnitScope(m.ctx.SubScope(name, unit.Name), unit)
+			scopes[k] = MakeUnitScope(m.ctx.Child(name, unit.Name), unit)
 		}
 		return NewScopedBox(scopes), nil
 	}

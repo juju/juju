@@ -128,22 +128,23 @@ func (c *machineCommand) waitFor(ctx ScopeContext) func(string, []params.Delta, 
 
 			switch entityInfo := delta.Entity.(type) {
 			case *params.MachineInfo:
-				if entityInfo.Id == id {
-					if delta.Removed {
-						return false, errors.Errorf("machine %v removed", id)
-					}
-
-					c.machineInfo = *entityInfo
-
-					scope := MakeMachineScope(ctx, entityInfo)
-					if done, err := runQuery(q, scope); err != nil {
-						return false, errors.Trace(err)
-					} else if done {
-						return true, nil
-					}
-					c.found = entityInfo.Life != life.Dead
+				if entityInfo.Id != id {
+					break
 				}
-				break
+
+				if delta.Removed {
+					return false, errors.Errorf("machine %v removed", id)
+				}
+
+				c.machineInfo = *entityInfo
+
+				scope := MakeMachineScope(ctx, entityInfo)
+				if done, err := runQuery(q, scope); err != nil {
+					return false, errors.Trace(err)
+				} else if done {
+					return true, nil
+				}
+				c.found = entityInfo.Life != life.Dead
 			}
 		}
 

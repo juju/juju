@@ -128,23 +128,24 @@ func (c *unitCommand) waitFor(ctx ScopeContext) func(string, []params.Delta, que
 
 			switch entityInfo := delta.Entity.(type) {
 			case *params.UnitInfo:
-				if entityInfo.Name == name {
-					if delta.Removed {
-						return false, errors.Errorf("unit %v removed", name)
-					}
-
-					c.unitInfo = *entityInfo
-
-					scope := MakeUnitScope(ctx, entityInfo)
-					if done, err := runQuery(q, scope); err != nil {
-						return false, errors.Trace(err)
-					} else if done {
-						return true, nil
-					}
-
-					c.found = entityInfo.Life != life.Dead
+				if entityInfo.Name != name {
+					break
 				}
-				break
+
+				if delta.Removed {
+					return false, errors.Errorf("unit %v removed", name)
+				}
+
+				c.unitInfo = *entityInfo
+
+				scope := MakeUnitScope(ctx, entityInfo)
+				if done, err := runQuery(q, scope); err != nil {
+					return false, errors.Trace(err)
+				} else if done {
+					return true, nil
+				}
+
+				c.found = entityInfo.Life != life.Dead
 			}
 		}
 

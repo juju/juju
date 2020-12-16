@@ -138,22 +138,23 @@ func (c *applicationCommand) waitFor(ctx ScopeContext) func(string, []params.Del
 
 			switch entityInfo := delta.Entity.(type) {
 			case *params.ApplicationInfo:
-				if entityInfo.Name == name {
-					if delta.Removed {
-						return false, errors.Errorf("application %v removed", name)
-					}
-
-					c.appInfo = *entityInfo
-
-					scope := MakeApplicationScope(ctx, entityInfo)
-					if done, err := runQuery(q, scope); err != nil {
-						return false, errors.Trace(err)
-					} else if done {
-						return true, nil
-					}
-
-					c.found = entityInfo.Life != life.Dead
+				if entityInfo.Name != name {
+					break
 				}
+				if delta.Removed {
+					return false, errors.Errorf("application %v removed", name)
+				}
+
+				c.appInfo = *entityInfo
+
+				scope := MakeApplicationScope(ctx, entityInfo)
+				if done, err := runQuery(q, scope); err != nil {
+					return false, errors.Trace(err)
+				} else if done {
+					return true, nil
+				}
+
+				c.found = entityInfo.Life != life.Dead
 
 			case *params.UnitInfo:
 				if delta.Removed {
