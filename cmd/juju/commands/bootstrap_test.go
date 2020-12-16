@@ -5,6 +5,7 @@ package commands
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -40,7 +41,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/gui"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -118,7 +119,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 		panic("tests must call setupAutoUploadTest or otherwise patch envtools.BundleTools")
 	})
 
-	s.PatchValue(&waitForAgentInitialisation, func(*cmd.Context, *modelcmd.ModelCommandBase, bool, string, string) error {
+	s.PatchValue(&waitForAgentInitialisation, func(context.Context, *cmd.Context, *modelcmd.ModelCommandBase, bool, string, string) error {
 		return nil
 	})
 
@@ -1001,7 +1002,7 @@ func (s *BootstrapSuite) TestBootstrapPropagatesStoreErrors(c *gc.C) {
 // bootstrap will stop immediately. Nothing will be destroyed.
 func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 	destroyed := false
-	s.PatchValue(&environsDestroy, func(name string, _ environs.ControllerDestroyer, _ context.ProviderCallContext, _ jujuclient.ControllerStore) error {
+	s.PatchValue(&environsDestroy, func(name string, _ environs.ControllerDestroyer, _ envcontext.ProviderCallContext, _ jujuclient.ControllerStore) error {
 		c.Assert(name, gc.Equals, "decontroller")
 		destroyed = true
 		return nil
@@ -1029,7 +1030,7 @@ func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 // when attempting to bootstrap with an invalid credential.
 func (s *BootstrapSuite) TestBootstrapInvalidCredentialMessage(c *gc.C) {
 	bootstrapFuncs := &fakeBootstrapFuncs{
-		bootstrapF: func(_ environs.BootstrapContext, _ environs.BootstrapEnviron, callCtx context.ProviderCallContext, _ bootstrap.BootstrapParams) error {
+		bootstrapF: func(_ environs.BootstrapContext, _ environs.BootstrapEnviron, callCtx envcontext.ProviderCallContext, _ bootstrap.BootstrapParams) error {
 			callCtx.InvalidateCredential("considered invalid for the sake of testing")
 			return nil
 		},
@@ -2064,7 +2065,7 @@ func (s *BootstrapSuite) TestBootstrapTestingOptions(c *gc.C) {
 	s.PatchEnvironment("JUJU_AGENT_TESTING_OPTIONS", "foo=bar, hello = world")
 	var gotArgs bootstrap.BootstrapParams
 	bootstrapFuncs := &fakeBootstrapFuncs{
-		bootstrapF: func(_ environs.BootstrapContext, _ environs.BootstrapEnviron, callCtx context.ProviderCallContext, args bootstrap.BootstrapParams) error {
+		bootstrapF: func(_ environs.BootstrapContext, _ environs.BootstrapEnviron, callCtx envcontext.ProviderCallContext, args bootstrap.BootstrapParams) error {
 			gotArgs = args
 			return errors.New("test error")
 		},
@@ -2273,12 +2274,12 @@ type fakeBootstrapFuncs struct {
 	newCloudDetector    func(environs.EnvironProvider) (environs.CloudDetector, bool)
 	cloudRegionDetector environs.CloudRegionDetector
 	cloudFinalizer      environs.CloudFinalizer
-	bootstrapF          func(environs.BootstrapContext, environs.BootstrapEnviron, context.ProviderCallContext, bootstrap.BootstrapParams) error
+	bootstrapF          func(environs.BootstrapContext, environs.BootstrapEnviron, envcontext.ProviderCallContext, bootstrap.BootstrapParams) error
 }
 
-func (fake *fakeBootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.BootstrapEnviron, callCtx context.ProviderCallContext, args bootstrap.BootstrapParams) error {
+func (fake *fakeBootstrapFuncs) Bootstrap(ctx context.Context, cmdCtx environs.BootstrapContext, env environs.BootstrapEnviron, callCtx envcontext.ProviderCallContext, args bootstrap.BootstrapParams) error {
 	if fake.bootstrapF != nil {
-		return fake.bootstrapF(ctx, env, callCtx, args)
+		return fake.bootstrapF(cmdCtx, env, callCtx, args)
 	}
 	fake.args = args
 	return nil

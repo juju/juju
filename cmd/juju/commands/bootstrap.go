@@ -5,6 +5,7 @@ package commands
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -41,7 +42,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
@@ -416,7 +417,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 // BootstrapInterface provides bootstrap functionality that Run calls to support cleaner testing.
 type BootstrapInterface interface {
 	// Bootstrap bootstraps a controller.
-	Bootstrap(ctx environs.BootstrapContext, environ environs.BootstrapEnviron, callCtx context.ProviderCallContext, args bootstrap.BootstrapParams) error
+	Bootstrap(ctx context.Context, cmdCtx environs.BootstrapContext, environ environs.BootstrapEnviron, callCtx envcontext.ProviderCallContext, args bootstrap.BootstrapParams) error
 
 	// CloudDetector returns a CloudDetector for the given provider,
 	// if the provider supports it.
@@ -433,8 +434,9 @@ type BootstrapInterface interface {
 
 type bootstrapFuncs struct{}
 
-func (b bootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.BootstrapEnviron, callCtx context.ProviderCallContext, args bootstrap.BootstrapParams) error {
-	return bootstrap.Bootstrap(ctx, env, callCtx, args)
+func (b bootstrapFuncs) Bootstrap(ctx context.Context, cmdCtx environs.BootstrapContext, env environs.BootstrapEnviron, callCtx envcontext.ProviderCallContext, args bootstrap.BootstrapParams) error {
+	// TODO: use ctx
+	return bootstrap.Bootstrap(cmdCtx, env, callCtx, args)
 }
 
 func (b bootstrapFuncs) CloudDetector(provider environs.EnvironProvider) (environs.CloudDetector, bool) {
@@ -652,7 +654,7 @@ to create a new model to deploy %sworkloads.
 		return errors.Trace(err)
 	}
 
-	cloudCallCtx := context.NewCloudCallContext()
+	cloudCallCtx := envcontext.NewCloudCallContext()
 	// At this stage, the credential we intend to use is not yet stored
 	// server-side. So, if the credential is not accepted by the provider,
 	// we cannot mark it as invalid, just log it as an informative message.
@@ -843,15 +845,25 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		}
 	}()
 
-	// Block interruption during bootstrap. Providers may also
-	// register for interrupt notification so they can exit early.
+	// Handle Ctrl-C during bootstrap by asking the bootstrap process to stop
+	// early (and the above will then clean up resources).
 	interrupted := make(chan os.Signal, 1)
 	defer close(interrupted)
 	ctx.InterruptNotify(interrupted)
 	defer ctx.StopInterruptNotify(interrupted)
+	cancelCtx, cancel := context.WithCancel(context.Background())
 	go func() {
 		for range interrupted {
-			ctx.Infof("Interrupt signalled: waiting for bootstrap to exit")
+			// Space prefix is intentional, so output appears as
+			// "^C Ctrl-C pressed" instead of "^CCtrl-C pressed".
+			_, _ = fmt.Fprintln(ctx.GetStderr(), " Ctrl-C pressed, stopping bootstrap and cleaning up resources")
+			select {
+			case <-cancelCtx.Done():
+				// Ctrl-C already pressed
+				return
+			default:
+				cancel()
+			}
 		}
 	}()
 
@@ -924,6 +936,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 
 	bootstrapFuncs := getBootstrapFuncs()
 	if err = bootstrapFuncs.Bootstrap(
+		cancelCtx,
 		modelcmd.BootstrapContext(ctx),
 		environ,
 		cloudCallCtx,
@@ -938,7 +951,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	}
 
 	controllerDataRefresher := func() error {
-		// this function allows polling address info later during retring.
+		// this function allows polling address info later during retrying.
 		// for example, the Load Balancer needs time to be provisioned.
 		var addrs []network.ProviderAddress
 		if env, ok := environ.(environs.InstanceBroker); ok {
@@ -1005,11 +1018,11 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	// for the controller's machine agent to be ready to accept commands
 	// before exiting this bootstrap command.
 	return waitForAgentInitialisation(
+		cancelCtx,
 		ctx,
 		&c.ModelCommandBase,
 		isCAASController,
 		c.controllerName,
-		c.hostedModelName,
 	)
 }
 
@@ -1508,7 +1521,9 @@ func handleBootstrapError(ctx *cmd.Context, cleanup func() error) {
 	defer close(ch)
 	go func() {
 		for range ch {
-			_, _ = fmt.Fprintln(ctx.GetStderr(), "Cleaning up failed bootstrap")
+			// Space prefix is intentional, so output appears as
+			// "^C Ctrl-C pressed" instead of "^CCtrl-C pressed".
+			_, _ = fmt.Fprintln(ctx.GetStderr(), " Ctrl-C pressed, cleaning up failed bootstrap")
 		}
 	}()
 	logger.Debugf("cleaning up after failed bootstrap")

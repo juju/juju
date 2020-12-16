@@ -4,6 +4,7 @@
 package common
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -11,19 +12,20 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/jujuclient"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/block"
 	"github.com/juju/juju/apiserver/params"
 	caasprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
+	"github.com/juju/juju/jujuclient"
 )
 
 var (
@@ -39,7 +41,12 @@ type listBlocksAPI interface {
 
 // getBlockAPI returns a block api for listing blocks.
 func getBlockAPI(c *modelcmd.ModelCommandBase) (listBlocksAPI, error) {
-	root, err := c.NewAPIRoot()
+	// Set a short dial timeout so WaitForAgentInitialisation can check
+	// ctx.Done() in its retry loop.
+	dialOpts := api.DefaultDialOpts()
+	dialOpts.Timeout = 3 * time.Second
+
+	root, err := c.NewAPIRootWithDialOpts(&dialOpts)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -64,11 +71,11 @@ func tryAPI(c *modelcmd.ModelCommandBase) error {
 // command which will fail until the controller is fully initialised.
 // TODO(wallyworld) - add a bespoke command to maybe the admin facade for this purpose.
 func WaitForAgentInitialisation(
-	ctx *cmd.Context,
+	ctx context.Context,
+	cmdCtx *cmd.Context,
 	c *modelcmd.ModelCommandBase,
 	isCAASController bool,
-	controllerName,
-	hostedModelName string,
+	controllerName string,
 ) (err error) {
 	// TODO(katco): 2016-08-09: lp:1611427
 	attempts := utils.AttemptStrategy{
@@ -86,7 +93,7 @@ func WaitForAgentInitialisation(
 		}
 	}
 
-	ctx.Infof("Contacting Juju controller%s to verify accessibility...", addressInfo)
+	cmdCtx.Infof("Contacting Juju controller%s to verify accessibility...", addressInfo)
 	apiAttempts := 1
 	for attempt := attempts.Start(); attempt.Next(); apiAttempts++ {
 		err = tryAPI(c)
@@ -97,8 +104,16 @@ func WaitForAgentInitialisation(
 			} else {
 				msg += fmt.Sprintf("\nController machines are in the %q model", bootstrap.ControllerModelName)
 			}
-			ctx.Infof(msg)
+			cmdCtx.Infof(msg)
 			break
+		}
+
+		// Check whether context is cancelled after each attempt (as context
+		// isn't fully threaded through yet).
+		select {
+		case <-ctx.Done():
+			return errors.Annotatef(err, "cancelled waiting for controller")
+		default:
 		}
 
 		// As the API server is coming up, it goes through a number of steps.
@@ -118,10 +133,10 @@ func WaitForAgentInitialisation(
 			strings.HasSuffix(errorMessage, "i/o timeout"),
 			strings.HasSuffix(errorMessage, "no api connection available"),
 			strings.Contains(errorMessage, "spaces are still being discovered"):
-			ctx.Verbosef("Still waiting for API to become available")
+			cmdCtx.Verbosef("Still waiting for API to become available")
 			continue
 		case params.ErrCode(err) == params.CodeUpgradeInProgress:
-			ctx.Verbosef("Still waiting for API to become available: %v", err)
+			cmdCtx.Verbosef("Still waiting for API to become available: %v", err)
 			continue
 		}
 		break
@@ -131,7 +146,7 @@ func WaitForAgentInitialisation(
 
 // BootstrapEndpointAddresses returns the addresses of the bootstrapped instance.
 func BootstrapEndpointAddresses(
-	environ environs.InstanceBroker, callContext context.ProviderCallContext,
+	environ environs.InstanceBroker, callContext envcontext.ProviderCallContext,
 ) ([]network.ProviderAddress, error) {
 	instances, err := environ.AllRunningInstances(callContext)
 	if err != nil {

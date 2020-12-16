@@ -401,7 +401,21 @@ func (c *ModelCommandBase) NewAPIRoot() (api.Connection, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	conn, err := c.newAPIRoot(modelName)
+	conn, err := c.newAPIRoot(modelName, nil)
+	return conn, errors.Trace(err)
+}
+
+// NewAPIRootWithDialOpts returns a new connection to the API server for the
+// environment directed to the model specified on the command line (and with
+// the given dial options if non-nil).
+func (c *ModelCommandBase) NewAPIRootWithDialOpts(dialOpts *api.DialOpts) (api.Connection, error) {
+	// We need to call ModelDetails() here and not just ModelName() to force
+	// a refresh of the internal model details if those are not yet stored locally.
+	modelName, _, err := c.ModelDetails()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	conn, err := c.newAPIRoot(modelName, dialOpts)
 	return conn, errors.Trace(err)
 }
 
@@ -410,17 +424,17 @@ func (c *ModelCommandBase) NewAPIRoot() (api.Connection, error) {
 // This is for the use of model-centered commands that still want
 // to talk to controller-only APIs.
 func (c *ModelCommandBase) NewControllerAPIRoot() (api.Connection, error) {
-	return c.newAPIRoot("")
+	return c.newAPIRoot("", nil)
 }
 
 // newAPIRoot is the internal implementation of NewAPIRoot and NewControllerAPIRoot;
 // if modelName is empty, it makes a controller-only connection.
-func (c *ModelCommandBase) newAPIRoot(modelName string) (api.Connection, error) {
+func (c *ModelCommandBase) newAPIRoot(modelName string, dialOpts *api.DialOpts) (api.Connection, error) {
 	controllerName, err := c.ControllerName()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	conn, err := c.CommandBase.NewAPIRoot(c.store, controllerName, modelName)
+	conn, err := c.CommandBase.NewAPIRootWithDialOpts(c.store, controllerName, modelName, dialOpts)
 	return conn, errors.Trace(err)
 }
 
