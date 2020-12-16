@@ -182,7 +182,7 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 		logger:             f.logger,
 		componentDir:       f.paths.ComponentDir,
 		componentFuncs:     registeredComponentFuncs,
-		availabilityzone:   f.zone,
+		availabilityZone:   f.zone,
 		principal:          f.principal,
 	}
 	if err := f.updateContext(ctx); err != nil {
