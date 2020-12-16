@@ -5,6 +5,7 @@ package testing
 
 import (
 	"testing"
+	"time"
 
 	jujutesting "github.com/juju/testing"
 )
@@ -20,8 +21,7 @@ func MgoTestPackage(t *testing.T) {
 	// Tests tend to cause enough contention that the default lock request
 	// timeout of 5ms is not enough. We may need to consider increasing the
 	// value for production also.
-	jujutesting.MgoServer.Params = []string{
-		"--setParameter", "maxTransactionLockRequestTimeoutMillis=20"}
+	jujutesting.MgoServer.MaxTransactionLockRequestTimeout = 20 * time.Millisecond
 	jujutesting.MgoTestPackage(t, nil)
 }
 
@@ -32,7 +32,6 @@ func MgoSSLTestPackage(t *testing.T) {
 	// Tests tend to cause enough contention that the default lock request
 	// timeout of 5ms is not enough. We may need to consider increasing the
 	// value for production also.
-	jujutesting.MgoServer.Params = []string{
-		"--setParameter", "maxTransactionLockRequestTimeoutMillis=20"}
+	jujutesting.MgoServer.MaxTransactionLockRequestTimeout = 20 * time.Millisecond
 	jujutesting.MgoTestPackage(t, Certs)
 }
