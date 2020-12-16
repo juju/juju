@@ -23,6 +23,7 @@ const (
 	PodReasonCrashLoopBackoff         = "CrashLoopBackOff"
 	PodReasonError                    = "Error"
 	PodReasonImagePull                = "ErrImagePull"
+	PodReasonInitializing             = "PodInitializing"
 )
 
 var (
@@ -222,6 +223,8 @@ func isContainerReasonError(reason string) (string, bool) {
 		return "crash loop backoff", true
 	case PodReasonCompleted:
 		return "", false
+	case PodReasonInitializing:
+		return "pod initializing", false
 	default:
 		return fmt.Sprintf("unknown container reason %q", reason), true
 	}

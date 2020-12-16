@@ -137,6 +137,29 @@ func TestPodConditionListJujuStatus(t *testing.T) {
 			Message: "initializing containers",
 		},
 		{
+			// We are testing here that when the pod is running the init steps
+			// the correct status of maintenance is being reported.
+			Name: "pod init status running",
+			Pod: core.Pod{
+				Status: core.PodStatus{
+					Conditions: []core.PodCondition{
+						{
+							Type:   core.PodScheduled,
+							Status: core.ConditionTrue,
+						},
+						{
+							Type:    core.PodInitialized,
+							Status:  core.ConditionFalse,
+							Reason:  PodReasonInitializing,
+							Message: "initializing containers",
+						},
+					},
+				},
+			},
+			Status:  status.Maintenance,
+			Message: "initializing containers",
+		},
+		{
 			// We are testing here that when the pod is in it's init stage
 			// the correct juju status of error is displayed as one of the
 			// pods is in a crash loop backoff.
