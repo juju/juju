@@ -99,19 +99,6 @@ func (d *factory) setConfig(cfg DeployerConfig) {
 	d.flagSet = cfg.FlagSet
 }
 
-func isLocalSchema(u string) bool {
-	raw, err := url.Parse(u)
-	if err != nil {
-		return false
-	}
-	switch charm.Schema(raw.Scheme) {
-	case charm.Local:
-		return true
-	}
-
-	return false
-}
-
 // DeployerDependencies are required for any deployer to be run.
 type DeployerDependencies struct {
 	DeployResources      resourceadapters.DeployResourcesFunc
@@ -475,6 +462,19 @@ func resolveCharmURL(path string) (*charm.URL, error) {
 	}
 
 	return charm.ParseURL(path)
+}
+
+func isLocalSchema(u string) bool {
+	raw, err := url.Parse(u)
+	if err != nil {
+		return false
+	}
+	switch charm.Schema(raw.Scheme) {
+	case charm.Local:
+		return true
+	}
+
+	return false
 }
 
 // Returns the first string that isn't empty.
