@@ -123,8 +123,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSpaceMissi
 		"Located charm \"wordpress-extra-bindings\" in charm-store")
 	c.Assert(stdOut, gc.Equals, ""+
 		"Executing changes:\n"+
-		"- upload charm cs:xenial/mysql-42 for series xenial\n"+
-		"- deploy application mysql on xenial using cs:xenial/mysql-42")
+		"- upload charm mysql from charm-store for series xenial\n"+
+		"- deploy application mysql from charm-store on xenial")
 	s.assertCharmsUploaded(c, "cs:xenial/mysql-42")
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{})
 	s.assertUnitsCreated(c, map[string]string{})
@@ -197,11 +197,11 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleTwice(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(stdOut, gc.Equals, ""+
 		"Executing changes:\n"+
-		"- upload charm cs:xenial/mysql-42 for series xenial\n"+
-		"- deploy application mysql on xenial using cs:xenial/mysql-42\n"+
+		"- upload charm mysql from charm-store for series xenial\n"+
+		"- deploy application mysql from charm-store on xenial\n"+
 		"- set annotations for mysql\n"+
-		"- upload charm cs:xenial/wordpress-47 for series xenial\n"+
-		"- deploy application wordpress on xenial using cs:xenial/wordpress-47\n"+
+		"- upload charm wordpress from charm-store for series xenial\n"+
+		"- deploy application wordpress from charm-store on xenial\n"+
 		"- set annotations for wordpress\n"+
 		"- add relation wordpress:db - mysql:db\n"+
 		"- add unit mysql/0 to new machine 0\n"+
@@ -247,11 +247,11 @@ func (s *BundleDeployCharmStoreSuite) TestDryRunTwice(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := "" +
 		"Changes to deploy bundle:\n" +
-		"- upload charm cs:xenial/mysql-42 for series xenial\n" +
-		"- deploy application mysql on xenial using cs:xenial/mysql-42\n" +
+		"- upload charm mysql from charm-store for series xenial\n" +
+		"- deploy application mysql from charm-store on xenial\n" +
 		"- set annotations for mysql\n" +
-		"- upload charm cs:xenial/wordpress-47 for series xenial\n" +
-		"- deploy application wordpress on xenial using cs:xenial/wordpress-47\n" +
+		"- upload charm wordpress from charm-store for series xenial\n" +
+		"- deploy application wordpress from charm-store on xenial\n" +
 		"- set annotations for wordpress\n" +
 		"- add relation wordpress:db - mysql:db\n" +
 		"- add unit mysql/0 to new machine 0\n" +
@@ -1034,8 +1034,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationUpgrade(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stdOut, gc.Equals, ""+
 		"Executing changes:\n"+
-		"- upload charm cs:trusty/upgrade-2 for series trusty\n"+
-		"- upgrade up to use charm cs:trusty/upgrade-2 for series trusty\n"+
+		"- upload charm upgrade from charm-store for series trusty\n"+
+		"- upgrade up from charm-store using charm upgrade for series trusty\n"+
 		"- set constraints for up to \"mem=8G\"\n"+
 		"- set application options for wordpress\n"+
 		`- set constraints for wordpress to "spaces=new cores=8"`,
@@ -1353,10 +1353,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundlePeerContainer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(stdOut, gc.Equals, ""+
 		"Executing changes:\n"+
-		"- upload charm cs:xenial/django-42 for series xenial\n"+
-		"- deploy application django on xenial using cs:xenial/django-42\n"+
-		"- upload charm cs:xenial/wordpress-0 for series xenial\n"+
-		"- deploy application wordpress on xenial using cs:xenial/wordpress-0\n"+
+		"- upload charm django from charm-store for series xenial\n"+
+		"- deploy application django from charm-store on xenial\n"+
+		"- upload charm wordpress from charm-store for series xenial\n"+
+		"- deploy application wordpress from charm-store on xenial\n"+
 		"- add lxd container 0/lxd/0 on new machine 0\n"+
 		"- add lxd container 1/lxd/0 on new machine 1\n"+
 		"- add unit wordpress/0 to 0/lxd/0\n"+
@@ -1454,7 +1454,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleSwitch(c *gc.C) {
 	c.Check(stdOut, gc.Equals, ""+
 		"Executing changes:\n"+
 		"- set constraints for django to \"\"\n"+
-		"- deploy application node on bionic using cs:bionic/django-42\n"+
+		"- deploy application node from charm-store on bionic using django\n"+
 		"- add unit node/0 to new machine 2",
 	)
 }
@@ -1538,7 +1538,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMassiveUnitColocation(c *g
 		"Executing changes:\n"+
 		"- set constraints for django to \"\"\n"+
 		"- set constraints for memcached to \"\"\n"+
-		"- deploy application node on bionic using cs:bionic/django-42\n"+
+		"- deploy application node from charm-store on bionic using django\n"+
 		"- add unit node/0 to 0/lxd/0 to satisfy [lxd:memcached]",
 	)
 
@@ -1588,11 +1588,11 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithAnnotations_OutputIsCo
 
 	c.Check(stdOut, gc.Equals, ""+
 		"Executing changes:\n"+
-		"- upload charm cs:bionic/django-42 for series bionic\n"+
-		"- deploy application django on bionic using cs:bionic/django-42\n"+
+		"- upload charm django from charm-store for series bionic\n"+
+		"- deploy application django from charm-store on bionic\n"+
 		"- set annotations for django\n"+
-		"- upload charm cs:bionic/mem-47 for series bionic\n"+
-		"- deploy application memcached on bionic using cs:bionic/mem-47\n"+
+		"- upload charm mem from charm-store for series bionic\n"+
+		"- deploy application memcached from charm-store on bionic using mem\n"+
 		"- add new machine 0 (bundle machine 1)\n"+
 		"- set annotations for new machine 0\n"+
 		"- add unit django/0 to new machine 0\n"+
@@ -1763,8 +1763,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundlePassesSequences(c *gc.C) {
     `)
 	c.Check(stdOut, gc.Equals, ""+
 		"Executing changes:\n"+
-		"- upload charm cs:xenial/django-42 for series xenial\n"+
-		"- deploy application django on xenial using cs:xenial/django-42\n"+
+		"- upload charm django from charm-store for series xenial\n"+
+		"- deploy application django from charm-store on xenial\n"+
 		"- add unit django/2 to new machine 2\n"+
 		"- add unit django/3 to new machine 3",
 	)
