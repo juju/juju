@@ -327,6 +327,10 @@ type HookContext struct {
 	// workloadName is the name of the container which the hook is in relation to.
 	workloadName string
 
+	// seriesUpgradeTarget is the series that the unit's machine is to be
+	// updated to when Juju is issued the `upgrade-series` command.
+	seriesUpgradeTarget string
+
 	mu sync.Mutex
 }
 
@@ -1045,11 +1049,20 @@ func (ctx *HookContext) HookVars(
 			"JUJU_ACTION_TAG="+ctx.actionData.Tag.String(),
 		)
 	}
+<<<<<<< HEAD
 	if ctx.workloadName != "" {
 		vars = append(vars, "JUJU_WORKLOAD_NAME="+ctx.workloadName)
 	}
 
 	return append(vars, OSDependentEnvVars(paths, env)...), nil
+=======
+	if ctx.seriesUpgradeTarget != "" {
+		vars = append(vars,
+			"JUJU_TARGET_SERIES="+ctx.seriesUpgradeTarget,
+		)
+	}
+	return append(vars, OSDependentEnvVars(paths, getEnv)...), nil
+>>>>>>> Adds series upgrade target to hook info and context, populated when the
 }
 
 func (ctx *HookContext) handleReboot(ctxErr error) error {
