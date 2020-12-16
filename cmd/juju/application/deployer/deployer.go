@@ -6,6 +6,7 @@ package deployer
 import (
 	"archive/zip"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -291,8 +292,13 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 	// below) where it is handled properly. This is just an expedient to get
 	// the correct series. A proper refactoring of the charmrepo package is
 	// needed for a more elegant fix.
+	charmOrBundle := d.charmOrBundle
+	if isLocalSchema(charmOrBundle) {
+		charmOrBundle = charmOrBundle[6:]
+	}
+
 	seriesName := d.series
-	ch, err := charm.ReadCharm(d.charmOrBundle)
+	ch, err := charm.ReadCharm(charmOrBundle)
 
 	var imageStream string
 	if err == nil {
@@ -328,7 +334,7 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 	}
 
 	// Charm may have been supplied via a path reference.
-	ch, curl, err := charmrepo.NewCharmAtPathForceSeries(d.charmOrBundle, seriesName, d.force)
+	ch, curl, err := charmrepo.NewCharmAtPathForceSeries(charmOrBundle, seriesName, d.force)
 	// We check for several types of known error which indicate
 	// that the supplied reference was indeed a path but there was
 	// an issue reading the charm located there.
@@ -337,9 +343,9 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 	} else if charm.IsUnsupportedSeriesError(err) {
 		return nil, errors.Trace(err)
 	} else if errors.Cause(err) == zip.ErrFormat {
-		return nil, errors.Errorf("invalid charm or bundle provided at %q", d.charmOrBundle)
+		return nil, errors.Errorf("invalid charm or bundle provided at %q", charmOrBundle)
 	} else if _, ok := err.(*charmrepo.NotFoundError); ok {
-		return nil, errors.Wrap(err, errors.NotFoundf("charm or bundle at %q", d.charmOrBundle))
+		return nil, errors.Wrap(err, errors.NotFoundf("charm or bundle at %q", charmOrBundle))
 	} else if err != nil && err != os.ErrNotExist {
 		// If we get a "not exists" error then we attempt to interpret
 		// the supplied charm reference as a URL elsewhere, otherwise
@@ -456,6 +462,19 @@ func resolveCharmURL(path string) (*charm.URL, error) {
 	}
 
 	return charm.ParseURL(path)
+}
+
+func isLocalSchema(u string) bool {
+	raw, err := url.Parse(u)
+	if err != nil {
+		return false
+	}
+	switch charm.Schema(raw.Scheme) {
+	case charm.Local:
+		return true
+	}
+
+	return false
 }
 
 // Returns the first string that isn't empty.
