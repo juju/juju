@@ -4,12 +4,14 @@
 package main
 
 import (
+	"io"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
@@ -53,6 +55,9 @@ type machineCommand struct {
 	query   string
 	timeout time.Duration
 	found   bool
+	summary bool
+
+	machineInfo params.MachineInfo
 }
 
 // Info implements Command.Info.
@@ -70,6 +75,7 @@ func (c *machineCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.waitForCommandBase.SetFlags(f)
 	f.StringVar(&c.query, "query", `life=="alive" && status=="started"`, "query the goal state")
 	f.DurationVar(&c.timeout, "timeout", time.Minute*10, "how long to wait, before timing out")
+	f.BoolVar(&c.summary, "summary", true, "output a summary of the application query on exit")
 }
 
 // Init implements Command.Init.
@@ -89,26 +95,50 @@ func (c *machineCommand) Init(args []string) (err error) {
 }
 
 func (c *machineCommand) Run(ctx *cmd.Context) error {
+	scopedContext := MakeScopeContext()
+
+	defer func() {
+		if !c.summary {
+			return
+		}
+
+		switch c.machineInfo.Life {
+		case life.Dead:
+			ctx.Infof("Machine %q has been removed", c.id)
+		case life.Dying:
+			ctx.Infof("Machine %q is being removed", c.id)
+		default:
+			ctx.Infof("Machine %q is running", c.id)
+			outputMachineSummary(ctx.Stdout, scopedContext, &c.machineInfo)
+		}
+	}()
+
 	strategy := &Strategy{
 		ClientFn: c.newWatchAllAPIFunc,
 		Timeout:  c.timeout,
 	}
-	err := strategy.Run(c.id, c.query, c.waitFor)
+	err := strategy.Run(c.id, c.query, c.waitFor(scopedContext))
 	return errors.Trace(err)
 }
 
-func (c *machineCommand) waitFor(id string, deltas []params.Delta, q query.Query) (bool, error) {
-	for _, delta := range deltas {
-		logger.Tracef("delta %T: %v", delta.Entity, delta.Entity)
+func (c *machineCommand) waitFor(ctx ScopeContext) func(string, []params.Delta, query.Query) (bool, error) {
+	return func(id string, deltas []params.Delta, q query.Query) (bool, error) {
+		for _, delta := range deltas {
+			logger.Tracef("delta %T: %v", delta.Entity, delta.Entity)
 
-		switch entityInfo := delta.Entity.(type) {
-		case *params.MachineInfo:
-			if entityInfo.Id == id {
+			switch entityInfo := delta.Entity.(type) {
+			case *params.MachineInfo:
+				if entityInfo.Id != id {
+					break
+				}
+
 				if delta.Removed {
 					return false, errors.Errorf("machine %v removed", id)
 				}
 
-				scope := MakeMachineScope(entityInfo)
+				c.machineInfo = *entityInfo
+
+				scope := MakeMachineScope(ctx, entityInfo)
 				if done, err := runQuery(q, scope); err != nil {
 					return false, errors.Trace(err)
 				} else if done {
@@ -116,27 +146,28 @@ func (c *machineCommand) waitFor(id string, deltas []params.Delta, q query.Query
 				}
 				c.found = entityInfo.Life != life.Dead
 			}
-			break
 		}
-	}
 
-	if !c.found {
-		logger.Infof("machine %q not found, waiting...", id)
+		if !c.found {
+			logger.Infof("machine %q not found, waiting...", id)
+			return false, nil
+		}
+
+		logger.Infof("machine %q found, waiting...", id)
 		return false, nil
 	}
-
-	logger.Infof("machine %q found, waiting...", id)
-	return false, nil
 }
 
 // MachineScope allows the query to introspect a model entity.
 type MachineScope struct {
+	ctx         ScopeContext
 	MachineInfo *params.MachineInfo
 }
 
 // MakeMachineScope creates an MachineScope from an MachineInfo
-func MakeMachineScope(info *params.MachineInfo) MachineScope {
+func MakeMachineScope(ctx ScopeContext, info *params.MachineInfo) MachineScope {
 	return MachineScope{
+		ctx:         ctx,
 		MachineInfo: info,
 	}
 }
@@ -148,6 +179,8 @@ func (m MachineScope) GetIdents() []string {
 
 // GetIdentValue returns the value of the identifier in a given scope.
 func (m MachineScope) GetIdentValue(name string) (query.Box, error) {
+	m.ctx.RecordIdent(name)
+
 	switch name {
 	case "id":
 		return query.NewString(m.MachineInfo.Id), nil
@@ -171,4 +204,24 @@ func (m MachineScope) GetIdentValue(name string) (query.Box, error) {
 		return query.NewSliceString(containerTypes), nil
 	}
 	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name), "Runtime Error: identifier %q not found on MachineInfo", name)
+}
+
+func outputMachineSummary(writer io.Writer, scopedContext ScopeContext, machineInfo *params.MachineInfo) {
+	result := struct {
+		Elements map[string]interface{} `yaml:"properties"`
+	}{
+		Elements: make(map[string]interface{}),
+	}
+
+	idents := scopedContext.RecordedIdents()
+	for _, ident := range idents {
+		scope := MakeMachineScope(scopedContext, machineInfo)
+		box, err := scope.GetIdentValue(ident)
+		if err != nil {
+			continue
+		}
+		result.Elements[ident] = box.Value()
+	}
+
+	_ = yaml.NewEncoder(writer).Encode(result)
 }
