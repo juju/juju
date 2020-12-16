@@ -8,14 +8,12 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/names/v4"
 	"github.com/juju/txn"
 	"github.com/juju/worker/v2"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/feature"
 )
 
 // Register the state tracker as a new profile.
@@ -130,18 +128,21 @@ func newState(
 	}()
 
 	mongodb := session.DB(jujuDB)
-	sstxn := featureflag.Enabled(feature.MongoDbSSTXN)
+	sstxn := txn.SupportsServerSideTransactions(mongodb)
+
+	// TODO(wallyworld) - server side txns have issues on mongo 4.0
+	// (due to juju making bad txn.Ops, and potentially mongo 4 issues)
+	// Symptoms include intermittent success in applying a txn and reading results back,
+	// plus txn.Op slices that are wrong, eg insert dup or missing asserts.
+	// Related test failures here:
+	// https://jenkins.juju.canonical.com/job/github-make-check-juju/9317/testReport/
+	sstxn = false
+
 	if sstxn {
-		if !txn.SupportsServerSideTransactions(mongodb) {
-			logger.Warningf("User requested server-side transactions, but they are not supported.\n"+
-				" Falling back to client-side transactions.\n"+
-				" Consider using the '%s' feature flag", feature.MongoDbSnap)
-			sstxn = false
-		} else {
-			logger.Infof("using server-side transactions")
-		}
+		logger.Infof("using server-side transactions")
 	} else {
-		logger.Infof("using client-side transactions")
+		logger.Warningf("server-side transactions are not supported.\n" +
+			" Falling back to client-side transactions.")
 	}
 	db := &database{
 		raw:                    mongodb,

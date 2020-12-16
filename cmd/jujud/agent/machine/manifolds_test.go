@@ -107,7 +107,6 @@ func (ms *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"raft-leader-flag",
 			"raft-transport",
 			"reboot-executor",
-			"restore-watcher",
 			"ssh-authkeys-updater",
 			"ssh-identity-writer",
 			"state",
@@ -176,7 +175,6 @@ func (ms *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"raft-forwarder",
 			"raft-leader-flag",
 			"raft-transport",
-			"restore-watcher",
 			"ssh-identity-writer",
 			"state",
 			"state-config-watcher",
@@ -247,7 +245,6 @@ func (ms *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"peer-grouper",
 		"presence",
 		"pubsub-forwarder",
-		"restore-watcher",
 		"state",
 		"state-config-watcher",
 		"termination-signal-handler",
@@ -453,7 +450,6 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"model-cache-initialized-gate",
 		"multiwatcher",
 		"raft-transport",
-		"restore-watcher",
 		"state",
 		"state-config-watcher",
 		"upgrade-steps-gate",
@@ -588,7 +584,6 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"model-cache-initialized-gate",
 		"multiwatcher",
 		"raft-transport",
-		"restore-watcher",
 		"state",
 		"state-config-watcher",
 		"upgrade-database-flag",
@@ -936,8 +931,6 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
 	},
-
-	"restore-watcher": {"agent", "state", "state-config-watcher"},
 
 	"ssh-authkeys-updater": {
 		"agent",

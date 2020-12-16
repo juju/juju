@@ -34,7 +34,7 @@ func (s *StatusHistorySuite) TestPruneStatusHistoryBySize(c *gc.C) {
 
 	initialHistory := 20000
 	filter := status.StatusHistoryFilter{Size: 25000}
-	expectMax := 10000
+	expectMax := 11100
 	// On some of the architectures, the status history collection is much
 	// smaller than amd64, so we need more entries to get the right size.
 	switch arch.HostArch() {

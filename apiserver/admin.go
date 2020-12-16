@@ -371,7 +371,7 @@ func (a *admin) handleAuthError(err error) error {
 		return err
 	}
 	if a.maintenanceInProgress() {
-		// An upgrade, restore or similar operation is in
+		// An upgrade, migration or similar operation is in
 		// progress. It is possible for logins to fail until this
 		// is complete due to incomplete or updating data. Mask
 		// transitory and potentially confusing errors from failed
@@ -497,14 +497,7 @@ func filterFacades(registry *facade.Registry, allowFacadeAllMustMatch ...facadeF
 }
 
 func (a *admin) maintenanceInProgress() bool {
-	if !a.srv.upgradeComplete() {
-		return true
-	}
-	switch a.srv.restoreStatus() {
-	case state.RestorePending, state.RestoreInProgress:
-		return true
-	}
-	return false
+	return !a.srv.upgradeComplete()
 }
 
 func setupPingTimeoutDisconnect(clock clock.Clock, root *apiHandler, entity state.Entity) error {

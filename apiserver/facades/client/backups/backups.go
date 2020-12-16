@@ -7,7 +7,6 @@ import (
 	"io"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"gopkg.in/mgo.v2"
 
@@ -22,22 +21,18 @@ import (
 	"github.com/juju/juju/state/backups"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.backups")
-
 // Backend exposes state.State functionality needed by the backups Facade.
 type Backend interface {
 	IsController() bool
 	Machine(id string) (Machine, error)
 	MachineSeries(id string) (string, error)
 	MongoSession() *mgo.Session
-	MongoVersion() (string, error)
 	ModelTag() names.ModelTag
 	ModelType() state.ModelType
 	ControllerTag() names.ControllerTag
 	ModelConfig() (*config.Config, error)
 	ControllerConfig() (controller.Config, error)
 	StateServingInfo() (controller.StateServingInfo, error)
-	RestoreInfo() *state.RestoreInfo
 	ControllerNodes() ([]state.ControllerNode, error)
 }
 
@@ -48,19 +43,6 @@ type API struct {
 
 	// machineID is the ID of the machine where the API server is running.
 	machineID string
-}
-
-// APIv2 serves backup-specific API methods for version 2.
-type APIv2 struct {
-	*API
-}
-
-func NewAPIv2(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*APIv2, error) {
-	api, err := NewAPI(backend, resources, authorizer)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv2{api}, nil
 }
 
 // NewAPI creates a new instance of the Backups API facade.
@@ -167,14 +149,6 @@ func CreateResult(meta *backups.Metadata, filename string) params.BackupsMetadat
 	result.HANodes = meta.Controller.HANodes
 	result.ControllerMachineID = meta.Controller.MachineID
 	result.ControllerMachineInstanceID = meta.Controller.MachineInstanceID
-	// TODO(wallyworld) - remove these ASAP
-	// These are only used by the restore CLI when re-bootstrapping.
-	// We will use a better solution but the way restore currently
-	// works, we need them and they are no longer available via
-	// bootstrap config. We will need to fix how re-bootstrap deals
-	// with these keys to address the issue.
-	result.CACert = meta.CACert
-	result.CAPrivateKey = meta.CAPrivateKey
 	result.Filename = filename
 
 	return result

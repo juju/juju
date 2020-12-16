@@ -760,7 +760,6 @@ oldpassword: bletch
 values:
   AGENT_SERVICE_NAME: jujud-machine-10
   PROVIDER_TYPE: dummy
-mongoversion: "0.0"
 
 "@
 cmd.exe /C mklink /D C:\Juju\lib\juju\tools\machine-10 1.2.3-win8-amd64

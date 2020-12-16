@@ -36,7 +36,6 @@ type Config struct {
 	Controller                        *cache.Controller
 	LeaseManager                      lease.Manager
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
-	RestoreStatus                     func() state.RestoreStatus
 	UpgradeComplete                   func() bool
 	GetAuditConfig                    func() auditlog.Config
 	NewServer                         NewServerFunc
@@ -82,9 +81,6 @@ func (config Config) Validate() error {
 	}
 	if config.RegisterIntrospectionHTTPHandlers == nil {
 		return errors.NotValidf("nil RegisterIntrospectionHTTPHandlers")
-	}
-	if config.RestoreStatus == nil {
-		return errors.NotValidf("nil RestoreStatus")
 	}
 	if config.UpgradeComplete == nil {
 		return errors.NotValidf("nil UpgradeComplete")
@@ -137,7 +133,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 		MultiwatcherFactory:           config.MultiwatcherFactory,
 		Mux:                           config.Mux,
 		Authenticator:                 config.Authenticator,
-		RestoreStatus:                 config.RestoreStatus,
 		UpgradeComplete:               config.UpgradeComplete,
 		PublicDNSName:                 controllerConfig.AutocertDNSName(),
 		AllowModelAccess:              controllerConfig.AllowModelAccess(),

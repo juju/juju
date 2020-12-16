@@ -89,7 +89,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		MuxName:                           "mux",
 		ModelCacheName:                    "modelcache",
 		MultiwatcherName:                  "multiwatcher",
-		RestoreStatusName:                 "restore-status",
 		StateName:                         "state",
 		UpgradeGateName:                   "upgrade",
 		AuditConfigUpdaterName:            "auditconfig-updater",
@@ -112,7 +111,6 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 		"mux":                 s.mux,
 		"modelcache":          s.controller,
 		"multiwatcher":        s.multiwatcherFactory,
-		"restore-status":      s.RestoreStatus,
 		"state":               &s.state,
 		"upgrade":             &s.upgradeGate,
 		"auditconfig-updater": s.auditConfig.get,
@@ -123,11 +121,6 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 		resources[k] = v
 	}
 	return dt.StubContext(nil, resources)
-}
-
-func (s *ManifoldSuite) RestoreStatus() state.RestoreStatus {
-	s.stub.MethodCall(s, "RestoreStatus")
-	return ""
 }
 
 func (s *ManifoldSuite) newWorker(config apiserver.Config) (worker.Worker, error) {
@@ -144,7 +137,7 @@ func (s *ManifoldSuite) newMetricsCollector() *coreapiserver.Collector {
 
 var expectedInputs = []string{
 	"agent", "authenticator", "clock", "modelcache", "multiwatcher", "mux",
-	"restore-status", "state", "upgrade", "auditconfig-updater", "lease-manager",
+	"state", "upgrade", "auditconfig-updater", "lease-manager",
 	"raft-transport",
 }
 
@@ -186,11 +179,6 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config.UpgradeComplete()
 	config.UpgradeComplete = nil
 	s.upgradeGate.CheckCallNames(c, "IsUnlocked")
-
-	c.Assert(config.RestoreStatus, gc.NotNil)
-	config.RestoreStatus()
-	config.RestoreStatus = nil
-	s.stub.CheckCallNames(c, "NewWorker", "RestoreStatus")
 
 	c.Assert(config.RegisterIntrospectionHTTPHandlers, gc.NotNil)
 	config.RegisterIntrospectionHTTPHandlers = nil

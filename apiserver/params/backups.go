@@ -70,9 +70,7 @@ type BackupsMetadataResult struct {
 	Version  version.Number `json:"version"`
 	Series   string         `json:"series"`
 
-	CACert       string `json:"ca-cert"`
-	CAPrivateKey string `json:"ca-private-key"`
-	Filename     string `json:"filename"`
+	Filename string `json:"filename"`
 
 	// FormatVersion stores the version of the backup format.
 	// All unversioned backup files are considered 0,
@@ -90,10 +88,4 @@ type BackupsMetadataResult struct {
 
 	// HANodes reflects HA configuration: number of controller nodes in HA.
 	HANodes int64 `json:"ha-nodes"`
-}
-
-// RestoreArgs Holds the backup file or id
-type RestoreArgs struct {
-	// BackupId holds the id of the backup in server if any
-	BackupId string `json:"backup-id"`
 }

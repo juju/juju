@@ -5102,8 +5102,8 @@
     },
     {
         "Name": "Backups",
-        "Description": "APIv2 serves backup-specific API methods for version 2.",
-        "Version": 2,
+        "Description": "API provides backup-specific API methods.",
+        "Version": 3,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -5122,11 +5122,8 @@
                         "Result": {
                             "$ref": "#/definitions/BackupsMetadataResult"
                         }
-                    }
-                },
-                "FinishRestore": {
-                    "type": "object",
-                    "description": "FinishRestore implements the server side of Backups.FinishRestore."
+                    },
+                    "description": "Create is the API method that requests juju to create a new backup\nof its state."
                 },
                 "Info": {
                     "type": "object",
@@ -5152,10 +5149,6 @@
                     },
                     "description": "List provides the implementation of the API method."
                 },
-                "PrepareRestore": {
-                    "type": "object",
-                    "description": "PrepareRestore implements the server side of Backups.PrepareRestore."
-                },
                 "Remove": {
                     "type": "object",
                     "properties": {
@@ -5167,15 +5160,6 @@
                         }
                     },
                     "description": "Remove deletes the backups defined by ID from the database."
-                },
-                "Restore": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/RestoreArgs"
-                        }
-                    },
-                    "description": "Restore implements the server side of Backups.Restore."
                 }
             },
             "definitions": {
@@ -5233,12 +5217,6 @@
                 "BackupsMetadataResult": {
                     "type": "object",
                     "properties": {
-                        "ca-cert": {
-                            "type": "string"
-                        },
-                        "ca-private-key": {
-                            "type": "string"
-                        },
                         "checksum": {
                             "type": "string"
                         },
@@ -5315,8 +5293,6 @@
                         "hostname",
                         "version",
                         "series",
-                        "ca-cert",
-                        "ca-private-key",
                         "filename",
                         "format-version",
                         "controller-uuid",
@@ -5415,18 +5391,6 @@
                         "Tag",
                         "Patch",
                         "Build"
-                    ]
-                },
-                "RestoreArgs": {
-                    "type": "object",
-                    "properties": {
-                        "backup-id": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "backup-id"
                     ]
                 }
             }

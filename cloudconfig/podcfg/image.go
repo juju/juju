@@ -18,8 +18,8 @@ import (
 const (
 	JujudOCINamespace = "jujusolutions"
 	JujudOCIName      = "jujud-operator"
-	JujuK8sAgentName  = "k8sagent"
 	JujudbOCIName     = "juju-db"
+	JujudbVersion     = "4.0"
 )
 
 // GetControllerImagePath returns oci image path of jujud for a controller.
@@ -33,8 +33,7 @@ func (cfg *ControllerPodConfig) GetJujuDbOCIImagePath() string {
 	if imageRepo == "" {
 		imageRepo = JujudOCINamespace
 	}
-	v := jujudbVersion
-	return fmt.Sprintf("%s/%s:%d.%d", imageRepo, JujudbOCIName, v.Major, v.Minor)
+	return fmt.Sprintf("%s/%s:%v", imageRepo, JujudbOCIName, JujudbVersion)
 }
 
 // IsJujuOCIImage returns true if the image path is for a Juju operator.

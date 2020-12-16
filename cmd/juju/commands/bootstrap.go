@@ -268,10 +268,8 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.BootstrapSeries, "bootstrap-series", "", "Specify the series of the bootstrap machine")
 	f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "Specify the image of the bootstrap machine")
 	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build local version of agent binary before bootstrapping")
-	if featureflag.Enabled(feature.MongoDbSnap) {
-		f.StringVar(&c.JujuDbSnapPath, "db-snap", "", "Path to a locally built .snap to use as the internal juju-db service.")
-		f.StringVar(&c.JujuDbSnapAssertionsPath, "db-snap-asserts", "", "Path to a local .assert file. Requires --juju-db-snap")
-	}
+	f.StringVar(&c.JujuDbSnapPath, "db-snap", "", "Path to a locally built .snap to use as the internal juju-db service.")
+	f.StringVar(&c.JujuDbSnapAssertionsPath, "db-snap-asserts", "", "Path to a local .assert file. Requires --db-snap")
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "Local path to use as agent and/or image metadata source")
 	f.StringVar(&c.Placement, "to", "", "Placement directive indicating an instance to bootstrap")
 	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false, "Do not destroy the model if bootstrap fails")

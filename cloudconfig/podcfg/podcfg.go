@@ -28,9 +28,6 @@ import (
 
 var logger = loggo.GetLogger("juju.cloudconfig.podcfg")
 
-// jujudbVersion is the version of juju-db to use.
-var jujudbVersion = mongo.Mongo40wt
-
 // ControllerPodConfig represents initialization information for a new juju caas controller pod.
 type ControllerPodConfig struct {
 	// Tags is a set of tags/labels to set on the Pod, if supported. This
@@ -119,7 +116,6 @@ func (cfg *ControllerPodConfig) AgentConfig(tag names.Tag) (agent.ConfigSetterWr
 		Values:             cfg.AgentEnvironment,
 		Controller:         cfg.ControllerTag,
 		Model:              cfg.APIInfo.ModelTag,
-		MongoVersion:       jujudbVersion,
 		MongoMemoryProfile: mongo.MemoryProfile(cfg.Controller.Config.MongoMemoryProfile()),
 	}
 	return agent.NewStateMachineConfig(configParams, cfg.Bootstrap.StateServingInfo)

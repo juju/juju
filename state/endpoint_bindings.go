@@ -272,9 +272,18 @@ func (b *Bindings) updateOps(txnRevno int64, newMap map[string]string, newMeta *
 		escaped[utils.EscapeKey(endpoint)] = space
 	}
 
+	_, bindingsErr := readEndpointBindingsDoc(b.app.st, b.app.globalKey())
+	if bindingsErr != nil && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+	if err != nil {
+		// No bindings to update.
+		return ops, nil
+	}
 	updateOp := txn.Op{
 		C:      endpointBindingsC,
 		Id:     b.app.globalKey(),
+		Assert: txn.DocExists,
 		Update: bson.M{"$set": bson.M{"bindings": escaped}},
 	}
 	if useTxnRevno {

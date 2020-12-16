@@ -16,7 +16,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/backups"
 	backupstesting "github.com/juju/juju/state/backups/testing"
 	"github.com/juju/juju/testing"
@@ -58,7 +57,7 @@ func (s *backupsSuite) checkFailure(c *gc.C, expected string) {
 
 	paths := backups.Paths{DataDir: "/var/lib/juju"}
 	targets := set.NewStrings("juju", "admin")
-	dbInfo := backups.DBInfo{"a", "b", "c", targets, mongo.Mongo32wt}
+	dbInfo := backups.DBInfo{"a", "b", "c", targets}
 	meta := backupstesting.NewMetadataStarted()
 	meta.Notes = "some notes"
 
@@ -114,7 +113,7 @@ func (s *backupsSuite) testCreateOkay(c *gc.C, keepCopy, noDownload bool) {
 	// Run the backup.
 	paths := backups.Paths{BackupDir: backupDir, DataDir: dataDir}
 	targets := set.NewStrings("juju", "admin")
-	dbInfo := backups.DBInfo{"a", "b", "c", targets, mongo.Mongo32wt}
+	dbInfo := backups.DBInfo{"a", "b", "c", targets}
 	meta := backupstesting.NewMetadataStarted()
 	backupstesting.SetOrigin(meta, "<model ID>", "<machine ID>", "<hostname>")
 	meta.Notes = "some notes"

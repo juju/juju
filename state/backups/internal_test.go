@@ -36,8 +36,8 @@ func (s *pathsSuite) TestPathDefaultMongoExists(c *gc.C) {
 	}
 	mongoPath, err := getMongoToolPath("tool", osStat, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mongoPath, gc.Equals, "path/to/tool")
-	c.Assert(calledWithPaths, gc.DeepEquals, []string{"path/to/tool"})
+	c.Assert(mongoPath, gc.Equals, "path/to/juju-db.tool")
+	c.Assert(calledWithPaths, gc.DeepEquals, []string{"path/to/juju-db.tool"})
 }
 
 func (s *pathsSuite) TestPathNoDefaultMongo(c *gc.C) {
@@ -57,7 +57,6 @@ func (s *pathsSuite) TestPathNoDefaultMongo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mongoPath, gc.Equals, "/a/fake/mongo/path")
 	c.Assert(calledWithPaths, gc.DeepEquals, []string{
-		"path/to/tool",
 		"path/to/juju-db.tool",
 	})
 	c.Assert(calledWithLookup, gc.DeepEquals, []string{"tool"})
@@ -79,7 +78,6 @@ func (s *pathsSuite) TestPathSnapMongo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(path, gc.Equals, "path/to/juju-db.mongodump")
 	c.Assert(statPaths, gc.DeepEquals, []string{
-		"path/to/mongodump",
 		"path/to/juju-db.mongodump",
 	})
 }

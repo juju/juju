@@ -8,29 +8,14 @@ import (
 	"github.com/juju/replicaset"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/backups"
 )
 
 var waitUntilReady = replicaset.WaitUntilReady
 
 // Create is the API method that requests juju to create a new backup
-// of its state.  It returns the metadata for that backup.
-//
-// NOTE(hml) this provides backwards compatibility for facade version 1.
+// of its state.
 func (a *API) Create(args params.BackupsCreateArgs) (params.BackupsMetadataResult, error) {
-	args.KeepCopy = true
-	args.NoDownload = true
-
-	apiv2 := APIv2{a}
-	result, err := apiv2.Create(args)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	return result, nil
-}
-
-func (a *APIv2) Create(args params.BackupsCreateArgs) (params.BackupsMetadataResult, error) {
 	backupsMethods, closer := newBackups(a.backend)
 	defer closer.Close()
 
@@ -48,15 +33,7 @@ func (a *APIv2) Create(args params.BackupsCreateArgs) (params.BackupsMetadataRes
 	if err != nil {
 		return result, errors.Annotatef(err, "getting mongo info")
 	}
-	v, err := a.backend.MongoVersion()
-	if err != nil {
-		return result, errors.Annotatef(err, "discovering mongo version")
-	}
-	mongoVersion, err := mongo.NewVersion(v)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	dbInfo, err := backups.NewDBInfo(mgoInfo, session, mongoVersion)
+	dbInfo, err := backups.NewDBInfo(mgoInfo, session)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

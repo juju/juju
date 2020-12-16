@@ -10,10 +10,9 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/replicaset"
-	gitjujutesting "github.com/juju/testing"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -43,31 +42,31 @@ type patchingSuite interface {
 
 // InstallFakeEnsureMongo creates a new FakeEnsureMongo, patching
 // out replicaset.CurrentConfig and cmdutil.EnsureMongoServer.
-func InstallFakeEnsureMongo(suite patchingSuite) *FakeEnsureMongo {
-	f := &FakeEnsureMongo{
-		ServiceInstalled: true,
-	}
-	suite.PatchValue(&mongo.IsServiceInstalled, f.IsServiceInstalled)
+func InstallFakeEnsureMongo(suite patchingSuite, dataDir string) *FakeEnsureMongo {
+	f := &FakeEnsureMongo{}
 	suite.PatchValue(&replicaset.CurrentConfig, f.CurrentConfig)
 	suite.PatchValue(&cmdutil.EnsureMongoServer, f.EnsureMongo)
+	ensureParams := cmdutil.NewEnsureServerParams
+	suite.PatchValue(&cmdutil.NewEnsureServerParams, func(agentConfig agent.Config) (mongo.EnsureServerParams, error) {
+		params, err := ensureParams(agentConfig)
+		if err == nil {
+			params.DataDir = dataDir
+		}
+		return params, err
+	})
 	return f
 }
 
 // FakeEnsureMongo provides test fakes for the functions used to
 // initialise MongoDB.
 type FakeEnsureMongo struct {
-	EnsureCount      int
-	InitiateCount    int
-	DataDir          string
-	OplogSize        int
-	Info             controller.StateServingInfo
-	InitiateParams   peergrouper.InitiateMongoParams
-	Err              error
-	ServiceInstalled bool
-}
-
-func (f *FakeEnsureMongo) IsServiceInstalled() (bool, error) {
-	return f.ServiceInstalled, nil
+	EnsureCount    int
+	InitiateCount  int
+	DataDir        string
+	OplogSize      int
+	Info           controller.StateServingInfo
+	InitiateParams peergrouper.InitiateMongoParams
+	Err            error
 }
 
 func (f *FakeEnsureMongo) CurrentConfig(*mgo.Session) (*replicaset.Config, error) {
@@ -78,7 +77,7 @@ func (f *FakeEnsureMongo) CurrentConfig(*mgo.Session) (*replicaset.Config, error
 	}, nil
 }
 
-func (f *FakeEnsureMongo) EnsureMongo(args mongo.EnsureServerParams) (mongo.Version, error) {
+func (f *FakeEnsureMongo) EnsureMongo(args mongo.EnsureServerParams) error {
 	f.EnsureCount++
 	f.DataDir, f.OplogSize = args.DataDir, args.OplogSize
 	f.Info = controller.StateServingInfo{
@@ -90,15 +89,7 @@ func (f *FakeEnsureMongo) EnsureMongo(args mongo.EnsureServerParams) (mongo.Vers
 		SharedSecret:   args.SharedSecret,
 		SystemIdentity: args.SystemIdentity,
 	}
-	v, err := gitjujutesting.MongodVersion()
-	if err != nil {
-		return mongo.Version{}, errors.Trace(err)
-	}
-	return mongo.Version{
-		Major: v.Major,
-		Minor: v.Minor,
-		Patch: fmt.Sprint(v.Patch),
-	}, f.Err
+	return f.Err
 }
 
 func (f *FakeEnsureMongo) InitiateMongo(p peergrouper.InitiateMongoParams) error {
@@ -199,7 +190,7 @@ func (s *AgentSuite) WriteStateAgentConfig(
 	modelTag names.ModelTag,
 ) agent.ConfigSetterWriter {
 	stateInfo := s.MongoInfo(c)
-	apiPort := gitjujutesting.FindTCPPort()
+	apiPort := jujutesting.FindTCPPort()
 	s.SetControllerConfigAPIPort(c, apiPort)
 	apiAddr := []string{fmt.Sprintf("localhost:%d", apiPort)}
 	conf, err := agent.NewStateMachineConfig(
@@ -222,7 +213,7 @@ func (s *AgentSuite) WriteStateAgentConfig(
 			Cert:         coretesting.ServerCert,
 			PrivateKey:   coretesting.ServerKey,
 			CAPrivateKey: coretesting.CAKey,
-			StatePort:    gitjujutesting.MgoServer.Port(),
+			StatePort:    jujutesting.MgoServer.Port(),
 			APIPort:      apiPort,
 		})
 	c.Assert(err, jc.ErrorIsNil)

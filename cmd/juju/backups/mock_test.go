@@ -5,12 +5,12 @@
 package backups_test
 
 import (
-	io "io"
-	reflect "reflect"
+	"io"
+	"reflect"
 
-	gomock "github.com/golang/mock/gomock"
-	backups "github.com/juju/juju/api/backups"
-	params "github.com/juju/juju/apiserver/params"
+	"github.com/golang/mock/gomock"
+
+	"github.com/juju/juju/apiserver/params"
 )
 
 // MockArchiveReader is a mock of ArchiveReader interface
@@ -176,30 +176,6 @@ func (m *MockAPIClient) Remove(arg0 ...string) ([]params.ErrorResult, error) {
 // Remove indicates an expected call of Remove
 func (mr *MockAPIClientMockRecorder) Remove(arg0 ...interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockAPIClient)(nil).Remove), arg0...)
-}
-
-// Restore mocks base method
-func (m *MockAPIClient) Restore(arg0 string, arg1 backups.ClientConnection) error {
-	ret := m.ctrl.Call(m, "Restore", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Restore indicates an expected call of Restore
-func (mr *MockAPIClientMockRecorder) Restore(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Restore", reflect.TypeOf((*MockAPIClient)(nil).Restore), arg0, arg1)
-}
-
-// RestoreReader mocks base method
-func (m *MockAPIClient) RestoreReader(arg0 io.ReadSeeker, arg1 *params.BackupsMetadataResult, arg2 backups.ClientConnection) error {
-	ret := m.ctrl.Call(m, "RestoreReader", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RestoreReader indicates an expected call of RestoreReader
-func (mr *MockAPIClientMockRecorder) RestoreReader(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RestoreReader", reflect.TypeOf((*MockAPIClient)(nil).RestoreReader), arg0, arg1, arg2)
 }
 
 // Upload mocks base method

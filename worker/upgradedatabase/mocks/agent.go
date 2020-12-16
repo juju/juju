@@ -5,6 +5,8 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	agent "github.com/juju/juju/agent"
 	api "github.com/juju/juju/api"
@@ -15,7 +17,6 @@ import (
 	names "github.com/juju/names/v4"
 	shell "github.com/juju/utils/v2/shell"
 	version "github.com/juju/version"
-	reflect "reflect"
 )
 
 // MockAgent is a mock of Agent interface
@@ -289,20 +290,6 @@ func (m *MockConfig) MongoMemoryProfile() mongo.MemoryProfile {
 func (mr *MockConfigMockRecorder) MongoMemoryProfile() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MongoMemoryProfile", reflect.TypeOf((*MockConfig)(nil).MongoMemoryProfile))
-}
-
-// MongoVersion mocks base method
-func (m *MockConfig) MongoVersion() mongo.Version {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MongoVersion")
-	ret0, _ := ret[0].(mongo.Version)
-	return ret0
-}
-
-// MongoVersion indicates an expected call of MongoVersion
-func (mr *MockConfigMockRecorder) MongoVersion() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MongoVersion", reflect.TypeOf((*MockConfig)(nil).MongoVersion))
 }
 
 // NonSyncedWritesToRaftLog mocks base method
@@ -683,20 +670,6 @@ func (mr *MockConfigSetterMockRecorder) MongoMemoryProfile() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MongoMemoryProfile", reflect.TypeOf((*MockConfigSetter)(nil).MongoMemoryProfile))
 }
 
-// MongoVersion mocks base method
-func (m *MockConfigSetter) MongoVersion() mongo.Version {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MongoVersion")
-	ret0, _ := ret[0].(mongo.Version)
-	return ret0
-}
-
-// MongoVersion indicates an expected call of MongoVersion
-func (mr *MockConfigSetterMockRecorder) MongoVersion() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MongoVersion", reflect.TypeOf((*MockConfigSetter)(nil).MongoVersion))
-}
-
 // NonSyncedWritesToRaftLog mocks base method
 func (m *MockConfigSetter) NonSyncedWritesToRaftLog() bool {
 	m.ctrl.T.Helper()
@@ -809,18 +782,6 @@ func (m *MockConfigSetter) SetMongoMemoryProfile(arg0 mongo.MemoryProfile) {
 func (mr *MockConfigSetterMockRecorder) SetMongoMemoryProfile(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMongoMemoryProfile", reflect.TypeOf((*MockConfigSetter)(nil).SetMongoMemoryProfile), arg0)
-}
-
-// SetMongoVersion mocks base method
-func (m *MockConfigSetter) SetMongoVersion(arg0 mongo.Version) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetMongoVersion", arg0)
-}
-
-// SetMongoVersion indicates an expected call of SetMongoVersion
-func (mr *MockConfigSetterMockRecorder) SetMongoVersion(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMongoVersion", reflect.TypeOf((*MockConfigSetter)(nil).SetMongoVersion), arg0)
 }
 
 // SetNonSyncedWritesToRaftLog mocks base method

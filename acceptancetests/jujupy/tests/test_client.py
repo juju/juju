@@ -2650,24 +2650,6 @@ class TestModelClient(ClientTest):
             client.backup()
             self.assertNotEqual(environ, os.environ)
 
-    def test_restore_backup(self):
-        env = JujuData('qux')
-        client = ModelClient(env, None, '/foobar/baz')
-        with patch_juju_call(client) as gjo_mock:
-            client.restore_backup('quxx')
-        gjo_mock.assert_called_once_with(
-            'restore-backup',
-            ('--file', 'quxx'))
-
-    def test_restore_backup_async(self):
-        env = JujuData('qux')
-        client = ModelClient(env, None, '/foobar/baz')
-        with patch.object(client, 'juju_async') as gjo_mock:
-            result = client.restore_backup_async('quxx')
-        gjo_mock.assert_called_once_with('restore-backup', (
-           '--file', 'quxx'))
-        self.assertIs(gjo_mock.return_value, result)
-
     def test_enable_ha(self):
         env = JujuData('qux')
         client = ModelClient(env, None, '/foobar/baz')

@@ -11,7 +11,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
 
 	"github.com/juju/errors"
@@ -130,27 +129,6 @@ func (a *App) StartCommands(executable string) []string {
 	return commands
 }
 
-// IsRunning indicates whether Snap is currently running on the system.
-// When the snap command (normally installed to /usr/bin/snap) cannot be
-// detected, IsRunning returns (false, nil). Other errors result in (false, err).
-func IsRunning() (bool, error) {
-	if runtime.GOOS == "windows" {
-		return false, nil
-	}
-
-	cmd := exec.Command(Command, "version")
-	out, err := cmd.CombinedOutput()
-	logger.Debugf("snap version output: %#v", string(out[:]))
-	if err == nil {
-		return true, nil
-	}
-	if common.IsCmdNotFoundErr(err) {
-		return false, nil
-	}
-
-	return false, errors.Annotatef(err, "exec %q failed", Command)
-}
-
 // SetSnapConfig sets a snap's key to value.
 func SetSnapConfig(snap string, key string, value string) error {
 	if key == "" {
@@ -202,7 +180,7 @@ type Service struct {
 //
 // If no BackgroundServices are provided, Service will wrap all of the snap's
 // background services.
-func NewService(mainSnap string, serviceName string, conf common.Conf, snapPath string, Channel string, ConfinementPolicy string, backgroundServices []BackgroundService, prerequisites []App) (Service, error) {
+func NewService(mainSnap string, serviceName string, conf common.Conf, snapPath, configDir string, Channel string, ConfinementPolicy string, backgroundServices []BackgroundService, prerequisites []App) (Service, error) {
 	if serviceName == "" {
 		serviceName = mainSnap
 	}
@@ -227,7 +205,7 @@ func NewService(mainSnap string, serviceName string, conf common.Conf, snapPath 
 		executable:     snapPath,
 		app:            app,
 		conf:           conf,
-		configDir:      systemd.EtcSystemdDir,
+		configDir:      configDir,
 	}
 
 	return svc, nil
@@ -252,7 +230,7 @@ func NewServiceFromName(name string, conf common.Conf) (Service, error) {
 	Channel := defaultChannel
 	ConfinementPolicy := defaultConfinementPolicy
 
-	return NewService(name, name, conf, Command, Channel, ConfinementPolicy, BackgroundServices, Prerequisites)
+	return NewService(name, name, conf, Command, systemd.EtcSystemdDir, Channel, ConfinementPolicy, BackgroundServices, Prerequisites)
 
 }
 

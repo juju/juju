@@ -216,12 +216,6 @@ class FakeEnvironmentState:
         exc.stderr = message
         raise exc
 
-    def restore_backup(self):
-        self.controller.require_controller('restore', self.name)
-        if len(self.state_servers) > 0:
-            return self._fail_stderr('Operation not permitted')
-        self.state_servers.append(self.add_machine())
-
     def enable_ha(self):
         self.controller.require_controller('enable-ha', self.name)
         for n in range(2):
@@ -1016,8 +1010,6 @@ class FakeBackend:
                 self.controller_state.users.pop(username)
                 if username in self.controller_state.shares:
                     self.controller_state.shares.remove(username)
-            if command == 'restore-backup':
-                model_state.restore_backup()
             return 0, CommandTime(command, args)
 
     @contextmanager

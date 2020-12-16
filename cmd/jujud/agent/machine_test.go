@@ -37,6 +37,7 @@ import (
 	"github.com/juju/worker/v2/dependency"
 	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"
@@ -61,6 +62,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/state"
@@ -593,6 +595,15 @@ func readAuditLog(c *gc.C, logPath string) []auditlog.Record {
 }
 
 func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob) {
+	s.PatchValue(&mongo.IsMaster, func(session *mgo.Session, obj mongo.WithAddresses) (bool, error) {
+		addr := obj.Addresses()
+		for _, a := range addr {
+			if a.Value == "0.1.2.3" {
+				return true, nil
+			}
+		}
+		return false, nil
+	})
 	vers := coretesting.CurrentVersion(c)
 	vers.Minor--
 	m, _, _ := s.primeAgentVersion(c, vers, job)
@@ -1333,8 +1344,6 @@ func (s *MachineSuite) TestReplicasetInitForNewController(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("controllers on windows aren't supported")
 	}
-
-	s.fakeEnsureMongo.ServiceInstalled = false
 
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
 	a := s.newAgent(c, m)

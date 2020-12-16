@@ -28,6 +28,7 @@ var _ = gc.Suite(&WorkerStateSuite{})
 func (s *WorkerStateSuite) SetUpSuite(c *gc.C) {
 	s.workerFixture.SetUpSuite(c)
 
+	testing.MgoServer.EnableReplicaSet = true
 	err := testing.MgoServer.Start(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.workerFixture.AddCleanup(func(*gc.C) { testing.MgoServer.Destroy() })
@@ -87,9 +88,6 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 
 	c.Assert(config.UpgradeComplete, gc.NotNil)
 	config.UpgradeComplete = nil
-
-	c.Assert(config.RestoreStatus, gc.NotNil)
-	config.RestoreStatus = nil
 
 	c.Assert(config.NewObserver, gc.NotNil)
 	config.NewObserver = nil

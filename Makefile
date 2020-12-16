@@ -30,7 +30,7 @@ endif
 ifeq ($(shell echo "${GOARCH}" | sed -E 's/.*(arm|arm64|ppc64le|ppc64|s390x).*/golang/'), golang)
 	TEST_TIMEOUT := 5400s
 else
-	TEST_TIMEOUT := 1800s
+	TEST_TIMEOUT := 2700s
 endif
 TEST_TIMEOUT:=$(TEST_TIMEOUT)
 
@@ -179,13 +179,9 @@ endif
 
 install-mongo-dependencies:
 ## install-mongo-dependencies: Install Mongo and its dependencies
-	@echo Adding juju PPA for mongodb
-	@sudo apt-add-repository --yes ppa:juju/stable
-	@sudo apt-get update
-	@echo Installing dependencies
-	@sudo apt-get --yes install  \
-	$(strip $(DEPENDENCIES)) \
-	$(shell apt-cache madison mongodb-server-core juju-mongodb3.2 juju-mongodb mongodb-server | head -1 | cut -d '|' -f1)
+	@echo Installing juju-db snap for mongodb
+	@sudo snap install juju-db
+	@sudo apt-get --yes install  $(strip $(DEPENDENCIES))
 
 install-dependencies: install-snap-dependencies install-mongo-dependencies
 ## install-dependencies: Install all the dependencies

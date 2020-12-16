@@ -1867,14 +1867,6 @@ class ModelClient:
         log.info("State-Server backup at %s", backup_file_path)
         return backup_file_path.decode(getpreferredencoding())
 
-    def restore_backup(self, backup_file):
-        self.juju(
-            'restore-backup',
-            ('--file', backup_file))
-
-    def restore_backup_async(self, backup_file):
-        return self.juju_async('restore-backup', ('--file', backup_file))
-
     def enable_ha(self):
         self.juju(
             'enable-ha', ('-n', '3', '-c', self.env.controller.name),

@@ -5,47 +5,25 @@ package mongo
 
 import (
 	"github.com/golang/mock/gomock"
-
-	"github.com/juju/juju/service/common"
-	svctesting "github.com/juju/juju/service/common/testing"
 )
 
 var (
-	MakeJournalDirs = makeJournalDirs
-	MongoConfigPath = &mongoConfigPath
-
 	SharedSecretPath = sharedSecretPath
 	SSLKeyPath       = sslKeyPath
 
-	NewConf      = newConf
-	GenerateConf = generateConfig
+	InstallMongo = &installMongo
+	SupportsIPv6 = &supportsIPv6
 
 	HostWordSize     = &hostWordSize
 	RuntimeGOOS      = &runtimeGOOS
 	AvailSpace       = &availSpace
 	SmallOplogSizeMB = &smallOplogSizeMB
-	PreallocFile     = &preallocFile
 
-	DefaultOplogSize  = defaultOplogSize
-	FsAvailSpace      = fsAvailSpace
-	PreallocFileSizes = preallocFileSizes
-	PreallocFiles     = preallocFiles
+	DefaultOplogSize = defaultOplogSize
+	FsAvailSpace     = fsAvailSpace
 )
 
-func PatchService(patchValue func(interface{}, interface{}), data *svctesting.FakeServiceData) {
-	patchValue(&discoverService, func(name string) (mongoService, error) {
-		svc := svctesting.NewFakeService(name, common.Conf{})
-		svc.FakeServiceData = data
-		return svc, nil
-	})
-	patchValue(&newService, func(name string, _ bool, conf common.Conf) (mongoService, error) {
-		svc := svctesting.NewFakeService(name, conf)
-		svc.FakeServiceData = data
-		return svc, nil
-	})
-}
-
-func SysctlEditableEnsureServer(args EnsureServerParams, sysctlFiles map[string]string) (Version, error) {
+func SysctlEditableEnsureServer(args EnsureServerParams, sysctlFiles map[string]string) error {
 	return ensureServer(args, sysctlFiles)
 }
 
@@ -54,4 +32,8 @@ func NewMongodFinderWithMockSearch(ctrl *gomock.Controller) (*MongodFinder, *Moc
 	return &MongodFinder{
 		search: tools,
 	}, tools
+}
+
+func WriteConfig(args ConfigArgs, path string) error {
+	return args.writeConfig(path)
 }

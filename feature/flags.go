@@ -37,14 +37,6 @@ const Branches = "branches"
 // This is a deprecated flag name and is synonymous with "branches" above.
 const Generations = "generations"
 
-// MongoDbSnap tells Juju to install MongoDB as a snap, rather than installing
-// it from APT.
-const MongoDbSnap = "mongodb-snap"
-
-// MongoDbSSTXN tells Juju to use server-side transactions. It does nothing if
-// MongoDbSnap is not also enabled.
-const MongoDbSSTXN = "mongodb-sstxn"
-
 // K8sOperators indicates that it's allowed to deploy charms with mode=operator
 const K8sOperators = "k8s-operators"
 

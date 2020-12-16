@@ -44,10 +44,10 @@ jobs:
     - name: "Install Mongo Dependencies: macOS-latest"
       if: (matrix.os == 'macOS-latest')
       run: |
-        curl -o mongodb-3.6.14.tgz https://fastdl.mongodb.org/osx/mongodb-osx-ssl-x86_64-3.6.14.tgz
-        tar xzvf mongodb-3.6.14.tgz
+        curl -o mongodb-4.0.21.tgz https://fastdl.mongodb.org/osx/mongodb-osx-ssl-x86_64-4.0.21.tgz
+        tar xzvf mongodb-4.0.21.tgz
         sudo mkdir -p /usr/local/mongodb
-        sudo mv mongodb-osx-x86_64-3.6.14/bin/* /usr/local/mongodb
+        sudo mv mongodb-osx-x86_64-4.0.21/bin/* /usr/local/mongodb
         sudo mkdir -p /user/local/bin
         sudo ln -s /usr/local/mongodb/mongod /usr/local/bin/mongod
       shell: bash
@@ -62,7 +62,7 @@ jobs:
       if: (matrix.os == 'windows-latest')
       uses: crazy-max/ghaction-chocolatey@v1
       with:
-        args: install mongodb.install --version=3.6.0 --allow-downgrade
+        args: install mongodb.install --version=4.0.21 --allow-downgrade
 
     - name: Test client
       run: |

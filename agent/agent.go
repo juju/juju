@@ -274,10 +274,6 @@ type Config interface {
 	// collected metrics.
 	MetricsSpoolDir() string
 
-	// MongoVersion returns the version of mongo that the state server
-	// is using.
-	MongoVersion() mongo.Version
-
 	// MongoMemoryProfile returns the profile to be used when setting
 	// mongo memory usage.
 	MongoMemoryProfile() mongo.MemoryProfile
@@ -325,9 +321,6 @@ type configSetterOnly interface {
 
 	// SetControllerAPIPort sets the controller API port in the config.
 	SetControllerAPIPort(port int)
-
-	// SetMongoVersion sets the passed version as currently in use.
-	SetMongoVersion(mongo.Version)
 
 	// SetMongoMemoryProfile sets the passed policy as the one to be
 	// used.
@@ -414,7 +407,6 @@ type configInternal struct {
 	servingInfo              *controller.StateServingInfo
 	loggingConfig            string
 	values                   map[string]string
-	mongoVersion             string
 	mongoMemoryProfile       string
 	jujuDBSnapChannel        string
 	nonSyncedWritesToRaftLog bool
@@ -434,7 +426,6 @@ type AgentConfigParams struct {
 	APIAddresses             []string
 	CACert                   string
 	Values                   map[string]string
-	MongoVersion             mongo.Version
 	MongoMemoryProfile       mongo.MemoryProfile
 	JujuDBSnapChannel        string
 	NonSyncedWritesToRaftLog bool
@@ -497,7 +488,6 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		caCert:                   configParams.CACert,
 		oldPassword:              configParams.Password,
 		values:                   configParams.Values,
-		mongoVersion:             configParams.MongoVersion.String(),
 		mongoMemoryProfile:       configParams.MongoMemoryProfile.String(),
 		jujuDBSnapChannel:        configParams.JujuDBSnapChannel,
 		nonSyncedWritesToRaftLog: configParams.NonSyncedWritesToRaftLog,
@@ -773,15 +763,6 @@ func (c *configInternal) check() error {
 	return nil
 }
 
-// MongoVersion implements Config.
-func (c *configInternal) MongoVersion() mongo.Version {
-	v, err := mongo.NewVersion(c.mongoVersion)
-	if err != nil {
-		return mongo.Mongo24
-	}
-	return v
-}
-
 // MongoMemoryProfile implements Config.
 func (c *configInternal) MongoMemoryProfile() mongo.MemoryProfile {
 	mprof := mongo.MemoryProfile(c.mongoMemoryProfile)
@@ -789,11 +770,6 @@ func (c *configInternal) MongoMemoryProfile() mongo.MemoryProfile {
 		return mongo.MemoryProfileLow
 	}
 	return mongo.MemoryProfile(c.mongoMemoryProfile)
-}
-
-// SetMongoVersion implements configSetterOnly.
-func (c *configInternal) SetMongoVersion(v mongo.Version) {
-	c.mongoVersion = v.String()
 }
 
 // SetMongoMemoryProfile implements configSetterOnly.

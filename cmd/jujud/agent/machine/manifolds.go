@@ -83,7 +83,6 @@ import (
 	"github.com/juju/juju/worker/raft/raftforwarder"
 	"github.com/juju/juju/worker/raft/rafttransport"
 	"github.com/juju/juju/worker/reboot"
-	"github.com/juju/juju/worker/restorewatcher"
 	"github.com/juju/juju/worker/resumer"
 	"github.com/juju/juju/worker/singular"
 	workerstate "github.com/juju/juju/worker/state"
@@ -695,7 +694,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			MuxName:                httpServerArgsName,
 			LeaseManagerName:       leaseManagerName,
 			UpgradeGateName:        upgradeStepsGateName,
-			RestoreStatusName:      restoreWatcherName,
 			AuditConfigUpdaterName: auditConfigUpdaterName,
 			// Synthetic dependency - if raft-transport bounces we
 			// need to bounce api-server too, otherwise http-server
@@ -730,11 +728,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWorker:            peergrouper.New,
 		})),
-
-		restoreWatcherName: restorewatcher.Manifold(restorewatcher.ManifoldConfig{
-			StateName: stateName,
-			NewWorker: restorewatcher.NewWorker,
-		}),
 
 		auditConfigUpdaterName: ifController(auditconfigupdater.Manifold(auditconfigupdater.ManifoldConfig{
 			AgentName: agentName,
@@ -1135,7 +1128,6 @@ const (
 	modelWorkerManagerName        = "model-worker-manager"
 	multiwatcherName              = "multiwatcher"
 	peergrouperName               = "peer-grouper"
-	restoreWatcherName            = "restore-watcher"
 	certificateUpdaterName        = "certificate-updater"
 	auditConfigUpdaterName        = "audit-config-updater"
 	leaseManagerName              = "lease-manager"

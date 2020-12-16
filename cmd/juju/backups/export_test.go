@@ -28,10 +28,6 @@ type DownloadCommand struct {
 	*downloadCommand
 }
 
-type RestoreCommand struct {
-	*restoreCommand
-}
-
 func NewCreateCommandForTest(store jujuclient.ClientStore) (cmd.Command, *CreateCommand) {
 	c := &createCommand{}
 	c.SetClientStore(store)
@@ -66,16 +62,4 @@ func NewRemoveCommandForTest(store jujuclient.ClientStore) cmd.Command {
 	c := &removeCommand{}
 	c.SetClientStore(store)
 	return modelcmd.Wrap(c)
-}
-
-func NewRestoreCommandForTest(
-	store jujuclient.ClientStore,
-) (cmd.Command, *RestoreCommand) {
-	c := &restoreCommand{}
-	c.SetClientStore(store)
-	return modelcmd.Wrap(c), &RestoreCommand{c}
-}
-
-func (r *RestoreCommand) AssignGetModelStatusAPI(apiFunc func() (ModelStatusAPI, error)) {
-	r.getModelStatusAPI = apiFunc
 }

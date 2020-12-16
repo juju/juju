@@ -385,7 +385,14 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 			op.app.doc.Name, len(rels), op.app.doc.RelationCount)
 		return nil, errRefresh
 	}
-	ops := []txn.Op{minUnitsRemoveOp(op.app.st, op.app.doc.Name)}
+	var ops []txn.Op
+	minUnitsExists, err := doesMinUnitsExist(op.app.st, op.app.Name())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if minUnitsExists {
+		ops = []txn.Op{minUnitsRemoveOp(op.app.st, op.app.doc.Name)}
+	}
 	removeCount := 0
 	failedRels := false
 	for _, rel := range rels {
@@ -1570,8 +1577,9 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		if a.doc.CharmURL.String() == cfg.Charm.URL().String() {
 			// Charm URL already set; just update the force flag and channel.
 			ops = append(ops, txn.Op{
-				C:  applicationsC,
-				Id: a.doc.DocID,
+				C:      applicationsC,
+				Id:     a.doc.DocID,
+				Assert: txn.DocExists,
 				Update: bson.D{{"$set", bson.D{
 					{"cs-channel", channel},
 					{"forcecharm", cfg.ForceUnits},
@@ -1611,8 +1619,9 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 			// application api client. Just in case: do not
 			// update the CharmOrigin if nil.
 			ops = append(ops, txn.Op{
-				C:  applicationsC,
-				Id: a.doc.DocID,
+				C:      applicationsC,
+				Id:     a.doc.DocID,
+				Assert: txn.DocExists,
 				Update: bson.D{{"$set", bson.D{
 					{"charm-origin", cfg.CharmOrigin},
 				}}},

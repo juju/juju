@@ -12,15 +12,13 @@ import (
 )
 
 type mongoDependency struct {
-	useNUMA     bool
 	snapChannel string
 }
 
 // Mongo returns a dependency for installing mongo server using the specified
 // NUMA settings and snap channel preferences (applies to focal or later).
-func Mongo(useNUMA bool, snapChannel string) packaging.Dependency {
+func Mongo(snapChannel string) packaging.Dependency {
 	return mongoDependency{
-		useNUMA:     useNUMA,
 		snapChannel: snapChannel,
 	}
 }
@@ -28,26 +26,14 @@ func Mongo(useNUMA bool, snapChannel string) packaging.Dependency {
 // PackageList implements packaging.Dependency.
 func (dep mongoDependency) PackageList(series string) ([]packaging.Package, error) {
 	var (
-		aptPkgList []string
-		snapList   []packaging.Package
-		pm         = packaging.AptPackageManager
+		snapList []packaging.Package
+		pm       = packaging.AptPackageManager
 	)
 
-	if dep.useNUMA {
-		aptPkgList = append(aptPkgList, "numactl")
-	}
-
 	switch series {
-	case "centos7", "centos8", "opensuseleap", "precise":
+	case "centos7", "centos8", "opensuseleap", "precise", "trusty":
 		return nil, errors.NotSupportedf("installing mongo on series %q", series)
-	case "trusty":
-		aptPkgList = append(aptPkgList, "juju-mongodb")
-	case "xenial":
-		// The tools package provides mongodump and friends.
-		aptPkgList = append(aptPkgList, "juju-mongodb3.2", "juju-mongo-tools3.2")
-	case "bionic", "cosmic", "disco", "eoan":
-		aptPkgList = append(aptPkgList, "mongodb-server-core", "mongodb-clients")
-	default: // Focal and beyond always use snaps
+	default: // Xenial and beyond always use snaps
 		if dep.snapChannel == "" {
 			return nil, errors.NotValidf("snap channel for mongo dependency")
 		}
@@ -67,7 +53,7 @@ func (dep mongoDependency) PackageList(series string) ([]packaging.Package, erro
 	}
 
 	return append(
-		packaging.MakePackageList(pm, "", aptPkgList...),
+		packaging.MakePackageList(pm, ""),
 		snapList...,
 	), nil
 }

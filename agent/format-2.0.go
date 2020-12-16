@@ -58,7 +58,6 @@ type format_2_0Serialization struct {
 	StatePort                int    `yaml:"stateport,omitempty"`
 	SharedSecret             string `yaml:"sharedsecret,omitempty"`
 	SystemIdentity           string `yaml:"systemidentity,omitempty"`
-	MongoVersion             string `yaml:"mongoversion,omitempty"`
 	MongoMemoryProfile       string `yaml:"mongomemoryprofile,omitempty"`
 	JujuDBSnapChannel        string `yaml:"juju-db-snap-channel,omitempty"`
 	NonSyncedWritesToRaftLog bool   `yaml:"no-sync-writes-to-raft-log,omitempty"`
@@ -147,15 +146,6 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 
 	}
 
-	// TODO (anastasiamac 2016-06-17) Mongo version must be set.
-	// For scenarios where mongo version is not set, we should still
-	// be explicit about what "default" mongo version is. After these lines,
-	// config.mongoVersion should not be empty under any circumstance.
-	// Bug# 1593855
-	if format.MongoVersion != "" {
-		// Mongo version is set, we might be running a version other than default.
-		config.mongoVersion = format.MongoVersion
-	}
 	if format.MongoMemoryProfile != "" {
 		config.mongoMemoryProfile = format.MongoMemoryProfile
 	}
@@ -200,9 +190,6 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 	if config.apiDetails != nil {
 		format.APIAddresses = config.apiDetails.addresses
 		format.APIPassword = config.apiDetails.password
-	}
-	if config.mongoVersion != "" {
-		format.MongoVersion = config.mongoVersion
 	}
 	if config.mongoMemoryProfile != "" {
 		format.MongoMemoryProfile = config.mongoMemoryProfile

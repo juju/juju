@@ -227,11 +227,7 @@ func (s *oplogSuite) TestNewMongoTimestampBeforeUnixEpoch(c *gc.C) {
 }
 
 func (s *oplogSuite) startMongoWithReplicaset(c *gc.C) (*jujutesting.MgoInstance, *mgo.Session) {
-	inst := &jujutesting.MgoInstance{
-		Params: []string{
-			"--replSet", "juju",
-		},
-	}
+	inst := &jujutesting.MgoInstance{EnableReplicaSet: true}
 	err := inst.Start(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { inst.Destroy() })

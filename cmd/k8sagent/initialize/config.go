@@ -112,10 +112,6 @@ func (c *configFromEnv) MetricsSpoolDir() string {
 	panic("not implemented")
 }
 
-func (c *configFromEnv) MongoVersion() mongo.Version {
-	panic("not implemented")
-}
-
 func (c *configFromEnv) MongoMemoryProfile() mongo.MemoryProfile {
 	panic("not implemented")
 }
