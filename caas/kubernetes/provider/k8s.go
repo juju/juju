@@ -2110,8 +2110,14 @@ func (k *kubernetesClient) Units(appName string, mode caas.DeploymentMode) ([]ca
 				ports = append(ports, fmt.Sprintf("%v/%v", p.ContainerPort, p.Protocol))
 			}
 		}
+
+		eventGetter := func() ([]core.Event, error) {
+			return k.getEvents(p.Name, "Pod")
+		}
+
 		terminated := p.DeletionTimestamp != nil
-		statusMessage, unitStatus, since, err := k.getPODStatus(p, now)
+		statusMessage, unitStatus, since, err := podToJujuStatus(p, now, eventGetter)
+
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -2183,37 +2189,6 @@ func (k *kubernetesClient) getPod(podName string) (*core.Pod, error) {
 	return pod, nil
 }
 
-func (k *kubernetesClient) getPODStatus(pod core.Pod, now time.Time) (string, status.Status, time.Time, error) {
-	terminated := pod.DeletionTimestamp != nil
-	jujuStatus := k.jujuStatus(pod.Status.Phase, terminated)
-	statusMessage := pod.Status.Message
-	since := now
-	if statusMessage == "" {
-		for _, cond := range pod.Status.Conditions {
-			statusMessage = cond.Message
-			since = cond.LastProbeTime.Time
-			if cond.Type == core.PodScheduled && cond.Reason == core.PodReasonUnschedulable {
-				jujuStatus = status.Blocked
-				break
-			}
-		}
-	}
-
-	if statusMessage == "" {
-		// If there are any events for this pod we can use the
-		// most recent to set the status.
-		eventList, err := k.getEvents(pod.Name, "Pod")
-		if err != nil {
-			return "", "", time.Time{}, errors.Trace(err)
-		}
-		// Take the most recent event.
-		if count := len(eventList); count > 0 {
-			statusMessage = eventList[count-1].Message
-		}
-	}
-	return statusMessage, jujuStatus, since, nil
-}
-
 func (k *kubernetesClient) getStatefulSetStatus(ss *apps.StatefulSet) (string, status.Status, error) {
 	terminated := ss.DeletionTimestamp != nil
 	jujuStatus := status.Waiting
@@ -2273,6 +2248,7 @@ func (k *kubernetesClient) jujuStatus(podPhase core.PodPhase, terminated bool) s
 	if terminated {
 		return status.Terminated
 	}
+
 	switch podPhase {
 	case core.PodRunning:
 		return status.Running
