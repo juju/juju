@@ -993,8 +993,16 @@ func (s *K8sBrokerSuite) TestOperator(c *gc.C) {
 			}},
 		},
 		Status: core.PodStatus{
+			Conditions: []core.PodCondition{
+				{
+					Type:    core.PodScheduled,
+					Status:  core.ConditionFalse,
+					Reason:  "Scheduling",
+					Message: "test message",
+				},
+			},
 			Phase:   core.PodPending,
-			Message: "test message.",
+			Message: "test message",
 		},
 	}
 	ss := apps.StatefulSet{
@@ -1036,7 +1044,7 @@ func (s *K8sBrokerSuite) TestOperator(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(operator.Status.Status, gc.Equals, status.Allocating)
-	c.Assert(operator.Status.Message, gc.Equals, "test message.")
+	c.Assert(operator.Status.Message, gc.Equals, "test message")
 	c.Assert(operator.Config.Version, gc.Equals, version.MustParse("2.99.0"))
 	c.Assert(operator.Config.OperatorImagePath, gc.Equals, "test-image")
 	c.Assert(operator.Config.AgentConf, gc.DeepEquals, []byte("agent-conf-data"))
