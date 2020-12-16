@@ -4,6 +4,8 @@
 package packet
 
 import (
+	"fmt"
+
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	corenetwork "github.com/juju/juju/core/network"
@@ -59,6 +61,7 @@ func (device *packetDevice) Addresses(ctx context.ProviderCallContext) (corenetw
 
 		address := corenetwork.ProviderAddress{}
 		address.Value = netw.Address
+		address.CIDR = fmt.Sprintf("%s/%d", netw.Network, netw.CIDR)
 
 		if netw.Public {
 			address.Scope = corenetwork.ScopePublic
