@@ -233,7 +233,7 @@ def main():
     client = make_client_from_args(args)
     with boot_context(args.temp_env_name, client,
                       bootstrap_host=args.bootstrap_host,
-                      machines=args.machine, series=args.series,
+                      machines=args.machine, series=args.series, arch=args.arch,
                       agent_url=args.agent_url, agent_stream=args.agent_stream,
                       log_dir=args.logs, keep_env=args.keep_env,
                       upload_tools=args.upload_tools,
