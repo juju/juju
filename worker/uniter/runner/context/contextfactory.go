@@ -246,6 +246,9 @@ func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
 		ctx.workloadName = hookInfo.WorkloadName
 		hookName = fmt.Sprintf("%s-%s", hookInfo.WorkloadName, hookName)
 	}
+	if hookInfo.Kind == hooks.PreSeriesUpgrade {
+		ctx.seriesUpgradeTarget = hookInfo.SeriesUpgradeTarget
+	}
 	ctx.id = f.newId(hookName)
 	ctx.hookName = hookName
 	return ctx, nil
