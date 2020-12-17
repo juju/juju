@@ -73,6 +73,7 @@ def multimodel_setup(args):
             args.bootstrap_host,
             args.machine,
             args.series,
+            args.arch,
             args.agent_url,
             args.agent_stream,
             args.logs, args.keep_env,
