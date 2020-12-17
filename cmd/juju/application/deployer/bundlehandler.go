@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/bundlechanges/v3"
+	"github.com/juju/bundlechanges/v4"
 	"github.com/juju/charm/v8"
 	"github.com/juju/charm/v8/resource"
 	"github.com/juju/charmrepo/v6"
@@ -329,22 +329,8 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 			return errors.Trace(err)
 		}
 
-		var via string
-		switch {
-		case charm.CharmHub.Matches(ch.Schema):
-			via = "via charmhub: "
-		case charm.CharmStore.Matches(ch.Schema):
-			via = "via charmstore: "
-		case charm.Local.Matches(ch.Schema):
-			via = "via local filesystem: "
-		default:
-			via = ": "
-		}
-
-		var fromChannel string
 		var channel corecharm.Channel
 		if spec.Channel != "" {
-			fromChannel = fmt.Sprintf(" from channel %s", spec.Channel)
 			channel, err = corecharm.ParseChannelNormalize(spec.Channel)
 			if err != nil {
 				return errors.Trace(err)
@@ -356,7 +342,6 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 			return errors.Trace(err)
 		}
 
-		h.ctx.Infof("Resolving charm %s%s%s", via, ch.FullPath(), fromChannel)
 		origin, err := utils.DeduceOrigin(ch, channel, platform)
 		if err != nil {
 			return errors.Trace(err)
@@ -365,6 +350,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		if err != nil {
 			return errors.Annotatef(err, "cannot resolve URL %q", spec.Charm)
 		}
+		h.ctx.Infof(formatLocatedText(ch, origin))
 		if url.Series == "bundle" {
 			return errors.Errorf("expected charm URL, got bundle URL %q", spec.Charm)
 		}

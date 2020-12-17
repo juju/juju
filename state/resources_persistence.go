@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn"
+	"github.com/kr/pretty"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/resource"
@@ -53,10 +54,12 @@ func NewResourcePersistence(base ResourcePersistenceBase) *ResourcePersistence {
 	}
 }
 
+var rpLogger = logger.Child("resource-persistence")
+
 // ListResources returns the info for each non-pending resource of the
 // identified application.
 func (p ResourcePersistence) ListResources(applicationID string) (resource.ApplicationResources, error) {
-	logger.Tracef("listing all resources for application %q", applicationID)
+	rpLogger.Tracef("listing all resources for application %q", applicationID)
 
 	docs, err := p.resources(applicationID)
 	if err != nil {
@@ -107,12 +110,14 @@ func (p ResourcePersistence) ListResources(applicationID string) (resource.Appli
 			DownloadProgress: downloadProgress[tag],
 		})
 	}
+	rpLogger.Tracef("found %d docs: %q", len(docs), pretty.Sprint(results))
 	return results, nil
 }
 
 // ListPendingResources returns the extended, model-related info for
 // each pending resource of the identifies application.
 func (p ResourcePersistence) ListPendingResources(applicationID string) ([]resource.Resource, error) {
+	rpLogger.Tracef("listing all pending resources for application %q", applicationID)
 	docs, err := p.resources(applicationID)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -137,6 +142,7 @@ func (p ResourcePersistence) ListPendingResources(applicationID string) ([]resou
 // GetResource returns the extended, model-related info for the non-pending
 // resource.
 func (p ResourcePersistence) GetResource(id string) (res resource.Resource, storagePath string, _ error) {
+	rpLogger.Tracef("get resource %q", id)
 	doc, err := p.getOne(id)
 	if err != nil {
 		return res, "", errors.Trace(err)
@@ -156,6 +162,7 @@ func (p ResourcePersistence) GetResource(id string) (res resource.Resource, stor
 // resource is returned which supports both finalizing and removing
 // the staged resource.
 func (p ResourcePersistence) StageResource(res resource.Resource, storagePath string) (*StagedResource, error) {
+	rpLogger.Tracef("stage resource %q for %q", res.Name, res.ApplicationID)
 	if storagePath == "" {
 		return nil, errors.Errorf("missing storage path")
 	}
@@ -181,6 +188,7 @@ func (p ResourcePersistence) StageResource(res resource.Resource, storagePath st
 
 // SetResource sets the info for the resource.
 func (p ResourcePersistence) SetResource(res resource.Resource) error {
+	rpLogger.Tracef("set resource %q for %q", res.Name, res.ApplicationID)
 	stored, err := p.getStored(res)
 	if errors.IsNotFound(err) {
 		stored = storedResource{Resource: res}
@@ -222,6 +230,7 @@ func (p ResourcePersistence) SetResource(res resource.Resource) error {
 // SetCharmStoreResource stores the resource info that was retrieved
 // from the charm store.
 func (p ResourcePersistence) SetCharmStoreResource(id, applicationID string, res charmresource.Resource, lastPolled time.Time) error {
+	rpLogger.Tracef("set charmstore %q resource %q", applicationID, res.Name)
 	if err := res.Validate(); err != nil {
 		return errors.Annotate(err, "bad resource")
 	}
@@ -258,6 +267,7 @@ func (p ResourcePersistence) SetCharmStoreResource(id, applicationID string, res
 // SetUnitResource stores the resource info for a particular unit. The
 // resource must already be set for the application.
 func (p ResourcePersistence) SetUnitResource(unitID string, res resource.Resource) error {
+	rpLogger.Tracef("set unit %q resource %q", unitID, res.Name)
 	if res.PendingID != "" {
 		return errors.Errorf("pending resources not allowed")
 	}
@@ -268,6 +278,7 @@ func (p ResourcePersistence) SetUnitResource(unitID string, res resource.Resourc
 // resource must already be set for the application. The provided progress
 // is stored in the DB.
 func (p ResourcePersistence) SetUnitResourceProgress(unitID string, res resource.Resource, progress int64) error {
+	rpLogger.Tracef("set unit %q resource %q progress", unitID, res.Name)
 	if res.PendingID == "" {
 		return errors.Errorf("only pending resources may track progress")
 	}
@@ -343,6 +354,7 @@ func (p ResourcePersistence) RemovePendingAppResources(applicationID string, pen
 // do not have any machinery to facilitate transactions between
 // different components.
 func (p ResourcePersistence) NewResolvePendingResourceOps(resID, pendingID string) ([]txn.Op, error) {
+	rpLogger.Tracef("resolve pending resource ops %q, %q", resID, pendingID)
 	if pendingID == "" {
 		return nil, errors.New("missing pending ID")
 	}

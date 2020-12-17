@@ -8,7 +8,6 @@ run_network_health() {
     # Deploy some applications for different series.
     juju deploy mongodb --series xenial
     juju deploy ubuntu ubuntu-bionic --series bionic
-    juju deploy ubuntu ubuntu-focal --series focal
 
     # Now the testing charm for each series.
     # TODO (manadart 2020-06-08): This charm needs updating with Focal support.
@@ -19,18 +18,15 @@ run_network_health() {
 
     juju expose network-health-xenial
     juju expose network-health-bionic
-    juju expose network-health-focal
 
     juju add-relation network-health-xenial mongodb
     juju add-relation network-health-bionic ubuntu-bionic
-    juju add-relation network-health-focal ubuntu-focal
 
     wait_for "mongodb" "$(idle_condition "mongodb")"
     wait_for "ubuntu-bionic" "$(idle_condition "ubuntu-bionic" 4)"
     wait_for "ubuntu-focal" "$(idle_condition "ubuntu-focal" 5)"
     wait_for "network-health-xenial" "$(idle_subordinate_condition "network-health-xenial" "mongodb")"
     wait_for "network-health-bionic" "$(idle_subordinate_condition "network-health-bionic" "ubuntu-bionic")"
-    wait_for "network-health-focal" "$(idle_subordinate_condition "network-health-focal" "ubuntu-focal")"
 
     check_default_routes
     check_accessibility

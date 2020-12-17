@@ -329,9 +329,10 @@ func mustWriteToTempFile(c *gc.C, mockCharm *MockStoreCharm) func(*charm.URL, st
 type fakeLogger struct {
 }
 
-func (l *fakeLogger) Errorf(_ string, _ ...interface{}) {}
-func (l *fakeLogger) Debugf(_ string, _ ...interface{}) {}
-func (l *fakeLogger) Tracef(_ string, _ ...interface{}) {}
+func (l *fakeLogger) Errorf(_ string, _ ...interface{})   {}
+func (l *fakeLogger) Debugf(_ string, _ ...interface{})   {}
+func (l *fakeLogger) Tracef(_ string, _ ...interface{})   {}
+func (l *fakeLogger) Warningf(_ string, _ ...interface{}) {}
 func (l *fakeLogger) Child(string) Logger {
 	return &fakeLogger{}
 }

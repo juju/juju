@@ -7,7 +7,7 @@ run_relation_list_app() {
     ensure "${model_name}" "${file}"
 
     # Deploy 2 departer instances
-    juju deploy wordpress
+    juju deploy cs:wordpress
     juju deploy mysql
     juju relate wordpress mysql
     wait_for "wordpress" "$(idle_condition "wordpress" 1 0)"

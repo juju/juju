@@ -276,7 +276,7 @@ func normalizeCharmOrigin(origin params.CharmOrigin) (params.CharmOrigin, error)
 	var os string
 	var oSeries string
 	if origin.Series == "all" {
-		logger.Tracef("Series all detected, removing all from the origin. %s", origin.ID)
+		logger.Warningf("Series all detected, removing all from the origin. %s", origin.ID)
 	} else if origin.Series != "" {
 		// Always set the os from the series, so we know it's correctly
 		// normalized for the rest of Juju.
@@ -287,12 +287,15 @@ func normalizeCharmOrigin(origin params.CharmOrigin) (params.CharmOrigin, error)
 		// Values passed to the api are case sensitive: ubuntu succeeds and
 		// Ubuntu returns `"code": "revision-not-found"`
 		os = strings.ToLower(sys.String())
+
 		oSeries = origin.Series
 	}
 
 	var arc string
 	if origin.Architecture != "all" {
 		arc = origin.Architecture
+	} else {
+		logger.Warningf("Architecture all detected, removing all from the origin. %s", origin.ID)
 	}
 
 	o := origin
@@ -338,7 +341,7 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 		return params.CharmOriginResult{}, errors.Errorf("unknown schema for charm URL %q", args.URL)
 	}
 
-	if args.Origin.Source == "charm-hub" && args.Series == "" {
+	if args.Origin.Source == "charm-hub" && args.Origin.Series == "" {
 		return params.CharmOriginResult{}, errors.BadRequestf("series required for charm-hub charms")
 	}
 

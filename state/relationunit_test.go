@@ -845,6 +845,8 @@ func (s *RelationUnitSuite) testPrepareLeaveScope(c *gc.C, rel *state.Relation, 
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertScopeChange(c, w0, nil, []string{"wordpress/1"})
 	s.assertNoScopeChange(c, w0)
+	err = rel.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
 	err = rel.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = rel.Refresh()

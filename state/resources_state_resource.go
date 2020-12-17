@@ -323,6 +323,7 @@ func (st resourceState) storeResource(res resource.Resource, r io.Reader) error 
 // OpenResource returns metadata about the resource, and a reader for
 // the resource.
 func (st resourceState) OpenResource(applicationID, name string) (resource.Resource, io.ReadCloser, error) {
+	rLogger.Tracef("open resource %q of %q", name, applicationID)
 	id := newResourceID(applicationID, name)
 	resourceInfo, storagePath, err := st.persist.GetResource(id)
 	if err != nil {
@@ -371,6 +372,7 @@ func (st resourceState) OpenResource(applicationID, name string) (resource.Resou
 // a reader for the resource. The resource is associated with
 // the unit once the reader is completely exhausted.
 func (st resourceState) OpenResourceForUniter(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error) {
+	rLogger.Tracef("open resource %q for uniter %q", name, unit.Name())
 	applicationID := unit.ApplicationName()
 
 	pendingID, err := newPendingID()
@@ -427,6 +429,7 @@ func (st resourceState) SetCharmStoreResources(applicationID string, info []char
 // do not have any machinery to facilitate transactions between
 // different components.
 func (st resourceState) NewResolvePendingResourcesOps(applicationID string, pendingIDs map[string]string) ([]txn.Op, error) {
+	rLogger.Tracef("resolve pending resource ops for %q", applicationID)
 	if len(pendingIDs) == 0 {
 		return nil, nil
 	}

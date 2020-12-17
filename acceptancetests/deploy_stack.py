@@ -520,7 +520,7 @@ def deploy_job():
     return _deploy_job(args, charm_series, series)
 
 
-def update_env(env, new_env_name, series=None, bootstrap_host=None,
+def update_env(env, new_env_name, series=None, arch=None, bootstrap_host=None,
                agent_url=None, agent_stream=None, region=None):
     # Rename to the new name.
     env.set_model_name(new_env_name)
@@ -588,10 +588,10 @@ class CreateController:
         """Prepare client for use by killing the existing controller."""
         self.tear_down_client.kill_controller()
 
-    def create_initial_model(self, upload_tools, series, boot_kwargs):
+    def create_initial_model(self, upload_tools, series, arch, boot_kwargs):
         """Create the initial model by bootstrapping."""
         self.client.bootstrap(
-            upload_tools=upload_tools, bootstrap_series=series,
+            upload_tools=upload_tools, bootstrap_series=series, arch=arch,
             **boot_kwargs)
 
     def get_hosts(self):
@@ -690,7 +690,7 @@ class PublicController:
             # to tear down.
             pass
 
-    def create_initial_model(self, upload_tools, series, boot_kwargs):
+    def create_initial_model(self, upload_tools, series, arch, boot_kwargs):
         """Register controller and add model."""
         self.client.register_host(
             self.controller_host, self.email, self.password)
@@ -728,6 +728,7 @@ class BootstrapManager:
     :ivar machine: [] or a list of machines to use add to a manual env
         before deploying services.
     :ivar series: None or the default-series for the temp config.
+    :ivar arch: None or the architecture for the bootstrap controller.
     :ivar agent_url: None or the agent-metadata-url for the temp config.
     :ivar agent_stream: None or the agent-stream for the temp config.
     :ivar log_dir: The path to the directory to store logs.
@@ -744,8 +745,8 @@ class BootstrapManager:
     cleanup_hook = None
 
     def __init__(self, temp_env_name, client, tear_down_client, bootstrap_host,
-                 machines, series, agent_url, agent_stream, region, log_dir,
-                 keep_env, controller_strategy=None,
+                 machines, series, arch, agent_url, agent_stream, region,
+                 log_dir, keep_env, controller_strategy=None,
                  logged_exception_exit=True, existing_controller=None):
         """Constructor.
 
@@ -755,6 +756,7 @@ class BootstrapManager:
         self.bootstrap_host = bootstrap_host
         self.machines = machines
         self.series = series
+        self.arch = arch
         self.agent_url = agent_url
         self.agent_stream = agent_stream
         self.region = region
@@ -872,8 +874,8 @@ class BootstrapManager:
         controller_strategy = ExistingController(client)
         return cls(
             args.temp_env_name, client, client, args.bootstrap_host,
-            args.machine, args.series, args.agent_url, args.agent_stream,
-            args.region, args.logs, args.keep_env,
+            args.machine, args.series, args.arch, args.agent_url, 
+            args.agent_stream, args.region, args.logs, args.keep_env,
             controller_strategy=controller_strategy,
             existing_controller=existing_controller)
 
@@ -881,8 +883,8 @@ class BootstrapManager:
     def from_client(cls, args, client):
         return cls(
             args.temp_env_name, client, client, args.bootstrap_host,
-            args.machine, args.series, args.agent_url, args.agent_stream,
-            args.region, args.logs, args.keep_env)
+            args.machine, args.series, args.arch, args.agent_url,
+            args.agent_stream, args.region, args.logs, args.keep_env)
 
     @contextmanager
     def maas_machines(self):
@@ -939,7 +941,7 @@ class BootstrapManager:
         """Context for bootstrapping a state server."""
         bootstrap_host = self.known_hosts.get('0')
         kwargs = dict(
-            series=self.series, bootstrap_host=bootstrap_host,
+            series=self.series, arch=self.arch, bootstrap_host=bootstrap_host,
             agent_url=self.agent_url, agent_stream=self.agent_stream,
             region=self.region)
         if omit_config is not None:
@@ -978,7 +980,7 @@ class BootstrapManager:
         """
         bootstrap_host = self.known_hosts.get('0')
         kwargs = dict(
-            series=self.series, bootstrap_host=bootstrap_host,
+            series=self.series, arch=self.arch, bootstrap_host=bootstrap_host,
             agent_url=self.agent_url, agent_stream=self.agent_stream,
             region=self.region)
         if omit_config is not None:
@@ -1163,7 +1165,7 @@ class BootstrapManager:
                     omit_config=self.client.bootstrap_replaces,
             ):
                 self.controller_strategy.create_initial_model(
-                    upload_tools, self.series, kwargs,
+                    upload_tools, self.series, self.arch, kwargs,
                 )
             with self.runtime_context(machines):
                 self.client.list_controllers()
@@ -1207,8 +1209,8 @@ class BootstrapManager:
 
 @contextmanager
 def boot_context(temp_env_name, client, bootstrap_host, machines, series,
-                 agent_url, agent_stream, log_dir, keep_env, upload_tools,
-                 region=None):
+                 arch, agent_url, agent_stream, log_dir, keep_env,
+                 upload_tools, region=None):
     """Create a temporary environment in a context manager to run tests in.
 
     Bootstrap a new environment from a temporary config that is suitable to
@@ -1228,6 +1230,7 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
         before deploying services.  This is mutated to indicate all machines,
         including new instances, that have been manually added.
     :param series: None or the default-series for the temp config.
+    :param arch: None or the architecture to use.
     :param agent_url: None or the agent-metadata-url for the temp config.
     :param agent_stream: None or the agent-stream for the temp config.
     :param log_dir: The path to the directory to store logs.
@@ -1238,7 +1241,7 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
     """
     bs_manager = BootstrapManager(
         temp_env_name, client, client, bootstrap_host, machines, series,
-        agent_url, agent_stream, region, log_dir, keep_env)
+        arch, agent_url, agent_stream, region, log_dir, keep_env)
     with bs_manager.booted_context(upload_tools) as new_machines:
         machines[:] = new_machines
         yield
@@ -1257,8 +1260,8 @@ def _deploy_job(args, charm_series, series):
                                                    args.controller_host)
     bs_manager = BootstrapManager(
         args.temp_env_name, client, client, args.bootstrap_host, args.machine,
-        series, args.agent_url, args.agent_stream, args.region, args.logs,
-        args.keep_env, controller_strategy=controller_strategy)
+        series, args.arch, args.agent_url, args.agent_stream, args.region,
+        args.logs, args.keep_env, controller_strategy=controller_strategy)
     with bs_manager.booted_context(args.upload_tools, force=args.force, config_options=args.config):
         # Create a no-op context manager, to avoid duplicate calls of
         # deploy_dummy_stack(), as was the case prior to this revision.

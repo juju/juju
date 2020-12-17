@@ -642,3 +642,127 @@ services:
         charm: wordpress
         num_units: 1
 `
+
+type sanitizeCharmOriginSuite struct{}
+
+var _ = gc.Suite(&sanitizeCharmOriginSuite{})
+
+func (s *sanitizeCharmOriginSuite) TestSanitize(c *gc.C) {
+	received := params.CharmOrigin{
+		Architecture: "all",
+		OS:           "all",
+		Series:       "all",
+	}
+	requested := params.CharmOrigin{
+		Architecture: "amd64",
+		OS:           "Ubuntu",
+		Series:       "focal",
+	}
+	got, err := sanitizeCharmOrigin(received, requested)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, gc.DeepEquals, params.CharmOrigin{
+		Architecture: "amd64",
+		OS:           "ubuntu",
+		Series:       "focal",
+	})
+}
+
+func (s *sanitizeCharmOriginSuite) TestSanitizeWithValues(c *gc.C) {
+	received := params.CharmOrigin{
+		Architecture: "arm64",
+		OS:           "windows",
+		Series:       "win8",
+	}
+	requested := params.CharmOrigin{
+		Architecture: "amd64",
+		OS:           "Ubuntu",
+		Series:       "focal",
+	}
+	got, err := sanitizeCharmOrigin(received, requested)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, gc.DeepEquals, params.CharmOrigin{
+		Architecture: "arm64",
+		OS:           "windows",
+		Series:       "win8",
+	})
+}
+
+func (s *sanitizeCharmOriginSuite) TestSanitizeWithEmptyValues(c *gc.C) {
+	received := params.CharmOrigin{
+		Architecture: "",
+		OS:           "",
+		Series:       "",
+	}
+	requested := params.CharmOrigin{
+		Architecture: "amd64",
+		OS:           "Ubuntu",
+		Series:       "focal",
+	}
+	got, err := sanitizeCharmOrigin(received, requested)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, gc.DeepEquals, params.CharmOrigin{
+		Architecture: "",
+		OS:           "",
+		Series:       "",
+	})
+}
+
+func (s *sanitizeCharmOriginSuite) TestSanitizeWithRequestedEmptyValues(c *gc.C) {
+	received := params.CharmOrigin{
+		Architecture: "all",
+		OS:           "all",
+		Series:       "all",
+	}
+	requested := params.CharmOrigin{
+		Architecture: "",
+		OS:           "",
+		Series:       "",
+	}
+	got, err := sanitizeCharmOrigin(received, requested)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, gc.DeepEquals, params.CharmOrigin{
+		Architecture: "",
+		OS:           "",
+		Series:       "",
+	})
+}
+
+func (s *sanitizeCharmOriginSuite) TestSanitizeWithRequestedEmptyValuesAlt(c *gc.C) {
+	received := params.CharmOrigin{
+		Architecture: "all",
+		OS:           "all",
+		Series:       "focal",
+	}
+	requested := params.CharmOrigin{
+		Architecture: "",
+		OS:           "",
+		Series:       "",
+	}
+	got, err := sanitizeCharmOrigin(received, requested)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, gc.DeepEquals, params.CharmOrigin{
+		Architecture: "",
+		OS:           "ubuntu",
+		Series:       "focal",
+	})
+}
+
+func (s *sanitizeCharmOriginSuite) TestSanitizeWithRequestedEmptyValuesOSVersusSeries(c *gc.C) {
+	received := params.CharmOrigin{
+		Architecture: "all",
+		OS:           "ubuntu",
+		Series:       "all",
+	}
+	requested := params.CharmOrigin{
+		Architecture: "",
+		OS:           "",
+		Series:       "",
+	}
+	got, err := sanitizeCharmOrigin(received, requested)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, gc.DeepEquals, params.CharmOrigin{
+		Architecture: "",
+		OS:           "ubuntu",
+		Series:       "",
+	})
+}

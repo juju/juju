@@ -1466,12 +1466,16 @@ func (s *uniterSuite) TestWatchSubordinateUnitRelations(c *gc.C) {
 
 	// We get notified about the mysql relation going away but not the
 	// wordpress one.
+	err = mysqlRel.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
 	err = mysqlRel.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
 	wc.AssertChange(mysqlRel.Tag().Id())
 	wc.AssertNoChange()
 
+	err = wpRel.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
 	err = wpRel.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()

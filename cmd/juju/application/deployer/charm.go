@@ -541,5 +541,9 @@ func formatLocatedText(curl *charm.URL, origin commoncharm.Origin) string {
 	if repository == "" || repository == commoncharm.OriginLocal {
 		return fmt.Sprintf("Located local charm %q, revision %d", curl.Name, curl.Revision)
 	}
-	return fmt.Sprintf("Located charm %q in %s, revision %d", curl.Name, repository, curl.Revision)
+	var revision string
+	if curl.Revision != -1 {
+		revision = fmt.Sprintf(", revision %d", curl.Revision)
+	}
+	return fmt.Sprintf("Located charm %q in %s%s", curl.Name, repository, revision)
 }

@@ -303,6 +303,7 @@ func (aw *applicationWorker) clusterChanged(
 				}
 			}
 		}
+
 		unitParams := params.ApplicationUnitParams{
 			ProviderId: u.Id,
 			Address:    u.Address,

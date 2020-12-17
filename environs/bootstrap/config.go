@@ -16,6 +16,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"github.com/juju/utils/v2"
+	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/juju/osenv"
@@ -87,6 +88,61 @@ var BootstrapConfigAttributes = []string{
 	ControllerServiceType,
 	ControllerExternalName,
 	ControllerExternalIPs,
+}
+
+// BootstrapConfigSchema defines the schema used for config items during
+// bootstrap.
+var BootstrapConfigSchema = environschema.Fields{
+	AdminSecretKey: {
+		Description: "Sets the Juju administrator password",
+		Type:        environschema.Tstring,
+	},
+	CACertKey: {
+		Description: fmt.Sprintf(
+			"Sets the bootstrapped controllers CA cert to use and issue "+
+				"certificates from, used in conjunction with %s",
+			CAPrivateKeyKey),
+		Type: environschema.Tstring,
+	},
+	CAPrivateKeyKey: {
+		Description: fmt.Sprintf(
+			"Sets the bootstrapped controllers CA cert private key to sign "+
+				"certificates with, used in conjunction with %s",
+			CACertKey),
+		Type: environschema.Tstring,
+	},
+	BootstrapTimeoutKey: {
+		Description: "Controls how long Juju will wait for a bootstrap to " +
+			"complete before considering it failed in seconds",
+		Type: environschema.Tint,
+	},
+	BootstrapRetryDelayKey: {
+		Description: "Controls the amount of time in seconds between attempts " +
+			"to connect to a bootstrap machine address",
+		Type: environschema.Tint,
+	},
+	BootstrapAddressesDelayKey: {
+		Description: "Controls the amount of time in seconds in between " +
+			"refreshing the bootstrap machine addresses",
+		Type: environschema.Tint,
+	},
+	ControllerServiceType: {
+		Description: "Controls the kubernetes service type for Juju " +
+			"controllers, see " +
+			"https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#servicespec-v1-core " +
+			"valid values are one of cluster, loadbalancer, external",
+		Type: environschema.Tstring,
+	},
+	ControllerExternalName: {
+		Description: "Sets the external name for a k8s controller of type " +
+			"external",
+		Type: environschema.Tstring,
+	},
+	ControllerExternalIPs: {
+		Description: "Specifies a comma separated list of external IPs for a " +
+			"k8s controller of type external",
+		Type: environschema.Tstring,
+	},
 }
 
 // IsBootstrapAttribute reports whether or not the specified
