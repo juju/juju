@@ -411,7 +411,24 @@ func (r *Relation) destroyOps(ignoreApplication string, op *ForcedOperation) (op
 			return nil, false, errAlreadyDying
 		}
 	}
-	if r.doc.UnitCount == 0 {
+	scopes, closer := r.st.db().GetCollection(relationScopesC)
+	defer closer()
+	sel := bson.M{"_id": bson.M{
+		"$regex": fmt.Sprintf("^%s#", r.st.docID(r.globalScope())),
+	}}
+	unitsInScope, err := scopes.Find(sel).Count()
+	if err != nil {
+		return nil, false, errors.Trace(err)
+	}
+	if unitsInScope != r.doc.UnitCount {
+		if op.Force {
+			logger.Warningf("ignoring unit count mismatch on relation %v: expected %d units in scope but got %d", r, r.doc.UnitCount, unitsInScope)
+		} else {
+			return nil, false, errors.Errorf("unit count mismatch on relation %v: expected %d units in scope but got %d", r, r.doc.UnitCount, unitsInScope)
+		}
+	}
+
+	if r.doc.UnitCount == 0 || unitsInScope == 0 {
 		// When 'force' is set, this call will return both needed operations
 		// as well as all operational errors encountered.
 		// If the 'force' is not set, any error will be fatal and no operations will be returned.
@@ -456,10 +473,17 @@ func (r *Relation) removeOps(ignoreApplication string, departingUnitName string,
 		Id:     r.doc.DocID,
 		Remove: true,
 	}
-	if departingUnitName != "" {
-		relOp.Assert = bson.D{{"life", Dying}, {"unitcount", 1}}
+	if op.Force {
+		// There can be a mismatch between the unit count recorded on a relation and the actual number
+		// of units in scope if a multi-controller cross model relation is removed and the controllers
+		// can't talk to coordinate cleanup.
+		relOp.Assert = bson.D{{"life", r.doc.Life}, {"unitcount", r.doc.UnitCount}}
 	} else {
-		relOp.Assert = bson.D{{"life", Alive}, {"unitcount", 0}}
+		if departingUnitName != "" {
+			relOp.Assert = bson.D{{"life", Dying}, {"unitcount", 1}}
+		} else {
+			relOp.Assert = bson.D{{"life", Alive}, {"unitcount", 0}}
+		}
 	}
 	ops := []txn.Op{relOp}
 	for _, ep := range r.doc.Endpoints {
