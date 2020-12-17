@@ -6,7 +6,6 @@ package rackspace_test
 import (
 	"context"
 	"io"
-	"os"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -73,8 +72,8 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 func (s *environSuite) TestStartInstance(c *gc.C) {
 	configurator := &fakeConfigurator{}
 	s.PatchValue(rackspace.WaitSSH, func(
+		ctx context.Context,
 		stdErr io.Writer,
-		interrupted <-chan os.Signal,
 		client ssh.Client,
 		checkHostScript string,
 		inst common.InstanceRefresher,
@@ -123,8 +122,8 @@ func (s *environSuite) TestStartInstanceInvalidCredential(c *gc.C) {
 		},
 	}
 	s.PatchValue(rackspace.WaitSSH, func(
+		ctx context.Context,
 		stdErr io.Writer,
-		interrupted <-chan os.Signal,
 		client ssh.Client,
 		checkHostScript string,
 		inst common.InstanceRefresher,

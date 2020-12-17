@@ -165,7 +165,7 @@ func (env *maasEnviron) Create(ctx envcontext.ProviderCallContext, p environs.Cr
 
 // Bootstrap is part of the Environ interface.
 func (env *maasEnviron) Bootstrap(ctx context.Context, cmdCtx environs.BootstrapContext, callCtx envcontext.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	result, series, finalizer, err := common.BootstrapInstance(cmdCtx, env, callCtx, args)
+	result, series, finalizer, err := common.BootstrapInstance(ctx, cmdCtx, env, callCtx, args)
 	if err != nil {
 		return nil, err
 	}

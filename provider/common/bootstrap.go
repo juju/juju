@@ -54,7 +54,7 @@ func Bootstrap(
 	callCtx envcontext.ProviderCallContext,
 	args environs.BootstrapParams,
 ) (*environs.BootstrapResult, error) {
-	result, series, finalizer, err := BootstrapInstance(cmdCtx, env, callCtx, args)
+	result, series, finalizer, err := BootstrapInstance(ctx, cmdCtx, env, callCtx, args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -75,7 +75,8 @@ func Bootstrap(
 // This method is called by Bootstrap above, which implements environs.Bootstrap, but
 // is also exported so that providers can manipulate the started instance.
 func BootstrapInstance(
-	ctx environs.BootstrapContext,
+	ctx context.Context,
+	cmdCtx environs.BootstrapContext,
 	env environs.Environ,
 	callCtx envcontext.ProviderCallContext,
 	args environs.BootstrapParams,
@@ -130,7 +131,7 @@ func BootstrapInstance(
 	if client == nil {
 		// This should never happen: if we don't have OpenSSH, then
 		// go.crypto/ssh should be used with an auto-generated key.
-		return nil, "", nil, fmt.Errorf("no SSH client available")
+		return nil, "", nil, errors.Errorf("no SSH client available")
 	}
 
 	publicKey, err := simplestreams.UserPublicSigningKey()
@@ -176,7 +177,7 @@ func BootstrapInstance(
 	if args.CloudRegion != "" {
 		cloudRegion += "/" + args.CloudRegion
 	}
-	ctx.Infof("Launching controller instance(s) on %s...", cloudRegion)
+	cmdCtx.Infof("Launching controller instance(s) on %s...", cloudRegion)
 	// Print instance status reports status changes during provisioning.
 	// Note the carriage returns, meaning subsequent prints are to the same
 	// line of stderr, not a new line.
@@ -187,7 +188,7 @@ func BootstrapInstance(
 		if len(data) > 0 {
 			dataString = fmt.Sprintf(" %v", data)
 		}
-		fmt.Fprintf(ctx.GetStderr(), " - %s%s\r", info, dataString)
+		fmt.Fprintf(cmdCtx.GetStderr(), " - %s%s\r", info, dataString)
 		return nil
 	}
 	// Likely used after the final instanceStatus call to white-out the
@@ -196,7 +197,7 @@ func BootstrapInstance(
 	statusCleanup := func(info string) error {
 		// The leading spaces account for the leading characters
 		// emitted by instanceStatus above.
-		fmt.Fprintf(ctx.GetStderr(), "   %s\r", info)
+		fmt.Fprintf(cmdCtx.GetStderr(), "   %s\r", info)
 		return nil
 	}
 
@@ -246,13 +247,19 @@ func BootstrapInstance(
 	for i, zone := range zones {
 		startInstanceArgs.AvailabilityZone = zone
 		result, err = env.StartInstance(callCtx, startInstanceArgs)
-		// TODO(benhoyt) - put ctx.Done() check here
 		if err == nil {
 			break
 		}
 		if zone == "" || environs.IsAvailabilityZoneIndependent(err) {
 			return nil, "", nil, errors.Annotate(err, "cannot start bootstrap instance")
 		}
+
+		select {
+		case <-ctx.Done():
+			return nil, "", nil, errors.Annotatef(err, "starting bootstrap instance (cancelled)")
+		default:
+		}
+
 		if i < len(zones)-1 {
 			// Try the next zone.
 			logger.Debugf("failed to start instance in availability zone %q: %s", zone, err)
@@ -274,7 +281,7 @@ func BootstrapInstance(
 		padding := make([]string, 40-len(msg))
 		msg += strings.Join(padding, " ")
 	}
-	ctx.Infof(msg)
+	cmdCtx.Infof(msg)
 
 	finalizer := func(ctx context.Context, cmdCtx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, opts environs.BootstrapDialOpts) error {
 		icfg.Bootstrap.BootstrapMachineInstanceId = result.Instance.Id()
@@ -292,7 +299,7 @@ func BootstrapInstance(
 			return err
 		}
 		maybeSetBridge(icfg)
-		return FinishBootstrap(cmdCtx, client, env, callCtx, result.Instance, icfg, opts)
+		return FinishBootstrap(ctx, cmdCtx, client, env, callCtx, result.Instance, icfg, opts)
 	}
 	return result, selectedSeries, finalizer, nil
 }
@@ -358,7 +365,8 @@ func formatMemory(m uint64) string {
 //
 // Note: FinishBootstrap is exposed so it can be replaced for testing.
 var FinishBootstrap = func(
-	ctx environs.BootstrapContext,
+	ctx context.Context,
+	cmdCtx environs.BootstrapContext,
 	client ssh.Client,
 	env environs.Environ,
 	callCtx envcontext.ProviderCallContext,
@@ -367,14 +375,13 @@ var FinishBootstrap = func(
 	opts environs.BootstrapDialOpts,
 ) error {
 	interrupted := make(chan os.Signal, 1)
-	ctx.InterruptNotify(interrupted)
-	defer ctx.StopInterruptNotify(interrupted)
+	cmdCtx.InterruptNotify(interrupted)
+	defer cmdCtx.StopInterruptNotify(interrupted)
 
 	hostSSHOptions := bootstrapSSHOptionsFunc(instanceConfig)
-	// TODO(benhoyt) - use ctx here instead of "interrupted" channel
 	addr, err := WaitSSH(
-		ctx.GetStderr(),
-		interrupted,
+		ctx,
+		cmdCtx.GetStderr(),
 		client,
 		GetCheckNonceCommand(instanceConfig),
 		&RefreshableInstance{inst, env},
@@ -385,7 +392,7 @@ var FinishBootstrap = func(
 	if err != nil {
 		return err
 	}
-	ctx.Infof("Connected to %v", addr)
+	cmdCtx.Infof("Connected to %v", addr)
 
 	sshOptions, cleanup, err := hostSSHOptions(addr)
 	if err != nil {
@@ -393,7 +400,7 @@ var FinishBootstrap = func(
 	}
 	defer cleanup()
 
-	return ConfigureMachine(ctx, client, addr, instanceConfig, sshOptions)
+	return ConfigureMachine(cmdCtx, client, addr, instanceConfig, sshOptions)
 }
 
 func GetCheckNonceCommand(instanceConfig *instancecfg.InstanceConfig) string {
@@ -456,7 +463,7 @@ func ConfigureMachine(
 	}
 	script := shell.DumpFileOnErrorScript(instanceConfig.CloudInitOutputLog) + configScript
 	ctx.Infof("Running machine configuration script...")
-	// TODO(benhoyt) - add ctx here?
+	// TODO(benhoyt) - plumb context through juju/utils/ssh?
 	return sshinit.RunConfigureScript(script, sshinit.ConfigureParams{
 		Host:           "ubuntu@" + host,
 		Client:         client,
@@ -692,7 +699,7 @@ var connectSSH = func(client ssh.Client, host, checkHostScript string, options *
 	cmd.Stdin = strings.NewReader(checkHostScript)
 	output, err := cmd.CombinedOutput()
 	if err != nil && len(output) > 0 {
-		err = fmt.Errorf("%s", strings.TrimSpace(string(output)))
+		err = errors.Errorf("%s", strings.TrimSpace(string(output)))
 	}
 	return err
 }
@@ -707,12 +714,12 @@ var connectSSH = func(client ssh.Client, host, checkHostScript string, options *
 // machine's nonce. The "checkHostScript" is a bash script
 // that performs this file check.
 func WaitSSH(
+	ctx context.Context,
 	stdErr io.Writer,
-	interrupted <-chan os.Signal,
 	client ssh.Client,
 	checkHostScript string,
 	inst InstanceRefresher,
-	ctx envcontext.ProviderCallContext,
+	cmdCtx envcontext.ProviderCallContext,
 	opts environs.BootstrapDialOpts,
 	hostSSHOptions HostSSHOptionsFunc,
 ) (addr string, err error) {
@@ -739,19 +746,19 @@ func WaitSSH(
 		select {
 		case <-pollAddresses.C:
 			pollAddresses.Reset(opts.AddressesDelay)
-			if err := inst.Refresh(ctx); err != nil {
-				return "", fmt.Errorf("refreshing addresses: %v", err)
+			if err := inst.Refresh(cmdCtx); err != nil {
+				return "", errors.Errorf("refreshing addresses: %v", err)
 			}
-			instanceStatus := inst.Status(ctx)
+			instanceStatus := inst.Status(cmdCtx)
 			if instanceStatus.Status == status.ProvisioningError {
 				if instanceStatus.Message != "" {
 					return "", errors.Errorf("instance provisioning failed (%v)", instanceStatus.Message)
 				}
 				return "", errors.Errorf("instance provisioning failed")
 			}
-			addresses, err := inst.Addresses(ctx)
+			addresses, err := inst.Addresses(cmdCtx)
 			if err != nil {
-				return "", fmt.Errorf("getting addresses: %v", err)
+				return "", errors.Errorf("getting addresses: %v", err)
 			}
 			checker.UpdateAddresses(addresses)
 		case <-globalTimeout:
@@ -768,9 +775,9 @@ func WaitSSH(
 				format += ": %v"
 				args = append(args, lastErr)
 			}
-			return "", fmt.Errorf(format, args...)
-		case <-interrupted:
-			return "", fmt.Errorf("interrupted")
+			return "", errors.Errorf(format, args...)
+		case <-ctx.Done():
+			return "", errors.Errorf("cancelled")
 		case <-checker.Dead():
 			result, err := checker.Result()
 			if err != nil {

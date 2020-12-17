@@ -6,7 +6,6 @@ package rackspace
 import (
 	"context"
 	"io/ioutil"
-	"os"
 	"time"
 
 	"github.com/juju/errors"
@@ -50,15 +49,14 @@ func (e environ) StartInstance(ctx envcontext.ProviderCallContext, args environs
 		return nil, errors.Trace(err)
 	}
 	if fwmode != config.FwNone {
-		interrupted := make(chan os.Signal, 1)
 		timeout := environs.BootstrapDialOpts{
 			Timeout:        time.Minute * 5,
 			RetryDelay:     time.Second * 5,
 			AddressesDelay: time.Second * 20,
 		}
 		addr, err := waitSSH(
+			context.Background(),
 			ioutil.Discard,
-			interrupted,
 			ssh.DefaultClient,
 			common.GetCheckNonceCommand(args.InstanceConfig),
 			&common.RefreshableInstance{r.Instance, e},

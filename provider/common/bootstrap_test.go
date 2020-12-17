@@ -8,7 +8,6 @@ import (
 	"crypto/rsa"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -719,7 +718,7 @@ var testSSHTimeout = environs.BootstrapDialOpts{
 func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForAddresses(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	_, err := common.WaitSSH(
-		ctx.Stderr, nil, ssh.DefaultClient, "/bin/true", neverAddresses{}, s.callCtx, testSSHTimeout,
+		context.Background(), ctx.Stderr, ssh.DefaultClient, "/bin/true", neverAddresses{}, s.callCtx, testSSHTimeout,
 		common.DefaultHostSSHOptions,
 	)
 	c.Check(err, gc.ErrorMatches, `waited for `+testSSHTimeout.Timeout.String()+` without getting any addresses`)
@@ -727,26 +726,26 @@ func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForAddresses(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestWaitSSHKilledWaitingForAddresses(c *gc.C) {
-	ctx := cmdtesting.Context(c)
-	interrupted := make(chan os.Signal)
-	close(interrupted)
+	cmdCtx := cmdtesting.Context(c)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
 	_, err := common.WaitSSH(
-		ctx.Stderr, interrupted, ssh.DefaultClient, "/bin/true", neverAddresses{}, s.callCtx, testSSHTimeout,
+		ctx, cmdCtx.Stderr, ssh.DefaultClient, "/bin/true", neverAddresses{}, s.callCtx, testSSHTimeout,
 		common.DefaultHostSSHOptions,
 	)
-	c.Check(err, gc.ErrorMatches, "interrupted")
-	c.Check(cmdtesting.Stderr(ctx), gc.Matches, "Waiting for address\n")
+	c.Check(err, gc.ErrorMatches, "cancelled")
+	c.Check(cmdtesting.Stderr(cmdCtx), gc.Matches, "Waiting for address\n")
 }
 
 func (s *BootstrapSuite) TestWaitSSHNoticesProvisioningFailures(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	_, err := common.WaitSSH(
-		ctx.Stderr, nil, ssh.DefaultClient, "/bin/true", failsProvisioning{}, s.callCtx, testSSHTimeout,
+		context.Background(), ctx.Stderr, ssh.DefaultClient, "/bin/true", failsProvisioning{}, s.callCtx, testSSHTimeout,
 		common.DefaultHostSSHOptions,
 	)
 	c.Check(err, gc.ErrorMatches, `instance provisioning failed`)
 	_, err = common.WaitSSH(
-		ctx.Stderr, nil, ssh.DefaultClient, "/bin/true", failsProvisioning{message: "blargh"}, s.callCtx, testSSHTimeout,
+		context.Background(), ctx.Stderr, ssh.DefaultClient, "/bin/true", failsProvisioning{message: "blargh"}, s.callCtx, testSSHTimeout,
 		common.DefaultHostSSHOptions,
 	)
 	c.Check(err, gc.ErrorMatches, `instance provisioning failed \(blargh\)`)
@@ -763,7 +762,7 @@ func (brokenAddresses) Addresses(ctx envcontext.ProviderCallContext) (corenetwor
 func (s *BootstrapSuite) TestWaitSSHStopsOnBadError(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	_, err := common.WaitSSH(
-		ctx.Stderr, nil, ssh.DefaultClient, "/bin/true", brokenAddresses{}, s.callCtx, testSSHTimeout,
+		context.Background(), ctx.Stderr, ssh.DefaultClient, "/bin/true", brokenAddresses{}, s.callCtx, testSSHTimeout,
 		common.DefaultHostSSHOptions,
 	)
 	c.Check(err, gc.ErrorMatches, "getting addresses: Addresses will never work")
@@ -783,7 +782,7 @@ func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForDial(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	// 0.x.y.z addresses are always invalid
 	_, err := common.WaitSSH(
-		ctx.Stderr, nil, ssh.DefaultClient, "/bin/true", &neverOpensPort{addr: "0.1.2.3"}, s.callCtx, testSSHTimeout,
+		context.Background(), ctx.Stderr, ssh.DefaultClient, "/bin/true", &neverOpensPort{addr: "0.1.2.3"}, s.callCtx, testSSHTimeout,
 		common.DefaultHostSSHOptions,
 	)
 	c.Check(err, gc.ErrorMatches,
@@ -793,38 +792,38 @@ func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForDial(c *gc.C) {
 			"(Attempting to connect to 0.1.2.3:22\n)+")
 }
 
-type interruptOnDial struct {
+type cancelOnDial struct {
 	neverRefreshes
-	name        string
-	interrupted chan os.Signal
-	returned    bool
+	name     string
+	cancel   context.CancelFunc
+	returned bool
 }
 
-func (i *interruptOnDial) Addresses(ctx envcontext.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
+func (i *cancelOnDial) Addresses(ctx envcontext.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
 	// kill the tomb the second time Addresses is called
 	if !i.returned {
 		i.returned = true
 	} else {
-		if i.interrupted != nil {
-			close(i.interrupted)
-			i.interrupted = nil
+		if i.cancel != nil {
+			i.cancel()
+			i.cancel = nil
 		}
 	}
 	return corenetwork.NewProviderAddresses(i.name), nil
 }
 
 func (s *BootstrapSuite) TestWaitSSHKilledWaitingForDial(c *gc.C) {
-	ctx := cmdtesting.Context(c)
+	cmdCtx := cmdtesting.Context(c)
 	timeout := testSSHTimeout
 	timeout.Timeout = 1 * time.Minute
-	interrupted := make(chan os.Signal)
+	ctx, cancel := context.WithCancel(context.Background())
 	_, err := common.WaitSSH(
-		ctx.Stderr, interrupted, ssh.DefaultClient, "", &interruptOnDial{name: "0.1.2.3", interrupted: interrupted}, s.callCtx, timeout,
+		ctx, cmdCtx.Stderr, ssh.DefaultClient, "", &cancelOnDial{name: "0.1.2.3", cancel: cancel}, s.callCtx, timeout,
 		common.DefaultHostSSHOptions,
 	)
-	c.Check(err, gc.ErrorMatches, "interrupted")
+	c.Check(err, gc.ErrorMatches, "cancelled")
 	// Exact timing is imprecise but it should have tried a few times before being killed
-	c.Check(cmdtesting.Stderr(ctx), gc.Matches,
+	c.Check(cmdtesting.Stderr(cmdCtx), gc.Matches,
 		"Waiting for address\n"+
 			"(Attempting to connect to 0.1.2.3:22\n)+")
 }
@@ -850,7 +849,7 @@ func (ac *addressesChange) Addresses(ctx envcontext.ProviderCallContext) (corene
 
 func (s *BootstrapSuite) TestWaitSSHRefreshAddresses(c *gc.C) {
 	ctx := cmdtesting.Context(c)
-	_, err := common.WaitSSH(ctx.Stderr, nil, ssh.DefaultClient, "", &addressesChange{addrs: [][]string{
+	_, err := common.WaitSSH(context.Background(), ctx.Stderr, ssh.DefaultClient, "", &addressesChange{addrs: [][]string{
 		nil,
 		nil,
 		{"0.1.2.3"},
