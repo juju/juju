@@ -435,8 +435,7 @@ type BootstrapInterface interface {
 type bootstrapFuncs struct{}
 
 func (b bootstrapFuncs) Bootstrap(ctx context.Context, cmdCtx environs.BootstrapContext, env environs.BootstrapEnviron, callCtx envcontext.ProviderCallContext, args bootstrap.BootstrapParams) error {
-	// TODO: use ctx
-	return bootstrap.Bootstrap(cmdCtx, env, callCtx, args)
+	return bootstrap.Bootstrap(ctx, cmdCtx, env, callCtx, args)
 }
 
 func (b bootstrapFuncs) CloudDetector(provider environs.EnvironProvider) (environs.CloudDetector, bool) {

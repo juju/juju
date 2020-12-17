@@ -4,6 +4,7 @@
 package jujutest
 
 import (
+	"context"
 	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
@@ -15,7 +16,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
@@ -48,7 +49,7 @@ type Tests struct {
 
 	// ProviderCallContext holds the context to be used to make
 	// calls to a cloud provider.
-	ProviderCallContext context.ProviderCallContext
+	ProviderCallContext envcontext.ProviderCallContext
 }
 
 // Open opens an instance of the testing environment.
@@ -124,7 +125,7 @@ func (t *Tests) SetUpTest(c *gc.C) {
 	t.toolsStorage = stor
 	t.ControllerStore = jujuclient.NewMemStore()
 	t.ControllerUUID = coretesting.FakeControllerConfig().ControllerUUID()
-	t.ProviderCallContext = context.NewCloudCallContext()
+	t.ProviderCallContext = envcontext.NewCloudCallContext()
 }
 
 func (t *Tests) TearDownTest(c *gc.C) {
@@ -213,7 +214,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	}
 
 	e := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), e, t.ProviderCallContext, args)
+	err := bootstrap.Bootstrap(context.Background(), envtesting.BootstrapContext(c), e, t.ProviderCallContext, args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerInstances, err := e.ControllerInstances(t.ProviderCallContext, t.ControllerUUID)
@@ -232,7 +233,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	// Prepare again because Destroy invalidates old environments.
 	e3 := t.Prepare(c)
 
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), e3, t.ProviderCallContext, args)
+	err = bootstrap.Bootstrap(context.Background(), envtesting.BootstrapContext(c), e3, t.ProviderCallContext, args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = environs.Destroy(e3.Config().Name(), e3, t.ProviderCallContext, t.ControllerStore)

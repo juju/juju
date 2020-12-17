@@ -4,6 +4,7 @@
 package cloudsigma
 
 import (
+	"context"
 	"sync"
 
 	"github.com/altoros/gosigma"
@@ -13,7 +14,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/provider/common"
 )
@@ -72,7 +73,7 @@ func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controlle
 }
 
 // Create is part of the Environ interface.
-func (env *environ) Create(context.ProviderCallContext, environs.CreateParams) error {
+func (env *environ) Create(envcontext.ProviderCallContext, environs.CreateParams) error {
 	return nil
 }
 
@@ -90,17 +91,17 @@ func (env *environ) Create(context.ProviderCallContext, environs.CreateParams) e
 // Bootstrap is responsible for selecting the appropriate tools,
 // and setting the agent-version configuration attribute prior to
 // bootstrapping the environment.
-func (env *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	return common.Bootstrap(ctx, env, callCtx, params)
+func (env *environ) Bootstrap(ctx context.Context, cmdCtx environs.BootstrapContext, callCtx envcontext.ProviderCallContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
+	return common.Bootstrap(ctx, cmdCtx, env, callCtx, params)
 }
 
 // ControllerInstances is part of the Environ interface.
-func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
+func (e *environ) ControllerInstances(ctx envcontext.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
 	return e.client.getControllerIds()
 }
 
 // AdoptResources is part of the Environ interface.
-func (e *environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
+func (e *environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
 	// This provider doesn't track instance -> controller.
 	return nil
 }
@@ -112,13 +113,13 @@ func (e *environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID
 //
 // When Destroy has been called, any Environ referring to the
 // same remote environment may become invalid
-func (env *environ) Destroy(ctx context.ProviderCallContext) error {
+func (env *environ) Destroy(ctx envcontext.ProviderCallContext) error {
 	// You can probably ignore this method; the common implementation should work.
 	return common.Destroy(env, ctx)
 }
 
 // DestroyController implements the Environ interface.
-func (env *environ) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
+func (env *environ) DestroyController(ctx envcontext.ProviderCallContext, controllerUUID string) error {
 	// TODO(wallyworld): destroy hosted model resources
 	return env.Destroy(ctx)
 }
@@ -131,7 +132,7 @@ func (env *environ) DestroyController(ctx context.ProviderCallContext, controlle
 // all invalid parameters. If PrecheckInstance returns nil, it is not
 // guaranteed that the constraints are valid; if a non-nil error is
 // returned, then the constraints are definitely invalid.
-func (env *environ) PrecheckInstance(context.ProviderCallContext, environs.PrecheckInstanceParams) error {
+func (env *environ) PrecheckInstance(envcontext.ProviderCallContext, environs.PrecheckInstanceParams) error {
 	return nil
 }
 

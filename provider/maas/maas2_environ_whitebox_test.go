@@ -4,6 +4,7 @@
 package maas
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
@@ -676,7 +677,7 @@ func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentError(c *gc.C) {
 	suite.injectController(controller)
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron(c, nil)
-	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env,
+	err := bootstrap.Bootstrap(context.Background(), envjujutesting.BootstrapContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              jujutesting.AdminSecret,
@@ -697,7 +698,7 @@ func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentRetry(c *gc.C) {
 	suite.injectController(controller)
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron(c, nil)
-	bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env,
+	bootstrap.Bootstrap(context.Background(), envjujutesting.BootstrapContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              jujutesting.AdminSecret,
@@ -718,7 +719,7 @@ func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentSucceeds(c *gc.C) {
 	suite.injectController(controller)
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron(c, nil)
-	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env,
+	err := bootstrap.Bootstrap(context.Background(), envjujutesting.BootstrapContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              jujutesting.AdminSecret,
@@ -2167,7 +2168,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
 	}
 
 	env := suite.makeEnviron(c, controller)
-	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env,
+	err := bootstrap.Bootstrap(context.Background(), envjujutesting.BootstrapContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              jujutesting.AdminSecret,
@@ -2293,7 +2294,7 @@ func (suite *maas2EnvironSuite) TestDestroy(c *gc.C) {
 func (suite *maas2EnvironSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	env := suite.makeEnviron(c, newFakeController())
 	vers := version.MustParse("1.2.3")
-	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env,
+	err := bootstrap.Bootstrap(context.Background(), envjujutesting.BootstrapContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			AdminSecret:      jujutesting.AdminSecret,
@@ -2311,7 +2312,7 @@ func (suite *maas2EnvironSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 	controller := newFakeController()
 	controller.allocateMachineError = gomaasapi.NewNoMatchError("oops")
 	env := suite.makeEnviron(c, controller)
-	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env,
+	err := bootstrap.Bootstrap(context.Background(), envjujutesting.BootstrapContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              jujutesting.AdminSecret,

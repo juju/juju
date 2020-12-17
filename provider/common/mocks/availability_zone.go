@@ -5,9 +5,8 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockAvailabilityZone is a mock of AvailabilityZone interface
@@ -35,6 +34,7 @@ func (m *MockAvailabilityZone) EXPECT() *MockAvailabilityZoneMockRecorder {
 
 // Available mocks base method
 func (m *MockAvailabilityZone) Available() bool {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Available")
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -42,11 +42,13 @@ func (m *MockAvailabilityZone) Available() bool {
 
 // Available indicates an expected call of Available
 func (mr *MockAvailabilityZoneMockRecorder) Available() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Available", reflect.TypeOf((*MockAvailabilityZone)(nil).Available))
 }
 
 // Name mocks base method
 func (m *MockAvailabilityZone) Name() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Name")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -54,5 +56,6 @@ func (m *MockAvailabilityZone) Name() string {
 
 // Name indicates an expected call of Name
 func (mr *MockAvailabilityZoneMockRecorder) Name() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockAvailabilityZone)(nil).Name))
 }

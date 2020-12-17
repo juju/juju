@@ -4,6 +4,7 @@
 package common_test
 
 import (
+	"context"
 	"crypto/rsa"
 	"fmt"
 	"io/ioutil"
@@ -32,7 +33,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -46,7 +47,7 @@ type BootstrapSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	envtesting.ToolsFixture
 
-	callCtx context.ProviderCallContext
+	callCtx envcontext.ProviderCallContext
 }
 
 var _ = gc.Suite(&BootstrapSuite{})
@@ -63,7 +64,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 		return fmt.Errorf("mock connection failure to %s", host)
 	})
 
-	s.callCtx = context.NewCloudCallContext()
+	s.callCtx = envcontext.NewCloudCallContext()
 }
 
 func (s *BootstrapSuite) TearDownTest(c *gc.C) {
@@ -113,7 +114,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 		config:  configGetter(c),
 	}
 
-	startInstance := func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
+	startInstance := func(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (
 		instances.Instance,
 		*instance.HardwareCharacteristics,
 		corenetwork.InterfaceInfos,
@@ -150,7 +151,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 	env.startInstance = startInstance
 
 	ctx := envtesting.BootstrapContext(c)
-	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
+	_, err := common.Bootstrap(context.Background(), ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		BootstrapConstraints:     checkCons,
 		ModelConstraints:         checkCons,
@@ -172,7 +173,7 @@ func (s *BootstrapSuite) TestBootstrapSeries(c *gc.C) {
 	bootstrapSeries := series.DefaultSupportedLTS()
 	availableTools := fakeAvailableTools()
 	availableTools[0].Version.Series = bootstrapSeries
-	result, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
+	result, err := common.Bootstrap(context.Background(), ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		BootstrapSeries:          bootstrapSeries,
 		AvailableTools:           availableTools,
@@ -194,7 +195,7 @@ func (s *BootstrapSuite) TestBootstrapInvalidSeries(c *gc.C) {
 	bootstrapSeries := "spock"
 	availableTools := fakeAvailableTools()
 	availableTools[0].Version.Series = bootstrapSeries
-	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
+	_, err := common.Bootstrap(context.Background(), ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		BootstrapSeries:          bootstrapSeries,
 		AvailableTools:           availableTools,
@@ -213,7 +214,7 @@ func (s *BootstrapSuite) TestBootstrapFallbackSeries(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	bootstrapSeries := ""
 	availableTools := fakeAvailableTools()
-	result, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
+	result, err := common.Bootstrap(context.Background(), ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		BootstrapSeries:          bootstrapSeries,
 		AvailableTools:           availableTools,
@@ -235,7 +236,7 @@ func (s *BootstrapSuite) TestBootstrapSeriesWithForce(c *gc.C) {
 	bootstrapSeries := "xenial"
 	availableTools := fakeAvailableTools()
 	availableTools[0].Version.Series = bootstrapSeries
-	result, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
+	result, err := common.Bootstrap(context.Background(), ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		BootstrapSeries:          bootstrapSeries,
 		AvailableTools:           availableTools,
@@ -265,7 +266,7 @@ func (s *BootstrapSuite) TestBootstrapSeriesWithForceAndInvalidFallback(c *gc.C)
 	ctx := envtesting.BootstrapContext(c)
 	bootstrapSeries := ""
 	availableTools := fakeAvailableTools()
-	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
+	_, err := common.Bootstrap(context.Background(), ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		BootstrapSeries:          bootstrapSeries,
 		AvailableTools:           availableTools,
@@ -282,12 +283,12 @@ func (s *BootstrapSuite) TestStartInstanceDerivedZone(c *gc.C) {
 			storage: newStorage(s, c),
 			config:  configGetter(c),
 		},
-		deriveAvailabilityZones: func(context.ProviderCallContext, environs.StartInstanceParams) ([]string, error) {
+		deriveAvailabilityZones: func(envcontext.ProviderCallContext, environs.StartInstanceParams) ([]string, error) {
 			return []string{"derived-zone"}, nil
 		},
 	}
 
-	env.startInstance = func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
+	env.startInstance = func(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (
 		instances.Instance,
 		*instance.HardwareCharacteristics,
 		corenetwork.InterfaceInfos,
@@ -298,7 +299,7 @@ func (s *BootstrapSuite) TestStartInstanceDerivedZone(c *gc.C) {
 	}
 
 	ctx := envtesting.BootstrapContext(c)
-	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
+	_, err := common.Bootstrap(context.Background(), ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		AvailableTools:           fakeAvailableTools(),
 		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
@@ -315,10 +316,10 @@ func (s *BootstrapSuite) TestStartInstanceAttemptAllZones(c *gc.C) {
 			storage: newStorage(s, c),
 			config:  configGetter(c),
 		},
-		deriveAvailabilityZones: func(context.ProviderCallContext, environs.StartInstanceParams) ([]string, error) {
+		deriveAvailabilityZones: func(envcontext.ProviderCallContext, environs.StartInstanceParams) ([]string, error) {
 			return nil, nil
 		},
-		availabilityZones: func(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
+		availabilityZones: func(ctx envcontext.ProviderCallContext) ([]common.AvailabilityZone, error) {
 			z0 := &mockAvailabilityZone{"z0", true}
 			z1 := &mockAvailabilityZone{"z1", false}
 			z2 := &mockAvailabilityZone{"z2", true}
@@ -327,7 +328,7 @@ func (s *BootstrapSuite) TestStartInstanceAttemptAllZones(c *gc.C) {
 	}
 
 	var callZones []string
-	env.startInstance = func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
+	env.startInstance = func(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (
 		instances.Instance,
 		*instance.HardwareCharacteristics,
 		corenetwork.InterfaceInfos,
@@ -338,7 +339,7 @@ func (s *BootstrapSuite) TestStartInstanceAttemptAllZones(c *gc.C) {
 	}
 
 	ctx := envtesting.BootstrapContext(c)
-	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
+	_, err := common.Bootstrap(context.Background(), ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		AvailableTools:           fakeAvailableTools(),
 		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
@@ -356,10 +357,10 @@ func (s *BootstrapSuite) TestStartInstanceAttemptZoneConstrained(c *gc.C) {
 			storage: newStorage(s, c),
 			config:  configGetter(c),
 		},
-		deriveAvailabilityZones: func(context.ProviderCallContext, environs.StartInstanceParams) ([]string, error) {
+		deriveAvailabilityZones: func(envcontext.ProviderCallContext, environs.StartInstanceParams) ([]string, error) {
 			return nil, nil
 		},
-		availabilityZones: func(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
+		availabilityZones: func(ctx envcontext.ProviderCallContext) ([]common.AvailabilityZone, error) {
 			z0 := &mockAvailabilityZone{"z0", true}
 			z1 := &mockAvailabilityZone{"z1", true}
 			z2 := &mockAvailabilityZone{"z2", true}
@@ -369,7 +370,7 @@ func (s *BootstrapSuite) TestStartInstanceAttemptZoneConstrained(c *gc.C) {
 	}
 
 	var callZones []string
-	env.startInstance = func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
+	env.startInstance = func(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (
 		instances.Instance,
 		*instance.HardwareCharacteristics,
 		corenetwork.InterfaceInfos,
@@ -380,7 +381,7 @@ func (s *BootstrapSuite) TestStartInstanceAttemptZoneConstrained(c *gc.C) {
 	}
 
 	ctx := envtesting.BootstrapContext(c)
-	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
+	_, err := common.Bootstrap(context.Background(), ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		AvailableTools:           fakeAvailableTools(),
 		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
@@ -401,10 +402,10 @@ func (s *BootstrapSuite) TestStartInstanceNoMatchingConstraintZones(c *gc.C) {
 			storage: newStorage(s, c),
 			config:  configGetter(c),
 		},
-		deriveAvailabilityZones: func(context.ProviderCallContext, environs.StartInstanceParams) ([]string, error) {
+		deriveAvailabilityZones: func(envcontext.ProviderCallContext, environs.StartInstanceParams) ([]string, error) {
 			return nil, nil
 		},
-		availabilityZones: func(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
+		availabilityZones: func(ctx envcontext.ProviderCallContext) ([]common.AvailabilityZone, error) {
 			z0 := &mockAvailabilityZone{"z0", true}
 			z1 := &mockAvailabilityZone{"z1", true}
 			z2 := &mockAvailabilityZone{"z2", true}
@@ -414,7 +415,7 @@ func (s *BootstrapSuite) TestStartInstanceNoMatchingConstraintZones(c *gc.C) {
 	}
 
 	var callZones []string
-	env.startInstance = func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
+	env.startInstance = func(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (
 		instances.Instance,
 		*instance.HardwareCharacteristics,
 		corenetwork.InterfaceInfos,
@@ -425,7 +426,7 @@ func (s *BootstrapSuite) TestStartInstanceNoMatchingConstraintZones(c *gc.C) {
 	}
 
 	ctx := envtesting.BootstrapContext(c)
-	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
+	_, err := common.Bootstrap(context.Background(), ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		AvailableTools:           fakeAvailableTools(),
 		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
@@ -446,10 +447,10 @@ func (s *BootstrapSuite) TestStartInstanceStopOnZoneIndependentError(c *gc.C) {
 			storage: newStorage(s, c),
 			config:  configGetter(c),
 		},
-		deriveAvailabilityZones: func(context.ProviderCallContext, environs.StartInstanceParams) ([]string, error) {
+		deriveAvailabilityZones: func(envcontext.ProviderCallContext, environs.StartInstanceParams) ([]string, error) {
 			return nil, nil
 		},
-		availabilityZones: func(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
+		availabilityZones: func(ctx envcontext.ProviderCallContext) ([]common.AvailabilityZone, error) {
 			z0 := &mockAvailabilityZone{"z0", true}
 			z1 := &mockAvailabilityZone{"z1", true}
 			return []common.AvailabilityZone{z0, z1}, nil
@@ -457,7 +458,7 @@ func (s *BootstrapSuite) TestStartInstanceStopOnZoneIndependentError(c *gc.C) {
 	}
 
 	var callZones []string
-	env.startInstance = func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
+	env.startInstance = func(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (
 		instances.Instance,
 		*instance.HardwareCharacteristics,
 		corenetwork.InterfaceInfos,
@@ -468,7 +469,7 @@ func (s *BootstrapSuite) TestStartInstanceStopOnZoneIndependentError(c *gc.C) {
 	}
 
 	ctx := envtesting.BootstrapContext(c)
-	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
+	_, err := common.Bootstrap(context.Background(), ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		AvailableTools:           fakeAvailableTools(),
 		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
@@ -484,17 +485,17 @@ func (s *BootstrapSuite) TestStartInstanceNoUsableZones(c *gc.C) {
 			storage: newStorage(s, c),
 			config:  configGetter(c),
 		},
-		deriveAvailabilityZones: func(context.ProviderCallContext, environs.StartInstanceParams) ([]string, error) {
+		deriveAvailabilityZones: func(envcontext.ProviderCallContext, environs.StartInstanceParams) ([]string, error) {
 			return nil, nil
 		},
-		availabilityZones: func(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
+		availabilityZones: func(ctx envcontext.ProviderCallContext) ([]common.AvailabilityZone, error) {
 			z0 := &mockAvailabilityZone{"z0", false}
 			return []common.AvailabilityZone{z0}, nil
 		},
 	}
 
 	ctx := envtesting.BootstrapContext(c)
-	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
+	_, err := common.Bootstrap(context.Background(), ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		AvailableTools:           fakeAvailableTools(),
 		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
@@ -513,7 +514,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 		id:        checkInstanceId,
 		addresses: corenetwork.NewProviderAddresses("testing.invalid"),
 	}
-	startInstance := func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
+	startInstance := func(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (
 		instances.Instance,
 		*instance.HardwareCharacteristics,
 		corenetwork.InterfaceInfos,
@@ -547,7 +548,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 		startInstance: startInstance,
 		config:        getConfig,
 		setConfig:     setConfig,
-		instances: func(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
+		instances: func(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 			instancesMu.Lock()
 			defer instancesMu.Unlock()
 			return []instances.Instance{inst}, nil
@@ -555,7 +556,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	}
 	inner := cmdtesting.Context(c)
 	ctx := modelcmd.BootstrapContext(inner)
-	result, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
+	result, err := common.Bootstrap(context.Background(), ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		AvailableTools:           fakeAvailableTools(),
 		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
@@ -620,7 +621,7 @@ func (s *BootstrapSuite) TestBootstrapFinalizeCloudInitUserData(c *gc.C) {
 		id:        "i-success",
 		addresses: corenetwork.NewProviderAddresses("testing.invalid"),
 	}
-	startInstance := func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
+	startInstance := func(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (
 		instances.Instance,
 		*instance.HardwareCharacteristics,
 		corenetwork.InterfaceInfos,
@@ -635,7 +636,7 @@ func (s *BootstrapSuite) TestBootstrapFinalizeCloudInitUserData(c *gc.C) {
 	env := &mockEnviron{
 		startInstance: startInstance,
 		config:        configGetter(c),
-		instances: func(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
+		instances: func(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 			instancesMu.Lock()
 			defer instancesMu.Unlock()
 			return []instances.Instance{inst}, nil
@@ -645,7 +646,7 @@ func (s *BootstrapSuite) TestBootstrapFinalizeCloudInitUserData(c *gc.C) {
 	bootstrapSeries := series.DefaultSupportedLTS()
 	availableTools := fakeAvailableTools()
 	availableTools[0].Version.Series = bootstrapSeries
-	result, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
+	result, err := common.Bootstrap(context.Background(), ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		BootstrapSeries:          bootstrapSeries,
 		AvailableTools:           availableTools,
@@ -681,11 +682,11 @@ package_upgrade: false
 type neverRefreshes struct {
 }
 
-func (neverRefreshes) Refresh(ctx context.ProviderCallContext) error {
+func (neverRefreshes) Refresh(ctx envcontext.ProviderCallContext) error {
 	return nil
 }
 
-func (neverRefreshes) Status(ctx context.ProviderCallContext) instance.Status {
+func (neverRefreshes) Status(ctx envcontext.ProviderCallContext) instance.Status {
 	return instance.Status{}
 }
 
@@ -693,7 +694,7 @@ type neverAddresses struct {
 	neverRefreshes
 }
 
-func (neverAddresses) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
+func (neverAddresses) Addresses(ctx envcontext.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
 	return nil, nil
 }
 
@@ -702,7 +703,7 @@ type failsProvisioning struct {
 	message string
 }
 
-func (f failsProvisioning) Status(ctx context.ProviderCallContext) instance.Status {
+func (f failsProvisioning) Status(ctx envcontext.ProviderCallContext) instance.Status {
 	return instance.Status{
 		Status:  status.ProvisioningError,
 		Message: f.message,
@@ -755,7 +756,7 @@ type brokenAddresses struct {
 	neverRefreshes
 }
 
-func (brokenAddresses) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
+func (brokenAddresses) Addresses(ctx envcontext.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
 	return nil, errors.Errorf("Addresses will never work")
 }
 
@@ -774,7 +775,7 @@ type neverOpensPort struct {
 	addr string
 }
 
-func (n *neverOpensPort) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
+func (n *neverOpensPort) Addresses(ctx envcontext.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
 	return corenetwork.NewProviderAddresses(n.addr), nil
 }
 
@@ -799,7 +800,7 @@ type interruptOnDial struct {
 	returned    bool
 }
 
-func (i *interruptOnDial) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
+func (i *interruptOnDial) Addresses(ctx envcontext.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
 	// kill the tomb the second time Addresses is called
 	if !i.returned {
 		i.returned = true
@@ -832,18 +833,18 @@ type addressesChange struct {
 	addrs [][]string
 }
 
-func (ac *addressesChange) Refresh(ctx context.ProviderCallContext) error {
+func (ac *addressesChange) Refresh(ctx envcontext.ProviderCallContext) error {
 	if len(ac.addrs) > 1 {
 		ac.addrs = ac.addrs[1:]
 	}
 	return nil
 }
 
-func (ac *addressesChange) Status(ctx context.ProviderCallContext) instance.Status {
+func (ac *addressesChange) Status(ctx envcontext.ProviderCallContext) instance.Status {
 	return instance.Status{}
 }
 
-func (ac *addressesChange) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
+func (ac *addressesChange) Addresses(ctx envcontext.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
 	return corenetwork.NewProviderAddresses(ac.addrs[0]...), nil
 }
 
@@ -934,7 +935,7 @@ func fakeAvailableTools() tools.List {
 	}
 }
 
-func fakeStartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
+func fakeStartInstance(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (
 	instances.Instance,
 	*instance.HardwareCharacteristics,
 	corenetwork.InterfaceInfos,

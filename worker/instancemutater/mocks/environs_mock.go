@@ -5,6 +5,7 @@
 package mocks
 
 import (
+	context "context"
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v7"
 	constraints "github.com/juju/juju/core/constraints"
@@ -12,7 +13,7 @@ import (
 	lxdprofile "github.com/juju/juju/core/lxdprofile"
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
-	context "github.com/juju/juju/environs/context"
+	context0 "github.com/juju/juju/environs/context"
 	instances "github.com/juju/juju/environs/instances"
 	storage "github.com/juju/juju/storage"
 	version "github.com/juju/version"
@@ -43,7 +44,7 @@ func (m *MockEnviron) EXPECT() *MockEnvironMockRecorder {
 }
 
 // AdoptResources mocks base method
-func (m *MockEnviron) AdoptResources(arg0 context.ProviderCallContext, arg1 string, arg2 version.Number) error {
+func (m *MockEnviron) AdoptResources(arg0 context0.ProviderCallContext, arg1 string, arg2 version.Number) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AdoptResources", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -57,7 +58,7 @@ func (mr *MockEnvironMockRecorder) AdoptResources(arg0, arg1, arg2 interface{}) 
 }
 
 // AllInstances mocks base method
-func (m *MockEnviron) AllInstances(arg0 context.ProviderCallContext) ([]instances.Instance, error) {
+func (m *MockEnviron) AllInstances(arg0 context0.ProviderCallContext) ([]instances.Instance, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllInstances", arg0)
 	ret0, _ := ret[0].([]instances.Instance)
@@ -72,7 +73,7 @@ func (mr *MockEnvironMockRecorder) AllInstances(arg0 interface{}) *gomock.Call {
 }
 
 // AllRunningInstances mocks base method
-func (m *MockEnviron) AllRunningInstances(arg0 context.ProviderCallContext) ([]instances.Instance, error) {
+func (m *MockEnviron) AllRunningInstances(arg0 context0.ProviderCallContext) ([]instances.Instance, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllRunningInstances", arg0)
 	ret0, _ := ret[0].([]instances.Instance)
@@ -87,18 +88,18 @@ func (mr *MockEnvironMockRecorder) AllRunningInstances(arg0 interface{}) *gomock
 }
 
 // Bootstrap mocks base method
-func (m *MockEnviron) Bootstrap(arg0 environs.BootstrapContext, arg1 context.ProviderCallContext, arg2 environs.BootstrapParams) (*environs.BootstrapResult, error) {
+func (m *MockEnviron) Bootstrap(arg0 context.Context, arg1 environs.BootstrapContext, arg2 context0.ProviderCallContext, arg3 environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Bootstrap", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "Bootstrap", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(*environs.BootstrapResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Bootstrap indicates an expected call of Bootstrap
-func (mr *MockEnvironMockRecorder) Bootstrap(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockEnvironMockRecorder) Bootstrap(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Bootstrap", reflect.TypeOf((*MockEnviron)(nil).Bootstrap), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Bootstrap", reflect.TypeOf((*MockEnviron)(nil).Bootstrap), arg0, arg1, arg2, arg3)
 }
 
 // Config mocks base method
@@ -116,7 +117,7 @@ func (mr *MockEnvironMockRecorder) Config() *gomock.Call {
 }
 
 // ConstraintsValidator mocks base method
-func (m *MockEnviron) ConstraintsValidator(arg0 context.ProviderCallContext) (constraints.Validator, error) {
+func (m *MockEnviron) ConstraintsValidator(arg0 context0.ProviderCallContext) (constraints.Validator, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ConstraintsValidator", arg0)
 	ret0, _ := ret[0].(constraints.Validator)
@@ -131,7 +132,7 @@ func (mr *MockEnvironMockRecorder) ConstraintsValidator(arg0 interface{}) *gomoc
 }
 
 // ControllerInstances mocks base method
-func (m *MockEnviron) ControllerInstances(arg0 context.ProviderCallContext, arg1 string) ([]instance.Id, error) {
+func (m *MockEnviron) ControllerInstances(arg0 context0.ProviderCallContext, arg1 string) ([]instance.Id, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ControllerInstances", arg0, arg1)
 	ret0, _ := ret[0].([]instance.Id)
@@ -146,7 +147,7 @@ func (mr *MockEnvironMockRecorder) ControllerInstances(arg0, arg1 interface{}) *
 }
 
 // Create mocks base method
-func (m *MockEnviron) Create(arg0 context.ProviderCallContext, arg1 environs.CreateParams) error {
+func (m *MockEnviron) Create(arg0 context0.ProviderCallContext, arg1 environs.CreateParams) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -160,7 +161,7 @@ func (mr *MockEnvironMockRecorder) Create(arg0, arg1 interface{}) *gomock.Call {
 }
 
 // Destroy mocks base method
-func (m *MockEnviron) Destroy(arg0 context.ProviderCallContext) error {
+func (m *MockEnviron) Destroy(arg0 context0.ProviderCallContext) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Destroy", arg0)
 	ret0, _ := ret[0].(error)
@@ -174,7 +175,7 @@ func (mr *MockEnvironMockRecorder) Destroy(arg0 interface{}) *gomock.Call {
 }
 
 // DestroyController mocks base method
-func (m *MockEnviron) DestroyController(arg0 context.ProviderCallContext, arg1 string) error {
+func (m *MockEnviron) DestroyController(arg0 context0.ProviderCallContext, arg1 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DestroyController", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -188,7 +189,7 @@ func (mr *MockEnvironMockRecorder) DestroyController(arg0, arg1 interface{}) *go
 }
 
 // InstanceTypes mocks base method
-func (m *MockEnviron) InstanceTypes(arg0 context.ProviderCallContext, arg1 constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
+func (m *MockEnviron) InstanceTypes(arg0 context0.ProviderCallContext, arg1 constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InstanceTypes", arg0, arg1)
 	ret0, _ := ret[0].(instances.InstanceTypesWithCostMetadata)
@@ -203,7 +204,7 @@ func (mr *MockEnvironMockRecorder) InstanceTypes(arg0, arg1 interface{}) *gomock
 }
 
 // Instances mocks base method
-func (m *MockEnviron) Instances(arg0 context.ProviderCallContext, arg1 []instance.Id) ([]instances.Instance, error) {
+func (m *MockEnviron) Instances(arg0 context0.ProviderCallContext, arg1 []instance.Id) ([]instances.Instance, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Instances", arg0, arg1)
 	ret0, _ := ret[0].([]instances.Instance)
@@ -218,7 +219,7 @@ func (mr *MockEnvironMockRecorder) Instances(arg0, arg1 interface{}) *gomock.Cal
 }
 
 // MaintainInstance mocks base method
-func (m *MockEnviron) MaintainInstance(arg0 context.ProviderCallContext, arg1 environs.StartInstanceParams) error {
+func (m *MockEnviron) MaintainInstance(arg0 context0.ProviderCallContext, arg1 environs.StartInstanceParams) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MaintainInstance", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -232,7 +233,7 @@ func (mr *MockEnvironMockRecorder) MaintainInstance(arg0, arg1 interface{}) *gom
 }
 
 // PrecheckInstance mocks base method
-func (m *MockEnviron) PrecheckInstance(arg0 context.ProviderCallContext, arg1 environs.PrecheckInstanceParams) error {
+func (m *MockEnviron) PrecheckInstance(arg0 context0.ProviderCallContext, arg1 environs.PrecheckInstanceParams) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PrecheckInstance", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -288,7 +289,7 @@ func (mr *MockEnvironMockRecorder) SetConfig(arg0 interface{}) *gomock.Call {
 }
 
 // StartInstance mocks base method
-func (m *MockEnviron) StartInstance(arg0 context.ProviderCallContext, arg1 environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (m *MockEnviron) StartInstance(arg0 context0.ProviderCallContext, arg1 environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StartInstance", arg0, arg1)
 	ret0, _ := ret[0].(*environs.StartInstanceResult)
@@ -303,7 +304,7 @@ func (mr *MockEnvironMockRecorder) StartInstance(arg0, arg1 interface{}) *gomock
 }
 
 // StopInstances mocks base method
-func (m *MockEnviron) StopInstances(arg0 context.ProviderCallContext, arg1 ...instance.Id) error {
+func (m *MockEnviron) StopInstances(arg0 context0.ProviderCallContext, arg1 ...instance.Id) error {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0}
 	for _, a := range arg1 {
@@ -442,7 +443,7 @@ func (m *MockInstanceBroker) EXPECT() *MockInstanceBrokerMockRecorder {
 }
 
 // AllInstances mocks base method
-func (m *MockInstanceBroker) AllInstances(arg0 context.ProviderCallContext) ([]instances.Instance, error) {
+func (m *MockInstanceBroker) AllInstances(arg0 context0.ProviderCallContext) ([]instances.Instance, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllInstances", arg0)
 	ret0, _ := ret[0].([]instances.Instance)
@@ -457,7 +458,7 @@ func (mr *MockInstanceBrokerMockRecorder) AllInstances(arg0 interface{}) *gomock
 }
 
 // AllRunningInstances mocks base method
-func (m *MockInstanceBroker) AllRunningInstances(arg0 context.ProviderCallContext) ([]instances.Instance, error) {
+func (m *MockInstanceBroker) AllRunningInstances(arg0 context0.ProviderCallContext) ([]instances.Instance, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllRunningInstances", arg0)
 	ret0, _ := ret[0].([]instances.Instance)
@@ -472,7 +473,7 @@ func (mr *MockInstanceBrokerMockRecorder) AllRunningInstances(arg0 interface{}) 
 }
 
 // MaintainInstance mocks base method
-func (m *MockInstanceBroker) MaintainInstance(arg0 context.ProviderCallContext, arg1 environs.StartInstanceParams) error {
+func (m *MockInstanceBroker) MaintainInstance(arg0 context0.ProviderCallContext, arg1 environs.StartInstanceParams) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MaintainInstance", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -486,7 +487,7 @@ func (mr *MockInstanceBrokerMockRecorder) MaintainInstance(arg0, arg1 interface{
 }
 
 // StartInstance mocks base method
-func (m *MockInstanceBroker) StartInstance(arg0 context.ProviderCallContext, arg1 environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (m *MockInstanceBroker) StartInstance(arg0 context0.ProviderCallContext, arg1 environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StartInstance", arg0, arg1)
 	ret0, _ := ret[0].(*environs.StartInstanceResult)
@@ -501,7 +502,7 @@ func (mr *MockInstanceBrokerMockRecorder) StartInstance(arg0, arg1 interface{}) 
 }
 
 // StopInstances mocks base method
-func (m *MockInstanceBroker) StopInstances(arg0 context.ProviderCallContext, arg1 ...instance.Id) error {
+func (m *MockInstanceBroker) StopInstances(arg0 context0.ProviderCallContext, arg1 ...instance.Id) error {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0}
 	for _, a := range arg1 {

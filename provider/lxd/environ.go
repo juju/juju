@@ -4,6 +4,7 @@
 package lxd
 
 import (
+	"context"
 	"strings"
 	"sync"
 
@@ -15,7 +16,7 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/provider/common"
 )
@@ -24,10 +25,10 @@ const bootstrapMessage = `To configure your system to better support LXD contain
 
 type baseProvider interface {
 	// BootstrapEnv bootstraps a Juju environment.
-	BootstrapEnv(environs.BootstrapContext, context.ProviderCallContext, environs.BootstrapParams) (*environs.BootstrapResult, error)
+	BootstrapEnv(context.Context, environs.BootstrapContext, envcontext.ProviderCallContext, environs.BootstrapParams) (*environs.BootstrapResult, error)
 
 	// DestroyEnv destroys the provided Juju environment.
-	DestroyEnv(ctx context.ProviderCallContext) error
+	DestroyEnv(ctx envcontext.ProviderCallContext) error
 }
 
 type environ struct {
@@ -182,19 +183,19 @@ func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controlle
 }
 
 // Create implements environs.Environ.
-func (env *environ) Create(context.ProviderCallContext, environs.CreateParams) error {
+func (env *environ) Create(envcontext.ProviderCallContext, environs.CreateParams) error {
 	return nil
 }
 
 // Bootstrap implements environs.Environ.
-func (env *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	ctx.Infof("%s", bootstrapMessage)
-	return env.base.BootstrapEnv(ctx, callCtx, params)
+func (env *environ) Bootstrap(ctx context.Context, cmdCtx environs.BootstrapContext, callCtx envcontext.ProviderCallContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
+	cmdCtx.Infof("%s", bootstrapMessage)
+	return env.base.BootstrapEnv(ctx, cmdCtx, callCtx, params)
 }
 
 // Destroy shuts down all known machines and destroys the rest of the
 // known environment.
-func (env *environ) Destroy(ctx context.ProviderCallContext) error {
+func (env *environ) Destroy(ctx envcontext.ProviderCallContext) error {
 	if err := env.base.DestroyEnv(ctx); err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return errors.Trace(err)
@@ -209,7 +210,7 @@ func (env *environ) Destroy(ctx context.ProviderCallContext) error {
 }
 
 // DestroyController implements the Environ interface.
-func (env *environ) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
+func (env *environ) DestroyController(ctx envcontext.ProviderCallContext, controllerUUID string) error {
 	if err := env.Destroy(ctx); err != nil {
 		return errors.Trace(err)
 	}
@@ -267,7 +268,7 @@ func (z *lxdAvailabilityZone) Available() bool {
 
 // AvailabilityZones (ZonedEnviron) returns all availability zones in the
 // environment. For LXD, this means the cluster node names.
-func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
+func (env *environ) AvailabilityZones(ctx envcontext.ProviderCallContext) ([]common.AvailabilityZone, error) {
 	// If we are not using a clustered server (which includes those not
 	// supporting the clustering API) just represent the single server as the
 	// only availability zone.
@@ -299,7 +300,7 @@ func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common
 // availability zones for the specified instances.
 // For containers, this means the LXD server node names where they reside.
 func (env *environ) InstanceAvailabilityZoneNames(
-	ctx context.ProviderCallContext, ids []instance.Id,
+	ctx envcontext.ProviderCallContext, ids []instance.Id,
 ) ([]string, error) {
 	instances, err := env.Instances(ctx, ids)
 	if err != nil && err != environs.ErrPartialInstances {
@@ -330,7 +331,7 @@ func (env *environ) InstanceAvailabilityZoneNames(
 // DeriveAvailabilityZones (ZonedEnviron) attempts to derive availability zones
 // from the specified StartInstanceParams.
 func (env *environ) DeriveAvailabilityZones(
-	ctx context.ProviderCallContext, args environs.StartInstanceParams,
+	ctx envcontext.ProviderCallContext, args environs.StartInstanceParams,
 ) ([]string, error) {
 	p, err := env.parsePlacement(ctx, args.Placement)
 	if err != nil {

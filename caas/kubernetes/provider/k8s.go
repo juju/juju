@@ -409,10 +409,12 @@ func (k *kubernetesClient) Create(envcontext.ProviderCallContext, environs.Creat
 
 // Bootstrap deploys controller with mongoDB together into k8s cluster.
 func (k *kubernetesClient) Bootstrap(
-	ctx environs.BootstrapContext,
+	ctx context.Context,
+	cmdCtx environs.BootstrapContext,
 	callCtx envcontext.ProviderCallContext,
 	args environs.BootstrapParams,
 ) (*environs.BootstrapResult, error) {
+	// TODO(benhoyt) - use ctx
 
 	if args.BootstrapSeries != "" {
 		return nil, errors.NotSupportedf("set series for bootstrapping to kubernetes")

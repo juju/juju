@@ -4,6 +4,7 @@
 package jujutest
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"time"
@@ -27,7 +28,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/instances"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -103,7 +104,7 @@ type LiveTests struct {
 
 	// ProviderCallContext holds the context to be used to make
 	// calls to a cloud provider.
-	ProviderCallContext context.ProviderCallContext
+	ProviderCallContext envcontext.ProviderCallContext
 
 	prepared     bool
 	bootstrapped bool
@@ -129,7 +130,7 @@ func (t *LiveTests) SetUpTest(c *gc.C) {
 	t.UploadFakeTools(c, stor, "released", "released")
 	t.toolsStorage = stor
 	t.CleanupSuite.PatchValue(&envtools.BundleTools, envtoolstesting.GetMockBundleTools(c, nil))
-	t.ProviderCallContext = context.NewCloudCallContext()
+	t.ProviderCallContext = envcontext.NewCloudCallContext()
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
@@ -223,7 +224,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	args := t.bootstrapParams()
 	args.BootstrapConstraints = cons
 	args.ModelConstraints = cons
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.Env, t.ProviderCallContext, args)
+	err := bootstrap.Bootstrap(context.Background(), envtesting.BootstrapContext(c), t.Env, t.ProviderCallContext, args)
 	c.Assert(err, jc.ErrorIsNil)
 	t.bootstrapped = true
 }
@@ -976,7 +977,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer environs.Destroy("livetests", env, t.ProviderCallContext, t.ControllerStore)
 
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, t.ProviderCallContext, t.bootstrapParams())
+	err = bootstrap.Bootstrap(context.Background(), envtesting.BootstrapContext(c), env, t.ProviderCallContext, t.bootstrapParams())
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := t.Env.(jujutesting.GetStater).GetStateInAPIServer()

@@ -19,6 +19,7 @@
 package dummy
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io/ioutil"
@@ -70,7 +71,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
@@ -715,7 +716,7 @@ func (p *environProvider) CloudSchema() *jsonschema.Schema {
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p *environProvider) Ping(ctx context.ProviderCallContext, endpoint string) error {
+func (p *environProvider) Ping(ctx envcontext.ProviderCallContext, endpoint string) error {
 	return errors.NotImplementedf("Ping")
 }
 
@@ -748,7 +749,7 @@ func (e *environ) checkBroken(method string) error {
 }
 
 // PrecheckInstance is specified in the environs.InstancePrechecker interface.
-func (*environ) PrecheckInstance(ctx context.ProviderCallContext, args environs.PrecheckInstanceParams) error {
+func (*environ) PrecheckInstance(ctx envcontext.ProviderCallContext, args environs.PrecheckInstanceParams) error {
 	if args.Placement != "" && args.Placement != "valid" {
 		return fmt.Errorf("%s placement is invalid", args.Placement)
 	}
@@ -756,7 +757,7 @@ func (*environ) PrecheckInstance(ctx context.ProviderCallContext, args environs.
 }
 
 // Create is part of the Environ interface.
-func (e *environ) Create(ctx context.ProviderCallContext, args environs.CreateParams) error {
+func (e *environ) Create(ctx envcontext.ProviderCallContext, args environs.CreateParams) error {
 	dummy.mu.Lock()
 	defer dummy.mu.Unlock()
 	dummy.state[e.modelUUID] = newState(e.name, dummy.ops, dummy.newStatePolicy)
@@ -789,7 +790,7 @@ func (e *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controllerN
 	return nil
 }
 
-func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
+func (e *environ) Bootstrap(ctx context.Context, cmdCtx environs.BootstrapContext, callCtx envcontext.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	series := config.PreferredSeries(e.Config())
 	availableTools, err := args.AvailableTools.Match(coretools.Filter{Series: series})
 	if err != nil {
@@ -830,7 +831,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 	}
 	estate.insts[i.id] = i
 	estate.bootstrapped = true
-	estate.ops <- OpBootstrap{Context: ctx, Env: e.name, Args: args}
+	estate.ops <- OpBootstrap{Context: cmdCtx, Env: e.name, Args: args}
 
 	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, _ environs.BootstrapDialOpts) (err error) {
 		if e.ecfg().controller() {
@@ -1051,7 +1052,7 @@ func leaseManager(controllerUUID string, st *state.State) (*lease.Manager, error
 	})
 }
 
-func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
+func (e *environ) ControllerInstances(ctx envcontext.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
 	estate, err := e.state()
 	if err != nil {
 		return nil, err
@@ -1092,12 +1093,12 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 }
 
 // AdoptResources is part of the Environ interface.
-func (e *environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
+func (e *environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
 	// This provider doesn't track instance -> controller.
 	return nil
 }
 
-func (e *environ) Destroy(ctx context.ProviderCallContext) (res error) {
+func (e *environ) Destroy(ctx envcontext.ProviderCallContext) (res error) {
 	defer delay()
 	estate, err := e.state()
 	if err != nil {
@@ -1133,7 +1134,7 @@ func (e *environ) Destroy(ctx context.ProviderCallContext) (res error) {
 	return nil
 }
 
-func (e *environ) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
+func (e *environ) DestroyController(ctx envcontext.ProviderCallContext, controllerUUID string) error {
 	if err := e.Destroy(ctx); err != nil {
 		return err
 	}
@@ -1144,7 +1145,7 @@ func (e *environ) DestroyController(ctx context.ProviderCallContext, controllerU
 }
 
 // ConstraintsValidator is defined on the Environs interface.
-func (e *environ) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
+func (e *environ) ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported([]string{constraints.CpuPower, constraints.VirtType})
 	validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
@@ -1153,12 +1154,12 @@ func (e *environ) ConstraintsValidator(ctx context.ProviderCallContext) (constra
 }
 
 // MaintainInstance is specified in the InstanceBroker interface.
-func (*environ) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
+func (*environ) MaintainInstance(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) error {
 	return nil
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (e *environ) StartInstance(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	defer delay()
 	machineId := args.InstanceConfig.MachineId
 	logger.Infof("dummy startinstance, machine %s", machineId)
@@ -1319,7 +1320,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	}, nil
 }
 
-func (e *environ) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
+func (e *environ) StopInstances(ctx envcontext.ProviderCallContext, ids ...instance.Id) error {
 	defer delay()
 	if err := e.checkBroken("StopInstance"); err != nil {
 		return err
@@ -1340,7 +1341,7 @@ func (e *environ) StopInstances(ctx context.ProviderCallContext, ids ...instance
 	return nil
 }
 
-func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) (insts []instances.Instance, err error) {
+func (e *environ) Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) (insts []instances.Instance, err error) {
 	defer delay()
 	if err := e.checkBroken("Instances"); err != nil {
 		return nil, err
@@ -1372,7 +1373,7 @@ func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) 
 }
 
 // SupportsSpaces is specified on environs.Networking.
-func (env *environ) SupportsSpaces(ctx context.ProviderCallContext) (bool, error) {
+func (env *environ) SupportsSpaces(ctx envcontext.ProviderCallContext) (bool, error) {
 	dummy.mu.Lock()
 	defer dummy.mu.Unlock()
 	if !dummy.supportsSpaces {
@@ -1382,7 +1383,7 @@ func (env *environ) SupportsSpaces(ctx context.ProviderCallContext) (bool, error
 }
 
 // SupportsSpaceDiscovery is specified on environs.Networking.
-func (env *environ) SupportsSpaceDiscovery(ctx context.ProviderCallContext) (bool, error) {
+func (env *environ) SupportsSpaceDiscovery(ctx envcontext.ProviderCallContext) (bool, error) {
 	if err := env.checkBroken("SupportsSpaceDiscovery"); err != nil {
 		return false, err
 	}
@@ -1395,12 +1396,12 @@ func (env *environ) SupportsSpaceDiscovery(ctx context.ProviderCallContext) (boo
 }
 
 // SupportsContainerAddresses is specified on environs.Networking.
-func (env *environ) SupportsContainerAddresses(ctx context.ProviderCallContext) (bool, error) {
+func (env *environ) SupportsContainerAddresses(ctx envcontext.ProviderCallContext) (bool, error) {
 	return false, errors.NotSupportedf("container addresses")
 }
 
 // Spaces is specified on environs.Networking.
-func (env *environ) Spaces(ctx context.ProviderCallContext) ([]corenetwork.SpaceInfo, error) {
+func (env *environ) Spaces(ctx envcontext.ProviderCallContext) ([]corenetwork.SpaceInfo, error) {
 	if err := env.checkBroken("Spaces"); err != nil {
 		return []corenetwork.SpaceInfo{}, err
 	}
@@ -1435,7 +1436,7 @@ func (env *environ) Spaces(ctx context.ProviderCallContext) ([]corenetwork.Space
 }
 
 // NetworkInterfaces implements Environ.NetworkInterfaces().
-func (env *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([]corenetwork.InterfaceInfos, error) {
+func (env *environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]corenetwork.InterfaceInfos, error) {
 	if err := env.checkBroken("NetworkInterfaces"); err != nil {
 		return nil, err
 	}
@@ -1502,7 +1503,7 @@ func (az azShim) Available() bool {
 }
 
 // AvailabilityZones implements environs.ZonedEnviron.
-func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
+func (env *environ) AvailabilityZones(ctx envcontext.ProviderCallContext) ([]common.AvailabilityZone, error) {
 	// TODO(dimitern): Fix this properly.
 	return []common.AvailabilityZone{
 		azShim{"zone1", true},
@@ -1513,7 +1514,7 @@ func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common
 }
 
 // InstanceAvailabilityZoneNames implements environs.ZonedEnviron.
-func (env *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
+func (env *environ) InstanceAvailabilityZoneNames(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]string, error) {
 	if err := env.checkBroken("InstanceAvailabilityZoneNames"); err != nil {
 		return nil, errors.NotSupportedf("instance availability zones")
 	}
@@ -1542,13 +1543,13 @@ func (env *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContex
 }
 
 // DeriveAvailabilityZones is part of the common.ZonedEnviron interface.
-func (env *environ) DeriveAvailabilityZones(ctx context.ProviderCallContext, args environs.StartInstanceParams) ([]string, error) {
+func (env *environ) DeriveAvailabilityZones(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) ([]string, error) {
 	return nil, nil
 }
 
 // Subnets implements environs.Environ.Subnets.
 func (env *environ) Subnets(
-	ctx context.ProviderCallContext, instId instance.Id, subnetIds []corenetwork.Id,
+	ctx envcontext.ProviderCallContext, instId instance.Id, subnetIds []corenetwork.Id,
 ) ([]corenetwork.SubnetInfo, error) {
 	if err := env.checkBroken("Subnets"); err != nil {
 		return nil, err
@@ -1640,15 +1641,15 @@ func (env *environ) subnetsForSpaceDiscovery(estate *environState) ([]corenetwor
 	return result, nil
 }
 
-func (e *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+func (e *environ) AllInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
 	return e.instancesForMethod(ctx, "AllInstances")
 }
 
-func (e *environ) AllRunningInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+func (e *environ) AllRunningInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
 	return e.instancesForMethod(ctx, "AllRunningInstances")
 }
 
-func (e *environ) instancesForMethod(ctx context.ProviderCallContext, method string) ([]instances.Instance, error) {
+func (e *environ) instancesForMethod(ctx envcontext.ProviderCallContext, method string) ([]instances.Instance, error) {
 	defer delay()
 	if err := e.checkBroken(method); err != nil {
 		return nil, err
@@ -1666,7 +1667,7 @@ func (e *environ) instancesForMethod(ctx context.ProviderCallContext, method str
 	return insts, nil
 }
 
-func (e *environ) OpenPorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {
+func (e *environ) OpenPorts(ctx envcontext.ProviderCallContext, rules []network.IngressRule) error {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on model", mode)
 	}
@@ -1694,7 +1695,7 @@ func (e *environ) OpenPorts(ctx context.ProviderCallContext, rules []network.Ing
 	return nil
 }
 
-func (e *environ) ClosePorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {
+func (e *environ) ClosePorts(ctx envcontext.ProviderCallContext, rules []network.IngressRule) error {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on model", mode)
 	}
@@ -1714,7 +1715,7 @@ func (e *environ) ClosePorts(ctx context.ProviderCallContext, rules []network.In
 	return nil
 }
 
-func (e *environ) IngressRules(ctx context.ProviderCallContext) (rules []network.IngressRule, err error) {
+func (e *environ) IngressRules(ctx envcontext.ProviderCallContext) (rules []network.IngressRule, err error) {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ingress rules from model", mode)
 	}
@@ -1754,7 +1755,7 @@ func (inst *dummyInstance) Id() instance.Id {
 	return inst.id
 }
 
-func (inst *dummyInstance) Status(ctx context.ProviderCallContext) instance.Status {
+func (inst *dummyInstance) Status(ctx envcontext.ProviderCallContext) instance.Status {
 	inst.mu.Lock()
 	defer inst.mu.Unlock()
 	// TODO(perrito666) add a provider status -> juju status mapping.
@@ -1810,7 +1811,7 @@ func (inst *dummyInstance) checkBroken(method string) error {
 	return nil
 }
 
-func (inst *dummyInstance) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
+func (inst *dummyInstance) Addresses(ctx envcontext.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
 	inst.mu.Lock()
 	defer inst.mu.Unlock()
 	if err := inst.checkBroken("Addresses"); err != nil {
@@ -1819,7 +1820,7 @@ func (inst *dummyInstance) Addresses(ctx context.ProviderCallContext) (corenetwo
 	return append([]corenetwork.ProviderAddress{}, inst.addresses...), nil
 }
 
-func (inst *dummyInstance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
+func (inst *dummyInstance) OpenPorts(ctx envcontext.ProviderCallContext, machineId string, rules []network.IngressRule) error {
 	defer delay()
 	logger.Infof("openPorts %s, %#v", machineId, rules)
 	if inst.firewallMode != config.FwInstance {
@@ -1864,7 +1865,7 @@ func (inst *dummyInstance) OpenPorts(ctx context.ProviderCallContext, machineId 
 	return nil
 }
 
-func (inst *dummyInstance) ClosePorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
+func (inst *dummyInstance) ClosePorts(ctx envcontext.ProviderCallContext, machineId string, rules []network.IngressRule) error {
 	defer delay()
 	if inst.firewallMode != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on instance",
@@ -1894,7 +1895,7 @@ func (inst *dummyInstance) ClosePorts(ctx context.ProviderCallContext, machineId
 	return nil
 }
 
-func (inst *dummyInstance) IngressRules(ctx context.ProviderCallContext, machineId string) (rules []network.IngressRule, err error) {
+func (inst *dummyInstance) IngressRules(ctx envcontext.ProviderCallContext, machineId string) (rules []network.IngressRule, err error) {
 	defer delay()
 	if inst.firewallMode != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ingress rules from instance",
@@ -1928,23 +1929,23 @@ func delay() {
 	}
 }
 
-func (e *environ) AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo corenetwork.InterfaceInfos) (corenetwork.InterfaceInfos, error) {
+func (e *environ) AllocateContainerAddresses(ctx envcontext.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo corenetwork.InterfaceInfos) (corenetwork.InterfaceInfos, error) {
 	return nil, errors.NotSupportedf("container address allocation")
 }
 
-func (e *environ) ReleaseContainerAddresses(ctx context.ProviderCallContext, interfaces []network.ProviderInterfaceInfo) error {
+func (e *environ) ReleaseContainerAddresses(ctx envcontext.ProviderCallContext, interfaces []network.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("container address allocation")
 }
 
 // ProviderSpaceInfo implements NetworkingEnviron.
 func (*environ) ProviderSpaceInfo(
-	ctx context.ProviderCallContext, space *corenetwork.SpaceInfo,
+	ctx envcontext.ProviderCallContext, space *corenetwork.SpaceInfo,
 ) (*environs.ProviderSpaceInfo, error) {
 	return nil, errors.NotSupportedf("provider space info")
 }
 
 // AreSpacesRoutable implements NetworkingEnviron.
-func (*environ) AreSpacesRoutable(ctx context.ProviderCallContext, space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
+func (*environ) AreSpacesRoutable(ctx envcontext.ProviderCallContext, space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
 	return false, nil
 }
 
@@ -1965,7 +1966,7 @@ func (env *environ) AssignLXDProfiles(instId string, profilesNames []string, pro
 
 // SSHAddresses implements environs.SSHAddresses.
 // For testing we cut "100.100.100.100" out of this list.
-func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses corenetwork.SpaceAddresses) (corenetwork.SpaceAddresses, error) {
+func (*environ) SSHAddresses(ctx envcontext.ProviderCallContext, addresses corenetwork.SpaceAddresses) (corenetwork.SpaceAddresses, error) {
 	var rv corenetwork.SpaceAddresses
 	for _, addr := range addresses {
 		if addr.Value != "100.100.100.100" {
@@ -1976,7 +1977,7 @@ func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses corenetw
 }
 
 // SuperSubnets implements environs.SuperSubnets
-func (*environ) SuperSubnets(ctx context.ProviderCallContext) ([]string, error) {
+func (*environ) SuperSubnets(ctx envcontext.ProviderCallContext) ([]string, error) {
 	return nil, errors.NotSupportedf("super subnets")
 }
 

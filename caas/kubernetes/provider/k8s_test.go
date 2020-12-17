@@ -4,6 +4,7 @@
 package provider_test
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -43,7 +44,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
@@ -1323,14 +1324,14 @@ func (s *K8sBrokerSuite) TestBootstrapNoOperatorStorage(c *gc.C) {
 	defer ctrl.Finish()
 
 	ctx := envtesting.BootstrapContext(c)
-	callCtx := &context.CloudCallContext{}
+	callCtx := &envcontext.CloudCallContext{}
 	bootstrapParams := environs.BootstrapParams{
 		ControllerConfig:         testing.FakeControllerConfig(),
 		BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
 		SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 	}
 
-	_, err := s.broker.Bootstrap(ctx, callCtx, bootstrapParams)
+	_, err := s.broker.Bootstrap(context.Background(), ctx, callCtx, bootstrapParams)
 	c.Assert(err, gc.NotNil)
 	msg := strings.Replace(err.Error(), "\n", "", -1)
 	c.Assert(msg, gc.Matches, "config without operator-storage value not valid.*")
@@ -1344,7 +1345,7 @@ func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
 	s.setupOperatorStorageConfig(c)
 
 	ctx := envtesting.BootstrapContext(c)
-	callCtx := &context.CloudCallContext{}
+	callCtx := &envcontext.CloudCallContext{}
 	bootstrapParams := environs.BootstrapParams{
 		ControllerConfig:         testing.FakeControllerConfig(),
 		BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
@@ -1363,13 +1364,13 @@ func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
 		s.mockStorageClass.EXPECT().Get("some-storage", v1.GetOptions{}).
 			Return(sc, nil),
 	)
-	result, err := s.broker.Bootstrap(ctx, callCtx, bootstrapParams)
+	result, err := s.broker.Bootstrap(context.Background(), ctx, callCtx, bootstrapParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "amd64")
 	c.Assert(result.CaasBootstrapFinalizer, gc.NotNil)
 
 	bootstrapParams.BootstrapSeries = "bionic"
-	result, err = s.broker.Bootstrap(ctx, callCtx, bootstrapParams)
+	result, err = s.broker.Bootstrap(context.Background(), ctx, callCtx, bootstrapParams)
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
 
@@ -1777,12 +1778,12 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 
 func (s *K8sBrokerSuite) TestDestroyController(c *gc.C) {
 	s.assertDestroy(c, true, func() error {
-		return s.broker.DestroyController(context.NewCloudCallContext(), testing.ControllerTag.Id())
+		return s.broker.DestroyController(envcontext.NewCloudCallContext(), testing.ControllerTag.Id())
 	})
 }
 
 func (s *K8sBrokerSuite) TestDestroy(c *gc.C) {
-	s.assertDestroy(c, false, func() error { return s.broker.Destroy(context.NewCloudCallContext()) })
+	s.assertDestroy(c, false, func() error { return s.broker.Destroy(envcontext.NewCloudCallContext()) })
 }
 
 func (s *K8sBrokerSuite) TestGetCurrentNamespace(c *gc.C) {
@@ -1807,7 +1808,7 @@ func (s *K8sBrokerSuite) TestCreate(c *gc.C) {
 	)
 
 	err := s.broker.Create(
-		&context.CloudCallContext{},
+		&envcontext.CloudCallContext{},
 		environs.CreateParams{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1829,7 +1830,7 @@ func (s *K8sBrokerSuite) TestCreateAlreadyExists(c *gc.C) {
 	)
 
 	err := s.broker.Create(
-		&context.CloudCallContext{},
+		&envcontext.CloudCallContext{},
 		environs.CreateParams{},
 	)
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)

@@ -4,6 +4,8 @@
 package gce_test
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -77,7 +79,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 		ControllerConfig:         testing.FakeControllerConfig(),
 		SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 	}
-	result, err := s.Env.Bootstrap(ctx, s.CallCtx, params)
+	result, err := s.Env.Bootstrap(context.Background(), ctx, s.CallCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(result.Arch, gc.Equals, "amd64")
@@ -93,7 +95,7 @@ func (s *environSuite) TestBootstrapInvalidCredentialError(c *gc.C) {
 		ControllerConfig:         testing.FakeControllerConfig(),
 		SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 	}
-	_, err := s.Env.Bootstrap(envtesting.BootstrapContext(c), s.CallCtx, params)
+	_, err := s.Env.Bootstrap(context.Background(), envtesting.BootstrapContext(c), s.CallCtx, params)
 	c.Check(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
@@ -121,7 +123,7 @@ func (s *environSuite) checkAPIPorts(c *gc.C, config controller.Config, expected
 		ControllerConfig:         config,
 		SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 	}
-	_, err := s.Env.Bootstrap(ctx, s.CallCtx, params)
+	_, err := s.Env.Bootstrap(context.Background(), ctx, s.CallCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 
 	called, calls := s.FakeConn.WasCalled("OpenPorts")
@@ -142,7 +144,7 @@ func (s *environSuite) TestBootstrapCommon(c *gc.C) {
 		ControllerConfig:         testing.FakeControllerConfig(),
 		SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 	}
-	_, err := s.Env.Bootstrap(ctx, s.CallCtx, params)
+	_, err := s.Env.Bootstrap(context.Background(), ctx, s.CallCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.FakeCommon.CheckCalls(c, []gce.FakeCall{{

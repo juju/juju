@@ -5,6 +5,7 @@ package openstack_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
@@ -50,7 +51,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
@@ -294,7 +295,7 @@ type localServerSuite struct {
 	toolsMetadataStorage envstorage.Storage
 	imageMetadataStorage envstorage.Storage
 	storageAdapter       *mockAdapter
-	callCtx              context.ProviderCallContext
+	callCtx              envcontext.ProviderCallContext
 }
 
 func (s *localServerSuite) SetUpSuite(c *gc.C) {
@@ -336,7 +337,7 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	openstack.UseTestImageData(s.imageMetadataStorage, s.cred)
 	s.storageAdapter = makeMockAdapter()
 	overrideCinderProvider(&s.CleanupSuite, s.storageAdapter)
-	s.callCtx = context.NewCloudCallContext()
+	s.callCtx = envcontext.NewCloudCallContext()
 }
 
 func (s *localServerSuite) TearDownTest(c *gc.C) {
@@ -404,7 +405,7 @@ func (s *localServerSuite) TestAddressesWithPublicIP(c *gc.C) {
 		ctx environs.BootstrapContext,
 		client ssh.Client,
 		env environs.Environ,
-		callCtx context.ProviderCallContext,
+		callCtx envcontext.ProviderCallContext,
 		inst instances.Instance,
 		instanceConfig *instancecfg.InstanceConfig,
 		_ environs.BootstrapDialOpts,
@@ -437,7 +438,7 @@ func (s *localServerSuite) TestAddressesWithoutPublicIP(c *gc.C) {
 		ctx environs.BootstrapContext,
 		client ssh.Client,
 		env environs.Environ,
-		callCtx context.ProviderCallContext,
+		callCtx envcontext.ProviderCallContext,
 		inst instances.Instance,
 		instanceConfig *instancecfg.InstanceConfig,
 		_ environs.BootstrapDialOpts,
@@ -844,7 +845,7 @@ func assertPorts(c *gc.C, env environs.Environ, expected []portAssertion) {
 	}
 }
 
-func assertInstanceIds(c *gc.C, env environs.Environ, callCtx context.ProviderCallContext, expected ...instance.Id) {
+func assertInstanceIds(c *gc.C, env environs.Environ, callCtx envcontext.ProviderCallContext, expected ...instance.Id) {
 	allInstances, err := env.AllRunningInstances(callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	instIds := make([]instance.Id, len(allInstances))
@@ -2015,7 +2016,7 @@ type localHTTPSServerSuite struct {
 	cred    *identity.Credentials
 	srv     localServer
 	env     environs.Environ
-	callCtx context.ProviderCallContext
+	callCtx envcontext.ProviderCallContext
 }
 
 var _ = gc.Suite(&localHTTPSServerSuite{})
@@ -2072,7 +2073,7 @@ func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env.(environs.Environ)
 	s.attrs = s.env.Config().AllAttrs()
-	s.callCtx = context.NewCloudCallContext()
+	s.callCtx = envcontext.NewCloudCallContext()
 }
 
 func (s *localHTTPSServerSuite) TearDownTest(c *gc.C) {
@@ -2877,7 +2878,7 @@ func (s *localServerSuite) TestAdoptResourcesNoStorage(c *gc.C) {
 }
 
 func addVolume(
-	c *gc.C, env environs.Environ, callCtx context.ProviderCallContext, controllerUUID, name string,
+	c *gc.C, env environs.Environ, callCtx envcontext.ProviderCallContext, controllerUUID, name string,
 ) *storage.Volume {
 	storageAdapter, err := (*openstack.NewOpenstackStorage)(env.(*openstack.Environ))
 	c.Assert(err, jc.ErrorIsNil)
@@ -3188,8 +3189,8 @@ func newNovaNetworkingOpenstackService(cred *identity.Credentials, auth identity
 }
 
 func bootstrapEnv(c *gc.C, env environs.Environ) error {
-	return bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
-		context.NewCloudCallContext(),
+	return bootstrap.Bootstrap(context.Background(), envtesting.BootstrapContext(c), env,
+		envcontext.NewCloudCallContext(),
 		bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              testing.AdminSecret,

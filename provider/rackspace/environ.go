@@ -4,6 +4,7 @@
 package rackspace
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"time"
@@ -15,7 +16,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -26,15 +27,15 @@ type environ struct {
 var bootstrap = common.Bootstrap
 
 // Bootstrap implements environs.Environ.
-func (e environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
+func (e environ) Bootstrap(ctx context.Context, cmdCtx environs.BootstrapContext, callCtx envcontext.ProviderCallContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	// can't redirect to openstack provider as usually, because correct environ should be passed for common.Bootstrap
-	return bootstrap(ctx, e, callCtx, params)
+	return bootstrap(ctx, cmdCtx, e, callCtx, params)
 }
 
 var waitSSH = common.WaitSSH
 
 // StartInstance implements environs.Environ.
-func (e environ) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (e environ) StartInstance(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	osString, err := series.GetOSFromSeries(args.Tools.OneSeries())
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -927,7 +927,7 @@ func (e *environSuite) TestBootstrap(c *gc.C) {
 	e.setupStartInstanceExpectations(true)
 
 	ctx := envtesting.BootstrapContext(c)
-	_, err := e.env.Bootstrap(ctx, nil,
+	_, err := e.env.Bootstrap(context.Background(), ctx, nil,
 		environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
 			AvailableTools:           makeToolsList("trusty"),
@@ -956,7 +956,7 @@ func (e *environSuite) TestBootstrapNoMatchingTools(c *gc.C) {
 	e.setupListSubnetsExpectations(vcnId, "fakeRouteTableId", machineTags, 0)
 
 	ctx := envtesting.BootstrapContext(c)
-	_, err := e.env.Bootstrap(ctx, nil,
+	_, err := e.env.Bootstrap(context.Background(), ctx, nil,
 		environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
 			AvailableTools:           makeToolsList("trusty"),

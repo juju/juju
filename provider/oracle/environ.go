@@ -4,6 +4,7 @@
 package oracle
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -30,7 +31,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	envinstance "github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/provider/common"
@@ -81,14 +82,14 @@ type EnvironAPI interface {
 }
 
 // AvailabilityZones is defined in the common.ZonedEnviron interface
-func (o *OracleEnviron) AvailabilityZones(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
+func (o *OracleEnviron) AvailabilityZones(ctx envcontext.ProviderCallContext) ([]common.AvailabilityZone, error) {
 	return []common.AvailabilityZone{
 		oraclenet.NewAvailabilityZone("default"),
 	}, nil
 }
 
 // InstanceAvailabilityzoneNames is defined in the common.ZonedEnviron interface
-func (o *OracleEnviron) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
+func (o *OracleEnviron) InstanceAvailabilityZoneNames(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]string, error) {
 	instances, err := o.Instances(ctx, ids)
 	if err != nil && err != environs.ErrPartialInstances {
 		return nil, err
@@ -143,12 +144,12 @@ func (o *OracleEnviron) PrepareForBootstrap(ctx environs.BootstrapContext, contr
 }
 
 // Bootstrap is part of the Environ interface.
-func (o *OracleEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	return common.Bootstrap(ctx, o, callCtx, args)
+func (o *OracleEnviron) Bootstrap(ctx context.Context, cmdCtx environs.BootstrapContext, callCtx envcontext.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
+	return common.Bootstrap(ctx, cmdCtx, o, callCtx, args)
 }
 
 // Create is part of the Environ interface.
-func (o *OracleEnviron) Create(ctx context.ProviderCallContext, params environs.CreateParams) error {
+func (o *OracleEnviron) Create(ctx envcontext.ProviderCallContext, params environs.CreateParams) error {
 	if err := o.client.Authenticate(); err != nil {
 		return errors.Trace(err)
 	}
@@ -157,7 +158,7 @@ func (o *OracleEnviron) Create(ctx context.ProviderCallContext, params environs.
 }
 
 // AdoptResources is part of the Environ interface.
-func (e *OracleEnviron) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
+func (e *OracleEnviron) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
 	//TODO (gsamfira): Implement AdoptResources. Controller tag for all resources needs to
 	// be changed
 	return nil
@@ -209,7 +210,7 @@ func (e *OracleEnviron) getCloudInitConfig(series string, networks map[string]oc
 //
 // shamelessly copied from the MAAS provider
 func (e *OracleEnviron) buildSpacesMap(
-	ctx context.ProviderCallContext,
+	ctx envcontext.ProviderCallContext,
 ) (map[string]network.SpaceInfo, map[string]string, error) {
 	empty := set.Strings{}
 	providerIdMap := map[string]string{}
@@ -235,7 +236,7 @@ func (e *OracleEnviron) buildSpacesMap(
 }
 
 func (e *OracleEnviron) getInstanceNetworks(
-	ctx context.ProviderCallContext,
+	ctx envcontext.ProviderCallContext,
 	args environs.StartInstanceParams,
 	secLists, vnicSets []string,
 ) (map[string]oci.Networker, error) {
@@ -318,7 +319,7 @@ func (e *OracleEnviron) getInstanceNetworks(
 }
 
 // StartInstance is part of the InstanceBroker interface.
-func (o *OracleEnviron) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (o *OracleEnviron) StartInstance(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	if args.ControllerUUID == "" {
 		return nil, errors.NotFoundf("Controller UUID")
 	}
@@ -486,7 +487,7 @@ func (o *OracleEnviron) StartInstance(ctx context.ProviderCallContext, args envi
 }
 
 // StopInstances is part of the InstanceBroker interface.
-func (o *OracleEnviron) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
+func (o *OracleEnviron) StopInstances(ctx envcontext.ProviderCallContext, ids ...instance.Id) error {
 	oracleInstances, err := o.getOracleInstances(ids...)
 	if err == environs.ErrNoInstances {
 		return nil
@@ -594,7 +595,7 @@ func (o *OracleEnviron) getOracleInstancesAsMap(ids ...instance.Id) (map[string]
 }
 
 // AllInstances is part of the InstanceBroker interface.
-func (o *OracleEnviron) AllInstances(ctx context.ProviderCallContext) ([]envinstance.Instance, error) {
+func (o *OracleEnviron) AllInstances(ctx envcontext.ProviderCallContext) ([]envinstance.Instance, error) {
 	tagFilter := tagValue{tags.JujuModel, o.Config().UUID()}
 	all, err := o.allInstances(tagFilter)
 	if err != nil {
@@ -609,7 +610,7 @@ func (o *OracleEnviron) AllInstances(ctx context.ProviderCallContext) ([]envinst
 }
 
 // AllRunningInstances is part of the InstanceBroker interface.
-func (o *OracleEnviron) AllRunningInstances(ctx context.ProviderCallContext) ([]envinstance.Instance, error) {
+func (o *OracleEnviron) AllRunningInstances(ctx envcontext.ProviderCallContext) ([]envinstance.Instance, error) {
 	// o.allInstances(...) already handles all instances irrespective of the state, so
 	// here 'all' is also 'all running'.
 	return o.AllInstances(ctx)
@@ -642,7 +643,7 @@ func (o *OracleEnviron) allInstances(tagFilter tagValue) ([]*oracleInstance, err
 }
 
 // MaintainInstance is part of the InstanceBroker interface.
-func (o *OracleEnviron) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
+func (o *OracleEnviron) MaintainInstance(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) error {
 	return nil
 }
 
@@ -654,7 +655,7 @@ func (o *OracleEnviron) Config() *config.Config {
 }
 
 // ConstraintsValidator is part of the environs.Environ interface.
-func (o *OracleEnviron) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
+func (o *OracleEnviron) ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error) {
 	// list of unsupported oracle provider constraints
 	unsupportedConstraints := []string{
 		constraints.Container,
@@ -699,7 +700,7 @@ func (o *OracleEnviron) Details(id instance.Id) (ociResponse.Instance, error) {
 }
 
 // Instances is part of the environs.Environ interface.
-func (o *OracleEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]envinstance.Instance, error) {
+func (o *OracleEnviron) Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]envinstance.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -716,7 +717,7 @@ func (o *OracleEnviron) Instances(ctx context.ProviderCallContext, ids []instanc
 }
 
 // ControllerInstances is part of the environs.Environ interface.
-func (o *OracleEnviron) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
+func (o *OracleEnviron) ControllerInstances(ctx envcontext.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
 	instances, err := o.allControllerManagedInstances(controllerUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -746,12 +747,12 @@ func (o *OracleEnviron) ControllerInstances(ctx context.ProviderCallContext, con
 }
 
 // Destroy is part of the environs.Environ interface.
-func (o *OracleEnviron) Destroy(ctx context.ProviderCallContext) error {
+func (o *OracleEnviron) Destroy(ctx envcontext.ProviderCallContext) error {
 	return common.Destroy(o, ctx)
 }
 
 // DestroyController is part of the environs.Environ interface.
-func (o *OracleEnviron) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
+func (o *OracleEnviron) DestroyController(ctx envcontext.ProviderCallContext, controllerUUID string) error {
 	err := o.Destroy(ctx)
 	if err != nil {
 		logger.Errorf("Failed to destroy environment through controller: %s", errors.Trace(err))
@@ -776,12 +777,12 @@ func (o *OracleEnviron) Provider() environs.EnvironProvider {
 }
 
 // PrecheckInstance is part of the environs.Environ interface.
-func (o *OracleEnviron) PrecheckInstance(context.ProviderCallContext, environs.PrecheckInstanceParams) error {
+func (o *OracleEnviron) PrecheckInstance(envcontext.ProviderCallContext, environs.PrecheckInstanceParams) error {
 	return nil
 }
 
 // InstanceTypes is part of the environs.InstanceTypesFetcher interface.
-func (o *OracleEnviron) InstanceTypes(context.ProviderCallContext, constraints.Value) (envinstance.InstanceTypesWithCostMetadata, error) {
+func (o *OracleEnviron) InstanceTypes(envcontext.ProviderCallContext, constraints.Value) (envinstance.InstanceTypesWithCostMetadata, error) {
 	var i envinstance.InstanceTypesWithCostMetadata
 	return i, nil
 }

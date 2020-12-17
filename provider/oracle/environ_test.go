@@ -4,6 +4,7 @@
 package oracle_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -18,7 +19,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/oracle"
 	oracletesting "github.com/juju/juju/provider/oracle/testing"
@@ -30,7 +31,7 @@ type environSuite struct {
 	gitjujutesting.IsolationSuite
 	env *oracle.OracleEnviron
 
-	callCtx context.ProviderCallContext
+	callCtx envcontext.ProviderCallContext
 }
 
 func (e *environSuite) SetUpTest(c *gc.C) {
@@ -54,7 +55,7 @@ func (e *environSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	testEnvironAPI.FakeInstance.All.Result[0].Name = fmt.Sprintf("/Compute-a432100/sgiulitti@cloudbase.com/%s/ebc4ce91-56bb-4120-ba78-13762597f837", hostname)
 	oracle.SetEnvironAPI(e.env, testEnvironAPI)
-	e.callCtx = context.NewCloudCallContext()
+	e.callCtx = envcontext.NewCloudCallContext()
 }
 
 var _ = gc.Suite(&environSuite{})
@@ -171,7 +172,7 @@ func (e *environSuite) TestBootstrap(c *gc.C) {
 	c.Assert(environ, gc.NotNil)
 
 	ctx := envtesting.BootstrapContext(c)
-	_, err = environ.Bootstrap(ctx, e.callCtx,
+	_, err = environ.Bootstrap(context.Background(), ctx, e.callCtx,
 		environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
 			AvailableTools:           makeToolsList("xenial"),

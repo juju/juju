@@ -4,6 +4,7 @@
 package azure_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -38,7 +39,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/sync"
@@ -117,7 +118,7 @@ type environSuite struct {
 	sshPublicKeys      []compute.SSHPublicKey
 	linuxOsProfile     compute.OSProfile
 
-	callCtx               *context.CloudCallContext
+	callCtx               *envcontext.CloudCallContext
 	invalidatedCredential bool
 }
 
@@ -281,7 +282,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
-	s.callCtx = &context.CloudCallContext{
+	s.callCtx = &envcontext.CloudCallContext{
 		InvalidateCredentialFunc: func(string) error {
 			s.invalidatedCredential = true
 			return nil
@@ -1296,7 +1297,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	s.sender = append(s.sender, s.startInstanceSenders(true)...)
 	s.requests = nil
 	result, err := env.Bootstrap(
-		ctx, s.callCtx, environs.BootstrapParams{
+		context.Background(), ctx, s.callCtx, environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
 			AvailableTools:           makeToolsList("bionic"),
 			BootstrapSeries:          "bionic",
@@ -1331,7 +1332,7 @@ func (s *environSuite) TestBootstrapWithInvalidCredential(c *gc.C) {
 
 	c.Assert(s.invalidatedCredential, jc.IsFalse)
 	_, err := env.Bootstrap(
-		ctx, s.callCtx, environs.BootstrapParams{
+		context.Background(), ctx, s.callCtx, environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
 			AvailableTools:           makeToolsList("bionic"),
 			BootstrapSeries:          "bionic",
@@ -1360,7 +1361,7 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 	s.sender = append(s.sender, s.startInstanceSendersNoSizes()...)
 	s.requests = nil
 	err := bootstrap.Bootstrap(
-		ctx, env, s.callCtx, bootstrap.BootstrapParams{
+		context.Background(), ctx, env, s.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig: testing.FakeControllerConfig(),
 			AdminSecret:      jujutesting.AdminSecret,
 			CAPrivateKey:     testing.CAKey,
@@ -1411,7 +1412,7 @@ func (s *environSuite) TestBootstrapCustomResourceGroup(c *gc.C) {
 	s.sender = append(s.sender, s.startInstanceSendersNoSizes()...)
 	s.requests = nil
 	err := bootstrap.Bootstrap(
-		ctx, env, s.callCtx, bootstrap.BootstrapParams{
+		context.Background(), ctx, env, s.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig: testing.FakeControllerConfig(),
 			AdminSecret:      jujutesting.AdminSecret,
 			CAPrivateKey:     testing.CAKey,
@@ -1462,7 +1463,7 @@ func (s *environSuite) TestBootstrapWithAutocert(c *gc.C) {
 	config["api-port"] = 443
 	config["autocert-dns-name"] = "example.com"
 	result, err := env.Bootstrap(
-		ctx, s.callCtx, environs.BootstrapParams{
+		context.Background(), ctx, s.callCtx, environs.BootstrapParams{
 			ControllerConfig:         config,
 			AvailableTools:           makeToolsList("bionic"),
 			BootstrapSeries:          "bionic",
@@ -1745,7 +1746,7 @@ func (s *environSuite) TestConstraintsValidatorMerge(c *gc.C) {
 func (s *environSuite) constraintsValidator(c *gc.C) constraints.Validator {
 	env := s.openEnviron(c)
 	s.sender = azuretesting.Senders{s.resourceSkusSender()}
-	validator, err := env.ConstraintsValidator(context.NewCloudCallContext())
+	validator, err := env.ConstraintsValidator(envcontext.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 	return validator
 }

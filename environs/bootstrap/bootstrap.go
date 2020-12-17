@@ -4,6 +4,7 @@
 package bootstrap
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"io"
@@ -31,7 +32,7 @@ import (
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/gui"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -226,9 +227,10 @@ func withDefaultCAASControllerConstraints(cons constraints.Value) constraints.Va
 }
 
 func bootstrapCAAS(
-	ctx environs.BootstrapContext,
+	ctx context.Context,
+	cmdCtx environs.BootstrapContext,
 	environ environs.BootstrapEnviron,
-	callCtx context.ProviderCallContext,
+	callCtx envcontext.ProviderCallContext,
 	args BootstrapParams,
 	bootstrapParams environs.BootstrapParams,
 ) error {
@@ -255,7 +257,7 @@ func bootstrapCAAS(
 	bootstrapConstraints = withDefaultCAASControllerConstraints(bootstrapConstraints)
 	bootstrapParams.BootstrapConstraints = bootstrapConstraints
 
-	result, err := environ.Bootstrap(ctx, callCtx, bootstrapParams)
+	result, err := environ.Bootstrap(ctx, cmdCtx, callCtx, bootstrapParams)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -280,19 +282,20 @@ func bootstrapCAAS(
 	}
 	podConfig.JujuVersion = jujuVersion
 	podConfig.OfficialBuild = jujuversion.OfficialBuild
-	if err := finalizePodBootstrapConfig(ctx, podConfig, args, environ.Config()); err != nil {
+	if err := finalizePodBootstrapConfig(cmdCtx, podConfig, args, environ.Config()); err != nil {
 		return errors.Annotate(err, "finalizing bootstrap instance config")
 	}
-	if err := result.CaasBootstrapFinalizer(ctx, podConfig, args.DialOpts); err != nil {
+	if err := result.CaasBootstrapFinalizer(cmdCtx, podConfig, args.DialOpts); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
 }
 
 func bootstrapIAAS(
-	ctx environs.BootstrapContext,
+	ctx context.Context,
+	cmdCtx environs.BootstrapContext,
 	environ environs.BootstrapEnviron,
-	callCtx context.ProviderCallContext,
+	callCtx envcontext.ProviderCallContext,
 	args BootstrapParams,
 	bootstrapParams environs.BootstrapParams,
 ) error {
@@ -375,7 +378,7 @@ func bootstrapIAAS(
 		}
 	}
 
-	ctx.Verbosef("Loading image metadata")
+	cmdCtx.Verbosef("Loading image metadata")
 	imageMetadata, err := bootstrapImageMetadata(environ,
 		bootstrapSeries,
 		bootstrapArchForImageSearch,
@@ -447,7 +450,7 @@ func bootstrapIAAS(
 			latestPatchTxt = "latest patch of "
 			versionTxt = fmt.Sprintf("%v.%v", agentVersion.Major, agentVersion.Minor)
 		}
-		ctx.Infof("Looking for %vpackaged Juju agent version %s for %s", latestPatchTxt, versionTxt, bootstrapArch)
+		cmdCtx.Infof("Looking for %vpackaged Juju agent version %s for %s", latestPatchTxt, versionTxt, bootstrapArch)
 		availableTools, err = findPackagedTools(environ, args.AgentVersion, &bootstrapArch, bootstrapSeries)
 		if err != nil && !errors.IsNotFound(err) {
 			return err
@@ -469,9 +472,9 @@ func bootstrapIAAS(
 			return err
 		}
 		if args.BuildAgent {
-			ctx.Infof("Building local Juju agent binary version %s for %s", args.AgentVersion, bootstrapArch)
+			cmdCtx.Infof("Building local Juju agent binary version %s for %s", args.AgentVersion, bootstrapArch)
 		} else {
-			ctx.Infof("No packaged binary found, preparing local Juju agent binary")
+			cmdCtx.Infof("No packaged binary found, preparing local Juju agent binary")
 		}
 		var forceVersion version.Number
 		availableTools, forceVersion = locallyBuildableTools(bootstrapSeries)
@@ -534,9 +537,9 @@ func bootstrapIAAS(
 		return errors.Trace(err)
 	}
 
-	ctx.Verbosef("Starting new instance for initial controller")
+	cmdCtx.Verbosef("Starting new instance for initial controller")
 
-	result, err := environ.Bootstrap(ctx, callCtx, bootstrapParams)
+	result, err := environ.Bootstrap(ctx, cmdCtx, callCtx, bootstrapParams)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -577,7 +580,7 @@ func bootstrapIAAS(
 		return errors.Trace(err)
 	}
 
-	ctx.Infof("Installing Juju agent on bootstrap instance")
+	cmdCtx.Infof("Installing Juju agent on bootstrap instance")
 	if err := instanceConfig.SetTools(selectedToolsList); err != nil {
 		return errors.Trace(err)
 	}
@@ -593,11 +596,11 @@ func bootstrapIAAS(
 	// Make sure we have the most recent environ config as the specified
 	// tools version has been updated there.
 	if err := finalizeInstanceBootstrapConfig(
-		ctx, instanceConfig, args, environ.Config(), environVersion, customImageMetadata,
+		cmdCtx, instanceConfig, args, environ.Config(), environVersion, customImageMetadata,
 	); err != nil {
 		return errors.Annotate(err, "finalizing bootstrap instance config")
 	}
-	if err := result.CloudBootstrapFinalizer(ctx, instanceConfig, args.DialOpts); err != nil {
+	if err := result.CloudBootstrapFinalizer(cmdCtx, instanceConfig, args.DialOpts); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -607,9 +610,10 @@ func bootstrapIAAS(
 // used to provision the instance, and are also set within the bootstrapped
 // environment.
 func Bootstrap(
-	ctx environs.BootstrapContext,
+	ctx context.Context,
+	cmdCtx environs.BootstrapContext,
 	environ environs.BootstrapEnviron,
-	callCtx context.ProviderCallContext,
+	callCtx envcontext.ProviderCallContext,
 	args BootstrapParams,
 ) error {
 	if err := args.Validate(); err != nil {
@@ -631,10 +635,10 @@ func Bootstrap(
 		doBootstrap = bootstrapCAAS
 	}
 
-	if err := doBootstrap(ctx, environ, callCtx, args, bootstrapParams); err != nil {
+	if err := doBootstrap(ctx, cmdCtx, environ, callCtx, args, bootstrapParams); err != nil {
 		return errors.Trace(err)
 	}
-	ctx.Infof("Bootstrap agent now started")
+	cmdCtx.Infof("Bootstrap agent now started")
 	return nil
 }
 

@@ -306,8 +306,8 @@ func (e *Environ) PrepareForBootstrap(ctx environs.BootstrapContext, controllerN
 }
 
 // Bootstrap implements environs.Environ.
-func (e *Environ) Bootstrap(ctx environs.BootstrapContext, callCtx envcontext.ProviderCallContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	return common.Bootstrap(ctx, e, callCtx, params)
+func (e *Environ) Bootstrap(ctx context.Context, cmdCtx environs.BootstrapContext, callCtx envcontext.ProviderCallContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
+	return common.Bootstrap(ctx, cmdCtx, e, callCtx, params)
 }
 
 // Create implements environs.Environ.

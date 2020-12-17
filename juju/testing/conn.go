@@ -4,6 +4,7 @@
 package testing
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -42,7 +43,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
@@ -128,7 +129,7 @@ type JujuConnSuite struct {
 	oldJujuXDGDataHome  string
 	DummyConfig         testing.Attrs
 	Factory             *factory.Factory
-	ProviderCallContext context.ProviderCallContext
+	ProviderCallContext envcontext.ProviderCallContext
 
 	idleFuncMutex       *sync.Mutex
 	txnSyncNotify       chan struct{}
@@ -569,8 +570,8 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	// Dummy provider uses a random port, which is added to cfg used to create environment.
 	apiPort := dummy.APIPort(environ.Provider())
 	s.ControllerConfig["api-port"] = apiPort
-	s.ProviderCallContext = context.NewCloudCallContext()
-	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), environ, s.ProviderCallContext, bootstrap.BootstrapParams{
+	s.ProviderCallContext = envcontext.NewCloudCallContext()
+	err = bootstrap.Bootstrap(context.Background(), modelcmd.BootstrapContext(ctx), environ, s.ProviderCallContext, bootstrap.BootstrapParams{
 		ControllerConfig: s.ControllerConfig,
 		CloudRegion:      "dummy-region",
 		Cloud: cloud.Cloud{

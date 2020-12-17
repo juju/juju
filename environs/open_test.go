@@ -4,6 +4,8 @@
 package environs_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -14,7 +16,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -68,7 +70,7 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
 	envtesting.UploadFakeTools(c, stor, cfg.AgentStream(), cfg.AgentStream())
-	err = bootstrap.Bootstrap(ctx, env, context.NewCloudCallContext(), bootstrap.BootstrapParams{
+	err = bootstrap.Bootstrap(context.Background(), ctx, env, envcontext.NewCloudCallContext(), bootstrap.BootstrapParams{
 		ControllerConfig:         controllerCfg,
 		AdminSecret:              "admin-secret",
 		CAPrivateKey:             testing.CAKey,
@@ -137,7 +139,7 @@ func (*OpenSuite) TestNew(c *gc.C) {
 		Config: cfg,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = e.ControllerInstances(context.NewCloudCallContext(), "uuid")
+	_, err = e.ControllerInstances(envcontext.NewCloudCallContext(), "uuid")
 	c.Assert(err, gc.ErrorMatches, "model is not prepared")
 }
 
@@ -166,7 +168,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	_, err = store.ControllerByName("controller-name")
 	c.Assert(err, jc.ErrorIsNil)
 
-	callCtx := context.NewCloudCallContext()
+	callCtx := envcontext.NewCloudCallContext()
 	err = environs.Destroy("controller-name", e, callCtx, store)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -181,7 +183,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 func (*OpenSuite) TestDestroyNotFound(c *gc.C) {
 	var env destroyControllerEnv
 	store := jujuclient.NewMemStore()
-	err := environs.Destroy("fnord", &env, context.NewCloudCallContext(), store)
+	err := environs.Destroy("fnord", &env, envcontext.NewCloudCallContext(), store)
 	c.Assert(err, jc.ErrorIsNil)
 	env.CheckCallNames(c) // no controller details, no call
 }
@@ -191,7 +193,7 @@ type destroyControllerEnv struct {
 	gitjujutesting.Stub
 }
 
-func (e *destroyControllerEnv) DestroyController(ctx context.ProviderCallContext, uuid string) error {
+func (e *destroyControllerEnv) DestroyController(ctx envcontext.ProviderCallContext, uuid string) error {
 	e.MethodCall(e, "DestroyController", ctx, uuid)
 	return e.NextErr()
 }

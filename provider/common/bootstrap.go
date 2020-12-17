@@ -5,6 +5,7 @@ package common
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -34,7 +35,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
@@ -47,12 +48,13 @@ var logger = loggo.GetLogger("juju.provider.common")
 // environs.Environ; we strongly recommend that this implementation be used
 // when writing a new provider.
 func Bootstrap(
-	ctx environs.BootstrapContext,
+	ctx context.Context,
+	cmdCtx environs.BootstrapContext,
 	env environs.Environ,
-	callCtx context.ProviderCallContext,
+	callCtx envcontext.ProviderCallContext,
 	args environs.BootstrapParams,
 ) (*environs.BootstrapResult, error) {
-	result, series, finalizer, err := BootstrapInstance(ctx, env, callCtx, args)
+	result, series, finalizer, err := BootstrapInstance(cmdCtx, env, callCtx, args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -75,7 +77,7 @@ func Bootstrap(
 func BootstrapInstance(
 	ctx environs.BootstrapContext,
 	env environs.Environ,
-	callCtx context.ProviderCallContext,
+	callCtx envcontext.ProviderCallContext,
 	args environs.BootstrapParams,
 ) (_ *environs.StartInstanceResult, selectedSeries string, _ environs.CloudBootstrapFinalizer, err error) {
 	// TODO make safe in the case of racing Bootstraps
@@ -244,6 +246,7 @@ func BootstrapInstance(
 	for i, zone := range zones {
 		startInstanceArgs.AvailabilityZone = zone
 		result, err = env.StartInstance(callCtx, startInstanceArgs)
+		// TODO(benhoyt) - put ctx.Done() check here
 		if err == nil {
 			break
 		}
@@ -294,7 +297,7 @@ func BootstrapInstance(
 	return result, selectedSeries, finalizer, nil
 }
 
-func startInstanceZones(env environs.Environ, ctx context.ProviderCallContext, args environs.StartInstanceParams) ([]string, error) {
+func startInstanceZones(env environs.Environ, ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) ([]string, error) {
 	zonedEnviron, ok := env.(ZonedEnviron)
 	if !ok {
 		return nil, errors.NotImplementedf("ZonedEnviron")
@@ -358,7 +361,7 @@ var FinishBootstrap = func(
 	ctx environs.BootstrapContext,
 	client ssh.Client,
 	env environs.Environ,
-	callCtx context.ProviderCallContext,
+	callCtx envcontext.ProviderCallContext,
 	inst instances.Instance,
 	instanceConfig *instancecfg.InstanceConfig,
 	opts environs.BootstrapDialOpts,
@@ -368,6 +371,7 @@ var FinishBootstrap = func(
 	defer ctx.StopInterruptNotify(interrupted)
 
 	hostSSHOptions := bootstrapSSHOptionsFunc(instanceConfig)
+	// TODO(benhoyt) - use ctx here instead of "interrupted" channel
 	addr, err := WaitSSH(
 		ctx.GetStderr(),
 		interrupted,
@@ -452,6 +456,7 @@ func ConfigureMachine(
 	}
 	script := shell.DumpFileOnErrorScript(instanceConfig.CloudInitOutputLog) + configScript
 	ctx.Infof("Running machine configuration script...")
+	// TODO(benhoyt) - add ctx here?
 	return sshinit.RunConfigureScript(script, sshinit.ConfigureParams{
 		Host:           "ubuntu@" + host,
 		Client:         client,
@@ -534,16 +539,16 @@ func hostBootstrapSSHOptions(
 // for waiting for SSH access to become available.
 type InstanceRefresher interface {
 	// Refresh refreshes the addresses for the instance.
-	Refresh(ctx context.ProviderCallContext) error
+	Refresh(ctx envcontext.ProviderCallContext) error
 
 	// Addresses returns the addresses for the instance.
 	// To ensure that the results are up to date, call
 	// Refresh first.
-	Addresses(ctx context.ProviderCallContext) (network.ProviderAddresses, error)
+	Addresses(ctx envcontext.ProviderCallContext) (network.ProviderAddresses, error)
 
 	// Status returns the provider-specific status for the
 	// instance.
-	Status(ctx context.ProviderCallContext) instance.Status
+	Status(ctx envcontext.ProviderCallContext) instance.Status
 }
 
 type RefreshableInstance struct {
@@ -552,7 +557,7 @@ type RefreshableInstance struct {
 }
 
 // Refresh refreshes the addresses for the instance.
-func (i *RefreshableInstance) Refresh(ctx context.ProviderCallContext) error {
+func (i *RefreshableInstance) Refresh(ctx envcontext.ProviderCallContext) error {
 	instances, err := i.Env.Instances(ctx, []instance.Id{i.Id()})
 	if err != nil {
 		return errors.Trace(err)
@@ -707,7 +712,7 @@ func WaitSSH(
 	client ssh.Client,
 	checkHostScript string,
 	inst InstanceRefresher,
-	ctx context.ProviderCallContext,
+	ctx envcontext.ProviderCallContext,
 	opts environs.BootstrapDialOpts,
 	hostSSHOptions HostSSHOptionsFunc,
 ) (addr string, err error) {

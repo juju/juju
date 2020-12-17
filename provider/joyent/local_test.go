@@ -4,6 +4,7 @@
 package joyent_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 
@@ -17,7 +18,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/jujutest"
@@ -116,7 +117,7 @@ type localServerSuite struct {
 	jujutest.Tests
 	cSrv localCloudAPIServer
 
-	callCtx context.ProviderCallContext
+	callCtx envcontext.ProviderCallContext
 }
 
 func (s *localServerSuite) SetUpSuite(c *gc.C) {
@@ -152,7 +153,7 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	joyent.UseExternalTestImageMetadata(c, creds)
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test://host")
 
-	s.callCtx = context.NewCloudCallContext()
+	s.callCtx = envcontext.NewCloudCallContext()
 }
 
 func (s *localServerSuite) TearDownTest(c *gc.C) {
@@ -170,7 +171,7 @@ func bootstrapContext(c *gc.C) environs.BootstrapContext {
 // allocate a public address.
 func (s *localServerSuite) TestStartInstance(c *gc.C) {
 	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env,
+	err := bootstrap.Bootstrap(context.Background(), bootstrapContext(c), env,
 		s.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              testing.AdminSecret,
@@ -185,7 +186,7 @@ func (s *localServerSuite) TestStartInstance(c *gc.C) {
 
 func (s *localServerSuite) TestStartInstanceAvailabilityZone(c *gc.C) {
 	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env,
+	err := bootstrap.Bootstrap(context.Background(), bootstrapContext(c), env,
 		s.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              testing.AdminSecret,
@@ -202,7 +203,7 @@ func (s *localServerSuite) TestStartInstanceAvailabilityZone(c *gc.C) {
 
 func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env,
+	err := bootstrap.Bootstrap(context.Background(), bootstrapContext(c), env,
 		s.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              testing.AdminSecret,
@@ -318,7 +319,7 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 // It should be moved to environs.jujutests.Tests.
 func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env,
+	err := bootstrap.Bootstrap(context.Background(), bootstrapContext(c), env,
 		s.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              testing.AdminSecret,

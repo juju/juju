@@ -4,6 +4,7 @@
 package gce
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"strings"
@@ -24,7 +25,7 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
@@ -305,7 +306,7 @@ type BaseSuite struct {
 	FakeCommon  *fakeCommon
 	FakeEnviron *fakeEnviron
 
-	CallCtx                *context.CloudCallContext
+	CallCtx                *envcontext.CloudCallContext
 	InvalidatedCredentials bool
 }
 
@@ -330,7 +331,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&findInstanceSpec, s.FakeEnviron.FindInstanceSpec)
 	s.PatchValue(&getInstances, s.FakeEnviron.GetInstances)
 
-	s.CallCtx = &context.CloudCallContext{
+	s.CallCtx = &envcontext.CloudCallContext{
 		InvalidateCredentialFunc: func(string) error {
 			s.InvalidatedCredentials = true
 			return nil
@@ -390,9 +391,10 @@ type fakeCommon struct {
 	AZInstances []common.AvailabilityZoneInstances
 }
 
-func (fc *fakeCommon) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, callCtx context.ProviderCallContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
+func (fc *fakeCommon) Bootstrap(ctx context.Context, cmdCtx environs.BootstrapContext, env environs.Environ, callCtx envcontext.ProviderCallContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	fc.addCall("Bootstrap", FakeCallArgs{
 		"ctx":    ctx,
+		"cmdCtx": cmdCtx,
 		"switch": env,
 		"params": params,
 	})
@@ -405,14 +407,14 @@ func (fc *fakeCommon) Bootstrap(ctx environs.BootstrapContext, env environs.Envi
 	return result, fc.err()
 }
 
-func (fc *fakeCommon) Destroy(env environs.Environ, ctx context.ProviderCallContext) error {
+func (fc *fakeCommon) Destroy(env environs.Environ, ctx envcontext.ProviderCallContext) error {
 	fc.addCall("Destroy", FakeCallArgs{
 		"switch": env,
 	})
 	return fc.err()
 }
 
-func (fc *fakeCommon) AvailabilityZoneAllocations(env common.ZonedEnviron, ctx context.ProviderCallContext, group []instance.Id) ([]common.AvailabilityZoneInstances, error) {
+func (fc *fakeCommon) AvailabilityZoneAllocations(env common.ZonedEnviron, ctx envcontext.ProviderCallContext, group []instance.Id) ([]common.AvailabilityZoneInstances, error) {
 	fc.addCall("AvailabilityZoneAllocations", FakeCallArgs{
 		"switch": env,
 		"group":  group,
@@ -429,7 +431,7 @@ type fakeEnviron struct {
 	Spec  *instances.InstanceSpec
 }
 
-func (fe *fakeEnviron) GetInstances(env *environ, ctx context.ProviderCallContext, statusFilters ...string) ([]instances.Instance, error) {
+func (fe *fakeEnviron) GetInstances(env *environ, ctx envcontext.ProviderCallContext, statusFilters ...string) ([]instances.Instance, error) {
 	fe.addCall("GetInstances", FakeCallArgs{
 		"switch": env,
 	})
@@ -453,7 +455,7 @@ func (fe *fakeEnviron) GetHardwareCharacteristics(env *environ, spec *instances.
 	return fe.Hwc
 }
 
-func (fe *fakeEnviron) NewRawInstance(env *environ, ctx context.ProviderCallContext, args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {
+func (fe *fakeEnviron) NewRawInstance(env *environ, ctx envcontext.ProviderCallContext, args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {
 	fe.addCall("NewRawInstance", FakeCallArgs{
 		"switch": env,
 		"args":   args,

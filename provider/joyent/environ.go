@@ -4,6 +4,7 @@
 package joyent
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -15,7 +16,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/provider/common"
@@ -58,7 +59,7 @@ func (*joyentEnviron) Provider() environs.EnvironProvider {
 }
 
 // PrecheckInstance is defined on the environs.InstancePrechecker interface.
-func (env *joyentEnviron) PrecheckInstance(ctx context.ProviderCallContext, args environs.PrecheckInstanceParams) error {
+func (env *joyentEnviron) PrecheckInstance(ctx envcontext.ProviderCallContext, args environs.PrecheckInstanceParams) error {
 	if args.Placement != "" {
 		return fmt.Errorf("unknown placement directive: %s", args.Placement)
 	}
@@ -94,7 +95,7 @@ func (env *joyentEnviron) Config() *config.Config {
 }
 
 // Create is part of the Environ interface.
-func (env *joyentEnviron) Create(context.ProviderCallContext, environs.CreateParams) error {
+func (env *joyentEnviron) Create(envcontext.ProviderCallContext, environs.CreateParams) error {
 	if err := verifyCredentials(env); err != nil {
 		return errors.Trace(err)
 	}
@@ -110,11 +111,11 @@ func (env *joyentEnviron) PrepareForBootstrap(ctx environs.BootstrapContext, con
 	return nil
 }
 
-func (env *joyentEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	return common.Bootstrap(ctx, env, callCtx, args)
+func (env *joyentEnviron) Bootstrap(ctx context.Context, cmdCtx environs.BootstrapContext, callCtx envcontext.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
+	return common.Bootstrap(ctx, cmdCtx, env, callCtx, args)
 }
 
-func (env *joyentEnviron) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
+func (env *joyentEnviron) ControllerInstances(ctx envcontext.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
 	instanceIds := []instance.Id{}
 
 	filter := cloudapi.NewFilter()
@@ -139,17 +140,17 @@ func (env *joyentEnviron) ControllerInstances(ctx context.ProviderCallContext, c
 }
 
 // AdoptResources is part of the Environ interface.
-func (env *joyentEnviron) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
+func (env *joyentEnviron) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
 	// This provider doesn't track instance -> controller.
 	return nil
 }
 
-func (env *joyentEnviron) Destroy(ctx context.ProviderCallContext) error {
+func (env *joyentEnviron) Destroy(ctx envcontext.ProviderCallContext) error {
 	return errors.Trace(common.Destroy(env, ctx))
 }
 
 // DestroyController implements the Environ interface.
-func (env *joyentEnviron) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
+func (env *joyentEnviron) DestroyController(ctx envcontext.ProviderCallContext, controllerUUID string) error {
 	// TODO(wallyworld): destroy hosted model resources
 	return env.Destroy(ctx)
 }

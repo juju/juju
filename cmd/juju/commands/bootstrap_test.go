@@ -119,7 +119,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 		panic("tests must call setupAutoUploadTest or otherwise patch envtools.BundleTools")
 	})
 
-	s.PatchValue(&waitForAgentInitialisation, func(context.Context, *cmd.Context, *modelcmd.ModelCommandBase, bool, string, string) error {
+	s.PatchValue(&waitForAgentInitialisation, func(context.Context, *cmd.Context, *modelcmd.ModelCommandBase, bool, string) error {
 		return nil
 	})
 
@@ -2092,7 +2092,7 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *gc.C) {
 
 	// Record the controller name seen by ModelCommandBase at the end of bootstrap.
 	var seenControllerName string
-	s.PatchValue(&waitForAgentInitialisation, func(_ *cmd.Context, base *modelcmd.ModelCommandBase, _ bool, controllerName, _ string) error {
+	s.PatchValue(&waitForAgentInitialisation, func(_ context.Context, _ *cmd.Context, base *modelcmd.ModelCommandBase, _ bool, controllerName string) error {
 		seenControllerName = controllerName
 		return nil
 	})

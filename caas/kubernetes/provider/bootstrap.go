@@ -309,6 +309,7 @@ func (c *controllerStack) doCleanUp() {
 
 // Deploy creates all resources for controller stack.
 func (c *controllerStack) Deploy() (err error) {
+	// TODO(benhoyt) - add ctx.Done() check between each step
 	// creating namespace for controller stack, this namespace will be removed by broker.DestroyController if bootstrap failed.
 	nsName := c.broker.GetCurrentNamespace()
 	c.ctx.Infof("Creating k8s resources for controller %q", nsName)

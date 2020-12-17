@@ -4,6 +4,7 @@
 package dummy_test
 
 import (
+	"context"
 	"strings"
 	stdtesting "testing"
 	"time"
@@ -18,7 +19,7 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/jujutest"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -87,7 +88,7 @@ type suite struct {
 	gitjujutesting.MgoSuite
 	jujutest.Tests
 
-	callCtx context.ProviderCallContext
+	callCtx envcontext.ProviderCallContext
 }
 
 func (s *suite) SetUpSuite(c *gc.C) {
@@ -107,7 +108,7 @@ func (s *suite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.Tests.SetUpTest(c)
 	s.PatchValue(&dummy.LogDir, c.MkDir())
-	s.callCtx = context.NewCloudCallContext()
+	s.callCtx = envcontext.NewCloudCallContext()
 }
 
 func (s *suite) TearDownTest(c *gc.C) {
@@ -136,8 +137,8 @@ func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
 	netenv, supported := environs.SupportsNetworking(env)
 	c.Assert(supported, jc.IsTrue)
 
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), netenv,
-		context.NewCloudCallContext(), bootstrap.BootstrapParams{
+	err = bootstrap.Bootstrap(context.Background(), envtesting.BootstrapContext(c), netenv,
+		envcontext.NewCloudCallContext(), bootstrap.BootstrapParams{
 			ControllerConfig: testing.FakeControllerConfig(),
 			Cloud: cloud.Cloud{
 				Name:      "dummy",

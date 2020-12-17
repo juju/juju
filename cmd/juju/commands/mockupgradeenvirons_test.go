@@ -5,12 +5,13 @@
 package commands
 
 import (
+	context "context"
 	gomock "github.com/golang/mock/gomock"
 	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
-	context "github.com/juju/juju/environs/context"
+	context0 "github.com/juju/juju/environs/context"
 	instances "github.com/juju/juju/environs/instances"
 	storage "github.com/juju/juju/storage"
 	version "github.com/juju/version"
@@ -41,7 +42,7 @@ func (m *MockUpgradePrecheckEnviron) EXPECT() *MockUpgradePrecheckEnvironMockRec
 }
 
 // AdoptResources mocks base method
-func (m *MockUpgradePrecheckEnviron) AdoptResources(arg0 context.ProviderCallContext, arg1 string, arg2 version.Number) error {
+func (m *MockUpgradePrecheckEnviron) AdoptResources(arg0 context0.ProviderCallContext, arg1 string, arg2 version.Number) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AdoptResources", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -55,7 +56,7 @@ func (mr *MockUpgradePrecheckEnvironMockRecorder) AdoptResources(arg0, arg1, arg
 }
 
 // AllInstances mocks base method
-func (m *MockUpgradePrecheckEnviron) AllInstances(arg0 context.ProviderCallContext) ([]instances.Instance, error) {
+func (m *MockUpgradePrecheckEnviron) AllInstances(arg0 context0.ProviderCallContext) ([]instances.Instance, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllInstances", arg0)
 	ret0, _ := ret[0].([]instances.Instance)
@@ -70,7 +71,7 @@ func (mr *MockUpgradePrecheckEnvironMockRecorder) AllInstances(arg0 interface{})
 }
 
 // AllRunningInstances mocks base method
-func (m *MockUpgradePrecheckEnviron) AllRunningInstances(arg0 context.ProviderCallContext) ([]instances.Instance, error) {
+func (m *MockUpgradePrecheckEnviron) AllRunningInstances(arg0 context0.ProviderCallContext) ([]instances.Instance, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllRunningInstances", arg0)
 	ret0, _ := ret[0].([]instances.Instance)
@@ -85,18 +86,18 @@ func (mr *MockUpgradePrecheckEnvironMockRecorder) AllRunningInstances(arg0 inter
 }
 
 // Bootstrap mocks base method
-func (m *MockUpgradePrecheckEnviron) Bootstrap(arg0 environs.BootstrapContext, arg1 context.ProviderCallContext, arg2 environs.BootstrapParams) (*environs.BootstrapResult, error) {
+func (m *MockUpgradePrecheckEnviron) Bootstrap(arg0 context.Context, arg1 environs.BootstrapContext, arg2 context0.ProviderCallContext, arg3 environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Bootstrap", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "Bootstrap", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(*environs.BootstrapResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Bootstrap indicates an expected call of Bootstrap
-func (mr *MockUpgradePrecheckEnvironMockRecorder) Bootstrap(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockUpgradePrecheckEnvironMockRecorder) Bootstrap(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Bootstrap", reflect.TypeOf((*MockUpgradePrecheckEnviron)(nil).Bootstrap), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Bootstrap", reflect.TypeOf((*MockUpgradePrecheckEnviron)(nil).Bootstrap), arg0, arg1, arg2, arg3)
 }
 
 // Config mocks base method
@@ -114,7 +115,7 @@ func (mr *MockUpgradePrecheckEnvironMockRecorder) Config() *gomock.Call {
 }
 
 // ConstraintsValidator mocks base method
-func (m *MockUpgradePrecheckEnviron) ConstraintsValidator(arg0 context.ProviderCallContext) (constraints.Validator, error) {
+func (m *MockUpgradePrecheckEnviron) ConstraintsValidator(arg0 context0.ProviderCallContext) (constraints.Validator, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ConstraintsValidator", arg0)
 	ret0, _ := ret[0].(constraints.Validator)
@@ -129,7 +130,7 @@ func (mr *MockUpgradePrecheckEnvironMockRecorder) ConstraintsValidator(arg0 inte
 }
 
 // ControllerInstances mocks base method
-func (m *MockUpgradePrecheckEnviron) ControllerInstances(arg0 context.ProviderCallContext, arg1 string) ([]instance.Id, error) {
+func (m *MockUpgradePrecheckEnviron) ControllerInstances(arg0 context0.ProviderCallContext, arg1 string) ([]instance.Id, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ControllerInstances", arg0, arg1)
 	ret0, _ := ret[0].([]instance.Id)
@@ -144,7 +145,7 @@ func (mr *MockUpgradePrecheckEnvironMockRecorder) ControllerInstances(arg0, arg1
 }
 
 // Create mocks base method
-func (m *MockUpgradePrecheckEnviron) Create(arg0 context.ProviderCallContext, arg1 environs.CreateParams) error {
+func (m *MockUpgradePrecheckEnviron) Create(arg0 context0.ProviderCallContext, arg1 environs.CreateParams) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -158,7 +159,7 @@ func (mr *MockUpgradePrecheckEnvironMockRecorder) Create(arg0, arg1 interface{})
 }
 
 // Destroy mocks base method
-func (m *MockUpgradePrecheckEnviron) Destroy(arg0 context.ProviderCallContext) error {
+func (m *MockUpgradePrecheckEnviron) Destroy(arg0 context0.ProviderCallContext) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Destroy", arg0)
 	ret0, _ := ret[0].(error)
@@ -172,7 +173,7 @@ func (mr *MockUpgradePrecheckEnvironMockRecorder) Destroy(arg0 interface{}) *gom
 }
 
 // DestroyController mocks base method
-func (m *MockUpgradePrecheckEnviron) DestroyController(arg0 context.ProviderCallContext, arg1 string) error {
+func (m *MockUpgradePrecheckEnviron) DestroyController(arg0 context0.ProviderCallContext, arg1 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DestroyController", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -186,7 +187,7 @@ func (mr *MockUpgradePrecheckEnvironMockRecorder) DestroyController(arg0, arg1 i
 }
 
 // InstanceTypes mocks base method
-func (m *MockUpgradePrecheckEnviron) InstanceTypes(arg0 context.ProviderCallContext, arg1 constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
+func (m *MockUpgradePrecheckEnviron) InstanceTypes(arg0 context0.ProviderCallContext, arg1 constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InstanceTypes", arg0, arg1)
 	ret0, _ := ret[0].(instances.InstanceTypesWithCostMetadata)
@@ -201,7 +202,7 @@ func (mr *MockUpgradePrecheckEnvironMockRecorder) InstanceTypes(arg0, arg1 inter
 }
 
 // Instances mocks base method
-func (m *MockUpgradePrecheckEnviron) Instances(arg0 context.ProviderCallContext, arg1 []instance.Id) ([]instances.Instance, error) {
+func (m *MockUpgradePrecheckEnviron) Instances(arg0 context0.ProviderCallContext, arg1 []instance.Id) ([]instances.Instance, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Instances", arg0, arg1)
 	ret0, _ := ret[0].([]instances.Instance)
@@ -216,7 +217,7 @@ func (mr *MockUpgradePrecheckEnvironMockRecorder) Instances(arg0, arg1 interface
 }
 
 // MaintainInstance mocks base method
-func (m *MockUpgradePrecheckEnviron) MaintainInstance(arg0 context.ProviderCallContext, arg1 environs.StartInstanceParams) error {
+func (m *MockUpgradePrecheckEnviron) MaintainInstance(arg0 context0.ProviderCallContext, arg1 environs.StartInstanceParams) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MaintainInstance", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -230,7 +231,7 @@ func (mr *MockUpgradePrecheckEnvironMockRecorder) MaintainInstance(arg0, arg1 in
 }
 
 // PrecheckInstance mocks base method
-func (m *MockUpgradePrecheckEnviron) PrecheckInstance(arg0 context.ProviderCallContext, arg1 environs.PrecheckInstanceParams) error {
+func (m *MockUpgradePrecheckEnviron) PrecheckInstance(arg0 context0.ProviderCallContext, arg1 environs.PrecheckInstanceParams) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PrecheckInstance", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -314,7 +315,7 @@ func (mr *MockUpgradePrecheckEnvironMockRecorder) SetConfig(arg0 interface{}) *g
 }
 
 // StartInstance mocks base method
-func (m *MockUpgradePrecheckEnviron) StartInstance(arg0 context.ProviderCallContext, arg1 environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (m *MockUpgradePrecheckEnviron) StartInstance(arg0 context0.ProviderCallContext, arg1 environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StartInstance", arg0, arg1)
 	ret0, _ := ret[0].(*environs.StartInstanceResult)
@@ -329,7 +330,7 @@ func (mr *MockUpgradePrecheckEnvironMockRecorder) StartInstance(arg0, arg1 inter
 }
 
 // StopInstances mocks base method
-func (m *MockUpgradePrecheckEnviron) StopInstances(arg0 context.ProviderCallContext, arg1 ...instance.Id) error {
+func (m *MockUpgradePrecheckEnviron) StopInstances(arg0 context0.ProviderCallContext, arg1 ...instance.Id) error {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0}
 	for _, a := range arg1 {

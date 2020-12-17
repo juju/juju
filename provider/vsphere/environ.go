@@ -4,18 +4,18 @@
 package vsphere
 
 import (
+	"context"
 	"path"
 	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/version"
 	"github.com/vmware/govmomi/vim25/mo"
-	"golang.org/x/net/context"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	callcontext "github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -58,7 +58,7 @@ func newEnviron(
 	return env, nil
 }
 
-func (env *environ) withClient(ctx context.Context, callCtx callcontext.ProviderCallContext, f func(Client) error) error {
+func (env *environ) withClient(ctx context.Context, callCtx envcontext.ProviderCallContext, f func(Client) error) error {
 	client, err := env.dialClient(ctx)
 	if err != nil {
 		// LP #1849194: this is a case at bootstrap time, where a connection
@@ -114,14 +114,14 @@ func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controlle
 }
 
 // Create implements environs.Environ.
-func (env *environ) Create(ctx callcontext.ProviderCallContext, args environs.CreateParams) error {
+func (env *environ) Create(ctx envcontext.ProviderCallContext, args environs.CreateParams) error {
 	return env.withSession(ctx, func(env *sessionEnviron) error {
 		return env.Create(ctx, args)
 	})
 }
 
 // Create implements environs.Environ.
-func (env *sessionEnviron) Create(ctx callcontext.ProviderCallContext, args environs.CreateParams) error {
+func (env *sessionEnviron) Create(ctx envcontext.ProviderCallContext, args environs.CreateParams) error {
 	return env.ensureVMFolder(args.ControllerUUID, ctx)
 }
 
@@ -130,8 +130,9 @@ var Bootstrap = common.Bootstrap
 
 // Bootstrap is part of the environs.Environ interface.
 func (env *environ) Bootstrap(
-	ctx environs.BootstrapContext,
-	callCtx callcontext.ProviderCallContext,
+	ctx context.Context,
+	cmdCtx environs.BootstrapContext,
+	callCtx envcontext.ProviderCallContext,
 	args environs.BootstrapParams,
 ) (result *environs.BootstrapResult, err error) {
 	// NOTE(axw) we must not pass a sessionEnviron to common.Bootstrap,
@@ -142,18 +143,19 @@ func (env *environ) Bootstrap(
 	}); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return Bootstrap(ctx, env, callCtx, args)
+	return Bootstrap(ctx, cmdCtx, env, callCtx, args)
 }
 
 func (env *sessionEnviron) Bootstrap(
-	ctx environs.BootstrapContext,
-	callCtx callcontext.ProviderCallContext,
+	ctx context.Context,
+	cmdCtx environs.BootstrapContext,
+	callCtx envcontext.ProviderCallContext,
 	args environs.BootstrapParams,
 ) (result *environs.BootstrapResult, err error) {
 	return nil, errors.Errorf("sessionEnviron.Bootstrap should never be called")
 }
 
-func (env *sessionEnviron) ensureVMFolder(controllerUUID string, ctx callcontext.ProviderCallContext) error {
+func (env *sessionEnviron) ensureVMFolder(controllerUUID string, ctx envcontext.ProviderCallContext) error {
 	_, err := env.client.EnsureVMFolder(env.ctx, env.getVMFolder(), path.Join(
 		controllerFolderName(controllerUUID),
 		env.modelFolderName(),
@@ -166,7 +168,7 @@ func (env *sessionEnviron) ensureVMFolder(controllerUUID string, ctx callcontext
 var DestroyEnv = common.Destroy
 
 // AdoptResources is part of the Environ interface.
-func (env *environ) AdoptResources(ctx callcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
+func (env *environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
 	// Move model folder into the controller's folder.
 	return env.withSession(ctx, func(env *sessionEnviron) error {
 		return env.AdoptResources(ctx, controllerUUID, fromVersion)
@@ -174,7 +176,7 @@ func (env *environ) AdoptResources(ctx callcontext.ProviderCallContext, controll
 }
 
 // AdoptResources is part of the Environ interface.
-func (env *sessionEnviron) AdoptResources(ctx callcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
+func (env *sessionEnviron) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
 	err := env.client.MoveVMFolderInto(env.ctx,
 		path.Join(env.getVMFolder(), controllerFolderName(controllerUUID)),
 		path.Join(env.getVMFolder(), controllerFolderName("*"), env.modelFolderName()),
@@ -184,14 +186,14 @@ func (env *sessionEnviron) AdoptResources(ctx callcontext.ProviderCallContext, c
 }
 
 // Destroy is part of the environs.Environ interface.
-func (env *environ) Destroy(ctx callcontext.ProviderCallContext) error {
+func (env *environ) Destroy(ctx envcontext.ProviderCallContext) error {
 	return env.withSession(ctx, func(env *sessionEnviron) error {
 		return env.Destroy(ctx)
 	})
 }
 
 // Destroy is part of the environs.Environ interface.
-func (env *sessionEnviron) Destroy(ctx callcontext.ProviderCallContext) error {
+func (env *sessionEnviron) Destroy(ctx envcontext.ProviderCallContext) error {
 	if err := DestroyEnv(env, ctx); err != nil {
 		// We don't need to worry about handling credential errors
 		// here - this is implemented in terms of common operations
@@ -207,14 +209,14 @@ func (env *sessionEnviron) Destroy(ctx callcontext.ProviderCallContext) error {
 }
 
 // DestroyController implements the Environ interface.
-func (env *environ) DestroyController(ctx callcontext.ProviderCallContext, controllerUUID string) error {
+func (env *environ) DestroyController(ctx envcontext.ProviderCallContext, controllerUUID string) error {
 	return env.withSession(ctx, func(env *sessionEnviron) error {
 		return env.DestroyController(ctx, controllerUUID)
 	})
 }
 
 // DestroyController implements the Environ interface.
-func (env *sessionEnviron) DestroyController(ctx callcontext.ProviderCallContext, controllerUUID string) error {
+func (env *sessionEnviron) DestroyController(ctx envcontext.ProviderCallContext, controllerUUID string) error {
 	if err := env.Destroy(ctx); err != nil {
 		return errors.Trace(err)
 	}
@@ -236,7 +238,7 @@ func (env *sessionEnviron) getVMFolder() string {
 	return env.environ.cloud.Credential.Attributes()[credAttrVMFolder]
 }
 
-func (env *sessionEnviron) accessibleDatastores(ctx callcontext.ProviderCallContext) ([]mo.Datastore, error) {
+func (env *sessionEnviron) accessibleDatastores(ctx envcontext.ProviderCallContext) ([]mo.Datastore, error) {
 	datastores, err := env.client.Datastores(env.ctx)
 	if err != nil {
 		HandleCredentialError(err, env, ctx)
