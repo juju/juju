@@ -64,8 +64,7 @@ rm $temp
 su ubuntu -c 'install -D -m 0600 /dev/null ~/.ssh/authorized_keys'
 export authorized_keys="%s"
 if [ ! -z "$authorized_keys" ]; then
-su ubuntu -c 'printf "%%s
-" "$authorized_keys" >> ~/.ssh/authorized_keys'
+su ubuntu -c 'printf "$authorized_keys" >> ~/.ssh/authorized_keys'
 fi
 `
 )
@@ -171,7 +170,7 @@ func (e *environ) Destroy(ctx context.ProviderCallContext) error {
 }
 
 func (e *environ) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
-	insts, err := e.getPacketInstancesByTag(map[string]string{"juju-is-controller": "true", "juju-controller-uuid": controllerUUID})
+	insts, err := e.getPacketInstancesByTag(map[string]string{"juju-controller-uuid": controllerUUID})
 	if err != nil {
 		return err
 	}
@@ -392,7 +391,7 @@ nextPlan:
 		case strings.HasSuffix(plan.Name, ".x86"):
 			instArch = arch.AMD64
 		case strings.HasSuffix(plan.Name, ".arm"):
-			instArch = arch.AMD64
+			instArch = arch.ARM64
 		default:
 			continue nextPlan
 
