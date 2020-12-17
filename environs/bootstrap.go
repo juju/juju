@@ -4,6 +4,7 @@
 package environs
 
 import (
+	"context"
 	"io"
 	"os"
 	"time"
@@ -76,11 +77,11 @@ type BootstrapParams struct {
 
 // CloudBootstrapFinalizer is a function returned from Environ.Bootstrap.
 // The caller must pass a InstanceConfig with the Tools field set.
-type CloudBootstrapFinalizer func(BootstrapContext, *instancecfg.InstanceConfig, BootstrapDialOpts) error
+type CloudBootstrapFinalizer func(context.Context, BootstrapContext, *instancecfg.InstanceConfig, BootstrapDialOpts) error
 
 // CaasBootstrapFinalizer is a function returned from Environ.Bootstrap.
 // The caller must pass a ControllerPodConfig with the Tools field set.
-type CaasBootstrapFinalizer func(BootstrapContext, *podcfg.ControllerPodConfig, BootstrapDialOpts) error
+type CaasBootstrapFinalizer func(context.Context, BootstrapContext, *podcfg.ControllerPodConfig, BootstrapDialOpts) error
 
 // BootstrapDialOpts contains the options for the synchronous part of the
 // bootstrap procedure, where the CLI connects to the bootstrap machine

@@ -180,7 +180,8 @@ func (env *maasEnviron) Bootstrap(ctx context.Context, cmdCtx environs.Bootstrap
 	}()
 
 	waitingFinalizer := func(
-		ctx environs.BootstrapContext,
+		ctx context.Context,
+		cmdCtx environs.BootstrapContext,
 		icfg *instancecfg.InstanceConfig,
 		dialOpts environs.BootstrapDialOpts,
 	) error {
@@ -188,7 +189,7 @@ func (env *maasEnviron) Bootstrap(ctx context.Context, cmdCtx environs.Bootstrap
 		if err := env.waitForNodeDeployment(callCtx, result.Instance.Id(), dialOpts.Timeout); err != nil {
 			return errors.Annotate(err, "bootstrap instance started but did not change to Deployed state")
 		}
-		return finalizer(ctx, icfg, dialOpts)
+		return finalizer(ctx, cmdCtx, icfg, dialOpts)
 	}
 
 	bsResult := &environs.BootstrapResult{

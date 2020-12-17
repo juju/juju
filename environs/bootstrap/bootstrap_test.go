@@ -1604,7 +1604,7 @@ func (e *bootstrapEnviron) Bootstrap(ctx context.Context, cmdCtx environs.Bootst
 
 	e.checkToolsFunc(args.AvailableTools)
 
-	finalizer := func(_ environs.BootstrapContext, icfg *instancecfg.InstanceConfig, _ environs.BootstrapDialOpts) error {
+	finalizer := func(_ context.Context, _ environs.BootstrapContext, icfg *instancecfg.InstanceConfig, _ environs.BootstrapDialOpts) error {
 		e.finalizerCount++
 		e.instanceConfig = icfg
 		return nil

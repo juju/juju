@@ -833,7 +833,7 @@ func (e *environ) Bootstrap(ctx context.Context, cmdCtx environs.BootstrapContex
 	estate.bootstrapped = true
 	estate.ops <- OpBootstrap{Context: cmdCtx, Env: e.name, Args: args}
 
-	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, _ environs.BootstrapDialOpts) (err error) {
+	finalize := func(ctx context.Context, cmdCtx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, _ environs.BootstrapDialOpts) (err error) {
 		if e.ecfg().controller() {
 			icfg.Bootstrap.BootstrapMachineInstanceId = BootstrapInstanceId
 			if err := instancecfg.FinishInstanceConfig(icfg, e.Config()); err != nil {
@@ -1023,7 +1023,7 @@ func (e *environ) Bootstrap(ctx context.Context, cmdCtx environs.BootstrapContex
 				apiServer.Wait()
 			}(estate.apiServer)
 		}
-		estate.ops <- OpFinalizeBootstrap{Context: ctx, Env: e.name, InstanceConfig: icfg}
+		estate.ops <- OpFinalizeBootstrap{Context: cmdCtx, Env: e.name, InstanceConfig: icfg}
 		return nil
 	}
 

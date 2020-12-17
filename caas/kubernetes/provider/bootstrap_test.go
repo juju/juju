@@ -4,6 +4,7 @@
 package provider_test
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -892,7 +893,7 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 
 	errChan := make(chan error)
 	go func() {
-		errChan <- controllerStacker.Deploy()
+		errChan <- controllerStacker.Deploy(context.Background())
 	}()
 
 	err = s.clock.WaitAdvance(3*time.Second, testing.LongWait, 1)

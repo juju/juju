@@ -124,13 +124,13 @@ func (e *manualEnviron) Bootstrap(ctx context.Context, cmdCtx environs.Bootstrap
 	if err != nil {
 		return nil, err
 	}
-	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, _ environs.BootstrapDialOpts) error {
+	finalize := func(ctx context.Context, cmdCtx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, _ environs.BootstrapDialOpts) error {
 		icfg.Bootstrap.BootstrapMachineInstanceId = BootstrapInstanceId
 		icfg.Bootstrap.BootstrapMachineHardwareCharacteristics = hw
 		if err := instancecfg.FinishInstanceConfig(icfg, e.Config()); err != nil {
 			return err
 		}
-		return common.ConfigureMachine(ctx, ssh.DefaultClient, e.host, icfg, nil)
+		return common.ConfigureMachine(cmdCtx, ssh.DefaultClient, e.host, icfg, nil)
 	}
 
 	result := &environs.BootstrapResult{

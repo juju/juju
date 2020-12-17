@@ -4,6 +4,7 @@
 package provider
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -139,7 +140,7 @@ type controllerStack struct {
 
 type controllerStacker interface {
 	// Deploy creates all resources for controller stack.
-	Deploy() error
+	Deploy(ctx context.Context) error
 }
 
 func controllerCorelation(broker *kubernetesClient) (string, error) {
@@ -307,14 +308,27 @@ func (c *controllerStack) doCleanUp() {
 	}
 }
 
-// Deploy creates all resources for controller stack.
-func (c *controllerStack) Deploy() (err error) {
-	// TODO(benhoyt) - add ctx.Done() check between each step
+// Deploy creates all resources for the controller stack.
+func (c *controllerStack) Deploy(ctx context.Context) (err error) {
 	// creating namespace for controller stack, this namespace will be removed by broker.DestroyController if bootstrap failed.
 	nsName := c.broker.GetCurrentNamespace()
 	c.ctx.Infof("Creating k8s resources for controller %q", nsName)
 	if err = c.broker.createNamespace(nsName); err != nil {
 		return errors.Annotate(err, "creating namespace for controller stack")
+	}
+
+	// The given context is checked for cancellation manually between each
+	// step (not ideal, but it avoids wiring context absolutely everywhere).
+	isDone := func(ctx context.Context) bool {
+		select {
+		case <-ctx.Done():
+			return true
+		default:
+			return false
+		}
+	}
+	if isDone(ctx) {
+		return errors.Errorf("cancelled")
 	}
 
 	defer func() {
@@ -327,36 +341,58 @@ func (c *controllerStack) Deploy() (err error) {
 	if err = c.createControllerService(); err != nil {
 		return errors.Annotate(err, "creating service for controller")
 	}
+	if isDone(ctx) {
+		return errors.Errorf("cancelled")
+	}
 
 	// create shared-secret secret for controller pod.
 	if err = c.createControllerSecretSharedSecret(); err != nil {
 		return errors.Annotate(err, "creating shared-secret secret for controller")
+	}
+	if isDone(ctx) {
+		return errors.Errorf("cancelled")
 	}
 
 	// create server.pem secret for controller pod.
 	if err = c.createControllerSecretServerPem(); err != nil {
 		return errors.Annotate(err, "creating server.pem secret for controller")
 	}
+	if isDone(ctx) {
+		return errors.Errorf("cancelled")
+	}
 
 	// create mongo admin account secret for controller pod.
 	if err = c.createControllerSecretMongoAdmin(); err != nil {
 		return errors.Annotate(err, "creating mongo admin account secret for controller")
+	}
+	if isDone(ctx) {
+		return errors.Errorf("cancelled")
 	}
 
 	// create bootstrap-params configmap for controller pod.
 	if err = c.ensureControllerConfigmapBootstrapParams(); err != nil {
 		return errors.Annotate(err, "creating bootstrap-params configmap for controller")
 	}
+	if isDone(ctx) {
+		return errors.Errorf("cancelled")
+	}
 
 	// Note: create agent config configmap for controller pod lastly because agentConfig has been updated in previous steps.
 	if err = c.ensureControllerConfigmapAgentConf(); err != nil {
 		return errors.Annotate(err, "creating agent config configmap for controller")
+	}
+	if isDone(ctx) {
+		return errors.Errorf("cancelled")
 	}
 
 	// create statefulset to ensure controller stack.
 	if err = c.createControllerStatefulset(); err != nil {
 		return errors.Annotate(err, "creating statefulset for controller")
 	}
+	if isDone(ctx) {
+		return errors.Errorf("cancelled")
+	}
+
 	return nil
 }
 

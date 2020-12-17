@@ -112,8 +112,7 @@ func WaitForAgentInitialisation(
 		// isn't fully threaded through yet).
 		select {
 		case <-ctx.Done():
-			// TODO(benhoyt) - improve error message
-			return errors.Annotatef(err, "cancelled waiting for controller")
+			return errors.Annotatef(err, "contacting controller (cancelled)")
 		default:
 		}
 

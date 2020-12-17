@@ -600,7 +600,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 		}
 		return nil
 	})
-	err = result.CloudBootstrapFinalizer(ctx, innerInstanceConfig, environs.BootstrapDialOpts{
+	err = result.CloudBootstrapFinalizer(context.Background(), ctx, innerInstanceConfig, environs.BootstrapDialOpts{
 		Timeout: coretesting.LongWait,
 	})
 	c.Assert(err, gc.ErrorMatches, "invalid machine configuration: .*") // icfg hasn't been finalized
@@ -655,7 +655,7 @@ func (s *BootstrapSuite) TestBootstrapFinalizeCloudInitUserData(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(result.CloudBootstrapFinalizer, gc.NotNil)
-	err = result.CloudBootstrapFinalizer(ctx, innerInstanceConfig, environs.BootstrapDialOpts{
+	err = result.CloudBootstrapFinalizer(context.Background(), ctx, innerInstanceConfig, environs.BootstrapDialOpts{
 		Timeout: coretesting.ShortWait,
 	})
 	c.Assert(err, gc.ErrorMatches, "waited for 50ms without being able to connect.*")

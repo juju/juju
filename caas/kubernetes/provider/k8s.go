@@ -414,8 +414,6 @@ func (k *kubernetesClient) Bootstrap(
 	callCtx envcontext.ProviderCallContext,
 	args environs.BootstrapParams,
 ) (*environs.BootstrapResult, error) {
-	// TODO(benhoyt) - use ctx
-
 	if args.BootstrapSeries != "" {
 		return nil, errors.NotSupportedf("set series for bootstrapping to kubernetes")
 	}
@@ -425,7 +423,7 @@ func (k *kubernetesClient) Bootstrap(
 		return nil, errors.Trace(err)
 	}
 
-	finalizer := func(ctx environs.BootstrapContext, pcfg *podcfg.ControllerPodConfig, opts environs.BootstrapDialOpts) (err error) {
+	finalizer := func(ctx context.Context, cmdCtx environs.BootstrapContext, pcfg *podcfg.ControllerPodConfig, opts environs.BootstrapDialOpts) (err error) {
 		podcfg.FinishControllerPodConfig(pcfg, k.Config(), args.ExtraAgentValuesForTesting)
 		if err = pcfg.VerifyConfig(); err != nil {
 			return errors.Trace(err)
@@ -472,13 +470,13 @@ please choose a different hosted model name then try again.`, hostedModelName),
 		}
 
 		// create configmap, secret, volume, statefulset, etc resources for controller stack.
-		controllerStack, err := newcontrollerStack(ctx, JujuControllerStackName, storageClass, k, pcfg)
+		controllerStack, err := newcontrollerStack(cmdCtx, JujuControllerStackName, storageClass, k, pcfg)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		return errors.Annotate(
-			controllerStack.Deploy(),
-			"creating controller stack for controller",
+			controllerStack.Deploy(ctx),
+			"creating controller stack",
 		)
 	}
 

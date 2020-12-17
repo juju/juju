@@ -285,7 +285,7 @@ func bootstrapCAAS(
 	if err := finalizePodBootstrapConfig(cmdCtx, podConfig, args, environ.Config()); err != nil {
 		return errors.Annotate(err, "finalizing bootstrap instance config")
 	}
-	if err := result.CaasBootstrapFinalizer(cmdCtx, podConfig, args.DialOpts); err != nil {
+	if err := result.CaasBootstrapFinalizer(ctx, cmdCtx, podConfig, args.DialOpts); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -600,7 +600,7 @@ func bootstrapIAAS(
 	); err != nil {
 		return errors.Annotate(err, "finalizing bootstrap instance config")
 	}
-	if err := result.CloudBootstrapFinalizer(cmdCtx, instanceConfig, args.DialOpts); err != nil {
+	if err := result.CloudBootstrapFinalizer(ctx, cmdCtx, instanceConfig, args.DialOpts); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

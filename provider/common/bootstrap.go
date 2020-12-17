@@ -276,7 +276,7 @@ func BootstrapInstance(
 	}
 	ctx.Infof(msg)
 
-	finalizer := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, opts environs.BootstrapDialOpts) error {
+	finalizer := func(ctx context.Context, cmdCtx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, opts environs.BootstrapDialOpts) error {
 		icfg.Bootstrap.BootstrapMachineInstanceId = result.Instance.Id()
 		icfg.Bootstrap.BootstrapMachineHardwareCharacteristics = result.Hardware
 		icfg.Bootstrap.InitialSSHHostKeys = initialSSHHostKeys
@@ -292,7 +292,7 @@ func BootstrapInstance(
 			return err
 		}
 		maybeSetBridge(icfg)
-		return FinishBootstrap(ctx, client, env, callCtx, result.Instance, icfg, opts)
+		return FinishBootstrap(cmdCtx, client, env, callCtx, result.Instance, icfg, opts)
 	}
 	return result, selectedSeries, finalizer, nil
 }
