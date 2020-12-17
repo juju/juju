@@ -7,7 +7,7 @@ run_relation_data_exchange() {
     ensure "${model_name}" "${file}"
 
     # Deploy 2 wordpress instances and one mysql instance
-    juju deploy wordpress -n 2
+    juju deploy cs:wordpress -n 2
     wait_for "wordpress" "$(idle_condition "wordpress" 0 0)"
     wait_for "wordpress" "$(idle_condition "wordpress" 0 1)"
     juju deploy mysql

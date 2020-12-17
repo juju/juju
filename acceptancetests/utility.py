@@ -288,6 +288,8 @@ def add_basic_testing_arguments(
                         help='Stream for retrieving agent binaries.')
     parser.add_argument('--series', action='store', default=None,
                         help='Name of the Ubuntu series to use.')
+    parser.add_argument('--arch', action='store', default=None,
+                        help='Name of the architecture to use.')
     if not using_jes:
         parser.add_argument('--upload-tools', action='store_true',
                             help='upload local version of tools to bootstrap.')

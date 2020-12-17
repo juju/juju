@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 
@@ -194,4 +195,41 @@ func (m *GenericScope) Clone() query.Scope {
 	return &GenericScope{
 		scopes: scopes,
 	}
+}
+
+// ScopeContext defines a context for a given scope.
+type ScopeContext struct {
+	idents   set.Strings
+	children map[string]map[string]ScopeContext
+}
+
+func MakeScopeContext() ScopeContext {
+	return ScopeContext{
+		idents: set.NewStrings(),
+		children: map[string]map[string]ScopeContext{
+			"applications": make(map[string]ScopeContext),
+			"machines":     make(map[string]ScopeContext),
+			"units":        make(map[string]ScopeContext),
+		},
+	}
+}
+
+// RecordIdent records the witnessing of a ident.
+func (c ScopeContext) RecordIdent(ident string) {
+	c.idents.Add(ident)
+}
+
+// RecordedIdents returns the witnessed idents via a scoped context.
+func (c ScopeContext) RecordedIdents() []string {
+	return c.idents.SortedValues()
+}
+
+// Child creates a child context of all idents for a given context.
+func (c ScopeContext) Child(entityName, name string) ScopeContext {
+	if child, ok := c.children[entityName][name]; ok {
+		return child
+	}
+	ctx := MakeScopeContext()
+	c.children[entityName][name] = ctx
+	return ctx
 }

@@ -3424,6 +3424,8 @@ func (s *ApplicationSuite) TestWatchRelations(c *gc.C) {
 
 	// Destroy the relation with the unit in scope, and add another; check
 	// changes.
+	err = rel2.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
 	err = rel2.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	rel3 := addRelation()

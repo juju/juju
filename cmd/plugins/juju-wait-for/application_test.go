@@ -54,6 +54,7 @@ func (s *applicationScopeSuite) TestGetIdentValue(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("%d: GetIdentValue %q", i, test.Field)
 		scope := ApplicationScope{
+			ctx:             MakeScopeContext(),
 			ApplicationInfo: test.ApplicationInfo,
 		}
 		result, err := scope.GetIdentValue(test.Field)
@@ -64,6 +65,7 @@ func (s *applicationScopeSuite) TestGetIdentValue(c *gc.C) {
 
 func (s *applicationScopeSuite) TestGetIdentValueError(c *gc.C) {
 	scope := ApplicationScope{
+		ctx:             MakeScopeContext(),
 		ApplicationInfo: &params.ApplicationInfo{},
 	}
 	result, err := scope.GetIdentValue("bad")

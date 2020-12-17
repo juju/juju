@@ -379,6 +379,8 @@ func (s *watcherSuite) TestRelationStatusWatcher(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertChange(life.Alive, false, "")
 
+	err = rel.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
 	err = rel.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	assertChange(life.Dying, false, "")

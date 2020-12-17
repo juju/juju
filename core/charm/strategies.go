@@ -44,6 +44,7 @@ type Logger interface {
 	Tracef(string, ...interface{})
 	Debugf(string, ...interface{})
 	Errorf(string, ...interface{})
+	Warningf(string, ...interface{})
 
 	Child(name string) Logger
 }
@@ -279,7 +280,8 @@ func (p *Strategy) normalizePlatform(platform Platform) (Platform, error) {
 		os = strings.ToLower(sys.String())
 	}
 	arc := platform.Architecture
-	if platform.Architecture == "" {
+	if platform.Architecture == "" || platform.Architecture == "all" {
+		p.logger.Warningf("Received charm Architecture: %q, changing to %q, for charm %q", platform.Architecture, arch.DefaultArchitecture, p.charmURL)
 		arc = arch.DefaultArchitecture
 	}
 

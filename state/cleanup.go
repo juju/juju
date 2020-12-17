@@ -271,6 +271,7 @@ func (st *State) cleanupForceDestroyedRelation(prefix string) (err error) {
 	var doc struct {
 		Key string `bson:"key"`
 	}
+	haveRelationUnits := false
 	for iter.Next(&doc) {
 		scope, role, unitName, err := unpackScopeKey(doc.Key)
 		if err != nil {
@@ -286,6 +287,7 @@ func (st *State) cleanupForceDestroyedRelation(prefix string) (err error) {
 			return errors.NotFoundf("endpoint matching %q", doc.Key)
 		}
 
+		haveRelationUnits = true
 		// This is nasty but I can't see any other way to do it - we
 		// can't rely on the unit existing to determine the values of
 		// isPrincipal and isLocalUnit, and we're only using the RU to
@@ -313,7 +315,17 @@ func (st *State) cleanupForceDestroyedRelation(prefix string) (err error) {
 			return errors.Annotatef(err, "leaving scope for unit %q in relation %q", unitName, relation)
 		}
 	}
-
+	if !haveRelationUnits {
+		// We got here because a relation claimed to have units but
+		// there weren't any corresponding relation unit records.
+		// We know this should be forced, and we've already waited the
+		// required time.
+		errs, err := relation.DestroyWithForce(true, 0)
+		if len(errs) > 0 {
+			logger.Warningf("operational errors force destroying orphaned relation %q: %v", relation, errs)
+		}
+		return errors.Annotatef(err, "force destroying relation %q", relation)
+	}
 	return nil
 }
 

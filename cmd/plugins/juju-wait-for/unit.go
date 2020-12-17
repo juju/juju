@@ -4,12 +4,14 @@
 package main
 
 import (
+	"io"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
@@ -53,6 +55,9 @@ type unitCommand struct {
 	query   string
 	timeout time.Duration
 	found   bool
+	summary bool
+
+	unitInfo params.UnitInfo
 }
 
 // Info implements Command.Info.
@@ -70,6 +75,7 @@ func (c *unitCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.waitForCommandBase.SetFlags(f)
 	f.StringVar(&c.query, "query", `life=="alive" && workload-status=="active"`, "query the goal state")
 	f.DurationVar(&c.timeout, "timeout", time.Minute*10, "how long to wait, before timing out")
+	f.BoolVar(&c.summary, "summary", true, "output a summary of the application query on exit")
 }
 
 // Init implements Command.Init.
@@ -89,26 +95,50 @@ func (c *unitCommand) Init(args []string) (err error) {
 }
 
 func (c *unitCommand) Run(ctx *cmd.Context) error {
+	scopedContext := MakeScopeContext()
+
+	defer func() {
+		if !c.summary {
+			return
+		}
+
+		switch c.unitInfo.Life {
+		case life.Dead:
+			ctx.Infof("Unit %q has been removed", c.name)
+		case life.Dying:
+			ctx.Infof("Unit %q is being removed", c.name)
+		default:
+			ctx.Infof("Unit %q is running", c.name)
+			outputUnitSummary(ctx.Stdout, scopedContext, &c.unitInfo)
+		}
+	}()
+
 	strategy := &Strategy{
 		ClientFn: c.newWatchAllAPIFunc,
 		Timeout:  c.timeout,
 	}
-	err := strategy.Run(c.name, c.query, c.waitFor)
+	err := strategy.Run(c.name, c.query, c.waitFor(scopedContext))
 	return errors.Trace(err)
 }
 
-func (c *unitCommand) waitFor(name string, deltas []params.Delta, q query.Query) (bool, error) {
-	for _, delta := range deltas {
-		logger.Tracef("delta %T: %v", delta.Entity, delta.Entity)
+func (c *unitCommand) waitFor(ctx ScopeContext) func(string, []params.Delta, query.Query) (bool, error) {
+	return func(name string, deltas []params.Delta, q query.Query) (bool, error) {
+		for _, delta := range deltas {
+			logger.Tracef("delta %T: %v", delta.Entity, delta.Entity)
 
-		switch entityInfo := delta.Entity.(type) {
-		case *params.UnitInfo:
-			if entityInfo.Name == name {
+			switch entityInfo := delta.Entity.(type) {
+			case *params.UnitInfo:
+				if entityInfo.Name != name {
+					break
+				}
+
 				if delta.Removed {
 					return false, errors.Errorf("unit %v removed", name)
 				}
 
-				scope := MakeUnitScope(entityInfo)
+				c.unitInfo = *entityInfo
+
+				scope := MakeUnitScope(ctx, entityInfo)
 				if done, err := runQuery(q, scope); err != nil {
 					return false, errors.Trace(err)
 				} else if done {
@@ -117,27 +147,28 @@ func (c *unitCommand) waitFor(name string, deltas []params.Delta, q query.Query)
 
 				c.found = entityInfo.Life != life.Dead
 			}
-			break
 		}
-	}
 
-	if !c.found {
-		logger.Infof("unit %q not found, waiting...", name)
+		if !c.found {
+			logger.Infof("unit %q not found, waiting...", name)
+			return false, nil
+		}
+
+		logger.Infof("unit %q found, waiting...", name)
 		return false, nil
 	}
-
-	logger.Infof("unit %q found, waiting...", name)
-	return false, nil
 }
 
 // UnitScope allows the query to introspect a unit entity.
 type UnitScope struct {
+	ctx      ScopeContext
 	UnitInfo *params.UnitInfo
 }
 
 // MakeUnitScope creates an UnitScope from an UnitInfo
-func MakeUnitScope(info *params.UnitInfo) UnitScope {
+func MakeUnitScope(ctx ScopeContext, info *params.UnitInfo) UnitScope {
 	return UnitScope{
+		ctx:      ctx,
 		UnitInfo: info,
 	}
 }
@@ -149,6 +180,8 @@ func (m UnitScope) GetIdents() []string {
 
 // GetIdentValue returns the value of the identifier in a given scope.
 func (m UnitScope) GetIdentValue(name string) (query.Box, error) {
+	m.ctx.RecordIdent(name)
+
 	switch name {
 	case "name":
 		return query.NewString(m.UnitInfo.Name), nil
@@ -176,4 +209,24 @@ func (m UnitScope) GetIdentValue(name string) (query.Box, error) {
 		return query.NewString(string(m.UnitInfo.AgentStatus.Current)), nil
 	}
 	return nil, errors.Annotatef(query.ErrInvalidIdentifier(name), "Runtime Error: identifier %q not found on UnitInfo", name)
+}
+
+func outputUnitSummary(writer io.Writer, scopedContext ScopeContext, unitInfo *params.UnitInfo) {
+	result := struct {
+		Elements map[string]interface{} `yaml:"properties"`
+	}{
+		Elements: make(map[string]interface{}),
+	}
+
+	idents := scopedContext.RecordedIdents()
+	for _, ident := range idents {
+		scope := MakeUnitScope(scopedContext, unitInfo)
+		box, err := scope.GetIdentValue(ident)
+		if err != nil {
+			continue
+		}
+		result.Elements[ident] = box.Value()
+	}
+
+	_ = yaml.NewEncoder(writer).Encode(result)
 }

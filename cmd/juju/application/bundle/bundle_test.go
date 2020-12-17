@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/bundlechanges/v3"
+	"github.com/juju/bundlechanges/v4"
 	"github.com/juju/charm/v8"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

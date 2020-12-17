@@ -4,12 +4,14 @@
 package main
 
 import (
+	"io"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
@@ -52,6 +54,7 @@ type modelCommand struct {
 	name    string
 	query   string
 	timeout time.Duration
+	summary bool
 	found   bool
 
 	// TODO (stickupkid): Generalize this to become a local cache, similar to
@@ -78,6 +81,7 @@ func (c *modelCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.waitForCommandBase.SetFlags(f)
 	f.StringVar(&c.query, "query", `life=="alive" && status=="available"`, "query the goal state")
 	f.DurationVar(&c.timeout, "timeout", time.Minute*10, "how long to wait, before timing out")
+	f.BoolVar(&c.summary, "summary", true, "output a summary of the application query on exit")
 }
 
 // Init implements Command.Init.
@@ -97,6 +101,24 @@ func (c *modelCommand) Init(args []string) (err error) {
 }
 
 func (c *modelCommand) Run(ctx *cmd.Context) error {
+	scopedContext := MakeScopeContext()
+
+	defer func() {
+		if c.model == nil || !c.summary {
+			return
+		}
+
+		switch c.model.Life {
+		case life.Dead:
+			ctx.Infof("Model %q has been removed", c.name)
+		case life.Dying:
+			ctx.Infof("Model %q is being removed", c.name)
+		default:
+			ctx.Infof("Model %q is running", c.name)
+			outputModelSummary(ctx.Stdout, scopedContext, c)
+		}
+	}()
+
 	strategy := &Strategy{
 		ClientFn: c.newWatchAllAPIFunc,
 		Timeout:  c.timeout,
@@ -107,7 +129,7 @@ func (c *modelCommand) Run(ctx *cmd.Context) error {
 			c.primeCache()
 		}
 	})
-	err := strategy.Run(c.name, c.query, c.waitFor)
+	err := strategy.Run(c.name, c.query, c.waitFor(scopedContext))
 	return errors.Trace(err)
 }
 
@@ -117,34 +139,38 @@ func (c *modelCommand) primeCache() {
 	c.units = make(map[string]*params.UnitInfo)
 }
 
-func (c *modelCommand) waitFor(name string, deltas []params.Delta, q query.Query) (bool, error) {
-	for _, delta := range deltas {
-		logger.Tracef("delta %T: %v", delta.Entity, delta.Entity)
+func (c *modelCommand) waitFor(ctx ScopeContext) func(string, []params.Delta, query.Query) (bool, error) {
+	return func(name string, deltas []params.Delta, q query.Query) (bool, error) {
+		for _, delta := range deltas {
+			logger.Tracef("delta %T: %v", delta.Entity, delta.Entity)
 
-		switch entityInfo := delta.Entity.(type) {
-		case *params.ApplicationInfo:
-			if delta.Removed {
-				delete(c.applications, entityInfo.Name)
-				break
-			}
-			c.applications[entityInfo.Name] = entityInfo
+			switch entityInfo := delta.Entity.(type) {
+			case *params.ApplicationInfo:
+				if delta.Removed {
+					delete(c.applications, entityInfo.Name)
+					break
+				}
+				c.applications[entityInfo.Name] = entityInfo
 
-		case *params.MachineInfo:
-			if delta.Removed {
-				delete(c.machines, entityInfo.Id)
-				break
-			}
-			c.machines[entityInfo.Id] = entityInfo
+			case *params.MachineInfo:
+				if delta.Removed {
+					delete(c.machines, entityInfo.Id)
+					break
+				}
+				c.machines[entityInfo.Id] = entityInfo
 
-		case *params.UnitInfo:
-			if delta.Removed {
-				delete(c.units, entityInfo.Name)
-				break
-			}
-			c.units[entityInfo.Name] = entityInfo
+			case *params.UnitInfo:
+				if delta.Removed {
+					delete(c.units, entityInfo.Name)
+					break
+				}
+				c.units[entityInfo.Name] = entityInfo
 
-		case *params.ModelUpdate:
-			if entityInfo.Name == name {
+			case *params.ModelUpdate:
+				if entityInfo.Name != name {
+					break
+				}
+
 				if delta.Removed {
 					return false, errors.Errorf("model %v removed", name)
 				}
@@ -152,35 +178,37 @@ func (c *modelCommand) waitFor(name string, deltas []params.Delta, q query.Query
 				c.found = entityInfo.Life != life.Dead
 			}
 		}
-	}
 
-	if c.model != nil {
-		scope := MakeModelScope(c)
-		if done, err := runQuery(q, scope); err != nil {
-			return false, errors.Trace(err)
-		} else if done {
-			return true, nil
+		if c.model != nil {
+			scope := MakeModelScope(ctx, c)
+			if done, err := runQuery(q, scope); err != nil {
+				return false, errors.Trace(err)
+			} else if done {
+				return true, nil
+			}
 		}
-	}
 
-	if !c.found {
-		logger.Infof("model %q not found, waiting...", name)
+		if !c.found {
+			logger.Infof("model %q not found, waiting...", name)
+			return false, nil
+		}
+
+		logger.Infof("model %q found, waiting...", name)
 		return false, nil
 	}
-
-	logger.Infof("model %q found, waiting...", name)
-	return false, nil
 }
 
 // ModelScope allows the query to introspect a model entity.
 type ModelScope struct {
+	ctx       ScopeContext
 	ModelInfo *params.ModelUpdate
 	Model     *modelCommand
 }
 
-// MakeModelScope creates an ModelScope from an ModelUpdate
-func MakeModelScope(model *modelCommand) ModelScope {
+// MakeModelScope creates a ModelScope from a ModelUpdate
+func MakeModelScope(ctx ScopeContext, model *modelCommand) ModelScope {
 	return ModelScope{
+		ctx:       ctx,
 		ModelInfo: model.model,
 		Model:     model,
 	}
@@ -195,14 +223,19 @@ func (m ModelScope) GetIdents() []string {
 func (m ModelScope) GetIdentValue(name string) (query.Box, error) {
 	switch name {
 	case "name":
+		m.ctx.RecordIdent(name)
 		return query.NewString(m.ModelInfo.Name), nil
 	case "life":
+		m.ctx.RecordIdent(name)
 		return query.NewString(string(m.ModelInfo.Life)), nil
 	case "is-controller":
+		m.ctx.RecordIdent(name)
 		return query.NewBool(m.ModelInfo.IsController), nil
 	case "status":
+		m.ctx.RecordIdent(name)
 		return query.NewString(string(m.ModelInfo.Status.Current)), nil
 	case "config":
+		m.ctx.RecordIdent(name)
 		return query.NewMapStringInterface(m.ModelInfo.Config), nil
 	case "applications":
 		scopes := make(map[string]query.Scope)
@@ -220,19 +253,19 @@ func (m ModelScope) GetIdentValue(name string) (query.Box, error) {
 			appInfo := app
 			appInfo.Status.Current = newStatus
 
-			scopes[k] = MakeApplicationScope(appInfo)
+			scopes[k] = MakeApplicationScope(m.ctx.Child(name, app.Name), appInfo)
 		}
 		return NewScopedBox(scopes), nil
 	case "machines":
 		scopes := make(map[string]query.Scope)
 		for k, machine := range m.Model.machines {
-			scopes[k] = MakeMachineScope(machine)
+			scopes[k] = MakeMachineScope(m.ctx.Child(name, machine.Id), machine)
 		}
 		return NewScopedBox(scopes), nil
 	case "units":
 		scopes := make(map[string]query.Scope)
 		for k, unit := range m.Model.units {
-			scopes[k] = MakeUnitScope(unit)
+			scopes[k] = MakeUnitScope(m.ctx.Child(name, unit.Name), unit)
 		}
 		return NewScopedBox(scopes), nil
 	}
@@ -279,4 +312,89 @@ func (o *ScopedBox) ForEach(fn func(interface{}) bool) {
 			return
 		}
 	}
+}
+
+func outputModelSummary(writer io.Writer, scopedContext ScopeContext, c *modelCommand) {
+	result := struct {
+		Elements     map[string]interface{}            `yaml:"properties"`
+		Applications map[string]map[string]interface{} `yaml:"applications,omitempty"`
+		Machines     map[string]map[string]interface{} `yaml:"machines,omitempty"`
+		Units        map[string]map[string]interface{} `yaml:"units,omitempty"`
+	}{
+		Elements:     make(map[string]interface{}),
+		Applications: make(map[string]map[string]interface{}),
+		Machines:     make(map[string]map[string]interface{}),
+		Units:        make(map[string]map[string]interface{}),
+	}
+
+	idents := scopedContext.RecordedIdents()
+	for _, ident := range idents {
+		scope := MakeModelScope(scopedContext, c)
+		box, err := scope.GetIdentValue(ident)
+		if err != nil {
+			continue
+		}
+		result.Elements[ident] = box.Value()
+	}
+	for entity, scopes := range scopedContext.children {
+		for name, sctx := range scopes {
+			idents := sctx.RecordedIdents()
+
+			var scope query.Scope
+			switch entity {
+			case "applications":
+				appInfo := c.applications[name]
+				scope = MakeApplicationScope(scopedContext, appInfo)
+
+				if scope == nil {
+					continue
+				}
+
+				result.Applications[name] = make(map[string]interface{})
+
+				for _, ident := range idents {
+					box, err := scope.GetIdentValue(ident)
+					if err != nil {
+						continue
+					}
+					result.Applications[name][ident] = box.Value()
+				}
+			case "machines":
+				machineInfo := c.machines[name]
+				scope = MakeMachineScope(scopedContext, machineInfo)
+
+				if scope == nil {
+					continue
+				}
+
+				result.Machines[name] = make(map[string]interface{})
+
+				for _, ident := range idents {
+					box, err := scope.GetIdentValue(ident)
+					if err != nil {
+						continue
+					}
+					result.Machines[name][ident] = box.Value()
+				}
+			case "units":
+				unitInfo := c.units[name]
+				scope = MakeUnitScope(scopedContext, unitInfo)
+
+				if scope == nil {
+					continue
+				}
+
+				result.Units[name] = make(map[string]interface{})
+				for _, ident := range idents {
+					box, err := scope.GetIdentValue(ident)
+					if err != nil {
+						continue
+					}
+					result.Units[name][ident] = box.Value()
+				}
+			}
+		}
+	}
+
+	_ = yaml.NewEncoder(writer).Encode(result)
 }

@@ -12,8 +12,10 @@ import (
 	"github.com/juju/juju/resource"
 )
 
-// EntityRepository exposes the functionality needed to cache data from
-// the charm store. The operations apply to a single application (or unit).
+// EntityRepository exposes the functionality needed to access data from
+// a repository.  If the data is not in state, get it from charm hub or
+// charm store and store in state. The operations apply to a single application
+// (or unit).
 type EntityRepository interface {
 	// GetResource returns the resource data for the identified resource.
 	GetResource(name string) (resource.Resource, error)
@@ -32,9 +34,9 @@ type operationsRepository struct {
 	repo EntityRepository
 }
 
-// get retrieves the resource info and data from the cache. If only
-// the info is found then the returned reader will be nil. If no cache
-// is in use then errors.NotFound is returned.
+// get retrieves the resource info and data from a repo. If only
+// the info is found then the returned reader will be nil. If a
+// repo is not in use then errors.NotFound is returned.
 func (cfo operationsRepository) get(name string) (resource.Resource, io.ReadCloser, error) {
 	if cfo.repo == nil {
 		return resource.Resource{}, nil, errors.NotFoundf("resource %q", name)
@@ -52,18 +54,24 @@ func (cfo operationsRepository) get(name string) (resource.Resource, io.ReadClos
 	return res, reader, nil
 }
 
-// set stores the resource info and data in the cache,
-// if there is one. If no cache is in use then this is a no-op. Note
-// that the returned reader may or may not be the same one that was
-// passed in.
-func (cfo operationsRepository) set(chRes charmresource.Resource, reader io.ReadCloser) (resource.Resource, io.ReadCloser, error) {
+// set stores the resource info and data in a repo, if there is one.
+// If no repo is in use then this is a no-op. Note that the returned
+// reader may or may not be the same one that was passed in.
+func (cfo operationsRepository) set(chRes charmresource.Resource, reader io.ReadCloser) (_ resource.Resource, _ io.ReadCloser, err error) {
 	if cfo.repo == nil {
 		res := resource.Resource{
 			Resource: chRes,
 		}
 		return res, reader, nil // a no-op
 	}
-	defer func() { _ = reader.Close() }()
+	defer func() {
+		if err != nil {
+			// With no err, the reader was closed down in unitSetter Read().
+			// Closing here with no error leads to a panic in Read, and the
+			// unit's resource doc is never cleared of it's pending status.
+			_ = reader.Close()
+		}
+	}()
 
 	res, err := cfo.repo.SetResource(chRes, reader)
 	if err != nil {
