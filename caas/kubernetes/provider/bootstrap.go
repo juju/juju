@@ -307,13 +307,27 @@ func (c *controllerStack) doCleanUp() {
 	}
 }
 
-// Deploy creates all resources for controller stack.
+// Deploy creates all resources for the controller stack.
 func (c *controllerStack) Deploy() (err error) {
 	// creating namespace for controller stack, this namespace will be removed by broker.DestroyController if bootstrap failed.
 	nsName := c.broker.GetCurrentNamespace()
 	c.ctx.Infof("Creating k8s resources for controller %q", nsName)
 	if err = c.broker.createNamespace(nsName); err != nil {
 		return errors.Annotate(err, "creating namespace for controller stack")
+	}
+
+	// Check context manually for cancellation between each step (not ideal,
+	// but it avoids wiring context absolutely everywhere).
+	isDone := func() bool {
+		select {
+		case <-c.ctx.Context().Done():
+			return true
+		default:
+			return false
+		}
+	}
+	if isDone() {
+		return errors.New("cancelled")
 	}
 
 	defer func() {
@@ -326,36 +340,58 @@ func (c *controllerStack) Deploy() (err error) {
 	if err = c.createControllerService(); err != nil {
 		return errors.Annotate(err, "creating service for controller")
 	}
+	if isDone() {
+		return errors.New("cancelled")
+	}
 
 	// create shared-secret secret for controller pod.
 	if err = c.createControllerSecretSharedSecret(); err != nil {
 		return errors.Annotate(err, "creating shared-secret secret for controller")
+	}
+	if isDone() {
+		return errors.New("cancelled")
 	}
 
 	// create server.pem secret for controller pod.
 	if err = c.createControllerSecretServerPem(); err != nil {
 		return errors.Annotate(err, "creating server.pem secret for controller")
 	}
+	if isDone() {
+		return errors.New("cancelled")
+	}
 
 	// create mongo admin account secret for controller pod.
 	if err = c.createControllerSecretMongoAdmin(); err != nil {
 		return errors.Annotate(err, "creating mongo admin account secret for controller")
+	}
+	if isDone() {
+		return errors.New("cancelled")
 	}
 
 	// create bootstrap-params configmap for controller pod.
 	if err = c.ensureControllerConfigmapBootstrapParams(); err != nil {
 		return errors.Annotate(err, "creating bootstrap-params configmap for controller")
 	}
+	if isDone() {
+		return errors.New("cancelled")
+	}
 
 	// Note: create agent config configmap for controller pod lastly because agentConfig has been updated in previous steps.
 	if err = c.ensureControllerConfigmapAgentConf(); err != nil {
 		return errors.Annotate(err, "creating agent config configmap for controller")
+	}
+	if isDone() {
+		return errors.New("cancelled")
 	}
 
 	// create statefulset to ensure controller stack.
 	if err = c.createControllerStatefulset(); err != nil {
 		return errors.Annotate(err, "creating statefulset for controller")
 	}
+	if isDone() {
+		return errors.New("cancelled")
+	}
+
 	return nil
 }
 
