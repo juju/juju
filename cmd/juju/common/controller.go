@@ -9,21 +9,21 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/jujuclient"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/block"
 	"github.com/juju/juju/apiserver/params"
 	caasprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/jujuclient"
 )
 
 var (
@@ -39,7 +39,12 @@ type listBlocksAPI interface {
 
 // getBlockAPI returns a block api for listing blocks.
 func getBlockAPI(c *modelcmd.ModelCommandBase) (listBlocksAPI, error) {
-	root, err := c.NewAPIRoot()
+	// Set a short dial timeout so WaitForAgentInitialisation can check
+	// ctx.Done() in its retry loop.
+	dialOpts := api.DefaultDialOpts()
+	dialOpts.Timeout = 3 * time.Second
+
+	root, err := c.NewAPIRootWithDialOpts(&dialOpts)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -64,11 +69,10 @@ func tryAPI(c *modelcmd.ModelCommandBase) error {
 // command which will fail until the controller is fully initialised.
 // TODO(wallyworld) - add a bespoke command to maybe the admin facade for this purpose.
 func WaitForAgentInitialisation(
-	ctx *cmd.Context,
+	ctx environs.BootstrapContext,
 	c *modelcmd.ModelCommandBase,
 	isCAASController bool,
-	controllerName,
-	hostedModelName string,
+	controllerName string,
 ) (err error) {
 	// TODO(katco): 2016-08-09: lp:1611427
 	attempts := utils.AttemptStrategy{
@@ -99,6 +103,14 @@ func WaitForAgentInitialisation(
 			}
 			ctx.Infof(msg)
 			break
+		}
+
+		// Check whether context is cancelled after each attempt (as context
+		// isn't fully threaded through yet).
+		select {
+		case <-ctx.Context().Done():
+			return errors.Annotatef(err, "cancelled waiting for controller")
+		default:
 		}
 
 		// As the API server is coming up, it goes through a number of steps.

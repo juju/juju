@@ -96,7 +96,7 @@ func BootstrapInstance(
 		}
 		return nil, "", nil, errors.Annotatef(err, "use --force to override")
 	}
-	// The series we're attemptting to bootstrap is empty, show a friendly
+	// The series we're attempting to bootstrap is empty, show a friendly
 	// error message, rather than the more cryptic error messages that follow
 	// onwards.
 	if selectedSeries == "" {

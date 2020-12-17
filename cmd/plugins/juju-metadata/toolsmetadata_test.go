@@ -5,6 +5,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -55,7 +56,7 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	e, err := bootstrap.PrepareController(
 		false,
-		modelcmd.BootstrapContextNoVerify(cmdtesting.Context(c)),
+		modelcmd.BootstrapContextNoVerify(context.Background(), cmdtesting.Context(c)),
 		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),

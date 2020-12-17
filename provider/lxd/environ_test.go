@@ -4,6 +4,8 @@
 package lxd_test
 
 import (
+	"context"
+
 	"github.com/golang/mock/gomock"
 	"github.com/juju/charm/v7"
 	"github.com/juju/cmd/cmdtesting"
@@ -18,7 +20,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/lxd"
 	coretesting "github.com/juju/juju/testing"
@@ -29,7 +31,7 @@ var errTestUnAuth = errors.New("not authorized")
 type environSuite struct {
 	lxd.BaseSuite
 
-	callCtx           context.ProviderCallContext
+	callCtx           envcontext.ProviderCallContext
 	invalidCredential bool
 }
 
@@ -37,7 +39,7 @@ var _ = gc.Suite(&environSuite{})
 
 func (s *environSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.callCtx = &context.CloudCallContext{
+	s.callCtx = &envcontext.CloudCallContext{
 		InvalidateCredentialFunc: func(string) error {
 			s.invalidCredential = true
 			return nil
@@ -93,7 +95,7 @@ func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
 	}
-	result, err := s.Env.Bootstrap(modelcmd.BootstrapContext(ctx), s.callCtx, params)
+	result, err := s.Env.Bootstrap(modelcmd.BootstrapContext(context.Background(), ctx), s.callCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(result.Arch, gc.Equals, "amd64")
@@ -378,7 +380,7 @@ func (s *environSuite) TestInstanceAvailabilityZoneNamesInvalidCredentials(c *gc
 type environCloudProfileSuite struct {
 	lxd.EnvironSuite
 
-	callCtx context.ProviderCallContext
+	callCtx envcontext.ProviderCallContext
 
 	svr          *lxd.MockServer
 	cloudSpecEnv environs.CloudSpecSetter
@@ -441,7 +443,7 @@ func (s *environCloudProfileSuite) expectCreateProfile(name string, err error) {
 type environProfileSuite struct {
 	lxd.EnvironSuite
 
-	callCtx context.ProviderCallContext
+	callCtx envcontext.ProviderCallContext
 
 	svr    *lxd.MockServer
 	lxdEnv environs.LXDProfiler

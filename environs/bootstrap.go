@@ -4,6 +4,7 @@
 package environs
 
 import (
+	"context"
 	"io"
 	"os"
 	"time"
@@ -141,4 +142,7 @@ type BootstrapContext interface {
 	// ShouldVerifyCredentials indicates whether the caller's cloud
 	// credentials should be verified.
 	ShouldVerifyCredentials() bool
+
+	// Context is the context.Context value for this bootstrap command.
+	Context() context.Context
 }

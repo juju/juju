@@ -4,6 +4,8 @@
 package testing
 
 import (
+	"context"
+
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
@@ -13,8 +15,8 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
-	instances "github.com/juju/juju/environs/instances"
+	envcontext "github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -28,7 +30,7 @@ func DisableFinishBootstrap() func() {
 		environs.BootstrapContext,
 		ssh.Client,
 		environs.Environ,
-		context.ProviderCallContext,
+		envcontext.ProviderCallContext,
 		instances.Instance,
 		*instancecfg.InstanceConfig,
 		environs.BootstrapDialOpts,
@@ -41,5 +43,5 @@ func DisableFinishBootstrap() func() {
 
 // BootstrapContext creates a simple bootstrap execution context.
 func BootstrapContext(c *gc.C) environs.BootstrapContext {
-	return modelcmd.BootstrapContext(cmdtesting.Context(c))
+	return modelcmd.BootstrapContext(context.Background(), cmdtesting.Context(c))
 }
