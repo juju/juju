@@ -4,8 +4,8 @@
 package rackspace_test
 
 import (
+	"context"
 	"io"
-	"os"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -36,7 +36,7 @@ type environSuite struct {
 	environ      environs.Environ
 	innerEnviron *fakeEnviron
 
-	callCtx           *context.CloudCallContext
+	callCtx           *envcontext.CloudCallContext
 	invalidCredential bool
 }
 
@@ -46,7 +46,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.innerEnviron = new(fakeEnviron)
 	s.environ = rackspace.NewEnviron(s.innerEnviron)
-	s.callCtx = &context.CloudCallContext{
+	s.callCtx = &envcontext.CloudCallContext{
 		InvalidateCredentialFunc: func(string) error {
 			s.invalidCredential = true
 			return nil
@@ -60,7 +60,7 @@ func (s *environSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *environSuite) TestBootstrap(c *gc.C) {
-	s.PatchValue(rackspace.Bootstrap, func(ctx environs.BootstrapContext, env environs.Environ, callCtx context.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
+	s.PatchValue(rackspace.Bootstrap, func(ctx environs.BootstrapContext, env environs.Environ, callCtx envcontext.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 		return s.innerEnviron.Bootstrap(ctx, callCtx, args)
 	})
 	s.environ.Bootstrap(nil, s.callCtx, environs.BootstrapParams{
@@ -72,12 +72,12 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 func (s *environSuite) TestStartInstance(c *gc.C) {
 	configurator := &fakeConfigurator{}
 	s.PatchValue(rackspace.WaitSSH, func(
+		ctx context.Context,
 		stdErr io.Writer,
-		interrupted <-chan os.Signal,
 		client ssh.Client,
 		checkHostScript string,
 		inst common.InstanceRefresher,
-		callCtx context.ProviderCallContext,
+		callCtx envcontext.ProviderCallContext,
 		timeout environs.BootstrapDialOpts,
 		hostSSHOptions common.HostSSHOptionsFunc,
 	) (addr string, err error) {
@@ -122,12 +122,12 @@ func (s *environSuite) TestStartInstanceInvalidCredential(c *gc.C) {
 		},
 	}
 	s.PatchValue(rackspace.WaitSSH, func(
+		ctx context.Context,
 		stdErr io.Writer,
-		interrupted <-chan os.Signal,
 		client ssh.Client,
 		checkHostScript string,
 		inst common.InstanceRefresher,
-		callCtx context.ProviderCallContext,
+		callCtx envcontext.ProviderCallContext,
 		timeout environs.BootstrapDialOpts,
 		hostSSHOptions common.HostSSHOptionsFunc,
 	) (addr string, err error) {
@@ -191,7 +191,7 @@ func (p *fakeEnviron) Open(cfg *config.Config) (environs.Environ, error) {
 	return nil, nil
 }
 
-func (e *fakeEnviron) Create(callCtx context.ProviderCallContext, args environs.CreateParams) error {
+func (e *fakeEnviron) Create(callCtx envcontext.ProviderCallContext, args environs.CreateParams) error {
 	e.Push("Create", callCtx, args)
 	return nil
 }
@@ -201,34 +201,34 @@ func (e *fakeEnviron) PrepareForBootstrap(ctx environs.BootstrapContext, control
 	return nil
 }
 
-func (e *fakeEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
+func (e *fakeEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx envcontext.ProviderCallContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	e.Push("Bootstrap", ctx, callCtx, params)
 	return nil, nil
 }
 
-func (e *fakeEnviron) StartInstance(callCtx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (e *fakeEnviron) StartInstance(callCtx envcontext.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	e.Push("StartInstance", callCtx, args)
 	return &environs.StartInstanceResult{
 		Instance: &fakeInstance{},
 	}, nil
 }
 
-func (e *fakeEnviron) StopInstances(callCtx context.ProviderCallContext, ids ...instance.Id) error {
+func (e *fakeEnviron) StopInstances(callCtx envcontext.ProviderCallContext, ids ...instance.Id) error {
 	e.Push("StopInstances", callCtx, ids)
 	return nil
 }
 
-func (e *fakeEnviron) AllInstances(callCtx context.ProviderCallContext) ([]instances.Instance, error) {
+func (e *fakeEnviron) AllInstances(callCtx envcontext.ProviderCallContext) ([]instances.Instance, error) {
 	e.Push("AllInstances", callCtx)
 	return nil, nil
 }
 
-func (e *fakeEnviron) AllRunningInstances(callCtx context.ProviderCallContext) ([]instances.Instance, error) {
+func (e *fakeEnviron) AllRunningInstances(callCtx envcontext.ProviderCallContext) ([]instances.Instance, error) {
 	e.Push("AllRunningInstances", callCtx)
 	return nil, nil
 }
 
-func (e *fakeEnviron) MaintainInstance(callCtx context.ProviderCallContext, args environs.StartInstanceParams) error {
+func (e *fakeEnviron) MaintainInstance(callCtx envcontext.ProviderCallContext, args environs.StartInstanceParams) error {
 	e.Push("MaintainInstance", callCtx, args)
 	return nil
 }
@@ -237,7 +237,7 @@ func (e *fakeEnviron) Config() *config.Config {
 	return e.config
 }
 
-func (e *fakeEnviron) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
+func (e *fakeEnviron) ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error) {
 	e.Push("ConstraintsValidator", ctx)
 	return nil, nil
 }
@@ -247,42 +247,42 @@ func (e *fakeEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (e *fakeEnviron) Instances(callCtx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
+func (e *fakeEnviron) Instances(callCtx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	e.Push("Instances", callCtx, ids)
 	return []instances.Instance{&fakeInstance{}}, nil
 }
 
-func (e *fakeEnviron) ControllerInstances(callCtx context.ProviderCallContext, st string) ([]instance.Id, error) {
+func (e *fakeEnviron) ControllerInstances(callCtx envcontext.ProviderCallContext, st string) ([]instance.Id, error) {
 	e.Push("ControllerInstances", callCtx, st)
 	return nil, nil
 }
 
-func (e *fakeEnviron) AdoptResources(callCtx context.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
+func (e *fakeEnviron) AdoptResources(callCtx envcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
 	e.Push("AdoptResources", callCtx, controllerUUID, fromVersion)
 	return nil
 }
 
-func (e *fakeEnviron) Destroy(callCtx context.ProviderCallContext) error {
+func (e *fakeEnviron) Destroy(callCtx envcontext.ProviderCallContext) error {
 	e.Push("Destroy", callCtx)
 	return nil
 }
 
-func (e *fakeEnviron) DestroyController(callCtx context.ProviderCallContext, controllerUUID string) error {
+func (e *fakeEnviron) DestroyController(callCtx envcontext.ProviderCallContext, controllerUUID string) error {
 	e.Push("Destroy", callCtx, controllerUUID)
 	return nil
 }
 
-func (e *fakeEnviron) OpenPorts(callCtx context.ProviderCallContext, rules []network.IngressRule) error {
+func (e *fakeEnviron) OpenPorts(callCtx envcontext.ProviderCallContext, rules []network.IngressRule) error {
 	e.Push("OpenPorts", callCtx, rules)
 	return nil
 }
 
-func (e *fakeEnviron) ClosePorts(callCtx context.ProviderCallContext, rules []network.IngressRule) error {
+func (e *fakeEnviron) ClosePorts(callCtx envcontext.ProviderCallContext, rules []network.IngressRule) error {
 	e.Push("ClosePorts", callCtx, rules)
 	return nil
 }
 
-func (e *fakeEnviron) IngressRules(callCtx context.ProviderCallContext) ([]network.IngressRule, error) {
+func (e *fakeEnviron) IngressRules(callCtx envcontext.ProviderCallContext) ([]network.IngressRule, error) {
 	e.Push("Ports", callCtx)
 	return nil, nil
 }
@@ -292,7 +292,7 @@ func (e *fakeEnviron) Provider() environs.EnvironProvider {
 	return nil
 }
 
-func (e *fakeEnviron) PrecheckInstance(callCtx context.ProviderCallContext, args environs.PrecheckInstanceParams) error {
+func (e *fakeEnviron) PrecheckInstance(callCtx envcontext.ProviderCallContext, args environs.PrecheckInstanceParams) error {
 	e.Push("PrecheckInstance", callCtx, args)
 	return nil
 }
@@ -307,7 +307,7 @@ func (e *fakeEnviron) StorageProvider(t storage.ProviderType) (storage.Provider,
 	return nil, errors.NotImplementedf("StorageProvider")
 }
 
-func (e *fakeEnviron) InstanceTypes(context.ProviderCallContext, constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
+func (e *fakeEnviron) InstanceTypes(envcontext.ProviderCallContext, constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
 	return instances.InstanceTypesWithCostMetadata{}, nil
 }
 
@@ -369,7 +369,7 @@ func (e *fakeInstance) Id() instance.Id {
 	return instance.Id("")
 }
 
-func (e *fakeInstance) Status(callCtx context.ProviderCallContext) instance.Status {
+func (e *fakeInstance) Status(callCtx envcontext.ProviderCallContext) instance.Status {
 	e.Push("Status", callCtx)
 	return instance.Status{
 		Status:  status.Provisioning,
@@ -377,12 +377,12 @@ func (e *fakeInstance) Status(callCtx context.ProviderCallContext) instance.Stat
 	}
 }
 
-func (e *fakeInstance) Refresh(callCtx context.ProviderCallContext) error {
+func (e *fakeInstance) Refresh(callCtx envcontext.ProviderCallContext) error {
 	e.Push("Refresh", callCtx)
 	return nil
 }
 
-func (e *fakeInstance) Addresses(callCtx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
+func (e *fakeInstance) Addresses(callCtx envcontext.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
 	e.Push("Addresses", callCtx)
 	return []corenetwork.ProviderAddress{{
 		MachineAddress: corenetwork.MachineAddress{
@@ -393,17 +393,17 @@ func (e *fakeInstance) Addresses(callCtx context.ProviderCallContext) (corenetwo
 	}}, nil
 }
 
-func (e *fakeInstance) OpenPorts(callCtx context.ProviderCallContext, machineId string, ports []network.IngressRule) error {
+func (e *fakeInstance) OpenPorts(callCtx envcontext.ProviderCallContext, machineId string, ports []network.IngressRule) error {
 	e.Push("OpenPorts", callCtx, machineId, ports)
 	return nil
 }
 
-func (e *fakeInstance) ClosePorts(callCtx context.ProviderCallContext, machineId string, ports []network.IngressRule) error {
+func (e *fakeInstance) ClosePorts(callCtx envcontext.ProviderCallContext, machineId string, ports []network.IngressRule) error {
 	e.Push("ClosePorts", callCtx, machineId, ports)
 	return nil
 }
 
-func (e *fakeInstance) IngressRules(callCtx context.ProviderCallContext, machineId string) ([]network.IngressRule, error) {
+func (e *fakeInstance) IngressRules(callCtx envcontext.ProviderCallContext, machineId string) ([]network.IngressRule, error) {
 	e.Push("Ports", callCtx, machineId)
 	return nil, nil
 }
