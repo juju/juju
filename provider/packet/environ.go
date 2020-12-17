@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -18,13 +19,16 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	envinstance "github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/tools"
 	"github.com/juju/schema"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
+	"github.com/lxc/lxd/shared/logger"
 	"github.com/packethost/packngo"
 	"gopkg.in/juju/environschema.v1"
 )
@@ -41,6 +45,30 @@ type environ struct {
 	cloud        environscloudspec.CloudSpec
 	packetClient *packngo.Client
 }
+
+const (
+	packetUserDataOverrides = `#!/bin/bash
+rm /etc/ssh/ssh_host_*dsa* 
+rm /etc/ssh/ssh_host_ed*
+rm /sbin/initctl
+sudo apt update
+sudo apt install -y dmidecode snapd
+set -e
+(grep ubuntu /etc/group) || groupadd ubuntu
+(id ubuntu &> /dev/null) || useradd -m ubuntu -s /bin/bash -g ubuntu
+umask 0077
+temp=$(mktemp)
+echo 'ubuntu ALL=(ALL) NOPASSWD:ALL' > $temp
+install -m 0440 $temp /etc/sudoers.d/90-juju-ubuntu
+rm $temp
+su ubuntu -c 'install -D -m 0600 /dev/null ~/.ssh/authorized_keys'
+export authorized_keys="%s"
+if [ ! -z "$authorized_keys" ]; then
+su ubuntu -c 'printf "%%s
+" "$authorized_keys" >> ~/.ssh/authorized_keys'
+fi
+`
+)
 
 var providerInstance environProvider
 
@@ -59,7 +87,6 @@ func (e *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.Ins
 // if values tag and state are left empty it will return all instances
 func (e *environ) getPacketInstancesByTag(tags map[string]string) ([]instances.Instance, error) {
 	toReturn := []instances.Instance{}
-	// opt := &packngo.ListOptions{Search: tag}
 	packetTags := []string{}
 	for k, v := range tags {
 		packetTags = append(packetTags, fmt.Sprintf("%s=%s", k, v))
@@ -70,18 +97,12 @@ func (e *environ) getPacketInstancesByTag(tags map[string]string) ([]instances.I
 		return nil, err
 	}
 
-	fmt.Println("************empty list************", toReturn)
-
-	fmt.Println("************TAGS**************", packetTags)
 	for _, d := range devices {
-		fmt.Println("************device.id**************", d.ID)
 		cp := d
 		if isListContained(packetTags, cp) {
-			fmt.Println("************FOUND************", d.ID)
 			toReturn = append(toReturn, &packetDevice{e, &cp})
 		}
 	}
-	fmt.Println("************FOUND LIST************", toReturn)
 
 	return toReturn, nil
 }
@@ -137,6 +158,15 @@ func (e *environ) Create(ctx context.ProviderCallContext, args environs.CreatePa
 }
 
 func (e *environ) Destroy(ctx context.ProviderCallContext) error {
+	insts, err := e.getPacketInstancesByTag(map[string]string{"juju-model-uuid=": e.Config().UUID()})
+
+	for _, inst := range insts {
+		_, err = e.packetClient.Devices.Delete(string(inst.Id()), true)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	return common.Destroy(e, ctx)
 }
 
@@ -146,7 +176,6 @@ func (e *environ) DestroyController(ctx context.ProviderCallContext, controllerU
 		return err
 	}
 
-	fmt.Println("***********INSTs***********", insts)
 	for _, inst := range insts {
 		_, err = e.packetClient.Devices.Delete(string(inst.Id()), true)
 		if err != nil {
@@ -255,19 +284,40 @@ func newConfig(cfg, old *config.Config) (*environConfig, error) {
 }
 
 func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (result *environs.StartInstanceResult, resultErr error) {
-	plan := "t1.small.x86"
-	OS := "ubuntu_18_04"
-	// k, _, keyErr := e.packetClient.SSHKeys.Create(&packngo.SSHKeyCreateRequest{
-	// 	ProjectID: e.cloud.Credential.Attributes()["project-id"],
-	// 	Key:       e.ecfg.config.AuthorizedKeys(),
-	// 	Label:     "juju",
-	// })
+	instanceTypes, err := e.supportedInstanceTypes()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
-	userdata := fmt.Sprintf("#!/bin/bash\nrm /etc/ssh/ssh_host_*dsa* \nrm /etc/ssh/ssh_host_ed*\nrm /sbin/initctl\nsudo apt update\nsudo apt install -y dmidecode snapd\nset -e\n(grep ubuntu /etc/group) || groupadd ubuntu\n(id ubuntu &> /dev/null) || useradd -m ubuntu -s /bin/bash -g ubuntu\numask 0077\ntemp=$(mktemp)\necho 'ubuntu ALL=(ALL) NOPASSWD:ALL' > $temp\ninstall -m 0440 $temp /etc/sudoers.d/90-juju-ubuntu\nrm $temp\nsu ubuntu -c 'install -D -m 0600 /dev/null ~/.ssh/authorized_keys'\nexport authorized_keys=\"%s\"\nif [ ! -z \"$authorized_keys\" ]; then\nsu ubuntu -c 'printf \"%%s\n\" \"$authorized_keys\" >> ~/.ssh/authorized_keys'\nfi\n", e.ecfg.config.AuthorizedKeys())
+	spec, err := e.findInstanceSpec(
+		args.InstanceConfig.Controller != nil,
+		args.ImageMetadata,
+		instanceTypes,
+		&instances.InstanceConstraint{
+			Region:      e.cloud.Region,
+			Series:      args.InstanceConfig.Series,
+			Arches:      args.Tools.Arches(),
+			Constraints: args.Constraints,
+		},
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err := e.finishInstanceConfig(&args, spec); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	juserdata, err := providerinit.ComposeUserData(args.InstanceConfig, nil, PacketRenderer{})
 
-	userdata = userdata + "\n" + strings.Replace(string(juserdata), "#!/bin/bash", "", 0)
+	userdata := strings.Join(
+		[]string{
+			fmt.Sprintf(packetUserDataOverrides, e.ecfg.config.AuthorizedKeys()),
+			strings.ReplaceAll(string(juserdata), "#!/bin/bash", ""),
+		}, "\n",
+	)
+
+	logger.Errorf("!!! userdata: %s\n", userdata)
 
 	packetTags := []string{} //[]string{fmt.Sprintf("juju-controller-%s", e.cloud.Name), "juju-instance"}
 	// packetTags = append(packetTags, fmt.Sprintf("%s=%s", names.NewModelTag(e.Config().UUID()), names.NewControllerTag(args.ControllerUUID)))
@@ -279,8 +329,8 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	device := &packngo.DeviceCreateRequest{
 		Hostname:     e.name,
 		Facility:     []string{e.cloud.Region},
-		Plan:         plan,
-		OS:           OS,
+		Plan:         spec.InstanceType.Name,
+		OS:           spec.Image.Id,
 		ProjectID:    e.cloud.Credential.Attributes()["project-id"],
 		BillingCycle: "hourly",
 		UserData:     userdata,
@@ -314,6 +364,114 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		Instance: inst,
 		Hardware: hc,
 	}, nil
+}
+
+// supportedInstanceTypes returns the instance types supported by packet.
+func (e *environ) supportedInstanceTypes() ([]instances.InstanceType, error) {
+	plans, _, err := e.packetClient.Plans.List(new(packngo.ListOptions))
+	if err != nil {
+		return nil, errors.Annotate(err, "retrieving supported instance types")
+	}
+
+	var instTypes []instances.InstanceType
+
+nextPlan:
+	for _, plan := range plans {
+		if !validPlan(plan) {
+			continue
+		}
+
+		// TODO: Only work with this plan type for now to avoid
+		// spinning up more expensive instances while testing.
+		if plan.Name != "t1.small.x86" {
+			continue
+		}
+
+		var instArch string
+		switch {
+		case strings.HasSuffix(plan.Name, ".x86"):
+			instArch = arch.AMD64
+		case strings.HasSuffix(plan.Name, ".arm"):
+			instArch = arch.AMD64
+		default:
+			continue nextPlan
+
+		}
+
+		mem, err := parseMemValue(plan.Specs.Memory.Total)
+		if err != nil {
+			continue
+		}
+
+		instTypes = append(instTypes,
+			instances.InstanceType{
+				Id:       plan.ID,
+				Name:     plan.Name,
+				CpuCores: uint64(plan.Specs.Cpus[0].Count),
+				Mem:      mem,
+				Arches:   []string{instArch},
+				// Scale per hour costs so they can be represented as an integer for sorting purposes.
+				Cost: uint64(plan.Pricing.Hour * 1000.0),
+				// TODO: returned by packet's API but not exposed by the packngo client
+				// Deprecated: plan.Legacy,
+			})
+	}
+
+	return instTypes, nil
+}
+
+func validPlan(plan packngo.Plan) bool {
+	isInvalid := plan.Pricing == nil ||
+		plan.Specs == nil ||
+		plan.Specs.Memory == nil ||
+		len(plan.Specs.Cpus) == 0 || plan.Specs.Cpus[0].Count == 0
+
+	return !isInvalid
+}
+
+func parseMemValue(v string) (uint64, error) {
+	var scaler = uint64(1)
+	if strings.HasSuffix(v, "GB") {
+		scaler = 1024
+		v = strings.TrimSuffix(v, "GB")
+	}
+
+	val, err := strconv.ParseUint(v, 10, 64)
+	return val * scaler, err
+}
+
+func (e *environ) findInstanceSpec(controller bool, allImages []*imagemetadata.ImageMetadata, instanceTypes []instances.InstanceType, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+	// TODO: remove this when we image discovery via streams works
+	suitableImages := []*imagemetadata.ImageMetadata{
+		{
+			Id:   "ubuntu_18_04",
+			Arch: arch.AMD64,
+		},
+	}
+	images := instances.ImageMetadataToImages(suitableImages)
+	return instances.FindInstanceSpec(images, ic, instanceTypes)
+}
+
+func (e *environ) finishInstanceConfig(args *environs.StartInstanceParams, spec *instances.InstanceSpec) error {
+	matchingTools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
+	if err != nil {
+		return errors.Errorf("chosen architecture %v for image %q not present in %v",
+			spec.Image.Arch, spec.Image.Id, args.Tools.Arches())
+	}
+
+	if spec.InstanceType.Deprecated {
+		logger.Infof("deprecated instance type specified: %s", spec.InstanceType.Name)
+	}
+
+	if err := args.InstanceConfig.SetTools(matchingTools); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, e.Config()); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
 
 func (e *environ) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
