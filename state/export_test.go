@@ -644,6 +644,15 @@ func RemoveRelationStatus(c *gc.C, rel *Relation) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func RemoveUnitRelations(c *gc.C, rel *Relation) {
+	st := rel.st
+	scopes, closer := st.db().GetCollection(relationScopesC)
+	defer closer()
+	scopesW := scopes.Writeable()
+	_, err := scopesW.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 // PrimeUnitStatusHistory will add count history elements, advancing the test clock by
 // one second for each entry.
 func PrimeUnitStatusHistory(
@@ -949,10 +958,6 @@ func ApplicationBranches(m *Model, appName string) ([]*Generation, error) {
 func MachinePortOps(st *State, m description.Machine) ([]txn.Op, error) {
 	resolver := &importer{st: st}
 	return []txn.Op{resolver.machinePortsOp(m)}, nil
-}
-
-func NewBindingsForMergeTest(b map[string]string) *Bindings {
-	return &Bindings{bindingsMap: b}
 }
 
 // ModelBackendShim is required to live here in the export_test.go file because

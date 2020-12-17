@@ -1236,6 +1236,7 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 		startUniter{},
 		waitAddresses{},
 		custom{func(c *gc.C, ctx *context) {
+			c.Check(rel.Refresh(), gc.IsNil)
 			c.Assert(rel.Destroy(), gc.IsNil)
 		}},
 		waitUniterDead{},

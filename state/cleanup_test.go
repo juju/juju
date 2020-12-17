@@ -693,6 +693,8 @@ func (s *CleanupSuite) TestCleanupDyingUnit(c *gc.C) {
 	assertNotJoined(c, prr.pru0)
 
 	// Destroy the relation, and check it sticks around...
+	err = prr.rel.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
 	err = prr.rel.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, prr.rel, state.Dying)
@@ -1392,6 +1394,28 @@ func (s *CleanupSuite) TestForceDestroyApplicationRemovesUnitsThatAreAlreadyDyin
 	s.assertNeedsCleanup(c)
 	s.assertCleanupRuns(c)
 	assertRemoved(c, mysql)
+}
+
+func (s *CleanupSuite) TestForceDestroyRelationIncorrectUnitCount(c *gc.C) {
+	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
+	prr.allEnterScope(c)
+
+	rel := prr.rel
+	state.RemoveUnitRelations(c, rel)
+	err := rel.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rel.UnitCount(), gc.Not(gc.Equals), 0)
+
+	opErrs, err := rel.DestroyWithForce(true, dontWait)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(opErrs, gc.IsNil)
+
+	// dyingRelation schedules cleanupForceDestroyedRelation
+	s.assertCleanupRuns(c)
+	err = rel.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	s.assertCleanupCount(c, 0)
 }
 
 func (s *CleanupSuite) assertCleanupRuns(c *gc.C) {

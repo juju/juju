@@ -364,6 +364,20 @@ func (s *RelationSuite) TestDestroyPeerRelation(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *RelationSuite) TestDestroyRelationIncorrectUnitCount(c *gc.C) {
+	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
+	prr.allEnterScope(c)
+
+	rel := prr.rel
+	state.RemoveUnitRelations(c, rel)
+	err := rel.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rel.UnitCount(), gc.Not(gc.Equals), 0)
+
+	_, err = rel.DestroyWithForce(false, dontWait)
+	c.Assert(err, gc.ErrorMatches, ".*unit count mismatch on relation wordpress:db mysql:server: expected 4 units in scope but got 0")
+}
+
 func (s *RelationSuite) assertInScope(c *gc.C, relUnit *state.RelationUnit, inScope bool) {
 	ok, err := relUnit.InScope()
 	c.Assert(err, jc.ErrorIsNil)
@@ -412,6 +426,8 @@ func (s *RelationSuite) assertDestroyCrossModelRelation(c *gc.C, appStatus *stat
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
+	err = rel.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
 	err = rel.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = rel.Refresh()
@@ -675,6 +691,8 @@ func (s *RelationSuite) TestWatchLifeSuspendedStatus(c *gc.C) {
 	wc.AssertChange(rel.Tag().Id())
 	wc.AssertNoChange()
 
+	err = rel.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
 	err = rel.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(rel.Tag().Id())
