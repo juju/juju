@@ -1282,6 +1282,7 @@ func (s custom) step(c *gc.C, ctx *context) {
 }
 
 var relationDying = custom{func(c *gc.C, ctx *context) {
+	c.Check(ctx.relation.Refresh(), gc.IsNil)
 	c.Assert(ctx.relation.Destroy(), gc.IsNil)
 }}
 
