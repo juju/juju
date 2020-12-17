@@ -364,7 +364,7 @@ Add yourself to that group before trying again:
 		}
 	}
 	if len(requiredAddons) > 0 {
-		return errors.Errorf("required addons not enabled for microk8s, run 'microk8s.enable %s'", strings.Join(requiredAddons, " "))
+		return errors.Errorf("required addons not enabled for microk8s, run 'microk8s enable %s'", strings.Join(requiredAddons, " "))
 	}
 	return nil
 }
