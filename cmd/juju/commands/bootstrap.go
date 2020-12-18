@@ -746,14 +746,14 @@ to create a new model to deploy %sworkloads.
 	stdCtx, cancel := context.WithCancel(context.Background())
 	go func() {
 		for range interrupted {
-			// Newline prefix is intentional, so output appears as
-			// "^C\nCtrl-C pressed" instead of "^CCtrl-C pressed".
-			_, _ = fmt.Fprintln(ctx.GetStderr(), "\nCtrl-C pressed, stopping bootstrap and cleaning up resources")
 			select {
 			case <-stdCtx.Done():
 				// Ctrl-C already pressed
 				return
 			default:
+				// Newline prefix is intentional, so output appears as
+				// "^C\nCtrl-C pressed" instead of "^CCtrl-C pressed".
+				_, _ = fmt.Fprintln(ctx.GetStderr(), "\nCtrl-C pressed, stopping bootstrap and cleaning up resources")
 				cancel()
 			}
 		}
