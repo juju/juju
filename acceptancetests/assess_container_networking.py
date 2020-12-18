@@ -121,8 +121,8 @@ def make_machines(client, container_types, space):
     sargs = []
     if space:
         sargs = ['--constraints', 'spaces=' + space]
-         
-    for host, containers in required.iteritems():
+
+    for host, containers in iter(required.items()):
         for container in containers:
             client.juju('add-machine', tuple(['{}:{}'.format(container, host)] + sargs))
 
@@ -342,9 +342,14 @@ def assess_container_networking(client, types, space):
     try:
         for host in hosts:
             log.info("Restarting hosted machine: {}".format(host))
-            client.juju(
-                'run', ('--machine', host, 'sudo shutdown -r +1'))
-            client.juju('operations', ('--machine', host, '--action', 'juju-run'))
+            try:
+                client.juju('ssh', (host, 'sudo shutdown -r now'))
+            except subprocess.CalledProcessError as e:
+                if e.returncode != 255:
+                    raise e
+                log.info("Ignoring `juju ssh` exit status after triggering reboot")
+            hostname = client.get_status().get_machine_dns_name(host)
+            wait_for_port(hostname, 22, timeout=240)
 
         log.info("Restarting controller machine 0")
         controller_client = client.get_controller_client()
