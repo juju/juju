@@ -249,14 +249,15 @@ func BootstrapInstance(
 		if err == nil {
 			break
 		}
-		if zone == "" || environs.IsAvailabilityZoneIndependent(err) {
-			return nil, "", nil, errors.Annotate(err, "cannot start bootstrap instance")
-		}
 
 		select {
 		case <-ctx.Context().Done():
 			return nil, "", nil, errors.Annotatef(err, "starting controller (cancelled)")
 		default:
+		}
+
+		if zone == "" || environs.IsAvailabilityZoneIndependent(err) {
+			return nil, "", nil, errors.Annotate(err, "cannot start bootstrap instance")
 		}
 
 		if i < len(zones)-1 {

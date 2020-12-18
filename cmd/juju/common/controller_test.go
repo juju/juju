@@ -150,6 +150,17 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyStopsRetriesWithOpenErr(c *gc.
 	c.Check(s.mockBlockClient.retryCount, gc.Equals, 0)
 }
 
+func (s *controllerSuite) TestWaitForAgentCancelled(c *gc.C) {
+	s.mockBlockClient.numRetries = 2
+	runInCommand(c, func(ctx *cmd.Context, base *modelcmd.ModelCommandBase) {
+		stdCtx, cancel := context.WithCancel(context.Background())
+		cancel()
+		bootstrapCtx := modelcmd.BootstrapContext(stdCtx, ctx)
+		err := WaitForAgentInitialisation(bootstrapCtx, base, false, "controller")
+		c.Check(err, gc.ErrorMatches, `contacting controller \(cancelled\): .*`)
+	})
+}
+
 func runInCommand(c *gc.C, run func(ctx *cmd.Context, base *modelcmd.ModelCommandBase)) {
 	cmd := &testCommand{
 		run: run,

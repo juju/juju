@@ -161,6 +161,34 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot start bootstrap instance: meh, not started")
 }
 
+func (s *BootstrapSuite) TestBootstrapInstanceCancelled(c *gc.C) {
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+	env := &mockEnviron{
+		storage: newStorage(s, c),
+		config:  configGetter(c),
+	}
+
+	startInstance := func(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (
+		instances.Instance,
+		*instance.HardwareCharacteristics,
+		corenetwork.InterfaceInfos,
+		error,
+	) {
+		return nil, nil, nil, errors.Errorf("some kind of error")
+	}
+	env.startInstance = startInstance
+
+	stdCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+	ctx := modelcmd.BootstrapContext(stdCtx, cmdtesting.Context(c))
+	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
+		ControllerConfig:         coretesting.FakeControllerConfig(),
+		AvailableTools:           fakeAvailableTools(),
+		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+	})
+	c.Assert(err, gc.ErrorMatches, `starting controller \(cancelled\): some kind of error`)
+}
+
 func (s *BootstrapSuite) TestBootstrapSeries(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 
