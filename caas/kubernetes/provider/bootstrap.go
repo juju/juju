@@ -33,6 +33,7 @@ import (
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/mongo"
 )
 
@@ -327,7 +328,7 @@ func (c *controllerStack) Deploy() (err error) {
 		}
 	}
 	if isDone() {
-		return errors.New("cancelled")
+		return bootstrap.Cancelled()
 	}
 
 	defer func() {
@@ -341,7 +342,7 @@ func (c *controllerStack) Deploy() (err error) {
 		return errors.Annotate(err, "creating service for controller")
 	}
 	if isDone() {
-		return errors.New("cancelled")
+		return bootstrap.Cancelled()
 	}
 
 	// create shared-secret secret for controller pod.
@@ -349,7 +350,7 @@ func (c *controllerStack) Deploy() (err error) {
 		return errors.Annotate(err, "creating shared-secret secret for controller")
 	}
 	if isDone() {
-		return errors.New("cancelled")
+		return bootstrap.Cancelled()
 	}
 
 	// create server.pem secret for controller pod.
@@ -357,7 +358,7 @@ func (c *controllerStack) Deploy() (err error) {
 		return errors.Annotate(err, "creating server.pem secret for controller")
 	}
 	if isDone() {
-		return errors.New("cancelled")
+		return bootstrap.Cancelled()
 	}
 
 	// create mongo admin account secret for controller pod.
@@ -365,7 +366,7 @@ func (c *controllerStack) Deploy() (err error) {
 		return errors.Annotate(err, "creating mongo admin account secret for controller")
 	}
 	if isDone() {
-		return errors.New("cancelled")
+		return bootstrap.Cancelled()
 	}
 
 	// create bootstrap-params configmap for controller pod.
@@ -373,7 +374,7 @@ func (c *controllerStack) Deploy() (err error) {
 		return errors.Annotate(err, "creating bootstrap-params configmap for controller")
 	}
 	if isDone() {
-		return errors.New("cancelled")
+		return bootstrap.Cancelled()
 	}
 
 	// Note: create agent config configmap for controller pod lastly because agentConfig has been updated in previous steps.
@@ -381,7 +382,7 @@ func (c *controllerStack) Deploy() (err error) {
 		return errors.Annotate(err, "creating agent config configmap for controller")
 	}
 	if isDone() {
-		return errors.New("cancelled")
+		return bootstrap.Cancelled()
 	}
 
 	// create statefulset to ensure controller stack.
@@ -389,7 +390,7 @@ func (c *controllerStack) Deploy() (err error) {
 		return errors.Annotate(err, "creating statefulset for controller")
 	}
 	if isDone() {
-		return errors.New("cancelled")
+		return bootstrap.Cancelled()
 	}
 
 	return nil

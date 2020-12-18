@@ -34,6 +34,7 @@ import (
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -774,7 +775,7 @@ func WaitSSH(
 			}
 			return "", fmt.Errorf(format, args...)
 		case <-ctx.Done():
-			return "", fmt.Errorf("cancelled")
+			return "", bootstrap.Cancelled()
 		case <-checker.Dead():
 			result, err := checker.Result()
 			if err != nil {
