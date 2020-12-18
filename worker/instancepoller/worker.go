@@ -505,6 +505,8 @@ func fakeInterfacesFromInstanceAddrs(addrs []network.ProviderAddress) network.In
 		default:
 			instIfaceList[i].Addresses = append(instIfaceList[i].Addresses, addr)
 		}
+
+		instIfaceList[i].CIDR = addr.CIDR
 	}
 
 	return instIfaceList

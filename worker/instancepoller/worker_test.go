@@ -36,8 +36,8 @@ var (
 	_ = gc.Suite(&workerSuite{})
 
 	testAddrs = network.ProviderAddresses{
-		network.NewScopedProviderAddress("10.0.0.1", network.ScopeCloudLocal),
-		network.NewScopedProviderAddress("1.1.1.42", network.ScopePublic),
+		network.NewScopedProviderAddressWithNetwork("10.0.0.1", "10.0.0.0/24", network.ScopeCloudLocal),
+		network.NewScopedProviderAddressWithNetwork("1.1.1.42", "1.1.1.0/24", network.ScopePublic),
 	}
 
 	testNetIfs = network.InterfaceInfos{
@@ -47,10 +47,10 @@ var (
 			MACAddress:    "de:ad:be:ef:00:00",
 			CIDR:          "10.0.0.0/24",
 			Addresses: network.ProviderAddresses{
-				network.NewScopedProviderAddress("10.0.0.1", network.ScopeCloudLocal),
+				network.NewScopedProviderAddressWithNetwork("10.0.0.1", "10.0.0.0/24", network.ScopeCloudLocal),
 			},
 			ShadowAddresses: network.ProviderAddresses{
-				network.NewScopedProviderAddress("1.1.1.42", network.ScopePublic),
+				network.NewScopedProviderAddressWithNetwork("1.1.1.42", "1.1.1.0/24", network.ScopePublic),
 			},
 		},
 	}
@@ -58,14 +58,16 @@ var (
 	testCoercedNetIfs = network.InterfaceInfos{
 		{
 			DeviceIndex: 0,
+			CIDR:        "10.0.0.0/24",
 			Addresses: network.ProviderAddresses{
-				network.NewScopedProviderAddress("10.0.0.1", network.ScopeCloudLocal),
+				network.NewScopedProviderAddressWithNetwork("10.0.0.1", "10.0.0.0/24", network.ScopeCloudLocal),
 			},
 		},
 		{
 			DeviceIndex: 1,
+			CIDR:        "1.1.1.0/24",
 			ShadowAddresses: network.ProviderAddresses{
-				network.NewScopedProviderAddress("1.1.1.42", network.ScopePublic),
+				network.NewScopedProviderAddressWithNetwork("1.1.1.42", "1.1.1.0/24", network.ScopePublic),
 			},
 		},
 	}
