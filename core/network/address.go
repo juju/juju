@@ -380,6 +380,15 @@ func NewScopedProviderAddress(value string, scope Scope) ProviderAddress {
 	return ProviderAddress{MachineAddress: NewScopedMachineAddress(value, scope)}
 }
 
+// NewScopedProviderAddressWithNetwork creates a new ProviderAddress by
+// embedding the result of NewScopedMachineAddress and populating its CIDR
+// value. No space information is populated.
+func NewScopedProviderAddressWithNetwork(value, networkCIDR string, scope Scope) ProviderAddress {
+	addr := NewScopedProviderAddress(value, scope)
+	addr.CIDR = networkCIDR
+	return addr
+}
+
 // NewProviderAddressInSpace creates a new ProviderAddress, deriving its type
 // and scope from the value, and associating it with the given space name.
 func NewProviderAddressInSpace(spaceName string, value string) ProviderAddress {
