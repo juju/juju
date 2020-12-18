@@ -50,6 +50,8 @@ You may want to use the 'agent-metadata-url' configuration setting to specify th
 
 var (
 	logger = loggo.GetLogger("juju.environs.bootstrap")
+
+	errCancelled = errors.New("cancelled")
 )
 
 // BootstrapParams holds the parameters for bootstrapping an environment.
@@ -1143,4 +1145,14 @@ func hashAndSize(path string) (hash string, size int64, err error) {
 		return "", 0, errors.Mask(err)
 	}
 	return fmt.Sprintf("%x", h.Sum(nil)), size, nil
+}
+
+// Cancelled returns an error that satisfies IsCancelled.
+func Cancelled() error {
+	return errCancelled
+}
+
+// IsCancelled reports whether err is a "bootstrap cancelled" error.
+func IsCancelled(err error) bool {
+	return errors.Cause(err) == errCancelled
 }
