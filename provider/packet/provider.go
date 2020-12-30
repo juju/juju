@@ -37,21 +37,32 @@ func (p environProvider) PrepareConfig(args environs.PrepareConfigParams) (*conf
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	// Set the default block-storage source.
-	attrs := make(map[string]interface{})
-	// if _, ok := args.Config.StorageDefaultBlockSource(); !ok {
-	// 	attrs[config.StorageDefaultBlockSourceKey] = azureStorageProviderType
-	// }
-	// fmt.Println("config attrs", args.Config)
-
-	if len(attrs) == 0 {
-		return args.Config, nil
-	}
 	return args.Config, nil
 }
 
 func validateCloudSpec(spec environscloudspec.CloudSpec) error {
-	return nil
+	credentialAttrs := spec.Credential.Attributes()
+	httpClient := http.DefaultClient
+
+	projectID := credentialAttrs["project-id"]
+	apiToken := credentialAttrs["api-token"]
+
+	if apiToken == "" {
+		return fmt.Errorf("api-token not present")
+	}
+
+	if projectID == "" {
+		return fmt.Errorf("project-id not present")
+	} else {
+
+		c := packngo.NewClientWithAuth("juju", apiToken, httpClient)
+		_, _, err := c.Projects.Get(projectID, nil)
+		if err != nil {
+			return fmt.Errorf("unable to retrieve project %s, %s", projectID, err)
+		}
+	}
+
+	return fmt.Errorf("blah")
 }
 
 // Open is specified in the EnvironProvider interface.

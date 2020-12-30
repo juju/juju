@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
@@ -25,6 +26,7 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
+	"github.com/juju/retry"
 	"github.com/juju/schema"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
@@ -316,10 +318,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		}, "\n",
 	)
 
-	logger.Errorf("!!! userdata: %s\n", userdata)
-
-	packetTags := []string{} //[]string{fmt.Sprintf("juju-controller-%s", e.cloud.Name), "juju-instance"}
-	// packetTags = append(packetTags, fmt.Sprintf("%s=%s", names.NewModelTag(e.Config().UUID()), names.NewControllerTag(args.ControllerUUID)))
+	packetTags := []string{}
 
 	for k, v := range args.InstanceConfig.Tags {
 		packetTags = append(packetTags, fmt.Sprintf("%s=%s", k, v))
@@ -336,22 +335,28 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		Tags:         packetTags,
 	}
 
-	// if keyErr == nil {
-	// 	device.ProjectSSHKeys = []string{k.ID}
-	// }
-
 	d, _, err := e.packetClient.Devices.Create(device)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
+
 	d, err = waitDeviceActive(e.packetClient, d.ID)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
+
 	inst := &packetDevice{e, d}
 	amd64 := arch.AMD64
-	mem, _ := strconv.ParseUint(d.Plan.Specs.Memory.Total, 10, 64)
-	cpus := uint64(inst.Plan.Specs.Cpus[0].Count)
+	mem, err := strconv.ParseUint(d.Plan.Specs.Memory.Total[:len(d.Plan.Specs.Memory.Total)-2], 10, 64)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var cpus uint64
+	if len(inst.Plan.Specs.Cpus) > 0 {
+		cpus = uint64(inst.Plan.Specs.Cpus[0].Count)
+	}
+
 	hc := &instance.HardwareCharacteristics{
 		Arch: &amd64,
 		Mem:  &mem,
@@ -373,7 +378,6 @@ func (e *environ) supportedInstanceTypes() ([]instances.InstanceType, error) {
 	}
 
 	var instTypes []instances.InstanceType
-
 nextPlan:
 	for _, plan := range plans {
 		if !validPlan(plan) {
@@ -474,7 +478,7 @@ func (e *environ) finishInstanceConfig(args *environs.StartInstanceParams, spec 
 }
 
 func (e *environ) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
-	return nil
+	return errors.NotImplementedf("Stop instances")
 }
 
 func (e *environ) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
@@ -486,20 +490,30 @@ func (e *environ) StorageProviderTypes() ([]storage.ProviderType, error) {
 }
 
 func waitDeviceActive(c *packngo.Client, id string) (*packngo.Device, error) {
-	// 15 minutes = 180 * 5sec-retry
-	for i := 0; i < 180; i++ {
-		<-time.After(5 * time.Second)
-		d, _, err := c.Devices.Get(id, nil)
-		if err != nil {
-			return nil, err
-		}
-		if d.State == "active" {
-			return d, nil
-		}
-		if d.State == "failed" {
-			return nil, fmt.Errorf("device %s provisioning failed", id)
-		}
+	err := retry.Call(retry.CallArgs{
+		Func: func() error {
+			d, _, err := c.Devices.Get(id, nil)
+			if err != nil {
+				return err
+			}
+			if d.State == "active" {
+				return nil
+			}
+			if d.State == "failed" {
+				return fmt.Errorf("device %s provisioning failed", id)
+			}
+			return nil
+		},
+		Attempts: 180,
+		Delay:    5 * time.Second,
+		Clock:    clock.WallClock,
+	})
+
+	if err == nil {
+		d, _, er := c.Devices.Get(id, nil)
+		return d, er
+
 	}
 
-	return nil, fmt.Errorf("device %s is still not active after timeout", id)
+	return nil, err
 }

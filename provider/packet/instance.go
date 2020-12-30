@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
+	"github.com/lxc/lxd/shared/logger"
 	"github.com/packethost/packngo"
 )
 
@@ -58,7 +59,6 @@ func (device *packetDevice) Addresses(ctx context.ProviderCallContext) (corenetw
 	var addresses []corenetwork.ProviderAddress
 
 	for _, netw := range device.Network {
-
 		address := corenetwork.ProviderAddress{}
 		address.Value = netw.Address
 		address.CIDR = fmt.Sprintf("%s/%d", netw.Network, netw.CIDR)
@@ -73,6 +73,8 @@ func (device *packetDevice) Addresses(ctx context.ProviderCallContext) (corenetw
 			address.Type = network.IPv4Address
 		} else {
 			address.Type = network.IPv6Address
+			logger.Infof("skipping IPv6 Address")
+
 			continue
 		}
 
