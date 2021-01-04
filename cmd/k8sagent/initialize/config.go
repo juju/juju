@@ -4,9 +4,16 @@
 package initialize
 
 import (
+	"encoding/json"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"net/url"
 	"os"
+	"path"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v2/shell"
 	"github.com/juju/version"
@@ -130,13 +137,64 @@ func defaultConfig() agent.Config {
 	return &configFromEnv{}
 }
 
-type identityFunc func() identity
+type identityFunc func() (identity, error)
 
-func defaultIdentity() identity {
-	return identity{
-		PodName: os.Getenv("JUJU_K8S_POD_NAME"),
-		PodUUID: os.Getenv("JUJU_K8S_POD_UUID"),
+func defaultIdentity() (identity, error) {
+	if ecsMetaEndpoint := os.Getenv("ECS_CONTAINER_METADATA_URI_V4"); ecsMetaEndpoint != "" {
+		return identityFromECSMetadataService(ecsMetaEndpoint)
 	}
+	return identityFromK8sMetadata()
+}
+
+func identityFromECSMetadataService(ecsMetaEndpoint string) (identity, error) {
+	metaURL, err := url.Parse(ecsMetaEndpoint)
+	if err != nil {
+		return identity{}, errors.Annotate(err, "unable to parse ECS metadata endpoint")
+	}
+	metaURL.Path = path.Join(metaURL.Path, "task")
+
+	res, err := http.Get(metaURL.String())
+	if err != nil {
+		return identity{}, errors.Annotatef(err, "unable to query ECS metadata service")
+	}
+	defer func() { _ = res.Body.Close() }()
+
+	if res.StatusCode < 200 || res.StatusCode > 299 {
+		_, _ = io.Copy(ioutil.Discard, res.Body)
+		return identity{}, errors.Annotatef(err, "unexpected status code %d from ECS metadata service", res.StatusCode)
+	}
+
+	// For more information on the response payload, see: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-metadata-endpoint-v4.html
+	taskMeta := struct {
+		TaskARN string `json:"TaskARN"`
+	}{}
+
+	if err = json.NewDecoder(res.Body).Decode(&taskMeta); err != nil {
+		return identity{}, errors.Annotate(err, "unable to decode JSON response from ECS metadata service")
+	}
+
+	idSeparatorIndex := strings.LastIndexByte(taskMeta.TaskARN, '/')
+	if idSeparatorIndex == -1 {
+		return identity{}, errors.Annotate(err, "unable to extract task ID from task ARN")
+	}
+
+	return identity{
+		PodName: taskMeta.TaskARN,
+		PodUUID: taskMeta.TaskARN[idSeparatorIndex+1:],
+	}, nil
+}
+
+func identityFromK8sMetadata() (identity, error) {
+	podName := os.Getenv("JUJU_K8S_POD_NAME")
+	podUUID := os.Getenv("JUJU_K8S_POD_UUID")
+	if podName == "" || podUUID == "" {
+		return identity{}, errors.New("unable to extract pod name and UUID from environment")
+	}
+
+	return identity{
+		PodName: podName,
+		PodUUID: podUUID,
+	}, nil
 }
 
 type identity struct {

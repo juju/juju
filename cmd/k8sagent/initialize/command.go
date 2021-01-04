@@ -95,7 +95,10 @@ func (c *initCommand) Run(ctx *cmd.Context) error {
 	}
 	defer func() { _ = applicationAPI.Close() }()
 
-	identity := c.identity()
+	identity, err := c.identity()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	unitConfig, err := applicationAPI.UnitIntroduction(identity.PodName, identity.PodUUID)
 	if err != nil {
 		return errors.Trace(err)
