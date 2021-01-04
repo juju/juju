@@ -464,8 +464,13 @@ class AssessNetworkHealth:
                     self.ssh(client, machine,
                              'sudo lxc restart {}'.format(' '.join(cont_ids)))
                 log.info("Restarting machine: {}".format(machine))
-                client.juju('run', ('--machine', machine,
-                                    'sudo shutdown -r now'))
+                try:
+                    client.juju('ssh', (machine, 'sudo shutdown -r now'))
+                except subprocess.CalledProcessError as e:
+                    if e.returncode != 255:
+                        raise e
+                    log.info("Ignoring `juju ssh` exit status after triggering reboot")
+
                 hostname = client.get_status().get_machine_dns_name(machine)
                 wait_for_port(hostname, 22, timeout=240)
 
