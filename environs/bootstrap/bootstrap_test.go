@@ -4,6 +4,7 @@
 package bootstrap_test
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"io"
@@ -34,7 +35,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/gui"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -68,7 +69,7 @@ type bootstrapSuite struct {
 	coretesting.BaseSuite
 	envtesting.ToolsFixture
 
-	callContext context.ProviderCallContext
+	callContext envcontext.ProviderCallContext
 }
 
 var _ = gc.Suite(&bootstrapSuite{})
@@ -90,7 +91,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(bootstrap.GUIFetchMetadata, func(string, int, int, ...simplestreams.DataSource) ([]*gui.Metadata, error) {
 		return nil, nil
 	})
-	s.callContext = context.NewCloudCallContext()
+	s.callContext = envcontext.NewCloudCallContext()
 }
 
 func (s *bootstrapSuite) TearDownTest(c *gc.C) {
@@ -489,7 +490,7 @@ func (s *bootstrapSuite) setupProviderWithSomeSupportedArches(c *gc.C) bootstrap
 	s.setDummyStorage(c, env.bootstrapEnviron)
 
 	// test provider constraints only has amd64 and arm64 as supported architectures
-	consBefore, err := env.ConstraintsValidator(context.NewCloudCallContext())
+	consBefore, err := env.ConstraintsValidator(envcontext.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 	desiredArch := constraints.MustParse("arch=i386")
 	unsupported, err := consBefore.Validate(desiredArch)
@@ -536,7 +537,7 @@ func (s *bootstrapSuite) setupProviderWithNoSupportedArches(c *gc.C) bootstrapEn
 	}
 	s.setDummyStorage(c, env.bootstrapEnviron)
 
-	consBefore, err := env.ConstraintsValidator(context.NewCloudCallContext())
+	consBefore, err := env.ConstraintsValidator(envcontext.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 	// test provider constraints only has amd64 and arm64 as supported architectures
 	desiredArch := constraints.MustParse("arch=i386")
@@ -911,7 +912,7 @@ func (s *bootstrapSuite) TestBootstrapGUISuccessRemote(c *gc.C) {
 		"gui-stream": "devel",
 	})
 	ctx := cmdtesting.Context(c)
-	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env,
+	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(context.Background(), ctx), env,
 		s.callContext, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              "admin-secret",
@@ -935,7 +936,7 @@ func (s *bootstrapSuite) TestBootstrapGUISuccessLocal(c *gc.C) {
 	s.PatchEnvironment("JUJU_GUI", path)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
-	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env,
+	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(context.Background(), ctx), env,
 		s.callContext, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              "admin-secret",
@@ -967,7 +968,7 @@ func (s *bootstrapSuite) TestBootstrapGUISuccessLocal(c *gc.C) {
 func (s *bootstrapSuite) TestBootstrapGUISuccessNoGUI(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
-	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env,
+	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(context.Background(), ctx), env,
 		s.callContext, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              "admin-secret",
@@ -985,7 +986,7 @@ func (s *bootstrapSuite) TestBootstrapGUINoStreams(c *gc.C) {
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
-	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env,
+	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(context.Background(), ctx), env,
 		s.callContext, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              "admin-secret",
@@ -1004,7 +1005,7 @@ func (s *bootstrapSuite) TestBootstrapGUIStreamsFailure(c *gc.C) {
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
-	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env,
+	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(context.Background(), ctx), env,
 		s.callContext, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              "admin-secret",
@@ -1021,7 +1022,7 @@ func (s *bootstrapSuite) TestBootstrapGUIErrorNotFound(c *gc.C) {
 	s.PatchEnvironment("JUJU_GUI", "/no/such/file")
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
-	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env,
+	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(context.Background(), ctx), env,
 		s.callContext, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              "admin-secret",
@@ -1039,7 +1040,7 @@ func (s *bootstrapSuite) TestBootstrapGUIErrorInvalidArchive(c *gc.C) {
 	s.PatchEnvironment("JUJU_GUI", path)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
-	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env,
+	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(context.Background(), ctx), env,
 		s.callContext, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              "admin-secret",
@@ -1055,7 +1056,7 @@ func (s *bootstrapSuite) TestBootstrapGUIErrorInvalidVersion(c *gc.C) {
 	s.PatchEnvironment("JUJU_GUI", path)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
-	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env,
+	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(context.Background(), ctx), env,
 		s.callContext, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              "admin-secret",
@@ -1071,7 +1072,7 @@ func (s *bootstrapSuite) TestBootstrapGUIErrorUnexpectedArchive(c *gc.C) {
 	s.PatchEnvironment("JUJU_GUI", path)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
-	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env,
+	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(context.Background(), ctx), env,
 		s.callContext, bootstrap.BootstrapParams{
 			ControllerConfig:         coretesting.FakeControllerConfig(),
 			AdminSecret:              "admin-secret",
@@ -1620,7 +1621,7 @@ func (s *bootstrapSuite) setDummyStorage(c *gc.C, env *bootstrapEnviron) {
 	s.AddCleanup(func(c *gc.C) { closer.Close() })
 }
 
-func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
+func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx envcontext.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	e.bootstrapCount++
 	e.args = args
 
@@ -1655,7 +1656,7 @@ func (e *bootstrapEnviron) Storage() storage.Storage {
 	return e.storage
 }
 
-func (e *bootstrapEnviron) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
+func (e *bootstrapEnviron) ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error) {
 	e.constraintsValidatorCount++
 	v := constraints.NewValidator()
 	v.RegisterVocabulary(constraints.Arch, []string{arch.AMD64, arch.ARM64})
@@ -1687,7 +1688,7 @@ type bootstrapEnvironNoExplicitArchitectures struct {
 	*bootstrapEnvironWithRegion
 }
 
-func (e bootstrapEnvironNoExplicitArchitectures) ConstraintsValidator(context.ProviderCallContext) (constraints.Validator, error) {
+func (e bootstrapEnvironNoExplicitArchitectures) ConstraintsValidator(envcontext.ProviderCallContext) (constraints.Validator, error) {
 	e.constraintsValidatorCount++
 	v := constraints.NewValidator()
 	return v, nil

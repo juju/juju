@@ -5,6 +5,7 @@ package common
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -33,8 +34,9 @@ import (
 	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
@@ -51,7 +53,7 @@ var logger = loggo.GetLogger("juju.provider.common")
 func Bootstrap(
 	ctx environs.BootstrapContext,
 	env environs.Environ,
-	callCtx context.ProviderCallContext,
+	callCtx envcontext.ProviderCallContext,
 	args environs.BootstrapParams,
 ) (*environs.BootstrapResult, error) {
 	result, series, finalizer, err := BootstrapInstance(ctx, env, callCtx, args)
@@ -77,7 +79,7 @@ func Bootstrap(
 func BootstrapInstance(
 	ctx environs.BootstrapContext,
 	env environs.Environ,
-	callCtx context.ProviderCallContext,
+	callCtx envcontext.ProviderCallContext,
 	args environs.BootstrapParams,
 ) (_ *environs.StartInstanceResult, selectedSeries string, _ environs.CloudBootstrapFinalizer, err error) {
 	// TODO make safe in the case of racing Bootstraps
@@ -264,9 +266,17 @@ func BootstrapInstance(
 		if err == nil {
 			break
 		}
+
+		select {
+		case <-ctx.Context().Done():
+			return nil, "", nil, errors.Annotatef(err, "starting controller (cancelled)")
+		default:
+		}
+
 		if zone == "" || environs.IsAvailabilityZoneIndependent(err) {
 			return nil, "", nil, errors.Annotate(err, "cannot start bootstrap instance")
 		}
+
 		if i < len(zones)-1 {
 			// Try the next zone.
 			logger.Debugf("failed to start instance in availability zone %q: %s", zone, err)
@@ -311,7 +321,7 @@ func BootstrapInstance(
 	return result, selectedSeries, finalizer, nil
 }
 
-func startInstanceZones(env environs.Environ, ctx context.ProviderCallContext, args environs.StartInstanceParams) ([]string, error) {
+func startInstanceZones(env environs.Environ, ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) ([]string, error) {
 	zonedEnviron, ok := env.(ZonedEnviron)
 	if !ok {
 		return nil, errors.NotImplementedf("ZonedEnviron")
@@ -375,7 +385,7 @@ var FinishBootstrap = func(
 	ctx environs.BootstrapContext,
 	client ssh.Client,
 	env environs.Environ,
-	callCtx context.ProviderCallContext,
+	callCtx envcontext.ProviderCallContext,
 	inst instances.Instance,
 	instanceConfig *instancecfg.InstanceConfig,
 	opts environs.BootstrapDialOpts,
@@ -386,8 +396,8 @@ var FinishBootstrap = func(
 
 	hostSSHOptions := bootstrapSSHOptionsFunc(instanceConfig)
 	addr, err := WaitSSH(
+		ctx.Context(),
 		ctx.GetStderr(),
-		interrupted,
 		client,
 		GetCheckNonceCommand(instanceConfig),
 		&RefreshableInstance{inst, env},
@@ -469,6 +479,7 @@ func ConfigureMachine(
 	}
 	script := shell.DumpFileOnErrorScript(instanceConfig.CloudInitOutputLog) + configScript
 	ctx.Infof("Running machine configuration script...")
+	// TODO(benhoyt) - plumb context through juju/utils/ssh?
 	return sshinit.RunConfigureScript(script, sshinit.ConfigureParams{
 		Host:           "ubuntu@" + host,
 		Client:         client,
@@ -551,16 +562,16 @@ func hostBootstrapSSHOptions(
 // for waiting for SSH access to become available.
 type InstanceRefresher interface {
 	// Refresh refreshes the addresses for the instance.
-	Refresh(ctx context.ProviderCallContext) error
+	Refresh(ctx envcontext.ProviderCallContext) error
 
 	// Addresses returns the addresses for the instance.
 	// To ensure that the results are up to date, call
 	// Refresh first.
-	Addresses(ctx context.ProviderCallContext) (network.ProviderAddresses, error)
+	Addresses(ctx envcontext.ProviderCallContext) (network.ProviderAddresses, error)
 
 	// Status returns the provider-specific status for the
 	// instance.
-	Status(ctx context.ProviderCallContext) instance.Status
+	Status(ctx envcontext.ProviderCallContext) instance.Status
 }
 
 type RefreshableInstance struct {
@@ -569,7 +580,7 @@ type RefreshableInstance struct {
 }
 
 // Refresh refreshes the addresses for the instance.
-func (i *RefreshableInstance) Refresh(ctx context.ProviderCallContext) error {
+func (i *RefreshableInstance) Refresh(ctx envcontext.ProviderCallContext) error {
 	instances, err := i.Env.Instances(ctx, []instance.Id{i.Id()})
 	if err != nil {
 		return errors.Trace(err)
@@ -719,12 +730,12 @@ var connectSSH = func(client ssh.Client, host, checkHostScript string, options *
 // machine's nonce. The "checkHostScript" is a bash script
 // that performs this file check.
 func WaitSSH(
+	ctx context.Context,
 	stdErr io.Writer,
-	interrupted <-chan os.Signal,
 	client ssh.Client,
 	checkHostScript string,
 	inst InstanceRefresher,
-	ctx context.ProviderCallContext,
+	callCtx envcontext.ProviderCallContext,
 	opts environs.BootstrapDialOpts,
 	hostSSHOptions HostSSHOptionsFunc,
 ) (addr string, err error) {
@@ -751,17 +762,17 @@ func WaitSSH(
 		select {
 		case <-pollAddresses.C:
 			pollAddresses.Reset(opts.AddressesDelay)
-			if err := inst.Refresh(ctx); err != nil {
+			if err := inst.Refresh(callCtx); err != nil {
 				return "", fmt.Errorf("refreshing addresses: %v", err)
 			}
-			instanceStatus := inst.Status(ctx)
+			instanceStatus := inst.Status(callCtx)
 			if instanceStatus.Status == status.ProvisioningError {
 				if instanceStatus.Message != "" {
 					return "", errors.Errorf("instance provisioning failed (%v)", instanceStatus.Message)
 				}
 				return "", errors.Errorf("instance provisioning failed")
 			}
-			addresses, err := inst.Addresses(ctx)
+			addresses, err := inst.Addresses(callCtx)
 			if err != nil {
 				return "", fmt.Errorf("getting addresses: %v", err)
 			}
@@ -781,8 +792,8 @@ func WaitSSH(
 				args = append(args, lastErr)
 			}
 			return "", fmt.Errorf(format, args...)
-		case <-interrupted:
-			return "", fmt.Errorf("interrupted")
+		case <-ctx.Done():
+			return "", bootstrap.Cancelled()
 		case <-checker.Dead():
 			result, err := checker.Result()
 			if err != nil {

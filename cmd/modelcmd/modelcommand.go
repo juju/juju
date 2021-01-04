@@ -4,6 +4,7 @@
 package modelcmd
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -401,7 +402,21 @@ func (c *ModelCommandBase) NewAPIRoot() (api.Connection, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	conn, err := c.newAPIRoot(modelName)
+	conn, err := c.newAPIRoot(modelName, nil)
+	return conn, errors.Trace(err)
+}
+
+// NewAPIRootWithDialOpts returns a new connection to the API server for the
+// environment directed to the model specified on the command line (and with
+// the given dial options if non-nil).
+func (c *ModelCommandBase) NewAPIRootWithDialOpts(dialOpts *api.DialOpts) (api.Connection, error) {
+	// We need to call ModelDetails() here and not just ModelName() to force
+	// a refresh of the internal model details if those are not yet stored locally.
+	modelName, _, err := c.ModelDetails()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	conn, err := c.newAPIRoot(modelName, dialOpts)
 	return conn, errors.Trace(err)
 }
 
@@ -410,17 +425,17 @@ func (c *ModelCommandBase) NewAPIRoot() (api.Connection, error) {
 // This is for the use of model-centered commands that still want
 // to talk to controller-only APIs.
 func (c *ModelCommandBase) NewControllerAPIRoot() (api.Connection, error) {
-	return c.newAPIRoot("")
+	return c.newAPIRoot("", nil)
 }
 
 // newAPIRoot is the internal implementation of NewAPIRoot and NewControllerAPIRoot;
 // if modelName is empty, it makes a controller-only connection.
-func (c *ModelCommandBase) newAPIRoot(modelName string) (api.Connection, error) {
+func (c *ModelCommandBase) newAPIRoot(modelName string, dialOpts *api.DialOpts) (api.Connection, error) {
 	controllerName, err := c.ControllerName()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	conn, err := c.CommandBase.NewAPIRoot(c.store, controllerName, modelName)
+	conn, err := c.CommandBase.NewAPIRootWithDialOpts(c.store, controllerName, modelName, dialOpts)
 	return conn, errors.Trace(err)
 }
 
@@ -650,30 +665,41 @@ func (w *modelCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
 	w.ModelCommand.SetFlags(f)
 }
 
+// Define a type alias so we can embed *cmd.Context and have a Context() method.
+type cmdContext = cmd.Context
+
 type bootstrapContext struct {
-	*cmd.Context
+	*cmdContext
 	verifyCredentials bool
+	ctx               context.Context
 }
 
 // ShouldVerifyCredentials implements BootstrapContext.ShouldVerifyCredentials
-func (ctx *bootstrapContext) ShouldVerifyCredentials() bool {
-	return ctx.verifyCredentials
+func (c *bootstrapContext) ShouldVerifyCredentials() bool {
+	return c.verifyCredentials
+}
+
+// Context returns this bootstrap's context.Context value.
+func (c *bootstrapContext) Context() context.Context {
+	return c.ctx
 }
 
 // BootstrapContext returns a new BootstrapContext constructed from a command Context.
-func BootstrapContext(cmdContext *cmd.Context) environs.BootstrapContext {
+func BootstrapContext(ctx context.Context, cmdContext *cmd.Context) environs.BootstrapContext {
 	return &bootstrapContext{
-		Context:           cmdContext,
+		cmdContext:        cmdContext,
 		verifyCredentials: true,
+		ctx:               ctx,
 	}
 }
 
 // BootstrapContextNoVerify returns a new BootstrapContext constructed from a command Context
 // where the validation of credentials is false.
-func BootstrapContextNoVerify(cmdContext *cmd.Context) environs.BootstrapContext {
+func BootstrapContextNoVerify(ctx context.Context, cmdContext *cmd.Context) environs.BootstrapContext {
 	return &bootstrapContext{
-		Context:           cmdContext,
+		cmdContext:        cmdContext,
 		verifyCredentials: false,
+		ctx:               ctx,
 	}
 }
 
