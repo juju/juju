@@ -1,4 +1,4 @@
-services:
+applications:
     wordpress:
         charm: wordpress
         num_units: 1

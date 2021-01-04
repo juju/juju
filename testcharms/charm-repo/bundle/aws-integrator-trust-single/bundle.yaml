@@ -1,4 +1,4 @@
-services:
+applications:
     aws-integrator:
         charm: cs:~containers/aws-integrator        
         num_units: 1
