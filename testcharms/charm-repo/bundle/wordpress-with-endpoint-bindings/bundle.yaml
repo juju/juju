@@ -1,4 +1,4 @@
-services:
+applications:
     wordpress-extra-bindings:
         charm: cs:wordpress-extra-bindings
         num_units: 1

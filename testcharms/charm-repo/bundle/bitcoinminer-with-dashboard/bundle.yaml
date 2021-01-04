@@ -1,4 +1,4 @@
-services:
+applications:
     dashboard:
         charm: cs:dashboard4miner
         num_units: 1

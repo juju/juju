@@ -1,5 +1,5 @@
 series: precise
-services:
+applications:
   mysql:
     charm: cs:precise/mysql
     constraints: mem=1G

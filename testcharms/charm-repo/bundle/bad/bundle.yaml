@@ -1,6 +1,6 @@
 # This bundle has a bad relation, which will cause it to fail
 # its verification.
-services:
+applications:
     wordpress:
         charm: cs:wordpress
         num_units: 1

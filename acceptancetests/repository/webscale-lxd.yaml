@@ -2,7 +2,7 @@ relations:
 - - keystone:shared-db
   - mysql:shared-db
 series: bionic
-services:
+applications:
   keystone:
     annotations:
       gui-x: '500'

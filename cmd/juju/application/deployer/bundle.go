@@ -94,6 +94,9 @@ func (d *deployBundle) deploy(
 		return errors.Annotatef(err, "cannot deploy bundle")
 	}
 	d.bundleDir = d.bundleDataSource.BasePath()
+	if bundleData.UnmarshaledWithServices() {
+		logger.Warningf(`"services" key found in bundle file is deprecated, superseded by "applications" key.`)
+	}
 
 	// Short-circuit trust checks if the operator specifies '--force'
 	if !d.trust {

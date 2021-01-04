@@ -753,7 +753,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentLXDProfile(
 	lxdProfilePath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "lxd-profile")
 	err := s.DeployBundleYAML(c, fmt.Sprintf(`
         series: bionic
-        services:
+        applications:
             lxd-profile:
                 charm: %s
                 num_units: 1
@@ -779,7 +779,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadLXDProfi
 	lxdProfilePath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "lxd-profile-fail")
 	err := s.DeployBundleYAML(c, fmt.Sprintf(`
         series: bionic
-        services:
+        applications:
             lxd-profile-fail:
                 charm: %s
                 num_units: 1
@@ -792,7 +792,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadLXDProfi
 	lxdProfilePath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "lxd-profile-fail")
 	err := s.DeployBundleYAML(c, fmt.Sprintf(`
         series: bionic
-        services:
+        applications:
             lxd-profile-fail:
                 charm: %s
                 num_units: 1
