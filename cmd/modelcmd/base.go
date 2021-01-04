@@ -210,6 +210,17 @@ func (c *CommandBase) NewAPIRoot(
 	store jujuclient.ClientStore,
 	controllerName, modelName string,
 ) (api.Connection, error) {
+	return c.NewAPIRootWithDialOpts(store, controllerName, modelName, nil)
+}
+
+// NewAPIRootWithDialOpts returns a new connection to the API server for the
+// given model or controller (the default dial options will be overridden if
+// dialOpts is not nil).
+func (c *CommandBase) NewAPIRootWithDialOpts(
+	store jujuclient.ClientStore,
+	controllerName, modelName string,
+	dialOpts *api.DialOpts,
+) (api.Connection, error) {
 	c.assertRunStarted()
 	accountDetails, err := store.AccountDetails(controllerName)
 	if err != nil && !errors.IsNotFound(err) {
@@ -241,6 +252,9 @@ func (c *CommandBase) NewAPIRoot(
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+	if dialOpts != nil {
+		param.DialOpts = *dialOpts
 	}
 	conn, err := juju.NewAPIConnection(param)
 	if modelName != "" && params.ErrCode(err) == params.CodeModelNotFound {

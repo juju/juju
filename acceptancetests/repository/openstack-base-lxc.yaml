@@ -85,7 +85,7 @@ relations:
 - - ceph-radosgw:identity-service
   - keystone:identity-service
 series: trusty
-services:
+applications:
   ceph:
     annotations:
       gui-x: '750'

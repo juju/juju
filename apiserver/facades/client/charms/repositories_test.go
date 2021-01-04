@@ -637,7 +637,7 @@ func getCharmHubBundleResponse() ([]transport.InfoChannelMap, transport.InfoChan
 
 const entityBundle = `
 series: bionic
-services:
+applications:
     wordpress:
         charm: wordpress
         num_units: 1

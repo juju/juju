@@ -3,7 +3,7 @@ machines:
     series: trusty
   "2":
     series: trusty
-services:
+applications:
   apache2:
     charm: "cs:trusty/apache2-19"
     num_units: 1

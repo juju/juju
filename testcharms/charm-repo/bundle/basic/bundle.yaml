@@ -1,4 +1,4 @@
-services:
+applications:
     ubuntu-lite:
         charm: cs:~jameinel/ubuntu-lite-7
         num_units: 1

@@ -5,7 +5,7 @@ machines:
   '1':
     series: xenial
 series: xenial
-services:
+applications:
   dummy-source-a:
     charm: cs:~juju-qa/dummy-source
     num_units: 1

@@ -7,7 +7,7 @@ machines:
   '1':
     constraints: cores=4 mem=8G root-disk=20G
     series: bionic
-services:
+applications:
   easyrsa:
     annotations:
       gui-x: '450'

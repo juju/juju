@@ -4,6 +4,7 @@
 package common
 
 import (
+	"context"
 	"io"
 	"time"
 
@@ -97,7 +98,8 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyRetries(c *gc.C) {
 		s.mockBlockClient.numRetries = t.numRetries
 		s.mockBlockClient.retryCount = 0
 		runInCommand(c, func(ctx *cmd.Context, base *modelcmd.ModelCommandBase) {
-			err := WaitForAgentInitialisation(ctx, base, false, "controller", "default")
+			bootstrapCtx := modelcmd.BootstrapContext(context.Background(), ctx)
+			err := WaitForAgentInitialisation(bootstrapCtx, base, false, "controller")
 			c.Check(errors.Cause(err), gc.DeepEquals, t.err)
 		})
 		expectedRetries := t.numRetries
@@ -116,7 +118,8 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyWaitsForSpaceDiscovery(c *gc.C
 	s.mockBlockClient.discoveringSpacesError = 2
 
 	runInCommand(c, func(ctx *cmd.Context, base *modelcmd.ModelCommandBase) {
-		err := WaitForAgentInitialisation(ctx, base, false, "controller", "default")
+		bootstrapCtx := modelcmd.BootstrapContext(context.Background(), ctx)
+		err := WaitForAgentInitialisation(bootstrapCtx, base, false, "controller")
 		c.Check(err, jc.ErrorIsNil)
 	})
 	c.Assert(s.mockBlockClient.discoveringSpacesError, gc.Equals, 0)
@@ -128,7 +131,8 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyRetriesWithOpenEOFErr(c *gc.C)
 	s.mockBlockClient.loginError = io.EOF
 
 	runInCommand(c, func(ctx *cmd.Context, base *modelcmd.ModelCommandBase) {
-		err := WaitForAgentInitialisation(ctx, base, false, "controller", "default")
+		bootstrapCtx := modelcmd.BootstrapContext(context.Background(), ctx)
+		err := WaitForAgentInitialisation(bootstrapCtx, base, false, "controller")
 		c.Check(err, jc.ErrorIsNil)
 	})
 	c.Check(s.mockBlockClient.retryCount, gc.Equals, 1)
@@ -139,10 +143,22 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyStopsRetriesWithOpenErr(c *gc.
 	s.mockBlockClient.retryCount = 0
 	s.mockBlockClient.loginError = errors.NewUnauthorized(nil, "")
 	runInCommand(c, func(ctx *cmd.Context, base *modelcmd.ModelCommandBase) {
-		err := WaitForAgentInitialisation(ctx, base, false, "controller", "default")
+		bootstrapCtx := modelcmd.BootstrapContext(context.Background(), ctx)
+		err := WaitForAgentInitialisation(bootstrapCtx, base, false, "controller")
 		c.Check(err, jc.Satisfies, errors.IsUnauthorized)
 	})
 	c.Check(s.mockBlockClient.retryCount, gc.Equals, 0)
+}
+
+func (s *controllerSuite) TestWaitForAgentCancelled(c *gc.C) {
+	s.mockBlockClient.numRetries = 2
+	runInCommand(c, func(ctx *cmd.Context, base *modelcmd.ModelCommandBase) {
+		stdCtx, cancel := context.WithCancel(context.Background())
+		cancel()
+		bootstrapCtx := modelcmd.BootstrapContext(stdCtx, ctx)
+		err := WaitForAgentInitialisation(bootstrapCtx, base, false, "controller")
+		c.Check(err, gc.ErrorMatches, `contacting controller \(cancelled\): .*`)
+	})
 }
 
 func runInCommand(c *gc.C, run func(ctx *cmd.Context, base *modelcmd.ModelCommandBase)) {

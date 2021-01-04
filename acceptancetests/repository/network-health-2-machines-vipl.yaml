@@ -7,7 +7,7 @@ machines:
     series: bionic
     constraints: tags=qa-node-1
 series: bionic
-services:
+applications:
   dummy-source-a:
     charm: cs:~juju-qa/dummy-source
     num_units: 1
