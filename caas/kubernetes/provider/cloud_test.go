@@ -220,7 +220,7 @@ func (s *cloudSuite) TestEnsureMicroK8sSuitableStorageDisabled(c *gc.C) {
 		"RunCommands",
 		exec.RunParams{Commands: "microk8s.status --wait-ready --timeout 15 --yaml"}).Returns(
 		&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sStatusStorageDisabled)}, nil)
-	c.Assert(provider.EnsureMicroK8sSuitable(s.runner), gc.ErrorMatches, `required addons not enabled for microk8s, run 'microk8s.enable storage'`)
+	c.Assert(provider.EnsureMicroK8sSuitable(s.runner), gc.ErrorMatches, `required addons not enabled for microk8s, run 'microk8s enable storage'`)
 }
 
 func (s *cloudSuite) TestEnsureMicroK8sSuitableDNSDisabled(c *gc.C) {
@@ -232,7 +232,7 @@ func (s *cloudSuite) TestEnsureMicroK8sSuitableDNSDisabled(c *gc.C) {
 		"RunCommands",
 		exec.RunParams{Commands: "microk8s.status --wait-ready --timeout 15 --yaml"}).Returns(
 		&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sStatusDNSDisabled)}, nil)
-	c.Assert(provider.EnsureMicroK8sSuitable(s.runner), gc.ErrorMatches, `required addons not enabled for microk8s, run 'microk8s.enable dns'`)
+	c.Assert(provider.EnsureMicroK8sSuitable(s.runner), gc.ErrorMatches, `required addons not enabled for microk8s, run 'microk8s enable dns'`)
 }
 
 func (s *cloudSuite) TestEnsureMicroK8sSuitableNotInGroup(c *gc.C) {

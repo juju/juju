@@ -4,6 +4,7 @@
 package modelcmd_test
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -217,12 +218,12 @@ func (s *ModelCommandSuite) TestModelGeneration(c *gc.C) {
 }
 
 func (s *ModelCommandSuite) TestBootstrapContext(c *gc.C) {
-	ctx := modelcmd.BootstrapContext(&cmd.Context{})
+	ctx := modelcmd.BootstrapContext(context.Background(), &cmd.Context{})
 	c.Assert(ctx.ShouldVerifyCredentials(), jc.IsTrue)
 }
 
 func (s *ModelCommandSuite) TestBootstrapContextNoVerify(c *gc.C) {
-	ctx := modelcmd.BootstrapContextNoVerify(&cmd.Context{})
+	ctx := modelcmd.BootstrapContextNoVerify(context.Background(), &cmd.Context{})
 	c.Assert(ctx.ShouldVerifyCredentials(), jc.IsFalse)
 }
 
