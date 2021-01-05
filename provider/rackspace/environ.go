@@ -4,8 +4,8 @@
 package rackspace
 
 import (
+	"context"
 	"io/ioutil"
-	"os"
 	"time"
 
 	"github.com/juju/errors"
@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -26,7 +26,7 @@ type environ struct {
 var bootstrap = common.Bootstrap
 
 // Bootstrap implements environs.Environ.
-func (e environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
+func (e environ) Bootstrap(ctx environs.BootstrapContext, callCtx envcontext.ProviderCallContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	// can't redirect to openstack provider as usually, because correct environ should be passed for common.Bootstrap
 	return bootstrap(ctx, e, callCtx, params)
 }
@@ -34,7 +34,7 @@ func (e environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provid
 var waitSSH = common.WaitSSH
 
 // StartInstance implements environs.Environ.
-func (e environ) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (e environ) StartInstance(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	osString, err := series.GetOSFromSeries(args.Tools.OneSeries())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -49,15 +49,14 @@ func (e environ) StartInstance(ctx context.ProviderCallContext, args environs.St
 		return nil, errors.Trace(err)
 	}
 	if fwmode != config.FwNone {
-		interrupted := make(chan os.Signal, 1)
 		timeout := environs.BootstrapDialOpts{
 			Timeout:        time.Minute * 5,
 			RetryDelay:     time.Second * 5,
 			AddressesDelay: time.Second * 20,
 		}
 		addr, err := waitSSH(
+			context.Background(),
 			ioutil.Discard,
-			interrupted,
 			ssh.DefaultClient,
 			common.GetCheckNonceCommand(args.InstanceConfig),
 			&common.RefreshableInstance{r.Instance, e},

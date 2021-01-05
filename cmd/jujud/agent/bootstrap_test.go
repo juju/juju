@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -42,7 +43,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
@@ -813,7 +814,7 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 	err = env.PrepareForBootstrap(nullContext(), "controller-1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	callCtx := context.NewCloudCallContext()
+	callCtx := envcontext.NewCloudCallContext()
 	s.AddCleanup(func(c *gc.C) {
 		err := env.DestroyController(callCtx, controllerCfg.ControllerUUID())
 		c.Assert(err, jc.ErrorIsNil)
@@ -861,14 +862,14 @@ func nullContext() environs.BootstrapContext {
 	ctx.Stdin = io.LimitReader(nil, 0)
 	ctx.Stdout = ioutil.Discard
 	ctx.Stderr = ioutil.Discard
-	return modelcmd.BootstrapContext(ctx)
+	return modelcmd.BootstrapContext(context.Background(), ctx)
 }
 
 type mockDummyEnviron struct {
 	environs.Environ
 }
 
-func (m *mockDummyEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
+func (m *mockDummyEnviron) Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	// ensure that callback is used...
 	ctx.InvalidateCredential("considered invalid for the sake of testing")
 	return m.Environ.Instances(ctx, ids)

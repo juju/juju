@@ -431,7 +431,7 @@ please choose a different hosted model name then try again.`, hostedModelName),
 		}
 		return errors.Annotate(
 			controllerStack.Deploy(),
-			"creating controller stack for controller",
+			"creating controller stack",
 		)
 	}
 

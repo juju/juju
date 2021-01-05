@@ -44,7 +44,7 @@ relations:
 - - nova-compute:lxd
   - lxd:lxd
 series: xenial
-services:
+applications:
   glance:
     annotations:
       gui-x: '250'

@@ -5,6 +5,7 @@ package commands
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -44,7 +45,7 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
@@ -426,7 +427,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 // BootstrapInterface provides bootstrap functionality that Run calls to support cleaner testing.
 type BootstrapInterface interface {
 	// Bootstrap bootstraps a controller.
-	Bootstrap(ctx environs.BootstrapContext, environ environs.BootstrapEnviron, callCtx context.ProviderCallContext, args bootstrap.BootstrapParams) error
+	Bootstrap(ctx environs.BootstrapContext, environ environs.BootstrapEnviron, callCtx envcontext.ProviderCallContext, args bootstrap.BootstrapParams) error
 
 	// CloudDetector returns a CloudDetector for the given provider,
 	// if the provider supports it.
@@ -443,7 +444,7 @@ type BootstrapInterface interface {
 
 type bootstrapFuncs struct{}
 
-func (b bootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.BootstrapEnviron, callCtx context.ProviderCallContext, args bootstrap.BootstrapParams) error {
+func (b bootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.BootstrapEnviron, callCtx envcontext.ProviderCallContext, args bootstrap.BootstrapParams) error {
 	return bootstrap.Bootstrap(ctx, env, callCtx, args)
 }
 
@@ -661,7 +662,7 @@ to create a new model to deploy %sworkloads.
 		return errors.Trace(err)
 	}
 
-	cloudCallCtx := context.NewCloudCallContext()
+	cloudCallCtx := envcontext.NewCloudCallContext()
 	// At this stage, the credential we intend to use is not yet stored
 	// server-side. So, if the credential is not accepted by the provider,
 	// we cannot mark it as invalid, just log it as an informative message.
@@ -746,7 +747,29 @@ to create a new model to deploy %sworkloads.
 
 	bootstrapCfg.controller[controller.ControllerName] = c.controllerName
 
-	bootstrapCtx := modelcmd.BootstrapContext(ctx)
+	// Handle Ctrl-C during bootstrap by asking the bootstrap process to stop
+	// early (and the above will then clean up resources).
+	interrupted := make(chan os.Signal, 1)
+	defer close(interrupted)
+	ctx.InterruptNotify(interrupted)
+	defer ctx.StopInterruptNotify(interrupted)
+	stdCtx, cancel := context.WithCancel(context.Background())
+	go func() {
+		for range interrupted {
+			select {
+			case <-stdCtx.Done():
+				// Ctrl-C already pressed
+				return
+			default:
+				// Newline prefix is intentional, so output appears as
+				// "^C\nCtrl-C pressed" instead of "^CCtrl-C pressed".
+				_, _ = fmt.Fprintln(ctx.GetStderr(), "\nCtrl-C pressed, stopping bootstrap and cleaning up resources")
+				cancel()
+			}
+		}
+	}()
+
+	bootstrapCtx := modelcmd.BootstrapContext(stdCtx, ctx)
 	bootstrapPrepareParams := bootstrap.PrepareParams{
 		ModelConfig:      bootstrapCfg.bootstrapModel,
 		ControllerConfig: bootstrapCfg.controller,
@@ -866,18 +889,6 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		}
 	}()
 
-	// Block interruption during bootstrap. Providers may also
-	// register for interrupt notification so they can exit early.
-	interrupted := make(chan os.Signal, 1)
-	defer close(interrupted)
-	ctx.InterruptNotify(interrupted)
-	defer ctx.StopInterruptNotify(interrupted)
-	go func() {
-		for range interrupted {
-			ctx.Infof("Interrupt signalled: waiting for bootstrap to exit")
-		}
-	}()
-
 	// If --metadata-source is specified, override the default tools metadata source so
 	// SyncTools can use it, and also upload any image metadata.
 	if c.MetadataSource != "" {
@@ -955,7 +966,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 
 	bootstrapFuncs := getBootstrapFuncs()
 	if err = bootstrapFuncs.Bootstrap(
-		modelcmd.BootstrapContext(ctx),
+		bootstrapCtx,
 		environ,
 		cloudCallCtx,
 		bootstrapParams,
@@ -979,17 +990,16 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	// for the controller's machine agent to be ready to accept commands
 	// before exiting this bootstrap command.
 	return waitForAgentInitialisation(
-		ctx,
+		bootstrapCtx,
 		&c.ModelCommandBase,
 		isCAASController,
 		c.controllerName,
-		c.hostedModelName,
 	)
 }
 
 func (c *bootstrapCommand) controllerDataRefresher(
 	environ environs.BootstrapEnviron,
-	cloudCallCtx *context.CloudCallContext,
+	cloudCallCtx *envcontext.CloudCallContext,
 	bootstrapCfg bootstrapConfigs,
 ) error {
 
@@ -1599,7 +1609,9 @@ func handleBootstrapError(ctx *cmd.Context, cleanup func() error) {
 	defer close(ch)
 	go func() {
 		for range ch {
-			_, _ = fmt.Fprintln(ctx.GetStderr(), "Cleaning up failed bootstrap")
+			// Newline prefix is intentional, so output appears as
+			// "^C\nCtrl-C pressed" instead of "^CCtrl-C pressed".
+			_, _ = fmt.Fprintln(ctx.GetStderr(), "\nCtrl-C pressed, cleaning up failed bootstrap")
 		}
 	}()
 	logger.Debugf("cleaning up after failed bootstrap")

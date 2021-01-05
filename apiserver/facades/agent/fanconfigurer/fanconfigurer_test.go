@@ -4,6 +4,7 @@
 package fanconfigurer_test
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/cmd/cmdtesting"
@@ -131,7 +132,7 @@ func (s *fanconfigurerSuite) TestFanConfigFetchError(c *gc.C) {
 func testingEnvConfig(c *gc.C) *config.Config {
 	env, err := bootstrap.PrepareController(
 		false,
-		modelcmd.BootstrapContext(cmdtesting.Context(c)),
+		modelcmd.BootstrapContext(context.Background(), cmdtesting.Context(c)),
 		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: testing.FakeControllerConfig(),

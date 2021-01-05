@@ -1452,7 +1452,7 @@ class TestModelClient(ClientTest):
             machines:
               "0":
                 agent-state: started
-            services:
+            applications:
               jenkins:
                 units:
                   jenkins/0:
@@ -1488,7 +1488,7 @@ class TestModelClient(ClientTest):
             machines:
               "0":
                 agent-state: started
-            services:
+            applications:
               jenkins:
                 units:
                   jenkins/0:
@@ -1527,7 +1527,7 @@ class TestModelClient(ClientTest):
             machines:
               "0":
                 agent-state: started
-            services:
+            applications:
               ubuntu:
                 units:
                   ubuntu/0:
@@ -1630,7 +1630,7 @@ class TestModelClient(ClientTest):
 
     def test_wait_for_workload_all_unknown(self):
         status = Status.from_text("""\
-            services:
+            applications:
               jenkins:
                 units:
                   jenkins/0:
@@ -1654,7 +1654,7 @@ class TestModelClient(ClientTest):
 
     def test_wait_for_workload_no_workload_status(self):
         status = Status.from_text("""\
-            services:
+            applications:
               jenkins:
                 units:
                   jenkins/0:
