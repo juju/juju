@@ -4,7 +4,7 @@
 package operation
 
 import (
-	corecharm "github.com/juju/charm/v8"
+	corecharm "github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	utilexec "github.com/juju/utils/v2/exec"

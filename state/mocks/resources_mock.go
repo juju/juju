@@ -6,7 +6,7 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	resource "github.com/juju/charm/v8/resource"
+	resource "github.com/juju/charm/v9/resource"
 	resource0 "github.com/juju/juju/resource"
 	txn "gopkg.in/mgo.v2/txn"
 	io "io"

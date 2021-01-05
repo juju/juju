@@ -10,7 +10,7 @@ import (
 	"bytes"
 	"io"
 
-	charmresource "github.com/juju/charm/v8/resource"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/resource"

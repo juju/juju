@@ -7,7 +7,7 @@ package hook
 import (
 	"fmt"
 
-	"github.com/juju/charm/v8/hooks"
+	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/names/v4"
 )
 

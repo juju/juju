@@ -10,8 +10,8 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/description/v2"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"

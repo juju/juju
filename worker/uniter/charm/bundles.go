@@ -8,7 +8,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v2"
 

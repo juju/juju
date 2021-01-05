@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"time" // Only used for time types.
 
-	"github.com/juju/charm/v8"
-	charmrepotesting "github.com/juju/charmrepo/v6/testing"
+	"github.com/juju/charm/v9"
+	charmrepotesting "github.com/juju/charmrepo/v7/testing"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/description/v2"

@@ -6,8 +6,8 @@ package operation_test
 import (
 	"sync"
 
-	corecharm "github.com/juju/charm/v8"
-	"github.com/juju/charm/v8/hooks"
+	corecharm "github.com/juju/charm/v9"
+	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	utilexec "github.com/juju/utils/v2/exec"

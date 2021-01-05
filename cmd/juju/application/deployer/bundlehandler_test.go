@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
+	charm "github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"

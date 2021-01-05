@@ -6,7 +6,7 @@ package relation
 import (
 	"fmt"
 
-	"github.com/juju/charm/v8/hooks"
+	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v2/dependency"
 

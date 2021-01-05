@@ -39,9 +39,9 @@ require (
 	github.com/hpidcock/juju-fake-init v0.0.0-20201026041434-e95018795575
 	github.com/imdario/mergo v0.3.10 // indirect
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
-	github.com/juju/bundlechanges/v4 v4.0.0-20201215212106-38904645b567
-	github.com/juju/charm/v8 v8.0.0-20201119121237-bd48f89b02b9
-	github.com/juju/charmrepo/v6 v6.0.0-20201118043529-e9fbdc1a746f
+	github.com/juju/bundlechanges/v5 v5.0.0-20210105101225-fc10c61af1f3
+	github.com/juju/charm/v9 v9.0.0-20210105084816-5204c3802611
+	github.com/juju/charmrepo/v7 v7.0.0-20210105092546-af3d6b52f7de
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
 	github.com/juju/cmd v0.0.0-20200108104440-8e43f3faa5c9
 	github.com/juju/collections v0.0.0-20200605021417-0d0ec82b7271

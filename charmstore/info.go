@@ -6,8 +6,8 @@ package charmstore
 import (
 	"time"
 
-	"github.com/juju/charm/v8"
-	"github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v9/resource"
 )
 
 // CharmInfo holds the information about a charm from the charm store.

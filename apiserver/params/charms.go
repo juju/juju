@@ -3,7 +3,7 @@
 
 package params
 
-import "github.com/juju/charm/v8"
+import "github.com/juju/charm/v9"
 
 // ApplicationCharmResults contains a set of ApplicationCharmResults.
 type ApplicationCharmResults struct {

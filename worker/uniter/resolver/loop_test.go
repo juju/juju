@@ -7,8 +7,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/juju/charm/v8"
-	"github.com/juju/charm/v8/hooks"
+	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/loggo"
 	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"

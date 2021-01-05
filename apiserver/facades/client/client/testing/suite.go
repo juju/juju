@@ -11,9 +11,9 @@ package testing
 import (
 	"fmt"
 
-	"github.com/juju/charm/v8"
-	"github.com/juju/charmrepo/v6/csclient"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
+	"github.com/juju/charm/v9"
+	"github.com/juju/charmrepo/v7/csclient"
+	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jtesting "github.com/juju/testing"

@@ -6,7 +6,7 @@ package utils
 import (
 	"strings"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/arch"
 	osseries "github.com/juju/os/v2/series"

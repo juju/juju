@@ -5,8 +5,8 @@ package charms_test
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8"
-	csparams "github.com/juju/charmrepo/v6/csclient/params"
+	"github.com/juju/charm/v9"
+	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/juju/state/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"

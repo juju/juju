@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/juju/charm/v8"
-	"github.com/juju/charmrepo/v6"
+	"github.com/juju/charm/v9"
+	"github.com/juju/charmrepo/v7"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	commoncharm "github.com/juju/juju/api/common/charm"

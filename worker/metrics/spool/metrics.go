@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	corecharm "github.com/juju/charm/v8"
+	corecharm "github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	"github.com/juju/loggo"

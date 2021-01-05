@@ -10,8 +10,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v8"
-	params "github.com/juju/charmrepo/v6/csclient/params"
+	charm "github.com/juju/charm/v9"
+	params "github.com/juju/charmrepo/v7/csclient/params"
 	charmhub "github.com/juju/juju/charmhub"
 	transport "github.com/juju/juju/charmhub/transport"
 	charm0 "github.com/juju/juju/core/charm"

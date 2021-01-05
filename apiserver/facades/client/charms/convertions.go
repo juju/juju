@@ -4,8 +4,8 @@
 package charms
 
 import (
-	"github.com/juju/charm/v8"
-	"github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v9"
+	"github.com/juju/charm/v9/resource"
 
 	"github.com/juju/juju/apiserver/params"
 	corecharm "github.com/juju/juju/core/charm"
