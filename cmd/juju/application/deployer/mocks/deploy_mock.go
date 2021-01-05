@@ -7,7 +7,7 @@ package mocks
 import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v8"
+	charm "github.com/juju/charm/v9"
 	api "github.com/juju/juju/api"
 	application "github.com/juju/juju/api/application"
 	base "github.com/juju/juju/api/base"

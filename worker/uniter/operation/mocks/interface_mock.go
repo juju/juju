@@ -6,7 +6,7 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	charm_v6 "github.com/juju/charm/v8"
+	charm_v6 "github.com/juju/charm/v9"
 	hook "github.com/juju/juju/worker/uniter/hook"
 	operation "github.com/juju/juju/worker/uniter/operation"
 	remotestate "github.com/juju/juju/worker/uniter/remotestate"

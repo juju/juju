@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"

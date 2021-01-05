@@ -6,8 +6,8 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v8"
-	resource "github.com/juju/charm/v8/resource"
+	charm "github.com/juju/charm/v9"
+	resource "github.com/juju/charm/v9/resource"
 	controller "github.com/juju/juju/controller"
 	resource0 "github.com/juju/juju/resource"
 	resourceadapters "github.com/juju/juju/resource/resourceadapters"

@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/charm/v8"
-	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/charm/v9"
+	charmresource "github.com/juju/charm/v9/resource"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/hash"
 	gc "gopkg.in/check.v1"

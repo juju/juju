@@ -6,9 +6,9 @@ package store
 import (
 	"net/url"
 
-	"github.com/juju/charm/v8"
-	"github.com/juju/charmrepo/v6"
-	"github.com/juju/charmrepo/v6/csclient"
+	"github.com/juju/charm/v9"
+	"github.com/juju/charmrepo/v7"
+	"github.com/juju/charmrepo/v7/csclient"
 	"github.com/juju/errors"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"

@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	jujucharm "github.com/juju/charm/v8"
+	jujucharm "github.com/juju/charm/v9"
 
 	"github.com/juju/juju/worker/uniter/charm"
 )

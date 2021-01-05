@@ -6,7 +6,7 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v8"
+	charm "github.com/juju/charm/v9"
 	caasapplicationprovisioner "github.com/juju/juju/api/caasapplicationprovisioner"
 	charms "github.com/juju/juju/api/common/charms"
 	params "github.com/juju/juju/apiserver/params"

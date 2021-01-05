@@ -6,7 +6,7 @@ package state
 import (
 	"fmt"
 
-	"github.com/juju/charm/v8"
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"

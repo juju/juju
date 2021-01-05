@@ -6,7 +6,7 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	charm "github.com/juju/charm/v8"
+	charm "github.com/juju/charm/v9"
 	interfaces "github.com/juju/juju/apiserver/facades/client/charms/interfaces"
 	controller "github.com/juju/juju/controller"
 	charm0 "github.com/juju/juju/core/charm"
