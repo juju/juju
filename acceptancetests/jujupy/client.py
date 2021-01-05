@@ -1918,7 +1918,7 @@ class ModelClient:
         id = self.action_do(unit, action, *args)
         return self.action_fetch(id, action, timeout)
 
-    def run(self, commands, applications=None, machines=None, units=None,
+    def exec_cmds(self, commands, applications=None, machines=None, units=None,
             use_json=True):
         args = []
         if use_json:
@@ -1930,7 +1930,7 @@ class ModelClient:
         if units is not None:
             args.extend(['--unit', ','.join(units)])
         args.extend(commands)
-        responses = self.get_juju_output('run', *args)
+        responses = self.get_juju_output('exec', *args)
         if use_json:
             return json.loads(responses)
         else:
