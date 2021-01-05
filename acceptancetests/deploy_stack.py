@@ -414,18 +414,19 @@ def copy_remote_logs(remote, directory):
             logging.warning(repr(e))
 
 
-def assess_juju_run(client):
-    responses = client.run(('uname',),
+# NOTE: Since juju 3, "juju run" has been renamed to "juju exec"
+def assess_juju_exec(client):
+    responses = client.exec_cmds(('uname',),
                            applications=['dummy-source', 'dummy-sink'])
-    for machine in responses:
-        if machine.get('ReturnCode', 0) != 0:
-            raise ValueError('juju run on machine %s returned %d: %s' % (
-                machine.get('MachineId'),
-                machine.get('ReturnCode'),
-                machine.get('Stderr')))
+    for response in responses.values():
+        if response.get('results').get('return-code'):
+            raise ValueError('juju exec on unit %s returned %d: %s' % (
+                response.get('unit'),
+                response.get('return-code'),
+                response.get('results').get('stderr')))
     logging.info(
-        "juju run succeeded on machines: %r",
-        [str(machine.get("MachineId")) for machine in responses])
+        "juju exec succeeded on units: %r",
+        [str(response.get("unit")) for response in responses.values()])
     return responses
 
 
@@ -874,7 +875,7 @@ class BootstrapManager:
         controller_strategy = ExistingController(client)
         return cls(
             args.temp_env_name, client, client, args.bootstrap_host,
-            args.machine, args.series, args.arch, args.agent_url, 
+            args.machine, args.series, args.arch, args.agent_url,
             args.agent_stream, args.region, args.logs, args.keep_env,
             controller_strategy=controller_strategy,
             existing_controller=existing_controller)
@@ -1269,17 +1270,17 @@ def _deploy_job(args, charm_series, series):
         with manager:
             deploy_dummy_stack(client, charm_series, args.use_charmstore)
         assess_juju_relations(client)
-        skip_juju_run = (
+        skip_juju_exec = (
                 (client.version < "2" and sys.platform in ("win32", "darwin")) or
                 charm_series.startswith(("centos", "win")))
-        if not skip_juju_run:
-            assess_juju_run(client)
+        if not skip_juju_exec:
+            assess_juju_exec(client)
         if args.upgrade:
             client.show_status()
             assess_upgrade(client, args.juju_bin)
             assess_juju_relations(client)
-            if not skip_juju_run:
-                assess_juju_run(client)
+            if not skip_juju_exec:
+                assess_juju_exec(client)
 
 
 def safe_print_status(client):

@@ -107,7 +107,7 @@ def test_control_heterogeneous(bs_manager, other, upload_tools):
             # Currently, juju ssh is not working on Windows.
             check_token(initial, token)
             check_series(other)
-            other.juju('run', ('--all', 'uname -a'))
+            other.juju('exec', ('--all', 'uname -a'))
         other.get_config('dummy-source')
         other.get_model_config()
         other.juju('remove-relation', ('dummy-source', 'dummy-sink'))
