@@ -62,7 +62,7 @@ func validateCloudSpec(spec environscloudspec.CloudSpec) error {
 		}
 	}
 
-	return fmt.Errorf("blah")
+	return nil
 }
 
 // Open is specified in the EnvironProvider interface.
