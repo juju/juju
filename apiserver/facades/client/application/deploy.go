@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 )
@@ -56,6 +57,9 @@ func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (Ap
 	charmConfig, err := args.Charm.Config().ValidateSettings(args.CharmConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+	if args.Charm.Meta().Name == bootstrap.ControllerCharmName {
+		return nil, errors.NotSupportedf("manual deploy of the controller charm")
 	}
 	if args.Charm.Meta().Subordinate {
 		if args.NumUnits != 0 {

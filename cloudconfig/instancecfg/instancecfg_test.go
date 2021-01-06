@@ -111,3 +111,10 @@ func (*instancecfgSuite) TestDashboardDir(c *gc.C) {
 	}
 	c.Assert(icfg.DashboardDir(), gc.Equals, "/path/to/datadir/dashboard")
 }
+
+func (*instancecfgSuite) TestCharmDir(c *gc.C) {
+	icfg := &instancecfg.InstanceConfig{
+		DataDir: "/path/to/datadir/",
+	}
+	c.Assert(icfg.CharmDir(), gc.Equals, "/path/to/datadir/charms")
+}

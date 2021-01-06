@@ -14,6 +14,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/juju/charm/v9"
 	"github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
@@ -59,6 +60,7 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
+	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -246,6 +248,7 @@ func (s *BootstrapSuite) getSystemState(c *gc.C) (*state.State, func()) {
 	c.Assert(err, jc.ErrorIsNil)
 	return pool.SystemState(), func() { pool.Close() }
 }
+
 func (s *BootstrapSuite) TestDashboardArchiveSuccess(c *gc.C) {
 	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -279,6 +282,53 @@ func (s *BootstrapSuite) TestDashboardArchiveSuccess(c *gc.C) {
 	vers, err := st.DashboardVersion()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vers.String(), gc.Equals, "2.0.42")
+}
+
+func (s *BootstrapSuite) TestLocalControllerCharm(c *gc.C) {
+	ch := testcharms.RepoForSeries("quantal").CharmDir("juju-controller")
+	dir, err := charm.ReadCharmDir(ch.Path)
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllerCharmDir := filepath.Join(s.dataDir, "charms")
+	err = os.MkdirAll(controllerCharmDir, 0755)
+	c.Assert(err, jc.ErrorIsNil)
+	f, err := os.Create(filepath.Join(controllerCharmDir, "controller.charm"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = dir.ArchiveTo(f)
+	_ = f.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, cmd, err := s.initBootstrapCommand(c, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var tw loggo.TestWriter
+	err = loggo.RegisterWriter("bootstrap-test", &tw)
+	c.Assert(err, jc.ErrorIsNil)
+	defer loggo.RemoveWriter("bootstrap-test")
+
+	err = cmd.Run(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
+		loggo.DEBUG,
+		`Successfully deployed local Juju controller charm`,
+	}})
+
+	st, closer := s.getSystemState(c)
+	defer closer()
+
+	app, err := st.Application("controller")
+	c.Assert(err, jc.ErrorIsNil)
+	appCh, _, err := app.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	stateCh, err := st.Charm(appCh.URL())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stateCh.Meta().Name, gc.Equals, "juju-controller")
+	units, err := app.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 1)
+	m, err := units[0].AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m, gc.Equals, "0")
 }
 
 var testPassword = "my-admin-secret"

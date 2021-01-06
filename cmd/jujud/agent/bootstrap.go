@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/charm/v9"
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -27,6 +28,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
 	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/caas"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
@@ -38,6 +40,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -374,12 +377,113 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		logger.Debugf("Juju Dashboard successfully set up")
 	}
 
+	// Add a controller charm.
+	if err := c.populateControllerCharm(st); err != nil {
+		return errors.Annotate(err, "deploying the controller charm")
+	}
+
 	// bootstrap nodes always get the vote
 	node, err := st.ControllerNode(agent.BootstrapControllerId)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	return node.SetHasVote(true)
+}
+
+func (c *BootstrapCommand) populateControllerCharm(st *state.State) error {
+	controllerCharmPath := filepath.Join(c.DataDir(), "charms", bootstrap.ControllerCharmArchive)
+	_, err := os.Stat(controllerCharmPath)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	m, err := st.Machine(agent.BootstrapControllerId)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	curl, err := addControllerCharm(st, m.Series(), controllerCharmPath)
+	if err != nil {
+		return errors.Annotatef(err, "cannot store controller charm at %q", controllerCharmPath)
+	}
+	if err = addControllerApplication(st, curl, m); err != nil {
+		return errors.Annotate(err, "cannot add controller application")
+	}
+	logger.Debugf("Successfully deployed local Juju controller charm")
+	return nil
+}
+
+func addControllerCharm(st *state.State, series, charmFileName string) (*charm.URL, error) {
+	archive, err := charm.ReadCharmArchive(charmFileName)
+	if err != nil {
+		return nil, errors.Errorf("invalid charm archive: %v", err)
+	}
+
+	name := archive.Meta().Name
+	if name != bootstrap.ControllerCharmName {
+		return nil, errors.Errorf("unexpected controller charm name %q", name)
+	}
+
+	// Only local for now.
+	schema := charm.Local
+
+	// Reserve a charm URL for it in state.
+	curl := &charm.URL{
+		Schema:   schema.String(),
+		Name:     name,
+		Revision: archive.Revision(),
+		Series:   series,
+	}
+	switch schema {
+	case charm.Local:
+		curl, err = st.PrepareLocalCharmUpload(curl)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+	case charm.CharmHub:
+		if _, err := st.PrepareCharmUpload(curl); err != nil {
+			return nil, errors.Trace(err)
+		}
+
+	default:
+		return nil, errors.Errorf("unsupported schema %q", schema)
+	}
+
+	// Now we need to repackage it with the reserved URL, upload it to
+	// provider storage and update the state.
+	err = apiserver.RepackageAndUploadCharm(st, archive, curl)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return curl, nil
+}
+
+func addControllerApplication(st *state.State, curl *charm.URL, m *state.Machine) error {
+	ch, err := st.Charm(curl)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	app, err := st.AddApplication(state.AddApplicationArgs{
+		Name:   bootstrap.ControllerApplicationName,
+		Series: curl.Series,
+		Charm:  ch,
+		CharmOrigin: &state.CharmOrigin{
+			Source: curl.Schema,
+			Type:   "charm",
+		},
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	u, err := app.AddUnit(state.AddUnitParams{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return u.AssignToMachine(m)
 }
 
 func getAddressesForMongo(

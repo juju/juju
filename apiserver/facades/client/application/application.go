@@ -46,6 +46,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -1633,6 +1634,21 @@ func (api *APIBase) AddUnits(args params.AddApplicationUnits) (params.AddApplica
 	if api.modelType == state.ModelTypeCAAS {
 		return params.AddApplicationUnitsResults{}, errors.NotSupportedf("adding units on a non-container model")
 	}
+
+	// TODO(wallyworld) - enable-ha is how we add new controllers at the moment
+	// Remove this check before 3.0 when enable-ha is refactored.
+	app, err := api.backend.Application(args.ApplicationName)
+	if err != nil {
+		return params.AddApplicationUnitsResults{}, errors.Trace(err)
+	}
+	ch, _, err := app.Charm()
+	if err != nil {
+		return params.AddApplicationUnitsResults{}, errors.Trace(err)
+	}
+	if ch.Meta().Name == bootstrap.ControllerCharmName {
+		return params.AddApplicationUnitsResults{}, errors.NotSupportedf("add units to the controller application")
+	}
+
 	if err := api.checkCanWrite(); err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
@@ -1762,11 +1778,14 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 	if err := api.check.RemoveAllowed(); err != nil {
 		return params.DestroyUnitResults{}, errors.Trace(err)
 	}
+
+	appCharms := make(map[string]Charm)
 	destroyUnit := func(arg params.DestroyUnitParams) (*params.DestroyUnitInfo, error) {
 		unitTag, err := names.ParseUnitTag(arg.UnitTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+
 		name := unitTag.Id()
 		unit, err := api.backend.Unit(name)
 		if errors.IsNotFound(err) {
@@ -1777,6 +1796,26 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 		if !unit.IsPrincipal() {
 			return nil, errors.Errorf("unit %q is a subordinate", name)
 		}
+
+		// TODO(wallyworld) - enable-ha is how we remove controllers at the moment
+		// Remove this check before 3.0 when enable-ha is refactored.
+		appName, _ := names.UnitApplication(unitTag.Id())
+		ch, ok := appCharms[appName]
+		if !ok {
+			app, err := api.backend.Application(appName)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ch, _, err = app.Charm()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			appCharms[appName] = ch
+		}
+		if ch.Meta().Name == bootstrap.ControllerCharmName {
+			return nil, errors.NotSupportedf("remove units from the controller application")
+		}
+
 		var info params.DestroyUnitInfo
 		unitStorage, err := storagecommon.UnitStorage(api.storageAccess, unit.UnitTag())
 		if err != nil {
@@ -1884,6 +1923,15 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 		if err != nil {
 			return nil, err
 		}
+
+		ch, _, err := app.Charm()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if ch.Meta().Name == bootstrap.ControllerCharmName {
+			return nil, errors.NotSupportedf("removing the controller application")
+		}
+
 		units, err := app.AllUnits()
 		if err != nil {
 			return nil, err

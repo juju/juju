@@ -295,7 +295,7 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 
 	// Now we need to repackage it with the reserved URL, upload it to
 	// provider storage and update the state.
-	err = h.repackageAndUploadCharm(st, archive, curl)
+	err = RepackageAndUploadCharm(st, archive, curl)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -389,10 +389,10 @@ func (d byDepth) Len() int           { return len(d) }
 func (d byDepth) Swap(i, j int)      { d[i], d[j] = d[j], d[i] }
 func (d byDepth) Less(i, j int) bool { return depth(d[i]) < depth(d[j]) }
 
-// repackageAndUploadCharm expands the given charm archive to a
+// RepackageAndUploadCharm expands the given charm archive to a
 // temporary directory, repackages it with the given curl's revision,
 // then uploads it to storage, and finally updates the state.
-func (h *charmsHandler) repackageAndUploadCharm(st *state.State, archive *charm.CharmArchive, curl *charm.URL) error {
+func RepackageAndUploadCharm(st *state.State, archive *charm.CharmArchive, curl *charm.URL) error {
 	// Create a temp dir to contain the extracted charm dir.
 	tempDir, err := ioutil.TempDir("", "charm-download")
 	if err != nil {

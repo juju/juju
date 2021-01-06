@@ -2134,6 +2134,27 @@ func (s *BootstrapSuite) TestBootstrapTestingOptions(c *gc.C) {
 	c.Assert(gotArgs.ExtraAgentValuesForTesting, jc.DeepEquals, map[string]string{"foo": "bar", "hello": "world"})
 }
 
+func (s *BootstrapSuite) TestBootstrapWithControllerCharm(c *gc.C) {
+	var gotArgs bootstrap.BootstrapParams
+	bootstrapFuncs := &fakeBootstrapFuncs{
+		bootstrapF: func(_ environs.BootstrapContext, _ environs.BootstrapEnviron, callCtx context.ProviderCallContext, args bootstrap.BootstrapParams) error {
+			gotArgs = args
+			return errors.New("test error")
+		},
+	}
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return bootstrapFuncs
+	})
+	controllerCharm := filepath.Join(c.MkDir(), "controller.charm")
+	err := ioutil.WriteFile(controllerCharm, nil, 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller", "--controller-charm", controllerCharm,
+	)
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	c.Assert(gotArgs.ControllerCharmPath, gc.DeepEquals, controllerCharm)
+}
+
 func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *gc.C) {
 	// This test ensures that the controller name is correctly set on
 	// on the bootstrap commands embedded ModelCommandBase. Without
