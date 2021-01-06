@@ -26,9 +26,28 @@ func (s *clientNormalizeOriginSuite) TestNormalizeCharmOriginNoAll(c *gc.C) {
 		OS:           "all",
 		Series:       "all",
 	}
-	obtained, err := normalizeCharmOrigin(origin)
+	obtained, err := normalizeCharmOrigin(origin, "amd64")
 	c.Assert(err, jc.ErrorIsNil)
-	origin.Architecture = ""
+	origin.Architecture = "amd64"
+	origin.OS = ""
+	origin.Series = ""
+	c.Assert(obtained, gc.DeepEquals, origin)
+}
+
+func (s *clientNormalizeOriginSuite) TestNormalizeCharmOriginWithEmpty(c *gc.C) {
+	track := "1.0"
+	origin := params.CharmOrigin{
+		Source:       "charm-hub",
+		Type:         "charm",
+		Risk:         "edge",
+		Track:        &track,
+		Architecture: "",
+		OS:           "all",
+		Series:       "all",
+	}
+	obtained, err := normalizeCharmOrigin(origin, "amd64")
+	c.Assert(err, jc.ErrorIsNil)
+	origin.Architecture = "amd64"
 	origin.OS = ""
 	origin.Series = ""
 	c.Assert(obtained, gc.DeepEquals, origin)
@@ -45,7 +64,7 @@ func (s *clientNormalizeOriginSuite) TestNormalizeCharmOriginLowerCase(c *gc.C) 
 		OS:           "Ubuntu",
 		Series:       "focal",
 	}
-	obtained, err := normalizeCharmOrigin(origin)
+	obtained, err := normalizeCharmOrigin(origin, "amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	origin.OS = "ubuntu"
 	c.Assert(obtained, gc.DeepEquals, origin)

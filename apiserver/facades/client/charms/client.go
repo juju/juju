@@ -247,7 +247,12 @@ func (a *API) getDownloadInfo(arg params.CharmURLAndOrigin) (params.DownloadInfo
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
 
-	charmOrigin, err := normalizeCharmOrigin(arg.Origin)
+	defaultArch, err := a.getDefaultArch()
+	if err != nil {
+		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
+	}
+
+	charmOrigin, err := normalizeCharmOrigin(arg.Origin, defaultArch)
 	if err != nil {
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
@@ -268,7 +273,20 @@ func (a *API) getDownloadInfo(arg params.CharmURLAndOrigin) (params.DownloadInfo
 	}, nil
 }
 
-func normalizeCharmOrigin(origin params.CharmOrigin) (params.CharmOrigin, error) {
+func (a *API) getDefaultArch() (string, error) {
+	cons, err := a.backendState.ModelConstraints()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	if cons.HasArch() {
+		return *cons.Arch, nil
+	}
+
+	return arch.DefaultArchitecture, nil
+}
+
+func normalizeCharmOrigin(origin params.CharmOrigin, fallbackArch string) (params.CharmOrigin, error) {
 	// If the series is set to all, we need to ensure that we remove that, so
 	// that we can attempt to derive it at a later stage. Juju itself doesn't
 	// know nor understands what all means, so we need to ensure it doesn't leak
@@ -291,9 +309,9 @@ func normalizeCharmOrigin(origin params.CharmOrigin) (params.CharmOrigin, error)
 		oSeries = origin.Series
 	}
 
-	var arc string
-	if origin.Architecture != "all" {
-		arc = origin.Architecture
+	arch := fallbackArch
+	if origin.Architecture != "all" && origin.Architecture != "" {
+		arch = origin.Architecture
 	} else {
 		logger.Warningf("Architecture all detected, removing all from the origin. %s", origin.ID)
 	}
@@ -301,7 +319,7 @@ func normalizeCharmOrigin(origin params.CharmOrigin) (params.CharmOrigin, error)
 	o := origin
 	o.OS = os
 	o.Series = oSeries
-	o.Architecture = arc
+	o.Architecture = arch
 	return o, nil
 }
 
