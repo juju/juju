@@ -52,6 +52,11 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 		return nil, params.CharmOrigin{}, nil, errors.Trace(err)
 	}
 
+	platform, err := makePlatform(origin)
+	if err != nil {
+		return nil, params.CharmOrigin{}, nil, errors.Trace(err)
+	}
+
 	// In order to get the metadata for a given charm we need to ensure that
 	// we ask for the channel otherwise the metadata won't show up.
 	var options []charmhub.InfoOption
@@ -81,9 +86,13 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 		return resURL, outputOrigin, serie, nil
 	}
 
-	logger.Debugf("Resolving charm with revision %d and/or channel %s", curl.Revision, channel.String())
+	logger.Debugf("Resolving charm with revision %d and/or channel %s and origin %s", curl.Revision, channel.String(), origin)
 
-	channelMap, err := findChannelMap(curl.Revision, channel, info.ChannelMap)
+	preferred := channelPlatform{
+		Channel:  channel,
+		Platform: platform,
+	}
+	channelMap, err := findChannelMap(curl.Revision, preferred, info.ChannelMap)
 	if err != nil {
 		return nil, params.CharmOrigin{}, nil, errors.Trace(err)
 	}
@@ -282,15 +291,23 @@ func makeChannel(origin params.CharmOrigin) (corecharm.Channel, error) {
 	return ch.Normalize(), nil
 }
 
-func findChannelMap(rev int, preferredChannel corecharm.Channel, channelMaps []transport.InfoChannelMap) (transport.InfoChannelMap, error) {
+func makePlatform(origin params.CharmOrigin) (corecharm.Platform, error) {
+	p, err := corecharm.MakePlatform(origin.Architecture, origin.OS, origin.Series)
+	if err != nil {
+		return p, errors.Trace(err)
+	}
+	return p.Normalize(), nil
+}
+
+func findChannelMap(rev int, preferred channelPlatform, channelMaps []transport.InfoChannelMap) (transport.InfoChannelMap, error) {
 	if len(channelMaps) == 0 {
 		return transport.InfoChannelMap{}, errors.NotValidf("no channels provided by CharmHub")
 	}
 	switch {
-	case preferredChannel.String() != "" && rev != -1:
-		return findByRevisionAndChannel(rev, preferredChannel, channelMaps)
-	case preferredChannel.String() != "":
-		return findByChannel(preferredChannel, channelMaps)
+	case preferred.Channel.String() != "" && rev != -1:
+		return findByRevisionAndChannel(rev, preferred, channelMaps)
+	case preferred.Channel.String() != "":
+		return findByChannel(preferred, channelMaps)
 	default: // rev != -1
 		return findByRevision(rev, channelMaps)
 	}
@@ -307,26 +324,47 @@ func findByRevision(rev int, channelMaps []transport.InfoChannelMap) (transport.
 	return transport.InfoChannelMap{}, errors.NotFoundf("charm revision %d", rev)
 }
 
-func findByChannel(preferredChannel corecharm.Channel, channelMaps []transport.InfoChannelMap) (transport.InfoChannelMap, error) {
+func findByChannel(preferred channelPlatform, channelMaps []transport.InfoChannelMap) (transport.InfoChannelMap, error) {
 	for _, cMap := range channelMaps {
-		if matchChannel(preferredChannel, cMap.Channel) {
+		if matchChannelMap(preferred, cMap) {
 			return cMap, nil
 		}
 	}
-	return transport.InfoChannelMap{}, errors.NotFoundf("channel %q", preferredChannel.String())
+	return transport.InfoChannelMap{}, errors.NotFoundf("channel %q with arch %q", preferred.Channel.String(), preferred.Platform.Architecture)
 }
 
-func findByRevisionAndChannel(rev int, preferredChannel corecharm.Channel, channelMaps []transport.InfoChannelMap) (transport.InfoChannelMap, error) {
+func findByRevisionAndChannel(rev int, preferred channelPlatform, channelMaps []transport.InfoChannelMap) (transport.InfoChannelMap, error) {
 	for _, cMap := range channelMaps {
-		if cMap.Revision.Revision == rev && matchChannel(preferredChannel, cMap.Channel) {
+		if cMap.Revision.Revision == rev && matchChannelMap(preferred, cMap) {
 			return cMap, nil
 		}
 	}
-	return transport.InfoChannelMap{}, errors.NotFoundf("charm revision %d for channel %q", rev, preferredChannel.String())
+	return transport.InfoChannelMap{}, errors.NotFoundf("charm revision %d for channel %q with arch %q", rev, preferred.Channel.String(), preferred.Platform.Architecture)
 }
 
-func matchChannel(one corecharm.Channel, two transport.Channel) bool {
-	return one.Normalize().String() == two.Name
+type channelPlatform struct {
+	Channel  corecharm.Channel
+	Platform corecharm.Platform
+}
+
+func matchChannelMap(preferred channelPlatform, other transport.InfoChannelMap) bool {
+	if preferred.Channel.Normalize().String() != other.Channel.Name {
+		return false
+	}
+	if other.Channel.Platform.Architecture == "all" {
+		return true
+	}
+	norm := preferred.Platform.Normalize()
+	if norm.Architecture == other.Channel.Platform.Architecture {
+		return true
+	}
+
+	for _, platform := range other.Revision.Platforms {
+		if platform.Architecture == "all" || platform.Architecture == norm.Architecture {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *chRepo) resolveViaChannelMap(t transport.Type, curl *charm.URL, origin params.CharmOrigin, channelMap transport.InfoChannelMap) (*charm.URL, params.CharmOrigin, []string, error) {
