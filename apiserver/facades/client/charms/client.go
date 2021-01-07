@@ -542,6 +542,12 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel, mac *macaroon.
 		return result
 	}
 
+	// Viladate the origin passed in.
+	if err := validateOrigin(arg.Origin, curl.Schema); err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result
+	}
+
 	// If we can guarantee that each charm to be resolved uses the
 	// same url source and channel, there is no need to get a new repository
 	// each time.
@@ -586,6 +592,18 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel, mac *macaroon.
 	}
 
 	return result
+}
+
+func validateOrigin(origin params.CharmOrigin, schema string) error {
+	if (corecharm.Local.Matches(origin.Source) && !charm.Local.Matches(schema)) ||
+		(corecharm.CharmStore.Matches(origin.Source) && !charm.CharmStore.Matches(schema)) ||
+		(corecharm.CharmHub.Matches(origin.Source) && !charm.CharmHub.Matches(schema)) {
+		return errors.NotValidf("origin source %q with schema", origin.Source)
+	}
+	if origin.Architecture == "" {
+		return errors.NotValidf("empty architecture")
+	}
+	return nil
 }
 
 func (a *API) charmStrategy(args params.AddCharmWithAuth) (Strategy, error) {

@@ -30,7 +30,7 @@ func (s *charmHubRepositoriesSuite) TestCharmResolveDefaultChannelMap(c *gc.C) {
 	s.expectCharmInfo(nil)
 
 	curl := charm.MustParseURL("ch:wordpress")
-	origin := params.CharmOrigin{Source: "charm-hub"}
+	origin := params.CharmOrigin{Source: "charm-hub", Architecture: arch.DefaultArchitecture}
 
 	resolver := &chRepo{client: s.client}
 	obtainedCurl, obtainedOrigin, obtainedSeries, err := resolver.ResolveWithPreferredChannel(curl, origin)
@@ -60,7 +60,12 @@ func (s *charmHubRepositoriesSuite) TestCharmResolveDefaultChannelMapWithChannel
 	track := "latest"
 
 	curl := charm.MustParseURL("ch:wordpress")
-	origin := params.CharmOrigin{Source: "charm-hub", Risk: "stable", Track: &track}
+	origin := params.CharmOrigin{
+		Source:       "charm-hub",
+		Risk:         "stable",
+		Track:        &track,
+		Architecture: arch.DefaultArchitecture,
+	}
 
 	resolver := &chRepo{client: s.client}
 	obtainedCurl, obtainedOrigin, obtainedSeries, err := resolver.ResolveWithPreferredChannel(curl, origin)
@@ -87,7 +92,7 @@ func (s *charmHubRepositoriesSuite) TestResolveWithRevision(c *gc.C) {
 	s.expectCharmInfo(nil)
 
 	curl := charm.MustParseURL("ch:wordpress-13")
-	origin := params.CharmOrigin{Source: "charm-hub"}
+	origin := params.CharmOrigin{Source: "charm-hub", Architecture: arch.DefaultArchitecture}
 
 	resolver := &chRepo{client: s.client}
 	obtainedCurl, obtainedOrigin, obtainedSeries, err := resolver.ResolveWithPreferredChannel(curl, origin)
@@ -115,7 +120,7 @@ func (s *charmHubRepositoriesSuite) TestCharmResolveDefaultChannelMapWithFallbac
 	s.expectAlternativeCharmInfo(nil)
 
 	curl := charm.MustParseURL("ch:wordpress")
-	origin := params.CharmOrigin{Source: "charm-hub"}
+	origin := params.CharmOrigin{Source: "charm-hub", Architecture: arch.DefaultArchitecture}
 
 	resolver := &chRepo{client: s.client}
 	obtainedCurl, obtainedOrigin, obtainedSeries, err := resolver.ResolveWithPreferredChannel(curl, origin)
@@ -143,7 +148,7 @@ func (s *charmHubRepositoriesSuite) TestBundleResolveDefaultChannelMap(c *gc.C) 
 	s.expectBundleInfo(nil)
 
 	curl := charm.MustParseURL("ch:wordpress")
-	origin := params.CharmOrigin{Type: "bundle", Source: "charm-hub"}
+	origin := params.CharmOrigin{Type: "bundle", Source: "charm-hub", Architecture: arch.DefaultArchitecture}
 
 	resolver := &chRepo{client: s.client}
 	obtainedCurl, obtainedOrigin, obtainedSeries, err := resolver.ResolveWithPreferredChannel(curl, origin)
@@ -171,7 +176,7 @@ func (s *charmHubRepositoriesSuite) TestBundleResolveDefaultChannelMapWithFallba
 	s.expectAlternativeBundleInfo(nil)
 
 	curl := charm.MustParseURL("ch:wordpress")
-	origin := params.CharmOrigin{Type: "bundle", Source: "charm-hub"}
+	origin := params.CharmOrigin{Type: "bundle", Source: "charm-hub", Architecture: arch.DefaultArchitecture}
 
 	resolver := &chRepo{client: s.client}
 	obtainedCurl, obtainedOrigin, obtainedSeries, err := resolver.ResolveWithPreferredChannel(curl, origin)
@@ -199,7 +204,7 @@ func (s *charmHubRepositoriesSuite) TestResolveWithRevisionNotFound(c *gc.C) {
 	s.expectCharmInfo(nil)
 
 	curl := charm.MustParseURL("ch:wordpress-42")
-	origin := params.CharmOrigin{Source: "charm-hub"}
+	origin := params.CharmOrigin{Source: "charm-hub", Architecture: arch.DefaultArchitecture}
 
 	resolver := &chRepo{client: s.client}
 	_, _, _, err := resolver.ResolveWithPreferredChannel(curl, origin)
@@ -212,7 +217,12 @@ func (s *charmHubRepositoriesSuite) TestResolveWithChannel(c *gc.C) {
 
 	curl := charm.MustParseURL("ch:wordpress")
 	track := "second"
-	origin := params.CharmOrigin{Source: "charm-hub", Risk: "stable", Track: &track}
+	origin := params.CharmOrigin{
+		Source:       "charm-hub",
+		Risk:         "stable",
+		Track:        &track,
+		Architecture: arch.DefaultArchitecture,
+	}
 
 	resolver := &chRepo{client: s.client}
 	obtainedCurl, obtainedOrigin, obtainedSeries, err := resolver.ResolveWithPreferredChannel(curl, origin)
@@ -239,10 +249,11 @@ func (s *charmHubRepositoriesSuite) TestResolveWithChannelNotFound(c *gc.C) {
 	curl := charm.MustParseURL("ch:wordpress")
 	track := "testme"
 	origin := params.CharmOrigin{
-		Source: "charm-hub",
-		Type:   "charm",
-		Risk:   "edge",
-		Track:  &track,
+		Source:       "charm-hub",
+		Type:         "charm",
+		Risk:         "edge",
+		Track:        &track,
+		Architecture: arch.DefaultArchitecture,
 	}
 
 	resolver := &chRepo{client: s.client}
@@ -255,7 +266,7 @@ func (s *charmHubRepositoriesSuite) TestResolveWithChannelRiskOnly(c *gc.C) {
 	s.expectCharmInfo(nil)
 
 	curl := charm.MustParseURL("ch:wordpress")
-	origin := params.CharmOrigin{Source: "charm-hub", Risk: "candidate"}
+	origin := params.CharmOrigin{Source: "charm-hub", Risk: "candidate", Architecture: arch.DefaultArchitecture}
 
 	resolver := &chRepo{client: s.client}
 	obtainedCurl, obtainedOrigin, obtainedSeries, err := resolver.ResolveWithPreferredChannel(curl, origin)
@@ -282,7 +293,7 @@ func (s *charmHubRepositoriesSuite) TestResolveInfoError(c *gc.C) {
 	s.expectCharmInfo(errors.NotSupportedf("error for test"))
 
 	curl := charm.MustParseURL("ch:wordpress")
-	origin := params.CharmOrigin{Source: "charm-hub"}
+	origin := params.CharmOrigin{Source: "charm-hub", Architecture: arch.DefaultArchitecture}
 
 	resolver := &chRepo{client: s.client}
 	_, _, _, err := resolver.ResolveWithPreferredChannel(curl, origin)
@@ -654,14 +665,14 @@ func (s *sanitizeCharmOriginSuite) TestSanitize(c *gc.C) {
 		Series:       "all",
 	}
 	requested := params.CharmOrigin{
-		Architecture: "amd64",
+		Architecture: arch.DefaultArchitecture,
 		OS:           "Ubuntu",
 		Series:       "focal",
 	}
 	got, err := sanitizeCharmOrigin(received, requested)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, gc.DeepEquals, params.CharmOrigin{
-		Architecture: "amd64",
+		Architecture: arch.DefaultArchitecture,
 		OS:           "ubuntu",
 		Series:       "focal",
 	})
@@ -674,7 +685,7 @@ func (s *sanitizeCharmOriginSuite) TestSanitizeWithValues(c *gc.C) {
 		Series:       "win8",
 	}
 	requested := params.CharmOrigin{
-		Architecture: "amd64",
+		Architecture: arch.DefaultArchitecture,
 		OS:           "Ubuntu",
 		Series:       "focal",
 	}
@@ -694,7 +705,7 @@ func (s *sanitizeCharmOriginSuite) TestSanitizeWithEmptyValues(c *gc.C) {
 		Series:       "",
 	}
 	requested := params.CharmOrigin{
-		Architecture: "amd64",
+		Architecture: arch.DefaultArchitecture,
 		OS:           "Ubuntu",
 		Series:       "focal",
 	}
