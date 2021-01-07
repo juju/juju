@@ -247,6 +247,8 @@ type bootstrapCommand struct {
 	hostedModelName string
 	noHostedModel   bool
 
+	ControllerCharmPath string
+
 	// Force is used to allow a bootstrap to be run on unsupported series.
 	Force bool
 }
@@ -326,6 +328,7 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.noSwitch, "no-switch", false, "Do not switch to the newly created controller")
 	f.BoolVar(&c.Force, "force", false, "Allow the bypassing of checks such as supported series")
 	f.BoolVar(&c.noHostedModel, "no-default-model", false, "Do not create a default model")
+	f.StringVar(&c.ControllerCharmPath, "controller-charm", "", "Path to a locally built controller charm")
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
@@ -352,6 +355,20 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 
 	if c.JujuDbSnapAssertionsPath != "" && c.JujuDbSnapPath == "" {
 		return errors.New("--db-snap-asserts requires --db-snap")
+	}
+
+	if c.ControllerCharmPath != "" {
+		_, err := c.Filesystem().Stat(c.ControllerCharmPath)
+		if err != nil {
+			return errors.Annotatef(err, "problem with --controller-charm")
+		}
+		ch, err := charm.ReadCharm(c.ControllerCharmPath)
+		if err != nil {
+			return errors.Errorf("--controller-charm %q is not a valid charm", c.ControllerCharmPath)
+		}
+		if ch.Meta().Name != bootstrap.ControllerCharmName {
+			return errors.Errorf("--controller-charm %q is not a %q charm", c.ControllerCharmPath, bootstrap.ControllerCharmName)
+		}
 	}
 
 	if c.showClouds && c.showRegionsForCloud != "" {
@@ -829,6 +846,7 @@ to create a new model to deploy %sworkloads.
 		JujuDbSnapPath:            c.JujuDbSnapPath,
 		JujuDbSnapAssertionsPath:  c.JujuDbSnapAssertionsPath,
 		StoragePools:              bootstrapCfg.storagePools,
+		ControllerCharmPath:       c.ControllerCharmPath,
 		DialOpts: environs.BootstrapDialOpts{
 			Timeout:        bootstrapCfg.bootstrap.BootstrapTimeout,
 			RetryDelay:     bootstrapCfg.bootstrap.BootstrapRetryDelay,

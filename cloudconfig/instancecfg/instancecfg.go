@@ -211,6 +211,9 @@ type BootstrapConfig struct {
 	// Dashboard is the Juju Dashboard archive to be installed in the new instance.
 	Dashboard *coretools.DashboardArchive
 
+	// ControllerCharm is a local controller charm to be used.
+	ControllerCharm string
+
 	// Timeout is the amount of time to wait for bootstrap to complete.
 	Timeout time.Duration
 
@@ -490,6 +493,11 @@ func (cfg *InstanceConfig) SnapDir() string {
 	return path.Join(cfg.DataDir, "snap")
 }
 
+// CharmDir returns the directory where system charms should be uploaded to.
+func (cfg *InstanceConfig) CharmDir() string {
+	return path.Join(cfg.DataDir, "charms")
+}
+
 // DashboardDir returns the directory where the Juju Dashboard release is stored.
 func (cfg *InstanceConfig) DashboardDir() string {
 	return agenttools.SharedDashboardDir(cfg.DataDir)
@@ -608,10 +616,22 @@ func (cfg *InstanceConfig) SetSnapSource(snapPath string, snapAssertionsPath str
 	return nil
 }
 
-type requiresError string
+// SetControllerCharm annotates the instance configuration
+// with the location of a local controller charm to upload during
+// the instance's provisioning.
+func (cfg *InstanceConfig) SetControllerCharm(controllerCharmPath string) error {
+	if controllerCharmPath == "" {
+		return nil
+	}
 
-func (e requiresError) Error() string {
-	return "invalid machine configuration: missing " + string(e)
+	_, err := os.Stat(controllerCharmPath)
+	if err != nil {
+		return errors.Annotatef(err, "unable set local controller charm (at %s)", controllerCharmPath)
+	}
+
+	cfg.Bootstrap.ControllerCharm = controllerCharmPath
+
+	return nil
 }
 
 // VerifyConfig verifies that the InstanceConfig is valid.

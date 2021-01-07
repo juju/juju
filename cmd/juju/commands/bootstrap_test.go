@@ -60,6 +60,7 @@ import (
 	_ "github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -2132,6 +2133,46 @@ func (s *BootstrapSuite) TestBootstrapTestingOptions(c *gc.C) {
 	)
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(gotArgs.ExtraAgentValuesForTesting, jc.DeepEquals, map[string]string{"foo": "bar", "hello": "world"})
+}
+
+func (s *BootstrapSuite) TestBootstrapWithControllerCharm(c *gc.C) {
+	for _, test := range []struct {
+		charmPath string
+		err       string
+	}{
+		{
+			charmPath: testcharms.Repo.CharmDir("juju-controller").Path,
+		}, {
+			charmPath: testcharms.Repo.CharmDir("mysql").Path,
+			err:       `--controller-charm ".*mysql" is not a "juju-controller" charm`,
+		}, {
+			charmPath: c.MkDir(),
+			err:       `--controller-charm ".*" is not a valid charm`,
+		}, {
+			charmPath: "/invalid/path",
+			err:       `problem with --controller-charm: stat /invalid/path: no such file or directory`,
+		},
+	} {
+		var gotArgs bootstrap.BootstrapParams
+		bootstrapFuncs := &fakeBootstrapFuncs{
+			bootstrapF: func(_ environs.BootstrapContext, _ environs.BootstrapEnviron, callCtx context.ProviderCallContext, args bootstrap.BootstrapParams) error {
+				gotArgs = args
+				return errors.New("test error")
+			},
+		}
+		s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+			return bootstrapFuncs
+		})
+		_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+			"dummy", "devcontroller", "--controller-charm", test.charmPath,
+		)
+		if test.err == "" {
+			c.Assert(err, gc.Equals, cmd.ErrSilent)
+			c.Assert(gotArgs.ControllerCharmPath, gc.DeepEquals, test.charmPath)
+		} else {
+			c.Assert(err, gc.ErrorMatches, test.err)
+		}
+	}
 }
 
 func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *gc.C) {

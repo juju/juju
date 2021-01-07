@@ -395,8 +395,12 @@ github.com/juju/bundlechanges/v5 v5.0.0-20210105101225-fc10c61af1f3 h1:0bDD/ukLO
 github.com/juju/bundlechanges/v5 v5.0.0-20210105101225-fc10c61af1f3/go.mod h1:0Us8R+t7wi4ZORNGznWWB07hkDOQFGVznTHOwY2XXfQ=
 github.com/juju/charm/v9 v9.0.0-20210105084816-5204c3802611 h1:LQEQJvPHjeFNNAMgQpjthtF0SRzNz2+H/YCK0HmJxs4=
 github.com/juju/charm/v9 v9.0.0-20210105084816-5204c3802611/go.mod h1:ffLfwuA4E426HlTtqgMvKZdBAWXOwbgeeHye/1ITTLc=
+github.com/juju/charm/v9 v9.0.0-20210107011734-a80982922c69 h1:VzRv22mb6gJNoAEgkZWQRW1EfUAt8Krw68C1Jw8n3sQ=
+github.com/juju/charm/v9 v9.0.0-20210107011734-a80982922c69/go.mod h1:ffLfwuA4E426HlTtqgMvKZdBAWXOwbgeeHye/1ITTLc=
 github.com/juju/charmrepo/v7 v7.0.0-20210105092546-af3d6b52f7de h1:95Or6HY8Lfpv007aWUNMKzw2AnDXPOyqQjlO/N3UfjU=
 github.com/juju/charmrepo/v7 v7.0.0-20210105092546-af3d6b52f7de/go.mod h1:hnCmP2zszIv2WqLZpHyM+4/bkEvDZi5MLHRsvi58Lhs=
+github.com/juju/charmrepo/v7 v7.0.0-20210107021745-6d3b0475f2e4 h1:s51mNG4ES7lUzMMLzDU8Vb7r0+/LIv4FUSMPwVHMBsQ=
+github.com/juju/charmrepo/v7 v7.0.0-20210107021745-6d3b0475f2e4/go.mod h1:dZDpX+a046U+tWpVqv9dUK62PQKyVjuR8lEhJVLvRpg=
 github.com/juju/clock v0.0.0-20180524022203-d293bb356ca4/go.mod h1:nD0vlnrUjcjJhqN5WuCWZyzfd5AHZAC9/ajvbSx69xA=
 github.com/juju/clock v0.0.0-20180808021310-bab88fc67299/go.mod h1:nD0vlnrUjcjJhqN5WuCWZyzfd5AHZAC9/ajvbSx69xA=
 github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c h1:3UvYABOQRhJAApj9MdCN+Ydv841ETSoy6xLzdmmr/9A=

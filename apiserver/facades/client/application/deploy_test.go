@@ -47,6 +47,16 @@ func (s *DeployLocalSuite) SetUpTest(c *gc.C) {
 	s.charm = charm
 }
 
+func (s *DeployLocalSuite) TestDeployControllerNotAllowed(c *gc.C) {
+	ch := s.AddTestingCharm(c, "juju-controller")
+	_, err := application.DeployApplication(stateDeployer{s.State},
+		application.DeployApplicationParams{
+			ApplicationName: "my-controller",
+			Charm:           ch,
+		})
+	c.Assert(err, gc.ErrorMatches, "manual deploy of the controller charm not supported")
+}
+
 func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 	app, err := application.DeployApplication(stateDeployer{s.State},
 		application.DeployApplicationParams{

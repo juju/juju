@@ -851,13 +851,13 @@ func (s *ApplicationSuite) assertDestroyUnit(c *gc.C, force bool, maxWait *time.
 
 	s.backend.CheckCallNames(c,
 		"Unit",
+		"Application",
 		"UnitStorageAttachments",
 		"StorageInstance",
 		"StorageInstance",
 		"StorageInstanceFilesystem",
 		"StorageInstanceFilesystem",
 		"ApplyOperation",
-
 		"Unit",
 		"UnitStorageAttachments",
 		"ApplyOperation",
@@ -866,8 +866,8 @@ func (s *ApplicationSuite) assertDestroyUnit(c *gc.C, force bool, maxWait *time.
 	if force {
 		expectedOp.MaxWait = common.MaxWait(maxWait)
 	}
-	s.backend.CheckCall(c, 6, "ApplyOperation", expectedOp)
-	s.backend.CheckCall(c, 9, "ApplyOperation", &state.DestroyUnitOperation{
+	s.backend.CheckCall(c, 7, "ApplyOperation", expectedOp)
+	s.backend.CheckCall(c, 10, "ApplyOperation", &state.DestroyUnitOperation{
 		DestroyStorage: true,
 	})
 }
@@ -1178,7 +1178,7 @@ func (s *ApplicationSuite) TestAddUnits(c *gc.C) {
 		Units: []string{"postgresql/99"},
 	})
 	app := s.backend.applications["postgresql"]
-	app.CheckCall(c, 0, "AddUnit", state.AddUnitParams{})
+	app.CheckCall(c, 1, "AddUnit", state.AddUnitParams{})
 	app.addedUnit.CheckCall(c, 0, "AssignWithPolicy", state.AssignCleanEmpty)
 }
 
@@ -1356,23 +1356,23 @@ func (s *ApplicationSuite) TestAddUnitsAttachStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	app := s.backend.applications["postgresql"]
-	app.CheckCall(c, 0, "AddUnit", state.AddUnitParams{
+	app.CheckCall(c, 1, "AddUnit", state.AddUnitParams{
 		AttachStorage: []names.StorageTag{names.NewStorageTag("pgdata/0")},
 	})
 }
 
 func (s *ApplicationSuite) TestAddUnitsAttachStorageMultipleUnits(c *gc.C) {
 	_, err := s.api.AddUnits(params.AddApplicationUnits{
-		ApplicationName: "foo",
+		ApplicationName: "postgresql",
 		NumUnits:        2,
-		AttachStorage:   []string{"storage-foo-0"},
+		AttachStorage:   []string{"storage-postgresql-0"},
 	})
 	c.Assert(err, gc.ErrorMatches, "AttachStorage is non-empty, but NumUnits is 2")
 }
 
 func (s *ApplicationSuite) TestAddUnitsAttachStorageInvalidStorageTag(c *gc.C) {
 	_, err := s.api.AddUnits(params.AddApplicationUnits{
-		ApplicationName: "foo",
+		ApplicationName: "postgresql",
 		NumUnits:        1,
 		AttachStorage:   []string{"volume-0"},
 	})

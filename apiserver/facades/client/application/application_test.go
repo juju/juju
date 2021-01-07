@@ -2877,6 +2877,13 @@ func (s *applicationSuite) TestBlockApplicationDestroy(c *gc.C) {
 	}
 }
 
+func (s *applicationSuite) TestDestroyControllerApplicationNotAllowed(c *gc.C) {
+	s.AddTestingApplication(c, "controller-application", s.AddTestingCharm(c, "juju-controller"))
+
+	err := s.applicationAPI.Destroy(params.ApplicationDestroy{"controller-application"})
+	c.Assert(err, gc.ErrorMatches, "removing the controller application not supported")
+}
+
 func (s *applicationSuite) TestDestroyPrincipalUnits(c *gc.C) {
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	units := make([]*state.Unit, 5)

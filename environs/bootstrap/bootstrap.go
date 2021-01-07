@@ -175,6 +175,9 @@ type BootstrapParams struct {
 	// Force is used to allow a bootstrap to be run on unsupported series.
 	Force bool
 
+	// ControllerCharmPath is a local controller charm archive.
+	ControllerCharmPath string
+
 	// ExtraAgentValuesForTesting are testing only values written to the agent config file.
 	ExtraAgentValuesForTesting map[string]string
 }
@@ -597,6 +600,10 @@ func bootstrapIAAS(
 		return errors.Trace(err)
 	}
 
+	if err := instanceConfig.SetControllerCharm(args.ControllerCharmPath); err != nil {
+		return errors.Trace(err)
+	}
+
 	var environVersion int
 	if e, ok := environ.(environs.Environ); ok {
 		environVersion = e.Provider().Version()
@@ -721,6 +728,7 @@ func finalizeInstanceBootstrapConfig(
 	})
 	icfg.Bootstrap.JujuDbSnapPath = args.JujuDbSnapPath
 	icfg.Bootstrap.JujuDbSnapAssertionsPath = args.JujuDbSnapAssertionsPath
+	icfg.Bootstrap.ControllerCharm = args.ControllerCharmPath
 	return nil
 }
 

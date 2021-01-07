@@ -48,6 +48,7 @@ import (
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/provider/dummy"
 	corestorage "github.com/juju/juju/storage"
+	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -1096,6 +1097,22 @@ func makeDashboardArchive(c *gc.C, vers string) string {
 	err := exec.Command("tar", "cjf", target, "-C", source, ".").Run()
 	c.Assert(err, jc.ErrorIsNil)
 	return target
+}
+
+func (s *bootstrapSuite) TestBootstrapControllerCharmLocal(c *gc.C) {
+	path := testcharms.RepoForSeries("quantal").CharmDir("juju-controller").Path
+	env := newEnviron("foo", useDefaultKeys, nil)
+	ctx := cmdtesting.Context(c)
+	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(context.Background(), ctx), env,
+		s.callContext, bootstrap.BootstrapParams{
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			SupportedBootstrapSeries: supportedJujuSeries,
+			ControllerCharmPath:      path,
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.instanceConfig.Bootstrap.ControllerCharm, gc.Equals, path)
 }
 
 // createImageMetadata creates some image metadata in a local directory.

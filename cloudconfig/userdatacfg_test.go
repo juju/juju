@@ -5,16 +5,19 @@
 package cloudconfig_test
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
 
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -37,6 +40,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 )
@@ -172,6 +176,11 @@ func (cfg *testInstanceConfig) setDashboard(url string) *testInstanceConfig {
 		Size:    42,
 		SHA256:  "1234",
 	}
+	return cfg
+}
+
+func (cfg *testInstanceConfig) setControllerCharm(path string) *testInstanceConfig {
+	cfg.Bootstrap.ControllerCharm = path
 	return cfg
 }
 
@@ -715,7 +724,7 @@ printf %%s %s | base64 -d > '/var/lib/juju/dashboard/dashboard.tar.bz2'
 [ -f $dashboard/jujudashboard.sha256 ] && (grep '1234' $dashboard/jujudashboard.sha256 && printf %%s '%s' > $dashboard/downloaded-dashboard.txt || echo Juju Dashboard checksum mismatch)
 rm -f $dashboard/dashboard.tar.bz2 $dashboard/jujudashboard.sha256 $dashboard/downloaded-dashboard.txt
 `, base64Content, dashboardJson))
-	checkCloudInitWithDashboard(c, cfg, expectedScripts, "")
+	checkCloudInitWithContent(c, cfg, expectedScripts, "")
 }
 
 func (*cloudinitSuite) TestCloudInitWithRemoteDashboard(c *gc.C) {
@@ -729,22 +738,22 @@ curl -sSf -o $dashboard/dashboard.tar.bz2 --retry 10 'https://1.2.3.4/dashboard.
 [ -f $dashboard/jujudashboard.sha256 ] && (grep '1234' $dashboard/jujudashboard.sha256 && printf %%s '%s' > $dashboard/downloaded-dashboard.txt || echo Juju Dashboard checksum mismatch)
 rm -f $dashboard/dashboard.tar.bz2 $dashboard/jujudashboard.sha256 $dashboard/downloaded-dashboard.txt
 `, dashboardJson))
-	checkCloudInitWithDashboard(c, cfg, expectedScripts, "")
+	checkCloudInitWithContent(c, cfg, expectedScripts, "")
 }
 
 func (*cloudinitSuite) TestCloudInitWithDashboardReadError(c *gc.C) {
 	cfg := makeBootstrapConfig("precise", 0).setDashboard("file:///no/such/dashboard.tar.bz2")
 	expectedError := "cannot set up Juju Dashboard: cannot read Juju Dashboard archive: .*"
-	checkCloudInitWithDashboard(c, cfg, "", expectedError)
+	checkCloudInitWithContent(c, cfg, "", expectedError)
 }
 
 func (*cloudinitSuite) TestCloudInitWithDashboardURLError(c *gc.C) {
 	cfg := makeBootstrapConfig("precise", 0).setDashboard(":")
 	expectedError := "cannot set up Juju Dashboard: cannot parse Juju Dashboard URL: .*"
-	checkCloudInitWithDashboard(c, cfg, "", expectedError)
+	checkCloudInitWithContent(c, cfg, "", expectedError)
 }
 
-func checkCloudInitWithDashboard(c *gc.C, cfg *testInstanceConfig, expectedScripts string, expectedError string) {
+func checkCloudInitWithContent(c *gc.C, cfg *testInstanceConfig, expectedScripts string, expectedError string) {
 	envConfig := minimalModelConfig(c)
 	testConfig := cfg.maybeSetModelConfig(envConfig).render()
 	ci, err := cloudinit.New(testConfig.Series)
@@ -767,6 +776,48 @@ func checkCloudInitWithDashboard(c *gc.C, cfg *testInstanceConfig, expectedScrip
 
 	scripts := getScripts(configKeyValues)
 	assertScriptMatch(c, scripts, expectedScripts, false)
+}
+
+func (*cloudinitSuite) TestCloudInitWithLocalControllerCharmDir(c *gc.C) {
+	controllerCharmPath := testcharms.Repo.CharmDir("juju-controller").Path
+	ch, err := charm.ReadCharmDir(controllerCharmPath)
+	c.Assert(err, jc.ErrorIsNil)
+	buf := bytes.NewBuffer(nil)
+	err = ch.ArchiveTo(buf)
+	c.Assert(err, jc.ErrorIsNil)
+	content := buf.Bytes()
+
+	cfg := makeBootstrapConfig("precise", 0).setControllerCharm(controllerCharmPath)
+	base64Content := base64.StdEncoding.EncodeToString(content)
+	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`chmod 0600 '/var/lib/juju/agents/machine-0/agent.conf'
+install -D -m 644 /dev/null '/var/lib/juju/charms/controller.charm'
+printf %%s %s | base64 -d > '/var/lib/juju/charms/controller.charm'
+`, base64Content))
+	checkCloudInitWithContent(c, cfg, expectedScripts, "")
+}
+
+func (*cloudinitSuite) TestCloudInitWithLocalControllerCharmArchive(c *gc.C) {
+	ch := testcharms.Repo.CharmDir("juju-controller")
+	dir, err := charm.ReadCharmDir(ch.Path)
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllerCharmPath := filepath.Join(c.MkDir(), "controller.charm")
+	f, err := os.Create(controllerCharmPath)
+	c.Assert(err, jc.ErrorIsNil)
+	err = dir.ArchiveTo(f)
+	_ = f.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	content, err := ioutil.ReadFile(controllerCharmPath)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cfg := makeBootstrapConfig("precise", 0).setControllerCharm(controllerCharmPath)
+	base64Content := base64.StdEncoding.EncodeToString(content)
+	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`chmod 0600 '/var/lib/juju/agents/machine-0/agent.conf'
+install -D -m 644 /dev/null '/var/lib/juju/charms/controller.charm'
+printf %%s %s | base64 -d > '/var/lib/juju/charms/controller.charm'
+`, base64Content))
+	checkCloudInitWithContent(c, cfg, expectedScripts, "")
 }
 
 func (*cloudinitSuite) TestCloudInitConfigure(c *gc.C) {

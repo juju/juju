@@ -15,6 +15,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
@@ -25,6 +26,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service"
@@ -388,11 +390,13 @@ func (w *unixConfigure) ConfigureJuju() error {
 	}
 
 	if w.icfg.Bootstrap != nil {
-		if err := w.configureBootstrap(); err != nil {
+		if err = w.addLocalSnapUpload(); err != nil {
 			return errors.Trace(err)
 		}
-
-		if err = w.addLocalSnapUpload(); err != nil {
+		if err = w.addLocalControllerCharmsUpload(); err != nil {
+			return errors.Trace(err)
+		}
+		if err := w.configureBootstrap(); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -523,6 +527,45 @@ func (w *unixConfigure) addLocalSnapUpload() error {
 	}
 	_, snapAssertionsName := path.Split(assertionsPath)
 	w.conf.AddRunBinaryFile(path.Join(w.icfg.SnapDir(), snapAssertionsName), snapAssertionsData, 0644)
+
+	return nil
+}
+
+func (w *unixConfigure) addLocalControllerCharmsUpload() error {
+	if w.icfg.Bootstrap == nil {
+		return nil
+	}
+
+	charmPath := w.icfg.Bootstrap.ControllerCharm
+
+	if charmPath == "" {
+		return nil
+	}
+
+	logger.Infof("preparing to upload controller charm from %v", charmPath)
+	_, err := charm.ReadCharm(charmPath)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	var charmData []byte
+	if charm.IsCharmDir(charmPath) {
+		ch, err := charm.ReadCharmDir(charmPath)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		buf := bytes.NewBuffer(nil)
+		err = ch.ArchiveTo(buf)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		charmData = buf.Bytes()
+	} else {
+		charmData, err = ioutil.ReadFile(charmPath)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	w.conf.AddRunBinaryFile(path.Join(w.icfg.CharmDir(), bootstrap.ControllerCharmArchive), charmData, 0644)
 
 	return nil
 }
