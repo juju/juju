@@ -136,7 +136,8 @@ type DialOpts struct {
 	DialTimeout time.Duration
 
 	// Timeout is the amount of time to wait for the entire
-	// api.Open to succeed. If this is zero, there is no timeout.
+	// api.Open to succeed (including dial and login). If this is
+	// zero, there is no timeout.
 	Timeout time.Duration
 
 	// RetryDelay is the amount of time to wait between
