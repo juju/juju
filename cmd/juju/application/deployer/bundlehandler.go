@@ -68,6 +68,7 @@ type bundleDeploySpec struct {
 	bundleURL         *charm.URL
 	bundleOverlayFile []string
 	origin            commoncharm.Origin
+	modelConstraints  constraints.Value
 
 	deployAPI            DeployerAPI
 	bundleResolver       Resolver
@@ -141,7 +142,8 @@ type bundleHandler struct {
 	results map[string]string
 
 	// origin identifies the default channel to use for the bundle.
-	origin commoncharm.Origin
+	origin           commoncharm.Origin
+	modelConstraints constraints.Value
 
 	// deployAPI is used to interact with the environment.
 	deployAPI            DeployerAPI
@@ -227,6 +229,7 @@ func makeBundleHandler(bundleData *charm.BundleData, spec bundleDeploySpec) *bun
 		applications:         applications,
 		results:              make(map[string]string),
 		origin:               spec.origin,
+		modelConstraints:     spec.modelConstraints,
 		deployAPI:            spec.deployAPI,
 		bundleResolver:       spec.bundleResolver,
 		authorizer:           spec.authorizer,
@@ -337,7 +340,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 			}
 		}
 
-		platform, err := utils.DeducePlatform(cons, spec.Series)
+		platform, err := utils.DeducePlatform(cons, spec.Series, h.modelConstraints)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -540,7 +543,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	}
 	// TODO (stickupkid): How do we know what the charm architecture in this
 	// case.
-	platform, err := utils.DeducePlatform(constraints.Value{}, series)
+	platform, err := utils.DeducePlatform(constraints.Value{}, series, h.modelConstraints)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -777,7 +780,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		if h.origin.Track != nil {
 			track = *h.origin.Track
 		}
-		platform, err := utils.DeducePlatform(cons, series)
+		platform, err := utils.DeducePlatform(cons, series, h.modelConstraints)
 		if err != nil {
 			return errors.Trace(err)
 		}

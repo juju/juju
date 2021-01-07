@@ -31,9 +31,10 @@ import (
 
 type diffSuite struct {
 	jujutesting.IsolationSuite
-	apiRoot    *mockAPIRoot
-	charmStore *mockCharmStore
-	dir        string
+	apiRoot     *mockAPIRoot
+	charmStore  *mockCharmStore
+	modelClient *mockModelClient
+	dir         string
 }
 
 var _ = gc.Suite(&diffSuite{})
@@ -46,16 +47,25 @@ func (s *diffSuite) SetUpTest(c *gc.C) {
 		bestFacadeVersionFallback: 42,
 	}
 	s.charmStore = &mockCharmStore{}
+	s.modelClient = &mockModelClient{
+		constraints: constraints.MustParse("arch=amd64"),
+	}
 	s.dir = c.MkDir()
 }
 
 func (s *diffSuite) runDiffBundle(c *gc.C, args ...string) (*cmd.Context, error) {
 	return s.runDiffBundleWithCharmAdapter(c, func(base.APICallCloser, *charm.URL) (application.BundleResolver, error) {
 		return s.charmStore, nil
+	}, func() (application.ModelConstraintsClient, error) {
+		return s.modelClient, nil
 	}, args...)
 }
 
-func (s *diffSuite) runDiffBundleWithCharmAdapter(c *gc.C, charmAdataperFn func(base.APICallCloser, *charm.URL) (application.BundleResolver, error), args ...string) (*cmd.Context, error) {
+func (s *diffSuite) runDiffBundleWithCharmAdapter(c *gc.C,
+	charmAdataperFn func(base.APICallCloser, *charm.URL) (application.BundleResolver, error),
+	modelConsFn func() (application.ModelConstraintsClient, error),
+	args ...string,
+) (*cmd.Context, error) {
 	store := jujuclienttesting.MinimalStore()
 	store.Models["enz"] = &jujuclient.ControllerModels{
 		CurrentModel: "golden/horse",
@@ -63,7 +73,7 @@ func (s *diffSuite) runDiffBundleWithCharmAdapter(c *gc.C, charmAdataperFn func(
 			ModelType: model.IAAS,
 		}},
 	}
-	command := application.NewDiffBundleCommandForTest(s.apiRoot, charmAdataperFn, store)
+	command := application.NewDiffBundleCommandForTest(s.apiRoot, charmAdataperFn, modelConsFn, store)
 	return cmdtesting.RunCommandInDir(c, command, args, s.dir)
 }
 
@@ -321,7 +331,9 @@ func (s *diffSuite) TestCharmHubBundleWithInvalidController(c *gc.C) {
 	}
 	s.charmStore.bundle = &mockBundle{data: bundleData}
 
-	_, err = s.runDiffBundleWithCharmAdapter(c, nil, "my-bundle")
+	_, err = s.runDiffBundleWithCharmAdapter(c, nil, func() (application.ModelConstraintsClient, error) {
+		return s.modelClient, nil
+	}, "my-bundle")
 	c.Assert(err, gc.ErrorMatches, `
 Current controller version is not compatible with CharmHub bundles.
 Consider using a CharmStore bundle instead.`[1:])
@@ -592,6 +604,21 @@ func makeAPIResponsesWithExposedEndpoints(exposedEndpoints map[string]params.Exp
 		"Application.CharmConfig":    params.ApplicationGetConfigResults{},
 		"Application.GetConstraints": params.ApplicationGetConstraintsResults{},
 	}
+}
+
+type mockModelClient struct {
+	stub        jujutesting.Stub
+	constraints constraints.Value
+}
+
+func (s *mockModelClient) GetModelConstraints() (constraints.Value, error) {
+	s.stub.AddCall("GetModelConstraints")
+	return s.constraints, nil
+}
+
+func (s *mockModelClient) Close() error {
+	s.stub.AddCall("Close")
+	return nil
 }
 
 type mockCharmStore struct {

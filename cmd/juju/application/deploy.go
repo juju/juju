@@ -272,11 +272,12 @@ type DeployCommand struct {
 	// deployed but just output the changes.
 	DryRun bool
 
-	ApplicationName string
-	ConfigOptions   common.ConfigFlag
-	ConstraintsStr  string
-	Constraints     constraints.Value
-	BindToSpaces    string
+	ApplicationName  string
+	ConfigOptions    common.ConfigFlag
+	ConstraintsStr   string
+	Constraints      constraints.Value
+	ModelConstraints constraints.Value
+	BindToSpaces     string
 
 	// TODO(axw) move this to UnitCommandBase once we support --storage
 	// on add-unit too.
@@ -760,9 +761,8 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 	var err error
-	c.Constraints, err = common.ParseConstraints(ctx, c.ConstraintsStr)
-	if err != nil {
-		return err
+	if c.Constraints, err = common.ParseConstraints(ctx, c.ConstraintsStr); err != nil {
+		return errors.Trace(err)
 	}
 	cstoreAPI, err := c.NewCharmRepo()
 	if err != nil {
@@ -773,6 +773,10 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	defer func() { _ = apiRoot.Close() }()
+
+	if c.ModelConstraints, err = apiRoot.GetModelConstraints(); err != nil {
+		return errors.Trace(err)
+	}
 
 	if err := c.parseBindFlag(apiRoot); err != nil {
 		return errors.Trace(err)
@@ -854,6 +858,7 @@ func (c *DeployCommand) getDeployerFactory() (deployer.DeployerFactory, deployer
 		CharmOrBundle:     c.CharmOrBundle,
 		ConfigOptions:     c.ConfigOptions,
 		Constraints:       c.Constraints,
+		ModelConstraints:  c.ModelConstraints,
 		Devices:           c.Devices,
 		DryRun:            c.DryRun,
 		FlagSet:           c.flagSet,

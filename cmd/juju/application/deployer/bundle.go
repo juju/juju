@@ -35,6 +35,7 @@ type deployBundle struct {
 	bundleURL         *charm.URL
 	bundleOverlayFile []string
 	origin            commoncharm.Origin
+	modelConstraints  constraints.Value
 
 	resolver             Resolver
 	authorizer           store.MacaroonGetter
@@ -118,7 +119,7 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 					return errors.Trace(err)
 				}
 
-				platform, err := utils.DeducePlatform(cons, applicationSpec.Series)
+				platform, err := utils.DeducePlatform(cons, applicationSpec.Series, d.modelConstraints)
 				if err != nil {
 					return errors.Trace(err)
 				}
@@ -189,6 +190,7 @@ func (d *deployBundle) makeBundleDeploySpec(ctx *cmd.Context, apiRoot DeployerAP
 		bundleURL:            d.bundleURL,
 		bundleOverlayFile:    d.bundleOverlayFile,
 		origin:               d.origin,
+		modelConstraints:     d.modelConstraints,
 		deployAPI:            apiRoot,
 		bundleResolver:       d.resolver,
 		authorizer:           d.authorizer,

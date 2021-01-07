@@ -2555,6 +2555,7 @@ type fakeDeployAPI struct {
 	planURL             string
 	deployerFactoryFunc func(dep deployer.DeployerDependencies) deployer.DeployerFactory
 	charmRepoFunc       func() (*store.CharmStoreAdaptor, error)
+	modelCons           constraints.Value
 }
 
 func (f *fakeDeployAPI) IsMetered(charmURL string) (bool, error) {
@@ -2691,6 +2692,11 @@ func (f *fakeDeployAPI) GetConfig(_ string, _ ...string) ([]map[string]interface
 
 func (f *fakeDeployAPI) GetConstraints(_ ...string) ([]constraints.Value, error) {
 	return nil, nil
+}
+
+func (f *fakeDeployAPI) GetModelConstraints() (constraints.Value, error) {
+	f.MethodCall(f, "GetModelConstraints")
+	return f.modelCons, nil
 }
 
 func (f *fakeDeployAPI) GetBundle(url *charm.URL, _ commoncharm.Origin, _ string) (charm.Bundle, error) {
@@ -2968,7 +2974,8 @@ func withCharmDeployableWithDevicesAndStorage(
 			deployURL.Revision = 1
 		}
 	}
-	platform, _ := apputils.DeducePlatform(constraints.Value{}, series)
+	fallbackCons := constraints.MustParse("arch=amd64")
+	platform, _ := apputils.DeducePlatform(constraints.Value{}, series, fallbackCons)
 	origin, _ := apputils.DeduceOrigin(url, corecharm.Channel{}, platform)
 	fakeAPI.Call("AddCharm", &deployURL, origin, force).Returns(origin, error(nil))
 	fakeAPI.Call("CharmInfo", deployURL.String()).Returns(

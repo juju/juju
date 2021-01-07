@@ -44,14 +44,27 @@ const (
 	ArchAll = "all"
 )
 
+// ModelConfigGetter defines an interface for getting model configuration.
 type ModelConfigGetter interface {
 	ModelGet() (map[string]interface{}, error)
+}
+
+// ModelConstraintsGetter defines an interface for getting model constraints.
+type ModelConstraintsGetter interface {
+	GetModelConstraints() (constraints.Value, error)
 }
 
 // ModelConfigClient represents a model config client for requesting model
 // configurations.
 type ModelConfigClient interface {
 	ModelConfigGetter
+	Close() error
+}
+
+// ModelConstraintsClient represents a client for getting the constraints from
+// a model.
+type ModelConstraintsClient interface {
+	ModelConstraintsGetter
 	Close() error
 }
 
@@ -94,6 +107,9 @@ func NewDiffBundleCommand() cmd.Command {
 	cmd.modelConfigClientFunc = func(api base.APICallCloser) ModelConfigClient {
 		return modelconfig.NewClient(api)
 	}
+	cmd.modelConstraintsClientFunc = func() (ModelConstraintsClient, error) {
+		return cmd.NewAPIClient()
+	}
 	return modelcmd.Wrap(cmd)
 }
 
@@ -112,11 +128,12 @@ type diffBundleCommand struct {
 	bundleMachines map[string]string
 	machineMap     string
 
-	charmAdaptorFn         func(base.APICallCloser, *charm.URL) (BundleResolver, error)
-	newAPIRootFn           func() (base.APICallCloser, error)
-	newControllerAPIRootFn func() (base.APICallCloser, error)
-	modelConfigClientFunc  func(base.APICallCloser) ModelConfigClient
-	newCharmHubClient      func(string) (store.DownloadBundleClient, error)
+	charmAdaptorFn             func(base.APICallCloser, *charm.URL) (BundleResolver, error)
+	newAPIRootFn               func() (base.APICallCloser, error)
+	newControllerAPIRootFn     func() (base.APICallCloser, error)
+	modelConfigClientFunc      func(base.APICallCloser) ModelConfigClient
+	modelConstraintsClientFunc func() (ModelConstraintsClient, error)
+	newCharmHubClient          func(string) (store.DownloadBundleClient, error)
 }
 
 // IsSuperCommand is part of cmd.Command.
@@ -266,6 +283,11 @@ func (c *diffBundleCommand) bundleDataSource(ctx *cmd.Context, apiRoot base.APIC
 		return ds, nil
 	}
 
+	modelConstraints, err := c.getModelConstraints()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Not a local bundle, so it must be from charmhub or the charmstore.
 	bURL, err := charm.ParseURL(c.bundle)
 	if err != nil {
@@ -273,7 +295,7 @@ func (c *diffBundleCommand) bundleDataSource(ctx *cmd.Context, apiRoot base.APIC
 	}
 	platform, err := utils.DeducePlatform(constraints.Value{
 		Arch: &c.arch,
-	}, c.series)
+	}, c.series, modelConstraints)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -413,6 +435,15 @@ func (c *diffBundleCommand) getCharmHubURL(apiRoot base.APICallCloser) (string, 
 
 	charmHubURL, _ := config.CharmHubURL()
 	return charmHubURL, nil
+}
+
+func (c *diffBundleCommand) getModelConstraints() (constraints.Value, error) {
+	modelConsClient, err := c.modelConstraintsClientFunc()
+	if err != nil {
+		return constraints.Value{}, errors.Trace(err)
+	}
+	defer func() { _ = modelConsClient.Close() }()
+	return modelConsClient.GetModelConstraints()
 }
 
 type extractorImpl struct {
