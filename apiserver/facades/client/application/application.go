@@ -1646,7 +1646,7 @@ func (api *APIBase) AddUnits(args params.AddApplicationUnits) (params.AddApplica
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
 	if ch.Meta().Name == bootstrap.ControllerCharmName {
-		return params.AddApplicationUnitsResults{}, errors.NotSupportedf("add units to the controller application")
+		return params.AddApplicationUnitsResults{}, errors.NotSupportedf("adding units to the controller application")
 	}
 
 	if err := api.checkCanWrite(); err != nil {
@@ -1813,7 +1813,7 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 			appCharms[appName] = ch
 		}
 		if ch.Meta().Name == bootstrap.ControllerCharmName {
-			return nil, errors.NotSupportedf("remove units from the controller application")
+			return nil, errors.NotSupportedf("removing units from the controller application")
 		}
 
 		var info params.DestroyUnitInfo

@@ -40,8 +40,8 @@ require (
 	github.com/imdario/mergo v0.3.10 // indirect
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
 	github.com/juju/bundlechanges/v5 v5.0.0-20210105101225-fc10c61af1f3
-	github.com/juju/charm/v9 v9.0.0-20210105084816-5204c3802611
-	github.com/juju/charmrepo/v7 v7.0.0-20210105092546-af3d6b52f7de
+	github.com/juju/charm/v9 v9.0.0-20210107011734-a80982922c69
+	github.com/juju/charmrepo/v7 v7.0.0-20210107021745-6d3b0475f2e4
 	github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c
 	github.com/juju/cmd v0.0.0-20200108104440-8e43f3faa5c9
 	github.com/juju/collections v0.0.0-20200605021417-0d0ec82b7271

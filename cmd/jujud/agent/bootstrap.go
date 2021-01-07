@@ -467,6 +467,25 @@ func addControllerApplication(st *state.State, curl *charm.URL, m *state.Machine
 	if err != nil {
 		return errors.Trace(err)
 	}
+	cfg := charm.Settings{
+		"is-juju": true,
+	}
+	controllerCfg, err := st.ControllerConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	cfg["identity-provider-url"] = controllerCfg.IdentityURL()
+	addr := controllerCfg.PublicDNSAddress()
+	if addr == "" {
+		pa, err := m.PublicAddress()
+		if err != nil && !network.IsNoAddressError(err) {
+			return errors.Trace(err)
+		}
+		if err == nil {
+			addr = pa.Value
+		}
+	}
+	cfg["controller-url"] = fmt.Sprintf("https://%s", addr)
 	app, err := st.AddApplication(state.AddApplicationArgs{
 		Name:   bootstrap.ControllerApplicationName,
 		Series: curl.Series,
@@ -475,6 +494,7 @@ func addControllerApplication(st *state.State, curl *charm.URL, m *state.Machine
 			Source: curl.Schema,
 			Type:   "charm",
 		},
+		CharmConfig: cfg,
 	})
 	if err != nil {
 		return errors.Trace(err)

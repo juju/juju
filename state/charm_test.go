@@ -777,7 +777,7 @@ actions:
 `
 
 func (s *CharmTestHelperSuite) TestActionsCharm(c *gc.C) {
-	actions, err := charm.ReadActionsYaml(bytes.NewBuffer([]byte(actionsYaml)))
+	actions, err := charm.ReadActionsYaml("somecharm", bytes.NewBuffer([]byte(actionsYaml)))
 	c.Assert(err, jc.ErrorIsNil)
 
 	forEachStandardCharm(c, func(name string) {

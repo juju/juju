@@ -5,6 +5,7 @@
 package cloudconfig_test
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -777,8 +778,26 @@ func checkCloudInitWithContent(c *gc.C, cfg *testInstanceConfig, expectedScripts
 	assertScriptMatch(c, scripts, expectedScripts, false)
 }
 
-func (*cloudinitSuite) TestCloudInitWithLocalControllerCharm(c *gc.C) {
-	ch := testcharms.RepoForSeries("quantal").CharmDir("juju-controller")
+func (*cloudinitSuite) TestCloudInitWithLocalControllerCharmDir(c *gc.C) {
+	controllerCharmPath := testcharms.Repo.CharmDir("juju-controller").Path
+	ch, err := charm.ReadCharmDir(controllerCharmPath)
+	c.Assert(err, jc.ErrorIsNil)
+	buf := bytes.NewBuffer(nil)
+	err = ch.ArchiveTo(buf)
+	c.Assert(err, jc.ErrorIsNil)
+	content := buf.Bytes()
+
+	cfg := makeBootstrapConfig("precise", 0).setControllerCharm(controllerCharmPath)
+	base64Content := base64.StdEncoding.EncodeToString(content)
+	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`chmod 0600 '/var/lib/juju/agents/machine-0/agent.conf'
+install -D -m 644 /dev/null '/var/lib/juju/charms/controller.charm'
+printf %%s %s | base64 -d > '/var/lib/juju/charms/controller.charm'
+`, base64Content))
+	checkCloudInitWithContent(c, cfg, expectedScripts, "")
+}
+
+func (*cloudinitSuite) TestCloudInitWithLocalControllerCharmArchive(c *gc.C) {
+	ch := testcharms.Repo.CharmDir("juju-controller")
 	dir, err := charm.ReadCharmDir(ch.Path)
 	c.Assert(err, jc.ErrorIsNil)
 

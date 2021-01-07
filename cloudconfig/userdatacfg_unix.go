@@ -15,6 +15,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/juju/charm/v9"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
@@ -542,9 +543,27 @@ func (w *unixConfigure) addLocalControllerCharmsUpload() error {
 	}
 
 	logger.Infof("preparing to upload controller charm from %v", charmPath)
-	charmData, err := ioutil.ReadFile(charmPath)
+	_, err := charm.ReadCharm(charmPath)
 	if err != nil {
 		return errors.Trace(err)
+	}
+	var charmData []byte
+	if charm.IsCharmDir(charmPath) {
+		ch, err := charm.ReadCharmDir(charmPath)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		buf := bytes.NewBuffer(nil)
+		err = ch.ArchiveTo(buf)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		charmData = buf.Bytes()
+	} else {
+		charmData, err = ioutil.ReadFile(charmPath)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 	w.conf.AddRunBinaryFile(path.Join(w.icfg.CharmDir(), bootstrap.ControllerCharmArchive), charmData, 0644)
 

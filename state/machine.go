@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/charm/v9"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -26,6 +27,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/mongo"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/tools"
@@ -1750,8 +1752,24 @@ func (m *Machine) setAddresses(machineAddresses, providerAddresses *[]network.Sp
 			"machine %q preferred public address changed from %q to %q",
 			m.Id(), oldPublic, newPublic.networkAddress(),
 		)
+		if err := m.st.maybeUpdateControllerCharm(m.doc.PreferredPublicAddress.Value); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	return nil
+}
+
+func (st *State) maybeUpdateControllerCharm(publicAddr string) error {
+	controllerApp, err := st.Application(bootstrap.ControllerApplicationName)
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return controllerApp.UpdateCharmConfig(model.GenerationMaster, charm.Settings{
+		"controller-url": fmt.Sprintf("https://%s", publicAddr),
+	})
 }
 
 func (m *Machine) setAddressesOps(
