@@ -600,7 +600,7 @@ func validateOrigin(origin params.CharmOrigin, schema string) error {
 		(corecharm.CharmHub.Matches(origin.Source) && !charm.CharmHub.Matches(schema)) {
 		return errors.NotValidf("origin source %q with schema", origin.Source)
 	}
-	if origin.Architecture == "" {
+	if corecharm.CharmHub.Matches(origin.Source) && origin.Architecture == "" {
 		return errors.NotValidf("empty architecture")
 	}
 	return nil
