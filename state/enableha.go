@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/tools"
 	"github.com/juju/names/v4"
@@ -170,9 +171,30 @@ func (st *State) enableHAIntentionOps(
 	var ops []txn.Op
 	var change ControllersChanges
 
+	// TODO(wallyworld) - only need until we transition away from enable-ha
+	controllerApp, err := st.Application(bootstrap.ControllerApplicationName)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, ControllersChanges{}, errors.Trace(err)
+	}
+
 	for _, m := range intent.convert {
 		ops = append(ops, convertControllerOps(m)...)
 		change.Converted = append(change.Converted, m.Id())
+		// Add a controller charm unit to the promoted machine.
+		if controllerApp != nil {
+			unitName, unitOps, err := controllerApp.addUnitOps("", AddUnitParams{machineID: m.Id()}, nil)
+			if err != nil {
+				return nil, ControllersChanges{}, errors.Trace(err)
+			}
+			ops = append(ops, unitOps...)
+			addToMachineOp := txn.Op{
+				C:      machinesC,
+				Id:     m.doc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.D{{"$addToSet", bson.D{{"principals", unitName}}}, {"$set", bson.D{{"clean", false}}}},
+			}
+			ops = append(ops, addToMachineOp)
+		}
 	}
 
 	// Use any placement directives that have been provided when adding new
@@ -200,15 +222,36 @@ func (st *State) enableHAIntentionOps(
 			Constraints: cons,
 			Placement:   placement,
 		}
+		// Set up the new controller to have a controller charm unit.
+		// The unit itself is created below.
+		var controllerUnitName string
+		if controllerApp != nil {
+			controllerUnitName, err = controllerApp.newUnitName()
+			if err != nil {
+				return nil, ControllersChanges{}, errors.Trace(err)
+			}
+			template.Dirty = true
+			template.principals = []string{controllerUnitName}
+		}
 		mdoc, addOps, err := st.addMachineOps(template)
 		if err != nil {
-			return nil, ControllersChanges{}, err
+			return nil, ControllersChanges{}, errors.Trace(err)
 		}
 		if isController(mdoc) {
 			controllerIds = append(controllerIds, mdoc.Id)
 		}
 		ops = append(ops, addOps...)
 		change.Added = append(change.Added, mdoc.Id)
+		if controllerApp != nil {
+			_, unitOps, err := controllerApp.addUnitOps("", AddUnitParams{
+				UnitName:  &controllerUnitName,
+				machineID: mdoc.Id,
+			}, nil)
+			if err != nil {
+				return nil, ControllersChanges{}, errors.Trace(err)
+			}
+			ops = append(ops, unitOps...)
+		}
 	}
 
 	for _, m := range intent.maintain {

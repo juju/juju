@@ -334,7 +334,7 @@ func (st *state) Context() context.Context {
 // returned will apply a 30-second write deadline, so WriteJSON should
 // only be called from one goroutine.
 func (st *state) ConnectStream(path string, attrs url.Values) (base.Stream, error) {
-	path, err := apiPath(st.modelTag, path)
+	path, err := apiPath(st.modelTag.Id(), path)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -514,7 +514,7 @@ func (st *state) addCookiesToHeader(h http.Header) error {
 // apiEndpoint returns a URL that refers to the given API slash-prefixed
 // endpoint path and query parameters.
 func (st *state) apiEndpoint(path, query string) (*url.URL, error) {
-	path, err := apiPath(st.modelTag, path)
+	path, err := apiPath(st.modelTag.Id(), path)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -526,22 +526,42 @@ func (st *state) apiEndpoint(path, query string) (*url.URL, error) {
 	}, nil
 }
 
+// ControllerAPIURL returns the URL to use to connect to the controller API.
+func ControllerAPIURL(addr string) string {
+	urlStr, _ := url.QueryUnescape(apiURL(addr, "").String())
+	return urlStr
+}
+
+// ModelAPITemplateURL returns a URL template to use to connect to a model API.
+func ModelAPITemplateURL(addr string) string {
+	urlStr, _ := url.QueryUnescape(apiURL(addr, "${modelUUID}").String())
+	return urlStr
+}
+
+func apiURL(addr, model string) *url.URL {
+	path, _ := apiPath(model, "/api")
+	return &url.URL{
+		Scheme: "wss",
+		Host:   addr,
+		Path:   path,
+	}
+}
+
 // Ping implements api.Connection.
 func (s *state) Ping() error {
 	return s.APICall("Pinger", s.pingerFacadeVersion, "", "Ping", nil, nil)
 }
 
 // apiPath returns the given API endpoint path relative
-// to the given model tag.
-func apiPath(modelTag names.ModelTag, path string) (string, error) {
+// to the given model string.
+func apiPath(model, path string) (string, error) {
 	if !strings.HasPrefix(path, "/") {
 		return "", errors.Errorf("cannot make API path from non-slash-prefixed path %q", path)
 	}
-	modelUUID := modelTag.Id()
-	if modelUUID == "" {
+	if model == "" {
 		return path, nil
 	}
-	return modelRoot + modelUUID + path, nil
+	return modelRoot + model + path, nil
 }
 
 // tagToString returns the value of a tag's String method, or "" if the tag is nil.
@@ -615,7 +635,7 @@ func dialAPI(ctx context.Context, info *Info, opts0 DialOpts) (*dialResult, erro
 	if opts.DNSCache == nil {
 		opts.DNSCache = nopDNSCache{}
 	}
-	path, err := apiPath(info.ModelTag, "/api")
+	path, err := apiPath(info.ModelTag.Id(), "/api")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
