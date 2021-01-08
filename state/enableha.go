@@ -8,9 +8,6 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/tools"
 	"github.com/juju/names/v4"
 	"github.com/juju/replicaset"
 	jujutxn "github.com/juju/txn"
@@ -22,7 +19,10 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/mongo"
 	stateerrors "github.com/juju/juju/state/errors"
+	"github.com/juju/juju/tools"
 )
 
 func isController(mdoc *machineDoc) bool {
