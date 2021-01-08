@@ -130,8 +130,7 @@ func WaitForAgentInitialisation(
 			strings.HasSuffix(errorMessage, "connection is shut down"),
 			strings.HasSuffix(errorMessage, "i/o timeout"),
 			strings.HasSuffix(errorMessage, "deadline exceeded"),
-			strings.HasSuffix(errorMessage, "no api connection available"),
-			strings.Contains(errorMessage, "spaces are still being discovered"):
+			strings.HasSuffix(errorMessage, "no api connection available"):
 			ctx.Verbosef("Still waiting for API to become available: %v", err)
 			continue
 		case params.ErrCode(err) == params.CodeUpgradeInProgress:

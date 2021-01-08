@@ -7,7 +7,6 @@
 package featuretests
 
 import (
-	"strings"
 	"time"
 
 	"github.com/juju/cmd/cmdtesting"
@@ -301,21 +300,10 @@ func canLoginToAPIAsMachine(c *gc.C, fromConf, toConf agent.Config) bool {
 	toInfo, ok := toConf.APIInfo()
 	c.Assert(ok, jc.IsTrue)
 	fromInfo.Addrs = toInfo.Addrs
-	var err error
-	var apiState api.Connection
-	for a := ShortAttempt.Start(); a.Next(); {
-		apiState, err = api.Open(fromInfo, upgradeTestDialOpts)
-		// If space discovery is still in progress we retry.
-		if err != nil && strings.Contains(err.Error(), "spaces are still being discovered") {
-			if !a.HasNext() {
-				return false
-			}
-			continue
-		}
-		if apiState != nil {
-			apiState.Close()
-		}
-		break
+
+	apiState, err := api.Open(fromInfo, upgradeTestDialOpts)
+	if apiState != nil {
+		func() { _ = apiState.Close() }()
 	}
 	return apiState != nil && err == nil
 }
