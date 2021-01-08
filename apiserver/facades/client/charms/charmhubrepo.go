@@ -232,6 +232,8 @@ type channelPlatform struct {
 	Platform corecharm.Platform
 }
 
+// Match attempts to match the channel platform to a given channel and
+// architecture.
 func (cp channelPlatform) Match(other transport.InfoChannelMap) (bool, bool) {
 	if !cp.MatchChannel(other) {
 		return false, false
@@ -240,11 +242,26 @@ func (cp channelPlatform) Match(other transport.InfoChannelMap) (bool, bool) {
 	return cp.MatchArch(other)
 }
 
+// MatchChannel attempts to match only the channel of a channel map.
 func (cp channelPlatform) MatchChannel(other transport.InfoChannelMap) bool {
-	return cp.Channel.Normalize().String() == other.Channel.Name
+	c := cp.Channel.Normalize()
+
+	track := c.Track
+	if track == "" {
+		track = "latest"
+	}
+	return track == other.Channel.Track && string(c.Risk) == other.Channel.Risk
 }
 
-func (cp channelPlatform) MatchArch(other transport.InfoChannelMap) (bool, bool) {
+// MatchArch attempts to match the architecture for a given channel map, by
+// looking in the following places:
+//
+//  1. Channel Platform
+//  2. Revision Platforms
+//
+// If "all" is found instead of the intended arch then we can use that, but
+// report that we found the override as well as the arch.
+func (cp channelPlatform) MatchArch(other transport.InfoChannelMap) (override bool, found bool) {
 	if other.Channel.Platform.Architecture == "all" {
 		return true, true
 	}
