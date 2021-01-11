@@ -20,7 +20,6 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/constraints"
 	corecontainer "github.com/juju/juju/core/container"
@@ -1769,8 +1768,7 @@ func (st *State) maybeUpdateControllerCharm(publicAddr string) error {
 		return errors.Trace(err)
 	}
 	return controllerApp.UpdateCharmConfig(model.GenerationMaster, charm.Settings{
-		"controller-url":     api.ControllerAPIURL(publicAddr),
-		"model-url-template": api.ModelAPITemplateURL(publicAddr),
+		"controller-url": fmt.Sprintf("https://%s", publicAddr),
 	})
 }
 

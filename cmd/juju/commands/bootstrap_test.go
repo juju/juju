@@ -2150,7 +2150,7 @@ func (s *BootstrapSuite) TestBootstrapWithControllerCharm(c *gc.C) {
 			err:       `--controller-charm ".*" is not a valid charm`,
 		}, {
 			charmPath: "/invalid/path",
-			err:       `problem with --controller-charm: .* /invalid/path: .*`,
+			err:       `problem with --controller-charm: stat /invalid/path: no such file or directory`,
 		},
 	} {
 		var gotArgs bootstrap.BootstrapParams

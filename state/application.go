@@ -2080,7 +2080,7 @@ func (a *Application) addUnitOps(
 		if err != nil {
 			return "", nil, errors.Trace(err)
 		}
-		if args.machineID != "" && !strings.HasPrefix(a.doc.CharmURL.Name, "juju-") {
+		if args.machineID != "" {
 			return "", nil, errors.NotSupportedf("non-empty machineID")
 		}
 	}
