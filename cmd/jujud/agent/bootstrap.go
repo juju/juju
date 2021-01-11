@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
 	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/caas"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
@@ -485,7 +486,8 @@ func addControllerApplication(st *state.State, curl *charm.URL, m *state.Machine
 			addr = pa.Value
 		}
 	}
-	cfg["controller-url"] = fmt.Sprintf("https://%s", addr)
+	cfg["controller-url"] = api.ControllerAPIURL(addr)
+	cfg["model-url-template"] = api.ModelAPITemplateURL(addr)
 	app, err := st.AddApplication(state.AddApplicationArgs{
 		Name:   bootstrap.ControllerApplicationName,
 		Series: curl.Series,
