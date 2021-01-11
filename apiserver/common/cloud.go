@@ -30,17 +30,18 @@ func CloudToParams(cloud jujucloud.Cloud) params.Cloud {
 		regionConfig[r] = attr
 	}
 	return params.Cloud{
-		Type:             cloud.Type,
-		HostCloudRegion:  cloud.HostCloudRegion,
-		AuthTypes:        authTypes,
-		Endpoint:         cloud.Endpoint,
-		IdentityEndpoint: cloud.IdentityEndpoint,
-		StorageEndpoint:  cloud.StorageEndpoint,
-		Regions:          regions,
-		CACertificates:   cloud.CACertificates,
-		SkipTLSVerify:    cloud.SkipTLSVerify,
-		Config:           cloud.Config,
-		RegionConfig:     regionConfig,
+		Type:              cloud.Type,
+		HostCloudRegion:   cloud.HostCloudRegion,
+		AuthTypes:         authTypes,
+		Endpoint:          cloud.Endpoint,
+		IdentityEndpoint:  cloud.IdentityEndpoint,
+		StorageEndpoint:   cloud.StorageEndpoint,
+		Regions:           regions,
+		CACertificates:    cloud.CACertificates,
+		SkipTLSVerify:     cloud.SkipTLSVerify,
+		Config:            cloud.Config,
+		RegionConfig:      regionConfig,
+		IsControllerCloud: cloud.IsControllerCloud,
 	}
 }
 
@@ -66,16 +67,17 @@ func CloudFromParams(cloudName string, p params.Cloud) jujucloud.Cloud {
 		regionConfig[r] = attr
 	}
 	return jujucloud.Cloud{
-		Name:             cloudName,
-		Type:             p.Type,
-		AuthTypes:        authTypes,
-		Endpoint:         p.Endpoint,
-		IdentityEndpoint: p.IdentityEndpoint,
-		StorageEndpoint:  p.StorageEndpoint,
-		Regions:          regions,
-		CACertificates:   p.CACertificates,
-		SkipTLSVerify:    p.SkipTLSVerify,
-		Config:           p.Config,
-		RegionConfig:     regionConfig,
+		Name:              cloudName,
+		Type:              p.Type,
+		AuthTypes:         authTypes,
+		Endpoint:          p.Endpoint,
+		IdentityEndpoint:  p.IdentityEndpoint,
+		StorageEndpoint:   p.StorageEndpoint,
+		Regions:           regions,
+		CACertificates:    p.CACertificates,
+		SkipTLSVerify:     p.SkipTLSVerify,
+		Config:            p.Config,
+		RegionConfig:      regionConfig,
+		IsControllerCloud: p.IsControllerCloud,
 	}
 }

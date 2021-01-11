@@ -20,6 +20,7 @@ import (
 	"github.com/juju/utils/v2"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -393,6 +394,14 @@ func (c *controllerStack) Deploy() (err error) {
 		return bootstrap.Cancelled()
 	}
 
+	// create service account for local cluster/provider connections.
+	if err = c.ensureControllerServiceAccount(); err != nil {
+		return errors.Annotate(err, "creating service account for controller")
+	}
+	if isDone() {
+		return bootstrap.Cancelled()
+	}
+
 	// create statefulset to ensure controller stack.
 	if err = c.createControllerStatefulset(); err != nil {
 		return errors.Annotate(err, "creating statefulset for controller")
@@ -611,6 +620,60 @@ func (c *controllerStack) ensureControllerConfigmapAgentConf() error {
 	return errors.Trace(err)
 }
 
+func (c *controllerStack) ensureControllerServiceAccount() error {
+	sa := &core.ServiceAccount{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "controller",
+			Namespace: c.broker.GetCurrentNamespace(),
+			Labels: providerutils.LabelsMerge(
+				c.stackLabels,
+				providerutils.LabelsJujuModelOperatorDisableWebhook,
+			),
+			Annotations: c.stackAnnotations,
+		},
+		AutomountServiceAccountToken: boolPtr(true),
+	}
+
+	logger.Debugf("ensuring controller service account: \n%+v", sa)
+	_, cleanUps, err := c.broker.ensureServiceAccount(sa)
+	c.addCleanUp(func() {
+		logger.Debugf("deleting %q service account", sa.Name)
+		for _, v := range cleanUps {
+			v()
+		}
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	crb := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: v1.ObjectMeta{
+			Name:        c.broker.GetCurrentNamespace(), // name cluster role binding after the controller namespace.
+			Labels:      providerutils.LabelsForModel("controller", false),
+			Annotations: c.stackAnnotations,
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     "cluster-admin",
+		},
+		Subjects: []rbacv1.Subject{{
+			Kind:      "ServiceAccount",
+			Name:      "controller",
+			Namespace: c.broker.GetCurrentNamespace(),
+		}},
+	}
+
+	_, crbCleanUps, err := c.broker.ensureClusterRoleBinding(crb)
+	c.addCleanUp(func() {
+		logger.Debugf("deleting %q cluster role binding", crb.Name)
+		for _, v := range crbCleanUps {
+			v()
+		}
+	})
+	return errors.Trace(err)
+}
+
 func (c *controllerStack) createControllerStatefulset() error {
 	numberOfPods := int32(1) // TODO(caas): HA mode!
 	spec := &apps.StatefulSet{
@@ -640,7 +703,9 @@ func (c *controllerStack) createControllerStatefulset() error {
 					Annotations: c.stackAnnotations,
 				},
 				Spec: core.PodSpec{
-					RestartPolicy: core.RestartPolicyAlways,
+					RestartPolicy:                core.RestartPolicyAlways,
+					ServiceAccountName:           "controller",
+					AutomountServiceAccountToken: boolPtr(true),
 				},
 			},
 		},

@@ -155,7 +155,7 @@ func decCloudModelRefOp(mb modelBackend, cloudName string) (txn.Op, error) {
 	return decRefOp, nil
 }
 
-func (d cloudDoc) toCloud() cloud.Cloud {
+func (d cloudDoc) toCloud(controllerCloudName string) cloud.Cloud {
 	authTypes := make([]cloud.AuthType, len(d.AuthTypes))
 	for i, authType := range d.AuthTypes {
 		authTypes[i] = cloud.AuthType(authType)
@@ -175,20 +175,26 @@ func (d cloudDoc) toCloud() cloud.Cloud {
 		}
 	}
 	return cloud.Cloud{
-		Name:             d.Name,
-		Type:             d.Type,
-		AuthTypes:        authTypes,
-		Endpoint:         d.Endpoint,
-		IdentityEndpoint: d.IdentityEndpoint,
-		StorageEndpoint:  d.StorageEndpoint,
-		Regions:          regions,
-		CACertificates:   d.CACertificates,
-		SkipTLSVerify:    d.SkipTLSVerify,
+		Name:              d.Name,
+		Type:              d.Type,
+		AuthTypes:         authTypes,
+		Endpoint:          d.Endpoint,
+		IdentityEndpoint:  d.IdentityEndpoint,
+		StorageEndpoint:   d.StorageEndpoint,
+		Regions:           regions,
+		CACertificates:    d.CACertificates,
+		SkipTLSVerify:     d.SkipTLSVerify,
+		IsControllerCloud: d.Name == controllerCloudName,
 	}
 }
 
 // Clouds returns the definitions for all clouds in the controller.
 func (st *State) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
+	ci, err := st.ControllerInfo()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	coll, cleanup := st.db().GetCollection(cloudsC)
 	defer cleanup()
 
@@ -196,7 +202,7 @@ func (st *State) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
 	clouds := make(map[names.CloudTag]cloud.Cloud)
 	iter := coll.Find(nil).Iter()
 	for iter.Next(&doc) {
-		clouds[names.NewCloudTag(doc.Name)] = doc.toCloud()
+		clouds[names.NewCloudTag(doc.Name)] = doc.toCloud(ci.CloudName)
 	}
 	if err := iter.Close(); err != nil {
 		return nil, errors.Annotate(err, "getting clouds")
@@ -206,18 +212,23 @@ func (st *State) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
 
 // Cloud returns the controller's cloud definition.
 func (st *State) Cloud(name string) (cloud.Cloud, error) {
+	ci, err := st.ControllerInfo()
+	if err != nil {
+		return cloud.Cloud{}, errors.Trace(err)
+	}
+
 	coll, cleanup := st.db().GetCollection(cloudsC)
 	defer cleanup()
 
 	var doc cloudDoc
-	err := coll.FindId(name).One(&doc)
+	err = coll.FindId(name).One(&doc)
 	if err == mgo.ErrNotFound {
 		return cloud.Cloud{}, errors.NotFoundf("cloud %q", name)
 	}
 	if err != nil {
 		return cloud.Cloud{}, errors.Annotatef(err, "cannot get cloud %q", name)
 	}
-	return doc.toCloud(), nil
+	return doc.toCloud(ci.CloudName), nil
 }
 
 // AddCloud creates a cloud with the given name and details.
