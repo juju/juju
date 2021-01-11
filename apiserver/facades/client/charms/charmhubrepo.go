@@ -54,7 +54,7 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 
 	info, err := c.client.Info(context.TODO(), curl.Name, options...)
 	if err != nil {
-		// Improve error message here
+		// TODO (stickupkid): Improve error message here
 		return nil, params.CharmOrigin{}, nil, errors.Trace(err)
 	}
 
