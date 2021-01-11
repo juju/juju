@@ -2687,7 +2687,7 @@ type ActionSpecsByName map[string]charm.ActionSpec
 // AddAction adds a new Action of type name and using arguments payload to
 // this Unit, and returns its ID.  Note that the use of spec.InsertDefaults
 // mutates payload.
-func (u *Unit) AddAction(operationID, name string, payload map[string]interface{}) (Action, error) {
+func (u *Unit) AddAction(operationID, name string, payload map[string]interface{}, parallel *bool, executionGroup *string) (Action, error) {
 	if len(name) == 0 {
 		return nil, errors.New("no action name given")
 	}
@@ -2733,7 +2733,15 @@ func (u *Unit) AddAction(operationID, name string, payload map[string]interface{
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return m.EnqueueAction(operationID, u.Tag(), name, payloadWithDefaults)
+	runParallel := spec.Parallel
+	if parallel != nil {
+		runParallel = *parallel
+	}
+	runExecutionGroup := spec.ExecutionGroup
+	if executionGroup != nil {
+		runExecutionGroup = *executionGroup
+	}
+	return m.EnqueueAction(operationID, u.Tag(), name, payloadWithDefaults, runParallel, runExecutionGroup)
 }
 
 // ActionSpecs gets the ActionSpec map for the Unit's charm.

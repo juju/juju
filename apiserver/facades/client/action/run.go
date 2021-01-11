@@ -100,7 +100,7 @@ func (a *ActionAPI) Run(run params.RunParams) (results params.EnqueuedActions, e
 		machines[i] = names.NewMachineTag(machineId)
 	}
 
-	actionParams, err := a.createActionsParams(append(units, machines...), run.Commands, run.Timeout, run.WorkloadContext)
+	actionParams, err := a.createRunActionsParams(append(units, machines...), run.Commands, run.Timeout, run.WorkloadContext, run.Parallel, run.ExecutionGroup)
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -134,18 +134,20 @@ func (a *ActionAPI) RunOnAllMachines(run params.RunParams) (results params.Enque
 		machineTags[i] = machine.Tag()
 	}
 
-	actionParams, err := a.createActionsParams(machineTags, run.Commands, run.Timeout, false)
+	actionParams, err := a.createRunActionsParams(machineTags, run.Commands, run.Timeout, false, run.Parallel, run.ExecutionGroup)
 	if err != nil {
 		return results, errors.Trace(err)
 	}
 	return a.EnqueueOperation(actionParams)
 }
 
-func (a *ActionAPI) createActionsParams(
+func (a *ActionAPI) createRunActionsParams(
 	actionReceiverTags []names.Tag,
 	quotedCommands string,
 	timeout time.Duration,
 	workloadContext bool,
+	parallel *bool,
+	executionGroup *string,
 ) (params.Actions, error) {
 	apiActionParams := params.Actions{Actions: []params.Action{}}
 
@@ -161,9 +163,11 @@ func (a *ActionAPI) createActionsParams(
 
 	for _, tag := range actionReceiverTags {
 		apiActionParams.Actions = append(apiActionParams.Actions, params.Action{
-			Receiver:   tag.String(),
-			Name:       actionRunnerName,
-			Parameters: actionParams,
+			Receiver:       tag.String(),
+			Name:           actionRunnerName,
+			Parameters:     actionParams,
+			Parallel:       parallel,
+			ExecutionGroup: executionGroup,
 		})
 	}
 

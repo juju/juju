@@ -155,9 +155,13 @@ func Actions(args params.Entities, actionFn func(string) (state.Action, error)) 
 			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrActionNotAvailable)
 			continue
 		}
+		parallel := action.Parallel()
+		executionGroup := action.ExecutionGroup()
 		results.Results[i].Action = &params.Action{
-			Name:       action.Name(),
-			Parameters: action.Parameters(),
+			Name:           action.Name(),
+			Parameters:     action.Parameters(),
+			Parallel:       &parallel,
+			ExecutionGroup: &executionGroup,
 		}
 	}
 
@@ -263,12 +267,16 @@ func ConvertActions(ar state.ActionReceiver, fn GetActionsFn) ([]params.ActionRe
 // to params.ActionResult.
 func MakeActionResult(actionReceiverTag names.Tag, action state.Action) params.ActionResult {
 	output, message := action.Results()
+	parallel := action.Parallel()
+	executionGroup := action.ExecutionGroup()
 	result := params.ActionResult{
 		Action: &params.Action{
-			Receiver:   actionReceiverTag.String(),
-			Tag:        action.ActionTag().String(),
-			Name:       action.Name(),
-			Parameters: action.Parameters(),
+			Receiver:       actionReceiverTag.String(),
+			Tag:            action.ActionTag().String(),
+			Name:           action.Name(),
+			Parameters:     action.Parameters(),
+			Parallel:       &parallel,
+			ExecutionGroup: &executionGroup,
 		},
 		Status:    string(action.Status()),
 		Message:   message,

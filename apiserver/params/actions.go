@@ -42,10 +42,12 @@ type Actions struct {
 
 // Action describes an Action that will be or has been queued up.
 type Action struct {
-	Tag        string                 `json:"tag"`
-	Receiver   string                 `json:"receiver"`
-	Name       string                 `json:"name"`
-	Parameters map[string]interface{} `json:"parameters,omitempty"`
+	Tag            string                 `json:"tag"`
+	Receiver       string                 `json:"receiver"`
+	Name           string                 `json:"name"`
+	Parameters     map[string]interface{} `json:"parameters,omitempty"`
+	Parallel       *bool                  `json:"parallel,omitempty"`
+	ExecutionGroup *string                `json:"execution-group,omitempty"`
 }
 
 // EnqueuedActions represents the result of enqueuing actions to run.

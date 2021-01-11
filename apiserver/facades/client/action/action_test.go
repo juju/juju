@@ -552,7 +552,7 @@ func (s *actionSuite) TestWatchActionProgress(c *gc.C) {
 
 	operationID, err := s.Model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	added, err := unit.AddAction(operationID, "fakeaction", nil)
+	added, err := unit.AddAction(operationID, "fakeaction", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	w, err := s.action.WatchActionsProgress(

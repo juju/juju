@@ -122,8 +122,14 @@
                 "Action": {
                     "type": "object",
                     "properties": {
+                        "execution-group": {
+                            "type": "string"
+                        },
                         "name": {
                             "type": "string"
+                        },
+                        "parallel": {
+                            "type": "boolean"
                         },
                         "parameters": {
                             "type": "object",
@@ -467,11 +473,17 @@
                         "commands": {
                             "type": "string"
                         },
+                        "execution-group": {
+                            "type": "string"
+                        },
                         "machines": {
                             "type": "array",
                             "items": {
                                 "type": "string"
                             }
+                        },
+                        "parallel": {
+                            "type": "boolean"
                         },
                         "timeout": {
                             "type": "integer"
@@ -25064,8 +25076,14 @@
                 "Action": {
                     "type": "object",
                     "properties": {
+                        "execution-group": {
+                            "type": "string"
+                        },
                         "name": {
                             "type": "string"
+                        },
+                        "parallel": {
+                            "type": "boolean"
                         },
                         "parameters": {
                             "type": "object",
@@ -42684,8 +42702,14 @@
                 "Action": {
                     "type": "object",
                     "properties": {
+                        "execution-group": {
+                            "type": "string"
+                        },
                         "name": {
                             "type": "string"
+                        },
+                        "parallel": {
+                            "type": "boolean"
                         },
                         "parameters": {
                             "type": "object",

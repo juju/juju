@@ -197,11 +197,13 @@ func (s *runSuite) TestRunMachineAndApplication(c *gc.C) {
 		"timeout":          int64(0),
 		"workload-context": false,
 	}
+	parallel := true
+	executionGroup := "group"
 	arg := params.Actions{
 		Actions: []params.Action{
-			{Receiver: "unit-magic-0", Name: "juju-run", Parameters: expectedPayload},
-			{Receiver: "unit-magic-1", Name: "juju-run", Parameters: expectedPayload},
-			{Receiver: "machine-0", Name: "juju-run", Parameters: expectedPayload},
+			{Receiver: "unit-magic-0", Name: "juju-run", Parameters: expectedPayload, Parallel: &parallel, ExecutionGroup: &executionGroup},
+			{Receiver: "unit-magic-1", Name: "juju-run", Parameters: expectedPayload, Parallel: &parallel, ExecutionGroup: &executionGroup},
+			{Receiver: "machine-0", Name: "juju-run", Parameters: expectedPayload, Parallel: &parallel, ExecutionGroup: &executionGroup},
 		},
 	}
 	s.addMachine(c)
@@ -214,9 +216,11 @@ func (s *runSuite) TestRunMachineAndApplication(c *gc.C) {
 
 	s.client.Run(
 		params.RunParams{
-			Commands:     "hostname",
-			Machines:     []string{"0"},
-			Applications: []string{"magic"},
+			Commands:       "hostname",
+			Machines:       []string{"0"},
+			Applications:   []string{"magic"},
+			Parallel:       &parallel,
+			ExecutionGroup: &executionGroup,
 		})
 	op, err := s.client.EnqueueOperation(arg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -229,6 +233,8 @@ func (s *runSuite) TestRunMachineAndApplication(c *gc.C) {
 		c.Assert(r.Action.Name, gc.Equals, "juju-run")
 		c.Assert(r.Action.Receiver, gc.Equals, arg.Actions[i].Receiver)
 		c.Assert(r.Action.Parameters, jc.DeepEquals, expectedPayload)
+		c.Assert(r.Action.Parallel, jc.DeepEquals, &parallel)
+		c.Assert(r.Action.ExecutionGroup, jc.DeepEquals, &executionGroup)
 	}
 }
 
@@ -240,10 +246,12 @@ func (s *runSuite) TestRunApplicationWorkload(c *gc.C) {
 		"timeout":          int64(0),
 		"workload-context": true,
 	}
+	parallel := true
+	executionGroup := "group"
 	arg := params.Actions{
 		Actions: []params.Action{
-			{Receiver: "unit-magic-0", Name: "juju-run", Parameters: expectedPayload},
-			{Receiver: "unit-magic-1", Name: "juju-run", Parameters: expectedPayload},
+			{Receiver: "unit-magic-0", Name: "juju-run", Parameters: expectedPayload, Parallel: &parallel, ExecutionGroup: &executionGroup},
+			{Receiver: "unit-magic-1", Name: "juju-run", Parameters: expectedPayload, Parallel: &parallel, ExecutionGroup: &executionGroup},
 		},
 	}
 	s.addMachine(c)
@@ -259,6 +267,8 @@ func (s *runSuite) TestRunApplicationWorkload(c *gc.C) {
 			Commands:        "hostname",
 			Applications:    []string{"magic"},
 			WorkloadContext: true,
+			Parallel:        &parallel,
+			ExecutionGroup:  &executionGroup,
 		})
 	op, err := s.client.EnqueueOperation(arg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -271,6 +281,8 @@ func (s *runSuite) TestRunApplicationWorkload(c *gc.C) {
 		c.Assert(r.Action.Name, gc.Equals, "juju-run")
 		c.Assert(r.Action.Receiver, gc.Equals, arg.Actions[i].Receiver)
 		c.Assert(r.Action.Parameters, jc.DeepEquals, expectedPayload)
+		c.Assert(r.Action.Parallel, jc.DeepEquals, &parallel)
+		c.Assert(r.Action.ExecutionGroup, jc.DeepEquals, &executionGroup)
 	}
 }
 
@@ -282,11 +294,13 @@ func (s *runSuite) TestRunOnAllMachines(c *gc.C) {
 		"timeout":          testing.LongWait.Nanoseconds(),
 		"workload-context": false,
 	}
+	parallel := true
+	executionGroup := "group"
 	arg := params.Actions{
 		Actions: []params.Action{
-			{Receiver: "machine-0", Name: "juju-run", Parameters: expectedPayload},
-			{Receiver: "machine-1", Name: "juju-run", Parameters: expectedPayload},
-			{Receiver: "machine-2", Name: "juju-run", Parameters: expectedPayload},
+			{Receiver: "machine-0", Name: "juju-run", Parameters: expectedPayload, Parallel: &parallel, ExecutionGroup: &executionGroup},
+			{Receiver: "machine-1", Name: "juju-run", Parameters: expectedPayload, Parallel: &parallel, ExecutionGroup: &executionGroup},
+			{Receiver: "machine-2", Name: "juju-run", Parameters: expectedPayload, Parallel: &parallel, ExecutionGroup: &executionGroup},
 		},
 	}
 	// Make three machines.
@@ -296,8 +310,10 @@ func (s *runSuite) TestRunOnAllMachines(c *gc.C) {
 
 	s.client.RunOnAllMachines(
 		params.RunParams{
-			Commands: "hostname",
-			Timeout:  testing.LongWait,
+			Commands:       "hostname",
+			Timeout:        testing.LongWait,
+			Parallel:       &parallel,
+			ExecutionGroup: &executionGroup,
 		})
 	op, err := s.client.EnqueueOperation(arg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -310,6 +326,8 @@ func (s *runSuite) TestRunOnAllMachines(c *gc.C) {
 		c.Assert(r.Action.Name, gc.Equals, "juju-run")
 		c.Assert(r.Action.Receiver, gc.Equals, arg.Actions[i].Receiver)
 		c.Assert(r.Action.Parameters, jc.DeepEquals, expectedPayload)
+		c.Assert(r.Action.Parallel, jc.DeepEquals, &parallel)
+		c.Assert(r.Action.ExecutionGroup, jc.DeepEquals, &executionGroup)
 	}
 
 }

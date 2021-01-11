@@ -1801,7 +1801,7 @@ func (s *MigrationImportSuite) TestAction(c *gc.C) {
 
 	operationID, err := m.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = m.EnqueueAction(operationID, machine.MachineTag(), "foo", nil)
+	_, err = m.EnqueueAction(operationID, machine.MachineTag(), "foo", nil, true, "group")
 	c.Assert(err, jc.ErrorIsNil)
 
 	newModel, newState := s.importModel(c, s.State)
@@ -1816,6 +1816,8 @@ func (s *MigrationImportSuite) TestAction(c *gc.C) {
 	c.Check(action.Name(), gc.Equals, "foo")
 	c.Check(state.ActionOperationId(action), gc.Equals, operationID)
 	c.Check(action.Status(), gc.Equals, state.ActionPending)
+	c.Check(action.Parallel(), jc.IsTrue)
+	c.Check(action.ExecutionGroup(), gc.Equals, "group")
 }
 
 func (s *MigrationImportSuite) TestOperation(c *gc.C) {

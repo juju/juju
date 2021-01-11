@@ -2073,7 +2073,7 @@ func (m *Machine) VolumeAttachments() ([]VolumeAttachment, error) {
 }
 
 // AddAction is part of the ActionReceiver interface.
-func (m *Machine) AddAction(operationID, name string, payload map[string]interface{}) (Action, error) {
+func (m *Machine) AddAction(operationID, name string, payload map[string]interface{}, parallel *bool, executionGroup *string) (Action, error) {
 	spec, ok := actions.PredefinedActionsSpec[name]
 	if !ok {
 		return nil, errors.Errorf("cannot add action %q to a machine; only predefined actions allowed", name)
@@ -2094,7 +2094,15 @@ func (m *Machine) AddAction(operationID, name string, payload map[string]interfa
 		return nil, errors.Trace(err)
 	}
 
-	return model.EnqueueAction(operationID, m.Tag(), name, payloadWithDefaults)
+	runParallel := spec.Parallel
+	if parallel != nil {
+		runParallel = *parallel
+	}
+	runExecutionGroup := spec.ExecutionGroup
+	if executionGroup != nil {
+		runExecutionGroup = *executionGroup
+	}
+	return model.EnqueueAction(operationID, m.Tag(), name, payloadWithDefaults, runParallel, runExecutionGroup)
 }
 
 // CancelAction is part of the ActionReceiver interface.

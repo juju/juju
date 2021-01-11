@@ -748,11 +748,13 @@ type CharmsResponse struct {
 // Commands and Timeout are expected to have values, and one or more
 // values should be in the Machines, Applications, or Units slices.
 type RunParams struct {
-	Commands     string        `json:"commands"`
-	Timeout      time.Duration `json:"timeout"`
-	Machines     []string      `json:"machines,omitempty"`
-	Applications []string      `json:"applications,omitempty"`
-	Units        []string      `json:"units,omitempty"`
+	Commands       string        `json:"commands"`
+	Timeout        time.Duration `json:"timeout"`
+	Machines       []string      `json:"machines,omitempty"`
+	Applications   []string      `json:"applications,omitempty"`
+	Units          []string      `json:"units,omitempty"`
+	Parallel       *bool         `json:"parallel,omitempty"`
+	ExecutionGroup *string       `json:"execution-group,omitempty"`
 
 	// WorkloadContext for CAAS is true when the Commands should be run on
 	// the workload not the operator.

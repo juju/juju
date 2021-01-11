@@ -15,6 +15,7 @@ const JujuRunActionName = "juju-run"
 var PredefinedActionsSpec = map[string]charm.ActionSpec{
 	JujuRunActionName: {
 		Description: "predefined juju-run action",
+		Parallel:    true,
 		Params: map[string]interface{}{
 			"type":        "object",
 			"title":       JujuRunActionName,

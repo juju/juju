@@ -404,17 +404,19 @@ func (i *UnitInfo) Clone() EntityInfo {
 // ActionInfo holds the information about a action that is tracked by
 // multiwatcherStore.
 type ActionInfo struct {
-	ModelUUID  string
-	ID         string
-	Receiver   string
-	Name       string
-	Parameters map[string]interface{}
-	Status     string
-	Message    string
-	Results    map[string]interface{}
-	Enqueued   time.Time
-	Started    time.Time
-	Completed  time.Time
+	ModelUUID      string
+	ID             string
+	Receiver       string
+	Name           string
+	Parameters     map[string]interface{}
+	Parallel       bool
+	ExecutionGroup string
+	Status         string
+	Message        string
+	Results        map[string]interface{}
+	Enqueued       time.Time
+	Started        time.Time
+	Completed      time.Time
 }
 
 // EntityID returns a unique identifier for an action across

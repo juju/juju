@@ -151,9 +151,11 @@ func (s *actionsSuite) TestGetActions(c *gc.C) {
 
 	results := common.Actions(args, actionFn)
 
+	parallel := true
+	executionGroup := "group"
 	c.Assert(results, jc.DeepEquals, params.ActionResults{
 		[]params.ActionResult{
-			{Action: &params.Action{Name: "floosh"}},
+			{Action: &params.Action{Name: "floosh", Parallel: &parallel, ExecutionGroup: &executionGroup}},
 			{Error: apiservererrors.ServerError(actionNotFoundErr)},
 			{Error: apiservererrors.ServerError(apiservererrors.ErrActionNotAvailable)},
 		},
@@ -381,6 +383,14 @@ type fakeAction struct {
 
 func (mock fakeAction) Status() state.ActionStatus {
 	return mock.status
+}
+
+func (mock fakeAction) Parallel() bool {
+	return true
+}
+
+func (mock fakeAction) ExecutionGroup() string {
+	return "group"
 }
 
 func (mock fakeAction) Begin() (state.Action, error) {
