@@ -105,50 +105,6 @@ func (s *EnableHASuite) TestEnableHAAddsNewMachines(c *gc.C) {
 	s.assertControllerInfo(c, ids, ids, nil)
 }
 
-func (s *EnableHASuite) TestEnableHAAddsControllerCharm(c *gc.C) {
-	state.AddTestingApplicationForSeries(c, s.State, "focal", "controller",
-		state.AddTestingCharmMultiSeries(c, s.State, "juju-controller"))
-	changes, err := s.State.EnableHA(3, constraints.Value{}, "bionic", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes.Added, gc.HasLen, 3)
-	for i := 0; i < 3; i++ {
-		unitName := fmt.Sprintf("controller/%d", i)
-		m, err := s.State.Machine(fmt.Sprint(i))
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(m.Principals(), jc.DeepEquals, []string{unitName})
-		u, err := s.State.Unit(unitName)
-		c.Assert(err, jc.ErrorIsNil)
-		mID, err := u.AssignedMachineId()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(mID, gc.Equals, fmt.Sprint(i))
-	}
-}
-
-func (s *EnableHASuite) TestEnableHAAddsControllerCharmToPromoted(c *gc.C) {
-	state.AddTestingApplicationForSeries(c, s.State, "focal", "controller",
-		state.AddTestingCharmMultiSeries(c, s.State, "juju-controller"))
-	m0, err := s.State.AddMachine("bionic", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	changes, err := s.State.EnableHA(3, constraints.Value{}, "bionic", []string{"0"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes.Added, gc.HasLen, 2)
-	c.Assert(changes.Converted, gc.HasLen, 1)
-	for i := 0; i < 3; i++ {
-		unitName := fmt.Sprintf("controller/%d", i)
-		m, err := s.State.Machine(fmt.Sprint(i))
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(m.Principals(), jc.DeepEquals, []string{unitName})
-		u, err := s.State.Unit(unitName)
-		c.Assert(err, jc.ErrorIsNil)
-		mID, err := u.AssignedMachineId()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(mID, gc.Equals, fmt.Sprint(i))
-	}
-	err = m0.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m0.Principals(), gc.DeepEquals, []string{"controller/0"})
-}
-
 func (s *EnableHASuite) TestEnableHATo(c *gc.C) {
 	ids := make([]string, 3)
 	m0, err := s.State.AddMachine("bionic", state.JobHostUnits, state.JobManageModel)
