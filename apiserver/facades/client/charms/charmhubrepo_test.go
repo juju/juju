@@ -101,6 +101,8 @@ func (s channelPlatformSuite) TestMatchArchAMD64Revision(c *gc.C) {
 		Revision: transport.InfoRevision{
 			Platforms: []transport.Platform{{
 				Architecture: "amd64",
+			}, {
+				Architecture: "arm64",
 			}},
 		},
 	})
@@ -122,4 +124,18 @@ func (s channelPlatformSuite) TestMatchArchAllRevision(c *gc.C) {
 	})
 	c.Assert(override, jc.IsTrue)
 	c.Assert(matched, jc.IsTrue)
+}
+
+func (s channelPlatformSuite) TestMatchNoRevisions(c *gc.C) {
+	cp := channelPlatform{
+		Platform: corecharm.MustParsePlatform("amd64"),
+	}
+
+	override, matched := cp.MatchArch(transport.InfoChannelMap{
+		Revision: transport.InfoRevision{
+			Platforms: []transport.Platform{},
+		},
+	})
+	c.Assert(override, jc.IsFalse)
+	c.Assert(matched, jc.IsFalse)
 }

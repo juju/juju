@@ -313,7 +313,7 @@ func normalizeCharmOrigin(origin params.CharmOrigin, fallbackArch string) (param
 	if origin.Architecture != "all" && origin.Architecture != "" {
 		arch = origin.Architecture
 	} else {
-		logger.Warningf("Architecture all detected, removing all from the origin. %s", origin.ID)
+		logger.Warningf("Architecture not in expected state, found %q, using fallback architecture %q. %s", origin.Architecture, arch, origin.ID)
 	}
 
 	o := origin
@@ -542,7 +542,7 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel, mac *macaroon.
 		return result
 	}
 
-	// Viladate the origin passed in.
+	// Validate the origin passed in.
 	if err := validateOrigin(arg.Origin, curl.Schema); err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result
