@@ -43,20 +43,25 @@ type csClient struct {
 }
 
 func (cs *csClient) GetResource(req repositories.ResourceRequest) (charmstore.ResourceData, error) {
+	csReq := charmstore.ResourceRequest{
+		Charm:    req.CharmID.URL,
+		Name:     req.Name,
+		Revision: req.Revision,
+	}
+
+	// CharmStore charms may or may not have a channel, thus
+	// an empty string is valid for the request channel.  It
+	// will be handled by the charmstore client.
 	stChannel := req.CharmID.Origin.Channel
 	if stChannel == nil {
-		return charmstore.ResourceData{}, errors.Errorf("Missing channel for %q", req.CharmID.URL.Name)
+		return cs.client.GetResource(csReq)
 	}
+
 	channel, err := corecharm.MakeChannel(stChannel.Track, stChannel.Risk, stChannel.Branch)
 	if err != nil {
 		return charmstore.ResourceData{}, errors.Trace(err)
 	}
-	csReq := charmstore.ResourceRequest{
-		Charm:    req.CharmID.URL,
-		Channel:  csparams.Channel(channel.String()),
-		Name:     req.Name,
-		Revision: req.Revision,
-	}
+	csReq.Channel = csparams.Channel(channel.String())
 	return cs.client.GetResource(csReq)
 }
 
