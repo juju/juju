@@ -28,11 +28,11 @@ const (
 
 	// initialRetryDelay is the starting delay - this will be
 	// increased exponentially up maxRetries.
-	initialRetryDelay = 50 * time.Millisecond
+	initialRetryDelay = 100 * time.Millisecond
 
 	// retryBackoffFactor is how much longer we wait after a failing
-	// retry.  Retrying 10 times starting at 50ms and backing off 1.6x
-	// gives us a total delay time of about 9s.
+	// retry. Retrying 10 times starting at 100ms and backing off 1.6x
+	// gives us a total delay time of about 45s.
 	retryBackoffFactor = 1.6
 )
 
