@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Assess juju charm storage."""
 
 from __future__ import print_function

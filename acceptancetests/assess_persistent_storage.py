@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Testing Juju's persistent storage feature."""
 
 from __future__ import print_function

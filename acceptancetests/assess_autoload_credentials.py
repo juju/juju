@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Tests for the autoload-credentials command."""
 
 from __future__ import print_function

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # create_juju_test_env is a developer-centric tool. It creates an environment for running
 # acceptance tests locally under LXD.

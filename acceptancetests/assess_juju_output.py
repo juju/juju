@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
     Deploy a charm and subordinate charm and verify juju-status attribute of
     the deployed charms.

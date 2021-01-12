@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 from __future__ import print_function
 from argparse import ArgumentParser
 import contextlib
@@ -121,7 +121,7 @@ def make_machines(client, container_types, space):
     sargs = []
     if space:
         sargs = ['--constraints', 'spaces=' + space]
-         
+
     for host, containers in required.iteritems():
         for container in containers:
             client.juju('add-machine', tuple(['{}:{}'.format(container, host)] + sargs))

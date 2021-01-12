@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 from __future__ import print_function
 
 from argparse import ArgumentParser
@@ -874,7 +874,7 @@ class BootstrapManager:
         controller_strategy = ExistingController(client)
         return cls(
             args.temp_env_name, client, client, args.bootstrap_host,
-            args.machine, args.series, args.arch, args.agent_url, 
+            args.machine, args.series, args.arch, args.agent_url,
             args.agent_stream, args.region, args.logs, args.keep_env,
             controller_strategy=controller_strategy,
             existing_controller=existing_controller)

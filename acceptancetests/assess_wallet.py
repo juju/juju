@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 This tests the wallet commands utilized for commercial charm billing.
 These commands are linked to a ubuntu sso account, and as such, require the

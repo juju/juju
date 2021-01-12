@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Test Juju's log forwarding feature.
 
 Log forwarding allows a controller to forward syslog from all models of a

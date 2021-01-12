@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Tests for the unregister command
 
 Ensure that a users controller can be unregistered.
