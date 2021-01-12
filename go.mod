@@ -23,6 +23,7 @@ require (
 	github.com/dustin/go-humanize v1.0.0
 	github.com/evanphx/json-patch v4.5.0+incompatible // indirect
 	github.com/flosch/pongo2 v0.0.0-20141028000813-5e81b817a0c4 // indirect
+	github.com/go-yaml/yaml v2.1.0+incompatible // indirect
 	github.com/golang/mock v1.4.3
 	github.com/google/go-cmp v0.5.1 // indirect
 	github.com/google/go-querystring v1.0.0
@@ -133,7 +134,7 @@ require (
 	gopkg.in/robfig/cron.v2 v2.0.0-20150107220207-be2e0b0deed5 // indirect
 	gopkg.in/tomb.v2 v2.0.0-20161208151619-d5d1b5820637
 	gopkg.in/yaml.v2 v2.4.0
-	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
+	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
 	k8s.io/api v0.18.6
 	k8s.io/apiextensions-apiserver v0.18.6
 	k8s.io/apimachinery v0.18.6

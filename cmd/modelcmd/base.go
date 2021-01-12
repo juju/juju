@@ -236,6 +236,7 @@ func (c *CommandBase) NewAPIRoot(
 			}
 		}
 	}
+
 	param, err := c.NewAPIConnectionParams(
 		store, controllerName, modelName, accountDetails,
 	)

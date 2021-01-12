@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	k8sproxy "github.com/juju/juju/caas/kubernetes/provider/proxy"
 	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	providerutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/cloud"
@@ -46,6 +47,8 @@ const (
 
 	// ControllerServiceFQDNTemplate is the FQDN of the controller service using the cluster DNS.
 	ControllerServiceFQDNTemplate = "controller-service.controller-%s.svc.cluster.local"
+
+	proxyResourceName = "proxy"
 )
 
 var (
@@ -250,8 +253,12 @@ func newcontrollerStack(
 	return cs, nil
 }
 
+func getBootstrapResourceName(stackName string, name string) string {
+	return stackName + "-" + strings.Replace(name, ".", "-", -1)
+}
+
 func (c *controllerStack) getResourceName(name string) string {
-	return c.stackName + "-" + strings.Replace(name, ".", "-", -1)
+	return getBootstrapResourceName(c.stackName, name)
 }
 
 func (c *controllerStack) getControllerSecret() (secret *core.Secret, err error) {
@@ -336,6 +343,11 @@ func (c *controllerStack) Deploy() (err error) {
 		return errors.Annotate(err, "creating service for controller")
 	}
 
+	// create the proxy resources for services of type cluster ip
+	if err = c.createControllerProxy(); err != nil {
+		return errors.Annotate(err, "creating controller service proxy for controller")
+	}
+
 	// create shared-secret secret for controller pod.
 	if err = c.createControllerSecretSharedSecret(); err != nil {
 		return errors.Annotate(err, "creating shared-secret secret for controller")
@@ -403,6 +415,43 @@ func (c *controllerStack) getControllerSvcSpec(cloudType string, cfg *podcfg.Boo
 		}
 	}
 	return spec, nil
+}
+
+func (c *controllerStack) createControllerProxy() error {
+	// Lets first take a look at what will be deployed for a service.
+	// If the service type is clusterip then we will setup the proxy
+
+	cloudType, _, _ := cloud.SplitHostCloudRegion(c.pcfg.Bootstrap.ControllerCloud.HostCloudRegion)
+	controllerSvcSpec, err := c.getControllerSvcSpec(cloudType, c.pcfg.Bootstrap)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if controllerSvcSpec.ServiceType != core.ServiceTypeClusterIP {
+		// Not a cluster ip service so we don't need to setup a k8s proxy
+		return nil
+	}
+
+	k8sClient := c.broker.client()
+
+	remotePort := intstr.FromInt(c.portAPIServer)
+	config := k8sproxy.ControllerProxyConfig{
+		Name:          c.getResourceName(proxyResourceName),
+		Namespace:     c.broker.GetCurrentNamespace(),
+		RemotePort:    remotePort.String(),
+		TargetService: c.resourceNameService,
+	}
+
+	err = k8sproxy.CreateControllerProxy(
+		config,
+		c.stackLabels,
+		k8sClient.CoreV1().ConfigMaps(c.broker.GetCurrentNamespace()),
+		k8sClient.RbacV1().Roles(c.broker.GetCurrentNamespace()),
+		k8sClient.RbacV1().RoleBindings(c.broker.GetCurrentNamespace()),
+		k8sClient.CoreV1().ServiceAccounts(c.broker.GetCurrentNamespace()),
+	)
+
+	return errors.Trace(err)
 }
 
 func (c *controllerStack) createControllerService() error {

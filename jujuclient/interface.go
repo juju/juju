@@ -6,11 +6,14 @@ package jujuclient
 import (
 	"net/http"
 
+	"github.com/juju/errors"
 	"gopkg.in/macaroon.v2"
+	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/proxy"
 )
 
 // ControllerDetails holds the details needed to connect to a controller.
@@ -68,6 +71,52 @@ type ControllerDetails struct {
 	// which a user has access. It is cached here so under normal
 	// usage list-controllers does not need to hit the server.
 	MachineCount *int `yaml:"machine-count,omitempty"`
+
+	Proxy *ProxyConfWrapper `yaml:"proxy-config,omitempty"`
+}
+
+type ProxyConfWrapper struct {
+	Proxier proxy.Proxier
+}
+
+func (p *ProxyConfWrapper) MarshalYAML() (interface{}, error) {
+	return map[string]interface{}{
+		"type":   p.Proxier.Type(),
+		"config": p.Proxier,
+	}, nil
+}
+
+func (p *ProxyConfWrapper) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	factory, err := proxy.NewDefaultFactory()
+	if err != nil {
+		return errors.Annotate(err, "building proxy factory for config")
+	}
+
+	proxyConf := struct {
+		Type   string    `yaml:"type"`
+		Config yaml.Node `yaml:config"`
+	}{}
+
+	err = unmarshal(&proxyConf)
+	if err != nil {
+		return errors.Annotate(err, "unmarshalling raw proxy config")
+	}
+
+	maker, err := factory.MakerForTypeKey(proxyConf.Type)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err = proxyConf.Config.Decode(maker.Config()); err != nil {
+		return errors.Annotatef(err, "deconding config for proxy of type %s", proxyConf.Type)
+	}
+
+	p.Proxier, err = maker.Make()
+	if err != nil {
+		return errors.Annotatef(err, "making proxier for type %s", proxyConf.Type)
+	}
+
+	return nil
 }
 
 // ModelDetails holds details of a model.
