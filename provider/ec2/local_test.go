@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -242,7 +241,7 @@ func (t *localServerSuite) SetUpSuite(c *gc.C) {
 	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	t.BaseSuite.PatchValue(&series.HostSeries, func() (string, error) { return jujuversion.DefaultSupportedLTS(), nil })
 	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
-	t.BaseSuite.PatchValue(&ec2.EC2Session, func(region, accessKey, secretKey string) ec2iface.EC2API {
+	t.BaseSuite.PatchValue(&ec2.EC2Session, func(region, accessKey, secretKey string) ec2.EC2Client {
 		c.Assert(region, gc.Equals, "test")
 		c.Assert(accessKey, gc.Equals, "x")
 		c.Assert(secretKey, gc.Equals, "x")
@@ -594,7 +593,7 @@ func (t *localServerSuite) TestGetTerminatedInstances(c *gc.C) {
 	c.Assert(terminated[0].Id(), jc.DeepEquals, inst1.Id())
 }
 
-func (t *localServerSuite) TestInstanceSecurityGroupsWitheInstanceStatusFilter(c *gc.C) {
+func (t *localServerSuite) TestInstanceSecurityGroupsWithInstanceStatusFilter(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
 
 	insts, err := env.AllRunningInstances(t.callCtx)

@@ -6,18 +6,35 @@ package ec2_test
 import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 )
 
-type mockEC2Session struct {
-	ec2iface.EC2API
-}
+type mockEC2Session struct{}
 
 func (mockEC2Session) DescribeAvailabilityZones(*ec2.DescribeAvailabilityZonesInput) (*ec2.DescribeAvailabilityZonesOutput, error) {
 	return &ec2.DescribeAvailabilityZonesOutput{
 		AvailabilityZones: []*ec2.AvailabilityZone{{
 			ZoneName: aws.String("test-available"),
 		}},
+	}, nil
+}
+
+func (mockEC2Session) DescribeInstances(*ec2.DescribeInstancesInput) (*ec2.DescribeInstancesOutput, error) {
+	// TODO(benhoyt) - mock properly
+	return &ec2.DescribeInstancesOutput{
+		Reservations: []*ec2.Reservation{
+			{
+				Instances: []*ec2.Instance{
+					{
+						InstanceId:       aws.String("1234"),
+						PrivateIpAddress: aws.String("1.2.3.4"),
+						PublicIpAddress:  aws.String("10.0.0.1"),
+						State: &ec2.InstanceState{
+							Name: aws.String("running"),
+						},
+					},
+				},
+			},
+		},
 	}, nil
 }
 
