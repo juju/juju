@@ -103,7 +103,7 @@ func (s *updaterSuite) TestCharmhubUpdateWithResources(c *gc.C) {
 			Entity: transport.RefreshEntity{
 				Resources: []transport.ResourceRevision{
 					{
-						Download: transport.ResourceDownload{
+						Download: transport.Download{
 							HashSHA384: "59e1748777448c69de6b800d7a33bbfb9ff1b463e44354c3553bcdb9c666fa90125a3c79f90397bdf5f6a13de828684f",
 							Size:       5,
 						},
@@ -112,7 +112,7 @@ func (s *updaterSuite) TestCharmhubUpdateWithResources(c *gc.C) {
 						Type:     "file",
 					},
 					{
-						Download: transport.ResourceDownload{
+						Download: transport.Download{
 							HashSHA384: "03130092073c5ac523ecb21f548b9ad6e1387d1cb05f3cb892fcc26029d01428afbe74025b6c567b6564a3168a47179a",
 							Size:       6,
 						},
