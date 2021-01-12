@@ -142,7 +142,7 @@ func (k *kubernetesClient) listIngressClasses(labels map[string]string) ([]netwo
 		return nil, errors.Trace(err)
 	}
 	if len(ingCList.Items) == 0 {
-		return nil, errors.NotFoundf("ingress with labels %v", labels)
+		return nil, errors.NotFoundf("ingress class with labels %v", labels)
 	}
 	return ingCList.Items, nil
 }
