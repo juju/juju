@@ -4,6 +4,7 @@
 package ec2
 
 import (
+	sdkec2 "github.com/aws/aws-sdk-go/service/ec2"
 	"gopkg.in/amz.v3/ec2"
 
 	"github.com/juju/juju/core/instance"
@@ -33,6 +34,10 @@ func EnvironEC2(e environs.Environ) *ec2.EC2 {
 
 func InstanceEC2(inst instances.Instance) *ec2.Instance {
 	return inst.(*ec2Instance).Instance
+}
+
+func InstanceSDKEC2(inst instances.Instance) *sdkec2.Instance {
+	return inst.(*sdkEC2Instance).i
 }
 
 func TerminatedInstances(e environs.Environ) ([]instances.Instance, error) {
