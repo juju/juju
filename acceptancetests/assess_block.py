@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Assess juju blocks prevent users from making changes and models"""
 
 from __future__ import print_function

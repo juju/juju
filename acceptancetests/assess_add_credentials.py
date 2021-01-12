@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Assess proper functionality of juju add-credential."""
 
 from __future__ import print_function

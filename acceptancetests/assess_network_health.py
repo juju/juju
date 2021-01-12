@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Assess network health for a given deployment or bundle"""
 from __future__ import print_function
 

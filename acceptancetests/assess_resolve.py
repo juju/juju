@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """ Ensure resolve command resolves hook issues.
 
 This test covers the resolve command (and the option --no-retry)

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # This file is part of JujuPy, a library for driving the Juju CLI.
 # Copyright 2015, 2017 Canonical Ltd.

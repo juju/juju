@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Functional tests for Cross Model Relation (CMR) functionality.
 
 This test exercises the CMR Juju functionality which allows applications to

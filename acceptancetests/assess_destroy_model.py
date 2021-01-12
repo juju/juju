@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Assess if Juju tracks the model when the current model is destroyed."""
 
 from __future__ import print_function

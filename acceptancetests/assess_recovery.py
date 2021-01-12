@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Backup and restore a stack.
 
 from __future__ import print_function

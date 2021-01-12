@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Assess network spaces for supported providers (currently only EC2)"""
 
 import argparse

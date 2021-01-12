@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """This testsuite is intended to test basic user permissions. Users
    can be granted read or full privileges by model. Revoking those
    privileges should remove them.

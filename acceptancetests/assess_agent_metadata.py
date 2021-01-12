@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
  Juju agent-metadata-url validation on passing as an argument during
  juju bootstrap

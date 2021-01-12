@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Assess multimodel support."""
 
 from argparse import ArgumentParser
