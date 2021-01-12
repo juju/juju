@@ -13,6 +13,8 @@ import (
 	jujustorage "github.com/juju/juju/storage"
 )
 
+type EC2Client = ec2Client
+
 func StorageEC2(vs jujustorage.VolumeSource) *ec2.EC2 {
 	return vs.(*ebsVolumeSource).env.ec2
 }
@@ -34,7 +36,7 @@ func InstanceEC2(inst instances.Instance) *ec2.Instance {
 }
 
 func TerminatedInstances(e environs.Environ) ([]instances.Instance, error) {
-	return e.(*environ).AllInstancesByState(context.NewCloudCallContext(), "shutting-down", "terminated")
+	return e.(*environ).allInstancesByState(context.NewCloudCallContext(), "shutting-down", "terminated")
 }
 
 func InstanceSecurityGroups(e environs.Environ, ctx context.ProviderCallContext, ids []instance.Id, states ...string) ([]ec2.SecurityGroup, error) {

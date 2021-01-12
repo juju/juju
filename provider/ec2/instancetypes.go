@@ -15,7 +15,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v2/arch"
@@ -37,7 +36,7 @@ func (l awsLogger) Log(args ...interface{}) {
 }
 
 // EC2Session returns a session with the given credentials.
-var EC2Session = func(region, accessKey, secretKey string) ec2iface.EC2API {
+var EC2Session = func(region, accessKey, secretKey string) ec2Client {
 	sess := session.Must(session.NewSession())
 	config := &aws.Config{
 		Retryer: client.DefaultRetryer{ // these roughly match retry params in gopkg.in/amz.v3/ec2/ec2.go:EC2.query
@@ -61,14 +60,12 @@ var EC2Session = func(region, accessKey, secretKey string) ec2iface.EC2API {
 		config.LogLevel = aws.LogLevel(aws.LogDebug | aws.LogDebugWithRequestErrors | aws.LogDebugWithRequestRetries)
 	}
 
-	ec2Session := ec2.New(sess, config)
-	return ec2Session
+	return ec2.New(sess, config)
 }
 
 // InstanceTypes implements InstanceTypesFetcher
 func (e *environ) InstanceTypes(ctx context.ProviderCallContext, c constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
-	ec2Session := EC2Session(e.cloud.Region, e.ec2.AccessKey, e.ec2.SecretKey)
-	iTypes, err := e.supportedInstanceTypes(ec2Session, ctx)
+	iTypes, err := e.supportedInstanceTypes(ctx)
 	if err != nil {
 		return instances.InstanceTypesWithCostMetadata{}, errors.Trace(err)
 	}
@@ -173,7 +170,7 @@ func archName(in string) string {
 	return in
 }
 
-func (e *environ) supportedInstanceTypes(ec2Session ec2iface.EC2API, ctx context.ProviderCallContext) ([]instances.InstanceType, error) {
+func (e *environ) supportedInstanceTypes(ctx context.ProviderCallContext) ([]instances.InstanceType, error) {
 	e.instTypesMutex.Lock()
 	defer e.instTypesMutex.Unlock()
 
@@ -181,7 +178,7 @@ func (e *environ) supportedInstanceTypes(ec2Session ec2iface.EC2API, ctx context
 	// expensive to fetch each time.
 	// TODO(wallyworld) - consider using a cache with expiry
 	if len(e.instTypes) == 0 {
-		instTypes, err := e.collectSupportedInstanceTypes(ec2Session, ctx)
+		instTypes, err := e.collectSupportedInstanceTypes(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -195,14 +192,14 @@ func (e *environ) supportedInstanceTypes(ec2Session ec2iface.EC2API, ctx context
 // results into a slice of InstanceType values.
 //
 // This method must be called while holding the instTypesMutex.
-func (e *environ) collectSupportedInstanceTypes(ec2Session ec2iface.EC2API, ctx context.ProviderCallContext) ([]instances.InstanceType, error) {
+func (e *environ) collectSupportedInstanceTypes(ctx context.ProviderCallContext) ([]instances.InstanceType, error) {
 	const (
 		maxOfferingsResults = 1000
 		maxTypesPage        = 100
 	)
 
 	// First get all the zone names for the current region.
-	zoneResults, err := ec2Session.DescribeAvailabilityZones(&ec2.DescribeAvailabilityZonesInput{
+	zoneResults, err := e.ec2Client.DescribeAvailabilityZones(&ec2.DescribeAvailabilityZonesInput{
 		Filters: []*ec2.Filter{{
 			Name:   aws.String("region-name"),
 			Values: []*string{aws.String(e.cloud.Region)},
@@ -227,7 +224,7 @@ func (e *environ) collectSupportedInstanceTypes(ec2Session ec2iface.EC2API, ctx 
 	instanceTypeZones := make(map[string]set.Strings)
 	var token *string
 	for {
-		offeringResults, err := ec2Session.DescribeInstanceTypeOfferings(&ec2.DescribeInstanceTypeOfferingsInput{
+		offeringResults, err := e.ec2Client.DescribeInstanceTypeOfferings(&ec2.DescribeInstanceTypeOfferingsInput{
 			LocationType: aws.String("availability-zone"),
 			MaxResults:   aws.Int64(maxOfferingsResults),
 			NextToken:    token,
@@ -254,7 +251,7 @@ func (e *environ) collectSupportedInstanceTypes(ec2Session ec2iface.EC2API, ctx 
 	}
 
 	// Populate the costs for the instance types in use.
-	costs, err := instanceTypeCosts(ec2Session, instTypeNames, zoneNames)
+	costs, err := instanceTypeCosts(e.ec2Client, instTypeNames, zoneNames)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -272,7 +269,7 @@ func (e *environ) collectSupportedInstanceTypes(ec2Session ec2iface.EC2API, ctx 
 		instTypeParams := &ec2.DescribeInstanceTypesInput{
 			InstanceTypes: page,
 		}
-		instTypeResults, err := ec2Session.DescribeInstanceTypes(instTypeParams)
+		instTypeResults, err := e.ec2Client.DescribeInstanceTypes(instTypeParams)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -361,7 +358,7 @@ func convertEC2InstanceType(
 }
 
 // instanceTypeCosts queries the latest spot price for the given instance types.
-func instanceTypeCosts(ec2Session ec2iface.EC2API, instTypeNames []*string, zoneNames []string) (map[string]uint64, error) {
+func instanceTypeCosts(ec2Client ec2Client, instTypeNames []*string, zoneNames []string) (map[string]uint64, error) {
 	const (
 		maxResults = 1000
 		costFactor = 1000
@@ -396,7 +393,7 @@ func instanceTypeCosts(ec2Session ec2iface.EC2API, instTypeNames []*string, zone
 	costs := make(map[string]uint64)
 	for {
 		spParams.NextToken = token
-		priceResults, err := ec2Session.DescribeSpotPriceHistory(spParams)
+		priceResults, err := ec2Client.DescribeSpotPriceHistory(spParams)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

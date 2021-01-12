@@ -9,7 +9,6 @@ import (
 	"io"
 	"os"
 
-	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/juju/os/v2/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2/arch"
@@ -89,7 +88,7 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	// Use the real ec2 session if we are running with real creds.
 	accessKey := os.Getenv("AWS_ACCESS_KEY_ID")
 	if accessKey == "" {
-		t.BaseSuite.PatchValue(&ec2.EC2Session, func(region, accessKey, secretKey string) ec2iface.EC2API {
+		t.BaseSuite.PatchValue(&ec2.EC2Session, func(region, accessKey, secretKey string) ec2.EC2Client {
 			c.Assert(region, gc.Equals, "test")
 			c.Assert(accessKey, gc.Equals, "x")
 			c.Assert(secretKey, gc.Equals, "x")

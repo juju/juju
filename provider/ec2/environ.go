@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	sdkec2 "github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -66,10 +67,20 @@ var (
 	_ environs.FirewallFeatureQuerier = (*environ)(nil)
 )
 
+type ec2Client interface {
+	DescribeAvailabilityZones(*sdkec2.DescribeAvailabilityZonesInput) (*sdkec2.DescribeAvailabilityZonesOutput, error)
+	DescribeInstances(*sdkec2.DescribeInstancesInput) (*sdkec2.DescribeInstancesOutput, error)
+	DescribeInstanceTypeOfferings(*sdkec2.DescribeInstanceTypeOfferingsInput) (*sdkec2.DescribeInstanceTypeOfferingsOutput, error)
+	DescribeInstanceTypes(*sdkec2.DescribeInstanceTypesInput) (*sdkec2.DescribeInstanceTypesOutput, error)
+	DescribeSpotPriceHistory(*sdkec2.DescribeSpotPriceHistoryInput) (*sdkec2.DescribeSpotPriceHistoryOutput, error)
+}
+
 type environ struct {
 	name  string
 	cloud environscloudspec.CloudSpec
 	ec2   *ec2.EC2
+
+	ec2Client ec2Client
 
 	// ecfgMutex protects the *Unlocked fields below.
 	ecfgMutex    sync.Mutex
@@ -185,8 +196,7 @@ func (e *environ) ConstraintsValidator(ctx context.ProviderCallContext) (constra
 		[]string{constraints.InstanceType},
 		[]string{constraints.Mem, constraints.Cores, constraints.CpuPower})
 	validator.RegisterUnsupported(unsupportedConstraints)
-	ec2Session := EC2Session(e.cloud.Region, e.ec2.AccessKey, e.ec2.SecretKey)
-	instanceTypes, err := e.supportedInstanceTypes(ec2Session, ctx)
+	instanceTypes, err := e.supportedInstanceTypes(ctx)
 
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -349,8 +359,7 @@ func (e *environ) PrecheckInstance(ctx context.ProviderCallContext, args environ
 		return nil
 	}
 	// Constraint has an instance-type constraint so let's see if it is valid.
-	ec2Session := EC2Session(e.cloud.Region, e.ec2.AccessKey, e.ec2.SecretKey)
-	instanceTypes, err := e.supportedInstanceTypes(ec2Session, ctx)
+	instanceTypes, err := e.supportedInstanceTypes(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -466,8 +475,7 @@ func (e *environ) StartInstance(
 		return nil, errors.Trace(err)
 	}
 
-	ec2Session := EC2Session(e.cloud.Region, e.ec2.AccessKey, e.ec2.SecretKey)
-	instanceTypes, err := e.supportedInstanceTypes(ec2Session, ctx)
+	instanceTypes, err := e.supportedInstanceTypes(ctx)
 	if err != nil {
 		return nil, wrapError(err)
 	}
@@ -1065,11 +1073,12 @@ func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) 
 				need = append(need, string(ids[i]))
 			}
 		}
-		filter := ec2.NewFilter()
-		filter.Add("instance-state-name", aliveInstanceStates...)
-		filter.Add("instance-id", need...)
-		e.addModelFilter(filter)
-		err = e.gatherInstances(ctx, ids, insts, filter)
+		filters := []*sdkec2.Filter{
+			makeFilter("instance-state-name", aliveInstanceStates...),
+			makeFilter("instance-id", need...),
+			makeModelFilter(e.uuid()),
+		}
+		err = e.gatherInstances(ctx, ids, insts, filters)
 		if err == nil || err != environs.ErrPartialInstances {
 			break
 		}
@@ -1097,9 +1106,10 @@ func (e *environ) gatherInstances(
 	ctx context.ProviderCallContext,
 	ids []instance.Id,
 	insts []instances.Instance,
-	filter *ec2.Filter,
+	filters []*sdkec2.Filter,
 ) error {
-	resp, err := e.ec2.Instances(nil, filter)
+	req := &sdkec2.DescribeInstancesInput{Filters: filters}
+	resp, err := e.ec2Client.DescribeInstances(req)
 	if err != nil {
 		return maybeConvertCredentialError(err, ctx)
 	}
@@ -1111,15 +1121,12 @@ func (e *environ) gatherInstances(
 			n++
 			continue
 		}
-		for j := range resp.Reservations {
-			r := &resp.Reservations[j]
-			for k := range r.Instances {
-				if r.Instances[k].InstanceId != string(id) {
+		for _, r := range resp.Reservations {
+			for _, inst := range r.Instances {
+				if *inst.InstanceId != string(id) {
 					continue
 				}
-				inst := r.Instances[k]
-				// TODO(wallyworld): lookup the details to fill in the instance type data
-				insts[i] = &ec2Instance{e: e, Instance: &inst}
+				insts[i] = &sdkEC2Instance{e: e, i: inst}
 				n++
 			}
 		}
@@ -1507,17 +1514,17 @@ func (e *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.Ins
 	// We want to return everything we find here except for instances that are
 	// "shutting-down" - they are on the way to be terminated - or already "terminated".
 	// From https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-lifecycle.html
-	return e.AllInstancesByState(ctx, "rebooting", "pending", "running", "stopping", "stopped")
+	return e.allInstancesByState(ctx, "rebooting", "pending", "running", "stopping", "stopped")
 }
 
 // AllRunningInstances is part of the environs.InstanceBroker interface.
 func (e *environ) AllRunningInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
-	return e.AllInstancesByState(ctx, "pending", "running")
+	return e.allInstancesByState(ctx, "pending", "running")
 }
 
-// AllInstancesByState returns all instances in the environment
+// allInstancesByState returns all instances in the environment
 // with one of the specified instance states.
-func (e *environ) AllInstancesByState(ctx context.ProviderCallContext, states ...string) ([]instances.Instance, error) {
+func (e *environ) allInstancesByState(ctx context.ProviderCallContext, states ...string) ([]instances.Instance, error) {
 	// NOTE(axw) we use security group filtering here because instances
 	// start out untagged. If Juju were to abort after starting an instance,
 	// but before tagging it, it would be leaked. We only need to do this
@@ -1546,19 +1553,21 @@ func (e *environ) AllInstancesByState(ctx context.ProviderCallContext, states ..
 	} else if err != nil {
 		return nil, errors.Trace(maybeConvertCredentialError(err, ctx))
 	}
-	filter := ec2.NewFilter()
-	filter.Add("instance-state-name", states...)
-	filter.Add("instance.group-id", group.Id)
-	return e.allInstances(ctx, filter)
+	filters := []*sdkec2.Filter{
+		makeFilter("instance-state-name", states...),
+		makeFilter("instance.group-id", group.Id),
+	}
+	return e.allInstances(ctx, filters)
 }
 
 // ControllerInstances is part of the environs.Environ interface.
 func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
-	filter := ec2.NewFilter()
-	filter.Add("instance-state-name", aliveInstanceStates...)
-	filter.Add(fmt.Sprintf("tag:%s", tags.JujuIsController), "true")
-	e.addControllerFilter(filter, controllerUUID)
-	ids, err := e.allInstanceIDs(ctx, filter)
+	filters := []*sdkec2.Filter{
+		makeFilter("instance-state-name", aliveInstanceStates...),
+		makeFilter(fmt.Sprintf("tag:%s", tags.JujuIsController), "true"),
+		makeControllerFilter(controllerUUID),
+	}
+	ids, err := e.allInstanceIDs(ctx, filters)
 	if err != nil {
 		return nil, errors.Trace(maybeConvertCredentialError(err, ctx))
 	}
@@ -1568,20 +1577,33 @@ func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controlle
 	return ids, nil
 }
 
+func makeFilter(name string, values ...string) *sdkec2.Filter {
+	filter := &sdkec2.Filter{
+		Name:   &name,
+		Values: make([]*string, len(values)),
+	}
+	for i, v := range values {
+		v := v // we're taking the address, so we need a new variable each time
+		filter.Values[i] = &v
+	}
+	return filter
+}
+
 // allControllerManagedInstances returns the IDs of all instances managed by
 // this environment's controller.
 //
 // Note that this requires that all instances are tagged; we cannot filter on
 // security groups, as we do not know the names of the models.
 func (e *environ) allControllerManagedInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
-	filter := ec2.NewFilter()
-	filter.Add("instance-state-name", aliveInstanceStates...)
-	e.addControllerFilter(filter, controllerUUID)
-	return e.allInstanceIDs(ctx, filter)
+	filters := []*sdkec2.Filter{
+		makeFilter("instance-state-name", aliveInstanceStates...),
+		makeControllerFilter(controllerUUID),
+	}
+	return e.allInstanceIDs(ctx, filters)
 }
 
-func (e *environ) allInstanceIDs(ctx context.ProviderCallContext, filter *ec2.Filter) ([]instance.Id, error) {
-	insts, err := e.allInstances(ctx, filter)
+func (e *environ) allInstanceIDs(ctx context.ProviderCallContext, filters []*sdkec2.Filter) ([]instance.Id, error) {
+	insts, err := e.allInstances(ctx, filters)
 	if err != nil {
 		return nil, errors.Trace(maybeConvertCredentialError(err, ctx))
 	}
@@ -1592,17 +1614,16 @@ func (e *environ) allInstanceIDs(ctx context.ProviderCallContext, filter *ec2.Fi
 	return ids, nil
 }
 
-func (e *environ) allInstances(ctx context.ProviderCallContext, filter *ec2.Filter) ([]instances.Instance, error) {
-	resp, err := e.ec2.Instances(nil, filter)
+func (e *environ) allInstances(ctx context.ProviderCallContext, filters []*sdkec2.Filter) ([]instances.Instance, error) {
+	req := &sdkec2.DescribeInstancesInput{Filters: filters}
+	resp, err := e.ec2Client.DescribeInstances(req)
 	if err != nil {
 		return nil, errors.Annotate(maybeConvertCredentialError(err, ctx), "listing instances")
 	}
 	var insts []instances.Instance
 	for _, r := range resp.Reservations {
-		for i := range r.Instances {
-			inst := r.Instances[i]
-			// TODO(wallyworld): lookup the details to fill in the instance type data
-			insts = append(insts, &ec2Instance{e: e, Instance: &inst})
+		for _, inst := range r.Instances {
+			insts = append(insts, &sdkEC2Instance{e: e, i: inst})
 		}
 	}
 	return insts, nil
@@ -2027,8 +2048,16 @@ func (e *environ) addModelFilter(f *ec2.Filter) {
 	f.Add(fmt.Sprintf("tag:%s", tags.JujuModel), e.uuid())
 }
 
+func makeModelFilter(modelUUID string) *sdkec2.Filter {
+	return makeFilter(fmt.Sprintf("tag:%s", tags.JujuModel), modelUUID)
+}
+
 func (e *environ) addControllerFilter(f *ec2.Filter, controllerUUID string) {
 	f.Add(fmt.Sprintf("tag:%s", tags.JujuController), controllerUUID)
+}
+
+func makeControllerFilter(controllerUUID string) *sdkec2.Filter {
+	return makeFilter(fmt.Sprintf("tag:%s", tags.JujuController), controllerUUID)
 }
 
 func (e *environ) uuid() string {
@@ -2412,6 +2441,9 @@ func (e *environ) SetCloudSpec(spec environscloudspec.CloudSpec) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	e.ec2Client = EC2Session(e.cloud.Region, e.ec2.AccessKey, e.ec2.SecretKey)
+
 	return nil
 }
 
