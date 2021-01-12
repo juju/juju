@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"k8s.io/api/extensions/v1beta1"
+	networkingv1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
@@ -130,4 +131,18 @@ func (k *kubernetesClient) deleteIngressResources(appName string) error {
 		return nil
 	}
 	return errors.Trace(err)
+}
+
+func (k *kubernetesClient) listIngressClasses(labels map[string]string) ([]networkingv1.IngressClass, error) {
+	listOps := v1.ListOptions{
+		LabelSelector: utils.LabelsToSelector(labels).String(),
+	}
+	ingCList, err := k.client().NetworkingV1().IngressClasses().List(context.TODO(), listOps)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(ingCList.Items) == 0 {
+		return nil, errors.NotFoundf("ingress with labels %v", labels)
+	}
+	return ingCList.Items, nil
 }
