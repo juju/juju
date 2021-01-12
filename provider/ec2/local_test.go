@@ -216,6 +216,7 @@ type localServerSuite struct {
 	jujutest.Tests
 	srv    localServer
 	client *amzec2.EC2
+	env    environs.Environ
 
 	callCtx context.ProviderCallContext
 }
@@ -245,7 +246,11 @@ func (t *localServerSuite) SetUpSuite(c *gc.C) {
 		c.Assert(region, gc.Equals, "test")
 		c.Assert(accessKey, gc.Equals, "x")
 		c.Assert(secretKey, gc.Equals, "x")
-		return mockEC2Session{}
+		return &mockEC2Session{
+			newInstancesClient: func() *amzec2.EC2 {
+				return ec2.EnvironEC2(t.Env)
+			},
+		}
 	})
 	t.srv.createRootDisks = true
 	t.srv.startServer(c)
@@ -1849,12 +1854,16 @@ func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 1)
 
-	ec2Inst := ec2.InstanceEC2(instances[0])
-	c.Assert(ec2Inst.Tags, jc.SameContents, []amzec2.Tag{
-		{"Name", "juju-sample-machine-0"},
-		{"juju-model-uuid", coretesting.ModelTag.Id()},
-		{"juju-controller-uuid", t.ControllerUUID},
-		{"juju-is-controller", "true"},
+	ec2Inst := ec2.InstanceSDKEC2(instances[0])
+	var tags []string
+	for _, t := range ec2Inst.Tags {
+		tags = append(tags, *t.Key+":"+*t.Value)
+	}
+	c.Assert(tags, jc.SameContents, []string{
+		"Name:juju-sample-machine-0",
+		"juju-model-uuid:" + coretesting.ModelTag.Id(),
+		"juju-controller-uuid:" + t.ControllerUUID,
+		"juju-is-controller:true",
 	})
 }
 
@@ -1890,10 +1899,10 @@ func (s *localServerSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 	inst, err := env.AllRunningInstances(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(inst, gc.HasLen, 1)
-	ec2inst := ec2.InstanceEC2(inst[0])
+	ec2inst := ec2.InstanceSDKEC2(inst[0])
 	// Controllers should be started with a burstable
 	// instance if possible, and a 32 GiB disk.
-	c.Assert(ec2inst.InstanceType, gc.Equals, "t3a.medium")
+	c.Assert(*ec2inst.InstanceType, gc.Equals, "t3a.medium")
 }
 
 func makeFilter(key string, values ...string) *amzec2.Filter {

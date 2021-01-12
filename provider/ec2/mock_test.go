@@ -6,11 +6,14 @@ package ec2_test
 import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	amzec2 "gopkg.in/amz.v3/ec2"
 )
 
-type mockEC2Session struct{}
+type mockEC2Session struct {
+	newInstancesClient func() *amzec2.EC2
+}
 
-func (mockEC2Session) DescribeAvailabilityZones(*ec2.DescribeAvailabilityZonesInput) (*ec2.DescribeAvailabilityZonesOutput, error) {
+func (*mockEC2Session) DescribeAvailabilityZones(*ec2.DescribeAvailabilityZonesInput) (*ec2.DescribeAvailabilityZonesOutput, error) {
 	return &ec2.DescribeAvailabilityZonesOutput{
 		AvailabilityZones: []*ec2.AvailabilityZone{{
 			ZoneName: aws.String("test-available"),
@@ -18,27 +21,67 @@ func (mockEC2Session) DescribeAvailabilityZones(*ec2.DescribeAvailabilityZonesIn
 	}, nil
 }
 
-func (mockEC2Session) DescribeInstances(*ec2.DescribeInstancesInput) (*ec2.DescribeInstancesOutput, error) {
-	// TODO(benhoyt) - mock properly
-	return &ec2.DescribeInstancesOutput{
-		Reservations: []*ec2.Reservation{
-			{
-				Instances: []*ec2.Instance{
-					{
-						InstanceId:       aws.String("1234"),
-						PrivateIpAddress: aws.String("1.2.3.4"),
-						PublicIpAddress:  aws.String("10.0.0.1"),
-						State: &ec2.InstanceState{
-							Name: aws.String("running"),
-						},
-					},
+func (s *mockEC2Session) DescribeInstances(input *ec2.DescribeInstancesInput) (*ec2.DescribeInstancesOutput, error) {
+	// Proxy the DescribeInstances request through to the equivalent amz
+	// package's Instances() method, as amz is still used to start the
+	// instances.
+	var ids []string
+	for _, id := range input.InstanceIds {
+		if id == nil {
+			continue
+		}
+		ids = append(ids, *id)
+	}
+
+	filter := amzec2.NewFilter()
+	for _, f := range input.Filters {
+		if f.Name == nil {
+			continue
+		}
+		var values []string
+		for _, v := range f.Values {
+			if v != nil {
+				values = append(values, *v)
+			}
+		}
+		filter.Add(*f.Name, values...)
+	}
+
+	client := s.newInstancesClient()
+	resp, err := client.Instances(ids, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	output := &ec2.DescribeInstancesOutput{}
+	for _, r := range resp.Reservations {
+		res := &ec2.Reservation{}
+		for _, i := range r.Instances {
+			inst := &ec2.Instance{
+				InstanceId:   &i.InstanceId,
+				InstanceType: &i.InstanceType,
+				State: &ec2.InstanceState{
+					Name: &i.State.Name,
 				},
-			},
-		},
-	}, nil
+			}
+			if i.PrivateIPAddress != "" {
+				inst.PrivateIpAddress = &i.PrivateIPAddress
+			}
+			if i.IPAddress != "" {
+				inst.PublicIpAddress = &i.IPAddress
+			}
+			for _, t := range i.Tags {
+				t := t // make a copy so the address is new each loop
+				inst.Tags = append(inst.Tags, &ec2.Tag{Key: &t.Key, Value: &t.Value})
+			}
+			res.Instances = append(res.Instances, inst)
+		}
+		output.Reservations = append(output.Reservations, res)
+	}
+	return output, nil
 }
 
-func (mockEC2Session) DescribeInstanceTypeOfferings(*ec2.DescribeInstanceTypeOfferingsInput) (*ec2.DescribeInstanceTypeOfferingsOutput, error) {
+func (*mockEC2Session) DescribeInstanceTypeOfferings(*ec2.DescribeInstanceTypeOfferingsInput) (*ec2.DescribeInstanceTypeOfferingsOutput, error) {
 	return &ec2.DescribeInstanceTypeOfferingsOutput{
 		InstanceTypeOfferings: []*ec2.InstanceTypeOffering{{
 			InstanceType: aws.String("t3a.micro"),
@@ -60,7 +103,7 @@ func (mockEC2Session) DescribeInstanceTypeOfferings(*ec2.DescribeInstanceTypeOff
 	}, nil
 }
 
-func (mockEC2Session) DescribeInstanceTypes(*ec2.DescribeInstanceTypesInput) (*ec2.DescribeInstanceTypesOutput, error) {
+func (*mockEC2Session) DescribeInstanceTypes(*ec2.DescribeInstanceTypesInput) (*ec2.DescribeInstanceTypesOutput, error) {
 	return &ec2.DescribeInstanceTypesOutput{
 		InstanceTypes: []*ec2.InstanceTypeInfo{{
 			InstanceType: aws.String("t3a.micro"),
@@ -98,7 +141,7 @@ func (mockEC2Session) DescribeInstanceTypes(*ec2.DescribeInstanceTypesInput) (*e
 	}, nil
 }
 
-func (mockEC2Session) DescribeSpotPriceHistory(*ec2.DescribeSpotPriceHistoryInput) (*ec2.DescribeSpotPriceHistoryOutput, error) {
+func (*mockEC2Session) DescribeSpotPriceHistory(*ec2.DescribeSpotPriceHistoryInput) (*ec2.DescribeSpotPriceHistoryOutput, error) {
 	return &ec2.DescribeSpotPriceHistoryOutput{
 		SpotPriceHistory: nil,
 	}, nil

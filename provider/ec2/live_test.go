@@ -92,7 +92,11 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 			c.Assert(region, gc.Equals, "test")
 			c.Assert(accessKey, gc.Equals, "x")
 			c.Assert(secretKey, gc.Equals, "x")
-			return mockEC2Session{}
+			return &mockEC2Session{
+				newInstancesClient: func() *amzec2.EC2 {
+					return ec2.EnvironEC2(t.Env)
+				},
+			}
 		})
 	}
 }
@@ -135,9 +139,9 @@ func (t *LiveTests) TestInstanceAttributes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(insts), gc.Equals, 1)
 
-	ec2inst := ec2.InstanceEC2(insts[0])
-	c.Assert(ec2inst.IPAddress, gc.Equals, addresses[0].Value)
-	c.Assert(ec2inst.InstanceType, gc.Equals, "t3a.micro")
+	ec2inst := ec2.InstanceSDKEC2(insts[0])
+	c.Assert(*ec2inst.PublicIpAddress, gc.Equals, addresses[0].Value)
+	c.Assert(*ec2inst.InstanceType, gc.Equals, "t3a.micro")
 }
 
 func (t *LiveTests) TestStartInstanceConstraints(c *gc.C) {
