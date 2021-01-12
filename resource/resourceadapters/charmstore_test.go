@@ -34,6 +34,14 @@ func (s *CharmStoreSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *CharmStoreSuite) TestGetResourceTerminates(c *gc.C) {
+	s.testGetResourceTerminates(c, true)
+}
+
+func (s *CharmStoreSuite) TestGetResourceTerminatesNoChannel(c *gc.C) {
+	s.testGetResourceTerminates(c, false)
+}
+
+func (s *CharmStoreSuite) testGetResourceTerminates(c *gc.C, channel bool) {
 	msg := "trust"
 	attempts := int32(0)
 	s.resourceClient.getResourceF = func(req repositories.ResourceRequest) (data charmstore.ResourceData, err error) {
@@ -42,14 +50,11 @@ func (s *CharmStoreSuite) TestGetResourceTerminates(c *gc.C) {
 	}
 	csRes := resourceadapters.NewCSRetryClientForTest(s.resourceClient)
 
-	_, err := csRes.GetResource(repositories.ResourceRequest{
-		CharmID: repositories.CharmID{
-			URL: nil,
-			Origin: state.CharmOrigin{
-				Channel: &state.Channel{Risk: "stable"},
-			},
-		},
-	})
+	req := repositories.ResourceRequest{}
+	if channel {
+		req.CharmID.Origin.Channel = &state.Channel{Risk: "stable"}
+	}
+	_, err := csRes.GetResource(req)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("failed after retrying: %v", msg))
 	// Ensure we logged attempts @ WARNING.
 	c.Assert(c.GetTestLog(), jc.Contains, fmt.Sprintf("WARNING juju.resource.resourceadapters attempt %d/%d to download resource ", attempts, attempts))
