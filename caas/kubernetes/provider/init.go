@@ -6,10 +6,13 @@ package provider
 import (
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/klog/v2"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 )
+
+type klogWriter func([]byte) (int, error)
 
 const volBindModeWaitFirstConsumer = "WaitForFirstConsumer"
 
@@ -28,6 +31,8 @@ var (
 )
 
 func init() {
+	klog.SetLogger(newKlogAdapter())
+
 	caas.RegisterContainerProvider(constants.CAASProviderType, providerInstance)
 
 	// k8sCloudCheckers is a collection of k8s node selector requirement definitions
@@ -143,4 +148,8 @@ func compileLifecycleModelTeardownSelector() k8slabels.Selector {
 				labelResourceLifeCycleValuePersistent,
 			}},
 	)
+}
+
+func (k klogWriter) Write(p []byte) (n int, err error) {
+	return k(p)
 }

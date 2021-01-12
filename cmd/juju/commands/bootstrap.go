@@ -51,6 +51,7 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/provider/lxd/lxdnames"
+	"github.com/juju/juju/proxy"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
@@ -792,6 +793,7 @@ to create a new model to deploy %sworkloads.
 	environ, err := bootstrapPrepareController(
 		isCAASController, bootstrapCtx, store, bootstrapPrepareParams,
 	)
+
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1034,6 +1036,14 @@ func (c *bootstrapCommand) controllerDataRefresher(
 		return errors.NewNotValid(nil, "unexpected error happened, IAAS mode should have environs.Environ implemented.")
 	}
 
+	var proxier proxy.Proxier
+	if conInfo, ok := environ.(environs.ConnectorInfo); ok {
+		proxier, err = conInfo.ConnectionProxyInfo()
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+	}
+
 	// Use the retrieved bootstrap machine/service addresses to create
 	// host/port endpoints for local storage.
 	hps := make([]network.MachineHostPort, len(addrs))
@@ -1052,6 +1062,7 @@ func (c *bootstrapCommand) controllerDataRefresher(
 				CurrentHostPorts:       []network.MachineHostPorts{hps},
 				PublicDNSName:          newStringIfNonEmpty(bootstrapCfg.controller.AutocertDNSName()),
 				MachineCount:           newInt(1),
+				Proxier:                proxier,
 				ControllerMachineCount: newInt(1),
 			},
 		),

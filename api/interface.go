@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/proxy"
 	"github.com/juju/juju/rpc/jsoncodec"
 )
 
@@ -80,6 +81,10 @@ type Info struct {
 	// Nonce holds the nonce used when provisioning the machine. Used
 	// only by the machine agent.
 	Nonce string `yaml:",omitempty"`
+
+	// Proxier describes a proxier to use to for establing an API connection
+	// A nil proxier means that it will not be used.
+	Proxier proxy.Proxier
 }
 
 // Ports returns the unique ports for the api addresses.

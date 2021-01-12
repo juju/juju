@@ -308,6 +308,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		SHA256:  "deadbeef",
 		Size:    999,
 	}
+	s.pcfg.Bootstrap.IgnoreProxy = true
 
 	controllerStacker := s.controllerStackerGetter()
 
