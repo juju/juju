@@ -1991,18 +1991,20 @@ func (i *importer) actions() error {
 func (i *importer) addAction(action description.Action) error {
 	modelUUID := i.st.ModelUUID()
 	newDoc := &actionDoc{
-		DocId:      i.st.docID(action.Id()),
-		ModelUUID:  modelUUID,
-		Receiver:   action.Receiver(),
-		Name:       action.Name(),
-		Operation:  action.Operation(),
-		Parameters: action.Parameters(),
-		Enqueued:   action.Enqueued(),
-		Results:    action.Results(),
-		Message:    action.Message(),
-		Started:    action.Started(),
-		Completed:  action.Completed(),
-		Status:     ActionStatus(action.Status()),
+		DocId:          i.st.docID(action.Id()),
+		ModelUUID:      modelUUID,
+		Receiver:       action.Receiver(),
+		Name:           action.Name(),
+		Operation:      action.Operation(),
+		Parameters:     action.Parameters(),
+		Enqueued:       action.Enqueued(),
+		Results:        action.Results(),
+		Message:        action.Message(),
+		Started:        action.Started(),
+		Completed:      action.Completed(),
+		Status:         ActionStatus(action.Status()),
+		Parallel:       action.Parallel(),
+		ExecutionGroup: action.ExecutionGroup(),
 	}
 	prefix := ensureActionMarker(action.Receiver())
 	notificationDoc := &actionNotificationDoc{

@@ -91,7 +91,7 @@ func (a *ActionAPI) enqueue(arg params.Actions) (string, params.ActionResults, e
 			currentResult.Error = apiservererrors.ServerError(err)
 			continue
 		}
-		enqueued, err := receiver.AddAction(operationID, action.Name, action.Parameters)
+		enqueued, err := receiver.AddAction(operationID, action.Name, action.Parameters, action.Parallel, action.ExecutionGroup)
 		if err != nil {
 			currentResult.Error = apiservererrors.ServerError(err)
 			continue

@@ -12,7 +12,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/version"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -95,6 +94,15 @@ type actionDoc struct {
 	// Parameters holds the action's parameters, if any; it should validate
 	// against the schema defined by the named action in the unit's charm.
 	Parameters map[string]interface{} `bson:"parameters"`
+
+	// Parallel is true if this action can run in parallel with others
+	// without requiring the mandatory acquisition of the machine lock.
+	Parallel bool `bson:"parallel,omitempty"`
+
+	// ExecutionGroup is used to group all actions which require the
+	// same machine lock, ie actions in the same group cannot run in
+	// in parallel with each other.
+	ExecutionGroup string `bson:"execution-group,omitempty"`
 
 	// Enqueued is the time the action was added.
 	Enqueued time.Time `bson:"enqueued"`
@@ -184,6 +192,18 @@ func (a *action) Name() string {
 // definition of the Action.
 func (a *action) Parameters() map[string]interface{} {
 	return a.doc.Parameters
+}
+
+// Parallel returns true if the action can run without
+// needed to acquire the machine lock.
+func (a *action) Parallel() bool {
+	return a.doc.Parallel
+}
+
+// ExecutionGroup is the group of actions which cannot
+// execute in parallel with each other.
+func (a *action) ExecutionGroup() string {
+	return a.doc.ExecutionGroup
 }
 
 // Enqueued returns the time the action was added to state as a pending
@@ -525,7 +545,8 @@ func newAction(st *State, adoc actionDoc) Action {
 }
 
 // newActionDoc builds the actionDoc with the given name and parameters.
-func newActionDoc(mb modelBackend, operationID string, receiverTag names.Tag, actionName string, parameters map[string]interface{}, modelAgentVersion version.Number) (actionDoc, actionNotificationDoc, error) {
+func newActionDoc(mb modelBackend, operationID string, receiverTag names.Tag,
+	actionName string, parameters map[string]interface{}, parallel bool, executionGroup string) (actionDoc, actionNotificationDoc, error) {
 	prefix := ensureActionMarker(receiverTag.Id())
 	id, err := sequenceWithMin(mb, "task", 1)
 	if err != nil {
@@ -535,14 +556,16 @@ func newActionDoc(mb modelBackend, operationID string, receiverTag names.Tag, ac
 	actionLogger.Debugf("newActionDoc name: '%s', receiver: '%s', actionId: '%s'", actionName, receiverTag, actionId)
 	modelUUID := mb.modelUUID()
 	return actionDoc{
-			DocId:      mb.docID(actionId),
-			ModelUUID:  modelUUID,
-			Receiver:   receiverTag.Id(),
-			Name:       actionName,
-			Parameters: parameters,
-			Enqueued:   mb.nowToTheSecond(),
-			Operation:  operationID,
-			Status:     ActionPending,
+			DocId:          mb.docID(actionId),
+			ModelUUID:      modelUUID,
+			Receiver:       receiverTag.Id(),
+			Name:           actionName,
+			Parameters:     parameters,
+			Parallel:       parallel,
+			ExecutionGroup: executionGroup,
+			Enqueued:       mb.nowToTheSecond(),
+			Operation:      operationID,
+			Status:         ActionPending,
 		}, actionNotificationDoc{
 			DocId:     mb.docID(prefix + actionId),
 			ModelUUID: modelUUID,
@@ -611,7 +634,8 @@ func (m *Model) FindActionsByName(name string) ([]Action, error) {
 }
 
 // EnqueueAction caches the action doc to the database.
-func (m *Model) EnqueueAction(operationID string, receiver names.Tag, actionName string, payload map[string]interface{}) (Action, error) {
+func (m *Model) EnqueueAction(operationID string, receiver names.Tag,
+	actionName string, payload map[string]interface{}, parallel bool, executionGroup string) (Action, error) {
 	if len(actionName) == 0 {
 		return nil, errors.New("action name required")
 	}
@@ -620,11 +644,7 @@ func (m *Model) EnqueueAction(operationID string, receiver names.Tag, actionName
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	agentVersion, err := m.AgentVersion()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	doc, ndoc, err := newActionDoc(m.st, operationID, receiver, actionName, payload, agentVersion)
+	doc, ndoc, err := newActionDoc(m.st, operationID, receiver, actionName, payload, parallel, executionGroup)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

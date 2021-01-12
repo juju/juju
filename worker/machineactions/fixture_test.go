@@ -19,9 +19,9 @@ import (
 
 var actionNotFoundErr = errors.New("action not found")
 
-func mockHandleAction(stub *testing.Stub) func(string, map[string]interface{}) (map[string]interface{}, error) {
-	return func(name string, params map[string]interface{}) (map[string]interface{}, error) {
-		stub.AddCall("HandleAction", name)
+func mockHandleAction(stub *testing.Stub) func(string, map[string]interface{}, bool, string) (map[string]interface{}, error) {
+	return func(name string, params map[string]interface{}, parallel bool, executionGroup string) (map[string]interface{}, error) {
+		stub.AddCall("HandleAction", name, parallel, executionGroup)
 		return nil, stub.NextErr()
 	}
 }
@@ -98,9 +98,9 @@ func (stubWatcher *stubWatcher) Changes() watcher.StringsChannel {
 }
 
 var (
-	firstAction     = machineactions.NewAction("foo", nil)
-	secondAction    = machineactions.NewAction("baz", nil)
-	thirdAction     = machineactions.NewAction("boo", nil)
+	firstAction     = machineactions.NewAction("foo", nil, true, "group")
+	secondAction    = machineactions.NewAction("baz", nil, true, "group")
+	thirdAction     = machineactions.NewAction("boo", nil, true, "group")
 	firstActionID   = "11234567-89ab-cdef-0123-456789abcdef"
 	secondActionID  = "21234567-89ab-cdef-0123-456789abcdef"
 	thirdActionID   = "31234567-89ab-cdef-0123-456789abcdef"

@@ -939,7 +939,7 @@ func (s addAction) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 	operationID, err := m.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = m.EnqueueAction(operationID, ctx.unit.Tag(), s.name, s.params)
+	_, err = m.EnqueueAction(operationID, ctx.unit.Tag(), s.name, s.params, false, "")
 	c.Assert(err, jc.ErrorIsNil)
 }
 

@@ -385,7 +385,7 @@ func (s *InterfaceSuite) TestSetActionMessage(c *gc.C) {
 func (s *InterfaceSuite) TestLogActionMessage(c *gc.C) {
 	operationID, err := s.Model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	action, err := s.unit.AddAction(operationID, "fakeaction", nil)
+	action, err := s.unit.AddAction(operationID, "fakeaction", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = action.Begin()
 	c.Assert(err, jc.ErrorIsNil)

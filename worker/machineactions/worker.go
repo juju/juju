@@ -31,7 +31,7 @@ type Facade interface {
 type WorkerConfig struct {
 	Facade       Facade
 	MachineTag   names.MachineTag
-	HandleAction func(name string, params map[string]interface{}) (results map[string]interface{}, err error)
+	HandleAction func(name string, params map[string]interface{}, parallel bool, executionGroup string) (results map[string]interface{}, err error)
 }
 
 // Validate returns an error if the configuration is not complete.
@@ -112,7 +112,7 @@ func (h *handler) Handle(_ <-chan struct{}, actionsSlice []string) error {
 		// We try to handle the action. The result returned from handling the action is
 		// sent through using ActionFinish. We only stop the loop if ActionFinish fails.
 		var finishErr error
-		results, err := h.config.HandleAction(action.Name(), action.Params())
+		results, err := h.config.HandleAction(action.Name(), action.Params(), action.Parallel(), action.ExecutionGroup())
 		if err != nil {
 			finishErr = h.config.Facade.ActionFinish(actionTag, params.ActionFailed, nil, err.Error())
 		} else {

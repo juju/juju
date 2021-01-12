@@ -21,9 +21,12 @@ type operationSuite struct {
 var _ = gc.Suite(&operationSuite{})
 
 func (s *operationSuite) setupOperations(c *gc.C) {
+	parallel := true
+	executionGroup := "group"
 	arg := params.Actions{
 		Actions: []params.Action{
-			{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
+			{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{},
+				Parallel: &parallel, ExecutionGroup: &executionGroup},
 			{Receiver: s.mysqlUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
 			{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
 			{Receiver: s.mysqlUnit.Tag().String(), Name: "anotherfakeaction", Parameters: map[string]interface{}{}},
@@ -42,6 +45,8 @@ func (s *operationSuite) setupOperations(c *gc.C) {
 
 	a, err := s.Model.Action(strconv.Itoa(operationID + 1))
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(a.Parallel(), jc.IsTrue)
+	c.Assert(a.ExecutionGroup(), gc.Equals, "group")
 	_, err = a.Begin()
 	c.Assert(err, jc.ErrorIsNil)
 	a, err = s.Model.Action(strconv.Itoa(operationID + 2))

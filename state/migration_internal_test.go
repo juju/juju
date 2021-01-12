@@ -738,6 +738,8 @@ func (s *MigrationSuite) TestActionDocFields(c *gc.C) {
 		"Message",
 		"Status",
 		"Logs",
+		"Parallel",
+		"ExecutionGroup",
 	)
 	s.AssertExportedFields(c, actionDoc{}, migrated.Union(ignored))
 }

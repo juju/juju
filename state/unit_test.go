@@ -2520,7 +2520,7 @@ snapshot:
 		c.Logf("running test %d", i)
 		operationID, err := s.Model.EnqueueOperation("a test")
 		c.Assert(err, jc.ErrorIsNil)
-		action, err := unit1.AddAction(operationID, t.actionName, t.givenPayload)
+		action, err := unit1.AddAction(operationID, t.actionName, t.givenPayload, nil, nil)
 		if t.errString != "" {
 			c.Assert(err, gc.ErrorMatches, t.errString)
 		} else {
@@ -2553,16 +2553,16 @@ action-b-b:
 	// Add 3 actions to first unit, and 2 to the second unit
 	operationID, err := s.Model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = unit1.AddAction(operationID, "action-a-a", nil)
+	_, err = unit1.AddAction(operationID, "action-a-a", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = unit1.AddAction(operationID, "action-a-b", nil)
+	_, err = unit1.AddAction(operationID, "action-a-b", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = unit1.AddAction(operationID, "action-a-c", nil)
+	_, err = unit1.AddAction(operationID, "action-a-c", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = unit2.AddAction(operationID, "action-b-a", nil)
+	_, err = unit2.AddAction(operationID, "action-b-a", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = unit2.AddAction(operationID, "action-b-b", nil)
+	_, err = unit2.AddAction(operationID, "action-b-b", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify that calling Actions on unit1 returns only
@@ -3104,7 +3104,7 @@ func (s *CAASUnitSuite) TestOperatorAddAction(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	operationID, err := s.Model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	action, err := unit.AddAction(operationID, "snapshot", nil)
+	action, err := unit.AddAction(operationID, "snapshot", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(action.Parameters(), jc.DeepEquals, map[string]interface{}{
 		"outfile": "abcd", "workload-context": false,

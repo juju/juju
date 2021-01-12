@@ -128,7 +128,7 @@ func (f *factory) NewActionRunner(actionId string, cancel <-chan struct{}) (Runn
 		return nil, charmrunner.NewBadActionError(name, err.Error())
 	}
 
-	actionData := context.NewActionData(name, &tag, params, cancel)
+	actionData := context.NewActionData(name, &tag, params, action.Parallel(), action.ExecutionGroup(), cancel)
 	ctx, err := f.contextFactory.ActionContext(actionData)
 	if err != nil {
 		return nil, charmrunner.NewBadActionError(name, err.Error())

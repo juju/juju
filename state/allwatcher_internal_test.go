@@ -930,7 +930,7 @@ func (s *allWatcherStateSuite) TestChangeActions(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			operationID, err := m.EnqueueOperation("a test")
 			c.Assert(err, jc.ErrorIsNil)
-			action, err := m.EnqueueAction(operationID, u.Tag(), "vacuumdb", map[string]interface{}{})
+			action, err := m.EnqueueAction(operationID, u.Tag(), "vacuumdb", map[string]interface{}{}, true, "group")
 			c.Assert(err, jc.ErrorIsNil)
 			enqueued := makeActionInfo(action, st)
 			action, err = action.Begin()
@@ -3715,17 +3715,19 @@ func deltaMap(deltas []multiwatcher.Delta) map[interface{}]multiwatcher.EntityIn
 func makeActionInfo(a Action, st *State) multiwatcher.ActionInfo {
 	results, message := a.Results()
 	return multiwatcher.ActionInfo{
-		ModelUUID:  st.ModelUUID(),
-		ID:         a.Id(),
-		Receiver:   a.Receiver(),
-		Name:       a.Name(),
-		Parameters: a.Parameters(),
-		Status:     string(a.Status()),
-		Message:    message,
-		Results:    results,
-		Enqueued:   a.Enqueued(),
-		Started:    a.Started(),
-		Completed:  a.Completed(),
+		ModelUUID:      st.ModelUUID(),
+		ID:             a.Id(),
+		Receiver:       a.Receiver(),
+		Name:           a.Name(),
+		Parameters:     a.Parameters(),
+		Parallel:       a.Parallel(),
+		ExecutionGroup: a.ExecutionGroup(),
+		Status:         string(a.Status()),
+		Message:        message,
+		Results:        results,
+		Enqueued:       a.Enqueued(),
+		Started:        a.Started(),
+		Completed:      a.Completed(),
 	}
 }
 

@@ -207,7 +207,7 @@ func getSuccessfulCalls(index int) []testing.StubCall {
 		Args:     []interface{}{firstActionTag},
 	}, {
 		FuncName: "HandleAction",
-		Args:     []interface{}{firstAction.Name()},
+		Args:     []interface{}{firstAction.Name(), true, "group"},
 	}, {
 		FuncName: "ActionFinish",
 		Args:     []interface{}{firstActionTag, params.ActionCompleted, ""},
@@ -219,7 +219,7 @@ func getSuccessfulCalls(index int) []testing.StubCall {
 		Args:     []interface{}{secondActionTag},
 	}, {
 		FuncName: "HandleAction",
-		Args:     []interface{}{secondAction.Name()},
+		Args:     []interface{}{secondAction.Name(), true, "group"},
 	}, {
 		FuncName: "ActionFinish",
 		Args:     []interface{}{secondActionTag, params.ActionCompleted, ""},
@@ -231,7 +231,7 @@ func getSuccessfulCalls(index int) []testing.StubCall {
 		Args:     []interface{}{thirdActionTag},
 	}, {
 		FuncName: "HandleAction",
-		Args:     []interface{}{thirdAction.Name()},
+		Args:     []interface{}{thirdAction.Name(), true, "group"},
 	}, {
 		FuncName: "ActionFinish",
 		Args:     []interface{}{thirdActionTag, params.ActionCompleted, ""},

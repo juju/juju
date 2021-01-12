@@ -397,6 +397,8 @@ github.com/juju/charm/v9 v9.0.0-20210105084816-5204c3802611 h1:LQEQJvPHjeFNNAMgQ
 github.com/juju/charm/v9 v9.0.0-20210105084816-5204c3802611/go.mod h1:ffLfwuA4E426HlTtqgMvKZdBAWXOwbgeeHye/1ITTLc=
 github.com/juju/charm/v9 v9.0.0-20210107011734-a80982922c69 h1:VzRv22mb6gJNoAEgkZWQRW1EfUAt8Krw68C1Jw8n3sQ=
 github.com/juju/charm/v9 v9.0.0-20210107011734-a80982922c69/go.mod h1:ffLfwuA4E426HlTtqgMvKZdBAWXOwbgeeHye/1ITTLc=
+github.com/juju/charm/v9 v9.0.0-20210111000820-b31dcb2b3bc8 h1:eunInuOcyb390qE/GUfVRBKDYlwWP8VA8AHs8tWq4WY=
+github.com/juju/charm/v9 v9.0.0-20210111000820-b31dcb2b3bc8/go.mod h1:ffLfwuA4E426HlTtqgMvKZdBAWXOwbgeeHye/1ITTLc=
 github.com/juju/charmrepo/v7 v7.0.0-20210105092546-af3d6b52f7de h1:95Or6HY8Lfpv007aWUNMKzw2AnDXPOyqQjlO/N3UfjU=
 github.com/juju/charmrepo/v7 v7.0.0-20210105092546-af3d6b52f7de/go.mod h1:hnCmP2zszIv2WqLZpHyM+4/bkEvDZi5MLHRsvi58Lhs=
 github.com/juju/charmrepo/v7 v7.0.0-20210107021745-6d3b0475f2e4 h1:s51mNG4ES7lUzMMLzDU8Vb7r0+/LIv4FUSMPwVHMBsQ=
@@ -413,8 +415,8 @@ github.com/juju/collections v0.0.0-20180516022642-90152009b5f3/go.mod h1:Ep+c0vn
 github.com/juju/collections v0.0.0-20180717171555-9be91dc79b7c/go.mod h1:Ep+c0vnxsgmmTtsMibPgEEleZyi0b4uVvyzJ+8ka9EI=
 github.com/juju/collections v0.0.0-20200605021417-0d0ec82b7271 h1:4R626WTwa7pRYQFiIRLVPepMhm05eZMEx+wIurRnMLc=
 github.com/juju/collections v0.0.0-20200605021417-0d0ec82b7271/go.mod h1:5XgO71dV1JClcOJE+4dzdn4HrI5LiyKd7PlVG6eZYhY=
-github.com/juju/description/v2 v2.0.0-20201013195630-fc4923d04798 h1:XKm/k/o7qdofp1zZZkGW1Q0Pevow77gAjH8AnqYZLNI=
-github.com/juju/description/v2 v2.0.0-20201013195630-fc4923d04798/go.mod h1:R0uVxoEejueoMqD3tiidghBvVe9q3pshSFNqCToOTBo=
+github.com/juju/description/v2 v2.0.0-20210111031506-70078baca576 h1:eNMDwGhl/Hw86Nfmhb0vMKSL9vXHFxKimuq/513B268=
+github.com/juju/description/v2 v2.0.0-20210111031506-70078baca576/go.mod h1:R0uVxoEejueoMqD3tiidghBvVe9q3pshSFNqCToOTBo=
 github.com/juju/errors v0.0.0-20150916125642-1b5e39b83d18/go.mod h1:W54LbzXuIE0boCoNJfwqpmkKJ1O4TCTZMetAt6jGk7Q=
 github.com/juju/errors v0.0.0-20180726005433-812b06ada177/go.mod h1:W54LbzXuIE0boCoNJfwqpmkKJ1O4TCTZMetAt6jGk7Q=
 github.com/juju/errors v0.0.0-20200330140219-3fe23663418f h1:MCOvExGLpaSIzLYB4iQXEHP4jYVU6vmzLNQPdMVrxnM=
