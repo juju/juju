@@ -18,8 +18,7 @@ import (
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mock_statetracker.go github.com/juju/juju/worker/uniter/relation RelationStateTracker
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mock_subordinate_destroyer.go github.com/juju/juju/worker/uniter/relation SubordinateDestroyer
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mock_state_tracker_state.go github.com/juju/juju/worker/uniter/relation StateTrackerState
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mock_uniter_api.go github.com/juju/juju/worker/uniter/relation Unit,Application,Relation,RelationUnit
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mock_unit_getter.go github.com/juju/juju/worker/uniter/relation UnitGetter
 
 type RelationStateTracker interface {
 	// PrepareHook returns the name of the supplied relation hook, or an error
@@ -106,7 +105,13 @@ type StateManager interface {
 
 	// RemoveRelation removes the state for the given id from the
 	// manager.
-	RemoveRelation(id int) error
+	RemoveRelation(id int, unitGetter UnitGetter, knownUnits map[string]bool) error
+}
+
+// UnitGetter encapsulates methods to get unit info.
+type UnitGetter interface {
+	// Unit returns the existing unit with the given tag.
+	Unit(tag names.UnitTag) (Unit, error)
 }
 
 // UnitStateReadWriter encapsulates the methods from a state.Unit
@@ -124,6 +129,9 @@ type UnitStateReadWriter interface {
 // StateTrackerState encapsulates the methods from state
 // required by a relationStateTracker.
 type StateTrackerState interface {
+	// Unit returns the existing unit with the given tag.
+	Unit(tag names.UnitTag) (Unit, error)
+
 	// Relation returns the existing relation with the given tag.
 	Relation(tag names.RelationTag) (Relation, error)
 

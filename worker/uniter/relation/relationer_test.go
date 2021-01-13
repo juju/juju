@@ -34,9 +34,10 @@ type relationerSuite struct {
 	rel   *state.Relation
 	mgr   relation.StateManager
 
-	st      api.Connection
-	uniter  *apiuniter.State
-	relUnit relation.RelationUnit
+	st         api.Connection
+	uniter     *apiuniter.State
+	relUnit    relation.RelationUnit
+	unitGetter relation.UnitGetter
 }
 
 var _ = gc.Suite(&relationerSuite{})
@@ -64,12 +65,13 @@ func (s *relationerSuite) SetUpTest(c *gc.C) {
 
 	apiUnit, err := s.uniter.Unit(unit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
+	s.unitGetter = &relation.StateTrackerStateShim{s.uniter}
 	apiRel, err := s.uniter.Relation(s.rel.Tag().(names.RelationTag))
 	c.Assert(err, jc.ErrorIsNil)
 	apiRelUnit, err := apiRel.Unit(apiUnit.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	s.relUnit = &relation.RelationUnitShim{apiRelUnit}
-	s.mgr, err = relation.NewStateManager(apiUnit)
+	s.mgr, err = relation.NewStateManager(apiUnit, loggo.GetLogger("test"))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -94,7 +96,7 @@ func (s *relationerSuite) AddRelationUnit(c *gc.C, name string) (*state.Relation
 func (s *relationerSuite) TestEnterLeaveScope(c *gc.C) {
 	ru1, _ := s.AddRelationUnit(c, "u/1")
 	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
-	r := relation.NewRelationer(s.relUnit, s.mgr, loggo.GetLogger("test"))
+	r := relation.NewRelationer(s.relUnit, s.mgr, s.unitGetter, loggo.GetLogger("test"))
 
 	w := ru1.Watch()
 	// u/1 does not consider u/0 to be alive.
@@ -123,7 +125,7 @@ func (s *relationerSuite) TestEnterLeaveScope(c *gc.C) {
 }
 
 func (s *relationerSuite) TestPrepareCommitHooks(c *gc.C) {
-	r := relation.NewRelationer(s.relUnit, s.mgr, loggo.GetLogger("test"))
+	r := relation.NewRelationer(s.relUnit, s.mgr, s.unitGetter, loggo.GetLogger("test"))
 	err := r.Join()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -204,7 +206,7 @@ func (s *relationerSuite) TestSetDying(c *gc.C) {
 	settings := map[string]interface{}{"unit": "settings"}
 	err := ru1.EnterScope(settings)
 	c.Assert(err, jc.ErrorIsNil)
-	r := relation.NewRelationer(s.relUnit, s.mgr, loggo.GetLogger("test"))
+	r := relation.NewRelationer(s.relUnit, s.mgr, s.unitGetter, loggo.GetLogger("test"))
 	err = r.Join()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -267,7 +269,7 @@ func (s *relationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer s.setupRWMock(c).Finish()
-	mgr, err := relation.NewStateManager(s.mockUnitRW)
+	mgr, err := relation.NewStateManager(s.mockUnitRW, loggo.GetLogger("test"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	password, err := utils.RandomPassword()
@@ -287,7 +289,7 @@ func (s *relationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	relUnit := &relation.RelationUnitShim{apiRelUnit}
 
-	r := relation.NewRelationer(relUnit, mgr, loggo.GetLogger("test"))
+	r := relation.NewRelationer(relUnit, mgr, &relation.StateTrackerStateShim{uniterState}, loggo.GetLogger("test"))
 	c.Assert(r, jc.Satisfies, (*relation.Relationer).IsImplicit)
 
 	// Hooks are not allowed.
