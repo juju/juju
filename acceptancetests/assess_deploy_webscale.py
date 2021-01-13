@@ -314,12 +314,11 @@ def main(argv=None):
 
     begin = time.time()
     bs_manager = BootstrapManager.from_args(args)
-    with bs_manager.booted_context(
-        args.upload_tools,
-        db_snap_path=db_snap_path,
-        db_snap_asserts_path=db_snap_asserts_path,
-        mongo_memory_profile=args.mongo_memory_profile,
-    ):
+    with bs_manager.booted_context(args.upload_tools,
+                                   db_snap_path=db_snap_path,
+                                   db_snap_asserts_path=db_snap_asserts_path,
+                                   mongo_memory_profile=args.
+                                   mongo_memory_profile):
         client = bs_manager.client
         mongo_version, mongo_profile = extract_mongo_details(client)
         log.info("MongoVersion used for deployment: {} (profile: {})".format(

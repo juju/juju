@@ -22,15 +22,15 @@ from textwrap import dedent
 import pexpect
 
 from deploy_stack import BootstrapManager
-from jujupy import (
-    client_from_config,
-    )
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
     ensure_dir,
     scoped_environ,
     temp_dir,
+    )
+from jujupy import (
+    client_from_config,
     )
 
 
@@ -104,17 +104,17 @@ def client_credentials_to_details(client):
     cloud_name = client.env.get_cloud()
     log.info("cloud_name: {}".format(cloud_name))
     credentials = client.env.get_cloud_credentials()
-    if 'ec2' == provider:
+    if provider == 'ec2':
         return {'secret_key': credentials['secret-key'],
                 'access_key': credentials['access-key'],
                 }
-    if 'gce' == provider:
+    if provider == 'gce':
         gce_prepare_for_load()
         return {'client_id': credentials['client-id'],
                 'client_email': credentials['client-email'],
                 'private_key': credentials['private-key'],
                 }
-    if 'openstack' == provider:
+    if provider == 'openstack':
         os_cloud = client.env.clouds['clouds'][cloud_name]
         return {'os_tenant_name': credentials['tenant-name'],
                 'os_password': credentials['password'],
@@ -273,7 +273,7 @@ def run_autoload_credentials(client, envvars, answers):
     selection = 1
     while not process.eof():
         out = process.readline()
-        pattern = '.*(\d). {} \(.*\).*'.format(answers.cloud_listing)
+        pattern = r'.*(\d). {} \(.*\).*'.format(answers.cloud_listing)
         match = re.match(pattern, out)
         if match:
             selection = match.group(1)

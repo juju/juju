@@ -24,8 +24,8 @@ test:
 	TMPDIR=/tmp python -m unittest discover . -p "$(p)"
 	TMPDIR=/tmp python3 -W ignore::DeprecationWarning -m unittest discover jujupy -t . -p "$(p)"
 lint:
-	python3 -m flake8 --ignore=$(flake8_ignore) --builtins xrange,basestring $(py3) --exclude=repository $(mkfile_dir)
-	flake8 --ignore=$(flake8_ignore) --builtins xrange,basestring --exclude=$(py3),repository $(mkfile_dir)
+	python3 -m flake8 --ignore=$(flake8_ignore) --builtins xrange $(py3) --exclude=repository $(mkfile_dir)
+	flake8 --ignore=$(flake8_ignore) --builtins xrange --exclude=$(py3),repository $(mkfile_dir)
 cover:
 	python -m coverage run --source="./" --omit "./tests/*" -m unittest discover -vv ./tests
 	python -m coverage report

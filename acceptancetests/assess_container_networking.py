@@ -15,6 +15,12 @@ import tempfile
 from textwrap import dedent
 import time
 
+from utility import (
+    JujuAssertionError,
+    add_basic_testing_arguments,
+    configure_logging,
+    wait_for_port,
+    )
 from deploy_stack import (
     BootstrapManager,
     get_random_string,
@@ -24,12 +30,6 @@ from jujupy import (
     KVM_MACHINE,
     LXC_MACHINE,
     LXD_MACHINE,
-    )
-from utility import (
-    JujuAssertionError,
-    add_basic_testing_arguments,
-    configure_logging,
-    wait_for_port,
     )
 
 
@@ -59,7 +59,8 @@ def parse_args(argv=None):
         choices=[KVM_MACHINE, LXC_MACHINE, LXD_MACHINE])
     parser.add_argument(
         '--space-constraint',
-        help='The network space to constrain containers to. Default is no space constraints.',
+        help=('The network space to constrain containers to. '
+              'Default is no space constraints.'),
         default=None,
         dest='space')
     args = parser.parse_args(argv)
@@ -124,7 +125,8 @@ def make_machines(client, container_types, space):
 
     for host, containers in required.iteritems():
         for container in containers:
-            client.juju('add-machine', tuple(['{}:{}'.format(container, host)] + sargs))
+            client.juju('add-machine',
+                        tuple(['{}:{}'.format(container, host)] + sargs))
 
     status = client.wait_for_started()
 
@@ -420,7 +422,8 @@ def main(argv=None):
     client = bs_manager.client
     machine_types = _get_container_types(client, args.machine_type)
     with cleaned_bootstrap_context(bs_manager, args):
-        assess_container_networking(bs_manager.client, machine_types, args.space)
+        assess_container_networking(bs_manager.client, machine_types,
+                                    args.space)
     return 0
 
 

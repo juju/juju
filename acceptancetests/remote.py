@@ -8,8 +8,8 @@ import zlib
 
 import winrm
 
-import jujupy
 import utility
+import jujupy
 
 
 __metaclass__ = type
@@ -283,7 +283,7 @@ class WinRmRemote(_Remote):
 
     def run_cmd(self, cmd_list):
         """Run cmd and arguments given as a list returning response object."""
-        if isinstance(cmd_list, basestring):
+        if isinstance(cmd_list, (str, bytes)):
             raise ValueError("run_cmd requires a list not a string")
         # pywinrm does not correctly escape arguments, fix up by escaping cmd
         # and giving args as a list of a single pre-escaped string.

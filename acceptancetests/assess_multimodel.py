@@ -16,13 +16,13 @@ from deploy_stack import (
     get_random_string,
     safe_print_status,
     )
-from jujupy import (
-    client_from_config,
-    )
 from utility import (
     add_basic_testing_arguments,
     ensure_dir,
     print_now,
+    )
+from jujupy import (
+    client_from_config,
     )
 
 
@@ -78,8 +78,7 @@ def multimodel_setup(args):
             args.agent_stream,
             args.logs, args.keep_env,
             upload_tools=False,
-            region=args.region,
-            ):
+            region=args.region):
         yield client, charm_series, base_env
 
 
@@ -93,7 +92,7 @@ def hosted_environment(system_client, log_dir, suffix):
     client = system_client.add_model(env_name)
     try:
         yield client
-    except:
+    except Exception:
         logging.exception(
             'Exception while environment "{}" active'.format(
                 client.env.environment))

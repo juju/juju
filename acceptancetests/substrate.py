@@ -470,8 +470,9 @@ class AzureARMAccount:
             if m.get('short-name', m['name']) == client.model_name][0]
         resource_group = 'juju-{}-model-{}'.format(
             model.get('short-name', model['name']), model['model-uuid'])
-        resources = winazurearm.list_resources(
-            self.arm_client, glob=resource_group, recursive=True)
+        # NOTE(achilleasa): resources was not used in this func
+        # resources = winazurearm.list_resources(
+        #    self.arm_client, glob=resource_group, recursive=True)
         vm_ids = []
         for machine_name in instance_ids:
             rgd, vm = winazurearm.find_vm_deployment(
@@ -896,11 +897,7 @@ class LXDAccount:
 
 def get_config(boot_config):
     config = boot_config.make_config_copy()
-    if boot_config.provider not in (
-        'lxd',
-        'manual',
-        'kubernetes',
-    ):
+    if boot_config.provider not in ('lxd', 'manual', 'kubernetes'):
         config.update(boot_config.get_cloud_credentials())
     return config
 

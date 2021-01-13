@@ -26,13 +26,19 @@ The above feature tests will be run on:
 """
 
 from __future__ import print_function
+from textwrap import dedent
 
 import argparse
 import logging
 import sys
 import yaml
-from textwrap import dedent
 
+from utility import (
+    add_basic_testing_arguments,
+    configure_logging,
+    JujuAssertionError,
+    )
+from jujucharm import local_charm_path
 from deploy_stack import (
     BootstrapManager,
     )
@@ -42,12 +48,6 @@ from jujupy.client import (
     )
 from jujupy.models import (
     temporary_model
-    )
-from jujucharm import local_charm_path
-from utility import (
-    add_basic_testing_arguments,
-    configure_logging,
-    JujuAssertionError,
     )
 
 
@@ -64,7 +64,8 @@ def assess_cross_model_relations_single_controller(args):
         offer_model = bs_manager.client
         with temporary_model(offer_model, 'consume-model') as consume_model:
             ensure_cmr_offer_management(offer_model)
-            ensure_cmr_offer_consumption_and_relation(offer_model, consume_model)
+            ensure_cmr_offer_consumption_and_relation(offer_model,
+                                                      consume_model)
 
 
 def assess_cross_model_relations_multiple_controllers(args):
