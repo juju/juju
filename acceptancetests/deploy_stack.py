@@ -17,28 +17,11 @@ import string
 import subprocess
 import sys
 import time
-import yaml
 import shutil
+import yaml
 
 from jujucharm import (
     local_charm_path,
-)
-from jujupy import (
-    client_from_config,
-    client_for_existing,
-    FakeBackend,
-    fake_juju_client,
-    get_machine_dns_name,
-    juju_home_path,
-    JujuData,
-    temp_bootstrap_env,
-    IaasClient,
-)
-from jujupy.configuration import (
-    get_juju_data,
-)
-from jujupy.exceptions import (
-    NoProvider,
 )
 from remote import (
     remote_from_address,
@@ -65,6 +48,23 @@ from utility import (
     print_now,
     until_timeout,
     wait_for_port,
+)
+from jujupy import (
+    client_from_config,
+    client_for_existing,
+    FakeBackend,
+    fake_juju_client,
+    get_machine_dns_name,
+    juju_home_path,
+    JujuData,
+    temp_bootstrap_env,
+    IaasClient,
+)
+from jujupy.configuration import (
+    get_juju_data,
+)
+from jujupy.exceptions import (
+    NoProvider,
 )
 
 __metaclass__ = type
@@ -127,7 +127,8 @@ def _deploy_stack(path, client, timeout=3600, charm=False, lxd_profile=None):
     if lxd_profile is not None:
         model_name = client.model_name
         profile = lxd_profile.format(model_name=model_name)
-        with subprocess.Popen(('echo', profile), stdout=subprocess.PIPE) as echo:
+        cmd = ('echo', profile)
+        with subprocess.Popen(cmd, stdout=subprocess.PIPE) as echo:
             o = subprocess.check_output(
                 ('lxc', 'profile', 'edit', 'juju-%s' % model_name),
                 stdin=echo.stdout
@@ -497,10 +498,12 @@ def deploy_job_parse_args(argv=None):
     parser.add_argument('--use-charmstore', action='store_true',
                         help='Deploy dummy charms from the charmstore.')
     parser.add_argument('--force', action='store', default=False,
-                        help='Forces the controller to be deployed even though the series is not supported.')
+                        help=("Forces the controller to be deployed even "
+                              "though the series is not supported."))
     parser.add_argument('--config', action='store', default=None,
-                        help='Able to set config settings during deploy. E.g. alternative image-stream  --config '
-                             'image-stream=daily')
+                        help=("Able to set config settings during deploy. "
+                              "E.g. alternative image-stream  --config "
+                              "image-stream=daily"))
     return parser.parse_args(argv)
 
 
@@ -745,8 +748,8 @@ class BootstrapManager:
     cleanup_hook = None
 
     def __init__(self, temp_env_name, client, tear_down_client, bootstrap_host,
-                 machines, series, arch, agent_url, agent_stream, region,
-                 log_dir, keep_env, controller_strategy=None,
+                 machines, series, agent_url, agent_stream, region,
+                 log_dir, keep_env, arch=None, controller_strategy=None,
                  logged_exception_exit=True, existing_controller=None):
         """Constructor.
 
@@ -790,9 +793,8 @@ class BootstrapManager:
                 if substrate is not None:
                     return substrate.ensure_cleanup(self.resource_details)
                 logging.warning(
-                    '{} is an unknown provider. Unable to ensure cleanup.'.format(
-                        self.client.env.provider
-                    )
+                    '{} is an unknown provider. Unable to ensure cleanup.'.
+                    format(self.client.env.provider)
                 )
         return []
 
@@ -1071,7 +1073,8 @@ class BootstrapManager:
                         try:
                             self.tear_down()
                         finally:
-                            # ensure_cleanup does not reply on controller at all, so always try to do cleanup.
+                            # ensure_cleanup does not reply on controller at
+                            # all, so always try to do cleanup.
                             unclean_resources = self.ensure_cleanup()
                             error_if_unclean(unclean_resources)
 
@@ -1262,16 +1265,17 @@ def _deploy_job(args, charm_series, series):
         args.temp_env_name, client, client, args.bootstrap_host, args.machine,
         series, args.arch, args.agent_url, args.agent_stream, args.region,
         args.logs, args.keep_env, controller_strategy=controller_strategy)
-    with bs_manager.booted_context(args.upload_tools, force=args.force, config_options=args.config):
+    with bs_manager.booted_context(args.upload_tools, force=args.force,
+                                   config_options=args.config):
         # Create a no-op context manager, to avoid duplicate calls of
         # deploy_dummy_stack(), as was the case prior to this revision.
         manager = nested()
         with manager:
             deploy_dummy_stack(client, charm_series, args.use_charmstore)
         assess_juju_relations(client)
-        skip_juju_run = (
-                (client.version < "2" and sys.platform in ("win32", "darwin")) or
-                charm_series.startswith(("centos", "win")))
+        is_win_or_mac = sys.platform in ("win32", "darwin")
+        skip_juju_run = ((client.version < "2" and is_win_or_mac)
+                         or charm_series.startswith(("centos", "win")))
         if not skip_juju_run:
             assess_juju_run(client)
         if args.upgrade:

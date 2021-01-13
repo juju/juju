@@ -234,7 +234,7 @@ def get_controller_series_and_alternative_series(client):
     controller_series = machines['0']['series']
     try:
         supported_series.remove(controller_series)
-    except:
+    except Exception:
         raise ValueError("Unknown series {}".format(controller_series))
     return controller_series, supported_series[0]
 
@@ -369,7 +369,7 @@ def make_unique_tool(agent_file, agent_stream):
         os.makedirs(juju_tool_src)
         clone_tgz_file_and_change_shasum(agent_file, os.path.join(
             juju_tool_src, os.path.basename(agent_file)))
-        log.debug("Created agent directory to perform bootstrap".format(
+        log.debug("Created agent directory {} to perform bootstrap".format(
             agent_dir))
         yield agent_dir
 

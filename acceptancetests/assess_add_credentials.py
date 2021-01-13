@@ -6,10 +6,10 @@ from __future__ import print_function
 import argparse
 import logging
 import os
-import pexpect
 import shutil
 import sys
 import yaml
+import pexpect
 
 from deploy_stack import (
     BootstrapManager,
@@ -47,8 +47,9 @@ def assess_add_credentials(args):
     else:
         env = args.env.split('parallel-')[1]
 
-    # If no cloud-city path is given, we grab the credentials from env juju_home.
-    # Else we override the path where we read the credentials yaml for testing purposes.
+    # If no cloud-city path is given, we grab the credentials from env
+    # juju_home.  Else we override the path where we read the credentials yaml
+    # for testing purposes.
     if args.juju_home is not None:
         cred = get_credentials(env, args.juju_home)
     else:

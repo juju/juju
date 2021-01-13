@@ -1,6 +1,6 @@
-from OpenSSL import crypto
 import os
 from textwrap import dedent
+from OpenSSL import crypto
 
 
 def create_certificate(target_dir, ip_address):

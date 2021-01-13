@@ -68,7 +68,8 @@ def destroy_model(client, new_client):
             if not_found_error in e.stderr:
                 log.info("Model fully removed")
                 break
-            removed_error = b'model "admin/{}" has been removed from the controller'.format(old_model)
+            removed_error = (b'model "admin/{}" has been removed '
+                             b'from the controller').format(old_model)
             if removed_error not in e.stderr:
                 error = 'unexpected error calling status\n{}'.format(e.stderr)
                 raise JujuAssertionError(error)
@@ -81,7 +82,8 @@ def destroy_model(client, new_client):
         # We didn't break out of the loop, so the model-removed message didn't
         # change to model not found (indicating that the model hasn't been
         # removed from the state pool).
-        raise JujuAssertionError("didn't get not found error - model still in state pool")
+        raise JujuAssertionError(
+            "didn't get not found error - model still in state pool")
 
 
 def switch_model(client, current_model, current_controller):
