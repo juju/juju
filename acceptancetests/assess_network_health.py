@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Assess network health for a given deployment or bundle"""
 from __future__ import print_function
 
@@ -6,20 +6,14 @@ import argparse
 import logging
 import sys
 import json
-import yaml
 import subprocess
 import re
 import time
 import os
 import socket
+import yaml
 from collections import defaultdict
 
-from jujupy import (
-    client_for_existing
-    )
-from jujupy.wait_condition import (
-    WaitApplicationNotPresent
-    )
 from deploy_stack import (
     BootstrapManager
     )
@@ -31,6 +25,12 @@ from utility import (
     )
 from substrate import (
     maas_account_from_boot_config,
+    )
+from jujupy import (
+    client_for_existing
+    )
+from jujupy.wait_condition import (
+    WaitApplicationNotPresent
     )
 
 __metaclass__ = type
@@ -48,8 +48,7 @@ class AssessNetworkHealth:
         if args.logs:
             self.log_dir = args.logs
         else:
-            self.log_dir = generate_default_clean_dir(
-                            args.temp_env_name)
+            self.log_dir = generate_default_clean_dir(args.temp_env_name)
         self.expose_client = None
         self.existing_series = set([])
         self.expose_test_charms = set([])
@@ -259,7 +258,8 @@ class AssessNetworkHealth:
         return results
 
     def get_nh_unit_info(self, apps, by_unit=False):
-        """Parses juju status information to return deployed network-health units.
+        """Parses juju status information to return deployed network-health
+        units.
 
         :param apps: Dict of apps given by get_status().get_applications()
         :param by_unit: Bool, returns dict of NH units keyed by the unit they
@@ -432,12 +432,12 @@ class AssessNetworkHealth:
         log.info('Parsing final results.')
         error_string = []
         for nh_source, service_result in visibility.items():
-                for service, unit_res in service_result.items():
-                    if False in unit_res.values():
-                        failed = [u for u, r in unit_res.items() if r is False]
-                        error = ('Unit {0} failed to contact '
-                                 'targets(s): {1}'.format(nh_source, failed))
-                        error_string.append(error)
+            for service, unit_res in service_result.items():
+                if False in unit_res.values():
+                    failed = [u for u, r in unit_res.items() if r is False]
+                    error = ('Unit {0} failed to contact '
+                             'targets(s): {1}'.format(nh_source, failed))
+                    error_string.append(error)
         for unit, res in internet.items():
             if not res:
                 error = 'Machine {} failed internet connection.'.format(unit)
@@ -507,7 +507,8 @@ class AssessNetworkHealth:
         return True
 
     def to_json(self, units):
-        """Returns a formatted json string to be passed through juju run-action.
+        """Returns a formatted json string to be passed through juju
+        run-action.
 
         :param units: Dict of units
         :return: A "JSON-like" string that can be passed to Juju without it

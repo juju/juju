@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 from __future__ import print_function
 
@@ -12,11 +12,11 @@ from pprint import pformat
 import sys
 import yaml
 
-from jujupy import client_from_config
 from utility import (
     add_arg_juju_bin,
     JujuAssertionError,
 )
+from jujupy import client_from_config
 
 
 def remove_display_attributes(cloud):
@@ -39,8 +39,9 @@ def remove_display_attributes(cloud):
     assert_equal(defined, 'local')
     description = cloud.pop('description', "")
 
-    # Delete None values, which are "errors" from parsing the yaml
-    # E.g. output can show values which we show to the customers but should actually not parsed and compared
+    # Delete None values, which are "errors" from parsing the yaml E.g. output
+    # can show values which we show to the customers but should actually not
+    # parsed and compared
     for key in cloud.keys():
         if cloud[key] is None:
             del cloud[key]
@@ -89,7 +90,8 @@ def assess_show_cloud(client, expected):
     """Assess how show-cloud behaves."""
     for cloud_name, expected_cloud in expected.items():
         actual_cloud = yaml.safe_load(client.get_juju_output(
-            'show-cloud', cloud_name, '--format', 'yaml', '--local', include_e=False))
+            'show-cloud', cloud_name, '--format', 'yaml',
+            '--local', include_e=False))
         remove_display_attributes(actual_cloud)
         assert_equal(actual_cloud, expected_cloud)
 
@@ -132,7 +134,8 @@ def main():
         with open(args.clouds_file) as f:
             supplied_clouds = yaml.safe_load(f.read().decode('utf-8'))
         client.env.write_clouds(client.env.juju_home, supplied_clouds)
-        no_region_endpoint = strip_redundant_endpoints(supplied_clouds['clouds'])
+        no_region_endpoint = strip_redundant_endpoints(
+            supplied_clouds['clouds'])
         with testing('assess_clouds'):
             assess_clouds(client, no_region_endpoint)
         with testing('assess_show_cloud'):

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Assess Juju under various proxy network conditions.
 
 This test is dangerous to run on your own host. It will change the host's

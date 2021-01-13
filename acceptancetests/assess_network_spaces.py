@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Assess network spaces for supported providers (currently only EC2)"""
 
 import argparse
@@ -11,15 +11,15 @@ import re
 import ipaddress
 import boto3
 
-from jujupy.exceptions import (
-    ProvisioningError
-    )
 from deploy_stack import (
     BootstrapManager
     )
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
+    )
+from jujupy.exceptions import (
+    ProvisioningError
     )
 
 __metaclass__ = type
@@ -61,8 +61,8 @@ class AssessNetworkSpaces:
             try:
                 test(client)
             except TestFailure as e:
-                fail_messages.append(e.message)
-                log.info('FAILED: ' + e.message + '\n')
+                fail_messages.append(str(e))
+                log.info('FAILED: ' + str(e) + '\n')
 
         log.info('Tests complete.')
         if fail_messages:
@@ -86,8 +86,8 @@ class AssessNetworkSpaces:
         :param client: Juju client object with controller
         """
         log.info('Assigning network spaces on {}.'.format(client.env.provider))
-        subnets = yaml.safe_load(
-                client.get_juju_output('list-subnets', '--format=yaml'))
+        subnets = yaml.safe_load(client.get_juju_output('list-subnets',
+                                                        '--format=yaml'))
         if not subnets:
             raise SubnetsNotReady(
                 'No subnets defined in {}'.format(client.env.provider))
@@ -96,9 +96,8 @@ class AssessNetworkSpaces:
             subnet_count += 1
             client.juju('add-space', ('space{}'.format(subnet_count), subnet))
         if subnet_count < 3:
-            raise SubnetsNotReady(
-                    '3 subnets required for spaces assignment. '
-                    '{} found.'.format(subnet_count))
+            raise SubnetsNotReady('3 subnets required for spaces assignment. '
+                                  '{} found.'.format(subnet_count))
 
     def assert_machines_in_correct_spaces(self, client):
         """Check all the machines to verify they are in the expected spaces
@@ -121,11 +120,10 @@ class AssessNetworkSpaces:
                 expected_space = 'space{}'.format(machine)
             ip = get_machine_ip_in_space(client, machine, expected_space)
             if not ip:
-                raise TestFailure(
-                        'Machine {machine} has NO IPs in '
-                        '{space}'.format(
-                            machine=machine,
-                            space=expected_space))
+                raise TestFailure('Machine {machine} has NO IPs in '
+                                  '{space}'.format(
+                                      machine=machine,
+                                      space=expected_space))
         log.info('PASSED')
 
     def assert_machine_connectivity(self, client):
@@ -168,9 +166,9 @@ class AssessNetworkSpaces:
             machine = client.show_machine('2')['machines'][0]
             container = machine['containers']['2/lxd/0']
             if container['juju-status']['current'] == 'started':
-                raise TestFailure(
-                        'Encountered no conflict when launching a container '
-                        'on a machine with a different spaces constraint.')
+                raise TestFailure(('Encountered no conflict when launching a '
+                                   'container on a machine with a different '
+                                   'spaces constraint.'))
         except ProvisioningError:
             log.info('Container correctly failed to provision.')
         finally:
@@ -194,14 +192,14 @@ class AssessNetworkSpaces:
             try:
                 routes = client.run(['ip route show'], machines=[unit[0]])
             except subprocess.CalledProcessError:
-                raise TestFailure(
-                        'Could not connect to address for unit: {0}, '
-                        'unable to find default route.'.format(unit[0]))
+                raise TestFailure(('Could not connect to address for unit: {0}'
+                                   ', unable to find default route.').format(
+                                       unit[0]))
             default_route = re.search(r'(default via )+([\d\.]+)\s+',
                                       json.dumps(routes[0]))
             if not default_route:
-                raise TestFailure(
-                        'Default route not found for {}'.format(unit[0]))
+                raise TestFailure('Default route not found for {}'.format(
+                    unit[0]))
         log.info('PASSED')
 
     def deploy_spaces_machines(self, client, series=None):
@@ -322,8 +320,8 @@ def machine_can_ping_ip(client, machine, ip):
     :param ip: IP address to ping
     :returns: success of ping
     """
-    rc, _ = client.juju(
-            'ssh', ('--proxy', machine, 'ping -c1 -q ' + ip), check=False)
+    rc, _ = client.juju('ssh', ('--proxy', machine, 'ping -c1 -q ' + ip),
+                        check=False)
     return rc == 0
 
 
@@ -381,11 +379,10 @@ class SpacesAWS(Spaces):
             return False
 
         creds = client.env.get_cloud_credentials()
-        ec2 = boto3.resource(
-                'ec2',
-                region_name=client.env.get_region(),
-                aws_access_key_id=creds['access-key'],
-                aws_secret_access_key=creds['secret-key'])
+        ec2 = boto3.resource('ec2',
+                             region_name=client.env.get_region(),
+                             aws_access_key_id=creds['access-key'],
+                             aws_secret_access_key=creds['secret-key'])
 
         # See if the VPC we want already exists.
         vpc_response = ec2.meta.client.describe_vpcs(Filters=[{
@@ -403,7 +400,8 @@ class SpacesAWS(Spaces):
         log.info('Setting up VPC in AWS region {}'.format(
             client.env.get_region()))
         vpc = ec2.create_vpc(CidrBlock='10.0.0.0/16')
-        vpc.create_tags(Tags=[{'Key': 'Name', 'Value': 'assess-network-spaces'}])
+        vpc.create_tags(Tags=[{'Key': 'Name',
+                               'Value': 'assess-network-spaces'}])
         vpc.wait_until_available()
 
         self.vpcid = vpc.id
@@ -450,12 +448,10 @@ class SpacesAWS(Spaces):
             region=client.env.get_region(),
             vpcid=self.vpcid))
         creds = client.env.get_cloud_credentials()
-        ec2 = boto3.resource(
-                'ec2',
-                region_name=client.env.get_region(),
-                aws_access_key_id=creds['access-key'],
-                aws_secret_access_key=creds['secret-key'])
-        ec2client = ec2.meta.client
+        ec2 = boto3.resource('ec2',
+                             region_name=client.env.get_region(),
+                             aws_access_key_id=creds['access-key'],
+                             aws_secret_access_key=creds['secret-key'])
         vpc = ec2.Vpc(self.vpcid)
         # delete any instances
         for subnet in vpc.subnets.all():

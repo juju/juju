@@ -563,9 +563,12 @@ def describe_substrate(env):
 def get_stripped_version_number(version_string):
     return get_version_string_parts(version_string)[0]
 
-
 def get_version_string_parts(version_string):
     # strip the series and arch from the built version.
+    # Note:
+    if isinstance(version_string, bytes):
+        version_string = str(version_string, 'utf-8')
+
     version_parts = version_string.split('-')
     if len(version_parts) == 4:
         # Version contains "-<patchname>", reconstruct it after the split.

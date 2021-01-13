@@ -87,7 +87,7 @@ def _clean_dir(maybe_dir):
             # we don't raise this error due to tests abusing /tmp/logs
             logging.warning('Not a directory {}'.format(maybe_dir))
         if e.errno == errno.EEXIST:
-            logging.warnings('Directory {} already exists'.format(maybe_dir))
+            logging.warning('Directory {} already exists'.format(maybe_dir))
     else:
         if contents and contents != ["empty"]:
             logging.warning(
@@ -142,7 +142,7 @@ def wait_for_port(host, port, closed=False, timeout=30):
         except socket.gaierror as e:
             print_now(str(e))
         except Exception as e:
-            print_now('Unexpected {!r}: {}'.format((type(e), e)))
+            print_now('Unexpected {!r}: {}'.format(type(e), e))
             raise
         else:
             conn.close()

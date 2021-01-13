@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 This tests the wallet commands utilized for commercial charm billing.
 These commands are linked to a ubuntu sso account, and as such, require the
@@ -9,15 +9,15 @@ You can use charm login to do this, or let juju authenticate with a browser.
 from __future__ import print_function
 
 import argparse
-from fixtures import EnvironmentVariable
 import json
 import logging
 import os
-import pexpect
 from random import randint
 import shutil
 import subprocess
 import sys
+import pexpect
+from fixtures import EnvironmentVariable
 
 
 from deploy_stack import (
@@ -123,7 +123,7 @@ def assert_set_wallet(client, name, limit, error_strings):
     try:
         _try_setting_wallet(client, name, limit)
     except JujuAssertionError as e:
-        if error_strings['pass'] not in e.message:
+        if error_strings['pass'] not in str(e):
             raise JujuAssertionError(
                 '{}: {}'.format(error_strings['unknown'], e))
     else:

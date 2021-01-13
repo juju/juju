@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 from __future__ import print_function
 from argparse import ArgumentParser
 import re
@@ -120,9 +120,9 @@ def _assess_spaces_subnets(client, network_config, charms_to_space):
             cidrs_in_space[name].append(cidr)
 
     units_checked = 0
-    for space, cidrs in cidrs_in_space.iteritems():
+    for space, cidrs in iter(cidrs_in_space.items()):
         for cidr in cidrs:
-            for unit, address in unit_priv_address.iteritems():
+            for unit, address in iter(unit_priv_address.items()):
                 if ipv4_in_cidr(address, cidr):
                     units_checked += 1
                     charm = unit.split('/')[0]
