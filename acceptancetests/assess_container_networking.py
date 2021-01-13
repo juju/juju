@@ -123,7 +123,7 @@ def make_machines(client, container_types, space):
     if space:
         sargs = ['--constraints', 'spaces=' + space]
 
-    for host, containers in required.iteritems():
+    for host, containers in iter(required.items()):
         for container in containers:
             client.juju('add-machine',
                         tuple(['{}:{}'.format(container, host)] + sargs))
