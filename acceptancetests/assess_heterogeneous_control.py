@@ -27,6 +27,7 @@ from jujupy import (
     JujuData,
     )
 
+
 def prepare_dummy_env(client):
     """Use a client to prepare a dummy environment."""
     charm_source = local_charm_path(
@@ -74,9 +75,9 @@ def assess_heterogeneous(initial, other, base_env, environment_name, log_dir,
         initial, other, base_env, debug, agent_url)
     bs_manager = BootstrapManager(
         environment_name, initial_client, teardown_client,
-        bootstrap_host=None, machines=[], series=series, agent_url=agent_url,
-        agent_stream=agent_stream, region=None, log_dir=log_dir,
-        keep_env=False)
+        bootstrap_host=None, machines=[], series=series, arch=None,
+        agent_url=agent_url, agent_stream=agent_stream, region=None,
+        log_dir=log_dir, keep_env=False)
     test_control_heterogeneous(bs_manager, other_client, upload_tools)
 
 
