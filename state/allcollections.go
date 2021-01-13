@@ -322,6 +322,8 @@ func allCollections() CollectionSchema {
 		instanceDataC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "machineid"},
+			}, {
+				Key: []string{"model-uuid", "instanceid"},
 			}},
 		},
 		machinesC: {
