@@ -53,6 +53,7 @@ type BaseSuite struct {
 	mockNamespaces             *mocks.MockNamespaceInterface
 	mockApps                   *mocks.MockAppsV1Interface
 	mockExtensions             *mocks.MockExtensionsV1beta1Interface
+	mockNetworking             *mocks.MockNetworkingV1Interface
 	mockSecrets                *mocks.MockSecretInterface
 	mockDeployments            *mocks.MockDeploymentInterface
 	mockStatefulSets           *mocks.MockStatefulSetInterface
@@ -64,7 +65,8 @@ type BaseSuite struct {
 	mockPersistentVolumeClaims *mocks.MockPersistentVolumeClaimInterface
 	mockStorage                *mocks.MockStorageV1Interface
 	mockStorageClass           *mocks.MockStorageClassInterface
-	mockIngressInterface       *mocks.MockIngressInterface
+	mockIngresses              *mocks.MockIngressInterface
+	mockIngressClasses         *mocks.MockIngressClassInterface
 	mockNodes                  *mocks.MockNodeInterface
 	mockEvents                 *mocks.MockEventInterface
 
@@ -278,16 +280,20 @@ func (s *BaseSuite) setupK8sRestClient(
 
 	s.mockApps = mocks.NewMockAppsV1Interface(ctrl)
 	s.mockExtensions = mocks.NewMockExtensionsV1beta1Interface(ctrl)
+	s.mockNetworking = mocks.NewMockNetworkingV1Interface(ctrl)
 	s.mockStatefulSets = mocks.NewMockStatefulSetInterface(ctrl)
 	s.mockDeployments = mocks.NewMockDeploymentInterface(ctrl)
 	s.mockDaemonSets = mocks.NewMockDaemonSetInterface(ctrl)
-	s.mockIngressInterface = mocks.NewMockIngressInterface(ctrl)
+	s.mockIngresses = mocks.NewMockIngressInterface(ctrl)
+	s.mockIngressClasses = mocks.NewMockIngressClassInterface(ctrl)
 	s.k8sClient.EXPECT().ExtensionsV1beta1().AnyTimes().Return(s.mockExtensions)
+	s.k8sClient.EXPECT().NetworkingV1().AnyTimes().Return(s.mockNetworking)
 	s.k8sClient.EXPECT().AppsV1().AnyTimes().Return(s.mockApps)
 	s.mockApps.EXPECT().StatefulSets(namespace).AnyTimes().Return(s.mockStatefulSets)
 	s.mockApps.EXPECT().Deployments(namespace).AnyTimes().Return(s.mockDeployments)
 	s.mockApps.EXPECT().DaemonSets(namespace).AnyTimes().Return(s.mockDaemonSets)
-	s.mockExtensions.EXPECT().Ingresses(namespace).AnyTimes().Return(s.mockIngressInterface)
+	s.mockExtensions.EXPECT().Ingresses(namespace).AnyTimes().Return(s.mockIngresses)
+	s.mockNetworking.EXPECT().IngressClasses().AnyTimes().Return(s.mockIngressClasses)
 
 	s.mockStorage = mocks.NewMockStorageV1Interface(ctrl)
 	s.mockStorageClass = mocks.NewMockStorageClassInterface(ctrl)

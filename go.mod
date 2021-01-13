@@ -21,12 +21,11 @@ require (
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect
 	github.com/dustin/go-humanize v1.0.0
-	github.com/evanphx/json-patch v4.5.0+incompatible // indirect
 	github.com/flosch/pongo2 v0.0.0-20141028000813-5e81b817a0c4 // indirect
 	github.com/golang/mock v1.4.3
 	github.com/google/go-cmp v0.5.1 // indirect
 	github.com/google/go-querystring v1.0.0
-	github.com/googleapis/gnostic v0.4.0
+	github.com/googleapis/gnostic v0.4.1
 	github.com/gorilla/handlers v0.0.0-20170224193955-13d73096a474
 	github.com/gorilla/schema v0.0.0-20160426231512-08023a0215e7
 	github.com/gorilla/websocket v1.4.2
@@ -134,12 +133,11 @@ require (
 	gopkg.in/tomb.v2 v2.0.0-20161208151619-d5d1b5820637
 	gopkg.in/yaml.v2 v2.3.0
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
-	k8s.io/api v0.18.6
-	k8s.io/apiextensions-apiserver v0.18.6
-	k8s.io/apimachinery v0.18.6
-	k8s.io/client-go v0.18.6
+	k8s.io/api v0.19.6
+	k8s.io/apiextensions-apiserver v0.19.6
+	k8s.io/apimachinery v0.19.6
+	k8s.io/client-go v0.19.6
 	k8s.io/klog/v2 v2.3.0 // indirect
-	k8s.io/utils v0.0.0-20200724153422-f32512634ab7 // indirect
 )
 
 replace github.com/altoros/gosigma => github.com/juju/gosigma v0.0.0-20200420012028-063911838a9e
@@ -157,8 +155,8 @@ replace github.com/dustin/go-humanize v1.0.0 => github.com/dustin/go-humanize v0
 replace github.com/hashicorp/raft-boltdb => github.com/juju/raft-boltdb v0.0.0-20200518034108-40b112c917c5
 
 replace (
-	k8s.io/api v0.0.0 => k8s.io/api v0.18.6
-	k8s.io/apiextensions-apiserver v0.0.0 => k8s.io/apiextensions-apiserver v0.18.6
-	k8s.io/apimachinery v0.0.0 => k8s.io/apimachinery v0.18.6
-	k8s.io/client-go v0.0.0 => k8s.io/client-go v0.18.6
+	k8s.io/api v0.0.0 => k8s.io/api v0.19.6
+	k8s.io/apiextensions-apiserver v0.0.0 => k8s.io/apiextensions-apiserver v0.19.6
+	k8s.io/apimachinery v0.0.0 => k8s.io/apimachinery v0.19.6
+	k8s.io/client-go v0.0.0 => k8s.io/client-go v0.19.6
 )
