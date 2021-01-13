@@ -942,6 +942,39 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationOptions(c *gc.C
 	})
 }
 
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationDefaultArchConstraints(c *gc.C) {
+	wpch := s.setupCharm(c, "cs:xenial/wordpress-42", "wordpress", "bionic")
+	dch := s.setupCharm(c, "cs:bionic/dummy-0", "dummy", "bionic")
+
+	err := s.DeployBundleYAML(c, `
+        applications:
+            wordpress:
+                charm: cs:wordpress
+                constraints: mem=4G cores=2
+            customized:
+                charm: cs:bionic/dummy-0
+                num_units: 1
+                constraints: arch=amd64
+    `)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCharmsUploaded(c, "cs:bionic/dummy-0", "cs:xenial/wordpress-42")
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"customized": {
+			charm:       "cs:bionic/dummy-0",
+			constraints: constraints.MustParse("arch=amd64"),
+			config:      dch.Config().DefaultSettings(),
+		},
+		"wordpress": {
+			charm:       "cs:xenial/wordpress-42",
+			constraints: constraints.MustParse("arch=amd64 mem=4G cores=2"),
+			config:      wpch.Config().DefaultSettings(),
+		},
+	})
+	s.assertUnitsCreated(c, map[string]string{
+		"customized/0": "0",
+	})
+}
+
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationConstraints(c *gc.C) {
 	wpch := s.setupCharm(c, "cs:xenial/wordpress-42", "wordpress", "bionic")
 	dch := s.setupCharm(c, "cs:bionic/dummy-0", "dummy", "bionic")

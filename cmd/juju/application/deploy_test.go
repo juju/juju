@@ -1959,7 +1959,10 @@ func (s *FakeStoreStateSuite) setupCharmMaybeAddForce(c *gc.C, url, name, series
 	}
 	for _, url := range charmURLs {
 		for _, serie := range []string{"", url.Series, series} {
-			origin, err := apputils.DeduceOrigin(url, corecharm.Channel{}, corecharm.Platform{Series: serie})
+			platform := corecharm.Platform{
+				Series: serie,
+			}
+			origin, err := apputils.DeduceOrigin(url, corecharm.Channel{}, platform)
 			c.Assert(err, jc.ErrorIsNil)
 
 			s.fakeAPI.Call("ResolveCharm", url, origin).Returns(
