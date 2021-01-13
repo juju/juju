@@ -96,15 +96,16 @@ func (s cloudSpecAPI) GetCloudSpec(tag names.ModelTag) params.CloudSpecResult {
 		}
 	}
 	result.Result = &params.CloudSpec{
-		Type:             spec.Type,
-		Name:             spec.Name,
-		Region:           spec.Region,
-		Endpoint:         spec.Endpoint,
-		IdentityEndpoint: spec.IdentityEndpoint,
-		StorageEndpoint:  spec.StorageEndpoint,
-		Credential:       paramsCloudCredential,
-		CACertificates:   spec.CACertificates,
-		SkipTLSVerify:    spec.SkipTLSVerify,
+		Type:              spec.Type,
+		Name:              spec.Name,
+		Region:            spec.Region,
+		Endpoint:          spec.Endpoint,
+		IdentityEndpoint:  spec.IdentityEndpoint,
+		StorageEndpoint:   spec.StorageEndpoint,
+		Credential:        paramsCloudCredential,
+		CACertificates:    spec.CACertificates,
+		SkipTLSVerify:     spec.SkipTLSVerify,
+		IsControllerCloud: spec.IsControllerCloud,
 	}
 	return result
 }
