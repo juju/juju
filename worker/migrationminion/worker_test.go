@@ -70,7 +70,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *Suite) apiOpen(info *api.Info, dialOpts api.DialOpts) (api.Connection, error) {
+func (s *Suite) apiOpen(info *api.Info, _ api.DialOpts) (api.Connection, error) {
 	s.stub.AddCall("API open", info)
 	return &stubConnection{stub: s.stub}, nil
 }
@@ -211,7 +211,7 @@ func (s *Suite) TestVALIDATIONCantConnect(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	// Advance time enough for all of the retries to be exhausted.
-	sleepTime := 50 * time.Millisecond
+	sleepTime := 100 * time.Millisecond
 	for i := 0; i < 9; i++ {
 		err := s.clock.WaitAdvance(sleepTime, coretesting.ShortWait, 1)
 		c.Assert(err, jc.ErrorIsNil)
@@ -250,7 +250,7 @@ func (s *Suite) TestVALIDATIONFail(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	// Advance time enough for all of the retries to be exhausted.
-	sleepTime := 50 * time.Millisecond
+	sleepTime := 100 * time.Millisecond
 	for i := 0; i < 9; i++ {
 		err := s.clock.WaitAdvance(sleepTime, coretesting.ShortWait, 1)
 		c.Assert(err, jc.ErrorIsNil)
@@ -284,12 +284,12 @@ func (s *Suite) TestVALIDATIONRetrySucceed(c *gc.C) {
 
 	waitForStubCalls(c, &stub, "ValidateMigration")
 
-	err = s.clock.WaitAdvance(50*time.Millisecond, coretesting.LongWait, 1)
+	err = s.clock.WaitAdvance(100*time.Millisecond, coretesting.LongWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	waitForStubCalls(c, &stub, "ValidateMigration", "ValidateMigration")
 
-	err = s.clock.WaitAdvance(100*time.Millisecond, coretesting.LongWait, 1)
+	err = s.clock.WaitAdvance(160*time.Millisecond, coretesting.LongWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.waitForStubCalls(c, []string{

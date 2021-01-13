@@ -319,7 +319,13 @@ func allCollections() CollectionSchema {
 
 		// These collections hold information associated with machines.
 		containerRefsC: {},
-		instanceDataC:  {},
+		instanceDataC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "machineid"},
+			}, {
+				Key: []string{"model-uuid", "instanceid"},
+			}},
+		},
 		machinesC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "machineid"},

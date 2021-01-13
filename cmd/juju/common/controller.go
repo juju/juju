@@ -127,6 +127,7 @@ func WaitForAgentInitialisation(
 		case errors.Cause(err) == io.EOF,
 			strings.HasSuffix(errorMessage, "no such host"), // wait for dns getting resolvable, aws elb for example.
 			strings.HasSuffix(errorMessage, "connection refused"),
+			strings.HasSuffix(errorMessage, "target machine actively refused it."), // Winsock message for connection refused
 			strings.HasSuffix(errorMessage, "connection is shut down"),
 			strings.HasSuffix(errorMessage, "i/o timeout"),
 			strings.HasSuffix(errorMessage, "deadline exceeded"),
