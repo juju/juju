@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
@@ -190,33 +191,38 @@ var maybeConvertCredentialError = func(err error, ctx context.ProviderCallContex
 	convert := func(converted error) error {
 		callbackErr := ctx.InvalidateCredential(converted.Error())
 		if callbackErr != nil {
-			// We want to proceed with the actual proessing but still keep a log of a problem.
+			// We want to proceed with the actual processing but still keep a log of a problem.
 			logger.Infof("callback to invalidate model credential failed with %v", converted)
 		}
 		return converted
 	}
 
-	if err, ok := err.(*ec2.Error); ok {
-		// EC2 error codes are from https://docs.aws.amazon.com/AWSEC2/latest/APIReference/errors-overview.html.
-		switch err.Code {
-		case "AuthFailure":
-			return convert(common.CredentialNotValidf(err, badKeys))
-		case "InvalidClientTokenId":
-			return convert(common.CredentialNotValidf(err, badKeys))
-		case "MissingAuthenticationToken":
-			return convert(common.CredentialNotValidf(err, badKeys))
-		case "Blocked":
-			return convert(common.CredentialNotValidf(err, "\nYour Amazon account is currently blocked."))
-		case "CustomerKeyHasBeenRevoked":
-			return convert(common.CredentialNotValidf(err, "\nYour Amazon keys have been revoked."))
-		case "PendingVerification":
-			return convert(common.CredentialNotValidf(err, "\nYour account is pending verification by Amazon."))
-		case "SignatureDoesNotMatch":
-			return convert(common.CredentialNotValidf(err, badKeys))
-		default:
-			// This error is unrelated to access keys, account or credentials...
-			return err
-		}
+	var code string
+	switch err := err.(type) {
+	case *ec2.Error:
+		code = err.Code
+	case awserr.Error:
+		code = err.Code()
 	}
-	return err
+
+	// EC2 error codes are from https://docs.aws.amazon.com/AWSEC2/latest/APIReference/errors-overview.html.
+	switch code {
+	case "AuthFailure":
+		return convert(common.CredentialNotValidf(err, badKeys))
+	case "InvalidClientTokenId":
+		return convert(common.CredentialNotValidf(err, badKeys))
+	case "MissingAuthenticationToken":
+		return convert(common.CredentialNotValidf(err, badKeys))
+	case "Blocked":
+		return convert(common.CredentialNotValidf(err, "\nYour Amazon account is currently blocked."))
+	case "CustomerKeyHasBeenRevoked":
+		return convert(common.CredentialNotValidf(err, "\nYour Amazon keys have been revoked."))
+	case "PendingVerification":
+		return convert(common.CredentialNotValidf(err, "\nYour account is pending verification by Amazon."))
+	case "SignatureDoesNotMatch":
+		return convert(common.CredentialNotValidf(err, badKeys))
+	default:
+		// This error is unrelated to access keys, account or credentials...
+		return err
+	}
 }
