@@ -1105,52 +1105,6 @@ func (s *apiclientSuite) TestAPICallError(c *gc.C) {
 	c.Check(clock.waits, gc.HasLen, 0)
 }
 
-func (s *apiclientSuite) TestAPICallRetries(c *gc.C) {
-	clock := &fakeClock{}
-	conn := api.NewTestingState(api.TestingStateParams{
-		RPCConnection: newRPCConnection(
-			errors.Trace(
-				&rpc.RequestError{
-					Message: "hmm...",
-					Code:    params.CodeRetry,
-				}),
-		),
-		Clock: clock,
-	})
-
-	err := conn.APICall("facade", 1, "id", "method", nil, nil)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(clock.waits, jc.DeepEquals, []time.Duration{100 * time.Millisecond})
-}
-
-func (s *apiclientSuite) TestAPICallRetriesLimit(c *gc.C) {
-	clock := &fakeClock{}
-	retryError := errors.Trace(&rpc.RequestError{Message: "hmm...", Code: params.CodeRetry})
-	var errors []error
-	for i := 0; i < 10; i++ {
-		errors = append(errors, retryError)
-	}
-	conn := api.NewTestingState(api.TestingStateParams{
-		RPCConnection: newRPCConnection(errors...),
-		Clock:         clock,
-	})
-
-	err := conn.APICall("facade", 1, "id", "method", nil, nil)
-	c.Check(err, gc.ErrorMatches, `.*hmm... \(retry\)`)
-	c.Check(params.ErrCode(err), gc.Equals, params.CodeRetry)
-	c.Check(clock.waits, jc.DeepEquals, []time.Duration{
-		100 * time.Millisecond,
-		200 * time.Millisecond,
-		400 * time.Millisecond,
-		800 * time.Millisecond,
-		1500 * time.Millisecond,
-		1500 * time.Millisecond,
-		1500 * time.Millisecond,
-		1500 * time.Millisecond,
-		1500 * time.Millisecond,
-	})
-}
-
 func (s *apiclientSuite) TestPing(c *gc.C) {
 	clock := &fakeClock{}
 	rpcConn := newRPCConnection()

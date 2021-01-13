@@ -208,7 +208,6 @@ const (
 	CodeForbidden                 = "forbidden"
 	CodeDischargeRequired         = "macaroon discharge required"
 	CodeRedirect                  = "redirection required"
-	CodeRetry                     = "retry"
 	CodeIncompatibleSeries        = "incompatible series"
 	CodeCloudRegionRequired       = "cloud region required"
 	CodeIncompatibleClouds        = "incompatible clouds"

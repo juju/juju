@@ -238,8 +238,6 @@ func ServerErrorAndStatus(err error) (*params.Error, int) {
 		status = http.StatusForbidden
 	case params.CodeDischargeRequired:
 		status = http.StatusUnauthorized
-	case params.CodeRetry:
-		status = http.StatusServiceUnavailable
 	case params.CodeRedirect:
 		status = http.StatusMovedPermanently
 	}
