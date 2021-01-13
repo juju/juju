@@ -4,8 +4,8 @@
 package ec2
 
 import (
-	sdkec2 "github.com/aws/aws-sdk-go/service/ec2"
-	"gopkg.in/amz.v3/ec2"
+	"github.com/aws/aws-sdk-go/service/ec2"
+	amzec2 "gopkg.in/amz.v3/ec2"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
@@ -16,7 +16,7 @@ import (
 
 type EC2Client = ec2Client
 
-func StorageEC2(vs jujustorage.VolumeSource) *ec2.EC2 {
+func StorageEC2(vs jujustorage.VolumeSource) *amzec2.EC2 {
 	return vs.(*ebsVolumeSource).env.ec2
 }
 
@@ -28,23 +28,23 @@ func MachineGroupName(e environs.Environ, machineId string) string {
 	return e.(*environ).machineGroupName(machineId)
 }
 
-func EnvironEC2(e environs.Environ) *ec2.EC2 {
+func EnvironEC2(e environs.Environ) *amzec2.EC2 {
 	return e.(*environ).ec2
 }
 
-func InstanceEC2(inst instances.Instance) *ec2.Instance {
-	return inst.(*ec2Instance).Instance
+func InstanceEC2(inst instances.Instance) *amzec2.Instance {
+	return inst.(*amzInstance).Instance
 }
 
-func InstanceSDKEC2(inst instances.Instance) *sdkec2.Instance {
-	return inst.(*sdkEC2Instance).i
+func InstanceSDKEC2(inst instances.Instance) *ec2.Instance {
+	return inst.(*sdkInstance).i
 }
 
 func TerminatedInstances(e environs.Environ) ([]instances.Instance, error) {
 	return e.(*environ).allInstancesByState(context.NewCloudCallContext(), "shutting-down", "terminated")
 }
 
-func InstanceSecurityGroups(e environs.Environ, ctx context.ProviderCallContext, ids []instance.Id, states ...string) ([]ec2.SecurityGroup, error) {
+func InstanceSecurityGroups(e environs.Environ, ctx context.ProviderCallContext, ids []instance.Id, states ...string) ([]amzec2.SecurityGroup, error) {
 	return e.(*environ).instanceSecurityGroups(ctx, ids, states...)
 }
 

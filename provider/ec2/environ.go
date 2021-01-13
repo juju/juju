@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	sdkec2 "github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -20,8 +20,8 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/utils/v2"
 	"github.com/juju/version"
-	"gopkg.in/amz.v3/aws"
-	"gopkg.in/amz.v3/ec2"
+	amzaws "gopkg.in/amz.v3/aws"
+	amzec2 "gopkg.in/amz.v3/ec2"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
@@ -63,22 +63,28 @@ var (
 	// instances in an environment.
 	aliveInstanceStates = []string{"pending", "running"}
 
-	// Ensure that environ imlements FirewallFeatureQuerier.
+	// Ensure that environ implements FirewallFeatureQuerier.
 	_ environs.FirewallFeatureQuerier = (*environ)(nil)
 )
 
+// The subset of *ec2.EC2 methods that we currently use.
 type ec2Client interface {
-	DescribeAvailabilityZones(*sdkec2.DescribeAvailabilityZonesInput) (*sdkec2.DescribeAvailabilityZonesOutput, error)
-	DescribeInstances(*sdkec2.DescribeInstancesInput) (*sdkec2.DescribeInstancesOutput, error)
-	DescribeInstanceTypeOfferings(*sdkec2.DescribeInstanceTypeOfferingsInput) (*sdkec2.DescribeInstanceTypeOfferingsOutput, error)
-	DescribeInstanceTypes(*sdkec2.DescribeInstanceTypesInput) (*sdkec2.DescribeInstanceTypesOutput, error)
-	DescribeSpotPriceHistory(*sdkec2.DescribeSpotPriceHistoryInput) (*sdkec2.DescribeSpotPriceHistoryOutput, error)
+	DescribeAvailabilityZones(*ec2.DescribeAvailabilityZonesInput) (*ec2.DescribeAvailabilityZonesOutput, error)
+	DescribeInstances(*ec2.DescribeInstancesInput) (*ec2.DescribeInstancesOutput, error)
+	DescribeInstanceTypeOfferings(*ec2.DescribeInstanceTypeOfferingsInput) (*ec2.DescribeInstanceTypeOfferingsOutput, error)
+	DescribeInstanceTypes(*ec2.DescribeInstanceTypesInput) (*ec2.DescribeInstanceTypesOutput, error)
+	DescribeSpotPriceHistory(*ec2.DescribeSpotPriceHistoryInput) (*ec2.DescribeSpotPriceHistoryOutput, error)
 }
+
+var _ ec2Client = (*ec2.EC2)(nil)
 
 type environ struct {
 	name  string
 	cloud environscloudspec.CloudSpec
-	ec2   *ec2.EC2
+
+	// This is legacy, and we are migrating away from the amz EC2 library in
+	// favour of the Amazon-provided awk-sdk-go (see ec2Client below).
+	ec2 *amzec2.EC2
 
 	ec2Client ec2Client
 
@@ -94,7 +100,7 @@ type environ struct {
 
 	defaultVPCMutex   sync.Mutex
 	defaultVPCChecked bool
-	defaultVPC        *ec2.VPC
+	defaultVPC        *amzec2.VPC
 
 	ensureGroupMutex sync.Mutex
 }
@@ -223,10 +229,10 @@ func archMatches(arches []string, arch *string) bool {
 	return false
 }
 
-var ec2AvailabilityZones = (*ec2.EC2).AvailabilityZones
+var ec2AvailabilityZones = (*amzec2.EC2).AvailabilityZones
 
 type ec2AvailabilityZone struct {
-	ec2.AvailabilityZoneInfo
+	amzec2.AvailabilityZoneInfo
 }
 
 func (z *ec2AvailabilityZone) Name() string {
@@ -243,7 +249,7 @@ func (e *environ) AvailabilityZones(ctx context.ProviderCallContext) (corenetwor
 	e.availabilityZonesMutex.Lock()
 	defer e.availabilityZonesMutex.Unlock()
 	if e.availabilityZones == nil {
-		filter := ec2.NewFilter()
+		filter := amzec2.NewFilter()
 		filter.Add("region-name", e.cloud.Region)
 		resp, err := ec2AvailabilityZones(e.ec2, filter)
 		if err != nil {
@@ -270,7 +276,7 @@ func (e *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext,
 		if inst == nil {
 			continue
 		}
-		zones[i] = inst.(*ec2Instance).AvailZone
+		zones[i] = inst.(*amzInstance).AvailZone
 	}
 	return zones, err
 }
@@ -285,8 +291,8 @@ func (e *environ) DeriveAvailabilityZones(ctx context.ProviderCallContext, args 
 }
 
 type ec2Placement struct {
-	availabilityZone *ec2.AvailabilityZoneInfo
-	subnet           *ec2.Subnet
+	availabilityZone *amzec2.AvailabilityZoneInfo
+	subnet           *amzec2.Subnet
 }
 
 func (e *environ) parsePlacement(ctx context.ProviderCallContext, placement string) (*ec2Placement, error) {
@@ -387,7 +393,7 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 		// TODO(axw) 2016-10-04 #1630089
 		// MetadataLookupParams needs to be updated so that providers
 		// are not expected to know how to map regions to endpoints.
-		ec2Region, ok := aws.Regions[region]
+		ec2Region, ok := amzaws.Regions[region]
 		if !ok {
 			return nil, errors.Errorf("unknown region %q", region)
 		}
@@ -430,7 +436,7 @@ func resourceName(tag names.Tag, envName string) string {
 func (e *environ) StartInstance(
 	ctx context.ProviderCallContext, args environs.StartInstanceParams,
 ) (_ *environs.StartInstanceResult, resultErr error) {
-	var inst *ec2Instance
+	var inst *amzInstance
 	callback := args.StatusCallback
 	defer func() {
 		if resultErr == nil || inst == nil {
@@ -531,8 +537,8 @@ func (e *environ) StartInstance(
 	)
 	rootDiskSize := uint64(blockDeviceMappings[0].VolumeSize) * 1024
 
-	var instResp *ec2.RunInstancesResp
-	commonRunArgs := &ec2.RunInstances{
+	var instResp *amzec2.RunInstancesResp
+	commonRunArgs := &amzec2.RunInstances{
 		MinCount:            1,
 		MaxCount:            1,
 		UserData:            userData,
@@ -571,7 +577,7 @@ func (e *environ) StartInstance(
 		return nil, errors.Errorf("expected 1 started instance, got %d", len(instResp.Instances))
 	}
 
-	inst = &ec2Instance{
+	inst = &amzInstance{
 		e:        e,
 		Instance: &instResp.Instances[0],
 	}
@@ -911,7 +917,7 @@ func (e *environ) instancePlacementZone(ctx context.ProviderCallContext, placeme
 // volumeAttachmentsZone determines the availability zone for each volume
 // identified in the volume attachment parameters, checking that they are
 // all the same, and returns the availability zone name.
-func volumeAttachmentsZone(ec2 *ec2.EC2, ctx context.ProviderCallContext, attachments []storage.VolumeAttachmentParams) (string, error) {
+func volumeAttachmentsZone(ec2 *amzec2.EC2, ctx context.ProviderCallContext, attachments []storage.VolumeAttachmentParams) (string, error) {
 	volumeIds := make([]string, 0, len(attachments))
 	for _, a := range attachments {
 		if a.Provider != EBS_ProviderType {
@@ -943,13 +949,13 @@ func volumeAttachmentsZone(ec2 *ec2.EC2, ctx context.ProviderCallContext, attach
 // tagResources calls ec2.CreateTags, tagging each of the specified resources
 // with the given tags. tagResources will retry for a short period of time
 // if it receives a *.NotFound error response from EC2.
-func tagResources(e *ec2.EC2, ctx context.ProviderCallContext, tags map[string]string, resourceIds ...string) error {
+func tagResources(e *amzec2.EC2, ctx context.ProviderCallContext, tags map[string]string, resourceIds ...string) error {
 	if len(tags) == 0 {
 		return nil
 	}
-	ec2Tags := make([]ec2.Tag, 0, len(tags))
+	ec2Tags := make([]amzec2.Tag, 0, len(tags))
 	for k, v := range tags {
-		ec2Tags = append(ec2Tags, ec2.Tag{k, v})
+		ec2Tags = append(ec2Tags, amzec2.Tag{k, v})
 	}
 	var err error
 	for a := shortAttempt.Start(); a.Next(); {
@@ -961,11 +967,11 @@ func tagResources(e *ec2.EC2, ctx context.ProviderCallContext, tags map[string]s
 	return maybeConvertCredentialError(err, ctx)
 }
 
-func tagRootDisk(e *ec2.EC2, ctx context.ProviderCallContext, tags map[string]string, inst *ec2.Instance) error {
+func tagRootDisk(e *amzec2.EC2, ctx context.ProviderCallContext, tags map[string]string, inst *amzec2.Instance) error {
 	if len(tags) == 0 {
 		return nil
 	}
-	findVolumeId := func(inst *ec2.Instance) string {
+	findVolumeId := func(inst *amzec2.Instance) string {
 		for _, m := range inst.BlockDeviceMappings {
 			if m.DeviceName != inst.RootDeviceName {
 				continue
@@ -1009,7 +1015,7 @@ var runInstances = _runInstances
 // runInstances calls ec2.RunInstances for a fixed number of attempts until
 // RunInstances returns an error code that does not indicate an error that
 // may be caused by eventual consistency.
-func _runInstances(e *ec2.EC2, ctx context.ProviderCallContext, ri *ec2.RunInstances, c environs.StatusCallbackFunc) (resp *ec2.RunInstancesResp, err error) {
+func _runInstances(e *amzec2.EC2, ctx context.ProviderCallContext, ri *amzec2.RunInstances, c environs.StatusCallbackFunc) (resp *amzec2.RunInstancesResp, err error) {
 	try := 1
 	for a := shortAttempt.Start(); a.Next(); {
 		c(status.Allocating, fmt.Sprintf("Start instance attempt %d", try), nil)
@@ -1028,14 +1034,14 @@ func (e *environ) StopInstances(ctx context.ProviderCallContext, ids ...instance
 
 // groupInfoByName returns information on the security group
 // with the given name including rules and other details.
-func (e *environ) groupInfoByName(ctx context.ProviderCallContext, groupName string) (ec2.SecurityGroupInfo, error) {
+func (e *environ) groupInfoByName(ctx context.ProviderCallContext, groupName string) (amzec2.SecurityGroupInfo, error) {
 	resp, err := e.securityGroupsByNameOrID(groupName)
 	if err != nil {
-		return ec2.SecurityGroupInfo{}, maybeConvertCredentialError(err, ctx)
+		return amzec2.SecurityGroupInfo{}, maybeConvertCredentialError(err, ctx)
 	}
 
 	if len(resp.Groups) != 1 {
-		return ec2.SecurityGroupInfo{}, errors.NewNotFound(fmt.Errorf(
+		return amzec2.SecurityGroupInfo{}, errors.NewNotFound(fmt.Errorf(
 			"expected one security group named %q, got %v",
 			groupName, resp.Groups,
 		), "")
@@ -1044,7 +1050,7 @@ func (e *environ) groupInfoByName(ctx context.ProviderCallContext, groupName str
 }
 
 // groupByName returns the security group with the given name.
-func (e *environ) groupByName(ctx context.ProviderCallContext, groupName string) (ec2.SecurityGroup, error) {
+func (e *environ) groupByName(ctx context.ProviderCallContext, groupName string) (amzec2.SecurityGroup, error) {
 	groupInfo, err := e.groupInfoByName(ctx, groupName)
 	return groupInfo.SecurityGroup, err
 }
@@ -1073,7 +1079,7 @@ func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) 
 				need = append(need, string(ids[i]))
 			}
 		}
-		filters := []*sdkec2.Filter{
+		filters := []*ec2.Filter{
 			makeFilter("instance-state-name", aliveInstanceStates...),
 			makeFilter("instance-id", need...),
 			makeModelFilter(e.uuid()),
@@ -1106,9 +1112,9 @@ func (e *environ) gatherInstances(
 	ctx context.ProviderCallContext,
 	ids []instance.Id,
 	insts []instances.Instance,
-	filters []*sdkec2.Filter,
+	filters []*ec2.Filter,
 ) error {
-	req := &sdkec2.DescribeInstancesInput{Filters: filters}
+	req := &ec2.DescribeInstancesInput{Filters: filters}
 	resp, err := e.ec2Client.DescribeInstances(req)
 	if err != nil {
 		return maybeConvertCredentialError(err, ctx)
@@ -1126,7 +1132,7 @@ func (e *environ) gatherInstances(
 				if *inst.InstanceId != string(id) {
 					continue
 				}
-				insts[i] = &sdkEC2Instance{e: e, i: inst}
+				insts[i] = &sdkInstance{e: e, i: inst}
 				n++
 			}
 		}
@@ -1177,7 +1183,7 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 
 		// Network interfaces are not currently tagged so we cannot
 		// use a model filter here.
-		filter := ec2.NewFilter()
+		filter := amzec2.NewFilter()
 		filter.Add("attachment.instance-id", need...)
 		logger.Tracef("retrieving NICs for instances %v", need)
 		err = e.gatherNetworkInterfaceInfo(ctx, filter, infos, idToInfosIndex, subMap)
@@ -1201,13 +1207,13 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 }
 
 // subnetMap returns a map with all known ec2.Subnets and their IDs as keys.
-func (e *environ) subnetMap() (map[string]ec2.Subnet, error) {
+func (e *environ) subnetMap() (map[string]amzec2.Subnet, error) {
 	subnetsResp, err := e.ec2.Subnets(nil, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	subMap := make(map[string]ec2.Subnet, len(subnetsResp.Subnets))
+	subMap := make(map[string]amzec2.Subnet, len(subnetsResp.Subnets))
 	for _, sub := range subnetsResp.Subnets {
 		subMap[sub.Id] = sub
 	}
@@ -1222,10 +1228,10 @@ func (e *environ) subnetMap() (map[string]ec2.Subnet, error) {
 // any nil entries.
 func (e *environ) gatherNetworkInterfaceInfo(
 	ctx context.ProviderCallContext,
-	filter *ec2.Filter,
+	filter *amzec2.Filter,
 	infos []corenetwork.InterfaceInfos,
 	idToInfosIndex map[string]int,
-	subMap map[string]ec2.Subnet,
+	subMap map[string]amzec2.Subnet,
 ) error {
 	// Check how many queries have already been answered; machines must
 	// have at least one network interface attached to them.
@@ -1269,10 +1275,10 @@ func (e *environ) gatherNetworkInterfaceInfo(
 
 func (e *environ) networkInterfacesForInstance(ctx context.ProviderCallContext, instId instance.Id) (corenetwork.InterfaceInfos, error) {
 	var err error
-	var networkInterfacesResp *ec2.NetworkInterfacesResp
+	var networkInterfacesResp *amzec2.NetworkInterfacesResp
 	for a := shortAttempt.Start(); a.Next(); {
 		logger.Tracef("retrieving NICs for instance %q", instId)
-		filter := ec2.NewFilter()
+		filter := amzec2.NewFilter()
 		filter.Add("attachment.instance-id", string(instId))
 		networkInterfacesResp, err = e.ec2.NetworkInterfaces(nil, filter)
 		logger.Tracef("instance %q NICs: %#v (err: %v)", instId, networkInterfacesResp, err)
@@ -1313,7 +1319,7 @@ func (e *environ) networkInterfacesForInstance(ctx context.ProviderCallContext, 
 	return result, nil
 }
 
-func mapNetworkInterface(iface ec2.NetworkInterface, subnet ec2.Subnet) corenetwork.InterfaceInfo {
+func mapNetworkInterface(iface amzec2.NetworkInterface, subnet amzec2.Subnet) corenetwork.InterfaceInfo {
 	// Device names and VLAN tags are not returned by EC2.
 	ni := corenetwork.InterfaceInfo{
 		DeviceIndex:       iface.Attachment.DeviceIndex,
@@ -1466,8 +1472,8 @@ func (e *environ) Subnets(
 	return results, nil
 }
 
-func (e *environ) subnetsForVPC(ctx context.ProviderCallContext) (resp *ec2.SubnetsResp, vpcId string, err error) {
-	filter := ec2.NewFilter()
+func (e *environ) subnetsForVPC(ctx context.ProviderCallContext) (resp *amzec2.SubnetsResp, vpcId string, err error) {
+	filter := amzec2.NewFilter()
 	vpcId = e.ecfg().vpcID()
 	if !isVPCIDSet(vpcId) {
 		if hasDefaultVPC, err := e.hasDefaultVPC(ctx); err == nil && hasDefaultVPC {
@@ -1553,7 +1559,7 @@ func (e *environ) allInstancesByState(ctx context.ProviderCallContext, states ..
 	} else if err != nil {
 		return nil, errors.Trace(maybeConvertCredentialError(err, ctx))
 	}
-	filters := []*sdkec2.Filter{
+	filters := []*ec2.Filter{
 		makeFilter("instance-state-name", states...),
 		makeFilter("instance.group-id", group.Id),
 	}
@@ -1562,7 +1568,7 @@ func (e *environ) allInstancesByState(ctx context.ProviderCallContext, states ..
 
 // ControllerInstances is part of the environs.Environ interface.
 func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
-	filters := []*sdkec2.Filter{
+	filters := []*ec2.Filter{
 		makeFilter("instance-state-name", aliveInstanceStates...),
 		makeFilter(fmt.Sprintf("tag:%s", tags.JujuIsController), "true"),
 		makeControllerFilter(controllerUUID),
@@ -1577,8 +1583,8 @@ func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controlle
 	return ids, nil
 }
 
-func makeFilter(name string, values ...string) *sdkec2.Filter {
-	filter := &sdkec2.Filter{
+func makeFilter(name string, values ...string) *ec2.Filter {
+	filter := &ec2.Filter{
 		Name:   &name,
 		Values: make([]*string, len(values)),
 	}
@@ -1595,14 +1601,14 @@ func makeFilter(name string, values ...string) *sdkec2.Filter {
 // Note that this requires that all instances are tagged; we cannot filter on
 // security groups, as we do not know the names of the models.
 func (e *environ) allControllerManagedInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
-	filters := []*sdkec2.Filter{
+	filters := []*ec2.Filter{
 		makeFilter("instance-state-name", aliveInstanceStates...),
 		makeControllerFilter(controllerUUID),
 	}
 	return e.allInstanceIDs(ctx, filters)
 }
 
-func (e *environ) allInstanceIDs(ctx context.ProviderCallContext, filters []*sdkec2.Filter) ([]instance.Id, error) {
+func (e *environ) allInstanceIDs(ctx context.ProviderCallContext, filters []*ec2.Filter) ([]instance.Id, error) {
 	insts, err := e.allInstances(ctx, filters)
 	if err != nil {
 		return nil, errors.Trace(maybeConvertCredentialError(err, ctx))
@@ -1614,8 +1620,8 @@ func (e *environ) allInstanceIDs(ctx context.ProviderCallContext, filters []*sdk
 	return ids, nil
 }
 
-func (e *environ) allInstances(ctx context.ProviderCallContext, filters []*sdkec2.Filter) ([]instances.Instance, error) {
-	req := &sdkec2.DescribeInstancesInput{Filters: filters}
+func (e *environ) allInstances(ctx context.ProviderCallContext, filters []*ec2.Filter) ([]instances.Instance, error) {
+	req := &ec2.DescribeInstancesInput{Filters: filters}
 	resp, err := e.ec2Client.DescribeInstances(req)
 	if err != nil {
 		return nil, errors.Annotate(maybeConvertCredentialError(err, ctx), "listing instances")
@@ -1623,7 +1629,7 @@ func (e *environ) allInstances(ctx context.ProviderCallContext, filters []*sdkec
 	var insts []instances.Instance
 	for _, r := range resp.Reservations {
 		for _, inst := range r.Instances {
-			insts = append(insts, &sdkEC2Instance{e: e, i: inst})
+			insts = append(insts, &sdkInstance{e: e, i: inst})
 		}
 	}
 	return insts, nil
@@ -1696,21 +1702,21 @@ func (e *environ) destroyControllerManagedEnvirons(ctx context.ProviderCallConte
 }
 
 func (e *environ) allControllerManagedVolumes(ctx context.ProviderCallContext, controllerUUID string, includeRootDisks bool) ([]string, error) {
-	filter := ec2.NewFilter()
+	filter := amzec2.NewFilter()
 	e.addControllerFilter(filter, controllerUUID)
 	return listVolumes(e.ec2, ctx, filter, includeRootDisks)
 }
 
 func (e *environ) allModelVolumes(ctx context.ProviderCallContext, includeRootDisks bool) ([]string, error) {
-	filter := ec2.NewFilter()
+	filter := amzec2.NewFilter()
 	e.addModelFilter(filter)
 	return listVolumes(e.ec2, ctx, filter, includeRootDisks)
 }
 
-func rulesToIPPerms(rules firewall.IngressRules) []ec2.IPPerm {
-	ipPerms := make([]ec2.IPPerm, len(rules))
+func rulesToIPPerms(rules firewall.IngressRules) []amzec2.IPPerm {
+	ipPerms := make([]amzec2.IPPerm, len(rules))
 	for i, r := range rules {
-		ipPerms[i] = ec2.IPPerm{
+		ipPerms[i] = amzec2.IPPerm{
 			Protocol: r.PortRange.Protocol,
 			FromPort: r.PortRange.FromPort,
 			ToPort:   r.PortRange.ToPort,
@@ -1837,13 +1843,13 @@ func (*environ) Provider() environs.EnvironProvider {
 	return &providerInstance
 }
 
-func (e *environ) instanceSecurityGroups(ctx context.ProviderCallContext, instIDs []instance.Id, states ...string) ([]ec2.SecurityGroup, error) {
+func (e *environ) instanceSecurityGroups(ctx context.ProviderCallContext, instIDs []instance.Id, states ...string) ([]amzec2.SecurityGroup, error) {
 	strInstID := make([]string, len(instIDs))
 	for i := range instIDs {
 		strInstID[i] = string(instIDs[i])
 	}
 
-	filter := ec2.NewFilter()
+	filter := amzec2.NewFilter()
 	if len(states) > 0 {
 		filter.Add("instance-state-name", states...)
 	}
@@ -1853,7 +1859,7 @@ func (e *environ) instanceSecurityGroups(ctx context.ProviderCallContext, instID
 		return nil, errors.Annotatef(maybeConvertCredentialError(err, ctx), "cannot retrieve instance information from aws to delete security groups")
 	}
 
-	securityGroups := []ec2.SecurityGroup{}
+	securityGroups := []amzec2.SecurityGroup{}
 	for _, res := range resp.Reservations {
 		for _, inst := range res.Instances {
 			logger.Debugf("instance %q has security groups %+v", inst.InstanceId, inst.SecurityGroups)
@@ -1865,22 +1871,22 @@ func (e *environ) instanceSecurityGroups(ctx context.ProviderCallContext, instID
 
 // controllerSecurityGroups returns the details of all security groups managed
 // by the environment's controller.
-func (e *environ) controllerSecurityGroups(ctx context.ProviderCallContext, controllerUUID string) ([]ec2.SecurityGroup, error) {
-	filter := ec2.NewFilter()
+func (e *environ) controllerSecurityGroups(ctx context.ProviderCallContext, controllerUUID string) ([]amzec2.SecurityGroup, error) {
+	filter := amzec2.NewFilter()
 	e.addControllerFilter(filter, controllerUUID)
 	resp, err := e.ec2.SecurityGroups(nil, filter)
 	if err != nil {
 		return nil, errors.Annotate(maybeConvertCredentialError(err, ctx), "listing security groups")
 	}
-	groups := make([]ec2.SecurityGroup, len(resp.Groups))
+	groups := make([]amzec2.SecurityGroup, len(resp.Groups))
 	for i, info := range resp.Groups {
-		groups[i] = ec2.SecurityGroup{Id: info.Id, Name: info.Name}
+		groups[i] = amzec2.SecurityGroup{Id: info.Id, Name: info.Name}
 	}
 	return groups, nil
 }
 
 func (e *environ) modelSecurityGroupIDs(ctx context.ProviderCallContext) ([]string, error) {
-	filter := ec2.NewFilter()
+	filter := amzec2.NewFilter()
 	e.addModelFilter(filter)
 	resp, err := e.ec2.SecurityGroups(nil, filter)
 	if err != nil {
@@ -1960,7 +1966,7 @@ func (e *environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 	return nil
 }
 
-var terminateInstancesById = func(ec2inst *ec2.EC2, ctx context.ProviderCallContext, ids ...instance.Id) (*ec2.TerminateInstancesResp, error) {
+var terminateInstancesById = func(ec2inst *amzec2.EC2, ctx context.ProviderCallContext, ids ...instance.Id) (*amzec2.TerminateInstancesResp, error) {
 	strs := make([]string, len(ids))
 	for i, id := range ids {
 		strs[i] = string(id)
@@ -2013,10 +2019,10 @@ func (e *environ) deleteSecurityGroupsForInstances(ctx context.ProviderCallConte
 // a security group.
 type SecurityGroupCleaner interface {
 	// DeleteSecurityGroup deletes security group on the provider.
-	DeleteSecurityGroup(group ec2.SecurityGroup) (resp *ec2.SimpleResp, err error)
+	DeleteSecurityGroup(group amzec2.SecurityGroup) (resp *amzec2.SimpleResp, err error)
 }
 
-var deleteSecurityGroupInsistently = func(inst SecurityGroupCleaner, ctx context.ProviderCallContext, group ec2.SecurityGroup, clock clock.Clock) error {
+var deleteSecurityGroupInsistently = func(inst SecurityGroupCleaner, ctx context.ProviderCallContext, group amzec2.SecurityGroup, clock clock.Clock) error {
 	err := retry.Call(retry.CallArgs{
 		Attempts:    30,
 		Delay:       time.Second,
@@ -2044,19 +2050,19 @@ var deleteSecurityGroupInsistently = func(inst SecurityGroupCleaner, ctx context
 	return nil
 }
 
-func (e *environ) addModelFilter(f *ec2.Filter) {
+func (e *environ) addModelFilter(f *amzec2.Filter) {
 	f.Add(fmt.Sprintf("tag:%s", tags.JujuModel), e.uuid())
 }
 
-func makeModelFilter(modelUUID string) *sdkec2.Filter {
+func makeModelFilter(modelUUID string) *ec2.Filter {
 	return makeFilter(fmt.Sprintf("tag:%s", tags.JujuModel), modelUUID)
 }
 
-func (e *environ) addControllerFilter(f *ec2.Filter, controllerUUID string) {
+func (e *environ) addControllerFilter(f *amzec2.Filter, controllerUUID string) {
 	f.Add(fmt.Sprintf("tag:%s", tags.JujuController), controllerUUID)
 }
 
-func makeControllerFilter(controllerUUID string) *sdkec2.Filter {
+func makeControllerFilter(controllerUUID string) *ec2.Filter {
 	return makeFilter(fmt.Sprintf("tag:%s", tags.JujuController), controllerUUID)
 }
 
@@ -2083,30 +2089,30 @@ func (e *environ) jujuGroupName() string {
 // other instances that might be running on the same EC2 account.  In
 // addition, a specific machine security group is created for each
 // machine, so that its firewall rules can be configured per machine.
-func (e *environ) setUpGroups(ctx context.ProviderCallContext, controllerUUID, machineId string, apiPorts []int) ([]ec2.SecurityGroup, error) {
-	perms := []ec2.IPPerm{{
+func (e *environ) setUpGroups(ctx context.ProviderCallContext, controllerUUID, machineId string, apiPorts []int) ([]amzec2.SecurityGroup, error) {
+	perms := []amzec2.IPPerm{{
 		Protocol:  "tcp",
 		FromPort:  22,
 		ToPort:    22,
 		SourceIPs: []string{"0.0.0.0/0"},
 	}}
 	for _, apiPort := range apiPorts {
-		perms = append(perms, ec2.IPPerm{
+		perms = append(perms, amzec2.IPPerm{
 			Protocol:  "tcp",
 			FromPort:  apiPort,
 			ToPort:    apiPort,
 			SourceIPs: []string{"0.0.0.0/0"},
 		})
 	}
-	perms = append(perms, ec2.IPPerm{
+	perms = append(perms, amzec2.IPPerm{
 		Protocol: "tcp",
 		FromPort: 0,
 		ToPort:   65535,
-	}, ec2.IPPerm{
+	}, amzec2.IPPerm{
 		Protocol: "udp",
 		FromPort: 0,
 		ToPort:   65535,
-	}, ec2.IPPerm{
+	}, amzec2.IPPerm{
 		Protocol: "icmp",
 		FromPort: -1,
 		ToPort:   -1,
@@ -2117,7 +2123,7 @@ func (e *environ) setUpGroups(ctx context.ProviderCallContext, controllerUUID, m
 		return nil, err
 	}
 
-	var machineGroup ec2.SecurityGroup
+	var machineGroup amzec2.SecurityGroup
 	switch e.Config().FirewallMode() {
 	case config.FwInstance:
 		machineGroup, err = e.ensureGroup(ctx, controllerUUID, e.machineGroupName(machineId), nil)
@@ -2127,20 +2133,20 @@ func (e *environ) setUpGroups(ctx context.ProviderCallContext, controllerUUID, m
 	if err != nil {
 		return nil, err
 	}
-	return []ec2.SecurityGroup{jujuGroup, machineGroup}, nil
+	return []amzec2.SecurityGroup{jujuGroup, machineGroup}, nil
 }
 
 // zeroGroup holds the zero security group.
-var zeroGroup ec2.SecurityGroup
+var zeroGroup amzec2.SecurityGroup
 
 // securityGroupsByNameOrID calls ec2.SecurityGroups() either with the given
 // groupName or with filter by vpc-id and group-name, depending on whether
 // vpc-id is empty or not.
-func (e *environ) securityGroupsByNameOrID(groupName string) (*ec2.SecurityGroupsResp, error) {
+func (e *environ) securityGroupsByNameOrID(groupName string) (*amzec2.SecurityGroupsResp, error) {
 	if chosenVPCID := e.ecfg().vpcID(); isVPCIDSet(chosenVPCID) {
 		// AWS VPC API requires both of these filters (and no
 		// group names/ids set) for non-default EC2-VPC groups:
-		filter := ec2.NewFilter()
+		filter := amzec2.NewFilter()
 		filter.Add("vpc-id", chosenVPCID)
 		filter.Add("group-name", groupName)
 		return e.ec2.SecurityGroups(nil, filter)
@@ -2148,7 +2154,7 @@ func (e *environ) securityGroupsByNameOrID(groupName string) (*ec2.SecurityGroup
 
 	// EC2-Classic or EC2-VPC with implicit default VPC need to use the
 	// GroupName.X arguments instead of the filters.
-	groups := ec2.SecurityGroupNames(groupName)
+	groups := amzec2.SecurityGroupNames(groupName)
 	return e.ec2.SecurityGroups(groups, nil)
 }
 
@@ -2157,7 +2163,7 @@ func (e *environ) securityGroupsByNameOrID(groupName string) (*ec2.SecurityGroup
 // If it exists, its permissions are set to perms.
 // Any entries in perms without SourceIPs will be granted for
 // the named group only.
-func (e *environ) ensureGroup(ctx context.ProviderCallContext, controllerUUID, name string, perms []ec2.IPPerm) (g ec2.SecurityGroup, err error) {
+func (e *environ) ensureGroup(ctx context.ProviderCallContext, controllerUUID, name string, perms []amzec2.IPPerm) (g amzec2.SecurityGroup, err error) {
 	// Due to parallelization of the provisioner, it's possible that we try
 	// to create the model security group a second time before the first time
 	// is complete causing failures.
@@ -2254,7 +2260,7 @@ type permSet map[permKey]bool
 // given slice of IPPerms. It ignores the name and owner
 // id in source groups, and any entry with no source ips will
 // be granted for the given group only.
-func newPermSetForGroup(ps []ec2.IPPerm, group ec2.SecurityGroup) permSet {
+func newPermSetForGroup(ps []amzec2.IPPerm, group amzec2.SecurityGroup) permSet {
 	m := make(permSet)
 	for _, p := range ps {
 		k := permKey{
@@ -2277,11 +2283,11 @@ func newPermSetForGroup(ps []ec2.IPPerm, group ec2.SecurityGroup) permSet {
 
 // ipPerms returns m as a slice of permissions usable
 // with the ec2 package.
-func (m permSet) ipPerms() (ps []ec2.IPPerm) {
+func (m permSet) ipPerms() (ps []amzec2.IPPerm) {
 	// We could compact the permissions, but it
 	// hardly seems worth it.
 	for p := range m {
-		ipp := ec2.IPPerm{
+		ipp := amzec2.IPPerm{
 			Protocol: p.protocol,
 			FromPort: p.fromPort,
 			ToPort:   p.toPort,
@@ -2289,7 +2295,7 @@ func (m permSet) ipPerms() (ps []ec2.IPPerm) {
 		if p.ipAddr != "" {
 			ipp.SourceIPs = []string{p.ipAddr}
 		} else {
-			ipp.SourceGroups = []ec2.UserSecurityGroup{{Id: p.groupId}}
+			ipp.SourceGroups = []amzec2.UserSecurityGroup{{Id: p.groupId}}
 		}
 		ps = append(ps, ipp)
 	}
@@ -2306,7 +2312,7 @@ func isZoneOrSubnetConstrainedError(err error) bool {
 // otherwise unusable for the specific request made.
 func isZoneConstrainedError(err error) bool {
 	switch err := errors.Cause(err).(type) {
-	case *ec2.Error:
+	case *amzec2.Error:
 		switch err.Code {
 		case "Unsupported", "InsufficientInstanceCapacity":
 			// A big hammer, but we've now seen several different error messages
@@ -2332,7 +2338,7 @@ func isZoneConstrainedError(err error) bool {
 // specific request made.
 func isSubnetConstrainedError(err error) bool {
 	switch err := errors.Cause(err).(type) {
-	case *ec2.Error:
+	case *amzec2.Error:
 		switch err.Code {
 		case "InsufficientFreeAddressesInSubnet", "InsufficientInstanceCapacity":
 			// Subnet and/or VPC general limits reached.
@@ -2349,7 +2355,7 @@ func isSubnetConstrainedError(err error) bool {
 // If the err is of type *ec2.Error, ec2ErrCode returns
 // its code, otherwise it returns the empty string.
 func ec2ErrCode(err error) string {
-	ec2err, _ := errors.Cause(err).(*ec2.Error)
+	ec2err, _ := errors.Cause(err).(*amzec2.Error)
 	if ec2err == nil {
 		return ""
 	}
@@ -2368,7 +2374,7 @@ func (e *environ) hasDefaultVPC(ctx context.ProviderCallContext) (bool, error) {
 	e.defaultVPCMutex.Lock()
 	defer e.defaultVPCMutex.Unlock()
 	if !e.defaultVPCChecked {
-		filter := ec2.NewFilter()
+		filter := amzec2.NewFilter()
 		filter.Add("isDefault", "true")
 		resp, err := e.ec2.VPCs(nil, filter)
 		if err != nil {
@@ -2427,7 +2433,7 @@ func (e *environ) SetCloudSpec(spec environscloudspec.CloudSpec) error {
 	// and before were wrong, so we use whatever is defined
 	// in goamz/aws if available.
 	if isBrokenCloud(e.cloud) {
-		if region, ok := aws.Regions[e.cloud.Region]; ok {
+		if region, ok := amzaws.Regions[e.cloud.Region]; ok {
 			e.cloud.Endpoint = region.EC2Endpoint
 		}
 	}

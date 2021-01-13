@@ -6,11 +6,11 @@ package ec2
 import (
 	"fmt"
 
-	sdkec2 "github.com/aws/aws-sdk-go/service/ec2"
-	"gopkg.in/amz.v3/ec2"
+	"github.com/aws/aws-sdk-go/service/ec2"
+	amzec2 "gopkg.in/amz.v3/ec2"
 
 	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
@@ -18,23 +18,27 @@ import (
 	"github.com/juju/juju/environs/instances"
 )
 
-type ec2Instance struct {
+// Legacy amz implementation of instances.Instance.
+type amzInstance struct {
 	e *environ
 
-	*ec2.Instance
+	*amzec2.Instance
 }
 
-func (inst *ec2Instance) String() string {
+var _ instances.Instance = (*amzInstance)(nil)
+
+// String returns a string representation of this instance (the ID).
+func (inst *amzInstance) String() string {
 	return string(inst.Id())
 }
 
-var _ instances.Instance = (*ec2Instance)(nil)
-
-func (inst *ec2Instance) Id() instance.Id {
+// Id returns the EC2 identifier for the Instance.
+func (inst *amzInstance) Id() instance.Id {
 	return instance.Id(inst.InstanceId)
 }
 
-func (inst *ec2Instance) Status(ctx context.ProviderCallContext) instance.Status {
+// Status returns the status of this EC2 instance.
+func (inst *amzInstance) Status(ctx context.ProviderCallContext) instance.Status {
 	// pending | running | shutting-down | terminated | stopping | stopped
 	var jujuStatus status.Status
 	switch inst.State.Name {
@@ -55,21 +59,21 @@ func (inst *ec2Instance) Status(ctx context.ProviderCallContext) instance.Status
 
 // Addresses implements network.Addresses() returning generic address
 // details for the instance, and requerying the ec2 api if required.
-func (inst *ec2Instance) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
-	var addresses []corenetwork.ProviderAddress
-	possibleAddresses := []corenetwork.ProviderAddress{
+func (inst *amzInstance) Addresses(ctx context.ProviderCallContext) (network.ProviderAddresses, error) {
+	var addresses []network.ProviderAddress
+	possibleAddresses := []network.ProviderAddress{
 		{
-			MachineAddress: corenetwork.MachineAddress{
+			MachineAddress: network.MachineAddress{
 				Value: inst.IPAddress,
-				Type:  corenetwork.IPv4Address,
-				Scope: corenetwork.ScopePublic,
+				Type:  network.IPv4Address,
+				Scope: network.ScopePublic,
 			},
 		},
 		{
-			MachineAddress: corenetwork.MachineAddress{
+			MachineAddress: network.MachineAddress{
 				Value: inst.PrivateIPAddress,
-				Type:  corenetwork.IPv4Address,
-				Scope: corenetwork.ScopeCloudLocal,
+				Type:  network.IPv4Address,
+				Scope: network.ScopeCloudLocal,
 			},
 		},
 	}
@@ -81,7 +85,8 @@ func (inst *ec2Instance) Addresses(ctx context.ProviderCallContext) (corenetwork
 	return addresses, nil
 }
 
-func (inst *ec2Instance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
+// OpenPorts implements instances.InstanceFirewaller.
+func (inst *amzInstance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on instance",
 			inst.e.Config().FirewallMode())
@@ -94,7 +99,8 @@ func (inst *ec2Instance) OpenPorts(ctx context.ProviderCallContext, machineId st
 	return nil
 }
 
-func (inst *ec2Instance) ClosePorts(ctx context.ProviderCallContext, machineId string, ports firewall.IngressRules) error {
+// ClosePorts implements instances.InstanceFirewaller.
+func (inst *amzInstance) ClosePorts(ctx context.ProviderCallContext, machineId string, ports firewall.IngressRules) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on instance",
 			inst.e.Config().FirewallMode())
@@ -107,7 +113,8 @@ func (inst *ec2Instance) ClosePorts(ctx context.ProviderCallContext, machineId s
 	return nil
 }
 
-func (inst *ec2Instance) IngressRules(ctx context.ProviderCallContext, machineId string) (firewall.IngressRules, error) {
+// IngressRules implements instances.InstanceFirewaller.
+func (inst *amzInstance) IngressRules(ctx context.ProviderCallContext, machineId string) (firewall.IngressRules, error) {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ingress rules from instance",
 			inst.e.Config().FirewallMode())
@@ -120,26 +127,26 @@ func (inst *ec2Instance) IngressRules(ctx context.ProviderCallContext, machineId
 	return ranges, nil
 }
 
-// AWK SDK version of ec2Instance.
-//
-// TODO(benhoyt) - get rid of ec2Instance and rename this to ec2Instance when
-// everything is converted to the AWS SDK.
-type sdkEC2Instance struct {
+// AWS SDK version of instances.Instance.
+type sdkInstance struct {
 	e *environ
-	i *sdkec2.Instance
+	i *ec2.Instance
 }
 
-func (inst *sdkEC2Instance) String() string {
+var _ instances.Instance = (*sdkInstance)(nil)
+
+// String returns a string representation of this instance (the ID).
+func (inst *sdkInstance) String() string {
 	return string(inst.Id())
 }
 
-var _ instances.Instance = (*sdkEC2Instance)(nil)
-
-func (inst *sdkEC2Instance) Id() instance.Id {
+// Id returns the EC2 identifier for the Instance.
+func (inst *sdkInstance) Id() instance.Id {
 	return instance.Id(*inst.i.InstanceId)
 }
 
-func (inst *sdkEC2Instance) Status(ctx context.ProviderCallContext) instance.Status {
+// Status returns the status of this EC2 instance.
+func (inst *sdkInstance) Status(ctx context.ProviderCallContext) instance.Status {
 	if inst.i.State == nil || inst.i.State.Name == nil {
 		return instance.Status{Status: status.Empty}
 	}
@@ -164,30 +171,31 @@ func (inst *sdkEC2Instance) Status(ctx context.ProviderCallContext) instance.Sta
 
 // Addresses implements network.Addresses() returning generic address
 // details for the instance, and requerying the ec2 api if required.
-func (inst *sdkEC2Instance) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
-	var addresses []corenetwork.ProviderAddress
+func (inst *sdkInstance) Addresses(ctx context.ProviderCallContext) (network.ProviderAddresses, error) {
+	var addresses []network.ProviderAddress
 	if inst.i.PublicIpAddress != nil {
-		addresses = append(addresses, corenetwork.ProviderAddress{
-			MachineAddress: corenetwork.MachineAddress{
+		addresses = append(addresses, network.ProviderAddress{
+			MachineAddress: network.MachineAddress{
 				Value: *inst.i.PublicIpAddress,
-				Type:  corenetwork.IPv4Address,
-				Scope: corenetwork.ScopePublic,
+				Type:  network.IPv4Address,
+				Scope: network.ScopePublic,
 			},
 		})
 	}
 	if inst.i.PrivateIpAddress != nil {
-		addresses = append(addresses, corenetwork.ProviderAddress{
-			MachineAddress: corenetwork.MachineAddress{
+		addresses = append(addresses, network.ProviderAddress{
+			MachineAddress: network.MachineAddress{
 				Value: *inst.i.PrivateIpAddress,
-				Type:  corenetwork.IPv4Address,
-				Scope: corenetwork.ScopeCloudLocal,
+				Type:  network.IPv4Address,
+				Scope: network.ScopeCloudLocal,
 			},
 		})
 	}
 	return addresses, nil
 }
 
-func (inst *sdkEC2Instance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
+// OpenPorts implements instances.InstanceFirewaller.
+func (inst *sdkInstance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on instance",
 			inst.e.Config().FirewallMode())
@@ -200,7 +208,8 @@ func (inst *sdkEC2Instance) OpenPorts(ctx context.ProviderCallContext, machineId
 	return nil
 }
 
-func (inst *sdkEC2Instance) ClosePorts(ctx context.ProviderCallContext, machineId string, ports firewall.IngressRules) error {
+// ClosePorts implements instances.InstanceFirewaller.
+func (inst *sdkInstance) ClosePorts(ctx context.ProviderCallContext, machineId string, ports firewall.IngressRules) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on instance",
 			inst.e.Config().FirewallMode())
@@ -213,7 +222,8 @@ func (inst *sdkEC2Instance) ClosePorts(ctx context.ProviderCallContext, machineI
 	return nil
 }
 
-func (inst *sdkEC2Instance) IngressRules(ctx context.ProviderCallContext, machineId string) (firewall.IngressRules, error) {
+// IngressRules implements instances.InstanceFirewaller.
+func (inst *sdkInstance) IngressRules(ctx context.ProviderCallContext, machineId string) (firewall.IngressRules, error) {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ingress rules from instance",
 			inst.e.Config().FirewallMode())
