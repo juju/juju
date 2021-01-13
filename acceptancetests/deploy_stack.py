@@ -748,8 +748,8 @@ class BootstrapManager:
     cleanup_hook = None
 
     def __init__(self, temp_env_name, client, tear_down_client, bootstrap_host,
-                 machines, series, agent_url, agent_stream, region,
-                 log_dir, keep_env, arch=None, controller_strategy=None,
+                 machines, series, arch, agent_url, agent_stream, region,
+                 log_dir, keep_env, controller_strategy=None,
                  logged_exception_exit=True, existing_controller=None):
         """Constructor.
 
