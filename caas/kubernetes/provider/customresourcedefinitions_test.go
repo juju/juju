@@ -27,7 +27,7 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds []k8sspecs.K8sCustomResourceDefinitionSpec, assertCalls ...*gomock.Call) {
+func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds []k8sspecs.K8sCustomResourceDefinition, assertCalls ...*gomock.Call) {
 
 	basicPodSpec := getBasicPodspec()
 	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
@@ -129,7 +129,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreate(c *gc.
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	crds := []k8sspecs.K8sCustomResourceDefinitionSpec{
+	crds := []k8sspecs.K8sCustomResourceDefinition{
 		{
 			Meta: k8sspecs.Meta{Name: "tfjobs.kubeflow.org"},
 			Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
@@ -241,7 +241,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsUpdate(c *gc.
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	crds := []k8sspecs.K8sCustomResourceDefinitionSpec{
+	crds := []k8sspecs.K8sCustomResourceDefinition{
 		{
 			Meta: k8sspecs.Meta{Name: "tfjobs.kubeflow.org"},
 			Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{

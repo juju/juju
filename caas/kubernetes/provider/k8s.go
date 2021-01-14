@@ -2379,7 +2379,7 @@ type workloadSpec struct {
 	Services                        []k8sspecs.K8sService
 	ConfigMaps                      map[string]specs.ConfigMap
 	ServiceAccounts                 []k8sspecs.K8sRBACSpecConverter
-	CustomResourceDefinitions       []k8sspecs.K8sCustomResourceDefinitionSpec
+	CustomResourceDefinitions       []k8sspecs.K8sCustomResourceDefinition
 	CustomResources                 map[string][]unstructured.Unstructured
 	MutatingWebhookConfigurations   []k8sspecs.K8sMutatingWebhookSpec
 	ValidatingWebhookConfigurations []k8sspecs.K8sValidatingWebhookSpec

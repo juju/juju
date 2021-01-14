@@ -52,7 +52,7 @@ func (k *kubernetesClient) getCRLabels(appName string, scope apiextensionsv1beta
 func (k *kubernetesClient) ensureCustomResourceDefinitions(
 	appName string,
 	annotations map[string]string,
-	crdSpecs []k8sspecs.K8sCustomResourceDefinitionSpec,
+	crdSpecs []k8sspecs.K8sCustomResourceDefinition,
 ) (cleanUps []func(), _ error) {
 	for _, v := range crdSpecs {
 		crd := &apiextensionsv1beta1.CustomResourceDefinition{
@@ -61,7 +61,8 @@ func (k *kubernetesClient) ensureCustomResourceDefinitions(
 				Labels:      k8slabels.Merge(v.Labels, k.getAPIExtensionLabelsGlobal(appName)),
 				Annotations: k8sannotations.New(v.Annotations).Merge(annotations),
 			},
-			Spec: v.Spec,
+			// !!!!!!!!!!!!
+			Spec: v.Spec.SpecV1Beta1,
 		}
 		out, crdCleanUps, err := k.ensureCustomResourceDefinition(crd)
 		cleanUps = append(cleanUps, crdCleanUps...)
