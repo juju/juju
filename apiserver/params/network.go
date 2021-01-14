@@ -1147,7 +1147,8 @@ type NetworkInfoResultsV6 struct {
 	Results map[string]NetworkInfoResultV6 `json:"results"`
 }
 
-// NetworkInfoParams holds a name of the unit and list of bindings for which we want to get NetworkInfos.
+// NetworkInfoParams holds a name of the unit and list of bindings
+// for which we want to get NetworkInfos.
 type NetworkInfoParams struct {
 	Unit       string `json:"unit"`
 	RelationId *int   `json:"relation-id,omitempty"`
@@ -1157,6 +1158,21 @@ type NetworkInfoParams struct {
 	// Change it to "endpoints" if bumping the facade version for another
 	// purpose.
 	Endpoints []string `json:"bindings"`
+
+	// PreserveIngressHostNames indicates whether we want to preserve any FQDNs
+	// for ingress addresses in the results, instead of resolving their IPs.
+	// TODO (manadart 2021-01-14): This is intended as a stop-gap for
+	// preserving functionality from <= 2.8.6 up until we can make some
+	// breaking changes in 3.0.
+	// For 3.0, we should attend to the following:
+	// - Removal of the unit-get hook tool (relying on this argument).
+	// - Not resolving ingress FQDNs at all for ingress addresses.
+	// - Properly determining the address set for private-address in the uniter
+	//   call to EnterScope.
+	// - Supplying richer information in the output of network-get.
+	//   We currently return the first element of lists,
+	//   and single struct members.
+	PreserveIngressHostNames bool `json:keep-ingress-fqdn`
 }
 
 // FanConfigEntry holds configuration for a single fan.
