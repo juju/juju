@@ -14,6 +14,7 @@ import (
 	core "k8s.io/api/core/v1"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -310,6 +311,43 @@ kubernetesResources:
                             type: integer
                             minimum: 1
                             maximum: 1
+    - name: certificates.networking.internal.knative.dev
+      labels:
+        knative.dev/crd-install: "true"
+        serving.knative.dev/release: "v0.19.0"
+      spec:
+        scope: Namespaced
+        group: networking.internal.knative.dev
+        names:
+          kind: Certificate
+          plural: certificates
+          singular: certificate
+          categories:
+            - knative-internal
+            - networking
+          shortNames:
+            - kcert
+        versions:
+          - name: v1alpha1
+            served: true
+            storage: true
+            subresources:
+              status: {}
+            schema:
+              openAPIV3Schema:
+                type: object
+                # this is a work around so we don't need to flush out the
+                # schema for each version at this time
+                #
+                # see issue: https://github.com/knative/serving/issues/912
+                x-kubernetes-preserve-unknown-fields: true
+            additionalPrinterColumns:
+              - name: Ready
+                type: string
+                jsonPath: ".status.conditions[?(@.type==\"Ready\")].status"
+              - name: Reason
+                type: string
+                jsonPath: ".status.conditions[?(@.type==\"Ready\")].reason"
   customResources:
     tfjobs.kubeflow.org:
       - apiVersion: "kubeflow.org/v1"
@@ -843,7 +881,7 @@ password: shhhh`[1:],
 						},
 					},
 				},
-				CustomResourceDefinitions: []k8sspecs.K8sCustomResourceDefinitionSpec{
+				CustomResourceDefinitions: []k8sspecs.K8sCustomResourceDefinition{
 					{
 						Meta: k8sspecs.Meta{
 							Name: "tfjobs.kubeflow.org",
@@ -852,64 +890,123 @@ password: shhhh`[1:],
 								"juju-global-resource-lifecycle": "model",
 							},
 						},
-						Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-							Group:   "kubeflow.org",
-							Version: "v1",
-							Versions: []apiextensionsv1beta1.CustomResourceDefinitionVersion{
-								{Name: "v1", Served: true, Storage: true},
-								{Name: "v1beta2", Served: true, Storage: false},
-							},
-							Scope:                 "Cluster",
-							PreserveUnknownFields: boolPtr(false),
-							Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-								Kind:     "TFJob",
-								Plural:   "tfjobs",
-								Singular: "tfjob",
-							},
-							Conversion: &apiextensionsv1beta1.CustomResourceConversion{
-								Strategy: apiextensionsv1beta1.NoneConverter,
-							},
-							AdditionalPrinterColumns: []apiextensionsv1beta1.CustomResourceColumnDefinition{
-								{
-									Name:        "Worker",
-									Type:        "integer",
-									Description: "Worker attribute.",
-									JSONPath:    ".spec.tfReplicaSpecs.Worker",
+						Spec: k8sspecs.K8sCustomResourceDefinitionSpec{
+							Version: k8sspecs.K8sCustomResourceDefinitionV1Beta1,
+							SpecV1Beta1: apiextensionsv1beta1.CustomResourceDefinitionSpec{
+								Group:   "kubeflow.org",
+								Version: "v1",
+								Versions: []apiextensionsv1beta1.CustomResourceDefinitionVersion{
+									{Name: "v1", Served: true, Storage: true},
+									{Name: "v1beta2", Served: true, Storage: false},
 								},
-							},
-							Validation: &apiextensionsv1beta1.CustomResourceValidation{
-								OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"spec": {
-											Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-												"tfReplicaSpecs": {
-													Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-														"PS": {
-															Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-																"replicas": {
-																	Type: "integer", Minimum: float64Ptr(1),
+								Scope:                 "Cluster",
+								PreserveUnknownFields: boolPtr(false),
+								Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
+									Kind:     "TFJob",
+									Plural:   "tfjobs",
+									Singular: "tfjob",
+								},
+								Conversion: &apiextensionsv1beta1.CustomResourceConversion{
+									Strategy: apiextensionsv1beta1.NoneConverter,
+								},
+								AdditionalPrinterColumns: []apiextensionsv1beta1.CustomResourceColumnDefinition{
+									{
+										Name:        "Worker",
+										Type:        "integer",
+										Description: "Worker attribute.",
+										JSONPath:    ".spec.tfReplicaSpecs.Worker",
+									},
+								},
+								Validation: &apiextensionsv1beta1.CustomResourceValidation{
+									OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
+										Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+											"spec": {
+												Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+													"tfReplicaSpecs": {
+														Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+															"PS": {
+																Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+																	"replicas": {
+																		Type: "integer", Minimum: float64Ptr(1),
+																	},
 																},
 															},
-														},
-														"Chief": {
-															Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-																"replicas": {
-																	Type:    "integer",
-																	Minimum: float64Ptr(1),
-																	Maximum: float64Ptr(1),
+															"Chief": {
+																Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+																	"replicas": {
+																		Type:    "integer",
+																		Minimum: float64Ptr(1),
+																		Maximum: float64Ptr(1),
+																	},
 																},
 															},
-														},
-														"Worker": {
-															Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-																"replicas": {
-																	Type:    "integer",
-																	Minimum: float64Ptr(1),
+															"Worker": {
+																Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+																	"replicas": {
+																		Type:    "integer",
+																		Minimum: float64Ptr(1),
+																	},
 																},
 															},
 														},
 													},
 												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					{
+						Meta: k8sspecs.Meta{
+							Name: "certificates.networking.internal.knative.dev",
+							Labels: map[string]string{
+								"knative.dev/crd-install":     "true",
+								"serving.knative.dev/release": "v0.19.0",
+							},
+						},
+						Spec: k8sspecs.K8sCustomResourceDefinitionSpec{
+							Version: k8sspecs.K8sCustomResourceDefinitionV1,
+							SpecV1: apiextensionsv1.CustomResourceDefinitionSpec{
+								Scope: apiextensionsv1.NamespaceScoped,
+								Group: "networking.internal.knative.dev",
+								Names: apiextensionsv1.CustomResourceDefinitionNames{
+									Kind:     "Certificate",
+									Plural:   "certificates",
+									Singular: "certificate",
+									Categories: []string{
+										"knative-internal",
+										"networking",
+									},
+									ShortNames: []string{
+										"kcert",
+									},
+								},
+								Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
+									{
+										Name:    "v1alpha1",
+										Served:  true,
+										Storage: true,
+										Subresources: &apiextensionsv1.CustomResourceSubresources{
+											Status: &apiextensionsv1.CustomResourceSubresourceStatus{},
+										},
+										Schema: &apiextensionsv1.CustomResourceValidation{
+											OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
+												Type:                   "object",
+												XPreserveUnknownFields: boolPtr(true),
+											},
+										},
+										AdditionalPrinterColumns: []apiextensionsv1.CustomResourceColumnDefinition{
+											{
+												Name:     "Ready",
+												Type:     "string",
+												JSONPath: ".status.conditions[?(@.type==\"Ready\")].status",
+											},
+											{
+												Name:     "Reason",
+												Type:     "string",
+												JSONPath: ".status.conditions[?(@.type==\"Ready\")].reason",
 											},
 										},
 									},

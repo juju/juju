@@ -4,7 +4,6 @@
 package specs
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -12,7 +11,6 @@ import (
 	admissionregistration "k8s.io/api/admissionregistration/v1beta1"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -224,30 +222,6 @@ func (m Meta) Validate() error {
 	return nil
 }
 
-// K8sCustomResourceDefinitionSpec defines spec for creating or updating an CustomResourceDefinition resource.
-type K8sCustomResourceDefinitionSpec struct {
-	Meta `json:",inline" yaml:",inline"`
-	Spec apiextensionsv1beta1.CustomResourceDefinitionSpec `json:"spec" yaml:"spec"`
-}
-
-// Validate validates the spec.
-func (crd K8sCustomResourceDefinitionSpec) Validate() error {
-	if err := crd.Meta.Validate(); err != nil {
-		return errors.Trace(err)
-	}
-
-	if crd.Spec.Scope != apiextensionsv1beta1.NamespaceScoped && crd.Spec.Scope != apiextensionsv1beta1.ClusterScoped {
-		return errors.NewNotSupported(nil,
-			fmt.Sprintf("custom resource definition %q scope %q is not supported, please use %q or %q scope",
-				crd.Name, crd.Spec.Scope, apiextensionsv1beta1.NamespaceScoped, apiextensionsv1beta1.ClusterScoped),
-		)
-	}
-	if err := validateLabels(crd.Labels); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
 // K8sMutatingWebhookSpec defines spec for creating or updating an MutatingWebhook resource.
 type K8sMutatingWebhookSpec struct {
 	Meta     `json:",inline" yaml:",inline"`
@@ -300,7 +274,7 @@ type KubernetesResources struct {
 
 	Secrets                   []K8sSecret                            `json:"secrets" yaml:"secrets"`
 	Services                  []K8sService                           `json:"services" yaml:"services"`
-	CustomResourceDefinitions []K8sCustomResourceDefinitionSpec      `json:"customResourceDefinitions" yaml:"customResourceDefinitions"`
+	CustomResourceDefinitions []K8sCustomResourceDefinition          `json:"customResourceDefinitions" yaml:"customResourceDefinitions"`
 	CustomResources           map[string][]unstructured.Unstructured `json:"customResources,omitempty" yaml:"customResources,omitempty"`
 
 	MutatingWebhookConfigurations   []K8sMutatingWebhookSpec   `json:"mutatingWebhookConfigurations,omitempty" yaml:"mutatingWebhookConfigurations,omitempty"`

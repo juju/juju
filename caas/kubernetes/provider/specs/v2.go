@@ -252,11 +252,14 @@ func (krs *KubernetesResourcesV2) toLatest() *KubernetesResources {
 	return out
 }
 
-func customResourceDefinitionsToLatest(crds map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec) (out []K8sCustomResourceDefinitionSpec) {
+func customResourceDefinitionsToLatest(crds map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec) (out []K8sCustomResourceDefinition) {
 	for name, crd := range crds {
-		out = append(out, K8sCustomResourceDefinitionSpec{
+		out = append(out, K8sCustomResourceDefinition{
 			Meta: Meta{Name: name},
-			Spec: crd,
+			Spec: K8sCustomResourceDefinitionSpec{
+				Version:     K8sCustomResourceDefinitionV1Beta1,
+				SpecV1Beta1: crd,
+			},
 		})
 	}
 	return out
