@@ -38,6 +38,7 @@ type Tests struct {
 	CloudEndpoint  string
 	CloudRegion    string
 	ControllerUUID string
+	Env            environs.Environ
 	envtesting.ToolsFixture
 	sstesting.TestDataSuite
 
@@ -93,7 +94,8 @@ func (t *Tests) PrepareParams(c *gc.C) bootstrap.PrepareParams {
 
 // Prepare prepares an instance of the testing environment.
 func (t *Tests) Prepare(c *gc.C) environs.Environ {
-	return t.PrepareWithParams(c, t.PrepareParams(c))
+	t.Env = t.PrepareWithParams(c, t.PrepareParams(c))
+	return t.Env
 }
 
 // PrepareWithParams prepares an instance of the testing environment.
@@ -101,7 +103,8 @@ func (t *Tests) PrepareWithParams(c *gc.C, params bootstrap.PrepareParams) envir
 	e, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(c), t.ControllerStore, params)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", params.ModelConfig))
 	c.Assert(e, gc.NotNil)
-	return e.(environs.Environ)
+	t.Env = e.(environs.Environ)
+	return t.Env
 }
 
 func (t *Tests) AssertPrepareFailsWithConfig(c *gc.C, badConfig coretesting.Attrs, errorMatches string) error {
