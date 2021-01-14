@@ -20,8 +20,12 @@ type Platform struct {
 	Series       string `json:"series"`
 }
 
+// Download represents the download structure from CharmHub.
+// Elements not used by juju but not used are: "hash-sha3-384"
+// and "hash-sha-512"
 type Download struct {
 	HashSHA256 string `json:"hash-sha-256"`
+	HashSHA384 string `json:"hash-sha-384"`
 	Size       int    `json:"size"`
 	URL        string `json:"url"`
 }
