@@ -156,7 +156,7 @@ class Constraints:
         if self.instance_type is None:
             return True
         instance_data = get_instance_spec(self.instance_type)
-        for (key, value) in instance_data.iteritems():
+        for (key, value) in iter(instance_data.items()):
             # Temperary fix until cpu-cores -> cores switch is finished.
             if key == 'cores' and 'cpu-cores' in actual_data:
                 key = 'cpu-cores'

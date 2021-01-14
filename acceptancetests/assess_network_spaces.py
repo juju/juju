@@ -276,14 +276,14 @@ def non_infan_subnets(subnets):
     newsubnets = {}
     if 'subnets' in subnets:
         newsubnets['subnets'] = {}
-        for subnet, details in subnets['subnets'].iteritems():
+        for subnet, details in iter(subnets['subnets'].items()):
             if 'INFAN' not in details['provider-id']:
                 newsubnets['subnets'][subnet] = details
     if 'spaces' in subnets:
         newsubnets['spaces'] = {}
         for details in subnets['spaces']:
             space = details['name']
-            for subnet, subnet_details in details['subnets'].iteritems():
+            for subnet, subnet_details in iter(details['subnets'].items()):
                 if 'INFAN' not in subnet_details['provider-id']:
                     newsubnets['spaces'].setdefault(space, {})
                     newsubnets['spaces'][space][subnet] = subnet_details
