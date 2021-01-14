@@ -114,7 +114,7 @@ def _assess_spaces_subnets(client, network_config, charms_to_space):
                     unit_priv_address[unit_name] = addr[1]
 
     cidrs_in_space = {}
-    for name, attrs in spaces['spaces'].iteritems():
+    for name, attrs in iter(spaces['spaces'].items()):
         cidrs_in_space[name] = []
         for cidr in attrs:
             cidrs_in_space[name].append(cidr)

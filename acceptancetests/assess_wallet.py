@@ -70,7 +70,7 @@ def _try_setting_wallet(client, name, value):
         output = [e.output, getattr(e, 'stderr', '')]
         raise JujuAssertionError('Could not set wallet {}'.format(output))
 
-    if 'wallet limit updated' not in output:
+    if b'wallet limit updated' not in output:
         raise JujuAssertionError('Error calling set-wallet {}'.format(output))
 
 
@@ -87,7 +87,7 @@ def _try_creating_wallet(client, name, value):
         else:
             raise JujuAssertionError(
                 'Error testing create-wallet: {}'.format(output))
-    except:
+    except Exception:
         raise JujuAssertionError('Added duplicate wallet')
 
 

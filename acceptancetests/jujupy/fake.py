@@ -836,7 +836,7 @@ class FakeBackend:
     def get_users(self):
         share_names = self.controller_state.shares
         permissions = []
-        for key, value in self.controller_state.users.iteritems():
+        for key, value in iter(self.controller_state.users.items()):
             if key in share_names:
                 permissions.append(value['permission'])
         share_list = {}

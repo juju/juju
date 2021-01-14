@@ -42,7 +42,9 @@ def remove_display_attributes(cloud):
     # Delete None values, which are "errors" from parsing the yaml E.g. output
     # can show values which we show to the customers but should actually not
     # parsed and compared
-    for key in cloud.keys():
+    # NOTE(achilleasa): list() makes a copy of the keys to avoid a dict size
+    # changed while iterating error.
+    for key in list(cloud.keys()):
         if cloud[key] is None:
             del cloud[key]
 
@@ -58,12 +60,13 @@ def remove_display_attributes(cloud):
 def get_clouds(client):
     cloud_list = yaml.safe_load(client.get_juju_output(
         'clouds', '--format', 'yaml', '--local', include_e=False))
-    for cloud_name, cloud in cloud_list.items():
-        if cloud['defined'] == 'built-in':
-            del cloud_list[cloud_name]
-            continue
+    cloud_list_without_builtins = {
+        k: v for (k, v) in iter(cloud_list.items()) if
+        v['defined'] != 'built-in'
+    }
+    for cloud in cloud_list_without_builtins.values():
         remove_display_attributes(cloud)
-    return cloud_list
+    return cloud_list_without_builtins
 
 
 def get_home_path(client, subpath):
@@ -132,7 +135,7 @@ def main():
         with testing('assess_clouds (no_clouds)'):
             assess_clouds(client, {})
         with open(args.clouds_file) as f:
-            supplied_clouds = yaml.safe_load(f.read().decode('utf-8'))
+            supplied_clouds = yaml.safe_load(f.read())
         client.env.write_clouds(client.env.juju_home, supplied_clouds)
         no_region_endpoint = strip_redundant_endpoints(
             supplied_clouds['clouds'])
