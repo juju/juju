@@ -184,11 +184,13 @@ func (s *networkInfoSuite) TestAPIRequestForRelationHostNameNoEgress(c *gc.C) {
 	netInfo := s.newNetworkInfo(c, prr.pu0.UnitTag(), nil, lookup)
 
 	rID := prr.rel.Id()
-	result, err := netInfo.ProcessAPIRequest(params.NetworkInfoParams{
+	arg := params.NetworkInfoParams{
 		Unit:       names.NewUnitTag(prr.pru0.UnitName()).String(),
 		Endpoints:  []string{"server"},
 		RelationId: &rID,
-	})
+	}
+
+	result, err := netInfo.ProcessAPIRequest(arg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	res := result.Results
@@ -207,6 +209,22 @@ func (s *networkInfoSuite) TestAPIRequestForRelationHostNameNoEgress(c *gc.C) {
 	c.Check(addrs, gc.HasLen, 1)
 	c.Check(addrs[0].Hostname, gc.Equals, host)
 	c.Check(addrs[0].Address, gc.Equals, ip)
+
+	// Run the same request, turning off ingress FQDN resolution.
+	arg.PreserveIngressHostNames = true
+	result, err = netInfo.ProcessAPIRequest(arg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	res = result.Results
+	c.Assert(res, gc.HasLen, 1)
+
+	binding, ok = res["server"]
+	c.Assert(ok, jc.IsTrue)
+
+	// We now get the host instead of the IP.
+	ingress = binding.IngressAddresses
+	c.Assert(ingress, gc.HasLen, 1)
+	c.Check(ingress[0], gc.Equals, host)
 }
 
 func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
