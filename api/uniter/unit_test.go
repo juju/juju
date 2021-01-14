@@ -546,7 +546,7 @@ func (s *unitSuite) TestNetworkInfo(c *gc.C) {
 	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	result, err := unit.NetworkInfo([]string{"server"}, &relId)
+	result, err := unit.NetworkInfo([]string{"server"}, &relId, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result["db"].Error, gc.ErrorMatches, "FAIL")
 }

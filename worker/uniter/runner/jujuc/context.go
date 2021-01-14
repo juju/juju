@@ -198,7 +198,9 @@ type ContextNetworking interface {
 	OpenedPorts() []network.PortRange
 
 	// NetworkInfo returns the network info for the given bindings on the given relation.
-	NetworkInfo(bindingNames []string, relationId int) (map[string]params.NetworkInfoResult, error)
+	NetworkInfo(
+		bindingNames []string, relationId int, preserveIngressHostNames bool,
+	) (map[string]params.NetworkInfoResult, error)
 }
 
 // ContextLeadership is the part of a hook context related to the

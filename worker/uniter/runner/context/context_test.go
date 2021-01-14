@@ -113,7 +113,7 @@ func (s *InterfaceSuite) TestUnitNetworkInfo(c *gc.C) {
 	// of the cases are tested separately for network-get, api/uniter, and
 	// apiserver/uniter, respectively.
 	ctx := s.GetContext(c, -1, "")
-	netInfo, err := ctx.NetworkInfo([]string{"unknown"}, -1)
+	netInfo, err := ctx.NetworkInfo([]string{"unknown"}, -1, false)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(netInfo, gc.DeepEquals, map[string]params.NetworkInfoResult{
 		"unknown": {

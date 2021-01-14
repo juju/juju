@@ -129,7 +129,9 @@ type HookUnit interface {
 	ConfigSettings() (charm.Settings, error)
 	LogActionMessage(names.ActionTag, string) error
 	Name() string
-	NetworkInfo(bindings []string, relationId *int) (map[string]params.NetworkInfoResult, error)
+	NetworkInfo(
+		bindings []string, relationId *int, preserveIngressHostNames bool,
+	) (map[string]params.NetworkInfoResult, error)
 	OpenPorts(protocol string, fromPort, toPort int) error
 	RequestReboot() error
 	SetUnitStatus(unitStatus status.Status, info string, data map[string]interface{}) error
@@ -1313,10 +1315,12 @@ func (ctx *HookContext) SetUnitWorkloadVersion(version string) error {
 
 // NetworkInfo returns the network info for the given bindings on the given relation.
 // Implements jujuc.HookContext.ContextNetworking, part of runner.Context.
-func (ctx *HookContext) NetworkInfo(bindingNames []string, relationId int) (map[string]params.NetworkInfoResult, error) {
+func (ctx *HookContext) NetworkInfo(
+	bindingNames []string, relationId int, preserveIngressHostNames bool,
+) (map[string]params.NetworkInfoResult, error) {
 	var relId *int
 	if relationId != -1 {
 		relId = &relationId
 	}
-	return ctx.unit.NetworkInfo(bindingNames, relId)
+	return ctx.unit.NetworkInfo(bindingNames, relId, preserveIngressHostNames)
 }

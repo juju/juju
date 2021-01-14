@@ -1172,7 +1172,7 @@ type NetworkInfoParams struct {
 	// - Supplying richer information in the output of network-get.
 	//   We currently return the first element of lists,
 	//   and single struct members.
-	PreserveIngressHostNames bool `json:keep-ingress-fqdn`
+	PreserveIngressHostNames bool `json:"keep-ingress-fqdn"`
 }
 
 // FanConfigEntry holds configuration for a single fan.

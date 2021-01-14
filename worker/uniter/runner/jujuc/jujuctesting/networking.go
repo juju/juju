@@ -104,8 +104,10 @@ func (c *ContextNetworking) OpenedPorts() []network.PortRange {
 }
 
 // NetworkInfo implements jujuc.ContextNetworking.
-func (c *ContextNetworking) NetworkInfo(bindingNames []string, relationId int) (map[string]params.NetworkInfoResult, error) {
-	c.stub.AddCall("NetworkInfo", bindingNames, relationId)
+func (c *ContextNetworking) NetworkInfo(
+	bindingNames []string, relationId int, preserveIngressHostNames bool,
+) (map[string]params.NetworkInfoResult, error) {
+	c.stub.AddCall("NetworkInfo", bindingNames, relationId, preserveIngressHostNames)
 	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}

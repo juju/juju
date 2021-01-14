@@ -107,7 +107,7 @@ func (c *NetworkGetCommand) Init(args []string) error {
 }
 
 func (c *NetworkGetCommand) Run(ctx *cmd.Context) error {
-	netInfo, err := c.ctx.NetworkInfo([]string{c.bindingName}, c.RelationId)
+	netInfo, err := c.ctx.NetworkInfo([]string{c.bindingName}, c.RelationId, false)
 	if err != nil {
 		return errors.Trace(err)
 	}

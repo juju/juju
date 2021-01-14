@@ -874,12 +874,15 @@ func (u *Unit) AddStorage(constraints map[string][]params.StorageConstraints) er
 }
 
 // NetworkInfo returns network interfaces/addresses for specified bindings.
-func (u *Unit) NetworkInfo(bindings []string, relationId *int) (map[string]params.NetworkInfoResult, error) {
+func (u *Unit) NetworkInfo(
+	bindings []string, relationId *int, preserveIngressHostNames bool,
+) (map[string]params.NetworkInfoResult, error) {
 	var results params.NetworkInfoResults
 	args := params.NetworkInfoParams{
-		Unit:       u.tag.String(),
-		Endpoints:  bindings,
-		RelationId: relationId,
+		Unit:                     u.tag.String(),
+		Endpoints:                bindings,
+		RelationId:               relationId,
+		PreserveIngressHostNames: preserveIngressHostNames,
 	}
 
 	err := u.st.facade.FacadeCall("NetworkInfo", args, &results)

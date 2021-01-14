@@ -138,18 +138,18 @@ func (mr *MockHookUnitMockRecorder) Name() *gomock.Call {
 }
 
 // NetworkInfo mocks base method
-func (m *MockHookUnit) NetworkInfo(arg0 []string, arg1 *int) (map[string]params.NetworkInfoResult, error) {
+func (m *MockHookUnit) NetworkInfo(arg0 []string, arg1 *int, arg2 bool) (map[string]params.NetworkInfoResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NetworkInfo", arg0, arg1)
+	ret := m.ctrl.Call(m, "NetworkInfo", arg0, arg1, arg2)
 	ret0, _ := ret[0].(map[string]params.NetworkInfoResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // NetworkInfo indicates an expected call of NetworkInfo
-func (mr *MockHookUnitMockRecorder) NetworkInfo(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockHookUnitMockRecorder) NetworkInfo(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NetworkInfo", reflect.TypeOf((*MockHookUnit)(nil).NetworkInfo), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NetworkInfo", reflect.TypeOf((*MockHookUnit)(nil).NetworkInfo), arg0, arg1, arg2)
 }
 
 // OpenPorts mocks base method
