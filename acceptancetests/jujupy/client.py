@@ -1910,7 +1910,7 @@ class ModelClient:
         """
         args = (unit, action) + args
 
-        output = self.get_juju_output("run-action", *args)
+        output = self.get_juju_output("run-action", *args).decode('utf-8')
         action_id_pattern = re.compile('Action queued with id: "([0-9]+)"')
         match = action_id_pattern.search(output)
         if match is None:

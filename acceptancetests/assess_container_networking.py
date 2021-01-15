@@ -255,7 +255,7 @@ def assess_internet_connection(client, targets):
     log.info('Assessing internet connection.')
     for target in targets:
         log.info("Assessing internet connection for {}".format(target))
-        routes = ssh(client, target, 'ip route show')
+        routes = ssh(client, target, 'ip route show').decode('utf-8')
 
         d = re.search(r'^default\s+via\s+([\d\.]+)\s+', routes, re.MULTILINE)
         if d:
