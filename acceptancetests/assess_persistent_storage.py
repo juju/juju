@@ -49,7 +49,7 @@ def get_storage_list(client):
         'storage', '--format', 'json', include_e=False)
     # Bug 1708340 https://bugs.launchpad.net/juju/+bug/1708340
     # juju storage --format json output will be empty if no storage exists.
-    if raw_output == b'':
+    if raw_output == '':
         storage_list = storage_output = ''
     else:
         storage_output = json.loads(raw_output)
@@ -165,7 +165,7 @@ def assert_app_removal_msg(client, charm_name):
     # merge_stderr=True is required
     app_removal_output = client.get_juju_output(
         'remove-application', charm_name, '--show-log',
-        include_e=False, merge_stderr=True).decode('utf-8')
+        include_e=False, merge_stderr=True)
     remove_app_output_check = False
     for line in app_removal_output.split('\n'):
         if 'will remove unit {}'.format(charm_name) in line:

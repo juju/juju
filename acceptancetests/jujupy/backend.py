@@ -299,7 +299,7 @@ class JujuBackend:
         try:
             current = json.loads(self.get_juju_output(
                 'controllers', ('--format', 'json'), set(),
-                juju_data_dir, model=None).decode('ascii'))
+                juju_data_dir, model=None))
         except subprocess.CalledProcessError:
             raise NoActiveControllers(
                 'No active controller for {}'.format(juju_data_dir))
@@ -314,7 +314,7 @@ class JujuBackend:
         try:
             current = json.loads(self.get_juju_output(
                 'controllers', ('--format', 'json'), set(),
-                juju_data_dir, model=None).decode('ascii'))
+                juju_data_dir, model=None))
         except subprocess.CalledProcessError:
             raise NoActiveControllers(
                 'No active controller for {}'.format(juju_data_dir))

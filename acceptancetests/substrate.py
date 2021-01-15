@@ -940,7 +940,7 @@ def start_libvirt_domain(uri, domain):
     try:
         subprocess.check_output(command, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
-        if 'already active' in e.output:
+        if 'already active' in e.output.decode('utf-8'):
             return '%s is already running; nothing to do.' % domain
         raise Exception('%s failed:\n %s' % (command, e.output))
     sleep(30)
@@ -962,7 +962,7 @@ def stop_libvirt_domain(uri, domain):
     try:
         subprocess.check_output(command, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
-        if 'domain is not running' in e.output:
+        if 'domain is not running' in e.output.decode('utf-8'):
             return ('%s is not running; nothing to do.' % domain)
         raise Exception('%s failed:\n %s' % (command, e.output))
     sleep(30)
