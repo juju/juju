@@ -306,7 +306,8 @@ def get_machine_ip_in_space(client, machine, space):
         yaml.safe_load(
             client.get_juju_output(
                 'list-spaces', '--format=yaml')))
-    subnet = spaces['spaces'][space].keys()[0]
+    target_space = spaces['spaces'][space]
+    subnet = next(iter(target_space.keys()))
     for ip in machines[machine]['ip-addresses']:
         if ip_in_cidr(ip, subnet):
             return ip
@@ -332,8 +333,7 @@ def ip_in_cidr(address, cidr):
     :param address: A valid IPv4 address (string)
     :param cidr: A valid subnet in CIDR notation (string)
     """
-    return (ipaddress.ip_address(address.decode('utf-8'))
-            in ipaddress.ip_network(cidr.decode('utf-8')))
+    return (ipaddress.ip_address(address) in ipaddress.ip_network(cidr))
 
 
 def parse_args(argv):
