@@ -66,9 +66,11 @@ type BaseSuite struct {
 	mockNodes                  *mocks.MockNodeInterface
 	mockEvents                 *mocks.MockEventInterface
 
-	mockApiextensionsV1          *mocks.MockApiextensionsV1beta1Interface
-	mockApiextensionsClient      *mocks.MockApiExtensionsClientInterface
-	mockCustomResourceDefinition *mocks.MockCustomResourceDefinitionInterface
+	mockApiextensionsV1Beta1            *mocks.MockApiextensionsV1beta1Interface
+	mockApiextensionsV1                 *mocks.MockApiextensionsV1Interface
+	mockApiextensionsClient             *mocks.MockApiExtensionsClientInterface
+	mockCustomResourceDefinitionV1Beta1 *mocks.MockCustomResourceDefinitionV1Beta1Interface
+	mockCustomResourceDefinitionV1      *mocks.MockCustomResourceDefinitionV1Interface
 
 	mockMutatingWebhookConfiguration   *mocks.MockMutatingWebhookConfigurationInterface
 	mockValidatingWebhookConfiguration *mocks.MockValidatingWebhookConfigurationInterface
@@ -287,10 +289,14 @@ func (s *BaseSuite) setupK8sRestClient(
 	s.mockStorage.EXPECT().StorageClasses().AnyTimes().Return(s.mockStorageClass)
 
 	s.mockApiextensionsClient = mocks.NewMockApiExtensionsClientInterface(ctrl)
-	s.mockApiextensionsV1 = mocks.NewMockApiextensionsV1beta1Interface(ctrl)
-	s.mockCustomResourceDefinition = mocks.NewMockCustomResourceDefinitionInterface(ctrl)
-	s.mockApiextensionsClient.EXPECT().ApiextensionsV1beta1().AnyTimes().Return(s.mockApiextensionsV1)
-	s.mockApiextensionsV1.EXPECT().CustomResourceDefinitions().AnyTimes().Return(s.mockCustomResourceDefinition)
+	s.mockApiextensionsV1Beta1 = mocks.NewMockApiextensionsV1beta1Interface(ctrl)
+	s.mockApiextensionsV1 = mocks.NewMockApiextensionsV1Interface(ctrl)
+	s.mockCustomResourceDefinitionV1Beta1 = mocks.NewMockCustomResourceDefinitionV1Beta1Interface(ctrl)
+	s.mockCustomResourceDefinitionV1 = mocks.NewMockCustomResourceDefinitionV1Interface(ctrl)
+	s.mockApiextensionsClient.EXPECT().ApiextensionsV1beta1().AnyTimes().Return(s.mockApiextensionsV1Beta1)
+	s.mockApiextensionsClient.EXPECT().ApiextensionsV1().AnyTimes().Return(s.mockApiextensionsV1)
+	s.mockApiextensionsV1Beta1.EXPECT().CustomResourceDefinitions().AnyTimes().Return(s.mockCustomResourceDefinitionV1Beta1)
+	s.mockApiextensionsV1.EXPECT().CustomResourceDefinitions().AnyTimes().Return(s.mockCustomResourceDefinitionV1)
 
 	s.mockDynamicClient = mocks.NewMockDynamicInterface(ctrl)
 	s.mockResourceClient = mocks.NewMockResourceInterface(ctrl)

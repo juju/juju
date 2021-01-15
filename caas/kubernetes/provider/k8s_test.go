@@ -1662,7 +1662,7 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 		).Return(s.mockNamespaceableResourceClient),
 	).After(
 		// list cluster wide all custom resource definitions for listing custom resources.
-		s.mockCustomResourceDefinition.EXPECT().List(v1.ListOptions{}).AnyTimes().
+		s.mockCustomResourceDefinitionV1Beta1.EXPECT().List(v1.ListOptions{}).AnyTimes().
 			Return(&apiextensionsv1beta1.CustomResourceDefinitionList{Items: []apiextensionsv1beta1.CustomResourceDefinition{*crdClusterScope, *crdNamespacedScope}}, nil),
 	).After(
 		// delete all custom resources for crd "v1alpha2".
@@ -1694,17 +1694,17 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 		).Return(s.mockNamespaceableResourceClient),
 	).After(
 		// list cluster wide all custom resource definitions for deleting custom resources.
-		s.mockCustomResourceDefinition.EXPECT().List(v1.ListOptions{}).AnyTimes().
+		s.mockCustomResourceDefinitionV1Beta1.EXPECT().List(v1.ListOptions{}).AnyTimes().
 			Return(&apiextensionsv1beta1.CustomResourceDefinitionList{Items: []apiextensionsv1beta1.CustomResourceDefinition{*crdClusterScope, *crdNamespacedScope}}, nil),
 	)
 
 	// timer +1.
-	s.mockCustomResourceDefinition.EXPECT().List(v1.ListOptions{
+	s.mockCustomResourceDefinitionV1Beta1.EXPECT().List(v1.ListOptions{
 		LabelSelector: "juju-model=test,juju-resource-lifecycle notin (persistent)",
 	}).AnyTimes().
 		Return(&apiextensionsv1beta1.CustomResourceDefinitionList{}, nil).
 		After(
-			s.mockCustomResourceDefinition.EXPECT().DeleteCollection(
+			s.mockCustomResourceDefinitionV1Beta1.EXPECT().DeleteCollection(
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
 				v1.ListOptions{LabelSelector: "juju-model=test,juju-resource-lifecycle notin (persistent)"},
 			).Return(s.k8sNotFoundError()),
@@ -2008,7 +2008,7 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 		).Return(nil),
 
 		// list cluster wide all custom resource definitions for deleting custom resources.
-		s.mockCustomResourceDefinition.EXPECT().List(v1.ListOptions{}).
+		s.mockCustomResourceDefinitionV1Beta1.EXPECT().List(v1.ListOptions{}).
 			Return(&apiextensionsv1beta1.CustomResourceDefinitionList{Items: []apiextensionsv1beta1.CustomResourceDefinition{*crd}}, nil),
 		// delete all custom resources for crd "v1".
 		s.mockDynamicClient.EXPECT().Resource(
@@ -2036,7 +2036,7 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 		).Return(nil),
 
 		// delete all custom resource definitions.
-		s.mockCustomResourceDefinition.EXPECT().DeleteCollection(
+		s.mockCustomResourceDefinitionV1Beta1.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
 			v1.ListOptions{LabelSelector: "juju-app=test,juju-model=test,juju-resource-lifecycle notin (model,persistent)"},
 		).Return(nil),
