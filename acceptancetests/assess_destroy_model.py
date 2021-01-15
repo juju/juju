@@ -110,7 +110,7 @@ def get_current_controller(client):
     :param client: Jujupy ModelClient object
     :return: String name of current controller
     """
-    raw = client.get_juju_output('switch', include_e=False).decode('utf-8')
+    raw = client.get_juju_output('switch', include_e=False)
     raw = raw.split(':')[0]
     return raw
 

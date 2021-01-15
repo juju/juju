@@ -493,7 +493,7 @@ def list_models(client):
     """
     try:
         raw = client.get_juju_output('list-models', '--format', 'json',
-                                     include_e=False).decode('utf-8')
+                                     include_e=False)
     except subprocess.CalledProcessError as e:
         log.error('Failed to list current models due to error: {}'.format(e))
         raise e
