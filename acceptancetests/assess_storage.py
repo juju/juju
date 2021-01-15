@@ -129,7 +129,7 @@ def wait_for_storage_removal(client, storage_id, interval, timeout):
 def make_expected_ls(storage_name, unit_name, kind='filesystem'):
     """Return the expected data from list-storage for filesystem or block."""
     if kind == 'block':
-        location = ''
+        location = '/dev/loop3'
     else:
         location = '/srv/data'
     data = {
