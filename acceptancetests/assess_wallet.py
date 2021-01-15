@@ -80,7 +80,10 @@ def _try_creating_wallet(client, name, value):
         log.info('Created new wallet "{}" with value {}'.format(name,
                                                                 value))
     except subprocess.CalledProcessError as e:
-        output = [e.output.decode('utf-8'), getattr(e, 'stderr', '')]
+        output = [
+            e.output.decode('utf-8'),
+            getattr(e, 'stderr', '').decode('utf-8'),
+        ]
         if any('already exists' in message for message in output):
             log.info('Reusing wallet "{}" with value {}'.format(name, value))
             pass  # this will be a failure once lp:1663258 is fixed
