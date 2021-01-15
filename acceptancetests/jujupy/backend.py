@@ -278,7 +278,7 @@ class JujuBackend:
                         b'307: Temporary Redirect' in sub_error):
                     raise CannotConnectEnv(e)
                 raise e
-        return sub_output
+        return sub_output.decode('utf-8')
 
     def get_active_model(self, juju_data_dir):
         """Determine the active model in a juju data dir."""
