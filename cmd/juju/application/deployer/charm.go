@@ -34,27 +34,28 @@ import (
 )
 
 type deployCharm struct {
-	applicationName string
-	attachStorage   []string
-	bindings        map[string]string
-	configOptions   common.ConfigFlag
-	constraints     constraints.Value
-	csMac           *macaroon.Macaroon
-	devices         map[string]devices.Constraints
-	deployResources resourceadapters.DeployResourcesFunc
-	force           bool
-	id              application.CharmID
-	flagSet         *gnuflag.FlagSet
-	model           ModelCommand
-	numUnits        int
-	origin          commoncharm.Origin
-	placement       []*instance.Placement
-	placementSpec   string
-	resources       map[string]string
-	series          string
-	steps           []DeployStep
-	storage         map[string]storage.Constraints
-	trust           bool
+	applicationName  string
+	attachStorage    []string
+	bindings         map[string]string
+	configOptions    common.ConfigFlag
+	constraints      constraints.Value
+	modelConstraints constraints.Value
+	csMac            *macaroon.Macaroon
+	devices          map[string]devices.Constraints
+	deployResources  resourceadapters.DeployResourcesFunc
+	force            bool
+	id               application.CharmID
+	flagSet          *gnuflag.FlagSet
+	model            ModelCommand
+	numUnits         int
+	origin           commoncharm.Origin
+	placement        []*instance.Placement
+	placementSpec    string
+	resources        map[string]string
+	series           string
+	steps            []DeployStep
+	storage          map[string]storage.Constraints
+	trust            bool
 
 	validateCharmSeriesWithName           func(series, name string, imageStream string) error
 	validateResourcesNeededForLocalDeploy func(charmMeta *charm.Meta) error
@@ -333,7 +334,7 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 		return errors.Trace(err)
 	}
 
-	platform, err := utils.DeducePlatform(d.constraints, d.userCharmURL.Series)
+	platform, err := utils.DeducePlatform(d.constraints, d.userCharmURL.Series, d.modelConstraints)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -375,7 +376,7 @@ func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _
 		return errors.Trace(err)
 	}
 
-	platform, err := utils.DeducePlatform(l.constraints, l.curl.Series)
+	platform, err := utils.DeducePlatform(l.constraints, l.curl.Series, l.modelConstraints)
 	if err != nil {
 		return errors.Trace(err)
 	}
