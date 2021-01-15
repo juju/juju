@@ -90,7 +90,7 @@ def extract_module_logs(client, module):
         '--no-tail', '--replay', '-l', 'TRACE',
         '--include-module', module,
     )
-    return deploy_logs.decode('utf-8')
+    return deploy_logs
 
 
 def extract_txn_metrics(logs, module):

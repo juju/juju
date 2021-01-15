@@ -588,7 +588,7 @@ def expect_migration_attempt_to_fail(source_client, dest_client):
             'migrate', *args, merge_stderr=True, include_e=False)
     except CalledProcessError as e:
         print(e.output, file=sys.stderr)
-        if 'permission denied' not in e.output:
+        if 'permission denied' not in e.output.decode('utf-8'):
             raise
         log.info('SUCCESS: Migrate command failed as expected.')
     else:
