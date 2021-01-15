@@ -79,7 +79,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleNotFoundCharmStore(c *gc.C
 	}
 
 	_, err = bundleDeploy(bundleData, s.bundleDeploySpec())
-	c.Assert(err, gc.ErrorMatches, `cannot resolve URL "cs:bundle/no-such": bundle not found`)
+	c.Assert(err, gc.ErrorMatches, `cannot resolve charm or bundle "no-such": bundle not found`)
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleSuccess(c *gc.C) {

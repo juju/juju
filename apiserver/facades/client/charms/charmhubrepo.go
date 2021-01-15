@@ -61,7 +61,7 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 	// If no revision nor channel specified, use the default release.
 	if curl.Revision == -1 && channel.String() == "" {
 		logger.Debugf("Resolving charm with default release")
-		resURL, resOrigin, serie, err := c.resolveViaChannelMap(info.Type, curl, origin, info.DefaultRelease, true)
+		resURL, resOrigin, series, err := c.resolveViaChannelMap(info.Type, curl, origin, info.DefaultRelease, true)
 		if err != nil {
 			return nil, params.CharmOrigin{}, nil, errors.Trace(err)
 		}
@@ -71,7 +71,8 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 		if err != nil {
 			return nil, params.CharmOrigin{}, nil, errors.Trace(err)
 		}
-		return resURL, outputOrigin, serie, nil
+
+		return resURL, outputOrigin, series, nil
 	}
 
 	logger.Debugf("Resolving charm with revision %d and/or channel %s and origin %s", curl.Revision, channel.String(), origin)
@@ -172,8 +173,6 @@ func (c *chRepo) resolveViaChannelMap(t transport.Type, curl *charm.URL, origin 
 	mapChannel := channelMap.Channel
 	mapRevision := channelMap.Revision
 
-	curl.Revision = mapRevision.Revision
-
 	origin.Type = t
 	origin.Revision = &mapRevision.Revision
 	origin.Risk = mapChannel.Risk
@@ -192,6 +191,13 @@ func (c *chRepo) resolveViaChannelMap(t transport.Type, curl *charm.URL, origin 
 	origin.OS = mapChannel.Platform.OS
 	origin.Series = mapChannel.Platform.Series
 
+	// Ensure that we force the revision, architecture and series on to the
+	// returning charm URL. This way we can store a unique charm per
+	// architecture, series and revision.
+	rurl := curl.WithRevision(mapRevision.Revision).
+		WithArchitecture(origin.Architecture).
+		WithSeries(origin.Series)
+
 	// The metadata is empty, this can happen if we've requested something from
 	// the charmhub API that we didn't provide the right hint for (channel or
 	// revision).
@@ -207,14 +213,14 @@ func (c *chRepo) resolveViaChannelMap(t transport.Type, curl *charm.URL, origin 
 	case "charm":
 		if mapRevision.MetadataYAML == "" {
 			logger.Warningf("No metadata yaml found, using fallback computed series for %q.", curl)
-			return curl, origin, []string{origin.Series}, nil
+			return rurl, origin, []string{origin.Series}, nil
 		}
 
 		meta, err = unmarshalCharmMetadata(mapRevision.MetadataYAML)
 	case "bundle":
 		if mapRevision.BundleYAML == "" {
 			logger.Warningf("No bundle yaml found, using fallback computed series for %q.", curl)
-			return curl, origin, []string{origin.Series}, nil
+			return rurl, origin, []string{origin.Series}, nil
 		}
 
 		meta, err = unmarshalBundleMetadata(mapRevision.BundleYAML)
@@ -224,7 +230,7 @@ func (c *chRepo) resolveViaChannelMap(t transport.Type, curl *charm.URL, origin 
 	if err != nil {
 		return nil, params.CharmOrigin{}, nil, errors.Annotatef(err, "cannot unmarshal charm metadata")
 	}
-	return curl, origin, meta.ComputedSeries(), nil
+	return rurl, origin, meta.ComputedSeries(), nil
 }
 
 type channelPlatform struct {

@@ -351,11 +351,19 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		}
 		url, origin, _, err := h.bundleResolver.ResolveCharm(ch, origin)
 		if err != nil {
-			return errors.Annotatef(err, "cannot resolve URL %q", spec.Charm)
+			return errors.Annotatef(err, "cannot resolve charm or bundle %q", ch.Name)
+		}
+
+		// CharmHub returns the series and architecture when resolving a charm,
+		// which prevents the bundle detection logic. We will deduce the series
+		// again at a later stage to correct this when uploading the charm.
+		if charm.CharmHub.Matches(url.Schema) {
+			url = url.WithSeries("")
+			origin = origin.WithSeries("")
 		}
 		h.ctx.Infof(formatLocatedText(ch, origin))
 		if url.Series == "bundle" {
-			return errors.Errorf("expected charm URL, got bundle URL %q", spec.Charm)
+			return errors.Errorf("expected charm, got bundle %q", ch.Name)
 		}
 
 		spec.Charm = url.String()
@@ -576,19 +584,19 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 
 	url, resolvedOrigin, _, err := h.bundleResolver.ResolveCharm(ch, origin)
 	if err != nil {
-		return errors.Annotatef(err, "cannot resolve URL %q", chParams.Charm)
+		return errors.Annotatef(err, "cannot resolve %q", ch.Name)
 	}
 	if url.Series == "bundle" || resolvedOrigin.Type == "bundle" {
-		return errors.Errorf("expected charm URL, got bundle %q %v", chParams.Charm, resolvedOrigin)
+		return errors.Errorf("expected charm, got bundle %q %v", ch.Name, resolvedOrigin)
 	}
 
 	var macaroon *macaroon.Macaroon
 	var charmOrigin commoncharm.Origin
 	url, macaroon, charmOrigin, err = store.AddCharmWithAuthorizationFromURL(h.deployAPI, h.authorizer, url, resolvedOrigin, h.force)
 	if err != nil {
-		return errors.Annotatef(err, "cannot add charm %q", chParams.Charm)
+		return errors.Annotatef(err, "cannot add charm %q", ch.Name)
 	} else if url == nil {
-		return errors.Errorf("unexpected charm URL %q", chParams.Charm)
+		return errors.Errorf("unexpected charm URL %q", ch.Name)
 	}
 
 	logger.Debugf("added charm %s", url)
@@ -643,7 +651,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		// TODO (stickupkid): We could in theory deduce the origin, but that
 		// will be ok for charmstore and local, but will be horribly wrong
 		// for charmhub.
-		return errors.Annotatef(err, "unexpected charm url %q, charm not found for application %q", cURL.String(), p.Application)
+		return errors.Annotatef(err, "unexpected charm %q, charm not found for application %q", cURL.Name, p.Application)
 	}
 
 	// Handle application constraints.
