@@ -159,7 +159,7 @@ func (e *environ) Create(ctx context.ProviderCallContext, args environs.CreatePa
 }
 
 func (e *environ) Destroy(ctx context.ProviderCallContext) error {
-	insts, err := e.getPacketInstancesByTag(map[string]string{"juju-model-uuid=": e.Config().UUID()})
+	insts, err := e.getPacketInstancesByTag(map[string]string{"juju-model-uuid": e.Config().UUID()})
 
 	for _, inst := range insts {
 		_, err = e.packetClient.Devices.Delete(string(inst.Id()), true)
