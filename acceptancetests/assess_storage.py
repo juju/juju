@@ -128,22 +128,18 @@ def wait_for_storage_removal(client, storage_id, interval, timeout):
 
 def make_expected_ls(storage_name, unit_name, kind='filesystem'):
     """Return the expected data from list-storage for filesystem or block."""
-    if kind == 'block':
-        location = '/dev/loop3'
-    else:
-        location = '/srv/data'
+    unit_data = {'life': 'alive'}
+    if kind != 'block':
+        unit_data['location'] = '/srv/data'
     data = {
         "storage": {
             storage_name: {
                 "kind": kind,
                 "attachments": {
                     "units": {
-                        unit_name: {
-                            "location": location,
-                            "life": "alive"
-                            }
-                        }
+                        unit_name: unit_data
                     },
+                },
                 "life": "alive"
                 }
             }

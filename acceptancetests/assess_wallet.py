@@ -70,7 +70,7 @@ def _try_setting_wallet(client, name, value):
         output = [e.output.decode('utf-8'), getattr(e, 'stderr', '')]
         raise JujuAssertionError('Could not set wallet {}'.format(output))
 
-    if b'wallet limit updated' not in output:
+    if 'wallet limit updated' not in output:
         raise JujuAssertionError('Error calling set-wallet {}'.format(output))
 
 
