@@ -247,6 +247,7 @@ func (c *CommandBase) NewAPIRootWithDialOpts(
 			}
 		}
 	}
+
 	param, err := c.NewAPIConnectionParams(
 		store, controllerName, modelName, accountDetails,
 	)
