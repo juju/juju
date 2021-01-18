@@ -40139,6 +40139,9 @@
                                 "type": "string"
                             }
                         },
+                        "keep-ingress-fqdn": {
+                            "type": "boolean"
+                        },
                         "relation-id": {
                             "type": "integer"
                         },
@@ -40149,7 +40152,8 @@
                     "additionalProperties": false,
                     "required": [
                         "unit",
-                        "bindings"
+                        "bindings",
+                        "keep-ingress-fqdn"
                     ]
                 },
                 "NetworkInfoResult": {
