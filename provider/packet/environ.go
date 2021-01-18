@@ -184,7 +184,7 @@ func (e *environ) DestroyController(ctx context.ProviderCallContext, controllerU
 		}
 	}
 
-	return nil
+	return e.Destroy(ctx)
 }
 
 func (e *environ) InstanceTypes(context.ProviderCallContext, constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
@@ -478,7 +478,13 @@ func (e *environ) finishInstanceConfig(args *environs.StartInstanceParams, spec 
 }
 
 func (e *environ) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
-	return errors.NotImplementedf("Stop instances")
+	for _, id := range ids {
+		_, err := e.packetClient.Devices.Delete(string(id), true)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 func (e *environ) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
