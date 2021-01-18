@@ -85,9 +85,8 @@ func (n *NetworkInfoIAAS) ProcessAPIRequest(args params.NetworkInfoParams) (para
 			info.EgressSubnets = subnetsForAddresses(info.IngressAddresses)
 		}
 
-		info = n.resolveResultInfoHostNames(info)
-		if !args.PreserveIngressHostNames {
-			info = n.resolveResultIngressHostNames(info)
+		if !args.PreserveHostNames {
+			info = n.resolveResultIngressHostNames(n.resolveResultInfoHostNames(info))
 		}
 		result.Results[endpoint] = info
 	}

@@ -1159,8 +1159,8 @@ type NetworkInfoParams struct {
 	// purpose.
 	Endpoints []string `json:"bindings"`
 
-	// PreserveIngressHostNames indicates whether we want to preserve any FQDNs
-	// for ingress addresses in the results, instead of resolving their IPs.
+	// PreserveHostNames indicates whether we want to preserve any FQDNs
+	// in the results, instead of resolving their IPs.
 	// TODO (manadart 2021-01-14): This is intended as a stop-gap for
 	// preserving functionality from <= 2.8.6 up until we can make some
 	// breaking changes in 3.0.
@@ -1172,7 +1172,7 @@ type NetworkInfoParams struct {
 	// - Supplying richer information in the output of network-get.
 	//   We currently return the first element of lists,
 	//   and single struct members.
-	PreserveIngressHostNames bool `json:"keep-ingress-fqdn"`
+	PreserveHostNames bool `json:"keep-host-fqdn"`
 }
 
 // FanConfigEntry holds configuration for a single fan.

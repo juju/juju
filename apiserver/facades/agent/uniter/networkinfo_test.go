@@ -211,7 +211,7 @@ func (s *networkInfoSuite) TestAPIRequestForRelationHostNameNoEgress(c *gc.C) {
 	c.Check(addrs[0].Address, gc.Equals, ip)
 
 	// Run the same request, turning off ingress FQDN resolution.
-	arg.PreserveIngressHostNames = true
+	arg.PreserveHostNames = true
 	result, err = netInfo.ProcessAPIRequest(arg)
 	c.Assert(err, jc.ErrorIsNil)
 

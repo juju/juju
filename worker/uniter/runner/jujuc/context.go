@@ -199,7 +199,7 @@ type ContextNetworking interface {
 
 	// NetworkInfo returns the network info for the given bindings on the given relation.
 	NetworkInfo(
-		bindingNames []string, relationId int, preserveIngressHostNames bool,
+		bindingNames []string, relationId int, preserveHostNames bool,
 	) (map[string]params.NetworkInfoResult, error)
 }
 

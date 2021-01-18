@@ -40139,7 +40139,7 @@
                                 "type": "string"
                             }
                         },
-                        "keep-ingress-fqdn": {
+                        "keep-host-fqdn": {
                             "type": "boolean"
                         },
                         "relation-id": {
@@ -40153,7 +40153,7 @@
                     "required": [
                         "unit",
                         "bindings",
-                        "keep-ingress-fqdn"
+                        "keep-host-fqdn"
                     ]
                 },
                 "NetworkInfoResult": {

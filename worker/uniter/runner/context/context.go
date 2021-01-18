@@ -130,7 +130,7 @@ type HookUnit interface {
 	LogActionMessage(names.ActionTag, string) error
 	Name() string
 	NetworkInfo(
-		bindings []string, relationId *int, preserveIngressHostNames bool,
+		bindings []string, relationId *int, preserveHostNames bool,
 	) (map[string]params.NetworkInfoResult, error)
 	OpenPorts(protocol string, fromPort, toPort int) error
 	RequestReboot() error
@@ -1316,11 +1316,11 @@ func (ctx *HookContext) SetUnitWorkloadVersion(version string) error {
 // NetworkInfo returns the network info for the given bindings on the given relation.
 // Implements jujuc.HookContext.ContextNetworking, part of runner.Context.
 func (ctx *HookContext) NetworkInfo(
-	bindingNames []string, relationId int, preserveIngressHostNames bool,
+	bindingNames []string, relationId int, preserveHostNames bool,
 ) (map[string]params.NetworkInfoResult, error) {
 	var relId *int
 	if relationId != -1 {
 		relId = &relationId
 	}
-	return ctx.unit.NetworkInfo(bindingNames, relId, preserveIngressHostNames)
+	return ctx.unit.NetworkInfo(bindingNames, relId, preserveHostNames)
 }
