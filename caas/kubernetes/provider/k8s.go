@@ -180,7 +180,8 @@ type kubernetesClient struct {
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/apiextensionsclientset_mock.go -mock_names=Interface=MockApiExtensionsClientInterface k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset Interface
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/discovery_mock.go k8s.io/client-go/discovery DiscoveryInterface
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/dynamic_mock.go -mock_names=Interface=MockDynamicInterface k8s.io/client-go/dynamic Interface,ResourceInterface,NamespaceableResourceInterface
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/admissionregistration_mock.go k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1  AdmissionregistrationV1beta1Interface,MutatingWebhookConfigurationInterface,ValidatingWebhookConfigurationInterface
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/admissionregistrationv1beta1_mock.go -mock_names=MutatingWebhookConfigurationInterface=MockMutatingWebhookConfigurationV1Beta1Interface,ValidatingWebhookConfigurationInterface=MockValidatingWebhookConfigurationV1Beta1Interface k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1  AdmissionregistrationV1beta1Interface,MutatingWebhookConfigurationInterface,ValidatingWebhookConfigurationInterface
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/admissionregistrationv1_mock.go -mock_names=MutatingWebhookConfigurationInterface=MockMutatingWebhookConfigurationV1Interface,ValidatingWebhookConfigurationInterface=MockValidatingWebhookConfigurationV1Interface k8s.io/client-go/kubernetes/typed/admissionregistration/v1  AdmissionregistrationV1Interface,MutatingWebhookConfigurationInterface,ValidatingWebhookConfigurationInterface
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/serviceaccountinformer_mock.go k8s.io/client-go/informers/core/v1 ServiceAccountInformer
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/serviceaccountlister_mock.go k8s.io/client-go/listers/core/v1 ServiceAccountLister,ServiceAccountNamespaceLister
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/sharedindexinformer_mock.go k8s.io/client-go/tools/cache SharedIndexInformer
@@ -2382,8 +2383,8 @@ type workloadSpec struct {
 	ServiceAccounts                 []k8sspecs.K8sRBACSpecConverter
 	CustomResourceDefinitions       []k8sspecs.K8sCustomResourceDefinition
 	CustomResources                 map[string][]unstructured.Unstructured
-	MutatingWebhookConfigurations   []k8sspecs.K8sMutatingWebhookSpec
-	ValidatingWebhookConfigurations []k8sspecs.K8sValidatingWebhookSpec
+	MutatingWebhookConfigurations   []k8sspecs.K8sMutatingWebhook
+	ValidatingWebhookConfigurations []k8sspecs.K8sValidatingWebhook
 	IngressResources                []k8sspecs.K8sIngressSpec
 }
 
