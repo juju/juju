@@ -342,10 +342,10 @@ class AssessNetworkHealth:
             out = subprocess.check_output(
                 'curl {}:{} -m 5'.format(ip, PORT), shell=True)
         except subprocess.CalledProcessError as e:
-            out = ''
+            out = b''
             log.warning('Curl failed for error:\n{}'.format(e))
         log.info('Got: "{}" from unit at {}:{}'.format(out, ip, PORT))
-        if 'pass' in out:
+        if b'pass' in out:
             return True
         return False
 
