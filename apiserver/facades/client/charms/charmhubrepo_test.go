@@ -65,14 +65,15 @@ func (s channelPlatformSuite) TestMatchArchAMD64(c *gc.C) {
 		Platform: corecharm.MustParsePlatform("amd64"),
 	}
 
-	override, matched := cp.MatchArch(transport.InfoChannelMap{
+	override, matched := cp.MatchPlatform(transport.InfoChannelMap{
 		Channel: transport.Channel{
 			Platform: transport.Platform{
 				Architecture: "amd64",
 			},
 		},
 	})
-	c.Assert(override, jc.IsFalse)
+	c.Assert(override.Arch, jc.IsFalse)
+	c.Assert(override.Series, jc.IsFalse)
 	c.Assert(matched, jc.IsTrue)
 }
 
@@ -81,14 +82,15 @@ func (s channelPlatformSuite) TestMatchArchAll(c *gc.C) {
 		Platform: corecharm.MustParsePlatform("amd64"),
 	}
 
-	override, matched := cp.MatchArch(transport.InfoChannelMap{
+	override, matched := cp.MatchPlatform(transport.InfoChannelMap{
 		Channel: transport.Channel{
 			Platform: transport.Platform{
 				Architecture: "all",
 			},
 		},
 	})
-	c.Assert(override, jc.IsTrue)
+	c.Assert(override.Arch, jc.IsTrue)
+	c.Assert(override.Series, jc.IsFalse)
 	c.Assert(matched, jc.IsTrue)
 }
 
@@ -97,7 +99,7 @@ func (s channelPlatformSuite) TestMatchArchAMD64Revision(c *gc.C) {
 		Platform: corecharm.MustParsePlatform("amd64"),
 	}
 
-	override, matched := cp.MatchArch(transport.InfoChannelMap{
+	override, matched := cp.MatchPlatform(transport.InfoChannelMap{
 		Revision: transport.InfoRevision{
 			Platforms: []transport.Platform{{
 				Architecture: "amd64",
@@ -106,7 +108,8 @@ func (s channelPlatformSuite) TestMatchArchAMD64Revision(c *gc.C) {
 			}},
 		},
 	})
-	c.Assert(override, jc.IsFalse)
+	c.Assert(override.Arch, jc.IsFalse)
+	c.Assert(override.Series, jc.IsFalse)
 	c.Assert(matched, jc.IsTrue)
 }
 
@@ -115,14 +118,14 @@ func (s channelPlatformSuite) TestMatchArchAllRevision(c *gc.C) {
 		Platform: corecharm.MustParsePlatform("amd64"),
 	}
 
-	override, matched := cp.MatchArch(transport.InfoChannelMap{
+	override, matched := cp.MatchPlatform(transport.InfoChannelMap{
 		Revision: transport.InfoRevision{
 			Platforms: []transport.Platform{{
 				Architecture: "all",
 			}},
 		},
 	})
-	c.Assert(override, jc.IsTrue)
+	c.Assert(override.Arch, jc.IsTrue)
 	c.Assert(matched, jc.IsTrue)
 }
 
@@ -131,11 +134,50 @@ func (s channelPlatformSuite) TestMatchNoRevisions(c *gc.C) {
 		Platform: corecharm.MustParsePlatform("amd64"),
 	}
 
-	override, matched := cp.MatchArch(transport.InfoChannelMap{
+	override, matched := cp.MatchPlatform(transport.InfoChannelMap{
 		Revision: transport.InfoRevision{
 			Platforms: []transport.Platform{},
 		},
 	})
-	c.Assert(override, jc.IsFalse)
+	c.Assert(override.Arch, jc.IsFalse)
+	c.Assert(override.Series, jc.IsFalse)
 	c.Assert(matched, jc.IsFalse)
+}
+
+func (s channelPlatformSuite) TestMatchSeries(c *gc.C) {
+	cp := channelPlatform{
+		Platform: corecharm.MustParsePlatform("amd64/ubuntu/focal"),
+	}
+
+	override, matched := cp.MatchPlatform(transport.InfoChannelMap{
+		Channel: transport.Channel{
+			Platform: transport.Platform{
+				Architecture: "amd64",
+				OS:           "ubuntu",
+				Series:       "focal",
+			},
+		},
+	})
+	c.Assert(override.Arch, jc.IsFalse)
+	c.Assert(override.Series, jc.IsFalse)
+	c.Assert(matched, jc.IsTrue)
+}
+
+func (s channelPlatformSuite) TestMatchSeriesAll(c *gc.C) {
+	cp := channelPlatform{
+		Platform: corecharm.MustParsePlatform("amd64/ubuntu/focal"),
+	}
+
+	override, matched := cp.MatchPlatform(transport.InfoChannelMap{
+		Channel: transport.Channel{
+			Platform: transport.Platform{
+				Architecture: "amd64",
+				OS:           "ubuntu",
+				Series:       "all",
+			},
+		},
+	})
+	c.Assert(override.Arch, jc.IsFalse)
+	c.Assert(override.Series, jc.IsTrue)
+	c.Assert(matched, jc.IsTrue)
 }

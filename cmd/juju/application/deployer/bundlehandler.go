@@ -354,13 +354,6 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 			return errors.Annotatef(err, "cannot resolve charm or bundle %q", ch.Name)
 		}
 
-		// CharmHub returns the series and architecture when resolving a charm,
-		// which prevents the bundle detection logic. We will deduce the series
-		// again at a later stage to correct this when uploading the charm.
-		if charm.CharmHub.Matches(url.Schema) {
-			url = url.WithSeries("")
-			origin = origin.WithSeries("")
-		}
 		h.ctx.Infof(formatLocatedText(ch, origin))
 		if url.Series == "bundle" {
 			return errors.Errorf("expected charm, got bundle %q", ch.Name)
@@ -589,6 +582,8 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	if url.Series == "bundle" || resolvedOrigin.Type == "bundle" {
 		return errors.Errorf("expected charm, got bundle %q %v", ch.Name, resolvedOrigin)
 	}
+
+	fmt.Println(">>>", url, resolvedOrigin, origin, series)
 
 	var macaroon *macaroon.Macaroon
 	var charmOrigin commoncharm.Origin
