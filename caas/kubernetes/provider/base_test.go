@@ -72,8 +72,10 @@ type BaseSuite struct {
 	mockCustomResourceDefinitionV1Beta1 *mocks.MockCustomResourceDefinitionV1Beta1Interface
 	mockCustomResourceDefinitionV1      *mocks.MockCustomResourceDefinitionV1Interface
 
-	mockMutatingWebhookConfiguration   *mocks.MockMutatingWebhookConfigurationInterface
-	mockValidatingWebhookConfiguration *mocks.MockValidatingWebhookConfigurationInterface
+	mockMutatingWebhookConfigurationV1        *mocks.MockMutatingWebhookConfigurationV1Interface
+	mockValidatingWebhookConfigurationV1      *mocks.MockValidatingWebhookConfigurationV1Interface
+	mockMutatingWebhookConfigurationV1Beta1   *mocks.MockMutatingWebhookConfigurationV1Beta1Interface
+	mockValidatingWebhookConfigurationV1Beta1 *mocks.MockValidatingWebhookConfigurationV1Beta1Interface
 
 	mockDynamicClient               *mocks.MockDynamicInterface
 	mockResourceClient              *mocks.MockResourceInterface
@@ -306,12 +308,19 @@ func (s *BaseSuite) setupK8sRestClient(
 	s.mockServiceAccounts = mocks.NewMockServiceAccountInterface(ctrl)
 	mockCoreV1.EXPECT().ServiceAccounts(namespace).AnyTimes().Return(s.mockServiceAccounts)
 
-	mockAdmissionregistration := mocks.NewMockAdmissionregistrationV1beta1Interface(ctrl)
-	s.mockMutatingWebhookConfiguration = mocks.NewMockMutatingWebhookConfigurationInterface(ctrl)
-	mockAdmissionregistration.EXPECT().MutatingWebhookConfigurations().AnyTimes().Return(s.mockMutatingWebhookConfiguration)
-	s.mockValidatingWebhookConfiguration = mocks.NewMockValidatingWebhookConfigurationInterface(ctrl)
-	mockAdmissionregistration.EXPECT().ValidatingWebhookConfigurations().AnyTimes().Return(s.mockValidatingWebhookConfiguration)
-	s.k8sClient.EXPECT().AdmissionregistrationV1beta1().AnyTimes().Return(mockAdmissionregistration)
+	s.mockMutatingWebhookConfigurationV1Beta1 = mocks.NewMockMutatingWebhookConfigurationV1Beta1Interface(ctrl)
+	s.mockMutatingWebhookConfigurationV1 = mocks.NewMockMutatingWebhookConfigurationV1Interface(ctrl)
+	s.mockValidatingWebhookConfigurationV1Beta1 = mocks.NewMockValidatingWebhookConfigurationV1Beta1Interface(ctrl)
+	s.mockValidatingWebhookConfigurationV1 = mocks.NewMockValidatingWebhookConfigurationV1Interface(ctrl)
+
+	mockAdmissionregistrationV1Beta1 := mocks.NewMockAdmissionregistrationV1beta1Interface(ctrl)
+	mockAdmissionregistrationV1Beta1.EXPECT().MutatingWebhookConfigurations().AnyTimes().Return(s.mockMutatingWebhookConfigurationV1Beta1)
+	mockAdmissionregistrationV1Beta1.EXPECT().ValidatingWebhookConfigurations().AnyTimes().Return(s.mockValidatingWebhookConfigurationV1Beta1)
+	mockAdmissionregistrationV1 := mocks.NewMockAdmissionregistrationV1Interface(ctrl)
+	mockAdmissionregistrationV1.EXPECT().MutatingWebhookConfigurations().AnyTimes().Return(s.mockMutatingWebhookConfigurationV1)
+	mockAdmissionregistrationV1.EXPECT().ValidatingWebhookConfigurations().AnyTimes().Return(s.mockValidatingWebhookConfigurationV1)
+	s.k8sClient.EXPECT().AdmissionregistrationV1beta1().AnyTimes().Return(mockAdmissionregistrationV1Beta1)
+	s.k8sClient.EXPECT().AdmissionregistrationV1().AnyTimes().Return(mockAdmissionregistrationV1)
 
 	mockRbacV1 := mocks.NewMockRbacV1Interface(ctrl)
 	s.k8sClient.EXPECT().RbacV1().AnyTimes().Return(mockRbacV1)
