@@ -777,16 +777,26 @@ password: shhhh`[1:],
 					},
 				},
 				IngressResources: []k8sspecs.K8sIngressSpec{ingress1},
-				MutatingWebhookConfigurations: []k8sspecs.K8sMutatingWebhookSpec{
+				MutatingWebhookConfigurations: []k8sspecs.K8sMutatingWebhook{
 					{
-						Meta:     k8sspecs.Meta{Name: "example-mutatingwebhookconfiguration"},
-						Webhooks: []admissionregistration.MutatingWebhook{webhook1},
+						Meta: k8sspecs.Meta{Name: "example-mutatingwebhookconfiguration"},
+						Webhooks: []k8sspecs.K8sMutatingWebhookSpec{
+							{
+								Version:     k8sspecs.K8sWebhookV1Beta1,
+								SpecV1Beta1: webhook1,
+							},
+						},
 					},
 				},
-				ValidatingWebhookConfigurations: []k8sspecs.K8sValidatingWebhookSpec{
+				ValidatingWebhookConfigurations: []k8sspecs.K8sValidatingWebhook{
 					{
-						Meta:     k8sspecs.Meta{Name: "pod-policy.example.com"},
-						Webhooks: []admissionregistration.ValidatingWebhook{webhook2},
+						Meta: k8sspecs.Meta{Name: "pod-policy.example.com"},
+						Webhooks: []k8sspecs.K8sValidatingWebhookSpec{
+							{
+								Version:     k8sspecs.K8sWebhookV1Beta1,
+								SpecV1Beta1: webhook2,
+							},
+						},
 					},
 				},
 			},

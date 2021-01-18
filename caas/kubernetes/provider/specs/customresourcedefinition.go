@@ -1,21 +1,16 @@
-// Copyright 2020 Canonical Ltd.
+// Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package specs
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"reflect"
 
 	"github.com/juju/errors"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 )
-
-// APIVersion defines the k8s API version to use.
-type APIVersion string
 
 const (
 	// K8sCustomResourceDefinitionV1Beta1 defines the v1beta1 API version for custom resource definition.
@@ -30,15 +25,6 @@ type K8sCustomResourceDefinitionSpec struct {
 	Version     APIVersion
 	SpecV1Beta1 apiextensionsv1beta1.CustomResourceDefinitionSpec
 	SpecV1      apiextensionsv1.CustomResourceDefinitionSpec
-}
-
-func unmarshalJSONStrict(value []byte, into interface{}) error {
-	err := newStrictYAMLOrJSONDecoder(bytes.NewReader(value), len(value)).Decode(into)
-	if err != nil {
-		v := reflect.ValueOf(into)
-		v.Elem().Set(reflect.Zero(v.Elem().Type()))
-	}
-	return err
 }
 
 // UnmarshalJSON implements the json.Unmarshaller interface.

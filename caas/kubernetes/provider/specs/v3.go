@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	admissionregistration "k8s.io/api/admissionregistration/v1beta1"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -222,38 +221,6 @@ func (m Meta) Validate() error {
 	return nil
 }
 
-// K8sMutatingWebhookSpec defines spec for creating or updating an MutatingWebhook resource.
-type K8sMutatingWebhookSpec struct {
-	Meta     `json:",inline" yaml:",inline"`
-	Webhooks []admissionregistration.MutatingWebhook `json:"webhooks" yaml:"webhooks"`
-}
-
-func (w K8sMutatingWebhookSpec) Validate() error {
-	if err := w.Meta.Validate(); err != nil {
-		return errors.Trace(err)
-	}
-	if len(w.Webhooks) == 0 {
-		return errors.NotValidf("empty webhooks %q", w.Name)
-	}
-	return nil
-}
-
-// K8sValidatingWebhookSpec defines spec for creating or updating an ValidatingWebhook resource.
-type K8sValidatingWebhookSpec struct {
-	Meta     `json:",inline" yaml:",inline"`
-	Webhooks []admissionregistration.ValidatingWebhook `json:"webhooks" yaml:"webhooks"`
-}
-
-func (w K8sValidatingWebhookSpec) Validate() error {
-	if err := w.Meta.Validate(); err != nil {
-		return errors.Trace(err)
-	}
-	if len(w.Webhooks) == 0 {
-		return errors.NotValidf("empty webhooks %q", w.Name)
-	}
-	return nil
-}
-
 // K8sService is a subset of v1.Service which defines
 // attributes we expose for charms to set.
 type K8sService struct {
@@ -277,8 +244,8 @@ type KubernetesResources struct {
 	CustomResourceDefinitions []K8sCustomResourceDefinition          `json:"customResourceDefinitions" yaml:"customResourceDefinitions"`
 	CustomResources           map[string][]unstructured.Unstructured `json:"customResources,omitempty" yaml:"customResources,omitempty"`
 
-	MutatingWebhookConfigurations   []K8sMutatingWebhookSpec   `json:"mutatingWebhookConfigurations,omitempty" yaml:"mutatingWebhookConfigurations,omitempty"`
-	ValidatingWebhookConfigurations []K8sValidatingWebhookSpec `json:"validatingWebhookConfigurations,omitempty" yaml:"validatingWebhookConfigurations,omitempty"`
+	MutatingWebhookConfigurations   []K8sMutatingWebhook   `json:"mutatingWebhookConfigurations,omitempty" yaml:"mutatingWebhookConfigurations,omitempty"`
+	ValidatingWebhookConfigurations []K8sValidatingWebhook `json:"validatingWebhookConfigurations,omitempty" yaml:"validatingWebhookConfigurations,omitempty"`
 
 	K8sRBACResources `json:",inline" yaml:",inline"`
 

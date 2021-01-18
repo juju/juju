@@ -238,15 +238,15 @@ func (krs *KubernetesResourcesV2) toLatest() *KubernetesResources {
 		out.ServiceAccounts = append(out.ServiceAccounts, rbacSources.ServiceAccounts...)
 	}
 	for name, webhooks := range krs.MutatingWebhookConfigurations {
-		out.MutatingWebhookConfigurations = append(out.MutatingWebhookConfigurations, K8sMutatingWebhookSpec{
+		out.MutatingWebhookConfigurations = append(out.MutatingWebhookConfigurations, K8sMutatingWebhook{
 			Meta:     Meta{Name: name},
-			Webhooks: webhooks,
+			Webhooks: mutatingWebhookFromV1Beta1(webhooks),
 		})
 	}
 	for name, webhooks := range krs.ValidatingWebhookConfigurations {
-		out.ValidatingWebhookConfigurations = append(out.ValidatingWebhookConfigurations, K8sValidatingWebhookSpec{
+		out.ValidatingWebhookConfigurations = append(out.ValidatingWebhookConfigurations, K8sValidatingWebhook{
 			Meta:     Meta{Name: name},
-			Webhooks: webhooks,
+			Webhooks: validatingWebhookFromV1Beta1(webhooks),
 		})
 	}
 	return out
