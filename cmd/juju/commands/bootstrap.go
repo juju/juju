@@ -961,10 +961,14 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		}
 	}
 
-	if cloud.Type == k8sconstants.CAASProviderType &&
-		cloud.HostCloudRegion == caas.K8sCloudOther &&
-		bootstrapParams.ControllerServiceType == "" {
-		logger.Warningf("bootstrapping to an unknown kubernetes cluster should be used with option --config controller-service-type. See juju help bootstrap")
+	if cloud.Type == k8sconstants.CAASProviderType {
+		if cloud.HostCloudRegion == caas.K8sCloudOther {
+			ctx.Infof("Unable to identify bootstrapped Kubernetes cluster")
+		} else {
+			ctx.Infof("Bootstrap to Kubernetes cluster identified as %s",
+				cloud.HostCloudRegion)
+		}
+
 	}
 
 	bootstrapFuncs := getBootstrapFuncs()
