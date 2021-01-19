@@ -39,19 +39,14 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 			s.mockBlockClient.loginError = nil
 			return nil, err
 		}
-		if s.mockBlockClient.discoveringSpacesError > 0 {
-			s.mockBlockClient.discoveringSpacesError -= 1
-			return nil, errors.New("spaces are still being discovered")
-		}
 		return s.mockBlockClient, nil
 	})
 }
 
 type mockBlockClient struct {
-	retryCount             int
-	numRetries             int
-	discoveringSpacesError int
-	loginError             error
+	retryCount int
+	numRetries int
+	loginError error
 }
 
 var errOther = errors.New("other error")
@@ -112,17 +107,6 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyRetries(c *gc.C) {
 		}
 		c.Check(s.mockBlockClient.retryCount, gc.Equals, expectedRetries)
 	}
-}
-
-func (s *controllerSuite) TestWaitForAgentAPIReadyWaitsForSpaceDiscovery(c *gc.C) {
-	s.mockBlockClient.discoveringSpacesError = 2
-
-	runInCommand(c, func(ctx *cmd.Context, base *modelcmd.ModelCommandBase) {
-		bootstrapCtx := modelcmd.BootstrapContext(context.Background(), ctx)
-		err := WaitForAgentInitialisation(bootstrapCtx, base, false, "controller")
-		c.Check(err, jc.ErrorIsNil)
-	})
-	c.Assert(s.mockBlockClient.discoveringSpacesError, gc.Equals, 0)
 }
 
 func (s *controllerSuite) TestWaitForAgentAPIReadyRetriesWithOpenEOFErr(c *gc.C) {
