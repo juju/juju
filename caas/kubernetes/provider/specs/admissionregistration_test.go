@@ -9,7 +9,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
@@ -22,7 +22,7 @@ type webhooksSuite struct {
 
 var _ = gc.Suite(&webhooksSuite{})
 
-func (s *webhooksSuite) TestK8sMutatingWebhookV1(c *gc.C) {
+func (s *webhooksSuite) TestK8sMutatingWebhookV1Beta1(c *gc.C) {
 	specV1Beta1 := `
 name: example-mutatingwebhookconfiguration
 labels:
@@ -57,7 +57,7 @@ webhooks:
 	err := k8sspecs.NewStrictYAMLOrJSONDecoder(strings.NewReader(specV1Beta1), len(specV1Beta1)).Decode(&obj)
 	c.Assert(err, jc.ErrorIsNil)
 
-	webhookFailurePolicy1 := admissionregistrationv1.Ignore
+	webhookFailurePolicy1 := admissionregistrationv1beta1.Ignore
 	CABundle, err := base64.StdEncoding.DecodeString("YXBwbGVz")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obj, gc.DeepEquals, k8sspecs.K8sMutatingWebhook{
@@ -68,12 +68,12 @@ webhooks:
 		},
 		Webhooks: []k8sspecs.K8sMutatingWebhookSpec{
 			{
-				Version: k8sspecs.K8sWebhookV1,
-				SpecV1: admissionregistrationv1.MutatingWebhook{
+				Version: k8sspecs.K8sWebhookV1Beta1,
+				SpecV1Beta1: admissionregistrationv1beta1.MutatingWebhook{
 					Name:          "example.mutatingwebhookconfiguration.com",
 					FailurePolicy: &webhookFailurePolicy1,
-					ClientConfig: admissionregistrationv1.WebhookClientConfig{
-						Service: &admissionregistrationv1.ServiceReference{
+					ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
+						Service: &admissionregistrationv1beta1.ServiceReference{
 							Name:      "apple-service",
 							Namespace: "apples",
 							Path:      strPtr("/apple"),
@@ -85,13 +85,13 @@ webhooks:
 							{Key: "production", Operator: metav1.LabelSelectorOpDoesNotExist},
 						},
 					},
-					Rules: []admissionregistrationv1.RuleWithOperations{
-						admissionregistrationv1.RuleWithOperations{
-							Operations: []admissionregistrationv1.OperationType{
-								admissionregistrationv1.Create,
-								admissionregistrationv1.Update,
+					Rules: []admissionregistrationv1beta1.RuleWithOperations{
+						{
+							Operations: []admissionregistrationv1beta1.OperationType{
+								admissionregistrationv1beta1.Create,
+								admissionregistrationv1beta1.Update,
 							},
-							Rule: admissionregistrationv1.Rule{
+							Rule: admissionregistrationv1beta1.Rule{
 								APIGroups:   []string{""},
 								APIVersions: []string{"v1"},
 								Resources:   []string{"pods"},
@@ -104,7 +104,7 @@ webhooks:
 	})
 }
 
-func (s *webhooksSuite) TestK8sValidatingWebhookV1(c *gc.C) {
+func (s *webhooksSuite) TestK8sValidatingWebhookV1Beta1(c *gc.C) {
 
 	specV1Beta1 := `
 name: pod-policy.example.com
@@ -135,8 +135,8 @@ webhooks:
 
 	CABundle, err := base64.StdEncoding.DecodeString("YXBwbGVz")
 	c.Assert(err, jc.ErrorIsNil)
-	scope := admissionregistrationv1.NamespacedScope
-	sideEffects := admissionregistrationv1.SideEffectClassNone
+	scope := admissionregistrationv1beta1.NamespacedScope
+	sideEffects := admissionregistrationv1beta1.SideEffectClassNone
 	c.Assert(obj, gc.DeepEquals, k8sspecs.K8sValidatingWebhook{
 		Meta: k8sspecs.Meta{
 			Name:        "pod-policy.example.com",
@@ -145,15 +145,15 @@ webhooks:
 		},
 		Webhooks: []k8sspecs.K8sValidatingWebhookSpec{
 			{
-				Version: k8sspecs.K8sWebhookV1,
-				SpecV1: admissionregistrationv1.ValidatingWebhook{
+				Version: k8sspecs.K8sWebhookV1Beta1,
+				SpecV1Beta1: admissionregistrationv1beta1.ValidatingWebhook{
 					Name: "pod-policy.example.com",
-					Rules: []admissionregistrationv1.RuleWithOperations{
-						admissionregistrationv1.RuleWithOperations{
-							Operations: []admissionregistrationv1.OperationType{
-								admissionregistrationv1.Create,
+					Rules: []admissionregistrationv1beta1.RuleWithOperations{
+						{
+							Operations: []admissionregistrationv1beta1.OperationType{
+								admissionregistrationv1beta1.Create,
 							},
-							Rule: admissionregistrationv1.Rule{
+							Rule: admissionregistrationv1beta1.Rule{
 								APIGroups:   []string{""},
 								APIVersions: []string{"v1"},
 								Resources:   []string{"pods"},
@@ -161,8 +161,8 @@ webhooks:
 							},
 						},
 					},
-					ClientConfig: admissionregistrationv1.WebhookClientConfig{
-						Service: &admissionregistrationv1.ServiceReference{
+					ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
+						Service: &admissionregistrationv1beta1.ServiceReference{
 							Name:      "example-service",
 							Namespace: "example-namespace",
 						},

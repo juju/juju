@@ -28,14 +28,18 @@ type K8sMutatingWebhookSpec struct {
 }
 
 // UnmarshalJSON implements the json.Unmarshaller interface.
+// NOTE: try v1beta1 first then v1 because admissionregistrationv1
+// and admissionregistrationv1beta1 have the same struct but some
+// fields might have different required values. To avoid breaking
+// existing workloads, we will consider to switch v1 as higher priority in 2.9 instead.
 func (wh *K8sMutatingWebhookSpec) UnmarshalJSON(value []byte) (err error) {
-	err = unmarshalJSONStrict(value, &wh.SpecV1)
+	err = unmarshalJSONStrict(value, &wh.SpecV1Beta1)
 	if err == nil {
-		wh.Version = K8sWebhookV1
+		wh.Version = K8sWebhookV1Beta1
 		return nil
 	}
-	if err2 := unmarshalJSONStrict(value, &wh.SpecV1Beta1); err2 == nil {
-		wh.Version = K8sWebhookV1Beta1
+	if err2 := unmarshalJSONStrict(value, &wh.SpecV1); err2 == nil {
+		wh.Version = K8sWebhookV1
 		return nil
 	}
 	return errors.Trace(err)
@@ -61,14 +65,18 @@ type K8sValidatingWebhookSpec struct {
 }
 
 // UnmarshalJSON implements the json.Unmarshaller interface.
+// NOTE: try v1beta1 first then v1 because admissionregistrationv1
+// and admissionregistrationv1beta1 have the same struct but some
+// fields might have different required values. To avoid breaking
+// existing workloads, we will consider to switch v1 as higher priority in 2.9 instead.
 func (wh *K8sValidatingWebhookSpec) UnmarshalJSON(value []byte) (err error) {
-	err = unmarshalJSONStrict(value, &wh.SpecV1)
+	err = unmarshalJSONStrict(value, &wh.SpecV1Beta1)
 	if err == nil {
-		wh.Version = K8sWebhookV1
+		wh.Version = K8sWebhookV1Beta1
 		return nil
 	}
-	if err2 := unmarshalJSONStrict(value, &wh.SpecV1Beta1); err2 == nil {
-		wh.Version = K8sWebhookV1Beta1
+	if err2 := unmarshalJSONStrict(value, &wh.SpecV1); err2 == nil {
+		wh.Version = K8sWebhookV1
 		return nil
 	}
 	return errors.Trace(err)
@@ -109,8 +117,12 @@ func validatingWebhookFromV1Beta1(whs []admissionregistrationv1beta1.ValidatingW
 // K8sMutatingWebhook defines spec for creating or updating an MutatingWebhook resource.
 type K8sMutatingWebhook struct {
 	Meta     `json:",inline" yaml:",inline"`
-	Version  APIVersion
 	Webhooks []K8sMutatingWebhookSpec `json:"webhooks" yaml:"webhooks"`
+}
+
+// APIVersion returns the API version.
+func (w *K8sMutatingWebhook) APIVersion() APIVersion {
+	return w.Webhooks[0].Version
 }
 
 // Validate validates the spec.
@@ -121,10 +133,10 @@ func (w K8sMutatingWebhook) Validate() error {
 	if len(w.Webhooks) == 0 {
 		return errors.NotValidf("empty webhooks %q", w.Name)
 	}
-	w.Version = w.Webhooks[0].Version
+	ver := w.APIVersion()
 	for _, v := range w.Webhooks[1:] {
-		if v.Version != w.Version {
-			return errors.NewNotValid(nil, fmt.Sprintf("more than one version of webhooks in same spec, found %q and %q", w.Version, v.Version))
+		if v.Version != ver {
+			return errors.NewNotValid(nil, fmt.Sprintf("more than one version of webhooks in same spec, found %q and %q", ver, v.Version))
 		}
 	}
 	return nil
@@ -133,8 +145,12 @@ func (w K8sMutatingWebhook) Validate() error {
 // K8sValidatingWebhook defines spec for creating or updating an ValidatingWebhook resource.
 type K8sValidatingWebhook struct {
 	Meta     `json:",inline" yaml:",inline"`
-	Version  APIVersion
 	Webhooks []K8sValidatingWebhookSpec `json:"webhooks" yaml:"webhooks"`
+}
+
+// APIVersion returns the API version.
+func (w *K8sValidatingWebhook) APIVersion() APIVersion {
+	return w.Webhooks[0].Version
 }
 
 // Validate validates the spec.
@@ -145,10 +161,10 @@ func (w *K8sValidatingWebhook) Validate() error {
 	if len(w.Webhooks) == 0 {
 		return errors.NotValidf("empty webhooks %q", w.Name)
 	}
-	w.Version = w.Webhooks[0].Version
+	ver := w.APIVersion()
 	for _, v := range w.Webhooks[1:] {
-		if v.Version != w.Version {
-			return errors.NewNotValid(nil, fmt.Sprintf("more than one version of webhooks in same spec, found %q and %q", w.Version, v.Version))
+		if v.Version != ver {
+			return errors.NewNotValid(nil, fmt.Sprintf("more than one version of webhooks in same spec, found %q and %q", ver, v.Version))
 		}
 	}
 	return nil

@@ -170,8 +170,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateV1Beta1(c 
 
 	cfgs := []k8sspecs.K8sMutatingWebhook{
 		{
-			Meta:    k8sspecs.Meta{Name: "example-mutatingwebhookconfiguration"},
-			Version: k8sspecs.K8sWebhookV1Beta1,
+			Meta: k8sspecs.Meta{Name: "example-mutatingwebhookconfiguration"},
 			Webhooks: []k8sspecs.K8sMutatingWebhookSpec{
 				{
 					Version:     k8sspecs.K8sWebhookV1Beta1,
@@ -241,7 +240,6 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateKeepNameV1
 				Name:        "example-mutatingwebhookconfiguration",
 				Annotations: map[string]string{"juju.io/disable-name-prefix": "true"},
 			},
-			Version: k8sspecs.K8sWebhookV1Beta1,
 			Webhooks: []k8sspecs.K8sMutatingWebhookSpec{
 				{
 					Version:     k8sspecs.K8sWebhookV1Beta1,
@@ -307,8 +305,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsUpdateV1Beta1(c 
 
 	cfgs := []k8sspecs.K8sMutatingWebhook{
 		{
-			Meta:    k8sspecs.Meta{Name: "example-mutatingwebhookconfiguration"},
-			Version: k8sspecs.K8sWebhookV1Beta1,
+			Meta: k8sspecs.Meta{Name: "example-mutatingwebhookconfiguration"},
 			Webhooks: []k8sspecs.K8sMutatingWebhookSpec{
 				{
 					Version:     k8sspecs.K8sWebhookV1Beta1,
@@ -381,8 +378,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateV1(c *gc.C
 
 	cfgs := []k8sspecs.K8sMutatingWebhook{
 		{
-			Meta:    k8sspecs.Meta{Name: "example-mutatingwebhookconfiguration"},
-			Version: k8sspecs.K8sWebhookV1,
+			Meta: k8sspecs.Meta{Name: "example-mutatingwebhookconfiguration"},
 			Webhooks: []k8sspecs.K8sMutatingWebhookSpec{
 				{
 					Version: k8sspecs.K8sWebhookV1,
@@ -452,7 +448,6 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateKeepNameV1
 				Name:        "example-mutatingwebhookconfiguration",
 				Annotations: map[string]string{"juju.io/disable-name-prefix": "true"},
 			},
-			Version: k8sspecs.K8sWebhookV1,
 			Webhooks: []k8sspecs.K8sMutatingWebhookSpec{
 				{
 					Version: k8sspecs.K8sWebhookV1,
@@ -518,8 +513,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsUpdateV1(c *gc.C
 
 	cfgs := []k8sspecs.K8sMutatingWebhook{
 		{
-			Meta:    k8sspecs.Meta{Name: "example-mutatingwebhookconfiguration"},
-			Version: k8sspecs.K8sWebhookV1,
+			Meta: k8sspecs.Meta{Name: "example-mutatingwebhookconfiguration"},
 			Webhooks: []k8sspecs.K8sMutatingWebhookSpec{
 				{
 					Version: k8sspecs.K8sWebhookV1,
@@ -690,8 +684,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateV1Beta1(
 
 	cfgs := []k8sspecs.K8sValidatingWebhook{
 		{
-			Meta:    k8sspecs.Meta{Name: "example-validatingwebhookconfiguration"},
-			Version: k8sspecs.K8sWebhookV1Beta1,
+			Meta: k8sspecs.Meta{Name: "example-validatingwebhookconfiguration"},
 			Webhooks: []k8sspecs.K8sValidatingWebhookSpec{
 				{
 					Version:     k8sspecs.K8sWebhookV1Beta1,
@@ -761,7 +754,6 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateKeepName
 				Name:        "example-validatingwebhookconfiguration",
 				Annotations: map[string]string{"juju.io/disable-name-prefix": "true"},
 			},
-			Version: k8sspecs.K8sWebhookV1Beta1,
 			Webhooks: []k8sspecs.K8sValidatingWebhookSpec{
 				{
 					Version:     k8sspecs.K8sWebhookV1Beta1,
@@ -827,8 +819,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsUpdateV1Beta1(
 
 	cfgs := []k8sspecs.K8sValidatingWebhook{
 		{
-			Meta:    k8sspecs.Meta{Name: "example-validatingwebhookconfiguration"},
-			Version: k8sspecs.K8sWebhookV1Beta1,
+			Meta: k8sspecs.Meta{Name: "example-validatingwebhookconfiguration"},
 			Webhooks: []k8sspecs.K8sValidatingWebhookSpec{
 				{
 					Version:     k8sspecs.K8sWebhookV1Beta1,
@@ -901,8 +892,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateV1(c *gc
 
 	cfgs := []k8sspecs.K8sValidatingWebhook{
 		{
-			Meta:    k8sspecs.Meta{Name: "example-validatingwebhookconfiguration"},
-			Version: k8sspecs.K8sWebhookV1,
+			Meta: k8sspecs.Meta{Name: "example-validatingwebhookconfiguration"},
 			Webhooks: []k8sspecs.K8sValidatingWebhookSpec{
 				{
 					Version: k8sspecs.K8sWebhookV1,
@@ -972,7 +962,6 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateKeepName
 				Name:        "example-validatingwebhookconfiguration",
 				Annotations: map[string]string{"juju.io/disable-name-prefix": "true"},
 			},
-			Version: k8sspecs.K8sWebhookV1,
 			Webhooks: []k8sspecs.K8sValidatingWebhookSpec{
 				{
 					Version: k8sspecs.K8sWebhookV1,
@@ -1038,8 +1027,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsUpdateV1(c *gc
 
 	cfgs := []k8sspecs.K8sValidatingWebhook{
 		{
-			Meta:    k8sspecs.Meta{Name: "example-validatingwebhookconfiguration"},
-			Version: k8sspecs.K8sWebhookV1,
+			Meta: k8sspecs.Meta{Name: "example-validatingwebhookconfiguration"},
 			Webhooks: []k8sspecs.K8sValidatingWebhookSpec{
 				{
 					Version: k8sspecs.K8sWebhookV1,

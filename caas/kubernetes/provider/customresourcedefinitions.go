@@ -61,6 +61,7 @@ func (k *kubernetesClient) ensureCustomResourceDefinitions(
 			Labels:      k8slabels.Merge(v.Labels, k.getAPIExtensionLabelsGlobal(appName)),
 			Annotations: k8sannotations.New(v.Annotations).Merge(annotations),
 		}
+		logger.Infof("ensuring custom resource definition %q with version %q", obj.GetName(), v.Spec.Version)
 		var out v1.Object
 		var crdCleanUps []func()
 		var err error
@@ -75,7 +76,7 @@ func (k *kubernetesClient) ensureCustomResourceDefinitions(
 		}
 		cleanUps = append(cleanUps, crdCleanUps...)
 		if err != nil {
-			return cleanUps, errors.Annotate(err, fmt.Sprintf("ensuring custom resource definition %q", v.Name))
+			return cleanUps, errors.Annotatef(err, "ensuring custom resource definition %q with version %q", obj.GetName(), v.Spec.Version)
 		}
 		logger.Debugf("ensured custom resource definition %q", out.GetName())
 	}

@@ -48,8 +48,9 @@ func (k *kubernetesClient) ensureMutatingWebhookConfigurations(
 			Annotations: k8sannotations.New(v.Annotations).Merge(annotations),
 		}
 
+		logger.Infof("ensuring mutating webhook %q with version %q", obj.GetName(), v.APIVersion())
 		var cfgCleanup func()
-		switch v.Version {
+		switch v.APIVersion() {
 		case k8sspecs.K8sWebhookV1:
 			cfgCleanup, err = k.ensureMutatingWebhookConfigurationV1(&admissionregistrationv1.MutatingWebhookConfiguration{
 				ObjectMeta: obj,
@@ -62,12 +63,12 @@ func (k *kubernetesClient) ensureMutatingWebhookConfigurations(
 			})
 		default:
 			// This should never happen.
-			return cleanUps, errors.NotSupportedf("mutating webhook version %q", v.Version)
+			return cleanUps, errors.NotSupportedf("mutating webhook version %q", v.APIVersion())
 		}
 
 		cleanUps = append(cleanUps, cfgCleanup)
 		if err != nil {
-			return cleanUps, errors.Trace(err)
+			return cleanUps, errors.Annotatef(err, "ensuring mutating webhook %q with version %q", obj.GetName(), v.APIVersion())
 		}
 	}
 	return cleanUps, nil
@@ -242,8 +243,9 @@ func (k *kubernetesClient) ensureValidatingWebhookConfigurations(
 			Annotations: k8sannotations.New(v.Annotations).Merge(annotations),
 		}
 
+		logger.Infof("ensuring validating webhook %q with version %q", obj.GetName(), v.APIVersion())
 		var cfgCleanup func()
-		switch v.Version {
+		switch v.APIVersion() {
 		case k8sspecs.K8sWebhookV1:
 			cfgCleanup, err = k.ensureValidatingWebhookConfigurationV1(&admissionregistrationv1.ValidatingWebhookConfiguration{
 				ObjectMeta: obj,
@@ -256,11 +258,11 @@ func (k *kubernetesClient) ensureValidatingWebhookConfigurations(
 			})
 		default:
 			// This should never happen.
-			return cleanUps, errors.NotSupportedf("mutating webhook version %q", v.Version)
+			return cleanUps, errors.NotSupportedf("mutating webhook version %q", v.APIVersion())
 		}
 		cleanUps = append(cleanUps, cfgCleanup)
 		if err != nil {
-			return cleanUps, errors.Trace(err)
+			return cleanUps, errors.Annotatef(err, "ensuring validating webhook %q with version %q", obj.GetName(), v.APIVersion())
 		}
 	}
 	return cleanUps, nil
