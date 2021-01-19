@@ -15,8 +15,10 @@ import (
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	"github.com/juju/os/v2/series"
 	"gopkg.in/mgo.v2/bson"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/crossmodel"
@@ -914,15 +916,9 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		return errors.Annotatef(err, "status for application %s", appName)
 	}
 
-	charmOriginArgs, err := e.getCharmOrigin(application.doc)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	exApplication.SetStatus(statusArgs)
 	exApplication.SetStatusHistory(e.statusHistoryArgs(globalKey))
 	exApplication.SetAnnotations(e.getAnnotations(globalKey))
-	exApplication.SetCharmOrigin(charmOriginArgs)
 
 	globalAppWorkloadKey := applicationGlobalOperatorKey(appName)
 	operatorStatusArgs, err := e.statusArgs(globalAppWorkloadKey)
@@ -939,6 +935,16 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		return errors.Trace(err)
 	}
 	exApplication.SetConstraints(constraintsArgs)
+
+	defaultArch := constraintsArgs.Architecture
+	if defaultArch == "" {
+		defaultArch = arch.DefaultArchitecture
+	}
+	charmOriginArgs, err := e.getCharmOrigin(application.doc, defaultArch)
+	if err != nil {
+		return errors.Annotatef(err, "charm origin")
+	}
+	exApplication.SetCharmOrigin(charmOriginArgs)
 
 	if err := e.setResources(exApplication, ctx.resources); err != nil {
 		return errors.Trace(err)
@@ -1913,7 +1919,7 @@ func (e *exporter) getAnnotations(key string) map[string]string {
 	return result.Annotations
 }
 
-func (e *exporter) getCharmOrigin(doc applicationDoc) (description.CharmOriginArgs, error) {
+func (e *exporter) getCharmOrigin(doc applicationDoc, defaultArch string) (description.CharmOriginArgs, error) {
 	// Everything should be migrated, but in the case that it's not, handle
 	// that case.
 	if doc.CharmOrigin == nil {
@@ -1937,10 +1943,27 @@ func (e *exporter) getCharmOrigin(doc applicationDoc) (description.CharmOriginAr
 	}
 	var platform charm.Platform
 	if origin.Platform != nil {
-		var err error
-		platform, err = charm.MakePlatform(origin.Platform.Architecture, origin.Platform.OS, origin.Platform.Series)
-		if err != nil {
-			return description.CharmOriginArgs{}, errors.Trace(err)
+		// Platform is now mandatory moving forward, so we need to ensure that
+		// the architecture is set in the platform if it's not set. This
+		// shouldn't happen that often, but handles clients sending bad requests
+		// when deploying.
+		arch := origin.Platform.Architecture
+		if arch == "" {
+			e.logger.Warningf("using default architecture (%q) for doc[%q]", defaultArch, doc.DocID)
+			arch = defaultArch
+		}
+		var os string
+		if origin.Platform.Series != "" {
+			sys, err := series.GetOSFromSeries(origin.Platform.Series)
+			if err != nil {
+				return description.CharmOriginArgs{}, errors.Trace(err)
+			}
+			os = strings.ToLower(sys.String())
+		}
+		platform = charm.Platform{
+			Architecture: arch,
+			OS:           os,
+			Series:       origin.Platform.Series,
 		}
 	}
 
