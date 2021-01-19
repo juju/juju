@@ -303,7 +303,7 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 			about: "invalid URL",
 			charm: "wordpress",
 			url:   "not-valid!",
-			err:   `cannot parse URL "not-valid!": name "not-valid!" not valid`,
+			err:   `cannot parse name and/or revision in URL "not-valid!": name "not-valid!" not valid`,
 		},
 		{
 			about: "invalid schema",

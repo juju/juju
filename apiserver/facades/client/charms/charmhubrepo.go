@@ -33,7 +33,7 @@ type chRepo struct {
 // ResolveWithPreferredChannel call the CharmHub version of
 // ResolveWithPreferredChannel.
 func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.CharmOrigin) (*charm.URL, params.CharmOrigin, []string, error) {
-	logger.Tracef("Resolving CharmHub charm %q", curl)
+	logger.Debugf("Resolving CharmHub charm %q", curl)
 
 	channel, err := makeChannel(origin)
 	if err != nil {
@@ -61,7 +61,11 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 	// If no revision nor channel specified, use the default release.
 	if curl.Revision == -1 && channel.String() == "" {
 		logger.Debugf("Resolving charm with default release")
-		resURL, resOrigin, serie, err := c.resolveViaChannelMap(info.Type, curl, origin, info.DefaultRelease, true)
+		override := platformOverrides{
+			Arch:   true,
+			Series: false,
+		}
+		resURL, resOrigin, series, err := c.resolveViaChannelMap(info.Type, curl, origin, info.DefaultRelease, override)
 		if err != nil {
 			return nil, params.CharmOrigin{}, nil, errors.Trace(err)
 		}
@@ -71,7 +75,8 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 		if err != nil {
 			return nil, params.CharmOrigin{}, nil, errors.Trace(err)
 		}
-		return resURL, outputOrigin, serie, nil
+
+		return resURL, outputOrigin, series, nil
 	}
 
 	logger.Debugf("Resolving charm with revision %d and/or channel %s and origin %s", curl.Revision, channel.String(), origin)
@@ -80,11 +85,11 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 		Channel:  channel,
 		Platform: platform,
 	}
-	channelMap, overrideArch, err := findChannelMap(curl.Revision, preferred, info.ChannelMap)
+	channelMap, override, err := findChannelMap(curl.Revision, preferred, info.ChannelMap)
 	if err != nil {
 		return nil, params.CharmOrigin{}, nil, errors.Trace(err)
 	}
-	resURL, resOrigin, series, err := c.resolveViaChannelMap(info.Type, curl, origin, channelMap, overrideArch)
+	resURL, resOrigin, series, err := c.resolveViaChannelMap(info.Type, curl, origin, channelMap, override)
 	if err != nil {
 		return nil, params.CharmOrigin{}, nil, errors.Trace(err)
 	}
@@ -101,7 +106,7 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 // provided archive path.
 // A charm archive is returned.
 func (c *chRepo) DownloadCharm(resourceURL string, archivePath string) (*charm.CharmArchive, error) {
-	logger.Debugf("DownloadCharm from CharmHub %q", resourceURL)
+	logger.Tracef("DownloadCharm from CharmHub %q", resourceURL)
 	curl, err := url.Parse(resourceURL)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -168,11 +173,13 @@ func (c *chRepo) findBundleDownloadURL(curl *charm.URL, origin corecharm.Origin)
 	return selector.Locate(info, origin)
 }
 
-func (c *chRepo) resolveViaChannelMap(t transport.Type, curl *charm.URL, origin params.CharmOrigin, channelMap transport.InfoChannelMap, overrideArch bool) (*charm.URL, params.CharmOrigin, []string, error) {
+func (c *chRepo) resolveViaChannelMap(t transport.Type,
+	curl *charm.URL, origin params.CharmOrigin,
+	channelMap transport.InfoChannelMap,
+	override platformOverrides,
+) (*charm.URL, params.CharmOrigin, []string, error) {
 	mapChannel := channelMap.Channel
 	mapRevision := channelMap.Revision
-
-	curl.Revision = mapRevision.Revision
 
 	origin.Type = t
 	origin.Revision = &mapRevision.Revision
@@ -186,11 +193,20 @@ func (c *chRepo) resolveViaChannelMap(t transport.Type, curl *charm.URL, origin 
 	// even though we know the exact same revision will work with everything.
 	// This is a limited work around until the charmhub API will correctly
 	// explode the channel map architecture.
-	if !overrideArch {
+	if !override.Arch {
 		origin.Architecture = mapChannel.Platform.Architecture
 	}
-	origin.OS = mapChannel.Platform.OS
-	origin.Series = mapChannel.Platform.Series
+	if !override.Series {
+		origin.OS = mapChannel.Platform.OS
+		origin.Series = mapChannel.Platform.Series
+	}
+
+	// Ensure that we force the revision, architecture and series on to the
+	// returning charm URL. This way we can store a unique charm per
+	// architecture, series and revision.
+	rurl := curl.WithRevision(mapRevision.Revision).
+		WithArchitecture(origin.Architecture).
+		WithSeries(origin.Series)
 
 	// The metadata is empty, this can happen if we've requested something from
 	// the charmhub API that we didn't provide the right hint for (channel or
@@ -207,14 +223,14 @@ func (c *chRepo) resolveViaChannelMap(t transport.Type, curl *charm.URL, origin 
 	case "charm":
 		if mapRevision.MetadataYAML == "" {
 			logger.Warningf("No metadata yaml found, using fallback computed series for %q.", curl)
-			return curl, origin, []string{origin.Series}, nil
+			return rurl, origin, []string{origin.Series}, nil
 		}
 
 		meta, err = unmarshalCharmMetadata(mapRevision.MetadataYAML)
 	case "bundle":
 		if mapRevision.BundleYAML == "" {
 			logger.Warningf("No bundle yaml found, using fallback computed series for %q.", curl)
-			return curl, origin, []string{origin.Series}, nil
+			return rurl, origin, []string{origin.Series}, nil
 		}
 
 		meta, err = unmarshalBundleMetadata(mapRevision.BundleYAML)
@@ -224,7 +240,7 @@ func (c *chRepo) resolveViaChannelMap(t transport.Type, curl *charm.URL, origin 
 	if err != nil {
 		return nil, params.CharmOrigin{}, nil, errors.Annotatef(err, "cannot unmarshal charm metadata")
 	}
-	return curl, origin, meta.ComputedSeries(), nil
+	return rurl, origin, meta.ComputedSeries(), nil
 }
 
 type channelPlatform struct {
@@ -232,14 +248,19 @@ type channelPlatform struct {
 	Platform corecharm.Platform
 }
 
+type platformOverrides struct {
+	Arch   bool
+	Series bool
+}
+
 // Match attempts to match the channel platform to a given channel and
 // architecture.
-func (cp channelPlatform) Match(other transport.InfoChannelMap) (bool, bool) {
+func (cp channelPlatform) Match(other transport.InfoChannelMap) (platformOverrides, bool) {
 	if !cp.MatchChannel(other) {
-		return false, false
+		return platformOverrides{}, false
 	}
 
-	return cp.MatchArch(other)
+	return cp.MatchPlatform(other)
 }
 
 // MatchChannel attempts to match only the channel of a channel map.
@@ -253,7 +274,7 @@ func (cp channelPlatform) MatchChannel(other transport.InfoChannelMap) bool {
 	return track == other.Channel.Track && string(c.Risk) == other.Channel.Risk
 }
 
-// MatchArch attempts to match the architecture for a given channel map, by
+// MatchPlatform attempts to match the architecture for a given channel map, by
 // looking in the following places:
 //
 //  1. Channel Platform
@@ -261,12 +282,31 @@ func (cp channelPlatform) MatchChannel(other transport.InfoChannelMap) bool {
 //
 // If "all" is found instead of the intended arch then we can use that, but
 // report that we found the override as well as the arch.
-func (cp channelPlatform) MatchArch(other transport.InfoChannelMap) (override bool, found bool) {
-	if other.Channel.Platform.Architecture == "all" {
+func (cp channelPlatform) MatchPlatform(other transport.InfoChannelMap) (platformOverrides, bool) {
+	archOverride, archFound := cp.matchArch(other)
+	if !archFound {
+		return platformOverrides{}, false
+	}
+
+	seriesOverride, seriesFound := cp.matchSeries(other)
+	if !seriesFound {
+		return platformOverrides{}, false
+	}
+
+	return platformOverrides{
+		Arch:   archOverride,
+		Series: seriesOverride,
+	}, true
+}
+
+func (cp channelPlatform) matchArch(other transport.InfoChannelMap) (override bool, found bool) {
+	oPlatform := other.Channel.Platform
+	if oPlatform.Architecture == "all" {
 		return true, true
 	}
+
 	norm := cp.Platform.Normalize()
-	if norm.Architecture == other.Channel.Platform.Architecture {
+	if norm.Architecture == oPlatform.Architecture {
 		return false, true
 	}
 
@@ -276,6 +316,27 @@ func (cp channelPlatform) MatchArch(other transport.InfoChannelMap) (override bo
 		}
 		if platform.Architecture == norm.Architecture {
 			return false, true
+		}
+	}
+	return false, false
+}
+
+func (cp channelPlatform) matchSeries(other transport.InfoChannelMap) (override bool, found bool) {
+	oPlatform := other.Channel.Platform
+	if oPlatform.Series == "all" {
+		return true, true
+	}
+
+	norm := cp.Platform.Normalize()
+	if norm.Series == "" || norm.Series == oPlatform.Series {
+		return false, true
+	}
+
+	for _, platform := range other.Revision.Platforms {
+		// As we found the matching series in the platforms, we want to then
+		// override what they asked for when outputting the origin.
+		if platform.Series == "all" || platform.Series == norm.Series {
+			return true, true
 		}
 	}
 	return false, false
@@ -351,9 +412,9 @@ func makePlatform(origin params.CharmOrigin) (corecharm.Platform, error) {
 	return p.Normalize(), nil
 }
 
-func findChannelMap(rev int, preferred channelPlatform, channelMaps []transport.InfoChannelMap) (transport.InfoChannelMap, bool, error) {
+func findChannelMap(rev int, preferred channelPlatform, channelMaps []transport.InfoChannelMap) (transport.InfoChannelMap, platformOverrides, error) {
 	if len(channelMaps) == 0 {
-		return transport.InfoChannelMap{}, false, errors.NotValidf("no channels provided by CharmHub")
+		return transport.InfoChannelMap{}, platformOverrides{}, errors.NotValidf("no channels provided by CharmHub")
 	}
 	switch {
 	case preferred.Channel.String() != "" && rev != -1:
@@ -365,35 +426,37 @@ func findChannelMap(rev int, preferred channelPlatform, channelMaps []transport.
 	}
 }
 
-func findByRevision(rev int, preferred channelPlatform, channelMaps []transport.InfoChannelMap) (transport.InfoChannelMap, bool, error) {
+func findByRevision(rev int, preferred channelPlatform, channelMaps []transport.InfoChannelMap) (transport.InfoChannelMap, platformOverrides, error) {
 	for _, cMap := range channelMaps {
 		if cMap.Revision.Revision == rev {
-			if overrideArch, ok := preferred.MatchArch(cMap); ok {
+			if override, ok := preferred.MatchPlatform(cMap); ok {
 				// Channel map is in order of most newest/stable channel,
 				// return the first of the requested revision.
-				return cMap, overrideArch, nil
+				return cMap, override, nil
 			}
 		}
 	}
-	return transport.InfoChannelMap{}, false, errors.NotFoundf("charm revision %d", rev)
+	return transport.InfoChannelMap{}, platformOverrides{}, errors.NotFoundf("charm revision %d", rev)
 }
 
-func findByChannel(preferred channelPlatform, channelMaps []transport.InfoChannelMap) (transport.InfoChannelMap, bool, error) {
+func findByChannel(preferred channelPlatform, channelMaps []transport.InfoChannelMap) (transport.InfoChannelMap, platformOverrides, error) {
 	for _, cMap := range channelMaps {
-		if overrideArch, ok := preferred.Match(cMap); ok {
-			return cMap, overrideArch, nil
+		if override, ok := preferred.Match(cMap); ok {
+			return cMap, override, nil
 		}
 	}
-	return transport.InfoChannelMap{}, false, errors.NotFoundf("channel %q with arch %q", preferred.Channel.String(), preferred.Platform.Architecture)
+	arch, series := preferred.Platform.Architecture, preferred.Platform.Series
+	return transport.InfoChannelMap{}, platformOverrides{}, errors.NotFoundf("channel %q with arch %q and series %q", preferred.Channel.String(), arch, series)
 }
 
-func findByRevisionAndChannel(rev int, preferred channelPlatform, channelMaps []transport.InfoChannelMap) (transport.InfoChannelMap, bool, error) {
+func findByRevisionAndChannel(rev int, preferred channelPlatform, channelMaps []transport.InfoChannelMap) (transport.InfoChannelMap, platformOverrides, error) {
 	for _, cMap := range channelMaps {
 		if cMap.Revision.Revision == rev {
-			if overrideArch, ok := preferred.Match(cMap); ok {
-				return cMap, overrideArch, nil
+			if override, ok := preferred.Match(cMap); ok {
+				return cMap, override, nil
 			}
 		}
 	}
-	return transport.InfoChannelMap{}, false, errors.NotFoundf("charm revision %d for channel %q with arch %q", rev, preferred.Channel.String(), preferred.Platform.Architecture)
+	arch, series := preferred.Platform.Architecture, preferred.Platform.Series
+	return transport.InfoChannelMap{}, platformOverrides{}, errors.NotFoundf("charm revision %d for channel %q with arch %q and series %q", rev, preferred.Channel.String(), arch, series)
 }

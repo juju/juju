@@ -319,7 +319,7 @@ func (s *DeploySuite) TestBlockDeploy(c *gc.C) {
 
 func (s *DeploySuite) TestInvalidPath(c *gc.C) {
 	err := s.runDeploy(c, "/home/nowhere")
-	c.Assert(err, gc.ErrorMatches, `no charm was found at \"/home/nowhere\"`)
+	c.Assert(err, gc.ErrorMatches, `cannot resolve charm or bundle "nowhere": charm or bundle not found`)
 }
 
 func (s *DeploySuite) TestInvalidFileFormat(c *gc.C) {
@@ -2595,7 +2595,7 @@ func (f *fakeDeployAPI) ResolveCharm(url *charm.URL, preferredChannel commonchar
 	if results == nil {
 		if url.Schema == "cs" || url.Schema == "ch" {
 			return nil, commoncharm.Origin{}, nil, errors.Errorf(
-				"cannot resolve URL %q: charm or bundle not found", url)
+				"cannot resolve charm or bundle %q: charm or bundle not found", url.Name)
 		}
 		return nil, commoncharm.Origin{}, nil, errors.Errorf(
 			"unknown schema for charm URL %q", url)

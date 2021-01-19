@@ -48,7 +48,9 @@ func (s *charmHubRepositoriesSuite) TestCharmResolveDefaultChannelMap(c *gc.C) {
 	origin.OS = "ubuntu"
 	origin.Series = "bionic"
 
-	c.Assert(obtainedCurl, jc.DeepEquals, curl)
+	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture, "bionic")
+
+	c.Assert(obtainedCurl, jc.DeepEquals, expected)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
 	c.Assert(obtainedSeries, jc.SameContents, []string{"bionic", "xenial"})
 }
@@ -82,7 +84,9 @@ func (s *charmHubRepositoriesSuite) TestCharmResolveDefaultChannelMapWithChannel
 	origin.OS = "ubuntu"
 	origin.Series = "bionic"
 
-	c.Assert(obtainedCurl, jc.DeepEquals, curl)
+	expected := s.expectedCURL(curl, 18, arch.DefaultArchitecture, "bionic")
+
+	c.Assert(obtainedCurl, jc.DeepEquals, expected)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
 	c.Assert(obtainedSeries, jc.SameContents, []string{"bionic", "xenial"})
 }
@@ -110,7 +114,9 @@ func (s *charmHubRepositoriesSuite) TestResolveWithRevision(c *gc.C) {
 	origin.OS = "ubuntu"
 	origin.Series = "bionic"
 
-	c.Assert(obtainedCurl, jc.DeepEquals, curl)
+	expected := s.expectedCURL(curl, 13, arch.DefaultArchitecture, "bionic")
+
+	c.Assert(obtainedCurl, jc.DeepEquals, expected)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
 	c.Assert(obtainedSeries, jc.SameContents, []string{"bionic", "xenial"})
 }
@@ -138,7 +144,9 @@ func (s *charmHubRepositoriesSuite) TestCharmResolveDefaultChannelMapWithFallbac
 	origin.OS = "ubuntu"
 	origin.Series = "bionic"
 
-	c.Assert(obtainedCurl, jc.DeepEquals, curl)
+	expected := s.expectedCURL(curl, 17, arch.DefaultArchitecture, "bionic")
+
+	c.Assert(obtainedCurl, jc.DeepEquals, expected)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
 	c.Assert(obtainedSeries, jc.SameContents, []string{"bionic"})
 }
@@ -166,7 +174,9 @@ func (s *charmHubRepositoriesSuite) TestBundleResolveDefaultChannelMap(c *gc.C) 
 	origin.OS = "ubuntu"
 	origin.Series = "bionic"
 
-	c.Assert(obtainedCurl, jc.DeepEquals, curl)
+	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture, "bionic")
+
+	c.Assert(obtainedCurl, jc.DeepEquals, expected)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
 	c.Assert(obtainedSeries, jc.SameContents, []string{"bionic"})
 }
@@ -194,7 +204,9 @@ func (s *charmHubRepositoriesSuite) TestBundleResolveDefaultChannelMapWithFallba
 	origin.OS = "ubuntu"
 	origin.Series = "bionic"
 
-	c.Assert(obtainedCurl, jc.DeepEquals, curl)
+	expected := s.expectedCURL(curl, 17, arch.DefaultArchitecture, "bionic")
+
+	c.Assert(obtainedCurl, jc.DeepEquals, expected)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
 	c.Assert(obtainedSeries, jc.SameContents, []string{"bionic"})
 }
@@ -237,7 +249,9 @@ func (s *charmHubRepositoriesSuite) TestResolveWithChannel(c *gc.C) {
 	origin.OS = "ubuntu"
 	origin.Series = "bionic"
 
-	c.Assert(obtainedCurl, jc.DeepEquals, curl)
+	expected := s.expectedCURL(curl, 13, arch.DefaultArchitecture, "bionic")
+
+	c.Assert(obtainedCurl, jc.DeepEquals, expected)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
 	c.Assert(obtainedSeries, jc.SameContents, []string{"bionic", "xenial"})
 }
@@ -283,7 +297,9 @@ func (s *charmHubRepositoriesSuite) TestResolveWithChannelRiskOnly(c *gc.C) {
 	origin.OS = "ubuntu"
 	origin.Series = "bionic"
 
-	c.Assert(obtainedCurl, jc.DeepEquals, curl)
+	expected := s.expectedCURL(curl, 19, arch.DefaultArchitecture, "bionic")
+
+	c.Assert(obtainedCurl, jc.DeepEquals, expected)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
 	c.Assert(obtainedSeries, jc.SameContents, []string{"bionic", "xenial"})
 }
@@ -326,6 +342,10 @@ func (s *charmHubRepositoriesSuite) expectBundleInfo(err error) {
 
 func (s *charmHubRepositoriesSuite) expectAlternativeBundleInfo(err error) {
 	s.client.EXPECT().Info(gomock.Any(), "wordpress", gomock.Any()).Return(getAlternativeCharmHubBundleInfoResponse(), err)
+}
+
+func (s *charmHubRepositoriesSuite) expectedCURL(curl *charm.URL, revision int, arch string, series string) *charm.URL {
+	return curl.WithRevision(revision).WithArchitecture(arch).WithSeries(series)
 }
 
 type charmStoreResolversSuite struct {
