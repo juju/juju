@@ -64,7 +64,17 @@ func (c *UnitGetCommand) Run(ctx *cmd.Context) error {
 		if err != nil || len(networkInfos[""].Info) == 0 || len(networkInfos[""].Info[0].Addresses) == 0 {
 			value, err = c.ctx.PrivateAddress()
 		} else {
-			value = networkInfos[""].Info[0].Addresses[0].Address
+			// Here, we preserve behaviour that changed inadvertently in 2.8.7
+			// when we pushed host name resolution from the network-get tool
+			// into the NetworkInfo method on the uniter API.
+			// If addresses were resolved from host names, return the host name
+			// instead of the IP we resolved.
+			addr := networkInfos[""].Info[0].Addresses[0]
+			if addr.Hostname != "" {
+				value = addr.Hostname
+			} else {
+				value = addr.Address
+			}
 		}
 	} else {
 		value, err = c.ctx.PublicAddress()
