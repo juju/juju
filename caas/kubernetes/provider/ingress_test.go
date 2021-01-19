@@ -10,7 +10,7 @@ import (
 	apps "k8s.io/api/apps/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
-	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -130,13 +130,13 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesCreate(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	ingress1Rule1 := extensionsv1beta1.IngressRule{
-		IngressRuleValue: extensionsv1beta1.IngressRuleValue{
-			HTTP: &extensionsv1beta1.HTTPIngressRuleValue{
-				Paths: []extensionsv1beta1.HTTPIngressPath{
+	ingress1Rule1 := networkingv1beta1.IngressRule{
+		IngressRuleValue: networkingv1beta1.IngressRuleValue{
+			HTTP: &networkingv1beta1.HTTPIngressRuleValue{
+				Paths: []networkingv1beta1.HTTPIngressPath{
 					{
 						Path: "/testpath",
-						Backend: extensionsv1beta1.IngressBackend{
+						Backend: networkingv1beta1.IngressBackend{
 							ServiceName: "test",
 							ServicePort: intstr.IntOrString{IntVal: 80},
 						},
@@ -153,13 +153,13 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesCreate(c *gc.C) {
 		Annotations: map[string]string{
 			"nginx.ingress.kubernetes.io/rewrite-target": "/",
 		},
-		Spec: extensionsv1beta1.IngressSpec{
-			Rules: []extensionsv1beta1.IngressRule{ingress1Rule1},
+		Spec: networkingv1beta1.IngressSpec{
+			Rules: []networkingv1beta1.IngressRule{ingress1Rule1},
 		},
 	}
 
 	IngressResources := []k8sspecs.K8sIngressSpec{ingress1}
-	ingress := &extensionsv1beta1.Ingress{
+	ingress := &networkingv1beta1.Ingress{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "test-ingress",
 			Labels: map[string]string{
@@ -171,13 +171,13 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesCreate(c *gc.C) {
 				"juju.io/controller":                         "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 			},
 		},
-		Spec: extensionsv1beta1.IngressSpec{
-			Rules: []extensionsv1beta1.IngressRule{ingress1Rule1},
+		Spec: networkingv1beta1.IngressSpec{
+			Rules: []networkingv1beta1.IngressRule{ingress1Rule1},
 		},
 	}
 	s.assertIngressResources(
 		c, IngressResources, "",
-		s.mockIngressInterface.EXPECT().Create(ingress).Return(ingress, nil),
+		s.mockIngressV1Beta1.EXPECT().Create(ingress).Return(ingress, nil),
 	)
 }
 
@@ -185,13 +185,13 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdate(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	ingress1Rule1 := extensionsv1beta1.IngressRule{
-		IngressRuleValue: extensionsv1beta1.IngressRuleValue{
-			HTTP: &extensionsv1beta1.HTTPIngressRuleValue{
-				Paths: []extensionsv1beta1.HTTPIngressPath{
+	ingress1Rule1 := networkingv1beta1.IngressRule{
+		IngressRuleValue: networkingv1beta1.IngressRuleValue{
+			HTTP: &networkingv1beta1.HTTPIngressRuleValue{
+				Paths: []networkingv1beta1.HTTPIngressPath{
 					{
 						Path: "/testpath",
-						Backend: extensionsv1beta1.IngressBackend{
+						Backend: networkingv1beta1.IngressBackend{
 							ServiceName: "test",
 							ServicePort: intstr.IntOrString{IntVal: 80},
 						},
@@ -208,13 +208,13 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdate(c *gc.C) {
 		Annotations: map[string]string{
 			"nginx.ingress.kubernetes.io/rewrite-target": "/",
 		},
-		Spec: extensionsv1beta1.IngressSpec{
-			Rules: []extensionsv1beta1.IngressRule{ingress1Rule1},
+		Spec: networkingv1beta1.IngressSpec{
+			Rules: []networkingv1beta1.IngressRule{ingress1Rule1},
 		},
 	}
 
 	IngressResources := []k8sspecs.K8sIngressSpec{ingress1}
-	ingress := &extensionsv1beta1.Ingress{
+	ingress := &networkingv1beta1.Ingress{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "test-ingress",
 			Labels: map[string]string{
@@ -226,15 +226,15 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdate(c *gc.C) {
 				"juju.io/controller":                         "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 			},
 		},
-		Spec: extensionsv1beta1.IngressSpec{
-			Rules: []extensionsv1beta1.IngressRule{ingress1Rule1},
+		Spec: networkingv1beta1.IngressSpec{
+			Rules: []networkingv1beta1.IngressRule{ingress1Rule1},
 		},
 	}
 	s.assertIngressResources(
 		c, IngressResources, "",
-		s.mockIngressInterface.EXPECT().Create(ingress).Return(nil, s.k8sAlreadyExistsError()),
-		s.mockIngressInterface.EXPECT().Get("test-ingress", v1.GetOptions{}).Return(ingress, nil),
-		s.mockIngressInterface.EXPECT().Update(ingress).Return(ingress, nil),
+		s.mockIngressV1Beta1.EXPECT().Create(ingress).Return(nil, s.k8sAlreadyExistsError()),
+		s.mockIngressV1Beta1.EXPECT().Get("test-ingress", v1.GetOptions{}).Return(ingress, nil),
+		s.mockIngressV1Beta1.EXPECT().Update(ingress).Return(ingress, nil),
 	)
 }
 
@@ -242,13 +242,13 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithExis
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	ingress1Rule1 := extensionsv1beta1.IngressRule{
-		IngressRuleValue: extensionsv1beta1.IngressRuleValue{
-			HTTP: &extensionsv1beta1.HTTPIngressRuleValue{
-				Paths: []extensionsv1beta1.HTTPIngressPath{
+	ingress1Rule1 := networkingv1beta1.IngressRule{
+		IngressRuleValue: networkingv1beta1.IngressRuleValue{
+			HTTP: &networkingv1beta1.HTTPIngressRuleValue{
+				Paths: []networkingv1beta1.HTTPIngressPath{
 					{
 						Path: "/testpath",
-						Backend: extensionsv1beta1.IngressBackend{
+						Backend: networkingv1beta1.IngressBackend{
 							ServiceName: "test",
 							ServicePort: intstr.IntOrString{IntVal: 80},
 						},
@@ -265,15 +265,15 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithExis
 		Annotations: map[string]string{
 			"nginx.ingress.kubernetes.io/rewrite-target": "/",
 		},
-		Spec: extensionsv1beta1.IngressSpec{
-			Rules: []extensionsv1beta1.IngressRule{ingress1Rule1},
+		Spec: networkingv1beta1.IngressSpec{
+			Rules: []networkingv1beta1.IngressRule{ingress1Rule1},
 		},
 	}
 
 	IngressResources := []k8sspecs.K8sIngressSpec{ingress1}
 
-	getIngress := func() *extensionsv1beta1.Ingress {
-		return &extensionsv1beta1.Ingress{
+	getIngress := func() *networkingv1beta1.Ingress {
+		return &networkingv1beta1.Ingress{
 			ObjectMeta: v1.ObjectMeta{
 				Name: "test-ingress",
 				Labels: map[string]string{
@@ -285,8 +285,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithExis
 					"juju.io/controller":                         "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 				},
 			},
-			Spec: extensionsv1beta1.IngressSpec{
-				Rules: []extensionsv1beta1.IngressRule{ingress1Rule1},
+			Spec: networkingv1beta1.IngressSpec{
+				Rules: []networkingv1beta1.IngressRule{ingress1Rule1},
 			},
 		}
 	}
@@ -295,8 +295,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithExis
 	existingNonJujuManagedIngress.SetLabels(map[string]string{})
 	s.assertIngressResources(
 		c, IngressResources, `creating or updating ingress resources: existing ingress "test-ingress" found which does not belong to "app-name"`,
-		s.mockIngressInterface.EXPECT().Create(ingress).Return(nil, s.k8sAlreadyExistsError()),
-		s.mockIngressInterface.EXPECT().Get("test-ingress", v1.GetOptions{}).Return(existingNonJujuManagedIngress, nil),
+		s.mockIngressV1Beta1.EXPECT().Create(ingress).Return(nil, s.k8sAlreadyExistsError()),
+		s.mockIngressV1Beta1.EXPECT().Get("test-ingress", v1.GetOptions{}).Return(existingNonJujuManagedIngress, nil),
 	)
 }
 
@@ -304,13 +304,13 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithIngr
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	ingress1Rule1 := extensionsv1beta1.IngressRule{
-		IngressRuleValue: extensionsv1beta1.IngressRuleValue{
-			HTTP: &extensionsv1beta1.HTTPIngressRuleValue{
-				Paths: []extensionsv1beta1.HTTPIngressPath{
+	ingress1Rule1 := networkingv1beta1.IngressRule{
+		IngressRuleValue: networkingv1beta1.IngressRuleValue{
+			HTTP: &networkingv1beta1.HTTPIngressRuleValue{
+				Paths: []networkingv1beta1.HTTPIngressPath{
 					{
 						Path: "/testpath",
-						Backend: extensionsv1beta1.IngressBackend{
+						Backend: networkingv1beta1.IngressBackend{
 							ServiceName: "test",
 							ServicePort: intstr.IntOrString{IntVal: 80},
 						},
@@ -327,8 +327,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithIngr
 		Annotations: map[string]string{
 			"nginx.ingress.kubernetes.io/rewrite-target": "/",
 		},
-		Spec: extensionsv1beta1.IngressSpec{
-			Rules: []extensionsv1beta1.IngressRule{ingress1Rule1},
+		Spec: networkingv1beta1.IngressSpec{
+			Rules: []networkingv1beta1.IngressRule{ingress1Rule1},
 		},
 	}
 

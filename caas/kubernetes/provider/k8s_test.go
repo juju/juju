@@ -2054,7 +2054,7 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 		).Return(nil),
 
 		// delete all ingress resources.
-		s.mockIngressInterface.EXPECT().DeleteCollection(
+		s.mockIngressV1Beta1.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
 			v1.ListOptions{LabelSelector: "juju-app=test"},
 		).Return(nil),

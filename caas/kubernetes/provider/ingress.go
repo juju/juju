@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"k8s.io/api/extensions/v1beta1"
+	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
@@ -32,7 +32,7 @@ func (k *kubernetesClient) ensureIngressResources(
 		if v.Name == appName {
 			return cleanUps, errors.NotValidf("ingress name %q is reserved for juju expose", appName)
 		}
-		ing := &v1beta1.Ingress{
+		ing := &networkingv1beta1.Ingress{
 			ObjectMeta: v1.ObjectMeta{
 				Name:        v.Name,
 				Labels:      k8slabels.Merge(v.Labels, k.getIngressLabels(appName)),
@@ -49,7 +49,7 @@ func (k *kubernetesClient) ensureIngressResources(
 	return cleanUps, nil
 }
 
-func (k *kubernetesClient) ensureIngress(appName string, spec *v1beta1.Ingress, force bool) (func(), error) {
+func (k *kubernetesClient) ensureIngress(appName string, spec *networkingv1beta1.Ingress, force bool) (func(), error) {
 	cleanUp := func() {}
 	out, err := k.createIngress(spec)
 	if err == nil {
@@ -72,25 +72,25 @@ func (k *kubernetesClient) ensureIngress(appName string, spec *v1beta1.Ingress, 
 	return cleanUp, errors.Trace(err)
 }
 
-func (k *kubernetesClient) createIngress(ingress *v1beta1.Ingress) (*v1beta1.Ingress, error) {
+func (k *kubernetesClient) createIngress(ingress *networkingv1beta1.Ingress) (*networkingv1beta1.Ingress, error) {
 	purifyResource(ingress)
-	out, err := k.client().ExtensionsV1beta1().Ingresses(k.namespace).Create(ingress)
+	out, err := k.client().NetworkingV1beta1().Ingresses(k.namespace).Create(ingress)
 	if k8serrors.IsAlreadyExists(err) {
 		return nil, errors.AlreadyExistsf("ingress resource %q", ingress.GetName())
 	}
 	return out, errors.Trace(err)
 }
 
-func (k *kubernetesClient) getIngress(name string) (*v1beta1.Ingress, error) {
-	out, err := k.client().ExtensionsV1beta1().Ingresses(k.namespace).Get(name, v1.GetOptions{})
+func (k *kubernetesClient) getIngress(name string) (*networkingv1beta1.Ingress, error) {
+	out, err := k.client().NetworkingV1beta1().Ingresses(k.namespace).Get(name, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("ingress resource %q", name)
 	}
 	return out, errors.Trace(err)
 }
 
-func (k *kubernetesClient) updateIngress(ingress *v1beta1.Ingress) (*v1beta1.Ingress, error) {
-	out, err := k.client().ExtensionsV1beta1().Ingresses(k.namespace).Update(ingress)
+func (k *kubernetesClient) updateIngress(ingress *networkingv1beta1.Ingress) (*networkingv1beta1.Ingress, error) {
+	out, err := k.client().NetworkingV1beta1().Ingresses(k.namespace).Update(ingress)
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("ingress resource %q", ingress.GetName())
 	}
@@ -98,18 +98,18 @@ func (k *kubernetesClient) updateIngress(ingress *v1beta1.Ingress) (*v1beta1.Ing
 }
 
 func (k *kubernetesClient) deleteIngress(name string, uid k8stypes.UID) error {
-	err := k.client().ExtensionsV1beta1().Ingresses(k.namespace).Delete(name, newPreconditionDeleteOptions(uid))
+	err := k.client().NetworkingV1beta1().Ingresses(k.namespace).Delete(name, newPreconditionDeleteOptions(uid))
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) listIngressResources(labels map[string]string) ([]v1beta1.Ingress, error) {
+func (k *kubernetesClient) listIngressResources(labels map[string]string) ([]networkingv1beta1.Ingress, error) {
 	listOps := v1.ListOptions{
 		LabelSelector: labelSetToSelector(labels).String(),
 	}
-	ingList, err := k.client().ExtensionsV1beta1().Ingresses(k.namespace).List(listOps)
+	ingList, err := k.client().NetworkingV1beta1().Ingresses(k.namespace).List(listOps)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -120,7 +120,7 @@ func (k *kubernetesClient) listIngressResources(labels map[string]string) ([]v1b
 }
 
 func (k *kubernetesClient) deleteIngressResources(appName string) error {
-	err := k.client().ExtensionsV1beta1().Ingresses(k.namespace).DeleteCollection(&v1.DeleteOptions{
+	err := k.client().NetworkingV1beta1().Ingresses(k.namespace).DeleteCollection(&v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	}, v1.ListOptions{
 		LabelSelector: labelSetToSelector(k.getIngressLabels(appName)).String(),

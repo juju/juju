@@ -26,7 +26,7 @@ import (
 	"github.com/kr/pretty"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
-	"k8s.io/api/extensions/v1beta1"
+	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	k8sstorage "k8s.io/api/storage/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -172,7 +172,8 @@ type kubernetesClient struct {
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/k8sclient_mock.go k8s.io/client-go/kubernetes Interface
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/appv1_mock.go k8s.io/client-go/kubernetes/typed/apps/v1 AppsV1Interface,DeploymentInterface,StatefulSetInterface,DaemonSetInterface
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/corev1_mock.go k8s.io/client-go/kubernetes/typed/core/v1 EventInterface,CoreV1Interface,NamespaceInterface,PodInterface,ServiceInterface,ConfigMapInterface,PersistentVolumeInterface,PersistentVolumeClaimInterface,SecretInterface,NodeInterface
-//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/extenstionsv1_mock.go k8s.io/client-go/kubernetes/typed/extensions/v1beta1 ExtensionsV1beta1Interface,IngressInterface
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/networkingv1beta1_mock.go -mock_names=IngressInterface=MockIngressV1Beta1Interface k8s.io/client-go/kubernetes/typed/networking/v1beta1 NetworkingV1beta1Interface,IngressInterface
+
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/storagev1_mock.go k8s.io/client-go/kubernetes/typed/storage/v1 StorageV1Interface,StorageClassInterface
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/rbacv1_mock.go k8s.io/client-go/kubernetes/typed/rbac/v1 RbacV1Interface,ClusterRoleBindingInterface,ClusterRoleInterface,RoleInterface,RoleBindingInterface
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/apiextensionsv1beta1_mock.go -mock_names=CustomResourceDefinitionInterface=MockCustomResourceDefinitionV1Beta1Interface k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1 ApiextensionsV1beta1Interface,CustomResourceDefinitionInterface
@@ -1918,7 +1919,7 @@ func (k *kubernetesClient) ExposeService(appName string, resourceTags map[string
 	if len(svc.Spec.Ports) == 0 {
 		return errors.Errorf("cannot create ingress rule for service %q without a port", svc.Name)
 	}
-	spec := &v1beta1.Ingress{
+	spec := &networkingv1beta1.Ingress{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   deploymentName,
 			Labels: k8slabels.Merge(resourceTags, k.getIngressLabels(appName)),
@@ -1930,14 +1931,14 @@ func (k *kubernetesClient) ExposeService(appName string, resourceTags map[string
 				"ingress.kubernetes.io/ssl-passthrough": strconv.FormatBool(ingressSSLPassthrough),
 			},
 		},
-		Spec: v1beta1.IngressSpec{
-			Rules: []v1beta1.IngressRule{{
+		Spec: networkingv1beta1.IngressSpec{
+			Rules: []networkingv1beta1.IngressRule{{
 				Host: host,
-				IngressRuleValue: v1beta1.IngressRuleValue{
-					HTTP: &v1beta1.HTTPIngressRuleValue{
-						Paths: []v1beta1.HTTPIngressPath{{
+				IngressRuleValue: networkingv1beta1.IngressRuleValue{
+					HTTP: &networkingv1beta1.HTTPIngressRuleValue{
+						Paths: []networkingv1beta1.HTTPIngressPath{{
 							Path: httpPath,
-							Backend: v1beta1.IngressBackend{
+							Backend: networkingv1beta1.IngressBackend{
 								ServiceName: svc.Name, ServicePort: svc.Spec.Ports[0].TargetPort},
 						}}},
 				}}},

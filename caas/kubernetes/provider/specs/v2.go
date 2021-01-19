@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	admissionregistration "k8s.io/api/admissionregistration/v1beta1"
-	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -186,7 +186,7 @@ type K8sIngressSpec struct {
 	Name        string                        `json:"name" yaml:"name"`
 	Labels      map[string]string             `json:"labels,omitempty" yaml:"labels,omitempty"`
 	Annotations map[string]string             `json:"annotations,omitempty" yaml:"annotations,omitempty"`
-	Spec        extensionsv1beta1.IngressSpec `json:"spec" yaml:"spec"`
+	Spec        networkingv1beta1.IngressSpec `json:"spec" yaml:"spec"`
 }
 
 // Validate returns an error if the spec is not valid.

@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 	admissionregistration "k8s.io/api/admissionregistration/v1beta1"
 	core "k8s.io/api/core/v1"
-	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -526,13 +526,13 @@ echo "do some stuff here for gitlab-init container"
 			},
 		}
 
-		ingress1Rule1 := extensionsv1beta1.IngressRule{
-			IngressRuleValue: extensionsv1beta1.IngressRuleValue{
-				HTTP: &extensionsv1beta1.HTTPIngressRuleValue{
-					Paths: []extensionsv1beta1.HTTPIngressPath{
+		ingress1Rule1 := networkingv1beta1.IngressRule{
+			IngressRuleValue: networkingv1beta1.IngressRuleValue{
+				HTTP: &networkingv1beta1.HTTPIngressRuleValue{
+					Paths: []networkingv1beta1.HTTPIngressPath{
 						{
 							Path: "/testpath",
-							Backend: extensionsv1beta1.IngressBackend{
+							Backend: networkingv1beta1.IngressBackend{
 								ServiceName: "test",
 								ServicePort: intstr.IntOrString{IntVal: 80},
 							},
@@ -549,8 +549,8 @@ echo "do some stuff here for gitlab-init container"
 			Annotations: map[string]string{
 				"nginx.ingress.kubernetes.io/rewrite-target": "/",
 			},
-			Spec: extensionsv1beta1.IngressSpec{
-				Rules: []extensionsv1beta1.IngressRule{ingress1Rule1},
+			Spec: networkingv1beta1.IngressSpec{
+				Rules: []networkingv1beta1.IngressRule{ingress1Rule1},
 			},
 		}
 
