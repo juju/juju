@@ -170,6 +170,10 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 
 		charmHubURL, err = c.getCharmHubURL()
 		if err != nil {
+			if errors.IsNotImplemented(err) {
+				cmdContext.Warningf("juju download not supported with controllers < 2.9")
+				return nil
+			}
 			return errors.Trace(err)
 		}
 	}
@@ -263,6 +267,10 @@ func (c *downloadCommand) getCharmHubURL() (string, error) {
 		return "", errors.Trace(err)
 	}
 	defer func() { _ = apiRoot.Close() }()
+
+	if apiRoot.BestFacadeVersion("charmhub") < 1 {
+		return "", errors.NotImplementedf("charmhub")
+	}
 
 	modelConfigClient := c.ModelConfigClientFunc(apiRoot)
 	defer func() { _ = modelConfigClient.Close() }()

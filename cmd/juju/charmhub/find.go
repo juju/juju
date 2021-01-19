@@ -133,6 +133,11 @@ func (c *findCommand) Run(ctx *cmd.Context) error {
 	}
 	defer func() { _ = apiRoot.Close() }()
 
+	if apiRoot.BestFacadeVersion("charmhub") < 1 {
+		ctx.Warningf("juju find not supported with controllers < 2.9")
+		return nil
+	}
+
 	charmHubClient := c.CharmHubClientFunc(apiRoot)
 
 	results, err := charmHubClient.Find(c.query)
