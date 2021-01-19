@@ -333,11 +333,10 @@ func (cp channelPlatform) matchSeries(other transport.InfoChannelMap) (override 
 	}
 
 	for _, platform := range other.Revision.Platforms {
-		if platform.Series == "all" {
+		// As we found the matching series in the platforms, we want to then
+		// override what they asked for when outputting the origin.
+		if platform.Series == "all" || platform.Series == norm.Series {
 			return true, true
-		}
-		if platform.Series == norm.Series {
-			return false, true
 		}
 	}
 	return false, false

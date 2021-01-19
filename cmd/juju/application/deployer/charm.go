@@ -491,13 +491,21 @@ func (c *charmStoreCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	origin.Series = seriesName
 	c.origin = origin
 
+	// In-order for the url to represent the following updates to the the origin
+	// and machine, we need to ensure that the series is actually correct as
+	// well in the url.
+	deployableURL := storeCharmOrBundleURL
+	if charm.CharmHub.Matches(storeCharmOrBundleURL.Schema) {
+		deployableURL = storeCharmOrBundleURL.WithSeries(origin.Series)
+	}
+
 	// Store the charm in the controller
-	curl, csMac, csOrigin, err := store.AddCharmWithAuthorizationFromURL(deployAPI, macaroonGetter, storeCharmOrBundleURL, c.origin, c.force)
+	curl, csMac, csOrigin, err := store.AddCharmWithAuthorizationFromURL(deployAPI, macaroonGetter, deployableURL, c.origin, c.force)
 	if err != nil {
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 			return errors.Trace(termErr.UserErr())
 		}
-		return errors.Annotatef(err, "storing charm for URL %q", storeCharmOrBundleURL)
+		return errors.Annotatef(err, "storing charm %q", deployableURL.Name)
 	}
 	ctx.Infof(formatLocatedText(curl, csOrigin))
 
@@ -510,7 +518,7 @@ func (c *charmStoreCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	// what we deploy, we should converge the two so that both report identical
 	// values.
 	if curl != nil && series == "" {
-		if err := c.validateCharmSeriesWithName(curl.Series, storeCharmOrBundleURL.Name, imageStream); err != nil {
+		if err := c.validateCharmSeriesWithName(curl.Series, curl.Name, imageStream); err != nil {
 			return errors.Trace(err)
 		}
 	}

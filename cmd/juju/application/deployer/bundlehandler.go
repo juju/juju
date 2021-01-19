@@ -353,6 +353,10 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		if err != nil {
 			return errors.Annotatef(err, "cannot resolve charm or bundle %q", ch.Name)
 		}
+		if charm.CharmHub.Matches(url.Schema) {
+			url = url.WithSeries("")
+			origin = origin.WithSeries("")
+		}
 
 		h.ctx.Infof(formatLocatedText(ch, origin))
 		if url.Series == "bundle" {
@@ -582,8 +586,6 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	if url.Series == "bundle" || resolvedOrigin.Type == "bundle" {
 		return errors.Errorf("expected charm, got bundle %q %v", ch.Name, resolvedOrigin)
 	}
-
-	fmt.Println(">>>", url, resolvedOrigin, origin, series)
 
 	var macaroon *macaroon.Macaroon
 	var charmOrigin commoncharm.Origin
