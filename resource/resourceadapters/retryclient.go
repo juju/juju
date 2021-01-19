@@ -4,6 +4,7 @@
 package resourceadapters
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/clock"
@@ -59,25 +60,27 @@ func (client ResourceRetryClient) GetResource(req repositories.ResourceRequest) 
 		return nil
 	}
 
+	var channelStr string
 	stChannel := req.CharmID.Origin.Channel
-	if stChannel == nil {
-		return data, errors.Errorf("Missing channel for %q", req.CharmID.URL.Name)
-	}
-	channel, err := charm.MakeChannel(stChannel.Track, stChannel.Risk, stChannel.Branch)
-	if err != nil {
-		return data, errors.Trace(err)
+	if stChannel != nil {
+		// Empty string is valid for CharmStore charms.
+		channel, err := charm.MakeChannel(stChannel.Track, stChannel.Risk, stChannel.Branch)
+		if err != nil {
+			return data, errors.Trace(err)
+		}
+		channelStr = fmt.Sprintf("channel (%v), ", channel.String())
 	}
 
 	var lastErr error
 	args.NotifyFunc = func(err error, i int) {
 		// Remember the error we're hiding and then retry!
-		logger.Warningf("attempt %d/%d to download resource %q from charm store [channel (%v), charm (%v), resource revision (%v)] failed with error (will retry): %v",
-			i, client.retryArgs.Attempts, req.Name, channel.String(), req.CharmID.URL, req.Revision, err)
+		logger.Warningf("attempt %d/%d to download resource %q from charm store [%scharm (%v), resource revision (%v)] failed with error (will retry): %v",
+			i, client.retryArgs.Attempts, req.Name, channelStr, req.CharmID.URL, req.Revision, err)
 		logger.Tracef("resource get error stack: %v", errors.ErrorStack(err))
 		lastErr = err
 	}
 
-	err = retry.Call(args)
+	err := retry.Call(args)
 	if retry.IsAttemptsExceeded(err) {
 		return data, errors.Annotate(lastErr, "failed after retrying")
 	}

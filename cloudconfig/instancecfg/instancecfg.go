@@ -243,6 +243,10 @@ type BootstrapConfig struct {
 	// ControllerServiceType is the service type of a k8s controller.
 	ControllerServiceType string
 
+	// IgnoreProxy tells the boostrap provider to no deploy any controller
+	// proxying resources. Currently only used in k8s
+	IgnoreProxy bool
+
 	// ControllerExternalName is the external name of a k8s controller.
 	ControllerExternalName string
 

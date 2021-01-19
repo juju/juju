@@ -30,8 +30,8 @@ func UseTestImageData(c *gc.C, files map[string]string) {
 // FabricateInstance creates a new fictitious instance
 // given an existing instance and a new id.
 func FabricateInstance(inst instances.Instance, newId string) instances.Instance {
-	oldi := inst.(*ec2Instance)
-	newi := &ec2Instance{
+	oldi := inst.(*amzInstance)
+	newi := &amzInstance{
 		e:        oldi.e,
 		Instance: &awsec2.Instance{},
 	}

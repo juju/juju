@@ -5,10 +5,27 @@ package charm_test
 
 import (
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/charm"
 )
+
+type sourceSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&sourceSuite{})
+
+func (s sourceSuite) TestMatches(c *gc.C) {
+	ok := charm.Source("xxx").Matches("xxx")
+	c.Assert(ok, jc.IsTrue)
+}
+
+func (s sourceSuite) TestNotMatches(c *gc.C) {
+	ok := charm.Source("xxx").Matches("yyy")
+	c.Assert(ok, jc.IsFalse)
+}
 
 type platformSuite struct {
 	testing.IsolationSuite

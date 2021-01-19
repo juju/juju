@@ -420,6 +420,7 @@ type startInstanceSenderParams struct {
 	subnets               []network.Subnet
 	diskEncryptionSetName string
 	vaultName             string
+	existingNetwork       string
 }
 
 func (s *environSuite) startInstanceSenders(args startInstanceSenderParams) azuretesting.Senders {
@@ -470,17 +471,28 @@ func (s *environSuite) startInstanceSenders(args startInstanceSenderParams) azur
 				Key: &keyvaultservices.JSONWebKey{Kid: to.StringPtr("https://key-url")},
 			}))
 		}
+	}
 
+	if !args.bootstrap || args.existingNetwork != "" {
+		vnetName := "juju-internal-network"
+		if args.bootstrap {
+			vnetName = args.existingNetwork
+			senders = append(senders, makeSender("/deployments/common", s.commonDeployment))
+		}
 		if len(args.subnets) == 0 {
+			subnetName := "juju-internal-subnet"
+			if args.bootstrap {
+				subnetName = "juju-controller-subnet"
+			}
 			args.subnets = []network.Subnet{{
-				ID:   to.StringPtr("/virtualNetworks/juju-internal-network/subnet/juju-internal-subnet"),
-				Name: to.StringPtr("juju-internal-subnet"),
+				ID:   to.StringPtr(fmt.Sprintf("/virtualNetworks/%s/subnet/%s", vnetName, subnetName)),
+				Name: to.StringPtr(subnetName),
 				SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
 					AddressPrefix: to.StringPtr("192.168.0.0/20"),
 				},
 			}}
 		}
-		senders = append(senders, makeSender("/virtualNetworks/juju-internal-network/subnets", network.SubnetListResult{
+		senders = append(senders, makeSender(fmt.Sprintf("/virtualNetworks/%s/subnets", vnetName), network.SubnetListResult{
 			Value: &args.subnets,
 		}))
 	}
@@ -1229,11 +1241,11 @@ func (s *environSuite) assertStartInstanceRequests(
 		},
 	}}
 
-	createCommonResources := false
+	bootstrapping := false
 	subnetName := "juju-internal-subnet"
 	if args.availabilitySetName == "juju-controller" {
 		subnetName = "juju-controller-subnet"
-		createCommonResources = true
+		bootstrapping = true
 	}
 	if args.placementSubnet != "" {
 		subnetName = args.placementSubnet
@@ -1241,7 +1253,7 @@ func (s *environSuite) assertStartInstanceRequests(
 
 	var templateResources []armtemplates.Resource
 	var vmDependsOn []string
-	if createCommonResources {
+	if bootstrapping {
 		if args.existingNetwork == "" {
 			addressPrefixes := []string{"192.168.0.0/20", "192.168.16.0/20"}
 			templateResources = append(templateResources, armtemplates.Resource{
@@ -1326,20 +1338,24 @@ func (s *environSuite) assertStartInstanceRequests(
 	}
 	var subnetIds = args.subnets
 	if len(subnetIds) == 0 {
-		if createCommonResources {
-			subnetIds = []string{fmt.Sprintf(
-				`[concat(resourceId('%s', 'Microsoft.Network/virtualNetworks', '%s'), '/subnets/%s')]`,
-				rgName,
-				internalNetwork,
-				subnetName,
-			)}
+		if bootstrapping {
+			if args.existingNetwork == "" {
+				subnetIds = []string{fmt.Sprintf(
+					`[concat(resourceId('%s', 'Microsoft.Network/virtualNetworks', '%s'), '/subnets/%s')]`,
+					rgName,
+					internalNetwork,
+					subnetName,
+				)}
+			} else {
+				subnetIds = []string{fmt.Sprintf("/virtualNetworks/%s/subnet/juju-controller-subnet", internalNetwork)}
+			}
 		} else {
-			subnetIds = []string{"/virtualNetworks/juju-internal-network/subnet/juju-internal-subnet"}
+			subnetIds = []string{fmt.Sprintf("/virtualNetworks/%s/subnet/juju-internal-subnet", internalNetwork)}
 		}
 	}
 
 	var nicDependsOn []string
-	if createCommonResources && args.existingNetwork == "" {
+	if bootstrapping && args.existingNetwork == "" {
 		nicDependsOn = append(nicDependsOn,
 			`[resourceId('Microsoft.Network/networkSecurityGroups', 'juju-internal-nsg')]`,
 		)
@@ -1494,8 +1510,12 @@ func (s *environSuite) assertStartInstanceRequests(
 		c.Assert(requests[nexti()].Method, gc.Equals, "GET") // vmSizes
 		startInstanceRequests.vmSizes = requests[0]
 	} else {
-		if createCommonResources {
-			c.Assert(requests, gc.HasLen, numExpectedBootstrapStartInstanceRequests-1)
+		if bootstrapping {
+			if args.existingNetwork == "" {
+				c.Assert(requests, gc.HasLen, numExpectedBootstrapStartInstanceRequests-1)
+			} else {
+				c.Assert(requests, gc.HasLen, numExpectedBootstrapStartInstanceRequests+1)
+			}
 		} else {
 			if args.diskEncryptionSet != "" && args.vaultName != "" {
 				c.Assert(requests, gc.HasLen, numExpectedStartInstanceRequests+5)
@@ -1519,7 +1539,7 @@ func (s *environSuite) assertStartInstanceRequests(
 			startInstanceRequests.skus = requests[1]
 		}
 	}
-	if !createCommonResources {
+	if !bootstrapping {
 		c.Assert(requests[nexti()].Method, gc.Equals, "GET") // wait for common deployment
 		if len(args.subnets) == 0 {
 			c.Assert(requests[nexti()].Method, gc.Equals, "GET") // subnets
@@ -1534,6 +1554,10 @@ func (s *environSuite) assertStartInstanceRequests(
 		c.Assert(requests[nexti()].Method, gc.Equals, "GET")  // newly created vault
 		c.Assert(requests[nexti()].Method, gc.Equals, "POST") // create key
 		c.Assert(requests[nexti()].Method, gc.Equals, "GET")
+	}
+	if bootstrapping && args.existingNetwork != "" {
+		c.Assert(requests[nexti()].Method, gc.Equals, "GET") // wait for common deployment
+		c.Assert(requests[nexti()].Method, gc.Equals, "GET") // subnets
 	}
 	ideployment := nexti()
 	c.Assert(requests[ideployment].Method, gc.Equals, "PUT") // create deployment
@@ -1653,7 +1677,8 @@ func (s *environSuite) TestBootstrapCustomNetwork(c *gc.C) {
 	env := prepareForBootstrap(c, ctx, s.provider, &s.sender, testing.Attrs{"network": "mynetwork"})
 
 	s.sender = s.initResourceGroupSenders(resourceGroupName)
-	s.sender = append(s.sender, s.startInstanceSenders(startInstanceSenderParams{bootstrap: true})...)
+	s.sender = append(s.sender, s.startInstanceSenders(
+		startInstanceSenderParams{bootstrap: true, existingNetwork: "mynetwork"})...)
 	s.requests = nil
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
@@ -1668,7 +1693,8 @@ func (s *environSuite) TestBootstrapCustomNetwork(c *gc.C) {
 	c.Assert(result.Arch, gc.Equals, "amd64")
 	c.Assert(result.Series, gc.Equals, "bionic")
 
-	c.Assert(len(s.requests), gc.Equals, numExpectedBootstrapStartInstanceRequests)
+	// 2 extra requests for network setup.
+	c.Assert(len(s.requests), gc.Equals, numExpectedBootstrapStartInstanceRequests+2)
 	s.vmTags[tags.JujuIsController] = to.StringPtr("true")
 	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
 		availabilitySetName: "juju-controller",

@@ -212,7 +212,7 @@ class JujuBackend:
         # Mutate os.environ instead of supplying env parameter so Windows can
         # search env['PATH']
         stderr = subprocess.PIPE if suppress_err else None
-        # Keep track of commands and how long the take.
+        # Keep track of commands and how long they take.
         command_time = CommandTime(command, args, env)
         with scoped_environ(env):
             log.debug('Running juju with env: {}'.format(env))

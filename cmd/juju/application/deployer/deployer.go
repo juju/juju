@@ -20,6 +20,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 
+	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
@@ -87,6 +88,7 @@ func (d *factory) setConfig(cfg DeployerConfig) {
 	d.applicationName = cfg.ApplicationName
 	d.configOptions = cfg.ConfigOptions
 	d.constraints = cfg.Constraints
+	d.modelConstraints = cfg.ModelConstraints
 	d.storage = cfg.Storage
 	d.bundleStorage = cfg.BundleStorage
 	d.devices = cfg.Devices
@@ -127,6 +129,7 @@ type DeployerConfig struct {
 	ConfigOptions        common.ConfigFlag
 	ConstraintsStr       string
 	Constraints          constraints.Value
+	ModelConstraints     constraints.Value
 	Devices              map[string]devices.Constraints
 	DeployResources      resourceadapters.DeployResourcesFunc
 	DryRun               bool
@@ -164,6 +167,7 @@ type factory struct {
 	applicationName   string
 	configOptions     common.ConfigFlag
 	constraints       constraints.Value
+	modelConstraints  constraints.Value
 	storage           map[string]storage.Constraints
 	bundleStorage     map[string]map[string]storage.Constraints
 	devices           map[string]devices.Constraints
@@ -206,24 +210,25 @@ func (d *factory) maybePredeployedLocalCharm() (Deployer, error) {
 // be deployed
 func (d *factory) newDeployCharm() deployCharm {
 	return deployCharm{
-		applicationName: d.applicationName,
-		attachStorage:   d.attachStorage,
-		bindings:        d.bindings,
-		configOptions:   d.configOptions,
-		constraints:     d.constraints,
-		devices:         d.devices,
-		deployResources: d.deployResources,
-		flagSet:         d.flagSet,
-		force:           d.force,
-		model:           d.model,
-		numUnits:        d.numUnits,
-		placement:       d.placement,
-		placementSpec:   d.placementSpec,
-		resources:       d.resources,
-		series:          d.series,
-		steps:           d.steps,
-		storage:         d.storage,
-		trust:           d.trust,
+		applicationName:  d.applicationName,
+		attachStorage:    d.attachStorage,
+		bindings:         d.bindings,
+		configOptions:    d.configOptions,
+		constraints:      d.constraints,
+		modelConstraints: d.modelConstraints,
+		devices:          d.devices,
+		deployResources:  d.deployResources,
+		flagSet:          d.flagSet,
+		force:            d.force,
+		model:            d.model,
+		numUnits:         d.numUnits,
+		placement:        d.placement,
+		placementSpec:    d.placementSpec,
+		resources:        d.resources,
+		series:           d.series,
+		steps:            d.steps,
+		storage:          d.storage,
+		trust:            d.trust,
 
 		validateCharmSeriesWithName:           d.validateCharmSeriesWithName,
 		validateResourcesNeededForLocalDeploy: d.validateResourcesNeededForLocalDeploy,
@@ -254,7 +259,19 @@ func (d *factory) maybeReadLocalBundle() (Deployer, error) {
 	if err := d.validateBundleFlags(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &localBundle{deployBundle: d.newDeployBundle(ds)}, nil
+
+	platform, err := utils.DeducePlatform(d.constraints, d.series, d.modelConstraints)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	db := d.newDeployBundle(ds)
+	db.origin = commoncharm.Origin{
+		Source:       commoncharm.OriginLocal,
+		Architecture: platform.Architecture,
+		OS:           platform.OS,
+		Series:       platform.Series,
+	}
+	return &localBundle{deployBundle: db}, nil
 }
 
 // newDeployBundle returns the config needed to eventually call
@@ -276,6 +293,7 @@ func (d *factory) newDeployBundle(ds charm.BundleDataSource) deployBundle {
 		bundleDevices:        d.bundleDevices,
 		bundleOverlayFile:    d.bundleOverlayFile,
 		bundleDir:            d.charmOrBundle,
+		modelConstraints:     d.modelConstraints,
 	}
 }
 
@@ -376,7 +394,7 @@ func (d *factory) maybeReadCharmstoreBundle(resolver Resolver) (Deployer, error)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	platform, err := utils.DeducePlatform(d.constraints, d.series)
+	platform, err := utils.DeducePlatform(d.constraints, d.series, d.modelConstraints)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -436,7 +454,7 @@ func (d *factory) charmStoreCharm() (Deployer, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	platform, err := utils.DeducePlatform(d.constraints, d.series)
+	platform, err := utils.DeducePlatform(d.constraints, d.series, d.modelConstraints)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

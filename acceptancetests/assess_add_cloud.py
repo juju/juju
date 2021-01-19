@@ -86,7 +86,7 @@ class CloudValidation:
 
         :param provider: The cloud provider type.
         """
-        if self.support is self.ENDPOINT and provider != 'manual':
+        if self.support is self.ENDPOINT:
             return True
         return False
 
@@ -132,7 +132,7 @@ def assess_cloud(client, cloud_name, example_cloud):
     clouds = client.env.read_clouds()
     if len(clouds['clouds']) == 0:
         raise JujuAssertionError('Clouds missing!')
-    if clouds['clouds'].keys() != [cloud_name]:
+    if list(clouds['clouds'].keys()) != [cloud_name]:
         raise NameMismatch()
 
     actual_cloud = clouds['clouds'][cloud_name]

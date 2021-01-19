@@ -149,6 +149,7 @@ type kubernetesClient struct {
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/sharedindexinformer_mock.go k8s.io/client-go/tools/cache SharedIndexInformer
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/restclient_mock.go -mock_names=Interface=MockRestClientInterface k8s.io/client-go/rest Interface
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/serviceaccount_mock.go k8s.io/client-go/kubernetes/typed/core/v1 ServiceAccountInterface
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/networking_mock.go k8s.io/client-go/kubernetes/typed/networking/v1 NetworkingV1Interface,IngressClassInterface
 
 // NewK8sClientFunc defines a function which returns a k8s client based on the supplied config.
 type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, dynamic.Interface, error)
@@ -1839,6 +1840,19 @@ func (k *kubernetesClient) configureHeadlessService(
 	return err
 }
 
+func (k *kubernetesClient) findDefaultIngressClass() (*string, error) {
+	ics, err := k.listIngressClasses(nil)
+	if err != nil {
+		return nil, errors.Annotate(err, "finding the default ingress class")
+	}
+	for _, ic := range ics {
+		if k8sannotations.New(ic.GetAnnotations()).Has("ingressclass.kubernetes.io/is-default-class", "true") {
+			return &ic.Name, nil
+		}
+	}
+	return nil, errors.NotFoundf("default ingress class")
+}
+
 // ExposeService sets up external access to the specified application.
 func (k *kubernetesClient) ExposeService(appName string, resourceTags map[string]string, config application.ConfigAttributes) error {
 	logger.Debugf("creating/updating ingress resource for %s", appName)
@@ -1847,7 +1861,7 @@ func (k *kubernetesClient) ExposeService(appName string, resourceTags map[string
 	if host == "" {
 		return errors.Errorf("external hostname required")
 	}
-	ingressClass := config.GetString(ingressClassKey, defaultIngressClass)
+
 	ingressSSLRedirect := config.GetBool(ingressSSLRedirectKey, defaultIngressSSLRedirect)
 	ingressSSLPassthrough := config.GetBool(ingressSSLPassthroughKey, defaultIngressSSLPassthrough)
 	ingressAllowHTTP := config.GetBool(ingressAllowHTTPKey, defaultIngressAllowHTTPKey)
@@ -1874,7 +1888,6 @@ func (k *kubernetesClient) ExposeService(appName string, resourceTags map[string
 			Annotations: map[string]string{
 				"ingress.kubernetes.io/rewrite-target":  "",
 				"ingress.kubernetes.io/ssl-redirect":    strconv.FormatBool(ingressSSLRedirect),
-				"kubernetes.io/ingress.class":           ingressClass,
 				"kubernetes.io/ingress.allow-http":      strconv.FormatBool(ingressAllowHTTP),
 				"ingress.kubernetes.io/ssl-passthrough": strconv.FormatBool(ingressSSLPassthrough),
 			},
@@ -1892,6 +1905,17 @@ func (k *kubernetesClient) ExposeService(appName string, resourceTags map[string
 				}}},
 		},
 	}
+
+	ingressClass := config.GetString(ingressClassKey, defaultIngressClass)
+	if ingressClass == defaultIngressClass {
+		if spec.Spec.IngressClassName, err = k.findDefaultIngressClass(); err != nil && !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+	}
+	if spec.Spec.IngressClassName == nil {
+		spec.Annotations["kubernetes.io/ingress.class"] = ingressClass
+	}
+
 	// TODO(caas): refactor juju expose to solve potential conflict with ingress definition in podspec.
 	// https://bugs.launchpad.net/juju/+bug/1854123
 	_, err = k.ensureIngress(appName, spec, true)

@@ -175,6 +175,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	cloudSpec.IsControllerCloud = true
 
 	openParams := environs.OpenParams{
 		ControllerUUID: args.ControllerConfig.ControllerUUID(),

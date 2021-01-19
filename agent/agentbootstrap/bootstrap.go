@@ -204,6 +204,7 @@ func InitializeState(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	cloudSpec.IsControllerCloud = true
 
 	provider, err := args.Provider(cloudSpec.Type)
 	if err != nil {

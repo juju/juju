@@ -13,6 +13,11 @@ import (
 // Source represents the source of the charm.
 type Source string
 
+// Matches attempts to match a string to a given source.
+func (c Source) Matches(o string) bool {
+	return string(c) == o
+}
+
 func (c Source) String() string {
 	return string(c)
 }

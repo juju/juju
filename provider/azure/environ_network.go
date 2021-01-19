@@ -221,7 +221,7 @@ func (env *azureEnviron) networkInfoForInstance(
 		// When bootstrapping the network doesn't exist yet so just
 		// return the relevant subnet ID and it is created as part of
 		// the bootstrap process.
-		if bootstrapping {
+		if bootstrapping && env.config.virtualNetworkName == "" {
 			return vnetID, []network.Id{env.defaultControllerSubnet()}, nil
 		}
 

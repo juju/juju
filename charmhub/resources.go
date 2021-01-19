@@ -51,10 +51,7 @@ func (c *ResourcesClient) ListResourceRevisions(ctx context.Context, charm, reso
 }
 
 var resourceFilter = []string{
-	"download.hash-sha256",
-	"download.hash-sha3-384",
-	"download.hash-sha384",
-	"download.hash-sha512",
+	"download.hash-sha-384",
 	"download.size",
 	"download.url",
 	"name",

@@ -17,9 +17,10 @@ var _ = gc.Suite(&originSuite{})
 
 func (*originSuite) TestDeducePlatform(c *gc.C) {
 	arch := constraints.MustParse("arch=amd64")
+	fallback := constraints.MustParse("arch=amd64")
 	series := "focal"
 
-	platform, err := DeducePlatform(arch, series)
+	platform, err := DeducePlatform(arch, series, fallback)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(platform, gc.DeepEquals, corecharm.Platform{
 		Architecture: "amd64",
@@ -28,14 +29,29 @@ func (*originSuite) TestDeducePlatform(c *gc.C) {
 	})
 }
 
-func (*originSuite) TestDeducePlatformWithNoArch(c *gc.C) {
+func (*originSuite) TestDeducePlatformWithFallbackArch(c *gc.C) {
 	arch := constraints.MustParse("mem=100G")
+	fallback := constraints.MustParse("arch=s390x")
 	series := "focal"
 
-	platform, err := DeducePlatform(arch, series)
+	platform, err := DeducePlatform(arch, series, fallback)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(platform, gc.DeepEquals, corecharm.Platform{
-		Architecture: "",
+		Architecture: "s390x",
+		OS:           "ubuntu",
+		Series:       "focal",
+	})
+}
+
+func (*originSuite) TestDeducePlatformWithNoArch(c *gc.C) {
+	arch := constraints.MustParse("mem=100G")
+	fallback := constraints.MustParse("cores=1")
+	series := "focal"
+
+	platform, err := DeducePlatform(arch, series, fallback)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(platform, gc.DeepEquals, corecharm.Platform{
+		Architecture: "amd64",
 		OS:           "ubuntu",
 		Series:       "focal",
 	})
@@ -43,17 +59,19 @@ func (*originSuite) TestDeducePlatformWithNoArch(c *gc.C) {
 
 func (*originSuite) TestDeducePlatformWithInvalidSeries(c *gc.C) {
 	arch := constraints.MustParse("mem=100G")
+	fallback := constraints.MustParse("arch=amd64")
 	series := "bad"
 
-	_, err := DeducePlatform(arch, series)
+	_, err := DeducePlatform(arch, series, fallback)
 	c.Assert(err, gc.ErrorMatches, `unknown OS for series: "bad"`)
 }
 
 func (*originSuite) TestDeducePlatformWithNonUbuntuSeries(c *gc.C) {
 	arch := constraints.MustParse("arch=amd64")
+	fallback := constraints.MustParse("arch=amd64")
 	series := "win10"
 
-	platform, err := DeducePlatform(arch, series)
+	platform, err := DeducePlatform(arch, series, fallback)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(platform, gc.DeepEquals, corecharm.Platform{
 		Architecture: "amd64",

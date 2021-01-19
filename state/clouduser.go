@@ -110,6 +110,11 @@ type CloudInfo struct {
 // CloudsForUser returns details including access level of clouds which can
 // be seen by the specified user, or all users if the caller is a superuser.
 func (st *State) CloudsForUser(user names.UserTag, all bool) ([]CloudInfo, error) {
+	ci, err := st.ControllerInfo()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// We only treat the user as a superuser if they pass --all
 	isControllerSuperuser := false
 	if all {
@@ -145,7 +150,7 @@ func (st *State) CloudsForUser(user names.UserTag, all bool) ([]CloudInfo, error
 	result := make([]CloudInfo, len(cloudDocs))
 	for i, c := range cloudDocs {
 		result[i] = CloudInfo{
-			Cloud: c.toCloud(),
+			Cloud: c.toCloud(ci.CloudName),
 		}
 	}
 	if err := st.fillInCloudUserAccess(user, result); err != nil {

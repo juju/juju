@@ -174,7 +174,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesCreate(c *gc.C) {
 	}
 	s.assertIngressResources(
 		c, IngressResources, "",
-		s.mockIngressInterface.EXPECT().Create(gomock.Any(), ingress, v1.CreateOptions{}).Return(ingress, nil),
+		s.mockIngresses.EXPECT().Create(gomock.Any(), ingress, v1.CreateOptions{}).Return(ingress, nil),
 	)
 }
 
@@ -226,9 +226,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdate(c *gc.C) {
 	}
 	s.assertIngressResources(
 		c, IngressResources, "",
-		s.mockIngressInterface.EXPECT().Create(gomock.Any(), ingress, v1.CreateOptions{}).Return(nil, s.k8sAlreadyExistsError()),
-		s.mockIngressInterface.EXPECT().Get(gomock.Any(), "test-ingress", v1.GetOptions{}).Return(ingress, nil),
-		s.mockIngressInterface.EXPECT().Update(gomock.Any(), ingress, v1.UpdateOptions{}).Return(ingress, nil),
+		s.mockIngresses.EXPECT().Create(gomock.Any(), ingress, v1.CreateOptions{}).Return(nil, s.k8sAlreadyExistsError()),
+		s.mockIngresses.EXPECT().Get(gomock.Any(), "test-ingress", v1.GetOptions{}).Return(ingress, nil),
+		s.mockIngresses.EXPECT().Update(gomock.Any(), ingress, v1.UpdateOptions{}).Return(ingress, nil),
 	)
 }
 
@@ -286,8 +286,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithExis
 	existingNonJujuManagedIngress.SetLabels(map[string]string{})
 	s.assertIngressResources(
 		c, IngressResources, `creating or updating ingress resources: existing ingress "test-ingress" found which does not belong to "app-name"`,
-		s.mockIngressInterface.EXPECT().Create(gomock.Any(), ingress, v1.CreateOptions{}).Return(nil, s.k8sAlreadyExistsError()),
-		s.mockIngressInterface.EXPECT().Get(gomock.Any(), "test-ingress", v1.GetOptions{}).Return(existingNonJujuManagedIngress, nil),
+		s.mockIngresses.EXPECT().Create(gomock.Any(), ingress, v1.CreateOptions{}).Return(nil, s.k8sAlreadyExistsError()),
+		s.mockIngresses.EXPECT().Get(gomock.Any(), "test-ingress", v1.GetOptions{}).Return(existingNonJujuManagedIngress, nil),
 	)
 }
 

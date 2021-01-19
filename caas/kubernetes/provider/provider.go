@@ -89,6 +89,17 @@ var NewK8sClients = func(c *rest.Config) (
 
 // CloudSpecToK8sRestConfig translates cloudspec to k8s rest config.
 func CloudSpecToK8sRestConfig(cloudSpec environscloudspec.CloudSpec) (*rest.Config, error) {
+	if cloudSpec.IsControllerCloud {
+		rc, err := rest.InClusterConfig()
+		if err != nil && err != rest.ErrNotInCluster {
+			return nil, errors.Trace(err)
+		}
+		if rc != nil {
+			logger.Infof("using in-cluster config")
+			return rc, nil
+		}
+	}
+
 	if cloudSpec.Credential == nil {
 		return nil, errors.Errorf("cloud %v has no credential", cloudSpec.Name)
 	}

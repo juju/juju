@@ -47,6 +47,9 @@ type CloudSpec struct {
 	// validate certificates. It is not recommended for production clouds.
 	// It is secure (false) by default.
 	SkipTLSVerify bool
+
+	// IsControllerCloud is true when this is the cloud used by the controller.
+	IsControllerCloud bool
 }
 
 // Validate validates that the CloudSpec is well-formed. It does
@@ -65,15 +68,16 @@ func (cs CloudSpec) Validate() error {
 // Cloud, cloud and region names, and credential.
 func MakeCloudSpec(cloud jujucloud.Cloud, cloudRegionName string, credential *jujucloud.Credential) (CloudSpec, error) {
 	cloudSpec := CloudSpec{
-		Type:             cloud.Type,
-		Name:             cloud.Name,
-		Region:           cloudRegionName,
-		Endpoint:         cloud.Endpoint,
-		IdentityEndpoint: cloud.IdentityEndpoint,
-		StorageEndpoint:  cloud.StorageEndpoint,
-		CACertificates:   cloud.CACertificates,
-		SkipTLSVerify:    cloud.SkipTLSVerify,
-		Credential:       credential,
+		Type:              cloud.Type,
+		Name:              cloud.Name,
+		Region:            cloudRegionName,
+		Endpoint:          cloud.Endpoint,
+		IdentityEndpoint:  cloud.IdentityEndpoint,
+		StorageEndpoint:   cloud.StorageEndpoint,
+		CACertificates:    cloud.CACertificates,
+		SkipTLSVerify:     cloud.SkipTLSVerify,
+		Credential:        credential,
+		IsControllerCloud: cloud.IsControllerCloud,
 	}
 	if cloudRegionName != "" {
 		cloudRegion, err := jujucloud.RegionByName(cloud.Regions, cloudRegionName)

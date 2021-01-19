@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/proxy"
 )
 
 var logger = loggo.GetLogger("juju.juju")
@@ -69,6 +70,7 @@ func NewAPIConnection(args NewAPIConnectionParams) (_ api.Connection, err error)
 	if len(apiInfo.Addrs) == 0 {
 		return nil, errNoAddresses
 	}
+
 	// Copy the cache so we'll know whether it's changed so that
 	// we'll update the entry correctly.
 	dnsCache := dnsCacheMap(controller.DNSCache).copy()
@@ -179,6 +181,9 @@ func connectionInfo(args NewAPIConnectionParams) (*api.Info, *jujuclient.Control
 		Addrs:  controller.APIEndpoints,
 		CACert: controller.CACert,
 	}
+	if controller.Proxy != nil {
+		apiInfo.Proxier = controller.Proxy.Proxier
+	}
 	if args.ModelUUID != "" {
 		apiInfo.ModelTag = names.NewModelTag(args.ModelUUID)
 	}
@@ -246,6 +251,9 @@ type UpdateControllerParams struct {
 	// that has been recently connected to.
 	IPAddrConnectedTo string
 
+	// Proxier
+	Proxier proxy.Proxier
+
 	// DNSCache holds entries in the DNS cache.
 	DNSCache map[string][]string
 
@@ -293,6 +301,12 @@ func updateControllerDetailsFromLogin(
 
 	newDetails := new(jujuclient.ControllerDetails)
 	*newDetails = *details
+
+	if params.Proxier != nil {
+		newDetails.Proxy = &jujuclient.ProxyConfWrapper{
+			Proxier: params.Proxier,
+		}
+	}
 
 	newDetails.AgentVersion = params.AgentVersion
 	newDetails.APIEndpoints = hostPorts

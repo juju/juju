@@ -20,6 +20,8 @@ import (
 	apps "k8s.io/api/apps/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
+	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -2002,7 +2004,7 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 		).Return(nil),
 
 		// delete all ingress resources.
-		s.mockIngressInterface.EXPECT().DeleteCollection(gomock.Any(),
+		s.mockIngresses.EXPECT().DeleteCollection(gomock.Any(),
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
 			v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=test"},
 		).Return(nil),
@@ -7493,6 +7495,214 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForStatefulSet(c *gc.C) {
 			Partition: int32Ptr(10),
 		},
 	})
+}
+
+func (s *K8sBrokerSuite) TestExposeServiceIngressClassProvided(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	svc1 := &core.Service{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "gitlab",
+			Namespace: "test",
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "gitlab"},
+			Annotations: map[string]string{
+				"controller.juju.is/id": testing.ControllerTag.Id(),
+			}},
+		Spec: core.ServiceSpec{
+			Selector: utils.LabelForKeyValue("app", "gitlab"),
+			Type:     core.ServiceTypeClusterIP,
+			Ports: []core.ServicePort{
+				{
+					Protocol:   core.ProtocolTCP,
+					Port:       80,
+					TargetPort: intstr.IntOrString{IntVal: 9376},
+				},
+			},
+		},
+	}
+
+	ingress := &extensionsv1beta1.Ingress{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   "gitlab",
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "gitlab"},
+			Annotations: map[string]string{
+				"ingress.kubernetes.io/rewrite-target":  "",
+				"ingress.kubernetes.io/ssl-redirect":    "false",
+				"kubernetes.io/ingress.allow-http":      "false",
+				"ingress.kubernetes.io/ssl-passthrough": "false",
+				"kubernetes.io/ingress.class":           "foo",
+			},
+		},
+		Spec: extensionsv1beta1.IngressSpec{
+			Rules: []extensionsv1beta1.IngressRule{{
+				Host: "172.0.0.1.xip.io",
+				IngressRuleValue: extensionsv1beta1.IngressRuleValue{
+					HTTP: &extensionsv1beta1.HTTPIngressRuleValue{
+						Paths: []extensionsv1beta1.HTTPIngressPath{{
+							Path: "/",
+							Backend: extensionsv1beta1.IngressBackend{
+								ServiceName: "gitlab", ServicePort: intstr.IntOrString{IntVal: 9376}},
+						}}},
+				}}},
+		},
+	}
+
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-gitlab", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Get(gomock.Any(), "gitlab", v1.GetOptions{}).
+			Return(svc1, nil),
+		s.mockIngresses.EXPECT().Create(gomock.Any(), ingress, v1.CreateOptions{}).Return(nil, nil),
+	)
+
+	err := s.broker.ExposeService("gitlab", nil, application.ConfigAttributes{
+		"kubernetes-ingress-class": "foo",
+		"juju-external-hostname":   "172.0.0.1.xip.io",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestExposeServiceGetDefaultIngressClassFromResource(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	svc1 := &core.Service{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "gitlab",
+			Namespace: "test",
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "gitlab"},
+			Annotations: map[string]string{
+				"controller.juju.is/id": testing.ControllerTag.Id(),
+			}},
+		Spec: core.ServiceSpec{
+			Selector: utils.LabelForKeyValue("app", "gitlab"),
+			Type:     core.ServiceTypeClusterIP,
+			Ports: []core.ServicePort{
+				{
+					Protocol:   core.ProtocolTCP,
+					Port:       80,
+					TargetPort: intstr.IntOrString{IntVal: 9376},
+				},
+			},
+		},
+	}
+
+	ingress := &extensionsv1beta1.Ingress{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   "gitlab",
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "gitlab"},
+			Annotations: map[string]string{
+				"ingress.kubernetes.io/rewrite-target":  "",
+				"ingress.kubernetes.io/ssl-redirect":    "false",
+				"kubernetes.io/ingress.allow-http":      "false",
+				"ingress.kubernetes.io/ssl-passthrough": "false",
+			},
+		},
+		Spec: extensionsv1beta1.IngressSpec{
+			IngressClassName: strPtr("foo"),
+			Rules: []extensionsv1beta1.IngressRule{{
+				Host: "172.0.0.1.xip.io",
+				IngressRuleValue: extensionsv1beta1.IngressRuleValue{
+					HTTP: &extensionsv1beta1.HTTPIngressRuleValue{
+						Paths: []extensionsv1beta1.HTTPIngressPath{{
+							Path: "/",
+							Backend: extensionsv1beta1.IngressBackend{
+								ServiceName: "gitlab", ServicePort: intstr.IntOrString{IntVal: 9376}},
+						}}},
+				}}},
+		},
+	}
+
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-gitlab", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Get(gomock.Any(), "gitlab", v1.GetOptions{}).
+			Return(svc1, nil),
+		s.mockIngressClasses.EXPECT().List(gomock.Any(), v1.ListOptions{}).
+			Return(&networkingv1.IngressClassList{Items: []networkingv1.IngressClass{
+				{
+					ObjectMeta: v1.ObjectMeta{
+						Name: "foo",
+						Annotations: map[string]string{
+							"ingressclass.kubernetes.io/is-default-class": "true",
+						},
+					},
+				},
+			}}, nil),
+		s.mockIngresses.EXPECT().Create(gomock.Any(), ingress, v1.CreateOptions{}).Return(nil, nil),
+	)
+
+	err := s.broker.ExposeService("gitlab", nil, application.ConfigAttributes{
+		"juju-external-hostname": "172.0.0.1.xip.io",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestExposeServiceGetDefaultIngressClass(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	svc1 := &core.Service{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "gitlab",
+			Namespace: "test",
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "gitlab"},
+			Annotations: map[string]string{
+				"controller.juju.is/id": testing.ControllerTag.Id(),
+			}},
+		Spec: core.ServiceSpec{
+			Selector: utils.LabelForKeyValue("app", "gitlab"),
+			Type:     core.ServiceTypeClusterIP,
+			Ports: []core.ServicePort{
+				{
+					Protocol:   core.ProtocolTCP,
+					Port:       80,
+					TargetPort: intstr.IntOrString{IntVal: 9376},
+				},
+			},
+		},
+	}
+
+	ingress := &extensionsv1beta1.Ingress{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   "gitlab",
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "gitlab"},
+			Annotations: map[string]string{
+				"ingress.kubernetes.io/rewrite-target":  "",
+				"ingress.kubernetes.io/ssl-redirect":    "false",
+				"kubernetes.io/ingress.allow-http":      "false",
+				"ingress.kubernetes.io/ssl-passthrough": "false",
+				"kubernetes.io/ingress.class":           "nginx",
+			},
+		},
+		Spec: extensionsv1beta1.IngressSpec{
+			Rules: []extensionsv1beta1.IngressRule{{
+				Host: "172.0.0.1.xip.io",
+				IngressRuleValue: extensionsv1beta1.IngressRuleValue{
+					HTTP: &extensionsv1beta1.HTTPIngressRuleValue{
+						Paths: []extensionsv1beta1.HTTPIngressPath{{
+							Path: "/",
+							Backend: extensionsv1beta1.IngressBackend{
+								ServiceName: "gitlab", ServicePort: intstr.IntOrString{IntVal: 9376}},
+						}}},
+				}}},
+		},
+	}
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-gitlab", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Get(gomock.Any(), "gitlab", v1.GetOptions{}).
+			Return(svc1, nil),
+		s.mockIngressClasses.EXPECT().List(gomock.Any(), v1.ListOptions{}).
+			Return(&networkingv1.IngressClassList{Items: []networkingv1.IngressClass{}}, nil),
+		s.mockIngresses.EXPECT().Create(gomock.Any(), ingress, v1.CreateOptions{}).Return(nil, nil),
+	)
+
+	err := s.broker.ExposeService("gitlab", nil, application.ConfigAttributes{
+		"juju-external-hostname": "172.0.0.1.xip.io",
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func initContainers() []core.Container {

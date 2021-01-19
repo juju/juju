@@ -50,9 +50,10 @@ func (s *CloudAPISuite) TestCloudAPI(c *gc.C) {
 				StorageEndpoint:  "dummy-storage-endpoint",
 			},
 		},
-		Endpoint:         "dummy-endpoint",
-		IdentityEndpoint: "dummy-identity-endpoint",
-		StorageEndpoint:  "dummy-storage-endpoint",
+		Endpoint:          "dummy-endpoint",
+		IdentityEndpoint:  "dummy-identity-endpoint",
+		StorageEndpoint:   "dummy-storage-endpoint",
+		IsControllerCloud: true,
 	})
 }
 

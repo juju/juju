@@ -205,7 +205,11 @@ func NewScaleCommandForTest(api scaleApplicationAPI, store jujuclient.ClientStor
 	return modelcmd.Wrap(cmd)
 }
 
-func NewDiffBundleCommandForTest(api base.APICallCloser, charmStoreFn func(base.APICallCloser, *charm.URL) (BundleResolver, error), store jujuclient.ClientStore) modelcmd.ModelCommand {
+func NewDiffBundleCommandForTest(api base.APICallCloser,
+	charmStoreFn func(base.APICallCloser, *charm.URL) (BundleResolver, error),
+	modelConsFn func() (ModelConstraintsClient, error),
+	store jujuclient.ClientStore,
+) modelcmd.ModelCommand {
 	cmd := &diffBundleCommand{
 		newAPIRootFn: func() (base.APICallCloser, error) {
 			return api, nil
@@ -213,6 +217,7 @@ func NewDiffBundleCommandForTest(api base.APICallCloser, charmStoreFn func(base.
 		newControllerAPIRootFn: func() (base.APICallCloser, error) {
 			return api, nil
 		},
+		modelConstraintsClientFunc: modelConsFn,
 	}
 	if charmStoreFn != nil {
 		cmd.charmAdaptorFn = charmStoreFn

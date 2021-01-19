@@ -358,9 +358,10 @@ LXC_BRIDGE="ignored"`[1:])
 	envProvider.CheckCall(c, 2, "Open", environs.OpenParams{
 		ControllerUUID: controllerCfg.ControllerUUID(),
 		Cloud: environscloudspec.CloudSpec{
-			Type:   "dummy",
-			Name:   "dummy",
-			Region: "dummy-region",
+			Type:              "dummy",
+			Name:              "dummy",
+			Region:            "dummy-region",
+			IsControllerCloud: true,
 		},
 		Config: expectedCalledCfg,
 	})
