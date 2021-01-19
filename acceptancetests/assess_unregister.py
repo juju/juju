@@ -88,7 +88,7 @@ def assert_controller_list(client, controller_list):
     output = json.loads(json_output)
 
     try:
-        controller_names = output['controllers'].keys()
+        controller_names = list(output['controllers'].keys())
     except AttributeError:
         # It's possible that there are 0 controllers for this client.
         controller_names = []
