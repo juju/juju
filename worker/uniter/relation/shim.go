@@ -30,6 +30,15 @@ func (s *stateTrackerStateShim) RelationById(id int) (Relation, error) {
 	return &relationShim{rel}, nil
 }
 
+// Unit returns the existing unit with the given tag.
+func (s *stateTrackerStateShim) Unit(tag names.UnitTag) (Unit, error) {
+	unit, err := s.State.Unit(tag)
+	if err != nil {
+		return nil, err
+	}
+	return &unitShim{unit}, nil
+}
+
 type relationShim struct {
 	*uniter.Relation
 }

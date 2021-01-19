@@ -17,7 +17,7 @@ type StateTrackerForTestConfig struct {
 	PrincipalName     string
 	CharmDir          string
 	StateManager      StateManager
-	NewRelationerFunc func(RelationUnit, StateManager, Logger) Relationer
+	NewRelationerFunc func(RelationUnit, StateManager, UnitGetter, Logger) Relationer
 	Relationers       map[int]Relationer
 	RemoteAppName     map[int]string
 }

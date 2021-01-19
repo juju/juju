@@ -371,7 +371,7 @@ func (s *syncScopesSuite) TestSynchronizeScopesNoRemoteRelationsDestroySubordina
 		StateManager:      s.stateMgr,
 		Subordinate:       true,
 		PrincipalName:     "ubuntu/0",
-		NewRelationerFunc: func(_ relation.RelationUnit, _ relation.StateManager, _ relation.Logger) relation.Relationer {
+		NewRelationerFunc: func(_ relation.RelationUnit, _ relation.StateManager, _ relation.UnitGetter, _ relation.Logger) relation.Relationer {
 			return s.relationer
 		},
 	}
@@ -662,7 +662,7 @@ func (s *syncScopesSuite) expectString() {
 // StateManager
 //
 func (s *baseStateTrackerSuite) expectStateMgrRemoveRelation(id int) {
-	s.stateMgr.EXPECT().RemoveRelation(id).Return(nil)
+	s.stateMgr.EXPECT().RemoveRelation(id, s.state, map[string]bool{}).Return(nil)
 }
 
 func (s *baseStateTrackerSuite) expectStateMgrKnownIDs(ids []int) {
@@ -724,7 +724,7 @@ func (s *baseStateTrackerSuite) newStateTracker(c *gc.C) relation.RelationStateT
 		Unit:              s.unit,
 		LeadershipContext: s.leadershipContext,
 		StateManager:      s.stateMgr,
-		NewRelationerFunc: func(_ relation.RelationUnit, _ relation.StateManager, _ relation.Logger) relation.Relationer {
+		NewRelationerFunc: func(_ relation.RelationUnit, _ relation.StateManager, _ relation.UnitGetter, _ relation.Logger) relation.Relationer {
 			return s.relationer
 		},
 	}
@@ -739,7 +739,7 @@ func (s *syncScopesSuite) newSyncScopesStateTracker(c *gc.C, relationers map[int
 		Unit:              s.unit,
 		LeadershipContext: s.leadershipContext,
 		StateManager:      s.stateMgr,
-		NewRelationerFunc: func(_ relation.RelationUnit, _ relation.StateManager, _ relation.Logger) relation.Relationer {
+		NewRelationerFunc: func(_ relation.RelationUnit, _ relation.StateManager, _ relation.UnitGetter, _ relation.Logger) relation.Relationer {
 			return s.relationer
 		},
 		Relationers:   relationers,

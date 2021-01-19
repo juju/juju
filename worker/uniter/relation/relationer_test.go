@@ -25,6 +25,7 @@ type relationerSuite struct {
 	stateManager *mocks.MockStateManager
 	relationUnit *mocks.MockRelationUnit
 	relation     *mocks.MockRelation
+	unitGetter   *mocks.MockUnitGetter
 }
 
 var _ = gc.Suite(&relationerSuite{})
@@ -204,7 +205,7 @@ func (s *relationerSuite) TestJoinRelationNotFound(c *gc.C) {
 
 func (s *relationerSuite) newRelationer() relation.Relationer {
 	logger := loggo.GetLogger("test")
-	return relation.NewRelationer(s.relationUnit, s.stateManager, logger)
+	return relation.NewRelationer(s.relationUnit, s.stateManager, s.unitGetter, logger)
 }
 
 func (s *relationerSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -212,6 +213,7 @@ func (s *relationerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.stateManager = mocks.NewMockStateManager(ctrl)
 	s.relationUnit = mocks.NewMockRelationUnit(ctrl)
 	s.relation = mocks.NewMockRelation(ctrl)
+	s.unitGetter = mocks.NewMockUnitGetter(ctrl)
 	// Setup for NewRelationer
 	s.expectRelationUnitRelation()
 	s.expectRelationId()
@@ -267,7 +269,7 @@ func (s *relationerSuite) expectRelationId() {
 // StateManager
 //
 func (s *relationerSuite) expectRemoveRelation() {
-	s.stateManager.EXPECT().RemoveRelation(1).Return(nil)
+	s.stateManager.EXPECT().RemoveRelation(1, s.unitGetter, map[string]bool{}).Return(nil)
 }
 
 func (s *relationerSuite) expectRelationFound(found bool) {

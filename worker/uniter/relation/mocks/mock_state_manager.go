@@ -77,17 +77,17 @@ func (mr *MockStateManagerMockRecorder) RelationFound(arg0 interface{}) *gomock.
 }
 
 // RemoveRelation mocks base method
-func (m *MockStateManager) RemoveRelation(arg0 int) error {
+func (m *MockStateManager) RemoveRelation(arg0 int, arg1 relation.UnitGetter, arg2 map[string]bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveRelation", arg0)
+	ret := m.ctrl.Call(m, "RemoveRelation", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RemoveRelation indicates an expected call of RemoveRelation
-func (mr *MockStateManagerMockRecorder) RemoveRelation(arg0 interface{}) *gomock.Call {
+func (mr *MockStateManagerMockRecorder) RemoveRelation(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveRelation", reflect.TypeOf((*MockStateManager)(nil).RemoveRelation), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveRelation", reflect.TypeOf((*MockStateManager)(nil).RemoveRelation), arg0, arg1, arg2)
 }
 
 // SetRelation mocks base method
