@@ -101,7 +101,13 @@ type StateManager interface {
 
 	// RemoveRelation removes the state for the given id from the
 	// manager.
-	RemoveRelation(id int) error
+	RemoveRelation(id int, unitGetter UnitGetter, knownUnits map[string]bool) error
+}
+
+// UnitGetter encapsulates methods to get unit info.
+type UnitGetter interface {
+	// Unit returns the existing unit with the given tag.
+	Unit(tag names.UnitTag) (Unit, error)
 }
 
 // UnitStateReadWriter encapsulates the methods from a state.Unit
@@ -119,6 +125,9 @@ type UnitStateReadWriter interface {
 // StateTrackerState encapsulates the methods from state
 // required by a relationStateTracker.
 type StateTrackerState interface {
+	// Unit returns the existing unit with the given tag.
+	Unit(tag names.UnitTag) (Unit, error)
+
 	// Relation returns the existing relation with the given tag.
 	Relation(tag names.RelationTag) (Relation, error)
 
