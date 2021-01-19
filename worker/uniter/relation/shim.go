@@ -9,11 +9,11 @@ import (
 	"github.com/juju/juju/api/uniter"
 )
 
-type stateTrackerStateShim struct {
+type StateTrackerStateShim struct {
 	*uniter.State
 }
 
-func (s *stateTrackerStateShim) Relation(tag names.RelationTag) (Relation, error) {
+func (s *StateTrackerStateShim) Relation(tag names.RelationTag) (Relation, error) {
 	rel, err := s.State.Relation(tag)
 	if err != nil {
 		return nil, err
@@ -22,12 +22,21 @@ func (s *stateTrackerStateShim) Relation(tag names.RelationTag) (Relation, error
 }
 
 // RelationById returns the existing relation with the given id.
-func (s *stateTrackerStateShim) RelationById(id int) (Relation, error) {
+func (s *StateTrackerStateShim) RelationById(id int) (Relation, error) {
 	rel, err := s.State.RelationById(id)
 	if err != nil {
 		return nil, err
 	}
 	return &relationShim{rel}, nil
+}
+
+// Unit returns the existing unit with the given tag.
+func (s *StateTrackerStateShim) Unit(tag names.UnitTag) (Unit, error) {
+	unit, err := s.State.Unit(tag)
+	if err != nil {
+		return nil, err
+	}
+	return &unitShim{unit}, nil
 }
 
 type relationShim struct {

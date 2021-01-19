@@ -7,21 +7,24 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
 )
 
-// NewStateManager
-func NewStateManager(rw UnitStateReadWriter) (StateManager, error) {
-	mgr := &stateManager{unitStateRW: rw}
+// NewStateManager creates a new StateManager instance.
+func NewStateManager(rw UnitStateReadWriter, logger Logger) (StateManager, error) {
+	mgr := &stateManager{unitStateRW: rw, logger: logger}
 	return mgr, mgr.initialize()
 }
 
 type stateManager struct {
 	unitStateRW   UnitStateReadWriter
 	relationState map[int]State
+	logger        Logger
 	mu            sync.Mutex
 }
 
@@ -39,15 +42,35 @@ func (m *stateManager) Relation(id int) (*State, error) {
 // RemoveRelation removes the state for the given id from the
 // manager.  The change to the manager is only made when the
 // data is successfully saved.
-func (m *stateManager) RemoveRelation(id int) error {
+func (m *stateManager) RemoveRelation(id int, unitGetter UnitGetter, knownUnits map[string]bool) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	st, ok := m.relationState[id]
 	if !ok {
 		return errors.NotFoundf("relation %d", id)
 	}
-	if len(st.Members) != 0 {
-		return errors.New(fmt.Sprintf("cannot remove persisted state, relation %d has members", id))
+
+	// Check that the member unit exists - if not we ignore it.
+	// Cache the known member units so we only do any look up once per unit.
+	knownMembers := set.NewStrings()
+	for unitName := range st.Members {
+		unitExists, ok := knownUnits[unitName]
+		if !ok {
+			_, err := unitGetter.Unit(names.NewUnitTag(unitName))
+			if err != nil && !params.IsCodeNotFoundOrCodeUnauthorized(err) {
+				return errors.Trace(err)
+			}
+			unitExists = err == nil
+			knownUnits[unitName] = unitExists
+		}
+		if !unitExists {
+			m.logger.Warningf("unit %v in relation %d no longer exists", unitName, id)
+			continue
+		}
+		knownMembers.Add(unitName)
+	}
+	if knownMembers.Size() != 0 {
+		return errors.New(fmt.Sprintf("cannot remove persisted state, relation %d has members: %v", id, knownMembers.SortedValues()))
 	}
 	if err := m.remove(id); err != nil {
 		return err
