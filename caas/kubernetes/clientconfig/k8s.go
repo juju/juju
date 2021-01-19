@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"os"
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
@@ -34,28 +33,40 @@ func GetJujuAdminServiceAccountResolver(clock jujuclock.Clock) K8sCredentialReso
 	}
 }
 
+// configFromPossibleReader attempts to read in kubeconfig from the supplied
+// reader, otherwise defaulting over to the default Kubernetes config loading
+func configFromPossibleReader(reader io.Reader) (*clientcmdapi.Config, error) {
+	if reader != nil {
+		contents, err := ioutil.ReadAll(reader)
+		if err != nil {
+			return nil, errors.Annotate(err, "failed to read Kubernetes config")
+		}
+		config, err := clientcmd.Load(contents)
+		if err != nil {
+			return nil, errors.Annotate(err, "failed parsing Kubernetes config from reader")
+		}
+		return config, nil
+	}
+	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		clientcmd.NewDefaultClientConfigLoadingRules(),
+		&clientcmd.ConfigOverrides{},
+	)
+	if r, err := kubeConfig.RawConfig(); err != nil {
+		return nil, errors.Trace(err)
+	} else {
+		return &r, nil
+	}
+}
+
 // NewK8sClientConfig returns a new Kubernetes client, reading the config from the specified reader.
 func NewK8sClientConfig(
 	credentialUID string, reader io.Reader,
 	contextName, clusterName string,
 	credentialResolver K8sCredentialResolver,
 ) (*ClientConfig, error) {
-	if reader == nil {
-		var err error
-		reader, err = readKubeConfigFile()
-		if err != nil {
-			return nil, errors.Annotate(err, "failed to read Kubernetes config file")
-		}
-	}
-
-	content, err := ioutil.ReadAll(reader)
+	config, err := configFromPossibleReader(reader)
 	if err != nil {
-		return nil, errors.Annotate(err, "failed to read Kubernetes config")
-	}
-
-	config, err := parseKubeConfig(content)
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to parse Kubernetes config")
+		return nil, err
 	}
 
 	contexts, err := contextsFromConfig(config)
@@ -269,44 +280,16 @@ func credentialsFromConfig(config *clientcmdapi.Config, credentialName string) (
 	return rv, nil
 }
 
-// GetKubeConfigPath - define kubeconfig file path to use
+// GetKubeConfigPath returns the most likely kube config file to use. It first
+// looks at all the files defined in the user KUBECONF env var and selects the
+// first available. If the list is empty the default kube config path is
+// returned.
 func GetKubeConfigPath() string {
-	kubeconfig := os.Getenv(clientcmd.RecommendedConfigPathEnvVar)
-	if kubeconfig == "" {
-		kubeconfig = clientcmd.RecommendedHomeFile
+	pathOpts := clientcmd.NewDefaultPathOptions()
+	envFiles := pathOpts.GetEnvVarFiles()
+	if len(envFiles) == 0 {
+		return pathOpts.GetDefaultFilename()
 	}
-	logger.Debugf("The kubeconfig file path: %q", kubeconfig)
-	return kubeconfig
-}
-
-func readKubeConfigFile() (reader io.Reader, err error) {
-	// Try to read from kubeconfig file.
-	filename := GetKubeConfigPath()
-	reader, err = os.Open(filename)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, errors.NotFoundf(filename)
-		}
-		return nil, errors.Trace(errors.Annotatef(err, "failed to read kubernetes config from '%s'", filename))
-	}
-	return reader, nil
-}
-
-func parseKubeConfig(data []byte) (*clientcmdapi.Config, error) {
-	config, err := clientcmd.Load(data)
-	if err != nil {
-		return nil, err
-	}
-
-	if config.AuthInfos == nil {
-		config.AuthInfos = map[string]*clientcmdapi.AuthInfo{}
-	}
-	if config.Clusters == nil {
-		config.Clusters = map[string]*clientcmdapi.Cluster{}
-	}
-	if config.Contexts == nil {
-		config.Contexts = map[string]*clientcmdapi.Context{}
-	}
-
-	return config, nil
+	logger.Debugf("The kubeconfig file path is %s", envFiles[0])
+	return envFiles[0]
 }
