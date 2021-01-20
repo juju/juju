@@ -60,8 +60,13 @@ func CreateControllerProxy(
 		Rules: []rbacv1.PolicyRule{
 			{
 				APIGroups: []string{""},
-				Resources: []string{"pods", "services"},
-				Verbs:     []string{"list", "get"},
+				Resources: []string{"pods"},
+				Verbs:     []string{"list", "get", "watch"},
+			},
+			{
+				APIGroups: []string{""},
+				Resources: []string{"services"},
+				Verbs:     []string{"get"},
 			},
 			{
 				APIGroups: []string{""},

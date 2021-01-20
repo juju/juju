@@ -47,6 +47,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"apiserver/params",
 		"cmd/k8sagent/utils",
 		"caas/kubernetes",
+		"caas/kubernetes/pod",
 		"caas/kubernetes/provider/constants",
 		"caas/kubernetes/provider/proxy",
 		"charmhub",
