@@ -1227,12 +1227,6 @@ func (s *state) APICall(facade string, vers int, id, method string, args, respon
 			return nil
 		}
 		code := params.ErrCode(err)
-		if code == params.CodeRetry {
-			if !a.More() {
-				return errors.Annotatef(err, "too many retries")
-			}
-			continue
-		}
 		if code != params.CodeIncompatibleClient {
 			return errors.Trace(err)
 		}
