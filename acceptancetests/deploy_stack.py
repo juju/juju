@@ -261,7 +261,6 @@ def dump_env_logs(client, bootstrap_host, artifacts_dir, runtime_config=None):
     dump_env_logs_known_hosts(client, artifacts_dir, runtime_config,
                               known_hosts)
 
-
 def dump_env_logs_known_hosts(client, artifacts_dir, runtime_config=None,
                               known_hosts=None):
     if known_hosts is None:
@@ -280,10 +279,16 @@ def dump_env_logs_known_hosts(client, artifacts_dir, runtime_config=None,
             machine_id, remote)
         machine_dir = os.path.join(artifacts_dir, "machine-%s" % machine_id)
         ensure_dir(machine_dir)
+        maybe_inject_ssh_keys(remote, client.env)
         copy_remote_logs(remote, machine_dir)
     archive_logs(artifacts_dir)
     retain_config(runtime_config, artifacts_dir)
 
+def maybe_inject_ssh_keys(remote, env):
+    use_ssh_key = getattr(remote, "use_ssh_key", None)
+    if callable(use_ssh_key):
+        identity_file = os.path.join(env.juju_home, "ssh", "juju_id_rsa")
+        use_ssh_key(identity_file)
 
 def retain_config(runtime_config, log_directory):
     if not runtime_config:
@@ -374,15 +379,8 @@ def copy_remote_logs(remote, directory):
         log_paths = [
             '/var/log/cloud-init*.log',
             '/var/log/juju/*.log',
-            # TODO(gz): Also capture kvm container logs?
-            '/var/lib/juju/containers/juju-*-lxc-*/',
-            '/var/log/lxd/juju-*',
-            '/var/log/lxd/lxd.log',
             '/var/log/syslog',
-            '/var/log/mongodb/mongodb.log',
-            '/etc/network/interfaces',
             '/etc/environment',
-            '/home/ubuntu/ifconfig.log',
         ]
 
         try:
@@ -392,16 +390,57 @@ def copy_remote_logs(remote, directory):
             return
 
         try:
+            # Check whether mongo and lxd are installed via snap and populate
+            # the appropriate log locations depending on the installation type.
+            #
+            # As the chmod invocation below does not work with snap, we need to
+            # copy the logs to a temp folder and grab them from there.
+            #
+            # NOTE: on xenial and bionic juju configures mongo to dump its logs
+            # to syslog which we already grab.
+            has_jujudb_snap = remote.run('sh -c "which juju-db.mongo || true"')
+            has_mongod_logs = remote.run('sh -c "[ -f /var/log/mongodb/mongodb.log ] && echo has_logs || true"')
+            if 'juju-db' in has_jujudb_snap:
+                remote.run('mkdir -p /tmp/snaplogs; sudo cp /var/snap/juju-db/common/logs/mongodb.log /tmp/snaplogs')
+                log_paths.append('/tmp/snaplogs/mongodb.log')
+            elif 'has_logs' in has_mongod_logs:
+                log_paths.append('/var/log/mongodb/mongodb.log')
+
+            path_to_lxd = remote.run('sh -c "which lxd || true"')
+            if 'snap' in path_to_lxd:
+                remote.run('mkdir -p /tmp/snaplogs; sudo cp /var/snap/lxd/common/lxd/logs/lxd.log /tmp/snaplogs')
+                log_paths.append('/tmp/snaplogs/lxd.log')
+            elif 'usr' in path_to_lxd:
+                log_paths.append('/var/log/lxd/lxd.log')
+
+            has_netplan = remote.run('sh -c "which netplan || true"')
+            if 'netplan' in has_netplan:
+                log_paths.append('/etc/netplan/*.yaml')
+            else:
+                log_paths.append('/etc/network/interfaces')
+
             remote.run('sudo chmod -Rf go+r ' + ' '.join(log_paths))
         except subprocess.CalledProcessError as e:
             # The juju log dir is not created until after cloud-init succeeds.
             logging.warning("Could not allow access to the juju logs:")
             logging.warning(e.output)
-        try:
-            remote.run('ifconfig > /home/ubuntu/ifconfig.log')
-        except subprocess.CalledProcessError as e:
-            logging.warning("Could not capture ifconfig state:")
-            logging.warning(e.output)
+
+        # Grab network details
+        has_ifconfig = remote.run('sh -c "which ifconfig || true"')
+        if 'ifconfig' in has_ifconfig:
+            try:
+                remote.run('ifconfig > /home/ubuntu/ifconfig.log')
+                log_paths.append('/home/ubuntu/ifconfig.log')
+            except subprocess.CalledProcessError as e:
+                logging.warning("Could not capture 'ifconfig' output:")
+                logging.warning(e.output)
+        else: # assume ip is installed and use that instead
+            try:
+                remote.run('ip a > /home/ubuntu/ip.log')
+                log_paths.append('/home/ubuntu/ip.log')
+            except subprocess.CalledProcessError as e:
+                logging.warning("Could not capture 'ip a' output:")
+                logging.warning(e.output)
 
     try:
         remote.copy(directory, log_paths)

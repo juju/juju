@@ -133,6 +133,9 @@ class SSHRemote(_Remote):
         "-o", "UserKnownHostsFile /dev/null",
         "-o", "StrictHostKeyChecking no",
         "-o", "PasswordAuthentication no",
+        # prevent "permanently added to known hosts" warning from polluting
+        # test log output
+        "-o", "LogLevel ERROR",
     ]
 
     # Limit each operation over SSH to 2 minutes by default
@@ -179,7 +182,7 @@ class SSHRemote(_Remote):
         args.append(self.address)
         args.extend(command_args)
         logging.debug(' '.join(utility.quote(i) for i in args))
-        return self._run_subprocess(args)
+        return self._run_subprocess(args).decode('utf-8')
 
     def copy(self, destination_dir, source_globs):
         """Copy files from the remote machine."""
@@ -198,6 +201,12 @@ class SSHRemote(_Remote):
         Tildes and environment variables in the form $TMP will be expanded.
         """
         return self.run(["cat", filename])
+
+    def use_ssh_key(self, identity_file):
+        if "-i" in self._ssh_opts:
+            return
+        self._ssh_opts.append("-i")
+        self._ssh_opts.append(identity_file)
 
     def _run_subprocess(self, command):
         if self.timeout:
