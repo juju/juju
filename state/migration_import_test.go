@@ -21,6 +21,7 @@ import (
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
 
+	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
@@ -480,7 +481,8 @@ func setupMockOpenedPortRanges(c *gc.C, mID string) (*gomock.Controller, *mocks.
 }
 
 func (s *MigrationImportSuite) setupSourceApplications(
-	c *gc.C, st *state.State, cons constraints.Value, primeStatusHistory bool,
+	c *gc.C, st *state.State, cons constraints.Value,
+	platform *state.Platform, primeStatusHistory bool,
 ) (*state.Charm, *state.Application, string) {
 	// Add a application with charm settings, app config, and leadership settings.
 	f := factory.NewFactory(st, s.StatePool)
@@ -511,9 +513,7 @@ func (s *MigrationImportSuite) setupSourceApplications(
 			Channel: &state.Channel{
 				Risk: "edge",
 			},
-			Platform: &state.Platform{
-				Architecture: "amd64",
-			},
+			Platform: platform,
 		},
 		CharmConfig: map[string]interface{}{
 			"foo": "bar",
@@ -617,7 +617,8 @@ func (s *MigrationImportSuite) assertImportedApplication(
 
 func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	cons := constraints.MustParse("arch=amd64 mem=8G root-disk-source=tralfamadore")
-	testCharm, application, pwd := s.setupSourceApplications(c, s.State, cons, true)
+	platform := &state.Platform{Architecture: corearch.DefaultArchitecture}
+	testCharm, application, pwd := s.setupSourceApplications(c, s.State, cons, platform, true)
 
 	allApplications, err := s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
@@ -636,9 +637,70 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	s.assertImportedApplication(c, application, pwd, cons, exported, newModel, newSt, true)
 }
 
+func (s *MigrationImportSuite) TestApplicationsWithMissingPlatform(c *gc.C) {
+	cons := constraints.MustParse("arch=amd64 mem=8G root-disk-source=tralfamadore")
+	testCharm, _, _ := s.setupSourceApplications(c, s.State, cons, nil, true)
+
+	allApplications, err := s.State.AllApplications()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(allApplications, gc.HasLen, 1)
+	exported := allApplications[0]
+
+	_, newSt := s.importModel(c, s.State)
+	// Manually copy across the charm from the old model
+	// as it's normally done later.
+	f := factory.NewFactory(newSt, s.StatePool)
+	f.MakeCharm(c, &factory.CharmParams{
+		Name:     "starsay", // it has resources
+		URL:      testCharm.URL().String(),
+		Revision: strconv.Itoa(testCharm.Revision()),
+	})
+
+	importedApplications, err := newSt.AllApplications()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(importedApplications, gc.HasLen, 1)
+	imported := importedApplications[0]
+
+	expectedOrigin := exported.CharmOrigin()
+	expectedOrigin.Platform = &state.Platform{Architecture: corearch.DefaultArchitecture}
+
+	c.Assert(imported.CharmOrigin(), jc.DeepEquals, expectedOrigin)
+}
+
+func (s *MigrationImportSuite) TestApplicationsWithMissingPlatformWithoutConstraint(c *gc.C) {
+	cons := constraints.MustParse("mem=8G root-disk-source=tralfamadore")
+	testCharm, _, _ := s.setupSourceApplications(c, s.State, cons, nil, true)
+
+	allApplications, err := s.State.AllApplications()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(allApplications, gc.HasLen, 1)
+	exported := allApplications[0]
+
+	_, newSt := s.importModel(c, s.State)
+	// Manually copy across the charm from the old model
+	// as it's normally done later.
+	f := factory.NewFactory(newSt, s.StatePool)
+	f.MakeCharm(c, &factory.CharmParams{
+		Name:     "starsay", // it has resources
+		URL:      testCharm.URL().String(),
+		Revision: strconv.Itoa(testCharm.Revision()),
+	})
+
+	importedApplications, err := newSt.AllApplications()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(importedApplications, gc.HasLen, 1)
+	imported := importedApplications[0]
+
+	expectedOrigin := exported.CharmOrigin()
+	expectedOrigin.Platform = &state.Platform{Architecture: corearch.DefaultArchitecture}
+
+	c.Assert(imported.CharmOrigin(), jc.DeepEquals, expectedOrigin)
+}
+
 func (s *MigrationImportSuite) TestApplicationStatus(c *gc.C) {
 	cons := constraints.MustParse("arch=amd64 mem=8G")
-	testCharm, application, pwd := s.setupSourceApplications(c, s.State, cons, false)
+	platform := &state.Platform{Architecture: corearch.DefaultArchitecture}
+	testCharm, application, pwd := s.setupSourceApplications(c, s.State, cons, platform, false)
 
 	s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: application,
@@ -677,7 +739,8 @@ func (s *MigrationImportSuite) TestCAASApplications(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
 
 	cons := constraints.MustParse("arch=amd64 mem=8G")
-	charm, application, pwd := s.setupSourceApplications(c, caasSt, cons, true)
+	platform := &state.Platform{Architecture: corearch.DefaultArchitecture}
+	charm, application, pwd := s.setupSourceApplications(c, caasSt, cons, platform, true)
 
 	model, err := caasSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -727,7 +790,8 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
 
 	cons := constraints.MustParse("arch=amd64 mem=8G")
-	testCharm, application, _ := s.setupSourceApplications(c, caasSt, cons, false)
+	platform := &state.Platform{Architecture: corearch.DefaultArchitecture}
+	testCharm, application, _ := s.setupSourceApplications(c, caasSt, cons, platform, false)
 	ss, err := application.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("status: %s", ss)
