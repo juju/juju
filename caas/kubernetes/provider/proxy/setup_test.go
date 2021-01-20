@@ -64,10 +64,12 @@ func (s *setupSuite) TestProxyObjCreation(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(role.Name, gc.Equals, config.Name)
-	c.Assert(role.Rules[0].Resources, jc.DeepEquals, []string{"pods", "services"})
-	c.Assert(role.Rules[0].Verbs, jc.DeepEquals, []string{"list", "get"})
-	c.Assert(role.Rules[1].Resources, jc.DeepEquals, []string{"pods/portforward"})
-	c.Assert(role.Rules[1].Verbs, jc.DeepEquals, []string{"create"})
+	c.Assert(role.Rules[0].Resources, jc.DeepEquals, []string{"pods"})
+	c.Assert(role.Rules[0].Verbs, jc.DeepEquals, []string{"list", "get", "watch"})
+	c.Assert(role.Rules[1].Resources, jc.DeepEquals, []string{"services"})
+	c.Assert(role.Rules[1].Verbs, jc.DeepEquals, []string{"get"})
+	c.Assert(role.Rules[2].Resources, jc.DeepEquals, []string{"pods/portforward"})
+	c.Assert(role.Rules[2].Verbs, jc.DeepEquals, []string{"create"})
 
 	sa, err := s.client.CoreV1().ServiceAccounts(testNamespace).Get(
 		context.TODO(),

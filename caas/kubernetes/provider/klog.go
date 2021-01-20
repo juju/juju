@@ -29,9 +29,9 @@ func (k *klogAdapter) Enabled() bool {
 // Error see https://pkg.go.dev/github.com/go-logr/logr#Logger
 func (k *klogAdapter) Error(err error, msg string, keysAndValues ...interface{}) {
 	if err != nil {
-		k.Logger.Debugf(msg+": "+err.Error(), keysAndValues...)
+		k.Logger.Errorf(msg+": "+err.Error(), keysAndValues...)
 	} else {
-		k.Logger.Debugf(msg, keysAndValues...)
+		k.Logger.Errorf(msg, keysAndValues...)
 	}
 }
 

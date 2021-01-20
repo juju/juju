@@ -11,17 +11,22 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/juju/errors"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
+
+	"github.com/juju/juju/caas/kubernetes/pod"
 )
 
 // Tunnel represents an ssh like tunnel to a Kubernetes Pod or Service
@@ -86,6 +91,9 @@ func (t *Tunnel) ForwardPort() error {
 		return fmt.Errorf("invalid tunel kind %s", t.Kind)
 	}
 
+	ctx, cancelFunc := context.WithTimeout(context.Background(), time.Minute)
+	defer cancelFunc()
+
 	podName := t.Target
 
 	if t.Kind == TunnelKindServices {
@@ -94,6 +102,11 @@ func (t *Tunnel) ForwardPort() error {
 			return errors.Trace(err)
 		}
 		podName = pod.Name
+	}
+
+	err := t.waitForPodReady(ctx, podName)
+	if err != nil {
+		return errors.Annotatef(err, "waiting for pod %s to become ready for tunnel", podName)
 	}
 
 	u := t.client.Post().
@@ -127,7 +140,11 @@ func (t *Tunnel) ForwardPort() error {
 	}()
 
 	select {
+	case <-ctx.Done():
+		close(t.stopChan)
+		return ctx.Err()
 	case err = <-errChan:
+		close(t.stopChan)
 		return fmt.Errorf("forwarding ports: %v", err)
 	case <-pf.Ready:
 		return nil
@@ -148,6 +165,7 @@ func getAvailablePort() (string, error) {
 	return p, err
 }
 
+// IsValidTunnelKind tests that the tunnel kind supplied to this tunnel is valid
 func (t *Tunnel) IsValidTunnelKind() bool {
 	switch t.Kind {
 	case TunnelKindPods,
@@ -157,6 +175,7 @@ func (t *Tunnel) IsValidTunnelKind() bool {
 	return false
 }
 
+// NewTunnelForConfig constructs a new tunnel from the provided rest config
 func NewTunnelForConfig(
 	c *rest.Config,
 	kind TunnelKind,
@@ -178,6 +197,7 @@ func NewTunnelForConfig(
 	return NewTunnel(client, &config, kind, namespace, target, remotePort), nil
 }
 
+// NewTunnel constructs a new kubernetes tunnel for the provided information
 func NewTunnel(
 	client rest.Interface,
 	c *rest.Config,
@@ -196,5 +216,68 @@ func NewTunnel(
 		RemotePort: remotePort,
 		stopChan:   make(chan struct{}, 1),
 		Target:     target,
+	}
+}
+
+// waitForPodReady waits for the provided pod name relative to this tunnels
+// namespace to become fully ready in the pod conditions. This func will block
+// until the pod is ready of the context dead line has fired.
+func (t *Tunnel) waitForPodReady(ctx context.Context, podName string) error {
+	clientSet := kubernetes.New(t.client)
+	factory := informers.NewSharedInformerFactoryWithOptions(
+		clientSet,
+		time.Minute,
+		informers.WithNamespace(t.Namespace),
+	)
+	informer := factory.Core().V1().Pods().Informer()
+
+	stopChan := make(chan struct{})
+	eventChan := make(chan error)
+	defer close(stopChan)
+	defer close(eventChan)
+
+	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			objPod, valid := obj.(*corev1.Pod)
+			if !valid {
+				eventChan <- errors.New("expected valid pod for informer")
+				return
+			}
+
+			if objPod.Name == podName && pod.IsPodRunning(objPod) {
+				eventChan <- nil
+			}
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			objPod, valid := newObj.(*corev1.Pod)
+			if !valid {
+				eventChan <- errors.New("expected valid pod for informer")
+				return
+			}
+
+			if objPod.Name == podName && pod.IsPodRunning(objPod) {
+				eventChan <- nil
+			}
+		},
+		DeleteFunc: func(obj interface{}) {
+			pod, valid := obj.(*corev1.Pod)
+			if !valid {
+				eventChan <- errors.New("expected valid pod for informer")
+				return
+			}
+
+			if pod.Name == podName {
+				eventChan <- errors.Errorf("tunnel pod %s is being deleted", podName)
+			}
+		},
+	})
+
+	go informer.Run(stopChan)
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case err := <-eventChan:
+		return err
 	}
 }
