@@ -227,8 +227,8 @@ func (s *deployerSuite) TestResolveCharmURL(c *gc.C) {
 		path: "wordpress",
 		url:  &charm.URL{Schema: "ch", Name: "wordpress", Revision: -1},
 	}, {
-		path: "ch:wordpress-42",
-		url:  &charm.URL{Schema: "ch", Name: "wordpress", Revision: 42},
+		path: "ch:wordpress",
+		url:  &charm.URL{Schema: "ch", Name: "wordpress", Revision: -1},
 	}, {
 		path: "cs:wordpress",
 		url:  &charm.URL{Schema: "cs", Name: "wordpress", Revision: -1},
@@ -242,6 +242,37 @@ func (s *deployerSuite) TestResolveCharmURL(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("%d %s", i, test.path)
 		url, err := resolveCharmURL(test.path)
+		if test.err != nil {
+			c.Assert(err, gc.ErrorMatches, test.err.Error())
+		} else {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(url, gc.DeepEquals, test.url)
+		}
+	}
+}
+
+func (s *deployerSuite) TestResolveAndValidateCharmURL(c *gc.C) {
+	tests := []struct {
+		path string
+		url  *charm.URL
+		err  error
+	}{{
+		path: "ch:wordpress-42",
+		url:  &charm.URL{Schema: "ch", Name: "wordpress", Revision: 42},
+		err:  errors.Errorf("specifying a revision for wordpress is not supported, please use a channel."),
+	}, {
+		path: "ch:wordpress",
+		url:  &charm.URL{Schema: "ch", Name: "wordpress", Revision: -1},
+	}, {
+		path: "cs:wordpress-42",
+		url:  &charm.URL{Schema: "cs", Name: "wordpress", Revision: 42},
+	}, {
+		path: "local:wordpress",
+		url:  &charm.URL{Schema: "local", Name: "wordpress", Revision: -1},
+	}}
+	for i, test := range tests {
+		c.Logf("%d %s", i, test.path)
+		url, err := resolveAndValidateCharmURL(test.path)
 		if test.err != nil {
 			c.Assert(err, gc.ErrorMatches, test.err.Error())
 		} else {

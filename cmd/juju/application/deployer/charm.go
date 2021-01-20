@@ -420,7 +420,7 @@ func (c *charmStoreCharm) String() string {
 func (c *charmStoreCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver, macaroonGetter store.MacaroonGetter) error {
 	userRequestedURL := c.userRequestedURL
 	location := "hub"
-	if userRequestedURL.Schema == "cs" {
+	if charm.CharmStore.Matches(userRequestedURL.Schema) {
 		location = "store"
 	}
 	ctx.Verbosef("Preparing to deploy %q from the charm-%s", userRequestedURL.Name, location)
