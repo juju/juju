@@ -38,7 +38,7 @@ TEST_TIMEOUT:=$(TEST_TIMEOUT)
 ifeq ($(shell echo "${GOARCH}" | sed -E 's/.*(s390x).*/golang/'), golang)
 	TEST_ARGS := -p 4
 else
-	TEST_ARGS := 
+	TEST_ARGS :=
 endif
 
 # Enable verbose testing for reporting.
@@ -55,11 +55,11 @@ GIT_TREE_STATE = $(if $(shell git -C $(PROJECT_DIR) rev-parse --is-inside-work-t
 
 # Build tags passed to go install/build.
 # Example: BUILD_TAGS="minimal provider_kubernetes"
-BUILD_TAGS ?= 
+BUILD_TAGS ?=
 
 # Build number passed in must be a monotonic int representing
 # the build.
-JUJU_BUILD_NUMBER ?= 
+JUJU_BUILD_NUMBER ?=
 
 # Build flag passed to go -mod
 # CI should set this to vendor
@@ -118,7 +118,7 @@ test: run-tests
 # Can't make the length of the TMP dir too long or it hits socket name length issues.
 run-tests:
 ## run-tests: Run the unit tests
-	$(eval TMP := $(shell mktemp -d jj-XXX --tmpdir))
+	$(eval TMP := $(shell mktemp -d $${TMPDIR:-/tmp}/jj-XXX))
 	$(eval TEST_PACKAGES := $(shell go list $(PROJECT)/... | grep -v $(PROJECT)$$ | grep -v $(PROJECT)/vendor/ | grep -v $(PROJECT)/acceptancetests/ | grep -v $(PROJECT)/generate/ | grep -v mocks))
 	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v'
 	@TMPDIR=$(TMP) go test -mod=$(JUJU_GOMOD_MODE) -tags "$(BUILD_TAGS)" $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(TEST_PACKAGES) -check.v
@@ -268,7 +268,7 @@ local-operator-update: check-k8s-model operator-image
 	$(foreach wm,$(kubeworkers), juju scp -m ${JUJU_K8S_MODEL} ${DOCKER_STAGING_DIR}/jujud-operator-image.tar.gz $(wm):/tmp/jujud-operator-image.tar.gz ; )
 	$(foreach wm,$(kubeworkers), juju ssh -m ${JUJU_K8S_MODEL} $(wm) -- "zcat /tmp/jujud-operator-image.tar.gz | docker load" ; )
 
-STATIC_ANALYSIS_JOB ?= 
+STATIC_ANALYSIS_JOB ?=
 
 static-analysis:
 ## static-analysis: Check the go code using static-analysis
