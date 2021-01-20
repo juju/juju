@@ -13,6 +13,7 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,47 +53,85 @@ func (k *kubernetesClient) getCRLabels(appName string, scope apiextensionsv1beta
 func (k *kubernetesClient) ensureCustomResourceDefinitions(
 	appName string,
 	annotations map[string]string,
-	crdSpecs []k8sspecs.K8sCustomResourceDefinitionSpec,
+	crdSpecs []k8sspecs.K8sCustomResourceDefinition,
 ) (cleanUps []func(), _ error) {
 	for _, v := range crdSpecs {
-		crd := &apiextensionsv1beta1.CustomResourceDefinition{
-			ObjectMeta: v1.ObjectMeta{
-				Name:        v.Name,
-				Labels:      k8slabels.Merge(v.Labels, k.getAPIExtensionLabelsGlobal(appName)),
-				Annotations: k8sannotations.New(v.Annotations).Merge(annotations),
-			},
-			Spec: v.Spec,
+		obj := v1.ObjectMeta{
+			Name:        v.Name,
+			Labels:      k8slabels.Merge(v.Labels, k.getAPIExtensionLabelsGlobal(appName)),
+			Annotations: k8sannotations.New(v.Annotations).Merge(annotations),
 		}
-		out, crdCleanUps, err := k.ensureCustomResourceDefinition(crd)
+		logger.Infof("ensuring custom resource definition %q with version %q", obj.GetName(), v.Spec.Version)
+		var out v1.Object
+		var crdCleanUps []func()
+		var err error
+		switch v.Spec.Version {
+		case k8sspecs.K8sCustomResourceDefinitionV1:
+			out, crdCleanUps, err = k.ensureCustomResourceDefinitionV1(obj, v.Spec.SpecV1)
+		case k8sspecs.K8sCustomResourceDefinitionV1Beta1:
+			out, crdCleanUps, err = k.ensureCustomResourceDefinitionV1beta1(obj, v.Spec.SpecV1Beta1)
+		default:
+			// This should never happen.
+			return cleanUps, errors.NotSupportedf("custom resource definition version %q", v.Spec.Version)
+		}
 		cleanUps = append(cleanUps, crdCleanUps...)
 		if err != nil {
-			return cleanUps, errors.Annotate(err, fmt.Sprintf("ensuring custom resource definition %q", v.Name))
+			return cleanUps, errors.Annotatef(err, "ensuring custom resource definition %q with version %q", obj.GetName(), v.Spec.Version)
 		}
 		logger.Debugf("ensured custom resource definition %q", out.GetName())
 	}
 	return cleanUps, nil
 }
 
-func (k *kubernetesClient) ensureCustomResourceDefinition(crd *apiextensionsv1beta1.CustomResourceDefinition) (out *apiextensionsv1beta1.CustomResourceDefinition, cleanUps []func(), err error) {
-	api := k.extendedClient().ApiextensionsV1beta1().CustomResourceDefinitions()
-	logger.Debugf("creating custom resource definition %q", crd.GetName())
-	if out, err = api.Create(crd); err == nil {
-		cleanUps = append(cleanUps, func() { _ = k.deleteCustomResourceDefinition(out.GetName(), out.GetUID()) })
-		return out, cleanUps, nil
+func (k *kubernetesClient) ensureCustomResourceDefinitionV1beta1(
+	obj v1.ObjectMeta, crd apiextensionsv1beta1.CustomResourceDefinitionSpec,
+) (out v1.Object, cleanUps []func(), err error) {
+	spec := &apiextensionsv1beta1.CustomResourceDefinition{ObjectMeta: obj, Spec: crd}
 
+	api := k.extendedClient().ApiextensionsV1beta1().CustomResourceDefinitions()
+	logger.Debugf("creating custom resource definition %q", spec.GetName())
+	if out, err = api.Create(spec); err == nil {
+		cleanUps = append(cleanUps, func() { _ = api.Delete(out.GetName(), newPreconditionDeleteOptions(out.GetUID())) })
+		return out, cleanUps, nil
 	}
 	if !k8serrors.IsAlreadyExists(err) {
 		return nil, cleanUps, errors.Trace(err)
 	}
+	logger.Debugf("updating custom resource definition %q", spec.GetName())
 	// K8s complains about metadata.resourceVersion is required for an update, so get it before updating.
-	existingCRD, err := k.getCustomResourceDefinition(crd.GetName())
-	logger.Debugf("updating custom resource definition %q", crd.GetName())
+	existingCRD, err := api.Get(spec.GetName(), v1.GetOptions{})
 	if err != nil {
 		return nil, cleanUps, errors.Trace(err)
 	}
-	crd.SetResourceVersion(existingCRD.GetResourceVersion())
+	spec.SetResourceVersion(existingCRD.GetResourceVersion())
 	// TODO(caas): do label check to ensure the resource to be updated was created by Juju once caas upgrade steps of 2.7 in place.
-	out, err = api.Update(crd)
+	out, err = api.Update(spec)
+	return out, cleanUps, errors.Trace(err)
+}
+
+func (k *kubernetesClient) ensureCustomResourceDefinitionV1(
+	obj v1.ObjectMeta, crd apiextensionsv1.CustomResourceDefinitionSpec,
+) (out v1.Object, cleanUps []func(), err error) {
+	spec := &apiextensionsv1.CustomResourceDefinition{ObjectMeta: obj, Spec: crd}
+
+	api := k.extendedClient().ApiextensionsV1().CustomResourceDefinitions()
+	logger.Debugf("creating custom resource definition %q", spec.GetName())
+	if out, err = api.Create(spec); err == nil {
+		cleanUps = append(cleanUps, func() { _ = api.Delete(out.GetName(), newPreconditionDeleteOptions(out.GetUID())) })
+		return out, cleanUps, nil
+	}
+	if !k8serrors.IsAlreadyExists(err) {
+		return nil, cleanUps, errors.Trace(err)
+	}
+	logger.Debugf("updating custom resource definition %q", spec.GetName())
+	// K8s complains about metadata.resourceVersion is required for an update, so get it before updating.
+	existingCRD, err := api.Get(spec.GetName(), v1.GetOptions{})
+	if err != nil {
+		return nil, cleanUps, errors.Trace(err)
+	}
+	spec.SetResourceVersion(existingCRD.GetResourceVersion())
+	// TODO(caas): do label check to ensure the resource to be updated was created by Juju once caas upgrade steps of 2.7 in place.
+	out, err = api.Update(spec)
 	return out, cleanUps, errors.Trace(err)
 }
 

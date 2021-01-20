@@ -186,7 +186,7 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownSuccess(c *
 		).Return(s.mockNamespaceableResourceClient),
 	).After(
 		// list cluster wide all custom resource definitions for listing custom resources.
-		s.mockCustomResourceDefinition.EXPECT().List(v1.ListOptions{}).AnyTimes().
+		s.mockCustomResourceDefinitionV1Beta1.EXPECT().List(v1.ListOptions{}).AnyTimes().
 			Return(&apiextensionsv1beta1.CustomResourceDefinitionList{Items: []apiextensionsv1beta1.CustomResourceDefinition{*crdClusterScope, *crdNamespacedScope}}, nil),
 	).After(
 		// delete all custom resources for crd "v1alpha2".
@@ -218,35 +218,35 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownSuccess(c *
 		).Return(s.mockNamespaceableResourceClient),
 	).After(
 		// list cluster wide all custom resource definitions for deleting custom resources.
-		s.mockCustomResourceDefinition.EXPECT().List(v1.ListOptions{}).AnyTimes().
+		s.mockCustomResourceDefinitionV1Beta1.EXPECT().List(v1.ListOptions{}).AnyTimes().
 			Return(&apiextensionsv1beta1.CustomResourceDefinitionList{Items: []apiextensionsv1beta1.CustomResourceDefinition{*crdClusterScope, *crdNamespacedScope}}, nil),
 	)
 
 	// timer +1.
-	s.mockCustomResourceDefinition.EXPECT().List(v1.ListOptions{LabelSelector: "juju-model=test,juju-resource-lifecycle notin (persistent)"}).AnyTimes().
+	s.mockCustomResourceDefinitionV1Beta1.EXPECT().List(v1.ListOptions{LabelSelector: "juju-model=test,juju-resource-lifecycle notin (persistent)"}).AnyTimes().
 		Return(&apiextensionsv1beta1.CustomResourceDefinitionList{}, nil).
 		After(
-			s.mockCustomResourceDefinition.EXPECT().DeleteCollection(
+			s.mockCustomResourceDefinitionV1Beta1.EXPECT().DeleteCollection(
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
 				v1.ListOptions{LabelSelector: "juju-model=test,juju-resource-lifecycle notin (persistent)"},
 			).Return(s.k8sNotFoundError()),
 		)
 
 	// timer +1.
-	s.mockMutatingWebhookConfiguration.EXPECT().List(v1.ListOptions{LabelSelector: "juju-model=test"}).
+	s.mockMutatingWebhookConfigurationV1Beta1.EXPECT().List(v1.ListOptions{LabelSelector: "juju-model=test"}).
 		Return(&admissionregistrationv1beta1.MutatingWebhookConfigurationList{}, nil).
 		After(
-			s.mockMutatingWebhookConfiguration.EXPECT().DeleteCollection(
+			s.mockMutatingWebhookConfigurationV1Beta1.EXPECT().DeleteCollection(
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
 				v1.ListOptions{LabelSelector: "juju-model=test"},
 			).Return(s.k8sNotFoundError()),
 		)
 
 	// timer +1.
-	s.mockValidatingWebhookConfiguration.EXPECT().List(v1.ListOptions{LabelSelector: "juju-model=test"}).
+	s.mockValidatingWebhookConfigurationV1Beta1.EXPECT().List(v1.ListOptions{LabelSelector: "juju-model=test"}).
 		Return(&admissionregistrationv1beta1.ValidatingWebhookConfigurationList{}, nil).
 		After(
-			s.mockValidatingWebhookConfiguration.EXPECT().DeleteCollection(
+			s.mockValidatingWebhookConfigurationV1Beta1.EXPECT().DeleteCollection(
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
 				v1.ListOptions{LabelSelector: "juju-model=test"},
 			).Return(s.k8sNotFoundError()),
@@ -441,21 +441,21 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownTimeout(c *
 		).Return(s.mockNamespaceableResourceClient),
 	).After(
 		// list cluster wide all custom resource definitions for deleting custom resources.
-		s.mockCustomResourceDefinition.EXPECT().List(v1.ListOptions{}).AnyTimes().
+		s.mockCustomResourceDefinitionV1Beta1.EXPECT().List(v1.ListOptions{}).AnyTimes().
 			Return(&apiextensionsv1beta1.CustomResourceDefinitionList{Items: []apiextensionsv1beta1.CustomResourceDefinition{*crdClusterScope, *crdNamespacedScope}}, nil),
 	)
 
-	s.mockCustomResourceDefinition.EXPECT().DeleteCollection(
+	s.mockCustomResourceDefinitionV1Beta1.EXPECT().DeleteCollection(
 		s.deleteOptions(v1.DeletePropagationForeground, ""),
 		v1.ListOptions{LabelSelector: "juju-model=test,juju-resource-lifecycle notin (persistent)"},
 	).Return(s.k8sNotFoundError())
 
-	s.mockMutatingWebhookConfiguration.EXPECT().DeleteCollection(
+	s.mockMutatingWebhookConfigurationV1Beta1.EXPECT().DeleteCollection(
 		s.deleteOptions(v1.DeletePropagationForeground, ""),
 		v1.ListOptions{LabelSelector: "juju-model=test"},
 	).Return(s.k8sNotFoundError())
 
-	s.mockValidatingWebhookConfiguration.EXPECT().DeleteCollection(
+	s.mockValidatingWebhookConfigurationV1Beta1.EXPECT().DeleteCollection(
 		s.deleteOptions(v1.DeletePropagationForeground, ""),
 		v1.ListOptions{LabelSelector: "juju-model=test"},
 	).Return(s.k8sNotFoundError())
