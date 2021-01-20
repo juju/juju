@@ -963,7 +963,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 
 	if cloud.Type == k8sconstants.CAASProviderType {
 		if cloud.HostCloudRegion == caas.K8sCloudOther {
-			ctx.Infof("Unable to identify bootstrapped Kubernetes cluster")
+			ctx.Infof("Bootstrap to generic Kubernetes cluster")
 		} else {
 			ctx.Infof("Bootstrap to Kubernetes cluster identified as %s",
 				cloud.HostCloudRegion)
