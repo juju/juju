@@ -6,7 +6,7 @@ package caasadmission_test
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	admission "k8s.io/api/admissionregistration/v1beta1"
+	admission "k8s.io/api/admissionregistration/v1"
 
 	pkitest "github.com/juju/juju/pki/test"
 	"github.com/juju/juju/worker/caasadmission"
