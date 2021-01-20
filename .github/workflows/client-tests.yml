@@ -15,7 +15,7 @@ jobs:
         # other clients.
         # To turn on macOS, just update the os to include it.
         # os: [ubuntu-latest, macOS-latest, windows-latest]
-        os: [ubuntu-latest]
+        os: [ubuntu-latest, macOS-latest]
 
     steps:
 
@@ -41,17 +41,6 @@ jobs:
 
         make install-mongo-dependencies
 
-    - name: "Install Mongo Dependencies: macOS-latest"
-      if: (matrix.os == 'macOS-latest')
-      run: |
-        curl -o mongodb-4.0.21.tgz https://fastdl.mongodb.org/osx/mongodb-osx-ssl-x86_64-4.0.21.tgz
-        tar xzvf mongodb-4.0.21.tgz
-        sudo mkdir -p /usr/local/mongodb
-        sudo mv mongodb-osx-x86_64-4.0.21/bin/* /usr/local/mongodb
-        sudo mkdir -p /user/local/bin
-        sudo ln -s /usr/local/mongodb/mongod /usr/local/bin/mongod
-      shell: bash
-
     - name: "Remove Mongo Dependencies: windows-latest"
       if: (matrix.os == 'windows-latest')
       uses: crazy-max/ghaction-chocolatey@v1
@@ -64,8 +53,34 @@ jobs:
       with:
         args: install mongodb.install --version=4.0.21 --allow-downgrade
 
-    - name: Test client
+    # GitHub runners already have preinstalled version of mongodb, but
+    # we specifically need 4.0.21, otherwise our tests will not pass
+    - name: "Install Mongo Dependencies: macOS-latest"
+      if: (matrix.os == 'macOS-latest')
+      run: |
+        curl -o mongodb-4.0.21.tgz https://fastdl.mongodb.org/osx/mongodb-osx-ssl-x86_64-4.0.21.tgz
+        tar xzvf mongodb-4.0.21.tgz
+        sudo rm -rf /usr/local/mongodb
+        sudo mkdir -p /usr/local/mongodb
+        sudo mv mongodb-osx-x86_64-4.0.21/bin/* /usr/local/mongodb
+        sudo mkdir -p /usr/local/bin
+        sudo rm /usr/local/bin/mongod
+        sudo ln -s /usr/local/mongodb/mongod /usr/local/bin/mongod
+      shell: bash
+
+    - name: "Test client: macOS-latest"
+      if: (matrix.os == 'macOS-latest')
+      run: |
+        # There is a concurrency issue with macos setup for the "./cmd/juju/..." packages.
+        # So we have to limit amount of used CPUs and therefore parallelization
+        go test -v -p 1 ./cmd/juju/... -check.vv
+        go test -v  ./cmd/plugins/... -check.vv
+      shell: bash
+
+    - name: "Test client: ubuntu-latest"
+      if: (matrix.os == 'ubuntu-latest')
       run: |
         # Jenkins can perform the full jujud testing.
-        go test -v ./cmd/juju/... -check.v
-        go test -v ./cmd/plugins/... -check.v
+        go test -v ./cmd/juju/... -check.vv
+        go test -v ./cmd/plugins/... -check.vv
+      shell: bash
