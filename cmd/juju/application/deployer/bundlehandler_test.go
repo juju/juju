@@ -34,7 +34,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-type BundleDeployCharmStoreSuite struct {
+type BundleDeployRepositorySuite struct {
 	allWatcher     *mocks.MockAllWatch
 	bundleResolver *mocks.MockResolver
 	deployerAPI    *mocks.MockDeployerAPI
@@ -45,15 +45,15 @@ type BundleDeployCharmStoreSuite struct {
 	output     *bytes.Buffer
 }
 
-var _ = gc.Suite(&BundleDeployCharmStoreSuite{})
+var _ = gc.Suite(&BundleDeployRepositorySuite{})
 
-func (s *BundleDeployCharmStoreSuite) SetUpTest(c *gc.C) {
+func (s *BundleDeployRepositorySuite) SetUpTest(c *gc.C) {
 	s.deployArgs = make(map[string]application.DeployArgs)
 	s.output = bytes.NewBuffer([]byte{})
 	//logger.SetLogLevel(loggo.TRACE)
 }
 
-func (s *BundleDeployCharmStoreSuite) TearDownTest(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TearDownTest(c *gc.C) {
 	s.output.Reset()
 }
 
@@ -62,7 +62,7 @@ func (s *BundleDeployCharmStoreSuite) TearDownTest(c *gc.C) {
 // target in testing/base.go:SetupSuite we'll need to also update the entries
 // herein.
 
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleNotFoundCharmStore(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleNotFoundCharmStore(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 
@@ -82,7 +82,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleNotFoundCharmStore(c *gc.C
 	c.Assert(err, gc.ErrorMatches, `cannot resolve charm or bundle "no-such": bundle not found`)
 }
 
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleSuccess(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
@@ -158,7 +158,7 @@ relations:
   - mysql:db
 `
 
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithInvalidSeries(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidSeries(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
@@ -185,7 +185,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithInvalidSeries(c *gc.C)
 	c.Assert(err, gc.ErrorMatches, "mysql is not available on the following series: precise not supported")
 }
 
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithInvalidSeriesWithForce(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidSeriesWithForce(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
@@ -264,7 +264,7 @@ relations:
   - mysql:db
 `
 
-func (s *BundleDeployCharmStoreSuite) TestDeployKubernetesBundleSuccess(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
@@ -330,7 +330,7 @@ relations:
     - mariadb:server
 `
 
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleStorage(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleStorage(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
@@ -405,7 +405,7 @@ relations:
   - mysql:db
 `
 
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleDevices(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleDevices(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
@@ -477,7 +477,7 @@ relations:
     - ["dashboard4miner:miner", "bitcoin-miner:miner"]
 `
 
-func (s *BundleDeployCharmStoreSuite) TestDryRunExistingModel(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDryRunExistingModel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
@@ -544,7 +544,7 @@ func (s *BundleDeployCharmStoreSuite) TestDryRunExistingModel(c *gc.C) {
 	c.Check(s.output.String(), gc.Equals, expectedOutput)
 }
 
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidMachineContainerType(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleInvalidMachineContainerType(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
@@ -581,7 +581,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidMachineContainerTyp
 	c.Assert(err, gc.ErrorMatches, `cannot create machine for holding wp unit: invalid container type "bad"`)
 }
 
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleUnitPlacedToMachines(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleUnitPlacedToMachines(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
@@ -659,7 +659,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleUnitPlacedToMachines(c *gc
 		"Deploy of bundle completed.\n")
 }
 
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleExpose(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleExpose(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
@@ -698,7 +698,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleExpose(c *gc.C) {
 		"Deploy of bundle completed.\n")
 }
 
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleMultipleRelations(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleMultipleRelations(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
@@ -786,7 +786,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMultipleRelations(c *gc.C)
 		"Deploy of bundle completed.\n")
 }
 
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeployment(c *gc.C) {
+func (s *BundleDeployRepositorySuite) TestDeployBundleLocalDeployment(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
@@ -849,7 +849,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeployment(c *gc.C) {
 	c.Check(s.output.String(), gc.Equals, fmt.Sprintf(expectedOutput, mysqlPath, wordpressPath))
 }
 
-func (s *BundleDeployCharmStoreSuite) bundleDeploySpec() bundleDeploySpec {
+func (s *BundleDeployRepositorySuite) bundleDeploySpec() bundleDeploySpec {
 	deployResourcesFunc := func(_ string,
 		_ client.CharmID,
 		_ *macaroon.Macaroon,
@@ -872,20 +872,20 @@ func (s *BundleDeployCharmStoreSuite) bundleDeploySpec() bundleDeploySpec {
 	}
 }
 
-func (s *BundleDeployCharmStoreSuite) assertDeployArgs(c *gc.C, curl, appName, series string) {
+func (s *BundleDeployRepositorySuite) assertDeployArgs(c *gc.C, curl, appName, series string) {
 	arg, found := s.deployArgs[appName]
 	c.Assert(found, jc.IsTrue, gc.Commentf("Application %q not found in deploy args", appName))
 	c.Assert(arg.CharmID.URL.String(), gc.Equals, curl)
 	c.Assert(arg.Series, gc.Equals, series)
 }
 
-func (s *BundleDeployCharmStoreSuite) assertDeployArgsStorage(c *gc.C, appName string, storage map[string]storage.Constraints) {
+func (s *BundleDeployRepositorySuite) assertDeployArgsStorage(c *gc.C, appName string, storage map[string]storage.Constraints) {
 	arg, found := s.deployArgs[appName]
 	c.Assert(found, jc.IsTrue, gc.Commentf("Application %q not found in deploy args", appName))
 	c.Assert(arg.Storage, gc.DeepEquals, storage)
 }
 
-func (s *BundleDeployCharmStoreSuite) assertDeployArgsDevices(c *gc.C, appName string, devices map[string]devices.Constraints) {
+func (s *BundleDeployRepositorySuite) assertDeployArgsDevices(c *gc.C, appName string, devices map[string]devices.Constraints) {
 	arg, found := s.deployArgs[appName]
 	c.Assert(found, jc.IsTrue, gc.Commentf("Application %q not found in deploy args", appName))
 	c.Assert(arg.Devices, gc.DeepEquals, devices)
@@ -899,7 +899,7 @@ type charmUnit struct {
 	machineSeries   string
 }
 
-func (s *BundleDeployCharmStoreSuite) setupCharmUnits(charmUnits []charmUnit) {
+func (s *BundleDeployRepositorySuite) setupCharmUnits(charmUnits []charmUnit) {
 	for _, chUnit := range charmUnits {
 		switch chUnit.curl.Schema {
 		case "cs":
@@ -924,7 +924,7 @@ func (s *BundleDeployCharmStoreSuite) setupCharmUnits(charmUnits []charmUnit) {
 	}
 }
 
-func (s *BundleDeployCharmStoreSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *BundleDeployRepositorySuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.deployerAPI = mocks.NewMockDeployerAPI(ctrl)
 	s.bundleResolver = mocks.NewMockResolver(ctrl)
@@ -941,7 +941,7 @@ func (s *BundleDeployCharmStoreSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *BundleDeployCharmStoreSuite) expectEmptyModelToStart(c *gc.C) {
+func (s *BundleDeployRepositorySuite) expectEmptyModelToStart(c *gc.C) {
 	// setup for empty current model
 	// bundleHandler.makeModel()
 	s.expectDeployerAPIEmptyStatus()
@@ -949,7 +949,7 @@ func (s *BundleDeployCharmStoreSuite) expectEmptyModelToStart(c *gc.C) {
 	s.expectDeployerAPIModelGet(c)
 }
 
-func (s *BundleDeployCharmStoreSuite) expectEmptyModelRepresentation() {
+func (s *BundleDeployRepositorySuite) expectEmptyModelRepresentation() {
 	// BuildModelRepresentation is tested in bundle pkg.
 	// Setup as if an empty model
 	s.deployerAPI.EXPECT().GetAnnotations(gomock.Any()).Return(nil, nil)
@@ -958,17 +958,17 @@ func (s *BundleDeployCharmStoreSuite) expectEmptyModelRepresentation() {
 	s.deployerAPI.EXPECT().Sequences().Return(nil, errors.NotSupportedf("sequences for test"))
 }
 
-func (s *BundleDeployCharmStoreSuite) expectWatchAll() {
+func (s *BundleDeployRepositorySuite) expectWatchAll() {
 	s.deployerAPI.EXPECT().WatchAll().Return(s.allWatcher, nil)
 	s.allWatcher.EXPECT().Stop().Return(nil)
 }
 
-func (s *BundleDeployCharmStoreSuite) expectDeployerAPIEmptyStatus() {
+func (s *BundleDeployRepositorySuite) expectDeployerAPIEmptyStatus() {
 	status := &params.FullStatus{}
 	s.deployerAPI.EXPECT().Status(gomock.Any()).Return(status, nil)
 }
 
-func (s *BundleDeployCharmStoreSuite) expectDeployerAPIStatusWordpressBundle() {
+func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusWordpressBundle() {
 	status := &params.FullStatus{
 		Model: params.ModelStatusInfo{},
 		Machines: map[string]params.MachineStatus{
@@ -1009,7 +1009,7 @@ func (s *BundleDeployCharmStoreSuite) expectDeployerAPIStatusWordpressBundle() {
 	s.deployerAPI.EXPECT().Status(gomock.Any()).Return(status, nil)
 }
 
-func (s *BundleDeployCharmStoreSuite) expectDeployerAPIModelGet(c *gc.C) {
+func (s *BundleDeployRepositorySuite) expectDeployerAPIModelGet(c *gc.C) {
 	minimal := map[string]interface{}{
 		"name":            "test",
 		"type":            "manual",
@@ -1026,7 +1026,7 @@ func (s *BundleDeployCharmStoreSuite) expectDeployerAPIModelGet(c *gc.C) {
 	s.deployerAPI.EXPECT().ModelGet().Return(cfg.AllAttrs(), nil)
 }
 
-func (s *BundleDeployCharmStoreSuite) expectResolveCharm(err error, times int) {
+func (s *BundleDeployRepositorySuite) expectResolveCharm(err error, times int) {
 	s.bundleResolver.EXPECT().ResolveCharm(
 		gomock.AssignableToTypeOf(&charm.URL{}),
 		gomock.AssignableToTypeOf(commoncharm.Origin{}),
@@ -1037,11 +1037,11 @@ func (s *BundleDeployCharmStoreSuite) expectResolveCharm(err error, times int) {
 		}).Times(times)
 }
 
-func (s *BundleDeployCharmStoreSuite) expectBestFacadeVersion() {
+func (s *BundleDeployRepositorySuite) expectBestFacadeVersion() {
 	s.deployerAPI.EXPECT().BestFacadeVersion("Application").Return(6)
 }
 
-func (s *BundleDeployCharmStoreSuite) expectAddCharm(force bool) {
+func (s *BundleDeployRepositorySuite) expectAddCharm(force bool) {
 	s.deployerAPI.EXPECT().AddCharm(
 		gomock.AssignableToTypeOf(&charm.URL{}),
 		gomock.AssignableToTypeOf(commoncharm.Origin{}),
@@ -1052,7 +1052,7 @@ func (s *BundleDeployCharmStoreSuite) expectAddCharm(force bool) {
 		})
 }
 
-func (s *BundleDeployCharmStoreSuite) expectAddLocalCharm(curl *charm.URL, force bool) {
+func (s *BundleDeployRepositorySuite) expectAddLocalCharm(curl *charm.URL, force bool) {
 	s.deployerAPI.EXPECT().AddLocalCharm(gomock.AssignableToTypeOf(&charm.URL{}), charmInterfaceMatcher{}, force).Return(curl, nil)
 }
 
@@ -1068,11 +1068,11 @@ func (m charmInterfaceMatcher) String() string {
 	return fmt.Sprintf("Require charm.Charm as arg")
 }
 
-func (s *BundleDeployCharmStoreSuite) expectCharmInfo(name string, info *apicharms.CharmInfo) {
+func (s *BundleDeployRepositorySuite) expectCharmInfo(name string, info *apicharms.CharmInfo) {
 	s.deployerAPI.EXPECT().CharmInfo(name).Return(info, nil)
 }
 
-func (s *BundleDeployCharmStoreSuite) expectDeploy() {
+func (s *BundleDeployRepositorySuite) expectDeploy() {
 	s.deployerAPI.EXPECT().Deploy(gomock.AssignableToTypeOf(application.DeployArgs{})).DoAndReturn(
 		func(args application.DeployArgs) error {
 			// Save the args to do a verification of later.
@@ -1083,18 +1083,18 @@ func (s *BundleDeployCharmStoreSuite) expectDeploy() {
 		})
 }
 
-func (s *BundleDeployCharmStoreSuite) expectExpose(app string) {
+func (s *BundleDeployRepositorySuite) expectExpose(app string) {
 	s.deployerAPI.EXPECT().Expose(app, gomock.Any()).Return(nil)
 }
 
-func (s *BundleDeployCharmStoreSuite) expectAddMachine(machine, series string) {
+func (s *BundleDeployRepositorySuite) expectAddMachine(machine, series string) {
 	if machine == "" {
 		return
 	}
 	s.expectAddContainer("", machine, series, "")
 }
 
-func (s *BundleDeployCharmStoreSuite) expectAddContainer(parent, machine, series, container string) {
+func (s *BundleDeployRepositorySuite) expectAddContainer(parent, machine, series, container string) {
 	args := []params.AddMachineParams{
 		{
 			ContainerType: instance.ContainerType(container),
@@ -1109,11 +1109,11 @@ func (s *BundleDeployCharmStoreSuite) expectAddContainer(parent, machine, series
 	s.deployerAPI.EXPECT().AddMachines(args).Return(results, nil)
 }
 
-func (s *BundleDeployCharmStoreSuite) expectAddRelation(endpoints []string) {
+func (s *BundleDeployRepositorySuite) expectAddRelation(endpoints []string) {
 	s.deployerAPI.EXPECT().AddRelation(endpoints, nil).Return(nil, nil)
 }
 
-func (s *BundleDeployCharmStoreSuite) expectAddOneUnit(name, directive, unit string) {
+func (s *BundleDeployRepositorySuite) expectAddOneUnit(name, directive, unit string) {
 	var placement []*instance.Placement
 	if directive != "" {
 		placement = []*instance.Placement{{

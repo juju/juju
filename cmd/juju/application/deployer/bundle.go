@@ -232,13 +232,13 @@ func (d *localBundle) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, 
 	return d.deploy(ctx, deployAPI, resolver, macaroonGetter)
 }
 
-type charmstoreBundle struct {
+type repositoryBundle struct {
 	deployBundle
 }
 
 // String returns a string description of the deployer.
-func (d *charmstoreBundle) String() string {
-	str := fmt.Sprintf("deploy charm store bundle: %s", d.bundleURL.String())
+func (d *repositoryBundle) String() string {
+	str := fmt.Sprintf("deploy bundle: %s", d.bundleURL.String())
 	if isEmptyOrigin(d.origin, commoncharm.OriginCharmStore) {
 		return str
 	}
@@ -250,7 +250,7 @@ func (d *charmstoreBundle) String() string {
 }
 
 // PrepareAndDeploy deploys a local bundle, no further preparation is needed.
-func (d *charmstoreBundle) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver, macaroonGetter store.MacaroonGetter) error {
+func (d *repositoryBundle) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver, macaroonGetter store.MacaroonGetter) error {
 	var revision string
 	if d.bundleURL.Revision != -1 {
 		revision = fmt.Sprintf(", revision %d", d.bundleURL.Revision)

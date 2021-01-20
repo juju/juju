@@ -108,7 +108,7 @@ func (s *deployerSuite) TestGetDeployerLocalCharmError(c *gc.C) {
 func (s *deployerSuite) TestGetDeployerCharmStoreCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectFilesystem()
-	// NotValid ensures that maybeReadCharmstoreBundle won't find
+	// NotValid ensures that maybeReadRepositoryBundle won't find
 	// charmOrBundle is a bundle.
 	s.expectResolveBundleURL(errors.NotValidf("not a bundle"), 1)
 
@@ -120,7 +120,7 @@ func (s *deployerSuite) TestGetDeployerCharmStoreCharm(c *gc.C) {
 	factory := s.newDeployerFactory()
 	deployer, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm store charm: %s", ch.String()))
+	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm: %s", ch.String()))
 }
 
 func (s *deployerSuite) TestCharmStoreSeriesOverride(c *gc.C) {
@@ -137,9 +137,9 @@ func (s *deployerSuite) TestCharmStoreSeriesOverride(c *gc.C) {
 	factory := s.newDeployerFactory()
 	deployer, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm store charm: %s", ch.String()))
+	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm: %s", ch.String()))
 
-	charmStoreDeployer := deployer.(*charmStoreCharm)
+	charmStoreDeployer := deployer.(*repositoryCharm)
 	c.Assert(charmStoreDeployer.series, gc.Equals, "bionic")
 }
 
@@ -193,7 +193,7 @@ func (s *deployerSuite) TestGetDeployerCharmStoreBundle(c *gc.C) {
 	factory := s.newDeployerFactory()
 	deployer, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm store bundle: %s", bundle.String()))
+	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy bundle: %s", bundle.String()))
 }
 
 func (s *deployerSuite) TestGetDeployerCharmStoreBundleWithChannel(c *gc.C) {
@@ -215,7 +215,7 @@ func (s *deployerSuite) TestGetDeployerCharmStoreBundleWithChannel(c *gc.C) {
 	factory := s.newDeployerFactory()
 	deployer, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm store bundle: %s from channel edge", bundle.String()))
+	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy bundle: %s from channel edge", bundle.String()))
 }
 
 func (s *deployerSuite) TestResolveCharmURL(c *gc.C) {
