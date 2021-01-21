@@ -2012,15 +2012,15 @@ class ModelClient:
                    'size={}'.format(size)))
 
     def disable_user(self, user_name):
-        """Disable an user"""
+        """Disable a user"""
         self.controller_juju('disable-user', (user_name,))
 
     def enable_user(self, user_name):
-        """Enable an user"""
+        """Enable a user"""
         self.controller_juju('enable-user', (user_name,))
 
     def logout(self):
-        """Logout an user"""
+        """Logout a user"""
         self.controller_juju('logout', ())
         self.env.user_name = ''
 

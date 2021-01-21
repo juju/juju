@@ -1662,7 +1662,7 @@ func hostedModelCount(st *State) (int, error) {
 }
 
 // createUniqueOwnerModelNameOp returns the operation needed to create
-// an usermodelnameC document with the given owner and model name.
+// a usermodelnameC document with the given owner and model name.
 func createUniqueOwnerModelNameOp(owner names.UserTag, modelName string) txn.Op {
 	return txn.Op{
 		C:      usermodelnameC,
