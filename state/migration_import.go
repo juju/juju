@@ -1455,6 +1455,10 @@ func (i *importer) getApplicationPlatform(a description.Application, url *charm.
 			return platform
 		}
 
+		// Attempting to find the right architecture is quite difficult,
+		// especially if we're in a heterogenous deployment. In that case we'll
+		// most likely guess wrong, so we now use the fact that just select
+		// the first available as that's what they most probably started with.
 		var arch string
 		for _, hw := range hardwareCharacteristics {
 			if hw.Arch == nil {
