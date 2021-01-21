@@ -1443,6 +1443,7 @@ func (i *importer) getApplicationPlatform(a description.Application, url *charm.
 	} else if arc := getApplicationArchConstraint(a); arc != "" {
 		platform = &Platform{
 			Architecture: arc,
+			Series:       a.Series(),
 		}
 	}
 
@@ -1467,6 +1468,7 @@ func (i *importer) getApplicationPlatform(a description.Application, url *charm.
 			platform = &Platform{}
 		}
 		platform.Architecture = arch
+		platform.Series = a.Series()
 	}
 
 	return platform

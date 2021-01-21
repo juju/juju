@@ -662,7 +662,10 @@ func (s *MigrationImportSuite) TestApplicationsWithMissingPlatform(c *gc.C) {
 	imported := importedApplications[0]
 
 	expectedOrigin := exported.CharmOrigin()
-	expectedOrigin.Platform = &state.Platform{Architecture: corearch.DefaultArchitecture}
+	expectedOrigin.Platform = &state.Platform{
+		Architecture: corearch.DefaultArchitecture,
+		Series:       "quantal",
+	}
 
 	c.Assert(imported.CharmOrigin(), jc.DeepEquals, expectedOrigin)
 }
@@ -692,7 +695,10 @@ func (s *MigrationImportSuite) TestApplicationsWithMissingPlatformWithoutConstra
 	imported := importedApplications[0]
 
 	expectedOrigin := exported.CharmOrigin()
-	expectedOrigin.Platform = &state.Platform{Architecture: corearch.DefaultArchitecture}
+	expectedOrigin.Platform = &state.Platform{
+		Architecture: corearch.DefaultArchitecture,
+		Series:       "quantal",
+	}
 
 	c.Assert(imported.CharmOrigin(), jc.DeepEquals, expectedOrigin)
 }
