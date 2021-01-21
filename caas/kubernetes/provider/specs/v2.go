@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	admissionregistration "k8s.io/api/admissionregistration/v1beta1"
-	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -181,25 +180,6 @@ func (ksa K8sServiceAccountSpecV2) Validate() error {
 	return errors.Trace(ksa.ServiceAccountSpecV2.Validate())
 }
 
-// K8sIngressSpec defines spec for creating or updating an ingress resource.
-type K8sIngressSpec struct {
-	Name        string                        `json:"name" yaml:"name"`
-	Labels      map[string]string             `json:"labels,omitempty" yaml:"labels,omitempty"`
-	Annotations map[string]string             `json:"annotations,omitempty" yaml:"annotations,omitempty"`
-	Spec        networkingv1beta1.IngressSpec `json:"spec" yaml:"spec"`
-}
-
-// Validate returns an error if the spec is not valid.
-func (ing K8sIngressSpec) Validate() error {
-	if ing.Name == "" {
-		return errors.New("ingress name is missing")
-	}
-	if err := validateLabels(ing.Labels); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
 // KubernetesResourcesV2 is the k8s related resources for version 2.
 type KubernetesResourcesV2 struct {
 	Pod *PodSpec `json:"pod,omitempty" yaml:"pod,omitempty"`
@@ -212,7 +192,7 @@ type KubernetesResourcesV2 struct {
 	ValidatingWebhookConfigurations map[string][]admissionregistration.ValidatingWebhook `json:"validatingWebhookConfigurations,omitempty" yaml:"validatingWebhookConfigurations,omitempty"`
 
 	ServiceAccounts  []K8sServiceAccountSpecV2 `json:"serviceAccounts,omitempty" yaml:"serviceAccounts,omitempty"`
-	IngressResources []K8sIngressSpec          `json:"ingressResources,omitempty" yaml:"ingressResources,omitempty"`
+	IngressResources []K8sIngress          `json:"ingressResources,omitempty" yaml:"ingressResources,omitempty"`
 }
 
 func validateCustomResourceDefinitionV2(name string, crd apiextensionsv1beta1.CustomResourceDefinitionSpec) error {
