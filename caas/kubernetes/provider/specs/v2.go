@@ -192,7 +192,7 @@ type KubernetesResourcesV2 struct {
 	ValidatingWebhookConfigurations map[string][]admissionregistration.ValidatingWebhook `json:"validatingWebhookConfigurations,omitempty" yaml:"validatingWebhookConfigurations,omitempty"`
 
 	ServiceAccounts  []K8sServiceAccountSpecV2 `json:"serviceAccounts,omitempty" yaml:"serviceAccounts,omitempty"`
-	IngressResources []K8sIngress          `json:"ingressResources,omitempty" yaml:"ingressResources,omitempty"`
+	IngressResources []K8sIngress              `json:"ingressResources,omitempty" yaml:"ingressResources,omitempty"`
 }
 
 func validateCustomResourceDefinitionV2(name string, crd apiextensionsv1beta1.CustomResourceDefinitionSpec) error {

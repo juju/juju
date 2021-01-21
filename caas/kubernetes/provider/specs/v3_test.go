@@ -744,7 +744,7 @@ echo "do some stuff here for gitlab-init container"
 				Version: k8sspecs.K8sIngressV1Beta1,
 				SpecV1Beta1: networkingv1beta1.IngressSpec{
 					Rules: []networkingv1beta1.IngressRule{
-						networkingv1beta1.IngressRule{
+						{
 							IngressRuleValue: networkingv1beta1.IngressRuleValue{
 								HTTP: &networkingv1beta1.HTTPIngressRuleValue{
 									Paths: []networkingv1beta1.HTTPIngressPath{
@@ -779,7 +779,7 @@ echo "do some stuff here for gitlab-init container"
 						},
 					},
 					Rules: []networkingv1.IngressRule{
-						networkingv1.IngressRule{
+						{
 							IngressRuleValue: networkingv1.IngressRuleValue{
 								HTTP: &networkingv1.HTTPIngressRuleValue{
 									Paths: []networkingv1.HTTPIngressPath{

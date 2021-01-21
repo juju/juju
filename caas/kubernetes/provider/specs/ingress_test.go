@@ -23,7 +23,7 @@ type ingressSuite struct {
 
 var _ = gc.Suite(&ingressSuite{})
 
-func (s *crdSuite) TestK8sIngressV1Beta1(c *gc.C) {
+func (s *ingressSuite) TestK8sIngressV1Beta1(c *gc.C) {
 	specV1Beta1 := `
 name: test-ingress
 labels:
@@ -56,7 +56,7 @@ spec:
 			Version: k8sspecs.K8sIngressV1Beta1,
 			SpecV1Beta1: networkingv1beta1.IngressSpec{
 				Rules: []networkingv1beta1.IngressRule{
-					networkingv1beta1.IngressRule{
+					{
 						IngressRuleValue: networkingv1beta1.IngressRuleValue{
 							HTTP: &networkingv1beta1.HTTPIngressRuleValue{
 								Paths: []networkingv1beta1.HTTPIngressPath{
@@ -77,7 +77,7 @@ spec:
 	})
 }
 
-func (s *crdSuite) TestK8sIngressV1(c *gc.C) {
+func (s *ingressSuite) TestK8sIngressV1(c *gc.C) {
 	specV1Beta1 := `
 name: ingress-resource-backend
 spec:
@@ -117,7 +117,7 @@ spec:
 					},
 				},
 				Rules: []networkingv1.IngressRule{
-					networkingv1.IngressRule{
+					{
 						IngressRuleValue: networkingv1.IngressRuleValue{
 							HTTP: &networkingv1.HTTPIngressRuleValue{
 								Paths: []networkingv1.HTTPIngressPath{

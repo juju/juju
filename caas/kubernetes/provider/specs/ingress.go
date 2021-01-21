@@ -29,7 +29,6 @@ type K8sIngressSpec struct {
 // UnmarshalJSON implements the json.Unmarshaller interface.
 func (ing *K8sIngressSpec) UnmarshalJSON(value []byte) (err error) {
 	err = unmarshalJSONStrict(value, &ing.SpecV1)
-	logger.Criticalf("K8sIngressSpec.UnmarshalJSON err %#v", err)
 	if err == nil {
 		ing.Version = K8sIngressV1
 		return nil
