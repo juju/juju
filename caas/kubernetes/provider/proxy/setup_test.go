@@ -119,6 +119,7 @@ func (s *setupSuite) TestProxyConfigMap(c *gc.C) {
 		config.Name,
 		meta.GetOptions{},
 	)
+	c.Assert(err, jc.ErrorIsNil)
 
 	fetchedConfig := proxy.ControllerProxyConfig{}
 	configJson := cm.Data[proxy.ProxyConfigMapKey]
