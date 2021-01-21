@@ -237,10 +237,7 @@ func (m *containerManager) getContainerSpec(
 		Profiles: instanceConfig.Profiles,
 		Devices:  nics,
 	}
-	err = spec.ApplyConstraints(m.server.serverVersion, cons)
-	if err != nil {
-		return ContainerSpec{}, errors.Trace(err)
-	}
+	spec.ApplyConstraints(m.server.serverVersion, cons)
 
 	return spec, nil
 }
