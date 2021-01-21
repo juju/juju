@@ -76,7 +76,7 @@ func (s *charmHubAPISuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func (s *charmHubAPISuite) expectModelConfig(c *gc.C) {
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"charm-hub-url": "https://someurl.com",
+		"charmhub-url": "https://someurl.com",
 		"type":          "my-type",
 		"name":          "my-name",
 		"uuid":          testing.ModelTag.Id(),

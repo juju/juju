@@ -20,7 +20,7 @@ var serviceDiscovery = service.DiscoverService
 func stateStepsFor29() []Step {
 	return []Step{
 		&upgradeStep{
-			description: "add charm-hub-url to model config",
+			description: "add charmhub-url to model config",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
 				return context.State().AddCharmHubToModelConfig()

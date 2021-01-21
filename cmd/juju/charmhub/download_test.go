@@ -121,7 +121,7 @@ func (s *downloadSuite) TestRunWithCustomCharmHubURL(c *gc.C) {
 			return s.downloadCommandAPI, nil
 		},
 	}
-	err := cmdtesting.InitCommand(command, []string{"--charm-hub-url=" + url, "test"})
+	err := cmdtesting.InitCommand(command, []string{"--charmhub-url=" + url, "test"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := commandContextForTest(c)
@@ -140,8 +140,8 @@ func (s *downloadSuite) TestRunWithCustomInvalidCharmHubURL(c *gc.C) {
 			return s.downloadCommandAPI, nil
 		},
 	}
-	err := cmdtesting.InitCommand(command, []string{"--charm-hub-url=" + url, "test"})
-	c.Assert(err, gc.ErrorMatches, `unexpected charm-hub-url: parse "meshuggah": invalid URI for request`)
+	err := cmdtesting.InitCommand(command, []string{"--charmhub-url=" + url, "test"})
+	c.Assert(err, gc.ErrorMatches, `unexpected charmhub-url: parse "meshuggah": invalid URI for request`)
 }
 
 func (s *downloadSuite) TestRunWithInvalidStdout(c *gc.C) {
@@ -188,7 +188,7 @@ func (s *downloadSuite) expectModelGet(charmHubURL string) {
 		"type":          "my-type",
 		"name":          "my-name",
 		"uuid":          "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		"charm-hub-url": charmHubURL,
+		"charmhub-url": charmHubURL,
 	}, nil)
 }
 

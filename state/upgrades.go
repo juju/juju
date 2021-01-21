@@ -3034,18 +3034,31 @@ func ResetDefaultRelationLimitInCharmMetadata(pool *StatePool) (err error) {
 	}))
 }
 
-// AddCharmHubToModelConfig inserts the charm-hub-url into the model-config if
+// AddCharmHubToModelConfig inserts the charmhub-url into the model-config if
 // it's missing one.
 func AddCharmHubToModelConfig(pool *StatePool) error {
 	st := pool.SystemState()
 	return errors.Trace(applyToAllModelSettings(st, func(doc *settingsDoc) (bool, error) {
+		defaultServerURL := charmhub.CharmHubServerURL
+		// In older versions of 2.9 RCs the name of the charmhub-url was
+		// charm-hub-url. Ensuring that we have the right value, detect that
+		// value and remove it.
+		var changed bool
+		prior, priorKeySet := doc.Settings["charm-hub-url"]
+		if priorKeySet && prior != "" {
+			changed = true
+			defaultServerURL = prior.(string)
+		}
+		delete(doc.Settings, "charm-hub-url")
+
 		value, keySet := doc.Settings[config.CharmHubURLKey]
 		// CharmHub URL should be a valid URL.
-		if !keySet || value == "" {
-			doc.Settings[config.CharmHubURLKey] = charmhub.CharmHubServerURL
-			return true, nil
+		if priorKeySet || (!keySet || value == "") {
+			changed = true
+			doc.Settings[config.CharmHubURLKey] = defaultServerURL
 		}
-		return false, nil
+
+		return changed, nil
 	}))
 }
 

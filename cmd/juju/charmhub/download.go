@@ -93,7 +93,7 @@ func (c *downloadCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.charmHubCommand.SetFlags(f)
 
 	f.StringVar(&c.channel, "channel", "", "specify a channel to use instead of the default release")
-	f.StringVar(&c.charmHubURL, "charm-hub-url", "", "override the model config by specifying the charmhub url for querying the store")
+	f.StringVar(&c.charmHubURL, "charmhub-url", "", "override the model config by specifying the charmhub url for querying the store")
 	f.StringVar(&c.archivePath, "filepath", "", "filepath location of the charm to download to")
 }
 
@@ -122,7 +122,7 @@ func (c *downloadCommand) Init(args []string) error {
 	if c.charmHubURL != "" {
 		_, err := url.ParseRequestURI(c.charmHubURL)
 		if err != nil {
-			return errors.Annotatef(err, "unexpected charm-hub-url")
+			return errors.Annotatef(err, "unexpected charmhub-url")
 		}
 	}
 

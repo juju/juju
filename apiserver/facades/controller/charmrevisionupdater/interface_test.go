@@ -65,7 +65,7 @@ func makeModel(c *gc.C, ctrl *gomock.Controller) charmrevisionupdater.Model {
 	model.EXPECT().CloudRegion().Return("juju-land").AnyTimes()
 	uuid := testing.ModelTag.Id()
 	cfg, err := config.New(true, map[string]interface{}{
-		"charm-hub-url": "https://api.staging.charmhub.io", // not actually used in tests
+		"charmhub-url": "https://api.staging.charmhub.io", // not actually used in tests
 		"name":          "model",
 		"type":          "type",
 		"uuid":          uuid,

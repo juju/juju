@@ -593,20 +593,20 @@ var configTests = []configTest{
 		about:       "Valid charm-hub api url",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"charm-hub-url": "http://test.com",
+			"charmhub-url": "http://test.com",
 		}),
 	}, {
 		about:       "Malformed charm-hub api url",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"charm-hub-url": "http://t est.com",
+			"charmhub-url": "http://t est.com",
 		}),
 		err: `charm-hub url "http://t est.com" not valid`,
 	}, {
 		about:       "Invalid charm-hub api url",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"charm-hub-url": "meshuggah",
+			"charmhub-url": "meshuggah",
 		}),
 		err: `charm-hub url "meshuggah" not valid`,
 	},
@@ -898,10 +898,10 @@ var validationTests = []validationTest{{
 	new:   testing.Attrs{"uuid": "dcfbdb4a-bca2-49ad-aa7c-f011424e0fe4"},
 	err:   "cannot change uuid from \"90168e4c-2f10-4e9c-83c2-1fb55a58e5a9\" to \"dcfbdb4a-bca2-49ad-aa7c-f011424e0fe4\"",
 }, {
-	about: "Can't change the charm-hub-url (global->none)",
-	old:   testing.Attrs{"charm-hub-url": "http://a.com"},
-	new:   testing.Attrs{"charm-hub-url": "http://b.com"},
-	err:   `cannot change charm-hub-url from "http://a.com" to "http://b.com"`,
+	about: "Can't change the charmhub-url (global->none)",
+	old:   testing.Attrs{"charmhub-url": "http://a.com"},
+	new:   testing.Attrs{"charmhub-url": "http://b.com"},
+	err:   `cannot change charmhub-url from "http://a.com" to "http://b.com"`,
 }}
 
 func (s *ConfigSuite) TestValidateChange(c *gc.C) {
@@ -1212,7 +1212,7 @@ func (s *ConfigSuite) TestMode(c *gc.C) {
 func (s *ConfigSuite) TestCharmHubURLSettingValue(c *gc.C) {
 	url := "http://meshuggah-rocks.com/charmhub"
 	config := newTestConfig(c, testing.Attrs{
-		"charm-hub-url": url,
+		"charmhub-url": url,
 	})
 	chURL, ok := config.CharmHubURL()
 	c.Assert(ok, jc.IsTrue)

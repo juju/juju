@@ -418,7 +418,7 @@ func (c *configCommand) setConfig(client configCommandAPI, ctx *cmd.Context) err
 			if c.ignoreReadOnlyFields {
 				continue
 			}
-			return errors.Errorf(`"charm-hub-url" must be set via "add-model"`)
+			return errors.Errorf(`"charmhub-url" must be set via "add-model"`)
 		}
 
 		values[k] = v
