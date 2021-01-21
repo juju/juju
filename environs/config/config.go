@@ -254,7 +254,7 @@ const (
 	LXDSnapChannel = "lxd-snap-channel"
 
 	// CharmHubURLKey is the key for the url to use for CharmHub API calls
-	CharmHubURLKey = "charm-hub-url"
+	CharmHubURLKey = "charmhub-url"
 
 	// ModeKey is the key for defining the mode that a given model should be
 	// using.
@@ -797,7 +797,7 @@ func Validate(cfg, old *Config) error {
 		}
 		if _, oldFound := old.CharmHubURL(); oldFound {
 			if _, newFound := cfg.CharmHubURL(); !newFound {
-				return errors.New("cannot clear charm-hub-url")
+				return errors.New("cannot clear charmhub-url")
 			}
 		}
 	}

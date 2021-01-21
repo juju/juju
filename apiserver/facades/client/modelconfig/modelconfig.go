@@ -147,8 +147,8 @@ func (c *ModelConfigAPI) ModelSet(args params.ModelSet) error {
 	// Make sure we don't allow changing agent-version.
 	checkAgentVersion := c.checkAgentVersion()
 
-	// Make sure we don't allow changing of the charm-hub-url.
-	checkCharmHubURL := c.checkCharmHubURL()
+	// Make sure we don't allow changing of the charmhub-url.
+	checkCharmhubURL := c.checkCharmhubURL()
 
 	// Only controller admins can set trace level debugging on a model.
 	checkLogTrace := c.checkLogTrace()
@@ -158,7 +158,7 @@ func (c *ModelConfigAPI) ModelSet(args params.ModelSet) error {
 
 	// Replace any deprecated attributes with their new values.
 	attrs := config.ProcessDeprecatedAttributes(args.Config)
-	return c.backend.UpdateModelConfig(attrs, nil, checkAgentVersion, checkLogTrace, checkDefaultSpace, checkCharmHubURL)
+	return c.backend.UpdateModelConfig(attrs, nil, checkAgentVersion, checkLogTrace, checkDefaultSpace, checkCharmhubURL)
 }
 
 func (c *ModelConfigAPI) checkLogTrace() state.ValidateConfigFunc {
@@ -223,12 +223,12 @@ func (c *ModelConfigAPI) checkDefaultSpace() state.ValidateConfigFunc {
 	}
 }
 
-func (c *ModelConfigAPI) checkCharmHubURL() state.ValidateConfigFunc {
+func (c *ModelConfigAPI) checkCharmhubURL() state.ValidateConfigFunc {
 	return func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
-		if v, found := updateAttrs["charm-hub-url"]; found {
+		if v, found := updateAttrs["charmhub-url"]; found {
 			oldURL, _ := oldConfig.CharmHubURL()
 			if v != oldURL {
-				return errors.New("charm-hub-url cannot be changed")
+				return errors.New("charmhub-url cannot be changed")
 			}
 		}
 		return nil

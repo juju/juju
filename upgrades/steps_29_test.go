@@ -38,7 +38,7 @@ func (s *steps29Suite) TestStoreDeployedUnitsInMachineAgentConf(c *gc.C) {
 }
 
 func (s *steps29Suite) TestAddCharmhubToModelConfig(c *gc.C) {
-	step := findStateStep(c, v290, "add charm-hub-url to model config")
+	step := findStateStep(c, v290, "add charmhub-url to model config")
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
 

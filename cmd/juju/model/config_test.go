@@ -221,8 +221,8 @@ func (s *ConfigCommandSuite) TestSetAgentVersion(c *gc.C) {
 }
 
 func (s *ConfigCommandSuite) TestSetCharmhubURL(c *gc.C) {
-	_, err := s.run(c, "charm-hub-url=http://meshuggah.rocks")
-	c.Assert(err, gc.ErrorMatches, `"charm-hub-url" must be set via "add-model"`)
+	_, err := s.run(c, "charmhub-url=http://meshuggah.rocks")
+	c.Assert(err, gc.ErrorMatches, `"charmhub-url" must be set via "add-model"`)
 }
 
 func (s *ConfigCommandSuite) TestSetAndReset(c *gc.C) {

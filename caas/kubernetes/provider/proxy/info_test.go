@@ -100,6 +100,7 @@ func (i *infoSuite) TestGetControllerProxier(c *gc.C) {
 		},
 		meta.CreateOptions{},
 	)
+	c.Assert(err, jc.ErrorIsNil)
 
 	sa, err := i.client.CoreV1().ServiceAccounts(testNamespace).Get(
 		context.TODO(),
