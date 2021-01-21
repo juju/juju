@@ -66,9 +66,9 @@ func makeModel(c *gc.C, ctrl *gomock.Controller) charmrevisionupdater.Model {
 	uuid := testing.ModelTag.Id()
 	cfg, err := config.New(true, map[string]interface{}{
 		"charmhub-url": "https://api.staging.charmhub.io", // not actually used in tests
-		"name":          "model",
-		"type":          "type",
-		"uuid":          uuid,
+		"name":         "model",
+		"type":         "type",
+		"uuid":         uuid,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	model.EXPECT().Config().Return(cfg, nil).AnyTimes()

@@ -41,7 +41,7 @@ func (s *modelconfigSuite) SetUpTest(c *gc.C) {
 			"agent-version":   {"1.2.3.4", "model"},
 			"ftp-proxy":       {"http://proxy", "model"},
 			"authorized-keys": {testing.FakeAuthKeys, "model"},
-			"charmhub-url":   {"http://meshuggah.rocks", "model"},
+			"charmhub-url":    {"http://meshuggah.rocks", "model"},
 		},
 	}
 	var err error
@@ -56,7 +56,7 @@ func (s *modelconfigSuite) TestModelGet(c *gc.C) {
 		"type":          {"dummy", "model"},
 		"ftp-proxy":     {"http://proxy", "model"},
 		"agent-version": {Value: "1.2.3.4", Source: "model"},
-		"charmhub-url": {"http://meshuggah.rocks", "model"},
+		"charmhub-url":  {"http://meshuggah.rocks", "model"},
 	})
 }
 

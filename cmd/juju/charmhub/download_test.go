@@ -185,9 +185,9 @@ func (s *downloadSuite) setUpMocks(c *gc.C) *gomock.Controller {
 
 func (s *downloadSuite) expectModelGet(charmHubURL string) {
 	s.modelConfigAPI.EXPECT().ModelGet().Return(map[string]interface{}{
-		"type":          "my-type",
-		"name":          "my-name",
-		"uuid":          "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"type":         "my-type",
+		"name":         "my-name",
+		"uuid":         "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		"charmhub-url": charmHubURL,
 	}, nil)
 }

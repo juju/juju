@@ -143,7 +143,7 @@ LXC_BRIDGE="ignored"`[1:])
 
 	modelAttrs := testing.FakeConfig().Merge(testing.Attrs{
 		"agent-version":  jujuversion.Current.String(),
-		"charmhub-url":  charmhub.CharmHubServerURL,
+		"charmhub-url":   charmhub.CharmHubServerURL,
 		"not-for-hosted": "foo",
 	})
 	modelCfg, err := config.New(config.NoDefaults, modelAttrs)
@@ -422,7 +422,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	})
 	modelAttrs := dummy.SampleConfig().Delete("admin-secret").Merge(testing.Attrs{
 		"agent-version": jujuversion.Current.String(),
-		"charmhub-url": charmhub.CharmHubServerURL,
+		"charmhub-url":  charmhub.CharmHubServerURL,
 	})
 	modelCfg, err := config.New(config.NoDefaults, modelAttrs)
 	c.Assert(err, jc.ErrorIsNil)
