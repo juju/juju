@@ -296,8 +296,8 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 		Rules: []rbacv1.PolicyRule{
 			{
 				APIGroups: []string{""},
-				Resources: []string{"pods"},
-				Verbs:     []string{"get", "list"},
+				Resources: []string{"pods", "services"},
+				Verbs:     []string{"get", "list", "patch"},
 			},
 			{
 				APIGroups: []string{""},
@@ -405,8 +405,8 @@ func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
 		Rules: []rbacv1.PolicyRule{
 			{
 				APIGroups: []string{""},
-				Resources: []string{"pods"},
-				Verbs:     []string{"get", "list"},
+				Resources: []string{"pods", "services"},
+				Verbs:     []string{"get", "list", "patch"},
 			},
 			{
 				APIGroups: []string{""},
@@ -520,8 +520,8 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 		Rules: []rbacv1.PolicyRule{
 			{
 				APIGroups: []string{""},
-				Resources: []string{"pods"},
-				Verbs:     []string{"get", "list"},
+				Resources: []string{"pods", "services"},
+				Verbs:     []string{"get", "list", "patch"},
 			},
 			{
 				APIGroups: []string{""},
@@ -659,8 +659,8 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoStorageExistingPVC(c *gc.C) {
 		Rules: []rbacv1.PolicyRule{
 			{
 				APIGroups: []string{""},
-				Resources: []string{"pods"},
-				Verbs:     []string{"get", "list"},
+				Resources: []string{"pods", "services"},
+				Verbs:     []string{"get", "list", "patch"},
 			},
 			{
 				APIGroups: []string{""},
@@ -791,8 +791,8 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoStorage(c *gc.C) {
 		Rules: []rbacv1.PolicyRule{
 			{
 				APIGroups: []string{""},
-				Resources: []string{"pods"},
-				Verbs:     []string{"get", "list"},
+				Resources: []string{"pods", "services"},
+				Verbs:     []string{"get", "list", "patch"},
 			},
 			{
 				APIGroups: []string{""},
@@ -895,8 +895,8 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *gc.C
 		Rules: []rbacv1.PolicyRule{
 			{
 				APIGroups: []string{""},
-				Resources: []string{"pods"},
-				Verbs:     []string{"get", "list"},
+				Resources: []string{"pods", "services"},
+				Verbs:     []string{"get", "list", "patch"},
 			},
 			{
 				APIGroups: []string{""},
