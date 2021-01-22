@@ -4,15 +4,12 @@
 package specs
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	admissionregistration "k8s.io/api/admissionregistration/v1beta1"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -224,62 +221,6 @@ func (m Meta) Validate() error {
 	return nil
 }
 
-// K8sCustomResourceDefinitionSpec defines spec for creating or updating an CustomResourceDefinition resource.
-type K8sCustomResourceDefinitionSpec struct {
-	Meta `json:",inline" yaml:",inline"`
-	Spec apiextensionsv1beta1.CustomResourceDefinitionSpec `json:"spec" yaml:"spec"`
-}
-
-// Validate validates the spec.
-func (crd K8sCustomResourceDefinitionSpec) Validate() error {
-	if err := crd.Meta.Validate(); err != nil {
-		return errors.Trace(err)
-	}
-
-	if crd.Spec.Scope != apiextensionsv1beta1.NamespaceScoped && crd.Spec.Scope != apiextensionsv1beta1.ClusterScoped {
-		return errors.NewNotSupported(nil,
-			fmt.Sprintf("custom resource definition %q scope %q is not supported, please use %q or %q scope",
-				crd.Name, crd.Spec.Scope, apiextensionsv1beta1.NamespaceScoped, apiextensionsv1beta1.ClusterScoped),
-		)
-	}
-	if err := validateLabels(crd.Labels); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-// K8sMutatingWebhookSpec defines spec for creating or updating an MutatingWebhook resource.
-type K8sMutatingWebhookSpec struct {
-	Meta     `json:",inline" yaml:",inline"`
-	Webhooks []admissionregistration.MutatingWebhook `json:"webhooks" yaml:"webhooks"`
-}
-
-func (w K8sMutatingWebhookSpec) Validate() error {
-	if err := w.Meta.Validate(); err != nil {
-		return errors.Trace(err)
-	}
-	if len(w.Webhooks) == 0 {
-		return errors.NotValidf("empty webhooks %q", w.Name)
-	}
-	return nil
-}
-
-// K8sValidatingWebhookSpec defines spec for creating or updating an ValidatingWebhook resource.
-type K8sValidatingWebhookSpec struct {
-	Meta     `json:",inline" yaml:",inline"`
-	Webhooks []admissionregistration.ValidatingWebhook `json:"webhooks" yaml:"webhooks"`
-}
-
-func (w K8sValidatingWebhookSpec) Validate() error {
-	if err := w.Meta.Validate(); err != nil {
-		return errors.Trace(err)
-	}
-	if len(w.Webhooks) == 0 {
-		return errors.NotValidf("empty webhooks %q", w.Name)
-	}
-	return nil
-}
-
 // K8sService is a subset of v1.Service which defines
 // attributes we expose for charms to set.
 type K8sService struct {
@@ -300,11 +241,11 @@ type KubernetesResources struct {
 
 	Secrets                   []K8sSecret                            `json:"secrets" yaml:"secrets"`
 	Services                  []K8sService                           `json:"services" yaml:"services"`
-	CustomResourceDefinitions []K8sCustomResourceDefinitionSpec      `json:"customResourceDefinitions" yaml:"customResourceDefinitions"`
+	CustomResourceDefinitions []K8sCustomResourceDefinition          `json:"customResourceDefinitions" yaml:"customResourceDefinitions"`
 	CustomResources           map[string][]unstructured.Unstructured `json:"customResources,omitempty" yaml:"customResources,omitempty"`
 
-	MutatingWebhookConfigurations   []K8sMutatingWebhookSpec   `json:"mutatingWebhookConfigurations,omitempty" yaml:"mutatingWebhookConfigurations,omitempty"`
-	ValidatingWebhookConfigurations []K8sValidatingWebhookSpec `json:"validatingWebhookConfigurations,omitempty" yaml:"validatingWebhookConfigurations,omitempty"`
+	MutatingWebhookConfigurations   []K8sMutatingWebhook   `json:"mutatingWebhookConfigurations,omitempty" yaml:"mutatingWebhookConfigurations,omitempty"`
+	ValidatingWebhookConfigurations []K8sValidatingWebhook `json:"validatingWebhookConfigurations,omitempty" yaml:"validatingWebhookConfigurations,omitempty"`
 
 	K8sRBACResources `json:",inline" yaml:",inline"`
 
