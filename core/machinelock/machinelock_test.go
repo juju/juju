@@ -32,7 +32,7 @@ type lockSuite struct {
 	clock   *fakeClock
 	lock    Lock
 
-	notify       chan struct{}
+	notify       chan string
 	allowAcquire chan struct{}
 	release      chan struct{}
 }
@@ -45,7 +45,7 @@ func (s *lockSuite) SetUpTest(c *gc.C) {
 
 	s.logfile = filepath.Join(c.MkDir(), "logfile")
 
-	s.notify = make(chan struct{})
+	s.notify = make(chan string)
 	s.allowAcquire = make(chan struct{})
 	s.release = make(chan struct{})
 
@@ -119,7 +119,7 @@ test:
 }
 
 func (s *lockSuite) TestHoldingOutput(c *gc.C) {
-	s.addAcquired(c, "worker1", "being busy", 0)
+	s.addAcquired(c, "machine-lock", "", "worker1", "being busy", 0)
 	s.clock.Advance(time.Minute * 2)
 
 	output, err := s.lock.Report()
@@ -141,6 +141,18 @@ test:
     hold-time: 2m0s
 `[1:])
 
+}
+
+func (s *lockSuite) TestLockGroup(c *gc.C) {
+	s.addAcquired(c, "machine-lock-group", "group", "worker1", "being busy", 0)
+	s.clock.Advance(time.Minute * 2)
+
+	output, err := s.lock.Report()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(output, gc.Equals, `
+test:
+  holder: worker1 (being busy), holding 2m0s
+`[1:])
 }
 
 func (s *lockSuite) TestHistoryOutput(c *gc.C) {
@@ -244,20 +256,22 @@ func (s *lockSuite) addWaiting(c *gc.C, worker, comment string) {
 	}
 }
 
-func (s *lockSuite) addAcquired(c *gc.C, worker, comment string, wait time.Duration) func() {
+func (s *lockSuite) addAcquired(c *gc.C, name, group, worker, comment string, wait time.Duration) func() {
 	releaser := make(chan func())
 	go func() {
 		r, err := s.lock.Acquire(machinelock.Spec{
 			Cancel:  make(chan struct{}),
 			Worker:  worker,
 			Comment: comment,
+			Group:   group,
 		})
 		c.Check(err, jc.ErrorIsNil)
 		releaser <- r
 	}()
 
 	select {
-	case <-s.notify:
+	case got := <-s.notify:
+		c.Assert(got, gc.Equals, name)
 	case <-time.After(jujutesting.LongWait):
 		c.Fatal("lock acquire didn't happen")
 	}
@@ -284,13 +298,13 @@ func (s *lockSuite) addHistory(c *gc.C, worker, comment string, released string,
 	diff := releasedTime.Sub(s.clock.Now())
 	diff -= waited + held
 	s.clock.Advance(diff)
-	releaser := s.addAcquired(c, worker, comment, waited)
+	releaser := s.addAcquired(c, "machine-lock", "", worker, comment, waited)
 	s.clock.Advance(held)
 	releaser()
 }
 
 func (s *lockSuite) acquireLock(spec mutex.Spec) (mutex.Releaser, error) {
-	s.notify <- struct{}{}
+	s.notify <- spec.Name
 	select {
 	case <-s.allowAcquire:
 	case <-spec.Cancel:
