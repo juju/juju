@@ -5,12 +5,13 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
-	charm_v6 "github.com/juju/charm/v9"
+	charm "github.com/juju/charm/v9"
 	hook "github.com/juju/juju/worker/uniter/hook"
 	operation "github.com/juju/juju/worker/uniter/operation"
 	remotestate "github.com/juju/juju/worker/uniter/remotestate"
-	reflect "reflect"
 )
 
 // MockOperation is a mock of Operation interface
@@ -64,6 +65,20 @@ func (m *MockOperation) Execute(arg0 operation.State) (*operation.State, error) 
 func (mr *MockOperationMockRecorder) Execute(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockOperation)(nil).Execute), arg0)
+}
+
+// ExecutionGroup mocks base method
+func (m *MockOperation) ExecutionGroup() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExecutionGroup")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ExecutionGroup indicates an expected call of ExecutionGroup
+func (mr *MockOperationMockRecorder) ExecutionGroup() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecutionGroup", reflect.TypeOf((*MockOperation)(nil).ExecutionGroup))
 }
 
 // NeedsGlobalMachineLock mocks base method
@@ -205,7 +220,7 @@ func (mr *MockFactoryMockRecorder) NewFailAction(arg0 interface{}) *gomock.Call 
 }
 
 // NewInstall mocks base method
-func (m *MockFactory) NewInstall(arg0 *charm_v6.URL) (operation.Operation, error) {
+func (m *MockFactory) NewInstall(arg0 *charm.URL) (operation.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewInstall", arg0)
 	ret0, _ := ret[0].(operation.Operation)
@@ -265,7 +280,7 @@ func (mr *MockFactoryMockRecorder) NewResignLeadership() *gomock.Call {
 }
 
 // NewResolvedUpgrade mocks base method
-func (m *MockFactory) NewResolvedUpgrade(arg0 *charm_v6.URL) (operation.Operation, error) {
+func (m *MockFactory) NewResolvedUpgrade(arg0 *charm.URL) (operation.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewResolvedUpgrade", arg0)
 	ret0, _ := ret[0].(operation.Operation)
@@ -280,7 +295,7 @@ func (mr *MockFactoryMockRecorder) NewResolvedUpgrade(arg0 interface{}) *gomock.
 }
 
 // NewRevertUpgrade mocks base method
-func (m *MockFactory) NewRevertUpgrade(arg0 *charm_v6.URL) (operation.Operation, error) {
+func (m *MockFactory) NewRevertUpgrade(arg0 *charm.URL) (operation.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewRevertUpgrade", arg0)
 	ret0, _ := ret[0].(operation.Operation)
@@ -340,7 +355,7 @@ func (mr *MockFactoryMockRecorder) NewSkipRemoteInit(arg0 interface{}) *gomock.C
 }
 
 // NewUpgrade mocks base method
-func (m *MockFactory) NewUpgrade(arg0 *charm_v6.URL) (operation.Operation, error) {
+func (m *MockFactory) NewUpgrade(arg0 *charm.URL) (operation.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewUpgrade", arg0)
 	ret0, _ := ret[0].(operation.Operation)

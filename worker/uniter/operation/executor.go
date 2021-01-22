@@ -30,7 +30,7 @@ type executor struct {
 	unitName           string
 	stateOps           *StateOps
 	state              *State
-	acquireMachineLock func(string) (func(), error)
+	acquireMachineLock func(string, string) (func(), error)
 	logger             Logger
 }
 
@@ -38,7 +38,7 @@ type executor struct {
 type ExecutorConfig struct {
 	StateReadWriter UnitStateReadWriter
 	InitialState    State
-	AcquireLock     func(string) (func(), error)
+	AcquireLock     func(string, string) (func(), error)
 	Logger          Logger
 }
 
@@ -85,12 +85,15 @@ func (x *executor) Run(op Operation, remoteStateChange <-chan remotestate.Snapsh
 	x.logger.Debugf("running operation %v for %s", op, x.unitName)
 
 	if op.NeedsGlobalMachineLock() {
-		releaser, err := x.acquireMachineLock(op.String())
+		x.logger.Debugf("acquiring machine lock for %s", x.unitName)
+		releaser, err := x.acquireMachineLock(op.String(), op.ExecutionGroup())
 		if err != nil {
 			return errors.Annotatef(err, "could not acquire %q lock for %s", op, x.unitName)
 		}
 		defer x.logger.Debugf("lock released for %s", x.unitName)
 		defer releaser()
+	} else {
+		x.logger.Debugf("no machine lock needed for %s", x.unitName)
 	}
 
 	switch err := x.do(op, stepPrepare); errors.Cause(err) {

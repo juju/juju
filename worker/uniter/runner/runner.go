@@ -312,7 +312,6 @@ func (runner *runner) runJujuRunAction() (err error) {
 		return errors.Trace(err)
 	}
 
-	// TODO(wallyworld) - use parallel and execution group
 	results, err := runner.runCommandsWithTimeout(command, time.Duration(timeout), clock.WallClock, rMode, data.Cancel)
 	if results != nil {
 		if err := runner.updateActionResults(results); err != nil {
@@ -382,7 +381,6 @@ func (runner *runner) RunAction(actionName string) (HookHandlerType, error) {
 		return InvalidHookHandler, errors.Trace(err)
 	}
 	runner.logger().Debugf("running action %q on %v", actionName, rMode)
-	// TODO(wallyworld) - use parallel and execution group
 	return runner.runCharmHookWithLocation(actionName, "actions", rMode)
 }
 

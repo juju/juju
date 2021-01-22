@@ -4,11 +4,13 @@
 package actions_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/actions"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
@@ -97,6 +99,22 @@ func (s *actionsSuite) TestNextActionBlocked(c *gc.C) {
 	c.Assert(op, gc.IsNil)
 }
 
+func (s *actionsSuite) TestNextActionNotAvailable(c *gc.C) {
+	actionResolver := s.newResolver()
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind: operation.Continue,
+		},
+		CompletedActions: map[string]struct{}{"actionA": {}},
+	}
+	remoteState := remotestate.Snapshot{
+		ActionsPending: []string{"actionA", "actionB"},
+	}
+	op, err := actionResolver.NextOp(localState, remoteState, &mockOperations{err: charmrunner.ErrActionNotAvailable})
+	c.Assert(err, gc.DeepEquals, resolver.ErrNoOperation)
+	c.Assert(op, gc.IsNil)
+}
+
 func (s *actionsSuite) TestNextActionBlockedRemoteInit(c *gc.C) {
 	actionResolver := s.newResolver()
 	localState := resolver.LocalState{
@@ -155,9 +173,13 @@ func (s *actionsSuite) TestActionStateKindRunActionPendingRemote(c *gc.C) {
 
 type mockOperations struct {
 	operation.Factory
+	err error
 }
 
 func (m *mockOperations) NewAction(id string) (operation.Operation, error) {
+	if m.err != nil {
+		return nil, errors.Annotate(m.err, "action error")
+	}
 	return mockOp(id), nil
 }
 

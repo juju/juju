@@ -4,6 +4,9 @@
 package actions
 
 import (
+	"github.com/juju/errors"
+
+	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
@@ -47,7 +50,7 @@ func (r *actionsResolver) NextOp(
 	localState resolver.LocalState,
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,
-) (operation.Operation, error) {
+) (_ operation.Operation, err error) {
 	// During CAAS unit initialization action operations are
 	// deferred until the unit is running. If the remote charm needs
 	// updating, hold off on action running.
@@ -62,6 +65,13 @@ func (r *actionsResolver) NextOp(
 	if err != nil && err != resolver.ErrNoOperation {
 		return nil, err
 	}
+
+	defer func() {
+		if errors.Cause(err) == charmrunner.ErrActionNotAvailable {
+			err = resolver.ErrNoOperation
+		}
+	}()
+
 	switch localState.Kind {
 	case operation.RunHook:
 		// We can still run actions if the unit is in a hook error state.

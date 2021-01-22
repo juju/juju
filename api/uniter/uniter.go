@@ -253,6 +253,7 @@ func (st *State) Action(tag names.ActionTag) (*Action, error) {
 		return nil, err
 	}
 	a := &Action{
+		id:     tag.Id(),
 		name:   result.Action.Name,
 		params: result.Action.Parameters,
 	}

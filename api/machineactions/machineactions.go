@@ -82,6 +82,7 @@ func (c *Client) Action(tag names.ActionTag) (*Action, error) {
 		return nil, errors.Trace(err)
 	}
 	a := &Action{
+		id:     tag.Id(),
 		name:   result.Action.Name,
 		params: result.Action.Parameters,
 	}

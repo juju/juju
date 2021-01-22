@@ -8,6 +8,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/remotestate"
@@ -19,6 +22,7 @@ type FactoryParams struct {
 	Deployer       charm.Deployer
 	RunnerFactory  runner.Factory
 	Callbacks      Callbacks
+	State          *uniter.State
 	Abort          <-chan struct{}
 	MetricSpoolDir string
 	Logger         Logger
@@ -122,8 +126,19 @@ func (f *factory) NewAction(actionId string) (Operation, error) {
 	if !names.IsValidAction(actionId) {
 		return nil, errors.Errorf("invalid action id %q", actionId)
 	}
+
+	tag := names.NewActionTag(actionId)
+	action, err := f.config.State.Action(tag)
+	if params.IsCodeNotFoundOrCodeUnauthorized(err) {
+		return nil, charmrunner.ErrActionNotAvailable
+	} else if params.IsCodeActionNotAvailable(err) {
+		return nil, charmrunner.ErrActionNotAvailable
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &runAction{
-		actionId:      actionId,
+		action:        action,
 		callbacks:     f.config.Callbacks,
 		runnerFactory: f.config.RunnerFactory,
 		logger:        f.config.Logger,

@@ -4,19 +4,18 @@
 package runner_test
 
 import (
-	"os"
 	"strings"
 	"time"
 
 	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/clock/testclock"
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -180,7 +179,6 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	factory, err := runner.NewFactory(
-		uniter,
 		s.paths,
 		contextFactory,
 		runner.NewRunner,
@@ -243,19 +241,24 @@ func (s *FactorySuite) TestNewActionRunnerGood(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		action, err := s.model.EnqueueAction(operationID, s.unit.Tag(), test.actionName, test.payload, true, "group")
 		c.Assert(err, jc.ErrorIsNil)
-		rnr, err := s.factory.NewActionRunner(action.Id(), nil)
+		uniterAction := uniter.NewAction(
+			action.Id(),
+			action.Name(),
+			action.Parameters(),
+			action.Parallel(),
+			action.ExecutionGroup(),
+		)
+		rnr, err := s.factory.NewActionRunner(uniterAction, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		s.AssertPaths(c, rnr)
 		ctx := rnr.Context()
 		data, err := ctx.ActionData()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(data, jc.DeepEquals, &context.ActionData{
-			Name:           test.actionName,
-			Tag:            action.ActionTag(),
-			Params:         test.payload,
-			Parallel:       true,
-			ExecutionGroup: "group",
-			ResultsMap:     map[string]interface{}{},
+			Name:       test.actionName,
+			Tag:        action.ActionTag(),
+			Params:     test.payload,
+			ResultsMap: map[string]interface{}{},
 		})
 		vars, err := ctx.HookVars(s.paths, false, func(k string) string {
 			switch k {
@@ -275,20 +278,10 @@ func (s *FactorySuite) TestNewActionRunnerGood(c *gc.C) {
 	}
 }
 
-func (s *FactorySuite) TestNewActionRunnerBadCharm(c *gc.C) {
-	rnr, err := s.factory.NewActionRunner("irrelevant", nil)
-	c.Assert(rnr, gc.IsNil)
-	c.Assert(errors.Cause(err), jc.Satisfies, os.IsNotExist)
-	c.Assert(err, gc.Not(jc.Satisfies), charmrunner.IsBadActionError)
-}
-
 func (s *FactorySuite) TestNewActionRunnerBadName(c *gc.C) {
 	s.SetCharm(c, "dummy")
-	operationID, err := s.model.EnqueueOperation("a test")
-	c.Assert(err, jc.ErrorIsNil)
-	action, err := s.model.EnqueueAction(operationID, s.unit.Tag(), "no-such-action", nil, true, "group")
-	c.Assert(err, jc.ErrorIsNil) // this will fail when using AddAction on unit
-	rnr, err := s.factory.NewActionRunner(action.Id(), nil)
+	action := uniter.NewAction("666", "no-such-action", nil, false, "")
+	rnr, err := s.factory.NewActionRunner(action, nil)
 	c.Check(rnr, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "cannot run \"no-such-action\" action: not defined")
 	c.Check(err, jc.Satisfies, charmrunner.IsBadActionError)
@@ -296,44 +289,13 @@ func (s *FactorySuite) TestNewActionRunnerBadName(c *gc.C) {
 
 func (s *FactorySuite) TestNewActionRunnerBadParams(c *gc.C) {
 	s.SetCharm(c, "dummy")
-	operationID, err := s.model.EnqueueOperation("a test")
-	c.Assert(err, jc.ErrorIsNil)
-	action, err := s.model.EnqueueAction(operationID, s.unit.Tag(), "snapshot", map[string]interface{}{
+	action := uniter.NewAction("666", "snapshot", map[string]interface{}{
 		"outfile": 123,
 	}, true, "group")
-	c.Assert(err, jc.ErrorIsNil) // this will fail when state is done right
-	rnr, err := s.factory.NewActionRunner(action.Id(), nil)
+	rnr, err := s.factory.NewActionRunner(action, nil)
 	c.Check(rnr, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "cannot run \"snapshot\" action: .*")
 	c.Check(err, jc.Satisfies, charmrunner.IsBadActionError)
-}
-
-func (s *FactorySuite) TestNewActionRunnerMissingAction(c *gc.C) {
-	s.SetCharm(c, "dummy")
-	operationID, err := s.model.EnqueueOperation("a test")
-	c.Assert(err, jc.ErrorIsNil)
-	action, err := s.model.EnqueueAction(operationID, s.unit.Tag(), "snapshot", nil, true, "group")
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.unit.CancelAction(action)
-	c.Assert(err, jc.ErrorIsNil)
-	rnr, err := s.factory.NewActionRunner(action.Id(), nil)
-	c.Check(rnr, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "action no longer available")
-	c.Check(err, gc.Equals, charmrunner.ErrActionNotAvailable)
-}
-
-func (s *FactorySuite) TestNewActionRunnerUnauthAction(c *gc.C) {
-	s.SetCharm(c, "dummy")
-	otherUnit, err := s.application.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	operationID, err := s.model.EnqueueOperation("a test")
-	c.Assert(err, jc.ErrorIsNil)
-	action, err := s.model.EnqueueAction(operationID, otherUnit.Tag(), "snapshot", nil, true, "group")
-	c.Assert(err, jc.ErrorIsNil)
-	rnr, err := s.factory.NewActionRunner(action.Id(), nil)
-	c.Check(rnr, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "action no longer available")
-	c.Check(err, gc.Equals, charmrunner.ErrActionNotAvailable)
 }
 
 func (s *FactorySuite) TestNewActionRunnerWithCancel(c *gc.C) {
@@ -347,20 +309,25 @@ func (s *FactorySuite) TestNewActionRunnerWithCancel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	action, err := s.model.EnqueueAction(operationID, s.unit.Tag(), actionName, payload, true, "group")
 	c.Assert(err, jc.ErrorIsNil)
-	rnr, err := s.factory.NewActionRunner(action.Id(), cancel)
+	uniterAction := uniter.NewAction(
+		action.Id(),
+		action.Name(),
+		action.Parameters(),
+		action.Parallel(),
+		action.ExecutionGroup(),
+	)
+	rnr, err := s.factory.NewActionRunner(uniterAction, cancel)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertPaths(c, rnr)
 	ctx := rnr.Context()
 	data, err := ctx.ActionData()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, jc.DeepEquals, &context.ActionData{
-		Name:           actionName,
-		Tag:            action.ActionTag(),
-		Params:         payload,
-		Parallel:       true,
-		ExecutionGroup: "group",
-		ResultsMap:     map[string]interface{}{},
-		Cancel:         cancel,
+		Name:       actionName,
+		Tag:        action.ActionTag(),
+		Params:     payload,
+		ResultsMap: map[string]interface{}{},
+		Cancel:     cancel,
 	})
 	vars, err := ctx.HookVars(s.paths, false, func(k string) string {
 		switch k {
