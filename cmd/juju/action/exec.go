@@ -46,12 +46,14 @@ func newExecCommand(store jujuclient.ClientStore, logMessageHandler func(*cmd.Co
 // execCommand is responsible for running arbitrary commands on remote machines.
 type execCommand struct {
 	runCommandBase
-	all          bool
-	operator     bool
-	machines     []string
-	applications []string
-	units        []string
-	commands     string
+	all            bool
+	operator       bool
+	machines       []string
+	applications   []string
+	units          []string
+	commands       string
+	parallel       bool
+	executionGroup string
 }
 
 const execDoc = `
@@ -92,6 +94,13 @@ instead of the workload. On IAAS models, --operator has no effect.
 Commands run for applications or units are executed in a 'hook context' for
 the unit.
 
+Commands run on machines via the --machine argument are run in parallel by default.
+If you want commands to be run sequentially in order of submission, use --parallel=false.
+Such commands will first acquire a global execution lock on the host machine before running,
+and release the lock when done.
+It's also possible to group commands so that those in the same group run sequentially, but
+in parallel with other groups. This is done using --execution-group=somegroup.
+
 --all is provided as a simple way to run the command on all the machines
 in the model.  If you specify --all you cannot provide additional
 targets.
@@ -123,6 +132,8 @@ func (c *execCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.runCommandBase.SetFlags(f)
 	f.BoolVar(&c.all, "all", false, "Run the commands on all the machines")
 	f.BoolVar(&c.operator, "operator", false, "Run the commands on the operator (k8s-only)")
+	f.BoolVar(&c.parallel, "parallel", true, "Run the commands in parallel without first acquiring a lock")
+	f.StringVar(&c.executionGroup, "execution-group", "", "Commands in the same execution group are run sequentially")
 	f.Var(cmd.NewStringsValue(nil, &c.machines), "machine", "One or more machine ids")
 	f.Var(cmd.NewStringsValue(nil, &c.applications), "a", "One or more application names")
 	f.Var(cmd.NewStringsValue(nil, &c.applications), "app", "")
@@ -217,11 +228,13 @@ func (c *execCommand) Run(ctx *cmd.Context) error {
 		runResults, err = c.api.RunOnAllMachines(c.commands, c.wait)
 	} else {
 		runParams := params.RunParams{
-			Commands:     c.commands,
-			Timeout:      c.wait,
-			Machines:     c.machines,
-			Applications: c.applications,
-			Units:        c.units,
+			Commands:       c.commands,
+			Timeout:        c.wait,
+			Machines:       c.machines,
+			Applications:   c.applications,
+			Units:          c.units,
+			Parallel:       &c.parallel,
+			ExecutionGroup: &c.executionGroup,
 		}
 		if c.operator {
 			if modelType != model.CAAS {
