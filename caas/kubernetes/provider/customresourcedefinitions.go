@@ -91,7 +91,9 @@ func (k *kubernetesClient) ensureCustomResourceDefinitionV1beta1(
 	api := k.extendedClient().ApiextensionsV1beta1().CustomResourceDefinitions()
 	logger.Debugf("creating custom resource definition %q", spec.GetName())
 	if out, err = api.Create(context.TODO(), spec, metav1.CreateOptions{}); err == nil {
-		cleanUps = append(cleanUps, func() { _ = api.Delete(context.TODO(), out.GetName(), utils.NewPreconditionDeleteOptions(out.GetUID())) })
+		cleanUps = append(cleanUps, func() {
+			_ = api.Delete(context.TODO(), out.GetName(), utils.NewPreconditionDeleteOptions(out.GetUID()))
+		})
 		return out, cleanUps, nil
 	}
 	if !k8serrors.IsAlreadyExists(err) {
@@ -117,7 +119,9 @@ func (k *kubernetesClient) ensureCustomResourceDefinitionV1(
 	api := k.extendedClient().ApiextensionsV1().CustomResourceDefinitions()
 	logger.Debugf("creating custom resource definition %q", spec.GetName())
 	if out, err = api.Create(context.TODO(), spec, metav1.CreateOptions{}); err == nil {
-		cleanUps = append(cleanUps, func() { _ = api.Delete(context.TODO(), out.GetName(), utils.NewPreconditionDeleteOptions(out.GetUID())) })
+		cleanUps = append(cleanUps, func() {
+			_ = api.Delete(context.TODO(), out.GetName(), utils.NewPreconditionDeleteOptions(out.GetUID()))
+		})
 		return out, cleanUps, nil
 	}
 	if !k8serrors.IsAlreadyExists(err) {

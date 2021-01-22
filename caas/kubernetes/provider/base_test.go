@@ -53,7 +53,7 @@ type BaseSuite struct {
 	mockNamespaces             *mocks.MockNamespaceInterface
 	mockApps                   *mocks.MockAppsV1Interface
 	mockNetworkingV1beta1      *mocks.MockNetworkingV1beta1Interface
-	mockNetworkingV1      *mocks.MockNetworkingV1Interface
+	mockNetworkingV1           *mocks.MockNetworkingV1Interface
 	mockSecrets                *mocks.MockSecretInterface
 	mockDeployments            *mocks.MockDeploymentInterface
 	mockStatefulSets           *mocks.MockStatefulSetInterface
@@ -67,7 +67,7 @@ type BaseSuite struct {
 	mockStorageClass           *mocks.MockStorageClassInterface
 	mockIngressClasses         *mocks.MockIngressClassInterface
 	mockIngressV1Beta1         *mocks.MockIngressV1Beta1Interface
-	mockIngressV1         *mocks.MockIngressV1Interface
+	mockIngressV1              *mocks.MockIngressV1Interface
 	mockNodes                  *mocks.MockNodeInterface
 	mockEvents                 *mocks.MockEventInterface
 

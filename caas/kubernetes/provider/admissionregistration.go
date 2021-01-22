@@ -44,10 +44,10 @@ func (k *kubernetesClient) ensureMutatingWebhookConfigurations(
 ) (cleanUps []func(), err error) {
 	for _, v := range cfgs {
 		obj := metav1.ObjectMeta{
-				Name:        decideNameForGlobalResource(v.Meta, k.namespace, k.IsLegacyLabels()),
-				Namespace:   k.namespace,
-				Labels:      utils.LabelsMerge(v.Labels, k.getAdmissionControllerLabels(appName)),
-				Annotations: k8sannotations.New(v.Annotations).Merge(annotations),
+			Name:        decideNameForGlobalResource(v.Meta, k.namespace, k.IsLegacyLabels()),
+			Namespace:   k.namespace,
+			Labels:      utils.LabelsMerge(v.Labels, k.getAdmissionControllerLabels(appName)),
+			Annotations: k8sannotations.New(v.Annotations).Merge(annotations),
 		}
 
 		logger.Infof("ensuring mutating webhook %q with version %q", obj.GetName(), v.APIVersion())
@@ -96,7 +96,9 @@ func (k *kubernetesClient) ensureMutatingWebhookConfigurationV1(cfg *admissionre
 	out, err := api.Create(context.TODO(), cfg, metav1.CreateOptions{})
 	if err == nil {
 		logger.Debugf("MutatingWebhookConfiguration %q created", out.GetName())
-		cleanUp = func() { _ = api.Delete(context.TODO(), out.GetName(), utils.NewPreconditionDeleteOptions(out.GetUID())) }
+		cleanUp = func() {
+			_ = api.Delete(context.TODO(), out.GetName(), utils.NewPreconditionDeleteOptions(out.GetUID()))
+		}
 		return cleanUp, nil
 	}
 	if !k8serrors.IsAlreadyExists(err) {
@@ -239,11 +241,11 @@ func (k *kubernetesClient) ensureValidatingWebhookConfigurations(
 ) (cleanUps []func(), err error) {
 	for _, v := range cfgs {
 		obj := metav1.ObjectMeta{
-				Name:        decideNameForGlobalResource(v.Meta, k.namespace, k.IsLegacyLabels()),
-				Namespace:   k.namespace,
-				Labels:      utils.LabelsMerge(v.Labels, k.getAdmissionControllerLabels(appName)),
-				Annotations: k8sannotations.New(v.Annotations).Merge(annotations),
-			}
+			Name:        decideNameForGlobalResource(v.Meta, k.namespace, k.IsLegacyLabels()),
+			Namespace:   k.namespace,
+			Labels:      utils.LabelsMerge(v.Labels, k.getAdmissionControllerLabels(appName)),
+			Annotations: k8sannotations.New(v.Annotations).Merge(annotations),
+		}
 
 		logger.Infof("ensuring validating webhook %q with version %q", obj.GetName(), v.APIVersion())
 		var cfgCleanup func()
@@ -290,7 +292,9 @@ func (k *kubernetesClient) ensureValidatingWebhookConfigurationV1(cfg *admission
 	out, err := api.Create(context.TODO(), cfg, metav1.CreateOptions{})
 	if err == nil {
 		logger.Debugf("ValidatingWebhookConfiguration %q created", out.GetName())
-		cleanUp = func() { _ = api.Delete(context.TODO(), out.GetName(), utils.NewPreconditionDeleteOptions(out.GetUID())) }
+		cleanUp = func() {
+			_ = api.Delete(context.TODO(), out.GetName(), utils.NewPreconditionDeleteOptions(out.GetUID()))
+		}
 		return cleanUp, nil
 	}
 	if !k8serrors.IsAlreadyExists(err) {
@@ -323,7 +327,9 @@ func (k *kubernetesClient) ensureValidatingWebhookConfigurationV1beta1(cfg *admi
 	out, err := api.Create(context.TODO(), cfg, metav1.CreateOptions{})
 	if err == nil {
 		logger.Debugf("ValidatingWebhookConfiguration %q created", out.GetName())
-		cleanUp = func() { _ = api.Delete(context.TODO(), out.GetName(), utils.NewPreconditionDeleteOptions(out.GetUID())) }
+		cleanUp = func() {
+			_ = api.Delete(context.TODO(), out.GetName(), utils.NewPreconditionDeleteOptions(out.GetUID()))
+		}
 		return cleanUp, nil
 	}
 	if !k8serrors.IsAlreadyExists(err) {
