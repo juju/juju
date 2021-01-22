@@ -130,12 +130,14 @@ func (h *handler) Handle(abort <-chan struct{}, actionsSlice []string) error {
 			defer h.wait.Done()
 			if !action.Parallel() || action.ExecutionGroup() != "" {
 				group := "exec-command"
-				if action.ExecutionGroup() != "" {
-					group = fmt.Sprintf("%s-%s", group, action.ExecutionGroup())
+				worker := "machine exec command runner"
+				if g := action.ExecutionGroup(); g != "" {
+					group = fmt.Sprintf("%s-%s", group, g)
+					worker = fmt.Sprintf("%s (exec group=%s)", worker, g)
 				}
 				spec := machinelock.Spec{
 					Cancel:  abort,
-					Worker:  "machine exec command runner",
+					Worker:  worker,
 					Comment: fmt.Sprintf("action %s", action.ID()),
 					Group:   group,
 				}
