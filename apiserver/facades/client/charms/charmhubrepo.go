@@ -35,6 +35,10 @@ type chRepo struct {
 func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.CharmOrigin) (*charm.URL, params.CharmOrigin, []string, error) {
 	logger.Debugf("Resolving CharmHub charm %q", curl)
 
+	if curl.Revision != -1 {
+		return nil, params.CharmOrigin{}, nil, errors.Errorf("specifying a revision is not supported, please use a channel.")
+	}
+
 	channel, err := makeChannel(origin)
 	if err != nil {
 		return nil, params.CharmOrigin{}, nil, errors.Trace(err)
@@ -58,8 +62,8 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 		return nil, params.CharmOrigin{}, nil, errors.Trace(err)
 	}
 
-	// If no revision nor channel specified, use the default release.
-	if curl.Revision == -1 && channel.String() == "" {
+	// If no channel specified, use the default release.
+	if channel.String() == "" {
 		logger.Debugf("Resolving charm with default release")
 		override := platformOverrides{
 			Arch:   true,
@@ -79,13 +83,13 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 		return resURL, outputOrigin, series, nil
 	}
 
-	logger.Debugf("Resolving charm with revision %d and/or channel %s and origin %s", curl.Revision, channel.String(), origin)
+	logger.Debugf("Resolving charm with channel %s and origin %s", channel.String(), origin)
 
 	preferred := channelPlatform{
 		Channel:  channel,
 		Platform: platform,
 	}
-	channelMap, override, err := findChannelMap(curl.Revision, preferred, info.ChannelMap)
+	channelMap, override, err := findChannelMap(preferred, info.ChannelMap)
 	if err != nil {
 		return nil, params.CharmOrigin{}, nil, errors.Trace(err)
 	}
@@ -412,31 +416,11 @@ func makePlatform(origin params.CharmOrigin) (corecharm.Platform, error) {
 	return p.Normalize(), nil
 }
 
-func findChannelMap(rev int, preferred channelPlatform, channelMaps []transport.InfoChannelMap) (transport.InfoChannelMap, platformOverrides, error) {
+func findChannelMap(preferred channelPlatform, channelMaps []transport.InfoChannelMap) (transport.InfoChannelMap, platformOverrides, error) {
 	if len(channelMaps) == 0 {
 		return transport.InfoChannelMap{}, platformOverrides{}, errors.NotValidf("no channels provided by CharmHub")
 	}
-	switch {
-	case preferred.Channel.String() != "" && rev != -1:
-		return findByRevisionAndChannel(rev, preferred, channelMaps)
-	case preferred.Channel.String() != "":
-		return findByChannel(preferred, channelMaps)
-	default: // rev != -1
-		return findByRevision(rev, preferred, channelMaps)
-	}
-}
-
-func findByRevision(rev int, preferred channelPlatform, channelMaps []transport.InfoChannelMap) (transport.InfoChannelMap, platformOverrides, error) {
-	for _, cMap := range channelMaps {
-		if cMap.Revision.Revision == rev {
-			if override, ok := preferred.MatchPlatform(cMap); ok {
-				// Channel map is in order of most newest/stable channel,
-				// return the first of the requested revision.
-				return cMap, override, nil
-			}
-		}
-	}
-	return transport.InfoChannelMap{}, platformOverrides{}, errors.NotFoundf("charm revision %d", rev)
+	return findByChannel(preferred, channelMaps)
 }
 
 func findByChannel(preferred channelPlatform, channelMaps []transport.InfoChannelMap) (transport.InfoChannelMap, platformOverrides, error) {
@@ -447,16 +431,4 @@ func findByChannel(preferred channelPlatform, channelMaps []transport.InfoChanne
 	}
 	arch, series := preferred.Platform.Architecture, preferred.Platform.Series
 	return transport.InfoChannelMap{}, platformOverrides{}, errors.NotFoundf("channel %q with arch %q and series %q", preferred.Channel.String(), arch, series)
-}
-
-func findByRevisionAndChannel(rev int, preferred channelPlatform, channelMaps []transport.InfoChannelMap) (transport.InfoChannelMap, platformOverrides, error) {
-	for _, cMap := range channelMaps {
-		if cMap.Revision.Revision == rev {
-			if override, ok := preferred.Match(cMap); ok {
-				return cMap, override, nil
-			}
-		}
-	}
-	arch, series := preferred.Platform.Architecture, preferred.Platform.Series
-	return transport.InfoChannelMap{}, platformOverrides{}, errors.NotFoundf("charm revision %d for channel %q with arch %q and series %q", rev, preferred.Channel.String(), arch, series)
 }

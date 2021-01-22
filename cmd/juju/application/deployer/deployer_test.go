@@ -108,7 +108,7 @@ func (s *deployerSuite) TestGetDeployerLocalCharmError(c *gc.C) {
 func (s *deployerSuite) TestGetDeployerCharmStoreCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectFilesystem()
-	// NotValid ensures that maybeReadCharmstoreBundle won't find
+	// NotValid ensures that maybeReadRepositoryBundle won't find
 	// charmOrBundle is a bundle.
 	s.expectResolveBundleURL(errors.NotValidf("not a bundle"), 1)
 
@@ -120,7 +120,7 @@ func (s *deployerSuite) TestGetDeployerCharmStoreCharm(c *gc.C) {
 	factory := s.newDeployerFactory()
 	deployer, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm store charm: %s", ch.String()))
+	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm: %s", ch.String()))
 }
 
 func (s *deployerSuite) TestCharmStoreSeriesOverride(c *gc.C) {
@@ -137,9 +137,9 @@ func (s *deployerSuite) TestCharmStoreSeriesOverride(c *gc.C) {
 	factory := s.newDeployerFactory()
 	deployer, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm store charm: %s", ch.String()))
+	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm: %s", ch.String()))
 
-	charmStoreDeployer := deployer.(*charmStoreCharm)
+	charmStoreDeployer := deployer.(*repositoryCharm)
 	c.Assert(charmStoreDeployer.series, gc.Equals, "bionic")
 }
 
@@ -193,7 +193,7 @@ func (s *deployerSuite) TestGetDeployerCharmStoreBundle(c *gc.C) {
 	factory := s.newDeployerFactory()
 	deployer, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm store bundle: %s", bundle.String()))
+	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy bundle: %s", bundle.String()))
 }
 
 func (s *deployerSuite) TestGetDeployerCharmStoreBundleWithChannel(c *gc.C) {
@@ -215,7 +215,7 @@ func (s *deployerSuite) TestGetDeployerCharmStoreBundleWithChannel(c *gc.C) {
 	factory := s.newDeployerFactory()
 	deployer, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm store bundle: %s from channel edge", bundle.String()))
+	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy bundle: %s from channel edge", bundle.String()))
 }
 
 func (s *deployerSuite) TestResolveCharmURL(c *gc.C) {
@@ -227,8 +227,8 @@ func (s *deployerSuite) TestResolveCharmURL(c *gc.C) {
 		path: "wordpress",
 		url:  &charm.URL{Schema: "ch", Name: "wordpress", Revision: -1},
 	}, {
-		path: "ch:wordpress-42",
-		url:  &charm.URL{Schema: "ch", Name: "wordpress", Revision: 42},
+		path: "ch:wordpress",
+		url:  &charm.URL{Schema: "ch", Name: "wordpress", Revision: -1},
 	}, {
 		path: "cs:wordpress",
 		url:  &charm.URL{Schema: "cs", Name: "wordpress", Revision: -1},
@@ -242,6 +242,37 @@ func (s *deployerSuite) TestResolveCharmURL(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("%d %s", i, test.path)
 		url, err := resolveCharmURL(test.path)
+		if test.err != nil {
+			c.Assert(err, gc.ErrorMatches, test.err.Error())
+		} else {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(url, gc.DeepEquals, test.url)
+		}
+	}
+}
+
+func (s *deployerSuite) TestResolveAndValidateCharmURL(c *gc.C) {
+	tests := []struct {
+		path string
+		url  *charm.URL
+		err  error
+	}{{
+		path: "ch:wordpress-42",
+		url:  &charm.URL{Schema: "ch", Name: "wordpress", Revision: 42},
+		err:  errors.Errorf("specifying a revision for wordpress is not supported, please use a channel."),
+	}, {
+		path: "ch:wordpress",
+		url:  &charm.URL{Schema: "ch", Name: "wordpress", Revision: -1},
+	}, {
+		path: "cs:wordpress-42",
+		url:  &charm.URL{Schema: "cs", Name: "wordpress", Revision: 42},
+	}, {
+		path: "local:wordpress",
+		url:  &charm.URL{Schema: "local", Name: "wordpress", Revision: -1},
+	}}
+	for i, test := range tests {
+		c.Logf("%d %s", i, test.path)
+		url, err := resolveAndValidateCharmURL(test.path)
 		if test.err != nil {
 			c.Assert(err, gc.ErrorMatches, test.err.Error())
 		} else {

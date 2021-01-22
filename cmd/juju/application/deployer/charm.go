@@ -396,15 +396,15 @@ func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _
 	return l.deploy(ctx, deployAPI)
 }
 
-type charmStoreCharm struct {
+type repositoryCharm struct {
 	deployCharm
 	userRequestedURL *charm.URL
 	clock            jujuclock.Clock
 }
 
 // String returns a string description of the deployer.
-func (c *charmStoreCharm) String() string {
-	str := fmt.Sprintf("deploy charm store charm: %s", c.userRequestedURL.String())
+func (c *repositoryCharm) String() string {
+	str := fmt.Sprintf("deploy charm: %s", c.userRequestedURL.String())
 	if isEmptyOrigin(c.origin, commoncharm.OriginCharmStore) {
 		return str
 	}
@@ -417,10 +417,10 @@ func (c *charmStoreCharm) String() string {
 
 // PrepareAndDeploy finishes preparing to deploy a charm store charm,
 // then deploys it.
-func (c *charmStoreCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver, macaroonGetter store.MacaroonGetter) error {
+func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver, macaroonGetter store.MacaroonGetter) error {
 	userRequestedURL := c.userRequestedURL
 	location := "hub"
-	if userRequestedURL.Schema == "cs" {
+	if charm.CharmStore.Matches(userRequestedURL.Schema) {
 		location = "store"
 	}
 	ctx.Verbosef("Preparing to deploy %q from the charm-%s", userRequestedURL.Name, location)

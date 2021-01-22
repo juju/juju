@@ -92,33 +92,12 @@ func (s *charmHubRepositoriesSuite) TestCharmResolveDefaultChannelMapWithChannel
 }
 
 func (s *charmHubRepositoriesSuite) TestResolveWithRevision(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	s.expectCharmInfo(nil)
-
 	curl := charm.MustParseURL("ch:wordpress-13")
 	origin := params.CharmOrigin{Source: "charm-hub", Architecture: arch.DefaultArchitecture}
 
 	resolver := &chRepo{client: s.client}
-	obtainedCurl, obtainedOrigin, obtainedSeries, err := resolver.ResolveWithPreferredChannel(curl, origin)
-	c.Assert(err, jc.ErrorIsNil)
-
-	track := "second"
-	curl.Revision = 13
-
-	origin.ID = "charmCHARMcharmCHARMcharmCHARM01"
-	origin.Type = "charm"
-	origin.Revision = &curl.Revision
-	origin.Risk = "stable"
-	origin.Track = &track
-	origin.Architecture = arch.DefaultArchitecture
-	origin.OS = "ubuntu"
-	origin.Series = "bionic"
-
-	expected := s.expectedCURL(curl, 13, arch.DefaultArchitecture, "bionic")
-
-	c.Assert(obtainedCurl, jc.DeepEquals, expected)
-	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
-	c.Assert(obtainedSeries, jc.SameContents, []string{"bionic", "xenial"})
+	_, _, _, err := resolver.ResolveWithPreferredChannel(curl, origin)
+	c.Assert(err, gc.NotNil)
 }
 
 func (s *charmHubRepositoriesSuite) TestCharmResolveDefaultChannelMapWithFallbackSeries(c *gc.C) {
@@ -209,18 +188,6 @@ func (s *charmHubRepositoriesSuite) TestBundleResolveDefaultChannelMapWithFallba
 	c.Assert(obtainedCurl, jc.DeepEquals, expected)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
 	c.Assert(obtainedSeries, jc.SameContents, []string{"bionic"})
-}
-
-func (s *charmHubRepositoriesSuite) TestResolveWithRevisionNotFound(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	s.expectCharmInfo(nil)
-
-	curl := charm.MustParseURL("ch:wordpress-42")
-	origin := params.CharmOrigin{Source: "charm-hub", Architecture: arch.DefaultArchitecture}
-
-	resolver := &chRepo{client: s.client}
-	_, _, _, err := resolver.ResolveWithPreferredChannel(curl, origin)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *charmHubRepositoriesSuite) TestResolveWithChannel(c *gc.C) {
