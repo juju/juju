@@ -141,7 +141,7 @@ func (c *infoCommand) Run(ctx *cmd.Context) error {
 	}
 	defer func() { _ = apiRoot.Close() }()
 
-	if apiRoot.BestFacadeVersion("charmhub") < 1 {
+	if apiRoot.BestFacadeVersion("CharmHub") < 1 {
 		ctx.Warningf("juju info not supported with controllers < 2.9")
 		return nil
 	}

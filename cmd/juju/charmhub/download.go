@@ -268,7 +268,7 @@ func (c *downloadCommand) getCharmHubURL() (string, error) {
 	}
 	defer func() { _ = apiRoot.Close() }()
 
-	if apiRoot.BestFacadeVersion("charmhub") < 1 {
+	if apiRoot.BestFacadeVersion("CharmHub") < 1 {
 		return "", errors.NotImplementedf("charmhub")
 	}
 

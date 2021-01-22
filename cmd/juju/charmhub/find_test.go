@@ -185,7 +185,7 @@ func (s *findSuite) setUpMocks(c *gc.C) *gomock.Controller {
 
 	s.apiRoot = basemocks.NewMockAPICallCloser(ctrl)
 	s.apiRoot.EXPECT().Close().AnyTimes()
-	s.apiRoot.EXPECT().BestFacadeVersion("charmhub").Return(1)
+	s.apiRoot.EXPECT().BestFacadeVersion("CharmHub").Return(1)
 
 	return ctrl
 }

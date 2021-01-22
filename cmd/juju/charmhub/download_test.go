@@ -57,7 +57,7 @@ func (s *downloadSuite) TestInitSuccess(c *gc.C) {
 
 func (s *downloadSuite) TestRun(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
-	s.apiRoot.EXPECT().BestFacadeVersion("charmhub").Return(1)
+	s.apiRoot.EXPECT().BestFacadeVersion("CharmHub").Return(1)
 
 	url := "http://example.org/"
 
@@ -83,7 +83,7 @@ func (s *downloadSuite) TestRun(c *gc.C) {
 
 func (s *downloadSuite) TestRunWithStdout(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
-	s.apiRoot.EXPECT().BestFacadeVersion("charmhub").Return(1)
+	s.apiRoot.EXPECT().BestFacadeVersion("CharmHub").Return(1)
 
 	url := "http://example.org/"
 
