@@ -977,7 +977,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationDefaultArchCons
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationConstraints(c *gc.C) {
 	wpch := s.setupCharm(c, "cs:xenial/wordpress-42", "wordpress", "bionic")
-	dch := s.setupCharm(c, "cs:bionic/dummy-0", "dummy", "bionic")
+	dch := s.setupCharmWithArch(c, "cs:bionic/dummy-0", "dummy", "bionic", "i386")
 
 	err := s.DeployBundleYAML(c, `
         applications:
