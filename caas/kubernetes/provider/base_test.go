@@ -52,8 +52,8 @@ type BaseSuite struct {
 	mockRestClient             *mocks.MockRestClientInterface
 	mockNamespaces             *mocks.MockNamespaceInterface
 	mockApps                   *mocks.MockAppsV1Interface
-	mockExtensions             *mocks.MockExtensionsV1beta1Interface
-	mockNetworking             *mocks.MockNetworkingV1Interface
+	mockNetworkingV1beta1      *mocks.MockNetworkingV1beta1Interface
+	mockNetworkingV1      *mocks.MockNetworkingV1Interface
 	mockSecrets                *mocks.MockSecretInterface
 	mockDeployments            *mocks.MockDeploymentInterface
 	mockStatefulSets           *mocks.MockStatefulSetInterface
@@ -65,17 +65,22 @@ type BaseSuite struct {
 	mockPersistentVolumeClaims *mocks.MockPersistentVolumeClaimInterface
 	mockStorage                *mocks.MockStorageV1Interface
 	mockStorageClass           *mocks.MockStorageClassInterface
-	mockIngresses              *mocks.MockIngressInterface
 	mockIngressClasses         *mocks.MockIngressClassInterface
+	mockIngressV1Beta1         *mocks.MockIngressV1Beta1Interface
+	mockIngressV1         *mocks.MockIngressV1Interface
 	mockNodes                  *mocks.MockNodeInterface
 	mockEvents                 *mocks.MockEventInterface
 
-	mockApiextensionsV1          *mocks.MockApiextensionsV1beta1Interface
-	mockApiextensionsClient      *mocks.MockApiExtensionsClientInterface
-	mockCustomResourceDefinition *mocks.MockCustomResourceDefinitionInterface
+	mockApiextensionsV1Beta1            *mocks.MockApiextensionsV1beta1Interface
+	mockApiextensionsV1                 *mocks.MockApiextensionsV1Interface
+	mockApiextensionsClient             *mocks.MockApiExtensionsClientInterface
+	mockCustomResourceDefinitionV1Beta1 *mocks.MockCustomResourceDefinitionV1Beta1Interface
+	mockCustomResourceDefinitionV1      *mocks.MockCustomResourceDefinitionV1Interface
 
-	mockMutatingWebhookConfiguration   *mocks.MockMutatingWebhookConfigurationInterface
-	mockValidatingWebhookConfiguration *mocks.MockValidatingWebhookConfigurationInterface
+	mockMutatingWebhookConfigurationV1        *mocks.MockMutatingWebhookConfigurationV1Interface
+	mockValidatingWebhookConfigurationV1      *mocks.MockValidatingWebhookConfigurationV1Interface
+	mockMutatingWebhookConfigurationV1Beta1   *mocks.MockMutatingWebhookConfigurationV1Beta1Interface
+	mockValidatingWebhookConfigurationV1Beta1 *mocks.MockValidatingWebhookConfigurationV1Beta1Interface
 
 	mockDynamicClient               *mocks.MockDynamicInterface
 	mockResourceClient              *mocks.MockResourceInterface
@@ -279,21 +284,25 @@ func (s *BaseSuite) setupK8sRestClient(
 	mockCoreV1.EXPECT().Events(namespace).AnyTimes().Return(s.mockEvents)
 
 	s.mockApps = mocks.NewMockAppsV1Interface(ctrl)
-	s.mockExtensions = mocks.NewMockExtensionsV1beta1Interface(ctrl)
-	s.mockNetworking = mocks.NewMockNetworkingV1Interface(ctrl)
+
 	s.mockStatefulSets = mocks.NewMockStatefulSetInterface(ctrl)
 	s.mockDeployments = mocks.NewMockDeploymentInterface(ctrl)
 	s.mockDaemonSets = mocks.NewMockDaemonSetInterface(ctrl)
-	s.mockIngresses = mocks.NewMockIngressInterface(ctrl)
-	s.mockIngressClasses = mocks.NewMockIngressClassInterface(ctrl)
-	s.k8sClient.EXPECT().ExtensionsV1beta1().AnyTimes().Return(s.mockExtensions)
-	s.k8sClient.EXPECT().NetworkingV1().AnyTimes().Return(s.mockNetworking)
-	s.k8sClient.EXPECT().AppsV1().AnyTimes().Return(s.mockApps)
 	s.mockApps.EXPECT().StatefulSets(namespace).AnyTimes().Return(s.mockStatefulSets)
 	s.mockApps.EXPECT().Deployments(namespace).AnyTimes().Return(s.mockDeployments)
 	s.mockApps.EXPECT().DaemonSets(namespace).AnyTimes().Return(s.mockDaemonSets)
-	s.mockExtensions.EXPECT().Ingresses(namespace).AnyTimes().Return(s.mockIngresses)
-	s.mockNetworking.EXPECT().IngressClasses().AnyTimes().Return(s.mockIngressClasses)
+	s.k8sClient.EXPECT().AppsV1().AnyTimes().Return(s.mockApps)
+
+	s.mockIngressV1Beta1 = mocks.NewMockIngressV1Beta1Interface(ctrl)
+	s.mockNetworkingV1beta1 = mocks.NewMockNetworkingV1beta1Interface(ctrl)
+	s.mockNetworkingV1beta1.EXPECT().Ingresses(namespace).AnyTimes().Return(s.mockIngressV1Beta1)
+	s.k8sClient.EXPECT().NetworkingV1beta1().AnyTimes().Return(s.mockNetworkingV1beta1)
+	s.mockIngressClasses = mocks.NewMockIngressClassInterface(ctrl)
+	s.mockIngressV1 = mocks.NewMockIngressV1Interface(ctrl)
+	s.mockNetworkingV1 = mocks.NewMockNetworkingV1Interface(ctrl)
+	s.mockNetworkingV1.EXPECT().Ingresses(namespace).AnyTimes().Return(s.mockIngressV1)
+	s.mockNetworkingV1.EXPECT().IngressClasses().AnyTimes().Return(s.mockIngressClasses)
+	s.k8sClient.EXPECT().NetworkingV1().AnyTimes().Return(s.mockNetworkingV1)
 
 	s.mockStorage = mocks.NewMockStorageV1Interface(ctrl)
 	s.mockStorageClass = mocks.NewMockStorageClassInterface(ctrl)
@@ -301,10 +310,14 @@ func (s *BaseSuite) setupK8sRestClient(
 	s.mockStorage.EXPECT().StorageClasses().AnyTimes().Return(s.mockStorageClass)
 
 	s.mockApiextensionsClient = mocks.NewMockApiExtensionsClientInterface(ctrl)
-	s.mockApiextensionsV1 = mocks.NewMockApiextensionsV1beta1Interface(ctrl)
-	s.mockCustomResourceDefinition = mocks.NewMockCustomResourceDefinitionInterface(ctrl)
-	s.mockApiextensionsClient.EXPECT().ApiextensionsV1beta1().AnyTimes().Return(s.mockApiextensionsV1)
-	s.mockApiextensionsV1.EXPECT().CustomResourceDefinitions().AnyTimes().Return(s.mockCustomResourceDefinition)
+	s.mockApiextensionsV1Beta1 = mocks.NewMockApiextensionsV1beta1Interface(ctrl)
+	s.mockApiextensionsV1 = mocks.NewMockApiextensionsV1Interface(ctrl)
+	s.mockCustomResourceDefinitionV1Beta1 = mocks.NewMockCustomResourceDefinitionV1Beta1Interface(ctrl)
+	s.mockCustomResourceDefinitionV1 = mocks.NewMockCustomResourceDefinitionV1Interface(ctrl)
+	s.mockApiextensionsClient.EXPECT().ApiextensionsV1beta1().AnyTimes().Return(s.mockApiextensionsV1Beta1)
+	s.mockApiextensionsClient.EXPECT().ApiextensionsV1().AnyTimes().Return(s.mockApiextensionsV1)
+	s.mockApiextensionsV1Beta1.EXPECT().CustomResourceDefinitions().AnyTimes().Return(s.mockCustomResourceDefinitionV1Beta1)
+	s.mockApiextensionsV1.EXPECT().CustomResourceDefinitions().AnyTimes().Return(s.mockCustomResourceDefinitionV1)
 
 	s.mockDynamicClient = mocks.NewMockDynamicInterface(ctrl)
 	s.mockResourceClient = mocks.NewMockResourceInterface(ctrl)
@@ -314,12 +327,19 @@ func (s *BaseSuite) setupK8sRestClient(
 	s.mockServiceAccounts = mocks.NewMockServiceAccountInterface(ctrl)
 	mockCoreV1.EXPECT().ServiceAccounts(namespace).AnyTimes().Return(s.mockServiceAccounts)
 
-	mockAdmissionregistration := mocks.NewMockAdmissionregistrationV1beta1Interface(ctrl)
-	s.mockMutatingWebhookConfiguration = mocks.NewMockMutatingWebhookConfigurationInterface(ctrl)
-	mockAdmissionregistration.EXPECT().MutatingWebhookConfigurations().AnyTimes().Return(s.mockMutatingWebhookConfiguration)
-	s.mockValidatingWebhookConfiguration = mocks.NewMockValidatingWebhookConfigurationInterface(ctrl)
-	mockAdmissionregistration.EXPECT().ValidatingWebhookConfigurations().AnyTimes().Return(s.mockValidatingWebhookConfiguration)
-	s.k8sClient.EXPECT().AdmissionregistrationV1beta1().AnyTimes().Return(mockAdmissionregistration)
+	s.mockMutatingWebhookConfigurationV1Beta1 = mocks.NewMockMutatingWebhookConfigurationV1Beta1Interface(ctrl)
+	s.mockMutatingWebhookConfigurationV1 = mocks.NewMockMutatingWebhookConfigurationV1Interface(ctrl)
+	s.mockValidatingWebhookConfigurationV1Beta1 = mocks.NewMockValidatingWebhookConfigurationV1Beta1Interface(ctrl)
+	s.mockValidatingWebhookConfigurationV1 = mocks.NewMockValidatingWebhookConfigurationV1Interface(ctrl)
+
+	mockAdmissionregistrationV1Beta1 := mocks.NewMockAdmissionregistrationV1beta1Interface(ctrl)
+	mockAdmissionregistrationV1Beta1.EXPECT().MutatingWebhookConfigurations().AnyTimes().Return(s.mockMutatingWebhookConfigurationV1Beta1)
+	mockAdmissionregistrationV1Beta1.EXPECT().ValidatingWebhookConfigurations().AnyTimes().Return(s.mockValidatingWebhookConfigurationV1Beta1)
+	mockAdmissionregistrationV1 := mocks.NewMockAdmissionregistrationV1Interface(ctrl)
+	mockAdmissionregistrationV1.EXPECT().MutatingWebhookConfigurations().AnyTimes().Return(s.mockMutatingWebhookConfigurationV1)
+	mockAdmissionregistrationV1.EXPECT().ValidatingWebhookConfigurations().AnyTimes().Return(s.mockValidatingWebhookConfigurationV1)
+	s.k8sClient.EXPECT().AdmissionregistrationV1beta1().AnyTimes().Return(mockAdmissionregistrationV1Beta1)
+	s.k8sClient.EXPECT().AdmissionregistrationV1().AnyTimes().Return(mockAdmissionregistrationV1)
 
 	mockRbacV1 := mocks.NewMockRbacV1Interface(ctrl)
 	s.k8sClient.EXPECT().RbacV1().AnyTimes().Return(mockRbacV1)

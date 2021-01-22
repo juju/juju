@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 	admissionregistration "k8s.io/api/admissionregistration/v1beta1"
 	core "k8s.io/api/core/v1"
-	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -526,13 +526,13 @@ echo "do some stuff here for gitlab-init container"
 			},
 		}
 
-		ingress1Rule1 := extensionsv1beta1.IngressRule{
-			IngressRuleValue: extensionsv1beta1.IngressRuleValue{
-				HTTP: &extensionsv1beta1.HTTPIngressRuleValue{
-					Paths: []extensionsv1beta1.HTTPIngressPath{
+		ingress1Rule1 := networkingv1beta1.IngressRule{
+			IngressRuleValue: networkingv1beta1.IngressRuleValue{
+				HTTP: &networkingv1beta1.HTTPIngressRuleValue{
+					Paths: []networkingv1beta1.HTTPIngressPath{
 						{
 							Path: "/testpath",
-							Backend: extensionsv1beta1.IngressBackend{
+							Backend: networkingv1beta1.IngressBackend{
 								ServiceName: "test",
 								ServicePort: intstr.IntOrString{IntVal: 80},
 							},
@@ -549,8 +549,8 @@ echo "do some stuff here for gitlab-init container"
 			Annotations: map[string]string{
 				"nginx.ingress.kubernetes.io/rewrite-target": "/",
 			},
-			Spec: extensionsv1beta1.IngressSpec{
-				Rules: []extensionsv1beta1.IngressRule{ingress1Rule1},
+			Spec: networkingv1beta1.IngressSpec{
+				Rules: []networkingv1beta1.IngressRule{ingress1Rule1},
 			},
 		}
 
@@ -659,62 +659,65 @@ password: shhhh`[1:],
 						},
 					},
 				},
-				CustomResourceDefinitions: []k8sspecs.K8sCustomResourceDefinitionSpec{
+				CustomResourceDefinitions: []k8sspecs.K8sCustomResourceDefinition{
 					{
 						Meta: k8sspecs.Meta{Name: "tfjobs.kubeflow.org"},
-						Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-							Group:   "kubeflow.org",
-							Version: "v1",
-							Versions: []apiextensionsv1beta1.CustomResourceDefinitionVersion{
-								{Name: "v1", Served: true, Storage: true},
-								{Name: "v1beta2", Served: true, Storage: false},
-							},
-							Scope:                 "Cluster",
-							PreserveUnknownFields: boolPtr(false),
-							Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-								Kind:     "TFJob",
-								Plural:   "tfjobs",
-								Singular: "tfjob",
-							},
-							Conversion: &apiextensionsv1beta1.CustomResourceConversion{
-								Strategy: apiextensionsv1beta1.NoneConverter,
-							},
-							AdditionalPrinterColumns: []apiextensionsv1beta1.CustomResourceColumnDefinition{
-								{
-									Name:        "Worker",
-									Type:        "integer",
-									Description: "Worker attribute.",
-									JSONPath:    ".spec.tfReplicaSpecs.Worker",
+						Spec: k8sspecs.K8sCustomResourceDefinitionSpec{
+							Version: k8sspecs.K8sCustomResourceDefinitionV1Beta1,
+							SpecV1Beta1: apiextensionsv1beta1.CustomResourceDefinitionSpec{
+								Group:   "kubeflow.org",
+								Version: "v1",
+								Versions: []apiextensionsv1beta1.CustomResourceDefinitionVersion{
+									{Name: "v1", Served: true, Storage: true},
+									{Name: "v1beta2", Served: true, Storage: false},
 								},
-							},
-							Validation: &apiextensionsv1beta1.CustomResourceValidation{
-								OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"spec": {
-											Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-												"tfReplicaSpecs": {
-													Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-														"PS": {
-															Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-																"replicas": {
-																	Type: "integer", Minimum: float64Ptr(1),
+								Scope:                 "Cluster",
+								PreserveUnknownFields: boolPtr(false),
+								Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
+									Kind:     "TFJob",
+									Plural:   "tfjobs",
+									Singular: "tfjob",
+								},
+								Conversion: &apiextensionsv1beta1.CustomResourceConversion{
+									Strategy: apiextensionsv1beta1.NoneConverter,
+								},
+								AdditionalPrinterColumns: []apiextensionsv1beta1.CustomResourceColumnDefinition{
+									{
+										Name:        "Worker",
+										Type:        "integer",
+										Description: "Worker attribute.",
+										JSONPath:    ".spec.tfReplicaSpecs.Worker",
+									},
+								},
+								Validation: &apiextensionsv1beta1.CustomResourceValidation{
+									OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
+										Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+											"spec": {
+												Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+													"tfReplicaSpecs": {
+														Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+															"PS": {
+																Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+																	"replicas": {
+																		Type: "integer", Minimum: float64Ptr(1),
+																	},
 																},
 															},
-														},
-														"Chief": {
-															Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-																"replicas": {
-																	Type:    "integer",
-																	Minimum: float64Ptr(1),
-																	Maximum: float64Ptr(1),
+															"Chief": {
+																Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+																	"replicas": {
+																		Type:    "integer",
+																		Minimum: float64Ptr(1),
+																		Maximum: float64Ptr(1),
+																	},
 																},
 															},
-														},
-														"Worker": {
-															Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-																"replicas": {
-																	Type:    "integer",
-																	Minimum: float64Ptr(1),
+															"Worker": {
+																Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+																	"replicas": {
+																		Type:    "integer",
+																		Minimum: float64Ptr(1),
+																	},
 																},
 															},
 														},
@@ -774,16 +777,26 @@ password: shhhh`[1:],
 					},
 				},
 				IngressResources: []k8sspecs.K8sIngressSpec{ingress1},
-				MutatingWebhookConfigurations: []k8sspecs.K8sMutatingWebhookSpec{
+				MutatingWebhookConfigurations: []k8sspecs.K8sMutatingWebhook{
 					{
-						Meta:     k8sspecs.Meta{Name: "example-mutatingwebhookconfiguration"},
-						Webhooks: []admissionregistration.MutatingWebhook{webhook1},
+						Meta: k8sspecs.Meta{Name: "example-mutatingwebhookconfiguration"},
+						Webhooks: []k8sspecs.K8sMutatingWebhookSpec{
+							{
+								Version:     k8sspecs.K8sWebhookV1Beta1,
+								SpecV1Beta1: webhook1,
+							},
+						},
 					},
 				},
-				ValidatingWebhookConfigurations: []k8sspecs.K8sValidatingWebhookSpec{
+				ValidatingWebhookConfigurations: []k8sspecs.K8sValidatingWebhook{
 					{
-						Meta:     k8sspecs.Meta{Name: "pod-policy.example.com"},
-						Webhooks: []admissionregistration.ValidatingWebhook{webhook2},
+						Meta: k8sspecs.Meta{Name: "pod-policy.example.com"},
+						Webhooks: []k8sspecs.K8sValidatingWebhookSpec{
+							{
+								Version:     k8sspecs.K8sWebhookV1Beta1,
+								SpecV1Beta1: webhook2,
+							},
+						},
 					},
 				},
 			},

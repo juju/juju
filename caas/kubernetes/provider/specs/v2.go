@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	admissionregistration "k8s.io/api/admissionregistration/v1beta1"
-	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -186,7 +186,7 @@ type K8sIngressSpec struct {
 	Name        string                        `json:"name" yaml:"name"`
 	Labels      map[string]string             `json:"labels,omitempty" yaml:"labels,omitempty"`
 	Annotations map[string]string             `json:"annotations,omitempty" yaml:"annotations,omitempty"`
-	Spec        extensionsv1beta1.IngressSpec `json:"spec" yaml:"spec"`
+	Spec        networkingv1beta1.IngressSpec `json:"spec" yaml:"spec"`
 }
 
 // Validate returns an error if the spec is not valid.
@@ -238,25 +238,28 @@ func (krs *KubernetesResourcesV2) toLatest() *KubernetesResources {
 		out.ServiceAccounts = append(out.ServiceAccounts, rbacSources.ServiceAccounts...)
 	}
 	for name, webhooks := range krs.MutatingWebhookConfigurations {
-		out.MutatingWebhookConfigurations = append(out.MutatingWebhookConfigurations, K8sMutatingWebhookSpec{
+		out.MutatingWebhookConfigurations = append(out.MutatingWebhookConfigurations, K8sMutatingWebhook{
 			Meta:     Meta{Name: name},
-			Webhooks: webhooks,
+			Webhooks: mutatingWebhookFromV1Beta1(webhooks),
 		})
 	}
 	for name, webhooks := range krs.ValidatingWebhookConfigurations {
-		out.ValidatingWebhookConfigurations = append(out.ValidatingWebhookConfigurations, K8sValidatingWebhookSpec{
+		out.ValidatingWebhookConfigurations = append(out.ValidatingWebhookConfigurations, K8sValidatingWebhook{
 			Meta:     Meta{Name: name},
-			Webhooks: webhooks,
+			Webhooks: validatingWebhookFromV1Beta1(webhooks),
 		})
 	}
 	return out
 }
 
-func customResourceDefinitionsToLatest(crds map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec) (out []K8sCustomResourceDefinitionSpec) {
+func customResourceDefinitionsToLatest(crds map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec) (out []K8sCustomResourceDefinition) {
 	for name, crd := range crds {
-		out = append(out, K8sCustomResourceDefinitionSpec{
+		out = append(out, K8sCustomResourceDefinition{
 			Meta: Meta{Name: name},
-			Spec: crd,
+			Spec: K8sCustomResourceDefinitionSpec{
+				Version:     K8sCustomResourceDefinitionV1Beta1,
+				SpecV1Beta1: crd,
+			},
 		})
 	}
 	return out
