@@ -4,6 +4,7 @@
 package charmhub
 
 import (
+	"context"
 	"net/url"
 
 	"github.com/golang/mock/gomock"
@@ -63,6 +64,7 @@ func (s *downloadSuite) TestRun(c *gc.C) {
 
 	s.expectModelGet(url)
 	s.expectInfo(url)
+	s.expectRefresh(c, url)
 	s.expectDownload(c, url)
 
 	command := &downloadCommand{
@@ -89,6 +91,7 @@ func (s *downloadSuite) TestRunWithStdout(c *gc.C) {
 
 	s.expectModelGet(url)
 	s.expectInfo(url)
+	s.expectRefresh(c, url)
 	s.expectDownload(c, url)
 
 	command := &downloadCommand{
@@ -113,6 +116,7 @@ func (s *downloadSuite) TestRunWithCustomCharmHubURL(c *gc.C) {
 	url := "http://example.org/"
 
 	s.expectInfo(url)
+	s.expectRefresh(c, url)
 	s.expectDownload(c, url)
 
 	command := &downloadCommand{
@@ -213,6 +217,23 @@ func (s *downloadSuite) expectInfo(charmHubURL string) {
 			},
 		}},
 	}, nil)
+}
+
+func (s *downloadSuite) expectRefresh(c *gc.C, charmHubURL string) {
+	s.downloadCommandAPI.EXPECT().Refresh(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, cfg charmhub.RefreshConfig) ([]transport.RefreshResponse, error) {
+		instanceKey := charmhub.ExtractConfigInstanceKey(cfg)
+
+		return []transport.RefreshResponse{{
+			InstanceKey: instanceKey,
+			Entity: transport.RefreshEntity{
+				Name: "test",
+				Download: transport.Download{
+					HashSHA256: "",
+					URL:        charmHubURL,
+				},
+			},
+		}}, nil
+	})
 }
 
 func (s *downloadSuite) expectDownload(c *gc.C, charmHubURL string) {

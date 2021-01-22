@@ -5,7 +5,9 @@ package charmhub
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"strings"
@@ -18,13 +20,14 @@ import (
 	"github.com/juju/os/v2/series"
 
 	"github.com/juju/juju/charmhub"
-	"github.com/juju/juju/charmhub/selector"
 	"github.com/juju/juju/charmhub/transport"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output/progress"
+	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/version"
 )
 
 const (
@@ -200,45 +203,100 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	info, err := client.Info(ctx, c.charmOrBundle)
+	// The following info request should not be required, but we have to use it
+	// to work out if it's a bundle or a charm. Bundles are not currently
+	// supported by the Refresh API.
+	infoResult, err := client.Info(ctx, c.charmOrBundle)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if infoResult.ErrorList.Combine() != nil {
+		return errors.Trace(err)
+	}
+	if infoResult.Type == "bundle" {
+		return errors.Errorf("Bundles are not currently supported for download directly.")
+	}
 
-	channel := c.channel
 	// Locate a release that we would expect to be default. In this case
 	// we want to fall back to latest/stable. We don't want to use the
 	// info.DefaultRelease here as that isn't actually the default release,
 	// but instead the last release and that's not what we want.
+	channel := c.channel
 	if channel == "" {
 		channel = corecharm.DefaultChannelString
 	}
-	charmChannel, err := corecharm.ParseChannelNormalize(channel)
+	normChannel, err := corecharm.ParseChannelNormalize(channel)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	selector := selector.NewSelectorForDownload(c.orderedSeries)
-	resourceURL, origin, err := selector.Locate(info, corecharm.Origin{
-		Channel: &charmChannel,
-		Platform: corecharm.Platform{
-			Architecture: c.arch,
-			Series:       c.series,
-		},
+	pArch := c.arch
+	if pArch == "all" || pArch == "" {
+		pArch = arch.DefaultArchitecture
+	}
+	pSeries := c.series
+	if pSeries == "all" || pSeries == "" {
+		pSeries = version.DefaultSupportedLTS()
+	}
+	platform := fmt.Sprintf("%s/%s", pArch, pSeries)
+	normPlatform, err := corecharm.ParsePlatformNormalize(platform)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if normPlatform.Series != "" {
+		sys, err := series.GetOSFromSeries(normPlatform.Series)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		normPlatform.OS = strings.ToLower(sys.String())
+	}
+
+	refreshConfig, err := charmhub.InstallOneFromChannel(c.charmOrBundle, normChannel.String(), charmhub.RefreshPlatform{
+		Architecture: normPlatform.Architecture,
+		OS:           normPlatform.OS,
+		Series:       normPlatform.Series,
 	})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	path := c.archivePath
-	if c.archivePath == "" {
-		path = fmt.Sprintf("%s.%s", info.Name, info.Type)
+	results, err := client.Refresh(ctx, refreshConfig)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
-	cmdContext.Infof("Fetching %s %q using %q channel at revision %d", info.Type, info.Name, charmChannel, origin.Revision)
+	if len(results) == 0 {
+		return errors.NotFoundf(c.charmOrBundle)
+	}
+	// Ensure we didn't get any errors whilst querying the charmhub API
+	for _, res := range results {
+		if res.Error != nil {
+			return errors.Errorf("unable to locate %s: %s", c.charmOrBundle, res.Error.Message)
+		}
+	}
+
+	// In theory we can get multiple responses from the refresh API, but in
+	// reality if we only request one action, we only get one result. If that
+	// happens not to be the case, just select the first one.
+	result := results[0]
+	entity := result.Entity
+	entityType := infoResult.Type
+
+	path := c.archivePath
+	if c.archivePath == "" {
+		path = fmt.Sprintf("%s.%s", entity.Name, entityType)
+	}
+
+	cmdContext.Infof("Fetching %s %q using %q channel and platform %q", entityType, entity.Name, normChannel, normPlatform)
+
+	resourceURL, err := url.Parse(entity.Download.URL)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	pb := progress.MakeProgressBar(cmdContext.Stdout)
-	ctx = context.WithValue(ctx, charmhub.DownloadNameKey, info.Name)
+	ctx = context.WithValue(ctx, charmhub.DownloadNameKey, entity.Name)
 	if err := client.Download(ctx, resourceURL, path, charmhub.WithProgressBar(pb)); err != nil {
 		return errors.Trace(err)
 	}
@@ -246,8 +304,16 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	// If we're piping to stdout, then we don't need to mention how to install
 	// and deploy the charm.
 	if c.pipeToStdout {
-		cmdContext.Infof("Downloading of %s complete", info.Type)
+		cmdContext.Infof("Downloading of %s complete", entityType)
 		return nil
+	}
+
+	// Ensure we calculate the hash of the file.
+	calculatedHash, err := c.calculateHash(path)
+	if calculatedHash != entity.Download.HashSHA256 {
+		return errors.Errorf(`Checksum of download failed for %q:
+Expected:   %s
+Calculated: %s`, c.charmOrBundle, entity.Download.HashSHA256, calculatedHash)
 	}
 
 	if !strings.HasPrefix(path, "/") {
@@ -256,9 +322,24 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 
 	cmdContext.Infof(`
 Install the %q %s with:
-    juju deploy %s`[1:], info.Name, info.Type, path)
+    juju deploy %s`[1:], entity.Name, entityType, path)
 
 	return nil
+}
+
+func (c *downloadCommand) calculateHash(path string) (string, error) {
+	file, err := c.Filesystem().Open(path)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	defer func() { _ = file.Close() }()
+
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return "", errors.Annotatef(err, "unable to hash file for checksum")
+	}
+
+	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
 
 func (c *downloadCommand) getCharmHubURL() (string, error) {
@@ -294,6 +375,9 @@ func (c *downloadCommand) getCharmHubURL() (string, error) {
 type CharmHubClient interface {
 	// Info returns charm info on the provided charm name from CharmHub API.
 	Info(context.Context, string) (transport.InfoResponse, error)
+
+	// Refresh returns the charm/bundle response for a given configuration.
+	Refresh(context.Context, charmhub.RefreshConfig) ([]transport.RefreshResponse, error)
 
 	// Download defines a client for downloading charms directly.
 	Download(context.Context, *url.URL, string) error

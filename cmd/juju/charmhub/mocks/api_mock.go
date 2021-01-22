@@ -76,6 +76,21 @@ func (mr *MockDownloadCommandAPIMockRecorder) Info(arg0, arg1 interface{}, arg2 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Info", reflect.TypeOf((*MockDownloadCommandAPI)(nil).Info), varargs...)
 }
 
+// Refresh mocks base method
+func (m *MockDownloadCommandAPI) Refresh(arg0 context.Context, arg1 charmhub0.RefreshConfig) ([]transport.RefreshResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Refresh", arg0, arg1)
+	ret0, _ := ret[0].([]transport.RefreshResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Refresh indicates an expected call of Refresh
+func (mr *MockDownloadCommandAPIMockRecorder) Refresh(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockDownloadCommandAPI)(nil).Refresh), arg0, arg1)
+}
+
 // MockInfoCommandAPI is a mock of InfoCommandAPI interface
 type MockInfoCommandAPI struct {
 	ctrl     *gomock.Controller
@@ -320,4 +335,19 @@ func (m *MockCharmHubClient) Info(arg0 context.Context, arg1 string) (transport.
 func (mr *MockCharmHubClientMockRecorder) Info(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Info", reflect.TypeOf((*MockCharmHubClient)(nil).Info), arg0, arg1)
+}
+
+// Refresh mocks base method
+func (m *MockCharmHubClient) Refresh(arg0 context.Context, arg1 charmhub0.RefreshConfig) ([]transport.RefreshResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Refresh", arg0, arg1)
+	ret0, _ := ret[0].([]transport.RefreshResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Refresh indicates an expected call of Refresh
+func (mr *MockCharmHubClientMockRecorder) Refresh(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockCharmHubClient)(nil).Refresh), arg0, arg1)
 }
