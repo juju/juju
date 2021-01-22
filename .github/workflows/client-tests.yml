@@ -5,7 +5,6 @@ jobs:
   test-client-ubuntu:
     name: "Client Tests"
     runs-on: ${{ matrix.os }}
-    if: github.event.pull_request.draft == false
     strategy:
       fail-fast: false
       matrix:
