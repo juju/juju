@@ -19,6 +19,7 @@ type relationer struct {
 	relationId int
 	ru         RelationUnit
 	stateMgr   StateManager
+	unitGetter UnitGetter
 	dying      bool
 
 	logger Logger
@@ -26,11 +27,12 @@ type relationer struct {
 
 // NewRelationer creates a new relationer. The unit will not join the
 // relation until explicitly requested.
-func NewRelationer(ru RelationUnit, stateMgr StateManager, logger Logger) Relationer {
+func NewRelationer(ru RelationUnit, stateMgr StateManager, unitGetter UnitGetter, logger Logger) Relationer {
 	return &relationer{
 		relationId: ru.Relation().Id(),
 		ru:         ru,
 		stateMgr:   stateMgr,
+		unitGetter: unitGetter,
 		logger:     logger,
 	}
 }
@@ -109,7 +111,7 @@ func (r *relationer) die() error {
 	if err := r.ru.LeaveScope(); err != nil {
 		return errors.Annotatef(err, "leaving scope of relation %q", r.ru.Relation())
 	}
-	return r.stateMgr.RemoveRelation(r.relationId)
+	return r.stateMgr.RemoveRelation(r.relationId, r.unitGetter, map[string]bool{})
 }
 
 // PrepareHook checks that the relation is in a state such that it makes
@@ -151,7 +153,7 @@ func (r *relationer) CommitHook(hi hook.Info) error {
 	}
 	err = st.UpdateStateForHook(hi)
 	if err != nil {
-		return r.stateMgr.RemoveRelation(st.RelationId)
+		return r.stateMgr.RemoveRelation(st.RelationId, r.unitGetter, map[string]bool{})
 	}
 	return r.stateMgr.SetRelation(st)
 }

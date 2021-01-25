@@ -341,6 +341,10 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	if c.isCharmHubWithRevision(oldOrigin.Source) {
+		return errors.Errorf("specifying a revision is not supported, please use a channel.")
+	}
+
 	if c.BindToSpaces != "" {
 		if err := c.checkApplicationFacadeSupport(apiRoot, "specifying bindings", 11); err != nil {
 			return err
@@ -423,28 +427,24 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	}
 	ctx.Infof("Added %s charm %q, revision %d%s, to the model", oldOrigin.Source, curl.Name, curl.Revision, channel)
 
-	// If it's the charmhub, we don't upgrade any resources as they're currently
-	// not supported. For now we do our best to create a valid charm.ID, but
-	// will most likely fail.
+	// Next, upgrade resources.
+
+	resourceLister, err := c.NewResourceLister(apiRoot)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	charmsClient := c.NewCharmClient(apiRoot)
+	meta, err := utils.GetMetaResources(curl, charmsClient)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	chID := application.CharmID{
 		URL:    curl,
 		Origin: commoncharm.CoreCharmOrigin(charmID.Origin),
 	}
-	resourceIDs := make(map[string]string)
-	if !charm.CharmHub.Matches(curl.Schema) {
-		// Next, upgrade resources.
-		charmsClient := c.NewCharmClient(apiRoot)
-		resourceLister, err := c.NewResourceLister(apiRoot)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		meta, err := utils.GetMetaResources(curl, charmsClient)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if resourceIDs, err = c.upgradeResources(apiRoot, resourceLister, chID, charmID.Macaroon, meta); err != nil {
-			return errors.Trace(err)
-		}
+	resourceIDs, err := c.upgradeResources(apiRoot, resourceLister, chID, charmID.Macaroon, meta)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	var bindingsChangelog []string
@@ -495,6 +495,25 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	}
 
 	return nil
+}
+
+func (c *refreshCommand) isCharmHubWithRevision(source commoncharm.OriginSource) bool {
+	if source == commoncharm.OriginCharmHub && c.Revision > -1 {
+		return true
+	}
+	// EnsureSchema will error if input is an empty string.
+	path, err := charm.EnsureSchema(c.SwitchURL)
+	if err != nil {
+		return false
+	}
+	curl, err := charm.ParseURL(path)
+	if err != nil {
+		return false
+	}
+	if charm.CharmHub.Matches(curl.Schema) && curl.Revision > -1 {
+		return true
+	}
+	return false
 }
 
 func (c *refreshCommand) validateEndpointNames(newCharmEndpoints set.Strings, oldEndpointsMap, userBindings map[string]string) error {
@@ -556,7 +575,7 @@ func (c *refreshCommand) checkApplicationFacadeSupport(verQuerier versionQuerier
 
 // upgradeResources pushes metadata up to the server for each resource defined
 // in the new charm's metadata and returns a map of resource names to pending
-// IDs to include in the upgrage-charm call.
+// IDs to include in the refresh call.
 //
 // TODO(axw) apiRoot is passed in here because DeployResources requires it,
 // DeployResources should accept a resource-specific client instead.

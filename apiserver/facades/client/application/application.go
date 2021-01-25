@@ -1408,26 +1408,26 @@ func (api *APIBase) GetCharmURLOrigin(args params.ApplicationGet) (params.CharmU
 }
 
 func makeParamsCharmOrigin(origin *state.CharmOrigin) params.CharmOrigin {
-	var rev *int
-	if origin.Revision != nil {
-		rev = origin.Revision
+	retOrigin := params.CharmOrigin{
+		Source: origin.Source,
+		ID:     origin.ID,
+		Hash:   origin.Hash,
 	}
-	var track *string
-	var risk string
+	if origin.Revision != nil {
+		retOrigin.Revision = origin.Revision
+	}
 	if origin.Channel != nil {
-		risk = origin.Channel.Risk
+		retOrigin.Risk = origin.Channel.Risk
 		if origin.Channel.Track != "" {
-			track = &origin.Channel.Track
+			retOrigin.Track = &origin.Channel.Track
 		}
 	}
-	return params.CharmOrigin{
-		Source:   origin.Source,
-		ID:       origin.ID,
-		Hash:     origin.Hash,
-		Risk:     risk,
-		Revision: rev,
-		Track:    track,
+	if origin.Platform != nil {
+		retOrigin.Architecture = origin.Platform.Architecture
+		retOrigin.OS = origin.Platform.OS
+		retOrigin.Series = origin.Platform.Series
 	}
+	return retOrigin
 }
 
 // Set implements the server side of Application.Set.

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/utils/v2"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -29,6 +30,7 @@ import (
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
+	k8sproxy "github.com/juju/juju/caas/kubernetes/provider/proxy"
 	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	providerutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/cloud"
@@ -47,6 +49,8 @@ const (
 
 	// ControllerServiceFQDNTemplate is the FQDN of the controller service using the cluster DNS.
 	ControllerServiceFQDNTemplate = "controller-service.controller-%s.svc.cluster.local"
+
+	proxyResourceName = "proxy"
 )
 
 var (
@@ -251,8 +255,12 @@ func newcontrollerStack(
 	return cs, nil
 }
 
+func getBootstrapResourceName(stackName string, name string) string {
+	return stackName + "-" + strings.Replace(name, ".", "-", -1)
+}
+
 func (c *controllerStack) getResourceName(name string) string {
-	return c.stackName + "-" + strings.Replace(name, ".", "-", -1)
+	return getBootstrapResourceName(c.stackName, name)
 }
 
 func (c *controllerStack) getControllerSecret() (secret *core.Secret, err error) {
@@ -354,6 +362,11 @@ func (c *controllerStack) Deploy() (err error) {
 		return bootstrap.Cancelled()
 	}
 
+	// create the proxy resources for services of type cluster ip
+	if err = c.createControllerProxy(); err != nil {
+		return errors.Annotate(err, "creating controller service proxy for controller")
+	}
+
 	// create shared-secret secret for controller pod.
 	if err = c.createControllerSecretSharedSecret(); err != nil {
 		return errors.Annotate(err, "creating shared-secret secret for controller")
@@ -389,6 +402,14 @@ func (c *controllerStack) Deploy() (err error) {
 	// Note: create agent config configmap for controller pod lastly because agentConfig has been updated in previous steps.
 	if err = c.ensureControllerConfigmapAgentConf(); err != nil {
 		return errors.Annotate(err, "creating agent config configmap for controller")
+	}
+	if isDone() {
+		return bootstrap.Cancelled()
+	}
+
+	// create service account for local cluster/provider connections.
+	if err = c.ensureControllerServiceAccount(); err != nil {
+		return errors.Annotate(err, "creating service account for controller")
 	}
 	if isDone() {
 		return bootstrap.Cancelled()
@@ -440,6 +461,47 @@ func (c *controllerStack) getControllerSvcSpec(cloudType string, cfg *podcfg.Boo
 		}
 	}
 	return spec, nil
+}
+
+func (c *controllerStack) createControllerProxy() error {
+	if c.pcfg.Bootstrap.IgnoreProxy {
+		return nil
+	}
+
+	// Lets first take a look at what will be deployed for a service.
+	// If the service type is clusterip then we will setup the proxy
+
+	cloudType, _, _ := cloud.SplitHostCloudRegion(c.pcfg.Bootstrap.ControllerCloud.HostCloudRegion)
+	controllerSvcSpec, err := c.getControllerSvcSpec(cloudType, c.pcfg.Bootstrap)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if controllerSvcSpec.ServiceType != core.ServiceTypeClusterIP {
+		// Not a cluster ip service so we don't need to setup a k8s proxy
+		return nil
+	}
+
+	k8sClient := c.broker.client()
+
+	remotePort := intstr.FromInt(c.portAPIServer)
+	config := k8sproxy.ControllerProxyConfig{
+		Name:          c.getResourceName(proxyResourceName),
+		Namespace:     c.broker.GetCurrentNamespace(),
+		RemotePort:    remotePort.String(),
+		TargetService: c.resourceNameService,
+	}
+
+	err = k8sproxy.CreateControllerProxy(
+		config,
+		c.stackLabels,
+		k8sClient.CoreV1().ConfigMaps(c.broker.GetCurrentNamespace()),
+		k8sClient.RbacV1().Roles(c.broker.GetCurrentNamespace()),
+		k8sClient.RbacV1().RoleBindings(c.broker.GetCurrentNamespace()),
+		k8sClient.CoreV1().ServiceAccounts(c.broker.GetCurrentNamespace()),
+	)
+
+	return errors.Trace(err)
 }
 
 func (c *controllerStack) createControllerService() error {
@@ -612,6 +674,60 @@ func (c *controllerStack) ensureControllerConfigmapAgentConf() error {
 	return errors.Trace(err)
 }
 
+func (c *controllerStack) ensureControllerServiceAccount() error {
+	sa := &core.ServiceAccount{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "controller",
+			Namespace: c.broker.GetCurrentNamespace(),
+			Labels: providerutils.LabelsMerge(
+				c.stackLabels,
+				providerutils.LabelsJujuModelOperatorDisableWebhook,
+			),
+			Annotations: c.stackAnnotations,
+		},
+		AutomountServiceAccountToken: boolPtr(true),
+	}
+
+	logger.Debugf("ensuring controller service account: \n%+v", sa)
+	_, cleanUps, err := c.broker.ensureServiceAccount(sa)
+	c.addCleanUp(func() {
+		logger.Debugf("deleting %q service account", sa.Name)
+		for _, v := range cleanUps {
+			v()
+		}
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	crb := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: v1.ObjectMeta{
+			Name:        c.broker.GetCurrentNamespace(), // name cluster role binding after the controller namespace.
+			Labels:      providerutils.LabelsForModel("controller", false),
+			Annotations: c.stackAnnotations,
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     "cluster-admin",
+		},
+		Subjects: []rbacv1.Subject{{
+			Kind:      "ServiceAccount",
+			Name:      "controller",
+			Namespace: c.broker.GetCurrentNamespace(),
+		}},
+	}
+
+	_, crbCleanUps, err := c.broker.ensureClusterRoleBinding(crb)
+	c.addCleanUp(func() {
+		logger.Debugf("deleting %q cluster role binding", crb.Name)
+		for _, v := range crbCleanUps {
+			v()
+		}
+	})
+	return errors.Trace(err)
+}
+
 func (c *controllerStack) createControllerStatefulset() error {
 	numberOfPods := int32(1) // TODO(caas): HA mode!
 	spec := &apps.StatefulSet{
@@ -641,7 +757,9 @@ func (c *controllerStack) createControllerStatefulset() error {
 					Annotations: c.stackAnnotations,
 				},
 				Spec: core.PodSpec{
-					RestartPolicy: core.RestartPolicyAlways,
+					RestartPolicy:                core.RestartPolicyAlways,
+					ServiceAccountName:           "controller",
+					AutomountServiceAccountToken: boolPtr(true),
 				},
 			},
 		},

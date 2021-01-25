@@ -102,7 +102,7 @@ func mustUUID() string {
 func CustomModelConfig(c *gc.C, extra Attrs) *config.Config {
 	attrs := FakeConfig().Merge(Attrs{
 		"agent-version": "2.0.0",
-		"charm-hub-url": charmhub.CharmHubServerURL,
+		"charmhub-url":  charmhub.CharmHubServerURL,
 	}).Merge(extra).Delete("admin-secret")
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)

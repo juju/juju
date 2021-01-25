@@ -20,6 +20,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 
+	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
@@ -60,8 +61,8 @@ func (d *factory) GetDeployer(cfg DeployerConfig, getter ModelConfigGetter, reso
 		d.maybeReadLocalBundle,
 		func() (Deployer, error) { return d.maybeReadLocalCharm(getter) },
 		d.maybePredeployedLocalCharm,
-		func() (Deployer, error) { return d.maybeReadCharmstoreBundle(resolver) },
-		d.charmStoreCharm, // This always returns a Deployer
+		func() (Deployer, error) { return d.maybeReadRepositoryBundle(resolver) },
+		d.respositoryCharm, // This always returns a Deployer
 	}
 	for _, d := range maybeDeployers {
 		if deploy, err := d(); err != nil {
@@ -87,6 +88,7 @@ func (d *factory) setConfig(cfg DeployerConfig) {
 	d.applicationName = cfg.ApplicationName
 	d.configOptions = cfg.ConfigOptions
 	d.constraints = cfg.Constraints
+	d.modelConstraints = cfg.ModelConstraints
 	d.storage = cfg.Storage
 	d.bundleStorage = cfg.BundleStorage
 	d.devices = cfg.Devices
@@ -127,6 +129,7 @@ type DeployerConfig struct {
 	ConfigOptions        common.ConfigFlag
 	ConstraintsStr       string
 	Constraints          constraints.Value
+	ModelConstraints     constraints.Value
 	Devices              map[string]devices.Constraints
 	DeployResources      resourceadapters.DeployResourcesFunc
 	DryRun               bool
@@ -164,6 +167,7 @@ type factory struct {
 	applicationName   string
 	configOptions     common.ConfigFlag
 	constraints       constraints.Value
+	modelConstraints  constraints.Value
 	storage           map[string]storage.Constraints
 	bundleStorage     map[string]map[string]storage.Constraints
 	devices           map[string]devices.Constraints
@@ -206,24 +210,25 @@ func (d *factory) maybePredeployedLocalCharm() (Deployer, error) {
 // be deployed
 func (d *factory) newDeployCharm() deployCharm {
 	return deployCharm{
-		applicationName: d.applicationName,
-		attachStorage:   d.attachStorage,
-		bindings:        d.bindings,
-		configOptions:   d.configOptions,
-		constraints:     d.constraints,
-		devices:         d.devices,
-		deployResources: d.deployResources,
-		flagSet:         d.flagSet,
-		force:           d.force,
-		model:           d.model,
-		numUnits:        d.numUnits,
-		placement:       d.placement,
-		placementSpec:   d.placementSpec,
-		resources:       d.resources,
-		series:          d.series,
-		steps:           d.steps,
-		storage:         d.storage,
-		trust:           d.trust,
+		applicationName:  d.applicationName,
+		attachStorage:    d.attachStorage,
+		bindings:         d.bindings,
+		configOptions:    d.configOptions,
+		constraints:      d.constraints,
+		modelConstraints: d.modelConstraints,
+		devices:          d.devices,
+		deployResources:  d.deployResources,
+		flagSet:          d.flagSet,
+		force:            d.force,
+		model:            d.model,
+		numUnits:         d.numUnits,
+		placement:        d.placement,
+		placementSpec:    d.placementSpec,
+		resources:        d.resources,
+		series:           d.series,
+		steps:            d.steps,
+		storage:          d.storage,
+		trust:            d.trust,
 
 		validateCharmSeriesWithName:           d.validateCharmSeriesWithName,
 		validateResourcesNeededForLocalDeploy: d.validateResourcesNeededForLocalDeploy,
@@ -254,7 +259,19 @@ func (d *factory) maybeReadLocalBundle() (Deployer, error) {
 	if err := d.validateBundleFlags(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &localBundle{deployBundle: d.newDeployBundle(ds)}, nil
+
+	platform, err := utils.DeducePlatform(d.constraints, d.series, d.modelConstraints)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	db := d.newDeployBundle(ds)
+	db.origin = commoncharm.Origin{
+		Source:       commoncharm.OriginLocal,
+		Architecture: platform.Architecture,
+		OS:           platform.OS,
+		Series:       platform.Series,
+	}
+	return &localBundle{deployBundle: db}, nil
 }
 
 // newDeployBundle returns the config needed to eventually call
@@ -276,6 +293,7 @@ func (d *factory) newDeployBundle(ds charm.BundleDataSource) deployBundle {
 		bundleDevices:        d.bundleDevices,
 		bundleOverlayFile:    d.bundleOverlayFile,
 		bundleDir:            d.charmOrBundle,
+		modelConstraints:     d.modelConstraints,
 	}
 }
 
@@ -371,12 +389,12 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 	}, err
 }
 
-func (d *factory) maybeReadCharmstoreBundle(resolver Resolver) (Deployer, error) {
-	curl, err := resolveCharmURL(d.charmOrBundle)
+func (d *factory) maybeReadRepositoryBundle(resolver Resolver) (Deployer, error) {
+	curl, err := resolveAndValidateCharmURL(d.charmOrBundle)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	platform, err := utils.DeducePlatform(d.constraints, d.series)
+	platform, err := utils.DeducePlatform(d.constraints, d.series, d.modelConstraints)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -427,16 +445,16 @@ func (d *factory) maybeReadCharmstoreBundle(resolver Resolver) (Deployer, error)
 	db.bundleURL = bundleURL
 	db.bundleOverlayFile = d.bundleOverlayFile
 	db.origin = bundleOrigin
-	return &charmstoreBundle{deployBundle: db}, nil
+	return &repositoryBundle{deployBundle: db}, nil
 }
 
-func (d *factory) charmStoreCharm() (Deployer, error) {
+func (d *factory) respositoryCharm() (Deployer, error) {
 	// Validate we have a charm store change
-	userRequestedURL, err := resolveCharmURL(d.charmOrBundle)
+	userRequestedURL, err := resolveAndValidateCharmURL(d.charmOrBundle)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	platform, err := utils.DeducePlatform(d.constraints, d.series)
+	platform, err := utils.DeducePlatform(d.constraints, d.series, d.modelConstraints)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -447,7 +465,7 @@ func (d *factory) charmStoreCharm() (Deployer, error) {
 
 	deployCharm := d.newDeployCharm()
 	deployCharm.origin = origin
-	return &charmStoreCharm{
+	return &repositoryCharm{
 		deployCharm:      deployCharm,
 		userRequestedURL: userRequestedURL,
 		clock:            d.clock,
@@ -460,8 +478,21 @@ func resolveCharmURL(path string) (*charm.URL, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	return charm.ParseURL(path)
+}
+
+func resolveAndValidateCharmURL(path string) (*charm.URL, error) {
+	curl, err := resolveCharmURL(path)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Deploy by revision is not supported with CharmHub charms,
+	// check now.
+	if charm.CharmHub.Matches(curl.Schema) && curl.Revision > -1 {
+		return nil, errors.Errorf("specifying a revision for %s is not supported, please use a channel.", curl.Name)
+	}
+	return curl, nil
 }
 
 func isLocalSchema(u string) bool {

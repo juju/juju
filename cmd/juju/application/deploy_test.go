@@ -319,7 +319,7 @@ func (s *DeploySuite) TestBlockDeploy(c *gc.C) {
 
 func (s *DeploySuite) TestInvalidPath(c *gc.C) {
 	err := s.runDeploy(c, "/home/nowhere")
-	c.Assert(err, gc.ErrorMatches, `no charm was found at \"/home/nowhere\"`)
+	c.Assert(err, gc.ErrorMatches, `cannot resolve charm or bundle "nowhere": charm or bundle not found`)
 }
 
 func (s *DeploySuite) TestInvalidFileFormat(c *gc.C) {
@@ -790,7 +790,11 @@ func (s *DeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 		nil, false, false, 0, nil, nil,
 	)
 
-	origin := commoncharm.Origin{Source: commoncharm.OriginCharmStore, Series: "bionic"}
+	origin := commoncharm.Origin{
+		Source:       commoncharm.OriginCharmStore,
+		Architecture: arch.DefaultArchitecture,
+		Series:       "bionic",
+	}
 
 	deployURL := *inURL
 	deployURL.Revision = 1
@@ -1501,7 +1505,11 @@ func (s *DeploySuite) TestDeployWithTermsNotSigned(c *gc.C) {
 	withCharmRepoResolvable(s.fakeAPI, curl, "")
 	deployURL := *curl
 	deployURL.Revision = 1
-	origin := commoncharm.Origin{Source: commoncharm.OriginCharmStore, Series: "bionic"}
+	origin := commoncharm.Origin{
+		Source:       commoncharm.OriginCharmStore,
+		Architecture: arch.DefaultArchitecture,
+		Series:       "bionic",
+	}
 	s.fakeAPI.Call("AddCharm", &deployURL, origin, false).Returns(origin, error(termsRequiredError))
 	s.fakeAPI.Call("CharmInfo", deployURL.String()).Returns(
 		&apicommoncharms.CharmInfo{
@@ -1519,8 +1527,17 @@ func (s *DeploySuite) TestDeployWithTermsNotSigned(c *gc.C) {
 
 func (s *DeploySuite) TestDeployWithChannel(c *gc.C) {
 	curl := charm.MustParseURL("cs:bionic/dummy-1")
-	origin := commoncharm.Origin{Source: commoncharm.OriginCharmStore, Risk: "beta"}
-	originWithSeries := commoncharm.Origin{Source: commoncharm.OriginCharmStore, Risk: "beta", Series: "bionic"}
+	origin := commoncharm.Origin{
+		Source:       commoncharm.OriginCharmStore,
+		Architecture: arch.DefaultArchitecture,
+		Risk:         "beta",
+	}
+	originWithSeries := commoncharm.Origin{
+		Source:       commoncharm.OriginCharmStore,
+		Architecture: arch.DefaultArchitecture,
+		Series:       "bionic",
+		Risk:         "beta",
+	}
 	s.fakeAPI.Call("ResolveCharm", curl, origin).Returns(
 		curl,
 		origin,
@@ -1924,11 +1941,15 @@ func (s *FakeStoreStateSuite) setupCharm(c *gc.C, url, name, series string) char
 	return s.setupCharmMaybeAdd(c, url, name, series, true)
 }
 
-func (s *FakeStoreStateSuite) setupCharmMaybeAdd(c *gc.C, url, name, series string, addToState bool) charm.Charm {
-	return s.setupCharmMaybeAddForce(c, url, name, series, false, addToState)
+func (s *FakeStoreStateSuite) setupCharmWithArch(c *gc.C, url, name, series, arch string) charm.Charm {
+	return s.setupCharmMaybeAddForce(c, url, name, series, arch, false, true)
 }
 
-func (s *FakeStoreStateSuite) setupCharmMaybeAddForce(c *gc.C, url, name, series string, force, addToState bool) charm.Charm {
+func (s *FakeStoreStateSuite) setupCharmMaybeAdd(c *gc.C, url, name, series string, addToState bool) charm.Charm {
+	return s.setupCharmMaybeAddForce(c, url, name, series, arch.DefaultArchitecture, false, addToState)
+}
+
+func (s *FakeStoreStateSuite) setupCharmMaybeAddForce(c *gc.C, url, name, series, arc string, force, addToState bool) charm.Charm {
 	baseURL := charm.MustParseURL(url)
 	baseURL.Series = ""
 	deployURL := charm.MustParseURL(url)
@@ -1959,16 +1980,22 @@ func (s *FakeStoreStateSuite) setupCharmMaybeAddForce(c *gc.C, url, name, series
 	}
 	for _, url := range charmURLs {
 		for _, serie := range []string{"", url.Series, series} {
-			origin, err := apputils.DeduceOrigin(url, corecharm.Channel{}, corecharm.Platform{Series: serie})
-			c.Assert(err, jc.ErrorIsNil)
+			for _, a := range []string{"", arc, arch.DefaultArchitecture} {
+				platform := corecharm.Platform{
+					Architecture: a,
+					Series:       serie,
+				}
+				origin, err := apputils.DeduceOrigin(url, corecharm.Channel{}, platform)
+				c.Assert(err, jc.ErrorIsNil)
 
-			s.fakeAPI.Call("ResolveCharm", url, origin).Returns(
-				resolveURL,
-				origin,
-				[]string{series},
-				error(nil),
-			)
-			s.fakeAPI.Call("AddCharm", resolveURL, origin, force).Returns(origin, error(nil))
+				s.fakeAPI.Call("ResolveCharm", url, origin).Returns(
+					resolveURL,
+					origin,
+					[]string{series},
+					error(nil),
+				)
+				s.fakeAPI.Call("AddCharm", resolveURL, origin, force).Returns(origin, error(nil))
+			}
 		}
 	}
 
@@ -2126,13 +2153,15 @@ func (s *DeploySuite) TestDeployCharmWithSomeEndpointBindingsSpecifiedSuccess(c 
 		CharmID: application.CharmID{
 			URL: curl,
 			Origin: commoncharm.Origin{
-				Source: commoncharm.OriginCharmStore,
-				Series: "bionic",
+				Source:       commoncharm.OriginCharmStore,
+				Architecture: arch.DefaultArchitecture,
+				Series:       "bionic",
 			},
 		},
 		CharmOrigin: commoncharm.Origin{
-			Source: commoncharm.OriginCharmStore,
-			Series: "bionic",
+			Source:       commoncharm.OriginCharmStore,
+			Architecture: arch.DefaultArchitecture,
+			Series:       "bionic",
 		},
 		ApplicationName: curl.Name,
 		Series:          "bionic",
@@ -2555,6 +2584,7 @@ type fakeDeployAPI struct {
 	planURL             string
 	deployerFactoryFunc func(dep deployer.DeployerDependencies) deployer.DeployerFactory
 	charmRepoFunc       func() (*store.CharmStoreAdaptor, error)
+	modelCons           constraints.Value
 }
 
 func (f *fakeDeployAPI) IsMetered(charmURL string) (bool, error) {
@@ -2591,7 +2621,7 @@ func (f *fakeDeployAPI) ResolveCharm(url *charm.URL, preferredChannel commonchar
 	if results == nil {
 		if url.Schema == "cs" || url.Schema == "ch" {
 			return nil, commoncharm.Origin{}, nil, errors.Errorf(
-				"cannot resolve URL %q: charm or bundle not found", url)
+				"cannot resolve charm or bundle %q: charm or bundle not found", url.Name)
 		}
 		return nil, commoncharm.Origin{}, nil, errors.Errorf(
 			"unknown schema for charm URL %q", url)
@@ -2691,6 +2721,11 @@ func (f *fakeDeployAPI) GetConfig(_ string, _ ...string) ([]map[string]interface
 
 func (f *fakeDeployAPI) GetConstraints(_ ...string) ([]constraints.Value, error) {
 	return nil, nil
+}
+
+func (f *fakeDeployAPI) GetModelConstraints() (constraints.Value, error) {
+	f.MethodCall(f, "GetModelConstraints")
+	return f.modelCons, nil
 }
 
 func (f *fakeDeployAPI) GetBundle(url *charm.URL, _ commoncharm.Origin, _ string) (charm.Bundle, error) {
@@ -2968,7 +3003,8 @@ func withCharmDeployableWithDevicesAndStorage(
 			deployURL.Revision = 1
 		}
 	}
-	platform, _ := apputils.DeducePlatform(constraints.Value{}, series)
+	fallbackCons := constraints.MustParse("arch=amd64")
+	platform, _ := apputils.DeducePlatform(constraints.Value{}, series, fallbackCons)
 	origin, _ := apputils.DeduceOrigin(url, corecharm.Channel{}, platform)
 	fakeAPI.Call("AddCharm", &deployURL, origin, force).Returns(origin, error(nil))
 	fakeAPI.Call("CharmInfo", deployURL.String()).Returns(
@@ -3030,13 +3066,19 @@ func withCharmRepoResolvable(
 		resolveURLs = append(resolveURLs, &inURL)
 	}
 	for _, url := range resolveURLs {
-		origin := commoncharm.Origin{Source: commoncharm.OriginCharmStore, Series: series}
-		fakeAPI.Call("ResolveCharm", url, origin).Returns(
-			&resultURL,
-			origin,
-			[]string{"bionic"}, // Supported series
-			error(nil),
-		)
+		for _, arch := range []string{"", arch.DefaultArchitecture} {
+			origin := commoncharm.Origin{
+				Source:       commoncharm.OriginCharmStore,
+				Architecture: arch,
+				Series:       series,
+			}
+			fakeAPI.Call("ResolveCharm", url, origin).Returns(
+				&resultURL,
+				origin,
+				[]string{"bionic"}, // Supported series
+				error(nil),
+			)
+		}
 	}
 }
 

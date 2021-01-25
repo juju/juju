@@ -38,7 +38,7 @@ import (
 // An alternate location can be configured by changing the URL
 // field in the Params struct.
 const (
-	CharmHubServerURL     = "https://api.snapcraft.io"
+	CharmHubServerURL     = "https://api.charmhub.io"
 	CharmHubServerVersion = "v2"
 	CharmHubServerEntity  = "charms"
 
@@ -67,7 +67,7 @@ type Logger interface {
 type Config struct {
 	// URL holds the base endpoint URL of the charmHub,
 	// with no trailing slash, not including the version.
-	// For example https://api.snapcraft.io/v2/charms/
+	// For example https://api.charmhub.io/v2/charms/
 	URL string
 
 	// Version holds the version attribute of the charmHub we're requesting.
@@ -115,7 +115,7 @@ func newOptions() *options {
 }
 
 // CharmHubConfig defines a charmHub client configuration for targeting the
-// snapcraft API.
+// charmhub API.
 func CharmHubConfig(logger Logger, options ...Option) (Config, error) {
 	opts := newOptions()
 	for _, option := range options {

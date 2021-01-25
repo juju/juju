@@ -63,3 +63,18 @@ func (mr *MockStateTrackerStateMockRecorder) RelationById(arg0 interface{}) *gom
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RelationById", reflect.TypeOf((*MockStateTrackerState)(nil).RelationById), arg0)
 }
+
+// Unit mocks base method
+func (m *MockStateTrackerState) Unit(arg0 names.UnitTag) (relation.Unit, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Unit", arg0)
+	ret0, _ := ret[0].(relation.Unit)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Unit indicates an expected call of Unit
+func (mr *MockStateTrackerStateMockRecorder) Unit(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unit", reflect.TypeOf((*MockStateTrackerState)(nil).Unit), arg0)
+}

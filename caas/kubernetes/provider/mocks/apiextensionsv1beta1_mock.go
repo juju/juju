@@ -68,31 +68,31 @@ func (mr *MockApiextensionsV1beta1InterfaceMockRecorder) RESTClient() *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RESTClient", reflect.TypeOf((*MockApiextensionsV1beta1Interface)(nil).RESTClient))
 }
 
-// MockCustomResourceDefinitionInterface is a mock of CustomResourceDefinitionInterface interface
-type MockCustomResourceDefinitionInterface struct {
+// MockCustomResourceDefinitionV1Beta1Interface is a mock of CustomResourceDefinitionInterface interface
+type MockCustomResourceDefinitionV1Beta1Interface struct {
 	ctrl     *gomock.Controller
-	recorder *MockCustomResourceDefinitionInterfaceMockRecorder
+	recorder *MockCustomResourceDefinitionV1Beta1InterfaceMockRecorder
 }
 
-// MockCustomResourceDefinitionInterfaceMockRecorder is the mock recorder for MockCustomResourceDefinitionInterface
-type MockCustomResourceDefinitionInterfaceMockRecorder struct {
-	mock *MockCustomResourceDefinitionInterface
+// MockCustomResourceDefinitionV1Beta1InterfaceMockRecorder is the mock recorder for MockCustomResourceDefinitionV1Beta1Interface
+type MockCustomResourceDefinitionV1Beta1InterfaceMockRecorder struct {
+	mock *MockCustomResourceDefinitionV1Beta1Interface
 }
 
-// NewMockCustomResourceDefinitionInterface creates a new mock instance
-func NewMockCustomResourceDefinitionInterface(ctrl *gomock.Controller) *MockCustomResourceDefinitionInterface {
-	mock := &MockCustomResourceDefinitionInterface{ctrl: ctrl}
-	mock.recorder = &MockCustomResourceDefinitionInterfaceMockRecorder{mock}
+// NewMockCustomResourceDefinitionV1Beta1Interface creates a new mock instance
+func NewMockCustomResourceDefinitionV1Beta1Interface(ctrl *gomock.Controller) *MockCustomResourceDefinitionV1Beta1Interface {
+	mock := &MockCustomResourceDefinitionV1Beta1Interface{ctrl: ctrl}
+	mock.recorder = &MockCustomResourceDefinitionV1Beta1InterfaceMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use
-func (m *MockCustomResourceDefinitionInterface) EXPECT() *MockCustomResourceDefinitionInterfaceMockRecorder {
+func (m *MockCustomResourceDefinitionV1Beta1Interface) EXPECT() *MockCustomResourceDefinitionV1Beta1InterfaceMockRecorder {
 	return m.recorder
 }
 
 // Create mocks base method
-func (m *MockCustomResourceDefinitionInterface) Create(arg0 context.Context, arg1 *v1beta1.CustomResourceDefinition, arg2 v1.CreateOptions) (*v1beta1.CustomResourceDefinition, error) {
+func (m *MockCustomResourceDefinitionV1Beta1Interface) Create(arg0 context.Context, arg1 *v1beta1.CustomResourceDefinition, arg2 v1.CreateOptions) (*v1beta1.CustomResourceDefinition, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*v1beta1.CustomResourceDefinition)
@@ -101,13 +101,13 @@ func (m *MockCustomResourceDefinitionInterface) Create(arg0 context.Context, arg
 }
 
 // Create indicates an expected call of Create
-func (mr *MockCustomResourceDefinitionInterfaceMockRecorder) Create(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockCustomResourceDefinitionV1Beta1InterfaceMockRecorder) Create(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockCustomResourceDefinitionInterface)(nil).Create), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockCustomResourceDefinitionV1Beta1Interface)(nil).Create), arg0, arg1, arg2)
 }
 
 // Delete mocks base method
-func (m *MockCustomResourceDefinitionInterface) Delete(arg0 context.Context, arg1 string, arg2 v1.DeleteOptions) error {
+func (m *MockCustomResourceDefinitionV1Beta1Interface) Delete(arg0 context.Context, arg1 string, arg2 v1.DeleteOptions) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Delete", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -115,13 +115,13 @@ func (m *MockCustomResourceDefinitionInterface) Delete(arg0 context.Context, arg
 }
 
 // Delete indicates an expected call of Delete
-func (mr *MockCustomResourceDefinitionInterfaceMockRecorder) Delete(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockCustomResourceDefinitionV1Beta1InterfaceMockRecorder) Delete(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockCustomResourceDefinitionInterface)(nil).Delete), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockCustomResourceDefinitionV1Beta1Interface)(nil).Delete), arg0, arg1, arg2)
 }
 
 // DeleteCollection mocks base method
-func (m *MockCustomResourceDefinitionInterface) DeleteCollection(arg0 context.Context, arg1 v1.DeleteOptions, arg2 v1.ListOptions) error {
+func (m *MockCustomResourceDefinitionV1Beta1Interface) DeleteCollection(arg0 context.Context, arg1 v1.DeleteOptions, arg2 v1.ListOptions) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteCollection", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -129,13 +129,13 @@ func (m *MockCustomResourceDefinitionInterface) DeleteCollection(arg0 context.Co
 }
 
 // DeleteCollection indicates an expected call of DeleteCollection
-func (mr *MockCustomResourceDefinitionInterfaceMockRecorder) DeleteCollection(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockCustomResourceDefinitionV1Beta1InterfaceMockRecorder) DeleteCollection(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCollection", reflect.TypeOf((*MockCustomResourceDefinitionInterface)(nil).DeleteCollection), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCollection", reflect.TypeOf((*MockCustomResourceDefinitionV1Beta1Interface)(nil).DeleteCollection), arg0, arg1, arg2)
 }
 
 // Get mocks base method
-func (m *MockCustomResourceDefinitionInterface) Get(arg0 context.Context, arg1 string, arg2 v1.GetOptions) (*v1beta1.CustomResourceDefinition, error) {
+func (m *MockCustomResourceDefinitionV1Beta1Interface) Get(arg0 context.Context, arg1 string, arg2 v1.GetOptions) (*v1beta1.CustomResourceDefinition, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*v1beta1.CustomResourceDefinition)
@@ -144,13 +144,13 @@ func (m *MockCustomResourceDefinitionInterface) Get(arg0 context.Context, arg1 s
 }
 
 // Get indicates an expected call of Get
-func (mr *MockCustomResourceDefinitionInterfaceMockRecorder) Get(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockCustomResourceDefinitionV1Beta1InterfaceMockRecorder) Get(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockCustomResourceDefinitionInterface)(nil).Get), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockCustomResourceDefinitionV1Beta1Interface)(nil).Get), arg0, arg1, arg2)
 }
 
 // List mocks base method
-func (m *MockCustomResourceDefinitionInterface) List(arg0 context.Context, arg1 v1.ListOptions) (*v1beta1.CustomResourceDefinitionList, error) {
+func (m *MockCustomResourceDefinitionV1Beta1Interface) List(arg0 context.Context, arg1 v1.ListOptions) (*v1beta1.CustomResourceDefinitionList, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "List", arg0, arg1)
 	ret0, _ := ret[0].(*v1beta1.CustomResourceDefinitionList)
@@ -159,13 +159,13 @@ func (m *MockCustomResourceDefinitionInterface) List(arg0 context.Context, arg1 
 }
 
 // List indicates an expected call of List
-func (mr *MockCustomResourceDefinitionInterfaceMockRecorder) List(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockCustomResourceDefinitionV1Beta1InterfaceMockRecorder) List(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockCustomResourceDefinitionInterface)(nil).List), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockCustomResourceDefinitionV1Beta1Interface)(nil).List), arg0, arg1)
 }
 
 // Patch mocks base method
-func (m *MockCustomResourceDefinitionInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []byte, arg4 v1.PatchOptions, arg5 ...string) (*v1beta1.CustomResourceDefinition, error) {
+func (m *MockCustomResourceDefinitionV1Beta1Interface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []byte, arg4 v1.PatchOptions, arg5 ...string) (*v1beta1.CustomResourceDefinition, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1, arg2, arg3, arg4}
 	for _, a := range arg5 {
@@ -178,14 +178,14 @@ func (m *MockCustomResourceDefinitionInterface) Patch(arg0 context.Context, arg1
 }
 
 // Patch indicates an expected call of Patch
-func (mr *MockCustomResourceDefinitionInterfaceMockRecorder) Patch(arg0, arg1, arg2, arg3, arg4 interface{}, arg5 ...interface{}) *gomock.Call {
+func (mr *MockCustomResourceDefinitionV1Beta1InterfaceMockRecorder) Patch(arg0, arg1, arg2, arg3, arg4 interface{}, arg5 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1, arg2, arg3, arg4}, arg5...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Patch", reflect.TypeOf((*MockCustomResourceDefinitionInterface)(nil).Patch), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Patch", reflect.TypeOf((*MockCustomResourceDefinitionV1Beta1Interface)(nil).Patch), varargs...)
 }
 
 // Update mocks base method
-func (m *MockCustomResourceDefinitionInterface) Update(arg0 context.Context, arg1 *v1beta1.CustomResourceDefinition, arg2 v1.UpdateOptions) (*v1beta1.CustomResourceDefinition, error) {
+func (m *MockCustomResourceDefinitionV1Beta1Interface) Update(arg0 context.Context, arg1 *v1beta1.CustomResourceDefinition, arg2 v1.UpdateOptions) (*v1beta1.CustomResourceDefinition, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Update", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*v1beta1.CustomResourceDefinition)
@@ -194,13 +194,13 @@ func (m *MockCustomResourceDefinitionInterface) Update(arg0 context.Context, arg
 }
 
 // Update indicates an expected call of Update
-func (mr *MockCustomResourceDefinitionInterfaceMockRecorder) Update(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockCustomResourceDefinitionV1Beta1InterfaceMockRecorder) Update(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockCustomResourceDefinitionInterface)(nil).Update), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockCustomResourceDefinitionV1Beta1Interface)(nil).Update), arg0, arg1, arg2)
 }
 
 // UpdateStatus mocks base method
-func (m *MockCustomResourceDefinitionInterface) UpdateStatus(arg0 context.Context, arg1 *v1beta1.CustomResourceDefinition, arg2 v1.UpdateOptions) (*v1beta1.CustomResourceDefinition, error) {
+func (m *MockCustomResourceDefinitionV1Beta1Interface) UpdateStatus(arg0 context.Context, arg1 *v1beta1.CustomResourceDefinition, arg2 v1.UpdateOptions) (*v1beta1.CustomResourceDefinition, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateStatus", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*v1beta1.CustomResourceDefinition)
@@ -209,13 +209,13 @@ func (m *MockCustomResourceDefinitionInterface) UpdateStatus(arg0 context.Contex
 }
 
 // UpdateStatus indicates an expected call of UpdateStatus
-func (mr *MockCustomResourceDefinitionInterfaceMockRecorder) UpdateStatus(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockCustomResourceDefinitionV1Beta1InterfaceMockRecorder) UpdateStatus(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStatus", reflect.TypeOf((*MockCustomResourceDefinitionInterface)(nil).UpdateStatus), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStatus", reflect.TypeOf((*MockCustomResourceDefinitionV1Beta1Interface)(nil).UpdateStatus), arg0, arg1, arg2)
 }
 
 // Watch mocks base method
-func (m *MockCustomResourceDefinitionInterface) Watch(arg0 context.Context, arg1 v1.ListOptions) (watch.Interface, error) {
+func (m *MockCustomResourceDefinitionV1Beta1Interface) Watch(arg0 context.Context, arg1 v1.ListOptions) (watch.Interface, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Watch", arg0, arg1)
 	ret0, _ := ret[0].(watch.Interface)
@@ -224,7 +224,7 @@ func (m *MockCustomResourceDefinitionInterface) Watch(arg0 context.Context, arg1
 }
 
 // Watch indicates an expected call of Watch
-func (mr *MockCustomResourceDefinitionInterfaceMockRecorder) Watch(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockCustomResourceDefinitionV1Beta1InterfaceMockRecorder) Watch(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Watch", reflect.TypeOf((*MockCustomResourceDefinitionInterface)(nil).Watch), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Watch", reflect.TypeOf((*MockCustomResourceDefinitionV1Beta1Interface)(nil).Watch), arg0, arg1)
 }

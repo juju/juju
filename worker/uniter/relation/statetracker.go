@@ -51,7 +51,7 @@ type relationStateTracker struct {
 	isPeerRelation  map[int]bool
 	stateMgr        StateManager
 	logger          Logger
-	newRelationer   func(RelationUnit, StateManager, Logger) Relationer
+	newRelationer   func(RelationUnit, StateManager, UnitGetter, Logger) Relationer
 }
 
 // NewRelationStateTracker returns a new RelationStateTracker instance.
@@ -81,7 +81,7 @@ func NewRelationStateTracker(cfg RelationStateTrackerConfig) (RelationStateTrack
 		logger:          cfg.Logger,
 		newRelationer:   NewRelationer,
 	}
-	r.stateMgr, err = NewStateManager(r.unit)
+	r.stateMgr, err = NewStateManager(r.unit, r.logger)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -122,6 +122,7 @@ func (r *relationStateTracker) loadInitialState() error {
 		r.relationCreated[rel.Id()] = true
 	}
 
+	knownUnits := make(map[string]bool)
 	for _, id := range r.stateMgr.KnownIDs() {
 		if rel, ok := activeRelations[id]; ok {
 			if err := r.joinRelation(rel); err != nil {
@@ -131,7 +132,7 @@ func (r *relationStateTracker) loadInitialState() error {
 			// Relations which are suspended may become active
 			// again so we keep the local state, otherwise we
 			// remove it.
-			if err := r.stateMgr.RemoveRelation(id); err != nil {
+			if err := r.stateMgr.RemoveRelation(id, r.st, knownUnits); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -159,7 +160,7 @@ func (r *relationStateTracker) joinRelation(rel Relation) (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	relationer := r.newRelationer(ru, r.stateMgr, r.logger)
+	relationer := r.newRelationer(ru, r.stateMgr, r.st, r.logger)
 	unitWatcher, err := r.unit.Watch()
 	if err != nil {
 		return errors.Trace(err)
@@ -211,6 +212,7 @@ func (r *relationStateTracker) joinRelation(rel Relation) (err error) {
 
 func (r *relationStateTracker) SynchronizeScopes(remote remotestate.Snapshot) error {
 	var charmSpec *charm.CharmDir
+	knownUnits := make(map[string]bool)
 	for id, relationSnapshot := range remote.Relations {
 		if relr, found := r.relationers[id]; found {
 			// We've seen this relation before. The only changes
@@ -260,7 +262,7 @@ func (r *relationStateTracker) SynchronizeScopes(remote remotestate.Snapshot) er
 		}
 
 		if joinErr := r.joinRelation(rel); joinErr != nil {
-			removeErr := r.stateMgr.RemoveRelation(id)
+			removeErr := r.stateMgr.RemoveRelation(id, r.st, knownUnits)
 			if !params.IsCodeCannotEnterScope(joinErr) {
 				return errors.Trace(joinErr)
 			} else if removeErr != nil {

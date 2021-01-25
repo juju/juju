@@ -68,6 +68,7 @@ type bundleDeploySpec struct {
 	bundleURL         *charm.URL
 	bundleOverlayFile []string
 	origin            commoncharm.Origin
+	modelConstraints  constraints.Value
 
 	deployAPI            DeployerAPI
 	bundleResolver       Resolver
@@ -141,7 +142,8 @@ type bundleHandler struct {
 	results map[string]string
 
 	// origin identifies the default channel to use for the bundle.
-	origin commoncharm.Origin
+	origin           commoncharm.Origin
+	modelConstraints constraints.Value
 
 	// deployAPI is used to interact with the environment.
 	deployAPI            DeployerAPI
@@ -227,6 +229,7 @@ func makeBundleHandler(bundleData *charm.BundleData, spec bundleDeploySpec) *bun
 		applications:         applications,
 		results:              make(map[string]string),
 		origin:               spec.origin,
+		modelConstraints:     spec.modelConstraints,
 		deployAPI:            spec.deployAPI,
 		bundleResolver:       spec.bundleResolver,
 		authorizer:           spec.authorizer,
@@ -324,7 +327,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 			continue
 		}
 
-		ch, err := resolveCharmURL(spec.Charm)
+		ch, err := resolveAndValidateCharmURL(spec.Charm)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -337,7 +340,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 			}
 		}
 
-		platform, err := utils.DeducePlatform(cons, spec.Series)
+		platform, err := utils.DeducePlatform(cons, spec.Series, h.modelConstraints)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -348,11 +351,16 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		}
 		url, origin, _, err := h.bundleResolver.ResolveCharm(ch, origin)
 		if err != nil {
-			return errors.Annotatef(err, "cannot resolve URL %q", spec.Charm)
+			return errors.Annotatef(err, "cannot resolve charm or bundle %q", ch.Name)
 		}
+		if charm.CharmHub.Matches(url.Schema) {
+			url = url.WithSeries("")
+			origin = origin.WithSeries("")
+		}
+
 		h.ctx.Infof(formatLocatedText(ch, origin))
 		if url.Series == "bundle" {
-			return errors.Errorf("expected charm URL, got bundle URL %q", spec.Charm)
+			return errors.Errorf("expected charm, got bundle %q", ch.Name)
 		}
 
 		spec.Charm = url.String()
@@ -389,10 +397,11 @@ func (h *bundleHandler) getChanges() error {
 	// some time to do that, hence why we're still using the library directly
 	// unlike other clients.
 	cfg := bundlechanges.ChangesConfig{
-		Bundle:    h.data,
-		BundleURL: bundleURL,
-		Model:     h.model,
-		Logger:    logger,
+		Bundle:           h.data,
+		BundleURL:        bundleURL,
+		Model:            h.model,
+		ConstraintGetter: addCharmConstraintsParser,
+		Logger:           logger,
 	}
 	logger.Tracef("bundlechanges.ChangesConfig.Bundle %s", pretty.Sprint(cfg.Bundle))
 	logger.Tracef("bundlechanges.ChangesConfig.BundleURL %s", pretty.Sprint(cfg.BundleURL))
@@ -534,13 +543,19 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	}
 
 	// Not a local charm, so grab from the store.
-	ch, err := resolveCharmURL(chParams.Charm)
+	ch, err := resolveAndValidateCharmURL(chParams.Charm)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// TODO (stickupkid): How do we know what the charm architecture in this
-	// case.
-	platform, err := utils.DeducePlatform(constraints.Value{}, series)
+
+	// Ensure that we use the architecture from the add charm change params.
+	var cons constraints.Value
+	if change.Params.Architecture != "" {
+		cons = constraints.Value{
+			Arch: &change.Params.Architecture,
+		}
+	}
+	platform, err := utils.DeducePlatform(cons, series, h.modelConstraints)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -566,19 +581,19 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 
 	url, resolvedOrigin, _, err := h.bundleResolver.ResolveCharm(ch, origin)
 	if err != nil {
-		return errors.Annotatef(err, "cannot resolve URL %q", chParams.Charm)
+		return errors.Annotatef(err, "cannot resolve %q", ch.Name)
 	}
 	if url.Series == "bundle" || resolvedOrigin.Type == "bundle" {
-		return errors.Errorf("expected charm URL, got bundle %q %v", chParams.Charm, resolvedOrigin)
+		return errors.Errorf("expected charm, got bundle %q %v", ch.Name, resolvedOrigin)
 	}
 
 	var macaroon *macaroon.Macaroon
 	var charmOrigin commoncharm.Origin
 	url, macaroon, charmOrigin, err = store.AddCharmWithAuthorizationFromURL(h.deployAPI, h.authorizer, url, resolvedOrigin, h.force)
 	if err != nil {
-		return errors.Annotatef(err, "cannot add charm %q", chParams.Charm)
+		return errors.Annotatef(err, "cannot add charm %q", ch.Name)
 	} else if url == nil {
-		return errors.Errorf("unexpected charm URL %q", chParams.Charm)
+		return errors.Errorf("unexpected charm URL %q", ch.Name)
 	}
 
 	logger.Debugf("added charm %s", url)
@@ -633,7 +648,20 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		// TODO (stickupkid): We could in theory deduce the origin, but that
 		// will be ok for charmstore and local, but will be horribly wrong
 		// for charmhub.
-		return errors.Annotatef(err, "unexpected charm url %q, charm not found for application %q", cURL.String(), p.Application)
+		return errors.Annotatef(err, "unexpected charm %q, charm not found for application %q", cURL.Name, p.Application)
+	}
+
+	// Handle application constraints.
+	cons, err := constraints.Parse(p.Constraints)
+	if err != nil {
+		// This should never happen, as the bundle is already verified.
+		return errors.Annotate(err, "invalid constraints for application")
+	}
+
+	if charm.CharmHub.Matches(cURL.Schema) {
+		if cons.HasArch() && *cons.Arch != origin.Architecture {
+			return errors.Errorf("unexpected %s application architecture (%s), charm already exists with architecture (%s)", p.Application, *cons.Arch, origin.Architecture)
+		}
 	}
 
 	chID := application.CharmID{
@@ -664,12 +692,6 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 			return errors.Annotatef(err, "cannot marshal options for application %q", p.Application)
 		}
 		configYAML = string(config)
-	}
-	// Handle application constraints.
-	cons, err := constraints.Parse(p.Constraints)
-	if err != nil {
-		// This should never happen, as the bundle is already verified.
-		return errors.Annotate(err, "invalid constraints for application")
 	}
 	storageConstraints := h.bundleStorage[p.Application]
 	if len(p.Storage) > 0 {
@@ -777,7 +799,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		if h.origin.Track != nil {
 			track = *h.origin.Track
 		}
-		platform, err := utils.DeducePlatform(cons, series)
+		platform, err := utils.DeducePlatform(cons, series, h.modelConstraints)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1025,7 +1047,7 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 	}
 
 	p := change.Params
-	cURL, err := resolveCharmURL(resolve(p.Charm, h.results))
+	cURL, err := resolveAndValidateCharmURL(resolve(p.Charm, h.results))
 	if err != nil {
 		return errors.Trace(err)
 	} else if cURL == nil {
@@ -1438,4 +1460,25 @@ func applicationRequiresTrust(appSpec *charm.ApplicationSpec) bool {
 // comparison to be compatible with older controllers.
 func isUserAlreadyHasAccessErr(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "user already has")
+}
+
+type bundleArchConstraint struct {
+	constraints string
+}
+
+func (b bundleArchConstraint) Arch() (string, error) {
+	cons, err := constraints.Parse(b.constraints)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if !cons.HasArch() {
+		return "", errors.NotFoundf("arch")
+	}
+	return *cons.Arch, nil
+}
+
+func addCharmConstraintsParser(s string) bundlechanges.ArchConstraint {
+	return bundleArchConstraint{
+		constraints: s,
+	}
 }

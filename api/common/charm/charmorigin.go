@@ -48,6 +48,13 @@ type Origin struct {
 	Series string
 }
 
+// WithSeries allows to update the series of an origin.
+func (o Origin) WithSeries(series string) Origin {
+	other := o
+	other.Series = series
+	return other
+}
+
 // CoreChannel returns the core charm channel.
 func (o Origin) CoreChannel() corecharm.Channel {
 	var track string

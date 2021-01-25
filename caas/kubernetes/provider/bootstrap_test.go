@@ -16,6 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	k8sstorage "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -307,6 +308,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		SHA256:  "deadbeef",
 		Size:    999,
 	}
+	s.pcfg.Bootstrap.IgnoreProxy = true
 
 	controllerStacker := s.controllerStackerGetter()
 
@@ -489,7 +491,9 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 					Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
 				},
 				Spec: core.PodSpec{
-					RestartPolicy: core.RestartPolicyAlways,
+					RestartPolicy:                core.RestartPolicyAlways,
+					ServiceAccountName:           "controller",
+					AutomountServiceAccountToken: boolPtr(true),
 					Volumes: []core.Volume{
 						{
 							Name: "juju-controller-test-server-pem",
@@ -716,6 +720,42 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 		},
 	}
 
+	controllerServiceAccount := &core.ServiceAccount{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "controller",
+			Namespace: "controller-1",
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by":  "juju",
+				"app.kubernetes.io/name":        "juju-controller-test",
+				"model.juju.is/disable-webhook": "true",
+			},
+			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
+		},
+		AutomountServiceAccountToken: boolPtr(true),
+	}
+
+	controllerServiceCRB := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "controller-1",
+			Labels: map[string]string{
+				"model.juju.is/name": "controller",
+			},
+			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      "controller",
+				Namespace: "controller-1",
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     "cluster-admin",
+		},
+	}
+
 	eventsPartial := &core.EventList{
 		Items: []core.Event{
 			{
@@ -860,6 +900,13 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 			Return(&core.ConfigMapList{Items: []core.ConfigMap{*configMapWithBootstrapParamsAdded}}, nil),
 		s.mockConfigMaps.EXPECT().Update(gomock.Any(), configMapWithAgentConfAdded, v1.UpdateOptions{}).AnyTimes().
 			Return(configMapWithAgentConfAdded, nil),
+
+		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), controllerServiceAccount, v1.CreateOptions{}).
+			Return(controllerServiceAccount, nil),
+		s.mockClusterRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "model.juju.is/name=controller"}).
+			Return(&rbacv1.ClusterRoleBindingList{}, nil),
+		s.mockClusterRoleBindings.EXPECT().Create(gomock.Any(), controllerServiceCRB, v1.CreateOptions{}).
+			Return(controllerServiceCRB, nil),
 
 		// Check the operator storage exists.
 		// first check if <namespace>-<storage-class> exist or not.

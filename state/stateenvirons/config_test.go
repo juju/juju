@@ -63,13 +63,14 @@ func (s *environSuite) TestCloudSpec(c *gc.C) {
 	cloudSpec, err := stateenvirons.EnvironConfigGetter{Model: m}.CloudSpec()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudSpec, jc.DeepEquals, environscloudspec.CloudSpec{
-		Type:             "dummy",
-		Name:             "dummy",
-		Region:           "dummy-region",
-		Endpoint:         "dummy-endpoint",
-		IdentityEndpoint: "dummy-identity-endpoint",
-		StorageEndpoint:  "dummy-storage-endpoint",
-		Credential:       &emptyCredential,
+		Type:              "dummy",
+		Name:              "dummy",
+		Region:            "dummy-region",
+		Endpoint:          "dummy-endpoint",
+		IdentityEndpoint:  "dummy-identity-endpoint",
+		StorageEndpoint:   "dummy-storage-endpoint",
+		Credential:        &emptyCredential,
+		IsControllerCloud: true,
 	})
 }
 
@@ -95,13 +96,14 @@ func (s *environSuite) TestCloudSpecForModel(c *gc.C) {
 	cloudSpec, err := stateenvirons.CloudSpecForModel(m)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudSpec, jc.DeepEquals, environscloudspec.CloudSpec{
-		Type:             "dummy",
-		Name:             "dummy",
-		Region:           "dummy-region",
-		Endpoint:         "dummy-endpoint",
-		IdentityEndpoint: "dummy-identity-endpoint",
-		StorageEndpoint:  "dummy-storage-endpoint",
-		Credential:       &emptyCredential,
+		Type:              "dummy",
+		Name:              "dummy",
+		Region:            "dummy-region",
+		Endpoint:          "dummy-endpoint",
+		IdentityEndpoint:  "dummy-identity-endpoint",
+		StorageEndpoint:   "dummy-storage-endpoint",
+		Credential:        &emptyCredential,
+		IsControllerCloud: true,
 	})
 }
 

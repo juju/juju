@@ -308,44 +308,47 @@ echo "do some stuff here for gitlab-init container"
 					},
 					DNSPolicy: "ClusterFirstWithHostNet",
 				},
-				CustomResourceDefinitions: []k8sspecs.K8sCustomResourceDefinitionSpec{
+				CustomResourceDefinitions: []k8sspecs.K8sCustomResourceDefinition{
 					{
 						Meta: k8sspecs.Meta{Name: "tfjobs.kubeflow.org"},
-						Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-							Group:   "kubeflow.org",
-							Version: "v1alpha2",
-							Scope:   "Namespaced",
-							Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-								Kind:     "TFJob",
-								Plural:   "tfjobs",
-								Singular: "tfjob",
-							},
-							Validation: &apiextensionsv1beta1.CustomResourceValidation{
-								OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"tfReplicaSpecs": {
-											Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-												"PS": {
-													Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-														"replicas": {
-															Type: "integer", Minimum: float64Ptr(1),
+						Spec: k8sspecs.K8sCustomResourceDefinitionSpec{
+							Version: k8sspecs.K8sCustomResourceDefinitionV1Beta1,
+							SpecV1Beta1: apiextensionsv1beta1.CustomResourceDefinitionSpec{
+								Group:   "kubeflow.org",
+								Version: "v1alpha2",
+								Scope:   "Namespaced",
+								Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
+									Kind:     "TFJob",
+									Plural:   "tfjobs",
+									Singular: "tfjob",
+								},
+								Validation: &apiextensionsv1beta1.CustomResourceValidation{
+									OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
+										Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+											"tfReplicaSpecs": {
+												Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+													"PS": {
+														Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+															"replicas": {
+																Type: "integer", Minimum: float64Ptr(1),
+															},
 														},
 													},
-												},
-												"Chief": {
-													Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-														"replicas": {
-															Type:    "integer",
-															Minimum: float64Ptr(1),
-															Maximum: float64Ptr(1),
+													"Chief": {
+														Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+															"replicas": {
+																Type:    "integer",
+																Minimum: float64Ptr(1),
+																Maximum: float64Ptr(1),
+															},
 														},
 													},
-												},
-												"Worker": {
-													Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-														"replicas": {
-															Type:    "integer",
-															Minimum: float64Ptr(1),
+													"Worker": {
+														Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+															"replicas": {
+																Type:    "integer",
+																Minimum: float64Ptr(1),
+															},
 														},
 													},
 												},

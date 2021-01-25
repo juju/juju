@@ -67,6 +67,7 @@ type ModelAPI interface {
 	ModelUUID() (string, bool)
 	ModelGet() (map[string]interface{}, error)
 	Sequences() (map[string]int, error)
+	GetModelConstraints() (constraints.Value, error)
 }
 
 // MeteredDeployAPI represents the methods of the API the deploy

@@ -144,7 +144,7 @@ LXC_BRIDGE="ignored"`[1:])
 
 	modelAttrs := testing.FakeConfig().Merge(testing.Attrs{
 		"agent-version":  jujuversion.Current.String(),
-		"charm-hub-url":  charmhub.CharmHubServerURL,
+		"charmhub-url":   charmhub.CharmHubServerURL,
 		"not-for-hosted": "foo",
 	})
 	modelCfg, err := config.New(config.NoDefaults, modelAttrs)
@@ -359,9 +359,10 @@ LXC_BRIDGE="ignored"`[1:])
 	envProvider.CheckCall(c, 2, "Open", environs.OpenParams{
 		ControllerUUID: controllerCfg.ControllerUUID(),
 		Cloud: environscloudspec.CloudSpec{
-			Type:   "dummy",
-			Name:   "dummy",
-			Region: "dummy-region",
+			Type:              "dummy",
+			Name:              "dummy",
+			Region:            "dummy-region",
+			IsControllerCloud: true,
 		},
 		Config: expectedCalledCfg,
 	})
@@ -422,7 +423,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	})
 	modelAttrs := dummy.SampleConfig().Delete("admin-secret").Merge(testing.Attrs{
 		"agent-version": jujuversion.Current.String(),
-		"charm-hub-url": charmhub.CharmHubServerURL,
+		"charmhub-url":  charmhub.CharmHubServerURL,
 	})
 	modelCfg, err := config.New(config.NoDefaults, modelAttrs)
 	c.Assert(err, jc.ErrorIsNil)

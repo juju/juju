@@ -296,7 +296,6 @@ func (s *errorsSuite) TestErrorTransform(c *gc.C) {
 			params.CodeMachineHasAttachedStorage,
 			params.CodeDischargeRequired,
 			params.CodeModelNotFound,
-			params.CodeRetry,
 			params.CodeRedirect,
 			params.CodeIncompatibleClient:
 			continue

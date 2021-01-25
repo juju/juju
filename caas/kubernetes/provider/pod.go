@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/core/status"
-
 	core "k8s.io/api/core/v1"
+
+	k8spod "github.com/juju/juju/caas/kubernetes/pod"
+	"github.com/juju/juju/core/status"
 )
 
 type EventGetter func() ([]core.Event, error)
@@ -44,35 +44,6 @@ var (
 		core.PodReasonUnschedulable: status.Blocked,
 	}
 )
-
-// getPodCondition extracts the provided condition from the given status and returns that.
-// Returns nil and -1 if the condition is not present, and the index of the located condition.
-// These methods come directly from the Kubernetes code base. We can't import
-// them as Kubernetes forbids this. Code can be found here:
-// https://github.com/kubernetes/kubernetes/blob/12d9183da03d86c65f9f17e3e28be3c7c18ed22a/pkg/api/pod/util.go
-func getPodCondition(status *core.PodStatus, conditionType core.PodConditionType) (int, *core.PodCondition) {
-	if status == nil {
-		return -1, nil
-	}
-	return getPodConditionFromList(status.Conditions, conditionType)
-}
-
-// getPodConditionFromList extracts the provided condition from the given list of condition and
-// returns the index of the condition and the condition. Returns -1 and nil if the condition is not present.
-// These methods come directly from the Kubernetes code base. We can't import
-// them as Kubernetes forbids this. Code can be found here:
-// https://github.com/kubernetes/kubernetes/blob/12d9183da03d86c65f9f17e3e28be3c7c18ed22a/pkg/api/pod/util.go
-func getPodConditionFromList(conditions []core.PodCondition, conditionType core.PodConditionType) (int, *core.PodCondition) {
-	if conditions == nil {
-		return -1, nil
-	}
-	for i := range conditions {
-		if conditions[i].Type == conditionType {
-			return i, &conditions[i]
-		}
-	}
-	return -1, nil
-}
 
 // podToJujuStatus takes a Kubernetes pod and translate's it to a known Juju
 // status. If this function can't determine the reason for a pod's state either
@@ -121,7 +92,7 @@ func podToJujuStatus(
 
 	// Start by processing the pod conditions in their lifecycle order
 	// Has the pod been scheduled?
-	_, cond := getPodCondition(&pod.Status, core.PodScheduled)
+	_, cond := k8spod.GetPodCondition(&pod.Status, core.PodScheduled)
 	if cond == nil { // Doesn't have scheduling information. Should not get here
 		return defaultStatusMessage, status.Unknown, since, nil
 	} else if r, s, m := conditionHandler(
@@ -130,7 +101,7 @@ func podToJujuStatus(
 	}
 
 	// Have the init containers run?
-	if _, cond := getPodCondition(&pod.Status, core.PodInitialized); cond != nil {
+	if _, cond := k8spod.GetPodCondition(&pod.Status, core.PodInitialized); cond != nil {
 		r, s, m := conditionHandler(
 			cond, reasonMapper(podInitializedReasonsMap, status.Maintenance))
 		if errM, isErr := interrogatePodContainerStatus(pod.Status.InitContainerStatuses); !r && isErr {
@@ -141,7 +112,7 @@ func podToJujuStatus(
 	}
 
 	// Have the containers started/finished?
-	_, cond = getPodCondition(&pod.Status, core.ContainersReady)
+	_, cond = k8spod.GetPodCondition(&pod.Status, core.ContainersReady)
 	if cond == nil {
 		return defaultStatusMessage, status.Unknown, since, nil
 	} else if r, s, m := conditionHandler(
@@ -153,7 +124,7 @@ func podToJujuStatus(
 	}
 
 	// Made it this far are we ready?
-	_, cond = getPodCondition(&pod.Status, core.PodReady)
+	_, cond = k8spod.GetPodCondition(&pod.Status, core.PodReady)
 	if cond == nil {
 		return defaultStatusMessage, status.Unknown, since, nil
 	} else if r, s, m := conditionHandler(

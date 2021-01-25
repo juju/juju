@@ -11,14 +11,14 @@ import (
 
 // ControllerDialOpts returns dial parameters suitable for connecting
 // from the source controller to the target controller during model
-// migrations. The total attempt time can't be too long because the
-// areas of the code which make these connections need to be
-// interruptable but a number of retries is useful to deal with short
-// lived issues.
+// migrations.
+// Except for the inclusion of RetryDelay the options mirror what is used
+// by the APICaller for logins.
 func ControllerDialOpts() api.DialOpts {
 	return api.DialOpts{
-		DialAddressInterval: 50 * time.Millisecond,
-		Timeout:             1 * time.Second,
+		DialTimeout:         3 * time.Second,
+		DialAddressInterval: 200 * time.Millisecond,
+		Timeout:             time.Minute,
 		RetryDelay:          100 * time.Millisecond,
 	}
 }

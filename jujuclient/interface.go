@@ -68,6 +68,10 @@ type ControllerDetails struct {
 	// which a user has access. It is cached here so under normal
 	// usage list-controllers does not need to hit the server.
 	MachineCount *int `yaml:"machine-count,omitempty"`
+
+	// Proxy is a config wrapper around a real proxier interface that should
+	// be used to connect to this controller
+	Proxy *ProxyConfWrapper `yaml:"proxy-config,omitempty"`
 }
 
 // ModelDetails holds details of a model.

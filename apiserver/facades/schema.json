@@ -1162,6 +1162,9 @@
                         "identity-endpoint": {
                             "type": "string"
                         },
+                        "is-controller-cloud": {
+                            "type": "boolean"
+                        },
                         "name": {
                             "type": "string"
                         },
@@ -6037,6 +6040,9 @@
                         },
                         "identity-endpoint": {
                             "type": "string"
+                        },
+                        "is-controller-cloud": {
+                            "type": "boolean"
                         },
                         "name": {
                             "type": "string"
@@ -16351,6 +16357,9 @@
                         "identity-endpoint": {
                             "type": "string"
                         },
+                        "is-controller-cloud": {
+                            "type": "boolean"
+                        },
                         "region-config": {
                             "type": "object",
                             "patternProperties": {
@@ -17549,6 +17558,9 @@
                         },
                         "identity-endpoint": {
                             "type": "string"
+                        },
+                        "is-controller-cloud": {
+                            "type": "boolean"
                         },
                         "name": {
                             "type": "string"
@@ -21217,6 +21229,9 @@
                         },
                         "identity-endpoint": {
                             "type": "string"
+                        },
+                        "is-controller-cloud": {
+                            "type": "boolean"
                         },
                         "name": {
                             "type": "string"
@@ -43060,6 +43075,9 @@
                         },
                         "identity-endpoint": {
                             "type": "string"
+                        },
+                        "is-controller-cloud": {
+                            "type": "boolean"
                         },
                         "name": {
                             "type": "string"
