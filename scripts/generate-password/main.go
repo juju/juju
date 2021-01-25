@@ -53,7 +53,7 @@ func main() {
 			*user, salt, hash)
 	} else {
 		hash := utils.AgentPasswordHash(passwd)
-		fmt.Printf("apipassword: %s\n", passwd)
+		fmt.Printf("oldpassword: %s\n", passwd)
 		var collection string
 		if strings.Index(agent, "/") < 0 {
 			// must be a machine
