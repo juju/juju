@@ -509,7 +509,7 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 
 	origin := exported.CharmOrigin()
 	c.Assert(origin.Channel(), gc.Equals, "beta")
-	c.Assert(origin.Platform(), gc.Equals, "amd64/focal")
+	c.Assert(origin.Platform(), gc.Equals, "amd64/ubuntu/focal")
 
 	c.Assert(exported.CharmConfig(), jc.DeepEquals, map[string]interface{}{
 		"foo": "bar",

@@ -4,6 +4,7 @@
 package charms
 
 import (
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -11,6 +12,7 @@ import (
 )
 
 type clientNormalizeOriginSuite struct {
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&clientNormalizeOriginSuite{})
@@ -26,9 +28,28 @@ func (s *clientNormalizeOriginSuite) TestNormalizeCharmOriginNoAll(c *gc.C) {
 		OS:           "all",
 		Series:       "all",
 	}
-	obtained, err := normalizeCharmOrigin(origin)
+	obtained, err := normalizeCharmOrigin(origin, "amd64")
 	c.Assert(err, jc.ErrorIsNil)
-	origin.Architecture = ""
+	origin.Architecture = "amd64"
+	origin.OS = ""
+	origin.Series = ""
+	c.Assert(obtained, gc.DeepEquals, origin)
+}
+
+func (s *clientNormalizeOriginSuite) TestNormalizeCharmOriginWithEmpty(c *gc.C) {
+	track := "1.0"
+	origin := params.CharmOrigin{
+		Source:       "charm-hub",
+		Type:         "charm",
+		Risk:         "edge",
+		Track:        &track,
+		Architecture: "",
+		OS:           "all",
+		Series:       "all",
+	}
+	obtained, err := normalizeCharmOrigin(origin, "amd64")
+	c.Assert(err, jc.ErrorIsNil)
+	origin.Architecture = "amd64"
 	origin.OS = ""
 	origin.Series = ""
 	c.Assert(obtained, gc.DeepEquals, origin)
@@ -45,8 +66,58 @@ func (s *clientNormalizeOriginSuite) TestNormalizeCharmOriginLowerCase(c *gc.C) 
 		OS:           "Ubuntu",
 		Series:       "focal",
 	}
-	obtained, err := normalizeCharmOrigin(origin)
+	obtained, err := normalizeCharmOrigin(origin, "amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	origin.OS = "ubuntu"
 	c.Assert(obtained, gc.DeepEquals, origin)
+}
+
+type clientValidateOriginSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&clientValidateOriginSuite{})
+
+func (s *clientValidateOriginSuite) TestValidateOrigin(c *gc.C) {
+	origin := params.CharmOrigin{
+		Source:       "charm-hub",
+		Architecture: "all",
+	}
+	schema := "ch"
+
+	err := validateOrigin(origin, schema)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *clientValidateOriginSuite) TestValidateOriginWithEmptyArch(c *gc.C) {
+	origin := params.CharmOrigin{
+		Source:       "charm-hub",
+		Architecture: "",
+	}
+	schema := "ch"
+
+	err := validateOrigin(origin, schema)
+	c.Assert(err, gc.ErrorMatches, "empty architecture not valid")
+}
+
+func (s *clientValidateOriginSuite) TestValidateOriginWithInvalidCharmStoreSource(c *gc.C) {
+	origin := params.CharmOrigin{
+		Source:       "charm-store",
+		Architecture: "all",
+	}
+	schema := "ch"
+
+	err := validateOrigin(origin, schema)
+	c.Assert(err, gc.ErrorMatches, `origin source "charm-store" with schema not valid`)
+}
+
+func (s *clientValidateOriginSuite) TestValidateOriginWithInvalidCharmHubSource(c *gc.C) {
+	origin := params.CharmOrigin{
+		Source:       "charm-hub",
+		Architecture: "all",
+	}
+	schema := "cs"
+
+	err := validateOrigin(origin, schema)
+	c.Assert(err, gc.ErrorMatches, `origin source "charm-hub" with schema not valid`)
 }

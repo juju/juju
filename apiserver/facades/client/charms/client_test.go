@@ -178,19 +178,24 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 	edge := string(csparams.EdgeChannel)
 	stable := string(csparams.StableChannel)
 	edgeOrigin := params.CharmOrigin{
-		Source: corecharm.CharmStore.String(),
-		Type:   "charm",
-		Risk:   edge,
+		Source:       corecharm.CharmStore.String(),
+		Type:         "charm",
+		Risk:         edge,
+		Architecture: "amd64",
 	}
 	stableOrigin := params.CharmOrigin{
-		Source: corecharm.CharmStore.String(),
-		Type:   "charm",
-		Risk:   stable,
+		Source:       corecharm.CharmStore.String(),
+		Type:         "charm",
+		Risk:         stable,
+		Architecture: "amd64",
 	}
 
 	args := params.ResolveCharmsWithChannel{
 		Resolve: []params.ResolveCharmWithChannel{
-			{Reference: curl.String(), Origin: params.CharmOrigin{Source: corecharm.CharmStore.String()}},
+			{Reference: curl.String(), Origin: params.CharmOrigin{
+				Source:       corecharm.CharmStore.String(),
+				Architecture: "amd64",
+			}},
 			{Reference: curl.String(), Origin: stableOrigin},
 			{Reference: seriesCurl.String(), Origin: edgeOrigin},
 		},
@@ -245,9 +250,10 @@ func (s *charmsMockSuite) TestResolveCharmNoDefinedSeries(c *gc.C) {
 
 	edge := string(csparams.EdgeChannel)
 	edgeOrigin := params.CharmOrigin{
-		Source: corecharm.CharmStore.String(),
-		Type:   "charm",
-		Risk:   edge,
+		Source:       corecharm.CharmStore.String(),
+		Type:         "charm",
+		Risk:         edge,
+		Architecture: "amd64",
 	}
 
 	args := params.ResolveCharmsWithChannel{

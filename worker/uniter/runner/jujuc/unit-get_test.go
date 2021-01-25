@@ -153,6 +153,21 @@ func (s *UnitGetSuite) TestNetworkInfoPrivateAddress(c *gc.C) {
 		},
 	}
 
+	resultsResolvedHost := map[string]params.NetworkInfoResult{
+		"": {
+			Info: []params.NetworkInfo{{
+				MACAddress:    "00:11:22:33:44:0",
+				InterfaceName: "eth0",
+				Addresses: []params.InterfaceAddress{
+					{
+						Address:  "10.20.1.42",
+						Hostname: "host-name.somewhere.invalid",
+					},
+				},
+			}},
+		},
+	}
+
 	launchCommand := func(input map[string]params.NetworkInfoResult, expected string) {
 		hctx := s.GetHookContext(c, -1, "")
 		hctx.info.NetworkInterface.NetworkInfoResults = input
@@ -170,4 +185,5 @@ func (s *UnitGetSuite) TestNetworkInfoPrivateAddress(c *gc.C) {
 	launchCommand(resultsDefaultNoAddress, "192.168.0.99")
 	launchCommand(resultsDefaultAddress, "10.20.1.42")
 	launchCommand(resultsDefaultAddressV6, "fc00::1")
+	launchCommand(resultsResolvedHost, "host-name.somewhere.invalid")
 }

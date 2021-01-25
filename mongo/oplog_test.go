@@ -114,10 +114,10 @@ func (s *oplogSuite) TestStops(c *gc.C) {
 	_, session := s.startMongo(c)
 
 	oplog := s.makeFakeOplog(c, session)
+	s.insertDoc(c, session, oplog, &mongo.OplogDoc{Timestamp: 1})
+
 	tailer := mongo.NewOplogTailer(mongo.NewOplogSession(oplog, nil), time.Time{})
 	defer tailer.Stop()
-
-	s.insertDoc(c, session, oplog, &mongo.OplogDoc{Timestamp: 1})
 	s.getNextOplog(c, tailer)
 
 	err := tailer.Stop()
@@ -267,6 +267,10 @@ func (s *oplogSuite) makeFakeOplog(c *gc.C, session *mgo.Session) *mgo.Collectio
 		MaxBytes: 1024 * 1024,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) {
+		err := oplog.DropCollection()
+		c.Assert(err, jc.ErrorIsNil)
+	})
 	return oplog
 }
 

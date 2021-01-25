@@ -379,6 +379,21 @@ func (mr *MockDeployerAPIMockRecorder) GetConstraints(arg0 ...interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConstraints", reflect.TypeOf((*MockDeployerAPI)(nil).GetConstraints), arg0...)
 }
 
+// GetModelConstraints mocks base method
+func (m *MockDeployerAPI) GetModelConstraints() (constraints.Value, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelConstraints")
+	ret0, _ := ret[0].(constraints.Value)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetModelConstraints indicates an expected call of GetModelConstraints
+func (mr *MockDeployerAPIMockRecorder) GetModelConstraints() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelConstraints", reflect.TypeOf((*MockDeployerAPI)(nil).GetModelConstraints))
+}
+
 // GrantOffer mocks base method
 func (m *MockDeployerAPI) GrantOffer(arg0, arg1 string, arg2 ...string) error {
 	m.ctrl.T.Helper()

@@ -46,7 +46,7 @@ func (s *InfoClientSuite) TestLiveInfoRequestWithChannelOption(c *gc.C) {
 
 	logger := &charmhub.FakeLogger{}
 
-	config, err := charmhub.CharmHubConfigFromURL("https://api.staging.snapcraft.io", logger)
+	config, err := charmhub.CharmHubConfigFromURL("https://api.staging.charmhub.io", logger)
 	c.Assert(err, jc.ErrorIsNil)
 	basePath, err := config.BasePath()
 	c.Assert(err, jc.ErrorIsNil)

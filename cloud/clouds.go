@@ -170,6 +170,9 @@ type Cloud struct {
 	// validate certificates. It is not recommended for production clouds.
 	// It is secure (false) by default.
 	SkipTLSVerify bool
+
+	// IsControllerCloud is true when this is the cloud used by the controller.
+	IsControllerCloud bool
 }
 
 // SplitHostCloudRegion splits host cloud region to cloudType and region.
@@ -226,19 +229,20 @@ type cloudSet struct {
 
 // cloud is equivalent to Cloud, for marshalling and unmarshalling.
 type cloud struct {
-	Name             string                 `yaml:"name,omitempty"`
-	Type             string                 `yaml:"type"`
-	HostCloudRegion  string                 `yaml:"host-cloud-region,omitempty"`
-	Description      string                 `yaml:"description,omitempty"`
-	AuthTypes        []AuthType             `yaml:"auth-types,omitempty,flow"`
-	Endpoint         string                 `yaml:"endpoint,omitempty"`
-	IdentityEndpoint string                 `yaml:"identity-endpoint,omitempty"`
-	StorageEndpoint  string                 `yaml:"storage-endpoint,omitempty"`
-	Regions          regions                `yaml:"regions,omitempty"`
-	Config           map[string]interface{} `yaml:"config,omitempty"`
-	RegionConfig     RegionConfig           `yaml:"region-config,omitempty"`
-	CACertificates   []string               `yaml:"ca-certificates,omitempty"`
-	SkipTLSVerify    bool                   `yaml:"skip-tls-verify,omitempty"`
+	Name              string                 `yaml:"name,omitempty"`
+	Type              string                 `yaml:"type"`
+	HostCloudRegion   string                 `yaml:"host-cloud-region,omitempty"`
+	Description       string                 `yaml:"description,omitempty"`
+	AuthTypes         []AuthType             `yaml:"auth-types,omitempty,flow"`
+	Endpoint          string                 `yaml:"endpoint,omitempty"`
+	IdentityEndpoint  string                 `yaml:"identity-endpoint,omitempty"`
+	StorageEndpoint   string                 `yaml:"storage-endpoint,omitempty"`
+	Regions           regions                `yaml:"regions,omitempty"`
+	Config            map[string]interface{} `yaml:"config,omitempty"`
+	RegionConfig      RegionConfig           `yaml:"region-config,omitempty"`
+	CACertificates    []string               `yaml:"ca-certificates,omitempty"`
+	SkipTLSVerify     bool                   `yaml:"skip-tls-verify,omitempty"`
+	IsControllerCloud bool                   `yaml:"is-controller-cloud,omitempty"`
 }
 
 // regions is a collection of regions, either as a map and/or
@@ -492,18 +496,19 @@ func cloudToInternal(in Cloud, withName bool) *cloud {
 		name = ""
 	}
 	return &cloud{
-		Name:             name,
-		Type:             in.Type,
-		HostCloudRegion:  in.HostCloudRegion,
-		AuthTypes:        in.AuthTypes,
-		Endpoint:         in.Endpoint,
-		IdentityEndpoint: in.IdentityEndpoint,
-		StorageEndpoint:  in.StorageEndpoint,
-		Regions:          regions,
-		Config:           in.Config,
-		RegionConfig:     in.RegionConfig,
-		CACertificates:   in.CACertificates,
-		SkipTLSVerify:    in.SkipTLSVerify,
+		Name:              name,
+		Type:              in.Type,
+		HostCloudRegion:   in.HostCloudRegion,
+		AuthTypes:         in.AuthTypes,
+		Endpoint:          in.Endpoint,
+		IdentityEndpoint:  in.IdentityEndpoint,
+		StorageEndpoint:   in.StorageEndpoint,
+		Regions:           regions,
+		Config:            in.Config,
+		RegionConfig:      in.RegionConfig,
+		CACertificates:    in.CACertificates,
+		SkipTLSVerify:     in.SkipTLSVerify,
+		IsControllerCloud: in.IsControllerCloud,
 	}
 }
 
@@ -528,19 +533,20 @@ func cloudFromInternal(in *cloud) Cloud {
 		}
 	}
 	meta := Cloud{
-		Name:             in.Name,
-		Type:             in.Type,
-		HostCloudRegion:  in.HostCloudRegion,
-		AuthTypes:        in.AuthTypes,
-		Endpoint:         in.Endpoint,
-		IdentityEndpoint: in.IdentityEndpoint,
-		StorageEndpoint:  in.StorageEndpoint,
-		Regions:          regions,
-		Config:           in.Config,
-		RegionConfig:     in.RegionConfig,
-		Description:      in.Description,
-		CACertificates:   in.CACertificates,
-		SkipTLSVerify:    in.SkipTLSVerify,
+		Name:              in.Name,
+		Type:              in.Type,
+		HostCloudRegion:   in.HostCloudRegion,
+		AuthTypes:         in.AuthTypes,
+		Endpoint:          in.Endpoint,
+		IdentityEndpoint:  in.IdentityEndpoint,
+		StorageEndpoint:   in.StorageEndpoint,
+		Regions:           regions,
+		Config:            in.Config,
+		RegionConfig:      in.RegionConfig,
+		Description:       in.Description,
+		CACertificates:    in.CACertificates,
+		SkipTLSVerify:     in.SkipTLSVerify,
+		IsControllerCloud: in.IsControllerCloud,
 	}
 	meta.denormaliseMetadata()
 	return meta

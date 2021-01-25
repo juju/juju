@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/charmstore"
 
 	"github.com/juju/juju/core/network"
+	jujuproxy "github.com/juju/juju/proxy"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/utils/proxy"
@@ -158,6 +159,11 @@ type state struct {
 	// bakeryClient holds the client that will be used to
 	// authorize macaroon based login requests.
 	bakeryClient *httpbakery.Client
+
+	// proxy is the proxy used for this connection when not nil. If's expected
+	// the proxy has already been started when placing in this var. This struct
+	// will take the responsibility of closing the proxy.
+	proxy jujuproxy.Proxier
 }
 
 // RedirectError is returned from Open when the controller
@@ -211,6 +217,23 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 		defer cancel()
 		dialCtx = ctx1
 	}
+
+	if info.Proxier != nil {
+		if err := info.Proxier.Start(); err != nil {
+			return nil, errors.Annotate(err, "starting proxy for api connection")
+		}
+
+		switch p := info.Proxier.(type) {
+		case jujuproxy.TunnelProxier:
+			info.Addrs = []string{
+				fmt.Sprintf("%s:%s", p.Host(), p.Port()),
+			}
+		default:
+			info.Proxier.Stop()
+			return nil, errors.New("unknown proxier provided")
+		}
+	}
+
 	dialResult, err := dialAPI(dialCtx, info, opts)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1224,12 +1247,6 @@ func (s *state) APICall(facade string, vers int, id, method string, args, respon
 			return nil
 		}
 		code := params.ErrCode(err)
-		if code == params.CodeRetry {
-			if !a.More() {
-				return errors.Annotatef(err, "too many retries")
-			}
-			continue
-		}
 		if code != params.CodeIncompatibleClient {
 			return errors.Trace(err)
 		}
@@ -1261,6 +1278,9 @@ func (s *state) Close() error {
 		close(s.closed)
 	}
 	<-s.broken
+	if s.proxy != nil {
+		s.proxy.Stop()
+	}
 	return err
 }
 

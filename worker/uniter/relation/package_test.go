@@ -6,11 +6,11 @@ package relation_test
 import (
 	stdtesting "testing"
 
-	coretesting "github.com/juju/juju/testing"
+	gc "gopkg.in/check.v1"
 )
 
 func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
+	gc.TestingT(t)
 }
 
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mock_statetracker.go github.com/juju/juju/worker/uniter/relation RelationStateTracker
@@ -19,3 +19,4 @@ func TestPackage(t *stdtesting.T) {
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mock_state_tracker_state.go github.com/juju/juju/worker/uniter/relation StateTrackerState
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mock_uniter_api.go github.com/juju/juju/worker/uniter/relation Unit,Relation,RelationUnit
 //go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mock_state_manager.go github.com/juju/juju/worker/uniter/relation StateManager
+//go:generate go run github.com/golang/mock/mockgen -package mocks -destination mocks/mock_unit_getter.go github.com/juju/juju/worker/uniter/relation UnitGetter

@@ -50,7 +50,7 @@ var minMiBVersion = &version.DottedVersion{Major: 3, Minor: 10}
 // Note that we pass these through as supplied. If an instance type constraint
 // has been specified along with specific cores/mem constraints,
 // LXD behaviour is to override with the specific ones even when lower.
-func (c *ContainerSpec) ApplyConstraints(serverVersion string, cons constraints.Value) error {
+func (c *ContainerSpec) ApplyConstraints(serverVersion string, cons constraints.Value) {
 	if cons.HasInstanceType() {
 		c.InstanceType = *cons.InstanceType
 	}
@@ -70,9 +70,13 @@ func (c *ContainerSpec) ApplyConstraints(serverVersion string, cons constraints.
 	if cons.HasArch() {
 		c.Architecture = *cons.Arch
 	}
+
 	if cons.HasRootDisk() || cons.HasRootDiskSource() {
-		if !cons.HasRootDiskSource() {
-			return errors.New("root disk size constraints require a root disk source")
+		// If we have a root disk and no source,
+		// assume that it must come from the default pool.
+		rootDiskSource := "default"
+		if cons.HasRootDiskSource() {
+			rootDiskSource = *cons.RootDiskSource
 		}
 
 		if c.Devices == nil {
@@ -81,7 +85,7 @@ func (c *ContainerSpec) ApplyConstraints(serverVersion string, cons constraints.
 
 		c.Devices["root"] = map[string]string{
 			"type": "disk",
-			"pool": *cons.RootDiskSource,
+			"pool": rootDiskSource,
 			"path": "/",
 		}
 
@@ -96,8 +100,6 @@ func (c *ContainerSpec) ApplyConstraints(serverVersion string, cons constraints.
 			c.Devices["root"]["size"] = fmt.Sprintf(template, *cons.RootDisk)
 		}
 	}
-
-	return nil
 }
 
 // Container extends the upstream LXD container type.

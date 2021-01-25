@@ -127,6 +127,11 @@ type refreshOne struct {
 	instanceKey string
 }
 
+// InstanceKey returns the underlying instance key.
+func (c refreshOne) InstanceKey() string {
+	return c.instanceKey
+}
+
 func (c refreshOne) String() string {
 	return fmt.Sprintf("Refresh one (instanceKey: %s): using ID %s revision %+v, with channel %s and platform %v",
 		c.instanceKey, c.ID, c.Revision, c.Channel, c.Platform.String())
@@ -195,6 +200,11 @@ type executeOne struct {
 	// asynchronous calls.
 	action      Action
 	instanceKey string
+}
+
+// InstanceKey returns the underlying instance key.
+func (c executeOne) InstanceKey() string {
+	return c.instanceKey
 }
 
 // InstallOneFromRevision creates a request config using the revision and not
@@ -342,8 +352,12 @@ func (c executeOne) String() string {
 	} else {
 		using = fmt.Sprintf("Name %s", c.Name)
 	}
-	return fmt.Sprintf("Execute One (action: %s, instanceKey: %s): using %s with revision: %+v, channel %v and platform %s",
-		c.action, c.instanceKey, using, c.Revision, channel, c.Platform)
+	var revision string
+	if c.Revision != nil {
+		revision = fmt.Sprintf(" with revision: %+v", c.Revision)
+	}
+	return fmt.Sprintf("Execute One (action: %s, instanceKey: %s): using %s%s channel %v and platform %s",
+		c.action, c.instanceKey, using, revision, channel, c.Platform)
 }
 
 type refreshMany struct {
@@ -449,4 +463,18 @@ func validatePlatform(rp RefreshPlatform) error {
 		return err
 	}
 	return nil
+}
+
+type instanceKey interface {
+	InstanceKey() string
+}
+
+// ExtractConfigInstanceKey is used to get the instance key from a refresh
+// config.
+func ExtractConfigInstanceKey(cfg RefreshConfig) string {
+	key, ok := cfg.(instanceKey)
+	if ok {
+		return key.InstanceKey()
+	}
+	return ""
 }

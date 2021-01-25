@@ -4,6 +4,7 @@
 package charmhub
 
 import (
+	"context"
 	"net/url"
 
 	"github.com/golang/mock/gomock"
@@ -57,11 +58,13 @@ func (s *downloadSuite) TestInitSuccess(c *gc.C) {
 
 func (s *downloadSuite) TestRun(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
+	s.apiRoot.EXPECT().BestFacadeVersion("CharmHub").Return(1)
 
 	url := "http://example.org/"
 
 	s.expectModelGet(url)
 	s.expectInfo(url)
+	s.expectRefresh(c, url)
 	s.expectDownload(c, url)
 
 	command := &downloadCommand{
@@ -82,11 +85,13 @@ func (s *downloadSuite) TestRun(c *gc.C) {
 
 func (s *downloadSuite) TestRunWithStdout(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
+	s.apiRoot.EXPECT().BestFacadeVersion("CharmHub").Return(1)
 
 	url := "http://example.org/"
 
 	s.expectModelGet(url)
 	s.expectInfo(url)
+	s.expectRefresh(c, url)
 	s.expectDownload(c, url)
 
 	command := &downloadCommand{
@@ -111,6 +116,7 @@ func (s *downloadSuite) TestRunWithCustomCharmHubURL(c *gc.C) {
 	url := "http://example.org/"
 
 	s.expectInfo(url)
+	s.expectRefresh(c, url)
 	s.expectDownload(c, url)
 
 	command := &downloadCommand{
@@ -119,7 +125,7 @@ func (s *downloadSuite) TestRunWithCustomCharmHubURL(c *gc.C) {
 			return s.downloadCommandAPI, nil
 		},
 	}
-	err := cmdtesting.InitCommand(command, []string{"--charm-hub-url=" + url, "test"})
+	err := cmdtesting.InitCommand(command, []string{"--charmhub-url=" + url, "test"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := commandContextForTest(c)
@@ -138,8 +144,8 @@ func (s *downloadSuite) TestRunWithCustomInvalidCharmHubURL(c *gc.C) {
 			return s.downloadCommandAPI, nil
 		},
 	}
-	err := cmdtesting.InitCommand(command, []string{"--charm-hub-url=" + url, "test"})
-	c.Assert(err, gc.ErrorMatches, `unexpected charm-hub-url: parse "meshuggah": invalid URI for request`)
+	err := cmdtesting.InitCommand(command, []string{"--charmhub-url=" + url, "test"})
+	c.Assert(err, gc.ErrorMatches, `unexpected charmhub-url: parse "meshuggah": invalid URI for request`)
 }
 
 func (s *downloadSuite) TestRunWithInvalidStdout(c *gc.C) {
@@ -183,10 +189,10 @@ func (s *downloadSuite) setUpMocks(c *gc.C) *gomock.Controller {
 
 func (s *downloadSuite) expectModelGet(charmHubURL string) {
 	s.modelConfigAPI.EXPECT().ModelGet().Return(map[string]interface{}{
-		"type":          "my-type",
-		"name":          "my-name",
-		"uuid":          "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		"charm-hub-url": charmHubURL,
+		"type":         "my-type",
+		"name":         "my-name",
+		"uuid":         "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"charmhub-url": charmHubURL,
 	}, nil)
 }
 
@@ -211,6 +217,23 @@ func (s *downloadSuite) expectInfo(charmHubURL string) {
 			},
 		}},
 	}, nil)
+}
+
+func (s *downloadSuite) expectRefresh(c *gc.C, charmHubURL string) {
+	s.downloadCommandAPI.EXPECT().Refresh(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, cfg charmhub.RefreshConfig) ([]transport.RefreshResponse, error) {
+		instanceKey := charmhub.ExtractConfigInstanceKey(cfg)
+
+		return []transport.RefreshResponse{{
+			InstanceKey: instanceKey,
+			Entity: transport.RefreshEntity{
+				Name: "test",
+				Download: transport.Download{
+					HashSHA256: "",
+					URL:        charmHubURL,
+				},
+			},
+		}}, nil
+	})
 }
 
 func (s *downloadSuite) expectDownload(c *gc.C, charmHubURL string) {

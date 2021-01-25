@@ -4512,16 +4512,21 @@ func (s *upgradesSuite) TestAddCharmHubToModelConfig(c *gc.C) {
 	})
 	defer func() { _ = m1.Close() }()
 	// Value set to something other that default
-	m2 := s.makeModel(c, "m3", coretesting.Attrs{
-		"charm-hub-url": "http://meshuggah.rocks",
+	m2 := s.makeModel(c, "m2", coretesting.Attrs{
+		"charmhub-url": "http://meshuggah.rocks",
 	})
 	defer func() { _ = m2.Close() }()
+	// Value set the old way.
+	m3 := s.makeModel(c, "m3", coretesting.Attrs{
+		"charm-hub-url": "http://beyond-creation.rocks",
+	})
+	defer func() { _ = m3.Close() }()
 
 	settingsColl, settingsCloser := s.state.db().GetRawCollection(settingsC)
 	defer settingsCloser()
 	// To simulate a 2.9.0 without any setting, delete the record from it.
 	err := settingsColl.UpdateId(m1.ModelUUID()+":e",
-		bson.M{"$unset": bson.M{"settings.charm-hub-url": 1}},
+		bson.M{"$unset": bson.M{"settings.charmhub-url": 1}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	// And an extra document from somewhere else that we shouldn't touch
@@ -4543,9 +4548,13 @@ func (s *upgradesSuite) TestAddCharmHubToModelConfig(c *gc.C) {
 	expectedSettings := []bson.M{}
 
 	expectedChanges := map[string]bson.M{
-		m1.ModelUUID() + ":e": {"charm-hub-url": charmhub.CharmHubServerURL, "other-setting": "val"},
-		m2.ModelUUID() + ":e": {"charm-hub-url": "http://meshuggah.rocks"},
+		m1.ModelUUID() + ":e": {"charmhub-url": charmhub.CharmHubServerURL, "other-setting": "val"},
+		m2.ModelUUID() + ":e": {"charmhub-url": "http://meshuggah.rocks"},
+		m3.ModelUUID() + ":e": {"charmhub-url": "http://beyond-creation.rocks"},
 		"not-a-model":         {"other-setting": "val"},
+	}
+	expectedRemovals := map[string]string{
+		m3.ModelUUID() + ":e": "charm-hub-url",
 	}
 	for iter.Next(&rawSettings) {
 		expSettings := copyMap(rawSettings, nil)
@@ -4565,6 +4574,11 @@ func (s *upgradesSuite) TestAddCharmHubToModelConfig(c *gc.C) {
 			for k, v := range changes {
 				settings[k] = v
 			}
+		}
+		if removal, ok := expectedRemovals[idStr]; ok {
+			raw, ok := expSettings["settings"]
+			c.Assert(ok, jc.IsTrue)
+			delete(raw.(bson.M), removal)
 		}
 		expectedSettings = append(expectedSettings, expSettings)
 	}

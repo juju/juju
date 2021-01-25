@@ -16,6 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	commoncharm "github.com/juju/juju/api/common/charm"
+	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/juju/osenv"
 )
@@ -240,7 +241,8 @@ func (s *charmStoreCharmRefresherSuite) TestRefresh(c *gc.C) {
 	curl := charm.MustParseURL(ref)
 	newCurl := charm.MustParseURL(fmt.Sprintf("%s-1", ref))
 	origin := commoncharm.Origin{
-		Source: commoncharm.OriginCharmStore,
+		Source:       commoncharm.OriginCharmStore,
+		Architecture: arch.DefaultArchitecture,
 	}
 
 	authorizer := NewMockMacaroonGetter(ctrl)
@@ -272,7 +274,8 @@ func (s *charmStoreCharmRefresherSuite) TestRefreshWithNoUpdates(c *gc.C) {
 	ref := "cs:meshuggah"
 	curl := charm.MustParseURL(ref)
 	origin := commoncharm.Origin{
-		Source: commoncharm.OriginCharmStore,
+		Source:       commoncharm.OriginCharmStore,
+		Architecture: arch.DefaultArchitecture,
 	}
 
 	authorizer := NewMockMacaroonGetter(ctrl)
@@ -298,7 +301,8 @@ func (s *charmStoreCharmRefresherSuite) TestRefreshWithARevision(c *gc.C) {
 	ref := "cs:meshuggah-1"
 	curl := charm.MustParseURL(ref)
 	origin := commoncharm.Origin{
-		Source: commoncharm.OriginCharmStore,
+		Source:       commoncharm.OriginCharmStore,
+		Architecture: arch.DefaultArchitecture,
 	}
 
 	authorizer := NewMockMacaroonGetter(ctrl)

@@ -34,27 +34,28 @@ import (
 )
 
 type deployCharm struct {
-	applicationName string
-	attachStorage   []string
-	bindings        map[string]string
-	configOptions   common.ConfigFlag
-	constraints     constraints.Value
-	csMac           *macaroon.Macaroon
-	devices         map[string]devices.Constraints
-	deployResources resourceadapters.DeployResourcesFunc
-	force           bool
-	id              application.CharmID
-	flagSet         *gnuflag.FlagSet
-	model           ModelCommand
-	numUnits        int
-	origin          commoncharm.Origin
-	placement       []*instance.Placement
-	placementSpec   string
-	resources       map[string]string
-	series          string
-	steps           []DeployStep
-	storage         map[string]storage.Constraints
-	trust           bool
+	applicationName  string
+	attachStorage    []string
+	bindings         map[string]string
+	configOptions    common.ConfigFlag
+	constraints      constraints.Value
+	modelConstraints constraints.Value
+	csMac            *macaroon.Macaroon
+	devices          map[string]devices.Constraints
+	deployResources  resourceadapters.DeployResourcesFunc
+	force            bool
+	id               application.CharmID
+	flagSet          *gnuflag.FlagSet
+	model            ModelCommand
+	numUnits         int
+	origin           commoncharm.Origin
+	placement        []*instance.Placement
+	placementSpec    string
+	resources        map[string]string
+	series           string
+	steps            []DeployStep
+	storage          map[string]storage.Constraints
+	trust            bool
 
 	validateCharmSeriesWithName           func(series, name string, imageStream string) error
 	validateResourcesNeededForLocalDeploy func(charmMeta *charm.Meta) error
@@ -333,7 +334,7 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 		return errors.Trace(err)
 	}
 
-	platform, err := utils.DeducePlatform(d.constraints, d.userCharmURL.Series)
+	platform, err := utils.DeducePlatform(d.constraints, d.userCharmURL.Series, d.modelConstraints)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -375,7 +376,7 @@ func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _
 		return errors.Trace(err)
 	}
 
-	platform, err := utils.DeducePlatform(l.constraints, l.curl.Series)
+	platform, err := utils.DeducePlatform(l.constraints, l.curl.Series, l.modelConstraints)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -395,15 +396,15 @@ func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _
 	return l.deploy(ctx, deployAPI)
 }
 
-type charmStoreCharm struct {
+type repositoryCharm struct {
 	deployCharm
 	userRequestedURL *charm.URL
 	clock            jujuclock.Clock
 }
 
 // String returns a string description of the deployer.
-func (c *charmStoreCharm) String() string {
-	str := fmt.Sprintf("deploy charm store charm: %s", c.userRequestedURL.String())
+func (c *repositoryCharm) String() string {
+	str := fmt.Sprintf("deploy charm: %s", c.userRequestedURL.String())
 	if isEmptyOrigin(c.origin, commoncharm.OriginCharmStore) {
 		return str
 	}
@@ -416,10 +417,10 @@ func (c *charmStoreCharm) String() string {
 
 // PrepareAndDeploy finishes preparing to deploy a charm store charm,
 // then deploys it.
-func (c *charmStoreCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver, macaroonGetter store.MacaroonGetter) error {
+func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver, macaroonGetter store.MacaroonGetter) error {
 	userRequestedURL := c.userRequestedURL
 	location := "hub"
-	if userRequestedURL.Schema == "cs" {
+	if charm.CharmStore.Matches(userRequestedURL.Schema) {
 		location = "store"
 	}
 	ctx.Verbosef("Preparing to deploy %q from the charm-%s", userRequestedURL.Name, location)
@@ -490,13 +491,21 @@ func (c *charmStoreCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	origin.Series = seriesName
 	c.origin = origin
 
+	// In-order for the url to represent the following updates to the the origin
+	// and machine, we need to ensure that the series is actually correct as
+	// well in the url.
+	deployableURL := storeCharmOrBundleURL
+	if charm.CharmHub.Matches(storeCharmOrBundleURL.Schema) {
+		deployableURL = storeCharmOrBundleURL.WithSeries(origin.Series)
+	}
+
 	// Store the charm in the controller
-	curl, csMac, csOrigin, err := store.AddCharmWithAuthorizationFromURL(deployAPI, macaroonGetter, storeCharmOrBundleURL, c.origin, c.force)
+	curl, csMac, csOrigin, err := store.AddCharmWithAuthorizationFromURL(deployAPI, macaroonGetter, deployableURL, c.origin, c.force)
 	if err != nil {
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 			return errors.Trace(termErr.UserErr())
 		}
-		return errors.Annotatef(err, "storing charm for URL %q", storeCharmOrBundleURL)
+		return errors.Annotatef(err, "storing charm %q", deployableURL.Name)
 	}
 	ctx.Infof(formatLocatedText(curl, csOrigin))
 
@@ -509,7 +518,7 @@ func (c *charmStoreCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	// what we deploy, we should converge the two so that both report identical
 	// values.
 	if curl != nil && series == "" {
-		if err := c.validateCharmSeriesWithName(curl.Series, storeCharmOrBundleURL.Name, imageStream); err != nil {
+		if err := c.validateCharmSeriesWithName(curl.Series, curl.Name, imageStream); err != nil {
 			return errors.Trace(err)
 		}
 	}

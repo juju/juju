@@ -25,6 +25,7 @@ func (k *kubernetesClient) deleteClusterScopeResourcesModelTeardown(ctx context.
 		labelSetToRequirements(labels)...,
 	)
 
+	// TODO(caas): Fix to only delete cluster wide resources created by this controller.
 	tasks := []teardownResources{
 		k.deleteClusterRoleBindingsModelTeardown,
 		k.deleteClusterRolesModelTeardown,

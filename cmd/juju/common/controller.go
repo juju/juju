@@ -42,7 +42,7 @@ func getBlockAPI(c *modelcmd.ModelCommandBase) (listBlocksAPI, error) {
 	// Set a short dial timeout so WaitForAgentInitialisation can check
 	// ctx.Done() in its retry loop.
 	dialOpts := api.DefaultDialOpts()
-	dialOpts.Timeout = 3 * time.Second
+	dialOpts.Timeout = 6 * time.Second
 
 	root, err := c.NewAPIRootWithDialOpts(&dialOpts)
 	if err != nil {
@@ -127,10 +127,11 @@ func WaitForAgentInitialisation(
 		case errors.Cause(err) == io.EOF,
 			strings.HasSuffix(errorMessage, "no such host"), // wait for dns getting resolvable, aws elb for example.
 			strings.HasSuffix(errorMessage, "connection refused"),
+			strings.HasSuffix(errorMessage, "target machine actively refused it."), // Winsock message for connection refused
 			strings.HasSuffix(errorMessage, "connection is shut down"),
 			strings.HasSuffix(errorMessage, "i/o timeout"),
-			strings.HasSuffix(errorMessage, "no api connection available"),
-			strings.Contains(errorMessage, "spaces are still being discovered"):
+			strings.HasSuffix(errorMessage, "deadline exceeded"),
+			strings.HasSuffix(errorMessage, "no api connection available"):
 			ctx.Verbosef("Still waiting for API to become available: %v", err)
 			continue
 		case params.ErrCode(err) == params.CodeUpgradeInProgress:

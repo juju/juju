@@ -4,11 +4,12 @@
 package specs
 
 var (
-	ParsePodSpecV2       = parsePodSpecV2
-	ParsePodSpecLegacy   = parsePodSpecLegacy
-	ParsePodSpecForTest  = parsePodSpec
-	NewYAMLOrJSONDecoder = newYAMLOrJSONDecoder
-	NewDeployer          = newDeployer
+	ParsePodSpecV2             = parsePodSpecV2
+	ParsePodSpecLegacy         = parsePodSpecLegacy
+	ParsePodSpecForTest        = parsePodSpec
+	NewYAMLOrJSONDecoder       = newYAMLOrJSONDecoder
+	NewStrictYAMLOrJSONDecoder = newStrictYAMLOrJSONDecoder
+	NewDeployer                = newDeployer
 )
 
 type (

@@ -24,23 +24,26 @@ func DeduceOrigin(url *charm.URL, channel corecharm.Channel, platform corecharm.
 		return commoncharm.Origin{}, errors.NotValidf("charm url")
 	}
 
+	// Arch is ultimately determined for non-local cases in the API call
+	// to `ResolveCharm`. To ensure we always have an architecture, even if
+	// somehow the DeducePlatform doesn't find one fill one in.
+	// Additionally `ResolveCharm` is not called for local charms, which are
+	// simply uploaded and deployed. We satisfy the requirement for
+	// non-empty platform architecture by making our best guess here.
+	architecture := platform.Architecture
+	if architecture == "" {
+		architecture = arch.DefaultArchitecture
+	}
+
 	switch url.Schema {
 	case "cs":
 		return commoncharm.Origin{
-			Source: commoncharm.OriginCharmStore,
-			Risk:   string(channel.Risk),
-			Series: platform.Series,
+			Source:       commoncharm.OriginCharmStore,
+			Risk:         string(channel.Risk),
+			Architecture: architecture,
+			Series:       platform.Series,
 		}, nil
 	case "local":
-		// Arch is ultimately determined for non-local cases in the API call
-		// to `ResolveCharm`. This is not called for local charms, which are
-		// simply uploaded and deployed. We satisfy the requirement for
-		// non-empty platform architecture by making our best guess here.
-		architecture := platform.Architecture
-		if architecture == "" {
-			architecture = arch.DefaultArchitecture
-		}
-
 		return commoncharm.Origin{
 			Source:       commoncharm.OriginLocal,
 			Architecture: architecture,
@@ -56,7 +59,7 @@ func DeduceOrigin(url *charm.URL, channel corecharm.Channel, platform corecharm.
 			Source:       commoncharm.OriginCharmHub,
 			Risk:         string(channel.Risk),
 			Track:        track,
-			Architecture: platform.Architecture,
+			Architecture: architecture,
 			OS:           platform.OS,
 			Series:       platform.Series,
 		}, nil
@@ -65,10 +68,17 @@ func DeduceOrigin(url *charm.URL, channel corecharm.Channel, platform corecharm.
 
 // DeducePlatform attempts to create a Platform (architecture, os and series)
 // from a set of constraints or a free style series.
-func DeducePlatform(cons constraints.Value, series string) (corecharm.Platform, error) {
-	var arch string
+func DeducePlatform(cons constraints.Value, series string, modelCons constraints.Value) (corecharm.Platform, error) {
+	var pArch string
 	if cons.HasArch() {
-		arch = *cons.Arch
+		pArch = *cons.Arch
+	}
+	if pArch == "" {
+		if modelCons.HasArch() && *modelCons.Arch != "" {
+			pArch = *modelCons.Arch
+		} else {
+			pArch = arch.DefaultArchitecture
+		}
 	}
 
 	var os string
@@ -81,7 +91,7 @@ func DeducePlatform(cons constraints.Value, series string) (corecharm.Platform, 
 	}
 
 	return corecharm.Platform{
-		Architecture: arch,
+		Architecture: pArch,
 		OS:           os,
 		Series:       series,
 	}, nil

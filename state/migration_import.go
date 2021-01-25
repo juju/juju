@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/charm/v9"
+	"github.com/juju/collections/set"
 	"github.com/juju/description/v2"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -1240,12 +1241,14 @@ func (i *importer) importUnitPayloads(unit *Unit, payloads []description.Payload
 }
 
 func (i *importer) makeApplicationDoc(a description.Application) (*applicationDoc, error) {
+	units := a.Units()
+
 	charmURL, err := charm.ParseURL(a.CharmURL())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	origin, err := makeCharmOrigin(a, charmURL)
+	origin, err := i.makeCharmOrigin(a, charmURL, units)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1272,7 +1275,7 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		ForceCharm:           a.ForceCharm(),
 		PasswordHash:         a.PasswordHash(),
 		Life:                 Alive,
-		UnitCount:            len(a.Units()),
+		UnitCount:            len(units),
 		RelationCount:        i.relationCount(a.Name()),
 		Exposed:              a.Exposed(),
 		ExposedEndpoints:     exposedEndpoints,
@@ -1285,10 +1288,45 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 	}, nil
 }
 
-func makeCharmOrigin(a description.Application, curl *charm.URL) (*CharmOrigin, error) {
+func (i *importer) loadInstanceHardwareFromUnits(units []description.Unit) ([]instance.HardwareCharacteristics, error) {
+	machinesCollection, closer := i.st.db().GetCollection(machinesC)
+	defer closer()
+
+	machineIds := set.NewStrings()
+	for _, unit := range units {
+		tag := unit.Machine()
+		machineIds.Add(tag.Id())
+	}
+
+	docs := []machineDoc{}
+	err := machinesCollection.Find(bson.M{
+		"_id": bson.M{
+			"$in": machineIds.SortedValues(),
+		},
+	}).All(&docs)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get unit machines")
+	}
+
+	var hwChars []instance.HardwareCharacteristics
+	for _, doc := range docs {
+		machine := newMachine(i.st, &doc)
+		hw, err := machine.HardwareCharacteristics()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if hw == nil {
+			continue
+		}
+		hwChars = append(hwChars, *hw)
+	}
+	return hwChars, nil
+}
+
+func (i *importer) makeCharmOrigin(a description.Application, curl *charm.URL, units []description.Unit) (*CharmOrigin, error) {
 	co := a.CharmOrigin()
 	if co == nil {
-		return deduceCharmOrigin(curl)
+		return i.deduceCharmOrigin(a, curl, units)
 	}
 	rev := co.Revision()
 
@@ -1303,7 +1341,11 @@ func makeCharmOrigin(a description.Application, curl *charm.URL) (*CharmOrigin, 
 			Risk:   string(c.Risk),
 			Branch: c.Branch,
 		}
+	} else {
+		// Attempt to fallback to get the channel if it's missing.
+		_, channel = getApplicationSourceChannel(a, curl)
 	}
+
 	var platform *Platform
 	if serialized := co.Platform(); serialized != "" {
 		p, err := corecharm.ParsePlatformNormalize(serialized)
@@ -1315,6 +1357,10 @@ func makeCharmOrigin(a description.Application, curl *charm.URL) (*CharmOrigin, 
 			OS:           p.OS,
 			Series:       p.Series,
 		}
+	} else {
+		// Attempt to fallback to the application charm URL and then the
+		// application constraints.
+		platform = i.getApplicationPlatform(a, curl, units)
 	}
 
 	// We can hardcode type to charm as we never store bundles in state.
@@ -1329,10 +1375,7 @@ func makeCharmOrigin(a description.Application, curl *charm.URL) (*CharmOrigin, 
 	}, nil
 }
 
-// TODO (hml) 2020-08-04
-// Investigate adding channel from application, appears to be
-// set for cs charms.
-func deduceCharmOrigin(url *charm.URL) (*CharmOrigin, error) {
+func (i *importer) deduceCharmOrigin(a description.Application, url *charm.URL, units []description.Unit) (*CharmOrigin, error) {
 	if url == nil {
 		return &CharmOrigin{}, errors.NotValidf("charm url")
 	}
@@ -1345,20 +1388,105 @@ func deduceCharmOrigin(url *charm.URL) (*CharmOrigin, error) {
 		t = "charm"
 	}
 
-	origin := &CharmOrigin{
+	source, channel := getApplicationSourceChannel(a, url)
+	return &CharmOrigin{
 		Type:     t,
+		Source:   source.String(),
 		Revision: &url.Revision,
-	}
+		Channel:  channel,
+		Platform: i.getApplicationPlatform(a, url, units),
+	}, nil
+}
 
+// Attempt to get as much information from the appChannel where possible.
+func getApplicationSourceChannel(a description.Application, url *charm.URL) (corecharm.Source, *Channel) {
+	var source corecharm.Source
 	switch url.Schema {
 	case "cs":
-		origin.Source = corecharm.CharmStore.String()
+		source = corecharm.CharmStore
 	case "local":
-		origin.Source = corecharm.Local.String()
+		source = corecharm.Local
 	default:
-		origin.Source = corecharm.CharmHub.String()
+		source = corecharm.CharmHub
 	}
-	return origin, nil
+
+	c := a.Channel()
+	if c == "" {
+		return source, nil
+	}
+
+	if source == corecharm.CharmStore || source == corecharm.Local {
+		return source, &Channel{Risk: a.Channel()}
+	}
+
+	norm, err := corecharm.ParseChannelNormalize(a.Channel())
+	if err != nil {
+		return source, nil
+	}
+
+	return source, &Channel{
+		Track:  norm.Track,
+		Risk:   string(norm.Risk),
+		Branch: norm.Branch,
+	}
+}
+
+// Attempt to locate the architecture, if it's found in the URL then use
+// that, otherwise fallback to the arch constraint.
+func (i *importer) getApplicationPlatform(a description.Application, url *charm.URL, units []description.Unit) *Platform {
+	var platform *Platform
+	if url != nil && url.Architecture != "" {
+		platform = &Platform{
+			Architecture: url.Architecture,
+			Series:       url.Series,
+		}
+	} else if arc := getApplicationArchConstraint(a); arc != "" {
+		platform = &Platform{
+			Architecture: arc,
+			Series:       a.Series(),
+		}
+	}
+
+	if platform == nil || platform.Architecture == "" {
+		// If we can't find an instance hardware based on the units, then just
+		// return the platform.
+		hardwareCharacteristics, err := i.loadInstanceHardwareFromUnits(units)
+		if err != nil {
+			return platform
+		}
+
+		// Attempting to find the right architecture is quite difficult,
+		// especially if we're in a heterogenous deployment. In that case we'll
+		// most likely guess wrong, so we now use the fact that just select
+		// the first available as that's what they most probably started with.
+		var arch string
+		for _, hw := range hardwareCharacteristics {
+			if hw.Arch == nil {
+				continue
+			}
+			arch = *hw.Arch
+			continue
+		}
+
+		if platform == nil {
+			platform = &Platform{}
+		}
+		platform.Architecture = arch
+		platform.Series = a.Series()
+	}
+
+	return platform
+}
+
+func getApplicationArchConstraint(a description.Application) string {
+	cons := a.Constraints()
+	if cons == nil {
+		return ""
+	}
+	if arch := cons.Architecture(); arch != "" {
+		return arch
+	}
+	return ""
 }
 
 func (i *importer) relationCount(application string) int {

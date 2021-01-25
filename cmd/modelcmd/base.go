@@ -247,6 +247,7 @@ func (c *CommandBase) NewAPIRootWithDialOpts(
 			}
 		}
 	}
+
 	param, err := c.NewAPIConnectionParams(
 		store, controllerName, modelName, accountDetails,
 	)
@@ -688,15 +689,16 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 	}
 	return bootstrapConfig, &environs.PrepareConfigParams{
 		Cloud: environscloudspec.CloudSpec{
-			Type:             bootstrapConfig.CloudType,
-			Name:             bootstrapConfig.Cloud,
-			Region:           bootstrapConfig.CloudRegion,
-			Endpoint:         bootstrapConfig.CloudEndpoint,
-			IdentityEndpoint: bootstrapConfig.CloudIdentityEndpoint,
-			StorageEndpoint:  bootstrapConfig.CloudStorageEndpoint,
-			Credential:       credential,
-			CACertificates:   bootstrapConfig.CloudCACertificates,
-			SkipTLSVerify:    bootstrapConfig.SkipTLSVerify,
+			Type:              bootstrapConfig.CloudType,
+			Name:              bootstrapConfig.Cloud,
+			Region:            bootstrapConfig.CloudRegion,
+			Endpoint:          bootstrapConfig.CloudEndpoint,
+			IdentityEndpoint:  bootstrapConfig.CloudIdentityEndpoint,
+			StorageEndpoint:   bootstrapConfig.CloudStorageEndpoint,
+			Credential:        credential,
+			CACertificates:    bootstrapConfig.CloudCACertificates,
+			SkipTLSVerify:     bootstrapConfig.SkipTLSVerify,
+			IsControllerCloud: bootstrapConfig.Cloud == controllerDetails.Cloud,
 		},
 		Config: cfg,
 	}, nil

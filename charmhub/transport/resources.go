@@ -8,19 +8,10 @@ type ResourcesResponse struct {
 }
 
 type ResourceRevision struct {
-	Download    ResourceDownload `json:"download"`
-	Description string           `json:"description"`
-	Name        string           `json:"name"`
-	Filename    string           `json:"filename"`
-	Revision    int              `json:"revision"`
-	Type        string           `json:"type"`
-}
-
-type ResourceDownload struct {
-	HashSHA256  string `json:"hash-sha256"`
-	HashSHA3384 string `json:"hash-sha3-384"`
-	HashSHA384  string `json:"hash-sha384"`
-	HashSHA512  string `json:"hash-sha512"`
-	Size        int    `json:"size"`
-	URL         string `json:"url"`
+	Download    Download `json:"download"`
+	Description string   `json:"description"`
+	Name        string   `json:"name"`
+	Filename    string   `json:"filename"`
+	Revision    int      `json:"revision"`
+	Type        string   `json:"type"`
 }

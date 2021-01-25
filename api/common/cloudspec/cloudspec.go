@@ -81,15 +81,16 @@ func (api *CloudSpecAPI) MakeCloudSpec(pSpec *params.CloudSpec) (environscloudsp
 		credential = &credentialValue
 	}
 	spec := environscloudspec.CloudSpec{
-		Type:             pSpec.Type,
-		Name:             pSpec.Name,
-		Region:           pSpec.Region,
-		Endpoint:         pSpec.Endpoint,
-		IdentityEndpoint: pSpec.IdentityEndpoint,
-		StorageEndpoint:  pSpec.StorageEndpoint,
-		CACertificates:   pSpec.CACertificates,
-		SkipTLSVerify:    pSpec.SkipTLSVerify,
-		Credential:       credential,
+		Type:              pSpec.Type,
+		Name:              pSpec.Name,
+		Region:            pSpec.Region,
+		Endpoint:          pSpec.Endpoint,
+		IdentityEndpoint:  pSpec.IdentityEndpoint,
+		StorageEndpoint:   pSpec.StorageEndpoint,
+		CACertificates:    pSpec.CACertificates,
+		SkipTLSVerify:     pSpec.SkipTLSVerify,
+		Credential:        credential,
+		IsControllerCloud: pSpec.IsControllerCloud,
 	}
 	if err := spec.Validate(); err != nil {
 		return environscloudspec.CloudSpec{}, errors.Annotate(err, "validating CloudSpec")

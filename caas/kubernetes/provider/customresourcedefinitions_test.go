@@ -13,6 +13,7 @@ import (
 	apps "k8s.io/api/apps/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -27,7 +28,7 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds []k8sspecs.K8sCustomResourceDefinitionSpec, assertCalls ...*gomock.Call) {
+func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds []k8sspecs.K8sCustomResourceDefinition, assertCalls ...*gomock.Call) {
 
 	basicPodSpec := getBasicPodspec()
 	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
@@ -125,48 +126,51 @@ func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds []k8ssp
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreateV1beta1(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	crds := []k8sspecs.K8sCustomResourceDefinitionSpec{
+	crds := []k8sspecs.K8sCustomResourceDefinition{
 		{
 			Meta: k8sspecs.Meta{Name: "tfjobs.kubeflow.org"},
-			Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-				Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-					Kind:     "TFJob",
-					Singular: "tfjob",
-					Plural:   "tfjobs",
-				},
-				Version: "v1alpha2",
-				Group:   "kubeflow.org",
-				Scope:   "Namespaced",
-				Validation: &apiextensionsv1beta1.CustomResourceValidation{
-					OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
-						Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-							"tfReplicaSpecs": {
-								Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-									"Worker": {
-										Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-											"replicas": {
-												Type:    "integer",
-												Minimum: float64Ptr(1),
+			Spec: k8sspecs.K8sCustomResourceDefinitionSpec{
+				Version: k8sspecs.K8sCustomResourceDefinitionV1Beta1,
+				SpecV1Beta1: apiextensionsv1beta1.CustomResourceDefinitionSpec{
+					Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
+						Kind:     "TFJob",
+						Singular: "tfjob",
+						Plural:   "tfjobs",
+					},
+					Version: "v1alpha2",
+					Group:   "kubeflow.org",
+					Scope:   "Namespaced",
+					Validation: &apiextensionsv1beta1.CustomResourceValidation{
+						OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
+							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+								"tfReplicaSpecs": {
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"Worker": {
+											Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+												"replicas": {
+													Type:    "integer",
+													Minimum: float64Ptr(1),
+												},
 											},
 										},
-									},
-									"PS": {
-										Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-											"replicas": {
-												Type: "integer", Minimum: float64Ptr(1),
+										"PS": {
+											Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+												"replicas": {
+													Type: "integer", Minimum: float64Ptr(1),
+												},
 											},
 										},
-									},
-									"Chief": {
-										Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-											"replicas": {
-												Type:    "integer",
-												Minimum: float64Ptr(1),
-												Maximum: float64Ptr(1),
+										"Chief": {
+											Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+												"replicas": {
+													Type:    "integer",
+													Minimum: float64Ptr(1),
+													Maximum: float64Ptr(1),
+												},
 											},
 										},
 									},
@@ -233,52 +237,55 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreate(c *gc.
 
 	s.assertCustomerResourceDefinitions(
 		c, crds,
-		s.mockCustomResourceDefinition.EXPECT().Create(gomock.Any(), crd, v1.CreateOptions{}).Return(crd, nil),
+		s.mockCustomResourceDefinitionV1Beta1.EXPECT().Create(gomock.Any(), crd, v1.CreateOptions{}).Return(crd, nil),
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsUpdate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsUpdateV1beta1(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	crds := []k8sspecs.K8sCustomResourceDefinitionSpec{
+	crds := []k8sspecs.K8sCustomResourceDefinition{
 		{
 			Meta: k8sspecs.Meta{Name: "tfjobs.kubeflow.org"},
-			Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-				Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-					Kind:     "TFJob",
-					Singular: "tfjob",
-					Plural:   "tfjobs",
-				},
-				Version: "v1alpha2",
-				Group:   "kubeflow.org",
-				Scope:   "Namespaced",
-				Validation: &apiextensionsv1beta1.CustomResourceValidation{
-					OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
-						Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-							"tfReplicaSpecs": {
-								Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-									"Worker": {
-										Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-											"replicas": {
-												Type:    "integer",
-												Minimum: float64Ptr(1),
+			Spec: k8sspecs.K8sCustomResourceDefinitionSpec{
+				Version: k8sspecs.K8sCustomResourceDefinitionV1Beta1,
+				SpecV1Beta1: apiextensionsv1beta1.CustomResourceDefinitionSpec{
+					Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
+						Kind:     "TFJob",
+						Singular: "tfjob",
+						Plural:   "tfjobs",
+					},
+					Version: "v1alpha2",
+					Group:   "kubeflow.org",
+					Scope:   "Namespaced",
+					Validation: &apiextensionsv1beta1.CustomResourceValidation{
+						OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
+							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+								"tfReplicaSpecs": {
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"Worker": {
+											Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+												"replicas": {
+													Type:    "integer",
+													Minimum: float64Ptr(1),
+												},
 											},
 										},
-									},
-									"PS": {
-										Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-											"replicas": {
-												Type: "integer", Minimum: float64Ptr(1),
+										"PS": {
+											Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+												"replicas": {
+													Type: "integer", Minimum: float64Ptr(1),
+												},
 											},
 										},
-									},
-									"Chief": {
-										Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-											"replicas": {
-												Type:    "integer",
-												Minimum: float64Ptr(1),
-												Maximum: float64Ptr(1),
+										"Chief": {
+											Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+												"replicas": {
+													Type:    "integer",
+													Minimum: float64Ptr(1),
+													Maximum: float64Ptr(1),
+												},
 											},
 										},
 									},
@@ -345,9 +352,245 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsUpdate(c *gc.
 
 	s.assertCustomerResourceDefinitions(
 		c, crds,
-		s.mockCustomResourceDefinition.EXPECT().Create(gomock.Any(), crd, v1.CreateOptions{}).Return(crd, s.k8sAlreadyExistsError()),
-		s.mockCustomResourceDefinition.EXPECT().Get(gomock.Any(), "tfjobs.kubeflow.org", v1.GetOptions{}).Return(crd, nil),
-		s.mockCustomResourceDefinition.EXPECT().Update(gomock.Any(), crd, v1.UpdateOptions{}).Return(crd, nil),
+		s.mockCustomResourceDefinitionV1Beta1.EXPECT().Create(gomock.Any(), crd, v1.CreateOptions{}).Return(crd, s.k8sAlreadyExistsError()),
+		s.mockCustomResourceDefinitionV1Beta1.EXPECT().Get(gomock.Any(), "tfjobs.kubeflow.org", v1.GetOptions{}).Return(crd, nil),
+		s.mockCustomResourceDefinitionV1Beta1.EXPECT().Update(gomock.Any(), crd, v1.UpdateOptions{}).Return(crd, nil),
+	)
+}
+
+func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreateV1(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	crds := []k8sspecs.K8sCustomResourceDefinition{
+		{
+			Meta: k8sspecs.Meta{
+				Name: "certificates.networking.internal.knative.dev",
+			},
+			Spec: k8sspecs.K8sCustomResourceDefinitionSpec{
+				Version: k8sspecs.K8sCustomResourceDefinitionV1,
+				SpecV1: apiextensionsv1.CustomResourceDefinitionSpec{
+					Scope: apiextensionsv1.NamespaceScoped,
+					Group: "networking.internal.knative.dev",
+					Names: apiextensionsv1.CustomResourceDefinitionNames{
+						Kind:     "Certificate",
+						Plural:   "certificates",
+						Singular: "certificate",
+						Categories: []string{
+							"knative-internal",
+							"networking",
+						},
+						ShortNames: []string{
+							"kcert",
+						},
+					},
+					Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
+						{
+							Name:    "v1alpha1",
+							Served:  true,
+							Storage: true,
+							Subresources: &apiextensionsv1.CustomResourceSubresources{
+								Status: &apiextensionsv1.CustomResourceSubresourceStatus{},
+							},
+							Schema: &apiextensionsv1.CustomResourceValidation{
+								OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
+									Type:                   "object",
+									XPreserveUnknownFields: boolPtr(true),
+								},
+							},
+							AdditionalPrinterColumns: []apiextensionsv1.CustomResourceColumnDefinition{
+								{
+									Name:     "Ready",
+									Type:     "string",
+									JSONPath: ".status.conditions[?(@.type==\"Ready\")].status",
+								},
+								{
+									Name:     "Reason",
+									Type:     "string",
+									JSONPath: ".status.conditions[?(@.type==\"Ready\")].reason",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	crd := &apiextensionsv1.CustomResourceDefinition{
+		ObjectMeta: v1.ObjectMeta{
+			Name:        "certificates.networking.internal.knative.dev",
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
+		},
+		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+			Scope: apiextensionsv1.NamespaceScoped,
+			Group: "networking.internal.knative.dev",
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
+				Kind:     "Certificate",
+				Plural:   "certificates",
+				Singular: "certificate",
+				Categories: []string{
+					"knative-internal",
+					"networking",
+				},
+				ShortNames: []string{
+					"kcert",
+				},
+			},
+			Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
+				{
+					Name:    "v1alpha1",
+					Served:  true,
+					Storage: true,
+					Subresources: &apiextensionsv1.CustomResourceSubresources{
+						Status: &apiextensionsv1.CustomResourceSubresourceStatus{},
+					},
+					Schema: &apiextensionsv1.CustomResourceValidation{
+						OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
+							Type:                   "object",
+							XPreserveUnknownFields: boolPtr(true),
+						},
+					},
+					AdditionalPrinterColumns: []apiextensionsv1.CustomResourceColumnDefinition{
+						{
+							Name:     "Ready",
+							Type:     "string",
+							JSONPath: ".status.conditions[?(@.type==\"Ready\")].status",
+						},
+						{
+							Name:     "Reason",
+							Type:     "string",
+							JSONPath: ".status.conditions[?(@.type==\"Ready\")].reason",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	s.assertCustomerResourceDefinitions(
+		c, crds,
+		s.mockCustomResourceDefinitionV1.EXPECT().Create(gomock.Any(), crd, gomock.Any()).Return(crd, nil),
+	)
+}
+
+func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsUpdateV1(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	crds := []k8sspecs.K8sCustomResourceDefinition{
+		{
+			Meta: k8sspecs.Meta{
+				Name: "certificates.networking.internal.knative.dev",
+			},
+			Spec: k8sspecs.K8sCustomResourceDefinitionSpec{
+				Version: k8sspecs.K8sCustomResourceDefinitionV1,
+				SpecV1: apiextensionsv1.CustomResourceDefinitionSpec{
+					Scope: apiextensionsv1.NamespaceScoped,
+					Group: "networking.internal.knative.dev",
+					Names: apiextensionsv1.CustomResourceDefinitionNames{
+						Kind:     "Certificate",
+						Plural:   "certificates",
+						Singular: "certificate",
+						Categories: []string{
+							"knative-internal",
+							"networking",
+						},
+						ShortNames: []string{
+							"kcert",
+						},
+					},
+					Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
+						{
+							Name:    "v1alpha1",
+							Served:  true,
+							Storage: true,
+							Subresources: &apiextensionsv1.CustomResourceSubresources{
+								Status: &apiextensionsv1.CustomResourceSubresourceStatus{},
+							},
+							Schema: &apiextensionsv1.CustomResourceValidation{
+								OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
+									Type:                   "object",
+									XPreserveUnknownFields: boolPtr(true),
+								},
+							},
+							AdditionalPrinterColumns: []apiextensionsv1.CustomResourceColumnDefinition{
+								{
+									Name:     "Ready",
+									Type:     "string",
+									JSONPath: ".status.conditions[?(@.type==\"Ready\")].status",
+								},
+								{
+									Name:     "Reason",
+									Type:     "string",
+									JSONPath: ".status.conditions[?(@.type==\"Ready\")].reason",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	crd := &apiextensionsv1.CustomResourceDefinition{
+		ObjectMeta: v1.ObjectMeta{
+			Name:        "certificates.networking.internal.knative.dev",
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
+		},
+		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+			Scope: apiextensionsv1.NamespaceScoped,
+			Group: "networking.internal.knative.dev",
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
+				Kind:     "Certificate",
+				Plural:   "certificates",
+				Singular: "certificate",
+				Categories: []string{
+					"knative-internal",
+					"networking",
+				},
+				ShortNames: []string{
+					"kcert",
+				},
+			},
+			Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
+				{
+					Name:    "v1alpha1",
+					Served:  true,
+					Storage: true,
+					Subresources: &apiextensionsv1.CustomResourceSubresources{
+						Status: &apiextensionsv1.CustomResourceSubresourceStatus{},
+					},
+					Schema: &apiextensionsv1.CustomResourceValidation{
+						OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
+							Type:                   "object",
+							XPreserveUnknownFields: boolPtr(true),
+						},
+					},
+					AdditionalPrinterColumns: []apiextensionsv1.CustomResourceColumnDefinition{
+						{
+							Name:     "Ready",
+							Type:     "string",
+							JSONPath: ".status.conditions[?(@.type==\"Ready\")].status",
+						},
+						{
+							Name:     "Reason",
+							Type:     "string",
+							JSONPath: ".status.conditions[?(@.type==\"Ready\")].reason",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	s.assertCustomerResourceDefinitions(
+		c, crds,
+		s.mockCustomResourceDefinitionV1.EXPECT().Create(gomock.Any(), crd, gomock.Any()).Return(crd, s.k8sAlreadyExistsError()),
+		s.mockCustomResourceDefinitionV1.EXPECT().Get(gomock.Any(), "certificates.networking.internal.knative.dev", v1.GetOptions{}).Return(crd, nil),
+		s.mockCustomResourceDefinitionV1.EXPECT().Update(gomock.Any(), crd, gomock.Any()).Return(crd, nil),
 	)
 }
 
@@ -638,7 +881,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesCreate(c *gc.C) {
 			// CRD is ready in 1st time checking.
 		},
 		// waits CRD stablised.
-		s.mockCustomResourceDefinition.EXPECT().Get(gomock.Any(), "tfjobs.kubeflow.org", v1.GetOptions{}).Return(crd, nil),
+		s.mockCustomResourceDefinitionV1Beta1.EXPECT().Get(gomock.Any(), "tfjobs.kubeflow.org", v1.GetOptions{}).Return(crd, nil),
 		s.mockDynamicClient.EXPECT().Resource(
 			schema.GroupVersionResource{
 				Group:    crd.Spec.Group,
@@ -771,9 +1014,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesUpdate(c *gc.C) {
 		},
 		// waits CRD stabilised.
 		// 1. CRD not found.
-		s.mockCustomResourceDefinition.EXPECT().Get(gomock.Any(), "tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(nil, s.k8sNotFoundError()),
+		s.mockCustomResourceDefinitionV1Beta1.EXPECT().Get(gomock.Any(), "tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(nil, s.k8sNotFoundError()),
 		// 2. CRD resource type not ready yet.
-		s.mockCustomResourceDefinition.EXPECT().Get(gomock.Any(), "tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(crd, nil),
+		s.mockCustomResourceDefinitionV1Beta1.EXPECT().Get(gomock.Any(), "tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(crd, nil),
 		s.mockDynamicClient.EXPECT().Resource(
 			schema.GroupVersionResource{
 				Group:    crd.Spec.Group,
@@ -783,7 +1026,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesUpdate(c *gc.C) {
 		).Times(1).Return(s.mockNamespaceableResourceClient),
 		s.mockResourceClient.EXPECT().List(gomock.Any(), v1.ListOptions{}).Times(1).Return(nil, s.k8sNotFoundError()),
 		// 3. CRD is ready.
-		s.mockCustomResourceDefinition.EXPECT().Get(gomock.Any(), "tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(crd, nil),
+		s.mockCustomResourceDefinitionV1Beta1.EXPECT().Get(gomock.Any(), "tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(crd, nil),
 		s.mockDynamicClient.EXPECT().Resource(
 			schema.GroupVersionResource{
 				Group:    crd.Spec.Group,
@@ -878,7 +1121,7 @@ func (s *K8sBrokerSuite) TestCRDGetter(c *gc.C) {
 
 	// Test 1: Invalid CRD found - no version.
 	gomock.InOrder(
-		s.mockCustomResourceDefinition.EXPECT().Get(gomock.Any(), "tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(badCRDNoVersion, nil),
+		s.mockCustomResourceDefinitionV1Beta1.EXPECT().Get(gomock.Any(), "tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(badCRDNoVersion, nil),
 	)
 	result, err := crdGetter.Get("tfjobs.kubeflow.org")
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
@@ -938,7 +1181,7 @@ func (s *K8sBrokerSuite) TestCRDGetter(c *gc.C) {
 
 	// Test 2: not found CRD.
 	gomock.InOrder(
-		s.mockCustomResourceDefinition.EXPECT().Get(gomock.Any(), "tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(nil, s.k8sNotFoundError()),
+		s.mockCustomResourceDefinitionV1Beta1.EXPECT().Get(gomock.Any(), "tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(nil, s.k8sNotFoundError()),
 	)
 	result, err = crdGetter.Get("tfjobs.kubeflow.org")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -946,7 +1189,7 @@ func (s *K8sBrokerSuite) TestCRDGetter(c *gc.C) {
 
 	// Test 3: found CRD but CRD is not stablised yet.
 	gomock.InOrder(
-		s.mockCustomResourceDefinition.EXPECT().Get(gomock.Any(), "tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(crd, nil),
+		s.mockCustomResourceDefinitionV1Beta1.EXPECT().Get(gomock.Any(), "tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(crd, nil),
 		s.mockDynamicClient.EXPECT().Resource(
 			schema.GroupVersionResource{
 				Group:    crd.Spec.Group,
@@ -962,7 +1205,7 @@ func (s *K8sBrokerSuite) TestCRDGetter(c *gc.C) {
 
 	// Test 4: all good.
 	gomock.InOrder(
-		s.mockCustomResourceDefinition.EXPECT().Get(gomock.Any(), "tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(crd, nil),
+		s.mockCustomResourceDefinitionV1Beta1.EXPECT().Get(gomock.Any(), "tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(crd, nil),
 		s.mockDynamicClient.EXPECT().Resource(
 			schema.GroupVersionResource{
 				Group:    crd.Spec.Group,

@@ -247,7 +247,12 @@ func (a *API) getDownloadInfo(arg params.CharmURLAndOrigin) (params.DownloadInfo
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
 
-	charmOrigin, err := normalizeCharmOrigin(arg.Origin)
+	defaultArch, err := a.getDefaultArch()
+	if err != nil {
+		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
+	}
+
+	charmOrigin, err := normalizeCharmOrigin(arg.Origin, defaultArch)
 	if err != nil {
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
@@ -268,7 +273,20 @@ func (a *API) getDownloadInfo(arg params.CharmURLAndOrigin) (params.DownloadInfo
 	}, nil
 }
 
-func normalizeCharmOrigin(origin params.CharmOrigin) (params.CharmOrigin, error) {
+func (a *API) getDefaultArch() (string, error) {
+	cons, err := a.backendState.ModelConstraints()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	if cons.HasArch() {
+		return *cons.Arch, nil
+	}
+
+	return arch.DefaultArchitecture, nil
+}
+
+func normalizeCharmOrigin(origin params.CharmOrigin, fallbackArch string) (params.CharmOrigin, error) {
 	// If the series is set to all, we need to ensure that we remove that, so
 	// that we can attempt to derive it at a later stage. Juju itself doesn't
 	// know nor understands what all means, so we need to ensure it doesn't leak
@@ -291,17 +309,17 @@ func normalizeCharmOrigin(origin params.CharmOrigin) (params.CharmOrigin, error)
 		oSeries = origin.Series
 	}
 
-	var arc string
-	if origin.Architecture != "all" {
-		arc = origin.Architecture
+	arch := fallbackArch
+	if origin.Architecture != "all" && origin.Architecture != "" {
+		arch = origin.Architecture
 	} else {
-		logger.Warningf("Architecture all detected, removing all from the origin. %s", origin.ID)
+		logger.Warningf("Architecture not in expected state, found %q, using fallback architecture %q. %s", origin.Architecture, arch, origin.ID)
 	}
 
 	o := origin
 	o.OS = os
 	o.Series = oSeries
-	o.Architecture = arc
+	o.Architecture = arch
 	return o, nil
 }
 
@@ -524,6 +542,12 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel, mac *macaroon.
 		return result
 	}
 
+	// Validate the origin passed in.
+	if err := validateOrigin(arg.Origin, curl.Schema); err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result
+	}
+
 	// If we can guarantee that each charm to be resolved uses the
 	// same url source and channel, there is no need to get a new repository
 	// each time.
@@ -568,6 +592,18 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel, mac *macaroon.
 	}
 
 	return result
+}
+
+func validateOrigin(origin params.CharmOrigin, schema string) error {
+	if (corecharm.Local.Matches(origin.Source) && !charm.Local.Matches(schema)) ||
+		(corecharm.CharmStore.Matches(origin.Source) && !charm.CharmStore.Matches(schema)) ||
+		(corecharm.CharmHub.Matches(origin.Source) && !charm.CharmHub.Matches(schema)) {
+		return errors.NotValidf("origin source %q with schema", origin.Source)
+	}
+	if corecharm.CharmHub.Matches(origin.Source) && origin.Architecture == "" {
+		return errors.NotValidf("empty architecture")
+	}
+	return nil
 }
 
 func (a *API) charmStrategy(args params.AddCharmWithAuth) (Strategy, error) {
