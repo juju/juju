@@ -436,7 +436,7 @@ func (u *User) SetPasswordHash(pwHash string, pwSalt string) error {
 func (u *User) PasswordValid(password string) bool {
 	// If the User is deactivated or deleted, there is no point in carrying on.
 	// Since any authentication checks are done very soon after the user is
-	// read from the database, there is a very small timeframe where an user
+	// read from the database, there is a very small timeframe where a user
 	// could be disabled after it has been read but prior to being checked, but
 	// in practice, this isn't a problem.
 	if u.IsDisabled() || u.IsDeleted() {
