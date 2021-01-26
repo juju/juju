@@ -1,10 +1,10 @@
 # network-health-2-machines:
 machines:
   '0':
-    series: xenial
+    series: bionic
   '1':
-    series: xenial
-series: xenial
+    series: bionic
+series: bionic
 applications:
   dummy-source-a:
     charm: cs:~juju-qa/dummy-source
@@ -23,7 +23,7 @@ applications:
     to:
     - lxd:0
     bindings:
-      "": space-0
+      "": space1
   dummy-source-c:
     charm: cs:~juju-qa/dummy-source
     num_units: 1
@@ -33,7 +33,7 @@ applications:
     to:
     - lxd:1
     bindings:
-      "": space-0
+      "": space1
   dummy-sink-a:
     charm: cs:~juju-qa/dummy-sink
     num_units: 1
@@ -43,7 +43,7 @@ applications:
     to:
     - lxd:0
     bindings:
-      "": space-0
+      "": space1
   dummy-sink-b:
     charm: cs:~juju-qa/dummy-sink
     num_units: 1
@@ -53,7 +53,7 @@ applications:
     to:
     - '1'
     bindings:
-      "": space-0
+      "": space1
   dummy-sink-c:
     charm: cs:~juju-qa/dummy-sink
     num_units: 1
@@ -63,7 +63,7 @@ applications:
     to:
     - lxd:1
     bindings:
-      "": space-0
+      "": space1
   dummy-subordinate:
     charm: cs:~juju-qa/dummy-subordinate
     expose: false
