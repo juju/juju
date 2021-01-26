@@ -163,7 +163,7 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 	resultChannel := make(chan string, len(runResults))
 	for _, result := range runResults {
 		r := result
-		if r.Error != nil {
+		if err := r.Error; err != nil {
 			fmt.Fprintf(ctx.Stdout, "failed to collect metrics: %v\n", err)
 			resultChannel <- "invalid id"
 			continue
