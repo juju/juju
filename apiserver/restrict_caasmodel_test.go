@@ -32,7 +32,7 @@ func (s *RestrictCAASModelSuite) TestAllowed(c *gc.C) {
 
 func (s *RestrictCAASModelSuite) TestNotAllowed(c *gc.C) {
 	caller, err := s.root.FindMethod("Firewaller", 1, "WatchOpenedPorts")
-	c.Assert(err, gc.ErrorMatches, `facade "Firewaller" not supported for a CAAS model API connection`)
+	c.Assert(err, gc.ErrorMatches, `facade "Firewaller" not supported on container models`)
 	c.Assert(errors.IsNotSupported(err), jc.IsTrue)
 	c.Assert(caller, gc.IsNil)
 }

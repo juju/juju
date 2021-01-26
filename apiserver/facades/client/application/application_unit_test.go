@@ -340,7 +340,7 @@ func (s *ApplicationSuite) TestSetCAASCharmInvalid(c *gc.C) {
 	})
 	c.Assert(err, gc.NotNil)
 	msg := strings.Replace(err.Error(), "\n", "", -1)
-	c.Assert(msg, gc.Matches, "Juju on k8s does not support updating deployment info.*")
+	c.Assert(msg, gc.Matches, "Juju on containers does not support updating deployment info.*")
 }
 
 func (s *ApplicationSuite) TestDeployCAASOperatorProtectedByFlag(c *gc.C) {
@@ -366,7 +366,7 @@ func (s *ApplicationSuite) TestDeployCAASOperatorProtectedByFlag(c *gc.C) {
 	err = result.OneError()
 	c.Assert(err, gc.NotNil)
 	msg := strings.Replace(err.Error(), "\n", "", -1)
-	c.Assert(msg, gc.Matches, `feature flag "k8s-operators" is required for deploying k8s operator charms`)
+	c.Assert(msg, gc.Matches, `feature flag "k8s-operators" is required for deploying container operator charms`)
 }
 
 func (s *ApplicationSuite) TestUpdateCAASApplicationSettings(c *gc.C) {
@@ -1019,8 +1019,8 @@ func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 4)
 	c.Assert(results.Results[0].Error, gc.IsNil)
 	c.Assert(results.Results[1].Error, gc.IsNil)
-	c.Assert(results.Results[2].Error, gc.ErrorMatches, "AttachStorage may not be specified for k8s models")
-	c.Assert(results.Results[3].Error, gc.ErrorMatches, "only 1 placement directive is supported for k8s models, got 2")
+	c.Assert(results.Results[2].Error, gc.ErrorMatches, "AttachStorage may not be specified for container models")
+	c.Assert(results.Results[3].Error, gc.ErrorMatches, "only 1 placement directive is supported for container models, got 2")
 
 	c.Assert(s.deployParams["foo"].ApplicationConfig.Attributes()["kubernetes-service-type"], gc.Equals, "NodeIP")
 	// Check parsing of k8s service annotations.
@@ -1049,7 +1049,7 @@ func (s *ApplicationSuite) TestDeployCAASBlockStorageRejected(c *gc.C) {
 	result, err := s.api.Deploy(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.OneError(), gc.ErrorMatches, `block storage "block" is not supported for k8s charms`)
+	c.Assert(result.OneError(), gc.ErrorMatches, `block storage "block" is not supported for container charms`)
 }
 
 func (s *ApplicationSuite) TestDeployCAASModelNoOperatorStorage(c *gc.C) {
@@ -2079,7 +2079,7 @@ func (s *ApplicationSuite) TestCAASExposeWithoutHostname(c *gc.C) {
 		ApplicationName: "postgresql",
 	})
 	c.Assert(err, gc.ErrorMatches,
-		`cannot expose a k8s application without a "juju-external-hostname" value set, run\n`+
+		`cannot expose a container application without a "juju-external-hostname" value set, run\n`+
 			`juju config postgresql juju-external-hostname=<value>`)
 }
 
