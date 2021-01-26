@@ -30,12 +30,12 @@ var (
 	actionID2 = "11234567-89ab-cdef-0123-456789abcdef"
 
 	tests = []struct {
-		about     string
-		args      []string
-		stdout    string
-		results   [][]actionapi.ActionResult
-		actionMap map[string]actionapi.ActionResult
-		err       string
+		about          string
+		args           []string
+		stdout, stderr string
+		results        [][]actionapi.ActionResult
+		actionMap      map[string]actionapi.ActionResult
+		err            string
 	}{{
 		about: "missing args",
 		err:   "you need to specify a unit or application.",
@@ -89,7 +89,7 @@ var (
 				},
 			}},
 		},
-		stdout: "failed to collect metrics: plm\n",
+		stderr: "failed to collect metrics: plm\n",
 	}, {
 		about: "fail to parse result",
 		args:  []string{"uptime"},
@@ -103,7 +103,7 @@ var (
 		actionMap: map[string]actionapi.ActionResult{
 			actionID1: {},
 		},
-		stdout: "failed to collect metrics: could not read stdout\n",
+		stderr: "failed to collect metrics: could not read stdout\n",
 	}, {
 		about: "no results on sendResults",
 		args:  []string{"uptime"},
@@ -126,7 +126,7 @@ var (
 				},
 			},
 		},
-		stdout: "failed to send metrics for unit uptime/0: no results\n",
+		stderr: "failed to send metrics for unit uptime/0: no results\n",
 	}, {
 		about: "too many sendResults",
 		args:  []string{"uptime"},
@@ -158,7 +158,7 @@ var (
 				},
 			},
 		},
-		stdout: "failed to send metrics for unit uptime/0\n",
+		stderr: "failed to send metrics for unit uptime/0\n",
 	}, {
 		about: "sendResults error",
 		args:  []string{"uptime"},
@@ -184,7 +184,7 @@ var (
 				},
 			},
 		},
-		stdout: "failed to send metrics for unit uptime/0: permission denied\n",
+		stderr: "failed to send metrics for unit uptime/0: permission denied\n",
 	}, {
 		about: "couldn't get sendResults action",
 		args:  []string{"uptime"},
@@ -212,7 +212,7 @@ var (
 				},
 			},
 		},
-		stdout: "failed to send metrics for unit uptime/0: plm\n",
+		stderr: "failed to send metrics for unit uptime/0: plm\n",
 	}, {
 		about: "couldn't parse sendResults action",
 		args:  []string{"uptime"},
@@ -241,7 +241,7 @@ var (
 			},
 			actionID2: {},
 		},
-		stdout: "failed to send metrics for unit uptime/0: could not read stdout\n",
+		stderr: "failed to send metrics for unit uptime/0: could not read stdout\n",
 	}, {
 		about: "sendResults action stderr",
 		args:  []string{"uptime"},
@@ -279,7 +279,7 @@ var (
 				},
 			},
 		},
-		stdout: "failed to send metrics for unit uptime/0: kek\n",
+		stderr: "failed to send metrics for unit uptime/0: kek\n",
 	}}
 )
 
@@ -303,6 +303,7 @@ func (s *collectMetricsSuite) TestCollectMetricsLocal(c *gc.C) {
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(cmdtesting.Stdout(ctx), gc.Matches, test.stdout)
+			c.Assert(cmdtesting.Stderr(ctx), gc.Matches, test.stderr)
 		}
 	}
 }
