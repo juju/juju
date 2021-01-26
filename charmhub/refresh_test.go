@@ -367,6 +367,48 @@ func (s *RefreshConfigSuite) TestInstallOneBuildChannel(c *gc.C) {
 	})
 }
 
+func (s *RefreshConfigSuite) TestInstallOneWithPartialPlatform(c *gc.C) {
+	channel := "latest/stable"
+
+	name := "foo"
+	config, err := InstallOneFromChannel(name, channel, RefreshPlatform{
+		Architecture: arch.DefaultArchitecture,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	config = DefineInstanceKey(c, config, "foo-bar")
+
+	req, _, err := config.Build()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(req, gc.DeepEquals, transport.RefreshRequest{
+		Context: []transport.RefreshRequestContext{},
+		Actions: []transport.RefreshRequestAction{{
+			Action:      "install",
+			InstanceKey: "foo-bar",
+			Name:        &name,
+			Channel:     &channel,
+			Platform: &transport.RefreshRequestPlatform{
+				OS:           NotAvailable,
+				Series:       NotAvailable,
+				Architecture: arch.DefaultArchitecture,
+			},
+		}},
+	})
+}
+
+func (s *RefreshConfigSuite) TestInstallOneWithMissingArch(c *gc.C) {
+	channel := "latest/stable"
+
+	name := "foo"
+	config, err := InstallOneFromChannel(name, channel, RefreshPlatform{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	config = DefineInstanceKey(c, config, "foo-bar")
+
+	_, _, err = config.Build()
+	c.Assert(errors.IsNotValid(err), jc.IsTrue)
+}
+
 func (s *RefreshConfigSuite) TestInstallOneEnsure(c *gc.C) {
 	config, err := InstallOneFromChannel("foo", "latest/stable", RefreshPlatform{
 		OS:           "ubuntu",

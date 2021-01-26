@@ -4,6 +4,8 @@
 package transport
 
 import (
+	"encoding/json"
+
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -43,4 +45,22 @@ func (ErrorSuite) TestWithMultipleErrors(c *gc.C) {
 	err := errors.Combine()
 	c.Assert(err, gc.ErrorMatches, `one
 two`)
+}
+
+func (ErrorSuite) TestExtras(c *gc.C) {
+	expected := APIError{
+		Extra: APIErrorExtra{
+			DefaultPlatforms: []Platform{
+				{Architecture: "amd64", OS: "ubuntu", Series: "focal "},
+			},
+		},
+	}
+	bytes, err := json.Marshal(expected)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var result APIError
+	err = json.Unmarshal(bytes, &result)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(result, gc.DeepEquals, expected)
 }

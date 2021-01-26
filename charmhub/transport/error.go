@@ -11,8 +11,9 @@ import (
 
 // APIError represents the error from the CharmHub API.
 type APIError struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
+	Code    string        `json:"code"`
+	Message string        `json:"message"`
+	Extra   APIErrorExtra `json:"extra"`
 }
 
 // APIErrors represents a slice of APIError's
@@ -30,4 +31,11 @@ func (a APIErrors) Combine() error {
 		return errors.Errorf(strings.Join(combined, "\n"))
 	}
 	return nil
+}
+
+// APIErrorExtra defines additional extra payloads from a given error. Think
+// of this object as a series of suggestions to perform against the errorred
+// API request, in the chance of the new request being successful.
+type APIErrorExtra struct {
+	DefaultPlatforms []Platform `json:"default-platforms"`
 }
