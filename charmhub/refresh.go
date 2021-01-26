@@ -106,16 +106,14 @@ func (c *RefreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]tr
 
 	var resp transport.RefreshResponses
 	restResp, err := c.client.Post(ctx, c.path, httpHeaders, req, &resp)
-
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	if resultErr := resp.ErrorList.Combine(); resultErr != nil {
-		if restResp.StatusCode == http.StatusNotFound {
-			return nil, errors.NewNotFound(resultErr, "")
-		}
-		return nil, errors.Trace(resultErr)
+	if restResp.StatusCode == http.StatusNotFound {
+		return nil, errors.NotFoundf("refresh")
+	}
+	if err := handleBasicAPIErrors(resp.ErrorList, c.logger); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	c.logger.Tracef("Refresh() unmarshalled: %s", pretty.Sprint(resp.Results))
