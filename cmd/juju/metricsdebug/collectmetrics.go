@@ -6,6 +6,7 @@ package metricsdebug
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/cmd"
@@ -160,36 +161,35 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 	wait := time.NewTimer(0 * time.Second)
 	_ = <-wait.C
 	// trigger sending metrics in parallel
-	resultChannel := make(chan string, len(runResults))
+	wg := &sync.WaitGroup{}
+	wg.Add(len(runResults))
 	for _, result := range runResults {
 		r := result
 		if r.Error != nil {
 			fmt.Fprintf(ctx.Stdout, "failed to collect metrics: %v\n", err)
-			resultChannel <- "invalid id"
+			wg.Done()
 			continue
 		}
 		tag, err := names.ParseActionTag(r.Action.Tag)
 		if err != nil {
 			fmt.Fprintf(ctx.Stdout, "failed to collect metrics: %v\n", err)
-			resultChannel <- "invalid id"
+			wg.Done()
 			continue
 		}
 		actionResult, err := getActionResult(runnerClient, tag.Id(), wait)
 		if err != nil {
 			fmt.Fprintf(ctx.Stdout, "failed to collect metrics: %v\n", err)
-			resultChannel <- "invalid id"
+			wg.Done()
 			continue
 		}
 		unitId, err := parseActionResult(actionResult)
 		if err != nil {
 			fmt.Fprintf(ctx.Stdout, "failed to collect metrics: %v\n", err)
-			resultChannel <- "invalid id"
+			wg.Done()
 			continue
 		}
 		go func() {
-			defer func() {
-				resultChannel <- unitId
-			}()
+			defer wg.Done()
 			sendParams := params.RunParams{
 				Timeout:  commandTimeout,
 				Units:    []string{unitId},
@@ -229,12 +229,7 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 		}()
 	}
 
-	for range runResults {
-		// The default is to wait forever for the command to finish.
-		select {
-		case <-resultChannel:
-		}
-	}
+	wg.Wait()
 	return nil
 }
 
