@@ -42,9 +42,13 @@ func (suite *PluginSuite) SetUpTest(c *gc.C) {
 	// like "touch" (which its in /usr/bin on mac but in /bin on linux).
 	// We doings this, because we need to add "binaries" from the tmp dir and reduce
 	// tests execution, since we are looking into all paths in $PATH to find juju plugins
-	os.Setenv("PATH", fmt.Sprintf(
-		"/bin:/usr/bin:%s", gitjujutesting.HomePath(),
-	))
+	path := "/bin:%s"
+	if runtime.GOOS == "darwin" {
+		path = "/bin:/usr/bin:%s"
+	}
+
+	os.Setenv("PATH", fmt.Sprintf(path, gitjujutesting.HomePath()))
+
 	jujuclienttesting.SetupMinimalFileStore(c)
 }
 
