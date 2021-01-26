@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	admission "k8s.io/api/admissionregistration/v1beta1"
+	admission "k8s.io/api/admissionregistration/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
@@ -16,13 +16,13 @@ import (
 	"github.com/juju/juju/pki"
 )
 
-// Represents a creator of mutating webhooks that is context aware of the
+// AdmissionCreator represents a creator of mutating webhooks that is context aware of the
 // current controller.
 type AdmissionCreator interface {
 	EnsureMutatingWebhookConfiguration() (func(), error)
 }
 
-// Func type of AdmissionCreator
+// AdmissionCreatorFunc is the func type of AdmissionCreator.
 type AdmissionCreatorFunc func() (func(), error)
 
 const (
@@ -37,7 +37,7 @@ var (
 )
 
 // EnsureMutatingWebhookConfiguration implements AdmissionCreator interface for
-// func type
+// func type.
 func (a AdmissionCreatorFunc) EnsureMutatingWebhookConfiguration() (func(), error) {
 	return a()
 }
