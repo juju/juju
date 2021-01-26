@@ -250,7 +250,6 @@ func (m MutaterMachine) processMachineProfileChanges(info *instancemutater.UnitP
 	// Do not bother for the default or model profile.  We're not interested in non
 	// charm profiles.
 	if wrench.IsActive("instance-mutater", "disable-apply-lxdprofile") && len(expectedProfiles) > 1 {
-
 		m.logger.Warningf("waiting 3 minutes to apply lxd profiles %q due to wrench in the works", strings.Join(expectedProfiles, ", "))
 		select {
 		case <-clock.WallClock.After(3 * time.Minute):
@@ -290,7 +289,9 @@ func (m MutaterMachine) gatherProfileData(info *instancemutater.UnitProfileInfo)
 		add := lxdprofile.ProfilePost{Name: name}
 		// should not happen, but you never know.
 		if !pu.Profile.Empty() {
-			add.Profile = &pu.Profile
+			// We make a copy since the loop var keeps the same pointer.
+			p := pu.Profile
+			add.Profile = &p
 		}
 		result = append(result, add)
 	}

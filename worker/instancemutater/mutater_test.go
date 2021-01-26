@@ -156,6 +156,14 @@ func (s *mutaterSuite) info(profiles []string, rev int, add bool) *apiinstancemu
 			{ApplicationName: "lxd-profile",
 				Revision: rev,
 			},
+			// app-no-profile tests the fix for lp:1904619,
+			// use a pointer to a copy of data in for loop,
+			// rather than a pointer to the data as the data
+			// will change in subsequent loop iterations, but
+			// the pointer's address will not.
+			{ApplicationName: "app-no-profile",
+				Revision: rev,
+			},
 		},
 	}
 	if add {
