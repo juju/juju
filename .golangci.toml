@@ -1,0 +1,8 @@
+[linters]
+disable-all = true
+enable = [
+    "govet", "goimports", "misspell", "unconvert", "ineffassign", "gofmt"
+]
+
+[issues]
+exclude = [ "composite" ]
