@@ -1920,7 +1920,7 @@ func (k *kubernetesClient) ExposeService(appName string, resourceTags map[string
 
 	// TODO(caas): refactor juju expose to solve potential conflict with ingress definition in podspec.
 	// https://bugs.launchpad.net/juju/+bug/1854123
-	_, err = k.ensureIngress(appName, spec, true)
+	_, err = k.ensureIngressV1beta1(appName, spec, true)
 	return errors.Trace(err)
 }
 
@@ -2317,7 +2317,7 @@ type workloadSpec struct {
 	CustomResources                 map[string][]unstructured.Unstructured
 	MutatingWebhookConfigurations   []k8sspecs.K8sMutatingWebhook
 	ValidatingWebhookConfigurations []k8sspecs.K8sValidatingWebhook
-	IngressResources                []k8sspecs.K8sIngressSpec
+	IngressResources                []k8sspecs.K8sIngress
 }
 
 func processContainers(deploymentName string, podSpec *specs.PodSpec, spec *core.PodSpec) error {

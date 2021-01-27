@@ -218,6 +218,9 @@ func (m Meta) Validate() error {
 	if len(m.Name) == 0 {
 		return errors.New("name is missing")
 	}
+	if err := validateLabels(m.Labels); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
@@ -228,6 +231,7 @@ type K8sService struct {
 	Spec core.ServiceSpec `json:"spec" yaml:"spec"`
 }
 
+// Validate validates the spec.
 func (s K8sService) Validate() error {
 	if err := s.Meta.Validate(); err != nil {
 		return errors.Trace(err)
@@ -249,7 +253,7 @@ type KubernetesResources struct {
 
 	K8sRBACResources `json:",inline" yaml:",inline"`
 
-	IngressResources []K8sIngressSpec `json:"ingressResources,omitempty" yaml:"ingressResources,omitempty"`
+	IngressResources []K8sIngress `json:"ingressResources,omitempty" yaml:"ingressResources,omitempty"`
 }
 
 // Validate is defined on ProviderPod.

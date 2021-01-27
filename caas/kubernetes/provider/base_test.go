@@ -298,6 +298,7 @@ func (s *BaseSuite) setupK8sRestClient(
 	s.mockNetworkingV1beta1.EXPECT().Ingresses(namespace).AnyTimes().Return(s.mockIngressV1Beta1)
 	s.k8sClient.EXPECT().NetworkingV1beta1().AnyTimes().Return(s.mockNetworkingV1beta1)
 	s.mockIngressClasses = mocks.NewMockIngressClassInterface(ctrl)
+
 	s.mockIngressV1 = mocks.NewMockIngressV1Interface(ctrl)
 	s.mockNetworkingV1 = mocks.NewMockNetworkingV1Interface(ctrl)
 	s.mockNetworkingV1.EXPECT().Ingresses(namespace).AnyTimes().Return(s.mockIngressV1)

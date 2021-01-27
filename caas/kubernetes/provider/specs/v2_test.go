@@ -541,16 +541,21 @@ echo "do some stuff here for gitlab-init container"
 				},
 			},
 		}
-		ingress1 := k8sspecs.K8sIngressSpec{
-			Name: "test-ingress",
-			Labels: map[string]string{
-				"foo": "bar",
+		ingress1 := k8sspecs.K8sIngress{
+			Meta: k8sspecs.Meta{
+				Name: "test-ingress",
+				Labels: map[string]string{
+					"foo": "bar",
+				},
+				Annotations: map[string]string{
+					"nginx.ingress.kubernetes.io/rewrite-target": "/",
+				},
 			},
-			Annotations: map[string]string{
-				"nginx.ingress.kubernetes.io/rewrite-target": "/",
-			},
-			Spec: networkingv1beta1.IngressSpec{
-				Rules: []networkingv1beta1.IngressRule{ingress1Rule1},
+			Spec: k8sspecs.K8sIngressSpec{
+				Version: k8sspecs.K8sIngressV1Beta1,
+				SpecV1Beta1: networkingv1beta1.IngressSpec{
+					Rules: []networkingv1beta1.IngressRule{ingress1Rule1},
+				},
 			},
 		}
 
@@ -776,7 +781,7 @@ password: shhhh`[1:],
 						},
 					},
 				},
-				IngressResources: []k8sspecs.K8sIngressSpec{ingress1},
+				IngressResources: []k8sspecs.K8sIngress{ingress1},
 				MutatingWebhookConfigurations: []k8sspecs.K8sMutatingWebhook{
 					{
 						Meta: k8sspecs.Meta{Name: "example-mutatingwebhookconfiguration"},
@@ -996,7 +1001,7 @@ kubernetesResources:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `ingress name is missing`)
+	c.Assert(err, gc.ErrorMatches, `name is missing`)
 
 	specStr = version3Header + `
 containers:

@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	core "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -389,6 +390,23 @@ kubernetesResources:
                   backend:
                     serviceName: test
                     servicePort: 80
+    - name: ingress-resource-backend
+      spec:
+        defaultBackend:
+          resource:
+            apiGroup: k8s.example.com
+            kind: StorageBucket
+            name: static-assets
+        rules:
+          - http:
+              paths:
+                - path: /icons
+                  pathType: ImplementationSpecific
+                  backend:
+                    resource:
+                      apiGroup: k8s.example.com
+                      kind: StorageBucket
+                      name: icon-assets
   mutatingWebhookConfigurations:
     - name: example-mutatingwebhookconfiguration
       labels:
@@ -712,31 +730,76 @@ echo "do some stuff here for gitlab-init container"
 			},
 		}
 
-		ingress1Rule1 := networkingv1beta1.IngressRule{
-			IngressRuleValue: networkingv1beta1.IngressRuleValue{
-				HTTP: &networkingv1beta1.HTTPIngressRuleValue{
-					Paths: []networkingv1beta1.HTTPIngressPath{
+		ingressv1beta1 := k8sspecs.K8sIngress{
+			Meta: k8sspecs.Meta{
+				Name: "test-ingress",
+				Labels: map[string]string{
+					"foo": "bar",
+				},
+				Annotations: map[string]string{
+					"nginx.ingress.kubernetes.io/rewrite-target": "/",
+				},
+			},
+			Spec: k8sspecs.K8sIngressSpec{
+				Version: k8sspecs.K8sIngressV1Beta1,
+				SpecV1Beta1: networkingv1beta1.IngressSpec{
+					Rules: []networkingv1beta1.IngressRule{
 						{
-							Path: "/testpath",
-							Backend: networkingv1beta1.IngressBackend{
-								ServiceName: "test",
-								ServicePort: intstr.IntOrString{IntVal: 80},
+							IngressRuleValue: networkingv1beta1.IngressRuleValue{
+								HTTP: &networkingv1beta1.HTTPIngressRuleValue{
+									Paths: []networkingv1beta1.HTTPIngressPath{
+										{
+											Path: "/testpath",
+											Backend: networkingv1beta1.IngressBackend{
+												ServiceName: "test",
+												ServicePort: intstr.IntOrString{IntVal: 80},
+											},
+										},
+									},
+								},
 							},
 						},
 					},
 				},
 			},
 		}
-		ingress1 := k8sspecs.K8sIngressSpec{
-			Name: "test-ingress",
-			Labels: map[string]string{
-				"foo": "bar",
+		pathType1 := networkingv1.PathTypeImplementationSpecific
+		ingressv1 := k8sspecs.K8sIngress{
+			Meta: k8sspecs.Meta{
+				Name: "ingress-resource-backend",
 			},
-			Annotations: map[string]string{
-				"nginx.ingress.kubernetes.io/rewrite-target": "/",
-			},
-			Spec: networkingv1beta1.IngressSpec{
-				Rules: []networkingv1beta1.IngressRule{ingress1Rule1},
+			Spec: k8sspecs.K8sIngressSpec{
+				Version: k8sspecs.K8sIngressV1,
+				SpecV1: networkingv1.IngressSpec{
+					DefaultBackend: &networkingv1.IngressBackend{
+						Resource: &core.TypedLocalObjectReference{
+							APIGroup: strPtr("k8s.example.com"),
+							Kind:     "StorageBucket",
+							Name:     "static-assets",
+						},
+					},
+					Rules: []networkingv1.IngressRule{
+						{
+							IngressRuleValue: networkingv1.IngressRuleValue{
+								HTTP: &networkingv1.HTTPIngressRuleValue{
+									Paths: []networkingv1.HTTPIngressPath{
+										{
+											Path:     "/icons",
+											PathType: &pathType1,
+											Backend: networkingv1.IngressBackend{
+												Resource: &core.TypedLocalObjectReference{
+													APIGroup: strPtr("k8s.example.com"),
+													Kind:     "StorageBucket",
+													Name:     "icon-assets",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
 			},
 		}
 
@@ -1064,7 +1127,9 @@ password: shhhh`[1:],
 						},
 					},
 				},
-				IngressResources: []k8sspecs.K8sIngressSpec{ingress1},
+				IngressResources: []k8sspecs.K8sIngress{
+					ingressv1beta1, ingressv1,
+				},
 				MutatingWebhookConfigurations: []k8sspecs.K8sMutatingWebhook{
 					{
 						Meta: k8sspecs.Meta{
@@ -1370,7 +1435,7 @@ kubernetesResources:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `ingress name is missing`)
+	c.Assert(err, gc.ErrorMatches, `name is missing`)
 
 	specStr = version3Header + `
 containers:
