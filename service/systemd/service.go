@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/coreos/go-systemd/v22/dbus"
-	"github.com/coreos/go-systemd/v22/util"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v2/shell"
@@ -30,11 +29,6 @@ var (
 	renderer = shell.BashRenderer{}
 	cmds     = commands{renderer, executable}
 )
-
-// IsRunning returns whether or not systemd is the local init system.
-func IsRunning() bool {
-	return util.IsRunningSystemd()
-}
 
 // ListServices returns the list of installed service names.
 func ListServices() ([]string, error) {
