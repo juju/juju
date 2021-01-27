@@ -60,15 +60,19 @@ func NewMachineActionsWorker(config WorkerConfig) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 	swConfig := watcher.StringsConfig{
-		Handler: &handler{config: config},
+		Handler: &handler{config: config, limiter: make(chan struct{}, maxConcurrency)},
 	}
 	return watcher.NewStringsWorker(swConfig)
 }
 
+// At most 100 actions can run simultaneously.
+const maxConcurrency = 100
+
 // handler implements watcher.StringsHandler
 type handler struct {
-	config WorkerConfig
-	wait   sync.WaitGroup
+	config  WorkerConfig
+	wait    sync.WaitGroup
+	limiter chan struct{}
 }
 
 // SetUp is part of the watcher.StringsHandler interface.
@@ -109,7 +113,9 @@ func (h *handler) Handle(abort <-chan struct{}, actionsSlice []string) error {
 		if err != nil {
 			return errors.Annotatef(err, "could not retrieve action %s", actionId)
 		}
-		// TODO(wallyworld) - use a thread pool to put a cap on the max number of parallel actions.
+
+		// Acquire concurrency slot.
+		h.limiter <- struct{}{}
 		h.wait.Add(1)
 		go func(action machineactions.Action) {
 			var results map[string]interface{}
@@ -125,9 +131,12 @@ func (h *handler) Handle(abort <-chan struct{}, actionsSlice []string) error {
 				if finishErr != nil {
 					logger.Errorf("could not finish action %s: %v", action.Name(), finishErr)
 				}
+
+				// Release concurrency slot.
+				<-h.limiter
+				h.wait.Done()
 			}()
 
-			defer h.wait.Done()
 			if !action.Parallel() || action.ExecutionGroup() != "" {
 				group := "exec-command"
 				worker := "machine exec command runner"
