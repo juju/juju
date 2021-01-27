@@ -38,7 +38,15 @@ func (a APIErrors) Error() string {
 // of this object as a series of suggestions to perform against the errorred
 // API request, in the chance of the new request being successful.
 type APIErrorExtra struct {
+	Releases         []Release  `json:"releases"`
 	DefaultPlatforms []Platform `json:"default-platforms"`
+}
+
+// Release defines a set of suggested releases that might also work for the
+// given request.
+type Release struct {
+	Platform string `json:"architecture"`
+	Channel  string `json:"channel"`
 }
 
 // APIErrorCode classifies the error code we get back from the API. This isn't

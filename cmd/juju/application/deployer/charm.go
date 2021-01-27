@@ -449,7 +449,6 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	} else if err != nil {
 		return errors.Trace(err)
 	}
-	c.origin = origin
 	if err := c.validateCharmFlags(); err != nil {
 		return errors.Trace(err)
 	}
