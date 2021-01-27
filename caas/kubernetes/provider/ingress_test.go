@@ -353,12 +353,13 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesCreateV1(c *gc.C) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-ingress",
 			Labels: map[string]string{
-				"foo":      "bar",
-				"juju-app": "app-name",
+				"foo":                          "bar",
+				"app.kubernetes.io/name":       "app-name",
+				"app.kubernetes.io/managed-by": "juju",
 			},
 			Annotations: map[string]string{
 				"nginx.ingress.kubernetes.io/rewrite-target": "/",
-				"juju.io/controller":                         "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+				"controller.juju.is/id":                      "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 			},
 		},
 		Spec: networkingv1.IngressSpec{
@@ -416,12 +417,13 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateV1(c *gc.C) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-ingress",
 			Labels: map[string]string{
-				"foo":      "bar",
-				"juju-app": "app-name",
+				"foo":                          "bar",
+				"app.kubernetes.io/name":       "app-name",
+				"app.kubernetes.io/managed-by": "juju",
 			},
 			Annotations: map[string]string{
 				"nginx.ingress.kubernetes.io/rewrite-target": "/",
-				"juju.io/controller":                         "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+				"controller.juju.is/id":                      "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 			},
 		},
 		Spec: networkingv1.IngressSpec{
@@ -484,12 +486,13 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithExis
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test-ingress",
 				Labels: map[string]string{
-					"foo":      "bar",
-					"juju-app": "app-name",
+					"foo":                          "bar",
+					"app.kubernetes.io/name":       "app-name",
+					"app.kubernetes.io/managed-by": "juju",
 				},
 				Annotations: map[string]string{
 					"nginx.ingress.kubernetes.io/rewrite-target": "/",
-					"juju.io/controller":                         "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+					"controller.juju.is/id":                      "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 				},
 			},
 			Spec: networkingv1.IngressSpec{

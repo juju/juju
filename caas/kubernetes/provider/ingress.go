@@ -72,7 +72,9 @@ func (k *kubernetesClient) ensureIngressV1beta1(appName string, spec *networking
 	api := k.client().NetworkingV1beta1().Ingresses(k.namespace)
 	out, err := api.Create(context.TODO(), spec, metav1.CreateOptions{})
 	if err == nil {
-		cleanUp = func() { _ = api.Delete(context.TODO(), out.GetName(), newPreconditionDeleteOptions(out.GetUID())) }
+		cleanUp = func() {
+			_ = api.Delete(context.TODO(), out.GetName(), utils.NewPreconditionDeleteOptions(out.GetUID()))
+		}
 		return cleanUp, nil
 	}
 	if !k8serrors.IsAlreadyExists(err) {
@@ -96,7 +98,9 @@ func (k *kubernetesClient) ensureIngressV1(appName string, spec *networkingv1.In
 	api := k.client().NetworkingV1().Ingresses(k.namespace)
 	out, err := api.Create(context.TODO(), spec, metav1.CreateOptions{})
 	if err == nil {
-		cleanUp = func() { _ = api.Delete(context.TODO(), out.GetName(), newPreconditionDeleteOptions(out.GetUID())) }
+		cleanUp = func() {
+			_ = api.Delete(context.TODO(), out.GetName(), utils.NewPreconditionDeleteOptions(out.GetUID()))
+		}
 		return cleanUp, nil
 	}
 	if !k8serrors.IsAlreadyExists(err) {
