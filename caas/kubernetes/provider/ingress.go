@@ -119,51 +119,12 @@ func (k *kubernetesClient) ensureIngressV1(appName string, spec *networkingv1.In
 	return cleanUp, errors.Trace(err)
 }
 
-func (k *kubernetesClient) createIngress(ingress *networkingv1beta1.Ingress) (*networkingv1beta1.Ingress, error) {
-	utils.PurifyResource(ingress)
-	out, err := k.client().NetworkingV1beta1().Ingresses(k.namespace).Create(context.TODO(), ingress, metav1.CreateOptions{})
-	if k8serrors.IsAlreadyExists(err) {
-		return nil, errors.AlreadyExistsf("ingress resource %q", ingress.GetName())
-	}
-	return out, errors.Trace(err)
-}
-
-func (k *kubernetesClient) getIngress(name string) (*networkingv1beta1.Ingress, error) {
-	out, err := k.client().NetworkingV1beta1().Ingresses(k.namespace).Get(context.TODO(), name, metav1.GetOptions{})
-	if k8serrors.IsNotFound(err) {
-		return nil, errors.NotFoundf("ingress resource %q", name)
-	}
-	return out, errors.Trace(err)
-}
-
-func (k *kubernetesClient) updateIngress(ingress *networkingv1beta1.Ingress) (*networkingv1beta1.Ingress, error) {
-	out, err := k.client().NetworkingV1beta1().Ingresses(k.namespace).Update(context.TODO(), ingress, metav1.UpdateOptions{})
-	if k8serrors.IsNotFound(err) {
-		return nil, errors.NotFoundf("ingress resource %q", ingress.GetName())
-	}
-	return out, errors.Trace(err)
-}
-
 func (k *kubernetesClient) deleteIngress(name string, uid k8stypes.UID) error {
 	err := k.client().NetworkingV1beta1().Ingresses(k.namespace).Delete(context.TODO(), name, utils.NewPreconditionDeleteOptions(uid))
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
 	return errors.Trace(err)
-}
-
-func (k *kubernetesClient) listIngressResources(labels map[string]string) ([]networkingv1beta1.Ingress, error) {
-	listOps := metav1.ListOptions{
-		LabelSelector: utils.LabelsToSelector(labels).String(),
-	}
-	ingList, err := k.client().NetworkingV1beta1().Ingresses(k.namespace).List(context.TODO(), listOps)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(ingList.Items) == 0 {
-		return nil, errors.NotFoundf("ingress with labels %v", labels)
-	}
-	return ingList.Items, nil
 }
 
 func (k *kubernetesClient) deleteIngressResources(appName string) error {
