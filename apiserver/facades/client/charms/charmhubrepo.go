@@ -43,11 +43,17 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 		return nil, params.CharmOrigin{}, nil, errors.Trace(err)
 	}
 
+	// All the following information is only available for successful responses,
+	// which means that for charms that are available, but aren't on the
+	// correct platform will return a url and origin that might not be exactly
+	// consistent. Unfortunately we don't have any of the information from the
+	// error message to back fill everything in (for example channel).
 	var (
-		series   []string
-		resErr   = refreshRes.Error
-		revision = -1
-		hash     string
+		series     []string
+		resErr     = refreshRes.Error
+		revision   = -1
+		hash, risk string
+		track      *string
 	)
 	if resErr != nil {
 		if resErr.Code != transport.ErrorCodeInvalidCharmPlatform {
@@ -65,9 +71,22 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 			series = append(series, platform.Series)
 		}
 	} else {
+
 		series = append(series, origin.Series)
 		revision = refreshRes.Entity.Revision
 		hash = refreshRes.Entity.Download.HashSHA256
+
+		// Use the channel that was actually picked by the API. This should
+		// account for the closed tracks in a given channel.
+		channel, err := corecharm.ParseChannelNormalize(refreshRes.EffectiveChannel)
+		if err != nil {
+			return nil, params.CharmOrigin{}, nil, errors.Annotatef(err, "invalid channel")
+		}
+
+		if channel.Track != "" {
+			track = &channel.Track
+		}
+		risk = string(channel.Risk)
 	}
 
 	// Ensure we send the updated curl back, with all the correct segments.
@@ -81,6 +100,8 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 	resOrigin.Type = "charm"
 	resOrigin.ID = refreshRes.ID
 	resOrigin.Hash = hash
+	resOrigin.Track = track
+	resOrigin.Risk = risk
 
 	if len(series) > 0 {
 		resCurl = resCurl.WithSeries(series[0])
