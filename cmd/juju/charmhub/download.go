@@ -210,8 +210,8 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if infoResult.ErrorList.Combine() != nil {
-		return errors.Trace(err)
+	if len(infoResult.ErrorList) > 0 {
+		return errors.Trace(infoResult.ErrorList)
 	}
 	if infoResult.Type == "bundle" {
 		return errors.Errorf("Bundles are not currently supported for download directly.")

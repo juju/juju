@@ -19,22 +19,22 @@ var _ = gc.Suite(&ErrorSuite{})
 
 func (ErrorSuite) TestNoErrors(c *gc.C) {
 	var errors APIErrors
-	err := errors.Combine()
-	c.Assert(err, jc.ErrorIsNil)
+	err := errors.Error()
+	c.Assert(err, gc.DeepEquals, "")
 }
 
 func (ErrorSuite) TestNoErrorsWithEmptySlice(c *gc.C) {
 	errors := make(APIErrors, 0)
-	err := errors.Combine()
-	c.Assert(err, jc.ErrorIsNil)
+	err := errors.Error()
+	c.Assert(err, gc.DeepEquals, "")
 }
 
 func (ErrorSuite) TestWithOneError(c *gc.C) {
 	errors := APIErrors{{
 		Message: "one",
 	}}
-	err := errors.Combine()
-	c.Assert(err, gc.ErrorMatches, `one`)
+	err := errors.Error()
+	c.Assert(err, gc.DeepEquals, `one`)
 }
 
 func (ErrorSuite) TestWithMultipleErrors(c *gc.C) {
@@ -42,8 +42,8 @@ func (ErrorSuite) TestWithMultipleErrors(c *gc.C) {
 		{Message: "one"},
 		{Message: "two"},
 	}
-	err := errors.Combine()
-	c.Assert(err, gc.ErrorMatches, `one
+	err := errors.Error()
+	c.Assert(err, gc.DeepEquals, `one
 two`)
 }
 
