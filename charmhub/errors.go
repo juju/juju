@@ -58,7 +58,7 @@ func handleBasicAPIErrors(list transport.APIErrors, logger Logger) error {
 			// We do this because the original error message can be huge and
 			// verbose, like a java stack trace!
 			if masked {
-				logger.Errorf("charmhub API error %d:%s", errs[0].Code, errs[0].Message)
+				logger.Errorf("charmhub API error %s:%s", errs[0].Code, errs[0].Message)
 			}
 		}()
 
@@ -70,7 +70,7 @@ func handleBasicAPIErrors(list transport.APIErrors, logger Logger) error {
 		case transport.ErrorCodeResourceNotFound:
 			return errors.NotFoundf("charm resource")
 		case transport.ErrorCodeAPIError:
-			return errors.Errorf("api error")
+			return errors.Errorf("unexpected api error attempting to query charm or bundle from the charmhub store")
 		case transport.ErrorCodeBadArgument:
 			return errors.BadRequestf("query argument")
 		}
