@@ -175,7 +175,9 @@ def assess_network_traffic(client, targets):
     dests = targets[1:]
 
     with tempfile.NamedTemporaryFile(delete=False) as f:
-        f.write('tmux new-session -d -s test "nc -l 6778 > nc_listen.out"')
+        f.write(
+            'tmux new-session -d -s test "nc -l 6778 > nc_listen.out"'.encode(
+                'utf-8'))
     client.juju('scp', ('--proxy', f.name, source + ':/home/ubuntu/listen.sh'))
     os.remove(f.name)
 
@@ -188,8 +190,10 @@ def assess_network_traffic(client, targets):
         msg = get_random_string()
         ssh(client, source, 'rm nc_listen.out; bash ./listen.sh')
         ssh(client, dest,
-            'echo "{msg}" | nc {addr} 6778'.format(msg=msg, addr=address))
-        result = ssh(client, source, 'more nc_listen.out')
+            'echo "{msg}" | nc -q 0 {addr} 6778'.format(msg=msg, addr=address))
+        # This command will block until *any* data appears in the file, tee the
+        # output and return control back to us.
+        result = ssh(client, source, 'tail -F nc_listen.out | sed "/.*/ q"')
         if msg not in result:
             raise ValueError("Wrong or missing message: %r" % result.rstrip())
         log.info('SUCCESS.')
