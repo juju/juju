@@ -6,6 +6,7 @@ package dashboard
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/url"
 	"strings"
 
@@ -120,6 +121,9 @@ func (c *dashboardCommand) Run(ctx *cmd.Context) error {
 	if err = c.showCredentials(ctx); err != nil {
 		return errors.Trace(err)
 	}
+	if err = c.showHTTPSNotice(ctx, dashboardURL); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
@@ -195,6 +199,29 @@ func (c *dashboardCommand) showCredentials(ctx *cmd.Context) error {
 	}
 	ctx.Infof("Your login credential is:\n  username: %s\n  password: %s", accountDetails.User, password)
 	return nil
+}
+
+func (c *dashboardCommand) showHTTPSNotice(ctx *cmd.Context, rawURL string) error {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return errors.Annotate(err, "cannot parse Juju Dashboard URL")
+	}
+	host := u.Host
+	if h, _, _ := net.SplitHostPort(u.Host); h != "" {
+		host = h
+	}
+	if !needHTTPSNotice(host) {
+		return nil
+	}
+	ctx.Infof("NOTICE: Juju is using a self-signed SSL certificate, which may cause your browser to issue a site certificate warning. It is safe to ignore this warning and proceed.")
+	return nil
+}
+
+func needHTTPSNotice(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+	return net.ParseIP(host) == nil
 }
 
 // clientGet is defined for testing purposes.
