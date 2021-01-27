@@ -5,6 +5,7 @@ package charmhub
 
 import (
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/charmhub/transport"
 )
 
@@ -50,19 +51,31 @@ func handleBasicAPIErrors(list transport.APIErrors, logger Logger) error {
 	}
 
 	if errs, _ := APIErrors(list); errs != nil {
+		masked := true
+		defer func() {
+			// Only log out the error if we're masking the original error, that
+			// way you can at least find the issue in `debug-log`.
+			// We do this because the original error message can be huge and
+			// verbose, like a java stack trace!
+			if masked {
+				logger.Errorf("charmhub API error %d:%s", errs[0].Code, errs[0].Message)
+			}
+		}()
+
 		switch errs[0].Code {
-		case transport.ErrorCodeNotFound, transport.ErrorCodeNameNotFound:
-			return errors.NotFoundf(errs[0].Message)
+		case transport.ErrorCodeNotFound:
+			return errors.NotFoundf("charm or bundle")
+		case transport.ErrorCodeNameNotFound:
+			return errors.NotFoundf("charm or bundle name")
+		case transport.ErrorCodeResourceNotFound:
+			return errors.NotFoundf("charm resource")
 		case transport.ErrorCodeAPIError:
-			return errors.NotValidf(errs[0].Message)
+			return errors.Errorf("api error")
 		case transport.ErrorCodeBadArgument:
-			// We never want to expose this to the user as it's very verbose and
-			// is a developer error. We shouldn't leak implementation details
-			// outside of the controller/juju.
-			logger.Errorf("query argument not valid - message %s", errs[0].Message)
-			return errors.NotValidf("query argument")
+			return errors.BadRequestf("query argument")
 		}
 		// We haven't handled the errors, so just return them.
+		masked = false
 		return errs
 	}
 	return list

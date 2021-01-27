@@ -18,12 +18,12 @@ var _ = gc.Suite(&ErrorsSuite{})
 
 func (ErrorsSuite) TestHandleBasicAPIErrors(c *gc.C) {
 	var list transport.APIErrors
-	err := handleBasicAPIErrors(list, nil)
+	err := handleBasicAPIErrors(list, &FakeLogger{})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (ErrorsSuite) TestHandleBasicAPIErrorsNotFound(c *gc.C) {
 	list := transport.APIErrors{{Code: transport.ErrorCodeNotFound, Message: "foo"}}
-	err := handleBasicAPIErrors(list, nil)
-	c.Assert(err, gc.ErrorMatches, `foo not found`)
+	err := handleBasicAPIErrors(list, &FakeLogger{})
+	c.Assert(err, gc.ErrorMatches, `charm or bundle not found`)
 }
