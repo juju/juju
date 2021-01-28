@@ -43,6 +43,9 @@ type Operation interface {
 	// NeedsGlobalMachineLock returns a bool expressing whether we need to lock the machine.
 	NeedsGlobalMachineLock() bool
 
+	// ExecutionGroup returns a string used to construct the name of the machine lock.
+	ExecutionGroup() string
+
 	// Prepare ensures that the operation is valid and ready to be executed.
 	// If it returns a non-nil state, that state will be validated and recorded.
 	// If it returns ErrSkipExecute, it indicates that the operation can be

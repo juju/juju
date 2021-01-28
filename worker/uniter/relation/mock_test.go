@@ -43,6 +43,10 @@ func (m *mockOperation) NeedsGlobalMachineLock() bool {
 	return false
 }
 
+func (m *mockOperation) ExecutionGroup() string {
+	return ""
+}
+
 func (m *mockOperation) Prepare(state operation.State) (*operation.State, error) {
 	return &state, nil
 }

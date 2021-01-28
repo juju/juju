@@ -5,6 +5,9 @@
 package machineactions
 
 import (
+	"fmt"
+	"sync"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -12,6 +15,7 @@ import (
 
 	"github.com/juju/juju/api/machineactions"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -31,7 +35,8 @@ type Facade interface {
 type WorkerConfig struct {
 	Facade       Facade
 	MachineTag   names.MachineTag
-	HandleAction func(name string, params map[string]interface{}, parallel bool, executionGroup string) (results map[string]interface{}, err error)
+	MachineLock  machinelock.Lock
+	HandleAction func(name string, params map[string]interface{}) (results map[string]interface{}, err error)
 }
 
 // Validate returns an error if the configuration is not complete.
@@ -55,14 +60,19 @@ func NewMachineActionsWorker(config WorkerConfig) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 	swConfig := watcher.StringsConfig{
-		Handler: &handler{config},
+		Handler: &handler{config: config, limiter: make(chan struct{}, maxConcurrency)},
 	}
 	return watcher.NewStringsWorker(swConfig)
 }
 
+// At most 100 actions can run simultaneously.
+const maxConcurrency = 100
+
 // handler implements watcher.StringsHandler
 type handler struct {
-	config WorkerConfig
+	config  WorkerConfig
+	wait    sync.WaitGroup
+	limiter chan struct{}
 }
 
 // SetUp is part of the watcher.StringsHandler interface.
@@ -91,7 +101,7 @@ func (h *handler) SetUp() (watcher.StringsWatcher, error) {
 // Handle is part of the watcher.StringsHandler interface.
 // It should give us any actions currently enqueued for this machine.
 // We try to execute every action before returning
-func (h *handler) Handle(_ <-chan struct{}, actionsSlice []string) error {
+func (h *handler) Handle(abort <-chan struct{}, actionsSlice []string) error {
 	for _, actionId := range actionsSlice {
 		ok := names.IsValidAction(actionId)
 		if !ok {
@@ -104,29 +114,63 @@ func (h *handler) Handle(_ <-chan struct{}, actionsSlice []string) error {
 			return errors.Annotatef(err, "could not retrieve action %s", actionId)
 		}
 
-		err = h.config.Facade.ActionBegin(actionTag)
-		if err != nil {
-			return errors.Annotatef(err, "could not begin action %s", action.Name())
-		}
+		// Acquire concurrency slot.
+		h.limiter <- struct{}{}
+		h.wait.Add(1)
+		go func(action machineactions.Action) {
+			var results map[string]interface{}
+			var actionErr error
+			defer func() {
+				// The result returned from handling the action is sent through using ActionFinish.
+				var finishErr error
+				if actionErr != nil {
+					finishErr = h.config.Facade.ActionFinish(actionTag, params.ActionFailed, nil, actionErr.Error())
+				} else {
+					finishErr = h.config.Facade.ActionFinish(actionTag, params.ActionCompleted, results, "")
+				}
+				if finishErr != nil {
+					logger.Errorf("could not finish action %s: %v", action.Name(), finishErr)
+				}
 
-		// We try to handle the action. The result returned from handling the action is
-		// sent through using ActionFinish. We only stop the loop if ActionFinish fails.
-		var finishErr error
-		results, err := h.config.HandleAction(action.Name(), action.Params(), action.Parallel(), action.ExecutionGroup())
-		if err != nil {
-			finishErr = h.config.Facade.ActionFinish(actionTag, params.ActionFailed, nil, err.Error())
-		} else {
-			finishErr = h.config.Facade.ActionFinish(actionTag, params.ActionCompleted, results, "")
-		}
-		if finishErr != nil {
-			return errors.Trace(finishErr)
-		}
+				// Release concurrency slot.
+				<-h.limiter
+				h.wait.Done()
+			}()
+
+			if !action.Parallel() || action.ExecutionGroup() != "" {
+				group := "exec-command"
+				worker := "machine exec command runner"
+				if g := action.ExecutionGroup(); g != "" {
+					group = fmt.Sprintf("%s-%s", group, g)
+					worker = fmt.Sprintf("%s (exec group=%s)", worker, g)
+				}
+				spec := machinelock.Spec{
+					Cancel:  abort,
+					Worker:  worker,
+					Comment: fmt.Sprintf("action %s", action.ID()),
+					Group:   group,
+				}
+				releaser, err := h.config.MachineLock.Acquire(spec)
+				if err != nil {
+					actionErr = errors.Annotatef(err, "could not acquire machine execution lock for exec action %s", action.Name())
+					return
+				}
+				defer releaser()
+			}
+			err = h.config.Facade.ActionBegin(actionTag)
+			if err != nil {
+				actionErr = errors.Annotatef(err, "could not begin action %s", action.Name())
+				return
+			}
+			results, actionErr = h.config.HandleAction(action.Name(), action.Params())
+		}(*action)
 	}
 	return nil
 }
 
 // TearDown is part of the watcher.NotifyHandler interface.
 func (h *handler) TearDown() error {
-	// Nothing to cleanup, only state is the watcher
+	// Wait for any running actions to finish.
+	h.wait.Wait()
 	return nil
 }

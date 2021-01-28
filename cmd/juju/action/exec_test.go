@@ -481,11 +481,15 @@ func (s *ExecSuite) TestCAASExecOnOperator(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
+	parallel := true
+	group := ""
 	c.Assert(fakeClient.execParams, jc.DeepEquals, &params.RunParams{
 		Commands:        "hostname",
 		Timeout:         300 * time.Second,
 		Units:           []string{"mysql/0"},
 		WorkloadContext: false,
+		Parallel:        &parallel,
+		ExecutionGroup:  &group,
 	})
 
 	expectedOutput := `
@@ -524,15 +528,19 @@ func (s *ExecSuite) TestCAASExecOnWorkload(c *gc.C) {
 
 	runCmd, _ := newTestExecCommand(testClock(), model.CAAS)
 	context, err := cmdtesting.RunCommand(c, runCmd,
-		"--format=yaml", "--unit=mysql/0", "hostname", "--utc",
+		"--format=yaml", "--unit=mysql/0", "hostname", "--utc", "--execution-group", "group",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
+	parallel := true
+	group := "group"
 	c.Check(fakeClient.execParams, jc.DeepEquals, &params.RunParams{
 		Commands:        "hostname",
 		Timeout:         300 * time.Second,
 		Units:           []string{"mysql/0"},
 		WorkloadContext: true,
+		Parallel:        &parallel,
+		ExecutionGroup:  &group,
 	})
 
 	expectedOutput := `

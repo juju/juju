@@ -31,7 +31,7 @@ type NewExecutorSuite struct {
 
 var _ = gc.Suite(&NewExecutorSuite{})
 
-func failAcquireLock(_ string) (func(), error) {
+func failAcquireLock(_, _ string) (func(), error) {
 	return nil, errors.New("wat")
 }
 
@@ -467,7 +467,7 @@ func (s *ExecutorSuite) TestFailCommitWithStateChange(c *gc.C) {
 	c.Assert(executor.State(), gc.DeepEquals, *commit.newState)
 }
 
-func (s *ExecutorSuite) initLockTest(c *gc.C, lockFunc func(string) (func(), error)) operation.Executor {
+func (s *ExecutorSuite) initLockTest(c *gc.C, lockFunc func(string, string) (func(), error)) operation.Executor {
 	initialState := justInstalledState()
 	err := operation.NewStateOps(s.mockStateRW).Write(&initialState)
 	c.Assert(err, jc.ErrorIsNil)
@@ -603,16 +603,16 @@ type mockLockFunc struct {
 	op                  *mockOperation
 }
 
-func (mock *mockLockFunc) newFailingLock() func(string) (func(), error) {
-	return func(string) (func(), error) {
+func (mock *mockLockFunc) newFailingLock() func(string, string) (func(), error) {
+	return func(string, string) (func(), error) {
 		mock.noStepsCalledOnLock = mock.op.prepare.(*mockStep).called == false &&
 			mock.op.commit.(*mockStep).called == false
 		return nil, errors.New("wat")
 	}
 }
 
-func (mock *mockLockFunc) newSucceedingLock() func(string) (func(), error) {
-	return func(string) (func(), error) {
+func (mock *mockLockFunc) newSucceedingLock() func(string, string) (func(), error) {
+	return func(string, string) (func(), error) {
 		mock.calledLock = true
 		// Ensure that when we lock no operation has been called
 		mock.noStepsCalledOnLock = mock.op.prepare.(*mockStep).called == false &&
@@ -668,6 +668,10 @@ func (op *mockOperation) String() string {
 
 func (op *mockOperation) NeedsGlobalMachineLock() bool {
 	return op.needsLock
+}
+
+func (m *mockOperation) ExecutionGroup() string {
+	return ""
 }
 
 func (op *mockOperation) Prepare(state operation.State) (*operation.State, error) {

@@ -47,6 +47,7 @@ func (s *actionSuite) TestAction(c *gc.C) {
 
 	a, err := client.Action(names.NewActionTag("666"))
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(a.ID(), gc.Equals, "666")
 	c.Assert(a.Name(), gc.Equals, actionResult.Action.Name)
 	c.Assert(a.Params(), jc.DeepEquals, actionResult.Action.Parameters)
 	c.Assert(a.Parallel(), jc.IsTrue)

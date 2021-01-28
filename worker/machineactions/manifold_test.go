@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/worker/machineactions"
 )
 
@@ -26,6 +27,7 @@ type ManifoldSuite struct {
 	fakeCaller base.APICaller
 	fakeFacade machineactions.Facade
 	fakeWorker worker.Worker
+	fakeLock   machinelock.Lock
 	newFacade  func(machineactions.Facade) func(base.APICaller) machineactions.Facade
 	newWorker  func(worker.Worker, error) func(machineactions.WorkerConfig) (worker.Worker, error)
 }
@@ -36,6 +38,7 @@ func (s *ManifoldSuite) SetUpSuite(c *gc.C) {
 	s.IsolationSuite.SetUpSuite(c)
 	s.fakeAgent = &fakeAgent{tag: fakeTag}
 	s.fakeCaller = &fakeCaller{}
+	s.fakeLock = machinelock.Lock(nil)
 
 	s.context = dt.StubContext(nil, map[string]interface{}{
 		"wut":     s.fakeAgent,
@@ -55,6 +58,7 @@ func (s *ManifoldSuite) SetUpSuite(c *gc.C) {
 			c.Assert(wc.Facade, gc.Equals, s.fakeFacade)
 			c.Assert(wc.MachineTag, gc.Equals, fakeTag)
 			c.Assert(wc.HandleAction, gc.Equals, fakeHandleAction)
+			c.Assert(wc.MachineLock, gc.Equals, s.fakeLock)
 			return w, err
 		}
 	}
@@ -103,6 +107,7 @@ func (s *ManifoldSuite) TestStartWorkerError(c *gc.C) {
 		APICallerName: "exactly",
 		NewFacade:     s.newFacade(&fakeFacade{}),
 		NewWorker:     s.newWorker(nil, errors.New("blam")),
+		MachineLock:   s.fakeLock,
 	})
 
 	w, err := manifold.Start(s.context)
@@ -117,6 +122,7 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 		APICallerName: "exactly",
 		NewFacade:     s.newFacade(&fakeFacade{}),
 		NewWorker:     s.newWorker(fakeWorker, nil),
+		MachineLock:   s.fakeLock,
 	})
 
 	w, err := manifold.Start(s.context)
@@ -131,6 +137,7 @@ func (s *ManifoldSuite) TestInvalidTag(c *gc.C) {
 		APICallerName: "exactly",
 		NewFacade:     s.newFacade(&fakeFacade{}),
 		NewWorker:     s.newWorker(fakeWorker, nil),
+		MachineLock:   s.fakeLock,
 	})
 	context := dt.StubContext(nil, map[string]interface{}{
 		"wut":     &fakeAgent{tag: fakeTagErr},

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/testing"
 	utilexec "github.com/juju/utils/v2/exec"
 
+	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/worker/uniter/charm"
@@ -288,8 +289,8 @@ type MockRunnerFactory struct {
 	*MockNewCommandRunner
 }
 
-func (f *MockRunnerFactory) NewActionRunner(actionId string, cancel <-chan struct{}) (runner.Runner, error) {
-	return f.MockNewActionRunner.Call(actionId, cancel)
+func (f *MockRunnerFactory) NewActionRunner(action *uniter.Action, cancel <-chan struct{}) (runner.Runner, error) {
+	return f.MockNewActionRunner.Call(action.ID(), cancel)
 }
 
 func (f *MockRunnerFactory) NewHookRunner(hookInfo hook.Info) (runner.Runner, error) {
@@ -305,8 +306,8 @@ type MockRunnerActionWaitFactory struct {
 	*MockNewActionWaitRunner
 }
 
-func (f *MockRunnerActionWaitFactory) NewActionRunner(actionId string, cancel <-chan struct{}) (runner.Runner, error) {
-	return f.MockNewActionWaitRunner.Call(actionId, cancel)
+func (f *MockRunnerActionWaitFactory) NewActionRunner(action *uniter.Action, cancel <-chan struct{}) (runner.Runner, error) {
+	return f.MockNewActionWaitRunner.Call(action.ID(), cancel)
 }
 
 type MockContext struct {

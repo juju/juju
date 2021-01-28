@@ -904,6 +904,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 			NewFacade:     machineactions.NewFacade,
 			NewWorker:     machineactions.NewMachineActionsWorker,
+			MachineLock:   config.MachineLock,
 		})),
 
 		// The upgrader is a leaf worker that returns a specific error

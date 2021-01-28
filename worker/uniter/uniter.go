@@ -776,7 +776,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		remoteExecutor = u.newRemoteRunnerExecutor(u.unit, u.paths)
 	}
 	runnerFactory, err := runner.NewFactory(
-		u.st, u.paths, contextFactory, u.newProcessRunner, remoteExecutor,
+		u.paths, contextFactory, u.newProcessRunner, remoteExecutor,
 	)
 	if err != nil {
 		return errors.Trace(err)
@@ -785,6 +785,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		Deployer:       deployer,
 		RunnerFactory:  runnerFactory,
 		Callbacks:      &operationCallbacks{u},
+		State:          u.st,
 		Abort:          u.catacomb.Dying(),
 		MetricSpoolDir: u.paths.GetMetricsSpoolDir(),
 		Logger:         u.logger.Child("operation"),
@@ -870,13 +871,14 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 // acquireExecutionLock acquires the machine-level execution lock, and
 // returns a func that must be called to unlock it. It's used by operation.Executor
 // when running operations that execute external code.
-func (u *Uniter) acquireExecutionLock(action string) (func(), error) {
+func (u *Uniter) acquireExecutionLock(action, executionGroup string) (func(), error) {
 	// We want to make sure we don't block forever when locking, but take the
 	// Uniter's catacomb into account.
 	spec := machinelock.Spec{
 		Cancel:  u.catacomb.Dying(),
 		Worker:  fmt.Sprintf("%s uniter", u.unit.Name()),
 		Comment: action,
+		Group:   executionGroup,
 	}
 	releaser, err := u.hookLock.Acquire(spec)
 	if err != nil {

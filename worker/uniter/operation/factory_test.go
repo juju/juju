@@ -7,18 +7,24 @@ import (
 	corecharm "github.com/juju/charm/v9"
 	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	utilexec "github.com/juju/utils/v2/exec"
 	gc "gopkg.in/check.v1"
 
+	basetesting "github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 )
 
 type FactorySuite struct {
 	testing.IsolationSuite
-	factory operation.Factory
+	factory   operation.Factory
+	actionErr *params.Error
 }
 
 var _ = gc.Suite(&FactorySuite{})
@@ -33,7 +39,22 @@ func (s *FactorySuite) SetUpTest(c *gc.C) {
 		MockNotifyRevert:   &MockNoArgs{},
 		MockNotifyResolved: &MockNoArgs{},
 	}
+	s.actionErr = nil
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		actionResult := params.ActionResult{
+			Action: &params.Action{Name: "backup"},
+		}
+		if s.actionErr != nil {
+			actionResult = params.ActionResult{Error: s.actionErr}
+		}
+		*(result.(*params.ActionResults)) = params.ActionResults{
+			Results: []params.ActionResult{actionResult},
+		}
+		return nil
+	})
+	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 	s.factory = operation.NewFactory(operation.FactoryParams{
+		State:    st,
 		Deployer: deployer,
 		Logger:   loggo.GetLogger("test"),
 	})
@@ -219,4 +240,18 @@ func (s *FactorySuite) TestNewResignLeadershipString(c *gc.C) {
 	op, err := s.factory.NewResignLeadership()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "resign leadership")
+}
+
+func (s *FactorySuite) TestNewActionNotAvailable(c *gc.C) {
+	s.actionErr = &params.Error{Code: "action no longer available"}
+	rnr, err := s.factory.NewAction("666")
+	c.Assert(rnr, gc.IsNil)
+	c.Assert(err, gc.Equals, charmrunner.ErrActionNotAvailable)
+}
+
+func (s *FactorySuite) TestNewActionUnauthorised(c *gc.C) {
+	s.actionErr = &params.Error{Code: "unauthorized access"}
+	rnr, err := s.factory.NewAction("666")
+	c.Assert(rnr, gc.IsNil)
+	c.Assert(err, gc.Equals, charmrunner.ErrActionNotAvailable)
 }

@@ -5,13 +5,14 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v9"
 	uniter "github.com/juju/juju/api/uniter"
 	params "github.com/juju/juju/apiserver/params"
 	status "github.com/juju/juju/core/status"
 	names "github.com/juju/names/v4"
-	reflect "reflect"
 )
 
 // MockHookUnit is a mock of HookUnit interface
@@ -64,20 +65,6 @@ func (m *MockHookUnit) ApplicationName() string {
 func (mr *MockHookUnitMockRecorder) ApplicationName() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationName", reflect.TypeOf((*MockHookUnit)(nil).ApplicationName))
-}
-
-// ClosePorts mocks base method
-func (m *MockHookUnit) ClosePorts(arg0 string, arg1, arg2 int) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ClosePorts", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// ClosePorts indicates an expected call of ClosePorts
-func (mr *MockHookUnitMockRecorder) ClosePorts(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClosePorts", reflect.TypeOf((*MockHookUnit)(nil).ClosePorts), arg0, arg1, arg2)
 }
 
 // CommitHookChanges mocks base method
@@ -150,20 +137,6 @@ func (m *MockHookUnit) NetworkInfo(arg0 []string, arg1 *int) (map[string]params.
 func (mr *MockHookUnitMockRecorder) NetworkInfo(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NetworkInfo", reflect.TypeOf((*MockHookUnit)(nil).NetworkInfo), arg0, arg1)
-}
-
-// OpenPorts mocks base method
-func (m *MockHookUnit) OpenPorts(arg0 string, arg1, arg2 int) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "OpenPorts", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// OpenPorts indicates an expected call of OpenPorts
-func (mr *MockHookUnitMockRecorder) OpenPorts(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenPorts", reflect.TypeOf((*MockHookUnit)(nil).OpenPorts), arg0, arg1, arg2)
 }
 
 // RequestReboot mocks base method

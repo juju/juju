@@ -9,10 +9,14 @@ import (
 	"github.com/juju/charm/v9/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	basetesting "github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -28,7 +32,22 @@ type RunActionSuite struct {
 var _ = gc.Suite(&RunActionSuite{})
 
 func newOpFactory(runnerFactory runner.Factory, callbacks operation.Callbacks) operation.Factory {
+	actionResult := params.ActionResult{
+		Action: &params.Action{Name: "backup"},
+	}
+	return newOpFactoryForAction(runnerFactory, callbacks, actionResult)
+}
+
+func newOpFactoryForAction(runnerFactory runner.Factory, callbacks operation.Callbacks, action params.ActionResult) operation.Factory {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		*(result.(*params.ActionResults)) = params.ActionResults{
+			Results: []params.ActionResult{action},
+		}
+		return nil
+	})
+	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 	return operation.NewFactory(operation.FactoryParams{
+		State:         st,
 		RunnerFactory: runnerFactory,
 		Callbacks:     callbacks,
 		Logger:        loggo.GetLogger("test"),
@@ -345,4 +364,15 @@ func (s *RunActionSuite) TestNeedsGlobalMachineLock(c *gc.C) {
 	op, err := factory.NewAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.NeedsGlobalMachineLock(), jc.IsTrue)
+}
+
+func (s *RunActionSuite) TestDoesNotNeedGlobalMachineLock(c *gc.C) {
+	parallel := true
+	actionResult := params.ActionResult{
+		Action: &params.Action{Name: "backup", Parallel: &parallel},
+	}
+	factory := newOpFactoryForAction(nil, nil, actionResult)
+	op, err := factory.NewAction(someActionId)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.NeedsGlobalMachineLock(), jc.IsFalse)
 }

@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/remotestate"
@@ -15,8 +16,7 @@ import (
 )
 
 type runAction struct {
-	actionId string
-
+	action  *uniter.Action
 	change  int
 	changed chan struct{}
 	cancel  chan struct{}
@@ -27,13 +27,21 @@ type runAction struct {
 	name   string
 	runner runner.Runner
 	logger Logger
-
-	RequiresMachineLock
 }
 
 // String is part of the Operation interface.
 func (ra *runAction) String() string {
-	return fmt.Sprintf("run action %s", ra.actionId)
+	return fmt.Sprintf("run action %s", ra.action.ID())
+}
+
+// NeedsGlobalMachineLock is part of the Operation interface.
+func (ra *runAction) NeedsGlobalMachineLock() bool {
+	return !ra.action.Parallel() || ra.action.ExecutionGroup() != ""
+}
+
+// ExecutionGroup is part of the Operation interface.
+func (ra *runAction) ExecutionGroup() string {
+	return ra.action.ExecutionGroup()
 }
 
 // Prepare ensures that the action is valid and can be executed. If not, it
@@ -43,16 +51,17 @@ func (ra *runAction) String() string {
 func (ra *runAction) Prepare(state State) (*State, error) {
 	ra.changed = make(chan struct{}, 1)
 	ra.cancel = make(chan struct{})
-	rnr, err := ra.runnerFactory.NewActionRunner(ra.actionId, ra.cancel)
+	actionID := ra.action.ID()
+	rnr, err := ra.runnerFactory.NewActionRunner(ra.action, ra.cancel)
 	if cause := errors.Cause(err); charmrunner.IsBadActionError(cause) {
-		if err := ra.callbacks.FailAction(ra.actionId, err.Error()); err != nil {
+		if err := ra.callbacks.FailAction(actionID, err.Error()); err != nil {
 			return nil, err
 		}
 		return nil, ErrSkipExecute
 	} else if cause == charmrunner.ErrActionNotAvailable {
 		return nil, ErrSkipExecute
 	} else if err != nil {
-		return nil, errors.Annotatef(err, "cannot create runner for action %q", ra.actionId)
+		return nil, errors.Annotatef(err, "cannot create runner for action %q", actionID)
 	}
 	actionData, err := rnr.Context().ActionData()
 	if err != nil {
@@ -68,7 +77,7 @@ func (ra *runAction) Prepare(state State) (*State, error) {
 	return stateChange{
 		Kind:     RunAction,
 		Step:     Pending,
-		ActionId: &ra.actionId,
+		ActionId: &actionID,
 		Hook:     state.Hook,
 	}.apply(state), nil
 }
@@ -83,6 +92,7 @@ func (ra *runAction) Execute(state State) (*State, error) {
 
 	done := make(chan struct{})
 	wait := make(chan struct{})
+	actionID := ra.action.ID()
 	go func() {
 		defer close(wait)
 		for {
@@ -91,13 +101,13 @@ func (ra *runAction) Execute(state State) (*State, error) {
 				return
 			case <-ra.changed:
 			}
-			status, err := ra.callbacks.ActionStatus(ra.actionId)
+			status, err := ra.callbacks.ActionStatus(actionID)
 			if err != nil {
-				ra.logger.Warningf("unable to get action status for %q: %v", ra.actionId, err)
+				ra.logger.Warningf("unable to get action status for %q: %v", actionID, err)
 				continue
 			}
 			if status == params.ActionAborting {
-				ra.logger.Infof("action %s aborting", ra.actionId)
+				ra.logger.Infof("action %s aborting", actionID)
 				close(ra.cancel)
 				return
 			}
@@ -116,7 +126,7 @@ func (ra *runAction) Execute(state State) (*State, error) {
 	return stateChange{
 		Kind:     RunAction,
 		Step:     Done,
-		ActionId: &ra.actionId,
+		ActionId: &actionID,
 		Hook:     state.Hook,
 	}.apply(state), nil
 }
@@ -134,15 +144,16 @@ func (ra *runAction) Commit(state State) (*State, error) {
 // RemoteStateChanged is called when the remote state changed during execution
 // of the operation.
 func (ra *runAction) RemoteStateChanged(snapshot remotestate.Snapshot) {
-	change, ok := snapshot.ActionChanged[ra.actionId]
+	actionID := ra.action.ID()
+	change, ok := snapshot.ActionChanged[actionID]
 	if !ok {
-		ra.logger.Errorf("action %s missing action changed entry", ra.actionId)
+		ra.logger.Errorf("action %s missing action changed entry", actionID)
 		// Shouldn't happen.
 		return
 	}
 	if ra.change < change {
 		ra.change = change
-		ra.logger.Errorf("running action %s changed", ra.actionId)
+		ra.logger.Errorf("running action %s changed", actionID)
 		select {
 		case ra.changed <- struct{}{}:
 		default:

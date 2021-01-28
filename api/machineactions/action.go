@@ -9,15 +9,20 @@ package machineactions
 // but until the implementations converge, it's saner to duplicate the code since
 // the "correct" abstraction over both is not obvious.
 type Action struct {
+	id             string
 	name           string
 	params         map[string]interface{}
 	parallel       bool
 	executionGroup string
 }
 
-// NewAction makes a new Action with specified name and params map.
-func NewAction(name string, params map[string]interface{}, parallel bool, executionGroup string) *Action {
-	return &Action{name: name, params: params, parallel: parallel, executionGroup: executionGroup}
+// NewAction makes a new Action with specified id, name and params map.
+func NewAction(id, name string, params map[string]interface{}, parallel bool, executionGroup string) *Action {
+	return &Action{id: id, name: name, params: params, parallel: parallel, executionGroup: executionGroup}
+}
+
+func (a *Action) ID() string {
+	return a.id
 }
 
 // Name retrieves the name of the Action.
