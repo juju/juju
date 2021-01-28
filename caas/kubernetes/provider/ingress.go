@@ -80,6 +80,7 @@ func (k *kubernetesClient) ensureIngressV1beta1(appName string, spec *networking
 	if !k8serrors.IsAlreadyExists(err) {
 		return cleanUp, errors.Trace(err)
 	}
+
 	if !force {
 		existing, err := api.Get(context.TODO(), spec.GetName(), metav1.GetOptions{})
 		if err != nil {
@@ -106,6 +107,7 @@ func (k *kubernetesClient) ensureIngressV1(appName string, spec *networkingv1.In
 	if !k8serrors.IsAlreadyExists(err) {
 		return cleanUp, errors.Trace(err)
 	}
+
 	if !force {
 		existing, err := api.Get(context.TODO(), spec.GetName(), metav1.GetOptions{})
 		if err != nil {

@@ -139,14 +139,6 @@ func (k *kubernetesClient) ensureCustomResourceDefinitionV1(
 	return out, cleanUps, errors.Trace(err)
 }
 
-func (k *kubernetesClient) deleteCustomResourceDefinition(name string, uid types.UID) error {
-	err := k.extendedClient().ApiextensionsV1beta1().CustomResourceDefinitions().Delete(context.TODO(), name, utils.NewPreconditionDeleteOptions(uid))
-	if k8serrors.IsNotFound(err) {
-		return nil
-	}
-	return errors.Trace(err)
-}
-
 func (k *kubernetesClient) getCustomResourceDefinition(name string) (*apiextensionsv1beta1.CustomResourceDefinition, error) {
 	crd, err := k.extendedClient().ApiextensionsV1beta1().CustomResourceDefinitions().Get(context.TODO(), name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
@@ -155,11 +147,11 @@ func (k *kubernetesClient) getCustomResourceDefinition(name string) (*apiextensi
 	return crd, errors.Trace(err)
 }
 
-func (k *kubernetesClient) listCustomResourceDefinitions(selector k8slabels.Selector) ([]apiextensionsv1beta1.CustomResourceDefinition, error) {
+func (k *kubernetesClient) listCustomResourceDefinitions(selector k8slabels.Selector) ([]apiextensionsv1.CustomResourceDefinition, error) {
 	listOps := metav1.ListOptions{
 		LabelSelector: selector.String(),
 	}
-	list, err := k.extendedClient().ApiextensionsV1beta1().CustomResourceDefinitions().List(context.TODO(), listOps)
+	list, err := k.extendedClient().ApiextensionsV1().CustomResourceDefinitions().List(context.TODO(), listOps)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -178,7 +170,7 @@ func (k *kubernetesClient) deleteCustomResourceDefinitionsForApp(appName string)
 }
 
 func (k *kubernetesClient) deleteCustomResourceDefinitions(selector k8slabels.Selector) error {
-	err := k.extendedClient().ApiextensionsV1beta1().CustomResourceDefinitions().DeleteCollection(context.TODO(), metav1.DeleteOptions{
+	err := k.extendedClient().ApiextensionsV1().CustomResourceDefinitions().DeleteCollection(context.TODO(), metav1.DeleteOptions{
 		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, metav1.ListOptions{
 		LabelSelector: selector.String(),
