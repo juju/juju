@@ -27,6 +27,7 @@ func DisableFinishBootstrap() func() {
 	f := func(
 		environs.BootstrapContext,
 		ssh.Client,
+		common.HostSSHOptionsFunc,
 		environs.Environ,
 		context.ProviderCallContext,
 		instances.Instance,

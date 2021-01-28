@@ -412,6 +412,7 @@ func (s *localServerSuite) assertAddressesWithPublicIP(c *gc.C, cons constraints
 	s.PatchValue(&common.FinishBootstrap, func(
 		ctx environs.BootstrapContext,
 		client ssh.Client,
+		sshOptionsFunc common.HostSSHOptionsFunc,
 		env environs.Environ,
 		callCtx context.ProviderCallContext,
 		inst instances.Instance,
@@ -453,6 +454,7 @@ func (s *localServerSuite) assertAddressesWithoutPublicIP(c *gc.C, cons constrai
 	s.PatchValue(&common.FinishBootstrap, func(
 		ctx environs.BootstrapContext,
 		client ssh.Client,
+		sshOptionsFunc common.HostSSHOptionsFunc,
 		env environs.Environ,
 		callCtx context.ProviderCallContext,
 		inst instances.Instance,

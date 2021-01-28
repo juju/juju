@@ -306,7 +306,16 @@ func BootstrapInstance(
 			return err
 		}
 		maybeSetBridge(icfg)
-		return FinishBootstrap(ctx, client, env, callCtx, result.Instance, icfg, opts)
+
+		var hostSSHOptions HostSSHOptionsFunc
+		if args.BootstrapSSHOptions != nil {
+			hostSSHOptions = HostSSHOptionsFunc(args.BootstrapSSHOptions(icfg))
+		} else {
+			hostSSHOptions = func(host string) (*ssh.Options, func(), error) {
+				return BootstrapSSHOptionsFunc(host, instanceConfig)
+			}
+		}
+		return FinishBootstrap(ctx, client, hostSSHOptions, env, callCtx, result.Instance, icfg, opts)
 	}
 	return result, selectedSeries, finalizer, nil
 }
@@ -374,6 +383,7 @@ func formatMemory(m uint64) string {
 var FinishBootstrap = func(
 	ctx environs.BootstrapContext,
 	client ssh.Client,
+	hostSSHOptions HostSSHOptionsFunc,
 	env environs.Environ,
 	callCtx context.ProviderCallContext,
 	inst instances.Instance,
@@ -384,7 +394,6 @@ var FinishBootstrap = func(
 	ctx.InterruptNotify(interrupted)
 	defer ctx.StopInterruptNotify(interrupted)
 
-	hostSSHOptions := bootstrapSSHOptionsFunc(instanceConfig)
 	addr, err := WaitSSH(
 		ctx.GetStderr(),
 		interrupted,
@@ -489,18 +498,9 @@ func DefaultHostSSHOptions(host string) (*ssh.Options, func(), error) {
 	return nil, func() {}, nil
 }
 
-// bootstrapSSHOptionsFunc that takes a bootstrap machine's InstanceConfig
+// BootstrapSSHOptionsFunc that takes a bootstrap machine's InstanceConfig
 // and returns a HostSSHOptionsFunc.
-func bootstrapSSHOptionsFunc(instanceConfig *instancecfg.InstanceConfig) HostSSHOptionsFunc {
-	return func(host string) (*ssh.Options, func(), error) {
-		return hostBootstrapSSHOptions(host, instanceConfig)
-	}
-}
-
-func hostBootstrapSSHOptions(
-	host string,
-	instanceConfig *instancecfg.InstanceConfig,
-) (_ *ssh.Options, cleanup func(), err error) {
+func BootstrapSSHOptionsFunc(host string, instanceConfig *instancecfg.InstanceConfig) (_ *ssh.Options, cleanup func(), err error) {
 	cleanup = func() {}
 	defer func() {
 		if err != nil {
@@ -509,7 +509,7 @@ func hostBootstrapSSHOptions(
 	}()
 
 	options := &ssh.Options{}
-	options.SetStrictHostKeyChecking(ssh.StrictHostChecksNo)
+	options.SetStrictHostKeyChecking(ssh.StrictHostChecksYes)
 
 	// If any host keys are being injected, we'll set up a
 	// known_hosts file with their contents, and accept only

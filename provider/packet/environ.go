@@ -29,6 +29,7 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/schema"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/v2/ssh"
 	"github.com/juju/version"
 	"github.com/lxc/lxd/shared/logger"
 	"github.com/packethost/packngo"
@@ -78,6 +79,20 @@ func (e *environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID
 }
 
 func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
+	args.BootstrapSSHOptions = func(icfg *instancecfg.InstanceConfig) environs.SSHOptionsFunc {
+		return func(host string) (*ssh.Options, func(), error) {
+			sshOpts, cleanupFn, err := common.BootstrapSSHOptionsFunc(host, icfg)
+			if err != nil {
+				return nil, func() {}, errors.Trace(err)
+			}
+
+			// TODO: This is required for the packet provider.
+			// Explain why this is needed for the benefir of future
+			// maintainers.
+			sshOpts.SetStrictHostKeyChecking(ssh.StrictHostChecksNo)
+			return sshOpts, cleanupFn, nil
+		}
+	}
 	return common.Bootstrap(ctx, e, callCtx, args)
 }
 
