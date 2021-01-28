@@ -139,9 +139,7 @@ class AssessNetworkHealth:
             self.existing_series.add(info['series'])
         for series in self.existing_series:
             try:
-                # TODO: The latest network-health charm (11 onwards) is broken;
-                # it doesn't properly install charmhelpers.
-                client.deploy('cs:~juju-qa/network-health-10', series=series,
+                client.deploy('cs:~juju-qa/network-health', series=series,
                               alias='network-health-{}'.format(series))
 
             except subprocess.CalledProcessError:
@@ -154,6 +152,10 @@ class AssessNetworkHealth:
         apps = client.get_status().get_applications()
         log.info('Known applications: {}'.format(apps.keys()))
         for app, info in apps.items():
+            # We cannot relate to ourselves!
+            if 'network-health' in app:
+                continue
+
             app_series = info['series']
             try:
                 client.juju('add-relation',
@@ -386,9 +388,7 @@ class AssessNetworkHealth:
         for app, info in apps.items():
             if 'network-health' not in app:
                 alias = 'network-health-{}'.format(app)
-                # The latest network-health charm (11 onwards) is broken;
-                # it doesn't properly install charmhelpers.
-                client.deploy('cs:~juju-qa/network-health-10', alias=alias,
+                client.deploy('cs:~juju-qa/network-health', alias=alias,
                               series=info['series'])
                 try:
                     client.juju('add-relation', (app, alias))
