@@ -1842,7 +1842,7 @@ func (k *kubernetesClient) configureHeadlessService(
 	return err
 }
 
-func (k *kubernetesClient) findDefaultIngressClass() (*string, error) {
+func (k *kubernetesClient) findDefaultIngressClassResource() (*string, error) {
 	ics, err := k.listIngressClasses(nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "finding the default ingress class")
@@ -1894,13 +1894,29 @@ func (k *kubernetesClient) ExposeService(appName string, resourceTags map[string
 				"ingress.kubernetes.io/ssl-passthrough": strconv.FormatBool(ingressSSLPassthrough),
 			},
 		},
-		Spec: networkingv1.IngressSpec{
-			Rules: []networkingv1.IngressRule{{
-				Host: host,
-				IngressRuleValue: networkingv1.IngressRuleValue{
-					HTTP: &networkingv1.HTTPIngressRuleValue{
-						Paths: []networkingv1.HTTPIngressPath{{
-							Path: httpPath,
+		Spec: networkingv1.IngressSpec{},
+	}
+
+	ingressClass := config.GetString(ingressClassKey, defaultIngressClass)
+	if ingressClass == defaultIngressClass {
+		if spec.Spec.IngressClassName, err = k.findDefaultIngressClassResource(); err != nil && !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+	}
+	pathType := networkingv1.PathTypeImplementationSpecific
+	if spec.Spec.IngressClassName == nil {
+		spec.Annotations["kubernetes.io/ingress.class"] = ingressClass
+		pathType = networkingv1.PathTypePrefix
+	}
+	spec.Spec.Rules = append(spec.Spec.Rules,
+		networkingv1.IngressRule{
+			Host: host,
+			IngressRuleValue: networkingv1.IngressRuleValue{
+				HTTP: &networkingv1.HTTPIngressRuleValue{
+					Paths: []networkingv1.HTTPIngressPath{
+						{
+							Path:     httpPath,
+							PathType: &pathType,
 							Backend: networkingv1.IngressBackend{
 								Service: &networkingv1.IngressServiceBackend{
 									Name: svc.Name,
@@ -1908,21 +1924,13 @@ func (k *kubernetesClient) ExposeService(appName string, resourceTags map[string
 										Number: int32(svc.Spec.Ports[0].TargetPort.IntValue()),
 									},
 								},
-							}}},
-					}}},
+							},
+						},
+					},
+				},
 			},
 		},
-	}
-
-	ingressClass := config.GetString(ingressClassKey, defaultIngressClass)
-	if ingressClass == defaultIngressClass {
-		if spec.Spec.IngressClassName, err = k.findDefaultIngressClass(); err != nil && !errors.IsNotFound(err) {
-			return errors.Trace(err)
-		}
-	}
-	if spec.Spec.IngressClassName == nil {
-		spec.Annotations["kubernetes.io/ingress.class"] = ingressClass
-	}
+	)
 
 	// TODO(caas): refactor juju expose to solve potential conflict with ingress definition in podspec.
 	// https://bugs.launchpad.net/juju/+bug/1854123
