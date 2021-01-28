@@ -24,7 +24,6 @@ import (
 // client to install or upgrade a CharmHub charm.
 type CharmHubClient interface {
 	DownloadAndRead(ctx context.Context, resourceURL *url.URL, archivePath string, options ...charmhub.DownloadOption) (*charm.CharmArchive, error)
-	Info(ctx context.Context, name string, options ...charmhub.InfoOption) (transport.InfoResponse, error)
 	Refresh(ctx context.Context, config charmhub.RefreshConfig) ([]transport.RefreshResponse, error)
 }
 
@@ -32,8 +31,29 @@ type chRepo struct {
 	client CharmHubClient
 }
 
-// ResolveWithPreferredChannel call the CharmHub version of
-// ResolveWithPreferredChannel.
+// ResolveWithPreferredChannel defines a way using the given charm URL and
+// charm origin (platform and channel) to locate a matching charm against the
+// Charmhub API.
+//
+// There are a few things to note in the attempt to resolve the charm and it's
+// supporting series.
+//
+//    1. The algorithm for this is terrible. For charmstore lookups, only one
+//       request is required, unfortunately for Charmhub the worst case for this
+//       will be 2.
+//       Most of the initial requests from the client will hit this first time
+//       around (think `juju deploy foo`) without a series (client can then
+//       determine what to call the real request with) will be default of 2
+//       requests.
+//    2. Attempting to find the default series will require 2 requests so that
+//       we can find the correct charm ID ensure that the default series exists
+//       along with the revision.
+//    3. In theory we could just return most of this information without the
+//       re-request, but we end up with missing data and potential incorrect
+//       charm downloads later.
+//
+// When charmstore goes, we could potentially rework how the client requests
+// the store.
 func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.CharmOrigin) (*charm.URL, params.CharmOrigin, []string, error) {
 	logger.Debugf("Resolving CharmHub charm %q", curl)
 
@@ -115,9 +135,9 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 		WithArchitecture(origin.Architecture).
 		WithRevision(revision)
 
-	resOrigin := origin
 	// TODO (stickupkid): This is currently hardcoded as the API doesn't support
 	// bundles.
+	resOrigin := origin
 	resOrigin.Type = "charm"
 	resOrigin.ID = refreshRes.ID
 	resOrigin.Hash = refreshRes.Entity.Download.HashSHA256
@@ -188,12 +208,17 @@ func (c *chRepo) refreshOne(curl *charm.URL, origin corecharm.Origin) (transport
 	return result[0], nil
 }
 
+// Method describes the method for requesting the charm using the RefreshAPI.
 type Method string
 
 const (
+	// MethodRevision utilizes requesting by the revision only.
 	MethodRevision Method = "revision"
-	MethodChannel  Method = "channel"
-	MethodID       Method = "id"
+	// MethodChannel utilizes requesting by the channel only.
+	MethodChannel Method = "channel"
+	// MethodID utilizes requesting by the id and channel (falls back to
+	// latest/stable if channel is found).
+	MethodID Method = "id"
 )
 
 // refreshConfig creates a RefreshConfig for the given input.
