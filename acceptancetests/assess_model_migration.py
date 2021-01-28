@@ -130,6 +130,12 @@ def wait_until_model_disappears(client, model_name, timeout=600):
     def model_check(client):
         try:
             models = client.get_controller_client().get_models()
+
+            # 2.2-rc1 introduced new model listing output name/short-name.
+            all_model_names = [
+                m.get('short-name', m['name']) for m in models['models']]
+            if model_name not in all_model_names:
+                return True
         except CalledProcessError as e:
             # It's possible that we've tried to get status from the model as
             # it's being removed.
@@ -137,12 +143,6 @@ def wait_until_model_disappears(client, model_name, timeout=600):
             # error and the model is no longer in the output.
             if 'cannot get model details' not in e.stderr:
                 raise
-
-            # 2.2-rc1 introduced new model listing output name/short-name.
-            all_model_names = [
-                m.get('short-name', m['name']) for m in models['models']]
-            if model_name not in all_model_names:
-                return True
 
     try:
         wait_for_model_check(client, model_check, timeout)

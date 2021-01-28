@@ -413,45 +413,33 @@ def copy_remote_logs(remote, directory):
             elif 'usr' in path_to_lxd:
                 log_paths.append('/var/log/lxd/lxd.log')
 
+            # Grab network details
             has_netplan = remote.run('sh -c "which netplan || true"')
             if 'netplan' in has_netplan:
                 log_paths.append('/etc/netplan/*.yaml')
             else:
                 log_paths.append('/etc/network/interfaces')
 
-            remote.run('sudo chmod -Rf go+r ' + ' '.join(log_paths))
-        except subprocess.CalledProcessError as e:
-            # The juju log dir is not created until after cloud-init succeeds.
-            logging.warning("Could not allow access to the juju logs:")
-            logging.warning(e.output)
-
-        # Grab network details
-        has_ifconfig = remote.run('sh -c "which ifconfig || true"')
-        if 'ifconfig' in has_ifconfig:
-            try:
+            has_ifconfig = remote.run('sh -c "which ifconfig || true"')
+            if 'ifconfig' in has_ifconfig:
                 remote.run('ifconfig > /home/ubuntu/ifconfig.log')
                 log_paths.append('/home/ubuntu/ifconfig.log')
-            except subprocess.CalledProcessError as e:
-                logging.warning("Could not capture 'ifconfig' output:")
-                logging.warning(e.output)
-        else: # assume ip is installed and use that instead
-            try:
+            else:  # assume ip is installed and use that instead
                 remote.run('ip a > /home/ubuntu/ip.log')
                 log_paths.append('/home/ubuntu/ip.log')
-            except subprocess.CalledProcessError as e:
-                logging.warning("Could not capture 'ip a' output:")
-                logging.warning(e.output)
 
-    try:
-        remote.copy(directory, log_paths)
-    except (subprocess.CalledProcessError,
-            winrm.exceptions.WinRMTransportError) as e:
-        # The juju logs will not exist if cloud-init failed.
-        logging.warning("Could not retrieve some or all logs:")
-        if getattr(e, 'output', None):
-            logging.warning(e.output)
-        else:
-            logging.warning(repr(e))
+            # Setup permissions so we can copy the log files and then copy them
+            # to the artifacts directory using scp.
+            remote.run('sudo chmod -Rf go+r ' + ' '.join(log_paths))
+            remote.copy(directory, log_paths)
+        except (subprocess.CalledProcessError,
+                winrm.exceptions.WinRMTransportError) as e:
+            # The juju logs will not exist if cloud-init failed.
+            logging.warning("Could not retrieve some or all logs:")
+            if getattr(e, 'output', None):
+                logging.warning(e.output)
+            else:
+                logging.warning(repr(e))
 
 
 def assess_juju_run(client):
