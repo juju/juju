@@ -178,8 +178,12 @@ func (s *charmHubRepositoriesSuite) expectedRefreshRevisionNotFoundError(c *gc.C
 				Message: "revision not found",
 				Extra: transport.APIErrorExtra{
 					Releases: []transport.Release{{
-						Platform: "ubuntu/focal/amd64",
-						Channel:  "stable",
+						Platform: transport.Platform{
+							Architecture: "amd64",
+							OS:           "ubuntu",
+							Series:       "focal",
+						},
+						Channel: "stable",
 					}},
 				},
 			},
@@ -349,25 +353,26 @@ func (composeSuggestionsSuite) TestNoReleases(c *gc.C) {
 	c.Assert(suggestions, gc.DeepEquals, []string(nil))
 }
 
-func (composeSuggestionsSuite) TestInvalidPlatform(c *gc.C) {
-	suggestions := composeSuggestions([]transport.Release{{
-		Platform: "os/series",
-	}}, params.CharmOrigin{})
-	c.Assert(suggestions, gc.DeepEquals, []string(nil))
-}
-
 func (composeSuggestionsSuite) TestNoMatchingArch(c *gc.C) {
 	suggestions := composeSuggestions([]transport.Release{{
-		Platform: "os/series/arch",
-		Channel:  "stable",
+		Platform: transport.Platform{
+			OS:           "os",
+			Series:       "series",
+			Architecture: "arch",
+		},
+		Channel: "stable",
 	}}, params.CharmOrigin{})
 	c.Assert(suggestions, gc.DeepEquals, []string(nil))
 }
 
 func (composeSuggestionsSuite) TestSuggestion(c *gc.C) {
 	suggestions := composeSuggestions([]transport.Release{{
-		Platform: "os/series/arch",
-		Channel:  "stable",
+		Platform: transport.Platform{
+			OS:           "os",
+			Series:       "series",
+			Architecture: "arch",
+		},
+		Channel: "stable",
 	}}, params.CharmOrigin{
 		Architecture: "arch",
 	})
@@ -378,14 +383,26 @@ func (composeSuggestionsSuite) TestSuggestion(c *gc.C) {
 
 func (composeSuggestionsSuite) TestMultipleSuggestion(c *gc.C) {
 	suggestions := composeSuggestions([]transport.Release{{
-		Platform: "a/b/c",
-		Channel:  "stable",
+		Platform: transport.Platform{
+			OS:           "a",
+			Series:       "b",
+			Architecture: "c",
+		},
+		Channel: "stable",
 	}, {
-		Platform: "e/f/all",
-		Channel:  "2.0/stable",
+		Platform: transport.Platform{
+			OS:           "e",
+			Series:       "f",
+			Architecture: "all",
+		},
+		Channel: "2.0/stable",
 	}, {
-		Platform: "g/h/i",
-		Channel:  "stable",
+		Platform: transport.Platform{
+			OS:           "g",
+			Series:       "h",
+			Architecture: "i",
+		},
+		Channel: "stable",
 	}}, params.CharmOrigin{
 		Architecture: "c",
 	})
@@ -406,25 +423,26 @@ func (selectReleaseByChannelSuite) TestNoReleases(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `release not found`)
 }
 
-func (selectReleaseByChannelSuite) TestInvalidPlatform(c *gc.C) {
-	_, err := selectReleaseByArchAndChannel([]transport.Release{{
-		Platform: "os/series",
-	}}, params.CharmOrigin{})
-	c.Assert(err, gc.ErrorMatches, `release not found`)
-}
-
 func (selectReleaseByChannelSuite) TestInvalidChannel(c *gc.C) {
 	_, err := selectReleaseByArchAndChannel([]transport.Release{{
-		Platform: "os/series/arch",
-		Channel:  "",
+		Platform: transport.Platform{
+			OS:           "os",
+			Series:       "series",
+			Architecture: "arch",
+		},
+		Channel: "",
 	}}, params.CharmOrigin{})
 	c.Assert(err, gc.ErrorMatches, `release not found`)
 }
 
 func (selectReleaseByChannelSuite) TestSelection(c *gc.C) {
 	release, err := selectReleaseByArchAndChannel([]transport.Release{{
-		Platform: "os/series/arch",
-		Channel:  "stable",
+		Platform: transport.Platform{
+			OS:           "os",
+			Series:       "series",
+			Architecture: "arch",
+		},
+		Channel: "stable",
 	}}, params.CharmOrigin{
 		Architecture: "arch",
 		Risk:         "stable",
@@ -438,8 +456,12 @@ func (selectReleaseByChannelSuite) TestSelection(c *gc.C) {
 
 func (selectReleaseByChannelSuite) TestAllSelection(c *gc.C) {
 	release, err := selectReleaseByArchAndChannel([]transport.Release{{
-		Platform: "os/series/all",
-		Channel:  "stable",
+		Platform: transport.Platform{
+			OS:           "os",
+			Series:       "series",
+			Architecture: "all",
+		},
+		Channel: "stable",
 	}}, params.CharmOrigin{
 		Architecture: "arch",
 		Risk:         "stable",
@@ -454,14 +476,26 @@ func (selectReleaseByChannelSuite) TestAllSelection(c *gc.C) {
 func (selectReleaseByChannelSuite) TestMultipleSelection(c *gc.C) {
 	track := "3.0"
 	release, err := selectReleaseByArchAndChannel([]transport.Release{{
-		Platform: "a/b/c",
-		Channel:  "1.0/edge",
+		Platform: transport.Platform{
+			OS:           "a",
+			Series:       "b",
+			Architecture: "c",
+		},
+		Channel: "1.0/edge",
 	}, {
-		Platform: "d/e/all",
-		Channel:  "2.0/stable",
+		Platform: transport.Platform{
+			OS:           "d",
+			Series:       "e",
+			Architecture: "all",
+		},
+		Channel: "2.0/stable",
 	}, {
-		Platform: "f/g/h",
-		Channel:  "3.0/stable",
+		Platform: transport.Platform{
+			OS:           "f",
+			Series:       "g",
+			Architecture: "h",
+		},
+		Channel: "3.0/stable",
 	}}, params.CharmOrigin{
 		Architecture: "h",
 		Track:        &track,

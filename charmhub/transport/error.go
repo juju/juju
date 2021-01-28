@@ -45,8 +45,8 @@ type APIErrorExtra struct {
 // Release defines a set of suggested releases that might also work for the
 // given request.
 type Release struct {
-	Platform string `json:"architecture"`
-	Channel  string `json:"channel"`
+	Platform Platform `json:"platform"`
+	Channel  string   `json:"channel"`
 }
 
 // APIErrorCode classifies the error code we get back from the API. This isn't
