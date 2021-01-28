@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 
@@ -69,32 +68,18 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 	if resErr := refreshRes.Error; resErr != nil {
 		switch resErr.Code {
 		case transport.ErrorCodeInvalidCharmPlatform:
-			// We've got a invalid charm platform error, the error should contain
-			// a valid platform to query again to get the right information. If
-			// the platform is empty, consider it a failure.
-			var platform transport.Platform
-			for _, platform = range resErr.Extra.DefaultPlatforms {
-				if platform.Architecture != origin.Architecture {
-					continue
-				}
-				break
+			platform, err := c.selectNextPlatform(resErr.Extra.DefaultPlatforms, origin)
+			if err != nil {
+				return nil, params.CharmOrigin{}, nil, errors.Annotatef(err, "refresh")
 			}
 
 			origin.OS = platform.OS
 			origin.Series = platform.Series
 
 		case transport.ErrorCodeRevisionNotFound:
-			if len(resErr.Extra.Releases) == 0 {
-				return nil, params.CharmOrigin{}, nil, errors.Errorf("refresh error: %s", resErr.Message)
-			}
-			if origin.Series == "" {
-				suggestions := composeSuggestions(resErr.Extra.Releases, origin)
-				return nil, params.CharmOrigin{}, nil, errors.Errorf("no charm or bundle matching channel or platform; suggestions: %v", strings.Join(suggestions, ", "))
-			}
-
-			release, err := selectReleaseByArchAndChannel(resErr.Extra.Releases, origin)
+			release, err := c.selectNextRelease(resErr.Extra.Releases, origin)
 			if err != nil {
-				return nil, params.CharmOrigin{}, nil, errors.Errorf("refresh error: %s", resErr.Message)
+				return nil, params.CharmOrigin{}, nil, errors.Annotatef(err, "refresh")
 			}
 
 			origin.OS = release.OS
@@ -145,8 +130,6 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 	resOrigin.Risk = string(channel.Risk)
 	resOrigin.Revision = &revision
 
-	logger.Criticalf("CURL %v ORIGIN %v", curl, resOrigin)
-
 	outputOrigin, err := sanitizeCharmOrigin(resOrigin, origin)
 	return resCurl, outputOrigin, []string{outputOrigin.Series}, errors.Trace(err)
 }
@@ -196,7 +179,7 @@ func (c *chRepo) refreshOne(curl *charm.URL, origin corecharm.Origin) (transport
 	if err != nil {
 		return transport.RefreshResponse{}, errors.Trace(err)
 	}
-	logger.Criticalf("Locate charm using: %v", cfg)
+	logger.Debugf("Locate charm using: %v", cfg)
 	result, err := c.client.Refresh(context.TODO(), cfg)
 	if err != nil {
 		return transport.RefreshResponse{}, errors.Trace(err)
@@ -206,6 +189,49 @@ func (c *chRepo) refreshOne(curl *charm.URL, origin corecharm.Origin) (transport
 	}
 
 	return result[0], nil
+}
+
+func (c *chRepo) selectNextPlatform(platforms []transport.Platform, origin params.CharmOrigin) (transport.Platform, error) {
+	if len(platforms) == 0 {
+		return transport.Platform{}, errors.Errorf("no platforms available")
+	}
+	// We've got a invalid charm platform error, the error should contain
+	// a valid platform to query again to get the right information. If
+	// the platform is empty, consider it a failure.
+	var (
+		found    bool
+		platform transport.Platform
+	)
+	for _, platform = range platforms {
+		if platform.Architecture != origin.Architecture {
+			continue
+		}
+		found = true
+		break
+	}
+	if !found {
+		return transport.Platform{}, errors.NotFoundf("platform")
+	}
+	return platform, nil
+}
+
+func (c *chRepo) selectNextRelease(releases []transport.Release, origin params.CharmOrigin) (Release, error) {
+	if len(releases) == 0 {
+		return Release{}, errors.Errorf("no releases available")
+	}
+	if origin.Series == "" {
+		// If the origin is empty, then we want to help the user out
+		// by display a series of suggestions to try.
+		suggestions := composeSuggestions(releases, origin)
+		var s string
+		if len(suggestions) > 0 {
+			s = fmt.Sprintf("; suggestions: %v", strings.Join(suggestions, ", "))
+		}
+		return Release{}, errors.Errorf("no charm or bundle matching channel or platform%s", s)
+	}
+
+	// From the suggestion list, go look up a release that we can retry.
+	return selectReleaseByArchAndChannel(releases, origin)
 }
 
 // Method describes the method for requesting the charm using the RefreshAPI.
@@ -247,8 +273,6 @@ func refreshConfig(curl *charm.URL, origin corecharm.Origin) (charmhub.RefreshCo
 	if method == MethodRevision && origin.ID != "" {
 		method = MethodID
 	}
-
-	logger.Criticalf("Method %s %v %v %v", method, curl, spew.Sdump(origin), channel)
 
 	var (
 		cfg charmhub.RefreshConfig
@@ -305,13 +329,15 @@ func composeSuggestions(releases []transport.Release, origin params.CharmOrigin)
 		platform := release.Platform
 		components := strings.Split(platform, "/")
 		if len(components) != 3 {
-			suggestions = append(suggestions, "channel %s", release.Channel)
 			continue
 		}
 
 		arch, os, series := components[2], components[0], components[1]
 		if arch == "all" {
 			arch = origin.Architecture
+		}
+		if arch != origin.Architecture {
+			continue
 		}
 		if os == "all" {
 			os = origin.OS

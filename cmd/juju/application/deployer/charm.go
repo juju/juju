@@ -487,7 +487,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		return errors.Trace(validationErr)
 	}
 
-	origin.Series = seriesName
+	// Ensure we save the origin.
 	c.origin = origin
 
 	// In-order for the url to represent the following updates to the the origin
@@ -495,7 +495,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	// well in the url.
 	deployableURL := storeCharmOrBundleURL
 	if charm.CharmHub.Matches(storeCharmOrBundleURL.Schema) {
-		deployableURL = storeCharmOrBundleURL.WithSeries(origin.Series)
+		deployableURL = storeCharmOrBundleURL.WithSeries(c.origin.Series)
 	}
 
 	// Store the charm in the controller
