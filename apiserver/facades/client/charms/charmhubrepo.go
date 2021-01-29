@@ -60,12 +60,12 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 		return nil, params.CharmOrigin{}, nil, errors.Errorf("specifying a revision is not supported, please use a channel.")
 	}
 
-	refreshRes, err := c.refreshOne(curl, apicharm.APICharmOrigin(origin).CoreCharmOrigin())
+	res, err := c.refreshOne(curl, apicharm.APICharmOrigin(origin).CoreCharmOrigin())
 	if err != nil {
 		return nil, params.CharmOrigin{}, nil, errors.Annotatef(err, "refresh")
 	}
 
-	if resErr := refreshRes.Error; resErr != nil {
+	if resErr := res.Error; resErr != nil {
 		switch resErr.Code {
 		case transport.ErrorCodeInvalidCharmPlatform:
 			logger.Tracef("Invalid charm platform %q %v - Default Platforms: %v", curl, origin, resErr.Extra.DefaultPlatforms)
@@ -94,18 +94,18 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 			return nil, params.CharmOrigin{}, nil, errors.NotValidf("series for %s", curl.Name)
 		}
 
-		refreshRes, err = c.refreshOne(curl, apicharm.APICharmOrigin(origin).CoreCharmOrigin())
+		res, err = c.refreshOne(curl, apicharm.APICharmOrigin(origin).CoreCharmOrigin())
 		if err != nil {
 			return nil, params.CharmOrigin{}, nil, errors.Annotatef(err, "refresh retry")
 		}
-		if resErr := refreshRes.Error; resErr != nil {
+		if resErr := res.Error; resErr != nil {
 			return nil, params.CharmOrigin{}, nil, errors.Errorf("refresh retry: %s", resErr.Message)
 		}
 	}
 
 	// Use the channel that was actually picked by the API. This should
 	// account for the closed tracks in a given channel.
-	channel, err := corecharm.ParseChannelNormalize(refreshRes.EffectiveChannel)
+	channel, err := corecharm.ParseChannelNormalize(res.EffectiveChannel)
 	if err != nil {
 		return nil, params.CharmOrigin{}, nil, errors.Annotatef(err, "invalid channel")
 	}
@@ -115,19 +115,19 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 		track = &channel.Track
 	}
 
+	entity := res.Entity
+
 	// Ensure we send the updated curl back, with all the correct segments.
-	revision := refreshRes.Entity.Revision
+	revision := entity.Revision
 	resCurl := curl.
 		WithSeries(origin.Series).
 		WithArchitecture(origin.Architecture).
 		WithRevision(revision)
 
-	// TODO (stickupkid): This is currently hardcoded as the API doesn't support
-	// bundles.
 	resOrigin := origin
-	resOrigin.Type = "charm"
-	resOrigin.ID = refreshRes.ID
-	resOrigin.Hash = refreshRes.Entity.Download.HashSHA256
+	resOrigin.Type = entity.Type
+	resOrigin.ID = res.ID
+	resOrigin.Hash = entity.Download.HashSHA256
 	resOrigin.Track = track
 	resOrigin.Risk = string(channel.Risk)
 	resOrigin.Revision = &revision
@@ -285,7 +285,8 @@ func refreshConfig(curl *charm.URL, origin corecharm.Origin) (charmhub.RefreshCo
 	if origin.ID == "" && channel != "" {
 		method = MethodChannel
 	}
-	if method == MethodRevision && origin.ID != "" {
+	// Bundles can not use method IDs, which in turn forces a refresh.
+	if method == MethodRevision && origin.Type != "bundle" && origin.ID != "" {
 		method = MethodID
 	}
 
