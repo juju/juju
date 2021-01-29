@@ -27,9 +27,42 @@ type charmHubRepositoriesSuite struct {
 
 var _ = gc.Suite(&charmHubRepositoriesSuite{})
 
+func (s *charmHubRepositoriesSuite) TestResolve(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectCharmRefresh(c)
+
+	curl := charm.MustParseURL("ch:wordpress")
+	origin := params.CharmOrigin{
+		Source:       "charm-hub",
+		Architecture: arch.DefaultArchitecture,
+		OS:           "ubuntu",
+		Series:       "focal",
+	}
+
+	resolver := &chRepo{client: s.client}
+	obtainedCurl, obtainedOrigin, obtainedSeries, err := resolver.ResolveWithPreferredChannel(curl, origin)
+	c.Assert(err, jc.ErrorIsNil)
+
+	curl.Revision = 16
+
+	origin.ID = "charmCHARMcharmCHARMcharmCHARM01"
+	origin.Type = "charm"
+	origin.Revision = &curl.Revision
+	origin.Risk = "stable"
+	origin.Architecture = arch.DefaultArchitecture
+	origin.OS = "ubuntu"
+	origin.Series = "focal"
+
+	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture, "focal")
+
+	c.Assert(obtainedCurl, jc.DeepEquals, expected)
+	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
+	c.Assert(obtainedSeries, jc.SameContents, []string{"focal"})
+}
+
 func (s *charmHubRepositoriesSuite) TestResolveWithoutSeries(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectRefresh(c)
+	s.expectCharmRefresh(c)
 
 	curl := charm.MustParseURL("ch:wordpress")
 	origin := params.CharmOrigin{Source: "charm-hub", Architecture: arch.DefaultArchitecture}
@@ -53,10 +86,36 @@ func (s *charmHubRepositoriesSuite) TestResolveWithoutSeries(c *gc.C) {
 	c.Assert(obtainedSeries, jc.SameContents, []string{""})
 }
 
+func (s *charmHubRepositoriesSuite) TestResolveWithBundles(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectBundleRefresh(c)
+
+	curl := charm.MustParseURL("ch:core-kubernetes")
+	origin := params.CharmOrigin{Source: "charm-hub", Architecture: arch.DefaultArchitecture}
+
+	resolver := &chRepo{client: s.client}
+	obtainedCurl, obtainedOrigin, obtainedSeries, err := resolver.ResolveWithPreferredChannel(curl, origin)
+	c.Assert(err, jc.ErrorIsNil)
+
+	curl.Revision = 17
+
+	origin.ID = "bundleBUNDLEbundleBUNDLE01"
+	origin.Type = "bundle"
+	origin.Revision = &curl.Revision
+	origin.Risk = "stable"
+	origin.Architecture = arch.DefaultArchitecture
+
+	expected := s.expectedCURL(curl, 17, arch.DefaultArchitecture, "")
+
+	c.Assert(obtainedCurl, jc.DeepEquals, expected)
+	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
+	c.Assert(obtainedSeries, jc.SameContents, []string{""})
+}
+
 func (s *charmHubRepositoriesSuite) TestResolveInvalidPlatformError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectedRefreshInvalidPlatformError(c)
-	s.expectRefresh(c)
+	s.expectCharmRefresh(c)
 
 	curl := charm.MustParseURL("ch:wordpress")
 	origin := params.CharmOrigin{Source: "charm-hub", Architecture: arch.DefaultArchitecture}
@@ -97,7 +156,7 @@ func (s *charmHubRepositoriesSuite) TestResolveRevisionNotFoundErrorWithNoSeries
 func (s *charmHubRepositoriesSuite) TestResolveRevisionNotFoundError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectedRefreshRevisionNotFoundError(c)
-	s.expectRefresh(c)
+	s.expectCharmRefresh(c)
 
 	curl := charm.MustParseURL("ch:wordpress")
 	origin := params.CharmOrigin{Source: "charm-hub", Architecture: arch.DefaultArchitecture, Series: "bionic"}
@@ -123,7 +182,7 @@ func (s *charmHubRepositoriesSuite) TestResolveRevisionNotFoundError(c *gc.C) {
 	c.Assert(obtainedSeries, jc.SameContents, []string{"focal"})
 }
 
-func (s *charmHubRepositoriesSuite) expectRefresh(c *gc.C) {
+func (s *charmHubRepositoriesSuite) expectCharmRefresh(c *gc.C) {
 	cfg, err := charmhub.InstallOneFromChannel("wordpress", "latest/stable", charmhub.RefreshPlatform{
 		Architecture: arch.DefaultArchitecture,
 	})
@@ -135,9 +194,32 @@ func (s *charmHubRepositoriesSuite) expectRefresh(c *gc.C) {
 			ID:          "charmCHARMcharmCHARMcharmCHARM01",
 			InstanceKey: id,
 			Entity: transport.RefreshEntity{
+				Type:     "charm",
 				ID:       "charmCHARMcharmCHARMcharmCHARM01",
 				Name:     "wordpress",
 				Revision: 16,
+			},
+			EffectiveChannel: "latest/stable",
+		}}, nil
+	})
+}
+
+func (s *charmHubRepositoriesSuite) expectBundleRefresh(c *gc.C) {
+	cfg, err := charmhub.InstallOneFromChannel("core-kubernetes", "latest/stable", charmhub.RefreshPlatform{
+		Architecture: arch.DefaultArchitecture,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.client.EXPECT().Refresh(gomock.Any(), RefreshConfgMatcher{c: c, Config: cfg}).DoAndReturn(func(ctx context.Context, cfg charmhub.RefreshConfig) ([]transport.RefreshResponse, error) {
+		id := charmhub.ExtractConfigInstanceKey(cfg)
+
+		return []transport.RefreshResponse{{
+			ID:          "bundleBUNDLEbundleBUNDLE01",
+			InstanceKey: id,
+			Entity: transport.RefreshEntity{
+				Type:     "bundle",
+				ID:       "bundleBUNDLEbundleBUNDLE01",
+				Name:     "core-kubernetes",
+				Revision: 17,
 			},
 			EffectiveChannel: "latest/stable",
 		}}, nil
@@ -258,7 +340,7 @@ func (refreshConfigSuite) TestRefreshByChannel(c *gc.C) {
 			InstanceKey: instanceKey,
 			Name:        &curl.Name,
 			Channel:     &ch,
-			Platform: &transport.RefreshRequestPlatform{
+			Platform: &transport.Platform{
 				OS:           "ubuntu",
 				Series:       "focal",
 				Architecture: "amd64",
@@ -290,7 +372,7 @@ func (refreshConfigSuite) TestRefreshByRevision(c *gc.C) {
 			InstanceKey: instanceKey,
 			Name:        &curl.Name,
 			Revision:    &revision,
-			Platform: &transport.RefreshRequestPlatform{
+			Platform: &transport.Platform{
 				OS:           "ubuntu",
 				Series:       "focal",
 				Architecture: "amd64",
@@ -343,7 +425,7 @@ func (refreshConfigSuite) TestRefreshByID(c *gc.C) {
 			InstanceKey: instanceKey,
 			ID:          id,
 			Revision:    revision,
-			Platform: transport.RefreshRequestPlatform{
+			Platform: transport.Platform{
 				OS:           "ubuntu",
 				Series:       "focal",
 				Architecture: "amd64",
