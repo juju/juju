@@ -16,7 +16,6 @@ import (
 
 	"github.com/juju/juju/api"
 	actionapi "github.com/juju/juju/api/action"
-	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -83,14 +82,14 @@ func (c *collectMetricsCommand) Init(args []string) error {
 
 type runClient interface {
 	action.APIClient
-	Run(run params.RunParams) ([]params.ActionResult, error)
+	Run(run actionapi.RunParams) (actionapi.EnqueuedActions, error)
 }
 
 var newRunClient = func(conn api.Connection) runClient {
 	return actionapi.NewClient(conn)
 }
 
-func parseRunOutput(result params.ActionResult) (string, string, error) {
+func parseRunOutput(result actionapi.ActionResult) (string, string, error) {
 	if result.Error != nil {
 		return "", "", result.Error
 	}
@@ -105,9 +104,9 @@ func parseRunOutput(result params.ActionResult) (string, string, error) {
 	return strings.Trim(stdout, " \t\n"), strings.Trim(stderr, " \t\n"), nil
 }
 
-func parseActionResult(result params.ActionResult) (string, error) {
+func parseActionResult(result actionapi.ActionResult) (string, error) {
 	if result.Action != nil {
-		logger.Infof("ran action id %v", result.Action.Tag)
+		logger.Infof("ran action id %v", result.Action.ID)
 	}
 	_, stderr, err := parseRunOutput(result)
 	if err != nil {
@@ -144,7 +143,7 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 	if c.application != "" {
 		applications = []string{c.application}
 	}
-	runParams := params.RunParams{
+	runParams := actionapi.RunParams{
 		Timeout:      commandTimeout,
 		Units:        units,
 		Applications: applications,
@@ -162,21 +161,15 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 	_ = <-wait.C
 	// trigger sending metrics in parallel
 	wg := &sync.WaitGroup{}
-	wg.Add(len(runResults))
-	for _, result := range runResults {
+	wg.Add(len(runResults.Actions))
+	for _, result := range runResults.Actions {
 		r := result
 		if r.Error != nil {
 			fmt.Fprintf(ctx.Stdout, "failed to collect metrics: %v\n", err)
 			wg.Done()
 			continue
 		}
-		tag, err := names.ParseActionTag(r.Action.Tag)
-		if err != nil {
-			fmt.Fprintf(ctx.Stdout, "failed to collect metrics: %v\n", err)
-			wg.Done()
-			continue
-		}
-		actionResult, err := getActionResult(runnerClient, tag.Id(), wait)
+		actionResult, err := getActionResult(runnerClient, r.ID, wait)
 		if err != nil {
 			fmt.Fprintf(ctx.Stdout, "failed to collect metrics: %v\n", err)
 			wg.Done()
@@ -190,7 +183,7 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 		}
 		go func() {
 			defer wg.Done()
-			sendParams := params.RunParams{
+			sendParams := actionapi.RunParams{
 				Timeout:  commandTimeout,
 				Units:    []string{unitId},
 				Commands: "nc -U ../" + sender.DefaultMetricsSendSocketName,
@@ -200,20 +193,15 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 				fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v: %v\n", unitId, err)
 				return
 			}
-			if len(sendResults) != 1 {
+			if len(sendResults.Actions) != 1 {
 				fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v\n", unitId)
 				return
 			}
-			if sendResults[0].Error != nil {
-				fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v: %v\n", unitId, sendResults[0].Error)
+			if sendResults.Actions[0].Error != nil {
+				fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v: %v\n", unitId, sendResults.Actions[0].Error)
 				return
 			}
-			tag, err := names.ParseActionTag(sendResults[0].Action.Tag)
-			if err != nil {
-				fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v: %v\n", unitId, err)
-				return
-			}
-			actionResult, err := getActionResult(runnerClient, tag.Id(), wait)
+			actionResult, err := getActionResult(runnerClient, sendResults.Actions[0].ID, wait)
 			if err != nil {
 				fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v: %v\n", unitId, err)
 				return
@@ -234,6 +222,6 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 }
 
 // getActionResult abstracts over the action CLI function that we use here to fetch results
-var getActionResult = func(c runClient, actionId string, wait *time.Timer) (params.ActionResult, error) {
+var getActionResult = func(c runClient, actionId string, wait *time.Timer) (actionapi.ActionResult, error) {
 	return action.GetActionResult(c, actionId, wait, false)
 }

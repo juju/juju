@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
+	actionapi "github.com/juju/juju/api/action"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -111,7 +112,7 @@ func (c *showOperationCommand) Run(ctx *cmd.Context) error {
 		_ = <-wait.C
 	}
 
-	var result params.OperationResult
+	var result actionapi.Operation
 	shouldWatch := c.wait.Nanoseconds() >= 0
 	if shouldWatch {
 		result, err = getOperationResult(api, c.requestedID, wait)
@@ -127,7 +128,7 @@ func (c *showOperationCommand) Run(ctx *cmd.Context) error {
 }
 
 // fetchOperationResult queries the given API for the given operation ID.
-func fetchOperationResult(api APIClient, requestedId string) (params.OperationResult, error) {
+func fetchOperationResult(api APIClient, requestedId string) (actionapi.Operation, error) {
 	result, err := api.Operation(requestedId)
 	if err != nil {
 		return result, err
@@ -138,7 +139,7 @@ func fetchOperationResult(api APIClient, requestedId string) (params.OperationRe
 // getOperationResult tries to repeatedly fetch an operation until it is
 // in a completed state and then it returns it.
 // It waits for a maximum of "wait" before returning with the latest operation status.
-func getOperationResult(api APIClient, requestedId string, wait *time.Timer) (params.OperationResult, error) {
+func getOperationResult(api APIClient, requestedId string, wait *time.Timer) (actionapi.Operation, error) {
 
 	// tick every two seconds, to delay the loop timer.
 	// TODO(fwereade): 2016-03-17 lp:1558657
@@ -150,9 +151,9 @@ func getOperationResult(api APIClient, requestedId string, wait *time.Timer) (pa
 // operationTimerLoop loops indefinitely to query the given API, until "wait" times
 // out, using the "tick" timer to delay the API queries.  It writes the
 // result to the given output.
-func operationTimerLoop(api APIClient, requestedId string, wait, tick *time.Timer) (params.OperationResult, error) {
+func operationTimerLoop(api APIClient, requestedId string, wait, tick *time.Timer) (actionapi.Operation, error) {
 	var (
-		result params.OperationResult
+		result actionapi.Operation
 		err    error
 	)
 

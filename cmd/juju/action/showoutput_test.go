@@ -16,6 +16,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	actionapi "github.com/juju/juju/api/action"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
@@ -74,7 +75,7 @@ func (s *ShowOutputSuite) TestRun(c *gc.C) {
 		withAPIDelay      time.Duration
 		withAPITimeout    time.Duration
 		withTags          params.FindTagsResults
-		withAPIResponse   []params.ActionResult
+		withAPIResponse   []actionapi.ActionResult
 		withAPIError      string
 		withFormat        string
 		expectedErr       string
@@ -92,7 +93,7 @@ func (s *ShowOutputSuite) TestRun(c *gc.C) {
 		withAPITimeout:    5 * time.Second,
 		withClientQueryID: validActionId,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
-		withAPIResponse:   []params.ActionResult{{}},
+		withAPIResponse:   []actionapi.ActionResult{{}},
 		expectedErr:       "timeout reached",
 		expectedOutput: `
 status: pending
@@ -118,21 +119,21 @@ timing:
 		withClientQueryID: validActionId,
 		withAPITimeout:    1 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
-		withAPIResponse:   []params.ActionResult{},
+		withAPIResponse:   []actionapi.ActionResult{},
 		expectedErr:       "no results for action " + validActionId,
 	}, {
 		should:            "error correctly with multiple results",
 		withClientQueryID: validActionId,
 		withAPITimeout:    1 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
-		withAPIResponse:   []params.ActionResult{{}, {}},
+		withAPIResponse:   []actionapi.ActionResult{{}, {}},
 		expectedErr:       "too many results for action " + validActionId,
 	}, {
 		should:            "pass through an error from the API server",
 		withClientQueryID: validActionId,
 		withAPITimeout:    1 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
-		withAPIResponse: []params.ActionResult{{
+		withAPIResponse: []actionapi.ActionResult{{
 			Error: apiservererrors.ServerError(errors.New("an apiserver error")),
 		}},
 		expectedErr: "an apiserver error",
@@ -143,7 +144,7 @@ timing:
 		withClientQueryID: validActionId,
 		withAPITimeout:    3 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
-		withAPIResponse: []params.ActionResult{{
+		withAPIResponse: []actionapi.ActionResult{{
 			Status: "running",
 			Output: map[string]interface{}{
 				"foo": map[string]interface{}{
@@ -159,7 +160,7 @@ timing:
 		withClientQueryID: validActionId,
 		withAPITimeout:    1 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
-		withAPIResponse: []params.ActionResult{{
+		withAPIResponse: []actionapi.ActionResult{{
 			Status:  "complete",
 			Message: "oh dear",
 			Output: map[string]interface{}{
@@ -189,7 +190,7 @@ timing:
 		withClientWait:    "1s",
 		withAPITimeout:    2 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
-		withAPIResponse: []params.ActionResult{{
+		withAPIResponse: []actionapi.ActionResult{{
 			Status: "pending",
 			Output: map[string]interface{}{
 				"foo": map[string]interface{}{
@@ -215,7 +216,7 @@ timing:
 		withClientWait:    "1s",
 		withAPITimeout:    2 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
-		withAPIResponse: []params.ActionResult{{
+		withAPIResponse: []actionapi.ActionResult{{
 			Status: "pending",
 			Output: map[string]interface{}{
 				"foo": map[string]interface{}{
@@ -242,7 +243,7 @@ timing:
 		withClientWait:    "1s",
 		withAPITimeout:    2 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
-		withAPIResponse: []params.ActionResult{{
+		withAPIResponse: []actionapi.ActionResult{{
 			Status: "pending",
 			Output: map[string]interface{}{
 				"foo": map[string]interface{}{
@@ -270,7 +271,7 @@ timing:
 		withAPITimeout:    2 * time.Second,
 		withFormat:        "plain",
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
-		withAPIResponse: []params.ActionResult{{
+		withAPIResponse: []actionapi.ActionResult{{
 			Status:  "complete",
 			Message: "oh dear",
 			Output: map[string]interface{}{
@@ -297,7 +298,7 @@ hello
 		withClientWait:    "3s",
 		withAPIDelay:      1 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
-		withAPIResponse: []params.ActionResult{{
+		withAPIResponse: []actionapi.ActionResult{{
 			Status: "completed",
 			Output: map[string]interface{}{
 				"foo": map[string]interface{}{
@@ -322,7 +323,7 @@ timing:
 		withClientQueryID: validActionId,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		watch:             true,
-		withAPIResponse: []params.ActionResult{{
+		withAPIResponse: []actionapi.ActionResult{{
 			Status:    "completed",
 			Enqueued:  time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
 			Completed: time.Date(2015, time.February, 14, 8, 15, 30, 0, time.UTC),
@@ -342,7 +343,7 @@ timing:
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		watch:             true,
 		expectedLogs:      []string{"log line 1", "log line 2"},
-		withAPIResponse: []params.ActionResult{{
+		withAPIResponse: []actionapi.ActionResult{{
 			Status:    "completed",
 			Enqueued:  time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
 			Completed: time.Date(2015, time.February, 14, 8, 15, 30, 0, time.UTC),
@@ -364,7 +365,7 @@ timing:
 				t.withAPITimeout,
 				t.withTags,
 				t.withAPIResponse,
-				params.ActionsByNames{},
+				map[string][]actionapi.ActionResult{},
 				t.withAPIError,
 			)
 			fakeClient.logMessageCh = make(chan []string, len(t.expectedLogs))
@@ -454,8 +455,8 @@ func testRunHelper(c *gc.C, s *ShowOutputSuite, client *fakeAPIClient,
 func makeFakeClient(
 	delay, timeout time.Duration,
 	tags params.FindTagsResults,
-	response []params.ActionResult,
-	actionsByNames params.ActionsByNames,
+	response []actionapi.ActionResult,
+	actionsByNames map[string][]actionapi.ActionResult,
 	errStr string,
 ) *fakeAPIClient {
 	var delayTimer *time.Timer

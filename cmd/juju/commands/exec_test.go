@@ -5,6 +5,7 @@ package commands
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/juju/utils/v2/exec"
 	gc "gopkg.in/check.v1"
 
+	actionapi "github.com/juju/juju/api/action"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
@@ -245,16 +247,14 @@ func (*ExecSuite) TestTimeoutArgParsing(c *gc.C) {
 func (s *ExecSuite) TestConvertRunResults(c *gc.C) {
 	for i, test := range []struct {
 		message  string
-		results  params.ActionResult
+		results  actionapi.ActionResult
 		query    actionQuery
 		expected map[string]interface{}
 	}{{
 		message: "in case of error we print receiver and failed action id",
 		results: makeActionResult(mockResponse{
-			error: &params.Error{
-				Message: "whoops",
-			},
-		}, ""),
+			error: errors.New("whoops"),
+		}, validUUID),
 		query: makeActionQuery(validUUID, "MachineId", names.NewMachineTag("1")),
 		expected: map[string]interface{}{
 			"Error":   "whoops",
@@ -262,17 +262,17 @@ func (s *ExecSuite) TestConvertRunResults(c *gc.C) {
 			"Action":  validUUID,
 		},
 	}, {
-		message: "different action tag from query tag",
+		message: "different action tag from query ID",
 		results: makeActionResult(mockResponse{machineTag: "not-a-tag"}, "invalid"),
 		query:   makeActionQuery(validUUID, "MachineId", names.NewMachineTag("1")),
 		expected: map[string]interface{}{
-			"Error":   `expected action tag "action-` + validUUID + `", got "invalid"`,
+			"Error":   `expected action ID "` + validUUID + `", got "invalid"`,
 			"machine": "1",
 			"Action":  validUUID,
 		},
 	}, {
 		message: "different response tag from query tag",
-		results: makeActionResult(mockResponse{machineTag: "not-a-tag"}, "action-"+validUUID),
+		results: makeActionResult(mockResponse{machineTag: "not-a-tag"}, validUUID),
 		query:   makeActionQuery(validUUID, "MachineId", names.NewMachineTag("1")),
 		expected: map[string]interface{}{
 			"Error":   `expected action receiver "machine-1", got "not-a-tag"`,
@@ -281,7 +281,7 @@ func (s *ExecSuite) TestConvertRunResults(c *gc.C) {
 		},
 	}, {
 		message: "minimum is machine id",
-		results: makeActionResult(mockResponse{machineTag: "machine-1"}, "action-"+validUUID),
+		results: makeActionResult(mockResponse{machineTag: "machine-1"}, validUUID),
 		query:   makeActionQuery(validUUID, "MachineId", names.NewMachineTag("1")),
 		expected: map[string]interface{}{
 			"machine": "1",
@@ -294,7 +294,7 @@ func (s *ExecSuite) TestConvertRunResults(c *gc.C) {
 			stderr:  "stderr",
 			message: "msg",
 			code:    "42",
-		}, "action-"+validUUID),
+		}, validUUID),
 		query: makeActionQuery(validUUID, "UnitId", names.NewUnitTag("unit/0")),
 		expected: map[string]interface{}{
 			"unit":        "unit/0",
@@ -325,7 +325,7 @@ func (s *ExecSuite) TestExecForMachineAndUnit(c *gc.C) {
 
 	machineResult := mock.execResponses["0"]
 	unitResult := mock.execResponses["unit/0"]
-	mock.actionResponses = map[string]params.ActionResult{
+	mock.actionResponses = map[string]actionapi.ActionResult{
 		mock.receiverIdMap["0"]:      machineResult,
 		mock.receiverIdMap["unit/0"]: unitResult,
 	}
@@ -380,7 +380,7 @@ func (s *ExecSuite) TestAllMachines(c *gc.C) {
 
 	machine0Result := mock.execResponses["0"]
 	machine1Result := mock.execResponses["1"]
-	mock.actionResponses = map[string]params.ActionResult{
+	mock.actionResponses = map[string]actionapi.ActionResult{
 		mock.receiverIdMap["0"]: machine0Result,
 		mock.receiverIdMap["1"]: machine1Result,
 	}
@@ -430,7 +430,7 @@ func (s *ExecSuite) TestTimeout(c *gc.C) {
 	machine0Result := mock.execResponses["0"]
 	machine1Result := mock.execResponses["1"]
 	machine2Result := mock.execResponses["1"]
-	mock.actionResponses = map[string]params.ActionResult{
+	mock.actionResponses = map[string]actionapi.ActionResult{
 		mock.receiverIdMap["0"]: machine0Result,
 		mock.receiverIdMap["1"]: machine1Result,
 		mock.receiverIdMap["2"]: machine2Result,
@@ -530,7 +530,7 @@ func (s *ExecSuite) TestCAASExecOnOperator(c *gc.C) {
 	mock.setResponse("unit/0", unitResponse)
 
 	unitResult := mock.execResponses["unit/0"]
-	mock.actionResponses = map[string]params.ActionResult{
+	mock.actionResponses = map[string]actionapi.ActionResult{
 		mock.receiverIdMap["unit/0"]: unitResult,
 	}
 
@@ -548,7 +548,7 @@ func (s *ExecSuite) TestCAASExecOnOperator(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(mock.execParams, jc.DeepEquals, &params.RunParams{
+	c.Assert(mock.execParams, jc.DeepEquals, &actionapi.RunParams{
 		Commands:        "hostname",
 		Timeout:         300 * time.Second,
 		Units:           []string{"unit/0"},
@@ -567,7 +567,7 @@ func (s *ExecSuite) TestCAASExecOnWorkload(c *gc.C) {
 	mock.setResponse("unit/0", unitResponse)
 
 	unitResult := mock.execResponses["unit/0"]
-	mock.actionResponses = map[string]params.ActionResult{
+	mock.actionResponses = map[string]actionapi.ActionResult{
 		mock.receiverIdMap["unit/0"]: unitResult,
 	}
 
@@ -585,7 +585,7 @@ func (s *ExecSuite) TestCAASExecOnWorkload(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(mock.execParams, jc.DeepEquals, &params.RunParams{
+	c.Assert(mock.execParams, jc.DeepEquals, &actionapi.RunParams{
 		Commands:        "hostname",
 		Timeout:         300 * time.Second,
 		Units:           []string{"unit/0"},
@@ -647,7 +647,7 @@ func (s *ExecSuite) TestSingleResponse(c *gc.C) {
 	mock.setResponse("0", mockResponse)
 
 	machineResult := mock.execResponses["0"]
-	mock.actionResponses = map[string]params.ActionResult{
+	mock.actionResponses = map[string]actionapi.ActionResult{
 		mock.receiverIdMap["0"]: machineResult,
 	}
 
@@ -718,21 +718,21 @@ type mockExecAPI struct {
 	code   int
 	// machines, applications, units
 	machines        map[string]bool
-	execResponses   map[string]params.ActionResult
-	actionResponses map[string]params.ActionResult
+	execResponses   map[string]actionapi.ActionResult
+	actionResponses map[string]actionapi.ActionResult
 	receiverIdMap   map[string]string
 	block           bool
 	//
 	bestAPIVersion int
-	// recevied values
-	execParams *params.RunParams
+	// received values
+	execParams *actionapi.RunParams
 }
 
 type mockResponse struct {
 	stdout     interface{}
 	stderr     interface{}
 	code       interface{}
-	error      *params.Error
+	error      error
 	message    string
 	machineTag string
 	unitTag    string
@@ -752,7 +752,7 @@ func (m *mockExecAPI) setMachinesAlive(ids ...string) {
 
 func makeActionQuery(actionID string, receiverType string, receiverTag names.Tag) actionQuery {
 	return actionQuery{
-		actionTag: names.NewActionTag(actionID),
+		actionID: actionID,
 		receiver: actionReceiver{
 			receiverType: receiverType,
 			tag:          receiverTag,
@@ -760,19 +760,30 @@ func makeActionQuery(actionID string, receiverType string, receiverTag names.Tag
 	}
 }
 
-func makeActionResult(mock mockResponse, actionTag string) params.ActionResult {
+func makeActionReference(mock mockResponse, actionID string) actionapi.ActionReference {
 	var receiverTag string
 	if mock.unitTag != "" {
 		receiverTag = mock.unitTag
 	} else {
 		receiverTag = mock.machineTag
 	}
-	if actionTag == "" {
-		actionTag = names.NewActionTag(utils.MustNewUUID().String()).String()
+	return actionapi.ActionReference{
+		ID:       actionID,
+		Receiver: receiverTag,
+		Error:    mock.error,
 	}
-	return params.ActionResult{
-		Action: &params.Action{
-			Tag:      actionTag,
+}
+
+func makeActionResult(mock mockResponse, actionID string) actionapi.ActionResult {
+	var receiverTag string
+	if mock.unitTag != "" {
+		receiverTag = mock.unitTag
+	} else {
+		receiverTag = mock.machineTag
+	}
+	return actionapi.ActionResult{
+		Action: &actionapi.Action{
+			ID:       actionID,
 			Receiver: receiverTag,
 		},
 		Message: mock.message,
@@ -788,22 +799,22 @@ func makeActionResult(mock mockResponse, actionTag string) params.ActionResult {
 
 func (m *mockExecAPI) setResponse(id string, mock mockResponse) {
 	if m.execResponses == nil {
-		m.execResponses = make(map[string]params.ActionResult)
+		m.execResponses = make(map[string]actionapi.ActionResult)
 	}
 	if m.receiverIdMap == nil {
 		m.receiverIdMap = make(map[string]string)
 	}
-	actionTag := names.NewActionTag(utils.MustNewUUID().String())
-	m.receiverIdMap[id] = actionTag.Id()
-	m.execResponses[id] = makeActionResult(mock, actionTag.String())
+	actionID := utils.MustNewUUID().String()
+	m.receiverIdMap[id] = actionID
+	m.execResponses[id] = makeActionResult(mock, actionID)
 }
 
 func (*mockExecAPI) Close() error {
 	return nil
 }
 
-func (m *mockExecAPI) RunOnAllMachines(commands string, timeout time.Duration) ([]params.ActionResult, error) {
-	var result []params.ActionResult
+func (m *mockExecAPI) RunOnAllMachines(commands string, timeout time.Duration) (actionapi.EnqueuedActions, error) {
+	var result actionapi.EnqueuedActions
 
 	if m.block {
 		return result, apiservererrors.OperationBlockedError("the operation has been blocked")
@@ -818,21 +829,25 @@ func (m *mockExecAPI) RunOnAllMachines(commands string, timeout time.Duration) (
 		response, found := m.execResponses[machineId]
 		if !found {
 			// Consider this a timeout
-			response = params.ActionResult{
-				Action: &params.Action{
+			response = actionapi.ActionResult{
+				Action: &actionapi.Action{
 					Receiver: names.NewMachineTag(machineId).String(),
 				},
-				Message: exec.ErrCancelled.Error(),
+				Error: exec.ErrCancelled,
 			}
 		}
-		result = append(result, response)
+		result.Actions = append(result.Actions, actionapi.ActionReference{
+			ID:       response.ID,
+			Receiver: response.Receiver,
+			Error:    response.Error,
+		})
 	}
 
 	return result, nil
 }
 
-func (m *mockExecAPI) Run(runParams params.RunParams) ([]params.ActionResult, error) {
-	var result []params.ActionResult
+func (m *mockExecAPI) Run(runParams actionapi.RunParams) (actionapi.EnqueuedActions, error) {
+	var result actionapi.EnqueuedActions
 
 	m.execParams = &runParams
 
@@ -843,34 +858,40 @@ func (m *mockExecAPI) Run(runParams params.RunParams) ([]params.ActionResult, er
 	for _, id := range runParams.Machines {
 		response, found := m.execResponses[id]
 		if found {
-			result = append(result, response)
+			result.Actions = append(result.Actions, actionapi.ActionReference{
+				ID:       response.ID,
+				Receiver: response.Receiver,
+				Error:    response.Error,
+			})
 		}
 	}
 	// mock ignores applications
 	for _, id := range runParams.Units {
 		response, found := m.execResponses[id]
 		if found {
-			result = append(result, response)
+			result.Actions = append(result.Actions, actionapi.ActionReference{
+				ID:       response.ID,
+				Receiver: response.Receiver,
+				Error:    response.Error,
+			})
 		}
 	}
 
 	return result, nil
 }
 
-func (m *mockExecAPI) Actions(actionTags params.Entities) (params.ActionResults, error) {
-	results := params.ActionResults{Results: make([]params.ActionResult, len(actionTags.Entities))}
+func (m *mockExecAPI) Actions(actionIDs []string) ([]actionapi.ActionResult, error) {
+	results := make([]actionapi.ActionResult, len(actionIDs))
 
-	for i, entity := range actionTags.Entities {
-		response, found := m.actionResponses[entity.Tag[len("action-"):]]
+	for i, ID := range actionIDs {
+		response, found := m.actionResponses[ID]
 		if !found {
-			results.Results[i] = params.ActionResult{
-				Error: &params.Error{
-					Message: "action not found",
-				},
+			results[i] = actionapi.ActionResult{
+				Error: errors.New("action not found"),
 			}
 			continue
 		}
-		results.Results[i] = response
+		results[i] = response
 	}
 
 	return results, nil

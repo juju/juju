@@ -16,8 +16,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
+	actionapi "github.com/juju/juju/api/action"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
 )
 
@@ -209,40 +209,33 @@ func (s *RunActionSuite) TestRun(c *gc.C) {
 		clientSetup            func(client *fakeAPIClient)
 		withArgs               []string
 		withAPIErr             error
-		withActionResults      []params.ActionResult
-		expectedActionEnqueued params.Action
+		withActionResults      []actionapi.ActionResult
+		expectedActionEnqueued actionapi.Action
 		expectedErr            string
 	}{{
 		should:   "fail with multiple results",
 		withArgs: []string{validUnitId, "some-action"},
-		withActionResults: []params.ActionResult{
-			{Action: &params.Action{Tag: validActionTagString}},
-			{Action: &params.Action{Tag: validActionTagString}},
+		withActionResults: []actionapi.ActionResult{
+			{Action: &actionapi.Action{ID: validActionId}},
+			{Action: &actionapi.Action{ID: validActionId}},
 		},
 		expectedErr: "illegal number of results returned",
 	}, {
 		should:   "fail with API error",
 		withArgs: []string{validUnitId, "some-action"},
-		withActionResults: []params.ActionResult{{
-			Action: &params.Action{Tag: validActionTagString}},
+		withActionResults: []actionapi.ActionResult{{
+			Action: &actionapi.Action{ID: validActionId}},
 		},
 		withAPIErr:  errors.New("something wrong in API"),
 		expectedErr: "something wrong in API",
 	}, {
 		should:   "fail with error in result",
 		withArgs: []string{validUnitId, "some-action"},
-		withActionResults: []params.ActionResult{{
-			Action: &params.Action{Tag: validActionTagString},
+		withActionResults: []actionapi.ActionResult{{
+			Action: &actionapi.Action{ID: validActionId},
 			Error:  apiservererrors.ServerError(errors.New("database error")),
 		}},
 		expectedErr: "database error",
-	}, {
-		should:   "fail with invalid tag in result",
-		withArgs: []string{validUnitId, "some-action"},
-		withActionResults: []params.ActionResult{{
-			Action: &params.Action{Tag: invalidActionTagString},
-		}},
-		expectedErr: "\"" + invalidActionTagString + "\" is not a valid action tag",
 	}, {
 		should: "fail with missing file passed",
 		withArgs: []string{validUnitId, "some-action",
@@ -268,10 +261,10 @@ func (s *RunActionSuite) TestRun(c *gc.C) {
 	}, {
 		should:   "enqueue a basic action with no params",
 		withArgs: []string{validUnitId, "some-action"},
-		withActionResults: []params.ActionResult{{
-			Action: &params.Action{Tag: validActionTagString},
+		withActionResults: []actionapi.ActionResult{{
+			Action: &actionapi.Action{ID: validActionId},
 		}},
-		expectedActionEnqueued: params.Action{
+		expectedActionEnqueued: actionapi.Action{
 			Name:       "some-action",
 			Parameters: map[string]interface{}{},
 			Receiver:   names.NewUnitTag(validUnitId).String(),
@@ -284,10 +277,10 @@ func (s *RunActionSuite) TestRun(c *gc.C) {
 			"out.num=3",
 			"out.boolval=y",
 		},
-		withActionResults: []params.ActionResult{{
-			Action: &params.Action{Tag: validActionTagString},
+		withActionResults: []actionapi.ActionResult{{
+			Action: &actionapi.Action{ID: validActionId},
 		}},
-		expectedActionEnqueued: params.Action{
+		expectedActionEnqueued: actionapi.Action{
 			Name:     "some-action",
 			Receiver: names.NewUnitTag(validUnitId).String(),
 			Parameters: map[string]interface{}{
@@ -307,10 +300,10 @@ func (s *RunActionSuite) TestRun(c *gc.C) {
 			"out.num=3",
 			"out.boolval=y",
 		},
-		withActionResults: []params.ActionResult{{
-			Action: &params.Action{Tag: validActionTagString},
+		withActionResults: []actionapi.ActionResult{{
+			Action: &actionapi.Action{ID: validActionId},
 		}},
-		expectedActionEnqueued: params.Action{
+		expectedActionEnqueued: actionapi.Action{
 			Name:     "some-action",
 			Receiver: names.NewUnitTag(validUnitId).String(),
 			Parameters: map[string]interface{}{
@@ -329,10 +322,10 @@ func (s *RunActionSuite) TestRun(c *gc.C) {
 			"compression.kind=gz",
 			"compression.fast=true",
 		},
-		withActionResults: []params.ActionResult{{
-			Action: &params.Action{Tag: validActionTagString},
+		withActionResults: []actionapi.ActionResult{{
+			Action: &actionapi.Action{ID: validActionId},
 		}},
-		expectedActionEnqueued: params.Action{
+		expectedActionEnqueued: actionapi.Action{
 			Name:     "some-action",
 			Receiver: names.NewUnitTag(validUnitId).String(),
 			Parameters: map[string]interface{}{
@@ -353,10 +346,10 @@ func (s *RunActionSuite) TestRun(c *gc.C) {
 			"compression.quality.size=small",
 			"--params", s.dir + "/" + "validParams.yml",
 		},
-		withActionResults: []params.ActionResult{{
-			Action: &params.Action{Tag: validActionTagString},
+		withActionResults: []actionapi.ActionResult{{
+			Action: &actionapi.Action{ID: validActionId},
 		}},
-		expectedActionEnqueued: params.Action{
+		expectedActionEnqueued: actionapi.Action{
 			Name:     "some-action",
 			Receiver: names.NewUnitTag(validUnitId).String(),
 			Parameters: map[string]interface{}{
@@ -376,8 +369,8 @@ func (s *RunActionSuite) TestRun(c *gc.C) {
 	}, {
 		should:   "fail with not implemented Leaders method",
 		withArgs: []string{"mysql/leader", "some-action"},
-		withActionResults: []params.ActionResult{{
-			Action: &params.Action{Tag: validActionTagString}},
+		withActionResults: []actionapi.ActionResult{{
+			Action: &actionapi.Action{ID: validActionId}},
 		},
 		expectedErr: "unable to determine leader for application \"mysql\"" +
 			"\nleader determination is unsupported by this API" +
@@ -386,10 +379,10 @@ func (s *RunActionSuite) TestRun(c *gc.C) {
 		should:      "enqueue a basic action on the leader",
 		clientSetup: func(api *fakeAPIClient) { api.apiVersion = 3 },
 		withArgs:    []string{"mysql/leader", "some-action"},
-		withActionResults: []params.ActionResult{{
-			Action: &params.Action{Tag: validActionTagString},
+		withActionResults: []actionapi.ActionResult{{
+			Action: &actionapi.Action{ID: validActionId},
 		}},
-		expectedActionEnqueued: params.Action{
+		expectedActionEnqueued: actionapi.Action{
 			Name:       "some-action",
 			Parameters: map[string]interface{}{},
 			Receiver:   "mysql/leader",
@@ -427,21 +420,22 @@ func (s *RunActionSuite) TestRun(c *gc.C) {
 					// Make sure the test's expected Action was
 					// non-nil and correct.
 					c.Assert(t.withActionResults[0].Action, gc.NotNil)
-					expectedTag, err := names.ParseActionTag(t.withActionResults[0].Action.Tag)
-					c.Assert(err, gc.IsNil)
+					expectedID := t.withActionResults[0].Action.ID
+					valid := names.IsValidAction(expectedID)
+					c.Assert(valid, jc.IsTrue)
 
 					// Make sure the CLI responded with the expected tag
 					outputResult := ctx.Stdout.(*bytes.Buffer).Bytes()
 					resultMap := make(map[string]string)
 					err = yaml.Unmarshal(outputResult, &resultMap)
 					c.Assert(err, gc.IsNil)
-					c.Check(resultMap["Action queued with id"], jc.DeepEquals, expectedTag.Id())
+					c.Check(resultMap["Action queued with id"], jc.DeepEquals, expectedID)
 
 					// Make sure the Action sent to the API to be
 					// enqueued was indeed the expected map
-					enqueued := fakeClient.EnqueuedActions()
-					c.Assert(enqueued.Actions, gc.HasLen, 1)
-					c.Check(enqueued.Actions[0], jc.DeepEquals, t.expectedActionEnqueued)
+					enqueued := fakeClient.enqueuedActions
+					c.Assert(enqueued, gc.HasLen, 1)
+					c.Check(enqueued[0], jc.DeepEquals, t.expectedActionEnqueued)
 				}
 			}()
 		}

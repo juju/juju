@@ -13,7 +13,7 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/apiserver/params"
+	actionapi "github.com/juju/juju/api/action"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -192,7 +192,7 @@ func (c *runActionCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("params must be a map, got %T", typedConformantParams)
 	}
 
-	actions := make([]params.Action, len(c.unitReceivers))
+	actions := make([]actionapi.Action, len(c.unitReceivers))
 	for i, unitReceiver := range c.unitReceivers {
 		if strings.HasSuffix(unitReceiver, "leader") {
 			if c.api.BestAPIVersion() < 3 {
@@ -208,52 +208,44 @@ func (c *runActionCommand) Run(ctx *cmd.Context) error {
 		actions[i].Name = c.actionName
 		actions[i].Parameters = actionParams
 	}
-	results, err := c.api.Enqueue(params.Actions{Actions: actions})
+	results, err := c.api.Enqueue(actions)
 	if err != nil {
 		return err
 	}
 
-	if len(results.Results) != len(c.unitReceivers) {
+	if len(results) != len(c.unitReceivers) {
 		return errors.New("illegal number of results returned")
 	}
 
-	for _, result := range results.Results {
+	for _, result := range results {
 		if result.Error != nil {
 			return result.Error
 		}
 		if result.Action == nil {
 			return errors.Errorf("action failed to enqueue on %q", result.Action.Receiver)
 		}
-		tag, err := names.ParseActionTag(result.Action.Tag)
-		if err != nil {
-			return err
-		}
 
 		// Legacy Juju 1.25 output format for a single unit, no wait.
-		if !c.wait.forever && c.wait.d.Nanoseconds() <= 0 && len(results.Results) == 1 {
-			out := map[string]string{"Action queued with id": tag.Id()}
+		if !c.wait.forever && c.wait.d.Nanoseconds() <= 0 && len(results) == 1 {
+			out := map[string]string{"Action queued with id": result.ID}
 			return c.out.Write(ctx, out)
 		}
 	}
 
-	out := make(map[string]interface{}, len(results.Results))
+	out := make(map[string]interface{}, len(results))
 
 	// Immediate return. This is the default, although rarely
 	// what cli users want. We should consider changing this
 	// default with Juju 3.0.
 	if !c.wait.forever && c.wait.d.Nanoseconds() <= 0 {
-		for _, result := range results.Results {
-			out[result.Action.Receiver] = result.Action.Tag
-			actionTag, err := names.ParseActionTag(result.Action.Tag)
-			if err != nil {
-				return err
-			}
+		for _, result := range results {
+			out[result.Action.Receiver] = result.ID
 			unitTag, err := names.ParseUnitTag(result.Action.Receiver)
 			if err != nil {
 				return err
 			}
 			out[result.Action.Receiver] = map[string]string{
-				"id":   actionTag.Id(),
+				"id":   result.ID,
 				"unit": unitTag.Id(),
 			}
 		}
@@ -269,17 +261,13 @@ func (c *runActionCommand) Run(ctx *cmd.Context) error {
 		wait = time.NewTimer(c.wait.d)
 	}
 
-	for _, result := range results.Results {
-		tag, err := names.ParseActionTag(result.Action.Tag)
-		if err != nil {
-			return err
-		}
-		result, err = GetActionResult(c.api, tag.Id(), wait, true)
+	for _, result := range results {
+		result, err = GetActionResult(c.api, result.ID, wait, true)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		d := FormatActionResult(tag.Id(), result, false, true)
-		d["id"] = tag.Id() // Action ID is required in case we timed out.
+		d := FormatActionResult(result.ID, result, false, true)
+		d["id"] = result.ID // Action ID is required in case we timed out.
 		out[result.Action.Receiver] = d
 	}
 	return c.out.Write(ctx, out)

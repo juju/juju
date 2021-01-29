@@ -5,6 +5,7 @@ package action_test
 
 import (
 	"bytes"
+	"errors"
 	"time"
 
 	"github.com/juju/cmd"
@@ -12,6 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	actionapi "github.com/juju/juju/api/action"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
 )
@@ -38,33 +40,33 @@ func (s *StatusSuite) TestRun(c *gc.C) {
 	emptyArgs := []string{}
 	emptyPrefixArgs := []string{}
 	prefixArgs := []string{prefix}
-	result1 := []params.ActionResult{{Status: "some-random-status", Action: &params.Action{Tag: faketag, Name: "fakeName"}}}
-	result2 := []params.ActionResult{{Status: "a status", Action: &params.Action{Tag: faketag2, Name: "fakeName2"}}, {Status: "another status"}}
-	errResult := []params.ActionResult{{Status: "", Error: &params.Error{Message: "an error"}}}
+	result1 := []actionapi.ActionResult{{Status: "some-random-status", Action: &actionapi.Action{ID: fakeid, Name: "fakeName"}}}
+	result2 := []actionapi.ActionResult{{Status: "a status", Action: &actionapi.Action{ID: fakeid2, Name: "fakeName2"}}, {Status: "another status"}}
+	errResult := []actionapi.ActionResult{{Status: "", Error: &params.Error{Message: "an error"}}}
 
 	errNotFound := "no actions found"
 	errNotFoundForPrefix := `no actions found matching prefix "` + prefix + `"`
 	errFoundTagButNoResults := `identifier "` + prefix + `" matched action\(s\) \[.*\], but found no results`
 
 	nameArgs := []string{"--name", "action_name"}
-	resultMany := params.ActionsByNames{[]params.ActionsByName{{
-		Name: "1",
-	}, {
-		Name: "2",
-	}}}
-
-	resultOne := params.ActionsByNames{[]params.ActionsByName{{
-		Name:    "action_name",
-		Actions: result1,
-	}}}
-
-	errNames := &params.Error{
-		Message: "whoops:",
+	resultMany := map[string][]actionapi.ActionResult{
+		"1": {},
+		"2": {},
 	}
 
-	resultOneError := params.ActionsByNames{[]params.ActionsByName{{
-		Error: errNames,
-	}}}
+	resultOne := map[string][]actionapi.ActionResult{
+		"action_name": result1,
+	}
+
+	resultOneError := map[string][]actionapi.ActionResult{
+		"action_name": {{
+			Error: errors.New("whoops"),
+		}},
+	}
+
+	resultNoneFound := map[string][]actionapi.ActionResult{
+		"action_name": {},
+	}
 
 	tests := []statusTestCase{
 		{expectError: errNotFound},
@@ -80,8 +82,8 @@ func (s *StatusSuite) TestRun(c *gc.C) {
 		{args: prefixArgs, tags: tagsForIdPrefix(prefix, faketag), results: result1},
 		{args: prefixArgs, tags: tagsForIdPrefix(prefix, faketag, faketag2), results: result2},
 		{args: nameArgs, actionsByNames: resultMany, expectError: "expected one result got 2"},
-		{args: nameArgs, actionsByNames: resultOneError, expectError: errNames.Message},
-		{args: nameArgs, actionsByNames: params.ActionsByNames{[]params.ActionsByName{{Name: "action_name"}}}, expectError: "no actions were found for name action_name"},
+		{args: nameArgs, actionsByNames: resultOneError, expectError: "whoops"},
+		{args: nameArgs, actionsByNames: resultNoneFound, expectError: "no actions were found for name action_name"},
 		{args: nameArgs, actionsByNames: resultOne, results: result1},
 		{args: prefixArgs, tags: tagsForIdPrefix(prefix, faketag), results: errResult},
 	}
@@ -125,7 +127,7 @@ func (s *StatusSuite) runTestCase(c *gc.C, tc statusTestCase) {
 	}
 }
 
-func checkActionResultsMap(c *gc.C, results []params.ActionResult) {
+func checkActionResultsMap(c *gc.C, results []actionapi.ActionResult) {
 	requiredOutputFields := []string{"status", "completed at"}
 	actionFields := []string{"action", "id", "unit"}
 
@@ -156,6 +158,6 @@ type statusTestCase struct {
 	args           []string
 	expectError    string
 	tags           params.FindTagsResults
-	results        []params.ActionResult
-	actionsByNames params.ActionsByNames
+	results        []actionapi.ActionResult
+	actionsByNames map[string][]actionapi.ActionResult
 }

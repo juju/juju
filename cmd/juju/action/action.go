@@ -27,29 +27,35 @@ type APIClient interface {
 	// queued Action, or an error if there was a problem queueing up the
 	// Action.
 	// TODO(juju3) - remove.
-	Enqueue(params.Actions) (params.ActionResults, error)
+	Enqueue([]action.Action) ([]action.ActionResult, error)
 
 	// EnqueueOperation takes a list of Actions and queues them up to be executed as
 	// an operation, each action running as a task on the the designated ActionReceiver.
 	// We return the ID of the overall operation and each individual task.
-	EnqueueOperation(params.Actions) (params.EnqueuedActions, error)
+	EnqueueOperation([]action.Action) (action.EnqueuedActions, error)
 
 	// Cancel attempts to cancel a queued up Action from running.
-	Cancel(params.Entities) (params.ActionResults, error)
+	Cancel([]string) ([]action.ActionResult, error)
 
 	// ApplicationCharmActions is a single query which uses ApplicationsCharmsActions to
 	// get the charm.Actions for a single application by tag.
-	ApplicationCharmActions(params.Entity) (map[string]params.ActionSpec, error)
+	ApplicationCharmActions(appName string) (map[string]action.ActionSpec, error)
 
 	// Actions fetches actions by tag.  These Actions can be used to get
 	// the ActionReceiver if necessary.
-	Actions(params.Entities) (params.ActionResults, error)
+	Actions([]string) ([]action.ActionResult, error)
 
 	// ListOperations fetches the operation summaries for specified apps/units.
-	ListOperations(params.OperationQueryArgs) (params.OperationResults, error)
+	ListOperations(action.OperationQueryArgs) (action.Operations, error)
 
 	// Operation fetches the operation with the specified id.
-	Operation(id string) (params.OperationResult, error)
+	Operation(id string) (action.Operation, error)
+
+	// WatchActionProgress reports on logged action progress messages.
+	WatchActionProgress(actionId string) (watcher.StringsWatcher, error)
+
+	// These methods are to support legacy actions with UUIDs.
+	// (deprecated and will be removed in Juju 3.0).
 
 	// FindActionTagsByPrefix takes a list of string prefixes and finds
 	// corresponding ActionTags that match that prefix.
@@ -57,10 +63,7 @@ type APIClient interface {
 
 	// FindActionsByNames takes a list of names and finds a corresponding list of
 	// Actions for every name.
-	FindActionsByNames(params.FindActionsByNames) (params.ActionsByNames, error)
-
-	// WatchActionProgress reports on logged action progress messages.
-	WatchActionProgress(actionId string) (watcher.StringsWatcher, error)
+	FindActionsByNames(params.FindActionsByNames) (map[string][]action.ActionResult, error)
 }
 
 // ActionCommandBase is the base type for action sub-commands.

@@ -9,11 +9,10 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
+	actionapi "github.com/juju/juju/api/action"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/state"
 )
@@ -36,7 +35,7 @@ func (s *ShowSuite) TestInit(c *gc.C) {
 	tests := []struct {
 		should         string
 		args           []string
-		expectedApp    names.ApplicationTag
+		expectedApp    string
 		expectedAction string
 		expectedErr    string
 	}{{
@@ -58,7 +57,7 @@ func (s *ShowSuite) TestInit(c *gc.C) {
 	}, {
 		should:         "init properly with valid application name",
 		args:           []string{validApplicationId, "doIt"},
-		expectedApp:    names.NewApplicationTag(validApplicationId),
+		expectedApp:    validApplicationId,
 		expectedAction: "doIt",
 	}}
 
@@ -71,7 +70,7 @@ func (s *ShowSuite) TestInit(c *gc.C) {
 			err := cmdtesting.InitCommand(s.wrappedCommand, args)
 			if t.expectedErr == "" {
 				c.Check(err, jc.ErrorIsNil)
-				c.Check(s.command.ApplicationTag(), gc.Equals, t.expectedApp)
+				c.Check(s.command.ApplicationName(), gc.Equals, t.expectedApp)
 				c.Check(s.command.ActionName(), gc.Equals, t.expectedAction)
 			} else {
 				c.Check(err, gc.ErrorMatches, t.expectedErr)
@@ -100,7 +99,7 @@ name:
 		expectMessage    string
 		withArgs         []string
 		withAPIErr       string
-		withCharmActions map[string]params.ActionSpec
+		withCharmActions map[string]actionapi.ActionSpec
 		expectedErr      string
 	}{{
 		should:      "pass back API error correctly",
