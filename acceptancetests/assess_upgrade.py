@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """ Assess upgrading juju controllers and models.
 
 Bootstrap a previous version of juju and then upgrade the controller and models
@@ -21,14 +21,14 @@ import sys
 from collections import (
     namedtuple,
     )
+from textwrap import (
+    dedent,
+)
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
     temp_dir,
     )
-from textwrap import (
-    dedent,
-)
 from deploy_stack import (
     BootstrapManager
 )
@@ -128,11 +128,15 @@ def assert_upgrade_is_successful(
 def upgrade_stable_to_devel_version(client, extra_args):
     devel_version = get_stripped_version_number(client.version)
     client.get_controller_client().juju(
-        'upgrade-juju', ('-m', 'controller', '--debug', '--agent-stream', 'devel', '--agent-version', devel_version,) + extra_args)
+        'upgrade-juju', ('-m', 'controller', '--debug',
+                         '--agent-stream', 'devel',
+                         '--agent-version', devel_version,) + extra_args)
     assert_model_is_version(client.get_controller_client(), devel_version)
     wait_until_model_upgrades(client)
 
-    client.juju('upgrade-juju', ('--debug', '--agent-stream', 'devel', '--agent-version', devel_version,) + extra_args)
+    client.juju('upgrade-juju', ('--debug', '--agent-stream',
+                                 'devel', '--agent-version', devel_version,) +
+                extra_args)
     assert_model_is_version(client, devel_version)
     wait_until_model_upgrades(client)
 
@@ -217,7 +221,7 @@ def increment_patch_version(patch_version):
         return int(patch_version) + 1
     except ValueError:
         # Named patch version (alpha/beta etc.)
-        name, num = re.search('(\D+)(\d+)', patch_version).groups()
+        name, num = re.search(r'(\D+)(\d+)', patch_version).groups()
         return "{name}{num}".format(
             name=name,
             num=int(num) + 1,
@@ -259,7 +263,7 @@ def main(argv=None):
 
     assess_upgrade_from_stable_to_develop(args, stable_bsm, devel_client)
 
-    # LP:1742342 Moving from released stream to devel stream doesn't work, 
+    # LP:1742342 Moving from released stream to devel stream doesn't work,
     # because upgrade-juju doesn't honour --agent-stream over the model-config.
     #
     # assess_upgrade_passing_agent_stream(args, devel_client)

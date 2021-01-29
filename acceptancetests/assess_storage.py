@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Assess juju charm storage."""
 
 from __future__ import print_function
@@ -11,11 +11,11 @@ import os
 import sys
 import time
 
-from deploy_stack import BootstrapManager
 from distutils.version import (
     LooseVersion,
     StrictVersion,
 )
+from deploy_stack import BootstrapManager
 from jujucharm import (
     Charm,
     local_charm_path,
@@ -128,22 +128,18 @@ def wait_for_storage_removal(client, storage_id, interval, timeout):
 
 def make_expected_ls(storage_name, unit_name, kind='filesystem'):
     """Return the expected data from list-storage for filesystem or block."""
-    if kind == 'block':
-        location = ''
-    else:
-        location = '/srv/data'
+    unit_data = {'life': 'alive'}
+    if kind != 'block':
+        unit_data['location'] = '/srv/data'
     data = {
         "storage": {
             storage_name: {
                 "kind": kind,
                 "attachments": {
                     "units": {
-                        unit_name: {
-                            "location": location,
-                            "life": "alive"
-                            }
-                        }
+                        unit_name: unit_data
                     },
+                },
                 "life": "alive"
                 }
             }
@@ -196,7 +192,7 @@ def create_storage_charm(charm_dir, name, summary, storage):
 
 def assess_create_pool(client):
     """Test creating storage pool."""
-    for name, pool in storage_pool_details.iteritems():
+    for name, pool in iter(storage_pool_details.items()):
         client.create_storage_pool(name, pool["provider"],
                                    pool["attrs"]["size"])
 

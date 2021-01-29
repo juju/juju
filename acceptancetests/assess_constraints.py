@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """This module tests the deployment with constraints."""
 
 from __future__ import print_function
@@ -54,8 +54,8 @@ def mem_to_int(size):
         val = int(size[0:-1])
         unit = size[-1]
         return val * (1024 ** 'MGTP'.find(unit))
-    else:
-        return int(size)
+
+    return int(size)
 
 
 class Constraints:
@@ -156,19 +156,19 @@ class Constraints:
         if self.instance_type is None:
             return True
         instance_data = get_instance_spec(self.instance_type)
-        for (key, value) in instance_data.iteritems():
+        for (key, value) in iter(instance_data.items()):
             # Temperary fix until cpu-cores -> cores switch is finished.
             if key == 'cores' and 'cpu-cores' in actual_data:
                 key = 'cpu-cores'
             if key not in actual_data:
                 raise JujuAssertionError('Missing data:', key)
-            elif key in ['mem', 'root-disk']:
+            if key in ['mem', 'root-disk']:
                 if mem_to_int(value) != mem_to_int(actual_data[key]):
                     return False
             elif value != actual_data[key]:
                 return False
-        else:
-            return True
+
+        return True
 
     def meets_all(self, actual_data):
         return (self.meets_root_disk(actual_data.get('root-disk')) and
@@ -337,7 +337,7 @@ def assess_multiple_constraints(client, base_name, **kwargs):
 
     Makes sure the combination of constraints gives us new instance type."""
     finger_prints = []
-    for (part, (constraint, value)) in enumerate(kwargs.iteritems()):
+    for (part, (constraint, value)) in enumerate(iter(kwargs.items())):
         data = prepare_constraint_test(
             client, Constraints(**{constraint: value}),
             '{}-part{}'.format(base_name, part))
@@ -355,9 +355,9 @@ def assess_multiple_constraints(client, base_name, **kwargs):
 def assess_constraints(client, test_kvm=False):
     """Assess deployment with constraints."""
     provider = client.env.provider
-    if 'lxd' == provider:
+    if provider == 'lxd':
         assess_virt_type_constraints(client, test_kvm)
-    elif 'ec2' == provider:
+    elif provider == 'ec2':
         assess_instance_type_constraints(client, provider)
         assess_root_disk_constraints(client, ['16G'])
         assess_cores_constraints(client, ['2'])

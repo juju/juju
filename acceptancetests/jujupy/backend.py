@@ -41,12 +41,6 @@ from jujupy.wait_condition import (
 
 __metaclass__ = type
 
-# Python 2 and 3 compatibility
-try:
-    argtype = basestring
-except NameError:
-    argtype = str
-
 log = logging.getLogger("jujupy.backend")
 
 JUJU_DEV_FEATURE_FLAGS = 'JUJU_DEV_FEATURE_FLAGS'
@@ -189,7 +183,7 @@ class JujuBackend:
 
         # If args is a string, make it a tuple. This makes writing commands
         # with one argument a bit nicer.
-        if isinstance(args, argtype):
+        if isinstance(args, str):
             args = (args,)
         # we split the command here so that the caller can control where the -m
         # model flag goes.  Everything in the command string is put before the
@@ -218,7 +212,7 @@ class JujuBackend:
         # Mutate os.environ instead of supplying env parameter so Windows can
         # search env['PATH']
         stderr = subprocess.PIPE if suppress_err else None
-        # Keep track of commands and how long the take.
+        # Keep track of commands and how long they take.
         command_time = CommandTime(command, args, env)
         with scoped_environ(env):
             log.debug('Running juju with env: {}'.format(env))
@@ -284,7 +278,7 @@ class JujuBackend:
                         b'307: Temporary Redirect' in sub_error):
                     raise CannotConnectEnv(e)
                 raise e
-        return sub_output
+        return sub_output.decode('utf-8')
 
     def get_active_model(self, juju_data_dir):
         """Determine the active model in a juju data dir."""
@@ -305,7 +299,7 @@ class JujuBackend:
         try:
             current = json.loads(self.get_juju_output(
                 'controllers', ('--format', 'json'), set(),
-                juju_data_dir, model=None).decode('ascii'))
+                juju_data_dir, model=None))
         except subprocess.CalledProcessError:
             raise NoActiveControllers(
                 'No active controller for {}'.format(juju_data_dir))
@@ -320,7 +314,7 @@ class JujuBackend:
         try:
             current = json.loads(self.get_juju_output(
                 'controllers', ('--format', 'json'), set(),
-                juju_data_dir, model=None).decode('ascii'))
+                juju_data_dir, model=None))
         except subprocess.CalledProcessError:
             raise NoActiveControllers(
                 'No active controller for {}'.format(juju_data_dir))

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Test migrating models between controllers of increasing versions."""
 
 from __future__ import print_function
@@ -11,6 +11,14 @@ from distutils.version import (
 import logging
 import sys
 
+from deploy_stack import (
+    BootstrapManager,
+    get_random_string,
+    )
+from utility import (
+    add_basic_testing_arguments,
+    configure_logging,
+    )
 from assess_model_migration import (
     _new_log_dir,
     assert_model_migrated_successfully,
@@ -27,14 +35,6 @@ from jujupy.wait_condition import (
 )
 from jujupy.workloads import (
     deploy_simple_server_to_new_model,
-    )
-from deploy_stack import (
-    BootstrapManager,
-    get_random_string,
-    )
-from utility import (
-    add_basic_testing_arguments,
-    configure_logging,
     )
 
 __metaclass__ = type
@@ -67,7 +67,7 @@ def assess_model_migration_versions(stable_bsm, devel_bsm, args):
                 'version-migration',
                 resource_contents)
             migration_target_client = migrate_model_to_controller(
-                test_stable_model, devel_client)
+                test_stable_model, stable_client, devel_client)
             assert_model_migrated_successfully(
                 migration_target_client, application, resource_contents)
 
@@ -77,6 +77,7 @@ def assess_model_migration_versions(stable_bsm, devel_bsm, args):
                 another_bsm.client.get_controller_client().wait_for(
                     AllMachinesRunning())
                 another_migration_client = migrate_model_to_controller(
+                    test_stable_model,
                     migration_target_client, another_bsm.client)
                 assert_model_migrated_successfully(
                     another_migration_client, application, resource_contents)

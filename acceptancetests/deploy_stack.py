@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 from __future__ import print_function
 
 from argparse import ArgumentParser
@@ -17,28 +17,11 @@ import string
 import subprocess
 import sys
 import time
-import yaml
 import shutil
+import yaml
 
 from jujucharm import (
     local_charm_path,
-)
-from jujupy import (
-    client_from_config,
-    client_for_existing,
-    FakeBackend,
-    fake_juju_client,
-    get_machine_dns_name,
-    juju_home_path,
-    JujuData,
-    temp_bootstrap_env,
-    IaasClient,
-)
-from jujupy.configuration import (
-    get_juju_data,
-)
-from jujupy.exceptions import (
-    NoProvider,
 )
 from remote import (
     remote_from_address,
@@ -65,6 +48,23 @@ from utility import (
     print_now,
     until_timeout,
     wait_for_port,
+)
+from jujupy import (
+    client_from_config,
+    client_for_existing,
+    FakeBackend,
+    fake_juju_client,
+    get_machine_dns_name,
+    juju_home_path,
+    JujuData,
+    temp_bootstrap_env,
+    IaasClient,
+)
+from jujupy.configuration import (
+    get_juju_data,
+)
+from jujupy.exceptions import (
+    NoProvider,
 )
 
 __metaclass__ = type
@@ -127,7 +127,8 @@ def _deploy_stack(path, client, timeout=3600, charm=False, lxd_profile=None):
     if lxd_profile is not None:
         model_name = client.model_name
         profile = lxd_profile.format(model_name=model_name)
-        with subprocess.Popen(('echo', profile), stdout=subprocess.PIPE) as echo:
+        cmd = ('echo', profile)
+        with subprocess.Popen(cmd, stdout=subprocess.PIPE) as echo:
             o = subprocess.check_output(
                 ('lxc', 'profile', 'edit', 'juju-%s' % model_name),
                 stdin=echo.stdout
@@ -260,7 +261,6 @@ def dump_env_logs(client, bootstrap_host, artifacts_dir, runtime_config=None):
     dump_env_logs_known_hosts(client, artifacts_dir, runtime_config,
                               known_hosts)
 
-
 def dump_env_logs_known_hosts(client, artifacts_dir, runtime_config=None,
                               known_hosts=None):
     if known_hosts is None:
@@ -279,10 +279,16 @@ def dump_env_logs_known_hosts(client, artifacts_dir, runtime_config=None,
             machine_id, remote)
         machine_dir = os.path.join(artifacts_dir, "machine-%s" % machine_id)
         ensure_dir(machine_dir)
+        maybe_inject_ssh_keys(remote, client.env)
         copy_remote_logs(remote, machine_dir)
     archive_logs(artifacts_dir)
     retain_config(runtime_config, artifacts_dir)
 
+def maybe_inject_ssh_keys(remote, env):
+    use_ssh_key = getattr(remote, "use_ssh_key", None)
+    if callable(use_ssh_key):
+        identity_file = os.path.join(env.juju_home, "ssh", "juju_id_rsa")
+        use_ssh_key(identity_file)
 
 def retain_config(runtime_config, log_directory):
     if not runtime_config:
@@ -373,15 +379,8 @@ def copy_remote_logs(remote, directory):
         log_paths = [
             '/var/log/cloud-init*.log',
             '/var/log/juju/*.log',
-            # TODO(gz): Also capture kvm container logs?
-            '/var/lib/juju/containers/juju-*-lxc-*/',
-            '/var/log/lxd/juju-*',
-            '/var/log/lxd/lxd.log',
             '/var/log/syslog',
-            '/var/log/mongodb/mongodb.log',
-            '/etc/network/interfaces',
             '/etc/environment',
-            '/home/ubuntu/ifconfig.log',
         ]
 
         try:
@@ -391,27 +390,56 @@ def copy_remote_logs(remote, directory):
             return
 
         try:
-            remote.run('sudo chmod -Rf go+r ' + ' '.join(log_paths))
-        except subprocess.CalledProcessError as e:
-            # The juju log dir is not created until after cloud-init succeeds.
-            logging.warning("Could not allow access to the juju logs:")
-            logging.warning(e.output)
-        try:
-            remote.run('ifconfig > /home/ubuntu/ifconfig.log')
-        except subprocess.CalledProcessError as e:
-            logging.warning("Could not capture ifconfig state:")
-            logging.warning(e.output)
+            # Check whether mongo and lxd are installed via snap and populate
+            # the appropriate log locations depending on the installation type.
+            #
+            # As the chmod invocation below does not work with snap, we need to
+            # copy the logs to a temp folder and grab them from there.
+            #
+            # NOTE: on xenial and bionic juju configures mongo to dump its logs
+            # to syslog which we already grab.
+            has_jujudb_snap = remote.run('sh -c "which juju-db.mongo || true"')
+            has_mongod_logs = remote.run('sh -c "[ -f /var/log/mongodb/mongodb.log ] && echo has_logs || true"')
+            if 'juju-db' in has_jujudb_snap:
+                remote.run('mkdir -p /tmp/snaplogs; sudo cp /var/snap/juju-db/common/logs/mongodb.log /tmp/snaplogs')
+                log_paths.append('/tmp/snaplogs/mongodb.log')
+            elif 'has_logs' in has_mongod_logs:
+                log_paths.append('/var/log/mongodb/mongodb.log')
 
-    try:
-        remote.copy(directory, log_paths)
-    except (subprocess.CalledProcessError,
-            winrm.exceptions.WinRMTransportError) as e:
-        # The juju logs will not exist if cloud-init failed.
-        logging.warning("Could not retrieve some or all logs:")
-        if getattr(e, 'output', None):
-            logging.warning(e.output)
-        else:
-            logging.warning(repr(e))
+            path_to_lxd = remote.run('sh -c "which lxd || true"')
+            if 'snap' in path_to_lxd:
+                remote.run('mkdir -p /tmp/snaplogs; sudo cp /var/snap/lxd/common/lxd/logs/lxd.log /tmp/snaplogs')
+                log_paths.append('/tmp/snaplogs/lxd.log')
+            elif 'usr' in path_to_lxd:
+                log_paths.append('/var/log/lxd/lxd.log')
+
+            # Grab network details
+            has_netplan = remote.run('sh -c "which netplan || true"')
+            if 'netplan' in has_netplan:
+                log_paths.append('/etc/netplan/*.yaml')
+            else:
+                log_paths.append('/etc/network/interfaces')
+
+            has_ifconfig = remote.run('sh -c "which ifconfig || true"')
+            if 'ifconfig' in has_ifconfig:
+                remote.run('ifconfig > /home/ubuntu/ifconfig.log')
+                log_paths.append('/home/ubuntu/ifconfig.log')
+            else:  # assume ip is installed and use that instead
+                remote.run('ip a > /home/ubuntu/ip.log')
+                log_paths.append('/home/ubuntu/ip.log')
+
+            # Setup permissions so we can copy the log files and then copy them
+            # to the artifacts directory using scp.
+            remote.run('sudo chmod -Rf go+r ' + ' '.join(log_paths))
+            remote.copy(directory, log_paths)
+        except (subprocess.CalledProcessError,
+                winrm.exceptions.WinRMTransportError) as e:
+            # The juju logs will not exist if cloud-init failed.
+            logging.warning("Could not retrieve some or all logs:")
+            if getattr(e, 'output', None):
+                logging.warning(e.output)
+            else:
+                logging.warning(repr(e))
 
 
 def assess_juju_run(client):
@@ -497,10 +525,12 @@ def deploy_job_parse_args(argv=None):
     parser.add_argument('--use-charmstore', action='store_true',
                         help='Deploy dummy charms from the charmstore.')
     parser.add_argument('--force', action='store', default=False,
-                        help='Forces the controller to be deployed even though the series is not supported.')
+                        help=("Forces the controller to be deployed even "
+                              "though the series is not supported."))
     parser.add_argument('--config', action='store', default=None,
-                        help='Able to set config settings during deploy. E.g. alternative image-stream  --config '
-                             'image-stream=daily')
+                        help=("Able to set config settings during deploy. "
+                              "E.g. alternative image-stream  --config "
+                              "image-stream=daily"))
     return parser.parse_args(argv)
 
 
@@ -790,9 +820,8 @@ class BootstrapManager:
                 if substrate is not None:
                     return substrate.ensure_cleanup(self.resource_details)
                 logging.warning(
-                    '{} is an unknown provider. Unable to ensure cleanup.'.format(
-                        self.client.env.provider
-                    )
+                    '{} is an unknown provider. Unable to ensure cleanup.'.
+                    format(self.client.env.provider)
                 )
         return []
 
@@ -874,7 +903,7 @@ class BootstrapManager:
         controller_strategy = ExistingController(client)
         return cls(
             args.temp_env_name, client, client, args.bootstrap_host,
-            args.machine, args.series, args.arch, args.agent_url, 
+            args.machine, args.series, args.arch, args.agent_url,
             args.agent_stream, args.region, args.logs, args.keep_env,
             controller_strategy=controller_strategy,
             existing_controller=existing_controller)
@@ -1071,7 +1100,8 @@ class BootstrapManager:
                         try:
                             self.tear_down()
                         finally:
-                            # ensure_cleanup does not reply on controller at all, so always try to do cleanup.
+                            # ensure_cleanup does not reply on controller at
+                            # all, so always try to do cleanup.
                             unclean_resources = self.ensure_cleanup()
                             error_if_unclean(unclean_resources)
 
@@ -1262,16 +1292,17 @@ def _deploy_job(args, charm_series, series):
         args.temp_env_name, client, client, args.bootstrap_host, args.machine,
         series, args.arch, args.agent_url, args.agent_stream, args.region,
         args.logs, args.keep_env, controller_strategy=controller_strategy)
-    with bs_manager.booted_context(args.upload_tools, force=args.force, config_options=args.config):
+    with bs_manager.booted_context(args.upload_tools, force=args.force,
+                                   config_options=args.config):
         # Create a no-op context manager, to avoid duplicate calls of
         # deploy_dummy_stack(), as was the case prior to this revision.
         manager = nested()
         with manager:
             deploy_dummy_stack(client, charm_series, args.use_charmstore)
         assess_juju_relations(client)
-        skip_juju_run = (
-                (client.version < "2" and sys.platform in ("win32", "darwin")) or
-                charm_series.startswith(("centos", "win")))
+        is_win_or_mac = sys.platform in ("win32", "darwin")
+        skip_juju_run = ((client.version < "2" and is_win_or_mac)
+                         or charm_series.startswith(("centos", "win")))
         if not skip_juju_run:
             assess_juju_run(client)
         if args.upgrade:

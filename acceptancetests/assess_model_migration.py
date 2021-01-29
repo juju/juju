@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Tests for the Model Migration feature"""
 
 from __future__ import print_function
@@ -12,6 +12,15 @@ import sys
 from time import sleep
 import yaml
 
+from remote import remote_from_address
+from utility import (
+    JujuAssertionError,
+    add_basic_testing_arguments,
+    configure_logging,
+    qualified_model_name,
+    temp_dir,
+    until_timeout,
+)
 from assess_user_grant_revoke import User
 from deploy_stack import (
     BootstrapManager,
@@ -25,15 +34,6 @@ from jujupy.workloads import (
     assert_deployed_charm_is_responding,
     deploy_dummy_source_to_new_model,
     deploy_simple_server_to_new_model,
-)
-from remote import remote_from_address
-from utility import (
-    JujuAssertionError,
-    add_basic_testing_arguments,
-    configure_logging,
-    qualified_model_name,
-    temp_dir,
-    until_timeout,
 )
 
 
@@ -62,13 +62,16 @@ def assess_model_migration(bs1, bs2, args):
             ensure_model_logs_are_migrated(source_client, dest_client)
             ensure_api_login_redirects(source_client, dest_client)
 
-            # TODO - adding a new user with lxc cloud fails due to missing creds
+            # TODO - adding a new user with lxc cloud fails due to missing
+            # creds
             # TODO - local lxd creds need to be added to controller by running
             # TODO - autoload-credentials and then update-credentials
-            # assess_user_permission_model_migrations(source_client, dest_client)
+            # assess_user_permission_model_migrations(source_client,
+            # dest_client)
 
             # TODO - fix 'migration in progress' error
-            # ensure_migration_rolls_back_on_failure(source_client, dest_client)
+            # ensure_migration_rolls_back_on_failure(source_client,
+            # dest_client)
 
         # Continue test where we ensure that a migrated model continues to
         # work after it's originating controller has been destroyed.
@@ -127,6 +130,12 @@ def wait_until_model_disappears(client, model_name, timeout=600):
     def model_check(client):
         try:
             models = client.get_controller_client().get_models()
+
+            # 2.2-rc1 introduced new model listing output name/short-name.
+            all_model_names = [
+                m.get('short-name', m['name']) for m in models['models']]
+            if model_name not in all_model_names:
+                return True
         except CalledProcessError as e:
             # It's possible that we've tried to get status from the model as
             # it's being removed.
@@ -134,12 +143,6 @@ def wait_until_model_disappears(client, model_name, timeout=600):
             # error and the model is no longer in the output.
             if 'cannot get model details' not in e.stderr:
                 raise
-        else:
-            # 2.2-rc1 introduced new model listing output name/short-name.
-            all_model_names = [
-                m.get('short-name', m['name']) for m in models['models']]
-            if model_name not in all_model_names:
-                return True
 
     try:
         wait_for_model_check(client, model_check, timeout)
@@ -307,8 +310,8 @@ def ensure_superuser_can_migrate_other_user_models(
         attempt_client.env.user_name)
 
     migration_client = source_client.migrate(
-        user_qualified_model_name, user_qualified_model_name, attempt_client, dest_client,
-        include_e=False)
+        user_qualified_model_name, user_qualified_model_name, attempt_client,
+        dest_client, include_e=False)
 
     wait_for_model(
         migration_client, user_qualified_model_name)
@@ -365,10 +368,10 @@ def get_full_model_name(client, include_user_name):
             client.env.controller.name,
             client.env.user_name,
             client.env.environment)
-    else:
-        return '{}:{}'.format(
-            client.env.controller.name,
-            client.env.environment)
+
+    return '{}:{}'.format(
+        client.env.controller.name,
+        client.env.environment)
 
 
 def ensure_model_is_functional(client, application):
@@ -462,8 +465,8 @@ def ensure_migration_rolls_back_on_failure(source_client, dest_client):
     test_model, application = deploy_simple_server_to_new_model(
         source_client, 'rollmeback')
     test_model.migrate(
-        test_model.env.environment, test_model.env.environment, test_model, dest_client,
-        include_e=False)
+        test_model.env.environment, test_model.env.environment, test_model,
+        dest_client, include_e=False)
     # Once migration has started interrupt it
     wait_for_migrating(test_model)
     log.info('Disrupting target controller to force rollback')
@@ -536,7 +539,8 @@ def ensure_migrating_with_superuser_user_permissions_succeeds(
         user_source_client, 'super-permissions')
     log.info('Attempting migration process')
     migrated_client = migrate_model_to_controller(
-        user_new_model, source_client, user_dest_client, include_user_name=True)
+        user_new_model, source_client, user_dest_client,
+        include_user_name=True)
     log.info('SUCCESS: superuser migrated other user model.')
     migrated_client.destroy_model()
 
@@ -584,7 +588,7 @@ def expect_migration_attempt_to_fail(source_client, dest_client):
             'migrate', *args, merge_stderr=True, include_e=False)
     except CalledProcessError as e:
         print(e.output, file=sys.stderr)
-        if 'permission denied' not in e.output:
+        if 'permission denied' not in e.output.decode('utf-8'):
             raise
         log.info('SUCCESS: Migrate command failed as expected.')
     else:
