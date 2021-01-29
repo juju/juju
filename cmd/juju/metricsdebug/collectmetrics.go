@@ -165,7 +165,7 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 	wg.Add(len(runResults))
 	for _, result := range runResults {
 		r := result
-		if r.Error != nil {
+		if err := r.Error; err != nil {
 			fmt.Fprintf(ctx.Stdout, "failed to collect metrics: %v\n", err)
 			wg.Done()
 			continue
