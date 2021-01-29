@@ -73,6 +73,11 @@ func (u *Unit) Refresh() error {
 	}
 	result := results.Results[0]
 	if result.Error != nil {
+		// We should be able to use apiserver.common.RestoreError here,
+		// but because of poor design, it causes import errors.
+		if params.IsCodeNotFound(result.Error) {
+			return errors.NewNotFound(result.Error, "")
+		}
 		return errors.Trace(result.Error)
 	}
 

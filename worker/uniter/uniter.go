@@ -672,21 +672,27 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	default:
 		return errors.Errorf("unknown model type %q", u.modelType)
 	}
+
+	// If we started up already dead, we should not progress further.
+	// If we become Dead immediately after starting up, we may well
+	// complete any operations in progress before detecting it,
+	// but that race is fundamental and inescapable,
+	// whereas this one is not.
 	u.unit, err = u.st.Unit(unitTag)
 	if err != nil {
-		return err
+		if errors.IsNotFound(err) {
+			return u.stopUnitError()
+		}
+		return errors.Trace(err)
 	}
 	if u.unit.Life() == life.Dead {
-		// If we started up already dead, we should not progress further. If we
-		// become Dead immediately after starting up, we may well complete any
-		// operations in progress before detecting it; but that race is fundamental
-		// and inescapable, whereas this one is not.
 		return u.stopUnitError()
 	}
+
 	// If initialising for the first time after deploying, update the status.
 	currentStatus, err := u.unit.UnitStatus()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	// TODO(fwereade/wallyworld): we should have an explicit place in the model
 	// to tell us when we've hit this point, instead of piggybacking on top of

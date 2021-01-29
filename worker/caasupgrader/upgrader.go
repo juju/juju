@@ -178,7 +178,8 @@ func (u *Upgrader) loop() error {
 		logger.Debugf("%s requested for %v from %v to %v", direction, u.tag, jujuversion.Current, wantVersion)
 		err = u.operatorUpgrader.Upgrade(u.tag.String(), wantVersion)
 		if err != nil {
-			return errors.Annotatef(err, "requesting upgrade for %v from %v to %v", u.tag, jujuversion.Current, wantVersion)
+			return errors.Annotatef(
+				err, "requesting upgrade for %v from %v to %v", u.tag.String(), jujuversion.Current, wantVersion)
 		}
 	}
 }
