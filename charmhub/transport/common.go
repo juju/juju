@@ -6,6 +6,9 @@ package transport
 // The following contains all the common DTOs for a gathering information from
 // a given store.
 
+// Channel defines a unique permutation that corresponds to the track, risk
+// and platform. There can be multiple channels of the same track and risk, but
+// with different platforms.
 type Channel struct {
 	Name       string   `json:"name"`
 	Platform   Platform `json:"platform"`
@@ -14,6 +17,8 @@ type Channel struct {
 	Track      string   `json:"track"`
 }
 
+// Platform is a typed tuple for identifying charms or bundles with a matching
+// architecture, os and series.
 type Platform struct {
 	Architecture string `json:"architecture"`
 	OS           string `json:"os"`
@@ -30,6 +35,8 @@ type Download struct {
 	URL        string `json:"url"`
 }
 
+// Entity holds the information about the charm or bundle, either contains the
+// information about the charm or bundle or whom owns it.
 type Entity struct {
 	Categories  []Category        `json:"categories"`
 	Charms      []Charm           `json:"contains-charms"`
@@ -41,11 +48,13 @@ type Entity struct {
 	StoreURL    string            `json:"store-url"`
 }
 
+// Category defines the category of a given charm or bundle. Akin to a tag.
 type Category struct {
 	Featured bool   `json:"featured"`
 	Name     string `json:"name"`
 }
 
+// Charm is used to identify charms within a bundle.
 type Charm struct {
 	Name      string `json:"name"`
 	PackageID string `json:"package-id"`
