@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 This tests the wallet commands utilized for commercial charm billing.
 These commands are linked to a ubuntu sso account, and as such, require the
@@ -9,15 +9,15 @@ You can use charm login to do this, or let juju authenticate with a browser.
 from __future__ import print_function
 
 import argparse
-from fixtures import EnvironmentVariable
 import json
 import logging
 import os
-import pexpect
 from random import randint
 import shutil
 import subprocess
 import sys
+import pexpect
+from fixtures import EnvironmentVariable
 
 
 from deploy_stack import (
@@ -67,7 +67,7 @@ def _try_setting_wallet(client, name, value):
     try:
         output = set_wallet(client, name, value)
     except subprocess.CalledProcessError as e:
-        output = [e.output, getattr(e, 'stderr', '')]
+        output = [e.output.decode('utf-8'), getattr(e, 'stderr', '')]
         raise JujuAssertionError('Could not set wallet {}'.format(output))
 
     if 'wallet limit updated' not in output:
@@ -80,14 +80,17 @@ def _try_creating_wallet(client, name, value):
         log.info('Created new wallet "{}" with value {}'.format(name,
                                                                 value))
     except subprocess.CalledProcessError as e:
-        output = [e.output, getattr(e, 'stderr', '')]
+        output = [
+            e.output.decode('utf-8'),
+            getattr(e, 'stderr', '').decode('utf-8'),
+        ]
         if any('already exists' in message for message in output):
             log.info('Reusing wallet "{}" with value {}'.format(name, value))
             pass  # this will be a failure once lp:1663258 is fixed
         else:
             raise JujuAssertionError(
                 'Error testing create-wallet: {}'.format(output))
-    except:
+    except Exception:
         raise JujuAssertionError('Added duplicate wallet')
 
 
@@ -123,7 +126,7 @@ def assert_set_wallet(client, name, limit, error_strings):
     try:
         _try_setting_wallet(client, name, limit)
     except JujuAssertionError as e:
-        if error_strings['pass'] not in e.message:
+        if error_strings['pass'] not in str(e):
             raise JujuAssertionError(
                 '{}: {}'.format(error_strings['unknown'], e))
     else:

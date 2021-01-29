@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Simple looped check over provided file for regex content."""
 from __future__ import print_function
 

@@ -107,7 +107,7 @@ def assert_keystone_is_responding(client):
         raise AssertionError('keystone not responding; {}: {}'.format(
             resp.status_code, resp.reason
         ))
-    if '{"versions": {"values":' not in resp.content:
+    if '{"versions": {"values":' not in str(resp.content, 'utf-8'):
         raise AssertionError('Got unexpected keystone page content: {}'.format(resp.content))
 
 
@@ -139,7 +139,7 @@ def deploy_simple_server_to_new_model(
 def deploy_simple_resource_server(
         client, resource_contents=None, series='xenial'):
     application_name = 'simple-resource-http'
-    log.info('Deploying charm: '.format(application_name))
+    log.info('Deploying charm: {}'.format(application_name))
     charm_path = local_charm_path(
         charm=application_name, juju_ver=client.version)
     # Create a temp file which we'll use as the resource.

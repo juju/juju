@@ -10,11 +10,8 @@ run_network_health() {
     juju deploy ubuntu ubuntu-bionic --series bionic
 
     # Now the testing charm for each series.
-    # TODO (manadart 2020-06-08): This charm needs updating with Focal support.
-    # TODO: The latest network-health charm (11 onwards) is broken;
-    # it doesn't properly install charmhelpers.
-    juju deploy 'cs:~juju-qa/network-health-10' network-health-xenial --series xenial
-    juju deploy 'cs:~juju-qa/network-health-10' network-health-bionic --series bionic
+    juju deploy 'cs:~juju-qa/network-health' network-health-xenial --series xenial
+    juju deploy 'cs:~juju-qa/network-health' network-health-bionic --series bionic
 
     juju expose network-health-xenial
     juju expose network-health-bionic

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Validate endpoint bindings functionality on MAAS."""
 
 from __future__ import print_function

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """ Assess upgrading charms with lxd-profiles in different deployment scenarios.
 """

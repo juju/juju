@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 from __future__ import print_function
 from argparse import ArgumentParser
 import contextlib
@@ -15,6 +15,12 @@ import tempfile
 from textwrap import dedent
 import time
 
+from utility import (
+    JujuAssertionError,
+    add_basic_testing_arguments,
+    configure_logging,
+    wait_for_port,
+    )
 from deploy_stack import (
     BootstrapManager,
     get_random_string,
@@ -24,12 +30,6 @@ from jujupy import (
     KVM_MACHINE,
     LXC_MACHINE,
     LXD_MACHINE,
-    )
-from utility import (
-    JujuAssertionError,
-    add_basic_testing_arguments,
-    configure_logging,
-    wait_for_port,
     )
 
 
@@ -59,7 +59,8 @@ def parse_args(argv=None):
         choices=[KVM_MACHINE, LXC_MACHINE, LXD_MACHINE])
     parser.add_argument(
         '--space-constraint',
-        help='The network space to constrain containers to. Default is no space constraints.',
+        help=('The network space to constrain containers to. '
+              'Default is no space constraints.'),
         default=None,
         dest='space')
     args = parser.parse_args(argv)
@@ -121,10 +122,11 @@ def make_machines(client, container_types, space):
     sargs = []
     if space:
         sargs = ['--constraints', 'spaces=' + space]
-         
-    for host, containers in required.iteritems():
+
+    for host, containers in iter(required.items()):
         for container in containers:
-            client.juju('add-machine', tuple(['{}:{}'.format(container, host)] + sargs))
+            client.juju('add-machine',
+                        tuple(['{}:{}'.format(container, host)] + sargs))
 
     status = client.wait_for_started()
 
@@ -173,7 +175,9 @@ def assess_network_traffic(client, targets):
     dests = targets[1:]
 
     with tempfile.NamedTemporaryFile(delete=False) as f:
-        f.write('tmux new-session -d -s test "nc -l 6778 > nc_listen.out"')
+        f.write(
+            'tmux new-session -d -s test "nc -l 6778 > nc_listen.out"'.encode(
+                'utf-8'))
     client.juju('scp', ('--proxy', f.name, source + ':/home/ubuntu/listen.sh'))
     os.remove(f.name)
 
@@ -186,8 +190,10 @@ def assess_network_traffic(client, targets):
         msg = get_random_string()
         ssh(client, source, 'rm nc_listen.out; bash ./listen.sh')
         ssh(client, dest,
-            'echo "{msg}" | nc {addr} 6778'.format(msg=msg, addr=address))
-        result = ssh(client, source, 'more nc_listen.out')
+            'echo "{msg}" | nc -q 0 {addr} 6778'.format(msg=msg, addr=address))
+        # This command will block until *any* data appears in the file, tee the
+        # output and return control back to us.
+        result = ssh(client, source, 'tail -F nc_listen.out | sed "/.*/ q"')
         if msg not in result:
             raise ValueError("Wrong or missing message: %r" % result.rstrip())
         log.info('SUCCESS.')
@@ -420,7 +426,8 @@ def main(argv=None):
     client = bs_manager.client
     machine_types = _get_container_types(client, args.machine_type)
     with cleaned_bootstrap_context(bs_manager, args):
-        assess_container_networking(bs_manager.client, machine_types, args.space)
+        assess_container_networking(bs_manager.client, machine_types,
+                                    args.space)
     return 0
 
 

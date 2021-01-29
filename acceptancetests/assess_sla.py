@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """This test will test the juju sla command. Currently, testing budget or
 supported sla models requires a functioning omnibus. As such, the current
 test merely checks to ensure unsupported models appear as unsupported"""
