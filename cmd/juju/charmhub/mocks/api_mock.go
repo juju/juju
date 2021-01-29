@@ -322,21 +322,6 @@ func (mr *MockCharmHubClientMockRecorder) Download(arg0, arg1, arg2 interface{})
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Download", reflect.TypeOf((*MockCharmHubClient)(nil).Download), arg0, arg1, arg2)
 }
 
-// Info mocks base method
-func (m *MockCharmHubClient) Info(arg0 context.Context, arg1 string) (transport.InfoResponse, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Info", arg0, arg1)
-	ret0, _ := ret[0].(transport.InfoResponse)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Info indicates an expected call of Info
-func (mr *MockCharmHubClientMockRecorder) Info(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Info", reflect.TypeOf((*MockCharmHubClient)(nil).Info), arg0, arg1)
-}
-
 // Refresh mocks base method
 func (m *MockCharmHubClient) Refresh(arg0 context.Context, arg1 charmhub0.RefreshConfig) ([]transport.RefreshResponse, error) {
 	m.ctrl.T.Helper()
