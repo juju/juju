@@ -673,6 +673,11 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return errors.Errorf("unknown model type %q", u.modelType)
 	}
 
+	// If we started up already dead, we should not progress further.
+	// If we become Dead immediately after starting up, we may well
+	// complete any operations in progress before detecting it,
+	// but that race is fundamental and inescapable,
+	// whereas this one is not.
 	u.unit, err = u.st.Unit(unitTag)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -681,11 +686,6 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return errors.Trace(err)
 	}
 	if u.unit.Life() == life.Dead {
-		// If we started up already dead, we should not progress further.
-		// If we become Dead immediately after starting up, we may well
-		// complete any operations in progress before detecting it,
-		// but that race is fundamental and inescapable,
-		// whereas this one is not.
 		return u.stopUnitError()
 	}
 
