@@ -110,14 +110,14 @@ func (c *cancelCommand) Run(ctx *cmd.Context) error {
 		ID     string
 		Result *actionapi.ActionResult
 	}
-	var unCanceledActions []unCanceledAction
+	var failedCancels []unCanceledAction
 	var canceledActions []actionapi.ActionResult
 
 	for i, result := range actions {
 		if result.Action != nil {
 			canceledActions = append(canceledActions, result)
 		} else {
-			unCanceledActions = append(unCanceledActions, unCanceledAction{idsToCancel[i], &result})
+			failedCancels = append(failedCancels, unCanceledAction{idsToCancel[i], &result})
 		}
 	}
 
@@ -125,9 +125,9 @@ func (c *cancelCommand) Run(ctx *cmd.Context) error {
 		err = c.out.Write(ctx, resultsToMap(canceledActions))
 	}
 
-	if len(unCanceledActions) > 0 {
+	if len(failedCancels) > 0 {
 		message := "The following actions could not be canceled:\n"
-		for _, a := range unCanceledActions {
+		for _, a := range failedCancels {
 			message += fmt.Sprintf("action: %s, error: %s\n", a.ID, a.Result.Message)
 		}
 

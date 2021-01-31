@@ -256,10 +256,16 @@ func (s byId) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 func (s byId) Less(i, j int) bool {
-	// We expect IDs to be ints but legacy
-	// action still use UUIDs.
+	// We expect IDs to be ints but legacy actions
+	// still use UUIDs (err will be non-nil below).
 	id1, err1 := strconv.Atoi(s[i].ID)
 	id2, err2 := strconv.Atoi(s[j].ID)
+	if err1 != nil && err2 == nil {
+		return true
+	}
+	if err1 == nil && err2 != nil {
+		return false
+	}
 	if err1 == nil && err2 == nil {
 		return id1 < id2
 	}

@@ -54,15 +54,14 @@ type APIClient interface {
 	// WatchActionProgress reports on logged action progress messages.
 	WatchActionProgress(actionId string) (watcher.StringsWatcher, error)
 
-	// These methods are to support legacy actions with UUIDs.
-	// (deprecated and will be removed in Juju 3.0).
-
 	// FindActionTagsByPrefix takes a list of string prefixes and finds
 	// corresponding ActionTags that match that prefix.
+	// (deprecated and will be removed in Juju 3.0).
 	FindActionTagsByPrefix(params.FindTags) (params.FindTagsResults, error)
 
 	// FindActionsByNames takes a list of names and finds a corresponding list of
 	// Actions for every name.
+	// (deprecated and will be removed in Juju 3.0).
 	FindActionsByNames(params.FindActionsByNames) (map[string][]action.ActionResult, error)
 }
 
