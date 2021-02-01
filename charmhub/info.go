@@ -81,12 +81,11 @@ func (c *InfoClient) Info(ctx context.Context, name string, options ...InfoOptio
 	if err != nil {
 		return resp, errors.Trace(err)
 	}
-
-	if resultErr := resp.ErrorList.Combine(); resultErr != nil {
-		if restResp.StatusCode == http.StatusNotFound {
-			return resp, errors.NewNotFound(resultErr, "")
-		}
-		return resp, resultErr
+	if restResp.StatusCode == http.StatusNotFound {
+		return resp, errors.NotFoundf(name)
+	}
+	if err := handleBasicAPIErrors(resp.ErrorList, c.logger); err != nil {
+		return resp, errors.Trace(err)
 	}
 
 	switch resp.Type {

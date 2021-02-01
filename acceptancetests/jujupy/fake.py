@@ -41,12 +41,6 @@ from jujupy.wait_condition import (
 
 __metaclass__ = type
 
-# Python 2 and 3 compatibility
-try:
-    argtype = basestring
-except NameError:
-    argtype = str
-
 
 class ControllerOperation(Exception):
 
@@ -768,9 +762,9 @@ class FakeBackend:
         parser.add_argument('--series')
         parsed = parser.parse_args(args)
         if len(parsed.host_placement) > 0 and parsed.count != 1:
-                raise subprocess.CalledProcessError(
-                    1, 'cannot use -n when specifying a placement directive.'
-                    'See Lp #1384350.')
+            raise subprocess.CalledProcessError(
+                1, 'cannot use -n when specifying a placement directive.'
+                'See Lp #1384350.')
         if len(parsed.host_placement) == 1:
             split = parsed.host_placement[0].split(':')
             if len(split) == 1:
@@ -835,7 +829,7 @@ class FakeBackend:
     def get_users(self):
         share_names = self.controller_state.shares
         permissions = []
-        for key, value in self.controller_state.users.iteritems():
+        for key, value in iter(self.controller_state.users.items()):
             if key in share_names:
                 permissions.append(value['permission'])
         share_list = {}
@@ -883,13 +877,12 @@ class FakeBackend:
         full_args.extend(args)
         self.log.log(level, u' '.join(full_args))
 
-    def juju(self, command, args, used_feature_flags,
-             juju_home, model=None, check=True, timeout=None, extra_env=None,
-             suppress_err=False):
+    def juju(self, command, args, used_feature_flags, juju_home, model=None,
+             check=True, timeout=None, extra_env=None, suppress_err=False):
         if 'service' in command:
             raise Exception('Command names must not contain "service".')
 
-        if isinstance(args, argtype):
+        if isinstance(args, str):
             args = (args,)
         self._log_command(command, args, model)
         if model is not None:

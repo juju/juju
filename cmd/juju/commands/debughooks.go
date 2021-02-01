@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/api/action"
 	"github.com/juju/juju/api/application"
-	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
@@ -85,7 +84,7 @@ type charmRelationsAPI interface {
 }
 
 type actionsAPI interface {
-	ApplicationCharmActions(params.Entity) (map[string]params.ActionSpec, error)
+	ApplicationCharmActions(string) (map[string]action.ActionSpec, error)
 	Close() error
 }
 
@@ -157,8 +156,7 @@ func (c *debugHooksCommand) validateHooksOrActions() error {
 }
 
 func (c *debugHooksCommand) getValidActions(appName string) (set.Strings, error) {
-	appTag := names.NewApplicationTag(appName)
-	allActions, err := c.actionsAPI.ApplicationCharmActions(params.Entity{Tag: appTag.String()})
+	allActions, err := c.actionsAPI.ApplicationCharmActions(appName)
 	if err != nil {
 		return nil, err
 	}

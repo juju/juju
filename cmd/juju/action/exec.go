@@ -15,7 +15,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v2"
 
-	"github.com/juju/juju/apiserver/params"
+	actionapi "github.com/juju/juju/api/action"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -227,11 +227,11 @@ func (c *execCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	var runResults params.EnqueuedActions
+	var runResults actionapi.EnqueuedActions
 	if c.all {
 		runResults, err = c.api.RunOnAllMachines(c.commands, c.wait)
 	} else {
-		runParams := params.RunParams{
+		runParams := actionapi.RunParams{
 			Commands:       c.commands,
 			Timeout:        c.wait,
 			Machines:       c.machines,

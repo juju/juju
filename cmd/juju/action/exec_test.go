@@ -16,7 +16,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
+	actionapi "github.com/juju/juju/api/action"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
@@ -234,9 +234,9 @@ func (s *ExecSuite) TestExecForMachineAndUnit(c *gc.C) {
 	restore := s.patchAPIClient(fakeClient)
 	defer restore()
 
-	fakeClient.actionResults = []params.ActionResult{{
-		Action: &params.Action{
-			Tag:      validActionTagString,
+	fakeClient.actionResults = []actionapi.ActionResult{{
+		Action: &actionapi.Action{
+			ID:       validActionId,
 			Receiver: "machine-0",
 		},
 		Output: map[string]interface{}{
@@ -247,8 +247,8 @@ func (s *ExecSuite) TestExecForMachineAndUnit(c *gc.C) {
 		Started:   time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
 		Completed: time.Date(2015, time.February, 14, 8, 17, 0, 0, time.UTC),
 	}, {
-		Action: &params.Action{
-			Tag:      validActionTagString2,
+		Action: &actionapi.Action{
+			ID:       validActionId2,
 			Receiver: "unit-mysql-0",
 		},
 		Output: map[string]interface{}{
@@ -297,9 +297,9 @@ func (s *ExecSuite) TestAllMachines(c *gc.C) {
 	restore := s.patchAPIClient(fakeClient)
 	defer restore()
 
-	fakeClient.actionResults = []params.ActionResult{{
-		Action: &params.Action{
-			Tag:      validActionTagString,
+	fakeClient.actionResults = []actionapi.ActionResult{{
+		Action: &actionapi.Action{
+			ID:       validActionId,
 			Receiver: "machine-0",
 		},
 		Output: map[string]interface{}{
@@ -310,8 +310,8 @@ func (s *ExecSuite) TestAllMachines(c *gc.C) {
 		Started:   time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
 		Completed: time.Date(2015, time.February, 14, 8, 17, 0, 0, time.UTC),
 	}, {
-		Action: &params.Action{
-			Tag:      validActionTagString2,
+		Action: &actionapi.Action{
+			ID:       validActionId2,
 			Receiver: "machine-1",
 		},
 		Status:    "completed",
@@ -361,9 +361,9 @@ func (s *ExecSuite) TestTimeout(c *gc.C) {
 	restore := s.patchAPIClient(fakeClient)
 	defer restore()
 
-	fakeClient.actionResults = []params.ActionResult{{
-		Action: &params.Action{
-			Tag:      validActionTagString,
+	fakeClient.actionResults = []actionapi.ActionResult{{
+		Action: &actionapi.Action{
+			ID:       validActionId,
 			Receiver: "machine-0",
 		},
 		Output: map[string]interface{}{
@@ -374,15 +374,15 @@ func (s *ExecSuite) TestTimeout(c *gc.C) {
 		Started:   time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
 		Completed: time.Date(2015, time.February, 14, 8, 17, 0, 0, time.UTC),
 	}, {
-		Action: &params.Action{
-			Tag:      validActionTagString2,
+		Action: &actionapi.Action{
+			ID:       validActionId2,
 			Receiver: "machine-1",
 		},
 		Status:   "pending",
 		Enqueued: time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
 	}, {
-		Action: &params.Action{
-			Tag:      validActionTagString3,
+		Action: &actionapi.Action{
+			ID:       validActionId3,
 			Receiver: "machine-2",
 		},
 		Status:   "running",
@@ -461,9 +461,9 @@ func (s *ExecSuite) TestCAASExecOnOperator(c *gc.C) {
 	restore := s.patchAPIClient(fakeClient)
 	defer restore()
 
-	fakeClient.actionResults = []params.ActionResult{{
-		Action: &params.Action{
-			Tag:      validActionTagString,
+	fakeClient.actionResults = []actionapi.ActionResult{{
+		Action: &actionapi.Action{
+			ID:       validActionId,
 			Receiver: "unit-mysql-0",
 		},
 		Output: map[string]interface{}{
@@ -483,7 +483,7 @@ func (s *ExecSuite) TestCAASExecOnOperator(c *gc.C) {
 
 	parallel := true
 	group := ""
-	c.Assert(fakeClient.execParams, jc.DeepEquals, &params.RunParams{
+	c.Assert(fakeClient.execParams, jc.DeepEquals, &actionapi.RunParams{
 		Commands:        "hostname",
 		Timeout:         300 * time.Second,
 		Units:           []string{"mysql/0"},
@@ -512,9 +512,9 @@ func (s *ExecSuite) TestCAASExecOnWorkload(c *gc.C) {
 	restore := s.patchAPIClient(fakeClient)
 	defer restore()
 
-	fakeClient.actionResults = []params.ActionResult{{
-		Action: &params.Action{
-			Tag:      validActionTagString,
+	fakeClient.actionResults = []actionapi.ActionResult{{
+		Action: &actionapi.Action{
+			ID:       validActionId,
 			Receiver: "unit-mysql-0",
 		},
 		Output: map[string]interface{}{
@@ -534,7 +534,7 @@ func (s *ExecSuite) TestCAASExecOnWorkload(c *gc.C) {
 
 	parallel := true
 	group := "group"
-	c.Check(fakeClient.execParams, jc.DeepEquals, &params.RunParams{
+	c.Check(fakeClient.execParams, jc.DeepEquals, &actionapi.RunParams{
 		Commands:        "hostname",
 		Timeout:         300 * time.Second,
 		Units:           []string{"mysql/0"},
@@ -589,9 +589,9 @@ func (s *ExecSuite) TestSingleResponse(c *gc.C) {
 	restore := s.patchAPIClient(fakeClient)
 	defer restore()
 
-	fakeClient.actionResults = []params.ActionResult{{
-		Action: &params.Action{
-			Tag:      validActionTagString,
+	fakeClient.actionResults = []actionapi.ActionResult{{
+		Action: &actionapi.Action{
+			ID:       validActionId,
 			Receiver: "machine-0",
 		},
 		Output: map[string]interface{}{

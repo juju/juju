@@ -21,8 +21,7 @@ import (
 	"github.com/juju/utils/v2"
 	gc "gopkg.in/check.v1"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/params"
+	actionapi "github.com/juju/juju/api/action"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/testing"
@@ -250,42 +249,35 @@ func (s *RunSuite) TestRun(c *gc.C) {
 		withArgs               []string
 		withAPIErr             error
 		withTicks              int
-		withActionResults      []params.ActionResult
-		expectedActionEnqueued []params.Action
+		withActionResults      []actionapi.ActionResult
+		expectedActionEnqueued []actionapi.Action
 		expectedOutput         string
 		expectedErr            string
 		expectedLogs           []string
 	}{{
 		should:   "fail with multiple results",
 		withArgs: []string{validUnitId, "some-action"},
-		withActionResults: []params.ActionResult{
-			{Action: &params.Action{Tag: validActionTagString}},
-			{Action: &params.Action{Tag: validActionTagString}},
+		withActionResults: []actionapi.ActionResult{
+			{Action: &actionapi.Action{ID: validActionId}},
+			{Action: &actionapi.Action{ID: validActionId}},
 		},
 		expectedErr: "illegal number of results returned",
 	}, {
 		should:   "fail with API error",
 		withArgs: []string{validUnitId, "some-action"},
-		withActionResults: []params.ActionResult{{
-			Action: &params.Action{Tag: validActionTagString}},
+		withActionResults: []actionapi.ActionResult{{
+			Action: &actionapi.Action{ID: validActionId}},
 		},
 		withAPIErr:  errors.New("something wrong in API"),
 		expectedErr: "something wrong in API",
 	}, {
 		should:   "fail with error in result",
 		withArgs: []string{validUnitId, "some-action"},
-		withActionResults: []params.ActionResult{{
-			Action: &params.Action{Tag: validActionTagString},
-			Error:  apiservererrors.ServerError(errors.New("database error")),
+		withActionResults: []actionapi.ActionResult{{
+			Action: &actionapi.Action{ID: validActionId},
+			Error:  errors.New("database error"),
 		}},
 		expectedErr: "database error",
-	}, {
-		should:   "fail with invalid tag in result",
-		withArgs: []string{validUnitId, "some-action"},
-		withActionResults: []params.ActionResult{{
-			Action: &params.Action{Tag: invalidActionTagString},
-		}},
-		expectedErr: "\"" + invalidActionTagString + "\" is not a valid action tag",
 	}, {
 		should: "fail with missing file passed",
 		withArgs: []string{validUnitId, "some-action",
@@ -311,13 +303,13 @@ func (s *RunSuite) TestRun(c *gc.C) {
 	}, {
 		should:   "enqueue a basic action with no params",
 		withArgs: []string{validUnitId, "some-action", "--background"},
-		withActionResults: []params.ActionResult{{
-			Action: &params.Action{
-				Tag:      validActionTagString,
+		withActionResults: []actionapi.ActionResult{{
+			Action: &actionapi.Action{
+				ID:       validActionId,
 				Receiver: names.NewUnitTag(validUnitId).String(),
 			},
 		}},
-		expectedActionEnqueued: []params.Action{{
+		expectedActionEnqueued: []actionapi.Action{{
 			Name:       "some-action",
 			Parameters: map[string]interface{}{},
 			Receiver:   names.NewUnitTag(validUnitId).String(),
@@ -325,9 +317,9 @@ func (s *RunSuite) TestRun(c *gc.C) {
 	}, {
 		should:   "run a basic action with no params with output set to action-set data",
 		withArgs: []string{validUnitId, "some-action"},
-		withActionResults: []params.ActionResult{{
-			Action: &params.Action{
-				Tag:      validActionTagString,
+		withActionResults: []actionapi.ActionResult{{
+			Action: &actionapi.Action{
+				ID:       validActionId,
 				Receiver: names.NewUnitTag(validUnitId).String(),
 				Name:     "some-action",
 			},
@@ -342,7 +334,7 @@ func (s *RunSuite) TestRun(c *gc.C) {
 			Started:   time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
 			Completed: time.Date(2015, time.February, 14, 8, 17, 0, 0, time.UTC),
 		}},
-		expectedActionEnqueued: []params.Action{{
+		expectedActionEnqueued: []actionapi.Action{{
 			Name:       "some-action",
 			Parameters: map[string]interface{}{},
 			Receiver:   names.NewUnitTag(validUnitId).String(),
@@ -354,9 +346,9 @@ result-map:
 	}, {
 		should:   "run a basic action with no params with plain output including stdout, stderr",
 		withArgs: []string{validUnitId, "some-action"},
-		withActionResults: []params.ActionResult{{
-			Action: &params.Action{
-				Tag:      validActionTagString,
+		withActionResults: []actionapi.ActionResult{{
+			Action: &actionapi.Action{
+				ID:       validActionId,
 				Receiver: names.NewUnitTag(validUnitId).String(),
 				Name:     "some-action",
 			},
@@ -376,7 +368,7 @@ result-map:
 			Started:   time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
 			Completed: time.Date(2015, time.February, 14, 8, 17, 0, 0, time.UTC),
 		}},
-		expectedActionEnqueued: []params.Action{{
+		expectedActionEnqueued: []actionapi.Action{{
 			Name:       "some-action",
 			Parameters: map[string]interface{}{},
 			Receiver:   names.NewUnitTag(validUnitId).String(),
@@ -391,9 +383,9 @@ world`[1:],
 	}, {
 		should:   "run a basic action with no params with yaml output including stdout, stderr",
 		withArgs: []string{validUnitId, "some-action", "--format", "yaml", "--utc"},
-		withActionResults: []params.ActionResult{{
-			Action: &params.Action{
-				Tag:      validActionTagString,
+		withActionResults: []actionapi.ActionResult{{
+			Action: &actionapi.Action{
+				ID:       validActionId,
 				Receiver: names.NewUnitTag(validUnitId).String(),
 				Name:     "some-action",
 			},
@@ -413,7 +405,7 @@ world`[1:],
 			Started:   time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
 			Completed: time.Date(2015, time.February, 14, 8, 17, 0, 0, time.UTC),
 		}},
-		expectedActionEnqueued: []params.Action{{
+		expectedActionEnqueued: []actionapi.Action{{
 			Name:       "some-action",
 			Parameters: map[string]interface{}{},
 			Receiver:   names.NewUnitTag(validUnitId).String(),
@@ -441,9 +433,9 @@ mysql/0:
 		withArgs:  []string{validUnitId, "some-action", "--utc"},
 		withTicks: 1,
 
-		withActionResults: []params.ActionResult{{
-			Action: &params.Action{
-				Tag:      validActionTagString,
+		withActionResults: []actionapi.ActionResult{{
+			Action: &actionapi.Action{
+				ID:       validActionId,
 				Receiver: names.NewUnitTag(validUnitId).String(),
 				Name:     "some-action",
 			},
@@ -463,7 +455,7 @@ mysql/0:
 			Started:   time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
 			Completed: time.Date(2015, time.February, 14, 8, 17, 0, 0, time.UTC),
 		}},
-		expectedActionEnqueued: []params.Action{{
+		expectedActionEnqueued: []actionapi.Action{{
 			Name:       "some-action",
 			Parameters: map[string]interface{}{},
 			Receiver:   names.NewUnitTag(validUnitId).String(),
@@ -481,13 +473,13 @@ world`[1:],
 		withArgs:  []string{validUnitId, "some-action", "--format", "yaml", "--utc"},
 		withTicks: 1,
 
-		withActionResults: []params.ActionResult{{
-			Action: &params.Action{
-				Tag:      validActionTagString,
+		withActionResults: []actionapi.ActionResult{{
+			Action: &actionapi.Action{
+				ID:       validActionId,
 				Receiver: names.NewUnitTag(validUnitId).String(),
 				Name:     "some-action",
 			},
-			Log: []params.ActionMessage{{
+			Log: []actionapi.ActionMessage{{
 				Timestamp: time.Date(2015, time.February, 14, 6, 6, 6, 0, time.UTC),
 				Message:   "log line 1",
 			}, {
@@ -510,7 +502,7 @@ world`[1:],
 			Started:   time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
 			Completed: time.Date(2015, time.February, 14, 8, 17, 0, 0, time.UTC),
 		}},
-		expectedActionEnqueued: []params.Action{{
+		expectedActionEnqueued: []actionapi.Action{{
 			Name:       "some-action",
 			Parameters: map[string]interface{}{},
 			Receiver:   names.NewUnitTag(validUnitId).String(),
@@ -541,9 +533,9 @@ mysql/0:
 		should:    "run action on multiple units with stdout for each action",
 		withArgs:  []string{validUnitId, validUnitId2, "some-action", "--format", "yaml", "--utc"},
 		withTicks: 1,
-		withActionResults: []params.ActionResult{{
-			Action: &params.Action{
-				Tag:      validActionTagString,
+		withActionResults: []actionapi.ActionResult{{
+			Action: &actionapi.Action{
+				ID:       validActionId,
 				Receiver: names.NewUnitTag(validUnitId).String(),
 				Name:     "some-action",
 			},
@@ -558,8 +550,8 @@ mysql/0:
 			Started:   time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
 			Completed: time.Date(2015, time.February, 14, 8, 17, 0, 0, time.UTC),
 		}, {
-			Action: &params.Action{
-				Tag:      validActionTagString2,
+			Action: &actionapi.Action{
+				ID:       validActionId2,
 				Receiver: names.NewUnitTag(validUnitId2).String(),
 				Name:     "some-action",
 			},
@@ -574,7 +566,7 @@ mysql/0:
 			Started:   time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
 			Completed: time.Date(2015, time.February, 14, 8, 17, 0, 0, time.UTC),
 		}},
-		expectedActionEnqueued: []params.Action{{
+		expectedActionEnqueued: []actionapi.Action{{
 			Name:       "some-action",
 			Parameters: map[string]interface{}{},
 			Receiver:   names.NewUnitTag(validUnitId).String(),
@@ -612,9 +604,9 @@ mysql/1:
 		should:    "run action on multiple units with plain output selected",
 		withArgs:  []string{validUnitId, validUnitId2, "some-action", "--format", "plain"},
 		withTicks: 1,
-		withActionResults: []params.ActionResult{{
-			Action: &params.Action{
-				Tag:      validActionTagString,
+		withActionResults: []actionapi.ActionResult{{
+			Action: &actionapi.Action{
+				ID:       validActionId,
 				Receiver: names.NewUnitTag(validUnitId).String(),
 				Name:     "some-action",
 			},
@@ -626,8 +618,8 @@ mysql/1:
 				},
 			},
 		}, {
-			Action: &params.Action{
-				Tag:      validActionTagString2,
+			Action: &actionapi.Action{
+				ID:       validActionId2,
 				Receiver: names.NewUnitTag(validUnitId2).String(),
 				Name:     "some-action",
 			},
@@ -639,7 +631,7 @@ mysql/1:
 				},
 			},
 		}},
-		expectedActionEnqueued: []params.Action{{
+		expectedActionEnqueued: []actionapi.Action{{
 			Name:       "some-action",
 			Parameters: map[string]interface{}{},
 			Receiver:   names.NewUnitTag(validUnitId).String(),
@@ -669,13 +661,13 @@ mysql/1:
 			"out.num=3",
 			"out.boolval=y",
 		},
-		withActionResults: []params.ActionResult{{
-			Action: &params.Action{
-				Tag:      validActionTagString,
+		withActionResults: []actionapi.ActionResult{{
+			Action: &actionapi.Action{
+				ID:       validActionId,
 				Receiver: names.NewUnitTag(validUnitId).String(),
 			},
 		}},
-		expectedActionEnqueued: []params.Action{{
+		expectedActionEnqueued: []actionapi.Action{{
 			Name:     "some-action",
 			Receiver: names.NewUnitTag(validUnitId).String(),
 			Parameters: map[string]interface{}{
@@ -695,13 +687,13 @@ mysql/1:
 			"out.num=3",
 			"out.boolval=y",
 		},
-		withActionResults: []params.ActionResult{{
-			Action: &params.Action{
-				Tag:      validActionTagString,
+		withActionResults: []actionapi.ActionResult{{
+			Action: &actionapi.Action{
+				ID:       validActionId,
 				Receiver: names.NewUnitTag(validUnitId).String(),
 			},
 		}},
-		expectedActionEnqueued: []params.Action{{
+		expectedActionEnqueued: []actionapi.Action{{
 			Name:     "some-action",
 			Receiver: names.NewUnitTag(validUnitId).String(),
 			Parameters: map[string]interface{}{
@@ -720,13 +712,13 @@ mysql/1:
 			"compression.kind=gz",
 			"compression.fast=true",
 		},
-		withActionResults: []params.ActionResult{{
-			Action: &params.Action{
-				Tag:      validActionTagString,
+		withActionResults: []actionapi.ActionResult{{
+			Action: &actionapi.Action{
+				ID:       validActionId,
 				Receiver: names.NewUnitTag(validUnitId).String(),
 			},
 		}},
-		expectedActionEnqueued: []params.Action{{
+		expectedActionEnqueued: []actionapi.Action{{
 			Name:     "some-action",
 			Receiver: names.NewUnitTag(validUnitId).String(),
 			Parameters: map[string]interface{}{
@@ -747,13 +739,13 @@ mysql/1:
 			"compression.quality.size=small",
 			"--params", s.dir + "/" + "validParams.yml",
 		},
-		withActionResults: []params.ActionResult{{
-			Action: &params.Action{
-				Tag:      validActionTagString,
+		withActionResults: []actionapi.ActionResult{{
+			Action: &actionapi.Action{
+				ID:       validActionId,
 				Receiver: names.NewUnitTag(validUnitId).String(),
 			},
 		}},
-		expectedActionEnqueued: []params.Action{{
+		expectedActionEnqueued: []actionapi.Action{{
 			Name:     "some-action",
 			Receiver: names.NewUnitTag(validUnitId).String(),
 			Parameters: map[string]interface{}{
@@ -773,13 +765,13 @@ mysql/1:
 	}, {
 		should:   "enqueue a basic action on the leader",
 		withArgs: []string{"mysql/leader", "some-action", "--background"},
-		withActionResults: []params.ActionResult{{
-			Action: &params.Action{
-				Tag:      validActionTagString,
+		withActionResults: []actionapi.ActionResult{{
+			Action: &actionapi.Action{
+				ID:       validActionId,
 				Receiver: names.NewUnitTag(validUnitId).String(),
 			},
 		}},
-		expectedActionEnqueued: []params.Action{{
+		expectedActionEnqueued: []actionapi.Action{{
 			Name:       "some-action",
 			Parameters: map[string]interface{}{},
 			Receiver:   "mysql/leader",
@@ -831,7 +823,7 @@ mysql/1:
 func (s *RunSuite) testRunHelper(c *gc.C, client *fakeAPIClient,
 	expectedErr, expectedOutput, modelFlag string, withArgs []string,
 	numTicks int, numExpectedTimers int,
-	expectedActionEnqueued []params.Action,
+	expectedActionEnqueued []actionapi.Action,
 	expectedLogs []string,
 ) {
 	restore := s.patchAPIClient(client)
@@ -905,22 +897,23 @@ func (s *RunSuite) testRunHelper(c *gc.C, client *fakeAPIClient,
 		}
 		// Make sure the action sent to the API to be
 		// enqueued was indeed the expected map
-		enqueued := client.EnqueuedActions()
-		c.Assert(enqueued.Actions, jc.DeepEquals, expectedActionEnqueued)
+		enqueued := client.enqueuedActions
+		c.Assert(enqueued, jc.DeepEquals, expectedActionEnqueued)
 
 		if expectedOutput == "" {
 			outputResult := ctx.Stderr.(*bytes.Buffer).Bytes()
 			outString := strings.Trim(string(outputResult), "\n")
 
-			expectedTag, err := names.ParseActionTag(client.actionResults[0].Action.Tag)
-			c.Assert(err, gc.IsNil)
+			expectedID := client.actionResults[0].Action.ID
+			valid := names.IsValidAction(expectedID)
+			c.Assert(valid, jc.IsTrue)
 
 			// Make sure the CLI responded with the expected tag
 			c.Assert(outString, gc.Equals, fmt.Sprintf(`
 Scheduled operation 1 with task %s
 Check operation status with 'juju show-operation 1'
 Check task status with 'juju show-task %s'`[1:],
-				expectedTag.Id(), expectedTag.Id()))
+				expectedID, expectedID))
 		} else {
 			outputResult := ctx.Stdout.(*bytes.Buffer).Bytes()
 			outString := strings.Trim(string(outputResult), "\n")

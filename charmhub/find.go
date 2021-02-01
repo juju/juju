@@ -49,12 +49,11 @@ func (c *FindClient) Find(ctx context.Context, query string) ([]transport.FindRe
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	if resultErr := resp.ErrorList.Combine(); resultErr != nil {
-		if restResp.StatusCode == http.StatusNotFound {
-			return nil, errors.NewNotFound(resultErr, "")
-		}
-		return nil, resultErr
+	if restResp.StatusCode == http.StatusNotFound {
+		return nil, errors.NotFoundf(query)
+	}
+	if err := handleBasicAPIErrors(resp.ErrorList, c.logger); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	return resp.Results, nil

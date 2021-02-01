@@ -27,48 +27,46 @@ func NewClient(st base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
-// Actions takes a list of ActionTags, and returns the full
+// Actions takes a list of action IDs, and returns the full
 // Action for each ID.
-func (c *Client) Actions(arg params.Entities) (params.ActionResults, error) {
+func (c *Client) Actions(actionIDs []string) ([]ActionResult, error) {
+	arg := params.Entities{Entities: make([]params.Entity, len(actionIDs))}
+	for i, ID := range actionIDs {
+		arg.Entities[i].Tag = names.NewActionTag(ID).String()
+	}
 	results := params.ActionResults{}
 	err := c.facade.FacadeCall("Actions", arg, &results)
-	return results, err
+	return unmarshallActionResults(results.Results), err
 }
 
 // ListOperations fetches the operation summaries for specified apps/units.
-func (c *Client) ListOperations(arg params.OperationQueryArgs) (params.OperationResults, error) {
+func (c *Client) ListOperations(arg OperationQueryArgs) (Operations, error) {
 	results := params.OperationResults{}
-	if v := c.BestAPIVersion(); v < 6 {
-		return results, errors.Errorf("ListOperations not supported by this version (%d) of Juju", v)
-	}
 	err := c.facade.FacadeCall("ListOperations", arg, &results)
 	if params.ErrCode(err) == params.CodeNotFound {
 		err = nil
 	}
-	return results, err
+	return unmarshallOperations(results), err
 }
 
-// Operation fetches the operation with the specified id.
-func (c *Client) Operation(id string) (params.OperationResult, error) {
-	if v := c.BestAPIVersion(); v < 6 {
-		return params.OperationResult{}, errors.Errorf("Operations not supported by this version (%d) of Juju", v)
-	}
+// Operation fetches the operation with the specified ID.
+func (c *Client) Operation(ID string) (Operation, error) {
 	arg := params.Entities{
-		Entities: []params.Entity{{names.NewOperationTag(id).String()}},
+		Entities: []params.Entity{{names.NewOperationTag(ID).String()}},
 	}
 	var results params.OperationResults
 	err := c.facade.FacadeCall("Operations", arg, &results)
 	if err != nil {
-		return params.OperationResult{}, err
+		return Operation{}, err
 	}
 	if len(results.Results) != 1 {
-		return params.OperationResult{}, errors.Errorf("expected 1 result, got %d", len(results.Results))
+		return Operation{}, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return params.OperationResult{}, maybeNotFound(result.Error)
+		return Operation{}, maybeNotFound(result.Error)
 	}
-	return result, nil
+	return unmarshallOperation(result), nil
 }
 
 // maybeNotFound returns an error satisfying errors.IsNotFound
@@ -83,20 +81,32 @@ func maybeNotFound(err *params.Error) error {
 // EnqueueOperation takes a list of Actions and queues them up to be executed as
 // an operation, each action running as a task on the the designated ActionReceiver.
 // We return the ID of the overall operation and each individual task.
-func (c *Client) EnqueueOperation(arg params.Actions) (params.EnqueuedActions, error) {
-	results := params.EnqueuedActions{}
-	if v := c.BestAPIVersion(); v < 6 {
-		return results, errors.Errorf("EnqueueOperation not supported by this version (%d) of Juju", v)
+func (c *Client) EnqueueOperation(actions []Action) (EnqueuedActions, error) {
+	arg := params.Actions{Actions: make([]params.Action, len(actions))}
+	for i, a := range actions {
+		arg.Actions[i] = params.Action{
+			Receiver:   a.Receiver,
+			Name:       a.Name,
+			Parameters: a.Parameters,
+		}
 	}
+	results := params.EnqueuedActions{}
 	err := c.facade.FacadeCall("EnqueueOperation", arg, &results)
-	return results, err
+	if err != nil {
+		return EnqueuedActions{}, errors.Trace(err)
+	}
+	return unmarshallEnqueuedActions(results)
 }
 
 // Cancel attempts to cancel a queued up Action from running.
-func (c *Client) Cancel(arg params.Entities) (params.ActionResults, error) {
+func (c *Client) Cancel(actionIDs []string) ([]ActionResult, error) {
+	arg := params.Entities{Entities: make([]params.Entity, len(actionIDs))}
+	for i, ID := range actionIDs {
+		arg.Entities[i].Tag = names.NewActionTag(ID).String()
+	}
 	results := params.ActionResults{}
 	err := c.facade.FacadeCall("Cancel", arg, &results)
-	return results, err
+	return unmarshallActionResults(results.Results), err
 }
 
 // applicationsCharmActions is a batched query for the charm.Actions for a slice
@@ -109,8 +119,9 @@ func (c *Client) applicationsCharmActions(arg params.Entities) (params.Applicati
 
 // ApplicationCharmActions is a single query which uses ApplicationsCharmsActions to
 // get the charm.Actions for a single Application by tag.
-func (c *Client) ApplicationCharmActions(arg params.Entity) (map[string]params.ActionSpec, error) {
-	tags := params.Entities{Entities: []params.Entity{{Tag: arg.Tag}}}
+func (c *Client) ApplicationCharmActions(appName string) (map[string]ActionSpec, error) {
+	tag := names.NewApplicationTag(appName)
+	tags := params.Entities{Entities: []params.Entity{{Tag: tag.String()}}}
 	results, err := c.applicationsCharmActions(tags)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -122,18 +133,15 @@ func (c *Client) ApplicationCharmActions(arg params.Entity) (map[string]params.A
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	if result.ApplicationTag != arg.Tag {
+	if result.ApplicationTag != tag.String() {
 		return nil, errors.Errorf("action results received for wrong application %q", result.ApplicationTag)
 	}
-	return result.Actions, nil
+	return unmarshallActionSpecs(result.Actions), nil
 }
 
 // WatchActionProgress returns a watcher that reports on action log messages.
 // The result strings are json formatted core.actions.ActionMessage objects.
 func (c *Client) WatchActionProgress(actionId string) (watcher.StringsWatcher, error) {
-	if v := c.BestAPIVersion(); v < 5 {
-		return nil, errors.Errorf("WatchActionProgress not supported by this version (%d) of Juju", v)
-	}
 	var results params.StringsWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{

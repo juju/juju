@@ -563,9 +563,12 @@ def describe_substrate(env):
 def get_stripped_version_number(version_string):
     return get_version_string_parts(version_string)[0]
 
-
 def get_version_string_parts(version_string):
     # strip the series and arch from the built version.
+    # Note:
+    if isinstance(version_string, bytes):
+        version_string = str(version_string, 'utf-8')
+
     version_parts = version_string.split('-')
     if len(version_parts) == 4:
         # Version contains "-<patchname>", reconstruct it after the split.
@@ -1176,7 +1179,7 @@ class ModelClient:
                 return self.status_class.from_text(
                     self.get_juju_output(
                         self._show_status, '--format', 'yaml',
-                        controller=controller).decode('utf-8'))
+                        controller=controller))
             except subprocess.CalledProcessError:
                 pass
         raise StatusTimeout(
@@ -1190,7 +1193,7 @@ class ModelClient:
                     self.get_juju_output(
                         self._show_controller, '--format', 'yaml',
                         include_e=False,
-                    ).decode('utf-8'),
+                    ),
                 )
             except subprocess.CalledProcessError:
                 pass
@@ -1207,7 +1210,7 @@ class ModelClient:
                         '--controller', controller_name,
                         '--format', 'yaml',
                         include_e=False,
-                    ).decode('utf-8'),
+                    ),
                 )
             except subprocess.CalledProcessError:
                 pass
@@ -1256,7 +1259,7 @@ class ModelClient:
     def get_env_option(self, option):
         """Return the value of the environment's configured option."""
         return self.get_juju_output(
-            'model-config', option).decode(getpreferredencoding())
+            'model-config', option)
 
     def set_env_option(self, option, value):
         """Set the value of the option in the environment."""

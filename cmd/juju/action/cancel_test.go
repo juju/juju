@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
+	actionapi "github.com/juju/juju/api/action"
 	"github.com/juju/juju/cmd/juju/action"
 )
 
@@ -29,8 +29,8 @@ func (s *CancelSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *CancelSuite) TestRun(c *gc.C) {
-	result1 := []params.ActionResult{{Action: &params.Action{Tag: "action-1"}, Status: "some-random-status"}}
-	result2 := []params.ActionResult{{Action: &params.Action{Tag: "action-2"}, Status: "a status"}, {Action: &params.Action{Tag: "action-3"}, Status: "another status"}}
+	result1 := []actionapi.ActionResult{{Action: &actionapi.Action{ID: "1"}, Status: "some-random-status"}}
+	result2 := []actionapi.ActionResult{{Action: &actionapi.Action{ID: "2"}, Status: "a status"}, {Action: &actionapi.Action{ID: "3"}, Status: "another status"}}
 
 	tests := []cancelTestCase{
 		{expectError: "no task IDs specified"},
@@ -77,5 +77,5 @@ func (s *CancelSuite) runTestCase(c *gc.C, tc cancelTestCase) {
 type cancelTestCase struct {
 	args        []string
 	expectError string
-	results     []params.ActionResult
+	results     []actionapi.ActionResult
 }

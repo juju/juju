@@ -91,9 +91,5 @@ func (crd K8sCustomResourceDefinition) Validate() error {
 	if err := crd.Spec.Validate(crd.Name); err != nil {
 		return errors.Trace(err)
 	}
-
-	if err := validateLabels(crd.Labels); err != nil {
-		return errors.Trace(err)
-	}
 	return nil
 }

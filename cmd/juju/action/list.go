@@ -16,7 +16,6 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/naturalsort"
 
-	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
@@ -29,9 +28,9 @@ func NewListCommand() cmd.Command {
 // listCommand lists actions defined by the charm of a given application.
 type listCommand struct {
 	ActionCommandBase
-	applicationTag names.ApplicationTag
-	fullSchema     bool
-	out            cmd.Output
+	appName    string
+	fullSchema bool
+	out        cmd.Output
 }
 
 const listDoc = `
@@ -95,7 +94,7 @@ func (c *listCommand) Init(args []string) error {
 		if !names.IsValidApplication(appName) {
 			return errors.Errorf("invalid application name %q", appName)
 		}
-		c.applicationTag = names.NewApplicationTag(appName)
+		c.appName = appName
 		return nil
 	default:
 		return cmd.CheckEmpty(args[1:])
@@ -111,7 +110,7 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 	}
 	defer api.Close()
 
-	actions, err := api.ApplicationCharmActions(params.Entity{Tag: c.applicationTag.String()})
+	actions, err := api.ApplicationCharmActions(c.appName)
 	if err != nil {
 		return err
 	}
@@ -146,7 +145,7 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 		output = shortOutput
 	default:
 		if len(sortedNames) == 0 {
-			ctx.Infof("No actions defined for %s.", c.applicationTag.Id())
+			ctx.Infof("No actions defined for %s.", c.appName)
 			return nil
 		}
 		var list []listOutput

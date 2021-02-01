@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 Charms have the capability to declare that they support more than
 one series. Previously a separate copy of the charm was required for

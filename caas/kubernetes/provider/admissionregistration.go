@@ -13,7 +13,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
@@ -108,7 +107,7 @@ func (k *kubernetesClient) ensureMutatingWebhookConfigurationV1(cfg *admissionre
 	existingItems, err := api.List(context.TODO(), metav1.ListOptions{
 		LabelSelector: utils.LabelsToSelector(cfg.GetLabels()).String(),
 	})
-	if k8serrors.IsNotFound(err) || len(existingItems.Items) == 0 {
+	if k8serrors.IsNotFound(err) || existingItems == nil || len(existingItems.Items) == 0 {
 		// cfg.Name is already used for an existing MutatingWebhookConfiguration.
 		return cleanUp, errors.AlreadyExistsf("MutatingWebhookConfiguration %q", cfg.GetName())
 	}
@@ -125,84 +124,53 @@ func (k *kubernetesClient) ensureMutatingWebhookConfigurationV1(cfg *admissionre
 	return cleanUp, errors.Trace(err)
 }
 
-func (k *kubernetesClient) ensureMutatingWebhookConfigurationV1beta1(cfg *admissionregistrationv1beta1.MutatingWebhookConfiguration) (func(), error) {
-	return k.EnsureMutatingWebhookConfiguration(cfg)
+func (k *kubernetesClient) EnsureMutatingWebhookConfiguration(cfg *admissionregistrationv1.MutatingWebhookConfiguration) (func(), error) {
+	return k.ensureMutatingWebhookConfigurationV1(cfg)
 }
 
 // EnsureMutatingWebhookConfiguration ensures the provided mutating webhook
 // exists in the given Kubernetes cluster.
 // Returned func is used for cleaning up the mutating webhook when error is non
 // nil.
-func (k *kubernetesClient) EnsureMutatingWebhookConfiguration(cfg *admissionregistrationv1beta1.MutatingWebhookConfiguration) (func(), error) {
+func (k *kubernetesClient) ensureMutatingWebhookConfigurationV1beta1(cfg *admissionregistrationv1beta1.MutatingWebhookConfiguration) (func(), error) {
 	cleanUp := func() {}
-	out, err := k.createMutatingWebhookConfiguration(cfg)
+	api := k.client().AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
+	out, err := api.Create(context.TODO(), cfg, metav1.CreateOptions{})
 	if err == nil {
 		logger.Debugf("MutatingWebhookConfiguration %q created", out.GetName())
-		cleanUp = func() { _ = k.deleteMutatingWebhookConfiguration(out.GetName(), out.GetUID()) }
+		cleanUp = func() {
+			_ = api.Delete(context.TODO(), out.GetName(), utils.NewPreconditionDeleteOptions(out.GetUID()))
+		}
 		return cleanUp, nil
 	}
-	if !errors.IsAlreadyExists(err) {
+	if !k8serrors.IsAlreadyExists(err) {
 		return cleanUp, errors.Trace(err)
 	}
-	_, err = k.listMutatingWebhookConfigurations(utils.LabelsToSelector(cfg.GetLabels()))
+	existingItems, err := api.List(context.TODO(), metav1.ListOptions{
+		LabelSelector: utils.LabelsToSelector(cfg.GetLabels()).String(),
+	})
+	if k8serrors.IsNotFound(err) || existingItems == nil || len(existingItems.Items) == 0 {
+		// cfg.Name is already used for an existing MutatingWebhookConfiguration.
+		return cleanUp, errors.AlreadyExistsf("MutatingWebhookConfiguration %q", cfg.GetName())
+	}
 	if err != nil {
-		if errors.IsNotFound(err) {
-			// cfg.Name is already used for an existing MutatingWebhookConfiguration.
-			return cleanUp, errors.AlreadyExistsf("MutatingWebhookConfiguration %q", cfg.GetName())
-		}
 		return cleanUp, errors.Trace(err)
 	}
-	existingCfg, err := k.getMutatingWebhookConfiguration(cfg.GetName())
+	existingCfg, err := api.Get(context.TODO(), cfg.GetName(), metav1.GetOptions{})
 	if err != nil {
 		return cleanUp, errors.Trace(err)
 	}
 	cfg.SetResourceVersion(existingCfg.GetResourceVersion())
-	err = k.updateMutatingWebhookConfiguration(cfg)
+	_, err = api.Update(context.TODO(), cfg, metav1.UpdateOptions{})
 	logger.Debugf("updating MutatingWebhookConfiguration %q", cfg.GetName())
 	return cleanUp, errors.Trace(err)
 }
 
-func (k *kubernetesClient) createMutatingWebhookConfiguration(cfg *admissionregistrationv1beta1.MutatingWebhookConfiguration) (*admissionregistrationv1beta1.MutatingWebhookConfiguration, error) {
-	utils.PurifyResource(cfg)
-	out, err := k.client().AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Create(context.TODO(), cfg, metav1.CreateOptions{})
-	if k8serrors.IsAlreadyExists(err) {
-		return nil, errors.AlreadyExistsf("MutatingWebhookConfiguration %q", cfg.GetName())
-	}
-	return out, errors.Trace(err)
-}
-
-func (k *kubernetesClient) getMutatingWebhookConfiguration(name string) (*admissionregistrationv1beta1.MutatingWebhookConfiguration, error) {
-	cfg, err := k.client().AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(context.TODO(), name, metav1.GetOptions{})
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil, errors.NotFoundf("MutatingWebhookConfiguration %q", name)
-		}
-		return nil, errors.Trace(err)
-	}
-	return cfg, nil
-}
-
-func (k *kubernetesClient) updateMutatingWebhookConfiguration(cfg *admissionregistrationv1beta1.MutatingWebhookConfiguration) error {
-	_, err := k.client().AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Update(context.TODO(), cfg, metav1.UpdateOptions{})
-	if k8serrors.IsNotFound(err) {
-		return errors.NotFoundf("MutatingWebhookConfiguration %q", cfg.GetName())
-	}
-	return errors.Trace(err)
-}
-
-func (k *kubernetesClient) deleteMutatingWebhookConfiguration(name string, uid types.UID) error {
-	err := k.client().AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Delete(context.TODO(), name, utils.NewPreconditionDeleteOptions(uid))
-	if k8serrors.IsNotFound(err) {
-		return nil
-	}
-	return errors.Trace(err)
-}
-
-func (k *kubernetesClient) listMutatingWebhookConfigurations(selector k8slabels.Selector) ([]admissionregistrationv1beta1.MutatingWebhookConfiguration, error) {
+func (k *kubernetesClient) listMutatingWebhookConfigurations(selector k8slabels.Selector) ([]admissionregistrationv1.MutatingWebhookConfiguration, error) {
 	listOps := metav1.ListOptions{
 		LabelSelector: selector.String(),
 	}
-	cfgList, err := k.client().AdmissionregistrationV1beta1().MutatingWebhookConfigurations().List(context.TODO(), listOps)
+	cfgList, err := k.client().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), listOps)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -213,7 +181,7 @@ func (k *kubernetesClient) listMutatingWebhookConfigurations(selector k8slabels.
 }
 
 func (k *kubernetesClient) deleteMutatingWebhookConfigurations(selector k8slabels.Selector) error {
-	err := k.client().AdmissionregistrationV1beta1().MutatingWebhookConfigurations().DeleteCollection(context.TODO(), metav1.DeleteOptions{
+	err := k.client().AdmissionregistrationV1().MutatingWebhookConfigurations().DeleteCollection(context.TODO(), metav1.DeleteOptions{
 		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, metav1.ListOptions{
 		LabelSelector: selector.String(),
@@ -356,47 +324,11 @@ func (k *kubernetesClient) ensureValidatingWebhookConfigurationV1beta1(cfg *admi
 	return cleanUp, errors.Trace(err)
 }
 
-func (k *kubernetesClient) createValidatingWebhookConfiguration(cfg *admissionregistrationv1beta1.ValidatingWebhookConfiguration) (*admissionregistrationv1beta1.ValidatingWebhookConfiguration, error) {
-	utils.PurifyResource(cfg)
-	out, err := k.client().AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(context.TODO(), cfg, metav1.CreateOptions{})
-	if k8serrors.IsAlreadyExists(err) {
-		return nil, errors.AlreadyExistsf("ValidatingWebhookConfiguration %q", cfg.GetName())
-	}
-	return out, errors.Trace(err)
-}
-
-func (k *kubernetesClient) getValidatingWebhookConfiguration(name string) (*admissionregistrationv1beta1.ValidatingWebhookConfiguration, error) {
-	cfg, err := k.client().AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(context.TODO(), name, metav1.GetOptions{})
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil, errors.NotFoundf("ValidatingWebhookConfiguration %q", name)
-		}
-		return nil, errors.Trace(err)
-	}
-	return cfg, nil
-}
-
-func (k *kubernetesClient) updateValidatingWebhookConfiguration(cfg *admissionregistrationv1beta1.ValidatingWebhookConfiguration) error {
-	_, err := k.client().AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Update(context.TODO(), cfg, metav1.UpdateOptions{})
-	if k8serrors.IsNotFound(err) {
-		return errors.NotFoundf("ValidatingWebhookConfiguration %q", cfg.GetName())
-	}
-	return errors.Trace(err)
-}
-
-func (k *kubernetesClient) deleteValidatingWebhookConfiguration(name string, uid types.UID) error {
-	err := k.client().AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Delete(context.TODO(), name, utils.NewPreconditionDeleteOptions(uid))
-	if k8serrors.IsNotFound(err) {
-		return nil
-	}
-	return errors.Trace(err)
-}
-
-func (k *kubernetesClient) listValidatingWebhookConfigurations(selector k8slabels.Selector) ([]admissionregistrationv1beta1.ValidatingWebhookConfiguration, error) {
+func (k *kubernetesClient) listValidatingWebhookConfigurations(selector k8slabels.Selector) ([]admissionregistrationv1.ValidatingWebhookConfiguration, error) {
 	listOps := metav1.ListOptions{
 		LabelSelector: selector.String(),
 	}
-	cfgList, err := k.client().AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().List(context.TODO(), listOps)
+	cfgList, err := k.client().AdmissionregistrationV1().ValidatingWebhookConfigurations().List(context.TODO(), listOps)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -407,7 +339,7 @@ func (k *kubernetesClient) listValidatingWebhookConfigurations(selector k8slabel
 }
 
 func (k *kubernetesClient) deleteValidatingWebhookConfigurations(selector k8slabels.Selector) error {
-	err := k.client().AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().DeleteCollection(context.TODO(), metav1.DeleteOptions{
+	err := k.client().AdmissionregistrationV1().ValidatingWebhookConfigurations().DeleteCollection(context.TODO(), metav1.DeleteOptions{
 		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, metav1.ListOptions{
 		LabelSelector: selector.String(),

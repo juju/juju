@@ -404,6 +404,12 @@ func (csau createApplicationAndUnit) step(c *gc.C, ctx *context) {
 	ctx.apiLogin(c)
 }
 
+type deleteUnit struct{}
+
+func (d deleteUnit) step(c *gc.C, ctx *context) {
+	ctx.unit.DestroyWithForce(true, time.Duration(0))
+}
+
 type createUniter struct {
 	minion               bool
 	executorFunc         uniter.NewOperationExecutorFunc
@@ -556,6 +562,7 @@ type waitUniterDead struct {
 func (s waitUniterDead) step(c *gc.C, ctx *context) {
 	if s.err != "" {
 		err := s.waitDead(c, ctx)
+		c.Log(errors.ErrorStack(err))
 		c.Assert(err, gc.ErrorMatches, s.err)
 		return
 	}

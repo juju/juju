@@ -33,6 +33,12 @@ const (
 	RefreshAction Action = "refresh"
 )
 
+const (
+	// NotAvailable is used a placeholder for OS and Series for a refresh
+	// platform request, if the OS and Series is not known.
+	NotAvailable = "NA"
+)
+
 // Headers represents a series of headers that we would like to pass to the REST
 // API.
 type Headers = map[string][]string
@@ -100,16 +106,14 @@ func (c *RefreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]tr
 
 	var resp transport.RefreshResponses
 	restResp, err := c.client.Post(ctx, c.path, httpHeaders, req, &resp)
-
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	if resultErr := resp.ErrorList.Combine(); resultErr != nil {
-		if restResp.StatusCode == http.StatusNotFound {
-			return nil, errors.NewNotFound(resultErr, "")
-		}
-		return nil, errors.Trace(resultErr)
+	if restResp.StatusCode == http.StatusNotFound {
+		return nil, errors.NotFoundf("refresh")
+	}
+	if err := handleBasicAPIErrors(resp.ErrorList, c.logger); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	c.logger.Tracef("Refresh() unmarshalled: %s", pretty.Sprint(resp.Results))
@@ -157,16 +161,17 @@ func RefreshOne(id string, revision int, channel string, platform RefreshPlatfor
 
 // Build a refresh request that can be past to the API.
 func (c refreshOne) Build() (transport.RefreshRequest, Headers, error) {
+	platform, err := constructRefreshPlatform(c.Platform)
+	if err != nil {
+		return transport.RefreshRequest{}, nil, errors.Trace(err)
+	}
+
 	return transport.RefreshRequest{
 		Context: []transport.RefreshRequestContext{{
-			InstanceKey: c.instanceKey,
-			ID:          c.ID,
-			Revision:    c.Revision,
-			Platform: transport.RefreshRequestPlatform{
-				OS:           c.Platform.OS,
-				Series:       c.Platform.Series,
-				Architecture: c.Platform.Architecture,
-			},
+			InstanceKey:     c.instanceKey,
+			ID:              c.ID,
+			Revision:        c.Revision,
+			Platform:        platform,
 			TrackingChannel: c.Channel,
 			// TODO (stickupkid): We need to model the refreshed date. It's
 			// currently optional, but will be required at some point. This
@@ -304,6 +309,11 @@ func DownloadOneFromChannel(id string, channel string, platform RefreshPlatform)
 
 // Build a refresh request that can be past to the API.
 func (c executeOne) Build() (transport.RefreshRequest, Headers, error) {
+	platform, err := constructRefreshPlatform(c.Platform)
+	if err != nil {
+		return transport.RefreshRequest{}, nil, errors.Trace(err)
+	}
+
 	var id *string
 	if c.ID != "" {
 		id = &c.ID
@@ -312,6 +322,7 @@ func (c executeOne) Build() (transport.RefreshRequest, Headers, error) {
 	if c.Name != "" {
 		name = &c.Name
 	}
+
 	return transport.RefreshRequest{
 		// Context is required here, even if it looks optional.
 		Context: []transport.RefreshRequestContext{},
@@ -322,11 +333,7 @@ func (c executeOne) Build() (transport.RefreshRequest, Headers, error) {
 			Name:        name,
 			Revision:    c.Revision,
 			Channel:     c.Channel,
-			Platform: &transport.RefreshRequestPlatform{
-				OS:           c.Platform.OS,
-				Series:       c.Platform.Series,
-				Architecture: c.Platform.Architecture,
-			},
+			Platform:    &platform,
 		}},
 	}, constructMetadataHeaders(c.Platform), nil
 }
@@ -405,6 +412,28 @@ func (c refreshMany) String() string {
 		plans[i] = config.String()
 	}
 	return strings.Join(plans, "\n")
+}
+
+// constructRefreshPlatform creates a refresh request platform that allows for
+// partial platform queries.
+func constructRefreshPlatform(platform RefreshPlatform) (transport.RefreshRequestPlatform, error) {
+	if platform.Architecture == "" {
+		return transport.RefreshRequestPlatform{}, errors.NotValidf("refresh arch")
+	}
+	os := platform.OS
+	if os == "" {
+		os = NotAvailable
+	}
+	series := platform.Series
+	if series == "" {
+		series = NotAvailable
+	}
+
+	return transport.RefreshRequestPlatform{
+		Architecture: platform.Architecture,
+		OS:           os,
+		Series:       series,
+	}, nil
 }
 
 // constructHeaders adds X-Juju-Metadata headers for the charms' unique series

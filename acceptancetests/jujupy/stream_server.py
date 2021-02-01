@@ -187,7 +187,7 @@ def agent_tgz_from_juju_binary(
 
     try:
         version_output = subprocess.check_output(
-            [jujud_path, 'version']).rstrip('\n')
+            [jujud_path, 'version']).rstrip(str.encode('\n'))
         version, bin_series, arch = get_version_string_parts(version_output)
         bin_agent_series = _series_lookup(bin_series)
     except subprocess.CalledProcessError as e:
@@ -267,7 +267,7 @@ def _get_series_details(series):
 
 def _get_tgz_file_details(agent_tgz_path):
     file_details = dict(size=os.path.getsize(agent_tgz_path))
-    with open(agent_tgz_path) as f:
+    with open(agent_tgz_path, 'rb') as f:
         content = f.read()
     for hashtype in 'md5', 'sha256':
         hash_obj = hashlib.new(hashtype)

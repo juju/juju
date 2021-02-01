@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Test Model Tree Config functionality.
 
 Tests that default values can be overwritten and then unset.

@@ -16,14 +16,14 @@ import (
 	"github.com/juju/version"
 	"github.com/juju/worker/v2/workertest"
 	gc "gopkg.in/check.v1"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	apps "k8s.io/api/apps/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
-	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1648,32 +1648,32 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 	)
 
 	// timer +1.
-	s.mockCustomResourceDefinitionV1Beta1.EXPECT().List(gomock.Any(), v1.ListOptions{
+	s.mockCustomResourceDefinitionV1.EXPECT().List(gomock.Any(), v1.ListOptions{
 		LabelSelector: "juju-resource-lifecycle notin (persistent),model.juju.is/name=test",
 	}).AnyTimes().
-		Return(&apiextensionsv1beta1.CustomResourceDefinitionList{}, nil).
+		Return(&apiextensionsv1.CustomResourceDefinitionList{}, nil).
 		After(
-			s.mockCustomResourceDefinitionV1Beta1.EXPECT().DeleteCollection(gomock.Any(),
+			s.mockCustomResourceDefinitionV1.EXPECT().DeleteCollection(gomock.Any(),
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
 				v1.ListOptions{LabelSelector: "juju-resource-lifecycle notin (persistent),model.juju.is/name=test"},
 			).Return(s.k8sNotFoundError()),
 		)
 
 	// timer +1.
-	s.mockMutatingWebhookConfigurationV1Beta1.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "model.juju.is/name=test"}).
-		Return(&admissionregistrationv1beta1.MutatingWebhookConfigurationList{}, nil).
+	s.mockMutatingWebhookConfigurationV1.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "model.juju.is/name=test"}).
+		Return(&admissionregistrationv1.MutatingWebhookConfigurationList{}, nil).
 		After(
-			s.mockMutatingWebhookConfigurationV1Beta1.EXPECT().DeleteCollection(gomock.Any(),
+			s.mockMutatingWebhookConfigurationV1.EXPECT().DeleteCollection(gomock.Any(),
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
 				v1.ListOptions{LabelSelector: "model.juju.is/name=test"},
 			).Return(s.k8sNotFoundError()),
 		)
 
 	// timer +1.
-	s.mockValidatingWebhookConfigurationV1Beta1.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "model.juju.is/name=test"}).
-		Return(&admissionregistrationv1beta1.ValidatingWebhookConfigurationList{}, nil).
+	s.mockValidatingWebhookConfigurationV1.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "model.juju.is/name=test"}).
+		Return(&admissionregistrationv1.ValidatingWebhookConfigurationList{}, nil).
 		After(
-			s.mockValidatingWebhookConfigurationV1Beta1.EXPECT().DeleteCollection(gomock.Any(),
+			s.mockValidatingWebhookConfigurationV1.EXPECT().DeleteCollection(gomock.Any(),
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
 				v1.ListOptions{LabelSelector: "model.juju.is/name=test"},
 			).Return(s.k8sNotFoundError()),
@@ -1986,25 +1986,25 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 		).Return(nil),
 
 		// delete all custom resource definitions.
-		s.mockCustomResourceDefinitionV1Beta1.EXPECT().DeleteCollection(gomock.Any(),
+		s.mockCustomResourceDefinitionV1.EXPECT().DeleteCollection(gomock.Any(),
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
 			v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=test,juju-resource-lifecycle notin (model,persistent),model.juju.is/name=test"},
 		).Return(nil),
 
 		// delete all mutating webhook configurations.
-		s.mockMutatingWebhookConfigurationV1Beta1.EXPECT().DeleteCollection(gomock.Any(),
+		s.mockMutatingWebhookConfigurationV1.EXPECT().DeleteCollection(gomock.Any(),
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
 			v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=test,model.juju.is/name=test"},
 		).Return(nil),
 
 		// delete all validating webhook configurations.
-		s.mockValidatingWebhookConfigurationV1Beta1.EXPECT().DeleteCollection(gomock.Any(),
+		s.mockValidatingWebhookConfigurationV1.EXPECT().DeleteCollection(gomock.Any(),
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
 			v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=test,model.juju.is/name=test"},
 		).Return(nil),
 
 		// delete all ingress resources.
-		s.mockIngressV1Beta1.EXPECT().DeleteCollection(gomock.Any(),
+		s.mockIngressV1.EXPECT().DeleteCollection(gomock.Any(),
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
 			v1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=test"},
 		).Return(nil),
@@ -7521,8 +7521,8 @@ func (s *K8sBrokerSuite) TestExposeServiceIngressClassProvided(c *gc.C) {
 			},
 		},
 	}
-
-	ingress := &networkingv1beta1.Ingress{
+	pathType := networkingv1.PathTypePrefix
+	ingress := &networkingv1.Ingress{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "gitlab",
 			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "gitlab"},
@@ -7534,15 +7534,22 @@ func (s *K8sBrokerSuite) TestExposeServiceIngressClassProvided(c *gc.C) {
 				"kubernetes.io/ingress.class":           "foo",
 			},
 		},
-		Spec: networkingv1beta1.IngressSpec{
-			Rules: []networkingv1beta1.IngressRule{{
+		Spec: networkingv1.IngressSpec{
+			Rules: []networkingv1.IngressRule{{
 				Host: "172.0.0.1.xip.io",
-				IngressRuleValue: networkingv1beta1.IngressRuleValue{
-					HTTP: &networkingv1beta1.HTTPIngressRuleValue{
-						Paths: []networkingv1beta1.HTTPIngressPath{{
-							Path: "/",
-							Backend: networkingv1beta1.IngressBackend{
-								ServiceName: "gitlab", ServicePort: intstr.IntOrString{IntVal: 9376}},
+				IngressRuleValue: networkingv1.IngressRuleValue{
+					HTTP: &networkingv1.HTTPIngressRuleValue{
+						Paths: []networkingv1.HTTPIngressPath{{
+							Path:     "/",
+							PathType: &pathType,
+							Backend: networkingv1.IngressBackend{
+								Service: &networkingv1.IngressServiceBackend{
+									Name: "gitlab",
+									Port: networkingv1.ServiceBackendPort{
+										Number: int32(9376),
+									},
+								},
+							},
 						}}},
 				}}},
 		},
@@ -7553,7 +7560,7 @@ func (s *K8sBrokerSuite) TestExposeServiceIngressClassProvided(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Get(gomock.Any(), "gitlab", v1.GetOptions{}).
 			Return(svc1, nil),
-		s.mockIngressV1Beta1.EXPECT().Create(gomock.Any(), ingress, v1.CreateOptions{}).Return(nil, nil),
+		s.mockIngressV1.EXPECT().Create(gomock.Any(), ingress, v1.CreateOptions{}).Return(nil, nil),
 	)
 
 	err := s.broker.ExposeService("gitlab", nil, application.ConfigAttributes{
@@ -7588,7 +7595,8 @@ func (s *K8sBrokerSuite) TestExposeServiceGetDefaultIngressClassFromResource(c *
 		},
 	}
 
-	ingress := &networkingv1beta1.Ingress{
+	pathType := networkingv1.PathTypeImplementationSpecific
+	ingress := &networkingv1.Ingress{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "gitlab",
 			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "gitlab"},
@@ -7599,16 +7607,23 @@ func (s *K8sBrokerSuite) TestExposeServiceGetDefaultIngressClassFromResource(c *
 				"ingress.kubernetes.io/ssl-passthrough": "false",
 			},
 		},
-		Spec: networkingv1beta1.IngressSpec{
+		Spec: networkingv1.IngressSpec{
 			IngressClassName: strPtr("foo"),
-			Rules: []networkingv1beta1.IngressRule{{
+			Rules: []networkingv1.IngressRule{{
 				Host: "172.0.0.1.xip.io",
-				IngressRuleValue: networkingv1beta1.IngressRuleValue{
-					HTTP: &networkingv1beta1.HTTPIngressRuleValue{
-						Paths: []networkingv1beta1.HTTPIngressPath{{
-							Path: "/",
-							Backend: networkingv1beta1.IngressBackend{
-								ServiceName: "gitlab", ServicePort: intstr.IntOrString{IntVal: 9376}},
+				IngressRuleValue: networkingv1.IngressRuleValue{
+					HTTP: &networkingv1.HTTPIngressRuleValue{
+						Paths: []networkingv1.HTTPIngressPath{{
+							Path:     "/",
+							PathType: &pathType,
+							Backend: networkingv1.IngressBackend{
+								Service: &networkingv1.IngressServiceBackend{
+									Name: "gitlab",
+									Port: networkingv1.ServiceBackendPort{
+										Number: int32(9376),
+									},
+								},
+							},
 						}}},
 				}}},
 		},
@@ -7630,7 +7645,7 @@ func (s *K8sBrokerSuite) TestExposeServiceGetDefaultIngressClassFromResource(c *
 					},
 				},
 			}}, nil),
-		s.mockIngressV1Beta1.EXPECT().Create(gomock.Any(), ingress, v1.CreateOptions{}).Return(nil, nil),
+		s.mockIngressV1.EXPECT().Create(gomock.Any(), ingress, v1.CreateOptions{}).Return(nil, nil),
 	)
 
 	err := s.broker.ExposeService("gitlab", nil, application.ConfigAttributes{
@@ -7664,7 +7679,8 @@ func (s *K8sBrokerSuite) TestExposeServiceGetDefaultIngressClass(c *gc.C) {
 		},
 	}
 
-	ingress := &networkingv1beta1.Ingress{
+	pathType := networkingv1.PathTypePrefix
+	ingress := &networkingv1.Ingress{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "gitlab",
 			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "gitlab"},
@@ -7676,15 +7692,22 @@ func (s *K8sBrokerSuite) TestExposeServiceGetDefaultIngressClass(c *gc.C) {
 				"kubernetes.io/ingress.class":           "nginx",
 			},
 		},
-		Spec: networkingv1beta1.IngressSpec{
-			Rules: []networkingv1beta1.IngressRule{{
+		Spec: networkingv1.IngressSpec{
+			Rules: []networkingv1.IngressRule{{
 				Host: "172.0.0.1.xip.io",
-				IngressRuleValue: networkingv1beta1.IngressRuleValue{
-					HTTP: &networkingv1beta1.HTTPIngressRuleValue{
-						Paths: []networkingv1beta1.HTTPIngressPath{{
-							Path: "/",
-							Backend: networkingv1beta1.IngressBackend{
-								ServiceName: "gitlab", ServicePort: intstr.IntOrString{IntVal: 9376}},
+				IngressRuleValue: networkingv1.IngressRuleValue{
+					HTTP: &networkingv1.HTTPIngressRuleValue{
+						Paths: []networkingv1.HTTPIngressPath{{
+							Path:     "/",
+							PathType: &pathType,
+							Backend: networkingv1.IngressBackend{
+								Service: &networkingv1.IngressServiceBackend{
+									Name: "gitlab",
+									Port: networkingv1.ServiceBackendPort{
+										Number: int32(9376),
+									},
+								},
+							},
 						}}},
 				}}},
 		},
@@ -7696,7 +7719,7 @@ func (s *K8sBrokerSuite) TestExposeServiceGetDefaultIngressClass(c *gc.C) {
 			Return(svc1, nil),
 		s.mockIngressClasses.EXPECT().List(gomock.Any(), v1.ListOptions{}).
 			Return(&networkingv1.IngressClassList{Items: []networkingv1.IngressClass{}}, nil),
-		s.mockIngressV1Beta1.EXPECT().Create(gomock.Any(), ingress, v1.CreateOptions{}).Return(nil, nil),
+		s.mockIngressV1.EXPECT().Create(gomock.Any(), ingress, v1.CreateOptions{}).Return(nil, nil),
 	)
 
 	err := s.broker.ExposeService("gitlab", nil, application.ConfigAttributes{
