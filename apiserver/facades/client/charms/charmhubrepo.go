@@ -68,7 +68,7 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 	if resErr := refreshRes.Error; resErr != nil {
 		switch resErr.Code {
 		case transport.ErrorCodeInvalidCharmPlatform:
-			logger.Errorf("Invalid charm platform %q %v - Default Platforms: %v", curl, origin, resErr.Extra.DefaultPlatforms)
+			logger.Tracef("Invalid charm platform %q %v - Default Platforms: %v", curl, origin, resErr.Extra.DefaultPlatforms)
 			platform, err := c.selectNextPlatform(resErr.Extra.DefaultPlatforms, origin)
 			if err != nil {
 				return nil, params.CharmOrigin{}, nil, errors.Annotatef(err, "refresh")
@@ -78,7 +78,7 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 			origin.Series = platform.Series
 
 		case transport.ErrorCodeRevisionNotFound:
-			logger.Errorf("Revision not found %q %v - Default Platforms: %v", curl, origin, resErr.Extra.Releases)
+			logger.Tracef("Revision not found %q %v - Default Platforms: %v", curl, origin, resErr.Extra.Releases)
 			release, err := c.selectNextRelease(resErr.Extra.Releases, origin)
 			if err != nil {
 				return nil, params.CharmOrigin{}, nil, errors.Annotatef(err, "refresh")
