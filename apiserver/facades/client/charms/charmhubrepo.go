@@ -271,9 +271,6 @@ func refreshConfig(curl *charm.URL, origin corecharm.Origin) (charmhub.RefreshCo
 		channel         string
 		nonEmptyChannel = origin.Channel != nil && !origin.Channel.Empty()
 	)
-	if method == MethodRevision && nonEmptyChannel {
-		return nil, errors.NotValidf("supplying both revision and channel")
-	}
 
 	// Select the appropriate channel based on the supplied origin.
 	if nonEmptyChannel {
