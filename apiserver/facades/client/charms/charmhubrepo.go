@@ -259,13 +259,6 @@ const (
 //   one will be used.  Channel first, Revision is a fallback.
 // If the origin.ID is set, a refresh config is returned.
 func refreshConfig(curl *charm.URL, origin corecharm.Origin) (charmhub.RefreshConfig, error) {
-	var channel string
-	if origin.Channel != nil && !origin.Channel.Empty() {
-		channel = origin.Channel.String()
-	} else {
-		channel = corecharm.DefaultChannelString
-	}
-
 	// Work out the correct install method.
 	var rev int
 	var method Method
@@ -273,7 +266,23 @@ func refreshConfig(curl *charm.URL, origin corecharm.Origin) (charmhub.RefreshCo
 		rev = *origin.Revision
 		method = MethodRevision
 	}
-	if method != MethodRevision && origin.ID == "" && channel != "" {
+
+	var (
+		channel         string
+		nonEmptyChannel = origin.Channel != nil && !origin.Channel.Empty()
+	)
+	if method == MethodRevision && nonEmptyChannel {
+		return nil, errors.NotValidf("supplying both revision and channel")
+	}
+
+	// Select the appropriate channel based on the supplied origin.
+	if nonEmptyChannel {
+		channel = origin.Channel.String()
+	} else if method != MethodRevision {
+		channel = corecharm.DefaultChannelString
+	}
+
+	if origin.ID == "" && channel != "" {
 		method = MethodChannel
 	}
 	if method == MethodRevision && origin.ID != "" {

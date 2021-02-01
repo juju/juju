@@ -272,10 +272,8 @@ func (refreshConfigSuite) TestRefreshByRevision(c *gc.C) {
 	revision := 1
 	curl := charm.MustParseURL("ch:wordpress")
 	platform := corecharm.MustParsePlatform("amd64/ubuntu/focal")
-	channel := corecharm.MustParseChannel("latest/stable").Normalize()
 	origin := corecharm.Origin{
 		Platform: platform,
-		Channel:  &channel,
 		Revision: &revision,
 	}
 
@@ -302,16 +300,29 @@ func (refreshConfigSuite) TestRefreshByRevision(c *gc.C) {
 	})
 }
 
-func (refreshConfigSuite) TestRefreshByID(c *gc.C) {
-	id := "aaabbbccc"
+func (refreshConfigSuite) TestRefreshByRevisionAndChannel(c *gc.C) {
 	revision := 1
 	curl := charm.MustParseURL("ch:wordpress")
 	platform := corecharm.MustParsePlatform("amd64/ubuntu/focal")
 	channel := corecharm.MustParseChannel("latest/stable").Normalize()
 	origin := corecharm.Origin{
-		ID:       id,
 		Platform: platform,
 		Channel:  &channel,
+		Revision: &revision,
+	}
+
+	_, err := refreshConfig(curl, origin)
+	c.Assert(err, gc.ErrorMatches, `supplying both revision and channel not valid`)
+}
+
+func (refreshConfigSuite) TestRefreshByID(c *gc.C) {
+	id := "aaabbbccc"
+	revision := 1
+	curl := charm.MustParseURL("ch:wordpress")
+	platform := corecharm.MustParsePlatform("amd64/ubuntu/focal")
+	origin := corecharm.Origin{
+		ID:       id,
+		Platform: platform,
 		Revision: &revision,
 	}
 
@@ -337,7 +348,6 @@ func (refreshConfigSuite) TestRefreshByID(c *gc.C) {
 				Series:       "focal",
 				Architecture: "amd64",
 			},
-			TrackingChannel: channel.String(),
 		}},
 	})
 }
