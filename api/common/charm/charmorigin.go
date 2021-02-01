@@ -90,16 +90,20 @@ func (o Origin) CoreCharmOrigin() corecharm.Origin {
 	if o.Track != nil {
 		track = *o.Track
 	}
+	var channel *corecharm.Channel
+	if o.Risk != "" {
+		channel = &corecharm.Channel{
+			Risk:  corecharm.Risk(o.Risk),
+			Track: track,
+		}
+	}
 	return corecharm.Origin{
 		Source:   corecharm.Source(o.Source),
 		Type:     o.Type,
 		ID:       o.ID,
 		Hash:     o.Hash,
 		Revision: o.Revision,
-		Channel: &corecharm.Channel{
-			Risk:  corecharm.Risk(o.Risk),
-			Track: track,
-		},
+		Channel:  channel,
 		Platform: corecharm.Platform{
 			Architecture: o.Architecture,
 			OS:           o.OS,
