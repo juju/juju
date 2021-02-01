@@ -301,13 +301,18 @@ func refreshConfig(curl *charm.URL, origin corecharm.Origin) (charmhub.RefreshCo
 	)
 	switch method {
 	case MethodChannel:
-		// Install from just the name and the channel.
+		// Install from just the name and the channel. If there is no origin ID,
+		// we haven't downloaded this charm before.
+		// Try channel first.
 		cfg, err = charmhub.InstallOneFromChannel(curl.Name, channel, platform)
 	case MethodRevision:
-		// If there is a revision, install it using that.
+		// If there is a revision, install it using that. If there is no origin
+		// ID, we haven't downloaded this charm before.
+		// No channel, try with revision.
 		cfg, err = charmhub.InstallOneFromRevision(curl.Name, rev, platform)
 	case MethodID:
-		// If we have a ID, revision and channel, then use that.
+		// This must be a charm upgrade if we have an ID.  Use the refresh
+		// action for metric keeping on the CharmHub side.
 		cfg, err = charmhub.RefreshOne(origin.ID, rev, channel, platform)
 	default:
 		return nil, errors.NotValidf("origin %v", origin)
