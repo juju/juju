@@ -3,8 +3,17 @@
 
 package transport
 
-type Type = string
+// Type represents the type of payload is expected from the API
+type Type string
 
+const (
+	// CharmType represents the charm payload.
+	CharmType Type = "charm"
+	// BundleType represents the bundle payload.
+	BundleType Type = "bundle"
+)
+
+// InfoResponse is the result from an information query.
 type InfoResponse struct {
 	Type           Type             `json:"type"`
 	ID             string           `json:"id"`
@@ -15,6 +24,8 @@ type InfoResponse struct {
 	ErrorList      APIErrors        `json:"error-list,omitempty"`
 }
 
+// InfoChannelMap returns the information channel map. This defines a unique
+// revision for a given channel from an info response.
 type InfoChannelMap struct {
 	Channel   Channel            `json:"channel,omitempty"`
 	Resources []ResourceRevision `json:"resources,omitempty"`
