@@ -16,7 +16,7 @@ import (
 
 func convertCharmInfoResult(info transport.InfoResponse) params.InfoResponse {
 	ir := params.InfoResponse{
-		Type:        info.Type,
+		Type:        string(info.Type),
 		ID:          info.ID,
 		Name:        info.Name,
 		Description: info.Entity.Description,
@@ -59,7 +59,7 @@ func convertCharmFindResults(responses []transport.FindResponse) []params.FindRe
 
 func convertCharmFindResult(resp transport.FindResponse) params.FindResponse {
 	result := params.FindResponse{
-		Type:      resp.Type,
+		Type:      string(resp.Type),
 		ID:        resp.ID,
 		Name:      resp.Name,
 		Publisher: publisher(resp.Entity),

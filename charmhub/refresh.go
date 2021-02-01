@@ -416,9 +416,9 @@ func (c refreshMany) String() string {
 
 // constructRefreshPlatform creates a refresh request platform that allows for
 // partial platform queries.
-func constructRefreshPlatform(platform RefreshPlatform) (transport.RefreshRequestPlatform, error) {
+func constructRefreshPlatform(platform RefreshPlatform) (transport.Platform, error) {
 	if platform.Architecture == "" {
-		return transport.RefreshRequestPlatform{}, errors.NotValidf("refresh arch")
+		return transport.Platform{}, errors.NotValidf("refresh arch")
 	}
 	os := platform.OS
 	if os == "" {
@@ -429,7 +429,7 @@ func constructRefreshPlatform(platform RefreshPlatform) (transport.RefreshReques
 		series = NotAvailable
 	}
 
-	return transport.RefreshRequestPlatform{
+	return transport.Platform{
 		Architecture: platform.Architecture,
 		OS:           os,
 		Series:       series,

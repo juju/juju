@@ -60,12 +60,12 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 		return nil, params.CharmOrigin{}, nil, errors.Errorf("specifying a revision is not supported, please use a channel.")
 	}
 
-	refreshRes, err := c.refreshOne(curl, apicharm.APICharmOrigin(origin).CoreCharmOrigin())
+	res, err := c.refreshOne(curl, apicharm.APICharmOrigin(origin).CoreCharmOrigin())
 	if err != nil {
 		return nil, params.CharmOrigin{}, nil, errors.Annotatef(err, "refresh")
 	}
 
-	if resErr := refreshRes.Error; resErr != nil {
+	if resErr := res.Error; resErr != nil {
 		switch resErr.Code {
 		case transport.ErrorCodeInvalidCharmPlatform:
 			logger.Tracef("Invalid charm platform %q %v - Default Platforms: %v", curl, origin, resErr.Extra.DefaultPlatforms)
@@ -94,18 +94,18 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 			return nil, params.CharmOrigin{}, nil, errors.NotValidf("series for %s", curl.Name)
 		}
 
-		refreshRes, err = c.refreshOne(curl, apicharm.APICharmOrigin(origin).CoreCharmOrigin())
+		res, err = c.refreshOne(curl, apicharm.APICharmOrigin(origin).CoreCharmOrigin())
 		if err != nil {
 			return nil, params.CharmOrigin{}, nil, errors.Annotatef(err, "refresh retry")
 		}
-		if resErr := refreshRes.Error; resErr != nil {
+		if resErr := res.Error; resErr != nil {
 			return nil, params.CharmOrigin{}, nil, errors.Errorf("refresh retry: %s", resErr.Message)
 		}
 	}
 
 	// Use the channel that was actually picked by the API. This should
 	// account for the closed tracks in a given channel.
-	channel, err := corecharm.ParseChannelNormalize(refreshRes.EffectiveChannel)
+	channel, err := corecharm.ParseChannelNormalize(res.EffectiveChannel)
 	if err != nil {
 		return nil, params.CharmOrigin{}, nil, errors.Annotatef(err, "invalid channel")
 	}
@@ -115,19 +115,19 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 		track = &channel.Track
 	}
 
+	entity := res.Entity
+
 	// Ensure we send the updated curl back, with all the correct segments.
-	revision := refreshRes.Entity.Revision
+	revision := entity.Revision
 	resCurl := curl.
 		WithSeries(origin.Series).
 		WithArchitecture(origin.Architecture).
 		WithRevision(revision)
 
-	// TODO (stickupkid): This is currently hardcoded as the API doesn't support
-	// bundles.
 	resOrigin := origin
-	resOrigin.Type = "charm"
-	resOrigin.ID = refreshRes.ID
-	resOrigin.Hash = refreshRes.Entity.Download.HashSHA256
+	resOrigin.Type = string(entity.Type)
+	resOrigin.ID = res.ID
+	resOrigin.Hash = entity.Download.HashSHA256
 	resOrigin.Track = track
 	resOrigin.Risk = string(channel.Risk)
 	resOrigin.Revision = &revision
@@ -271,9 +271,6 @@ func refreshConfig(curl *charm.URL, origin corecharm.Origin) (charmhub.RefreshCo
 		channel         string
 		nonEmptyChannel = origin.Channel != nil && !origin.Channel.Empty()
 	)
-	if method == MethodRevision && nonEmptyChannel {
-		return nil, errors.NotValidf("supplying both revision and channel")
-	}
 
 	// Select the appropriate channel based on the supplied origin.
 	if nonEmptyChannel {
@@ -285,7 +282,8 @@ func refreshConfig(curl *charm.URL, origin corecharm.Origin) (charmhub.RefreshCo
 	if origin.ID == "" && channel != "" {
 		method = MethodChannel
 	}
-	if method == MethodRevision && origin.ID != "" {
+	// Bundles can not use method IDs, which in turn forces a refresh.
+	if method == MethodRevision && !matchesType(origin.Type, transport.BundleType) && origin.ID != "" {
 		method = MethodID
 	}
 
@@ -320,27 +318,8 @@ func refreshConfig(curl *charm.URL, origin corecharm.Origin) (charmhub.RefreshCo
 	return cfg, err
 }
 
-func makeChannel(origin params.CharmOrigin) (corecharm.Channel, error) {
-	var track string
-	if origin.Track != nil {
-		track = *origin.Track
-	}
-	if track == "" && origin.Risk == "" {
-		return corecharm.Channel{}, nil
-	}
-	ch, err := corecharm.MakeChannel(track, origin.Risk, "")
-	if err != nil {
-		return corecharm.Channel{}, errors.Trace(err)
-	}
-	return ch.Normalize(), nil
-}
-
-func makePlatform(origin params.CharmOrigin) (corecharm.Platform, error) {
-	p, err := corecharm.MakePlatform(origin.Architecture, origin.OS, origin.Series)
-	if err != nil {
-		return p, errors.Trace(err)
-	}
-	return p.Normalize(), nil
+func matchesType(originType string, expected transport.Type) bool {
+	return string(expected) == originType
 }
 
 func composeSuggestions(releases []transport.Release, origin params.CharmOrigin) []string {

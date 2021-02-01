@@ -63,7 +63,6 @@ func (s *downloadSuite) TestRun(c *gc.C) {
 	url := "http://example.org/"
 
 	s.expectModelGet(url)
-	s.expectInfo(url)
 	s.expectRefresh(c, url)
 	s.expectDownload(c, url)
 
@@ -90,7 +89,6 @@ func (s *downloadSuite) TestRunWithStdout(c *gc.C) {
 	url := "http://example.org/"
 
 	s.expectModelGet(url)
-	s.expectInfo(url)
 	s.expectRefresh(c, url)
 	s.expectDownload(c, url)
 
@@ -115,7 +113,6 @@ func (s *downloadSuite) TestRunWithCustomCharmHubURL(c *gc.C) {
 
 	url := "http://example.org/"
 
-	s.expectInfo(url)
 	s.expectRefresh(c, url)
 	s.expectDownload(c, url)
 
@@ -196,29 +193,6 @@ func (s *downloadSuite) expectModelGet(charmHubURL string) {
 	}, nil)
 }
 
-func (s *downloadSuite) expectInfo(charmHubURL string) {
-	s.downloadCommandAPI.EXPECT().Info(gomock.Any(), "test").Return(transport.InfoResponse{
-		Type: "charm",
-		Name: "test",
-		ChannelMap: []transport.InfoChannelMap{{
-			Channel: transport.Channel{
-				Name:  "a",
-				Track: "latest",
-				Risk:  "stable",
-				Platform: transport.Platform{
-					Series: "xenial",
-				},
-			},
-			Revision: transport.InfoRevision{
-				Revision: 1,
-				Download: transport.Download{
-					URL: charmHubURL,
-				},
-			},
-		}},
-	}, nil)
-}
-
 func (s *downloadSuite) expectRefresh(c *gc.C, charmHubURL string) {
 	s.downloadCommandAPI.EXPECT().Refresh(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, cfg charmhub.RefreshConfig) ([]transport.RefreshResponse, error) {
 		instanceKey := charmhub.ExtractConfigInstanceKey(cfg)
@@ -226,6 +200,7 @@ func (s *downloadSuite) expectRefresh(c *gc.C, charmHubURL string) {
 		return []transport.RefreshResponse{{
 			InstanceKey: instanceKey,
 			Entity: transport.RefreshEntity{
+				Type: "charm",
 				Name: "test",
 				Download: transport.Download{
 					HashSHA256: "",

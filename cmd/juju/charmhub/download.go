@@ -203,20 +203,6 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// The following info request should not be required, but we have to use it
-	// to work out if it's a bundle or a charm. Bundles are not currently
-	// supported by the Refresh API.
-	infoResult, err := client.Info(ctx, c.charmOrBundle)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if len(infoResult.ErrorList) > 0 {
-		return errors.Trace(infoResult.ErrorList)
-	}
-	if infoResult.Type == "bundle" {
-		return errors.Errorf("Bundles are not currently supported for download directly.")
-	}
-
 	// Locate a release that we would expect to be default. In this case
 	// we want to fall back to latest/stable. We don't want to use the
 	// info.DefaultRelease here as that isn't actually the default release,
@@ -281,11 +267,19 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	// happens not to be the case, just select the first one.
 	result := results[0]
 	entity := result.Entity
-	entityType := infoResult.Type
+	entityType := entity.Type
+	entitySHA := entity.Download.HashSHA256
 
 	path := c.archivePath
 	if c.archivePath == "" {
-		path = fmt.Sprintf("%s.%s", entity.Name, entityType)
+		// Use the sha256 to create a unique path for every download. The
+		// consequence of this is that same sha binary blobs will overwrite
+		// each other. That should be ok, as the sha will match.
+		var short string
+		if len(entitySHA) >= 7 {
+			short = fmt.Sprintf("_%s", entitySHA[0:7])
+		}
+		path = fmt.Sprintf("%s%s.%s", entity.Name, short, entityType)
 	}
 
 	cmdContext.Infof("Fetching %s %q using %q channel and platform %q", entityType, entity.Name, normChannel, normPlatform)
@@ -310,10 +304,10 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 
 	// Ensure we calculate the hash of the file.
 	calculatedHash, err := c.calculateHash(path)
-	if calculatedHash != entity.Download.HashSHA256 {
+	if calculatedHash != entitySHA {
 		return errors.Errorf(`Checksum of download failed for %q:
 Expected:   %s
-Calculated: %s`, c.charmOrBundle, entity.Download.HashSHA256, calculatedHash)
+Calculated: %s`, c.charmOrBundle, entitySHA, calculatedHash)
 	}
 
 	if !strings.HasPrefix(path, "/") {
@@ -373,9 +367,6 @@ func (c *downloadCommand) getCharmHubURL() (string, error) {
 // CharmHubClient defines a charmhub client, used for querying the charmhub
 // store.
 type CharmHubClient interface {
-	// Info returns charm info on the provided charm name from CharmHub API.
-	Info(context.Context, string) (transport.InfoResponse, error)
-
 	// Refresh returns the charm/bundle response for a given configuration.
 	Refresh(context.Context, charmhub.RefreshConfig) ([]transport.RefreshResponse, error)
 
