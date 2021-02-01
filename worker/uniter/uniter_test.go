@@ -190,6 +190,40 @@ func (s *UniterSuite) TestUniterBootstrap(c *gc.C) {
 	})
 }
 
+func (s *UniterSuite) TestUniterRestartWithCharmDirInvalidThenRecover(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			"re-downloaded charm if it is missing after restart",
+			quickStart{},
+			createCharm{revision: 1},
+			upgradeCharm{revision: 1},
+			waitUnitAgent{
+				status: status.Idle,
+				charm:  1,
+			},
+			waitUnitAgent{
+				statusGetter: unitStatusGetter,
+				status:       status.Unknown,
+				charm:        1,
+			},
+			waitHooks{"upgrade-charm", "config-changed"},
+			verifyCharm{revision: 1},
+			verifyRunning{},
+
+			stopUniter{},
+			removeCharmDir{}, // charm dir has been removed, restart will re-download the charm.
+			startUniter{rebootQuerier: fakeRebootQuerier{rebootNotDetected}},
+			waitUnitAgent{
+				status: status.Idle,
+				charm:  1,
+			},
+			waitHooks{"upgrade-charm", "config-changed"},
+			verifyCharm{revision: 1},
+			verifyRunning{},
+		),
+	})
+}
+
 func (s *UniterSuite) TestUniterStartupStatus(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
