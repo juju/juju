@@ -199,6 +199,10 @@ func (config Config) Validate() error {
 	if config.ExecClientGetter == nil {
 		return errors.NotValidf("missing ExecClientGetter")
 	}
+
+	if config.Logger == nil {
+		return errors.NotValidf("missing Logger")
+	}
 	return nil
 }
 
