@@ -184,6 +184,11 @@ func (ch Channel) Normalize() Channel {
 	}
 }
 
+// Empty returns true if all it's components are empty.
+func (ch Channel) Empty() bool {
+	return ch.Track == "" && ch.Risk == "" && ch.Branch == ""
+}
+
 func (ch Channel) String() string {
 	path := string(ch.Risk)
 	if track := ch.Track; track != "" {

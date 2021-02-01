@@ -1508,7 +1508,6 @@ func (s *DeploySuite) TestDeployWithTermsNotSigned(c *gc.C) {
 	origin := commoncharm.Origin{
 		Source:       commoncharm.OriginCharmStore,
 		Architecture: arch.DefaultArchitecture,
-		Series:       "bionic",
 	}
 	s.fakeAPI.Call("AddCharm", &deployURL, origin, false).Returns(origin, error(termsRequiredError))
 	s.fakeAPI.Call("CharmInfo", deployURL.String()).Returns(
@@ -1560,7 +1559,7 @@ func (s *DeploySuite) TestDeployWithChannel(c *gc.C) {
 		Series:          "bionic",
 		NumUnits:        1,
 	}).Returns(error(nil))
-	s.fakeAPI.Call("AddCharm", curl, originWithSeries, false).Returns(originWithSeries, error(nil))
+	s.fakeAPI.Call("AddCharm", curl, origin, false).Returns(originWithSeries, error(nil))
 	withCharmDeployable(
 		s.fakeAPI, curl, "bionic",
 		&charm.Meta{Name: "dummy", Series: []string{"bionic"}},
@@ -1583,7 +1582,32 @@ func (s *DeploySuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) {
 
 	s.fakeAPI.planURL = server.URL
 	withCharmRepoResolvable(s.fakeAPI, meteredCharmURL, "")
-	withCharmDeployable(s.fakeAPI, meteredCharmURL, "bionic", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
+
+	series := "bionic"
+
+	fallbackCons := constraints.MustParse("arch=amd64")
+	platform, _ := apputils.DeducePlatform(constraints.Value{}, "", fallbackCons)
+	origin, _ := apputils.DeduceOrigin(meteredCharmURL, corecharm.Channel{}, platform)
+	s.fakeAPI.Call("AddCharm", meteredCharmURL, origin, false).Returns(origin, error(nil))
+	s.fakeAPI.Call("CharmInfo", meteredCharmURL.String()).Returns(
+		&apicommoncharms.CharmInfo{
+			URL:     meteredCharmURL.String(),
+			Meta:    charmDir.Meta(),
+			Metrics: charmDir.Metrics(),
+		},
+		error(nil),
+	)
+	s.fakeAPI.Call("Deploy", application.DeployArgs{
+		CharmID: application.CharmID{
+			URL:    meteredCharmURL,
+			Origin: origin,
+		},
+		CharmOrigin:     origin,
+		ApplicationName: "metered",
+		Series:          series,
+		NumUnits:        1,
+	}).Returns(error(nil))
+	s.fakeAPI.Call("IsMetered", meteredCharmURL.String()).Returns(true, error(nil))
 
 	// `"hello registration"\n` (quotes and newline from json
 	// encoding) is returned by the fake http server. This is binary64
@@ -1607,7 +1631,7 @@ func (s *DeploySuite) TestAddMetricCredentials(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").CharmDir("metered")
 	meteredURL := charm.MustParseURL("cs:bionic/metered-1")
 	s.fakeAPI.planURL = server.URL
-	withCharmDeployable(s.fakeAPI, meteredURL, "bionic", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, meteredURL, "", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
 	withCharmRepoResolvable(s.fakeAPI, meteredURL, "")
 
 	// `"hello registration"\n` (quotes and newline from json
@@ -1620,11 +1644,13 @@ func (s *DeploySuite) TestAddMetricCredentials(c *gc.C) {
 		CharmID: application.CharmID{
 			URL: meteredURL,
 			Origin: commoncharm.Origin{
-				Source: commoncharm.OriginCharmStore,
+				Source:       commoncharm.OriginCharmStore,
+				Architecture: arch.DefaultArchitecture,
 			},
 		},
 		CharmOrigin: commoncharm.Origin{
-			Source: commoncharm.OriginCharmStore,
+			Source:       commoncharm.OriginCharmStore,
+			Architecture: arch.DefaultArchitecture,
 		},
 		ApplicationName: meteredURL.Name,
 		Series:          "bionic",
@@ -1659,7 +1685,7 @@ func (s *DeploySuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 
 	meteredURL := charm.MustParseURL("cs:bionic/metered-1")
 	s.fakeAPI.planURL = server.URL
-	withCharmDeployable(s.fakeAPI, meteredURL, "bionic", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, meteredURL, "", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
 	withCharmRepoResolvable(s.fakeAPI, meteredURL, "")
 
 	creds := append([]byte(`"aGVsbG8gcmVnaXN0cmF0aW9u"`), 0xA)
@@ -1669,11 +1695,13 @@ func (s *DeploySuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 		CharmID: application.CharmID{
 			URL: meteredURL,
 			Origin: commoncharm.Origin{
-				Source: commoncharm.OriginCharmStore,
+				Source:       commoncharm.OriginCharmStore,
+				Architecture: arch.DefaultArchitecture,
 			},
 		},
 		CharmOrigin: commoncharm.Origin{
-			Source: commoncharm.OriginCharmStore,
+			Source:       commoncharm.OriginCharmStore,
+			Architecture: arch.DefaultArchitecture,
 		},
 		ApplicationName: meteredURL.Name,
 		Series:          "bionic",
@@ -1703,17 +1731,19 @@ func (s *DeploySuite) TestSetMetricCredentialsNotCalledForUnmeteredCharm(c *gc.C
 	charmDir := testcharms.RepoWithSeries("bionic").CharmDir("dummy")
 	charmURL := charm.MustParseURL("cs:bionic/dummy-1")
 	withCharmRepoResolvable(s.fakeAPI, charmURL, "")
-	withCharmDeployable(s.fakeAPI, charmURL, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, charmURL, "", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
 	s.fakeAPI.Call("Deploy", application.DeployArgs{
 		CharmID: application.CharmID{
 			URL: charmURL,
 			Origin: commoncharm.Origin{
-				Source: commoncharm.OriginCharmStore,
+				Source:       commoncharm.OriginCharmStore,
+				Architecture: arch.DefaultArchitecture,
 			},
 		},
 		CharmOrigin: commoncharm.Origin{
-			Source: commoncharm.OriginCharmStore,
+			Source:       commoncharm.OriginCharmStore,
+			Architecture: arch.DefaultArchitecture,
 		},
 		ApplicationName: charmURL.Name,
 		Series:          charmURL.Series,
@@ -2148,20 +2178,18 @@ func (s *DeploySuite) TestDeployCharmWithSomeEndpointBindingsSpecifiedSuccess(c 
 	curl := charm.MustParseURL("cs:bionic/wordpress-extra-bindings-1")
 	charmDir := testcharms.RepoWithSeries("bionic").CharmDir("wordpress-extra-bindings")
 	withCharmRepoResolvable(s.fakeAPI, curl, "")
-	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, curl, "", charmDir.Meta(), charmDir.Metrics(), true, false, 1, nil, nil)
 	s.fakeAPI.Call("Deploy", application.DeployArgs{
 		CharmID: application.CharmID{
 			URL: curl,
 			Origin: commoncharm.Origin{
 				Source:       commoncharm.OriginCharmStore,
 				Architecture: arch.DefaultArchitecture,
-				Series:       "bionic",
 			},
 		},
 		CharmOrigin: commoncharm.Origin{
 			Source:       commoncharm.OriginCharmStore,
 			Architecture: arch.DefaultArchitecture,
-			Series:       "bionic",
 		},
 		ApplicationName: curl.Name,
 		Series:          "bionic",

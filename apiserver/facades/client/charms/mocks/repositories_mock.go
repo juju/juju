@@ -6,15 +6,14 @@ package mocks
 
 import (
 	context "context"
-	url "net/url"
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	charm "github.com/juju/charm/v8"
 	params "github.com/juju/charmrepo/v6/csclient/params"
 	charmhub "github.com/juju/juju/charmhub"
 	transport "github.com/juju/juju/charmhub/transport"
 	charm0 "github.com/juju/juju/core/charm"
+	url "net/url"
+	reflect "reflect"
 )
 
 // MockCSRepository is a mock of CSRepository interface
@@ -113,26 +112,6 @@ func (mr *MockCharmHubClientMockRecorder) DownloadAndRead(arg0, arg1, arg2 inter
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadAndRead", reflect.TypeOf((*MockCharmHubClient)(nil).DownloadAndRead), varargs...)
-}
-
-// Info mocks base method
-func (m *MockCharmHubClient) Info(arg0 context.Context, arg1 string, arg2 ...charmhub.InfoOption) (transport.InfoResponse, error) {
-	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0, arg1}
-	for _, a := range arg2 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "Info", varargs...)
-	ret0, _ := ret[0].(transport.InfoResponse)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Info indicates an expected call of Info
-func (mr *MockCharmHubClientMockRecorder) Info(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Info", reflect.TypeOf((*MockCharmHubClient)(nil).Info), varargs...)
 }
 
 // Refresh mocks base method
