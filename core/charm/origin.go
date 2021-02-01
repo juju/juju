@@ -48,10 +48,6 @@ type Origin struct {
 	Platform Platform
 }
 
-func (o Origin) String() string {
-	return fmt.Sprintf("origin using source %q for channel %s and platform %s", o.Source, o.Channel.String(), o.Platform.String())
-}
-
 // Platform describes the platform used to install the charm with.
 type Platform struct {
 	Architecture string
