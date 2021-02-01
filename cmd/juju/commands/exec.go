@@ -211,7 +211,7 @@ func (c *execCommand) Init(args []string) error {
 
 // ConvertActionResults takes the results from the api and creates a map
 // suitable for format conversion to YAML or JSON.
-func ConvertActionResults(result params.ActionResult, query actionQuery, compat bool) map[string]interface{} {
+func ConvertActionResults(result actionapi.ActionResult, query actionQuery, compat bool) map[string]interface{} {
 	values := make(map[string]interface{})
 	values[query.receiver.receiverType] = query.receiver.tag.Id()
 	if unit, ok := values["UnitId"]; ok && !compat {
@@ -232,17 +232,17 @@ func ConvertActionResults(result params.ActionResult, query actionQuery, compat 
 	}
 	if result.Error != nil {
 		values["Error"] = result.Error.Error()
-		values["Action"] = query.actionTag.Id()
+		values["Action"] = query.actionID
 		return values
 	}
-	if result.Action.Tag != query.actionTag.String() {
-		values["Error"] = fmt.Sprintf("expected action tag %q, got %q", query.actionTag.String(), result.Action.Tag)
-		values["Action"] = query.actionTag.Id()
+	if result.Action.ID != query.actionID {
+		values["Error"] = fmt.Sprintf("expected action ID %q, got %q", query.actionID, result.Action.ID)
+		values["Action"] = query.actionID
 		return values
 	}
 	if result.Action.Receiver != query.receiver.tag.String() {
 		values["Error"] = fmt.Sprintf("expected action receiver %q, got %q", query.receiver.tag.String(), result.Action.Receiver)
-		values["Action"] = query.actionTag.Id()
+		values["Action"] = query.actionID
 		return values
 	}
 	if result.Message != "" {
@@ -281,7 +281,7 @@ func (c *execCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	var runResults []params.ActionResult
+	var runResults actionapi.EnqueuedActions
 	if c.all {
 		runResults, err = client.RunOnAllMachines(c.commands, c.timeout)
 	} else {
@@ -295,7 +295,7 @@ func (c *execCommand) Run(ctx *cmd.Context) error {
 			}
 		}
 
-		params := params.RunParams{
+		params := actionapi.RunParams{
 			Commands:     c.commands,
 			Timeout:      c.timeout,
 			Machines:     c.machines,
@@ -318,19 +318,14 @@ func (c *execCommand) Run(ctx *cmd.Context) error {
 	}
 
 	actionsToQuery := []actionQuery{}
-	for _, result := range runResults {
+	for _, result := range runResults.Actions {
 		if result.Error != nil {
 			fmt.Fprintf(ctx.GetStderr(), "couldn't queue one action: %v\n", result.Error)
 			continue
 		}
-		actionTag, err := names.ParseActionTag(result.Action.Tag)
+		receiverTag, err := names.ActionReceiverFromTag(result.Receiver)
 		if err != nil {
-			fmt.Fprintf(ctx.GetStderr(), "got invalid action tag %v for receiver %v\n", result.Action.Tag, result.Action.Receiver)
-			continue
-		}
-		receiverTag, err := names.ActionReceiverFromTag(result.Action.Receiver)
-		if err != nil {
-			fmt.Fprintf(ctx.GetStderr(), "got invalid action receiver tag %v for action %v\n", result.Action.Receiver, result.Action.Tag)
+			fmt.Fprintf(ctx.GetStderr(), "got invalid action receiver tag %q for action %v\n", result.Receiver, result.ID)
 			continue
 		}
 		var receiverType string
@@ -343,7 +338,7 @@ func (c *execCommand) Run(ctx *cmd.Context) error {
 			receiverType = "ReceiverId"
 		}
 		actionsToQuery = append(actionsToQuery, actionQuery{
-			actionTag: actionTag,
+			actionID: result.ID,
 			receiver: actionReceiver{
 				receiverType: receiverType,
 				tag:          receiverTag,
@@ -357,13 +352,13 @@ func (c *execCommand) Run(ctx *cmd.Context) error {
 	timeout := c.timeAfter(c.timeout)
 	values := []interface{}{}
 	for len(actionsToQuery) > 0 {
-		actionResults, err := client.Actions(entities(actionsToQuery))
+		actionResults, err := client.Actions(actionIDs(actionsToQuery))
 		if err != nil {
 			return errors.Trace(err)
 		}
 
 		newActionsToQuery := []actionQuery{}
-		for i, result := range actionResults.Results {
+		for i, result := range actionResults {
 			if result.Error == nil {
 				switch result.Status {
 				case params.ActionRunning, params.ActionPending:
@@ -462,15 +457,15 @@ type actionReceiver struct {
 }
 
 type actionQuery struct {
-	receiver  actionReceiver
-	actionTag names.ActionTag
+	receiver actionReceiver
+	actionID string
 }
 
-// RunClient exposes the capabilities required by the CLI
+// ExecClient exposes the capabilities required by the CLI
 type ExecClient interface {
 	action.APIClient
-	RunOnAllMachines(commands string, timeout time.Duration) ([]params.ActionResult, error)
-	Run(params.RunParams) ([]params.ActionResult, error)
+	RunOnAllMachines(commands string, timeout time.Duration) (actionapi.EnqueuedActions, error)
+	Run(actionapi.RunParams) (actionapi.EnqueuedActions, error)
 }
 
 // In order to be able to easily mock out the API side for testing,
@@ -483,20 +478,13 @@ var getExecAPIClient = func(c *execCommand) (ExecClient, error) {
 	return actionapi.NewClient(root), errors.Trace(err)
 }
 
-// getActionResult abstracts over the action CLI function that we use here to fetch results
-var getActionResult = func(c ExecClient, actionId string, wait *time.Timer) (params.ActionResult, error) {
-	return action.GetActionResult(c, actionId, wait, false)
-}
-
-// entities is a convenience constructor for params.Entities.
-func entities(actions []actionQuery) params.Entities {
-	entities := params.Entities{
-		Entities: make([]params.Entity, len(actions)),
-	}
+// actionIDs is a convenience constructor for []string of action IDs].
+func actionIDs(actions []actionQuery) []string {
+	result := make([]string, len(actions))
 	for i, action := range actions {
-		entities.Entities[i].Tag = action.actionTag.String()
+		result[i] = action.actionID
 	}
-	return entities
+	return result
 }
 
 func formatOutput(results map[string]interface{}, key string, compat bool) []byte {

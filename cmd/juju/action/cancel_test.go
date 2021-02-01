@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	actionapi "github.com/juju/juju/api/action"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
 )
@@ -38,8 +39,8 @@ func (s *CancelSuite) TestRun(c *gc.C) {
 	emptyArgs := []string{}
 	emptyPrefixArgs := []string{}
 	prefixArgs := []string{prefix}
-	result1 := []params.ActionResult{{Action: &params.Action{}, Status: "some-random-status"}}
-	result2 := []params.ActionResult{{Action: &params.Action{}, Status: "a status"}, {Action: &params.Action{}, Status: "another status"}}
+	result1 := []actionapi.ActionResult{{Action: &actionapi.Action{}, Status: "some-random-status"}}
+	result2 := []actionapi.ActionResult{{Action: &actionapi.Action{}, Status: "a status"}, {Action: &actionapi.Action{}, Status: "another status"}}
 
 	errNotFound := "no actions specified"
 	errNotFoundForPrefix := `no actions found matching prefix ` + prefix + `, no actions have been canceled`
@@ -102,6 +103,6 @@ type cancelTestCase struct {
 	args           []string
 	expectError    string
 	tags           params.FindTagsResults
-	results        []params.ActionResult
-	actionsByNames params.ActionsByNames
+	results        []actionapi.ActionResult
+	actionsByNames map[string][]actionapi.ActionResult
 }

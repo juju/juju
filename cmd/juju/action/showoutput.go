@@ -15,6 +15,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 
+	actionapi "github.com/juju/juju/api/action"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -203,7 +204,7 @@ func (c *showOutputCommand) Run(ctx *cmd.Context) error {
 		})
 	}
 
-	var result params.ActionResult
+	var result actionapi.ActionResult
 	if shouldWatch {
 		result, err = GetActionResult(api, c.requestedId, wait, c.compat)
 	} else {
@@ -233,7 +234,7 @@ func (c *showOutputCommand) Run(ctx *cmd.Context) error {
 // GetActionResult tries to repeatedly fetch an action until it is
 // in a completed state and then it returns it.
 // It waits for a maximum of "wait" before returning with the latest action status.
-func GetActionResult(api APIClient, requestedId string, wait *time.Timer, compat bool) (params.ActionResult, error) {
+func GetActionResult(api APIClient, requestedId string, wait *time.Timer, compat bool) (actionapi.ActionResult, error) {
 
 	// tick every two seconds, to delay the loop timer.
 	// TODO(fwereade): 2016-03-17 lp:1558657
@@ -245,9 +246,9 @@ func GetActionResult(api APIClient, requestedId string, wait *time.Timer, compat
 // timerLoop loops indefinitely to query the given API, until "wait" times
 // out, using the "tick" timer to delay the API queries.  It writes the
 // result to the given output.
-func timerLoop(api APIClient, requestedId string, wait, tick *time.Timer, compat bool) (params.ActionResult, error) {
+func timerLoop(api APIClient, requestedId string, wait, tick *time.Timer, compat bool) (actionapi.ActionResult, error) {
 	var (
-		result params.ActionResult
+		result actionapi.ActionResult
 		err    error
 	)
 
@@ -284,21 +285,19 @@ func timerLoop(api APIClient, requestedId string, wait, tick *time.Timer, compat
 
 // fetchResult queries the given API for the given Action ID prefix, and
 // makes sure the results are acceptable, returning an error if they are not.
-func fetchResult(api APIClient, requestedId string, compat bool) (params.ActionResult, error) {
-	none := params.ActionResult{}
+func fetchResult(api APIClient, requestedId string, compat bool) (actionapi.ActionResult, error) {
+	none := actionapi.ActionResult{}
 
 	actionTag, err := getActionTagByPrefix(api, requestedId)
 	if err != nil {
 		return none, err
 	}
 
-	actions, err := api.Actions(params.Entities{
-		Entities: []params.Entity{{actionTag.String()}},
-	})
+	actions, err := api.Actions([]string{actionTag.Id()})
 	if err != nil {
 		return none, err
 	}
-	actionResults := actions.Results
+	actionResults := actions
 	numActionResults := len(actionResults)
 	task := "task"
 	if compat {
@@ -322,7 +321,7 @@ func fetchResult(api APIClient, requestedId string, compat bool) (params.ActionR
 // FormatActionResult removes empty values from the given ActionResult and
 // inserts the remaining ones in a map[string]interface{} for cmd.Output to
 // write in an easy-to-read format.
-func FormatActionResult(id string, result params.ActionResult, utc, compat bool) map[string]interface{} {
+func FormatActionResult(id string, result actionapi.ActionResult, utc, compat bool) map[string]interface{} {
 	response := map[string]interface{}{"id": id, "status": result.Status}
 	if result.Action != nil {
 		rt, err := names.ParseTag(result.Action.Receiver)

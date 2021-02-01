@@ -11,11 +11,10 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
+	actionapi "github.com/juju/juju/api/action"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/state"
 )
@@ -38,7 +37,7 @@ func (s *ListSuite) TestInit(c *gc.C) {
 	tests := []struct {
 		should               string
 		args                 []string
-		expectedApp          names.ApplicationTag
+		expectedApp          string
 		expectedOutputSchema bool
 		expectedErr          string
 	}{{
@@ -56,7 +55,7 @@ func (s *ListSuite) TestInit(c *gc.C) {
 	}, {
 		should:      "init properly with valid application name",
 		args:        []string{validApplicationId},
-		expectedApp: names.NewApplicationTag(validApplicationId),
+		expectedApp: validApplicationId,
 	}, {
 		should:      "schema with tabular output",
 		args:        []string{"--format=tabular", "--schema", validApplicationId},
@@ -65,12 +64,12 @@ func (s *ListSuite) TestInit(c *gc.C) {
 		should:               "init properly with valid application name and --schema",
 		args:                 []string{"--format=yaml", "--schema", validApplicationId},
 		expectedOutputSchema: true,
-		expectedApp:          names.NewApplicationTag(validApplicationId),
+		expectedApp:          validApplicationId,
 	}, {
 		should:               "default to yaml output when --schema option is specified",
 		args:                 []string{"--schema", validApplicationId},
 		expectedOutputSchema: true,
-		expectedApp:          names.NewApplicationTag(validApplicationId),
+		expectedApp:          validApplicationId,
 	}}
 
 	for i, t := range tests {
@@ -82,7 +81,7 @@ func (s *ListSuite) TestInit(c *gc.C) {
 			err := cmdtesting.InitCommand(s.wrappedCommand, args)
 			if t.expectedErr == "" {
 				c.Check(err, jc.ErrorIsNil)
-				c.Check(s.command.ApplicationTag(), gc.Equals, t.expectedApp)
+				c.Check(s.command.ApplicationName(), gc.Equals, t.expectedApp)
 				c.Check(s.command.FullSchema(), gc.Equals, t.expectedOutputSchema)
 			} else {
 				c.Check(err, gc.ErrorMatches, t.expectedErr)
@@ -107,7 +106,7 @@ snapshot        Take a snapshot of the database.
 		expectMessage    string
 		withArgs         []string
 		withAPIErr       string
-		withCharmActions map[string]params.ActionSpec
+		withCharmActions map[string]actionapi.ActionSpec
 		expectedErr      string
 	}{{
 		should:      "pass back API error correctly",
@@ -174,7 +173,7 @@ snapshot        Take a snapshot of the database.
 	}
 }
 
-func checkFullSchema(c *gc.C, expected map[string]params.ActionSpec, actual []byte) {
+func checkFullSchema(c *gc.C, expected map[string]actionapi.ActionSpec, actual []byte) {
 	expectedOutput := make(map[string]interface{})
 	for k, v := range expected {
 		expectedOutput[k] = v.Params

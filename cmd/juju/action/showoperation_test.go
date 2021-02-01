@@ -10,11 +10,9 @@ import (
 	"time"
 
 	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/names/v4"
 	gc "gopkg.in/check.v1"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/params"
+	actionapi "github.com/juju/juju/api/action"
 	"github.com/juju/juju/cmd/juju/action"
 )
 
@@ -70,7 +68,7 @@ func (s *ShowOperationSuite) TestRun(c *gc.C) {
 		withClientQueryID string
 		withAPIDelay      time.Duration
 		withAPITimeout    time.Duration
-		withAPIResponse   []params.OperationResult
+		withAPIResponse   actionapi.Operations
 		withAPIError      string
 		withFormat        string
 		expectedErr       string
@@ -86,10 +84,12 @@ func (s *ShowOperationSuite) TestRun(c *gc.C) {
 		withAPIDelay:      3 * time.Second,
 		withAPITimeout:    5 * time.Second,
 		withClientQueryID: operationId,
-		withAPIResponse: []params.OperationResult{{
-			OperationTag: names.NewOperationTag(operationId).String(),
-			Status:       "running",
-		}},
+		withAPIResponse: actionapi.Operations{
+			Operations: []actionapi.Operation{{
+				ID:     operationId,
+				Status: "running",
+			}},
+		},
 		expectedErr: "timeout reached",
 		expectedOutput: `
 status: pending
@@ -112,12 +112,14 @@ timing:
 		should:            "pass through an error from the API server",
 		withClientQueryID: operationId,
 		withAPITimeout:    1 * time.Second,
-		withAPIResponse: []params.OperationResult{{
-			OperationTag: names.NewOperationTag(operationId).String(),
-			Summary:      "an operation",
-			Status:       "failed",
-			Error:        apiservererrors.ServerError(errors.New("an apiserver error")),
-		}},
+		withAPIResponse: actionapi.Operations{
+			Operations: []actionapi.Operation{{
+				ID:      operationId,
+				Summary: "an operation",
+				Status:  "failed",
+				Error:   errors.New("an apiserver error"),
+			}},
+		},
 		expectedOutput: `
 summary: an operation
 status: failed
@@ -129,47 +131,51 @@ error: an apiserver error
 		withClientWait:    "10s",
 		withClientQueryID: operationId,
 		withAPITimeout:    3 * time.Second,
-		withAPIResponse: []params.OperationResult{{
-			OperationTag: names.NewOperationTag(operationId).String(),
-			Status:       "running",
-			Actions: []params.ActionResult{{
-				Output: map[string]interface{}{
-					"foo": map[string]interface{}{
-						"bar": "baz",
+		withAPIResponse: actionapi.Operations{
+			Operations: []actionapi.Operation{{
+				ID:     operationId,
+				Status: "running",
+				Actions: []actionapi.ActionResult{{
+					Output: map[string]interface{}{
+						"foo": map[string]interface{}{
+							"bar": "baz",
+						},
 					},
-				},
+				}},
+				Enqueued: time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
+				Started:  time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
 			}},
-			Enqueued: time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
-			Started:  time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
-		}},
+		},
 		expectedErr: "test timed out before wait time",
 	}, {
 		should:            "pretty-print operation output",
 		withClientQueryID: operationId,
 		withAPITimeout:    1 * time.Second,
-		withAPIResponse: []params.OperationResult{{
-			OperationTag: names.NewOperationTag(operationId).String(),
-			Summary:      "an operation",
-			Status:       "complete",
-			Actions: []params.ActionResult{{
-				Action: &params.Action{
-					Tag:        names.NewActionTag("69").String(),
-					Receiver:   "foo/0",
-					Name:       "backup",
-					Parameters: map[string]interface{}{"hello": "world"},
-				},
-				Status:  "completed",
-				Message: "oh dear",
-				Output: map[string]interface{}{
-					"foo": map[string]interface{}{
-						"bar": "baz",
+		withAPIResponse: actionapi.Operations{
+			Operations: []actionapi.Operation{{
+				ID:      operationId,
+				Summary: "an operation",
+				Status:  "complete",
+				Actions: []actionapi.ActionResult{{
+					Action: &actionapi.Action{
+						ID:         "69",
+						Receiver:   "foo/0",
+						Name:       "backup",
+						Parameters: map[string]interface{}{"hello": "world"},
 					},
-				},
+					Status:  "completed",
+					Message: "oh dear",
+					Output: map[string]interface{}{
+						"foo": map[string]interface{}{
+							"bar": "baz",
+						},
+					},
+				}},
+				Enqueued:  time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
+				Started:   time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
+				Completed: time.Date(2015, time.February, 14, 8, 15, 30, 0, time.UTC),
 			}},
-			Enqueued:  time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
-			Started:   time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
-			Completed: time.Date(2015, time.February, 14, 8, 15, 30, 0, time.UTC),
-		}},
+		},
 		expectedOutput: `
 summary: an operation
 status: complete
@@ -195,28 +201,30 @@ tasks:
 		withClientQueryID: operationId,
 		withClientWait:    "1s",
 		withAPITimeout:    2 * time.Second,
-		withAPIResponse: []params.OperationResult{{
-			OperationTag: names.NewOperationTag(operationId).String(),
-			Summary:      "an operation",
-			Status:       "pending",
-			Actions: []params.ActionResult{{
-				Action: &params.Action{
-					Tag:        names.NewActionTag("69").String(),
-					Receiver:   "foo/0",
-					Name:       "backup",
-					Parameters: map[string]interface{}{"hello": "world"},
-				},
+		withAPIResponse: actionapi.Operations{
+			Operations: []actionapi.Operation{{
+				ID:      operationId,
+				Summary: "an operation",
 				Status:  "pending",
-				Message: "oh dear",
-				Output: map[string]interface{}{
-					"foo": map[string]interface{}{
-						"bar": "baz",
+				Actions: []actionapi.ActionResult{{
+					Action: &actionapi.Action{
+						ID:         "69",
+						Receiver:   "foo/0",
+						Name:       "backup",
+						Parameters: map[string]interface{}{"hello": "world"},
 					},
-				},
+					Status:  "pending",
+					Message: "oh dear",
+					Output: map[string]interface{}{
+						"foo": map[string]interface{}{
+							"bar": "baz",
+						},
+					},
+				}},
+				Enqueued: time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
+				Started:  time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
 			}},
-			Enqueued: time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
-			Started:  time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
-		}},
+		},
 		expectedErr: "timeout reached",
 		expectedOutput: `
 summary: an operation
@@ -243,26 +251,28 @@ tasks:
 		withAPITimeout:    5 * time.Second,
 		withClientWait:    "3s",
 		withAPIDelay:      1 * time.Second,
-		withAPIResponse: []params.OperationResult{{
-			OperationTag: names.NewOperationTag(operationId).String(),
-			Summary:      "an operation",
-			Status:       "completed",
-			Actions: []params.ActionResult{{
-				Action: &params.Action{
-					Tag:      names.NewActionTag("69").String(),
-					Name:     "backup",
-					Receiver: "foo/0",
-				},
-				Status: "completed",
-				Output: map[string]interface{}{
-					"foo": map[string]interface{}{
-						"bar": "baz",
+		withAPIResponse: actionapi.Operations{
+			Operations: []actionapi.Operation{{
+				ID:      operationId,
+				Summary: "an operation",
+				Status:  "completed",
+				Actions: []actionapi.ActionResult{{
+					Action: &actionapi.Action{
+						ID:       "69",
+						Name:     "backup",
+						Receiver: "foo/0",
 					},
-				},
+					Status: "completed",
+					Output: map[string]interface{}{
+						"foo": map[string]interface{}{
+							"bar": "baz",
+						},
+					},
+				}},
+				Enqueued:  time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
+				Completed: time.Date(2015, time.February, 14, 8, 15, 30, 0, time.UTC),
 			}},
-			Enqueued:  time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
-			Completed: time.Date(2015, time.February, 14, 8, 15, 30, 0, time.UTC),
-		}},
+		},
 		expectedOutput: `
 summary: an operation
 status: completed
@@ -284,13 +294,15 @@ tasks:
 		should:            "watch, wait, get a result",
 		withClientQueryID: operationId,
 		watch:             true,
-		withAPIResponse: []params.OperationResult{{
-			OperationTag: names.NewOperationTag(operationId).String(),
-			Summary:      "an operation",
-			Status:       "completed",
-			Enqueued:     time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
-			Completed:    time.Date(2015, time.February, 14, 8, 15, 30, 0, time.UTC),
-		}},
+		withAPIResponse: actionapi.Operations{
+			Operations: []actionapi.Operation{{
+				ID:        operationId,
+				Summary:   "an operation",
+				Status:    "completed",
+				Enqueued:  time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
+				Completed: time.Date(2015, time.February, 14, 8, 15, 30, 0, time.UTC),
+			}},
+		},
 		expectedOutput: `
 summary: an operation
 status: completed
@@ -307,7 +319,7 @@ timing:
 				t.withAPIDelay,
 				t.withAPITimeout,
 				t.withAPIResponse,
-				params.ActionsByNames{},
+				map[string][]actionapi.ActionResult{},
 				t.withAPIError,
 			)
 			testRunOperationHelper(
@@ -355,8 +367,8 @@ func testRunOperationHelper(c *gc.C, s *ShowOperationSuite, client *fakeAPIClien
 
 func makeFakeOperationClient(
 	delay, timeout time.Duration,
-	response []params.OperationResult,
-	actionsByNames params.ActionsByNames,
+	response actionapi.Operations,
+	actionsByNames map[string][]actionapi.ActionResult,
 	errStr string,
 ) *fakeAPIClient {
 	var delayTimer *time.Timer

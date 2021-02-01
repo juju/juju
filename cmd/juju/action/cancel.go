@@ -11,9 +11,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
-	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/params"
+	actionapi "github.com/juju/juju/api/action"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
@@ -73,10 +72,11 @@ func (c *cancelCommand) Run(ctx *cmd.Context) error {
 	defer api.Close()
 
 	if len(c.requestedIDs) == 0 {
-		return errors.Errorf("no actions specified")
+		return errors.New("no actions specified")
 	}
+	idsToCancel := c.requestedIDs
 
-	var actionTags []names.ActionTag
+	var actionIDs = []string{}
 	for _, requestedID := range c.requestedIDs {
 		requestedActionTags, err := getActionTagsByPrefix(api, requestedID)
 		if err != nil {
@@ -88,35 +88,36 @@ func (c *cancelCommand) Run(ctx *cmd.Context) error {
 			return errors.Errorf("no actions found matching prefix %s, no actions have been canceled", requestedID)
 		}
 
-		actionTags = append(actionTags, requestedActionTags...)
+		for _, tag := range requestedActionTags {
+			actionIDs = append(actionIDs, tag.Id())
+		}
+		idsToCancel = actionIDs
 	}
 
-	entities := []params.Entity{}
-	for _, tag := range actionTags {
-		entities = append(entities, params.Entity{Tag: tag.String()})
-	}
-
-	actions, err := api.Cancel(params.Entities{Entities: entities})
+	actions, err := api.Cancel(idsToCancel)
 	if err != nil {
 		return err
 	}
 
-	if len(actions.Results) < 1 {
-		return errors.Errorf("identifier(s) %q matched action(s) %q, but no actions were canceled", c.requestedIDs, actionTags)
+	if len(actions) < 1 {
+		if len(actionIDs) > 0 {
+			return errors.Errorf("identifier(s) %q matched action(s) %q, but no actions were canceled", c.requestedIDs, actionIDs)
+		}
+		return errors.New("no actions were canceled")
 	}
 
 	type unCanceledAction struct {
-		ActionTag names.ActionTag
-		Result    *params.ActionResult
+		ID     string
+		Result *actionapi.ActionResult
 	}
-	var unCanceledActions []unCanceledAction
-	var canceledActions []params.ActionResult
+	var failedCancels []unCanceledAction
+	var canceledActions []actionapi.ActionResult
 
-	for i, result := range actions.Results {
+	for i, result := range actions {
 		if result.Action != nil {
 			canceledActions = append(canceledActions, result)
 		} else {
-			unCanceledActions = append(unCanceledActions, unCanceledAction{actionTags[i], &result})
+			failedCancels = append(failedCancels, unCanceledAction{idsToCancel[i], &result})
 		}
 	}
 
@@ -124,10 +125,10 @@ func (c *cancelCommand) Run(ctx *cmd.Context) error {
 		err = c.out.Write(ctx, resultsToMap(canceledActions))
 	}
 
-	if len(unCanceledActions) > 0 {
-		message := ("The following actions could not be canceled:\n")
-		for _, a := range unCanceledActions {
-			message += fmt.Sprintf("action: %s, error: %s\n", a.ActionTag, a.Result.Message)
+	if len(failedCancels) > 0 {
+		message := "The following actions could not be canceled:\n"
+		for _, a := range failedCancels {
+			message += fmt.Sprintf("action: %s, error: %s\n", a.ID, a.Result.Message)
 		}
 
 		logger.Warningf(message)

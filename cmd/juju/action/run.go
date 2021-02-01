@@ -18,7 +18,7 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/apiserver/params"
+	actionapi "github.com/juju/juju/api/action"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -216,7 +216,7 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		ctx.Infof("Running operation %s with %d task%s", operationId, numTasks, plural)
 	}
 
-	var actionTag names.ActionTag
+	var actionID string
 	info := make(map[string]interface{}, numTasks)
 	for i, result := range results {
 		if result.err != nil {
@@ -225,23 +225,21 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		if result.task == "" {
 			return errors.Errorf("operation failed to enqueue on %q", result.receiver)
 		}
-		if actionTag, err = names.ParseActionTag(result.task); err != nil {
-			return err
-		}
+		actionID = result.task
 
 		if !c.background {
-			ctx.Infof("  - task %s on %s", actionTag.Id(), c.unitReceivers[i])
+			ctx.Infof("  - task %s on %s", result.task, c.unitReceivers[i])
 		}
 		info[result.receiver] = map[string]string{
-			"id": actionTag.Id(),
+			"id": result.task,
 		}
 	}
 	ctx.Infof("")
 	if c.background {
 		if numTasks == 1 {
-			ctx.Infof("Scheduled operation %s with task %s", operationId, actionTag.Id())
+			ctx.Infof("Scheduled operation %s with task %s", operationId, actionID)
 			ctx.Infof("Check operation status with 'juju show-operation %s'", operationId)
-			ctx.Infof("Check task status with 'juju show-task %s'", actionTag.Id())
+			ctx.Infof("Check task status with 'juju show-task %s'", actionID)
 		} else {
 			ctx.Infof("Scheduled operation %s with %d tasks", operationId, numTasks)
 			cmd.FormatYaml(ctx.Stdout, info)
@@ -267,11 +265,8 @@ func (c *runCommand) waitForTasks(ctx *cmd.Context, tasks []enqueuedAction, info
 	var logsWatcher watcher.StringsWatcher
 	haveLogs := false
 	if len(tasks) == 1 {
-		actionTag, err := names.ParseActionTag(tasks[0].task)
-		if err != nil {
-			return err
-		}
-		logsWatcher, err = c.api.WatchActionProgress(actionTag.Id())
+		var err error
+		logsWatcher, err = c.api.WatchActionProgress(tasks[0].task)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -289,13 +284,8 @@ func (c *runCommand) waitForTasks(ctx *cmd.Context, tasks []enqueuedAction, info
 	}
 
 	for i, result := range tasks {
-		tag, err := names.ParseActionTag(result.task)
-		if err != nil {
-			waitForWatcher()
-			return errors.Trace(err)
-		}
-		ctx.Infof("Waiting for task %v...\n", tag.Id())
-		actionResult, err := GetActionResult(c.api, tag.Id(), wait, false)
+		ctx.Infof("Waiting for task %v...\n", result.task)
+		actionResult, err := GetActionResult(c.api, result.task, wait, false)
 		if i == 0 {
 			waitForWatcher()
 			if haveLogs {
@@ -306,8 +296,8 @@ func (c *runCommand) waitForTasks(ctx *cmd.Context, tasks []enqueuedAction, info
 		if err != nil {
 			return errors.Trace(err)
 		}
-		d := FormatActionResult(tag.Id(), actionResult, c.utc, false)
-		d["id"] = tag.Id() // Action ID is required in case we timed out.
+		d := FormatActionResult(result.task, actionResult, c.utc, false)
+		d["id"] = result.task // Action ID is required in case we timed out.
 		info[result.receiver] = d
 	}
 
@@ -369,7 +359,7 @@ func (c *runCommand) enqueueActions(ctx *cmd.Context) (string, []enqueuedAction,
 	if !ok {
 		return "", nil, errors.Errorf("params must be a map, got %T", typedConformantParams)
 	}
-	actions := make([]params.Action, len(c.unitReceivers))
+	actions := make([]actionapi.Action, len(c.unitReceivers))
 	for i, unitReceiver := range c.unitReceivers {
 		if strings.HasSuffix(unitReceiver, "leader") {
 			if c.api.BestAPIVersion() < 3 {
@@ -385,7 +375,7 @@ func (c *runCommand) enqueueActions(ctx *cmd.Context) (string, []enqueuedAction,
 		actions[i].Name = c.actionName
 		actions[i].Parameters = actionParams
 	}
-	results, err := c.api.EnqueueOperation(params.Actions{Actions: actions})
+	results, err := c.api.EnqueueOperation(actions)
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
@@ -395,18 +385,14 @@ func (c *runCommand) enqueueActions(ctx *cmd.Context) (string, []enqueuedAction,
 	tasks := make([]enqueuedAction, len(results.Actions))
 	for i, a := range results.Actions {
 		tasks[i] = enqueuedAction{
-			task:     a.Result,
+			task:     a.ID,
 			receiver: c.unitReceivers[i],
 		}
 		if a.Error != nil {
 			tasks[i].err = a.Error
 		}
 	}
-	operationTag, err := names.ParseOperationTag(results.OperationTag)
-	if err != nil {
-		return "", nil, errors.Trace(err)
-	}
-	return operationTag.Id(), tasks, nil
+	return results.OperationID, tasks, nil
 }
 
 // filteredOutputKeys are those we don't want to display as part of the

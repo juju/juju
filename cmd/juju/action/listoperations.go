@@ -8,6 +8,7 @@ import (
 	"io"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 
+	actionapi "github.com/juju/juju/api/action"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -141,7 +143,7 @@ func (c *listOperationsCommand) Run(ctx *cmd.Context) error {
 	}
 	defer api.Close()
 
-	args := params.OperationQueryArgs{
+	args := actionapi.OperationQueryArgs{
 		Applications: c.applicationNames,
 		Units:        c.unitNames,
 		Machines:     c.machineNames,
@@ -154,7 +156,7 @@ func (c *listOperationsCommand) Run(ctx *cmd.Context) error {
 	}
 
 	out := make(map[string]interface{})
-	var operationResults byId = results.Results
+	var operationResults byId = results.Operations
 	if len(operationResults) == 0 {
 		ctx.Infof("no matching operations")
 		return nil
@@ -165,11 +167,7 @@ func (c *listOperationsCommand) Run(ctx *cmd.Context) error {
 		return c.out.Write(ctx, operationResults)
 	}
 	for _, result := range operationResults {
-		tag, err := names.ParseOperationTag(result.OperationTag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		out[tag.Id()] = formatOperationResult(result, c.utc)
+		out[result.ID] = formatOperationResult(result, c.utc)
 	}
 	return c.out.Write(ctx, out)
 }
@@ -227,36 +225,29 @@ func operationDisplayTime(r params.OperationResult) time.Time {
 	return timestamp
 }
 
-func actionOperationLinesFromResults(results []params.OperationResult) []operationLine {
+func actionOperationLinesFromResults(results []actionapi.Operation) []operationLine {
 	var operationLines []operationLine
 	for _, r := range results {
 		line := operationLine{
+			id:        r.ID,
 			started:   r.Started,
 			finished:  r.Completed,
 			status:    r.Status,
 			operation: r.Summary,
-		}
-		if at, err := names.ParseOperationTag(r.OperationTag); err == nil {
-			line.id = at.Id()
 		}
 		for _, a := range r.Actions {
 			if a.Action == nil {
 				line.status = "error"
 				continue
 			}
-			tag, err := names.ParseActionTag(a.Action.Tag)
-			if err != nil {
-				// Not expected to happen.
-				continue
-			}
-			line.tasks = append(line.tasks, tag.Id())
+			line.tasks = append(line.tasks, a.Action.ID)
 		}
 		operationLines = append(operationLines, line)
 	}
 	return operationLines
 }
 
-type byId []params.OperationResult
+type byId []actionapi.Operation
 
 func (s byId) Len() int {
 	return len(s)
@@ -265,7 +256,20 @@ func (s byId) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 func (s byId) Less(i, j int) bool {
-	return s[i].OperationTag < s[j].OperationTag
+	// We expect IDs to be ints but legacy actions
+	// still use UUIDs (err will be non-nil below).
+	id1, err1 := strconv.Atoi(s[i].ID)
+	id2, err2 := strconv.Atoi(s[j].ID)
+	if err1 != nil && err2 == nil {
+		return true
+	}
+	if err1 == nil && err2 != nil {
+		return false
+	}
+	if err1 == nil && err2 == nil {
+		return id1 < id2
+	}
+	return s[i].ID < s[j].ID
 }
 
 type operationInfo struct {
@@ -300,7 +304,7 @@ type taskInfo struct {
 
 // formatOperationResult inserts the remaining ones in a map[string]interface{} for cmd.Output to
 // write in an easy-to-read format.
-func formatOperationResult(operation params.OperationResult, utc bool) operationInfo {
+func formatOperationResult(operation actionapi.Operation, utc bool) operationInfo {
 	result := operationInfo{
 		Summary: operation.Summary,
 		Status:  operation.Status,
@@ -319,11 +323,6 @@ func formatOperationResult(operation params.OperationResult, utc bool) operation
 	for i, task := range operation.Actions {
 		if task.Action == nil {
 			result.Status = "error"
-			continue
-		}
-		tag, err := names.ParseActionTag(task.Action.Tag)
-		if err != nil {
-			// Not expected to happen.
 			continue
 		}
 		taskInfo := taskInfo{
@@ -351,7 +350,7 @@ func formatOperationResult(operation params.OperationResult, utc bool) operation
 			}
 			taskInfo.Log = logs
 		}
-		result.Tasks[tag.Id()] = taskInfo
+		result.Tasks[task.Action.ID] = taskInfo
 		if i == 0 {
 			singleAction = actionSummary{
 				Name:       task.Action.Name,
@@ -375,14 +374,9 @@ func formatOperationResult(operation params.OperationResult, utc bool) operation
 			if a.Action == nil {
 				continue
 			}
-			tag, err := names.ParseActionTag(a.Action.Tag)
-			if err != nil {
-				// Not expected to happen.
-				continue
-			}
-			task := result.Tasks[tag.Id()]
+			task := result.Tasks[a.Action.ID]
 			task.Name = operation.Actions[i].Action.Name
-			result.Tasks[tag.Id()] = task
+			result.Tasks[a.Action.ID] = task
 		}
 	}
 	return result

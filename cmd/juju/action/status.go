@@ -11,6 +11,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 
+	actionapi "github.com/juju/juju/api/action"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -91,27 +92,27 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	entities := []params.Entity{}
+	var actionIds []string
 	for _, tag := range actionTags {
-		entities = append(entities, params.Entity{Tag: tag.String()})
+		actionIds = append(actionIds, tag.Id())
 	}
 
-	actions, err := api.Actions(params.Entities{Entities: entities})
+	actions, err := api.Actions(actionIds)
 	if err != nil {
 		return err
 	}
 
-	if len(actions.Results) < 1 {
+	if len(actions) < 1 {
 		return errors.Errorf("identifier %q matched action(s) %v, but found no results", c.requestedId, actionTags)
 	}
 
-	return c.out.Write(ctx, resultsToMap(actions.Results))
+	return c.out.Write(ctx, resultsToMap(actions))
 }
 
 // resultsToMap is a helper function that takes in a []params.ActionResult
 // and returns a map[string]interface{} ready to be served to the
 // formatter for printing.
-func resultsToMap(results []params.ActionResult) map[string]interface{} {
+func resultsToMap(results []actionapi.ActionResult) map[string]interface{} {
 	items := []map[string]interface{}{}
 	for _, item := range results {
 		items = append(items, resultToMap(item))
@@ -119,19 +120,14 @@ func resultsToMap(results []params.ActionResult) map[string]interface{} {
 	return map[string]interface{}{"actions": items}
 }
 
-func resultToMap(result params.ActionResult) map[string]interface{} {
+func resultToMap(result actionapi.ActionResult) map[string]interface{} {
 	item := map[string]interface{}{}
 	if result.Error != nil {
 		item["error"] = result.Error.Error()
 	}
 	if result.Action != nil {
 		item["action"] = result.Action.Name
-		atag, err := names.ParseActionTag(result.Action.Tag)
-		if err != nil {
-			item["id"] = result.Action.Tag
-		} else {
-			item["id"] = atag.Id()
-		}
+		item["id"] = result.Action.ID
 
 		rtag, err := names.ParseUnitTag(result.Action.Receiver)
 		if err != nil {
@@ -155,22 +151,23 @@ func resultToMap(result params.ActionResult) map[string]interface{} {
 
 // GetActionsByName takes an action APIClient and a name and returns a list of
 // ActionResults.
-func GetActionsByName(api APIClient, name string) ([]params.ActionResult, error) {
-	nothing := []params.ActionResult{}
+func GetActionsByName(api APIClient, name string) ([]actionapi.ActionResult, error) {
+	nothing := []actionapi.ActionResult{}
 	results, err := api.FindActionsByNames(params.FindActionsByNames{ActionNames: []string{name}})
 	if err != nil {
 		return nothing, errors.Trace(err)
 	}
-	if len(results.Actions) != 1 {
-		return nothing, errors.Errorf("expected one result got %d", len(results.Actions))
+	if len(results) != 1 {
+		return nothing, errors.Errorf("expected one result got %d", len(results))
 	}
-	result := results.Actions[0]
+	actions := results[name]
+	if len(actions) < 1 {
+		return nothing, errors.Errorf("no actions were found for name %s", name)
+	}
+	result := actions[0]
 	if result.Error != nil {
 		return nothing, result.Error
 	}
-	if len(result.Actions) < 1 {
-		return nothing, errors.Errorf("no actions were found for name %s", name)
-	}
-	return result.Actions, nil
+	return actions, nil
 
 }
