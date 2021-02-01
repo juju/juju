@@ -100,7 +100,6 @@ func (c *Client) Enqueue(actions []Action) ([]ActionResult, error) {
 	arg := params.Actions{Actions: make([]params.Action, len(actions))}
 	for i, a := range actions {
 		arg.Actions[i] = params.Action{
-			Tag:        names.NewActionTag(a.ID).String(),
 			Receiver:   a.Receiver,
 			Name:       a.Name,
 			Parameters: a.Parameters,
