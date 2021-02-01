@@ -125,7 +125,7 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 		WithRevision(revision)
 
 	resOrigin := origin
-	resOrigin.Type = entity.Type
+	resOrigin.Type = string(entity.Type)
 	resOrigin.ID = res.ID
 	resOrigin.Hash = entity.Download.HashSHA256
 	resOrigin.Track = track
@@ -286,7 +286,7 @@ func refreshConfig(curl *charm.URL, origin corecharm.Origin) (charmhub.RefreshCo
 		method = MethodChannel
 	}
 	// Bundles can not use method IDs, which in turn forces a refresh.
-	if method == MethodRevision && origin.Type != "bundle" && origin.ID != "" {
+	if method == MethodRevision && !matchesType(origin.Type, transport.BundleType) && origin.ID != "" {
 		method = MethodID
 	}
 
@@ -321,27 +321,8 @@ func refreshConfig(curl *charm.URL, origin corecharm.Origin) (charmhub.RefreshCo
 	return cfg, err
 }
 
-func makeChannel(origin params.CharmOrigin) (corecharm.Channel, error) {
-	var track string
-	if origin.Track != nil {
-		track = *origin.Track
-	}
-	if track == "" && origin.Risk == "" {
-		return corecharm.Channel{}, nil
-	}
-	ch, err := corecharm.MakeChannel(track, origin.Risk, "")
-	if err != nil {
-		return corecharm.Channel{}, errors.Trace(err)
-	}
-	return ch.Normalize(), nil
-}
-
-func makePlatform(origin params.CharmOrigin) (corecharm.Platform, error) {
-	p, err := corecharm.MakePlatform(origin.Architecture, origin.OS, origin.Series)
-	if err != nil {
-		return p, errors.Trace(err)
-	}
-	return p.Normalize(), nil
+func matchesType(originType string, expected transport.Type) bool {
+	return string(expected) == originType
 }
 
 func composeSuggestions(releases []transport.Release, origin params.CharmOrigin) []string {
