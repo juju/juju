@@ -227,7 +227,7 @@ func (c *runActionCommand) Run(ctx *cmd.Context) error {
 
 		// Legacy Juju 1.25 output format for a single unit, no wait.
 		if !c.wait.forever && c.wait.d.Nanoseconds() <= 0 && len(results) == 1 {
-			out := map[string]string{"Action queued with id": result.ID}
+			out := map[string]string{"Action queued with id": result.Action.ID}
 			return c.out.Write(ctx, out)
 		}
 	}
@@ -239,13 +239,13 @@ func (c *runActionCommand) Run(ctx *cmd.Context) error {
 	// default with Juju 3.0.
 	if !c.wait.forever && c.wait.d.Nanoseconds() <= 0 {
 		for _, result := range results {
-			out[result.Action.Receiver] = result.ID
+			out[result.Action.Receiver] = result.Action.ID
 			unitTag, err := names.ParseUnitTag(result.Action.Receiver)
 			if err != nil {
 				return err
 			}
 			out[result.Action.Receiver] = map[string]string{
-				"id":   result.ID,
+				"id":   result.Action.ID,
 				"unit": unitTag.Id(),
 			}
 		}
@@ -262,12 +262,12 @@ func (c *runActionCommand) Run(ctx *cmd.Context) error {
 	}
 
 	for _, result := range results {
-		result, err = GetActionResult(c.api, result.ID, wait, true)
+		result, err = GetActionResult(c.api, result.Action.ID, wait, true)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		d := FormatActionResult(result.ID, result, false, true)
-		d["id"] = result.ID // Action ID is required in case we timed out.
+		d := FormatActionResult(result.Action.ID, result, false, true)
+		d["id"] = result.Action.ID // Action ID is required in case we timed out.
 		out[result.Action.Receiver] = d
 	}
 	return c.out.Write(ctx, out)

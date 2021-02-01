@@ -356,8 +356,8 @@ func (t *testRunClient) Run(run actionapi.RunParams) (actionapi.EnqueuedActions,
 			Error: a.Error,
 		}
 		if a.Action != nil {
-			result.Actions[i].ID = a.ID
-			result.Actions[i].Receiver = a.Receiver
+			result.Actions[i].ID = a.Action.ID
+			result.Actions[i].Receiver = a.Action.Receiver
 		}
 	}
 	return result, nil

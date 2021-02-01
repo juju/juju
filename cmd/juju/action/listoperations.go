@@ -240,7 +240,7 @@ func actionOperationLinesFromResults(results []actionapi.Operation) []operationL
 				line.status = "error"
 				continue
 			}
-			line.tasks = append(line.tasks, a.ID)
+			line.tasks = append(line.tasks, a.Action.ID)
 		}
 		operationLines = append(operationLines, line)
 	}
@@ -350,7 +350,7 @@ func formatOperationResult(operation actionapi.Operation, utc bool) operationInf
 			}
 			taskInfo.Log = logs
 		}
-		result.Tasks[task.ID] = taskInfo
+		result.Tasks[task.Action.ID] = taskInfo
 		if i == 0 {
 			singleAction = actionSummary{
 				Name:       task.Action.Name,
@@ -374,9 +374,9 @@ func formatOperationResult(operation actionapi.Operation, utc bool) operationInf
 			if a.Action == nil {
 				continue
 			}
-			task := result.Tasks[a.ID]
+			task := result.Tasks[a.Action.ID]
 			task.Name = operation.Actions[i].Action.Name
-			result.Tasks[a.ID] = task
+			result.Tasks[a.Action.ID] = task
 		}
 	}
 	return result

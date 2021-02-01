@@ -47,7 +47,7 @@ type Action struct {
 
 // ActionResult is the result of running an action.
 type ActionResult struct {
-	*Action
+	Action    *Action
 	Enqueued  time.Time
 	Started   time.Time
 	Completed time.Time

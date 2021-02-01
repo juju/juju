@@ -837,8 +837,8 @@ func (m *mockExecAPI) RunOnAllMachines(commands string, timeout time.Duration) (
 			}
 		}
 		result.Actions = append(result.Actions, actionapi.ActionReference{
-			ID:       response.ID,
-			Receiver: response.Receiver,
+			ID:       response.Action.ID,
+			Receiver: response.Action.Receiver,
 			Error:    response.Error,
 		})
 	}
@@ -859,8 +859,8 @@ func (m *mockExecAPI) Run(runParams actionapi.RunParams) (actionapi.EnqueuedActi
 		response, found := m.execResponses[id]
 		if found {
 			result.Actions = append(result.Actions, actionapi.ActionReference{
-				ID:       response.ID,
-				Receiver: response.Receiver,
+				ID:       response.Action.ID,
+				Receiver: response.Action.Receiver,
 				Error:    response.Error,
 			})
 		}
@@ -870,8 +870,8 @@ func (m *mockExecAPI) Run(runParams actionapi.RunParams) (actionapi.EnqueuedActi
 		response, found := m.execResponses[id]
 		if found {
 			result.Actions = append(result.Actions, actionapi.ActionReference{
-				ID:       response.ID,
-				Receiver: response.Receiver,
+				ID:       response.Action.ID,
+				Receiver: response.Action.Receiver,
 				Error:    response.Error,
 			})
 		}
