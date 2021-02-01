@@ -20,8 +20,8 @@ import (
 	"github.com/juju/utils/v2/exec"
 	gc "gopkg.in/check.v1"
 
+	actionapi "github.com/juju/juju/api/action"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -30,17 +30,15 @@ import (
 )
 
 const (
-	validActionTagString   = "action-1"
-	validActionTagString2  = "action-2"
-	validActionTagString3  = "action-3"
-	invalidActionTagString = "action-invalid"
-	validActionId          = "1"
-	validUnitId            = "mysql/0"
-	validUnitId2           = "mysql/1"
-	invalidUnitId          = "something-strange-"
-	invalidMachineId       = "fred"
-	validApplicationId     = "mysql"
-	invalidApplicationId   = "something-strange-"
+	validActionId        = "1"
+	validActionId2       = "2"
+	validActionId3       = "3"
+	validUnitId          = "mysql/0"
+	validUnitId2         = "mysql/1"
+	invalidUnitId        = "something-strange-"
+	invalidMachineId     = "fred"
+	validApplicationId   = "mysql"
+	invalidApplicationId = "something-strange-"
 )
 
 func TestPackage(t *testing.T) {
@@ -81,7 +79,7 @@ func (s *BaseActionSuite) patchAPIClient(client *fakeAPIClient) func() {
 	)
 }
 
-var someCharmActions = map[string]params.ActionSpec{
+var someCharmActions = map[string]actionapi.ActionSpec{
 	"snapshot": {
 		Description: "Take a snapshot of the database.",
 		Params: map[string]interface{}{
@@ -139,14 +137,13 @@ type fakeAPIClient struct {
 	block              bool
 	delay              clock.Timer
 	timeout            clock.Timer
-	actionResults      []params.ActionResult
-	operationResults   []params.OperationResult
-	operationQueryArgs params.OperationQueryArgs
-	enqueuedActions    params.Actions
-	actionsByReceivers []params.ActionsByReceiver
-	charmActions       map[string]params.ActionSpec
+	actionResults      []actionapi.ActionResult
+	operationResults   actionapi.Operations
+	operationQueryArgs actionapi.OperationQueryArgs
+	enqueuedActions    []actionapi.Action
+	charmActions       map[string]actionapi.ActionSpec
 	machines           set.Strings
-	execParams         *params.RunParams
+	execParams         *actionapi.RunParams
 	apiErr             error
 	logMessageCh       chan []string
 	waitForResults     chan bool
@@ -154,41 +151,42 @@ type fakeAPIClient struct {
 
 var _ action.APIClient = (*fakeAPIClient)(nil)
 
-// EnqueuedActions is a testing method which shows what Actions got enqueued
-// by our Enqueue stub.
-func (c *fakeAPIClient) EnqueuedActions() params.Actions {
-	return c.enqueuedActions
-}
-
 func (c *fakeAPIClient) Close() error {
 	return nil
 }
 
-func (c *fakeAPIClient) EnqueueOperation(args params.Actions) (params.EnqueuedActions, error) {
+func (c *fakeAPIClient) EnqueueOperation(args []actionapi.Action) (actionapi.EnqueuedActions, error) {
 	c.enqueuedActions = args
-	return params.EnqueuedActions{
-		OperationTag: "operation-1",
-		Actions:      c.actionResults}, c.apiErr
+	actions := make([]actionapi.ActionResult, len(c.actionResults))
+	for i, a := range c.actionResults {
+		actions[i] = actionapi.ActionResult{
+			Action: a.Action,
+			Error:  a.Error,
+		}
+	}
+	return actionapi.EnqueuedActions{
+		OperationID: "1",
+		Actions:     actions}, c.apiErr
 }
 
-func (c *fakeAPIClient) Cancel(args params.Entities) (params.ActionResults, error) {
-	return c.getActionResults(args.Entities), c.apiErr
+func (c *fakeAPIClient) Cancel(_ []string) ([]actionapi.ActionResult, error) {
+	return c.actionResults, c.apiErr
 }
 
-func (c *fakeAPIClient) ApplicationCharmActions(params.Entity) (map[string]params.ActionSpec, error) {
+func (c *fakeAPIClient) ApplicationCharmActions(_ string) (map[string]actionapi.ActionSpec, error) {
 	return c.charmActions, c.apiErr
 }
 
-func (c *fakeAPIClient) getActionResults(entities []params.Entity) params.ActionResults {
-	var result params.ActionResults
+func (c *fakeAPIClient) getActionResults(actionIDs []string) []actionapi.ActionResult {
+	var result []actionapi.ActionResult
 	for _, a := range c.actionResults {
 		if a.Error != nil || a.Action == nil {
-			result.Results = append(result.Results, a)
+			result = append(result, a)
 			continue
 		}
-		for _, e := range entities {
-			if a.Action.Tag == e.Tag {
-				result.Results = append(result.Results, a)
+		for _, ID := range actionIDs {
+			if a.Action.ID == ID {
+				result = append(result, a)
 				break
 			}
 		}
@@ -196,14 +194,14 @@ func (c *fakeAPIClient) getActionResults(entities []params.Entity) params.Action
 	return result
 }
 
-func (c *fakeAPIClient) Actions(args params.Entities) (params.ActionResults, error) {
+func (c *fakeAPIClient) Actions(actionIDs []string) ([]actionapi.ActionResult, error) {
 	// If the test supplies a delay time too long, we'll return an error
 	// to prevent the test hanging.  If the given wait is up, then return
 	// the results; otherwise, return a pending status.
 
 	if c.delay == nil && c.waitForResults == nil {
 		// No delay requested, just return immediately.
-		return c.getActionResults(args.Entities), c.apiErr
+		return c.getActionResults(actionIDs), c.apiErr
 	}
 	var delayChan, timeoutChan <-chan time.Time
 	if c.delay != nil {
@@ -214,37 +212,35 @@ func (c *fakeAPIClient) Actions(args params.Entities) (params.ActionResults, err
 	}
 	select {
 	case <-c.waitForResults:
-		return c.getActionResults(args.Entities), c.apiErr
+		return c.getActionResults(actionIDs), c.apiErr
 	case _ = <-delayChan:
 		// The API delay timer is up.
-		return c.getActionResults(args.Entities), c.apiErr
+		return c.getActionResults(actionIDs), c.apiErr
 	case _ = <-timeoutChan:
 		// Timeout to prevent tests from hanging.
-		return params.ActionResults{}, errors.New("test timed out before wait time")
+		return nil, errors.New("test timed out before wait time")
 	default:
 		// Timeout should only be nonzero in case we want to test
 		// pending behavior with a --wait flag on FetchCommand.
-		return params.ActionResults{Results: []params.ActionResult{{
-			Status:   params.ActionPending,
+		return []actionapi.ActionResult{{
+			Status:   "pending",
 			Output:   map[string]interface{}{},
 			Started:  time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
 			Enqueued: time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
-		}}}, nil
+		}}, nil
 	}
 }
 
-func (c *fakeAPIClient) WatchActionProgress(actionId string) (watcher.StringsWatcher, error) {
+func (c *fakeAPIClient) WatchActionProgress(_ string) (watcher.StringsWatcher, error) {
 	return watchertest.NewMockStringsWatcher(c.logMessageCh), nil
 }
 
-func (c *fakeAPIClient) ListOperations(args params.OperationQueryArgs) (params.OperationResults, error) {
+func (c *fakeAPIClient) ListOperations(args actionapi.OperationQueryArgs) (actionapi.Operations, error) {
 	c.operationQueryArgs = args
-	return params.OperationResults{
-		Results: c.operationResults,
-	}, c.apiErr
+	return c.operationResults, c.apiErr
 }
 
-func (c *fakeAPIClient) Operation(id string) (params.OperationResult, error) {
+func (c *fakeAPIClient) Operation(id string) (actionapi.Operation, error) {
 	// If the test supplies a delay time too long, we'll return an error
 	// to prevent the test hanging.  If the given wait is up, then return
 	// the results; otherwise, return a pending status.
@@ -268,62 +264,62 @@ func (c *fakeAPIClient) Operation(id string) (params.OperationResult, error) {
 		return c.getOperation(id)
 	case _ = <-timeoutChan:
 		// Timeout to prevent tests from hanging.
-		return params.OperationResult{}, errors.New("test timed out before wait time")
+		return actionapi.Operation{}, errors.New("test timed out before wait time")
 	default:
 		// Timeout should only be nonzero in case we want to test
 		// pending behavior with a --wait flag on FetchCommand.
-		return params.OperationResult{
-			OperationTag: names.NewOperationTag("667").String(),
-			Status:       params.ActionPending,
-			Started:      time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
-			Enqueued:     time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
+		return actionapi.Operation{
+			ID:       "667",
+			Status:   "pending",
+			Started:  time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
+			Enqueued: time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
 		}, nil
 	}
 }
 
-func (c *fakeAPIClient) getOperation(id string) (params.OperationResult, error) {
+func (c *fakeAPIClient) getOperation(id string) (actionapi.Operation, error) {
 	if c.apiErr != nil {
-		return params.OperationResult{}, c.apiErr
+		return actionapi.Operation{}, c.apiErr
 	}
-	if len(c.operationResults) == 0 || c.operationResults[0].OperationTag != names.NewOperationTag(id).String() {
-		return params.OperationResult{}, errors.NotFoundf("operation %q", id)
+	if len(c.operationResults.Operations) == 0 || c.operationResults.Operations[0].ID != id {
+		return actionapi.Operation{}, errors.NotFoundf("operation %q", id)
 	}
-	return c.operationResults[0], nil
+	return c.operationResults.Operations[0], nil
 }
 
-func (c *fakeAPIClient) resultForMachine(machineId string) (params.ActionResult, bool) {
+func (c *fakeAPIClient) resultForMachine(machineId string) (actionapi.ActionResult, bool) {
 	for _, r := range c.actionResults {
 		if r.Action != nil && r.Action.Receiver == "machine-"+machineId {
 			return r, true
 		}
 	}
-	return params.ActionResult{}, false
+	return actionapi.ActionResult{}, false
 }
 
-func (c *fakeAPIClient) resultForUnit(unitName string) (params.ActionResult, bool) {
+func (c *fakeAPIClient) resultForUnit(unitName string) (actionapi.ActionResult, bool) {
 	for _, r := range c.actionResults {
 		if r.Action != nil && r.Action.Receiver == names.NewUnitTag(unitName).String() {
 			return r, true
 		}
 	}
-	return params.ActionResult{}, false
+	return actionapi.ActionResult{}, false
 }
 
-func (c *fakeAPIClient) RunOnAllMachines(commands string, wait time.Duration) (params.EnqueuedActions, error) {
-	var result params.EnqueuedActions
+func (c *fakeAPIClient) RunOnAllMachines(_ string, _ time.Duration) (actionapi.EnqueuedActions, error) {
+	var result actionapi.EnqueuedActions
 
 	if c.block {
 		return result, apiservererrors.OperationBlockedError("the operation has been blocked")
 	}
-	result.OperationTag = "operation-1"
+	result.OperationID = "1"
 	sortedMachineIds := c.machines.SortedValues()
 
 	for _, machineId := range sortedMachineIds {
 		response, found := c.resultForMachine(machineId)
 		if !found {
 			// Consider this a wait timeout.
-			response = params.ActionResult{
-				Action: &params.Action{
+			response = actionapi.ActionResult{
+				Action: &actionapi.Action{
 					Receiver: names.NewMachineTag(machineId).String(),
 				},
 				Message: exec.ErrCancelled.Error(),
@@ -331,20 +327,20 @@ func (c *fakeAPIClient) RunOnAllMachines(commands string, wait time.Duration) (p
 		}
 		result.Actions = append(result.Actions, response)
 	}
-	result.OperationTag = "operation-1"
+	result.OperationID = "1"
 
 	return result, nil
 }
 
-func (c *fakeAPIClient) Run(runParams params.RunParams) (params.EnqueuedActions, error) {
-	var result params.EnqueuedActions
+func (c *fakeAPIClient) Run(runParams actionapi.RunParams) (actionapi.EnqueuedActions, error) {
+	var result actionapi.EnqueuedActions
 
 	c.execParams = &runParams
 
 	if c.block {
 		return result, apiservererrors.OperationBlockedError("the operation has been blocked")
 	}
-	result.OperationTag = "operation-1"
+	result.OperationID = "1"
 	// Just add in ids that match in order.
 	for _, id := range runParams.Machines {
 		response, found := c.resultForMachine(id)

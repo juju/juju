@@ -5,6 +5,7 @@ package action_test
 
 import (
 	"bytes"
+	"errors"
 	"strings"
 	"time"
 
@@ -13,7 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
+	actionapi "github.com/juju/juju/api/action"
 	"github.com/juju/juju/cmd/juju/action"
 )
 
@@ -96,7 +97,7 @@ func (s *ListOperationsSuite) TestRunQueryArgs(c *gc.C) {
 
 		_, err := cmdtesting.RunCommand(c, s.wrappedCommand, args...)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(fakeClient.operationQueryArgs, jc.DeepEquals, params.OperationQueryArgs{
+		c.Assert(fakeClient.operationQueryArgs, jc.DeepEquals, actionapi.OperationQueryArgs{
 			Applications: []string{"mysql", "mediawiki"},
 			Units:        []string{"mysql/1", "mediawiki/0"},
 			Machines:     []string{"0", "1"},
@@ -106,56 +107,56 @@ func (s *ListOperationsSuite) TestRunQueryArgs(c *gc.C) {
 	}
 }
 
-var listOperationResults = []params.OperationResult{
-	{
-		Actions: []params.ActionResult{{
-			Action: &params.Action{
-				Tag:      "action-2",
+var listOperationResults = actionapi.Operations{
+	Operations: []actionapi.Operation{{
+		Actions: []actionapi.ActionResult{{
+			Action: &actionapi.Action{
+				ID:       "2",
 				Receiver: "unit-mysql-0",
 				Name:     "backup",
 			},
 		}},
-		Summary:      "operation 1",
-		OperationTag: "operation-1",
-		Enqueued:     time.Time{},
-		Started:      time.Date(2015, time.February, 14, 6, 6, 6, 0, time.UTC),
-		Completed:    time.Time{},
-		Status:       "completed",
+		Summary:   "operation 1",
+		ID:        "1",
+		Enqueued:  time.Time{},
+		Started:   time.Date(2015, time.February, 14, 6, 6, 6, 0, time.UTC),
+		Completed: time.Time{},
+		Status:    "completed",
 	}, {
-		Actions: []params.ActionResult{{
-			Action: &params.Action{
-				Tag:      "action-4",
+		Actions: []actionapi.ActionResult{{
+			Action: &actionapi.Action{
+				ID:       "4",
 				Receiver: "unit-mysql-1",
 				Name:     "restore",
 			},
 		}},
-		Summary:      "operation 3",
-		OperationTag: "operation-3",
-		Enqueued:     time.Time{},
-		Started:      time.Time{},
-		Completed:    time.Date(2014, time.February, 14, 6, 6, 6, 0, time.UTC),
-		Status:       "running",
+		Summary:   "operation 3",
+		ID:        "3",
+		Enqueued:  time.Time{},
+		Started:   time.Time{},
+		Completed: time.Date(2014, time.February, 14, 6, 6, 6, 0, time.UTC),
+		Status:    "running",
 	}, {
-		Actions: []params.ActionResult{{
-			Action: &params.Action{
-				Tag:      "action-6",
+		Actions: []actionapi.ActionResult{{
+			Action: &actionapi.Action{
+				ID:       "6",
 				Receiver: "machine-1",
 				Name:     "juju-run",
 			},
 		}},
-		Summary:      "operation 5",
-		OperationTag: "operation-5",
-		Enqueued:     time.Date(2013, time.February, 14, 6, 6, 6, 0, time.UTC),
-		Started:      time.Time{},
-		Completed:    time.Time{},
-		Status:       "pending",
+		Summary:   "operation 5",
+		ID:        "5",
+		Enqueued:  time.Date(2013, time.February, 14, 6, 6, 6, 0, time.UTC),
+		Started:   time.Time{},
+		Completed: time.Time{},
+		Status:    "pending",
 	}, {
-		Actions: []params.ActionResult{{
-			Error: &params.Error{Message: "boom"},
+		Actions: []actionapi.ActionResult{{
+			Error: errors.New("boom"),
 		}},
-		Summary:      "operation 7",
-		OperationTag: "operation-7",
-	},
+		Summary: "operation 10",
+		ID:      "10",
+	}},
 }
 
 func (s *ListOperationsSuite) TestRunNoResults(c *gc.C) {
@@ -190,54 +191,54 @@ Id  Status     Started              Finished             Task IDs  Summary
  1  completed  2015-02-14T06:06:06                       2         operation 1
  3  running                         2014-02-14T06:06:06  4         operation 3
  5  pending                                              6         operation 5
- 7  error                                                          operation 7
+10  error                                                          operation 10
 
 `[1:]
 		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, expected)
 	}
 }
 
-var listOperationManyTasksResults = []params.OperationResult{
-	{
-		Actions: []params.ActionResult{{
-			Action: &params.Action{
-				Tag:      "action-2",
+var listOperationManyTasksResults = actionapi.Operations{
+	Operations: []actionapi.Operation{{
+		Actions: []actionapi.ActionResult{{
+			Action: &actionapi.Action{
+				ID:       "2",
 				Receiver: "unit-mysql-0",
 				Name:     "backup",
 			}}, {
-			Action: &params.Action{
-				Tag:      "action-3",
+			Action: &actionapi.Action{
+				ID:       "3",
 				Receiver: "unit-mysql-1",
 				Name:     "backup",
 			}}, {
-			Action: &params.Action{
-				Tag:      "action-4",
+			Action: &actionapi.Action{
+				ID:       "4",
 				Receiver: "unit-mysql-2",
 				Name:     "backup",
 			}}, {
-			Action: &params.Action{
-				Tag:      "action-5",
+			Action: &actionapi.Action{
+				ID:       "5",
 				Receiver: "unit-mysql-3",
 				Name:     "backup",
 			}}, {
-			Action: &params.Action{
-				Tag:      "action-6",
+			Action: &actionapi.Action{
+				ID:       "6",
 				Receiver: "unit-mysql-4",
 				Name:     "backup",
 			}}, {
-			Action: &params.Action{
-				Tag:      "action-7",
+			Action: &actionapi.Action{
+				ID:       "7",
 				Receiver: "unit-mysql-5",
 				Name:     "backup",
 			},
 		}},
-		Summary:      "operation 1",
-		OperationTag: "operation-1",
-		Enqueued:     time.Time{},
-		Started:      time.Date(2015, time.February, 14, 6, 6, 6, 0, time.UTC),
-		Completed:    time.Time{},
-		Status:       "completed",
-	},
+		Summary:   "operation 1",
+		ID:        "1",
+		Enqueued:  time.Time{},
+		Started:   time.Date(2015, time.February, 14, 6, 6, 6, 0, time.UTC),
+		Completed: time.Time{},
+		Status:    "completed",
+	}},
 }
 
 func (s *ListOperationsSuite) TestRunPlainManyTasks(c *gc.C) {
@@ -310,8 +311,8 @@ func (s *ListOperationsSuite) TestRunYaml(c *gc.C) {
     "6":
       host: "1"
       status: ""
-"7":
-  summary: operation 7
+"10":
+  summary: operation 10
   status: error
 `[1:]
 		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, expected)

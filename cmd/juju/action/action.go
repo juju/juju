@@ -10,44 +10,43 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/action"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/watcher"
 )
 
-// type APIClient represents the action API functionality.
+// APIClient represents the action API functionality.
 type APIClient interface {
 	io.Closer
 
 	// RunOnAllMachines runs the command on all the machines with the specified
 	// timeout.
-	RunOnAllMachines(commands string, timeout time.Duration) (params.EnqueuedActions, error)
+	RunOnAllMachines(commands string, timeout time.Duration) (action.EnqueuedActions, error)
 
 	// Run the Commands specified on the machines identified through the ids
 	// provided in the machines, applications and units slices.
-	Run(params.RunParams) (params.EnqueuedActions, error)
+	Run(action.RunParams) (action.EnqueuedActions, error)
 
 	// EnqueueOperation takes a list of Actions and queues them up to be executed as
 	// an operation, each action running as a task on the the designated ActionReceiver.
 	// We return the ID of the overall operation and each individual task.
-	EnqueueOperation(params.Actions) (params.EnqueuedActions, error)
+	EnqueueOperation([]action.Action) (action.EnqueuedActions, error)
 
 	// Cancel attempts to cancel a queued up Action from running.
-	Cancel(params.Entities) (params.ActionResults, error)
+	Cancel([]string) ([]action.ActionResult, error)
 
 	// ApplicationCharmActions is a single query which uses ApplicationsCharmsActions to
 	// get the charm.Actions for a single application by tag.
-	ApplicationCharmActions(params.Entity) (map[string]params.ActionSpec, error)
+	ApplicationCharmActions(appName string) (map[string]action.ActionSpec, error)
 
 	// Actions fetches actions by tag.  These Actions can be used to get
 	// the ActionReceiver if necessary.
-	Actions(params.Entities) (params.ActionResults, error)
+	Actions([]string) ([]action.ActionResult, error)
 
 	// ListOperations fetches the operation summaries for specified apps/units.
-	ListOperations(params.OperationQueryArgs) (params.OperationResults, error)
+	ListOperations(action.OperationQueryArgs) (action.Operations, error)
 
 	// Operation fetches the operation with the specified id.
-	Operation(id string) (params.OperationResult, error)
+	Operation(id string) (action.Operation, error)
 
 	// WatchActionProgress reports on logged action progress messages.
 	WatchActionProgress(actionId string) (watcher.StringsWatcher, error)

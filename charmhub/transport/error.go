@@ -5,29 +5,87 @@ package transport
 
 import (
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 // APIError represents the error from the CharmHub API.
 type APIError struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
+	Code    APIErrorCode  `json:"code"`
+	Message string        `json:"message"`
+	Extra   APIErrorExtra `json:"extra"`
+}
+
+func (a APIError) Error() string {
+	return a.Message
 }
 
 // APIErrors represents a slice of APIError's
 type APIErrors []APIError
 
-// Combine will combine any errors into one error.
-func (a APIErrors) Combine() error {
+func (a APIErrors) Error() string {
 	if len(a) > 0 {
 		var combined []string
-		for _, err := range a {
-			if err.Message != "" {
-				combined = append(combined, err.Message)
+		for _, e := range a {
+			if err := e.Error(); err != "" {
+				combined = append(combined, err)
 			}
 		}
-		return errors.Errorf(strings.Join(combined, "\n"))
+		return strings.Join(combined, "\n")
 	}
-	return nil
+	return ""
 }
+
+// APIErrorExtra defines additional extra payloads from a given error. Think
+// of this object as a series of suggestions to perform against the errorred
+// API request, in the chance of the new request being successful.
+type APIErrorExtra struct {
+	DefaultPlatforms []Platform `json:"default-platforms"`
+}
+
+// APIErrorCode classifies the error code we get back from the API. This isn't
+// tautological list of codes.
+type APIErrorCode string
+
+const (
+	ErrorCodeAccessByDownstreamStoreNotAllowed APIErrorCode = "access-by-downstream-store-not-allowed"
+	ErrorCodeAccessByRevisionNotAllowed        APIErrorCode = "access-by-revision-not-allowed"
+	ErrorCodeAPIError                          APIErrorCode = "api-error"
+	ErrorCodeBadArgument                       APIErrorCode = "bad-argument"
+	ErrorCodeChannelNotFound                   APIErrorCode = "channel-not-found"
+	ErrorCodeDeviceAuthorizationNeedsRefresh   APIErrorCode = "device-authorization-needs-refresh"
+	ErrorCodeDeviceServiceDisallowed           APIErrorCode = "device-service-disallowed"
+	ErrorCodeDuplicatedKey                     APIErrorCode = "duplicated-key"
+	ErrorCodeDuplicateFetchAssertionsKey       APIErrorCode = "duplicate-fetch-assertions-key"
+	ErrorCodeEndpointDisabled                  APIErrorCode = "endpoint-disabled"
+	ErrorCodeIDNotFound                        APIErrorCode = "id-not-found"
+	ErrorCodeInconsistentData                  APIErrorCode = "inconsistent-data"
+	ErrorCodeInstanceKeyNotUnique              APIErrorCode = "instance-key-not-unique"
+	ErrorCodeInvalidChannel                    APIErrorCode = "invalid-channel"
+	ErrorCodeInvalidCharmPlatform              APIErrorCode = "invalid-charm-platform"
+	ErrorCodeInvalidCohortKey                  APIErrorCode = "invalid-cohort-key"
+	ErrorCodeInvalidGrade                      APIErrorCode = "invalid-grade"
+	ErrorCodeInvalidMetric                     APIErrorCode = "invalid-metric"
+	ErrorCodeInvalidUnboundEmptySearch         APIErrorCode = "invalid-unbound-empty-search"
+	ErrorCodeMacaroonPermissionRequired        APIErrorCode = "macaroon-permission-required"
+	ErrorCodeMissingCharmPlatform              APIErrorCode = "missing-charm-platform"
+	ErrorCodeMissingContext                    APIErrorCode = "missing-context"
+	ErrorCodeMissingFetchAssertionsKey         APIErrorCode = "missing-fetch-assertions-key"
+	ErrorCodeMissingHeader                     APIErrorCode = "missing-header"
+	ErrorCodeMissingInstanceKey                APIErrorCode = "missing-instance-key"
+	ErrorCodeMissingKey                        APIErrorCode = "missing-key"
+	ErrorCodeNameNotFound                      APIErrorCode = "name-not-found"
+	ErrorCodeNotFound                          APIErrorCode = "not-found"
+	ErrorCodePaymentRequired                   APIErrorCode = "payment-required"
+	ErrorCodeRateLimitExceeded                 APIErrorCode = "rate-limit-exceeded"
+	ErrorCodeRefreshBundleNotSupported         APIErrorCode = "refresh-bundle-not-supported"
+	ErrorCodeRemoteServiceUnavailable          APIErrorCode = "remote-service-unavailable"
+	ErrorCodeResourceNotFound                  APIErrorCode = "resource-not-found"
+	ErrorCodeRevisionConflict                  APIErrorCode = "revision-conflict"
+	ErrorCodeRevisionNotFound                  APIErrorCode = "revision-not-found"
+	ErrorCodeServiceMisconfigured              APIErrorCode = "service-misconfigured"
+	ErrorCodeStoreAuthorizationNeedsRefresh    APIErrorCode = "store-authorization-needs-refresh"
+	ErrorCodeStoreDisallowed                   APIErrorCode = "store-disallowed"
+	ErrorCodeUnexpectedData                    APIErrorCode = "unexpected-data"
+	ErrorCodeUnknownGrade                      APIErrorCode = "unknown-grade"
+	ErrorCodeUserAuthenticationError           APIErrorCode = "user-authentication-error"
+	ErrorCodeUserAuthorizationNeedsRefresh     APIErrorCode = "user-authorization-needs-refresh"
+)

@@ -16,16 +16,9 @@ import (
 )
 
 type actionSuite struct {
-	baseSuite
 }
 
 var _ = gc.Suite(&actionSuite{})
-
-func (s *actionSuite) TestClient(c *gc.C) {
-	facade := action.ExposeFacade(s.client)
-
-	c.Check(facade.Name(), gc.Equals, "Action")
-}
 
 func (s *actionSuite) TestApplicationCharmActions(c *gc.C) {
 	tests := []struct {
@@ -33,7 +26,7 @@ func (s *actionSuite) TestApplicationCharmActions(c *gc.C) {
 		patchResults   []params.ApplicationCharmActionsResult
 		patchErr       string
 		expectedErr    string
-		expectedResult map[string]params.ActionSpec
+		expectedResult map[string]action.ActionSpec
 	}{{
 		description: "result from wrong application",
 		patchResults: []params.ApplicationCharmActionsResult{
@@ -83,7 +76,7 @@ func (s *actionSuite) TestApplicationCharmActions(c *gc.C) {
 				},
 			},
 		},
-		expectedResult: map[string]params.ActionSpec{
+		expectedResult: map[string]action.ActionSpec{
 			"action": {
 				Description: "description",
 				Params: map[string]interface{}{
@@ -94,39 +87,39 @@ func (s *actionSuite) TestApplicationCharmActions(c *gc.C) {
 	}}
 
 	for i, t := range tests {
-		// anonymous func to properly trigger defer
-		func() {
-			c.Logf("test %d: %s", i, t.description)
-			cleanup := patchApplicationCharmActions(c, s.client, t.patchResults, t.patchErr)
-			defer cleanup()
-			result, err := s.client.ApplicationCharmActions(params.Entity{Tag: names.NewApplicationTag("foo").String()})
-			if t.expectedErr != "" {
-				c.Check(err, gc.ErrorMatches, t.expectedErr)
-			} else {
-				c.Check(err, jc.ErrorIsNil)
-				c.Check(result, jc.DeepEquals, t.expectedResult)
-			}
-		}()
+		c.Logf("test %d: %s", i, t.description)
+		apiCaller := basetesting.BestVersionCaller{
+			APICallerFunc: basetesting.APICallerFunc(
+				func(objType string,
+					version int,
+					id, request string,
+					a, result interface{},
+				) error {
+					c.Assert(request, gc.Equals, "ApplicationsCharmsActions")
+					c.Assert(a, gc.FitsTypeOf, params.Entities{})
+					p := a.(params.Entities)
+					c.Check(p.Entities, gc.HasLen, 1)
+					c.Assert(result, gc.FitsTypeOf, &params.ApplicationsCharmActionsResults{})
+					*(result.(*params.ApplicationsCharmActionsResults)) = params.ApplicationsCharmActionsResults{
+						Results: t.patchResults,
+					}
+					if t.patchErr != "" {
+						return errors.New(t.patchErr)
+					}
+					return nil
+				},
+			),
+			BestVersion: 5,
+		}
+		client := action.NewClient(apiCaller)
+		result, err := client.ApplicationCharmActions("foo")
+		if t.expectedErr != "" {
+			c.Check(err, gc.ErrorMatches, t.expectedErr)
+		} else {
+			c.Check(err, jc.ErrorIsNil)
+			c.Check(result, jc.DeepEquals, t.expectedResult)
+		}
 	}
-}
-
-// replace sCharmActions" facade call with required results and error
-// if desired
-func patchApplicationCharmActions(c *gc.C, apiCli *action.Client, patchResults []params.ApplicationCharmActionsResult, err string) func() {
-	return action.PatchClientFacadeCall(apiCli,
-		func(req string, paramsIn interface{}, resp interface{}) error {
-			c.Assert(req, gc.Equals, "ApplicationsCharmsActions")
-			c.Assert(paramsIn, gc.FitsTypeOf, params.Entities{})
-			p := paramsIn.(params.Entities)
-			c.Check(p.Entities, gc.HasLen, 1)
-			result := resp.(*params.ApplicationsCharmActionsResults)
-			result.Results = patchResults
-			if err != "" {
-				return errors.New(err)
-			}
-			return nil
-		},
-	)
 }
 
 func (s *actionSuite) TestWatchActionProgress(c *gc.C) {
@@ -195,26 +188,8 @@ func (s *actionSuite) TestWatchActionProgressArity(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 }
 
-func (s *actionSuite) TestWatchActionProgressNotSupported(c *gc.C) {
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				return nil
-			},
-		),
-		BestVersion: 4,
-	}
-	client := action.NewClient(apiCaller)
-	_, err := client.WatchActionProgress("666")
-	c.Assert(err, gc.ErrorMatches, "WatchActionProgress not supported by this version \\(4\\) of Juju")
-}
-
 func (s *actionSuite) TestListOperations(c *gc.C) {
-	var args params.OperationQueryArgs
+	var args action.OperationQueryArgs
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -227,8 +202,14 @@ func (s *actionSuite) TestListOperations(c *gc.C) {
 				c.Assert(result, gc.FitsTypeOf, &params.OperationResults{})
 				*(result.(*params.OperationResults)) = params.OperationResults{
 					Results: []params.OperationResult{{
-						Summary: "hello",
+						OperationTag: "operation-1",
+						Summary:      "hello",
+						Status:       "running",
+						Actions: []params.ActionResult{{
+							Action: &params.Action{Tag: "action-666", Name: "test", Receiver: "unit-mysql-0"},
+						}},
 					}},
+					Truncated: true,
 				}
 				return nil
 			},
@@ -238,29 +219,17 @@ func (s *actionSuite) TestListOperations(c *gc.C) {
 	client := action.NewClient(apiCaller)
 	result, err := client.ListOperations(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.OperationResults{
-		Results: []params.OperationResult{{
+	c.Assert(result, jc.DeepEquals, action.Operations{
+		Operations: []action.Operation{{
+			ID:      "1",
 			Summary: "hello",
+			Status:  "running",
+			Actions: []action.ActionResult{{
+				Action: &action.Action{ID: "666", Name: "test", Receiver: "unit-mysql-0"},
+			}},
 		}},
+		Truncated: true,
 	})
-}
-
-func (s *actionSuite) TestListOperationsNotSupported(c *gc.C) {
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				return nil
-			},
-		),
-		BestVersion: 4,
-	}
-	client := action.NewClient(apiCaller)
-	_, err := client.ListOperations(params.OperationQueryArgs{})
-	c.Assert(err, gc.ErrorMatches, "ListOperations not supported by this version \\(4\\) of Juju")
 }
 
 func (s *actionSuite) TestOperation(c *gc.C) {
@@ -276,7 +245,11 @@ func (s *actionSuite) TestOperation(c *gc.C) {
 				c.Assert(result, gc.FitsTypeOf, &params.OperationResults{})
 				*(result.(*params.OperationResults)) = params.OperationResults{
 					Results: []params.OperationResult{{
-						Summary: "hello",
+						OperationTag: "operation-1",
+						Summary:      "hello",
+						Actions: []params.ActionResult{{
+							Action: &params.Action{Tag: "action-666", Name: "test", Receiver: "unit-mysql-0"},
+						}},
 					}},
 				}
 				return nil
@@ -287,39 +260,16 @@ func (s *actionSuite) TestOperation(c *gc.C) {
 	client := action.NewClient(apiCaller)
 	result, err := client.Operation("666")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.OperationResult{
+	c.Assert(result, jc.DeepEquals, action.Operation{
+		ID:      "1",
 		Summary: "hello",
+		Actions: []action.ActionResult{{
+			Action: &action.Action{ID: "666", Name: "test", Receiver: "unit-mysql-0"},
+		}},
 	})
 }
 
-func (s *actionSuite) TestOperationNotSupported(c *gc.C) {
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				return nil
-			},
-		),
-		BestVersion: 4,
-	}
-	client := action.NewClient(apiCaller)
-	_, err := client.Operation("666")
-	c.Assert(err, gc.ErrorMatches, "Operations not supported by this version \\(4\\) of Juju")
-}
-
 func (s *actionSuite) TestEnqueueOperation(c *gc.C) {
-	args := params.Actions{
-		Actions: []params.Action{{
-			Receiver: "unit/0",
-			Name:     "test",
-			Parameters: map[string]interface{}{
-				"foo": "bar",
-			},
-		}},
-	}
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -328,7 +278,15 @@ func (s *actionSuite) TestEnqueueOperation(c *gc.C) {
 				a, result interface{},
 			) error {
 				c.Assert(request, gc.Equals, "EnqueueOperation")
-				c.Assert(a, jc.DeepEquals, args)
+				c.Assert(a, jc.DeepEquals, params.Actions{
+					Actions: []params.Action{{
+						Receiver: "unit/0",
+						Name:     "test",
+						Parameters: map[string]interface{}{
+							"foo": "bar",
+						},
+					}},
+				})
 				c.Assert(result, gc.FitsTypeOf, &params.EnqueuedActions{})
 				*(result.(*params.EnqueuedActions)) = params.EnqueuedActions{
 					OperationTag: "operation-1",
@@ -341,31 +299,20 @@ func (s *actionSuite) TestEnqueueOperation(c *gc.C) {
 		),
 		BestVersion: 6,
 	}
+	args := []action.Action{{
+		Receiver: "unit/0",
+		Name:     "test",
+		Parameters: map[string]interface{}{
+			"foo": "bar",
+		}},
+	}
 	client := action.NewClient(apiCaller)
 	result, err := client.EnqueueOperation(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.EnqueuedActions{
-		Actions: []params.ActionResult{{
+	c.Assert(result, jc.DeepEquals, action.EnqueuedActions{
+		Actions: []action.ActionResult{{
 			Error: &params.Error{Message: "FAIL"},
 		}},
-		OperationTag: "operation-1",
+		OperationID: "1",
 	})
-}
-
-func (s *actionSuite) TestEnqueueOperationNotSupported(c *gc.C) {
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				return nil
-			},
-		),
-		BestVersion: 5,
-	}
-	client := action.NewClient(apiCaller)
-	_, err := client.EnqueueOperation(params.Actions{})
-	c.Assert(err, gc.ErrorMatches, "EnqueueOperation not supported by this version \\(5\\) of Juju")
 }

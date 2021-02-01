@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
@@ -136,6 +137,15 @@ func (s *UniterSuite) TestUniterStartup(c *gc.C) {
 			createApplicationAndUnit{applicationName: "w"},
 			startUniter{unitTag: "unit-u-0"},
 			waitUniterDead{err: `failed to initialize uniter for "unit-u-0": permission denied`},
+		),
+		ut(
+			"unit not found",
+			createCharm{},
+			createApplicationAndUnit{},
+			// Remove the unit after the API login.
+			deleteUnit{},
+			startUniter{},
+			waitUniterDead{err: worker.ErrTerminateAgent.Error()},
 		),
 	})
 }

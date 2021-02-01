@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Test Juju's log forwarding feature.
 
 Log forwarding allows a controller to forward syslog from all models of a
@@ -150,12 +150,12 @@ def get_assert_regex(raw_uuid, message=None):
     # Maybe over simplified removing the last 8 characters
     uuid = re.escape(raw_uuid)
     short_uuid = re.escape(raw_uuid[:-8])
-    date_check = '[A-Z][a-z]{,2}\ +[0-9]+\ +[0-9]{1,2}:[0-9]{1,2}:[0-9]{1,2}'
+    date_check = r'[A-Z][a-z]{,2}\ +[0-9]+\ +[0-9]{1,2}:[0-9]{1,2}:[0-9]{1,2}'
     machine = 'machine-0.{}'.format(uuid)
     agent = 'jujud-machine-agent-{}'.format(short_uuid)
     message = message or '.*'
 
-    return '"^{datecheck}\ {machine}\ {agent}\ {message}$"'.format(
+    return r'"^{datecheck}\ {machine}\ {agent}\ {message}$"'.format(
         datecheck=date_check,
         machine=machine,
         agent=agent,

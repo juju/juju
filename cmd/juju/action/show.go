@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -19,8 +18,8 @@ import (
 type showCommand struct {
 	ActionCommandBase
 
-	applicationTag names.ApplicationTag
-	actionName     string
+	appName    string
+	actionName string
 
 	out cmd.Output
 }
@@ -52,7 +51,7 @@ func (c *showCommand) Init(args []string) error {
 		if !names.IsValidApplication(appName) {
 			return errors.Errorf("invalid application name %q", appName)
 		}
-		c.applicationTag = names.NewApplicationTag(appName)
+		c.appName = appName
 		c.actionName = args[1]
 		return nil
 	default:
@@ -77,7 +76,7 @@ func (c *showCommand) Run(ctx *cmd.Context) error {
 	}
 	defer api.Close()
 
-	actions, err := api.ApplicationCharmActions(params.Entity{Tag: c.applicationTag.String()})
+	actions, err := api.ApplicationCharmActions(c.appName)
 	if err != nil {
 		return err
 	}

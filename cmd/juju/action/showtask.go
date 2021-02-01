@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
+	actionapi "github.com/juju/juju/api/action"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -152,7 +153,7 @@ func (c *showTaskCommand) Run(ctx *cmd.Context) error {
 		})
 	}
 
-	var result params.ActionResult
+	var result actionapi.ActionResult
 	if shouldWatch {
 		tick := c.clock.NewTimer(resultPollTime)
 		result, err = GetActionResult(api, c.requestedId, tick, wait)

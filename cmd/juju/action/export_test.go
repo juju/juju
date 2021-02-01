@@ -8,9 +8,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/cmd"
-	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/params"
+	actionapi "github.com/juju/juju/api/action"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 )
@@ -88,8 +87,8 @@ type ListCommand struct {
 	*listCommand
 }
 
-func (c *ListCommand) ApplicationTag() names.ApplicationTag {
-	return c.applicationTag
+func (c *ListCommand) ApplicationName() string {
+	return c.appName
 }
 
 func (c *ListCommand) FullSchema() bool {
@@ -100,8 +99,8 @@ type ShowCommand struct {
 	*showCommand
 }
 
-func (c *ShowCommand) ApplicationTag() names.ApplicationTag {
-	return c.applicationTag
+func (c *ShowCommand) ApplicationName() string {
+	return c.appName
 }
 
 func (c *ShowCommand) ActionName() string {
@@ -170,7 +169,7 @@ func NewExecCommandForTest(store jujuclient.ClientStore, clock clock.Clock, logM
 	return modelcmd.Wrap(c), &ExecCommand{c}
 }
 
-func ActionResultsToMap(results []params.ActionResult) map[string]interface{} {
+func ActionResultsToMap(results []actionapi.ActionResult) map[string]interface{} {
 	return resultsToMap(results)
 }
 

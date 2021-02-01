@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Assess the model-defaults command."""
 
 from __future__ import print_function
@@ -23,7 +23,8 @@ __metaclass__ = type
 log = logging.getLogger('assess_model_defaults')
 
 
-def assemble_model_default(model_key, default, controller_value=None, region_values=None):
+def assemble_model_default(model_key, default, controller_value=None,
+                           region_values=None):
     """Create a dict that contains the formatted model-defaults data."""
     # Ordering in the regions argument is lost.
     defaults = {'default': default}
@@ -55,11 +56,12 @@ def get_new_model_config(client, cloud=None, region=None, model_name=None):
     cloud_region = None
     if region is not None:
         new_env.set_region(region)
-        cloud_region = client.get_cloud_region(cloud,region)
+        cloud_region = client.get_cloud_region(cloud, region)
     # Don't use the bootstrap config, we want to check that the default series
     # is inherited from the model defaults correctly and the bootstrap config
     # might override it.
-    new_model = client.add_model(new_env, cloud_region, use_bootstrap_config=False)
+    new_model = client.add_model(new_env, cloud_region,
+                                 use_bootstrap_config=False)
     config_data = new_model.get_model_config()
     new_model.destroy_model()
     return config_data
@@ -120,7 +122,8 @@ def assess_model_defaults(client, other_region):
     if other_region is not None:
         log.info('Checking other region model-defaults.')
         assess_model_defaults_region(
-            client, 'default-series', 'bionic', cloud=cloud, region=other_region)
+            client, 'default-series', 'bionic', cloud=cloud,
+            region=other_region)
 
 
 def parse_args(argv):

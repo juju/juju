@@ -24,7 +24,7 @@ import (
 	"github.com/kr/pretty"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
-	networkingv1beta1 "k8s.io/api/networking/v1beta1"
+	networkingv1 "k8s.io/api/networking/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -1842,7 +1842,7 @@ func (k *kubernetesClient) configureHeadlessService(
 	return err
 }
 
-func (k *kubernetesClient) findDefaultIngressClass() (*string, error) {
+func (k *kubernetesClient) findDefaultIngressClassResource() (*string, error) {
 	ics, err := k.listIngressClasses(nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "finding the default ingress class")
@@ -1883,7 +1883,7 @@ func (k *kubernetesClient) ExposeService(appName string, resourceTags map[string
 	if len(svc.Spec.Ports) == 0 {
 		return errors.Errorf("cannot create ingress rule for service %q without a port", svc.Name)
 	}
-	spec := &networkingv1beta1.Ingress{
+	spec := &networkingv1.Ingress{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   deploymentName,
 			Labels: k8slabels.Merge(resourceTags, k.getIngressLabels(appName)),
@@ -1894,33 +1894,47 @@ func (k *kubernetesClient) ExposeService(appName string, resourceTags map[string
 				"ingress.kubernetes.io/ssl-passthrough": strconv.FormatBool(ingressSSLPassthrough),
 			},
 		},
-		Spec: networkingv1beta1.IngressSpec{
-			Rules: []networkingv1beta1.IngressRule{{
-				Host: host,
-				IngressRuleValue: networkingv1beta1.IngressRuleValue{
-					HTTP: &networkingv1beta1.HTTPIngressRuleValue{
-						Paths: []networkingv1beta1.HTTPIngressPath{{
-							Path: httpPath,
-							Backend: networkingv1beta1.IngressBackend{
-								ServiceName: svc.Name, ServicePort: svc.Spec.Ports[0].TargetPort},
-						}}},
-				}}},
-		},
+		Spec: networkingv1.IngressSpec{},
 	}
 
 	ingressClass := config.GetString(ingressClassKey, defaultIngressClass)
 	if ingressClass == defaultIngressClass {
-		if spec.Spec.IngressClassName, err = k.findDefaultIngressClass(); err != nil && !errors.IsNotFound(err) {
+		if spec.Spec.IngressClassName, err = k.findDefaultIngressClassResource(); err != nil && !errors.IsNotFound(err) {
 			return errors.Trace(err)
 		}
 	}
+	pathType := networkingv1.PathTypeImplementationSpecific
 	if spec.Spec.IngressClassName == nil {
 		spec.Annotations["kubernetes.io/ingress.class"] = ingressClass
+		pathType = networkingv1.PathTypePrefix
 	}
+	spec.Spec.Rules = append(spec.Spec.Rules,
+		networkingv1.IngressRule{
+			Host: host,
+			IngressRuleValue: networkingv1.IngressRuleValue{
+				HTTP: &networkingv1.HTTPIngressRuleValue{
+					Paths: []networkingv1.HTTPIngressPath{
+						{
+							Path:     httpPath,
+							PathType: &pathType,
+							Backend: networkingv1.IngressBackend{
+								Service: &networkingv1.IngressServiceBackend{
+									Name: svc.Name,
+									Port: networkingv1.ServiceBackendPort{
+										Number: int32(svc.Spec.Ports[0].TargetPort.IntValue()),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	)
 
 	// TODO(caas): refactor juju expose to solve potential conflict with ingress definition in podspec.
 	// https://bugs.launchpad.net/juju/+bug/1854123
-	_, err = k.ensureIngress(appName, spec, true)
+	_, err = k.ensureIngressV1(appName, spec, true)
 	return errors.Trace(err)
 }
 
@@ -2328,7 +2342,7 @@ type workloadSpec struct {
 	CustomResources                 map[string][]unstructured.Unstructured
 	MutatingWebhookConfigurations   []k8sspecs.K8sMutatingWebhook
 	ValidatingWebhookConfigurations []k8sspecs.K8sValidatingWebhook
-	IngressResources                []k8sspecs.K8sIngressSpec
+	IngressResources                []k8sspecs.K8sIngress
 }
 
 func processContainers(deploymentName string, podSpec *specs.PodSpec, spec *core.PodSpec) error {

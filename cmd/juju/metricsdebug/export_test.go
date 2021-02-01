@@ -10,7 +10,7 @@ import (
 	"github.com/juju/cmd"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
+	actionapi "github.com/juju/juju/api/action"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
@@ -30,12 +30,12 @@ func NewRunClientFnc(client runClient) func(api.Connection) runClient {
 	}
 }
 
-func PatchGetActionResult(patchValue func(interface{}, interface{}), actions map[string]params.ActionResult) {
-	patchValue(&getActionResult, func(_ runClient, id string, _ clock.Clock, _ clock.Timer) (params.ActionResult, error) {
+func PatchGetActionResult(patchValue func(interface{}, interface{}), actions map[string]actionapi.ActionResult) {
+	patchValue(&getActionResult, func(_ runClient, id string, _ clock.Clock, _ clock.Timer) (actionapi.ActionResult, error) {
 		if res, ok := actions[id]; ok {
 			return res, nil
 		}
-		return params.ActionResult{}, errors.New("plm")
+		return actionapi.ActionResult{}, errors.New("plm")
 	})
 }
 

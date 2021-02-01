@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
-	admission "k8s.io/api/admissionregistration/v1beta1"
+	admission "k8s.io/api/admissionregistration/v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/apiserverhttp"

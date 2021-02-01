@@ -18,8 +18,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/params"
+	actionapi "github.com/juju/juju/api/action"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/testing"
@@ -76,7 +75,7 @@ func (s *ShowTaskSuite) TestRun(c *gc.C) {
 		withAPIDelay      time.Duration
 		withAPITimeout    time.Duration
 		withTicks         int
-		withAPIResponse   []params.ActionResult
+		withAPIResponse   []actionapi.ActionResult
 		withAPIError      string
 		withFormat        string
 		expectedErr       string
@@ -90,7 +89,7 @@ func (s *ShowTaskSuite) TestRun(c *gc.C) {
 		withAPITimeout:    5 * time.Second,
 		withTicks:         1,
 		withClientQueryID: validActionId,
-		withAPIResponse:   []params.ActionResult{{Status: "pending"}},
+		withAPIResponse:   []actionapi.ActionResult{{Status: "pending"}},
 		expectedErr:       "maximum wait time reached",
 		expectedOutput: `
 status: pending
@@ -113,14 +112,14 @@ timing:
 		should:            "error correctly with multiple results",
 		withClientQueryID: validActionId,
 		withAPITimeout:    1 * time.Second,
-		withAPIResponse:   []params.ActionResult{{}, {}},
+		withAPIResponse:   []actionapi.ActionResult{{}, {}},
 		expectedErr:       "too many results for task " + validActionId,
 	}, {
 		should:            "pass through an error from the API server",
 		withClientQueryID: validActionId,
 		withAPITimeout:    1 * time.Second,
-		withAPIResponse: []params.ActionResult{{
-			Error: apiservererrors.ServerError(errors.New("an apiserver error")),
+		withAPIResponse: []actionapi.ActionResult{{
+			Error: errors.New("an apiserver error"),
 		}},
 		expectedErr: "an apiserver error",
 	}, {
@@ -130,7 +129,7 @@ timing:
 		withTicks:         2,
 		withClientQueryID: validActionId,
 		withAPITimeout:    3 * time.Second,
-		withAPIResponse: []params.ActionResult{{
+		withAPIResponse: []actionapi.ActionResult{{
 			Status: "running",
 			Output: map[string]interface{}{
 				"foo": map[string]interface{}{
@@ -145,7 +144,7 @@ timing:
 		should:            "pretty-print action output",
 		withClientQueryID: validActionId,
 		withAPITimeout:    1 * time.Second,
-		withAPIResponse: []params.ActionResult{{
+		withAPIResponse: []actionapi.ActionResult{{
 			Status:  "complete",
 			Message: "oh dear",
 			Output: map[string]interface{}{
@@ -175,7 +174,7 @@ timing:
 		withClientWait:    "1s",
 		withAPITimeout:    2 * time.Second,
 		withTicks:         1,
-		withAPIResponse: []params.ActionResult{{
+		withAPIResponse: []actionapi.ActionResult{{
 			Status: "pending",
 			Output: map[string]interface{}{
 				"foo": map[string]interface{}{
@@ -201,7 +200,7 @@ timing:
 		withClientWait:    "1s",
 		withAPITimeout:    2 * time.Second,
 		withTicks:         1,
-		withAPIResponse: []params.ActionResult{{
+		withAPIResponse: []actionapi.ActionResult{{
 			Status: "pending",
 			Output: map[string]interface{}{
 				"foo": map[string]interface{}{
@@ -228,7 +227,7 @@ timing:
 		withClientWait:    "1s",
 		withAPITimeout:    2 * time.Second,
 		withTicks:         1,
-		withAPIResponse: []params.ActionResult{{
+		withAPIResponse: []actionapi.ActionResult{{
 			Status: "pending",
 			Output: map[string]interface{}{
 				"foo": map[string]interface{}{
@@ -255,7 +254,7 @@ timing:
 		withClientWait:    "1s",
 		withAPITimeout:    2 * time.Second,
 		withFormat:        "plain",
-		withAPIResponse: []params.ActionResult{{
+		withAPIResponse: []actionapi.ActionResult{{
 			Status:  "complete",
 			Message: "oh dear",
 			Output: map[string]interface{}{
@@ -282,7 +281,7 @@ hello
 		withClientWait:    "3s",
 		withAPIDelay:      1 * time.Second,
 		withTicks:         1,
-		withAPIResponse: []params.ActionResult{{
+		withAPIResponse: []actionapi.ActionResult{{
 			Status: "completed",
 			Output: map[string]interface{}{
 				"foo": map[string]interface{}{
@@ -306,7 +305,7 @@ timing:
 		should:            "watch, wait, get a result",
 		withClientQueryID: validActionId,
 		watch:             true,
-		withAPIResponse: []params.ActionResult{{
+		withAPIResponse: []actionapi.ActionResult{{
 			Status:    "completed",
 			Enqueued:  time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
 			Completed: time.Date(2015, time.February, 14, 8, 15, 30, 0, time.UTC),
@@ -326,7 +325,7 @@ timing:
 		watch:             true,
 		expectedLogs:      []string{"log line 1", "log line 2"},
 		withTicks:         1,
-		withAPIResponse: []params.ActionResult{{
+		withAPIResponse: []actionapi.ActionResult{{
 			Status:    "completed",
 			Enqueued:  time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
 			Completed: time.Date(2015, time.February, 14, 8, 15, 30, 0, time.UTC),
@@ -480,7 +479,7 @@ func (s *ShowTaskSuite) testRunHelper(c *gc.C, client *fakeAPIClient,
 
 func (s *ShowTaskSuite) makeFakeClient(
 	delay, timeout time.Duration,
-	response []params.ActionResult,
+	response []actionapi.ActionResult,
 	errStr string,
 ) *fakeAPIClient {
 	var delayTimer clock.Timer

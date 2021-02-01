@@ -13,7 +13,7 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/apiserver/params"
+	actionapi "github.com/juju/juju/api/action"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -174,7 +174,7 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 	return c.processOperationResults(ctx, results)
 }
 
-func (c *runCommand) enqueueActions(ctx *cmd.Context) (*params.EnqueuedActions, error) {
+func (c *runCommand) enqueueActions(ctx *cmd.Context) (*actionapi.EnqueuedActions, error) {
 	actionParams := map[string]interface{}{}
 	if c.paramsYAML.Path != "" {
 		b, err := c.paramsYAML.Read(ctx)
@@ -223,7 +223,7 @@ func (c *runCommand) enqueueActions(ctx *cmd.Context) (*params.EnqueuedActions, 
 	if !ok {
 		return nil, errors.Errorf("params must be a map, got %T", typedConformantParams)
 	}
-	actions := make([]params.Action, len(c.unitReceivers))
+	actions := make([]actionapi.Action, len(c.unitReceivers))
 	for i, unitReceiver := range c.unitReceivers {
 		if strings.HasSuffix(unitReceiver, "leader") {
 			actions[i].Receiver = unitReceiver
@@ -233,7 +233,7 @@ func (c *runCommand) enqueueActions(ctx *cmd.Context) (*params.EnqueuedActions, 
 		actions[i].Name = c.actionName
 		actions[i].Parameters = actionParams
 	}
-	results, err := c.api.EnqueueOperation(params.Actions{Actions: actions})
+	results, err := c.api.EnqueueOperation(actions)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

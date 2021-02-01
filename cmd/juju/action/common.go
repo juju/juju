@@ -22,6 +22,7 @@ import (
 	"github.com/juju/utils/set"
 	"gopkg.in/yaml.v2"
 
+	actionapi "github.com/juju/juju/api/action"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/actions"
 	coreactions "github.com/juju/juju/core/actions"
@@ -91,7 +92,7 @@ func (c *runCommandBase) ensureAPI() (err error) {
 	return errors.Trace(err)
 }
 
-func (c *runCommandBase) processOperationResults(ctx *cmd.Context, results *params.EnqueuedActions) error {
+func (c *runCommandBase) processOperationResults(ctx *cmd.Context, results *actionapi.EnqueuedActions) error {
 	tasks := make([]enqueuedAction, len(results.Actions))
 	for i, a := range results.Actions {
 		if a.Error != nil {
@@ -99,25 +100,21 @@ func (c *runCommandBase) processOperationResults(ctx *cmd.Context, results *para
 			continue
 		}
 		tasks[i] = enqueuedAction{
-			task:     a.Action.Tag,
+			task:     a.Action.ID,
 			receiver: a.Action.Receiver,
 		}
 	}
-	operationTag, err := names.ParseOperationTag(results.OperationTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	operationId := operationTag.Id()
+	operationID := results.OperationID
 	numTasks := len(tasks)
 	if !c.background {
 		var plural string
 		if numTasks > 1 {
 			plural = "s"
 		}
-		ctx.Infof("Running operation %s with %d task%s", operationId, numTasks, plural)
+		ctx.Infof("Running operation %s with %d task%s", operationID, numTasks, plural)
 	}
 
-	var actionTag names.ActionTag
+	var actionID string
 	info := make(map[string]interface{}, numTasks)
 	for _, result := range tasks {
 		if result.err != nil {
@@ -126,27 +123,25 @@ func (c *runCommandBase) processOperationResults(ctx *cmd.Context, results *para
 		if result.task == "" {
 			return errors.Errorf("operation failed to enqueue on %q", result.receiver)
 		}
-		if actionTag, err = names.ParseActionTag(result.task); err != nil {
-			return err
-		}
+		actionID = result.task
 
 		if !c.background {
-			ctx.Infof("  - task %s on %s", actionTag.Id(), result.receiver)
+			ctx.Infof("  - task %s on %s", actionID, result.receiver)
 		}
 		info[result.receiverId()] = map[string]string{
-			"id": actionTag.Id(),
+			"id": result.task,
 		}
 	}
 	ctx.Infof("")
 	if c.background {
 		if numTasks == 1 {
-			ctx.Infof("Scheduled operation %s with task %s", operationId, actionTag.Id())
-			ctx.Infof("Check operation status with 'juju show-operation %s'", operationId)
-			ctx.Infof("Check task status with 'juju show-task %s'", actionTag.Id())
+			ctx.Infof("Scheduled operation %s with task %s", operationID, actionID)
+			ctx.Infof("Check operation status with 'juju show-operation %s'", operationID)
+			ctx.Infof("Check task status with 'juju show-task %s'", actionID)
 		} else {
-			ctx.Infof("Scheduled operation %s with %d tasks", operationId, numTasks)
+			ctx.Infof("Scheduled operation %s with %d tasks", operationID, numTasks)
 			cmd.FormatYaml(ctx.Stdout, info)
-			ctx.Infof("Check operation status with 'juju show-operation %s'", operationId)
+			ctx.Infof("Check operation status with 'juju show-operation %s'", operationID)
 			ctx.Infof("Check task status with 'juju show-task <id>'")
 		}
 		return nil
@@ -168,11 +163,8 @@ func (c *runCommandBase) waitForTasks(ctx *cmd.Context, tasks []enqueuedAction, 
 	var logsWatcher watcher.StringsWatcher
 	haveLogs := false
 	if len(tasks) == 1 {
-		actionTag, err := names.ParseActionTag(tasks[0].task)
-		if err != nil {
-			return err
-		}
-		logsWatcher, err = c.api.WatchActionProgress(actionTag.Id())
+		var err error
+		logsWatcher, err = c.api.WatchActionProgress(tasks[0].task)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -191,16 +183,11 @@ func (c *runCommandBase) waitForTasks(ctx *cmd.Context, tasks []enqueuedAction, 
 
 	resultReceivers := set.NewStrings()
 	for i, result := range tasks {
-		tag, err := names.ParseActionTag(result.task)
-		if err != nil {
-			waitForWatcher()
-			return errors.Trace(err)
-		}
-		ctx.Infof("Waiting for task %v...\n", tag.Id())
+		ctx.Infof("Waiting for task %v...\n", result.task)
 		// tick every two seconds, to delay the loop timer.
 		// TODO(fwereade): 2016-03-17 lp:1558657
 		tick := c.clock.NewTimer(resultPollTime)
-		actionResult, err := GetActionResult(c.api, tag.Id(), tick, wait)
+		actionResult, err := GetActionResult(c.api, result.task, tick, wait)
 		if i == 0 {
 			waitForWatcher()
 			if haveLogs {
@@ -216,8 +203,8 @@ func (c *runCommandBase) waitForTasks(ctx *cmd.Context, tasks []enqueuedAction, 
 		}
 
 		resultReceivers.Add(result.receiver)
-		d := formatActionResult(tag.Id(), actionResult, c.utc)
-		d["id"] = tag.Id() // Action ID is required in case we timed out.
+		d := formatActionResult(result.task, actionResult, c.utc)
+		d["id"] = result.task // Action ID is required in case we timed out.
 		info[result.receiverId()] = d
 	}
 
@@ -244,16 +231,16 @@ func (c *runCommandBase) handleTimeout(tasks []enqueuedAction, got set.Strings) 
 // GetActionResult tries to repeatedly fetch a task until it is
 // in a completed state and then it returns it.
 // It waits for a maximum of "wait" before returning with the latest action status.
-func GetActionResult(api APIClient, requestedId string, tick, wait clock.Timer) (params.ActionResult, error) {
+func GetActionResult(api APIClient, requestedId string, tick, wait clock.Timer) (actionapi.ActionResult, error) {
 	return timerLoop(api, requestedId, tick, wait)
 }
 
 // timerLoop loops indefinitely to query the given API, until "wait" times
 // out, using the "tick" timer to delay the API queries.  It writes the
 // result to the given output.
-func timerLoop(api APIClient, requestedId string, tick, wait clock.Timer) (params.ActionResult, error) {
+func timerLoop(api APIClient, requestedId string, tick, wait clock.Timer) (actionapi.ActionResult, error) {
 	var (
-		result params.ActionResult
+		result actionapi.ActionResult
 		err    error
 	)
 
@@ -290,17 +277,14 @@ func timerLoop(api APIClient, requestedId string, tick, wait clock.Timer) (param
 
 // fetchResult queries the given API for the given Action ID, and
 // makes sure the results are acceptable, returning an error if they are not.
-func fetchResult(api APIClient, requestedId string) (params.ActionResult, error) {
-	none := params.ActionResult{}
+func fetchResult(api APIClient, requestedId string) (actionapi.ActionResult, error) {
+	none := actionapi.ActionResult{}
 
-	actions, err := api.Actions(params.Entities{
-		Entities: []params.Entity{{names.NewActionTag(requestedId).String()}},
-	})
+	actions, err := api.Actions([]string{requestedId})
 	if err != nil {
 		return none, err
 	}
-	actionResults := actions.Results
-	numActionResults := len(actionResults)
+	numActionResults := len(actions)
 	if numActionResults == 0 {
 		return none, errors.NotFoundf("task %v", requestedId)
 	}
@@ -308,7 +292,7 @@ func fetchResult(api APIClient, requestedId string) (params.ActionResult, error)
 		return none, errors.Errorf("too many results for task %s", requestedId)
 	}
 
-	result := actionResults[0]
+	result := actions[0]
 	if result.Error != nil {
 		return none, result.Error
 	}
@@ -425,7 +409,7 @@ func printPlainOutput(writer io.Writer, value interface{}) error {
 // formatActionResult removes empty values from the given ActionResult and
 // inserts the remaining ones in a map[string]interface{} for cmd.Output to
 // write in an easy-to-read format.
-func formatActionResult(id string, result params.ActionResult, utc bool) map[string]interface{} {
+func formatActionResult(id string, result actionapi.ActionResult, utc bool) map[string]interface{} {
 	response := map[string]interface{}{"id": id, "status": result.Status}
 	if result.Error != nil {
 		response["error"] = result.Error.Error()

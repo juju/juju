@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import logging
 import re
@@ -9,6 +9,12 @@ from copy import deepcopy
 
 import yaml
 
+from utility import (
+    add_arg_juju_bin,
+    JujuAssertionError,
+    temp_dir,
+)
+
 from jujupy import (
     ModelClient,
     JujuData,
@@ -18,11 +24,6 @@ from jujupy.exceptions import (
     InvalidEndpoint,
     NameNotAccepted,
     TypeNotAccepted,
-)
-from utility import (
-    add_arg_juju_bin,
-    JujuAssertionError,
-    temp_dir,
 )
 
 # URLs are limited to 2083 bytes in many browsers, anything more is excessive.
@@ -62,9 +63,9 @@ class CloudValidation:
     def __init__(self, version):
         """Initialize with the juju version."""
         self.version = version
-        if re.match('2\.0[^\d]', version):
+        if re.match(r'2\.0[^\d]', version):
             self.support = self.NONE
-        elif re.match('2\.1[^\d]', version):
+        elif re.match(r'2\.1[^\d]', version):
             self.support = self.BASIC
         else:
             # re.match('2\.2[^\d]', version)
@@ -85,7 +86,7 @@ class CloudValidation:
 
         :param provider: The cloud provider type.
         """
-        if self.support is self.ENDPOINT and provider != 'manual':
+        if self.support is self.ENDPOINT:
             return True
         return False
 
@@ -131,13 +132,14 @@ def assess_cloud(client, cloud_name, example_cloud):
     clouds = client.env.read_clouds()
     if len(clouds['clouds']) == 0:
         raise JujuAssertionError('Clouds missing!')
-    if clouds['clouds'].keys() != [cloud_name]:
+    if list(clouds['clouds'].keys()) != [cloud_name]:
         raise NameMismatch()
 
     actual_cloud = clouds['clouds'][cloud_name]
     # Accept the creation of a default region even though there's not one in
     # the example cloud.
-    if 'regions' not in example_cloud and actual_cloud.get('regions') == {'default': {}}:
+    using_default_region = actual_cloud.get('regions') == {'default': {}}
+    if 'regions' not in example_cloud and using_default_region:
         del actual_cloud['regions']
 
     if actual_cloud != example_cloud:
@@ -155,27 +157,32 @@ def iter_clouds(clouds, cloud_validation):
     :param clouds: cloud data as defined in $JUJU_DATA/clouds.yaml
     :param cloud_validation: an instance of CloudValidation.
     """
-    yield cloud_spec('bogus-type', 'bogus-type', {'type': 'bogus'}, exception=TypeNotAccepted)
+    yield cloud_spec('bogus-type', 'bogus-type', {'type': 'bogus'},
+                     exception=TypeNotAccepted)
 
     long_text = 'A' * EXCEEDED_LIMIT
     for cloud_name, cloud in clouds.items():
         yield cloud_spec(cloud_name, cloud_name, cloud)
-        yield cloud_spec('slash-in-name-{}'.format(cloud_name), 'invalid/name', cloud, NameNotAccepted, 1641981)
-        yield cloud_spec('numeral-prefix-{}'.format(cloud_name), '99invalid/name', cloud, NameNotAccepted, 1641981)
+        yield cloud_spec('slash-in-name-{}'.format(cloud_name), 'invalid/name',
+                         cloud, NameNotAccepted, 1641981)
+        yield cloud_spec('numeral-prefix-{}'.format(cloud_name),
+                         '99invalid/name', cloud, NameNotAccepted, 1641981)
 
         if cloud['type'] not in ('maas', 'manual', 'vsphere'):
             auth_config = deepcopy(cloud)
             auth_config['auth-types'] = ['asdf']
             variant_name = 'bogus-auth-{}'.format(cloud_name)
-            yield cloud_spec(variant_name, cloud_name, auth_config, AuthNotAccepted, 1641970)
+            yield cloud_spec(variant_name, cloud_name, auth_config,
+                             AuthNotAccepted, 1641970)
 
         if cloud['type'] == 'vsphere':
             continue
 
-        # juju saves for each cloud at least one region, even if the cloud does not support them.
-        # The code below `tests to add invalid regions for each region`
-        # but because juju always at least adds one empty region
-        # it will try to run the code below and test for invalid region endpoints.
+        # juju saves for each cloud at least one region, even if the cloud does
+        # not support them.  The code below `tests to add invalid regions for
+        # each region` but because juju always at least adds one empty region
+        # it will try to run the code below and test for invalid region
+        # endpoints.
         regions = cloud.get('regions', {})
         if regions.get("default") == {}:
             regions = []
@@ -188,16 +195,20 @@ def iter_clouds(clouds, cloud_validation):
         illegal_endpoint_config = deepcopy(cloud)
         illegal_endpoint_config['endpoint'] = long_text
         illegal_endpoint_name = 'long-endpoint-{}'.format(cloud_name)
-        for region_name in regions:
-            illegal_endpoint_config['regions'][region_name]['endpoint'] = long_text
-        yield cloud_spec(illegal_endpoint_name, cloud_name, illegal_endpoint_config, expected_exception, 1641970)
+        for rg_name in regions:
+            illegal_endpoint_config['regions'][rg_name]['endpoint'] = long_text
+        yield cloud_spec(illegal_endpoint_name, cloud_name,
+                         illegal_endpoint_config, expected_exception, 1641970)
 
         for region_name in regions:
-            regional_long_endpoint_name = 'long-endpoint-{}-{}'.format(cloud_name, region_name)
+            regional_long_endpoint_name = 'long-endpoint-{}-{}'.format(
+                cloud_name, region_name)
             regional_long_endpoint_config = deepcopy(cloud)
             # test each region independently of others
-            regional_long_endpoint_config['regions'] = {region_name: {'endpoint': long_text}}
-            yield cloud_spec(regional_long_endpoint_name, cloud_name, regional_long_endpoint_config, expected_exception,
+            regional_long_endpoint_config['regions'] = {
+                region_name: {'endpoint': long_text}}
+            yield cloud_spec(regional_long_endpoint_name, cloud_name,
+                             regional_long_endpoint_config, expected_exception,
                              1641970)
 
 

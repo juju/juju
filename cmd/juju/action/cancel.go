@@ -12,7 +12,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/params"
+	actionapi "github.com/juju/juju/api/action"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
@@ -63,37 +63,27 @@ func (c *cancelCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("no task IDs specified")
 	}
 
-	var actionTags []names.ActionTag
-	for _, requestedID := range c.requestedIDs {
-		actionTags = append(actionTags, names.NewActionTag(requestedID))
-	}
-
-	entities := []params.Entity{}
-	for _, tag := range actionTags {
-		entities = append(entities, params.Entity{Tag: tag.String()})
-	}
-
-	actions, err := api.Cancel(params.Entities{Entities: entities})
+	actions, err := api.Cancel(c.requestedIDs)
 	if err != nil {
 		return err
 	}
 
-	if len(actions.Results) < 1 {
+	if len(actions) < 1 {
 		return errors.Errorf("no tasks found, no tasks have been canceled")
 	}
 
 	type unCanceledAction struct {
-		ActionTag names.ActionTag
-		Result    *params.ActionResult
+		ID     string
+		Result *actionapi.ActionResult
 	}
-	var unCanceledActions []unCanceledAction
-	var canceledActions []params.ActionResult
+	var failedCancels []unCanceledAction
+	var canceledActions []actionapi.ActionResult
 
-	for i, result := range actions.Results {
+	for i, result := range actions {
 		if result.Action != nil {
 			canceledActions = append(canceledActions, result)
 		} else {
-			unCanceledActions = append(unCanceledActions, unCanceledAction{actionTags[i], &result})
+			failedCancels = append(failedCancels, unCanceledAction{c.requestedIDs[i], &result})
 		}
 	}
 
@@ -101,10 +91,10 @@ func (c *cancelCommand) Run(ctx *cmd.Context) error {
 		err = c.out.Write(ctx, resultsToMap(canceledActions))
 	}
 
-	if len(unCanceledActions) > 0 {
+	if len(failedCancels) > 0 {
 		message := "The following tasks could not be canceled:\n"
-		for _, a := range unCanceledActions {
-			message += fmt.Sprintf("task: %s, error: %s\n", a.ActionTag, a.Result.Message)
+		for _, a := range failedCancels {
+			message += fmt.Sprintf("task: %s, error: %s\n", a.ID, a.Result.Message)
 		}
 
 		logger.Warningf(message)
@@ -116,7 +106,7 @@ func (c *cancelCommand) Run(ctx *cmd.Context) error {
 // resultsToMap is a helper function that takes in a []params.ActionResult
 // and returns a map[string]interface{} ready to be served to the
 // formatter for printing.
-func resultsToMap(results []params.ActionResult) map[string]interface{} {
+func resultsToMap(results []actionapi.ActionResult) map[string]interface{} {
 	items := []map[string]interface{}{}
 	for _, item := range results {
 		items = append(items, resultToMap(item))
@@ -124,19 +114,14 @@ func resultsToMap(results []params.ActionResult) map[string]interface{} {
 	return map[string]interface{}{"actions": items}
 }
 
-func resultToMap(result params.ActionResult) map[string]interface{} {
+func resultToMap(result actionapi.ActionResult) map[string]interface{} {
 	item := map[string]interface{}{}
 	if result.Error != nil {
 		item["error"] = result.Error.Error()
 	}
 	if result.Action != nil {
 		item["action"] = result.Action.Name
-		atag, err := names.ParseActionTag(result.Action.Tag)
-		if err != nil {
-			item["id"] = result.Action.Tag
-		} else {
-			item["id"] = atag.Id()
-		}
+		item["id"] = result.Action.ID
 
 		rtag, err := names.ParseUnitTag(result.Action.Receiver)
 		if err != nil {
