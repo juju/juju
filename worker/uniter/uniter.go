@@ -561,6 +561,16 @@ func (u *Uniter) verifyCharmProfile(curl *corecharm.URL) error {
 	return nil
 }
 
+func (u *Uniter) charmDirExists() (bool, error) {
+	if _, err := os.Stat(u.paths.State.CharmDir); err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, errors.Trace(err)
+	}
+	return true, nil
+}
+
 // charmState returns data for the local state setup.
 // While gathering the data, look for interrupted Install or pending
 // charm upgrade, execute if found.
@@ -596,7 +606,6 @@ func (u *Uniter) charmState() (bool, *corecharm.URL, int, error) {
 		charmURL = opState.CharmURL
 		return canApplyCharmProfile, charmURL, charmModifiedVersion, nil
 	}
-
 	// No install needed, find the curl and start.
 	curl, err := u.unit.CharmURL()
 	if err != nil {
@@ -606,6 +615,21 @@ func (u *Uniter) charmState() (bool, *corecharm.URL, int, error) {
 	app, err := u.unit.Application()
 	if err != nil {
 		return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
+	}
+
+	charmDirExists, err := u.charmDirExists()
+	if err != nil {
+		return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
+	}
+	if !charmDirExists {
+		u.logger.Tracef("start to re-download charm because charm dir has gone which is usually caused by operator pod re-scheduling")
+		op, err := u.operationFactory.NewResolvedUpgrade(charmURL)
+		if err != nil {
+			return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
+		}
+		if err := u.operationExecutor.Run(op, nil); err != nil {
+			return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
+		}
 	}
 
 	// TODO (hml) 25-09-2020 - investigate
