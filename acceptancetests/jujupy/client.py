@@ -1903,13 +1903,13 @@ class ModelClient:
         Action params should be given as args in the form foo=bar.
         Returns the id of the queued action.
         """
-        args = (unit, action) + args
+        args = ("--background", unit, action) + args
 
         output = self.get_juju_output("run", *args)
-        action_id_pattern = re.compile('Action queued with id: "([0-9]+)"')
+        action_id_pattern = re.compile("Check task status with 'juju show-task ([0-9]+)'")
         match = action_id_pattern.search(output)
         if match is None:
-            raise Exception("Action id not found in output: {}".format(output))
+            raise Exception("Task id not found in output: {}".format(output))
         return match.group(1)
 
     def action_do_fetch(self, unit, action, timeout="1m", *args):

@@ -233,7 +233,7 @@ func (s *OperationSuite) TestListOperationsSubset(c *gc.C) {
 	for i := 0; i < 20; i++ {
 		operationID, err := s.Model.EnqueueOperation(fmt.Sprintf("operation %d", i))
 		c.Assert(err, jc.ErrorIsNil)
-		anAction, err := s.Model.EnqueueAction(operationID, names.NewUnitTag("dummy/0"), "backup", nil)
+		anAction, err := s.Model.EnqueueAction(operationID, names.NewUnitTag("dummy/0"), "backup", nil, false, "")
 		c.Assert(err, jc.ErrorIsNil)
 		_, err = anAction.Begin()
 		c.Assert(err, jc.ErrorIsNil)
