@@ -6,12 +6,13 @@ package mocks
 
 import (
 	context "context"
+	url "net/url"
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	charmhub "github.com/juju/juju/api/charmhub"
 	charmhub0 "github.com/juju/juju/charmhub"
 	transport "github.com/juju/juju/charmhub/transport"
-	url "net/url"
-	reflect "reflect"
 )
 
 // MockDownloadCommandAPI is a mock of DownloadCommandAPI interface

@@ -2793,7 +2793,7 @@ class TestModelClient(ClientTest):
             id = client.action_do("foo/0", "myaction", "param=5")
             self.assertEqual(id, "666")
         mock.assert_called_once_with(
-            'run-action', 'foo/0', 'myaction', "param=5"
+            'run', 'foo/0', 'myaction', "param=5"
         )
 
     def test_action_do_error(self):

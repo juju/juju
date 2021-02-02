@@ -512,8 +512,7 @@ class AssessNetworkHealth:
         return True
 
     def to_json(self, units):
-        """Returns a formatted json string to be passed through juju
-        run-action.
+        """Returns a formatted json string to be passed through juju run.
 
         :param units: Dict of units
         :return: A "JSON-like" string that can be passed to Juju without it
