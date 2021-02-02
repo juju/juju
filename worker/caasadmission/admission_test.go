@@ -64,6 +64,7 @@ func (a *AdmissionSuite) TestAdmissionCreatorObject(c *gc.C) {
 			c.Assert(obj.Namespace, gc.Equals, namespace)
 			c.Assert(len(obj.Webhooks), gc.Equals, 1)
 			webhook := obj.Webhooks[0]
+			c.Assert(webhook.AdmissionReviewVersions, gc.DeepEquals, []string{"v1beta1"})
 			c.Assert(webhook.SideEffects, gc.NotNil)
 			c.Assert(*webhook.SideEffects, gc.Equals, admission.SideEffectClassNone)
 			svc := webhook.ClientConfig.Service
