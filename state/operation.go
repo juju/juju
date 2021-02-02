@@ -342,7 +342,7 @@ func (m *Model) ListOperations(
 	var actions []actionDoc
 	err := actionsCollection.Find(actionsQuery).
 		// For now we'll limit what we return to the caller as action results
-		// can be large and show-task ca be used to get more detail as needed.
+		// can be large and show-task can be used to get more detail as needed.
 		Select(bson.D{
 			{"model-uuid", 0},
 			{"messages", 0},

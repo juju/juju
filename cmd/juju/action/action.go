@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
-// type APIClient represents the action API functionality.
+// APIClient represents the action API functionality.
 type APIClient interface {
 	io.Closer
 

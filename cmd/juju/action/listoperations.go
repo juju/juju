@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/actions"
 )
 
+// NewListOperationsCommand returns a ListOperations command.
 func NewListOperationsCommand() cmd.Command {
 	return modelcmd.Wrap(&listOperationsCommand{})
 }
@@ -45,9 +46,15 @@ const listOperationsDoc = `
 List the operations with the specified query criteria.
 When an application is specified, all units from that application are relevant.
 
+When run without any arguments, operations corresponding to actions for all
+application units are returned.
+To see operations corresponding to juju run tasks, specify an action name
+"juju-run" and/or one or more machines.
+
 Examples:
     juju operations
     juju operations --format yaml
+    juju operations --actions juju-run
     juju operations --actions backup,restore
     juju operations --apps mysql,mediawiki
     juju operations --units mysql/0,mediawiki/1
@@ -61,7 +68,7 @@ See also:
     show-task
 `
 
-// Set up the output.
+// SetFlags implements Command.
 func (c *listOperationsCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ActionCommandBase.SetFlags(f)
 	defaultFormatter := "plain"
