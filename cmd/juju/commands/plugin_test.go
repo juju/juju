@@ -32,9 +32,9 @@ var _ = gc.Suite(&PluginSuite{})
 
 func (suite *PluginSuite) SetUpTest(c *gc.C) {
 	//TODO(bogdanteleaga): Fix bash tests
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: tests use bash scrips, will be rewritten for windows")
-	}
+	// if runtime.GOOS == "windows" {
+	// 	c.Skip("bug 1403084: tests use bash scrips, will be rewritten for windows")
+	// }
 	suite.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	suite.oldPath = os.Getenv("PATH")
 
