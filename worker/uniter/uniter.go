@@ -596,7 +596,6 @@ func (u *Uniter) charmState() (bool, *corecharm.URL, int, error) {
 		charmURL = opState.CharmURL
 		return canApplyCharmProfile, charmURL, charmModifiedVersion, nil
 	}
-
 	// No install needed, find the curl and start.
 	curl, err := u.unit.CharmURL()
 	if err != nil {
@@ -606,6 +605,17 @@ func (u *Uniter) charmState() (bool, *corecharm.URL, int, error) {
 	app, err := u.unit.Application()
 	if err != nil {
 		return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
+	}
+
+	if _, err := corecharm.ReadCharmDir(u.paths.State.CharmDir); err != nil {
+		u.logger.Debugf("start to re-download charm because charm dir has gone which is usually caused by operator pod re-scheduling")
+		op, err := u.operationFactory.NewUpgrade(charmURL)
+		if err != nil {
+			return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
+		}
+		if err := u.operationExecutor.Run(op, nil); err != nil {
+			return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
+		}
 	}
 
 	// TODO (hml) 25-09-2020 - investigate
