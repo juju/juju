@@ -72,6 +72,42 @@ func (s *charmHubRepositoriesSuite) testResolve(c *gc.C, id string) {
 	c.Assert(obtainedSeries, jc.SameContents, []string{"focal"})
 }
 
+func (s *charmHubRepositoriesSuite) TestResolveWithChannel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectCharmRefresh(c)
+
+	track := "latest"
+	curl := charm.MustParseURL("ch:wordpress")
+	origin := params.CharmOrigin{
+		Source:       "charm-hub",
+		Architecture: arch.DefaultArchitecture,
+		OS:           "ubuntu",
+		Series:       "focal",
+		Track:        &track,
+		Risk:         "stable",
+	}
+
+	resolver := &chRepo{client: s.client}
+	obtainedCurl, obtainedOrigin, obtainedSeries, err := resolver.ResolveWithPreferredChannel(curl, origin)
+	c.Assert(err, jc.ErrorIsNil)
+
+	curl.Revision = 16
+
+	origin.Type = "charm"
+	origin.Revision = &curl.Revision
+	origin.Track = nil
+	origin.Risk = "stable"
+	origin.Architecture = arch.DefaultArchitecture
+	origin.OS = "ubuntu"
+	origin.Series = "focal"
+
+	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture, "focal")
+
+	c.Assert(obtainedCurl, jc.DeepEquals, expected)
+	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
+	c.Assert(obtainedSeries, jc.SameContents, []string{"focal"})
+}
+
 func (s *charmHubRepositoriesSuite) TestResolveWithoutSeries(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectCharmRefresh(c)
@@ -590,5 +626,65 @@ func (selectReleaseByChannelSuite) TestMultipleSelection(c *gc.C) {
 	c.Assert(release, gc.DeepEquals, Release{
 		OS:     "f",
 		Series: "g",
+	})
+}
+
+type makeOriginSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&makeOriginSuite{})
+
+func (makeOriginSuite) TestMakeOriginWithLatestChannel(c *gc.C) {
+	track := "latest"
+	input := params.CharmOrigin{
+		Track: &track,
+		Risk:  "stable",
+	}
+	obtained, err := makeOrigin(input)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, corecharm.Origin{
+		Channel: &corecharm.Channel{
+			Risk: "stable",
+		},
+	})
+}
+
+func (makeOriginSuite) TestMakeOriginWithChannelNotLatest(c *gc.C) {
+	track := "2.0"
+	input := params.CharmOrigin{
+		Track: &track,
+		Risk:  "stable",
+	}
+	obtained, err := makeOrigin(input)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, corecharm.Origin{
+		Channel: &corecharm.Channel{
+			Track: "2.0",
+			Risk:  "stable",
+		},
+	})
+}
+
+func (makeOriginSuite) TestMakeOriginWithPlatform(c *gc.C) {
+	track := "latest"
+	input := params.CharmOrigin{
+		Track:        &track,
+		Risk:         "stable",
+		Architecture: arch.DefaultArchitecture,
+		OS:           "ubuntu",
+		Series:       "focal",
+	}
+	obtained, err := makeOrigin(input)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, corecharm.Origin{
+		Channel: &corecharm.Channel{
+			Risk: "stable",
+		},
+		Platform: corecharm.Platform{
+			Architecture: arch.DefaultArchitecture,
+			OS:           "ubuntu",
+			Series:       "focal",
+		},
 	})
 }

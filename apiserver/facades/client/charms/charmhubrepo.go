@@ -12,7 +12,6 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 
-	apicharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
@@ -60,7 +59,12 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 		return nil, params.CharmOrigin{}, nil, errors.Errorf("specifying a revision is not supported, please use a channel.")
 	}
 
-	res, err := c.refreshOne(curl, apicharm.APICharmOrigin(origin).CoreCharmOrigin())
+	input, err := makeOrigin(origin)
+	if err != nil {
+		return nil, params.CharmOrigin{}, nil, errors.Trace(err)
+	}
+
+	res, err := c.refreshOne(curl, input)
 	if err != nil {
 		return nil, params.CharmOrigin{}, nil, errors.Annotatef(err, "refresh")
 	}
@@ -74,6 +78,14 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 				return nil, params.CharmOrigin{}, nil, errors.Annotatef(err, "refresh")
 			}
 
+			p := input.Platform
+			p.OS = platform.OS
+			p.Series = platform.Series
+
+			input.Platform = p
+
+			// Fill these back on the origin, so that we can fix the issue of
+			// bundles passing back "all" on the response type.
 			origin.OS = platform.OS
 			origin.Series = platform.Series
 
@@ -84,6 +96,14 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 				return nil, params.CharmOrigin{}, nil, errors.Annotatef(err, "refresh")
 			}
 
+			p := input.Platform
+			p.OS = release.OS
+			p.Series = release.Series
+
+			input.Platform = p
+
+			// Fill these back on the origin, so that we can fix the issue of
+			// bundles passing back "all" on the response type.
 			origin.OS = release.OS
 			origin.Series = release.Series
 
@@ -94,7 +114,7 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 			return nil, params.CharmOrigin{}, nil, errors.NotValidf("series for %s", curl.Name)
 		}
 
-		res, err = c.refreshOne(curl, apicharm.APICharmOrigin(origin).CoreCharmOrigin())
+		res, err = c.refreshOne(curl, input)
 		if err != nil {
 			return nil, params.CharmOrigin{}, nil, errors.Annotatef(err, "refresh retry")
 		}
@@ -120,19 +140,24 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 	// Ensure we send the updated curl back, with all the correct segments.
 	revision := entity.Revision
 	resCurl := curl.
-		WithSeries(origin.Series).
-		WithArchitecture(origin.Architecture).
+		WithSeries(input.Platform.Series).
+		WithArchitecture(input.Platform.Architecture).
 		WithRevision(revision)
 
 	// Create a resolved origin.  Keep the original values for ID and Hash, if any
 	// were passed in.  ResolveWithPreferredChannel is called for both charms to be
 	// deployed, and charms which are being upgraded.  Only charms being upgraded
 	// will have an ID and Hash.  Those values should only ever be updated in
-	resOrigin := origin
-	resOrigin.Type = string(entity.Type)
-	resOrigin.Track = track
-	resOrigin.Risk = string(channel.Risk)
-	resOrigin.Revision = &revision
+	resOrigin := params.CharmOrigin{
+		Source:       origin.Source,
+		Type:         string(entity.Type),
+		Track:        track,
+		Risk:         string(channel.Risk),
+		Revision:     &revision,
+		Architecture: input.Platform.Architecture,
+		OS:           input.Platform.OS,
+		Series:       input.Platform.Series,
+	}
 
 	outputOrigin, err := sanitizeCharmOrigin(resOrigin, origin)
 	if err != nil {
@@ -245,6 +270,40 @@ func (c *chRepo) selectNextRelease(releases []transport.Release, origin params.C
 	return selectReleaseByArchAndChannel(releases, origin)
 }
 
+func makeOrigin(o params.CharmOrigin) (corecharm.Origin, error) {
+	var channel *corecharm.Channel
+	if o.Risk != "" {
+		var track string
+		if o.Track != nil {
+			track = *o.Track
+		}
+
+		ch, err := corecharm.MakeChannel(track, o.Risk, "")
+		if err != nil {
+			return corecharm.Origin{}, errors.Trace(err)
+		}
+		// Ensure that we normalize the channel before we pass it back.
+		// "latest" is a keyword and means entirely different things if passed
+		// in and it also has a default channel.
+		ch = ch.Normalize()
+		channel = &ch
+	}
+
+	return corecharm.Origin{
+		Source:   corecharm.Source(o.Source),
+		Type:     o.Type,
+		ID:       o.ID,
+		Hash:     o.Hash,
+		Revision: o.Revision,
+		Channel:  channel,
+		Platform: corecharm.Platform{
+			Architecture: o.Architecture,
+			OS:           o.OS,
+			Series:       o.Series,
+		},
+	}, nil
+}
+
 // Method describes the method for requesting the charm using the RefreshAPI.
 type Method string
 
@@ -278,10 +337,12 @@ func refreshConfig(curl *charm.URL, origin corecharm.Origin) (charmhub.RefreshCo
 	)
 
 	// Select the appropriate channel based on the supplied origin.
+	// We need to ensure that we always, always normalize the incoming channel
+	// before we hit the refresh API.
 	if nonEmptyChannel {
-		channel = origin.Channel.String()
+		channel = origin.Channel.Normalize().String()
 	} else if method != MethodRevision {
-		channel = corecharm.DefaultChannelString
+		channel = corecharm.DefaultChannel.Normalize().String()
 	}
 
 	if origin.ID == "" && channel != "" {
