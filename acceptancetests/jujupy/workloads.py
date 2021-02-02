@@ -45,7 +45,7 @@ def deploy_mediawiki_with_db(client):
     client.deploy('cs:percona-cluster')
     client.wait_for_started()
     client.wait_for_workloads()
-    client.juju('run', ('--unit', 'percona-cluster/0', 'leader-get'))
+    client.juju('exec', ('--unit', 'percona-cluster/0', 'leader-get'))
 
     # Using local mediawiki charm due to db connect bug.
     # Once that's fixed we can use from the charmstore.
@@ -82,7 +82,7 @@ def deploy_keystone_with_db(client):
     client.deploy('cs:percona-cluster')
     client.wait_for_started()
     client.wait_for_workloads()
-    client.juju('run', ('--unit', 'percona-cluster/0', 'leader-get'))
+    client.juju('exec', ('--unit', 'percona-cluster/0', 'leader-get'))
 
     # use a charm which is under development by
     # canonical to try to avoid rot.

@@ -6,12 +6,13 @@ package mocks
 
 import (
 	context "context"
+	url "net/url"
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	charmhub "github.com/juju/juju/api/charmhub"
 	charmhub0 "github.com/juju/juju/charmhub"
 	transport "github.com/juju/juju/charmhub/transport"
-	url "net/url"
-	reflect "reflect"
 )
 
 // MockDownloadCommandAPI is a mock of DownloadCommandAPI interface
@@ -320,21 +321,6 @@ func (m *MockCharmHubClient) Download(arg0 context.Context, arg1 *url.URL, arg2 
 func (mr *MockCharmHubClientMockRecorder) Download(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Download", reflect.TypeOf((*MockCharmHubClient)(nil).Download), arg0, arg1, arg2)
-}
-
-// Info mocks base method
-func (m *MockCharmHubClient) Info(arg0 context.Context, arg1 string) (transport.InfoResponse, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Info", arg0, arg1)
-	ret0, _ := ret[0].(transport.InfoResponse)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Info indicates an expected call of Info
-func (mr *MockCharmHubClientMockRecorder) Info(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Info", reflect.TypeOf((*MockCharmHubClient)(nil).Info), arg0, arg1)
 }
 
 // Refresh mocks base method

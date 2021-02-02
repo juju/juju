@@ -1072,7 +1072,7 @@ class FakeBackend:
                 return model_state.remove_ssh_key(args)
             if command == 'import-ssh-key':
                 return model_state.import_ssh_key(args)
-            if command == 'run-action':
+            if command == 'run':
                 unit_id = args[0]
                 action = args[1]
                 return self.run_action(unit_id, action)

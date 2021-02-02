@@ -2793,7 +2793,7 @@ class TestModelClient(ClientTest):
             id = client.action_do("foo/0", "myaction", "param=5")
             self.assertEqual(id, "666")
         mock.assert_called_once_with(
-            'run-action', 'foo/0', 'myaction', "param=5"
+            'run', 'foo/0', 'myaction', "param=5"
         )
 
     def test_action_do_error(self):
@@ -2843,7 +2843,7 @@ class TestModelClient(ClientTest):
             out = client.action_do_fetch("foo/0", "myaction", "param=5")
             self.assertEqual(out, ret)
 
-    def test_run(self):
+    def test_exec(self):
         client = fake_juju_client(cls=ModelClient)
         run_list = [
             {"machine": "1",
@@ -2856,34 +2856,34 @@ class TestModelClient(ClientTest):
             result = client.run(('wname',), applications=['foo', 'bar'])
         self.assertEqual(run_list, result)
         gjo_mock.assert_called_once_with(
-            'run', ('--format', 'json', '--application', 'foo,bar', 'wname'),
+            'exec', ('--format', 'json', '--application', 'foo,bar', 'wname'),
             frozenset(['migration']), 'foo',
             'name:name', user_name=None)
 
-    def test_run_machines(self):
+    def test_exec_machines(self):
         client = fake_juju_client(cls=ModelClient)
         output = json.dumps({"ReturnCode": 255})
         with patch.object(client, 'get_juju_output',
                           return_value=output) as output_mock:
             client.run(['true'], machines=['0', '1', '2'])
         output_mock.assert_called_once_with(
-            'run', '--format', 'json', '--machine', '0,1,2', 'true')
+            'exec', '--format', 'json', '--machine', '0,1,2', 'true')
 
-    def test_run_use_json_false(self):
+    def test_exec_use_json_false(self):
         client = fake_juju_client(cls=ModelClient)
         output = json.dumps({"ReturnCode": 255})
         with patch.object(client, 'get_juju_output', return_value=output):
             result = client.run(['true'], use_json=False)
         self.assertEqual(output, result)
 
-    def test_run_units(self):
+    def test_exec_units(self):
         client = fake_juju_client(cls=ModelClient)
         output = json.dumps({"ReturnCode": 255})
         with patch.object(client, 'get_juju_output',
                           return_value=output) as output_mock:
             client.run(['true'], units=['foo/0', 'foo/1', 'foo/2'])
         output_mock.assert_called_once_with(
-            'run', '--format', 'json', '--unit', 'foo/0,foo/1,foo/2', 'true')
+            'exec', '--format', 'json', '--unit', 'foo/0,foo/1,foo/2', 'true')
 
     def test_list_space(self):
         client = ModelClient(JujuData(None, {'type': 'lxd'}),
