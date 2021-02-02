@@ -27,7 +27,20 @@ type charmHubRepositoriesSuite struct {
 
 var _ = gc.Suite(&charmHubRepositoriesSuite{})
 
-func (s *charmHubRepositoriesSuite) TestResolve(c *gc.C) {
+func (s *charmHubRepositoriesSuite) TestResolveForDeploy(c *gc.C) {
+	// The origin.ID should never be saved to the origin during
+	// ResolveWithPreferredChannel.  That is done during the file
+	// download only.
+	s.testResolve(c, "")
+}
+
+func (s *charmHubRepositoriesSuite) TestResolveForUpgrade(c *gc.C) {
+	// If the origin has an ID, ensure it's kept thru the call
+	// to ResolveWithPreferredChannel.
+	s.testResolve(c, "charmCHARMcharmCHARMcharmCHARM01")
+}
+
+func (s *charmHubRepositoriesSuite) testResolve(c *gc.C, id string) {
 	defer s.setupMocks(c).Finish()
 	s.expectCharmRefresh(c)
 
@@ -45,7 +58,6 @@ func (s *charmHubRepositoriesSuite) TestResolve(c *gc.C) {
 
 	curl.Revision = 16
 
-	origin.ID = "charmCHARMcharmCHARMcharmCHARM01"
 	origin.Type = "charm"
 	origin.Revision = &curl.Revision
 	origin.Risk = "stable"
@@ -73,7 +85,6 @@ func (s *charmHubRepositoriesSuite) TestResolveWithoutSeries(c *gc.C) {
 
 	curl.Revision = 16
 
-	origin.ID = "charmCHARMcharmCHARMcharmCHARM01"
 	origin.Type = "charm"
 	origin.Revision = &curl.Revision
 	origin.Risk = "stable"
@@ -99,7 +110,6 @@ func (s *charmHubRepositoriesSuite) TestResolveWithBundles(c *gc.C) {
 
 	curl.Revision = 17
 
-	origin.ID = "bundleBUNDLEbundleBUNDLE01"
 	origin.Type = "bundle"
 	origin.Revision = &curl.Revision
 	origin.Risk = "stable"
@@ -126,7 +136,6 @@ func (s *charmHubRepositoriesSuite) TestResolveInvalidPlatformError(c *gc.C) {
 
 	curl.Revision = 16
 
-	origin.ID = "charmCHARMcharmCHARMcharmCHARM01"
 	origin.Type = "charm"
 	origin.Revision = &curl.Revision
 	origin.Risk = "stable"
@@ -167,7 +176,6 @@ func (s *charmHubRepositoriesSuite) TestResolveRevisionNotFoundError(c *gc.C) {
 
 	curl.Revision = 16
 
-	origin.ID = "charmCHARMcharmCHARMcharmCHARM01"
 	origin.Type = "charm"
 	origin.Revision = &curl.Revision
 	origin.Risk = "stable"

@@ -124,10 +124,12 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 		WithArchitecture(origin.Architecture).
 		WithRevision(revision)
 
+	// Create a resolved origin.  Keep the original values for ID and Hash, if any
+	// were passed in.  ResolveWithPreferredChannel is called for both charms to be
+	// deployed, and charms which are being upgraded.  Only charms being upgraded
+	// will have an ID and Hash.  Those values should only ever be updated in
 	resOrigin := origin
 	resOrigin.Type = string(entity.Type)
-	resOrigin.ID = res.ID
-	resOrigin.Hash = entity.Download.HashSHA256
 	resOrigin.Track = track
 	resOrigin.Risk = string(channel.Risk)
 	resOrigin.Revision = &revision
@@ -169,6 +171,9 @@ func (c *chRepo) FindDownloadURL(curl *charm.URL, origin corecharm.Origin) (*url
 	}
 
 	resOrigin := origin
+	// We've called Refresh with the install action.  Now update the
+	// charm ID and Hash values saved.  This is the only place where
+	// they should be saved.
 	resOrigin.ID = refreshRes.Entity.ID
 	resOrigin.Hash = refreshRes.Entity.Download.HashSHA256
 
