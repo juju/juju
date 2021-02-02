@@ -2802,7 +2802,7 @@ class TestModelClient(ClientTest):
         with patch.object(ModelClient, 'get_juju_output') as mock:
             mock.return_value = "some bad text"
             with self.assertRaisesRegexp(Exception,
-                                         "Action id not found in output"):
+                                         "Task id not found in output"):
                 client.action_do("foo/0", "myaction", "param=5")
 
     def test_action_fetch(self):

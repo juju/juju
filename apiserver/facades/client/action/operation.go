@@ -116,7 +116,7 @@ func (a *ActionAPI) ListOperations(arg params.OperationQueryArgs) (params.Operat
 		receiverTags = append(receiverTags, names.NewMachineTag(id))
 	}
 	appNames := arg.Applications
-	if len(appNames) == 0 && len(receiverTags) == 0 {
+	if len(arg.ActionNames) == 0 && len(appNames) == 0 && len(receiverTags) == 0 {
 		apps, err := a.state.AllApplications()
 		if err != nil {
 			return params.OperationResults{}, errors.Trace(err)

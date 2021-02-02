@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -229,11 +230,19 @@ func (s *OperationSuite) TestListOperationsByReceiver(c *gc.C) {
 
 func (s *OperationSuite) TestListOperationsSubset(c *gc.C) {
 	s.setupOperations(c)
-	operations, truncated, err := s.Model.ListOperations(nil, nil, nil, 1, 1)
+	for i := 0; i < 20; i++ {
+		operationID, err := s.Model.EnqueueOperation(fmt.Sprintf("operation %d", i))
+		c.Assert(err, jc.ErrorIsNil)
+		anAction, err := s.Model.EnqueueAction(operationID, names.NewUnitTag("dummy/0"), "backup", nil, false, "")
+		c.Assert(err, jc.ErrorIsNil)
+		_, err = anAction.Begin()
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	operations, truncated, err := s.Model.ListOperations(nil, nil, nil, 14, 1)
 	c.Assert(truncated, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(operations, gc.HasLen, 1)
-	c.Assert(operations[0].Operation.Summary(), gc.Equals, "another operation")
+	c.Assert(operations[0].Operation.Summary(), gc.Equals, "operation 11")
 	c.Assert(operations[0].Actions, gc.HasLen, 1)
 	s.assertActions(c, operations)
 }
