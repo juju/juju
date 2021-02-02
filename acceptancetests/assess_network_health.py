@@ -247,13 +247,13 @@ class AssessNetworkHealth:
                      "machine: {}".format(unit[0]))
             results[unit[0]] = False
             try:
-                routes = client.run(['ip route show'], machines=[unit[0]])
+                routes = client.exec_cmds(['ip route show'], machines=[unit[0]])
             except subprocess.CalledProcessError:
                 log.error('Could not connect to address for unit: {0}, '
                           'unable to find default route.'.format(unit[0]))
                 continue
             default_route = re.search(r'(default via )+([\d\.]+)\s+',
-                                      json.dumps(routes[0]))
+                                      json.dumps(routes[unit[0]]))
             if default_route:
                 results[unit[0]] = True
             else:
@@ -301,9 +301,9 @@ class AssessNetworkHealth:
                     pattern = r"(pass)"
                     log.info('Attempting to contact {}:{} '
                              'from {}'.format(ip, PORT, unit))
-                    out = client.run(['curl {}:{}'.format(ip, PORT)],
+                    out = client.exec_cmds(['curl {}:{}'.format(ip, PORT)],
                                      units=[unit])
-                    match = re.search(pattern, json.dumps(out[0]))
+                    match = re.search(pattern, json.dumps(out[unit]))
                     if match:
                         log.info('pass')
                         result[app][unit][ip] = True
