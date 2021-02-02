@@ -181,7 +181,7 @@ def assert_subordinate_unit_operational(client, primary_app_name):
     primary_unit = '{}/0'.format(primary_app_name)
     try:
         client.juju(
-            'run',
+            'exec',
             (
                 '--unit', primary_unit,
                 'sudo', 'service', sub_unit_name, 'status'))
