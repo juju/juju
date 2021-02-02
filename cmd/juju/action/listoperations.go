@@ -40,6 +40,10 @@ type listOperationsCommand struct {
 	machineNames     []string
 	actionNames      []string
 	statusValues     []string
+
+	// These attributes are used for batching large result sets.
+	limit  uint
+	offset uint
 }
 
 const listOperationsDoc = `
@@ -85,6 +89,8 @@ func (c *listOperationsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(cmd.NewStringsValue(nil, &c.machineNames), "machines", "Comma separated list of machines to filter on")
 	f.Var(cmd.NewStringsValue(nil, &c.actionNames), "actions", "Comma separated list of actions names to filter on")
 	f.Var(cmd.NewStringsValue(nil, &c.statusValues), "status", "Comma separated list of operation status values to filter on")
+	f.UintVar(&c.limit, "limit", 0, "The maximum number of operations to return")
+	f.UintVar(&c.offset, "offset", 0, "Return operations from offset onwards")
 }
 
 func (c *listOperationsCommand) Info() *cmd.Info {
@@ -142,6 +148,8 @@ func (c *listOperationsCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
+const defaultMaxOperationsLimit = 50
+
 // Run implements Command.
 func (c *listOperationsCommand) Run(ctx *cmd.Context) error {
 	api, err := c.NewActionAPIClient()
@@ -157,6 +165,14 @@ func (c *listOperationsCommand) Run(ctx *cmd.Context) error {
 		ActionNames:  c.actionNames,
 		Status:       c.statusValues,
 	}
+	if c.offset != 0 {
+		offset := int(c.offset)
+		args.Offset = &offset
+	}
+	if c.limit != 0 {
+		limit := int(c.limit)
+		args.Limit = &limit
+	}
 	results, err := api.ListOperations(args)
 	if err != nil {
 		return errors.Trace(err)
@@ -171,6 +187,16 @@ func (c *listOperationsCommand) Run(ctx *cmd.Context) error {
 
 	sort.Sort(operationResults)
 	if c.out.Name() == "plain" {
+		if c.offset > 0 || results.Truncated {
+			fmt.Fprintln(ctx.Stdout, fmt.Sprintf("Displaying operation results %d to %d.", c.offset+1, int(c.offset)+len(operationResults)))
+			if results.Truncated {
+				limit := c.limit
+				if limit == 0 {
+					limit = defaultMaxOperationsLimit
+				}
+				fmt.Fprintln(ctx.Stdout, fmt.Sprintf("Run the command again with --offset=%d --limit=%d to see the next batch.\n", c.offset+limit, limit))
+			}
+		}
 		return c.out.Write(ctx, operationResults)
 	}
 	for _, result := range operationResults {
