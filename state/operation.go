@@ -309,7 +309,7 @@ func (m *Model) AllOperations() ([]Operation, error) {
 
 // defaultMaxOperationsLimit is the default maximum number of operations to
 // return when performing an operations query.
-const defaultMaxOperationsLimit = 500
+const defaultMaxOperationsLimit = 50
 
 // OperationInfo encapsulates an operation and summary
 // information about some of its actions.
@@ -342,7 +342,7 @@ func (m *Model) ListOperations(
 	var actions []actionDoc
 	err := actionsCollection.Find(actionsQuery).
 		// For now we'll limit what we return to the caller as action results
-		// can be large and show-task ca be used to get more detail as needed.
+		// can be large and show-task can be used to get more detail as needed.
 		Select(bson.D{
 			{"model-uuid", 0},
 			{"messages", 0},
@@ -377,11 +377,7 @@ func (m *Model) ListOperations(
 	defer closer()
 
 	var docs []operationDoc
-	query := operationCollection.Find(operationsQuery)
-	nominalCount, err := query.Count()
-	if err != nil {
-		return nil, false, errors.Trace(err)
-	}
+	query := operationCollection.Find(operationsQuery).Sort("$natural")
 	if offset != 0 {
 		query = query.Skip(offset)
 	}
@@ -390,11 +386,16 @@ func (m *Model) ListOperations(
 		limit = defaultMaxOperationsLimit
 	}
 	query = query.Limit(limit)
-	err = query.Sort("_id").All(&docs)
+	err = query.All(&docs)
 	if err != nil {
 		return nil, false, errors.Trace(err)
 	}
-	truncated := nominalCount > len(docs)
+	query = query.Skip(offset + limit).Limit(1)
+	nextCount, err := query.Count()
+	if err != nil {
+		return nil, false, errors.Trace(err)
+	}
+	truncated := nextCount != 0
 
 	result := make([]OperationInfo, len(docs))
 	for i, doc := range docs {

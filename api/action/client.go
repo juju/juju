@@ -41,8 +41,17 @@ func (c *Client) Actions(actionIDs []string) ([]ActionResult, error) {
 
 // ListOperations fetches the operation summaries for specified apps/units.
 func (c *Client) ListOperations(arg OperationQueryArgs) (Operations, error) {
+	args := params.OperationQueryArgs{
+		Applications: arg.Applications,
+		Units:        arg.Units,
+		Machines:     arg.Machines,
+		ActionNames:  arg.ActionNames,
+		Status:       arg.Status,
+		Offset:       arg.Offset,
+		Limit:        arg.Limit,
+	}
 	results := params.OperationResults{}
-	err := c.facade.FacadeCall("ListOperations", arg, &results)
+	err := c.facade.FacadeCall("ListOperations", args, &results)
 	if params.ErrCode(err) == params.CodeNotFound {
 		err = nil
 	}
