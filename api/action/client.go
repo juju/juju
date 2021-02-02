@@ -44,8 +44,17 @@ func (c *Client) ListOperations(arg OperationQueryArgs) (Operations, error) {
 	if v := c.BestAPIVersion(); v < 6 {
 		return Operations{}, errors.Errorf("ListOperations not supported by this version (%d) of Juju", v)
 	}
+	args := params.OperationQueryArgs{
+		Applications: arg.Applications,
+		Units:        arg.Units,
+		Machines:     arg.Machines,
+		ActionNames:  arg.ActionNames,
+		Status:       arg.Status,
+		Offset:       arg.Offset,
+		Limit:        arg.Limit,
+	}
 	results := params.OperationResults{}
-	err := c.facade.FacadeCall("ListOperations", arg, &results)
+	err := c.facade.FacadeCall("ListOperations", args, &results)
 	if params.ErrCode(err) == params.CodeNotFound {
 		err = nil
 	}

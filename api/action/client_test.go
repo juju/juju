@@ -207,7 +207,8 @@ func (s *actionSuite) TestWatchActionProgressNotSupported(c *gc.C) {
 }
 
 func (s *actionSuite) TestListOperations(c *gc.C) {
-	var args action.OperationQueryArgs
+	offset := 100
+	limit := 200
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -216,7 +217,15 @@ func (s *actionSuite) TestListOperations(c *gc.C) {
 				a, result interface{},
 			) error {
 				c.Assert(request, gc.Equals, "ListOperations")
-				c.Assert(a, jc.DeepEquals, args)
+				c.Assert(a, jc.DeepEquals, params.OperationQueryArgs{
+					Applications: []string{"app"},
+					Units:        []string{"unit/0"},
+					Machines:     []string{"0"},
+					ActionNames:  []string{"backup"},
+					Status:       []string{"running"},
+					Offset:       &offset,
+					Limit:        &limit,
+				})
 				c.Assert(result, gc.FitsTypeOf, &params.OperationResults{})
 				*(result.(*params.OperationResults)) = params.OperationResults{
 					Results: []params.OperationResult{{
@@ -235,7 +244,15 @@ func (s *actionSuite) TestListOperations(c *gc.C) {
 		BestVersion: 6,
 	}
 	client := action.NewClient(apiCaller)
-	result, err := client.ListOperations(args)
+	result, err := client.ListOperations(action.OperationQueryArgs{
+		Applications: []string{"app"},
+		Units:        []string{"unit/0"},
+		Machines:     []string{"0"},
+		ActionNames:  []string{"backup"},
+		Status:       []string{"running"},
+		Offset:       &offset,
+		Limit:        &limit,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, action.Operations{
 		Operations: []action.Operation{{
