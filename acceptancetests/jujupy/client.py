@@ -1910,14 +1910,13 @@ class ModelClient:
         cases where it's available.
         Returns the yaml output of the fetched action.
         """
-        out = self.get_juju_output("show-task", id, "--wait", timeout)
-        status = yaml.safe_load(out)["status"]
-        if status != "completed":
+        try:
+            return self.get_juju_output("show-task", id, "--wait", timeout)
+        except Exception as e:
             action_name = '' if not action else ' "{}"'.format(action)
             raise Exception(
-                'Timed out waiting for action{} to complete during fetch '
-                'with status: {}.'.format(action_name, status))
-        return out
+                'Timed out waiting for action {} to complete during fetch '
+                'caught exception: {}.'.format(action_name, str(e)))
 
     def action_do(self, unit, action, *args):
         """Performs the given action on the given unit.
@@ -1927,7 +1926,7 @@ class ModelClient:
         """
         args = ("--background", unit, action) + args
 
-        output = self.get_juju_output("run", *args)
+        output = self.get_juju_output("run", *args, merge_stderr=True)
         action_id_pattern = re.compile("Check task status with 'juju show-task ([0-9]+)'")
         match = action_id_pattern.search(output)
         if match is None:

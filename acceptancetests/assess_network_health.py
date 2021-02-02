@@ -226,7 +226,10 @@ class AssessNetworkHealth:
                 out = client.action_do(nh_unit, 'unit-info')
                 out = client.action_fetch(out)
                 out = yaml.safe_load(out)
-                interfaces = out['results']['interfaces']
+                # NOTE(achilleasa): in juju 3, 'show-task' gives you the result
+                # directly whereas in previous versions you would get it
+                # wrapped in a "results" block
+                interfaces = out['interfaces']
                 results[machine]['interfaces'][nh_unit] = interfaces
         return results
 
