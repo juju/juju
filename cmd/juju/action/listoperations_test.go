@@ -198,6 +198,34 @@ Id  Status     Started              Finished             Task IDs  Summary
 	}
 }
 
+func (s *ListOperationsSuite) TestRunPlainTruncated(c *gc.C) {
+	listOperationResults.Truncated = true
+	fakeClient := &fakeAPIClient{
+		operationResults: listOperationResults,
+	}
+	restore := s.patchAPIClient(fakeClient)
+	defer restore()
+
+	s.wrappedCommand, _ = action.NewListOperationsCommandForTest(s.store)
+	for _, modelFlag := range s.modelFlags {
+		s.wrappedCommand, s.command = action.NewListOperationsCommandForTest(s.store)
+		ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, modelFlag, "admin", "--utc", "--offset=12", "--limit=4")
+		c.Assert(err, jc.ErrorIsNil)
+		expected := `
+Displaying operation results 13 to 16.
+Run the command again with --offset=16 --limit=4 to see the next batch.
+
+Id  Status     Started              Finished             Task IDs  Summary
+ 1  completed  2015-02-14T06:06:06                       2         operation 1
+ 3  running                         2014-02-14T06:06:06  4         operation 3
+ 5  pending                                              6         operation 5
+10  error                                                          operation 10
+
+`[1:]
+		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, expected)
+	}
+}
+
 var listOperationManyTasksResults = actionapi.Operations{
 	Operations: []actionapi.Operation{{
 		Actions: []actionapi.ActionResult{{
