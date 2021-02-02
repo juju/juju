@@ -307,7 +307,7 @@ func (s *CAASModelSuite) TestDeployIAASApplication(c *gc.C) {
 		Charm:  ch,
 	}
 	_, err := st.AddApplication(args)
-	c.Assert(err, gc.ErrorMatches, `cannot add application "gitlab": series "bionic" in a kubernetes model not valid`)
+	c.Assert(err.Error(), gc.Equals, `cannot add application "gitlab": "gitlab" is not a Kubernetes charm (look for the charms with "-k8s" suffix in their name)`)
 }
 
 func (s *CAASModelSuite) TestContainers(c *gc.C) {

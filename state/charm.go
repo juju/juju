@@ -685,7 +685,7 @@ func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := validateCharmSeries(model.Type(), info.ID.Series, info.Charm); err != nil {
+	if err := validateCharmSeries(model.Type(), info.ID.Name, info.ID.Series, info.Charm); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -724,19 +724,26 @@ type hasMeta interface {
 	Meta() *charm.Meta
 }
 
-func validateCharmSeries(modelType ModelType, series string, ch hasMeta) error {
+func validateCharmSeries(modelType ModelType, name, series string, ch hasMeta) error {
 	if series == "" {
 		allSeries := ch.Meta().ComputedSeries()
 		if len(allSeries) > 0 {
 			series = allSeries[0]
 		}
 	}
+
 	// TODO(wallyworld) - update lots-o-tests
 	// Some tests don't set a series.
 	if series == "" {
 		return nil
 	}
-	return model.ValidateSeries(model.ModelType(modelType), series, ch.Meta().Format())
+
+	return model.ValidateSeries(model.ValidateSeriesArgs{
+		Model:  model.ModelType(modelType),
+		Name:   name,
+		Series: series,
+		Format: ch.Meta().Format(),
+	})
 }
 
 // AllCharms returns all charms in state.

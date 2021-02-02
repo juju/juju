@@ -1034,7 +1034,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		return nil, errors.Trace(err)
 	}
 	// TODO(embedded): handle systems
-	if err := validateCharmSeries(model.Type(), args.Series, args.Charm); err != nil {
+	if err := validateCharmSeries(model.Type(), args.Name, args.Series, args.Charm); err != nil {
 		return nil, errors.Trace(err)
 	}
 

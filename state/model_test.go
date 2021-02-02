@@ -520,7 +520,7 @@ func (s *ModelSuite) TestDeployCAASApplication(c *gc.C) {
 		Charm:  ch,
 	}
 	_, err := s.State.AddApplication(args)
-	c.Assert(err, gc.ErrorMatches, `cannot add application "gitlab": series "kubernetes" in a non container model not valid`)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "gitlab": "gitlab" is not a IAAS charm`)
 }
 
 func (s *ModelSuite) TestAllUnits(c *gc.C) {
