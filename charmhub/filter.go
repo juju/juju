@@ -26,7 +26,6 @@ var defaultChannelFilter = []string{
 }
 
 var defaultResultFilter = []string{
-	"result.bugs-url",
 	"result.categories.featured",
 	"result.categories.name",
 	"result.contains-charms.name",
@@ -37,8 +36,6 @@ var defaultResultFilter = []string{
 	"result.publisher.display-name",
 	"result.store-url",
 	"result.summary",
-	"result.used-by",
-	"result.website",
 }
 
 var defaultDownloadFilter = []string{

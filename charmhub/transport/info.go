@@ -36,16 +36,22 @@ type InfoResponse struct {
 // InfoChannelMap returns the information channel map. This defines a unique
 // revision for a given channel from an info response.
 type InfoChannelMap struct {
-	Channel   Channel            `json:"channel,omitempty"`
-	Resources []ResourceRevision `json:"resources,omitempty"`
-	Revision  InfoRevision       `json:"revision,omitempty"`
+	Channel  Channel      `json:"channel,omitempty"`
+	Revision InfoRevision `json:"revision,omitempty"`
 }
 
 // InfoRevision is different from FindRevision.  It has additional
 // fields of ConfigYAML and MetadataYAML.
+// NOTE: InfoRevision will be filled in with the CharmHub api response
+// differently within the InfoResponse.ChannelMap and the
+// InfoResponse.DefaultRelease.  The DefaultRelease InfoRevision will
+// include ConfigYAML, MetadataYAML and BundleYAML
+// NOTE 2: actions-yaml is a possible response for the DefaultRelease
+// InfoRevision, but not implemented.
 type InfoRevision struct {
-	ConfigYAML   string     `json:"config-yaml"`
-	CreatedAt    string     `json:"created-at"`
+	ConfigYAML string `json:"config-yaml"`
+	CreatedAt  string `json:"created-at"`
+	// Via filters, only Download.Size will be available.
 	Download     Download   `json:"download"`
 	MetadataYAML string     `json:"metadata-yaml"`
 	BundleYAML   string     `json:"bundle-yaml"`

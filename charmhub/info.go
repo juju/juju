@@ -103,20 +103,17 @@ func (c *InfoClient) Info(ctx context.Context, name string, options ...InfoOptio
 // receive the Name, ID and Type.
 func defaultInfoFilter() string {
 	filter := defaultResultFilter
-	filter = append(filter, appendFilterList("default-release.revision", defaultDownloadFilter)...)
+	filter = append(filter, "default-release.revision.download.size")
 	filter = append(filter, appendFilterList("default-release", infoDefaultRevisionFilter)...)
 	filter = append(filter, appendFilterList("default-release", defaultChannelFilter)...)
-	filter = append(filter, appendFilterList("channel-map.revision", defaultDownloadFilter)...)
+	filter = append(filter, "channel-map.revision.download.size")
 	filter = append(filter, appendFilterList("channel-map", infoChannelMapRevisionFilter)...)
 	filter = append(filter, appendFilterList("channel-map", defaultChannelFilter)...)
-	filter = append(filter, appendFilterList("default-release.resources", resourceFilter)...)
-	filter = append(filter, appendFilterList("channel-map.resources", resourceFilter)...)
 	return strings.Join(filter, ",")
 }
 
 var infoDefaultRevisionFilter = []string{
 	"revision.config-yaml",
-	"revision.created-at",
 	"revision.metadata-yaml",
 	"revision.bundle-yaml",
 	"revision.platforms.architecture",

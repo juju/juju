@@ -132,7 +132,6 @@ func transformInfoChannelMap(channelMap []transport.InfoChannelMap) ([]string, m
 			Size:       cm.Revision.Download.Size,
 			Version:    cm.Revision.Version,
 			Platforms:  convertPlatforms(cm.Revision.Platforms),
-			Resources:  convertResources(cm.Resources),
 		}
 		if !seen.Contains(ch.Track) {
 			seen.Add(ch.Track)
@@ -150,20 +149,6 @@ func convertPlatforms(in []transport.Platform) []params.Platform {
 			Architecture: v.Architecture,
 			OS:           v.OS,
 			Series:       v.Series,
-		}
-	}
-	return out
-}
-
-func convertResources(in []transport.ResourceRevision) []params.CharmHubInfoResource {
-	out := make([]params.CharmHubInfoResource, len(in))
-	for i, v := range in {
-		out[i] = params.CharmHubInfoResource{
-			Name:     v.Name,
-			Revision: v.Revision,
-			Size:     v.Download.Size,
-			Type:     v.Type,
-			URL:      v.Download.URL,
 		}
 	}
 	return out
