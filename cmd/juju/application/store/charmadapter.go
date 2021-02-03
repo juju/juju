@@ -14,6 +14,7 @@ import (
 	apicharm "github.com/juju/juju/api/charms"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/charmhub"
+	"github.com/juju/juju/charmhub/transport"
 )
 
 // CharmStoreRepoFunc lazily creates a charm store repo.
@@ -114,7 +115,7 @@ func (c *CharmAdaptor) ResolveBundleURL(maybeBundle *charm.URL, preferredOrigin 
 		return nil, commoncharm.Origin{}, errors.Trace(err)
 	}
 	// We're a bundle so return out before handling the invalid flow.
-	if origin.Type == "bundle" || storeCharmOrBundleURL.Series == "bundle" {
+	if transport.BundleType.Matches(origin.Type) || storeCharmOrBundleURL.Series == "bundle" {
 		return storeCharmOrBundleURL, origin, nil
 	}
 

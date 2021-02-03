@@ -89,7 +89,7 @@ func (c *InfoClient) Info(ctx context.Context, name string, options ...InfoOptio
 	}
 
 	switch resp.Type {
-	case "charm", "bundle":
+	case transport.CharmType, transport.BundleType:
 	default:
 		return resp, errors.Errorf("unexpected response type %q, expected charm or bundle", resp.Type)
 	}

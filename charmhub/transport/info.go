@@ -6,6 +6,15 @@ package transport
 // Type represents the type of payload is expected from the API
 type Type string
 
+// Matches attempts to match a string to a given source.
+func (t Type) Matches(o string) bool {
+	return string(t) == o
+}
+
+func (t Type) String() string {
+	return string(t)
+}
+
 const (
 	// CharmType represents the charm payload.
 	CharmType Type = "charm"

@@ -25,12 +25,12 @@ func convertCharmInfoResult(info transport.InfoResponse) params.InfoResponse {
 		Tags:        categories(info.Entity.Categories),
 		StoreURL:    info.Entity.StoreURL,
 	}
-	switch ir.Type {
-	case "bundle":
+	switch transport.Type(ir.Type) {
+	case transport.BundleType:
 		ir.Bundle = convertBundle(info.Entity.Charms)
 		// TODO (stickupkid): Get the Bundle.Series and set it to the
 		// InfoResponse at a high level.
-	case "charm":
+	case transport.CharmType:
 		ir.Charm, ir.Series = convertCharm(info)
 	}
 
