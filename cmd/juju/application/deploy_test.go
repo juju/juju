@@ -359,7 +359,7 @@ func (s *DeploySuite) TestDeployFromPathRelativeDir(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, ""+
 		"The charm or bundle \"multi-series\" is ambiguous.\n"+
 		"To deploy a local charm or bundle, run `juju deploy ./multi-series`.\n"+
-		"To deploy a charm or bundle from the store, run `juju deploy cs:multi-series`.")
+		"To deploy a charm or bundle from CharmHub, run `juju deploy ch:multi-series`.")
 }
 
 func (s *DeploySuite) TestDeployFromPathOldCharm(c *gc.C) {
