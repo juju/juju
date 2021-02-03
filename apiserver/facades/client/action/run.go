@@ -151,8 +151,7 @@ func (a *ActionAPI) createRunActionsParams(
 ) (params.Actions, error) {
 	apiActionParams := params.Actions{Actions: []params.Action{}}
 
-	actionRunnerName := actions.JujuRunActionName
-	if strings.Contains(quotedCommands, actionRunnerName) {
+	if actions.HasJujuExecAction(quotedCommands) {
 		return apiActionParams, errors.NewNotSupported(nil, fmt.Sprintf("cannot use %q as an action command", quotedCommands))
 	}
 
@@ -164,7 +163,7 @@ func (a *ActionAPI) createRunActionsParams(
 	for _, tag := range actionReceiverTags {
 		apiActionParams.Actions = append(apiActionParams.Actions, params.Action{
 			Receiver:       tag.String(),
-			Name:           actionRunnerName,
+			Name:           actions.JujuExecActionName,
 			Parameters:     actionParams,
 			Parallel:       parallel,
 			ExecutionGroup: executionGroup,

@@ -122,8 +122,8 @@ func mainWrapper(f commandFactotry, args []string) (code int) {
 	switch filepath.Base(args[0]) {
 	case names.K8sAgent:
 		code = f.k8sAgentCmd(ctx, args)
-	case names.JujuRun:
-		code = f.jujuRun(ctx, args)
+	case names.JujuExec:
+		code = f.jujuExec(ctx, args)
 	case names.JujuIntrospect:
 		code = f.jujuIntrospect(ctx, args)
 	default:
@@ -155,16 +155,16 @@ func main() {
 			}
 			return cmd.Main(cmdToRun, ctx, args[1:])
 		},
-		jujuRun: func(ctx *cmd.Context, args []string) int {
+		jujuExec: func(ctx *cmd.Context, args []string) int {
 			lock, err := machinelock.New(machinelock.Config{
-				AgentName: "juju-run",
+				AgentName: "juju-exec",
 				Clock:     clock.WallClock,
 				Logger:    loggo.GetLogger("juju.machinelock"),
 				// TODO(ycliuhw): consider to rename machinelock package to something more generic for k8s pod lock.
 				LogFilename: filepath.Join(config.LogDir, machinelock.Filename),
 			})
 			if err != nil {
-				err = errors.Annotatef(err, "acquiring machine lock for juju-run")
+				err = errors.Annotatef(err, "acquiring machine lock for juju-exec")
 				cmd.WriteError(ctx.Stderr, err)
 				os.Exit(1)
 			}
@@ -181,7 +181,7 @@ type command func(*cmd.Context, []string) int
 
 type commandFactotry struct {
 	k8sAgentCmd    command
-	jujuRun        command
+	jujuExec       command
 	jujuDumpLogs   command
 	jujuIntrospect command
 }

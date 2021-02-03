@@ -5,26 +5,44 @@
 package actions
 
 import (
+	"strings"
+
 	"github.com/juju/charm/v9"
 )
 
-// JujuRunActionName defines the action name used by juju-run.
-const JujuRunActionName = "juju-run"
+// JujuExecActionName defines the action name used by juju-exec.
+const JujuExecActionName = "juju-exec"
+
+// legacyJujuRunActionName will be removed in Juju 4.
+const legacyJujuRunActionName = "juju-run"
+
+// IsJujuExecAction returns true if name is the "juju-exec" action.
+func IsJujuExecAction(name string) bool {
+	// Check for the legacy "juju-run" as well in case an upgrade was
+	// done and actions had been previously queued.
+	return name == JujuExecActionName || name == legacyJujuRunActionName
+}
+
+// HasJujuExecAction returns true if the "juju-exec" binary name appears
+// anywhere in the specified commands.
+func HasJujuExecAction(commands string) bool {
+	return strings.Contains(commands, JujuExecActionName) || strings.Contains(commands, legacyJujuRunActionName)
+}
 
 // PredefinedActionsSpec defines a spec for each predefined action.
 var PredefinedActionsSpec = map[string]charm.ActionSpec{
-	JujuRunActionName: {
-		Description: "predefined juju-run action",
+	JujuExecActionName: {
+		Description: "predefined juju-exec action",
 		Parallel:    true,
 		Params: map[string]interface{}{
 			"type":        "object",
-			"title":       JujuRunActionName,
-			"description": "predefined juju-run action params",
+			"title":       JujuExecActionName,
+			"description": "predefined juju-exec action params",
 			"required":    []interface{}{"command", "timeout"},
 			"properties": map[string]interface{}{
 				"command": map[string]interface{}{
 					"type":        "string",
-					"description": "command to be ran under juju-run",
+					"description": "command to be ran under juju-exec",
 				},
 				"timeout": map[string]interface{}{
 					"type":        "number",

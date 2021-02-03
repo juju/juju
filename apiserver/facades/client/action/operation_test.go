@@ -210,7 +210,7 @@ func (s *operationSuite) TestListOperationsMachineFilter(c *gc.C) {
 	// Set up an operation with a pending action.
 	arg := params.Actions{
 		Actions: []params.Action{
-			{Receiver: s.machine0.Tag().String(), Name: "juju-run", Parameters: map[string]interface{}{
+			{Receiver: s.machine0.Tag().String(), Name: "juju-exec", Parameters: map[string]interface{}{
 				"command": "ls",
 				"timeout": 1,
 			}},
@@ -233,7 +233,7 @@ func (s *operationSuite) TestListOperationsMachineFilter(c *gc.C) {
 	}
 	c.Assert(result.Status, gc.Equals, "pending")
 	action := result.Actions[0].Action
-	c.Assert(action.Name, gc.Equals, "juju-run")
+	c.Assert(action.Name, gc.Equals, "juju-exec")
 	c.Assert(action.Receiver, gc.Equals, "machine-0")
 	c.Assert(action.Tag, gc.Equals, "action-7")
 	c.Assert(result.Actions[0].Status, gc.Equals, "pending")

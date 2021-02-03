@@ -31,8 +31,8 @@ const (
 	// AgentHTTPPathStartup is the path used for startup probes on the agent
 	AgentHTTPPathStartup = "/startup"
 
-	// JujuRunServerSocketPort is the port used by juju run callbacks.
-	JujuRunServerSocketPort = 30666
+	// JujuExecServerSocketPort is the port used by juju run callbacks.
+	JujuExecServerSocketPort = 30666
 
 	// TemplateFileNameAgentConf is the template agent.conf file name.
 	TemplateFileNameAgentConf = "template-" + agent.AgentConfigFilename

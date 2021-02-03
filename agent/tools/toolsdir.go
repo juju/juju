@@ -122,7 +122,7 @@ func UnpackTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error
 	}
 
 	// The tempdir is created with 0700, so we need to make it more
-	// accessible for juju-run.
+	// accessible for juju-exec.
 	err = os.Chmod(dir, dirPerm)
 	if err != nil {
 		return err

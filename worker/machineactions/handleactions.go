@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/core/actions"
 )
 
-// RunAsUser is the user that the machine juju-run action is executed as.
+// RunAsUser is the user that the machine juju-exec action is executed as.
 var RunAsUser = "ubuntu"
 
 // HandleAction receives a name and a map of parameters for a given machine action.
@@ -31,15 +31,14 @@ func HandleAction(name string, params map[string]interface{}) (results map[strin
 		return nil, errors.Errorf("invalid action parameters")
 	}
 
-	switch name {
-	case actions.JujuRunActionName:
-		return handleJujuRunAction(params)
-	default:
+	if actions.IsJujuExecAction(name) {
+		return handleJujuExecAction(params)
+	} else {
 		return nil, errors.Errorf("unexpected action %s", name)
 	}
 }
 
-func handleJujuRunAction(params map[string]interface{}) (results map[string]interface{}, err error) {
+func handleJujuExecAction(params map[string]interface{}) (results map[string]interface{}, err error) {
 	// The spec checks that the parameters are available so we don't need to check again here
 	command, _ := params["command"].(string)
 	logger.Tracef("juju run %q", command)

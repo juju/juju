@@ -8,8 +8,5 @@ import (
 )
 
 var (
-	JujuRun        = paths.JujuRun(paths.CurrentOS())
-	JujuDumpLogs   = paths.JujuDumpLogs(paths.CurrentOS())
-	JujuIntrospect = paths.JujuIntrospect(paths.CurrentOS())
-	LogDir         = paths.LogDir(paths.CurrentOS())
+	LogDir = paths.LogDir(paths.CurrentOS())
 )

@@ -340,7 +340,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 	}
 
 	// Make the lock dir and change the ownership of the lock dir itself to
-	// ubuntu:ubuntu from root:root so the juju-run command run as the ubuntu
+	// ubuntu:ubuntu from root:root so the juju-exec command run as the ubuntu
 	// user is able to get access to the hook execution lock (like the uniter
 	// itself does.)
 	lockDir := path.Join(w.icfg.DataDir, "locks")

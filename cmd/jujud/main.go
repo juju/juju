@@ -332,9 +332,9 @@ func Main(args []string) int {
 	switch commandName {
 	case jujunames.Jujud:
 		code, err = jujuDMain(args, ctx)
-	case jujunames.JujuRun:
+	case jujunames.JujuExec:
 		lock, err := machinelock.New(machinelock.Config{
-			AgentName:   "juju-run",
+			AgentName:   "juju-exec",
 			Clock:       clock.WallClock,
 			Logger:      loggo.GetLogger("juju.machinelock"),
 			LogFilename: filepath.Join(config.LogDir, machinelock.Filename),

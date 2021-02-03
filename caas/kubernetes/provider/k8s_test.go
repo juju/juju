@@ -7757,7 +7757,7 @@ func dataVolumeMounts() []core.VolumeMount {
 		},
 		{
 			Name:      "juju-data-dir",
-			MountPath: "/usr/bin/juju-run",
+			MountPath: "/usr/bin/juju-exec",
 			SubPath:   "tools/jujud",
 		},
 	}

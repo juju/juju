@@ -470,7 +470,7 @@ func (s *InterfaceSuite) TestRequestRebootNowTimeout(c *gc.C) {
 }
 
 func (s *InterfaceSuite) TestRequestRebootNowNoProcess(c *gc.C) {
-	// A normal hook run or a juju-run command will record the *os.Process
+	// A normal hook run or a juju-exec command will record the *os.Process
 	// object of the running command, in HookContext. When requesting a
 	// reboot with the --now flag, the process is killed and only
 	// then will we set the reboot priority. This test basically simulates

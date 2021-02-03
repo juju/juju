@@ -210,8 +210,8 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 			Ports: []core.ServicePort{
 				{
 					Protocol:   core.ProtocolTCP,
-					Port:       caasconstants.JujuRunServerSocketPort,
-					TargetPort: intstr.FromInt(caasconstants.JujuRunServerSocketPort),
+					Port:       caasconstants.JujuExecServerSocketPort,
+					TargetPort: intstr.FromInt(caasconstants.JujuExecServerSocketPort),
 				},
 			},
 		},

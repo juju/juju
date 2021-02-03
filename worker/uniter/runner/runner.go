@@ -221,7 +221,7 @@ func (runner *runner) RunCommands(commands string, runLocation RunLocation) (*ut
 }
 
 // runCommandsWithTimeout is a helper to abstract common code between run commands and
-// juju-run as an action
+// juju-exec as an action
 func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Duration, clock clock.Clock, rMode runMode, abort <-chan struct{}) (*utilexec.ExecResponse, error) {
 	var err error
 	token := ""
@@ -282,10 +282,10 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 	})
 }
 
-// runJujuRunAction is the function that executes when a juju-run action is ran.
-func (runner *runner) runJujuRunAction() (err error) {
+// runJujuExecAction is the function that executes when a juju-exec action is ran.
+func (runner *runner) runJujuExecAction() (err error) {
 	logger := runner.logger()
-	logger.Debugf("juju-run action is running")
+	logger.Debugf("juju-exec action is running")
 	data, err := runner.context.ActionData()
 	if err != nil {
 		return errors.Trace(err)
@@ -293,14 +293,14 @@ func (runner *runner) runJujuRunAction() (err error) {
 	params := data.Params
 	command, ok := params["command"].(string)
 	if !ok {
-		return errors.New("no command parameter to juju-run action")
+		return errors.New("no command parameter to juju-exec action")
 	}
 
 	// The timeout is passed in in nanoseconds(which are represented in go as int64)
 	// But due to serialization it comes out as float64
 	timeout, ok := params["timeout"].(float64)
 	if !ok {
-		logger.Debugf("unable to read juju-run action timeout, will continue running action without one")
+		logger.Debugf("unable to read juju-exec action timeout, will continue running action without one")
 	}
 
 	runLocation := Operator
@@ -315,10 +315,10 @@ func (runner *runner) runJujuRunAction() (err error) {
 	results, err := runner.runCommandsWithTimeout(command, time.Duration(timeout), clock.WallClock, rMode, data.Cancel)
 	if results != nil {
 		if err := runner.updateActionResults(results); err != nil {
-			return runner.context.Flush("juju-run", err)
+			return runner.context.Flush("juju-exec", err)
 		}
 	}
-	return runner.context.Flush("juju-run", err)
+	return runner.context.Flush("juju-exec", err)
 }
 
 func encodeBytes(input []byte) (value string, encoding string) {
@@ -369,8 +369,8 @@ func (runner *runner) RunAction(actionName string) (HookHandlerType, error) {
 	if err != nil {
 		return InvalidHookHandler, errors.Trace(err)
 	}
-	if actionName == actions.JujuRunActionName {
-		return InvalidHookHandler, runner.runJujuRunAction()
+	if actions.IsJujuExecAction(actionName) {
+		return InvalidHookHandler, runner.runJujuExecAction()
 	}
 	runLocation := Operator
 	if workloadContext, ok := data.Params["workload-context"].(bool); !ok || workloadContext {

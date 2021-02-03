@@ -823,8 +823,8 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err := os.MkdirAll(u.paths.State.BaseDir, 0755); err != nil {
 		return errors.Trace(err)
 	}
-	socket := u.paths.Runtime.LocalJujuRunSocket.Server
-	u.logger.Debugf("starting local juju-run listener on %v", socket)
+	socket := u.paths.Runtime.LocalJujuExecSocket.Server
+	u.logger.Debugf("starting local juju-exec listener on %v", socket)
 	u.localRunListener, err = NewRunListener(socket, u.logger)
 	if err != nil {
 		return errors.Annotate(err, "creating juju run listener")

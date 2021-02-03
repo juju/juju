@@ -200,7 +200,7 @@ func (c *k8sUnitAgent) ensureToolSymlinks(srcPath, dataDir string, unitTag names
 
 	for _, link := range []string{
 		jnames.K8sAgent,
-		jnames.JujuRun,
+		jnames.JujuExec,
 		jnames.JujuIntrospect,
 	} {
 		if err = c.fileReaderWriter.Symlink(path.Join(srcPath, jnames.K8sAgent), path.Join(toolsDir, link)); err != nil {

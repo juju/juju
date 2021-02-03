@@ -102,8 +102,7 @@ func (s *DiskManagerSuite) assertToolsContents(c *gc.C, t *coretools.Tools, file
 	gotTools, err := s.manager.ReadTools(t.Version)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*gotTools, gc.Equals, *t)
-	// Make sure that the tools directory is readable by the ubuntu user (for
-	// juju-run)
+	// Make sure that the tools directory is readable by the ubuntu user (for juju-exec).
 	info, err := os.Stat(dir)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.Mode().Perm(), gc.Equals, agenttools.DirPerm)

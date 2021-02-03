@@ -110,7 +110,7 @@ targets.
 
 Since juju exec creates tasks, you can query for the status of commands
 started with juju run by calling 
-"juju operations --machines <id>,... --actions juju-run".
+"juju operations --machines <id>,... --actions juju-exec".
 
 If you need to pass options to the command being run, you must precede the
 command and its arguments with "--", to tell "juju exec" to stop processing

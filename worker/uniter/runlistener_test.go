@@ -75,7 +75,7 @@ func (s *ListenerSuite) TestClientCall(c *gc.C) {
 		ForceRemoteUnit: false,
 		UnitName:        "test/0",
 	}
-	err = client.Call(uniter.JujuRunEndpoint, args, &result)
+	err = client.Call(uniter.JujuExecEndpoint, args, &result)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(string(result.Stdout), gc.Equals, "some-command stdout")
@@ -99,7 +99,7 @@ func (s *ListenerSuite) TestUnregisterRunner(c *gc.C) {
 		ForceRemoteUnit: false,
 		UnitName:        "test/0",
 	}
-	err = client.Call(uniter.JujuRunEndpoint, args, &result)
+	err = client.Call(uniter.JujuExecEndpoint, args, &result)
 	c.Assert(err, gc.ErrorMatches, ".*no runner is registered for unit test/0")
 }
 
@@ -119,7 +119,7 @@ func (s *ListenerSuite) TestOperatorFlag(c *gc.C) {
 		UnitName:        "test/0",
 		Operator:        true,
 	}
-	err = client.Call(uniter.JujuRunEndpoint, args, &result)
+	err = client.Call(uniter.JujuExecEndpoint, args, &result)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(string(result.Stdout), gc.Equals, "some-command stdout")

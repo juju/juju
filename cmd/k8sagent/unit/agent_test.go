@@ -102,7 +102,7 @@ func (s *k8sUnitAgentSuite) TestParseSuccess(c *gc.C) {
 		s.environment.EXPECT().Unsetenv("DELETE").Return(nil),
 		s.fileReaderWriter.EXPECT().MkdirAll(toolsDir, os.FileMode(0755)).Return(nil),
 		s.fileReaderWriter.EXPECT().Symlink(gomock.Any(), filepath.Join(toolsDir, jnames.K8sAgent)).Return(nil),
-		s.fileReaderWriter.EXPECT().Symlink(gomock.Any(), filepath.Join(toolsDir, jnames.JujuRun)).Return(nil),
+		s.fileReaderWriter.EXPECT().Symlink(gomock.Any(), filepath.Join(toolsDir, jnames.JujuExec)).Return(nil),
 		s.fileReaderWriter.EXPECT().Symlink(gomock.Any(), filepath.Join(toolsDir, jnames.JujuIntrospect)).Return(nil),
 		s.fileReaderWriter.EXPECT().Symlink(gomock.Any(), filepath.Join(toolsDir, jnames.Jujuc)).Return(nil),
 	)

@@ -71,12 +71,12 @@ is automatically inferred and the positional argument is not needed.
 If -u is passed an empty string, this behaviour is also observed.
 
 Examples:
-	juju-run app/0 hostname -f
-	juju-run --no-context -- hostname -f
-	juju-run "hostname -f"
-	juju-run -u "" -- hostname -f
-	juju-run -u app/0 "hostname -f"
-	juju-run -u app/0 -- hostname -f
+	juju-exec app/0 hostname -f
+	juju-exec --no-context -- hostname -f
+	juju-exec "hostname -f"
+	juju-exec -u "" -- hostname -f
+	juju-exec -u app/0 "hostname -f"
+	juju-exec -u app/0 -- hostname -f
 
 The commands are executed with '/bin/bash -s', and the output returned.
 `
@@ -92,7 +92,7 @@ func getenv(name string) (string, error) {
 // Info returns usage information for the command.
 func (c *RunCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "juju-run",
+		Name:    "juju-exec",
 		Args:    "[-u] [<unit-name>] <commands>",
 		Purpose: "run commands in a unit's hook context",
 		Doc:     runCommandDoc,
@@ -113,7 +113,7 @@ func (c *RunCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *RunCommand) Init(args []string) error {
 	// make sure we aren't in an existing hook context
 	if contextId, err := getenv("JUJU_CONTEXT_ID"); err == nil && contextId != "" {
-		return fmt.Errorf("juju-run cannot be called from within a hook, have context %q", contextId)
+		return fmt.Errorf("juju-exec cannot be called from within a hook, have context %q", contextId)
 	}
 	// if remoteApplication wasn't set but remoteUnit was, infer the remoteApplication
 	if c.remoteApplicationName == "" && c.remoteUnitName != "" {
@@ -181,7 +181,7 @@ func (c *RunCommand) Init(args []string) error {
 	if len(args) == 1 {
 		// If just one argument is specified, we don't pass it through
 		// utils.CommandString in case it contains multiple arguments
-		// (e.g. juju-run -u "sudo whatever"). Passing it through
+		// (e.g. juju-exec -u "sudo whatever"). Passing it through
 		// utils.CommandString would quote the string, which the backend
 		// does not expect.
 		c.commands = args[0]
@@ -235,7 +235,7 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 func (c *RunCommand) getSocket(op *caas.OperatorClientInfo) (sockets.Socket, error) {
 	if op == nil {
 		paths := uniter.NewPaths(config.DataDir, c.unit, nil)
-		return paths.Runtime.LocalJujuRunSocket.Client, nil
+		return paths.Runtime.LocalJujuExecSocket.Client, nil
 	}
 
 	baseDir := agent.Dir(config.DataDir, c.unit)
@@ -262,7 +262,7 @@ func (c *RunCommand) getSocket(op *caas.OperatorClientInfo) (sockets.Socket, err
 		},
 	}
 	paths := uniter.NewPaths(config.DataDir, c.unit, socketConfig)
-	return paths.Runtime.RemoteJujuRunSocket.Client, nil
+	return paths.Runtime.RemoteJujuExecSocket.Client, nil
 }
 
 func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
@@ -289,7 +289,7 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 		return nil, errors.Errorf("remote app: %s, provided without a relation", c.remoteApplicationName)
 	}
 
-	// juju-run on k8s uses an operator yaml file
+	// juju-exec on k8s uses an operator yaml file
 	infoFilePath := filepath.Join(unitDir, caas.OperatorClientInfoFile)
 	infoFileBytes, err := ioutil.ReadFile(infoFilePath)
 	if err != nil && !os.IsNotExist(err) {
@@ -328,7 +328,7 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 	if operatorClientInfo != nil {
 		args.Token = operatorClientInfo.Token
 	}
-	err = client.Call(uniter.JujuRunEndpoint, args, &result)
+	err = client.Call(uniter.JujuExecEndpoint, args, &result)
 	return &result, errors.Trace(err)
 }
 
@@ -348,7 +348,7 @@ func (c *RunCommand) appendProxyToCommands() string {
 }
 
 func (c *RunCommand) executeNoContext() (*exec.ExecResponse, error) {
-	// Actually give juju-run a timeout now.
+	// Actually give juju-exec a timeout now.
 	// Say... 5 minutes.
 	// TODO: Perhaps make this configurable later with
 	// a command line arg.
@@ -359,7 +359,7 @@ func (c *RunCommand) executeNoContext() (*exec.ExecResponse, error) {
 	}()
 	releaser, err := c.MachineLock.Acquire(machinelock.Spec{
 		Cancel: timeout,
-		Worker: "juju-run",
+		Worker: "juju-exec",
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

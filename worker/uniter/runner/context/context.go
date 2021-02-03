@@ -241,7 +241,7 @@ type HookContext struct {
 	assignedMachineTag names.MachineTag
 
 	// process is the process of the command that is being run in the local context,
-	// like a juju-run command or a hook
+	// like a juju-exec command or a hook
 	process HookProcess
 
 	// rebootPriority tells us when the hook wants to reboot. If rebootPriority is hooks.RebootNow

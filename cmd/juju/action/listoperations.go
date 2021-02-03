@@ -53,12 +53,12 @@ When an application is specified, all units from that application are relevant.
 When run without any arguments, operations corresponding to actions for all
 application units are returned.
 To see operations corresponding to juju run tasks, specify an action name
-"juju-run" and/or one or more machines.
+"juju-exec" and/or one or more machines.
 
 Examples:
     juju operations
     juju operations --format yaml
-    juju operations --actions juju-run
+    juju operations --actions juju-exec
     juju operations --actions backup,restore
     juju operations --apps mysql,mediawiki
     juju operations --units mysql/0,mediawiki/1
