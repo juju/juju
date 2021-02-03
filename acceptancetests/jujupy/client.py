@@ -21,6 +21,7 @@ import json
 import logging
 import os
 import re
+import socket
 import shutil
 import subprocess
 import sys
@@ -62,6 +63,8 @@ from jujupy.utility import (
     _dns_name_for_machine,
     pause,
     qualified_model_name,
+    is_ipv6_address,
+    print_now,
     skip_on_missing_file,
     split_address_port,
     temp_yaml_file,
@@ -1004,7 +1007,7 @@ class ModelClient:
                   credential=None, auto_upgrade=False, metadata_source=None,
                   no_gui=False, agent_version=None, db_snap_path=None,
                   db_snap_asserts_path=None, mongo_memory_profile=None,
-                  caas_image_repo=None, force=False, db_snap_channel=None, 
+                  caas_image_repo=None, force=False, db_snap_channel=None,
                   config_options=None):
         """Bootstrap a controller."""
         self._check_bootstrap()
@@ -1329,6 +1332,17 @@ class ModelClient:
         return self._backend.juju(
             command, args, self.used_feature_flags, self.env.juju_home,
             model, check, timeout, extra_env, suppress_err=suppress_err)
+
+    def reboot(self, machine):
+        """Reboot a machine."""
+        try:
+            self.juju('ssh', (machine, 'sudo shutdown -r now'))
+        except subprocess.CalledProcessError as e:
+            if e.returncode != 255:
+                raise e
+            log.info("Ignoring `juju ssh` exit status after triggering reboot")
+        hostname = self.get_status().get_machine_dns_name(machine)
+        wait_for_port(hostname, 22, timeout=240)
 
     def expect(self, command, args=(), include_e=True,
                timeout=None, extra_env=None):
@@ -1888,14 +1902,13 @@ class ModelClient:
         cases where it's available.
         Returns the yaml output of the fetched action.
         """
-        out = self.get_juju_output("show-task", id, "--wait", timeout)
-        status = yaml.safe_load(out)["status"]
-        if status != "completed":
+        try:
+            return self.get_juju_output("show-task", id, "--wait", timeout)
+        except Exception as e:
             action_name = '' if not action else ' "{}"'.format(action)
             raise Exception(
-                'Timed out waiting for action{} to complete during fetch '
-                'with status: {}.'.format(action_name, status))
-        return out
+                'Timed out waiting for action {} to complete during fetch '
+                'caught exception: {}.'.format(action_name, str(e)))
 
     def action_do(self, unit, action, *args):
         """Performs the given action on the given unit.
@@ -1905,7 +1918,7 @@ class ModelClient:
         """
         args = ("--background", unit, action) + args
 
-        output = self.get_juju_output("run", *args)
+        output = self.get_juju_output("run", *args, merge_stderr=True)
         action_id_pattern = re.compile("Check task status with 'juju show-task ([0-9]+)'")
         match = action_id_pattern.search(output)
         if match is None:
@@ -2590,3 +2603,58 @@ def client_for_existing(juju_path, juju_data_dir, debug=False,
     return ModelClient(
         config, version, full_path,
         debug=debug, soft_deadline=soft_deadline, _backend=backend)
+
+
+# Equivalent of socket.EAI_NODATA when using windows sockets
+# <https://msdn.microsoft.com/ms740668#WSANO_DATA>
+WSANO_DATA = 11004
+
+
+def wait_for_port(host, port, closed=False, timeout=30):
+    family = socket.AF_INET6 if is_ipv6_address(host) else socket.AF_INET
+    for remaining in until_timeout(timeout):
+        try:
+            addrinfo = socket.getaddrinfo(host, port, family,
+                                          socket.SOCK_STREAM)
+        except socket.error as e:
+            if e.errno not in (socket.EAI_NODATA, WSANO_DATA):
+                raise
+            if closed:
+                return
+            else:
+                continue
+        sockaddr = addrinfo[0][4]
+        # Treat Azure messed-up address lookup as a closed port.
+        if sockaddr[0] == '0.0.0.0':
+            if closed:
+                return
+            else:
+                continue
+        conn = socket.socket(*addrinfo[0][:3])
+        conn.settimeout(max(remaining or 0, 5))
+        try:
+            conn.connect(sockaddr)
+        except socket.timeout:
+            if closed:
+                return
+        except socket.error as e:
+            if e.errno not in (errno.ECONNREFUSED, errno.ENETUNREACH,
+                               errno.ETIMEDOUT, errno.EHOSTUNREACH):
+                raise
+            if closed:
+                return
+        except socket.gaierror as e:
+            print_now(str(e))
+        except Exception as e:
+            print_now('Unexpected {!r}: {}'.format(type(e), e))
+            raise
+        else:
+            conn.close()
+            if not closed:
+                return
+            time.sleep(1)
+    raise PortTimeoutError('Timed out waiting for port.')
+
+
+class PortTimeoutError(Exception):
+    pass

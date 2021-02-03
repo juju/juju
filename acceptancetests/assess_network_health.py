@@ -21,7 +21,6 @@ from utility import (
     add_basic_testing_arguments,
     generate_default_clean_dir,
     configure_logging,
-    wait_for_port
     )
 from substrate import (
     maas_account_from_boot_config,
@@ -227,7 +226,10 @@ class AssessNetworkHealth:
                 out = client.action_do(nh_unit, 'unit-info')
                 out = client.action_fetch(out)
                 out = yaml.safe_load(out)
-                interfaces = out['results']['interfaces']
+                # NOTE(achilleasa): in juju 3, 'show-task' gives you the result
+                # directly whereas in previous versions you would get it
+                # wrapped in a "results" block
+                interfaces = out['interfaces']
                 results[machine]['interfaces'][nh_unit] = interfaces
         return results
 
@@ -245,13 +247,13 @@ class AssessNetworkHealth:
                      "machine: {}".format(unit[0]))
             results[unit[0]] = False
             try:
-                routes = client.run(['ip route show'], machines=[unit[0]])
+                routes = client.exec_cmds(['ip route show'], machines=[unit[0]])
             except subprocess.CalledProcessError:
                 log.error('Could not connect to address for unit: {0}, '
                           'unable to find default route.'.format(unit[0]))
                 continue
             default_route = re.search(r'(default via )+([\d\.]+)\s+',
-                                      json.dumps(routes[0]))
+                                      json.dumps(routes[unit[0]]))
             if default_route:
                 results[unit[0]] = True
             else:
@@ -299,9 +301,9 @@ class AssessNetworkHealth:
                     pattern = r"(pass)"
                     log.info('Attempting to contact {}:{} '
                              'from {}'.format(ip, PORT, unit))
-                    out = client.run(['curl {}:{}'.format(ip, PORT)],
+                    out = client.exec_cmds(['curl {}:{}'.format(ip, PORT)],
                                      units=[unit])
-                    match = re.search(pattern, json.dumps(out[0]))
+                    match = re.search(pattern, json.dumps(out[unit]))
                     if match:
                         log.info('pass')
                         result[app][unit][ip] = True
@@ -464,15 +466,7 @@ class AssessNetworkHealth:
                     self.ssh(client, machine,
                              'sudo lxc restart {}'.format(' '.join(cont_ids)))
                 log.info("Restarting machine: {}".format(machine))
-                try:
-                    client.juju('ssh', (machine, 'sudo shutdown -r now'))
-                except subprocess.CalledProcessError as e:
-                    if e.returncode != 255:
-                        raise e
-                    log.info("Ignoring `juju ssh` exit status after triggering reboot")
-
-                hostname = client.get_status().get_machine_dns_name(machine)
-                wait_for_port(hostname, 22, timeout=240)
+                client.reboot(machine)
 
         except subprocess.CalledProcessError as e:
             logging.info(

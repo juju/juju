@@ -2853,7 +2853,7 @@ class TestModelClient(ClientTest):
         run_output = json.dumps(run_list)
         with patch.object(client._backend, 'get_juju_output',
                           return_value=run_output) as gjo_mock:
-            result = client.run(('wname',), applications=['foo', 'bar'])
+            result = client.exec_cmds(('wname',), applications=['foo', 'bar'])
         self.assertEqual(run_list, result)
         gjo_mock.assert_called_once_with(
             'exec', ('--format', 'json', '--application', 'foo,bar', 'wname'),
@@ -2865,7 +2865,7 @@ class TestModelClient(ClientTest):
         output = json.dumps({"ReturnCode": 255})
         with patch.object(client, 'get_juju_output',
                           return_value=output) as output_mock:
-            client.run(['true'], machines=['0', '1', '2'])
+            client.exec_cmds(['true'], machines=['0', '1', '2'])
         output_mock.assert_called_once_with(
             'exec', '--format', 'json', '--machine', '0,1,2', 'true')
 
@@ -2873,7 +2873,7 @@ class TestModelClient(ClientTest):
         client = fake_juju_client(cls=ModelClient)
         output = json.dumps({"ReturnCode": 255})
         with patch.object(client, 'get_juju_output', return_value=output):
-            result = client.run(['true'], use_json=False)
+            result = client.exec_cmds(['true'], use_json=False)
         self.assertEqual(output, result)
 
     def test_exec_units(self):
@@ -2881,7 +2881,7 @@ class TestModelClient(ClientTest):
         output = json.dumps({"ReturnCode": 255})
         with patch.object(client, 'get_juju_output',
                           return_value=output) as output_mock:
-            client.run(['true'], units=['foo/0', 'foo/1', 'foo/2'])
+            client.exec_cmds(['true'], units=['foo/0', 'foo/1', 'foo/2'])
         output_mock.assert_called_once_with(
             'exec', '--format', 'json', '--unit', 'foo/0,foo/1,foo/2', 'true')
 

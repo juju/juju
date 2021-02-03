@@ -202,7 +202,7 @@ def _get_token(remote, token_path="/var/run/dummy-sink/token"):
         if e.returncode != 1:
             raise
         return ""
-    return token_pattern.match(contents.decode("utf-8")).group(1)
+    return token_pattern.match(contents).group(1)
 
 
 def check_token(client, token, timeout=120):
@@ -445,7 +445,7 @@ def copy_remote_logs(remote, directory):
 # NOTE: Since juju 3, "juju run" has been renamed to "juju exec"
 def assess_juju_exec(client):
     responses = client.exec_cmds(('uname',),
-                           applications=['dummy-source', 'dummy-sink'])
+                                 applications=['dummy-source', 'dummy-sink'])
     for response in responses.values():
         if response.get('results').get('return-code'):
             raise ValueError('juju exec on unit %s returned %d: %s' % (

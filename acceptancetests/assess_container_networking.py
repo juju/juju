@@ -348,21 +348,14 @@ def assess_container_networking(client, types, space):
     try:
         for host in hosts:
             log.info("Restarting hosted machine: {}".format(host))
-            try:
-                client.juju('ssh', (host, 'sudo shutdown -r now'))
-            except subprocess.CalledProcessError as e:
-                if e.returncode != 255:
-                    raise e
-                log.info("Ignoring `juju ssh` exit status after triggering reboot")
-            hostname = client.get_status().get_machine_dns_name(host)
-            wait_for_port(hostname, 22, timeout=240)
+            client.reboot(host)
 
         log.info("Restarting controller machine 0")
         controller_client = client.get_controller_client()
         controller_status = controller_client.get_status()
         controller_host = controller_status.status['machines']['0']['dns-name']
         first_uptime = get_uptime(controller_client, '0')
-        ssh(controller_client, '0', 'sudo shutdown -r +1')
+        controller_client.reboot('0')
         # Ensure the reboots have started.
         time.sleep(70)
     except subprocess.CalledProcessError as e:

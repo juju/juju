@@ -190,13 +190,13 @@ class AssessNetworkSpaces:
             log.info("Assessing internet connection for "
                      "machine: {}".format(unit[0]))
             try:
-                routes = client.run(['ip route show'], machines=[unit[0]])
+                routes = client.exec_cmds(['ip route show'], machines=[unit[0]])
             except subprocess.CalledProcessError:
                 raise TestFailure(('Could not connect to address for unit: {0}'
                                    ', unable to find default route.').format(
                                        unit[0]))
             default_route = re.search(r'(default via )+([\d\.]+)\s+',
-                                      json.dumps(routes[0]))
+                                      json.dumps(routes[unit[0]]))
             if not default_route:
                 raise TestFailure('Default route not found for {}'.format(
                     unit[0]))
