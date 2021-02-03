@@ -10,7 +10,7 @@ const (
 	Jujud          = "jujud.exe"
 	K8sAgent       = "not-available"
 	JujudVersions  = "jujud-versions.yaml"
-	JujuRun        = "juju-run.exe"
+	JujuExec       = "juju-exec.exe"
 	JujuDumpLogs   = "juju-dumplogs.exe"
 	JujuIntrospect = "juju-introspect.exe"
 )

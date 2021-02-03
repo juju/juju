@@ -2490,23 +2490,23 @@ snapshot:
 			expectedPayload: map[string]interface{}{"outfile": "abcd"},
 		},
 		{
-			actionName: "juju-run",
+			actionName: "juju-exec",
 			errString:  `validation failed: \(root\) : "command" property is missing and required, given \{\}; \(root\) : "timeout" property is missing and required, given \{\}`,
 		},
 		{
-			actionName:   "juju-run",
+			actionName:   "juju-exec",
 			givenPayload: map[string]interface{}{"command": "allyourbasearebelongtous"},
 			errString:    `validation failed: \(root\) : "timeout" property is missing and required, given \{"command":"allyourbasearebelongtous"\}`,
 		},
 		{
-			actionName:   "juju-run",
+			actionName:   "juju-exec",
 			givenPayload: map[string]interface{}{"timeout": 5 * time.Second},
 			// Note: in Go 1.8 the representation of large numbers in JSON changed
 			// to use integer rather than exponential notation, hence the pattern.
 			errString: `validation failed: \(root\) : "command" property is missing and required, given \{"timeout":5.*\}`,
 		},
 		{
-			actionName:      "juju-run",
+			actionName:      "juju-exec",
 			givenPayload:    map[string]interface{}{"command": "allyourbasearebelongtous", "timeout": 5.0},
 			expectedPayload: map[string]interface{}{"command": "allyourbasearebelongtous", "timeout": 5.0},
 		},

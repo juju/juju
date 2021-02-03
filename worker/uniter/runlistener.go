@@ -2,7 +2,7 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // The run listener is a worker go-routine that listens on either a unix
-// socket or a tcp connection for juju-run commands.
+// socket or a tcp connection for juju-exec commands.
 
 package uniter
 
@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/worker/uniter/runner"
 )
 
-const JujuRunEndpoint = "JujuRunServer.RunCommands"
+const JujuExecEndpoint = "JujuExecServer.RunCommands"
 
 var errCommandAborted = errors.New("command execution aborted")
 
@@ -103,7 +103,7 @@ func NewRunListener(socket sockets.Socket, logger Logger) (*RunListener, error) 
 	if socket.Network == "tcp" || socket.TLSConfig != nil {
 		runListener.requiresAuth = true
 	}
-	if err := runListener.server.Register(&JujuRunServer{runListener, logger}); err != nil {
+	if err := runListener.server.Register(&JujuExecServer{runListener, logger}); err != nil {
 		return nil, errors.Trace(err)
 	}
 	go runListener.Run()
@@ -113,7 +113,7 @@ func NewRunListener(socket sockets.Socket, logger Logger) (*RunListener, error) 
 // Run accepts new connections until it encounters an error, or until Close is
 // called, and then blocks until all existing connections have been closed.
 func (r *RunListener) Run() (err error) {
-	r.logger.Debugf("juju-run listener running")
+	r.logger.Debugf("juju-exec listener running")
 	var conn net.Conn
 	for {
 		conn, err = r.listener.Accept()
@@ -126,7 +126,7 @@ func (r *RunListener) Run() (err error) {
 			r.wg.Done()
 		}(conn)
 	}
-	r.logger.Debugf("juju-run listener stopping")
+	r.logger.Debugf("juju-exec listener stopping")
 	select {
 	case <-r.closing:
 		// Someone has called Close(), so it is overwhelmingly likely that
@@ -145,7 +145,7 @@ func (r *RunListener) Run() (err error) {
 func (r *RunListener) Close() error {
 	defer func() {
 		<-r.closed
-		r.logger.Debugf("juju-run listener stopped")
+		r.logger.Debugf("juju-exec listener stopped")
 	}()
 	close(r.closing)
 	return r.listener.Close()
@@ -235,16 +235,16 @@ func (rlw *runListenerWrapper) Wait() error {
 	return rlw.tomb.Wait()
 }
 
-// The JujuRunServer is the entity that has the methods that are called over
+// The JujuExecServer is the entity that has the methods that are called over
 // the rpc connection.
-type JujuRunServer struct {
+type JujuExecServer struct {
 	runner CommandRunner
 	logger Logger
 }
 
 // RunCommands delegates the actual running to the runner and populates the
 // response structure.
-func (r *JujuRunServer) RunCommands(args RunCommandsArgs, result *exec.ExecResponse) error {
+func (r *JujuExecServer) RunCommands(args RunCommandsArgs, result *exec.ExecResponse) error {
 	r.logger.Debugf("RunCommands: %+v", args)
 	runResult, err := r.runner.RunCommands(args)
 	if err != nil {

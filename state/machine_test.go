@@ -2540,11 +2540,11 @@ func (s *MachineSuite) TestMachineValidActions(c *gc.C) {
 		expectedPayload map[string]interface{}
 	}{
 		{
-			actionName: "juju-run",
+			actionName: "juju-exec",
 			errString:  `validation failed: (root) : "command" property is missing and required, given {}; (root) : "timeout" property is missing and required, given {}`,
 		},
 		{
-			actionName:      "juju-run",
+			actionName:      "juju-exec",
 			givenPayload:    map[string]interface{}{"command": "allyourbasearebelongtous", "timeout": 5.0},
 			expectedPayload: map[string]interface{}{"command": "allyourbasearebelongtous", "timeout": 5.0},
 		},

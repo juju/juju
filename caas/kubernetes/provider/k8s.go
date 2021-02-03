@@ -1376,7 +1376,7 @@ func ensureJujuInitContainer(podSpec *core.PodSpec, operatorImagePath string) er
 
 func getJujuInitContainerAndStorageInfo(operatorImagePath string) (container core.Container, vol core.Volume, volMounts []core.VolumeMount, err error) {
 	dataDir := paths.DataDir(paths.OSUnixLike)
-	jujuRun := paths.JujuRun(paths.OSUnixLike)
+	jujuExec := paths.JujuExec(paths.OSUnixLike)
 	jujudCmd := `
 initCmd=$($JUJU_TOOLS_DIR/jujud help commands | grep caas-unit-init)
 if test -n "$initCmd"; then
@@ -1414,7 +1414,7 @@ fi`[1:]
 	}
 	volMounts = []core.VolumeMount{
 		{Name: dataDirVolumeName, MountPath: dataDir},
-		{Name: dataDirVolumeName, MountPath: jujuRun, SubPath: "tools/jujud"},
+		{Name: dataDirVolumeName, MountPath: jujuExec, SubPath: "tools/jujud"},
 	}
 	return container, vol, volMounts, nil
 }

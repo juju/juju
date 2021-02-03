@@ -485,7 +485,7 @@ func (s *RunMockContextSuite) TestRunActionDataFailure(c *gc.C) {
 		actionData:    &context.ActionData{},
 		actionDataErr: expectErr,
 	}
-	_, actualErr := runner.NewRunner(ctx, s.paths, nil).RunAction("juju-run")
+	_, actualErr := runner.NewRunner(ctx, s.paths, nil).RunAction("juju-exec")
 	c.Assert(errors.Cause(actualErr), gc.Equals, expectErr)
 }
 
@@ -501,9 +501,9 @@ func (s *RunMockContextSuite) TestRunActionSuccessful(c *gc.C) {
 		actionParams:  params,
 		actionResults: map[string]interface{}{},
 	}
-	_, err := runner.NewRunner(ctx, s.paths, nil).RunAction("juju-run")
+	_, err := runner.NewRunner(ctx, s.paths, nil).RunAction("juju-exec")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx.flushBadge, gc.Equals, "juju-run")
+	c.Assert(ctx.flushBadge, gc.Equals, "juju-exec")
 	c.Assert(ctx.flushFailure, gc.IsNil)
 	c.Assert(ctx.actionResults["return-code"], gc.Equals, 0)
 	c.Assert(strings.TrimRight(ctx.actionResults["stdout"].(string), "\r\n"), gc.Equals, "1")
@@ -522,9 +522,9 @@ func (s *RunMockContextSuite) TestRunActionError(c *gc.C) {
 		actionParams:  params,
 		actionResults: map[string]interface{}{},
 	}
-	_, err := runner.NewRunner(ctx, s.paths, nil).RunAction("juju-run")
+	_, err := runner.NewRunner(ctx, s.paths, nil).RunAction("juju-exec")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx.flushBadge, gc.Equals, "juju-run")
+	c.Assert(ctx.flushBadge, gc.Equals, "juju-exec")
 	c.Assert(ctx.flushFailure, gc.IsNil)
 	c.Assert(ctx.actionResults["return-code"], gc.Equals, 3)
 	c.Assert(strings.TrimRight(ctx.actionResults["stdout"].(string), "\r\n"), gc.Equals, "1")
@@ -544,9 +544,9 @@ func (s *RunMockContextSuite) TestRunActionCancelled(c *gc.C) {
 		actionParams:  params,
 		actionResults: map[string]interface{}{},
 	}
-	_, err := runner.NewRunner(ctx, s.paths, nil).RunAction("juju-run")
+	_, err := runner.NewRunner(ctx, s.paths, nil).RunAction("juju-exec")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx.flushBadge, gc.Equals, "juju-run")
+	c.Assert(ctx.flushBadge, gc.Equals, "juju-exec")
 	c.Assert(ctx.flushFailure, gc.Equals, exec.ErrCancelled)
 	c.Assert(ctx.actionResults["return-code"], gc.Equals, 0)
 	c.Assert(ctx.actionResults["stdout"], gc.Equals, nil)
@@ -679,10 +679,10 @@ func (s *RunMockContextSuite) TestRunActionCAASSuccess(c *gc.C) {
 		c.Fatal("invalid count")
 		return nil, nil
 	}
-	_, err := runner.NewRunner(ctx, s.paths, execFunc).RunAction("juju-run")
+	_, err := runner.NewRunner(ctx, s.paths, execFunc).RunAction("juju-exec")
 	c.Assert(execCount, gc.Equals, 2)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx.flushBadge, gc.Equals, "juju-run")
+	c.Assert(ctx.flushBadge, gc.Equals, "juju-exec")
 	c.Assert(ctx.actionResults["return-code"], gc.Equals, 0)
 	c.Assert(strings.TrimRight(ctx.actionResults["stdout"].(string), "\r\n"), gc.Equals, "1")
 	c.Assert(ctx.actionResults["stderr"], gc.Equals, nil)
@@ -729,10 +729,10 @@ export PATH='important-path'
 		c.Fatal("invalid count")
 		return nil, nil
 	}
-	_, err := runner.NewRunner(ctx, s.paths, execFunc).RunAction("juju-run")
+	_, err := runner.NewRunner(ctx, s.paths, execFunc).RunAction("juju-exec")
 	c.Assert(execCount, gc.Equals, 2)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx.flushBadge, gc.Equals, "juju-run")
+	c.Assert(ctx.flushBadge, gc.Equals, "juju-exec")
 	c.Assert(ctx.actionResults["return-code"], gc.Equals, 0)
 	c.Assert(strings.TrimRight(ctx.actionResults["stdout"].(string), "\r\n"), gc.Equals, "1")
 	c.Assert(ctx.actionResults["stderr"], gc.Equals, nil)
@@ -752,9 +752,9 @@ func (s *RunMockContextSuite) TestRunActionOnWorkloadIgnoredIAAS(c *gc.C) {
 		actionParams:  params,
 		actionResults: map[string]interface{}{},
 	}
-	_, err := runner.NewRunner(ctx, s.paths, nil).RunAction("juju-run")
+	_, err := runner.NewRunner(ctx, s.paths, nil).RunAction("juju-exec")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx.flushBadge, gc.Equals, "juju-run")
+	c.Assert(ctx.flushBadge, gc.Equals, "juju-exec")
 	c.Assert(ctx.flushFailure, gc.IsNil)
 	c.Assert(ctx.actionResults["return-code"], gc.Equals, 0)
 	c.Assert(strings.TrimRight(ctx.actionResults["stdout"].(string), "\r\n"), gc.Equals, "1")

@@ -767,7 +767,7 @@ func (s *MachineSuite) TestMachineAgentSymlinks(c *gc.C) {
 	s.waitStopped(c, state.JobManageModel, a, done)
 }
 
-func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
+func (s *MachineSuite) TestMachineAgentSymlinkJujuExecExists(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		// Cannot make symlink to nonexistent file on windows or
 		// create a file point a symlink to it then remove it
@@ -789,7 +789,7 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 	// Start the agent and wait for it be running.
 	_, done := s.waitForOpenState(c, a)
 
-	// juju-run symlink should have been recreated.
+	// juju-exec symlink should have been recreated.
 	for _, link := range jujudSymlinks {
 		fullLink := utils.EnsureBaseDir(a.rootDir, link)
 		linkTarget, err := symlink.Read(fullLink)

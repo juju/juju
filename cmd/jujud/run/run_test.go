@@ -208,7 +208,7 @@ func (s *RunTestSuite) TestInsideContext(c *gc.C) {
 	s.PatchEnvironment("JUJU_CONTEXT_ID", "fake-id")
 	runCommand := s.runCommand()
 	err := runCommand.Init([]string{"foo", "bar"})
-	c.Assert(err, gc.ErrorMatches, "juju-run cannot be called from within a hook.*")
+	c.Assert(err, gc.ErrorMatches, "juju-exec cannot be called from within a hook.*")
 }
 
 func (s *RunTestSuite) TestMissingAgentName(c *gc.C) {

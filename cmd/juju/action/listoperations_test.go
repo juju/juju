@@ -141,7 +141,7 @@ var listOperationResults = actionapi.Operations{
 			Action: &actionapi.Action{
 				ID:       "6",
 				Receiver: "machine-1",
-				Name:     "juju-run",
+				Name:     "juju-exec",
 			},
 		}},
 		Summary:   "operation 5",
@@ -331,7 +331,7 @@ func (s *ListOperationsSuite) TestRunYaml(c *gc.C) {
   summary: operation 5
   status: pending
   action:
-    name: juju-run
+    name: juju-exec
     parameters: {}
   timing:
     enqueued: 2013-02-14 06:06:06 +0000 UTC

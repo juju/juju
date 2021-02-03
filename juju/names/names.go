@@ -6,12 +6,11 @@
 package names
 
 const (
-	Juju           = "juju"
 	Jujuc          = "jujuc"
 	Jujud          = "jujud"
 	K8sAgent       = "k8sagent"
 	JujudVersions  = "jujud-versions.yaml"
-	JujuRun        = "juju-run"
+	JujuExec       = "juju-exec"
 	JujuDumpLogs   = "juju-dumplogs"
 	JujuIntrospect = "juju-introspect"
 )

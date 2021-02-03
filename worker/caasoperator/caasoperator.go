@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/juju/clock"
@@ -48,12 +49,12 @@ import (
 var logger interface{}
 
 var (
-	jujuRun        = paths.JujuRun(paths.CurrentOS())
+	jujuExec       = paths.JujuExec(paths.CurrentOS())
 	jujuDumpLogs   = paths.JujuDumpLogs(paths.CurrentOS())
 	jujuIntrospect = paths.JujuIntrospect(paths.CurrentOS())
 
 	jujudSymlinks = []string{
-		jujuRun,
+		jujuExec,
 		jujuDumpLogs,
 		jujuIntrospect,
 	}
@@ -289,6 +290,12 @@ func (op *caasOperator) makeAgentSymlinks(unitTag names.UnitTag) error {
 		if err != nil && !os.IsExist(err) && !os.IsPermission(err) {
 			return errors.Trace(err)
 		}
+		// TODO(juju 4) - remove this legacy behaviour.
+		// Remove the obsolete "juju-run" symlink
+		if strings.Contains(slk, "/juju-exec") {
+			runLink := strings.Replace(slk, "/juju-exec", "/juju-run", 1)
+			_ = os.Remove(runLink)
+		}
 	}
 
 	// Ensure legacy charm symlinks created before 2.8 getting unlinked.
@@ -327,7 +334,7 @@ func toBinaryVersion(vers version.Number, hostSeries string) version.Binary {
 func runListenerSocket(sc *uniter.SocketConfig) (*sockets.Socket, error) {
 	socket := sockets.Socket{
 		Network:   "tcp",
-		Address:   fmt.Sprintf(":%d", caasconstants.JujuRunServerSocketPort),
+		Address:   fmt.Sprintf(":%d", caasconstants.JujuExecServerSocketPort),
 		TLSConfig: sc.TLSConfig,
 	}
 	return &socket, nil
@@ -369,7 +376,7 @@ func (op *caasOperator) init() (*LocalState, error) {
 			if err != nil {
 				return nil, errors.Annotate(err, "creating juju run socket")
 			}
-			op.config.Logger.Debugf("starting caas operator juju-run listener on %v", socket)
+			op.config.Logger.Debugf("starting caas operator juju-exec listener on %v", socket)
 			logger := loggo.GetLogger("juju.worker.uniter")
 			runListener, err := uniter.NewRunListener(*socket, logger)
 			if err != nil {

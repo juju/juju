@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -94,11 +95,11 @@ import (
 
 var (
 	logger            = loggo.GetLogger("juju.cmd.jujud")
-	jujuRun           = paths.JujuRun(paths.CurrentOS())
+	jujuExec          = paths.JujuExec(paths.CurrentOS())
 	jujuDumpLogs      = paths.JujuDumpLogs(paths.CurrentOS())
 	jujuIntrospect    = paths.JujuIntrospect(paths.CurrentOS())
-	jujudSymlinks     = []string{jujuRun, jujuDumpLogs, jujuIntrospect}
-	caasJujudSymlinks = []string{jujuRun, jujuDumpLogs, jujuIntrospect}
+	jujudSymlinks     = []string{jujuExec, jujuDumpLogs, jujuIntrospect}
+	caasJujudSymlinks = []string{jujuExec, jujuDumpLogs, jujuIntrospect}
 
 	// The following are defined as variables to allow the tests to
 	// intercept calls to the functions. In every case, they should
@@ -114,7 +115,7 @@ var (
 	iaasMachineManifolds = machine.IAASManifolds
 )
 
-// Variable to override in tests, default is true
+// ProductionMongoWriteConcern is provided to override in tests, default is true
 var ProductionMongoWriteConcern = true
 
 func init() {
@@ -1329,6 +1330,13 @@ func (a *MachineAgent) createJujudSymlinks(dataDir string) error {
 
 func (a *MachineAgent) createSymlink(target, link string) error {
 	fullLink := utils.EnsureBaseDir(a.rootDir, link)
+
+	// TODO(juju 4) - remove this legacy behaviour.
+	// Remove the obsolete "juju-run" symlink
+	if strings.Contains(fullLink, "/juju-exec") {
+		runLink := strings.Replace(fullLink, "/juju-exec", "/juju-run", 1)
+		_ = os.Remove(runLink)
+	}
 
 	currentTarget, err := symlink.Read(fullLink)
 	if err != nil && !os.IsNotExist(err) {

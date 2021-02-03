@@ -14,7 +14,7 @@ const (
 	OperatorInfoFile = "operator.yaml"
 
 	// OperatorClientInfoFile is the file containing info about the operator,
-	// copied to the workload pod so the hook tools and juju-run can function.
+	// copied to the workload pod so the hook tools and juju-exec can function.
 	OperatorClientInfoFile = "operator-client.yaml"
 
 	// OperatorClientInfoCacheFile is a cache of OperatorClientInfoFile stored on the operator.

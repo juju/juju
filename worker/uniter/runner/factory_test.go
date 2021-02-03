@@ -227,9 +227,9 @@ func (s *FactorySuite) TestNewActionRunnerGood(c *gc.C) {
 			},
 		},
 		{
-			// juju-run should work as a predefined action even if
+			// juju-exec should work as a predefined action even if
 			// it's not part of the charm
-			actionName: "juju-run",
+			actionName: "juju-exec",
 			payload: map[string]interface{}{
 				"command": "foo",
 				"timeout": 0.0,
