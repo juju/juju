@@ -148,6 +148,7 @@ func (c *chRepo) ResolveWithPreferredChannel(curl *charm.URL, origin params.Char
 	// were passed in.  ResolveWithPreferredChannel is called for both charms to be
 	// deployed, and charms which are being upgraded.  Only charms being upgraded
 	// will have an ID and Hash.  Those values should only ever be updated in
+	// chRepro FindDownloadURL.
 	resOrigin := params.CharmOrigin{
 		Source:       origin.Source,
 		Type:         string(entity.Type),
