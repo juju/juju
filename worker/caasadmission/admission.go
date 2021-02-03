@@ -30,6 +30,9 @@ const (
 	// ids. For example using this component "admission" with "juju.io" would
 	// yield admission.juju.io
 	Component = "admission"
+
+	// we still accept v1beta1 AdmissionReview only.
+	reviewVersionV1beta1 = "v1beta1"
 )
 
 var (
@@ -77,9 +80,10 @@ func NewAdmissionCreator(
 					CABundle: caPemBuffer.Bytes(),
 					Service:  service,
 				},
-				FailurePolicy: &failurePolicy,
-				MatchPolicy:   &matchPolicy,
-				Name:          k8sutils.MakeK8sDomain(Component),
+				AdmissionReviewVersions: []string{reviewVersionV1beta1},
+				FailurePolicy:           &failurePolicy,
+				MatchPolicy:             &matchPolicy,
+				Name:                    k8sutils.MakeK8sDomain(Component),
 				NamespaceSelector: &meta.LabelSelector{
 					MatchLabels: k8sutils.LabelsForModel(modelName, legacyLabels),
 				},
