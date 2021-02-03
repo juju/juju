@@ -739,10 +739,10 @@ func validateCharmSeries(modelType ModelType, name, series string, ch hasMeta) e
 	}
 
 	return model.ValidateSeries(model.ValidateSeriesArgs{
-		Model:  model.ModelType(modelType),
-		Name:   name,
-		Series: series,
-		Format: ch.Meta().Format(),
+		ModelType: model.ModelType(modelType),
+		Name:      name,
+		Series:    series,
+		Format:    ch.Meta().Format(),
 	})
 }
 

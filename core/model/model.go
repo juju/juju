@@ -44,10 +44,10 @@ type Model struct {
 
 // ValidateSeriesArgs holds the arguments for the ValidateSeries method
 type ValidateSeriesArgs struct {
-	Model  ModelType
-	Name   string
-	Series string
-	Format charm.Format
+	ModelType ModelType
+	Name      string
+	Series    string
+	Format    charm.Format
 }
 
 var caasOS = set.NewStrings(os.Kubernetes.String())
@@ -59,34 +59,39 @@ func ValidateSeries(args ValidateSeriesArgs) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if system.Resource != "" {
-			switch args.Model {
-			case CAAS:
-				// CAAS models support using a resource as the system.
-				return nil
-			case IAAS:
-				return errors.NotValidf("IAAS models don't support systems referencing a resource")
-			}
+
+		if system.Resource == "" {
+			return nil
 		}
-	} else {
-		os, err := series.GetOSFromSeries(args.Series)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		switch args.Model {
+
+		switch args.ModelType {
+		// CAAS models support using a resource as the system.
 		case CAAS:
-			if !caasOS.Contains(os.String()) {
-				return errors.NewNotValid(nil, fmt.Sprintf(
-					`%q is not a Kubernetes charm (look for the charms with "-k8s" suffix in their name)`, args.Name,
-				))
-			}
+			return nil
 		case IAAS:
-			if caasOS.Contains(os.String()) {
-				return errors.NewNotValid(nil, fmt.Sprintf(
-					"%q is not a IAAS charm",
-					args.Name,
-				))
-			}
+			return errors.NotValidf("IAAS models don't support systems referencing a resource")
+		default:
+			return nil
+		}
+	}
+
+	os, err := series.GetOSFromSeries(args.Series)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	switch args.ModelType {
+	case CAAS:
+		if !caasOS.Contains(os.String()) {
+			return errors.NewNotValid(nil, fmt.Sprintf(
+				`%q is not a Kubernetes charm (look for the charms with "-k8s" suffix in their name)`, args.Name,
+			))
+		}
+	case IAAS:
+		if caasOS.Contains(os.String()) {
+			return errors.NewNotValid(nil, fmt.Sprintf(
+				"%q is not a IAAS charm",
+				args.Name,
+			))
 		}
 	}
 	return nil
