@@ -103,7 +103,9 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.client.containerWatcher = watchertest.NewMockStringsWatcher(s.containerChanges)
 	s.client.watcher = watchertest.NewMockNotifyWatcher(s.appChanges)
 	s.charmDownloader.ResetCalls()
-	s.uniterParams = &uniter.UniterParams{}
+	s.uniterParams = &uniter.UniterParams{
+		Logger: loggo.GetLogger("uniter"),
+	}
 	s.leadershipTrackerFunc = func(unitTag names.UnitTag) leadership.TrackerWorker {
 		return &runnertesting.FakeTracker{}
 	}
@@ -135,7 +137,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		RunListenerSocketFunc: s.runListenerSocketFunc,
 		StartUniterFunc:       func(runner *worker.Runner, params *uniter.UniterParams) error { return nil },
 		ExecClientGetter:      func() (exec.Executor, error) { return s.mockExecutor, nil },
-		Logger:                loggo.GetLogger("test"),
+		Logger:                loggo.GetLogger("operator"),
 	}
 
 	agentBinaryDir := agenttools.ToolsDir(s.config.DataDir, "application-gitlab")
@@ -201,6 +203,10 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	s.testValidateConfig(c, func(config *caasoperator.Config) {
 		config.VersionSetter = nil
 	}, `missing VersionSetter not valid`)
+
+	s.testValidateConfig(c, func(config *caasoperator.Config) {
+		config.Logger = nil
+	}, `missing Logger not valid`)
 
 }
 
