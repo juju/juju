@@ -1,0 +1,122 @@
+name: Test Kubeflow
+
+on:
+  push:
+    paths-ignore:
+      - 'acceptancetests/**'
+      - 'doc/**'
+      - 'snap/**'
+      - 'testcharms/**'
+      - 'testing/**'
+      - 'tests/**'
+  pull_request:
+    paths-ignore:
+      - 'acceptancetests/**'
+      - 'doc/**'
+      - 'snap/**'
+      - 'testcharms/**'
+      - 'testing/**'
+      - 'tests/**'
+
+env: 
+  DOCKER_USERNAME: kubeflow
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Set up Go 1.14 for building juju
+      uses: actions/setup-go@v2.1.3
+      with:
+        go-version: "1.14"
+      id: go
+
+    - name: Checking out repo
+      uses: actions/checkout@v2
+
+    - name: Install Dependencies
+      shell: bash
+      run: |
+        set -euxo pipefail
+        
+        sudo snap install charm --classic
+        sudo snap install jq
+        sudo snap install juju-helpers --classic --edge
+        sudo snap install juju-wait --classic
+        sudo snap install kubectl --classic
+        sudo snap install yq
+        
+        sudo apt update
+        sudo apt install -y libssl-dev python3-setuptools firefox-geckodriver
+        sudo pip3 install pytest sh kfp requests pyyaml
+        
+        sudo snap install microk8s --classic --channel latest/stable
+        sudo usermod -a -G microk8s $USER
+        sudo microk8s status --wait-ready
+        sudo microk8s kubectl -n kube-system rollout status ds/calico-node
+
+    - name: Build juju and operator image
+      run: |
+        sudo make microk8s-operator-update
+
+    - name: Deploy Kubeflow
+      run: |
+        set -eux
+        git clone https://github.com/juju-solutions/bundle-kubeflow.git
+        cd bundle-kubeflow
+        git clone git://git.launchpad.net/canonical-osm
+        cp -r canonical-osm/charms/interfaces/juju-relation-mysql mysql
+        python3 ./scripts/cli.py microk8s setup --test-mode
+        KUBEFLOW_AUTH_PASSWORD=foobar python3 ./scripts/cli.py --debug deploy-to uk8s --cloud microk8s --bundle lite --channel stable
+
+    - name: Test kubeflow
+      run: |
+        set -eux
+        pwd
+        cd bundle-kubeflow
+        sudo pip3 install -r requirements.txt -r test-requirements.txt
+        sudo microk8s status --wait-ready
+        sudo microk8s kubectl -n kube-system rollout status ds/calico-node
+        trap 'sudo pkill -f svc/pipelines-api' SIGINT SIGTERM EXIT
+        sudo microk8s kubectl -n kubeflow port-forward svc/pipelines-api 8888:8888 &
+        (i=30; while ! curl localhost:8888 ; do ((--i)) || exit; sleep 1; done)
+        sudo -E pytest -vvs -m edge -k 'not kubectl'
+        sudo -E pytest -vvs -m edge -k 'kubectl'
+
+    - name: Get MicroK8s pods
+      run: sudo microk8s kubectl get pods -A
+      if: failure()
+
+    - name: Describe MicroK8s pods
+      run: sudo microk8s kubectl describe pods -nkubeflow
+      if: failure()
+
+    - name: Get pipeline logs
+      run: |
+        set -eux
+        pods=$(sudo microk8s kubectl get -nkubeflow pods -l workflows.argoproj.io/completed="true" -o custom-columns=:metadata.name --no-headers)
+        for pod in $pods; do
+          containers=$(sudo microk8s kubectl get -nkubeflow pods -o jsonpath="{.spec.containers[*].name}" $pod)
+          for container in $containers; do
+            sudo microk8s kubectl logs -nkubeflow --timestamps $pod -c $container
+            printf '\n'
+          done
+          printf '\n\n'
+        done
+      if: failure()
+
+    - name: Generate inspect tarball
+      run: >
+        sudo microk8s inspect |
+        grep -Po "Report tarball is at \K.+" |
+        sudo xargs -I {} mv {} inspection-report-${{ strategy.job-index }}.tar.gz
+      if: failure()
+
+    - name: Upload inspect tarball
+      uses: actions/upload-artifact@v2
+      with:
+        name: inspection-report-actions
+        path: ./inspection-report-${{ strategy.job-index }}.tar.gz
+      if: failure()
