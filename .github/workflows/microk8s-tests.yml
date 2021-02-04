@@ -23,7 +23,7 @@ env:
 
 jobs:
   build:
-    name: Build
+    name: Test Kubeflow
     runs-on: ubuntu-latest
 
     steps:
@@ -53,13 +53,15 @@ jobs:
         sudo pip3 install pytest sh kfp requests pyyaml
         
         sudo snap install microk8s --classic --channel latest/stable
-        sudo usermod -a -G microk8s $USER
         sudo microk8s status --wait-ready
         sudo microk8s kubectl -n kube-system rollout status ds/calico-node
+        sudo usermod -a -G microk8s $USER
 
     - name: Build juju and operator image
       run: |
+        env
         sudo make microk8s-operator-update
+        sudo microk8s.ctr images list | grep juju
 
     - name: Deploy Kubeflow
       run: |
@@ -68,7 +70,7 @@ jobs:
         cd bundle-kubeflow
         git clone git://git.launchpad.net/canonical-osm
         cp -r canonical-osm/charms/interfaces/juju-relation-mysql mysql
-        python3 ./scripts/cli.py microk8s setup --test-mode
+        sudo python3 ./scripts/cli.py microk8s setup --test-mode
         KUBEFLOW_AUTH_PASSWORD=foobar python3 ./scripts/cli.py --debug deploy-to uk8s --cloud microk8s --bundle lite --channel stable
 
     - name: Test kubeflow
