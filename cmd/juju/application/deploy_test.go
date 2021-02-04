@@ -1291,7 +1291,7 @@ func (s *DeploySuite) TestInvalidSeriesForModel(c *gc.C) {
 	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
 	err := s.runDeployForState(c, charmDir.Path, "portlandia", "--series", "kubernetes")
-	c.Assert(err, gc.ErrorMatches, `cannot add application "portlandia": \"portlandia\" is not a IAAS charm`)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "portlandia": \"portlandia\" is not an IAAS charm`)
 }
 
 func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {

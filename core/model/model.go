@@ -70,9 +70,9 @@ func ValidateSeries(args ValidateSeriesArgs) error {
 			return nil
 		case IAAS:
 			return errors.NotValidf("IAAS models don't support systems referencing a resource")
-		default:
-			return nil
 		}
+
+		return nil
 	}
 
 	os, err := series.GetOSFromSeries(args.Series)
@@ -83,16 +83,17 @@ func ValidateSeries(args ValidateSeriesArgs) error {
 	case CAAS:
 		if !caasOS.Contains(os.String()) {
 			return errors.NewNotValid(nil, fmt.Sprintf(
-				`%q is not a Kubernetes charm (look for the charms with "-k8s" suffix in their name)`, args.Name,
+				`%q is not a Containers-as-a-Service (like kubernetes) charm`, args.Name,
 			))
 		}
 	case IAAS:
 		if caasOS.Contains(os.String()) {
 			return errors.NewNotValid(nil, fmt.Sprintf(
-				"%q is not a IAAS charm",
+				"%q is not an IAAS charm",
 				args.Name,
 			))
 		}
 	}
+
 	return nil
 }
