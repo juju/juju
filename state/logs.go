@@ -925,16 +925,19 @@ func collStats(coll *mgo.Collection) (bson.M, error) {
 		{"scale", humanize.MiByte},
 	}, &result)
 	if err != nil {
-		// In order to return consistent error messages across 2.4 and 3.x
-		// we look for the expected errors. For 2.4 we get error text like
-		// "ns not found", and with 3.x we get either "Database [x] not found."
-		// or "Collection [x.y] not found."
+		// TODO(wallyworld) - this is not needed for mongo 4.4
 		if strings.Contains(err.Error(), "not found") {
 			return nil, errors.Wrap(
 				err,
 				errors.NotFoundf("Collection [%s.%s]", coll.Database.Name, coll.Name))
 		}
 		return nil, errors.Trace(err)
+	}
+	// For mongo 4.4, if the collection exists,
+	// there will be a "capped" attribute.
+	_, ok := result["capped"]
+	if !ok {
+		return nil, errors.NotFoundf("Collection [%s.%s]", coll.Database.Name, coll.Name)
 	}
 	return result, nil
 }
@@ -962,20 +965,13 @@ func getCollectionCappedInfo(coll *mgo.Collection) (bool, int, error) {
 	if err != nil {
 		return false, 0, errors.Trace(err)
 	}
-	// For mongo 2.4, the "capped" key is only available when it is set
-	// to true. For mongo 3.2 and 3.6, it is always there.
-	// If capped is there, but isn't a bool, we treat this as false.
 	capped, _ := stats["capped"].(bool)
 	if !capped {
 		return false, 0, nil
 	}
-	// For mongo 3.2 and 3.6, the value is "maxSize". For 2.4 the value
-	// used is "storageSize"
 	value, found := stats["maxSize"]
 	if !found {
-		if value, found = stats["storageSize"]; !found {
-			return false, 0, errors.NotValidf("no maxSize or storageSize value")
-		}
+		return false, 0, errors.NotValidf("no maxSize value")
 	}
 	maxSize, ok := value.(int)
 	if !ok {

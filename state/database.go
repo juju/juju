@@ -5,7 +5,6 @@ package state
 
 import (
 	"runtime/debug"
-	"strings"
 	"sync"
 
 	"github.com/juju/clock"
@@ -217,13 +216,16 @@ func (schema CollectionSchema) Create(
 	return nil
 }
 
+const codeNamespaceExists = 48
+
 // createCollection swallows collection-already-exists errors.
 func createCollection(raw *mgo.Collection, spec *mgo.CollectionInfo) error {
 	err := raw.Create(spec)
-	// The lack of error code for this error was reported upstream:
-	//     https://jira.mongodb.org/browse/SERVER-6992
-	if err == nil || strings.HasSuffix(err.Error(), "already exists") {
-		return nil
+	if err, ok := err.(*mgo.QueryError); ok {
+		// 48 is collection already exists.
+		if err.Code == codeNamespaceExists {
+			return nil
+		}
 	}
 	return err
 }
