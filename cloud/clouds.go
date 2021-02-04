@@ -49,17 +49,11 @@ const (
 	// UserPassAuthType is an authentication type using a username and password.
 	UserPassAuthType AuthType = "userpass"
 
-	// UserPassWithCertAuthType is an authentication type using a username and password and a client certificate
-	UserPassWithCertAuthType AuthType = "userpasswithcert"
-
 	// OAuth1AuthType is an authentication type using oauth1.
 	OAuth1AuthType AuthType = "oauth1"
 
 	// OAuth2AuthType is an authentication type using oauth2.
 	OAuth2AuthType AuthType = "oauth2"
-
-	// OAuth2WithCertAuthType is an authentication type using oauth2 and a client certificate
-	OAuth2WithCertAuthType AuthType = "oauth2withcert"
 
 	// JSONFileAuthType is an authentication type that takes a path to
 	// a JSON file.

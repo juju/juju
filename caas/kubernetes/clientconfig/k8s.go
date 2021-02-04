@@ -14,6 +14,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
+	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	"github.com/juju/juju/cloud"
 )
 
@@ -33,6 +34,20 @@ func GetJujuAdminServiceAccountResolver(clock jujuclock.Clock) K8sCredentialReso
 	}
 }
 
+// GetLocalKubeConfig attempts to load up the current users local Kubernetes
+// configuration.
+func GetLocalKubeConfig() (*clientcmdapi.Config, error) {
+	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		clientcmd.NewDefaultClientConfigLoadingRules(),
+		&clientcmd.ConfigOverrides{},
+	)
+	r, err := kubeConfig.RawConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &r, nil
+}
+
 // configFromPossibleReader attempts to read in kubeconfig from the supplied
 // reader, otherwise defaulting over to the default Kubernetes config loading
 func configFromPossibleReader(reader io.Reader) (*clientcmdapi.Config, error) {
@@ -47,28 +62,14 @@ func configFromPossibleReader(reader io.Reader) (*clientcmdapi.Config, error) {
 		}
 		return config, nil
 	}
-	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		clientcmd.NewDefaultClientConfigLoadingRules(),
-		&clientcmd.ConfigOverrides{},
-	)
-	if r, err := kubeConfig.RawConfig(); err != nil {
-		return nil, errors.Trace(err)
-	} else {
-		return &r, nil
-	}
+	return nil, errors.NotFoundf("kubernetes config in reader")
 }
 
-// NewK8sClientConfig returns a new Kubernetes client, reading the config from the specified reader.
 func NewK8sClientConfig(
-	credentialUID string, reader io.Reader,
+	credentialUID string, config *clientcmdapi.Config,
 	contextName, clusterName string,
 	credentialResolver K8sCredentialResolver,
 ) (*ClientConfig, error) {
-	config, err := configFromPossibleReader(reader)
-	if err != nil {
-		return nil, err
-	}
-
 	contexts, err := contextsFromConfig(config)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to read contexts from kubernetes config")
@@ -109,7 +110,7 @@ func NewK8sClientConfig(
 		}
 	}
 	logger.Debugf("get credentials from kubeconfig")
-	credentials, err := credentialsFromConfig(config, context.CredentialName)
+	credential, err := k8scloud.CredentialFromKubeConfig(context.CredentialName, config)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to read credentials from kubernetes config")
 	}
@@ -118,8 +119,29 @@ func NewK8sClientConfig(
 		Contexts:       contexts,
 		CurrentContext: config.CurrentContext,
 		Clouds:         clouds,
-		Credentials:    credentials,
+		Credentials:    map[string]cloud.Credential{context.CredentialName: credential},
 	}, nil
+}
+
+// NewK8sClientConfigFromReader returns a new Kubernetes client, reading the config from the specified reader.
+func NewK8sClientConfigFromReader(
+	credentialUID string, reader io.Reader,
+	contextName, clusterName string,
+	credentialResolver K8sCredentialResolver,
+) (*ClientConfig, error) {
+	config, err := configFromPossibleReader(reader)
+	if errors.IsNotFound(err) {
+		config, err = GetLocalKubeConfig()
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return NewK8sClientConfig(
+		credentialUID,
+		config,
+		contextName,
+		clusterName,
+		credentialResolver)
 }
 
 func pickContextByClusterName(contexts map[string]Context, clusterName string) (Context, string, error) {
@@ -179,103 +201,6 @@ func cloudsFromConfig(config *clientcmdapi.Config, cloudName string) (map[string
 			return nil, errors.Trace(err)
 		}
 		rv[name] = c
-	}
-	return rv, nil
-}
-
-func credentialsFromConfig(config *clientcmdapi.Config, credentialName string) (map[string]cloud.Credential, error) {
-
-	authInfoToCredential := func(name string, user *clientcmdapi.AuthInfo) (cred cloud.Credential, err error) {
-		logger.Debugf("name %q, user %#v", name, user)
-
-		var hasCert bool
-		attrs := map[string]string{}
-
-		// TODO(axw) if the certificate/key are specified by path,
-		// then we should just store the path in the credential,
-		// and rely on credential finalization to read it at time
-		// of use.
-
-		if user.ClientCertificate != "" {
-			certData, err := ioutil.ReadFile(user.ClientCertificate)
-			if err != nil {
-				return cred, errors.Trace(err)
-			}
-			user.ClientCertificateData = certData
-		}
-
-		if user.ClientKey != "" {
-			keyData, err := ioutil.ReadFile(user.ClientKey)
-			if err != nil {
-				return cred, errors.Trace(err)
-			}
-			user.ClientKeyData = keyData
-		}
-
-		if len(user.ClientCertificateData) > 0 {
-			attrs["ClientCertificateData"] = string(user.ClientCertificateData)
-			hasCert = true
-		}
-		hasClientKeyData := len(user.ClientKeyData) > 0
-		if hasClientKeyData {
-			attrs["ClientKeyData"] = string(user.ClientKeyData)
-		}
-		hasToken := user.Token != ""
-		if hasToken {
-			if user.Username != "" || user.Password != "" {
-				return cred, errors.NotValidf("AuthInfo: %q with both Token and User/Pass", name)
-			}
-			attrs["Token"] = user.Token
-		}
-
-		var authType cloud.AuthType
-		if hasClientKeyData {
-			// auth type used for aks for example.
-			authType = cloud.OAuth2AuthType
-			if hasCert {
-				authType = cloud.OAuth2WithCertAuthType
-			}
-			if !hasToken {
-				// the Token is required.
-				return cred, errors.NotValidf("missing token for %q with auth type %q", name, authType)
-			}
-		} else if user.Username != "" {
-			// basic auth type.
-			if user.Password == "" {
-				logger.Debugf("credential for user %q has empty password", user.Username)
-			}
-			attrs["username"] = user.Username
-			attrs["password"] = user.Password
-			if hasCert {
-				authType = cloud.UserPassWithCertAuthType
-			} else {
-				authType = cloud.UserPassAuthType
-			}
-		} else if hasCert && hasToken {
-			// bearer token of service account auth type gke for example.
-			authType = cloud.CertificateAuthType
-		} else {
-			return cred, errors.NotSupportedf("configuration for %q", name)
-		}
-
-		return cloud.NewNamedCredential(name, authType, attrs, false), nil
-	}
-
-	authInfos := config.AuthInfos
-	if credentialName != "" {
-		authInfo, ok := authInfos[credentialName]
-		if !ok {
-			return nil, errors.NotFoundf("authInfo %q", credentialName)
-		}
-		authInfos = map[string]*clientcmdapi.AuthInfo{credentialName: authInfo}
-	}
-	rv := map[string]cloud.Credential{}
-	for name, user := range authInfos {
-		cred, err := authInfoToCredential(name, user)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		rv[name] = cred
 	}
 	return rv, nil
 }

@@ -143,6 +143,10 @@ func (s *k8sRawClientSuite) TestEnsureJujuAdminServiceAccount(c *gc.C) {
 			Return(saWithSecret, nil),
 		s.mockSecrets.EXPECT().Get(gomock.Any(), saWithSecret.Secrets[0].Name, metav1.GetOptions{}).
 			Return(secret, nil),
+		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
+			Return(saWithSecret, nil),
+		s.mockSecrets.EXPECT().Get(gomock.Any(), saWithSecret.Secrets[0].Name, metav1.GetOptions{}).
+			Return(secret, nil),
 	)
 	errChan := make(chan error)
 	cfgOutChan := make(chan *clientcmdapi.Config)
@@ -164,7 +168,6 @@ func (s *k8sRawClientSuite) TestEnsureJujuAdminServiceAccount(c *gc.C) {
 		authName := cfg.Contexts[contextName].AuthInfo
 		updatedAuthInfo := cfgOut.AuthInfos[authName]
 		c.Assert(updatedAuthInfo.AuthProvider, gc.IsNil)
-		c.Assert(updatedAuthInfo.ClientCertificateData, gc.DeepEquals, secret.Data[core.ServiceAccountRootCAKey])
 		c.Assert(updatedAuthInfo.Token, gc.Equals, string(secret.Data[core.ServiceAccountTokenKey]))
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for deploy return")
@@ -191,7 +194,7 @@ func (s *k8sRawClientSuite) TestEnsureJujuServiceAdminAccountIdempotent(c *gc.C)
 		},
 	}
 
-	saName := "juju-service-account"
+	saName := s.name
 	newSa := &core.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      saName,
@@ -262,13 +265,16 @@ func (s *k8sRawClientSuite) TestEnsureJujuServiceAdminAccountIdempotent(c *gc.C)
 			Return(saWithSecret, nil),
 		s.mockSecrets.EXPECT().Get(gomock.Any(), saWithSecret.Secrets[0].Name, metav1.GetOptions{}).
 			Return(secret, nil),
+		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
+			Return(saWithSecret, nil),
+		s.mockSecrets.EXPECT().Get(gomock.Any(), saWithSecret.Secrets[0].Name, metav1.GetOptions{}).
+			Return(secret, nil),
 	)
 	cfgOut, err := clientconfig.EnsureJujuAdminServiceAccount(s.k8sClient, s.UID, cfg, contextName, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	authName := cfg.Contexts[contextName].AuthInfo
 	updatedAuthInfo := cfgOut.AuthInfos[authName]
 	c.Assert(updatedAuthInfo.AuthProvider, gc.IsNil)
-	c.Assert(updatedAuthInfo.ClientCertificateData, gc.DeepEquals, secret.Data[core.ServiceAccountRootCAKey])
 	c.Assert(updatedAuthInfo.Token, gc.Equals, string(secret.Data[core.ServiceAccountTokenKey]))
 
 }
@@ -490,27 +496,4 @@ func (s *k8sRawClientSuite) deleteOptions(policy metav1.DeletionPropagation) met
 	return metav1.DeleteOptions{
 		PropagationPolicy: &policy,
 	}
-}
-
-func (s *k8sRawClientSuite) TestReplaceAuthProviderWithServiceAccountAuthData(c *gc.C) {
-	cfg := newClientConfig()
-	contextName := reflect.ValueOf(cfg.Contexts).MapKeys()[0].Interface().(string)
-	authName := cfg.Contexts[contextName].AuthInfo
-
-	secret := &core.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      s.name,
-			Namespace: s.namespace,
-		},
-		Data: map[string][]byte{
-			"ca.crt":    []byte("a base64 encoded cert"),
-			"namespace": []byte("base64 encoded namespace"),
-			"token":     []byte("a base64 encoded bearer token"),
-		},
-	}
-	clientconfig.ReplaceAuthProviderWithServiceAccountAuthData(contextName, cfg, secret)
-	updatedAuthInfo := cfg.AuthInfos[authName]
-	c.Assert(updatedAuthInfo.AuthProvider, gc.IsNil)
-	c.Assert(updatedAuthInfo.ClientCertificateData, gc.DeepEquals, secret.Data[core.ServiceAccountRootCAKey])
-	c.Assert(updatedAuthInfo.Token, gc.Equals, string(secret.Data[core.ServiceAccountTokenKey]))
 }

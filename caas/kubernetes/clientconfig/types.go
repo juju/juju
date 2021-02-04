@@ -56,7 +56,7 @@ type ClientConfigFunc func(
 func NewClientConfigReader(cloudType string) (ClientConfigFunc, error) {
 	switch cloudType {
 	case "kubernetes":
-		return NewK8sClientConfig, nil
+		return NewK8sClientConfigFromReader, nil
 	default:
 		return nil, errors.Errorf("Cannot read local config: unsupported cloud type '%s'", cloudType)
 	}
