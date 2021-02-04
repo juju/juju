@@ -390,23 +390,35 @@ func matchesType(originType string, expected transport.Type) bool {
 }
 
 func composeSuggestions(releases []transport.Release, origin params.CharmOrigin) []string {
-	var suggestions []string
+	channelSeries := make(map[string][]string, 0)
 	for _, release := range releases {
 		platform := release.Platform
-		arch, os, series := platform.Architecture, platform.OS, platform.Series
+		arch, series := platform.Architecture, platform.Series
 		if arch == "all" {
 			arch = origin.Architecture
 		}
 		if arch != origin.Architecture {
 			continue
 		}
-		if os == "all" {
-			os = origin.OS
-		}
 		if series == "all" {
 			series = origin.Series
 		}
-		suggestions = append(suggestions, fmt.Sprintf("%s with %s/%s/%s", release.Channel, arch, os, series))
+		channelSeries[release.Channel] = append(channelSeries[release.Channel], series)
+	}
+
+	var suggestions []string
+	// Sort for latest channels to be suggested first.
+	// Assumes that releases have normalized channels.
+	for _, r := range corecharm.Risks {
+		risk := string(r)
+		if values, ok := channelSeries[risk]; ok {
+			suggestions = append(suggestions, fmt.Sprintf("%s with %s", risk, strings.Join(values, ", ")))
+			delete(channelSeries, risk)
+		}
+	}
+
+	for channel, values := range channelSeries {
+		suggestions = append(suggestions, fmt.Sprintf("%s with %s", channel, strings.Join(values, ", ")))
 	}
 	return suggestions
 }

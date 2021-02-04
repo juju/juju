@@ -195,7 +195,7 @@ func (s *charmHubRepositoriesSuite) TestResolveRevisionNotFoundErrorWithNoSeries
 
 	resolver := &chRepo{client: s.client}
 	_, _, _, err := resolver.ResolveWithPreferredChannel(curl, origin)
-	c.Assert(err, gc.ErrorMatches, `refresh: no charm or bundle matching channel or platform; suggestions: stable with amd64/ubuntu/focal`)
+	c.Assert(err, gc.ErrorMatches, `refresh: no charm or bundle matching channel or platform; suggestions: stable with focal`)
 }
 
 func (s *charmHubRepositoriesSuite) TestResolveRevisionNotFoundError(c *gc.C) {
@@ -498,7 +498,7 @@ func (composeSuggestionsSuite) TestSuggestion(c *gc.C) {
 		Architecture: "arch",
 	})
 	c.Assert(suggestions, gc.DeepEquals, []string{
-		"stable with arch/os/series",
+		"stable with series",
 	})
 }
 
@@ -507,6 +507,13 @@ func (composeSuggestionsSuite) TestMultipleSuggestion(c *gc.C) {
 		Platform: transport.Platform{
 			OS:           "a",
 			Series:       "b",
+			Architecture: "c",
+		},
+		Channel: "stable",
+	}, {
+		Platform: transport.Platform{
+			OS:           "a",
+			Series:       "d",
 			Architecture: "c",
 		},
 		Channel: "stable",
@@ -528,8 +535,8 @@ func (composeSuggestionsSuite) TestMultipleSuggestion(c *gc.C) {
 		Architecture: "c",
 	})
 	c.Assert(suggestions, gc.DeepEquals, []string{
-		"stable with c/a/b",
-		"2.0/stable with c/e/f",
+		"stable with b, d",
+		"2.0/stable with f",
 	})
 }
 
