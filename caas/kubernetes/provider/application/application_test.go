@@ -212,7 +212,7 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Image:           "operator/image-path",
 			WorkingDir:      jujuDataDir,
-			Command:         []string{"/opt/k8sagent"},
+			Command:         []string{"/opt/containeragent"},
 			Args:            []string{"init", "--data-dir", "/var/lib/juju", "--bin-dir", "/charm/bin"},
 			Env: []corev1.EnvVar{
 				{
@@ -268,7 +268,7 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Image:           "ubuntu:20.04",
 			WorkingDir:      jujuDataDir,
-			Command:         []string{"/charm/bin/k8sagent"},
+			Command:         []string{"/charm/bin/containeragent"},
 			Args:            []string{"unit", "--data-dir", jujuDataDir, "--charm-modified-version", "9001", "--append-env", "PATH=$PATH:/charm/bin"},
 			Env: []corev1.EnvVar{
 				{
@@ -337,21 +337,21 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 					Name:      "gitlab-database-appuuid",
 					MountPath: "path/to/here",
 				},
-				// {
-				// 	Name:      "gitlab-logs",
-				// 	MountPath: "path/to/there",
-				// },
 			},
 		}, {
 			Name:            "gitlab",
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Image:           "gitlab-image:latest",
 			Command:         []string{"/charm/bin/pebble"},
-			Args:            []string{"listen", "--socket", "/charm/container/pebble.sock", "--append-env", "PATH=$PATH:/charm/bin"},
+			Args:            []string{"run", "--hold"},
 			Env: []corev1.EnvVar{
 				{
 					Name:  "JUJU_CONTAINER_NAME",
 					Value: "gitlab",
+				},
+				{
+					Name:  "PEBBLE",
+					Value: "/charm/container/pebble",
 				},
 			},
 			VolumeMounts: []corev1.VolumeMount{
@@ -370,10 +370,6 @@ func getPodSpec(c *gc.C) corev1.PodSpec {
 					Name:      "gitlab-database-appuuid",
 					MountPath: "path/to/here",
 				},
-				// {
-				// 	Name:      "gitlab-logs",
-				// 	MountPath: "path/to/there",
-				// },
 			},
 		}},
 		Volumes: []corev1.Volume{
@@ -1017,7 +1013,7 @@ func (s *applicationSuite) TestUpdatePortsStatelessUpdateContainerPorts(c *gc.C)
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Image:           "operator/image-path",
 							WorkingDir:      "/var/lib/juju",
-							Command:         []string{"/charm/bin/k8sagent"},
+							Command:         []string{"/charm/bin/containeragent"},
 							Args:            []string{"unit", "--data-dir", "/var/lib/juju", "--append-env", "PATH=$PATH:/charm/bin"},
 							Env: []corev1.EnvVar{{
 								Name:  "HTTP_PROBE_PORT",
@@ -1143,7 +1139,7 @@ func (s *applicationSuite) TestUpdatePortsStatefulUpdateContainerPorts(c *gc.C) 
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Image:           "operator/image-path",
 							WorkingDir:      "/var/lib/juju",
-							Command:         []string{"/charm/bin/k8sagent"},
+							Command:         []string{"/charm/bin/containeragent"},
 							Args:            []string{"unit", "--data-dir", "/var/lib/juju", "--append-env", "PATH=$PATH:/charm/bin"},
 							Env: []corev1.EnvVar{{
 								Name:  "HTTP_PROBE_PORT",
@@ -1269,7 +1265,7 @@ func (s *applicationSuite) TestUpdatePortsDaemonUpdateContainerPorts(c *gc.C) {
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Image:           "operator/image-path",
 							WorkingDir:      "/var/lib/juju",
-							Command:         []string{"/charm/bin/k8sagent"},
+							Command:         []string{"/charm/bin/containeragent"},
 							Args:            []string{"unit", "--data-dir", "/var/lib/juju", "--append-env", "PATH=$PATH:/charm/bin"},
 						}, {
 							Name:            "gitlab",

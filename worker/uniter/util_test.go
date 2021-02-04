@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	pebbleclient "github.com/canonical/pebble/client"
 	corecharm "github.com/juju/charm/v8"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
@@ -127,6 +128,8 @@ type context struct {
 	relationUnits          map[string]*state.RelationUnit
 	subordinate            *state.Unit
 	updateStatusHookTicker *manualTicker
+	containerNames         []string
+	pebbleClients          map[string]*fakePebbleClient
 	err                    string
 
 	wg             sync.WaitGroup
@@ -547,9 +550,21 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		// TODO(axw) 2015-11-02 #1512191
 		// update tests that rely on timing to advance clock
 		// appropriately.
-		Clock:         clock.WallClock,
-		RebootQuerier: s.rebootQuerier,
-		Logger:        loggo.GetLogger("test"),
+		Clock:          clock.WallClock,
+		RebootQuerier:  s.rebootQuerier,
+		Logger:         loggo.GetLogger("test"),
+		ContainerNames: ctx.containerNames,
+		NewPebbleClient: func(cfg *pebbleclient.Config) uniter.PebbleClient {
+			res := pebbleSocketPathRegexp.FindAllStringSubmatch(cfg.Socket, 1)
+			if res == nil {
+				return &fakePebbleClient{err: errors.NotFoundf("container not found")}
+			}
+			client, ok := ctx.pebbleClients[res[0][1]]
+			if !ok {
+				return &fakePebbleClient{err: errors.NotFoundf("container not found")}
+			}
+			return client
+		},
 	}
 	ctx.uniter, err = uniter.NewUniter(&uniterParams)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1640,4 +1655,27 @@ func (f *fakemachinelock) Acquire(_ machinelock.Spec) (func(), error) {
 	return func() {
 		f.mu.Unlock()
 	}, nil
+}
+
+type activateTestContainer struct {
+	containerName string
+}
+
+func (s activateTestContainer) step(c *gc.C, ctx *context) {
+	ctx.pebbleClients[s.containerName].TriggerStart()
+}
+
+type injectTestContainer struct {
+	containerName string
+}
+
+func (s injectTestContainer) step(c *gc.C, ctx *context) {
+	c.Assert(ctx.uniter, gc.IsNil)
+	ctx.containerNames = append(ctx.containerNames, s.containerName)
+	if ctx.pebbleClients == nil {
+		ctx.pebbleClients = make(map[string]*fakePebbleClient)
+	}
+	ctx.pebbleClients[s.containerName] = &fakePebbleClient{
+		err: errors.BadRequestf("not ready yet"),
+	}
 }

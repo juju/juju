@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -123,11 +124,11 @@ func updateK8sCloud(k8sCloud *cloud.Cloud, clusterMetadata *caas.ClusterMetadata
 	if k8sCloud.Config == nil {
 		k8sCloud.Config = make(map[string]interface{})
 	}
-	if _, ok := k8sCloud.Config[WorkloadStorageKey]; !ok {
-		k8sCloud.Config[WorkloadStorageKey] = workloadSC
+	if _, ok := k8sCloud.Config[k8sconstants.WorkloadStorageKey]; !ok {
+		k8sCloud.Config[k8sconstants.WorkloadStorageKey] = workloadSC
 	}
-	if _, ok := k8sCloud.Config[OperatorStorageKey]; !ok {
-		k8sCloud.Config[OperatorStorageKey] = operatorSC
+	if _, ok := k8sCloud.Config[k8sconstants.OperatorStorageKey]; !ok {
+		k8sCloud.Config[k8sconstants.OperatorStorageKey] = operatorSC
 	}
 	return storageMsg
 }
@@ -289,7 +290,7 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 	}
 
 	// if storage is already defined there is no need to query the cluster
-	if opStorage, ok := cld.Config[OperatorStorageKey]; ok && opStorage != "" {
+	if opStorage, ok := cld.Config[k8sconstants.OperatorStorageKey]; ok && opStorage != "" {
 		return cld, nil
 	}
 

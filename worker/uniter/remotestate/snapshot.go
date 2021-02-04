@@ -103,6 +103,10 @@ type Snapshot struct {
 
 	// CharmProfileRequired is true if the charm has a lxdprofile.yaml.
 	CharmProfileRequired bool
+
+	// WorkloadEvents is a list of IDs of workload events that need to be
+	// processed.
+	WorkloadEvents []string
 }
 
 // RelationSnapshot tracks the state of a relationship from the viewpoint of the local unit.

@@ -299,6 +299,9 @@ type HookContext struct {
 	// A flag that keeps track of whether the unit's state has been mutated.
 	charmStateCacheDirty bool
 
+	// workloadName is the name of the container which the hook is in relation to.
+	workloadName string
+
 	mu sync.Mutex
 }
 
@@ -1008,6 +1011,9 @@ func (ctx *HookContext) HookVars(paths Paths, remote bool, getEnv GetEnvFunc) ([
 			"JUJU_ACTION_TAG="+ctx.actionData.Tag.String(),
 		)
 	}
+	if ctx.workloadName != "" {
+		vars = append(vars, "JUJU_WORKLOAD_NAME="+ctx.workloadName)
+	}
 	return append(vars, OSDependentEnvVars(paths, getEnv)...), nil
 }
 
@@ -1299,4 +1305,12 @@ func (ctx *HookContext) NetworkInfo(bindingNames []string, relationId int) (map[
 		relId = &relationId
 	}
 	return ctx.unit.NetworkInfo(bindingNames, relId)
+}
+
+// WorkloadName returns the name of the container/workload for workload hooks.
+func (ctx *HookContext) WorkloadName() (string, error) {
+	if ctx.workloadName == "" {
+		return "", errors.NotFoundf("workload name")
+	}
+	return ctx.workloadName, nil
 }

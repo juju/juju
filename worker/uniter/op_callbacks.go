@@ -30,6 +30,8 @@ type operationCallbacks struct {
 func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 	name := string(hi.Kind)
 	switch {
+	case hi.Kind.IsWorkload():
+		name = fmt.Sprintf("%s-%s", hi.WorkloadName, hi.Kind)
 	case hi.Kind.IsRelation():
 		var err error
 		name, err = opc.u.relationStateTracker.PrepareHook(hi)
@@ -60,6 +62,7 @@ func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 // CommitHook is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) CommitHook(hi hook.Info) error {
 	switch {
+	case hi.Kind.IsWorkload():
 	case hi.Kind.IsRelation():
 		return opc.u.relationStateTracker.CommitHook(hi)
 	case hi.Kind.IsStorage():

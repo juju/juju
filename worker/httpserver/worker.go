@@ -169,9 +169,11 @@ func (w *Worker) loop() error {
 		}
 	}()
 	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
 		w.logger.Infof("shutting down HTTP server")
 		// Shutting down the server will also close listener.
-		err := server.Shutdown(context.Background())
+		err := server.Shutdown(ctx)
 		// Release the holdable listener to unblock any pending accepts.
 		w.holdable.release()
 		w.catacomb.Kill(err)

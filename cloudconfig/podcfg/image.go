@@ -16,10 +16,10 @@ import (
 )
 
 const (
-	JujudOCINamespace = "jujusolutions"
-	JujudOCIName      = "jujud-operator"
-	JujuK8sAgentName  = "k8sagent"
-	JujudbOCIName     = "juju-db"
+	JujudOCINamespace      = "jujusolutions"
+	JujudOCIName           = "jujud-operator"
+	JujuContainerAgentName = "containeragent"
+	JujudbOCIName          = "juju-db"
 )
 
 // GetControllerImagePath returns oci image path of jujud for a controller.
