@@ -350,7 +350,7 @@ func refreshConfig(curl *charm.URL, origin corecharm.Origin) (charmhub.RefreshCo
 		method = MethodChannel
 	}
 	// Bundles can not use method IDs, which in turn forces a refresh.
-	if method == MethodRevision && !matchesType(origin.Type, transport.BundleType) && origin.ID != "" {
+	if method == MethodRevision && !transport.BundleType.Matches(origin.Type) && origin.ID != "" {
 		method = MethodID
 	}
 
@@ -383,10 +383,6 @@ func refreshConfig(curl *charm.URL, origin corecharm.Origin) (charmhub.RefreshCo
 		return nil, errors.NotValidf("origin %v", origin)
 	}
 	return cfg, err
-}
-
-func matchesType(originType string, expected transport.Type) bool {
-	return string(expected) == originType
 }
 
 func composeSuggestions(releases []transport.Release, origin params.CharmOrigin) []string {

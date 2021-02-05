@@ -210,7 +210,7 @@ func (s *downloadSuite) expectRefresh(c *gc.C, charmHubURL string) {
 		return []transport.RefreshResponse{{
 			InstanceKey: instanceKey,
 			Entity: transport.RefreshEntity{
-				Type: "charm",
+				Type: transport.CharmType,
 				Name: "test",
 				Download: transport.Download{
 					HashSHA256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",

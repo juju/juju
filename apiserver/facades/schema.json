@@ -12361,12 +12361,6 @@
                         "released-at": {
                             "type": "string"
                         },
-                        "resources": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/CharmHubInfoResource"
-                            }
-                        },
                         "revision": {
                             "type": "integer"
                         },
@@ -12391,8 +12385,7 @@
                         "revision",
                         "size",
                         "version",
-                        "platforms",
-                        "resources"
+                        "platforms"
                     ]
                 },
                 "CharmHubBundle": {
@@ -12501,34 +12494,6 @@
                     "required": [
                         "code",
                         "message"
-                    ]
-                },
-                "CharmHubInfoResource": {
-                    "type": "object",
-                    "properties": {
-                        "name": {
-                            "type": "string"
-                        },
-                        "revision": {
-                            "type": "integer"
-                        },
-                        "size": {
-                            "type": "integer"
-                        },
-                        "type": {
-                            "type": "string"
-                        },
-                        "url": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "name",
-                        "revision",
-                        "type",
-                        "size",
-                        "url"
                     ]
                 },
                 "CharmOption": {

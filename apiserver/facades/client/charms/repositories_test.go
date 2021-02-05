@@ -26,52 +26,6 @@ func (s *charmStoreResolversSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func getCharmHubCharmInfoResponse() transport.InfoResponse {
-	channelMap, defaultRelease := getCharmHubCharmResponse()
-	return transport.InfoResponse{
-		Name:           "wordpress",
-		Type:           "charm",
-		ID:             "charmCHARMcharmCHARMcharmCHARM01",
-		ChannelMap:     channelMap,
-		DefaultRelease: defaultRelease,
-	}
-}
-
-func getAlternativeCharmHubCharmInfoResponse() transport.InfoResponse {
-	channelMap, _ := getCharmHubCharmResponse()
-	defaultRelease := alternativeDefaultChannelMap()
-	return transport.InfoResponse{
-		Name:           "wordpress",
-		Type:           "charm",
-		ID:             "charmCHARMcharmCHARMcharmCHARM01",
-		ChannelMap:     channelMap,
-		DefaultRelease: defaultRelease,
-	}
-}
-
-func getCharmHubBundleInfoResponse() transport.InfoResponse {
-	channelMap, defaultRelease := getCharmHubBundleResponse()
-	return transport.InfoResponse{
-		Name:           "wordpress",
-		Type:           "bundle",
-		ID:             "charmCHARMcharmCHARMcharmCHARM01",
-		ChannelMap:     channelMap,
-		DefaultRelease: defaultRelease,
-	}
-}
-
-func getAlternativeCharmHubBundleInfoResponse() transport.InfoResponse {
-	channelMap, _ := getCharmHubBundleResponse()
-	defaultRelease := alternativeDefaultChannelMap()
-	return transport.InfoResponse{
-		Name:           "wordpress",
-		Type:           "bundle",
-		ID:             "charmCHARMcharmCHARMcharmCHARM01",
-		ChannelMap:     channelMap,
-		DefaultRelease: defaultRelease,
-	}
-}
-
 func getCharmHubCharmResponse() ([]transport.InfoChannelMap, transport.InfoChannelMap) {
 	return []transport.InfoChannelMap{{
 			Channel: transport.Channel{

@@ -106,7 +106,6 @@ func convertChannels(in map[string]params.Channel) map[string]Channel {
 			Size:       v.Size,
 			Version:    v.Version,
 			Platforms:  convertPlatforms(v.Platforms),
-			Resources:  convertResources(v.Resources),
 		}
 	}
 	return out
@@ -116,14 +115,6 @@ func convertPlatforms(in []params.Platform) []Platform {
 	out := make([]Platform, len(in))
 	for i, v := range in {
 		out[i] = Platform(v)
-	}
-	return out
-}
-
-func convertResources(in []params.CharmHubInfoResource) []Resource {
-	out := make([]Resource, len(in))
-	for i, v := range in {
-		out[i] = Resource(v)
 	}
 	return out
 }
