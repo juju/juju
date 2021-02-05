@@ -33,14 +33,14 @@ func Parse(src string) (Query, error) {
 // Scope is used to identify a given expression of a global mutated object.
 type Scope interface {
 
-	// GetIdents returns the identifers that are supported for a given scope.
+	// GetIdents returns the identifiers that are supported for a given scope.
 	GetIdents() []string
 
 	// GetIdentValue returns the value of the identifier in a given scope.
 	GetIdentValue(string) (Box, error)
 }
 
-// FuncScope is used to call functions for a given identifer.
+// FuncScope is used to call functions for a given identifier.
 type FuncScope interface {
 	Add(string, interface{})
 	Call(*Identifier, []Box) (interface{}, error)

@@ -72,6 +72,6 @@ func (s *machineScopeSuite) TestGetIdentValueError(c *gc.C) {
 		MachineInfo: &params.MachineInfo{},
 	}
 	result, err := scope.GetIdentValue("bad")
-	c.Assert(err, gc.ErrorMatches, `Runtime Error: identifier "bad" not found on MachineInfo: invalid identifer`)
+	c.Assert(err, gc.ErrorMatches, `Runtime Error: identifier "bad" not found on MachineInfo: invalid identifier`)
 	c.Assert(result, gc.IsNil)
 }

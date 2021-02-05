@@ -24,7 +24,7 @@ func (e *InvalidIdentifierError) Name() string {
 func ErrInvalidIdentifier(name string) error {
 	return &InvalidIdentifierError{
 		name: name,
-		err:  errors.Errorf("invalid identifer"),
+		err:  errors.Errorf("invalid identifier"),
 	}
 }
 
