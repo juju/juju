@@ -1,14 +1,38 @@
 linters-settings:
   gofmt:
     simplify: true
+  govet:
+    disable-all: true
+    enable:
+      - asmdecl
+      - assign
+      - atomic
+      - bools
+      - buildtag
+      - copylocks
+      - httpresponse
+      - loopclosure
+      - lostcancel
+      - nilfunc
+      - printf
+      - shift
+      - stdmethods
+      - structtag
+      - tests
+      - unmarshal
+      - unreachable
+      - unsafeptr
+      - unusedresult
 linters:
   disable-all: true
   enable:
+    - govet
     - gofmt
     - goimports
     - ineffassign
     - misspell
+    - unconvert
 run:
-  timeout: 12m
+  timeout: 20m
 skip-dirs:
   - acceptancetests
