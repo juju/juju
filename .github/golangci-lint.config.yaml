@@ -1,0 +1,16 @@
+linters-settings:
+  gofmt:
+    simplify: true
+linters:
+  disable-all: true
+  enable:
+    - gofmt
+    - goimports
+    - golint
+    - govet
+    - ineffassign
+    - misspell
+run:
+  timeout: 1m
+skip-dirs:
+  - acceptancetests
