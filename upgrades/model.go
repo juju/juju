@@ -29,5 +29,7 @@ func UpgradeAllowed(from, to version.Number) (bool, version.Number, error) {
 	if !ok {
 		return false, version.Number{}, errors.Errorf("unknown version %q", to)
 	}
+	// Allow upgrades from rc etc.
+	from.Tag = ""
 	return from.Compare(minVer) >= 0, minVer, nil
 }

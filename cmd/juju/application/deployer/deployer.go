@@ -242,7 +242,7 @@ func (d *factory) maybeReadLocalBundle() (Deployer, error) {
 		return nil, errors.Errorf(""+
 			"The charm or bundle %q is ambiguous.\n"+
 			"To deploy a local charm or bundle, run `juju deploy ./%[1]s`.\n"+
-			"To deploy a charm or bundle from the store, run `juju deploy cs:%[1]s`.",
+			"To deploy a charm or bundle from CharmHub, run `juju deploy ch:%[1]s`.",
 			bundleFile,
 		)
 	}

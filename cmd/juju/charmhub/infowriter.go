@@ -15,6 +15,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/charm"
 )
 
 // Note:
@@ -51,8 +52,6 @@ func (iw infoWriter) print(info interface{}) error {
 	return encoder.Encode(info)
 }
 
-var channelRisks = []string{"stable", "candidate", "beta", "edge"}
-
 func (iw infoWriter) channels() string {
 	if len(iw.in.Channels) == 0 {
 		return ""
@@ -64,7 +63,7 @@ func (iw infoWriter) channels() string {
 	w := InfoUnicodeWriter(ow, iw.unicodeMode)
 	for _, track := range iw.in.Tracks {
 		trackHasOpenChannel := false
-		for _, risk := range channelRisks {
+		for _, risk := range charm.Risks {
 			chName := fmt.Sprintf("%s/%s", track, risk)
 			ch, ok := iw.in.Channels[chName]
 			if ok {
