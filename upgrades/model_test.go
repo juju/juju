@@ -30,22 +30,22 @@ func (s *ModelSuite) TestUpgradeAllowed(c *gc.C) {
 			from:    "2.8.0",
 			to:      "3.0.0",
 			allowed: false,
-			minVers: "2.9.0",
+			minVers: upgrades.MinMajorUpgradeVersionValue[3],
 		}, {
 			from:    "2.9-rc1",
 			to:      "3.0.0",
 			allowed: true,
-			minVers: "2.9.0",
+			minVers: upgrades.MinMajorUpgradeVersionValue[3],
 		}, {
 			from:    "2.9.0",
 			to:      "3.0.0",
 			allowed: true,
-			minVers: "2.9.0",
+			minVers: upgrades.MinMajorUpgradeVersionValue[3],
 		}, {
 			from:    "2.9.1",
 			to:      "3.0.0",
 			allowed: true,
-			minVers: "2.9.0",
+			minVers: upgrades.MinMajorUpgradeVersionValue[3],
 		}, {
 			from:    "2.9.0",
 			to:      "4.0.0",
