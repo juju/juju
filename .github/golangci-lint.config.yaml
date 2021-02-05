@@ -6,11 +6,9 @@ linters:
   enable:
     - gofmt
     - goimports
-    - golint
-    - govet
     - ineffassign
     - misspell
 run:
-  timeout: 1m
+  timeout: 12m
 skip-dirs:
   - acceptancetests
