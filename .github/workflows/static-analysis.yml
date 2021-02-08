@@ -1,17 +1,6 @@
 name: "Static Analysis"
 on: [push, pull_request]
 jobs:
-  golangci:
-    name: Go Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v2
-        with:
-          version: v1.35
-          args: -c .github/golangci-lint.config.yaml
-
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -29,12 +18,7 @@ jobs:
         echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
         echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
-        GO111MODULE=off go get -u github.com/client9/misspell/cmd/misspell
-        GO111MODULE=off go get -u github.com/tsenart/deadcode
-        GO111MODULE=off go get -u golang.org/x/lint/golint
-        GO111MODULE=off go get -u golang.org/x/tools/cmd/goimports
-        GO111MODULE=off go get -u github.com/mdempsky/unconvert
-        GO111MODULE=off go get -u github.com/gordonklaus/ineffassign
+        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.35.2
 
     - name: Checkout
       uses: actions/checkout@v2
