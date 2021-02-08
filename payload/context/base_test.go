@@ -88,14 +88,6 @@ type stubContextComponent struct {
 	untracks map[string]struct{}
 }
 
-func newStubContextComponent(stub *testing.Stub) *stubContextComponent {
-	return &stubContextComponent{
-		stub:     stub,
-		payloads: make(map[string]payload.Payload),
-		untracks: make(map[string]struct{}),
-	}
-}
-
 func (c *stubContextComponent) Get(class, id string) (*payload.Payload, error) {
 	c.stub.AddCall("Get", class, id)
 	if err := c.stub.NextErr(); err != nil {

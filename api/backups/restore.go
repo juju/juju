@@ -33,9 +33,6 @@ var (
 // TODO(perrito666) This is a workaround for lp:1399722 .
 type ClientConnection func() (*Client, error)
 
-// closerfunc is a function that allows you to close a client connection.
-type closerFunc func() error
-
 func prepareAttempt(client *Client) (error, error) {
 	var remoteError error
 	defer client.Close()

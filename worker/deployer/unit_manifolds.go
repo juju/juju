@@ -297,7 +297,6 @@ const (
 	migrationMinionName       = "migration-minion"
 
 	loggingConfigUpdaterName = "logging-config-updater"
-	proxyConfigUpdaterName   = "proxy-config-updater"
 	apiAddressUpdaterName    = "api-address-updater"
 
 	charmDirName          = "charm-dir"

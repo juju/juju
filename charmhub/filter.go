@@ -37,9 +37,3 @@ var defaultResultFilter = []string{
 	"result.store-url",
 	"result.summary",
 }
-
-var defaultDownloadFilter = []string{
-	"download.hash-sha-256",
-	"download.size",
-	"download.url",
-}

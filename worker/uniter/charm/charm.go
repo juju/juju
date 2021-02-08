@@ -13,7 +13,9 @@ import (
 
 // Logger is here to stop the desire of creating a package level Logger.
 // Don't do this, instead pass one in as needed.
-var logger interface{}
+type logger interface{}
+
+var _ logger = struct{}{}
 
 // CharmURLPath is the path within a charm directory to which Deployers
 // commonly write the charm URL of the latest deployed charm.

@@ -7,7 +7,6 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 
 	"github.com/juju/juju/apiserver/common/imagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -19,8 +18,6 @@ import (
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/stateenvirons"
 )
-
-var logger = loggo.GetLogger("juju.apiserver.imagemetadatamanager")
 
 // API is the concrete implementation of the api end point
 // for loud image metadata manipulations.

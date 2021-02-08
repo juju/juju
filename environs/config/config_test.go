@@ -612,10 +612,6 @@ var configTests = []configTest{
 	},
 }
 
-type testFile struct {
-	name, data string
-}
-
 func (s *ConfigSuite) TestConfig(c *gc.C) {
 	files := []gitjujutesting.TestFile{
 		{Name: ".ssh/id_dsa.pub", Data: "dsa"},

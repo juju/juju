@@ -13,7 +13,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strings"
 	stdtesting "testing"
 
 	"github.com/juju/cmd"
@@ -23,7 +22,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/sockets"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -48,23 +46,6 @@ func TestRunMain(t *stdtesting.T) {
 	if *flagRunMain {
 		os.Exit(Main(flag.Args()))
 	}
-}
-
-func checkMessage(c *gc.C, msg string, cmd ...string) {
-	args := append([]string{"-test.run", "TestRunMain", "-run-main", "--", names.Jujuc}, cmd...)
-	c.Logf("check %#v", args)
-	ps := exec.Command(os.Args[0], args...)
-	output, err := ps.CombinedOutput()
-	c.Logf(string(output))
-	c.Assert(err, gc.ErrorMatches, "exit status 2")
-	lines := strings.Split(string(output), "\n")
-	c.Assert(lines[len(lines)-2], jc.Contains, msg)
-}
-
-var expectedProviders = []string{
-	"ec2",
-	"maas",
-	"openstack",
 }
 
 type RemoteCommand struct {

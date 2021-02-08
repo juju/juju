@@ -10,7 +10,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v2/voyeur"
 	"github.com/juju/version"
-	"github.com/juju/worker/v2"
 	"github.com/juju/worker/v2/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -253,15 +252,6 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			Embedded:                     true,
 			EnforcedCharmModifiedVersion: config.CharmModifiedVersion,
 		})),
-	}
-}
-
-func clockManifold(clock clock.Clock) dependency.Manifold {
-	return dependency.Manifold{
-		Start: func(dependency.Context) (worker.Worker, error) {
-			return engine.NewValueWorker(clock)
-		},
-		Output: engine.ValueWorkerOutput,
 	}
 }
 

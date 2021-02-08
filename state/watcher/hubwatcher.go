@@ -5,7 +5,6 @@ package watcher
 
 import (
 	"fmt"
-	"reflect"
 	"runtime/debug"
 	"time"
 
@@ -585,31 +584,6 @@ func (w *HubWatcher) handle(req interface{}) {
 	default:
 		panic(fmt.Errorf("unknown request: %T", req))
 	}
-}
-
-var (
-	int64Size    = reflect.TypeOf(int64(0)).Size()
-	strSize      = reflect.TypeOf("").Size()
-	watchKeySize = reflect.TypeOf(watchKey{}).Size()
-)
-
-func sizeInMap(key watchKey) uintptr {
-	// This includes the size of the int64 pointer that we target
-	// TODO: (jam) 2018-11-05 there would be ways to be more accurate about the sizes,
-	// but this is a rough approximation. It should handle the most common types that we know about,
-	// where the id is a string
-	size := int64Size
-	size += watchKeySize
-	size += strSize
-	size += uintptr(len(key.c))
-	switch id := key.id.(type) {
-	case string:
-		size += strSize
-		size += uintptr(len(id))
-	default:
-		size += reflect.TypeOf(id).Size()
-	}
-	return size
 }
 
 // queueChange queues up the change for the registered watchers.

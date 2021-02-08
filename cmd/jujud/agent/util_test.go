@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
-	"reflect"
 	"sync"
 	"time"
 
@@ -223,28 +222,6 @@ func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Mac
 	insts, err := s.Environ.Instances(context.NewCloudCallContext(), []instance.Id{instId})
 	c.Assert(err, jc.ErrorIsNil)
 	dummy.SetInstanceAddresses(insts[0], network.NewProviderAddresses("0.1.2.3"))
-}
-
-// opRecvTimeout waits for any of the given kinds of operation to
-// be received from ops, and times out if not.
-func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds ...dummy.Operation) dummy.Operation {
-	st.StartSync()
-	timeout := time.After(coretesting.LongWait)
-	for {
-		select {
-		case op := <-opc:
-			for _, k := range kinds {
-				if reflect.TypeOf(op) == reflect.TypeOf(k) {
-					return op
-				}
-			}
-			c.Logf("discarding unknown event %#v", op)
-		case <-time.After(coretesting.ShortWait):
-			st.StartSync()
-		case <-timeout:
-			c.Fatalf("time out waiting for operation")
-		}
-	}
 }
 
 type mockLoopDeviceManager struct {

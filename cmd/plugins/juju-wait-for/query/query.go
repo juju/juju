@@ -350,14 +350,6 @@ func lessThanOrEqual(left, right interface{}) bool {
 	return a.Less(b) || a.Equal(b)
 }
 
-func valid(o Box) bool {
-	switch o := o.(type) {
-	case *BoxInteger:
-		return o.value > 0
-	}
-	return false
-}
-
 func ConvertRawResult(value interface{}) (Box, error) {
 	if box, ok := value.(Box); ok {
 		return box, nil

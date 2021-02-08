@@ -15,9 +15,8 @@ import (
 )
 
 const (
-	serviceAccountSecretCADataKey    = "ca.crt"
-	serviceAccountSecretNamespaceKey = "namespace"
-	serviceAccountSecretTokenKey     = "token"
+	serviceAccountSecretCADataKey = "ca.crt"
+	serviceAccountSecretTokenKey  = "token"
 )
 
 func GetControllerProxy(

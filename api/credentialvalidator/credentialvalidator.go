@@ -5,7 +5,6 @@ package credentialvalidator
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/base"
@@ -13,8 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/watcher"
 )
-
-var logger = loggo.GetLogger("juju.api.credentialvalidator")
 
 // Facade provides methods that the Juju client command uses to interact
 // with the Juju backend.

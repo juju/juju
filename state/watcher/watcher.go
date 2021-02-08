@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/loggo"
 	"github.com/juju/worker/v2"
 )
 
@@ -66,8 +65,6 @@ type BaseWatcher interface {
 	// is an error that will panic().
 	UnwatchCollection(collection string, ch chan<- Change)
 }
-
-var logger = loggo.GetLogger("juju.state.watcher")
 
 // A Change holds information about a document change.
 type Change struct {
@@ -170,8 +167,6 @@ type reqUnwatch struct {
 func (r reqUnwatch) String() string {
 	return fmt.Sprintf("%#v", r)
 }
-
-type reqSync struct{}
 
 // waitableRequest represents a request that is made, and you wait for the core loop to acknowledge the request has been
 // received

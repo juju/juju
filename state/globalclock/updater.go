@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
@@ -16,8 +15,6 @@ import (
 )
 
 var (
-	logger = loggo.GetLogger("juju.state.globalclock")
-
 	globalEpoch = time.Unix(0, 0)
 )
 

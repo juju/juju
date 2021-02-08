@@ -28,14 +28,6 @@ func init() {
 	rand.Seed(time.Now().UTC().UnixNano())
 }
 
-// TODO: This becomes jujucDoc describing the hook tools
-var jujucDoc = `
-The jujuc command forwards invocations over RPC for execution by the
-juju unit agent. When used in this way, it expects to be called via a symlink
-named for the desired remote command, and expects JUJU_AGENT_SOCKET_ADDRESS and
-JUJU_CONTEXT_ID be set in its model.
-`
-
 const (
 	// exit_err is the value that is returned when the user has run juju in an invalid way.
 	exit_err = 2

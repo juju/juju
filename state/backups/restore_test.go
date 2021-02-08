@@ -7,7 +7,6 @@ package backups
 
 import (
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"path"
@@ -70,12 +69,6 @@ func (r *RestoreSuite) TestReplicasetIsReset(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Members, gc.HasLen, 1)
 	c.Assert(cfg.Members[0].Address, gc.Equals, mgoAddr)
-}
-
-type backupConfigTests struct {
-	yamlFile      io.Reader
-	expectedError error
-	message       string
 }
 
 func (r *RestoreSuite) TestSetAgentAddressScript(c *gc.C) {

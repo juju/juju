@@ -11,7 +11,6 @@ import (
 	"github.com/juju/bundlechanges/v4"
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/params"
@@ -23,8 +22,6 @@ import (
 
 // This file contains functionality required by both the application
 // package and the application/deployer package.
-
-var logger = loggo.GetLogger("juju.cmd.juju.application.bundle")
 
 // BuildModelRepresentation creates a buildchanges.Model, representing
 // the existing deployment, to be used while deploying or diffing a bundle.

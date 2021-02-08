@@ -994,38 +994,6 @@ func getCollectionMB(coll *mgo.Collection) (int, error) {
 	return dbCollectionSizeToInt(stats, coll.Name)
 }
 
-// getCollectionTotalMB returns the total size of the log collections
-// passed.
-func getCollectionTotalMB(colls map[string]*mgo.Collection) (int, error) {
-	total := 0
-	for _, coll := range colls {
-		size, err := getCollectionMB(coll)
-		if err != nil {
-			return 0, errors.Trace(err)
-		}
-		total += size
-	}
-	return total, nil
-}
-
-// getLogCollections returns all of the log collections in the DB by
-// model UUID.
-func getLogCollections(db *mgo.Database) (map[string]*mgo.Collection, error) {
-	result := make(map[string]*mgo.Collection)
-	names, err := db.CollectionNames()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	for _, name := range names {
-		if !strings.HasPrefix(name, logsCPrefix) {
-			continue
-		}
-		uuid := name[len(logsCPrefix):]
-		result[uuid] = db.C(name)
-	}
-	return result, nil
-}
-
 func removeModelLogs(session *mgo.Session, modelUUID string) error {
 	logsDB := session.DB(logsDB)
 	logsColl := logsDB.C(logCollectionName(modelUUID))

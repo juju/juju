@@ -633,16 +633,6 @@ func (manager *Manager) leases(namespace, modelUUID string) map[string]string {
 	return leases
 }
 
-func keysLess(a, b lease.Key) bool {
-	if a.Namespace == b.Namespace && a.ModelUUID == b.ModelUUID {
-		return a.Lease < b.Lease
-	}
-	if a.Namespace == b.Namespace {
-		return a.ModelUUID < b.ModelUUID
-	}
-	return a.Namespace < b.Namespace
-}
-
 func (manager *Manager) startingClaim() {
 	atomic.AddInt64(&manager.outstandingClaims, 1)
 	manager.wg.Add(1)

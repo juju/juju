@@ -6,11 +6,8 @@ package rackspace
 import (
 	"strings"
 
-	"github.com/juju/loggo"
 	"gopkg.in/goose.v2/nova"
 )
-
-var logger = loggo.GetLogger("juju.provider.rackspace")
 
 func acceptRackspaceFlavor(d nova.FlavorDetail) bool {
 	// On Rackspace, the "compute" and "memory" class

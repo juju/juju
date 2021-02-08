@@ -42,11 +42,6 @@ func (c *k8sContainer) Validate() error {
 	return nil
 }
 
-type k8sContainerInterface interface {
-	Validate() error
-	ToContainerSpec() specs.ContainerSpec
-}
-
 func (c *k8sContainer) ToContainerSpec() specs.ContainerSpec {
 	result := specs.ContainerSpec{
 		ImageDetails:    c.ImageDetails,
@@ -144,10 +139,6 @@ func validateLabels(labels map[string]string) error {
 		}
 	}
 	return nil
-}
-
-type k8sContainersInterface interface {
-	Validate() error
 }
 
 // ParseRawK8sSpec parses a k8s format of YAML file which defines how to

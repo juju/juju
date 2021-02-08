@@ -32,6 +32,7 @@ linters:
     - ineffassign
     - misspell
     - unconvert
+    - deadcode
 run:
   timeout: 20m
 skip-dirs:

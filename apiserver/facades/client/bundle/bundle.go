@@ -35,8 +35,6 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.bundle")
-
 // APIv1 provides the Bundle API facade for version 1.
 type APIv1 struct {
 	*APIv2

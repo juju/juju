@@ -4,7 +4,6 @@
 package externalcontrollerupdater
 
 import (
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -14,8 +13,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
-
-var logger = loggo.GetLogger("juju.apiserver.externalcontrollerupdater")
 
 // ExternalControllerUpdaterAPI provides access to the CrossModelRelations API facade.
 type ExternalControllerUpdaterAPI struct {

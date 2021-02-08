@@ -12,7 +12,6 @@ import (
 	"github.com/juju/charm/v8"
 	"github.com/juju/errors"
 	"github.com/juju/version"
-	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/network"
 )
@@ -86,14 +85,6 @@ func (e notAliveError) Error() string {
 func IsNotAlive(err error) bool {
 	_, ok := errors.Cause(err).(*notAliveError)
 	return ok
-}
-
-func onAbort(txnErr, err error) error {
-	if txnErr == txn.ErrAborted ||
-		errors.Cause(txnErr) == txn.ErrAborted {
-		return errors.Trace(err)
-	}
-	return errors.Trace(txnErr)
 }
 
 // errProviderIDNotUnique is a standard error to indicate the value specified

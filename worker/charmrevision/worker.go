@@ -14,7 +14,9 @@ import (
 
 // logger is here to stop the desire of creating a package level logger.
 // Don't do this, instead pass one in.
-var logger interface{}
+type logger interface{}
+
+var _ logger = struct{}{}
 
 // RevisionUpdater exposes the "single" capability required by the worker.
 // As the worker gains more responsibilities, it will likely need more; see

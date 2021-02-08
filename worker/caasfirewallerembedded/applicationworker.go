@@ -44,14 +44,6 @@ type applicationWorker struct {
 
 type portRanges map[network.PortRange]bool
 
-func newPortRanges(in []network.PortRange) portRanges {
-	out := make(portRanges)
-	for _, p := range in {
-		out[p] = true
-	}
-	return out
-}
-
 func (pg portRanges) equal(in portRanges) bool {
 	if len(pg) != len(in) {
 		return false

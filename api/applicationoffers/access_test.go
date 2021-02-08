@@ -18,8 +18,6 @@ type accessSuite struct {
 	testing.BaseSuite
 }
 
-type accessFunc func(string, string, ...string) error
-
 var _ = gc.Suite(&accessSuite{})
 
 const (

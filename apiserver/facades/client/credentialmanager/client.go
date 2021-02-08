@@ -4,15 +4,11 @@
 package credentialmanager
 
 import (
-	"github.com/juju/loggo"
-
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 )
-
-var logger = loggo.GetLogger("juju.apiserver.credentialmanager")
 
 // CredentialManager defines the methods on credentialmanager API endpoint.
 type CredentialManager interface {

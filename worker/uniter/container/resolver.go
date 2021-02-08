@@ -11,7 +11,9 @@ import (
 
 // Logger is here to stop the desire of creating a package level Logger.
 // Don't do this, instead pass one in to the NewResolver function.
-var logger interface{}
+type logger interface{}
+
+var _ logger = struct{}{}
 
 type containerResolver struct{}
 

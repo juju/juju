@@ -5,8 +5,6 @@
 package machineactions_test
 
 import (
-	"errors"
-
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	"github.com/juju/worker/v2"
@@ -16,8 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/watcher"
 )
-
-var actionNotFoundErr = errors.New("action not found")
 
 func mockHandleAction(stub *testing.Stub) func(string, map[string]interface{}) (map[string]interface{}, error) {
 	return func(name string, params map[string]interface{}) (map[string]interface{}, error) {

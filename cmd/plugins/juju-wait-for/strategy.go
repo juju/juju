@@ -131,13 +131,6 @@ type GenericScope struct {
 	scopes map[string]interface{}
 }
 
-// NewGenericScope creates a new GenericScope
-func NewGenericScope() *GenericScope {
-	return &GenericScope{
-		scopes: make(map[string]interface{}),
-	}
-}
-
 // GetIdents returns the names of all the available idents.
 func (m *GenericScope) GetIdents() []string {
 	var results []string

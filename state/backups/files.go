@@ -18,7 +18,6 @@ import (
 // github.com/juju/juju/juju/paths, etc.):
 const (
 	dataDir = "/var/lib/juju"
-	logsDir = "/var/log/juju"
 	sshDir  = "/home/ubuntu/.ssh"
 
 	agentsDir   = "agents"
