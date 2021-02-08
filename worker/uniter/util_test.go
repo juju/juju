@@ -1280,6 +1280,14 @@ func (s writeFile) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+type removeCharmDir struct{}
+
+func (s removeCharmDir) step(c *gc.C, ctx *context) {
+	path := filepath.Join(ctx.path, "charm")
+	err := os.RemoveAll(path)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 type custom struct {
 	f func(*gc.C, *context)
 }

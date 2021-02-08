@@ -199,6 +199,10 @@ func (config Config) Validate() error {
 	if config.ExecClientGetter == nil {
 		return errors.NotValidf("missing ExecClientGetter")
 	}
+
+	if config.Logger == nil {
+		return errors.NotValidf("missing Logger")
+	}
 	return nil
 }
 
@@ -598,6 +602,7 @@ func (op *caasOperator) loop() (err error) {
 				params.UniterFacade = op.config.UniterFacadeFunc(unitTag)
 				params.LeadershipTrackerFunc = op.config.LeadershipTrackerFunc
 				params.ApplicationChannel = aliveUnits[unitID]
+				params.Logger = params.Logger.Child(unitID)
 				if op.deploymentMode != caas.ModeOperator {
 					params.IsRemoteUnit = true
 					params.ContainerRunningStatusChannel = unitRunningChannels[unitID]

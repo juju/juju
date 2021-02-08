@@ -34,7 +34,8 @@ const (
 	Edge      Risk = "edge"
 )
 
-var risks = []Risk{
+// Risks is a list of the available channel risks.
+var Risks = []Risk{
 	Stable,
 	Candidate,
 	Beta,
@@ -42,7 +43,7 @@ var risks = []Risk{
 }
 
 func isRisk(potential string) bool {
-	for _, risk := range risks {
+	for _, risk := range Risks {
 		if potential == string(risk) {
 			return true
 		}

@@ -5,6 +5,7 @@ package charmhub
 
 import (
 	"context"
+	"io"
 	"net/url"
 
 	"github.com/golang/mock/gomock"
@@ -31,6 +32,8 @@ type downloadSuite struct {
 	downloadCommandAPI *mocks.MockDownloadCommandAPI
 	modelConfigAPI     *mocks.MockModelConfigClient
 	apiRoot            *basemocks.MockAPICallCloser
+	file               *mocks.MockReadSeekCloser
+	filesystem         *mocks.MockFilesystem
 }
 
 var _ = gc.Suite(&downloadSuite{})
@@ -65,6 +68,7 @@ func (s *downloadSuite) TestRun(c *gc.C) {
 	s.expectModelGet(url)
 	s.expectRefresh(c, url)
 	s.expectDownload(c, url)
+	s.expectFilesystem(c)
 
 	command := &downloadCommand{
 		charmHubCommand: s.newCharmHubCommand(),
@@ -73,6 +77,7 @@ func (s *downloadSuite) TestRun(c *gc.C) {
 		},
 	}
 	command.SetClientStore(s.store)
+	command.SetFilesystem(s.filesystem)
 	cmd := modelcmd.Wrap(command, modelcmd.WrapSkipModelInit)
 	err := cmdtesting.InitCommand(cmd, []string{"test"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -115,6 +120,7 @@ func (s *downloadSuite) TestRunWithCustomCharmHubURL(c *gc.C) {
 
 	s.expectRefresh(c, url)
 	s.expectDownload(c, url)
+	s.expectFilesystem(c)
 
 	command := &downloadCommand{
 		charmHubCommand: s.newCharmHubCommand(),
@@ -122,6 +128,7 @@ func (s *downloadSuite) TestRunWithCustomCharmHubURL(c *gc.C) {
 			return s.downloadCommandAPI, nil
 		},
 	}
+	command.SetFilesystem(s.filesystem)
 	err := cmdtesting.InitCommand(command, []string{"--charmhub-url=" + url, "test"})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -181,6 +188,9 @@ func (s *downloadSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	s.apiRoot = basemocks.NewMockAPICallCloser(ctrl)
 	s.apiRoot.EXPECT().Close().AnyTimes()
 
+	s.file = mocks.NewMockReadSeekCloser(ctrl)
+	s.filesystem = mocks.NewMockFilesystem(ctrl)
+
 	return ctrl
 }
 
@@ -203,7 +213,7 @@ func (s *downloadSuite) expectRefresh(c *gc.C, charmHubURL string) {
 				Type: "charm",
 				Name: "test",
 				Download: transport.Download{
-					HashSHA256: "",
+					HashSHA256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
 					URL:        charmHubURL,
 				},
 			},
@@ -214,5 +224,11 @@ func (s *downloadSuite) expectRefresh(c *gc.C, charmHubURL string) {
 func (s *downloadSuite) expectDownload(c *gc.C, charmHubURL string) {
 	resourceURL, err := url.Parse(charmHubURL)
 	c.Assert(err, jc.ErrorIsNil)
-	s.downloadCommandAPI.EXPECT().Download(gomock.Any(), resourceURL, "test.charm", gomock.Any()).Return(nil)
+	s.downloadCommandAPI.EXPECT().Download(gomock.Any(), resourceURL, "test_e3b0c44.charm", gomock.Any()).Return(nil)
+}
+
+func (s *downloadSuite) expectFilesystem(c *gc.C) {
+	s.file.EXPECT().Read(gomock.Any()).Return(0, io.EOF).AnyTimes()
+	s.file.EXPECT().Close().Return(nil)
+	s.filesystem.EXPECT().Open("test_e3b0c44.charm").Return(s.file, nil)
 }

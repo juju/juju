@@ -342,7 +342,7 @@ func (StoreCharmStore) Validate(curl *charm.URL) error {
 
 // Download the charm from the charm store.
 func (s StoreCharmStore) Download(curl *charm.URL, file string, origin Origin) (StoreCharm, ChecksumCheckFn, Origin, error) {
-	s.logger.Tracef("Download(%s) %s", curl)
+	s.logger.Tracef("Download(%s)", curl)
 	archive, err := s.repository.DownloadCharm(curl.String(), file)
 	if err != nil {
 		if cause := errors.Cause(err); httpbakery.IsDischargeError(cause) || httpbakery.IsInteractionError(cause) {
@@ -377,7 +377,7 @@ func (StoreCharmHub) Validate(curl *charm.URL) error {
 
 // Download the charm from the charm hub.
 func (s StoreCharmHub) Download(curl *charm.URL, file string, origin Origin) (StoreCharm, ChecksumCheckFn, Origin, error) {
-	s.logger.Tracef("Download(%s) %s", curl)
+	s.logger.Tracef("Download(%s) %s", curl, pretty.Sprint(origin))
 	repositoryURL, downloadOrigin, err := s.repository.FindDownloadURL(curl, origin)
 	if err != nil {
 		return nil, nil, downloadOrigin, errors.Trace(err)

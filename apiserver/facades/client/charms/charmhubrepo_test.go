@@ -27,7 +27,20 @@ type charmHubRepositoriesSuite struct {
 
 var _ = gc.Suite(&charmHubRepositoriesSuite{})
 
-func (s *charmHubRepositoriesSuite) TestResolve(c *gc.C) {
+func (s *charmHubRepositoriesSuite) TestResolveForDeploy(c *gc.C) {
+	// The origin.ID should never be saved to the origin during
+	// ResolveWithPreferredChannel.  That is done during the file
+	// download only.
+	s.testResolve(c, "")
+}
+
+func (s *charmHubRepositoriesSuite) TestResolveForUpgrade(c *gc.C) {
+	// If the origin has an ID, ensure it's kept thru the call
+	// to ResolveWithPreferredChannel.
+	s.testResolve(c, "charmCHARMcharmCHARMcharmCHARM01")
+}
+
+func (s *charmHubRepositoriesSuite) testResolve(c *gc.C, id string) {
 	defer s.setupMocks(c).Finish()
 	s.expectCharmRefresh(c)
 
@@ -45,9 +58,44 @@ func (s *charmHubRepositoriesSuite) TestResolve(c *gc.C) {
 
 	curl.Revision = 16
 
-	origin.ID = "charmCHARMcharmCHARMcharmCHARM01"
 	origin.Type = "charm"
 	origin.Revision = &curl.Revision
+	origin.Risk = "stable"
+	origin.Architecture = arch.DefaultArchitecture
+	origin.OS = "ubuntu"
+	origin.Series = "focal"
+
+	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture, "focal")
+
+	c.Assert(obtainedCurl, jc.DeepEquals, expected)
+	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
+	c.Assert(obtainedSeries, jc.SameContents, []string{"focal"})
+}
+
+func (s *charmHubRepositoriesSuite) TestResolveWithChannel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectCharmRefresh(c)
+
+	track := "latest"
+	curl := charm.MustParseURL("ch:wordpress")
+	origin := params.CharmOrigin{
+		Source:       "charm-hub",
+		Architecture: arch.DefaultArchitecture,
+		OS:           "ubuntu",
+		Series:       "focal",
+		Track:        &track,
+		Risk:         "stable",
+	}
+
+	resolver := &chRepo{client: s.client}
+	obtainedCurl, obtainedOrigin, obtainedSeries, err := resolver.ResolveWithPreferredChannel(curl, origin)
+	c.Assert(err, jc.ErrorIsNil)
+
+	curl.Revision = 16
+
+	origin.Type = "charm"
+	origin.Revision = &curl.Revision
+	origin.Track = nil
 	origin.Risk = "stable"
 	origin.Architecture = arch.DefaultArchitecture
 	origin.OS = "ubuntu"
@@ -73,7 +121,6 @@ func (s *charmHubRepositoriesSuite) TestResolveWithoutSeries(c *gc.C) {
 
 	curl.Revision = 16
 
-	origin.ID = "charmCHARMcharmCHARMcharmCHARM01"
 	origin.Type = "charm"
 	origin.Revision = &curl.Revision
 	origin.Risk = "stable"
@@ -99,7 +146,6 @@ func (s *charmHubRepositoriesSuite) TestResolveWithBundles(c *gc.C) {
 
 	curl.Revision = 17
 
-	origin.ID = "bundleBUNDLEbundleBUNDLE01"
 	origin.Type = "bundle"
 	origin.Revision = &curl.Revision
 	origin.Risk = "stable"
@@ -126,7 +172,6 @@ func (s *charmHubRepositoriesSuite) TestResolveInvalidPlatformError(c *gc.C) {
 
 	curl.Revision = 16
 
-	origin.ID = "charmCHARMcharmCHARMcharmCHARM01"
 	origin.Type = "charm"
 	origin.Revision = &curl.Revision
 	origin.Risk = "stable"
@@ -150,7 +195,7 @@ func (s *charmHubRepositoriesSuite) TestResolveRevisionNotFoundErrorWithNoSeries
 
 	resolver := &chRepo{client: s.client}
 	_, _, _, err := resolver.ResolveWithPreferredChannel(curl, origin)
-	c.Assert(err, gc.ErrorMatches, `refresh: no charm or bundle matching channel or platform; suggestions: stable with amd64/ubuntu/focal`)
+	c.Assert(err, gc.ErrorMatches, `refresh: no charm or bundle matching channel or platform; suggestions: stable with focal`)
 }
 
 func (s *charmHubRepositoriesSuite) TestResolveRevisionNotFoundError(c *gc.C) {
@@ -167,7 +212,6 @@ func (s *charmHubRepositoriesSuite) TestResolveRevisionNotFoundError(c *gc.C) {
 
 	curl.Revision = 16
 
-	origin.ID = "charmCHARMcharmCHARMcharmCHARM01"
 	origin.Type = "charm"
 	origin.Revision = &curl.Revision
 	origin.Risk = "stable"
@@ -454,7 +498,7 @@ func (composeSuggestionsSuite) TestSuggestion(c *gc.C) {
 		Architecture: "arch",
 	})
 	c.Assert(suggestions, gc.DeepEquals, []string{
-		"stable with arch/os/series",
+		"stable with series",
 	})
 }
 
@@ -463,6 +507,13 @@ func (composeSuggestionsSuite) TestMultipleSuggestion(c *gc.C) {
 		Platform: transport.Platform{
 			OS:           "a",
 			Series:       "b",
+			Architecture: "c",
+		},
+		Channel: "stable",
+	}, {
+		Platform: transport.Platform{
+			OS:           "a",
+			Series:       "d",
 			Architecture: "c",
 		},
 		Channel: "stable",
@@ -484,8 +535,8 @@ func (composeSuggestionsSuite) TestMultipleSuggestion(c *gc.C) {
 		Architecture: "c",
 	})
 	c.Assert(suggestions, gc.DeepEquals, []string{
-		"stable with c/a/b",
-		"2.0/stable with c/e/f",
+		"stable with b, d",
+		"2.0/stable with f",
 	})
 }
 
@@ -582,5 +633,65 @@ func (selectReleaseByChannelSuite) TestMultipleSelection(c *gc.C) {
 	c.Assert(release, gc.DeepEquals, Release{
 		OS:     "f",
 		Series: "g",
+	})
+}
+
+type makeOriginSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&makeOriginSuite{})
+
+func (makeOriginSuite) TestMakeOriginWithLatestChannel(c *gc.C) {
+	track := "latest"
+	input := params.CharmOrigin{
+		Track: &track,
+		Risk:  "stable",
+	}
+	obtained, err := makeOrigin(input)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, corecharm.Origin{
+		Channel: &corecharm.Channel{
+			Risk: "stable",
+		},
+	})
+}
+
+func (makeOriginSuite) TestMakeOriginWithChannelNotLatest(c *gc.C) {
+	track := "2.0"
+	input := params.CharmOrigin{
+		Track: &track,
+		Risk:  "stable",
+	}
+	obtained, err := makeOrigin(input)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, corecharm.Origin{
+		Channel: &corecharm.Channel{
+			Track: "2.0",
+			Risk:  "stable",
+		},
+	})
+}
+
+func (makeOriginSuite) TestMakeOriginWithPlatform(c *gc.C) {
+	track := "latest"
+	input := params.CharmOrigin{
+		Track:        &track,
+		Risk:         "stable",
+		Architecture: arch.DefaultArchitecture,
+		OS:           "ubuntu",
+		Series:       "focal",
+	}
+	obtained, err := makeOrigin(input)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, corecharm.Origin{
+		Channel: &corecharm.Channel{
+			Risk: "stable",
+		},
+		Platform: corecharm.Platform{
+			Architecture: arch.DefaultArchitecture,
+			OS:           "ubuntu",
+			Series:       "focal",
+		},
 	})
 }

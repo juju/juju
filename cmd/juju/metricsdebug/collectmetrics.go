@@ -167,19 +167,19 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 	for _, result := range runResults.Actions {
 		r := result
 		if err := r.Error; err != nil {
-			fmt.Fprintf(ctx.Stdout, "failed to collect metrics: %v\n", err)
+			_, _ = fmt.Fprintf(ctx.Stderr, "failed to collect metrics: %v\n", err)
 			wg.Done()
 			continue
 		}
 		actionResult, err := getActionResult(runnerClient, r.Action.ID, clk, wait)
 		if err != nil {
-			fmt.Fprintf(ctx.Stdout, "failed to collect metrics: %v\n", err)
+			_, _ = fmt.Fprintf(ctx.Stderr, "failed to collect metrics: %v\n", err)
 			wg.Done()
 			continue
 		}
 		unitId, err := parseActionResult(actionResult)
 		if err != nil {
-			fmt.Fprintf(ctx.Stdout, "failed to collect metrics: %v\n", err)
+			_, _ = fmt.Fprintf(ctx.Stderr, "failed to collect metrics: %v\n", err)
 			wg.Done()
 			continue
 		}
@@ -192,29 +192,29 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 			}
 			sendResults, err := runnerClient.Run(sendParams)
 			if err != nil {
-				fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v: %v\n", unitId, err)
+				_, _ = fmt.Fprintf(ctx.Stderr, "failed to send metrics for unit %v: %v\n", unitId, err)
 				return
 			}
 			if len(sendResults.Actions) != 1 {
-				fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v\n", unitId)
+				_, _ = fmt.Fprintf(ctx.Stderr, "failed to send metrics for unit %v\n", unitId)
 				return
 			}
 			if sendResults.Actions[0].Error != nil {
-				fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v: %v\n", unitId, sendResults.Actions[0].Error)
+				_, _ = fmt.Fprintf(ctx.Stderr, "failed to send metrics for unit %v: %v\n", unitId, sendResults.Actions[0].Error)
 				return
 			}
 			actionResult, err := getActionResult(runnerClient, sendResults.Actions[0].Action.ID, clk, wait)
 			if err != nil {
-				fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v: %v\n", unitId, err)
+				_, _ = fmt.Fprintf(ctx.Stderr, "failed to send metrics for unit %v: %v\n", unitId, err)
 				return
 			}
 			stdout, stderr, err := parseRunOutput(actionResult)
 			if err != nil {
-				fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v: %v\n", unitId, err)
+				_, _ = fmt.Fprintf(ctx.Stderr, "failed to send metrics for unit %v: %v\n", unitId, err)
 				return
 			}
 			if stdout != "ok" {
-				fmt.Fprintf(ctx.Stdout, "failed to send metrics for unit %v: %v\n", unitId, errors.New(stderr))
+				_, _ = fmt.Fprintf(ctx.Stderr, "failed to send metrics for unit %v: %v\n", unitId, errors.New(stderr))
 			}
 		}()
 	}

@@ -304,6 +304,9 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 
 	// Ensure we calculate the hash of the file.
 	calculatedHash, err := c.calculateHash(path)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if calculatedHash != entitySHA {
 		return errors.Errorf(`Checksum of download failed for %q:
 Expected:   %s
