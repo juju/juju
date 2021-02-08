@@ -386,6 +386,8 @@ clouds:
     description: Packet Bare Metal
     auth-types: [access-key]
     regions:
+      ams1:
+        endpoint: https://api.packet.net/
       sin2:
         endpoint: https://api.packet.net/
       am6:
@@ -431,8 +433,6 @@ clouds:
       dfw1:
         endpoint: https://api.packet.net/
       iad1:
-        endpoint: https://api.packet.net/
-      ams1:
         endpoint: https://api.packet.net/
       nrt1:
         endpoint: https://api.packet.net/

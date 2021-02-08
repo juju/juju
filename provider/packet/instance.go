@@ -73,7 +73,7 @@ func (device *packetDevice) Addresses(ctx context.ProviderCallContext) (corenetw
 			address.Type = network.IPv4Address
 		} else {
 			address.Type = network.IPv6Address
-			logger.Infof("skipping IPv6 Address")
+			logger.Infof("skipping IPv6 Address %s", netw.Address)
 
 			continue
 		}
